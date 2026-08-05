@@ -4301,6 +4301,10 @@ document.addEventListener('DOMContentLoaded', () => {
       populatePanel(currentRow);
       refreshLeadActivityTimeline(currentRow);
 
+      if (cfg.disposition === 'send_info' && typeof window.__leadSendInfoOpenWithAudit === 'function') {
+        window.__leadSendInfoOpenWithAudit({ rootId: 'leadPanelSendInfo', scroll: true });
+      }
+
       const msg =
         cfg.disposition || cfg.status
           ? `Logged: ${label}`

@@ -5,7 +5,7 @@
 const dbService = require('./database');
 const { applyMergeFields, hasMergeTokens } = require('./directMailPersonalize');
 const { getPlaybookById } = require('./directMailPlaybooks');
-const { createAuditReportToken } = require('./auditReportSign');
+const { resolveAuditLinksForLead } = require('./auditLandingPage');
 const smsOutbound = require('./smsOutbound');
 const ghlMessaging = require('./ghlMessaging');
 const ghlClient = require('./ghlClient');
@@ -125,19 +125,20 @@ function packNeedsAuditUrl(pack) {
   return blobs.some((t) => hasMergeTokens(t));
 }
 
-function buildAuditReportUrl({ lead, workspaceId, req }) {
-  if (!lead || !lead.aiWebsiteAnalysis || typeof lead.aiWebsiteAnalysis !== 'object') {
-    return { ok: false, error: 'Run AI analysis first to generate a hosted report.' };
-  }
-  const fullKey = String(lead.key || '').startsWith('lead:') ? lead.key : `lead:${lead.key || ''}`;
-  const wid = String(workspaceId || lead.workspaceId || '').trim();
-  if (!wid) return { ok: false, error: 'Workspace required for audit link.' };
-  const token = createAuditReportToken({ leadKey: fullKey, workspaceId: wid });
-  const base =
-    String(process.env.BASE_URL || '').trim().replace(/\/$/, '') ||
-    (req ? `${req.protocol}://${req.get('host')}`.replace(/\/$/, '') : '');
-  if (!base) return { ok: false, error: 'Could not build audit URL.' };
-  return { ok: true, reportUrl: `${base}/audit/report/${token}`, token };
+function buildAuditReportUrl({ lead, workspaceId, req, workspace }) {
+  const wid = String(workspaceId || lead?.workspaceId || '').trim();
+  const ws = workspace && typeof workspace === 'object' ? workspace : { id: wid };
+  const links = resolveAuditLinksForLead({ workspace: ws, lead, req });
+  if (!links.ok) return links;
+  return {
+    ok: true,
+    reportUrl: links.reportUrl,
+    auditPageUrl: links.auditPageUrl,
+    hostedReportUrl: links.hostedReportUrl || null,
+    pdfUrl: links.pdfUrl || null,
+    landingEnabled: !!links.landingEnabled,
+    smsSnippet: links.smsSnippet || '',
+  };
 }
 
 function mergeLeadForAuditUrl(lead, auditUrl) {
@@ -216,6 +217,7 @@ function mergePackOverrides(basePack, overrides) {
 async function sendInfoPackToLead({
   lead,
   workspaceId,
+  workspace,
   integrationEnv,
   pack,
   overrides,
@@ -228,7 +230,8 @@ async function sendInfoPackToLead({
   const resolvedPack = mergePackOverrides(pack, overrides);
   let auditUrl = '';
   if (packNeedsAuditUrl(resolvedPack)) {
-    const audit = buildAuditReportUrl({ lead, workspaceId: wid, req });
+    const ws = workspace || (await dbService.getWorkspace(wid)) || { id: wid };
+    const audit = buildAuditReportUrl({ lead, workspaceId: wid, req, workspace: ws });
     if (!audit.ok) {
       return {
         sms: { ok: false, error: audit.error, skipped: true },

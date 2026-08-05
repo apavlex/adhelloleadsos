@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+  <title><%= typeof invalid !== 'undefined' && invalid ? 'Link unavailable' : (typeof submitted !== 'undefined' && submitted ? 'Thank you' : 'Request audit') %></title>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark dark:text-white">
+  <main class="max-w-lg mx-auto px-6 py-12">
+    <% if (typeof invalid !== 'undefined' && invalid) { %>
+    <div class="rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-8 text-center">
+      <h1 class="font-display font-bold text-xl mb-2">This link is unavailable</h1>
+      <p class="text-sm text-brand-muted">It may have expired or the audit page is not configured.</p>
+    </div>
+    <% } else if (typeof submitted !== 'undefined' && submitted) { %>
+    <div class="rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-8">
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Submitted</p>
+      <h1 class="font-display font-bold text-2xl mb-3"><%= vm && vm.thankYouTitle ? vm.thankYouTitle : 'Thanks!' %></h1>
+      <p class="text-sm text-brand-muted leading-relaxed mb-6"><%= vm && vm.thankYouBody ? vm.thankYouBody : 'We received your request.' %></p>
+      <% if (typeof reportHref !== 'undefined' && reportHref) { %>
+      <a href="<%= reportHref %>" class="inline-flex btn-pill btn-primary px-6 py-3 text-xs font-black uppercase tracking-widest">View your audit report</a>
+      <% } %>
+    </div>
+    <% } else { %>
+    <div class="rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-8 shadow-sm">
+      <% if (typeof workspaceName !== 'undefined' && workspaceName) { %>
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2"><%= workspaceName %></p>
+      <% } %>
+      <h1 class="font-display font-bold text-2xl mb-2"><%= vm && vm.headline ? vm.headline : 'Request your audit' %></h1>
+      <% if (vm && vm.subheadline) { %>
+      <p class="text-sm font-semibold text-brand-dark dark:text-slate-200 mb-2"><%= vm.subheadline %></p>
+      <% } %>
+      <% if (vm && vm.intro) { %>
+      <p class="text-sm text-brand-muted mb-6 leading-relaxed"><%= vm.intro %></p>
+      <% } %>
+      <% if (typeof formError !== 'undefined' && formError) { %>
+      <p class="text-sm text-rose-600 dark:text-rose-400 mb-4" role="alert"><%= formError %></p>
+      <% } %>
+      <form method="post" action="/audit/request/<%= token %>" class="space-y-4">
+        <% const _fields = (config && config.fields) ? config.fields : {}; %>
+        <% const _prefill = (typeof prefill !== 'undefined' && prefill) ? prefill : {}; %>
+        <% Object.keys(_fields).forEach(function (key) {
+          const f = _fields[key];
+          if (!f || !f.enabled) return;
+          const val = _prefill[key] || '';
+          const isMsg = key === 'message';
+        %>
+        <label class="block">
+          <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1"><%= f.label || key %><%= f.required ? ' *' : '' %></span>
+          <% if (isMsg) { %>
+          <textarea name="<%= key %>" rows="3" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 px-3 py-2 text-sm"<%= f.required ? ' required' : '' %>><%= val %></textarea>
+          <% } else { %>
+          <input type="<%= key === 'email' ? 'email' : (key === 'phone' ? 'tel' : 'text') %>" name="<%= key %>" value="<%= val %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 px-3 py-2 text-sm"<%= f.required ? ' required' : '' %> />
+          <% } %>
+        </label>
+        <% }); %>
+        <button type="submit" class="w-full btn-pill btn-primary py-3.5 text-xs font-black uppercase tracking-widest"><%= config && config.submitLabel ? config.submitLabel : 'Submit' %></button>
+      </form>
+    </div>
+    <% } %>
+  </main>
+</body>
+</html>

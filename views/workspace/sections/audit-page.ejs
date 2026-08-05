@@ -1,0 +1,64 @@
+<% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
+<% const _al = typeof auditLandingPage !== 'undefined' && auditLandingPage ? auditLandingPage : null; %>
+<% const _fields = _al && _al.fields ? _al.fields : {}; %>
+<div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 md:p-8 space-y-6">
+  <div>
+    <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-2">Audit request page</h2>
+    <p class="text-sm text-brand-muted max-w-2xl">Public form your prospects open from Send info links. After they submit, they can view the hosted AI audit when it&apos;s ready. Merge tokens: <code class="text-xs">{business}</code>, <code class="text-xs">{city}</code>, <code class="text-xs">{audit_url}</code>.</p>
+  </div>
+  <label class="inline-flex items-center gap-2 text-sm font-semibold cursor-pointer">
+    <input type="checkbox" id="auditLandingEnabled" class="rounded border-brand-border text-brand-yellow focus:ring-brand-yellow" <%= _al && _al.enabled ? 'checked' : '' %> />
+    Enable audit request page (recommended for on-call Send info)
+  </label>
+  <label class="block">
+    <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1">Headline</span>
+    <input type="text" id="auditLandingHeadline" value="<%= _al && _al.headline ? _al.headline : '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" />
+  </label>
+  <label class="block">
+    <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1">Subheadline</span>
+    <input type="text" id="auditLandingSubheadline" value="<%= _al && _al.subheadline ? _al.subheadline : '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" />
+  </label>
+  <label class="block">
+    <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1">Intro</span>
+    <textarea id="auditLandingIntro" rows="3" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm"><%= _al && _al.intro ? _al.intro : '' %></textarea>
+  </label>
+  <fieldset class="space-y-3">
+    <legend class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Form fields</legend>
+    <% ['name','email','phone','company','message'].forEach(function (key) {
+      const f = _fields[key] || {};
+    %>
+    <div class="flex flex-wrap items-center gap-4 rounded-xl border border-brand-border/50 dark:border-white/10 px-3 py-2">
+      <span class="text-xs font-bold w-20 capitalize"><%= key %></span>
+      <label class="inline-flex items-center gap-1.5 text-xs cursor-pointer">
+        <input type="checkbox" class="audit-field-enabled rounded border-brand-border" data-field="<%= key %>" <%= f.enabled !== false ? 'checked' : '' %> /> Show
+      </label>
+      <label class="inline-flex items-center gap-1.5 text-xs cursor-pointer">
+        <input type="checkbox" class="audit-field-required rounded border-brand-border" data-field="<%= key %>" <%= f.required ? 'checked' : '' %> /> Required
+      </label>
+      <input type="text" class="audit-field-label flex-1 min-w-[8rem] rounded-lg border border-brand-border/50 dark:border-white/10 px-2 py-1 text-xs" data-field="<%= key %>" value="<%= f.label || '' %>" placeholder="Label" />
+    </div>
+    <% }); %>
+  </fieldset>
+  <label class="block">
+    <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1">Submit button label</span>
+    <input type="text" id="auditLandingSubmitLabel" value="<%= _al && _al.submitLabel ? _al.submitLabel : '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" />
+  </label>
+  <label class="block">
+    <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1">Thank-you title</span>
+    <input type="text" id="auditLandingThankYouTitle" value="<%= _al && _al.thankYouTitle ? _al.thankYouTitle : '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" />
+  </label>
+  <label class="block">
+    <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1">Thank-you body</span>
+    <textarea id="auditLandingThankYouBody" rows="2" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm"><%= _al && _al.thankYouBody ? _al.thankYouBody : '' %></textarea>
+  </label>
+  <label class="block">
+    <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1">SMS snippet template (Send info)</span>
+    <textarea id="auditLandingSmsTemplate" rows="3" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm"><%= _al && _al.smsSnippetTemplate ? _al.smsSnippetTemplate : '' %></textarea>
+  </label>
+  <p id="auditLandingSaveMsg" class="hidden text-sm" role="status"></p>
+  <button type="button" id="auditLandingSave" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-6 py-3 text-xs font-black uppercase tracking-widest">Save audit page</button>
+</div>
+<script src="/js/audit-page-settings.js"></script>
+<% } else { %>
+<p class="text-sm text-brand-muted">Only workspace admins can edit the audit request page.</p>
+<% } %>

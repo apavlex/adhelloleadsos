@@ -29,8 +29,96 @@
   function resolveLeadKey(root) {
     const isSoftphone = root && root.id === 'softphoneSendInfo';
     if (isSoftphone && softphoneLeadKey) return softphoneLeadKey;
+    if (root && root.id === 'focusSendInfo' && window.__focusSendInfoLeadKey) {
+      return String(window.__focusSendInfoLeadKey || '').trim();
+    }
     const row = getPanelRow();
     return row ? String(row.dataset.leadKey || '').trim() : '';
+  }
+
+  function readLeadContactFromObject(lead) {
+    const l = lead && typeof lead === 'object' ? lead : {};
+    const phone = String(l.phone || '').trim();
+    const email = String(l.email || '').trim();
+    return {
+      phone: phone && phone !== 'N/A' ? phone : '',
+      email: email && email !== 'N/A' ? email : '',
+      title: String(l.title || '').trim(),
+    };
+  }
+
+  function populateSendInfoRoot(root, leadLike) {
+    if (!root) return;
+    const contact = leadLike
+      ? readLeadContactFromObject(leadLike)
+      : { phone: readPhone(getPanelRow()), email: readEmail(getPanelRow()), title: '' };
+    const toInput = qs(root, '.lead-send-info-to');
+    const subjectInput = qs(root, '.lead-send-info-subject');
+    if (toInput) {
+      toInput.dataset.userEdited = '';
+      toInput.value = contact.phone || contact.email || '';
+    }
+    if (subjectInput) {
+      const company = contact.title || 'your business';
+      subjectInput.value = `Quick idea for ${company}`;
+    }
+    prefetchInfoPack(root);
+  }
+
+  async function prefillAuditSnippet(root, leadKey) {
+    if (!leadKey) return;
+    try {
+      const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/audit-report-link`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({}),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) return;
+      const snippet = data.smsSnippet || data.auditPageUrl || data.reportUrl || '';
+      if (!snippet) return;
+      const smsBody = qs(root, '.lead-send-info-pack-sms-body');
+      const bodyEl = qs(root, '.lead-send-info-body');
+      if (smsBody) smsBody.value = snippet;
+      if (bodyEl && getChannel(root) === 'sms') bodyEl.value = snippet;
+      const details = root.querySelector('.lead-send-info-pack-details');
+      if (details) details.open = true;
+    } catch (_) {
+      /* optional */
+    }
+  }
+
+  function openSendInfoWithAudit(opts) {
+    opts = opts || {};
+    const rootId = opts.rootId || 'leadPanelSendInfo';
+    let root = document.getElementById(rootId);
+    if (!root && opts.fallbackRoots) {
+      for (const id of opts.fallbackRoots) {
+        root = document.getElementById(id);
+        if (root) break;
+      }
+    }
+    if (!root) {
+      root = document.querySelector('[data-send-info-root]');
+    }
+    if (!root) return;
+
+    if (opts.lead && opts.lead.key) {
+      if (root.id === 'focusSendInfo') {
+        window.__focusSendInfoLeadKey = String(opts.lead.key).trim();
+      }
+      populateSendInfoRoot(root, opts.lead);
+    } else {
+      populateFromRow(root);
+    }
+
+    const leadKey = resolveLeadKey(root);
+    prefillAuditSnippet(root, leadKey);
+
+    if (opts.scroll !== false) {
+      root.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
   }
 
   function readPhone(row) {
@@ -485,4 +573,12 @@
   }
 
   window.__leadSendInfoPopulate = populateFromRow;
+  window.__leadSendInfoPopulateForLead = function (lead) {
+    document.querySelectorAll('[data-send-info-root]').forEach((root) => {
+      if (root.id === 'focusSendInfo' || (lead && lead.key)) {
+        populateSendInfoRoot(root, lead);
+      }
+    });
+  };
+  window.__leadSendInfoOpenWithAudit = openSendInfoWithAudit;
 })();

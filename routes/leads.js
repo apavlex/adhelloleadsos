@@ -2433,7 +2433,7 @@ router.get('/:key/info-pack-preview', async (req, res, next) => {
     const pack = await resolveInfoPackForLead({ workspace: ws, folder, lead });
     let auditUrl = null;
     if (packNeedsAuditUrl(pack)) {
-      const audit = buildAuditReportUrl({ lead, workspaceId: req.workspaceId, req });
+      const audit = buildAuditReportUrl({ lead, workspaceId: req.workspaceId, req, workspace: ws });
       if (audit.ok) auditUrl = audit.reportUrl;
     }
     const materialized = materializeInfoPackForLead(pack, lead, { auditUrl: auditUrl || undefined });
@@ -2479,6 +2479,7 @@ router.post('/:key/send-info-pack', express.json(), async (req, res, next) => {
     const result = await sendInfoPackToLead({
       lead,
       workspaceId: req.workspaceId,
+      workspace: ws,
       integrationEnv,
       pack,
       overrides,
@@ -4229,25 +4230,25 @@ router.post('/:key/audit-report-link', async (req, res) => {
     if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
       return res.status(403).json({ success: false, error: 'Forbidden' });
     }
-    if (!lead.aiWebsiteAnalysis || typeof lead.aiWebsiteAnalysis !== 'object') {
-      return res.status(400).json({ success: false, error: 'Run AI analysis first to generate a hosted report.' });
+    const ws = await dbService.getWorkspace(req.workspaceId);
+    const links = buildAuditReportUrl({ lead, workspaceId: req.workspaceId, req, workspace: ws });
+    if (!links.ok) {
+      return res.status(400).json({ success: false, error: links.error });
     }
-    const token = createAuditReportToken({ leadKey: fullKey, workspaceId: req.workspaceId });
-    const base = `${req.protocol}://${req.get('host')}`.replace(/\/$/, '');
-    const reportUrl = `${base}/audit/report/${token}`;
-    const pdfUrl = `${base}/audit/report/${encodeURIComponent(token)}/download.pdf`;
     const company = String(lead.title || 'your team').trim() || 'your team';
     const followUpSubject = 'Your audit, attached — plus the 3 fixes we discussed.';
-    const followUpBody = `Hi ${company},\n\nGreat speaking with you. Attached is the one-page website audit PDF from our call.\n\nThe three fixes we walked through are still the fastest wins — happy to implement or QA anything your dev pushes live.\n\nIf you want the deeper pass (competitor benchmark, Core Web Vitals, and a 30-day plan), grab a slot here: ${String(
-      process.env.ADHELLO_BOOK_URL || 'https://adhello.ai/book',
-    ).trim()}\n\nBest,\n`;
-    const smsSnippet = `I'll send you a quick link to your website audit now while we're on the phone — you can open it on your phone: ${reportUrl}`;
+    const followUpBody =
+      links.followUpEmail?.body ||
+      `Hi ${company},\n\nGreat speaking with you. Here is your audit link:\n${links.reportUrl}\n\nBest,\n`;
     return res.json({
       success: true,
-      reportUrl,
-      pdfUrl,
+      reportUrl: links.reportUrl,
+      auditPageUrl: links.auditPageUrl || links.reportUrl,
+      hostedReportUrl: links.hostedReportUrl || null,
+      pdfUrl: links.pdfUrl || null,
+      landingEnabled: !!links.landingEnabled,
       followUpEmail: { subject: followUpSubject, body: followUpBody },
-      smsSnippet,
+      smsSnippet: links.smsSnippet || `Open your audit: ${links.reportUrl}`,
     });
   } catch (err) {
     return res.status(500).json({ success: false, error: err && err.message ? err.message : 'Link failed' });

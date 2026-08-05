@@ -17,6 +17,11 @@ const lobClient = require('../services/lobClient');
 const { listPlaybooks } = require('../services/directMailPlaybooks');
 const kieImageClient = require('../services/kieImageClient');
 const { normalizeInfoPack, parseInfoPackFromBody, BUILTIN_DEFAULT } = require('../services/infoPack');
+const {
+  normalizeAuditLanding,
+  parseAuditLandingFromBody,
+  DEFAULT_AUDIT_LANDING,
+} = require('../services/auditLandingPage');
 const multer = require('multer');
 const { persistWorkspaceIcp } = require('../services/workspaceIcp');
 const workspaceBootstrap = require('../services/workspaceBootstrap');
@@ -192,6 +197,7 @@ const WORKSPACE_SECTION_SLUGS = new Set([
   'routing',
   'revenue',
   'info-packs',
+  'audit-page',
   'advanced',
 ]);
 
@@ -233,6 +239,11 @@ const WORKSPACE_SECTION_META = {
     title: 'Info packs',
     description:
       'Configure SMS, email, and Lob direct mail content per pipeline folder. Used by Send info pack on leads.',
+  },
+  'audit-page': {
+    title: 'Audit request page',
+    description:
+      'Custom public form prospects open from Send info links. After submit they can view the hosted audit when ready.',
   },
   advanced: {
     title: 'Advanced',
@@ -1015,6 +1026,22 @@ router.post('/info-pack-default', express.json({ limit: '256kb' }), async (req, 
   }
 });
 
+/** POST JSON: workspace audit landing page config. */
+router.post('/audit-landing-page', express.json({ limit: '256kb' }), async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Only admins can change workspace settings.' });
+    }
+    const wid = req.workspaceId;
+    let ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    ws.auditLandingPage = parseAuditLandingFromBody(req.body || {});
+    await dbService.saveWorkspace(wid, ws);
+    res.json({ success: true, auditLandingPage: normalizeAuditLanding(ws.auditLandingPage) });
+  } catch (e) {
+    next(e);
+  }
+});
+
 /** POST JSON: revenue defaults (avg deal, timezone for morning brief). */
 router.post('/settings', express.json(), async (req, res) => {
   try {
@@ -1641,7 +1668,7 @@ router.get('/:section', async (req, res, next) => {
     }
     const locals = await loadWorkspacePageLocals(req);
     const ws = locals.workspace;
-    const managerSections = new Set(['phones', 'voicemail', 'revenue', 'info-packs']);
+    const managerSections = new Set(['phones', 'voicemail', 'revenue', 'info-packs', 'audit-page']);
     if (managerSections.has(section) && !req.canManageWorkspace) {
       return res.redirect(302, '/workspace/team');
     }
@@ -1673,6 +1700,11 @@ router.get('/:section', async (req, res, next) => {
       );
       renderLocals.preselectFolderKey = String((req.query && req.query.folder) || '').trim();
       renderLocals.kieImageReady = kieImageClient.isConfigured();
+    }
+    if (section === 'audit-page') {
+      renderLocals.auditLandingPage = normalizeAuditLanding(
+        ws && ws.auditLandingPage ? ws.auditLandingPage : DEFAULT_AUDIT_LANDING,
+      );
     }
     res.render('workspace', renderLocals);
   } catch (e) {

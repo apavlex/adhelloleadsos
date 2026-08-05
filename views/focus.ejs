@@ -250,6 +250,7 @@
           </button>
         </div>
         <div id="focus-outcome-details" class="space-y-3">
+        <%- include('/partials/lead_send_info', { sendInfoId: 'focusSendInfo', sendInfoWrapClass: 'mb-1' }) %>
         <div>
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Quick log</p>
           <div class="flex flex-wrap gap-2" id="focus-quick-log-row">
@@ -355,6 +356,7 @@
   <script type="application/json" id="focus-queue-json"><%- typeof focusQueueJson !== 'undefined' ? focusQueueJson : '[]' %></script>
   <script type="application/json" id="focus-script-library-json"><%- typeof focusScriptLibraryJson !== 'undefined' ? focusScriptLibraryJson : '{}' %></script>
   <script type="application/json" id="workspace-tags-json"><%- JSON.stringify(typeof workspaceTags !== 'undefined' ? workspaceTags : []) %></script>
+  <script src="/js/lead-send-info.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
   <script src="/js/gcal-datetime-picker.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
   <script>
     try {
@@ -2079,6 +2081,9 @@
       }
       syncFollowupStripForOutcome(v);
       setOutcomeFeedback('Quick log: ' + (outcomeLabel(v) || v.replace(/_/g, ' ')), false);
+      if (v === 'send_info' && typeof window.__leadSendInfoOpenWithAudit === 'function') {
+        window.__leadSendInfoOpenWithAudit({ lead: currentLead(), rootId: 'focusSendInfo', scroll: true });
+      }
     }
 
     function copyLeadField(field, label) {
@@ -2170,8 +2175,17 @@
         address: String(lead.address || '').trim(),
         city: String(lead.city || '').trim(),
         state: String(lead.state || '').trim(),
+        phone: String(lead.phone || '').trim(),
+        email: String(lead.email || '').trim(),
       };
     };
+
+    function syncFocusSendInfo(lead) {
+      window.__focusSendInfoLeadKey = lead && lead.key ? String(lead.key).trim() : '';
+      if (typeof window.__leadSendInfoPopulateForLead === 'function') {
+        window.__leadSendInfoPopulateForLead(lead);
+      }
+    }
 
     window.__onFocusLeadTagsUpdated = function (leadKey, tagKeys) {
       var short = String(leadKey || '').trim().replace(/^lead:/i, '');
@@ -2232,6 +2246,7 @@
         elFollowupAt.value = '';
       }
       setOutcomeFeedback('');
+      syncFocusSendInfo(lead);
       applyChannelUI();
       updateDraftFromSelection();
       fetchReviewSummary();
