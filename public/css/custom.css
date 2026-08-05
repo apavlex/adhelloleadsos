@@ -2450,9 +2450,11 @@ body.find-leads-page #findTypeTabs .find-type-tab {
     pointer-events: none;
 }
 #leadPanelOutreachDrawer.lead-panel-outreach-drawer.lead-panel-outreach-drawer--open {
-    max-height: min(22rem, 70vh);
+    max-height: min(36rem, 80vh);
     opacity: 1;
     pointer-events: auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
 }
 #mobilePanel.open #leadPanelNotepad,
 #mobilePanel.open #leadPanelNotepad button,
