@@ -11,6 +11,7 @@ const {
 } = require('../services/trackerStats');
 const { loadDailyTouchGoal, saveDailyTouchGoal } = require('../services/touchGoalPrefs');
 const { buildFocusQueue, shortLeadKey, lastActivityMs } = require('../services/focusQueue');
+const { buildLeadTouchPoints } = require('../services/leadTouchPoints');
 const { resolveDialRetryPrefs } = require('../services/dialRetryPrefs');
 const { scoreLeadRecord } = require('../services/opportunityScore');
 
@@ -118,6 +119,7 @@ function leadToFocusPayload(l, sortedStages, scriptLibrary, allowedKeys) {
   const opp = scoreLeadRecord(l);
   const whyReasons = (opp.reasons || []).slice(0, 5);
   const whyTier = opp.tier || 'low';
+  const touchPoints = buildLeadTouchPoints(l, { limit: 8 });
 
   return {
     key: shortLeadKey(l),
@@ -125,7 +127,8 @@ function leadToFocusPayload(l, sortedStages, scriptLibrary, allowedKeys) {
     contactName: contact || '—',
     pipelineStage: stage,
     pipelineLabel: stageLabelFromLead(l, sortedStages),
-    lastTouchLabel: formatLastTouchDisplay(l),
+    lastTouchLabel: touchPoints.lastTouch.summary || formatLastTouchDisplay(l),
+    touchPoints,
     lastDisposition: String(l.lastDisposition || '').trim().toLowerCase(),
     lastDispositionNotes: String(l.lastDispositionNotes || '').trim(),
     website: l.website && l.website !== 'N/A' ? l.website : '',

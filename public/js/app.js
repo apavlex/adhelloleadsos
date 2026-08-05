@@ -10627,8 +10627,141 @@ document.addEventListener('DOMContentLoaded', () => {
     return ensureCadencePlaybookSelectOptions().then(() => fetchCadencePlaybookTemplates());
   }
 
+  function renderLeadPanelTouchPoints(row) {
+    const summaryEl = document.getElementById('leadPanelLastTouchSummary');
+    const detailEl = document.getElementById('leadPanelLastTouchDetail');
+    const badgeEl = document.getElementById('leadPanelEngagementBadge');
+    const listEl = document.getElementById('leadPanelTouchPointsList');
+    if (!row || !summaryEl || !listEl) return;
+
+    const channel = String(row.dataset.lastTouchChannel || '').trim();
+    const channelLabel =
+      CADENCE_CHANNEL_LABELS[channel] || (channel ? channel.replace(/_/g, ' ') : '');
+    const ms = parseInt(row.dataset.lastTouchMs || '', 10);
+    let lastWhen = '—';
+    if (ms && Number.isFinite(ms)) {
+      try {
+        lastWhen = new Date(ms).toLocaleString(undefined, {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+        });
+      } catch (_) {
+        lastWhen = '—';
+      }
+    }
+
+    const noiseTypes = new Set([
+      'sms_status',
+      'call_status',
+      'voicemail_amd',
+      'voicemail_status',
+      'sequence_step',
+    ]);
+    const entries = mergeActivityEntries(row)
+      .filter((e) => {
+        const typ = String(e.typ || '').toLowerCase();
+        if (noiseTypes.has(typ)) return false;
+        return String(e.text || '').trim().length > 0;
+      })
+      .slice(0, 8);
+
+    const latest = entries[0] || null;
+    const summaryParts = [];
+    if (channelLabel) summaryParts.push(channelLabel);
+    if (latest) {
+      const typeLabel = formatActivityTypeLabel(latest.typ, latest.raw);
+      if (typeLabel && typeLabel !== channelLabel) summaryParts.push(typeLabel);
+      const when = latest.ts
+        ? new Date(latest.ts).toLocaleString(undefined, {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+          })
+        : lastWhen;
+      if (when && when !== '—') summaryParts.push(when);
+    } else if (lastWhen !== '—') {
+      summaryParts.push(lastWhen);
+    }
+    summaryEl.textContent = summaryParts.length ? summaryParts.join(' · ') : 'No touches logged yet';
+
+    if (detailEl) {
+      const detail = latest ? formatActivityEntryText(latest) : '';
+      if (detail) {
+        detailEl.textContent = detail;
+        detailEl.classList.remove('hidden');
+      } else {
+        detailEl.textContent = '';
+        detailEl.classList.add('hidden');
+      }
+    }
+
+    const engType = String(row.dataset.engagementSignal || '').trim();
+    const engAt = String(row.dataset.engagementSignalAt || '').trim();
+    let engLabel = '';
+    if (engType && engAt) {
+      const engMs = Date.parse(engAt);
+      if (Number.isFinite(engMs) && engMs >= Date.now() - 7 * 86400000) {
+        const engMap = {
+          sms_reply: 'SMS reply',
+          email_reply: 'Email reply',
+          link_click: 'Link click',
+          mail_scan: 'Postcard scan',
+          audit_open: 'Audit open',
+          email_open: 'Email open',
+        };
+        engLabel = engMap[engType] || engType.replace(/_/g, ' ');
+      }
+    }
+    if (badgeEl) {
+      if (engLabel) {
+        badgeEl.textContent = engLabel;
+        badgeEl.classList.remove('hidden');
+      } else {
+        badgeEl.textContent = '';
+        badgeEl.classList.add('hidden');
+      }
+    }
+
+    if (!entries.length) {
+      listEl.innerHTML =
+        '<li class="text-brand-muted dark:text-slate-400 italic">No touch history yet.</li>';
+      return;
+    }
+
+    listEl.innerHTML = entries
+      .map((item) => {
+        const typ = String(item.typ || '').toLowerCase();
+        const warm =
+          typ === 'engagement_signal' || typ === 'sms_inbound' || typ === 'email_inbound';
+        const when = item.ts
+          ? new Date(item.ts).toLocaleString(undefined, {
+              month: 'short',
+              day: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
+            })
+          : '—';
+        const typeLabel = formatActivityTypeLabel(item.typ, item.raw);
+        const body = formatActivityEntryText(item);
+        const warmClass = warm
+          ? ' border-emerald-500/30 bg-emerald-500/5 dark:bg-emerald-950/20'
+          : ' border-brand-border/30 dark:border-white/10';
+        return `<li class="rounded-lg border px-2.5 py-1.5${warmClass}">
+          <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">${escapeHtml(when)} · ${escapeHtml(typeLabel)}</p>
+          ${body ? `<p class="text-[11px] font-semibold text-brand-dark dark:text-slate-200 mt-0.5 leading-snug">${escapeHtml(body)}</p>` : ''}
+        </li>`;
+      })
+      .join('');
+  }
+
   function populateCadenceSection(row) {
     ensureCadencePlaybookDataReady().then(() => syncCadencePlaybookPanel(row));
+    renderLeadPanelTouchPoints(row);
     const ltEl = document.getElementById('cadenceLastTouchLine');
     const chEl = document.getElementById('cadenceChannelLine');
     const seqWrap = document.getElementById('cadenceSequenceWrap');
