@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const dbService = require('../services/database');
 const { getTemplate } = require('../services/sequenceTemplates');
 const {
   normalizeEngagementSignals,
@@ -8,7 +9,10 @@ const {
 } = require('../services/engagementSignals');
 const {
   isActiveProspecting,
+  isActiveOtherCadence,
   leadMatchesFilter,
+  enrollLeadInAutoOutreach,
+  leadHasAutoOutreachTag,
   AUTO_OUTREACH_CAMPAIGN,
 } = require('../services/prospectingEnroll');
 const { buildCallQueue } = require('../services/callQueue');
@@ -96,6 +100,110 @@ test('isActiveProspecting detects active auto outreach campaign', () => {
     true,
   );
   assert.equal(isActiveProspecting({ prospecting: { status: 'paused', campaign: AUTO_OUTREACH_CAMPAIGN } }), false);
+});
+
+test('isActiveOtherCadence ignores legacy auto_outreach_7 sequenceState', () => {
+  assert.equal(
+    isActiveOtherCadence({
+      sequenceState: { status: 'active', templateId: AUTO_OUTREACH_CAMPAIGN },
+    }),
+    false,
+  );
+  assert.equal(
+    isActiveOtherCadence({
+      sequenceState: { status: 'active', templateId: 'clay_5' },
+    }),
+    true,
+  );
+});
+
+test('enrollLeadInAutoOutreach tags and sets prospecting without internal cadence', async () => {
+  let testKey = '';
+  try {
+    testKey = await dbService.saveLead({
+      title: 'Auto Outreach Tag Test',
+      workspaceId: 'default',
+      status: 'Not Contacted',
+      pipelineStage: 1,
+      tags: [],
+      phone: '+15555550201',
+      email: 'auto@test.com',
+      source: 'test',
+    });
+    const saved = await dbService.getLead(testKey);
+    const wid = saved.workspaceId;
+    const result = await enrollLeadInAutoOutreach({
+      leadKey: testKey,
+      workspaceId: wid,
+    });
+    assert.equal(result.enrolled, true);
+    const lead = await dbService.getLead(testKey, wid);
+    assert.equal(lead.prospecting.status, 'active');
+    assert.equal(lead.prospecting.campaign, AUTO_OUTREACH_CAMPAIGN);
+    assert.ok(!(lead.sequenceState && lead.sequenceState.status === 'active' && lead.sequenceState.templateId === AUTO_OUTREACH_CAMPAIGN));
+    assert.equal(await leadHasAutoOutreachTag(lead, wid), true);
+  } finally {
+    if (testKey) await dbService.deleteLead(testKey);
+  }
+});
+
+test('enrollLeadInAutoOutreach skips already enrolled unless reEnroll', async () => {
+  let testKey = '';
+  try {
+    testKey = await dbService.saveLead({
+      title: 'Auto Outreach Skip Test',
+      workspaceId: 'default',
+      status: 'Not Contacted',
+      pipelineStage: 1,
+      tags: [],
+      phone: '+15555550202',
+      email: 'skip@test.com',
+      source: 'test',
+      prospecting: {
+        status: 'active',
+        campaign: AUTO_OUTREACH_CAMPAIGN,
+        enrolledAt: '2026-08-01T00:00:00.000Z',
+      },
+    });
+    const saved = await dbService.getLead(testKey);
+    const wid = saved.workspaceId;
+    const skipped = await enrollLeadInAutoOutreach({ leadKey: testKey, workspaceId: wid });
+    assert.equal(skipped.enrolled, false);
+    assert.equal(skipped.reason, 'already_enrolled');
+    const re = await enrollLeadInAutoOutreach({
+      leadKey: testKey,
+      workspaceId: wid,
+      reEnroll: true,
+    });
+    assert.equal(re.enrolled, true);
+    assert.equal(re.reEnroll, true);
+  } finally {
+    if (testKey) await dbService.deleteLead(testKey);
+  }
+});
+
+test('enrollLeadInAutoOutreach blocks active other cadence', async () => {
+  let testKey = '';
+  try {
+    testKey = await dbService.saveLead({
+      title: 'Other Cadence Block Test',
+      workspaceId: 'default',
+      status: 'Not Contacted',
+      pipelineStage: 1,
+      tags: [],
+      phone: '+15555550203',
+      email: 'block@test.com',
+      source: 'test',
+      sequenceState: { status: 'active', templateId: 'clay_5', stepIndex: 0 },
+    });
+    const saved = await dbService.getLead(testKey);
+    const wid = saved.workspaceId;
+    const result = await enrollLeadInAutoOutreach({ leadKey: testKey, workspaceId: wid });
+    assert.equal(result.enrolled, false);
+    assert.equal(result.reason, 'active_other_cadence');
+  } finally {
+    if (testKey) await dbService.deleteLead(testKey);
+  }
 });
 
 test('auto-pool eligibility skips enrolled and closed leads', () => {

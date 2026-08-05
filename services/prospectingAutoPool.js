@@ -1,5 +1,5 @@
 /**
- * Auto-pool: select top-scoring leads, tag auto-outreach, enroll in cadence.
+ * Auto-pool: select top-scoring leads, tag auto-outreach, sync to GHL workflow.
  */
 const dbService = require('./database');
 const { scoreLeadRecord } = require('./opportunityScore');

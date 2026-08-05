@@ -1472,7 +1472,7 @@
         throw new Error((data && data.error) || 'Enroll failed');
       }
       const n = data.enrolled != null ? data.enrolled : leadKeys.length;
-      showBulkBarFeedbackEarly(`Enrolled ${n} in auto outreach cadence.`, 'success');
+      showBulkBarFeedbackEarly(`Tagged ${n} for auto outreach — synced to GHL workflow.`, 'success');
       if (typeof window.__flashBulkBarBtn === 'function') {
         window.__flashBulkBarBtn(btn, `Enrolled ${n}`, 1400);
       }

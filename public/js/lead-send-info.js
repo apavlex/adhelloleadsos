@@ -129,6 +129,22 @@
       if (typeof openLeadPanelNotepad === 'function') openLeadPanelNotepad();
     }
 
+    if (root.id === 'focusSendInfo' || root.closest('#focusSendInfoDrawer')) {
+      if (typeof window.__setFocusSendInfoOpen === 'function') {
+        window.__setFocusSendInfoOpen(true);
+      } else {
+        const drawer = document.getElementById('focusSendInfoDrawer');
+        const btn = document.getElementById('focusSendInfoToggle');
+        const ch = document.getElementById('focusSendInfoChevron');
+        if (drawer) drawer.classList.add('focus-send-info-drawer--open');
+        if (btn) btn.setAttribute('aria-expanded', 'true');
+        if (ch) {
+          ch.classList.remove('rotate-180');
+          ch.style.transform = '';
+        }
+      }
+    }
+
     if (opts.scroll !== false) {
       root.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
@@ -179,9 +195,9 @@
   function syncSendToDefault(root) {
     const toInput = qs(root, '.lead-send-info-to');
     if (!toInput || toInput.dataset.userEdited === '1') return;
-    const row = getPanelRow();
+    const contact = readContactForRoot(root);
     const ch = getChannel(root);
-    const val = ch === 'email' ? readEmail(row) : readPhone(row);
+    const val = ch === 'email' ? contact.email : contact.phone;
     toInput.value = val || '';
   }
 
@@ -272,17 +288,24 @@
     };
   }
 
-    const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/audit-report-link`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      credentials: 'same-origin',
-      body: JSON.stringify({}),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.success) {
-      throw new Error((data && data.error) || 'Could not create audit link');
+  function getFocusLead() {
+    if (typeof window.__getFocusCurrentLead === 'function') {
+      return window.__getFocusCurrentLead();
     }
-    return data.smsSnippet || data.reportUrl || '';
+    return null;
+  }
+
+  function readContactForRoot(root) {
+    if (root && root.id === 'focusSendInfo') {
+      const focusLead = getFocusLead();
+      if (focusLead) return readLeadContactFromObject(focusLead);
+    }
+    const row = getPanelRow();
+    return {
+      phone: readPhone(row),
+      email: readEmail(row),
+      title: row ? String(row.dataset.title || '').trim() : '',
+    };
   }
 
   function populateFromRow(root) {
@@ -317,6 +340,19 @@
   }
 
   async function fetchAuditSnippet(leadKey) {
+    const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/audit-report-link`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({}),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) {
+      throw new Error((data && data.error) || 'Could not create audit link');
+    }
+    return data.smsSnippet || data.reportUrl || '';
+  }
+
   function formatInfoPackResults(data) {
     const parts = [];
     if (data.sms && data.sms.ok) parts.push('SMS sent');
@@ -336,7 +372,7 @@
       setFeedback(root, 'Select a lead first.', true);
       return;
     }
-    const row = getPanelRow();
+    const contact = readContactForRoot(root);
     const toInput = qs(root, '.lead-send-info-to');
     const saveToLead = !!(qs(root, '.lead-send-info-save') || {}).checked;
     const packBtn = qs(root, '.lead-send-info-pack');
@@ -344,8 +380,8 @@
     syncMainBodyToPack(root);
     const payload = { saveToLead, pack: buildPackOverrideFromForm(root) };
 
-    const ph = readPhone(row);
-    const em = readEmail(row);
+    const ph = contact.phone;
+    const em = contact.email;
     const userEdited = !!(toInput && toInput.dataset.userEdited === '1');
     const ch = getChannel(root);
     if (userEdited && toInput) {

@@ -3067,6 +3067,38 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
     border-color: rgb(14 165 233 / 0.35);
 }
 
+/* Focus mode — send info drawer — collapsed by default */
+#focusSendInfoDrawer.focus-send-info-drawer {
+    max-height: 0;
+    opacity: 0;
+    transition:
+        max-height 0.34s cubic-bezier(0.33, 1, 0.68, 1),
+        opacity 0.22s ease;
+    overflow: hidden;
+    pointer-events: none;
+}
+#focusSendInfoDrawer.focus-send-info-drawer.focus-send-info-drawer--open {
+    max-height: 120rem;
+    opacity: 1;
+    pointer-events: auto;
+    overflow: visible;
+    padding-bottom: 0.75rem;
+}
+#focusSendInfoChevron {
+    transform-origin: center;
+    transition: transform 0.28s cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+/* Focus mode — wider layout on large screens */
+@media (min-width: 1280px) {
+    #focus-card-section .focus-primary-actions {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    #focus-card-section #focus-body {
+        min-height: 16rem;
+    }
+}
+
 /* Focus mode — collapsible call outcome panel */
 #focus-outcome-panel[data-collapsed="true"] {
     padding-top: 0.65rem;

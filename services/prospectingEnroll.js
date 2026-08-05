@@ -1,8 +1,8 @@
 /**
- * Enroll leads in automated email/SMS outreach (auto_outreach_7 cadence).
+ * Enroll leads in auto outreach via GHL workflow (tag auto-outreach + sync contact).
+ * Sends are handled in GHL when the contact tag triggers a workflow — not an internal cadence.
  */
 const dbService = require('./database');
-const sequenceEngine = require('./sequenceEngine');
 const { scoreLocalProspect } = require('./localProspectScore');
 const { scoreLeadRecord } = require('./opportunityScore');
 const { triggerGhlProspectSync } = require('./ghlProspectSync');
@@ -28,6 +28,14 @@ function isActiveCadence(lead) {
 function isActiveProspecting(lead) {
   const p = lead && lead.prospecting;
   return !!(p && p.status === 'active' && p.campaign === AUTO_OUTREACH_CAMPAIGN);
+}
+
+/** Active internal cadence on a template other than legacy auto_outreach_7. */
+function isActiveOtherCadence(lead) {
+  if (!isActiveCadence(lead)) return false;
+  const tid = String((lead.sequenceState && lead.sequenceState.templateId) || '');
+  if (tid === AUTO_OUTREACH_CAMPAIGN) return false;
+  return true;
 }
 
 async function resolveAutoOutreachTagKey(workspaceId) {
@@ -83,19 +91,14 @@ async function enrollLeadInAutoOutreach(opts) {
   if (!lead) return { enrolled: false, reason: 'missing_lead', leadKey: key };
 
   const reEnroll = opts.reEnroll === true;
-  if (isActiveProspecting(lead) && isActiveCadence(lead) && !reEnroll) {
+  if (isActiveProspecting(lead) && !reEnroll) {
     return { enrolled: false, reason: 'already_enrolled', leadKey: key };
   }
-  if (isActiveCadence(lead) && !reEnroll && !isActiveProspecting(lead)) {
+  if (isActiveOtherCadence(lead) && !reEnroll) {
     return { enrolled: false, reason: 'active_other_cadence', leadKey: key };
   }
 
   const now = new Date().toISOString();
-  let sequenceState = lead.sequenceState;
-  if (reEnroll || !isActiveCadence(lead) || lead.sequenceState.templateId !== AUTO_OUTREACH_CAMPAIGN) {
-    const started = await sequenceEngine.startSequence(key, AUTO_OUTREACH_CAMPAIGN);
-    sequenceState = started.sequenceState;
-  }
 
   let tags = dbService.normalizeTagKeys(lead.tags);
   if (opts.tagLead !== false) {
@@ -115,11 +118,12 @@ async function enrollLeadInAutoOutreach(opts) {
     {
       tags,
       prospecting,
-      sequenceState,
       logs: [
         {
           type: 'prospecting_enroll',
-          message: `Enrolled in ${AUTO_OUTREACH_CAMPAIGN} auto outreach`,
+          message: reEnroll
+            ? 'Re-enrolled in auto outreach — tagged auto-outreach and synced to GHL workflow'
+            : 'Enrolled in auto outreach — tagged auto-outreach and synced to GHL workflow',
           timestamp: now,
         },
       ],
@@ -181,6 +185,7 @@ module.exports = {
   AUTO_OUTREACH_CAMPAIGN,
   fullLeadKey,
   isActiveCadence,
+  isActiveOtherCadence,
   isActiveProspecting,
   resolveAutoOutreachTagKey,
   leadHasAutoOutreachTag,
