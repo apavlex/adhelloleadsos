@@ -53,7 +53,10 @@
           <h2 class="font-display font-extrabold text-xl text-brand-dark dark:text-white">Due &amp; overdue — unified queue</h2>
           <p class="text-sm text-brand-muted dark:text-slate-400 mt-1">Tasks, engagement signals, cadence steps, follow-ups, and audit opens — one list, deduped per lead.</p>
         </div>
-        <a href="/tasks" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white whitespace-nowrap shrink-0 self-start">All tasks</a>
+        <div class="flex flex-wrap gap-2 shrink-0 self-start">
+          <a href="/engagement" class="btn-pill border border-emerald-500/40 bg-emerald-500/10 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-emerald-900 dark:text-emerald-100 whitespace-nowrap">Engagement inbox</a>
+          <a href="/tasks" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white whitespace-nowrap">All tasks</a>
+        </div>
       </div>
       <ul class="divide-y divide-brand-border/40 dark:divide-white/10">
         <% _nextActions.forEach((item) => { %>

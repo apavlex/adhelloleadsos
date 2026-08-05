@@ -183,6 +183,7 @@
 
       <nav class="flex flex-col gap-3 mb-8" aria-label="Mobile primary">
         <a href="/today" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'today' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Today</span></a>
+        <a href="/engagement" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'engagement' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Engagement</span></a>
         <div class="rounded-2xl border border-brand-border/50 dark:border-white/10 p-3 space-y-2">
           <p class="px-2 text-[9px] font-black uppercase tracking-widest text-brand-muted">Leads</p>
           <a href="/leads/find" class="flex items-center p-3 rounded-xl <%= (typeof navLeadsTab !== 'undefined' && navLeadsTab === 'find') ? 'bg-brand-yellow/15 text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-semibold text-sm">Find</span></a>

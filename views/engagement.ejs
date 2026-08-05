@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark dark:text-white overflow-x-hidden">
+  <%- include('partials/navbar') %>
+  <main class="max-wide px-6 py-8 md:py-12">
+    <header class="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+      <div>
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Rep visibility</p>
+        <h1 class="font-display font-extrabold text-3xl md:text-4xl text-brand-dark dark:text-white tracking-tight">Engagement inbox</h1>
+        <p class="text-sm text-brand-muted dark:text-slate-400 mt-2 max-w-2xl">Every warm signal in the last <%= typeof windowDays !== 'undefined' ? windowDays : 7 %> days — replies, clicks, audit opens, email opens, and postcard scans. Tap a lead to call in Focus.</p>
+      </div>
+      <div class="flex flex-wrap gap-2 shrink-0">
+        <a href="/focus?channel=call" class="btn-pill btn-primary px-5 py-2.5 text-[10px] font-black uppercase tracking-widest">Open Focus</a>
+        <a href="/today" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Today</a>
+      </div>
+    </header>
+
+    <% const _summary = typeof summary !== 'undefined' && summary ? summary : { total: 0, uniqueLeads: 0, byType: {} }; %>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+      <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 p-4">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Signals</p>
+        <p class="font-display font-black text-2xl text-brand-dark dark:text-white"><%= _summary.total %></p>
+      </div>
+      <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 p-4">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Leads</p>
+        <p class="font-display font-black text-2xl text-brand-dark dark:text-white"><%= _summary.uniqueLeads %></p>
+      </div>
+      <div class="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 dark:bg-emerald-950/30 p-4 col-span-2 sm:col-span-2">
+        <p class="text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-200">Priority</p>
+        <p class="text-sm font-semibold text-brand-dark dark:text-white mt-1">Replies first, then clicks &amp; scans, then audit/email opens.</p>
+      </div>
+    </div>
+
+    <% const _filters = Array.isArray(filterOptions) ? filterOptions : []; %>
+    <% const _active = typeof activeType !== 'undefined' ? activeType : ''; %>
+    <div class="flex flex-wrap gap-2 mb-6" role="tablist" aria-label="Filter by signal type">
+      <a href="/engagement?days=<%= windowDays %>" class="engagement-filter px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border <%= !_active ? 'border-brand-yellow/50 bg-brand-yellow/15 text-brand-dark dark:text-brand-yellow' : 'border-brand-border/50 dark:border-white/15 text-brand-muted hover:border-brand-yellow/40' %>">All</a>
+      <% _filters.forEach(function (f) { %>
+      <a href="/engagement?days=<%= windowDays %>&type=<%= encodeURIComponent(f.id) %>" class="engagement-filter px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border <%= _active === f.id ? 'border-brand-yellow/50 bg-brand-yellow/15 text-brand-dark dark:text-brand-yellow' : 'border-brand-border/50 dark:border-white/15 text-brand-muted hover:border-brand-yellow/40' %>"<%= _active === f.id ? ' aria-current="page"' : '' %>><%= f.label %><% if (f.count) { %> · <%= f.count %><% } %></a>
+      <% }); %>
+    </div>
+
+    <% const _events = Array.isArray(events) ? events : []; %>
+    <% if (!_events.length) { %>
+    <div class="rounded-[2rem] border-2 border-dashed border-brand-border dark:border-white/15 bg-white/60 dark:bg-slate-900/50 px-8 py-14 text-center">
+      <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white mb-2">No engagement yet</h2>
+      <p class="text-sm text-brand-muted max-w-md mx-auto mb-6">When prospects reply, click links, open audits, or scan postcards, signals show up here for <%= windowDays %> days.</p>
+      <a href="/focus?channel=call" class="btn-pill btn-primary inline-flex px-8 py-3 text-xs font-black uppercase tracking-widest">Start calling</a>
+    </div>
+    <% } else { %>
+    <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm overflow-hidden" aria-label="Engagement events">
+      <ul class="divide-y divide-brand-border/40 dark:divide-white/10" id="engagementInboxList">
+        <% _events.forEach(function (ev) {
+          var _when = ev.at ? new Date(ev.at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '';
+          var _warm = ev.priority <= 2;
+        %>
+        <li class="engagement-inbox-row px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 hover:bg-brand-cream/20 dark:hover:bg-slate-800/40 transition-colors">
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-2 mb-1">
+              <span class="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-brand-border/60 dark:border-white/15 text-brand-muted"><%= ev.signalLabel %></span>
+              <% if (_warm) { %><span class="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-emerald-500/40 text-emerald-800 dark:text-emerald-200">Call now</span><% } %>
+            </div>
+            <p class="text-sm font-bold text-brand-dark dark:text-white truncate"><%= ev.leadTitle %></p>
+            <p class="text-[11px] text-brand-muted mt-0.5 line-clamp-2"><%= ev.detail %></p>
+            <p class="text-[10px] text-brand-muted/80 mt-1 tabular-nums"><%= _when %></p>
+          </div>
+          <div class="flex flex-wrap gap-2 shrink-0">
+            <a href="<%= ev.href %>" class="btn-pill bg-brand-yellow text-brand-dark px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:brightness-95">Call in Focus</a>
+            <a href="/pipeline?focusLead=<%= encodeURIComponent(ev.leadKey) %>" class="btn-pill border border-brand-border dark:border-white/15 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white">Pipeline</a>
+          </div>
+        </li>
+        <% }); %>
+      </ul>
+    </section>
+    <% } %>
+  </main>
+  <%- include('partials/footer') %>
+</body>
+</html>

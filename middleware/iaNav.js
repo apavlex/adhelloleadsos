@@ -5,7 +5,9 @@
 function iaNav(req, res, next) {
   const p = req.path || '';
   let navPrimary = '';
-  if (p === '/today' || p.startsWith('/today/') || p === '/focus' || p.startsWith('/focus/')) {
+  if (p === '/engagement' || p.startsWith('/engagement/')) {
+    navPrimary = 'engagement';
+  } else if (p === '/today' || p.startsWith('/today/') || p === '/focus' || p.startsWith('/focus/')) {
     navPrimary = 'today';
   } else if (
     p === '/' ||
