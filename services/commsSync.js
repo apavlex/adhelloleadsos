@@ -5,6 +5,7 @@
 const dbService = require('./database');
 const { normalizePhoneE164 } = require('./ghlClient');
 const signalwire = require('./signalwire');
+const { handleInboundReply } = require('./inboundReplyRules');
 
 function normalizePhone(raw) {
   return normalizePhoneE164(raw) || signalwire.normalizePhone(raw) || '';
@@ -69,6 +70,30 @@ async function processWebhook(payload, opts = {}) {
   const lead = findLeadByPhone(localLeads, matchPhone);
   if (!lead || !lead.key) {
     return { ok: true, workspaceId: wid, ignored: true, reason: 'lead_not_found' };
+  }
+
+  if (parsed.direction === 'inbound') {
+    const result = await handleInboundReply({
+      lead,
+      workspaceId: wid,
+      channel: 'sms',
+      body: parsed.body,
+      messageId: parsed.messageId,
+      provider: 'comms',
+      commsChannel: parsed.channel,
+      conversationId: parsed.conversationId,
+      timestamp: parsed.timestamp || new Date().toISOString(),
+    });
+    return {
+      ok: true,
+      workspaceId: wid,
+      key: lead.key,
+      direction: 'inbound',
+      action: result.applied ? 'inbound_reply' : 'ignored',
+      reason: result.reason || null,
+      pausedSequence: result.pausedSequence || false,
+      taskId: result.taskId || null,
+    };
   }
 
   const updates = Array.isArray(lead.updates) ? lead.updates : [];

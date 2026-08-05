@@ -11,12 +11,14 @@ const SIGNAL_FIELD = {
   email_open: 'emailOpenedAt',
   link_click: 'linkClickedAt',
   audit_open: 'auditOpenedAt',
+  mail_scan: 'mailScannedAt',
 };
 
 const SIGNAL_PRIORITY = {
   sms_reply: 1,
   email_reply: 1,
   link_click: 2,
+  mail_scan: 2,
   audit_open: 3,
   email_open: 4,
 };
@@ -29,6 +31,7 @@ function normalizeEngagementSignals(raw) {
     emailOpenedAt: s.emailOpenedAt || null,
     linkClickedAt: s.linkClickedAt || null,
     auditOpenedAt: s.auditOpenedAt || null,
+    mailScannedAt: s.mailScannedAt || null,
     lastSignalAt: s.lastSignalAt || null,
     lastSignalType: s.lastSignalType || null,
   };
@@ -47,6 +50,7 @@ function signalPriorityForLead(lead) {
   const s = normalizeEngagementSignals(lead && lead.engagementSignals);
   if (s.smsRepliedAt || s.emailRepliedAt) return 1;
   if (s.linkClickedAt) return 2;
+  if (s.mailScannedAt) return 2;
   if (s.auditOpenedAt) return 3;
   if (s.emailOpenedAt) return 4;
   return 99;
@@ -59,6 +63,7 @@ function signalLabel(signalType) {
     link_click: 'Link click',
     audit_open: 'Audit open',
     email_open: 'Email open',
+    mail_scan: 'Postcard QR scan',
   };
   return map[signalType] || 'Engagement';
 }

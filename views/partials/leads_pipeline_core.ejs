@@ -282,6 +282,10 @@
               <button type="button" class="prospect-sort-btn" data-prospect-sort="lasttouch" title="Sort by last activity date">Last touch <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
               <span class="plc-col-resize" data-plc-resize="lastTouch" title="Resize column" aria-hidden="true"></span>
             </th>
+            <th data-plc="engagementSignal" class="plc-th-wrap lead-col-engagement-signal lead-col-tail-tight px-1.5 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="engagement" title="Sort by most recent engagement signal">Signal <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+              <span class="plc-col-resize" data-plc-resize="engagementSignal" title="Resize column" aria-hidden="true"></span>
+            </th>
             <th data-plc="cadence" class="plc-th-wrap lead-col-cadence lead-col-tail-tight px-1.5 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle min-w-[7.5rem] max-w-[9rem]" scope="col">
               <button type="button" class="prospect-sort-btn" data-prospect-sort="cadence" title="Sort by last outreach channel">Cadence <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
               <span class="plc-col-resize" data-plc-resize="cadence" title="Resize column" aria-hidden="true"></span>
@@ -413,12 +417,18 @@
               var _engAt = _engSig.lastSignalAt || '';
               var _engLabel = '';
               var _engRecent = false;
+              var _engSignalSortMs = 0;
+              var _engSignalShort = '—';
               if (_engType && _engAt) {
-                var _engLabelMap = { sms_reply: 'SMS reply', email_reply: 'Email reply', link_click: 'Link click', audit_open: 'Audit open', email_open: 'Email open' };
+                var _engLabelMap = { sms_reply: 'SMS reply', email_reply: 'Email reply', link_click: 'Link click', audit_open: 'Audit open', email_open: 'Email open', mail_scan: 'QR scan' };
                 _engLabel = _engLabelMap[_engType] || 'Engaged';
                 try {
                   var _engMs = new Date(_engAt).getTime();
-                  if (!Number.isNaN(_engMs) && _engMs >= Date.now() - 7 * 86400000) _engRecent = true;
+                  if (!Number.isNaN(_engMs)) {
+                    _engSignalSortMs = _engMs;
+                    _engSignalShort = new Date(_engAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                    if (_engMs >= Date.now() - 7 * 86400000) _engRecent = true;
+                  }
                 } catch (e) {}
               }
               var _seqSt = lead.sequenceState;
@@ -555,6 +565,7 @@
                 data-last-touch-channel="<%= plcEscAttr(_ltc) %>"
                 data-engagement-signal="<%= plcEscAttr(_engType) %>"
                 data-engagement-signal-at="<%= plcEscAttr(_engAt) %>"
+                data-engagement-signal-ms="<%= _engSignalSortMs %>"
                 data-cadence-sort="<%= plcEscAttr(_cadShort || _ltc || '') %>"
                 data-sequence-state="<%= plcEscJson(lead.sequenceState || null) %>"
                 data-owner-first-name="<%= plcEscAttr(String(lead.ownerFirstName || '')) %>"
@@ -677,6 +688,9 @@
               </td>
               <td data-plc="lastTouch" class="lead-col-last-touch lead-col-tail-tight px-1.5 align-middle border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap">
                 <span class="text-[10px] font-semibold text-brand-muted dark:text-slate-400 tabular-nums inline-block" title="<%= _lastTouchRaw || '' %>"><%= _lastTouchShort %></span>
+              </td>
+              <td data-plc="engagementSignal" class="lead-col-engagement-signal lead-col-tail-tight px-1.5 align-middle border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap">
+                <span class="text-[10px] font-semibold text-brand-muted dark:text-slate-400 tabular-nums inline-block" title="<%= _engAt ? (_engLabel + ' · ' + new Date(_engAt).toLocaleString()) : 'No engagement signal' %>"><%= _engSignalShort %></span>
               </td>
               <td data-plc="cadence" class="lead-col-cadence lead-col-tail-tight px-1.5 align-middle border-b border-brand-border/15 dark:border-white/[0.07]" onclick="event.stopPropagation()">
                 <label class="sr-only">Last outreach channel for <%= lead.title %></label>

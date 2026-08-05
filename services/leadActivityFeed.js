@@ -206,7 +206,7 @@ function activityEntryMatchesFilter(entry, filter) {
     if (typ === 'engagement_signal') return true;
     if (typ === 'sms_inbound' || typ === 'email_inbound') return true;
     if (typ === 'engagement_signal' && entry.raw && entry.raw.signalType) return true;
-    return /\b(email open|link click|sms reply|email reply|audit open|engagement)\b/i.test(
+    return /\b(email open|link click|sms reply|email reply|audit open|qr scan|postcard|mail scan|engagement)\b/i.test(
       String(entry.text || ''),
     );
   }

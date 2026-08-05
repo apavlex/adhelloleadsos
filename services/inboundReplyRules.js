@@ -1,9 +1,13 @@
 /**
- * Pause cadence and fast-track engaged leads when an inbound reply arrives (GHL SMS/email).
+ * Pause cadence and fast-track engaged leads when an inbound reply arrives (GHL SMS/email, Comms iMessage/SMS).
  */
 const dbService = require('./database');
 const sequenceEngine = require('./sequenceEngine');
-const { recordEngagementSignals, ensureEngagementCallTask } = require('./engagementSignals');
+const {
+  recordEngagementSignals,
+  ensureEngagementCallTask,
+  buildEngagementUpdateEntry,
+} = require('./engagementSignals');
 const { resolveTaskOwnerEmail } = require('./dispositionFollowUp');
 const { triggerGhlProspectSync } = require('./ghlProspectSync');
 
@@ -14,13 +18,25 @@ function isWarmReplyBody(text) {
   return true;
 }
 
+function messageIdSeen(updates, messageId) {
+  const id = String(messageId || '').trim();
+  if (!id) return false;
+  return (updates || []).some((u) => {
+    if (!u || typeof u !== 'object') return false;
+    return [u.messageSid, u.ghlMessageId, u.commsMessageId]
+      .map((x) => String(x || '').trim())
+      .includes(id);
+  });
+}
+
 /**
- * @param {{ lead: object, workspaceId: string, channel: 'sms'|'email', body: string, messageId?: string, ghlContactId?: string, conversationId?: string, timestamp?: string }} ctx
+ * @param {{ lead: object, workspaceId: string, channel: 'sms'|'email', body: string, messageId?: string, provider?: string, commsChannel?: string, ghlContactId?: string, conversationId?: string, timestamp?: string }} ctx
  */
 async function handleInboundReply(ctx) {
   const lead = ctx.lead;
   const workspaceId = String(ctx.workspaceId || lead.workspaceId || '').trim();
   const channel = ctx.channel === 'email' ? 'email' : 'sms';
+  const provider = String(ctx.provider || 'ghl').trim() || 'ghl';
   const body = String(ctx.body || '').trim();
   if (!lead || !lead.key || !workspaceId) {
     return { applied: false, reason: 'missing_context' };
@@ -31,27 +47,35 @@ async function handleInboundReply(ctx) {
 
   const updates = Array.isArray(lead.updates) ? [...lead.updates] : [];
   const messageId = String(ctx.messageId || '').trim();
-  if (
-    messageId &&
-    updates.some(
-      (u) => String((u && (u.messageSid || u.ghlMessageId)) || '').trim() === messageId,
-    )
-  ) {
+  if (messageId && messageIdSeen(updates, messageId)) {
     return { applied: false, reason: 'duplicate' };
   }
 
+  const atIso = ctx.timestamp || new Date().toISOString();
   const entryType = channel === 'email' ? 'email_inbound' : 'sms_inbound';
+  const signalType = channel === 'email' ? 'email_reply' : 'sms_reply';
+  const commsChannel = String(ctx.commsChannel || '').trim().toLowerCase();
+
   updates.push({
-    timestamp: ctx.timestamp || new Date().toISOString(),
+    timestamp: atIso,
     type: entryType,
     value: body.slice(0, 2000),
     messageSid: messageId,
-    ghlMessageId: messageId,
-    provider: 'ghl',
+    ghlMessageId: provider === 'ghl' ? messageId : '',
+    commsMessageId: provider === 'comms' ? messageId : '',
+    provider,
+    channel: commsChannel || channel,
     ghlContactId: ctx.ghlContactId || lead.ghlContactId || '',
     conversationId: ctx.conversationId || '',
     reply: true,
   });
+  updates.push(
+    buildEngagementUpdateEntry(signalType, atIso, {
+      provider,
+      messageId,
+    }),
+  );
+
   const hadActive =
     lead.sequenceState &&
     lead.sequenceState.status === 'active' &&
@@ -65,12 +89,18 @@ async function handleInboundReply(ctx) {
     }
   }
 
-  const now = new Date();
+  const now = new Date(atIso);
   const respondBy = new Date(now.getTime() + 15 * 60 * 1000).toISOString();
   const ws = (await dbService.getWorkspace(workspaceId)) || { id: workspaceId };
   const ownerEmail = resolveTaskOwnerEmail(lead, ws);
 
-  const signalType = channel === 'email' ? 'email_reply' : 'sms_reply';
+  const channelLabel =
+    commsChannel === 'imessage'
+      ? 'iMessage'
+      : provider === 'comms'
+        ? 'SMS (Comms)'
+        : channel;
+
   const patch = {
     status: 'Connected - Follow Up',
     lastDisposition: 'connected',
@@ -78,12 +108,12 @@ async function handleInboundReply(ctx) {
     lastTouchChannel: channel,
     nextActionAt: respondBy,
     ghlContactId: lead.ghlContactId || ctx.ghlContactId || undefined,
-    engagementSignals: recordEngagementSignals(lead.engagementSignals, signalType, now.toISOString()),
+    engagementSignals: recordEngagementSignals(lead.engagementSignals, signalType, atIso),
     updates,
     logs: [
       {
         type: 'inbound_reply',
-        message: `Inbound ${channel} reply — cadence paused, follow-up scheduled.`,
+        message: `Inbound ${channelLabel} reply — cadence paused, follow-up scheduled.`,
         timestamp: now.toISOString(),
       },
     ],
@@ -109,13 +139,15 @@ async function handleInboundReply(ctx) {
 
   const updated = await dbService.updateLead(lead.key, patch, workspaceId);
 
-  try {
-    triggerGhlProspectSync(lead.key, workspaceId, {
-      trigger: `inbound_reply:${channel}`,
-      note: `Inbound ${channel} reply:\n${body.slice(0, 500)}`,
-    });
-  } catch (_) {
-    /* non-fatal */
+  if (provider === 'ghl') {
+    try {
+      triggerGhlProspectSync(lead.key, workspaceId, {
+        trigger: `inbound_reply:${channel}`,
+        note: `Inbound ${channel} reply:\n${body.slice(0, 500)}`,
+      });
+    } catch (_) {
+      /* non-fatal */
+    }
   }
 
   return {
@@ -129,4 +161,5 @@ async function handleInboundReply(ctx) {
 module.exports = {
   handleInboundReply,
   isWarmReplyBody,
+  messageIdSeen,
 };

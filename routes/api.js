@@ -21,6 +21,7 @@ const inboundForwardStats = require('../services/inboundForwardStats');
 const ghlSync = require('../services/ghlSync');
 const commsClient = require('../services/commsClient');
 const commsSync = require('../services/commsSync');
+const lobWebhook = require('../services/lobWebhook');
 
 async function routeLeadAfterIngest(leadKey, workspaceId, source) {
   const wid = workspaceId || 'default';
@@ -111,6 +112,27 @@ async function commsWebhookAuthorized(req) {
   const ws = await dbService.getWorkspace(wid);
   const plain = workspaceIntegrations.decryptedFromWorkspace(ws);
   const wsSecret = String(plain.commsWebhookSecret || '').trim();
+  return !!(wsSecret && token === wsSecret);
+}
+
+async function lobWebhookAuthorized(req) {
+  const token = String(
+    (req.query && req.query.token) ||
+      req.headers['x-lob-webhook-token'] ||
+      req.headers['x-api-key'] ||
+      '',
+  ).trim();
+  if (!token) return false;
+
+  const globalSecret = String(process.env.LOB_WEBHOOK_SECRET || '').trim();
+  const ingestKey = String(process.env.API_INGEST_KEY || 'adhello_secret_123').trim();
+  if (globalSecret && token === globalSecret) return true;
+  if (token === ingestKey) return true;
+
+  const wid = workspaceIdFromReq(req);
+  const ws = await dbService.getWorkspace(wid);
+  const plain = workspaceIntegrations.decryptedFromWorkspace(ws);
+  const wsSecret = String(plain.lobWebhookSecret || '').trim();
   return !!(wsSecret && token === wsSecret);
 }
 
@@ -368,6 +390,25 @@ router.post('/webhooks/comms', express.json(), async (req, res, next) => {
     const workspaceId = workspaceIdFromReq(req);
     const body = req.body || {};
     const result = await commsSync.processWebhook(body, { workspaceId });
+    return res.json({ success: true, ...result });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/webhooks/lob
+ * Lob postcard.viewed (QR scan) → lead engagement signal.
+ * Auth: ?token=LOB_WEBHOOK_SECRET or x-lob-webhook-token (or workspace lobWebhookSecret).
+ */
+router.post('/webhooks/lob', express.json(), async (req, res, next) => {
+  try {
+    if (!(await lobWebhookAuthorized(req))) {
+      return res.status(401).json({ error: 'Unauthorized: invalid webhook token' });
+    }
+    const workspaceId = workspaceIdFromReq(req);
+    const body = req.body || {};
+    const result = await lobWebhook.processLobWebhook(body, { workspaceId });
     return res.json({ success: true, ...result });
   } catch (err) {
     next(err);

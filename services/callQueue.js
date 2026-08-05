@@ -22,6 +22,7 @@ function hasRecentSignal(lead, windowDays, nowMs) {
     s.smsRepliedAt,
     s.emailRepliedAt,
     s.linkClickedAt,
+    s.mailScannedAt,
     s.auditOpenedAt,
     s.emailOpenedAt,
     s.lastSignalAt,
@@ -36,6 +37,7 @@ function primarySignalType(lead) {
   if (s.smsRepliedAt) return 'sms_reply';
   if (s.emailRepliedAt) return 'email_reply';
   if (s.linkClickedAt) return 'link_click';
+  if (s.mailScannedAt) return 'mail_scan';
   if (s.auditOpenedAt) return 'audit_open';
   if (s.emailOpenedAt) return 'email_open';
   return s.lastSignalType || 'engagement';

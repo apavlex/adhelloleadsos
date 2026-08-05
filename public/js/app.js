@@ -302,6 +302,7 @@ document.addEventListener('DOMContentLoaded', () => {
       state: 'state',
       listingSource: 'listingsource',
       lastTouch: 'lasttouch',
+      engagementSignal: 'engagement',
       cadence: 'cadence',
       category: 'category',
       reviews: 'reviews',
@@ -396,6 +397,13 @@ document.addEventListener('DOMContentLoaded', () => {
         case 'lasttouch': {
           const ta = parseInt(a.lastTouchMs, 10) || 0;
           const tb = parseInt(b.lastTouchMs, 10) || 0;
+          c = ta - tb;
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        }
+        case 'engagement': {
+          const ta = parseInt(a.engagementSignalMs, 10) || 0;
+          const tb = parseInt(b.engagementSignalMs, 10) || 0;
           c = ta - tb;
           if (c === 0) c = cmpStr(a.title || '', b.title || '');
           break;
@@ -6469,7 +6477,13 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if (L.engagementSignals.lastSignalAt) {
         ds.engagementSignalAt = String(L.engagementSignals.lastSignalAt || '').trim();
+        const ms = Date.parse(ds.engagementSignalAt);
+        ds.engagementSignalMs = Number.isFinite(ms) ? String(ms) : '0';
       }
+    }
+    if (L.engagementSignalAt != null && !ds.engagementSignalMs) {
+      const ms = Date.parse(String(L.engagementSignalAt || '').trim());
+      ds.engagementSignalMs = Number.isFinite(ms) ? String(ms) : '0';
     }
     if (L.lastContactHuntAt != null) {
       ds.lastContactHuntAt = String(L.lastContactHuntAt || '').trim();
@@ -8984,7 +8998,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (f === 'engagement') {
       if (typ === 'engagement_signal') return true;
       if (typ === 'sms_inbound' || typ === 'email_inbound') return true;
-      return /\b(email open|link click|sms reply|email reply|audit open|engagement)\b/i.test(blob);
+      return /\b(email open|link click|sms reply|email reply|audit open|qr scan|postcard|mail scan|engagement)\b/i.test(blob);
     }
     if (f === 'merges') {
       return false;
