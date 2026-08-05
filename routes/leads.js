@@ -46,7 +46,7 @@ const { scoreLeadRecord } = require('../services/opportunityScore');
 const { chatCompletion, parseLlmJson } = require('../services/llmClient');
 const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
 const { upsertOpenTaskForLead } = require('../services/userTasks');
-const { resolveFollowUpForDisposition } = require('../services/dispositionFollowUp');
+const { applyLeadDisposition, applyAutoNoAnswerAfterDial } = require('../services/leadDispositionApply');
 const {
   displayStatus,
   applyLeadListFilters,
@@ -797,7 +797,7 @@ async function logLeadOutboundCallInitiated(req, fullKey, lead, opts = {}) {
     to: opts.normalizedTo,
   });
   const contactedPatch = await buildContactedStagePatch(lead, req.workspaceId);
-  return dbService.updateLead(fullKey, {
+  let updated = await dbService.updateLead(fullKey, {
     ...contactedPatch,
     status: opts.status || 'Called Lead',
     updates,
@@ -809,6 +809,19 @@ async function logLeadOutboundCallInitiated(req, fullKey, lead, opts = {}) {
       },
     ],
   });
+  if (opts.skipAutoDisposition) return updated;
+  try {
+    updated = await applyAutoNoAnswerAfterDial({
+      workspaceId: req.workspaceId,
+      userEmail: userEmail(req),
+      fullKey,
+      lead: updated,
+      deferGhlSync: true,
+    });
+  } catch (e) {
+    console.warn('[dial] auto no-answer disposition failed:', e && e.message);
+  }
+  return updated;
 }
 
 function normalizeVoicemailLibrary(raw) {
@@ -936,150 +949,28 @@ router.post('/:key/disposition', async (req, res, next) => {
     const skipFollowUp = !!(req.body && req.body.skipFollowUp);
     if (!code) return res.status(400).json({ success: false, error: 'Disposition code is required.' });
 
-    const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
-    const now = new Date();
-    const patch = {};
-    let status = lead.status || 'Not Contacted';
-    let nextStep = '';
-    let automation = '';
-    if (code === 'connected') {
-      status = 'Connected - Follow Up';
-      nextStep = 'Send a concise recap with next step.';
-    } else if (code === 'no_answer') {
-      status = 'No Answer';
-      const numbers = workspaceCallerNumbers(ws);
-      const active = resolveWorkspaceCallerNumber(ws);
-      const alternate = numbers.find((n) => n && n !== active) || '';
-      if (alternate) {
-        patch.nextCallerId = alternate;
-        automation = `Retry queued in 18h using alternate caller ID ${alternate}.`;
-      } else {
-        automation = 'Retry queued in 18h.';
-      }
-      nextStep = 'Retry in the next window.';
-    } else if (code === 'voicemail') {
-      status = 'Voicemail Left';
-      const auto = await autoAttachCadenceIfNeeded({ leadKey: fullKey, workspaceId: req.workspaceId });
-      automation = auto && auto.attached ? `Follow-up cadence queued (${auto.templateId}).` : 'Follow-up cadence already active.';
-      nextStep = 'Run immediate day-0 follow-up email task.';
-    } else if (code === 'callback') {
-      status = 'Callback Requested';
-      nextStep = 'Confirm callback window and prepare notes.';
-    } else if (code === 'gatekeeper') {
-      status = 'Gatekeeper';
-      patch.scriptVariant = 'gatekeeper_bypass';
-      automation = 'Switched to gatekeeper bypass script variant.';
-      nextStep = 'Use gatekeeper bypass opener on next touch.';
-    } else if (code === 'site_audit') {
-      status = 'Follow-up';
-      patch.lastTouchChannel = 'hosted_audit';
-      automation = 'Site audit tagged for GHL follow-up.';
-      nextStep = 'Deliver or confirm site audit review; follow up after they open it.';
-    } else if (code === 'not_interested') {
-      status = 'Closed - Lost';
-      automation = 'Tagged not interested in GHL.';
-      nextStep = 'Archive or remove from active prospecting lists.';
-    } else if (code === 'send_info') {
-      status = 'Email Sent';
-      patch.lastTouchChannel = 'email';
-      automation = 'Send-info action tagged for GHL follow-up.';
-      nextStep = 'Confirm info was sent and schedule a review follow-up.';
-    } else if (code === 'wrong_number') {
-      status = 'Bad Number';
-      patch.needsReenrichment = true;
-      automation = 'Lead flagged for re-enrichment and alternate contact lookup.';
-      nextStep = 'Run contact enrichment before next dial.';
-    }
-    patch.status = status;
-    patch.lastDisposition = code;
-    patch.lastDispositionAt = new Date().toISOString();
-    if (notes) patch.lastDispositionNotes = notes.slice(0, 2000);
-    if (code === 'callback' || code === 'connected' || code === 'gatekeeper') {
-      patch.lastTouchChannel = 'call';
-    } else if (code === 'voicemail') {
-      patch.lastTouchChannel = 'email';
-    }
-    const updates = appendLeadUpdate(lead, {
-      type: 'call_disposition',
-      value: `Disposition: ${humanizeDisposition(code)}${notes ? ` — ${notes}` : ''}`,
+    const result = await applyLeadDisposition({
+      workspaceId: req.workspaceId,
+      userEmail: userEmail(req),
+      fullKey,
+      lead,
       code,
       notes,
-      automation,
-    });
-    patch.updates = updates;
-    patch.logs = [
-      {
-        type: 'call_disposition',
-        message: `Disposition set to ${humanizeDisposition(code)}${automation ? ` · ${automation}` : ''}`,
-        timestamp: new Date().toISOString(),
-      },
-    ];
-    if (code === 'connected' || code === 'callback') {
-      try {
-        await sequenceEngine.pauseSequence(fullKey);
-      } catch (_) {
-        /* ignore */
-      }
-    }
-
-    const followUp = resolveFollowUpForDisposition(code, {
-      scheduledAt: clientScheduledAt || undefined,
+      scheduledAt: clientScheduledAt,
       skipFollowUp,
-      lead,
-      notes,
-      now,
+      deferGhlSync: !!(req.body && req.body.deferGhlSync),
+      source: 'api',
     });
-    let followUpTask = null;
-    let scheduledAt = followUp.scheduledAt;
-    if (!followUp.skipFollowUp && followUp.scheduledAt && followUp.taskTitle) {
-      patch.nextActionAt = followUp.scheduledAt;
-      if (code === 'callback') {
-        patch.redialBlockedUntil = followUp.scheduledAt;
-      }
-      try {
-        followUpTask = await upsertOpenTaskForLead(req.workspaceId, userEmail(req), {
-          title: followUp.taskTitle,
-          column: 'todo',
-          scheduledAt: followUp.scheduledAt,
-          leadKey: fullKey,
-          preferredTaskId: code === 'callback' ? lead.callbackTaskId || null : null,
-        });
-        if (code === 'callback' && followUpTask && followUpTask.id) {
-          patch.callbackTaskId = followUpTask.id;
-        }
-        if (code === 'callback') {
-          automation = 'Callback task updated and redial paused until follow-up window.';
-        } else if (!automation) {
-          automation = 'Follow-up task scheduled.';
-        } else {
-          automation = `${automation} Follow-up task scheduled.`;
-        }
-      } catch (taskErr) {
-        console.warn('[disposition] follow-up task failed:', taskErr && taskErr.message);
-      }
-    }
 
-    if (patch.logs && patch.logs[0]) {
-      patch.logs[0].message = `Disposition set to ${humanizeDisposition(code)}${automation ? ` · ${automation}` : ''}`;
-    }
-
-    const updated = await dbService.updateLead(fullKey, patch, req.workspaceId);
-    const deferGhlSync = !!(req.body && req.body.deferGhlSync);
-    if (!deferGhlSync) {
-      triggerGhlProspectSync(fullKey, req.workspaceId, {
-        trigger: `disposition:${code}`,
-        note: notes ? `Disposition: ${humanizeDisposition(code)}\n${notes}` : '',
-      });
-    }
     return res.json({
       success: true,
-      lead: updated,
-      status,
-      nextStep,
-      automation,
-      followUpTask,
-      scheduledAt,
-      skipFollowUp: followUp.skipFollowUp,
+      lead: result.lead,
+      status: result.status,
+      nextStep: result.nextStep,
+      automation: result.automation,
+      followUpTask: result.followUpTask,
+      scheduledAt: result.scheduledAt,
+      skipFollowUp: result.skipFollowUp,
     });
   } catch (err) {
     next(err);
@@ -1385,7 +1276,7 @@ router.post('/:key/call', async (req, res, next) => {
         provider: 'device',
       });
       const contactedPatch = await buildContactedStagePatch(lead, req.workspaceId);
-      const updatedLead = await dbService.updateLead(fullKey, {
+      let updatedLead = await dbService.updateLead(fullKey, {
         ...contactedPatch,
         status: 'Call Started (Device)',
         updates,
@@ -1397,6 +1288,16 @@ router.post('/:key/call', async (req, res, next) => {
           },
         ],
       });
+      try {
+        updatedLead = await applyAutoNoAnswerAfterDial({
+          workspaceId: req.workspaceId,
+          userEmail: userEmail(req),
+          fullKey,
+          lead: updatedLead,
+        });
+      } catch (e) {
+        console.warn('[dial] auto no-answer disposition failed:', e && e.message);
+      }
       return res.json({
         success: true,
         dialMode: 'browser_device',
@@ -1491,24 +1392,10 @@ router.post('/:key/call', async (req, res, next) => {
       });
     }
 
-    const updates = appendLeadUpdate(lead, {
-      type: 'call_outbound',
-      value: `Outbound call initiated (${lead.phone || 'unknown number'}).`,
+    const updatedLead = await logLeadOutboundCallInitiated(req, fullKey, lead, {
       callSid: call.sid || '',
-      provider: 'signalwire',
-    });
-    const contactedPatch = await buildContactedStagePatch(lead, req.workspaceId);
-    const updatedLead = await dbService.updateLead(fullKey, {
-      ...contactedPatch,
-      status: 'Called Lead',
-      updates,
-      logs: [
-        {
-          type: 'call_outbound',
-          message: `SignalWire call initiated (${call.sid || 'no sid'})`,
-          timestamp: new Date().toISOString(),
-        },
-      ],
+      normalizedTo,
+      logMessage: `SignalWire call initiated (${call.sid || 'no sid'})`,
     });
     res.json({
       success: true,

@@ -4,6 +4,7 @@
 
 const { scoreLeadRecord } = require('./opportunityScore');
 const { scoreLocalProspect, prospectTierSortRank } = require('./localProspectScore');
+const { isLeadDeferredForRetry } = require('./dialRetryPrefs');
 
 function isOverdueCadence(l) {
   const st = l.sequenceState;
@@ -33,7 +34,9 @@ function stage2AgingOver3Days(l) {
   return Date.now() - last > 3 * 86400000;
 }
 
-function priorityBucket(l) {
+function priorityBucket(l, opts = {}) {
+  const queueMode = opts.queueMode || 'continue_list';
+  if (isLeadDeferredForRetry(l, queueMode)) return 6;
   if (isOverdueCadence(l)) return 0;
   const lp = scoreLocalProspect(l);
   if (lp.prospectTier === 'Skip') return 5;
@@ -46,30 +49,38 @@ function priorityBucket(l) {
   return 4;
 }
 
-function sortKey(l) {
+function sortKey(l, opts = {}) {
   const lpRank = prospectTierSortRank(scoreLocalProspect(l).prospectTier);
   const { score } = scoreLeadRecord(l);
-  const bucket = priorityBucket(l);
+  const bucket = priorityBucket(l, opts);
   const last = lastActivityMs(l);
   const due = l.sequenceState && l.sequenceState.nextDueAt ? Date.parse(l.sequenceState.nextDueAt) : 0;
+  const retryAt = l.nextActionAt ? Date.parse(l.nextActionAt) : Infinity;
   if (bucket === 0) return { bucket, a: due, b: -score, c: lpRank };
   if (bucket === 1) return { bucket, a: 0, b: last, c: lpRank };
   if (bucket === 2) return { bucket, a: 0, b: -score, c: lpRank };
   if (bucket === 3) return { bucket, a: 0, b: last, c: lpRank };
   if (bucket === 5) return { bucket, a: 0, b: 0, c: lpRank };
+  if (bucket === 6) return { bucket, a: retryAt, b: last, c: lpRank };
   return { bucket, a: 0, b: last, c: lpRank };
 }
 
 /**
  * @param {object[]} leads — workspace-visible leads (e.g. after excludeOutreachFolderLeads)
  * @param {number} cap
+ * @param {{ queueMode?: string }} [opts]
  * @returns {object[]} same lead objects, ordered for Focus Mode
  */
-function buildFocusQueue(leads, cap = 200) {
-  const list = Array.isArray(leads) ? [...leads] : [];
+function buildFocusQueue(leads, cap = 200, opts = {}) {
+  const queueMode = opts.queueMode || 'continue_list';
+  let list = Array.isArray(leads) ? [...leads] : [];
+  if (queueMode === 'retry_when_due') {
+    const now = Date.now();
+    list = list.filter((l) => !isLeadDeferredForRetry(l, 'continue_list', now));
+  }
   list.sort((x, y) => {
-    const sx = sortKey(x);
-    const sy = sortKey(y);
+    const sx = sortKey(x, opts);
+    const sy = sortKey(y, opts);
     if (sx.bucket !== sy.bucket) return sx.bucket - sy.bucket;
     if (sx.a !== sy.a) return sx.a - sy.a;
     if (sx.c !== sy.c) return sx.c - sy.c;

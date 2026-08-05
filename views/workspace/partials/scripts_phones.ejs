@@ -10,6 +10,26 @@
   var perNumberHourCapInput = document.getElementById('wsPerNumberHourCap');
   var quietStartInput = document.getElementById('wsQuietStart');
   var quietEndInput = document.getElementById('wsQuietEnd');
+  var dialRetryAutoInput = document.getElementById('wsDialRetryAutoNoAnswer');
+  var dialRetryScheduleInput = document.getElementById('wsDialRetrySchedule');
+  var dialRetryAtHourInput = document.getElementById('wsDialRetryAtHour');
+  var dialRetryHoursWrap = document.getElementById('wsDialRetryHoursWrap');
+  var dialRetryDaysWrap = document.getElementById('wsDialRetryDaysWrap');
+  var dialRetryDelayHoursInput = document.getElementById('wsDialRetryDelayHours');
+  var dialRetryDelayDaysInput = document.getElementById('wsDialRetryDelayDays');
+  function syncDialRetryCustomFields() {
+    var sched = dialRetryScheduleInput ? String(dialRetryScheduleInput.value || '') : '18h';
+    if (dialRetryHoursWrap) dialRetryHoursWrap.classList.toggle('hidden', sched !== 'custom_hours');
+    if (dialRetryDaysWrap) dialRetryDaysWrap.classList.toggle('hidden', sched !== 'custom_days');
+  }
+  function getDialRetryQueueMode() {
+    var r = document.querySelector('input[name="wsDialRetryQueueMode"]:checked');
+    return r ? String(r.value || 'continue_list').trim() : 'continue_list';
+  }
+  if (dialRetryScheduleInput) {
+    dialRetryScheduleInput.addEventListener('change', syncDialRetryCustomFields);
+    syncDialRetryCustomFields();
+  }
   function formatEta(ms) {
     if (ms <= 0) return '00:00';
     var totalMin = Math.ceil(ms / 60000);
@@ -184,6 +204,12 @@
         perNumberHourCap: perNumberHourCapInput ? String(perNumberHourCapInput.value || '').trim() : '',
         quietHoursStart: quietStartInput ? String(quietStartInput.value || '').trim() : '',
         quietHoursEnd: quietEndInput ? String(quietEndInput.value || '').trim() : '',
+        dialRetryAutoNoAnswer: dialRetryAutoInput ? !!dialRetryAutoInput.checked : true,
+        dialRetrySchedule: dialRetryScheduleInput ? String(dialRetryScheduleInput.value || '18h') : '18h',
+        dialRetryDelayHours: dialRetryDelayHoursInput ? String(dialRetryDelayHoursInput.value || '18') : '18',
+        dialRetryDelayDays: dialRetryDelayDaysInput ? String(dialRetryDelayDaysInput.value || '3') : '3',
+        dialRetryAtHour: dialRetryAtHourInput ? String(dialRetryAtHourInput.value || '10') : '10',
+        dialRetryQueueMode: getDialRetryQueueMode(),
       }),
     }).then(function (r) { return r.json(); }).then(function (data) {
       if (msg) {

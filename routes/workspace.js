@@ -39,6 +39,7 @@ const {
 const { CARS_REACH_SPECIALTIES } = require('../config/carsReachScripts');
 const { UPWORK_PROPOSAL_SERVICES } = require('../config/upworkProposalServices');
 const signalwire = require('../services/signalwire');
+const { parseDialRetryFromBody } = require('../services/dialRetryPrefs');
 const inboundForwardStats = require('../services/inboundForwardStats');
 const {
   sanitizeBlockOverrides,
@@ -1040,7 +1041,13 @@ router.post('/settings', express.json(), async (req, res) => {
         Object.prototype.hasOwnProperty.call(req.body, 'leadCallerId') ||
         Object.prototype.hasOwnProperty.call(req.body, 'perNumberHourCap') ||
         Object.prototype.hasOwnProperty.call(req.body, 'quietHoursStart') ||
-        Object.prototype.hasOwnProperty.call(req.body, 'quietHoursEnd'))
+        Object.prototype.hasOwnProperty.call(req.body, 'quietHoursEnd') ||
+        Object.prototype.hasOwnProperty.call(req.body, 'dialRetryAutoNoAnswer') ||
+        Object.prototype.hasOwnProperty.call(req.body, 'dialRetrySchedule') ||
+        Object.prototype.hasOwnProperty.call(req.body, 'dialRetryDelayHours') ||
+        Object.prototype.hasOwnProperty.call(req.body, 'dialRetryDelayDays') ||
+        Object.prototype.hasOwnProperty.call(req.body, 'dialRetryAtHour') ||
+        Object.prototype.hasOwnProperty.call(req.body, 'dialRetryQueueMode'))
     ) {
       const telephony = ws.telephony && typeof ws.telephony === 'object' ? { ...ws.telephony } : {};
       if (
@@ -1134,6 +1141,13 @@ router.post('/settings', express.json(), async (req, res) => {
           return res.status(400).json({ success: false, error: 'Quiet hours end must be HH:MM.' });
         }
         telephony.quietHoursEnd = s.length === 4 ? `0${s}` : s;
+      }
+      const dialRetryPatch = parseDialRetryFromBody(req.body);
+      if (dialRetryPatch) {
+        telephony.dialRetry = {
+          ...(telephony.dialRetry && typeof telephony.dialRetry === 'object' ? telephony.dialRetry : {}),
+          ...dialRetryPatch,
+        };
       }
       ws.telephony = telephony;
     }

@@ -17,6 +17,7 @@ const { buildWeekReview } = require('../services/weekReview');
 const { getWorkspaceIcp } = require('../services/workspaceIcp');
 const { buildCadenceQueue } = require('../services/cadenceQueue');
 const { buildTodayContactQueue } = require('../services/todayContactQueue');
+const { resolveDialRetryPrefs } = require('../services/dialRetryPrefs');
 const { buildNextActionsQueue } = require('../services/nextActionsQueue');
 const { filterBusinessPipelineLeads } = require('../services/leadListFilters');
 const { dedupeOpenLeadTasks } = require('../services/userTasks');
@@ -129,7 +130,10 @@ router.get('/', async (req, res, next) => {
 
     const baseUrl = `${req.protocol}://${req.get('host')}`.replace(/\/$/, '');
     const cadenceQueue = buildCadenceQueue(businessLeads, baseUrl);
-    const contactQueue = buildTodayContactQueue(businessLeads, baseUrl, 20);
+    const dialRetry = resolveDialRetryPrefs(workspaceDoc && workspaceDoc.telephony);
+    const contactQueue = buildTodayContactQueue(businessLeads, baseUrl, 20, {
+      queueMode: dialRetry.queueMode,
+    });
     const since24 = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const reportViewsRaw = await dbService.listReportViewsForWorkspaceSince(req.workspaceId, since24, 600);
     const byLead = new Map();

@@ -11,6 +11,7 @@ const {
 } = require('../services/trackerStats');
 const { loadDailyTouchGoal, saveDailyTouchGoal } = require('../services/touchGoalPrefs');
 const { buildFocusQueue, shortLeadKey, lastActivityMs } = require('../services/focusQueue');
+const { resolveDialRetryPrefs } = require('../services/dialRetryPrefs');
 const { scoreLeadRecord } = require('../services/opportunityScore');
 
 const pipelineStagesService = require('../services/pipelineStagesService');
@@ -180,7 +181,8 @@ router.get('/queue.json', async (req, res, next) => {
     const pipelineLeads = filterBusinessPipelineLeads(visible);
     const stageRows = await pipelineStagesService.ensureWorkspaceStagesSeeded(req.workspaceId);
     const sortedStages = [...stageRows].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
-    const ordered = buildFocusQueue(pipelineLeads);
+    const dialRetry = resolveDialRetryPrefs(ws.telephony);
+    const ordered = buildFocusQueue(pipelineLeads, 200, { queueMode: dialRetry.queueMode });
     const queue = ordered
       .map((l) => leadToFocusPayload(l, sortedStages, offerBundle.library, offerBundle.keys))
       .filter((item) => {
@@ -269,6 +271,7 @@ router.get('/', async (req, res, next) => {
     const pipelineLeads = filterBusinessPipelineLeads(visible);
     const stageRows = await pipelineStagesService.ensureWorkspaceStagesSeeded(req.workspaceId);
     const sortedStages = [...stageRows].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+    const dialRetry = resolveDialRetryPrefs(ws.telephony);
     const selectedKeyOrder = parseBulkSelectionKeys(req.query.keys);
     const preferShortKey = String(req.query.lead || req.query.leadId || '')
       .trim()
@@ -287,7 +290,7 @@ router.get('/', async (req, res, next) => {
       // Single-lead opens (navbar search) skip business-only filter so foldered picks still load.
       ordered = bulkSelection ? filterBusinessPipelineLeads(resolved) : resolved;
     } else {
-      ordered = buildFocusQueue(pipelineLeads);
+      ordered = buildFocusQueue(pipelineLeads, 200, { queueMode: dialRetry.queueMode });
     }
     const queue = ordered.map((l) =>
       leadToFocusPayload(l, sortedStages, offerBundle.library, offerBundle.keys),

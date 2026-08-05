@@ -1229,6 +1229,11 @@
           });
         })
         .then(function (data) {
+          if (data && data.lead) {
+            Object.assign(lead, data.lead);
+            hydrateFocusQuickLogFromLead(lead);
+            syncFollowupStripForOutcome(elOutcome ? elOutcome.value : '');
+          }
           var dialMode = String((data && data.dialMode) || '').trim();
           var phone = String((data && data.phone) || (lead.phone || '')).replace(/[^\d+]/g, '');
           if (dialMode === 'browser_device' && phone) {

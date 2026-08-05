@@ -7,6 +7,15 @@
 <% const _activeFrom = (_tp.activeFromNumber || '').toString(); %>
 <% const _callMode = (_tp.callMode || 'cloud_dial').toString(); %>
 <% const _pacing = _tp && _tp.dialerPacing && typeof _tp.dialerPacing === 'object' ? _tp.dialerPacing : {}; %>
+<% const _drRaw = _tp.dialRetry && typeof _tp.dialRetry === 'object' ? _tp.dialRetry : {}; %>
+<% const _dr = {
+  autoNoAnswerOnDial: _drRaw.autoNoAnswerOnDial !== false,
+  retrySchedule: (_drRaw.retrySchedule || '18h').toString(),
+  retryDelayHours: parseInt(_drRaw.retryDelayHours, 10) || 18,
+  retryDelayDays: parseInt(_drRaw.retryDelayDays, 10) || 3,
+  retryAtHourLocal: parseInt(_drRaw.retryAtHourLocal, 10) || 10,
+  queueMode: (_drRaw.queueMode || 'continue_list').toString()
+}; %>
 <% const _pEvents = Array.isArray(_pacing.events) ? _pacing.events : []; %>
 <% const _pBurned = _pacing.burned && typeof _pacing.burned === 'object' ? _pacing.burned : {}; %>
 <%
@@ -93,6 +102,61 @@
       </label>
     </div>
     <p class="text-[10px] text-brand-muted mt-2">Caller IDs rotate automatically, numbers over cap are throttled, and low-answer numbers cool down before reuse.</p>
+  </div>
+
+  <div class="mb-6 rounded-xl border border-brand-border/30 dark:border-white/10 bg-brand-cream/15 dark:bg-slate-800/40 p-4">
+    <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">After every dial</p>
+    <label class="flex items-start gap-3 mb-4 cursor-pointer">
+      <input type="checkbox" id="wsDialRetryAutoNoAnswer" class="mt-1 rounded border-brand-border" <%= _dr.autoNoAnswerOnDial ? 'checked' : '' %> />
+      <span class="text-sm text-brand-dark dark:text-white">
+        Auto-tag as <strong>No pickup</strong> and schedule a retry task
+        <span class="block text-[11px] text-brand-muted mt-1 font-normal">Runs when a call is placed from Focus, pipeline, or softphone. You can still change the outcome before logging.</span>
+      </span>
+    </label>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+      <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Retry timing
+        <select id="wsDialRetrySchedule" class="mt-1 w-full rounded-xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs">
+          <option value="18h" <%= _dr.retrySchedule === '18h' ? 'selected' : '' %>>18 hours (same day / next morning)</option>
+          <option value="1d" <%= _dr.retrySchedule === '1d' ? 'selected' : '' %>>1 day at set hour</option>
+          <option value="3d" <%= _dr.retrySchedule === '3d' ? 'selected' : '' %>>3 days at set hour</option>
+          <option value="7d" <%= _dr.retrySchedule === '7d' ? 'selected' : '' %>>7 days at set hour</option>
+          <option value="custom_hours" <%= _dr.retrySchedule === 'custom_hours' ? 'selected' : '' %>>Custom hours</option>
+          <option value="custom_days" <%= _dr.retrySchedule === 'custom_days' ? 'selected' : '' %>>Custom days</option>
+        </select>
+      </label>
+      <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Retry at hour (day-based)
+        <select id="wsDialRetryAtHour" class="mt-1 w-full rounded-xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs">
+          <% for (var _h = 6; _h <= 20; _h++) { %>
+          <option value="<%= _h %>" <%= _dr.retryAtHourLocal === _h ? 'selected' : '' %>><%= (_h % 12 || 12) %>:00 <%= _h < 12 ? 'AM' : 'PM' %></option>
+          <% } %>
+        </select>
+      </label>
+      <label id="wsDialRetryHoursWrap" class="text-[10px] font-black uppercase tracking-widest text-brand-muted <%= _dr.retrySchedule === 'custom_hours' ? '' : 'hidden' %>">Custom hours
+        <input id="wsDialRetryDelayHours" type="number" min="1" max="720" step="1" value="<%= _dr.retryDelayHours %>" class="mt-1 w-full rounded-xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs" />
+      </label>
+      <label id="wsDialRetryDaysWrap" class="text-[10px] font-black uppercase tracking-widest text-brand-muted <%= _dr.retrySchedule === 'custom_days' ? '' : 'hidden' %>">Custom days
+        <input id="wsDialRetryDelayDays" type="number" min="1" max="90" step="1" value="<%= _dr.retryDelayDays %>" class="mt-1 w-full rounded-xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs" />
+      </label>
+    </div>
+    <fieldset>
+      <legend class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Focus queue while waiting to retry</legend>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <label class="relative flex flex-col cursor-pointer">
+          <input type="radio" name="wsDialRetryQueueMode" value="continue_list" class="peer sr-only" <%= _dr.queueMode === 'continue_list' ? 'checked' : '' %> />
+          <div class="rounded-2xl border-2 border-brand-border/50 dark:border-white/10 bg-white/60 dark:bg-slate-900/45 p-4 peer-checked:border-brand-yellow peer-checked:ring-2 peer-checked:ring-brand-yellow/40">
+            <p class="text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white">Continue the list first</p>
+            <p class="text-[11px] text-brand-muted mt-1">Keep dialing new leads; retries move to the back until due.</p>
+          </div>
+        </label>
+        <label class="relative flex flex-col cursor-pointer">
+          <input type="radio" name="wsDialRetryQueueMode" value="retry_when_due" class="peer sr-only" <%= _dr.queueMode === 'retry_when_due' ? 'checked' : '' %> />
+          <div class="rounded-2xl border-2 border-brand-border/50 dark:border-white/10 bg-white/60 dark:bg-slate-900/45 p-4 peer-checked:border-brand-yellow peer-checked:ring-2 peer-checked:ring-brand-yellow/40">
+            <p class="text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white">Hide until retry is due</p>
+            <p class="text-[11px] text-brand-muted mt-1">No-answer leads drop out of Focus until their retry window opens.</p>
+          </div>
+        </label>
+      </div>
+    </fieldset>
   </div>
 
   <div class="mb-6 rounded-xl border border-brand-border/30 dark:border-white/10 bg-white/60 dark:bg-slate-900/45 p-4">
