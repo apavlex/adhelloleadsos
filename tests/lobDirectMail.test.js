@@ -101,6 +101,32 @@ test('resolvePostcardCreative rejects non-public generated image URLs', () => {
   );
 });
 
+test('parseMailableAddress coalesces listing-style title when address field is empty', () => {
+  const parsed = parseMailableAddress({
+    title: '20301 NE 68th St, Vancouver, WA 98682 · $757,000',
+    address: '',
+    city: '',
+    state: '',
+  });
+  assert.ok(parsed);
+  assert.equal(parsed.address_zip, '98682');
+  assert.equal(parsed.address_city, 'Vancouver');
+  assert.equal(parsed.address_state, 'WA');
+  assert.match(parsed.address_line1, /20301 NE 68th St/i);
+});
+
+test('parseMailableAddress coalesces city and state from listing title', () => {
+  const parsed = parseMailableAddress({
+    title: '20301 NE 68th St, Vancouver, WA · $757,000',
+    address: '20301 NE 68th St',
+    postalCode: '98682',
+  });
+  assert.ok(parsed);
+  assert.equal(parsed.address_city, 'Vancouver');
+  assert.equal(parsed.address_state, 'WA');
+  assert.equal(parsed.address_zip, '98682');
+});
+
 test('parseMailableAddress uses Current Resident for listing-style titles', () => {
   const parsed = parseMailableAddress({
     title: '26001 NE 60th St, Vancouver, WA 98682 · $757,000',

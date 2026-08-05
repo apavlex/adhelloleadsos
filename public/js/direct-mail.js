@@ -2885,6 +2885,25 @@
   renderSavedLibrary();
   loadMailPlaybooksFromUrl();
 
+  (function scrollToLeadsIfNeededFromFocus() {
+    var params = new URLSearchParams(window.location.search || '');
+    if (String(params.get('from') || '') !== 'focus') return;
+    var table = document.getElementById('dmLeadsTable');
+    if (!table) return;
+    var hasNonMailable = !!document.querySelector('#dmLeadsTable tr[data-mailable="0"]');
+    var banner = document.getElementById('dmAddressFixBanner');
+    if (!hasNonMailable && !banner) return;
+    window.setTimeout(function () {
+      var target = banner || table.closest('.brand-card') || table;
+      if (target && target.scrollIntoView) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      if (hasNonMailable) {
+        setStatus('Selected lead needs a complete address (street, city, state, ZIP) before send.', false);
+      }
+    }, 400);
+  })();
+
   var sendBtn = document.getElementById('dmSendBtn');
   if (sendBtn) {
     sendBtn.addEventListener('click', async function () {

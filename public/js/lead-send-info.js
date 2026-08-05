@@ -127,6 +127,9 @@
         ch.style.transform = '';
       }
       if (typeof openLeadPanelNotepad === 'function') openLeadPanelNotepad();
+      if (typeof window.__syncLeadPanelSendInfoExpanded === 'function') {
+        window.__syncLeadPanelSendInfoExpanded();
+      }
     }
 
     if (root.id === 'focusSendInfo' || root.closest('#focusSendInfoDrawer')) {
@@ -581,7 +584,44 @@
       });
     }
 
+    const packDetails = root.querySelector('.lead-send-info-pack-details');
+    if (packDetails) {
+      packDetails.addEventListener('toggle', () => {
+        const open = packDetails.open;
+        root.classList.toggle('lead-send-info--customize-open', open);
+        if (root.id === 'focusSendInfo') {
+          const panel = document.getElementById('focus-outcome-panel');
+          if (panel) panel.classList.toggle('focus-outcome-panel--send-customize', open);
+          if (open && typeof window.__setFocusSendInfoOpen === 'function') {
+            window.__setFocusSendInfoOpen(true);
+          }
+        }
+        if (root.id === 'leadPanelSendInfo' && typeof window.__syncLeadPanelSendInfoExpanded === 'function') {
+          window.__syncLeadPanelSendInfoExpanded();
+        }
+        if (open && root.scrollIntoView) {
+          window.setTimeout(() => {
+            root.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }, 60);
+        }
+      });
+    }
+
     setChannel(root, 'sms');
+  }
+
+  function resetSendInfoCustomize(root) {
+    if (!root) return;
+    const packDetails = root.querySelector('.lead-send-info-pack-details');
+    if (packDetails && packDetails.open) packDetails.open = false;
+    root.classList.remove('lead-send-info--customize-open');
+    if (root.id === 'focusSendInfo') {
+      const panel = document.getElementById('focus-outcome-panel');
+      if (panel) panel.classList.remove('focus-outcome-panel--send-customize');
+    }
+    if (root.id === 'leadPanelSendInfo' && typeof window.__syncLeadPanelSendInfoExpanded === 'function') {
+      window.__syncLeadPanelSendInfoExpanded();
+    }
   }
 
   function syncSoftphoneVisibility() {
@@ -630,4 +670,5 @@
     });
   };
   window.__leadSendInfoOpenWithAudit = openSendInfoWithAudit;
+  window.__resetSendInfoCustomize = resetSendInfoCustomize;
 })();

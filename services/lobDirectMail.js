@@ -66,14 +66,68 @@ function resolveLobRecipientName(lead) {
   return DEFAULT_RESIDENT_NAME;
 }
 
+function extractListingAddressFromTitle(title) {
+  const t = String(title || '').trim();
+  if (!t) return null;
+  const head = t.split(' · ')[0].trim();
+  if (!head || head.length < 8) return null;
+
+  const withZip = head.match(/^(.+),\s*([^,]+),\s*([A-Za-z]{2})\s+(\d{5}(?:-\d{4})?)\s*$/);
+  if (withZip) {
+    return {
+      address: head,
+      city: withZip[2].trim(),
+      state: withZip[3].toUpperCase(),
+      postalCode: withZip[4].slice(0, 5),
+    };
+  }
+
+  const noZip = head.match(/^(.+),\s*([^,]+),\s*([A-Za-z]{2})\s*$/);
+  if (noZip && /^\d/.test(noZip[1].trim())) {
+    return {
+      address: head,
+      city: noZip[2].trim(),
+      state: noZip[3].toUpperCase(),
+    };
+  }
+  return null;
+}
+
+function coalesceLeadForMailing(lead) {
+  if (!lead || typeof lead !== 'object') return lead;
+  const fromTitle = extractListingAddressFromTitle(lead.title);
+  if (!fromTitle) return lead;
+
+  const address = String(lead.address || '').trim();
+  const city = String(lead.city || '').trim();
+  const state = String(lead.state || '').trim();
+  const zip = String(lead.postalCode || lead.zip || '').trim();
+
+  const needsAddress = !address || address === 'N/A' || address.length < 5;
+  const needsGeo = !city || !state;
+  const needsZip = !zip && !extractZip(address);
+
+  if (!needsAddress && !needsGeo && !needsZip) return lead;
+
+  return {
+    ...lead,
+    address: needsAddress ? fromTitle.address : address,
+    city: city || fromTitle.city || '',
+    state: state || fromTitle.state || '',
+    postalCode: zip || fromTitle.postalCode || '',
+    zip: zip || fromTitle.postalCode || '',
+  };
+}
+
 function parseMailableAddress(lead) {
   if (!lead || typeof lead !== 'object') return null;
-  let address = String(lead.address || '').trim();
+  const coalesced = coalesceLeadForMailing(lead);
+  let address = String(coalesced.address || '').trim();
   if (!address || address === 'N/A' || address.length < 5) return null;
 
-  let city = String(lead.city || '').trim();
-  let state = String(lead.state || '').trim();
-  let zip = String(lead.postalCode || lead.zip || '').trim();
+  let city = String(coalesced.city || '').trim();
+  let state = String(coalesced.state || '').trim();
+  let zip = String(coalesced.postalCode || coalesced.zip || '').trim();
 
   if ((!city || !state) && address) {
     const tail = address.match(/,\s*([^,]+),\s*([A-Za-z]{2})\s+(\d{5}(?:-\d{4})?)\s*$/);
@@ -105,7 +159,7 @@ function parseMailableAddress(lead) {
   if (!line1) line1 = address.split(',')[0].trim() || address;
 
   return {
-    name: resolveLobRecipientName(lead),
+    name: resolveLobRecipientName(coalesced),
     address_line1: line1,
     address_city: city,
     address_state: state,

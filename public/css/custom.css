@@ -2441,7 +2441,7 @@ body.find-leads-page #findTypeTabs .find-type-tab {
     pointer-events: none;
 }
 #leadPanelOutreachDrawer.lead-panel-outreach-drawer.lead-panel-outreach-drawer--open {
-    max-height: 120rem;
+    max-height: none;
     opacity: 1;
     pointer-events: auto;
     overflow: visible;
@@ -2543,6 +2543,18 @@ body.find-leads-page #findTypeTabs .find-type-tab {
     overflow-y: auto;
     overscroll-behavior: contain;
     padding-bottom: 0.5rem;
+}
+#leadPanelNotepadBody.lead-panel-notepad-body--open.lead-panel-notepad-body--send-expanded {
+    max-height: min(92vh, 62rem);
+}
+#leadPanelSendInfoCard.lead-panel-send-info-card--open {
+    overflow: visible;
+}
+#leadPanelOutreachDrawer.lead-panel-outreach-drawer.lead-panel-outreach-drawer--open .lead-send-info {
+    overflow: visible;
+}
+#leadPanelOutreachDrawer.lead-panel-outreach-drawer.lead-panel-outreach-drawer--open .lead-send-info-pack-details[open] {
+    max-height: none;
 }
 #leadPanelNotepadChevron {
     transform-origin: center;
@@ -3078,15 +3090,32 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
     pointer-events: none;
 }
 #focusSendInfoDrawer.focus-send-info-drawer.focus-send-info-drawer--open {
-    max-height: 120rem;
+    max-height: none;
     opacity: 1;
     pointer-events: auto;
     overflow: visible;
     padding-bottom: 0.75rem;
 }
+#focusSendInfoDrawer.focus-send-info-drawer--open .lead-send-info {
+    overflow: visible;
+}
+#focus-outcome-panel.focus-outcome-panel--send-customize #focus-outcome-details {
+    overflow: visible;
+}
 #focusSendInfoChevron {
     transform-origin: center;
     transition: transform 0.28s cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+/* Send info — hide quick fields when customize panel is open */
+.lead-send-info--customize-open .lead-send-info-quick-fields {
+    display: none;
+}
+
+/* Focus — focus panel on customize send (hide CTAs, quick log, notes) */
+#focus-outcome-panel.focus-outcome-panel--send-customize #focus-outcome-actions,
+#focus-outcome-panel.focus-outcome-panel--send-customize #focus-outcome-shortcuts {
+    display: none;
 }
 
 /* Focus mode — wider layout on large screens */

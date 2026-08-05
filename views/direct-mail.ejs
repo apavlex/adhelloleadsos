@@ -56,6 +56,11 @@
       <p class="dm-lob-text"><strong>Lob not configured</strong> — Add API key under <a href="/workspace/integrations#lob-integration" class="text-brand-yellow hover:underline">Integrations</a>.</p>
       <% } %>
     </div>
+    <% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession && typeof dmMailableCount === 'number' && dmMailableCount === 0 && typeof dmSelectionCount === 'number' && dmSelectionCount > 0) { %>
+    <div id="dmAddressFixBanner" class="mx-4 md:mx-6 mb-4 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-950 dark:text-amber-100">
+      <strong>Address needed.</strong> This lead needs a complete street, city, state, and ZIP before Lob can send. Scroll to <strong>Selected leads</strong> below to review, or enrich the address in the pipeline and return.
+    </div>
+    <% } %>
 
     <!-- Canva-style workspace -->
     <section class="dm-studio" id="dmStudio" aria-label="Design studio">

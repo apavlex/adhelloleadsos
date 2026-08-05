@@ -3043,6 +3043,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function syncLeadPanelSendInfoExpanded() {
+    const drawer = document.getElementById('leadPanelOutreachDrawer');
+    const notepad = document.getElementById('leadPanelNotepadBody');
+    const card = document.getElementById('leadPanelSendInfoCard');
+    const sendRoot = document.getElementById('leadPanelSendInfo');
+    const customizeOpen = !!(
+      sendRoot &&
+      sendRoot.querySelector('.lead-send-info-pack-details[open]')
+    );
+    const drawerOpen = !!(drawer && drawer.classList.contains('lead-panel-outreach-drawer--open'));
+    const expanded = drawerOpen || customizeOpen;
+    if (notepad) notepad.classList.toggle('lead-panel-notepad-body--send-expanded', expanded);
+    if (card) card.classList.toggle('lead-panel-send-info-card--open', drawerOpen);
+  }
+
   function openLeadPanelOutreach() {
     const d = document.getElementById('leadPanelOutreachDrawer');
     const btn = document.getElementById('leadPanelOutreachToggle');
@@ -3053,6 +3068,11 @@ document.addEventListener('DOMContentLoaded', () => {
       ch.classList.remove('rotate-180');
       ch.style.transform = '';
     }
+    syncLeadPanelSendInfoExpanded();
+    window.setTimeout(function () {
+      const root = document.getElementById('leadPanelSendInfo');
+      if (root && root.scrollIntoView) root.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 80);
   }
 
   function closeLeadPanelOutreach() {
@@ -3065,7 +3085,10 @@ document.addEventListener('DOMContentLoaded', () => {
       ch.classList.add('rotate-180');
       ch.style.transform = '';
     }
+    syncLeadPanelSendInfoExpanded();
   }
+
+  window.__syncLeadPanelSendInfoExpanded = syncLeadPanelSendInfoExpanded;
 
   function toggleLeadPanelOutreach() {
     const drawer = document.getElementById('leadPanelOutreachDrawer');
