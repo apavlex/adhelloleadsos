@@ -2395,40 +2395,31 @@ body.find-leads-page #findTypeTabs .find-type-tab {
     border-radius: 2rem 2rem 0 0;
 }
 
-/* Lead panel: bundled note + scripts drawer — collapsed by default */
+/* Lead panel: bundled note inside quick log — always visible when quick log is open */
 #leadPanelComposerDrawer.lead-panel-composer-drawer {
-    max-height: 0;
-    opacity: 0;
-    transition:
-        max-height 0.34s cubic-bezier(0.33, 1, 0.68, 1),
-        opacity 0.22s ease;
-    overflow: hidden;
-    pointer-events: none;
+    max-height: none;
+    opacity: 1;
+    overflow: visible;
+    pointer-events: auto;
 }
 #leadPanelComposerDrawer.lead-panel-composer-drawer.lead-panel-composer-drawer--open {
-    max-height: 9rem;
+    max-height: none;
     opacity: 1;
     pointer-events: auto;
-}
-#leadPanelComposerChevron {
-    transform-origin: center;
-    transition: transform 0.28s cubic-bezier(0.33, 1, 0.68, 1);
 }
 
-/* Lead panel: quick log pipeline drawer — open by default */
+/* Lead panel: quick log + note — single open block */
 #leadPanelQuickLogDrawer.lead-panel-quicklog-drawer {
-    max-height: 0;
-    opacity: 0;
-    transition:
-        max-height 0.34s cubic-bezier(0.33, 1, 0.68, 1),
-        opacity 0.22s ease;
-    overflow: hidden;
-    pointer-events: none;
+    max-height: none;
+    opacity: 1;
+    overflow: visible;
+    pointer-events: auto;
 }
 #leadPanelQuickLogDrawer.lead-panel-quicklog-drawer.lead-panel-quicklog-drawer--open {
-    max-height: min(20rem, 55vh);
+    max-height: none;
     opacity: 1;
     pointer-events: auto;
+    overflow: visible;
 }
 #leadPanelQuickLogChevron {
     transform-origin: center;
@@ -2439,7 +2430,7 @@ body.find-leads-page #findTypeTabs .find-type-tab {
     pointer-events: auto;
 }
 
-/* Lead panel: outreach actions drawer — open by default */
+/* Lead panel: send info drawer — collapsed by default */
 #leadPanelOutreachDrawer.lead-panel-outreach-drawer {
     max-height: 0;
     opacity: 0;
@@ -2450,11 +2441,11 @@ body.find-leads-page #findTypeTabs .find-type-tab {
     pointer-events: none;
 }
 #leadPanelOutreachDrawer.lead-panel-outreach-drawer.lead-panel-outreach-drawer--open {
-    max-height: min(36rem, 80vh);
+    max-height: 120rem;
     opacity: 1;
     pointer-events: auto;
-    overflow-y: auto;
-    overscroll-behavior: contain;
+    overflow: visible;
+    padding-bottom: 0.75rem;
 }
 #mobilePanel.open #leadPanelNotepad,
 #mobilePanel.open #leadPanelNotepad button,
@@ -2546,11 +2537,12 @@ body.find-leads-page #findTypeTabs .find-type-tab {
     pointer-events: none;
 }
 #leadPanelNotepadBody.lead-panel-notepad-body.lead-panel-notepad-body--open {
-    max-height: min(72vh, 42rem);
+    max-height: min(78vh, 44rem);
     opacity: 1;
     pointer-events: auto;
     overflow-y: auto;
     overscroll-behavior: contain;
+    padding-bottom: 0.5rem;
 }
 #leadPanelNotepadChevron {
     transform-origin: center;

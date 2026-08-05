@@ -116,6 +116,19 @@
     const leadKey = resolveLeadKey(root);
     prefillAuditSnippet(root, leadKey);
 
+    if (root.id === 'leadPanelSendInfo' || root.closest('#leadPanelOutreachDrawer')) {
+      const drawer = document.getElementById('leadPanelOutreachDrawer');
+      const btn = document.getElementById('leadPanelOutreachToggle');
+      const ch = document.getElementById('leadPanelOutreachChevron');
+      if (drawer) drawer.classList.add('lead-panel-outreach-drawer--open');
+      if (btn) btn.setAttribute('aria-expanded', 'true');
+      if (ch) {
+        ch.classList.remove('rotate-180');
+        ch.style.transform = '';
+      }
+      if (typeof openLeadPanelNotepad === 'function') openLeadPanelNotepad();
+    }
+
     if (opts.scroll !== false) {
       root.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }

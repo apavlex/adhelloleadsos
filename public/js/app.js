@@ -2989,39 +2989,24 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function openLeadPanelComposer() {
-    const d = document.getElementById('leadPanelComposerDrawer');
-    const btn = document.getElementById('leadPanelComposerToggle');
-    const ch = document.getElementById('leadPanelComposerChevron');
-    if (d) d.classList.add('lead-panel-composer-drawer--open');
-    if (btn) btn.setAttribute('aria-expanded', 'true');
-    if (ch) {
-      ch.classList.remove('rotate-180');
-      ch.style.transform = '';
+    if (typeof openLeadPanelNotepad === 'function') openLeadPanelNotepad();
+    openLeadPanelQuickLog();
+    const ni = document.getElementById('noteInput');
+    if (ni) {
+      try {
+        ni.focus();
+      } catch (_) {
+        /* ignore */
+      }
     }
   }
 
   function closeLeadPanelComposer() {
-    const d = document.getElementById('leadPanelComposerDrawer');
-    const btn = document.getElementById('leadPanelComposerToggle');
-    const ch = document.getElementById('leadPanelComposerChevron');
-    if (d) d.classList.remove('lead-panel-composer-drawer--open');
-    if (btn) btn.setAttribute('aria-expanded', 'false');
-    if (ch) {
-      ch.classList.add('rotate-180');
-      ch.style.transform = '';
-    }
+    /* Note lives in the always-open quick log block — nothing to collapse. */
   }
 
   function toggleLeadPanelComposer() {
-    const drawer = document.getElementById('leadPanelComposerDrawer');
-    if (!drawer) return;
-    if (drawer.classList.contains('lead-panel-composer-drawer--open')) {
-      closeLeadPanelComposer();
-    } else {
-      openLeadPanelComposer();
-      const ni = document.getElementById('noteInput');
-      if (ni) ni.focus();
-    }
+    openLeadPanelComposer();
   }
 
   function openLeadPanelQuickLog() {
@@ -4391,7 +4376,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const raw = String(phone || '').trim();
     if (!raw) return false;
     if (typeof openLeadPanelNotepad === 'function') openLeadPanelNotepad();
-    if (typeof openLeadPanelOutreach === 'function') openLeadPanelOutreach();
     const opts = { autoDial: true, leadKey: String(leadKey || '').trim(), ...(options || {}) };
     if (typeof window.__adhelloOpenSoftphoneWithDial !== 'function') return false;
     const opened = window.__adhelloOpenSoftphoneWithDial(raw, opts);
@@ -4887,13 +4871,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof window.__adhelloRefreshSoftphonePosition === 'function') {
           window.__adhelloRefreshSoftphonePosition();
         }
-        openLeadPanelOutreach();
       });
     } else {
       console.warn('[Lead detail panel] #mobilePanel not found — detail sidebar cannot open on this page.');
     }
-
-    openLeadPanelOutreach();
 
     prepareLeadRowForPanel(tableRow);
     syncPanelNotesCacheFromRow(tableRow);
@@ -11249,7 +11230,6 @@ document.addEventListener('DOMContentLoaded', () => {
   function populatePanel(row) {
     if (!row) return;
     openLeadPanelQuickLog();
-    openLeadPanelComposer();
     setLeadPanelOutreachFeedback('');
     if (typeof window.__adhelloResetLeadCallbackScheduler === 'function') {
       window.__adhelloResetLeadCallbackScheduler();
