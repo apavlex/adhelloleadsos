@@ -2189,7 +2189,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function findTypeRequiresLocation() {
       const form = document.getElementById('searchForm');
       const type = form && form.getAttribute('data-find-type');
-      if (type === 'products' || type === 'wholesale') return false;
+      if (type === 'products' || type === 'wholesale' || type === 'business_formations') return false;
       return true;
     }
 

@@ -115,6 +115,21 @@ const SEARCH_TYPES = [
     scraperHint: 'Permit Stack API — roofing, HVAC, solar, plumbing, and more. Requires PERMITSTACK_API_KEY in Workspace → Integrations.',
     requiresLocation: true,
   },
+  {
+    jobType: JOB_TYPES.BUSINESS_FORMATIONS,
+    findTab: 'business_formations',
+    label: 'New formations',
+    shortLabel: 'Formations',
+    description:
+      'Newly registered LLCs and corporations from state open-data registries (NY, CO, PA, CT, OR) via Apify.',
+    action: '/formations/search',
+    category: 'formations',
+    defaultKeyword: '',
+    defaultQuery: '',
+    scraperHint:
+      'Apify US Business Formation Scraper — filter by state, entity type, and formation date. Daily schedules use monitor mode for only-new filings.',
+    requiresLocation: false,
+  },
 ];
 
 const BY_JOB_TYPE = SEARCH_TYPES.reduce((acc, row) => {

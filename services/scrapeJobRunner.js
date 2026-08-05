@@ -6,6 +6,8 @@ const mapsSearch = require('./mapsSearch');
 const directoryLeadSearch = require('./directoryLeadSearch');
 const realEstateSearch = require('./realEstateSearch');
 const listingSearch = require('./listingSearch');
+const businessFormationSearch = require('./businessFormationSearch');
+const { formationsToLeads } = require('./businessFormationLeadEnrich');
 const { parseFlipFilter, scoreAndFilterListings } = require('./listingFlipScore');
 const enricher = require('./enricher');
 const { JOB_TYPES, normalizeJobType } = require('./scrapeJobTypes');
@@ -139,6 +141,44 @@ async function runRealEstateJob(schedule, integrationEnv) {
   return results;
 }
 
+async function runFormationJob(schedule, integrationEnv) {
+  if (!businessFormationSearch.isConfigured(integrationEnv)) {
+    throw new Error(
+      'Business formation search requires Apify. Add APIFY_API_TOKEN under Workspace → API integrations.'
+    );
+  }
+
+  const stateCodes = Array.isArray(schedule.stateCodes)
+    ? schedule.stateCodes
+    : String(schedule.state || '')
+        .split(/[,|]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+  const { results } = await businessFormationSearch.searchBusinessFormations(
+    {
+      stateCodes,
+      entityTypes: schedule.entityTypes,
+      keyword: schedule.formationKeyword || '',
+      registeredAfter: schedule.registeredAfter,
+      monitorMode: schedule.monitorMode !== false,
+      maxResults: schedule.maxResults || 50,
+    },
+    integrationEnv
+  );
+
+  if (!results || results.length === 0) {
+    if (schedule.monitorMode !== false) {
+      return [];
+    }
+    throw new Error(
+      `No new business formations found for ${stateCodes.join(', ') || 'selected states'}. Try widening date range or entity filters.`
+    );
+  }
+
+  return results;
+}
+
 /**
  * @param {Object} schedule
  * @param {Record<string,string>} integrationEnv
@@ -146,6 +186,9 @@ async function runRealEstateJob(schedule, integrationEnv) {
  */
 async function executeScrapeJob(schedule, integrationEnv, options = {}) {
   const jobType = normalizeJobType(schedule.jobType);
+  if (jobType === JOB_TYPES.BUSINESS_FORMATIONS) {
+    return runFormationJob(schedule, integrationEnv);
+  }
   if (
     jobType === JOB_TYPES.REAL_ESTATE ||
     jobType === JOB_TYPES.HOME_OWNERS ||
@@ -212,14 +255,41 @@ function buildSearchRecord(schedule, results, timestampIso) {
     return record;
   }
 
+  if (jobType === JOB_TYPES.BUSINESS_FORMATIONS) {
+    const stateCodes = Array.isArray(schedule.stateCodes) ? schedule.stateCodes : [];
+    const keyword = businessFormationSearch.scheduleKeywordLabel({
+      stateCodes,
+      entityTypes: schedule.entityTypes,
+      keyword: schedule.formationKeyword || schedule.keyword,
+    });
+    return {
+      ...base,
+      keyword,
+      stateCodes,
+      entityTypes: schedule.entityTypes || [],
+      formationKeyword: schedule.formationKeyword || '',
+      registeredAfter: schedule.registeredAfter || null,
+      monitorMode: schedule.monitorMode !== false,
+      results: (results || []).map((row) => formationToLeadRecord(row)),
+    };
+  }
+
   return {
     ...base,
     keyword: schedule.keyword,
   };
 }
 
+function formationToLeadRecord(row) {
+  const leads = formationsToLeads([row], {});
+  return leads[0] || row;
+}
+
 function isJobConfigured(schedule, integrationEnv) {
   const jobType = normalizeJobType(schedule.jobType);
+  if (jobType === JOB_TYPES.BUSINESS_FORMATIONS) {
+    return businessFormationSearch.isConfigured(integrationEnv);
+  }
   if (
     jobType === JOB_TYPES.REAL_ESTATE ||
     jobType === JOB_TYPES.HOME_OWNERS ||

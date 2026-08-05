@@ -19,7 +19,7 @@
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Prospecting</p>
           <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Find leads</h1>
           <p class="find-leads-header-desc text-sm md:text-base text-brand-muted mt-2 max-w-xl leading-relaxed">
-            Pick a search type, set your area, and run. Business, real estate, home owners, products, or wholesale — one workflow.
+            Pick a search type, set your area, and run. Business, real estate, home owners, products, wholesale, permits, or new LLC/corp formations — one workflow.
           </p>
         </div>
         <div class="flex flex-wrap items-center gap-2 shrink-0">
@@ -373,6 +373,51 @@
                 <p class="text-xs text-brand-muted leading-relaxed">Imports recent building permits from <a href="https://permit-stack.com/" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">Permit Stack</a>. Optional filters (keyword, contractor, filed after) narrow results — leave blank for the broadest match. Add your API key under Workspace → Integrations.</p>
               </div>
 
+              <div data-find-panel="business_formations" class="find-type-panel space-y-6 <%= _findType !== 'business_formations' ? 'hidden' : '' %>">
+                <% const _formStates = typeof formationStates !== 'undefined' ? formationStates : [];
+                   const _formEntities = typeof formationEntityTypes !== 'undefined' ? formationEntityTypes : [];
+                   const _formDefaultAfter = typeof formationDefaultRegisteredAfter !== 'undefined' ? formationDefaultRegisteredAfter : ''; %>
+                <div>
+                  <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">States (open-data registries)</p>
+                  <div class="flex flex-wrap gap-2">
+                    <% _formStates.forEach(function (st) { %>
+                      <label class="inline-flex items-center gap-2 rounded-full border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-brand-dark dark:text-white cursor-pointer hover:border-brand-yellow/40">
+                        <input type="checkbox" name="formationStates" value="<%= st.code %>" class="rounded border-brand-border formation-state-cb" <%= (_sp.state && String(_sp.state).indexOf(st.code) >= 0) ? 'checked' : '' %> />
+                        <%= st.code %> · <%= st.name %>
+                      </label>
+                    <% }); %>
+                  </div>
+                  <p class="text-xs text-brand-muted mt-2 leading-relaxed">Supported today: NY, CO, PA, CT, OR via Apify. More states may be added as registries open up.</p>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div>
+                    <label for="findFormationEntityTypes" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Entity types</label>
+                    <select name="entityTypes" id="findFormationEntityTypes" multiple size="4"
+                      class="w-full rounded-2xl border-2 border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/25">
+                      <% _formEntities.forEach(function (et) { %>
+                        <option value="<%= et.value %>"><%= et.label %></option>
+                      <% }); %>
+                    </select>
+                    <p class="text-[11px] text-brand-muted mt-1">Leave empty for all types.</p>
+                  </div>
+                  <div>
+                    <label for="findFormationKeyword" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Keyword filter</label>
+                    <input type="text" name="formationKeyword" id="findFormationKeyword" placeholder="e.g. plumbing, consulting" value="<%= _sp.formationKeyword || '' %>"
+                      class="w-full rounded-2xl border-2 border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3.5 text-sm font-bold text-brand-dark dark:text-white placeholder:text-brand-muted/50 focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/25" />
+                  </div>
+                  <div>
+                    <label for="findFormationRegisteredAfter" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Registered after</label>
+                    <input type="date" name="registeredAfter" id="findFormationRegisteredAfter" value="<%= _sp.registeredAfter || _formDefaultAfter %>"
+                      class="w-full rounded-2xl border-2 border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3.5 text-sm font-bold text-brand-dark dark:text-white focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/25" />
+                  </div>
+                </div>
+                <label class="inline-flex items-start gap-2 text-sm text-brand-dark dark:text-white">
+                  <input type="checkbox" name="formationMonitor" id="findFormationMonitor" value="on" class="mt-1 rounded border-brand-border" checked />
+                  <span><strong class="font-bold">Monitor mode</strong> — only new filings not seen in prior runs (recommended for daily schedules).</span>
+                </label>
+                <p class="text-xs text-brand-muted leading-relaxed">Pulls newly registered LLCs and corporations from Secretary of State open-data via <a href="https://apify.com/scrapesage/us-business-formation-scraper" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">Apify</a>. Requires <code class="text-[10px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">APIFY_API_TOKEN</code> under Workspace → Integrations. Enhance leads afterward for phone and website.</p>
+              </div>
+
               <!-- Shared: max results + folder -->
               <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
                 <div class="md:col-span-4">
@@ -674,6 +719,16 @@
         defaultQuery: 'roofing',
         requiresLocation: true,
       },
+      business_formations: {
+        action: '/formations/search',
+        title: 'New business formations',
+        desc: 'Newly registered LLCs and corporations from state open-data (NY, CO, PA, CT, OR) — ideal for first-vendor outreach.',
+        submitRun: 'Import formations',
+        submitSched: 'Save daily monitor',
+        previewLabel: 'formations',
+        defaultQuery: '',
+        requiresLocation: false,
+      },
     };
 
     var form = document.getElementById('searchForm');
@@ -690,7 +745,7 @@
 
     function findTypeRequiresLocation(type) {
       var cfg = FIND_CONFIG[type || currentType];
-      return !cfg || cfg.requiresLocation !== false;
+      return cfg ? cfg.requiresLocation !== false : true;
     }
 
     function syncFindLocationMode(type) {
@@ -953,6 +1008,12 @@
         k = catLabel === 'All categories' ? 'Building permits' : catLabel + ' permits';
         var kwEl = document.getElementById('findPermitKeyword');
         if (kwEl && kwEl.value.trim()) k += ' · ' + kwEl.value.trim();
+      } else if (currentType === 'business_formations') {
+        var stateCbs = document.querySelectorAll('.formation-state-cb:checked');
+        var stateLabels = Array.prototype.map.call(stateCbs, function (cb) { return cb.value; });
+        k = stateLabels.length ? ('New formations · ' + stateLabels.join(', ')) : 'New business formations';
+        var fkw = document.getElementById('findFormationKeyword');
+        if (fkw && fkw.value.trim()) k += ' · ' + fkw.value.trim();
       } else {
         var panel = document.querySelector('[data-find-panel="' + currentType + '"]');
         var qEl = panel && panel.querySelector('input[name="query"]');
@@ -1026,6 +1087,12 @@
             if (pContractor && pContractor.value.trim()) extra += ' · contractor filter';
             if (pFiled && pFiled.value) extra += ' · filed after ' + pFiled.value;
           }
+          if (currentType === 'business_formations') {
+            var mon = document.getElementById('findFormationMonitor');
+            var regAfter = document.getElementById('findFormationRegisteredAfter');
+            if (mon && mon.checked) extra += ' · monitor new only';
+            if (regAfter && regAfter.value) extra += ' · since ' + regAfter.value;
+          }
         }
         meta.textContent = 'Up to ' + n + ' ' + (cfg.previewLabel || 'results') + extra;
       }
@@ -1037,11 +1104,16 @@
       });
     });
 
-    ['searchKeywordField', 'findReQuery', 'findPermitCategory', 'findPermitCity', 'findPermitZip', 'findPermitKeyword', 'findPermitContractor', 'findPermitFiledAfter', 'findManualCity', 'findManualState', 'findLocationQuery', 'findMaxResults'].forEach(function (id) {
+    ['searchKeywordField', 'findReQuery', 'findPermitCategory', 'findPermitCity', 'findPermitZip', 'findPermitKeyword', 'findPermitContractor', 'findPermitFiledAfter', 'findFormationKeyword', 'findFormationRegisteredAfter', 'findFormationMonitor', 'findManualCity', 'findManualState', 'findLocationQuery', 'findMaxResults'].forEach(function (id) {
       var el = document.getElementById(id);
       if (el) el.addEventListener('input', syncFindPreview);
       if (el && el.tagName === 'SELECT') el.addEventListener('change', syncFindPreview);
     });
+    document.querySelectorAll('.formation-state-cb').forEach(function (cb) {
+      cb.addEventListener('change', syncFindPreview);
+    });
+    var formationEntitySel = document.getElementById('findFormationEntityTypes');
+    if (formationEntitySel) formationEntitySel.addEventListener('change', syncFindPreview);
     var findLocQuery = document.getElementById('findLocationQuery');
     var findLocResolveBtn = document.getElementById('findLocationResolveBtn');
     if (findLocResolveBtn) findLocResolveBtn.addEventListener('click', function () { resolveFindLocationFromQuery(); });

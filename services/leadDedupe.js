@@ -118,6 +118,13 @@ function listingPageUrlsDiffer(existing, incoming) {
 }
 
 function computeDedupeKey(lead) {
+  const formationId = String(lead?.formationRegistryId || '').trim();
+  const formationState = String(lead?.state || '').trim().toLowerCase();
+  if (formationId && formationState) {
+    return `formation:${formationState}:${formationId.toLowerCase()}`;
+  }
+  if (formationId) return `formation:${formationId.toLowerCase()}`;
+
   const permitId = String(lead?.permitStackId || lead?.permitNumber || '').trim();
   if (permitId) return `permit:${permitId.toLowerCase()}`;
 

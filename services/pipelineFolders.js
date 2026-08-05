@@ -21,6 +21,7 @@ const DEFAULT_PIPELINE_FOLDERS = {
   [JOB_TYPES.PRODUCTS]: { name: 'Products', sourceType: 'product_listing' },
   [JOB_TYPES.WHOLESALE]: { name: 'Wholesale', sourceType: 'wholesale_listing' },
   [JOB_TYPES.PERMITS]: { name: 'Permits', sourceType: 'permit_stack' },
+  [JOB_TYPES.BUSINESS_FORMATIONS]: { name: 'New formations', sourceType: 'business_formation' },
 };
 
 function sourceForJobType(jobType) {
@@ -29,6 +30,7 @@ function sourceForJobType(jobType) {
   if (jt === JOB_TYPES.PRODUCTS) return 'products_search';
   if (jt === JOB_TYPES.WHOLESALE) return 'wholesale_search';
   if (jt === JOB_TYPES.PERMITS) return 'permit_stack_search';
+  if (jt === JOB_TYPES.BUSINESS_FORMATIONS) return 'business_formation_search';
   if (jt === JOB_TYPES.REAL_ESTATE) return 'real_estate_search';
   return 'maps_search';
 }

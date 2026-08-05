@@ -9,6 +9,7 @@ const JOB_TYPES = {
   PRODUCTS: 'products',
   WHOLESALE: 'wholesale',
   PERMITS: 'permits',
+  BUSINESS_FORMATIONS: 'business_formations',
 };
 
 const JOB_TYPE_LABELS = {
@@ -19,6 +20,7 @@ const JOB_TYPE_LABELS = {
   [JOB_TYPES.PRODUCTS]: 'Products',
   [JOB_TYPES.WHOLESALE]: 'Wholesale',
   [JOB_TYPES.PERMITS]: 'Permits',
+  [JOB_TYPES.BUSINESS_FORMATIONS]: 'New formations',
 };
 
 const LISTING_JOB_TYPES = new Set([
@@ -40,6 +42,15 @@ function normalizeJobType(value) {
   if (v === JOB_TYPES.PRODUCTS || v === 'product') return JOB_TYPES.PRODUCTS;
   if (v === JOB_TYPES.WHOLESALE) return JOB_TYPES.WHOLESALE;
   if (v === JOB_TYPES.PERMITS || v === 'permit' || v === 'permit_stack') return JOB_TYPES.PERMITS;
+  if (
+    v === JOB_TYPES.BUSINESS_FORMATIONS ||
+    v === 'business_formation' ||
+    v === 'formations' ||
+    v === 'new_formations' ||
+    v === 'newformation'
+  ) {
+    return JOB_TYPES.BUSINESS_FORMATIONS;
+  }
   if (
     v === JOB_TYPES.REAL_ESTATE ||
     v === 'realestate' ||
@@ -82,6 +93,11 @@ function scheduleDisplayTitle(schedule) {
     const cat = String((schedule && (schedule.category || schedule.keyword)) || 'permits').trim();
     return locationLabel ? `${cat} permits · ${locationLabel}` : `${cat} permits`;
   }
+  if (jobType === JOB_TYPES.BUSINESS_FORMATIONS) {
+    const kw = String((schedule && schedule.keyword) || 'New formations').trim();
+    const states = String((schedule && schedule.state) || '').trim();
+    return states ? `${kw} · ${states}` : kw;
+  }
   return String((schedule && schedule.keyword) || 'Search');
 }
 
@@ -104,6 +120,28 @@ function scheduleDisplaySubtitle(schedule) {
     if (schedule && schedule.minPrice) parts.push(`min $${Number(schedule.minPrice).toLocaleString()}`);
     if (schedule && schedule.maxPrice) parts.push(`max $${Number(schedule.maxPrice).toLocaleString()}`);
     parts.push(`up to ${(schedule && schedule.maxResults) || 20} results`);
+    return parts.join(' · ');
+  }
+
+  if (jobType === JOB_TYPES.PERMITS) {
+    const parts = [];
+    if (schedule && schedule.category) parts.push(String(schedule.category));
+    if (schedule && schedule.maxResults) parts.push(`up to ${schedule.maxResults} permits`);
+    return parts.length ? parts.join(' · ') : `${city}, ${state} · ${(schedule && schedule.maxResults) || 20} leads`;
+  }
+
+  if (jobType === JOB_TYPES.BUSINESS_FORMATIONS) {
+    const parts = [];
+    if (schedule && schedule.monitorMode) parts.push('monitor new only');
+    if (Array.isArray(schedule && schedule.stateCodes) && schedule.stateCodes.length) {
+      parts.push(schedule.stateCodes.join(', '));
+    } else if (state) {
+      parts.push(state);
+    }
+    if (schedule && schedule.entityTypes && schedule.entityTypes.length) {
+      parts.push(schedule.entityTypes.join(', '));
+    }
+    parts.push(`up to ${(schedule && schedule.maxResults) || 50} formations`);
     return parts.join(' · ');
   }
 

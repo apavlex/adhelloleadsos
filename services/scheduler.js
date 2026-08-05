@@ -3,7 +3,8 @@ const { DateTime } = require('luxon');
 const db = require('./database');
 const workspaceIntegrations = require('./workspaceIntegrations');
 const scrapeJobRunner = require('./scrapeJobRunner');
-const { scheduleDisplayTitle } = require('./scrapeJobTypes');
+const { scheduleDisplayTitle, normalizeJobType, JOB_TYPES } = require('./scrapeJobTypes');
+const { persistFormationSearchResults } = require('./businessFormationPersist');
 const { runDueSequenceSteps } = require('./sequenceEngine');
 const { maybeWarmAllMorningBriefs } = require('./morningBriefWarm');
 const signalwire = require('./signalwire');
@@ -100,7 +101,13 @@ async function runDueSchedules() {
           }
 
           const results = await scrapeJobRunner.executeScrapeJob(schedule, integrationEnv);
+          let savedCount = 0;
+          if (normalizeJobType(schedule.jobType) === JOB_TYPES.BUSINESS_FORMATIONS) {
+            const persisted = await persistFormationSearchResults(wid, schedule, results);
+            savedCount = persisted.savedCount || 0;
+          }
           const searchRecord = scrapeJobRunner.buildSearchRecord(schedule, results, nowLocal.toISO());
+          if (savedCount) searchRecord.savedCount = savedCount;
           await db.saveSearch(searchRecord);
 
           try {

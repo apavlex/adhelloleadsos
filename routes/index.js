@@ -15,6 +15,11 @@ const {
 } = require('../services/searchTypeConfig');
 const { PERMIT_STACK_CATEGORIES } = require('../services/permitStackCategories');
 const { permitCitiesByState } = require('../services/permitStackCities');
+const {
+  FORMATION_STATES,
+  ENTITY_TYPES,
+  defaultRegisteredAfter,
+} = require('../services/businessFormationConstants');
 
 async function renderFindLeads(req, res, next) {
   try {
@@ -117,6 +122,9 @@ async function renderFindLeads(req, res, next) {
       defaultListingSources: DEFAULT_SOURCES,
       permitStackCategories: PERMIT_STACK_CATEGORIES,
       permitStackCitiesByState: permitCitiesByState(),
+      formationStates: FORMATION_STATES,
+      formationEntityTypes: ENTITY_TYPES,
+      formationDefaultRegisteredAfter: defaultRegisteredAfter(30),
     });
   } catch (e) {
     return next(e);
