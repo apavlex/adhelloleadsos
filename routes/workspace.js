@@ -14,6 +14,8 @@ const ghlClient = require('../services/ghlClient');
 const ghlSync = require('../services/ghlSync');
 const { getWorkspaceGhlSyncDirection, normalizeGhlSyncDirection } = require('../services/ghlSyncDirection');
 const lobClient = require('../services/lobClient');
+const { listPlaybooks } = require('../services/directMailPlaybooks');
+const { normalizeInfoPack, parseInfoPackFromBody, BUILTIN_DEFAULT } = require('../services/infoPack');
 const multer = require('multer');
 const { persistWorkspaceIcp } = require('../services/workspaceIcp');
 const workspaceBootstrap = require('../services/workspaceBootstrap');
@@ -188,6 +190,7 @@ const WORKSPACE_SECTION_SLUGS = new Set([
   'voicemail',
   'routing',
   'revenue',
+  'info-packs',
   'advanced',
 ]);
 
@@ -224,6 +227,11 @@ const WORKSPACE_SECTION_META = {
   revenue: {
     title: 'Revenue defaults',
     description: 'Fallback values for pipeline metrics and the morning brief.',
+  },
+  'info-packs': {
+    title: 'Info packs',
+    description:
+      'Configure SMS, email, and Lob direct mail content per pipeline folder. Used by Send info pack on leads.',
   },
   advanced: {
     title: 'Advanced',
@@ -990,6 +998,22 @@ router.post('/routing-order', express.json(), async (req, res) => {
   }
 });
 
+/** POST JSON: workspace default info pack. */
+router.post('/info-pack-default', express.json({ limit: '256kb' }), async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Only admins can change workspace settings.' });
+    }
+    const wid = req.workspaceId;
+    let ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    ws.infoPackDefault = parseInfoPackFromBody(req.body || {});
+    await dbService.saveWorkspace(wid, ws);
+    res.json({ success: true, infoPackDefault: normalizeInfoPack(ws.infoPackDefault) });
+  } catch (e) {
+    next(e);
+  }
+});
+
 /** POST JSON: revenue defaults (avg deal, timezone for morning brief). */
 router.post('/settings', express.json(), async (req, res) => {
   try {
@@ -1616,7 +1640,7 @@ router.get('/:section', async (req, res, next) => {
     }
     const locals = await loadWorkspacePageLocals(req);
     const ws = locals.workspace;
-    const managerSections = new Set(['phones', 'voicemail', 'revenue']);
+    const managerSections = new Set(['phones', 'voicemail', 'revenue', 'info-packs']);
     if (managerSections.has(section) && !req.canManageWorkspace) {
       return res.redirect(302, '/workspace/team');
     }
@@ -1630,7 +1654,7 @@ router.get('/:section', async (req, res, next) => {
     const inviteStatus = section === 'team' ? String((req.query && req.query.invite) || '') : '';
     const inviteEmail = section === 'team' ? String((req.query && req.query.email) || '') : '';
     const inviteLink = section === 'team' ? String((req.query && req.query.link) || '') : '';
-    res.render('workspace', {
+    const renderLocals = {
       ...locals,
       title: `${meta.title} · Workspace`,
       workspaceSection: section,
@@ -1639,7 +1663,16 @@ router.get('/:section', async (req, res, next) => {
       inviteStatus,
       inviteEmail,
       inviteLink,
-    });
+    };
+    if (section === 'info-packs') {
+      renderLocals.folders = await dbService.listFolders(req.workspaceId);
+      renderLocals.mailPlaybooks = listPlaybooks();
+      renderLocals.infoPackDefault = normalizeInfoPack(
+        ws && ws.infoPackDefault ? ws.infoPackDefault : BUILTIN_DEFAULT,
+      );
+      renderLocals.preselectFolderKey = String((req.query && req.query.folder) || '').trim();
+    }
+    res.render('workspace', renderLocals);
   } catch (e) {
     next(e);
   }

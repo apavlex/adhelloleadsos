@@ -75,6 +75,15 @@ const ghlClient = require('../services/ghlClient');
 const ghlMessaging = require('../services/ghlMessaging');
 const smsOutbound = require('../services/smsOutbound');
 const smsPersonalize = require('../services/smsPersonalize');
+const {
+  resolveInfoPackForLead,
+  materializeInfoPackForLead,
+  sendInfoPackToLead,
+  buildAuditReportUrl,
+  packNeedsAuditUrl,
+  mergePackOverrides,
+  parseInfoPackFromBody,
+} = require('../services/infoPack');
 const { triggerGhlProspectSync } = require('../services/ghlProspectSync');
 const agentSessionStore = require('../services/agentSessionStore');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
@@ -2401,6 +2410,103 @@ router.post('/:key/email', async (req, res, next) => {
       messageId: sent.messageId || null,
       ghlContactId: sent.contactId || null,
       lead: updatedLead,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /leads/:key/info-pack-preview — resolved materialized pack for UI prefill
+router.get('/:key/info-pack-preview', async (req, res, next) => {
+  try {
+    const fullKey = leadKeyFromParam(req.params.key);
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found.' });
+    if (!(await leadInRequestWorkspace(lead, req))) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
+    const ws = await dbService.getWorkspace(req.workspaceId);
+    let folder = null;
+    if (lead.folderKey) {
+      folder = await dbService.getFolder(req.workspaceId, lead.folderKey);
+    }
+    const pack = await resolveInfoPackForLead({ workspace: ws, folder, lead });
+    let auditUrl = null;
+    if (packNeedsAuditUrl(pack)) {
+      const audit = buildAuditReportUrl({ lead, workspaceId: req.workspaceId, req });
+      if (audit.ok) auditUrl = audit.reportUrl;
+    }
+    const materialized = materializeInfoPackForLead(pack, lead, { auditUrl: auditUrl || undefined });
+    res.json({
+      success: true,
+      pack,
+      materialized,
+      auditUrl,
+      folderKey: lead.folderKey || '',
+      folderName: folder && folder.name ? folder.name : '',
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /leads/:key/send-info-pack — send all enabled channels
+router.post('/:key/send-info-pack', express.json(), async (req, res, next) => {
+  try {
+    const fullKey = leadKeyFromParam(req.params.key);
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found.' });
+    if (!(await leadInRequestWorkspace(lead, req))) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
+
+    const ws = await dbService.getWorkspace(req.workspaceId);
+    let folder = null;
+    if (lead.folderKey) {
+      folder = await dbService.getFolder(req.workspaceId, lead.folderKey);
+    }
+    const basePack = await resolveInfoPackForLead({ workspace: ws, folder, lead });
+    const packOverrides = req.body && req.body.pack ? parseInfoPackFromBody({ infoPack: req.body.pack }) : null;
+    const pack = packOverrides ? mergePackOverrides(basePack, packOverrides) : basePack;
+
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
+    const overrides = {
+      phone: String((req.body && req.body.phone) || '').trim(),
+      email: String((req.body && req.body.email) || '').trim(),
+      saveToLead: !!(req.body && req.body.saveToLead),
+    };
+
+    const result = await sendInfoPackToLead({
+      lead,
+      workspaceId: req.workspaceId,
+      integrationEnv,
+      pack,
+      overrides,
+      req,
+      resolveCallerNumber: () => resolveWorkspaceCallerNumber(ws),
+      appendLeadUpdateFn: appendLeadUpdate,
+      buildContactedStagePatchFn: buildContactedStagePatch,
+    });
+
+    if (result.lead) {
+      triggerGhlProspectSync(fullKey, req.workspaceId, { trigger: 'info_pack_sent' });
+    }
+
+    const anySent = [result.sms, result.email, result.directMail].some((r) => r && r.ok);
+    const allSkipped = [result.sms, result.email, result.directMail].every(
+      (r) => !r || r.skipped || !r.ok,
+    );
+
+    res.json({
+      success: anySent || !allSkipped || !result.auditError,
+      anySent,
+      sms: result.sms,
+      email: result.email,
+      directMail: result.directMail,
+      materialized: result.materialized,
+      auditUrl: result.auditUrl,
+      lead: result.lead || lead,
+      error: result.auditError || null,
     });
   } catch (err) {
     next(err);

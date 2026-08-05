@@ -438,6 +438,7 @@
       <p id="folderSearchSetupError" class="text-sm text-red-600 dark:text-red-400 mt-3 hidden"></p>
       <div class="flex gap-3 mt-6">
         <button id="folderSearchSetupSave" type="button" class="flex-1 btn-pill btn-primary py-4 text-xs font-black uppercase tracking-widest">Save setup</button>
+        <a id="folderSearchInfoPackLink" href="/workspace/info-packs" class="shrink-0 inline-flex items-center justify-center rounded-xl border border-brand-border dark:border-white/10 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white hover:border-brand-yellow/40 transition-colors">Info packs</a>
         <button id="folderSearchSetupCancel" type="button" class="flex-1 btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 py-4 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white">Cancel</button>
       </div>
     </div>
@@ -780,6 +781,10 @@
       var folder = folderByKey(folderKey);
       if (!modal || !folder) return;
       if ($('folderSearchSetupKey')) $('folderSearchSetupKey').value = folderKey;
+      var infoPackLink = $('folderSearchInfoPackLink');
+      if (infoPackLink) {
+        infoPackLink.href = '/workspace/info-packs?folder=' + encodeURIComponent(folderKey);
+      }
       if ($('folderSearchSetupSubtitle')) {
         $('folderSearchSetupSubtitle').textContent = 'Configure search for "' + (folder.name || 'folder') + '". City/state are chosen when you run search.';
       }

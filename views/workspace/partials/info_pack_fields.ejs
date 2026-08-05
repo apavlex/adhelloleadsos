@@ -1,0 +1,82 @@
+<% const _pack = typeof pack !== 'undefined' && pack ? pack : null; %>
+<% const _pfx = typeof idPrefix !== 'undefined' ? idPrefix : 'ip'; %>
+<% const _pbs = Array.isArray(playbooks) ? playbooks : []; %>
+<% const _smsOn = _pack && _pack.sms ? !!_pack.sms.enabled : false; %>
+<% const _emailOn = _pack && _pack.email ? !!_pack.email.enabled : false; %>
+<% const _dmOn = _pack && _pack.directMail ? !!_pack.directMail.enabled : false; %>
+<div class="info-pack-tabs flex flex-wrap gap-1 mb-3" role="tablist" aria-label="Info pack channel">
+  <button type="button" class="info-pack-tab px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-brand-yellow/50 bg-brand-yellow/15" data-tab="sms">SMS</button>
+  <button type="button" class="info-pack-tab px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-brand-border/40 dark:border-white/10 text-brand-muted" data-tab="email">Email</button>
+  <button type="button" class="info-pack-tab px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-brand-border/40 dark:border-white/10 text-brand-muted" data-tab="directMail">Direct mail</button>
+</div>
+<div class="info-pack-panel" data-panel="sms">
+  <label class="inline-flex items-center gap-2 text-xs font-semibold mb-2 cursor-pointer">
+    <input type="checkbox" id="<%= _pfx %>SmsEnabled" class="rounded border-brand-border text-brand-yellow focus:ring-brand-yellow" <%= _smsOn ? 'checked' : '' %> />
+    Enable SMS
+  </label>
+  <label class="block">
+    <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1">SMS body</span>
+    <textarea id="<%= _pfx %>SmsBody" rows="4" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm"><%= _pack && _pack.sms && _pack.sms.body ? _pack.sms.body : '' %></textarea>
+  </label>
+</div>
+<div class="info-pack-panel hidden" data-panel="email">
+  <label class="inline-flex items-center gap-2 text-xs font-semibold mb-2 cursor-pointer">
+    <input type="checkbox" id="<%= _pfx %>EmailEnabled" class="rounded border-brand-border text-brand-yellow focus:ring-brand-yellow" <%= _emailOn ? 'checked' : '' %> />
+    Enable email
+  </label>
+  <label class="block mb-2">
+    <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1">Subject</span>
+    <input type="text" id="<%= _pfx %>EmailSubject" value="<%= _pack && _pack.email && _pack.email.subject ? _pack.email.subject : '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" />
+  </label>
+  <label class="block">
+    <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1">Body</span>
+    <textarea id="<%= _pfx %>EmailBody" rows="5" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm"><%= _pack && _pack.email && _pack.email.body ? _pack.email.body : '' %></textarea>
+  </label>
+</div>
+<div class="info-pack-panel hidden" data-panel="directMail">
+  <label class="inline-flex items-center gap-2 text-xs font-semibold mb-2 cursor-pointer">
+    <input type="checkbox" id="<%= _pfx %>DmEnabled" class="rounded border-brand-border text-brand-yellow focus:ring-brand-yellow" <%= _dmOn ? 'checked' : '' %> />
+    Enable Lob postcard
+  </label>
+  <label class="block mb-2">
+    <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1">Playbook template</span>
+    <select id="<%= _pfx %>PlaybookId" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm">
+      <option value="">— Custom copy —</option>
+      <% _pbs.forEach(function (pb) { %>
+      <option value="<%= pb.id %>"<%= _pack && _pack.directMail && _pack.directMail.playbookId === pb.id ? ' selected' : '' %>><%= pb.label %></option>
+      <% }); %>
+    </select>
+  </label>
+  <label class="block mb-2">
+    <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1">Headline</span>
+    <input type="text" id="<%= _pfx %>DmHeadline" value="<%= _pack && _pack.directMail && _pack.directMail.headline ? _pack.directMail.headline : '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" />
+  </label>
+  <label class="block mb-2">
+    <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1">Body text</span>
+    <textarea id="<%= _pfx %>DmBodyText" rows="3" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm"><%= _pack && _pack.directMail && _pack.directMail.bodyText ? _pack.directMail.bodyText : '' %></textarea>
+  </label>
+  <label class="block mb-2">
+    <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1">CTA URL</span>
+    <input type="text" id="<%= _pfx %>DmCtaUrl" value="<%= _pack && _pack.directMail && _pack.directMail.ctaUrl ? _pack.directMail.ctaUrl : '' %>" placeholder="{audit_url}" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" />
+  </label>
+  <div class="grid md:grid-cols-2 gap-3 mb-2">
+    <label class="block">
+      <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1">Front image URL</span>
+      <input type="url" id="<%= _pfx %>DmFrontImageUrl" value="<%= _pack && _pack.directMail && _pack.directMail.frontImageUrl ? _pack.directMail.frontImageUrl : '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" />
+    </label>
+    <label class="block">
+      <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1">Back image URL</span>
+      <input type="url" id="<%= _pfx %>DmBackImageUrl" value="<%= _pack && _pack.directMail && _pack.directMail.backImageUrl ? _pack.directMail.backImageUrl : '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" />
+    </label>
+  </div>
+  <div class="flex flex-wrap gap-4 text-xs">
+    <label class="inline-flex items-center gap-2 cursor-pointer">
+      <input type="checkbox" id="<%= _pfx %>DmPersonalizeOverlay" class="rounded border-brand-border text-brand-yellow" <%= !_pack || !_pack.directMail || _pack.directMail.personalizeOverlay !== false ? 'checked' : '' %> />
+      Personalize overlay
+    </label>
+    <label class="inline-flex items-center gap-2 cursor-pointer">
+      <input type="checkbox" id="<%= _pfx %>DmIncludeLobQr" class="rounded border-brand-border text-brand-yellow" <%= !_pack || !_pack.directMail || _pack.directMail.includeLobQr !== false ? 'checked' : '' %> />
+      Include Lob QR
+    </label>
+  </div>
+</div>

@@ -817,6 +817,9 @@ module.exports = {
     if (meta && meta.searchPreset && typeof meta.searchPreset === 'object') {
       folder.searchPreset = meta.searchPreset;
     }
+    if (meta && meta.infoPack && typeof meta.infoPack === 'object') {
+      folder.infoPack = meta.infoPack;
+    }
     kvSet(key, JSON.stringify(folder));
     return { key, ...folder };
   },
@@ -872,6 +875,9 @@ module.exports = {
       workspaceId: wid,
       updatedAt: new Date().toISOString(),
     };
+    if (Object.prototype.hasOwnProperty.call(patch, 'infoPack') && patch.infoPack == null) {
+      delete updated.infoPack;
+    }
     kvSet(fullKey, JSON.stringify(updated));
     return { key: fullKey, ...updated };
   },

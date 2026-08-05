@@ -111,6 +111,7 @@
   function populateFromRow(root) {
     const row = getPanelRow();
     const subjectInput = qs(root, '.lead-send-info-subject');
+    const bodyInput = qs(root, '.lead-send-info-body');
     const toInput = qs(root, '.lead-send-info-to');
     if (toInput) toInput.dataset.userEdited = '';
     if (subjectInput && row) {
@@ -118,6 +119,112 @@
       subjectInput.value = `Quick idea for ${company}`;
     }
     syncSendToDefault(root);
+    prefetchInfoPack(root);
+  }
+
+  async function prefetchInfoPack(root) {
+    const leadKey = resolveLeadKey(root);
+    if (!leadKey) return;
+    try {
+      const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/info-pack-preview`, {
+        headers: { Accept: 'application/json' },
+        credentials: 'same-origin',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success || !data.materialized) return;
+      const m = data.materialized;
+      const ch = getChannel(root);
+      const bodyEl = qs(root, '.lead-send-info-body');
+      const subjectEl = qs(root, '.lead-send-info-subject');
+      if (bodyEl && !String(bodyEl.value || '').trim()) {
+        bodyEl.value =
+          ch === 'email' ? String(m.email && m.email.body ? m.email.body : '') : String(m.sms && m.sms.body ? m.sms.body : '');
+      }
+      if (subjectEl && ch === 'email' && !String(subjectEl.value || '').trim() && m.email) {
+        subjectEl.value = m.email.subject || subjectEl.value;
+      }
+      root.dataset.infoPackLoaded = '1';
+    } catch (_) {
+      /* optional prefill */
+    }
+  }
+
+  function formatInfoPackResults(data) {
+    const parts = [];
+    if (data.sms && data.sms.ok) parts.push('SMS sent');
+    else if (data.sms && !data.sms.skipped && data.sms.error) parts.push('SMS: ' + data.sms.error);
+    else if (data.sms && data.sms.skipped && data.sms.reason === 'landline_sms_skip') parts.push('SMS skipped (landline)');
+    if (data.email && data.email.ok) parts.push('Email sent');
+    else if (data.email && !data.email.skipped && data.email.error) parts.push('Email: ' + data.email.error);
+    if (data.directMail && data.directMail.ok) parts.push('Postcard queued');
+    else if (data.directMail && !data.directMail.skipped && data.directMail.error) parts.push('Mail: ' + data.directMail.error);
+    if (!parts.length && data.error) return data.error;
+    return parts.join(' · ') || 'Nothing sent.';
+  }
+
+  async function handleSendInfoPack(root) {
+    const leadKey = resolveLeadKey(root);
+    if (!leadKey) {
+      setFeedback(root, 'Select a lead first.', true);
+      return;
+    }
+    const row = getPanelRow();
+    const toInput = qs(root, '.lead-send-info-to');
+    const userEdited = !!(toInput && toInput.dataset.userEdited === '1');
+    const ch = getChannel(root);
+    const saveToLead = !!(qs(root, '.lead-send-info-save') || {}).checked;
+    const packBtn = qs(root, '.lead-send-info-pack');
+
+    const payload = { saveToLead };
+    if (userEdited && toInput) {
+      const val = String(toInput.value || '').trim();
+      if (ch === 'email') payload.email = val;
+      else payload.phone = val;
+    } else {
+      const ph = readPhone(row);
+      const em = readEmail(row);
+      if (ph) payload.phone = ph;
+      if (em) payload.email = em;
+    }
+
+    const original = packBtn ? packBtn.textContent : '';
+    if (packBtn) {
+      packBtn.disabled = true;
+      packBtn.textContent = 'Sending…';
+    }
+    setFeedback(root, 'Sending info pack…');
+
+    try {
+      const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/send-info-pack`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      const msg = formatInfoPackResults(data);
+      const isError = !data.anySent && !!(data.error || (data.sms && data.sms.error));
+      setFeedback(root, msg, isError);
+      if (data.anySent) toast(msg, 'success');
+      else if (isError) toast(msg, 'error');
+      if (data.lead && typeof window.__syncPersistedLeadToRowDataset === 'function') {
+        const row = getPanelRow();
+        if (row) window.__syncPersistedLeadToRowDataset(row, data.lead);
+      }
+      if (typeof window.populatePanel === 'function') {
+        const row = getPanelRow();
+        if (row) window.populatePanel(row);
+      }
+    } catch (err) {
+      const msg = (err && err.message) || 'Could not send info pack.';
+      setFeedback(root, msg, true);
+      toast(msg, 'error');
+    } finally {
+      if (packBtn) {
+        packBtn.disabled = false;
+        packBtn.textContent = original || 'Send info pack';
+      }
+    }
   }
 
   async function handleSend(root) {
@@ -245,6 +352,14 @@
       sendBtn.addEventListener('click', (e) => {
         e.preventDefault();
         handleSend(root);
+      });
+    }
+
+    const packBtn = qs(root, '.lead-send-info-pack');
+    if (packBtn) {
+      packBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        handleSendInfoPack(root);
       });
     }
 

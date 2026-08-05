@@ -1,0 +1,49 @@
+<% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
+<% const _packDefault = typeof infoPackDefault !== 'undefined' ? infoPackDefault : null; %>
+<% const _folders = Array.isArray(folders) ? folders : []; %>
+<% const _playbooks = Array.isArray(mailPlaybooks) ? mailPlaybooks : []; %>
+<% const _preselect = typeof preselectFolderKey !== 'undefined' ? String(preselectFolderKey || '') : ''; %>
+<div class="space-y-6">
+  <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 md:p-8">
+    <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-2">Workspace default</h2>
+    <p class="text-sm text-brand-muted mb-4">Used when a folder has no custom info pack. Merge tokens: <code class="text-xs">{business}</code>, <code class="text-xs">{city}</code>, <code class="text-xs">{state}</code>, <code class="text-xs">{audit_url}</code>.</p>
+    <div id="infoPackDefaultForm" class="info-pack-form space-y-4" data-scope="default">
+      <%- include('../partials/info_pack_fields', { pack: _packDefault, playbooks: _playbooks, idPrefix: 'ipDefault' }) %>
+      <p id="infoPackDefaultMsg" class="hidden text-sm" role="status"></p>
+      <button type="button" id="infoPackDefaultSave" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-6 py-3 text-xs font-black uppercase tracking-widest">Save workspace default</button>
+    </div>
+  </div>
+
+  <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 md:p-8">
+    <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-2">Per-folder packs</h2>
+    <p class="text-sm text-brand-muted mb-4">Override the workspace default for a pipeline folder or category.</p>
+    <div class="max-w-md mb-4">
+      <label for="infoPackFolderSelect" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Folder</label>
+      <select id="infoPackFolderSelect" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm">
+        <option value="">— Select folder —</option>
+        <% _folders.forEach(function (f) { %>
+        <option value="<%= f.key %>"<%= _preselect === f.key ? ' selected' : '' %>><%= f.name %></option>
+        <% }); %>
+      </select>
+    </div>
+    <div id="infoPackFolderForm" class="info-pack-form space-y-4 hidden" data-scope="folder">
+      <%- include('../partials/info_pack_fields', { pack: null, playbooks: _playbooks, idPrefix: 'ipFolder' }) %>
+      <p id="infoPackFolderMsg" class="hidden text-sm" role="status"></p>
+      <div class="flex flex-wrap gap-2">
+        <button type="button" id="infoPackFolderSave" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-6 py-3 text-xs font-black uppercase tracking-widest">Save folder pack</button>
+        <button type="button" id="infoPackFolderClear" class="rounded-xl border border-brand-border dark:border-white/15 px-6 py-3 text-xs font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white">Clear folder override</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+window.INFO_PACK_BOOT = {
+  folders: <%- JSON.stringify(_folders.map(function (f) { return { key: f.key, name: f.name }; })) %>,
+  defaultPack: <%- JSON.stringify(_packDefault) %>,
+  preselectFolderKey: <%- JSON.stringify(_preselect) %>
+};
+</script>
+<script src="/js/info-pack-settings.js"></script>
+<% } else { %>
+<p class="text-sm text-brand-muted">Only workspace admins can edit info packs.</p>
+<% } %>

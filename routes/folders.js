@@ -7,6 +7,7 @@ const { migrateUnfiledLeadsToPipelineFolders, deleteFolderComplete } = require('
 const { moveFolder } = require('../services/folderMove');
 const { isInOutreachFolder } = require('../services/leadListFilters');
 const { parseSearchPresetFromForm, normalizeSearchPreset } = require('../services/folderSearchPreset');
+const { parseInfoPackFromBody, normalizeInfoPack } = require('../services/infoPack');
 
 router.get('/', async (req, res, next) => {
   try {
@@ -47,6 +48,43 @@ router.post('/delete', async (req, res, next) => {
       return res.status(404).json({ success: false, error: result.error || 'Folder not found.' });
     }
     res.json({ success: true, ...result });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/:folderKey/info-pack', async (req, res, next) => {
+  try {
+    const wid = req.workspaceId;
+    const folderKey = String(req.params.folderKey || '').trim();
+    if (!folderKey) {
+      return res.status(400).json({ success: false, error: 'folderKey is required.' });
+    }
+    const folder = await dbService.getFolder(wid, folderKey);
+    if (!folder) {
+      return res.status(404).json({ success: false, error: 'Folder not found.' });
+    }
+    const infoPack = folder.infoPack ? normalizeInfoPack(folder.infoPack) : null;
+    res.json({ success: true, folderKey, infoPack, folder });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/save-info-pack', async (req, res, next) => {
+  try {
+    const wid = req.workspaceId;
+    const folderKey = String(req.body?.folderKey || '').trim();
+    if (!folderKey) {
+      return res.status(400).json({ success: false, error: 'folderKey is required.' });
+    }
+    const existing = await dbService.getFolder(wid, folderKey);
+    if (!existing) {
+      return res.status(404).json({ success: false, error: 'Folder not found.' });
+    }
+    const infoPack = req.body && req.body.clearInfoPack ? null : parseInfoPackFromBody(req.body);
+    const folder = await dbService.updateFolder(wid, folderKey, { infoPack });
+    res.json({ success: true, folder, infoPack });
   } catch (e) {
     next(e);
   }
