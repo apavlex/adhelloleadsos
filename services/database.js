@@ -423,6 +423,14 @@ module.exports = {
       }
     }
 
+    try {
+      const phoneLineType = require('./phoneLineType');
+      const linePatch = await phoneLineType.refreshIfNeeded(newLead, null);
+      if (linePatch) Object.assign(newLead, linePatch);
+    } catch (e) {
+      console.warn('[saveLead] phone line type refresh skipped:', e && e.message);
+    }
+
     kvSet(key, JSON.stringify(newLead));
     return { key, merged: false, lead: { key, ...newLead } };
   },
@@ -704,6 +712,14 @@ module.exports = {
 
     if (updated.pipelineStage === 8 && !existing.enteredStage8At) {
       updated.enteredStage8At = new Date().toISOString();
+    }
+
+    try {
+      const phoneLineType = require('./phoneLineType');
+      const linePatch = await phoneLineType.refreshIfNeeded(updated, existing);
+      if (linePatch) Object.assign(updated, linePatch);
+    } catch (e) {
+      console.warn('[updateLead] phone line type refresh skipped:', e && e.message);
     }
 
     kvSet(key, JSON.stringify(updated));

@@ -4,6 +4,7 @@
 const workspaceIntegrations = require('./workspaceIntegrations');
 const ghlMessaging = require('./ghlMessaging');
 const smsOutbound = require('./smsOutbound');
+const phoneLineType = require('./phoneLineType');
 const { expandCadenceText } = require('./cadenceTokens');
 
 const AUTO_CHANNELS = new Set(['email', 'sms']);
@@ -70,6 +71,9 @@ async function executeSequenceStep({ lead, step, workspaceId }) {
     if (channel === 'sms') {
       if (!smsOutbound.leadHasPhone(lead)) {
         return { executed: false, reason: 'no_phone', channel };
+      }
+      if (!phoneLineType.isSmsAllowed(lead)) {
+        return { executed: false, reason: 'landline_sms_skip', channel };
       }
       const message = bodyFromStep(step, lead, baseUrl).slice(0, 1600);
       if (!message) return { executed: false, reason: 'empty_body', channel };

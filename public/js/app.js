@@ -3351,6 +3351,55 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function resolvePhoneLineTypePill(row) {
+    const phone = String((row && row.dataset && row.dataset.phone) || '').trim();
+    if (!phone || phone === 'N/A') return null;
+    const type = String((row && row.dataset && row.dataset.phoneLineType) || '')
+      .trim()
+      .toLowerCase();
+    const carrier = String((row && row.dataset && row.dataset.phoneCarrier) || '').trim();
+    let label = 'Unknown';
+    let pillClass =
+      'text-brand-muted dark:text-slate-400 bg-brand-cream/80 dark:bg-slate-800 border-brand-border/40 dark:border-white/10';
+    if (type === 'mobile') {
+      label = 'Mobile';
+      pillClass =
+        'text-sky-800 dark:text-sky-200 bg-sky-500/15 dark:bg-sky-950/40 border-sky-500/35';
+    } else if (type === 'landline') {
+      label = 'Landline';
+      pillClass =
+        'text-amber-800 dark:text-amber-200 bg-amber-500/15 dark:bg-amber-950/40 border-amber-500/35';
+    } else if (type === 'voip') {
+      label = 'VoIP';
+      pillClass =
+        'text-violet-800 dark:text-violet-200 bg-violet-500/15 dark:bg-violet-950/40 border-violet-500/35';
+    }
+    const title = carrier ? `${label} · ${carrier}` : label;
+    return { label, pillClass, title, type: type || 'unknown' };
+  }
+
+  function syncPhoneLineTypePill(row) {
+    if (!row) return;
+    const pillInfo = resolvePhoneLineTypePill(row);
+    const phoneCell = row.querySelector('[data-plc="phone"]');
+    if (!phoneCell) return;
+    let pill = phoneCell.querySelector('.lead-row-phone-line-pill');
+    if (!pillInfo) {
+      if (pill) pill.remove();
+      return;
+    }
+    if (!pill) {
+      pill = document.createElement('span');
+      pill.className =
+        'lead-row-phone-line-pill shrink-0 self-start px-1.5 py-0.5 rounded-full border text-[8px] font-black uppercase tracking-widest';
+      const wrap = phoneCell.querySelector('.flex.flex-col') || phoneCell;
+      wrap.appendChild(pill);
+    }
+    pill.textContent = pillInfo.label;
+    pill.title = pillInfo.title;
+    pill.className = `lead-row-phone-line-pill shrink-0 self-start px-1.5 py-0.5 rounded-full border text-[8px] font-black uppercase tracking-widest ${pillInfo.pillClass}`;
+  }
+
   function syncLeadPanelQuickLogPills(row) {
     const host = document.getElementById('leadNotepadTagRow');
     if (!host) return;
@@ -6359,6 +6408,11 @@ document.addEventListener('DOMContentLoaded', () => {
       ds.title = String(L.title).trim();
     }
     assignRowDatasetFieldIfBetter(ds, 'phone', L.phone);
+    if (L.phoneLineType != null) ds.phoneLineType = String(L.phoneLineType || '').trim().toLowerCase();
+    if (L.phoneCarrier != null) ds.phoneCarrier = String(L.phoneCarrier || '').trim();
+    if (L.phoneLineTypeCheckedAt != null) {
+      ds.phoneLineTypeCheckedAt = String(L.phoneLineTypeCheckedAt || '').trim();
+    }
     assignRowDatasetFieldIfBetter(ds, 'website', L.website);
     assignRowDatasetFieldIfBetter(ds, 'email', L.email);
     assignRowDatasetFieldIfBetter(ds, 'address', L.address);
@@ -6522,6 +6576,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     coalesceRowDatasetFromContacts(row);
     hydrateRowDatasetFromTableDom(row);
+    syncPhoneLineTypePill(row);
   }
 
   function parsePageSpeedAuditFromRow(row) {
@@ -11610,6 +11665,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const website = sanitizeContactInput(row.dataset.website);
 
     replacePipelinePhoneSlot(row, phone);
+    syncPhoneLineTypePill(row);
 
     const emailSlot = row.querySelector('.lead-contact-email-slot');
     if (emailSlot) {

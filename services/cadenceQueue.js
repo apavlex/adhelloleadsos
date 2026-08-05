@@ -1,5 +1,6 @@
 const { getTemplate } = require('./sequenceTemplates');
 const { expandCadenceText } = require('./cadenceTokens');
+const phoneLineType = require('./phoneLineType');
 
 function endOfTodayMs() {
   const d = new Date();
@@ -53,6 +54,11 @@ function buildCadenceQueue(leads, baseUrl) {
     if (item.overdue) overdueCount += 1;
 
     const ch = item.channel;
+    const callFirst = phoneLineType.prefersCallFirst(lead);
+    if ((ch === 'sms' || ch === 'text') && callFirst) {
+      buckets.calls.push({ ...item, channel: 'call', callFirstOverride: true });
+      continue;
+    }
     if (ch === 'call' || ch === 'phone' || ch === 'voicemail') buckets.calls.push(item);
     else if (ch === 'email') buckets.emails.push(item);
     else if (ch === 'sms' || ch === 'text') buckets.texts.push(item);

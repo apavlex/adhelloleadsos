@@ -11,8 +11,10 @@
  * - Cold email: email available, weak website/socials
  * - Direct mail: no website, physical address available
  * - Social outreach: social profiles active, email weak
- * - SMS: phone available as secondary channel
+ * - SMS: phone available as secondary channel (skipped for landline)
  */
+
+const phoneLineType = require('./phoneLineType');
 
 const CHANNEL_SCORES = {
   'cold_call': {
@@ -185,12 +187,20 @@ function analyzeLead(lead) {
     if (!email) channelScores.social_outreach += 15;
   }
 
-  // SMS: secondary channel when phone available
+  // SMS: secondary channel when phone available (not for landline)
   if (phone && phone !== 'N/A') {
-    if (channelScores.cold_call) {
-      channelScores.sms = Math.max(channelScores.cold_call - 20, 30);
-    } else {
-      channelScores.sms = 40;
+    const lineType = phoneLineType.normalizeLineType(lead.phoneLineType);
+    if (lineType === 'landline') {
+      channelScores.cold_call = (channelScores.cold_call || 50) + 25;
+    } else if (lineType === 'unknown') {
+      channelScores.cold_call = (channelScores.cold_call || 50) + 15;
+    }
+    if (lineType !== 'landline') {
+      if (channelScores.cold_call) {
+        channelScores.sms = Math.max(channelScores.cold_call - 20, 30);
+      } else {
+        channelScores.sms = 40;
+      }
     }
   }
 
