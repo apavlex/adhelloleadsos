@@ -340,6 +340,10 @@ router.post('/webhooks/ghl', express.json(), async (req, res, next) => {
     const workspaceId =
       typeof headerWid === 'string' && headerWid.trim() ? headerWid.trim() : undefined;
     const body = req.body || {};
+    const engagementResult = await ghlSync.processEngagementWebhook(body, { workspaceId });
+    if (!engagementResult.ignored || engagementResult.reason !== 'not_engagement_event') {
+      return res.json({ success: true, ...engagementResult });
+    }
     const msgResult = await ghlSync.processMessageWebhook(body, { workspaceId });
     if (!msgResult.ignored || msgResult.reason !== 'not_sms_message') {
       return res.json({ success: true, ...msgResult });

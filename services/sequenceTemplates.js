@@ -83,6 +83,39 @@ const DEFAULT_SEQUENCE_TEMPLATES = [
     ],
   },
   {
+    id: 'auto_outreach_7',
+    persona: 'Audit',
+    name: 'Auto outreach · 7-day email + SMS (4 touches)',
+    description:
+      'Hands-off prospecting cadence — email and SMS only via GHL. Day 0 email, day 1 SMS, day 3 email, day 5 SMS. No auto-call steps.',
+    steps: [
+      {
+        dayOffset: 0,
+        channel: 'email',
+        title: 'Day 1 — Audit hook email',
+        hint: 'Subject: Quick scan for {{business_name}}. Top finding: {{top_finding}}. Score {{score}}/100 ({{tier}}). Report: {{report_link}}',
+      },
+      {
+        dayOffset: 1,
+        channel: 'sms',
+        title: 'Day 2 — Text the report link',
+        hint: 'Hi — sent your site scan for {{business_name}}: {{report_link}}. Reply if you want a quick walkthrough.',
+      },
+      {
+        dayOffset: 3,
+        channel: 'email',
+        title: 'Day 4 — Bump + calendar',
+        hint: 'Short bump referencing {{top_finding}}. CTA: {{calendly_or_book}}. Link: {{report_link}}',
+      },
+      {
+        dayOffset: 5,
+        channel: 'sms',
+        title: 'Day 6 — Final text check-in',
+        hint: 'Last nudge — still happy to walk through the audit: {{report_link}} or book: {{calendly_or_book}}',
+      },
+    ],
+  },
+  {
     id: 'audit_reengage_7',
     persona: 'Audit',
     name: 'Re-engagement · 7 days (3 touches)',

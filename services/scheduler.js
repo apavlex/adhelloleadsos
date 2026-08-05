@@ -7,6 +7,7 @@ const { scheduleDisplayTitle } = require('./scrapeJobTypes');
 const { runDueSequenceSteps } = require('./sequenceEngine');
 const { maybeWarmAllMorningBriefs } = require('./morningBriefWarm');
 const signalwire = require('./signalwire');
+const { runAutoPoolForEnabledWorkspaces } = require('./prospectingAutoPoolScheduler');
 
 function normalizeVoicemailLibrary(raw) {
   if (!Array.isArray(raw)) return [];
@@ -330,6 +331,13 @@ module.exports = {
     cron.schedule('0 9 * * *', () => {
       runReferralAskReminders().catch((e) =>
         console.error('[SCHEDULER] Referral reminders failed:', e.message)
+      );
+    });
+
+    // Daily auto-pool enroll (09:30 UTC)
+    cron.schedule('30 9 * * *', () => {
+      runAutoPoolForEnabledWorkspaces().catch((e) =>
+        console.error('[SCHEDULER] Auto-pool failed:', e.message)
       );
     });
 

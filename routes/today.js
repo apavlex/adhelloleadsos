@@ -19,6 +19,7 @@ const { buildCadenceQueue } = require('../services/cadenceQueue');
 const { buildTodayContactQueue } = require('../services/todayContactQueue');
 const { resolveDialRetryPrefs } = require('../services/dialRetryPrefs');
 const { buildNextActionsQueue } = require('../services/nextActionsQueue');
+const { buildCallQueue } = require('../services/callQueue');
 const { filterBusinessPipelineLeads } = require('../services/leadListFilters');
 const { dedupeOpenLeadTasks } = require('../services/userTasks');
 const actionPlanTracker = require('../services/actionPlanTracker');
@@ -169,6 +170,8 @@ router.get('/', async (req, res, next) => {
       limit: 30,
     });
 
+    const callWarmQueue = buildCallQueue(businessLeads, { limit: 20 });
+
     const apYear = parseInt(req.query.actionPlanYear, 10) || new Date().getFullYear();
     const apMonth = parseInt(req.query.actionPlanMonth, 10) || new Date().getMonth() + 1;
     const actionPlan = await actionPlanTracker.loadMonthView({
@@ -217,6 +220,7 @@ router.get('/', async (req, res, next) => {
       scheduleSavedNotice,
       followUpTasksToday,
       nextActions,
+      callWarmQueue,
       cadenceQueue,
       contactQueue,
       reportsOpened24h,

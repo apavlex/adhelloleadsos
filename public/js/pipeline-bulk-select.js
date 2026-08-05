@@ -125,7 +125,7 @@
         if (el) el.disabled = false;
       });
       if (bar.dataset.bulkMode !== 'search') {
-        ['bulkFocusModeBtn', 'bulkSmsBtn', 'bulkDirectMailBtn', 'bulkPushGhlBtn'].forEach((id) => {
+        ['bulkFocusModeBtn', 'bulkSmsBtn', 'bulkDirectMailBtn', 'bulkPushGhlBtn', 'bulkAutoOutreachBtn'].forEach((id) => {
           const el = document.getElementById(id);
           if (!el) return;
           el.classList.remove('hidden', 'opacity-40', 'cursor-not-allowed');
@@ -1442,6 +1442,59 @@
   }
   window.__runBulkPushGhlFromBarEarly = runBulkPushGhlFromBarEarly;
 
+  async function runBulkAutoOutreachFromBarEarly() {
+    if (window.__bulkAutoOutreachInFlight) return { ok: false, error: 'in_flight' };
+    const btn = document.getElementById('bulkAutoOutreachBtn');
+    const leadKeys = collectSelectedLeadKeysEarly();
+    if (!leadKeys.length) {
+      showBulkBarFeedbackEarly('Select at least one lead.', 'error');
+      return { ok: false, error: 'no_selection' };
+    }
+    const prev = btn ? String(btn.textContent || '').trim() || 'Auto outreach' : 'Auto outreach';
+    window.__bulkAutoOutreachInFlight = true;
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Enrolling…';
+      btn.setAttribute('aria-busy', 'true');
+    }
+    showBulkBarFeedbackEarly(`Enrolling ${leadKeys.length} lead${leadKeys.length === 1 ? '' : 's'}…`, 'loading');
+    try {
+      const res = await fetch('/api/prospecting/enroll', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ leadKeys, tag: 'auto-outreach' }),
+      });
+      const data = await res.json().catch(function () {
+        return {};
+      });
+      if (!res.ok || !data.success) {
+        throw new Error((data && data.error) || 'Enroll failed');
+      }
+      const n = data.enrolled != null ? data.enrolled : leadKeys.length;
+      showBulkBarFeedbackEarly(`Enrolled ${n} in auto outreach cadence.`, 'success');
+      if (typeof window.__flashBulkBarBtn === 'function') {
+        window.__flashBulkBarBtn(btn, `Enrolled ${n}`, 1400);
+      }
+      return { ok: true, ...data };
+    } catch (err) {
+      const msg = err && err.message ? err.message : 'Auto outreach enroll failed';
+      showBulkBarFeedbackEarly(msg, 'error');
+      if (typeof window.__flashBulkBarBtn === 'function') {
+        window.__flashBulkBarBtn(btn, 'Failed', 1200);
+      }
+      return { ok: false, error: msg };
+    } finally {
+      window.__bulkAutoOutreachInFlight = false;
+      if (btn) {
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
+        if (!btn.__flashTimer) btn.textContent = prev;
+      }
+    }
+  }
+  window.__runBulkAutoOutreachFromBarEarly = runBulkAutoOutreachFromBarEarly;
+
   async function runBulkGhlEmailFromBarEarly() {
     if (typeof window.__openBulkGhlEmailFromBar === 'function') {
       return window.__openBulkGhlEmailFromBar();
@@ -2394,6 +2447,12 @@
           e.preventDefault();
           e.stopPropagation();
           runBulkPushGhlFromBarEarly();
+          return;
+        }
+        if (e.target.closest('#bulkAutoOutreachBtn')) {
+          e.preventDefault();
+          e.stopPropagation();
+          runBulkAutoOutreachFromBarEarly();
           return;
         }
         if (e.target.closest('#bulkSmsBtn')) {

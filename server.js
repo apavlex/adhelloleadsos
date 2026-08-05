@@ -539,6 +539,8 @@ app.use('/activation', activationRoutes);
 app.use('/tasks', tasksRoutes);
 app.use('/activity', activityRoutes);
 app.use('/resources', resourcesRoutes);
+const prospectingOutreachRoutes = require('./routes/prospectingOutreach');
+app.use('/api/prospecting', prospectingOutreachRoutes);
 app.use('/api/pavlex', pavlexRoutes);
 app.use('/api/debug', debugRoutes);
 app.use('/api/assistant', assistantRoutes);

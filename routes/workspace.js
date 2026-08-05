@@ -1151,6 +1151,46 @@ router.post('/settings', express.json(), async (req, res) => {
       }
       ws.telephony = telephony;
     }
+    if (
+      req.body &&
+      (Object.prototype.hasOwnProperty.call(req.body, 'prospectingAutoPoolEnabled') ||
+        Object.prototype.hasOwnProperty.call(req.body, 'prospectingAutoPoolMaxLeads') ||
+        Object.prototype.hasOwnProperty.call(req.body, 'prospectingAutoPoolMinScore') ||
+        Object.prototype.hasOwnProperty.call(req.body, 'prospectingAutoPoolTier') ||
+        Object.prototype.hasOwnProperty.call(req.body, 'prospectingAutoPool'))
+    ) {
+      const { normalizeAutoPoolSettings } = require('../services/prospectingAutoPool');
+      const prospecting =
+        ws.prospecting && typeof ws.prospecting === 'object' ? { ...ws.prospecting } : {};
+      const prev = normalizeAutoPoolSettings(prospecting.autoPool);
+      if (req.body.prospectingAutoPool && typeof req.body.prospectingAutoPool === 'object') {
+        prospecting.autoPool = normalizeAutoPoolSettings({
+          ...prev,
+          ...req.body.prospectingAutoPool,
+        });
+      } else {
+        const next = { ...prev };
+        if (Object.prototype.hasOwnProperty.call(req.body, 'prospectingAutoPoolEnabled')) {
+          next.enabled =
+            req.body.prospectingAutoPoolEnabled === true ||
+            req.body.prospectingAutoPoolEnabled === 'true' ||
+            req.body.prospectingAutoPoolEnabled === 1 ||
+            req.body.prospectingAutoPoolEnabled === '1';
+        }
+        if (Object.prototype.hasOwnProperty.call(req.body, 'prospectingAutoPoolMaxLeads')) {
+          next.maxLeads = parseInt(String(req.body.prospectingAutoPoolMaxLeads), 10);
+        }
+        if (Object.prototype.hasOwnProperty.call(req.body, 'prospectingAutoPoolMinScore')) {
+          const raw = String(req.body.prospectingAutoPoolMinScore || '').trim();
+          next.minScore = raw === '' ? null : parseFloat(raw);
+        }
+        if (Object.prototype.hasOwnProperty.call(req.body, 'prospectingAutoPoolTier')) {
+          next.tier = String(req.body.prospectingAutoPoolTier || 'Hot').trim() || 'Hot';
+        }
+        prospecting.autoPool = normalizeAutoPoolSettings(next);
+      }
+      ws.prospecting = prospecting;
+    }
     await dbService.saveWorkspace(wid, ws);
     res.json({ success: true });
   } catch (e) {

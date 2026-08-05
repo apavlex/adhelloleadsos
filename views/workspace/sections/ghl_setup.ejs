@@ -4,8 +4,56 @@
 <% const _hookReady = !!_masks.ghlWebhookSecret || (typeof ghlWebhookTokenHint !== 'undefined' && ghlWebhookTokenHint); %>
 <% const _wid = workspace && workspace.id ? workspace.id : 'default'; %>
 
+<% const _gs = typeof ghlStatus !== 'undefined' ? ghlStatus : {}; %>
+<% const _base = (typeof publicAppBaseUrl !== 'undefined' && publicAppBaseUrl) ? publicAppBaseUrl : ''; %>
+<% const _masks = typeof integrationMasks !== 'undefined' ? integrationMasks : {}; %>
+<% const _hookReady = !!_masks.ghlWebhookSecret || (typeof ghlWebhookTokenHint !== 'undefined' && ghlWebhookTokenHint); %>
+<% const _wid = workspace && workspace.id ? workspace.id : 'default'; %>
+<% const _autoPool = workspace && workspace.prospecting && workspace.prospecting.autoPool ? workspace.prospecting.autoPool : {}; %>
+<% const _canManage = typeof canManageWorkspace !== 'undefined' && canManageWorkspace; %>
+
 <div class="space-y-8 max-w-3xl">
   <%- include('../../partials/ghl_connection_banner', { ghlStatus: _gs }) %>
+
+  <% if (_canManage) { %>
+  <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 md:p-8" id="autoOutreachPoolCard">
+    <header class="mb-5">
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Automation</p>
+      <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white mb-1">Auto outreach pool</h2>
+      <p class="text-sm text-brand-muted leading-relaxed">Daily job picks top Hot leads (by score), tags <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">auto-outreach</code>, and starts the 7-day email + SMS cadence via GHL.</p>
+    </header>
+    <div class="grid gap-4 sm:grid-cols-2">
+      <label class="flex items-center gap-3 sm:col-span-2 cursor-pointer">
+        <input type="checkbox" id="autoPoolEnabled" class="rounded border-brand-border" <%= _autoPool.enabled ? 'checked' : '' %> />
+        <span class="text-sm font-semibold text-brand-dark dark:text-white">Enable auto-pool (runs daily)</span>
+      </label>
+      <label class="block">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Max leads per run</span>
+        <input type="number" id="autoPoolMaxLeads" min="1" max="200" value="<%= _autoPool.maxLeads != null ? _autoPool.maxLeads : 50 %>" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" />
+      </label>
+      <label class="block">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Tier filter</span>
+        <select id="autoPoolTier" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm">
+          <% ['Hot', 'Warm', 'Low'].forEach(function (t) { %>
+          <option value="<%= t %>"<%= String(_autoPool.tier || 'Hot') === t ? ' selected' : '' %>><%= t %></option>
+          <% }); %>
+        </select>
+      </label>
+      <label class="block sm:col-span-2">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Min opportunity score (optional)</span>
+        <input type="number" id="autoPoolMinScore" min="0" max="10" step="0.5" value="<%= _autoPool.minScore != null ? _autoPool.minScore : '' %>" placeholder="e.g. 7" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" />
+      </label>
+    </div>
+    <div class="mt-5 flex flex-wrap gap-3">
+      <button type="button" id="autoPoolSaveBtn" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-5 py-2.5 text-xs font-black uppercase tracking-widest hover:opacity-90">Save auto-pool</button>
+      <button type="button" id="autoPoolRunBtn" class="rounded-xl border border-brand-border/70 dark:border-white/15 px-5 py-2.5 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50">Run now</button>
+    </div>
+    <p id="autoPoolStatus" class="mt-3 text-xs text-brand-muted hidden" role="status"></p>
+    <% if (_autoPool.lastRunAt) { %>
+    <p class="mt-2 text-[11px] text-brand-muted">Last run: <%= new Date(_autoPool.lastRunAt).toLocaleString() %> · enrolled <%= _autoPool.lastEnrolled != null ? _autoPool.lastEnrolled : 0 %></p>
+    <% } %>
+  </div>
+  <% } %>
 
   <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 md:p-8">
     <header class="mb-6">
@@ -69,7 +117,7 @@
           <ol class="text-sm text-brand-muted space-y-2 list-decimal list-inside leading-relaxed">
             <li>On the GHL integrations card, set a <strong>webhook token</strong> (or ask your operator to set <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">GHL_WEBHOOK_SECRET</code> on the server).</li>
             <li>Copy the webhook URL shown on that card.</li>
-            <li>In GHL, go to <strong>Settings → Webhooks</strong> (or your marketplace app) and subscribe to <strong>ContactCreate</strong>, <strong>ContactUpdate</strong>, <strong>InboundMessage</strong>, and <strong>OutboundMessage</strong>.</li>
+            <li>In GHL, go to <strong>Settings → Webhooks</strong> (or your marketplace app) and subscribe to <strong>ContactCreate</strong>, <strong>ContactUpdate</strong>, <strong>InboundMessage</strong>, <strong>OutboundMessage</strong>, and (for auto outreach call queue) <strong>EmailOpened</strong> / <strong>LinkClicked</strong> if your plan exposes them.</li>
             <li>Paste the Agency OS webhook URL. The <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">locationId</code> in each event must match the Location ID you saved.</li>
           </ol>
           <% if (_hookReady && _base) { %>
@@ -155,6 +203,64 @@
 
 <script>
 (function () {
+  function autoPoolPayload() {
+    var minRaw = document.getElementById('autoPoolMinScore');
+    return {
+      prospectingAutoPoolEnabled: !!(document.getElementById('autoPoolEnabled') && document.getElementById('autoPoolEnabled').checked),
+      prospectingAutoPoolMaxLeads: parseInt((document.getElementById('autoPoolMaxLeads') || {}).value, 10) || 50,
+      prospectingAutoPoolTier: (document.getElementById('autoPoolTier') || {}).value || 'Hot',
+      prospectingAutoPoolMinScore: minRaw && minRaw.value !== '' ? minRaw.value : '',
+    };
+  }
+  function setAutoPoolStatus(msg, ok) {
+    var el = document.getElementById('autoPoolStatus');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.classList.toggle('hidden', !msg);
+    el.className = 'mt-3 text-xs ' + (ok ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300');
+  }
+  var saveBtn = document.getElementById('autoPoolSaveBtn');
+  if (saveBtn) {
+    saveBtn.addEventListener('click', function () {
+      saveBtn.disabled = true;
+      fetch('/workspace/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(autoPoolPayload()),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          setAutoPoolStatus(data && data.success ? 'Auto-pool settings saved.' : ((data && data.error) || 'Save failed'), !!(data && data.success));
+        })
+        .catch(function () { setAutoPoolStatus('Save failed.', false); })
+        .finally(function () { saveBtn.disabled = false; });
+    });
+  }
+  var runBtn = document.getElementById('autoPoolRunBtn');
+  if (runBtn) {
+    runBtn.addEventListener('click', function () {
+      runBtn.disabled = true;
+      setAutoPoolStatus('Running auto-pool…', true);
+      fetch('/api/prospecting/auto-pool/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({}),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data || !data.success) {
+            setAutoPoolStatus((data && data.error) || 'Run failed', false);
+            return;
+          }
+          setAutoPoolStatus('Enrolled ' + (data.enrolled || 0) + ' lead(s) from ' + (data.candidates || 0) + ' candidate(s).', true);
+        })
+        .catch(function () { setAutoPoolStatus('Run failed.', false); })
+        .finally(function () { runBtn.disabled = false; });
+    });
+  }
+
   function refreshGhlBanner(connected, message) {
     var banner = document.getElementById('ghlConnectionBanner');
     if (!banner) return;

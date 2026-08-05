@@ -3,7 +3,7 @@
  */
 const dbService = require('./database');
 const sequenceEngine = require('./sequenceEngine');
-const { upsertOpenTaskForLead } = require('./userTasks');
+const { recordEngagementSignals, ensureEngagementCallTask } = require('./engagementSignals');
 const { resolveTaskOwnerEmail } = require('./dispositionFollowUp');
 const { triggerGhlProspectSync } = require('./ghlProspectSync');
 
@@ -70,6 +70,7 @@ async function handleInboundReply(ctx) {
   const ws = (await dbService.getWorkspace(workspaceId)) || { id: workspaceId };
   const ownerEmail = resolveTaskOwnerEmail(lead, ws);
 
+  const signalType = channel === 'email' ? 'email_reply' : 'sms_reply';
   const patch = {
     status: 'Connected - Follow Up',
     lastDisposition: 'connected',
@@ -77,6 +78,7 @@ async function handleInboundReply(ctx) {
     lastTouchChannel: channel,
     nextActionAt: respondBy,
     ghlContactId: lead.ghlContactId || ctx.ghlContactId || undefined,
+    engagementSignals: recordEngagementSignals(lead.engagementSignals, signalType, now.toISOString()),
     updates,
     logs: [
       {
@@ -99,12 +101,7 @@ async function handleInboundReply(ctx) {
   let task = null;
   if (ownerEmail) {
     try {
-      task = await upsertOpenTaskForLead(workspaceId, ownerEmail, {
-        title: `Reply from ${lead.title || 'Lead'} — respond now`,
-        column: 'todo',
-        scheduledAt: respondBy,
-        leadKey: lead.key,
-      });
+      task = await ensureEngagementCallTask(workspaceId, lead, respondBy);
     } catch (e) {
       console.warn('[inboundReplyRules] task create failed:', e && e.message);
     }

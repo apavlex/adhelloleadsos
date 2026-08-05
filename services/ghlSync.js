@@ -6,6 +6,7 @@ const dbService = require('./database');
 const ghlClient = require('./ghlClient');
 const workspaceIntegrations = require('./workspaceIntegrations');
 const { handleInboundReply } = require('./inboundReplyRules');
+const { applyEngagementSignal } = require('./engagementSignals');
 const { hasUsableWebsite } = require('./leadListFilters');
 const {
   mergeTagLists,
@@ -566,6 +567,79 @@ function parseGhlMessageWebhook(body) {
   };
 }
 
+function parseGhlEngagementWebhook(body) {
+  if (!body || typeof body !== 'object') return null;
+  const type = String(body.type || body.event || body.eventType || '').trim();
+  const blob = type.toLowerCase();
+  let signalType = null;
+  if (/link.*click|clicked.*link|lc.*link/i.test(blob) || /linkclick/i.test(blob)) {
+    signalType = 'link_click';
+  } else if (/email.*open|opened.*email|lc.*open|emailopen/i.test(blob)) {
+    signalType = 'email_open';
+  } else if (body.emailEvent && typeof body.emailEvent === 'object') {
+    const ev = String(body.emailEvent.event || body.emailEvent.type || '').toLowerCase();
+    if (ev.includes('open')) signalType = 'email_open';
+    if (ev.includes('click')) signalType = 'link_click';
+  }
+  if (!signalType) return null;
+
+  const locationId = String(
+    body.locationId || body.location_id || (body.contact && body.contact.locationId) || '',
+  ).trim();
+  const contactId = String(
+    body.contactId || body.id || (body.contact && body.contact.id) || '',
+  ).trim();
+  if (!contactId) return null;
+
+  return {
+    type,
+    signalType,
+    locationId,
+    contactId,
+    messageId: String(body.messageId || body.emailMessageId || body.id || '').trim(),
+    linkUrl: String(body.linkUrl || body.url || body.link || '').trim(),
+    timestamp: body.dateAdded || body.timestamp || body.createdAt || '',
+  };
+}
+
+/**
+ * Handle GHL email open / link click webhooks.
+ */
+async function processEngagementWebhook(payload, opts = {}) {
+  const parsed = parseGhlEngagementWebhook(payload);
+  if (!parsed) return { ok: true, ignored: true, reason: 'not_engagement_event' };
+
+  let wid = String(opts.workspaceId || '').trim();
+  if (parsed.locationId) {
+    const match = await workspaceIntegrations.findWorkspaceIdByGhlLocationId(parsed.locationId);
+    if (match) wid = match;
+  }
+  if (!wid) wid = 'default';
+
+  const localLeads = await dbService.getAllLeads(wid);
+  const lead = findLocalLeadMatch(localLeads, { id: parsed.contactId });
+  if (!lead || !lead.key) {
+    return { ok: true, workspaceId: wid, ignored: true, reason: 'lead_not_found' };
+  }
+
+  const applied = await applyEngagementSignal({
+    lead,
+    workspaceId: wid,
+    signalType: parsed.signalType,
+    at: parsed.timestamp || new Date().toISOString(),
+    createTask: true,
+  });
+
+  return {
+    ok: true,
+    workspaceId: wid,
+    key: lead.key,
+    action: parsed.signalType,
+    applied: !!applied.applied,
+    taskId: applied.taskId || null,
+  };
+}
+
 /**
  * Handle inbound/outbound GHL SMS webhooks (InboundMessage / OutboundMessage).
  * @param {object} payload
@@ -715,6 +789,8 @@ module.exports = {
   processMessageWebhook,
   parseGhlWebhookPayload,
   parseGhlMessageWebhook,
+  parseGhlEngagementWebhook,
+  processEngagementWebhook,
   pushNotesToGhl,
   pullNotesFromGhl,
 };

@@ -35,7 +35,7 @@ async function startSequence(leadKey, templateId, options = {}) {
     startedAt: new Date().toISOString(),
   };
 
-  if (/^audit_/i.test(String(templateId)) && lead.workspaceId) {
+  if (/^(audit_|auto_outreach)/i.test(String(templateId)) && lead.workspaceId) {
     try {
       sequenceState.publicAuditToken = createAuditReportToken({
         leadKey: key,

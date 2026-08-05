@@ -4,6 +4,7 @@ const dbService = require('../services/database');
 const { verifyAuditReportToken } = require('../services/auditReportSign');
 const { buildAuditReportViewModel } = require('../services/auditReportModel');
 const { renderAuditReportPdfBuffer } = require('../services/auditReportPdf');
+const { applyEngagementSignal } = require('../services/engagementSignals');
 
 const router = express.Router();
 
@@ -125,6 +126,20 @@ router.post('/audit/report/:token/telemetry', express.json({ limit: '12kb' }), a
       ipHash,
       userAgent: ua,
     });
+    try {
+      const lead = await dbService.getLead(payload.leadKey, payload.workspaceId);
+      if (lead) {
+        await applyEngagementSignal({
+          lead,
+          workspaceId: payload.workspaceId,
+          signalType: 'audit_open',
+          at: row.viewedAt || new Date().toISOString(),
+          createTask: true,
+        });
+      }
+    } catch (e) {
+      console.warn('[audit-report-telemetry] engagement signal failed:', e && e.message);
+    }
     return res.json({ ok: true, view_id: row.id });
   } catch (err) {
     console.error('[audit-report-telemetry]', err);

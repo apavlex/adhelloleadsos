@@ -4,6 +4,35 @@ const dbService = require('../services/database');
 const { filterLeadsForRequest } = require('../services/workspaceService');
 const { triggerGhlProspectSync } = require('../services/ghlProspectSync');
 const { resolveLeadsBySelectedKeys } = require('../services/bulkSelectionKeys');
+const {
+  enrollLeadInAutoOutreach,
+  AUTO_OUTREACH_TAG_NAME,
+} = require('../services/prospectingEnroll');
+
+async function maybeEnrollAutoOutreachOnTagAdd(workspaceId, lead, addedTagKeys) {
+  if (!lead || !lead.key || !Array.isArray(addedTagKeys) || !addedTagKeys.length) return null;
+  const tags = await dbService.listTags(workspaceId);
+  const autoTag = tags.find(
+    (t) => String(t.name || '').trim().toLowerCase() === AUTO_OUTREACH_TAG_NAME,
+  );
+  if (!autoTag || !addedTagKeys.includes(autoTag.key)) return null;
+  try {
+    return await enrollLeadInAutoOutreach({
+      leadKey: lead.key,
+      workspaceId,
+      reEnroll: false,
+      tagLead: false,
+    });
+  } catch (e) {
+    console.warn('[tags] auto-outreach enroll failed:', e && e.message);
+    return null;
+  }
+}
+
+function addedTagKeys(prev, next) {
+  const before = new Set(dbService.normalizeTagKeys(prev));
+  return dbService.normalizeTagKeys(next).filter((k) => !before.has(k));
+}
 
 async function tagsWithLeadCounts(req) {
   const tags = await dbService.listTags(req.workspaceId);
@@ -108,6 +137,9 @@ router.post('/assign', async (req, res, next) => {
 
     const lead = await dbService.setLeadTags(fullKey, nextTags, req.workspaceId);
     if (!lead) return res.status(404).json({ success: false, error: 'Could not save tags on lead.' });
+    if (mode === 'add') {
+      await maybeEnrollAutoOutreachOnTagAdd(req.workspaceId, lead, addedTagKeys(prev, nextTags));
+    }
     triggerGhlProspectSync(fullKey, req.workspaceId, { trigger: 'tag_assign' });
     res.json({ success: true, lead });
   } catch (e) {
@@ -182,8 +214,13 @@ router.post('/assign-bulk', async (req, res, next) => {
 
       // eslint-disable-next-line no-await-in-loop
       const lead = await dbService.setLeadTags(fullKey, nextTags, req.workspaceId);
-      if (lead) updated.push(lead);
-      else missedKeys.push(rawKey);
+      if (lead) {
+        if (mode === 'add') {
+          // eslint-disable-next-line no-await-in-loop
+          await maybeEnrollAutoOutreachOnTagAdd(req.workspaceId, lead, addedTagKeys(prev, nextTags));
+        }
+        updated.push(lead);
+      } else missedKeys.push(rawKey);
     }
 
     if (!updated.length) {
