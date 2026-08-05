@@ -59,14 +59,20 @@
     <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1">CTA URL</span>
     <input type="text" id="<%= _pfx %>DmCtaUrl" value="<%= _pack && _pack.directMail && _pack.directMail.ctaUrl ? _pack.directMail.ctaUrl : '' %>" placeholder="{audit_url}" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" />
   </label>
+  <div class="flex flex-wrap items-center gap-2 mb-2">
+    <button type="button" id="<%= _pfx %>DmGenerateImages" class="info-pack-generate-images rounded-xl border border-brand-yellow/40 bg-brand-yellow/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors" data-prefix="<%= _pfx %>">Generate images from playbook</button>
+    <p id="<%= _pfx %>DmGenerateStatus" class="text-[11px] text-brand-muted hidden" role="status"></p>
+  </div>
   <div class="grid md:grid-cols-2 gap-3 mb-2">
     <label class="block">
       <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1">Front image URL</span>
       <input type="url" id="<%= _pfx %>DmFrontImageUrl" value="<%= _pack && _pack.directMail && _pack.directMail.frontImageUrl ? _pack.directMail.frontImageUrl : '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" />
+      <img id="<%= _pfx %>DmFrontPreview" src="<%= _pack && _pack.directMail && _pack.directMail.frontImageUrl ? _pack.directMail.frontImageUrl : '' %>" alt="" class="info-pack-dm-preview mt-2 rounded-lg border border-brand-border/40 max-h-24<%= _pack && _pack.directMail && _pack.directMail.frontImageUrl ? '' : ' hidden' %>" />
     </label>
     <label class="block">
       <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1">Back image URL</span>
       <input type="url" id="<%= _pfx %>DmBackImageUrl" value="<%= _pack && _pack.directMail && _pack.directMail.backImageUrl ? _pack.directMail.backImageUrl : '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" />
+      <img id="<%= _pfx %>DmBackPreview" src="<%= _pack && _pack.directMail && _pack.directMail.backImageUrl ? _pack.directMail.backImageUrl : '' %>" alt="" class="info-pack-dm-preview mt-2 rounded-lg border border-brand-border/40 max-h-24<%= _pack && _pack.directMail && _pack.directMail.backImageUrl ? '' : ' hidden' %>" />
     </label>
   </div>
   <div class="flex flex-wrap gap-4 text-xs">

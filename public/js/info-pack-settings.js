@@ -1,8 +1,10 @@
 /**
- * Workspace info pack settings — folder + default save.
+ * Workspace info pack settings — folder + default save, playbook images.
  */
 (function () {
   'use strict';
+
+  var playbookPromptsByForm = {};
 
   function $(id) {
     return document.getElementById(id);
@@ -52,6 +54,200 @@
     if ($(prefix + 'DmBackImageUrl')) $(prefix + 'DmBackImageUrl').value = dm.backImageUrl || '';
     if ($(prefix + 'DmPersonalizeOverlay')) $(prefix + 'DmPersonalizeOverlay').checked = dm.personalizeOverlay !== false;
     if ($(prefix + 'DmIncludeLobQr')) $(prefix + 'DmIncludeLobQr').checked = dm.includeLobQr !== false;
+    syncDmPreview(prefix, 'front');
+    syncDmPreview(prefix, 'back');
+  }
+
+  function syncDmPreview(prefix, side) {
+    var input = $(prefix + (side === 'back' ? 'DmBackImageUrl' : 'DmFrontImageUrl'));
+    var img = $(prefix + (side === 'back' ? 'DmBackPreview' : 'DmFrontPreview'));
+    if (!input || !img) return;
+    var url = String(input.value || '').trim();
+    if (/^https?:\/\//i.test(url)) {
+      img.src = url;
+      img.classList.remove('hidden');
+    } else {
+      img.removeAttribute('src');
+      img.classList.add('hidden');
+    }
+  }
+
+  function setGenerateStatus(prefix, text, ok) {
+    var el = $(prefix + 'DmGenerateStatus');
+    if (!el) return;
+    el.classList.remove('hidden');
+    el.textContent = text || '';
+    el.className = 'text-[11px] ' + (ok ? 'text-brand-muted' : 'text-rose-600 dark:text-rose-400');
+  }
+
+  function buildBackCompanionPrompt(frontPrompt) {
+    var front = String(frontPrompt || '').trim();
+    return (
+      'Postcard back design matching the front creative reference. Same color palette, typography, photography style, and brand mood. ' +
+      'Layout for 4×6 postcard back: short bullet benefits, trust cues, and clear QR scan CTA zone (bottom-right). ' +
+      'Keep Lob address/postage area at bottom clear of text. ' +
+      (front ? 'Front concept: ' + front.slice(0, 220) : '')
+    );
+  }
+
+  async function pollImageGeneration(taskId) {
+    var deadline = Date.now() + 120000;
+    while (Date.now() < deadline) {
+      await new Promise(function (resolve) {
+        setTimeout(resolve, 4000);
+      });
+      var res = await fetch(
+        '/direct-mail/api/generate-image/status?taskId=' + encodeURIComponent(taskId),
+        { credentials: 'same-origin', headers: { Accept: 'application/json' } },
+      );
+      var data = await res.json().catch(function () {
+        return {};
+      });
+      if (data.status === 'success' && data.imageUrl) return data;
+      if (!res.ok || data.status === 'failed' || data.success === false) {
+        throw new Error((data && data.error) || 'Image generation failed');
+      }
+    }
+    throw new Error('Image generation timed out');
+  }
+
+  async function generateImageSlot(prompt, slot, brandKit, styleReferenceUrl) {
+    var body = {
+      prompt: prompt,
+      slot: slot,
+      platform: 'postcard',
+      aspectRatio: '3:2',
+      resolution: '2K',
+      brandKit: brandKit || {},
+      matchFrontStyle: slot === 'back' && !!styleReferenceUrl,
+    };
+    if (styleReferenceUrl) body.styleReferenceUrl = styleReferenceUrl;
+    var res = await fetch('/direct-mail/api/generate-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(body),
+    });
+    var data = await res.json().catch(function () {
+      return {};
+    });
+    if (!res.ok || !data.success) {
+      throw new Error((data && data.error) || 'Could not start image generation');
+    }
+    if (data.status === 'processing' && data.taskId) {
+      data = await pollImageGeneration(data.taskId);
+    }
+    if (!data.imageUrl) throw new Error('No image URL returned');
+    return data.imageUrl;
+  }
+
+  async function applyPlaybookToForm(prefix, playbookId) {
+    if (!playbookId) return;
+    try {
+      var res = await fetch('/direct-mail/api/playbooks/' + encodeURIComponent(playbookId), {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      });
+      var data = await res.json();
+      if (!data.success || !data.playbook) return;
+      var pb = data.playbook;
+      if ($(prefix + 'DmHeadline') && pb.headline) $(prefix + 'DmHeadline').value = pb.headline;
+      if ($(prefix + 'DmBodyText') && (pb.body || pb.bodyText)) {
+        $(prefix + 'DmBodyText').value = pb.body || pb.bodyText;
+      }
+      if ($(prefix + 'DmCtaUrl') && pb.ctaUrl) $(prefix + 'DmCtaUrl').value = pb.ctaUrl;
+      if ($(prefix + 'DmPersonalizeOverlay') && pb.personalizeOverlay != null) {
+        $(prefix + 'DmPersonalizeOverlay').checked = !!pb.personalizeOverlay;
+      }
+      playbookPromptsByForm[prefix] = {
+        front: pb.imagePromptFront || '',
+        back: pb.imagePromptBack || '',
+      };
+    } catch (_) {
+      /* optional */
+    }
+  }
+
+  async function generatePostcardImages(prefix) {
+    var boot = window.INFO_PACK_BOOT || {};
+    if (!boot.kieImageReady) {
+      setGenerateStatus(prefix, 'KIE image API not configured on server.', false);
+      return;
+    }
+    var playbookId = String(($(prefix + 'PlaybookId') || {}).value || '').trim();
+    if (playbookId && !playbookPromptsByForm[prefix]) {
+      await applyPlaybookToForm(prefix, playbookId);
+    }
+    var prompts = playbookPromptsByForm[prefix] || {};
+    var frontPrompt = String(prompts.front || '').trim();
+    var backPrompt = String(prompts.back || '').trim();
+    if (!frontPrompt) {
+      setGenerateStatus(prefix, 'Select a playbook with image prompts first.', false);
+      return;
+    }
+    if (!backPrompt) backPrompt = buildBackCompanionPrompt(frontPrompt);
+
+    var btn = $(prefix + 'DmGenerateImages');
+    if (btn) btn.disabled = true;
+    setGenerateStatus(prefix, 'Generating front… (up to 2 min)', true);
+
+    try {
+      var brandRes = await fetch('/direct-mail/api/brand-kit', {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      });
+      var brandData = await brandRes.json().catch(function () {
+        return {};
+      });
+      var brandKit = (brandData && brandData.brandKit) || {};
+
+      var frontUrl = await generateImageSlot(frontPrompt, 'front', brandKit, '');
+      if ($(prefix + 'DmFrontImageUrl')) $(prefix + 'DmFrontImageUrl').value = frontUrl;
+      syncDmPreview(prefix, 'front');
+
+      setGenerateStatus(prefix, 'Front done — generating back…', true);
+      var backUrl = await generateImageSlot(backPrompt, 'back', brandKit, frontUrl);
+      if ($(prefix + 'DmBackImageUrl')) $(prefix + 'DmBackImageUrl').value = backUrl;
+      syncDmPreview(prefix, 'back');
+
+      setGenerateStatus(prefix, 'Front and back images generated.', true);
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Postcard images generated', { variant: 'success' });
+      }
+    } catch (err) {
+      setGenerateStatus(prefix, (err && err.message) || 'Generation failed.', false);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  function bindPlaybookAndImages(prefix) {
+    var playbookEl = $(prefix + 'PlaybookId');
+    if (playbookEl) {
+      playbookEl.addEventListener('change', function () {
+        applyPlaybookToForm(prefix, String(playbookEl.value || '').trim());
+      });
+      if (playbookEl.value) applyPlaybookToForm(prefix, playbookEl.value);
+    }
+    ['DmFrontImageUrl', 'DmBackImageUrl'].forEach(function (suffix) {
+      var input = $(prefix + suffix);
+      if (input) {
+        input.addEventListener('input', function () {
+          syncDmPreview(prefix, suffix.indexOf('Back') >= 0 ? 'back' : 'front');
+        });
+      }
+    });
+    var genBtn = $(prefix + 'DmGenerateImages');
+    if (genBtn) {
+      var boot = window.INFO_PACK_BOOT || {};
+      if (!boot.kieImageReady) {
+        genBtn.disabled = true;
+        genBtn.title = 'Configure KIE_AI_API_KEY on the server to generate images';
+      }
+      genBtn.addEventListener('click', function () {
+        generatePostcardImages(prefix);
+      });
+    }
   }
 
   function flashMsg(el, text, ok) {
@@ -114,6 +310,16 @@
 
   function init() {
     document.querySelectorAll('.info-pack-form').forEach(bindTabs);
+    bindPlaybookAndImages('ipDefault');
+    bindPlaybookAndImages('ipFolder');
+
+    var boot = window.INFO_PACK_BOOT || {};
+    if (!boot.kieImageReady) {
+      document.querySelectorAll('.info-pack-generate-images').forEach(function (btn) {
+        btn.disabled = true;
+        btn.title = 'Configure KIE_AI_API_KEY on the server to generate images';
+      });
+    }
 
     const defaultSave = $('infoPackDefaultSave');
     if (defaultSave) {

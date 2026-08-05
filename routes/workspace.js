@@ -15,6 +15,7 @@ const ghlSync = require('../services/ghlSync');
 const { getWorkspaceGhlSyncDirection, normalizeGhlSyncDirection } = require('../services/ghlSyncDirection');
 const lobClient = require('../services/lobClient');
 const { listPlaybooks } = require('../services/directMailPlaybooks');
+const kieImageClient = require('../services/kieImageClient');
 const { normalizeInfoPack, parseInfoPackFromBody, BUILTIN_DEFAULT } = require('../services/infoPack');
 const multer = require('multer');
 const { persistWorkspaceIcp } = require('../services/workspaceIcp');
@@ -1671,6 +1672,7 @@ router.get('/:section', async (req, res, next) => {
         ws && ws.infoPackDefault ? ws.infoPackDefault : BUILTIN_DEFAULT,
       );
       renderLocals.preselectFolderKey = String((req.query && req.query.folder) || '').trim();
+      renderLocals.kieImageReady = kieImageClient.isConfigured();
     }
     res.render('workspace', renderLocals);
   } catch (e) {

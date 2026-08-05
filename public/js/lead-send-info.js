@@ -94,7 +94,83 @@
     el.classList.toggle('dark:text-emerald-300', !isError && !!msg);
   }
 
-  async function fetchAuditSnippet(leadKey) {
+  function syncMainBodyToPack(root) {
+    const ch = getChannel(root);
+    const bodyEl = qs(root, '.lead-send-info-body');
+    const subjectEl = qs(root, '.lead-send-info-subject');
+    if (ch === 'email') {
+      const emailBody = qs(root, '.lead-send-info-pack-email-body');
+      const emailSub = qs(root, '.lead-send-info-pack-email-subject');
+      if (emailBody && bodyEl) emailBody.value = bodyEl.value;
+      if (emailSub && subjectEl) emailSub.value = subjectEl.value;
+    } else {
+      const smsBody = qs(root, '.lead-send-info-pack-sms-body');
+      if (smsBody && bodyEl) smsBody.value = bodyEl.value;
+    }
+  }
+
+  function syncPackToMainBody(root) {
+    const ch = getChannel(root);
+    const bodyEl = qs(root, '.lead-send-info-body');
+    const subjectEl = qs(root, '.lead-send-info-subject');
+    if (ch === 'email') {
+      const emailBody = qs(root, '.lead-send-info-pack-email-body');
+      const emailSub = qs(root, '.lead-send-info-pack-email-subject');
+      if (bodyEl && emailBody) bodyEl.value = emailBody.value || '';
+      if (subjectEl && emailSub) subjectEl.value = emailSub.value || '';
+    } else {
+      const smsBody = qs(root, '.lead-send-info-pack-sms-body');
+      if (bodyEl && smsBody) bodyEl.value = smsBody.value || '';
+    }
+  }
+
+  function fillPackOverrideFields(root, materialized, resolved) {
+    const m = materialized || {};
+    const r = resolved || {};
+    const sms = m.sms || r.sms || {};
+    const email = m.email || r.email || {};
+    const dm = m.directMail || r.directMail || {};
+    const smsOn = qs(root, '.lead-send-info-pack-sms-enabled');
+    const emailOn = qs(root, '.lead-send-info-pack-email-enabled');
+    const dmOn = qs(root, '.lead-send-info-pack-dm-enabled');
+    if (smsOn) smsOn.checked = !!(r.sms && r.sms.enabled);
+    if (emailOn) emailOn.checked = !!(r.email && r.email.enabled);
+    if (dmOn) dmOn.checked = !!(r.directMail && r.directMail.enabled);
+    const smsBody = qs(root, '.lead-send-info-pack-sms-body');
+    const emailSub = qs(root, '.lead-send-info-pack-email-subject');
+    const emailBody = qs(root, '.lead-send-info-pack-email-body');
+    const dmHead = qs(root, '.lead-send-info-pack-dm-headline');
+    const dmBody = qs(root, '.lead-send-info-pack-dm-body');
+    const dmCta = qs(root, '.lead-send-info-pack-dm-cta');
+    if (smsBody) smsBody.value = sms.body || '';
+    if (emailSub) emailSub.value = email.subject || '';
+    if (emailBody) emailBody.value = email.body || '';
+    if (dmHead) dmHead.value = dm.headline || '';
+    if (dmBody) dmBody.value = dm.bodyText || '';
+    if (dmCta) dmCta.value = dm.ctaUrl || '';
+    syncPackToMainBody(root);
+  }
+
+  function buildPackOverrideFromForm(root) {
+    return {
+      sms: {
+        enabled: !!(qs(root, '.lead-send-info-pack-sms-enabled') || {}).checked,
+        body: String((qs(root, '.lead-send-info-pack-sms-body') || {}).value || '').trim(),
+      },
+      email: {
+        enabled: !!(qs(root, '.lead-send-info-pack-email-enabled') || {}).checked,
+        subject: String((qs(root, '.lead-send-info-pack-email-subject') || {}).value || '').trim(),
+        body: String((qs(root, '.lead-send-info-pack-email-body') || {}).value || '').trim(),
+      },
+      directMail: {
+        enabled: !!(qs(root, '.lead-send-info-pack-dm-enabled') || {}).checked,
+        headline: String((qs(root, '.lead-send-info-pack-dm-headline') || {}).value || '').trim(),
+        bodyText: String((qs(root, '.lead-send-info-pack-dm-body') || {}).value || '').trim(),
+        ctaUrl: String((qs(root, '.lead-send-info-pack-dm-cta') || {}).value || '').trim(),
+      },
+    };
+  }
+
     const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/audit-report-link`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -131,24 +207,15 @@
         credentials: 'same-origin',
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.success || !data.materialized) return;
-      const m = data.materialized;
-      const ch = getChannel(root);
-      const bodyEl = qs(root, '.lead-send-info-body');
-      const subjectEl = qs(root, '.lead-send-info-subject');
-      if (bodyEl && !String(bodyEl.value || '').trim()) {
-        bodyEl.value =
-          ch === 'email' ? String(m.email && m.email.body ? m.email.body : '') : String(m.sms && m.sms.body ? m.sms.body : '');
-      }
-      if (subjectEl && ch === 'email' && !String(subjectEl.value || '').trim() && m.email) {
-        subjectEl.value = m.email.subject || subjectEl.value;
-      }
+      if (!res.ok || !data.success) return;
+      fillPackOverrideFields(root, data.materialized, data.pack);
       root.dataset.infoPackLoaded = '1';
     } catch (_) {
       /* optional prefill */
     }
   }
 
+  async function fetchAuditSnippet(leadKey) {
   function formatInfoPackResults(data) {
     const parts = [];
     if (data.sms && data.sms.ok) parts.push('SMS sent');
@@ -170,22 +237,23 @@
     }
     const row = getPanelRow();
     const toInput = qs(root, '.lead-send-info-to');
-    const userEdited = !!(toInput && toInput.dataset.userEdited === '1');
-    const ch = getChannel(root);
     const saveToLead = !!(qs(root, '.lead-send-info-save') || {}).checked;
     const packBtn = qs(root, '.lead-send-info-pack');
 
-    const payload = { saveToLead };
+    syncMainBodyToPack(root);
+    const payload = { saveToLead, pack: buildPackOverrideFromForm(root) };
+
+    const ph = readPhone(row);
+    const em = readEmail(row);
+    const userEdited = !!(toInput && toInput.dataset.userEdited === '1');
+    const ch = getChannel(root);
     if (userEdited && toInput) {
       const val = String(toInput.value || '').trim();
       if (ch === 'email') payload.email = val;
       else payload.phone = val;
-    } else {
-      const ph = readPhone(row);
-      const em = readEmail(row);
-      if (ph) payload.phone = ph;
-      if (em) payload.email = em;
     }
+    if (ph) payload.phone = payload.phone || ph;
+    if (em) payload.email = payload.email || em;
 
     const original = packBtn ? packBtn.textContent : '';
     if (packBtn) {
@@ -319,6 +387,19 @@
         toInput.dataset.userEdited = '1';
       });
     }
+
+    const bodyInput = qs(root, '.lead-send-info-body');
+    if (bodyInput) {
+      bodyInput.addEventListener('input', () => syncMainBodyToPack(root));
+    }
+    const subjectInput = qs(root, '.lead-send-info-subject');
+    if (subjectInput) {
+      subjectInput.addEventListener('input', () => syncMainBodyToPack(root));
+    }
+
+    root.querySelectorAll('.lead-send-info-pack-sms-body, .lead-send-info-pack-email-body, .lead-send-info-pack-email-subject').forEach((el) => {
+      el.addEventListener('input', () => syncPackToMainBody(root));
+    });
 
     const auditBtn = qs(root, '.lead-send-info-audit');
     if (auditBtn) {

@@ -40,7 +40,8 @@
 window.INFO_PACK_BOOT = {
   folders: <%- JSON.stringify(_folders.map(function (f) { return { key: f.key, name: f.name }; })) %>,
   defaultPack: <%- JSON.stringify(_packDefault) %>,
-  preselectFolderKey: <%- JSON.stringify(_preselect) %>
+  preselectFolderKey: <%- JSON.stringify(_preselect) %>,
+  kieImageReady: <%- typeof kieImageReady !== 'undefined' && kieImageReady ? 'true' : 'false' %>
 };
 </script>
 <script src="/js/info-pack-settings.js"></script>

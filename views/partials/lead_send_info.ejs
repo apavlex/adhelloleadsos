@@ -26,6 +26,42 @@
     <input type="checkbox" class="lead-send-info-save rounded border-brand-border text-brand-yellow focus:ring-brand-yellow" checked />
     Save number/email to lead
   </label>
+  <details class="lead-send-info-pack-details rounded-lg border border-brand-border/30 dark:border-white/10 px-2.5 py-2">
+    <summary class="text-[9px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 cursor-pointer select-none">Customize this send</summary>
+    <div class="mt-2 space-y-2 pt-2 border-t border-brand-border/20 dark:border-white/10">
+      <div class="flex flex-wrap gap-3 text-[10px] font-semibold text-brand-muted">
+        <label class="inline-flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="lead-send-info-pack-sms-enabled rounded border-brand-border text-brand-yellow" checked /> SMS</label>
+        <label class="inline-flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="lead-send-info-pack-email-enabled rounded border-brand-border text-brand-yellow" checked /> Email</label>
+        <label class="inline-flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="lead-send-info-pack-dm-enabled rounded border-brand-border text-brand-yellow" /> Direct mail</label>
+      </div>
+      <label class="block">
+        <span class="text-[9px] font-black uppercase tracking-wider text-brand-muted block mb-1">SMS body</span>
+        <textarea class="lead-send-info-pack-sms-body w-full rounded-lg border border-brand-border/40 dark:border-white/15 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-xs resize-y min-h-[3rem]" rows="2"></textarea>
+      </label>
+      <label class="block">
+        <span class="text-[9px] font-black uppercase tracking-wider text-brand-muted block mb-1">Email subject</span>
+        <input type="text" class="lead-send-info-pack-email-subject w-full rounded-lg border border-brand-border/40 dark:border-white/15 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-xs" />
+      </label>
+      <label class="block">
+        <span class="text-[9px] font-black uppercase tracking-wider text-brand-muted block mb-1">Email body</span>
+        <textarea class="lead-send-info-pack-email-body w-full rounded-lg border border-brand-border/40 dark:border-white/15 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-xs resize-y min-h-[3rem]" rows="2"></textarea>
+      </label>
+      <div class="grid grid-cols-1 gap-2">
+        <label class="block">
+          <span class="text-[9px] font-black uppercase tracking-wider text-brand-muted block mb-1">Postcard headline</span>
+          <input type="text" class="lead-send-info-pack-dm-headline w-full rounded-lg border border-brand-border/40 dark:border-white/15 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-xs" />
+        </label>
+        <label class="block">
+          <span class="text-[9px] font-black uppercase tracking-wider text-brand-muted block mb-1">Postcard body</span>
+          <textarea class="lead-send-info-pack-dm-body w-full rounded-lg border border-brand-border/40 dark:border-white/15 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-xs resize-y min-h-[2.5rem]" rows="2"></textarea>
+        </label>
+        <label class="block">
+          <span class="text-[9px] font-black uppercase tracking-wider text-brand-muted block mb-1">CTA URL</span>
+          <input type="text" class="lead-send-info-pack-dm-cta w-full rounded-lg border border-brand-border/40 dark:border-white/15 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-xs" placeholder="{audit_url}" />
+        </label>
+      </div>
+    </div>
+  </details>
   <div class="flex flex-wrap gap-2">
     <button type="button" class="lead-send-info-audit shrink-0 rounded-lg border border-brand-border/50 dark:border-white/15 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors">+ Audit link</button>
     <button type="button" class="lead-send-info-send flex-1 min-w-[7rem] btn-pill bg-brand-yellow text-brand-dark py-2 text-[10px] font-black uppercase tracking-widest hover:brightness-95 transition-all">Send SMS</button>
