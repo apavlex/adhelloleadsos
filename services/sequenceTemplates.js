@@ -1,6 +1,6 @@
 /**
  * Built-in outreach cadences (day offset from sequence anchor = day 1 anchor at step 0).
- * Reminders land in lead logs; wire Instantly / Smartlead / dialer for live sends.
+ * Email/SMS steps auto-send via GHL when the scheduler fires due steps.
  * Personalization: {{business_name}}, {{domain}}, {{city}}, {{score}}, {{tier}}, {{top_finding}},
  * {{competitor_with_meta_desc}}, {{report_link}}, {{calendly_or_book}}
  */

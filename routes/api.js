@@ -15,11 +15,30 @@ const { defaultPipelineStageForSource, clampPipelineStage } = require('../servic
 const signalwire = require('../services/signalwire');
 const agentSessionStore = require('../services/agentSessionStore');
 const { autoAttachCadenceIfNeeded } = require('../services/leadCadence');
+const { applyWarmInboundRules, isWarmInboundSource } = require('../services/leadRoutingRules');
 const dialerPacing = require('../services/dialerPacing');
 const inboundForwardStats = require('../services/inboundForwardStats');
 const ghlSync = require('../services/ghlSync');
 const commsClient = require('../services/commsClient');
 const commsSync = require('../services/commsSync');
+
+async function routeLeadAfterIngest(leadKey, workspaceId, source) {
+  const wid = workspaceId || 'default';
+  const src = String(source || '').trim().toLowerCase();
+  if (isWarmInboundSource(src)) {
+    try {
+      await applyWarmInboundRules({ leadKey, workspaceId: wid, source: src });
+    } catch (e) {
+      console.warn('[ingest] warm inbound routing failed:', e && e.message);
+    }
+    return;
+  }
+  try {
+    await autoAttachCadenceIfNeeded({ leadKey, workspaceId: wid });
+  } catch (_) {
+    /* non-fatal */
+  }
+}
 
 // Middleware to check API Key
 const validateApiKey = (req, res, next) => {
@@ -219,13 +238,7 @@ router.post('/ingest', validateApiKey, async (req, res, next) => {
 
     // Save/Merge via DB Service
     const leadKey = await dbService.saveLead(leadData);
-    try {
-      await autoAttachCadenceIfNeeded({ leadKey, workspaceId: workspaceIdFromReq(req) });
-    } catch (_) {
-      /* non-fatal */
-    }
-    
-    // Background enrichment if new or missing data
+    await routeLeadAfterIngest(leadKey, workspaceIdFromReq(req), src);
     if (leadData.website && leadData.website !== 'N/A') {
       const ingestWid = workspaceIdFromReq(req);
       setImmediate(async () => {
@@ -267,11 +280,7 @@ router.post('/webhooks/newsletter', validateApiKey, async (req, res, next) => {
       return res.status(400).json({ error: 'email is required (top-level or subscriber.email).' });
     }
     const key = await dbService.saveLead({ ...payload, workspaceId: workspaceIdFromReq(req) });
-    try {
-      await autoAttachCadenceIfNeeded({ leadKey: key, workspaceId: workspaceIdFromReq(req) });
-    } catch (_) {
-      /* non-fatal */
-    }
+    await routeLeadAfterIngest(key, workspaceIdFromReq(req), payload.source || 'newsletter');
     res.json({ success: true, key, message: 'Newsletter subscriber saved as lead.' });
   } catch (err) {
     next(err);
@@ -291,11 +300,7 @@ router.post('/webhooks/booking', validateApiKey, async (req, res, next) => {
       });
     }
     const key = await dbService.saveLead({ ...payload, workspaceId: workspaceIdFromReq(req) });
-    try {
-      await autoAttachCadenceIfNeeded({ leadKey: key, workspaceId: workspaceIdFromReq(req) });
-    } catch (_) {
-      /* non-fatal */
-    }
+    await routeLeadAfterIngest(key, workspaceIdFromReq(req), payload.source || 'booking');
     res.json({ success: true, key, message: 'Booking saved as inbound lead.' });
   } catch (err) {
     next(err);
@@ -313,11 +318,7 @@ router.post('/webhooks/form', validateApiKey, async (req, res, next) => {
       return res.status(400).json({ error: 'email is required.' });
     }
     const key = await dbService.saveLead({ ...payload, workspaceId: workspaceIdFromReq(req) });
-    try {
-      await autoAttachCadenceIfNeeded({ leadKey: key, workspaceId: workspaceIdFromReq(req) });
-    } catch (_) {
-      /* non-fatal */
-    }
+    await routeLeadAfterIngest(key, workspaceIdFromReq(req), payload.source || 'inbound_form');
     res.json({ success: true, key, message: 'Form submission saved as inbound lead.' });
   } catch (err) {
     next(err);

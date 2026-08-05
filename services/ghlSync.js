@@ -5,6 +5,7 @@
 const dbService = require('./database');
 const ghlClient = require('./ghlClient');
 const workspaceIntegrations = require('./workspaceIntegrations');
+const { handleInboundReply } = require('./inboundReplyRules');
 const { hasUsableWebsite } = require('./leadListFilters');
 const {
   mergeTagLists,
@@ -531,23 +532,32 @@ function parseGhlMessageWebhook(body) {
   const type = String(body.type || body.event || '').trim();
   if (!/^(InboundMessage|OutboundMessage)$/i.test(type)) return null;
 
-  const messageType = String(body.messageType || '').toUpperCase();
-  if (messageType && messageType !== 'SMS') return null;
+  const messageTypeRaw = String(body.messageType || body.channel || '').toUpperCase();
+  let channel = 'sms';
+  if (messageTypeRaw.includes('EMAIL')) channel = 'email';
+  else if (messageTypeRaw && !messageTypeRaw.includes('SMS') && !messageTypeRaw.includes('PHONE')) {
+    return null;
+  }
 
   const locationId = String(body.locationId || body.location_id || '').trim();
   const contactId = String(body.contactId || (body.contact && body.contact.id) || '').trim();
-  const text = String(body.body || body.message || '').trim();
+  const text = String(
+    body.body || body.message || body.text || body.plainText || '',
+  ).trim();
+  const html = String(body.html || '').trim();
+  const content = text || html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
   const messageId = String(body.messageId || body.id || '').trim();
-  if (!contactId || !text) return null;
+  if (!contactId || !content) return null;
 
   let direction = String(body.direction || '').trim().toLowerCase();
   if (!direction) direction = /inbound/i.test(type) ? 'inbound' : 'outbound';
 
   return {
     type,
+    channel,
     locationId,
     contactId,
-    body: text,
+    body: content,
     messageId,
     direction,
     conversationId: String(body.conversationId || '').trim(),
@@ -578,6 +588,34 @@ async function processMessageWebhook(payload, opts = {}) {
     return { ok: true, workspaceId: wid, ignored: true, reason: 'lead_not_found' };
   }
 
+  if (parsed.direction === 'inbound') {
+    const replyResult = await handleInboundReply({
+      lead,
+      workspaceId: wid,
+      channel: parsed.channel,
+      body: parsed.body,
+      messageId: parsed.messageId,
+      ghlContactId: parsed.contactId,
+      conversationId: parsed.conversationId,
+      timestamp: parsed.dateAdded || new Date().toISOString(),
+    });
+    if (replyResult.reason === 'duplicate') {
+      return { ok: true, workspaceId: wid, key: lead.key, ignored: true, reason: 'duplicate' };
+    }
+    if (replyResult.reason === 'opt_out_or_stop') {
+      return { ok: true, workspaceId: wid, key: lead.key, ignored: true, reason: 'opt_out_or_stop' };
+    }
+    return {
+      ok: true,
+      workspaceId: wid,
+      key: lead.key,
+      action: parsed.channel === 'email' ? 'email_inbound' : 'sms_inbound',
+      messageId: parsed.messageId || null,
+      replyHandled: !!replyResult.applied,
+      pausedSequence: !!replyResult.pausedSequence,
+    };
+  }
+
   const updates = Array.isArray(lead.updates) ? lead.updates : [];
   if (
     parsed.messageId &&
@@ -589,7 +627,9 @@ async function processMessageWebhook(payload, opts = {}) {
     return { ok: true, workspaceId: wid, key: lead.key, ignored: true, reason: 'duplicate' };
   }
 
-  const entryType = parsed.direction === 'inbound' ? 'sms_inbound' : 'sms_outbound';
+  const isSms = parsed.channel === 'sms';
+  const entryType = isSms ? 'sms_outbound' : 'email_outbound';
+
   const newUpdates = [
     ...updates,
     {
@@ -611,18 +651,11 @@ async function processMessageWebhook(payload, opts = {}) {
     logs: [
       {
         type: entryType,
-        message:
-          parsed.direction === 'inbound'
-            ? `Inbound SMS: ${parsed.body.slice(0, 180)}`
-            : `Outbound SMS: ${parsed.body.slice(0, 180)}`,
+        message: `Outbound ${isSms ? 'SMS' : 'email'}: ${parsed.body.slice(0, 180)}`,
         timestamp: new Date().toISOString(),
       },
     ],
   };
-  if (parsed.direction === 'inbound') {
-    patch.status = 'Follow-up';
-    patch.lastTouchChannel = 'sms';
-  }
 
   await dbService.updateLead(lead.key, patch);
 

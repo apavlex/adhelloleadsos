@@ -35,10 +35,13 @@ function recommendCadenceTemplate(lead, workspaceLeads) {
   if (includesAny(category, ['law', 'legal', 'medical', 'dental', 'enterprise', 'finance'])) {
     return { templateId: 'bob_standard', family: 'enterprise_careful' };
   }
-  if (includesAny(category, ['restaurant', 'cafe', 'bar', 'food']) || source.startsWith('adhello_')) {
+  if (includesAny(category, ['restaurant', 'cafe', 'bar', 'food'])) {
     if (reviews < 40 || rating < 4.3 || !hasChat || !hasSocial) {
       return { templateId: 'clay_standard', family: 'reputation_social' };
     }
+  }
+  if (source.startsWith('adhello_') || source === 'booking' || source.startsWith('booking_')) {
+    return { templateId: 'audit_hot_5', family: 'warm_inbound' };
   }
   if (wonCategoryMatches.length >= 2) {
     const winsByTemplate = new Map();

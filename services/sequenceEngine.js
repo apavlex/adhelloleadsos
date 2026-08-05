@@ -136,6 +136,20 @@ async function processLeadSequence(lead) {
   const baseUrl = String(process.env.PUBLIC_BASE_URL || '').replace(/\/$/, '');
   const msg = formatStepMessage(step, tpl.name, lead, baseUrl);
 
+  let sendResult = null;
+  const { executeSequenceStep, isAutoChannel } = require('./sequenceStepExecutor');
+  if (isAutoChannel(step.channel)) {
+    try {
+      sendResult = await executeSequenceStep({
+        lead,
+        step,
+        workspaceId: lead.workspaceId,
+      });
+    } catch (e) {
+      sendResult = { executed: false, reason: 'send_failed', error: e && e.message };
+    }
+  }
+
   const nextIdx = idx + 1;
   let sequenceState;
   if (nextIdx >= tpl.steps.length) {
@@ -154,18 +168,63 @@ async function processLeadSequence(lead) {
     };
   }
 
+  const logMeta = {
+    templateId: st.templateId,
+    stepIndex: idx,
+    channel: step.channel,
+  };
+  if (sendResult) {
+    logMeta.send = {
+      executed: !!sendResult.executed,
+      reason: sendResult.reason || null,
+      provider: sendResult.provider || null,
+      messageId: sendResult.messageId || null,
+    };
+  }
+
+  let sendNote = '';
+  if (sendResult && sendResult.executed) {
+    sendNote = ` · Sent via ${sendResult.provider || 'GHL'}`;
+  } else if (sendResult && sendResult.reason === 'send_failed') {
+    sendNote = ` · Send failed: ${(sendResult.error || 'unknown').slice(0, 80)}`;
+  } else if (sendResult && isAutoChannel(step.channel)) {
+    sendNote = ` · Send skipped (${sendResult.reason || 'not ready'})`;
+  }
+
+  const stepUpdates = [
+    {
+      type: 'sequence_step',
+      value: msg,
+      timestamp: new Date().toISOString(),
+      meta: logMeta,
+    },
+  ];
+  if (sendResult && sendResult.executed) {
+    stepUpdates.push({
+      type: sendResult.channel === 'email' ? 'email_outbound' : 'sms_outbound',
+      value:
+        sendResult.channel === 'email'
+          ? `Cadence email: ${msg.slice(0, 200)}`
+          : `Cadence SMS: ${msg.slice(0, 200)}`,
+      timestamp: new Date().toISOString(),
+      provider: sendResult.provider || 'ghl',
+      ghlMessageId: sendResult.messageId || '',
+      cadenceStep: idx,
+      templateId: st.templateId,
+    });
+  }
+
+  const existingUpdates = Array.isArray(lead.updates) ? lead.updates : [];
+
   await dbService.updateLead(lead.key, {
     sequenceState,
+    updates: [...existingUpdates, ...stepUpdates],
     logs: [
       {
         type: 'sequence_step',
-        message: msg,
+        message: `${msg}${sendNote}`,
         timestamp: new Date().toISOString(),
-        meta: {
-          templateId: st.templateId,
-          stepIndex: idx,
-          channel: step.channel,
-        },
+        meta: logMeta,
       },
     ],
   });
