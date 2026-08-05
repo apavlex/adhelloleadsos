@@ -22,6 +22,8 @@
     useLogoInDesign: true,
   };
   var brandKitSaveTimer = null;
+  var dmPlaybookPrompts = { front: '', back: '' };
+  var dmActivePlaybookId = '';
 
   var DM_PLATFORMS = {
     postcard: { label: '4×6 Postcard', aspectRatio: '3:2', dualSided: true },
@@ -1253,6 +1255,160 @@
       updateMergePreview();
     }
   });
+
+  function switchDmDrawerTab(tab) {
+    document.querySelectorAll('.dm-rail-btn').forEach(function (b) {
+      b.classList.toggle('is-active', b.getAttribute('data-dm-tab') === tab);
+    });
+    document.querySelectorAll('.dm-drawer-panel').forEach(function (panel) {
+      var match = panel.getAttribute('data-dm-panel') === tab;
+      panel.classList.toggle('is-active', match);
+      panel.hidden = !match;
+    });
+  }
+
+  function highlightActivePlaybookCard(id) {
+    document.querySelectorAll('.dm-playbook-card').forEach(function (card) {
+      card.classList.toggle('is-selected', card.getAttribute('data-playbook-id') === id);
+    });
+  }
+
+  function applyMailPlaybook(pb, opts) {
+    opts = opts || {};
+    if (!pb) return;
+    dmActivePlaybookId = pb.id || '';
+    var headlineEl = document.getElementById('dmHeadline');
+    var bodyEl = document.getElementById('dmBody');
+    var ctaEl = document.getElementById('dmCtaUrl');
+    var overlayEl = document.getElementById('dmPersonalizeOverlay');
+    if (headlineEl && pb.headline) headlineEl.value = pb.headline;
+    if (bodyEl && pb.body) bodyEl.value = pb.body;
+    if (ctaEl && pb.ctaUrl) ctaEl.value = pb.ctaUrl;
+    if (overlayEl && pb.personalizeOverlay != null) overlayEl.checked = !!pb.personalizeOverlay;
+    dmPlaybookPrompts.front = pb.imagePromptFront || '';
+    dmPlaybookPrompts.back = pb.imagePromptBack || '';
+    updateMergePreview();
+    var slot = currentDesignSlot();
+    var prompt = slot === 'back' ? dmPlaybookPrompts.back : dmPlaybookPrompts.front;
+    if (prompt) {
+      showPromptEditor(slot, prompt);
+      var chatInput = document.getElementById('dmChatInput');
+      if (chatInput) chatInput.value = prompt;
+    }
+    if (opts.switchToCopy !== false) switchDmDrawerTab('copy');
+    var suggestEl = document.getElementById('dmPlaybookSuggest');
+    if (suggestEl && pb.label) {
+      suggestEl.textContent = 'Applied: ' + pb.label;
+      suggestEl.classList.remove('hidden');
+    }
+    highlightActivePlaybookCard(pb.id);
+    if (typeof window.showAppToast === 'function') {
+      window.showAppToast('Playbook applied — review copy and generate front/back', { variant: 'success' });
+    }
+  }
+
+  function fetchPlaybookById(id) {
+    return fetch('/direct-mail/api/playbooks/' + encodeURIComponent(id), {
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' },
+    }).then(function (r) {
+      return r.json();
+    });
+  }
+
+  function renderPlaybookList(items, suggestedId) {
+    var listEl = document.getElementById('dmPlaybookList');
+    if (!listEl) return;
+    listEl.innerHTML = '';
+    if (!items || !items.length) {
+      listEl.innerHTML = '<p class="text-[11px] text-brand-muted">No playbooks available.</p>';
+      return;
+    }
+    items.forEach(function (pb) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className =
+        'dm-playbook-card w-full text-left rounded-xl border border-brand-border/50 dark:border-white/10 px-3 py-2.5 hover:border-brand-yellow/50 transition-colors';
+      if (pb.id === suggestedId) btn.classList.add('is-selected');
+      btn.setAttribute('data-playbook-id', pb.id);
+      btn.innerHTML =
+        '<span class="block text-xs font-bold text-brand-dark dark:text-white">' +
+        escapeHtml(pb.label) +
+        '</span><span class="block text-[10px] text-brand-muted mt-0.5 leading-snug">' +
+        escapeHtml(pb.description || '') +
+        '</span>';
+      btn.addEventListener('click', function () {
+        fetchPlaybookById(pb.id).then(function (data) {
+          if (data && data.success && data.playbook) {
+            applyMailPlaybook(data.playbook, { switchToCopy: false });
+          }
+        });
+      });
+      listEl.appendChild(btn);
+    });
+  }
+
+  function loadMailPlaybooksFromUrl() {
+    var params = new URLSearchParams(window.location.search || '');
+    var playbookParam = String(params.get('playbook') || '').trim();
+    var contextParam = String(params.get('context') || '').trim();
+    var leadKey = '';
+    var keysParam = String(params.get('keys') || '').trim();
+    if (keysParam) leadKey = keysParam.split(',')[0].trim();
+
+    fetch('/direct-mail/api/playbooks', {
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' },
+    })
+      .then(function (r) {
+        return r.json();
+      })
+      .then(function (data) {
+        if (!data || !data.success) return;
+        var playbooks = data.playbooks || [];
+        var suggestedId = playbookParam && playbookParam !== 'auto' ? playbookParam : '';
+
+        function finishList() {
+          renderPlaybookList(playbooks, suggestedId || dmActivePlaybookId);
+        }
+
+        if (playbookParam && playbookParam !== 'auto') {
+          return fetchPlaybookById(playbookParam).then(function (pbData) {
+            if (pbData && pbData.success && pbData.playbook) {
+              applyMailPlaybook(pbData.playbook, { switchToCopy: true });
+              suggestedId = pbData.playbook.id;
+            }
+            finishList();
+          });
+        }
+
+        if (leadKey) {
+          var suggestUrl =
+            '/direct-mail/api/playbooks/suggest?leadKey=' + encodeURIComponent(leadKey);
+          if (contextParam) suggestUrl += '&context=' + encodeURIComponent(contextParam);
+          return fetch(suggestUrl, {
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' },
+          })
+            .then(function (r2) {
+              return r2.json();
+            })
+            .then(function (sug) {
+              if (sug && sug.success && sug.playbook) {
+                applyMailPlaybook(sug.playbook, { switchToCopy: true });
+                suggestedId = sug.playbook.id;
+              }
+              finishList();
+            });
+        }
+
+        finishList();
+      })
+      .catch(function () {
+        var listEl = document.getElementById('dmPlaybookList');
+        if (listEl) listEl.innerHTML = '<p class="text-[11px] text-brand-muted">Could not load playbooks.</p>';
+      });
+  }
 
   function copyContext() {
     return {
@@ -2510,7 +2666,9 @@
       syncStudioPageView();
       renderSavedLibrary();
       syncDownloadActions();
+      var playbookPrompt = dmPlaybookPrompts[slot] || '';
       if (designMeta[slot].prompt) showPromptEditor(slot, designMeta[slot].prompt);
+      else if (playbookPrompt) showPromptEditor(slot, playbookPrompt);
       else {
         var editor = document.getElementById('dmPromptEditor');
         if (editor) editor.value = '';
@@ -2604,6 +2762,7 @@
   });
 
   renderSavedLibrary();
+  loadMailPlaybooksFromUrl();
 
   var sendBtn = document.getElementById('dmSendBtn');
   if (sendBtn) {

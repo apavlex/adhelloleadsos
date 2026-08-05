@@ -13,6 +13,12 @@ const lobClient = require('../services/lobClient');
 const lobDirectMail = require('../services/lobDirectMail');
 const { resolveAuditUrl } = require('../services/directMailPersonalize');
 const directMailQueue = require('../services/directMailQueue');
+const {
+  listPlaybooks,
+  getPlaybookById,
+  suggestPlaybookForLead,
+  normalizeContext,
+} = require('../services/directMailPlaybooks');
 const kieImageClient = require('../services/kieImageClient');
 const { chatCompletion, parseLlmJson, providersForChain } = require('../services/llmClient');
 const googleDriveAccess = require('../services/googleDriveAccess');
@@ -694,6 +700,58 @@ router.get('/api/status', async (req, res, next) => {
       brandKit: resolveBrandKitForClient(ws),
       platforms: DM_PLATFORMS,
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/api/playbooks', async (req, res, next) => {
+  try {
+    res.json({ success: true, playbooks: listPlaybooks() });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/api/playbooks/suggest', async (req, res, next) => {
+  try {
+    const leadKey = leadKeyFromParam(req.query.leadKey);
+    const context = normalizeContext(req.query.context);
+    if (!leadKey) {
+      return res.status(400).json({ success: false, error: 'leadKey is required' });
+    }
+    const lead = await dbService.getLead(leadKey, req.workspaceId);
+    if (!lead) {
+      return res.status(404).json({ success: false, error: 'Lead not found' });
+    }
+    const all = await dbService.getAllLeads(req.workspaceId);
+    const visible = filterLeadsForRequest(req, all);
+    if (!visible.some((l) => String(l.key) === String(leadKey))) {
+      return res.status(403).json({ success: false, error: 'Lead not accessible' });
+    }
+    const result = suggestPlaybookForLead(lead, context);
+    res.json({
+      success: true,
+      context: context || null,
+      playbook: result.playbook,
+      alternatives: (result.alternatives || []).map(({ id, label, description }) => ({
+        id,
+        label,
+        description,
+      })),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/api/playbooks/:id', async (req, res, next) => {
+  try {
+    const playbook = getPlaybookById(req.params.id);
+    if (!playbook) {
+      return res.status(404).json({ success: false, error: 'Playbook not found' });
+    }
+    res.json({ success: true, playbook });
   } catch (err) {
     next(err);
   }

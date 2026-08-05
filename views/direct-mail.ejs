@@ -213,6 +213,14 @@
             <input type="checkbox" id="dmPersonalizeOverlay" />
             <span><strong>Personalize at send</strong> — small overlay chip on front only (leave off if your design already has copy).</span>
           </label>
+          <div class="dm-playbooks-section mt-4 pt-4 border-t border-brand-border/40 dark:border-white/10">
+            <h3 class="text-[11px] font-black uppercase tracking-widest text-brand-muted mb-1">Mail playbooks</h3>
+            <p class="dm-drawer-desc mb-2">Templates by trade or call context — fills copy and image prompts. Pick one, tweak, then generate front and back.</p>
+            <p id="dmPlaybookSuggest" class="text-[11px] text-emerald-700 dark:text-emerald-300 mb-2 hidden" aria-live="polite"></p>
+            <div id="dmPlaybookList" class="dm-playbook-list space-y-2">
+              <p class="text-[11px] text-brand-muted">Loading playbooks…</p>
+            </div>
+          </div>
         </div>
 
         <!-- Library panel -->

@@ -4532,6 +4532,16 @@ html.dark .tag-filter-combobox-menu {
   color: #fde68a;
 }
 
+.dm-playbook-card:hover {
+  border-color: rgba(250, 204, 21, 0.45);
+}
+
+.dm-playbook-card.is-selected {
+  border-color: var(--brand-yellow, #facc15);
+  background: rgba(250, 204, 21, 0.08);
+  box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.35);
+}
+
 .dm-format-icon-svg {
   width: 1.35rem;
   height: 1.35rem;
