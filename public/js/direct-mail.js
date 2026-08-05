@@ -103,6 +103,14 @@
     syncStudioPageView();
     updatePreviewAspectRatio();
     syncLobSafeZones();
+    syncGenerateBothBtnVisibility();
+  }
+
+  function syncGenerateBothBtnVisibility() {
+    var bothBtn = document.getElementById('dmGenerateBothBtn');
+    if (!bothBtn) return;
+    var preset = DM_PLATFORMS[currentPlatformKey()] || DM_PLATFORMS.custom;
+    bothBtn.classList.toggle('hidden', !preset.dualSided);
   }
 
   function syncLobSafeZones() {
@@ -1303,7 +1311,7 @@
     }
     highlightActivePlaybookCard(pb.id);
     if (typeof window.showAppToast === 'function') {
-      window.showAppToast('Playbook applied — review copy and generate front/back', { variant: 'success' });
+      window.showAppToast('Playbook applied — click Generate both or generate each side', { variant: 'success' });
     }
   }
 
@@ -2217,23 +2225,125 @@
     }
   }
 
+  function buildBackCompanionPrompt(frontPrompt) {
+    var front = String(frontPrompt || '').trim();
+    return (
+      'Postcard back design matching the front creative reference. Same color palette, typography, photography style, and brand mood. ' +
+      'Layout for 4×6 postcard back: short bullet benefits, trust cues, and clear QR scan CTA zone (bottom-right). ' +
+      'Keep Lob address/postage area at bottom clear of text. ' +
+      (front ? 'Front concept: ' + front.slice(0, 220) : '')
+    );
+  }
+
+  function resolvePromptForSlot(slot) {
+    var stored = slot === 'back' ? dmPlaybookPrompts.back : dmPlaybookPrompts.front;
+    if (stored && String(stored).trim()) return String(stored).trim();
+    if (designMeta[slot] && designMeta[slot].prompt && String(designMeta[slot].prompt).trim()) {
+      return String(designMeta[slot].prompt).trim();
+    }
+    if (slot === currentDesignSlot()) {
+      return (
+        readPromptEditor() ||
+        lastImagePrompt ||
+        String((document.getElementById('dmChatInput') || {}).value || '').trim() ||
+        latestUserChatText()
+      );
+    }
+    return '';
+  }
+
+  function setActiveDesignSlot(slot) {
+    var slotEl = document.getElementById('dmDesignSlot');
+    if (!slotEl) return;
+    slotEl.value = slot === 'back' ? 'back' : 'front';
+    syncStudioPageView();
+  }
+
+  async function generateBothSides() {
+    var plat = DM_PLATFORMS[currentPlatformKey()] || DM_PLATFORMS.custom;
+    if (!plat.dualSided) {
+      setDesignStatus('Both-side generation is only available for postcard format.', false);
+      return;
+    }
+
+    var frontPrompt = resolvePromptForSlot('front');
+    var backPrompt = resolvePromptForSlot('back');
+    if (!backPrompt && frontPrompt) backPrompt = buildBackCompanionPrompt(frontPrompt);
+
+    if (!frontPrompt) {
+      setDesignStatus('Add a front image prompt first — pick a playbook or describe the design in Chat.', false);
+      return;
+    }
+
+    var btn = document.getElementById('dmGenerateBtn');
+    var bothBtn = document.getElementById('dmGenerateBothBtn');
+    if (btn) btn.disabled = true;
+    if (bothBtn) bothBtn.disabled = true;
+    setDesignStatus('Generating front… then back (this can take a few minutes).', true);
+
+    try {
+      setActiveDesignSlot('front');
+      var frontOk = await generateImageForSlot('front', {
+        prompt: frontPrompt,
+        skipPromptRead: true,
+        suppressButtonToggle: true,
+        quietFailure: false,
+      });
+      if (!frontOk) {
+        setDesignStatus('Front generation failed — back was not started.', false);
+        return;
+      }
+
+      setActiveDesignSlot('back');
+      setDesignStatus('Front done — generating matching back…', true);
+      var backOk = await generateImageForSlot('back', {
+        prompt: backPrompt,
+        skipPromptRead: true,
+        suppressButtonToggle: true,
+        matchFrontStyle: true,
+        quietFailure: false,
+      });
+      if (!backOk) {
+        setDesignStatus('Front generated, but back generation failed. Try Generate on the back side.', false);
+        return;
+      }
+
+      setDesignStatus('Front and back generated — review copy and send when ready.', true);
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Postcard front and back generated', { variant: 'success' });
+      }
+    } finally {
+      if (btn) btn.disabled = false;
+      if (bothBtn) bothBtn.disabled = false;
+    }
+  }
+
   async function generateImage(opts) {
     opts = opts || {};
-    var btn = document.getElementById('dmGenerateBtn');
     var slotEl = document.getElementById('dmDesignSlot');
-    if (!btn) return;
+    var slot =
+      opts.slot || (slotEl && slotEl.value === 'back' ? 'back' : 'front');
+    return generateImageForSlot(slot, opts);
+  }
+
+  async function generateImageForSlot(slot, opts) {
+    opts = opts || {};
+    var btn = document.getElementById('dmGenerateBtn');
+    if (!btn && !opts.suppressButtonToggle) return false;
 
     var editMode = opts.editMode === true;
-    var slot = slotEl && slotEl.value === 'back' ? 'back' : 'front';
+    slot = slot === 'back' ? 'back' : 'front';
     var prompt = opts.skipPromptRead
       ? String(opts.prompt || '').trim()
       : readPromptEditor() ||
         lastImagePrompt ||
-        (designMeta[currentDesignSlot()] && designMeta[currentDesignSlot()].prompt) ||
+        (designMeta[slot] && designMeta[slot].prompt) ||
         String((document.getElementById('dmChatInput') || {}).value || '').trim() ||
         latestUserChatText();
     var ctx = designRequestContext();
-    var matchFrontStyle = !editMode && shouldMatchFrontStyle(slot);
+    ctx.slot = slot;
+    var matchFrontStyle =
+      opts.matchFrontStyle === true || (!editMode && opts.matchFrontStyle !== false && shouldMatchFrontStyle(slot));
     ctx.matchFrontStyle = matchFrontStyle;
     var referenceUrl = resolveGenerateReferenceUrl(slot, editMode);
     var styleReferenceUrl = resolveStyleReferenceUrl(slot, editMode);
@@ -2248,34 +2358,36 @@
     }
     if (!prompt && editMode) {
       setDesignStatus('Describe what to change on the current design.', false);
-      return;
+      return false;
     }
     if (!prompt) {
       setDesignStatus('Describe the design in Chat first, or paste a detailed image prompt here.', false);
-      return;
+      return false;
     }
     if (!editMode && !lastImagePrompt && prompt.length < 48) {
       if (referenceUrl || userWantsAdGeneration(prompt) || userWantsAdGeneration(latestUserChatText())) {
         prompt = buildQuickImagePrompt(prompt || latestUserChatText(), ctx);
         lastImagePrompt = prompt;
-        showPromptEditor(currentDesignSlot(), prompt);
+        showPromptEditor(slot, prompt);
       } else {
         setDesignStatus(
           'Use Chat to build a full image prompt first, or ask to “make an ad” — then click Generate.',
           false,
         );
-        return;
+        return false;
       }
     }
 
     var aspectRatio = currentAspectRatio();
     var resolution = (document.getElementById('dmResolution') || {}).value || '2K';
 
-    btn.disabled = true;
-    setDesignStatus(
-      editMode ? 'Applying edit to your design…' : 'Generating with GPT Image 2… this can take up to 2 minutes.',
-      true,
-    );
+    if (btn && !opts.suppressButtonToggle) btn.disabled = true;
+    if (!opts.suppressButtonToggle) {
+      setDesignStatus(
+        editMode ? 'Applying edit to your design…' : 'Generating with GPT Image 2… this can take up to 2 minutes.',
+        true,
+      );
+    }
 
     try {
       var body = {
@@ -2333,62 +2445,67 @@
           platform: ctx.platform,
           silent: true,
         });
-        var statusMsg = editMode
-          ? 'Updated ' + slot + ' side — saved to library.'
-          : 'Generated ' + slot + ' side — saved to library automatically.';
-        if (data.logoOverlayApplied === true && ctx.brandKit && ctx.brandKit.useLogoInDesign) {
-          statusMsg =
-            'Generated ' + slot + ' side — your logo was placed in the top-right corner. Saved to library.';
-        } else if (data.logoOverlayApplied !== true && ctx.brandKit && ctx.brandKit.useLogoInDesign) {
-          if (data.logoSkipReason === 'overlay_disabled') {
-            statusMsg =
-              'Generated ' +
-              slot +
-              ' side — logo overlay is off. Check "Use logo on card (top-right)" in Brand and generate again.';
-          } else if (data.logoSkipReason === 'no_stored_logo') {
-            statusMsg =
-              'Generated ' +
-              slot +
-              ' side — no logo found in Brand. Upload a PNG with transparent background and try again.';
-          } else if (data.logoSkipReason === 'base_fetch_failed') {
-            statusMsg =
-              'Generated ' +
-              slot +
-              ' side — could not download the AI image to add your logo. Click Generate again in a few seconds.';
-          } else {
-            statusMsg =
-              'Generated ' +
-              slot +
-              ' side — your brand logo could not be overlaid. Re-upload a PNG with transparent background in Brand and try again.';
-          }
-        }
-        setDesignStatus(
-          statusMsg,
-          !(data.logoOverlayApplied === false && ctx.brandKit && ctx.brandKit.useLogoInDesign && !editMode),
-        );
-        if (typeof window.showAppToast === 'function') {
-          var plat = DM_PLATFORMS[currentPlatformKey()] || DM_PLATFORMS.custom;
-          var toastVariant = 'success';
-          var toastMsg = (plat.dualSided ? 'Postcard ' + slot : plat.label) + ' generated';
+        if (!opts.suppressButtonToggle) {
+          var statusMsg = editMode
+            ? 'Updated ' + slot + ' side — saved to library.'
+            : 'Generated ' + slot + ' side — saved to library automatically.';
           if (data.logoOverlayApplied === true && ctx.brandKit && ctx.brandKit.useLogoInDesign) {
-            toastMsg = 'Logo placed in top-right corner';
-          } else if (ctx.brandKit && ctx.brandKit.useLogoInDesign && data.logoOverlayApplied !== true) {
-            toastVariant = 'warning';
-            if (data.logoSkipReason === 'no_stored_logo') {
-              toastMsg = 'Design generated — re-upload your logo in Brand (PNG recommended)';
+            statusMsg =
+              'Generated ' + slot + ' side — your logo was placed in the top-right corner. Saved to library.';
+          } else if (data.logoOverlayApplied !== true && ctx.brandKit && ctx.brandKit.useLogoInDesign) {
+            if (data.logoSkipReason === 'overlay_disabled') {
+              statusMsg =
+                'Generated ' +
+                slot +
+                ' side — logo overlay is off. Check "Use logo on card (top-right)" in Brand and generate again.';
+            } else if (data.logoSkipReason === 'no_stored_logo') {
+              statusMsg =
+                'Generated ' +
+                slot +
+                ' side — no logo found in Brand. Upload a PNG with transparent background and try again.';
+            } else if (data.logoSkipReason === 'base_fetch_failed') {
+              statusMsg =
+                'Generated ' +
+                slot +
+                ' side — could not download the AI image to add your logo. Click Generate again in a few seconds.';
             } else {
-              toastMsg = 'Design generated — logo overlay failed. Re-upload logo in Brand and try again.';
+              statusMsg =
+                'Generated ' +
+                slot +
+                ' side — your brand logo could not be overlaid. Re-upload a PNG with transparent background in Brand and try again.';
             }
           }
-          window.showAppToast(toastMsg, { variant: toastVariant });
+          setDesignStatus(
+            statusMsg,
+            !(data.logoOverlayApplied === false && ctx.brandKit && ctx.brandKit.useLogoInDesign && !editMode),
+          );
+          if (typeof window.showAppToast === 'function') {
+            var platToast = DM_PLATFORMS[currentPlatformKey()] || DM_PLATFORMS.custom;
+            var toastVariant = 'success';
+            var toastMsg = (platToast.dualSided ? 'Postcard ' + slot : platToast.label) + ' generated';
+            if (data.logoOverlayApplied === true && ctx.brandKit && ctx.brandKit.useLogoInDesign) {
+              toastMsg = 'Logo placed in top-right corner';
+            } else if (ctx.brandKit && ctx.brandKit.useLogoInDesign && data.logoOverlayApplied !== true) {
+              toastVariant = 'warning';
+              if (data.logoSkipReason === 'no_stored_logo') {
+                toastMsg = 'Design generated — re-upload your logo in Brand (PNG recommended)';
+              } else {
+                toastMsg = 'Design generated — logo overlay failed. Re-upload logo in Brand and try again.';
+              }
+            }
+            window.showAppToast(toastMsg, { variant: toastVariant });
+          }
         }
-      } else {
-        throw new Error('No image URL returned.');
+        return true;
       }
+      throw new Error('No image URL returned.');
     } catch (e) {
-      setDesignStatus(e && e.message ? e.message : 'Generation failed', false);
+      if (!opts.quietFailure) {
+        setDesignStatus(e && e.message ? e.message : 'Generation failed', false);
+      }
+      return false;
     } finally {
-      btn.disabled = false;
+      if (btn && !opts.suppressButtonToggle) btn.disabled = false;
     }
   }
 
@@ -2636,6 +2753,10 @@
 
   var genBtn = document.getElementById('dmGenerateBtn');
   if (genBtn) genBtn.addEventListener('click', generateImage);
+
+  var genBothBtn = document.getElementById('dmGenerateBothBtn');
+  if (genBothBtn) genBothBtn.addEventListener('click', generateBothSides);
+  syncGenerateBothBtnVisibility();
 
   ['dmSaveFront', 'dmSaveBack'].forEach(function (id) {
     var btn = document.getElementById(id);

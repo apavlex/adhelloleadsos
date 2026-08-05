@@ -5218,6 +5218,18 @@ body.dm-prompt-resize-active {
   border-color: transparent;
 }
 
+.dm-prompt-btn--both {
+  background: rgba(139, 92, 246, 0.12);
+  border-color: rgba(139, 92, 246, 0.35);
+  color: #5b21b6;
+}
+
+.dark .dm-prompt-btn--both {
+  background: rgba(139, 92, 246, 0.18);
+  border-color: rgba(167, 139, 250, 0.4);
+  color: #ddd6fe;
+}
+
 .dm-design-status {
   margin: 0.35rem 0 0;
   font-size: 0.6875rem;
