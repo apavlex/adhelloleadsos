@@ -7,6 +7,101 @@ const {
   buildWorkspaceActivityFeed,
 } = require('../services/leadActivityFeed');
 
+test('mergeLeadActivityEntries dedupes direct mail update and log for same postcard', () => {
+  const lead = {
+    key: 'lead:dm',
+    title: '26001 NE 60th St',
+    updates: [
+      {
+        type: 'direct_mail_outbound',
+        value: 'psc_088828af700e80e4',
+        postcardId: 'psc_088828af700e80e4',
+        timestamp: '2026-07-29T22:33:00.000Z',
+        provider: 'lob',
+      },
+    ],
+    logs: [
+      {
+        type: 'direct_mail_outbound',
+        message: 'Lob postcard queued (psc_088828af700e80e4) · QR',
+        postcardId: 'psc_088828af700e80e4',
+        timestamp: '2026-07-29T22:33:00.000Z',
+      },
+    ],
+  };
+  const entries = mergeLeadActivityEntries(lead);
+  assert.equal(entries.length, 1);
+  assert.match(entries[0].text, /Lob postcard queued/i);
+  assert.match(entries[0].text, /psc_088828af700e80e4/i);
+});
+
+test('mergeLeadActivityEntries keeps separate direct mail sends on different days', () => {
+  const lead = {
+    key: 'lead:dm',
+    updates: [
+      {
+        type: 'direct_mail_outbound',
+        value: 'psc_aaa',
+        postcardId: 'psc_aaa',
+        timestamp: '2026-07-29T22:33:00.000Z',
+      },
+      {
+        type: 'direct_mail_outbound',
+        value: 'psc_bbb',
+        postcardId: 'psc_bbb',
+        timestamp: '2026-07-28T08:48:00.000Z',
+      },
+    ],
+    logs: [
+      {
+        type: 'direct_mail_outbound',
+        message: 'Lob postcard queued (psc_aaa) · QR',
+        postcardId: 'psc_aaa',
+        timestamp: '2026-07-29T22:33:00.000Z',
+      },
+      {
+        type: 'direct_mail_outbound',
+        message: 'Lob postcard queued (psc_bbb)',
+        postcardId: 'psc_bbb',
+        timestamp: '2026-07-28T08:48:00.000Z',
+      },
+    ],
+  };
+  const entries = mergeLeadActivityEntries(lead);
+  assert.equal(entries.length, 2);
+});
+
+test('buildWorkspaceActivityFeed shows one direct mail line per postcard send', () => {
+  const leads = [
+    {
+      key: 'lead:dm',
+      title: 'Vancouver property',
+      updates: [
+        {
+          type: 'direct_mail_outbound',
+          value: 'psc_088828af700e80e4',
+          postcardId: 'psc_088828af700e80e4',
+          timestamp: '2026-07-29T22:33:00.000Z',
+        },
+      ],
+      logs: [
+        {
+          type: 'direct_mail_outbound',
+          message: 'Lob postcard queued (psc_088828af700e80e4) · QR',
+          postcardId: 'psc_088828af700e80e4',
+          timestamp: '2026-07-29T22:33:00.000Z',
+        },
+      ],
+    },
+  ];
+  const feed = buildWorkspaceActivityFeed(leads, {
+    filter: 'all',
+    sinceMs: Date.parse('2026-06-01T00:00:00.000Z'),
+  });
+  assert.equal(feed.groups[0].events.length, 1);
+  assert.match(feed.groups[0].events[0].text, /Lob postcard queued/i);
+});
+
 test('mergeLeadActivityEntries dedupes updates and logs', () => {
   const lead = {
     key: 'lead:abc',

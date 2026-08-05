@@ -8928,10 +8928,14 @@ document.addEventListener('DOMContentLoaded', () => {
       sms_inbound: 'SMS',
       email_outbound: 'Email',
       email_inbound: 'Email',
+      direct_mail_outbound: 'Direct mail',
       engagement_signal: 'Engagement',
     };
     if (map[t]) return map[t];
     if (t === 'quick_log' && raw && raw.disposition) return 'Quick log · call';
+    if (t === 'direct_mail_outbound' || t === 'info_pack_direct_mail' || t === 'direct_mail_sent') {
+      return 'Direct mail';
+    }
     return String(typ || 'update').replace(/_/g, ' ');
   }
 
@@ -8945,6 +8949,17 @@ document.addEventListener('DOMContentLoaded', () => {
       if (u.statusChange) bits.push(`Status → ${u.statusChange}`);
       return bits.filter(Boolean).join(' · ');
     }
+    if (
+      typ === 'direct_mail_outbound' ||
+      typ === 'info_pack_direct_mail' ||
+      typ === 'direct_mail_sent'
+    ) {
+      const rawText = String(entry.text || '').trim();
+      if (/^psc_[a-f0-9]+$/i.test(rawText)) {
+        const qr = u.qrRedirectUrl ? ' · QR' : '';
+        return `Lob postcard queued (${rawText})${qr}`;
+      }
+    }
     return String(entry.text || '').trim();
   }
 
@@ -8957,17 +8972,65 @@ document.addEventListener('DOMContentLoaded', () => {
     return '';
   }
 
+  const DIRECT_MAIL_TYPES = new Set([
+    'direct_mail_outbound',
+    'direct_mail_queued',
+    'direct_mail_sent',
+    'info_pack_direct_mail',
+  ]);
+
+  function extractPostcardId(entry) {
+    const raw = entry && entry.raw ? entry.raw : {};
+    const fromRaw = String(raw.postcardId || '').trim();
+    if (/^psc_[a-f0-9]+$/i.test(fromRaw)) return fromRaw.toLowerCase();
+    const text = String(entry && entry.text ? entry.text : '').trim();
+    const m = text.match(/(psc_[a-f0-9]+)/i);
+    return m ? m[1].toLowerCase() : '';
+  }
+
+  function directMailRichnessScore(entry) {
+    const text = String(entry.text || '').trim();
+    if (/lob postcard|postcard (queued|sent)|info pack postcard/i.test(text)) return 3;
+    if (text.length > 24) return 2;
+    if (/^psc_[a-f0-9]+$/i.test(text)) return 1;
+    return 1;
+  }
+
+  function directMailMergeKey(entry) {
+    const typ = String(entry.typ || '').toLowerCase();
+    if (!DIRECT_MAIL_TYPES.has(typ)) return '';
+    const id = extractPostcardId(entry);
+    if (id) return `dm:${id}`;
+    const tsMs = Date.parse(entry.ts) || 0;
+    if (typ === 'direct_mail_queued' && tsMs) return `dm:queued:${Math.floor(tsMs / 1000)}`;
+    return '';
+  }
+
+  function pickRicherDirectMailEntry(a, b) {
+    return directMailRichnessScore(b) > directMailRichnessScore(a) ? b : a;
+  }
+
   function mergeActivityEntries(row) {
     const out = [];
     const seen = new Set();
+    const directMailIndex = new Map();
     const pushUnique = (entry) => {
       const text = String(entry.text || '').trim();
       if (!text) return;
+      const dmKey = directMailMergeKey(entry);
+      if (dmKey) {
+        const idx = directMailIndex.get(dmKey);
+        if (idx != null) {
+          out[idx] = pickRicherDirectMailEntry(out[idx], entry);
+          return;
+        }
+      }
       const tsMs = Date.parse(entry.ts) || 0;
       const bucket = tsMs ? Math.floor(tsMs / 1000) : String(entry.ts || '');
       const key = `${bucket}|${text.toLowerCase()}`;
       if (seen.has(key)) return;
       seen.add(key);
+      if (dmKey) directMailIndex.set(dmKey, out.length);
       out.push(entry);
     };
     const updates = readMergedRowUpdates(row);

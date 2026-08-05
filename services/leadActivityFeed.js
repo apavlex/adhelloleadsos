@@ -32,6 +32,44 @@ const PRIMARY_TOUCH_TYPES = new Set([
   'engagement_signal',
 ]);
 
+const DIRECT_MAIL_TYPES = new Set([
+  'direct_mail_outbound',
+  'direct_mail_queued',
+  'direct_mail_sent',
+  'info_pack_direct_mail',
+]);
+
+function extractPostcardId(entry) {
+  const raw = entry && entry.raw ? entry.raw : {};
+  const fromRaw = String(raw.postcardId || '').trim();
+  if (/^psc_[a-f0-9]+$/i.test(fromRaw)) return fromRaw.toLowerCase();
+  const text = String(entry && entry.text ? entry.text : '').trim();
+  const m = text.match(/(psc_[a-f0-9]+)/i);
+  return m ? m[1].toLowerCase() : '';
+}
+
+function directMailRichnessScore(entry) {
+  const text = String(entry.text || '').trim();
+  if (/lob postcard|postcard (queued|sent)|info pack postcard/i.test(text)) return 3;
+  if (text.length > 24) return 2;
+  if (/^psc_[a-f0-9]+$/i.test(text)) return 1;
+  return 1;
+}
+
+function directMailMergeKey(entry) {
+  const typ = String(entry.typ || '').toLowerCase();
+  if (!DIRECT_MAIL_TYPES.has(typ)) return '';
+  const id = extractPostcardId(entry);
+  if (id) return `dm:${id}`;
+  const tsMs = Date.parse(entry.ts) || 0;
+  if (typ === 'direct_mail_queued' && tsMs) return `dm:queued:${Math.floor(tsMs / 1000)}`;
+  return '';
+}
+
+function pickRicherDirectMailEntry(a, b) {
+  return directMailRichnessScore(b) > directMailRichnessScore(a) ? b : a;
+}
+
 function isSecondaryActivityText(text, typ) {
   const t = String(text || '').trim();
   if (!t) return true;
@@ -127,6 +165,17 @@ function formatActivityEntryText(entry) {
     const phoneMatch = rawText.match(/\(([^)]+)\)/);
     if (/^outbound call initiated\b/i.test(rawText)) {
       return phoneMatch ? `Call made (${phoneMatch[1]})` : 'Call made';
+    }
+  }
+  if (
+    typ === 'direct_mail_outbound' ||
+    typ === 'info_pack_direct_mail' ||
+    typ === 'direct_mail_sent'
+  ) {
+    const rawText = String(entry.text || '').trim();
+    if (/^psc_[a-f0-9]+$/i.test(rawText)) {
+      const qr = u.qrRedirectUrl ? ' · QR' : '';
+      return `Lob postcard queued (${rawText})${qr}`;
     }
   }
   return String(entry.text || '').trim();
@@ -227,16 +276,28 @@ function mergeLeadActivityEntries(lead, opts) {
   const maxPerSource = Number.isFinite(o.maxPerSource) ? o.maxPerSource : 24;
   const out = [];
   const seen = new Set();
+  const directMailIndex = new Map();
 
   const pushUnique = (entry) => {
     if (isNoiseEntry(entry)) return;
     const text = String(entry.text || '').trim();
     if (!text) return;
+
+    const dmKey = directMailMergeKey(entry);
+    if (dmKey) {
+      const idx = directMailIndex.get(dmKey);
+      if (idx != null) {
+        out[idx] = pickRicherDirectMailEntry(out[idx], entry);
+        return;
+      }
+    }
+
     const tsMs = Date.parse(entry.ts) || 0;
     const bucket = tsMs ? Math.floor(tsMs / 1000) : String(entry.ts || '');
     const key = `${bucket}|${text.toLowerCase()}`;
     if (seen.has(key)) return;
     seen.add(key);
+    if (dmKey) directMailIndex.set(dmKey, out.length);
     out.push(entry);
   };
 
