@@ -2,6 +2,8 @@ const dbService = require('./database');
 const { getTemplate, dueAtIso } = require('./sequenceTemplates');
 const { createAuditReportToken } = require('./auditReportSign');
 const { expandCadenceText } = require('./cadenceTokens');
+const { upsertOpenTaskForLead } = require('./userTasks');
+const { resolveTaskOwnerEmail } = require('./dispositionFollowUp');
 
 function fullLeadKey(key) {
   return key.startsWith('lead:') ? key : `lead:${key}`;
@@ -167,6 +169,25 @@ async function processLeadSequence(lead) {
       },
     ],
   });
+
+  const workspaceId = lead.workspaceId;
+  if (workspaceId) {
+    try {
+      const ws = await dbService.getWorkspace(workspaceId);
+      const email = resolveTaskOwnerEmail(lead, ws);
+      if (email) {
+        const dueIso = st.nextDueAt || new Date().toISOString();
+        await upsertOpenTaskForLead(workspaceId, email, {
+          title: msg.slice(0, 200),
+          column: 'todo',
+          scheduledAt: dueIso,
+          leadKey: lead.key,
+        });
+      }
+    } catch (e) {
+      console.warn('[sequenceEngine] cadence task skipped:', e && e.message);
+    }
+  }
 
   return true;
 }

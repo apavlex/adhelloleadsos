@@ -17,6 +17,7 @@ const { buildWeekReview } = require('../services/weekReview');
 const { getWorkspaceIcp } = require('../services/workspaceIcp');
 const { buildCadenceQueue } = require('../services/cadenceQueue');
 const { buildTodayContactQueue } = require('../services/todayContactQueue');
+const { buildNextActionsQueue } = require('../services/nextActionsQueue');
 const { filterBusinessPipelineLeads } = require('../services/leadListFilters');
 const { dedupeOpenLeadTasks } = require('../services/userTasks');
 const actionPlanTracker = require('../services/actionPlanTracker');
@@ -154,6 +155,16 @@ router.get('/', async (req, res, next) => {
       };
     });
 
+    const tasksEnriched = enrichTasksWithLeadsForToday(rawTasks, workspaceLeads);
+    const nextActions = buildNextActionsQueue({
+      tasks: tasksEnriched,
+      leads: businessLeads,
+      cadenceQueue,
+      reportsOpened24h,
+      baseUrl,
+      limit: 30,
+    });
+
     const apYear = parseInt(req.query.actionPlanYear, 10) || new Date().getFullYear();
     const apMonth = parseInt(req.query.actionPlanMonth, 10) || new Date().getMonth() + 1;
     const actionPlan = await actionPlanTracker.loadMonthView({
@@ -201,6 +212,7 @@ router.get('/', async (req, res, next) => {
       searchInProgressNotice,
       scheduleSavedNotice,
       followUpTasksToday,
+      nextActions,
       cadenceQueue,
       contactQueue,
       reportsOpened24h,

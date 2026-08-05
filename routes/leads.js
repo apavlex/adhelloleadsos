@@ -46,6 +46,7 @@ const { scoreLeadRecord } = require('../services/opportunityScore');
 const { chatCompletion, parseLlmJson } = require('../services/llmClient');
 const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
 const { upsertOpenTaskForLead } = require('../services/userTasks');
+const { resolveFollowUpForDisposition } = require('../services/dispositionFollowUp');
 const {
   displayStatus,
   applyLeadListFilters,
@@ -931,6 +932,8 @@ router.post('/:key/disposition', async (req, res, next) => {
     if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
     const code = String((req.body && req.body.code) || '').trim().toLowerCase();
     const notes = String((req.body && req.body.notes) || '').trim();
+    const clientScheduledAt = req.body && req.body.scheduledAt ? String(req.body.scheduledAt).trim() : '';
+    const skipFollowUp = !!(req.body && req.body.skipFollowUp);
     if (!code) return res.status(400).json({ success: false, error: 'Disposition code is required.' });
 
     const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
@@ -944,8 +947,6 @@ router.post('/:key/disposition', async (req, res, next) => {
       nextStep = 'Send a concise recap with next step.';
     } else if (code === 'no_answer') {
       status = 'No Answer';
-      const next = new Date(now.getTime() + 18 * 60 * 60 * 1000);
-      patch.nextActionAt = next.toISOString();
       const numbers = workspaceCallerNumbers(ws);
       const active = resolveWorkspaceCallerNumber(ws);
       const alternate = numbers.find((n) => n && n !== active) || '';
@@ -963,18 +964,6 @@ router.post('/:key/disposition', async (req, res, next) => {
       nextStep = 'Run immediate day-0 follow-up email task.';
     } else if (code === 'callback') {
       status = 'Callback Requested';
-      const when = new Date(now.getTime() + 2 * 60 * 60 * 1000);
-      const savedTask = await upsertOpenTaskForLead(req.workspaceId, userEmail(req), {
-        title: `Callback requested — ${lead.title || 'Lead'}`,
-        column: 'todo',
-        scheduledAt: when.toISOString(),
-        leadKey: fullKey,
-        preferredTaskId: lead.callbackTaskId || null,
-      });
-      patch.nextActionAt = when.toISOString();
-      patch.redialBlockedUntil = when.toISOString();
-      patch.callbackTaskId = savedTask.id;
-      automation = 'Callback task updated and redial paused until follow-up window.';
       nextStep = 'Confirm callback window and prepare notes.';
     } else if (code === 'gatekeeper') {
       status = 'Gatekeeper';
@@ -1032,6 +1021,48 @@ router.post('/:key/disposition', async (req, res, next) => {
         /* ignore */
       }
     }
+
+    const followUp = resolveFollowUpForDisposition(code, {
+      scheduledAt: clientScheduledAt || undefined,
+      skipFollowUp,
+      lead,
+      notes,
+      now,
+    });
+    let followUpTask = null;
+    let scheduledAt = followUp.scheduledAt;
+    if (!followUp.skipFollowUp && followUp.scheduledAt && followUp.taskTitle) {
+      patch.nextActionAt = followUp.scheduledAt;
+      if (code === 'callback') {
+        patch.redialBlockedUntil = followUp.scheduledAt;
+      }
+      try {
+        followUpTask = await upsertOpenTaskForLead(req.workspaceId, userEmail(req), {
+          title: followUp.taskTitle,
+          column: 'todo',
+          scheduledAt: followUp.scheduledAt,
+          leadKey: fullKey,
+          preferredTaskId: code === 'callback' ? lead.callbackTaskId || null : null,
+        });
+        if (code === 'callback' && followUpTask && followUpTask.id) {
+          patch.callbackTaskId = followUpTask.id;
+        }
+        if (code === 'callback') {
+          automation = 'Callback task updated and redial paused until follow-up window.';
+        } else if (!automation) {
+          automation = 'Follow-up task scheduled.';
+        } else {
+          automation = `${automation} Follow-up task scheduled.`;
+        }
+      } catch (taskErr) {
+        console.warn('[disposition] follow-up task failed:', taskErr && taskErr.message);
+      }
+    }
+
+    if (patch.logs && patch.logs[0]) {
+      patch.logs[0].message = `Disposition set to ${humanizeDisposition(code)}${automation ? ` · ${automation}` : ''}`;
+    }
+
     const updated = await dbService.updateLead(fullKey, patch, req.workspaceId);
     const deferGhlSync = !!(req.body && req.body.deferGhlSync);
     if (!deferGhlSync) {
@@ -1040,7 +1071,16 @@ router.post('/:key/disposition', async (req, res, next) => {
         note: notes ? `Disposition: ${humanizeDisposition(code)}\n${notes}` : '',
       });
     }
-    return res.json({ success: true, lead: updated, status, nextStep, automation });
+    return res.json({
+      success: true,
+      lead: updated,
+      status,
+      nextStep,
+      automation,
+      followUpTask,
+      scheduledAt,
+      skipFollowUp: followUp.skipFollowUp,
+    });
   } catch (err) {
     next(err);
   }

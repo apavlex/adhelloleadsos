@@ -44,8 +44,42 @@
     </script>
     <%- include('/partials/today_touches_hub') %>
 
+    <% const _nextActions = typeof nextActions !== 'undefined' && nextActions ? nextActions : []; %>
+    <% if (_nextActions.length) { %>
+    <section class="mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-6 md:p-8 shadow-sm" aria-label="Next actions">
+      <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+        <div>
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Next actions</p>
+          <h2 class="font-display font-extrabold text-xl text-brand-dark dark:text-white">Due &amp; overdue — unified queue</h2>
+          <p class="text-sm text-brand-muted dark:text-slate-400 mt-1">Tasks, cadence steps, scheduled follow-ups, and audit opens — one list, deduped per lead.</p>
+        </div>
+        <a href="/tasks" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white whitespace-nowrap shrink-0 self-start">All tasks</a>
+      </div>
+      <ul class="divide-y divide-brand-border/40 dark:divide-white/10">
+        <% _nextActions.forEach((item) => { %>
+          <li class="py-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-2 mb-0.5">
+                <span class="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-brand-border/60 dark:border-white/15 text-brand-muted"><%= item.kindLabel || item.kind %></span>
+                <% if (item.overdue) { %><span class="text-[9px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">Overdue</span><% } %>
+              </div>
+              <p class="text-sm font-bold text-brand-dark dark:text-white"><%= item.title %></p>
+              <p class="text-[11px] text-brand-muted mt-0.5"><%= item.scheduledAt ? new Date(item.scheduledAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '' %></p>
+            </div>
+            <div class="flex flex-col sm:items-end gap-1 shrink-0">
+              <% if (item.leadTitle) { %>
+                <span class="text-[11px] font-semibold text-brand-dark dark:text-white truncate max-w-[14rem]"><%= item.leadTitle %></span>
+              <% } %>
+              <a href="<%= item.href %>" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline">Open</a>
+            </div>
+          </li>
+        <% }) %>
+      </ul>
+    </section>
+    <% } %>
+
     <% const _fuTasks = typeof followUpTasksToday !== 'undefined' && followUpTasksToday ? followUpTasksToday : []; %>
-    <% if (_fuTasks.length) { %>
+    <% if (false && _fuTasks.length) { %>
     <section class="mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-6 md:p-8 shadow-sm" aria-label="Scheduled follow-ups">
       <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
         <div>
@@ -73,7 +107,7 @@
     <% } %>
 
     <% const _reportsOpened = typeof reportsOpened24h !== 'undefined' && reportsOpened24h ? reportsOpened24h : []; %>
-    <% if (_reportsOpened.length) { %>
+    <% if (false && _reportsOpened.length) { %>
     <section class="mb-8 md:mb-10 rounded-[2rem] border border-indigo-500/30 bg-indigo-500/[0.06] dark:bg-indigo-950/40 dark:border-indigo-500/25 px-6 py-6 md:px-8 md:py-7 shadow-sm" aria-label="Reports opened today">
       <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
         <div>

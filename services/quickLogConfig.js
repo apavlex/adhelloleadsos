@@ -3,6 +3,8 @@
  * Disposition codes sync to GHL via ghlActionTags (AO: tags).
  */
 
+const SKIP_FOLLOW_UP_DISPOSITIONS = new Set(['not_interested', 'wrong_number']);
+
 const QUICK_LOG_ITEMS = Object.freeze([
   {
     label: 'Gatekeeper',
@@ -29,13 +31,11 @@ const QUICK_LOG_ITEMS = Object.freeze([
     label: 'Callback requested',
     disposition: 'callback',
     noteTemplate: 'Requested callback. Confirm best time and call back as scheduled.',
-    enableFollowup: true,
   },
   {
     label: 'DM connected',
     disposition: 'connected',
     noteTemplate: 'Connected with decision maker. Follow up with tailored recap.',
-    enableFollowup: true,
   },
   {
     label: 'Send info',
@@ -47,9 +47,11 @@ const QUICK_LOG_ITEMS = Object.freeze([
     label: 'Site audit',
     disposition: 'site_audit',
     noteTemplate: 'Site audit scheduled or sent. Follow up after they review.',
-    enableFollowup: true,
   },
-]);
+].map((item) => ({
+  ...item,
+  enableFollowup: item.disposition ? !SKIP_FOLLOW_UP_DISPOSITIONS.has(item.disposition) : false,
+})));
 
 function getQuickLogTagConfigMap() {
   const map = Object.create(null);

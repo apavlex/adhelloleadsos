@@ -3963,6 +3963,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const key = String(currentRow.dataset.leadKey).trim();
     const body = { code, notes: notes || '' };
     if (opts.deferGhlSync) body.deferGhlSync = true;
+    if (opts.scheduledAt) body.scheduledAt = opts.scheduledAt;
+    if (opts.skipFollowUp === true) body.skipFollowUp = true;
     const res = await fetch(`/leads/${encodeURIComponent(key)}/disposition`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
