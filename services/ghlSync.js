@@ -628,6 +628,9 @@ async function processEngagementWebhook(payload, opts = {}) {
     signalType: parsed.signalType,
     at: parsed.timestamp || new Date().toISOString(),
     createTask: true,
+    linkUrl: parsed.linkUrl || '',
+    messageId: parsed.messageId || '',
+    provider: 'ghl',
   });
 
   return {

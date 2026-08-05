@@ -161,16 +161,16 @@ router.get('/', async (req, res, next) => {
     });
 
     const tasksEnriched = enrichTasksWithLeadsForToday(rawTasks, workspaceLeads);
+    const callWarmQueue = buildCallQueue(businessLeads, { limit: 20 });
     const nextActions = buildNextActionsQueue({
       tasks: tasksEnriched,
       leads: businessLeads,
       cadenceQueue,
       reportsOpened24h,
+      engagementQueue: callWarmQueue,
       baseUrl,
       limit: 30,
     });
-
-    const callWarmQueue = buildCallQueue(businessLeads, { limit: 20 });
 
     const apYear = parseInt(req.query.actionPlanYear, 10) || new Date().getFullYear();
     const apMonth = parseInt(req.query.actionPlanMonth, 10) || new Date().getMonth() + 1;

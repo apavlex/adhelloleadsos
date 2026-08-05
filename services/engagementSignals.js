@@ -63,6 +63,40 @@ function signalLabel(signalType) {
   return map[signalType] || 'Engagement';
 }
 
+function buildEngagementUpdateEntry(signalType, atIso, meta) {
+  const m = meta && typeof meta === 'object' ? meta : {};
+  const at = atIso || new Date().toISOString();
+  const label = signalLabel(signalType);
+  const parts = [label];
+  if (m.linkUrl) parts.push(String(m.linkUrl).trim().slice(0, 120));
+  if (m.provider) parts.push(`via ${String(m.provider).trim()}`);
+  return {
+    timestamp: at,
+    type: 'engagement_signal',
+    signalType: String(signalType || '').trim(),
+    value: parts.join(' · '),
+    provider: String(m.provider || 'ghl').trim(),
+    linkUrl: String(m.linkUrl || '').trim(),
+    messageId: String(m.messageId || '').trim(),
+  };
+}
+
+/** Recent engagement pill for pipeline rows (null if none in window). */
+function engagementBadgeForLead(lead, windowDays = 7, nowMs) {
+  const s = normalizeEngagementSignals(lead && lead.engagementSignals);
+  if (!s.lastSignalAt || !s.lastSignalType) return null;
+  const now = Number.isFinite(nowMs) ? nowMs : Date.now();
+  const cutoff = now - windowDays * 86400000;
+  const atMs = Date.parse(s.lastSignalAt);
+  if (!Number.isFinite(atMs) || atMs < cutoff) return null;
+  return {
+    signalType: s.lastSignalType,
+    label: signalLabel(s.lastSignalType),
+    at: s.lastSignalAt,
+    atMs,
+  };
+}
+
 function isClosedOrConnected(lead) {
   const status = String((lead && lead.status) || '').toLowerCase();
   if (status.includes('closed - won') || status.includes('closed - lost')) return true;
@@ -97,21 +131,20 @@ async function applyEngagementSignal(ctx) {
     return { applied: false, reason: 'invalid_context' };
   }
 
-  const engagementSignals = recordEngagementSignals(
-    lead.engagementSignals,
-    signalType,
-    ctx.at,
+  const atIso = ctx.at || new Date().toISOString();
+  const engagementSignals = recordEngagementSignals(lead.engagementSignals, signalType, atIso);
+  const updates = Array.isArray(lead.updates) ? [...lead.updates] : [];
+  updates.push(
+    buildEngagementUpdateEntry(signalType, atIso, {
+      provider: ctx.provider || 'ghl',
+      linkUrl: ctx.linkUrl || '',
+      messageId: ctx.messageId || '',
+    }),
   );
   const patch = {
     engagementSignals,
+    updates,
     ...(ctx.extraPatch && typeof ctx.extraPatch === 'object' ? ctx.extraPatch : {}),
-    logs: [
-      {
-        type: 'engagement_signal',
-        message: `${signalLabel(signalType)} recorded`,
-        timestamp: new Date().toISOString(),
-      },
-    ],
   };
 
   let task = null;
@@ -134,6 +167,8 @@ module.exports = {
   recordEngagementSignals,
   signalPriorityForLead,
   signalLabel,
+  buildEngagementUpdateEntry,
+  engagementBadgeForLead,
   isClosedOrConnected,
   ensureEngagementCallTask,
   applyEngagementSignal,

@@ -1,11 +1,13 @@
 /**
  * Unified "Next Actions" queue for /today — tasks, cadence, nextActionAt, report opens.
- * Dedupes by leadKey (task > cadence > nextActionAt > report_open).
+ * Dedupes by leadKey (engagement > task > cadence > nextActionAt > report_open).
  */
 
 const { buildCadenceQueue } = require('./cadenceQueue');
+const { focusHref } = require('./callQueue');
 
 const KIND_PRIORITY = {
+  engagement: 0,
   task: 1,
   cadence: 2,
   next_action: 3,
@@ -14,11 +16,6 @@ const KIND_PRIORITY = {
 
 function endOfTodayMs(now = new Date()) {
   return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime() - 1;
-}
-
-function focusHref(leadKey) {
-  const short = String(leadKey || '').replace(/^lead:/i, '');
-  return short ? `/focus?lead=${encodeURIComponent(short)}` : '/pipeline';
 }
 
 function pipelineHref(leadKey) {
@@ -53,8 +50,8 @@ function buildNextActionsQueue(opts = {}) {
       byLead.set(key, item);
       return;
     }
-    const existingPri = KIND_PRIORITY[existing.kind] || 99;
-    const newPri = KIND_PRIORITY[item.kind] || 99;
+    const existingPri = KIND_PRIORITY[existing.kind] ?? 99;
+    const newPri = KIND_PRIORITY[item.kind] ?? 99;
     if (newPri < existingPri) {
       byLead.set(key, item);
       return;
@@ -80,6 +77,23 @@ function buildNextActionsQueue(opts = {}) {
       href: t.leadKey ? pipelineHref(t.leadKey) : '/tasks',
       overdue: ts < nowMs,
       kindLabel: 'Task',
+    });
+  }
+
+  for (const row of opts.engagementQueue || []) {
+    if (!row || !row.leadKey) continue;
+    const signalAt = row.signalAt || row.lastSignalAt || new Date(nowMs).toISOString();
+    upsert({
+      kind: 'engagement',
+      leadKey: row.leadKey,
+      leadTitle: row.leadTitle,
+      scheduledAt: signalAt,
+      title: `They engaged — ${row.signalLabel || 'call while warm'}`,
+      href: row.href || focusHref(row.leadKey),
+      overdue: false,
+      kindLabel: 'Engagement',
+      signalType: row.signalType || '',
+      signalPriority: typeof row.priority === 'number' ? row.priority : 99,
     });
   }
 
@@ -139,6 +153,9 @@ function buildNextActionsQueue(opts = {}) {
       const aOver = a.overdue ? 0 : 1;
       const bOver = b.overdue ? 0 : 1;
       if (aOver !== bOver) return aOver - bOver;
+      const aEng = a.kind === 'engagement' ? (a.signalPriority || 99) : 999;
+      const bEng = b.kind === 'engagement' ? (b.signalPriority || 99) : 999;
+      if (aEng !== bEng) return aEng - bEng;
       return Date.parse(a.scheduledAt || 0) - Date.parse(b.scheduledAt || 0);
     })
     .slice(0, limit);

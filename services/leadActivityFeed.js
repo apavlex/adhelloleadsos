@@ -26,8 +26,10 @@ const PRIMARY_TOUCH_TYPES = new Set([
   'sms_outbound',
   'sms_inbound',
   'email_outbound',
+  'email_inbound',
   'direct_mail_outbound',
   'voicemail_drop',
+  'engagement_signal',
 ]);
 
 function isSecondaryActivityText(text, typ) {
@@ -117,6 +119,9 @@ function formatActivityEntryText(entry) {
     if (u.statusChange) bits.push(`Status → ${u.statusChange}`);
     return bits.filter(Boolean).join(' · ');
   }
+  if (typ === 'engagement_signal') {
+    return String(entry.text || u.value || '').trim();
+  }
   if (typ === 'call_outbound') {
     const rawText = String(entry.text || '').trim();
     const phoneMatch = rawText.match(/\(([^)]+)\)/);
@@ -139,8 +144,10 @@ function formatActivityTypeLabel(typ, raw) {
     sms_outbound: 'SMS',
     sms_inbound: 'SMS',
     email_outbound: 'Email',
+    email_inbound: 'Email',
     direct_mail_outbound: 'Direct mail',
     voicemail_drop: 'Voicemail',
+    engagement_signal: 'Engagement',
   };
   if (map[t]) return map[t];
   if (t === 'quick_log' && raw && raw.disposition) return 'Quick log · call';
@@ -193,6 +200,14 @@ function activityEntryMatchesFilter(entry, filter) {
     return (
       (typ === 'call_disposition' && !isSecondaryActivityText(entry.text, typ)) ||
       (typ === 'quick_log' && !!(entry.raw && (entry.raw.disposition || entry.raw.statusChange)))
+    );
+  }
+  if (f === 'engagement') {
+    if (typ === 'engagement_signal') return true;
+    if (typ === 'sms_inbound' || typ === 'email_inbound') return true;
+    if (typ === 'engagement_signal' && entry.raw && entry.raw.signalType) return true;
+    return /\b(email open|link click|sms reply|email reply|audit open|engagement)\b/i.test(
+      String(entry.text || ''),
     );
   }
   return true;

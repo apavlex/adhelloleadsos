@@ -9,6 +9,7 @@ const FILTERS = [
   { id: 'all', label: 'All activity' },
   { id: 'notes', label: 'Notes' },
   { id: 'calls', label: 'Calls & SMS' },
+  { id: 'engagement', label: 'Engagement' },
   { id: 'status', label: 'Call outcomes' },
 ];
 

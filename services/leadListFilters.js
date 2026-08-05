@@ -581,6 +581,10 @@ function mapLeadPipelineBootstrap(l) {
     ownerSignal: l.ownerSignal,
     sequenceState: l.sequenceState,
     lastTouchChannel: l.lastTouchChannel,
+    engagementSignalType:
+      (l.engagementSignals && l.engagementSignals.lastSignalType) || '',
+    engagementSignalAt:
+      (l.engagementSignals && l.engagementSignals.lastSignalAt) || '',
     latitude: l.latitude,
     longitude: l.longitude,
     leadLocations: Array.isArray(l.leadLocations) ? l.leadLocations : [],

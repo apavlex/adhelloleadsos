@@ -135,6 +135,7 @@ router.post('/audit/report/:token/telemetry', express.json({ limit: '12kb' }), a
           signalType: 'audit_open',
           at: row.viewedAt || new Date().toISOString(),
           createTask: true,
+          provider: 'audit',
         });
       }
     } catch (e) {

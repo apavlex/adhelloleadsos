@@ -408,6 +408,19 @@
                 } catch (e) {}
               }
               var _ltc = String(lead.lastTouchChannel || '').trim();
+              var _engSig = lead.engagementSignals && typeof lead.engagementSignals === 'object' ? lead.engagementSignals : {};
+              var _engType = String(_engSig.lastSignalType || '').trim();
+              var _engAt = _engSig.lastSignalAt || '';
+              var _engLabel = '';
+              var _engRecent = false;
+              if (_engType && _engAt) {
+                var _engLabelMap = { sms_reply: 'SMS reply', email_reply: 'Email reply', link_click: 'Link click', audit_open: 'Audit open', email_open: 'Email open' };
+                _engLabel = _engLabelMap[_engType] || 'Engaged';
+                try {
+                  var _engMs = new Date(_engAt).getTime();
+                  if (!Number.isNaN(_engMs) && _engMs >= Date.now() - 7 * 86400000) _engRecent = true;
+                } catch (e) {}
+              }
               var _seqSt = lead.sequenceState;
               var _cadShort = '';
               if (_seqSt && _seqSt.templateId) {
@@ -540,6 +553,8 @@
                 data-created-sort="<%= _createdSortMs %>"
                 data-last-touch-ms="<%= _lastTouchSortMs %>"
                 data-last-touch-channel="<%= plcEscAttr(_ltc) %>"
+                data-engagement-signal="<%= plcEscAttr(_engType) %>"
+                data-engagement-signal-at="<%= plcEscAttr(_engAt) %>"
                 data-cadence-sort="<%= plcEscAttr(_cadShort || _ltc || '') %>"
                 data-sequence-state="<%= plcEscJson(lead.sequenceState || null) %>"
                 data-owner-first-name="<%= plcEscAttr(String(lead.ownerFirstName || '')) %>"
@@ -597,6 +612,9 @@
                         }
                       %>
                       <span class="<%= _touchPillClass %>" data-touch-variant="<%= _touchPillVariant %>" title="<%= _touchPillVariant === 'quick_log' ? ('Last touch: ' + _touchPillText) : _touchPillText %>"><%= String(_touchPillText).toUpperCase() %></span>
+                      <% if (_engRecent && _engLabel) { %>
+                      <span class="lead-row-engagement-pill shrink-0 px-1.5 py-0.5 rounded-full border text-[8px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-200 bg-emerald-500/15 dark:bg-emerald-950/40 border-emerald-500/35" title="<%= plcEscAttr(_engAt ? ('Engaged: ' + new Date(_engAt).toLocaleString()) : _engLabel) %>"><%= _engLabel %></span>
+                      <% } %>
                     </div>
                     <div class="mt-1">
                       <div class="lead-row-address-wrap">

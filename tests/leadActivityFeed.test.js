@@ -31,10 +31,17 @@ test('activity filters notes vs calls', () => {
     raw: { source: 'panel_post' },
   };
   const call = { typ: 'call_outbound', text: 'Called lead', raw: {} };
+  const engagement = {
+    typ: 'engagement_signal',
+    text: 'Link click · https://example.com',
+    raw: { signalType: 'link_click' },
+  };
   assert.equal(isManualPanelNote(note), true);
   assert.equal(activityEntryMatchesFilter(note, 'notes'), true);
   assert.equal(activityEntryMatchesFilter(call, 'notes'), false);
   assert.equal(activityEntryMatchesFilter(call, 'calls'), true);
+  assert.equal(activityEntryMatchesFilter(engagement, 'engagement'), true);
+  assert.equal(activityEntryMatchesFilter(call, 'engagement'), false);
 });
 
 test('buildWorkspaceActivityFeed groups by lead and paginates', () => {

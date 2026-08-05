@@ -6457,6 +6457,20 @@ document.addEventListener('DOMContentLoaded', () => {
     if (L.lastTouchChannel != null) {
       ds.lastTouchChannel = String(L.lastTouchChannel || '').trim();
     }
+    if (L.engagementSignalType != null) {
+      ds.engagementSignal = String(L.engagementSignalType || '').trim();
+    }
+    if (L.engagementSignalAt != null) {
+      ds.engagementSignalAt = String(L.engagementSignalAt || '').trim();
+    }
+    if (L.engagementSignals && typeof L.engagementSignals === 'object') {
+      if (L.engagementSignals.lastSignalType) {
+        ds.engagementSignal = String(L.engagementSignals.lastSignalType || '').trim();
+      }
+      if (L.engagementSignals.lastSignalAt) {
+        ds.engagementSignalAt = String(L.engagementSignals.lastSignalAt || '').trim();
+      }
+    }
     if (L.lastContactHuntAt != null) {
       ds.lastContactHuntAt = String(L.lastContactHuntAt || '').trim();
     }
@@ -8837,6 +8851,11 @@ document.addEventListener('DOMContentLoaded', () => {
       call_disposition: 'Call',
       status_change: 'Pipeline',
       call_browser_handoff: 'Call',
+      sms_outbound: 'SMS',
+      sms_inbound: 'SMS',
+      email_outbound: 'Email',
+      email_inbound: 'Email',
+      engagement_signal: 'Engagement',
     };
     if (map[t]) return map[t];
     if (t === 'quick_log' && raw && raw.disposition) return 'Quick log · call';
@@ -8962,6 +8981,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (f === 'notes') {
       return isManualPanelNote(entry);
     }
+    if (f === 'engagement') {
+      if (typ === 'engagement_signal') return true;
+      if (typ === 'sms_inbound' || typ === 'email_inbound') return true;
+      return /\b(email open|link click|sms reply|email reply|audit open|engagement)\b/i.test(blob);
+    }
     if (f === 'merges') {
       return false;
     }
@@ -9013,7 +9037,9 @@ document.addEventListener('DOMContentLoaded', () => {
           ? 'No notes yet. Post one in Note · Post below, or switch to All to see calls and pipeline activity.'
           : f === 'calls'
             ? 'No call activity logged yet. Use Call, Quick log tags, or switch to All.'
-            : 'No activity yet. Post a note, log a call, or update pipeline status.';
+            : f === 'engagement'
+              ? 'No engagement signals yet — email opens, clicks, replies, and audit views appear here.'
+              : 'No activity yet. Post a note, log a call, or update pipeline status.';
       host.innerHTML = `<div class="pl-10 text-xs text-brand-muted italic leading-relaxed">${emptyMsg}</div>`;
       const countElEmpty = document.getElementById('activityLogCount');
       if (countElEmpty) {
