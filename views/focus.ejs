@@ -251,17 +251,29 @@
       <div id="focus-outcome-panel" class="mb-6 md:mb-4 md:sticky md:bottom-4 z-30 rounded-[1.35rem] border border-brand-border/60 dark:border-white/15 bg-brand-cream/25 dark:bg-slate-900/70 md:bg-white/70 md:dark:bg-slate-900/65 md:backdrop-blur-xl shadow-sm md:shadow-xl p-4 space-y-3">
         <div id="focus-outcome-header" class="flex items-center justify-between gap-2">
           <p id="focus-outcome-heading" class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Call outcome + notes</p>
-          <button
-            type="button"
-            id="focus-outcome-collapse-toggle"
-            class="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-brand-border/60 dark:border-white/15 text-brand-muted hover:border-brand-yellow/50 hover:text-brand-dark dark:hover:text-white transition-colors shrink-0"
-            aria-expanded="true"
-            aria-controls="focus-outcome-details"
-            title="Collapse notes"
-          >
-            <svg id="focus-outcome-collapse-icon" class="w-4 h-4 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M18 15l-6-6-6 6"/></svg>
-            <span class="sr-only">Toggle call outcome notes</span>
-          </button>
+          <div class="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              id="focus-outcome-compact-toggle"
+              class="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-brand-border/60 dark:border-white/15 text-brand-muted hover:border-brand-yellow/50 hover:text-brand-dark dark:hover:text-white transition-colors"
+              aria-pressed="false"
+              title="Minimize to action bar"
+            >
+              <svg id="focus-outcome-compact-icon" class="w-4 h-4 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 14h16M4 10h16"/></svg>
+              <span class="sr-only">Minimize call outcome panel</span>
+            </button>
+            <button
+              type="button"
+              id="focus-outcome-collapse-toggle"
+              class="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-brand-border/60 dark:border-white/15 text-brand-muted hover:border-brand-yellow/50 hover:text-brand-dark dark:hover:text-white transition-colors"
+              aria-expanded="true"
+              aria-controls="focus-outcome-details"
+              title="Collapse send info"
+            >
+              <svg id="focus-outcome-collapse-icon" class="w-4 h-4 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M18 15l-6-6-6 6"/></svg>
+              <span class="sr-only">Toggle send info section</span>
+            </button>
+          </div>
         </div>
         <div id="focus-outcome-details" class="space-y-3">
         <div class="rounded-xl border border-brand-border/25 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-800/40 overflow-visible">
@@ -503,6 +515,8 @@
     var elOutcomeDetails = document.getElementById('focus-outcome-details');
     var btnOutcomeCollapse = document.getElementById('focus-outcome-collapse-toggle');
     var elOutcomeCollapseIcon = document.getElementById('focus-outcome-collapse-icon');
+    var btnOutcomeCompact = document.getElementById('focus-outcome-compact-toggle');
+    var elOutcomeCompactIcon = document.getElementById('focus-outcome-compact-icon');
     var elOutcomeHeading = document.getElementById('focus-outcome-heading');
     var elOutcomeShortcuts = document.getElementById('focus-outcome-shortcuts');
     var btnFocusSendInfoToggle = document.getElementById('focusSendInfoToggle');
@@ -515,6 +529,10 @@
     var elFocusNotesIndicator = document.getElementById('focusNotesIndicator');
     var focusNotesOpen = false;
     var outcomePanelCollapsed = false;
+    var outcomePanelCompact = false;
+    try {
+      outcomePanelCompact = localStorage.getItem('focus-outcome-compact') === 'true';
+    } catch (e) {}
     var elWhySection = document.getElementById('focus-why-section');
     var elWhyReasons = document.getElementById('focus-why-reasons');
 
@@ -569,21 +587,44 @@
         elOutcomePanel.setAttribute('data-collapsed', outcomePanelCollapsed ? 'true' : 'false');
       }
       if (elOutcomeDetails) {
-        elOutcomeDetails.classList.toggle('hidden', outcomePanelCollapsed);
+        elOutcomeDetails.classList.toggle('hidden', outcomePanelCollapsed || outcomePanelCompact);
       }
       if (elOutcomeHeading) {
-        elOutcomeHeading.classList.toggle('hidden', outcomePanelCollapsed);
+        elOutcomeHeading.classList.toggle('hidden', outcomePanelCollapsed || outcomePanelCompact);
       }
       if (elOutcomeShortcuts) {
-        elOutcomeShortcuts.classList.toggle('hidden', outcomePanelCollapsed);
+        elOutcomeShortcuts.classList.toggle('hidden', outcomePanelCollapsed || outcomePanelCompact);
       }
       if (btnOutcomeCollapse) {
         btnOutcomeCollapse.setAttribute('aria-expanded', outcomePanelCollapsed ? 'false' : 'true');
-        btnOutcomeCollapse.setAttribute('title', outcomePanelCollapsed ? 'Expand notes' : 'Collapse notes');
+        btnOutcomeCollapse.setAttribute('title', outcomePanelCollapsed ? 'Expand send info' : 'Collapse send info');
+        btnOutcomeCollapse.classList.toggle('hidden', outcomePanelCompact);
       }
       if (elOutcomeCollapseIcon) {
         elOutcomeCollapseIcon.classList.toggle('rotate-180', outcomePanelCollapsed);
       }
+    }
+
+    function setOutcomePanelCompact(compact) {
+      outcomePanelCompact = !!compact;
+      if (elOutcomePanel) {
+        elOutcomePanel.setAttribute('data-compact', outcomePanelCompact ? 'true' : 'false');
+      }
+      if (btnOutcomeCompact) {
+        btnOutcomeCompact.setAttribute('aria-pressed', outcomePanelCompact ? 'true' : 'false');
+        btnOutcomeCompact.setAttribute('title', outcomePanelCompact ? 'Expand panel' : 'Minimize to action bar');
+      }
+      if (elOutcomeCompactIcon) {
+        elOutcomeCompactIcon.classList.toggle('rotate-180', outcomePanelCompact);
+      }
+      if (outcomePanelCompact) {
+        setOutcomePanelCollapsed(true);
+      } else {
+        setOutcomePanelCollapsed(false);
+      }
+      try {
+        localStorage.setItem('focus-outcome-compact', outcomePanelCompact ? 'true' : 'false');
+      } catch (e) {}
     }
 
     function isMobileViewport() {
@@ -1516,11 +1557,27 @@
     }
 
     function mapQueryFromFocusLead(lead) {
-      var addr = String((lead && lead.address) || '').trim();
-      if (addr) return addr;
-      var cs = [lead.city || '', lead.state || ''].filter(Boolean).join(', ');
+      var street = String((lead && lead.address) || '').trim();
+      if (street === 'N/A') street = '';
+      street = street.replace(/\s*[·•|]\s*/g, ', ').replace(/\s+/g, ' ').trim();
+      var city = String((lead && lead.city) || '').trim();
+      if (city === 'N/A') city = '';
+      var state = String((lead && lead.state) || '').trim();
+      if (state === 'N/A') state = '';
+      var zip = String((lead && (lead.zip || lead.postalCode)) || '').trim();
+      if (zip === 'N/A') zip = '';
+      if (street) {
+        var locParts = [];
+        if (city) locParts.push(city);
+        if (state) locParts.push(state);
+        var loc = locParts.join(', ');
+        if (zip) loc = loc ? loc + ' ' + zip : zip;
+        return loc ? street + ', ' + loc : street;
+      }
+      var cs = [city, state].filter(Boolean).join(', ');
       var title = String((lead && lead.title) || '').trim();
-      return [title, cs].filter(Boolean).join(' ').trim();
+      if (title && cs) return title + ', ' + cs;
+      return title || cs || '';
     }
 
     function renderFocusMap(lead) {
@@ -2605,9 +2662,16 @@
     }
     if (btnOutcomeCollapse) {
       btnOutcomeCollapse.addEventListener('click', function () {
+        if (outcomePanelCompact) return;
         setOutcomePanelCollapsed(!outcomePanelCollapsed);
       });
     }
+    if (btnOutcomeCompact) {
+      btnOutcomeCompact.addEventListener('click', function () {
+        setOutcomePanelCompact(!outcomePanelCompact);
+      });
+    }
+    setOutcomePanelCompact(outcomePanelCompact);
     if (btnFocusSendInfoToggle) {
       btnFocusSendInfoToggle.addEventListener('click', function () {
         var open = elFocusSendInfoDrawer && elFocusSendInfoDrawer.classList.contains('focus-send-info-drawer--open');

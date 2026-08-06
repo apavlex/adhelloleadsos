@@ -2,6 +2,9 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const {
   parseLatLngPair,
+  normalizeAddressSeparators,
+  buildMapQueryFromLead,
+  parseGeoapifyGeocodeResult,
   buildOsmStaticMapUrl,
   buildGoogleStaticMapUrl,
   buildGeoapifyStaticMapUrl,
@@ -39,6 +42,40 @@ describe('mapPreview helpers', () => {
     assert.match(url, /-122\.6784/);
     assert.match(url, /45\.5152/);
     assert.match(url, /EAB308/);
+  });
+
+  it('normalizeAddressSeparators converts middle dots to commas', () => {
+    assert.equal(
+      normalizeAddressSeparators('17513 NE 25th St · Vancouver, WA'),
+      '17513 NE 25th St, Vancouver, WA',
+    );
+  });
+
+  it('buildMapQueryFromLead joins street with city and state', () => {
+    assert.equal(
+      buildMapQueryFromLead({
+        address: '17513 NE 25th St',
+        city: 'Vancouver',
+        state: 'WA',
+      }),
+      '17513 NE 25th St, Vancouver, WA',
+    );
+  });
+
+  it('parseGeoapifyGeocodeResult reads json and geojson payloads', () => {
+    assert.deepEqual(parseGeoapifyGeocodeResult({ results: [{ lat: 45.64, lon: -122.49 }] }), {
+      lat: 45.64,
+      lng: -122.49,
+    });
+    assert.deepEqual(
+      parseGeoapifyGeocodeResult({ features: [{ geometry: { coordinates: [-122.49, 45.64] } }] }),
+      { lat: 45.64, lng: -122.49 },
+    );
+  });
+
+  it('buildGeocodeQueryVariants handles dot-separated addresses', () => {
+    const variants = buildGeocodeQueryVariants('17513 NE 25th St · Vancouver, WA');
+    assert.ok(variants.includes('17513 NE 25th St, Vancouver, WA'));
   });
 
   it('buildGeocodeQueryVariants handles mall-style addresses', () => {

@@ -9,6 +9,51 @@ const { getGeoapifyApiKey } = require('./geoapifyKey');
 
 const NOMINATIM_UA = 'AdHelloLeadsOS/1.0 (map preview; contact@adhello.ai)';
 
+function normalizeAddressSeparators(raw) {
+  return String(raw || '')
+    .replace(/\s*[·•|]\s*/g, ', ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function buildMapQueryFromLead(lead) {
+  const l = lead || {};
+  const street = normalizeAddressSeparators(String(l.address || '').trim());
+  const city = String(l.city || '').trim();
+  const state = String(l.state || '').trim();
+  const zip = String(l.zip || l.postalCode || '').trim();
+  if (street && street !== 'N/A') {
+    const locParts = [];
+    if (city && city !== 'N/A') locParts.push(city);
+    if (state && state !== 'N/A') locParts.push(state);
+    let loc = locParts.join(', ');
+    if (zip && zip !== 'N/A') loc = loc ? `${loc} ${zip}` : zip;
+    return loc ? `${street}, ${loc}` : street;
+  }
+  const cs = [city, state].filter((x) => x && x !== 'N/A').join(', ');
+  const title = String(l.title || '').trim();
+  if (title && cs) return `${title}, ${cs}`;
+  return title || cs || '';
+}
+
+function parseGeoapifyGeocodeResult(data) {
+  if (!data || typeof data !== 'object') return null;
+  if (Array.isArray(data.results) && data.results[0]) {
+    const lat = Number(data.results[0].lat);
+    const lng = Number(data.results[0].lon);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+  }
+  if (Array.isArray(data.features) && data.features[0]) {
+    const coords = data.features[0].geometry && data.features[0].geometry.coordinates;
+    if (Array.isArray(coords) && coords.length >= 2) {
+      const lng = Number(coords[0]);
+      const lat = Number(coords[1]);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+    }
+  }
+  return null;
+}
+
 function parseLatLngPair(raw) {
   const m = String(raw || '').trim().match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
   if (!m) return null;
@@ -45,7 +90,7 @@ function buildGeoapifyStaticMapUrl(lat, lng, key, width, height) {
     'https://maps.geoapify.com/v1/staticmap?' +
     'style=osm-bright' +
     `&width=${w}&height=${h}` +
-    `&center=lonlat:${encodeURIComponent(lonlat)}` +
+    `&center=lonlat:${lonlat}` +
     '&zoom=15&scaleFactor=2&format=png' +
     `&marker=${encodeURIComponent(marker)}` +
     `&apiKey=${encodeURIComponent(k)}`
@@ -159,7 +204,7 @@ async function geocodeCenterQuery(centerQuery) {
 }
 
 function buildGeocodeQueryVariants(raw) {
-  const q = String(raw || '').trim();
+  const q = normalizeAddressSeparators(raw);
   if (!q) return [];
   const out = [q];
   const parts = q.split(',').map((s) => s.trim()).filter(Boolean);
@@ -225,23 +270,17 @@ function buildGeocodeQueryVariants(raw) {
 
 async function geocodeViaGeoapify(query) {
   const key = getGeoapifyApiKey();
-  const q = String(query || '').trim();
+  const q = normalizeAddressSeparators(query);
   if (!key || !q) return null;
   const url =
     'https://api.geoapify.com/v1/geocode/search?text=' +
-    `${encodeURIComponent(q)}&limit=1&format=json` +
+    `${encodeURIComponent(q)}&limit=1` +
     `&apiKey=${encodeURIComponent(key)}`;
   try {
     const res = await fetch(url, { headers: { Accept: 'application/json' } });
     const data = await res.json().catch(() => ({}));
-    const features = data && data.features;
-    if (!res.ok || !Array.isArray(features) || !features[0]) return null;
-    const coords = features[0].geometry && features[0].geometry.coordinates;
-    if (!Array.isArray(coords) || coords.length < 2) return null;
-    const lng = Number(coords[0]);
-    const lat = Number(coords[1]);
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-    return { lat, lng };
+    if (!res.ok) return null;
+    return parseGeoapifyGeocodeResult(data);
   } catch (e) {
     console.warn('[mapPreview] Geoapify geocode failed:', e.message);
     return null;
@@ -281,7 +320,7 @@ async function getMapPreviewImage(opts) {
   opts = opts || {};
   const width = opts.width || 640;
   const height = opts.height || 300;
-  const centerQuery = String(opts.center || '').trim();
+  const centerQuery = normalizeAddressSeparators(String(opts.center || '').trim());
 
   let coords = null;
   if (Number.isFinite(opts.lat) && Number.isFinite(opts.lng)) {
@@ -330,6 +369,9 @@ async function getMapPreviewImage(opts) {
 
 module.exports = {
   parseLatLngPair,
+  normalizeAddressSeparators,
+  buildMapQueryFromLead,
+  parseGeoapifyGeocodeResult,
   buildGoogleStaticMapUrl,
   buildGeoapifyStaticMapUrl,
   buildOsmStaticMapUrl,
