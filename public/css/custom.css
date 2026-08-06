@@ -3099,6 +3099,28 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
 #focusSendInfoDrawer.focus-send-info-drawer--open .lead-send-info {
     overflow: visible;
 }
+
+/* Focus mode — notes drawer — collapsed by default */
+#focusNotesDrawer.focus-notes-drawer {
+    max-height: 0;
+    opacity: 0;
+    transition:
+        max-height 0.34s cubic-bezier(0.33, 1, 0.68, 1),
+        opacity 0.22s ease;
+    overflow: hidden;
+    pointer-events: none;
+}
+#focusNotesDrawer.focus-notes-drawer.focus-notes-drawer--open {
+    max-height: 12rem;
+    opacity: 1;
+    pointer-events: auto;
+    overflow: auto;
+}
+#focusNotesChevron {
+    transform-origin: center;
+    transition: transform 0.28s cubic-bezier(0.33, 1, 0.68, 1);
+}
+
 #focus-outcome-panel.focus-outcome-panel--send-customize #focus-outcome-details {
     overflow: visible;
 }
@@ -3126,10 +3148,6 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
     #focus-card-section #focus-body {
         min-height: 16rem;
     }
-}
-
-.focus-mail-list-row {
-    margin-top: -0.15rem;
 }
 
 .focus-mail-list-btn.is-on-list {

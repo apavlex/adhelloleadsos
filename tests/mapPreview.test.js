@@ -4,6 +4,7 @@ const {
   parseLatLngPair,
   buildOsmStaticMapUrl,
   buildGoogleStaticMapUrl,
+  buildGeoapifyStaticMapUrl,
   buildGeocodeQueryVariants,
   isGoogleStaticMapErrorImage,
 } = require('../services/mapPreview');
@@ -28,6 +29,16 @@ describe('mapPreview helpers', () => {
     const url = buildGoogleStaticMapUrl(45.5, -122.6, 'test-key', 640, 300);
     assert.match(url, /maps\.googleapis\.com\/maps\/api\/staticmap/);
     assert.match(url, /test-key/);
+  });
+
+  it('buildGeoapifyStaticMapUrl includes center, marker, and key', () => {
+    assert.equal(buildGeoapifyStaticMapUrl(45.5, -122.6, '', 560, 336), '');
+    const url = buildGeoapifyStaticMapUrl(45.5152, -122.6784, 'geo-key', 560, 336);
+    assert.match(url, /maps\.geoapify\.com\/v1\/staticmap/);
+    assert.match(url, /geo-key/);
+    assert.match(url, /-122\.6784/);
+    assert.match(url, /45\.5152/);
+    assert.match(url, /EAB308/);
   });
 
   it('buildGeocodeQueryVariants handles mall-style addresses', () => {

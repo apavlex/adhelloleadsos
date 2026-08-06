@@ -28,6 +28,9 @@ services:
       - key: GOOGLE_MAPS_API_KEY
         sync: false
         optional: true
+      - key: GEOAPIFY_API_KEY
+        sync: false
+        optional: true
       - key: RENDER_DISK_MOUNTED
         value: "1"
       - key: KIE_AI_API_KEY

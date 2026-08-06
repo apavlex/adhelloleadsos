@@ -1,10 +1,11 @@
 /**
  * Server-side map preview for the lead panel sidebar.
  * Fetches static map tiles on the server (avoids iframe/JS issues in slide-in panels)
- * and falls back to OpenStreetMap when Google Static Maps is unavailable.
+ * and falls back to Geoapify, then OpenStreetMap when Google Static Maps is unavailable.
  */
 
 const { getGoogleMapsApiKey } = require('./googleMapsKey');
+const { getGeoapifyApiKey } = require('./geoapifyKey');
 
 const NOMINATIM_UA = 'AdHelloLeadsOS/1.0 (map preview; contact@adhello.ai)';
 
@@ -30,6 +31,24 @@ function buildGoogleStaticMapUrl(lat, lng, key, width, height) {
     `&zoom=15&size=${w}x${h}&scale=2&maptype=roadmap` +
     `&markers=${encodeURIComponent(`color:0xEAB308|${center}`)}` +
     `&key=${encodeURIComponent(k)}`
+  );
+}
+
+function buildGeoapifyStaticMapUrl(lat, lng, key, width, height) {
+  const k = String(key || '').trim();
+  if (!k || !Number.isFinite(lat) || !Number.isFinite(lng)) return '';
+  const w = Math.min(4096, Math.max(100, parseInt(width, 10) || 640));
+  const h = Math.min(4096, Math.max(100, parseInt(height, 10) || 300));
+  const lonlat = `${lng},${lat}`;
+  const marker = `lonlat:${lonlat};color:%23EAB308;size:48`;
+  return (
+    'https://maps.geoapify.com/v1/staticmap?' +
+    'style=osm-bright' +
+    `&width=${w}&height=${h}` +
+    `&center=lonlat:${encodeURIComponent(lonlat)}` +
+    '&zoom=15&scaleFactor=2&format=png' +
+    `&marker=${encodeURIComponent(marker)}` +
+    `&apiKey=${encodeURIComponent(k)}`
   );
 }
 
@@ -130,6 +149,9 @@ async function geocodeCenterQuery(centerQuery) {
     const google = await geocodeViaGoogle(variant);
     if (google) return google;
 
+    const geoapify = await geocodeViaGeoapify(variant);
+    if (geoapify) return geoapify;
+
     const osm = await geocodeViaNominatim(variant);
     if (osm) return osm;
   }
@@ -201,6 +223,31 @@ function buildGeocodeQueryVariants(raw) {
   return [...new Set(out.map((s) => s.trim()).filter(Boolean))];
 }
 
+async function geocodeViaGeoapify(query) {
+  const key = getGeoapifyApiKey();
+  const q = String(query || '').trim();
+  if (!key || !q) return null;
+  const url =
+    'https://api.geoapify.com/v1/geocode/search?text=' +
+    `${encodeURIComponent(q)}&limit=1&format=json` +
+    `&apiKey=${encodeURIComponent(key)}`;
+  try {
+    const res = await fetch(url, { headers: { Accept: 'application/json' } });
+    const data = await res.json().catch(() => ({}));
+    const features = data && data.features;
+    if (!res.ok || !Array.isArray(features) || !features[0]) return null;
+    const coords = features[0].geometry && features[0].geometry.coordinates;
+    if (!Array.isArray(coords) || coords.length < 2) return null;
+    const lng = Number(coords[0]);
+    const lat = Number(coords[1]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return { lat, lng };
+  } catch (e) {
+    console.warn('[mapPreview] Geoapify geocode failed:', e.message);
+    return null;
+  }
+}
+
 async function geocodeViaNominatim(query) {
   const q = String(query || '').trim();
   if (!q) return null;
@@ -258,6 +305,15 @@ async function getMapPreviewImage(opts) {
     }
   }
 
+  const geoKey = getGeoapifyApiKey();
+  const geoapifyUrl = buildGeoapifyStaticMapUrl(lat, lng, geoKey, width, height);
+  if (geoapifyUrl) {
+    const geoapifyImg = await tryFetchImage(geoapifyUrl);
+    if (geoapifyImg) {
+      return { ...geoapifyImg, lat, lng, source: 'geoapify-static' };
+    }
+  }
+
   const osmUrls = [
     buildOsmStaticMapUrl(lat, lng, width, height),
     buildOsmFrStaticMapUrl(lat, lng, width, height),
@@ -275,6 +331,7 @@ async function getMapPreviewImage(opts) {
 module.exports = {
   parseLatLngPair,
   buildGoogleStaticMapUrl,
+  buildGeoapifyStaticMapUrl,
   buildOsmStaticMapUrl,
   buildGeocodeQueryVariants,
   getMapPreviewImage,
