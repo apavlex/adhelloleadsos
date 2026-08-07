@@ -76,7 +76,6 @@
     var sideWrap = document.getElementById('dmSideWrap');
     var backCol = document.getElementById('dmPreviewBackCol');
     var previewGrid = document.getElementById('dmPreviewGrid');
-    var previewHint = document.getElementById('dmPreviewHint');
     var ratio = preset.aspectRatio;
 
     if (ratio && ratioEl) {
@@ -93,11 +92,11 @@
       previewGrid.classList.toggle('grid-cols-1', !preset.dualSided);
       previewGrid.classList.toggle('grid-cols-2', !!preset.dualSided);
     }
-    if (previewHint) {
-      previewHint.textContent = preset.dualSided
-        ? 'Switch Front / Back tabs above the canvas. Check sides to include when sending.'
-        : 'Generated ' + preset.label + ' creative — zoom, save, or send when ready.';
-    }
+    var hintText = preset.dualSided
+      ? 'Switch Front / Back tabs above the canvas. Check sides to include when sending.'
+      : 'Generated ' + preset.label + ' creative — zoom, save, or send when ready.';
+    setCanvasHintText(hintText);
+    refreshChatWelcomeIfEmpty();
 
     syncStudioFormatPill(platformKey);
     syncStudioPageView();
@@ -1255,20 +1254,52 @@
     return fallback || 'Request failed';
   }
 
+  function setCanvasHintText(text) {
+    var tip = document.getElementById('dmPreviewHintTip');
+    if (!tip) return;
+    var inner = tip.querySelector('.dm-status-tip__panel-inner');
+    var btn = tip.querySelector('.dm-status-tip__btn');
+    var msg = String(text || '').trim();
+    if (inner) inner.textContent = msg;
+    if (btn && msg) btn.setAttribute('aria-label', msg.slice(0, 120));
+  }
+
+  function designStatusTone(msg, ok) {
+    if (ok === false) return 'error';
+    if (/generating|thinking|uploading|importing|processing|still processing|adding your logo/i.test(msg)) {
+      return 'info';
+    }
+    if (/ready|loaded|generated|saved|updated|started|reset|done/i.test(msg)) return 'ok';
+    if (/first|describe|enter|add a|paste|pick a|only available|failed|not authorized|unavailable/i.test(msg)) {
+      return ok === true ? 'warn' : 'error';
+    }
+    return ok ? 'ok' : 'error';
+  }
+
   function setDesignStatus(text, ok) {
     var el = document.getElementById('dmDesignStatus');
     if (!el) return;
+    var inner = el.querySelector('.dm-status-tip__panel-inner');
+    var btn = el.querySelector('.dm-status-tip__btn');
     var msg = text == null ? '' : String(text);
     if (!msg || msg === 'true' || msg === 'false') {
       el.classList.add('hidden');
-      el.textContent = '';
-      el.classList.remove('text-rose-700', 'dark:text-rose-300', 'text-emerald-700', 'dark:text-emerald-300');
-      el.classList.add('text-brand-muted');
+      if (inner) inner.textContent = '';
+      el.classList.remove(
+        'dm-status-tip--ok',
+        'dm-status-tip--error',
+        'dm-status-tip--info',
+        'dm-status-tip--warn',
+        'dm-status-tip--idle',
+      );
+      el.classList.add('dm-status-tip--idle');
       return;
     }
-    el.textContent = msg;
-    el.classList.remove('hidden', 'text-emerald-700', 'text-rose-700', 'dark:text-emerald-300', 'dark:text-rose-300', 'text-brand-muted');
-    el.classList.add(ok ? 'text-emerald-700' : 'text-rose-700', ok ? 'dark:text-emerald-300' : 'dark:text-rose-300');
+    var tone = designStatusTone(msg, ok);
+    el.classList.remove('hidden', 'dm-status-tip--ok', 'dm-status-tip--error', 'dm-status-tip--info', 'dm-status-tip--warn', 'dm-status-tip--idle');
+    el.classList.add('dm-status-tip--' + tone);
+    if (inner) inner.textContent = msg;
+    if (btn) btn.setAttribute('aria-label', msg.slice(0, 140));
   }
 
   function userWantsAdGeneration(text) {
@@ -1611,14 +1642,53 @@
     };
   }
 
+  function chatWelcomeMessage() {
+    var plat = DM_PLATFORMS[currentPlatformKey()] || DM_PLATFORMS.custom;
+    var formatLabel = String(plat.label || 'creative').toLowerCase();
+    var dual = !!plat.dualSided;
+    var lines = [
+      'Welcome to the AI design assistant.',
+      '',
+      'Tell me what you want on this ' +
+        formatLabel +
+        ' — business name, style, colors, headline, or photo mood. I will help turn it into a detailed image prompt.',
+      '',
+      'Next step: describe your idea in the box below and tap Chat.',
+    ];
+    if (dual) {
+      lines.push('For postcards, use Generate both after the front prompt is ready.');
+    } else {
+      lines.push('When you see “Prompt ready,” click Generate to create the image.');
+    }
+    return lines.join('\n');
+  }
+
+  function renderChatWelcome() {
+    var log = document.getElementById('dmChatLog');
+    if (!log) return;
+    log.innerHTML = '';
+    var wrap = document.createElement('div');
+    wrap.className = 'flex justify-start dm-chat-starter';
+    wrap.dataset.dmStarter = '1';
+    var inner = document.createElement('div');
+    inner.className =
+      'max-w-[92%] rounded-2xl rounded-bl-md px-3 py-2.5 bg-white dark:bg-slate-800 text-brand-dark dark:text-slate-100 text-sm leading-relaxed border border-brand-border/40 dark:border-white/10 shadow-sm';
+    inner.innerHTML = escapeHtml(chatWelcomeMessage()).replace(/\n/g, '<br>');
+    wrap.appendChild(inner);
+    log.appendChild(wrap);
+    log.scrollTop = 0;
+  }
+
+  function refreshChatWelcomeIfEmpty() {
+    if (chatHistory.length > 0) return;
+    renderChatWelcome();
+  }
+
   function appendChatBubble(role, text) {
     var log = document.getElementById('dmChatLog');
     if (!log || !text) return;
-    var intro = log.querySelector('.dm-chat-welcome') || log.querySelector('.text-brand-muted.leading-relaxed');
-    if (intro && !intro.dataset.dmIntro) {
-      intro.dataset.dmIntro = '1';
-      intro.remove();
-    }
+    var starter = log.querySelector('.dm-chat-starter');
+    if (starter) starter.remove();
     var wrap = document.createElement('div');
     wrap.className = role === 'user' ? 'flex justify-end' : 'flex justify-start';
     var inner = document.createElement('div');
@@ -2079,9 +2149,7 @@
   }
 
   function resetChatLog() {
-    var log = document.getElementById('dmChatLog');
-    if (!log) return;
-    log.innerHTML = '';
+    renderChatWelcome();
   }
 
   function resetDesignSession() {
@@ -2990,6 +3058,8 @@
     });
     applyPlatformPreset(currentPlatformKey());
   }
+
+  renderChatWelcome();
 
   var ratioEl = document.getElementById('dmAspectRatio');
   if (ratioEl) ratioEl.addEventListener('change', updatePreviewAspectRatio);

@@ -1,0 +1,19 @@
+<% const _id = typeof id !== 'undefined' && id ? String(id) : 'dm-status'; %>
+<% const _state = typeof state !== 'undefined' && state ? String(state) : 'info'; %>
+<% const _hidden = typeof hidden !== 'undefined' && hidden; %>
+<% const _label = typeof label !== 'undefined' && label ? String(label) : 'Status'; %>
+<% const _text = typeof text !== 'undefined' ? String(text) : ''; %>
+<% const _placement = typeof placement !== 'undefined' && placement === 'bottom' ? 'bottom' : 'top'; %>
+<% const _align = typeof align !== 'undefined' && align === 'end' ? 'end' : (typeof align !== 'undefined' && align === 'center' ? 'center' : 'start'); %>
+<span
+  id="<%= _id %>"
+  class="dm-status-tip dm-status-tip--<%= _state %> dm-status-tip--<%= _placement %> dm-status-tip--align-<%= _align %><%= _hidden ? ' hidden' : '' %>"
+  aria-live="polite"
+>
+  <button type="button" class="dm-status-tip__btn" aria-label="<%= _label %>" aria-describedby="<%= _id %>-panel">
+    <span class="dm-status-tip__dot" aria-hidden="true"></span>
+  </button>
+  <span id="<%= _id %>-panel" class="dm-status-tip__panel" role="tooltip">
+    <span class="dm-status-tip__panel-inner"><%- _text %></span>
+  </span>
+</span>

@@ -5046,7 +5046,9 @@ body.dm-studio-fullscreen-active .dm-workflow-section {
 .dm-stage-toolbar-center {
   flex: 1;
   min-width: 0;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .dm-stage-hint {
@@ -5362,7 +5364,7 @@ body.dm-prompt-resize-active {
 
 .dm-chat-log {
   flex: 1;
-  min-height: 3rem;
+  min-height: 4.5rem;
   max-height: none;
   overflow-y: auto;
   margin-bottom: 0.5rem;
@@ -5397,8 +5399,151 @@ body.dm-prompt-resize-active {
 .dm-prompt-input-head {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
+  gap: 0.5rem;
   min-height: 1.25rem;
+}
+
+.dm-prompt-input-head__help {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* Design studio status icon — color dot + hover tooltip */
+.dm-status-tip {
+  position: relative;
+  display: inline-flex;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.dm-status-tip.hidden {
+  display: none !important;
+}
+
+.dm-status-tip__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  padding: 0;
+  border-radius: 0.45rem;
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  background: rgba(255, 255, 255, 0.95);
+  cursor: default;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dark .dm-status-tip__btn {
+  background: rgba(15, 23, 42, 0.92);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.dm-status-tip__btn:hover,
+.dm-status-tip__btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.35);
+}
+
+.dm-status-tip__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--dm-status-color, #9ca3af);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--dm-status-color, #9ca3af) 25%, transparent);
+}
+
+.dm-status-tip--idle {
+  --dm-status-color: #9ca3af;
+}
+
+.dm-status-tip--info {
+  --dm-status-color: #2563eb;
+}
+
+.dm-status-tip--ok {
+  --dm-status-color: #059669;
+}
+
+.dm-status-tip--error {
+  --dm-status-color: #e11d48;
+}
+
+.dm-status-tip--warn {
+  --dm-status-color: #d97706;
+}
+
+.dm-status-tip__panel {
+  position: absolute;
+  z-index: 60;
+  min-width: 12rem;
+  max-width: min(22rem, 70vw);
+  padding: 0.45rem 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.dm-status-tip--top .dm-status-tip__panel {
+  bottom: calc(100% + 0.35rem);
+  left: 0;
+}
+
+.dm-status-tip--bottom .dm-status-tip__panel {
+  top: calc(100% + 0.35rem);
+  left: 0;
+}
+
+.dm-status-tip--align-center .dm-status-tip__panel {
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+}
+
+.dm-status-tip--align-end .dm-status-tip__panel {
+  left: auto;
+  right: 0;
+}
+
+.dm-status-tip--bottom.dm-status-tip--align-center .dm-status-tip__panel {
+  transform: translateX(-50%) translateY(-4px);
+}
+
+.dm-status-tip:hover .dm-status-tip__panel,
+.dm-status-tip:focus-within .dm-status-tip__panel {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.dm-status-tip--align-center:hover .dm-status-tip__panel,
+.dm-status-tip--align-center:focus-within .dm-status-tip__panel {
+  transform: translateX(-50%) translateY(0);
+}
+
+.dm-status-tip--bottom.dm-status-tip--align-center:hover .dm-status-tip__panel,
+.dm-status-tip--bottom.dm-status-tip--align-center:focus-within .dm-status-tip__panel {
+  transform: translateX(-50%) translateY(0);
+}
+
+.dm-status-tip__panel-inner {
+  display: block;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(17, 24, 39, 0.1);
+  background: #fff;
+  color: var(--brand-dark, #111827);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.45;
+  box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12);
+}
+
+.dark .dm-status-tip__panel-inner {
+  background: #1e293b;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #f8fafc;
 }
 
 .dm-prompt-actions {
@@ -5467,11 +5612,6 @@ body.dm-prompt-resize-active {
   color: #ddd6fe;
 }
 
-.dm-design-status {
-  margin: 0.35rem 0 0;
-  font-size: 0.6875rem;
-  font-weight: 600;
-}
 
 .dm-studio-inspector {
   border-left: 1px solid rgba(17, 24, 39, 0.08);

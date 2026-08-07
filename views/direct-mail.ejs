@@ -249,7 +249,14 @@
             <button type="button" class="dm-page-tab" data-dm-page="back" role="tab" aria-selected="false">Back</button>
           </div>
           <div class="dm-stage-toolbar-center">
-            <span id="dmPreviewHint" class="dm-stage-hint">Design your creative — describe it below and hit Generate.</span>
+            <%- include('/partials/dm_status_tip', {
+              id: 'dmPreviewHintTip',
+              state: 'info',
+              label: 'Canvas tips',
+              placement: 'bottom',
+              align: 'center',
+              text: 'Design your creative — describe it below and hit Generate.'
+            }) %>
           </div>
           <div class="dm-stage-toolbar-end">
             <button type="button" id="dmNewDesignBtn" class="dm-studio-topbtn dm-new-design-btn" title="Clear canvas and start a fresh design">New design</button>
@@ -318,18 +325,29 @@
           <div id="dmChatLog" class="dm-chat-log custom-scrollbar" aria-live="polite"></div>
           <div class="dm-prompt-compose">
             <div class="dm-prompt-input-head">
-              <%- include('/partials/app_info_tip', {
-                tipId: 'dm-design-assistant-tip',
-                tipKey: 'dm-design-assistant',
-                label: 'How the AI design assistant works',
-                size: 'sm',
+              <%- include('/partials/dm_status_tip', {
+                id: 'dmDesignStatus',
+                state: 'idle',
+                label: 'Design status',
                 placement: 'top',
                 align: 'start',
-                wide: true,
-                content: '<strong>AI design assistant</strong> — Pick a format, describe the look you want, then Generate. Chat refines the prompt before image creation.'
+                hidden: true,
+                text: ''
               }) %>
+              <span class="dm-prompt-input-head__help">
+                <%- include('/partials/app_info_tip', {
+                  tipId: 'dm-design-assistant-tip',
+                  tipKey: 'dm-design-assistant',
+                  label: 'How the AI design assistant works',
+                  size: 'sm',
+                  placement: 'top',
+                  align: 'end',
+                  wide: true,
+                  content: '<strong>AI design assistant</strong> — Pick a format, describe the look you want, then Generate. Chat refines the prompt before image creation.'
+                }) %>
+              </span>
             </div>
-            <textarea id="dmChatInput" rows="2" class="dm-prompt-input dm-prompt-input--stacked" placeholder="Describe your ad… e.g. Warm bakery postcard, golden hour photo, bold headline, navy + cream brand colors" <%= kieImageReady ? '' : 'disabled' %>></textarea>
+            <textarea id="dmChatInput" rows="2" class="dm-prompt-input dm-prompt-input--stacked" placeholder="Describe your ad — style, colors, headline, mood…" <%= kieImageReady ? '' : 'disabled' %>></textarea>
             <div class="dm-prompt-actions">
               <button type="button" id="dmChatSend" class="dm-prompt-btn" <%= kieImageReady ? '' : 'disabled' %>>Chat</button>
               <button type="button" id="dmUploadCreativeBtn" class="dm-prompt-btn" title="Upload your own photo or graphic">Upload</button>
@@ -344,7 +362,6 @@
             </div>
           </div>
           <input type="file" id="dmCreativeUploadInput" accept="image/jpeg,image/png,image/gif,image/webp" class="hidden" />
-          <p id="dmDesignStatus" class="dm-design-status hidden" aria-live="polite"></p>
         </div>
       </div>
 
