@@ -244,19 +244,22 @@
       <!-- Center canvas -->
       <div class="dm-studio-stage">
         <div class="dm-stage-toolbar">
-          <div class="dm-page-tabs" id="dmPageTabs" role="tablist">
-            <button type="button" class="dm-page-tab is-active" data-dm-page="front" role="tab" aria-selected="true">Front</button>
-            <button type="button" class="dm-page-tab" data-dm-page="back" role="tab" aria-selected="false">Back</button>
-          </div>
-          <div class="dm-stage-toolbar-center">
-            <%- include('/partials/dm_status_tip', {
-              id: 'dmPreviewHintTip',
-              state: 'info',
-              label: 'Canvas tips',
-              placement: 'bottom',
-              align: 'center',
-              text: 'Design your creative — describe it below and hit Generate.'
-            }) %>
+          <div class="dm-stage-toolbar-start">
+            <div class="dm-page-tabs" id="dmPageTabs" role="tablist">
+              <button type="button" class="dm-page-tab is-active" data-dm-page="front" role="tab" aria-selected="true">Front</button>
+              <button type="button" class="dm-page-tab" data-dm-page="back" role="tab" aria-selected="false">Back</button>
+            </div>
+            <span id="dmPreviewHintTip" class="dm-canvas-hint-tip">
+              <%- include('/partials/app_info_tip', {
+                tipId: 'dm-preview-hint-panel',
+                tipKey: 'dm-preview-hint',
+                label: 'Canvas tips',
+                size: 'sm',
+                placement: 'bottom',
+                align: 'start',
+                content: 'Design your creative — describe it below and hit Generate.'
+              }) %>
+            </span>
           </div>
           <div class="dm-stage-toolbar-end">
             <button type="button" id="dmNewDesignBtn" class="dm-studio-topbtn dm-new-design-btn" title="Clear canvas and start a fresh design">New design</button>

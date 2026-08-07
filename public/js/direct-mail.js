@@ -1257,8 +1257,8 @@
   function setCanvasHintText(text) {
     var tip = document.getElementById('dmPreviewHintTip');
     if (!tip) return;
-    var inner = tip.querySelector('.dm-status-tip__panel-inner');
-    var btn = tip.querySelector('.dm-status-tip__btn');
+    var inner = tip.querySelector('.app-info-tip__panel-inner');
+    var btn = tip.querySelector('.app-info-tip__btn');
     var msg = String(text || '').trim();
     if (inner) inner.textContent = msg;
     if (btn && msg) btn.setAttribute('aria-label', msg.slice(0, 120));
