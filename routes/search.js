@@ -107,13 +107,14 @@ router.post('/', async (req, res, next) => {
             );
           }
           if (wantDirectorySupplement) {
-            console.log('[SEARCH-BG] Supplementing with directory listings (Yelp / Yellow Pages / BBB)...');
+            console.log('[SEARCH-BG] Supplementing with directory listings (Outscraper: Yelp, Angi, YP, Zillow agents + BBB)…');
             try {
               const directoryLeads = await directoryLeadSearch.searchDirectoryLeads({
                 keyword,
                 city,
                 state,
                 maxResults: Math.min(25, maxRes),
+                integrationEnv,
               });
               const before = results.length;
               results = directoryLeadSearch.mergeMapsAndDirectoryLeads(results, directoryLeads, maxRes);

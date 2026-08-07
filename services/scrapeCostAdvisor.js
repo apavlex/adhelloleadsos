@@ -168,7 +168,7 @@ function buildSourceCards(live = {}, resolvedEnv) {
       cost: 'Free software; you pay server CPU/RAM (Puppeteer is heavier than fetch-only).',
       configured: true,
       live: null,
-      tip: 'Find Leads: enable “Also mine directory listings” (Yelp, Yellow Pages, BBB). Enhance: ENRICH_TRY_LOCAL_SCRAPE=1 pulls contacts/tech from HTML before Firecrawl. Set BROWSER_SCRAPER=playwright if you install playwright.',
+      tip: 'Find Leads: enable “Also mine directory listings” (Outscraper: Yelp, Angi, YP, Zillow agents, BBB + BuiltWith). Enhance: ENRICH_TRY_LOCAL_SCRAPE=1 pulls contacts/tech from HTML before Firecrawl. Set BROWSER_SCRAPER=playwright if you install playwright.',
     },
     {
       id: 'leadsgorilla',

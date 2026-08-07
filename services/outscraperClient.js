@@ -369,6 +369,500 @@ async function fetchGoogleMapsReviews({ query, reviewsLimit, sort, integrationEn
   };
 }
 
+const CONTACTS_MAX_WAIT_MS = Math.max(
+  15000,
+  parseInt(process.env.OUTSCRAPER_CONTACTS_MAX_WAIT_MS || '90000', 10) || 90000,
+);
+
+/**
+ * Poll any Outscraper async task until Success / Failure / timeout.
+ */
+async function pollOutscraperTask(resultsUrl, opts) {
+  opts = opts || {};
+  const integrationEnv = opts.integrationEnv || null;
+  const deadline = Date.now() + (opts.maxWaitMs || MAPS_MAX_WAIT_MS);
+  let first = true;
+  while (Date.now() < deadline) {
+    if (!first) await sleep(MAPS_POLL_MS);
+    first = false;
+    const { ok, status, json } = await outscraperFetchJson(resultsUrl, {
+      timeoutMs: MAPS_INIT_TIMEOUT_MS,
+      integrationEnv,
+    });
+    if (status === 204 || (json && json.status === 'Failure')) {
+      const msg = json?.errorMessage || json?.message || `${opts.label || 'Outscraper'} task failed`;
+      throw new Error(msg);
+    }
+    if (!ok || !json) continue;
+    if (json.status === 'Success') return json.data;
+    if (json.status === 'Pending' || json.status === 'Processing') continue;
+    if (json.error) throw new Error(json.errorMessage || json.message || 'Outscraper error');
+  }
+  throw new Error(`${opts.label || 'Outscraper'} task timed out`);
+}
+
+function flattenContactsAndLeadsPayload(data) {
+  if (!Array.isArray(data) || !data.length) return null;
+  const row = data[0];
+  return row && typeof row === 'object' ? row : null;
+}
+
+/**
+ * Outscraper Contacts & Leads — emails, phones, socials, decision makers from domain.
+ */
+async function fetchContactsAndLeads({ query, integrationEnv, contactsPerCompany, emailsPerContact }) {
+  if (!isConfigured(integrationEnv)) {
+    throw new Error('Outscraper is not configured (set OUTSCRAPER_API_KEY).');
+  }
+  const q = String(query || '').trim();
+  if (!q) throw new Error('Domain query is required for contacts-and-leads.');
+
+  const syncMode = ['1', 'true', 'yes'].includes(
+    String(process.env.OUTSCRAPER_CONTACTS_SYNC || '').toLowerCase().trim(),
+  );
+  const useAsync = !syncMode;
+  const perCo = Math.min(10, Math.max(1, parseInt(contactsPerCompany, 10) || 3));
+  const perEmail = Math.min(5, Math.max(1, parseInt(emailsPerContact, 10) || 2));
+
+  const u = new URL(`${apiBase(integrationEnv)}/contacts-and-leads`);
+  u.searchParams.set('query', q);
+  u.searchParams.set('contactsPerCompany', String(perCo));
+  u.searchParams.set('emailsPerContact', String(perEmail));
+  u.searchParams.set('async', useAsync ? 'true' : 'false');
+
+  console.log(`[Outscraper] Contacts & leads: "${q}" (async=${useAsync})`);
+
+  const initTimeout = useAsync ? MAPS_INIT_TIMEOUT_MS : Math.max(MAPS_INIT_TIMEOUT_MS, 120000);
+  const { ok, status, json } = await outscraperFetchJson(u.toString(), {
+    timeoutMs: initTimeout,
+    integrationEnv,
+  });
+
+  if (!ok) {
+    const msg = json?.errorMessage || json?.message || `HTTP ${status}`;
+    throw new Error(`Outscraper contacts: ${msg}`);
+  }
+
+  if (json?.status === 'Success' && json.data) {
+    return flattenContactsAndLeadsPayload(json.data);
+  }
+  if (json?.status === 'Failure') {
+    throw new Error(json.errorMessage || json.message || 'Outscraper contacts task failed');
+  }
+
+  if (useAsync && json?.id) {
+    let pollUrl = json.results_location;
+    if (pollUrl && !String(pollUrl).startsWith('http')) {
+      pollUrl = `${apiBase(integrationEnv)}${String(pollUrl).startsWith('/') ? '' : '/'}${pollUrl}`;
+    }
+    if (!pollUrl) pollUrl = `${apiBase(integrationEnv)}/requests/${json.id}`;
+    const data = await pollOutscraperTask(pollUrl, {
+      integrationEnv,
+      maxWaitMs: CONTACTS_MAX_WAIT_MS,
+      label: 'Outscraper contacts',
+    });
+    return flattenContactsAndLeadsPayload(data);
+  }
+
+  if (json?.error) throw new Error(json.errorMessage || json.message || 'Outscraper contacts error');
+  throw new Error(json?.errorMessage || `Unexpected Outscraper contacts response (status=${status})`);
+}
+
+const DIRECTORY_MAX_WAIT_MS = Math.max(
+  15000,
+  parseInt(process.env.OUTSCRAPER_DIRECTORY_MAX_WAIT_MS || '120000', 10) || 120000,
+);
+
+function slugifySegment(s) {
+  return String(s || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function buildYelpSearchUrl(keyword, city, state) {
+  return `https://www.yelp.com/search?find_desc=${encodeURIComponent(keyword)}&find_loc=${encodeURIComponent(`${city}, ${state}`)}`;
+}
+
+function buildAngiSearchUrl(keyword, city, state) {
+  const kw = slugifySegment(keyword) || 'services';
+  const loc = slugifySegment(`${city}-${state}`) || slugifySegment(city) || 'us';
+  return `https://www.angi.com/companylist/${kw}/${loc}.htm`;
+}
+
+function buildZillowAgentsSearchUrl(city, state) {
+  const loc = slugifySegment(`${city}-${state}`);
+  return `https://www.zillow.com/professionals/real-estate-agent-reviews/${loc}/`;
+}
+
+function buildBuiltWithUrl(domain) {
+  const d = String(domain || '')
+    .trim()
+    .replace(/^https?:\/\//i, '')
+    .replace(/^www\./i, '')
+    .split('/')[0];
+  return d ? `https://builtwith.com/${d}` : '';
+}
+
+/**
+ * Flatten nested Outscraper directory payloads (array of arrays).
+ * @param {unknown} data
+ * @returns {object[]}
+ */
+function flattenOutscraperDirectoryRows(data) {
+  return flattenOutscraperPlaces(data);
+}
+
+function pickFirstString(...vals) {
+  for (const v of vals) {
+    const s = String(v == null ? '' : v).trim();
+    if (s && s !== 'N/A' && s !== '—') return s;
+  }
+  return '';
+}
+
+function normalizeYelpDirectoryRow(row) {
+  if (!row || typeof row !== 'object') return null;
+  const title = pickFirstString(row.name, row.title);
+  if (!title) return null;
+  const cats = Array.isArray(row.categories) ? row.categories.join(', ') : row.category || '';
+  return {
+    title,
+    phone: pickFirstString(row.phone) || 'N/A',
+    website: pickFirstString(row.website, row.site) || 'N/A',
+    address: pickFirstString(row.formatted_address, row.formatted_dddress, row.address) || 'N/A',
+    url: pickFirstString(row.business_url, row.url, row.link) || '',
+    totalScore: Number(row.rating) || 0,
+    reviewsCount: parseInt(row.reviews, 10) || parseInt(row.reviewsCount, 10) || 0,
+    categoryName: cats || '',
+  };
+}
+
+function normalizeYellowpagesDirectoryRow(row) {
+  if (!row || typeof row !== 'object') return null;
+  const title = pickFirstString(row.name, row.title);
+  if (!title) return null;
+  const cats = Array.isArray(row.categories) ? row.categories.join(', ') : '';
+  const addr = [row.street, row.locality].filter(Boolean).join(', ');
+  return {
+    title,
+    phone: pickFirstString(row.phone) || 'N/A',
+    website: pickFirstString(row.site, row.website) || 'N/A',
+    address: pickFirstString(addr, row.address) || 'N/A',
+    url: pickFirstString(row.business_link, row.url) || '',
+    totalScore: 0,
+    reviewsCount: 0,
+    categoryName: cats || '',
+  };
+}
+
+function normalizeAngiDirectoryRow(row) {
+  if (!row || typeof row !== 'object') return null;
+  const title = pickFirstString(row.name, row.company_name, row.companyName, row.title, row.business_name);
+  if (!title) return null;
+  return {
+    title,
+    phone: pickFirstString(row.phone, row.phone_number, row.phoneNumber) || 'N/A',
+    website: pickFirstString(row.website, row.site, row.url) || 'N/A',
+    address: pickFirstString(row.address, row.full_address, row.formatted_address) || 'N/A',
+    url: pickFirstString(row.profile_url, row.business_url, row.url, row.link) || '',
+    totalScore: Number(row.rating || row.average_rating || row.score) || 0,
+    reviewsCount: parseInt(row.reviews || row.review_count || row.reviewsCount, 10) || 0,
+    categoryName: pickFirstString(row.category, row.categories) || '',
+  };
+}
+
+function normalizeZillowAgentRow(row) {
+  if (!row || typeof row !== 'object') return null;
+  const title = pickFirstString(row.name, row.agent_name, row.full_name, row.title);
+  if (!title) return null;
+  const agency = pickFirstString(row.brokerage, row.company, row.team_name);
+  return {
+    title: agency ? `${title} (${agency})` : title,
+    phone: pickFirstString(row.phone, row.phone_number) || 'N/A',
+    website: pickFirstString(row.website, row.profile_url, row.url) || 'N/A',
+    address: pickFirstString(row.address, row.city_state) || 'N/A',
+    url: pickFirstString(row.profile_url, row.url, row.link) || '',
+    totalScore: Number(row.rating || row.average_rating) || 0,
+    reviewsCount: parseInt(row.reviews || row.review_count, 10) || 0,
+    categoryName: 'Real estate agent',
+  };
+}
+
+function normalizeDirectoryRows(rows, normalizer) {
+  const out = [];
+  for (const row of rows || []) {
+    const mapped = normalizer(row);
+    if (mapped) out.push(mapped);
+  }
+  return out;
+}
+
+function parseAiScraperListings(payload) {
+  if (!payload) return [];
+  if (Array.isArray(payload)) {
+    if (payload.length && Array.isArray(payload[0])) {
+      return payload.flat().filter((x) => x && typeof x === 'object');
+    }
+    return payload.filter((x) => x && typeof x === 'object');
+  }
+  if (typeof payload === 'object') {
+    for (const key of ['businesses', 'listings', 'results', 'items', 'data']) {
+      if (Array.isArray(payload[key])) return payload[key].filter((x) => x && typeof x === 'object');
+    }
+    if (payload.name || payload.title || payload.company_name) return [payload];
+  }
+  return [];
+}
+
+/**
+ * Generic Outscraper GET search (yelp-search, yellowpages-search, angi-search, zillow-search).
+ */
+async function runOutscraperDirectoryGet({
+  endpoint,
+  integrationEnv,
+  label,
+  buildRequestUrl,
+  maxWaitMs,
+}) {
+  if (!isConfigured(integrationEnv)) {
+    throw new Error('Outscraper is not configured (set OUTSCRAPER_API_KEY).');
+  }
+  const syncMode = ['1', 'true', 'yes'].includes(
+    String(process.env.OUTSCRAPER_DIRECTORY_SYNC || '').toLowerCase().trim(),
+  );
+  const useAsync = !syncMode;
+  const u = buildRequestUrl(apiBase(integrationEnv), useAsync);
+  console.log(`[Outscraper] ${label}: ${u.toString()} (async=${useAsync})`);
+
+  const initTimeout = useAsync ? MAPS_INIT_TIMEOUT_MS : Math.max(MAPS_INIT_TIMEOUT_MS, 120000);
+  const { ok, status, json } = await outscraperFetchJson(u.toString(), {
+    timeoutMs: initTimeout,
+    integrationEnv,
+  });
+
+  if (!ok) {
+    const msg = json?.errorMessage || json?.message || `HTTP ${status}`;
+    throw new Error(`Outscraper ${label}: ${msg}`);
+  }
+
+  if (json?.status === 'Success' && json.data) {
+    return flattenOutscraperDirectoryRows(json.data);
+  }
+  if (json?.status === 'Failure') {
+    throw new Error(json.errorMessage || json.message || `Outscraper ${label} task failed`);
+  }
+
+  if (useAsync && json?.id) {
+    let pollUrl = json.results_location;
+    if (pollUrl && !String(pollUrl).startsWith('http')) {
+      pollUrl = `${apiBase(integrationEnv)}${String(pollUrl).startsWith('/') ? '' : '/'}${pollUrl}`;
+    }
+    if (!pollUrl) pollUrl = `${apiBase(integrationEnv)}/requests/${json.id}`;
+    const data = await pollOutscraperTask(pollUrl, {
+      integrationEnv,
+      maxWaitMs: maxWaitMs || DIRECTORY_MAX_WAIT_MS,
+      label,
+    });
+    return flattenOutscraperDirectoryRows(data);
+  }
+
+  if (json?.error) throw new Error(json.errorMessage || json.message || `Outscraper ${label} error`);
+  throw new Error(json?.errorMessage || `Unexpected Outscraper ${label} response (status=${status})`);
+}
+
+async function fetchAiScraperPage({ query, prompt, integrationEnv, label, maxWaitMs }) {
+  if (!isConfigured(integrationEnv)) {
+    throw new Error('Outscraper is not configured (set OUTSCRAPER_API_KEY).');
+  }
+  const q = String(query || '').trim();
+  if (!q) throw new Error(`${label}: query URL is required`);
+
+  const syncMode = ['1', 'true', 'yes'].includes(
+    String(process.env.OUTSCRAPER_AI_SCRAPER_SYNC || '').toLowerCase().trim(),
+  );
+  const useAsync = !syncMode;
+  const u = new URL(`${apiBase(integrationEnv)}/ai-scraper`);
+  u.searchParams.set('query', q);
+  u.searchParams.set('prompt', prompt);
+  u.searchParams.set('async', useAsync ? 'true' : 'false');
+
+  const initTimeout = useAsync ? MAPS_INIT_TIMEOUT_MS : Math.max(MAPS_INIT_TIMEOUT_MS, 120000);
+  const { ok, status, json } = await outscraperFetchJson(u.toString(), {
+    timeoutMs: initTimeout,
+    integrationEnv,
+  });
+
+  if (!ok) {
+    const msg = json?.errorMessage || json?.message || `HTTP ${status}`;
+    throw new Error(`Outscraper ${label}: ${msg}`);
+  }
+
+  let payload = json;
+  if (payload?.status === 'Failure') {
+    throw new Error(payload.errorMessage || payload.message || `Outscraper ${label} failed`);
+  }
+  if (useAsync && payload?.id && payload?.status !== 'Success') {
+    let pollUrl = payload.results_location;
+    if (pollUrl && !String(pollUrl).startsWith('http')) {
+      pollUrl = `${apiBase(integrationEnv)}${String(pollUrl).startsWith('/') ? '' : '/'}${pollUrl}`;
+    }
+    if (!pollUrl) pollUrl = `${apiBase(integrationEnv)}/requests/${payload.id}`;
+    const data = await pollOutscraperTask(pollUrl, {
+      integrationEnv,
+      maxWaitMs: maxWaitMs || DIRECTORY_MAX_WAIT_MS,
+      label,
+    });
+    payload = { status: 'Success', data };
+  }
+  if (payload?.status !== 'Success') {
+    throw new Error(payload?.errorMessage || `Unexpected Outscraper ${label} response`);
+  }
+  return payload.data;
+}
+
+async function searchYelpDirectory({ keyword, city, state, maxResults, integrationEnv }) {
+  const limit = Math.min(100, Math.max(1, parseInt(maxResults, 10) || 15));
+  const queryUrl = buildYelpSearchUrl(keyword, city, state);
+  const rows = await runOutscraperDirectoryGet({
+    endpoint: 'yelp-search',
+    integrationEnv,
+    label: 'Yelp search',
+    buildRequestUrl: (base, useAsync) => {
+      const u = new URL(`${base}/yelp-search`);
+      u.searchParams.set('query', queryUrl);
+      u.searchParams.set('limit', String(limit));
+      u.searchParams.set('async', useAsync ? 'true' : 'false');
+      return u;
+    },
+  });
+  return normalizeDirectoryRows(rows, normalizeYelpDirectoryRow);
+}
+
+async function searchYellowpagesDirectory({ keyword, city, state, maxResults, integrationEnv }) {
+  const limit = Math.min(100, Math.max(1, parseInt(maxResults, 10) || 15));
+  const rows = await runOutscraperDirectoryGet({
+    endpoint: 'yellowpages-search',
+    integrationEnv,
+    label: 'Yellow Pages search',
+    buildRequestUrl: (base, useAsync) => {
+      const u = new URL(`${base}/yellowpages-search`);
+      u.searchParams.set('query', keyword);
+      u.searchParams.set('location', `${city}, ${state}`);
+      u.searchParams.set('limit', String(limit));
+      u.searchParams.set('async', useAsync ? 'true' : 'false');
+      return u;
+    },
+  });
+  return normalizeDirectoryRows(rows, normalizeYellowpagesDirectoryRow);
+}
+
+async function searchAngiDirectory({ keyword, city, state, maxResults, integrationEnv }) {
+  const limit = Math.min(100, Math.max(1, parseInt(maxResults, 10) || 15));
+  const queryUrl = buildAngiSearchUrl(keyword, city, state);
+
+  try {
+    const rows = await runOutscraperDirectoryGet({
+      endpoint: 'angi-search',
+      integrationEnv,
+      label: 'Angi search',
+      buildRequestUrl: (base, useAsync) => {
+        const u = new URL(`${base}/angi-search`);
+        u.searchParams.set('query', queryUrl);
+        u.searchParams.set('limit', String(limit));
+        u.searchParams.set('async', useAsync ? 'true' : 'false');
+        return u;
+      },
+    });
+    const mapped = normalizeDirectoryRows(rows, normalizeAngiDirectoryRow);
+    if (mapped.length) return mapped;
+  } catch (e) {
+    console.warn('[Outscraper] angi-search endpoint unavailable, trying AI scraper:', e.message);
+  }
+
+  const prompt =
+    'Extract every business listing visible on this Angi search results page. Return a JSON array of objects with keys: name, phone, website, address, profile_url, rating, review_count, category.';
+  const data = await fetchAiScraperPage({
+    query: queryUrl,
+    prompt,
+    integrationEnv,
+    label: 'Angi AI scraper',
+  });
+  const listings = parseAiScraperListings(data);
+  return normalizeDirectoryRows(listings.slice(0, limit), normalizeAngiDirectoryRow);
+}
+
+async function searchZillowAgentsDirectory({ city, state, maxResults, integrationEnv }) {
+  const limit = Math.min(100, Math.max(1, parseInt(maxResults, 10) || 15));
+  const queryUrl = buildZillowAgentsSearchUrl(city, state);
+
+  try {
+    const rows = await runOutscraperDirectoryGet({
+      endpoint: 'zillow-search',
+      integrationEnv,
+      label: 'Zillow agents search',
+      buildRequestUrl: (base, useAsync) => {
+        const u = new URL(`${base}/zillow-search`);
+        u.searchParams.set('query', queryUrl);
+        u.searchParams.set('limit', String(limit));
+        u.searchParams.set('async', useAsync ? 'true' : 'false');
+        return u;
+      },
+    });
+    const mapped = normalizeDirectoryRows(rows, normalizeZillowAgentRow);
+    if (mapped.length) return mapped;
+  } catch (e) {
+    console.warn('[Outscraper] zillow-search for agents failed, trying AI scraper:', e.message);
+  }
+
+  const prompt =
+    'Extract real estate agent profiles from this Zillow professionals page. Return a JSON array with name, phone, website, profile_url, rating, review_count, brokerage, address.';
+  const data = await fetchAiScraperPage({
+    query: queryUrl,
+    prompt,
+    integrationEnv,
+    label: 'Zillow agents AI scraper',
+  });
+  const listings = parseAiScraperListings(data);
+  return normalizeDirectoryRows(listings.slice(0, limit), normalizeZillowAgentRow);
+}
+
+/**
+ * BuiltWith tech stack via Outscraper AI scraper (domain enrichment).
+ * @returns {Promise<{ cmsPlatform?: string, techStackTags?: string[] }|null>}
+ */
+async function fetchBuiltWithTechStack({ domain, integrationEnv }) {
+  const url = buildBuiltWithUrl(domain);
+  if (!url) return null;
+  const prompt =
+    'Extract the website technology stack from this BuiltWith page. Return JSON with keys: cms_platform (string), tech_stack_tags (array of technology names).';
+  try {
+    const data = await fetchAiScraperPage({
+      query: url,
+      prompt,
+      integrationEnv,
+      label: 'BuiltWith scraper',
+      maxWaitMs: Math.min(DIRECTORY_MAX_WAIT_MS, 90000),
+    });
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row || typeof row !== 'object') return null;
+    const tags = row.tech_stack_tags || row.technologies || row.tech || [];
+    return {
+      cmsPlatform: pickFirstString(row.cms_platform, row.cms, row.cmsPlatform) || undefined,
+      techStackTags: Array.isArray(tags)
+        ? tags.map((t) => String(t).trim()).filter(Boolean)
+        : String(tags || '')
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean),
+    };
+  } catch (e) {
+    console.warn('[Outscraper] BuiltWith scrape failed:', e.message);
+    return null;
+  }
+}
+
 module.exports = {
   isConfigured,
   pingHealth,
@@ -376,6 +870,24 @@ module.exports = {
   apiKey,
   searchGoogleMaps,
   fetchGoogleMapsReviews,
+  fetchContactsAndLeads,
   flattenOutscraperReviewsPayload,
+  flattenContactsAndLeadsPayload,
+  flattenOutscraperDirectoryRows,
   normalizeMapsPlace,
+  pollOutscraperTask,
+  buildYelpSearchUrl,
+  buildAngiSearchUrl,
+  buildZillowAgentsSearchUrl,
+  buildBuiltWithUrl,
+  normalizeYelpDirectoryRow,
+  normalizeYellowpagesDirectoryRow,
+  normalizeAngiDirectoryRow,
+  normalizeZillowAgentRow,
+  parseAiScraperListings,
+  searchYelpDirectory,
+  searchYellowpagesDirectory,
+  searchAngiDirectory,
+  searchZillowAgentsDirectory,
+  fetchBuiltWithTechStack,
 };

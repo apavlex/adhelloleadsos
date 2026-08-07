@@ -315,23 +315,33 @@
         <!-- Magic Design prompt bar -->
         <div class="dm-prompt-resizer" id="dmPromptResizer" role="separator" aria-orientation="horizontal" aria-label="Drag to resize chat panel" title="Drag to resize chat"></div>
         <div class="dm-prompt-dock" id="dmPromptDock">
-          <div id="dmChatLog" class="dm-chat-log custom-scrollbar" aria-live="polite">
-            <div class="dm-chat-welcome">
-              <strong>AI design assistant</strong> — Pick a format, describe the look you want, then Generate. Chat refines the prompt before image creation.
+          <div id="dmChatLog" class="dm-chat-log custom-scrollbar" aria-live="polite"></div>
+          <div class="dm-prompt-compose">
+            <div class="dm-prompt-input-head">
+              <%- include('/partials/app_info_tip', {
+                tipId: 'dm-design-assistant-tip',
+                tipKey: 'dm-design-assistant',
+                label: 'How the AI design assistant works',
+                size: 'sm',
+                placement: 'top',
+                align: 'start',
+                wide: true,
+                content: '<strong>AI design assistant</strong> — Pick a format, describe the look you want, then Generate. Chat refines the prompt before image creation.'
+              }) %>
             </div>
-          </div>
-          <div class="dm-prompt-row">
-            <textarea id="dmChatInput" rows="1" class="dm-prompt-input" placeholder="Describe your ad… e.g. Warm bakery postcard, golden hour photo, bold headline, navy + cream brand colors" <%= kieImageReady ? '' : 'disabled' %>></textarea>
-            <button type="button" id="dmChatSend" class="dm-prompt-btn" <%= kieImageReady ? '' : 'disabled' %>>Chat</button>
-            <button type="button" id="dmUploadCreativeBtn" class="dm-prompt-btn" title="Upload your own photo or graphic">Upload</button>
-            <% if (typeof driveImport !== 'undefined' && driveImport && driveImport.pickerReady) { %>
-            <button type="button" id="dmUploadCreativeDriveBtn" class="dm-prompt-btn" title="Pick an image from Google Drive">Drive</button>
-            <% } %>
-            <button type="button" id="dmGenerateBtn" class="dm-prompt-btn dm-prompt-btn--primary" <%= kieImageReady ? '' : 'disabled' %>>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" /></svg>
-              Generate
-            </button>
-            <button type="button" id="dmGenerateBothBtn" class="dm-prompt-btn dm-prompt-btn--both" <%= kieImageReady ? '' : 'disabled' %> title="Generate front, then a matching back (postcard only)">Generate both</button>
+            <textarea id="dmChatInput" rows="2" class="dm-prompt-input dm-prompt-input--stacked" placeholder="Describe your ad… e.g. Warm bakery postcard, golden hour photo, bold headline, navy + cream brand colors" <%= kieImageReady ? '' : 'disabled' %>></textarea>
+            <div class="dm-prompt-actions">
+              <button type="button" id="dmChatSend" class="dm-prompt-btn" <%= kieImageReady ? '' : 'disabled' %>>Chat</button>
+              <button type="button" id="dmUploadCreativeBtn" class="dm-prompt-btn" title="Upload your own photo or graphic">Upload</button>
+              <% if (typeof driveImport !== 'undefined' && driveImport && driveImport.pickerReady) { %>
+              <button type="button" id="dmUploadCreativeDriveBtn" class="dm-prompt-btn" title="Pick an image from Google Drive">Drive</button>
+              <% } %>
+              <button type="button" id="dmGenerateBtn" class="dm-prompt-btn dm-prompt-btn--primary" <%= kieImageReady ? '' : 'disabled' %>>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" /></svg>
+                Generate
+              </button>
+              <button type="button" id="dmGenerateBothBtn" class="dm-prompt-btn dm-prompt-btn--both" <%= kieImageReady ? '' : 'disabled' %> title="Generate front, then a matching back (postcard only)">Generate both</button>
+            </div>
           </div>
           <input type="file" id="dmCreativeUploadInput" accept="image/jpeg,image/png,image/gif,image/webp" class="hidden" />
           <p id="dmDesignStatus" class="dm-design-status hidden" aria-live="polite"></p>
@@ -340,11 +350,33 @@
 
       <!-- Right inspector: prompt editor -->
       <aside class="dm-studio-inspector">
-        <h2 class="dm-drawer-title">Prompt &amp; refine</h2>
-        <p class="dm-drawer-desc">Edit the GPT Image 2 prompt, then generate.</p>
+        <div class="flex items-center gap-2 mb-4">
+          <h2 class="dm-drawer-title mb-0">Prompt &amp; refine</h2>
+          <%- include('/partials/app_info_tip', {
+            tipId: 'dm-prompt-refine-tip',
+            tipKey: 'dm-prompt-refine',
+            label: 'Prompt and refine help',
+            size: 'sm',
+            placement: 'bottom',
+            align: 'start',
+            wide: true,
+            content: 'Edit the GPT Image 2 prompt, then generate.'
+          }) %>
+        </div>
         <div class="dm-upload-block mb-4 pb-4 border-b border-brand-border/20 dark:border-white/10">
-          <p class="text-[11px] font-bold uppercase tracking-widest text-brand-muted mb-1">Your own image</p>
-          <p class="dm-drawer-desc mb-2">Upload a photo or graphic to the active canvas — export as-is or generate with AI to refine it.</p>
+          <div class="flex items-center gap-1.5 mb-2">
+            <p class="text-[11px] font-bold uppercase tracking-widest text-brand-muted mb-0">Your own image</p>
+            <%- include('/partials/app_info_tip', {
+              tipId: 'dm-upload-own-tip',
+              tipKey: 'dm-upload-own',
+              label: 'Upload your own image',
+              size: 'sm',
+              placement: 'bottom',
+              align: 'start',
+              wide: true,
+              content: 'Upload a photo or graphic to the active canvas — export as-is or generate with AI to refine it.'
+            }) %>
+          </div>
           <div class="flex flex-col gap-2">
             <button type="button" id="dmUploadCreativeBtnInspector" class="dm-studio-topbtn w-full">Upload image</button>
             <% if (typeof driveImport !== 'undefined' && driveImport && driveImport.pickerReady) { %>

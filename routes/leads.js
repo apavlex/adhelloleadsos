@@ -17,6 +17,9 @@ const {
 const mapsEnrichFallback = require('../services/mapsEnrichFallback');
 const reviewHunt = require('../services/reviewHunt');
 const outscraperGmbEnrich = require('../services/outscraperGmbEnrich');
+const outscraperLeadEnrich = require('../services/outscraperLeadEnrich');
+const leadPanelEnrich = require('../services/leadPanelEnrich');
+const builtWithEnrich = require('../services/builtWithEnrich');
 const outscraper = require('../services/outscraperClient');
 const { generateReviewIntelForLead } = require('../services/reviewIntel');
 const {
@@ -2103,36 +2106,30 @@ router.get('/:key/panel-data', async (req, res, next) => {
     let panelLead = normalizeLeadForPanel({ ...lead, key: lead.key || fullKey });
 
     const skipEnrich = String(req.query.enrich || '').trim() === '0';
-    if (!skipEnrich && leadMissingCoreContact(panelLead)) {
+    const needsPanelEnrich =
+      !skipEnrich &&
+      (leadMissingCoreContact(panelLead) ||
+        outscraperLeadEnrich.leadNeedsOutscraperContacts(panelLead) ||
+        builtWithEnrich.leadNeedsBuiltWith(panelLead));
+    if (needsPanelEnrich) {
       try {
         const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
-        const enriched = await Promise.race([
-          mapsEnrichFallback.enrichFromMapsForLead(panelLead, integrationEnv),
-          new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('maps_enrich_timeout')), 12000);
-          }),
-        ]);
-        if (enriched && enriched.extract && typeof enriched.extract === 'object') {
-          const patch = firecrawlExtractToLeadUpdates(enriched.extract);
-          if (
-            enriched.websiteHint &&
-            hasContactValue(enriched.websiteHint) &&
-            !hasContactValue(patch.website)
-          ) {
-            patch.website = enriched.websiteHint;
-          }
-          if (patch.googlePlaces && !hasContactValue(patch.url)) {
-            patch.url = patch.googlePlaces;
-          }
-          panelLead = normalizeLeadForPanel({ ...panelLead, ...patch });
+        const enriched = await leadPanelEnrich.enrichLeadForPanelSidebar(panelLead, integrationEnv, {
+          timeoutMs: 14000,
+        });
+        if (enriched && enriched.patch && Object.keys(enriched.patch).length) {
+          panelLead = normalizeLeadForPanel({ ...panelLead, ...enriched.patch });
           dbService
-            .updateLead(fullKey, patch, req.workspaceId)
-            .catch((e) => console.warn('[panel-data] maps enrich persist failed:', e.message));
+            .updateLead(fullKey, enriched.patch, req.workspaceId)
+            .catch((e) => console.warn('[panel-data] Outscraper enrich persist failed:', e.message));
         }
       } catch (enrichErr) {
-        console.warn('[panel-data] maps enrich skipped:', enrichErr.message);
+        console.warn('[panel-data] sidebar enrich skipped:', enrichErr.message);
       }
     }
+
+    const needsBackground =
+      !skipEnrich && leadPanelEnrich.panelLeadNeedsBackgroundEnhance(panelLead);
 
     return res.json({
       success: true,
@@ -2141,6 +2138,7 @@ router.get('/:key/panel-data', async (req, res, next) => {
         key: panelLead.key || fullKey,
         workspaceId: req.workspaceId || panelLead.workspaceId,
       },
+      needsBackgroundEnhance: needsBackground,
     });
   } catch (err) {
     next(err);
@@ -3492,6 +3490,7 @@ async function runLeadEnhancement(lead, workspaceId) {
   let betterContactUsed = false;
   let monidUsed = false;
   let outscraperUsed = false;
+  let outscraperContactsUsed = false;
   let urlToSave = null;
   let mapsPlace = null;
   let gmbPack = null;
@@ -3542,6 +3541,50 @@ async function runLeadEnhancement(lead, workspaceId) {
       }
     } catch (e) {
       console.warn('[ENHANCE] Outscraper GMB failed:', e.message);
+    }
+  }
+
+  // Step 1.25: Outscraper Contacts & Leads — emails, phones, socials from domain
+  if (outscraper.isConfigured(integrationEnv) && outscraperLeadEnrich.leadNeedsOutscraperContacts(workingLead)) {
+    try {
+      const contactsPack = await outscraperLeadEnrich.enrichLeadFromOutscraperContacts(
+        workingLead,
+        integrationEnv,
+      );
+      if (contactsPack && contactsPack.used) {
+        outscraperContactsUsed = true;
+        deepData = mapsEnrichFallback.mergeExtractPreferFirecrawl(
+          contactsPack.extract || {},
+          deepData || {},
+        );
+        if (contactsPack.patch && Object.keys(contactsPack.patch).length) {
+          await autosaveEnhancement(contactsPack.patch, 'Outscraper contacts');
+          Object.assign(workingLead, contactsPack.patch);
+        }
+        console.log(
+          `[ENHANCE] Outscraper contacts for ${workingLead.title}: ${Object.keys(contactsPack.patch || {}).join(', ') || 'extract only'}`,
+        );
+      }
+    } catch (e) {
+      console.warn('[ENHANCE] Outscraper contacts failed:', e.message);
+    }
+  }
+
+  // Step 1.3: BuiltWith tech stack (Outscraper)
+  let builtWithUsed = false;
+  if (outscraper.isConfigured(integrationEnv) && builtWithEnrich.leadNeedsBuiltWith(workingLead)) {
+    try {
+      const bwPack = await builtWithEnrich.enrichLeadFromBuiltWith(workingLead, integrationEnv);
+      if (bwPack && bwPack.used && bwPack.patch && Object.keys(bwPack.patch).length) {
+        builtWithUsed = true;
+        await autosaveEnhancement(bwPack.patch, 'BuiltWith');
+        Object.assign(workingLead, bwPack.patch);
+        console.log(
+          `[ENHANCE] BuiltWith for ${workingLead.title}: ${bwPack.patch.cmsPlatform || 'tags only'}`,
+        );
+      }
+    } catch (e) {
+      console.warn('[ENHANCE] BuiltWith failed:', e.message);
     }
   }
 
@@ -3722,11 +3765,15 @@ async function runLeadEnhancement(lead, workspaceId) {
     betterContactUsed ||
     monidUsed ||
     outscraperUsed ||
+    outscraperContactsUsed ||
+    builtWithUsed ||
     reviewHuntUsed;
 
   if (enrichmentHappened) {
     const via = [
       outscraperUsed ? 'Outscraper GMB' : null,
+      outscraperContactsUsed ? 'Outscraper contacts' : null,
+      builtWithUsed ? 'BuiltWith' : null,
       monidUsed ? 'Monid' : null,
       betterContactUsed ? 'BetterContact' : null,
       firecrawlViaSearch ? 'web search' : null,

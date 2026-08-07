@@ -4202,12 +4202,14 @@ document.addEventListener('DOMContentLoaded', () => {
       if (typeof window.__paintPanelFromLeadRecord === 'function') {
         window.__paintPanelFromLeadRecord(data.lead, tableRow);
       }
-      return data.lead;
+      return { lead: data.lead, needsBackgroundEnhance: !!data.needsBackgroundEnhance };
     })();
 
     __panelDataHydrateInflight.set(keyParam, p);
     try {
-      const leadRecord = await p;
+      const panelResult = await p;
+      const leadRecord = panelResult.lead || panelResult;
+      const needsBackgroundEnhance = !!panelResult.needsBackgroundEnhance;
       const tableRow = resolvePipelineTableRowForPanel(row) || row;
       if (currentRow === tableRow) {
         if (typeof window.__paintPanelFromLeadRecord === 'function') {
@@ -4215,6 +4217,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (typeof paintLeadPanelFromRow === 'function') paintLeadPanelFromRow(tableRow);
         populatePanel(tableRow);
+        if (needsBackgroundEnhance) {
+          maybeAutoBackgroundEnhance(tableRow, leadRecord);
+        }
+        if (typeof paintLeadPanelBuiltWith === 'function') paintLeadPanelBuiltWith(tableRow);
       }
     } catch (err) {
       console.warn('[Lead panel] panel-data hydrate failed:', err);
@@ -6464,6 +6470,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (L.geoGaps != null) ds.geoGaps = L.geoGaps;
     if (L.auditSummary != null) ds.auditSummary = L.auditSummary;
     if (L.cmsPlatform != null) ds.cmsPlatform = L.cmsPlatform;
+    if (L.techStackTags != null) {
+      try {
+        ds.techStackTags = JSON.stringify(Array.isArray(L.techStackTags) ? L.techStackTags : []);
+      } catch {
+        ds.techStackTags = '[]';
+      }
+    }
+    if (L.builtWithUrl != null) ds.builtWithUrl = String(L.builtWithUrl || '');
     if (L.competitorName != null) ds.competitorName = L.competitorName;
     if (L.competitorGap != null) ds.competitorGap = L.competitorGap;
     if (L.competitorMetaBenchmark != null) ds.competitorMetaBenchmark = L.competitorMetaBenchmark;
@@ -11055,11 +11069,122 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (tagsErr) {
       console.warn('[Lead panel] tags paint failed:', tagsErr);
     }
+    try {
+      paintLeadPanelBuiltWith(tableRow);
+    } catch (bwErr) {
+      console.warn('[Lead panel] BuiltWith paint failed:', bwErr);
+    }
     if (typeof window.__ensureLeadPanelContactEdit === 'function') {
       window.__ensureLeadPanelContactEdit();
     }
   }
   window.paintLeadPanelFromRow = paintLeadPanelFromRow;
+
+  function parseLeadTechStackTags(raw) {
+    if (Array.isArray(raw)) return raw.map((t) => String(t).trim()).filter(Boolean);
+    const s = String(raw || '').trim();
+    if (!s) return [];
+    try {
+      const parsed = JSON.parse(s);
+      if (Array.isArray(parsed)) return parsed.map((t) => String(t).trim()).filter(Boolean);
+    } catch (_) {
+      /* plain string */
+    }
+    return s
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+  }
+
+  function domainFromWebsite(raw) {
+    const s = String(raw || '').trim();
+    if (!s || s === 'N/A' || s === '—') return '';
+    try {
+      const u = s.startsWith('http') ? s : `https://${s}`;
+      return new URL(u).hostname.replace(/^www\./i, '');
+    } catch {
+      return '';
+    }
+  }
+
+  function paintLeadPanelBuiltWith(row) {
+    const wrap = document.getElementById('leadPanelBuiltWithWrap');
+    const cmsEl = document.getElementById('leadPanelBuiltWithCms');
+    const tagsEl = document.getElementById('leadPanelBuiltWithTags');
+    const linkEl = document.getElementById('leadPanelBuiltWithLink');
+    const metaEl = document.getElementById('leadPanelBuiltWithMeta');
+    if (!wrap || !tagsEl) return;
+
+    const website = readPipelineRowDisplayWebsite(row);
+    const domain = domainFromWebsite(website);
+    const cms = String(row.dataset.cmsPlatform || '').trim();
+    const tags = parseLeadTechStackTags(row.dataset.techStackTags);
+    const builtWithUrl =
+      String(row.dataset.builtWithUrl || '').trim() ||
+      (domain ? `https://builtwith.com/${domain}` : '');
+
+    const hasWebsite = !!domain;
+    const hasStack = !!cms || tags.length > 0;
+
+    if (!hasWebsite && !hasStack) {
+      wrap.classList.add('hidden');
+      return;
+    }
+
+    wrap.classList.remove('hidden');
+
+    if (linkEl) {
+      if (builtWithUrl) {
+        linkEl.href = builtWithUrl;
+        linkEl.classList.remove('hidden');
+      } else {
+        linkEl.href = '#';
+        linkEl.classList.add('hidden');
+      }
+    }
+
+    if (cmsEl) {
+      if (cms && cms !== 'N/A') {
+        cmsEl.textContent = `CMS / platform: ${cms}`;
+        cmsEl.classList.remove('hidden');
+      } else {
+        cmsEl.textContent = '';
+        cmsEl.classList.add('hidden');
+      }
+    }
+
+    tagsEl.innerHTML = '';
+    const showTags = tags.slice(0, 12);
+    for (const tag of showTags) {
+      const pill = document.createElement('span');
+      pill.className =
+        'inline-flex items-center px-2 py-0.5 rounded-full border border-brand-border/40 dark:border-white/15 bg-white/80 dark:bg-slate-900/70 text-[10px] font-semibold text-brand-dark dark:text-slate-200';
+      pill.textContent = tag;
+      tagsEl.appendChild(pill);
+    }
+    if (tags.length > showTags.length) {
+      const more = document.createElement('span');
+      more.className = 'text-[10px] font-semibold text-brand-muted';
+      more.textContent = `+${tags.length - showTags.length} more`;
+      tagsEl.appendChild(more);
+    }
+
+    if (metaEl) {
+      const loading = hasWebsite && !hasStack && row.dataset.builtWithLoading === '1';
+      if (loading) {
+        metaEl.textContent = 'Fetching tech stack from BuiltWith…';
+        metaEl.classList.remove('hidden');
+      } else if (!hasStack && hasWebsite) {
+        metaEl.textContent = 'No tech stack yet — opens when Outscraper BuiltWith runs.';
+        metaEl.classList.remove('hidden');
+      } else {
+        metaEl.textContent = '';
+        metaEl.classList.add('hidden');
+      }
+    }
+  }
+  window.paintLeadPanelBuiltWith = paintLeadPanelBuiltWith;
+
   window.__buildLeadPanelDisplaySnapshot = buildLeadPanelDisplaySnapshot;
   window.syncLeadPanelMapAfterContactPaint = function syncLeadPanelMapAfterContactPaint(row) {
     if (!row) return;
@@ -14092,8 +14217,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function runContactHuntForRow(row, options) {
     const opts = options || {};
+    const silent = !!opts.silent;
+    const auto = !!opts.auto;
     const deepEnhanceBtn = document.getElementById('deepEnhanceBtn');
-    const triggerBtn = opts.triggerBtn || deepEnhanceBtn;
+    const triggerBtn = opts.triggerBtn || (silent ? null : deepEnhanceBtn);
     const fromRowAction = !!opts.fromRowAction;
     const isSidebarTrigger = !!(triggerBtn && triggerBtn.id === 'deepEnhanceBtn');
 
@@ -14108,6 +14235,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const notifyHunt = (msg, variant) => {
+      if (silent) return;
       if (typeof window.showAppToast === 'function') {
         window.showAppToast(msg, { variant: variant || 'warning' });
       } else {
@@ -14116,7 +14244,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     if (!row) {
-      if (typeof window.showAppToast === 'function') {
+      if (!silent && typeof window.showAppToast === 'function') {
         window.showAppToast('Select a lead from the table first.', { variant: 'warning' });
       }
       if (isSidebarTrigger) setDeepEnhanceHuntUi('idle');
@@ -14124,7 +14252,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     currentRow = row;
-    scrollLeadPanelToSection('leadPanelContactHuntSection');
+    if (!silent) scrollLeadPanelToSection('leadPanelContactHuntSection');
 
     if (triggerBtn && triggerBtn.getAttribute('aria-busy') === 'true') {
       const trackKey = contactHuntTrackingKey(row);
@@ -14143,7 +14271,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const existingKey = String(row.dataset.leadKey || '').trim();
     const pendingTrackKey = existingKey || contactHuntTrackingKey(row);
     if (pendingTrackKey && window.__contactHuntInFlight.has(pendingTrackKey)) {
-      if (typeof window.showAppToast === 'function') {
+      if (!silent && typeof window.showAppToast === 'function') {
         window.showAppToast('Contact hunt already running for this lead.', { variant: 'info' });
       }
       syncSidebarForRow(true);
@@ -14152,11 +14280,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     huntTrackKey = pendingTrackKey || contactHuntTrackingKey(row);
     if (huntTrackKey) window.__contactHuntInFlight.add(huntTrackKey);
-    if (isSidebarTrigger && huntTrackKey) {
+    if (isSidebarTrigger && huntTrackKey && !silent) {
       beginLeadPanelJob('hunt', row);
     }
 
-    if (isSidebarTrigger) {
+    if (isSidebarTrigger && !silent) {
       setDeepEnhanceHuntUi('active', {
         phase: { pct: 8, label: 'Hunting…', detail: '' },
       });
@@ -14265,7 +14393,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       const meta = document.getElementById('huntLastRunMeta');
       if (meta && currentRow === row) {
-        meta.textContent = 'Hunt in progress — contacts, reviews, and AI summary…';
+        meta.textContent = silent
+          ? 'Enriching lead (Outscraper, reviews, AI summary)…'
+          : 'Hunt in progress — contacts, reviews, and AI summary…';
         meta.classList.remove('hidden');
       }
     };
@@ -14345,6 +14475,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
   window.__runContactHuntImpl = runContactHuntForRow;
+
+  function maybeAutoBackgroundEnhance(row, leadRecord) {
+    if (!row || !leadRecord) return;
+    const key = String(row.dataset.leadKey || leadRecord.key || '')
+      .trim()
+      .replace(/^lead:/i, '');
+    if (!key) return;
+    if (!window.__autoContactHuntKeys) window.__autoContactHuntKeys = new Set();
+    if (window.__autoContactHuntKeys.has(key)) return;
+    if (window.__contactHuntInFlight && window.__contactHuntInFlight.has(key)) return;
+    window.__autoContactHuntKeys.add(key);
+    void runContactHuntForRow(row, { silent: true, auto: true }).catch((err) => {
+      console.warn('[Lead panel] auto enrich failed:', err);
+    });
+  }
 
   if (!window.__adhelloContactHuntCaptureBound && !window.__adhelloContactHuntEarlyBound) {
     window.__adhelloContactHuntCaptureBound = true;
@@ -18987,6 +19132,12 @@ document.addEventListener('DOMContentLoaded', () => {
     ds.competitorGap = str(lead.competitorGap);
     ds.competitorMetaBenchmark = str(lead.competitorMetaBenchmark);
     ds.cmsPlatform = str(lead.cmsPlatform);
+    try {
+      ds.techStackTags = JSON.stringify(Array.isArray(lead.techStackTags) ? lead.techStackTags : []);
+    } catch (_) {
+      ds.techStackTags = '[]';
+    }
+    ds.builtWithUrl = str(lead.builtWithUrl);
     ds.geoGaps = str(lead.geoGaps);
     ds.auditSummary = str(lead.auditSummary);
     ds.hasSchemaMarkup = lead.hasSchemaMarkup != null ? String(lead.hasSchemaMarkup) : '';

@@ -35,6 +35,7 @@ async function runMapsBusinessJob(schedule, integrationEnv, options = {}) {
         city: schedule.city,
         state: schedule.state,
         maxResults: Math.min(25, schedule.maxResults || 20),
+        integrationEnv,
       });
       results = directoryLeadSearch.mergeMapsAndDirectoryLeads(
         results,

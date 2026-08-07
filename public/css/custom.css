@@ -5387,6 +5387,33 @@ body.dm-prompt-resize-active {
   align-items: flex-end;
 }
 
+.dm-prompt-compose {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  flex-shrink: 0;
+}
+
+.dm-prompt-input-head {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 1.25rem;
+}
+
+.dm-prompt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.dm-prompt-input--stacked {
+  width: 100%;
+  flex: none;
+  min-height: 3.25rem;
+}
+
 .dm-prompt-input {
   flex: 1;
   min-height: 2.65rem;

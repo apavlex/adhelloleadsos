@@ -2081,8 +2081,7 @@
   function resetChatLog() {
     var log = document.getElementById('dmChatLog');
     if (!log) return;
-    log.innerHTML =
-      '<div class="dm-chat-welcome"><strong>AI design assistant</strong> — Pick a format, describe the look you want, then Generate. Chat refines the prompt before image creation.</div>';
+    log.innerHTML = '';
   }
 
   function resetDesignSession() {
