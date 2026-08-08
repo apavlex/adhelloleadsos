@@ -68,7 +68,6 @@ const sequenceEngine = require('../services/sequenceEngine');
 const { autoAttachCadenceIfNeeded } = require('../services/leadCadence');
 const dialerPacing = require('../services/dialerPacing');
 const workspaceService = require('../services/workspaceService');
-const workspaceIntegrations = require('../services/workspaceIntegrations');
 const googleDriveAccess = require('../services/googleDriveAccess');
 const { getGoogleDriveAccount } = googleDriveAccess;
 const { downloadDriveFileAsCsvBuffer } = require('../services/googleDriveCsv');
