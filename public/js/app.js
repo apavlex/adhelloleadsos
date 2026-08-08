@@ -8649,6 +8649,25 @@ document.addEventListener('DOMContentLoaded', () => {
       starBtn.setAttribute('aria-pressed', isPri ? 'true' : 'false');
       starBtn.title = isPri ? 'Primary dial number' : 'Set as primary dial number';
     }
+    syncHeaderPhoneLinePill(row);
+  }
+
+  function syncHeaderPhoneLinePill(row) {
+    const pill = document.getElementById('mobilePanelHeaderPhoneLinePill');
+    if (!pill) return;
+    const pillInfo = resolvePhoneLineTypePill(row);
+    if (!pillInfo) {
+      pill.classList.add('hidden');
+      pill.textContent = '';
+      pill.removeAttribute('title');
+      return;
+    }
+    pill.textContent = pillInfo.label;
+    pill.title = pillInfo.title;
+    pill.className =
+      'mt-1 inline-flex px-1.5 py-0.5 rounded-full border text-[8px] font-black uppercase tracking-widest ' +
+      pillInfo.pillClass;
+    pill.classList.remove('hidden');
   }
 
   const LEAD_PANEL_CONTACT_ICON_CLASS =

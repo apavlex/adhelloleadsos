@@ -340,6 +340,49 @@
     </div>
   </div>
 
+  <div id="folderOutreachModal" class="fixed inset-0 z-[6000] flex items-center justify-center p-4" style="display: none;" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="folderOutreachTitle">
+    <div id="folderOutreachBackdrop" class="absolute inset-0 bg-brand-dark/60 backdrop-blur-sm cursor-pointer" tabindex="-1"></div>
+    <div class="relative max-w-lg w-full max-h-[90vh] overflow-y-auto rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-8 shadow-2xl z-10">
+      <h2 id="folderOutreachTitle" class="font-display font-black text-xl text-brand-dark dark:text-white mb-1">Folder auto outreach</h2>
+      <p id="folderOutreachSubtitle" class="text-sm text-brand-muted mb-2">Enrolls leads in this folder into your GHL <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">auto-outreach</code> workflow daily. Phone line type (Mobile vs Landline) syncs to GHL for SMS branching.</p>
+      <p class="text-xs text-brand-muted mb-5">Use your GHL audit widget link in the workflow — AdHello audit is not required.</p>
+      <input type="hidden" id="folderOutreachKey" value="" />
+      <div class="space-y-4">
+        <label class="flex items-center gap-2 text-sm font-semibold text-brand-dark dark:text-white">
+          <input type="checkbox" id="folderOutreachEnabled" class="rounded border-brand-border" />
+          Enable daily auto outreach for this folder
+        </label>
+        <div>
+          <label for="folderOutreachMaxLeads" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Max leads per day</label>
+          <input type="number" id="folderOutreachMaxLeads" min="1" max="200" value="25" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
+        </div>
+        <div>
+          <label for="folderOutreachTier" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Prospect tier (optional)</label>
+          <select id="folderOutreachTier" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold">
+            <option value="">Any tier</option>
+            <option value="Hot">Hot</option>
+            <option value="Warm">Warm</option>
+            <option value="Low">Low</option>
+          </select>
+        </div>
+        <div>
+          <label for="folderOutreachMinScore" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min score (optional)</label>
+          <input type="number" id="folderOutreachMinScore" min="0" max="10" step="0.5" placeholder="e.g. 7" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
+        </div>
+        <label class="flex items-start gap-2 text-sm text-brand-dark dark:text-white">
+          <input type="checkbox" id="folderOutreachSmsOnly" class="rounded border-brand-border mt-0.5" />
+          <span><strong class="font-bold">SMS-ready only</strong> — skip landlines (Mobile / VoIP). Best when your GHL workflow sends text first.</span>
+        </label>
+      </div>
+      <p id="folderOutreachStatus" class="text-xs text-brand-muted mt-4 hidden" role="status"></p>
+      <div class="flex flex-wrap gap-3 mt-6">
+        <button id="folderOutreachSave" type="button" class="flex-1 btn-pill btn-primary py-4 text-xs font-black uppercase tracking-widest min-w-[8rem]">Save</button>
+        <button id="folderOutreachRun" type="button" class="shrink-0 btn-pill bg-emerald-600 text-white border border-emerald-600 py-4 px-5 text-xs font-black uppercase tracking-widest hover:brightness-110">Run now</button>
+        <button id="folderOutreachCancel" type="button" class="flex-1 btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 py-4 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white min-w-[8rem]">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <div id="folderSearchSetupModal" class="fixed inset-0 z-[6000] flex items-center justify-center p-4" style="display: none;" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="folderSearchSetupTitle">
     <div id="folderSearchSetupBackdrop" class="absolute inset-0 bg-brand-dark/60 backdrop-blur-sm cursor-pointer" tabindex="-1"></div>
     <div class="relative max-w-2xl w-full max-h-[90vh] overflow-y-auto rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-8 shadow-2xl z-10">
@@ -452,7 +495,7 @@
     wholesale: ['web_search', 'oxylabs', 'facebook_marketplace', 'craigslist', 'offerup', 'ebay'],
   };
   window.WORKSPACE_FOLDERS = <%- JSON.stringify((folders || []).map(function (f) {
-    return { key: f.key, name: f.name, jobType: f.jobType || '', parentFolderKey: f.parentFolderKey || '', searchPreset: f.searchPreset || null, isPipelineDefault: !!f.isPipelineDefault, isTradeFolder: !!f.isTradeFolder };
+    return { key: f.key, name: f.name, jobType: f.jobType || '', parentFolderKey: f.parentFolderKey || '', searchPreset: f.searchPreset || null, outreachAutomation: f.outreachAutomation || null, isPipelineDefault: !!f.isPipelineDefault, isTradeFolder: !!f.isTradeFolder };
   })) %>;
   window.FOLDER_TREE_GROUPS = <%- JSON.stringify((folderTree && folderTree.groups || []).map(function (g) {
     return {
@@ -554,6 +597,191 @@
           openFolderMoveModal(key, currentName, currentParent);
         });
       });
+
+      document.querySelectorAll('.folder-outreach-setup').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          openFolderOutreachSetup(btn.getAttribute('data-folder-key') || '');
+        });
+      });
+
+      document.querySelectorAll('.folder-outreach-enabled').forEach(function (cb) {
+        cb.addEventListener('change', function (e) {
+          e.stopPropagation();
+          var key = cb.getAttribute('data-folder-key') || '';
+          if (!key) return;
+          saveFolderOutreachSettings(key, { enabled: !!cb.checked }, cb);
+        });
+      });
+    }
+
+    function outreachSettingsFromFolder(folder) {
+      var oa = folder && folder.outreachAutomation && typeof folder.outreachAutomation === 'object'
+        ? folder.outreachAutomation
+        : {};
+      return {
+        enabled: oa.enabled === true,
+        maxLeads: oa.maxLeads != null ? oa.maxLeads : 25,
+        tier: oa.tier || '',
+        minScore: oa.minScore != null && oa.minScore !== '' ? oa.minScore : '',
+        smsOnly: oa.smsOnly === true,
+      };
+    }
+
+    function setFolderOutreachStatus(msg, isError) {
+      var el = $('folderOutreachStatus');
+      if (!el) return;
+      if (!msg) {
+        el.classList.add('hidden');
+        el.textContent = '';
+        return;
+      }
+      el.textContent = msg;
+      el.classList.remove('hidden');
+      el.classList.toggle('text-red-600', !!isError);
+      el.classList.toggle('dark:text-red-400', !!isError);
+      el.classList.toggle('text-brand-muted', !isError);
+    }
+
+    function fillFolderOutreachForm(folder) {
+      var s = outreachSettingsFromFolder(folder);
+      if ($('folderOutreachEnabled')) $('folderOutreachEnabled').checked = !!s.enabled;
+      if ($('folderOutreachMaxLeads')) $('folderOutreachMaxLeads').value = String(s.maxLeads);
+      if ($('folderOutreachTier')) $('folderOutreachTier').value = s.tier || '';
+      if ($('folderOutreachMinScore')) $('folderOutreachMinScore').value = s.minScore !== '' ? String(s.minScore) : '';
+      if ($('folderOutreachSmsOnly')) $('folderOutreachSmsOnly').checked = !!s.smsOnly;
+    }
+
+    function buildFolderOutreachPayload(folderKey) {
+      return {
+        folderKey: folderKey,
+        enabled: !!($('folderOutreachEnabled') && $('folderOutreachEnabled').checked),
+        maxLeads: parseInt(($('folderOutreachMaxLeads') && $('folderOutreachMaxLeads').value) || '25', 10) || 25,
+        tier: ($('folderOutreachTier') && $('folderOutreachTier').value) || '',
+        minScore: ($('folderOutreachMinScore') && $('folderOutreachMinScore').value) || '',
+        smsOnly: !!($('folderOutreachSmsOnly') && $('folderOutreachSmsOnly').checked),
+      };
+    }
+
+    function saveFolderOutreachSettings(folderKey, partial, toggleEl) {
+      var folder = folderByKey(folderKey);
+      var base = outreachSettingsFromFolder(folder || {});
+      var body = Object.assign({ folderKey: folderKey }, base, partial || {});
+      if (toggleEl) toggleEl.disabled = true;
+      return fetch('/folders/save-outreach-automation', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: jsonHeaders,
+        body: JSON.stringify(body),
+      })
+        .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+        .then(function (pack) {
+          if (!pack.ok || !pack.data || !pack.data.success) {
+            throw new Error((pack.data && pack.data.error) || 'Save failed');
+          }
+          if (folder && pack.data.outreachAutomation) {
+            folder.outreachAutomation = pack.data.outreachAutomation;
+          }
+          var row = null;
+          document.querySelectorAll('[data-folder-row]').forEach(function (el) {
+            if (el.getAttribute('data-folder-row') === folderKey) row = el;
+          });
+          if (row) {
+            row.setAttribute('data-folder-outreach-enabled', pack.data.outreachAutomation.enabled ? '1' : '0');
+            var rowCb = row.querySelector('.folder-outreach-enabled');
+            if (rowCb) rowCb.checked = !!pack.data.outreachAutomation.enabled;
+          }
+          return pack.data;
+        })
+        .catch(function (err) {
+          if (toggleEl) toggleEl.checked = !toggleEl.checked;
+          window.alert(err && err.message ? err.message : 'Could not save folder outreach.');
+          throw err;
+        })
+        .finally(function () {
+          if (toggleEl) toggleEl.disabled = false;
+        });
+    }
+
+    function openFolderOutreachSetup(folderKey) {
+      var modal = $('folderOutreachModal');
+      var folder = folderByKey(folderKey);
+      if (!modal || !folder) return;
+      if ($('folderOutreachKey')) $('folderOutreachKey').value = folderKey;
+      if ($('folderOutreachSubtitle')) {
+        $('folderOutreachSubtitle').textContent =
+          'Enroll leads from "' + (folder.name || 'folder') + '" into GHL auto-outreach. Mobile vs landline syncs to GHL custom fields for SMS workflow branching.';
+      }
+      fillFolderOutreachForm(folder);
+      setFolderOutreachStatus('');
+      modal.style.display = 'flex';
+      modal.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeFolderOutreachSetup() {
+      var modal = $('folderOutreachModal');
+      if (!modal) return;
+      modal.style.display = 'none';
+      modal.setAttribute('aria-hidden', 'true');
+    }
+
+    function bindFolderOutreachModal() {
+      var modal = $('folderOutreachModal');
+      var bd = $('folderOutreachBackdrop');
+      var cancel = $('folderOutreachCancel');
+      var save = $('folderOutreachSave');
+      var run = $('folderOutreachRun');
+      if (bd) bd.addEventListener('click', closeFolderOutreachSetup);
+      if (cancel) cancel.addEventListener('click', closeFolderOutreachSetup);
+      if (save) {
+        save.addEventListener('click', function () {
+          var key = ($('folderOutreachKey') && $('folderOutreachKey').value) || '';
+          if (!key) return;
+          save.disabled = true;
+          saveFolderOutreachSettings(key, buildFolderOutreachPayload(key))
+            .then(function (data) {
+              setFolderOutreachStatus('Saved. ' + (data.outreachAutomation.enabled ? 'Daily outreach enabled.' : 'Outreach disabled for this folder.'));
+              setTimeout(function () { window.location.reload(); }, 700);
+            })
+            .catch(function () { setFolderOutreachStatus('Save failed.', true); })
+            .finally(function () { save.disabled = false; });
+        });
+      }
+      if (run) {
+        run.addEventListener('click', function () {
+          var key = ($('folderOutreachKey') && $('folderOutreachKey').value) || '';
+          if (!key) return;
+          run.disabled = true;
+          var payload = buildFolderOutreachPayload(key);
+          saveFolderOutreachSettings(key, payload)
+            .then(function () {
+              return fetch('/folders/outreach/run', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: jsonHeaders,
+                body: JSON.stringify({ folderKey: key, maxLeads: payload.maxLeads }),
+              });
+            })
+            .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+            .then(function (pack) {
+              if (!pack.ok || !pack.data || !pack.data.success) {
+                throw new Error((pack.data && pack.data.error) || 'Run failed');
+              }
+              setFolderOutreachStatus('Enrolled ' + (pack.data.enrolled || 0) + ' lead(s) into GHL auto-outreach.');
+              setTimeout(function () { window.location.reload(); }, 900);
+            })
+            .catch(function (err) {
+              setFolderOutreachStatus(err && err.message ? err.message : 'Run failed.', true);
+            })
+            .finally(function () { run.disabled = false; });
+        });
+      }
+      if (modal) {
+        modal.addEventListener('keydown', function (e) {
+          if (e.key === 'Escape') closeFolderOutreachSetup();
+        });
+      }
     }
 
     function collectFolderDescendantKeys(folderKey, folders) {
@@ -1102,6 +1330,7 @@
       bindFolderTreeToggle();
       bindFolderCreateModal();
       bindFolderMoveModal();
+      bindFolderOutreachModal();
       bindFolderSearchSetupModal();
       bindFolderSearchFilter();
       expandGroupsWithCustomSubfolders();

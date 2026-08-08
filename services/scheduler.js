@@ -9,6 +9,7 @@ const { runDueSequenceSteps } = require('./sequenceEngine');
 const { maybeWarmAllMorningBriefs } = require('./morningBriefWarm');
 const signalwire = require('./signalwire');
 const { runAutoPoolForEnabledWorkspaces } = require('./prospectingAutoPoolScheduler');
+const { runFolderOutreachForEnabledWorkspaces } = require('./folderOutreachScheduler');
 
 function normalizeVoicemailLibrary(raw) {
   if (!Array.isArray(raw)) return [];
@@ -345,6 +346,9 @@ module.exports = {
     cron.schedule('30 9 * * *', () => {
       runAutoPoolForEnabledWorkspaces().catch((e) =>
         console.error('[SCHEDULER] Auto-pool failed:', e.message)
+      );
+      runFolderOutreachForEnabledWorkspaces().catch((e) =>
+        console.error('[SCHEDULER] Folder outreach failed:', e.message)
       );
     });
 

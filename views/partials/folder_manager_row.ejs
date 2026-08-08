@@ -8,6 +8,8 @@
 <% const _padClass = _depth <= 0 ? '' : (_depth === 1 ? 'pl-2 sm:pl-3' : (_depth === 2 ? 'pl-2 sm:pl-4' : 'pl-2 sm:pl-5')); %>
 <% const _inTree = typeof inTree !== 'undefined' && inTree; %>
 <% const _folderTags = Array.isArray(typeof folderTags !== 'undefined' ? folderTags : null) ? folderTags : []; %>
+<% const _oa = _f.outreachAutomation && typeof _f.outreachAutomation === 'object' ? _f.outreachAutomation : {}; %>
+<% const _oaEnabled = _oa.enabled === true; %>
 <% const _openHref = '/prospecting?tab=pipeline&folderKey=' + encodeURIComponent(_f.key || ''); %>
 <div class="folder-row flex flex-wrap items-center gap-4 px-4 sm:px-6 py-4 <%= _depth > 0 && !_inTree ? _padClass + ' bg-brand-cream/10 dark:bg-slate-950/20' : '' %>"
   data-folder-row="<%= _f.key %>"
@@ -16,7 +18,8 @@
   data-folder-is-default="<%= _f.isPipelineDefault ? '1' : '0' %>"
   data-folder-is-trade="<%= _f.isTradeFolder ? '1' : '0' %>"
   data-folder-parent-key="<%= _f.parentFolderKey || '' %>"
-  data-folder-search="<%= (_f.name + ' ' + (_f.jobType || '') + ' ' + (_f.tradeSlug || '')).toLowerCase() %>">
+  data-folder-search="<%= (_f.name + ' ' + (_f.jobType || '') + ' ' + (_f.tradeSlug || '')).toLowerCase() %>"
+  data-folder-outreach-enabled="<%= _oaEnabled ? '1' : '0' %>">
   <a href="<%= _openHref %>" class="folder-open-link min-w-0 flex-1 rounded-lg -mx-1 px-1 py-0.5 hover:bg-brand-cream/40 dark:hover:bg-white/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow/50" title="Open leads in <%= _f.name.replace(/"/g, '&quot;') %>">
     <p class="font-display font-bold <%= _compact ? 'text-base' : 'text-lg' %> text-brand-dark dark:text-white flex flex-wrap items-center gap-2 group-hover:text-brand-yellow">
       <% if (_depth > 0 && !_inTree) { %><span class="text-brand-muted/60" aria-hidden="true">↳</span><% } %>
@@ -28,9 +31,14 @@
         if (!_tLabel) return;
       %><span class="lead-tag-chip inline-flex items-center px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wide border border-black/5 dark:border-white/10" style="background:<%= _tColor %>22;color:<%= _tColor %>" title="<%= _tLabel.replace(/"/g, '&quot;') %>"><%= _tLabel %></span><% }); %>
     </p>
-    <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mt-1"><%= _fc %> lead<%= _fc === 1 ? '' : 's' %> in this folder</p>
+    <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mt-1"><%= _fc %> lead<%= _fc === 1 ? '' : 's' %> in this folder<% if (_oaEnabled) { %> · <span class="text-emerald-700 dark:text-emerald-300">Auto outreach on</span><% if (_oa.lastEnrolled != null && _oa.lastRunAt) { %> · last enrolled <%= _oa.lastEnrolled %><% } %><% } %></p>
   </a>
   <div class="flex flex-wrap items-center gap-2 shrink-0">
+    <label class="folder-outreach-toggle inline-flex items-center gap-1.5 px-2.5 py-2 rounded-xl border border-brand-border/60 dark:border-white/10 bg-white/80 dark:bg-slate-800/80 cursor-pointer hover:border-emerald-500/40 transition-colors" title="Daily auto-outreach via GHL workflow (auto-outreach tag)">
+      <input type="checkbox" class="folder-outreach-enabled rounded border-brand-border" data-folder-key="<%= _f.key %>" <%= _oaEnabled ? 'checked' : '' %> />
+      <span class="text-[9px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Auto outreach</span>
+    </label>
+    <button type="button" class="folder-outreach-setup px-3 py-2 rounded-xl bg-emerald-600/10 dark:bg-emerald-950/40 border border-emerald-600/30 text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-200 hover:border-emerald-500/50 transition-colors" data-folder-key="<%= _f.key %>" title="Folder outreach settings — enrolls leads into your GHL auto-outreach workflow">Outreach</button>
     <a href="/leads/find?folderKey=<%= encodeURIComponent(_f.key) %>" class="px-3 py-2 rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark border border-brand-dark dark:border-brand-yellow text-[10px] font-black uppercase tracking-widest hover:brightness-110 transition-colors shadow-sm">Run search</a>
     <% if (_f.isPipelineDefault) { %>
     <button type="button" class="folder-search-setup px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors" data-folder-key="<%= _f.key %>">Search setup</button>

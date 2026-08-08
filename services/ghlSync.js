@@ -4,6 +4,7 @@
 
 const dbService = require('./database');
 const ghlClient = require('./ghlClient');
+const phoneLineType = require('./phoneLineType');
 const workspaceIntegrations = require('./workspaceIntegrations');
 const { handleInboundReply } = require('./inboundReplyRules');
 const { applyEngagementSignal } = require('./engagementSignals');
@@ -22,6 +23,7 @@ const { isActionTag, computeActionTagsFromLead, formatNextActionNote } = require
 const ghlProspectSync = require('./ghlProspectSync');
 const { pushLastProspectedField } = require('./ghlLastProspectedField');
 const { pushReviewFields } = require('./ghlReviewFields');
+const { pushPhoneLineFields } = require('./ghlPhoneLineFields');
 const { normalizeGhlSyncDirection } = require('./ghlSyncDirection');
 
 const GHL_TAG_NO_WEBSITE = 'no website';
@@ -220,6 +222,14 @@ async function pushLeadToGhlInner(lead, integrationEnv) {
   let contactId = String(lead.ghlContactId || '').trim();
   let mergedTags = mergeTagLists(lead.tags);
 
+  if (phoneLineType.hasUsablePhone(lead.phone) && phoneLineType.needsRefresh(lead, null)) {
+    const linePatch = await phoneLineType.refreshIfNeeded(lead, null);
+    if (linePatch) {
+      lead = { ...lead, ...linePatch };
+      await dbService.updateLead(lead.key, linePatch);
+    }
+  }
+
   if (contactId) {
     try {
       await ghlClient.updateContact(contactId, lead, integrationEnv);
@@ -255,6 +265,7 @@ async function pushLeadToGhlInner(lead, integrationEnv) {
   const syncActivityNote = await pushSyncActivityNote(lead, contactId, integrationEnv);
   const lastProspected = await pushLastProspectedField(contactId, integrationEnv);
   const reviewFields = await pushReviewFields(contactId, lead, integrationEnv);
+  const phoneLineFields = await pushPhoneLineFields(contactId, lead, integrationEnv);
   const notePush = await pushNotesToGhl(lead, contactId, integrationEnv);
   const notePull = await pullNotesFromGhl(lead, contactId, integrationEnv);
   const followUpTask = await syncFollowUpTaskToGhl(lead, contactId, integrationEnv);
@@ -294,6 +305,7 @@ async function pushLeadToGhlInner(lead, integrationEnv) {
     syncActivityNote,
     lastProspected,
     reviewFields,
+    phoneLineFields,
   };
 }
 

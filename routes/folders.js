@@ -8,6 +8,11 @@ const { moveFolder } = require('../services/folderMove');
 const { isInOutreachFolder } = require('../services/leadListFilters');
 const { parseSearchPresetFromForm, normalizeSearchPreset } = require('../services/folderSearchPreset');
 const { parseInfoPackFromBody, normalizeInfoPack } = require('../services/infoPack');
+const {
+  normalizeFolderOutreachSettings,
+  loadFolderOutreachFromFolder,
+  runFolderOutreach,
+} = require('../services/folderOutreachAutomation');
 
 router.get('/', async (req, res, next) => {
   try {
@@ -85,6 +90,81 @@ router.post('/save-info-pack', async (req, res, next) => {
     const infoPack = req.body && req.body.clearInfoPack ? null : parseInfoPackFromBody(req.body);
     const folder = await dbService.updateFolder(wid, folderKey, { infoPack });
     res.json({ success: true, folder, infoPack });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/save-outreach-automation', async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Only workspace admins can edit folder outreach.' });
+    }
+    const wid = req.workspaceId;
+    const folderKey = String(req.body?.folderKey || '').trim();
+    if (!folderKey) {
+      return res.status(400).json({ success: false, error: 'folderKey is required.' });
+    }
+    const existing = await dbService.getFolder(wid, folderKey);
+    if (!existing) {
+      return res.status(404).json({ success: false, error: 'Folder not found.' });
+    }
+    const prev = loadFolderOutreachFromFolder(existing);
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const outreachAutomation = normalizeFolderOutreachSettings({
+      ...prev,
+      enabled: Object.prototype.hasOwnProperty.call(body, 'enabled')
+        ? body.enabled === true ||
+          body.enabled === 'true' ||
+          body.enabled === 1 ||
+          body.enabled === '1'
+        : prev.enabled,
+      maxLeads: body.maxLeads != null ? body.maxLeads : prev.maxLeads,
+      minScore: Object.prototype.hasOwnProperty.call(body, 'minScore')
+        ? body.minScore != null && body.minScore !== ''
+          ? body.minScore
+          : null
+        : prev.minScore,
+      tier: body.tier != null ? body.tier : prev.tier,
+      smsOnly: Object.prototype.hasOwnProperty.call(body, 'smsOnly')
+        ? body.smsOnly === true ||
+          body.smsOnly === 'true' ||
+          body.smsOnly === 1 ||
+          body.smsOnly === '1'
+        : prev.smsOnly,
+      lastRunAt: prev.lastRunAt,
+      lastEnrolled: prev.lastEnrolled,
+      lastCandidateCount: prev.lastCandidateCount,
+    });
+    const folder = await dbService.updateFolder(wid, folderKey, { outreachAutomation });
+    res.json({ success: true, folder, outreachAutomation });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/outreach/run', async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Only workspace admins can run folder outreach.' });
+    }
+    const wid = req.workspaceId;
+    const folderKey = String(req.body?.folderKey || '').trim();
+    if (!folderKey) {
+      return res.status(400).json({ success: false, error: 'folderKey is required.' });
+    }
+    const folder = await dbService.getFolder(wid, folderKey);
+    if (!folder) {
+      return res.status(404).json({ success: false, error: 'Folder not found.' });
+    }
+    const settings = loadFolderOutreachFromFolder(folder);
+    const result = await runFolderOutreach({
+      workspaceId: wid,
+      folderKey,
+      settings: { ...settings, enabled: true },
+      maxLeads: req.body && req.body.maxLeads,
+    });
+    res.json({ success: true, ...result });
   } catch (e) {
     next(e);
   }

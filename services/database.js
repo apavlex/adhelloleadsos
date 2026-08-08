@@ -878,6 +878,9 @@ module.exports = {
     if (Object.prototype.hasOwnProperty.call(patch, 'infoPack') && patch.infoPack == null) {
       delete updated.infoPack;
     }
+    if (Object.prototype.hasOwnProperty.call(patch, 'outreachAutomation') && patch.outreachAutomation == null) {
+      delete updated.outreachAutomation;
+    }
     kvSet(fullKey, JSON.stringify(updated));
     return { key: fullKey, ...updated };
   },

@@ -5,6 +5,7 @@
 const dbService = require('./database');
 const { scoreLocalProspect } = require('./localProspectScore');
 const { scoreLeadRecord } = require('./opportunityScore');
+const phoneLineType = require('./phoneLineType');
 const { triggerGhlProspectSync } = require('./ghlProspectSync');
 
 const AUTO_OUTREACH_TAG_NAME = 'auto-outreach';
@@ -87,8 +88,15 @@ async function enrollLeadInAutoOutreach(opts) {
   const key = fullLeadKey(opts.leadKey);
   if (!key) return { enrolled: false, reason: 'missing_lead_key' };
 
-  const lead = await dbService.getLead(key, workspaceId);
+  let lead = await dbService.getLead(key, workspaceId);
   if (!lead) return { enrolled: false, reason: 'missing_lead', leadKey: key };
+
+  if (phoneLineType.hasUsablePhone(lead.phone)) {
+    const linePatch = await phoneLineType.refreshIfNeeded(lead, null);
+    if (linePatch) {
+      lead = await dbService.updateLead(key, linePatch, workspaceId);
+    }
+  }
 
   const reEnroll = opts.reEnroll === true;
   if (isActiveProspecting(lead) && !reEnroll) {
