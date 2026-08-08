@@ -6,6 +6,7 @@ const { normalizeSocialUrl } = require('./socialUrlNormalize');
 const { firecrawlExtractToLeadUpdates } = require('./enrichmentNormalize');
 
 const DEFAULT_URL_PARAM = 'url';
+const LEAD_QUERY_PARAMS = ['query', 'url', 'domain', 'website', 'site'];
 
 function hostFromEndpointUrl(urlStr) {
   if (!urlStr || typeof urlStr !== 'string') return '';
@@ -32,6 +33,20 @@ function endpoint(integrationEnv) {
   const fromWs = integrationEnv && integrationEnv.RAPIDAPI_WEBSITE_ENDPOINT;
   if (typeof fromWs === 'string' && fromWs.trim()) return fromWs.trim();
   return (process.env.RAPIDAPI_WEBSITE_ENDPOINT || '').trim();
+}
+
+/** Strip baked-in lead URL params from a saved RapidAPI endpoint (e.g. query=wsgr.com). */
+function endpointWithoutLeadQueryParams(endpointUrl) {
+  if (!endpointUrl || typeof endpointUrl !== 'string') return '';
+  try {
+    const u = new URL(endpointUrl.trim());
+    for (const p of LEAD_QUERY_PARAMS) {
+      u.searchParams.delete(p);
+    }
+    return u.toString();
+  } catch {
+    return String(endpointUrl || '').trim();
+  }
 }
 
 function apiHost(integrationEnv) {
@@ -242,7 +257,7 @@ async function scrapeWebsite(websiteUrl, integrationEnv) {
   const target = normalizeWebsiteUrl(websiteUrl);
   if (!target) throw new Error('Lead needs a valid website URL to enrich.');
 
-  const baseEndpoint = endpoint(integrationEnv);
+  const baseEndpoint = endpointWithoutLeadQueryParams(endpoint(integrationEnv));
   const host = apiHost(integrationEnv);
   const key = apiKey(integrationEnv);
   const param = urlParam(integrationEnv);
@@ -289,22 +304,31 @@ async function scrapeWebsite(websiteUrl, integrationEnv) {
   throw lastError || new Error('RapidAPI website enrich returned no data.');
 }
 
-function buildLeadPatch(lead, extract) {
+function buildLeadPatch(lead, extract, options) {
+  const mode = options && options.mode === 'refresh' ? 'refresh' : 'fill_missing';
   const patch = {};
   const base = firecrawlExtractToLeadUpdates(extract);
-  if (!hasValue(lead.email) && (extract.email || base.email)) patch.email = extract.email || base.email;
-  if (!hasValue(lead.phone) && (extract.phone || base.phone)) patch.phone = extract.phone || base.phone;
-  if (!hasValue(lead.facebook) && (extract.facebook || base.facebook)) {
-    patch.facebook = extract.facebook || base.facebook;
+  const fields = [
+    ['email', extract.email || base.email],
+    ['phone', extract.phone || base.phone],
+    ['facebook', extract.facebook || base.facebook],
+    ['instagram', extract.instagram || base.instagram],
+    ['twitter', extract.twitter || base.twitter],
+    ['linkedin', extract.linkedin || base.linkedin],
+    ['tiktok', extract.tiktok || base.tiktok],
+  ];
+
+  for (const [key, rawValue] of fields) {
+    if (!hasValue(rawValue)) continue;
+    const incoming = String(rawValue).trim();
+    const existing = lead && lead[key];
+    if (mode === 'refresh') {
+      if (hasValue(existing) && String(existing).trim() === incoming) continue;
+      patch[key] = incoming;
+    } else if (!hasValue(existing)) {
+      patch[key] = incoming;
+    }
   }
-  if (!hasValue(lead.instagram) && (extract.instagram || base.instagram)) {
-    patch.instagram = extract.instagram || base.instagram;
-  }
-  if (!hasValue(lead.twitter) && (extract.twitter || base.twitter)) patch.twitter = extract.twitter || base.twitter;
-  if (!hasValue(lead.linkedin) && (extract.linkedin || base.linkedin)) {
-    patch.linkedin = extract.linkedin || base.linkedin;
-  }
-  if (!hasValue(lead.tiktok) && (extract.tiktok || base.tiktok)) patch.tiktok = extract.tiktok || base.tiktok;
   return patch;
 }
 
@@ -312,7 +336,7 @@ function buildLeadPatch(lead, extract) {
  * @param {object} lead
  * @param {Record<string, string>|null|undefined} integrationEnv
  */
-async function enrichLeadFromWebsite(lead, integrationEnv) {
+async function enrichLeadFromWebsite(lead, integrationEnv, options) {
   const website = normalizeWebsiteUrl(lead && (lead.website || lead.url));
   if (!website) {
     return { used: false, patch: {}, extract: {}, error: 'no_website', filled: [] };
@@ -322,15 +346,16 @@ async function enrichLeadFromWebsite(lead, integrationEnv) {
   }
 
   const { extract } = await scrapeWebsite(website, integrationEnv);
-  const patch = buildLeadPatch(lead || {}, extract);
+  const patch = buildLeadPatch(lead || {}, extract, options);
   const filled = Object.keys(patch);
+  const extractKeys = Object.keys(extract || {});
   return {
     used: filled.length > 0,
     patch,
     extract,
     filled,
     website,
-    error: filled.length ? null : 'no_new_fields',
+    error: filled.length ? null : extractKeys.length ? 'no_new_fields' : 'no_contacts',
   };
 }
 
@@ -345,6 +370,8 @@ module.exports = {
   leadCanEnrichFromWebsite,
   parsePayloadToExtract,
   normalizeWebsiteUrl,
+  buildLeadPatch,
+  endpointWithoutLeadQueryParams,
   apiKey,
   apiHost,
   endpoint,

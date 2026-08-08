@@ -3997,8 +3997,10 @@ router.post('/:key/enrich-rapidapi-website', async (req, res, next) => {
       });
     }
 
-    const pack = await rapidapiWebsiteEnrich.enrichLeadFromWebsite(lead, integrationEnv);
-    if (pack.error && pack.error !== 'no_new_fields') {
+    const pack = await rapidapiWebsiteEnrich.enrichLeadFromWebsite(lead, integrationEnv, {
+      mode: 'refresh',
+    });
+    if (pack.error && pack.error !== 'no_new_fields' && pack.error !== 'no_contacts') {
       const status = pack.error === 'not_configured' ? 422 : 502;
       return res.status(status).json({
         success: false,
@@ -4028,9 +4030,11 @@ router.post('/:key/enrich-rapidapi-website', async (req, res, next) => {
       filled: pack.filled || [],
       sources: ['RapidAPI Website'],
       message:
-        (pack.filled && pack.filled.length)
-          ? `Added ${pack.filled.join(', ')} from website scrape.`
-          : 'Scrape completed — no new contact fields to add (existing data kept).',
+        pack.filled && pack.filled.length
+          ? `Updated ${pack.filled.join(', ')} from website.`
+          : pack.extract && Object.keys(pack.extract).length
+            ? 'Scrape found contacts — already up to date.'
+            : 'Scrape returned no contacts on this website.',
     });
   } catch (err) {
     console.error('RapidAPI website enrich error:', err.message);

@@ -1000,9 +1000,18 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   display: flex !important;
 }
 
+#rapidapiWebsiteEnrichBtn[data-enrich-state="active"] .rapidapi-enrich-progress-row {
+  display: block !important;
+}
+
+#rapidapiWebsiteEnrichBtn[data-enrich-state="idle"] .rapidapi-enrich-progress-row,
+#rapidapiWebsiteEnrichBtn[data-enrich-state="done"] .rapidapi-enrich-progress-row {
+  display: none !important;
+}
+
 #rapidapiWebsiteEnrichBtn[data-enrich-state="active"] {
   border-color: rgba(234, 179, 8, 0.65) !important;
-  animation: huntPulse 1.6s ease-in-out infinite;
+  animation: btn-action-pulse 0.95s ease-in-out infinite, hunt-ring 1.1s ease-in-out infinite;
 }
 
 #rapidapiWebsiteEnrichBtn[data-enrich-state="done"] {

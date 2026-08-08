@@ -6600,6 +6600,7 @@ document.addEventListener('DOMContentLoaded', () => {
     hydrateRowDatasetFromTableDom(row);
     syncPhoneLineTypePill(row);
   }
+  window.syncPersistedLeadToRowDataset = syncPersistedLeadToRowDataset;
 
   function parsePageSpeedAuditFromRow(row) {
     if (!row || !row.dataset) return null;
@@ -14565,72 +14566,6 @@ document.addEventListener('DOMContentLoaded', () => {
       },
       true,
     );
-  }
-
-  if (!window.__adhelloRapidapiEnrichCaptureBound) {
-    window.__adhelloRapidapiEnrichCaptureBound = true;
-    document.addEventListener(
-      'click',
-      (e) => {
-        const btn = e.target.closest('#rapidapiWebsiteEnrichBtn');
-        if (!btn) return;
-        e.preventDefault();
-        e.stopPropagation();
-        if (typeof window.runLeadRapidapiWebsiteEnrich !== 'function') {
-          const msg = 'Enrich script not loaded — refresh the page.';
-          if (typeof window.showAppToast === 'function') {
-            window.showAppToast(msg, { variant: 'error' });
-          } else window.alert(msg);
-          return;
-        }
-        const row = resolveRowForLeadPanelActions();
-        if (row) currentRow = row;
-        const key =
-          btn.getAttribute('data-lead-key') ||
-          (row && String(row.dataset.leadKey || '').trim()) ||
-          '';
-        const blocked =
-          btn.getAttribute('data-enrich-blocked') === '1'
-            ? btn.getAttribute('data-enrich-blocked-reason') ||
-              'Add a website URL to this lead before enriching.'
-            : '';
-        void window.runLeadRapidapiWebsiteEnrich(key, {
-          btn,
-          statusEl: document.getElementById('rapidapiWebsiteEnrichStatus'),
-          blockedReason: blocked,
-          onUpdated: (lead) => {
-            const activeRow = resolveRowForLeadPanelActions(row);
-            if (!lead || !activeRow) return;
-            if (typeof syncPersistedLeadToRowDataset === 'function') {
-              syncPersistedLeadToRowDataset(activeRow, lead);
-            }
-            populatePanel(activeRow);
-          },
-        });
-      },
-      true,
-    );
-  }
-
-  if (typeof window.bindRapidapiWebsiteEnrichButton === 'function') {
-    window.bindRapidapiWebsiteEnrichButton(document.getElementById('rapidapiWebsiteEnrichBtn'), {
-      statusEl: document.getElementById('rapidapiWebsiteEnrichStatus'),
-      getLeadKey: () => {
-        const row = resolveRowForLeadPanelActions();
-        return row ? String(row.dataset.leadKey || '').trim() : '';
-      },
-      onUpdated: (lead) => {
-        const row = resolveRowForLeadPanelActions();
-        if (!lead || !row) return;
-        if (typeof syncPersistedLeadToRowDataset === 'function') {
-          syncPersistedLeadToRowDataset(row, lead);
-        }
-        populatePanel(row);
-        if (typeof window.showAppToast === 'function') {
-          window.showAppToast('Contacts enriched', { variant: 'success' });
-        }
-      },
-    });
   }
 
   const reviewIntelRefreshBtn = document.getElementById('reviewIntelRefreshBtn');

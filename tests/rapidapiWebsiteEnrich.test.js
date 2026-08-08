@@ -66,4 +66,41 @@ describe('rapidapiWebsiteEnrich', () => {
       global.fetch = origFetch;
     }
   });
+
+  test('refresh mode overwrites existing instagram when scrape returns new value', async () => {
+    const env = {
+      RAPIDAPI_WEBSITE_KEY: 'test',
+      RAPIDAPI_WEBSITE_ENDPOINT: 'https://example.p.rapidapi.com/scrape',
+      RAPIDAPI_WEBSITE_HOST: 'example.p.rapidapi.com',
+    };
+    const origFetch = global.fetch;
+    global.fetch = async () => ({
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          instagram: 'https://instagram.com/allaboutfloorsnw',
+        }),
+    });
+    try {
+      const pack = await rapidapiWebsiteEnrich.enrichLeadFromWebsite(
+        {
+          website: 'https://allaboutfloorsnw.com',
+          instagram: 'https://instagram.com/wilsonsonsinicareers',
+        },
+        env,
+        { mode: 'refresh' },
+      );
+      assert.equal(pack.patch.instagram, 'https://instagram.com/allaboutfloorsnw');
+      assert.ok(pack.filled.includes('instagram'));
+    } finally {
+      global.fetch = origFetch;
+    }
+  });
+
+  test('endpointWithoutLeadQueryParams strips query param', () => {
+    const cleaned = rapidapiWebsiteEnrich.endpointWithoutLeadQueryParams(
+      'https://example.p.rapidapi.com/scrape?query=wsgr.com&foo=bar',
+    );
+    assert.equal(cleaned, 'https://example.p.rapidapi.com/scrape?foo=bar');
+  });
 });
