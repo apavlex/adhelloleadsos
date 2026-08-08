@@ -55,6 +55,8 @@
     <p class="mt-2 text-[11px] text-brand-muted">Last run: <%= new Date(_autoPool.lastRunAt).toLocaleString() %> · enrolled <%= _autoPool.lastEnrolled != null ? _autoPool.lastEnrolled : 0 %></p>
     <% } %>
   </div>
+
+  <%- include('../../partials/ghl_auto_outreach_workflow_prompt', { promptId: 'ghlAutoOutreachPromptMain', compact: false }) %>
   <% } %>
 
   <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 md:p-8">

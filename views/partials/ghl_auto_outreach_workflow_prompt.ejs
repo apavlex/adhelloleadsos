@@ -1,0 +1,152 @@
+<%#
+  Copy-paste prompt for setting up GHL auto-outreach workflow.
+  Optional: promptId (default ghlAutoOutreachPrompt), compact (shorter header)
+%>
+<% const _promptId = typeof promptId !== 'undefined' && promptId ? String(promptId) : 'ghlAutoOutreachPrompt'; %>
+<% const _copyBtnId = _promptId + 'CopyBtn'; %>
+<% const _copyStatusId = _promptId + 'CopyStatus'; %>
+<% const _compact = typeof compact !== 'undefined' && compact; %>
+<% const _promptText = [
+  'Set up a Go High Level automation workflow for cold outreach when AdHello / Agency OS enrolls a lead.',
+  '',
+  '═══════════════════════════════════════',
+  'TRIGGER',
+  '═══════════════════════════════════════',
+  '• Workflow type: Contact tag added',
+  '• Tag name (exact): auto-outreach',
+  '• Run once per contact when tag is first added',
+  '',
+  '═══════════════════════════════════════',
+  'WAIT (important)',
+  '═══════════════════════════════════════',
+  '• Wait 2 minutes after trigger',
+  '  (AdHello needs time to sync contact + custom fields)',
+  '',
+  '═══════════════════════════════════════',
+  'MERGE FIELDS — personalize every message',
+  '═══════════════════════════════════════',
+  'AdHello syncs these to each contact. In GHL, use Insert Variable / merge tags:',
+  '',
+  '• Business: {{contact.company_name}}',
+  '• First name: {{contact.first_name}}',
+  '• City: {{contact.city}}',
+  '• State: {{contact.state}}',
+  '• Website: {{contact.website}}',
+  '• Phone: {{contact.phone}}',
+  '',
+  'Custom fields (created automatically on sync — pick from GHL merge tag menu):',
+  '• AdHello Phone Line Type (Mobile, Landline, VoIP, Unknown)',
+  '• AdHello SMS OK (Yes = safe to text; No = landline)',
+  '• AdHello Google Rating',
+  '• AdHello Google Reviews',
+  '',
+  'Replace [GHL AUDIT LINK] below with your GHL audit widget URL.',
+  '',
+  '═══════════════════════════════════════',
+  'STEP 1 — DAY 0 EMAIL (send to everyone)',
+  '═══════════════════════════════════════',
+  'Subject:',
+  'Quick idea for {{contact.company_name}} in {{contact.city}}',
+  '',
+  'Body:',
+  'Hi {{contact.first_name}},',
+  '',
+  'I was reviewing local {{contact.city}} businesses and noticed {{contact.company_name}} may be leaving calls on the table online.',
+  '',
+  'Here is a free 60-second website scan — no signup required:',
+  '[GHL AUDIT LINK]',
+  '',
+  'If the results are useful, just reply and I can walk you through the top fix.',
+  '',
+  'Best,',
+  '[Your name]',
+  '[Your company]',
+  '[Your phone]',
+  '',
+  '═══════════════════════════════════════',
+  'STEP 2 — WAIT 2 DAYS',
+  '═══════════════════════════════════════',
+  '',
+  '═══════════════════════════════════════',
+  'STEP 3 — DAY 3 SMS (mobile numbers only)',
+  '═══════════════════════════════════════',
+  'Condition (IF branch):',
+  '• Custom field "AdHello SMS OK" equals "Yes"',
+  '  OR "AdHello Phone Line Type" is Mobile or VoIP',
+  '• Skip this step for Landline (SMS OK = No)',
+  '',
+  'SMS message:',
+  'Hi {{contact.first_name}} — I sent {{contact.company_name}} a free site scan for {{contact.city}}. Takes ~60 sec: [GHL AUDIT LINK]. Reply YES if you want help with the results.',
+  '',
+  '═══════════════════════════════════════',
+  'STEP 4 — DAY 5 VOICEMAIL / RVM (optional)',
+  '═══════════════════════════════════════',
+  'For contacts where SMS was skipped (landline) OR no email open:',
+  '"Hi, this is [Your name]. I emailed {{contact.company_name}} in {{contact.city}} a free website scan. Check your inbox for the link, or reply to this number and I will resend it."',
+  '',
+  '═══════════════════════════════════════',
+  'REPLY & STOP RULES',
+  '═══════════════════════════════════════',
+  '• If contact replies to email or SMS → remove from workflow, notify owner',
+  '• Max 1 email + 1 SMS in first 7 days unless they engage',
+  '• Do NOT mention AdHello audit reports — use your GHL audit widget link only',
+  '',
+  '═══════════════════════════════════════',
+  'OPTIONAL — GHL AI EMAIL WRITER PROMPT',
+  '═══════════════════════════════════════',
+  'If using GHL AI to draft the email, paste this instruction:',
+  '',
+  '"Write a short, friendly cold email under 90 words to a local business owner.',
+  'Business: {{contact.company_name}}. City: {{contact.city}}. Website: {{contact.website}}.',
+  'Goal: offer a free website scan at [GHL AUDIT LINK].',
+  'Tone: helpful local marketer, not pushy. Include business name and city naturally.',
+  'No attachments. Sign off with [Your name]."'
+].join('\n'); %>
+<div class="ghl-workflow-prompt-block rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-950/50 p-4 md:p-5">
+  <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
+    <div class="min-w-0">
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Copy &amp; paste into GHL</p>
+      <h3 class="font-bold text-brand-dark dark:text-white text-sm md:text-base">Auto-outreach workflow setup prompt</h3>
+      <% if (!_compact) { %>
+      <p class="text-xs text-brand-muted leading-relaxed mt-1">Paste into GHL workflow notes, an AI assistant, or send to whoever configures your sub-account. Replace <code class="text-[10px] px-1 rounded bg-white/80 dark:bg-slate-800">[GHL AUDIT LINK]</code> with your GHL audit widget URL.</p>
+      <% } else { %>
+      <p class="text-xs text-brand-muted leading-relaxed mt-1">Configure the <code class="text-[10px] px-1 rounded bg-white/80 dark:bg-slate-800">auto-outreach</code> tag workflow in GHL using this prompt.</p>
+      <% } %>
+    </div>
+    <button type="button" id="<%= _copyBtnId %>" class="shrink-0 rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-opacity" data-copy-target="<%= _promptId %>">Copy prompt</button>
+  </div>
+  <textarea id="<%= _promptId %>" readonly rows="<%= _compact ? 14 : 22 %>" class="w-full rounded-xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-3 text-[11px] md:text-xs font-mono leading-relaxed text-brand-dark dark:text-slate-100 resize-y min-h-[10rem] custom-scrollbar" aria-label="GHL auto-outreach workflow setup prompt"><%= _promptText %></textarea>
+  <p id="<%= _copyStatusId %>" class="mt-2 text-[11px] text-emerald-700 dark:text-emerald-300 hidden" role="status">Copied to clipboard.</p>
+</div>
+<script>
+(function () {
+  var btn = document.getElementById('<%= _copyBtnId %>');
+  var ta = document.getElementById('<%= _promptId %>');
+  var status = document.getElementById('<%= _copyStatusId %>');
+  if (!btn || !ta) return;
+  btn.addEventListener('click', function () {
+    var text = ta.value || ta.textContent || '';
+    function done(ok) {
+      if (!status) return;
+      status.textContent = ok ? 'Copied to clipboard.' : 'Copy failed — select the text and copy manually.';
+      status.classList.toggle('text-emerald-700', ok);
+      status.classList.toggle('dark:text-emerald-300', ok);
+      status.classList.toggle('text-amber-700', !ok);
+      status.classList.toggle('dark:text-amber-300', !ok);
+      status.classList.remove('hidden');
+      setTimeout(function () { status.classList.add('hidden'); }, 3500);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { done(true); }).catch(function () { done(false); });
+    } else {
+      ta.focus();
+      ta.select();
+      try {
+        done(document.execCommand('copy'));
+      } catch (e) {
+        done(false);
+      }
+    }
+  });
+})();
+</script>

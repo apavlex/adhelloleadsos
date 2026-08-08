@@ -374,6 +374,7 @@
           <span><strong class="font-bold">SMS-ready only</strong> — skip landlines (Mobile / VoIP). Best when your GHL workflow sends text first.</span>
         </label>
       </div>
+      <%- include('/partials/ghl_auto_outreach_workflow_prompt', { promptId: 'ghlAutoOutreachPromptFolder', compact: true }) %>
       <p id="folderOutreachStatus" class="text-xs text-brand-muted mt-4 hidden" role="status"></p>
       <div class="flex flex-wrap gap-3 mt-6">
         <button id="folderOutreachSave" type="button" class="flex-1 btn-pill btn-primary py-4 text-xs font-black uppercase tracking-widest min-w-[8rem]">Save</button>
