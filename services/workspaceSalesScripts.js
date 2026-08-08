@@ -109,6 +109,31 @@ function sanitizeOfferCatalogInput(arr) {
   return out;
 }
 
+/** Copy default catalog into a mutable array when workspace has no custom catalog yet. */
+function materializeOfferCatalog(ws, baseLib) {
+  if (Array.isArray(ws.salesScriptOfferCatalog) && ws.salesScriptOfferCatalog.length) {
+    return ws.salesScriptOfferCatalog.map((row) => ({ ...row }));
+  }
+  return defaultOfferCatalog(baseLib).map((row) => ({ ...row }));
+}
+
+function patchOfferOutreachFields(row, profile) {
+  const base = row && typeof row === 'object' ? row : {};
+  const p = profile && typeof profile === 'object' ? profile : {};
+  return {
+    ...base,
+    senderBusinessName: Object.prototype.hasOwnProperty.call(p, 'senderBusinessName')
+      ? String(p.senderBusinessName || '').trim().slice(0, MAX_LABEL_LEN)
+      : String(base.senderBusinessName || '').trim().slice(0, MAX_LABEL_LEN),
+    vertical: Object.prototype.hasOwnProperty.call(p, 'vertical')
+      ? String(p.vertical || '').trim().slice(0, 80)
+      : String(base.vertical || '').trim().slice(0, 80),
+    auditLink: Object.prototype.hasOwnProperty.call(p, 'auditLink')
+      ? String(p.auditLink || '').trim().slice(0, 500)
+      : String(base.auditLink || '').trim().slice(0, 500),
+  };
+}
+
 function sanitizeBlockOverridesForCatalog(input, catalogKeys) {
   const allow = new Set(catalogKeys || []);
   const src = input && typeof input === 'object' ? input : {};
@@ -325,4 +350,6 @@ module.exports = {
   mergeReachScripts,
   slugifyOfferKey,
   normalizeOfferCatalogEntry,
+  materializeOfferCatalog,
+  patchOfferOutreachFields,
 };

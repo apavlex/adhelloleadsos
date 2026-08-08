@@ -147,6 +147,58 @@
       return parts.join('\n\n');
     }
 
+    function outreachProfilePanelHtml(entry) {
+      var biz = escapeHtml(entry.senderBusinessName || '');
+      var vert = escapeHtml(entry.vertical || '');
+      var audit = escapeHtml(entry.auditLink || '');
+      var labelHint = escapeHtml(entry.label || 'Your business name');
+      var inputClass =
+        'mt-1 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 text-sm text-brand-dark dark:text-slate-100 px-3 py-2 focus:ring-2 focus:ring-brand-yellow outline-none';
+      return (
+        '<div class="mx-4 sm:mx-6 mb-5 rounded-2xl border border-brand-yellow/30 dark:border-brand-yellow/20 bg-brand-yellow/5 dark:bg-brand-yellow/5 p-4" data-outreach-panel="' +
+        escapeHtml(entry.key) +
+        '">' +
+        '<div class="flex flex-wrap items-start justify-between gap-2 mb-3">' +
+        '<div class="min-w-0">' +
+        '<p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">Auto-outreach profile</p>' +
+        '<p class="text-[11px] text-brand-muted mt-1 leading-relaxed">When this offer is the <strong class="text-brand-dark dark:text-white">sender profile</strong> on a folder or auto-pool, these fields sync to GHL as <code class="text-[10px] px-1 rounded bg-white/70 dark:bg-slate-800">AdHello Sender *</code> merge tags.</p>' +
+        '</div>' +
+        '<span class="outreach-profile-status text-[10px] font-bold text-brand-muted tabular-nums shrink-0" data-offer-key="' +
+        escapeHtml(entry.key) +
+        '">Saved</span></div>' +
+        '<div class="grid sm:grid-cols-2 gap-3">' +
+        '<label class="block text-[10px] font-black uppercase tracking-wider text-brand-muted">Business name' +
+        '<input type="text" data-offer-outreach="senderBusinessName" data-offer-key="' +
+        escapeHtml(entry.key) +
+        '" placeholder="' +
+        labelHint +
+        '" value="' +
+        biz +
+        '" autocomplete="organization" class="offer-outreach-field ' +
+        inputClass +
+        '" /></label>' +
+        '<label class="block text-[10px] font-black uppercase tracking-wider text-brand-muted">Vertical / industry' +
+        '<input type="text" data-offer-outreach="vertical" data-offer-key="' +
+        escapeHtml(entry.key) +
+        '" placeholder="e.g. Electrical, Flooring, SaaS" value="' +
+        vert +
+        '" autocomplete="off" class="offer-outreach-field ' +
+        inputClass +
+        '" /></label>' +
+        '<label class="block sm:col-span-2 text-[10px] font-black uppercase tracking-wider text-brand-muted">Audit or demo link' +
+        '<input type="url" data-offer-outreach="auditLink" data-offer-key="' +
+        escapeHtml(entry.key) +
+        '" placeholder="https://your-ghl-audit-widget-or-landing-page" value="' +
+        audit +
+        '" autocomplete="off" class="offer-outreach-field ' +
+        inputClass +
+        '" /></label>' +
+        '</div>' +
+        '<p class="mt-2 text-[10px] text-brand-muted leading-relaxed">Leave business name blank to use the offer label. Script text below becomes <strong class="text-brand-dark dark:text-white">AdHello Sender Pitch</strong> in GHL.</p>' +
+        '</div>'
+      );
+    }
+
     function renderOfferPanels(activeKey) {
       var host = document.getElementById('pitchPanelsHost');
       var tabs = document.getElementById('pitchTabs');
@@ -191,7 +243,9 @@
             escapeHtml(entry.label) +
             '</p><button type="button" class="offer-rename-btn text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline" data-offer-key="' +
             escapeHtml(entry.key) +
-            '">Rename</button></div><div class="px-4 sm:px-6 pb-6"><div class="script-block rounded-2xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-black/10" data-service="' +
+            '">Rename</button></div>' +
+            outreachProfilePanelHtml(entry) +
+            '<div class="px-4 sm:px-6 pb-6"><div class="script-block rounded-2xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-black/10" data-service="' +
             escapeHtml(entry.key) +
             '" data-section="opening"><div class="flex flex-wrap items-center justify-between gap-2 py-3 px-4 border-b border-brand-border/40 dark:border-white/10"><span class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">Call script</span><span class="script-autosave-status text-[10px] font-bold text-brand-muted tabular-nums shrink-0" data-snippet-id="snippet-' +
             escapeHtml(entry.key) +
@@ -333,6 +387,11 @@
           }
         });
         host.addEventListener('input', function (e) {
+          if (e.target.matches('[data-offer-outreach]')) {
+            var oKey = e.target.getAttribute('data-offer-key');
+            if (oKey) scheduleOutreachProfilePersist(oKey);
+            return;
+          }
           if (!e.target.classList.contains('script-snippet')) return;
           lastFocusedSnippetId = e.target.id;
           var st = statusElForSnippetId(e.target.id);
@@ -352,6 +411,7 @@
     var coachHistories = {};
     var pendingRefined = null;
     var blockSaveTimer = null;
+    var outreachSaveTimers = {};
     var lastFocusedSnippetId = 'snippet-' + coachFocus.pitch + '-' + coachFocus.section;
     var lastServerSaveAt = null;
     var saveStatusTimer = null;
@@ -554,6 +614,69 @@
             setAutosaveTextForAll('Save failed — retry by editing');
           });
       }, 1500);
+    }
+
+    function outreachStatusEl(offerKey) {
+      return document.querySelector('.outreach-profile-status[data-offer-key="' + offerKey + '"]');
+    }
+
+    function setOutreachStatus(offerKey, text) {
+      var el = outreachStatusEl(offerKey);
+      if (el) el.textContent = text;
+    }
+
+    function collectOutreachProfileFromPanel(offerKey) {
+      var panel = document.querySelector('[data-outreach-panel="' + offerKey + '"]');
+      if (!panel) return null;
+      function read(field) {
+        var input = panel.querySelector('[data-offer-outreach="' + field + '"]');
+        return input ? String(input.value || '').trim() : '';
+      }
+      return {
+        senderBusinessName: read('senderBusinessName'),
+        vertical: read('vertical'),
+        auditLink: read('auditLink'),
+      };
+    }
+
+    function updateOfferCatalogOutreach(offerKey, profile) {
+      var entry = offerCatalog.find(function (c) { return c.key === offerKey; });
+      if (!entry || !profile) return;
+      entry.senderBusinessName = profile.senderBusinessName || '';
+      entry.vertical = profile.vertical || '';
+      entry.auditLink = profile.auditLink || '';
+    }
+
+    function scheduleOutreachProfilePersist(offerKey) {
+      if (!offerKey) return;
+      clearTimeout(outreachSaveTimers[offerKey]);
+      setOutreachStatus(offerKey, 'Unsaved');
+      outreachSaveTimers[offerKey] = setTimeout(function () {
+        var profile = collectOutreachProfileFromPanel(offerKey);
+        if (!profile) return;
+        setOutreachStatus(offerKey, 'Saving…');
+        fetch('/workspace/scripts/offers', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: offerKey, outreachProfile: profile }),
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (!data || !data.success) {
+              setOutreachStatus(offerKey, 'Save failed');
+              return;
+            }
+            if (Array.isArray(data.catalog)) offerCatalog = data.catalog;
+            updateOfferCatalogOutreach(offerKey, profile);
+            usesCustomOfferCatalog = true;
+            var badge = document.getElementById('offerCatalogBadge');
+            if (badge) badge.classList.remove('hidden');
+            setOutreachStatus(offerKey, 'Saved');
+          })
+          .catch(function () {
+            setOutreachStatus(offerKey, 'Save failed');
+          });
+      }, 1200);
     }
 
     function applyBlockOverridesToEditors(blockOverrides) {

@@ -1444,6 +1444,9 @@ router.post('/scripts/offers', express.json({ limit: '256kb' }), async (req, res
         label,
         tabLabel: req.body?.tabLabel,
         key: req.body?.key,
+        senderBusinessName: req.body?.senderBusinessName,
+        vertical: req.body?.vertical,
+        auditLink: req.body?.auditLink,
       },
       keys,
     );
@@ -1477,6 +1480,18 @@ router.patch('/scripts/offers', express.json({ limit: '128kb' }), async (req, re
     let ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
     if (Array.isArray(req.body?.catalog)) {
       ws.salesScriptOfferCatalog = workspaceSalesScripts.sanitizeOfferCatalogInput(req.body.catalog);
+    } else if (req.body?.key && req.body?.outreachProfile && typeof req.body.outreachProfile === 'object') {
+      const key = String(req.body.key).trim();
+      const catalog = workspaceSalesScripts.materializeOfferCatalog(ws, SCRIPT_LIBRARY);
+      const idx = catalog.findIndex((row) => row.key === key);
+      if (idx < 0) {
+        return res.status(404).json({ success: false, error: 'Offer not found.' });
+      }
+      catalog[idx] = workspaceSalesScripts.patchOfferOutreachFields(
+        catalog[idx],
+        req.body.outreachProfile,
+      );
+      ws.salesScriptOfferCatalog = catalog;
     } else if (req.body?.key && req.body?.label) {
       const bundle = workspaceOfferBundle(ws);
       const key = String(req.body.key).trim();
@@ -1490,7 +1505,7 @@ router.patch('/scripts/offers', express.json({ limit: '128kb' }), async (req, re
           : row,
       );
     } else {
-      return res.status(400).json({ success: false, error: 'catalog array or key+label required.' });
+      return res.status(400).json({ success: false, error: 'catalog array, key+label, or key+outreachProfile required.' });
     }
     ws.salesScriptsUpdatedAt = new Date().toISOString();
     await dbService.saveWorkspace(wid, ws);
