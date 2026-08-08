@@ -48,6 +48,7 @@ const { CARS_REACH_SPECIALTIES } = require('../config/carsReachScripts');
 const { UPWORK_PROPOSAL_SERVICES } = require('../config/upworkProposalServices');
 const signalwire = require('../services/signalwire');
 const { parseDialRetryFromBody } = require('../services/dialRetryPrefs');
+const { runGhlWorkflowCoach } = require('../services/ghlWorkflowCoach');
 const inboundForwardStats = require('../services/inboundForwardStats');
 const {
   sanitizeBlockOverrides,
@@ -1537,6 +1538,29 @@ router.delete('/scripts/offers/:key', async (req, res, next) => {
     await dbService.saveWorkspace(wid, ws);
     const nextBundle = workspaceOfferBundle(ws);
     res.json({ success: true, catalog: nextBundle.catalog, library: nextBundle.library });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** POST JSON: AI GHL auto-outreach workflow brainstorm + prompt generator. */
+router.post('/ghl/workflow-coach', express.json({ limit: '128kb' }), async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Manage permission required.' });
+    }
+    const body = req.body || {};
+    const userMessage = typeof body.userMessage === 'string' ? body.userMessage.trim() : '';
+    const chatHistory = Array.isArray(body.chatHistory) ? body.chatHistory : [];
+    const senderOfferKey = typeof body.senderOfferKey === 'string' ? body.senderOfferKey.trim() : '';
+    const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId, members: {} };
+    const result = await runGhlWorkflowCoach({
+      workspace: ws,
+      userMessage,
+      chatHistory,
+      senderOfferKey,
+    });
+    res.json(result);
   } catch (e) {
     next(e);
   }
