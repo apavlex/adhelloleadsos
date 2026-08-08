@@ -42,3 +42,15 @@ services:
       - key: PERMITSTACK_API_KEY
         sync: false
         optional: true
+      - key: RAPIDAPI_WEBSITE_HOST
+        sync: false
+        optional: true
+      - key: RAPIDAPI_WEBSITE_ENDPOINT
+        sync: false
+        optional: true
+      - key: RAPIDAPI_WEBSITE_URL_PARAM
+        sync: false
+        optional: true
+      - key: RAPIDAPI_WEBSITE_METHOD
+        sync: false
+        optional: true

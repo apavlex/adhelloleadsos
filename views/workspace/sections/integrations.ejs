@@ -106,13 +106,19 @@
               <% if (masks.rapidapiSearchLimitParam) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="rapidapiSearchLimitParam_clear" value="1" /> Remove</label><% } %>
             </div>
           </div>
+          <p class="text-xs text-brand-muted leading-relaxed rounded-xl border border-brand-yellow/30 bg-brand-yellow/5 px-3 py-2">
+            Need a <strong class="text-brand-dark dark:text-white">second RapidAPI</strong> for website email, phone, and socials?
+            Configure it in the card below — do not replace this Maps host/endpoint.
+            <a href="#integration-rapidapi-website" class="underline font-semibold text-brand-dark dark:text-brand-yellow ml-1">Jump to website scraper ↓</a>
+          </p>
           <%- include('../../partials/integration_test_row', { provider: 'rapidapi' }) %>
         </section>
 
         <section id="integration-rapidapi-website" class="rounded-2xl border-2 border-brand-yellow/25 dark:border-brand-yellow/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
           <header class="flex flex-wrap items-start justify-between gap-3">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow w-full">Second RapidAPI — lead enrichment</p>
             <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">RapidAPI — Website contacts &amp; socials</h3>
-            <p class="text-xs text-brand-muted mt-1 leading-relaxed">Second RapidAPI subscription that scrapes a lead&apos;s website for email, phone, and social links. Powers the <strong class="text-brand-dark dark:text-white">Enrich website</strong> button in Focus and the company profile sidebar. Leave key blank to reuse your Maps RapidAPI key.</p>
+            <p class="text-xs text-brand-muted mt-1 leading-relaxed w-full">Scrapes a lead&apos;s website for email, phone, and social links. Powers the <strong class="text-brand-dark dark:text-white">Enrich website</strong> button in Focus and the company profile sidebar. Leave key blank to reuse your Maps RapidAPI key.</p>
           </header>
           <div>
             <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key <span class="font-normal normal-case tracking-normal">(optional — uses Maps key)</span></label>
