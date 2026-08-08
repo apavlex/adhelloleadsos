@@ -23,4 +23,10 @@ describe('integrationProviderTests', () => {
     assert.ok(ids.includes('pagespeed'));
     assert.equal(PROVIDERS.rapidapi.fields.length, 5);
   });
+
+  test('resolveProviderId matches camelCase rapidapiWebsite', () => {
+    const { resolveProviderId } = require('../services/integrationProviderTests');
+    assert.equal(resolveProviderId('rapidapiWebsite'), 'rapidapiWebsite');
+    assert.equal(resolveProviderId('rapidapiwebsite'), 'rapidapiWebsite');
+  });
 });

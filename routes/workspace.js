@@ -710,9 +710,9 @@ router.post('/integrations/test/:provider', async (req, res) => {
     if (!req.canManageWorkspace) {
       return res.status(403).json({ success: false, error: 'Only admins can test integrations.' });
     }
-    const providerId = String(req.params.provider || '').toLowerCase();
-    if (!integrationProviderTests.PROVIDERS[providerId]) {
-      return res.status(400).json({ success: false, error: `Unknown provider: ${providerId}` });
+    const providerId = integrationProviderTests.resolveProviderId(req.params.provider);
+    if (!providerId || !integrationProviderTests.PROVIDERS[providerId]) {
+      return res.status(400).json({ success: false, error: `Unknown provider: ${req.params.provider}` });
     }
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     const shouldSave = Object.keys(body).length > 0;
@@ -730,7 +730,7 @@ router.post('/integrations/test/:provider', async (req, res) => {
     const result = await integrationProviderTests.runProviderTest(providerId, integrationEnv);
     return res.json({
       success: result.ok,
-      provider: providerId,
+      provider: providerId.toLowerCase(),
       saved: shouldSave,
       ...result,
     });

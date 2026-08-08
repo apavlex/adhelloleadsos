@@ -88,8 +88,17 @@ function listProviderIds() {
   return Object.keys(PROVIDERS);
 }
 
+function resolveProviderId(raw) {
+  const id = String(raw || '').trim();
+  if (!id) return '';
+  const lower = id.toLowerCase();
+  const match = Object.keys(PROVIDERS).find((key) => key.toLowerCase() === lower);
+  return match || lower;
+}
+
 function providerLabel(id) {
-  const p = PROVIDERS[String(id || '').toLowerCase()];
+  const resolved = resolveProviderId(id);
+  const p = PROVIDERS[resolved];
   return (p && p.label) || String(id || '');
 }
 
@@ -345,7 +354,7 @@ async function testMonid(integrationEnv) {
 
 const RUNNERS = {
   rapidapi: () => testRapidapi,
-  rapidapiWebsite: () => testRapidapiWebsite,
+  rapidapiwebsite: () => testRapidapiWebsite,
   searchapi: () => testSearchapi,
   serpapi: () => testSerpapi,
   outscraper: () => testOutscraper,
@@ -369,7 +378,7 @@ const RUNNERS = {
  * @param {Record<string, string>} integrationEnv
  */
 async function runProviderTest(providerId, integrationEnv) {
-  const id = String(providerId || '').toLowerCase();
+  const id = resolveProviderId(providerId).toLowerCase();
   const runnerFactory = RUNNERS[id];
   if (!runnerFactory) {
     throw new Error(`Unknown provider: ${providerId}`);
@@ -392,6 +401,7 @@ async function runAllProviderTests(integrationEnv) {
 module.exports = {
   PROVIDERS,
   listProviderIds,
+  resolveProviderId,
   providerLabel,
   mergeBodyIntoIntegrationEnv,
   runProviderTest,

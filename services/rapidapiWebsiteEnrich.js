@@ -72,6 +72,22 @@ function hasValue(v) {
   return s && s !== 'N/A' && s !== '—';
 }
 
+function websiteValueForParam(target, paramName) {
+  const param = String(paramName || '').trim().toLowerCase();
+  if (param === 'query' || param === 'domain' || param === 'site') {
+    try {
+      return new URL(target).hostname.replace(/^www\./i, '');
+    } catch {
+      return String(target || '')
+        .trim()
+        .replace(/^https?:\/\//i, '')
+        .replace(/^www\./i, '')
+        .split(/[/?#]/)[0];
+    }
+  }
+  return target;
+}
+
 function normalizeWebsiteUrl(raw) {
   const s = String(raw || '').trim();
   if (!hasValue(s)) return '';
@@ -239,22 +255,25 @@ async function scrapeWebsite(websiteUrl, integrationEnv) {
   };
 
   const paramAttempts =
-    param === DEFAULT_URL_PARAM ? [DEFAULT_URL_PARAM, 'domain', 'website', 'site'] : [param];
+    param === DEFAULT_URL_PARAM
+      ? [DEFAULT_URL_PARAM, 'query', 'domain', 'website', 'site']
+      : [param];
 
   let lastError = null;
   for (const qp of paramAttempts) {
     try {
+      const queryValue = websiteValueForParam(target, qp);
       let payload;
       if (method === 'POST') {
         const u = new URL(baseEndpoint);
         payload = await requestJson(u.toString(), {
           method: 'POST',
           headers: { ...headers, 'content-type': 'application/json' },
-          body: JSON.stringify({ [qp]: target }),
+          body: JSON.stringify({ [qp]: queryValue }),
         });
       } else {
         const u = new URL(baseEndpoint);
-        u.searchParams.set(qp, target);
+        u.searchParams.set(qp, queryValue);
         payload = await requestJson(u.toString(), { method: 'GET', headers });
       }
       const extract = parsePayloadToExtract(payload);
