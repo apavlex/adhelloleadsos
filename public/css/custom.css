@@ -986,6 +986,31 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   display: none !important;
 }
 
+#rapidapiWebsiteEnrichBtn[data-enrich-state="active"] .rapidapi-enrich-idle,
+#rapidapiWebsiteEnrichBtn[data-enrich-state="active"] .rapidapi-enrich-done,
+#rapidapiWebsiteEnrichBtn[data-enrich-state="done"] .rapidapi-enrich-idle,
+#rapidapiWebsiteEnrichBtn[data-enrich-state="done"] .rapidapi-enrich-active,
+#rapidapiWebsiteEnrichBtn[data-enrich-state="idle"] .rapidapi-enrich-active,
+#rapidapiWebsiteEnrichBtn[data-enrich-state="idle"] .rapidapi-enrich-done {
+  display: none !important;
+}
+
+#rapidapiWebsiteEnrichBtn[data-enrich-state="active"] .rapidapi-enrich-active,
+#rapidapiWebsiteEnrichBtn[data-enrich-state="done"] .rapidapi-enrich-done {
+  display: flex !important;
+}
+
+#rapidapiWebsiteEnrichBtn[data-enrich-state="active"] {
+  border-color: rgba(234, 179, 8, 0.65) !important;
+  animation: huntPulse 1.6s ease-in-out infinite;
+}
+
+#rapidapiWebsiteEnrichBtn[data-enrich-state="done"] {
+  border-color: rgba(16, 185, 129, 0.45) !important;
+  background: rgba(16, 185, 129, 0.08);
+  animation: none;
+}
+
 /* Website audit button — same active/loading pattern as hunt */
 #pageSpeedAuditRunBtn.audit-active,
 #pageSpeedAuditRunBtn[data-audit-state="active"] {

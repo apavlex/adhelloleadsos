@@ -11479,10 +11479,21 @@ document.addEventListener('DOMContentLoaded', () => {
       const panelLeadKey = String(row.dataset.leadKey || '').trim();
       rapidapiEnrichBtn.dataset.leadKey = panelLeadKey;
       const hasWebsite = !!(website && website !== 'N/A' && website !== '—');
-      rapidapiEnrichBtn.disabled = !panelLeadKey || !hasWebsite;
+      const blocked = !panelLeadKey || !hasWebsite;
+      rapidapiEnrichBtn.dataset.enrichBlocked = blocked ? '1' : '0';
+      rapidapiEnrichBtn.dataset.enrichBlockedReason = !panelLeadKey
+        ? 'Save this lead before enriching.'
+        : !hasWebsite
+          ? 'Add a website URL to this lead before enriching.'
+          : '';
+      rapidapiEnrichBtn.disabled = false;
+      rapidapiEnrichBtn.classList.toggle('opacity-55', blocked);
       rapidapiEnrichBtn.title = hasWebsite
         ? 'Scrape website for email, phone, and social links via RapidAPI'
         : 'Add a website URL to enrich from RapidAPI';
+      if (typeof window.setRapidapiWebsiteEnrichUi === 'function') {
+        window.setRapidapiWebsiteEnrichUi(rapidapiEnrichBtn, 'idle');
+      }
     }
 
     syncMobilePanelCqi(row);
@@ -14556,6 +14567,51 @@ document.addEventListener('DOMContentLoaded', () => {
     );
   }
 
+  if (!window.__adhelloRapidapiEnrichCaptureBound) {
+    window.__adhelloRapidapiEnrichCaptureBound = true;
+    document.addEventListener(
+      'click',
+      (e) => {
+        const btn = e.target.closest('#rapidapiWebsiteEnrichBtn');
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof window.runLeadRapidapiWebsiteEnrich !== 'function') {
+          const msg = 'Enrich script not loaded — refresh the page.';
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast(msg, { variant: 'error' });
+          } else window.alert(msg);
+          return;
+        }
+        const row = resolveRowForLeadPanelActions();
+        if (row) currentRow = row;
+        const key =
+          btn.getAttribute('data-lead-key') ||
+          (row && String(row.dataset.leadKey || '').trim()) ||
+          '';
+        const blocked =
+          btn.getAttribute('data-enrich-blocked') === '1'
+            ? btn.getAttribute('data-enrich-blocked-reason') ||
+              'Add a website URL to this lead before enriching.'
+            : '';
+        void window.runLeadRapidapiWebsiteEnrich(key, {
+          btn,
+          statusEl: document.getElementById('rapidapiWebsiteEnrichStatus'),
+          blockedReason: blocked,
+          onUpdated: (lead) => {
+            const activeRow = resolveRowForLeadPanelActions(row);
+            if (!lead || !activeRow) return;
+            if (typeof syncPersistedLeadToRowDataset === 'function') {
+              syncPersistedLeadToRowDataset(activeRow, lead);
+            }
+            populatePanel(activeRow);
+          },
+        });
+      },
+      true,
+    );
+  }
+
   if (typeof window.bindRapidapiWebsiteEnrichButton === 'function') {
     window.bindRapidapiWebsiteEnrichButton(document.getElementById('rapidapiWebsiteEnrichBtn'), {
       statusEl: document.getElementById('rapidapiWebsiteEnrichStatus'),
@@ -14571,7 +14627,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         populatePanel(row);
         if (typeof window.showAppToast === 'function') {
-          window.showAppToast('Website enriched from RapidAPI', { variant: 'success' });
+          window.showAppToast('Contacts enriched', { variant: 'success' });
         }
       },
     });
