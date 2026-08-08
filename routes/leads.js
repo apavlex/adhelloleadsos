@@ -19,6 +19,8 @@ const reviewHunt = require('../services/reviewHunt');
 const outscraperGmbEnrich = require('../services/outscraperGmbEnrich');
 const outscraperLeadEnrich = require('../services/outscraperLeadEnrich');
 const leadPanelEnrich = require('../services/leadPanelEnrich');
+const rapidapiWebsiteEnrich = require('../services/rapidapiWebsiteEnrich');
+const workspaceIntegrations = require('../services/workspaceIntegrations');
 const builtWithEnrich = require('../services/builtWithEnrich');
 const outscraper = require('../services/outscraperClient');
 const { generateReviewIntelForLead } = require('../services/reviewIntel');
@@ -3965,6 +3967,78 @@ router.get('/:key/enhance-status', async (req, res, next) => {
     return res.json({ status: 'done', ...result });
   } catch (err) {
     next(err);
+  }
+});
+
+// POST /leads/:key/enrich-rapidapi-website — RapidAPI website scrape for contacts & socials (sync)
+router.post('/:key/enrich-rapidapi-website', async (req, res, next) => {
+  try {
+    const key = req.params.key;
+    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) {
+      return res.status(404).json({ success: false, error: 'Lead not found.' });
+    }
+    if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
+
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
+    if (!rapidapiWebsiteEnrich.isConfigured(integrationEnv)) {
+      return res.status(422).json({
+        success: false,
+        error:
+          'RapidAPI website enrich is not configured. Add endpoint + host under Workspace → Integrations → RapidAPI Website.',
+      });
+    }
+    if (!rapidapiWebsiteEnrich.leadCanEnrichFromWebsite(lead)) {
+      return res.status(422).json({
+        success: false,
+        error: 'Lead needs a website URL before RapidAPI can scrape contacts and socials.',
+      });
+    }
+
+    const pack = await rapidapiWebsiteEnrich.enrichLeadFromWebsite(lead, integrationEnv);
+    if (pack.error && pack.error !== 'no_new_fields') {
+      const status = pack.error === 'not_configured' ? 422 : 502;
+      return res.status(status).json({
+        success: false,
+        error:
+          pack.error === 'no_website'
+            ? 'Lead needs a website URL.'
+            : pack.error || 'RapidAPI website enrich failed.',
+      });
+    }
+
+    const stamp = new Date().toISOString();
+    const patch = {
+      ...(pack.patch || {}),
+      lastRapidapiWebsiteEnrichAt: stamp,
+    };
+    let updated = lead;
+    if (Object.keys(pack.patch || {}).length) {
+      updated = await dbService.updateLead(fullKey, patch, req.workspaceId);
+    } else {
+      await dbService.updateLead(fullKey, { lastRapidapiWebsiteEnrichAt: stamp }, req.workspaceId);
+      updated = { ...lead, lastRapidapiWebsiteEnrichAt: stamp };
+    }
+
+    return res.json({
+      success: true,
+      lead: updated,
+      filled: pack.filled || [],
+      sources: ['RapidAPI Website'],
+      message:
+        (pack.filled && pack.filled.length)
+          ? `Added ${pack.filled.join(', ')} from website scrape.`
+          : 'Scrape completed — no new contact fields to add (existing data kept).',
+    });
+  } catch (err) {
+    console.error('RapidAPI website enrich error:', err.message);
+    return res.status(502).json({
+      success: false,
+      error: err.message || 'RapidAPI website enrich failed.',
+    });
   }
 });
 

@@ -4,6 +4,7 @@
 
 const { ApifyClient } = require('apify-client');
 const rapidapiClient = require('./rapidapiLocalBusiness');
+const rapidapiWebsiteEnrich = require('./rapidapiWebsiteEnrich');
 const searchapiGoogleLocal = require('./searchapiGoogleLocal');
 const serpapiGoogleLocal = require('./serpapiGoogleLocal');
 const outscraperClient = require('./outscraperClient');
@@ -31,13 +32,23 @@ const SAMPLE_SEARCH = {
 /** @type {Record<string, { label: string, fields: string[] }>} */
 const PROVIDERS = {
   rapidapi: {
-    label: 'RapidAPI',
+    label: 'RapidAPI Maps',
     fields: [
       'rapidapiKey',
       'rapidapiHost',
       'rapidapiLocalBusinessEndpoint',
       'rapidapiSearchQueryParam',
       'rapidapiSearchLimitParam',
+    ],
+  },
+  rapidapiWebsite: {
+    label: 'RapidAPI Website enrich',
+    fields: [
+      'rapidapiWebsiteKey',
+      'rapidapiWebsiteHost',
+      'rapidapiWebsiteEndpoint',
+      'rapidapiWebsiteUrlParam',
+      'rapidapiWebsiteMethod',
     ],
   },
   searchapi: { label: 'SearchAPI.io', fields: ['searchapiApiKey'] },
@@ -140,6 +151,22 @@ async function testRapidapi(integrationEnv) {
   const sample = rows[0];
   const name = sample && (sample.title || sample.name) ? String(sample.title || sample.name) : 'place';
   return { message: `Connected — sample search returned ${n} place(s), e.g. "${name.slice(0, 48)}"` };
+}
+
+async function testRapidapiWebsite(integrationEnv) {
+  if (!rapidapiWebsiteEnrich.isConfigured(integrationEnv)) {
+    throw new Error(
+      'Missing RapidAPI website endpoint — set endpoint URL (and optional dedicated key) then save.',
+    );
+  }
+  const pack = await rapidapiWebsiteEnrich.scrapeWebsite('https://example.com', integrationEnv);
+  const fields = Object.keys(pack.extract || {});
+  return {
+    message:
+      fields.length > 0
+        ? `Connected — sample scrape returned: ${fields.join(', ')}`
+        : 'API responded but returned no contacts/socials for example.com — check URL param name.',
+  };
 }
 
 async function testSearchapi(integrationEnv) {
@@ -318,6 +345,7 @@ async function testMonid(integrationEnv) {
 
 const RUNNERS = {
   rapidapi: () => testRapidapi,
+  rapidapiWebsite: () => testRapidapiWebsite,
   searchapi: () => testSearchapi,
   serpapi: () => testSerpapi,
   outscraper: () => testOutscraper,

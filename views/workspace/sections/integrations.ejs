@@ -69,9 +69,9 @@
       <div class="space-y-4">
         <section id="integration-rapidapi" class="rounded-2xl border-2 border-brand-yellow/25 dark:border-brand-yellow/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
           <header class="flex flex-wrap items-start justify-between gap-3">
-            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">RapidAPI</h3>
+            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">RapidAPI — Google Maps</h3>
             <% if (_mapsProviderById.rapidapi) { %><%- include('../../partials/integration_provider_status_pill', { label: _mapsProviderById.rapidapi.label, connected: _mapsProviderById.rapidapi.configured }) %><% } %>
-            <p class="text-xs text-brand-muted mt-1 leading-relaxed">Local Business / Google Maps search on RapidAPI. Default first provider in Auto mode. Subscribe on <a href="https://rapidapi.com/" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">rapidapi.com</a>.</p>
+            <p class="text-xs text-brand-muted mt-1 leading-relaxed">Local Business / Google Maps search on RapidAPI. Default first provider in Auto mode. Uses the key below (shared with other RapidAPI products if you use one account).</p>
           </header>
           <div>
             <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
@@ -107,6 +107,50 @@
             </div>
           </div>
           <%- include('../../partials/integration_test_row', { provider: 'rapidapi' }) %>
+        </section>
+
+        <section id="integration-rapidapi-website" class="rounded-2xl border-2 border-brand-yellow/25 dark:border-brand-yellow/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
+          <header class="flex flex-wrap items-start justify-between gap-3">
+            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">RapidAPI — Website contacts &amp; socials</h3>
+            <p class="text-xs text-brand-muted mt-1 leading-relaxed">Second RapidAPI subscription that scrapes a lead&apos;s website for email, phone, and social links. Powers the <strong class="text-brand-dark dark:text-white">Enrich website</strong> button in Focus and the company profile sidebar. Leave key blank to reuse your Maps RapidAPI key.</p>
+          </header>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key <span class="font-normal normal-case tracking-normal">(optional — uses Maps key)</span></label>
+            <% if (masks.rapidapiWebsiteKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.rapidapiWebsiteKey %></p><% } %>
+            <input type="password" name="rapidapiWebsiteKey" autocomplete="off" placeholder="Dedicated key, or leave blank to use Maps key" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <% if (masks.rapidapiWebsiteKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="rapidapiWebsiteKey_clear" value="1" /> Remove saved key</label><% } %>
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Host</label>
+            <% if (masks.rapidapiWebsiteHost) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.rapidapiWebsiteHost %></p><% } %>
+            <input type="text" name="rapidapiWebsiteHost" autocomplete="off" placeholder="your-api.p.rapidapi.com" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <% if (masks.rapidapiWebsiteHost) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="rapidapiWebsiteHost_clear" value="1" /> Remove</label><% } %>
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Scrape endpoint URL</label>
+            <% if (masks.rapidapiWebsiteEndpoint) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.rapidapiWebsiteEndpoint %></p><% } %>
+            <input type="text" name="rapidapiWebsiteEndpoint" autocomplete="off" placeholder="https://your-api.p.rapidapi.com/scrape" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <p class="text-xs text-brand-muted mt-2 leading-relaxed">Full URL from your API&apos;s RapidAPI page. Host header is inferred from this URL if host is empty.</p>
+            <% if (masks.rapidapiWebsiteEndpoint) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="rapidapiWebsiteEndpoint_clear" value="1" /> Remove</label><% } %>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">URL param <span class="font-normal normal-case tracking-normal">(optional)</span></label>
+              <% if (masks.rapidapiWebsiteUrlParam) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.rapidapiWebsiteUrlParam %></p><% } %>
+              <input type="text" name="rapidapiWebsiteUrlParam" autocomplete="off" placeholder="url" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+              <% if (masks.rapidapiWebsiteUrlParam) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="rapidapiWebsiteUrlParam_clear" value="1" /> Remove</label><% } %>
+            </div>
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">HTTP method <span class="font-normal normal-case tracking-normal">(optional)</span></label>
+              <% if (masks.rapidapiWebsiteMethod) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.rapidapiWebsiteMethod %></p><% } %>
+              <select name="rapidapiWebsiteMethod" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm">
+                <option value="">GET (default)</option>
+                <option value="GET" <%= masks.rapidapiWebsiteMethod === 'GET' ? 'selected' : '' %>>GET</option>
+                <option value="POST" <%= masks.rapidapiWebsiteMethod === 'POST' ? 'selected' : '' %>>POST</option>
+              </select>
+            </div>
+          </div>
+          <%- include('../../partials/integration_test_row', { provider: 'rapidapiWebsite' }) %>
         </section>
 
         <section id="integration-searchapi" class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">

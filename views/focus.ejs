@@ -126,11 +126,13 @@
             <div class="mt-3 pt-3 border-t border-brand-border/50 dark:border-white/10">
               <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-2">Quick copy</p>
               <div class="flex flex-wrap gap-2">
+                <button type="button" id="focus-rapidapi-enrich-btn" class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-brand-yellow/50 bg-brand-yellow/10 text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors">Enrich website</button>
                 <button type="button" id="focus-copy-phone" class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-brand-border/60 dark:border-white/15 text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors">Phone</button>
                 <button type="button" id="focus-copy-email" class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-brand-border/60 dark:border-white/15 text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors">Email</button>
                 <button type="button" id="focus-copy-website" class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-brand-border/60 dark:border-white/15 text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors">Website</button>
               </div>
               <p id="focus-copy-feedback" class="text-[11px] text-brand-muted mt-2 min-h-[1rem]"></p>
+              <p id="focus-rapidapi-enrich-status" class="hidden text-[11px] leading-relaxed mt-1" role="status"></p>
             </div>
           </div>
         </div>
@@ -408,6 +410,7 @@
   <script type="application/json" id="focus-script-library-json"><%- typeof focusScriptLibraryJson !== 'undefined' ? focusScriptLibraryJson : '{}' %></script>
   <script type="application/json" id="workspace-tags-json"><%- JSON.stringify(typeof workspaceTags !== 'undefined' ? workspaceTags : []) %></script>
   <script src="/js/lead-send-info.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
+  <script src="/js/lead-rapidapi-enrich.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
   <script src="/js/gcal-datetime-picker.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
   <script>
     try {
@@ -1797,6 +1800,12 @@
       renderFocusMap(lead);
       renderWhyReasons(lead);
       renderBuiltWith(lead);
+
+      var rapidBtn = document.getElementById('focus-rapidapi-enrich-btn');
+      if (rapidBtn) {
+        rapidBtn.dataset.leadKey = focusLeadKeyParam(lead);
+        rapidBtn.disabled = !hrefUrl(lead.website || '');
+      }
     }
 
     function renderTouchPoints(lead) {
@@ -3166,6 +3175,30 @@
 
     if (elServiceSelect) {
       elServiceSelect.value = getDefaultProductKey();
+    }
+
+    if (typeof window.bindRapidapiWebsiteEnrichButton === 'function') {
+      window.bindRapidapiWebsiteEnrichButton(document.getElementById('focus-rapidapi-enrich-btn'), {
+        statusEl: document.getElementById('focus-rapidapi-enrich-status'),
+        getLeadKey: function () {
+          var lead = currentLead();
+          return lead ? focusLeadKeyParam(lead) : '';
+        },
+        onUpdated: function (updatedLead) {
+          if (!updatedLead) return;
+          var lead = currentLead();
+          if (lead) {
+            Object.keys(updatedLead).forEach(function (k) {
+              if (updatedLead[k] !== undefined && updatedLead[k] !== null) lead[k] = updatedLead[k];
+            });
+          }
+          renderLinks(lead || updatedLead);
+          renderBusinessInfo(lead || updatedLead);
+          if (elCopyFeedback) {
+            elCopyFeedback.textContent = 'Website enriched from RapidAPI.';
+          }
+        },
+      });
     }
 
     if (!queue.length) {

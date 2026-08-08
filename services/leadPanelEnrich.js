@@ -8,6 +8,7 @@ const outscraperGmbEnrich = require('./outscraperGmbEnrich');
 const outscraperLeadEnrich = require('./outscraperLeadEnrich');
 const builtWithEnrich = require('./builtWithEnrich');
 const mapsEnrichFallback = require('./mapsEnrichFallback');
+const rapidapiWebsiteEnrich = require('./rapidapiWebsiteEnrich');
 const { firecrawlExtractToLeadUpdates } = require('./enrichmentNormalize');
 const { hasContactValue, leadMissingCoreContact } = require('./leadPanelNormalize');
 
@@ -47,6 +48,29 @@ async function enrichLeadForPanelSidebar(lead, integrationEnv, opts) {
   const sources = [];
 
   const working = { ...lead };
+
+  if (
+    rapidapiWebsiteEnrich.isConfigured(integrationEnv) &&
+    rapidapiWebsiteEnrich.leadCanEnrichFromWebsite(working)
+  ) {
+    try {
+      const rapid = await raceTimeout(
+        rapidapiWebsiteEnrich.enrichLeadFromWebsite(working, integrationEnv),
+        Math.min(timeoutMs, 12000),
+        'rapidapi_website',
+      );
+      if (rapid && rapid.used && rapid.patch) {
+        sources.push('RapidAPI Website');
+        mergePatch(patch, rapid.patch);
+        extract = mergeExtract(extract, rapid.extract || {});
+        Object.assign(working, patch);
+      }
+    } catch (e) {
+      if (!String(e.message || '').includes('_timeout')) {
+        console.warn('[leadPanelEnrich] RapidAPI website skipped:', e.message);
+      }
+    }
+  }
 
   if (outscraper.isConfigured(integrationEnv)) {
     try {

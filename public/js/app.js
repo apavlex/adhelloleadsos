@@ -11474,6 +11474,17 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error('[Lead detail panel] populateCadenceSection failed:', cadenceErr);
     }
 
+    const rapidapiEnrichBtn = document.getElementById('rapidapiWebsiteEnrichBtn');
+    if (rapidapiEnrichBtn) {
+      const panelLeadKey = String(row.dataset.leadKey || '').trim();
+      rapidapiEnrichBtn.dataset.leadKey = panelLeadKey;
+      const hasWebsite = !!(website && website !== 'N/A' && website !== '—');
+      rapidapiEnrichBtn.disabled = !panelLeadKey || !hasWebsite;
+      rapidapiEnrichBtn.title = hasWebsite
+        ? 'Scrape website for email, phone, and social links via RapidAPI'
+        : 'Add a website URL to enrich from RapidAPI';
+    }
+
     syncMobilePanelCqi(row);
 
     syncLeadPrimaryServiceSelect(row);
@@ -14543,6 +14554,27 @@ document.addEventListener('DOMContentLoaded', () => {
       },
       true,
     );
+  }
+
+  if (typeof window.bindRapidapiWebsiteEnrichButton === 'function') {
+    window.bindRapidapiWebsiteEnrichButton(document.getElementById('rapidapiWebsiteEnrichBtn'), {
+      statusEl: document.getElementById('rapidapiWebsiteEnrichStatus'),
+      getLeadKey: () => {
+        const row = resolveRowForLeadPanelActions();
+        return row ? String(row.dataset.leadKey || '').trim() : '';
+      },
+      onUpdated: (lead) => {
+        const row = resolveRowForLeadPanelActions();
+        if (!lead || !row) return;
+        if (typeof syncPersistedLeadToRowDataset === 'function') {
+          syncPersistedLeadToRowDataset(row, lead);
+        }
+        populatePanel(row);
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast('Website enriched from RapidAPI', { variant: 'success' });
+        }
+      },
+    });
   }
 
   const reviewIntelRefreshBtn = document.getElementById('reviewIntelRefreshBtn');
