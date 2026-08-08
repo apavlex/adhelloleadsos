@@ -37,7 +37,14 @@ function normalizeOfferCatalogEntry(raw, existingKeys) {
   if (!/^[a-z][a-z0-9_]*$/i.test(key)) return null;
   existingKeys.add(key);
   const tabLabel = String(raw.tabLabel || raw.label || label).trim().slice(0, MAX_LABEL_LEN) || label;
-  return { key, label, tabLabel };
+  return {
+    key,
+    label,
+    tabLabel,
+    senderBusinessName: String(raw.senderBusinessName || '').trim().slice(0, MAX_LABEL_LEN),
+    vertical: String(raw.vertical || '').trim().slice(0, 80),
+    auditLink: String(raw.auditLink || '').trim().slice(0, 500),
+  };
 }
 
 function defaultOfferCatalog(baseLib) {

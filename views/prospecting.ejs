@@ -373,6 +373,18 @@
           <input type="checkbox" id="folderOutreachSmsOnly" class="rounded border-brand-border mt-0.5" />
           <span><strong class="font-bold">SMS-ready only</strong> — skip landlines (Mobile / VoIP). Best when your GHL workflow sends text first.</span>
         </label>
+        <div>
+          <label for="folderOutreachSenderOfferKey" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Sender business profile</label>
+          <select id="folderOutreachSenderOfferKey" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold">
+            <option value="">Workspace default (first offer)</option>
+            <% if (typeof scriptLibraryOfferPicklist !== 'undefined' && Array.isArray(scriptLibraryOfferPicklist)) { %>
+            <% scriptLibraryOfferPicklist.forEach(function (o) { if (!o || !o.key) return; %>
+            <option value="<%= o.key %>"><%= o.label || o.key %></option>
+            <% }); %>
+            <% } %>
+          </select>
+          <p class="text-[11px] text-brand-muted mt-1">Which of your businesses GHL should represent for leads in this folder. Syncs AdHello Sender * fields on enroll.</p>
+        </div>
       </div>
       <%- include('/partials/ghl_auto_outreach_workflow_prompt', { promptId: 'ghlAutoOutreachPromptFolder', compact: true }) %>
       <p id="folderOutreachStatus" class="text-xs text-brand-muted mt-4 hidden" role="status"></p>
@@ -627,6 +639,7 @@
         tier: oa.tier || '',
         minScore: oa.minScore != null && oa.minScore !== '' ? oa.minScore : '',
         smsOnly: oa.smsOnly === true,
+        senderOfferKey: oa.senderOfferKey || '',
       };
     }
 
@@ -652,6 +665,7 @@
       if ($('folderOutreachTier')) $('folderOutreachTier').value = s.tier || '';
       if ($('folderOutreachMinScore')) $('folderOutreachMinScore').value = s.minScore !== '' ? String(s.minScore) : '';
       if ($('folderOutreachSmsOnly')) $('folderOutreachSmsOnly').checked = !!s.smsOnly;
+      if ($('folderOutreachSenderOfferKey')) $('folderOutreachSenderOfferKey').value = s.senderOfferKey || '';
     }
 
     function buildFolderOutreachPayload(folderKey) {
@@ -662,6 +676,7 @@
         tier: ($('folderOutreachTier') && $('folderOutreachTier').value) || '',
         minScore: ($('folderOutreachMinScore') && $('folderOutreachMinScore').value) || '',
         smsOnly: !!($('folderOutreachSmsOnly') && $('folderOutreachSmsOnly').checked),
+        senderOfferKey: ($('folderOutreachSenderOfferKey') && $('folderOutreachSenderOfferKey').value) || '',
       };
     }
 

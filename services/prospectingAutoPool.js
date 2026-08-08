@@ -16,6 +16,7 @@ const DEFAULT_AUTO_POOL = {
   maxLeads: 50,
   minScore: null,
   tier: 'Hot',
+  senderOfferKey: '',
 };
 
 function normalizeAutoPoolSettings(raw) {
@@ -27,6 +28,7 @@ function normalizeAutoPoolSettings(raw) {
     maxLeads: Number.isFinite(maxLeads) ? Math.max(1, Math.min(200, maxLeads)) : DEFAULT_AUTO_POOL.maxLeads,
     minScore: Number.isFinite(minScore) ? minScore : null,
     tier: String(s.tier || DEFAULT_AUTO_POOL.tier).trim() || DEFAULT_AUTO_POOL.tier,
+    senderOfferKey: String(s.senderOfferKey || '').trim(),
   };
 }
 
@@ -92,6 +94,7 @@ async function runAutoPool(opts) {
       workspaceId,
       reEnroll: false,
       tagLead: true,
+      senderOfferKey: settings.senderOfferKey || '',
     });
     results.push(r);
     if (r.enrolled) enrolled += 1;

@@ -120,6 +120,12 @@ async function enrollLeadInAutoOutreach(opts) {
     status: 'active',
     lastEnrolledAt: now,
   };
+  const senderOfferKey = String(opts.senderOfferKey || '').trim();
+  if (senderOfferKey) {
+    prospecting.senderOfferKey = senderOfferKey;
+  } else if (lead.prospecting && lead.prospecting.senderOfferKey) {
+    prospecting.senderOfferKey = String(lead.prospecting.senderOfferKey).trim();
+  }
 
   const updated = await dbService.updateLead(
     key,

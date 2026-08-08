@@ -400,6 +400,13 @@ router.get('/integrations/chrome-extension/download', async (req, res, next) => 
 router.get('/integrations/ghl-setup', async (req, res, next) => {
   try {
     const locals = await loadWorkspacePageLocals(req);
+    const ws = locals.workspace;
+    const mergedScriptLibrary = buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
+    const offerKeys = salesScriptsStorage.getWorkspaceScriptKeys(ws, SCRIPT_LIBRARY);
+    const scriptLibraryOfferPicklist = offerKeys.map((k) => ({
+      key: k,
+      label: (mergedScriptLibrary[k] && mergedScriptLibrary[k].label) || k,
+    }));
     const resolvedEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
     const ghlStatus = { ...ghlSync.statusFromEnv(resolvedEnv) };
     if (ghlStatus.configured) {
@@ -415,6 +422,7 @@ router.get('/integrations/ghl-setup', async (req, res, next) => {
     res.render('workspace', {
       ...locals,
       ghlStatus,
+      scriptLibraryOfferPicklist,
       title: 'Connect Go High Level · Workspace',
       workspaceSection: 'ghl-setup',
       workspaceSectionTitle: 'Connect Go High Level',
@@ -1209,6 +1217,7 @@ router.post('/settings', express.json(), async (req, res) => {
         Object.prototype.hasOwnProperty.call(req.body, 'prospectingAutoPoolMaxLeads') ||
         Object.prototype.hasOwnProperty.call(req.body, 'prospectingAutoPoolMinScore') ||
         Object.prototype.hasOwnProperty.call(req.body, 'prospectingAutoPoolTier') ||
+        Object.prototype.hasOwnProperty.call(req.body, 'prospectingAutoPoolSenderOfferKey') ||
         Object.prototype.hasOwnProperty.call(req.body, 'prospectingAutoPool'))
     ) {
       const { normalizeAutoPoolSettings } = require('../services/prospectingAutoPool');
@@ -1238,6 +1247,9 @@ router.post('/settings', express.json(), async (req, res) => {
         }
         if (Object.prototype.hasOwnProperty.call(req.body, 'prospectingAutoPoolTier')) {
           next.tier = String(req.body.prospectingAutoPoolTier || 'Hot').trim() || 'Hot';
+        }
+        if (Object.prototype.hasOwnProperty.call(req.body, 'prospectingAutoPoolSenderOfferKey')) {
+          next.senderOfferKey = String(req.body.prospectingAutoPoolSenderOfferKey || '').trim();
         }
         prospecting.autoPool = normalizeAutoPoolSettings(next);
       }

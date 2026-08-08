@@ -3,14 +3,9 @@
 <% const _masks = typeof integrationMasks !== 'undefined' ? integrationMasks : {}; %>
 <% const _hookReady = !!_masks.ghlWebhookSecret || (typeof ghlWebhookTokenHint !== 'undefined' && ghlWebhookTokenHint); %>
 <% const _wid = workspace && workspace.id ? workspace.id : 'default'; %>
-
-<% const _gs = typeof ghlStatus !== 'undefined' ? ghlStatus : {}; %>
-<% const _base = (typeof publicAppBaseUrl !== 'undefined' && publicAppBaseUrl) ? publicAppBaseUrl : ''; %>
-<% const _masks = typeof integrationMasks !== 'undefined' ? integrationMasks : {}; %>
-<% const _hookReady = !!_masks.ghlWebhookSecret || (typeof ghlWebhookTokenHint !== 'undefined' && ghlWebhookTokenHint); %>
-<% const _wid = workspace && workspace.id ? workspace.id : 'default'; %>
 <% const _autoPool = workspace && workspace.prospecting && workspace.prospecting.autoPool ? workspace.prospecting.autoPool : {}; %>
 <% const _canManage = typeof canManageWorkspace !== 'undefined' && canManageWorkspace; %>
+<% const _senderOffers = (typeof scriptLibraryOfferPicklist !== 'undefined' && Array.isArray(scriptLibraryOfferPicklist)) ? scriptLibraryOfferPicklist : []; %>
 
 <div class="space-y-8 max-w-3xl">
   <%- include('../../partials/ghl_connection_banner', { ghlStatus: _gs }) %>
@@ -22,7 +17,7 @@
       <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white mb-1">Auto outreach pool</h2>
       <p class="text-sm text-brand-muted leading-relaxed">Daily job picks top Hot leads (by score), tags <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">auto-outreach</code>, and syncs each contact to GHL. Your GHL workflow (email, SMS, voicemail/RVM, etc.) runs when that tag is added — configure it once in GHL.</p>
       <p class="text-xs text-brand-muted leading-relaxed mt-2"><strong class="text-brand-dark dark:text-white">GHL setup:</strong> create an automation workflow triggered by <strong>Contact tag added</strong> → tag name <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">auto-outreach</code>. Add your email, SMS, and RVM/voicemail steps there (editable anytime in GHL).</p>
-      <p class="text-xs text-brand-muted leading-relaxed mt-2"><strong class="text-brand-dark dark:text-white">Per-folder outreach:</strong> enable <strong>Auto outreach</strong> on any folder under Prospecting → Folders. AdHello syncs <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">AdHello Phone Line Type</code> and <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">AdHello SMS OK</code> to GHL — branch SMS steps when SMS OK = Yes (skip landlines).</p>
+      <p class="text-xs text-brand-muted leading-relaxed mt-2"><strong class="text-brand-dark dark:text-white">Per-folder outreach:</strong> enable <strong>Auto outreach</strong> on any folder under Prospecting → Folders. Pick a <strong>sender business profile</strong> (Workspace → Scripts / Offers) so GHL knows which of your businesses is reaching out. AdHello syncs <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">AdHello Sender Business</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">AdHello Sender Pitch</code>, and related fields — plus phone line type for SMS branching.</p>
     </header>
     <div class="grid gap-4 sm:grid-cols-2">
       <label class="flex items-center gap-3 sm:col-span-2 cursor-pointer">
@@ -44,6 +39,16 @@
       <label class="block sm:col-span-2">
         <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Min opportunity score (optional)</span>
         <input type="number" id="autoPoolMinScore" min="0" max="10" step="0.5" value="<%= _autoPool.minScore != null ? _autoPool.minScore : '' %>" placeholder="e.g. 7" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" />
+      </label>
+      <label class="block sm:col-span-2">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Sender business profile (optional)</span>
+        <select id="autoPoolSenderOfferKey" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm">
+          <option value="">Workspace default (first offer)</option>
+          <% _senderOffers.forEach(function (o) { if (!o || !o.key) return; %>
+          <option value="<%= o.key %>"<%= String(_autoPool.senderOfferKey || '') === o.key ? ' selected' : '' %>><%= o.label || o.key %></option>
+          <% }); %>
+        </select>
+        <span class="text-[11px] text-brand-muted mt-1 block">Which of your businesses reaches out when auto-pool enrolls leads. Configure offers under <a href="/workspace/scripts" class="underline">Workspace → Scripts</a>.</span>
       </label>
     </div>
     <div class="mt-5 flex flex-wrap gap-3">
@@ -214,6 +219,7 @@
       prospectingAutoPoolMaxLeads: parseInt((document.getElementById('autoPoolMaxLeads') || {}).value, 10) || 50,
       prospectingAutoPoolTier: (document.getElementById('autoPoolTier') || {}).value || 'Hot',
       prospectingAutoPoolMinScore: minRaw && minRaw.value !== '' ? minRaw.value : '',
+      prospectingAutoPoolSenderOfferKey: (document.getElementById('autoPoolSenderOfferKey') || {}).value || '',
     };
   }
   function setAutoPoolStatus(msg, ok) {

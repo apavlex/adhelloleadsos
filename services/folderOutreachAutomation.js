@@ -18,6 +18,7 @@ const DEFAULT_FOLDER_OUTREACH = {
   minScore: null,
   tier: '',
   smsOnly: false,
+  senderOfferKey: '',
 };
 
 function normalizeFolderOutreachSettings(raw) {
@@ -30,6 +31,7 @@ function normalizeFolderOutreachSettings(raw) {
     minScore: Number.isFinite(minScore) ? minScore : null,
     tier: String(s.tier || '').trim(),
     smsOnly: s.smsOnly === true,
+    senderOfferKey: String(s.senderOfferKey || '').trim(),
     lastRunAt: s.lastRunAt ? String(s.lastRunAt) : '',
     lastEnrolled: Number.isFinite(Number(s.lastEnrolled)) ? Number(s.lastEnrolled) : 0,
     lastCandidateCount: Number.isFinite(Number(s.lastCandidateCount)) ? Number(s.lastCandidateCount) : 0,
@@ -112,6 +114,7 @@ async function runFolderOutreach(opts) {
       workspaceId,
       reEnroll: false,
       tagLead: true,
+      senderOfferKey: settings.senderOfferKey || '',
     });
     results.push(r);
     if (r.enrolled) enrolled += 1;

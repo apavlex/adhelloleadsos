@@ -132,6 +132,9 @@ router.post('/save-outreach-automation', async (req, res, next) => {
           body.smsOnly === 1 ||
           body.smsOnly === '1'
         : prev.smsOnly,
+      senderOfferKey: Object.prototype.hasOwnProperty.call(body, 'senderOfferKey')
+        ? String(body.senderOfferKey || '').trim()
+        : prev.senderOfferKey,
       lastRunAt: prev.lastRunAt,
       lastEnrolled: prev.lastEnrolled,
       lastCandidateCount: prev.lastCandidateCount,
