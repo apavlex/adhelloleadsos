@@ -117,6 +117,10 @@
       return;
     }
     var state = getState();
+    if (state === 'hidden') {
+      applyState('expanded');
+      return;
+    }
     if (state === 'expanded') applyState('collapsed');
     else if (state === 'collapsed') applyState('hidden');
   });
