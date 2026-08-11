@@ -2050,5 +2050,67 @@ module.exports = {
     return true;
   },
 
+  // ── Social post bookmark folders ─────────────────────────────────────────────
+
+  async getSocialBookmarkFolders(workspaceId) {
+    const wid = String(workspaceId || 'default').trim() || 'default';
+    const raw = kvGet(`social:bookmarkFolders:${wid}`);
+    if (!raw) return [];
+    try {
+      const list = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      return Array.isArray(list) ? list : [];
+    } catch {
+      return [];
+    }
+  },
+
+  async saveSocialBookmarkFolder(folder, workspaceId) {
+    const wid = String(workspaceId || 'default').trim() || 'default';
+    const name = String(folder.name || '').trim();
+    if (!name) throw new Error('Folder name is required.');
+    const folders = await this.getSocialBookmarkFolders(wid);
+    const id = folder.id || `bf_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const existingIdx = folders.findIndex((f) => f.id === id);
+    const record = {
+      id,
+      name,
+      createdAt: folder.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    if (existingIdx >= 0) {
+      folders[existingIdx] = { ...folders[existingIdx], ...record };
+    } else {
+      folders.unshift(record);
+    }
+    kvSet(`social:bookmarkFolders:${wid}`, JSON.stringify(folders.slice(0, 50)));
+    return record;
+  },
+
+  async deleteSocialBookmarkFolder(folderId, workspaceId) {
+    const wid = String(workspaceId || 'default').trim() || 'default';
+    const folders = await this.getSocialBookmarkFolders(wid);
+    const filtered = folders.filter((f) => f.id !== folderId);
+    kvSet(`social:bookmarkFolders:${wid}`, JSON.stringify(filtered));
+    const posts = await this.getSocialPosts(wid);
+    for (const post of posts) {
+      if (post.folderId === folderId) {
+        post.folderId = null;
+        await this.saveSocialPost(post, wid);
+      }
+    }
+    return true;
+  },
+
+  async updateSocialPostFolder(postId, folderId, workspaceId) {
+    const wid = String(workspaceId || 'default').trim() || 'default';
+    const posts = await this.getSocialPosts(wid);
+    const post = posts.find((p) => p.id === postId);
+    if (!post) return null;
+    post.folderId = folderId || null;
+    post.updatedAt = new Date().toISOString();
+    await this.saveSocialPost(post, wid);
+    return post;
+  },
+
   normalizeDomain,
 };

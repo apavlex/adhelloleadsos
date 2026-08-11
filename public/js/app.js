@@ -295,6 +295,8 @@ document.addEventListener('DOMContentLoaded', () => {
       permitStatus: 'permitstatus',
       permitValue: 'permitvalue',
       permitStatusDate: 'permitstatusdate',
+      permitContractor: 'permitcontractor',
+      permitOwner: 'permitowner',
       listingPrice: 'listingprice',
       listingBeds: 'listingbeds',
       listingBaths: 'listingbaths',
@@ -551,6 +553,16 @@ document.addEventListener('DOMContentLoaded', () => {
           const ta = parseInt(a.permitStatusDateMs, 10) || 0;
           const tb = parseInt(b.permitStatusDateMs, 10) || 0;
           c = ta - tb;
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        }
+        case 'permitcontractor': {
+          c = cmpStr((a.permitContractor || '').trim(), (b.permitContractor || '').trim());
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        }
+        case 'permitowner': {
+          c = cmpStr((a.permitOwner || '').trim(), (b.permitOwner || '').trim());
           if (c === 0) c = cmpStr(a.title || '', b.title || '');
           break;
         }
@@ -814,6 +826,8 @@ document.addEventListener('DOMContentLoaded', () => {
         { id: 'permitStatus', label: 'Permit status', defaultHidden: true },
         { id: 'permitValue', label: 'Permit value', defaultHidden: true },
         { id: 'permitStatusDate', label: 'Status date', defaultHidden: true },
+        { id: 'permitContractor', label: 'Contractor', defaultHidden: true },
+        { id: 'permitOwner', label: 'Property owner', defaultHidden: true },
         { id: 'listingPrice', label: 'Price', defaultHidden: true },
         { id: 'listingBeds', label: 'Beds', defaultHidden: true },
         { id: 'listingBaths', label: 'Baths', defaultHidden: true },
@@ -860,6 +874,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'permitStatus',
         'permitValue',
         'permitStatusDate',
+        'permitContractor',
+        'permitOwner',
         'city',
         'state',
       ];
@@ -878,6 +894,8 @@ document.addEventListener('DOMContentLoaded', () => {
         permitStatus: 72,
         permitValue: 80,
         permitStatusDate: 88,
+        permitContractor: 112,
+        permitOwner: 112,
       };
 
       function migrateContactColumnVis(map) {
@@ -6488,6 +6506,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (L.cqi !== undefined) ds.cqi = L.cqi == null ? 'null' : JSON.stringify(L.cqi);
     if (L.ownerFirstName != null) ds.ownerFirstName = String(L.ownerFirstName || '');
+    if (L.permitContractor != null && String(L.permitContractor || '').trim()) {
+      ds.permitContractor = String(L.permitContractor).trim();
+    } else if (L.company != null && String(L.company || '').trim()) {
+      ds.permitContractor = String(L.company).trim();
+    }
+    if (L.contactName != null) ds.permitOwner = String(L.contactName || '').trim();
     if (L.doNotCall !== undefined) ds.doNotCall = L.doNotCall ? '1' : '';
     if (L.primaryServiceKey !== undefined) {
       ds.primaryServiceKey = L.primaryServiceKey ? String(L.primaryServiceKey).trim() : '';

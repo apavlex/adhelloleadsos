@@ -260,6 +260,7 @@ const DM_PLATFORMS = {
   linkedin_post: { label: 'LinkedIn Post', aspectRatio: '1:1', dualSided: false },
   linkedin_banner: { label: 'LinkedIn Banner', aspectRatio: '16:9', dualSided: false },
   google_display: { label: 'Google Display', aspectRatio: '16:9', dualSided: false },
+  google_business_post: { label: 'Google Business Post', aspectRatio: '4:3', dualSided: false },
   youtube_thumb: { label: 'YouTube Thumbnail', aspectRatio: '16:9', dualSided: false },
   custom: { label: 'Custom ratio', aspectRatio: null, dualSided: false },
 };
@@ -368,7 +369,8 @@ function buildDesignCoachSystemPrompt({
       ? `An existing FRONT-side design is already approved${frontImageUrl ? ' (reference image will be passed to GPT Image 2)' : ''}.
 ${frontPrompt ? `Front design prompt for style context:\n${String(frontPrompt).slice(0, 1200)}\n` : ''}
 When the user asks to match the front, coordinate with it, or make a similar design for the back:
-- imagePrompt MUST use the same color palette, typography style, graphic language, and brand mood as the front — not a generic conversion template.
+- imagePrompt MUST reuse the same color palette, typography style, graphic language, and brand mood as the front — but use a COMPLETELY DIFFERENT layout suited to the back (CTA-focused left half, bullet benefits, QR placeholder).
+- Do NOT recreate or lightly vary the front hero composition, headline stack, or contact footer on the back.
 - Adapt layout for postcard BACK rules (CTA-focused left half, no contact footer duplication) while keeping visual continuity with the front.
 - Do NOT invent a completely different aesthetic (e.g. dark overlay panel vs bright marketing front) unless the user explicitly asks for a new direction.`
       : '';
@@ -464,11 +466,14 @@ function augmentImagePromptWithBrand(prompt, brandKit, platform, slot, { matchFr
       ' Lob 4×6 postcard BACK: landscape 3:2 full-bleed. CTA-focused left half only (Call us, Scan QR placeholder square, Visit website) — do NOT duplicate front contact footer (no address/hours block). 0.3″ from edges. No text in bottom-right address zone (photo OK). Never render {business} or placeholder tokens.';
     if (matchFrontStyle || styleReferenceUrl) {
       lobSpec +=
-        ' Match the attached front design reference: same color palette, typography style, graphic elements, and brand mood — adapt layout for back-side CTA rules only.';
+        ' Use the attached front design reference for color palette, typography, and brand mood ONLY — create a DISTINCT back-side layout (left-half bullets + CTAs), not a duplicate or minor variation of the front hero.';
     }
   } else if (isPostcard) {
     lobSpec =
       ' Lob 4×6 postcard FRONT: landscape 3:2 full-bleed photo. No text within 0.3″ of edges or in bottom-right QR zone (photo OK, no white box). Never render {business} or placeholder tokens. Never draw a company logo or wordmark — real logo is added top-right after generation when enabled.';
+  } else if (String(platform || '').trim() === 'google_business_post') {
+    lobSpec =
+      ' Google Business Profile post image: 4:3 landscape (1200×900). One hero photo, bold readable headline, minimal on-image text — post caption and Learn more button are added in Google separately. No QR codes or dense contact footers on the image.';
   }
   const suffix = extras.length
     ? `\n\nPlatform: ${plat}.${lobSpec}${isPostcardBack ? ` CTA elements: ${extras.join('; ')}. Include a clear square QR placeholder zone on the left.` : ` Include on the ad where appropriate: ${extras.join('; ')}.`}`

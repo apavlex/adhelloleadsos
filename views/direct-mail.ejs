@@ -100,6 +100,7 @@
               { id: 'linkedin_post', label: 'LinkedIn', sub: 'Post · 1:1', icon: 'linkedin' },
               { id: 'linkedin_banner', label: 'LI Banner', sub: '16:9', icon: 'banner' },
               { id: 'google_display', label: 'Display', sub: 'Google · 16:9', icon: 'display' },
+              { id: 'google_business_post', label: 'Google Business', sub: 'Post · 4:3', icon: 'gmb' },
               { id: 'youtube_thumb', label: 'YouTube', sub: 'Thumbnail', icon: 'youtube' },
               { id: 'custom', label: 'Custom', sub: 'Any ratio', icon: 'custom' }
             ]; %>
@@ -122,6 +123,7 @@
             <option value="linkedin_post">LinkedIn Post</option>
             <option value="linkedin_banner">LinkedIn Banner</option>
             <option value="google_display">Google Display</option>
+            <option value="google_business_post">Google Business Post</option>
             <option value="youtube_thumb">YouTube Thumbnail</option>
             <option value="custom">Custom ratio</option>
           </select>
@@ -132,6 +134,7 @@
               <option value="2:3">2:3 (portrait)</option>
               <option value="1:1">1:1 (square)</option>
               <option value="4:5">4:5 (portrait)</option>
+              <option value="4:3">4:3 (Google Business post)</option>
               <option value="9:16">9:16 (story / reels)</option>
               <option value="16:9">16:9 (wide)</option>
               <option value="auto">Auto</option>
@@ -200,13 +203,14 @@
 
         <!-- Copy panel -->
         <div class="dm-drawer-panel" data-dm-panel="copy" hidden>
-          <h2 class="dm-drawer-title">Postcard copy</h2>
-          <p class="dm-drawer-desc">Merge tokens: <code>{business}</code> <code>{city}</code> <code>{state}</code> <code>{audit_url}</code></p>
+          <h2 class="dm-drawer-title" id="dmCopyPanelTitle">Postcard copy</h2>
+          <p class="dm-drawer-desc" id="dmCopyPanelDesc">Merge tokens: <code>{business}</code> <code>{city}</code> <code>{state}</code> <code>{audit_url}</code></p>
           <p id="dmMergePreview" class="dm-merge-preview" aria-live="polite"></p>
           <label class="dm-field-label" for="dmHeadline">Headline</label>
           <input id="dmHeadline" type="text" class="dm-input dm-merge-field" placeholder="Your new website is ready, {business}" />
           <label class="dm-field-label" for="dmBody">Body</label>
           <textarea id="dmBody" rows="4" class="dm-input dm-merge-field resize-y" placeholder="We built a custom preview for {business} in {city}."></textarea>
+          <div id="dmPostcardCopyExtras">
           <label class="dm-field-label" for="dmCtaUrl">QR / landing URL</label>
           <input id="dmCtaUrl" type="text" class="dm-input dm-merge-field" value="{audit_url}" placeholder="{audit_url} or https://yoursite.com/offer" autocomplete="off" />
           <p class="text-[11px] text-brand-muted mt-1 leading-relaxed">Lob prints a scannable QR on the front that links here. Use <code>{audit_url}</code> for each lead&apos;s audit, or your own URL with merge tokens. Scans show in Lob postcard details.</p>
@@ -218,6 +222,10 @@
             <input type="checkbox" id="dmPersonalizeOverlay" />
             <span><strong>Personalize at send</strong> — small overlay chip on front only (leave off if your design already has copy).</span>
           </label>
+          </div>
+          <div id="dmSocialCopyHint" class="hidden text-[11px] text-brand-muted mt-2 leading-relaxed">
+            Used to build your <strong>Post copy</strong> caption in the right sidebar — edit headline and body, then copy when you publish.
+          </div>
           <div class="dm-playbooks-section mt-4 pt-4 border-t border-brand-border/40 dark:border-white/10">
             <h3 class="text-[11px] font-black uppercase tracking-widest text-brand-muted mb-1">Mail playbooks</h3>
             <p class="dm-drawer-desc mb-2">Templates by trade or call context — fills copy and image prompts. Pick one, tweak, then generate front and back.</p>
@@ -413,7 +421,21 @@
           <div class="flex flex-wrap gap-2 mt-2">
             <button type="button" id="dmPromptApply" class="dm-studio-topbtn">Use prompt</button>
             <button type="button" id="dmPromptRegenerate" class="dm-studio-topbtn dm-studio-topbtn--primary">Generate</button>
+            <button type="button" id="dmGenerateMatchingBackBtn" class="dm-studio-topbtn dm-studio-topbtn--match" hidden title="Generate back side using this prompt, matching front colors and style">Generate back</button>
           </div>
+        </div>
+        <div id="dmPostCopySection" class="dm-post-copy-section mt-4 hidden">
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <p class="text-[11px] font-bold uppercase tracking-widest text-brand-muted mb-0">Post copy</p>
+            <span id="dmPostCopyPlatform" class="dm-slot-badge">Social</span>
+          </div>
+          <p class="text-[11px] text-brand-muted mb-2 leading-relaxed">Caption to paste alongside your creative when you publish.</p>
+          <textarea id="dmPostCopy" rows="7" class="dm-input dm-post-copy-editor" placeholder="Headline and body from Copy tab appear here — edit, then copy to Instagram, Facebook, or LinkedIn."></textarea>
+          <div class="flex flex-wrap gap-2 mt-2">
+            <button type="button" id="dmPostCopyRefresh" class="dm-studio-topbtn">Refresh from copy</button>
+            <button type="button" id="dmPostCopyCopyBtn" class="dm-studio-topbtn dm-studio-topbtn--primary">Copy caption</button>
+          </div>
+          <p id="dmPostCopyStatus" class="text-[11px] text-brand-muted mt-2 hidden" aria-live="polite"></p>
         </div>
         <div id="dmExportActions" class="dm-export-actions mt-4 hidden">
           <p class="text-[11px] font-bold uppercase tracking-widest text-brand-muted mb-2">Export current side</p>
@@ -427,9 +449,10 @@
           <p class="text-[11px] font-bold uppercase tracking-widest text-brand-muted mb-2">Tips</p>
           <ul class="text-[11px] text-brand-muted space-y-1.5 leading-relaxed">
             <li>Fill in <strong>Brand</strong> for phone, logo, and hours on ads.</li>
+            <li>For social formats, use <strong>Post copy</strong> in this sidebar to copy your caption when publishing.</li>
             <li><strong>Upload</strong> your own photo, or pick one from <strong>Google Drive</strong>, then <strong>Generate</strong> to polish it with AI.</li>
             <li>Use <strong>Chat</strong> to iterate; press <strong>Enter</strong> or click <strong>Generate</strong> to create the image.</li>
-            <li>Postcard mode supports front + back pages — use <strong>Generate both</strong> after a playbook fills prompts.</li>
+            <li>Postcard mode supports front + back pages — use <strong>Generate both</strong> after a playbook fills prompts, or <strong>Generate back</strong> in the sidebar once the front is ready.</li>
           </ul>
         </div>
       </aside>

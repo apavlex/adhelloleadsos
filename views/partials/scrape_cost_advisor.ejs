@@ -64,29 +64,34 @@
       Enhance pipeline: set <code class="text-[9px] px-1 rounded bg-brand-cream/80 dark:bg-white/10">ENRICH_TRY_CRAWL4AI_FIRST=1</code> with a running Crawl4AI Docker host to pre-fetch HTML for tech signals, then Firecrawl still runs for LLM extract (default). Only if you accept weaker results, <code class="text-[9px] px-1 rounded bg-brand-cream/80 dark:bg-white/10">ENRICH_SKIP_FIRECRAWL_ON_CRAWL4AI_HTML=1</code> skips the Firecrawl call when Crawl4AI returns HTML (tech-only merge).
     </p>
 
-    <h3 class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-3">Pick by task</h3>
-    <div class="overflow-x-auto rounded-2xl border border-brand-border/40 dark:border-white/10">
-      <table class="min-w-full text-left text-sm">
-        <thead class="bg-brand-cream/40 dark:bg-slate-800/80 text-[10px] font-black uppercase tracking-widest text-brand-muted">
-          <tr>
-            <th class="px-4 py-3">Task</th>
-            <th class="px-4 py-3">Try low-cost first</th>
-            <th class="px-4 py-3">Paid is worth it when…</th>
-            <th class="px-4 py-3">In this app</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-brand-border/30 dark:divide-white/10 text-brand-dark dark:text-slate-200">
-          <% sa.tasks.forEach((row) => { %>
-          <tr class="bg-white/60 dark:bg-slate-900/40">
-            <td class="px-4 py-3 font-bold align-top"><%= row.task %></td>
-            <td class="px-4 py-3 text-brand-muted align-top"><%= row.startCheap %></td>
-            <td class="px-4 py-3 text-brand-muted align-top"><%= row.keepPaid %></td>
-            <td class="px-4 py-3 text-brand-muted align-top"><%= row.inApp %></td>
-          </tr>
-          <% }); %>
-        </tbody>
-      </table>
-    </div>
+    <details class="group rounded-2xl border border-brand-border/40 dark:border-white/10 open:pb-1">
+      <summary class="cursor-pointer list-none flex items-center justify-between gap-3 px-4 py-3 select-none">
+        <h3 class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Pick by task</h3>
+        <span class="text-brand-muted group-open:rotate-180 transition-transform shrink-0" aria-hidden="true">▾</span>
+      </summary>
+      <div class="overflow-x-auto border-t border-brand-border/30 dark:border-white/10">
+        <table class="min-w-full text-left text-sm">
+          <thead class="bg-brand-cream/40 dark:bg-slate-800/80 text-[10px] font-black uppercase tracking-widest text-brand-muted">
+            <tr>
+              <th class="px-4 py-3">Task</th>
+              <th class="px-4 py-3">Try low-cost first</th>
+              <th class="px-4 py-3">Paid is worth it when…</th>
+              <th class="px-4 py-3">In this app</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-brand-border/30 dark:divide-white/10 text-brand-dark dark:text-slate-200">
+            <% sa.tasks.forEach((row) => { %>
+            <tr class="bg-white/60 dark:bg-slate-900/40">
+              <td class="px-4 py-3 font-bold align-top"><%= row.task %></td>
+              <td class="px-4 py-3 text-brand-muted align-top"><%= row.startCheap %></td>
+              <td class="px-4 py-3 text-brand-muted align-top"><%= row.keepPaid %></td>
+              <td class="px-4 py-3 text-brand-muted align-top"><%= row.inApp %></td>
+            </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+    </details>
   </div>
 </section>
 <% } %>

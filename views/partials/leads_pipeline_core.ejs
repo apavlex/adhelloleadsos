@@ -254,6 +254,14 @@
               <button type="button" class="prospect-sort-btn" data-prospect-sort="permitstatusdate" title="Sort by status date">Status date <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
               <span class="plc-col-resize" data-plc-resize="permitStatusDate" title="Resize column" aria-hidden="true"></span>
             </th>
+            <th data-plc="permitContractor" class="plc-th-wrap px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap min-w-[8rem]" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="permitcontractor" title="Sort by contractor / builder">Contractor <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+              <span class="plc-col-resize" data-plc-resize="permitContractor" title="Resize column" aria-hidden="true"></span>
+            </th>
+            <th data-plc="permitOwner" class="plc-th-wrap px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap min-w-[8rem]" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="permitowner" title="Sort by property owner">Property owner <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+              <span class="plc-col-resize" data-plc-resize="permitOwner" title="Resize column" aria-hidden="true"></span>
+            </th>
             <th data-plc="listingPrice" class="plc-th-wrap px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap min-w-[4.5rem]" scope="col">
               <button type="button" class="prospect-sort-btn" data-prospect-sort="listingprice" title="Sort by listing price">Price <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
               <span class="plc-col-resize" data-plc-resize="listingPrice" title="Resize column" aria-hidden="true"></span>
@@ -509,6 +517,8 @@
               var _sponsoredNo = _sponsoredRaw === false || _sponsoredRaw === 'no' || _sponsoredRaw === 'false' || _sponsoredRaw === '0';
               var _permNum = String(lead.permitNumber || '').trim();
               var _permCat = String(lead.permitCategory || lead.categoryName || '').trim();
+              var _permContractor = String(lead.permitContractor || lead.company || '').trim();
+              var _permOwner = String(lead.contactName || '').trim();
               var _permStatus = String(lead.permitStatus || '').trim();
               var _permVal = lead.permitEstimatedValue != null && lead.permitEstimatedValue !== '' ? Number(lead.permitEstimatedValue) : null;
               var _permValDisp = plcPermitValueDisplay(_permVal);
@@ -599,6 +609,8 @@
                 data-listing-source="<%= plcEscAttr(_listSource || _listSourceRaw || '') %>"
                 data-permit-number="<%= plcEscAttr(_permNum) %>"
                 data-permit-category="<%= plcEscAttr(_permCat) %>"
+                data-permit-contractor="<%= plcEscAttr(_permContractor) %>"
+                data-permit-owner="<%= plcEscAttr(_permOwner) %>"
                 data-permit-status="<%= plcEscAttr(_permStatus) %>"
                 data-permit-value="<%= Number.isFinite(_permVal) ? _permVal : '' %>"
                 data-permit-status-date="<%= plcEscAttr(_permDateRaw) %>"
@@ -688,6 +700,12 @@
               </td>
               <td data-plc="permitStatusDate" class="px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap">
                 <span class="text-xs font-semibold tabular-nums text-brand-dark dark:text-slate-200"><%= _permDateRaw || '—' %></span>
+              </td>
+              <td data-plc="permitContractor" class="px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap max-w-[14rem]">
+                <span class="text-xs font-semibold text-brand-dark dark:text-slate-200 truncate block" title="<%= plcEscAttr(_permContractor) %>"><%= _permContractor || '—' %></span>
+              </td>
+              <td data-plc="permitOwner" class="px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap max-w-[14rem]">
+                <span class="text-xs font-semibold text-brand-dark dark:text-slate-200 truncate block" title="<%= plcEscAttr(_permOwner) %>"><%= _permOwner || '—' %></span>
               </td>
               <td data-plc="listingPrice" class="px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap">
                 <span class="text-xs font-bold tabular-nums text-brand-dark dark:text-slate-200"><%= _priceDisp %></span>

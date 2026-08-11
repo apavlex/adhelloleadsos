@@ -45,6 +45,8 @@
     { id: 'permitStatus', defaultHidden: true },
     { id: 'permitValue', defaultHidden: true },
     { id: 'permitStatusDate', defaultHidden: true },
+    { id: 'permitContractor', defaultHidden: true },
+    { id: 'permitOwner', defaultHidden: true },
     { id: 'listingPrice', defaultHidden: true },
     { id: 'listingBeds', defaultHidden: true },
     { id: 'listingBaths', defaultHidden: true },
@@ -93,6 +95,8 @@
     'permitStatus',
     'permitValue',
     'permitStatusDate',
+    'permitContractor',
+    'permitOwner',
     'city',
     'state',
   ];
@@ -156,6 +160,8 @@
     permitStatus: 72,
     permitValue: 80,
     permitStatusDate: 88,
+    permitContractor: 112,
+    permitOwner: 112,
   };
 
   function migrateContactColumnVis(vis) {

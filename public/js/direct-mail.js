@@ -24,6 +24,7 @@
   var brandKitSaveTimer = null;
   var dmPlaybookPrompts = { front: '', back: '' };
   var dmActivePlaybookId = '';
+  var dmPostCopyManualEdit = false;
 
   var DM_PLATFORMS = {
     postcard: { label: '4×6 Postcard', aspectRatio: '3:2', dualSided: true },
@@ -36,6 +37,7 @@
     linkedin_post: { label: 'LinkedIn Post', aspectRatio: '1:1', dualSided: false },
     linkedin_banner: { label: 'LinkedIn Banner', aspectRatio: '16:9', dualSided: false },
     google_display: { label: 'Google Display', aspectRatio: '16:9', dualSided: false },
+    google_business_post: { label: 'Google Business Post', aspectRatio: '4:3', dualSided: false },
     youtube_thumb: { label: 'YouTube Thumbnail', aspectRatio: '16:9', dualSided: false },
     custom: { label: 'Custom ratio', aspectRatio: null, dualSided: false },
   };
@@ -54,6 +56,7 @@
     if (r === '16:9') return '16 / 9';
     if (r === '9:16') return '9 / 16';
     if (r === '4:5') return '4 / 5';
+    if (r === '4:3') return '4 / 3';
     if (r === '3:2') return '3 / 2';
     if (r === 'auto') return '3 / 2';
     return '3 / 2';
@@ -103,6 +106,197 @@
     updatePreviewAspectRatio();
     syncLobSafeZones();
     syncGenerateBothBtnVisibility();
+    syncMatchFrontBackBtnVisibility();
+    syncCopyPanelForPlatform();
+    syncPostCopySection();
+  }
+
+  function isSocialPlatform(platformKey) {
+    var key = platformKey || currentPlatformKey();
+    return key !== 'postcard';
+  }
+
+  function readBrandKitFromForm() {
+    return {
+      businessName: String((document.getElementById('dmBrandName') || {}).value || brandKit.businessName || '').trim(),
+      phone: String((document.getElementById('dmBrandPhone') || {}).value || brandKit.phone || '').trim(),
+      website: String((document.getElementById('dmBrandWebsite') || {}).value || brandKit.website || '').trim(),
+      email: String((document.getElementById('dmBrandEmail') || {}).value || brandKit.email || '').trim(),
+      address: String((document.getElementById('dmBrandAddress') || {}).value || brandKit.address || '').trim(),
+    };
+  }
+
+  function socialHashtagLine(ctx, kit) {
+    var tags = [];
+    var biz = String((kit && kit.businessName) || (ctx && ctx.business) || '')
+      .trim()
+      .replace(/[^a-z0-9]+/gi, '');
+    if (biz && biz.length >= 3) tags.push('#' + biz.slice(0, 24));
+    var city = String((ctx && ctx.city) || '')
+      .trim()
+      .replace(/[^a-z0-9]+/gi, '');
+    if (city && city.length >= 3) tags.push('#' + city.slice(0, 20));
+    tags.push('#localbusiness');
+    if (!tags.length) return '';
+    var seen = {};
+    return tags
+      .filter(function (t) {
+        var k = t.toLowerCase();
+        if (seen[k]) return false;
+        seen[k] = true;
+        return true;
+      })
+      .slice(0, 6)
+      .join(' ');
+  }
+
+  function composePostCopy() {
+    var platformKey = currentPlatformKey();
+    var plat = DM_PLATFORMS[platformKey] || DM_PLATFORMS.custom;
+    var kit = readBrandKitFromForm();
+    var ctx =
+      mergePreviewLead() ||
+      ({
+        business: kit.businessName || 'Our business',
+        city: '',
+        state: '',
+        audit_url: readOptionalCtaUrl() || kit.website || '',
+      });
+    var headline = applyMergeFieldsClient((document.getElementById('dmHeadline') || {}).value, ctx);
+    var body = applyMergeFieldsClient((document.getElementById('dmBody') || {}).value, ctx);
+    var ctaRaw = readOptionalCtaUrl();
+    var link = ctaRaw ? applyMergeFieldsClient(ctaRaw, ctx) : String(kit.website || '').trim();
+    var phone = String(kit.phone || '').trim();
+    var lines = [];
+
+    if (headline) lines.push(headline);
+    if (body) {
+      if (lines.length) lines.push('');
+      lines.push(body);
+    }
+    if (!headline && !body) {
+      var opener = kit.businessName || ctx.business || 'We';
+      if (platformKey === 'google_business_post') {
+        lines.push(opener + ' — see what\'s new at our location. Visit us or call today.');
+      } else if (platformKey.startsWith('linkedin')) {
+        lines.push(opener + ' — sharing a fresh creative for our community.');
+      } else if (platformKey.startsWith('youtube')) {
+        lines.push(opener + ' — watch for the full story.');
+      } else {
+        lines.push(opener + ' — quality you can count on. Tap through to learn more.');
+      }
+    }
+
+    if (link) {
+      lines.push('');
+      if (platformKey === 'google_business_post') {
+        lines.push('Learn more: ' + link);
+      } else if (platformKey.startsWith('instagram')) {
+        lines.push('Learn more: ' + link);
+      } else if (platformKey.startsWith('linkedin')) {
+        lines.push(link);
+      } else {
+        lines.push('🔗 ' + link);
+      }
+    }
+    if (phone && !platformKey.startsWith('youtube')) {
+      lines.push('', '📞 ' + phone);
+    }
+    if (platformKey.startsWith('instagram') || platformKey === 'facebook_feed') {
+      var tags = socialHashtagLine(ctx, kit);
+      if (tags) lines.push('', tags);
+    }
+    if (platformKey.startsWith('linkedin')) {
+      lines.push('', '—');
+      lines.push('What would you add? Drop a comment below.');
+    }
+
+    return lines.join('\n').trim();
+  }
+
+  function setPostCopyStatus(msg, ok) {
+    var el = document.getElementById('dmPostCopyStatus');
+    if (!el) return;
+    if (!msg) {
+      el.textContent = '';
+      el.classList.add('hidden');
+      return;
+    }
+    el.textContent = msg;
+    el.classList.remove('hidden', 'text-emerald-700', 'text-rose-700', 'dark:text-emerald-300', 'dark:text-rose-300');
+    el.classList.add(ok ? 'text-emerald-700' : 'text-rose-700', ok ? 'dark:text-emerald-300' : 'dark:text-rose-300');
+  }
+
+  function refreshPostCopyFromFields(force) {
+    if (!isSocialPlatform()) return;
+    if (dmPostCopyManualEdit && !force) return;
+    var el = document.getElementById('dmPostCopy');
+    if (!el) return;
+    el.value = composePostCopy();
+    setPostCopyStatus('', true);
+  }
+
+  function syncPostCopySection() {
+    var section = document.getElementById('dmPostCopySection');
+    var badge = document.getElementById('dmPostCopyPlatform');
+    if (!section) return;
+    var social = isSocialPlatform();
+    section.classList.toggle('hidden', !social);
+    if (badge) {
+      var plat = DM_PLATFORMS[currentPlatformKey()] || DM_PLATFORMS.custom;
+      badge.textContent = plat.label || 'Social';
+    }
+    if (social) refreshPostCopyFromFields(false);
+  }
+
+  function syncCopyPanelForPlatform() {
+    var social = isSocialPlatform();
+    var title = document.getElementById('dmCopyPanelTitle');
+    var desc = document.getElementById('dmCopyPanelDesc');
+    var extras = document.getElementById('dmPostcardCopyExtras');
+    var hint = document.getElementById('dmSocialCopyHint');
+    var railCopy = document.querySelector('.dm-rail-btn[data-dm-tab="copy"] span');
+    if (title) title.textContent = social ? 'Social post copy' : 'Postcard copy';
+    if (desc) {
+      desc.innerHTML = social
+        ? 'Headline and body feed the <strong>Post copy</strong> caption in the right sidebar. Tokens: <code>{business}</code> <code>{city}</code> <code>{state}</code>'
+        : 'Merge tokens: <code>{business}</code> <code>{city}</code> <code>{state}</code> <code>{audit_url}</code>';
+    }
+    if (extras) extras.classList.toggle('hidden', social);
+    if (hint) hint.classList.toggle('hidden', !social);
+    if (railCopy) railCopy.textContent = social ? 'Copy' : 'Copy';
+    var headlineEl = document.getElementById('dmHeadline');
+    var bodyEl = document.getElementById('dmBody');
+    if (social && headlineEl && !headlineEl.value.trim()) {
+      headlineEl.placeholder = 'Transform your space with {business}';
+    }
+    if (social && bodyEl && !bodyEl.value.trim()) {
+      bodyEl.placeholder = 'Premium flooring and expert installation in {city}. Visit us today for a free estimate.';
+    }
+  }
+
+  async function copyPostCopyToClipboard() {
+    var el = document.getElementById('dmPostCopy');
+    var text = el ? String(el.value || '').trim() : composePostCopy();
+    if (!text) {
+      setPostCopyStatus('Add headline/body in Copy tab or type a caption here first.', false);
+      return;
+    }
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else if (el) {
+        el.focus();
+        el.select();
+        document.execCommand('copy');
+      }
+      setPostCopyStatus('Copied — paste into your social post.', true);
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Post copy copied', { variant: 'success' });
+      }
+    } catch (_) {
+      setPostCopyStatus('Could not copy — select the text and copy manually.', false);
+    }
   }
 
   function syncGenerateBothBtnVisibility() {
@@ -110,6 +304,15 @@
     if (!bothBtn) return;
     var preset = DM_PLATFORMS[currentPlatformKey()] || DM_PLATFORMS.custom;
     bothBtn.classList.toggle('hidden', !preset.dualSided);
+  }
+
+  function syncMatchFrontBackBtnVisibility() {
+    var matchBtn = document.getElementById('dmGenerateMatchingBackBtn');
+    if (!matchBtn) return;
+    var preset = DM_PLATFORMS[currentPlatformKey()] || DM_PLATFORMS.custom;
+    var show = !!(preset.dualSided && designs.front);
+    matchBtn.hidden = !show;
+    matchBtn.disabled = !show;
   }
 
   function syncLobSafeZones() {
@@ -552,9 +755,8 @@
 
   function resolveGenerateReferenceUrl(slot, editMode) {
     if (editMode && designs[slot]) return designs[slot];
-    if (slot === 'back' && designs.front && !editMode) return designs.front;
     if (designs[slot]) return designs[slot];
-    return designs[slot === 'back' ? 'front' : 'back'] || '';
+    return '';
   }
 
   function resolveStyleReferenceUrl(slot, editMode) {
@@ -1363,6 +1565,13 @@
       parts.push(
         'Lob 4×6 postcard FRONT: landscape 3:2 full-bleed photo. Keep text 0.3″ from all edges. No text in bottom-right QR zone — photo continues there, no white box. Never render {business} or curly-brace placeholder text.',
       );
+    } else if (ctx.platform === 'google_business_post') {
+      parts.push(
+        'Google Business Profile post image: 4:3 landscape (1200×900 recommended). One strong hero photo, bold readable headline, minimal on-image text — the post caption and Learn more button are added in Google separately.',
+      );
+      parts.push(
+        'Local business marketing aesthetic; avoid cluttered contact footers, QR codes, or tiny legal text on the image.',
+      );
     }
     if (kit.businessName) parts.push('Business name: ' + kit.businessName + '.');
     if (userText) parts.push('Creative brief: ' + userText + '.');
@@ -1386,7 +1595,7 @@
     }
     if (ctx.platform === 'postcard' && slot === 'back' && (ctx.matchFrontStyle || designs.front)) {
       parts.push(
-        'Match the existing front design reference: same color palette, typography, graphic style, and brand mood — adapt layout for postcard back rules only.',
+        'Use the attached front design ONLY for color palette, typography, photo treatment, and brand mood — create a DISTINCT back-side layout (bullet benefits + CTAs on the left), not a duplicate or minor variation of the front hero.',
       );
     }
     parts.push('High contrast, readable at mobile size, modern trustworthy aesthetic, no watermarks.');
@@ -1452,6 +1661,7 @@
     var ctx = mergePreviewLead();
     if (!ctx) {
       el.textContent = '';
+      refreshPostCopyFromFields(false);
       return;
     }
     var headline = applyMergeFieldsClient((document.getElementById('dmHeadline') || {}).value, ctx);
@@ -1461,17 +1671,25 @@
     var parts = [];
     if (headline) parts.push('Headline: “' + headline + '”');
     if (body) parts.push('Body: “' + body.slice(0, 80) + (body.length > 80 ? '…' : '') + '”');
-    if (cta) parts.push('QR → “' + cta.slice(0, 60) + (cta.length > 60 ? '…' : '') + '”');
+    if (isSocialPlatform()) {
+      parts.push('Caption updates in Post copy →');
+    } else if (cta) parts.push('QR → “' + cta.slice(0, 60) + (cta.length > 60 ? '…' : '') + '”');
     else if ((document.getElementById('dmIncludeLobQr') || {}).checked !== false && ctx.audit_url) {
       parts.push('QR → lead audit URL');
     }
     el.textContent = parts.length
       ? 'Preview for ' + ctx.business + ' — ' + parts.join(' · ')
       : 'Preview for ' + ctx.business + ' — add copy above to see merged text.';
+    refreshPostCopyFromFields(false);
   }
 
   document.querySelectorAll('.dm-merge-field').forEach(function (field) {
     field.addEventListener('input', updateMergePreview);
+  });
+  document.querySelectorAll('.dm-brand-field').forEach(function (field) {
+    field.addEventListener('input', function () {
+      refreshPostCopyFromFields(false);
+    });
   });
   document.addEventListener('change', function (e) {
     if (e.target && e.target.classList && e.target.classList.contains('dm-lead-check')) {
@@ -1508,6 +1726,7 @@
     if (bodyEl && pb.body) bodyEl.value = pb.body;
     if (ctaEl && pb.ctaUrl) ctaEl.value = pb.ctaUrl;
     if (overlayEl && pb.personalizeOverlay != null) overlayEl.checked = !!pb.personalizeOverlay;
+    dmPostCopyManualEdit = false;
     dmPlaybookPrompts.front = pb.imagePromptFront || '';
     dmPlaybookPrompts.back = pb.imagePromptBack || '';
     updateMergePreview();
@@ -1631,6 +1850,55 @@
         var listEl = document.getElementById('dmPlaybookList');
         if (listEl) listEl.innerHTML = '<p class="text-[11px] text-brand-muted">Could not load playbooks.</p>';
       });
+  }
+
+  function loadFromSocialPostParams() {
+    var params = new URLSearchParams(window.location.search || '');
+    if (String(params.get('fromSocialPost') || '') !== '1') return;
+
+    var platform = String(params.get('platform') || 'instagram_feed').trim();
+    var copy = String(params.get('copy') || '').trim();
+    var headline = String(params.get('headline') || '').trim();
+    var body = String(params.get('body') || '').trim();
+    var autoGenerate = String(params.get('autoGenerate') || '') === '1';
+
+    var platformEl = document.getElementById('dmPlatform');
+    if (platformEl && DM_PLATFORMS[platform]) {
+      platformEl.value = platform;
+      applyPlatformPreset(platform);
+    }
+
+    var headlineEl = document.getElementById('dmHeadline');
+    var bodyEl = document.getElementById('dmBody');
+    if (headlineEl && headline) headlineEl.value = headline;
+    if (bodyEl && body) bodyEl.value = body;
+
+    dmPostCopyManualEdit = true;
+    var postCopyEl = document.getElementById('dmPostCopy');
+    if (postCopyEl && copy) {
+      postCopyEl.value = copy;
+    } else {
+      refreshPostCopyFromFields(true);
+    }
+
+    switchDmDrawerTab('copy');
+    syncPostCopySection();
+
+    if (typeof window.showAppToast === 'function') {
+      window.showAppToast('Post copy loaded from Social Post Ideas', { variant: 'success' });
+    }
+
+    if (autoGenerate && copy) {
+      var chatInput = document.getElementById('dmChatInput');
+      var prompt =
+        'Create a professional social media graphic for this post. Match the platform format. Post copy:\n\n' +
+        copy.slice(0, 800);
+      if (chatInput) chatInput.value = prompt;
+      showPromptEditor('front', prompt);
+      window.setTimeout(function () {
+        if (typeof generateImage === 'function') generateImage();
+      }, 600);
+    }
   }
 
   function copyContext() {
@@ -2211,6 +2479,7 @@
       if (saveBtn) saveBtn.classList.add('hidden');
       var emptyBoard = document.getElementById(slot === 'back' ? 'dmPreviewBackBtn' : 'dmPreviewFrontBtn');
       if (emptyBoard) emptyBoard.classList.remove('has-image');
+      syncMatchFrontBackBtnVisibility();
       return;
     }
     var img = document.createElement('img');
@@ -2227,6 +2496,8 @@
     if (saveBtn) saveBtn.classList.remove('hidden');
     if (designMeta[slot].prompt) showPromptEditor(slot, designMeta[slot].prompt);
     syncDownloadActions();
+    syncMatchFrontBackBtnVisibility();
+    refreshPostCopyFromFields(false);
   }
 
   function activeDesignUrls() {
@@ -2476,13 +2747,29 @@
     }
   }
 
+  function augmentBackPromptForFrontMatch(userPrompt, frontPrompt) {
+    var user = String(userPrompt || '').trim();
+    if (!user) return '';
+    if (/distinct back|different layout|do not duplicate|not a variation of the front/i.test(user)) {
+      return user;
+    }
+    var styleLead =
+      'POSTCARD BACK — coordinate with the attached front reference for colors, typography, and brand mood only. Use a completely different layout: left-half bullet benefits, trust cues, Call-us CTA, Visit-website CTA, and Scan QR placeholder — do NOT recreate the front hero or contact footer. ';
+    var front = String(frontPrompt || '').trim();
+    if (front && !/front creative brief/i.test(user)) {
+      return styleLead + 'Front style context (layout reference only): ' + front.slice(0, 220) + '. Back brief: ' + user;
+    }
+    return styleLead + user;
+  }
+
   function buildBackCompanionPrompt(frontPrompt) {
     var front = String(frontPrompt || '').trim();
     return (
-      'Postcard back design matching the front creative reference. Same color palette, typography, photography style, and brand mood. ' +
-      'Layout for 4×6 postcard back: short bullet benefits, trust cues, and clear QR scan CTA zone (bottom-right). ' +
-      'Keep Lob address/postage area at bottom clear of text. ' +
-      (front ? 'Front concept: ' + front.slice(0, 220) : '')
+      'POSTCARD BACK — visually coordinate with the attached front design reference but use a COMPLETELY DIFFERENT layout. ' +
+      'Reuse the same color palette, typography family, photo treatment, and brand mood from the front — do NOT duplicate the front hero, headline stack, or contact footer. ' +
+      'Back layout: left half = 3–5 short bullet benefits + trust cues; bold Call-us CTA with phone; Visit-website CTA; square Scan QR placeholder (left area, not address zone). ' +
+      'Full-bleed background in matching colors/imagery style. Lob 4×6 back rules: no text in bottom-right address zone. ' +
+      (front ? 'Front creative brief for style only (do not copy layout): ' + front.slice(0, 280) : '')
     );
   }
 
@@ -2508,6 +2795,34 @@
     if (!slotEl) return;
     slotEl.value = slot === 'back' ? 'back' : 'front';
     syncStudioPageView();
+  }
+
+  async function generateBackFromCurrentPrompt() {
+    var plat = DM_PLATFORMS[currentPlatformKey()] || DM_PLATFORMS.custom;
+    if (!plat.dualSided) {
+      setDesignStatus('Generate back is only available for postcard format.', false);
+      return;
+    }
+    if (!designs.front) {
+      setDesignStatus('Generate or upload a front design first so the back can match its colors and style.', false);
+      return;
+    }
+    var prompt = readPromptEditor() || resolvePromptForSlot('back') || '';
+    if (!String(prompt).trim()) {
+      prompt = buildBackCompanionPrompt(designMeta.front.prompt || dmPlaybookPrompts.front || '');
+    }
+    if (!String(prompt).trim()) {
+      setDesignStatus('Add a back prompt in the editor first.', false);
+      return;
+    }
+    prompt = augmentBackPromptForFrontMatch(prompt, designMeta.front.prompt || dmPlaybookPrompts.front || '');
+    setActiveDesignSlot('back');
+    showPromptEditor('back', prompt);
+    await generateImageForSlot('back', {
+      prompt: prompt,
+      skipPromptRead: true,
+      matchFrontStyle: true,
+    });
   }
 
   async function generateBothSides() {
@@ -2614,6 +2929,12 @@
     if (!prompt) {
       setDesignStatus('Describe the design in Chat first, or paste a detailed image prompt here.', false);
       return false;
+    }
+    if (matchFrontStyle && slot === 'back' && designs.front && !/^INCREMENTAL EDIT/i.test(prompt)) {
+      prompt = augmentBackPromptForFrontMatch(
+        prompt,
+        designMeta.front.prompt || dmPlaybookPrompts.front || '',
+      );
     }
     if (!editMode && !lastImagePrompt && prompt.length < 48) {
       if (referenceUrl || userWantsAdGeneration(prompt) || userWantsAdGeneration(latestUserChatText())) {
@@ -2747,6 +3068,8 @@
             window.showAppToast(toastMsg, { variant: toastVariant });
           }
         }
+        dmPostCopyManualEdit = false;
+        refreshPostCopyFromFields(true);
         return true;
       }
       throw new Error('No image URL returned.');
@@ -3034,6 +3357,34 @@
     });
   }
 
+  var matchBackBtn = document.getElementById('dmGenerateMatchingBackBtn');
+  if (matchBackBtn) {
+    matchBackBtn.addEventListener('click', function () {
+      applyPromptFromEditor();
+      void generateBackFromCurrentPrompt();
+    });
+  }
+  syncMatchFrontBackBtnVisibility();
+
+  var postCopyEl = document.getElementById('dmPostCopy');
+  if (postCopyEl) {
+    postCopyEl.addEventListener('input', function () {
+      dmPostCopyManualEdit = true;
+      setPostCopyStatus('', true);
+    });
+  }
+  var postCopyRefresh = document.getElementById('dmPostCopyRefresh');
+  if (postCopyRefresh) {
+    postCopyRefresh.addEventListener('click', function () {
+      dmPostCopyManualEdit = false;
+      refreshPostCopyFromFields(true);
+      setPostCopyStatus('Caption refreshed from Copy tab.', true);
+    });
+  }
+  var postCopyCopyBtn = document.getElementById('dmPostCopyCopyBtn');
+  if (postCopyCopyBtn) postCopyCopyBtn.addEventListener('click', copyPostCopyToClipboard);
+  syncPostCopySection();
+
   var slotEl = document.getElementById('dmDesignSlot');
   if (slotEl) {
     slotEl.addEventListener('change', function () {
@@ -3140,6 +3491,7 @@
 
   renderSavedLibrary();
   loadMailPlaybooksFromUrl();
+  loadFromSocialPostParams();
   initDmListFilters();
 
   (function scrollToLeadsIfNeededFromFocus() {

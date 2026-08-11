@@ -9,6 +9,11 @@
     .platform-tab:not(.active):hover { border-color: var(--brand-yellow); color: var(--brand-yellow); }
     .post-card { transition: box-shadow .15s ease; }
     .post-card:hover { box-shadow: 0 4px 24px rgba(255,214,68,.12); }
+    .post-card-thumb { aspect-ratio: 16/9; border-radius: 12px; overflow: hidden; cursor: pointer; transition: transform .15s ease, box-shadow .15s ease; margin-bottom: 12px; position: relative; }
+    .post-card-thumb:hover { transform: scale(1.02); box-shadow: 0 8px 24px rgba(0,0,0,.15); }
+    .post-card-thumb .thumb-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.35); opacity: 0; transition: opacity .15s ease; }
+    .post-card-thumb:hover .thumb-overlay { opacity: 1; }
+    .post-card-thumb .thumb-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: #fff; background: rgba(0,0,0,.5); padding: 4px 10px; border-radius: 9999px; }
     .post-card .edit-area { display: none; }
     .post-card.editing .edit-area { display: block; }
     .post-card.editing .preview-area { display: none; }
@@ -44,13 +49,14 @@
             tipKey: 'social-posts',
             label: 'Social post ideas',
             size: 'md',
-            content: 'Daily post ideas for AdHello &amp; @ClarkCountyGuide. Refresh for new ideas. Save posts you like for later.'
+            content: 'Post ideas scoped to your workspace business profile. Bookmark favorites into folders, then open Marketing Studio from any card thumbnail to generate artwork.'
           }) %>
         </div>
+        <p id="nicheLabel" class="text-xs text-brand-muted mt-1"></p>
         <div id="styleTags" class="flex flex-wrap gap-2 mt-2"></div>
       </div>
       <div class="flex items-center gap-3">
-        <input id="nicheInput" type="text" placeholder="Optional: different niche (e.g. HVAC, roofing)"
+        <input id="nicheInput" type="text" placeholder="Override niche (optional)"
           class="rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm font-semibold text-brand-dark dark:text-white placeholder:text-brand-muted/50 w-56" />
         <button onclick="regenerateAll()" class="btn-brand-yellow text-sm font-bold px-4 py-2 rounded-xl whitespace-nowrap action-btn flex items-center gap-1.5">
           <svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-6.219-8.56"/><polyline points="21 3 21 9 15 9"/></svg>
@@ -150,12 +156,18 @@
     </div>
 
     <!-- Saved Posts Section -->
-    <div class="mt-12 mb-4 flex items-center justify-between">
+    <div class="mt-12 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
       <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white flex items-center gap-2">
         <svg class="icon-flat" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
-        Saved Posts
+        Bookmarked Posts
       </h2>
-      <span id="savedCount" class="text-xs text-brand-muted font-bold">0 saved</span>
+      <div class="flex items-center gap-2 flex-wrap">
+        <select id="bookmarkFolderFilter" class="rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-1.5 text-xs font-bold text-brand-dark dark:text-white">
+          <option value="">All folders</option>
+        </select>
+        <button onclick="openFolderModalForNew()" class="text-xs font-bold text-brand-yellow hover:underline">+ New folder</button>
+        <span id="savedCount" class="text-xs text-brand-muted font-bold">0 saved</span>
+      </div>
     </div>
     <div id="savedPostsContainer" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
       <div class="col-span-full text-center py-12 text-brand-muted text-sm italic" id="noSavedMsg">
@@ -163,8 +175,8 @@
       </div>
     </div>
 
-    <!-- Clark County / Local Content Section -->
-    <div class="mt-14 mb-4 flex items-center justify-between">
+    <!-- Clark County / Local Content Section (agency workspaces only) -->
+    <div id="localContentSection" class="mt-14 mb-4 flex items-center justify-between hidden">
       <div>
         <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white flex items-center gap-2">
           <svg class="icon-flat" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
@@ -180,8 +192,8 @@
       </div>
     </div>
 
-    <!-- Newsletter Picks Section -->
-    <div class="mt-14 mb-4 flex items-center justify-between">
+    <!-- Newsletter Picks Section (agency workspaces only) -->
+    <div id="newsletterSection" class="mt-14 mb-4 flex items-center justify-between hidden">
       <div>
         <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white flex items-center gap-2">
           <svg class="icon-flat" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
@@ -242,6 +254,26 @@
     </div>
   </div>
 
+  <!-- Bookmark Folder Modal -->
+  <div id="folderModal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeFolderModal()"></div>
+    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl border border-brand-border dark:border-white/10 p-6 shadow-2xl">
+      <h3 id="folderModalTitle" class="font-display font-bold text-lg text-brand-dark dark:text-white mb-4">Save to folder</h3>
+      <div id="folderPickerList" class="space-y-2 mb-4 max-h-48 overflow-y-auto"></div>
+      <div class="border-t border-brand-border/40 pt-4">
+        <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Or create new folder</label>
+        <div class="flex gap-2">
+          <input id="newFolderName" type="text" placeholder="e.g. Review later, Q1 campaign" class="flex-1 rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white" />
+          <button onclick="createFolderAndSave()" class="btn-brand-yellow text-xs font-bold px-4 py-2 rounded-xl whitespace-nowrap">Create</button>
+        </div>
+      </div>
+      <div class="flex justify-end gap-3 mt-5">
+        <button onclick="closeFolderModal()" class="text-sm font-bold text-brand-muted hover:text-brand-dark dark:hover:text-white px-4 py-2">Cancel</button>
+        <button onclick="saveToFolder(null)" class="text-sm font-bold text-brand-yellow px-4 py-2">Save without folder</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Copy Toast -->
   <div id="copyToast" class="fixed bottom-6 right-6 z-50 hidden">
     <div class="copy-toast bg-brand-dark dark:bg-white text-white dark:text-brand-dark text-sm font-bold px-5 py-3 rounded-xl shadow-2xl">
@@ -253,13 +285,18 @@
 
   <script>
     // ── State ──────────────────────────────────────────────────────────────────
+    const WORKSPACE_ID = <%- JSON.stringify(workspaceId || 'default') %>;
+    const businessProfile = <%- JSON.stringify(typeof businessProfile !== 'undefined' ? businessProfile : {}) %>;
     let currentPlatform = 'all';
     let allIdeas = {};
     let savedPosts = [];
+    let bookmarkFolders = <%- JSON.stringify(typeof bookmarkFolders !== 'undefined' ? bookmarkFolders : []) %>;
     let localContentItems = [];
     let styleProfile = <%- JSON.stringify(styleProfile || {}) %>;
     let calendarOffset = 0;
     let currentHashtagSet = 0;
+    let pendingBookmark = null;
+    let savedFolderFilter = '';
 
     // ── Flat SVG Icons (inline for convenience) ────────────────────────────────
     const ICONS = {
@@ -279,25 +316,54 @@
       save: '<svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>',
     };
 
+    const PLATFORM_COLORS = { instagram: '#E1306C', facebook: '#1877F2', linkedin: '#0A66C2', x: '#1DA1F2', tiktok: '#000' };
+    const DM_PLATFORMS = { instagram: 'instagram_feed', facebook: 'facebook_feed', linkedin: 'linkedin_post', x: 'instagram_feed', tiktok: 'instagram_story' };
+
     // ── Hashtag Sets ───────────────────────────────────────────────────────────
-    const hashtagSets = [
-      { name: 'Clark County Local', tags: ['#ClarkCounty','#VancouverWA','#PNW','#PacificNorthwest','#WashingtonState','#CouverLife','#360','#PortlandMetro','#ClarkCountyWA','#ShopLocal'] },
-      { name: 'Small Business', tags: ['#SmallBusiness','#ShopSmall','#SmallBusinessOwner','#Entrepreneur','#LocalBusiness','#SupportLocal','#BusinessOwner','#SupportSmallBusiness','#LocalFirst','#CommunityFirst'] },
-      { name: 'New Business / Opening', tags: ['#GrandOpening','#NewBusiness','#NewInTown','#NowOpen','#GrandOpeningDay','#JustOpened','#NewSpot','#CheckThisOut','#LocalNews','#BusinessSpotlight'] },
-      { name: 'Real Estate / Development', tags: ['#RealEstate','#NewDevelopment','#Construction','#Growth','#Downtown','#VancouverDowntown','#PDXRealEstate','#Housing','#CommercialRealEstate','#UrbanDevelopment'] },
-      { name: 'Engagement / Community', tags: ['#KnowYourCity','#LocalLove','#CommunityMatters','#ExploreLocal','#HiddenGems','#ThingsToDo','#WeekendVibes','#LocalEats','#ExplorePNW','#WAFood'] }
-    ];
+    function buildHashtagSets() {
+      if (businessProfile && businessProfile.isAgencyWorkspace) {
+        return [
+          { name: 'Clark County Local', tags: ['#ClarkCounty','#VancouverWA','#PNW','#PacificNorthwest','#WashingtonState','#CouverLife','#360','#PortlandMetro','#ClarkCountyWA','#ShopLocal'] },
+          { name: 'Small Business', tags: ['#SmallBusiness','#ShopSmall','#SmallBusinessOwner','#Entrepreneur','#LocalBusiness','#SupportLocal','#BusinessOwner','#SupportSmallBusiness','#LocalFirst','#CommunityFirst'] },
+          { name: 'New Business / Opening', tags: ['#GrandOpening','#NewBusiness','#NewInTown','#NowOpen','#GrandOpeningDay','#JustOpened','#NewSpot','#CheckThisOut','#LocalNews','#BusinessSpotlight'] },
+          { name: 'Real Estate / Development', tags: ['#RealEstate','#NewDevelopment','#Construction','#Growth','#Downtown','#VancouverDowntown','#PDXRealEstate','#Housing','#CommercialRealEstate','#UrbanDevelopment'] },
+          { name: 'Engagement / Community', tags: ['#KnowYourCity','#LocalLove','#CommunityMatters','#ExploreLocal','#HiddenGems','#ThingsToDo','#WeekendVibes','#LocalEats','#ExplorePNW','#WAFood'] }
+        ];
+      }
+      const nicheTag = (businessProfile.icpKeyword || businessProfile.businessName || 'LocalBusiness').replace(/[^a-zA-Z0-9]/g, '');
+      return [
+        { name: 'Business / Service', tags: ['#' + nicheTag, '#SmallBusiness', '#LocalBusiness', '#ShopLocal', '#SupportLocal', '#HomeImprovement', '#ContractorLife', '#QualityWork', '#CustomerFirst', '#BeforeAndAfter'] },
+        { name: 'Engagement', tags: ['#TipTuesday', '#Transformation', '#ProjectOfTheWeek', '#CustomerReview', '#BehindTheScenes', '#ProTips', '#HomeOwner', '#LocalExpert', '#TrustedPro', '#FreeEstimate'] },
+        { name: 'Industry', tags: ['#Flooring', '#HomeRenovation', '#InteriorDesign', '#Contractor', '#Builder', '#Remodel', '#NewConstruction', '#DesignInspo', '#Craftsmanship', '#QualityInstall'].map(t => businessProfile.niche && businessProfile.niche.toLowerCase().includes('floor') ? t : t) }
+      ];
+    }
+    let hashtagSets = buildHashtagSets();
 
     // ── Init: auto-load ideas on page visit ────────────────────────────────────
     document.addEventListener('DOMContentLoaded', () => {
       renderStyleTags();
+      renderNicheLabel();
+      renderBookmarkFolderFilter();
+      if (businessProfile.showLocalContent) {
+        document.getElementById('localContentSection')?.classList.remove('hidden');
+        document.getElementById('newsletterSection')?.classList.remove('hidden');
+        loadLocalContent();
+      } else {
+        document.getElementById('qaCopyLocalToday')?.classList.add('hidden');
+      }
       loadSavedPosts();
-      loadLocalContent();
       renderCalendar();
       renderHashtags();
-      // Auto-generate ideas for AdHello/@ClarkCountyGuide on page load
       regenerateAll();
     });
+
+    function renderNicheLabel() {
+      const el = document.getElementById('nicheLabel');
+      if (!el || !businessProfile.niche) return;
+      el.textContent = 'Ideas for: ' + businessProfile.niche;
+    }
+
+    function wsQuery() { return 'workspaceId=' + encodeURIComponent(WORKSPACE_ID); }
 
     // ── QUICK ACTIONS ───────────────────────────────────────────────────────────
     function qaStatus(msg) {
@@ -307,18 +373,20 @@
     }
 
     async function qaGenerateInstagram() {
-      const niche = document.getElementById('nicheInput').value.trim() || 'AdHello agency and @ClarkCountyGuide local business directory';
+      const preset = document.getElementById('nicheInput').value.trim();
+      const q = preset ? '&preset=' + encodeURIComponent(preset) : '';
       try {
-        const res = await fetch('/social-posts/api/ideas?preset=' + encodeURIComponent(niche) + '&workspaceId=default');
+        const res = await fetch('/social-posts/api/ideas?' + wsQuery() + q);
         const data = await res.json();
         if (data.success) { allIdeas = data.ideas; switchTab('instagram'); qaStatus('Instagram ideas generated'); }
       } catch (err) { qaStatus('Error generating'); }
     }
 
     async function qaGenerateTikTok() {
-      const niche = document.getElementById('nicheInput').value.trim() || 'AdHello agency and @ClarkCountyGuide local business directory';
+      const preset = document.getElementById('nicheInput').value.trim();
+      const q = preset ? '&preset=' + encodeURIComponent(preset) : '';
       try {
-        const res = await fetch('/social-posts/api/ideas?preset=' + encodeURIComponent(niche) + '&workspaceId=default');
+        const res = await fetch('/social-posts/api/ideas?' + wsQuery() + q);
         const data = await res.json();
         if (data.success) { allIdeas = data.ideas; switchTab('tiktok'); qaStatus('TikTok ideas generated'); }
       } catch (err) { qaStatus('Error generating'); }
@@ -411,15 +479,23 @@
       });
     });
 
-    // ── Generate Ideas (default to AdHello/@ClarkCountyGuide) ───────────────────────────
+    // ── Generate Ideas ───────────────────────────────────────────────────────────
     async function regenerateAll() {
-      const niche = document.getElementById('nicheInput').value.trim() || 'AdHello agency and @ClarkCountyGuide local business directory';
+      const preset = document.getElementById('nicheInput').value.trim();
+      const q = preset ? '&preset=' + encodeURIComponent(preset) : '';
       const container = document.getElementById('ideasContainer');
       container.innerHTML = '<div class="col-span-full text-center py-20 text-brand-muted"><p class="text-lg font-bold">Generating fresh ideas...</p></div>';
       try {
-        const res = await fetch('/social-posts/api/ideas?preset=' + encodeURIComponent(niche) + '&workspaceId=default');
+        const res = await fetch('/social-posts/api/ideas?' + wsQuery() + q);
         const data = await res.json();
-        if (data.success) { allIdeas = data.ideas; renderIdeas(); }
+        if (data.success) {
+          allIdeas = data.ideas;
+          if (data.niche) {
+            const lbl = document.getElementById('nicheLabel');
+            if (lbl) lbl.textContent = 'Ideas for: ' + data.niche;
+          }
+          renderIdeas();
+        }
         else { container.innerHTML = '<div class="col-span-full text-center py-20 text-red-500"><p class="font-bold">Error: ' + (data.error || 'Failed') + '</p></div>'; }
       } catch (err) { container.innerHTML = '<div class="col-span-full text-center py-20 text-red-500"><p class="font-bold">Connection error.</p></div>'; }
     }
@@ -435,23 +511,48 @@
       if (!total) { container.innerHTML = '<div class="col-span-full text-center py-20 text-brand-muted"><p class="text-lg font-bold mb-2">No ideas yet</p><p class="text-sm">Click Refresh Ideas to generate</p></div>'; }
     }
 
+    function marketingStudioUrl(platform, hook, cta) {
+      const dmPlatform = DM_PLATFORMS[platform] || 'instagram_feed';
+      const copy = hook + (cta ? '\n\n' + cta : '');
+      const params = new URLSearchParams({
+        fromSocialPost: '1',
+        platform: dmPlatform,
+        copy: copy,
+        headline: hook.slice(0, 120),
+        body: cta || '',
+        autoGenerate: '1',
+      });
+      return '/direct-mail?' + params.toString();
+    }
+
+    function thumbGradient(platform) {
+      const c = PLATFORM_COLORS[platform] || '#64748b';
+      return 'linear-gradient(135deg, ' + c + '33 0%, ' + c + '88 100%)';
+    }
+
     function createIdeaCard(idea, platform) {
       const div = document.createElement('div');
       div.className = 'post-card brand-card p-5 dark:bg-slate-900 dark:border-white/10 rounded-2xl border border-brand-border/60';
       div.dataset.ideaId = idea.id;
       div.dataset.platform = platform;
-      const labels = { instagram: 'Instagram', facebook: 'Facebook', linkedIn: 'LinkedIn', x: 'X / Twitter', tiktok: 'TikTok' };
-      const colors = { instagram: '#E1306C', facebook: '#1877F2', linkedIn: '#0A66C2', x: '#1DA1F2', tiktok: '#000' };
+      const labels = { instagram: 'Instagram', facebook: 'Facebook', linkedin: 'LinkedIn', x: 'X / Twitter', tiktok: 'TikTok' };
+      const colors = PLATFORM_COLORS;
       const isSaved = savedPosts.some(sp => sp.content === idea.hook && sp.platform === platform);
       const saveIcon = isSaved ? ICONS.bookmarkFilled : ICONS.bookmark;
       const saveColor = isSaved ? 'var(--brand-yellow)' : '';
-      const saveTitle = isSaved ? 'Saved' : 'Save for later';
-      div.innerHTML = '<div class="flex items-center justify-between mb-3">' +
+      const saveTitle = isSaved ? 'Saved' : 'Bookmark for later';
+      const studioUrl = marketingStudioUrl(platform, idea.hook, idea.cta || '');
+      div.innerHTML =
+        '<div class="post-card-thumb" onclick="window.location.href=\'' + studioUrl.replace(/'/g, "\\'") + '\'" title="Open in Marketing Studio">' +
+        '<div style="width:100%;height:100%;background:' + thumbGradient(platform) + ';display:flex;align-items:center;justify-content:center;">' +
+        '<span style="font-size:28px;opacity:.6;">' + (labels[platform] || platform).charAt(0) + '</span></div>' +
+        '<div class="thumb-overlay"><span class="thumb-label">Create artwork →</span></div></div>' +
+        '<div class="flex items-center justify-between mb-3">' +
         '<span class="text-[10px] font-black uppercase tracking-widest" style="color:' + (colors[platform] || 'var(--brand-muted)') + '">' + (labels[platform] || platform) + '</span>' +
         '<div class="flex gap-2">' +
-        '<button onclick="toggleSaveIdea(\'' + idea.id.replace(/'/g, "\\'") + '\', \'' + platform.replace(/'/g, "\\'") + '\')" class="text-[10px] font-bold hover:text-brand-yellow flex items-center gap-0.5" style="color:' + saveColor + '" title="' + saveTitle + '">' + saveIcon + '</button>' +
-        '<button onclick="copyIdea(\'' + idea.id.replace(/'/g, "\\'") + '\')" class="text-[10px] font-bold text-brand-muted hover:text-brand-yellow flex items-center gap-0.5" title="Copy">' + ICONS.copy + '</button>' +
-        '<button onclick="toggleEdit(\'' + idea.id.replace(/'/g, "\\'") + '\')" class="text-[10px] font-bold text-brand-muted hover:text-brand-yellow flex items-center gap-0.5" title="Edit">' + ICONS.edit + '</button>' +
+        '<button onclick="event.stopPropagation();toggleSaveIdea(\'' + idea.id.replace(/'/g, "\\'") + '\', \'' + platform.replace(/'/g, "\\'") + '\')" class="text-[10px] font-bold hover:text-brand-yellow flex items-center gap-0.5" style="color:' + saveColor + '" title="' + saveTitle + '">' + saveIcon + '</button>' +
+        '<button onclick="event.stopPropagation();copyIdea(\'' + idea.id.replace(/'/g, "\\'") + '\')" class="text-[10px] font-bold text-brand-muted hover:text-brand-yellow flex items-center gap-0.5" title="Copy">' + ICONS.copy + '</button>' +
+        '<button onclick="event.stopPropagation();toggleEdit(\'' + idea.id.replace(/'/g, "\\'") + '\')" class="text-[10px] font-bold text-brand-muted hover:text-brand-yellow flex items-center gap-0.5" title="Edit">' + ICONS.edit + '</button>' +
         '</div></div>' +
         '<div class="preview-area"><p class="text-sm font-semibold text-brand-dark dark:text-white leading-relaxed whitespace-pre-wrap">' + escapeHtml(idea.hook) + '</p>' +
         (idea.cta ? '<p class="text-xs text-brand-muted mt-2 italic">CTA: ' + escapeHtml(idea.cta) + '</p>' : '') + '</div>' +
@@ -462,7 +563,7 @@
       return div;
     }
 
-    // ── Save idea for later (bookmark) ─────────────────────────────────────────
+    // ── Bookmark idea with folder picker ───────────────────────────────────────
     async function toggleSaveIdea(ideaId, platform) {
       const card = document.querySelector('[data-idea-id="' + ideaId + '"]');
       if (!card) return;
@@ -471,23 +572,101 @@
       const cta = ctaEl ? ctaEl.textContent.replace('CTA: ', '') : '';
       const existing = savedPosts.find(sp => sp.content === content && sp.platform === platform);
       if (existing) {
-        // Unsave
         try {
           const res = await fetch('/social-posts/api/' + encodeURIComponent(existing.id), { method: 'DELETE' });
           const data = await res.json();
-          if (data.success) { savedPosts = savedPosts.filter(sp => sp.id !== existing.id); renderSavedPosts(); renderIdeas(); qaStatus('Removed from saved'); }
+          if (data.success) { savedPosts = savedPosts.filter(sp => sp.id !== existing.id); renderSavedPosts(); renderIdeas(); qaStatus('Removed bookmark'); }
         } catch (err) { alert('Could not remove.'); }
       } else {
-        // Save
-        try {
-          const res = await fetch('/social-posts/api/save', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ platform, content, cta, niche: 'AdHello', workspaceId: 'default' })
-          });
-          const data = await res.json();
-          if (data.success) { savedPosts.unshift({ id: data.id, platform, content, cta, createdAt: new Date().toISOString() }); renderSavedPosts(); renderIdeas(); qaStatus('Saved for later'); showCopyToast(); }
-        } catch (err) { alert('Could not save.'); }
+        pendingBookmark = { ideaId, platform, content, cta };
+        openFolderModal();
       }
+    }
+
+    function openFolderModal() {
+      document.getElementById('folderModalTitle').textContent = 'Save to folder';
+      renderFolderPickerList();
+      document.getElementById('folderModal').classList.remove('hidden');
+      document.getElementById('newFolderName').value = '';
+      const saveNoFolder = document.querySelector('#folderModal button[onclick="saveToFolder(null)"]');
+      if (saveNoFolder) saveNoFolder.classList.toggle('hidden', !pendingBookmark);
+    }
+    function closeFolderModal() {
+      document.getElementById('folderModal').classList.add('hidden');
+      pendingBookmark = null;
+    }
+
+    function renderFolderPickerList() {
+      const list = document.getElementById('folderPickerList');
+      if (!list) return;
+      if (!bookmarkFolders.length) {
+        list.innerHTML = '<p class="text-xs text-brand-muted italic">No folders yet — create one below.</p>';
+        return;
+      }
+      list.innerHTML = bookmarkFolders.map(f =>
+        '<button type="button" onclick="saveToFolder(\'' + f.id.replace(/'/g, "\\'") + '\')" class="w-full text-left rounded-xl border border-brand-border/50 dark:border-white/10 px-4 py-2.5 text-sm font-bold text-brand-dark dark:text-white hover:border-brand-yellow transition-colors">' + escapeHtml(f.name) + '</button>'
+      ).join('');
+    }
+
+    async function saveToFolder(folderId) {
+      if (!pendingBookmark) return;
+      const { platform, content, cta, ideaId } = pendingBookmark;
+      try {
+        const res = await fetch('/social-posts/api/save', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            platform, content, cta, ideaId,
+            niche: businessProfile.niche || '',
+            folderId: folderId || null,
+            workspaceId: WORKSPACE_ID,
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          savedPosts.unshift(data.post || { id: data.id, platform, content, cta, folderId, createdAt: new Date().toISOString() });
+          renderSavedPosts(); renderIdeas(); qaStatus('Bookmarked'); closeFolderModal();
+        }
+      } catch (err) { alert('Could not save.'); }
+    }
+
+    async function createFolderAndSave() {
+      const name = document.getElementById('newFolderName').value.trim();
+      if (!name) return;
+      try {
+        const res = await fetch('/social-posts/api/bookmark-folders', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, workspaceId: WORKSPACE_ID })
+        });
+        const data = await res.json();
+        if (data.success && data.folder) {
+          bookmarkFolders.unshift(data.folder);
+          renderBookmarkFolderFilter();
+          if (pendingBookmark) {
+            await saveToFolder(data.folder.id);
+          } else {
+            closeFolderModal();
+            qaStatus('Folder created');
+          }
+        }
+      } catch (err) { alert('Could not create folder.'); }
+    }
+
+    function renderBookmarkFolderFilter() {
+      const sel = document.getElementById('bookmarkFolderFilter');
+      if (!sel) return;
+      const prev = sel.value;
+      sel.innerHTML = '<option value="">All folders</option>' +
+        bookmarkFolders.map(f => '<option value="' + escapeHtml(f.id) + '">' + escapeHtml(f.name) + '</option>').join('');
+      sel.value = prev || '';
+      sel.onchange = function() { savedFolderFilter = sel.value; renderSavedPosts(); };
+    }
+
+    async function openFolderModalForNew() {
+      pendingBookmark = null;
+      document.getElementById('folderModalTitle').textContent = 'New bookmark folder';
+      document.getElementById('folderModal').classList.remove('hidden');
+      document.getElementById('newFolderName').value = '';
+      renderFolderPickerList();
     }
 
     function copyIdea(ideaId) {
@@ -515,7 +694,7 @@
       try {
         const res = await fetch('/social-posts/api/save', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ platform: card.dataset.platform, content, cta, niche: document.getElementById('nicheInput').value.trim() || 'AdHello', workspaceId: 'default' })
+          body: JSON.stringify({ platform: card.dataset.platform, content, cta, niche: document.getElementById('nicheInput').value.trim() || businessProfile.niche, workspaceId: WORKSPACE_ID })
         });
         const data = await res.json();
         if (data.success) {
@@ -532,26 +711,41 @@
     // ── Saved Posts ─────────────────────────────────────────────────────────────
     async function loadSavedPosts() {
       try {
-        const res = await fetch('/social-posts/api/saved?workspaceId=default');
+        const res = await fetch('/social-posts/api/saved?' + wsQuery());
         const data = await res.json();
         if (data.success && data.posts) { savedPosts = data.posts; renderSavedPosts(); }
       } catch (err) { /* ignore */ }
     }
 
+    function folderName(folderId) {
+      if (!folderId) return '';
+      const f = bookmarkFolders.find(x => x.id === folderId);
+      return f ? f.name : '';
+    }
+
     function renderSavedPosts() {
       const container = document.getElementById('savedPostsContainer');
-      document.getElementById('savedCount').textContent = savedPosts.length + ' saved';
-      if (!savedPosts.length) {
-        container.innerHTML = '<div class="col-span-full text-center py-12 text-brand-muted text-sm italic" id="noSavedMsg">No saved posts yet. Click the bookmark icon on any idea to save it.</div>';
+      let posts = savedPosts;
+      if (savedFolderFilter) posts = posts.filter(p => p.folderId === savedFolderFilter);
+      document.getElementById('savedCount').textContent = posts.length + ' bookmarked';
+      if (!posts.length) {
+        container.innerHTML = '<div class="col-span-full text-center py-12 text-brand-muted text-sm italic" id="noSavedMsg">No bookmarked posts yet. Click the bookmark icon on any idea to save it.</div>';
         return;
       }
       container.innerHTML = '';
-      for (const post of savedPosts) {
+      for (const post of posts) {
         const div = document.createElement('div');
         div.className = 'post-card brand-card p-5 dark:bg-slate-900 dark:border-white/10 rounded-2xl border border-brand-border/60';
         const date = post.createdAt ? new Date(post.createdAt).toLocaleDateString() : '';
-        div.innerHTML = '<div class="flex items-center justify-between mb-3">' +
-          '<span class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">' + post.platform + '</span>' +
+        const fName = folderName(post.folderId);
+        const studioUrl = marketingStudioUrl(post.platform, post.content, post.cta || '');
+        div.innerHTML =
+          '<div class="post-card-thumb" onclick="window.location.href=\'' + studioUrl.replace(/'/g, "\\'") + '\'" title="Open in Marketing Studio">' +
+          '<div style="width:100%;height:100%;background:' + thumbGradient(post.platform) + ';display:flex;align-items:center;justify-content:center;">' +
+          '<span style="font-size:28px;opacity:.6;">' + post.platform.charAt(0).toUpperCase() + '</span></div>' +
+          '<div class="thumb-overlay"><span class="thumb-label">Create artwork →</span></div></div>' +
+          '<div class="flex items-center justify-between mb-3">' +
+          '<span class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">' + post.platform + (fName ? ' · ' + escapeHtml(fName) : '') + '</span>' +
           '<div class="flex gap-2 items-center">' +
           '<span class="text-[10px] text-brand-muted">' + date + '</span>' +
           '<button onclick="navigator.clipboard.writeText(' + JSON.stringify(post.content) + ').then(()=>showCopyToast())" class="text-[10px] font-bold text-brand-muted hover:text-brand-yellow" title="Copy">' + ICONS.copy + '</button>' +
@@ -590,7 +784,7 @@
         tone: document.getElementById('styleTone').value,
         hooks: document.getElementById('styleHooks').value.split(',').map(s => s.trim()).filter(Boolean),
         ctas: document.getElementById('styleCtas').value.split(',').map(s => s.trim()).filter(Boolean),
-        workspaceId: 'default',
+        workspaceId: WORKSPACE_ID,
       };
       try {
         const res = await fetch('/social-posts/api/save-style', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(profile) });
@@ -614,7 +808,7 @@
     // ── Local Content (Clark County) ─────────────────────────────────────────────
     async function loadLocalContent() {
       try {
-        const res = await fetch('/social-posts/api/local-content?workspaceId=default&limit=50');
+        const res = await fetch('/social-posts/api/local-content?' + wsQuery() + '&limit=50');
         const data = await res.json();
         if (data.success && data.items) { localContentItems = data.items; renderLocalContent(); renderCalendar(); renderNewsletter(); }
       } catch (err) { /* ignore */ }
@@ -658,7 +852,7 @@
     async function toggleNewsletter(id) {
       try {
         const res = await fetch('/social-posts/api/local-content/' + encodeURIComponent(id) + '/newsletter', {
-          method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId: 'default' })
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId: WORKSPACE_ID })
         });
         const data = await res.json();
         if (data.success) { const item = localContentItems.find(i => i.id === id); if (item) { item.newsletter = data.newsletter; item.newsletterAt = new Date().toISOString(); } renderLocalContent(); renderNewsletter(); }
@@ -732,7 +926,7 @@
       for (const item of picks) {
         item.newsletter = false; item.newsletterAt = null;
         await fetch('/social-posts/api/local-content/' + encodeURIComponent(item.id) + '/newsletter', {
-          method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId: 'default' })
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId: WORKSPACE_ID })
         }).catch(() => {});
       }
       renderLocalContent(); renderNewsletter(); qaStatus('Newsletter picks cleared');
