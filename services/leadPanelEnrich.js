@@ -6,7 +6,6 @@
 const outscraper = require('./outscraperClient');
 const outscraperGmbEnrich = require('./outscraperGmbEnrich');
 const outscraperLeadEnrich = require('./outscraperLeadEnrich');
-const builtWithEnrich = require('./builtWithEnrich');
 const mapsEnrichFallback = require('./mapsEnrichFallback');
 const rapidapiWebsiteEnrich = require('./rapidapiWebsiteEnrich');
 const { firecrawlExtractToLeadUpdates } = require('./enrichmentNormalize');
@@ -109,25 +108,6 @@ async function enrichLeadForPanelSidebar(lead, integrationEnv, opts) {
         if (!String(e.message || '').includes('_timeout')) {
           console.warn('[leadPanelEnrich] contacts skipped:', e.message);
         }
-      }
-    }
-  }
-
-  if (outscraper.isConfigured(integrationEnv) && builtWithEnrich.leadNeedsBuiltWith({ ...working, ...patch })) {
-    try {
-      const bw = await raceTimeout(
-        builtWithEnrich.enrichLeadFromBuiltWith({ ...working, ...patch }, integrationEnv),
-        timeoutMs,
-        'builtwith',
-      );
-      if (bw && bw.used && bw.patch) {
-        sources.push('BuiltWith');
-        mergePatch(patch, bw.patch);
-        Object.assign(working, patch);
-      }
-    } catch (e) {
-      if (!String(e.message || '').includes('_timeout')) {
-        console.warn('[leadPanelEnrich] BuiltWith skipped:', e.message);
       }
     }
   }

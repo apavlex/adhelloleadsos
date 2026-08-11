@@ -14,9 +14,38 @@
     .post-card-thumb .thumb-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.35); opacity: 0; transition: opacity .15s ease; }
     .post-card-thumb:hover .thumb-overlay { opacity: 1; }
     .post-card-thumb .thumb-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: #fff; background: rgba(0,0,0,.5); padding: 4px 10px; border-radius: 9999px; }
+    .ig-post-card { padding: 0 !important; overflow: hidden; max-width: 380px; margin: 0 auto; border-color: rgba(148,163,184,.35) !important; }
+    .dark .ig-post-card { border-color: rgba(255,255,255,.12) !important; background: #0f172a !important; }
+    .ig-post-header { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid rgba(148,163,184,.2); }
+    .dark .ig-post-header { border-bottom-color: rgba(255,255,255,.08); }
+    .ig-avatar { width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #fff; background: linear-gradient(135deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888); border: 2px solid transparent; }
+    .ig-post-header-meta { min-width: 0; flex: 1; }
+    .ig-username { font-size: 13px; font-weight: 700; color: #111827; line-height: 1.2; }
+    .dark .ig-username { color: #f8fafc; }
+    .ig-location { font-size: 11px; color: #64748b; line-height: 1.2; margin-top: 1px; }
+    .dark .ig-location { color: #94a3b8; }
+    .ig-post-card .post-card-thumb { aspect-ratio: 1 / 1; border-radius: 0; margin-bottom: 0; }
+    .ig-post-card .post-card-thumb:hover { transform: none; }
+    .ig-post-actions { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px 6px; }
+    .ig-actions-left, .ig-actions-right { display: flex; align-items: center; gap: 14px; }
+    .ig-action-btn { background: none; border: none; padding: 0; color: #111827; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+    .dark .ig-action-btn { color: #f8fafc; }
+    .ig-action-btn:hover { opacity: .7; }
+    .ig-action-btn svg { width: 22px; height: 22px; }
+    .ig-post-body { padding: 0 14px 14px; }
+    .ig-caption { font-size: 13px; line-height: 1.45; color: #111827; }
+    .dark .ig-caption { color: #f1f5f9; }
+    .ig-caption .ig-handle { font-weight: 700; margin-right: 4px; }
+    .ig-cta-line { font-size: 12px; color: #64748b; margin-top: 6px; line-height: 1.4; }
+    .dark .ig-cta-line { color: #94a3b8; }
+    .ig-actions-right .icon-flat-sm { width: 20px; height: 20px; }
+    .ig-post-card .edit-area { padding: 0 14px 14px; }
     .post-card .edit-area { display: none; }
     .post-card.editing .edit-area { display: block; }
     .post-card.editing .preview-area { display: none; }
+    .post-card.editing .ig-post-header,
+    .post-card.editing .ig-post-actions,
+    .post-card.editing .post-card-thumb { display: none; }
     .copy-toast { animation: fadeInOut 2s ease forwards; }
     @keyframes fadeInOut { 0%{opacity:0;transform:translateY(8px)} 15%{opacity:1;transform:translateY(0)} 85%{opacity:1;transform:translateY(0)} 100%{opacity:0;transform:translateY(-8px)} }
     .style-tag { font-size: 10px; padding: 2px 8px; border-radius: 9999px; background: rgba(255,214,68,.15); color: var(--brand-yellow); font-weight: 700; }
@@ -314,6 +343,10 @@
       instagram: '<svg class="icon-flat-sm" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>',
       tiktok: '<svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M9 12a4 4 0 104 4V4a5 5 0 005 5"/></svg>',
       save: '<svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>',
+      heart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>',
+      comment: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
+      share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
+      more: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>',
     };
 
     const PLATFORM_COLORS = { instagram: '#E1306C', facebook: '#1877F2', linkedin: '#0A66C2', x: '#1DA1F2', tiktok: '#000' };
@@ -530,9 +563,70 @@
       return 'linear-gradient(135deg, ' + c + '33 0%, ' + c + '88 100%)';
     }
 
+    function igHandle() {
+      const raw = businessProfile.businessName || businessProfile.icpKeyword || 'yourbusiness';
+      const handle = raw.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().slice(0, 24);
+      return handle || 'yourbusiness';
+    }
+
+    function igDisplayName() {
+      return businessProfile.businessName || businessProfile.icpKeyword || 'Your Business';
+    }
+
+    function igInitials() {
+      const name = igDisplayName();
+      const parts = name.split(/\s+/).filter(Boolean);
+      if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+      return name.slice(0, 2).toUpperCase();
+    }
+
+    function igLocationLabel() {
+      if (businessProfile.isAgencyWorkspace) return 'Clark County, WA';
+      if (businessProfile.icpKeyword) return businessProfile.icpKeyword;
+      return 'Local business';
+    }
+
+    function ideaCardActionsHtml(ideaId, platform, isSaved) {
+      const saveIcon = isSaved ? ICONS.bookmarkFilled : ICONS.bookmark;
+      const saveColor = isSaved ? 'var(--brand-yellow)' : '';
+      const saveTitle = isSaved ? 'Saved' : 'Bookmark for later';
+      return '<button onclick="event.stopPropagation();toggleSaveIdea(\'' + ideaId.replace(/'/g, "\\'") + '\', \'' + platform.replace(/'/g, "\\'") + '\')" class="ig-action-btn" style="color:' + saveColor + '" title="' + saveTitle + '">' + saveIcon + '</button>' +
+        '<button onclick="event.stopPropagation();copyIdea(\'' + ideaId.replace(/'/g, "\\'") + '\')" class="ig-action-btn" title="Copy">' + ICONS.copy + '</button>' +
+        '<button onclick="event.stopPropagation();toggleEdit(\'' + ideaId.replace(/'/g, "\\'") + '\')" class="ig-action-btn" title="Edit">' + ICONS.edit + '</button>';
+    }
+
+    function ideaEditAreaHtml(ideaId, hook, cta) {
+      return '<div class="edit-area mt-3"><textarea class="edit-content w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white min-h-[100px] resize-y">' + escapeHtml(hook) + '</textarea>' +
+        '<textarea class="edit-cta w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-brand-muted mt-2 min-h-[40px] resize-y" placeholder="CTA">' + escapeHtml(cta || '') + '</textarea>' +
+        '<div class="flex gap-2 mt-3"><button onclick="saveIdea(\'' + ideaId.replace(/'/g, "\\'") + '\')" class="btn-brand-yellow text-xs font-bold px-4 py-1.5 rounded-lg">Save</button>' +
+        '<button onclick="cancelEdit(\'' + ideaId.replace(/'/g, "\\'") + '\')" class="text-xs font-bold text-brand-muted hover:text-brand-dark dark:hover:text-white px-3 py-1.5">Cancel</button></div></div>';
+    }
+
+    function createInstagramIdeaCard(idea, platform, studioUrl, isSaved) {
+      const handle = igHandle();
+      const actions = ideaCardActionsHtml(idea.id, platform, isSaved);
+      return '<div class="ig-post-header">' +
+        '<div class="ig-avatar" aria-hidden="true">' + escapeHtml(igInitials()) + '</div>' +
+        '<div class="ig-post-header-meta"><div class="ig-username">' + escapeHtml(handle) + '</div><div class="ig-location">' + escapeHtml(igLocationLabel()) + '</div></div>' +
+        '<span class="ig-action-btn opacity-60" aria-hidden="true" style="width:18px;height:18px;">' + ICONS.more + '</span></div>' +
+        '<div class="post-card-thumb" onclick="window.location.href=\'' + studioUrl.replace(/'/g, "\\'") + '\'" title="Open in Marketing Studio">' +
+        '<div style="width:100%;height:100%;background:' + thumbGradient(platform) + ';display:flex;align-items:center;justify-content:center;">' +
+        '<span style="font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.55;color:#fff;">Tap to create artwork</span></div>' +
+        '<div class="thumb-overlay"><span class="thumb-label">Create artwork →</span></div></div>' +
+        '<div class="ig-post-actions"><div class="ig-actions-left">' +
+        '<span class="ig-action-btn" aria-hidden="true">' + ICONS.heart + '</span>' +
+        '<span class="ig-action-btn" aria-hidden="true">' + ICONS.comment + '</span>' +
+        '<span class="ig-action-btn" aria-hidden="true">' + ICONS.share + '</span></div>' +
+        '<div class="ig-actions-right">' + actions + '</div></div>' +
+        '<div class="preview-area ig-post-body"><p class="ig-caption"><span class="ig-handle">' + escapeHtml(handle) + '</span><span class="preview-hook">' + escapeHtml(idea.hook) + '</span></p>' +
+        (idea.cta ? '<p class="ig-cta-line preview-cta">' + escapeHtml(idea.cta) + '</p>' : '') + '</div>' +
+        ideaEditAreaHtml(idea.id, idea.hook, idea.cta || '');
+    }
+
     function createIdeaCard(idea, platform) {
       const div = document.createElement('div');
-      div.className = 'post-card brand-card p-5 dark:bg-slate-900 dark:border-white/10 rounded-2xl border border-brand-border/60';
+      const isInstagram = platform === 'instagram';
+      div.className = 'post-card brand-card dark:bg-slate-900 dark:border-white/10 rounded-2xl border border-brand-border/60' + (isInstagram ? ' ig-post-card' : ' p-5');
       div.dataset.ideaId = idea.id;
       div.dataset.platform = platform;
       const labels = { instagram: 'Instagram', facebook: 'Facebook', linkedin: 'LinkedIn', x: 'X / Twitter', tiktok: 'TikTok' };
@@ -542,6 +636,10 @@
       const saveColor = isSaved ? 'var(--brand-yellow)' : '';
       const saveTitle = isSaved ? 'Saved' : 'Bookmark for later';
       const studioUrl = marketingStudioUrl(platform, idea.hook, idea.cta || '');
+      if (isInstagram) {
+        div.innerHTML = createInstagramIdeaCard(idea, platform, studioUrl, isSaved);
+        return div;
+      }
       div.innerHTML =
         '<div class="post-card-thumb" onclick="window.location.href=\'' + studioUrl.replace(/'/g, "\\'") + '\'" title="Open in Marketing Studio">' +
         '<div style="width:100%;height:100%;background:' + thumbGradient(platform) + ';display:flex;align-items:center;justify-content:center;">' +
@@ -554,12 +652,9 @@
         '<button onclick="event.stopPropagation();copyIdea(\'' + idea.id.replace(/'/g, "\\'") + '\')" class="text-[10px] font-bold text-brand-muted hover:text-brand-yellow flex items-center gap-0.5" title="Copy">' + ICONS.copy + '</button>' +
         '<button onclick="event.stopPropagation();toggleEdit(\'' + idea.id.replace(/'/g, "\\'") + '\')" class="text-[10px] font-bold text-brand-muted hover:text-brand-yellow flex items-center gap-0.5" title="Edit">' + ICONS.edit + '</button>' +
         '</div></div>' +
-        '<div class="preview-area"><p class="text-sm font-semibold text-brand-dark dark:text-white leading-relaxed whitespace-pre-wrap">' + escapeHtml(idea.hook) + '</p>' +
-        (idea.cta ? '<p class="text-xs text-brand-muted mt-2 italic">CTA: ' + escapeHtml(idea.cta) + '</p>' : '') + '</div>' +
-        '<div class="edit-area mt-3"><textarea class="edit-content w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white min-h-[100px] resize-y">' + escapeHtml(idea.hook) + '</textarea>' +
-        '<textarea class="edit-cta w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-brand-muted mt-2 min-h-[40px] resize-y" placeholder="CTA">' + escapeHtml(idea.cta || '') + '</textarea>' +
-        '<div class="flex gap-2 mt-3"><button onclick="saveIdea(\'' + idea.id.replace(/'/g, "\\'") + '\')" class="btn-brand-yellow text-xs font-bold px-4 py-1.5 rounded-lg">Save</button>' +
-        '<button onclick="cancelEdit(\'' + idea.id.replace(/'/g, "\\'") + '\')" class="text-xs font-bold text-brand-muted hover:text-brand-dark dark:hover:text-white px-3 py-1.5">Cancel</button></div></div>';
+        '<div class="preview-area"><p class="text-sm font-semibold text-brand-dark dark:text-white leading-relaxed whitespace-pre-wrap preview-hook">' + escapeHtml(idea.hook) + '</p>' +
+        (idea.cta ? '<p class="text-xs text-brand-muted mt-2 italic preview-cta">CTA: ' + escapeHtml(idea.cta) + '</p>' : '') + '</div>' +
+        ideaEditAreaHtml(idea.id, idea.hook, idea.cta || '');
       return div;
     }
 
@@ -567,9 +662,9 @@
     async function toggleSaveIdea(ideaId, platform) {
       const card = document.querySelector('[data-idea-id="' + ideaId + '"]');
       if (!card) return;
-      const content = card.querySelector('.preview-area p').textContent;
-      const ctaEl = card.querySelector('.preview-area .text-xs');
-      const cta = ctaEl ? ctaEl.textContent.replace('CTA: ', '') : '';
+      const content = card.querySelector('.preview-hook')?.textContent || card.querySelector('.preview-area p')?.textContent || '';
+      const ctaEl = card.querySelector('.preview-cta');
+      const cta = ctaEl ? ctaEl.textContent.replace(/^CTA:\s*/, '') : '';
       const existing = savedPosts.find(sp => sp.content === content && sp.platform === platform);
       if (existing) {
         try {
@@ -672,7 +767,7 @@
     function copyIdea(ideaId) {
       const card = document.querySelector('[data-idea-id="' + ideaId + '"]');
       if (!card) return;
-      const text = card.querySelector('.preview-area p').textContent;
+      const text = card.querySelector('.preview-hook')?.textContent || card.querySelector('.preview-area p')?.textContent || '';
       navigator.clipboard.writeText(text).then(() => showCopyToast());
     }
 
@@ -698,9 +793,22 @@
         });
         const data = await res.json();
         if (data.success) {
-          card.querySelector('.preview-area p').textContent = content;
-          const ctaEl = card.querySelector('.preview-area .text-xs');
-          if (cta) { if (ctaEl) ctaEl.textContent = 'CTA: ' + cta; else { const p = document.createElement('p'); p.className = 'text-xs text-brand-muted mt-2 italic'; p.textContent = 'CTA: ' + cta; card.querySelector('.preview-area').appendChild(p); } } else if (ctaEl) ctaEl.remove();
+          const hookEl = card.querySelector('.preview-hook');
+          if (hookEl) hookEl.textContent = content;
+          else {
+            const p = card.querySelector('.preview-area p');
+            if (p) p.textContent = content;
+          }
+          const ctaEl = card.querySelector('.preview-cta');
+          if (cta) {
+            if (ctaEl) ctaEl.textContent = card.classList.contains('ig-post-card') ? cta : 'CTA: ' + cta;
+            else {
+              const p = document.createElement('p');
+              p.className = card.classList.contains('ig-post-card') ? 'ig-cta-line preview-cta' : 'text-xs text-brand-muted mt-2 italic preview-cta';
+              p.textContent = card.classList.contains('ig-post-card') ? cta : 'CTA: ' + cta;
+              card.querySelector('.preview-area').appendChild(p);
+            }
+          } else if (ctaEl) ctaEl.remove();
           card.classList.remove('editing');
           showCopyToast();
           loadSavedPosts();
@@ -735,10 +843,34 @@
       container.innerHTML = '';
       for (const post of posts) {
         const div = document.createElement('div');
-        div.className = 'post-card brand-card p-5 dark:bg-slate-900 dark:border-white/10 rounded-2xl border border-brand-border/60';
+        const isInstagram = post.platform === 'instagram';
+        div.className = 'post-card brand-card dark:bg-slate-900 dark:border-white/10 rounded-2xl border border-brand-border/60' + (isInstagram ? ' ig-post-card' : ' p-5');
         const date = post.createdAt ? new Date(post.createdAt).toLocaleDateString() : '';
         const fName = folderName(post.folderId);
         const studioUrl = marketingStudioUrl(post.platform, post.content, post.cta || '');
+        if (isInstagram) {
+          const handle = igHandle();
+          div.innerHTML =
+            '<div class="ig-post-header">' +
+            '<div class="ig-avatar" aria-hidden="true">' + escapeHtml(igInitials()) + '</div>' +
+            '<div class="ig-post-header-meta"><div class="ig-username">' + escapeHtml(handle) + '</div><div class="ig-location">' + escapeHtml(fName || igLocationLabel()) + '</div></div>' +
+            '<span class="text-[10px] text-brand-muted">' + date + '</span></div>' +
+            '<div class="post-card-thumb" onclick="window.location.href=\'' + studioUrl.replace(/'/g, "\\'") + '\'" title="Open in Marketing Studio">' +
+            '<div style="width:100%;height:100%;background:' + thumbGradient(post.platform) + ';display:flex;align-items:center;justify-content:center;">' +
+            '<span style="font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.55;color:#fff;">Tap to create artwork</span></div>' +
+            '<div class="thumb-overlay"><span class="thumb-label">Create artwork →</span></div></div>' +
+            '<div class="ig-post-actions"><div class="ig-actions-left">' +
+            '<span class="ig-action-btn" aria-hidden="true">' + ICONS.heart + '</span>' +
+            '<span class="ig-action-btn" aria-hidden="true">' + ICONS.comment + '</span>' +
+            '<span class="ig-action-btn" aria-hidden="true">' + ICONS.share + '</span></div>' +
+            '<div class="ig-actions-right">' +
+            '<button onclick="navigator.clipboard.writeText(' + JSON.stringify(post.content) + ').then(()=>showCopyToast())" class="ig-action-btn" title="Copy">' + ICONS.copy + '</button>' +
+            '<button onclick="deleteSaved(\'' + post.id + '\')" class="ig-action-btn" title="Delete">' + ICONS.trash + '</button></div></div>' +
+            '<div class="ig-post-body"><p class="ig-caption"><span class="ig-handle">' + escapeHtml(handle) + '</span>' + escapeHtml(post.content) + '</p>' +
+            (post.cta ? '<p class="ig-cta-line">' + escapeHtml(post.cta) + '</p>' : '') + '</div>';
+          container.appendChild(div);
+          continue;
+        }
         div.innerHTML =
           '<div class="post-card-thumb" onclick="window.location.href=\'' + studioUrl.replace(/'/g, "\\'") + '\'" title="Open in Marketing Studio">' +
           '<div style="width:100%;height:100%;background:' + thumbGradient(post.platform) + ';display:flex;align-items:center;justify-content:center;">' +

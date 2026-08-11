@@ -507,7 +507,7 @@
             <% schedules.forEach((job) => { %>
             <li class="flex flex-wrap items-center gap-2 rounded-xl bg-white dark:bg-slate-900 border border-brand-border/20 dark:border-white/10 px-3 py-2.5 text-sm">
               <div class="min-w-0 flex-1">
-                <div class="font-bold truncate"><%= job.keyword %></div>
+                <div class="font-bold truncate"><%= formatSearchKeywordDisplay(job.keyword) %></div>
                 <div class="text-[11px] text-brand-muted"><%= job.city %>, <%= job.state %> · <%= job.maxResults %> leads</div>
               </div>
               <div class="text-[11px] font-bold tabular-nums shrink-0 text-brand-muted">

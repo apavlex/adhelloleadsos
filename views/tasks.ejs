@@ -121,12 +121,12 @@
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-4">Board</p>
       <div class="flex gap-4 min-w-max pb-2">
         <% taskColumns.forEach((col) => { %>
-          <div class="task-board-column w-[min(100vw-2rem,16rem)] shrink-0 flex flex-col gap-3" data-task-column="<%= col.id %>">
+          <div class="task-board-column w-[min(100vw-2rem,16rem)] min-w-0 shrink-0 flex flex-col gap-3" data-task-column="<%= col.id %>">
             <div class="flex items-center justify-between px-1">
               <h2 class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white"><%= col.label %></h2>
               <span class="task-col-count px-2 py-0.5 rounded-full bg-brand-cream dark:bg-slate-800 text-[10px] font-bold text-brand-muted">0</span>
             </div>
-            <ul class="task-board-list min-h-[280px] flex flex-col gap-2 p-2 bg-brand-cream/20 dark:bg-white/5 rounded-2xl border border-dashed border-brand-border/40 dark:border-white/10"></ul>
+            <ul class="task-board-list min-h-[280px] min-w-0 overflow-hidden flex flex-col gap-2 p-2 bg-brand-cream/20 dark:bg-white/5 rounded-2xl border border-dashed border-brand-border/40 dark:border-white/10"></ul>
           </div>
         <% }); %>
       </div>
@@ -358,7 +358,7 @@
       var href = focusLeadHref(t.leadKey);
       return (
         '<p class="text-[10px] mt-1"><span class="text-brand-muted font-bold uppercase tracking-wider mr-1">Lead</span>' +
-        '<a class="font-bold text-brand-yellow hover:underline" href="' + href + '" title="Open in Focus mode">' + label + '</a></p>'
+        '<a class="font-bold text-brand-yellow hover:underline break-words" href="' + href + '" title="Open in Focus mode">' + label + '</a></p>'
       );
     }
 
@@ -527,8 +527,8 @@
           ? '<p class="text-[10px] text-amber-700 dark:text-amber-200/90 mt-1">' + escapeHtml(formatScheduled(t.scheduledAt)) + '</p>'
           : '';
       return (
-        '<li class="task-card p-3 bg-white dark:bg-slate-900 rounded-xl border border-brand-border/20 shadow-sm cursor-grab active:cursor-grabbing" data-task-id="' + id + '" data-lead-href="' + escapeHtml(leadHref) + '">' +
-          '<p class="text-sm font-bold text-brand-dark dark:text-white leading-snug">' + escapeHtml(t.title) + '</p>' +
+        '<li class="task-card min-w-0 overflow-hidden p-3 bg-white dark:bg-slate-900 rounded-xl border border-brand-border/20 shadow-sm cursor-grab active:cursor-grabbing" data-task-id="' + id + '" data-lead-href="' + escapeHtml(leadHref) + '">' +
+          '<p class="text-sm font-bold text-brand-dark dark:text-white leading-snug break-words">' + escapeHtml(t.title) + '</p>' +
           leadCellHtml(t) +
           sched +
           '<div class="flex flex-wrap gap-2 mt-2">' +

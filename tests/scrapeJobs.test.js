@@ -66,3 +66,13 @@ test('scheduleDisplayTitle for mobile homes job', () => {
   assert.match(title, /manufactured home/i);
   assert.match(title, /Tucson/i);
 });
+
+test('scheduleDisplayTitle formats permit category underscores', () => {
+  const title = scheduleDisplayTitle({
+    jobType: JOB_TYPES.PERMITS,
+    category: 'new_construction',
+    city: 'Phoenix',
+    state: 'AZ',
+  });
+  assert.equal(title, 'new construction permits · Phoenix, AZ');
+});

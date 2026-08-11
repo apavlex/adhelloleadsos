@@ -135,7 +135,30 @@
       throw new Error((data && data.error) || 'Could not start image generation');
     }
     if (data.status === 'processing' && data.taskId) {
-      data = await pollImageGeneration(data.taskId);
+      if (window.agencyOsArtworkGen && typeof window.agencyOsArtworkGen.track === 'function') {
+        var genLabel = slot === 'back' ? 'Postcard back' : 'Postcard front';
+        window.agencyOsArtworkGen.track({
+          taskId: data.taskId,
+          slot: slot,
+          platform: 'postcard',
+          label: genLabel,
+          prompt: prompt,
+          aspectRatio: '3:2',
+          resolution: '2K',
+        });
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast(
+            'Generating ' + genLabel + ' — bell will notify when ready. Safe to browse other pages.',
+            { variant: 'info', duration: 7500 },
+          );
+        }
+        data = await window.agencyOsArtworkGen.waitFor(data.taskId);
+        if (!data || data.success === false) {
+          throw new Error((data && data.error) || 'Image generation failed');
+        }
+      } else {
+        data = await pollImageGeneration(data.taskId);
+      }
     }
     if (!data.imageUrl) throw new Error('No image URL returned');
     return data.imageUrl;

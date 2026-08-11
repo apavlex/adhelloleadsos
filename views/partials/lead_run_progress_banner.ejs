@@ -1,6 +1,6 @@
 <% const _showBanner = typeof leadRunBannerVisible !== 'undefined' && leadRunBannerVisible; %>
 <% const _job = typeof leadRunActiveJob !== 'undefined' && leadRunActiveJob ? leadRunActiveJob : null; %>
-<% const _kw = _job && _job.keyword ? String(_job.keyword) : ''; %>
+<% const _kw = _job && _job.keyword ? formatSearchKeywordDisplay(_job.keyword) : ''; %>
 <% const _loc = _job ? [_job.city, _job.state].filter(Boolean).join(', ') : ''; %>
 <% let _pct = 1; %>
 <% if (_job && _job.startedAt) { %>

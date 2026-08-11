@@ -122,12 +122,21 @@
       isBulkEnhanceJobRunning() ||
       syncEnhanceSessionActive() ||
       isContactHuntJobRunning() ||
-      isGhlSyncJobRunning()
+      isGhlSyncJobRunning() ||
+      isArtworkGenJobRunning()
     );
   }
 
   function escapeLeadRunText(s) {
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function formatSearchKeywordDisplay(keyword) {
+    return String(keyword || '')
+      .trim()
+      .replace(/_/g, ' ')
+      .replace(/-/g, ' ')
+      .replace(/\s+/g, ' ');
   }
 
   const LEAD_RUN_SESSION_KEY = 'agencyOsLeadRunProgress';
@@ -319,7 +328,7 @@
 
     if (sub) {
       if (job && (job.keyword || job.city || job.state)) {
-        var kw = escapeLeadRunText(job.keyword || '');
+        var kw = escapeLeadRunText(formatSearchKeywordDisplay(job.keyword || ''));
         var loc = escapeLeadRunText([job.city, job.state].filter(Boolean).join(', '));
         var lead = kw ? '<strong>' + kw + '</strong>' : '';
         if (loc) lead += (kw ? ' · ' : '') + loc;
@@ -459,7 +468,8 @@
       activeProcessingCount > 0 ||
       localStorage.getItem('is_searching') === 'true' ||
       bulk ||
-      ghl
+      ghl ||
+      isArtworkGenJobRunning()
     ) {
       processingIndicator.classList.add('processing-active');
       if (bulk) {
@@ -468,6 +478,8 @@
       } else if (ghl) {
         const j = readGhlSyncJob();
         if (j) updateBulkEnhanceBellBadge(j.index, j.keys.length, 'GHL sync');
+      } else if (isArtworkGenJobRunning()) {
+        updateArtworkGenBellBadge(readArtworkGenJob());
       }
     } else {
       processingIndicator.classList.remove('processing-active');
@@ -860,7 +872,7 @@
     try {
       const list = readClientBellNotifications();
       list.unshift({
-        id: 'hunt-' + Date.now(),
+        id: 'bell-' + Date.now(),
         isRead: false,
         at: Date.now(),
         ...item,
@@ -894,6 +906,7 @@
         const title = escapeBellHtml(n.headline || 'Contact hunt ready');
         const sub = escapeBellHtml(n.body || '');
         const href = n.href || '/leads';
+        const linkLabel = escapeBellHtml(n.linkLabel || 'Open →');
         return (
           '<div class="p-4 hover:bg-brand-cream/30 dark:hover:bg-white/5 transition-colors cursor-pointer group/notif border-b border-brand-border/10 last:border-0" onclick="window.location.href=\'' +
           href +
@@ -908,7 +921,9 @@
           '<div class="text-[10px] font-bold text-brand-muted dark:text-slate-400 leading-tight">' +
           sub +
           '</div>' +
-          '<div class="mt-2 text-[9px] font-black uppercase text-brand-yellow group-hover/notif:translate-x-1 transition-transform">Open lead →</div>' +
+          '<div class="mt-2 text-[9px] font-black uppercase text-brand-yellow group-hover/notif:translate-x-1 transition-transform">' +
+          linkLabel +
+          '</div>' +
           '</div></div></div>'
         );
       })
@@ -1109,6 +1124,276 @@
     },
   };
 
+  const ARTWORK_GEN_JOB_KEY = 'agencyOsArtworkGenJob';
+  const ARTWORK_READY_KEY = 'agencyOsArtworkReady';
+  let artworkGenPollLock = false;
+  const artworkGenWaiters = new Map();
+
+  function readArtworkGenJob() {
+    try {
+      const raw = sessionStorage.getItem(ARTWORK_GEN_JOB_KEY);
+      if (!raw) return null;
+      const o = JSON.parse(raw);
+      return o && o.taskId ? o : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function writeArtworkGenJob(job) {
+    try {
+      if (!job) sessionStorage.removeItem(ARTWORK_GEN_JOB_KEY);
+      else sessionStorage.setItem(ARTWORK_GEN_JOB_KEY, JSON.stringify(job));
+    } catch (_) {}
+  }
+
+  function isArtworkGenJobRunning() {
+    const j = readArtworkGenJob();
+    return !!(j && j.running);
+  }
+
+  function updateArtworkGenBellBadge(job) {
+    const el = document.getElementById('bulkEnhanceBellBadge');
+    if (!el || !job) return;
+    el.textContent = 'ART';
+    el.classList.remove('hidden');
+    el.setAttribute(
+      'title',
+      'Generating ' + (job.label || 'artwork') + ' in Marketing Studio — safe to change pages',
+    );
+  }
+
+  function storeArtworkReadyResult(job, result) {
+    try {
+      sessionStorage.setItem(
+        ARTWORK_READY_KEY,
+        JSON.stringify({
+          success: true,
+          taskId: job.taskId,
+          slot: result.slot || job.slot || 'front',
+          platform: job.platform || '',
+          imageUrl: result.imageUrl,
+          prompt: job.prompt || '',
+          aspectRatio: job.aspectRatio || '',
+          resolution: job.resolution || '',
+          logoOverlayApplied: result.logoOverlayApplied,
+          logoSkipReason: result.logoSkipReason || null,
+          label: job.label || 'Artwork',
+          at: Date.now(),
+        }),
+      );
+    } catch (_) {}
+  }
+
+  function readArtworkReadyResult() {
+    try {
+      const raw = sessionStorage.getItem(ARTWORK_READY_KEY);
+      if (!raw) return null;
+      const o = JSON.parse(raw);
+      if (!o || !o.imageUrl) return null;
+      if (o.at && Date.now() - o.at > 86400000) {
+        sessionStorage.removeItem(ARTWORK_READY_KEY);
+        return null;
+      }
+      return o;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function clearArtworkReadyResult() {
+    try {
+      sessionStorage.removeItem(ARTWORK_READY_KEY);
+    } catch (_) {}
+  }
+
+  function buildArtworkGenProgressBellHtml(job) {
+    if (!job) return '';
+    const label = escapeBellHtml(job.label || 'Marketing Studio artwork');
+    return (
+      '<div class="p-4 border-b border-brand-border/10 bg-violet-500/5 dark:bg-violet-500/10">' +
+      '<div class="flex items-start gap-3">' +
+      '<div class="w-8 h-8 rounded-full bg-violet-500/15 flex items-center justify-center text-violet-600 dark:text-violet-300 shrink-0">' +
+      '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>' +
+      '</div><div class="min-w-0">' +
+      '<div class="text-[11px] font-black text-brand-dark dark:text-white uppercase tracking-tight mb-0.5">Generating artwork</div>' +
+      '<div class="text-[10px] font-bold text-brand-muted dark:text-slate-400 leading-tight">' +
+      label +
+      '</div>' +
+      '<div class="mt-1 text-[9px] font-semibold text-brand-muted dark:text-slate-500">Safe to browse other pages — we will ping the bell when GPT Image 2 finishes.</div>' +
+      '</div></div></div>'
+    );
+  }
+
+  function resolveArtworkGenWaiters(taskId, payload) {
+    const w = artworkGenWaiters.get(taskId);
+    if (w) {
+      artworkGenWaiters.delete(taskId);
+      w.resolve(payload);
+      return;
+    }
+    window.dispatchEvent(
+      new CustomEvent('agency-os-artwork-gen-finished', {
+        detail: { taskId, ...(payload || {}) },
+      }),
+    );
+  }
+
+  async function pollArtworkGenJobOnce(job) {
+    const res = await fetch(
+      '/direct-mail/api/generate-image/status?taskId=' + encodeURIComponent(job.taskId),
+      { credentials: 'same-origin', headers: { Accept: 'application/json' } },
+    );
+    const d = await res.json().catch(() => ({}));
+    if (d.status === 'success' && d.imageUrl) {
+      return { success: true, ...d };
+    }
+    if (!res.ok || d.status === 'failed' || d.success === false) {
+      return { success: false, error: (d && d.error) || 'Image generation failed' };
+    }
+    return null;
+  }
+
+  async function runArtworkGenPollLoop() {
+    if (artworkGenPollLock) return;
+    artworkGenPollLock = true;
+    try {
+      while (true) {
+        const job = readArtworkGenJob();
+        if (!job || !job.running) break;
+
+        if (Date.now() - (job.startedAt || 0) > 180000) {
+          writeArtworkGenJob(null);
+          const timeoutMsg = (job.label || 'Artwork') + ' timed out — try Generate again.';
+          pushClientBellNotification({
+            headline: 'Artwork generation timed out',
+            body: timeoutMsg,
+            href: '/direct-mail?artworkReady=1',
+            linkLabel: 'Open Marketing Studio →',
+          });
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast(timeoutMsg, { variant: 'error', duration: 9000 });
+          }
+          resolveArtworkGenWaiters(job.taskId, { success: false, error: timeoutMsg });
+          break;
+        }
+
+        let result = null;
+        try {
+          result = await pollArtworkGenJobOnce(job);
+        } catch (err) {
+          result = { success: false, error: err && err.message ? err.message : 'Poll failed' };
+        }
+
+        if (!result) {
+          await new Promise((r) => setTimeout(r, 4000));
+          continue;
+        }
+
+        writeArtworkGenJob(null);
+        const label = job.label || 'Artwork';
+        if (result.success) {
+          storeArtworkReadyResult(job, result);
+          pushClientBellNotification({
+            headline: 'Artwork ready',
+            body: label + ' finished generating — open Marketing Studio to review.',
+            href: '/direct-mail?artworkReady=1',
+            linkLabel: 'Open Marketing Studio →',
+          });
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast(label + ' is ready — open Marketing Studio from the bell.', {
+              variant: 'success',
+              duration: 6500,
+            });
+          }
+        } else {
+          pushClientBellNotification({
+            headline: 'Artwork generation failed',
+            body: label + ' — ' + String(result.error || 'Generation failed.'),
+            href: '/direct-mail',
+            linkLabel: 'Open Marketing Studio →',
+          });
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast(String(result.error || 'Artwork generation failed.'), {
+              variant: 'error',
+              duration: 9000,
+            });
+          }
+        }
+
+        if (typeof window.updateProcessingStatus === 'function') {
+          window.updateProcessingStatus(false);
+        }
+        updateBulkEnhanceBellBadge(0, 0);
+        applyProcessingRing();
+        const pingDone = document.getElementById('notificationPing');
+        if (pingDone) {
+          pingDone.classList.remove('hidden');
+          pingDone.classList.add('animate-ping');
+        }
+        resolveArtworkGenWaiters(job.taskId, result);
+        break;
+      }
+    } finally {
+      artworkGenPollLock = false;
+      if (isArtworkGenJobRunning()) {
+        runArtworkGenPollLoop().catch((e) => console.warn('[artwork-gen-poll]', e));
+      }
+    }
+  }
+
+  window.agencyOsArtworkGen = {
+    isRunning() {
+      return isArtworkGenJobRunning();
+    },
+    readReadyResult() {
+      return readArtworkReadyResult();
+    },
+    consumeReadyResult() {
+      const item = readArtworkReadyResult();
+      if (item) clearArtworkReadyResult();
+      return item;
+    },
+    buildProgressHtml(job) {
+      return buildArtworkGenProgressBellHtml(job || readArtworkGenJob());
+    },
+    track(opts) {
+      opts = opts || {};
+      const taskId = String(opts.taskId || '').trim();
+      if (!taskId) return;
+      const job = {
+        taskId,
+        slot: opts.slot === 'back' ? 'back' : 'front',
+        platform: String(opts.platform || '').trim(),
+        label: String(opts.label || 'Artwork').trim() || 'Artwork',
+        prompt: String(opts.prompt || '').trim(),
+        aspectRatio: String(opts.aspectRatio || '').trim(),
+        resolution: String(opts.resolution || '').trim(),
+        running: true,
+        startedAt: Date.now(),
+      };
+      writeArtworkGenJob(job);
+      if (typeof window.updateProcessingStatus === 'function') {
+        window.updateProcessingStatus(true);
+      }
+      updateArtworkGenBellBadge(job);
+      if (processingIndicator) processingIndicator.classList.add('processing-active');
+      const ping = document.getElementById('notificationPing');
+      if (ping) {
+        ping.classList.remove('hidden');
+        ping.classList.add('animate-ping');
+      }
+      runArtworkGenPollLoop().catch((e) => console.warn('[artwork-gen-poll]', e));
+    },
+    waitFor(taskId) {
+      const id = String(taskId || '').trim();
+      if (!id) return Promise.resolve({ success: false, error: 'Missing task id' });
+      return new Promise((resolve) => {
+        artworkGenWaiters.set(id, { resolve });
+      });
+    },
+  };
+
   /** Called from app.js when starting/finishing client-side search flows. */
   window.updateProcessingStatus = function (isActive) {
     if (!processingIndicator) return;
@@ -1173,6 +1458,20 @@
       runContactHuntPollLoop().catch((e) => console.warn('[contact-hunt-resume]', e));
     }
 
+    if (isArtworkGenJobRunning()) {
+      const artJob = readArtworkGenJob();
+      if (artJob) {
+        updateArtworkGenBellBadge(artJob);
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast(
+            'Resuming artwork generation for ' + (artJob.label || 'Marketing Studio') + '.',
+            { variant: 'info', duration: 6500 },
+          );
+        }
+      }
+      runArtworkGenPollLoop().catch((e) => console.warn('[artwork-gen-resume]', e));
+    }
+
     if (isGhlSyncJobRunning()) {
       const ghlJob = readGhlSyncJob();
       if (ghlJob) {
@@ -1209,7 +1508,7 @@
             : data.notification.source === 'run'
               ? 'Lead search'
               : 'Lead search';
-        var kw = String(data.notification.keyword || '').slice(0, 120);
+        var kw = formatSearchKeywordDisplay(data.notification.keyword || '').slice(0, 120);
         var rc = data.notification.resultCount;
         var wsn = String(data.notification.workspaceName || '').trim();
         var failed = data.notification.status === 'failed';
@@ -1270,7 +1569,9 @@
           }
           if (notificationList) {
             const n = data.notification;
-            const kw = String(n.keyword || '').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+            const kw = formatSearchKeywordDisplay(n.keyword || '')
+              .replace(/</g, '&lt;')
+              .replace(/"/g, '&quot;');
             const failed = n.status === 'failed';
             const zeroResults =
               !failed && typeof n.resultCount === 'number' && n.resultCount === 0;
@@ -1333,7 +1634,13 @@
               '</div></div></div></div>';
           }
         } else if (renderClientBellNotifications(notificationList, notificationPing)) {
-          /* client-side hunt / enhance notifications */
+          /* client-side hunt / enhance / artwork notifications */
+        } else if (isArtworkGenJobRunning() && notificationList) {
+          notificationList.innerHTML = buildArtworkGenProgressBellHtml(readArtworkGenJob());
+          if (notificationPing) {
+            notificationPing.classList.remove('hidden');
+            notificationPing.classList.add('animate-ping');
+          }
         } else if (isGhlSyncJobRunning() && notificationList) {
           notificationList.innerHTML = buildGhlSyncProgressBellHtml(readGhlSyncJob());
           if (notificationPing) {
@@ -1347,6 +1654,7 @@
             syncEnhanceSessionActive() ||
             isContactHuntJobRunning() ||
             isGhlSyncJobRunning() ||
+            isArtworkGenJobRunning() ||
             readClientBellNotifications().some((n) => !n.isRead);
           if (notificationPing && !keepPingForClientWork) {
             notificationPing.classList.remove('animate-ping');
@@ -1502,12 +1810,16 @@
         syncDesktopAlertsUi();
         if (isGhlSyncJobRunning() && notificationList) {
           notificationList.innerHTML = buildGhlSyncProgressBellHtml(readGhlSyncJob());
+        } else if (isArtworkGenJobRunning() && notificationList) {
+          notificationList.innerHTML = buildArtworkGenProgressBellHtml(readArtworkGenJob());
         }
         try {
           await fetch('/api/notifications/read', { method: 'POST' });
         } catch (_) {}
         markClientBellNotificationsRead();
-        if (notificationPing && !isGhlSyncJobRunning()) notificationPing.classList.add('hidden');
+        if (notificationPing && !isGhlSyncJobRunning() && !isArtworkGenJobRunning()) {
+          notificationPing.classList.add('hidden');
+        }
       } else {
         notificationDropdown.classList.add('hidden');
       }

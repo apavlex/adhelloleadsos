@@ -52,10 +52,10 @@
         </div>
         <span class="ceo-col-count px-2.5 py-1 rounded-full bg-brand-cream text-[10px] font-bold text-brand-muted"><%= (tasksByColumn[col.id] || []).length %></span>
       </div>
-      <ul class="ceo-kanban-list min-h-[200px] flex flex-col gap-3 p-3 bg-brand-cream/20 rounded-2xl border border-dashed border-brand-border/30">
+      <ul class="ceo-kanban-list min-h-[200px] min-w-0 overflow-hidden flex flex-col gap-3 p-3 bg-brand-cream/20 rounded-2xl border border-dashed border-brand-border/30">
         <% (tasksByColumn[col.id] || []).forEach(function(t) { %>
-        <li class="ceo-task-card p-4 bg-white rounded-xl border border-brand-border/20 shadow-sm cursor-grab active:cursor-grabbing group hover:border-brand-yellow/40 transition-all" data-task-id="<%= t.id %>">
-          <p class="text-sm font-bold text-brand-dark leading-snug"><%= t.title %></p>
+        <li class="ceo-task-card min-w-0 overflow-hidden p-4 bg-white rounded-xl border border-brand-border/20 shadow-sm cursor-grab active:cursor-grabbing group hover:border-brand-yellow/40 transition-all" data-task-id="<%= t.id %>">
+          <p class="text-sm font-bold text-brand-dark leading-snug break-words"><%= t.title %></p>
           <div class="flex items-center justify-between mt-3">
             <span class="text-[10px] font-bold text-brand-muted uppercase tracking-wider"><%= t.column %></span>
             <button type="button" class="ceo-task-del text-[10px] font-black uppercase text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity hover:underline">✕</button>
@@ -123,9 +123,9 @@ document.addEventListener('DOMContentLoaded', function() {
           var col = document.querySelector('.ceo-kanban-col[data-column="' + d.task.column + '"] .ceo-kanban-list');
           if (col) {
             var li = document.createElement('li');
-            li.className = 'ceo-task-card p-4 bg-white rounded-xl border border-brand-border/20 shadow-sm cursor-grab active:cursor-grabbing group hover:border-brand-yellow/40 transition-all';
+            li.className = 'ceo-task-card min-w-0 overflow-hidden p-4 bg-white rounded-xl border border-brand-border/20 shadow-sm cursor-grab active:cursor-grabbing group hover:border-brand-yellow/40 transition-all';
             li.setAttribute('data-task-id', d.task.id);
-            li.innerHTML = '<p class="text-sm font-bold text-brand-dark leading-snug">' + escapeHtml(d.task.title) + '</p><div class="flex items-center justify-between mt-3"><span class="text-[10px] font-bold text-brand-muted uppercase tracking-wider">' + d.task.column + '</span><button type="button" class="ceo-task-del text-[10px] font-black uppercase text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity hover:underline">✕</button></div>';
+            li.innerHTML = '<p class="text-sm font-bold text-brand-dark leading-snug break-words">' + escapeHtml(d.task.title) + '</p><div class="flex items-center justify-between mt-3"><span class="text-[10px] font-bold text-brand-muted uppercase tracking-wider">' + d.task.column + '</span><button type="button" class="ceo-task-del text-[10px] font-black uppercase text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity hover:underline">✕</button></div>';
             col.appendChild(li);
             var badge = col.closest('.ceo-kanban-col').querySelector('.ceo-col-count');
             if (badge) badge.textContent = col.querySelectorAll('.ceo-task-card').length;

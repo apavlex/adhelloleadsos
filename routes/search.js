@@ -10,6 +10,7 @@ const workspaceIntegrations = require('../services/workspaceIntegrations');
 const { persistWorkspaceIcp } = require('../services/workspaceIcp');
 const { parseSchedulePayload } = require('../services/scheduleHelpers');
 const { JOB_TYPES } = require('../services/scrapeJobTypes');
+const { formatSearchKeywordDisplay } = require('../services/formatSearchKeywordDisplay');
 const {
   resolveTargetFolder,
   resolveSearchRecordFolderContext,
@@ -295,8 +296,9 @@ router.get('/:key', async (req, res, next) => {
       autoTagKeys = await resolveAutoTagKeys(req.workspaceId, data.autoTags);
     }
 
+    const displayKeyword = formatSearchKeywordDisplay(data.keyword);
     res.render('results', {
-      title: `Results: ${data.keyword} in ${data.city}, ${data.state}`,
+      title: `Results: ${displayKeyword} in ${data.city}, ${data.state}`,
       activePage: 'search',
       keyword: data.keyword,
       city: data.city,

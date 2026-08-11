@@ -41,7 +41,7 @@
             </h2>
             <p class="text-sm text-brand-muted dark:text-slate-400 mt-2 max-w-2xl leading-relaxed">
               <% if (activeJob && activeJob.keyword) { %>
-                <strong class="text-brand-dark dark:text-white"><%= activeJob.keyword %></strong>
+                <strong class="text-brand-dark dark:text-white"><%= formatSearchKeywordDisplay(activeJob.keyword) %></strong>
                 <% if (activeJob.city || activeJob.state) { %>
                   <span class="text-brand-muted"> · <%= activeJob.city %><%= activeJob.city && activeJob.state ? ', ' : '' %><%= activeJob.state %></span>
                 <% } %>
@@ -74,7 +74,7 @@
                   <td class="px-8 py-6">
                     <a href="/search/<%= encodeURIComponent(search.key) %>"
                        class="font-display font-bold text-brand-dark hover:text-black transition-colors">
-                      <%= search.keyword %>
+                      <%= formatSearchKeywordDisplay(search.keyword) %>
                     </a>
                   </td>
                   <td class="px-6 py-6 text-sm font-medium text-brand-muted">

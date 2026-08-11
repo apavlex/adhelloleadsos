@@ -2110,8 +2110,7 @@ router.get('/:key/panel-data', async (req, res, next) => {
     const needsPanelEnrich =
       !skipEnrich &&
       (leadMissingCoreContact(panelLead) ||
-        outscraperLeadEnrich.leadNeedsOutscraperContacts(panelLead) ||
-        builtWithEnrich.leadNeedsBuiltWith(panelLead));
+        outscraperLeadEnrich.leadNeedsOutscraperContacts(panelLead));
     if (needsPanelEnrich) {
       try {
         const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
@@ -2140,6 +2139,45 @@ router.get('/:key/panel-data', async (req, res, next) => {
         workspaceId: req.workspaceId || panelLead.workspaceId,
       },
       needsBackgroundEnhance: needsBackground,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /leads/:key/builtwith-enrich — optional tech stack fetch (user-initiated)
+router.post('/:key/builtwith-enrich', async (req, res, next) => {
+  try {
+    const fullKey = leadKeyFromParam(req.params.key);
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) {
+      return res.status(404).json({ success: false, error: 'Lead not found' });
+    }
+    if (!(await leadInRequestWorkspace(lead, req))) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
+
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
+    if (!outscraper.isConfigured(integrationEnv)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Outscraper is not configured. Add Outscraper under Workspace → Integrations to load BuiltWith tech stack.',
+      });
+    }
+
+    const bwPack = await builtWithEnrich.enrichLeadFromBuiltWith(lead, integrationEnv);
+    if (!bwPack || !bwPack.used || !bwPack.patch || !Object.keys(bwPack.patch).length) {
+      return res.json({
+        success: true,
+        lead: normalizeLeadForPanel({ ...lead, key: lead.key || fullKey }),
+        message: 'No tech stack data found for this domain.',
+      });
+    }
+
+    const updated = await dbService.updateLead(fullKey, bwPack.patch, req.workspaceId);
+    return res.json({
+      success: true,
+      lead: normalizeLeadForPanel({ ...updated, key: updated.key || fullKey }),
     });
   } catch (err) {
     next(err);
@@ -3571,24 +3609,6 @@ async function runLeadEnhancement(lead, workspaceId) {
     }
   }
 
-  // Step 1.3: BuiltWith tech stack (Outscraper)
-  let builtWithUsed = false;
-  if (outscraper.isConfigured(integrationEnv) && builtWithEnrich.leadNeedsBuiltWith(workingLead)) {
-    try {
-      const bwPack = await builtWithEnrich.enrichLeadFromBuiltWith(workingLead, integrationEnv);
-      if (bwPack && bwPack.used && bwPack.patch && Object.keys(bwPack.patch).length) {
-        builtWithUsed = true;
-        await autosaveEnhancement(bwPack.patch, 'BuiltWith');
-        Object.assign(workingLead, bwPack.patch);
-        console.log(
-          `[ENHANCE] BuiltWith for ${workingLead.title}: ${bwPack.patch.cmsPlatform || 'tags only'}`,
-        );
-      }
-    } catch (e) {
-      console.warn('[ENHANCE] BuiltWith failed:', e.message);
-    }
-  }
-
   const websiteForEnrich =
     (workingLead.website && workingLead.website !== 'N/A' ? workingLead.website : null) ||
     urlToSave ||
@@ -3767,14 +3787,12 @@ async function runLeadEnhancement(lead, workspaceId) {
     monidUsed ||
     outscraperUsed ||
     outscraperContactsUsed ||
-    builtWithUsed ||
     reviewHuntUsed;
 
   if (enrichmentHappened) {
     const via = [
       outscraperUsed ? 'Outscraper GMB' : null,
       outscraperContactsUsed ? 'Outscraper contacts' : null,
-      builtWithUsed ? 'BuiltWith' : null,
       monidUsed ? 'Monid' : null,
       betterContactUsed ? 'BetterContact' : null,
       firecrawlViaSearch ? 'web search' : null,

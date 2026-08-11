@@ -11215,18 +11215,83 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (metaEl) {
       const loading = hasWebsite && !hasStack && row.dataset.builtWithLoading === '1';
+      const err = String(row.dataset.builtWithError || '').trim();
       if (loading) {
         metaEl.textContent = 'Fetching tech stack from BuiltWith…';
         metaEl.classList.remove('hidden');
+      } else if (err) {
+        metaEl.textContent = err;
+        metaEl.classList.remove('hidden');
       } else if (!hasStack && hasWebsite) {
-        metaEl.textContent = 'No tech stack yet — opens when Outscraper BuiltWith runs.';
+        metaEl.textContent = 'Click BuiltWith → to load tech stack for this site.';
         metaEl.classList.remove('hidden');
       } else {
         metaEl.textContent = '';
         metaEl.classList.add('hidden');
       }
     }
+
+    if (linkEl && !window.__leadPanelBuiltWithLinkBound) {
+      window.__leadPanelBuiltWithLinkBound = true;
+      linkEl.addEventListener('click', (e) => {
+        const activeRow =
+          (typeof currentRow !== 'undefined' && currentRow) ||
+          (typeof resolvePanelActionRow === 'function' ? resolvePanelActionRow() : null);
+        if (!activeRow || !activeRow.dataset) return;
+        const stackTags = parseLeadTechStackTags(activeRow.dataset.techStackTags);
+        const stackCms = String(activeRow.dataset.cmsPlatform || '').trim();
+        const hasStackNow = (!!stackCms && stackCms !== 'N/A') || stackTags.length > 0;
+        if (!hasStackNow) {
+          e.preventDefault();
+          if (activeRow.dataset.builtWithLoading === '1') return;
+          fetchLeadBuiltWithTechStack(activeRow);
+        }
+      });
+    }
   }
+
+  async function fetchLeadBuiltWithTechStack(row) {
+    if (!row || !row.dataset) return;
+    const key = String(row.dataset.leadKey || '')
+      .trim()
+      .replace(/^lead:/i, '');
+    if (!key) return;
+    delete row.dataset.builtWithError;
+    row.dataset.builtWithLoading = '1';
+    paintLeadPanelBuiltWith(row);
+    try {
+      const res = await fetch(`/leads/${encodeURIComponent(key)}/builtwith-enrich`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error((data && data.error) || 'Could not load tech stack');
+      }
+      if (data.lead) {
+        syncPersistedLeadToRowDataset(row, data.lead);
+        prepareLeadRowForPanel(row);
+        if (typeof window.__paintPanelFromLeadRecord === 'function') {
+          window.__paintPanelFromLeadRecord(data.lead, row);
+        }
+      }
+      delete row.dataset.builtWithLoading;
+      const tagsAfter = parseLeadTechStackTags(row.dataset.techStackTags);
+      const cmsAfter = String(row.dataset.cmsPlatform || '').trim();
+      const gotStack = (!!cmsAfter && cmsAfter !== 'N/A') || tagsAfter.length > 0;
+      if (!gotStack && data.message) {
+        row.dataset.builtWithError = String(data.message);
+      }
+      paintLeadPanelBuiltWith(row);
+      if (typeof paintLeadPanelFromRow === 'function') paintLeadPanelFromRow(row);
+    } catch (err) {
+      delete row.dataset.builtWithLoading;
+      row.dataset.builtWithError = err && err.message ? err.message : 'Tech stack fetch failed.';
+      paintLeadPanelBuiltWith(row);
+    }
+  }
+  window.fetchLeadBuiltWithTechStack = fetchLeadBuiltWithTechStack;
   window.paintLeadPanelBuiltWith = paintLeadPanelBuiltWith;
 
   window.__buildLeadPanelDisplaySnapshot = buildLeadPanelDisplaySnapshot;

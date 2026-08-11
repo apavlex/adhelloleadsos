@@ -1,5 +1,7 @@
 /** Scheduled scrape job types */
 
+const { formatSearchKeywordDisplay } = require('./formatSearchKeywordDisplay');
+
 const JOB_TYPES = {
   MAPS_BUSINESS: 'maps_business',
   REAL_ESTATE: 'real_estate',
@@ -75,7 +77,9 @@ function scheduleDisplayTitle(schedule) {
   const locationLabel = [city, state].filter(Boolean).join(', ');
 
   if (isListingJobType(jobType)) {
-    const q = String((schedule && (schedule.query || schedule.keyword)) || '').trim();
+    const q = formatSearchKeywordDisplay(
+      String((schedule && (schedule.query || schedule.keyword)) || '').trim()
+    );
     const label =
       jobType === JOB_TYPES.HOME_OWNERS
         ? 'Home owners'
@@ -90,15 +94,19 @@ function scheduleDisplayTitle(schedule) {
     return locationLabel ? `${label} · ${locationLabel}` : label;
   }
   if (jobType === JOB_TYPES.PERMITS) {
-    const cat = String((schedule && (schedule.category || schedule.keyword)) || 'permits').trim();
+    const cat = formatSearchKeywordDisplay(
+      String((schedule && (schedule.category || schedule.keyword)) || 'permits').trim()
+    );
     return locationLabel ? `${cat} permits · ${locationLabel}` : `${cat} permits`;
   }
   if (jobType === JOB_TYPES.BUSINESS_FORMATIONS) {
-    const kw = String((schedule && schedule.keyword) || 'New formations').trim();
+    const kw = formatSearchKeywordDisplay(
+      String((schedule && schedule.keyword) || 'New formations').trim()
+    );
     const states = String((schedule && schedule.state) || '').trim();
     return states ? `${kw} · ${states}` : kw;
   }
-  return String((schedule && schedule.keyword) || 'Search');
+  return formatSearchKeywordDisplay(String((schedule && schedule.keyword) || 'Search'));
 }
 
 function scheduleDisplaySubtitle(schedule) {

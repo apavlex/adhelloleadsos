@@ -78,6 +78,8 @@ try {
 } catch (_) {
   app.locals.assetVersion = '1';
 }
+const { formatSearchKeywordDisplay } = require('./services/formatSearchKeywordDisplay');
+app.locals.formatSearchKeywordDisplay = formatSearchKeywordDisplay;
 app.locals.scheduleDisplayTitle = scrapeJobDisplay.scheduleDisplayTitle;
 app.locals.scheduleDisplaySubtitle = scrapeJobDisplay.scheduleDisplaySubtitle;
 app.locals.JOB_TYPE_LABELS = scrapeJobDisplay.JOB_TYPE_LABELS;

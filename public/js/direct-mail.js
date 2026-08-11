@@ -2892,6 +2892,61 @@
     return generateImageForSlot(slot, opts);
   }
 
+  function applyArtworkGenerationResult(detail, opts) {
+    opts = opts || {};
+    if (!detail || !detail.success || !detail.imageUrl) return false;
+    var slot = detail.slot === 'back' ? 'back' : 'front';
+    var prompt = String(detail.prompt || (designMeta[slot] && designMeta[slot].prompt) || lastImagePrompt || '').trim();
+    var aspectRatio =
+      detail.aspectRatio || (designMeta[slot] && designMeta[slot].aspectRatio) || currentAspectRatio();
+    var resolution =
+      detail.resolution || (designMeta[slot] && designMeta[slot].resolution) || '2K';
+    var platform = String(detail.platform || currentPlatformKey() || '').trim();
+    if (platform && DM_PLATFORMS[platform]) {
+      var platformEl = document.getElementById('dmPlatform');
+      if (platformEl) {
+        platformEl.value = platform;
+        applyPlatformPreset(platform);
+      }
+    }
+    setActiveDesignSlot(slot);
+    designMeta[slot].prompt = prompt;
+    designMeta[slot].aspectRatio = aspectRatio;
+    designMeta[slot].resolution = resolution;
+    setPreview(slot, detail.imageUrl);
+    if (prompt) {
+      lastImagePrompt = prompt;
+      showPromptEditor(slot, prompt);
+    }
+    saveDesignToLibrary(slot, {
+      imageUrl: detail.imageUrl,
+      prompt: prompt,
+      aspectRatio: aspectRatio,
+      resolution: resolution,
+      platform: platform,
+      silent: true,
+    });
+    if (!opts.suppressStatus) {
+      setDesignStatus((detail.label || 'Artwork') + ' loaded — saved to library.', true);
+      if (typeof window.showAppToast === 'function' && !opts.skipToast) {
+        window.showAppToast((detail.label || 'Artwork') + ' is ready in Marketing Studio.', {
+          variant: 'success',
+        });
+      }
+    }
+    dmPostCopyManualEdit = false;
+    refreshPostCopyFromFields(true);
+    return true;
+  }
+
+  function loadPendingArtworkFromBell() {
+    if (!window.agencyOsArtworkGen || typeof window.agencyOsArtworkGen.consumeReadyResult !== 'function') {
+      return;
+    }
+    var pending = window.agencyOsArtworkGen.consumeReadyResult();
+    if (pending) applyArtworkGenerationResult(pending, {});
+  }
+
   async function generateImageForSlot(slot, opts) {
     opts = opts || {};
     var btn = document.getElementById('dmGenerateBtn');
@@ -2977,7 +3032,37 @@
 
       var data = await postJson('/direct-mail/api/generate-image', body);
       if (data.status === 'processing' && data.taskId) {
-        data = await pollImageGeneration(data.taskId);
+        var platToast = DM_PLATFORMS[ctx.platform] || DM_PLATFORMS.custom;
+        var genLabel = (platToast.dualSided ? 'Postcard ' + slot : platToast.label) || 'Artwork';
+        if (window.agencyOsArtworkGen && typeof window.agencyOsArtworkGen.track === 'function') {
+          window.agencyOsArtworkGen.track({
+            taskId: data.taskId,
+            slot: slot,
+            platform: ctx.platform,
+            label: genLabel,
+            prompt: prompt,
+            aspectRatio: aspectRatio,
+            resolution: resolution,
+          });
+          if (!opts.suppressButtonToggle) {
+            setDesignStatus(
+              'Generating ' + genLabel + ' — bell will notify when ready. Safe to browse other pages.',
+              true,
+            );
+            if (typeof window.showAppToast === 'function') {
+              window.showAppToast(
+                'Generating ' + genLabel + ' — bell will notify when ready. Safe to browse other pages.',
+                { variant: 'info', duration: 7500 },
+              );
+            }
+          }
+          data = await window.agencyOsArtworkGen.waitFor(data.taskId);
+          if (!data || data.success === false) {
+            throw new Error((data && data.error) || 'Image generation failed');
+          }
+        } else {
+          data = await pollImageGeneration(data.taskId);
+        }
       }
       if (
         data.imageUrl &&
@@ -3492,6 +3577,7 @@
   renderSavedLibrary();
   loadMailPlaybooksFromUrl();
   loadFromSocialPostParams();
+  loadPendingArtworkFromBell();
   initDmListFilters();
 
   (function scrollToLeadsIfNeededFromFocus() {

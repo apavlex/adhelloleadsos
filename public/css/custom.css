@@ -245,6 +245,7 @@ h1, h2, h3, h4, .font-display {
     body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-ws-sub,
     body.app-with-sidebar.sidebar-collapsed #appSidebar .ws-switcher-chevron,
     body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-nav-link > span,
+    body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-nav-group-label,
     body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-settings-label,
     body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-settings-chevron,
     body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-leads-sub,
@@ -314,6 +315,32 @@ h1, h2, h3, h4, .font-display {
     font-weight: 600;
     color: var(--brand-muted);
     transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.sidebar-nav-group + .sidebar-nav-group {
+    margin-top: 0.875rem;
+    padding-top: 0.875rem;
+    border-top: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.dark .sidebar-nav-group + .sidebar-nav-group {
+    border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-nav-group-label {
+    padding: 0 0.75rem 0.375rem;
+    font-size: 0.625rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--brand-muted);
+    opacity: 0.85;
+}
+
+.sidebar-nav-group-items {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
 }
 
 .sidebar-nav-link:hover {
@@ -1543,6 +1570,20 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
 
 .dark .kanban-card--lift:hover {
   box-shadow: 0 14px 32px -8px rgba(0, 0, 0, 0.55);
+}
+
+/* Task board cards — wrap long URLs/text inside the card */
+.ceo-task-card,
+.task-card {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.ceo-task-card > p,
+.task-card > p {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* Prospecting: sortable column headers */
