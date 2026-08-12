@@ -6501,6 +6501,8 @@ document.addEventListener('DOMContentLoaded', () => {
     assignRowDatasetFieldIfBetter(ds, 'facebook', L.facebook);
     assignRowDatasetFieldIfBetter(ds, 'instagram', L.instagram);
     assignRowDatasetFieldIfBetter(ds, 'twitter', L.twitter);
+    assignRowDatasetFieldIfBetter(ds, 'linkedin', L.linkedin);
+    assignRowDatasetFieldIfBetter(ds, 'tiktok', L.tiktok);
     assignRowDatasetScoreIfBetter(ds, L.totalScore, L.reviewsCount);
     if (L.reviewSnippets != null) {
       ds.reviewSnippets = Array.isArray(L.reviewSnippets)
@@ -8097,7 +8099,12 @@ document.addEventListener('DOMContentLoaded', () => {
     renderStars(rating, reviews);
     syncGoogleReviewsLink(tableRow);
     syncHeaderPhoneRow(tableRow, phone);
+    syncHeaderWebsiteRow(tableRow);
+    syncHeaderEmailRow(tableRow);
     syncLeadPanelContactLinks(tableRow);
+    if (typeof window.__syncLeadPanelSocialsSummary === 'function') {
+      window.__syncLeadPanelSocialsSummary(tableRow);
+    }
 
     const locationLine = address
       ? formatLeadPanelAddress(address)
@@ -8126,6 +8133,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (snap.facebook) ds.facebook = snap.facebook;
     if (snap.instagram) ds.instagram = snap.instagram;
     if (snap.twitter) ds.twitter = snap.twitter;
+    if (snap.linkedin) ds.linkedin = snap.linkedin;
+    if (snap.tiktok) ds.tiktok = snap.tiktok;
     if (snap.rating > 0) ds.rating = String(snap.rating);
     if (snap.reviews > 0) ds.reviews = String(snap.reviews);
     if (Array.isArray(snap.reviewSnippets) && snap.reviewSnippets.length) {
@@ -8737,6 +8746,52 @@ document.addEventListener('DOMContentLoaded', () => {
       'mt-1 inline-flex px-1.5 py-0.5 rounded-full border text-[8px] font-black uppercase tracking-widest ' +
       pillInfo.pillClass;
     pill.classList.remove('hidden');
+  }
+
+  function cleanLeadPanelWebsiteLabel(raw) {
+    const s = String(raw || '').trim();
+    if (!s || s === 'N/A' || s === '—') return '';
+    try {
+      const href = normalizeWebsiteHref(s);
+      return new URL(href).hostname.replace(/^www\./i, '');
+    } catch (_) {
+      return s.replace(/^https?:\/\//i, '').replace(/\/$/, '');
+    }
+  }
+
+  function syncHeaderWebsiteRow(row) {
+    const view = getLeadPanelEl('mobilePanelHeaderWebsite');
+    if (!view) return;
+    const website = readPipelineRowDisplayWebsite(row);
+    if (website) {
+      const href = normalizeWebsiteHref(website);
+      view.href = href;
+      view.textContent = cleanLeadPanelWebsiteLabel(href) || 'Website';
+      view.classList.remove('opacity-40', 'pointer-events-none');
+      view.removeAttribute('aria-disabled');
+    } else {
+      view.href = '#';
+      view.textContent = '—';
+      view.classList.add('opacity-40');
+      view.classList.remove('pointer-events-none');
+    }
+  }
+
+  function syncHeaderEmailRow(row) {
+    const view = getLeadPanelEl('mobilePanelHeaderEmail');
+    if (!view) return;
+    const email = readPipelineRowDisplayEmail(row);
+    if (email) {
+      view.href = `mailto:${encodeURIComponent(email)}`;
+      view.textContent = email;
+      view.classList.remove('opacity-40', 'pointer-events-none');
+      view.removeAttribute('aria-disabled');
+    } else {
+      view.href = '#';
+      view.textContent = '—';
+      view.classList.add('opacity-40');
+      view.classList.remove('pointer-events-none');
+    }
   }
 
   const LEAD_PANEL_CONTACT_ICON_CLASS =

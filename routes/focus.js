@@ -138,6 +138,7 @@ function leadToFocusPayload(l, sortedStages, scriptLibrary, allowedKeys) {
     instagram: l.instagram && l.instagram !== 'N/A' ? l.instagram : '',
     twitter: l.twitter && l.twitter !== 'N/A' ? l.twitter : '',
     linkedin: l.linkedin && l.linkedin !== 'N/A' ? l.linkedin : '',
+    tiktok: l.tiktok && l.tiktok !== 'N/A' ? l.tiktok : '',
     tags: dbService.normalizeTagKeys(l.tags),
     city: l.city || '',
     state: l.state || '',

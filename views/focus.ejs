@@ -78,7 +78,47 @@
         </div>
       </div>
 
-      <div id="focus-links" class="flex flex-wrap gap-2 mb-6" aria-label="Contact and social links"></div>
+      <div id="focus-links" class="flex flex-wrap gap-2 mb-4" aria-label="Contact and social links"></div>
+      <div id="focus-contact-fields" class="mb-6 space-y-2.5 rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-800/40 px-4 py-3">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mb-1">Contact details</p>
+        <div id="focus-header-address-row" class="flex items-start gap-2.5 group/item">
+          <div class="w-5 h-5 mt-0.5 rounded-md flex items-center justify-center shrink-0 bg-brand-cream dark:bg-slate-800 text-brand-muted"><svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg></div>
+          <div class="flex-1 min-w-0"><span id="focus-header-address" class="text-[13px] font-semibold leading-snug text-brand-muted dark:text-slate-400">—</span><input id="focus-header-address-input" type="text" class="hidden w-full rounded-lg border border-brand-border/40 dark:border-white/15 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-[13px] font-semibold text-brand-dark dark:text-white" placeholder="Street, city, state" autocomplete="street-address" /></div>
+          <button type="button" id="focus-edit-address-btn" class="shrink-0 w-7 h-7 rounded-lg border border-brand-border/30 dark:border-white/10 bg-white/80 dark:bg-slate-800/80 text-brand-muted hover:text-brand-yellow hover:border-brand-yellow/40 transition-colors flex items-center justify-center" aria-label="Edit address" title="Edit address"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
+        </div>
+        <div id="focus-header-phone-row" class="flex items-center gap-2.5 group/item">
+          <div class="w-5 h-5 rounded-md flex items-center justify-center shrink-0 bg-brand-cream dark:bg-slate-800 text-brand-muted"><svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg></div>
+          <div class="flex-1 min-w-0"><span id="focus-header-phone" class="text-[13px] font-bold text-brand-dark dark:text-white tabular-nums">—</span><input id="focus-header-phone-input" type="tel" class="hidden w-full rounded-lg border border-brand-border/40 dark:border-white/15 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-[13px] font-bold text-brand-dark dark:text-white tabular-nums" placeholder="(555) 555-5555" autocomplete="tel" /></div>
+          <button type="button" id="focus-edit-phone-btn" class="shrink-0 w-7 h-7 rounded-lg border border-brand-border/30 dark:border-white/10 bg-white/80 dark:bg-slate-800/80 text-brand-muted hover:text-brand-yellow hover:border-brand-yellow/40 transition-colors flex items-center justify-center" aria-label="Edit phone" title="Edit phone"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
+        </div>
+        <div id="focus-header-website-row" class="flex items-center gap-2.5 group/item">
+          <div class="w-5 h-5 rounded-md flex items-center justify-center shrink-0 bg-brand-cream dark:bg-slate-800 text-brand-muted"><svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg></div>
+          <div class="flex-1 min-w-0"><a href="#" id="focus-header-website" target="_blank" rel="noopener noreferrer" class="text-[13px] font-semibold text-brand-dark dark:text-white hover:text-brand-yellow transition-colors truncate block no-underline">—</a><input id="focus-header-website-input" type="url" inputmode="url" class="hidden w-full rounded-lg border border-brand-border/40 dark:border-white/15 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-[13px] font-semibold text-brand-dark dark:text-white" placeholder="https://example.com" autocomplete="url" /></div>
+          <button type="button" id="focus-edit-website-btn" class="shrink-0 w-7 h-7 rounded-lg border border-brand-border/30 dark:border-white/10 bg-white/80 dark:bg-slate-800/80 text-brand-muted hover:text-brand-yellow hover:border-brand-yellow/40 transition-colors flex items-center justify-center" aria-label="Edit website" title="Edit website"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
+        </div>
+        <div id="focus-header-email-row" class="flex items-center gap-2.5 group/item">
+          <div class="w-5 h-5 rounded-md flex items-center justify-center shrink-0 bg-brand-cream dark:bg-slate-800 text-brand-muted"><svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg></div>
+          <div class="flex-1 min-w-0"><a href="#" id="focus-header-email" class="text-[13px] font-semibold text-brand-dark dark:text-white hover:text-brand-yellow transition-colors truncate block no-underline">—</a><input id="focus-header-email-input" type="email" class="hidden w-full rounded-lg border border-brand-border/40 dark:border-white/15 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-[13px] font-semibold text-brand-dark dark:text-white" placeholder="owner@business.com" autocomplete="email" /></div>
+          <button type="button" id="focus-edit-email-btn" class="shrink-0 w-7 h-7 rounded-lg border border-brand-border/30 dark:border-white/10 bg-white/80 dark:bg-slate-800/80 text-brand-muted hover:text-brand-yellow hover:border-brand-yellow/40 transition-colors flex items-center justify-center" aria-label="Edit email" title="Edit email"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
+        </div>
+        <div id="focus-header-socials-row" class="flex items-start gap-2.5 group/item">
+          <div class="w-5 h-5 mt-0.5 rounded-md flex items-center justify-center shrink-0 bg-brand-cream dark:bg-slate-800 text-brand-muted"><svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg></div>
+          <div class="flex-1 min-w-0">
+            <span id="focus-header-socials-summary" class="text-[13px] font-semibold leading-snug text-brand-muted dark:text-slate-400">—</span>
+            <div id="focus-socials-edit-panel" class="hidden w-full mt-1.5 space-y-2">
+              <div><label for="focus-social-url-input" class="text-[9px] font-black uppercase tracking-widest text-brand-muted block mb-0.5">Google Business / Maps URL</label><input id="focus-social-url-input" type="url" inputmode="url" class="w-full rounded-lg border border-brand-border/40 dark:border-white/15 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-[12px] font-semibold text-brand-dark dark:text-white" placeholder="https://maps.google.com/…" autocomplete="url" /></div>
+              <div><label for="focus-social-facebook-input" class="text-[9px] font-black uppercase tracking-widest text-brand-muted block mb-0.5">Facebook</label><input id="focus-social-facebook-input" type="url" inputmode="url" class="w-full rounded-lg border border-brand-border/40 dark:border-white/15 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-[12px] font-semibold text-brand-dark dark:text-white" placeholder="https://facebook.com/…" autocomplete="url" /></div>
+              <div><label for="focus-social-instagram-input" class="text-[9px] font-black uppercase tracking-widest text-brand-muted block mb-0.5">Instagram</label><input id="focus-social-instagram-input" type="url" inputmode="url" class="w-full rounded-lg border border-brand-border/40 dark:border-white/15 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-[12px] font-semibold text-brand-dark dark:text-white" placeholder="https://instagram.com/…" autocomplete="url" /></div>
+              <div><label for="focus-social-twitter-input" class="text-[9px] font-black uppercase tracking-widest text-brand-muted block mb-0.5">X / Twitter</label><input id="focus-social-twitter-input" type="url" inputmode="url" class="w-full rounded-lg border border-brand-border/40 dark:border-white/15 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-[12px] font-semibold text-brand-dark dark:text-white" placeholder="https://x.com/…" autocomplete="url" /></div>
+              <div><label for="focus-social-linkedin-input" class="text-[9px] font-black uppercase tracking-widest text-brand-muted block mb-0.5">LinkedIn</label><input id="focus-social-linkedin-input" type="url" inputmode="url" class="w-full rounded-lg border border-brand-border/40 dark:border-white/15 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-[12px] font-semibold text-brand-dark dark:text-white" placeholder="https://linkedin.com/…" autocomplete="url" /></div>
+              <div><label for="focus-social-tiktok-input" class="text-[9px] font-black uppercase tracking-widest text-brand-muted block mb-0.5">TikTok</label><input id="focus-social-tiktok-input" type="url" inputmode="url" class="w-full rounded-lg border border-brand-border/40 dark:border-white/15 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-[12px] font-semibold text-brand-dark dark:text-white" placeholder="https://tiktok.com/@…" autocomplete="url" /></div>
+              <div class="flex flex-wrap items-center gap-2 pt-0.5"><button type="button" id="focus-socials-save-btn" class="btn-pill bg-brand-yellow text-brand-dark px-2.5 py-1 text-[9px] font-black uppercase tracking-widest">Save</button><button type="button" id="focus-socials-cancel-btn" class="text-[9px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white">Cancel</button></div>
+            </div>
+          </div>
+          <button type="button" id="focus-edit-socials-btn" class="shrink-0 w-7 h-7 rounded-lg border border-brand-border/30 dark:border-white/10 bg-white/80 dark:bg-slate-800/80 text-brand-muted hover:text-brand-yellow hover:border-brand-yellow/40 transition-colors flex items-center justify-center" aria-label="Edit social links" title="Edit social links"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
+        </div>
+        <p id="focus-contact-edit-feedback" class="text-[11px] text-brand-muted min-h-[1rem]"></p>
+      </div>
       <div class="mb-6 rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/35 dark:bg-slate-800/60 px-4 py-3">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Business info</p>
         <div class="flex flex-col md:flex-row gap-4 items-stretch">
@@ -441,6 +481,7 @@
   <script type="application/json" id="focus-queue-json"><%- typeof focusQueueJson !== 'undefined' ? focusQueueJson : '[]' %></script>
   <script type="application/json" id="focus-script-library-json"><%- typeof focusScriptLibraryJson !== 'undefined' ? focusScriptLibraryJson : '{}' %></script>
   <script type="application/json" id="workspace-tags-json"><%- JSON.stringify(typeof workspaceTags !== 'undefined' ? workspaceTags : []) %></script>
+  <script src="/js/socialUrlNormalize.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
   <script src="/js/lead-send-info.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
   <script src="/js/lead-rapidapi-enrich.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
   <script src="/js/gcal-datetime-picker.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
@@ -1169,6 +1210,17 @@
           )
         );
       }
+      var tt = lead.tiktok && lead.tiktok !== 'N/A' ? String(lead.tiktok).trim() : '';
+      if (tt) {
+        container.appendChild(
+          focusSocialIconLink(
+            tt,
+            'TikTok',
+            '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.18 8.18 0 004.78 1.52V6.76a4.85 4.85 0 01-1.01-.07z"/></svg>',
+            'text-brand-muted hover:text-brand-dark dark:hover:text-white'
+          )
+        );
+      }
     }
 
     function iconLink(href, label, svgPath) {
@@ -1202,6 +1254,284 @@
       }
       if (lead.email) elLinks.appendChild(iconLink('mailto:' + encodeURIComponent(lead.email), 'Email', '<path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>'));
       renderFocusPipelineSocials(elLinks, lead, true);
+    }
+
+    function focusFieldEmpty(v) {
+      var s = String(v || '').trim();
+      return !s || s === 'N/A' || s === '—';
+    }
+
+    function focusSocialSummary(lead) {
+      if (!lead) return '—';
+      var labels = [];
+      if (!focusFieldEmpty(lead.url)) labels.push('Google');
+      if (!focusFieldEmpty(lead.facebook)) labels.push('Facebook');
+      if (!focusFieldEmpty(lead.instagram)) labels.push('Instagram');
+      if (!focusFieldEmpty(lead.twitter)) labels.push('X');
+      if (!focusFieldEmpty(lead.linkedin)) labels.push('LinkedIn');
+      if (!focusFieldEmpty(lead.tiktok)) labels.push('TikTok');
+      return labels.length ? labels.join(' · ') : 'No social links';
+    }
+
+    function renderFocusContactFields(lead) {
+      var addrEl = document.getElementById('focus-header-address');
+      var phoneEl = document.getElementById('focus-header-phone');
+      var webEl = document.getElementById('focus-header-website');
+      var emailEl = document.getElementById('focus-header-email');
+      var socialSummary = document.getElementById('focus-header-socials-summary');
+      if (!lead) return;
+      var parts = [];
+      if (!focusFieldEmpty(lead.address)) parts.push(String(lead.address).trim());
+      var cityState = [lead.city || '', lead.state || ''].filter(Boolean).join(', ');
+      if (cityState) parts.push(cityState);
+      if (addrEl) addrEl.textContent = parts.length ? parts.join(' · ') : '—';
+      if (phoneEl) phoneEl.textContent = !focusFieldEmpty(lead.phone) ? String(lead.phone).trim() : '—';
+      if (webEl) {
+        var websiteHref = hrefUrl(lead.website || '');
+        if (websiteHref) {
+          webEl.href = websiteHref;
+          webEl.textContent = cleanUrlLabel(websiteHref);
+          webEl.classList.remove('opacity-40', 'pointer-events-none');
+        } else {
+          webEl.href = '#';
+          webEl.textContent = '—';
+          webEl.classList.add('opacity-40');
+        }
+      }
+      if (emailEl) {
+        var em = !focusFieldEmpty(lead.email) ? String(lead.email).trim() : '';
+        if (em) {
+          emailEl.href = 'mailto:' + encodeURIComponent(em);
+          emailEl.textContent = em;
+          emailEl.classList.remove('opacity-40', 'pointer-events-none');
+        } else {
+          emailEl.href = '#';
+          emailEl.textContent = '—';
+          emailEl.classList.add('opacity-40');
+        }
+      }
+      if (socialSummary) socialSummary.textContent = focusSocialSummary(lead);
+    }
+
+    function setFocusContactEditFeedback(msg, isError) {
+      var el = document.getElementById('focus-contact-edit-feedback');
+      if (!el) return;
+      el.textContent = msg || '';
+      el.classList.toggle('text-rose-600', !!isError);
+      el.classList.toggle('dark:text-rose-400', !!isError);
+      el.classList.toggle('text-brand-muted', !isError);
+    }
+
+    function focusNormalizeWebsite(raw) {
+      var s = String(raw || '').trim();
+      if (!s) return '';
+      if (/^https?:\/\//i.test(s)) return s;
+      return 'https://' + s.replace(/^\/+/, '');
+    }
+
+    function focusNormalizeSocial(raw, platform) {
+      var s = String(raw || '').trim();
+      if (!s) return '';
+      var norm = window.AdhelloSocialUrlNormalize;
+      if (norm && typeof norm.normalizeSocialUrl === 'function') {
+        return norm.normalizeSocialUrl(s, platform) || s;
+      }
+      return /^https?:\/\//i.test(s) ? s : s;
+    }
+
+    function focusSaveLeadPatch(patch) {
+      var lead = currentLead();
+      if (!lead || !lead.key) return Promise.reject(new Error('No lead loaded.'));
+      return fetch('/leads/' + encodeURIComponent(lead.key) + '/update', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(patch || {}),
+      }).then(function (r) {
+        return r.json().then(function (j) {
+          if (!r.ok || !j.success) throw new Error((j && j.error) || 'Update failed');
+          if (j.lead) {
+            Object.keys(j.lead).forEach(function (k) {
+              if (j.lead[k] !== undefined && j.lead[k] !== null) lead[k] = j.lead[k];
+            });
+          } else {
+            Object.keys(patch || {}).forEach(function (k) {
+              lead[k] = patch[k];
+            });
+          }
+          renderLinks(lead);
+          renderBusinessInfo(lead);
+          renderFocusContactFields(lead);
+          return j;
+        });
+      });
+    }
+
+    var focusContactEditState = { address: false, phone: false, website: false, email: false, socials: false };
+
+    function bindFocusTextFieldEdit(fieldKey, viewId, inputId, btnId, buildPatch) {
+      var viewEl = document.getElementById(viewId);
+      var inputEl = document.getElementById(inputId);
+      var editBtn = document.getElementById(btnId);
+      if (!viewEl || !inputEl || !editBtn || editBtn.dataset.focusEditBound === '1') return;
+      editBtn.dataset.focusEditBound = '1';
+
+      function showView() {
+        focusContactEditState[fieldKey] = false;
+        viewEl.classList.remove('hidden');
+        inputEl.classList.add('hidden');
+      }
+      function showEdit() {
+        var lead = currentLead();
+        if (!lead || !lead.key) {
+          setFocusContactEditFeedback('No lead loaded.', true);
+          return;
+        }
+        focusContactEditState[fieldKey] = true;
+        if (fieldKey === 'address') {
+          var addrParts = [];
+          if (!focusFieldEmpty(lead.address)) addrParts.push(String(lead.address).trim());
+          var cs = [lead.city || '', lead.state || ''].filter(Boolean).join(', ');
+          if (cs) addrParts.push(cs);
+          inputEl.value = addrParts.join(', ');
+        } else if (fieldKey === 'phone') {
+          inputEl.value = !focusFieldEmpty(lead.phone) ? String(lead.phone).trim() : '';
+        } else if (fieldKey === 'website') {
+          inputEl.value = !focusFieldEmpty(lead.website) ? String(lead.website).trim() : '';
+        } else if (fieldKey === 'email') {
+          inputEl.value = !focusFieldEmpty(lead.email) ? String(lead.email).trim() : '';
+        }
+        viewEl.classList.add('hidden');
+        inputEl.classList.remove('hidden');
+        inputEl.focus();
+        inputEl.select();
+      }
+      function commit() {
+        if (!focusContactEditState[fieldKey]) return;
+        var val = String(inputEl.value || '').trim();
+        var patch = buildPatch(val);
+        editBtn.disabled = true;
+        focusSaveLeadPatch(patch)
+          .then(function () {
+            setFocusContactEditFeedback('Saved.');
+          })
+          .catch(function (err) {
+            setFocusContactEditFeedback(err && err.message ? err.message : 'Save failed', true);
+          })
+          .finally(function () {
+            editBtn.disabled = false;
+            showView();
+          });
+      }
+
+      editBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (focusContactEditState[fieldKey]) commit();
+        else showEdit();
+      });
+      inputEl.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); commit(); }
+        else if (e.key === 'Escape') { e.preventDefault(); showView(); }
+      });
+      inputEl.addEventListener('blur', function () {
+        setTimeout(function () {
+          if (!focusContactEditState[fieldKey]) return;
+          if (document.activeElement === inputEl || document.activeElement === editBtn) return;
+          commit();
+        }, 160);
+      });
+    }
+
+    function bindFocusSocialsEdit() {
+      var editBtn = document.getElementById('focus-edit-socials-btn');
+      var panel = document.getElementById('focus-socials-edit-panel');
+      var summary = document.getElementById('focus-header-socials-summary');
+      var saveBtn = document.getElementById('focus-socials-save-btn');
+      var cancelBtn = document.getElementById('focus-socials-cancel-btn');
+      if (!editBtn || !panel || !summary || editBtn.dataset.focusEditBound === '1') return;
+      editBtn.dataset.focusEditBound = '1';
+      var inputs = {
+        url: document.getElementById('focus-social-url-input'),
+        facebook: document.getElementById('focus-social-facebook-input'),
+        instagram: document.getElementById('focus-social-instagram-input'),
+        twitter: document.getElementById('focus-social-twitter-input'),
+        linkedin: document.getElementById('focus-social-linkedin-input'),
+        tiktok: document.getElementById('focus-social-tiktok-input'),
+      };
+
+      function hide() {
+        focusContactEditState.socials = false;
+        panel.classList.add('hidden');
+        summary.classList.remove('hidden');
+      }
+      function show(e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        var lead = currentLead();
+        if (!lead || !lead.key) {
+          setFocusContactEditFeedback('No lead loaded.', true);
+          return;
+        }
+        focusContactEditState.socials = true;
+        if (inputs.url) inputs.url.value = focusFieldEmpty(lead.url) ? '' : String(lead.url).trim();
+        if (inputs.facebook) inputs.facebook.value = focusFieldEmpty(lead.facebook) ? '' : String(lead.facebook).trim();
+        if (inputs.instagram) inputs.instagram.value = focusFieldEmpty(lead.instagram) ? '' : String(lead.instagram).trim();
+        if (inputs.twitter) inputs.twitter.value = focusFieldEmpty(lead.twitter) ? '' : String(lead.twitter).trim();
+        if (inputs.linkedin) inputs.linkedin.value = focusFieldEmpty(lead.linkedin) ? '' : String(lead.linkedin).trim();
+        if (inputs.tiktok) inputs.tiktok.value = focusFieldEmpty(lead.tiktok) ? '' : String(lead.tiktok).trim();
+        summary.classList.add('hidden');
+        panel.classList.remove('hidden');
+        if (inputs.url) inputs.url.focus();
+      }
+      function commit() {
+        var patch = {
+          url: inputs.url && inputs.url.value.trim() ? focusNormalizeWebsite(inputs.url.value.trim()) : 'N/A',
+          facebook: inputs.facebook && inputs.facebook.value.trim() ? focusNormalizeSocial(inputs.facebook.value.trim(), 'facebook') || 'N/A' : 'N/A',
+          instagram: inputs.instagram && inputs.instagram.value.trim() ? focusNormalizeSocial(inputs.instagram.value.trim(), 'instagram') || 'N/A' : 'N/A',
+          twitter: inputs.twitter && inputs.twitter.value.trim() ? focusNormalizeSocial(inputs.twitter.value.trim(), 'twitter') || 'N/A' : 'N/A',
+          linkedin: inputs.linkedin && inputs.linkedin.value.trim() ? focusNormalizeSocial(inputs.linkedin.value.trim(), 'linkedin') || 'N/A' : 'N/A',
+          tiktok: inputs.tiktok && inputs.tiktok.value.trim() ? focusNormalizeSocial(inputs.tiktok.value.trim(), 'tiktok') || 'N/A' : 'N/A',
+        };
+        if (saveBtn) saveBtn.disabled = true;
+        editBtn.disabled = true;
+        focusSaveLeadPatch(patch)
+          .then(function () { setFocusContactEditFeedback('Social links saved.'); hide(); })
+          .catch(function (err) { setFocusContactEditFeedback(err && err.message ? err.message : 'Save failed', true); })
+          .finally(function () {
+            if (saveBtn) saveBtn.disabled = false;
+            editBtn.disabled = false;
+          });
+      }
+
+      editBtn.addEventListener('click', function (e) {
+        if (focusContactEditState.socials) commit();
+        else show(e);
+      });
+      if (saveBtn) saveBtn.addEventListener('click', function (e) { e.stopPropagation(); commit(); });
+      if (cancelBtn) cancelBtn.addEventListener('click', function (e) { e.stopPropagation(); hide(); });
+    }
+
+    function initFocusContactEdit() {
+      bindFocusTextFieldEdit('address', 'focus-header-address', 'focus-header-address-input', 'focus-edit-address-btn', function (val) {
+        var parts = val.split(',').map(function (p) { return p.trim(); }).filter(Boolean);
+        var city = '';
+        var state = '';
+        if (parts.length >= 2) {
+          city = parts[parts.length - 2] || '';
+          state = (parts[parts.length - 1] || '').replace(/\d{5}(-\d{4})?.*$/, '').trim();
+        }
+        return { address: val || 'N/A', city: city, state: state };
+      });
+      bindFocusTextFieldEdit('phone', 'focus-header-phone', 'focus-header-phone-input', 'focus-edit-phone-btn', function (val) {
+        return { phone: val || 'N/A' };
+      });
+      bindFocusTextFieldEdit('website', 'focus-header-website', 'focus-header-website-input', 'focus-edit-website-btn', function (val) {
+        return { website: val ? focusNormalizeWebsite(val) : 'N/A' };
+      });
+      bindFocusTextFieldEdit('email', 'focus-header-email', 'focus-header-email-input', 'focus-edit-email-btn', function (val) {
+        return { email: val || 'N/A' };
+      });
+      bindFocusSocialsEdit();
     }
 
     function focusQuickLogItems() {
@@ -2061,6 +2391,8 @@
           if (cur && focusLeadKeyParam(cur) === key) {
             renderBuiltWith(cur);
             renderBusinessInfo(cur);
+            renderFocusContactFields(cur);
+            renderLinks(cur);
           }
         })
         .catch(function (err) {
@@ -2878,6 +3210,7 @@
         );
       }
       renderLinks(lead);
+      renderFocusContactFields(lead);
       renderBusinessInfo(lead);
       hydrateFocusLeadFromPanelData(lead);
       if (elServiceSelect) {
@@ -3508,6 +3841,8 @@
       }
     });
 
+    initFocusContactEdit();
+
     if (elServiceSelect) {
       elServiceSelect.value = getDefaultProductKey();
     }
@@ -3528,6 +3863,7 @@
             });
           }
           renderLinks(lead || updatedLead);
+          renderFocusContactFields(lead || updatedLead);
           renderBusinessInfo(lead || updatedLead);
           if (elCopyFeedback) {
             elCopyFeedback.textContent = 'Contacts enriched.';
