@@ -12,6 +12,7 @@
 <% const _qlDisp = _isQlTag ? _tagKey.slice(3) : ''; %>
 <% const _activeQlTag = _isQlTag ? _qlItems.find(function (x) { return x && String(x.disposition) === _qlDisp; }) : null; %>
 <% const _activeTag = !_isQlTag && _tagKey ? _tags.find(function (x) { return x && String(x.key) === _tagKey; }) : null; %>
+<% const _tagFilterLabel = _activeTag ? (_activeTag.name || 'Tag') : (_activeQlTag ? (_activeQlTag.label || _qlDisp || 'Quick log') : 'Any tag'); %>
 <% const _catOpts = typeof pipelineCategoryOptions !== 'undefined' && pipelineCategoryOptions ? pipelineCategoryOptions : []; %>
 <% const _activeCategory = _lf.category ? String(_lf.category) : ''; %>
 <% const _stOpts = typeof pipelineStatusOptions !== 'undefined' && pipelineStatusOptions ? pipelineStatusOptions : []; %>
