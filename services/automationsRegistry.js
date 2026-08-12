@@ -268,7 +268,37 @@ async function listAutomationsForWorkspace(workspaceId) {
     messages: automations.filter((a) => a.type === 'messages').length,
   };
 
-  return { automations, summary };
+  let lastRunEnrolled = 0;
+  let lastRunAt = null;
+  if (autoPool.lastEnrolled) lastRunEnrolled += Number(autoPool.lastEnrolled) || 0;
+  if (autoPool.lastRunAt && (!lastRunAt || autoPool.lastRunAt > lastRunAt)) {
+    lastRunAt = autoPool.lastRunAt;
+  }
+  for (const folder of folders) {
+    if (!folderHasOutreachConfig(folder)) continue;
+    const settings = loadFolderOutreachFromFolder(folder);
+    if (settings.lastEnrolled) lastRunEnrolled += Number(settings.lastEnrolled) || 0;
+    if (settings.lastRunAt && (!lastRunAt || settings.lastRunAt > lastRunAt)) {
+      lastRunAt = settings.lastRunAt;
+    }
+  }
+
+  const reportStats = {
+    running: summary.running,
+    paused: summary.paused,
+    totalAutomations: summary.total,
+    outreachAutomations: summary.outreach,
+    prospectingAutomations: summary.prospecting,
+    messageAutomations: summary.messages,
+    ghlOutreachEnrolled: countActiveOutreachWorkspace(leads),
+    cadenceEnrolled: countActiveCadences(leads),
+    scheduledSearches: schedules.length,
+    lastRunEnrolled,
+    lastRunAt,
+    nextDailyRun: computeNextDailyRunUtc(),
+  };
+
+  return { automations, summary, reportStats };
 }
 
 module.exports = {

@@ -5,376 +5,130 @@
 
 <%- include('partials/navbar') %>
 
+<% 
+  const stats = typeof reportStats !== 'undefined' && reportStats ? reportStats : {};
+  function formatAutoWhen(iso) {
+    if (!iso) return '—';
+    try {
+      return new Date(iso).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    } catch (e) { return '—'; }
+  }
+%>
+
 <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
   <!-- Header -->
-  <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+  <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
     <div>
       <div class="inline-flex items-center gap-2 bg-white dark:bg-slate-900 px-3 py-1 rounded-full border border-brand-border dark:border-white/10 shadow-sm mb-4">
-        <span class="text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400">Command center</span>
+        <span class="text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400">Automation reports</span>
       </div>
       <h1 class="font-display font-extrabold text-4xl md:text-5xl tracking-tight text-brand-dark dark:text-white">
         Automate <span class="text-brand-muted dark:text-slate-500">prospecting</span>
       </h1>
-      <p class="text-sm font-bold text-brand-muted dark:text-slate-400 mt-2">Outreach, prospecting, and campaigns in one place</p>
+      <p class="text-sm font-bold text-brand-muted dark:text-slate-400 mt-2">Folder outreach, scheduled searches, and cadence messages</p>
     </div>
     <div class="flex items-center gap-3 shrink-0">
-      <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-      <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Live</span>
+      <% if (stats.running > 0) { %>
+      <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-[10px] font-black uppercase tracking-widest">
+        <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span><%= stats.running %> running
+      </span>
+      <% } else { %>
+      <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">No automations running</span>
+      <% } %>
     </div>
   </div>
 
-  <!-- KPI Grid -->
-  <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-10">
-    <div class="bg-white rounded-2xl p-4 border border-brand-border/40 shadow-sm hover:border-brand-yellow/50 transition-all">
-      <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Total Leads</div>
-      <div class="text-2xl font-black text-brand-dark"><%= totalLeads %></div>
-      <div class="text-[10px] font-bold text-emerald-600"><%= leadsThisWeek %> this week</div>
+  <!-- Automation KPIs -->
+  <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-10">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-brand-border/40 dark:border-white/10 shadow-sm">
+      <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Running</div>
+      <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400"><%= stats.running != null ? stats.running : 0 %></div>
+      <div class="text-[10px] font-bold text-brand-muted"><%= stats.totalAutomations != null ? stats.totalAutomations : 0 %> total</div>
     </div>
-    <div class="bg-white rounded-2xl p-4 border border-brand-border/40 shadow-sm hover:border-brand-yellow/50 transition-all">
-      <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Active Clients</div>
-      <div class="text-2xl font-black text-brand-dark"><%= activeClients %></div>
-      <div class="text-[10px] font-bold text-brand-muted"><%= pipelineLeads %> in pipeline</div>
+    <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-brand-border/40 dark:border-white/10 shadow-sm">
+      <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Paused</div>
+      <div class="text-2xl font-black text-amber-600 dark:text-amber-400"><%= stats.paused != null ? stats.paused : 0 %></div>
+      <div class="text-[10px] font-bold text-brand-muted">Outreach &amp; searches</div>
     </div>
-    <div class="bg-white rounded-2xl p-4 border border-brand-border/40 shadow-sm hover:border-brand-yellow/50 transition-all">
-      <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Traffic (IPs)</div>
-      <div class="text-2xl font-black text-brand-dark"><%= uniqueIPs %></div>
-      <div class="text-[10px] font-bold text-brand-muted"><%= conversionRate %>% → lead</div>
+    <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-brand-border/40 dark:border-white/10 shadow-sm">
+      <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">GHL outreach</div>
+      <div class="text-2xl font-black text-brand-dark dark:text-white"><%= stats.ghlOutreachEnrolled != null ? stats.ghlOutreachEnrolled : 0 %></div>
+      <div class="text-[10px] font-bold text-brand-muted">Leads in auto-outreach</div>
     </div>
-    <div class="bg-white rounded-2xl p-4 border border-brand-border/40 shadow-sm hover:border-brand-yellow/50 transition-all">
-      <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Visits Today</div>
-      <div class="text-2xl font-black text-brand-dark"><%= visitsToday %></div>
-      <div class="text-[10px] font-bold text-brand-muted"><%= leadsToday %> new leads</div>
+    <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-brand-border/40 dark:border-white/10 shadow-sm">
+      <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Cadences</div>
+      <div class="text-2xl font-black text-brand-dark dark:text-white"><%= stats.cadenceEnrolled != null ? stats.cadenceEnrolled : 0 %></div>
+      <div class="text-[10px] font-bold text-brand-muted">Active sequences</div>
     </div>
-    <div class="bg-white rounded-2xl p-4 border border-brand-border/40 shadow-sm hover:border-brand-yellow/50 transition-all">
-      <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Open Tasks</div>
-      <div class="text-2xl font-black text-brand-dark"><%= openTasks %></div>
-      <div class="text-[10px] font-bold text-amber-600"><%= doneTasks %> done</div>
+    <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-brand-border/40 dark:border-white/10 shadow-sm">
+      <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Last run enrolled</div>
+      <div class="text-2xl font-black text-brand-dark dark:text-white"><%= stats.lastRunEnrolled != null ? stats.lastRunEnrolled : 0 %></div>
+      <div class="text-[10px] font-bold text-brand-muted"><%= formatAutoWhen(stats.lastRunAt) %></div>
     </div>
-    <div class="bg-white rounded-2xl p-4 border border-brand-border/40 shadow-sm hover:border-brand-yellow/50 transition-all">
-      <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Total Visits</div>
-      <div class="text-2xl font-black text-brand-dark"><%= totalVisits %></div>
-      <div class="text-[10px] font-bold text-brand-muted">All time</div>
+    <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-brand-border/40 dark:border-white/10 shadow-sm">
+      <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Scheduled searches</div>
+      <div class="text-2xl font-black text-brand-dark dark:text-white"><%= stats.scheduledSearches != null ? stats.scheduledSearches : 0 %></div>
+      <div class="text-[10px] font-bold text-brand-muted">Prospecting jobs</div>
     </div>
   </div>
 
-  <!-- Automations -->
+  <!-- Automations table -->
   <%- include('partials/automations_table') %>
 
-  <!-- Row 1: Pipeline + Chart + Top Cities -->
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
-
-    <!-- Pipeline Stages -->
-    <div class="bg-white rounded-[2rem] p-6 border border-brand-border/40 shadow-sm">
-      <h3 class="text-sm font-black uppercase tracking-widest text-brand-muted mb-4">Pipeline Stages</h3>
-      <div class="space-y-3">
-        <% if (typeof stages !== 'undefined' && stages.length) { %>
-          <% stages.forEach(function(s) { %>
-          <div>
-            <div class="flex items-center justify-between mb-1">
-              <span class="text-sm font-bold text-brand-dark capitalize"><%= String(s[0]).replace(/_/g, ' ') %></span>
-              <span class="text-lg font-black text-brand-dark"><%= s[1] %></span>
-            </div>
-            <div class="h-1.5 rounded-full bg-brand-border/20 overflow-hidden">
-              <div class="h-full rounded-full bg-brand-yellow" style="width: <%= pipelineLeads > 0 ? (s[1] / pipelineLeads * 100).toFixed(0) : 0 %>%"></div>
-            </div>
-          </div>
-          <% }); %>
-        <% } else { %>
-          <div class="text-sm text-brand-muted italic py-8 text-center">No pipeline data yet — start adding leads with stages!</div>
-        <% } %>
-      </div>
-    </div>
-
-    <!-- Traffic Trend -->
-    <div class="bg-white rounded-[2rem] p-6 border border-brand-border/40 shadow-sm">
-      <h3 class="text-sm font-black uppercase tracking-widest text-brand-muted mb-4">14-Day Traffic</h3>
-      <div id="trafficSpark" class="h-40 w-full"></div>
-    </div>
-
-    <!-- Top Cities -->
-    <div class="bg-white rounded-[2rem] p-6 border border-brand-border/40 shadow-sm">
-      <h3 class="text-sm font-black uppercase tracking-widest text-brand-muted mb-4">Top Markets</h3>
-      <div class="space-y-3">
-        <% if (typeof topCities !== 'undefined' && topCities.length) { %>
-          <% topCities.forEach(function(c) { %>
-          <div class="flex items-center justify-between p-2 rounded-xl hover:bg-brand-cream/30 transition-all">
-            <span class="text-sm font-bold text-brand-dark"><%= c.name %></span>
-            <span class="text-sm font-black text-brand-muted"><%= c.count %> leads</span>
-          </div>
-          <% }); %>
-        <% } else { %>
-          <p class="text-sm text-brand-muted italic py-8 text-center">No geo data yet — add leads with cities!</p>
-        <% } %>
-      </div>
-    </div>
-  </div>
-
-  <!-- Row 2: Kanban Board (full width) -->
+  <!-- Recent automation activity -->
+  <% if (typeof recentAutomationActivity !== 'undefined' && recentAutomationActivity.length) { %>
   <div class="mb-10">
-
-    <!-- Kanban Board -->
-    <div class="bg-white rounded-[2rem] p-6 border border-brand-border/40 shadow-sm">
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="text-sm font-black uppercase tracking-widest text-brand-muted">Task Board</h3>
-        <div class="flex items-center gap-3">
-          <span class="text-[10px] font-bold text-brand-muted"><%= openTasks %> open · <%= doneTasks %> done</span>
-          <a href="/ceo/tasks" class="text-[10px] font-black uppercase tracking-widest text-brand-dark bg-brand-cream hover:bg-brand-yellow/20 px-3 py-1.5 rounded-full transition-colors" title="Full-page task manager">⛶ Full Page</a>
-        </div>
-      </div>
-
-      <!-- Add task form -->
-      <form id="ceoTaskForm" class="mb-4 flex gap-2">
-        <input id="ceoTaskInput" type="text" placeholder="Add a task…" class="flex-1 rounded-xl border border-brand-border/40 bg-brand-cream/30 px-3 py-2 text-sm font-semibold text-brand-dark placeholder:text-brand-muted/50 focus:outline-none focus:border-brand-yellow" />
-        <select id="ceoTaskCol" class="rounded-xl border border-brand-border/40 bg-white px-2 py-2 text-[10px] font-bold text-brand-dark">
-          <% taskColumns.forEach(function(c) { %>
-          <option value="<%= c.id %>"><%= c.label %></option>
-          <% }); %>
-        </select>
-        <button type="submit" class="bg-brand-dark text-brand-yellow px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-colors">Add</button>
-      </form>
-
-      <!-- Kanban columns -->
-      <div class="flex gap-3 overflow-x-auto pb-2">
-        <% taskColumns.forEach(function(col) { %>
-        <div class="ceo-kanban-col w-[14rem] min-w-0 shrink-0 flex flex-col gap-2" data-column="<%= col.id %>">
-          <div class="flex items-center justify-between px-1">
-            <span class="text-[10px] font-black uppercase tracking-widest text-brand-dark"><%= col.label %></span>
-            <span class="ceo-col-count px-2 py-0.5 rounded-full bg-brand-cream text-[10px] font-bold text-brand-muted"><%= (tasksByColumn[col.id] || []).length %></span>
+    <h3 class="text-sm font-black uppercase tracking-widest text-brand-muted mb-4">Recent automation activity</h3>
+    <div class="bg-white dark:bg-slate-900 rounded-[2rem] p-6 border border-brand-border/40 dark:border-white/10 shadow-sm">
+      <div class="space-y-3">
+        <% recentAutomationActivity.forEach(function(item) { %>
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl bg-brand-cream/40 dark:bg-white/5 border border-brand-border/20 dark:border-white/10">
+          <div class="min-w-0">
+            <div class="font-bold text-sm text-brand-dark dark:text-white truncate"><%= item.name %></div>
+            <div class="text-[10px] text-brand-muted mt-0.5"><%= item.detail %></div>
           </div>
-          <ul class="ceo-kanban-list min-h-[120px] min-w-0 overflow-hidden flex flex-col gap-2 p-2 bg-brand-cream/20 rounded-xl border border-dashed border-brand-border/30">
-            <% (tasksByColumn[col.id] || []).forEach(function(t) { %>
-            <li class="ceo-task-card min-w-0 overflow-hidden p-3 bg-white rounded-lg border border-brand-border/20 shadow-sm cursor-grab active:cursor-grabbing group" data-task-id="<%= t.id %>">
-              <p class="text-xs font-bold text-brand-dark leading-snug break-words"><%= t.title %></p>
-              <div class="flex items-center justify-between mt-2">
-                <span class="text-[9px] font-bold text-brand-muted"><%= t.column %></span>
-                <button type="button" class="ceo-task-del shrink-0 w-6 h-6 rounded-md border border-transparent hover:border-rose-200 hover:bg-rose-50 text-rose-500 flex items-center justify-center transition-colors" aria-label="Delete task" title="Delete task">
-                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
-              </div>
-            </li>
-            <% }); %>
-          </ul>
+          <div class="flex items-center gap-3 shrink-0">
+            <span class="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full <%= item.type === 'outreach' ? 'bg-brand-yellow/15 text-brand-dark dark:text-brand-yellow' : item.type === 'prospecting' ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300' : 'bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300' %>"><%= item.type %></span>
+            <span class="text-[10px] font-bold text-brand-muted tabular-nums"><%= formatAutoWhen(item.lastActivity) %></span>
+            <% if (item.link) { %><a href="<%= item.link %>" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline">Open →</a><% } %>
+          </div>
         </div>
         <% }); %>
       </div>
     </div>
   </div>
+  <% } %>
 
-  <!-- Row 2b: Recent Leads + System Status -->
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
-    <!-- Recent Leads -->
-    <div class="space-y-4">
-      <h3 class="text-sm font-black uppercase tracking-widest text-brand-muted">Recent Leads</h3>
-      <div class="bg-white/80 backdrop-blur rounded-[2rem] p-6 border border-brand-border/40 shadow-sm">
-        <div class="space-y-3 max-h-[400px] overflow-y-auto pr-1">
-          <% if (typeof recentLeads !== 'undefined' && recentLeads.length) { %>
-            <% recentLeads.forEach(function(l) { %>
-            <div class="p-3 rounded-xl bg-brand-cream/40 border border-brand-border/20 hover:border-brand-yellow/30 transition-all">
-              <div class="flex items-center justify-between gap-2">
-                <span class="font-bold text-sm text-brand-dark truncate"><%= l.title %></span>
-                <span class="text-[9px] font-black uppercase tracking-widest text-brand-yellow bg-brand-yellow/10 px-2 py-0.5 rounded-full capitalize"><%= String(l.stage || 'new').replace(/_/g, ' ') %></span>
-              </div>
-              <div class="flex items-center gap-3 mt-1 text-[10px] text-brand-muted font-bold">
-                <% if (l.city) { %><span><%= l.city %></span><% } %>
-                <span><%= new Date(l.created).toLocaleDateString([], { month: 'short', day: 'numeric' }) %></span>
-              </div>
-            </div>
-            <% }); %>
-          <% } else { %>
-            <div class="py-10 text-center text-sm text-brand-muted italic">No leads yet. Import some to get started!</div>
-          <% } %>
-        </div>
-      </div>
-    </div>
-
-    <!-- System Status -->
-    <div class="space-y-4">
-      <h3 class="text-sm font-black uppercase tracking-widest text-brand-muted">System Status</h3>
-      <div class="bg-white/80 backdrop-blur rounded-[2rem] p-6 border border-brand-border/40 shadow-sm">
-        <div class="space-y-2">
-          <% (typeof systems !== 'undefined' ? systems : []).forEach(function(s) { %>
-          <div class="flex items-center justify-between">
-            <span class="text-sm font-bold text-brand-dark"><%= s.name %></span>
-            <span class="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest <%= s.status === 'live' || s.status === 'active' ? 'text-emerald-600' : s.status === 'pending' ? 'text-amber-500' : 'text-red-500' %>">
-              <span class="w-1.5 h-1.5 rounded-full <%= s.status === 'live' || s.status === 'active' ? 'bg-emerald-500' : s.status === 'pending' ? 'bg-amber-400' : 'bg-red-500' %>"></span>
-              <%= s.status %>
-            </span>
-          </div>
-          <% }); %>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Quick Actions -->
+  <!-- Quick links -->
   <div class="bg-brand-dark rounded-[2rem] p-8 text-white shadow-xl mb-8">
-    <h2 class="text-xl font-black mb-6">Quick Actions</h2>
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <a href="<%= leadsUrl %>/today" target="_blank" class="bg-white/10 hover:bg-white/20 rounded-2xl p-5 text-center transition-all group">
-        <div class="mb-2 flex justify-center">
-          <svg class="w-6 h-6 text-brand-yellow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 2.25h6m-7.5 3h9A2.25 2.25 0 0118.75 7.5v12A2.25 2.25 0 0116.5 21.75h-9A2.25 2.25 0 015.25 19.5v-12A2.25 2.25 0 017.5 5.25z" /></svg>
-        </div>
-        <div class="text-xs font-black uppercase tracking-widest">Today</div>
+    <h2 class="text-xl font-black mb-2">Automation shortcuts</h2>
+    <p class="text-sm text-white/60 mb-6">Manage outreach folders, view enrolled leads, or check messages in GHL.</p>
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      <a href="/prospecting?tab=folders" class="bg-white/10 hover:bg-white/20 rounded-2xl p-5 text-center transition-all">
+        <div class="text-xs font-black uppercase tracking-widest">Folder outreach</div>
       </a>
-      <a href="<%= leadsUrl %>/pipeline" target="_blank" class="bg-white/10 hover:bg-white/20 rounded-2xl p-5 text-center transition-all group">
-        <div class="mb-2 flex justify-center">
-          <svg class="w-6 h-6 text-brand-yellow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 19.5h15M7.5 16.5v-6m4.5 6V8.25m4.5 8.25v-3.75" /></svg>
-        </div>
-        <div class="text-xs font-black uppercase tracking-widest">Pipeline</div>
+      <a href="/prospecting?tab=queue" class="bg-white/10 hover:bg-white/20 rounded-2xl p-5 text-center transition-all">
+        <div class="text-xs font-black uppercase tracking-widest">Schedule search</div>
       </a>
-      <a href="<%= leadsUrl %>/reports" target="_blank" class="bg-white/10 hover:bg-white/20 rounded-2xl p-5 text-center transition-all group">
-        <div class="mb-2 flex justify-center">
-          <svg class="w-6 h-6 text-brand-yellow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 17.25l5.25-5.25 3.75 3.75 6-7.5" /></svg>
-        </div>
-        <div class="text-xs font-black uppercase tracking-widest">Reports</div>
+      <a href="/sequences" class="bg-white/10 hover:bg-white/20 rounded-2xl p-5 text-center transition-all">
+        <div class="text-xs font-black uppercase tracking-widest">Cadences</div>
       </a>
-      <a href="<%= leadsUrl %>/tasks" target="_blank" class="bg-white/10 hover:bg-white/20 rounded-2xl p-5 text-center transition-all group">
-        <div class="mb-2 flex justify-center">
-          <svg class="w-6 h-6 text-brand-yellow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75l2.25 2.25L15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-        </div>
-        <div class="text-xs font-black uppercase tracking-widest">Full Tasks</div>
+      <a href="/today" class="bg-white/10 hover:bg-white/20 rounded-2xl p-5 text-center transition-all">
+        <div class="text-xs font-black uppercase tracking-widest">Today queue</div>
       </a>
       <% if (typeof ghlDashboardUrl !== 'undefined' && ghlDashboardUrl) { %>
-      <a href="<%= ghlDashboardUrl %>" target="_blank" rel="noopener noreferrer" class="bg-white/10 hover:bg-white/20 rounded-2xl p-5 text-center transition-all group">
-        <div class="mb-2 flex justify-center">
-          <svg class="w-6 h-6 text-brand-yellow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3h6m-8.25 9l2.143-3.214A8.966 8.966 0 013 11.25C3 6.693 7.03 3 12 3s9 3.693 9 8.25-4.03 8.25-9 8.25a9.8 9.8 0 01-2.607-.35L5.25 20.25z" /></svg>
-        </div>
-        <div class="text-xs font-black uppercase tracking-widest">GHL</div>
+      <a href="<%= ghlDashboardUrl %>" target="_blank" rel="noopener noreferrer" class="bg-white/10 hover:bg-white/20 rounded-2xl p-5 text-center transition-all">
+        <div class="text-xs font-black uppercase tracking-widest">GHL messages</div>
+      </a>
+      <% } else if (typeof ghlConfigured !== 'undefined' && !ghlConfigured) { %>
+      <a href="/workspace/integrations/ghl-setup" class="bg-white/10 hover:bg-white/20 rounded-2xl p-5 text-center transition-all">
+        <div class="text-xs font-black uppercase tracking-widest">Connect GHL</div>
       </a>
       <% } %>
     </div>
   </div>
-
 </main>
 
 <%- include('partials/footer') %>
-
-<!-- Chart Script -->
-<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  function escapeHtml(s) {
-    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  }
-
-  // ── Traffic Chart ──
-  const chartData = <%- JSON.stringify(chartData) %>;
-  if (chartData && chartData.labels && chartData.labels.length) {
-    const options = {
-      series: [{ name: 'Visits', data: chartData.values }],
-      chart: { type: 'area', height: 160, toolbar: { show: false }, sparkline: { enabled: true }, fontFamily: 'Inter, sans-serif' },
-      dataLabels: { enabled: false },
-      stroke: { curve: 'smooth', width: 3, colors: ['#FFD644'] },
-      fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.5, opacityTo: 0.05, stops: [0, 100], colorStops: [{ offset: 0, color: '#FFD644', opacity: 0.4 }, { offset: 100, color: '#FFD644', opacity: 0 }] } },
-      markers: { size: 0 },
-      tooltip: { theme: 'dark', x: { show: true }, y: { formatter: v => v + ' visits' } },
-      grid: { show: false },
-      xaxis: { labels: { show: false }, axisBorder: { show: false }, axisTicks: { show: false } },
-      yaxis: { labels: { show: false }, axisBorder: { show: false }, axisTicks: { show: false } },
-    };
-    const chart = new ApexCharts(document.querySelector("#trafficSpark"), options);
-    chart.render();
-  }
-
-  // ── Kanban Drag & Drop ──
-  if (typeof Sortable !== 'undefined') {
-    document.querySelectorAll('.ceo-kanban-list').forEach(function(ul) {
-      Sortable.create(ul, {
-        group: 'ceo-tasks',
-        animation: 150,
-        ghostClass: 'opacity-40',
-        filter: '.ceo-task-del',
-        preventOnFilter: false,
-        onEnd: function(evt) {
-          var card = evt.item;
-          var taskId = card.getAttribute('data-task-id');
-          var toCol = evt.to.closest('.ceo-kanban-col');
-          if (!taskId || !toCol) return;
-          var newColumn = toCol.getAttribute('data-column');
-          // Update via API
-          fetch('/tasks/api/' + encodeURIComponent(taskId), {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ column: newColumn }),
-          }).then(function(r) { return r.json(); }).then(function(d) {
-            if (d.success) {
-              // Update column counts
-              document.querySelectorAll('.ceo-kanban-col').forEach(function(col) {
-                var count = col.querySelectorAll('.ceo-task-card').length;
-                var badge = col.querySelector('.ceo-col-count');
-                if (badge) badge.textContent = count;
-              });
-            }
-          }).catch(function(e) { console.error('Task move failed:', e); });
-        }
-      });
-    });
-  }
-
-  // ── Add Task ──
-  var taskForm = document.getElementById('ceoTaskForm');
-  if (taskForm) {
-    taskForm.addEventListener('submit', function(e) {
-      e.preventDefault();
-      var input = document.getElementById('ceoTaskInput');
-      var colSelect = document.getElementById('ceoTaskCol');
-      var title = (input.value || '').trim();
-      if (!title) return;
-      fetch('/tasks/api', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: title, column: colSelect.value || 'todo' }),
-      }).then(function(r) { return r.json(); }).then(function(d) {
-        if (d.success && d.task) {
-          input.value = '';
-          // Add card to the right column
-          var col = document.querySelector('.ceo-kanban-col[data-column="' + d.task.column + '"] .ceo-kanban-list');
-          if (col) {
-            var li = document.createElement('li');
-            li.className = 'ceo-task-card min-w-0 overflow-hidden p-3 bg-white rounded-lg border border-brand-border/20 shadow-sm cursor-grab active:cursor-grabbing group';
-            li.setAttribute('data-task-id', d.task.id);
-            li.innerHTML = '<p class="text-xs font-bold text-brand-dark leading-snug break-words">' + escapeHtml(d.task.title) + '</p><div class="flex items-center justify-between mt-2"><span class="text-[9px] font-bold text-brand-muted">' + d.task.column + '</span><button type="button" class="ceo-task-del shrink-0 w-6 h-6 rounded-md border border-transparent hover:border-rose-200 hover:bg-rose-50 text-rose-500 flex items-center justify-center transition-colors" aria-label="Delete task" title="Delete task"><svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button></div>';
-            col.appendChild(li);
-            // Update count
-            var badge = col.closest('.ceo-kanban-col').querySelector('.ceo-col-count');
-            if (badge) badge.textContent = col.querySelectorAll('.ceo-task-card').length;
-            // Attach delete handler
-            attachDelHandler(li.querySelector('.ceo-task-del'));
-          }
-        }
-      }).catch(function(e) { console.error('Add task failed:', e); });
-    });
-  }
-
-  // ── Delete Task ──
-  function attachDelHandler(btn) {
-    btn.addEventListener('click', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      var card = btn.closest('.ceo-task-card');
-      var taskId = card && card.getAttribute('data-task-id');
-      if (!taskId) return;
-      if (!window.confirm('Remove this task?')) return;
-      fetch('/tasks/api/' + encodeURIComponent(taskId), { method: 'DELETE', headers: { Accept: 'application/json' } })
-        .then(function(r) { return r.json(); })
-        .then(function(d) {
-          if (d.success) {
-            var col = card.closest('.ceo-kanban-col');
-            card.remove();
-            if (col) {
-              var badge = col.querySelector('.ceo-col-count');
-              if (badge) badge.textContent = col.querySelectorAll('.ceo-task-card').length;
-            }
-          } else {
-            window.alert(d.error || 'Could not delete task.');
-          }
-        }).catch(function(e) { console.error('Delete task failed:', e); window.alert('Could not delete task.'); });
-    });
-  }
-  document.querySelectorAll('.ceo-task-del').forEach(attachDelHandler);
-
-}); // ── end DOMContentLoaded ──
-</script>
 </body>
 </html>

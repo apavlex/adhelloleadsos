@@ -12,136 +12,28 @@ const { runFolderOutreach } = require('../services/folderOutreachAutomation');
 const { runAutoPool } = require('../services/prospectingAutoPool');
 
 /**
- * GET /ceo — CEO Dashboard showing all ventures in one view.
+ * GET /ceo — Automate command center (folder outreach, searches, cadences).
  */
 router.get('/', async (req, res) => {
   try {
-    const email = userEmail(req);
-    const leads = await dbService.getAllLeads(req.workspaceId);
-    const visits = await dbService.getAllVisits();
-    const tasks = await dbService.listUserTasks(req.workspaceId, email);
-
-    // ── Agency Metrics ──────────────────────────────────────────────────────
-    const totalLeads = leads.length;
-    const totalVisits = visits.length;
-    const uniqueIPs = new Set(visits.map(v => v.ip)).size;
-    const conversionRate = totalVisits > 0 ? ((totalLeads / totalVisits) * 100).toFixed(1) : 0;
-    const leadsThisWeek = leads.filter(l => {
-      const d = new Date(l.created_at || l.createdAt || Date.now());
-      const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-      return d.getTime() > weekAgo;
-    }).length;
-    const openTasks = tasks.filter(t => t.column !== 'done').length;
-    const doneTasks = tasks.filter(t => t.column === 'done').length;
-
-    // Pipeline estimate: leads with a stage
-    const pipelineLeads = leads.filter(l => l.stage || l.pipelineStage);
-    const stages = {};
-    pipelineLeads.forEach(l => {
-      const st = String(l.stage || l.pipelineStage || 'unknown');
-      stages[st] = (stages[st] || 0) + 1;
-    });
-
-    // Active clients
-    const activeClients = leads.filter(l => {
-      const st = String(l.stage || l.pipelineStage || '').toLowerCase();
-      return st === 'client' || st === 'won' || st === 'active' || st === 'closed_won';
-    }).length;
-
-    // ── Daily Activity ──────────────────────────────────────────────────────
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const visitsToday = visits.filter(v => {
-      const d = new Date(v.timestamp || v.created_at || 0);
-      return d >= today;
-    }).length;
-    const leadsToday = leads.filter(l => {
-      const d = new Date(l.created_at || l.createdAt || 0);
-      return d >= today;
-    }).length;
-
-    // ── Recent Activity ─────────────────────────────────────────────────────
-    const recentLeads = [...leads]
-      .sort((a, b) => {
-        const da = new Date(a.created_at || a.createdAt || 0);
-        const db = new Date(b.created_at || b.createdAt || 0);
-        return db - da;
-      })
-      .slice(0, 8)
-      .map(l => {
-        let stageLabel = 'new';
-        if (l.stage != null && l.stage !== '') {
-          stageLabel = String(l.stage).replace(/_/g, ' ');
-        } else if (l.pipelineStage != null && l.pipelineStage !== '') {
-          stageLabel = `Stage ${l.pipelineStage}`;
-        } else if (l.status) {
-          stageLabel = String(l.status);
-        }
-        return {
-        title: l.title || l.company || 'Lead',
-        city: l.city || '',
-        stage: stageLabel,
-        created: l.created_at || l.createdAt || new Date().toISOString(),
-        phone: l.phone || '',
-        email: l.email || '',
-      };
-      });
-
-    // ── Geo Data (top cities) ──────────────────────────────────────────────
-    const geoMap = {};
-    leads.forEach(l => {
-      if (l.city) {
-        const key = `${l.city}, ${l.state || ''}`;
-        geoMap[key] = (geoMap[key] || 0) + 1;
-      }
-    });
-    const topCities = Object.entries(geoMap)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 6)
-      .map(([name, count]) => ({ name, count }));
-
-    // ── Visit Trend (last 14 days) ─────────────────────────────────────────
-    const dailyVisits = {};
-    const now = new Date();
-    for (let i = 13; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - i);
-      dailyVisits[d.toISOString().split('T')[0]] = 0;
-    }
-    visits.forEach(v => {
-      const key = new Date(v.timestamp || v.created_at || 0).toISOString().split('T')[0];
-      if (dailyVisits[key] !== undefined) dailyVisits[key]++;
-    });
-
-    // ── System Status ──────────────────────────────────────────────────────
     const wid = req.workspaceId || 'default';
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
     const ghlConfigured = ghlClient.isConfigured(integrationEnv);
-    const systems = [
-      { name: 'AdHello.ai Website', status: 'live' },
-      { name: 'Leads OS API', status: 'live' },
-      { name: 'Chatbot', status: 'live' },
-      { name: 'GBP Audit Generator', status: 'live' },
-      { name: 'Cron Jobs', status: 'active' },
-      { name: 'Google Drive Sync', status: 'active' },
-      { name: 'GHL Integration', status: ghlConfigured ? 'live' : 'pending' },
-    ];
 
-    // ── Tasks by column for kanban ──────────────────────────────────────────
-    const taskColumns = [
-      { id: 'backlog', label: 'Backlog' },
-      { id: 'todo', label: 'To Do' },
-      { id: 'doing', label: 'Doing' },
-      { id: 'done', label: 'Done' },
-    ];
-    const tasksByColumn = {};
-    taskColumns.forEach(c => { tasksByColumn[c.id] = []; });
-    tasks.forEach(t => {
-      const col = tasksByColumn[t.column] ? t.column : 'todo';
-      tasksByColumn[col].push(t);
-    });
+    const { automations, summary: automationsSummary, reportStats } =
+      await listAutomationsForWorkspace(wid);
 
-    const { automations, summary: automationsSummary } = await listAutomationsForWorkspace(wid);
+    const recentAutomationActivity = automations
+      .filter((a) => a.lastActivity)
+      .slice(0, 8)
+      .map((a) => ({
+        name: a.name,
+        type: a.type,
+        status: a.status,
+        lastActivity: a.lastActivity,
+        detail: a.lastRunDetail || a.subtitle || '',
+        link: a.settingsLink || null,
+      }));
 
     res.render('ceo', {
       user: req.user,
@@ -149,48 +41,12 @@ router.get('/', async (req, res) => {
       workspace: req.workspace || null,
       workspaceAccent: (req.workspace && req.workspace.accentColor) || '#CA8A04',
       canManageWorkspace: !!req.canManageWorkspace,
-
-      // Agency metrics
-      totalLeads,
-      totalVisits,
-      uniqueIPs,
-      conversionRate,
-      leadsThisWeek,
-      openTasks,
-      doneTasks,
-      activeClients,
-      pipelineLeads: pipelineLeads.length,
-      stages: Object.entries(stages).sort((a, b) => b[1] - a[1]),
-
-      // Daily
-      visitsToday,
-      leadsToday,
-
-      // Lists
-      recentLeads,
-      topCities,
-      chartData: {
-        labels: Object.keys(dailyVisits),
-        values: Object.values(dailyVisits),
-      },
-
-      // Systems
-      systems,
-
-      // Tasks
-      tasks,
-      taskColumns,
-      tasksByColumn,
-
-      // Automations
       automations,
       automationsSummary,
-
-      // External links
-      adhelloUrl: 'https://adhello.ai',
-      leadsUrl: 'https://adhelloleadsos.onrender.com',
-      chatbotUrl: process.env.CHATBOT_PUBLIC_URL || '',
-      hermesWebUiUrl: process.env.HERMES_WEBUI_URL || '',
+      reportStats,
+      recentAutomationActivity,
+      ghlConfigured,
+      ghlDashboardUrl: integrationEnv.ghlDashboardUrl || process.env.GHL_DASHBOARD_URL || '',
     });
   } catch (err) {
     console.error('[CEO] Dashboard error:', err.message);
