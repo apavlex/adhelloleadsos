@@ -1645,6 +1645,13 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   cursor: pointer;
 }
 
+#prospectLeadsTable td[data-plc="company"],
+#prospectLeadsTable td[data-plc="company"] .lead-company-inline {
+  cursor: text;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
 .lead-category-input--suspect {
   border-color: rgb(251 191 36 / 0.75) !important;
   background: rgb(254 243 199 / 0.35);

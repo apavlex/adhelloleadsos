@@ -795,8 +795,13 @@ module.exports = {
     for (const key of keys) {
       const raw = kvGet(key);
       if (!raw) continue;
-      const f = typeof raw === 'string' ? JSON.parse(raw) : raw;
-      out.push({ key, ...f });
+      try {
+        const f = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (!f || typeof f !== 'object') continue;
+        out.push({ key, ...f });
+      } catch {
+        continue;
+      }
     }
     return out.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
   },
@@ -934,12 +939,17 @@ module.exports = {
     for (const key of keys) {
       const raw = kvGet(key);
       if (!raw) continue;
-      const t = typeof raw === 'string' ? JSON.parse(raw) : raw;
-      out.push({
-        key,
-        ...t,
-        isActive: t.isActive === false ? false : true,
-      });
+      try {
+        const t = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (!t || typeof t !== 'object') continue;
+        out.push({
+          key,
+          ...t,
+          isActive: t.isActive === false ? false : true,
+        });
+      } catch {
+        continue;
+      }
     }
     return out.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }));
   },
@@ -2102,11 +2112,18 @@ module.exports = {
   },
 
   async updateSocialPostFolder(postId, folderId, workspaceId) {
+    return this.updateSocialPost(postId, { folderId: folderId || null }, workspaceId);
+  },
+
+  async updateSocialPost(postId, patch, workspaceId) {
     const wid = String(workspaceId || 'default').trim() || 'default';
     const posts = await this.getSocialPosts(wid);
     const post = posts.find((p) => p.id === postId);
     if (!post) return null;
-    post.folderId = folderId || null;
+    const allowed = ['liked', 'tags', 'imageNote', 'content', 'cta', 'folderId', 'bookmarked'];
+    for (const key of allowed) {
+      if (patch[key] !== undefined) post[key] = patch[key];
+    }
     post.updatedAt = new Date().toISOString();
     await this.saveSocialPost(post, wid);
     return post;

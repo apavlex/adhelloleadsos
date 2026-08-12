@@ -3,6 +3,15 @@ const router = express.Router();
 const dbService = require('../services/database');
 const { resolveSocialPostProfile } = require('../services/socialPostProfile');
 const { generatePostIdeas } = require('../services/socialPostIdeas');
+const googleDriveAccess = require('../services/googleDriveAccess');
+const { uploadBinaryToDrive, safeDriveFileName } = require('../services/googleDriveUpload');
+
+const REVIEW_FOLDER_NAME = 'Review later';
+const SOCIAL_DRIVE_FOLDER = 'AdHello Social Posts';
+
+function userEmail(req) {
+  return String((req.user && req.user.email) || '').trim().toLowerCase();
+}
 
 async function loadWorkspaceProfile(wid, presetOverride) {
   const ws = await dbService.getWorkspace(wid).catch(() => null);
@@ -91,6 +100,8 @@ router.post('/api/save', express.json({ limit: '4mb' }), async (req, res, next) 
       hooks,
       cta,
       tags,
+      liked: Boolean(req.body.liked),
+      imageNote: String(req.body.imageNote || '').trim(),
       niche: String(req.body.niche || profile.niche || '').trim(),
       ideaId,
       folderId: folderId || null,
@@ -107,6 +118,89 @@ router.post('/api/save', express.json({ limit: '4mb' }), async (req, res, next) 
     }
 
     res.json({ success: true, id: record.id, post: record });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── PATCH /api/social-posts/:id — update saved post fields ─────────────────────
+router.patch('/api/:id', express.json(), async (req, res, next) => {
+  try {
+    const wid = String(req.body.workspaceId || req.workspaceId || 'default');
+    const patch = {};
+    if (req.body.liked !== undefined) patch.liked = Boolean(req.body.liked);
+    if (req.body.tags !== undefined) patch.tags = Array.isArray(req.body.tags) ? req.body.tags : [];
+    if (req.body.imageNote !== undefined) patch.imageNote = String(req.body.imageNote || '').trim();
+    if (req.body.content !== undefined) patch.content = String(req.body.content || '').trim();
+    if (req.body.cta !== undefined) patch.cta = String(req.body.cta || '').trim();
+    if (req.body.folderId !== undefined) patch.folderId = req.body.folderId ? String(req.body.folderId).trim() : null;
+    const post = await dbService.updateSocialPost(req.params.id, patch, wid);
+    if (!post) return res.status(404).json({ success: false, error: 'Post not found.' });
+    res.json({ success: true, post });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── POST /api/social-posts/export-drive — sync post text to Google Drive ─────
+router.post('/api/export-drive', express.json(), async (req, res, next) => {
+  try {
+    const email = userEmail(req);
+    const access = email ? await googleDriveAccess.getValidAccessToken(email) : null;
+    if (!access) {
+      return res.status(401).json({
+        success: false,
+        error: 'Connect Google Drive to export posts.',
+        code: 'DRIVE_NOT_CONNECTED',
+      });
+    }
+    const platform = String(req.body.platform || 'post').trim();
+    const content = String(req.body.content || '').trim();
+    const cta = String(req.body.cta || '').trim();
+    const imageNote = String(req.body.imageNote || '').trim();
+    const tags = Array.isArray(req.body.tags) ? req.body.tags : [];
+    if (!content) {
+      return res.status(400).json({ success: false, error: 'content is required.' });
+    }
+    let text = `[${platform.toUpperCase()}]\n\n${content}`;
+    if (cta) text += `\n\nCTA: ${cta}`;
+    if (tags.length) text += `\n\nTags: ${tags.join(' ')}`;
+    if (imageNote) text += `\n\nImage note: ${imageNote}`;
+    const fileName = safeDriveFileName(`AdHello_${platform}_${Date.now()}.txt`);
+    const uploaded = await uploadBinaryToDrive(access, {
+      name: fileName,
+      content: Buffer.from(text, 'utf8'),
+      mimeType: 'text/plain',
+      folderName: SOCIAL_DRIVE_FOLDER,
+    });
+    res.json({
+      success: true,
+      id: uploaded.id,
+      name: uploaded.name,
+      webViewLink: uploaded.webViewLink || null,
+    });
+  } catch (err) {
+    if (err && err.code === 'DRIVE_SCOPE') {
+      return res.status(403).json({
+        success: false,
+        error: 'Reconnect Google Drive to allow saving files.',
+        code: 'DRIVE_SCOPE',
+      });
+    }
+    next(err);
+  }
+});
+
+// ── POST /api/social-posts/ensure-review-folder ───────────────────────────────
+router.post('/api/ensure-review-folder', express.json(), async (req, res, next) => {
+  try {
+    const wid = String(req.body.workspaceId || req.workspaceId || 'default');
+    const folders = await dbService.getSocialBookmarkFolders(wid);
+    let folder = folders.find((f) => f.name.toLowerCase() === REVIEW_FOLDER_NAME.toLowerCase());
+    if (!folder) {
+      folder = await dbService.saveSocialBookmarkFolder({ name: REVIEW_FOLDER_NAME }, wid);
+    }
+    res.json({ success: true, folder });
   } catch (err) {
     next(err);
   }

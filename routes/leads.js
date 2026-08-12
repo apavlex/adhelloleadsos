@@ -348,10 +348,27 @@ router.get('/search.json', async (req, res, next) => {
       (folders || []).filter((f) => f && f.key).map((f) => [String(f.key), String(f.name || 'Folder')]),
     );
 
-    const matched = visible.filter((l) => leadMatchesSearchQuery(l, q, searchContext));
+    const matched = visible.filter((l) => {
+      try {
+        return leadMatchesSearchQuery(l, q, searchContext);
+      } catch (err) {
+        console.warn('[search.json] skip lead', l && l.key, err && err.message);
+        return false;
+      }
+    });
     matched.sort((a, b) => {
-      const sa = scoreLeadSearchMatch(a, q, searchContext);
-      const sb = scoreLeadSearchMatch(b, q, searchContext);
+      let sa = 99;
+      let sb = 99;
+      try {
+        sa = scoreLeadSearchMatch(a, q, searchContext);
+      } catch (err) {
+        console.warn('[search.json] score lead', a && a.key, err && err.message);
+      }
+      try {
+        sb = scoreLeadSearchMatch(b, q, searchContext);
+      } catch (err) {
+        console.warn('[search.json] score lead', b && b.key, err && err.message);
+      }
       if (sa !== sb) return sa - sb;
       return String(a.title || '').localeCompare(String(b.title || ''), undefined, { sensitivity: 'base' });
     });

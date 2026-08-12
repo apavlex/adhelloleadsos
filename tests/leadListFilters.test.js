@@ -85,6 +85,13 @@ describe('leadListFilters search', () => {
     assert.equal(leadMatchesSearchQuery(lead, 'no pickup', ctx), false);
   });
 
+  it('handles circular lead metadata without throwing', () => {
+    const lead = { title: 'Comfort Heating', importFields: {} };
+    lead.importFields.self = lead.importFields;
+    assert.doesNotThrow(() => buildLeadSearchHaystack(lead, ctx));
+    assert.equal(leadMatchesSearchQuery(lead, 'comfort', ctx), true);
+  });
+
   it('filters by quick log tag keys', () => {
     const leads = [
       { title: 'A', lastDisposition: 'no_answer' },

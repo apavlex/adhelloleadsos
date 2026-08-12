@@ -9,42 +9,32 @@
     .platform-tab:not(.active):hover { border-color: var(--brand-yellow); color: var(--brand-yellow); }
     .post-card { transition: box-shadow .15s ease; }
     .post-card:hover { box-shadow: 0 4px 24px rgba(255,214,68,.12); }
-    .post-card-thumb { aspect-ratio: 16/9; border-radius: 12px; overflow: hidden; cursor: pointer; transition: transform .15s ease, box-shadow .15s ease; margin-bottom: 12px; position: relative; }
+    .post-card-thumb { aspect-ratio: 16/9; border-radius: 12px; overflow: hidden; cursor: pointer; transition: transform .15s ease, box-shadow .15s ease; margin-bottom: 12px; position: relative; background: var(--brand-cream, #f1f5f9); }
+    .dark .post-card-thumb { background: #1e293b; }
     .post-card-thumb:hover { transform: scale(1.02); box-shadow: 0 8px 24px rgba(0,0,0,.15); }
-    .post-card-thumb .thumb-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.35); opacity: 0; transition: opacity .15s ease; }
+    .post-card-thumb .thumb-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.35); opacity: 0; transition: opacity .15s ease; pointer-events: none; }
     .post-card-thumb:hover .thumb-overlay { opacity: 1; }
-    .post-card-thumb .thumb-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: #fff; background: rgba(0,0,0,.5); padding: 4px 10px; border-radius: 9999px; }
-    .ig-post-card { padding: 0 !important; overflow: hidden; max-width: 380px; margin: 0 auto; border-color: rgba(148,163,184,.35) !important; }
-    .dark .ig-post-card { border-color: rgba(255,255,255,.12) !important; background: #0f172a !important; }
-    .ig-post-header { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid rgba(148,163,184,.2); }
-    .dark .ig-post-header { border-bottom-color: rgba(255,255,255,.08); }
-    .ig-avatar { width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #fff; background: linear-gradient(135deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888); border: 2px solid transparent; }
-    .ig-post-header-meta { min-width: 0; flex: 1; }
-    .ig-username { font-size: 13px; font-weight: 700; color: #111827; line-height: 1.2; }
-    .dark .ig-username { color: #f8fafc; }
-    .ig-location { font-size: 11px; color: #64748b; line-height: 1.2; margin-top: 1px; }
-    .dark .ig-location { color: #94a3b8; }
-    .ig-post-card .post-card-thumb { aspect-ratio: 1 / 1; border-radius: 0; margin-bottom: 0; }
-    .ig-post-card .post-card-thumb:hover { transform: none; }
-    .ig-post-actions { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px 6px; }
-    .ig-actions-left, .ig-actions-right { display: flex; align-items: center; gap: 14px; }
-    .ig-action-btn { background: none; border: none; padding: 0; color: #111827; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
-    .dark .ig-action-btn { color: #f8fafc; }
-    .ig-action-btn:hover { opacity: .7; }
-    .ig-action-btn svg { width: 22px; height: 22px; }
-    .ig-post-body { padding: 0 14px 14px; }
-    .ig-caption { font-size: 13px; line-height: 1.45; color: #111827; }
-    .dark .ig-caption { color: #f1f5f9; }
-    .ig-caption .ig-handle { font-weight: 700; margin-right: 4px; }
-    .ig-cta-line { font-size: 12px; color: #64748b; margin-top: 6px; line-height: 1.4; }
-    .dark .ig-cta-line { color: #94a3b8; }
-    .ig-actions-right .icon-flat-sm { width: 20px; height: 20px; }
-    .ig-post-card .edit-area { padding: 0 14px 14px; }
+    .post-card-thumb .thumb-overlay a { pointer-events: auto; }
+    .post-card-thumb .thumb-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: #fff; background: rgba(0,0,0,.5); padding: 4px 10px; border-radius: 9999px; text-decoration: none; }
+    .post-card-thumb .thumb-note-display { position: absolute; inset: 0; display: flex; align-items: flex-end; padding: 10px; background: linear-gradient(transparent 40%, rgba(0,0,0,.55)); pointer-events: none; }
+    .post-card-thumb .thumb-note-display span { font-size: 11px; color: #fff; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    .post-card-thumb .thumb-note-btn { position: absolute; top: 8px; right: 8px; z-index: 2; background: rgba(255,255,255,.85); border: none; border-radius: 8px; padding: 5px 7px; cursor: pointer; color: #64748b; display: flex; align-items: center; justify-content: center; }
+    .dark .post-card-thumb .thumb-note-btn { background: rgba(15,23,42,.85); color: #94a3b8; }
+    .post-card-thumb .thumb-note-btn:hover { color: var(--brand-yellow); }
+    .post-card-thumb .thumb-note-editor { position: absolute; inset: 0; z-index: 3; background: rgba(15,23,42,.92); padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .post-card-thumb .thumb-note-editor.hidden { display: none; }
+    .post-card-thumb .thumb-note-editor textarea { flex: 1; resize: none; border-radius: 8px; border: 1px solid rgba(255,255,255,.15); background: rgba(0,0,0,.3); color: #fff; padding: 8px; font-size: 12px; }
+    .post-card-actions { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+    .post-card-action-btn { background: none; border: none; padding: 0; color: var(--brand-muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: color .15s ease, transform .15s ease; }
+    .post-card-action-btn:hover { color: var(--brand-yellow); transform: translateY(-1px); }
+    .post-card-action-btn.liked { color: #ef4444; }
+    .post-card-action-btn svg { width: 18px; height: 18px; }
+    .platform-badge { display: inline-block; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--brand-muted); margin-bottom: 8px; }
+    .tag-pill { font-size: 10px; padding: 2px 8px; border-radius: 9999px; background: rgba(255,214,68,.12); color: var(--brand-yellow); font-weight: 700; border: 1px solid rgba(255,214,68,.2); }
     .post-card .edit-area { display: none; }
     .post-card.editing .edit-area { display: block; }
-    .post-card.editing .preview-area { display: none; }
-    .post-card.editing .ig-post-header,
-    .post-card.editing .ig-post-actions,
+    .post-card.editing .preview-area,
+    .post-card.editing .post-card-actions,
     .post-card.editing .post-card-thumb { display: none; }
     .copy-toast { animation: fadeInOut 2s ease forwards; }
     @keyframes fadeInOut { 0%{opacity:0;transform:translateY(8px)} 15%{opacity:1;transform:translateY(0)} 85%{opacity:1;transform:translateY(0)} 100%{opacity:0;transform:translateY(-8px)} }
@@ -58,6 +48,9 @@
     .hashtag-pill { font-size: 10px; padding: 3px 10px; border-radius: 9999px; background: rgba(255,214,68,.1); color: var(--brand-yellow); font-weight: 700; border: 1px solid rgba(255,214,68,.2); cursor: pointer; transition: all .15s ease; }
     .hashtag-pill:hover { background: rgba(255,214,68,.25); }
     .hashtag-pill.copied { background: var(--brand-yellow); color: #111827; }
+    .tag-filter-btn { transition: all .15s ease; font-size: 10px; font-weight: 800; padding: 6px 12px; border-radius: 9999px; text-transform: none; letter-spacing: 0; border: 1px solid var(--brand-border); background: transparent; color: var(--brand-muted); cursor: pointer; }
+    .tag-filter-btn:hover { border-color: var(--brand-yellow); color: var(--brand-yellow); }
+    .tag-filter-btn.active { background: var(--brand-yellow); color: #111827; border-color: var(--brand-yellow); font-weight: 800; }
     .icon-flat { width: 14px; height: 14px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
     .icon-flat-sm { width: 12px; height: 12px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
   </style>
@@ -121,6 +114,10 @@
           <svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
           Today's Local
         </button>
+        <button onclick="qaSaveAllForReview()" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white flex items-center gap-1">
+          <svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
+          Save all for review
+        </button>
         <button onclick="switchTab('instagram')" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-[#E1306C] text-[#E1306C]">Filter: Instagram</button>
         <button onclick="switchTab('all')" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white">Show All</button>
       </div>
@@ -176,6 +173,8 @@
       <button class="platform-tab px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="x">X / Twitter</button>
       <button class="platform-tab px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="tiktok">TikTok</button>
     </div>
+
+    <div id="tagFilterBar" class="hidden flex flex-wrap items-center gap-2 mb-6"></div>
 
     <!-- Ideas Grid -->
     <div id="ideasContainer" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 mb-10">
@@ -303,9 +302,24 @@
     </div>
   </div>
 
+  <!-- Tags Modal -->
+  <div id="tagsModal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeTagsModal()"></div>
+    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl border border-brand-border dark:border-white/10 p-6 shadow-2xl">
+      <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white mb-2">Tags</h3>
+      <p class="text-xs text-brand-muted mb-3">Comma-separated tags, or pick from the current hashtag set.</p>
+      <input id="tagsModalInput" type="text" placeholder="e.g. #LocalBusiness, #TipTuesday" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white mb-3" />
+      <div id="tagsModalPills" class="flex flex-wrap gap-1.5 mb-4 max-h-24 overflow-y-auto"></div>
+      <div class="flex justify-end gap-3">
+        <button onclick="closeTagsModal()" class="text-sm font-bold text-brand-muted hover:text-brand-dark dark:hover:text-white px-4 py-2">Cancel</button>
+        <button onclick="saveTagsModal()" class="btn-brand-yellow text-sm font-bold px-5 py-2 rounded-xl">Save tags</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Copy Toast -->
   <div id="copyToast" class="fixed bottom-6 right-6 z-50 hidden">
-    <div class="copy-toast bg-brand-dark dark:bg-white text-white dark:text-brand-dark text-sm font-bold px-5 py-3 rounded-xl shadow-2xl">
+    <div class="copy-toast bg-brand-dark dark:bg-white text-white dark:text-brand-dark text-sm font-bold px-5 py-3 rounded-xl shadow-2xl" id="copyToastText">
       Copied to clipboard
     </div>
   </div>
@@ -326,6 +340,120 @@
     let currentHashtagSet = 0;
     let pendingBookmark = null;
     let savedFolderFilter = '';
+    let currentTagFilter = '';
+    let reviewFolderId = null;
+    let pendingTagsTarget = null;
+    const ideaCardState = {};
+    const IDEA_STATE_KEY = 'adhello-social-idea-state-' + WORKSPACE_ID;
+
+    function normalizeTagLabel(tag) {
+      return String(tag || '').trim().toLowerCase().replace(/^#/, '');
+    }
+
+    function parseTagsInput(raw) {
+      return String(raw || '').split(/[,;]+/).map(function (t) { return t.trim(); }).filter(Boolean);
+    }
+
+    function loadIdeaCardState() {
+      try {
+        const raw = localStorage.getItem(IDEA_STATE_KEY);
+        if (raw) Object.assign(ideaCardState, JSON.parse(raw));
+      } catch { /* ignore */ }
+    }
+
+    function persistIdeaCardState() {
+      try { localStorage.setItem(IDEA_STATE_KEY, JSON.stringify(ideaCardState)); } catch { /* ignore */ }
+    }
+
+    function getIdeaState(ideaId) {
+      if (!ideaCardState[ideaId]) ideaCardState[ideaId] = { liked: false, tags: [], imageNote: '' };
+      return ideaCardState[ideaId];
+    }
+
+    function getTagsForIdea(platform, ideaId) {
+      const st = ideaCardState[ideaId];
+      if (st && Array.isArray(st.tags) && st.tags.length) return st.tags;
+      const saved = savedPosts.find(function (sp) { return sp.ideaId === ideaId && sp.platform === platform; });
+      if (saved && Array.isArray(saved.tags) && saved.tags.length) return saved.tags;
+      const byContent = savedPosts.find(function (sp) { return sp.platform === platform; });
+      if (byContent && byContent.ideaId === ideaId && byContent.tags && byContent.tags.length) return byContent.tags;
+      return [];
+    }
+
+    function collectAllSavedTags() {
+      const map = new Map();
+      Object.keys(ideaCardState).forEach(function (id) {
+        (ideaCardState[id].tags || []).forEach(function (t) {
+          const n = normalizeTagLabel(t);
+          if (n) map.set(n, String(t).trim());
+        });
+      });
+      savedPosts.forEach(function (post) {
+        (post.tags || []).forEach(function (t) {
+          const n = normalizeTagLabel(t);
+          if (n) map.set(n, String(t).trim());
+        });
+      });
+      return Array.from(map.entries()).sort(function (a, b) { return a[0].localeCompare(b[0]); });
+    }
+
+    function renderTagFilters() {
+      const bar = document.getElementById('tagFilterBar');
+      if (!bar) return;
+      const tags = collectAllSavedTags();
+      if (!tags.length) {
+        bar.classList.add('hidden');
+        bar.innerHTML = '';
+        return;
+      }
+      bar.classList.remove('hidden');
+      let html = '<span class="text-[10px] font-black uppercase tracking-widest text-brand-muted mr-1">Filter by tag</span>';
+      html += '<button type="button" class="tag-filter-btn' + (currentTagFilter ? '' : ' active') + '" onclick="switchTagFilter(\'\')">All tags</button>';
+      tags.forEach(function (entry) {
+        const norm = entry[0];
+        const label = entry[1];
+        html += '<button type="button" class="tag-filter-btn' + (currentTagFilter === norm ? ' active' : '') + '" onclick="switchTagFilter(\'' + norm.replace(/'/g, "\\'") + '\')">' + escapeHtml(label) + '</button>';
+      });
+      bar.innerHTML = html;
+    }
+
+    function switchTagFilter(tagNorm) {
+      currentTagFilter = tagNorm || '';
+      renderTagFilters();
+      renderIdeas();
+      renderSavedPosts();
+      if (currentTagFilter) {
+        updateTagFilterIndicator();
+      } else {
+        const el = document.getElementById('qaStatus');
+        if (el && el.textContent.startsWith('Tag filter:')) el.textContent = '';
+      }
+    }
+
+    function ideaHasTagFilter(platform, idea) {
+      if (!currentTagFilter) return true;
+      return getTagsForIdea(platform, idea.id).some(function (t) {
+        return normalizeTagLabel(t) === currentTagFilter;
+      });
+    }
+
+    function postHasTagFilter(post) {
+      if (!currentTagFilter) return true;
+      const postTags = post.tags && post.tags.length
+        ? post.tags
+        : (post.ideaId ? (getIdeaState(post.ideaId).tags || []) : []);
+      return postTags.some(function (t) {
+        return normalizeTagLabel(t) === currentTagFilter;
+      });
+    }
+
+    function updateTagFilterIndicator() {
+      const el = document.getElementById('qaStatus');
+      if (!el || !currentTagFilter) return;
+      const match = collectAllSavedTags().find(function (entry) { return entry[0] === currentTagFilter; });
+      const label = match ? match[1] : currentTagFilter;
+      el.textContent = 'Tag filter: ' + label;
+    }
 
     // ── Flat SVG Icons (inline for convenience) ────────────────────────────────
     const ICONS = {
@@ -344,12 +472,12 @@
       tiktok: '<svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M9 12a4 4 0 104 4V4a5 5 0 005 5"/></svg>',
       save: '<svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>',
       heart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>',
-      comment: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
-      share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
-      more: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>',
+      heartFilled: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>',
+      note: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+      send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
     };
 
-    const PLATFORM_COLORS = { instagram: '#E1306C', facebook: '#1877F2', linkedin: '#0A66C2', x: '#1DA1F2', tiktok: '#000' };
+    const PLATFORM_LABELS = { instagram: 'Instagram', facebook: 'Facebook', linkedin: 'LinkedIn', x: 'X / Twitter', tiktok: 'TikTok' };
     const DM_PLATFORMS = { instagram: 'instagram_feed', facebook: 'facebook_feed', linkedin: 'linkedin_post', x: 'instagram_feed', tiktok: 'instagram_story' };
 
     // ── Hashtag Sets ───────────────────────────────────────────────────────────
@@ -374,9 +502,12 @@
 
     // ── Init: auto-load ideas on page visit ────────────────────────────────────
     document.addEventListener('DOMContentLoaded', () => {
+      loadIdeaCardState();
+      renderTagFilters();
       renderStyleTags();
       renderNicheLabel();
       renderBookmarkFolderFilter();
+      ensureReviewFolder();
       if (businessProfile.showLocalContent) {
         document.getElementById('localContentSection')?.classList.remove('hidden');
         document.getElementById('newsletterSection')?.classList.remove('hidden');
@@ -538,10 +669,23 @@
       container.innerHTML = '';
       const platforms = currentPlatform === 'all' ? Object.keys(allIdeas) : [currentPlatform];
       let total = 0;
+      let filteredOut = 0;
       for (const p of platforms) {
-        for (const idea of (allIdeas[p] || [])) { total++; container.appendChild(createIdeaCard(idea, p)); }
+        for (const idea of (allIdeas[p] || [])) {
+          if (!ideaHasTagFilter(p, idea)) { filteredOut++; continue; }
+          total++;
+          container.appendChild(createIdeaCard(idea, p));
+        }
       }
-      if (!total) { container.innerHTML = '<div class="col-span-full text-center py-20 text-brand-muted"><p class="text-lg font-bold mb-2">No ideas yet</p><p class="text-sm">Click Refresh Ideas to generate</p></div>'; }
+      if (!total) {
+        if (currentTagFilter && filteredOut > 0) {
+          const match = collectAllSavedTags().find(function (entry) { return entry[0] === currentTagFilter; });
+          const label = match ? match[1] : currentTagFilter;
+          container.innerHTML = '<div class="col-span-full text-center py-20 text-brand-muted"><p class="text-lg font-bold mb-2">No ideas match tag filter</p><p class="text-sm">No ideas tagged with <span class="tag-pill">' + escapeHtml(label) + '</span>. <button type="button" onclick="switchTagFilter(\'\')" class="text-brand-yellow font-bold hover:underline ml-1">Clear filter</button></p></div>';
+        } else {
+          container.innerHTML = '<div class="col-span-full text-center py-20 text-brand-muted"><p class="text-lg font-bold mb-2">No ideas yet</p><p class="text-sm">Click Refresh Ideas to generate</p></div>';
+        }
+      }
     }
 
     function marketingStudioUrl(platform, hook, cta) {
@@ -558,41 +702,95 @@
       return '/direct-mail?' + params.toString();
     }
 
-    function thumbGradient(platform) {
-      const c = PLATFORM_COLORS[platform] || '#64748b';
-      return 'linear-gradient(135deg, ' + c + '33 0%, ' + c + '88 100%)';
+    function cardRef(mode, ideaId, postId) {
+      return mode === 'saved' ? 'saved-' + postId : 'idea-' + ideaId;
     }
 
-    function igHandle() {
-      const raw = businessProfile.businessName || businessProfile.icpKeyword || 'yourbusiness';
-      const handle = raw.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().slice(0, 24);
-      return handle || 'yourbusiness';
+    function buildPostCardHtml(opts) {
+      const {
+        mode = 'idea', platform, hook = '', cta = '', ideaId = '', postId = '',
+        isSaved = false, liked = false, tags = [], imageNote = '', metaLabel = '',
+      } = opts;
+      const ref = cardRef(mode, ideaId, postId);
+      const studioUrl = marketingStudioUrl(platform, hook, cta || '');
+      const platformLabel = (PLATFORM_LABELS[platform] || platform || '').toUpperCase();
+      const likeClass = liked ? ' liked' : '';
+      const likeIcon = liked ? ICONS.heartFilled : ICONS.heart;
+      const bookmarkIcon = isSaved ? ICONS.bookmarkFilled : ICONS.bookmark;
+      const bookmarkColor = isSaved ? ' style="color:var(--brand-yellow)"' : '';
+      const noteDisplay = imageNote
+        ? '<div class="thumb-note-display"><span>' + escapeHtml(imageNote) + '</span></div>'
+        : '';
+      const tagPills = tags.length
+        ? '<div class="flex flex-wrap gap-1 mt-2">' + tags.map(t => '<span class="tag-pill">' + escapeHtml(t) + '</span>').join('') + '</div>'
+        : '';
+      const deleteBtn = mode === 'saved'
+        ? '<button type="button" onclick="event.stopPropagation();deleteSaved(\'' + postId.replace(/'/g, "\\'") + '\')" class="post-card-action-btn" title="Delete">' + ICONS.trash + '</button>'
+        : '';
+      const bookmarkHandler = mode === 'saved'
+        ? 'toggleSaveSaved(\'' + postId.replace(/'/g, "\\'") + '\')'
+        : 'toggleSaveIdea(\'' + ideaId.replace(/'/g, "\\'") + '\', \'' + platform.replace(/'/g, "\\'") + '\')';
+      const likeHandler = mode === 'saved'
+        ? 'toggleLikeSaved(\'' + postId.replace(/'/g, "\\'") + '\')'
+        : 'toggleLikeIdea(\'' + ideaId.replace(/'/g, "\\'") + '\')';
+      const tagsHandler = mode === 'saved'
+        ? 'openTagsModalSaved(\'' + postId.replace(/'/g, "\\'") + '\')'
+        : 'openTagsModalIdea(\'' + ideaId.replace(/'/g, "\\'") + '\')';
+      const sendHandler = mode === 'saved'
+        ? 'exportToDriveSaved(\'' + postId.replace(/'/g, "\\'") + '\')'
+        : 'exportToDriveIdea(\'' + ideaId.replace(/'/g, "\\'") + '\', \'' + platform.replace(/'/g, "\\'") + '\')';
+      const editHandler = mode === 'saved'
+        ? 'toggleEditSaved(\'' + postId.replace(/'/g, "\\'") + '\')'
+        : 'toggleEdit(\'' + ideaId.replace(/'/g, "\\'") + '\')';
+      const noteHandler = mode === 'saved'
+        ? 'toggleNoteEditorSaved(\'' + postId.replace(/'/g, "\\'") + '\')'
+        : 'toggleNoteEditorIdea(\'' + ideaId.replace(/'/g, "\\'") + '\')';
+      const saveNoteHandler = mode === 'saved'
+        ? 'saveNoteSaved(\'' + postId.replace(/'/g, "\\'") + '\')'
+        : 'saveNoteIdea(\'' + ideaId.replace(/'/g, "\\'") + '\')';
+      const editArea = mode === 'idea'
+        ? ideaEditAreaHtml(ideaId, hook, cta)
+        : savedEditAreaHtml(postId, hook, cta);
+
+      return '<div class="post-card-thumb" onclick="handleThumbClick(event, \'' + ref.replace(/'/g, "\\'") + '\')">' +
+        noteDisplay +
+        '<button type="button" class="thumb-note-btn" onclick="event.stopPropagation();' + noteHandler + '" title="Image note">' + ICONS.note + '</button>' +
+        '<div class="thumb-note-editor hidden" data-note-editor="' + ref + '">' +
+        '<textarea placeholder="Note for artwork / image direction..." data-note-input="' + ref + '">' + escapeHtml(imageNote) + '</textarea>' +
+        '<div class="flex gap-2"><button type="button" onclick="event.stopPropagation();' + saveNoteHandler + '" class="btn-brand-yellow text-xs font-bold px-3 py-1 rounded-lg">Save note</button>' +
+        '<button type="button" onclick="event.stopPropagation();closeNoteEditor(\'' + ref.replace(/'/g, "\\'") + '\')" class="text-xs font-bold text-brand-muted px-2 py-1">Close</button></div></div>' +
+        '<div class="thumb-overlay"><a href="' + studioUrl.replace(/"/g, '&quot;') + '" class="thumb-label" onclick="event.stopPropagation()">Create artwork →</a></div></div>' +
+        '<div class="post-card-actions">' +
+        '<button type="button" onclick="event.stopPropagation();' + likeHandler + '" class="post-card-action-btn' + likeClass + '" title="Like" data-like-btn="' + ref + '">' + likeIcon + '</button>' +
+        '<button type="button" onclick="event.stopPropagation();' + bookmarkHandler + '" class="post-card-action-btn"' + bookmarkColor + ' title="' + (isSaved ? 'Saved' : 'Bookmark') + '">' + bookmarkIcon + '</button>' +
+        '<button type="button" onclick="event.stopPropagation();' + tagsHandler + '" class="post-card-action-btn" title="Tags">' + ICONS.hashtag + '</button>' +
+        '<button type="button" onclick="event.stopPropagation();' + sendHandler + '" class="post-card-action-btn" title="Send to Google Drive">' + ICONS.send + '</button>' +
+        '<button type="button" onclick="event.stopPropagation();' + editHandler + '" class="post-card-action-btn" title="Edit">' + ICONS.edit + '</button>' +
+        deleteBtn +
+        '</div>' +
+        '<div class="preview-area">' +
+        '<span class="platform-badge">' + escapeHtml(platformLabel) + (metaLabel ? ' · ' + escapeHtml(metaLabel) : '') + '</span>' +
+        '<p class="text-sm font-semibold text-brand-dark dark:text-white leading-relaxed whitespace-pre-wrap preview-hook">' + escapeHtml(hook) + '</p>' +
+        (cta ? '<p class="text-xs text-brand-muted mt-2 italic preview-cta">CTA: ' + escapeHtml(cta) + '</p>' : '') +
+        tagPills +
+        '</div>' +
+        editArea;
     }
 
-    function igDisplayName() {
-      return businessProfile.businessName || businessProfile.icpKeyword || 'Your Business';
+    function handleThumbClick(event, ref) {
+      if (event.target.closest('.thumb-overlay') || event.target.closest('.thumb-note-btn') || event.target.closest('.thumb-note-editor')) return;
+      toggleNoteEditor(ref);
     }
 
-    function igInitials() {
-      const name = igDisplayName();
-      const parts = name.split(/\s+/).filter(Boolean);
-      if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-      return name.slice(0, 2).toUpperCase();
+    function toggleNoteEditor(ref) {
+      const editor = document.querySelector('[data-note-editor="' + ref + '"]');
+      if (!editor) return;
+      editor.classList.toggle('hidden');
     }
 
-    function igLocationLabel() {
-      if (businessProfile.isAgencyWorkspace) return 'Clark County, WA';
-      if (businessProfile.icpKeyword) return businessProfile.icpKeyword;
-      return 'Local business';
-    }
-
-    function ideaCardActionsHtml(ideaId, platform, isSaved) {
-      const saveIcon = isSaved ? ICONS.bookmarkFilled : ICONS.bookmark;
-      const saveColor = isSaved ? 'var(--brand-yellow)' : '';
-      const saveTitle = isSaved ? 'Saved' : 'Bookmark for later';
-      return '<button onclick="event.stopPropagation();toggleSaveIdea(\'' + ideaId.replace(/'/g, "\\'") + '\', \'' + platform.replace(/'/g, "\\'") + '\')" class="ig-action-btn" style="color:' + saveColor + '" title="' + saveTitle + '">' + saveIcon + '</button>' +
-        '<button onclick="event.stopPropagation();copyIdea(\'' + ideaId.replace(/'/g, "\\'") + '\')" class="ig-action-btn" title="Copy">' + ICONS.copy + '</button>' +
-        '<button onclick="event.stopPropagation();toggleEdit(\'' + ideaId.replace(/'/g, "\\'") + '\')" class="ig-action-btn" title="Edit">' + ICONS.edit + '</button>';
+    function closeNoteEditor(ref) {
+      const editor = document.querySelector('[data-note-editor="' + ref + '"]');
+      if (editor) editor.classList.add('hidden');
     }
 
     function ideaEditAreaHtml(ideaId, hook, cta) {
@@ -602,63 +800,257 @@
         '<button onclick="cancelEdit(\'' + ideaId.replace(/'/g, "\\'") + '\')" class="text-xs font-bold text-brand-muted hover:text-brand-dark dark:hover:text-white px-3 py-1.5">Cancel</button></div></div>';
     }
 
-    function createInstagramIdeaCard(idea, platform, studioUrl, isSaved) {
-      const handle = igHandle();
-      const actions = ideaCardActionsHtml(idea.id, platform, isSaved);
-      return '<div class="ig-post-header">' +
-        '<div class="ig-avatar" aria-hidden="true">' + escapeHtml(igInitials()) + '</div>' +
-        '<div class="ig-post-header-meta"><div class="ig-username">' + escapeHtml(handle) + '</div><div class="ig-location">' + escapeHtml(igLocationLabel()) + '</div></div>' +
-        '<span class="ig-action-btn opacity-60" aria-hidden="true" style="width:18px;height:18px;">' + ICONS.more + '</span></div>' +
-        '<div class="post-card-thumb" onclick="window.location.href=\'' + studioUrl.replace(/'/g, "\\'") + '\'" title="Open in Marketing Studio">' +
-        '<div style="width:100%;height:100%;background:' + thumbGradient(platform) + ';display:flex;align-items:center;justify-content:center;">' +
-        '<span style="font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.55;color:#fff;">Tap to create artwork</span></div>' +
-        '<div class="thumb-overlay"><span class="thumb-label">Create artwork →</span></div></div>' +
-        '<div class="ig-post-actions"><div class="ig-actions-left">' +
-        '<span class="ig-action-btn" aria-hidden="true">' + ICONS.heart + '</span>' +
-        '<span class="ig-action-btn" aria-hidden="true">' + ICONS.comment + '</span>' +
-        '<span class="ig-action-btn" aria-hidden="true">' + ICONS.share + '</span></div>' +
-        '<div class="ig-actions-right">' + actions + '</div></div>' +
-        '<div class="preview-area ig-post-body"><p class="ig-caption"><span class="ig-handle">' + escapeHtml(handle) + '</span><span class="preview-hook">' + escapeHtml(idea.hook) + '</span></p>' +
-        (idea.cta ? '<p class="ig-cta-line preview-cta">' + escapeHtml(idea.cta) + '</p>' : '') + '</div>' +
-        ideaEditAreaHtml(idea.id, idea.hook, idea.cta || '');
+    function savedEditAreaHtml(postId, hook, cta) {
+      return '<div class="edit-area mt-3"><textarea class="edit-content w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white min-h-[100px] resize-y">' + escapeHtml(hook) + '</textarea>' +
+        '<textarea class="edit-cta w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-brand-muted mt-2 min-h-[40px] resize-y" placeholder="CTA">' + escapeHtml(cta || '') + '</textarea>' +
+        '<div class="flex gap-2 mt-3"><button onclick="saveSavedEdit(\'' + postId.replace(/'/g, "\\'") + '\')" class="btn-brand-yellow text-xs font-bold px-4 py-1.5 rounded-lg">Save</button>' +
+        '<button onclick="cancelEditSaved(\'' + postId.replace(/'/g, "\\'") + '\')" class="text-xs font-bold text-brand-muted hover:text-brand-dark dark:hover:text-white px-3 py-1.5">Cancel</button></div></div>';
     }
 
     function createIdeaCard(idea, platform) {
       const div = document.createElement('div');
-      const isInstagram = platform === 'instagram';
-      div.className = 'post-card brand-card dark:bg-slate-900 dark:border-white/10 rounded-2xl border border-brand-border/60' + (isInstagram ? ' ig-post-card' : ' p-5');
+      div.className = 'post-card brand-card p-5 dark:bg-slate-900 dark:border-white/10 rounded-2xl border border-brand-border/60';
       div.dataset.ideaId = idea.id;
       div.dataset.platform = platform;
-      const labels = { instagram: 'Instagram', facebook: 'Facebook', linkedin: 'LinkedIn', x: 'X / Twitter', tiktok: 'TikTok' };
-      const colors = PLATFORM_COLORS;
+      const state = getIdeaState(idea.id);
       const isSaved = savedPosts.some(sp => sp.content === idea.hook && sp.platform === platform);
-      const saveIcon = isSaved ? ICONS.bookmarkFilled : ICONS.bookmark;
-      const saveColor = isSaved ? 'var(--brand-yellow)' : '';
-      const saveTitle = isSaved ? 'Saved' : 'Bookmark for later';
-      const studioUrl = marketingStudioUrl(platform, idea.hook, idea.cta || '');
-      if (isInstagram) {
-        div.innerHTML = createInstagramIdeaCard(idea, platform, studioUrl, isSaved);
-        return div;
-      }
-      div.innerHTML =
-        '<div class="post-card-thumb" onclick="window.location.href=\'' + studioUrl.replace(/'/g, "\\'") + '\'" title="Open in Marketing Studio">' +
-        '<div style="width:100%;height:100%;background:' + thumbGradient(platform) + ';display:flex;align-items:center;justify-content:center;">' +
-        '<span style="font-size:28px;opacity:.6;">' + (labels[platform] || platform).charAt(0) + '</span></div>' +
-        '<div class="thumb-overlay"><span class="thumb-label">Create artwork →</span></div></div>' +
-        '<div class="flex items-center justify-between mb-3">' +
-        '<span class="text-[10px] font-black uppercase tracking-widest" style="color:' + (colors[platform] || 'var(--brand-muted)') + '">' + (labels[platform] || platform) + '</span>' +
-        '<div class="flex gap-2">' +
-        '<button onclick="event.stopPropagation();toggleSaveIdea(\'' + idea.id.replace(/'/g, "\\'") + '\', \'' + platform.replace(/'/g, "\\'") + '\')" class="text-[10px] font-bold hover:text-brand-yellow flex items-center gap-0.5" style="color:' + saveColor + '" title="' + saveTitle + '">' + saveIcon + '</button>' +
-        '<button onclick="event.stopPropagation();copyIdea(\'' + idea.id.replace(/'/g, "\\'") + '\')" class="text-[10px] font-bold text-brand-muted hover:text-brand-yellow flex items-center gap-0.5" title="Copy">' + ICONS.copy + '</button>' +
-        '<button onclick="event.stopPropagation();toggleEdit(\'' + idea.id.replace(/'/g, "\\'") + '\')" class="text-[10px] font-bold text-brand-muted hover:text-brand-yellow flex items-center gap-0.5" title="Edit">' + ICONS.edit + '</button>' +
-        '</div></div>' +
-        '<div class="preview-area"><p class="text-sm font-semibold text-brand-dark dark:text-white leading-relaxed whitespace-pre-wrap preview-hook">' + escapeHtml(idea.hook) + '</p>' +
-        (idea.cta ? '<p class="text-xs text-brand-muted mt-2 italic preview-cta">CTA: ' + escapeHtml(idea.cta) + '</p>' : '') + '</div>' +
-        ideaEditAreaHtml(idea.id, idea.hook, idea.cta || '');
+      div.innerHTML = buildPostCardHtml({
+        mode: 'idea', platform, hook: idea.hook, cta: idea.cta || '', ideaId: idea.id,
+        isSaved, liked: state.liked, tags: getTagsForIdea(platform, idea.id), imageNote: state.imageNote || '',
+      });
       return div;
     }
 
-    // ── Bookmark idea with folder picker ───────────────────────────────────────
+    async function ensureReviewFolder() {
+      try {
+        const existing = bookmarkFolders.find(f => f.name.toLowerCase() === 'review later');
+        if (existing) { reviewFolderId = existing.id; return; }
+        const res = await fetch('/social-posts/api/ensure-review-folder', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ workspaceId: WORKSPACE_ID }),
+        });
+        const data = await res.json();
+        if (data.success && data.folder) {
+          reviewFolderId = data.folder.id;
+          if (!bookmarkFolders.some(f => f.id === data.folder.id)) {
+            bookmarkFolders.unshift(data.folder);
+            renderBookmarkFolderFilter();
+          }
+        }
+      } catch { /* ignore */ }
+    }
+
+    async function qaSaveAllForReview() {
+      if (!reviewFolderId) await ensureReviewFolder();
+      if (!reviewFolderId) { qaStatus('Review folder unavailable'); return; }
+      const cards = document.querySelectorAll('#ideasContainer [data-idea-id]');
+      if (!cards.length) { qaStatus('No visible ideas'); return; }
+      let saved = 0;
+      for (const card of cards) {
+        const ideaId = card.dataset.ideaId;
+        const platform = card.dataset.platform;
+        const content = card.querySelector('.preview-hook')?.textContent || '';
+        const ctaEl = card.querySelector('.preview-cta');
+        const cta = ctaEl ? ctaEl.textContent.replace(/^CTA:\s*/, '') : '';
+        if (!content) continue;
+        const existing = savedPosts.find(sp => sp.content === content && sp.platform === platform);
+        if (existing) continue;
+        const state = getIdeaState(ideaId);
+        try {
+          const res = await fetch('/social-posts/api/save', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              platform, content, cta, ideaId,
+              niche: businessProfile.niche || '',
+              folderId: reviewFolderId,
+              liked: state.liked,
+              tags: state.tags || [],
+              imageNote: state.imageNote || '',
+              workspaceId: WORKSPACE_ID,
+            }),
+          });
+          const data = await res.json();
+          if (data.success) {
+            savedPosts.unshift(data.post || { id: data.id, platform, content, cta, folderId: reviewFolderId });
+            saved++;
+          }
+        } catch { /* continue */ }
+      }
+      renderSavedPosts(); renderIdeas();
+      qaStatus(saved ? ('Saved ' + saved + ' ideas for review') : 'All visible ideas already bookmarked');
+    }
+
+    function toggleLikeIdea(ideaId) {
+      const state = getIdeaState(ideaId);
+      state.liked = !state.liked;
+      persistIdeaCardState();
+      const ref = cardRef('idea', ideaId, '');
+      const btn = document.querySelector('[data-like-btn="' + ref + '"]');
+      if (btn) {
+        btn.classList.toggle('liked', state.liked);
+        btn.innerHTML = state.liked ? ICONS.heartFilled : ICONS.heart;
+      }
+    }
+
+    async function toggleLikeSaved(postId) {
+      const post = savedPosts.find(p => p.id === postId);
+      if (!post) return;
+      const liked = !post.liked;
+      try {
+        const res = await fetch('/social-posts/api/' + encodeURIComponent(postId), {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ liked, workspaceId: WORKSPACE_ID }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          post.liked = liked;
+          renderSavedPosts();
+        }
+      } catch { qaStatus('Could not update like'); }
+    }
+
+    function saveNoteIdea(ideaId) {
+      const ref = cardRef('idea', ideaId, '');
+      const input = document.querySelector('[data-note-input="' + ref + '"]');
+      const state = getIdeaState(ideaId);
+      state.imageNote = input ? input.value.trim() : '';
+      persistIdeaCardState();
+      closeNoteEditor(ref);
+      renderIdeas();
+    }
+
+    async function saveNoteSaved(postId) {
+      const ref = cardRef('saved', '', postId);
+      const input = document.querySelector('[data-note-input="' + ref + '"]');
+      const imageNote = input ? input.value.trim() : '';
+      try {
+        const res = await fetch('/social-posts/api/' + encodeURIComponent(postId), {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageNote, workspaceId: WORKSPACE_ID }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          const post = savedPosts.find(p => p.id === postId);
+          if (post) post.imageNote = imageNote;
+          closeNoteEditor(ref);
+          renderSavedPosts();
+        }
+      } catch { qaStatus('Could not save note'); }
+    }
+
+    function toggleNoteEditorIdea(ideaId) { toggleNoteEditor(cardRef('idea', ideaId, '')); }
+    function toggleNoteEditorSaved(postId) { toggleNoteEditor(cardRef('saved', '', postId)); }
+
+    function openTagsModalIdea(ideaId) {
+      pendingTagsTarget = { mode: 'idea', ideaId };
+      const state = getIdeaState(ideaId);
+      openTagsModal(state.tags || []);
+    }
+
+    function openTagsModalSaved(postId) {
+      pendingTagsTarget = { mode: 'saved', postId };
+      const post = savedPosts.find(p => p.id === postId);
+      openTagsModal(post && post.tags ? post.tags : []);
+    }
+
+    function openTagsModal(currentTags) {
+      document.getElementById('tagsModalInput').value = (currentTags || []).join(', ');
+      const set = hashtagSets[currentHashtagSet % hashtagSets.length];
+      document.getElementById('tagsModalPills').innerHTML = set.tags.map(t =>
+        '<button type="button" class="hashtag-pill" onclick="appendTagPill(\'' + t.replace(/'/g, "\\'") + '\')">' + t + '</button>'
+      ).join('');
+      document.getElementById('tagsModal').classList.remove('hidden');
+    }
+
+    function appendTagPill(tag) {
+      const input = document.getElementById('tagsModalInput');
+      const parts = input.value.split(',').map(s => s.trim()).filter(Boolean);
+      if (!parts.includes(tag)) parts.push(tag);
+      input.value = parts.join(', ');
+    }
+
+    function closeTagsModal() {
+      document.getElementById('tagsModal').classList.add('hidden');
+      pendingTagsTarget = null;
+    }
+
+    async function saveTagsModal() {
+      if (!pendingTagsTarget) return;
+      const tags = parseTagsInput(document.getElementById('tagsModalInput').value);
+      if (pendingTagsTarget.mode === 'idea') {
+        const state = getIdeaState(pendingTagsTarget.ideaId);
+        state.tags = tags;
+        persistIdeaCardState();
+        closeTagsModal();
+        renderTagFilters();
+        renderIdeas();
+        qaStatus('Tags saved');
+      } else {
+        try {
+          const res = await fetch('/social-posts/api/' + encodeURIComponent(pendingTagsTarget.postId), {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tags, workspaceId: WORKSPACE_ID }),
+          });
+          const data = await res.json();
+          if (data.success) {
+            const post = savedPosts.find(p => p.id === pendingTagsTarget.postId);
+            if (post) post.tags = tags;
+            closeTagsModal();
+            renderTagFilters();
+            renderSavedPosts();
+            qaStatus('Tags saved');
+          }
+        } catch { qaStatus('Could not save tags'); }
+      }
+    }
+
+    function exportToDriveIdea(ideaId, platform) {
+      const card = document.querySelector('[data-idea-id="' + ideaId + '"]');
+      if (!card) return;
+      const content = card.querySelector('.preview-hook')?.textContent || '';
+      const ctaEl = card.querySelector('.preview-cta');
+      const cta = ctaEl ? ctaEl.textContent.replace(/^CTA:\s*/, '') : '';
+      const state = getIdeaState(ideaId);
+      exportToDrive({ platform, content, cta, tags: state.tags || [], imageNote: state.imageNote || '' });
+    }
+
+    function exportToDriveSaved(postId) {
+      const post = savedPosts.find(p => p.id === postId);
+      if (!post) return;
+      exportToDrive({
+        platform: post.platform, content: post.content, cta: post.cta || '',
+        tags: post.tags || [], imageNote: post.imageNote || '', postId,
+      });
+    }
+
+    async function exportToDrive(payload) {
+      try {
+        const res = await fetch('/social-posts/api/export-drive', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (data.code === 'DRIVE_NOT_CONNECTED') {
+          window.location.href = '/auth/google/drive-link';
+          return;
+        }
+        if (data.success) {
+          showToast('Saved to Google Drive');
+          qaStatus('Exported to Drive');
+        } else {
+          qaStatus(data.error || 'Export failed');
+        }
+      } catch { qaStatus('Export failed'); }
+    }
+
+    async function toggleSaveSaved(postId) {
+      if (!confirm('Remove this bookmark?')) return;
+      try {
+        const res = await fetch('/social-posts/api/' + encodeURIComponent(postId), { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) { savedPosts = savedPosts.filter(p => p.id !== postId); renderSavedPosts(); renderIdeas(); qaStatus('Removed bookmark'); }
+      } catch (err) { alert('Could not remove.'); }
+    }
     async function toggleSaveIdea(ideaId, platform) {
       const card = document.querySelector('[data-idea-id="' + ideaId + '"]');
       if (!card) return;
@@ -706,6 +1098,7 @@
     async function saveToFolder(folderId) {
       if (!pendingBookmark) return;
       const { platform, content, cta, ideaId } = pendingBookmark;
+      const state = getIdeaState(ideaId);
       try {
         const res = await fetch('/social-posts/api/save', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -713,12 +1106,16 @@
             platform, content, cta, ideaId,
             niche: businessProfile.niche || '',
             folderId: folderId || null,
+            liked: state.liked,
+            tags: state.tags || [],
+            imageNote: state.imageNote || '',
             workspaceId: WORKSPACE_ID,
           })
         });
         const data = await res.json();
         if (data.success) {
           savedPosts.unshift(data.post || { id: data.id, platform, content, cta, folderId, createdAt: new Date().toISOString() });
+          renderTagFilters();
           renderSavedPosts(); renderIdeas(); qaStatus('Bookmarked'); closeFolderModal();
         }
       } catch (err) { alert('Could not save.'); }
@@ -764,21 +1161,20 @@
       renderFolderPickerList();
     }
 
-    function copyIdea(ideaId) {
-      const card = document.querySelector('[data-idea-id="' + ideaId + '"]');
-      if (!card) return;
-      const text = card.querySelector('.preview-hook')?.textContent || card.querySelector('.preview-area p')?.textContent || '';
-      navigator.clipboard.writeText(text).then(() => showCopyToast());
-    }
-
-    function showCopyToast() {
+    function showToast(msg) {
       const t = document.getElementById('copyToast');
+      const txt = document.getElementById('copyToastText');
+      if (txt) txt.textContent = msg || 'Done';
       t.classList.remove('hidden');
       setTimeout(() => t.classList.add('hidden'), 2000);
     }
 
+    function showCopyToast() { showToast('Copied to clipboard'); }
+
     function toggleEdit(id) { const c = document.querySelector('[data-idea-id="' + id + '"]'); if (c) c.classList.add('editing'); }
     function cancelEdit(id) { const c = document.querySelector('[data-idea-id="' + id + '"]'); if (c) c.classList.remove('editing'); }
+    function toggleEditSaved(postId) { const c = document.querySelector('[data-post-id="' + postId + '"]'); if (c) c.classList.add('editing'); }
+    function cancelEditSaved(postId) { const c = document.querySelector('[data-post-id="' + postId + '"]'); if (c) c.classList.remove('editing'); }
 
     async function saveIdea(ideaId) {
       const card = document.querySelector('[data-idea-id="' + ideaId + '"]');
@@ -795,17 +1191,13 @@
         if (data.success) {
           const hookEl = card.querySelector('.preview-hook');
           if (hookEl) hookEl.textContent = content;
-          else {
-            const p = card.querySelector('.preview-area p');
-            if (p) p.textContent = content;
-          }
           const ctaEl = card.querySelector('.preview-cta');
           if (cta) {
-            if (ctaEl) ctaEl.textContent = card.classList.contains('ig-post-card') ? cta : 'CTA: ' + cta;
+            if (ctaEl) ctaEl.textContent = 'CTA: ' + cta;
             else {
               const p = document.createElement('p');
-              p.className = card.classList.contains('ig-post-card') ? 'ig-cta-line preview-cta' : 'text-xs text-brand-muted mt-2 italic preview-cta';
-              p.textContent = card.classList.contains('ig-post-card') ? cta : 'CTA: ' + cta;
+              p.className = 'text-xs text-brand-muted mt-2 italic preview-cta';
+              p.textContent = 'CTA: ' + cta;
               card.querySelector('.preview-area').appendChild(p);
             }
           } else if (ctaEl) ctaEl.remove();
@@ -816,12 +1208,33 @@
       } catch (err) { alert('Could not save.'); }
     }
 
+    async function saveSavedEdit(postId) {
+      const card = document.querySelector('[data-post-id="' + postId + '"]');
+      if (!card) return;
+      const content = card.querySelector('.edit-content').value.trim();
+      const cta = card.querySelector('.edit-cta').value.trim();
+      if (!content) return;
+      try {
+        const res = await fetch('/social-posts/api/' + encodeURIComponent(postId), {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content, cta, workspaceId: WORKSPACE_ID }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          const post = savedPosts.find(p => p.id === postId);
+          if (post) { post.content = content; post.cta = cta; }
+          renderSavedPosts();
+          showToast('Post updated');
+        }
+      } catch (err) { alert('Could not save.'); }
+    }
+
     // ── Saved Posts ─────────────────────────────────────────────────────────────
     async function loadSavedPosts() {
       try {
         const res = await fetch('/social-posts/api/saved?' + wsQuery());
         const data = await res.json();
-        if (data.success && data.posts) { savedPosts = data.posts; renderSavedPosts(); }
+        if (data.success && data.posts) { savedPosts = data.posts; renderSavedPosts(); renderTagFilters(); }
       } catch (err) { /* ignore */ }
     }
 
@@ -835,56 +1248,33 @@
       const container = document.getElementById('savedPostsContainer');
       let posts = savedPosts;
       if (savedFolderFilter) posts = posts.filter(p => p.folderId === savedFolderFilter);
+      if (currentTagFilter) posts = posts.filter(postHasTagFilter);
       document.getElementById('savedCount').textContent = posts.length + ' bookmarked';
       if (!posts.length) {
-        container.innerHTML = '<div class="col-span-full text-center py-12 text-brand-muted text-sm italic" id="noSavedMsg">No bookmarked posts yet. Click the bookmark icon on any idea to save it.</div>';
+        let msg = 'No bookmarked posts yet. Click the bookmark icon on any idea to save it.';
+        if (currentTagFilter) {
+          const match = collectAllSavedTags().find(function (entry) { return entry[0] === currentTagFilter; });
+          const label = match ? match[1] : currentTagFilter;
+          msg = 'No bookmarked posts match tag filter <span class="tag-pill">' + escapeHtml(label) + '</span>. <button type="button" onclick="switchTagFilter(\'\')" class="text-brand-yellow font-bold hover:underline ml-1">Clear filter</button>';
+        } else if (savedFolderFilter) {
+          msg = 'No bookmarked posts in this folder.';
+        }
+        container.innerHTML = '<div class="col-span-full text-center py-12 text-brand-muted text-sm italic" id="noSavedMsg">' + msg + '</div>';
         return;
       }
       container.innerHTML = '';
       for (const post of posts) {
         const div = document.createElement('div');
-        const isInstagram = post.platform === 'instagram';
-        div.className = 'post-card brand-card dark:bg-slate-900 dark:border-white/10 rounded-2xl border border-brand-border/60' + (isInstagram ? ' ig-post-card' : ' p-5');
+        div.className = 'post-card brand-card p-5 dark:bg-slate-900 dark:border-white/10 rounded-2xl border border-brand-border/60';
+        div.dataset.postId = post.id;
         const date = post.createdAt ? new Date(post.createdAt).toLocaleDateString() : '';
         const fName = folderName(post.folderId);
-        const studioUrl = marketingStudioUrl(post.platform, post.content, post.cta || '');
-        if (isInstagram) {
-          const handle = igHandle();
-          div.innerHTML =
-            '<div class="ig-post-header">' +
-            '<div class="ig-avatar" aria-hidden="true">' + escapeHtml(igInitials()) + '</div>' +
-            '<div class="ig-post-header-meta"><div class="ig-username">' + escapeHtml(handle) + '</div><div class="ig-location">' + escapeHtml(fName || igLocationLabel()) + '</div></div>' +
-            '<span class="text-[10px] text-brand-muted">' + date + '</span></div>' +
-            '<div class="post-card-thumb" onclick="window.location.href=\'' + studioUrl.replace(/'/g, "\\'") + '\'" title="Open in Marketing Studio">' +
-            '<div style="width:100%;height:100%;background:' + thumbGradient(post.platform) + ';display:flex;align-items:center;justify-content:center;">' +
-            '<span style="font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.55;color:#fff;">Tap to create artwork</span></div>' +
-            '<div class="thumb-overlay"><span class="thumb-label">Create artwork →</span></div></div>' +
-            '<div class="ig-post-actions"><div class="ig-actions-left">' +
-            '<span class="ig-action-btn" aria-hidden="true">' + ICONS.heart + '</span>' +
-            '<span class="ig-action-btn" aria-hidden="true">' + ICONS.comment + '</span>' +
-            '<span class="ig-action-btn" aria-hidden="true">' + ICONS.share + '</span></div>' +
-            '<div class="ig-actions-right">' +
-            '<button onclick="navigator.clipboard.writeText(' + JSON.stringify(post.content) + ').then(()=>showCopyToast())" class="ig-action-btn" title="Copy">' + ICONS.copy + '</button>' +
-            '<button onclick="deleteSaved(\'' + post.id + '\')" class="ig-action-btn" title="Delete">' + ICONS.trash + '</button></div></div>' +
-            '<div class="ig-post-body"><p class="ig-caption"><span class="ig-handle">' + escapeHtml(handle) + '</span>' + escapeHtml(post.content) + '</p>' +
-            (post.cta ? '<p class="ig-cta-line">' + escapeHtml(post.cta) + '</p>' : '') + '</div>';
-          container.appendChild(div);
-          continue;
-        }
-        div.innerHTML =
-          '<div class="post-card-thumb" onclick="window.location.href=\'' + studioUrl.replace(/'/g, "\\'") + '\'" title="Open in Marketing Studio">' +
-          '<div style="width:100%;height:100%;background:' + thumbGradient(post.platform) + ';display:flex;align-items:center;justify-content:center;">' +
-          '<span style="font-size:28px;opacity:.6;">' + post.platform.charAt(0).toUpperCase() + '</span></div>' +
-          '<div class="thumb-overlay"><span class="thumb-label">Create artwork →</span></div></div>' +
-          '<div class="flex items-center justify-between mb-3">' +
-          '<span class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">' + post.platform + (fName ? ' · ' + escapeHtml(fName) : '') + '</span>' +
-          '<div class="flex gap-2 items-center">' +
-          '<span class="text-[10px] text-brand-muted">' + date + '</span>' +
-          '<button onclick="navigator.clipboard.writeText(' + JSON.stringify(post.content) + ').then(()=>showCopyToast())" class="text-[10px] font-bold text-brand-muted hover:text-brand-yellow" title="Copy">' + ICONS.copy + '</button>' +
-          '<button onclick="deleteSaved(\'' + post.id + '\')" class="text-[10px] font-bold text-brand-muted hover:text-red-500" title="Delete">' + ICONS.trash + '</button>' +
-          '</div></div>' +
-          '<p class="text-sm font-semibold text-brand-dark dark:text-white leading-relaxed whitespace-pre-wrap">' + escapeHtml(post.content) + '</p>' +
-          (post.cta ? '<p class="text-xs text-brand-muted mt-2 italic">CTA: ' + escapeHtml(post.cta) + '</p>' : '');
+        const metaLabel = [fName, date].filter(Boolean).join(' · ');
+        div.innerHTML = buildPostCardHtml({
+          mode: 'saved', platform: post.platform, hook: post.content, cta: post.cta || '',
+          postId: post.id, isSaved: true, liked: Boolean(post.liked),
+          tags: post.tags || [], imageNote: post.imageNote || '', metaLabel,
+        });
         container.appendChild(div);
       }
     }
@@ -894,7 +1284,7 @@
       try {
         const res = await fetch('/social-posts/api/' + encodeURIComponent(postId), { method: 'DELETE' });
         const data = await res.json();
-        if (data.success) { savedPosts = savedPosts.filter(p => p.id !== postId); renderSavedPosts(); renderIdeas(); }
+        if (data.success) { savedPosts = savedPosts.filter(p => p.id !== postId); renderTagFilters(); renderSavedPosts(); renderIdeas(); }
       } catch (err) { alert('Could not delete.'); }
     }
 

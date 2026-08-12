@@ -174,8 +174,14 @@
         })
         .catch(function () {
           if (myReq !== reqId) return;
+          var qSafe = escapeHtml(q);
           dropdown.innerHTML =
-            '<div class="nav-lead-search-empty">Could not search. Try again.</div>';
+            '<div class="nav-lead-search-empty">Could not search. Try again.</div>' +
+            '<button type="button" class="nav-lead-search-footer" data-nav-search-all data-q="' +
+            qSafe +
+            '">Search “' +
+            qSafe +
+            '” in pipeline</button>';
         });
     }
 

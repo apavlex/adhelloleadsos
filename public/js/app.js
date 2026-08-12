@@ -4996,6 +4996,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function shouldIgnoreRowOpenClick(target) {
     if (!target) return true;
+    if (target.closest('[data-plc="company"]')) return true;
+    const sel = window.getSelection && window.getSelection();
+    if (sel && String(sel.toString() || '').trim()) return true;
     return !!(
       target.type === 'checkbox' ||
       target.closest('.bookmark-btn') ||

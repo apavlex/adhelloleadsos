@@ -245,14 +245,21 @@ function excludeOutreachFolderLeads(leads) {
   return leads.filter((l) => !isInOutreachFolder(l));
 }
 
-function appendSearchText(parts, value) {
+const SEARCH_TEXT_MAX_DEPTH = 8;
+
+function appendSearchText(parts, value, depth, seen) {
   if (value == null) return;
+  const d = depth || 0;
+  if (d > SEARCH_TEXT_MAX_DEPTH) return;
   if (Array.isArray(value)) {
-    value.forEach((item) => appendSearchText(parts, item));
+    value.forEach((item) => appendSearchText(parts, item, d + 1, seen));
     return;
   }
   if (typeof value === 'object') {
-    Object.values(value).forEach((item) => appendSearchText(parts, item));
+    const visited = seen || new WeakSet();
+    if (visited.has(value)) return;
+    visited.add(value);
+    Object.values(value).forEach((item) => appendSearchText(parts, item, d + 1, visited));
     return;
   }
   const text = String(value).trim();
