@@ -43,10 +43,11 @@
             </div>
           </div>
           <div class="flex flex-wrap items-center gap-2 shrink-0">
-            <button type="button" id="folderOrganizeByLeadsBtn" class="btn-pill bg-brand-cream dark:bg-slate-800 text-brand-dark dark:text-white border border-brand-border dark:border-white/10 px-5 py-3.5 text-[10px] font-black uppercase tracking-widest hover:border-brand-yellow/60 transition-colors inline-flex items-center justify-center gap-2" title="Sort folders with leads to the top and empty folders to the bottom">
+            <button type="button" id="folderOrganizeByLeadsBtn" class="btn-pill bg-brand-cream dark:bg-slate-800 text-brand-dark dark:text-white border border-brand-border dark:border-white/10 px-5 py-3.5 text-[10px] font-black uppercase tracking-widest hover:border-brand-yellow/60 transition-colors inline-flex items-center justify-center gap-2" data-sort-mode="name" title="Sort folders with leads to the top and empty folders to the bottom" aria-pressed="false">
               <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" /></svg>
-              Organize by leads
+              <span id="folderOrganizeByLeadsLabel">Organize by leads</span>
             </button>
+            <p id="folderOrganizeStatus" class="sr-only" role="status" aria-live="polite"></p>
             <button type="button" id="folderCreateOpen" class="btn-pill btn-primary px-6 md:px-8 py-3.5 text-[10px] font-black uppercase tracking-widest shrink-0 inline-flex items-center justify-center gap-2">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
             New subfolder
@@ -1420,57 +1421,134 @@
       return Number.isFinite(n) ? n : 0;
     }
 
-    function sortFolderTreeChildrenList(ul) {
+    var FOLDER_SORT_STORAGE_KEY = 'adhello.folderManager.sortMode';
+
+    function getFolderSortMode() {
+      try {
+        var m = String(localStorage.getItem(FOLDER_SORT_STORAGE_KEY) || '').trim().toLowerCase();
+        if (m === 'leads' || m === 'name') return m;
+      } catch (_) {}
+      return 'name';
+    }
+
+    function setFolderSortMode(mode) {
+      var next = mode === 'leads' ? 'leads' : 'name';
+      try {
+        localStorage.setItem(FOLDER_SORT_STORAGE_KEY, next);
+      } catch (_) {}
+      return next;
+    }
+
+    function updateFolderOrganizeButton(mode) {
+      var btn = $('folderOrganizeByLeadsBtn');
+      var label = $('folderOrganizeByLeadsLabel');
+      if (!btn) return;
+      var isLeads = mode === 'leads';
+      btn.dataset.sortMode = isLeads ? 'leads' : 'name';
+      btn.setAttribute('aria-pressed', isLeads ? 'true' : 'false');
+      btn.classList.toggle('border-brand-yellow', isLeads);
+      btn.classList.toggle('bg-brand-yellow/15', isLeads);
+      if (label) label.textContent = isLeads ? 'Sort A–Z' : 'Organize by leads';
+      btn.title = isLeads
+        ? 'Currently sorted by lead count — click to sort folders A–Z'
+        : 'Sort folders with leads to the top and empty folders to the bottom';
+    }
+
+    function setFolderOrganizeStatus(msg) {
+      var el = $('folderOrganizeStatus');
+      if (el) el.textContent = msg || '';
+      if (typeof window.showAppToast === 'function' && msg) {
+        window.showAppToast(msg, { variant: 'success' });
+      }
+    }
+
+    function sortFolderTreeChildrenList(ul, mode) {
       if (!ul) return;
-      var items = Array.from(ul.querySelectorAll(':scope > li.folder-tree-node'));
+      var sortMode = mode === 'leads' ? 'leads' : 'name';
+      var items = Array.from(ul.children).filter(function (el) {
+        return el && el.classList && el.classList.contains('folder-tree-node');
+      });
       if (items.length < 2) return;
       items.sort(function (a, b) {
-        var ca = parseFolderLeadCount(a);
-        var cb = parseFolderLeadCount(b);
-        var ae = ca > 0 ? 0 : 1;
-        var be = cb > 0 ? 0 : 1;
-        if (ae !== be) return ae - be;
-        if (cb !== ca) return cb - ca;
+        if (sortMode === 'leads') {
+          var ca = parseFolderLeadCount(a);
+          var cb = parseFolderLeadCount(b);
+          var ae = ca > 0 ? 0 : 1;
+          var be = cb > 0 ? 0 : 1;
+          if (ae !== be) return ae - be;
+          if (cb !== ca) return cb - ca;
+        }
         var na = (a.getAttribute('data-folder-tree-search') || '').trim();
         var nb = (b.getAttribute('data-folder-tree-search') || '').trim();
         return na.localeCompare(nb);
       });
       items.forEach(function (li) { ul.appendChild(li); });
       items.forEach(function (li) {
-        var nested = li.querySelector(':scope > [data-folder-tree-children]');
-        if (nested) sortFolderTreeChildrenList(nested);
+        var nested = null;
+        for (var i = 0; i < li.children.length; i += 1) {
+          if (li.children[i].hasAttribute && li.children[i].hasAttribute('data-folder-tree-children')) {
+            nested = li.children[i];
+            break;
+          }
+        }
+        if (nested) sortFolderTreeChildrenList(nested, sortMode);
       });
     }
 
-    function organizeFolderManagerByLeads() {
+    function organizeFolderManagerByLeads(mode) {
       var root = document.getElementById('folderTreeRoot');
       if (!root) return;
-      var groups = Array.from(root.querySelectorAll(':scope > details.folder-group'));
+      var sortMode = mode === 'leads' ? 'leads' : 'name';
+      var groups = Array.from(root.children).filter(function (el) {
+        return el && el.matches && el.matches('details.folder-group');
+      });
       groups.sort(function (a, b) {
-        var ca = parseInt(a.getAttribute('data-folder-group-leads') || '0', 10) || 0;
-        var cb = parseInt(b.getAttribute('data-folder-group-leads') || '0', 10) || 0;
-        var ae = ca > 0 ? 0 : 1;
-        var be = cb > 0 ? 0 : 1;
-        if (ae !== be) return ae - be;
-        if (cb !== ca) return cb - ca;
-        return (a.getAttribute('data-folder-group-search') || '').localeCompare(b.getAttribute('data-folder-group-search') || '');
+        if (sortMode === 'leads') {
+          var ca = parseInt(a.getAttribute('data-folder-group-leads') || '0', 10) || 0;
+          var cb = parseInt(b.getAttribute('data-folder-group-leads') || '0', 10) || 0;
+          var ae = ca > 0 ? 0 : 1;
+          var be = cb > 0 ? 0 : 1;
+          if (ae !== be) return ae - be;
+          if (cb !== ca) return cb - ca;
+        }
+        return (a.getAttribute('data-folder-group-search') || '').localeCompare(
+          b.getAttribute('data-folder-group-search') || '',
+        );
       });
       groups.forEach(function (g) { root.appendChild(g); });
-      root.querySelectorAll('details.folder-group > ul').forEach(function (ul) {
-        if (ul.querySelectorAll(':scope > li.folder-tree-node').length > 1) {
-          sortFolderTreeChildrenList(ul);
-        }
+      groups.forEach(function (g) {
+        var ul = g.querySelector(':scope > ul');
+        if (ul) sortFolderTreeChildrenList(ul, sortMode);
       });
-      root.querySelectorAll('[data-folder-tree-children]').forEach(sortFolderTreeChildrenList);
+      root.querySelectorAll('[data-folder-tree-children]').forEach(function (nested) {
+        sortFolderTreeChildrenList(nested, sortMode);
+      });
+    }
+
+    function applyFolderSortMode(mode, announce) {
+      var next = setFolderSortMode(mode);
+      organizeFolderManagerByLeads(next);
+      updateFolderOrganizeButton(next);
+      if (announce) {
+        setFolderOrganizeStatus(
+          next === 'leads'
+            ? 'Folders organized by lead count (leads first).'
+            : 'Folders sorted A–Z.',
+        );
+      }
     }
 
     function bindFolderOrganizeByLeads() {
       var btn = $('folderOrganizeByLeadsBtn');
       if (!btn || btn.dataset.bound === '1') return;
       btn.dataset.bound = '1';
+      var initial = getFolderSortMode();
+      applyFolderSortMode(initial, false);
       btn.addEventListener('click', function (e) {
         e.preventDefault();
-        organizeFolderManagerByLeads();
+        e.stopPropagation();
+        var current = btn.dataset.sortMode === 'leads' ? 'leads' : 'name';
+        applyFolderSortMode(current === 'leads' ? 'name' : 'leads', true);
       });
     }
 

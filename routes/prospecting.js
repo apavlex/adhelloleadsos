@@ -28,7 +28,6 @@ const {
   folderKeysIncludingDescendants,
   buildFolderAggregateCounts,
   buildFolderAggregateTags,
-  sortFolderTreeByLeadCount,
 } = require('../services/folderTree');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
@@ -243,9 +242,7 @@ router.get('/', async (req, res, next) => {
     }
     const folderAggregateCounts =
       safeTab === 'folders' ? buildFolderAggregateCounts(folderTree, directFolderCounts) : {};
-    if (safeTab === 'folders') {
-      folderTree = sortFolderTreeByLeadCount(folderTree, folderAggregateCounts);
-    }
+    // Keep name order from buildFolderTree — client "Organize by leads" toggles lead-count sort.
 
     const activeTagCatalog = tags.filter((t) => t && t.isActive !== false);
     const tagCatalogByKey = Object.fromEntries(
