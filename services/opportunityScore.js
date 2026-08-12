@@ -5,6 +5,7 @@
  */
 
 const { scoreLocalProspect } = require('./localProspectScore');
+const { getLowReviewsThresholdFromWorkspace, isLowReviews } = require('./prospectGapLabels');
 function hasSocial(val) {
   return !!(val && String(val).trim() && String(val).trim() !== 'N/A');
 }
@@ -17,15 +18,20 @@ function boolGap(lead, key, whenTrue) {
 
 /**
  * @param {object} lead — saved lead from DB
+ * @param {{ lowReviewsThreshold?: number, workspace?: object }} [options]
  * @returns {{ score: number, tier: 'high'|'medium'|'low', reasons: string[] }}
  */
-function scoreLeadRecord(lead) {
+function scoreLeadRecord(lead, options) {
   const reasons = [];
   let score = 0;
 
   const website = lead.website && lead.website !== 'N/A';
   const reviews = parseInt(lead.reviewsCount != null ? lead.reviewsCount : lead.reviews, 10) || 0;
   const rating = parseFloat(lead.totalScore != null ? lead.totalScore : lead.rating) || 0;
+  const lowReviewsThreshold =
+    options && options.lowReviewsThreshold != null
+      ? options.lowReviewsThreshold
+      : getLowReviewsThresholdFromWorkspace(options && options.workspace);
 
   const hasFB = hasSocial(lead.facebook);
   const hasIG = hasSocial(lead.instagram);
@@ -95,7 +101,7 @@ function scoreLeadRecord(lead) {
     reasons.push(`Buying signals: ${buyingSignals.slice(0, 3).join('; ')}`);
   }
 
-  if (reviews > 0 && reviews < 20) {
+  if (isLowReviews(reviews, lowReviewsThreshold)) {
     score += 1.5;
     reasons.push('Few reviews — reputation program can move the needle');
   }

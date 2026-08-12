@@ -104,6 +104,16 @@
               </div>
             </div>
 
+            <div id="leadPanelBuiltWithWrap" class="hidden mt-3 pt-3 border-t border-brand-border/15 dark:border-white/10 pointer-events-auto">
+              <div class="flex items-center justify-between gap-2 mb-2">
+                <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Tech stack</p>
+                <a id="leadPanelBuiltWithLink" href="#" target="_blank" rel="noopener noreferrer" class="text-[9px] font-bold uppercase tracking-wide text-brand-yellow hover:underline shrink-0">BuiltWith →</a>
+              </div>
+              <p id="leadPanelBuiltWithCms" class="hidden text-[12px] font-semibold text-brand-dark dark:text-white mb-2"></p>
+              <div id="leadPanelBuiltWithTags" class="flex flex-wrap gap-1.5" aria-label="Technology tags"></div>
+              <p id="leadPanelBuiltWithMeta" class="hidden text-[11px] text-brand-muted dark:text-slate-400 mt-2 italic">Click BuiltWith → to load tech stack for this site.</p>
+            </div>
+
             <div class="mt-4 pt-3 border-t border-brand-border/15 dark:border-white/10 space-y-2.5">
               <div id="leadPanelContactLinks" class="flex flex-wrap items-center gap-2 pointer-events-auto hidden" aria-label="Contact and social links"></div>
               <div id="headerAddressRow" class="flex items-start gap-2.5 group/item pointer-events-auto">
@@ -215,15 +225,6 @@
                   <p class="text-[11px] text-brand-muted dark:text-slate-400 italic">Select a lead to manage tags.</p>
                 </div>
               </div>
-              <div id="leadPanelBuiltWithWrap" class="mt-3 pt-3 border-t border-brand-border/15 dark:border-white/10 pointer-events-auto hidden">
-                <div class="flex items-center justify-between gap-2 mb-2">
-                  <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Tech stack</p>
-                  <a id="leadPanelBuiltWithLink" href="#" target="_blank" rel="noopener noreferrer" class="text-[9px] font-bold uppercase tracking-wide text-brand-yellow hover:underline shrink-0">BuiltWith →</a>
-                </div>
-                <p id="leadPanelBuiltWithCms" class="hidden text-[12px] font-semibold text-brand-dark dark:text-white mb-2"></p>
-                <div id="leadPanelBuiltWithTags" class="flex flex-wrap gap-1.5" aria-label="Technology tags"></div>
-                <p id="leadPanelBuiltWithMeta" class="hidden text-[11px] text-brand-muted dark:text-slate-400 mt-2 italic">Click BuiltWith → to load tech stack for this site.</p>
-              </div>
               <div id="mobilePanelGoogleMapsChipRow" class="hidden pl-7 pointer-events-auto">
                 <a id="mobilePanelGoogleMapsChip" href="#" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 rounded-xl border shadow-sm transition-colors border-brand-border/30 dark:border-white/10 bg-white dark:bg-slate-900/90 hover:border-brand-yellow/50 text-[11px] font-bold px-3 py-2" aria-label="Open in Google Maps">
                   <!-- Icon + label filled by JS -->
@@ -264,7 +265,7 @@
                 <a href="#" id="mobilePanelPhoneLink" class="hidden"></a>
                 <span id="mobilePanelPhone" class="hidden"></span>
         </div>
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <!-- Scripts tile -->
             <div id="mobilePanelEmailRow" class="bg-brand-cream/30 dark:bg-white/5 p-5 rounded-3xl border border-brand-border/20 dark:border-white/5 flex flex-col items-center text-center group hover:bg-brand-yellow/10 transition-all cursor-pointer">
                 <button type="button" class="quick-outreach-btn w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 flex items-center justify-center text-brand-yellow shadow-sm border border-brand-border/10 mb-3 group-hover:scale-110 transition-transform" id="mobilePanelEmailBtn" title="Outreach scripts">
@@ -282,6 +283,15 @@
                 <span class="text-[9px] font-black uppercase tracking-widest text-brand-muted/60 mb-1 pointer-events-none">Visit Site</span>
                 <span class="text-sm font-bold text-brand-dark dark:text-white truncate w-full px-2 pointer-events-none" id="mobilePanelWebsiteShort">Website</span>
             </a>
+
+            <!-- Built With — tech stack (same flow as Focus mode) -->
+            <button type="button" id="mobilePanelBuiltWithBtn" class="hidden bg-brand-cream/30 dark:bg-white/5 p-5 rounded-3xl border border-brand-border/20 dark:border-white/5 flex flex-col items-center text-center group hover:bg-brand-yellow/10 transition-all">
+                <span class="w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 flex items-center justify-center text-brand-yellow shadow-sm border border-brand-border/10 mb-3 group-hover:scale-110 transition-transform pointer-events-none" aria-hidden="true">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
+                </span>
+                <span class="text-[9px] font-black uppercase tracking-widest text-brand-muted/60 mb-1 pointer-events-none">Built With</span>
+                <span class="text-sm font-bold text-brand-dark dark:text-white truncate w-full px-2 pointer-events-none" id="mobilePanelBuiltWithShort">Tech stack</span>
+            </button>
 
             <!-- Location Action Tile (Google Business Profile / Maps listing) -->
             <a href="#" id="mobilePanelMapsLink" target="_blank" rel="noopener noreferrer" class="bg-brand-cream/30 dark:bg-white/5 p-5 rounded-3xl border border-brand-border/20 dark:border-white/5 flex flex-col items-center text-center group hover:bg-brand-yellow/10 transition-all no-underline text-inherit">

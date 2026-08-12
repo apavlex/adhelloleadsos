@@ -1,4 +1,6 @@
 <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace && workspace && workspace.id) { %>
+<% const _prospect = workspace && workspace.prospecting && typeof workspace.prospecting === 'object' ? workspace.prospecting : {}; %>
+<% const _lowReviewsThreshold = _prospect.lowReviewsThreshold != null && _prospect.lowReviewsThreshold !== '' ? _prospect.lowReviewsThreshold : 30; %>
 <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 flex flex-wrap items-center justify-between gap-4">
   <div>
     <h2 class="font-bold text-lg text-brand-dark dark:text-white">Pipeline stages</h2>
@@ -6,4 +8,19 @@
   </div>
   <a href="/workspaces/<%= workspace.id %>/settings/pipeline" class="btn-pill btn-primary px-6 py-3 text-[10px] font-black uppercase tracking-widest shrink-0">Edit pipeline</a>
 </div>
+
+<div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-8 mt-6">
+  <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-2">Prospecting signals</h2>
+  <p class="text-sm text-brand-muted mb-4">Controls the <strong class="text-brand-dark dark:text-white">Opportunity</strong> column on the pipeline — gap tags like <em>LOW REVIEWS</em> help you filter reputation-management prospects (website, GMB reviews, missed-call textback).</p>
+  <div class="space-y-4 max-w-md">
+    <div>
+      <label for="wsLowReviewsThreshold" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Low reviews threshold</label>
+      <input type="number" id="wsLowReviewsThreshold" min="0" max="10000" step="1" value="<%= _lowReviewsThreshold %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+      <p class="text-[11px] text-brand-muted mt-1">Leads with this many Google reviews or fewer get the <strong class="text-brand-dark dark:text-white">LOW REVIEWS</strong> tag. Default is 30 — good for reputation &amp; GMB optimization pitches.</p>
+    </div>
+    <p id="wsPipelineSettingsMsg" class="hidden text-sm"></p>
+    <button type="button" id="wsPipelineSettingsSave" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-6 py-3 text-xs font-black uppercase tracking-widest">Save prospecting signals</button>
+  </div>
+</div>
+<%- include('../partials/scripts_pipeline') %>
 <% } %>

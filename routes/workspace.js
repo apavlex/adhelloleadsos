@@ -1219,9 +1219,12 @@ router.post('/settings', express.json(), async (req, res) => {
         Object.prototype.hasOwnProperty.call(req.body, 'prospectingAutoPoolMinScore') ||
         Object.prototype.hasOwnProperty.call(req.body, 'prospectingAutoPoolTier') ||
         Object.prototype.hasOwnProperty.call(req.body, 'prospectingAutoPoolSenderOfferKey') ||
-        Object.prototype.hasOwnProperty.call(req.body, 'prospectingAutoPool'))
+        Object.prototype.hasOwnProperty.call(req.body, 'prospectingAutoPool') ||
+        Object.prototype.hasOwnProperty.call(req.body, 'lowReviewsThreshold') ||
+        Object.prototype.hasOwnProperty.call(req.body, 'prospectingLowReviewsThreshold'))
     ) {
       const { normalizeAutoPoolSettings } = require('../services/prospectingAutoPool');
+      const { normalizeLowReviewsThreshold } = require('../services/prospectGapLabels');
       const prospecting =
         ws.prospecting && typeof ws.prospecting === 'object' ? { ...ws.prospecting } : {};
       const prev = normalizeAutoPoolSettings(prospecting.autoPool);
@@ -1253,6 +1256,16 @@ router.post('/settings', express.json(), async (req, res) => {
           next.senderOfferKey = String(req.body.prospectingAutoPoolSenderOfferKey || '').trim();
         }
         prospecting.autoPool = normalizeAutoPoolSettings(next);
+      }
+      if (
+        Object.prototype.hasOwnProperty.call(req.body, 'lowReviewsThreshold') ||
+        Object.prototype.hasOwnProperty.call(req.body, 'prospectingLowReviewsThreshold')
+      ) {
+        const raw =
+          req.body.lowReviewsThreshold != null
+            ? req.body.lowReviewsThreshold
+            : req.body.prospectingLowReviewsThreshold;
+        prospecting.lowReviewsThreshold = normalizeLowReviewsThreshold(raw);
       }
       ws.prospecting = prospecting;
     }

@@ -9,10 +9,38 @@ const {
   isQuickLogFilterTagKey,
   leadMatchesQuickLogFilter,
 } = require('./quickLogConfig');
+const { computeProspectGapLabels, getLowReviewsThresholdFromWorkspace } = require('./prospectGapLabels');
 
 function displayStatus(s) {
   const raw = s || 'Not Contacted';
   return raw === 'Needs Video' ? 'Not Contacted' : raw;
+}
+
+function leadCategoryLabel(lead) {
+  const cat = String((lead && (lead.categoryName || lead.category)) || '').trim();
+  if (!cat || cat === 'N/A') return '';
+  return cat;
+}
+
+function buildPipelineCategoryOptions(leads) {
+  const map = new Map();
+  for (const l of leads || []) {
+    const cat = leadCategoryLabel(l);
+    if (!cat) continue;
+    const key = cat.toLowerCase();
+    if (!map.has(key)) map.set(key, cat);
+  }
+  return Array.from(map.values()).sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: 'base' }),
+  );
+}
+
+function leadMatchesCategoryFilter(lead, categoryRaw) {
+  const want = String(categoryRaw || '').trim().toLowerCase();
+  if (!want || want === 'all') return true;
+  const cat = leadCategoryLabel(lead).toLowerCase();
+  if (!cat) return false;
+  return cat === want || cat.includes(want);
 }
 
 /** Local calendar day start (midnight) for YYYY-MM-DD from date input. */
@@ -321,7 +349,7 @@ function leadTagSearchParts(lead, ctx) {
 }
 
 /** Build tag/folder lookup maps once per search request. */
-function buildLeadSearchContext(tags, folders) {
+function buildLeadSearchContext(tags, folders, options) {
   const tagNameByKey = new Map();
   (tags || []).forEach((tag) => {
     if (!tag || !tag.key) return;
@@ -332,7 +360,10 @@ function buildLeadSearchContext(tags, folders) {
     if (!folder || !folder.key) return;
     folderNameByKey.set(String(folder.key), String(folder.name || folder.key));
   });
-  return { tagNameByKey, folderNameByKey };
+  const lowReviewsThreshold = getLowReviewsThresholdFromWorkspace(
+    options && options.workspace ? options.workspace : null,
+  );
+  return { tagNameByKey, folderNameByKey, lowReviewsThreshold };
 }
 
 function buildLeadSearchHaystack(l, ctx) {
@@ -475,6 +506,11 @@ function applyLeadListFilters(leads, filters) {
     out = out.filter((l) => displayStatus(l.status).toLowerCase() === want);
   }
 
+  const category = String(filters.category || '').trim();
+  if (category && category.toLowerCase() !== 'all') {
+    out = out.filter((l) => leadMatchesCategoryFilter(l, category));
+  }
+
   const minRating = parseFloat(filters.minRating);
   if (!Number.isNaN(minRating) && minRating > 0) {
     out = out.filter((l) => parseFloat(l.totalScore) >= minRating);
@@ -482,6 +518,14 @@ function applyLeadListFilters(leads, filters) {
   const minReviews = parseInt(filters.minReviews, 10);
   if (!Number.isNaN(minReviews) && minReviews > 0) {
     out = out.filter((l) => parseInt(l.reviewsCount, 10) >= minReviews);
+  }
+  const maxReviews = parseInt(filters.maxReviews, 10);
+  if (!Number.isNaN(maxReviews) && maxReviews >= 0) {
+    out = out.filter((l) => {
+      const n = parseInt(l.reviewsCount, 10);
+      const count = Number.isNaN(n) ? 0 : n;
+      return count <= maxReviews;
+    });
   }
 
   const origin = String(filters.origin || '').trim().toLowerCase();
@@ -605,8 +649,10 @@ const LEAD_LIST_FILTER_KEYS = [
   'q',
   'stage',
   'status',
+  'category',
   'minRating',
   'minReviews',
+  'maxReviews',
   'origin',
   'addedFrom',
   'addedTo',
@@ -662,4 +708,7 @@ module.exports = {
   leadMatchesSearchQuery,
   scoreLeadSearchMatch,
   normalizeSearchTokens,
+  leadCategoryLabel,
+  buildPipelineCategoryOptions,
+  leadMatchesCategoryFilter,
 };

@@ -16,7 +16,9 @@ const {
   isCsvImported,
   hasUsableWebsite,
   buildLeadSearchContext,
+  buildPipelineCategoryOptions,
 } = require('../services/leadListFilters');
+const { normalizeProspectingSettings } = require('../services/prospectGapLabels');
 const { ensurePipelineFolders, migrateLegacyFolders } = require('../services/pipelineFolders');
 const { TRADE_FOLDERS } = require('../services/tradeFoldersCatalog');
 const {
@@ -50,6 +52,8 @@ router.get('/', async (req, res, next) => {
     const folderTree = buildFolderTree(folders);
     const folderPickerTree = buildFolderPickerTree(folderTree, String(req.query.folderKey || '').trim());
     const tags = await dbService.listTags(wid);
+    const ws = await dbService.getWorkspace(wid);
+    const workspaceProspecting = normalizeProspectingSettings(ws && ws.prospecting);
 
     const scheduleSuccess = req.query.scheduleSuccess === 'true';
     let schedulesSorted = [];
@@ -98,7 +102,7 @@ router.get('/', async (req, res, next) => {
       : null;
     if (folderKeys) leadListFilters.folderKeys = folderKeys;
     if (hasGlobalSearch) {
-      leadListFilters.searchContext = buildLeadSearchContext(tags, folders);
+      leadListFilters.searchContext = buildLeadSearchContext(tags, folders, { workspace: ws });
     }
     const folderMembers = folderKeys
       ? visible.filter((l) => folderKeys.has(String(l.folderKey || '').trim()))
@@ -152,6 +156,7 @@ router.get('/', async (req, res, next) => {
       statusUniq.set(String(d).toLowerCase(), d);
     });
     const pipelineStatusOptions = Array.from(statusUniq.values()).sort((a, b) => a.localeCompare(b));
+    const pipelineCategoryOptions = buildPipelineCategoryOptions(pipelineBase);
 
     const leadSourceCounts = {
       all: pipelineBase.length,
@@ -256,7 +261,6 @@ router.get('/', async (req, res, next) => {
         ? buildFolderAggregateTags(folderTree, directFolderTagKeys, tagCatalogByKey)
         : {};
 
-    const ws = await dbService.getWorkspace(req.workspaceId);
     const mergedScriptLibrary = salesScriptsStorage.buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
     const offerKeys = salesScriptsStorage.getWorkspaceScriptKeys(ws, SCRIPT_LIBRARY);
     const scriptLibraryOfferPicklist = offerKeys.map((k) => ({
@@ -304,6 +308,7 @@ router.get('/', async (req, res, next) => {
       leadListFilters,
       leadsFilterSuffix,
       pipelineStatusOptions,
+      pipelineCategoryOptions,
       importNotice,
       importError,
       pipelineMigrateNotice,
@@ -314,6 +319,7 @@ router.get('/', async (req, res, next) => {
       sequenceTemplates: req.app.locals.sequenceTemplates || [],
       canManageWorkspace: req.canManageWorkspace,
       driveImport,
+      workspaceProspecting,
     });
   } catch (e) {
     next(e);

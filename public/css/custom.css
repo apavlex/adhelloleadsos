@@ -1658,6 +1658,15 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   -webkit-user-select: none;
 }
 
+a.website-link.website-link--holding {
+  color: var(--brand-yellow, #f5c518) !important;
+  border-bottom-color: rgb(245 197 24 / 0.45) !important;
+}
+
+#websitePreview {
+  z-index: 10050;
+}
+
 .lead-category-input--suspect {
   border-color: rgb(251 191 36 / 0.75) !important;
   background: rgb(254 243 199 / 0.35);

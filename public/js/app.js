@@ -36,6 +36,166 @@ document.addEventListener('DOMContentLoaded', () => {
   window.__openWarRoomFromSelectionImpl = openWarRoomFromSelection;
   window.__openWarRoomFromSelection = openWarRoomFromSelection;
 
+  (function initWebsiteLinkHoldPreview() {
+    const preview = document.getElementById('websitePreview');
+    if (!preview) return;
+    const iframe = document.getElementById('previewIframe');
+    const loading = document.getElementById('previewLoading');
+    const urlText = document.getElementById('previewUrlText');
+    const openBtn = document.getElementById('previewNewTabBtn');
+    const HOLD_MS = 420;
+    let holdTimer = null;
+    let holdShown = false;
+    let suppressClick = false;
+    let activeLink = null;
+
+    function normalizeWebsiteHref(raw) {
+      const w = String(raw || '').trim();
+      if (!w || w === 'N/A') return '';
+      if (/^https?:\/\//i.test(w)) return w;
+      return `https://${w.replace(/^\/\//, '')}`;
+    }
+
+    function clearHoldTimer() {
+      if (holdTimer) {
+        clearTimeout(holdTimer);
+        holdTimer = null;
+      }
+    }
+
+    function positionPreview(anchor) {
+      if (!anchor) return;
+      const rect = anchor.getBoundingClientRect();
+      const w = Math.min(520, Math.max(320, window.innerWidth - 24));
+      const h = Math.min(380, Math.max(240, window.innerHeight - 24));
+      preview.style.width = `${w}px`;
+      preview.style.height = `${h}px`;
+      let left = rect.left + rect.width / 2;
+      let top = rect.top - 8;
+      const halfW = w / 2;
+      left = Math.max(halfW + 12, Math.min(window.innerWidth - halfW - 12, left));
+      if (top - h < 12) top = Math.min(window.innerHeight - 12, rect.bottom + h + 8);
+      preview.style.left = `${left}px`;
+      preview.style.top = `${top}px`;
+    }
+
+    function tagHoldHint(link) {
+      if (!link) return;
+      const base = String(link.getAttribute('title') || link.dataset.url || '').trim();
+      if (base && !/hold to preview/i.test(base)) {
+        link.setAttribute('title', `Hold to preview · ${base}`);
+      }
+    }
+
+    function showPreview(url, anchor) {
+      holdShown = true;
+      suppressClick = true;
+      activeLink = anchor;
+      positionPreview(anchor);
+      if (urlText) urlText.textContent = url.replace(/^https?:\/\//i, '').split('?')[0];
+      if (openBtn) openBtn.href = url;
+      if (loading) loading.classList.remove('hidden');
+      if (iframe) {
+        iframe.onload = () => {
+          if (loading) loading.classList.add('hidden');
+        };
+        iframe.src = url;
+      }
+      preview.classList.remove('hidden', 'opacity-0');
+      preview.classList.add('opacity-100');
+      preview.style.pointerEvents = 'auto';
+      anchor.classList.add('website-link--holding');
+    }
+
+    function hidePreview() {
+      clearHoldTimer();
+      holdShown = false;
+      suppressClick = false;
+      if (activeLink) {
+        activeLink.classList.remove('website-link--holding');
+        activeLink = null;
+      }
+      preview.classList.add('hidden', 'opacity-0');
+      preview.classList.remove('opacity-100');
+      preview.style.pointerEvents = 'none';
+      if (iframe) iframe.src = 'about:blank';
+      if (loading) loading.classList.remove('hidden');
+    }
+
+    function startHold(link, pointerEvent) {
+      if (pointerEvent && pointerEvent.button != null && pointerEvent.button !== 0) return;
+      const url = normalizeWebsiteHref(link.dataset.url || link.getAttribute('href'));
+      if (!url) return;
+      clearHoldTimer();
+      holdShown = false;
+      suppressClick = false;
+      holdTimer = setTimeout(() => showPreview(url, link), HOLD_MS);
+    }
+
+    function endHold() {
+      clearHoldTimer();
+      if (holdShown) hidePreview();
+    }
+
+    document.addEventListener(
+      'mousedown',
+      (e) => {
+        const link = e.target.closest('a.website-link');
+        if (!link || e.target.closest('#websitePreview')) return;
+        startHold(link, e);
+      },
+      true,
+    );
+
+    document.addEventListener('mouseup', endHold, true);
+    document.addEventListener(
+      'touchstart',
+      (e) => {
+        const link = e.target.closest('a.website-link');
+        if (!link) return;
+        startHold(link, e);
+      },
+      { passive: true, capture: true },
+    );
+    document.addEventListener('touchend', endHold, true);
+    document.addEventListener('touchcancel', endHold, true);
+    document.addEventListener(
+      'touchmove',
+      () => {
+        if (!holdShown) clearHoldTimer();
+      },
+      { passive: true, capture: true },
+    );
+
+    document.addEventListener(
+      'click',
+      (e) => {
+        if (suppressClick && e.target.closest('a.website-link')) {
+          e.preventDefault();
+          e.stopPropagation();
+          suppressClick = false;
+        }
+      },
+      true,
+    );
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && holdShown) hidePreview();
+    });
+
+    document.querySelectorAll('a.website-link').forEach(tagHoldHint);
+    const mo = new MutationObserver((mutations) => {
+      mutations.forEach((m) => {
+        m.addedNodes.forEach((node) => {
+          if (!(node instanceof Element)) return;
+          if (node.matches && node.matches('a.website-link')) tagHoldHint(node);
+          node.querySelectorAll('a.website-link').forEach(tagHoldHint);
+        });
+      });
+    });
+    mo.observe(document.body, { childList: true, subtree: true });
+  })();
+
   window.__runBulkEnhanceSelectedLeads = async function runBulkEnhanceBridge() {
     if (typeof window.__runBulkEnhanceSelectedLeadsImpl === 'function') {
       return window.__runBulkEnhanceSelectedLeadsImpl();
@@ -130,6 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const rating = parseFloat(lead.rating || lead.totalScore) || 0;
     const hasFB = (lead.facebook && lead.facebook !== 'N/A') || (lead.facebook_url && lead.facebook_url !== 'N/A');
     const hasIG = (lead.instagram && lead.instagram !== 'N/A') || (lead.instagram_url && lead.instagram_url !== 'N/A');
+    const lowReviewsThreshold = getLowReviewsThreshold();
     
     // New Audit Signals - Support both JS bools and HTML strings
     const isOutdated = lead.isOutdated === 'true' || lead.isOutdated === true;
@@ -164,11 +325,73 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (buyingSignals.length > 0) score += Math.min(2, buyingSignals.length * 0.5);
     
-    if (reviews > 0 && reviews < 20) score += 1.5;
+    if (reviews <= lowReviewsThreshold) score += 1.5;
     if (rating > 0 && rating < 4.2) score += 1.5;
     
     return Math.min(10, score);
   };
+
+  function getLowReviewsThreshold() {
+    const raw =
+      window.WORKSPACE_PROSPECTING &&
+      window.WORKSPACE_PROSPECTING.lowReviewsThreshold != null
+        ? window.WORKSPACE_PROSPECTING.lowReviewsThreshold
+        : 30;
+    const n = parseInt(String(raw).replace(/,/g, ''), 10);
+    return Number.isFinite(n) && n >= 0 ? Math.min(10000, n) : 30;
+  }
+
+  function computeProspectGapLabelsClient(lead, maxLabels) {
+    const cap = Math.min(6, Math.max(1, Number(maxLabels) || 4));
+    const threshold = getLowReviewsThreshold();
+    const out = [];
+    const push = (label) => {
+      if (out.length >= cap) return;
+      if (label && !out.includes(label)) out.push(label);
+    };
+    if (!lead || typeof lead !== 'object') return out;
+
+    const website = lead.website && String(lead.website).trim() && lead.website !== 'N/A';
+    const reviews = parseInt(lead.reviews || lead.reviewsCount, 10) || 0;
+    const hasFB =
+      (lead.facebook && lead.facebook !== 'N/A') || (lead.facebook_url && lead.facebook_url !== 'N/A');
+    const hasIG =
+      (lead.instagram && lead.instagram !== 'N/A') || (lead.instagram_url && lead.instagram_url !== 'N/A');
+    const isOutdated = lead.isOutdated === 'true' || lead.isOutdated === true;
+    const noMobile = lead.isMobileFriendly === 'false' || lead.isMobileFriendly === false;
+    const noSchema = lead.hasSchemaMarkup === 'false' || lead.hasSchemaMarkup === false;
+    const aeoScore = parseInt(lead.aeoScore || 0, 10) || 0;
+
+    if (!website) push('NO WEBSITE');
+    else {
+      if (isOutdated || noMobile) push('BAD SITE');
+      if (!hasFB && !hasIG) push('WEAK SOCIAL');
+      if (noSchema || (aeoScore > 0 && aeoScore < 3)) push('SEO GAPS');
+    }
+    if (reviews <= threshold) push('LOW REVIEWS');
+
+    return out.slice(0, cap);
+  }
+
+  function gapBadgeClass(label) {
+    const key = String(label || '').trim().toUpperCase();
+    if (key === 'LOW REVIEWS') {
+      return 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20';
+    }
+    if (key === 'NO WEBSITE') {
+      return 'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20';
+    }
+    if (key === 'BAD SITE') {
+      return 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-brand-yellow/10 dark:text-brand-yellow dark:border-brand-yellow/20';
+    }
+    if (key === 'WEAK SOCIAL') {
+      return 'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-300 dark:border-indigo-500/20';
+    }
+    if (key === 'SEO GAPS') {
+      return 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20';
+    }
+    return 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800/50 dark:text-slate-400 dark:border-white/5';
+  }
 
   /** AI website audit score on the row: 1–10 gap (new), or legacy 11–100 “health” saved before the scale fix. */
   const getAiAuditGap10FromDataset = (lead) => {
@@ -196,7 +419,18 @@ document.addEventListener('DOMContentLoaded', () => {
         scoreColor = 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-brand-yellow/10 dark:text-brand-yellow dark:border-brand-yellow/20';
     }
 
-    return `<div class="flex items-center justify-center"><span class="px-2 py-0.5 rounded-md ${scoreColor} text-[9px] font-black border tabular-nums tracking-tight shadow-sm">${label}</span></div>`;
+    const gapLabels = computeProspectGapLabelsClient(l, 3);
+    if (row && row.dataset) {
+      row.dataset.gapLabels = gapLabels.join('|');
+    }
+    const gapHtml = gapLabels
+      .map(
+        (tag) =>
+          `<span class="px-2 py-0.5 rounded-md ${gapBadgeClass(tag)} text-[8px] font-black border uppercase tracking-tight shadow-sm">${tag}</span>`,
+      )
+      .join('');
+
+    return `<div class="flex flex-col items-center justify-center gap-1 py-0.5"><span class="px-2 py-0.5 rounded-md ${scoreColor} text-[9px] font-black border tabular-nums tracking-tight shadow-sm">${label}</span>${gapHtml ? `<div class="flex flex-wrap gap-1 items-center justify-center max-w-[11rem]">${gapHtml}</div>` : ''}</div>`;
   };
 
   const updateOpportunityBadges = () => {
@@ -11299,6 +11533,75 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function paintLeadPanelBuiltWithQuickTile(row) {
+    const btn = document.getElementById('mobilePanelBuiltWithBtn');
+    const short = document.getElementById('mobilePanelBuiltWithShort');
+    if (!btn || !short) return;
+
+    const website = readPipelineRowDisplayWebsite(row);
+    const domain = domainFromWebsite(website);
+    const cms = String(row.dataset.cmsPlatform || '').trim();
+    const tags = parseLeadTechStackTags(row.dataset.techStackTags);
+    const hasWebsite = !!domain;
+    const hasStack = (!!cms && cms !== 'N/A') || tags.length > 0;
+
+    if (!hasWebsite) {
+      btn.classList.add('hidden');
+      return;
+    }
+    btn.classList.remove('hidden', 'opacity-20', 'pointer-events-none');
+
+    if (row.dataset.builtWithLoading === '1') {
+      short.textContent = 'Loading…';
+    } else if (cms && cms !== 'N/A') {
+      short.textContent = cms.length > 20 ? `${cms.slice(0, 20)}…` : cms;
+    } else if (tags.length) {
+      const label = String(tags[0] || '');
+      short.textContent = label.length > 20 ? `${label.slice(0, 20)}…` : label;
+    } else {
+      short.textContent = 'Tap to load';
+    }
+
+    if (!window.__mobilePanelBuiltWithBtnBound) {
+      window.__mobilePanelBuiltWithBtnBound = true;
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const activeRow =
+          (typeof currentRow !== 'undefined' && currentRow) ||
+          (typeof resolvePanelActionRow === 'function' ? resolvePanelActionRow() : null);
+        if (!activeRow || !activeRow.dataset) return;
+        const stackTags = parseLeadTechStackTags(activeRow.dataset.techStackTags);
+        const stackCms = String(activeRow.dataset.cmsPlatform || '').trim();
+        const hasStackNow = (!!stackCms && stackCms !== 'N/A') || stackTags.length > 0;
+        if (!hasStackNow) {
+          if (activeRow.dataset.builtWithLoading === '1') return;
+          fetchLeadBuiltWithTechStack(activeRow);
+          return;
+        }
+        const bwUrl =
+          String(activeRow.dataset.builtWithUrl || '').trim() ||
+          (domainFromWebsite(readPipelineRowDisplayWebsite(activeRow))
+            ? `https://builtwith.com/${domainFromWebsite(readPipelineRowDisplayWebsite(activeRow))}`
+            : '');
+        const wrap = document.getElementById('leadPanelBuiltWithWrap');
+        const glance = document.getElementById('leadPanelCallerGlance');
+        if (glance && typeof glance.scrollIntoView === 'function') {
+          glance.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        if (wrap) {
+          wrap.classList.remove('hidden');
+          setTimeout(() => {
+            if (typeof wrap.scrollIntoView === 'function') {
+              wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+          }, 200);
+        }
+        if (bwUrl) window.open(bwUrl, '_blank', 'noopener,noreferrer');
+      });
+    }
+  }
+
   function paintLeadPanelBuiltWith(row) {
     const wrap = document.getElementById('leadPanelBuiltWithWrap');
     const cmsEl = document.getElementById('leadPanelBuiltWithCms');
@@ -11396,6 +11699,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
     }
+    paintLeadPanelBuiltWithQuickTile(row);
   }
 
   async function fetchLeadBuiltWithTechStack(row) {
@@ -11563,6 +11867,8 @@ document.addEventListener('DOMContentLoaded', () => {
         };
       }
     }
+
+    paintLeadPanelBuiltWithQuickTile(row);
   }
   window.__paintLeadPanelQuickOutreach = paintLeadPanelQuickOutreach;
 

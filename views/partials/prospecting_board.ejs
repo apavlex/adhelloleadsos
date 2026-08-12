@@ -1,3 +1,5 @@
+<% const _wsProspect = typeof workspaceProspecting !== 'undefined' && workspaceProspecting ? workspaceProspecting : {}; %>
+<% const _lowReviewsThreshold = _wsProspect.lowReviewsThreshold != null ? _wsProspect.lowReviewsThreshold : 30; %>
 <% const _lfs = typeof leadsFilterSuffix !== 'undefined' ? leadsFilterSuffix : ''; %>
 <% const _lf = typeof leadListFilters !== 'undefined' && leadListFilters ? leadListFilters : {}; %>
 <% const _fk = _lf.folderKey ? String(_lf.folderKey) : ''; %>
@@ -10,11 +12,12 @@
 <% const _qlDisp = _isQlTag ? _tagKey.slice(3) : ''; %>
 <% const _activeQlTag = _isQlTag ? _qlItems.find(function (x) { return x && String(x.disposition) === _qlDisp; }) : null; %>
 <% const _activeTag = !_isQlTag && _tagKey ? _tags.find(function (x) { return x && String(x.key) === _tagKey; }) : null; %>
-<% const _tagFilterLabel = _activeTag ? (_activeTag.name || 'Tag') : (_activeQlTag ? _activeQlTag.label : 'Any tag'); %>
+<% const _catOpts = typeof pipelineCategoryOptions !== 'undefined' && pipelineCategoryOptions ? pipelineCategoryOptions : []; %>
+<% const _activeCategory = _lf.category ? String(_lf.category) : ''; %>
 <% const _stOpts = typeof pipelineStatusOptions !== 'undefined' && pipelineStatusOptions ? pipelineStatusOptions : []; %>
 <% const _src = typeof sourceFilter !== 'undefined' ? sourceFilter : 'all'; %>
 <% const _hasActiveFilters = _lf && typeof _lf === 'object' && Object.keys(_lf).length > 0; %>
-<% const _advOpen = !!(_lf.addedFrom || _lf.addedTo || _lf.stage || _lf.status || _lf.tagKey || (_lf.minRating != null && String(_lf.minRating) !== '') || (_lf.minReviews != null && String(_lf.minReviews) !== '')); %>
+<% const _advOpen = !!(_lf.addedFrom || _lf.addedTo || _lf.stage || _lf.status || _lf.tagKey || _activeCategory || (_lf.minRating != null && String(_lf.minRating) !== '') || (_lf.minReviews != null && String(_lf.minReviews) !== '') || (_lf.maxReviews != null && String(_lf.maxReviews) !== '')); %>
 <% const _reach = _lf.reach ? String(_lf.reach) : ''; %>
 <% const _reachLabels = { email: 'Has email', phone: 'Has phone', call: 'Has phone', double_tap: 'Double tap ready', doubletap: 'Double tap ready' }; %>
 <% function _pipelineQs(omit) {
@@ -29,8 +32,10 @@
   if (o !== 'addedTo' && _lf.addedTo) p.push('addedTo=' + encodeURIComponent(String(_lf.addedTo)));
   if (o !== 'stage' && _lf.stage != null && String(_lf.stage) !== '') p.push('stage=' + encodeURIComponent(String(_lf.stage)));
   if (o !== 'status' && _lf.status) p.push('status=' + encodeURIComponent(String(_lf.status)));
+  if (o !== 'category' && _activeCategory) p.push('category=' + encodeURIComponent(_activeCategory));
   if (o !== 'minRating' && _lf.minRating != null && String(_lf.minRating) !== '') p.push('minRating=' + encodeURIComponent(String(_lf.minRating)));
   if (o !== 'minReviews' && _lf.minReviews != null && String(_lf.minReviews) !== '') p.push('minReviews=' + encodeURIComponent(String(_lf.minReviews)));
+  if (o !== 'maxReviews' && _lf.maxReviews != null && String(_lf.maxReviews) !== '') p.push('maxReviews=' + encodeURIComponent(String(_lf.maxReviews)));
   return '/prospecting?' + p.join('&');
 } %>
 <% if (typeof importError !== 'undefined' && importError) { %>
@@ -311,6 +316,15 @@
         </div>
       </div>
     </div>
+    <div class="lg:col-span-3">
+      <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mb-1.5 block" for="pipelineCategoryFilter">Category</label>
+      <input type="text" id="pipelineCategoryFilter" name="category" list="pipelineCategoryFilterOptions" value="<%= _activeCategory %>" placeholder="Any category" autocomplete="off" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white placeholder:text-brand-muted/70" />
+      <datalist id="pipelineCategoryFilterOptions">
+        <% _catOpts.forEach(function (cat) { %>
+        <option value="<%= cat %>"></option>
+        <% }); %>
+      </datalist>
+    </div>
     <div class="lg:col-span-2">
       <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mb-1.5 block">Min rating</label>
       <input type="number" name="minRating" min="0" max="5" step="0.1" value="<%= _lf.minRating || '' %>" placeholder="0" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white" />
@@ -319,8 +333,14 @@
       <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mb-1.5 block">Min reviews</label>
       <input type="number" name="minReviews" min="0" step="1" value="<%= _lf.minReviews || '' %>" placeholder="0" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white" />
     </div>
-    <div class="lg:col-span-12 flex flex-wrap gap-2 pt-1">
+    <div class="lg:col-span-2">
+      <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mb-1.5 block">Max reviews</label>
+      <input type="number" name="maxReviews" min="0" step="1" value="<%= _lf.maxReviews || '' %>" placeholder="e.g. 60" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white" />
+      <p class="text-[10px] text-brand-muted mt-1">Low reviews threshold: ≤ <%= _lowReviewsThreshold %></p>
+    </div>
+    <div class="lg:col-span-12 flex flex-wrap items-center gap-2 pt-1">
       <button type="submit" class="btn-pill btn-primary px-6 py-2.5 text-[10px] font-black uppercase tracking-widest">Apply filters</button>
+      <a href="/prospecting?tab=pipeline&amp;source=<%= encodeURIComponent(_src) %><% if (_fk) { %>&amp;folderKey=<%= encodeURIComponent(_fk) %><% } %>&amp;maxReviews=<%= encodeURIComponent(String(_lowReviewsThreshold)) %>" class="inline-flex items-center gap-1.5 rounded-full border border-amber-200/80 dark:border-amber-800/50 bg-amber-50/80 dark:bg-amber-950/30 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-950/50 transition-colors" title="Show leads with <%= _lowReviewsThreshold %> or fewer Google reviews">Low reviews (≤ <%= _lowReviewsThreshold %>)</a>
     </div>
     </div>
   </details>
@@ -354,11 +374,17 @@
   <% if (_lf.status) { %>
   <a href="<%= _pipelineQs('status') %>" class="inline-flex items-center gap-1.5 rounded-full border border-brand-border/60 dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800/80 pl-3 pr-2 py-1 text-[10px] font-bold text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors"><%= _lf.status %><span class="text-brand-muted" aria-hidden="true">×</span></a>
   <% } %>
+  <% if (_activeCategory) { %>
+  <a href="<%= _pipelineQs('category') %>" class="inline-flex items-center gap-1.5 rounded-full border border-brand-border/60 dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800/80 pl-3 pr-2 py-1 text-[10px] font-bold text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors">Category: <span class="max-w-[10rem] truncate"><%= _activeCategory %></span><span class="text-brand-muted" aria-hidden="true">×</span></a>
+  <% } %>
   <% if (_lf.minRating != null && String(_lf.minRating) !== '') { %>
   <a href="<%= _pipelineQs('minRating') %>" class="inline-flex items-center gap-1.5 rounded-full border border-brand-border/60 dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800/80 pl-3 pr-2 py-1 text-[10px] font-bold text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors">Rating ≥ <%= _lf.minRating %><span class="text-brand-muted" aria-hidden="true">×</span></a>
   <% } %>
   <% if (_lf.minReviews != null && String(_lf.minReviews) !== '') { %>
   <a href="<%= _pipelineQs('minReviews') %>" class="inline-flex items-center gap-1.5 rounded-full border border-brand-border/60 dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800/80 pl-3 pr-2 py-1 text-[10px] font-bold text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors">Reviews ≥ <%= _lf.minReviews %><span class="text-brand-muted" aria-hidden="true">×</span></a>
+  <% } %>
+  <% if (_lf.maxReviews != null && String(_lf.maxReviews) !== '') { %>
+  <a href="<%= _pipelineQs('maxReviews') %>" class="inline-flex items-center gap-1.5 rounded-full border border-amber-200/60 dark:border-amber-800/40 bg-amber-50/60 dark:bg-amber-950/30 pl-3 pr-2 py-1 text-[10px] font-bold text-amber-900 dark:text-amber-200 hover:border-amber-300/60 transition-colors">Reviews ≤ <%= _lf.maxReviews %><span class="text-brand-muted" aria-hidden="true">×</span></a>
   <% } %>
   <% if (_reach) { %>
   <a href="<%= _pipelineQs('reach') %>" class="inline-flex items-center gap-1.5 rounded-full border border-brand-border/60 dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800/80 pl-3 pr-2 py-1 text-[10px] font-bold text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors" title="Remove reach filter"><%= _reachLabels[_reach.toLowerCase()] || ('Reach: ' + _reach) %><span class="text-brand-muted" aria-hidden="true">×</span></a>

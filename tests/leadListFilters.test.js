@@ -105,4 +105,43 @@ describe('leadListFilters search', () => {
     assert.equal(filtered[0].title, 'B');
     assert.equal(leadMatchesQuickLogFilter({ lastDisposition: 'no_answer' }, quickLogFilterTagKey('no_answer')), true);
   });
+
+  it('filters by maxReviews for low-review prospecting', () => {
+    const leads = [
+      { title: 'Low reviews', reviewsCount: 12 },
+      { title: 'Many reviews', reviewsCount: 150 },
+      { title: 'No count', reviewsCount: null },
+    ];
+    const filtered = applyLeadListFilters(leads, { maxReviews: '30' });
+    assert.equal(filtered.length, 2);
+    assert.deepEqual(
+      filtered.map((l) => l.title).sort(),
+      ['Low reviews', 'No count'],
+    );
+  });
+
+  it('filters by category with partial match', () => {
+    const leads = [
+      { title: 'Green Lawn', categoryName: 'Landscaper' },
+      { title: 'Cool Air', categoryName: 'HVAC contractor' },
+      { title: 'No cat' },
+    ];
+    const exact = applyLeadListFilters(leads, { category: 'Landscaper' });
+    assert.equal(exact.length, 1);
+    assert.equal(exact[0].title, 'Green Lawn');
+    const partial = applyLeadListFilters(leads, { category: 'hvac' });
+    assert.equal(partial.length, 1);
+    assert.equal(partial[0].title, 'Cool Air');
+  });
+
+  it('buildPipelineCategoryOptions dedupes and sorts categories', () => {
+    const { buildPipelineCategoryOptions } = require('../services/leadListFilters');
+    const opts = buildPipelineCategoryOptions([
+      { categoryName: 'Landscaper' },
+      { categoryName: 'landscaper' },
+      { categoryName: 'HVAC contractor' },
+      { categoryName: 'N/A' },
+    ]);
+    assert.deepEqual(opts, ['HVAC contractor', 'Landscaper']);
+  });
 });
