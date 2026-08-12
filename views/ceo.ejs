@@ -15,7 +15,7 @@
       <h1 class="font-display font-extrabold text-4xl md:text-5xl tracking-tight text-brand-dark dark:text-white">
         Automate <span class="text-brand-muted dark:text-slate-500">prospecting</span>
       </h1>
-      <p class="text-sm font-bold text-brand-muted dark:text-slate-400 mt-2">All ventures at a glance</p>
+      <p class="text-sm font-bold text-brand-muted dark:text-slate-400 mt-2">Outreach, prospecting, and campaigns in one place</p>
     </div>
     <div class="flex items-center gap-3 shrink-0">
       <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
@@ -199,87 +199,6 @@
             </span>
           </div>
           <% }); %>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Row 3: Ventures -->
-  <div class="mb-10">
-    <div class="space-y-4">
-      <h3 class="text-sm font-black uppercase tracking-widest text-brand-muted">Ventures</h3>
-
-      <!-- AdHello Agency -->
-      <div class="bg-white/80 backdrop-blur rounded-[2rem] p-6 border border-brand-border/40 shadow-sm hover:border-brand-yellow/30 transition-all">
-        <div class="flex items-start justify-between gap-3 mb-4">
-          <div>
-            <h4 class="font-black text-lg text-brand-dark">AdHello Agency</h4>
-            <p class="text-xs text-brand-muted font-bold">Home Service Marketing</p>
-          </div>
-          <a href="<%= leadsUrl %>/reports" target="_blank" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline shrink-0">Reports →</a>
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div><div class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Leads</div><div class="text-xl font-black text-brand-dark"><%= totalLeads %></div></div>
-          <div><div class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Traffic</div><div class="text-xl font-black text-brand-dark"><%= totalVisits %></div></div>
-          <div><div class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Conversion</div><div class="text-xl font-black text-brand-dark"><%= conversionRate %>%</div></div>
-          <div><div class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Clients</div><div class="text-xl font-black text-brand-dark"><%= activeClients %></div></div>
-        </div>
-        <div class="mt-4 flex items-center gap-2">
-          <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
-          <span class="text-[10px] font-bold text-brand-muted">Site live · GBP audits active · Chatbot online</span>
-        </div>
-      </div>
-
-      <!-- Personal Brand -->
-      <div class="bg-white/80 backdrop-blur rounded-[2rem] p-6 border border-brand-border/40 shadow-sm hover:border-amber-300 transition-all opacity-80">
-        <div class="flex items-start justify-between gap-3 mb-4">
-          <div>
-            <h4 class="font-black text-lg text-brand-dark">Personal Brand</h4>
-            <p class="text-xs text-brand-muted font-bold">X / LinkedIn / YouTube</p>
-          </div>
-          <span class="text-[10px] font-black uppercase tracking-widest text-amber-500 bg-amber-50 px-3 py-1 rounded-full">Setup needed</span>
-        </div>
-        <div class="grid grid-cols-3 gap-3 text-center">
-          <div><div class="text-[9px] font-black uppercase tracking-widest text-brand-muted">X Followers</div><div class="text-lg font-black text-brand-dark">—</div></div>
-          <div><div class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Posts</div><div class="text-lg font-black text-brand-dark">0</div></div>
-          <div><div class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Impressions</div><div class="text-lg font-black text-brand-dark">—</div></div>
-        </div>
-        <p class="mt-3 text-[10px] text-brand-muted italic">Connect your X developer account to populate this.</p>
-      </div>
-
-      <!-- Trading Coach -->
-      <div class="bg-white/80 backdrop-blur rounded-[2rem] p-6 border border-brand-border/40 shadow-sm hover:border-violet-300 transition-all opacity-60">
-        <div class="flex items-start justify-between gap-3 mb-4">
-          <div>
-            <h4 class="font-black text-lg text-brand-dark">Trading Coach</h4>
-            <p class="text-xs text-brand-muted font-bold">Futures Education</p>
-          </div>
-          <span class="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-3 py-1 rounded-full">Coming Soon</span>
-        </div>
-        <p class="text-xs text-brand-muted italic">Tell me your offer and I'll build this out.</p>
-      </div>
-
-      <!-- Presso Coffee Co. -->
-      <div class="bg-white/80 backdrop-blur rounded-[2rem] p-6 border border-brand-border/40 shadow-sm hover:border-amber-300 transition-all">
-        <div class="flex items-start justify-between gap-3 mb-4">
-          <div>
-            <h4 class="font-black text-lg text-brand-dark">Presso Coffee Co.</h4>
-            <p class="text-xs text-brand-muted font-bold">Camas, WA · Local Coffee Shop</p>
-          </div>
-          <div class="flex items-center gap-2 shrink-0">
-            <a href="/newsletter" class="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-amber-700 bg-amber-100 px-2.5 py-1 rounded-full hover:bg-amber-200 transition-colors"><%- include('partials/icon', { name: 'newspaper', iconClass: 'w-3.5 h-3.5' }) %> Newsletter</a>
-            <a href="https://www.pressocoffee.co" target="_blank" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline">Site →</a>
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div><div class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Locations</div><div class="text-xl font-black text-brand-dark">3</div></div>
-          <div><div class="text-[9px] font-black uppercase tracking-widest text-brand-muted">GBP Audit</div><div class="text-xl font-black text-brand-dark bg-amber-100 px-2 py-0.5 rounded inline-block text-amber-700">Pending</div></div>
-          <div class="col-span-2"><div class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Next Steps</div><div class="text-sm font-bold text-brand-dark mt-1">GBP optimization · Google Maps listing · Local SEO · Review system</div></div>
-        </div>
-        <div class="mt-4 flex flex-wrap gap-1.5">
-          <span class="text-[9px] font-black px-2 py-1 rounded-full bg-amber-100 text-amber-700">GBP Setup</span>
-          <span class="text-[9px] font-black px-2 py-1 rounded-full bg-blue-100 text-blue-700">Local SEO</span>
-          <span class="text-[9px] font-black px-2 py-1 rounded-full bg-green-100 text-green-700">Review System</span>
         </div>
       </div>
     </div>
