@@ -99,7 +99,7 @@
       return String(lead.permitDateIssued || lead.permitDateFiled || '').trim();
     }
     function plcFormatFullAddressLine(lead) {
-      var street = String(lead.address || '').trim();
+      var street = plcStripTitleFromAddress(String(lead.address || '').trim(), lead.title);
       if (!street || street === 'N/A') street = '';
       var city = String(lead.city || '').trim();
       var state = String(lead.state || '').trim();
@@ -126,6 +126,15 @@
         }
       }
       return street + ', ' + loc;
+    }
+    function plcStripTitleFromAddress(address, title) {
+      var a = String(address || '').trim();
+      var t = String(title || '').trim();
+      if (!a || a === 'N/A' || !t) return a;
+      if (a.toLowerCase() === t.toLowerCase()) return '';
+      var escaped = t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      var stripped = a.replace(new RegExp('^' + escaped + '\\s*[,–—-]?\\s*', 'i'), '').trim();
+      return stripped || a;
     }
   %>
   <style>
@@ -481,7 +490,7 @@
               var _listCity = String(lead.city || '').trim();
               var _listState = String(lead.state || '').trim();
               var _listZip = String(lead.zip || lead.postalCode || '').trim();
-              var _listStreet = String(lead.address || '').trim();
+              var _listStreet = plcStripTitleFromAddress(String(lead.address || '').trim(), lead.title);
               if (!_listStreet || _listStreet === 'N/A') _listStreet = '';
               var _listFullAddress = plcFormatFullAddressLine(lead);
               var _listAddrTitle = _listFullAddress || _listStreet || '';

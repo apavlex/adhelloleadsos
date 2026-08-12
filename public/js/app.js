@@ -8162,9 +8162,22 @@ document.addEventListener('DOMContentLoaded', () => {
     return a && a !== 'N/A' ? a : '';
   }
 
+  function stripTitleFromAddress(address, title) {
+    let a = String(address || '').trim();
+    const t = String(title || '').trim();
+    if (!a || a === 'N/A' || !t) return a;
+    if (a.toLowerCase() === t.toLowerCase()) return '';
+    const escaped = t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const stripped = a.replace(new RegExp(`^${escaped}\\s*[,–—-]?\\s*`, 'i'), '').trim();
+    return stripped || a;
+  }
+
   function formatPipelineFullAddressLine(src) {
     if (!src) return '';
-    let street = String(src.address != null ? src.address : src.street || '').trim();
+    let street = stripTitleFromAddress(
+      String(src.address != null ? src.address : src.street || '').trim(),
+      src.title || src.leadTitle || '',
+    );
     if (!street || street === 'N/A') street = '';
     const city = String(src.city || '').trim();
     const state = String(src.state || '').trim();
@@ -8205,7 +8218,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const compactEl = wrap.querySelector('.lead-row-address--compact');
     const detailEl = wrap.querySelector('.lead-row-address--detail');
     const streetRaw = row.dataset.address;
-    let street = streetRaw != null ? String(streetRaw).trim() : '';
+    let street = streetRaw != null ? stripTitleFromAddress(String(streetRaw).trim(), row.dataset.title || '') : '';
     if (!street || street === 'N/A') street = '';
     const full = formatPipelineFullAddressLine(row.dataset);
     const title = full || street || '';
