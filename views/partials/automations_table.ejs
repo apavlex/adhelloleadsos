@@ -1,0 +1,205 @@
+<% 
+  const autoList = typeof automations !== 'undefined' && automations ? automations : [];
+  const autoSummary = typeof automationsSummary !== 'undefined' && automationsSummary ? automationsSummary : {};
+  const canManage = typeof canManageWorkspace !== 'undefined' && canManageWorkspace;
+  function autoTypeLabel(a) {
+    if (a.type === 'outreach') return 'Outreach';
+    if (a.type === 'prospecting') return 'Prospecting';
+    if (a.type === 'messages') return 'Messages';
+    return a.type || 'Automation';
+  }
+  function autoStatusClass(status) {
+    if (status === 'running') return 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300';
+    if (status === 'paused') return 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300';
+    return 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400';
+  }
+  function formatWhen(iso) {
+    if (!iso) return '—';
+    try {
+      const d = new Date(iso);
+      return d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    } catch (e) { return '—'; }
+  }
+%>
+<section class="mb-10" id="automationsSection">
+  <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+    <div>
+      <div class="inline-flex items-center gap-2 bg-white dark:bg-slate-900 px-3 py-1 rounded-full border border-brand-border dark:border-white/10 shadow-sm mb-3">
+        <span class="w-2 h-2 rounded-full bg-brand-yellow animate-pulse"></span>
+        <span class="text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400">Live automations</span>
+      </div>
+      <h2 class="font-display font-black text-2xl md:text-3xl tracking-tight text-brand-dark dark:text-white">Automations</h2>
+      <p class="text-sm text-brand-muted font-medium mt-1">Folder outreach, prospecting searches, and message cadences</p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2 shrink-0">
+      <% if (autoSummary.running != null) { %>
+      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-[10px] font-black uppercase tracking-widest">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span><%= autoSummary.running %> running
+      </span>
+      <% } %>
+      <% if (autoSummary.paused != null && autoSummary.paused > 0) { %>
+      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 text-[10px] font-black uppercase tracking-widest">
+        <%= autoSummary.paused %> paused
+      </span>
+      <% } %>
+      <a href="/prospecting?tab=folders" class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white bg-brand-cream dark:bg-white/10 hover:bg-brand-yellow/20 px-3 py-1.5 rounded-full transition-colors">Manage folders</a>
+      <button type="button" id="automationsRefreshBtn" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white px-3 py-1.5 rounded-full border border-brand-border/50 dark:border-white/10 transition-colors" title="Refresh automations">↻ Refresh</button>
+    </div>
+  </div>
+
+  <% if (autoList.length > 0) { %>
+  <div class="brand-card overflow-hidden dark:bg-slate-900 dark:border-white/10">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left border-collapse" id="automationsTable">
+        <thead>
+          <tr class="border-b border-brand-border dark:border-white/10 bg-white dark:bg-white/5">
+            <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-muted dark:text-slate-400">Name</th>
+            <th class="px-4 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-muted dark:text-slate-400 text-center">Type</th>
+            <th class="px-4 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-muted dark:text-slate-400 text-center">Status</th>
+            <th class="px-4 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-muted dark:text-slate-400 text-center">Enrolled</th>
+            <th class="px-4 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-muted dark:text-slate-400 text-center">Last activity</th>
+            <th class="px-4 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-muted dark:text-slate-400 text-center">Next run</th>
+            <th class="px-4 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-muted dark:text-slate-400 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-brand-border/40 dark:divide-white/10" id="automationsTableBody">
+          <% autoList.forEach(function(a) { %>
+          <tr class="group hover:bg-brand-cream/50 dark:hover:bg-white/5 transition-all duration-300" data-automation-id="<%= a.id %>">
+            <td class="px-6 py-5">
+              <div class="flex items-center gap-3 min-w-0">
+                <div class="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center border <%= a.type === 'outreach' ? 'bg-brand-yellow/10 border-brand-yellow/20 text-brand-dark dark:text-white' : a.type === 'prospecting' ? 'bg-indigo-50 dark:bg-indigo-950/50 border-indigo-200/50 dark:border-indigo-800/50 text-indigo-600 dark:text-indigo-300' : 'bg-purple-50 dark:bg-purple-950/50 border-purple-200/50 dark:border-purple-800/50 text-purple-600 dark:text-purple-300' %>">
+                  <% if (a.type === 'outreach') { %>
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" /></svg>
+                  <% } else if (a.type === 'prospecting') { %>
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
+                  <% } else { %>
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>
+                  <% } %>
+                </div>
+                <div class="min-w-0">
+                  <div class="font-bold text-brand-dark dark:text-white text-sm truncate"><%= a.name %></div>
+                  <% if (a.subtitle) { %>
+                  <div class="text-[10px] font-medium text-brand-muted truncate mt-0.5"><%= a.subtitle %></div>
+                  <% } %>
+                </div>
+              </div>
+            </td>
+            <td class="px-4 py-5 text-center">
+              <span class="inline-flex px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider <%= a.type === 'outreach' ? 'bg-brand-yellow/15 text-brand-dark dark:text-brand-yellow' : a.type === 'prospecting' ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300' : 'bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300' %>"><%= autoTypeLabel(a) %></span>
+            </td>
+            <td class="px-4 py-5 text-center">
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider <%= autoStatusClass(a.status) %>">
+                <% if (a.status === 'running') { %><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span><% } %>
+                <%= a.status %>
+              </span>
+            </td>
+            <td class="px-4 py-5 text-center text-sm font-bold text-brand-dark dark:text-white">
+              <%= a.leadsEnrolled != null ? a.leadsEnrolled : '—' %>
+            </td>
+            <td class="px-4 py-5 text-center">
+              <div class="text-xs font-bold text-brand-dark dark:text-white"><%= formatWhen(a.lastActivity) %></div>
+              <% if (a.lastRunDetail) { %>
+              <div class="text-[9px] text-brand-muted mt-0.5"><%= a.lastRunDetail %></div>
+              <% } %>
+            </td>
+            <td class="px-4 py-5 text-center text-xs font-bold text-brand-dark dark:text-white">
+              <%= a.nextRun ? formatWhen(a.nextRun) : '—' %>
+            </td>
+            <td class="px-4 py-5 text-right">
+              <div class="flex items-center justify-end gap-1.5 flex-wrap">
+                <% if (canManage && a.canPause) { %>
+                <button type="button" class="auto-action-btn px-2.5 py-1.5 rounded-lg border border-brand-border/60 dark:border-white/10 text-[9px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors" data-id="<%= a.id %>" data-action="pause" data-folder-key="<%= a.folderKey || '' %>" data-schedule-key="<%= a.scheduleKey || '' %>">Pause</button>
+                <% } %>
+                <% if (canManage && a.canResume) { %>
+                <button type="button" class="auto-action-btn px-2.5 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800/50 text-[9px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors" data-id="<%= a.id %>" data-action="resume" data-folder-key="<%= a.folderKey || '' %>" data-schedule-key="<%= a.scheduleKey || '' %>">Resume</button>
+                <% } %>
+                <% if (canManage && a.canRun) { %>
+                <button type="button" class="auto-action-btn px-2.5 py-1.5 rounded-lg bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark text-[9px] font-black uppercase tracking-wider hover:opacity-90 transition-opacity" data-id="<%= a.id %>" data-action="run" data-folder-key="<%= a.folderKey || '' %>">Run now</button>
+                <% } %>
+                <% if (canManage && a.canStop) { %>
+                <button type="button" class="auto-action-btn px-2.5 py-1.5 rounded-lg border border-red-200 dark:border-red-800/50 text-[9px] font-black uppercase tracking-wider text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors" data-id="<%= a.id %>" data-action="stop" data-schedule-key="<%= a.scheduleKey || '' %>">Stop</button>
+                <% } %>
+                <% if (a.settingsLink) { %>
+                <a href="<%= a.settingsLink %>" class="px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider text-brand-muted hover:text-brand-dark dark:hover:text-white transition-colors" title="Open settings">→</a>
+                <% } %>
+              </div>
+            </td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <% } else { %>
+  <div class="brand-card p-12 md:p-16 text-center dark:bg-slate-900 dark:border-white/10">
+    <div class="w-16 h-16 bg-brand-cream dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-6 border border-brand-border dark:border-white/10">
+      <svg class="w-8 h-8 text-brand-muted/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3V6a3 3 0 013-3h13.5a3 3 0 013 3v5.25a3 3 0 01-3 3m-16.5 0V18a2.25 2.25 0 002.25 2.25h13.5A2.25 2.25 0 0021 18v-2.625" /></svg>
+    </div>
+    <h3 class="font-display font-extrabold text-xl md:text-2xl text-brand-dark dark:text-white mb-3">No automations yet</h3>
+    <p class="text-brand-muted font-medium mb-8 max-w-md mx-auto text-sm">Enable auto outreach on a folder, turn on workspace auto-pool, or schedule a prospecting search to see them here.</p>
+    <div class="flex flex-col sm:flex-row gap-3 justify-center">
+      <a href="/prospecting?tab=folders" class="btn-pill btn-primary px-8">Folder outreach</a>
+      <a href="/prospecting?tab=queue" class="btn-pill px-8 border border-brand-border dark:border-white/10 text-brand-dark dark:text-white hover:border-brand-yellow/50">Schedule search</a>
+    </div>
+  </div>
+  <% } %>
+  <p id="automationsStatus" class="mt-3 text-xs text-brand-muted hidden" role="status"></p>
+</section>
+
+<script>
+(function() {
+  var statusEl = document.getElementById('automationsStatus');
+  function showStatus(msg, isError) {
+    if (!statusEl) return;
+    statusEl.textContent = msg;
+    statusEl.className = 'mt-3 text-xs ' + (isError ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400');
+    statusEl.classList.remove('hidden');
+    setTimeout(function() { statusEl.classList.add('hidden'); }, 4000);
+  }
+
+  function reloadAutomations() {
+    fetch('/ceo/automations', { headers: { 'Accept': 'application/json' } })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.success) window.location.reload();
+      })
+      .catch(function(e) { showStatus('Refresh failed.', true); });
+  }
+
+  var refreshBtn = document.getElementById('automationsRefreshBtn');
+  if (refreshBtn) refreshBtn.addEventListener('click', reloadAutomations);
+
+  document.querySelectorAll('.auto-action-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var id = btn.getAttribute('data-id');
+      var action = btn.getAttribute('data-action');
+      var folderKey = btn.getAttribute('data-folder-key') || '';
+      var scheduleKey = btn.getAttribute('data-schedule-key') || '';
+      if (!id || !action) return;
+
+      if (action === 'stop' && !confirm('Stop this scheduled search? It will be deleted.')) return;
+
+      btn.disabled = true;
+      fetch('/ceo/automations/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ id: id, action: action, folderKey: folderKey, scheduleKey: scheduleKey }),
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.success) {
+            showStatus(action.charAt(0).toUpperCase() + action.slice(1) + ' succeeded.');
+            setTimeout(reloadAutomations, 600);
+          } else {
+            showStatus(d.error || 'Action failed.', true);
+            btn.disabled = false;
+          }
+        })
+        .catch(function() {
+          showStatus('Action failed.', true);
+          btn.disabled = false;
+        });
+    });
+  });
+})();
+</script>

@@ -5,6 +5,11 @@ const { userEmail } = require('../services/workspaceService');
 const { runPavlexChat, runPavlexMcpDebug } = require('../services/pavlex/pavlexAgent');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const ghlClient = require('../services/ghlClient');
+const { listAutomationsForWorkspace } = require('../services/automationsRegistry');
+const { normalizeAutoPoolSettings } = require('../services/prospectingAutoPool');
+const { loadFolderOutreachFromFolder, normalizeFolderOutreachSettings } = require('../services/folderOutreachAutomation');
+const { runFolderOutreach } = require('../services/folderOutreachAutomation');
+const { runAutoPool } = require('../services/prospectingAutoPool');
 
 /**
  * GET /ceo — CEO Dashboard showing all ventures in one view.
@@ -136,12 +141,14 @@ router.get('/', async (req, res) => {
       tasksByColumn[col].push(t);
     });
 
+    const { automations, summary: automationsSummary } = await listAutomationsForWorkspace(wid);
+
     res.render('ceo', {
       user: req.user,
       activePage: 'ceo',
       workspace: req.workspace || null,
       workspaceAccent: (req.workspace && req.workspace.accentColor) || '#CA8A04',
-      canManageWorkspace: true,
+      canManageWorkspace: !!req.canManageWorkspace,
 
       // Agency metrics
       totalLeads,
@@ -175,6 +182,10 @@ router.get('/', async (req, res) => {
       taskColumns,
       tasksByColumn,
 
+      // Automations
+      automations,
+      automationsSummary,
+
       // External links
       adhelloUrl: 'https://adhello.ai',
       leadsUrl: 'https://adhelloleadsos.onrender.com',
@@ -184,6 +195,105 @@ router.get('/', async (req, res) => {
   } catch (err) {
     console.error('[CEO] Dashboard error:', err.message);
     res.status(500).send(err.message);
+  }
+});
+
+/**
+ * GET /ceo/automations — JSON list of workspace automations (for refresh).
+ */
+router.get('/automations', async (req, res, next) => {
+  try {
+    const { automations, summary } = await listAutomationsForWorkspace(req.workspaceId);
+    res.json({ success: true, automations, summary });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /ceo/automations/action — pause/resume/run/stop automations from the command center.
+ * Body: { id, action: 'pause'|'resume'|'run'|'stop', folderKey?, scheduleKey? }
+ */
+router.post('/automations/action', express.json(), async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Only workspace admins can manage automations.' });
+    }
+
+    const wid = req.workspaceId;
+    const id = String(req.body.id || '').trim();
+    const action = String(req.body.action || '').trim().toLowerCase();
+    if (!id || !action) {
+      return res.status(400).json({ success: false, error: 'id and action are required.' });
+    }
+
+    if (id === 'auto_pool') {
+      const ws = (await dbService.getWorkspace(wid)) || { id: wid };
+      const prospecting =
+        ws.prospecting && typeof ws.prospecting === 'object' ? { ...ws.prospecting } : {};
+      const prev = normalizeAutoPoolSettings(prospecting.autoPool);
+
+      if (action === 'pause') {
+        prospecting.autoPool = normalizeAutoPoolSettings({ ...prev, enabled: false });
+        await dbService.saveWorkspace(wid, { ...ws, prospecting });
+        return res.json({ success: true, action, id, enabled: false });
+      }
+      if (action === 'resume') {
+        prospecting.autoPool = normalizeAutoPoolSettings({ ...prev, enabled: true });
+        await dbService.saveWorkspace(wid, { ...ws, prospecting });
+        return res.json({ success: true, action, id, enabled: true });
+      }
+      if (action === 'run') {
+        const result = await runAutoPool({ workspaceId: wid, settings: { ...prev, enabled: true } });
+        return res.json({ success: true, action, id, ...result });
+      }
+      return res.status(400).json({ success: false, error: 'Invalid action for auto-pool.' });
+    }
+
+    if (id.startsWith('folder_outreach:')) {
+      const folderKey = String(req.body.folderKey || id.slice('folder_outreach:'.length)).trim();
+      if (!folderKey) {
+        return res.status(400).json({ success: false, error: 'folderKey is required.' });
+      }
+      const folder = await dbService.getFolder(wid, folderKey);
+      if (!folder) {
+        return res.status(404).json({ success: false, error: 'Folder not found.' });
+      }
+      const prev = loadFolderOutreachFromFolder(folder);
+
+      if (action === 'pause') {
+        const outreachAutomation = normalizeFolderOutreachSettings({ ...prev, enabled: false });
+        await dbService.updateFolder(wid, folderKey, { outreachAutomation });
+        return res.json({ success: true, action, id, enabled: false });
+      }
+      if (action === 'resume') {
+        const outreachAutomation = normalizeFolderOutreachSettings({ ...prev, enabled: true });
+        await dbService.updateFolder(wid, folderKey, { outreachAutomation });
+        return res.json({ success: true, action, id, enabled: true });
+      }
+      if (action === 'run') {
+        const result = await runFolderOutreach({
+          workspaceId: wid,
+          folderKey,
+          settings: { ...prev, enabled: true },
+        });
+        return res.json({ success: true, action, id, ...result });
+      }
+      return res.status(400).json({ success: false, error: 'Invalid action for folder outreach.' });
+    }
+
+    if (id.startsWith('schedule:') && action === 'stop') {
+      const scheduleKey = String(req.body.scheduleKey || id.slice('schedule:'.length)).trim();
+      if (!scheduleKey) {
+        return res.status(400).json({ success: false, error: 'scheduleKey is required.' });
+      }
+      await dbService.deleteSchedule(scheduleKey);
+      return res.json({ success: true, action, id, deleted: true });
+    }
+
+    return res.status(400).json({ success: false, error: 'Unknown automation or unsupported action.' });
+  } catch (err) {
+    next(err);
   }
 });
 
