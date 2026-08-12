@@ -2001,7 +2001,34 @@ document.addEventListener('DOMContentLoaded', () => {
         ds.tags = '[]';
       }
     }
+    if (lead.bookmarked) {
+      ds.bookmarked = '1';
+    } else if (lead.bookmarked === false) {
+      delete ds.bookmarked;
+    }
     return true;
+  }
+
+  function isPipelineBookmarkTable() {
+    return !!document.getElementById('prospectLeadsTable');
+  }
+
+  function rowPipelineBookmarked(row) {
+    if (!row || !row.dataset) return false;
+    if (row.dataset.bookmarked === '1') return true;
+    const lead = findInitialSavedLeadRecord(row);
+    return !!(lead && lead.bookmarked);
+  }
+
+  function bookmarkBtnTitles(saved) {
+    if (isPipelineBookmarkTable()) {
+      return saved
+        ? { title: 'Bookmarked — click to remove', label: 'Remove bookmark' }
+        : { title: 'Bookmark lead', label: 'Bookmark lead' };
+    }
+    return saved
+      ? { title: 'Saved — click to remove', label: 'Remove saved lead' }
+      : { title: 'Save lead', label: 'Save lead' };
   }
 
   function isLeadTitleSaved(title) {
@@ -2012,14 +2039,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Sync bookmark icons in table on load
   const syncBookmarkIcons = () => {
+      const pipelineTable = isPipelineBookmarkTable();
       document.querySelectorAll('.result-row').forEach(row => {
+          const bookmarkBtn = row.querySelector('.bookmark-btn');
+          if (!bookmarkBtn) return;
+
+          if (pipelineTable && row.dataset.leadKey) {
+            if (rowPipelineBookmarked(row)) markBookmarkSaved(bookmarkBtn);
+            else markBookmarkUnsaved(bookmarkBtn);
+            return;
+          }
+
           const title = row.dataset.title;
           if (title && isLeadTitleSaved(title)) {
               const mapKey = normalizeLeadTitleKey(title);
               const leadKey = savedLeads.get(mapKey);
               row.dataset.leadKey = leadKey;
-              const bookmarkBtn = row.querySelector('.bookmark-btn');
-              if (bookmarkBtn) markBookmarkSaved(bookmarkBtn);
+              markBookmarkSaved(bookmarkBtn);
           }
       });
   };
@@ -14840,6 +14876,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const row = bookmarkBtn.closest('.result-row');
     if (!row) return;
 
+    if (isPipelineBookmarkTable() && row.dataset.leadKey) {
+      await togglePipelineLeadBookmark(row, bookmarkBtn);
+      return;
+    }
+
     const title = row.dataset.title;
     if (!title) return;
 
@@ -15019,13 +15060,54 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   window.__unsaveSearchResultLead = unsaveLead;
 
+  async function togglePipelineLeadBookmark(row, bookmarkBtn) {
+    const leadKey = String((row && row.dataset && row.dataset.leadKey) || '').trim();
+    if (!leadKey) return false;
+    const next = bookmarkBtn.dataset.saved !== '1';
+    if (next) markBookmarkSaved(bookmarkBtn);
+    else markBookmarkUnsaved(bookmarkBtn);
+    try {
+      const res = await fetch('/leads/' + encodeURIComponent(leadKey) + '/update', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ bookmarked: next }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error((data && data.error) || 'Could not update bookmark');
+      }
+      if (row.dataset) {
+        if (next) row.dataset.bookmarked = '1';
+        else delete row.dataset.bookmarked;
+      }
+      const rec = findInitialSavedLeadRecord(row);
+      if (rec) rec.bookmarked = next;
+      if (typeof window.showProspectToast === 'function') {
+        window.showProspectToast(next ? 'Lead bookmarked' : 'Bookmark removed');
+      }
+      return true;
+    } catch (err) {
+      console.error('Failed to toggle pipeline bookmark:', err);
+      if (next) markBookmarkUnsaved(bookmarkBtn);
+      else markBookmarkSaved(bookmarkBtn);
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast(err.message || 'Could not update bookmark', { variant: 'error' });
+      }
+      return false;
+    }
+  }
+  window.__togglePipelineLeadBookmark = togglePipelineLeadBookmark;
+
   // --- UI helpers ---
   function markBookmarkSaved(btn) {
     if (!btn) return;
     btn.dataset.saved = '1';
     btn.classList.add('bg-brand-yellow', 'text-brand-dark', 'border-brand-yellow');
     btn.classList.remove('text-brand-muted', 'border-brand-border');
-    btn.setAttribute('title', 'Saved — click to remove');
+    const titles = bookmarkBtnTitles(true);
+    btn.setAttribute('title', titles.title);
+    btn.setAttribute('aria-label', titles.label);
     const svg = btn.querySelector('svg');
     if (svg) svg.setAttribute('fill', 'currentColor');
   }
@@ -15035,7 +15117,9 @@ document.addEventListener('DOMContentLoaded', () => {
     delete btn.dataset.saved;
     btn.classList.remove('bg-brand-yellow', 'text-brand-dark', 'border-brand-yellow');
     btn.classList.add('text-brand-muted', 'border-brand-border');
-    btn.setAttribute('title', 'Save lead');
+    const titles = bookmarkBtnTitles(false);
+    btn.setAttribute('title', titles.title);
+    btn.setAttribute('aria-label', titles.label);
     const svg = btn.querySelector('svg');
     if (svg) svg.setAttribute('fill', 'none');
   }

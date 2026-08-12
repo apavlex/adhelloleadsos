@@ -596,6 +596,7 @@ function mapLeadPipelineBootstrap(l) {
     longitude: l.longitude,
     leadLocations: Array.isArray(l.leadLocations) ? l.leadLocations : [],
     alternateTitles: Array.isArray(l.alternateTitles) ? l.alternateTitles : [],
+    bookmarked: !!l.bookmarked,
   };
 }
 

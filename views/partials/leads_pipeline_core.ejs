@@ -545,6 +545,7 @@
                 id="lead-row-<%= rowAnchor %>"
                 data-index="<%= i %>"
                 data-lead-key="<%= lead.key %>"
+                data-bookmarked="<%= lead.bookmarked ? '1' : '' %>"
                 data-stage-id="<%= plcEscAttr(activeStageId || '') %>"
                 data-pipeline-stage="<%= psRow %>"
                 <% if (lead.onPipelineBoard) { %>data-on-pipeline-board="1"<% } %>
@@ -636,6 +637,14 @@
               </td>
               <td data-plc="company" class="lead-sticky-company px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07]">
                 <div class="lead-company-inline flex items-start gap-2 min-w-0 max-w-[22rem]">
+                  <button type="button" class="bookmark-btn pipeline-bookmark-btn shrink-0 w-7 h-7 rounded-lg inline-flex items-center justify-center border border-brand-border dark:border-white/15 hover:bg-brand-yellow hover:border-brand-yellow hover:text-brand-dark dark:hover:text-brand-dark transition-all duration-300 text-brand-muted dark:text-slate-400<%= lead.bookmarked ? ' bg-brand-yellow text-brand-dark border-brand-yellow' : '' %>"
+                          data-saved="<%= lead.bookmarked ? '1' : '' %>"
+                          title="<%= lead.bookmarked ? 'Bookmarked — click to remove' : 'Bookmark lead' %>"
+                          aria-label="<%= lead.bookmarked ? 'Remove bookmark' : 'Bookmark lead' %>">
+                    <svg class="w-3.5 h-3.5" fill="<%= lead.bookmarked ? 'currentColor' : 'none' %>" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
+                    </svg>
+                  </button>
                   <div class="w-8 h-8 shrink-0 bg-brand-yellow/10 dark:bg-brand-yellow/20 rounded-xl flex items-center justify-center font-display font-extrabold text-xs text-brand-dark dark:text-white border border-brand-yellow/20 group-hover/row:bg-brand-yellow/25 transition-all duration-300">
                     <%= lead.title.charAt(0).toUpperCase() %>
                   </div>

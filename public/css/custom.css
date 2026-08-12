@@ -1652,6 +1652,12 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   -webkit-user-select: text;
 }
 
+#prospectLeadsTable .pipeline-bookmark-btn {
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 .lead-category-input--suspect {
   border-color: rgb(251 191 36 / 0.75) !important;
   background: rgb(254 243 199 / 0.35);
