@@ -47,24 +47,14 @@ function normalizeOfferCatalogEntry(raw, existingKeys) {
   };
 }
 
-function defaultOfferCatalog(baseLib) {
-  return Object.keys(baseLib || {}).map((key) => {
-    const block = baseLib[key] || {};
-    return {
-      key,
-      label: String(block.label || key).trim() || key,
-      tabLabel: String(block.tabLabel || block.label || key).trim() || key,
-    };
-  });
-}
-
 function resolveWorkspaceOfferCatalog(ws, baseLib) {
   const custom = ws && Array.isArray(ws.salesScriptOfferCatalog) ? ws.salesScriptOfferCatalog : null;
   if (custom && custom.length) {
     const keys = new Set();
     return custom.map((row) => normalizeOfferCatalogEntry(row, keys)).filter(Boolean);
   }
-  return defaultOfferCatalog(baseLib);
+  // Do not fall back to global agency SCRIPT_LIBRARY — each workspace owns its catalog.
+  return [];
 }
 
 function emptyOfferBlock(entry) {
@@ -114,7 +104,7 @@ function materializeOfferCatalog(ws, baseLib) {
   if (Array.isArray(ws.salesScriptOfferCatalog) && ws.salesScriptOfferCatalog.length) {
     return ws.salesScriptOfferCatalog.map((row) => ({ ...row }));
   }
-  return defaultOfferCatalog(baseLib).map((row) => ({ ...row }));
+  return [];
 }
 
 function patchOfferOutreachFields(row, profile) {

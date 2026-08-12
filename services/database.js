@@ -2115,12 +2115,62 @@ module.exports = {
     return this.updateSocialPost(postId, { folderId: folderId || null }, workspaceId);
   },
 
+  async saveSocialIdeaArtwork(ideaId, data, workspaceId) {
+    const wid = String(workspaceId || 'default').trim() || 'default';
+    const id = String(ideaId || '').trim();
+    if (!id) return null;
+    const record = {
+      ideaId: id,
+      artworkUrl: String((data && data.artworkUrl) || '').trim(),
+      artworkPrompt: String((data && data.artworkPrompt) || '').trim(),
+      updatedAt: new Date().toISOString(),
+    };
+    kvSet(`social:ideaArt:${wid}:${id}`, JSON.stringify(record));
+    return record;
+  },
+
+  async getSocialIdeaArtwork(ideaId, workspaceId) {
+    const wid = String(workspaceId || 'default').trim() || 'default';
+    const id = String(ideaId || '').trim();
+    if (!id) return null;
+    const raw = kvGet(`social:ideaArt:${wid}:${id}`);
+    if (!raw) return null;
+    try {
+      return typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch {
+      return null;
+    }
+  },
+
+  async getAllSocialIdeaArtworks(workspaceId) {
+    const wid = String(workspaceId || 'default').trim() || 'default';
+    const prefix = `social:ideaArt:${wid}:`;
+    const out = {};
+    for (const key of kvList(prefix)) {
+      const ideaId = String(key).slice(prefix.length);
+      const item = await this.getSocialIdeaArtwork(ideaId, wid);
+      if (item && item.artworkUrl) out[ideaId] = item;
+    }
+    return out;
+  },
+
   async updateSocialPost(postId, patch, workspaceId) {
     const wid = String(workspaceId || 'default').trim() || 'default';
     const posts = await this.getSocialPosts(wid);
     const post = posts.find((p) => p.id === postId);
     if (!post) return null;
-    const allowed = ['liked', 'tags', 'imageNote', 'content', 'cta', 'folderId', 'bookmarked'];
+    const allowed = [
+      'liked',
+      'tags',
+      'imageNote',
+      'content',
+      'cta',
+      'folderId',
+      'bookmarked',
+      'artworkUrl',
+      'artworkPrompt',
+      'artworkUpdatedAt',
+    ];
     for (const key of allowed) {
       if (patch[key] !== undefined) post[key] = patch[key];
     }

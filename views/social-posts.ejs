@@ -18,9 +18,16 @@
     .post-card-thumb .thumb-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: #fff; background: rgba(0,0,0,.5); padding: 4px 10px; border-radius: 9999px; text-decoration: none; }
     .post-card-thumb .thumb-note-display { position: absolute; inset: 0; display: flex; align-items: flex-end; padding: 10px; background: linear-gradient(transparent 40%, rgba(0,0,0,.55)); pointer-events: none; }
     .post-card-thumb .thumb-note-display span { font-size: 11px; color: #fff; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-    .post-card-thumb .thumb-note-btn { position: absolute; top: 8px; right: 8px; z-index: 2; background: rgba(255,255,255,.85); border: none; border-radius: 8px; padding: 5px 7px; cursor: pointer; color: #64748b; display: flex; align-items: center; justify-content: center; }
+    .post-card-thumb .thumb-note-btn { position: absolute; top: 8px; left: 8px; z-index: 2; background: rgba(255,255,255,.85); border: none; border-radius: 8px; padding: 5px 7px; cursor: pointer; color: #64748b; display: flex; align-items: center; justify-content: center; }
     .dark .post-card-thumb .thumb-note-btn { background: rgba(15,23,42,.85); color: #94a3b8; }
     .post-card-thumb .thumb-note-btn:hover { color: var(--brand-yellow); }
+    .post-card-thumb .thumb-bookmark-badge { position: absolute; top: 8px; right: 8px; z-index: 2; background: rgba(255,255,255,.92); border-radius: 8px; padding: 5px 7px; color: var(--brand-yellow); display: flex; align-items: center; justify-content: center; pointer-events: none; box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+    .dark .post-card-thumb .thumb-bookmark-badge { background: rgba(15,23,42,.92); box-shadow: 0 2px 8px rgba(0,0,0,.35); }
+    .post-card-thumb .thumb-bookmark-badge svg { width: 16px; height: 16px; }
+    .post-card-thumb.has-artwork { background: #0f172a; }
+    .post-card-thumb .thumb-artwork { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+    .post-card-thumb.has-artwork .thumb-overlay { background: rgba(0,0,0,.25); }
+    .post-card-action-btn.has-artwork { color: var(--brand-yellow); }
     .post-card-thumb .thumb-note-editor { position: absolute; inset: 0; z-index: 3; background: rgba(15,23,42,.92); padding: 12px; display: flex; flex-direction: column; gap: 8px; }
     .post-card-thumb .thumb-note-editor.hidden { display: none; }
     .post-card-thumb .thumb-note-editor textarea { flex: 1; resize: none; border-radius: 8px; border: 1px solid rgba(255,255,255,.15); background: rgba(0,0,0,.3); color: #fff; padding: 8px; font-size: 12px; }
@@ -71,7 +78,7 @@
             tipKey: 'social-posts',
             label: 'Social post ideas',
             size: 'md',
-            content: 'Post ideas scoped to your workspace business profile. Bookmark favorites into folders, then open Marketing Studio from any card thumbnail to generate artwork.'
+            content: 'Post ideas scoped to your workspace business profile. Bookmark favorites into folders, then open Marketing Studio from any card thumbnail — your post copy loads in the studio and you choose when to Chat and Generate.'
           }) %>
         </div>
         <p id="nicheLabel" class="text-xs text-brand-muted mt-1"></p>
@@ -341,6 +348,7 @@
     let reviewFolderId = null;
     let pendingTagsTarget = null;
     const ideaCardState = {};
+    let ideaArtworks = {};
     const IDEA_STATE_KEY = 'adhello-social-idea-state-' + WORKSPACE_ID;
 
     function normalizeTagLabel(tag) {
@@ -365,6 +373,30 @@
     function getIdeaState(ideaId) {
       if (!ideaCardState[ideaId]) ideaCardState[ideaId] = { liked: false, tags: [], imageNote: '' };
       return ideaCardState[ideaId];
+    }
+
+    async function loadIdeaArtworks() {
+      try {
+        const res = await fetch('/social-posts/api/idea-artwork?workspaceId=' + encodeURIComponent(WORKSPACE_ID));
+        const data = await res.json();
+        if (data.success && data.artworks) ideaArtworks = data.artworks;
+      } catch { /* ignore */ }
+    }
+
+    function getArtworkForCard(mode, platform, ideaId, postId, savedArtworkUrl) {
+      if (savedArtworkUrl) return savedArtworkUrl;
+      if (mode === 'saved' && postId) {
+        const post = savedPosts.find(function (p) { return p.id === postId; });
+        if (post && post.artworkUrl) return post.artworkUrl;
+      }
+      if (ideaId) {
+        const st = getIdeaState(ideaId);
+        if (st.artworkUrl) return st.artworkUrl;
+        if (ideaArtworks[ideaId] && ideaArtworks[ideaId].artworkUrl) return ideaArtworks[ideaId].artworkUrl;
+        const saved = savedPosts.find(function (sp) { return sp.ideaId === ideaId && sp.platform === platform; });
+        if (saved && saved.artworkUrl) return saved.artworkUrl;
+      }
+      return '';
     }
 
     function getTagsForIdea(platform, ideaId) {
@@ -472,6 +504,7 @@
       heartFilled: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>',
       note: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
       send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
+      download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
     };
 
     const PLATFORM_LABELS = { instagram: 'Instagram', facebook: 'Facebook', linkedin: 'LinkedIn', x: 'X / Twitter', tiktok: 'TikTok' };
@@ -498,8 +531,9 @@
     let hashtagSets = buildHashtagSets();
 
     // ── Init: auto-load ideas on page visit ────────────────────────────────────
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
       loadIdeaCardState();
+      await loadIdeaArtworks();
       renderTagFilters();
       renderStyleTags();
       renderNicheLabel();
@@ -685,9 +719,31 @@
       }
     }
 
+    function resolveDmPlatform(platform, extras) {
+      extras = extras || {};
+      if (extras.dmPlatform && typeof extras.dmPlatform === 'string') return extras.dmPlatform;
+      const format = String(extras.format || '').trim().toLowerCase();
+      if (platform === 'instagram') {
+        if (format === 'story' || format === 'reels' || format === 'reel') return 'instagram_story';
+        if (format === 'portrait') return 'instagram_portrait';
+        return 'instagram_feed';
+      }
+      if (platform === 'facebook') {
+        if (format === 'story') return 'facebook_story';
+        if (format === 'cover') return 'facebook_cover';
+        return 'facebook_feed';
+      }
+      if (platform === 'linkedin') {
+        if (format === 'banner' || format === 'cover') return 'linkedin_banner';
+        return 'linkedin_post';
+      }
+      if (platform === 'tiktok') return 'instagram_story';
+      return DM_PLATFORMS[platform] || 'instagram_feed';
+    }
+
     function marketingStudioUrl(platform, hook, cta, extras) {
       extras = extras || {};
-      const dmPlatform = DM_PLATFORMS[platform] || 'instagram_feed';
+      const dmPlatform = resolveDmPlatform(platform, extras);
       const copy = hook + (cta ? '\n\n' + cta : '');
       const params = new URLSearchParams({
         fromSocialPost: '1',
@@ -695,10 +751,12 @@
         copy: copy,
         headline: hook.slice(0, 120),
         body: cta || '',
-        autoPrompt: '1',
       });
       if (extras.imageNote) params.set('imageNote', String(extras.imageNote).slice(0, 500));
       if (extras.tags && extras.tags.length) params.set('tags', extras.tags.join(', ').slice(0, 200));
+      if (extras.postId) params.set('postId', String(extras.postId));
+      if (extras.ideaId) params.set('ideaId', String(extras.ideaId));
+      if (extras.socialPlatform) params.set('socialPlatform', String(extras.socialPlatform));
       return '/direct-mail?' + params.toString();
     }
 
@@ -730,7 +788,13 @@
         qaStatus('Add post copy before creating artwork');
         return;
       }
-      window.location.href = marketingStudioUrl(platform, hook, cta, { imageNote: imageNote, tags: tags });
+      window.location.href = marketingStudioUrl(platform, hook, cta, {
+        imageNote: imageNote,
+        tags: tags,
+        postId: mode === 'saved' ? postId : '',
+        ideaId: mode === 'idea' ? ideaId : '',
+        socialPlatform: platform,
+      });
     }
 
     function cardRef(mode, ideaId, postId) {
@@ -741,9 +805,12 @@
       const {
         mode = 'idea', platform, hook = '', cta = '', ideaId = '', postId = '',
         isSaved = false, liked = false, tags = [], imageNote = '', metaLabel = '',
+        artworkUrl = '',
       } = opts;
       const ref = cardRef(mode, ideaId, postId);
       const platformLabel = (PLATFORM_LABELS[platform] || platform || '').toUpperCase();
+      const resolvedArtwork = artworkUrl || getArtworkForCard(mode, platform, ideaId, postId, '');
+      const hasArtwork = !!resolvedArtwork;
       const studioLaunch = mode === 'saved'
         ? "launchMarketingStudioFromCard('saved','','" + postId.replace(/'/g, "\\'") + "','" + platform.replace(/'/g, "\\'") + "')"
         : "launchMarketingStudioFromCard('idea','" + ideaId.replace(/'/g, "\\'") + "','','" + platform.replace(/'/g, "\\'") + "')";
@@ -751,9 +818,14 @@
       const likeIcon = liked ? ICONS.heartFilled : ICONS.heart;
       const bookmarkIcon = isSaved ? ICONS.bookmarkFilled : ICONS.bookmark;
       const bookmarkColor = isSaved ? ' style="color:var(--brand-yellow)"' : '';
-      const noteDisplay = imageNote
+      const noteDisplay = imageNote && !hasArtwork
         ? '<div class="thumb-note-display"><span>' + escapeHtml(imageNote) + '</span></div>'
         : '';
+      const artworkImg = hasArtwork
+        ? '<img class="thumb-artwork" src="' + escapeHtml(resolvedArtwork) + '" alt="Generated artwork" loading="lazy" />'
+        : '';
+      const thumbClass = 'post-card-thumb cursor-pointer' + (hasArtwork ? ' has-artwork' : '');
+      const overlayLabel = hasArtwork ? 'Open studio →' : 'Open studio →';
       const tagPills = tags.length
         ? '<div class="flex flex-wrap gap-1 mt-2">' + tags.map(t => '<span class="tag-pill">' + escapeHtml(t) + '</span>').join('') + '</div>'
         : '';
@@ -772,6 +844,12 @@
       const sendHandler = mode === 'saved'
         ? 'exportToDriveSaved(\'' + postId.replace(/'/g, "\\'") + '\')'
         : 'exportToDriveIdea(\'' + ideaId.replace(/'/g, "\\'") + '\', \'' + platform.replace(/'/g, "\\'") + '\')';
+      const downloadHandler = mode === 'saved'
+        ? 'downloadArtworkSaved(\'' + postId.replace(/'/g, "\\'") + '\')'
+        : 'downloadArtworkIdea(\'' + ideaId.replace(/'/g, "\\'") + '\', \'' + platform.replace(/'/g, "\\'") + '\')';
+      const downloadBtn = hasArtwork
+        ? '<button type="button" onclick="event.stopPropagation();' + downloadHandler + '" class="post-card-action-btn has-artwork" title="Download artwork">' + ICONS.download + '</button>'
+        : '';
       const editHandler = mode === 'saved'
         ? 'toggleEditSaved(\'' + postId.replace(/'/g, "\\'") + '\')'
         : 'toggleEdit(\'' + ideaId.replace(/'/g, "\\'") + '\')';
@@ -785,15 +863,21 @@
         ? ideaEditAreaHtml(ideaId, hook, cta)
         : savedEditAreaHtml(postId, hook, cta);
 
-      return '<div class="post-card-thumb cursor-pointer" onclick="event.stopPropagation();' + studioLaunch + '">' +
+      const bookmarkBadge = isSaved
+        ? '<span class="thumb-bookmark-badge" title="Bookmarked">' + ICONS.bookmarkFilled + '</span>'
+        : '';
+      return '<div class="' + thumbClass + '" onclick="event.stopPropagation();' + studioLaunch + '">' +
+        artworkImg +
         noteDisplay +
+        bookmarkBadge +
         '<button type="button" class="thumb-note-btn" onclick="event.stopPropagation();' + noteHandler + '" title="Art direction note (optional)">' + ICONS.note + '</button>' +
         '<div class="thumb-note-editor hidden" data-note-editor="' + ref + '">' +
         '<textarea placeholder="Optional art direction for AI (e.g. before/after flooring, warm lighting)..." data-note-input="' + ref + '">' + escapeHtml(imageNote) + '</textarea>' +
         '<div class="flex gap-2"><button type="button" onclick="event.stopPropagation();' + saveNoteHandler + '" class="btn-brand-yellow text-xs font-bold px-3 py-1 rounded-lg">Save note</button>' +
         '<button type="button" onclick="event.stopPropagation();closeNoteEditor(\'' + ref.replace(/'/g, "\\'") + '\')" class="text-xs font-bold text-brand-muted px-2 py-1">Close</button></div></div>' +
-        '<div class="thumb-overlay"><span class="thumb-label">Create artwork →</span></div></div>' +
+        '<div class="thumb-overlay"><span class="thumb-label">' + overlayLabel + '</span></div></div>' +
         '<div class="post-card-actions">' +
+        downloadBtn +
         '<button type="button" onclick="event.stopPropagation();' + likeHandler + '" class="post-card-action-btn' + likeClass + '" title="Like" data-like-btn="' + ref + '">' + likeIcon + '</button>' +
         '<button type="button" onclick="event.stopPropagation();' + bookmarkHandler + '" class="post-card-action-btn"' + bookmarkColor + ' title="' + (isSaved ? 'Saved' : 'Bookmark') + '">' + bookmarkIcon + '</button>' +
         '<button type="button" onclick="event.stopPropagation();' + tagsHandler + '" class="post-card-action-btn" title="Tags">' + ICONS.hashtag + '</button>' +
@@ -845,6 +929,7 @@
       div.innerHTML = buildPostCardHtml({
         mode: 'idea', platform, hook: idea.hook, cta: idea.cta || '', ideaId: idea.id,
         isSaved, liked: state.liked, tags: getTagsForIdea(platform, idea.id), imageNote: state.imageNote || '',
+        artworkUrl: getArtworkForCard('idea', platform, idea.id, '', ''),
       });
       return div;
     }
@@ -1039,7 +1124,10 @@
       const ctaEl = card.querySelector('.preview-cta');
       const cta = ctaEl ? ctaEl.textContent.replace(/^CTA:\s*/, '') : '';
       const state = getIdeaState(ideaId);
-      exportToDrive({ platform, content, cta, tags: state.tags || [], imageNote: state.imageNote || '' });
+      exportToDrive({
+        platform, content, cta, tags: state.tags || [], imageNote: state.imageNote || '',
+        artworkUrl: getArtworkForCard('idea', platform, ideaId, '', ''),
+      });
     }
 
     function exportToDriveSaved(postId) {
@@ -1048,7 +1136,43 @@
       exportToDrive({
         platform: post.platform, content: post.content, cta: post.cta || '',
         tags: post.tags || [], imageNote: post.imageNote || '', postId,
+        artworkUrl: post.artworkUrl || '',
       });
+    }
+
+    async function downloadArtworkUrl(artworkUrl, platform) {
+      const url = String(artworkUrl || '').trim();
+      if (!url) { qaStatus('Generate artwork in Marketing Studio first'); return; }
+      try {
+        const res = await fetch('/direct-mail/api/download-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageUrl: url, platform: platform || 'instagram_feed', slot: 'front' }),
+        });
+        if (!res.ok) throw new Error('Download failed');
+        const blob = await res.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'AdHello_' + (platform || 'social') + '_artwork.jpg';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(a.href);
+        showToast('Artwork downloaded');
+      } catch {
+        window.open(url, '_blank', 'noopener,noreferrer');
+        qaStatus('Opened artwork in a new tab');
+      }
+    }
+
+    function downloadArtworkIdea(ideaId, platform) {
+      downloadArtworkUrl(getArtworkForCard('idea', platform, ideaId, '', ''), platform);
+    }
+
+    function downloadArtworkSaved(postId) {
+      const post = savedPosts.find(function (p) { return p.id === postId; });
+      if (!post) return;
+      downloadArtworkUrl(post.artworkUrl || '', post.platform);
     }
 
     async function exportToDrive(payload) {
@@ -1063,8 +1187,9 @@
           return;
         }
         if (data.success) {
-          showToast('Saved to Google Drive');
-          qaStatus('Exported to Drive');
+          const msg = data.imageName ? 'Saved post + artwork to Google Drive' : 'Saved to Google Drive';
+          showToast(msg);
+          qaStatus(data.imageName ? 'Exported caption and artwork to Drive' : 'Exported to Drive');
         } else {
           qaStatus(data.error || 'Export failed');
         }
@@ -1127,6 +1252,7 @@
       if (!pendingBookmark) return;
       const { platform, content, cta, ideaId } = pendingBookmark;
       const state = getIdeaState(ideaId);
+      const artworkUrl = getArtworkForCard('idea', platform, ideaId, '', '');
       try {
         const res = await fetch('/social-posts/api/save', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1137,6 +1263,7 @@
             liked: state.liked,
             tags: state.tags || [],
             imageNote: state.imageNote || '',
+            artworkUrl: artworkUrl || '',
             workspaceId: WORKSPACE_ID,
           })
         });
@@ -1302,6 +1429,7 @@
           mode: 'saved', platform: post.platform, hook: post.content, cta: post.cta || '',
           postId: post.id, isSaved: true, liked: Boolean(post.liked),
           tags: post.tags || [], imageNote: post.imageNote || '', metaLabel,
+          artworkUrl: post.artworkUrl || '',
         });
         container.appendChild(div);
       }

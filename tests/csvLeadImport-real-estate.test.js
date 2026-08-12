@@ -61,4 +61,26 @@ describe('csvLeadImport real estate listings', () => {
     assert.equal(lead.listing.beds, 1);
     assert.equal(lead.listing.baths, 1);
   });
+
+  it('maps Zillow skip-trace export columns to homeowner leads', () => {
+    const fixture = path.join(__dirname, 'fixtures', 'zillow-skip-trace-sample.csv');
+    const buf = fs.readFileSync(fixture);
+    const { leads, rawRowCount } = parseImportFile(buf, 'Zillow-Leads.csv');
+    assert.equal(rawRowCount, 2);
+    assert.equal(leads.length, 2);
+
+    const addressOnly = leads.find((l) => /15008 NE 48th/i.test(l.title));
+    assert.ok(addressOnly);
+    assert.equal(addressOnly.sourceChannel, 'zillow');
+    assert.equal(addressOnly.city, 'Vancouver');
+    assert.equal(addressOnly.state, 'WA');
+    assert.equal(addressOnly.listing.price, 474900);
+
+    const withOwner = leads.find((l) => /Jimmy C Vilaysanh/i.test(l.title));
+    assert.ok(withOwner);
+    assert.equal(withOwner.phone, '(503) 888-3387');
+    assert.equal(withOwner.email, 'jvilaysanh@yahoo.com');
+    assert.equal(withOwner.zip, '98682');
+    assert.equal(withOwner.jobType, 'real_estate');
+  });
 });

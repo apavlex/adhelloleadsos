@@ -17,6 +17,9 @@
     } catch (e) {}
   })();
 </script>
+<% if (typeof workspaceId !== 'undefined' && workspaceId) { %>
+<script>window.__ADHELLO_WORKSPACE_ID__ = <%- safeJsonForScript(String(workspaceId)) %>;</script>
+<% } %>
 <style>
   /* First-paint background before Tailwind Play CDN injects utilities (avoids cream→dark snap). */
   html:not(.dark) { background-color: #FAF7ED; }

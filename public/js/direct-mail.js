@@ -25,6 +25,7 @@
   var dmPlaybookPrompts = { front: '', back: '' };
   var dmActivePlaybookId = '';
   var dmPostCopyManualEdit = false;
+  var linkedSocialPost = { postId: '', ideaId: '', platform: '' };
 
   var DM_PLATFORMS = {
     postcard: { label: '4×6 Postcard', aspectRatio: '3:2', dualSided: true },
@@ -1865,6 +1866,39 @@
     return parts.join('\n\n');
   }
 
+  function syncArtworkToLinkedSocialPost(imageUrl, prompt) {
+    var url = String(imageUrl || '').trim();
+    if (!url) return;
+    var postId = String(linkedSocialPost.postId || '').trim();
+    var ideaId = String(linkedSocialPost.ideaId || '').trim();
+    if (!postId && !ideaId) return;
+    fetch('/social-posts/api/sync-artwork', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        postId: postId || undefined,
+        ideaId: ideaId || undefined,
+        artworkUrl: url,
+        artworkPrompt: String(prompt || '').trim(),
+      }),
+    })
+      .then(function (res) {
+        return res.json().catch(function () {
+          return {};
+        });
+      })
+      .then(function (data) {
+        if (data && data.success && typeof window.showAppToast === 'function') {
+          window.showAppToast('Artwork synced to your social post — download or send to Drive from Social Posts.', {
+            variant: 'success',
+            duration: 6500,
+          });
+        }
+      })
+      .catch(function () {});
+  }
+
   async function loadFromSocialPostParams() {
     var params = new URLSearchParams(window.location.search || '');
     if (String(params.get('fromSocialPost') || '') !== '1') return;
@@ -1879,10 +1913,22 @@
       String(params.get('autoPrompt') || '') === '1' ||
       String(params.get('autoGenerate') || '') === '1';
 
+    linkedSocialPost = {
+      postId: String(params.get('postId') || '').trim(),
+      ideaId: String(params.get('ideaId') || '').trim(),
+      platform: String(params.get('socialPlatform') || params.get('platform') || '').trim(),
+    };
+
     var platformEl = document.getElementById('dmPlatform');
     if (platformEl && DM_PLATFORMS[platform]) {
       platformEl.value = platform;
       applyPlatformPreset(platform);
+    }
+
+    setActiveDesignSlot('front');
+    var platPreset = DM_PLATFORMS[platform] || DM_PLATFORMS.instagram_feed;
+    if (platPreset.aspectRatio) {
+      designMeta.front.aspectRatio = platPreset.aspectRatio;
     }
 
     var headlineEl = document.getElementById('dmHeadline');
@@ -1901,11 +1947,28 @@
     switchDmDrawerTab('formats');
     syncPostCopySection();
 
+    if (!autoPrompt) {
+      var chatInput = document.getElementById('dmChatInput');
+      if (chatInput && imageNote && !String(chatInput.value || '').trim()) {
+        chatInput.value = 'Art direction: ' + imageNote;
+      }
+      setDesignStatus(
+        'Post loaded — pick a format, describe your design in Chat, then click Generate when ready.',
+        true,
+      );
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Post loaded in Marketing Studio — use Chat, then Generate when ready.', {
+          variant: 'success',
+        });
+      }
+      return;
+    }
+
     if (typeof window.showAppToast === 'function') {
       window.showAppToast('Post loaded — AI is building your image prompt…', { variant: 'success' });
     }
 
-    if (!autoPrompt || !(copy || headline)) return;
+    if (!(copy || headline)) return;
 
     var chatMessage = buildSocialPostDesignChatMessage(copy, headline, body, imageNote, tags, platform);
     chatHistory.push({ role: 'user', content: chatMessage });
@@ -1941,12 +2004,27 @@
         designMeta.front.prompt = prompt;
         showPromptEditor('front', prompt);
         setDesignStatus('Generating artwork for ' + (plat.label || 'social') + '…', true);
-        await generateImage({ prompt: prompt, skipPromptRead: true, slot: 'front' });
+        var generated = await generateImage({
+          prompt: prompt,
+          skipPromptRead: true,
+          slot: 'front',
+          suppressButtonToggle: true,
+        });
+        if (!generated) {
+          setDesignStatus('Image generation failed — click Generate to retry.', false);
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast('Could not generate artwork — try Generate again.', { variant: 'error' });
+          }
+        }
       } else {
         setDesignStatus('Could not build an image prompt — describe the design in Chat.', false);
       }
     } catch (e) {
-      setDesignStatus(e && e.message ? e.message : 'Could not build image prompt from post', false);
+      var errMsg = e && e.message ? e.message : 'Could not build image prompt from post';
+      setDesignStatus(errMsg, false);
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast(errMsg, { variant: 'error' });
+      }
     }
   }
 
@@ -2558,6 +2636,49 @@
     return out;
   }
 
+  async function ensureArtworkGenBridge(maxMs) {
+    var deadline = Date.now() + (maxMs || 8000);
+    while (
+      (!window.agencyOsArtworkGen || typeof window.agencyOsArtworkGen.waitFor !== 'function') &&
+      Date.now() < deadline
+    ) {
+      await new Promise(function (resolve) {
+        setTimeout(resolve, 50);
+      });
+    }
+    return !!(window.agencyOsArtworkGen && typeof window.agencyOsArtworkGen.waitFor === 'function');
+  }
+
+  async function awaitArtworkGeneration(taskId, trackOpts) {
+    var id = String(taskId || '').trim();
+    if (!id) throw new Error('Missing task id');
+
+    var hasBridge = await ensureArtworkGenBridge();
+    if (!hasBridge) {
+      return pollImageGeneration(id);
+    }
+
+    var waitPromise = window.agencyOsArtworkGen.waitFor(id);
+    var eventPromise = new Promise(function (resolve) {
+      function onDone(e) {
+        if (!e || !e.detail || String(e.detail.taskId || '') !== id) return;
+        window.removeEventListener('agency-os-artwork-gen-finished', onDone);
+        resolve(e.detail);
+      }
+      window.addEventListener('agency-os-artwork-gen-finished', onDone);
+    });
+
+    if (typeof window.agencyOsArtworkGen.track === 'function') {
+      window.agencyOsArtworkGen.track(Object.assign({ taskId: id }, trackOpts || {}));
+    }
+
+    var data = await Promise.race([waitPromise, eventPromise, pollImageGeneration(id)]);
+    if (!data || data.success === false) {
+      throw new Error((data && data.error) || 'Image generation failed');
+    }
+    return data;
+  }
+
   async function pollImageGeneration(taskId) {
     var deadline = Date.now() + 120000;
     while (Date.now() < deadline) {
@@ -2985,6 +3106,9 @@
     }
     dmPostCopyManualEdit = false;
     refreshPostCopyFromFields(true);
+    if (slot === 'front' && isSocialPlatform(platform)) {
+      syncArtworkToLinkedSocialPost(detail.imageUrl, prompt);
+    }
     return true;
   }
 
@@ -2999,7 +3123,8 @@
   async function generateImageForSlot(slot, opts) {
     opts = opts || {};
     var btn = document.getElementById('dmGenerateBtn');
-    if (!btn && !opts.suppressButtonToggle) return false;
+    var hasExplicitPrompt = !!(opts.skipPromptRead && String(opts.prompt || '').trim());
+    if (!btn && !opts.suppressButtonToggle && !hasExplicitPrompt) return false;
 
     var editMode = opts.editMode === true;
     slot = slot === 'back' ? 'back' : 'front';
@@ -3083,35 +3208,26 @@
       if (data.status === 'processing' && data.taskId) {
         var platToast = DM_PLATFORMS[ctx.platform] || DM_PLATFORMS.custom;
         var genLabel = (platToast.dualSided ? 'Postcard ' + slot : platToast.label) || 'Artwork';
-        if (window.agencyOsArtworkGen && typeof window.agencyOsArtworkGen.track === 'function') {
-          window.agencyOsArtworkGen.track({
-            taskId: data.taskId,
-            slot: slot,
-            platform: ctx.platform,
-            label: genLabel,
-            prompt: prompt,
-            aspectRatio: aspectRatio,
-            resolution: resolution,
-          });
-          if (!opts.suppressButtonToggle) {
-            setDesignStatus(
+        if (!opts.suppressButtonToggle) {
+          setDesignStatus(
+            'Generating ' + genLabel + ' — bell will notify when ready. Safe to browse other pages.',
+            true,
+          );
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast(
               'Generating ' + genLabel + ' — bell will notify when ready. Safe to browse other pages.',
-              true,
+              { variant: 'info', duration: 7500 },
             );
-            if (typeof window.showAppToast === 'function') {
-              window.showAppToast(
-                'Generating ' + genLabel + ' — bell will notify when ready. Safe to browse other pages.',
-                { variant: 'info', duration: 7500 },
-              );
-            }
           }
-          data = await window.agencyOsArtworkGen.waitFor(data.taskId);
-          if (!data || data.success === false) {
-            throw new Error((data && data.error) || 'Image generation failed');
-          }
-        } else {
-          data = await pollImageGeneration(data.taskId);
         }
+        data = await awaitArtworkGeneration(data.taskId, {
+          slot: slot,
+          platform: ctx.platform,
+          label: genLabel,
+          prompt: prompt,
+          aspectRatio: aspectRatio,
+          resolution: resolution,
+        });
       }
       if (
         data.imageUrl &&
@@ -3204,6 +3320,9 @@
         }
         dmPostCopyManualEdit = false;
         refreshPostCopyFromFields(true);
+        if (slot === 'front' && isSocialPlatform(ctx.platform)) {
+          syncArtworkToLinkedSocialPost(data.imageUrl, prompt);
+        }
         return true;
       }
       throw new Error('No image URL returned.');
@@ -3485,9 +3604,12 @@
 
   var promptRegen = document.getElementById('dmPromptRegenerate');
   if (promptRegen) {
-    promptRegen.addEventListener('click', function () {
+    promptRegen.addEventListener('click', async function () {
       applyPromptFromEditor();
-      generateImage();
+      var ok = await generateImage();
+      if (!ok && typeof window.showAppToast === 'function') {
+        window.showAppToast('Generation failed — check the prompt and try again.', { variant: 'error' });
+      }
     });
   }
 

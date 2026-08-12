@@ -1,6 +1,7 @@
 const dbService = require('../services/database');
 const workspaceService = require('../services/workspaceService');
 const workspaceBootstrap = require('../services/workspaceBootstrap');
+const workspaceScriptBootstrap = require('../services/workspaceScriptBootstrap');
 const { wantsJsonResponse } = require('../lib/httpRequest');
 const { getGoogleMapsApiKey } = require('../services/googleMapsKey');
 
@@ -79,6 +80,8 @@ async function withWorkspace(req, res, next) {
     }
 
     await workspaceService.ensureWorkspaceAndMember(ws.id, email);
+
+    await workspaceScriptBootstrap.ensureWorkspaceScriptsSeeded(ws.id);
 
     const refreshed = await dbService.getWorkspace(ws.id);
     ws = refreshed || ws;

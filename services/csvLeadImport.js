@@ -234,7 +234,7 @@ function normalizeProspectTier(raw) {
 function pickPrimaryEmail(r) {
   const dm = (r.decision_maker_email || '').trim();
   const one = (r.one_email || '').trim();
-  const direct = (r.e_mail || r.email || '').trim();
+  const direct = (r.e_mail || r.email || r.owner_email1 || r.owner_email2 || '').trim();
   if (dm) return dm;
   if (one) return one;
   if (direct && !/^n\/a$/i.test(direct)) return direct;
@@ -245,6 +245,159 @@ function pickPrimaryEmail(r) {
   const first = list[0] || '';
   if (first && !/^n\/a$/i.test(first)) return first;
   return '';
+}
+
+function isPropertySkipTraceRow(r) {
+  return !!(
+    r.submitted_business_name ||
+    r.owner_phone1 ||
+    r.owner_full_name ||
+    r.submitted_owner_full_name ||
+    r.property_address ||
+    r.submitted_property_address ||
+    r.golden_address
+  );
+}
+
+function parseSubmittedBusinessNameLine(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return { title: '', price: null, addressLine: '' };
+  const priceMatch = s.match(/[·•|]\s*\$?\s*([\d,]+(?:\.\d+)?)\s*$/);
+  const price = priceMatch ? parseImportPrice(priceMatch[1]) : null;
+  const withoutPrice = priceMatch ? s.slice(0, priceMatch.index).trim() : s;
+  return { title: withoutPrice || s, price, addressLine: withoutPrice };
+}
+
+function pickOwnerPhone(r) {
+  const slots = [
+    ['owner_phone1', 'owner_phone1_type'],
+    ['owner_phone2', 'owner_phone2_type'],
+    ['owner_phone3', 'owner_phone3_type'],
+  ];
+  for (const [phoneKey, typeKey] of slots) {
+    const phone = r[phoneKey];
+    const type = String(r[typeKey] || '').toLowerCase();
+    if (!isPlaceholderValue(phone) && type === 'mobile') return String(phone).trim();
+  }
+  return firstNonEmpty(r, [
+    'owner_phone1',
+    'owner_phone2',
+    'owner_phone3',
+    'phone_number',
+    'phone',
+    'telephone',
+    'mobile',
+    'tel',
+  ]);
+}
+
+function resolveImportTitle(r) {
+  const ownerFull = firstNonEmpty(r, [
+    'owner_full_name',
+    'submitted_owner_full_name',
+    'owner_name',
+    'contact_name',
+    'decision_maker_name',
+  ]);
+  if (!ownerFull) {
+    const first = firstNonEmpty(r, ['owner_first_name', 'submitted_owner_first_name']);
+    const last = firstNonEmpty(r, ['owner_last_name', 'submitted_owner_last_name']);
+    if (first || last) {
+      const combined = `${first} ${last}`.trim();
+      if (combined) return combined;
+    }
+  }
+
+  const propAddr = isPropertySkipTraceRow(r)
+    ? firstNonEmpty(r, [
+        'property_address',
+        'submitted_property_address',
+        'golden_address',
+      ])
+    : '';
+  const ownerBusiness = firstNonEmpty(r, ['owner_business_name', 'submitted_business_name']);
+
+  if (ownerFull && propAddr) return `${ownerFull} — ${propAddr}`.slice(0, 220);
+  if (ownerFull) return ownerFull;
+  if (ownerBusiness) {
+    const parsedBiz = parseSubmittedBusinessNameLine(ownerBusiness);
+    return parsedBiz.title || ownerBusiness;
+  }
+
+  const submittedBiz = firstNonEmpty(r, ['submitted_business_name']);
+  if (submittedBiz) {
+    const parsed = parseSubmittedBusinessNameLine(submittedBiz);
+    return parsed.title || submittedBiz;
+  }
+
+  if (propAddr) {
+    const city = firstNonEmpty(r, [
+      'property_city',
+      'submitted_property_city',
+      'golden_city',
+      'city',
+    ]);
+    const state = firstNonEmpty(r, [
+      'property_state',
+      'submitted_property_state',
+      'golden_state',
+      'state',
+      'region',
+    ]);
+    return [propAddr, city, state].filter(Boolean).join(', ').slice(0, 220);
+  }
+
+  return (
+    (
+      r.company_name ||
+      r.business_name ||
+      r.business ||
+      r.company ||
+      r.account_name ||
+      r.organization ||
+      r.org_name ||
+      r.lead_name ||
+      r.contact_name ||
+      r.full_name ||
+      r.title ||
+      r.name ||
+      r.companyname ||
+      ''
+    ).trim() || (r.company_domain || '').trim()
+  );
+}
+
+function pickImportZip(r) {
+  const candidates = [
+    'property_zipcode',
+    'submitted_property_zip',
+    'golden_zip',
+    'owner_mailing1_zip',
+    'zip',
+    'postal_code',
+    'postalcode',
+  ];
+  for (const key of candidates) {
+    const raw = r[key];
+    if (isPlaceholderValue(raw)) continue;
+    const s = String(raw).trim();
+    const m = s.match(/\b(\d{5})(?:-\d{4})?\b/);
+    if (m) return m[1];
+  }
+  return '';
+}
+
+function pickImportListingPrice(r) {
+  const fromCol = parseImportPrice(
+    firstNonEmpty(r, ['price', 'listing_price', 'list_price', 'asking_price', 'available_equity']),
+  );
+  if (fromCol) return fromCol;
+  const submittedBiz = firstNonEmpty(r, ['submitted_business_name']);
+  if (submittedBiz) {
+    const parsed = parseSubmittedBusinessNameLine(submittedBiz);
+    if (parsed.price) return parsed.price;
+  }
+  return null;
 }
 
 function parseReviewCount(r) {
@@ -358,14 +511,18 @@ function mapImportSourceChannel(raw) {
 }
 
 function isRealEstateImportRow(r) {
+  if (/^zillow$/i.test(String(r.submitted_custom_6 || '').trim())) return true;
+  if (isPropertySkipTraceRow(r)) return true;
   const blob = [
     r.categoryname,
     r.category,
     r.company_type,
     r.source,
+    r.submitted_custom_6,
     r.company_name,
     r.title,
     r.name,
+    r.submitted_business_name,
   ]
     .join(' ')
     .toLowerCase();
@@ -390,11 +547,16 @@ function pickListingUrl(r) {
 
 function applyRealEstateListingFields(lead, r, options = {}) {
   const listingUrl = pickListingUrl(r);
-  const importSourceRaw = firstNonEmpty(r, ['source_channel', 'sourcechannel', 'source']);
+  const importSourceRaw = firstNonEmpty(r, [
+    'source_channel',
+    'sourcechannel',
+    'source',
+    'submitted_custom_6',
+  ]);
   const sourceChannel = mapImportSourceChannel(importSourceRaw);
-  const noteText = firstNonEmpty(r, ['note', 'notes', 'why_prospect', 'why']);
+  const noteText = firstNonEmpty(r, ['note', 'notes', 'why_prospect', 'why', 'result_details_beta']);
   const noteParsed = parseListingNote(noteText);
-  const priceFromCol = parseImportPrice(firstNonEmpty(r, ['price', 'listing_price', 'list_price', 'asking_price']));
+  const priceFromCol = pickImportListingPrice(r);
   const bedsFromCol = parseImportNumber(firstNonEmpty(r, ['beds', 'bedrooms', 'bed', 'br']));
   const bathsFromCol = parseImportNumber(firstNonEmpty(r, ['baths', 'bathrooms', 'bath', 'ba']));
   const isListing = isRealEstateImportRow(r) || (!!listingUrl && !!sourceChannel);
@@ -443,23 +605,7 @@ function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
       ? options.leadSource.trim()
       : 'csv_import';
 
-  let title =
-    (
-      r.company_name ||
-      r.business_name ||
-      r.business ||
-      r.company ||
-      r.account_name ||
-      r.organization ||
-      r.org_name ||
-      r.lead_name ||
-      r.contact_name ||
-      r.full_name ||
-      r.title ||
-      r.name ||
-      r.companyname ||
-      ''
-    ).trim() || (r.company_domain || '').trim();
+  let title = resolveImportTitle(r);
 
   if (!title) {
     const websiteRaw = firstNonEmpty(r, [
@@ -485,13 +631,20 @@ function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
     }
   }
   if (!title) {
-    const phone = (r.phone_number || r.phone || r.telephone || '').trim();
+    const phone = pickOwnerPhone(r);
     if (phone) title = `Lead ${phone}`;
   }
   if (!title) return null;
 
   const areaPack = parseAreaField(r);
-  const companyLocation = firstNonEmpty(r, ['company_location', 'address', 'full_address']);
+  const companyLocation = isPropertySkipTraceRow(r)
+    ? firstNonEmpty(r, [
+        'property_address',
+        'submitted_property_address',
+        'golden_address',
+        'owner_mailing1_address',
+      ])
+    : firstNonEmpty(r, ['company_location', 'address', 'full_address']);
   const address =
     areaPack.address ||
     companyLocation ||
@@ -514,10 +667,18 @@ function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
     companyDomain = safeHostname(website);
   }
 
-  const phone = firstNonEmpty(r, ['phone_number', 'phone', 'telephone', 'mobile', 'tel']) || 'N/A';
+  const phone = pickOwnerPhone(r) || 'N/A';
 
   const emailRaw = pickPrimaryEmail(r);
   const email = emailRaw || 'N/A';
+
+  const importSourceRawEarly = firstNonEmpty(r, [
+    'source_channel',
+    'sourcechannel',
+    'source',
+    'submitted_custom_6',
+  ]);
+  const sourceChannelEarly = mapImportSourceChannel(importSourceRawEarly);
 
   const rawCategory =
     firstNonEmpty(r, [
@@ -528,9 +689,19 @@ function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
       'industry',
       'type',
       'business_type',
-    ]) || (isRealEstateImportRow(r) ? 'Real Estate' : 'Imported');
+    ]) ||
+    (sourceChannelEarly === 'zillow'
+      ? 'Zillow Homeowner'
+      : isRealEstateImportRow(r)
+        ? 'Real Estate'
+        : 'Imported');
+  const ownerContactType = firstNonEmpty(r, ['owner_contact_type']);
+  const categoryWithContactType =
+    ownerContactType && !/^(owner|officer|relative)$/i.test(ownerContactType)
+      ? ownerContactType
+      : rawCategory;
   const categoryName = sanitizeLeadCategoryName(
-    rawCategory,
+    categoryWithContactType,
     title,
     isRealEstateImportRow(r) ? 'Real Estate' : 'Imported',
   );
@@ -542,8 +713,20 @@ function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
     firstNonEmpty(r, ['decision_maker_linkedin_url', 'linkedin', 'linkedin_url']) ||
     socials.linkedin ||
     '';
-  const decisionMakerName = firstNonEmpty(r, ['decision_maker_name', 'contact_name', 'owner_name']);
-  const decisionMakerTitle = firstNonEmpty(r, ['decision_maker_job_title', 'contact_title', 'title_role']);
+  const decisionMakerName = firstNonEmpty(r, [
+    'decision_maker_name',
+    'contact_name',
+    'owner_name',
+    'owner_full_name',
+    'submitted_owner_full_name',
+  ]);
+  const decisionMakerTitle = firstNonEmpty(r, [
+    'decision_maker_job_title',
+    'contact_title',
+    'title_role',
+    'owner_officer_title',
+  ]);
+  const zip = pickImportZip(r);
 
   const lat = firstNonEmpty(r, ['latitude', 'lat']);
   const lng = firstNonEmpty(r, ['longitude', 'lng', 'lon']);
@@ -559,8 +742,8 @@ function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
 
   const reviewSnippets = parseReviewSnippet(r);
   const sponsored = parseSponsored(r);
-  const importSourceRaw = firstNonEmpty(r, ['source_channel', 'sourcechannel', 'source']);
-  const sourceChannel = mapImportSourceChannel(importSourceRaw);
+  const importSourceRaw = importSourceRawEarly;
+  const sourceChannel = sourceChannelEarly;
 
   const lead = {
     title,
@@ -569,8 +752,26 @@ function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
     email,
     categoryName,
     address: address || 'N/A',
-    city: areaPack.city || firstNonEmpty(r, ['city']) || '',
-    state: areaPack.state || firstNonEmpty(r, ['state', 'region']) || '',
+    city:
+      areaPack.city ||
+      firstNonEmpty(r, [
+        'property_city',
+        'submitted_property_city',
+        'golden_city',
+        'city',
+      ]) ||
+      '',
+    state:
+      areaPack.state ||
+      firstNonEmpty(r, [
+        'property_state',
+        'submitted_property_state',
+        'golden_state',
+        'state',
+        'region',
+      ]) ||
+      '',
+    zip: zip || undefined,
     totalScore: parseStarRating(r),
     reviewsCount: parseReviewCount(r),
     reviewSnippets: reviewSnippets || undefined,
@@ -618,6 +819,17 @@ function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
         timestamp: new Date().toISOString(),
       },
     ];
+  } else {
+    const skipTraceNote = firstNonEmpty(r, ['result_details_beta', 'record_status']);
+    if (skipTraceNote) {
+      lead.updates = [
+        {
+          type: 'import',
+          message: skipTraceNote.slice(0, 2000),
+          timestamp: new Date().toISOString(),
+        },
+      ];
+    }
   }
 
   applyRealEstateListingFields(lead, r, options);
@@ -682,6 +894,12 @@ module.exports = {
   parseSponsored,
   mapImportSourceChannel,
   isRealEstateImportRow,
+  isPropertySkipTraceRow,
+  resolveImportTitle,
+  parseSubmittedBusinessNameLine,
+  pickOwnerPhone,
+  pickImportListingPrice,
+  pickImportZip,
   pickListingUrl,
   applyRealEstateListingFields,
 };

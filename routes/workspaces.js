@@ -9,6 +9,7 @@ const { normalizeStages } = require('../lib/pipeline/normalize');
 const { suggestPipelineStages } = require('../services/suggestPipelineStages');
 const pipelineStagesService = require('../services/pipelineStagesService');
 const { normalizeWorkspaceAccentHex } = require('../lib/workspaceAccent');
+const workspaceScriptBootstrap = require('../services/workspaceScriptBootstrap');
 
 const router = express.Router();
 
@@ -304,6 +305,10 @@ router.post('/new', express.urlencoded({ extended: true }), async (req, res, nex
         archivedAt: null,
       };
       if (Number.isFinite(avgDealValue) && avgDealValue > 0) doc.avgDealValue = avgDealValue;
+
+      const scriptPresetKey =
+        w.setupPath === 'preset' && w.presetKey ? String(w.presetKey).trim().toLowerCase() : null;
+      workspaceScriptBootstrap.seedWorkspaceScriptsOnCreate(doc, { presetKey: scriptPresetKey });
 
       await dbService.saveWorkspace(newId, doc);
       await dbService.saveWorkspaceSlug(slug, newId);

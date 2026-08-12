@@ -3335,7 +3335,7 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
     order: 1;
 }
 
-#focus-outcome-panel[data-compact="true"] #focus-btn-ai-sms {
+#focus-outcome-panel[data-compact="true"] #focus-btn-sms {
     order: 2;
 }
 

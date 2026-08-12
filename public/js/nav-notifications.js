@@ -1388,6 +1388,11 @@
     waitFor(taskId) {
       const id = String(taskId || '').trim();
       if (!id) return Promise.resolve({ success: false, error: 'Missing task id' });
+      const ready = readArtworkReadyResult();
+      if (ready && ready.taskId === id && ready.imageUrl) {
+        clearArtworkReadyResult();
+        return Promise.resolve({ success: true, ...ready });
+      }
       return new Promise((resolve) => {
         artworkGenWaiters.set(id, { resolve });
       });

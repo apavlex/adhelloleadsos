@@ -13,6 +13,38 @@ function userEmail(req) {
   return String((req.user && req.user.email) || '').trim().toLowerCase();
 }
 
+function publicBaseUrl(req) {
+  const env = String(process.env.BASE_URL || '').trim().replace(/\/$/, '');
+  if (env) return env;
+  return `${req.protocol}://${req.get('host')}`;
+}
+
+function toAbsoluteAssetUrl(req, relativePath) {
+  const rel = String(relativePath || '').trim();
+  if (!rel) return '';
+  if (/^https?:\/\//i.test(rel)) return rel;
+  const base = publicBaseUrl(req);
+  return rel.startsWith('/') ? `${base}${rel}` : `${base}/${rel}`;
+}
+
+async function fetchRemoteImageBuffer(imageUrl) {
+  const url = String(imageUrl || '').trim();
+  if (!url || !/^https?:\/\//i.test(url)) {
+    throw new Error('A valid image URL is required.');
+  }
+  const res = await fetch(url, { redirect: 'follow' });
+  if (!res.ok) {
+    throw new Error(`Could not fetch image (${res.status}).`);
+  }
+  const contentType = String(res.headers.get('content-type') || 'image/jpeg').split(';')[0].trim();
+  const ab = await res.arrayBuffer();
+  if (!ab || !ab.byteLength) throw new Error('Image download was empty.');
+  let ext = 'jpg';
+  if (/png/i.test(contentType)) ext = 'png';
+  else if (/webp/i.test(contentType)) ext = 'webp';
+  return { buffer: Buffer.from(ab), contentType, ext };
+}
+
 async function loadWorkspaceProfile(wid, presetOverride) {
   const ws = await dbService.getWorkspace(wid).catch(() => null);
   const profile = resolveSocialPostProfile(ws);
@@ -93,6 +125,16 @@ router.post('/api/save', express.json({ limit: '4mb' }), async (req, res, next) 
 
     const { profile } = await loadWorkspaceProfile(wid);
 
+    let artworkUrl = String(req.body.artworkUrl || '').trim();
+    let artworkPrompt = String(req.body.artworkPrompt || '').trim();
+    if (!artworkUrl && ideaId) {
+      const ideaArt = await dbService.getSocialIdeaArtwork(ideaId, wid);
+      if (ideaArt && ideaArt.artworkUrl) {
+        artworkUrl = ideaArt.artworkUrl;
+        artworkPrompt = ideaArt.artworkPrompt || artworkPrompt;
+      }
+    }
+
     const record = {
       id: `sp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       platform,
@@ -109,6 +151,11 @@ router.post('/api/save', express.json({ limit: '4mb' }), async (req, res, next) 
       createdAt: new Date().toISOString(),
       workspaceId: wid,
     };
+    if (artworkUrl) {
+      record.artworkUrl = artworkUrl;
+      record.artworkPrompt = artworkPrompt;
+      record.artworkUpdatedAt = new Date().toISOString();
+    }
 
     await dbService.saveSocialPost(record, wid);
 
@@ -134,9 +181,64 @@ router.patch('/api/:id', express.json(), async (req, res, next) => {
     if (req.body.content !== undefined) patch.content = String(req.body.content || '').trim();
     if (req.body.cta !== undefined) patch.cta = String(req.body.cta || '').trim();
     if (req.body.folderId !== undefined) patch.folderId = req.body.folderId ? String(req.body.folderId).trim() : null;
+    if (req.body.artworkUrl !== undefined) patch.artworkUrl = String(req.body.artworkUrl || '').trim();
+    if (req.body.artworkPrompt !== undefined) patch.artworkPrompt = String(req.body.artworkPrompt || '').trim();
+    if (req.body.artworkUpdatedAt !== undefined) {
+      patch.artworkUpdatedAt = String(req.body.artworkUpdatedAt || '').trim();
+    }
     const post = await dbService.updateSocialPost(req.params.id, patch, wid);
     if (!post) return res.status(404).json({ success: false, error: 'Post not found.' });
     res.json({ success: true, post });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── POST /api/social-posts/sync-artwork — link generated image to a post/idea ─
+router.post('/api/sync-artwork', express.json({ limit: '4mb' }), async (req, res, next) => {
+  try {
+    const wid = String(req.body.workspaceId || req.workspaceId || 'default');
+    const artworkUrl = String(req.body.artworkUrl || '').trim();
+    const artworkPrompt = String(req.body.artworkPrompt || '').trim();
+    const postId = String(req.body.postId || '').trim();
+    const ideaId = String(req.body.ideaId || '').trim();
+    if (!artworkUrl) {
+      return res.status(400).json({ success: false, error: 'artworkUrl is required.' });
+    }
+    if (!postId && !ideaId) {
+      return res.status(400).json({ success: false, error: 'postId or ideaId is required.' });
+    }
+
+    const patch = {
+      artworkUrl,
+      artworkPrompt,
+      artworkUpdatedAt: new Date().toISOString(),
+    };
+    let post = null;
+
+    if (postId) {
+      post = await dbService.updateSocialPost(postId, patch, wid);
+    } else if (ideaId) {
+      await dbService.saveSocialIdeaArtwork(ideaId, patch, wid);
+      const posts = await dbService.getSocialPosts(wid);
+      const matched = posts.find((p) => String(p.ideaId || '') === ideaId);
+      if (matched) {
+        post = await dbService.updateSocialPost(matched.id, patch, wid);
+      }
+    }
+
+    res.json({ success: true, post, ideaId: ideaId || null, artworkUrl });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── GET /api/social-posts/idea-artwork — artwork keyed by idea id ─────────────
+router.get('/api/idea-artwork', async (req, res, next) => {
+  try {
+    const wid = String(req.query.workspaceId || req.workspaceId || 'default');
+    const artworks = await dbService.getAllSocialIdeaArtworks(wid);
+    res.json({ success: true, artworks });
   } catch (err) {
     next(err);
   }
@@ -159,6 +261,7 @@ router.post('/api/export-drive', express.json(), async (req, res, next) => {
     const cta = String(req.body.cta || '').trim();
     const imageNote = String(req.body.imageNote || '').trim();
     const tags = Array.isArray(req.body.tags) ? req.body.tags : [];
+    const artworkUrl = toAbsoluteAssetUrl(req, String(req.body.artworkUrl || '').trim());
     if (!content) {
       return res.status(400).json({ success: false, error: 'content is required.' });
     }
@@ -173,11 +276,28 @@ router.post('/api/export-drive', express.json(), async (req, res, next) => {
       mimeType: 'text/plain',
       folderName: SOCIAL_DRIVE_FOLDER,
     });
+    let imageUpload = null;
+    if (artworkUrl) {
+      try {
+        const { buffer, contentType, ext } = await fetchRemoteImageBuffer(artworkUrl);
+        imageUpload = await uploadBinaryToDrive(access, {
+          name: safeDriveFileName(`AdHello_${platform}_artwork_${Date.now()}.${ext}`),
+          content: buffer,
+          mimeType: contentType,
+          folderName: SOCIAL_DRIVE_FOLDER,
+        });
+      } catch (imgErr) {
+        console.warn('[social-posts] artwork drive upload failed:', imgErr && imgErr.message ? imgErr.message : imgErr);
+      }
+    }
     res.json({
       success: true,
       id: uploaded.id,
       name: uploaded.name,
       webViewLink: uploaded.webViewLink || null,
+      imageId: imageUpload && imageUpload.id ? imageUpload.id : null,
+      imageName: imageUpload && imageUpload.name ? imageUpload.name : null,
+      imageWebViewLink: imageUpload && imageUpload.webViewLink ? imageUpload.webViewLink : null,
     });
   } catch (err) {
     if (err && err.code === 'DRIVE_SCOPE') {

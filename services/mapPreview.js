@@ -6,8 +6,10 @@
 
 const { getGoogleMapsApiKey } = require('./googleMapsKey');
 const { getGeoapifyApiKey } = require('./geoapifyKey');
+const sharp = require('sharp');
 
 const NOMINATIM_UA = 'AdHelloLeadsOS/1.0 (map preview; contact@adhello.ai)';
+const OSM_TILE_UA = 'AdHelloLeadsOS/1.0 (map preview; +https://adhello.ai)';
 
 function normalizeAddressSeparators(raw) {
   return String(raw || '')
@@ -312,6 +314,96 @@ async function geocodeViaNominatim(query) {
   }
 }
 
+function latLngToTileFraction(lat, lng, zoom) {
+  const z = Math.max(0, Math.min(19, parseInt(zoom, 10) || 15));
+  const n = 2 ** z;
+  const x = ((lng + 180) / 360) * n;
+  const latRad = (lat * Math.PI) / 180;
+  const y =
+    ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n;
+  return { x, y, zoom: z, tileSize: 256 };
+}
+
+async function fetchOsmTile(z, x, y) {
+  const url = `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
+  try {
+    const res = await fetch(url, {
+      headers: { Accept: 'image/png,*/*', 'User-Agent': OSM_TILE_UA },
+    });
+    if (!res.ok) return null;
+    const contentType = String(res.headers.get('content-type') || 'image/png').split(';')[0].trim();
+    const buffer = Buffer.from(await res.arrayBuffer());
+    if (!buffer.length || buffer.length < 128) return null;
+    return { buffer, contentType: contentType.startsWith('image/') ? contentType : 'image/png' };
+  } catch (e) {
+    console.warn('[mapPreview] OSM tile fetch failed:', e.message);
+    return null;
+  }
+}
+
+async function buildOsmTileMapImage(lat, lng, width, height) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  const w = Math.min(640, Math.max(100, parseInt(width, 10) || 640));
+  const h = Math.min(640, Math.max(100, parseInt(height, 10) || 300));
+  const zoom = w >= 520 ? 15 : 14;
+  const { x, y, tileSize } = latLngToTileFraction(lat, lng, zoom);
+  const tileX = Math.floor(x);
+  const tileY = Math.floor(y);
+  const grid = 2;
+  const overlays = [];
+
+  for (let dy = 0; dy < grid; dy++) {
+    for (let dx = 0; dx < grid; dx++) {
+      const tile = await fetchOsmTile(zoom, tileX + dx, tileY + dy);
+      if (!tile) return null;
+      overlays.push({ input: tile.buffer, left: dx * tileSize, top: dy * tileSize });
+    }
+  }
+
+  const canvasSize = grid * tileSize;
+  const pixelX = (x - tileX) * tileSize;
+  const pixelY = (y - tileY) * tileSize;
+  let left = Math.round(pixelX - w / 2);
+  let top = Math.round(pixelY - h / 2);
+  left = Math.max(0, Math.min(canvasSize - w, left));
+  top = Math.max(0, Math.min(canvasSize - h, top));
+
+  const markerSvg = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">` +
+      `<circle cx="${w / 2}" cy="${Math.max(18, h / 2 - 10)}" r="11" fill="#EAB308" stroke="#111827" stroke-width="2"/>` +
+      `<circle cx="${w / 2}" cy="${Math.max(18, h / 2 - 10)}" r="3.5" fill="#111827"/>` +
+      `</svg>`,
+    'utf8',
+  );
+
+  try {
+    const base = await sharp({
+      create: {
+        width: canvasSize,
+        height: canvasSize,
+        channels: 4,
+        background: { r: 226, g: 232, b: 240, alpha: 1 },
+      },
+    })
+      .composite(overlays)
+      .png()
+      .toBuffer();
+
+    const buffer = await sharp(base)
+      .extract({ left, top, width: Math.min(w, canvasSize - left), height: Math.min(h, canvasSize - top) })
+      .resize(w, h, { fit: 'cover' })
+      .composite([{ input: markerSvg, gravity: 'center' }])
+      .png()
+      .toBuffer();
+
+    if (!buffer || buffer.length < 256) return null;
+    return { buffer, contentType: 'image/png' };
+  } catch (e) {
+    console.warn('[mapPreview] OSM tile composite failed:', e.message);
+    return null;
+  }
+}
+
 /**
  * @param {{ center?: string, lat?: number, lng?: number, width?: number, height?: number }} opts
  * @returns {Promise<{ buffer: Buffer, contentType: string, lat: number, lng: number, source: string } | null>}
@@ -364,6 +456,11 @@ async function getMapPreviewImage(opts) {
     }
   }
 
+  const tileImg = await buildOsmTileMapImage(lat, lng, width, height);
+  if (tileImg) {
+    return { ...tileImg, lat, lng, source: 'osm-tiles' };
+  }
+
   return null;
 }
 
@@ -376,6 +473,7 @@ module.exports = {
   buildGeoapifyStaticMapUrl,
   buildOsmStaticMapUrl,
   buildGeocodeQueryVariants,
+  latLngToTileFraction,
   getMapPreviewImage,
   isGoogleStaticMapErrorImage,
 };

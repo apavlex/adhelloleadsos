@@ -10,6 +10,7 @@ const {
   buildGeoapifyStaticMapUrl,
   buildGeocodeQueryVariants,
   isGoogleStaticMapErrorImage,
+  latLngToTileFraction,
 } = require('../services/mapPreview');
 
 describe('mapPreview helpers', () => {
@@ -96,5 +97,12 @@ describe('mapPreview helpers', () => {
     const errBuf = Buffer.from('PNG fake Google Maps Platform rejected your request');
     assert.equal(isGoogleStaticMapErrorImage(errBuf), true);
     assert.equal(isGoogleStaticMapErrorImage(Buffer.from('valid-image-bytes'.repeat(20))), false);
+  });
+
+  it('latLngToTileFraction returns fractional tile coordinates', () => {
+    const t = latLngToTileFraction(45.6403253, -122.4919363, 15);
+    assert.ok(t.x > 5234 && t.x < 5235);
+    assert.ok(t.y > 11704 && t.y < 11705);
+    assert.equal(t.zoom, 15);
   });
 });

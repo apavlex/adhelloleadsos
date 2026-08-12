@@ -32,7 +32,10 @@ describe('salesScriptsStorage', () => {
   });
 
   it('buildMergedScriptLibrary reads workspace overrides', () => {
-    const ws = { salesScriptBlockOverrides: { reputation: { close: 'Bye' } } };
+    const ws = {
+      salesScriptOfferCatalog: [{ key: 'reputation', label: 'Reputation' }],
+      salesScriptBlockOverrides: { reputation: { close: 'Bye' } },
+    };
     const m = buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
     assert.equal(m.reputation.close, 'Bye');
   });

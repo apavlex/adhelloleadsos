@@ -12,11 +12,11 @@ const {
 } = require('../services/workspaceSalesScripts');
 
 describe('workspaceSalesScripts', () => {
-  it('buildWorkspaceOfferLibrary uses defaults when no custom catalog', () => {
+  it('buildWorkspaceOfferLibrary returns empty catalog when workspace has none', () => {
     const { library, keys, catalog } = buildWorkspaceOfferLibrary({}, SCRIPT_LIBRARY);
-    assert.ok(keys.includes('reputation'));
-    assert.equal(catalog.length, keys.length);
-    assert.equal(library.reputation.tabLabel, SCRIPT_LIBRARY.reputation.tabLabel);
+    assert.deepEqual(keys, []);
+    assert.equal(catalog.length, 0);
+    assert.equal(Object.keys(library).length, 0);
   });
 
   it('buildWorkspaceOfferLibrary respects custom offer catalog', () => {

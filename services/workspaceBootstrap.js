@@ -4,6 +4,7 @@
  */
 const { randomUUID } = require('crypto');
 const dbService = require('./database');
+const workspaceScriptBootstrap = require('./workspaceScriptBootstrap');
 
 const DEFAULT_COACH_AGENCY =
   'You are coaching a digital ad agency owner targeting small businesses. Focus on reply-bait and offer clarity.';
@@ -145,8 +146,16 @@ async function runLegacyMigrationToNewWorkspace(ownerEmail) {
     if (legacyWs.integrationsCipher) doc.integrationsCipher = legacyWs.integrationsCipher;
     if (legacyWs.integrationsUpdatedAt) doc.integrationsUpdatedAt = legacyWs.integrationsUpdatedAt;
     doc.members = { ...(legacyWs.members || {}) };
+    workspaceScriptBootstrap.copyLegacyScriptFields(doc, legacyWs);
   }
   doc.members[em] = { role: 'owner', joinedAt: new Date().toISOString(), userId: em };
+
+  if (!workspaceScriptBootstrap.workspaceHasScriptCatalog(doc)) {
+    workspaceScriptBootstrap.seedWorkspaceScriptsOnCreate(doc, { presetKey: 'agency' });
+  } else if (!doc.salesScriptsSeededAt) {
+    doc.salesScriptsSeededAt = legacyWs?.salesScriptsUpdatedAt || new Date().toISOString();
+    doc.salesScriptsPresetKey = doc.salesScriptsPresetKey || 'agency';
+  }
 
   await dbService.saveWorkspace(newId, doc);
   await dbService.saveWorkspaceSlug('adhello-agency', newId);
@@ -198,6 +207,7 @@ async function createFreshDefaultWorkspace(ownerEmail) {
     createdAt: new Date().toISOString(),
     archivedAt: null,
   };
+  workspaceScriptBootstrap.seedWorkspaceScriptsOnCreate(doc, { presetKey: 'agency' });
   await dbService.saveWorkspace(newId, doc);
   await dbService.saveWorkspaceSlug('adhello-agency', newId);
   await dbService.putStorageKey('sys:legacy_default_workspace_id', newId);

@@ -3,11 +3,10 @@ const assert = require('node:assert/strict');
 const workspaceSalesScripts = require('../services/workspaceSalesScripts');
 const { SCRIPT_LIBRARY } = require('../services/salesConstants');
 
-test('materializeOfferCatalog copies default catalog when workspace has none', () => {
+test('materializeOfferCatalog returns empty when workspace has none', () => {
   const ws = {};
   const catalog = workspaceSalesScripts.materializeOfferCatalog(ws, SCRIPT_LIBRARY);
-  assert.ok(catalog.length > 0);
-  assert.equal(catalog[0].key, Object.keys(SCRIPT_LIBRARY)[0]);
+  assert.deepEqual(catalog, []);
 });
 
 test('materializeOfferCatalog returns stored custom catalog', () => {

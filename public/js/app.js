@@ -2471,6 +2471,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   let leadOutreachScriptsCache = {
+    workspaceId: '',
     leadKey: '',
     data: null,
     loading: null,
@@ -2479,6 +2480,29 @@ document.addEventListener('DOMContentLoaded', () => {
     workspaceLoading: null,
   };
   if (!window.__leadOutreachChannel) window.__leadOutreachChannel = 'call';
+
+  function getActiveWorkspaceIdForScripts() {
+    return String(
+      (typeof window !== 'undefined' && window.__ADHELLO_WORKSPACE_ID__) ||
+        (document.documentElement && document.documentElement.dataset.workspaceId) ||
+        '',
+    ).trim();
+  }
+
+  function invalidateLeadOutreachScriptsCacheIfWorkspaceChanged() {
+    const wid = getActiveWorkspaceIdForScripts();
+    if (!wid) return;
+    if (leadOutreachScriptsCache.workspaceId && leadOutreachScriptsCache.workspaceId !== wid) {
+      leadOutreachScriptsCache.workspaceData = null;
+      leadOutreachScriptsCache.workspaceLoading = null;
+      leadOutreachScriptsCache.leadKey = '';
+      leadOutreachScriptsCache.data = null;
+      leadOutreachScriptsCache.loading = null;
+      leadOutreachScriptsCache.loadingKey = '';
+      window.__ADHELLO_OUTREACH_LIBRARY__ = null;
+    }
+    leadOutreachScriptsCache.workspaceId = wid;
+  }
 
   function seedLeadOutreachScriptsCacheFromEmbedded(row) {
     const embedded = getEmbeddedOutreachScriptsPayload(row);
@@ -2726,7 +2750,14 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function fetchWorkspaceOutreachLibrary() {
-    if (leadOutreachScriptsCache.workspaceData) return leadOutreachScriptsCache.workspaceData;
+    invalidateLeadOutreachScriptsCacheIfWorkspaceChanged();
+    const wid = getActiveWorkspaceIdForScripts();
+    if (
+      leadOutreachScriptsCache.workspaceData &&
+      (!wid || leadOutreachScriptsCache.workspaceId === wid)
+    ) {
+      return leadOutreachScriptsCache.workspaceData;
+    }
     if (leadOutreachScriptsCache.workspaceLoading) return leadOutreachScriptsCache.workspaceLoading;
     const p = (async () => {
       const url = '/leads/outreach-library';
@@ -2760,6 +2791,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ensureLeadPanelPrimaryServiceSelectOptions(true);
       }
       window.__ADHELLO_OUTREACH_LIBRARY__ = data.library;
+      leadOutreachScriptsCache.workspaceId = wid || getActiveWorkspaceIdForScripts();
       leadOutreachScriptsCache.workspaceData = data;
       return data;
     })();
@@ -2879,6 +2911,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.__ADHELLO_OUTREACH_LIBRARY__ = data.library;
       }
       leadOutreachScriptsCache = {
+        workspaceId: leadOutreachScriptsCache.workspaceId || getActiveWorkspaceIdForScripts(),
         leadKey: key,
         data,
         loading: null,
@@ -4531,7 +4564,7 @@ document.addEventListener('DOMContentLoaded', () => {
       await loadSmsScriptOptions(row.dataset.leadKey);
       const bodyInput = document.getElementById('smsBodyInput');
       if (bodyInput) bodyInput.focus();
-      notifyLeadPanelDial('Pick a script — AI will write a personalized SMS when you send.', 'success');
+      notifyLeadPanelDial('Type your message, use Improve text if needed, then Send SMS.', 'success');
       confirmOutreachBtnSuccess(btn, '✓ Opened');
     } catch (err) {
       notifyLeadPanelDial(err.message || 'Could not load SMS scripts.', 'error');
@@ -4809,10 +4842,10 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      if (e.target.closest('#leadPanelAiSmsBtn')) {
+      if (e.target.closest('#leadPanelSmsBtn')) {
         e.preventDefault();
         e.stopPropagation();
-        await leadPanelAiWriteAndSendSms({ btn: document.getElementById('leadPanelAiSmsBtn'), feedback: 'outreach' });
+        await openLeadPanelSmsComposer();
         return;
       }
 
@@ -5081,9 +5114,9 @@ document.addEventListener('DOMContentLoaded', () => {
       void sendLeadSmsCompose();
       return;
     }
-    if (e.target.closest('#leadSmsAiWriteSendBtn')) {
+    if (e.target.closest('#leadSmsImproveTextBtn')) {
       e.preventDefault();
-      void leadPanelAiWriteAndSendSms();
+      void improveLeadSmsComposeText();
       return;
     }
     const row = e.target.closest('.result-row');
@@ -5156,7 +5189,15 @@ document.addEventListener('DOMContentLoaded', () => {
       oppContainer.dataset.score = row.dataset.aiScore;
     }
     if (currentRow === row) {
-      leadOutreachScriptsCache = { leadKey: '', data: null, loading: null, loadingKey: '' };
+      leadOutreachScriptsCache = {
+        workspaceId: getActiveWorkspaceIdForScripts(),
+        leadKey: '',
+        data: null,
+        loading: null,
+        loadingKey: '',
+        workspaceData: null,
+        workspaceLoading: null,
+      };
       if (typeof populatePanel === 'function') populatePanel(row);
       else {
         syncLeadCallAiAnalyzeCta(row);
@@ -7051,7 +7092,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function syncLeadPanelOutreachIntelButtons(row) {
     const phone = rowDatasetHasUsablePhone(row);
     const callBtn = document.getElementById('clickToCallBtn');
-    const smsBtn = document.getElementById('leadPanelAiSmsBtn');
+    const smsBtn = document.getElementById('leadPanelSmsBtn');
     const ghlBtn = document.getElementById('leadPanelPushGhlBtn');
     const setBtn = (btn, enabled, titleOn, titleOff) => {
       if (!btn) return;
@@ -7065,7 +7106,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setBtn(
       smsBtn,
       phone,
-      'AI writes a personalized SMS or iMessage and sends via Comms or GHL',
+      'Open SMS composer — type your message, improve with AI, then send',
       'Add a phone number first',
     );
     setBtn(ghlBtn, !!row, 'Sync to Go High Level for SMS, email, and voicemail', 'Select a lead first');
@@ -9853,8 +9894,8 @@ document.addEventListener('DOMContentLoaded', () => {
         iframe.classList.add('hidden');
       }
       if (fallback) {
-        fallback.classList.add('hidden');
-        fallback.classList.remove('flex');
+        fallback.classList.remove('hidden');
+        fallback.classList.add('flex');
       }
     };
 
@@ -11790,6 +11831,7 @@ document.addEventListener('DOMContentLoaded', () => {
     syncLeadPanelTouchSummary(row);
 
     leadOutreachScriptsCache = {
+      workspaceId: getActiveWorkspaceIdForScripts(),
       leadKey: '',
       data: null,
       loading: null,
@@ -11797,6 +11839,7 @@ document.addEventListener('DOMContentLoaded', () => {
       workspaceData: leadOutreachScriptsCache.workspaceData,
       workspaceLoading: null,
     };
+    invalidateLeadOutreachScriptsCacheIfWorkspaceChanged();
     seedLeadOutreachScriptsCacheFromEmbedded(row);
     if (!applyLeadPanelSellingScriptNow(row)) {
       const scriptEl = document.getElementById('leadPanelSellingScript');
@@ -12562,45 +12605,69 @@ document.addEventListener('DOMContentLoaded', () => {
     return `Hi ${title} team — this is [your name] from [your company]. We had a quick idea to help you capture more local leads. Open to a short call this week?`;
   }
 
-  async function leadPanelAiWriteAndSendSms(options) {
-    const opts = options || {};
+  async function openLeadPanelSmsComposer() {
     const row = resolvePanelActionRow ? resolvePanelActionRow() : currentRow;
-    const key = normalizeLeadKeyForApi(row && row.dataset ? row.dataset.leadKey : '');
-    const useOutreach = opts.feedback === 'outreach';
-    const setStatus = (msg, isError) => {
-      if (useOutreach) notifyLeadPanelDial(msg, isError ? 'error' : 'info');
-      else setLeadSmsThreadStatus(msg, isError);
-    };
-    if (!key) {
-      setStatus('Select a lead first.', true);
+    if (!row) {
+      notifyLeadPanelDial('Select a lead first.', 'error');
       return;
     }
     if (!rowDatasetHasUsablePhone(row)) {
-      setStatus('Add a phone number first.', true);
+      notifyLeadPanelDial('Add a phone number first.', 'error');
       return;
     }
-    const btn = opts.btn || document.getElementById('leadSmsAiWriteSendBtn');
-    const input = document.getElementById('leadSmsComposeInput');
-    if (btn) btn.disabled = true;
-    setStatus('AI writing…');
     try {
-      const scriptText = await resolveProspectSmsScript(key, row);
-      const data = await aiWriteAndSendSmsToLead(key, scriptText, {
-        context: 'outreach',
-        onPreview: (msg) => {
-          if (input) {
-            input.value = msg;
-            const countEl = document.getElementById('leadSmsComposeCount');
-            if (countEl) countEl.textContent = String(msg.length);
-          }
-        },
-      });
-      await loadLeadSmsThread(row, { sync: true, quiet: true });
-      const successMsg = smsSentSuccessMessage(data);
-      if (useOutreach) notifyLeadPanelDial(successMsg, 'success');
-      else setLeadSmsThreadStatus(successMsg);
+      await ensureRowHasLeadKey(row);
     } catch (err) {
-      setStatus((err && err.message) || 'AI send failed', true);
+      notifyLeadPanelDial(err.message || 'Save this lead first.', 'error');
+      return;
+    }
+    setLeadOutreachChannel('text');
+    const section = document.getElementById('leadSmsThreadSection');
+    const input = document.getElementById('leadSmsComposeInput');
+    const scriptEl = document.getElementById('leadPanelSellingScript');
+    const scriptText = scriptEl ? String(scriptEl.textContent || '').trim() : '';
+    if (input && !String(input.value || '').trim() && scriptText && scriptText !== '—' && scriptText.length > 12) {
+      input.value = scriptText;
+      const countEl = document.getElementById('leadSmsComposeCount');
+      if (countEl) countEl.textContent = String(scriptText.length);
+    }
+    if (section) section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (input) {
+      window.setTimeout(() => {
+        input.focus();
+        const len = input.value.length;
+        if (typeof input.setSelectionRange === 'function') input.setSelectionRange(len, len);
+      }, 120);
+    }
+    notifyLeadPanelDial('Type your SMS, use Improve text if needed, then Send SMS.', 'success');
+  }
+
+  async function improveLeadSmsComposeText() {
+    const row = resolvePanelActionRow ? resolvePanelActionRow() : currentRow;
+    const key = normalizeLeadKeyForApi(row && row.dataset ? row.dataset.leadKey : '');
+    const input = document.getElementById('leadSmsComposeInput');
+    const btn = document.getElementById('leadSmsImproveTextBtn');
+    const draft = String((input && input.value) || '').trim();
+    if (!key) {
+      setLeadSmsThreadStatus('Select a lead first.', true);
+      return;
+    }
+    if (!draft) {
+      setLeadSmsThreadStatus('Add a message to improve first.', true);
+      return;
+    }
+    if (btn) btn.disabled = true;
+    setLeadSmsThreadStatus('Improving text…');
+    try {
+      const improved = await personalizeSmsForLead(key, draft, 'outreach');
+      if (input) {
+        input.value = improved;
+        const countEl = document.getElementById('leadSmsComposeCount');
+        if (countEl) countEl.textContent = String(improved.length);
+      }
+      setLeadSmsThreadStatus('Text improved — review and tap Send SMS when ready.');
+    } catch (err) {
+      setLeadSmsThreadStatus((err && err.message) || 'Could not improve text.', true);
     } finally {
       if (btn) btn.disabled = false;
     }
