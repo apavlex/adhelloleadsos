@@ -387,7 +387,7 @@
                       </label>
                     <% }); %>
                   </div>
-                  <p class="text-xs text-brand-muted mt-2 leading-relaxed">Supported today: NY, CO, PA, CT, OR via Apify. More states may be added as registries open up.</p>
+                  <p class="text-xs text-brand-muted mt-2 leading-relaxed"><strong class="text-brand-dark dark:text-white">Required:</strong> pick at least one state. Supported today: NY, CO, PA, CT, OR via Apify. Washington is not available yet — use OR for nearby filings.</p>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div>
@@ -1034,6 +1034,15 @@
       }
       var nationwide = !findTypeRequiresLocation(currentType);
       var locLabel = nationwide ? 'Nationwide' : (c || s ? (c + (c && s ? ', ' : '') + s) : '—');
+      if (currentType === 'business_formations') {
+        var formationStateCbs = document.querySelectorAll('.formation-state-cb:checked');
+        if (!formationStateCbs.length) {
+          locLabel = 'Select at least one state';
+        } else {
+          locLabel = Array.prototype.map.call(formationStateCbs, function (cb) { return cb.value; }).join(', ');
+        }
+        nationwide = false;
+      }
       if (line) {
         if (nationwide) {
           line.innerHTML = '<span class="text-brand-dark dark:text-white">' + k + '</span> <span class="text-brand-muted font-semibold">· nationwide</span>';
@@ -1162,8 +1171,16 @@
     document.getElementById('modeSchedule') && document.getElementById('modeSchedule').addEventListener('click', function () { setTimeout(updateSubmitLabel, 0); });
 
     if (form) {
-      form.addEventListener('submit', function () {
+      form.addEventListener('submit', function (e) {
         if (currentType === 'permits') syncPermitCityToManual();
+        if (currentType === 'business_formations') {
+          var checkedStates = document.querySelectorAll('.formation-state-cb:checked');
+          if (!checkedStates.length) {
+            e.preventDefault();
+            alert('Select at least one state (NY, CO, PA, CT, or OR). Formation search does not run nationwide without a state registry.');
+            return;
+          }
+        }
         document.querySelectorAll('[data-find-panel].hidden').forEach(function (panel) {
           setPanelInputsEnabled(panel, false);
         });

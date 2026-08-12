@@ -118,8 +118,7 @@
           <svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
           Save all for review
         </button>
-        <button onclick="switchTab('instagram')" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-[#E1306C] text-[#E1306C]">Filter: Instagram</button>
-        <button onclick="switchTab('all')" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white">Show All</button>
+        <div id="tagFilterBar" class="hidden flex flex-wrap items-center gap-2 basis-full pt-1 border-t border-brand-border/30 dark:border-white/10 mt-1"></div>
       </div>
     </div>
 
@@ -173,8 +172,6 @@
       <button class="platform-tab px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="x">X / Twitter</button>
       <button class="platform-tab px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="tiktok">TikTok</button>
     </div>
-
-    <div id="tagFilterBar" class="hidden flex flex-wrap items-center gap-2 mb-6"></div>
 
     <!-- Ideas Grid -->
     <div id="ideasContainer" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 mb-10">
@@ -688,7 +685,8 @@
       }
     }
 
-    function marketingStudioUrl(platform, hook, cta) {
+    function marketingStudioUrl(platform, hook, cta, extras) {
+      extras = extras || {};
       const dmPlatform = DM_PLATFORMS[platform] || 'instagram_feed';
       const copy = hook + (cta ? '\n\n' + cta : '');
       const params = new URLSearchParams({
@@ -697,9 +695,42 @@
         copy: copy,
         headline: hook.slice(0, 120),
         body: cta || '',
-        autoGenerate: '1',
+        autoPrompt: '1',
       });
+      if (extras.imageNote) params.set('imageNote', String(extras.imageNote).slice(0, 500));
+      if (extras.tags && extras.tags.length) params.set('tags', extras.tags.join(', ').slice(0, 200));
       return '/direct-mail?' + params.toString();
+    }
+
+    function launchMarketingStudioFromCard(mode, ideaId, postId, platform) {
+      let hook = '';
+      let cta = '';
+      let imageNote = '';
+      let tags = [];
+      if (mode === 'saved') {
+        const post = savedPosts.find(function (p) { return p.id === postId; });
+        if (post) {
+          hook = post.content || '';
+          cta = post.cta || '';
+          imageNote = post.imageNote || '';
+          tags = post.tags || [];
+        }
+      } else {
+        const card = document.querySelector('[data-idea-id="' + ideaId + '"]');
+        if (card) {
+          hook = card.querySelector('.preview-hook')?.textContent || '';
+          const ctaEl = card.querySelector('.preview-cta');
+          cta = ctaEl ? ctaEl.textContent.replace(/^CTA:\s*/, '') : '';
+        }
+        const state = getIdeaState(ideaId);
+        imageNote = state.imageNote || '';
+        tags = getTagsForIdea(platform, ideaId);
+      }
+      if (!String(hook).trim()) {
+        qaStatus('Add post copy before creating artwork');
+        return;
+      }
+      window.location.href = marketingStudioUrl(platform, hook, cta, { imageNote: imageNote, tags: tags });
     }
 
     function cardRef(mode, ideaId, postId) {
@@ -712,8 +743,10 @@
         isSaved = false, liked = false, tags = [], imageNote = '', metaLabel = '',
       } = opts;
       const ref = cardRef(mode, ideaId, postId);
-      const studioUrl = marketingStudioUrl(platform, hook, cta || '');
       const platformLabel = (PLATFORM_LABELS[platform] || platform || '').toUpperCase();
+      const studioLaunch = mode === 'saved'
+        ? "launchMarketingStudioFromCard('saved','','" + postId.replace(/'/g, "\\'") + "','" + platform.replace(/'/g, "\\'") + "')"
+        : "launchMarketingStudioFromCard('idea','" + ideaId.replace(/'/g, "\\'") + "','','" + platform.replace(/'/g, "\\'") + "')";
       const likeClass = liked ? ' liked' : '';
       const likeIcon = liked ? ICONS.heartFilled : ICONS.heart;
       const bookmarkIcon = isSaved ? ICONS.bookmarkFilled : ICONS.bookmark;
@@ -752,14 +785,14 @@
         ? ideaEditAreaHtml(ideaId, hook, cta)
         : savedEditAreaHtml(postId, hook, cta);
 
-      return '<div class="post-card-thumb" onclick="handleThumbClick(event, \'' + ref.replace(/'/g, "\\'") + '\')">' +
+      return '<div class="post-card-thumb cursor-pointer" onclick="event.stopPropagation();' + studioLaunch + '">' +
         noteDisplay +
-        '<button type="button" class="thumb-note-btn" onclick="event.stopPropagation();' + noteHandler + '" title="Image note">' + ICONS.note + '</button>' +
+        '<button type="button" class="thumb-note-btn" onclick="event.stopPropagation();' + noteHandler + '" title="Art direction note (optional)">' + ICONS.note + '</button>' +
         '<div class="thumb-note-editor hidden" data-note-editor="' + ref + '">' +
-        '<textarea placeholder="Note for artwork / image direction..." data-note-input="' + ref + '">' + escapeHtml(imageNote) + '</textarea>' +
+        '<textarea placeholder="Optional art direction for AI (e.g. before/after flooring, warm lighting)..." data-note-input="' + ref + '">' + escapeHtml(imageNote) + '</textarea>' +
         '<div class="flex gap-2"><button type="button" onclick="event.stopPropagation();' + saveNoteHandler + '" class="btn-brand-yellow text-xs font-bold px-3 py-1 rounded-lg">Save note</button>' +
         '<button type="button" onclick="event.stopPropagation();closeNoteEditor(\'' + ref.replace(/'/g, "\\'") + '\')" class="text-xs font-bold text-brand-muted px-2 py-1">Close</button></div></div>' +
-        '<div class="thumb-overlay"><a href="' + studioUrl.replace(/"/g, '&quot;') + '" class="thumb-label" onclick="event.stopPropagation()">Create artwork →</a></div></div>' +
+        '<div class="thumb-overlay"><span class="thumb-label">Create artwork →</span></div></div>' +
         '<div class="post-card-actions">' +
         '<button type="button" onclick="event.stopPropagation();' + likeHandler + '" class="post-card-action-btn' + likeClass + '" title="Like" data-like-btn="' + ref + '">' + likeIcon + '</button>' +
         '<button type="button" onclick="event.stopPropagation();' + bookmarkHandler + '" class="post-card-action-btn"' + bookmarkColor + ' title="' + (isSaved ? 'Saved' : 'Bookmark') + '">' + bookmarkIcon + '</button>' +
@@ -775,11 +808,6 @@
         tagPills +
         '</div>' +
         editArea;
-    }
-
-    function handleThumbClick(event, ref) {
-      if (event.target.closest('.thumb-overlay') || event.target.closest('.thumb-note-btn') || event.target.closest('.thumb-note-editor')) return;
-      toggleNoteEditor(ref);
     }
 
     function toggleNoteEditor(ref) {

@@ -1852,7 +1852,20 @@
       });
   }
 
-  function loadFromSocialPostParams() {
+  function buildSocialPostDesignChatMessage(copy, headline, body, imageNote, tags, platformKey) {
+    var plat = DM_PLATFORMS[platformKey] || DM_PLATFORMS.instagram_feed;
+    var parts = [
+      'Make a professional ' + (plat.label || 'social') + ' ad from this post. Return a detailed production-ready imagePrompt for the image generator.',
+    ];
+    if (headline) parts.push('Headline / hook: ' + headline);
+    if (body) parts.push('CTA: ' + body);
+    if (copy) parts.push('Full post copy:\n' + copy.slice(0, 900));
+    if (imageNote) parts.push('Art direction from the user: ' + imageNote);
+    if (tags) parts.push('Tags / themes: ' + tags);
+    return parts.join('\n\n');
+  }
+
+  async function loadFromSocialPostParams() {
     var params = new URLSearchParams(window.location.search || '');
     if (String(params.get('fromSocialPost') || '') !== '1') return;
 
@@ -1860,7 +1873,11 @@
     var copy = String(params.get('copy') || '').trim();
     var headline = String(params.get('headline') || '').trim();
     var body = String(params.get('body') || '').trim();
-    var autoGenerate = String(params.get('autoGenerate') || '') === '1';
+    var imageNote = String(params.get('imageNote') || '').trim();
+    var tags = String(params.get('tags') || '').trim();
+    var autoPrompt =
+      String(params.get('autoPrompt') || '') === '1' ||
+      String(params.get('autoGenerate') || '') === '1';
 
     var platformEl = document.getElementById('dmPlatform');
     if (platformEl && DM_PLATFORMS[platform]) {
@@ -1881,23 +1898,55 @@
       refreshPostCopyFromFields(true);
     }
 
-    switchDmDrawerTab('copy');
+    switchDmDrawerTab('formats');
     syncPostCopySection();
 
     if (typeof window.showAppToast === 'function') {
-      window.showAppToast('Post copy loaded from Social Post Ideas', { variant: 'success' });
+      window.showAppToast('Post loaded — AI is building your image prompt…', { variant: 'success' });
     }
 
-    if (autoGenerate && copy) {
-      var chatInput = document.getElementById('dmChatInput');
-      var prompt =
-        'Create a professional social media graphic for this post. Match the platform format. Post copy:\n\n' +
-        copy.slice(0, 800);
-      if (chatInput) chatInput.value = prompt;
-      showPromptEditor('front', prompt);
-      window.setTimeout(function () {
-        if (typeof generateImage === 'function') generateImage();
-      }, 600);
+    if (!autoPrompt || !(copy || headline)) return;
+
+    var chatMessage = buildSocialPostDesignChatMessage(copy, headline, body, imageNote, tags, platform);
+    chatHistory.push({ role: 'user', content: chatMessage });
+    appendChatBubble('user', chatMessage);
+    setDesignStatus('AI is writing your image prompt…', true);
+
+    try {
+      var plat = DM_PLATFORMS[platform] || DM_PLATFORMS.instagram_feed;
+      var ctx = designRequestContext();
+      ctx.platform = platform;
+      ctx.aspectRatio = plat.aspectRatio || '1:1';
+      var data = await postJson('/direct-mail/api/design-chat', {
+        message: chatMessage,
+        history: [],
+        headline: headline,
+        bodyText: body,
+        slot: 'front',
+        platform: platform,
+        aspectRatio: ctx.aspectRatio,
+        brandKit: ctx.brandKit,
+      });
+      var reply = String(data.reply || '').trim();
+      if (reply) {
+        appendChatBubble('assistant', reply);
+        chatHistory.push({ role: 'assistant', content: reply });
+      }
+      var prompt = data.imagePrompt ? String(data.imagePrompt).trim() : '';
+      if (!prompt) {
+        prompt = buildQuickImagePrompt(chatMessage, ctx);
+      }
+      if (prompt) {
+        lastImagePrompt = prompt;
+        designMeta.front.prompt = prompt;
+        showPromptEditor('front', prompt);
+        setDesignStatus('Generating artwork for ' + (plat.label || 'social') + '…', true);
+        await generateImage({ prompt: prompt, skipPromptRead: true, slot: 'front' });
+      } else {
+        setDesignStatus('Could not build an image prompt — describe the design in Chat.', false);
+      }
+    } catch (e) {
+      setDesignStatus(e && e.message ? e.message : 'Could not build image prompt from post', false);
     }
   }
 
@@ -3576,7 +3625,7 @@
 
   renderSavedLibrary();
   loadMailPlaybooksFromUrl();
-  loadFromSocialPostParams();
+  void loadFromSocialPostParams();
   loadPendingArtworkFromBell();
   initDmListFilters();
 
