@@ -310,6 +310,18 @@
         </div>
         <input type="hidden" id="focus-outcome" value="" />
         </div>
+        <section id="focus-sms-compose-section" class="hidden w-full rounded-2xl bg-white/60 dark:bg-slate-900/40 border border-emerald-500/25 dark:border-emerald-500/20 p-4 space-y-3" aria-label="SMS composer">
+          <p class="text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-300">SMS message</p>
+          <textarea id="focus-sms-compose-input" rows="3" maxlength="1600" placeholder="Type your SMS…" class="block w-full max-w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-medium text-brand-dark dark:text-white focus:ring-2 focus:ring-emerald-500/50 resize-y min-h-[4rem]"></textarea>
+          <div class="flex flex-wrap items-center justify-between gap-2 w-full">
+            <span id="focus-sms-compose-count" class="text-[9px] font-semibold text-brand-muted tabular-nums">0</span>
+            <div class="flex flex-wrap items-center gap-2">
+              <button type="button" id="focus-sms-improve-text" class="btn-pill border border-brand-yellow/50 bg-brand-yellow/10 text-brand-dark dark:text-brand-yellow px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-brand-yellow/20 transition-all" title="Polish your SMS draft with AI — does not send">Improve text</button>
+              <button type="button" id="focus-sms-compose-send" class="btn-pill bg-emerald-500 text-white px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:brightness-95 transition-all">Send SMS</button>
+            </div>
+          </div>
+          <p id="focus-sms-compose-status" class="text-[10px] font-semibold text-brand-muted m-0" aria-live="polite"></p>
+        </section>
         <div id="focus-outcome-actions" class="flex flex-col gap-3 pt-1">
         <button
           type="button"
@@ -319,18 +331,6 @@
         >
           Open in dialer
         </button>
-        <section id="focus-sms-compose-section" class="hidden rounded-2xl bg-white/60 dark:bg-slate-900/40 border border-emerald-500/25 dark:border-emerald-500/20 p-4 space-y-3" aria-label="SMS composer">
-          <p class="text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-300">SMS message</p>
-          <textarea id="focus-sms-compose-input" rows="3" maxlength="1600" placeholder="Type your SMS…" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-medium text-brand-dark dark:text-white focus:ring-2 focus:ring-emerald-500/50 resize-y min-h-[4rem]"></textarea>
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <span id="focus-sms-compose-count" class="text-[9px] font-semibold text-brand-muted tabular-nums">0</span>
-            <div class="flex flex-wrap items-center gap-2">
-              <button type="button" id="focus-sms-improve-text" class="btn-pill border border-brand-yellow/50 bg-brand-yellow/10 text-brand-dark dark:text-brand-yellow px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-brand-yellow/20 transition-all" title="Polish your SMS draft with AI — does not send">Improve text</button>
-              <button type="button" id="focus-sms-compose-send" class="btn-pill bg-emerald-500 text-white px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:brightness-95 transition-all">Send SMS</button>
-            </div>
-          </div>
-          <p id="focus-sms-compose-status" class="text-[10px] font-semibold text-brand-muted m-0" aria-live="polite"></p>
-        </section>
         <div class="focus-primary-actions grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
           <button type="button" id="focus-btn-call" class="btn-pill btn-primary w-full px-4 py-3.5 text-xs font-black uppercase tracking-widest shadow-md min-h-[3rem]">Call</button>
           <button type="button" id="focus-btn-sms" class="btn-pill border-2 border-emerald-500/60 bg-emerald-500/15 text-emerald-900 dark:text-emerald-200 w-full px-4 py-3.5 text-xs font-black uppercase tracking-widest hover:bg-emerald-500/25 transition-colors min-h-[3rem]" title="Open SMS composer to type and send a message">SMS</button>

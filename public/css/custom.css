@@ -3357,6 +3357,34 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
     background: color-mix(in srgb, var(--brand-yellow, #facc15) 12%, transparent);
 }
 
+/* Focus compact bar — SMS composer spans full width above action buttons */
+#focus-outcome-panel[data-compact="true"]:has(#focus-sms-compose-section:not(.hidden)) {
+    flex-wrap: wrap;
+    align-items: stretch;
+}
+
+#focus-outcome-panel[data-compact="true"]:has(#focus-sms-compose-section:not(.hidden)) #focus-sms-compose-section {
+    order: 0;
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+}
+
+#focus-outcome-panel[data-compact="true"]:has(#focus-sms-compose-section:not(.hidden)) #focus-outcome-actions {
+    order: 1;
+    flex: 1 1 100%;
+    width: 100%;
+    flex-wrap: wrap;
+    overflow-x: visible;
+}
+
+#focus-outcome-panel[data-compact="true"]:has(#focus-sms-compose-section:not(.hidden)) #focus-sms-compose-input {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
 .dark #focus-outcome-panel[data-compact="true"] #focus-outcome-compact-toggle {
     color: var(--brand-yellow, #facc15);
 }
