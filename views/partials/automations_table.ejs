@@ -64,6 +64,7 @@
         </thead>
         <tbody class="divide-y divide-brand-border/40 dark:divide-white/10" id="automationsTableBody">
           <% autoList.forEach(function(a) { %>
+          <% const enrolled = Array.isArray(a.enrolledLeads) ? a.enrolledLeads : []; %>
           <tr class="group hover:bg-brand-cream/50 dark:hover:bg-white/5 transition-all duration-300" data-automation-id="<%= a.id %>">
             <td class="px-6 py-5">
               <div class="flex items-center gap-3 min-w-0">
@@ -93,8 +94,17 @@
                 <%= a.status %>
               </span>
             </td>
-            <td class="px-4 py-5 text-center text-sm font-bold text-brand-dark dark:text-white">
-              <%= a.leadsEnrolled != null ? a.leadsEnrolled : '—' %>
+            <td class="px-4 py-5 text-center">
+              <div class="flex flex-col items-center gap-1">
+                <span class="text-sm font-bold text-brand-dark dark:text-white">
+                  <%= a.leadsEnrolled != null ? a.leadsEnrolled : '—' %>
+                </span>
+                <% if (enrolled.length > 0) { %>
+                <button type="button" class="auto-enrolled-toggle text-[9px] font-black uppercase tracking-wider text-brand-muted hover:text-brand-dark dark:hover:text-white underline-offset-2 hover:underline transition-colors" data-target="<%= a.id %>" aria-expanded="false">
+                  View <%= enrolled.length %> lead<%= enrolled.length === 1 ? '' : 's' %>
+                </button>
+                <% } %>
+              </div>
             </td>
             <td class="px-4 py-5 text-center">
               <div class="text-xs font-bold text-brand-dark dark:text-white"><%= formatWhen(a.lastActivity) %></div>
@@ -125,6 +135,44 @@
               </div>
             </td>
           </tr>
+          <% if (enrolled.length > 0) { %>
+          <tr class="auto-enrolled-row hidden" data-enrolled-for="<%= a.id %>">
+            <td colspan="7" class="px-6 py-4 bg-brand-cream/40 dark:bg-white/[0.03] border-t border-brand-border/30 dark:border-white/5">
+              <div class="max-w-full overflow-x-auto">
+                <div class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-3">Enrolled leads</div>
+                <table class="w-full text-left text-xs">
+                  <thead>
+                    <tr class="text-[9px] font-bold uppercase tracking-wider text-brand-muted">
+                      <th class="pb-2 pr-4">Lead</th>
+                      <th class="pb-2 pr-4">Enrolled</th>
+                      <th class="pb-2 pr-4">Last touch</th>
+                      <th class="pb-2 pr-4">Detail</th>
+                      <th class="pb-2 text-right">Open</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-brand-border/30 dark:divide-white/5">
+                    <% enrolled.forEach(function(el) { %>
+                    <tr>
+                      <td class="py-2.5 pr-4 font-bold text-brand-dark dark:text-white max-w-[200px] truncate" title="<%= el.title %>"><%= el.title %></td>
+                      <td class="py-2.5 pr-4 text-brand-muted whitespace-nowrap"><%= formatWhen(el.enrolledAt) %></td>
+                      <td class="py-2.5 pr-4">
+                        <div class="text-brand-dark dark:text-white whitespace-nowrap"><%= formatWhen(el.lastTouchAt) %></div>
+                        <% if (el.lastTouchLabel && el.lastTouchLabel !== '—') { %>
+                        <div class="text-[10px] text-brand-muted mt-0.5"><%= el.lastTouchLabel %></div>
+                        <% } %>
+                      </td>
+                      <td class="py-2.5 pr-4 text-brand-muted max-w-[220px] truncate" title="<%= el.statusDetail %>"><%= el.statusDetail || '—' %></td>
+                      <td class="py-2.5 text-right whitespace-nowrap">
+                        <a href="<%= el.openUrl %>" class="text-[9px] font-black uppercase tracking-wider text-brand-dark dark:text-brand-yellow hover:underline">Focus →</a>
+                      </td>
+                    </tr>
+                    <% }); %>
+                  </tbody>
+                </table>
+              </div>
+            </td>
+          </tr>
+          <% } %>
           <% }); %>
         </tbody>
       </table>
@@ -168,6 +216,29 @@
 
   var refreshBtn = document.getElementById('automationsRefreshBtn');
   if (refreshBtn) refreshBtn.addEventListener('click', reloadAutomations);
+
+  document.querySelectorAll('.auto-enrolled-toggle').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var targetId = btn.getAttribute('data-target');
+      if (!targetId) return;
+      var row = document.querySelector('.auto-enrolled-row[data-enrolled-for="' + targetId + '"]');
+      if (!row) return;
+      var isHidden = row.classList.contains('hidden');
+      document.querySelectorAll('.auto-enrolled-row').forEach(function(r) {
+        if (r !== row) r.classList.add('hidden');
+      });
+      document.querySelectorAll('.auto-enrolled-toggle').forEach(function(b) {
+        if (b !== btn) b.setAttribute('aria-expanded', 'false');
+      });
+      if (isHidden) {
+        row.classList.remove('hidden');
+        btn.setAttribute('aria-expanded', 'true');
+      } else {
+        row.classList.add('hidden');
+        btn.setAttribute('aria-expanded', 'false');
+      }
+    });
+  });
 
   document.querySelectorAll('.auto-action-btn').forEach(function(btn) {
     btn.addEventListener('click', function() {

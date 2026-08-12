@@ -128,6 +128,138 @@ function autoPoolHasConfig(settings) {
   );
 }
 
+function leadShortKey(key) {
+  const k = String(key || '').trim();
+  return k.replace(/^lead:/i, '');
+}
+
+function pickLastAutomationTouch(lead) {
+  const candidates = [];
+  const updates = Array.isArray(lead && lead.updates) ? lead.updates : [];
+  for (const u of updates) {
+    const type = String(u && u.type || '').trim();
+    if (
+      ![
+        'email_outbound',
+        'sms_outbound',
+        'sequence_step',
+        'prospecting_enroll',
+        'status_change',
+      ].includes(type)
+    ) {
+      continue;
+    }
+    const ts = Date.parse(u.timestamp || '') || 0;
+    if (!ts) continue;
+    let label = String(u.value || type).trim();
+    if (type === 'email_outbound') label = 'Email sent';
+    else if (type === 'sms_outbound') label = 'SMS sent';
+    else if (type === 'sequence_step') label = 'Cadence step logged';
+    else if (type === 'prospecting_enroll') label = 'Enrolled in GHL outreach';
+    candidates.push({ ts, label: label.slice(0, 120) });
+  }
+  const logs = Array.isArray(lead && lead.logs) ? lead.logs : [];
+  for (const entry of logs) {
+    const type = String(entry && entry.type || '').trim();
+    if (type !== 'prospecting_enroll') continue;
+    const ts = Date.parse(entry.timestamp || '') || 0;
+    if (!ts) continue;
+    candidates.push({
+      ts,
+      label: String(entry.message || 'Enrolled in GHL outreach').slice(0, 120),
+    });
+  }
+  if (!candidates.length) return null;
+  candidates.sort((a, b) => b.ts - a.ts);
+  return candidates[0];
+}
+
+function summarizeEnrolledLead(lead, context) {
+  if (!lead || !lead.key) return null;
+  const title = String(lead.title || lead.company || lead.email || 'Lead').slice(0, 120);
+  const shortKey = leadShortKey(lead.key);
+  let enrolledAt = null;
+  let statusDetail = '';
+
+  if (context === 'ghl_outreach') {
+    const p = lead.prospecting || {};
+    enrolledAt = p.lastEnrolledAt || p.enrolledAt || null;
+    statusDetail = 'GHL auto-outreach';
+    if (p.senderOfferKey) statusDetail += ` · ${p.senderOfferKey}`;
+  } else if (context === 'cadence') {
+    const st = lead.sequenceState || {};
+    enrolledAt = st.anchorTime || st.startedAt || null;
+    const tpl = String(st.templateId || 'cadence');
+    const stepIdx = typeof st.stepIndex === 'number' ? st.stepIndex + 1 : 1;
+    statusDetail = `${tpl} · step ${stepIdx}`;
+    if (st.nextDueAt) {
+      statusDetail += ` · next due ${new Date(st.nextDueAt).toLocaleString([], {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })}`;
+    }
+  }
+
+  const touch = pickLastAutomationTouch(lead);
+  const lastTouchAt =
+    (touch && new Date(touch.ts).toISOString()) ||
+    lead.lastTouchAt ||
+    lead.updatedAt ||
+    null;
+
+  return {
+    key: lead.key,
+    shortKey,
+    title,
+    enrolledAt,
+    lastTouchAt,
+    lastTouchLabel:
+      (touch && touch.label) ||
+      String(lead.lastTouchChannel || '').trim() ||
+      '—',
+    statusDetail,
+    openUrl: `/focus?lead=${encodeURIComponent(shortKey)}`,
+  };
+}
+
+function listGhlOutreachEnrolledLeads(leads, folderKey = null) {
+  const fk = folderKey != null ? String(folderKey).trim() : '';
+  return leads
+    .filter((l) => {
+      if (!isActiveProspecting(l)) return false;
+      if (fk && String(l.folderKey || '').trim() !== fk) return false;
+      return true;
+    })
+    .map((l) => summarizeEnrolledLead(l, 'ghl_outreach'))
+    .filter(Boolean)
+    .sort((a, b) => {
+      const ea = Date.parse(a.enrolledAt || '') || 0;
+      const eb = Date.parse(b.enrolledAt || '') || 0;
+      if (ea !== eb) return eb - ea;
+      const ta = Date.parse(a.lastTouchAt || '') || 0;
+      const tb = Date.parse(b.lastTouchAt || '') || 0;
+      return tb - ta;
+    });
+}
+
+function listCadenceEnrolledLeads(leads) {
+  return leads
+    .filter((l) => {
+      if (!isActiveCadence(l)) return false;
+      const tid = String((l.sequenceState && l.sequenceState.templateId) || '');
+      return tid !== AUTO_OUTREACH_CAMPAIGN;
+    })
+    .map((l) => summarizeEnrolledLead(l, 'cadence'))
+    .filter(Boolean)
+    .sort((a, b) => {
+      const na = Date.parse((a.enrolledAt || a.lastTouchAt) || '') || 0;
+      const nb = Date.parse((b.enrolledAt || b.lastTouchAt) || '') || 0;
+      return nb - na;
+    });
+}
+
 /**
  * @param {string} workspaceId
  * @returns {Promise<{ automations: object[], summary: object }>}
@@ -168,10 +300,9 @@ async function listAutomationsForWorkspace(workspaceId) {
       canResume: !autoPool.enabled,
       canRun: true,
       canStop: false,
+      enrolledLeads: listGhlOutreachEnrolledLeads(leads).slice(0, 50),
     });
   }
-
-  // Per-folder outreach
   for (const folder of folders) {
     if (!folderHasOutreachConfig(folder)) continue;
     const settings = loadFolderOutreachFromFolder(folder);
@@ -196,10 +327,9 @@ async function listAutomationsForWorkspace(workspaceId) {
       canResume: !settings.enabled,
       canRun: true,
       canStop: false,
+      enrolledLeads: listGhlOutreachEnrolledLeads(leads, folderKey).slice(0, 50),
     });
   }
-
-  // Scheduled prospecting searches (workspace-scoped)
   const schedules = allSchedules.filter(
     (s) => !s.workspaceId || String(s.workspaceId) === wid,
   );
@@ -245,10 +375,9 @@ async function listAutomationsForWorkspace(workspaceId) {
       canResume: false,
       canRun: false,
       canStop: false,
+      enrolledLeads: listCadenceEnrolledLeads(leads).slice(0, 50),
     });
   }
-
-  // Sort: running first, then paused, then idle; within group by last activity desc
   const statusOrder = { running: 0, paused: 1, idle: 2 };
   automations.sort((a, b) => {
     const sa = statusOrder[a.status] ?? 3;
@@ -306,4 +435,7 @@ module.exports = {
   computeScheduleNextRun,
   outreachStatus,
   listAutomationsForWorkspace,
+  summarizeEnrolledLead,
+  listGhlOutreachEnrolledLeads,
+  listCadenceEnrolledLeads,
 };
