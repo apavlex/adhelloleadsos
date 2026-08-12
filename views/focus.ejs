@@ -83,8 +83,12 @@
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Business info</p>
         <div class="flex flex-col md:flex-row gap-4 items-stretch">
           <div id="focus-map-wrap" class="hidden w-full md:w-[min(100%,280px)] shrink-0 rounded-xl border border-brand-border/50 dark:border-white/10 overflow-hidden bg-slate-200/80 dark:bg-slate-950/80 aspect-[4/3] md:aspect-auto md:h-52 min-h-[11rem] relative shadow-inner" aria-hidden="true">
-            <img id="focus-map-img" class="absolute inset-0 w-full h-full object-cover hidden" alt="" loading="lazy" width="560" height="336" decoding="async" />
-            <a id="focus-map-attribution" href="https://www.geoapify.com/" target="_blank" rel="noopener noreferrer" class="hidden absolute bottom-1 right-1 z-[1] text-[8px] font-semibold text-white/90 bg-black/50 px-1.5 py-0.5 rounded hover:bg-black/65 transition-colors">© Geoapify</a>
+            <img id="focus-map-img" class="absolute inset-0 z-0 w-full h-full object-cover opacity-0 pointer-events-none transition-opacity duration-200" alt="" loading="eager" width="560" height="336" decoding="async" />
+            <div id="focus-map-fallback" class="absolute inset-0 z-0 hidden flex-col items-center justify-center gap-2 px-4 text-center bg-brand-cream/85 dark:bg-slate-800/95">
+              <svg class="w-7 h-7 text-brand-yellow shrink-0 opacity-95" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+              <a id="focus-map-open-link" href="#" target="_blank" rel="noopener noreferrer" class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 hover:text-brand-yellow transition-colors">Open in Google Maps</a>
+            </div>
+            <a id="focus-map-attribution" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" class="hidden absolute bottom-1 right-1 z-[1] text-[8px] font-semibold text-white/90 bg-black/50 px-1.5 py-0.5 rounded hover:bg-black/65 transition-colors">© OpenStreetMap</a>
           </div>
           <div class="flex-1 min-w-0 w-full">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -1678,10 +1682,41 @@
       return title || cs || '';
     }
 
+    function focusMapPreviewFallbackUrl(q, lat, lng) {
+      var mapKey = (typeof window !== 'undefined' && window.__ADHELLO_GOOGLE_MAPS_STATIC_KEY__) || '';
+      if (mapKey && Number.isFinite(lat) && Number.isFinite(lng)) {
+        var center = lat + ',' + lng;
+        return (
+          'https://maps.googleapis.com/maps/api/staticmap?center=' + encodeURIComponent(center) +
+          '&zoom=15&size=560x336&scale=2&maptype=roadmap&markers=' + encodeURIComponent('color:0xEAB308|' + center) +
+          '&key=' + encodeURIComponent(mapKey)
+        );
+      }
+      if (mapKey && q) {
+        return (
+          'https://maps.googleapis.com/maps/api/staticmap?center=' + encodeURIComponent(q) +
+          '&zoom=15&size=560x336&scale=2&maptype=roadmap&markers=' + encodeURIComponent('color:0xEAB308|' + q) +
+          '&key=' + encodeURIComponent(mapKey)
+        );
+      }
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        var point = lat + ',' + lng;
+        return 'https://staticmap.openstreetmap.de/staticmap.php?center=' + encodeURIComponent(point) +
+          '&zoom=15&size=560x336&markers=' + encodeURIComponent(point + ',red-pushpin');
+      }
+      if (q) {
+        return 'https://staticmap.openstreetmap.de/staticmap.php?center=' + encodeURIComponent(q) +
+          '&zoom=15&size=560x336&markers=' + encodeURIComponent(q + ',red-pushpin');
+      }
+      return '';
+    }
+
     function renderFocusMap(lead) {
       var wrap = document.getElementById('focus-map-wrap');
       var img = document.getElementById('focus-map-img');
       var attrib = document.getElementById('focus-map-attribution');
+      var fallback = document.getElementById('focus-map-fallback');
+      var openLink = document.getElementById('focus-map-open-link');
       if (!wrap || !img) return;
       var q = mapQueryFromFocusLead(lead);
       if (!q) {
@@ -1690,17 +1725,28 @@
         img.onload = null;
         img.onerror = null;
         img.removeAttribute('src');
-        img.classList.add('hidden');
+        img.classList.add('opacity-0');
         if (attrib) attrib.classList.add('hidden');
+        if (fallback) {
+          fallback.classList.add('hidden');
+          fallback.classList.remove('flex');
+        }
         return;
       }
+      var mapsHref = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
+      if (openLink) openLink.href = mapsHref;
+
       wrap.classList.remove('hidden');
       wrap.setAttribute('aria-hidden', 'false');
       img.onload = null;
       img.onerror = null;
       img.removeAttribute('src');
-      img.classList.add('hidden');
+      img.classList.add('opacity-0');
       if (attrib) attrib.classList.add('hidden');
+      if (fallback) {
+        fallback.classList.add('hidden');
+        fallback.classList.remove('flex');
+      }
 
       var params = new URLSearchParams();
       params.set('center', q);
@@ -1713,20 +1759,58 @@
         params.set('lng', String(lng));
       }
 
-      img.onload = function () {
-        img.classList.remove('hidden');
+      var loadGen = (window.__focusMapLoadGen = (window.__focusMapLoadGen || 0) + 1);
+      var isCurrent = function () { return loadGen === window.__focusMapLoadGen; };
+
+      var revealMap = function () {
+        if (!isCurrent()) return;
+        img.classList.remove('opacity-0');
         if (attrib) attrib.classList.remove('hidden');
+        if (fallback) {
+          fallback.classList.add('hidden');
+          fallback.classList.remove('flex');
+        }
       };
-      img.onerror = function () {
+
+      var showFallback = function () {
+        if (!isCurrent()) return;
         img.onload = null;
         img.onerror = null;
         img.removeAttribute('src');
-        img.classList.add('hidden');
+        img.classList.add('opacity-0');
         if (attrib) attrib.classList.add('hidden');
-        wrap.classList.add('hidden');
-        wrap.setAttribute('aria-hidden', 'true');
+        if (fallback) {
+          fallback.classList.remove('hidden');
+          fallback.classList.add('flex');
+        }
       };
-      img.src = '/leads/map-preview?' + params.toString();
+
+      var tryLoad = function (url, nextUrl) {
+        if (!url) {
+          if (nextUrl) tryLoad(nextUrl, '');
+          else showFallback();
+          return;
+        }
+        img.onload = function () {
+          if (!isCurrent()) return;
+          revealMap();
+        };
+        img.onerror = function () {
+          if (!isCurrent()) return;
+          img.onload = null;
+          img.onerror = null;
+          img.removeAttribute('src');
+          img.classList.add('opacity-0');
+          if (nextUrl) tryLoad(nextUrl, '');
+          else showFallback();
+        };
+        img.alt = q ? 'Map near ' + q.slice(0, 120) : 'Location map';
+        img.src = url;
+      };
+
+      var serverUrl = '/leads/map-preview?' + params.toString();
+      var clientFallback = focusMapPreviewFallbackUrl(q, lat, lng);
+      tryLoad(serverUrl, clientFallback);
     }
 
     function parseFocusTechStackTags(raw) {
@@ -2683,7 +2767,7 @@
           fiEmpty.onload = null;
           fiEmpty.onerror = null;
           fiEmpty.removeAttribute('src');
-          fiEmpty.classList.add('hidden');
+          fiEmpty.classList.add('opacity-0');
         }
         syncFocusMailListBtn(null);
         setFocusNotesOpen(false);
