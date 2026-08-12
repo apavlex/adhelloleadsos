@@ -315,9 +315,21 @@
         >
           Open in dialer
         </button>
+        <section id="focus-sms-compose-section" class="hidden rounded-2xl bg-white/60 dark:bg-slate-900/40 border border-emerald-500/25 dark:border-emerald-500/20 p-4 space-y-3" aria-label="SMS composer">
+          <p class="text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-300">SMS message</p>
+          <textarea id="focus-sms-compose-input" rows="3" maxlength="1600" placeholder="Type your SMS…" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-medium text-brand-dark dark:text-white focus:ring-2 focus:ring-emerald-500/50 resize-y min-h-[4rem]"></textarea>
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span id="focus-sms-compose-count" class="text-[9px] font-semibold text-brand-muted tabular-nums">0</span>
+            <div class="flex flex-wrap items-center gap-2">
+              <button type="button" id="focus-sms-improve-text" class="btn-pill border border-brand-yellow/50 bg-brand-yellow/10 text-brand-dark dark:text-brand-yellow px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-brand-yellow/20 transition-all" title="Polish your SMS draft with AI — does not send">Improve text</button>
+              <button type="button" id="focus-sms-compose-send" class="btn-pill bg-emerald-500 text-white px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:brightness-95 transition-all">Send SMS</button>
+            </div>
+          </div>
+          <p id="focus-sms-compose-status" class="text-[10px] font-semibold text-brand-muted m-0" aria-live="polite"></p>
+        </section>
         <div class="focus-primary-actions grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
           <button type="button" id="focus-btn-call" class="btn-pill btn-primary w-full px-4 py-3.5 text-xs font-black uppercase tracking-widest shadow-md min-h-[3rem]">Call</button>
-          <button type="button" id="focus-btn-sms" class="btn-pill border-2 border-emerald-500/60 bg-emerald-500/15 text-emerald-900 dark:text-emerald-200 w-full px-4 py-3.5 text-xs font-black uppercase tracking-widest hover:bg-emerald-500/25 transition-colors min-h-[3rem]" title="Send the message in the draft box via SMS or iMessage">SMS</button>
+          <button type="button" id="focus-btn-sms" class="btn-pill border-2 border-emerald-500/60 bg-emerald-500/15 text-emerald-900 dark:text-emerald-200 w-full px-4 py-3.5 text-xs font-black uppercase tracking-widest hover:bg-emerald-500/25 transition-colors min-h-[3rem]" title="Open SMS composer to type and send a message">SMS</button>
           <button type="button" id="focus-btn-push-ghl" class="btn-pill border-2 border-orange-500/60 bg-orange-500/15 text-orange-900 dark:text-orange-200 w-full px-4 py-3.5 text-xs font-black uppercase tracking-widest hover:bg-orange-500/25 transition-colors min-h-[3rem]" title="Save disposition, notes, and follow-up — then sync to Go High Level">Sync GHL</button>
         </div>
         <div id="focus-quick-log-section">
@@ -374,7 +386,7 @@
     <div id="focus-mobile-fab-actions" class="hidden mb-2.5 w-[min(78vw,18rem)] rounded-2xl border border-brand-border/70 dark:border-white/15 bg-white/95 dark:bg-slate-900/95 backdrop-blur shadow-xl p-2.5 space-y-2">
       <button type="button" id="focus-mobile-back" disabled class="w-full btn-pill border-2 border-brand-border dark:border-white/15 bg-brand-cream/30 dark:bg-slate-800/50 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 disabled:opacity-40 disabled:pointer-events-none">Go back</button>
       <button type="button" id="focus-mobile-call" class="w-full btn-pill btn-primary py-2.5 text-[10px] font-black uppercase tracking-widest">Call now</button>
-      <button type="button" id="focus-mobile-sms" class="w-full btn-pill border-2 border-emerald-500/60 bg-emerald-500/15 text-emerald-800 dark:text-emerald-200 py-2.5 text-[10px] font-black uppercase tracking-widest">SMS</button>
+      <button type="button" id="focus-mobile-sms" class="w-full btn-pill border-2 border-emerald-500/60 bg-emerald-500/15 text-emerald-800 dark:text-emerald-200 py-2.5 text-[10px] font-black uppercase tracking-widest" title="Open SMS composer to type and send a message">SMS</button>
       <button type="button" id="focus-mobile-call-next" class="w-full btn-pill border-2 border-emerald-500/60 bg-emerald-500/15 text-emerald-800 dark:text-emerald-200 py-2.5 text-[10px] font-black uppercase tracking-widest">Call next</button>
       <button type="button" id="focus-mobile-log" class="w-full btn-pill border-2 border-brand-dark dark:border-white/25 bg-white dark:bg-slate-900 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Log &amp; next</button>
       <button type="button" id="focus-mobile-skip" class="w-full btn-pill border-2 border-brand-border dark:border-white/15 bg-brand-cream/30 dark:bg-slate-800/50 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Skip</button>
@@ -533,6 +545,12 @@
     var btnMobileCall = document.getElementById('focus-mobile-call');
     var btnMobileSms = document.getElementById('focus-mobile-sms');
     var btnImproveText = document.getElementById('focus-improve-text');
+    var elSmsComposeSection = document.getElementById('focus-sms-compose-section');
+    var elSmsComposeInput = document.getElementById('focus-sms-compose-input');
+    var elSmsComposeCount = document.getElementById('focus-sms-compose-count');
+    var elSmsComposeStatus = document.getElementById('focus-sms-compose-status');
+    var btnSmsComposeSend = document.getElementById('focus-sms-compose-send');
+    var btnSmsImproveText = document.getElementById('focus-sms-improve-text');
     var btnMobileBack = document.getElementById('focus-mobile-back');
     var btnMobileCallNext = document.getElementById('focus-mobile-call-next');
     var btnMobileLog = document.getElementById('focus-mobile-log');
@@ -1433,38 +1451,28 @@
         });
     }
 
-    function placeFocusSms() {
-      var lead = currentLead();
-      if (!lead || !lead.key) return Promise.resolve();
-      var msgBody = String((elBody && elBody.value) || '').trim();
-      if (!msgBody) {
-        setCopyFeedback('SMS body is empty. Add a message first.', true);
-        return Promise.reject(new Error('sms body empty'));
+    function isFocusSmsComposeOpen() {
+      return elSmsComposeSection && !elSmsComposeSection.classList.contains('hidden');
+    }
+
+    function setFocusSmsComposeStatus(msg, isError) {
+      if (!elSmsComposeStatus) return;
+      elSmsComposeStatus.textContent = msg || '';
+      elSmsComposeStatus.classList.toggle('text-red-500', Boolean(isError));
+      elSmsComposeStatus.classList.toggle('text-brand-muted', !isError);
+    }
+
+    function syncFocusSmsComposeCount() {
+      if (elSmsComposeCount && elSmsComposeInput) {
+        elSmsComposeCount.textContent = String((elSmsComposeInput.value || '').length);
       }
-      var phone = normalizeTel(lead.phone || '');
-      if (!phone) {
-        setCopyFeedback('No phone found for this lead.', true);
-        return Promise.reject(new Error('missing phone'));
-      }
-      return fetch('/leads/' + encodeURIComponent(lead.key) + '/sms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ body: msgBody }),
-      })
-        .then(function (r) {
-          return r.json().then(function (j) {
-            if (!r.ok || !j.success) throw new Error((j && j.error) || 'SMS failed');
-            return j;
-          });
-        })
-        .then(function (data) {
-          setCopyFeedback('SMS sent.');
-          return data;
-        })
-        .catch(function (err) {
-          setCopyFeedback(err && err.message ? err.message : 'Could not send SMS.', true);
-          throw err;
-        });
+    }
+
+    function resetFocusSmsCompose() {
+      if (elSmsComposeSection) elSmsComposeSection.classList.add('hidden');
+      if (elSmsComposeInput) elSmsComposeInput.value = '';
+      syncFocusSmsComposeCount();
+      setFocusSmsComposeStatus('');
     }
 
     function focusSmsSuccessLabel(data) {
@@ -1479,50 +1487,114 @@
       return kind + ' sent via ' + provider + '.';
     }
 
-    function setFocusSmsBusy(busy) {
-      [btnSms, document.getElementById('focus-mobile-sms')].forEach(function (b) {
-        if (!b) return;
-        b.disabled = !!busy;
-        if (busy) {
-          b.setAttribute('aria-busy', 'true');
-          b.textContent = 'Sending…';
-        } else {
-          b.removeAttribute('aria-busy');
-          b.textContent = 'SMS';
-        }
-      });
+    function placeFocusSmsFromBody(msgBody) {
+      var lead = currentLead();
+      if (!lead || !lead.key) return Promise.resolve();
+      msgBody = String(msgBody || '').trim();
+      if (!msgBody) {
+        setFocusSmsComposeStatus('SMS body is empty. Add a message first.', true);
+        return Promise.reject(new Error('sms body empty'));
+      }
+      var phone = normalizeTel(lead.phone || '');
+      if (!phone) {
+        setFocusSmsComposeStatus('No phone found for this lead.', true);
+        return Promise.reject(new Error('missing phone'));
+      }
+      return fetch('/leads/' + encodeURIComponent(lead.key) + '/sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ body: msgBody }),
+      })
+        .then(function (r) {
+          return r.json().then(function (j) {
+            if (!r.ok || !j.success) throw new Error((j && j.error) || 'SMS failed');
+            return j;
+          });
+        });
     }
 
-    function onFocusSms() {
+    function setFocusSmsSendBusy(busy) {
+      if (btnSmsComposeSend) {
+        btnSmsComposeSend.disabled = !!busy;
+        btnSmsComposeSend.textContent = busy ? 'Sending…' : 'Send SMS';
+      }
+    }
+
+    function openFocusSmsComposer() {
       var lead = currentLead();
       if (!lead || !lead.key) return;
-      setFocusSmsBusy(true);
-      placeFocusSms()
+      var phone = normalizeTel(lead.phone || '');
+      if (!phone) {
+        setFocusSmsComposeStatus('No phone found for this lead.', true);
+        if (elSmsComposeSection) elSmsComposeSection.classList.remove('hidden');
+        return;
+      }
+      if (elSmsComposeSection) elSmsComposeSection.classList.remove('hidden');
+      var scriptText = String((elBody && elBody.value) || '').trim();
+      if (elSmsComposeInput && !String(elSmsComposeInput.value || '').trim() && scriptText) {
+        elSmsComposeInput.value = scriptText;
+        syncFocusSmsComposeCount();
+      }
+      if (elSmsComposeSection) elSmsComposeSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      if (elSmsComposeInput) {
+        window.setTimeout(function () {
+          elSmsComposeInput.focus();
+          var len = elSmsComposeInput.value.length;
+          if (typeof elSmsComposeInput.setSelectionRange === 'function') elSmsComposeInput.setSelectionRange(len, len);
+        }, 120);
+      }
+      setFocusSmsComposeStatus('Type your message, use Improve text if needed, then Send SMS.');
+    }
+
+    function sendFocusSmsCompose() {
+      var lead = currentLead();
+      if (!lead || !lead.key) return;
+      var msgBody = String((elSmsComposeInput && elSmsComposeInput.value) || '').trim();
+      if (!msgBody) {
+        setFocusSmsComposeStatus('Add a message before sending.', true);
+        return;
+      }
+      setFocusSmsSendBusy(true);
+      setFocusSmsComposeStatus('Sending…');
+      placeFocusSmsFromBody(msgBody)
         .then(function (data) {
-          if (data) setCopyFeedback(focusSmsSuccessLabel(data));
+          setFocusSmsComposeStatus(focusSmsSuccessLabel(data));
+          if (elSmsComposeInput) {
+            elSmsComposeInput.value = '';
+            syncFocusSmsComposeCount();
+          }
         })
-        .catch(function () {})
+        .catch(function (err) {
+          setFocusSmsComposeStatus(err && err.message ? err.message : 'Could not send SMS.', true);
+        })
         .finally(function () {
-          setFocusSmsBusy(false);
+          setFocusSmsSendBusy(false);
         });
     }
 
     function onFocusImproveText() {
       var lead = currentLead();
       if (!lead || !lead.key) {
-        setCopyFeedback('No lead selected.', true);
+        if (isFocusSmsComposeOpen()) setFocusSmsComposeStatus('No lead selected.', true);
+        else setCopyFeedback('No lead selected.', true);
         return;
       }
-      var draft = String((elBody && elBody.value) || '').trim();
+      var composeOpen = isFocusSmsComposeOpen();
+      var targetEl = composeOpen && elSmsComposeInput ? elSmsComposeInput : elBody;
+      var activeImproveBtn = composeOpen && btnSmsImproveText ? btnSmsImproveText : btnImproveText;
+      var draft = String((targetEl && targetEl.value) || '').trim();
       if (!draft) {
-        setCopyFeedback('Add a message to improve first.', true);
+        var emptyMsg = 'Add a message to improve first.';
+        if (composeOpen) setFocusSmsComposeStatus(emptyMsg, true);
+        else setCopyFeedback(emptyMsg, true);
         return;
       }
-      if (btnImproveText) {
-        btnImproveText.disabled = true;
-        btnImproveText.textContent = 'Improving…';
+      if (activeImproveBtn) {
+        activeImproveBtn.disabled = true;
+        activeImproveBtn.textContent = 'Improving…';
       }
-      setCopyFeedback('Improving text…');
+      if (composeOpen) setFocusSmsComposeStatus('Improving text…');
+      else setCopyFeedback('Improving text…');
       fetch('/leads/' + encodeURIComponent(lead.key) + '/sms-personalize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -1535,17 +1607,25 @@
           });
         })
         .then(function (data) {
-          if (data.personalized && elBody) elBody.value = data.personalized;
-          setCopyFeedback('Text improved — review and tap SMS when ready.');
+          if (data.personalized && targetEl) targetEl.value = data.personalized;
+          if (composeOpen) {
+            syncFocusSmsComposeCount();
+            setFocusSmsComposeStatus('Text improved — review and tap Send SMS when ready.');
+          } else {
+            setCopyFeedback('Text improved — open SMS composer when ready.');
+          }
         })
         .catch(function (err) {
-          setCopyFeedback(err && err.message ? err.message : 'Could not improve text.', true);
+          var errMsg = err && err.message ? err.message : 'Could not improve text.';
+          if (composeOpen) setFocusSmsComposeStatus(errMsg, true);
+          else setCopyFeedback(errMsg, true);
         })
         .finally(function () {
-          if (btnImproveText) {
-            btnImproveText.disabled = false;
-            btnImproveText.textContent = 'Improve text';
-          }
+          [btnImproveText, btnSmsImproveText].forEach(function (btn) {
+            if (!btn) return;
+            btn.disabled = false;
+            btn.textContent = 'Improve text';
+          });
         });
     }
 
@@ -2608,6 +2688,7 @@
         syncFocusMailListBtn(null);
         setFocusNotesOpen(false);
         syncFocusNotesIndicator();
+        resetFocusSmsCompose();
         return;
       }
       elEmpty.classList.add('hidden');
@@ -2640,6 +2721,7 @@
         elFollowupAt.value = '';
       }
       setOutcomeFeedback('');
+      resetFocusSmsCompose();
       syncFocusSendInfo(lead);
       applyChannelUI();
       updateDraftFromSelection();
@@ -2939,7 +3021,7 @@
     if (btnMobileSms) {
       btnMobileSms.addEventListener('click', function () {
         closeMobileFabActions();
-        onFocusSms();
+        openFocusSmsComposer();
       });
     }
     if (btnMobileCallNext) {
@@ -3055,8 +3137,19 @@
     }
 
     if (btnCall) btnCall.addEventListener('click', function () { onFocusCall(); });
-    if (btnSms) btnSms.addEventListener('click', function () { onFocusSms(); });
+    if (btnSms) btnSms.addEventListener('click', function () { openFocusSmsComposer(); });
     if (btnImproveText) btnImproveText.addEventListener('click', function () { onFocusImproveText(); });
+    if (btnSmsImproveText) btnSmsImproveText.addEventListener('click', function () { onFocusImproveText(); });
+    if (btnSmsComposeSend) btnSmsComposeSend.addEventListener('click', function () { sendFocusSmsCompose(); });
+    if (elSmsComposeInput) {
+      elSmsComposeInput.addEventListener('input', syncFocusSmsComposeCount);
+      elSmsComposeInput.addEventListener('keydown', function (e) {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+          e.preventDefault();
+          sendFocusSmsCompose();
+        }
+      });
+    }
     if (btnPushGhl) {
       btnPushGhl.addEventListener('click', function (e) {
         if (e) {

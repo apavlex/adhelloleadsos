@@ -115,10 +115,17 @@ function splitName(title) {
   };
 }
 
+function isValidEmailForGhl(email) {
+  const s = String(email || '').trim();
+  if (!s || s === 'N/A') return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+}
+
 function leadToGhlContactPayload(lead, locationId, { includeTags = true } = {}) {
   const title = String(lead.title || '').trim();
   const { firstName, lastName, companyName } = splitName(title);
-  const email = lead.email && lead.email !== 'N/A' ? String(lead.email).trim() : '';
+  const rawEmail = lead.email && lead.email !== 'N/A' ? String(lead.email).trim() : '';
+  const email = isValidEmailForGhl(rawEmail) ? rawEmail : '';
   const phone = normalizePhoneE164(lead.phone && lead.phone !== 'N/A' ? lead.phone : '');
   const website = lead.website && lead.website !== 'N/A' ? String(lead.website).trim() : '';
   const address = lead.address && lead.address !== 'N/A' ? String(lead.address).trim() : '';
@@ -437,6 +444,7 @@ module.exports = {
   resolveConfig,
   isConfigured,
   testConnection,
+  isValidEmailForGhl,
   leadToGhlContactPayload,
   ghlContactToLeadPatch,
   createContact,
