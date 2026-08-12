@@ -477,6 +477,49 @@ function activeProviderLabel(chain = 'openrouter', integrationEnv) {
   return p ? normalizeProviderName(p.name) : null;
 }
 
+/**
+ * Human-readable OpenRouter model chain for Integrations / cost advisor UI.
+ * @param {Record<string, string>|null|undefined} [integrationEnv]
+ */
+function describeOpenRouterModelStack(integrationEnv) {
+  const { apiKey, model } = resolveOpenRouterEnv(integrationEnv);
+  if (!apiKey) {
+    return {
+      configured: false,
+      mode: 'none',
+      summary: 'Not configured',
+      steps: [],
+      paidFallbackEnabled: allowPaidOpenRouterFallback(integrationEnv),
+    };
+  }
+  const paidFallbackEnabled = allowPaidOpenRouterFallback(integrationEnv);
+  if (model) {
+    return {
+      configured: true,
+      mode: 'pinned',
+      summary: model,
+      steps: [model],
+      paidFallbackEnabled,
+    };
+  }
+  if (paidFallbackEnabled) {
+    return {
+      configured: true,
+      mode: 'free_then_paid',
+      summary: `${OPENROUTER_FREE_MODEL} → ${OPENROUTER_PAID_FALLBACK_MODEL}`,
+      steps: [OPENROUTER_FREE_MODEL, OPENROUTER_PAID_FALLBACK_MODEL],
+      paidFallbackEnabled: true,
+    };
+  }
+  return {
+    configured: true,
+    mode: 'free_only',
+    summary: `${OPENROUTER_FREE_ROUTER} → ${OPENROUTER_FREE_MODEL}`,
+    steps: [OPENROUTER_FREE_ROUTER, OPENROUTER_FREE_MODEL],
+    paidFallbackEnabled: false,
+  };
+}
+
 module.exports = {
   chatCompletion,
   auditChatCompletion,
@@ -490,6 +533,7 @@ module.exports = {
   parseLlmJson,
   resolveOpenRouterEnv,
   isOpenRouterConfigured,
+  describeOpenRouterModelStack,
   OPENROUTER_FREE_MODEL,
   OPENROUTER_FREE_ROUTER,
   OPENROUTER_CHEAP_MODEL,

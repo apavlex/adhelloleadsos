@@ -78,3 +78,21 @@ test('buildSourceCards includes Go High Level and Lob', () => {
     else process.env.LOB_FROM_ZIP = prevLobZip;
   }
 });
+
+test('buildSourceCards includes OpenRouter AI card', () => {
+  const prev = process.env.OPENROUTER_API_KEY;
+  process.env.OPENROUTER_API_KEY = 'or-test';
+  try {
+    const { sources, tasks } = getDashboardPayload({}, {});
+    const or = sources.find((s) => s.id === 'openrouter');
+    assert.ok(or);
+    assert.equal(or.name, 'OpenRouter (AI)');
+    assert.equal(or.connectAnchor, 'openrouter-integration');
+    assert.equal(or.configured, true);
+    assert.match(or.tip, /openrouter\/free/);
+    assert.ok(tasks.some((t) => /OpenRouter|deepseek\/deepseek-v4-flash/i.test(t.inApp)));
+  } finally {
+    if (prev === undefined) delete process.env.OPENROUTER_API_KEY;
+    else process.env.OPENROUTER_API_KEY = prev;
+  }
+});

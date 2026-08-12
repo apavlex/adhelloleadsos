@@ -400,9 +400,25 @@
           <%- include('../../partials/integration_provider_status_pill', { label: 'OpenRouter', connected: false }) %>
           <% } %>
         </header>
-        <div class="rounded-xl border border-brand-yellow/30 bg-brand-yellow/5 px-3 py-2.5 text-xs text-brand-muted leading-relaxed">
-          <strong class="text-brand-dark dark:text-white">Cheapest by default:</strong>
-          leave Model blank — AdHello uses <code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900">openrouter/free</code>, which auto-picks the best free model available that day (then falls back to <code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900">qwen/qwen3-coder:free</code>). Paid models are never used unless you set a paid model slug or enable paid fallback on the server.
+        <div class="rounded-xl border border-brand-yellow/30 bg-brand-yellow/5 px-3 py-2.5 text-xs text-brand-muted leading-relaxed space-y-2">
+          <p>
+            <strong class="text-brand-dark dark:text-white">Active model chain:</strong>
+            <% const _orStack = typeof openrouterModelStack !== 'undefined' && openrouterModelStack ? openrouterModelStack : { configured: false, summary: 'Not configured', steps: [] }; %>
+            <% if (_orStack.configured) { %>
+            <code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900"><%= _orStack.summary %></code>
+            <% } else { %>
+            <span>Add an API key below.</span>
+            <% } %>
+          </p>
+          <p>
+            <strong class="text-brand-dark dark:text-white">Cheapest (default):</strong>
+            leave Model blank — uses <code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900">openrouter/free</code> then <code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900">qwen/qwen3-coder:free</code> ($0).
+          </p>
+          <p>
+            <strong class="text-brand-dark dark:text-white">Paid tier:</strong>
+            <code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900">deepseek/deepseek-v4-flash</code>
+            — enter in Model below to always use Flash, or set <code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900">OPENROUTER_ALLOW_PAID_FALLBACK=1</code> on the server to try free first, then Flash.
+          </p>
         </div>
         <div class="grid gap-4 sm:grid-cols-2">
           <div class="sm:col-span-2">
@@ -414,7 +430,13 @@
           <div class="sm:col-span-2">
             <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Model <span class="font-normal normal-case tracking-normal">(optional)</span></label>
             <% if (masks.openrouterModel) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.openrouterModel %></p><% } %>
-            <input type="text" name="openrouterModel" autocomplete="off" placeholder="e.g. openrouter/free or qwen/qwen3-coder:free" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm font-mono text-[13px]" />
+            <input type="text" name="openrouterModel" autocomplete="off" list="openrouterModelPresets" placeholder="Blank = free auto-router · or deepseek/deepseek-v4-flash" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm font-mono text-[13px]" />
+            <datalist id="openrouterModelPresets">
+              <option value="openrouter/free">Free auto-router (cheapest that day)</option>
+              <option value="qwen/qwen3-coder:free">Qwen3 Coder (free)</option>
+              <option value="deepseek/deepseek-v4-flash">DeepSeek V4 Flash (paid)</option>
+              <option value="deepseek/deepseek-v4-flash:floor">DeepSeek V4 Flash :floor (cheapest provider)</option>
+            </datalist>
             <% if (masks.openrouterModel) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="openrouterModel_clear" value="1" /> Remove</label><% } %>
             <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Overrides the server default model chain for this workspace only.</p>
           </div>

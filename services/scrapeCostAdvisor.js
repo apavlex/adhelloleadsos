@@ -11,6 +11,11 @@ const rapidapiLocalBusiness = require('./rapidapiLocalBusiness');
 const betterContact = require('./betterContactClient');
 const ghlClient = require('./ghlClient');
 const lobClient = require('./lobClient');
+const {
+  isOpenRouterConfigured,
+  describeOpenRouterModelStack,
+  OPENROUTER_PAID_FALLBACK_MODEL,
+} = require('./llmClient');
 
 /** @param {Record<string, string>|null|undefined} [resolvedEnv] workspace-resolved env */
 function apifyConfigured(resolvedEnv) {
@@ -38,8 +43,22 @@ function buildSourceCards(live = {}, resolvedEnv) {
   const bc = betterContact.isConfigured(resolvedEnv);
   const ghl = ghlClient.isConfigured(resolvedEnv);
   const lob = lobClient.isConfigured(resolvedEnv);
+  const openrouter = isOpenRouterConfigured(resolvedEnv);
+  const orStack = describeOpenRouterModelStack(resolvedEnv);
 
   return [
+    {
+      id: 'openrouter',
+      name: 'OpenRouter (AI)',
+      connectAnchor: 'openrouter-integration',
+      role: 'AI — flow coach, GHL prompt optimizer, outreach copy, flip scoring, audits.',
+      cost: 'Free tier: openrouter/free or :free models ($0). Paid fallback: DeepSeek V4 Flash.',
+      configured: openrouter,
+      live: null,
+      tip: openrouter
+        ? `Active chain: ${orStack.summary}. Pin a model on the OpenRouter card below, or leave blank for free auto-router. Paid tier when enabled: ${OPENROUTER_PAID_FALLBACK_MODEL}.`
+        : 'Set OPENROUTER_API_KEY under AI — OpenRouter. Default uses openrouter/free (cheapest free model that day).',
+    },
     {
       id: 'bettercontact',
       name: 'BetterContact',
@@ -188,6 +207,15 @@ function buildSourceCards(live = {}, resolvedEnv) {
 function buildTaskRows() {
   return [
     {
+      task: 'AI coach, outreach copy, GHL workflow prompts, flip scoring',
+      startCheap:
+        'openrouter/free or qwen/qwen3-coder:free — $0 when within OpenRouter free daily limits.',
+      keepPaid:
+        `DeepSeek V4 Flash (${OPENROUTER_PAID_FALLBACK_MODEL}) when free models fail or you pin it in Model. Use :floor for cheapest provider.`,
+      inApp:
+        'Workspace → Integrations → OpenRouter. Leave Model blank for free auto-router; set deepseek/deepseek-v4-flash to always use Flash.',
+    },
+    {
       task: 'Hunt contacts, reviews, and AI reputation on a lead',
       startCheap:
         'Maps providers you already use refresh rating/count for free-ish; Outscraper adds review quotes when you need verbatim highest/lowest.',
@@ -253,7 +281,7 @@ function getDashboardPayload(live = {}, resolvedEnv) {
     sources: buildSourceCards(live, resolvedEnv),
     tasks: buildTaskRows(),
     principle:
-      'Cheaper lanes stack on top of what you already have: Maps search can chain RapidAPI, SearchAPI.io, SerpAPI, Outscraper, then Apify; Enhance can try Crawl4AI HTML before Firecrawl; Go High Level handles CRM sync and outbound; Lob handles print-and-mail. Keep paid tools when they save time or unblock quality.',
+      'Cheaper lanes stack on top of what you already have: Maps search can chain RapidAPI, SearchAPI.io, SerpAPI, Outscraper, then Apify; Enhance can try Crawl4AI HTML before Firecrawl; OpenRouter powers AI features (free openrouter/free by default, DeepSeek V4 Flash when paid); Go High Level handles CRM sync and outbound; Lob handles print-and-mail. Keep paid tools when they save time or unblock quality.',
   };
 }
 

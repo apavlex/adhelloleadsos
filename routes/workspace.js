@@ -50,7 +50,7 @@ const { UPWORK_PROPOSAL_SERVICES } = require('../config/upworkProposalServices')
 const signalwire = require('../services/signalwire');
 const { parseDialRetryFromBody } = require('../services/dialRetryPrefs');
 const { runGhlWorkflowCoach } = require('../services/ghlWorkflowCoach');
-const { isOpenRouterConfigured } = require('../services/llmClient');
+const { isOpenRouterConfigured, describeOpenRouterModelStack } = require('../services/llmClient');
 const inboundForwardStats = require('../services/inboundForwardStats');
 const {
   sanitizeBlockOverrides,
@@ -340,6 +340,7 @@ async function loadWorkspacePageLocals(req) {
   const mcpEndpoint = base ? `${base}/ceo/mcp` : '';
   const mcpManifestUrl = base ? `${base}/ceo/mcp/manifest.json` : '';
   const openrouterConfigured = isOpenRouterConfigured(resolvedEnv);
+  const openrouterModelStack = describeOpenRouterModelStack(resolvedEnv);
   return {
     title: 'Workspace & team',
     activePage: 'workspace',
@@ -361,6 +362,7 @@ async function loadWorkspacePageLocals(req) {
     mcpEndpoint,
     mcpManifestUrl,
     openrouterConfigured,
+    openrouterModelStack,
     telephonyWebhookTokenConfigured: !!String(process.env.TELEPHONY_WEBHOOK_TOKEN || '').trim(),
     assignPool: pool,
     envHintSdr: !!process.env.WORKSPACE_SDR_EMAILS,
