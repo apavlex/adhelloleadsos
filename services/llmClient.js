@@ -206,6 +206,19 @@ function buildGeminiBody(messages, { jsonObject, max_tokens, temperature }) {
   return body;
 }
 
+function extractOpenRouterApiError(data, status) {
+  const err = data && data.error;
+  const msg =
+    (err && typeof err.message === 'string' && err.message.trim()) ||
+    (typeof data === 'string' && data.trim()) ||
+    '';
+  if (msg) return msg;
+  if (status === 401) return 'Invalid API key (401). Paste a fresh key from openrouter.ai/keys.';
+  if (status === 402) return 'Insufficient OpenRouter credits for this model (402). Add credits or leave Model blank for free models.';
+  if (status === 429) return 'OpenRouter rate limit (429). Wait a minute or use a free model.';
+  return status ? `OpenRouter HTTP ${status}` : 'OpenRouter request failed';
+}
+
 function extractOpenAIStyleMessageContent(data) {
   const ch = data && data.choices && data.choices[0];
   if (!ch) return null;
@@ -213,6 +226,7 @@ function extractOpenAIStyleMessageContent(data) {
   const msg = ch.message;
   if (!msg) return null;
   if (typeof msg.refusal === 'string' && msg.refusal.trim()) return msg.refusal;
+  if (typeof msg.reasoning === 'string' && msg.reasoning.trim()) return msg.reasoning;
   const c = msg.content;
   if (typeof c === 'string') return c;
   if (Array.isArray(c)) {
@@ -334,24 +348,37 @@ async function runOpenAICompatible(prov, url, body, integrationEnv) {
   const ct = (res.headers.get('content-type') || '').toLowerCase();
   if (ct.includes('text/event-stream')) {
     console.warn('[llmClient]', prov.name, 'returned SSE; set stream:false on requests');
-    return { content: null, provider: prov.name, error: true };
+    return { content: null, provider: prov.name, error: true, errorMessage: 'Provider returned streaming response' };
   }
   let data;
   try {
     data = JSON.parse(rawText);
   } catch {
     console.warn(`[llmClient] ${prov.name} non-JSON:`, rawText.slice(0, 200));
-    return { content: null, provider: prov.name, error: true };
+    return {
+      content: null,
+      provider: prov.name,
+      error: true,
+      errorMessage: rawText.slice(0, 200) || 'Non-JSON response',
+    };
   }
   if (!res.ok) {
+    const errorMessage = extractOpenRouterApiError(data, res.status);
     console.warn(`[llmClient] ${prov.name} HTTP`, res.status, rawText.slice(0, 280));
-    return { content: null, provider: prov.name, error: true };
+    return {
+      content: null,
+      provider: prov.name,
+      error: true,
+      httpStatus: res.status,
+      errorMessage,
+    };
   }
   const content = extractOpenAIStyleMessageContent(data);
   return {
     content: typeof content === 'string' && content.trim() ? content : null,
     provider: normalizeProviderName(prov.name),
     error: !content || !String(content).trim(),
+    errorMessage: !content || !String(content).trim() ? 'Model returned empty content' : undefined,
   };
 }
 
@@ -422,7 +449,7 @@ async function chatCompletion({
       }
     } catch (e) {
       console.warn(`[llmClient] ${prov.name} attempt ${attempt + 1} error:`, e.message);
-      last = { content: null, provider: prov.name, error: true };
+      last = { content: null, provider: prov.name, error: true, errorMessage: e.message };
     }
     } // end retry loop
   }

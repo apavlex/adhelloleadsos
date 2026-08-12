@@ -357,6 +357,16 @@ async function testMonid(integrationEnv) {
   return { message: result.message || 'Connected' };
 }
 
+function openRouterTestProviders(key, model) {
+  const url = 'https://openrouter.ai/api/v1/chat/completions';
+  return [{ name: 'openrouter-test', apiKey: key, url, model }];
+}
+
+function formatOpenRouterTestError(result, fallback) {
+  const detail = result && result.errorMessage ? String(result.errorMessage).trim() : '';
+  return detail || fallback || 'OpenRouter request failed — check your key and model setting.';
+}
+
 async function testOpenRouter(integrationEnv) {
   const key = String(integrationEnv.OPENROUTER_API_KEY || '').trim();
   if (!key) {
@@ -364,16 +374,40 @@ async function testOpenRouter(integrationEnv) {
       'Missing OpenRouter API key — get a free key at openrouter.ai/keys, paste it here, and save.',
     );
   }
-  const result = await chatCompletion({
+  const pinnedModel = String(integrationEnv.OPENROUTER_MODEL || '').trim();
+  const ping = {
     messages: [{ role: 'user', content: 'Reply with exactly: ok' }],
-    max_tokens: 12,
+    max_tokens: 24,
     temperature: 0,
     integrationEnv,
+  };
+
+  // Always validate the key against a free model first (paid models need credits).
+  const keyCheck = await chatCompletion({
+    ...ping,
+    providersOverride: openRouterTestProviders(key, 'openrouter/free'),
   });
-  if (!result.content || result.error) {
-    throw new Error('OpenRouter request failed — check your key and model setting.');
+  if (!keyCheck.content || keyCheck.error) {
+    throw new Error(formatOpenRouterTestError(keyCheck, 'API key check failed — verify your OpenRouter key.'));
   }
-  const modelHint = result.model ? ` · ${result.model}` : '';
+
+  if (pinnedModel && pinnedModel !== 'openrouter/free') {
+    const modelCheck = await chatCompletion({
+      ...ping,
+      providersOverride: openRouterTestProviders(key, pinnedModel),
+    });
+    if (!modelCheck.content || modelCheck.error) {
+      throw new Error(
+        `API key OK (free tier works). Pinned model "${pinnedModel}" failed: ${formatOpenRouterTestError(
+          modelCheck,
+          'model unavailable or needs credits',
+        )}`,
+      );
+    }
+    return { message: `Connected · ${pinnedModel}` };
+  }
+
+  const modelHint = keyCheck.model ? ` · ${keyCheck.model}` : ' · openrouter/free';
   return { message: `Connected${modelHint}` };
 }
 

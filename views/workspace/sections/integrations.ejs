@@ -438,7 +438,7 @@
               <option value="deepseek/deepseek-v4-flash:floor">DeepSeek V4 Flash :floor (cheapest provider)</option>
             </datalist>
             <% if (masks.openrouterModel) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="openrouterModel_clear" value="1" /> Remove</label><% } %>
-            <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Overrides the server default model chain for this workspace only.</p>
+            <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Overrides the server default model chain for this workspace only. Paid models (e.g. Flash) need OpenRouter credits — leave blank to stay on free models.</p>
           </div>
         </div>
         <%- include('../../partials/integration_test_row', { provider: 'openrouter' }) %>
