@@ -401,9 +401,8 @@
           <% } %>
         </header>
         <div class="rounded-xl border border-brand-yellow/30 bg-brand-yellow/5 px-3 py-2.5 text-xs text-brand-muted leading-relaxed">
-          <strong class="text-brand-dark dark:text-white">Recommended free models:</strong>
-          leave Model blank for the default chain (<code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900">qwen/qwen3-coder:free</code> → DeepSeek flash),
-          or set <code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900">openrouter/free</code> to auto-pick any free model.
+          <strong class="text-brand-dark dark:text-white">Cheapest by default:</strong>
+          leave Model blank — AdHello uses <code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900">openrouter/free</code>, which auto-picks the best free model available that day (then falls back to <code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900">qwen/qwen3-coder:free</code>). Paid models are never used unless you set a paid model slug or enable paid fallback on the server.
         </div>
         <div class="grid gap-4 sm:grid-cols-2">
           <div class="sm:col-span-2">

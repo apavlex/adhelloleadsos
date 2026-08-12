@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { catalogForPrompt, toolById } = require('../services/ghlToolsCatalog');
 const { buildHeuristicReport, normalizeReport } = require('../services/geoSeoGhlAudit');
-const { auditOpenRouterProviders, OPENROUTER_FREE_MODEL, OPENROUTER_CHEAP_MODEL } = require('../services/llmClient');
+const { auditOpenRouterProviders, OPENROUTER_FREE_MODEL, OPENROUTER_FREE_ROUTER } = require('../services/llmClient');
 
 test('ghlToolsCatalog exposes GHL tools for prompts', () => {
   const text = catalogForPrompt();
@@ -46,21 +46,25 @@ test('normalizeReport validates agency service keys', () => {
   assert.equal(r.ghlRecommendations[0].toolId, 'reputation_management');
 });
 
-test('auditOpenRouterProviders prefers cheap chain', () => {
+test('auditOpenRouterProviders prefers free auto-router by default', () => {
   const prevKey = process.env.OPENROUTER_API_KEY;
   const prevAudit = process.env.OPENROUTER_AUDIT_MODEL;
+  const prevPaid = process.env.OPENROUTER_ALLOW_PAID_FALLBACK;
   process.env.OPENROUTER_API_KEY = 'test-key';
   delete process.env.OPENROUTER_AUDIT_MODEL;
   delete process.env.OPENROUTER_MODEL;
+  delete process.env.OPENROUTER_ALLOW_PAID_FALLBACK;
   try {
     const providers = auditOpenRouterProviders();
     assert.equal(providers.length, 2);
-    assert.equal(providers[0].model, OPENROUTER_FREE_MODEL);
-    assert.equal(providers[1].model, OPENROUTER_CHEAP_MODEL);
+    assert.equal(providers[0].model, OPENROUTER_FREE_ROUTER);
+    assert.equal(providers[1].model, OPENROUTER_FREE_MODEL);
   } finally {
     if (prevKey == null) delete process.env.OPENROUTER_API_KEY;
     else process.env.OPENROUTER_API_KEY = prevKey;
     if (prevAudit == null) delete process.env.OPENROUTER_AUDIT_MODEL;
     else process.env.OPENROUTER_AUDIT_MODEL = prevAudit;
+    if (prevPaid == null) delete process.env.OPENROUTER_ALLOW_PAID_FALLBACK;
+    else process.env.OPENROUTER_ALLOW_PAID_FALLBACK = prevPaid;
   }
 });

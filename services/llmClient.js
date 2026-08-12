@@ -7,7 +7,8 @@
  *
  * Env (OpenRouter — default chain):
  *   OPENROUTER_API_KEY — Bearer token from https://openrouter.ai/keys
- *   OPENROUTER_MODEL — optional override; default tries qwen3-coder:free → deepseek-v4-flash → deepseek-v4-pro
+ *   OPENROUTER_MODEL — optional override; default is openrouter/free (cheapest free model that day)
+ *   OPENROUTER_ALLOW_PAID_FALLBACK — set to 1 to restore free → flash → pro chain when no model set
  *   OPENROUTER_HTTP_REFERER — optional site URL for OpenRouter rankings
  *   OPENROUTER_APP_NAME — optional app title header (default AdHello Leads OS)
  *
@@ -25,6 +26,7 @@ const DEFAULT_KIE_MODEL = 'gpt-5-2';
 const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash';
 
 const OPENROUTER_FREE_MODEL = 'qwen/qwen3-coder:free';
+const OPENROUTER_FREE_ROUTER = 'openrouter/free';
 const OPENROUTER_CHEAP_MODEL = 'deepseek/deepseek-v4-flash';
 const OPENROUTER_PAID_FALLBACK_MODEL = 'deepseek/deepseek-v4-pro';
 
@@ -53,6 +55,30 @@ function isOpenRouterConfigured(integrationEnv) {
   return !!resolveOpenRouterEnv(integrationEnv).apiKey;
 }
 
+function allowPaidOpenRouterFallback(integrationEnv) {
+  const env = integrationEnv && typeof integrationEnv === 'object' ? integrationEnv : {};
+  const raw = env.OPENROUTER_ALLOW_PAID_FALLBACK || process.env.OPENROUTER_ALLOW_PAID_FALLBACK || '';
+  const s = String(raw).trim().toLowerCase();
+  return s === '1' || s === 'true' || s === 'yes';
+}
+
+/** Default chain: free auto-router, then pinned free model — never paid unless opted in. */
+function defaultFreeOpenRouterProviders(key, url) {
+  return [
+    { name: 'openrouter-free-router', apiKey: key, url, model: OPENROUTER_FREE_ROUTER },
+    { name: 'openrouter-free-backup', apiKey: key, url, model: OPENROUTER_FREE_MODEL },
+  ];
+}
+
+/** Legacy paid fallback chain when OPENROUTER_ALLOW_PAID_FALLBACK=1. */
+function legacyPaidFallbackOpenRouterProviders(key, url) {
+  return [
+    { name: 'openrouter-free', apiKey: key, url, model: OPENROUTER_FREE_MODEL },
+    { name: 'openrouter-flash', apiKey: key, url, model: OPENROUTER_CHEAP_MODEL },
+    { name: 'openrouter-pro', apiKey: key, url, model: OPENROUTER_PAID_FALLBACK_MODEL },
+  ];
+}
+
 /** @returns {Array<{name:string, apiKey:string, baseUrl?:string, path?:string, model?:string, url?:string}>} */
 function openRouterProviders(integrationEnv) {
   const list = [];
@@ -63,10 +89,10 @@ function openRouterProviders(integrationEnv) {
     const custom = customModel;
     if (custom) {
       list.push({ name: 'openrouter', apiKey: key, url, model: custom });
+    } else if (allowPaidOpenRouterFallback(integrationEnv)) {
+      list.push(...legacyPaidFallbackOpenRouterProviders(key, url));
     } else {
-      list.push({ name: 'openrouter-free', apiKey: key, url, model: OPENROUTER_FREE_MODEL });
-      list.push({ name: 'openrouter-flash', apiKey: key, url, model: OPENROUTER_CHEAP_MODEL });
-      list.push({ name: 'openrouter-pro', apiKey: key, url, model: OPENROUTER_PAID_FALLBACK_MODEL });
+      list.push(...defaultFreeOpenRouterProviders(key, url));
     }
   }
   return list;
@@ -417,8 +443,15 @@ function auditOpenRouterProviders(integrationEnv) {
     list.push({ name: 'openrouter-audit', apiKey: key, url, model: custom });
     return list;
   }
-  list.push({ name: 'openrouter-audit-free', apiKey: key, url, model: OPENROUTER_FREE_MODEL });
-  list.push({ name: 'openrouter-audit-flash', apiKey: key, url, model: OPENROUTER_CHEAP_MODEL });
+  if (allowPaidOpenRouterFallback(integrationEnv)) {
+    list.push({ name: 'openrouter-audit-free', apiKey: key, url, model: OPENROUTER_FREE_MODEL });
+    list.push({ name: 'openrouter-audit-flash', apiKey: key, url, model: OPENROUTER_CHEAP_MODEL });
+    return list;
+  }
+  list.push(...defaultFreeOpenRouterProviders(key, url).map((p) => ({
+    ...p,
+    name: p.name.replace('openrouter-', 'openrouter-audit-'),
+  })));
   return list;
 }
 
@@ -459,6 +492,7 @@ module.exports = {
   resolveOpenRouterEnv,
   isOpenRouterConfigured,
   OPENROUTER_FREE_MODEL,
+  OPENROUTER_FREE_ROUTER,
   OPENROUTER_CHEAP_MODEL,
   OPENROUTER_PAID_FALLBACK_MODEL,
 };
