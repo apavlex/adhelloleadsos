@@ -3366,6 +3366,7 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
 #focus-outcome-panel[data-compact="true"]:has(#focus-sms-compose-section:not(.hidden)) {
     flex-wrap: wrap;
     align-items: stretch;
+    padding: 0.5rem 0.65rem 0.55rem;
 }
 
 #focus-outcome-panel[data-compact="true"]:has(#focus-sms-compose-section:not(.hidden)) #focus-sms-compose-section {

@@ -588,6 +588,7 @@
     var focusNotesOpen = false;
     var outcomePanelCollapsed = false;
     var outcomePanelCompact = false;
+    var smsOpenedFromCompact = false;
     try {
       outcomePanelCompact = localStorage.getItem('focus-outcome-compact') === 'true';
     } catch (e) {}
@@ -663,7 +664,8 @@
       }
     }
 
-    function setOutcomePanelCompact(compact) {
+    function setOutcomePanelCompact(compact, opts) {
+      opts = opts || {};
       outcomePanelCompact = !!compact;
       if (elOutcomePanel) {
         elOutcomePanel.setAttribute('data-compact', outcomePanelCompact ? 'true' : 'false');
@@ -677,12 +679,14 @@
       }
       if (outcomePanelCompact) {
         setOutcomePanelCollapsed(true);
-      } else {
+      } else if (!opts.keepCollapsed) {
         setOutcomePanelCollapsed(false);
       }
-      try {
-        localStorage.setItem('focus-outcome-compact', outcomePanelCompact ? 'true' : 'false');
-      } catch (e) {}
+      if (opts.persist !== false) {
+        try {
+          localStorage.setItem('focus-outcome-compact', outcomePanelCompact ? 'true' : 'false');
+        } catch (e) {}
+      }
     }
 
     function isMobileViewport() {
@@ -1524,9 +1528,15 @@
       if (elSmsComposeSection) elSmsComposeSection.classList.add('hidden');
       setFocusSmsComposeStatus('');
       syncFocusSmsButtonState();
+      if (smsOpenedFromCompact) {
+        smsOpenedFromCompact = false;
+        setOutcomePanelCompact(true);
+      }
     }
 
     function resetFocusSmsCompose() {
+      var restoreCompact = smsOpenedFromCompact;
+      smsOpenedFromCompact = false;
       if (elSmsComposeSection) elSmsComposeSection.classList.add('hidden');
       if (elSmsComposeInput) {
         elSmsComposeInput.value = '';
@@ -1540,6 +1550,7 @@
       syncFocusSmsComposeCount();
       setFocusSmsComposeStatus('');
       syncFocusSmsButtonState();
+      if (restoreCompact) setOutcomePanelCompact(true);
     }
 
     function focusSmsSuccessLabel(data) {
@@ -1602,7 +1613,9 @@
         return;
       }
       if (outcomePanelCompact) {
-        setOutcomePanelCompact(false);
+        smsOpenedFromCompact = true;
+      } else {
+        smsOpenedFromCompact = false;
       }
       if (elSmsComposeSection) elSmsComposeSection.classList.remove('hidden');
       var scriptText = String((elBody && elBody.value) || '').trim();
