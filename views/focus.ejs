@@ -283,7 +283,7 @@
               title="Minimize to action bar"
             >
               <svg id="focus-outcome-compact-icon" class="w-4 h-4 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 14h16M4 10h16"/></svg>
-              <span class="sr-only">Minimize call outcome panel</span>
+              <span class="sr-only">Minimize call outcome panel to action bar only</span>
             </button>
             <button
               type="button"
@@ -311,8 +311,16 @@
         <input type="hidden" id="focus-outcome" value="" />
         </div>
         <section id="focus-sms-compose-section" class="hidden w-full rounded-2xl bg-white/60 dark:bg-slate-900/40 border border-emerald-500/25 dark:border-emerald-500/20 p-4 space-y-3" aria-label="SMS composer">
-          <p class="text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-300">SMS message</p>
-          <textarea id="focus-sms-compose-input" rows="3" maxlength="1600" placeholder="Type your SMS…" class="block w-full max-w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-medium text-brand-dark dark:text-white focus:ring-2 focus:ring-emerald-500/50 resize-y min-h-[4rem]"></textarea>
+          <div class="flex items-center justify-between gap-2">
+            <p class="text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-300">SMS message</p>
+            <div class="flex items-center gap-2 shrink-0">
+              <button type="button" id="focus-sms-expand-toggle" class="btn-pill border border-brand-border/50 dark:border-white/15 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 hover:border-emerald-500/40 hover:text-emerald-800 dark:hover:text-emerald-300 transition-colors" aria-expanded="false" title="Toggle a taller compose area">Expand</button>
+              <button type="button" id="focus-sms-close" class="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-brand-border/50 dark:border-white/15 text-brand-muted hover:border-red-400/50 hover:text-red-600 dark:hover:text-red-400 transition-colors" aria-label="Close SMS composer" title="Close SMS composer">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+          </div>
+          <textarea id="focus-sms-compose-input" rows="4" maxlength="1600" placeholder="Type your SMS…" class="focus-sms-compose-input block w-full max-w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-medium leading-relaxed text-brand-dark dark:text-white focus:ring-2 focus:ring-emerald-500/50 resize-y min-h-[5.5rem] max-h-[min(50vh,20rem)] overflow-y-auto"></textarea>
           <div class="flex flex-wrap items-center justify-between gap-2 w-full">
             <span id="focus-sms-compose-count" class="text-[9px] font-semibold text-brand-muted tabular-nums">0</span>
             <div class="flex flex-wrap items-center gap-2">
@@ -333,7 +341,7 @@
         </button>
         <div class="focus-primary-actions grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
           <button type="button" id="focus-btn-call" class="btn-pill btn-primary w-full px-4 py-3.5 text-xs font-black uppercase tracking-widest shadow-md min-h-[3rem]">Call</button>
-          <button type="button" id="focus-btn-sms" class="btn-pill border-2 border-emerald-500/60 bg-emerald-500/15 text-emerald-900 dark:text-emerald-200 w-full px-4 py-3.5 text-xs font-black uppercase tracking-widest hover:bg-emerald-500/25 transition-colors min-h-[3rem]" title="Open SMS composer to type and send a message">SMS</button>
+          <button type="button" id="focus-btn-sms" class="btn-pill border-2 border-emerald-500/60 bg-emerald-500/15 text-emerald-900 dark:text-emerald-200 w-full px-4 py-3.5 text-xs font-black uppercase tracking-widest hover:bg-emerald-500/25 transition-colors min-h-[3rem]" title="Open or close SMS composer">SMS</button>
           <button type="button" id="focus-btn-push-ghl" class="btn-pill border-2 border-orange-500/60 bg-orange-500/15 text-orange-900 dark:text-orange-200 w-full px-4 py-3.5 text-xs font-black uppercase tracking-widest hover:bg-orange-500/25 transition-colors min-h-[3rem]" title="Save disposition, notes, and follow-up — then sync to Go High Level">Sync GHL</button>
         </div>
         <div id="focus-quick-log-section">
@@ -554,6 +562,8 @@
     var elSmsComposeCount = document.getElementById('focus-sms-compose-count');
     var elSmsComposeStatus = document.getElementById('focus-sms-compose-status');
     var btnSmsComposeSend = document.getElementById('focus-sms-compose-send');
+    var btnSmsExpandToggle = document.getElementById('focus-sms-expand-toggle');
+    var btnSmsClose = document.getElementById('focus-sms-close');
     var btnSmsImproveText = document.getElementById('focus-sms-improve-text');
     var btnMobileBack = document.getElementById('focus-mobile-back');
     var btnMobileCallNext = document.getElementById('focus-mobile-call-next');
@@ -660,7 +670,7 @@
       }
       if (btnOutcomeCompact) {
         btnOutcomeCompact.setAttribute('aria-pressed', outcomePanelCompact ? 'true' : 'false');
-        btnOutcomeCompact.setAttribute('title', outcomePanelCompact ? 'Expand panel' : 'Minimize to action bar');
+        btnOutcomeCompact.setAttribute('title', outcomePanelCompact ? 'Show full call outcome panel' : 'Minimize to Call/SMS/Log button bar only');
       }
       if (elOutcomeCompactIcon) {
         elOutcomeCompactIcon.classList.toggle('rotate-180', outcomePanelCompact);
@@ -1470,13 +1480,66 @@
       if (elSmsComposeCount && elSmsComposeInput) {
         elSmsComposeCount.textContent = String((elSmsComposeInput.value || '').length);
       }
+      autogrowFocusSmsCompose();
+    }
+
+    function focusSmsComposeHeightLimits() {
+      var expanded = !!(elSmsComposeInput && elSmsComposeInput.classList.contains('focus-sms-compose-input--expanded'));
+      var min = expanded ? Math.min(window.innerHeight * 0.32, 240) : 88;
+      var max = expanded ? Math.min(window.innerHeight * 0.62, 420) : Math.min(window.innerHeight * 0.5, 320);
+      return { min: Math.round(min), max: Math.round(max) };
+    }
+
+    function autogrowFocusSmsCompose() {
+      if (!elSmsComposeInput) return;
+      var limits = focusSmsComposeHeightLimits();
+      elSmsComposeInput.style.height = 'auto';
+      var next = Math.max(limits.min, Math.min(limits.max, elSmsComposeInput.scrollHeight));
+      elSmsComposeInput.style.height = next + 'px';
+    }
+
+    function setFocusSmsComposeExpanded(expanded) {
+      if (!elSmsComposeInput) return;
+      elSmsComposeInput.classList.toggle('focus-sms-compose-input--expanded', !!expanded);
+      if (btnSmsExpandToggle) {
+        btnSmsExpandToggle.textContent = expanded ? 'Compact' : 'Expand';
+        btnSmsExpandToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        btnSmsExpandToggle.title = expanded ? 'Use a shorter compose area' : 'Toggle a taller compose area';
+      }
+      autogrowFocusSmsCompose();
+    }
+
+    function syncFocusSmsButtonState() {
+      var open = isFocusSmsComposeOpen();
+      [btnSms, btnMobileSms].forEach(function (b) {
+        if (!b) return;
+        b.setAttribute('aria-pressed', open ? 'true' : 'false');
+        b.classList.toggle('ring-2', open);
+        b.classList.toggle('ring-emerald-500/70', open);
+        b.classList.toggle('ring-offset-1', open);
+      });
+    }
+
+    function closeFocusSmsComposer() {
+      if (elSmsComposeSection) elSmsComposeSection.classList.add('hidden');
+      setFocusSmsComposeStatus('');
+      syncFocusSmsButtonState();
     }
 
     function resetFocusSmsCompose() {
       if (elSmsComposeSection) elSmsComposeSection.classList.add('hidden');
-      if (elSmsComposeInput) elSmsComposeInput.value = '';
+      if (elSmsComposeInput) {
+        elSmsComposeInput.value = '';
+        elSmsComposeInput.style.height = '';
+        elSmsComposeInput.classList.remove('focus-sms-compose-input--expanded');
+      }
+      if (btnSmsExpandToggle) {
+        btnSmsExpandToggle.textContent = 'Expand';
+        btnSmsExpandToggle.setAttribute('aria-expanded', 'false');
+      }
       syncFocusSmsComposeCount();
       setFocusSmsComposeStatus('');
+      syncFocusSmsButtonState();
     }
 
     function focusSmsSuccessLabel(data) {
@@ -1527,17 +1590,28 @@
     function openFocusSmsComposer() {
       var lead = currentLead();
       if (!lead || !lead.key) return;
+      if (isFocusSmsComposeOpen()) {
+        closeFocusSmsComposer();
+        return;
+      }
       var phone = normalizeTel(lead.phone || '');
       if (!phone) {
         setFocusSmsComposeStatus('No phone found for this lead.', true);
         if (elSmsComposeSection) elSmsComposeSection.classList.remove('hidden');
+        syncFocusSmsButtonState();
         return;
+      }
+      if (outcomePanelCompact) {
+        setOutcomePanelCompact(false);
       }
       if (elSmsComposeSection) elSmsComposeSection.classList.remove('hidden');
       var scriptText = String((elBody && elBody.value) || '').trim();
       if (elSmsComposeInput && !String(elSmsComposeInput.value || '').trim() && scriptText) {
         elSmsComposeInput.value = scriptText;
+        if (scriptText.length > 180) setFocusSmsComposeExpanded(true);
         syncFocusSmsComposeCount();
+      } else {
+        autogrowFocusSmsCompose();
       }
       if (elSmsComposeSection) elSmsComposeSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       if (elSmsComposeInput) {
@@ -1548,6 +1622,7 @@
         }, 120);
       }
       setFocusSmsComposeStatus('Type your message, use Improve text if needed, then Send SMS.');
+      syncFocusSmsButtonState();
     }
 
     function sendFocusSmsCompose() {
@@ -3225,9 +3300,21 @@
     if (btnImproveText) btnImproveText.addEventListener('click', function () { onFocusImproveText(); });
     if (btnSmsImproveText) btnSmsImproveText.addEventListener('click', function () { onFocusImproveText(); });
     if (btnSmsComposeSend) btnSmsComposeSend.addEventListener('click', function () { sendFocusSmsCompose(); });
+    if (btnSmsExpandToggle) {
+      btnSmsExpandToggle.addEventListener('click', function () {
+        var expanded = !!(elSmsComposeInput && elSmsComposeInput.classList.contains('focus-sms-compose-input--expanded'));
+        setFocusSmsComposeExpanded(!expanded);
+      });
+    }
+    if (btnSmsClose) btnSmsClose.addEventListener('click', function () { closeFocusSmsComposer(); });
     if (elSmsComposeInput) {
       elSmsComposeInput.addEventListener('input', syncFocusSmsComposeCount);
       elSmsComposeInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          closeFocusSmsComposer();
+          return;
+        }
         if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
           e.preventDefault();
           sendFocusSmsCompose();

@@ -3284,7 +3284,12 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
 #focus-outcome-panel[data-compact="true"] #focus-outcome-header {
     order: 2;
     margin-bottom: 0;
+    margin-left: auto;
     flex-shrink: 0;
+}
+
+#focus-outcome-panel[data-compact="true"]:has(#focus-sms-compose-section:not(.hidden)) #focus-outcome-compact-toggle {
+    display: none;
 }
 
 #focus-outcome-panel[data-compact="true"] #focus-outcome-actions {
@@ -3383,6 +3388,16 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
     max-width: 100%;
     min-width: 0;
     box-sizing: border-box;
+    resize: vertical;
+}
+
+#focus-sms-compose-input.focus-sms-compose-input--expanded {
+    min-height: min(32vh, 15rem);
+    max-height: min(62vh, 26rem);
+}
+
+#focus-sms-compose-input {
+    resize: vertical;
 }
 
 .dark #focus-outcome-panel[data-compact="true"] #focus-outcome-compact-toggle {
