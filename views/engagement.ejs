@@ -47,8 +47,10 @@
     <% if (!_events.length) { %>
     <div class="rounded-[2rem] border-2 border-dashed border-brand-border dark:border-white/15 bg-white/60 dark:bg-slate-900/50 px-8 py-14 text-center">
       <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white mb-2">No engagement yet</h2>
-      <p class="text-sm text-brand-muted max-w-md mx-auto mb-6">When prospects reply, click links, open audits, or scan postcards, signals show up here for <%= windowDays %> days.</p>
+      <p class="text-sm text-brand-muted max-w-md mx-auto mb-2">This inbox only shows <strong class="text-brand-dark dark:text-slate-200">inbound</strong> signals — SMS/email replies, link clicks, audit opens, email opens, postcard QR scans — from the last <%= windowDays %> days.</p>
+      <p class="text-sm text-brand-muted max-w-md mx-auto mb-6">Your overdue <strong class="text-brand-dark dark:text-slate-200">cold-call cadence tasks</strong> on Today are separate outbound work; they won&apos;t appear here until a prospect engages.</p>
       <a href="/focus?channel=call" class="btn-pill btn-primary inline-flex px-8 py-3 text-xs font-black uppercase tracking-widest">Start calling</a>
+      <a href="/today" class="btn-pill border border-brand-border dark:border-white/20 inline-flex px-8 py-3 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white mt-3 sm:mt-0 sm:ml-2">Back to Today queue</a>
     </div>
     <% } else { %>
     <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm overflow-hidden" aria-label="Engagement events">
