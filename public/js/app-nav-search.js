@@ -312,6 +312,12 @@
     clearId: 'navLeadSearchClear',
     formId: 'navLeadSearchForm',
   });
+  var sidebar = bindSearchInstance({
+    inputId: 'navLeadSearchInputSidebar',
+    dropdownId: 'navLeadSearchDropdownSidebar',
+    clearId: 'navLeadSearchClearSidebar',
+    formId: 'navLeadSearchFormSidebar',
+  });
   var mobile = bindSearchInstance({
     inputId: 'navLeadSearchInputMobile',
     dropdownId: 'navLeadSearchDropdownMobile',
@@ -320,6 +326,7 @@
   });
 
   if (desktop) instances.push(desktop);
+  if (sidebar) instances.push(sidebar);
   if (mobile) instances.push(mobile);
   if (!instances.length) return;
 
@@ -346,4 +353,25 @@
       }
     });
   }
+
+  function focusPrimarySearch() {
+    var target =
+      sidebar ||
+      desktop ||
+      mobile ||
+      null;
+    if (!target || !target.input) return;
+    target.input.focus();
+    if (String(target.input.value || '').trim()) {
+      target.input.select();
+    }
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (!(e.metaKey || e.ctrlKey) || String(e.key || '').toLowerCase() !== 'k') return;
+    var tag = (document.activeElement && document.activeElement.tagName) || '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    e.preventDefault();
+    focusPrimarySearch();
+  });
 })();

@@ -1,6 +1,6 @@
 <style id="appShellStyles">
   #appSidebar { display: none; }
-  :root { --app-sidebar-width: 13.5rem; }
+  :root { --app-sidebar-width: 16.5rem; }
   @media (min-width: 768px) {
     body:has(#appSidebar) {
       display: grid;
@@ -25,12 +25,12 @@
       overflow-y: auto;
       z-index: 40;
       flex-shrink: 0;
-      border-right: 1px solid var(--brand-border);
-      background: rgba(255, 255, 255, 0.95);
+      border-right: 1px solid #e5e7eb;
+      background: #ffffff;
     }
     html.dark body:has(#appSidebar) #appSidebar {
-      background: rgba(15, 23, 42, 0.95);
-      border-right-color: rgba(255, 255, 255, 0.1);
+      background: #0f172a;
+      border-right-color: rgba(255, 255, 255, 0.08);
     }
     body:has(#appSidebar).sidebar-hidden #appSidebar {
       opacity: 0;
@@ -62,26 +62,26 @@
   .sidebar-nav-link {
     display: flex;
     align-items: center;
-    gap: 0.625rem;
-    padding: 0.625rem 0.75rem;
-    border-radius: 0.75rem;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
     font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--brand-muted);
+    font-weight: 500;
+    color: #374151;
     text-decoration: none;
-    transition: background-color 0.15s ease, color 0.15s ease;
+    transition: background-color 0.12s ease, color 0.12s ease;
   }
   .sidebar-nav-link:hover {
-    background: rgba(253, 224, 71, 0.08);
-    color: var(--brand-dark);
+    background: #f3f4f6;
+    color: #111827;
   }
-  html.dark .sidebar-nav-link:hover { color: #fff; background: rgba(255, 255, 255, 0.06); }
+  html.dark .sidebar-nav-link:hover { color: #f8fafc; background: rgba(255, 255, 255, 0.06); }
   .sidebar-nav-link.active {
-    background: rgba(253, 224, 71, 0.18);
-    color: var(--brand-dark);
-    font-weight: 700;
+    background: #f3f4f6;
+    color: #111827;
+    font-weight: 600;
   }
-  html.dark .sidebar-nav-link.active { color: #fff; background: rgba(253, 224, 71, 0.12); }
+  html.dark .sidebar-nav-link.active { color: #f8fafc; background: rgba(255, 255, 255, 0.08); }
   .sidebar-nav-link.sidebar-nav-cta {
     margin: 0.25rem 0;
     background: var(--brand-yellow);
@@ -92,5 +92,5 @@
     letter-spacing: 0.04em;
   }
   .sidebar-nav-link.sidebar-nav-cta:hover { background: #facc15; color: #111827; }
-  .sidebar-nav-link.sidebar-nav-sub { font-size: 0.8125rem; padding-left: 0.875rem; }
+  .sidebar-nav-link.sidebar-nav-sub { font-size: 0.8125rem; padding-left: 2rem; }
 </style>
