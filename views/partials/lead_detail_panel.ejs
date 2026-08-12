@@ -5,10 +5,10 @@
   <!-- Mobile Detail Panel / Desktop Sidebar -->
   <!-- Layout flex-* lives in custom.css for #mobilePanel.open only — avoids Tailwind `hidden` vs `flex` both setting display -->
   <div id="mobilePanel" class="fixed inset-0 z-[400] bg-brand-dark/60 backdrop-blur-md hidden opacity-0 transition-opacity duration-300 pointer-events-none">
-    <div id="leadPanelSheet" class="bg-white dark:bg-slate-900 w-full max-w-full h-full lg:h-screen lg:w-[640px] rounded-none p-8 lg:p-10 animate-slide-up lg:animate-slide-in-right pointer-events-auto flex flex-col min-h-0 shadow-2xl relative border-l border-brand-border/20 dark:border-white/5">
+    <div id="leadPanelSheet" class="bg-white dark:bg-slate-900 w-full max-w-full h-full lg:h-screen lg:w-[640px] rounded-none px-8 pt-4 pb-8 lg:px-10 lg:pt-5 lg:pb-10 animate-slide-up lg:animate-slide-in-right pointer-events-auto flex flex-col min-h-0 shadow-2xl relative border-l border-brand-border/20 dark:border-white/5">
       
       <!-- Nav (sticky) -->
-      <div class="flex items-center justify-between mb-6 sticky top-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md py-2 z-10 px-1 gap-2">
+      <div class="flex items-center justify-between mb-0 sticky top-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md py-2 z-10 px-1 gap-2 border-b border-brand-border/15 dark:border-white/10">
         <div class="flex items-center gap-2 flex-1 min-w-0">
             <button id="prevLeadBtn" type="button" class="w-10 h-10 rounded-xl bg-brand-cream dark:bg-slate-800 flex items-center justify-center text-brand-muted hover:text-brand-dark dark:hover:text-white transition-all group shrink-0">
                 <svg class="w-5 h-5 group-hover:-translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
@@ -24,10 +24,20 @@
         </button>
       </div>
 
+      <nav id="leadPanelSectionNav" class="flex flex-wrap gap-1 shrink-0 px-0.5 py-1.5 -mx-0.5 z-[9] bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-brand-border/15 dark:border-white/10" aria-label="Jump to section">
+        <button type="button" class="lead-panel-section-link inline-flex items-center px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-brand-border/50 dark:border-white/15 text-brand-muted hover:border-brand-yellow/50 hover:text-brand-dark dark:hover:text-white transition-colors" data-scroll-target="leadPanelCallerGlance">Company</button>
+        <button type="button" class="lead-panel-section-link inline-flex items-center px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-brand-border/50 dark:border-white/15 text-brand-muted hover:border-brand-yellow/50 hover:text-brand-dark dark:hover:text-white transition-colors" data-scroll-target="pageSpeedAuditSection">Website audit</button>
+        <button type="button" class="lead-panel-section-link inline-flex items-center px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-indigo-500/30 text-indigo-700 dark:text-indigo-300 hover:border-indigo-500/50 transition-colors" data-scroll-target="leadPanelEmailReportSection">Share links</button>
+        <button type="button" class="lead-panel-section-link inline-flex items-center px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-orange-500/35 text-orange-700 dark:text-orange-300 hover:border-orange-500/60 transition-colors" data-scroll-target="leadPanelAiToolsSection">AI tools</button>
+        <button type="button" class="lead-panel-section-link inline-flex items-center px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-violet-500/30 text-violet-700 dark:text-violet-300 hover:border-violet-500/50 transition-colors" data-scroll-target="leadCadencePlaybookHeading">Cadence</button>
+        <button type="button" class="lead-panel-section-link inline-flex items-center px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-sky-500/35 text-sky-700 dark:text-sky-300 hover:border-sky-500/60 transition-colors" data-scroll-target="leadPanelCallbackSection">Callback</button>
+        <button type="button" class="lead-panel-section-link inline-flex items-center px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-brand-border/50 dark:border-white/15 text-brand-muted hover:border-brand-yellow/50 hover:text-brand-dark dark:hover:text-white transition-colors" data-scroll-target="leadPanelHistorySection">History</button>
+      </nav>
+
       <!-- Scroll body: glance (map + facts), dial rail, tabs, and tab panels scroll together; quick log dock collapses below -->
       <div id="leadPanelMiddle" class="flex flex-col flex-1 min-h-0">
       <div id="leadPanelTabScroll" class="flex-1 min-h-0 overflow-y-auto overscroll-y-contain pr-1 -mr-1 custom-scrollbar">
-      <div id="leadPanelCallerShell" class="flex flex-col gap-3 mb-2">
+      <div id="leadPanelCallerShell" class="flex flex-col gap-3 mb-0">
         <section id="leadPanelCallerGlance" class="rounded-[2rem] border border-brand-border/20 dark:border-white/10 shadow-md ring-1 ring-black/[0.04] dark:ring-white/10 bg-brand-cream/25 dark:bg-slate-800/35">
           <div id="leadPanelMapStripWrap" class="hidden relative w-full shrink-0 border-b border-brand-border/15 dark:border-white/10 rounded-t-[2rem]">
             <!-- Embedded Google Maps (iframe — reliable inside slide-in sidebar) -->
@@ -247,16 +257,6 @@
         </div>
       </div>
 
-      <nav id="leadPanelSectionNav" class="flex flex-wrap gap-1.5 mb-4 px-0.5 sticky top-[3.25rem] z-[9] py-2 -mx-0.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-brand-border/15 dark:border-white/10" aria-label="Jump to section">
-        <button type="button" class="lead-panel-section-link inline-flex items-center px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-brand-border/50 dark:border-white/15 text-brand-muted hover:border-brand-yellow/50 hover:text-brand-dark dark:hover:text-white transition-colors" data-scroll-target="leadPanelCallerGlance">Company</button>
-        <button type="button" class="lead-panel-section-link inline-flex items-center px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-brand-border/50 dark:border-white/15 text-brand-muted hover:border-brand-yellow/50 hover:text-brand-dark dark:hover:text-white transition-colors" data-scroll-target="pageSpeedAuditSection">Website audit</button>
-        <button type="button" class="lead-panel-section-link inline-flex items-center px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-indigo-500/30 text-indigo-700 dark:text-indigo-300 hover:border-indigo-500/50 transition-colors" data-scroll-target="leadPanelEmailReportSection">Share links</button>
-        <button type="button" class="lead-panel-section-link inline-flex items-center px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-orange-500/35 text-orange-700 dark:text-orange-300 hover:border-orange-500/60 transition-colors" data-scroll-target="leadPanelAiToolsSection">AI tools</button>
-        <button type="button" class="lead-panel-section-link inline-flex items-center px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-violet-500/30 text-violet-700 dark:text-violet-300 hover:border-violet-500/50 transition-colors" data-scroll-target="leadCadencePlaybookHeading">Cadence</button>
-        <button type="button" class="lead-panel-section-link inline-flex items-center px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-sky-500/35 text-sky-700 dark:text-sky-300 hover:border-sky-500/60 transition-colors" data-scroll-target="leadPanelCallbackSection">Callback</button>
-        <button type="button" class="lead-panel-section-link inline-flex items-center px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-brand-border/50 dark:border-white/15 text-brand-muted hover:border-brand-yellow/50 hover:text-brand-dark dark:hover:text-white transition-colors" data-scroll-target="leadPanelHistorySection">History</button>
-      </nav>
-
       <!-- Engagement Command Center (call tab — phone tile hidden; use sticky dial) -->
       <section id="leadPanelQuickOutreachSection" class="mb-10">
         <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-500 mb-6 px-1 text-center">Quick outreach</h3>
@@ -265,7 +265,7 @@
                 <a href="#" id="mobilePanelPhoneLink" class="hidden"></a>
                 <span id="mobilePanelPhone" class="hidden"></span>
         </div>
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div id="leadPanelQuickOutreachGrid" class="grid grid-cols-3 gap-4 max-w-xl mx-auto w-full">
             <!-- Scripts tile -->
             <div id="mobilePanelEmailRow" class="bg-brand-cream/30 dark:bg-white/5 p-5 rounded-3xl border border-brand-border/20 dark:border-white/5 flex flex-col items-center text-center group hover:bg-brand-yellow/10 transition-all cursor-pointer">
                 <button type="button" class="quick-outreach-btn w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 flex items-center justify-center text-brand-yellow shadow-sm border border-brand-border/10 mb-3 group-hover:scale-110 transition-transform" id="mobilePanelEmailBtn" title="Outreach scripts">
@@ -283,15 +283,6 @@
                 <span class="text-[9px] font-black uppercase tracking-widest text-brand-muted/60 mb-1 pointer-events-none">Visit Site</span>
                 <span class="text-sm font-bold text-brand-dark dark:text-white truncate w-full px-2 pointer-events-none" id="mobilePanelWebsiteShort">Website</span>
             </a>
-
-            <!-- Built With — tech stack (same flow as Focus mode) -->
-            <button type="button" id="mobilePanelBuiltWithBtn" class="hidden bg-brand-cream/30 dark:bg-white/5 p-5 rounded-3xl border border-brand-border/20 dark:border-white/5 flex flex-col items-center text-center group hover:bg-brand-yellow/10 transition-all">
-                <span class="w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 flex items-center justify-center text-brand-yellow shadow-sm border border-brand-border/10 mb-3 group-hover:scale-110 transition-transform pointer-events-none" aria-hidden="true">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
-                </span>
-                <span class="text-[9px] font-black uppercase tracking-widest text-brand-muted/60 mb-1 pointer-events-none">Built With</span>
-                <span class="text-sm font-bold text-brand-dark dark:text-white truncate w-full px-2 pointer-events-none" id="mobilePanelBuiltWithShort">Tech stack</span>
-            </button>
 
             <!-- Location Action Tile (Google Business Profile / Maps listing) -->
             <a href="#" id="mobilePanelMapsLink" target="_blank" rel="noopener noreferrer" class="bg-brand-cream/30 dark:bg-white/5 p-5 rounded-3xl border border-brand-border/20 dark:border-white/5 flex flex-col items-center text-center group hover:bg-brand-yellow/10 transition-all no-underline text-inherit">
@@ -349,6 +340,21 @@
           </span>
         </button>
         <p id="rapidapiWebsiteEnrichStatus" class="hidden mb-3 text-[11px] leading-relaxed" role="status"></p>
+        <button type="button" id="leadPanelBuiltWithActionBtn" data-lead-key="" data-builtwith-state="idle" data-builtwith-blocked="0" aria-busy="false" class="builtwith-action-btn w-full btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 py-3.5 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow transition-all flex flex-col items-center justify-center gap-2 mb-3 relative overflow-hidden">
+          <span class="builtwith-action-idle flex items-center justify-center gap-2 w-full">
+            <svg class="w-4 h-4 shrink-0 text-brand-yellow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
+            <span class="builtwith-action-label">Load tech stack (BuiltWith)</span>
+          </span>
+          <span class="builtwith-action-active hidden flex items-center justify-center gap-2 w-full" aria-hidden="true">
+            <svg class="w-4 h-4 shrink-0 animate-spin text-brand-yellow" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            <span>Loading tech stack…</span>
+          </span>
+          <span class="builtwith-action-done hidden flex items-center justify-center gap-2 w-full text-emerald-700 dark:text-emerald-400" aria-hidden="true">
+            <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+            <span class="builtwith-action-done-label">Tech stack loaded</span>
+          </span>
+        </button>
+        <p id="leadPanelBuiltWithActionStatus" class="hidden mb-3 text-[11px] leading-relaxed" role="status"></p>
         <button type="button" id="deepEnhanceBtn" aria-busy="false" data-hunt-state="idle" class="deep-enhance-btn w-full btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 py-4 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow transition-all flex flex-col items-center justify-center gap-2 group relative overflow-hidden">
           <span class="deep-enhance-main flex flex-col items-center justify-center gap-2.5 w-full px-2">
             <span class="deep-enhance-idle flex items-center justify-center gap-3 w-full">

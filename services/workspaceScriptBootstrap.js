@@ -5,12 +5,14 @@
 const dbService = require('./database');
 const { SCRIPT_PRESETS } = require('../config/workspaceScriptPresets');
 const { sanitizeOfferCatalogInput } = require('./workspaceSalesScripts');
+const { splitOfferScriptForSave } = require('./salesScriptsStorage');
 
 const KNOWN_PRESET_KEYS = new Set(Object.keys(SCRIPT_PRESETS));
 
 function inferScriptPresetKey(ws) {
   ws = ws || {};
   const intake = ws.pipelineIntake && typeof ws.pipelineIntake === 'object' ? ws.pipelineIntake : {};
+  const salesIntake = ws.salesIntake && typeof ws.salesIntake === 'object' ? ws.salesIntake : {};
   const preset = String(intake.presetKey || '').trim().toLowerCase();
   if (preset && KNOWN_PRESET_KEYS.has(preset)) return preset;
 
@@ -18,7 +20,25 @@ function inferScriptPresetKey(ws) {
   const name = String(ws.name || '').toLowerCase();
   const coach = String(ws.coachPrompt || '').toLowerCase();
   const keyword = String((ws.icp && ws.icp.keyword) || ws.icpKeyword || '').toLowerCase();
-  const bizDesc = String(intake.businessDescription || '').toLowerCase();
+  const bizDesc = String(intake.businessDescription || salesIntake.primaryGoal || '').toLowerCase();
+  const vertical = String(salesIntake.vertical || '').toLowerCase();
+  const probeText = [vertical, bizDesc, name, coach, keyword].join(' ');
+
+  if (vertical.includes('flooring') || probeText.includes('flooring') || coach.includes('retail/install')) {
+    return 'retail_install';
+  }
+  if (vertical.includes('saas') || probeText.includes('saas')) return 'saas';
+  if (
+    vertical.includes('b2b') ||
+    vertical.includes('wholesale') ||
+    vertical.includes('commerce') ||
+    preset === 'ecommerce_b2b'
+  ) {
+    return 'ecommerce_b2b';
+  }
+  if (vertical.includes('agency') || vertical.includes('marketing') || probeText.includes('ad agency')) {
+    return 'agency';
+  }
 
   if (
     slug.includes('adhello-agency') ||
@@ -28,13 +48,7 @@ function inferScriptPresetKey(ws) {
   ) {
     return 'agency';
   }
-  if (
-    name.includes('flooring') ||
-    coach.includes('flooring') ||
-    keyword.includes('flooring') ||
-    bizDesc.includes('flooring') ||
-    coach.includes('retail/install')
-  ) {
+  if (name.includes('flooring') || keyword.includes('flooring') || bizDesc.includes('flooring')) {
     return 'retail_install';
   }
   if (coach.includes('saas') || bizDesc.includes('saas') || preset === 'saas') return 'saas';
@@ -42,6 +56,81 @@ function inferScriptPresetKey(ws) {
   if (coach.includes('local service') || preset === 'local_service') return 'local_service';
 
   return 'local_service';
+}
+
+/**
+ * Resolve script preset when creating a workspace from the wizard session.
+ * @param {{ setupPath?: string, presetKey?: string, salesIntake?: object, cwIntake?: object }} wizard
+ * @param {object} doc partial workspace doc (name, pipelineIntake, etc.)
+ */
+function resolveScriptPresetKeyForCreate(wizard, doc) {
+  wizard = wizard || {};
+  doc = doc || {};
+  if (wizard.setupPath === 'preset' && wizard.presetKey) {
+    const pk = String(wizard.presetKey).trim().toLowerCase();
+    if (KNOWN_PRESET_KEYS.has(pk)) return pk;
+  }
+  return inferScriptPresetKey({
+    ...doc,
+    salesIntake: wizard.salesIntake,
+    pipelineIntake: doc.pipelineIntake,
+  });
+}
+
+/**
+ * Replace workspace offer catalog + scripts with a preset seed (destructive).
+ * @param {object} doc workspace document (mutated)
+ * @param {string} presetKey
+ * @returns {{ ok: boolean, presetKey?: string, error?: string }}
+ */
+function applyScriptPresetToWorkspace(doc, presetKey) {
+  const key = String(presetKey || '').trim().toLowerCase();
+  if (!KNOWN_PRESET_KEYS.has(key)) {
+    return { ok: false, error: 'Unknown script preset.' };
+  }
+  const seed = buildWorkspaceScriptSeed(doc, key);
+  applyScriptSeedToWorkspace(doc, seed);
+  doc.salesScriptsUpdatedAt = new Date().toISOString();
+  return { ok: true, presetKey: key };
+}
+
+/**
+ * Apply wizard sales intake to the first offer in a seeded catalog.
+ * @param {object} doc workspace document (mutated)
+ * @param {object} salesIntake
+ */
+function applySalesIntakeToFirstOffer(doc, salesIntake) {
+  if (!doc || !salesIntake || typeof salesIntake !== 'object') return doc;
+  const catalog = Array.isArray(doc.salesScriptOfferCatalog) ? [...doc.salesScriptOfferCatalog] : [];
+  if (!catalog.length) return doc;
+
+  const first = { ...catalog[0] };
+  const businessName = String(salesIntake.businessName || '').trim();
+  const vertical = String(salesIntake.vertical || '').trim();
+  const auditLink = String(salesIntake.auditLink || '').trim();
+  const offerName = String(salesIntake.offerName || '').trim();
+  if (businessName) first.senderBusinessName = businessName.slice(0, 120);
+  if (vertical) first.vertical = vertical.slice(0, 80);
+  if (auditLink) first.auditLink = auditLink.slice(0, 500);
+  if (offerName) {
+    first.label = offerName.slice(0, 120);
+    first.tabLabel = first.label;
+  }
+  catalog[0] = first;
+  doc.salesScriptOfferCatalog = catalog;
+
+  const openingScript = String(salesIntake.openingScript || '').trim();
+  if (openingScript && first.key) {
+    const prev =
+      doc.salesScriptBlockOverrides && typeof doc.salesScriptBlockOverrides === 'object'
+        ? doc.salesScriptBlockOverrides
+        : {};
+    doc.salesScriptBlockOverrides = {
+      ...prev,
+      [first.key]: splitOfferScriptForSave(openingScript),
+    };
+  }
+  return doc;
 }
 
 function buildWorkspaceScriptSeed(ws, presetKeyOverride) {
@@ -147,11 +236,15 @@ async function ensureWorkspaceScriptsSeeded(workspaceId) {
 
 module.exports = {
   inferScriptPresetKey,
+  resolveScriptPresetKeyForCreate,
   buildWorkspaceScriptSeed,
   applyScriptSeedToWorkspace,
+  applyScriptPresetToWorkspace,
+  applySalesIntakeToFirstOffer,
   copyLegacyScriptFields,
   seedWorkspaceScriptsOnCreate,
   ensureWorkspaceScriptsSeeded,
   workspaceHasScriptCatalog,
   workspaceScriptsAlreadySeeded,
+  KNOWN_PRESET_KEYS,
 };

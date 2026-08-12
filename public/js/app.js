@@ -1090,6 +1090,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { id: 'state', label: 'State', defaultHidden: true },
         { id: 'listingSource', label: 'Source', defaultHidden: true },
         { id: 'lastTouch', label: 'Last touch' },
+        { id: 'engagementSignal', label: 'Signal' },
         { id: 'cadence', label: 'Cadence' },
         { id: 'category', label: 'Category' },
         { id: 'reviews', label: 'Reviews' },
@@ -1231,7 +1232,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
-      const COMPACT_PIPELINE_COLUMNS = new Set(['check', 'company', 'contactGroup', 'socials']);
+      const COMPACT_PIPELINE_COLUMNS = new Set(['check', 'company', 'reviews', 'contactGroup', 'socials']);
 
       function isPipelineCompactDensity() {
         return (
@@ -5320,12 +5321,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function shouldIgnoreRowOpenClick(target) {
     if (!target) return true;
+    if (target.closest('.bookmark-btn')) return true;
     if (target.closest('[data-plc="company"]')) return true;
     const sel = window.getSelection && window.getSelection();
     if (sel && String(sel.toString() || '').trim()) return true;
     return !!(
       target.type === 'checkbox' ||
-      target.closest('.bookmark-btn') ||
       target.closest('.view-detail-btn') ||
       target.closest('.ai-analysis-btn') ||
       target.closest('.lead-category-input') ||
@@ -5416,6 +5417,52 @@ document.addEventListener('DOMContentLoaded', () => {
     if (shouldIgnoreRowOpenClick(e.target)) return;
     selectRow(row);
   });
+
+  // Bookmark icons — capture phase so tr onclick / row handlers cannot swallow the click
+  document.addEventListener(
+    'click',
+    async (e) => {
+      const bookmarkBtn = e.target.closest('.bookmark-btn');
+      if (!bookmarkBtn) return;
+
+      e.stopPropagation();
+      e.preventDefault();
+
+      const row = bookmarkBtn.closest('.result-row');
+      if (!row) return;
+
+      if (isPipelineBookmarkTable() && row.dataset.leadKey) {
+        await togglePipelineLeadBookmark(row, bookmarkBtn);
+        return;
+      }
+
+      const title = row.dataset.title;
+      if (!title) return;
+
+      const isSaved = isLeadTitleSaved(title);
+
+      if (isSaved) {
+        await unsaveLead(row);
+        if (currentRow === row) {
+          ['panelSaveBtn', 'mobilePanelSaveBtn'].forEach((id) => {
+            const b = document.getElementById(id);
+            if (b) markPanelBtnUnsaved(b);
+          });
+        }
+      } else {
+        markBookmarkSaved(bookmarkBtn);
+        const ok = await saveLead(row);
+        if (!ok) markBookmarkUnsaved(bookmarkBtn);
+        if (currentRow === row) {
+          ['panelSaveBtn', 'mobilePanelSaveBtn'].forEach((id) => {
+            const b = document.getElementById(id);
+            if (b) markPanelBtnSaved(b);
+          });
+        }
+      }
+    },
+    true,
+  );
 
   // Specific Detail Button Trigger (Reliability)
   document.addEventListener('click', (e) => {
@@ -7289,10 +7336,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const targetRect = target.getBoundingClientRect();
       const nav = document.getElementById('leadPanelSectionNav');
       let navOffset = 0;
-      if (nav && scrollEl.contains(nav)) {
-        const navRect = nav.getBoundingClientRect();
-        if (navRect.top >= scrollRect.top - 4 && navRect.top < scrollRect.bottom) {
-          navOffset = navRect.height + 8;
+      if (nav) {
+        if (scrollEl.contains(nav)) {
+          const navRect = nav.getBoundingClientRect();
+          if (navRect.top >= scrollRect.top - 4 && navRect.top < scrollRect.bottom) {
+            navOffset = navRect.height + 8;
+          }
+        } else {
+          navOffset = 6;
         }
       }
       const delta = targetRect.top - scrollRect.top - navOffset;
@@ -11554,10 +11605,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function paintLeadPanelBuiltWithQuickTile(row) {
-    const btn = document.getElementById('mobilePanelBuiltWithBtn');
-    const short = document.getElementById('mobilePanelBuiltWithShort');
-    if (!btn || !short) return;
+  function setBuiltWithActionBtnUi(btn, state) {
+    if (!btn) return;
+    const s = state || 'idle';
+    btn.dataset.builtwithState = s;
+    btn.setAttribute('aria-busy', s === 'active' ? 'true' : 'false');
+    const idle = btn.querySelector('.builtwith-action-idle');
+    const active = btn.querySelector('.builtwith-action-active');
+    const done = btn.querySelector('.builtwith-action-done');
+    if (idle) idle.classList.toggle('hidden', s !== 'idle');
+    if (active) active.classList.toggle('hidden', s !== 'active');
+    if (done) done.classList.toggle('hidden', s !== 'done');
+  }
+
+  function paintLeadPanelBuiltWithActionBtn(row) {
+    const btn = document.getElementById('leadPanelBuiltWithActionBtn');
+    const statusEl = document.getElementById('leadPanelBuiltWithActionStatus');
+    if (!btn) return;
 
     const website = readPipelineRowDisplayWebsite(row);
     const domain = domainFromWebsite(website);
@@ -11565,46 +11629,77 @@ document.addEventListener('DOMContentLoaded', () => {
     const tags = parseLeadTechStackTags(row.dataset.techStackTags);
     const hasWebsite = !!domain;
     const hasStack = (!!cms && cms !== 'N/A') || tags.length > 0;
+    const panelLeadKey = String((row && row.dataset.leadKey) || '').trim();
 
-    if (!hasWebsite) {
-      btn.classList.add('hidden');
-      return;
+    btn.dataset.leadKey = panelLeadKey;
+    const blocked = !panelLeadKey || !hasWebsite;
+    btn.dataset.builtwithBlocked = blocked ? '1' : '0';
+    btn.dataset.builtwithBlockedReason = !panelLeadKey
+      ? 'Save this lead before loading tech stack.'
+      : !hasWebsite
+        ? 'Add a website URL to load BuiltWith tech stack.'
+        : '';
+    btn.classList.toggle('opacity-55', blocked);
+    btn.title = blocked
+      ? btn.dataset.builtwithBlockedReason
+      : hasStack
+        ? 'View detected CMS and marketing tools for this site'
+        : 'Fetch CMS and marketing tools via BuiltWith (Outscraper)';
+
+    const labelEl = btn.querySelector('.builtwith-action-label');
+    const doneLabelEl = btn.querySelector('.builtwith-action-done-label');
+    if (labelEl) {
+      labelEl.textContent = hasStack ? 'View tech stack (BuiltWith)' : 'Load tech stack (BuiltWith)';
     }
-    btn.classList.remove('hidden', 'opacity-20', 'pointer-events-none');
+    if (doneLabelEl) {
+      const hint = cms && cms !== 'N/A' ? cms : tags.length ? String(tags[0]) : 'Tech stack loaded';
+      doneLabelEl.textContent = hint.length > 28 ? `${hint.slice(0, 28)}…` : hint;
+    }
 
-    if (row.dataset.builtWithLoading === '1') {
-      short.textContent = 'Loading…';
-    } else if (cms && cms !== 'N/A') {
-      short.textContent = cms.length > 20 ? `${cms.slice(0, 20)}…` : cms;
-    } else if (tags.length) {
-      const label = String(tags[0] || '');
-      short.textContent = label.length > 20 ? `${label.slice(0, 20)}…` : label;
+    if (row && row.dataset.builtWithLoading === '1') {
+      setBuiltWithActionBtnUi(btn, 'active');
+    } else if (hasStack) {
+      setBuiltWithActionBtnUi(btn, 'done');
     } else {
-      short.textContent = 'Tap to load';
+      setBuiltWithActionBtnUi(btn, 'idle');
     }
 
-    if (!window.__mobilePanelBuiltWithBtnBound) {
-      window.__mobilePanelBuiltWithBtnBound = true;
+    if (statusEl) {
+      const err = String((row && row.dataset.builtWithError) || '').trim();
+      if (err) {
+        statusEl.textContent = err;
+        statusEl.className = 'mb-3 text-[11px] leading-relaxed text-amber-700 dark:text-amber-400';
+        statusEl.classList.remove('hidden');
+      } else {
+        statusEl.textContent = '';
+        statusEl.classList.add('hidden');
+      }
+    }
+
+    if (!window.__leadPanelBuiltWithActionBtnBound) {
+      window.__leadPanelBuiltWithActionBtnBound = true;
       btn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
+        const activeBtn = document.getElementById('leadPanelBuiltWithActionBtn');
+        if (!activeBtn || activeBtn.dataset.builtwithBlocked === '1') return;
         const activeRow =
           (typeof currentRow !== 'undefined' && currentRow) ||
           (typeof resolvePanelActionRow === 'function' ? resolvePanelActionRow() : null);
         if (!activeRow || !activeRow.dataset) return;
+        const activeWebsite = readPipelineRowDisplayWebsite(activeRow);
+        if (!domainFromWebsite(activeWebsite)) return;
+
         const stackTags = parseLeadTechStackTags(activeRow.dataset.techStackTags);
         const stackCms = String(activeRow.dataset.cmsPlatform || '').trim();
         const hasStackNow = (!!stackCms && stackCms !== 'N/A') || stackTags.length > 0;
+
         if (!hasStackNow) {
           if (activeRow.dataset.builtWithLoading === '1') return;
           fetchLeadBuiltWithTechStack(activeRow);
           return;
         }
-        const bwUrl =
-          String(activeRow.dataset.builtWithUrl || '').trim() ||
-          (domainFromWebsite(readPipelineRowDisplayWebsite(activeRow))
-            ? `https://builtwith.com/${domainFromWebsite(readPipelineRowDisplayWebsite(activeRow))}`
-            : '');
+
         const wrap = document.getElementById('leadPanelBuiltWithWrap');
         const glance = document.getElementById('leadPanelCallerGlance');
         if (glance && typeof glance.scrollIntoView === 'function') {
@@ -11618,10 +11713,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           }, 200);
         }
+        const bwUrl =
+          String(activeRow.dataset.builtWithUrl || '').trim() ||
+          (domainFromWebsite(activeWebsite)
+            ? `https://builtwith.com/${domainFromWebsite(activeWebsite)}`
+            : '');
         if (bwUrl) window.open(bwUrl, '_blank', 'noopener,noreferrer');
       });
     }
   }
+  window.setBuiltWithActionBtnUi = setBuiltWithActionBtnUi;
+  window.paintLeadPanelBuiltWithActionBtn = paintLeadPanelBuiltWithActionBtn;
 
   function paintLeadPanelBuiltWith(row) {
     const wrap = document.getElementById('leadPanelBuiltWithWrap');
@@ -11695,7 +11797,7 @@ document.addEventListener('DOMContentLoaded', () => {
         metaEl.textContent = err;
         metaEl.classList.remove('hidden');
       } else if (!hasStack && hasWebsite) {
-        metaEl.textContent = 'Click BuiltWith → to load tech stack for this site.';
+        metaEl.textContent = 'Use Load tech stack (BuiltWith) below to fetch CMS and marketing tools.';
         metaEl.classList.remove('hidden');
       } else {
         metaEl.textContent = '';
@@ -11720,7 +11822,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
     }
-    paintLeadPanelBuiltWithQuickTile(row);
+    paintLeadPanelBuiltWithActionBtn(row);
   }
 
   async function fetchLeadBuiltWithTechStack(row) {
@@ -11732,6 +11834,8 @@ document.addEventListener('DOMContentLoaded', () => {
     delete row.dataset.builtWithError;
     row.dataset.builtWithLoading = '1';
     paintLeadPanelBuiltWith(row);
+    const actionBtn = document.getElementById('leadPanelBuiltWithActionBtn');
+    if (actionBtn) setBuiltWithActionBtnUi(actionBtn, 'active');
     try {
       const res = await fetch(`/leads/${encodeURIComponent(key)}/builtwith-enrich`, {
         method: 'POST',
@@ -11889,7 +11993,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    paintLeadPanelBuiltWithQuickTile(row);
+    paintLeadPanelBuiltWithActionBtn(row);
   }
   window.__paintLeadPanelQuickOutreach = paintLeadPanelQuickOutreach;
 
@@ -15190,51 +15294,6 @@ document.addEventListener('DOMContentLoaded', () => {
               }
           });
       }
-  });
-
-  // --- Bookmark icons in table rows (Delegated for reliability) ---
-  document.addEventListener('click', async (e) => {
-    const bookmarkBtn = e.target.closest('.bookmark-btn');
-    if (!bookmarkBtn) return;
-    
-    e.stopPropagation();
-    e.preventDefault();
-    
-    const row = bookmarkBtn.closest('.result-row');
-    if (!row) return;
-
-    if (isPipelineBookmarkTable() && row.dataset.leadKey) {
-      await togglePipelineLeadBookmark(row, bookmarkBtn);
-      return;
-    }
-
-    const title = row.dataset.title;
-    if (!title) return;
-
-    const titleKey = normalizeLeadTitleKey(title);
-    const isSaved = isLeadTitleSaved(title);
-
-    if (isSaved) {
-      await unsaveLead(row);
-      // Sync panel button if this row is currently selected
-      if (currentRow === row) {
-        panelSaveButtons.forEach(id => {
-          const b = document.getElementById(id);
-          if (b) markPanelBtnUnsaved(b);
-        });
-      }
-    } else {
-      markBookmarkSaved(bookmarkBtn);
-      const ok = await saveLead(row);
-      if (!ok) markBookmarkUnsaved(bookmarkBtn);
-      // Sync panel button if this row is currently selected
-      if (currentRow === row) {
-        panelSaveButtons.forEach(id => {
-          const b = document.getElementById(id);
-          if (b) markPanelBtnSaved(b);
-        });
-      }
-    }
   });
 
   // --- Remove from Leads button (leads page) ---

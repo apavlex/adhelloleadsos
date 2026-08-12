@@ -19,6 +19,7 @@ const {
   buildPipelineCategoryOptions,
 } = require('../services/leadListFilters');
 const { normalizeProspectingSettings } = require('../services/prospectGapLabels');
+const { listAutomationsForWorkspace } = require('../services/automationsRegistry');
 const { ensurePipelineFolders, migrateLegacyFolders } = require('../services/pipelineFolders');
 const { TRADE_FOLDERS } = require('../services/tradeFoldersCatalog');
 const {
@@ -57,6 +58,8 @@ router.get('/', async (req, res, next) => {
 
     const scheduleSuccess = req.query.scheduleSuccess === 'true';
     let schedulesSorted = [];
+    let queueOutreachAutomations = [];
+    let queueOutreachSummary = { running: 0, paused: 0, enrolled: 0 };
     if (safeTab === 'queue') {
       const allSchedules = await dbService.listSchedules();
       const schedules = allSchedules.filter((s) => (s.workspaceId || 'default') === wid);
@@ -69,6 +72,17 @@ router.get('/', async (req, res, next) => {
         if (cmp !== 0) return cmp;
         return String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
       });
+
+      const { automations, summary } = await listAutomationsForWorkspace(wid);
+      queueOutreachAutomations = automations.filter((a) => a.type === 'outreach');
+      queueOutreachSummary = {
+        running: queueOutreachAutomations.filter((a) => a.status === 'running').length,
+        paused: queueOutreachAutomations.filter((a) => a.status === 'paused').length,
+        enrolled: queueOutreachAutomations.reduce(
+          (sum, a) => sum + (Number(a.leadsEnrolled) || 0),
+          0,
+        ),
+      };
     }
 
     const leadListFilters = normalizeLeadListFilters(req.query);
@@ -299,6 +313,8 @@ router.get('/', async (req, res, next) => {
       tags,
       schedules: schedulesSorted,
       scheduleSuccess,
+      queueOutreachAutomations,
+      queueOutreachSummary,
       queueListLeads,
       folderListLeads,
       leads,

@@ -54,6 +54,7 @@
     { id: 'state', defaultHidden: true },
     { id: 'listingSource', defaultHidden: true },
     { id: 'lastTouch' },
+    { id: 'engagementSignal' },
     { id: 'cadence' },
     { id: 'category' },
     { id: 'reviews' },
@@ -101,7 +102,7 @@
     'state',
   ];
 
-  var COMPACT_PIPELINE_COLUMNS = ['check', 'company', 'contactGroup', 'socials'];
+  var COMPACT_PIPELINE_COLUMNS = ['check', 'company', 'reviews', 'contactGroup', 'socials'];
 
   function applyRealEstateImportColumnVis(vis) {
     REAL_ESTATE_IMPORT_COLUMNS.forEach(function (id) {

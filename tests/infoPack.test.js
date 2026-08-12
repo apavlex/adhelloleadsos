@@ -12,6 +12,7 @@ const {
 
 test('normalizeInfoPack fills defaults', () => {
   const pack = normalizeInfoPack({});
+  assert.equal(pack.auditUrl, '');
   assert.equal(pack.sms.enabled, false);
   assert.equal(pack.email.enabled, false);
   assert.equal(pack.directMail.personalizeOverlay, true);
@@ -21,12 +22,14 @@ test('normalizeInfoPack fills defaults', () => {
 test('parseInfoPackFromBody reads nested infoPack', () => {
   const pack = parseInfoPackFromBody({
     infoPack: {
+      auditUrl: 'https://example.com/audit-form',
       sms: { enabled: true, body: 'Hi {business}' },
       email: { enabled: false, subject: 'S', body: 'B' },
       directMail: { enabled: true, playbookId: 'local_audit_general' },
     },
   });
   assert.equal(pack.sms.enabled, true);
+  assert.equal(pack.auditUrl, 'https://example.com/audit-form');
   assert.equal(pack.sms.body, 'Hi {business}');
   assert.equal(pack.directMail.playbookId, 'local_audit_general');
 });
@@ -83,6 +86,19 @@ test('mergePackOverrides keeps base channels', () => {
 test('packNeedsAuditUrl detects audit token usage', () => {
   assert.equal(packNeedsAuditUrl({ sms: { body: 'See {audit_url}' } }), true);
   assert.equal(packNeedsAuditUrl({ sms: { body: 'Hello there' } }), false);
+});
+
+test('resolveAuditUrlForInfoPack uses configured audit URL', async () => {
+  const { resolveAuditUrlForInfoPack } = require('../services/infoPack');
+  const out = await resolveAuditUrlForInfoPack({
+    pack: { auditUrl: 'https://forms.example.com/audit' },
+    lead: { title: 'Acme', city: 'Austin' },
+    workspaceId: 'ws1',
+    workspace: { id: 'ws1' },
+  });
+  assert.equal(out.ok, true);
+  assert.equal(out.reportUrl, 'https://forms.example.com/audit');
+  assert.equal(out.source, 'configured');
 });
 
 test('resolveInfoPackForLead prefers folder pack over workspace default', async () => {

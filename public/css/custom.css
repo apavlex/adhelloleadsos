@@ -2670,11 +2670,10 @@ body.find-leads-page #findTypeTabs .find-type-tab {
 #leadPanelTabScroll {
     display: flex;
     flex-direction: column;
-    gap: 1.25rem;
+    gap: 1rem;
 }
 
 #leadPanelTabScroll > #leadPanelCallerShell,
-#leadPanelTabScroll > #leadPanelSectionNav,
 #leadPanelTabScroll > section,
 #leadPanelTabScroll > .lead-tab-panel {
     margin-bottom: 0 !important;
@@ -2687,6 +2686,7 @@ body.find-leads-page #findTypeTabs .find-type-tab {
 
 #leadPanelSectionNav {
     margin-bottom: 0 !important;
+    flex-shrink: 0;
 }
 
 /* Lead panel history tab: consistent widget spacing */

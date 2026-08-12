@@ -19,6 +19,17 @@
           <span id="offerCatalogBadge" class="hidden text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg bg-brand-yellow/20 text-brand-dark dark:text-brand-yellow border border-brand-yellow/40">Custom catalog</span>
         </div>
         <div class="flex flex-wrap gap-2 items-center">
+          <div class="flex flex-wrap items-center gap-2 mr-1" id="scriptPresetLoadWrap">
+            <label class="sr-only" for="scriptPresetSelect">Industry templates</label>
+            <select id="scriptPresetSelect" class="rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 text-[10px] font-bold uppercase tracking-wide text-brand-dark dark:text-slate-100 px-2 py-2 focus:ring-2 focus:ring-brand-yellow outline-none max-w-[10rem]">
+              <option value="retail_install">Flooring</option>
+              <option value="local_service">Local service</option>
+              <option value="agency">Agency</option>
+              <option value="saas">SaaS</option>
+              <option value="ecommerce_b2b">B2B commerce</option>
+            </select>
+            <button type="button" id="scriptPresetLoadBtn" class="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 text-brand-muted hover:text-brand-dark dark:hover:text-white hover:border-brand-yellow/50 transition-colors">Load templates</button>
+          </div>
           <button type="button" id="offerAddBtn" class="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-brand-dark text-white dark:bg-white dark:text-slate-900 hover:opacity-90 transition-opacity">+ Add offer</button>
           <div class="flex flex-wrap gap-2" id="pitchTabs" role="tablist" aria-label="Offer"></div>
         </div>
@@ -921,6 +932,59 @@
         coachSend();
       }
     });
+
+    var scriptPresetLoadBtn = document.getElementById('scriptPresetLoadBtn');
+    if (scriptPresetLoadBtn) {
+      scriptPresetLoadBtn.addEventListener('click', function () {
+        var sel = document.getElementById('scriptPresetSelect');
+        var presetKey = sel ? sel.value : 'retail_install';
+        var labels = {
+          retail_install: 'Flooring (retail/install)',
+          local_service: 'Local service',
+          agency: 'Agency',
+          saas: 'SaaS',
+          ecommerce_b2b: 'B2B commerce',
+        };
+        var label = labels[presetKey] || presetKey;
+        if (
+          !window.confirm(
+            'Load ' +
+              label +
+              ' templates?\n\nThis replaces your current offer catalog and all script text for this workspace. Saved snippets are kept.'
+          )
+        ) {
+          return;
+        }
+        scriptPresetLoadBtn.disabled = true;
+        var origText = scriptPresetLoadBtn.textContent;
+        scriptPresetLoadBtn.textContent = 'Loading…';
+        fetch('/workspace/scripts/apply-preset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ presetKey: presetKey }),
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            scriptPresetLoadBtn.disabled = false;
+            scriptPresetLoadBtn.textContent = origText;
+            if (!data || !data.success) throw new Error((data && data.error) || 'Could not load templates');
+            offerCatalog = data.catalog || [];
+            offerLibrary = data.library || {};
+            usesCustomOfferCatalog = true;
+            var badge = document.getElementById('offerCatalogBadge');
+            if (badge) badge.classList.remove('hidden');
+            coachFocus.pitch = offerCatalog.length ? offerCatalog[0].key : coachFocus.pitch;
+            renderOfferPanels(coachFocus.pitch);
+            applyBlockOverridesToEditors(data.blockOverrides || {});
+            syncScriptsFromServer();
+          })
+          .catch(function (err) {
+            scriptPresetLoadBtn.disabled = false;
+            scriptPresetLoadBtn.textContent = origText;
+            window.alert(err.message || 'Could not load templates');
+          });
+      });
+    }
 
     var offerAddBtn = document.getElementById('offerAddBtn');
     if (offerAddBtn) {

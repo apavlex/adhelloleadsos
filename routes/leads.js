@@ -88,6 +88,7 @@ const {
   packNeedsAuditUrl,
   mergePackOverrides,
   parseInfoPackFromBody,
+  resolveAuditUrlForInfoPack,
 } = require('../services/infoPack');
 const { triggerGhlProspectSync } = require('../services/ghlProspectSync');
 const agentSessionStore = require('../services/agentSessionStore');
@@ -2507,11 +2508,14 @@ router.get('/:key/info-pack-preview', async (req, res, next) => {
       folder = await dbService.getFolder(req.workspaceId, lead.folderKey);
     }
     const pack = await resolveInfoPackForLead({ workspace: ws, folder, lead });
-    let auditUrl = null;
-    if (packNeedsAuditUrl(pack)) {
-      const audit = buildAuditReportUrl({ lead, workspaceId: req.workspaceId, req, workspace: ws });
-      if (audit.ok) auditUrl = audit.reportUrl;
-    }
+    const audit = await resolveAuditUrlForInfoPack({
+      pack,
+      lead,
+      workspaceId: req.workspaceId,
+      workspace: ws,
+      req,
+    });
+    const auditUrl = audit.ok && audit.reportUrl ? audit.reportUrl : null;
     const materialized = materializeInfoPackForLead(pack, lead, { auditUrl: auditUrl || undefined });
     res.json({
       success: true,

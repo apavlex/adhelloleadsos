@@ -12,6 +12,7 @@
 
   function readPackFromForm(prefix) {
     return {
+      auditUrl: String(($(prefix + 'AuditUrl') || {}).value || '').trim(),
       sms: {
         enabled: !!($(prefix + 'SmsEnabled') && $(prefix + 'SmsEnabled').checked),
         body: String(($(prefix + 'SmsBody') || {}).value || '').trim(),
@@ -40,6 +41,7 @@
     const sms = p.sms || {};
     const email = p.email || {};
     const dm = p.directMail || {};
+    if ($(prefix + 'AuditUrl')) $(prefix + 'AuditUrl').value = p.auditUrl || '';
     if ($(prefix + 'SmsEnabled')) $(prefix + 'SmsEnabled').checked = !!sms.enabled;
     if ($(prefix + 'SmsBody')) $(prefix + 'SmsBody').value = sms.body || '';
     if ($(prefix + 'EmailEnabled')) $(prefix + 'EmailEnabled').checked = !!email.enabled;

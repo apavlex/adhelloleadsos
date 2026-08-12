@@ -10,6 +10,7 @@ const { suggestPipelineStages } = require('../services/suggestPipelineStages');
 const pipelineStagesService = require('../services/pipelineStagesService');
 const { normalizeWorkspaceAccentHex } = require('../lib/workspaceAccent');
 const workspaceScriptBootstrap = require('../services/workspaceScriptBootstrap');
+const { chatCompletion, parseLlmJson } = require('../services/llmClient');
 
 const router = express.Router();
 
@@ -126,6 +127,116 @@ function readWonDefinition(body) {
   if (opt === 'other') return String(body.wonOther || '').trim() || 'Closed won';
   return map[opt] || 'Contract signed';
 }
+
+function readSalesIntakeFromBody(body, wizard) {
+  const w = wizard || {};
+  const prev = w.salesIntake && typeof w.salesIntake === 'object' ? w.salesIntake : {};
+  return {
+    businessName: String(body.businessName != null ? body.businessName : prev.businessName || w.name || '').trim(),
+    vertical: String(body.vertical != null ? body.vertical : prev.vertical || '').trim(),
+    primaryGoal: String(body.primaryGoal != null ? body.primaryGoal : prev.primaryGoal || '').trim(),
+    offerName: String(body.offerName != null ? body.offerName : prev.offerName || '').trim(),
+    auditLink: String(body.auditLink != null ? body.auditLink : prev.auditLink || '').trim(),
+    targetAudience: String(
+      body.targetAudience != null
+        ? body.targetAudience
+        : body.sellTo != null
+          ? body.sellTo
+          : prev.targetAudience || prev.sellTo || '',
+    ).trim(),
+    mainPainPoint: String(
+      body.mainPainPoint != null
+        ? body.mainPainPoint
+        : body.painPoint != null
+          ? body.painPoint
+          : prev.mainPainPoint || prev.painPoint || '',
+    ).trim(),
+    differentiator: String(body.differentiator != null ? body.differentiator : prev.differentiator || '').trim(),
+    desiredCta: String(body.desiredCta != null ? body.desiredCta : prev.desiredCta || '').trim(),
+    openingScript: String(body.openingScript != null ? body.openingScript : prev.openingScript || '').trim(),
+  };
+}
+
+function parseStagesJsonField(raw, fallback) {
+  if (!raw) return fallback;
+  try {
+    const parsed = JSON.parse(String(raw));
+    if (Array.isArray(parsed)) return normalizeStages(parsed);
+  } catch (_) {
+    /* keep fallback */
+  }
+  return fallback;
+}
+
+async function generateWizardOpeningScript(intake) {
+  const i = intake && typeof intake === 'object' ? intake : {};
+  const ai = await chatCompletion({
+    messages: [
+      {
+        role: 'system',
+        content: `You write cold outreach opening scripts for sales reps.
+
+Rules:
+- Return JSON only: {"openingScript":"..."}
+- Plain prose the rep can paste — one cohesive opening (2-4 short paragraphs max).
+- Use merge tags {{name}}, {{company}}, {{city}} where natural.
+- Sound human, specific to the business — not generic agency spam.
+- Include one clear CTA aligned with the desired action.
+- Do not use markdown or bullet labels like "OPENING:".`,
+      },
+      {
+        role: 'user',
+        content: JSON.stringify({
+          businessName: i.businessName || '',
+          vertical: i.vertical || '',
+          primaryGoal: i.primaryGoal || '',
+          offerName: i.offerName || '',
+          targetAudience: i.targetAudience || '',
+          mainPainPoint: i.mainPainPoint || '',
+          differentiator: i.differentiator || '',
+          desiredCta: i.desiredCta || '',
+          auditLink: i.auditLink || '',
+        }),
+      },
+    ],
+    jsonObject: true,
+    max_tokens: 700,
+    temperature: 0.55,
+  });
+  if (!ai.content || ai.error) {
+    return { success: false, error: 'No AI provider configured or request failed.' };
+  }
+  const parsed = parseLlmJson(ai.content);
+  const openingScript =
+    parsed && typeof parsed.openingScript === 'string' ? parsed.openingScript.trim() : '';
+  if (!openingScript) {
+    return { success: false, error: 'Invalid AI response.' };
+  }
+  return { success: true, openingScript, provider: ai.provider || 'unknown' };
+}
+
+router.post('/new/generate-script', express.json({ limit: '64kb' }), async (req, res, next) => {
+  try {
+    const email = userEmail(req);
+    if (!email) return res.status(401).json({ success: false, error: 'Unauthorized' });
+
+    const w = getWizard(req);
+    const intake = readSalesIntakeFromBody(req.body || {}, w);
+    if (!intake.businessName && !intake.primaryGoal && !intake.offerName) {
+      return res.status(400).json({ success: false, error: 'Add at least a business name, goal, or offer.' });
+    }
+    if (w) w.salesIntake = intake;
+
+    const result = await generateWizardOpeningScript(intake);
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+    if (w) w.salesIntake = { ...intake, openingScript: result.openingScript };
+    return res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
 
 router.post('/new', express.urlencoded({ extended: true }), async (req, res, next) => {
   try {
@@ -245,6 +356,24 @@ router.post('/new', express.urlencoded({ extended: true }), async (req, res, nex
       return res.redirect('/workspaces/new');
     }
 
+    if (action === 'step3_continue') {
+      if (req.body.stagesJson) {
+        try {
+          const parsed = JSON.parse(String(req.body.stagesJson));
+          if (Array.isArray(parsed)) w.cwStages = normalizeStages(parsed);
+        } catch (_) {
+          /* keep session */
+        }
+      }
+      if (!w.salesIntake || typeof w.salesIntake !== 'object') w.salesIntake = {};
+      if (!w.salesIntake.businessName && w.name) w.salesIntake.businessName = w.name;
+      if (!w.salesIntake.vertical && String(w.presetKey || '') === 'retail_install') {
+        w.salesIntake.vertical = 'Flooring';
+      }
+      w.step = 4;
+      return res.redirect('/workspaces/new');
+    }
+
     if (action === 'create') {
       let stages = Array.isArray(w.cwStages) ? w.cwStages : [];
       if (req.body.stagesJson) {
@@ -255,6 +384,8 @@ router.post('/new', express.urlencoded({ extended: true }), async (req, res, nex
           /* keep session */
         }
       }
+
+      w.salesIntake = readSalesIntakeFromBody(req.body, w);
 
       const name = w.name || String(req.body.name || '').trim() || 'New workspace';
       const accentRaw = w.accentColor || String(req.body.accentColor || '#CA8A04').trim();
@@ -297,6 +428,7 @@ router.post('/new', express.urlencoded({ extended: true }), async (req, res, nex
         },
         settings: {},
         pipelineIntake,
+        salesIntake: w.salesIntake,
         members: {
           [em]: { role: 'owner', joinedAt: new Date().toISOString(), userId: em },
         },
@@ -306,9 +438,9 @@ router.post('/new', express.urlencoded({ extended: true }), async (req, res, nex
       };
       if (Number.isFinite(avgDealValue) && avgDealValue > 0) doc.avgDealValue = avgDealValue;
 
-      const scriptPresetKey =
-        w.setupPath === 'preset' && w.presetKey ? String(w.presetKey).trim().toLowerCase() : null;
+      const scriptPresetKey = workspaceScriptBootstrap.resolveScriptPresetKeyForCreate(w, doc);
       workspaceScriptBootstrap.seedWorkspaceScriptsOnCreate(doc, { presetKey: scriptPresetKey });
+      workspaceScriptBootstrap.applySalesIntakeToFirstOffer(doc, w.salesIntake);
 
       await dbService.saveWorkspace(newId, doc);
       await dbService.saveWorkspaceSlug(slug, newId);
@@ -327,7 +459,9 @@ router.post('/new', express.urlencoded({ extended: true }), async (req, res, nex
     }
 
     if (action === 'back') {
-      if (w.step === 3) {
+      if (w.step === 4) {
+        w.step = 3;
+      } else if (w.step === 3) {
         if (w.setupPath === 'preset') w.step = 2;
         else if (w.setupPath === 'ai') w.step = '2b';
         else w.step = 1;

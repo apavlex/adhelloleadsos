@@ -14,6 +14,7 @@ const lobClient = require('./lobClient');
 const lobDirectMail = require('./lobDirectMail');
 
 const EMPTY_INFO_PACK = Object.freeze({
+  auditUrl: '',
   sms: { enabled: false, body: '' },
   email: { enabled: false, subject: '', body: '' },
   directMail: {
@@ -30,6 +31,7 @@ const EMPTY_INFO_PACK = Object.freeze({
 });
 
 const BUILTIN_DEFAULT = Object.freeze({
+  auditUrl: '',
   sms: {
     enabled: true,
     body:
@@ -77,6 +79,7 @@ function normalizeChannelBlock(raw, defaults) {
 function normalizeInfoPack(raw) {
   const r = raw && typeof raw === 'object' ? raw : {};
   return {
+    auditUrl: String(r.auditUrl ?? '').trim(),
     sms: normalizeChannelBlock(r.sms, EMPTY_INFO_PACK.sms),
     email: normalizeChannelBlock(r.email, EMPTY_INFO_PACK.email),
     directMail: normalizeChannelBlock(r.directMail, EMPTY_INFO_PACK.directMail),
@@ -89,6 +92,7 @@ function parseInfoPackFromBody(body) {
     return normalizeInfoPack(b.infoPack);
   }
   return normalizeInfoPack({
+    auditUrl: b.auditUrl,
     sms: {
       enabled: b.smsEnabled,
       body: b.smsBody,
@@ -214,6 +218,19 @@ function mergePackOverrides(basePack, overrides) {
   });
 }
 
+async function resolveAuditUrlForInfoPack({ pack, lead, workspaceId, workspace, req }) {
+  const normalized = normalizeInfoPack(pack);
+  const configured = String(normalized.auditUrl || '').trim();
+  if (configured) {
+    return { ok: true, reportUrl: applyMergeFields(configured, lead), source: 'configured' };
+  }
+  if (!packNeedsAuditUrl(normalized)) {
+    return { ok: true, reportUrl: '', source: 'none' };
+  }
+  const audit = buildAuditReportUrl({ lead, workspaceId, workspace, req });
+  return audit.ok ? { ...audit, source: 'auto' } : audit;
+}
+
 async function sendInfoPackToLead({
   lead,
   workspaceId,
@@ -229,9 +246,16 @@ async function sendInfoPackToLead({
   const wid = String(workspaceId || lead.workspaceId || '').trim();
   const resolvedPack = mergePackOverrides(pack, overrides);
   let auditUrl = '';
-  if (packNeedsAuditUrl(resolvedPack)) {
+  const configuredAuditUrl = String(resolvedPack.auditUrl || '').trim();
+  if (packNeedsAuditUrl(resolvedPack) || configuredAuditUrl) {
     const ws = workspace || (await dbService.getWorkspace(wid)) || { id: wid };
-    const audit = buildAuditReportUrl({ lead, workspaceId: wid, req, workspace: ws });
+    const audit = await resolveAuditUrlForInfoPack({
+      pack: resolvedPack,
+      lead,
+      workspaceId: wid,
+      workspace: ws,
+      req,
+    });
     if (!audit.ok) {
       return {
         sms: { ok: false, error: audit.error, skipped: true },
@@ -449,4 +473,5 @@ module.exports = {
   packNeedsAuditUrl,
   buildAuditReportUrl,
   mergePackOverrides,
+  resolveAuditUrlForInfoPack,
 };

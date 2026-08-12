@@ -4,6 +4,12 @@
 <% const _smsOn = _pack && _pack.sms ? !!_pack.sms.enabled : false; %>
 <% const _emailOn = _pack && _pack.email ? !!_pack.email.enabled : false; %>
 <% const _dmOn = _pack && _pack.directMail ? !!_pack.directMail.enabled : false; %>
+<% const _auditUrl = _pack && _pack.auditUrl ? _pack.auditUrl : ''; %>
+<label class="block mb-4">
+  <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1">Audit / form link URL</span>
+  <input type="url" id="<%= _pfx %>AuditUrl" value="<%= _auditUrl %>" placeholder="https://your-form-or-audit-page.com" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" autocomplete="url" />
+  <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Used when templates include <code class="text-[10px]">{audit_url}</code>. Leave blank to auto-generate a per-lead link from <a href="/workspace/audit-page" class="underline hover:text-brand-dark dark:hover:text-white">Audit request page</a> or the hosted report.</p>
+</label>
 <div class="info-pack-tabs flex flex-wrap gap-1 mb-3" role="tablist" aria-label="Info pack channel">
   <button type="button" class="info-pack-tab px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-brand-yellow/50 bg-brand-yellow/15" data-tab="sms">SMS</button>
   <button type="button" class="info-pack-tab px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-brand-border/40 dark:border-white/10 text-brand-muted" data-tab="email">Email</button>

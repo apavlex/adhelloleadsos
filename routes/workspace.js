@@ -29,6 +29,7 @@ const { normalizeWorkspaceAccentHex, WORKSPACE_UI_ACCENTS } = require('../lib/wo
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
 const workspaceSalesScripts = require('../services/workspaceSalesScripts');
+const workspaceScriptBootstrap = require('../services/workspaceScriptBootstrap');
 const {
   ARMS_REACH_FACEBOOK_SEEDS,
   ARMS_REACH_REFERRAL_SEED,
@@ -1438,6 +1439,36 @@ router.get('/scripts/offers.json', async (req, res, next) => {
       library: bundle.library,
       blockOverrides: ws.salesScriptBlockOverrides || {},
       usesCustomCatalog: Array.isArray(ws.salesScriptOfferCatalog) && ws.salesScriptOfferCatalog.length > 0,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** POST JSON: replace offer catalog + scripts with an industry preset. */
+router.post('/scripts/apply-preset', express.json({ limit: '64kb' }), async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Manage permission required.' });
+    }
+    const presetKey = String(req.body?.presetKey || '').trim().toLowerCase();
+    if (!workspaceScriptBootstrap.KNOWN_PRESET_KEYS.has(presetKey)) {
+      return res.status(400).json({ success: false, error: 'Unknown script preset.' });
+    }
+    const wid = req.workspaceId;
+    let ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    const applied = workspaceScriptBootstrap.applyScriptPresetToWorkspace(ws, presetKey);
+    if (!applied.ok) {
+      return res.status(400).json({ success: false, error: applied.error || 'Could not apply preset.' });
+    }
+    await dbService.saveWorkspace(wid, ws);
+    const nextBundle = workspaceOfferBundle(ws);
+    res.json({
+      success: true,
+      presetKey: applied.presetKey,
+      catalog: nextBundle.catalog,
+      library: nextBundle.library,
+      blockOverrides: ws.salesScriptBlockOverrides || {},
     });
   } catch (e) {
     next(e);

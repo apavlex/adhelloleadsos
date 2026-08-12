@@ -1,0 +1,246 @@
+<%
+  const dripList = typeof outreachAutomations !== 'undefined' && outreachAutomations ? outreachAutomations : [];
+  const dripSummary = typeof outreachSummary !== 'undefined' && outreachSummary ? outreachSummary : {};
+  const canManage = typeof canManageWorkspace !== 'undefined' && canManageWorkspace;
+  function dripFormatWhen(iso) {
+    if (!iso) return '—';
+    try {
+      return new Date(iso).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    } catch (e) { return '—'; }
+  }
+  function dripStatusClass(status) {
+    if (status === 'running') return 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300';
+    if (status === 'paused') return 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300';
+    return 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400';
+  }
+%>
+<section class="mb-12" id="queueOutreachDripsSection" aria-label="GHL folder outreach drips">
+  <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+    <div>
+      <div class="inline-flex items-center gap-2 bg-white dark:bg-slate-900 px-3 py-1 rounded-full border border-brand-border dark:border-white/10 shadow-sm mb-3">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span class="text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400">GHL outreach drips</span>
+      </div>
+      <h2 class="font-display font-black text-2xl md:text-3xl tracking-tight text-brand-dark dark:text-white">Folder outreach <span class="text-brand-muted">queue</span></h2>
+      <p class="text-sm text-brand-muted font-medium mt-1 max-w-2xl">Folders with auto outreach enabled drip contacts into Go High Level daily. GHL runs the email/SMS workflow when the <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">auto-outreach</code> tag is added.</p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2 shrink-0">
+      <% if (dripSummary.running != null && dripSummary.running > 0) { %>
+      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-[10px] font-black uppercase tracking-widest">
+        <%= dripSummary.running %> dripping
+      </span>
+      <% } %>
+      <% if (dripSummary.enrolled != null && dripSummary.enrolled > 0) { %>
+      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-cream dark:bg-white/10 text-brand-dark dark:text-white text-[10px] font-black uppercase tracking-widest">
+        <%= dripSummary.enrolled %> in GHL
+      </span>
+      <% } %>
+      <a href="/prospecting?tab=folders" class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white bg-brand-cream dark:bg-white/10 hover:bg-brand-yellow/20 px-3 py-1.5 rounded-full transition-colors">Manage folders</a>
+      <button type="button" id="queueOutreachRefreshBtn" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white px-3 py-1.5 rounded-full border border-brand-border/50 dark:border-white/10 transition-colors" title="Refresh outreach queue">↻ Refresh</button>
+    </div>
+  </div>
+
+  <% if (dripList.length > 0) { %>
+  <div class="brand-card overflow-hidden dark:bg-slate-900 dark:border-white/10">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left border-collapse" id="queueOutreachTable">
+        <thead>
+          <tr class="border-b border-brand-border dark:border-white/10 bg-white dark:bg-white/5">
+            <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-muted dark:text-slate-400">Folder / source</th>
+            <th class="px-4 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-muted dark:text-slate-400 text-center">Status</th>
+            <th class="px-4 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-muted dark:text-slate-400 text-center">In GHL</th>
+            <th class="px-4 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-muted dark:text-slate-400 text-center">Last drip</th>
+            <th class="px-4 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-muted dark:text-slate-400 text-center">Next drip</th>
+            <th class="px-4 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-muted dark:text-slate-400 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-brand-border/40 dark:divide-white/10">
+          <% dripList.forEach(function(a) { %>
+          <% const enrolled = Array.isArray(a.enrolledLeads) ? a.enrolledLeads : []; %>
+          <tr class="group hover:bg-brand-cream/50 dark:hover:bg-white/5 transition-all duration-300" data-automation-id="<%= a.id %>">
+            <td class="px-6 py-5">
+              <div class="flex items-center gap-3 min-w-0">
+                <div class="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center border bg-brand-yellow/10 border-brand-yellow/20 text-brand-dark dark:text-white">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" /></svg>
+                </div>
+                <div class="min-w-0">
+                  <div class="font-bold text-brand-dark dark:text-white text-sm truncate"><%= a.name %></div>
+                  <% if (a.subtitle) { %>
+                  <div class="text-[10px] font-medium text-brand-muted truncate mt-0.5"><%= a.subtitle %></div>
+                  <% } %>
+                  <% if (a.subtype === 'folder_outreach' && a.folderKey) { %>
+                  <a href="/prospecting?tab=pipeline&amp;folderKey=<%= encodeURIComponent(a.folderKey) %>" class="text-[9px] font-black uppercase tracking-wider text-brand-yellow hover:underline mt-1 inline-block">Open folder leads →</a>
+                  <% } %>
+                </div>
+              </div>
+            </td>
+            <td class="px-4 py-5 text-center">
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider <%= dripStatusClass(a.status) %>">
+                <% if (a.status === 'running') { %><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span><% } %>
+                <%= a.status === 'running' ? 'dripping' : a.status %>
+              </span>
+            </td>
+            <td class="px-4 py-5 text-center">
+              <div class="flex flex-col items-center gap-1">
+                <span class="text-sm font-bold text-brand-dark dark:text-white"><%= a.leadsEnrolled != null ? a.leadsEnrolled : '—' %></span>
+                <% if (enrolled.length > 0) { %>
+                <button type="button" class="queue-enrolled-toggle text-[9px] font-black uppercase tracking-wider text-brand-muted hover:text-brand-dark dark:hover:text-white underline-offset-2 hover:underline transition-colors" data-target="<%= a.id %>" aria-expanded="false">
+                  View <%= enrolled.length %> contact<%= enrolled.length === 1 ? '' : 's' %>
+                </button>
+                <% } %>
+              </div>
+            </td>
+            <td class="px-4 py-5 text-center">
+              <div class="text-xs font-bold text-brand-dark dark:text-white"><%= dripFormatWhen(a.lastActivity) %></div>
+              <% if (a.lastRunDetail) { %>
+              <div class="text-[9px] text-brand-muted mt-0.5"><%= a.lastRunDetail %></div>
+              <% } %>
+            </td>
+            <td class="px-4 py-5 text-center text-xs font-bold text-brand-dark dark:text-white">
+              <%= a.nextRun ? dripFormatWhen(a.nextRun) : '—' %>
+            </td>
+            <td class="px-4 py-5 text-right">
+              <div class="flex items-center justify-end gap-1.5 flex-wrap">
+                <% if (canManage && a.canPause) { %>
+                <button type="button" class="queue-outreach-action-btn px-2.5 py-1.5 rounded-lg border border-brand-border/60 dark:border-white/10 text-[9px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors" data-id="<%= a.id %>" data-action="pause" data-folder-key="<%= a.folderKey || '' %>">Pause</button>
+                <% } %>
+                <% if (canManage && a.canResume) { %>
+                <button type="button" class="queue-outreach-action-btn px-2.5 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800/50 text-[9px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors" data-id="<%= a.id %>" data-action="resume" data-folder-key="<%= a.folderKey || '' %>">Resume</button>
+                <% } %>
+                <% if (canManage && a.canRun) { %>
+                <button type="button" class="queue-outreach-action-btn px-2.5 py-1.5 rounded-lg bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark text-[9px] font-black uppercase tracking-wider hover:opacity-90 transition-opacity" data-id="<%= a.id %>" data-action="run" data-folder-key="<%= a.folderKey || '' %>">Drip now</button>
+                <% } %>
+                <% if (a.settingsLink) { %>
+                <a href="<%= a.settingsLink %>" class="px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider text-brand-muted hover:text-brand-dark dark:hover:text-white transition-colors" title="Open settings">→</a>
+                <% } %>
+              </div>
+            </td>
+          </tr>
+          <% if (enrolled.length > 0) { %>
+          <tr class="queue-enrolled-row hidden" data-enrolled-for="<%= a.id %>">
+            <td colspan="6" class="px-6 py-4 bg-brand-cream/40 dark:bg-white/[0.03] border-t border-brand-border/30 dark:border-white/5">
+              <div class="max-w-full overflow-x-auto">
+                <div class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-3">Contacts synced to GHL</div>
+                <table class="w-full text-left text-xs">
+                  <thead>
+                    <tr class="text-[9px] font-bold uppercase tracking-wider text-brand-muted">
+                      <th class="pb-2 pr-4">Contact</th>
+                      <th class="pb-2 pr-4">Enrolled</th>
+                      <th class="pb-2 pr-4">Last touch</th>
+                      <th class="pb-2 pr-4">Detail</th>
+                      <th class="pb-2 text-right">Open</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-brand-border/30 dark:divide-white/5">
+                    <% enrolled.forEach(function(el) { %>
+                    <tr>
+                      <td class="py-2.5 pr-4 font-bold text-brand-dark dark:text-white max-w-[200px] truncate" title="<%= el.title %>"><%= el.title %></td>
+                      <td class="py-2.5 pr-4 text-brand-muted whitespace-nowrap"><%= dripFormatWhen(el.enrolledAt) %></td>
+                      <td class="py-2.5 pr-4">
+                        <div class="text-brand-dark dark:text-white whitespace-nowrap"><%= dripFormatWhen(el.lastTouchAt) %></div>
+                        <% if (el.lastTouchLabel && el.lastTouchLabel !== '—') { %>
+                        <div class="text-[10px] text-brand-muted mt-0.5"><%= el.lastTouchLabel %></div>
+                        <% } %>
+                      </td>
+                      <td class="py-2.5 pr-4 text-brand-muted max-w-[220px] truncate" title="<%= el.statusDetail %>"><%= el.statusDetail || '—' %></td>
+                      <td class="py-2.5 text-right whitespace-nowrap">
+                        <a href="<%= el.openUrl %>" class="text-[9px] font-black uppercase tracking-wider text-brand-dark dark:text-brand-yellow hover:underline">Focus →</a>
+                      </td>
+                    </tr>
+                    <% }); %>
+                  </tbody>
+                </table>
+              </div>
+            </td>
+          </tr>
+          <% } %>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <% } else { %>
+  <div class="brand-card p-10 md:p-12 text-center dark:bg-slate-900 dark:border-white/10 mb-8">
+    <div class="w-14 h-14 bg-brand-cream dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-5 border border-brand-border dark:border-white/10">
+      <svg class="w-7 h-7 text-brand-muted/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" /></svg>
+    </div>
+    <h3 class="font-display font-extrabold text-lg md:text-xl text-brand-dark dark:text-white mb-2">No folder outreach drips</h3>
+    <p class="text-brand-muted font-medium mb-6 max-w-md mx-auto text-sm">Enable <strong>Auto outreach</strong> on a folder to drip contacts into GHL daily. Configure the GHL <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">auto-outreach</code> workflow under Workspace → GHL setup.</p>
+    <a href="/prospecting?tab=folders" class="btn-pill btn-primary px-8">Set up folder outreach</a>
+  </div>
+  <% } %>
+  <p id="queueOutreachStatus" class="mb-8 text-xs text-brand-muted hidden" role="status"></p>
+</section>
+
+<script>
+(function() {
+  var statusEl = document.getElementById('queueOutreachStatus');
+  function showStatus(msg, isError) {
+    if (!statusEl) return;
+    statusEl.textContent = msg;
+    statusEl.className = 'mb-8 text-xs ' + (isError ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400');
+    statusEl.classList.remove('hidden');
+    setTimeout(function() { statusEl.classList.add('hidden'); }, 4000);
+  }
+
+  function reloadQueue() {
+    window.location.href = '/prospecting?tab=queue';
+  }
+
+  var refreshBtn = document.getElementById('queueOutreachRefreshBtn');
+  if (refreshBtn) refreshBtn.addEventListener('click', reloadQueue);
+
+  document.querySelectorAll('.queue-enrolled-toggle').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var targetId = btn.getAttribute('data-target');
+      if (!targetId) return;
+      var row = document.querySelector('.queue-enrolled-row[data-enrolled-for="' + targetId + '"]');
+      if (!row) return;
+      var isHidden = row.classList.contains('hidden');
+      document.querySelectorAll('.queue-enrolled-row').forEach(function(r) {
+        if (r !== row) r.classList.add('hidden');
+      });
+      document.querySelectorAll('.queue-enrolled-toggle').forEach(function(b) {
+        if (b !== btn) b.setAttribute('aria-expanded', 'false');
+      });
+      if (isHidden) {
+        row.classList.remove('hidden');
+        btn.setAttribute('aria-expanded', 'true');
+      } else {
+        row.classList.add('hidden');
+        btn.setAttribute('aria-expanded', 'false');
+      }
+    });
+  });
+
+  document.querySelectorAll('.queue-outreach-action-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var id = btn.getAttribute('data-id');
+      var action = btn.getAttribute('data-action');
+      var folderKey = btn.getAttribute('data-folder-key') || '';
+      if (!id || !action) return;
+
+      btn.disabled = true;
+      fetch('/ceo/automations/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ id: id, action: action, folderKey: folderKey }),
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.success) {
+            showStatus(action === 'run' ? 'Drip batch sent to GHL.' : (action.charAt(0).toUpperCase() + action.slice(1) + ' succeeded.'));
+            setTimeout(reloadQueue, 600);
+          } else {
+            showStatus(d.error || 'Action failed.', true);
+            btn.disabled = false;
+          }
+        })
+        .catch(function() {
+          showStatus('Action failed.', true);
+          btn.disabled = false;
+        });
+    });
+  });
+})();
+</script>

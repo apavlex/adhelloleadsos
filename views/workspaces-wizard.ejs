@@ -219,7 +219,7 @@
     </div>
     <% } %>
     <form method="post" action="/workspaces/new" id="wizardFinalForm" class="max-w-2xl space-y-6 brand-card p-8 dark:bg-slate-900 dark:border-white/10">
-      <input type="hidden" name="action" value="create" />
+      <input type="hidden" name="action" value="step3_continue" />
       <input type="hidden" name="stagesJson" id="stagesJsonField" value="" />
       <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white">Review pipeline</h2>
       <% if (w.cwRationale) { %>
@@ -242,7 +242,7 @@
       <button type="button" id="wizardAddStage" class="text-sm font-bold text-brand-yellow">+ Add stage</button>
 
       <div class="flex flex-col sm:flex-row gap-3 pt-4">
-        <button type="submit" class="btn-pill btn-primary px-8 py-3.5 text-xs font-black uppercase tracking-widest">Create workspace</button>
+        <button type="submit" class="btn-pill btn-primary px-8 py-3.5 text-xs font-black uppercase tracking-widest">Continue to scripts</button>
       </div>
     </form>
     <form method="post" action="/workspaces/new" class="max-w-2xl mt-4">
@@ -306,6 +306,130 @@
         }
       });
       collect();
+    })();
+    </script>
+    <% } %>
+
+    <% if (step === 4) { %>
+    <% const si = w.salesIntake && typeof w.salesIntake === 'object' ? w.salesIntake : {}; %>
+    <form method="post" action="/workspaces/new" id="wizardSalesForm" class="max-w-2xl space-y-6 brand-card p-8 dark:bg-slate-900 dark:border-white/10">
+      <input type="hidden" name="action" value="create" />
+      <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white">Business profile &amp; scripts</h2>
+      <p class="text-sm text-brand-muted">Tell us about your business so we seed the right offers and a starter cold-call script. You can edit everything later under Sales scripts.</p>
+
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Business name</label>
+          <input name="businessName" maxlength="120" value="<%= si.businessName || w.name || '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm font-semibold" placeholder="e.g. TPR Flooring" />
+        </div>
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Vertical / industry</label>
+          <input name="vertical" maxlength="80" value="<%= si.vertical || (w.presetKey === 'retail_install' ? 'Flooring' : '') %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm" placeholder="e.g. Flooring, Electrical, SaaS" />
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Primary goal</label>
+        <textarea name="primaryGoal" rows="2" maxlength="500" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm" placeholder="e.g. Book more in-home estimates from website and after-hours calls"><%= si.primaryGoal || (w.cwIntake && w.cwIntake.businessDescription) || '' %></textarea>
+      </div>
+
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Primary offer name</label>
+          <input name="offerName" maxlength="120" value="<%= si.offerName || '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm" placeholder="e.g. In-home flooring estimate" />
+        </div>
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Audit or demo link (optional)</label>
+          <input name="auditLink" type="url" maxlength="500" value="<%= si.auditLink || '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm" placeholder="https://…" />
+        </div>
+      </div>
+
+      <fieldset class="rounded-2xl border border-brand-border/60 dark:border-white/10 p-4 space-y-3">
+        <legend class="text-[10px] font-black uppercase tracking-widest text-brand-muted px-1">Quick Q&amp;A (feeds AI script)</legend>
+        <div>
+          <label class="block text-[10px] font-bold text-brand-muted mb-1">Who do you sell to?</label>
+          <input name="sellTo" maxlength="200" value="<%= si.targetAudience || si.sellTo || '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" placeholder="Homeowners, GCs, property managers…" />
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-brand-muted mb-1">Main pain point you solve</label>
+          <input name="painPoint" maxlength="200" value="<%= si.mainPainPoint || si.painPoint || '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" placeholder="Slow follow-up, no showroom traffic…" />
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-brand-muted mb-1">Your differentiator</label>
+          <input name="differentiator" maxlength="200" value="<%= si.differentiator || '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" placeholder="Same-day measure, local warehouse…" />
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-brand-muted mb-1">Desired call-to-action</label>
+          <input name="desiredCta" maxlength="200" value="<%= si.desiredCta || '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" placeholder="Book a 15-min call, visit showroom…" />
+        </div>
+      </fieldset>
+
+      <div>
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted">Opening script</label>
+          <button type="button" id="wizardGenerateScriptBtn" class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-brand-dark text-white dark:bg-white dark:text-slate-900">Generate with AI</button>
+        </div>
+        <textarea name="openingScript" id="wizardOpeningScript" rows="8" maxlength="8000" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm leading-relaxed" placeholder="Optional — generate with AI or write your own. Uses {{name}}, {{company}}, {{city}}."><%= si.openingScript || '' %></textarea>
+        <p id="wizardGenerateScriptStatus" class="hidden mt-2 text-xs text-brand-muted" role="status"></p>
+      </div>
+
+      <div class="flex flex-col sm:flex-row gap-3 pt-2">
+        <button type="submit" class="btn-pill btn-primary px-8 py-3.5 text-xs font-black uppercase tracking-widest">Create workspace</button>
+      </div>
+    </form>
+    <form method="post" action="/workspaces/new" class="max-w-2xl mt-4">
+      <input type="hidden" name="action" value="back" />
+      <button type="submit" class="btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 px-8 py-3.5 text-xs font-black uppercase tracking-widest">Back</button>
+    </form>
+    <script>
+    (function () {
+      var btn = document.getElementById('wizardGenerateScriptBtn');
+      var form = document.getElementById('wizardSalesForm');
+      var statusEl = document.getElementById('wizardGenerateScriptStatus');
+      var scriptTa = document.getElementById('wizardOpeningScript');
+      if (!btn || !form) return;
+      btn.addEventListener('click', function () {
+        btn.disabled = true;
+        if (statusEl) {
+          statusEl.textContent = 'Generating script…';
+          statusEl.classList.remove('hidden', 'text-red-600');
+          statusEl.classList.add('text-brand-muted');
+        }
+        var fd = new FormData(form);
+        var payload = {
+          businessName: fd.get('businessName') || '',
+          vertical: fd.get('vertical') || '',
+          primaryGoal: fd.get('primaryGoal') || '',
+          offerName: fd.get('offerName') || '',
+          sellTo: fd.get('sellTo') || '',
+          painPoint: fd.get('painPoint') || '',
+          differentiator: fd.get('differentiator') || '',
+          desiredCta: fd.get('desiredCta') || '',
+        };
+        fetch('/workspaces/new/generate-script', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            btn.disabled = false;
+            if (!data || !data.success) throw new Error((data && data.error) || 'Generation failed');
+            if (scriptTa) scriptTa.value = data.openingScript || '';
+            if (statusEl) {
+              statusEl.textContent = 'Script generated — edit before creating if needed.';
+              statusEl.classList.remove('hidden');
+            }
+          })
+          .catch(function (err) {
+            btn.disabled = false;
+            if (statusEl) {
+              statusEl.textContent = err.message || 'Could not generate script';
+              statusEl.classList.remove('hidden', 'text-brand-muted');
+              statusEl.classList.add('text-red-600');
+            }
+          });
+      });
     })();
     </script>
     <% } %>
