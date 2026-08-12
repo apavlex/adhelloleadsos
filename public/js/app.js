@@ -40,6 +40,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const preview = document.getElementById('websitePreview');
     if (!preview) return;
     const iframe = document.getElementById('previewIframe');
+    const img = document.getElementById('previewImage');
+    const fallback = document.getElementById('previewFallback');
     const loading = document.getElementById('previewLoading');
     const urlText = document.getElementById('previewUrlText');
     const openBtn = document.getElementById('previewNewTabBtn');
@@ -95,11 +97,23 @@ document.addEventListener('DOMContentLoaded', () => {
       if (urlText) urlText.textContent = url.replace(/^https?:\/\//i, '').split('?')[0];
       if (openBtn) openBtn.href = url;
       if (loading) loading.classList.remove('hidden');
-      if (iframe) {
-        iframe.onload = () => {
+      if (fallback) fallback.classList.add('hidden');
+      if (iframe) iframe.src = 'about:blank';
+      const w = Math.min(520, Math.max(320, window.innerWidth - 24));
+      const h = Math.min(380, Math.max(240, window.innerHeight - 24));
+      const shotH = Math.max(180, h - 40);
+      if (img) {
+        img.classList.add('hidden');
+        img.onload = () => {
           if (loading) loading.classList.add('hidden');
+          img.classList.remove('hidden');
         };
-        iframe.src = url;
+        img.onerror = () => {
+          if (loading) loading.classList.add('hidden');
+          img.classList.add('hidden');
+          if (fallback) fallback.classList.remove('hidden');
+        };
+        img.src = `/leads/website-preview?url=${encodeURIComponent(url)}&w=${w}&h=${shotH}`;
       }
       preview.classList.remove('hidden', 'opacity-0');
       preview.classList.add('opacity-100');
@@ -119,6 +133,13 @@ document.addEventListener('DOMContentLoaded', () => {
       preview.classList.remove('opacity-100');
       preview.style.pointerEvents = 'none';
       if (iframe) iframe.src = 'about:blank';
+      if (img) {
+        img.onload = null;
+        img.onerror = null;
+        img.removeAttribute('src');
+        img.classList.add('hidden');
+      }
+      if (fallback) fallback.classList.add('hidden');
       if (loading) loading.classList.remove('hidden');
     }
 

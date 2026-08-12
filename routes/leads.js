@@ -73,6 +73,7 @@ const { getGoogleDriveAccount } = googleDriveAccess;
 const { downloadDriveFileAsCsvBuffer } = require('../services/googleDriveCsv');
 const { uploadCsvToDrive, safeDriveFileName } = require('../services/googleDriveUpload');
 const { getMapPreviewImage } = require('../services/mapPreview');
+const { getWebsitePreviewImage } = require('../services/websitePreview');
 const signalwire = require('../services/signalwire');
 const { shortLeadKey } = require('../services/focusQueue');
 const ghlClient = require('../services/ghlClient');
@@ -292,6 +293,27 @@ router.get('/map-preview', async (req, res, next) => {
     }
     res.set('Cache-Control', 'private, max-age=86400');
     res.set('X-Map-Preview-Source', preview.source);
+    res.type(preview.contentType).send(preview.buffer);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /leads/website-preview — screenshot for hold-to-preview (avoids X-Frame-Options blocks)
+router.get('/website-preview', async (req, res, next) => {
+  try {
+    const url = String(req.query.url || '').trim();
+    const width = parseInt(req.query.w, 10) || 520;
+    const height = parseInt(req.query.h, 10) || 340;
+    if (!url) {
+      return res.status(400).json({ error: 'url required' });
+    }
+    const preview = await getWebsitePreviewImage(url, { width, height });
+    if (!preview) {
+      return res.status(404).json({ error: 'website_preview_unavailable' });
+    }
+    res.set('Cache-Control', 'private, max-age=86400');
+    res.set('X-Website-Preview-Source', preview.source);
     res.type(preview.contentType).send(preview.buffer);
   } catch (err) {
     next(err);
