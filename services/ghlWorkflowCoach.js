@@ -166,8 +166,139 @@ async function runGhlWorkflowCoach({ workspace, userMessage, chatHistory, sender
   };
 }
 
+function buildFolderOptimizerSystemPrompt(ctx, { folderName, senderOfferKey, ghlGoal }) {
+  const focusOffer = senderOfferKey
+    ? ctx.offers.find((o) => o.key === senderOfferKey)
+    : null;
+  const focusLine = focusOffer
+    ? `Sender profile for this folder: ${focusOffer.label} (${focusOffer.key}).`
+    : 'No specific sender profile — use merge fields for whichever business is synced on enroll.';
+
+  return `You rewrite Go High Level (GHL) auto-outreach workflow setup documents for a specific folder outreach goal.
+
+TRIGGER (fixed — never change):
+• Workflow type: Contact tag added
+• Tag name (exact): auto-outreach
+• Wait 2 minutes after trigger
+
+PROSPECT merge fields: {{contact.company_name}}, {{contact.first_name}}, {{contact.city}}, {{contact.state}}, {{contact.website}}, {{contact.phone}}, AdHello Google Rating/Reviews, AdHello Phone Line Type, AdHello SMS OK
+
+SENDER merge fields: {{custom_field.AdHello Sender Business}}, {{custom_field.AdHello Sender Vertical}}, {{custom_field.AdHello Sender Offer}}, {{custom_field.AdHello Sender Pitch}}, {{custom_field.AdHello Audit Link}} — use [GHL AUDIT LINK] if blank
+
+Workspace brand: ${ctx.brandName || '(not set)'}
+Folder: ${String(folderName || '').trim() || '(unnamed folder)'}
+Outreach goal: ${String(ghlGoal || '').trim()}
+${focusLine}
+
+Configured business profiles:
+${formatOffersForPrompt(ctx)}
+
+Your job: rewrite the user's base GHL workflow prompt so the entire document aligns with the folder outreach goal — tone, examples, CTAs, and vertical focus. If the goal is a flooring company booking estimates, do NOT keep generic agency / multi-vertical AdHello consulting examples as the primary narrative. Keep section structure (TRIGGER, WAIT, MERGE FIELDS, steps, SMS branch, reply rules). Keep merge tags exact. Plain text only.
+
+Respond with JSON only, no markdown fences:
+{"workflowPrompt":"complete rewritten plain-text GHL workflow setup document"}
+
+Rules:
+• Under ${MAX_PROMPT_LEN} characters
+• Include email subject/body and SMS templates with merge tags
+• SMS only when AdHello SMS OK = Yes (or Mobile/VoIP)
+• Do NOT mention AdHello internal audit reports — use GHL audit widget or AdHello Audit Link
+• Sign as the sender business from merge fields`;
+}
+
+function buildFolderOptimizerUserPrompt({ basePrompt, ghlGoal, folderName }) {
+  const base = String(basePrompt || '').trim();
+  const goal = String(ghlGoal || '').trim();
+  const folder = String(folderName || '').trim() || 'this folder';
+  return `Rewrite the GHL auto-outreach workflow setup prompt below for folder "${folder}".
+
+Outreach goal (optimize everything toward this):
+${goal}
+
+Keep trigger, wait, merge field names, and SMS branching rules. Replace generic or wrong-vertical examples with content that serves the goal above.
+
+BASE PROMPT TO REWRITE:
+${base || '(use standard GHL auto-outreach structure with merge fields)'}`;
+}
+
+/**
+ * @param {object} opts
+ * @param {object} opts.workspace
+ * @param {string} opts.folderName
+ * @param {string} [opts.folderKey]
+ * @param {string} opts.ghlGoal
+ * @param {string} [opts.senderOfferKey]
+ * @param {string} [opts.basePrompt]
+ */
+async function optimizeFolderGhlWorkflowPrompt({
+  workspace,
+  folderName,
+  folderKey,
+  ghlGoal,
+  senderOfferKey,
+  basePrompt,
+}) {
+  const goal = String(ghlGoal || '').trim();
+  if (!goal) {
+    return { success: false, error: 'Outreach goal is required.' };
+  }
+
+  const ctx = buildWorkspaceContext(workspace);
+  const system = buildFolderOptimizerSystemPrompt(ctx, {
+    folderName,
+    senderOfferKey,
+    ghlGoal: goal,
+  });
+  const user = buildFolderOptimizerUserPrompt({
+    basePrompt,
+    ghlGoal: goal,
+    folderName,
+  });
+
+  const ai = await chatCompletion({
+    messages: [
+      { role: 'system', content: system },
+      { role: 'user', content: user.slice(0, MAX_USER_MSG) },
+    ],
+    jsonObject: true,
+    max_tokens: 3200,
+    temperature: 0.45,
+  });
+
+  if (!ai.content || ai.error) {
+    return {
+      success: false,
+      error: 'No AI provider configured (set OPENROUTER_API_KEY) or request failed.',
+    };
+  }
+
+  const parsed = parseLlmJson(ai.content);
+  if (!parsed) {
+    return { success: false, error: 'Invalid AI response' };
+  }
+
+  let workflowPrompt = parsed.workflowPrompt;
+  if (workflowPrompt != null && typeof workflowPrompt !== 'string') workflowPrompt = null;
+  if (workflowPrompt && workflowPrompt.length > MAX_PROMPT_LEN) {
+    workflowPrompt = `${workflowPrompt.slice(0, MAX_PROMPT_LEN - 1)}…`;
+  }
+  if (!workflowPrompt || !workflowPrompt.trim()) {
+    return { success: false, error: 'AI did not return a workflow prompt.' };
+  }
+
+  return {
+    success: true,
+    workflowPrompt: workflowPrompt.trim(),
+    folderKey: String(folderKey || '').trim(),
+    provider: ai.provider || 'unknown',
+  };
+}
+
 module.exports = {
   buildWorkspaceContext,
   buildSystemPrompt,
+  buildFolderOptimizerSystemPrompt,
+  buildFolderOptimizerUserPrompt,
   runGhlWorkflowCoach,
+  optimizeFolderGhlWorkflowPrompt,
 };

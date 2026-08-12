@@ -9,7 +9,7 @@
 <% const _tagsMap = typeof folderAggregateTags !== 'undefined' && folderAggregateTags ? folderAggregateTags : {}; %>
 <% const _rowTags = _tagsMap[_f.key] || []; %>
 <% const _hasChildren = _children.length > 0; %>
-<li class="folder-tree-node list-none" data-folder-tree-node data-folder-tree-search="<%= (_f.name + ' ' + (_f.jobType || '') + ' ' + (_f.tradeSlug || '')).toLowerCase() %>">
+<li class="folder-tree-node list-none" data-folder-tree-node data-folder-lead-count="<%= _fc %>" data-folder-tree-search="<%= (_f.name + ' ' + (_f.jobType || '') + ' ' + (_f.tradeSlug || '')).toLowerCase() %>">
   <div class="flex items-stretch gap-0 hover:bg-brand-cream/25 dark:hover:bg-white/5 transition-colors">
     <% if (_hasChildren) { %>
     <button type="button" class="folder-tree-expand shrink-0 w-10 sm:w-11 flex items-center justify-center text-brand-muted hover:text-brand-dark dark:hover:text-white text-xs font-bold transition-colors" aria-expanded="false" aria-label="Expand <%= _f.name %> subfolders" title="Show subfolders">▶</button>

@@ -19,7 +19,18 @@ const DEFAULT_FOLDER_OUTREACH = {
   tier: '',
   smsOnly: false,
   senderOfferKey: '',
+  ghlGoal: '',
+  ghlWorkflowPrompt: '',
 };
+
+const MAX_GHL_GOAL_LEN = 2000;
+const MAX_GHL_WORKFLOW_PROMPT_LEN = 51_200;
+
+function trimStringField(val, maxLen) {
+  const s = String(val || '').trim();
+  if (!s) return '';
+  return s.length > maxLen ? s.slice(0, maxLen) : s;
+}
 
 function normalizeFolderOutreachSettings(raw) {
   const s = raw && typeof raw === 'object' ? raw : {};
@@ -32,6 +43,8 @@ function normalizeFolderOutreachSettings(raw) {
     tier: String(s.tier || '').trim(),
     smsOnly: s.smsOnly === true,
     senderOfferKey: String(s.senderOfferKey || '').trim(),
+    ghlGoal: trimStringField(s.ghlGoal, MAX_GHL_GOAL_LEN),
+    ghlWorkflowPrompt: trimStringField(s.ghlWorkflowPrompt, MAX_GHL_WORKFLOW_PROMPT_LEN),
     lastRunAt: s.lastRunAt ? String(s.lastRunAt) : '',
     lastEnrolled: Number.isFinite(Number(s.lastEnrolled)) ? Number(s.lastEnrolled) : 0,
     lastCandidateCount: Number.isFinite(Number(s.lastCandidateCount)) ? Number(s.lastCandidateCount) : 0,
@@ -177,6 +190,8 @@ async function runEnabledFoldersForWorkspace(workspaceId) {
 
 module.exports = {
   DEFAULT_FOLDER_OUTREACH,
+  MAX_GHL_GOAL_LEN,
+  MAX_GHL_WORKFLOW_PROMPT_LEN,
   normalizeFolderOutreachSettings,
   loadFolderOutreachFromFolder,
   leadEligibleForFolderOutreach,

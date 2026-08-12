@@ -42,7 +42,12 @@
               <%- include('partials/help/folder_manager_info') %>
             </div>
           </div>
-          <button type="button" id="folderCreateOpen" class="btn-pill btn-primary px-6 md:px-8 py-3.5 text-[10px] font-black uppercase tracking-widest shrink-0 inline-flex items-center justify-center gap-2">
+          <div class="flex flex-wrap items-center gap-2 shrink-0">
+            <button type="button" id="folderOrganizeByLeadsBtn" class="btn-pill bg-brand-cream dark:bg-slate-800 text-brand-dark dark:text-white border border-brand-border dark:border-white/10 px-5 py-3.5 text-[10px] font-black uppercase tracking-widest hover:border-brand-yellow/60 transition-colors inline-flex items-center justify-center gap-2" title="Sort folders with leads to the top and empty folders to the bottom">
+              <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" /></svg>
+              Organize by leads
+            </button>
+            <button type="button" id="folderCreateOpen" class="btn-pill btn-primary px-6 md:px-8 py-3.5 text-[10px] font-black uppercase tracking-widest shrink-0 inline-flex items-center justify-center gap-2">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
             New subfolder
           </button>
@@ -76,7 +81,7 @@
                 });
               }
             %>
-            <details class="folder-group brand-card overflow-hidden dark:bg-slate-900 dark:border-white/10 group/folder" open data-folder-group="<%= group.key %>" data-folder-group-search="<%= (group.name + ' ' + (group.jobType || '')).toLowerCase() %>">
+            <details class="folder-group brand-card overflow-hidden dark:bg-slate-900 dark:border-white/10 group/folder" open data-folder-group="<%= group.key %>" data-folder-group-leads="<%= groupTotal %>" data-folder-group-search="<%= (group.name + ' ' + (group.jobType || '')).toLowerCase() %>">
               <summary class="cursor-pointer list-none flex flex-wrap items-center justify-between gap-3 px-6 py-4 bg-brand-cream/30 dark:bg-slate-950/40 border-b border-brand-border/30 dark:border-white/10 hover:bg-brand-cream/50 dark:hover:bg-slate-950/60 transition-colors [&::-webkit-details-marker]:hidden">
                 <div class="min-w-0 flex-1">
                   <p class="font-display font-black text-lg text-brand-dark dark:text-white flex flex-wrap items-center gap-2">
@@ -391,6 +396,12 @@
           </select>
           <p class="text-[11px] text-brand-muted mt-1">Which of your businesses GHL should represent for leads in this folder. Syncs AdHello Sender * fields on enroll.</p>
         </div>
+        <div>
+          <label for="folderOutreachGhlGoal" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Outreach goal</label>
+          <textarea id="folderOutreachGhlGoal" rows="3" maxlength="2000" placeholder="e.g. Book flooring estimates with homeowners in this market" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold resize-y min-h-[4.5rem]"></textarea>
+          <p class="text-[11px] text-brand-muted mt-1">What should GHL optimize for with leads in this folder? e.g. Book flooring estimates with homeowners</p>
+          <button id="folderOutreachOptimizePrompt" type="button" class="mt-2 rounded-xl border border-brand-yellow/50 bg-brand-yellow/10 dark:bg-brand-yellow/15 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors">Optimize prompt for GHL</button>
+        </div>
       </div>
       <%- include('/partials/ghl_auto_outreach_workflow_prompt', { promptId: 'ghlAutoOutreachPromptFolder', compact: true }) %>
       <p id="folderOutreachStatus" class="text-xs text-brand-muted mt-4 hidden" role="status"></p>
@@ -646,7 +657,25 @@
         minScore: oa.minScore != null && oa.minScore !== '' ? oa.minScore : '',
         smsOnly: oa.smsOnly === true,
         senderOfferKey: oa.senderOfferKey || '',
+        ghlGoal: oa.ghlGoal || '',
+        ghlWorkflowPrompt: oa.ghlWorkflowPrompt || '',
       };
+    }
+
+    var ghlDefaultFolderOutreachPrompt = '';
+
+    function captureDefaultGhlFolderPrompt() {
+      var ta = $('ghlAutoOutreachPromptFolder');
+      if (ta && !ghlDefaultFolderOutreachPrompt) {
+        ghlDefaultFolderOutreachPrompt = ta.value || '';
+      }
+    }
+
+    function setFolderGhlPromptText(text) {
+      var ta = $('ghlAutoOutreachPromptFolder');
+      if (!ta) return;
+      captureDefaultGhlFolderPrompt();
+      ta.value = text || ghlDefaultFolderOutreachPrompt || '';
     }
 
     function setFolderOutreachStatus(msg, isError) {
@@ -672,9 +701,16 @@
       if ($('folderOutreachMinScore')) $('folderOutreachMinScore').value = s.minScore !== '' ? String(s.minScore) : '';
       if ($('folderOutreachSmsOnly')) $('folderOutreachSmsOnly').checked = !!s.smsOnly;
       if ($('folderOutreachSenderOfferKey')) $('folderOutreachSenderOfferKey').value = s.senderOfferKey || '';
+      if ($('folderOutreachGhlGoal')) $('folderOutreachGhlGoal').value = s.ghlGoal || '';
+      if (s.ghlWorkflowPrompt) {
+        setFolderGhlPromptText(s.ghlWorkflowPrompt);
+      } else {
+        setFolderGhlPromptText('');
+      }
     }
 
     function buildFolderOutreachPayload(folderKey) {
+      var promptTa = $('ghlAutoOutreachPromptFolder');
       return {
         folderKey: folderKey,
         enabled: !!($('folderOutreachEnabled') && $('folderOutreachEnabled').checked),
@@ -683,6 +719,8 @@
         minScore: ($('folderOutreachMinScore') && $('folderOutreachMinScore').value) || '',
         smsOnly: !!($('folderOutreachSmsOnly') && $('folderOutreachSmsOnly').checked),
         senderOfferKey: ($('folderOutreachSenderOfferKey') && $('folderOutreachSenderOfferKey').value) || '',
+        ghlGoal: ($('folderOutreachGhlGoal') && $('folderOutreachGhlGoal').value) || '',
+        ghlWorkflowPrompt: promptTa ? (promptTa.value || '') : '',
       };
     }
 
@@ -749,13 +787,64 @@
     }
 
     function bindFolderOutreachModal() {
+      captureDefaultGhlFolderPrompt();
       var modal = $('folderOutreachModal');
       var bd = $('folderOutreachBackdrop');
       var cancel = $('folderOutreachCancel');
       var save = $('folderOutreachSave');
       var run = $('folderOutreachRun');
+      var optimize = $('folderOutreachOptimizePrompt');
       if (bd) bd.addEventListener('click', closeFolderOutreachSetup);
       if (cancel) cancel.addEventListener('click', closeFolderOutreachSetup);
+      if (optimize) {
+        optimize.addEventListener('click', function () {
+          var key = ($('folderOutreachKey') && $('folderOutreachKey').value) || '';
+          var goalEl = $('folderOutreachGhlGoal');
+          var goal = goalEl ? String(goalEl.value || '').trim() : '';
+          if (!key) return;
+          if (!goal) {
+            setFolderOutreachStatus('Enter an outreach goal first.', true);
+            if (goalEl) goalEl.focus();
+            return;
+          }
+          var promptTa = $('ghlAutoOutreachPromptFolder');
+          optimize.disabled = true;
+          optimize.textContent = 'Optimizing…';
+          setFolderOutreachStatus('Generating GHL prompt…');
+          fetch('/folders/optimize-ghl-prompt', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: jsonHeaders,
+            body: JSON.stringify({
+              folderKey: key,
+              ghlGoal: goal,
+              senderOfferKey: ($('folderOutreachSenderOfferKey') && $('folderOutreachSenderOfferKey').value) || '',
+              basePrompt: promptTa ? (promptTa.value || '') : '',
+            }),
+          })
+            .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+            .then(function (pack) {
+              if (!pack.ok || !pack.data || !pack.data.success) {
+                throw new Error((pack.data && pack.data.error) || 'Optimize failed');
+              }
+              if (pack.data.workflowPrompt) {
+                setFolderGhlPromptText(pack.data.workflowPrompt);
+              }
+              var folder = folderByKey(key);
+              if (folder && pack.data.outreachAutomation) {
+                folder.outreachAutomation = pack.data.outreachAutomation;
+              }
+              setFolderOutreachStatus('Prompt optimized and saved. Copy it into GHL AI builder.');
+            })
+            .catch(function (err) {
+              setFolderOutreachStatus(err && err.message ? err.message : 'Optimize failed.', true);
+            })
+            .finally(function () {
+              optimize.disabled = false;
+              optimize.textContent = 'Optimize prompt for GHL';
+            });
+        });
+      }
       if (save) {
         save.addEventListener('click', function () {
           var key = ($('folderOutreachKey') && $('folderOutreachKey').value) || '';
@@ -1292,6 +1381,65 @@
       });
     }
 
+    function parseFolderLeadCount(node) {
+      var n = parseInt(node.getAttribute('data-folder-lead-count') || '0', 10);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function sortFolderTreeChildrenList(ul) {
+      if (!ul) return;
+      var items = Array.from(ul.querySelectorAll(':scope > li.folder-tree-node'));
+      if (items.length < 2) return;
+      items.sort(function (a, b) {
+        var ca = parseFolderLeadCount(a);
+        var cb = parseFolderLeadCount(b);
+        var ae = ca > 0 ? 0 : 1;
+        var be = cb > 0 ? 0 : 1;
+        if (ae !== be) return ae - be;
+        if (cb !== ca) return cb - ca;
+        var na = (a.getAttribute('data-folder-tree-search') || '').trim();
+        var nb = (b.getAttribute('data-folder-tree-search') || '').trim();
+        return na.localeCompare(nb);
+      });
+      items.forEach(function (li) { ul.appendChild(li); });
+      items.forEach(function (li) {
+        var nested = li.querySelector(':scope > [data-folder-tree-children]');
+        if (nested) sortFolderTreeChildrenList(nested);
+      });
+    }
+
+    function organizeFolderManagerByLeads() {
+      var root = document.getElementById('folderTreeRoot');
+      if (!root) return;
+      var groups = Array.from(root.querySelectorAll(':scope > details.folder-group'));
+      groups.sort(function (a, b) {
+        var ca = parseInt(a.getAttribute('data-folder-group-leads') || '0', 10) || 0;
+        var cb = parseInt(b.getAttribute('data-folder-group-leads') || '0', 10) || 0;
+        var ae = ca > 0 ? 0 : 1;
+        var be = cb > 0 ? 0 : 1;
+        if (ae !== be) return ae - be;
+        if (cb !== ca) return cb - ca;
+        return (a.getAttribute('data-folder-group-search') || '').localeCompare(b.getAttribute('data-folder-group-search') || '');
+      });
+      groups.forEach(function (g) { root.appendChild(g); });
+      root.querySelectorAll('details.folder-group > ul').forEach(function (ul) {
+        if (ul.querySelectorAll(':scope > li.folder-tree-node').length > 1) {
+          sortFolderTreeChildrenList(ul);
+        }
+      });
+      root.querySelectorAll('[data-folder-tree-children]').forEach(sortFolderTreeChildrenList);
+    }
+
+    function bindFolderOrganizeByLeads() {
+      var btn = $('folderOrganizeByLeadsBtn');
+      if (!btn || btn.dataset.bound === '1') return;
+      btn.dataset.bound = '1';
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        organizeFolderManagerByLeads();
+      });
+    }
+
     function bindFolderSearchFilter() {
       var input = $('folderSearchFilter');
       var empty = $('folderSearchEmpty');
@@ -1355,6 +1503,7 @@
       bindFolderOutreachModal();
       bindFolderSearchSetupModal();
       bindFolderSearchFilter();
+      bindFolderOrganizeByLeads();
       expandGroupsWithCustomSubfolders();
       highlightCreatedFolder();
     }

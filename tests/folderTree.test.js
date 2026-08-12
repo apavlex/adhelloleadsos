@@ -65,6 +65,27 @@ test('buildFolderTree groups orphans without parent', () => {
   assert.equal(other.children.length, 1);
 });
 
+test('sortFolderTreeByLeadCount puts folders with leads first and empty last', () => {
+  const { buildFolderTree, sortFolderTreeByLeadCount, buildFolderAggregateCounts } = require('../services/folderTree');
+  const tree = buildFolderTree([
+    { key: 'root:biz', name: 'Businesses', jobType: 'maps_business', isPipelineDefault: true },
+    { key: 'root:ho', name: 'Home owners', jobType: 'home_owners', isPipelineDefault: true },
+    { key: 'sub:mech', name: 'Mechanical', parentFolderKey: 'root:biz', jobType: 'maps_business' },
+    { key: 'sub:floor', name: 'Flooring Companies', parentFolderKey: 'root:biz', jobType: 'maps_business' },
+    { key: 'sub:build', name: 'Home Builders', parentFolderKey: 'root:biz', jobType: 'maps_business' },
+  ]);
+  const direct = { 'sub:floor': 98, 'sub:build': 57, 'sub:mech': 0, 'root:biz': 337 };
+  const agg = buildFolderAggregateCounts(tree, direct);
+  const sorted = sortFolderTreeByLeadCount(tree, agg);
+  const biz = sorted.groups.find((g) => g.key === 'root:biz');
+  assert.deepEqual(
+    biz.children.map((c) => c.name),
+    ['Flooring Companies', 'Home Builders', 'Mechanical'],
+  );
+  assert.equal(sorted.groups[0].key, 'root:biz');
+  assert.equal(sorted.groups[sorted.groups.length - 1].key, 'root:ho');
+});
+
 test('buildFolderPickerOptions groups folders and dedupes keys', () => {
   const { buildFolderPickerOptions } = require('../services/folderTree');
   const tree = buildFolderTree([

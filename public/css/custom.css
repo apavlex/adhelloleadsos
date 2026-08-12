@@ -2689,6 +2689,14 @@ body.find-leads-page #findTypeTabs .find-type-tab {
     flex-shrink: 0;
 }
 
+.lead-panel--non-agency .lead-panel-agency-only {
+    display: none !important;
+}
+
+#leadPanelContactDetailsToggle[aria-expanded="true"] .lead-panel-contact-toggle-chevron {
+    transform: rotate(180deg);
+}
+
 /* Lead panel history tab: consistent widget spacing */
 .lead-panel-tab-stack {
     display: flex;

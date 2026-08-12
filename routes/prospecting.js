@@ -28,6 +28,7 @@ const {
   folderKeysIncludingDescendants,
   buildFolderAggregateCounts,
   buildFolderAggregateTags,
+  sortFolderTreeByLeadCount,
 } = require('../services/folderTree');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
@@ -50,7 +51,7 @@ router.get('/', async (req, res, next) => {
     let folders = await ensurePipelineFolders(wid);
     const migrated = await migrateLegacyFolders(wid, folders);
     folders = migrated.folders;
-    const folderTree = buildFolderTree(folders);
+    let folderTree = buildFolderTree(folders);
     const folderPickerTree = buildFolderPickerTree(folderTree, String(req.query.folderKey || '').trim());
     const tags = await dbService.listTags(wid);
     const ws = await dbService.getWorkspace(wid);
@@ -242,6 +243,9 @@ router.get('/', async (req, res, next) => {
     }
     const folderAggregateCounts =
       safeTab === 'folders' ? buildFolderAggregateCounts(folderTree, directFolderCounts) : {};
+    if (safeTab === 'folders') {
+      folderTree = sortFolderTreeByLeadCount(folderTree, folderAggregateCounts);
+    }
 
     const activeTagCatalog = tags.filter((t) => t && t.isActive !== false);
     const tagCatalogByKey = Object.fromEntries(

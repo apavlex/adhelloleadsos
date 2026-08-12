@@ -1,6 +1,11 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { buildWorkspaceContext, buildSystemPrompt } = require('../services/ghlWorkflowCoach');
+const {
+  buildWorkspaceContext,
+  buildSystemPrompt,
+  buildFolderOptimizerSystemPrompt,
+  buildFolderOptimizerUserPrompt,
+} = require('../services/ghlWorkflowCoach');
 
 test('buildWorkspaceContext maps offer outreach metadata', () => {
   const ctx = buildWorkspaceContext({
@@ -35,4 +40,30 @@ test('buildSystemPrompt includes sender focus and merge field guidance', () => {
   assert.match(prompt, /AdHello Sender Business/);
   assert.match(prompt, /Premier Flooring/);
   assert.match(prompt, /workflowPrompt/);
+});
+
+test('buildFolderOptimizerSystemPrompt includes folder goal and sender focus', () => {
+  const ctx = buildWorkspaceContext({
+    salesScriptOfferCatalog: [{ key: 'flooring', label: 'Premier Flooring', vertical: 'Flooring' }],
+  });
+  const prompt = buildFolderOptimizerSystemPrompt(ctx, {
+    folderName: 'Dallas Flooring',
+    senderOfferKey: 'flooring',
+    ghlGoal: 'Book in-home flooring estimates',
+  });
+  assert.match(prompt, /Book in-home flooring estimates/);
+  assert.match(prompt, /Dallas Flooring/);
+  assert.match(prompt, /Premier Flooring/);
+  assert.match(prompt, /do NOT keep generic agency/i);
+});
+
+test('buildFolderOptimizerUserPrompt embeds goal and base prompt', () => {
+  const user = buildFolderOptimizerUserPrompt({
+    basePrompt: 'TRIGGER: auto-outreach',
+    ghlGoal: 'Book flooring estimates',
+    folderName: 'Flooring Leads',
+  });
+  assert.match(user, /Book flooring estimates/);
+  assert.match(user, /Flooring Leads/);
+  assert.match(user, /TRIGGER: auto-outreach/);
 });

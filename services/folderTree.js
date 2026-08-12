@@ -41,6 +41,66 @@ function sortFoldersByName(a, b) {
   return String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' });
 }
 
+function compareFoldersByLeadCount(a, b, countsByKey) {
+  const ca = (countsByKey && countsByKey[a.key]) || 0;
+  const cb = (countsByKey && countsByKey[b.key]) || 0;
+  const aHas = ca > 0 ? 0 : 1;
+  const bHas = cb > 0 ? 0 : 1;
+  if (aHas !== bHas) return aHas - bHas;
+  if (cb !== ca) return cb - ca;
+  return sortFoldersByName(a, b);
+}
+
+function sortFolderNodesByLeadCount(nodes, countsByKey) {
+  if (!Array.isArray(nodes) || !nodes.length) return nodes || [];
+  const sorted = [...nodes].sort((a, b) => compareFoldersByLeadCount(a, b, countsByKey));
+  return sorted.map((node) => ({
+    ...node,
+    children: sortFolderNodesByLeadCount(node.children || [], countsByKey),
+  }));
+}
+
+function groupLeadTotalForSort(group, countsByKey) {
+  if (!group) return 0;
+  if (group.folder && group.folder.key) {
+    return (countsByKey && countsByKey[group.folder.key]) || 0;
+  }
+  let total = 0;
+  for (const child of group.children || []) {
+    total += (countsByKey && countsByKey[child.key]) || 0;
+  }
+  return total;
+}
+
+/**
+ * Put folders with leads first (descending count), empty folders last.
+ * @param {ReturnType<typeof buildFolderTree>} folderTree
+ * @param {Record<string, number>} aggregateCounts
+ */
+function sortFolderTreeByLeadCount(folderTree, aggregateCounts) {
+  const counts = aggregateCounts && typeof aggregateCounts === 'object' ? aggregateCounts : {};
+  const groups = (folderTree?.groups || []).map((group) => {
+    const children = sortFolderNodesByLeadCount(group.children || [], counts);
+    return {
+      ...group,
+      children,
+      childRows: flattenFolderRows(children),
+    };
+  });
+
+  groups.sort((ga, gb) => {
+    const ta = groupLeadTotalForSort(ga, counts);
+    const tb = groupLeadTotalForSort(gb, counts);
+    const aHas = ta > 0 ? 0 : 1;
+    const bHas = tb > 0 ? 0 : 1;
+    if (aHas !== bHas) return aHas - bHas;
+    if (tb !== ta) return tb - ta;
+    return String(ga.name || '').localeCompare(String(gb.name || ''), undefined, { sensitivity: 'base' });
+  });
+
+  return { ...folderTree, groups };
+}
+
 function sortTradeBeforeCustom(a, b) {
   const aTrade = a.isTradeFolder ? 0 : 1;
   const bTrade = b.isTradeFolder ? 0 : 1;
@@ -454,6 +514,7 @@ module.exports = {
   OTHER_GROUP_KEY,
   folderSearchText,
   buildFolderTree,
+  sortFolderTreeByLeadCount,
   buildFolderPickerOptions,
   buildFolderPickerTree,
   folderKeysIncludingDescendants,

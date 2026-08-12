@@ -51,6 +51,7 @@
       ? workspaceProspecting
       : { lowReviewsThreshold: 30 }
   ) %>;
+  window.WORKSPACE_IS_AGENCY_SALES = <%- JSON.stringify(typeof isAgencySalesWorkspace !== 'undefined' && isAgencySalesWorkspace) %>;
   window.GHL_DASHBOARD_URL = <%- JSON.stringify(typeof ghlDashboardUrl !== 'undefined' && ghlDashboardUrl ? String(ghlDashboardUrl) : '') %>;
 </script>
 

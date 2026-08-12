@@ -209,6 +209,9 @@
       toast('Save this lead before editing.', 'error');
       return false;
     }
+    if (typeof window.__openLeadPanelContactDetails === 'function') {
+      window.__openLeadPanelContactDetails();
+    }
     editState[fieldKey].editing = true;
     els.inputEl.value = els.cfg.readViewValue(els.viewEl);
     els.viewEl.classList.add('hidden');
@@ -352,6 +355,9 @@
       if (!row || !row.dataset.leadKey) {
         toast('Save this lead before editing.', 'error');
         return;
+      }
+      if (typeof window.__openLeadPanelContactDetails === 'function') {
+        window.__openLeadPanelContactDetails();
       }
       editState.socials.editing = true;
       if (inputs.url) inputs.url.value = readSocialValueFromRow(row, 'url');

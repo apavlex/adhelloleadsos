@@ -3,6 +3,8 @@ const assert = require('node:assert/strict');
 const {
   normalizeFolderOutreachSettings,
   leadEligibleForFolderOutreach,
+  MAX_GHL_GOAL_LEN,
+  MAX_GHL_WORKFLOW_PROMPT_LEN,
 } = require('../services/folderOutreachAutomation');
 const { AUTO_OUTREACH_CAMPAIGN } = require('../services/prospectingEnroll');
 const { valuesFromLead } = require('../services/ghlPhoneLineFields');
@@ -13,6 +15,22 @@ test('normalizeFolderOutreachSettings applies defaults', () => {
   assert.equal(s.maxLeads, 200);
   assert.equal(s.smsOnly, true);
   assert.equal(s.tier, '');
+  assert.equal(s.ghlGoal, '');
+  assert.equal(s.ghlWorkflowPrompt, '');
+});
+
+test('normalizeFolderOutreachSettings trims and caps ghlGoal and ghlWorkflowPrompt', () => {
+  const longGoal = 'x'.repeat(MAX_GHL_GOAL_LEN + 50);
+  const longPrompt = 'p'.repeat(MAX_GHL_WORKFLOW_PROMPT_LEN + 100);
+  const s = normalizeFolderOutreachSettings({
+    ghlGoal: `  ${longGoal}  `,
+    ghlWorkflowPrompt: longPrompt,
+  });
+  assert.equal(s.ghlGoal.length, MAX_GHL_GOAL_LEN);
+  assert.equal(s.ghlGoal[0], 'x');
+  assert.equal(s.ghlWorkflowPrompt.length, MAX_GHL_WORKFLOW_PROMPT_LEN);
+  assert.equal(s.ghlWorkflowPrompt[0], 'p');
+  assert.equal(normalizeFolderOutreachSettings({ ghlGoal: '  ' }).ghlGoal, '');
 });
 
 test('leadEligibleForFolderOutreach respects folderKey and smsOnly', () => {

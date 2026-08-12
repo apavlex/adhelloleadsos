@@ -13,6 +13,7 @@ const {
   loadFolderOutreachFromFolder,
   runFolderOutreach,
 } = require('../services/folderOutreachAutomation');
+const { optimizeFolderGhlWorkflowPrompt } = require('../services/ghlWorkflowCoach');
 
 router.get('/', async (req, res, next) => {
   try {
@@ -135,12 +136,65 @@ router.post('/save-outreach-automation', async (req, res, next) => {
       senderOfferKey: Object.prototype.hasOwnProperty.call(body, 'senderOfferKey')
         ? String(body.senderOfferKey || '').trim()
         : prev.senderOfferKey,
+      ghlGoal: Object.prototype.hasOwnProperty.call(body, 'ghlGoal')
+        ? String(body.ghlGoal || '').trim()
+        : prev.ghlGoal,
+      ghlWorkflowPrompt: Object.prototype.hasOwnProperty.call(body, 'ghlWorkflowPrompt')
+        ? String(body.ghlWorkflowPrompt || '').trim()
+        : prev.ghlWorkflowPrompt,
       lastRunAt: prev.lastRunAt,
       lastEnrolled: prev.lastEnrolled,
       lastCandidateCount: prev.lastCandidateCount,
     });
     const folder = await dbService.updateFolder(wid, folderKey, { outreachAutomation });
     res.json({ success: true, folder, outreachAutomation });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/optimize-ghl-prompt', express.json({ limit: '256kb' }), async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Only workspace admins can optimize folder GHL prompts.' });
+    }
+    const wid = req.workspaceId;
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const folderKey = String(body.folderKey || '').trim();
+    if (!folderKey) {
+      return res.status(400).json({ success: false, error: 'folderKey is required.' });
+    }
+    const existing = await dbService.getFolder(wid, folderKey);
+    if (!existing) {
+      return res.status(404).json({ success: false, error: 'Folder not found.' });
+    }
+    const ghlGoal = String(body.ghlGoal || '').trim();
+    const senderOfferKey = String(body.senderOfferKey || '').trim();
+    const basePrompt = typeof body.basePrompt === 'string' ? body.basePrompt : '';
+    const ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    const result = await optimizeFolderGhlWorkflowPrompt({
+      workspace: ws,
+      folderName: existing.name || '',
+      folderKey,
+      ghlGoal,
+      senderOfferKey,
+      basePrompt,
+    });
+    if (!result.success) {
+      return res.json(result);
+    }
+    const prev = loadFolderOutreachFromFolder(existing);
+    const outreachAutomation = normalizeFolderOutreachSettings({
+      ...prev,
+      ghlGoal,
+      ghlWorkflowPrompt: result.workflowPrompt,
+    });
+    const folder = await dbService.updateFolder(wid, folderKey, { outreachAutomation });
+    res.json({
+      ...result,
+      folder,
+      outreachAutomation,
+    });
   } catch (e) {
     next(e);
   }

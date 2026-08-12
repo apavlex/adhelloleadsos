@@ -4,6 +4,7 @@ const workspaceBootstrap = require('../services/workspaceBootstrap');
 const workspaceScriptBootstrap = require('../services/workspaceScriptBootstrap');
 const { wantsJsonResponse } = require('../lib/httpRequest');
 const { getGoogleMapsApiKey } = require('../services/googleMapsKey');
+const { isAgencySalesWorkspace } = require('../services/leadPanelWorkspace');
 
 /**
  * After auth: bootstrap workspaces, resolve active workspace (?ws= slug → session → user prefs → first),
@@ -25,6 +26,7 @@ async function withWorkspace(req, res, next) {
       res.locals.workspace = ws;
       res.locals.workspaceId = ws.id;
       res.locals.workspaceAccent = ws.accentColor || '#CA8A04';
+      res.locals.isAgencySalesWorkspace = isAgencySalesWorkspace(ws);
       return next();
     }
 
@@ -117,6 +119,7 @@ async function withWorkspace(req, res, next) {
     res.locals.workspaceAccent = ws.accentColor || '#CA8A04';
     res.locals.workspaceReturnPath = req.originalUrl || '/today';
     res.locals.googleMapsStaticKey = getGoogleMapsApiKey();
+    res.locals.isAgencySalesWorkspace = isAgencySalesWorkspace(ws);
 
     next();
   } catch (err) {

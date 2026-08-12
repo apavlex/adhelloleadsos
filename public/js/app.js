@@ -6324,6 +6324,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (document.getElementById('leadPanelTabScroll')) {
     bindLeadPanelBottomActions();
     bindLeadPanelSectionNav();
+    bindLeadPanelContactDetailsToggle();
   }
 
   let kieInsightRequestId = 0;
@@ -7360,6 +7361,37 @@ document.addEventListener('DOMContentLoaded', () => {
         if (row) syncLeadPanelWideMapAndGoogleChip(row);
       }, 250);
     }
+  }
+
+  function bindLeadPanelContactDetailsToggle() {
+    if (window.__adhelloLeadPanelContactToggleBound) return;
+    window.__adhelloLeadPanelContactToggleBound = true;
+
+    const toggle = () => {
+      const body = document.getElementById('leadPanelContactDetailsBody');
+      const btn = document.getElementById('leadPanelContactDetailsToggle');
+      if (!body || !btn) return false;
+      const open = body.classList.contains('hidden');
+      body.classList.toggle('hidden', !open);
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      return open;
+    };
+
+    window.__openLeadPanelContactDetails = () => {
+      const body = document.getElementById('leadPanelContactDetailsBody');
+      const btn = document.getElementById('leadPanelContactDetailsToggle');
+      if (!body || !btn || !body.classList.contains('hidden')) return;
+      body.classList.remove('hidden');
+      btn.setAttribute('aria-expanded', 'true');
+    };
+
+    document.addEventListener('click', (ev) => {
+      const btn = ev.target.closest('#leadPanelContactDetailsToggle');
+      if (!btn) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      toggle();
+    });
   }
 
   function bindLeadPanelSectionNav() {
@@ -9827,6 +9859,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     bindLeadPanelSectionNav();
+    bindLeadPanelContactDetailsToggle();
 
     const cqiIds = [
       'cqiFieldDecisionMaker',
@@ -11797,7 +11830,7 @@ document.addEventListener('DOMContentLoaded', () => {
         metaEl.textContent = err;
         metaEl.classList.remove('hidden');
       } else if (!hasStack && hasWebsite) {
-        metaEl.textContent = 'Use Load tech stack (BuiltWith) below to fetch CMS and marketing tools.';
+        metaEl.textContent = 'Use Load tech stack (BuiltWith) in Quick outreach to fetch CMS and marketing tools.';
         metaEl.classList.remove('hidden');
       } else {
         metaEl.textContent = '';
