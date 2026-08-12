@@ -43,6 +43,14 @@ function agencyTemplates(n) {
       { hook: `how a ${n} company went from 3 to 27 calls a week without spending a single dollar on ads`, short: true, cta: 'link in bio for the exact strategy' },
       { hook: `the truth about ${n} marketing in 2025 in 30 seconds`, short: true, cta: 'follow for the rest' },
     ],
+    gmb: [
+      { hook: `New on Google: Free ${n} visibility audit — see exactly what's blocking your calls`, cta: 'Book your free audit at adhello.ai' },
+      { hook: `Did you know? 76% of people who search for a ${n} visit a business within 24 hours. Is yours ready?`, cta: 'Update your Google Business Profile today' },
+      { hook: `We just helped a ${n} business go from invisible to #1 on Google Maps in 90 days. Here's what changed:`, cta: 'Want the same results? Link in bio.' },
+      { hook: `Quick tip for ${n} owners: Add fresh photos to your Google listing every month — it boosts visibility by up to 35%`, cta: 'Save this tip and share with a ${n} owner' },
+      { hook: `"I didn't know Google had a free listing for my ${n} business" — the #1 thing we hear from new clients`, cta: 'Claim yours free → adhello.ai' },
+      { hook: `Holiday hours? Service update? New ${n} offering? Post it on Google Business Profile — customers see it before they call`, cta: 'Need help optimizing? DM us AUDIT' },
+    ],
   };
 }
 
@@ -89,6 +97,14 @@ function businessTemplates(n) {
       { hook: `how our team preps for a ${n} job (behind the scenes)`, short: true, cta: 'comment if you want more BTS' },
       { hook: `the truth about ${n} pricing in 30 seconds`, short: true, cta: 'follow for honest answers' },
     ],
+    gmb: [
+      { hook: `Just finished another ${n} project — see the before & after on our Google listing`, cta: 'Leave us a review if we earned it ⭐' },
+      { hook: `Now booking ${n} jobs for [month]. Check our Google listing for availability and recent work`, cta: 'Message us or book online — link on our profile' },
+      { hook: `5-star ${n} service in your neighborhood — here's what customers are saying on Google`, cta: 'Read our reviews and book your free estimate' },
+      { hook: `Pro tip: Before you hire for ${n}, check their Google reviews and recent project photos`, cta: 'See our latest work on Google Maps' },
+      { hook: `We're hiring! Experienced ${n} pros — apply through our Google Business Profile or DM us`, cta: "Share with someone who'd be a great fit" },
+      { hook: `Updated hours and services — find everything you need on our Google Business Profile`, cta: 'Save our listing for your next project' },
+    ],
   };
 }
 
@@ -99,7 +115,7 @@ function businessTemplates(n) {
  */
 function generatePostIdeas(niche = '', platformFilter = null, opts = {}) {
   const subject = String(opts.contentSubject || niche || '').trim() || 'local business';
-  const platforms = platformFilter ? [platformFilter] : ['instagram', 'facebook', 'linkedin', 'x', 'tiktok'];
+  const platforms = platformFilter ? [platformFilter] : ['instagram', 'facebook', 'linkedin', 'x', 'tiktok', 'gmb'];
   const ideas = {};
   const useAgency = opts.isAgencyWorkspace === true || isAgencyOrLocalGuideWorkspace({ socialPostsPreset: niche, coachPrompt: niche, name: niche });
   const baseIdeas = useAgency ? agencyTemplates(subject) : businessTemplates(subject);

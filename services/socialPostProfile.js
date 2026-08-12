@@ -105,6 +105,7 @@ const SOCIAL_TO_MARKETING_PLATFORM = {
   linkedin: 'linkedin_post',
   x: 'instagram_feed',
   tiktok: 'instagram_story',
+  gmb: 'google_business_post',
 };
 
 function marketingPlatformForSocial(platform) {

@@ -105,25 +105,39 @@
         <span id="qaStatus" class="text-[10px] text-brand-muted font-bold"></span>
       </div>
       <div class="flex flex-wrap gap-2">
-        <button onclick="qaGenerateInstagram()" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white flex items-center gap-1">
+        <button onclick="qaGeneratePlatform('instagram')" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white flex items-center gap-1">
           <svg class="icon-flat-sm" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
           Instagram
         </button>
-        <button onclick="qaGenerateTikTok()" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white flex items-center gap-1">
+        <button onclick="qaGeneratePlatform('facebook')" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white flex items-center gap-1">
+          <svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/></svg>
+          Facebook
+        </button>
+        <button onclick="qaGeneratePlatform('linkedin')" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white flex items-center gap-1">
+          <svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
+          LinkedIn
+        </button>
+        <button onclick="qaGeneratePlatform('x')" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white flex items-center gap-1">
+          <svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M4 4l16 16M20 4L4 20"/></svg>
+          X
+        </button>
+        <button onclick="qaGeneratePlatform('tiktok')" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white flex items-center gap-1">
           <svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M9 12a4 4 0 104 4V4a5 5 0 005 5"/></svg>
           TikTok
+        </button>
+        <button onclick="qaGeneratePlatform('gmb')" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white flex items-center gap-1">
+          <svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          Google Business
         </button>
         <button onclick="qaGenerateAll()" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white flex items-center gap-1">
           <svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-6.219-8.56"/><polyline points="21 3 21 9 15 9"/></svg>
           All Platforms
         </button>
+      </div>
+      <div class="flex flex-wrap gap-2 mt-2 pt-2 border-t border-brand-border/30 dark:border-white/10">
         <button onclick="qaCopyAllVisible()" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white flex items-center gap-1">
           <svg class="icon-flat-sm" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
           Copy All
-        </button>
-        <button onclick="qaCopyLocalToday()" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-yellow flex items-center gap-1">
-          <svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-          Today's Local
         </button>
         <button onclick="qaSaveAllForReview()" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white flex items-center gap-1">
           <svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
@@ -182,6 +196,7 @@
       <button class="platform-tab px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="linkedin">LinkedIn</button>
       <button class="platform-tab px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="x">X / Twitter</button>
       <button class="platform-tab px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="tiktok">TikTok</button>
+      <button class="platform-tab px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="gmb">Google Business</button>
     </div>
 
     <!-- Ideas Grid -->
@@ -511,8 +526,8 @@
       download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
     };
 
-    const PLATFORM_LABELS = { instagram: 'Instagram', facebook: 'Facebook', linkedin: 'LinkedIn', x: 'X / Twitter', tiktok: 'TikTok' };
-    const DM_PLATFORMS = { instagram: 'instagram_feed', facebook: 'facebook_feed', linkedin: 'linkedin_post', x: 'instagram_feed', tiktok: 'instagram_story' };
+    const PLATFORM_LABELS = { instagram: 'Instagram', facebook: 'Facebook', linkedin: 'LinkedIn', x: 'X / Twitter', tiktok: 'TikTok', gmb: 'Google Business' };
+    const DM_PLATFORMS = { instagram: 'instagram_feed', facebook: 'facebook_feed', linkedin: 'linkedin_post', x: 'instagram_feed', tiktok: 'instagram_story', gmb: 'google_business_post' };
 
     // ── Hashtag Sets ───────────────────────────────────────────────────────────
     function businessHashtagTag(name) {
@@ -586,8 +601,6 @@
         document.getElementById('localContentSection')?.classList.remove('hidden');
         document.getElementById('newsletterSection')?.classList.remove('hidden');
         loadLocalContent();
-      } else {
-        document.getElementById('qaCopyLocalToday')?.classList.add('hidden');
       }
       loadSavedPosts();
       renderCalendar();
@@ -610,23 +623,17 @@
       setTimeout(() => el.textContent = '', 3000);
     }
 
-    async function qaGenerateInstagram() {
+    async function qaGeneratePlatform(platform) {
       const preset = document.getElementById('nicheInput').value.trim();
       const q = preset ? '&preset=' + encodeURIComponent(preset) : '';
       try {
         const res = await fetch('/social-posts/api/ideas?' + wsQuery() + q);
         const data = await res.json();
-        if (data.success) { allIdeas = data.ideas; switchTab('instagram'); qaStatus('Instagram ideas generated'); }
-      } catch (err) { qaStatus('Error generating'); }
-    }
-
-    async function qaGenerateTikTok() {
-      const preset = document.getElementById('nicheInput').value.trim();
-      const q = preset ? '&preset=' + encodeURIComponent(preset) : '';
-      try {
-        const res = await fetch('/social-posts/api/ideas?' + wsQuery() + q);
-        const data = await res.json();
-        if (data.success) { allIdeas = data.ideas; switchTab('tiktok'); qaStatus('TikTok ideas generated'); }
+        if (data.success) {
+          allIdeas = data.ideas;
+          switchTab(platform);
+          qaStatus((PLATFORM_LABELS[platform] || platform) + ' ideas ready');
+        }
       } catch (err) { qaStatus('Error generating'); }
     }
 
@@ -642,15 +649,6 @@
       }
       if (!allText.trim()) { qaStatus('No ideas to copy'); return; }
       navigator.clipboard.writeText(allText.trim()).then(() => { showCopyToast(); qaStatus('Copied all visible ideas'); });
-    }
-
-    function qaCopyLocalToday() {
-      const today = new Date().toISOString().slice(0, 10);
-      const todayItems = localContentItems.filter(i => i.createdAt && i.createdAt.slice(0, 10) === today);
-      if (!todayItems.length) { qaStatus('No local content for today'); return; }
-      let text = 'Clark County Content for ' + today + '\n\n';
-      for (const item of todayItems) { text += '\u2022 ' + item.title + '\n' + item.summary + '\nPost Idea: ' + item.postIdea + '\n\n'; }
-      navigator.clipboard.writeText(text.trim()).then(() => { showCopyToast(); qaStatus('Copied today\'s local content'); });
     }
 
     function switchTab(platform) {
