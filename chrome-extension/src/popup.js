@@ -17,7 +17,7 @@ const panelImport = document.getElementById('panelImport');
 const panelBulk = document.getElementById('panelBulk');
 const workspaceSelect = document.getElementById('workspaceSelect');
 const workspaceThemeRow = document.getElementById('workspaceThemeRow');
-const EXT_VERSION = '1.6.8';
+const EXT_VERSION = '1.6.9';
 const PARALLEL_LABEL = '5 at a time';
 
 let bulkRunning = false;
