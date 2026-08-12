@@ -724,7 +724,7 @@
         ? filtered.map(function (t) {
           return '<span class="hashtag-pill" onclick="copyHashtag(\'' + t.replace(/'/g, "\\'") + '\', this)">' + escapeHtml(t) + '</span>';
         }).join('')
-        : '<p class="text-[11px] text-brand-muted italic w-full">No tags match “‘ + escapeHtml(hashtagSearchQuery) + '”.</p>';
+        : '<p class="text-[11px] text-brand-muted italic w-full">No tags match "' + escapeHtml(hashtagSearchQuery) + '".</p>';
       const copyBtn = document.getElementById('hashtagCopyAllBtn');
       if (copyBtn) {
         copyBtn.textContent = hashtagSearchQuery
