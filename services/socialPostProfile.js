@@ -46,25 +46,42 @@ function resolveSocialPostProfile(ws) {
   const brandKit = ws.brandKit && typeof ws.brandKit === 'object' ? ws.brandKit : {};
   const intake = ws.cwIntake && typeof ws.cwIntake === 'object' ? ws.cwIntake : {};
 
-  const businessName = String(brandKit.businessName || ws.name || '').trim();
+  const wsName = String(ws.name || '').trim();
+  const brandName = String(brandKit.businessName || '').trim();
   const icpKeyword = String(ws.icpKeyword || '').trim();
   const businessDescription = String(intake.businessDescription || '').trim();
   const socialPostsPreset = String(ws.socialPostsPreset || '').trim();
   const isAgencyWorkspace = isAgencyOrLocalGuideWorkspace(ws);
 
+  // Workspace name is the source of truth for the active business (brand kit may hold a client name).
+  const businessName = isAgencyWorkspace
+    ? wsName || brandName || 'AdHello'
+    : brandName || wsName || '';
+
+  let contentSubject = businessName || icpKeyword || 'local business';
+  if (isAgencyWorkspace) {
+    contentSubject = 'local business';
+  } else if (icpKeyword) {
+    contentSubject = icpKeyword;
+  }
+
   let niche = socialPostsPreset;
   if (!niche) {
-    const parts = [];
-    if (icpKeyword) parts.push(icpKeyword);
-    else if (businessName) parts.push(businessName);
-    if (businessDescription) {
-      parts.push(businessDescription.slice(0, 140));
+    if (isAgencyWorkspace) {
+      niche = `${businessName} — digital marketing for local businesses`;
+    } else {
+      const parts = [];
+      if (icpKeyword) parts.push(icpKeyword);
+      else if (businessName) parts.push(businessName);
+      if (businessDescription) {
+        parts.push(businessDescription.slice(0, 140));
+      }
+      niche = parts.filter(Boolean).join(' — ');
     }
-    niche = parts.filter(Boolean).join(' — ');
   }
 
   if (!niche && isAgencyWorkspace) {
-    niche = 'AdHello agency and @ClarkCountyGuide local business directory';
+    niche = `${businessName || 'AdHello'} — local business marketing`;
   }
   if (!niche) {
     niche = icpKeyword || businessName || 'local home service business';
@@ -73,6 +90,7 @@ function resolveSocialPostProfile(ws) {
   return {
     niche,
     businessName,
+    contentSubject,
     icpKeyword,
     businessDescription,
     isAgencyWorkspace,

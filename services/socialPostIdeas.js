@@ -98,18 +98,18 @@ function businessTemplates(n) {
  * @param {{ isAgencyWorkspace?: boolean }} [opts]
  */
 function generatePostIdeas(niche = '', platformFilter = null, opts = {}) {
-  const n = String(niche || '').trim() || 'local business';
+  const subject = String(opts.contentSubject || niche || '').trim() || 'local business';
   const platforms = platformFilter ? [platformFilter] : ['instagram', 'facebook', 'linkedin', 'x', 'tiktok'];
   const ideas = {};
-  const useAgency = opts.isAgencyWorkspace === true || isAgencyOrLocalGuideWorkspace({ socialPostsPreset: n, coachPrompt: n, name: n });
-  const baseIdeas = useAgency ? agencyTemplates(n) : businessTemplates(n);
+  const useAgency = opts.isAgencyWorkspace === true || isAgencyOrLocalGuideWorkspace({ socialPostsPreset: niche, coachPrompt: niche, name: niche });
+  const baseIdeas = useAgency ? agencyTemplates(subject) : businessTemplates(subject);
 
   for (const p of platforms) {
     if (baseIdeas[p]) {
       ideas[p] = baseIdeas[p].map((idea, i) => ({
         id: `idea_${p}_${i}`,
         ...idea,
-        niche: n,
+        niche: subject,
       }));
     }
   }

@@ -83,6 +83,7 @@ router.get('/api/ideas', async (req, res, next) => {
     const { profile } = await loadWorkspaceProfile(wid, raw || null);
     const ideas = generatePostIdeas(profile.niche, null, {
       isAgencyWorkspace: profile.isAgencyWorkspace,
+      contentSubject: profile.contentSubject,
     });
     res.json({ success: true, ideas, niche: profile.niche, profile });
   } catch (err) {
@@ -99,6 +100,7 @@ router.post('/api/ideas/regenerate', express.json(), async (req, res, next) => {
     const { profile } = await loadWorkspaceProfile(wid, nicheInput || null);
     const ideas = generatePostIdeas(profile.niche, platform || null, {
       isAgencyWorkspace: profile.isAgencyWorkspace,
+      contentSubject: profile.contentSubject,
     });
     const platformIdeas = platform ? ideas[platform] || [] : ideas;
     res.json({ success: true, ideas: platformIdeas, niche: profile.niche, platform, profile });

@@ -55,6 +55,10 @@
     .hashtag-pill { font-size: 10px; padding: 3px 10px; border-radius: 9999px; background: rgba(255,214,68,.1); color: var(--brand-yellow); font-weight: 700; border: 1px solid rgba(255,214,68,.2); cursor: pointer; transition: all .15s ease; }
     .hashtag-pill:hover { background: rgba(255,214,68,.25); }
     .hashtag-pill.copied { background: var(--brand-yellow); color: #111827; }
+    .hashtag-pill.hashtag-pill--hidden { display: none; }
+    .hashtag-search-input { width: 100%; border-radius: 0.75rem; border: 1px solid rgba(148,163,184,.35); background: rgba(255,255,255,.9); padding: 0.5rem 0.75rem; font-size: 12px; font-weight: 600; color: var(--brand-dark, #111827); }
+    .dark .hashtag-search-input { background: rgba(15,23,42,.85); border-color: rgba(255,255,255,.12); color: #f8fafc; }
+    .hashtag-search-input:focus { outline: none; border-color: rgba(255,214,68,.55); box-shadow: 0 0 0 2px rgba(255,214,68,.15); }
     .tag-filter-btn { transition: all .15s ease; font-size: 10px; font-weight: 800; padding: 6px 12px; border-radius: 9999px; text-transform: none; letter-spacing: 0; border: 1px solid var(--brand-border); background: transparent; color: var(--brand-muted); cursor: pointer; }
     .tag-filter-btn:hover { border-color: var(--brand-yellow); color: var(--brand-yellow); }
     .tag-filter-btn.active { background: var(--brand-yellow); color: #111827; border-color: var(--brand-yellow); font-weight: 800; }
@@ -163,7 +167,7 @@
             <svg class="icon-flat" viewBox="0 0 24 24"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
             Hashtag Sets
           </h2>
-          <p class="text-xs text-brand-muted mt-1">Optimized for Clark County / Vancouver WA reach. Click to copy.</p>
+          <p id="hashtagSetsSubtitle" class="text-xs text-brand-muted mt-1">Search business tags or click to copy.</p>
         </div>
         <button onclick="cycleHashtagSet()" class="text-xs font-bold text-brand-yellow hover:underline">Cycle Set &rarr;</button>
       </div>
@@ -511,9 +515,32 @@
     const DM_PLATFORMS = { instagram: 'instagram_feed', facebook: 'facebook_feed', linkedin: 'linkedin_post', x: 'instagram_feed', tiktok: 'instagram_story' };
 
     // ── Hashtag Sets ───────────────────────────────────────────────────────────
+    function businessHashtagTag(name) {
+      const tag = String(name || '').replace(/[^a-zA-Z0-9]/g, '');
+      return tag ? '#' + tag : '';
+    }
+
     function buildHashtagSets() {
+      const biz = String(businessProfile.businessName || 'Your Business').trim();
+      const bizTag = businessHashtagTag(biz);
       if (businessProfile && businessProfile.isAgencyWorkspace) {
         return [
+          {
+            name: biz,
+            tags: [...new Set([
+              bizTag,
+              '#DigitalMarketing',
+              '#LocalSEO',
+              '#GoogleBusinessProfile',
+              '#SmallBusiness',
+              '#MarketingTips',
+              '#ClarkCounty',
+              '#VancouverWA',
+              '#PNW',
+              '#ShopLocal',
+              '#SupportLocal',
+            ].filter(Boolean))],
+          },
           { name: 'Clark County Local', tags: ['#ClarkCounty','#VancouverWA','#PNW','#PacificNorthwest','#WashingtonState','#CouverLife','#360','#PortlandMetro','#ClarkCountyWA','#ShopLocal'] },
           { name: 'Small Business', tags: ['#SmallBusiness','#ShopSmall','#SmallBusinessOwner','#Entrepreneur','#LocalBusiness','#SupportLocal','#BusinessOwner','#SupportSmallBusiness','#LocalFirst','#CommunityFirst'] },
           { name: 'New Business / Opening', tags: ['#GrandOpening','#NewBusiness','#NewInTown','#NowOpen','#GrandOpeningDay','#JustOpened','#NewSpot','#CheckThisOut','#LocalNews','#BusinessSpotlight'] },
@@ -521,14 +548,29 @@
           { name: 'Engagement / Community', tags: ['#KnowYourCity','#LocalLove','#CommunityMatters','#ExploreLocal','#HiddenGems','#ThingsToDo','#WeekendVibes','#LocalEats','#ExplorePNW','#WAFood'] }
         ];
       }
-      const nicheTag = (businessProfile.icpKeyword || businessProfile.businessName || 'LocalBusiness').replace(/[^a-zA-Z0-9]/g, '');
+      const nicheTag = businessHashtagTag(businessProfile.icpKeyword || biz);
       return [
-        { name: 'Business / Service', tags: ['#' + nicheTag, '#SmallBusiness', '#LocalBusiness', '#ShopLocal', '#SupportLocal', '#HomeImprovement', '#ContractorLife', '#QualityWork', '#CustomerFirst', '#BeforeAndAfter'] },
+        {
+          name: biz,
+          tags: [...new Set([
+            bizTag || nicheTag,
+            '#SmallBusiness',
+            '#LocalBusiness',
+            '#ShopLocal',
+            '#SupportLocal',
+            '#HomeImprovement',
+            '#ContractorLife',
+            '#QualityWork',
+            '#CustomerFirst',
+            '#BeforeAndAfter',
+          ].filter(Boolean))],
+        },
         { name: 'Engagement', tags: ['#TipTuesday', '#Transformation', '#ProjectOfTheWeek', '#CustomerReview', '#BehindTheScenes', '#ProTips', '#HomeOwner', '#LocalExpert', '#TrustedPro', '#FreeEstimate'] },
-        { name: 'Industry', tags: ['#Flooring', '#HomeRenovation', '#InteriorDesign', '#Contractor', '#Builder', '#Remodel', '#NewConstruction', '#DesignInspo', '#Craftsmanship', '#QualityInstall'].map(t => businessProfile.niche && businessProfile.niche.toLowerCase().includes('floor') ? t : t) }
+        { name: 'Industry', tags: ['#Flooring', '#HomeRenovation', '#InteriorDesign', '#Contractor', '#Builder', '#Remodel', '#NewConstruction', '#DesignInspo', '#Craftsmanship', '#QualityInstall'] }
       ];
     }
     let hashtagSets = buildHashtagSets();
+    let hashtagSearchQuery = '';
 
     // ── Init: auto-load ideas on page visit ────────────────────────────────────
     document.addEventListener('DOMContentLoaded', async () => {
@@ -539,6 +581,7 @@
       renderNicheLabel();
       renderBookmarkFolderFilter();
       ensureReviewFolder();
+      renderHashtagSubtitle();
       if (businessProfile.showLocalContent) {
         document.getElementById('localContentSection')?.classList.remove('hidden');
         document.getElementById('newsletterSection')?.classList.remove('hidden');
@@ -654,15 +697,72 @@
     function calendarThisWeek() { calendarOffset = 0; renderCalendar(); }
 
     // ── HASHTAGS ────────────────────────────────────────────────────────────────
+    function renderHashtagSubtitle() {
+      const el = document.getElementById('hashtagSetsSubtitle');
+      if (!el) return;
+      const biz = String(businessProfile.businessName || 'your business').trim();
+      el.textContent = 'Tags for ' + biz + '. Search or click to copy.';
+    }
+
+    function filterHashtagSearch(value) {
+      hashtagSearchQuery = String(value || '').trim().toLowerCase();
+      renderHashtagPillsOnly();
+    }
+
+    function renderHashtagPillsOnly() {
+      const wrap = document.getElementById('hashtagPillsWrap');
+      const countEl = document.getElementById('hashtagVisibleCount');
+      const set = hashtagSets[currentHashtagSet % hashtagSets.length];
+      if (!wrap || !set) return;
+      const filtered = hashtagSearchQuery
+        ? set.tags.filter(function (t) { return t.toLowerCase().includes(hashtagSearchQuery); })
+        : set.tags.slice();
+      if (countEl) {
+        countEl.textContent = hashtagSearchQuery
+          ? filtered.length + ' of ' + set.tags.length + ' tags'
+          : set.tags.length + ' tags';
+      }
+      wrap.innerHTML = filtered.length
+        ? filtered.map(function (t) {
+          return '<span class="hashtag-pill" onclick="copyHashtag(\'' + t.replace(/'/g, "\\'") + '\', this)">' + escapeHtml(t) + '</span>';
+        }).join('')
+        : '<p class="text-[11px] text-brand-muted italic w-full">No tags match “‘ + escapeHtml(hashtagSearchQuery) + '”.</p>';
+      const copyBtn = document.getElementById('hashtagCopyAllBtn');
+      if (copyBtn) {
+        copyBtn.textContent = hashtagSearchQuery
+          ? 'Copy ' + filtered.length + ' Shown Tags'
+          : 'Copy All ' + set.tags.length + ' Tags';
+        copyBtn.disabled = !filtered.length;
+      }
+    }
+
     function renderHashtags() {
       const container = document.getElementById('hashtagContainer');
       const set = hashtagSets[currentHashtagSet % hashtagSets.length];
-      const allTags = set.tags.join(' ');
-      container.innerHTML = '<div class="flex items-center justify-between mb-2"><span class="text-xs font-bold text-brand-dark dark:text-white">' + set.name + '</span><span class="text-[9px] text-brand-muted">' + set.tags.length + ' tags</span></div><div class="flex flex-wrap gap-1.5 mb-3">' + set.tags.map(t => '<span class="hashtag-pill" onclick="copyHashtag(\'' + t.replace(/'/g, "\\'") + '\', this)">' + t + '</span>').join('') + '</div><button onclick="copyAllHashtags()" class="btn-brand-yellow text-xs font-bold px-3 py-1.5 rounded-lg">Copy All ' + set.tags.length + ' Tags</button>';
+      container.innerHTML =
+        '<div class="flex items-center justify-between mb-2 gap-2">' +
+          '<span class="text-xs font-bold text-brand-dark dark:text-white">' + escapeHtml(set.name) + '</span>' +
+          '<span id="hashtagVisibleCount" class="text-[9px] text-brand-muted shrink-0">' + set.tags.length + ' tags</span>' +
+        '</div>' +
+        '<input type="search" id="hashtagSearchInput" class="hashtag-search-input" placeholder="Search tags (e.g. local, marketing, Vancouver)…" value="' + escapeHtml(hashtagSearchQuery) + '" autocomplete="off" aria-label="Search hashtag tags" />' +
+        '<div id="hashtagPillsWrap" class="flex flex-wrap gap-1.5 mb-3 mt-2"></div>' +
+        '<button type="button" id="hashtagCopyAllBtn" onclick="copyAllHashtags()" class="btn-brand-yellow text-xs font-bold px-3 py-1.5 rounded-lg">Copy All ' + set.tags.length + ' Tags</button>';
+      const input = document.getElementById('hashtagSearchInput');
+      if (input) {
+        input.addEventListener('input', function () { filterHashtagSearch(input.value); });
+      }
+      renderHashtagPillsOnly();
     }
     function copyHashtag(tag, el) { navigator.clipboard.writeText(tag).then(() => { el.classList.add('copied'); setTimeout(() => el.classList.remove('copied'), 1500); qaStatus('Copied ' + tag); }); }
-    function copyAllHashtags() { const set = hashtagSets[currentHashtagSet % hashtagSets.length]; navigator.clipboard.writeText(set.tags.join(' ')).then(() => { showCopyToast(); qaStatus('Copied ' + set.tags.length + ' hashtags'); }); }
-    function cycleHashtagSet() { currentHashtagSet++; renderHashtags(); }
+    function copyAllHashtags() {
+      const set = hashtagSets[currentHashtagSet % hashtagSets.length];
+      const tags = hashtagSearchQuery
+        ? set.tags.filter(function (t) { return t.toLowerCase().includes(hashtagSearchQuery); })
+        : set.tags;
+      if (!tags.length) { qaStatus('No tags to copy'); return; }
+      navigator.clipboard.writeText(tags.join(' ')).then(() => { showCopyToast(); qaStatus('Copied ' + tags.length + ' hashtags'); });
+    }
+    function cycleHashtagSet() { currentHashtagSet++; hashtagSearchQuery = ''; renderHashtags(); }
 
     // ── Platform Tabs ──────────────────────────────────────────────────────────
     document.querySelectorAll('.platform-tab').forEach(tab => {

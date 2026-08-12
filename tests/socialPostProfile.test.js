@@ -29,7 +29,22 @@ test('resolveSocialPostProfile defaults to agency preset for AdHello workspace',
   });
   assert.equal(profile.isAgencyWorkspace, true);
   assert.equal(profile.showLocalContent, true);
-  assert.match(profile.niche, /AdHello|Clark/i);
+  assert.equal(profile.businessName, 'AdHello Agency');
+  assert.equal(profile.contentSubject, 'local business');
+  assert.match(profile.niche, /AdHello/i);
+});
+
+test('resolveSocialPostProfile prefers workspace name over client brand kit on agency workspaces', () => {
+  const profile = resolveSocialPostProfile({
+    name: 'AdHello',
+    slug: 'adhello',
+    brandKit: { businessName: 'TPR Flooring' },
+    icpKeyword: 'TPR Flooring',
+    coachPrompt: 'digital ad agency',
+  });
+  assert.equal(profile.businessName, 'AdHello');
+  assert.equal(profile.contentSubject, 'local business');
+  assert.doesNotMatch(profile.niche, /TPR Flooring/i);
 });
 
 test('isAgencyOrLocalGuideWorkspace detects Clark County by name', () => {
@@ -40,6 +55,7 @@ test('isAgencyOrLocalGuideWorkspace detects Clark County by name', () => {
 test('generatePostIdeas uses business templates for flooring niche', () => {
   const ideas = generatePostIdeas('flooring retail and installation', 'instagram', {
     isAgencyWorkspace: false,
+    contentSubject: 'flooring retail and installation',
   });
   assert.ok(ideas.instagram.length > 0);
   assert.match(ideas.instagram[0].hook, /flooring/i);
@@ -49,9 +65,12 @@ test('generatePostIdeas uses business templates for flooring niche', () => {
 test('generatePostIdeas uses agency templates for Clark County workspace', () => {
   const ideas = generatePostIdeas('AdHello agency and @ClarkCountyGuide', 'instagram', {
     isAgencyWorkspace: true,
+    contentSubject: 'local business',
   });
   assert.ok(ideas.instagram.length > 0);
   assert.match(ideas.instagram[0].hook, /Google/i);
+  assert.match(ideas.instagram[0].hook, /local business/i);
+  assert.doesNotMatch(ideas.instagram[0].hook, /TPR Flooring/i);
 });
 
 test('marketingPlatformForSocial maps platforms', () => {
