@@ -114,7 +114,7 @@ Keep reply conversational during brainstorming. workflowPrompt null until user a
  * @param {Array<{role:string,content:string}>} [opts.chatHistory]
  * @param {string} [opts.senderOfferKey]
  */
-async function runGhlWorkflowCoach({ workspace, userMessage, chatHistory, senderOfferKey }) {
+async function runGhlWorkflowCoach({ workspace, userMessage, chatHistory, senderOfferKey, integrationEnv }) {
   const msg = String(userMessage || '').trim();
   if (!msg) {
     return { success: false, error: 'Message is required.' };
@@ -137,12 +137,13 @@ async function runGhlWorkflowCoach({ workspace, userMessage, chatHistory, sender
     jsonObject: true,
     max_tokens: 2800,
     temperature: 0.5,
+    integrationEnv,
   });
 
   if (!ai.content || ai.error) {
     return {
       success: false,
-      error: 'No AI provider configured (set OPENROUTER_API_KEY) or request failed.',
+      error: 'No AI provider configured (add OpenRouter in Workspace → Integrations) or request failed.',
     };
   }
 
@@ -237,6 +238,7 @@ async function optimizeFolderGhlWorkflowPrompt({
   ghlGoal,
   senderOfferKey,
   basePrompt,
+  integrationEnv,
 }) {
   const goal = String(ghlGoal || '').trim();
   if (!goal) {
@@ -263,12 +265,13 @@ async function optimizeFolderGhlWorkflowPrompt({
     jsonObject: true,
     max_tokens: 3200,
     temperature: 0.45,
+    integrationEnv,
   });
 
   if (!ai.content || ai.error) {
     return {
       success: false,
-      error: 'No AI provider configured (set OPENROUTER_API_KEY) or request failed.',
+      error: 'No AI provider configured (add OpenRouter in Workspace → Integrations) or request failed.',
     };
   }
 

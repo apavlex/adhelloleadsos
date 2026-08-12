@@ -381,6 +381,50 @@
     </div>
 
     <div>
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">AI — OpenRouter</p>
+      <section id="openrouter-integration" class="rounded-2xl border-2 border-brand-yellow/25 dark:border-brand-yellow/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-24 mb-4">
+        <header class="flex flex-wrap items-start justify-between gap-3">
+          <div class="min-w-0">
+            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">OpenRouter</h3>
+            <p class="text-xs text-brand-muted mt-1 leading-relaxed max-w-2xl">
+              Powers flow coach, outreach AI, GHL prompt optimizer, flip scoring, pipeline insights, and more.
+              Get a <strong>free API key</strong> at
+              <a href="https://openrouter.ai/keys" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">openrouter.ai/keys</a>
+              — no credit card required. Free models use the <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">:free</code> suffix or
+              <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">openrouter/free</code> auto-router (~20 req/min; daily cap depends on account credits).
+            </p>
+          </div>
+          <% if (typeof openrouterConfigured !== 'undefined' && openrouterConfigured) { %>
+          <%- include('../../partials/integration_provider_status_pill', { label: 'OpenRouter', connected: true }) %>
+          <% } else { %>
+          <%- include('../../partials/integration_provider_status_pill', { label: 'OpenRouter', connected: false }) %>
+          <% } %>
+        </header>
+        <div class="rounded-xl border border-brand-yellow/30 bg-brand-yellow/5 px-3 py-2.5 text-xs text-brand-muted leading-relaxed">
+          <strong class="text-brand-dark dark:text-white">Recommended free models:</strong>
+          leave Model blank for the default chain (<code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900">qwen/qwen3-coder:free</code> → DeepSeek flash),
+          or set <code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900">openrouter/free</code> to auto-pick any free model.
+        </div>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div class="sm:col-span-2">
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
+            <% if (masks.openrouterApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.openrouterApiKey %></p><% } %>
+            <input type="password" name="openrouterApiKey" autocomplete="off" placeholder="sk-or-… (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <% if (masks.openrouterApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="openrouterApiKey_clear" value="1" /> Remove saved key</label><% } %>
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Model <span class="font-normal normal-case tracking-normal">(optional)</span></label>
+            <% if (masks.openrouterModel) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.openrouterModel %></p><% } %>
+            <input type="text" name="openrouterModel" autocomplete="off" placeholder="e.g. openrouter/free or qwen/qwen3-coder:free" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm font-mono text-[13px]" />
+            <% if (masks.openrouterModel) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="openrouterModel_clear" value="1" /> Remove</label><% } %>
+            <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Overrides the server default model chain for this workspace only.</p>
+          </div>
+        </div>
+        <%- include('../../partials/integration_test_row', { provider: 'openrouter' }) %>
+      </section>
+    </div>
+
+    <div>
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Audits</p>
       <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4">
         <header>
@@ -402,6 +446,8 @@
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">CRM &amp; messaging</p>
       <p class="text-xs text-brand-muted mb-4 leading-relaxed">
         Jump to:
+        <a href="#openrouter-integration" class="js-integration-connect underline hover:text-brand-dark dark:hover:text-white">OpenRouter (AI)</a>
+        ·
         <a href="#ghl-integration" class="js-integration-connect underline hover:text-brand-dark dark:hover:text-white">Go High Level</a>
         ·
         <a href="#comms-integration" class="js-integration-connect underline hover:text-brand-yellow font-semibold">Comms (iMessage / SMS)</a>
@@ -669,11 +715,12 @@
           <p class="font-semibold text-brand-dark dark:text-white">Available tools</p>
           <p><code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">list_folders</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">get_folder</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">count_leads</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">list_leads</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">get_lead</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">update_lead</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">bulk_update_leads</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">search_leads</code></p>
           <p>Pavlex chat automatically registers this MCP server on every message using your logged-in session — no manual token required for in-app chat.</p>
-          <% if (!process.env.OPENAI_API_KEY && !process.env.OPENROUTER_API_KEY) { %>
+          <% if (!(typeof openrouterConfigured !== 'undefined' && openrouterConfigured) && !process.env.OPENAI_API_KEY) { %>
           <div class="rounded-lg border border-amber-400/50 bg-amber-50 dark:bg-amber-950/30 px-3 py-2.5 text-xs text-amber-950 dark:text-amber-100 leading-relaxed">
-            <strong class="font-bold">No AI key on this server.</strong>
-            Add <code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900">OPENAI_API_KEY</code> or
-            <code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900">OPENROUTER_API_KEY</code> in Render → Environment, then redeploy.
+            <strong class="font-bold">No AI key configured.</strong>
+            Add an <a href="#openrouter-integration" class="underline font-semibold">OpenRouter key</a> in this form (free at
+            <a href="https://openrouter.ai/keys" class="underline" target="_blank" rel="noopener noreferrer">openrouter.ai/keys</a>),
+            or set <code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900">OPENAI_API_KEY</code> on the server.
             CRM shortcuts work without AI: “List my folders”, “How many leads do I have?”, “Find Acme Roofing”.
           </div>
           <% } %>

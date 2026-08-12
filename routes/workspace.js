@@ -50,6 +50,7 @@ const { UPWORK_PROPOSAL_SERVICES } = require('../config/upworkProposalServices')
 const signalwire = require('../services/signalwire');
 const { parseDialRetryFromBody } = require('../services/dialRetryPrefs');
 const { runGhlWorkflowCoach } = require('../services/ghlWorkflowCoach');
+const { isOpenRouterConfigured } = require('../services/llmClient');
 const inboundForwardStats = require('../services/inboundForwardStats');
 const {
   sanitizeBlockOverrides,
@@ -338,6 +339,7 @@ async function loadWorkspacePageLocals(req) {
   const mcpTokenStatus = getWorkspaceMcpTokenStatus(ws);
   const mcpEndpoint = base ? `${base}/ceo/mcp` : '';
   const mcpManifestUrl = base ? `${base}/ceo/mcp/manifest.json` : '';
+  const openrouterConfigured = isOpenRouterConfigured(resolvedEnv);
   return {
     title: 'Workspace & team',
     activePage: 'workspace',
@@ -358,6 +360,7 @@ async function loadWorkspacePageLocals(req) {
     mcpTokenStatus,
     mcpEndpoint,
     mcpManifestUrl,
+    openrouterConfigured,
     telephonyWebhookTokenConfigured: !!String(process.env.TELEPHONY_WEBHOOK_TOKEN || '').trim(),
     assignPool: pool,
     envHintSdr: !!process.env.WORKSPACE_SDR_EMAILS,
@@ -1598,11 +1601,13 @@ router.post('/ghl/workflow-coach', express.json({ limit: '128kb' }), async (req,
     const chatHistory = Array.isArray(body.chatHistory) ? body.chatHistory : [];
     const senderOfferKey = typeof body.senderOfferKey === 'string' ? body.senderOfferKey.trim() : '';
     const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId, members: {} };
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
     const result = await runGhlWorkflowCoach({
       workspace: ws,
       userMessage,
       chatHistory,
       senderOfferKey,
+      integrationEnv,
     });
     res.json(result);
   } catch (e) {

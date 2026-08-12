@@ -57,6 +57,8 @@ const INTEGRATION_FIELDS = [
   'tikhubApiBase',
   'monidApiKey',
   'monidApiBase',
+  'openrouterApiKey',
+  'openrouterModel',
   'smsPrimary',
 ];
 
@@ -111,6 +113,8 @@ const FIELD_TO_ENV = {
   tikhubApiBase: 'TIKHUB_API_BASE',
   monidApiKey: 'MONID_API_KEY',
   monidApiBase: 'MONID_API_BASE',
+  openrouterApiKey: 'OPENROUTER_API_KEY',
+  openrouterModel: 'OPENROUTER_MODEL',
   smsPrimary: 'SMS_PRIMARY',
 };
 
@@ -223,6 +227,7 @@ function integrationMasks(workspace) {
     'saperlyWebhookSecret',
     'tikhubApiKey',
     'monidApiKey',
+    'openrouterApiKey',
   ]);
   for (const field of INTEGRATION_FIELDS) {
     const raw = p[field];

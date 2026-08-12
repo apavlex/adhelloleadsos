@@ -21,6 +21,7 @@ describe('integrationProviderTests', () => {
     const ids = listProviderIds();
     assert.ok(ids.includes('rapidapi'));
     assert.ok(ids.includes('pagespeed'));
+    assert.ok(ids.includes('openrouter'));
     assert.equal(PROVIDERS.rapidapi.fields.length, 5);
   });
 
@@ -28,5 +29,21 @@ describe('integrationProviderTests', () => {
     const { resolveProviderId } = require('../services/integrationProviderTests');
     assert.equal(resolveProviderId('rapidapiWebsite'), 'rapidapiWebsite');
     assert.equal(resolveProviderId('rapidapiwebsite'), 'rapidapiWebsite');
+  });
+
+  test('resolveOpenRouterEnv prefers workspace integration key', () => {
+    const { resolveOpenRouterEnv } = require('../services/llmClient');
+    const prev = process.env.OPENROUTER_API_KEY;
+    process.env.OPENROUTER_API_KEY = 'env-key';
+    try {
+      const fromWs = resolveOpenRouterEnv({ OPENROUTER_API_KEY: 'ws-key', OPENROUTER_MODEL: 'openrouter/free' });
+      assert.equal(fromWs.apiKey, 'ws-key');
+      assert.equal(fromWs.model, 'openrouter/free');
+      const fromEnv = resolveOpenRouterEnv({});
+      assert.equal(fromEnv.apiKey, 'env-key');
+    } finally {
+      if (prev == null) delete process.env.OPENROUTER_API_KEY;
+      else process.env.OPENROUTER_API_KEY = prev;
+    }
   });
 });

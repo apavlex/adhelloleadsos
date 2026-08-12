@@ -14,6 +14,7 @@ const {
   runFolderOutreach,
 } = require('../services/folderOutreachAutomation');
 const { optimizeFolderGhlWorkflowPrompt } = require('../services/ghlWorkflowCoach');
+const workspaceIntegrations = require('../services/workspaceIntegrations');
 
 router.get('/', async (req, res, next) => {
   try {
@@ -172,6 +173,7 @@ router.post('/optimize-ghl-prompt', express.json({ limit: '256kb' }), async (req
     const senderOfferKey = String(body.senderOfferKey || '').trim();
     const basePrompt = typeof body.basePrompt === 'string' ? body.basePrompt : '';
     const ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
     const result = await optimizeFolderGhlWorkflowPrompt({
       workspace: ws,
       folderName: existing.name || '',
@@ -179,6 +181,7 @@ router.post('/optimize-ghl-prompt', express.json({ limit: '256kb' }), async (req
       ghlGoal,
       senderOfferKey,
       basePrompt,
+      integrationEnv,
     });
     if (!result.success) {
       return res.json(result);

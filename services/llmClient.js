@@ -28,14 +28,39 @@ const OPENROUTER_FREE_MODEL = 'qwen/qwen3-coder:free';
 const OPENROUTER_CHEAP_MODEL = 'deepseek/deepseek-v4-flash';
 const OPENROUTER_PAID_FALLBACK_MODEL = 'deepseek/deepseek-v4-pro';
 
+/**
+ * Workspace integration env overrides deployment env for OpenRouter keys.
+ * @param {Record<string, string>|null|undefined} [integrationEnv]
+ */
+function resolveOpenRouterEnv(integrationEnv) {
+  const env = integrationEnv && typeof integrationEnv === 'object' ? integrationEnv : {};
+  const pick = (name) => {
+    const fromWs = env[name];
+    if (typeof fromWs === 'string' && fromWs.trim()) return fromWs.trim();
+    const fromProcess = process.env[name];
+    return typeof fromProcess === 'string' ? fromProcess.trim() : '';
+  };
+  return {
+    apiKey: pick('OPENROUTER_API_KEY'),
+    model: pick('OPENROUTER_MODEL'),
+    auditModel: pick('OPENROUTER_AUDIT_MODEL'),
+    httpReferer: pick('OPENROUTER_HTTP_REFERER') || pick('BASE_URL') || 'https://leads.adhello.ai',
+    appName: pick('OPENROUTER_APP_NAME') || 'AdHello Leads OS',
+  };
+}
+
+function isOpenRouterConfigured(integrationEnv) {
+  return !!resolveOpenRouterEnv(integrationEnv).apiKey;
+}
+
 /** @returns {Array<{name:string, apiKey:string, baseUrl?:string, path?:string, model?:string, url?:string}>} */
-function openRouterProviders() {
+function openRouterProviders(integrationEnv) {
   const list = [];
-  const orKey = process.env.OPENROUTER_API_KEY;
-  if (orKey && String(orKey).trim()) {
-    const key = orKey.trim();
+  const { apiKey: orKey, model: customModel } = resolveOpenRouterEnv(integrationEnv);
+  if (orKey) {
+    const key = orKey;
     const url = 'https://openrouter.ai/api/v1/chat/completions';
-    const custom = process.env.OPENROUTER_MODEL && String(process.env.OPENROUTER_MODEL).trim();
+    const custom = customModel;
     if (custom) {
       list.push({ name: 'openrouter', apiKey: key, url, model: custom });
     } else {
@@ -86,19 +111,20 @@ function legacyProviders() {
 
 /**
  * @param {'openrouter'|'legacy'} [chain]
+ * @param {Record<string, string>|null|undefined} [integrationEnv]
  * @returns {Array<{name:string, apiKey:string, baseUrl?:string, path?:string, model?:string, url?:string}>}
  */
-function providersForChain(chain = 'openrouter') {
-  return chain === 'legacy' ? legacyProviders() : openRouterProviders();
+function providersForChain(chain = 'openrouter', integrationEnv) {
+  return chain === 'legacy' ? legacyProviders() : openRouterProviders(integrationEnv);
 }
 
 /** @deprecated use providersForChain('openrouter') */
-function providersInFallbackOrder() {
-  return providersForChain('openrouter');
+function providersInFallbackOrder(integrationEnv) {
+  return providersForChain('openrouter', integrationEnv);
 }
 
-function pickProvider(chain = 'openrouter') {
-  const list = providersForChain(chain);
+function pickProvider(chain = 'openrouter', integrationEnv) {
+  const list = providersForChain(chain, integrationEnv);
   return list.length ? list[0] : null;
 }
 
@@ -108,15 +134,14 @@ function normalizeProviderName(name) {
   return name;
 }
 
-function openRouterHeaders() {
-  const refererRaw =
-    process.env.OPENROUTER_HTTP_REFERER || process.env.BASE_URL || 'https://leads.adhello.ai';
+function openRouterHeaders(integrationEnv) {
+  const { httpReferer: refererRaw, appName } = resolveOpenRouterEnv(integrationEnv);
   const referer = /^https?:\/\//i.test(refererRaw)
     ? refererRaw
     : `https://${String(refererRaw).replace(/^\/+/, '')}`;
   return {
     'HTTP-Referer': referer,
-    'X-Title': process.env.OPENROUTER_APP_NAME || 'AdHello Leads OS',
+    'X-Title': appName,
   };
 }
 
@@ -267,13 +292,13 @@ async function runGemini(prov, { messages, jsonObject, max_tokens, temperature }
   };
 }
 
-async function runOpenAICompatible(prov, url, body) {
+async function runOpenAICompatible(prov, url, body, integrationEnv) {
   const headers = {
     Authorization: `Bearer ${prov.apiKey}`,
     'Content-Type': 'application/json',
   };
   if (String(prov.name).startsWith('openrouter')) {
-    Object.assign(headers, openRouterHeaders());
+    Object.assign(headers, openRouterHeaders(integrationEnv));
   }
   const res = await fetch(url, {
     method: 'POST',
@@ -313,6 +338,7 @@ async function runOpenAICompatible(prov, url, body) {
  * @param {number} [opts.max_tokens]
  * @param {number} [opts.temperature]
  * @param {'openrouter'|'legacy'} [opts.providerChain] — legacy for CEO + Pavlex chatbot
+ * @param {Record<string, string>|null|undefined} [opts.integrationEnv] — workspace integration overrides
  * @returns {Promise<{ content: string|null, provider: string, error?: boolean }>}
  */
 async function chatCompletion({
@@ -322,11 +348,12 @@ async function chatCompletion({
   temperature = 0.45,
   providerChain = 'openrouter',
   providersOverride = null,
+  integrationEnv = null,
 }) {
   const chain =
     Array.isArray(providersOverride) && providersOverride.length
       ? providersOverride
-      : providersForChain(providerChain);
+      : providersForChain(providerChain, integrationEnv);
   if (!chain.length) {
     return { content: null, provider: 'none', error: true };
   }
@@ -362,7 +389,7 @@ async function chatCompletion({
         url = prov.url;
       }
 
-      const out = await runOpenAICompatible(prov, url, body);
+      const out = await runOpenAICompatible(prov, url, body, integrationEnv);
       last = { ...out, model: prov.model || null };
       if (out.content && !out.error) return last;
       if (attempt < retries - 1) {
@@ -379,15 +406,13 @@ async function chatCompletion({
 }
 
 /** Cheap audit chain: free → flash (skip pro unless OPENROUTER_AUDIT_MODEL set). */
-function auditOpenRouterProviders() {
+function auditOpenRouterProviders(integrationEnv) {
   const list = [];
-  const orKey = process.env.OPENROUTER_API_KEY;
-  if (!orKey || !String(orKey).trim()) return list;
-  const key = orKey.trim();
+  const { apiKey: orKey, model: customModel, auditModel } = resolveOpenRouterEnv(integrationEnv);
+  if (!orKey) return list;
+  const key = orKey;
   const url = 'https://openrouter.ai/api/v1/chat/completions';
-  const custom =
-    (process.env.OPENROUTER_AUDIT_MODEL && String(process.env.OPENROUTER_AUDIT_MODEL).trim()) ||
-    (process.env.OPENROUTER_MODEL && String(process.env.OPENROUTER_MODEL).trim());
+  const custom = auditModel || customModel;
   if (custom) {
     list.push({ name: 'openrouter-audit', apiKey: key, url, model: custom });
     return list;
@@ -402,19 +427,21 @@ function auditOpenRouterProviders() {
  * @returns {Promise<{ content: string|null, provider: string, model: string|null, error?: boolean }>}
  */
 async function auditChatCompletion(opts) {
-  const providers = auditOpenRouterProviders();
+  const integrationEnv = opts && opts.integrationEnv;
+  const providers = auditOpenRouterProviders(integrationEnv);
   if (!providers.length) {
     return { content: null, provider: 'none', model: null, error: true };
   }
   const out = await chatCompletion({
     ...opts,
     providersOverride: providers,
+    integrationEnv,
   });
   return { ...out, model: out.model || providers[0]?.model || null };
 }
 
-function activeProviderLabel(chain = 'openrouter') {
-  const p = pickProvider(chain);
+function activeProviderLabel(chain = 'openrouter', integrationEnv) {
+  const p = pickProvider(chain, integrationEnv);
   return p ? normalizeProviderName(p.name) : null;
 }
 
@@ -429,6 +456,8 @@ module.exports = {
   openRouterProviders,
   legacyProviders,
   parseLlmJson,
+  resolveOpenRouterEnv,
+  isOpenRouterConfigured,
   OPENROUTER_FREE_MODEL,
   OPENROUTER_CHEAP_MODEL,
   OPENROUTER_PAID_FALLBACK_MODEL,

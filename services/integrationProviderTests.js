@@ -14,6 +14,7 @@ const firecrawl = require('./firecrawl');
 const betterContactClient = require('./betterContactClient');
 const permitStackClient = require('./permitStackClient');
 const { resolvePageSpeedApiKey, PAGESPEED_ENDPOINT } = require('./pageSpeedInsights');
+const { chatCompletion } = require('./llmClient');
 const { FIELD_TO_ENV, INTEGRATION_FIELDS } = require('./workspaceIntegrations');
 const ghlClient = require('./ghlClient');
 const lobClient = require('./lobClient');
@@ -81,6 +82,10 @@ const PROVIDERS = {
   monid: {
     label: 'Monid (Find leads + enrichment)',
     fields: ['monidApiKey'],
+  },
+  openrouter: {
+    label: 'OpenRouter (AI)',
+    fields: ['openrouterApiKey', 'openrouterModel'],
   },
 };
 
@@ -352,6 +357,26 @@ async function testMonid(integrationEnv) {
   return { message: result.message || 'Connected' };
 }
 
+async function testOpenRouter(integrationEnv) {
+  const key = String(integrationEnv.OPENROUTER_API_KEY || '').trim();
+  if (!key) {
+    throw new Error(
+      'Missing OpenRouter API key — get a free key at openrouter.ai/keys, paste it here, and save.',
+    );
+  }
+  const result = await chatCompletion({
+    messages: [{ role: 'user', content: 'Reply with exactly: ok' }],
+    max_tokens: 12,
+    temperature: 0,
+    integrationEnv,
+  });
+  if (!result.content || result.error) {
+    throw new Error('OpenRouter request failed — check your key and model setting.');
+  }
+  const modelHint = result.model ? ` · ${result.model}` : '';
+  return { message: `Connected${modelHint}` };
+}
+
 const RUNNERS = {
   rapidapi: () => testRapidapi,
   rapidapiwebsite: () => testRapidapiWebsite,
@@ -371,6 +396,7 @@ const RUNNERS = {
   saperly: () => testSaperly,
   tikhub: () => testTikHub,
   monid: () => testMonid,
+  openrouter: () => testOpenRouter,
 };
 
 /**
