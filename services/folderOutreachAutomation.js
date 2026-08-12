@@ -7,9 +7,11 @@ const { scoreLocalProspect } = require('./localProspectScore');
 const phoneLineType = require('./phoneLineType');
 const {
   AUTO_OUTREACH_CAMPAIGN,
+  AUTO_OUTREACH_DAILY_CAP,
   isActiveProspecting,
   isActiveCadence,
   enrollLeadInAutoOutreach,
+  remainingAutoOutreachDailyBudget,
 } = require('./prospectingEnroll');
 
 const DEFAULT_FOLDER_OUTREACH = {
@@ -32,13 +34,19 @@ function trimStringField(val, maxLen) {
   return s.length > maxLen ? s.slice(0, maxLen) : s;
 }
 
+function clampMaxLeads(n) {
+  const maxLeads = parseInt(n, 10);
+  return Number.isFinite(maxLeads)
+    ? Math.max(1, Math.min(AUTO_OUTREACH_DAILY_CAP, maxLeads))
+    : DEFAULT_FOLDER_OUTREACH.maxLeads;
+}
+
 function normalizeFolderOutreachSettings(raw) {
   const s = raw && typeof raw === 'object' ? raw : {};
-  const maxLeads = parseInt(s.maxLeads, 10);
   const minScore = s.minScore != null && s.minScore !== '' ? parseFloat(s.minScore) : null;
   return {
     enabled: s.enabled === true,
-    maxLeads: Number.isFinite(maxLeads) ? Math.max(1, Math.min(200, maxLeads)) : DEFAULT_FOLDER_OUTREACH.maxLeads,
+    maxLeads: clampMaxLeads(s.maxLeads),
     minScore: Number.isFinite(minScore) ? minScore : null,
     tier: String(s.tier || '').trim(),
     smsOnly: s.smsOnly === true,
@@ -106,10 +114,35 @@ async function runFolderOutreach(opts) {
   if (!folder) throw new Error('Folder not found');
 
   const settings = normalizeFolderOutreachSettings(opts.settings || loadFolderOutreachFromFolder(folder));
-  const cap =
-    typeof opts.maxLeads === 'number'
-      ? Math.max(1, Math.min(200, opts.maxLeads))
-      : settings.maxLeads;
+  const requestedCap =
+    typeof opts.maxLeads === 'number' ? clampMaxLeads(opts.maxLeads) : settings.maxLeads;
+  const remainingBudget = await remainingAutoOutreachDailyBudget(workspaceId);
+  const cap = Math.min(requestedCap, remainingBudget);
+
+  if (cap <= 0) {
+    const runAt = new Date().toISOString();
+    const outreachNext = {
+      ...settings,
+      enabled: settings.enabled,
+      lastRunAt: runAt,
+      lastEnrolled: 0,
+      lastCandidateCount: 0,
+      lastSkippedReason: 'daily_cap_reached',
+    };
+    await dbService.updateFolder(workspaceId, folderKey, { outreachAutomation: outreachNext });
+    return {
+      enrolled: 0,
+      candidates: 0,
+      campaign: AUTO_OUTREACH_CAMPAIGN,
+      folderKey,
+      folderName: folder.name || '',
+      settings: outreachNext,
+      results: [],
+      dailyCap: AUTO_OUTREACH_DAILY_CAP,
+      remainingBudget: 0,
+      skippedReason: 'daily_cap_reached',
+    };
+  }
 
   const all = await dbService.getAllLeads(workspaceId);
   const candidates = all
@@ -120,7 +153,9 @@ async function runFolderOutreach(opts) {
 
   const results = [];
   let enrolled = 0;
+  let budgetLeft = remainingBudget;
   for (const row of candidates) {
+    if (budgetLeft <= 0) break;
     // eslint-disable-next-line no-await-in-loop
     const r = await enrollLeadInAutoOutreach({
       leadKey: row.lead.key,
@@ -128,9 +163,13 @@ async function runFolderOutreach(opts) {
       reEnroll: false,
       tagLead: true,
       senderOfferKey: settings.senderOfferKey || '',
+      _remainingBudget: budgetLeft,
     });
     results.push(r);
-    if (r.enrolled) enrolled += 1;
+    if (r.enrolled) {
+      enrolled += 1;
+      if (r.budgetConsumed) budgetLeft = Math.max(0, budgetLeft - 1);
+    }
   }
 
   const runAt = new Date().toISOString();
@@ -151,6 +190,8 @@ async function runFolderOutreach(opts) {
     folderName: folder.name || '',
     settings: outreachNext,
     results,
+    dailyCap: AUTO_OUTREACH_DAILY_CAP,
+    remainingBudget: budgetLeft,
   };
 }
 
@@ -192,6 +233,7 @@ module.exports = {
   DEFAULT_FOLDER_OUTREACH,
   MAX_GHL_GOAL_LEN,
   MAX_GHL_WORKFLOW_PROMPT_LEN,
+  clampMaxLeads,
   normalizeFolderOutreachSettings,
   loadFolderOutreachFromFolder,
   leadEligibleForFolderOutreach,

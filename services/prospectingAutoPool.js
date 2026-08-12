@@ -6,9 +6,11 @@ const { scoreLeadRecord } = require('./opportunityScore');
 const { scoreLocalProspect } = require('./localProspectScore');
 const {
   AUTO_OUTREACH_CAMPAIGN,
+  AUTO_OUTREACH_DAILY_CAP,
   isActiveProspecting,
   isActiveCadence,
   enrollLeadInAutoOutreach,
+  remainingAutoOutreachDailyBudget,
 } = require('./prospectingEnroll');
 
 const DEFAULT_AUTO_POOL = {
@@ -19,13 +21,19 @@ const DEFAULT_AUTO_POOL = {
   senderOfferKey: '',
 };
 
+function clampAutoPoolMaxLeads(n) {
+  const maxLeads = parseInt(n, 10);
+  return Number.isFinite(maxLeads)
+    ? Math.max(1, Math.min(AUTO_OUTREACH_DAILY_CAP, maxLeads))
+    : DEFAULT_AUTO_POOL.maxLeads;
+}
+
 function normalizeAutoPoolSettings(raw) {
   const s = raw && typeof raw === 'object' ? raw : {};
-  const maxLeads = parseInt(s.maxLeads, 10);
   const minScore = s.minScore != null && s.minScore !== '' ? parseFloat(s.minScore) : null;
   return {
     enabled: s.enabled === true,
-    maxLeads: Number.isFinite(maxLeads) ? Math.max(1, Math.min(200, maxLeads)) : DEFAULT_AUTO_POOL.maxLeads,
+    maxLeads: clampAutoPoolMaxLeads(s.maxLeads),
     minScore: Number.isFinite(minScore) ? minScore : null,
     tier: String(s.tier || DEFAULT_AUTO_POOL.tier).trim() || DEFAULT_AUTO_POOL.tier,
     senderOfferKey: String(s.senderOfferKey || '').trim(),
@@ -73,10 +81,38 @@ async function runAutoPool(opts) {
   const workspaceId = String(opts.workspaceId || 'default').trim() || 'default';
   const ws = (await dbService.getWorkspace(workspaceId)) || { id: workspaceId };
   const settings = normalizeAutoPoolSettings(opts.settings || loadAutoPoolFromWorkspace(ws));
-  const cap =
-    typeof opts.maxLeads === 'number'
-      ? Math.max(1, Math.min(200, opts.maxLeads))
-      : settings.maxLeads;
+  const requestedCap =
+    typeof opts.maxLeads === 'number' ? clampAutoPoolMaxLeads(opts.maxLeads) : settings.maxLeads;
+  const remainingBudget = await remainingAutoOutreachDailyBudget(workspaceId);
+  const cap = Math.min(requestedCap, remainingBudget);
+
+  if (cap <= 0) {
+    const runAt = new Date().toISOString();
+    const autoPoolNext = {
+      ...settings,
+      lastRunAt: runAt,
+      lastEnrolled: 0,
+      lastCandidateCount: 0,
+      lastSkippedReason: 'daily_cap_reached',
+    };
+    await dbService.saveWorkspace(workspaceId, {
+      ...ws,
+      prospecting: {
+        ...(ws.prospecting && typeof ws.prospecting === 'object' ? ws.prospecting : {}),
+        autoPool: autoPoolNext,
+      },
+    });
+    return {
+      enrolled: 0,
+      candidates: 0,
+      campaign: AUTO_OUTREACH_CAMPAIGN,
+      settings: autoPoolNext,
+      results: [],
+      dailyCap: AUTO_OUTREACH_DAILY_CAP,
+      remainingBudget: 0,
+      skippedReason: 'daily_cap_reached',
+    };
+  }
 
   const all = await dbService.getAllLeads(workspaceId);
   const candidates = all
@@ -87,7 +123,9 @@ async function runAutoPool(opts) {
 
   const results = [];
   let enrolled = 0;
+  let budgetLeft = remainingBudget;
   for (const row of candidates) {
+    if (budgetLeft <= 0) break;
     // eslint-disable-next-line no-await-in-loop
     const r = await enrollLeadInAutoOutreach({
       leadKey: row.lead.key,
@@ -95,9 +133,13 @@ async function runAutoPool(opts) {
       reEnroll: false,
       tagLead: true,
       senderOfferKey: settings.senderOfferKey || '',
+      _remainingBudget: budgetLeft,
     });
     results.push(r);
-    if (r.enrolled) enrolled += 1;
+    if (r.enrolled) {
+      enrolled += 1;
+      if (r.budgetConsumed) budgetLeft = Math.max(0, budgetLeft - 1);
+    }
   }
 
   const runAt = new Date().toISOString();
@@ -121,11 +163,14 @@ async function runAutoPool(opts) {
     campaign: AUTO_OUTREACH_CAMPAIGN,
     settings: autoPoolNext,
     results,
+    dailyCap: AUTO_OUTREACH_DAILY_CAP,
+    remainingBudget: budgetLeft,
   };
 }
 
 module.exports = {
   DEFAULT_AUTO_POOL,
+  clampAutoPoolMaxLeads,
   normalizeAutoPoolSettings,
   loadAutoPoolFromWorkspace,
   leadEligibleForPool,

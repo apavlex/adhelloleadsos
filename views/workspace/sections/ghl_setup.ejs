@@ -15,7 +15,7 @@
     <header class="mb-5">
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Automation</p>
       <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white mb-1">Auto outreach pool</h2>
-      <p class="text-sm text-brand-muted leading-relaxed">Daily job picks top Hot leads (by score), tags <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">auto-outreach</code>, and syncs each contact to GHL. Your GHL workflow (email, SMS, voicemail/RVM, etc.) runs when that tag is added — configure it once in GHL.</p>
+      <p class="text-sm text-brand-muted leading-relaxed">Daily job picks top Hot leads (by score), tags <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">auto-outreach</code>, and syncs each contact to GHL. Your GHL workflow (email, SMS, voicemail/RVM, etc.) runs when that tag is added — configure it once in GHL. To avoid spam flags, AdHello never enrolls more than <strong class="text-brand-dark dark:text-white">100 leads per workspace per day</strong> across auto-pool, folder outreach, and bulk enroll.</p>
       <p class="text-xs text-brand-muted leading-relaxed mt-2"><strong class="text-brand-dark dark:text-white">GHL setup:</strong> create an automation workflow triggered by <strong>Contact tag added</strong> → tag name <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">auto-outreach</code>. Add your email, SMS, and RVM/voicemail steps there (editable anytime in GHL).</p>
       <p class="text-xs text-brand-muted leading-relaxed mt-2"><strong class="text-brand-dark dark:text-white">Per-folder outreach:</strong> enable <strong>Auto outreach</strong> on any folder under Prospecting → Folders. Pick a <strong>sender business profile</strong> (Workspace → Scripts / Offers) so GHL knows which of your businesses is reaching out. AdHello syncs <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">AdHello Sender Business</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">AdHello Sender Pitch</code>, and related fields — plus phone line type for SMS branching.</p>
     </header>
@@ -25,8 +25,8 @@
         <span class="text-sm font-semibold text-brand-dark dark:text-white">Enable auto-pool (runs daily)</span>
       </label>
       <label class="block">
-        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Max leads per run</span>
-        <input type="number" id="autoPoolMaxLeads" min="1" max="200" value="<%= _autoPool.maxLeads != null ? _autoPool.maxLeads : 50 %>" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" />
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Max leads per run (≤100/day workspace)</span>
+        <input type="number" id="autoPoolMaxLeads" min="1" max="100" value="<%= _autoPool.maxLeads != null ? Math.min(100, _autoPool.maxLeads) : 50 %>" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" />
       </label>
       <label class="block">
         <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Tier filter</span>

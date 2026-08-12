@@ -206,6 +206,47 @@ test('enrollLeadInAutoOutreach blocks active other cadence', async () => {
   }
 });
 
+test('normalizeAutoPoolSettings caps maxLeads at 100 for GHL spam safety', () => {
+  const s = normalizeAutoPoolSettings({ enabled: true, maxLeads: 500 });
+  assert.equal(s.maxLeads, 100);
+  assert.equal(normalizeAutoPoolSettings({ maxLeads: 0 }).maxLeads, 1);
+});
+
+test('utcDayKey and leadAutoOutreachEnrolledOnDay detect same UTC day', () => {
+  const {
+    utcDayKey,
+    leadAutoOutreachEnrolledOnDay,
+    AUTO_OUTREACH_DAILY_CAP,
+  } = require('../services/prospectingEnroll');
+  assert.equal(AUTO_OUTREACH_DAILY_CAP, 100);
+  const day = utcDayKey('2026-08-12T15:00:00.000Z');
+  assert.equal(day, '2026-08-12');
+  assert.equal(
+    leadAutoOutreachEnrolledOnDay(
+      {
+        prospecting: {
+          campaign: AUTO_OUTREACH_CAMPAIGN,
+          lastEnrolledAt: '2026-08-12T01:00:00.000Z',
+        },
+      },
+      day,
+    ),
+    true,
+  );
+  assert.equal(
+    leadAutoOutreachEnrolledOnDay(
+      {
+        prospecting: {
+          campaign: AUTO_OUTREACH_CAMPAIGN,
+          lastEnrolledAt: '2026-08-11T23:00:00.000Z',
+        },
+      },
+      day,
+    ),
+    false,
+  );
+});
+
 test('auto-pool eligibility skips enrolled and closed leads', () => {
   const settings = normalizeAutoPoolSettings({ tier: 'Hot', maxLeads: 10 });
   const hot = {

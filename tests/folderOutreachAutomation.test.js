@@ -12,7 +12,7 @@ const { valuesFromLead } = require('../services/ghlPhoneLineFields');
 test('normalizeFolderOutreachSettings applies defaults', () => {
   const s = normalizeFolderOutreachSettings({ enabled: true, maxLeads: 999, smsOnly: true });
   assert.equal(s.enabled, true);
-  assert.equal(s.maxLeads, 200);
+  assert.equal(s.maxLeads, 100);
   assert.equal(s.smsOnly, true);
   assert.equal(s.tier, '');
   assert.equal(s.ghlGoal, '');

@@ -356,7 +356,7 @@
     <div id="folderOutreachBackdrop" class="absolute inset-0 bg-brand-dark/60 backdrop-blur-sm cursor-pointer" tabindex="-1"></div>
     <div class="relative max-w-lg w-full max-h-[90vh] overflow-y-auto rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-8 shadow-2xl z-10">
       <h2 id="folderOutreachTitle" class="font-display font-black text-xl text-brand-dark dark:text-white mb-1">Folder auto outreach</h2>
-      <p id="folderOutreachSubtitle" class="text-sm text-brand-muted mb-2">Enrolls leads in this folder into your GHL <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">auto-outreach</code> workflow daily. Phone line type (Mobile vs Landline) syncs to GHL for SMS branching.</p>
+      <p id="folderOutreachSubtitle" class="text-sm text-brand-muted mb-2">Enrolls leads in this folder into your GHL <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">auto-outreach</code> workflow daily. Phone line type (Mobile vs Landline) syncs to GHL for SMS branching. Workspace cap: <strong class="text-brand-dark dark:text-white">100 enrolls/day</strong> across all auto outreach (avoids GHL spam flags).</p>
       <p class="text-xs text-brand-muted mb-5">Use your GHL audit widget link in the workflow — AdHello audit is not required.</p>
       <input type="hidden" id="folderOutreachKey" value="" />
       <div class="space-y-4">
@@ -365,8 +365,9 @@
           Enable daily auto outreach for this folder
         </label>
         <div>
-          <label for="folderOutreachMaxLeads" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Max leads per day</label>
-          <input type="number" id="folderOutreachMaxLeads" min="1" max="200" value="25" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
+          <label for="folderOutreachMaxLeads" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Max leads per day (folder)</label>
+          <input type="number" id="folderOutreachMaxLeads" min="1" max="100" value="25" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
+          <p class="mt-1 text-[10px] text-brand-muted">Hard workspace limit is 100/day shared with auto-pool &amp; bulk enroll.</p>
         </div>
         <div>
           <label for="folderOutreachTier" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Prospect tier (optional)</label>
@@ -715,7 +716,7 @@
       return {
         folderKey: folderKey,
         enabled: !!($('folderOutreachEnabled') && $('folderOutreachEnabled').checked),
-        maxLeads: parseInt(($('folderOutreachMaxLeads') && $('folderOutreachMaxLeads').value) || '25', 10) || 25,
+        maxLeads: Math.min(100, Math.max(1, parseInt(($('folderOutreachMaxLeads') && $('folderOutreachMaxLeads').value) || '25', 10) || 25)),
         tier: ($('folderOutreachTier') && $('folderOutreachTier').value) || '',
         minScore: ($('folderOutreachMinScore') && $('folderOutreachMinScore').value) || '',
         smsOnly: !!($('folderOutreachSmsOnly') && $('folderOutreachSmsOnly').checked),
