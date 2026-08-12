@@ -422,6 +422,17 @@
             <input id="focus-followup-at" type="datetime-local" class="gcal-datetime-value sr-only" tabindex="-1" aria-hidden="true" />
           </div>
         </div>
+        <div id="focus-quick-task-strip" class="rounded-xl border border-brand-border/70 dark:border-white/10 bg-white/60 dark:bg-slate-900/40 p-3 space-y-2">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Quick task</p>
+            <a href="/tasks" class="text-[10px] font-bold text-brand-yellow hover:underline">Tasks</a>
+          </div>
+          <div class="flex flex-col sm:flex-row gap-2">
+            <input type="text" id="focus-quick-task-title" maxlength="200" placeholder="e.g. Email pricing deck after this call" class="flex-1 rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-brand-dark dark:text-white" />
+            <button type="button" id="focus-btn-add-task" class="btn-pill shrink-0 bg-brand-yellow text-brand-dark px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:brightness-95 transition-colors">Add</button>
+          </div>
+          <p id="focus-quick-task-hint" class="hidden text-[11px] text-brand-muted" role="status" aria-live="polite"></p>
+        </div>
         <p id="focus-outcome-feedback" class="min-h-[1rem] text-[11px] text-brand-muted"></p>
         <div class="focus-secondary-actions flex flex-col sm:flex-row flex-wrap gap-3 w-full">
         <button type="button" id="focus-btn-back-secondary" disabled class="btn-pill border-2 border-brand-border dark:border-white/15 bg-brand-cream/30 dark:bg-slate-800/50 flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 hover:border-brand-yellow/40 disabled:opacity-40 disabled:pointer-events-none" title="Return to the previous lead you viewed">Go back</button>
@@ -485,6 +496,7 @@
   <script src="/js/lead-send-info.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
   <script src="/js/lead-rapidapi-enrich.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
   <script src="/js/gcal-datetime-picker.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
+  <script src="/js/quick-add-task.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
   <script>
     try {
       window.WORKSPACE_TAGS = JSON.parse(document.getElementById('workspace-tags-json').textContent || '[]');
@@ -586,6 +598,9 @@
     var elTone = document.getElementById('focus-tone');
     var btnOpenDialer = document.getElementById('focus-btn-open-dialer');
     var btnAddMailList = document.getElementById('focus-btn-add-mail-list');
+    var btnAddTask = document.getElementById('focus-btn-add-task');
+    var elQuickTaskTitle = document.getElementById('focus-quick-task-title');
+    var elQuickTaskHint = document.getElementById('focus-quick-task-hint');
     var focusLinkMailListToday = document.getElementById('focus-link-mail-list-today');
     var elBodyLabel = document.getElementById('focus-body-label');
     var btnSaveScript = document.getElementById('focus-save-script');
@@ -3515,6 +3530,51 @@
             setOutcomeFeedback((err && err.message) || 'Could not add to mail list.', true);
             syncFocusMailListBtn(lead);
           });
+      });
+    }
+    if (btnAddTask && elQuickTaskTitle) {
+      function submitFocusQuickTask() {
+        var lead = currentLead();
+        var title = String(elQuickTaskTitle.value || '').trim();
+        if (!title) {
+          if (elQuickTaskHint) {
+            elQuickTaskHint.textContent = 'Enter a task description.';
+            elQuickTaskHint.classList.remove('hidden');
+          }
+          return;
+        }
+        if (typeof window.adhelloCreateManualTask !== 'function') {
+          setOutcomeFeedback('Task helper unavailable.', true);
+          return;
+        }
+        btnAddTask.disabled = true;
+        if (elQuickTaskHint) {
+          elQuickTaskHint.textContent = 'Saving…';
+          elQuickTaskHint.classList.remove('hidden');
+        }
+        window.adhelloCreateManualTask({
+          title: title,
+          leadKey: lead && lead.key ? focusLeadKeyParam(lead) : null,
+        })
+          .then(function () {
+            elQuickTaskTitle.value = '';
+            if (elQuickTaskHint) elQuickTaskHint.textContent = 'Saved to Tasks.';
+            setOutcomeFeedback('Task saved to Tasks.', false);
+          })
+          .catch(function (err) {
+            var msg = (err && err.message) || 'Could not save task.';
+            if (elQuickTaskHint) elQuickTaskHint.textContent = msg;
+            setOutcomeFeedback(msg, true);
+          })
+          .finally(function () {
+            btnAddTask.disabled = false;
+          });
+      }
+      btnAddTask.addEventListener('click', submitFocusQuickTask);
+      elQuickTaskTitle.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' || e.metaKey || e.ctrlKey || e.altKey) return;
+        e.preventDefault();
+        submitFocusQuickTask();
       });
     }
     if (btnMobileCall) {

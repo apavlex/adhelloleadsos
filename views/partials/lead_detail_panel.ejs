@@ -792,6 +792,16 @@
         </div>
       </section>
 
+      <section id="leadPanelQuickTaskSection" class="lead-panel-widget lead-panel-widget--plain">
+        <h3 class="lead-panel-widget__title lead-panel-widget__title--muted">Quick task</h3>
+        <p class="lead-panel-widget__lede">Add a reminder while reviewing this lead — it appears on <a href="/tasks" class="text-brand-yellow font-bold hover:underline">Tasks</a> only (not cadence or Today automation).</p>
+        <div class="flex flex-col sm:flex-row gap-2">
+          <input type="text" id="leadQuickTaskTitle" placeholder="e.g. Send contract after pricing call" maxlength="200" class="flex-1 rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-brand-dark dark:text-white" />
+          <button type="button" id="leadQuickTaskSaveBtn" class="btn-pill shrink-0 bg-brand-yellow text-brand-dark px-5 py-2.5 text-[10px] font-black uppercase tracking-widest hover:brightness-95 transition-colors">Add to Tasks</button>
+        </div>
+        <p id="leadQuickTaskHint" class="text-[11px] text-brand-muted hidden mt-2" role="status" aria-live="polite"></p>
+      </section>
+
       <section id="leadPanelHistorySection" class="lead-panel-widget lead-panel-widget--plain">
         <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
           <h3 class="lead-panel-widget__title lead-panel-widget__title--muted mb-0">Activity &amp; history</h3>
@@ -896,6 +906,7 @@
     </div><!-- /leadPanelSheet -->
   </div><!-- /mobilePanel -->
 
+  <script src="/js/quick-add-task.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
   <script src="/js/lead-callback-task.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
 
   <!-- Website Preview Tooltip -->

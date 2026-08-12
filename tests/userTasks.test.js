@@ -6,6 +6,7 @@ const {
   isAutomationTaskTitle,
   TASK_SOURCE_CADENCE,
   TASK_SOURCE_MANUAL,
+  TASK_SOURCE_DISPOSITION,
 } = require('../services/userTasks');
 
 describe('userTasks manual filter', () => {
@@ -21,6 +22,10 @@ describe('userTasks manual filter', () => {
     assert.equal(isManualUserTask({ title: 'Follow up', source: TASK_SOURCE_MANUAL }), true);
     assert.equal(
       isManualUserTask({ title: 'Anything', source: TASK_SOURCE_CADENCE }),
+      false,
+    );
+    assert.equal(
+      isManualUserTask({ title: 'Auto retry', source: TASK_SOURCE_DISPOSITION }),
       false,
     );
   });

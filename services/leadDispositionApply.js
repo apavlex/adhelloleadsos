@@ -5,7 +5,11 @@ const dbService = require('./database');
 const signalwire = require('./signalwire');
 const sequenceEngine = require('./sequenceEngine');
 const { autoAttachCadenceIfNeeded } = require('./leadCadence');
-const { upsertOpenTaskForLead } = require('./userTasks');
+const {
+  upsertOpenTaskForLead,
+  TASK_SOURCE_MANUAL,
+  TASK_SOURCE_DISPOSITION,
+} = require('./userTasks');
 const { resolveFollowUpForDisposition } = require('./dispositionFollowUp');
 const { quickLogLabelForDisposition } = require('./quickLogConfig');
 const { triggerGhlProspectSync } = require('./ghlProspectSync');
@@ -55,6 +59,10 @@ function workspaceCallerNumbers(ws) {
     ? telephony.numberBank.map((n) => signalwire.normalizePhone(n)).filter(Boolean)
     : [];
   return [...new Set([...fromEntries, ...fromLegacy])];
+}
+
+function resolveFollowUpTaskSource(dispositionSource) {
+  return dispositionSource === 'auto_dial' ? TASK_SOURCE_DISPOSITION : TASK_SOURCE_MANUAL;
 }
 
 /**
@@ -219,7 +227,7 @@ async function applyLeadDisposition(ctx) {
         scheduledAt: followUp.scheduledAt,
         leadKey: fullKey,
         preferredTaskId: code === 'callback' ? lead.callbackTaskId || null : null,
-        source: 'disposition',
+        source: resolveFollowUpTaskSource(source),
       });
       if (code === 'callback' && followUpTask && followUpTask.id) {
         patch.callbackTaskId = followUpTask.id;
@@ -281,4 +289,5 @@ module.exports = {
   applyLeadDisposition,
   applyAutoNoAnswerAfterDial,
   humanizeDisposition,
+  resolveFollowUpTaskSource,
 };
