@@ -147,7 +147,9 @@
               <p class="text-xs font-bold text-brand-dark leading-snug break-words"><%= t.title %></p>
               <div class="flex items-center justify-between mt-2">
                 <span class="text-[9px] font-bold text-brand-muted"><%= t.column %></span>
-                <button type="button" class="ceo-task-del text-[9px] font-black uppercase text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity hover:underline">✕</button>
+                <button type="button" class="ceo-task-del shrink-0 w-6 h-6 rounded-md border border-transparent hover:border-rose-200 hover:bg-rose-50 text-rose-500 flex items-center justify-center transition-colors" aria-label="Delete task" title="Delete task">
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
               </div>
             </li>
             <% }); %>
@@ -282,6 +284,8 @@ document.addEventListener('DOMContentLoaded', function() {
         group: 'ceo-tasks',
         animation: 150,
         ghostClass: 'opacity-40',
+        filter: '.ceo-task-del',
+        preventOnFilter: false,
         onEnd: function(evt) {
           var card = evt.item;
           var taskId = card.getAttribute('data-task-id');
@@ -330,7 +334,7 @@ document.addEventListener('DOMContentLoaded', function() {
             var li = document.createElement('li');
             li.className = 'ceo-task-card min-w-0 overflow-hidden p-3 bg-white rounded-lg border border-brand-border/20 shadow-sm cursor-grab active:cursor-grabbing group';
             li.setAttribute('data-task-id', d.task.id);
-            li.innerHTML = '<p class="text-xs font-bold text-brand-dark leading-snug break-words">' + escapeHtml(d.task.title) + '</p><div class="flex items-center justify-between mt-2"><span class="text-[9px] font-bold text-brand-muted">' + d.task.column + '</span><button type="button" class="ceo-task-del text-[9px] font-black uppercase text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity hover:underline">✕</button></div>';
+            li.innerHTML = '<p class="text-xs font-bold text-brand-dark leading-snug break-words">' + escapeHtml(d.task.title) + '</p><div class="flex items-center justify-between mt-2"><span class="text-[9px] font-bold text-brand-muted">' + d.task.column + '</span><button type="button" class="ceo-task-del shrink-0 w-6 h-6 rounded-md border border-transparent hover:border-rose-200 hover:bg-rose-50 text-rose-500 flex items-center justify-center transition-colors" aria-label="Delete task" title="Delete task"><svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button></div>';
             col.appendChild(li);
             // Update count
             var badge = col.closest('.ceo-kanban-col').querySelector('.ceo-col-count');
@@ -345,11 +349,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // ── Delete Task ──
   function attachDelHandler(btn) {
-    btn.addEventListener('click', function() {
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
       var card = btn.closest('.ceo-task-card');
-      var taskId = card.getAttribute('data-task-id');
+      var taskId = card && card.getAttribute('data-task-id');
       if (!taskId) return;
-      fetch('/tasks/api/' + encodeURIComponent(taskId), { method: 'DELETE' })
+      if (!window.confirm('Remove this task?')) return;
+      fetch('/tasks/api/' + encodeURIComponent(taskId), { method: 'DELETE', headers: { Accept: 'application/json' } })
         .then(function(r) { return r.json(); })
         .then(function(d) {
           if (d.success) {
@@ -359,8 +366,10 @@ document.addEventListener('DOMContentLoaded', function() {
               var badge = col.querySelector('.ceo-col-count');
               if (badge) badge.textContent = col.querySelectorAll('.ceo-task-card').length;
             }
+          } else {
+            window.alert(d.error || 'Could not delete task.');
           }
-        }).catch(function(e) { console.error('Delete task failed:', e); });
+        }).catch(function(e) { console.error('Delete task failed:', e); window.alert('Could not delete task.'); });
     });
   }
   document.querySelectorAll('.ceo-task-del').forEach(attachDelHandler);
