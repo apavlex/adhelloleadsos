@@ -13,6 +13,7 @@ const {
   enrollLeadInAutoOutreach,
   remainingAutoOutreachDailyBudget,
 } = require('./prospectingEnroll');
+const { reviewLeadIcpFit, DEFAULT_MIN_ICP_SCORE } = require('./icpFitReview');
 
 const DEFAULT_FOLDER_OUTREACH = {
   enabled: false,
@@ -23,6 +24,10 @@ const DEFAULT_FOLDER_OUTREACH = {
   senderOfferKey: '',
   ghlGoal: '',
   ghlWorkflowPrompt: '',
+  aiIcpReview: true,
+  minIcpScore: DEFAULT_MIN_ICP_SCORE,
+  serviceCities: '',
+  serviceStates: '',
 };
 
 const MAX_GHL_GOAL_LEN = 2000;
@@ -41,6 +46,11 @@ function clampMaxLeads(n) {
     : DEFAULT_FOLDER_OUTREACH.maxLeads;
 }
 
+function clampMinIcpScore(n) {
+  const score = parseFloat(n);
+  return Number.isFinite(score) ? Math.max(1, Math.min(10, score)) : DEFAULT_MIN_ICP_SCORE;
+}
+
 function normalizeFolderOutreachSettings(raw) {
   const s = raw && typeof raw === 'object' ? raw : {};
   const minScore = s.minScore != null && s.minScore !== '' ? parseFloat(s.minScore) : null;
@@ -53,9 +63,14 @@ function normalizeFolderOutreachSettings(raw) {
     senderOfferKey: String(s.senderOfferKey || '').trim(),
     ghlGoal: trimStringField(s.ghlGoal, MAX_GHL_GOAL_LEN),
     ghlWorkflowPrompt: trimStringField(s.ghlWorkflowPrompt, MAX_GHL_WORKFLOW_PROMPT_LEN),
+    aiIcpReview: s.aiIcpReview !== false,
+    minIcpScore: clampMinIcpScore(s.minIcpScore),
+    serviceCities: trimStringField(s.serviceCities, 400),
+    serviceStates: trimStringField(s.serviceStates, 80),
     lastRunAt: s.lastRunAt ? String(s.lastRunAt) : '',
     lastEnrolled: Number.isFinite(Number(s.lastEnrolled)) ? Number(s.lastEnrolled) : 0,
     lastCandidateCount: Number.isFinite(Number(s.lastCandidateCount)) ? Number(s.lastCandidateCount) : 0,
+    lastIcpRejected: Number.isFinite(Number(s.lastIcpRejected)) ? Number(s.lastIcpRejected) : 0,
   };
 }
 
@@ -145,17 +160,43 @@ async function runFolderOutreach(opts) {
   }
 
   const all = await dbService.getAllLeads(workspaceId);
+  const ws = (await dbService.getWorkspace(workspaceId)) || { id: workspaceId };
+  const poolSize = Math.min(150, Math.max(cap * 5, cap));
   const candidates = all
     .filter((l) => leadEligibleForFolderOutreach(l, settings, folderKey))
     .map((l) => ({ lead: l, rank: rankLeadForFolderOutreach(l) }))
     .sort((a, b) => b.rank - a.rank)
-    .slice(0, cap);
+    .slice(0, poolSize);
 
   const results = [];
   let enrolled = 0;
+  let icpRejected = 0;
   let budgetLeft = remainingBudget;
   for (const row of candidates) {
-    if (budgetLeft <= 0) break;
+    if (enrolled >= cap || budgetLeft <= 0) break;
+
+    if (settings.aiIcpReview) {
+      // eslint-disable-next-line no-await-in-loop
+      const icp = await reviewLeadIcpFit({
+        lead: row.lead,
+        workspace: ws,
+        folder,
+        settings,
+        minIcpScore: settings.minIcpScore,
+        persist: true,
+      });
+      if (!icp.passes) {
+        icpRejected += 1;
+        results.push({
+          enrolled: false,
+          reason: 'icp_rejected',
+          leadKey: row.lead.key,
+          icpReview: icp,
+        });
+        continue;
+      }
+    }
+
     // eslint-disable-next-line no-await-in-loop
     const r = await enrollLeadInAutoOutreach({
       leadKey: row.lead.key,
@@ -179,12 +220,14 @@ async function runFolderOutreach(opts) {
     lastRunAt: runAt,
     lastEnrolled: enrolled,
     lastCandidateCount: candidates.length,
+    lastIcpRejected: icpRejected,
   };
   await dbService.updateFolder(workspaceId, folderKey, { outreachAutomation: outreachNext });
 
   return {
     enrolled,
     candidates: candidates.length,
+    icpRejected,
     campaign: AUTO_OUTREACH_CAMPAIGN,
     folderKey,
     folderName: folder.name || '',

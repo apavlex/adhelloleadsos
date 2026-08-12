@@ -44,6 +44,8 @@ function normalizeOfferCatalogEntry(raw, existingKeys) {
     senderBusinessName: String(raw.senderBusinessName || '').trim().slice(0, MAX_LABEL_LEN),
     vertical: String(raw.vertical || '').trim().slice(0, 80),
     auditLink: String(raw.auditLink || '').trim().slice(0, 500),
+    serviceCities: String(raw.serviceCities || '').trim().slice(0, 400),
+    serviceStates: String(raw.serviceStates || '').trim().slice(0, 80),
   };
 }
 
@@ -121,6 +123,12 @@ function patchOfferOutreachFields(row, profile) {
     auditLink: Object.prototype.hasOwnProperty.call(p, 'auditLink')
       ? String(p.auditLink || '').trim().slice(0, 500)
       : String(base.auditLink || '').trim().slice(0, 500),
+    serviceCities: Object.prototype.hasOwnProperty.call(p, 'serviceCities')
+      ? String(p.serviceCities || '').trim().slice(0, 400)
+      : String(base.serviceCities || '').trim().slice(0, 400),
+    serviceStates: Object.prototype.hasOwnProperty.call(p, 'serviceStates')
+      ? String(p.serviceStates || '').trim().slice(0, 80)
+      : String(base.serviceStates || '').trim().slice(0, 80),
   };
 }
 

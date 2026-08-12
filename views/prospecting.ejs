@@ -386,6 +386,26 @@
           <input type="checkbox" id="folderOutreachSmsOnly" class="rounded border-brand-border mt-0.5" />
           <span><strong class="font-bold">SMS-ready only</strong> — skip landlines (Mobile / VoIP). Best when your GHL workflow sends text first.</span>
         </label>
+        <label class="flex items-start gap-2 text-sm text-brand-dark dark:text-white">
+          <input type="checkbox" id="folderOutreachAiIcpReview" class="rounded border-brand-border mt-0.5" checked />
+          <span><strong class="font-bold">AI A+ review before drip</strong> — only enroll leads that match this offer + service area (score ≥ min ICP). Wrong niche/geo is skipped.</span>
+        </label>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label for="folderOutreachMinIcpScore" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min ICP score (A+ gate)</label>
+            <input type="number" id="folderOutreachMinIcpScore" min="1" max="10" step="0.5" value="8" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
+            <p class="mt-1 text-[10px] text-brand-muted">8 = A, 9+ = A+</p>
+          </div>
+          <div>
+            <label for="folderOutreachServiceStates" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Service states</label>
+            <input type="text" id="folderOutreachServiceStates" placeholder="e.g. CA, NV" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
+          </div>
+        </div>
+        <div>
+          <label for="folderOutreachServiceCities" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Service cities (optional)</label>
+          <input type="text" id="folderOutreachServiceCities" placeholder="e.g. Sacramento, Roseville" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
+          <p class="mt-1 text-[10px] text-brand-muted">Blank = use workspace ICP city/state from Today / Find presets.</p>
+        </div>
         <div>
           <label for="folderOutreachSenderOfferKey" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Sender business profile</label>
           <select id="folderOutreachSenderOfferKey" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold">
@@ -661,6 +681,10 @@
         senderOfferKey: oa.senderOfferKey || '',
         ghlGoal: oa.ghlGoal || '',
         ghlWorkflowPrompt: oa.ghlWorkflowPrompt || '',
+        aiIcpReview: oa.aiIcpReview !== false,
+        minIcpScore: oa.minIcpScore != null ? oa.minIcpScore : 8,
+        serviceCities: oa.serviceCities || '',
+        serviceStates: oa.serviceStates || '',
       };
     }
 
@@ -702,6 +726,10 @@
       if ($('folderOutreachTier')) $('folderOutreachTier').value = s.tier || '';
       if ($('folderOutreachMinScore')) $('folderOutreachMinScore').value = s.minScore !== '' ? String(s.minScore) : '';
       if ($('folderOutreachSmsOnly')) $('folderOutreachSmsOnly').checked = !!s.smsOnly;
+      if ($('folderOutreachAiIcpReview')) $('folderOutreachAiIcpReview').checked = s.aiIcpReview !== false;
+      if ($('folderOutreachMinIcpScore')) $('folderOutreachMinIcpScore').value = String(s.minIcpScore != null ? s.minIcpScore : 8);
+      if ($('folderOutreachServiceCities')) $('folderOutreachServiceCities').value = s.serviceCities || '';
+      if ($('folderOutreachServiceStates')) $('folderOutreachServiceStates').value = s.serviceStates || '';
       if ($('folderOutreachSenderOfferKey')) $('folderOutreachSenderOfferKey').value = s.senderOfferKey || '';
       if ($('folderOutreachGhlGoal')) $('folderOutreachGhlGoal').value = s.ghlGoal || '';
       if (s.ghlWorkflowPrompt) {
@@ -720,6 +748,10 @@
         tier: ($('folderOutreachTier') && $('folderOutreachTier').value) || '',
         minScore: ($('folderOutreachMinScore') && $('folderOutreachMinScore').value) || '',
         smsOnly: !!($('folderOutreachSmsOnly') && $('folderOutreachSmsOnly').checked),
+        aiIcpReview: !!($('folderOutreachAiIcpReview') && $('folderOutreachAiIcpReview').checked),
+        minIcpScore: parseFloat(($('folderOutreachMinIcpScore') && $('folderOutreachMinIcpScore').value) || '8') || 8,
+        serviceCities: ($('folderOutreachServiceCities') && $('folderOutreachServiceCities').value) || '',
+        serviceStates: ($('folderOutreachServiceStates') && $('folderOutreachServiceStates').value) || '',
         senderOfferKey: ($('folderOutreachSenderOfferKey') && $('folderOutreachSenderOfferKey').value) || '',
         ghlGoal: ($('folderOutreachGhlGoal') && $('folderOutreachGhlGoal').value) || '',
         ghlWorkflowPrompt: promptTa ? (promptTa.value || '') : '',

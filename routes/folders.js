@@ -143,9 +143,25 @@ router.post('/save-outreach-automation', async (req, res, next) => {
       ghlWorkflowPrompt: Object.prototype.hasOwnProperty.call(body, 'ghlWorkflowPrompt')
         ? String(body.ghlWorkflowPrompt || '').trim()
         : prev.ghlWorkflowPrompt,
+      aiIcpReview: Object.prototype.hasOwnProperty.call(body, 'aiIcpReview')
+        ? body.aiIcpReview === true ||
+          body.aiIcpReview === 'true' ||
+          body.aiIcpReview === 1 ||
+          body.aiIcpReview === '1'
+        : prev.aiIcpReview,
+      minIcpScore: Object.prototype.hasOwnProperty.call(body, 'minIcpScore')
+        ? body.minIcpScore
+        : prev.minIcpScore,
+      serviceCities: Object.prototype.hasOwnProperty.call(body, 'serviceCities')
+        ? String(body.serviceCities || '').trim()
+        : prev.serviceCities,
+      serviceStates: Object.prototype.hasOwnProperty.call(body, 'serviceStates')
+        ? String(body.serviceStates || '').trim()
+        : prev.serviceStates,
       lastRunAt: prev.lastRunAt,
       lastEnrolled: prev.lastEnrolled,
       lastCandidateCount: prev.lastCandidateCount,
+      lastIcpRejected: prev.lastIcpRejected,
     });
     const folder = await dbService.updateFolder(wid, folderKey, { outreachAutomation });
     res.json({ success: true, folder, outreachAutomation });

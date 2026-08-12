@@ -17,6 +17,14 @@ test('normalizeFolderOutreachSettings applies defaults', () => {
   assert.equal(s.tier, '');
   assert.equal(s.ghlGoal, '');
   assert.equal(s.ghlWorkflowPrompt, '');
+  assert.equal(s.aiIcpReview, true);
+  assert.equal(s.minIcpScore, 8);
+});
+
+test('normalizeFolderOutreachSettings can disable AI ICP review', () => {
+  const s = normalizeFolderOutreachSettings({ aiIcpReview: false, minIcpScore: 9.5 });
+  assert.equal(s.aiIcpReview, false);
+  assert.equal(s.minIcpScore, 9.5);
 });
 
 test('normalizeFolderOutreachSettings trims and caps ghlGoal and ghlWorkflowPrompt', () => {

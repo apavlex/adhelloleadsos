@@ -50,6 +50,22 @@
         </select>
         <span class="text-[11px] text-brand-muted mt-1 block">Which of your businesses reaches out when auto-pool enrolls leads. Configure offers under <a href="/workspace/scripts" class="underline">Workspace → Scripts</a>.</span>
       </label>
+      <label class="flex items-start gap-3 sm:col-span-2 cursor-pointer">
+        <input type="checkbox" id="autoPoolAiIcpReview" class="rounded border-brand-border mt-0.5" <%= _autoPool.aiIcpReview === false ? '' : 'checked' %> />
+        <span class="text-sm text-brand-dark dark:text-white"><strong class="font-bold">AI A+ review before drip</strong> — only enroll leads that match this offer + service area. Rejects wrong niche/geo before GHL tagging.</span>
+      </label>
+      <label class="block">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Min ICP score</span>
+        <input type="number" id="autoPoolMinIcpScore" min="1" max="10" step="0.5" value="<%= _autoPool.minIcpScore != null ? _autoPool.minIcpScore : 8 %>" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" />
+      </label>
+      <label class="block">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Service states</span>
+        <input type="text" id="autoPoolServiceStates" value="<%= _autoPool.serviceStates || '' %>" placeholder="e.g. CA, NV" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" />
+      </label>
+      <label class="block sm:col-span-2">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Service cities (optional)</span>
+        <input type="text" id="autoPoolServiceCities" value="<%= _autoPool.serviceCities || '' %>" placeholder="Blank = workspace ICP city" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" />
+      </label>
     </div>
     <div class="mt-5 flex flex-wrap gap-3">
       <button type="button" id="autoPoolSaveBtn" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-5 py-2.5 text-xs font-black uppercase tracking-widest hover:opacity-90">Save auto-pool</button>
@@ -57,7 +73,7 @@
     </div>
     <p id="autoPoolStatus" class="mt-3 text-xs text-brand-muted hidden" role="status"></p>
     <% if (_autoPool.lastRunAt) { %>
-    <p class="mt-2 text-[11px] text-brand-muted">Last run: <%= new Date(_autoPool.lastRunAt).toLocaleString() %> · enrolled <%= _autoPool.lastEnrolled != null ? _autoPool.lastEnrolled : 0 %></p>
+    <p class="mt-2 text-[11px] text-brand-muted">Last run: <%= new Date(_autoPool.lastRunAt).toLocaleString() %> · enrolled <%= _autoPool.lastEnrolled != null ? _autoPool.lastEnrolled : 0 %><% if (_autoPool.lastIcpRejected) { %> · ICP rejected <%= _autoPool.lastIcpRejected %><% } %></p>
     <% } %>
   </div>
 
@@ -222,6 +238,10 @@
       prospectingAutoPoolTier: (document.getElementById('autoPoolTier') || {}).value || 'Hot',
       prospectingAutoPoolMinScore: minRaw && minRaw.value !== '' ? minRaw.value : '',
       prospectingAutoPoolSenderOfferKey: (document.getElementById('autoPoolSenderOfferKey') || {}).value || '',
+      prospectingAutoPoolAiIcpReview: !!(document.getElementById('autoPoolAiIcpReview') && document.getElementById('autoPoolAiIcpReview').checked),
+      prospectingAutoPoolMinIcpScore: parseFloat((document.getElementById('autoPoolMinIcpScore') || {}).value) || 8,
+      prospectingAutoPoolServiceCities: (document.getElementById('autoPoolServiceCities') || {}).value || '',
+      prospectingAutoPoolServiceStates: (document.getElementById('autoPoolServiceStates') || {}).value || '',
     };
   }
   function setAutoPoolStatus(msg, ok) {

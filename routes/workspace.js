@@ -1261,6 +1261,22 @@ router.post('/settings', express.json(), async (req, res) => {
         if (Object.prototype.hasOwnProperty.call(req.body, 'prospectingAutoPoolSenderOfferKey')) {
           next.senderOfferKey = String(req.body.prospectingAutoPoolSenderOfferKey || '').trim();
         }
+        if (Object.prototype.hasOwnProperty.call(req.body, 'prospectingAutoPoolAiIcpReview')) {
+          next.aiIcpReview =
+            req.body.prospectingAutoPoolAiIcpReview === true ||
+            req.body.prospectingAutoPoolAiIcpReview === 'true' ||
+            req.body.prospectingAutoPoolAiIcpReview === 1 ||
+            req.body.prospectingAutoPoolAiIcpReview === '1';
+        }
+        if (Object.prototype.hasOwnProperty.call(req.body, 'prospectingAutoPoolMinIcpScore')) {
+          next.minIcpScore = req.body.prospectingAutoPoolMinIcpScore;
+        }
+        if (Object.prototype.hasOwnProperty.call(req.body, 'prospectingAutoPoolServiceCities')) {
+          next.serviceCities = String(req.body.prospectingAutoPoolServiceCities || '').trim();
+        }
+        if (Object.prototype.hasOwnProperty.call(req.body, 'prospectingAutoPoolServiceStates')) {
+          next.serviceStates = String(req.body.prospectingAutoPoolServiceStates || '').trim();
+        }
         prospecting.autoPool = normalizeAutoPoolSettings(next);
       }
       if (

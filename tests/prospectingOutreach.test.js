@@ -210,6 +210,8 @@ test('normalizeAutoPoolSettings caps maxLeads at 100 for GHL spam safety', () =>
   const s = normalizeAutoPoolSettings({ enabled: true, maxLeads: 500 });
   assert.equal(s.maxLeads, 100);
   assert.equal(normalizeAutoPoolSettings({ maxLeads: 0 }).maxLeads, 1);
+  assert.equal(s.aiIcpReview, true);
+  assert.equal(s.minIcpScore, 8);
 });
 
 test('utcDayKey and leadAutoOutreachEnrolledOnDay detect same UTC day', () => {

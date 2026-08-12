@@ -89,6 +89,8 @@ function resolveOutreachSenderProfile(workspace, lead, folder) {
   const vertical = String((entry && entry.vertical) || offerLabel || '').trim();
   const pitch = pitchFromOfferBlock(block);
   const auditLink = String((entry && entry.auditLink) || '').trim();
+  const serviceCities = String((entry && entry.serviceCities) || '').trim();
+  const serviceStates = String((entry && entry.serviceStates) || '').trim();
 
   return {
     offerKey: offerKey || '',
@@ -97,6 +99,8 @@ function resolveOutreachSenderProfile(workspace, lead, folder) {
     vertical,
     pitch,
     auditLink,
+    serviceCities,
+    serviceStates,
   };
 }
 

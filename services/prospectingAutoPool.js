@@ -12,6 +12,7 @@ const {
   enrollLeadInAutoOutreach,
   remainingAutoOutreachDailyBudget,
 } = require('./prospectingEnroll');
+const { reviewLeadIcpFit, DEFAULT_MIN_ICP_SCORE } = require('./icpFitReview');
 
 const DEFAULT_AUTO_POOL = {
   enabled: false,
@@ -19,6 +20,10 @@ const DEFAULT_AUTO_POOL = {
   minScore: null,
   tier: 'Hot',
   senderOfferKey: '',
+  aiIcpReview: true,
+  minIcpScore: DEFAULT_MIN_ICP_SCORE,
+  serviceCities: '',
+  serviceStates: '',
 };
 
 function clampAutoPoolMaxLeads(n) {
@@ -26,6 +31,11 @@ function clampAutoPoolMaxLeads(n) {
   return Number.isFinite(maxLeads)
     ? Math.max(1, Math.min(AUTO_OUTREACH_DAILY_CAP, maxLeads))
     : DEFAULT_AUTO_POOL.maxLeads;
+}
+
+function clampMinIcpScore(n) {
+  const score = parseFloat(n);
+  return Number.isFinite(score) ? Math.max(1, Math.min(10, score)) : DEFAULT_MIN_ICP_SCORE;
 }
 
 function normalizeAutoPoolSettings(raw) {
@@ -37,6 +47,10 @@ function normalizeAutoPoolSettings(raw) {
     minScore: Number.isFinite(minScore) ? minScore : null,
     tier: String(s.tier || DEFAULT_AUTO_POOL.tier).trim() || DEFAULT_AUTO_POOL.tier,
     senderOfferKey: String(s.senderOfferKey || '').trim(),
+    aiIcpReview: s.aiIcpReview !== false,
+    minIcpScore: clampMinIcpScore(s.minIcpScore),
+    serviceCities: String(s.serviceCities || '').trim().slice(0, 400),
+    serviceStates: String(s.serviceStates || '').trim().slice(0, 80),
   };
 }
 
@@ -115,17 +129,42 @@ async function runAutoPool(opts) {
   }
 
   const all = await dbService.getAllLeads(workspaceId);
+  const poolSize = Math.min(150, Math.max(cap * 5, cap));
   const candidates = all
     .filter((l) => leadEligibleForPool(l, settings))
     .map((l) => ({ lead: l, rank: rankLeadForPool(l) }))
     .sort((a, b) => b.rank - a.rank)
-    .slice(0, cap);
+    .slice(0, poolSize);
 
   const results = [];
   let enrolled = 0;
+  let icpRejected = 0;
   let budgetLeft = remainingBudget;
   for (const row of candidates) {
-    if (budgetLeft <= 0) break;
+    if (enrolled >= cap || budgetLeft <= 0) break;
+
+    if (settings.aiIcpReview) {
+      // eslint-disable-next-line no-await-in-loop
+      const icp = await reviewLeadIcpFit({
+        lead: row.lead,
+        workspace: ws,
+        folder: null,
+        settings,
+        minIcpScore: settings.minIcpScore,
+        persist: true,
+      });
+      if (!icp.passes) {
+        icpRejected += 1;
+        results.push({
+          enrolled: false,
+          reason: 'icp_rejected',
+          leadKey: row.lead.key,
+          icpReview: icp,
+        });
+        continue;
+      }
+    }
+
     // eslint-disable-next-line no-await-in-loop
     const r = await enrollLeadInAutoOutreach({
       leadKey: row.lead.key,
@@ -148,6 +187,7 @@ async function runAutoPool(opts) {
     lastRunAt: runAt,
     lastEnrolled: enrolled,
     lastCandidateCount: candidates.length,
+    lastIcpRejected: icpRejected,
   };
   await dbService.saveWorkspace(workspaceId, {
     ...ws,
@@ -160,6 +200,7 @@ async function runAutoPool(opts) {
   return {
     enrolled,
     candidates: candidates.length,
+    icpRejected,
     campaign: AUTO_OUTREACH_CAMPAIGN,
     settings: autoPoolNext,
     results,
