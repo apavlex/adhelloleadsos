@@ -90,6 +90,7 @@ async function applyWarmInboundRules({ leadKey, workspaceId, source }) {
         column: 'todo',
         scheduledAt: slaAt,
         leadKey: fullKey,
+        source: 'routing',
       });
     } catch (e) {
       console.warn('[leadRoutingRules] SLA task failed:', e && e.message);

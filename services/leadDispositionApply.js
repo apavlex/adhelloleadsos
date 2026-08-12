@@ -219,6 +219,7 @@ async function applyLeadDisposition(ctx) {
         scheduledAt: followUp.scheduledAt,
         leadKey: fullKey,
         preferredTaskId: code === 'callback' ? lead.callbackTaskId || null : null,
+        source: 'disposition',
       });
       if (code === 'callback' && followUpTask && followUpTask.id) {
         patch.callbackTaskId = followUpTask.id;

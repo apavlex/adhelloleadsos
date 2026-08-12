@@ -312,12 +312,6 @@
     clearId: 'navLeadSearchClear',
     formId: 'navLeadSearchForm',
   });
-  var sidebar = bindSearchInstance({
-    inputId: 'navLeadSearchInputSidebar',
-    dropdownId: 'navLeadSearchDropdownSidebar',
-    clearId: 'navLeadSearchClearSidebar',
-    formId: 'navLeadSearchFormSidebar',
-  });
   var mobile = bindSearchInstance({
     inputId: 'navLeadSearchInputMobile',
     dropdownId: 'navLeadSearchDropdownMobile',
@@ -326,7 +320,6 @@
   });
 
   if (desktop) instances.push(desktop);
-  if (sidebar) instances.push(sidebar);
   if (mobile) instances.push(mobile);
   if (!instances.length) return;
 
@@ -355,11 +348,7 @@
   }
 
   function focusPrimarySearch() {
-    var target =
-      sidebar ||
-      desktop ||
-      mobile ||
-      null;
+    var target = desktop || mobile || null;
     if (!target || !target.input) return;
     target.input.focus();
     if (String(target.input.value || '').trim()) {

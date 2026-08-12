@@ -121,6 +121,7 @@ async function ensureEngagementCallTask(workspaceId, lead, scheduledAt) {
     column: 'todo',
     scheduledAt: respondBy,
     leadKey: lead.key,
+    source: 'engagement',
   });
 }
 

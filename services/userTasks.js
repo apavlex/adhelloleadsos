@@ -3,6 +3,43 @@
  */
 const dbService = require('./database');
 
+const TASK_SOURCE_MANUAL = 'manual';
+const TASK_SOURCE_CADENCE = 'cadence';
+const TASK_SOURCE_ENGAGEMENT = 'engagement';
+const TASK_SOURCE_DISPOSITION = 'disposition';
+const TASK_SOURCE_ROUTING = 'routing';
+
+const AUTOMATION_TASK_SOURCES = new Set([
+  TASK_SOURCE_CADENCE,
+  TASK_SOURCE_ENGAGEMENT,
+  TASK_SOURCE_DISPOSITION,
+  TASK_SOURCE_ROUTING,
+]);
+
+/** Cadence step titles from sequenceEngine — legacy tasks may lack `source`. */
+function isAutomationTaskTitle(title) {
+  return /^\[(CALL|EMAIL|TEXT|SMS|DM|LINKEDIN|TASK|VOICEMAIL|POSTCARD|SOCIAL)/i.test(
+    String(title || '').trim(),
+  );
+}
+
+function normalizeTaskSource(raw) {
+  const s = String(raw || '').trim().toLowerCase();
+  return s || null;
+}
+
+function isManualUserTask(task) {
+  if (!task || typeof task !== 'object') return false;
+  const source = normalizeTaskSource(task.source);
+  if (source === TASK_SOURCE_MANUAL) return true;
+  if (source && AUTOMATION_TASK_SOURCES.has(source)) return false;
+  return !isAutomationTaskTitle(task.title);
+}
+
+function filterManualUserTasks(tasks) {
+  return (Array.isArray(tasks) ? tasks : []).filter(isManualUserTask);
+}
+
 function newTaskId() {
   return `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
@@ -58,6 +95,7 @@ async function upsertOpenTaskForLead(workspaceId, email, fields) {
   const preferredTaskId = fields.preferredTaskId
     ? String(fields.preferredTaskId).trim()
     : null;
+  const source = normalizeTaskSource(fields.source) || TASK_SOURCE_MANUAL;
 
   if (!leadKey) {
     return dbService.saveUserTask(workspaceId, email, {
@@ -69,6 +107,7 @@ async function upsertOpenTaskForLead(workspaceId, email, fields) {
       scheduledAt,
       leadKey: null,
       remindMinutesBefore,
+      source,
     });
   }
 
@@ -85,6 +124,10 @@ async function upsertOpenTaskForLead(workspaceId, email, fields) {
     keep = openForLead[0];
   }
 
+  if (keep && AUTOMATION_TASK_SOURCES.has(source) && isManualUserTask(keep)) {
+    return keep;
+  }
+
   const saved = await dbService.saveUserTask(workspaceId, email, {
     id: keep ? keep.id : newTaskId(),
     title,
@@ -95,6 +138,10 @@ async function upsertOpenTaskForLead(workspaceId, email, fields) {
     leadKey,
     remindMinutesBefore:
       remindMinutesBefore != null ? remindMinutesBefore : keep?.remindMinutesBefore ?? null,
+    source:
+      source === TASK_SOURCE_MANUAL
+        ? TASK_SOURCE_MANUAL
+        : source || (keep && keep.source) || TASK_SOURCE_MANUAL,
   });
 
   const refreshed = await dbService.listUserTasks(workspaceId, email);
@@ -108,6 +155,14 @@ async function upsertOpenTaskForLead(workspaceId, email, fields) {
 }
 
 module.exports = {
+  TASK_SOURCE_MANUAL,
+  TASK_SOURCE_CADENCE,
+  TASK_SOURCE_ENGAGEMENT,
+  TASK_SOURCE_DISPOSITION,
+  TASK_SOURCE_ROUTING,
+  isAutomationTaskTitle,
+  isManualUserTask,
+  filterManualUserTasks,
   newTaskId,
   dedupeOpenLeadTasks,
   upsertOpenTaskForLead,

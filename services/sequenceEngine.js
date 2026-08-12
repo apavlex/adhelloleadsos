@@ -241,6 +241,7 @@ async function processLeadSequence(lead) {
           column: 'todo',
           scheduledAt: dueIso,
           leadKey: lead.key,
+          source: 'cadence',
         });
       }
     } catch (e) {

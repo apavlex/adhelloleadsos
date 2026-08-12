@@ -1509,6 +1509,8 @@ module.exports = {
       leadKey,
       remindMinutesBefore,
     };
+    const source = task.source != null ? String(task.source).trim().toLowerCase() : '';
+    if (source) payload.source = source;
     const key = this._userTaskKey(workspaceId, email, id);
     kvSet(key, JSON.stringify(payload));
     return payload;

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
 const { userEmail, filterLeadsForRequest } = require('../services/workspaceService');
-const { dedupeOpenLeadTasks, upsertOpenTaskForLead } = require('../services/userTasks');
+const { dedupeOpenLeadTasks, upsertOpenTaskForLead, filterManualUserTasks, TASK_SOURCE_MANUAL } = require('../services/userTasks');
 
 const COLUMNS = [
   { id: 'backlog', label: 'Backlog' },
@@ -29,7 +29,8 @@ function normScheduledAt(v) {
 async function listTasksForRequest(req) {
   const email = userEmail(req);
   await dedupeOpenLeadTasks(req.workspaceId, email);
-  return dbService.listUserTasks(req.workspaceId, email);
+  const all = await dbService.listUserTasks(req.workspaceId, email);
+  return filterManualUserTasks(all);
 }
 
 function sanitizeLeadKey(raw, allowedSet) {
@@ -119,6 +120,7 @@ router.post('/api', express.json(), async (req, res, next) => {
       scheduledAt,
       leadKey,
       remindMinutesBefore,
+      source: TASK_SOURCE_MANUAL,
     });
     const [enriched] = enrichTasksWithLeads([saved], leads);
     res.json({ success: true, task: enriched });
@@ -148,6 +150,7 @@ router.patch('/api/:taskId', express.json(), async (req, res, next) => {
       scheduledAt:
         req.body.scheduledAt !== undefined ? normScheduledAt(req.body.scheduledAt) : cur.scheduledAt,
       leadKey: req.body.leadKey !== undefined ? nextLeadKey : cur.leadKey,
+      source: cur.source || TASK_SOURCE_MANUAL,
     };
     const saved = await dbService.saveUserTask(req.workspaceId, email, nextTask);
     const [enriched] = enrichTasksWithLeads([saved], leads);

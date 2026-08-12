@@ -35,31 +35,6 @@
     </div>
   </div>
 
-  <% if (user) { %>
-  <div class="sidebar-search-row px-3 pb-3 sidebar-ws-text">
-    <div class="flex items-center gap-2">
-      <div class="nav-lead-search nav-lead-search--sidebar flex-1 min-w-0" id="navLeadSearchWrapSidebar">
-        <form id="navLeadSearchFormSidebar" class="nav-lead-search-form" role="search" action="/prospecting" method="get" autocomplete="off">
-          <input type="hidden" name="tab" value="pipeline" />
-          <input type="hidden" name="includeFoldered" value="1" />
-          <div class="nav-lead-search-input-wrap nav-lead-search-input-wrap--sidebar">
-            <svg class="nav-lead-search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
-            <input type="search" id="navLeadSearchInputSidebar" name="q" class="nav-lead-search-input nav-lead-search-input--sidebar" placeholder="Search" aria-label="Search leads in all folders" aria-autocomplete="list" aria-controls="navLeadSearchDropdownSidebar" aria-expanded="false" />
-            <kbd class="sidebar-search-kbd hidden sm:inline-flex" aria-hidden="true">⌘K</kbd>
-            <button type="button" id="navLeadSearchClearSidebar" class="nav-lead-search-clear hidden" aria-label="Clear search" tabindex="-1">
-              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-          </div>
-          <div id="navLeadSearchDropdownSidebar" class="nav-lead-search-dropdown hidden" role="listbox" aria-label="Lead search results"></div>
-        </form>
-      </div>
-      <a href="/today" class="sidebar-quick-action shrink-0 flex h-9 w-9 items-center justify-center rounded-lg bg-[#ECFDF5] dark:bg-emerald-950/40 text-[#059669] dark:text-emerald-400 ring-1 ring-[#A7F3D0]/80 dark:ring-emerald-800/50 hover:bg-[#D1FAE5] dark:hover:bg-emerald-900/40 transition-colors" title="Today — next actions" aria-label="Today">
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg>
-      </a>
-    </div>
-  </div>
-  <% } %>
-
   <nav class="flex-1 px-2 pb-2 sidebar-primary-nav" aria-label="Primary">
     <div class="sidebar-nav-group">
       <p class="sidebar-nav-group-label sr-only">Prospecting</p>
