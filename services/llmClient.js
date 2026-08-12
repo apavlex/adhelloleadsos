@@ -8,7 +8,7 @@
  * Env (OpenRouter — default chain):
  *   OPENROUTER_API_KEY — Bearer token from https://openrouter.ai/keys
  *   OPENROUTER_MODEL — optional override; default is openrouter/free (cheapest free model that day)
- *   OPENROUTER_ALLOW_PAID_FALLBACK — set to 1 to restore free → flash → pro chain when no model set
+ *   OPENROUTER_ALLOW_PAID_FALLBACK — set to 1 to restore free → DeepSeek V4 Flash when no model set
  *   OPENROUTER_HTTP_REFERER — optional site URL for OpenRouter rankings
  *   OPENROUTER_APP_NAME — optional app title header (default AdHello Leads OS)
  *
@@ -28,7 +28,7 @@ const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash';
 const OPENROUTER_FREE_MODEL = 'qwen/qwen3-coder:free';
 const OPENROUTER_FREE_ROUTER = 'openrouter/free';
 const OPENROUTER_CHEAP_MODEL = 'deepseek/deepseek-v4-flash';
-const OPENROUTER_PAID_FALLBACK_MODEL = 'deepseek/deepseek-v4-pro';
+const OPENROUTER_PAID_FALLBACK_MODEL = 'deepseek/deepseek-v4-flash';
 
 /**
  * Workspace integration env overrides deployment env for OpenRouter keys.
@@ -70,12 +70,11 @@ function defaultFreeOpenRouterProviders(key, url) {
   ];
 }
 
-/** Legacy paid fallback chain when OPENROUTER_ALLOW_PAID_FALLBACK=1. */
+/** Paid fallback chain when OPENROUTER_ALLOW_PAID_FALLBACK=1: free → DeepSeek V4 Flash. */
 function legacyPaidFallbackOpenRouterProviders(key, url) {
   return [
     { name: 'openrouter-free', apiKey: key, url, model: OPENROUTER_FREE_MODEL },
-    { name: 'openrouter-flash', apiKey: key, url, model: OPENROUTER_CHEAP_MODEL },
-    { name: 'openrouter-pro', apiKey: key, url, model: OPENROUTER_PAID_FALLBACK_MODEL },
+    { name: 'openrouter-flash', apiKey: key, url, model: OPENROUTER_PAID_FALLBACK_MODEL },
   ];
 }
 
@@ -445,7 +444,7 @@ function auditOpenRouterProviders(integrationEnv) {
   }
   if (allowPaidOpenRouterFallback(integrationEnv)) {
     list.push({ name: 'openrouter-audit-free', apiKey: key, url, model: OPENROUTER_FREE_MODEL });
-    list.push({ name: 'openrouter-audit-flash', apiKey: key, url, model: OPENROUTER_CHEAP_MODEL });
+    list.push({ name: 'openrouter-audit-flash', apiKey: key, url, model: OPENROUTER_PAID_FALLBACK_MODEL });
     return list;
   }
   list.push(...defaultFreeOpenRouterProviders(key, url).map((p) => ({
