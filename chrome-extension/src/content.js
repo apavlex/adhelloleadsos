@@ -125,6 +125,29 @@
             <span>Phone</span>
             <input type="tel" name="phone" placeholder="optional" />
           </label>
+          <details class="adhello-social-details">
+            <summary>Social profiles</summary>
+            <label class="adhello-field">
+              <span>Facebook</span>
+              <input type="url" name="facebook" placeholder="https://facebook.com/…" />
+            </label>
+            <label class="adhello-field">
+              <span>Instagram</span>
+              <input type="url" name="instagram" placeholder="https://instagram.com/…" />
+            </label>
+            <label class="adhello-field">
+              <span>X / Twitter</span>
+              <input type="url" name="twitter" placeholder="https://x.com/…" />
+            </label>
+            <label class="adhello-field">
+              <span>LinkedIn</span>
+              <input type="url" name="linkedin" placeholder="https://linkedin.com/…" />
+            </label>
+            <label class="adhello-field">
+              <span>TikTok</span>
+              <input type="url" name="tiktok" placeholder="https://tiktok.com/@…" />
+            </label>
+          </details>
         </div>
         <div class="adhello-panel__actions">
           <button type="button" class="adhello-btn adhello-btn--ghost adhello-cancel">Cancel</button>
@@ -156,6 +179,12 @@
       website: root.querySelector('[name="website"]'),
       email: root.querySelector('[name="email"]'),
       phone: root.querySelector('[name="phone"]'),
+      facebook: root.querySelector('[name="facebook"]'),
+      instagram: root.querySelector('[name="instagram"]'),
+      twitter: root.querySelector('[name="twitter"]'),
+      linkedin: root.querySelector('[name="linkedin"]'),
+      tiktok: root.querySelector('[name="tiktok"]'),
+      socialDetails: root.querySelector('.adhello-social-details'),
     };
 
     function fill(data) {
@@ -188,6 +217,27 @@
       fields.website.value = data.website && data.website !== 'N/A' ? data.website : '';
       fields.email.value = data.email && data.email !== 'N/A' ? data.email : '';
       fields.phone.value = data.phone && data.phone !== 'N/A' ? data.phone : '';
+      if (fields.facebook) {
+        fields.facebook.value = data.facebook && data.facebook !== 'N/A' ? data.facebook : '';
+      }
+      if (fields.instagram) {
+        fields.instagram.value = data.instagram && data.instagram !== 'N/A' ? data.instagram : '';
+      }
+      if (fields.twitter) {
+        fields.twitter.value = data.twitter && data.twitter !== 'N/A' ? data.twitter : '';
+      }
+      if (fields.linkedin) {
+        fields.linkedin.value = data.linkedin && data.linkedin !== 'N/A' ? data.linkedin : '';
+      }
+      if (fields.tiktok) {
+        fields.tiktok.value = data.tiktok && data.tiktok !== 'N/A' ? data.tiktok : '';
+      }
+      if (fields.socialDetails) {
+        const hasSocial = [data.facebook, data.instagram, data.twitter, data.linkedin, data.tiktok].some(
+          (v) => v && v !== 'N/A',
+        );
+        fields.socialDetails.open = hasSocial;
+      }
       if (saveTypeEl) {
         const label =
           data.listingType === 'products'
@@ -282,6 +332,11 @@
         website: fields.website.value.trim() || 'N/A',
         email: fields.email.value.trim() || 'N/A',
         phone: fields.phone.value.trim() || 'N/A',
+        facebook: fields.facebook?.value?.trim() || base?.facebook || 'N/A',
+        instagram: fields.instagram?.value?.trim() || base?.instagram || 'N/A',
+        twitter: fields.twitter?.value?.trim() || base?.twitter || 'N/A',
+        linkedin: fields.linkedin?.value?.trim() || base?.linkedin || 'N/A',
+        tiktok: fields.tiktok?.value?.trim() || base?.tiktok || 'N/A',
         url: base?.url || '',
         source: 'chrome_extension',
         sourceChannel: String(fields.sourceChannel?.value || base.sourceChannel || '').trim(),

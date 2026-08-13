@@ -28,6 +28,7 @@ const mapsSearch = require('../services/mapsSearch');
 const enricher = require('../services/enricher');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const { uploadCsvToDrive, safeDriveFileName } = require('../services/googleDriveUpload');
+const { sanitizeLeadSocialPatch } = require('../services/socialUrlNormalize');
 const { getValidAccessToken } = require('../services/googleDriveAccess');
 const { autoAttachCadenceIfNeeded } = require('../services/leadCadence');
 const { clampPipelineStage } = require('../services/pipelineConstants');
@@ -343,12 +344,23 @@ router.post('/leads', apiKeyAuth, express.json(), async (req, res, next) => {
       instagram: req.body.instagram || 'N/A',
       twitter: req.body.twitter || 'N/A',
       linkedin: req.body.linkedin || 'N/A',
+      tiktok: req.body.tiktok || 'N/A',
       sourceChannel: req.body.sourceChannel || req.body.channel || '',
       status: req.body.status || 'Not Contacted',
       source: req.body.source || 'autonomous',
       savedAt: new Date().toISOString(),
       workspaceId: wid,
     };
+    Object.assign(leadData, sanitizeLeadSocialPatch(leadData));
+    if (!leadData.facebook) leadData.facebook = 'N/A';
+    if (!leadData.instagram) leadData.instagram = 'N/A';
+    if (!leadData.twitter) leadData.twitter = 'N/A';
+    if (!leadData.linkedin) leadData.linkedin = 'N/A';
+    if (!leadData.tiktok) leadData.tiktok = 'N/A';
+    if (leadData.email && leadData.email !== 'N/A' && !ghlClient.isValidEmailForGhl(leadData.email)) {
+      leadData.email = 'N/A';
+      leadData.emailValidationStatus = 'rejected_junk';
+    }
 
     const reviewSnippets = parseExtensionReviewSnippets(req.body);
     if (reviewSnippets) leadData.reviewSnippets = reviewSnippets;

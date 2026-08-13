@@ -228,3 +228,22 @@
 #adhello-lead-saver-root .adhello-toast[data-type='error'] {
   background: #dc2626;
 }
+
+#adhello-lead-saver-root .adhello-social-details {
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+#adhello-lead-saver-root .adhello-social-details summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  color: #374151;
+}
+
+#adhello-lead-saver-root .adhello-social-details[open] summary {
+  margin-bottom: 8px;
+}

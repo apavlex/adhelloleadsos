@@ -1044,17 +1044,22 @@
         case 'facebook_marketplace':
           lead = window.AdHelloListingExtractors?.extractListing?.(platform, new URL(url).pathname) || null;
           break;
-        default:
-          lead = {
-            title: cleanTitle(meta('og:title') || document.title) || 'Web prospect',
-            categoryName: 'Web page',
-            url: canonicalUrl(),
-            website: canonicalUrl(),
-            note: meta('og:description') || '',
-            source: 'chrome_extension',
-            sourceChannel: 'web',
-          };
+        default: {
+          if (window.AdHelloWebsiteScrape?.extractBusinessWebsite) {
+            lead = window.AdHelloWebsiteScrape.extractBusinessWebsite();
+          } else {
+            lead = {
+              title: cleanTitle(meta('og:title') || document.title) || 'Web prospect',
+              categoryName: 'Web page',
+              url: canonicalUrl(),
+              website: canonicalUrl(),
+              note: meta('og:description') || '',
+              source: 'chrome_extension',
+              sourceChannel: 'web',
+            };
+          }
           break;
+        }
       }
     }
 
@@ -1080,7 +1085,13 @@
     if (platform === 'linkedin') {
       return /\/in\//.test(path) || /\/company\//.test(path) || /\/sales\/lead\//.test(path);
     }
-    if (platform === 'unknown') return false;
+    if (platform === 'unknown') {
+      return !!(
+        window.AdHelloWebsiteScrape &&
+        typeof window.AdHelloWebsiteScrape.isGenericBusinessWebsiteCandidate === 'function' &&
+        window.AdHelloWebsiteScrape.isGenericBusinessWebsiteCandidate(url)
+      );
+    }
 
     if (platform === 'facebook') {
       if (path.includes('/marketplace/')) return false;
@@ -1130,6 +1141,7 @@
     if (key === 'linkedin_profile') return 'LinkedIn Profile';
     if (key === 'google_maps' || key === 'chrome_extension_maps_bulk') return 'Google Maps';
     if (key === 'chrome_extension') return 'Chrome Extension';
+    if (key === 'business_website' || key === 'web') return 'Business Website';
     return key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   }
 

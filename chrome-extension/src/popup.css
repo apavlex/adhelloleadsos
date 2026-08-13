@@ -506,3 +506,32 @@ a {
   border-color: color-mix(in srgb, var(--ws-accent) 40%, white);
   color: var(--ws-accent-text);
 }
+
+.social-details {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+.social-details summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  color: #374151;
+  margin-bottom: 0;
+}
+
+.social-details[open] summary {
+  margin-bottom: 8px;
+}
+
+.social-details label {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.social-details label:last-child {
+  margin-bottom: 0;
+}

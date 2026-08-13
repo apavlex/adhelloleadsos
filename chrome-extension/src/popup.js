@@ -193,6 +193,9 @@ function detectActiveSiteLabel(url) {
   if (u.includes('facebook.com')) return 'Facebook';
   if (u.includes('instagram.com')) return 'Instagram';
   if (u.includes('zillow.com')) return 'Zillow';
+  if (/^https?:\/\//i.test(u) && !u.includes('google.com') && !u.includes('chrome://')) {
+    return 'Business website';
+  }
   return '';
 }
 
@@ -238,7 +241,14 @@ function setBulkButtonsRunning(running, asStop = false) {
 async function getActiveTabLead() {
   const tab = await getActiveTab();
 
-  const scripts = ['src/address-utils.js', 'src/listing-helpers.js', 'src/listing-extractors.js', 'src/extractors.js'];
+  const scripts = [
+    'src/address-utils.js',
+    'src/website-utils.js',
+    'src/website-scrape.js',
+    'src/listing-helpers.js',
+    'src/listing-extractors.js',
+    'src/extractors.js',
+  ];
   for (const file of scripts) {
     try {
       await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: [file] });
@@ -289,6 +299,8 @@ function formatSourceChannelLabel(sourceChannel) {
     craigslist: 'Craigslist',
     nextdoor: 'Nextdoor',
     houzz: 'Houzz',
+    business_website: 'Business Website',
+    web: 'Business Website',
   };
   if (labels[key]) return labels[key];
   return key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
@@ -321,6 +333,18 @@ function fillForm(lead, defaultFolderName) {
   form.website.value = lead.website && lead.website !== 'N/A' ? lead.website : '';
   form.email.value = lead.email && lead.email !== 'N/A' ? lead.email : '';
   form.phone.value = lead.phone && lead.phone !== 'N/A' ? lead.phone : '';
+  if (form.facebook) form.facebook.value = lead.facebook && lead.facebook !== 'N/A' ? lead.facebook : '';
+  if (form.instagram) form.instagram.value = lead.instagram && lead.instagram !== 'N/A' ? lead.instagram : '';
+  if (form.twitter) form.twitter.value = lead.twitter && lead.twitter !== 'N/A' ? lead.twitter : '';
+  if (form.linkedin) form.linkedin.value = lead.linkedin && lead.linkedin !== 'N/A' ? lead.linkedin : '';
+  if (form.tiktok) form.tiktok.value = lead.tiktok && lead.tiktok !== 'N/A' ? lead.tiktok : '';
+  const socialDetails = document.getElementById('socialDetails');
+  if (socialDetails) {
+    const hasSocial = [lead.facebook, lead.instagram, lead.twitter, lead.linkedin, lead.tiktok].some(
+      (v) => v && v !== 'N/A',
+    );
+    socialDetails.open = hasSocial;
+  }
   form.reviews.value = formatReviewsField(lead);
 
   const listingLabel =
@@ -486,6 +510,11 @@ form.addEventListener('submit', async (e) => {
       website: form.website.value.trim() || 'N/A',
       email: form.email.value.trim() || 'N/A',
       phone: form.phone.value.trim() || 'N/A',
+      facebook: form.facebook?.value?.trim() || base?.facebook || 'N/A',
+      instagram: form.instagram?.value?.trim() || base?.instagram || 'N/A',
+      twitter: form.twitter?.value?.trim() || base?.twitter || 'N/A',
+      linkedin: form.linkedin?.value?.trim() || base?.linkedin || 'N/A',
+      tiktok: form.tiktok?.value?.trim() || base?.tiktok || 'N/A',
       totalScore: reviews.totalScore || base?.totalScore || 0,
       reviewsCount: reviews.reviewsCount || base?.reviewsCount || 0,
       url: base?.url || '',

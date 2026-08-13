@@ -1,8 +1,13 @@
 # AdHello Leads — Chrome Extension
 
-Save **leads**, **real estate listings**, and **product listings** from social profiles and directories directly into your AdHello pipeline.
+Save **leads**, **real estate listings**, and **product listings** from **business websites**, social profiles, and directories directly into your AdHello pipeline.
 
 ## Supported sites
+
+### Business websites (any company site)
+- Open the business website → **Save lead** (floating button or extension popup)
+- Scrapes **name, phone, email, address, city/state, website**, plus **Facebook / Instagram / X / LinkedIn / TikTok** when linked on the page (footer, contact blocks, JSON-LD `sameAs`)
+- Junk emails (image filenames, theme-vendor inboxes, placeholders) are filtered out
 
 ### Social
 - LinkedIn (profiles & companies)
@@ -91,7 +96,14 @@ Already imported a folder but **Website** / **Domain** / **City** / **State** ar
 
 Run again if some listings had no website on Maps or the tab timed out.
 
-No separate scraper extension required — this is built into AdHello Leads v1.5+.
+No separate scraper extension required — this is built into AdHello Leads v1.7+.
+
+### Scrape a business website
+
+1. Open the company’s website in Chrome (home, contact, or about page works best).
+2. Click **Save lead** on the page (or open the extension popup).
+3. Review auto-filled phone, email, address, and social links.
+4. Save — fields land on the lead in AdHello (Chrome Extension folder by default).
 
 ## API payload (listings)
 
