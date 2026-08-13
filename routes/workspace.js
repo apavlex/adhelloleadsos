@@ -1069,8 +1069,9 @@ router.post('/settings', express.json(), async (req, res) => {
       const n = parseFloat(String(req.body.avgDealValue).replace(/,/g, ''), 10);
       if (Number.isFinite(n) && n > 0) ws.avgDealValue = n;
     }
-    if (req.body && typeof req.body.timezone === 'string' && req.body.timezone.trim()) {
-      ws.timezone = req.body.timezone.trim().slice(0, 64);
+    if (req.body && Object.prototype.hasOwnProperty.call(req.body, 'timezone')) {
+      const rawTz = String(req.body.timezone || '').trim().slice(0, 64);
+      ws.timezone = rawTz;
     }
     if (req.body && Object.prototype.hasOwnProperty.call(req.body, 'accentColor')) {
       const raw = req.body.accentColor;

@@ -14,16 +14,17 @@
       <p class="text-[11px] text-brand-muted mt-1">We use this for any lead without its own estimate.</p>
     </div>
     <div>
-      <label for="wsTimezone" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Workspace timezone (morning brief)</label>
+      <label for="wsTimezone" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Workspace timezone</label>
       <select id="wsTimezone" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm">
-        <option value="">Not set</option>
+        <option value="">America/Los_Angeles (default · PDT/PST)</option>
         <% if (curTz && COMMON_TZ.indexOf(curTz) === -1) { %>
         <option value="<%= curTz %>" selected><%= curTz %> (current)</option>
         <% } %>
         <% COMMON_TZ.forEach(function (z) { %>
-        <option value="<%= z %>" <%= curTz === z ? 'selected' : '' %>><%= z %></option>
+        <option value="<%= z %>" <%= (curTz === z || (!curTz && z === 'America/Los_Angeles')) ? 'selected' : '' %>><%= z %></option>
         <% }); %>
       </select>
+      <p class="text-[11px] text-brand-muted mt-1">Used for daily auto outreach (9:30 AM local), morning brief, and Automate timestamps. Default is Pacific (PDT/PST).</p>
       <p id="wsTimezoneLive" class="text-[11px] text-brand-muted mt-1 min-h-[1.25rem]"></p>
     </div>
     <p id="wsSettingsMsg" class="hidden text-sm"></p>

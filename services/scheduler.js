@@ -8,8 +8,7 @@ const { persistFormationSearchResults } = require('./businessFormationPersist');
 const { runDueSequenceSteps } = require('./sequenceEngine');
 const { maybeWarmAllMorningBriefs } = require('./morningBriefWarm');
 const signalwire = require('./signalwire');
-const { runAutoPoolForEnabledWorkspaces } = require('./prospectingAutoPoolScheduler');
-const { runFolderOutreachForEnabledWorkspaces } = require('./folderOutreachScheduler');
+const { maybeRunDailyOutreachForEnabledWorkspaces } = require('./dailyOutreachScheduler');
 
 function normalizeVoicemailLibrary(raw) {
   if (!Array.isArray(raw)) return [];
@@ -342,20 +341,14 @@ module.exports = {
       );
     });
 
-    // Daily auto-pool enroll (09:30 UTC)
-    cron.schedule('30 9 * * *', () => {
-      runAutoPoolForEnabledWorkspaces().catch((e) =>
-        console.error('[SCHEDULER] Auto-pool failed:', e.message)
-      );
-      runFolderOutreachForEnabledWorkspaces().catch((e) =>
-        console.error('[SCHEDULER] Folder outreach failed:', e.message)
-      );
-    });
-
     // Outreach cadence — due steps land in lead logs (every 15 min)
+    // Also checks workspace-local 09:30 window for folder / auto-pool drips.
     cron.schedule('*/15 * * * *', () => {
       runDueSequenceSteps().catch((e) =>
         console.error('[SCHEDULER] Sequence steps failed:', e.message)
+      );
+      maybeRunDailyOutreachForEnabledWorkspaces().catch((e) =>
+        console.error('[SCHEDULER] Daily outreach failed:', e.message)
       );
       maybeWarmAllMorningBriefs().catch((e) =>
         console.error('[SCHEDULER] Morning brief warm failed:', e.message)

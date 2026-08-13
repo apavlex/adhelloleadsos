@@ -8,6 +8,12 @@
       return new Date(iso).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     } catch (e) { return '—'; }
   }
+  function dripAutoWhen(a, field) {
+    if (field === 'last' && a.lastActivityLabel) return a.lastActivityLabel;
+    if (field === 'next' && a.nextRunLabel) return a.nextRunLabel;
+    if (field === 'last') return dripFormatWhen(a.lastActivity);
+    return a.nextRun ? dripFormatWhen(a.nextRun) : '—';
+  }
   function dripStatusClass(status) {
     if (status === 'running') return 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300';
     if (status === 'paused') return 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300';
@@ -91,17 +97,17 @@
               </div>
             </td>
             <td class="px-4 py-5 text-center">
-              <div class="text-xs font-bold text-brand-dark dark:text-white"><%= dripFormatWhen(a.lastActivity) %></div>
+              <div class="text-xs font-bold text-brand-dark dark:text-white"><%= dripAutoWhen(a, 'last') %></div>
               <% if (a.lastRunDetail) { %>
               <div class="text-[9px] text-brand-muted mt-0.5"><%= a.lastRunDetail %></div>
               <% } %>
             </td>
             <td class="px-4 py-5 text-center">
-              <div class="text-xs font-bold text-brand-dark dark:text-white"><%= a.nextRun ? dripFormatWhen(a.nextRun) : '—' %></div>
+              <div class="text-xs font-bold text-brand-dark dark:text-white"><%= dripAutoWhen(a, 'next') %></div>
               <% if (a.nextRunDetail) { %>
               <div class="text-[9px] text-brand-muted mt-0.5"><%= a.nextRunDetail %></div>
               <% } else if (a.nextRun && a.type === 'outreach') { %>
-              <div class="text-[9px] text-brand-muted mt-0.5">Runs when turned on · next daily 09:30 UTC</div>
+              <div class="text-[9px] text-brand-muted mt-0.5">Enabled · next daily 9:30 AM</div>
               <% } %>
             </td>
             <td class="px-4 py-5 text-right">

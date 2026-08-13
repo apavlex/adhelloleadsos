@@ -15,6 +15,7 @@ const {
 const { reviewLeadIcpFit, DEFAULT_MIN_ICP_SCORE } = require('./icpFitReview');
 const { ensureLeadEmail, hasUsableEmail, hasUsableWebsite } = require('./ensureLeadEmail');
 const { buildFolderTree, folderKeysIncludingDescendants } = require('./folderTree');
+const { pauseSequence } = require('./sequenceEngine');
 
 const DEFAULT_FOLDER_OUTREACH = {
   enabled: false,
@@ -160,7 +161,8 @@ function folderOutreachSkipReason(lead, settings, folderKeyOrKeys) {
   const status = String(lead.status || '').toLowerCase();
   if (status.includes('closed - won') || status.includes('closed - lost')) return 'closed';
   if (isActiveProspecting(lead)) return 'already_ghl';
-  if (isBlockingActiveCadence(lead)) return 'active_cadence';
+  // Active internal cadences are paused at enroll time so GHL drip can take over.
+  // (Do not pre-filter them out of the candidate pool.)
 
   if (settings.tier) {
     const tier = lead.prospectTier || scoreLocalProspect(lead).prospectTier;
@@ -365,6 +367,18 @@ async function runFolderOutreach(opts) {
         leadKey: lead.key,
       });
       continue;
+    }
+
+    if (isBlockingActiveCadence(lead)) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        await pauseSequence(lead.key);
+      } catch (e) {
+        console.warn(
+          `[folderOutreach] could not pause cadence for ${lead.key}:`,
+          e && e.message,
+        );
+      }
     }
 
     // eslint-disable-next-line no-await-in-loop

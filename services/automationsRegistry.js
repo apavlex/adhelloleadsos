@@ -17,22 +17,16 @@ const {
   normalizeJobType,
   JOB_TYPE_LABELS,
 } = require('./scrapeJobTypes');
+const {
+  resolveWorkspaceTimezone,
+  computeNextDailyRunIso,
+  formatInTimezone,
+  dailyOutreachScheduleLabel,
+} = require('./workspaceTimezone');
 
-const DAILY_OUTREACH_HOUR_UTC = 9;
-const DAILY_OUTREACH_MINUTE_UTC = 30;
-
+/** @deprecated use computeNextDailyRunIso(timezone) — kept for tests/compat */
 function computeNextDailyRunUtc(fromDate = new Date()) {
-  const now = DateTime.fromJSDate(fromDate, { zone: 'utc' });
-  let next = now.set({
-    hour: DAILY_OUTREACH_HOUR_UTC,
-    minute: DAILY_OUTREACH_MINUTE_UTC,
-    second: 0,
-    millisecond: 0,
-  });
-  if (next <= now) {
-    next = next.plus({ days: 1 });
-  }
-  return next.toISO();
+  return computeNextDailyRunIso('UTC', fromDate);
 }
 
 function scheduleFrequencyLabel(schedule) {
@@ -287,6 +281,10 @@ async function listAutomationsForWorkspace(workspaceId) {
   const autoPool = normalizeAutoPoolSettings(
     loadAutoPoolFromWorkspace(ws || { id: wid }),
   );
+  const timezone = resolveWorkspaceTimezone(ws || { id: wid });
+  const scheduleLabel = dailyOutreachScheduleLabel(timezone);
+  const nextDaily = computeNextDailyRunIso(timezone);
+  const nextRunDetailOn = `Enabled · next ${scheduleLabel}`;
   const folderKeySets = new Map();
   for (const folder of folders) {
     const key = String(folder.key || '').trim();
@@ -305,12 +303,14 @@ async function listAutomationsForWorkspace(workspaceId) {
       status: outreachStatus(autoPool),
       leadsEnrolled: countActiveOutreachWorkspace(leads),
       lastActivity: autoPool.lastRunAt || null,
+      lastActivityLabel: formatInTimezone(autoPool.lastRunAt, timezone),
       lastRunDetail:
         autoPool.lastRunAt != null
           ? `Enrolled ${autoPool.lastEnrolled || 0} · ${autoPool.lastCandidateCount || 0} candidates`
           : '',
-      nextRun: autoPool.enabled ? computeNextDailyRunUtc() : null,
-      nextRunDetail: autoPool.enabled ? 'Runs when turned on · next daily 09:30 UTC' : '',
+      nextRun: autoPool.enabled ? nextDaily : null,
+      nextRunLabel: autoPool.enabled ? formatInTimezone(nextDaily, timezone) : '—',
+      nextRunDetail: autoPool.enabled ? nextRunDetailOn : '',
       maxLeads: autoPool.maxLeads,
       settingsLink: '/workspace/integrations/ghl-setup',
       canPause: autoPool.enabled,
@@ -346,9 +346,11 @@ async function listAutomationsForWorkspace(workspaceId) {
       status: outreachStatus(settings),
       leadsEnrolled: countActiveOutreachInFolder(leads, folderKeys),
       lastActivity: settings.lastRunAt || null,
+      lastActivityLabel: formatInTimezone(settings.lastRunAt, timezone),
       lastRunDetail,
-      nextRun: settings.enabled ? computeNextDailyRunUtc() : null,
-      nextRunDetail: settings.enabled ? 'Runs when turned on · next daily 09:30 UTC' : '',
+      nextRun: settings.enabled ? nextDaily : null,
+      nextRunLabel: settings.enabled ? formatInTimezone(nextDaily, timezone) : '—',
+      nextRunDetail: settings.enabled ? nextRunDetailOn : '',
       folderKey,
       settingsLink: '/prospecting?tab=folders',
       canPause: settings.enabled,
@@ -372,8 +374,13 @@ async function listAutomationsForWorkspace(workspaceId) {
       status: 'running',
       leadsEnrolled: null,
       lastActivity: schedule.lastRun || null,
+      lastActivityLabel: formatInTimezone(schedule.lastRun, schedule.timezone || timezone),
       lastRunDetail: scheduleFrequencyLabel(schedule),
       nextRun: computeScheduleNextRun(schedule),
+      nextRunLabel: (() => {
+        const n = computeScheduleNextRun(schedule);
+        return n ? formatInTimezone(n, schedule.timezone || timezone) : '—';
+      })(),
       scheduleKey: schedule.key,
       jobTypeLabel: JOB_TYPE_LABELS[jobType] || 'Search',
       settingsLink: '/prospecting?tab=queue',
@@ -452,18 +459,23 @@ async function listAutomationsForWorkspace(workspaceId) {
     scheduledSearches: schedules.length,
     lastRunEnrolled,
     lastRunAt,
-    nextDailyRun: computeNextDailyRunUtc(),
+    nextDailyRun: nextDaily,
+    timezone,
+    timezoneLabel: dailyOutreachScheduleLabel(timezone),
   };
 
-  return { automations, summary, reportStats };
+  return { automations, summary, reportStats, timezone };
 }
 
 module.exports = {
   computeNextDailyRunUtc,
+  computeNextDailyRunIso,
   computeScheduleNextRun,
   outreachStatus,
   listAutomationsForWorkspace,
   summarizeEnrolledLead,
   listGhlOutreachEnrolledLeads,
   listCadenceEnrolledLeads,
+  formatInTimezone,
+  resolveWorkspaceTimezone,
 };

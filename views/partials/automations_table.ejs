@@ -26,6 +26,12 @@
       return d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     } catch (e) { return '—'; }
   }
+  function formatAutoWhen(a, field) {
+    if (field === 'last' && a.lastActivityLabel) return a.lastActivityLabel;
+    if (field === 'next' && a.nextRunLabel) return a.nextRunLabel;
+    if (field === 'last') return formatWhen(a.lastActivity);
+    return a.nextRun ? formatWhen(a.nextRun) : '—';
+  }
 %>
 <section class="mb-10" id="automationsSection">
   <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
@@ -35,7 +41,7 @@
         <span class="text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400">Live automations</span>
       </div>
       <h2 class="font-display font-black text-2xl md:text-3xl tracking-tight text-brand-dark dark:text-white">Automations</h2>
-      <p class="text-sm text-brand-muted font-medium mt-1">Folder outreach, prospecting searches, and message cadences</p>
+      <p class="text-sm text-brand-muted font-medium mt-1">Folder outreach, prospecting searches, and message cadences<% if (typeof automationsTimezoneLabel !== 'undefined' && automationsTimezoneLabel) { %> · <a href="/workspace/revenue" class="underline underline-offset-2 hover:text-brand-dark dark:hover:text-white"><%= automationsTimezoneLabel %></a><% } %></p>
     </div>
     <div class="flex flex-wrap items-center gap-2 shrink-0">
       <% if (autoSummary.running != null) { %>
@@ -95,7 +101,7 @@
               <span class="inline-flex px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider <%= a.type === 'outreach' ? 'bg-brand-yellow/15 text-brand-dark dark:text-brand-yellow' : a.type === 'prospecting' ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300' : 'bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300' %>"><%= autoTypeLabel(a) %></span>
             </td>
             <td class="px-4 py-5 text-center">
-              <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider <%= autoStatusClass(a.status) %>" title="<%= a.type === 'outreach' && a.status === 'running' ? 'Enabled — runs daily at 09:30 UTC and when you click Run now' : '' %>">
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider <%= autoStatusClass(a.status) %>" title="<%= a.type === 'outreach' && a.status === 'running' ? 'Enabled — daily drip + Run now. Enrolled count is leads currently in GHL auto-outreach.' : '' %>">
                 <% if (a.status === 'running') { %><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span><% } %>
                 <%= autoStatusLabel(a) %>
               </span>
@@ -113,13 +119,13 @@
               </div>
             </td>
             <td class="px-4 py-5 text-center">
-              <div class="text-xs font-bold text-brand-dark dark:text-white"><%= formatWhen(a.lastActivity) %></div>
+              <div class="text-xs font-bold text-brand-dark dark:text-white"><%= formatAutoWhen(a, 'last') %></div>
               <% if (a.lastRunDetail) { %>
               <div class="text-[9px] text-brand-muted mt-0.5"><%= a.lastRunDetail %></div>
               <% } %>
             </td>
             <td class="px-4 py-5 text-center">
-              <div class="text-xs font-bold text-brand-dark dark:text-white"><%= a.nextRun ? formatWhen(a.nextRun) : '—' %></div>
+              <div class="text-xs font-bold text-brand-dark dark:text-white"><%= formatAutoWhen(a, 'next') %></div>
               <% if (a.nextRunDetail) { %>
               <div class="text-[9px] text-brand-muted mt-0.5"><%= a.nextRunDetail %></div>
               <% } %>

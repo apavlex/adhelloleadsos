@@ -78,7 +78,7 @@ test('leadEligibleForFolderOutreach skips active auto outreach', () => {
   assert.equal(leadEligibleForFolderOutreach(lead, settings, 'folder:a'), false);
 });
 
-test('leadEligibleForFolderOutreach ignores paused cadence but blocks active other cadence', () => {
+test('leadEligibleForFolderOutreach allows active other cadence (paused at enroll)', () => {
   const settings = normalizeFolderOutreachSettings({});
   const base = {
     key: 'lead:4',
@@ -88,19 +88,11 @@ test('leadEligibleForFolderOutreach ignores paused cadence but blocks active oth
   };
   assert.equal(
     leadEligibleForFolderOutreach(
-      { ...base, sequenceState: { status: 'paused', templateId: 'day1_call' } },
-      settings,
-      'folder:a',
-    ),
-    true,
-  );
-  assert.equal(
-    leadEligibleForFolderOutreach(
       { ...base, sequenceState: { status: 'active', templateId: 'day1_call' } },
       settings,
       'folder:a',
     ),
-    false,
+    true,
   );
 });
 

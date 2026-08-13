@@ -47,6 +47,7 @@ router.get('/', async (req, res) => {
       automations,
       automationsSummary,
       reportStats,
+      automationsTimezoneLabel: (reportStats && reportStats.timezoneLabel) || '',
       recentAutomationActivity,
       ghlConfigured,
       ghlDashboardUrl: integrationEnv.ghlDashboardUrl || process.env.GHL_DASHBOARD_URL || '',
