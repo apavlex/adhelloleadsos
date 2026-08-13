@@ -1108,6 +1108,14 @@ router.post('/:key/update', async (req, res, next) => {
       updateData.onPipelineBoard = true;
     }
 
+    if (req.body && Object.prototype.hasOwnProperty.call(req.body, 'bookmarked')) {
+      updateData.bookmarked =
+        req.body.bookmarked === true ||
+        req.body.bookmarked === 'true' ||
+        req.body.bookmarked === 1 ||
+        req.body.bookmarked === '1';
+    }
+
     const stages = await pipelineStagesService.listStages(wid);
     if (updateData.stageId != null && String(updateData.stageId).trim() !== '') {
       const sid = String(updateData.stageId).trim();
@@ -1167,6 +1175,9 @@ router.post('/:key/update', async (req, res, next) => {
     }
 
     const updated = await dbService.updateLead(fullKey, updateData, wid);
+    if (!updated) {
+      return res.status(404).json({ success: false, error: 'Lead not found' });
+    }
     const shouldSyncGhl =
       updateData.lastTouchChannel !== undefined ||
       updateData.status ||

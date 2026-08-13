@@ -673,17 +673,20 @@ module.exports = {
   },
 
   async updateLead(key, updateData, expectWorkspaceId) {
-    const existing = await this.getLead(key);
+    const storageKey =
+      (await this.resolveLeadStorageKey(key, expectWorkspaceId)) || String(key || '').trim();
+    if (!storageKey) return null;
+    const existing = await this.getLead(storageKey, expectWorkspaceId);
     if (!existing) return null;
 
     if (process.env.NODE_ENV !== 'production' && expectWorkspaceId != null && expectWorkspaceId !== '') {
       const ew = String(expectWorkspaceId).trim();
       const lw = String(existing.workspaceId || '').trim();
       if (!lw) {
-        throw new Error(`[workspace] updateLead: lead ${key} is missing workspaceId`);
+        throw new Error(`[workspace] updateLead: lead ${storageKey} is missing workspaceId`);
       }
       if (ew && lw !== ew) {
-        throw new Error(`[workspace] updateLead: workspace mismatch for ${key}`);
+        throw new Error(`[workspace] updateLead: workspace mismatch for ${storageKey}`);
       }
     }
 
@@ -697,6 +700,13 @@ module.exports = {
         : [...(existing.logs || []), ...(updateData.logs || [])];
 
     const { logsMode, chatHistoryMode, ...leadPatch } = updateData;
+    if (Object.prototype.hasOwnProperty.call(leadPatch, 'bookmarked')) {
+      leadPatch.bookmarked =
+        leadPatch.bookmarked === true ||
+        leadPatch.bookmarked === 'true' ||
+        leadPatch.bookmarked === 1 ||
+        leadPatch.bookmarked === '1';
+    }
 
     const updated = {
       ...existing,
@@ -722,10 +732,10 @@ module.exports = {
       console.warn('[updateLead] phone line type refresh skipped:', e && e.message);
     }
 
-    kvSet(key, JSON.stringify(updated));
+    kvSet(storageKey, JSON.stringify(updated));
     return {
       ...updated,
-      key: updated.key || key,
+      key: updated.key || storageKey,
     };
   },
 

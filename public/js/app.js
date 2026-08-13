@@ -2272,6 +2272,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function rowPipelineBookmarked(row) {
     if (!row || !row.dataset) return false;
     if (row.dataset.bookmarked === '1') return true;
+    if (row.dataset.bookmarked === '0') return false;
     const lead = findInitialSavedLeadRecord(row);
     return !!(lead && lead.bookmarked);
   }
@@ -5427,11 +5428,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
       e.stopPropagation();
       e.preventDefault();
+      e.stopImmediatePropagation();
 
       const row = bookmarkBtn.closest('.result-row');
       if (!row) return;
 
-      if (isPipelineBookmarkTable() && row.dataset.leadKey) {
+      // Pipeline leads are already saved — never fall through to search save/unsave.
+      if (isPipelineBookmarkTable()) {
         await togglePipelineLeadBookmark(row, bookmarkBtn);
         return;
       }
@@ -7004,6 +7007,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (L.onPipelineBoard !== undefined) {
       ds.onPipelineBoard = L.onPipelineBoard ? '1' : '';
+    }
+    if (L.bookmarked !== undefined) {
+      if (L.bookmarked) ds.bookmarked = '1';
+      else delete ds.bookmarked;
+      const bookmarkBtn = row.querySelector && row.querySelector('.bookmark-btn');
+      if (bookmarkBtn) {
+        if (L.bookmarked) markBookmarkSaved(bookmarkBtn);
+        else markBookmarkUnsaved(bookmarkBtn);
+      }
+      const embedded = findInitialSavedLeadRecord(row);
+      if (embedded) embedded.bookmarked = !!L.bookmarked;
     }
     coalesceRowDatasetFromContacts(row);
     hydrateRowDatasetFromTableDom(row);
@@ -15480,11 +15494,33 @@ document.addEventListener('DOMContentLoaded', () => {
   window.__unsaveSearchResultLead = unsaveLead;
 
   async function togglePipelineLeadBookmark(row, bookmarkBtn) {
-    const leadKey = String((row && row.dataset && row.dataset.leadKey) || '').trim();
-    if (!leadKey) return false;
-    const next = bookmarkBtn.dataset.saved !== '1';
+    if (!row || !bookmarkBtn) return false;
+    if (bookmarkBtn.dataset.bookmarkBusy === '1') return false;
+
+    let leadKey = String((row.dataset && row.dataset.leadKey) || '').trim();
+    if (!leadKey) {
+      const cb = row.querySelector && row.querySelector('input.lead-checkbox[data-key]');
+      leadKey = String((cb && cb.getAttribute('data-key')) || '').trim();
+      if (leadKey && row.dataset) row.dataset.leadKey = leadKey;
+    }
+    if (!leadKey) {
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Could not bookmark — missing lead key.', { variant: 'error' });
+      }
+      return false;
+    }
+
+    const currentlySaved =
+      bookmarkBtn.dataset.saved === '1' ||
+      bookmarkBtn.getAttribute('data-saved') === '1' ||
+      row.dataset.bookmarked === '1';
+    const next = !currentlySaved;
+
+    bookmarkBtn.dataset.bookmarkBusy = '1';
+    bookmarkBtn.setAttribute('aria-busy', 'true');
     if (next) markBookmarkSaved(bookmarkBtn);
     else markBookmarkUnsaved(bookmarkBtn);
+
     try {
       const res = await fetch('/leads/' + encodeURIComponent(leadKey) + '/update', {
         method: 'POST',
@@ -15502,6 +15538,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       const rec = findInitialSavedLeadRecord(row);
       if (rec) rec.bookmarked = next;
+      // Re-assert UI in case another hydrate raced the request.
+      if (next) markBookmarkSaved(bookmarkBtn);
+      else markBookmarkUnsaved(bookmarkBtn);
       if (typeof window.showProspectToast === 'function') {
         window.showProspectToast(next ? 'Lead bookmarked' : 'Bookmark removed');
       }
@@ -15514,6 +15553,9 @@ document.addEventListener('DOMContentLoaded', () => {
         window.showAppToast(err.message || 'Could not update bookmark', { variant: 'error' });
       }
       return false;
+    } finally {
+      delete bookmarkBtn.dataset.bookmarkBusy;
+      bookmarkBtn.removeAttribute('aria-busy');
     }
   }
   window.__togglePipelineLeadBookmark = togglePipelineLeadBookmark;
@@ -15522,8 +15564,10 @@ document.addEventListener('DOMContentLoaded', () => {
   function markBookmarkSaved(btn) {
     if (!btn) return;
     btn.dataset.saved = '1';
-    btn.classList.add('bg-brand-yellow', 'text-brand-dark', 'border-brand-yellow');
-    btn.classList.remove('text-brand-muted', 'border-brand-border');
+    btn.setAttribute('data-saved', '1');
+    btn.setAttribute('aria-pressed', 'true');
+    btn.classList.add('bg-brand-yellow', 'text-brand-dark', 'border-brand-yellow', 'bookmark-btn--saved');
+    btn.classList.remove('text-brand-muted', 'border-brand-border', 'dark:text-slate-400');
     const titles = bookmarkBtnTitles(true);
     btn.setAttribute('title', titles.title);
     btn.setAttribute('aria-label', titles.label);
@@ -15534,7 +15578,9 @@ document.addEventListener('DOMContentLoaded', () => {
   function markBookmarkUnsaved(btn) {
     if (!btn) return;
     delete btn.dataset.saved;
-    btn.classList.remove('bg-brand-yellow', 'text-brand-dark', 'border-brand-yellow');
+    btn.setAttribute('data-saved', '0');
+    btn.setAttribute('aria-pressed', 'false');
+    btn.classList.remove('bg-brand-yellow', 'text-brand-dark', 'border-brand-yellow', 'bookmark-btn--saved');
     btn.classList.add('text-brand-muted', 'border-brand-border');
     const titles = bookmarkBtnTitles(false);
     btn.setAttribute('title', titles.title);

@@ -1726,6 +1726,20 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
+  position: relative;
+  z-index: 36;
+}
+
+.bookmark-btn[data-saved='1'],
+.bookmark-btn.bookmark-btn--saved {
+  background-color: var(--brand-yellow) !important;
+  color: #111827 !important;
+  border-color: var(--brand-yellow) !important;
+}
+
+.bookmark-btn[data-saved='1'] svg,
+.bookmark-btn.bookmark-btn--saved svg {
+  fill: currentColor;
 }
 
 a.website-link.website-link--holding {
@@ -2214,13 +2228,15 @@ html[data-pipeline-prefs-ready="1"] #prospectPipelineTableScroll {
   border-color: var(--brand-yellow);
 }
 
-.bookmark-btn[data-saved='1'] {
+.bookmark-btn[data-saved='1'],
+.bookmark-btn.bookmark-btn--saved {
   background-color: var(--brand-yellow) !important;
   color: #111827 !important;
   border-color: var(--brand-yellow) !important;
 }
 
-.bookmark-btn[data-saved='1'] svg {
+.bookmark-btn[data-saved='1'] svg,
+.bookmark-btn.bookmark-btn--saved svg {
   fill: currentColor;
 }
 
