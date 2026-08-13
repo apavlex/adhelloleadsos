@@ -338,6 +338,7 @@ async function runFolderOutreach(opts) {
         folder,
         settings,
         minIcpScore: settings.minIcpScore,
+        forceRefresh: true,
         persist: true,
       });
       if (!icp.passes) {

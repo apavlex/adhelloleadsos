@@ -45,6 +45,17 @@ describe('icpFitReview', () => {
     assert.equal(r.nicheMatch, true);
   });
 
+  test('evaluateNicheMatch uses folder name when offer vertical differs', () => {
+    const r = evaluateNicheMatch(
+      { title: 'Bay Area Water Damage Pros', category: 'Water damage restoration', website: '' },
+      { vertical: 'Flooring', offerLabel: 'Local SEO for Flooring' },
+      { icpKeyword: 'flooring', targetAudience: '' },
+      { name: 'Water Restoration', goal: 'wholesale flooring specials for restorers' },
+    );
+    assert.equal(r.nicheMatch, true);
+    assert.match(r.note, /Folder niche|Niche overlap/i);
+  });
+
   test('passesIcpAPlusGate requires approve + min score', () => {
     assert.equal(
       passesIcpAPlusGate({ decision: 'approve', score: 8.5, grade: 'A' }, 8),

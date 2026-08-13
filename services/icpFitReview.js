@@ -50,6 +50,7 @@ function normalizeIcpReview(raw) {
     nicheMatch: r.nicheMatch === true,
     geoMatch: r.geoMatch === true,
     offerKey: String(r.offerKey || '').trim(),
+    folderKey: String(r.folderKey || '').trim(),
     reviewedAt: r.reviewedAt ? String(r.reviewedAt) : '',
     source: String(r.source || '').trim() || 'rules',
   };
@@ -175,9 +176,14 @@ function evaluateGeoMatch(snap, area) {
   return { geoMatch: false, hardReject: false, note: 'Weak geo signals.' };
 }
 
-function evaluateNicheMatch(snap, profile, area) {
+function evaluateNicheMatch(snap, profile, area, folderContext = null) {
   const hay = normalizeToken([snap.title, snap.category, snap.website].filter(Boolean).join(' '));
+  const folderNeedles = [
+    ...parseListField(folderContext && folderContext.name),
+    ...parseListField(folderContext && folderContext.goal),
+  ].filter((t) => t.length >= 3);
   const needles = [
+    ...folderNeedles,
     ...parseListField(profile.vertical),
     ...parseListField(profile.offerLabel),
     ...parseListField(area.icpKeyword),
@@ -199,6 +205,18 @@ function evaluateNicheMatch(snap, profile, area) {
   if (hits.length) {
     return { nicheMatch: true, note: `Niche overlap: ${hits.slice(0, 3).join(', ')}` };
   }
+  // Folder drips: if the folder itself is the niche (e.g. "Water Restoration") and the
+  // lead title/category shares a strong token with that folder, treat as niche match.
+  if (folderNeedles.length && hay) {
+    const folderHits = folderNeedles.filter((n) => {
+      if (hay.includes(n)) return true;
+      const parts = n.split(' ').filter((p) => p.length >= 4);
+      return parts.length > 0 && parts.some((p) => hay.includes(p));
+    });
+    if (folderHits.length) {
+      return { nicheMatch: true, note: `Folder niche overlap: ${folderHits.slice(0, 3).join(', ')}` };
+    }
+  }
   return { nicheMatch: false, note: 'No clear niche overlap with offer/vertical.' };
 }
 
@@ -212,21 +230,29 @@ function rulesOnlyScore({ geo, niche, opportunityScore }) {
   return Math.max(0, Math.min(10, Math.round(score * 10) / 10));
 }
 
-function cachedReviewStillValid(lead, offerKey) {
+function cachedReviewStillValid(lead, offerKey, folderKey = '') {
   const prev = lead && lead.icpReview ? normalizeIcpReview(lead.icpReview) : null;
   if (!prev || !prev.reviewedAt) return null;
   if (offerKey && prev.offerKey && prev.offerKey !== offerKey) return null;
+  const prevFolder = String(prev.folderKey || '').trim();
+  const wantFolder = String(folderKey || '').trim();
+  if (wantFolder && prevFolder && prevFolder !== wantFolder) return null;
+  if (wantFolder && !prevFolder) return null;
   const ts = Date.parse(prev.reviewedAt);
   if (!Number.isFinite(ts) || Date.now() - ts > ICP_CACHE_MS) return null;
   return prev;
 }
 
-async function scoreIcpWithAi({ snap, profile, area, rules, opportunityScore, integrationEnv }) {
+async function scoreIcpWithAi({ snap, profile, area, rules, opportunityScore, integrationEnv, folderContext }) {
+  const folderName = String((folderContext && folderContext.name) || '').trim();
+  const folderGoal = String((folderContext && folderContext.goal) || '').trim();
   const ai = await chatCompletion({
     messages: [
       {
         role: 'system',
-        content: `You are a B2B outbound list quality reviewer. Decide if this local business is an A+ fit for the seller's offer and service area.
+        content: `You are a B2B outbound list quality reviewer. Decide if this local business is a strong fit for THIS drip.
+
+${folderName ? `Priority: this drip is for folder "${folderName}"${folderGoal ? ` with goal: ${folderGoal}` : ''}. Approve leads that match that folder niche/trade even if the workspace default offer vertical differs.` : 'Approve only strong fits for the seller offer and service area.'}
 
 Respond with JSON only:
 {
@@ -237,12 +263,15 @@ Respond with JSON only:
   "reason": string (one short sentence)
 }
 
-Approve only strong fits (typically score >= 8). Reject wrong niche, wrong geography, franchises/chains that rarely buy this offer, or leads with too little signal. Do not invent facts not in the data.`,
+Approve strong fits (typically score >= 7 for folder drips, >= 8 otherwise). Reject wrong geography, obvious franchises/chains that rarely buy, or leads with too little signal. Do not invent facts not in the data.`,
       },
       {
         role: 'user',
         content: JSON.stringify(
           {
+            folder: folderName
+              ? { name: folderName, goal: folderGoal || null }
+              : null,
             offer: {
               key: profile.offerKey,
               label: profile.offerLabel,
@@ -334,7 +363,15 @@ async function reviewLeadIcpFit(opts) {
         : DEFAULT_MIN_ICP_SCORE;
 
   const profile = resolveOutreachSenderProfile(workspace, lead, folder);
-  const cached = opts.forceRefresh ? null : cachedReviewStillValid(lead, profile.offerKey);
+  const folderKey = String((folder && folder.key) || (settings && settings.folderKey) || '').trim();
+  const folderContext = {
+    name: String((folder && folder.name) || '').trim(),
+    goal: String((settings && settings.ghlGoal) || '').trim(),
+    key: folderKey,
+  };
+  const cached = opts.forceRefresh
+    ? null
+    : cachedReviewStillValid(lead, profile.offerKey, folderKey);
   if (cached) {
     return {
       ...cached,
@@ -347,7 +384,7 @@ async function reviewLeadIcpFit(opts) {
   const area = resolveServiceArea({ workspace, settings, offer: profile });
 
   const geo = evaluateGeoMatch(snap, area);
-  const niche = evaluateNicheMatch(snap, profile, area);
+  const niche = evaluateNicheMatch(snap, profile, area, folderContext);
   const opportunityScore = scoreLeadRecord(lead).score;
   const wid = String(workspace.id || workspace.workspaceId || 'default').trim() || 'default';
 
@@ -360,6 +397,7 @@ async function reviewLeadIcpFit(opts) {
       nicheMatch: niche.nicheMatch,
       geoMatch: false,
       offerKey: profile.offerKey,
+      folderKey,
       reviewedAt: new Date().toISOString(),
       source: 'rules',
     });
@@ -383,7 +421,14 @@ async function reviewLeadIcpFit(opts) {
     rules: { geo, niche },
     opportunityScore,
     integrationEnv,
+    folderContext,
   });
+
+  // Folder drips: slightly softer floor so curated trade folders aren't wiped by A+ default.
+  const effectiveMin =
+    folderContext.name && Number.isFinite(minIcpScore)
+      ? Math.min(minIcpScore, 7)
+      : minIcpScore;
 
   let review;
   if (ai.parsed) {
@@ -391,13 +436,23 @@ async function reviewLeadIcpFit(opts) {
     let decision =
       ai.parsed.decision === 'approve' || ai.parsed.decision === 'reject'
         ? ai.parsed.decision
-        : score >= minIcpScore
+        : score >= effectiveMin
           ? 'approve'
           : 'reject';
-    if (decision === 'approve' && score < minIcpScore) decision = 'reject';
+    if (decision === 'approve' && score < effectiveMin) decision = 'reject';
+    // If rules say folder niche matches and geo is ok, don't let a vague AI reject win at borderline scores.
+    if (
+      decision === 'reject' &&
+      folderContext.name &&
+      niche.nicheMatch &&
+      geo.geoMatch &&
+      score >= effectiveMin - 1
+    ) {
+      decision = 'approve';
+    }
     review = normalizeIcpReview({
       decision,
-      score,
+      score: decision === 'approve' && score < effectiveMin ? effectiveMin : score,
       grade: scoreToGrade(score),
       reason:
         String(ai.parsed.reason || '').trim() ||
@@ -405,12 +460,14 @@ async function reviewLeadIcpFit(opts) {
       nicheMatch: ai.parsed.nicheMatch === true || niche.nicheMatch,
       geoMatch: ai.parsed.geoMatch === true || geo.geoMatch,
       offerKey: profile.offerKey,
+      folderKey,
       reviewedAt: new Date().toISOString(),
       source: 'ai',
     });
   } else {
     const score = rulesOnlyScore({ geo, niche, opportunityScore });
-    const decision = geo.geoMatch && niche.nicheMatch && score >= minIcpScore ? 'approve' : 'reject';
+    const decision =
+      geo.geoMatch && niche.nicheMatch && score >= effectiveMin ? 'approve' : 'reject';
     review = normalizeIcpReview({
       decision,
       score,
@@ -423,6 +480,7 @@ async function reviewLeadIcpFit(opts) {
       nicheMatch: niche.nicheMatch,
       geoMatch: geo.geoMatch,
       offerKey: profile.offerKey,
+      folderKey,
       reviewedAt: new Date().toISOString(),
       source: 'rules_fallback',
     });
@@ -435,7 +493,7 @@ async function reviewLeadIcpFit(opts) {
   return {
     ...review,
     fromCache: false,
-    passes: passesIcpAPlusGate(review, minIcpScore),
+    passes: passesIcpAPlusGate(review, effectiveMin),
   };
 }
 
