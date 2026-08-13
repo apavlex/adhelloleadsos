@@ -115,6 +115,12 @@ test('isActiveOtherCadence ignores legacy auto_outreach_7 sequenceState', () => 
     }),
     true,
   );
+  assert.equal(
+    isActiveOtherCadence({
+      sequenceState: { status: 'paused', templateId: 'clay_5' },
+    }),
+    false,
+  );
 });
 
 test('enrollLeadInAutoOutreach tags and sets prospecting without internal cadence', async () => {

@@ -324,6 +324,7 @@ async function runFolderOutreach(opts) {
   let icpRejected = 0;
   let emailsFound = 0;
   let emailSkipped = 0;
+  let enrollFailed = 0;
   let budgetLeft = remainingBudget;
   for (const row of candidates) {
     if (enrolled >= cap || budgetLeft <= 0) break;
@@ -414,10 +415,18 @@ async function runFolderOutreach(opts) {
     if (r.enrolled) {
       enrolled += 1;
       if (r.budgetConsumed) budgetLeft = Math.max(0, budgetLeft - 1);
+    } else {
+      enrollFailed += 1;
     }
   }
 
   const runAt = new Date().toISOString();
+  const outcomeBits = [];
+  if (pausedCadences > 0) outcomeBits.push(`paused ${pausedCadences} cadences`);
+  if (icpRejected > 0) outcomeBits.push(`${icpRejected} ICP rejected`);
+  if (emailSkipped > 0) outcomeBits.push(`${emailSkipped} missing email`);
+  if (enrollFailed > 0 && enrolled === 0) outcomeBits.push(`${enrollFailed} enroll failed`);
+  if (skipPack.summary) outcomeBits.push(skipPack.summary);
   const outreachNext = {
     ...settings,
     enabled: settings.enabled,
@@ -425,13 +434,12 @@ async function runFolderOutreach(opts) {
     lastEnrolled: enrolled,
     lastCandidateCount: candidates.length,
     lastFolderLeadCount: inFolder.length,
-    lastSkipSummary:
-      skipPack.summary ||
-      (pausedCadences > 0 ? `paused ${pausedCadences} cadences` : ''),
+    lastSkipSummary: outcomeBits.slice(0, 3).join(', '),
     lastPausedCadences: pausedCadences,
     lastIcpRejected: icpRejected,
     lastEmailsFound: emailsFound,
     lastEmailSkipped: emailSkipped,
+    lastEnrollFailed: enrollFailed,
   };
   await dbService.updateFolder(workspaceId, folderKey, { outreachAutomation: outreachNext });
 
@@ -444,6 +452,7 @@ async function runFolderOutreach(opts) {
     icpRejected,
     emailsFound,
     emailSkipped,
+    enrollFailed,
     campaign: AUTO_OUTREACH_CAMPAIGN,
     folderKey,
     folderName: folder.name || '',

@@ -35,8 +35,9 @@ function isActiveProspecting(lead) {
 
 /** Active internal cadence on a template other than legacy auto_outreach_7. */
 function isActiveOtherCadence(lead) {
-  if (!isActiveCadence(lead)) return false;
-  const tid = String((lead.sequenceState && lead.sequenceState.templateId) || '');
+  const st = lead && lead.sequenceState;
+  if (!st || String(st.status || '') !== 'active') return false;
+  const tid = String(st.templateId || '');
   if (tid === AUTO_OUTREACH_CAMPAIGN) return false;
   return true;
 }
