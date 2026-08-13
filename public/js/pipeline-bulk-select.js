@@ -1904,6 +1904,83 @@
   }
   window.__runBulkEnhanceFromBarEarly = runBulkEnhanceFromBarEarly;
 
+  async function runBulkScrapeWebsitesFromBarEarly() {
+    if (window.__bulkWebsiteScrapeInFlight) return;
+    const leadKeys = collectSelectedLeadKeysEarly().slice(0, 150);
+    if (!leadKeys.length) {
+      showBulkBarFeedbackEarly('Select leads with website URLs to scrape.', 'error');
+      return;
+    }
+
+    const btns = document.querySelectorAll('.js-bulk-scrape-websites');
+    const btnSnap = Array.from(btns).map((b) => b.innerHTML);
+    window.__bulkWebsiteScrapeInFlight = true;
+    btns.forEach((b) => {
+      b.disabled = true;
+      b.classList.add('loading');
+      b.innerHTML =
+        '<span class="text-[10px] font-black uppercase tracking-widest animate-pulse">Queueing…</span>';
+    });
+    showBulkBarFeedbackEarly(
+      `Queueing ${leadKeys.length} lead${leadKeys.length === 1 ? '' : 's'} for website scrape…`,
+      'loading',
+    );
+
+    try {
+      const res = await fetch('/leads/website-enrich-queue', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ leadKeys }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || `Queue failed (${res.status}).`);
+      }
+
+      if (data.empty || !data.queued) {
+        showBulkBarFeedbackEarly(
+          data.message || 'No selected leads need website contact scrape.',
+          'info',
+        );
+        btns.forEach((b) => {
+          b.innerHTML =
+            '<span class="text-[10px] font-black uppercase tracking-widest">Nothing to scrape</span>';
+        });
+      } else {
+        const hint =
+          data.hint ||
+          'Open AdHello Chrome extension → Bulk scrape → Process website queue.';
+        showBulkBarFeedbackEarly(
+          `Queued ${data.queued} lead${data.queued === 1 ? '' : 's'}. ${hint}`,
+          'success',
+        );
+        btns.forEach((b) => {
+          b.innerHTML = `<span class="text-[10px] font-black uppercase tracking-widest">Queued ${data.queued}</span>`;
+        });
+      }
+    } catch (err) {
+      showBulkBarFeedbackEarly(
+        (err && err.message) || 'Could not queue website scrape.',
+        'error',
+      );
+      btns.forEach((b) => {
+        b.innerHTML =
+          '<span class="text-[10px] font-black uppercase tracking-widest">Failed</span>';
+      });
+    } finally {
+      window.__bulkWebsiteScrapeInFlight = false;
+      setTimeout(() => {
+        btns.forEach((b, i) => {
+          b.classList.remove('loading');
+          b.disabled = false;
+          b.innerHTML = btnSnap[i] || b.innerHTML;
+        });
+      }, 3200);
+    }
+  }
+  window.__runBulkScrapeWebsitesFromBarEarly = runBulkScrapeWebsitesFromBarEarly;
+
   async function runBulkSocialFromBarEarly() {
     if (window.__bulkSocialEnrichInFlight) return;
     if (typeof window.__runBulkSocialEnrichmentSelectedLeadsImpl === 'function') {
@@ -2479,6 +2556,12 @@
           e.preventDefault();
           e.stopPropagation();
           void runBulkEnhanceFromBarEarly();
+          return;
+        }
+        if (e.target.closest('.js-bulk-scrape-websites')) {
+          e.preventDefault();
+          e.stopPropagation();
+          void runBulkScrapeWebsitesFromBarEarly();
           return;
         }
         if (e.target.closest('.js-bulk-socials')) {

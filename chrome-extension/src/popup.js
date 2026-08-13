@@ -17,12 +17,13 @@ const panelImport = document.getElementById('panelImport');
 const panelBulk = document.getElementById('panelBulk');
 const workspaceSelect = document.getElementById('workspaceSelect');
 const workspaceThemeRow = document.getElementById('workspaceThemeRow');
-const EXT_VERSION = '1.6.9';
+const EXT_VERSION = '1.8.0';
 const PARALLEL_LABEL = '5 at a time';
 
 let bulkRunning = false;
 let bulkStopRequested = false;
 let reEnrichRunning = false;
+let websiteEnrichRunning = false;
 let cachedSettings = null;
 
 document.getElementById('extVersion').textContent = `v${EXT_VERSION}`;
@@ -41,7 +42,10 @@ document.querySelectorAll('.popup-tab').forEach((tabBtn) => {
     panelSave.classList.toggle('hidden', tab !== 'save');
     panelBulk.classList.toggle('hidden', tab !== 'bulk');
     panelImport.classList.toggle('hidden', tab !== 'import');
-    if (tab === 'bulk') refreshBulkMapsHint();
+    if (tab === 'bulk') {
+      refreshBulkMapsHint();
+      refreshWebsiteQueueHint();
+    }
   });
 });
 
@@ -72,6 +76,8 @@ chrome.runtime.onMessage.addListener((message) => {
     bulkProgressEl.textContent = `Fetching websites (${PARALLEL_LABEL})… ${message.current || 0}/${message.total || 0}`;
   } else if (message?.phase === 're-enrich-parallel') {
     bulkProgressEl.textContent = `Re-enriching (${PARALLEL_LABEL})… ${message.current || 0}/${message.total || 0}`;
+  } else if (message?.phase === 'website-enrich-parallel') {
+    bulkProgressEl.textContent = `Scraping websites (${PARALLEL_LABEL})… ${message.current || 0}/${message.total || 0}`;
   } else if (message.phase === 'enrich') {
     bulkProgressEl.textContent = `Fetching websites… ${message.current || 0}/${message.total || 0}`;
   } else {
@@ -448,6 +454,7 @@ async function init() {
   }
 
   refreshBulkMapsHint();
+  refreshWebsiteQueueHint();
 
   try {
     const { tab, lead } = await getActiveTabLead();
@@ -567,7 +574,7 @@ form.addEventListener('submit', async (e) => {
 
 async function runBulkScrapeSubmit(e) {
   e.preventDefault();
-  if (reEnrichRunning) return;
+  if (reEnrichRunning || websiteEnrichRunning) return;
   if (bulkRunning) {
     bulkStopRequested = true;
     try {
@@ -642,7 +649,7 @@ async function runBulkScrapeSubmit(e) {
 bulkForm?.addEventListener('submit', runBulkScrapeSubmit);
 
 async function runReEnrichFolder() {
-  if (bulkRunning || reEnrichRunning) return;
+  if (bulkRunning || reEnrichRunning || websiteEnrichRunning) return;
 
   const folderName = bulkForm.bulkFolderName.value.trim();
   if (!folderName) {
@@ -698,6 +705,82 @@ async function runReEnrichFolder() {
 }
 
 document.getElementById('bulkReEnrichBtn')?.addEventListener('click', runReEnrichFolder);
+
+async function runWebsiteEnrichQueue() {
+  if (bulkRunning || reEnrichRunning || websiteEnrichRunning) return;
+
+  websiteEnrichRunning = true;
+  setBulkStatus('');
+  const btn = document.getElementById('bulkWebsiteEnrichBtn');
+  const prevLabel = btn ? btn.textContent : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Scraping websites…';
+  }
+
+  try {
+    if (bulkProgressEl) {
+      bulkProgressEl.textContent = 'Loading pipeline website queue…';
+      bulkProgressEl.classList.add('bulk-progress--active');
+    }
+
+    const res = await chrome.runtime.sendMessage({
+      type: 'PARALLEL_WEBSITE_ENRICH_QUEUE',
+      limit: 150,
+      workspaceId: getSelectedWorkspaceId(),
+    });
+    if (!res?.ok) throw new Error(res?.error || 'Website enrich failed');
+
+    const data = res.data || {};
+    if (data.empty) {
+      setBulkStatus(
+        'No pipeline website queue. In AdHello, select leads with websites → Scrape websites, then try again.',
+        'success',
+      );
+      if (bulkProgressEl) bulkProgressEl.textContent = '';
+      return;
+    }
+    const updated = data.updated || 0;
+    const attempted = data.attempted || 0;
+    setBulkStatus(
+      `Website enrich: updated ${updated} of ${attempted} leads (${PARALLEL_LABEL}). Refresh Pipeline if columns look stale.`,
+      'success',
+    );
+    if (bulkProgressEl) bulkProgressEl.textContent = '';
+  } catch (err) {
+    setBulkStatus(err.message || 'Website enrich failed', 'error');
+  } finally {
+    websiteEnrichRunning = false;
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = prevLabel || 'Process website queue (pipeline)';
+    }
+  }
+}
+
+document.getElementById('bulkWebsiteEnrichBtn')?.addEventListener('click', runWebsiteEnrichQueue);
+
+async function refreshWebsiteQueueHint() {
+  const btn = document.getElementById('bulkWebsiteEnrichBtn');
+  if (!btn) return;
+  try {
+    const res = await chrome.runtime.sendMessage({
+      type: 'GET_WEBSITE_ENRICH_QUEUE',
+      limit: 150,
+      workspaceId: getSelectedWorkspaceId(),
+    });
+    const count = res?.ok ? Number(res.data?.count || 0) : 0;
+    if (count > 0) {
+      btn.textContent = `Process website queue (${count})`;
+      btn.classList.add('btn-accent');
+    } else {
+      btn.textContent = 'Process website queue (pipeline)';
+      btn.classList.remove('btn-accent');
+    }
+  } catch (_) {
+    /* ignore */
+  }
+}
 
 function readFileAsText(file) {
   return new Promise((resolve, reject) => {

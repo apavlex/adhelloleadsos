@@ -72,9 +72,16 @@ test('isGenericBusinessWebsiteCandidate allows company sites and blocks director
 test('manifest includes website-scrape and broad https matches', () => {
   const manifestPath = path.join(__dirname, '..', 'chrome-extension', 'manifest.json');
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-  assert.equal(manifest.version, '1.7.0');
+  assert.equal(manifest.version, '1.8.0');
   const scripts = manifest.content_scripts[0].js;
   assert.ok(scripts.includes('src/website-scrape.js'));
   assert.ok(manifest.content_scripts[0].matches.includes('https://*/*'));
   assert.ok(fs.existsSync(path.join(__dirname, '..', 'chrome-extension', 'src', 'website-scrape.js')));
+});
+
+test('website-scrape registers scrapeBusinessWebsite message action', () => {
+  const file = path.join(__dirname, '..', 'chrome-extension', 'src', 'website-scrape.js');
+  const code = fs.readFileSync(file, 'utf8');
+  assert.match(code, /scrapeBusinessWebsite/);
+  assert.match(code, /extractBusinessWebsite/);
 });

@@ -78,6 +78,8 @@ const signalwire = require('../services/signalwire');
 const { shortLeadKey } = require('../services/focusQueue');
 const ghlClient = require('../services/ghlClient');
 const ghlMessaging = require('../services/ghlMessaging');
+const websiteEnrichQueue = require('../services/websiteEnrichQueue');
+const { resolveLeadsBySelectedKeys, parseBulkSelectionKeys } = require('../services/bulkSelectionKeys');
 const smsOutbound = require('../services/smsOutbound');
 const smsPersonalize = require('../services/smsPersonalize');
 const {
@@ -3078,6 +3080,78 @@ router.post('/telephony/voicemail/upload', (req, res, next) => {
       audioUrl: publicUrl,
       activeVoicemailId: entry.id,
       voicemailLibrary: nextLibrary,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /leads/website-enrich-queue
+ * Body: { leadKeys: string[] }
+ * Queues selected pipeline leads (with websites) for the Chrome extension to scrape
+ * contacts/socials in parallel (~5 tabs), then PATCH fill-missing via autonomous API.
+ */
+router.post('/website-enrich-queue', express.json(), async (req, res, next) => {
+  try {
+    const leadKeys = parseBulkSelectionKeys(
+      Array.isArray(req.body?.leadKeys) ? req.body.leadKeys.join(',') : req.body?.leadKeys,
+    );
+    if (!leadKeys.length) {
+      return res.status(400).json({ success: false, error: 'Select at least one lead.' });
+    }
+
+    const all = await dbService.getAllLeads(req.workspaceId);
+    const visible = filterLeadsForRequest(req, all);
+    const resolved = await resolveLeadsBySelectedKeys({
+      dbService,
+      workspaceId: req.workspaceId,
+      visibleLeads: visible,
+      keyOrder: leadKeys,
+    });
+
+    if (!resolved.length) {
+      return res.status(404).json({
+        success: false,
+        error: 'No matching saved leads found. Save them to your pipeline first.',
+      });
+    }
+
+    const withWebsite = resolved.filter((l) => websiteEnrichQueue.pickLeadWebsite(l));
+    const needing = websiteEnrichQueue.buildWebsiteEnrichQueueItems(withWebsite);
+    const skippedNoWebsite = resolved.length - withWebsite.length;
+    const skippedComplete = withWebsite.length - needing.length;
+
+    if (!needing.length) {
+      return res.json({
+        success: true,
+        queued: 0,
+        totalSelected: resolved.length,
+        skippedNoWebsite,
+        skippedComplete,
+        empty: true,
+        message:
+          skippedNoWebsite === resolved.length
+            ? 'Selected leads have no website URL to scrape.'
+            : 'Selected leads already have contact and social fields filled.',
+      });
+    }
+
+    await websiteEnrichQueue.saveWebsiteEnrichQueue(
+      dbService,
+      req.workspaceId,
+      needing.map((l) => l.key),
+    );
+
+    return res.json({
+      success: true,
+      queued: needing.length,
+      totalSelected: resolved.length,
+      skippedNoWebsite,
+      skippedComplete,
+      empty: false,
+      message: `Queued ${needing.length} lead${needing.length === 1 ? '' : 's'} for website scrape.`,
+      hint: 'Open the AdHello Chrome extension → Bulk scrape → Process website queue (5 tabs at a time).',
     });
   } catch (err) {
     next(err);

@@ -489,4 +489,24 @@
     SOCIAL_HOSTS,
     NOISE_HOSTS,
   };
+
+  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+    chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+      if (message?.action !== 'scrapeBusinessWebsite') return false;
+      try {
+        if (!isGenericBusinessWebsiteCandidate(window.location.href)) {
+          sendResponse({
+            success: false,
+            error: 'Not a scrapeable business website.',
+            detail: null,
+          });
+          return true;
+        }
+        sendResponse({ success: true, detail: extractBusinessWebsite() });
+      } catch (err) {
+        sendResponse({ success: false, error: err?.message || String(err), detail: null });
+      }
+      return true;
+    });
+  }
 })();

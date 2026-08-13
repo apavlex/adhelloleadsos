@@ -48,6 +48,8 @@ const { normalizeWorkspaceAccentHex } = require('../lib/workspaceAccent');
 const { scoreLocalProspect } = require('../services/localProspectScore');
 const { normalizeDomain } = require('../services/leadDedupe');
 const workspaceBootstrap = require('../services/workspaceBootstrap');
+const websiteEnrichQueue = require('../services/websiteEnrichQueue');
+const { resolveLeadsBySelectedKeys } = require('../services/bulkSelectionKeys');
 
 function isMissingWebsiteValue(website) {
   const w = String(website || '').trim();
@@ -529,9 +531,67 @@ router.get('/re-enrich-queue', apiKeyAuth, async (req, res, next) => {
 });
 
 /**
+ * GET /autonomous/website-enrich-queue
+ * Returns leads from the workspace website-enrich queue that still need contact/social fill.
+ * Queue is created from the pipeline “Scrape websites” bulk action.
+ */
+router.get('/website-enrich-queue', apiKeyAuth, async (req, res, next) => {
+  try {
+    const wid = workspaceId(req);
+    const stored = await websiteEnrichQueue.loadWebsiteEnrichQueue(dbService, wid);
+    if (!stored || !stored.leadKeys?.length) {
+      return res.json({
+        success: true,
+        empty: true,
+        count: 0,
+        totalQueued: 0,
+        totalNeeding: 0,
+        leads: [],
+        message: 'No website enrich queue. Select leads in Pipeline and click Scrape websites.',
+      });
+    }
+
+    const all = await dbService.getAllLeads(wid);
+    const resolved = await resolveLeadsBySelectedKeys({
+      dbService,
+      workspaceId: wid,
+      visibleLeads: all,
+      keyOrder: stored.leadKeys,
+    });
+    const limit = Math.min(parseInt(req.query.limit, 10) || 150, websiteEnrichQueue.MAX_QUEUE_KEYS);
+    const needing = websiteEnrichQueue.buildWebsiteEnrichQueueItems(resolved, { limit });
+
+    res.json({
+      success: true,
+      empty: needing.length === 0,
+      count: needing.length,
+      totalQueued: stored.leadKeys.length,
+      totalNeeding: needing.length,
+      createdAt: stored.createdAt || null,
+      leads: needing,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * DELETE /autonomous/website-enrich-queue — clear the pending website enrich selection.
+ */
+router.delete('/website-enrich-queue', apiKeyAuth, async (req, res, next) => {
+  try {
+    const wid = workspaceId(req);
+    await websiteEnrichQueue.clearWebsiteEnrichQueue(dbService, wid);
+    res.json({ success: true, cleared: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
  * PATCH /autonomous/leads/:leadKey
- * Body: { website?, city?, state?, address?, phone?, companyDomain? }
- * Fills missing contact/location fields only (does not overwrite existing values).
+ * Body: { website?, city?, state?, address?, phone?, email?, zip?, facebook?, instagram?, twitter?, linkedin?, tiktok?, companyDomain? }
+ * Fills missing contact/location/social fields only (does not overwrite existing values).
  */
 router.patch('/leads/:leadKey', apiKeyAuth, express.json(), async (req, res, next) => {
   try {
@@ -565,6 +625,35 @@ router.patch('/leads/:leadKey', apiKeyAuth, express.json(), async (req, res, nex
       patch.phone = String(body.phone).trim();
     }
 
+    const leadZip = String(lead.zip || lead.postalCode || '').trim();
+    if (!leadZip && body.zip) {
+      patch.zip = String(body.zip).trim();
+      patch.postalCode = patch.zip;
+    }
+
+    if (websiteEnrichQueue.isMissingContactValue(lead.email) && body.email) {
+      const email = String(body.email).trim().toLowerCase();
+      if (email && email !== 'n/a' && ghlClient.isValidEmailForGhl(email)) {
+        patch.email = email;
+      }
+    }
+
+    const socialBody = sanitizeLeadSocialPatch({
+      facebook: body.facebook,
+      instagram: body.instagram,
+      twitter: body.twitter,
+      linkedin: body.linkedin,
+      tiktok: body.tiktok,
+    });
+    for (const social of ['facebook', 'instagram', 'twitter', 'linkedin', 'tiktok']) {
+      if (
+        websiteEnrichQueue.isMissingContactValue(lead[social]) &&
+        socialBody[social]
+      ) {
+        patch[social] = socialBody[social];
+      }
+    }
+
     const domain =
       String(body.companyDomain || '').trim() ||
       hostnameFromWebsite(patch.website || lead.website);
@@ -590,10 +679,17 @@ router.patch('/leads/:leadKey', apiKeyAuth, express.json(), async (req, res, nex
     patch.websiteStatusLabel = scored.websiteStatusLabel;
     if (!lead.prospectTier) patch.prospectTier = scored.prospectTier;
 
+    const fieldList = Object.keys(patch).filter((k) => k !== 'logs' && k !== 'importFields');
+    const logType = fieldList.some((f) =>
+      ['email', 'facebook', 'instagram', 'twitter', 'linkedin', 'tiktok'].includes(f),
+    )
+      ? 'website_enrich'
+      : 're_enrich';
+
     patch.logs = [
       {
-        type: 're_enrich',
-        message: `Chrome extension backfill: ${Object.keys(patch).filter((k) => k !== 'logs').join(', ')}`,
+        type: logType,
+        message: `Chrome extension backfill: ${fieldList.join(', ')}`,
         timestamp: new Date().toISOString(),
       },
     ];

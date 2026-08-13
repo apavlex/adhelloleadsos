@@ -126,6 +126,15 @@ async function getReEnrichQueue({ folderName, limit = 150, workspaceId }) {
   return apiFetch(`/autonomous/re-enrich-queue?${params.toString()}`, {}, workspaceId);
 }
 
+async function getWebsiteEnrichQueue({ limit = 150, workspaceId } = {}) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  return apiFetch(`/autonomous/website-enrich-queue?${params.toString()}`, {}, workspaceId);
+}
+
+async function clearWebsiteEnrichQueue({ workspaceId } = {}) {
+  return apiFetch('/autonomous/website-enrich-queue', { method: 'DELETE' }, workspaceId);
+}
+
 async function patchLeadContact({ leadKey, patch, workspaceId }) {
   const key = encodeURIComponent(String(leadKey || '').replace(/^lead:/, ''));
   if (!key) throw new Error('Lead key is required.');
@@ -141,6 +150,7 @@ async function patchLeadContact({ leadKey, patch, workspaceId }) {
 
 const PARALLEL_ENRICH_CONCURRENCY = 5;
 const ENRICH_SCRIPTS = ['src/address-utils.js', 'src/maps-bulk-scrape.js'];
+const WEBSITE_SCRAPE_SCRIPTS = ['src/address-utils.js', 'src/website-utils.js', 'src/website-scrape.js'];
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -216,6 +226,65 @@ async function scrapeMapsPlaceUrl(mapsUrl) {
       /* tab may already be closed */
     }
   }
+}
+
+async function scrapeBusinessWebsiteUrl(websiteUrl) {
+  const url = String(websiteUrl || '').trim();
+  if (!url) throw new Error('Missing website URL');
+  const tab = await chrome.tabs.create({ url, active: false });
+  try {
+    await waitForTabComplete(tab.id);
+    await sleep(900);
+    for (const file of WEBSITE_SCRAPE_SCRIPTS) {
+      try {
+        await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: [file] });
+      } catch (_) {
+        /* script may already be injected */
+      }
+    }
+    await sleep(350);
+    return await new Promise((resolve, reject) => {
+      chrome.tabs.sendMessage(tab.id, { action: 'scrapeBusinessWebsite' }, (response) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
+        if (!response?.success) {
+          reject(new Error(response?.error || 'Website scrape failed'));
+          return;
+        }
+        resolve(response.detail || {});
+      });
+    });
+  } finally {
+    try {
+      await chrome.tabs.remove(tab.id);
+    } catch (_) {
+      /* tab may already be closed */
+    }
+  }
+}
+
+function buildWebsiteEnrichPatchFromDetail(detail, lead) {
+  const missing = new Set(lead.missing || []);
+  const patch = {};
+  const email = String(detail?.email || '').trim().toLowerCase();
+  if (email && email !== 'n/a' && missing.has('email')) patch.email = email;
+  const phone = String(detail?.phone || '').trim();
+  if (phone && phone !== 'N/A' && missing.has('phone')) patch.phone = phone;
+  const address = String(detail?.address || '').trim();
+  if (address && address !== 'N/A' && missing.has('address')) patch.address = address;
+  const city = String(detail?.city || '').trim();
+  if (city && missing.has('city')) patch.city = city;
+  const state = String(detail?.state || '').trim();
+  if (state && missing.has('state')) patch.state = state;
+  const zip = String(detail?.zip || detail?.postalCode || '').trim();
+  if (zip && missing.has('zip')) patch.zip = zip;
+  for (const social of ['facebook', 'instagram', 'twitter', 'linkedin', 'tiktok']) {
+    const val = String(detail?.[social] || '').trim();
+    if (val && val !== 'N/A' && missing.has(social)) patch[social] = val;
+  }
+  return patch;
 }
 
 async function runParallelPool(items, worker, concurrency) {
@@ -372,6 +441,67 @@ async function parallelReEnrichFolder({
     attempted: leads.length,
     totalNeeding: queue.totalNeeding || leads.length,
     folderName: queue.folderName || folderName,
+  };
+}
+
+async function parallelWebsiteEnrichQueue({
+  limit = 150,
+  concurrency = PARALLEL_ENRICH_CONCURRENCY,
+  workspaceId,
+  clearWhenDone = false,
+} = {}) {
+  const queue = await getWebsiteEnrichQueue({ limit, workspaceId });
+  const leads = queue.leads || [];
+  if (!leads.length) {
+    return {
+      updated: 0,
+      attempted: 0,
+      totalNeeding: 0,
+      totalQueued: queue.totalQueued || 0,
+      empty: true,
+    };
+  }
+
+  let updated = 0;
+  let completed = 0;
+
+  await runParallelPool(
+    leads,
+    async (lead) => {
+      try {
+        const detail = await scrapeBusinessWebsiteUrl(lead.website);
+        const patch = buildWebsiteEnrichPatchFromDetail(detail, lead);
+        if (Object.keys(patch).length) {
+          const res = await patchLeadContact({ leadKey: lead.key, patch, workspaceId });
+          if (res?.updated) updated += 1;
+        }
+      } catch (_) {
+        /* skip failed site */
+      }
+      completed += 1;
+      emitEnrichProgress({
+        phase: 'website-enrich-parallel',
+        current: completed,
+        total: leads.length,
+      });
+    },
+    concurrency,
+  );
+
+  if (clearWhenDone) {
+    try {
+      await clearWebsiteEnrichQueue({ workspaceId });
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
+  return {
+    updated,
+    attempted: leads.length,
+    totalNeeding: queue.totalNeeding || leads.length,
+    totalQueued: queue.totalQueued || leads.length,
+    empty: false,
   };
 }
 
@@ -593,6 +723,20 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   if (message?.type === 'PARALLEL_REENRICH_FOLDER') {
     parallelReEnrichFolder(message)
+      .then((data) => sendResponse({ ok: true, data }))
+      .catch((err) => sendResponse({ ok: false, error: err.message || String(err) }));
+    return true;
+  }
+
+  if (message?.type === 'GET_WEBSITE_ENRICH_QUEUE') {
+    getWebsiteEnrichQueue(message)
+      .then((data) => sendResponse({ ok: true, data }))
+      .catch((err) => sendResponse({ ok: false, error: err.message || String(err) }));
+    return true;
+  }
+
+  if (message?.type === 'PARALLEL_WEBSITE_ENRICH_QUEUE') {
+    parallelWebsiteEnrichQueue(message)
       .then((data) => sendResponse({ ok: true, data }))
       .catch((err) => sendResponse({ ok: false, error: err.message || String(err) }));
     return true;
