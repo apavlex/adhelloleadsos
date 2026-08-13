@@ -294,6 +294,7 @@ async function listAutomationsForWorkspace(workspaceId) {
           ? `Enrolled ${autoPool.lastEnrolled || 0} · ${autoPool.lastCandidateCount || 0} candidates`
           : '',
       nextRun: autoPool.enabled ? computeNextDailyRunUtc() : null,
+      nextRunDetail: autoPool.enabled ? 'Daily schedule · 09:30 UTC' : '',
       maxLeads: autoPool.maxLeads,
       settingsLink: '/workspace/integrations/ghl-setup',
       canPause: autoPool.enabled,
@@ -321,6 +322,7 @@ async function listAutomationsForWorkspace(workspaceId) {
           ? `Enrolled ${settings.lastEnrolled || 0} · ${settings.lastCandidateCount || 0} candidates`
           : '',
       nextRun: settings.enabled ? computeNextDailyRunUtc() : null,
+      nextRunDetail: settings.enabled ? 'Daily schedule · 09:30 UTC' : '',
       folderKey,
       settingsLink: '/prospecting?tab=folders',
       canPause: settings.enabled,

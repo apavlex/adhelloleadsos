@@ -13,10 +13,16 @@
     if (status === 'paused') return 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300';
     return 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400';
   }
+  function autoStatusLabel(a) {
+    if (a.type === 'outreach' && a.status === 'running') return 'On';
+    if (a.type === 'messages' && a.status === 'running') return 'Active';
+    return a.status || 'idle';
+  }
   function formatWhen(iso) {
     if (!iso) return '—';
     try {
       const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return '—';
       return d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     } catch (e) { return '—'; }
   }
@@ -89,9 +95,9 @@
               <span class="inline-flex px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider <%= a.type === 'outreach' ? 'bg-brand-yellow/15 text-brand-dark dark:text-brand-yellow' : a.type === 'prospecting' ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300' : 'bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300' %>"><%= autoTypeLabel(a) %></span>
             </td>
             <td class="px-4 py-5 text-center">
-              <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider <%= autoStatusClass(a.status) %>">
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider <%= autoStatusClass(a.status) %>" title="<%= a.type === 'outreach' && a.status === 'running' ? 'Enabled — runs daily at 09:30 UTC and when you click Run now' : '' %>">
                 <% if (a.status === 'running') { %><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span><% } %>
-                <%= a.status %>
+                <%= autoStatusLabel(a) %>
               </span>
             </td>
             <td class="px-4 py-5 text-center">
@@ -112,8 +118,11 @@
               <div class="text-[9px] text-brand-muted mt-0.5"><%= a.lastRunDetail %></div>
               <% } %>
             </td>
-            <td class="px-4 py-5 text-center text-xs font-bold text-brand-dark dark:text-white">
-              <%= a.nextRun ? formatWhen(a.nextRun) : '—' %>
+            <td class="px-4 py-5 text-center">
+              <div class="text-xs font-bold text-brand-dark dark:text-white"><%= a.nextRun ? formatWhen(a.nextRun) : '—' %></div>
+              <% if (a.nextRunDetail) { %>
+              <div class="text-[9px] text-brand-muted mt-0.5"><%= a.nextRunDetail %></div>
+              <% } %>
             </td>
             <td class="px-4 py-5 text-right">
               <div class="flex items-center justify-end gap-1.5 flex-wrap">

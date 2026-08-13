@@ -96,8 +96,13 @@
               <div class="text-[9px] text-brand-muted mt-0.5"><%= a.lastRunDetail %></div>
               <% } %>
             </td>
-            <td class="px-4 py-5 text-center text-xs font-bold text-brand-dark dark:text-white">
-              <%= a.nextRun ? dripFormatWhen(a.nextRun) : '—' %>
+            <td class="px-4 py-5 text-center">
+              <div class="text-xs font-bold text-brand-dark dark:text-white"><%= a.nextRun ? dripFormatWhen(a.nextRun) : '—' %></div>
+              <% if (a.nextRunDetail) { %>
+              <div class="text-[9px] text-brand-muted mt-0.5"><%= a.nextRunDetail %></div>
+              <% } else if (a.nextRun && a.type === 'outreach') { %>
+              <div class="text-[9px] text-brand-muted mt-0.5">Daily schedule · 09:30 UTC</div>
+              <% } %>
             </td>
             <td class="px-4 py-5 text-right">
               <div class="flex items-center justify-end gap-1.5 flex-wrap">
