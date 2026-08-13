@@ -240,8 +240,14 @@
         .then(function(r) { return r.json(); })
         .then(function(d) {
           if (d.success) {
-            showStatus(action === 'run' ? 'Drip batch sent to GHL.' : (action.charAt(0).toUpperCase() + action.slice(1) + ' succeeded.'));
-            setTimeout(reloadQueue, 600);
+            if (action === 'run' && d.runStarted) {
+              showStatus(d.message || 'Drip started — refresh in 1–2 minutes for results.');
+              setTimeout(reloadQueue, 8000);
+              setTimeout(reloadQueue, 45000);
+            } else {
+              showStatus(action === 'run' ? 'Drip batch sent to GHL.' : (action.charAt(0).toUpperCase() + action.slice(1) + ' succeeded.'));
+              setTimeout(reloadQueue, 600);
+            }
           } else {
             showStatus(d.error || 'Action failed.', true);
             btn.disabled = false;

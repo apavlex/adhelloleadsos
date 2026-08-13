@@ -161,12 +161,27 @@ router.post('/automations/action', express.json(), async (req, res, next) => {
         });
       }
       if (action === 'run') {
-        const result = await runFolderOutreach({
+        const startedAt = new Date().toISOString();
+        const outreachAutomation = normalizeFolderOutreachSettings({
+          ...prev,
+          enabled: true,
+          lastRunAt: startedAt,
+          lastSkipSummary: 'drip running…',
+        });
+        await dbService.updateFolder(wid, folderKey, { outreachAutomation });
+        kickoffFolderOutreachInBackground({
           workspaceId: wid,
           folderKey,
           settings: { ...prev, enabled: true },
         });
-        return res.json({ success: true, action, id, ...result });
+        return res.json({
+          success: true,
+          action,
+          id,
+          runStarted: true,
+          message:
+            'Drip started in the background (email hunt can take a few minutes). Refresh shortly for enroll counts.',
+        });
       }
       return res.status(400).json({ success: false, error: 'Invalid action for folder outreach.' });
     }

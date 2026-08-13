@@ -78,6 +78,7 @@ function normalizeFolderOutreachSettings(raw) {
     lastCandidateCount: Number.isFinite(Number(s.lastCandidateCount)) ? Number(s.lastCandidateCount) : 0,
     lastFolderLeadCount: Number.isFinite(Number(s.lastFolderLeadCount)) ? Number(s.lastFolderLeadCount) : 0,
     lastSkipSummary: String(s.lastSkipSummary || '').trim().slice(0, 200),
+    lastPausedCadences: Number.isFinite(Number(s.lastPausedCadences)) ? Number(s.lastPausedCadences) : 0,
     lastIcpRejected: Number.isFinite(Number(s.lastIcpRejected)) ? Number(s.lastIcpRejected) : 0,
     lastEmailsFound: Number.isFinite(Number(s.lastEmailsFound)) ? Number(s.lastEmailsFound) : 0,
     lastEmailSkipped: Number.isFinite(Number(s.lastEmailSkipped)) ? Number(s.lastEmailSkipped) : 0,
@@ -292,6 +293,25 @@ async function runFolderOutreach(opts) {
   const ws = (await dbService.getWorkspace(workspaceId)) || { id: workspaceId };
   const poolSize = Math.min(150, Math.max(cap * 5, cap));
   const inFolder = all.filter((l) => leadInFolderScope(l, folderKeys));
+
+  let pausedCadences = 0;
+  for (const lead of inFolder) {
+    if (!isBlockingActiveCadence(lead)) continue;
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      await pauseSequence(lead.key);
+      pausedCadences += 1;
+      if (lead.sequenceState && typeof lead.sequenceState === 'object') {
+        lead.sequenceState = { ...lead.sequenceState, status: 'paused' };
+      }
+    } catch (e) {
+      console.warn(
+        `[folderOutreach] pause cadence failed for ${lead.key}:`,
+        e && e.message,
+      );
+    }
+  }
+
   const skipPack = summarizeFolderSkipReasons(inFolder, settings, folderKeys);
   const candidates = inFolder
     .filter((l) => leadEligibleForFolderOutreach(l, settings, folderKeys))
@@ -405,7 +425,10 @@ async function runFolderOutreach(opts) {
     lastEnrolled: enrolled,
     lastCandidateCount: candidates.length,
     lastFolderLeadCount: inFolder.length,
-    lastSkipSummary: skipPack.summary || '',
+    lastSkipSummary:
+      skipPack.summary ||
+      (pausedCadences > 0 ? `paused ${pausedCadences} cadences` : ''),
+    lastPausedCadences: pausedCadences,
     lastIcpRejected: icpRejected,
     lastEmailsFound: emailsFound,
     lastEmailSkipped: emailSkipped,
@@ -416,7 +439,8 @@ async function runFolderOutreach(opts) {
     enrolled,
     candidates: candidates.length,
     folderLeadCount: inFolder.length,
-    skipSummary: skipPack.summary || '',
+    pausedCadences,
+    skipSummary: outreachNext.lastSkipSummary,
     icpRejected,
     emailsFound,
     emailSkipped,

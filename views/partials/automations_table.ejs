@@ -274,8 +274,17 @@
         .then(function(r) { return r.json(); })
         .then(function(d) {
           if (d.success) {
-            showStatus(action.charAt(0).toUpperCase() + action.slice(1) + ' succeeded.');
-            setTimeout(reloadAutomations, 600);
+            if (action === 'run' && d.runStarted) {
+              showStatus(d.message || 'Drip started — refresh in 1–2 minutes for results.');
+              setTimeout(reloadAutomations, 8000);
+              setTimeout(reloadAutomations, 45000);
+            } else if (action === 'run' && d.enrolled != null) {
+              showStatus('Enrolled ' + (d.enrolled || 0) + ' · ' + (d.candidates || 0) + ' candidates.');
+              setTimeout(reloadAutomations, 800);
+            } else {
+              showStatus(action.charAt(0).toUpperCase() + action.slice(1) + ' succeeded.');
+              setTimeout(reloadAutomations, 600);
+            }
           } else {
             showStatus(d.error || 'Action failed.', true);
             btn.disabled = false;

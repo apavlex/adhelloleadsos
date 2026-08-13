@@ -260,13 +260,28 @@ router.post('/outreach/run', async (req, res, next) => {
       return res.status(404).json({ success: false, error: 'Folder not found.' });
     }
     const settings = loadFolderOutreachFromFolder(folder);
-    const result = await runFolderOutreach({
+    const startedAt = new Date().toISOString();
+    const runSettings = { ...settings, enabled: true };
+    if (req.body && req.body.maxLeads != null) {
+      runSettings.maxLeads = req.body.maxLeads;
+    }
+    const outreachAutomation = normalizeFolderOutreachSettings({
+      ...runSettings,
+      lastRunAt: startedAt,
+      lastSkipSummary: 'drip running…',
+    });
+    await dbService.updateFolder(wid, folderKey, { outreachAutomation });
+    kickoffFolderOutreachInBackground({
       workspaceId: wid,
       folderKey,
-      settings: { ...settings, enabled: true },
-      maxLeads: req.body && req.body.maxLeads,
+      settings: runSettings,
     });
-    res.json({ success: true, ...result });
+    res.json({
+      success: true,
+      runStarted: true,
+      message:
+        'Drip started in the background (email hunt can take a few minutes). Refresh shortly for enroll counts.',
+    });
   } catch (e) {
     next(e);
   }
