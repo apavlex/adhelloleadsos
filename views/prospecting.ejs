@@ -357,13 +357,13 @@
     <div id="folderOutreachBackdrop" class="absolute inset-0 bg-brand-dark/60 backdrop-blur-sm cursor-pointer" tabindex="-1"></div>
     <div class="relative max-w-lg w-full max-h-[90vh] overflow-y-auto rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-8 shadow-2xl z-10">
       <h2 id="folderOutreachTitle" class="font-display font-black text-xl text-brand-dark dark:text-white mb-1">Folder auto outreach</h2>
-      <p id="folderOutreachSubtitle" class="text-sm text-brand-muted mb-2">Enrolls leads in this folder into your GHL <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">auto-outreach</code> workflow daily. Phone line type (Mobile vs Landline) syncs to GHL for SMS branching. Workspace cap: <strong class="text-brand-dark dark:text-white">100 enrolls/day</strong> across all auto outreach (avoids GHL spam flags).</p>
+      <p id="folderOutreachSubtitle" class="text-sm text-brand-muted mb-2">When enabled, starts enrolling this folder into your GHL <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">auto-outreach</code> workflow immediately, then continues daily. Phone line type (Mobile vs Landline) syncs to GHL for SMS branching. Workspace cap: <strong class="text-brand-dark dark:text-white">100 enrolls/day</strong> across all auto outreach (avoids GHL spam flags).</p>
       <p class="text-xs text-brand-muted mb-5">Use your GHL audit widget link in the workflow — AdHello audit is not required.</p>
       <input type="hidden" id="folderOutreachKey" value="" />
       <div class="space-y-4">
         <label class="flex items-center gap-2 text-sm font-semibold text-brand-dark dark:text-white">
           <input type="checkbox" id="folderOutreachEnabled" class="rounded border-brand-border" />
-          Enable daily auto outreach for this folder
+          Enable auto outreach for this folder (starts now)
         </label>
         <div>
           <label for="folderOutreachMaxLeads" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Max leads per day (folder)</label>
@@ -672,7 +672,17 @@
           e.stopPropagation();
           var key = cb.getAttribute('data-folder-key') || '';
           if (!key) return;
-          saveFolderOutreachSettings(key, { enabled: !!cb.checked }, cb);
+          saveFolderOutreachSettings(key, { enabled: !!cb.checked }, cb).then(function (data) {
+            if (!data) return;
+            if (data.runStarted && typeof window.showAppToast === 'function') {
+              window.showAppToast('Auto outreach started — enrolling eligible leads now.', {
+                variant: 'success',
+                duration: 6000,
+              });
+            } else if (cb.checked === false && typeof window.showAppToast === 'function') {
+              window.showAppToast('Auto outreach paused for this folder.', { duration: 4000 });
+            }
+          }).catch(function () { /* saveFolderOutreachSettings already alerts */ });
         });
       });
     }
@@ -905,12 +915,16 @@
               var on = !!(data.outreachAutomation && data.outreachAutomation.enabled);
               setFolderOutreachStatus(
                 on
-                  ? 'Saved. Auto outreach is ON — it runs in the background. Safe to close the app.'
+                  ? (data.runStarted
+                    ? 'Saved. Auto outreach is ON — enrolling eligible leads now (then daily). Safe to close the app.'
+                    : 'Saved. Auto outreach is ON — it runs in the background. Safe to close the app.')
                   : 'Saved. Outreach disabled for this folder.',
               );
               if (on && typeof window.showAppToast === 'function') {
                 window.showAppToast(
-                  'Auto outreach is live on the server. Safe to close this tab — enrolls continue in the background.',
+                  data.runStarted
+                    ? 'Auto outreach started — enrolling now. Safe to close this tab.'
+                    : 'Auto outreach is live on the server. Safe to close this tab — enrolls continue in the background.',
                   { variant: 'success', duration: 7000 },
                 );
               }

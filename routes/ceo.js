@@ -6,10 +6,13 @@ const { runPavlexChat, runPavlexMcpDebug } = require('../services/pavlex/pavlexA
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const ghlClient = require('../services/ghlClient');
 const { listAutomationsForWorkspace } = require('../services/automationsRegistry');
-const { normalizeAutoPoolSettings } = require('../services/prospectingAutoPool');
-const { loadFolderOutreachFromFolder, normalizeFolderOutreachSettings } = require('../services/folderOutreachAutomation');
-const { runFolderOutreach } = require('../services/folderOutreachAutomation');
-const { runAutoPool } = require('../services/prospectingAutoPool');
+const {
+  loadFolderOutreachFromFolder,
+  normalizeFolderOutreachSettings,
+  runFolderOutreach,
+  kickoffFolderOutreachInBackground,
+} = require('../services/folderOutreachAutomation');
+const { normalizeAutoPoolSettings, runAutoPool } = require('../services/prospectingAutoPool');
 
 /**
  * GET /ceo — Automate command center (folder outreach, searches, cadences).
@@ -95,9 +98,24 @@ router.post('/automations/action', express.json(), async (req, res, next) => {
         return res.json({ success: true, action, id, enabled: false });
       }
       if (action === 'resume') {
-        prospecting.autoPool = normalizeAutoPoolSettings({ ...prev, enabled: true });
+        const next = normalizeAutoPoolSettings({ ...prev, enabled: true });
+        prospecting.autoPool = next;
         await dbService.saveWorkspace(wid, { ...ws, prospecting });
-        return res.json({ success: true, action, id, enabled: true });
+        const justEnabled = !prev.enabled;
+        if (justEnabled) {
+          setImmediate(() => {
+            runAutoPool({ workspaceId: wid, settings: next }).catch((e) => {
+              console.error('[AUTO-POOL] resume kickoff failed:', e && e.message ? e.message : e);
+            });
+          });
+        }
+        return res.json({
+          success: true,
+          action,
+          id,
+          enabled: true,
+          runStarted: justEnabled,
+        });
       }
       if (action === 'run') {
         const result = await runAutoPool({ workspaceId: wid, settings: { ...prev, enabled: true } });
@@ -125,7 +143,21 @@ router.post('/automations/action', express.json(), async (req, res, next) => {
       if (action === 'resume') {
         const outreachAutomation = normalizeFolderOutreachSettings({ ...prev, enabled: true });
         await dbService.updateFolder(wid, folderKey, { outreachAutomation });
-        return res.json({ success: true, action, id, enabled: true });
+        const justEnabled = !prev.enabled;
+        if (justEnabled) {
+          kickoffFolderOutreachInBackground({
+            workspaceId: wid,
+            folderKey,
+            settings: outreachAutomation,
+          });
+        }
+        return res.json({
+          success: true,
+          action,
+          id,
+          enabled: true,
+          runStarted: justEnabled,
+        });
       }
       if (action === 'run') {
         const result = await runFolderOutreach({

@@ -85,3 +85,9 @@ test('valuesFromLead maps mobile and landline for GHL', () => {
     { lineLabel: 'Landline', carrier: '', smsOk: 'No' },
   );
 });
+
+test('kickoffFolderOutreachInBackground returns false without folderKey', () => {
+  const { kickoffFolderOutreachInBackground } = require('../services/folderOutreachAutomation');
+  assert.equal(kickoffFolderOutreachInBackground({ workspaceId: 'ws' }), false);
+  assert.equal(kickoffFolderOutreachInBackground({ workspaceId: 'ws', folderKey: '' }), false);
+});

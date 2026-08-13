@@ -34,7 +34,7 @@
     <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mt-1"><%= _fc %> lead<%= _fc === 1 ? '' : 's' %> in this folder<% if (_oaEnabled) { %> · <span class="text-emerald-700 dark:text-emerald-300">Auto outreach on</span><% if (_oa.lastEnrolled != null && _oa.lastRunAt) { %> · last enrolled <%= _oa.lastEnrolled %><% } %><% } %></p>
   </a>
   <div class="flex flex-wrap items-center gap-2 shrink-0">
-    <label class="folder-outreach-toggle inline-flex items-center gap-1.5 px-2.5 py-2 rounded-xl border border-brand-border/60 dark:border-white/10 bg-white/80 dark:bg-slate-800/80 cursor-pointer hover:border-emerald-500/40 transition-colors" title="Daily auto-outreach via GHL workflow (auto-outreach tag)">
+    <label class="folder-outreach-toggle inline-flex items-center gap-1.5 px-2.5 py-2 rounded-xl border border-brand-border/60 dark:border-white/10 bg-white/80 dark:bg-slate-800/80 cursor-pointer hover:border-emerald-500/40 transition-colors" title="Starts enrolling now, then daily via GHL auto-outreach tag">
       <input type="checkbox" class="folder-outreach-enabled rounded border-brand-border" data-folder-key="<%= _f.key %>" <%= _oaEnabled ? 'checked' : '' %> />
       <span class="text-[9px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Auto outreach</span>
     </label>

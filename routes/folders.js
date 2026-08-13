@@ -12,6 +12,7 @@ const {
   normalizeFolderOutreachSettings,
   loadFolderOutreachFromFolder,
   runFolderOutreach,
+  kickoffFolderOutreachInBackground,
 } = require('../services/folderOutreachAutomation');
 const { optimizeFolderGhlWorkflowPrompt } = require('../services/ghlWorkflowCoach');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
@@ -175,8 +176,21 @@ router.post('/save-outreach-automation', async (req, res, next) => {
       lastCandidateCount: prev.lastCandidateCount,
       lastIcpRejected: prev.lastIcpRejected,
     });
+    const justEnabled = outreachAutomation.enabled && !prev.enabled;
     const folder = await dbService.updateFolder(wid, folderKey, { outreachAutomation });
-    res.json({ success: true, folder, outreachAutomation });
+    if (justEnabled) {
+      kickoffFolderOutreachInBackground({
+        workspaceId: wid,
+        folderKey,
+        settings: outreachAutomation,
+      });
+    }
+    res.json({
+      success: true,
+      folder,
+      outreachAutomation,
+      runStarted: justEnabled,
+    });
   } catch (e) {
     next(e);
   }

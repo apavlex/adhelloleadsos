@@ -291,6 +291,32 @@ async function runFolderOutreach(opts) {
 }
 
 /**
+ * Start a folder outreach pass without blocking the HTTP request (enable / resume).
+ * Safe to call after settings are persisted with enabled: true.
+ */
+function kickoffFolderOutreachInBackground(opts) {
+  const workspaceId = String((opts && opts.workspaceId) || 'default').trim() || 'default';
+  const folderKey = String((opts && opts.folderKey) || '').trim();
+  if (!folderKey) return false;
+  const settings = opts && opts.settings;
+  setImmediate(() => {
+    runFolderOutreach({ workspaceId, folderKey, settings })
+      .then((r) => {
+        console.log(
+          `[FOLDER-OUTREACH] kickoff ${workspaceId} ${folderKey}: enrolled ${r.enrolled || 0} · ${r.candidates || 0} candidates`,
+        );
+      })
+      .catch((e) => {
+        console.error(
+          `[FOLDER-OUTREACH] kickoff failed ${workspaceId} ${folderKey}:`,
+          e && e.message ? e.message : e,
+        );
+      });
+  });
+  return true;
+}
+
+/**
  * Run outreach for every folder with outreachAutomation.enabled in a workspace.
  */
 async function runEnabledFoldersForWorkspace(workspaceId) {
@@ -406,6 +432,7 @@ module.exports = {
   leadEligibleForFolderOutreach,
   rankLeadForFolderOutreach,
   runFolderOutreach,
+  kickoffFolderOutreachInBackground,
   runEnabledFoldersForWorkspace,
   getActiveAutoOutreachSummary,
 };

@@ -1218,6 +1218,7 @@ router.post('/settings', express.json(), async (req, res) => {
       }
       ws.telephony = telephony;
     }
+    let autoPoolKickoffSettings = null;
     if (
       req.body &&
       (Object.prototype.hasOwnProperty.call(req.body, 'prospectingAutoPoolEnabled') ||
@@ -1304,9 +1305,20 @@ router.post('/settings', express.json(), async (req, res) => {
         prospecting.lowReviewsThreshold = normalizeLowReviewsThreshold(raw);
       }
       ws.prospecting = prospecting;
+      if (prospecting.autoPool && prospecting.autoPool.enabled && !prev.enabled) {
+        autoPoolKickoffSettings = prospecting.autoPool;
+      }
     }
     await dbService.saveWorkspace(wid, ws);
-    res.json({ success: true });
+    if (autoPoolKickoffSettings) {
+      const { runAutoPool } = require('../services/prospectingAutoPool');
+      setImmediate(() => {
+        runAutoPool({ workspaceId: wid, settings: autoPoolKickoffSettings }).catch((e) => {
+          console.error('[AUTO-POOL] enable kickoff failed:', e && e.message ? e.message : e);
+        });
+      });
+    }
+    res.json({ success: true, runStarted: !!autoPoolKickoffSettings });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message || 'Server error' });
   }
