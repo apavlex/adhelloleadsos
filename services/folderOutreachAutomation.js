@@ -324,6 +324,78 @@ async function runEnabledFoldersForWorkspace(workspaceId) {
   return { totalEnrolled, folderResults, workspaceId: wid };
 }
 
+/**
+ * Active background auto-outreach campaigns for bell / status UI.
+ * Scheduler runs on the server — safe to close the browser.
+ */
+async function getActiveAutoOutreachSummary(workspaceId) {
+  const wid = String(workspaceId || 'default').trim() || 'default';
+  const folders = await dbService.listFolders(wid);
+  const enabledFolders = [];
+  for (const folder of folders) {
+    const settings = loadFolderOutreachFromFolder(folder);
+    if (!settings.enabled) continue;
+    enabledFolders.push({
+      key: String(folder.key || ''),
+      name: String(folder.name || folder.key || 'Folder'),
+      maxLeads: settings.maxLeads,
+      lastRunAt: settings.lastRunAt || '',
+      lastEnrolled: settings.lastEnrolled || 0,
+      lastCandidateCount: settings.lastCandidateCount || 0,
+    });
+  }
+
+  let autoPoolEnabled = false;
+  let autoPoolLastRunAt = '';
+  let autoPoolLastEnrolled = 0;
+  try {
+    const ws = await dbService.getWorkspace(wid);
+    const pool = ws && ws.prospecting && ws.prospecting.autoPool;
+    autoPoolEnabled = !!(pool && pool.enabled === true);
+    autoPoolLastRunAt = pool && pool.lastRunAt ? String(pool.lastRunAt) : '';
+    autoPoolLastEnrolled = pool && Number.isFinite(Number(pool.lastEnrolled))
+      ? Number(pool.lastEnrolled)
+      : 0;
+  } catch (_) {
+    /* ignore */
+  }
+
+  const active = enabledFolders.length > 0 || autoPoolEnabled;
+  const names = enabledFolders.map((f) => f.name).filter(Boolean);
+  let headline = 'Auto outreach running in background';
+  let body =
+    'Campaigns keep enrolling on the server on a schedule. Safe to close this tab — work continues without you staying on the app.';
+  if (enabledFolders.length === 1 && !autoPoolEnabled) {
+    headline = `Auto outreach on · ${names[0]}`;
+    body = `"${names[0]}" enrolls new eligible leads into GHL daily in the background. Safe to close the app — the campaign keeps running on the server.`;
+  } else if (enabledFolders.length > 1 && !autoPoolEnabled) {
+    headline = `Auto outreach on · ${enabledFolders.length} folders`;
+    body = `${names.slice(0, 3).join(', ')}${names.length > 3 ? '…' : ''} are enrolled on a server schedule. Safe to close this tab.`;
+  } else if (autoPoolEnabled && enabledFolders.length === 0) {
+    headline = 'Auto-pool outreach running in background';
+    body =
+      'Workspace auto-pool enrolls leads into GHL on a schedule. Safe to close the app — it continues on the server.';
+  } else if (autoPoolEnabled && enabledFolders.length > 0) {
+    headline = 'Auto outreach + auto-pool active';
+    body = `${enabledFolders.length} folder campaign(s) and auto-pool are on. Safe to close — enrolls continue in the background.`;
+  }
+
+  return {
+    active,
+    folderCount: enabledFolders.length,
+    folders: enabledFolders.slice(0, 8),
+    autoPoolEnabled,
+    autoPoolLastRunAt,
+    autoPoolLastEnrolled,
+    headline,
+    body,
+    href:
+      enabledFolders.length === 1
+        ? `/prospecting?tab=folders&folderKey=${encodeURIComponent(enabledFolders[0].key)}`
+        : '/prospecting?tab=folders',
+  };
+}
+
 module.exports = {
   DEFAULT_FOLDER_OUTREACH,
   MAX_GHL_GOAL_LEN,
@@ -335,4 +407,5 @@ module.exports = {
   rankLeadForFolderOutreach,
   runFolderOutreach,
   runEnabledFoldersForWorkspace,
+  getActiveAutoOutreachSummary,
 };

@@ -6,6 +6,7 @@
 (function () {
   let activeProcessingCount = 0;
   let processingIndicator = null;
+  let lastAutoOutreachSummary = null;
 
   /**
    * In-app toast (glass-style). Use for enhance/Firecrawl errors instead of window.alert.
@@ -438,12 +439,68 @@
     updateLeadRunProgressBanner({ isProcessing: false });
   };
 
+  function escapeBellHtml(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  }
+
+  function buildAutoOutreachBellHtml(summary) {
+    if (!summary || !summary.active) return '';
+    const title = escapeBellHtml(summary.headline || 'Auto outreach running');
+    const sub = escapeBellHtml(
+      summary.body ||
+        'Campaigns continue on the server. Safe to close this tab.',
+    );
+    const href = String(summary.href || '/prospecting?tab=folders').replace(/'/g, '');
+    return (
+      '<div class="p-4 hover:bg-emerald-50/80 dark:hover:bg-emerald-950/30 transition-colors cursor-pointer group/notif border-b border-brand-border/10 last:border-0 bg-emerald-50/40 dark:bg-emerald-950/20" onclick="window.location.href=\'' +
+      href +
+      '\'">' +
+      '<div class="flex items-start gap-3">' +
+      '<div class="w-8 h-8 rounded-full bg-emerald-500/15 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">' +
+      '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>' +
+      '</div><div class="min-w-0">' +
+      '<div class="text-[11px] font-black text-brand-dark dark:text-white uppercase tracking-tight mb-0.5">' +
+      title +
+      '</div>' +
+      '<div class="text-[10px] font-bold text-brand-muted dark:text-slate-400 leading-tight">' +
+      sub +
+      '</div>' +
+      '<div class="mt-2 text-[9px] font-black uppercase text-emerald-700 dark:text-emerald-400 group-hover/notif:translate-x-1 transition-transform">' +
+      'View folders →' +
+      '</div>' +
+      '</div></div></div>'
+    );
+  }
+
+  function applyAutoOutreachBellBadge(summary) {
+    const el = document.getElementById('bulkEnhanceBellBadge');
+    if (!el) return;
+    if (isBulkEnhanceJobRunning() || isGhlSyncJobRunning() || syncEnhanceSessionActive()) return;
+    if (localStorage.getItem('is_searching') === 'true') return;
+    if (summary && summary.active) {
+      el.textContent = 'LIVE';
+      el.classList.remove('hidden');
+      el.classList.add('bg-emerald-600');
+      el.setAttribute(
+        'title',
+        (summary.headline || 'Auto outreach') +
+          ' — running on the server. Safe to close this tab.',
+      );
+    } else if (el.textContent === 'LIVE') {
+      el.textContent = '';
+      el.classList.add('hidden');
+      el.classList.remove('bg-emerald-600');
+      el.removeAttribute('title');
+    }
+  }
+
   function updateBulkEnhanceBellBadge(currentZeroBasedIndex, total, label) {
     const el = document.getElementById('bulkEnhanceBellBadge');
     if (!el) return;
     if (total > 0 && currentZeroBasedIndex < total) {
       el.textContent = currentZeroBasedIndex + 1 + '/' + total;
       el.classList.remove('hidden');
+      el.classList.remove('bg-emerald-600');
       el.setAttribute(
         'title',
         (label || 'Enhancing leads') +
@@ -454,9 +511,14 @@
           ' (safe to change pages)',
       );
     } else if (!isGhlSyncJobRunning()) {
-      el.textContent = '';
-      el.classList.add('hidden');
-      el.removeAttribute('title');
+      if (lastAutoOutreachSummary && lastAutoOutreachSummary.active) {
+        applyAutoOutreachBellBadge(lastAutoOutreachSummary);
+      } else {
+        el.textContent = '';
+        el.classList.add('hidden');
+        el.classList.remove('bg-emerald-600');
+        el.removeAttribute('title');
+      }
     }
   }
 
@@ -886,10 +948,6 @@
       const list = readClientBellNotifications().map((n) => ({ ...n, isRead: true }));
       sessionStorage.setItem(CLIENT_BELL_NOTIFS_KEY, JSON.stringify(list));
     } catch (_) {}
-  }
-
-  function escapeBellHtml(s) {
-    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
   }
 
   function renderClientBellNotifications(notificationList, notificationPing) {
@@ -1566,6 +1624,11 @@
           maybeRefreshPipelineFolderForCompletedSearch(data);
         }
 
+        lastAutoOutreachSummary =
+          data.autoOutreach && data.autoOutreach.active ? data.autoOutreach : null;
+        applyAutoOutreachBellBadge(lastAutoOutreachSummary);
+        const autoOutreachHtml = buildAutoOutreachBellHtml(lastAutoOutreachSummary);
+
         if (data.notification && !data.notification.isRead) {
           maybeDesktopNotify(data);
           if (notificationPing) {
@@ -1620,6 +1683,7 @@
                   encodeURIComponent(String(n.targetFolderKey).trim())
                 : '/history';
             notificationList.innerHTML =
+              autoOutreachHtml +
               '<div class="p-4 hover:bg-brand-cream/30 dark:hover:bg-white/5 transition-colors cursor-pointer group/notif" onclick="window.location.href=\'' +
               notifHref +
               '\'">' +
@@ -1639,19 +1703,26 @@
               '</div></div></div></div>';
           }
         } else if (renderClientBellNotifications(notificationList, notificationPing)) {
-          /* client-side hunt / enhance / artwork notifications */
+          if (autoOutreachHtml && notificationList) {
+            notificationList.innerHTML = autoOutreachHtml + notificationList.innerHTML;
+          }
         } else if (isArtworkGenJobRunning() && notificationList) {
-          notificationList.innerHTML = buildArtworkGenProgressBellHtml(readArtworkGenJob());
+          notificationList.innerHTML =
+            autoOutreachHtml + buildArtworkGenProgressBellHtml(readArtworkGenJob());
           if (notificationPing) {
             notificationPing.classList.remove('hidden');
             notificationPing.classList.add('animate-ping');
           }
         } else if (isGhlSyncJobRunning() && notificationList) {
-          notificationList.innerHTML = buildGhlSyncProgressBellHtml(readGhlSyncJob());
+          notificationList.innerHTML =
+            autoOutreachHtml + buildGhlSyncProgressBellHtml(readGhlSyncJob());
           if (notificationPing) {
             notificationPing.classList.remove('hidden');
             notificationPing.classList.add('animate-ping');
           }
+        } else if (autoOutreachHtml && notificationList) {
+          notificationList.innerHTML = autoOutreachHtml;
+          // Status card only — no urgent red ping for always-on campaigns
         } else {
           const keepPingForClientWork =
             localStorage.getItem('is_searching') === 'true' ||

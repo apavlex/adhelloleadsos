@@ -902,8 +902,19 @@
           save.disabled = true;
           saveFolderOutreachSettings(key, buildFolderOutreachPayload(key))
             .then(function (data) {
-              setFolderOutreachStatus('Saved. ' + (data.outreachAutomation.enabled ? 'Daily outreach enabled.' : 'Outreach disabled for this folder.'));
-              setTimeout(function () { window.location.reload(); }, 700);
+              var on = !!(data.outreachAutomation && data.outreachAutomation.enabled);
+              setFolderOutreachStatus(
+                on
+                  ? 'Saved. Auto outreach is ON — it runs in the background. Safe to close the app.'
+                  : 'Saved. Outreach disabled for this folder.',
+              );
+              if (on && typeof window.showAppToast === 'function') {
+                window.showAppToast(
+                  'Auto outreach is live on the server. Safe to close this tab — enrolls continue in the background.',
+                  { variant: 'success', duration: 7000 },
+                );
+              }
+              setTimeout(function () { window.location.reload(); }, 900);
             })
             .catch(function () { setFolderOutreachStatus('Save failed.', true); })
             .finally(function () { save.disabled = false; });

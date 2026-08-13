@@ -492,6 +492,8 @@ router.post('/leads/signal-ingest', validateApiKey, async (req, res, next) => {
   }
 });
 
+const { getActiveAutoOutreachSummary } = require('../services/folderOutreachAutomation');
+
 /**
  * GET /api/status
  * Returns current background job status and latest notification
@@ -500,11 +502,26 @@ router.get('/status', async (req, res) => {
   try {
     const activeJob = await dbService.getActiveJob();
     const latestFinished = await dbService.getLatestFinishedJob();
-    
+
+    let autoOutreach = null;
+    try {
+      const wid =
+        (req.session &&
+          (req.session.activeWorkspaceId || req.session.workspaceId) &&
+          String(req.session.activeWorkspaceId || req.session.workspaceId).trim()) ||
+        '';
+      if (wid && req.user) {
+        autoOutreach = await getActiveAutoOutreachSummary(wid);
+      }
+    } catch (e) {
+      console.warn('[api/status] autoOutreach summary skipped:', e && e.message);
+    }
+
     res.json({
       isProcessing: !!activeJob,
       activeJob: activeJob || null,
-      notification: latestFinished || null
+      notification: latestFinished || null,
+      autoOutreach,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
