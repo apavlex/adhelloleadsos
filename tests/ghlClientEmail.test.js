@@ -4,8 +4,9 @@ const { isValidEmailForGhl, leadToGhlContactPayload } = require('../services/ghl
 
 describe('isValidEmailForGhl', () => {
   it('accepts valid emails', () => {
-    assert.equal(isValidEmailForGhl('user@example.com'), true);
-    assert.equal(isValidEmailForGhl('  user@example.co.uk  '), true);
+    assert.equal(isValidEmailForGhl('owner@acmeplumbing.com'), true);
+    assert.equal(isValidEmailForGhl('  info@example.co.uk  '), false); // example.* blocked
+    assert.equal(isValidEmailForGhl('hello@bayareawater.com'), true);
   });
 
   it('rejects invalid or placeholder emails', () => {
@@ -15,6 +16,16 @@ describe('isValidEmailForGhl', () => {
     assert.equal(isValidEmailForGhl('missing@domain'), false);
     assert.equal(isValidEmailForGhl('@nodomain.com'), false);
     assert.equal(isValidEmailForGhl('zillow bad value'), false);
+  });
+
+  it('rejects scraped asset filenames and theme placeholders', () => {
+    assert.equal(isValidEmailForGhl('m-home-banner@2x.jpg'), false);
+    assert.equal(isValidEmailForGhl('chosen-sprite@2x.png'), false);
+    assert.equal(isValidEmailForGhl('logo@cdn.example.png'), false);
+    assert.equal(isValidEmailForGhl('office@mikado-themes.com'), false);
+    assert.equal(isValidEmailForGhl('user@domain.com'), false);
+    assert.equal(isValidEmailForGhl('test@example.com'), false);
+    assert.equal(isValidEmailForGhl('email@email.com'), false);
   });
 });
 
@@ -30,10 +41,18 @@ describe('leadToGhlContactPayload email', () => {
 
   it('includes valid email in payload', () => {
     const payload = leadToGhlContactPayload(
-      { title: 'Test Co', email: 'valid@example.com', phone: '5551234567' },
+      { title: 'Test Co', email: 'hello@bayareawater.com', phone: '5551234567' },
       'loc123',
     );
-    assert.equal(payload.email, 'valid@example.com');
+    assert.equal(payload.email, 'hello@bayareawater.com');
+  });
+
+  it('omits scraped junk email from payload', () => {
+    const payload = leadToGhlContactPayload(
+      { title: 'Test Co', email: 'm-home-banner@2x.jpg', phone: '5551234567' },
+      'loc123',
+    );
+    assert.equal('email' in payload, false);
   });
 
   it('omits N/A email from payload', () => {

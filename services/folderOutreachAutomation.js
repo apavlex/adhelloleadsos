@@ -353,6 +353,31 @@ async function runFolderOutreach(opts) {
       }
     }
 
+    const rawEmail = String(lead.email || '').trim();
+    if (rawEmail && rawEmail !== 'N/A' && !hasUsableEmail(lead)) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        await dbService.updateLead(
+          lead.key,
+          {
+            email: '',
+            emailValidationStatus: 'rejected_junk',
+            logs: [
+              {
+                type: 'email_find',
+                message: `Cleared unusable scraped/placeholder email before drip: ${rawEmail.slice(0, 80)}`,
+                timestamp: new Date().toISOString(),
+              },
+            ],
+          },
+          workspaceId,
+        );
+      } catch (_) {
+        /* non-fatal */
+      }
+      lead = { ...lead, email: '' };
+    }
+
     if (settings.findMissingEmail && !hasUsableEmail(lead)) {
       let emailPack = { found: false, reason: 'error' };
       try {

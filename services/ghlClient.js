@@ -118,7 +118,111 @@ function splitName(title) {
 function isValidEmailForGhl(email) {
   const s = String(email || '').trim();
   if (!s || s === 'N/A') return false;
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+  // Basic shape
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)) return false;
+  if (/\s/.test(s)) return false;
+  if (s.length > 254) return false;
+
+  const lower = s.toLowerCase();
+  const at = lower.lastIndexOf('@');
+  if (at <= 0) return false;
+  const local = lower.slice(0, at);
+  const domain = lower.slice(at + 1);
+  if (!local || !domain || local.length > 64) return false;
+  if (local.startsWith('.') || local.endsWith('.') || local.includes('..')) return false;
+  if (domain.startsWith('.') || domain.endsWith('.') || domain.includes('..')) return false;
+
+  const domainParts = domain.split('.');
+  const tld = domainParts[domainParts.length - 1] || '';
+  // Scraped image / asset filenames mistaken for emails (banner@2x.jpg, sprite@2x.png)
+  const ASSET_TLDS = new Set([
+    'jpg',
+    'jpeg',
+    'png',
+    'gif',
+    'webp',
+    'svg',
+    'bmp',
+    'ico',
+    'css',
+    'js',
+    'map',
+    'woff',
+    'woff2',
+    'ttf',
+    'eot',
+    'mp3',
+    'mp4',
+    'webm',
+    'pdf',
+    'zip',
+    'json',
+  ]);
+  if (ASSET_TLDS.has(tld)) return false;
+  if (/@[23]x\./i.test(lower)) return false;
+  if (/\.(jpe?g|png|gif|webp|svg|css|js)(@|$)/i.test(lower)) return false;
+  if (/(^|[._-])(banner|sprite|logo|icon|hero|thumb|thumbnail|favicon|webpack|chunk)([._-]|$)/i.test(local)) {
+    return false;
+  }
+
+  // Placeholder / fake addresses
+  const PLACEHOLDER_LOCAL = new Set([
+    'user',
+    'username',
+    'email',
+    'name',
+    'firstname',
+    'lastname',
+    'first',
+    'last',
+    'test',
+    'testing',
+    'example',
+    'sample',
+    'placeholder',
+    'you',
+    'yourname',
+    'your.email',
+    'emailaddress',
+  ]);
+  if (PLACEHOLDER_LOCAL.has(local)) return false;
+
+  const PLACEHOLDER_DOMAINS = new Set([
+    'example.com',
+    'example.org',
+    'example.net',
+    'domain.com',
+    'email.com',
+    'test.com',
+    'localhost',
+    'invalid',
+    'local',
+    'yourdomain.com',
+    'yourcompany.com',
+    'company.com',
+    'emailprovider.com',
+    'sentry.io',
+    'wixpress.com',
+    'schema.org',
+  ]);
+  if (PLACEHOLDER_DOMAINS.has(domain)) return false;
+  if (/(^|\.)example\.(com|org|net|co\.uk)$/i.test(domain)) return false;
+
+  // Theme / template vendor inboxes (WP theme demos scrape into lead lists)
+  const THEME_VENDOR_DOMAINS = new Set([
+    'mikado-themes.com',
+    'themeforest.net',
+    'envato.com',
+    'elegantthemes.com',
+    'themify.me',
+  ]);
+  if (THEME_VENDOR_DOMAINS.has(domain)) return false;
+  if (/(^|\.)themes?\.com$/i.test(domain) || /-themes\.com$/i.test(domain)) return false;
+
+  // TLD must look like a real DNS label (letters, optionally longer like co.uk already handled by multi-part domain)
+  if (!/^[a-z]{2,24}$/i.test(tld)) return false;
+
+  return true;
 }
 
 function leadToGhlContactPayload(lead, locationId, { includeTags = true } = {}) {

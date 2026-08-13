@@ -249,6 +249,26 @@ async function ensureLeadEmail(opts) {
     return { found: true, alreadyHad: true, lead, email: String(lead.email).trim(), sources: [] };
   }
 
+  // Present but unusable (asset scrape / placeholder) — clear so we hunt and don't keep junk.
+  const rawExisting = String(lead.email || '').trim();
+  let clearedJunk = false;
+  let accumulatedPatch = {};
+  if (rawExisting && rawExisting !== 'N/A') {
+    clearedJunk = true;
+    lead = { ...lead, email: '', emailValidationStatus: 'rejected_junk' };
+    accumulatedPatch = {
+      email: '',
+      emailValidationStatus: 'rejected_junk',
+      logs: [
+        {
+          type: 'email_find',
+          message: `Cleared unusable scraped/placeholder email: ${rawExisting.slice(0, 80)}`,
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    };
+  }
+
   let integrationEnv = opts.integrationEnv || null;
   if (!integrationEnv) {
     try {
@@ -259,7 +279,6 @@ async function ensureLeadEmail(opts) {
   }
 
   const sourcesTried = [];
-  let accumulatedPatch = {};
   let timedOut = false;
 
   function remainingMs() {
@@ -389,6 +408,9 @@ async function ensureLeadEmail(opts) {
   }
 
   if (!hit) {
+    if (clearedJunk && persist && lead.key) {
+      lead = await persistLeadPatch(lead, accumulatedPatch, workspaceId);
+    }
     return {
       found: false,
       alreadyHad: false,
@@ -396,6 +418,7 @@ async function ensureLeadEmail(opts) {
       email: '',
       sources: sourcesTried,
       reason: timedOut ? 'timed_out' : 'not_found',
+      clearedJunk,
       unlockedWebsite: hasUsableWebsite(lead),
     };
   }
