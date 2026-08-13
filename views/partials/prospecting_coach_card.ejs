@@ -14,7 +14,7 @@
       <a href="/pipeline" class="btn-pill bg-brand-dark text-white dark:bg-white dark:text-slate-900 text-[10px] font-black uppercase tracking-widest px-4 py-2.5 shrink-0">Open pipeline</a>
       <a href="/focus" class="btn-pill btn-primary text-[10px] font-black uppercase tracking-widest px-4 py-2.5 shadow-md shrink-0 inline-flex items-center gap-1">Start session <span aria-hidden="true">→</span></a>
       <span class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider bg-brand-cream/50 dark:bg-white/5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-slate-200 shrink-0" title="Touches today vs daily goal">Today <%= oc.touchesToday %>/<%= oc.touchGoal %></span>
-      <button type="button" id="outreachCoachRefresh" class="btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 text-[10px] font-black uppercase tracking-widest px-4 py-2.5 text-brand-dark dark:text-white shrink-0">Refresh AI</button>
+      <button type="button" id="outreachCoachRefresh" class="btn-pill border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest px-4 py-2.5 text-brand-dark dark:text-white hover:border-brand-yellow/50 shrink-0 disabled:opacity-60 disabled:cursor-wait disabled:hover:border-brand-border dark:disabled:hover:border-white/10" aria-busy="false">Refresh AI</button>
     </div>
   </div>
   <div class="p-6 space-y-4 <%= _coachEmbed ? 'px-0 pb-0 pt-0' : '' %>">
@@ -54,10 +54,43 @@
   if (!loadingEl || !contentEl || !fallbackEl) return;
 
   var forceNextStream = false;
+  var activeEs = null;
+  var activeTmo = null;
+  var loadSeq = 0;
+  var busy = false;
+  var REFRESH_LABEL = 'Refresh AI';
+  var REFRESHING_LABEL = 'Refreshing…';
 
-  function showLoading() {
+  function toast(msg, variant) {
+    if (typeof window.showAppToast === 'function') {
+      window.showAppToast(msg, { variant: variant || 'error' });
+    }
+  }
+
+  function setBusy(on) {
+    busy = !!on;
+    if (!refreshBtn) return;
+    refreshBtn.disabled = busy;
+    refreshBtn.setAttribute('aria-busy', busy ? 'true' : 'false');
+    refreshBtn.textContent = busy ? REFRESHING_LABEL : REFRESH_LABEL;
+  }
+
+  function closeActiveStream() {
+    if (activeTmo) {
+      clearTimeout(activeTmo);
+      activeTmo = null;
+    }
+    if (activeEs) {
+      try {
+        activeEs.close();
+      } catch (e) {}
+      activeEs = null;
+    }
+  }
+
+  function showLoading(force) {
     loadingEl.classList.remove('hidden');
-    loadingEl.textContent = 'Loading your coach…';
+    loadingEl.textContent = force ? 'Refreshing coach…' : 'Loading your coach…';
     contentEl.classList.add('hidden');
     fallbackEl.classList.add('hidden');
   }
@@ -152,21 +185,94 @@
       });
   }
 
+  function renderErrorWithActions(errObj) {
+    loadingEl.classList.add('hidden');
+    fallbackEl.classList.add('hidden');
+    contentEl.classList.remove('hidden');
+    var h2 = document.getElementById('outreachCoachHeadline');
+    if (h2) h2.textContent = 'Coach unavailable — still your next moves';
+    var body = document.getElementById('outreachCoachBody');
+    if (body) {
+      body.innerHTML = '';
+      var errP = document.createElement('p');
+      errP.className = 'text-brand-muted';
+      errP.textContent = (errObj && errObj.error) || 'Configure an LLM key for full coaching.';
+      body.appendChild(errP);
+    }
+    var focus = document.getElementById('outreachCoachFocus');
+    if (focus) focus.textContent = '';
+    var wrap = document.getElementById('outreachCoachActions');
+    if (wrap) {
+      wrap.innerHTML = '';
+      (errObj.actions || []).forEach(function (a) {
+        var node = renderActionRow(a);
+        if (node) wrap.appendChild(node);
+      });
+    }
+  }
+
+  function finishLoad(seq, markDone) {
+    if (seq !== loadSeq) return false;
+    if (typeof markDone === 'function') {
+      if (!markDone()) return false;
+    }
+    closeActiveStream();
+    setBusy(false);
+    return true;
+  }
+
+  function failLoad(seq, markDone, msg, snapshot, toastMsg) {
+    if (seq !== loadSeq) return;
+    if (typeof markDone === 'function' && !markDone()) return;
+    closeActiveStream();
+    setBusy(false);
+    renderFallback(msg, snapshot || null);
+    toast(toastMsg || msg, 'error');
+  }
+
   function loadCoach() {
-    showLoading();
+    var force = !!forceNextStream;
+    forceNextStream = false;
+    closeActiveStream();
+    var seq = ++loadSeq;
+    var settled = false;
+    function markDone() {
+      if (settled || seq !== loadSeq) return false;
+      settled = true;
+      return true;
+    }
+    setBusy(true);
+    showLoading(force);
     var bodyEl = document.getElementById('outreachCoachBody');
     if (bodyEl) bodyEl.innerHTML = '';
     var streamed = '';
-    var url = '/sales/outreach-coach/stream?force=' + (forceNextStream ? '1' : '0');
-    forceNextStream = false;
-    var es = new EventSource(url);
-    var tmo = setTimeout(function () {
+    var gotUsefulEvent = false;
+    var url = '/sales/outreach-coach/stream?force=' + (force ? '1' : '0');
+    var es;
+    try {
+      es = new EventSource(url);
+    } catch (err) {
+      failLoad(seq, markDone, 'Could not start coach stream. Try Refresh AI again.', null, 'Coach refresh failed to start.');
+      return;
+    }
+    activeEs = es;
+    activeTmo = setTimeout(function () {
+      if (seq !== loadSeq || settled) return;
       try {
         es.close();
       } catch (e) {}
-      renderFallback('Coach is taking too long. Try Refresh AI or check your API keys.', null);
+      failLoad(
+        seq,
+        markDone,
+        'Coach is taking too long. Try Refresh AI or check your API keys.',
+        null,
+        'Coach timed out — try Refresh AI again.'
+      );
     }, 120000);
+
     es.addEventListener('ping', function () {
+      if (seq !== loadSeq || settled) return;
+      gotUsefulEvent = true;
       loadingEl.classList.add('hidden');
       contentEl.classList.remove('hidden');
       fallbackEl.classList.add('hidden');
@@ -174,6 +280,8 @@
       if (h) h.textContent = '…';
     });
     es.addEventListener('token', function (e) {
+      if (seq !== loadSeq || settled) return;
+      gotUsefulEvent = true;
       try {
         var d = JSON.parse(e.data);
         streamed += d.d != null ? String(d.d) : '';
@@ -181,62 +289,82 @@
       } catch (err) {}
     });
     es.addEventListener('complete', function (e) {
-      clearTimeout(tmo);
-      es.close();
+      if (seq !== loadSeq || settled) return;
       try {
         var data = JSON.parse(e.data);
-        if (data && data.success) renderSuccess(data);
-        else renderFallback('Coach unavailable.', data && data.snapshot);
-      } catch (err) {
-        renderFallback('Coach response incomplete.', null);
-      }
-    });
-    es.addEventListener('error', function (e) {
-      if (!e || !e.data) return;
-      clearTimeout(tmo);
-      try {
-        var errObj = JSON.parse(e.data);
-        es.close();
-        if (errObj && Array.isArray(errObj.actions) && errObj.actions.length) {
-          loadingEl.classList.add('hidden');
-          fallbackEl.classList.add('hidden');
-          contentEl.classList.remove('hidden');
-          var h2 = document.getElementById('outreachCoachHeadline');
-          if (h2) h2.textContent = 'Coach unavailable — still your next moves';
-          var body = document.getElementById('outreachCoachBody');
-          if (body) {
-            body.innerHTML = '';
-            var errP = document.createElement('p');
-            errP.className = 'text-brand-muted';
-            errP.textContent = (errObj && errObj.error) || 'Configure an LLM key for full coaching.';
-            body.appendChild(errP);
-          }
-          var focus = document.getElementById('outreachCoachFocus');
-          if (focus) focus.textContent = '';
-          var wrap = document.getElementById('outreachCoachActions');
-          if (wrap) {
-            wrap.innerHTML = '';
-            errObj.actions.forEach(function (a) {
-              var node = renderActionRow(a);
-              if (node) wrap.appendChild(node);
-            });
+        if (data && data.success) {
+          renderSuccess(data);
+          finishLoad(seq, markDone);
+          if (force && typeof window.showAppToast === 'function') {
+            window.showAppToast('Coach refreshed.', { variant: 'success' });
           }
         } else {
-          renderFallback((errObj && errObj.error) || 'Coach unavailable.', errObj && errObj.snapshot);
+          failLoad(seq, markDone, 'Coach unavailable.', data && data.snapshot, (data && data.error) || 'Coach unavailable.');
         }
-      } catch (x) {
+      } catch (err) {
+        failLoad(seq, markDone, 'Coach response incomplete.', null, 'Coach response incomplete.');
+      }
+    });
+    // Custom SSE `event: error` includes data; native connection errors do not.
+    // Closing after complete can also fire a native error — ignore via markDone/settled.
+    es.addEventListener('error', function (e) {
+      if (seq !== loadSeq || settled) return;
+      if (e && e.data) {
         try {
-          es.close();
-        } catch (z) {}
+          var errObj = JSON.parse(e.data);
+          try {
+            es.close();
+          } catch (z) {}
+          if (errObj && Array.isArray(errObj.actions) && errObj.actions.length) {
+            if (!markDone()) return;
+            renderErrorWithActions(errObj);
+            closeActiveStream();
+            setBusy(false);
+            toast((errObj && errObj.error) || 'Coach unavailable.', 'error');
+          } else {
+            failLoad(
+              seq,
+              markDone,
+              (errObj && errObj.error) || 'Coach unavailable.',
+              errObj && errObj.snapshot,
+              (errObj && errObj.error) || 'Coach unavailable.'
+            );
+          }
+        } catch (x) {
+          failLoad(seq, markDone, 'Coach unavailable.', null, 'Coach stream error.');
+        }
+        return;
+      }
+      // Native EventSource failure — stop auto-reconnect so we don't stay on "Loading…"
+      // After a normal `complete` + res.end(), browsers often fire error while CONNECTING;
+      // give the complete handler a short window before treating it as a real failure.
+      try {
+        es.close();
+      } catch (z) {}
+      var failMsg = gotUsefulEvent
+        ? 'Connection lost while loading coach. Try Refresh AI.'
+        : 'Could not reach coach. Try Refresh AI again.';
+      var failToast = gotUsefulEvent
+        ? 'Coach connection lost — try Refresh AI.'
+        : 'Could not reach coach — try Refresh AI.';
+      if (gotUsefulEvent) {
+        setTimeout(function () {
+          if (seq !== loadSeq || settled) return;
+          failLoad(seq, markDone, failMsg, null, failToast);
+        }, 400);
+      } else {
+        failLoad(seq, markDone, failMsg, null, failToast);
       }
     });
   }
 
-  if (refreshBtn)
+  if (refreshBtn) {
     refreshBtn.addEventListener('click', function () {
+      if (busy) return;
       forceNextStream = true;
       loadCoach();
     });
+  }
   loadCoach();
 })();
 </script>

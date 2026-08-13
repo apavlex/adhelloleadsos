@@ -649,7 +649,25 @@ router.get('/outreach-coach/stream', async (req, res, next) => {
     writeEv('complete', payload);
     res.end();
   } catch (e) {
-    next(e);
+    // After SSE headers are sent, Express error middleware cannot recover cleanly —
+    // emit an SSE error so the client leaves "Loading your coach…" and Refresh AI works.
+    try {
+      if (!res.headersSent) {
+        return next(e);
+      }
+      res.write(`event: error\n`);
+      res.write(
+        `data: ${JSON.stringify({
+          success: false,
+          error: e && e.message ? String(e.message) : 'Coach stream failed',
+        })}\n\n`
+      );
+      res.end();
+    } catch (_) {
+      try {
+        res.end();
+      } catch (__) {}
+    }
   }
 });
 
