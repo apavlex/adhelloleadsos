@@ -1,6 +1,7 @@
 /**
  * Find a real business email before auto-outreach enrolls to GHL.
- * Uses website scrape + BetterContact — never invents addresses.
+ * Order: Monid (domain unlock) → website scrape → Outscraper → BetterContact.
+ * Never invents addresses.
  */
 const dbService = require('./database');
 const { isValidEmailForGhl } = require('./ghlClient');
@@ -9,10 +10,17 @@ const betterContact = require('./betterContactClient');
 const rapidapiWebsiteEnrich = require('./rapidapiWebsiteEnrich');
 const outscraperLeadEnrich = require('./outscraperLeadEnrich');
 const localPageExtract = require('./localPageExtract');
+const monidLeadEnrich = require('./monidLeadEnrich');
+const { firecrawlExtractToLeadUpdates } = require('./enrichmentNormalize');
 
 function hasUsableEmail(lead) {
   const email = String((lead && lead.email) || '').trim();
   return isValidEmailForGhl(email);
+}
+
+function hasUsableWebsite(lead) {
+  const raw = String((lead && (lead.website || lead.url)) || '').trim();
+  return !!(raw && raw !== 'N/A');
 }
 
 function normalizeWebsite(lead) {
@@ -44,6 +52,61 @@ function buildEmailPatch(lead, email, extras = {}) {
   return patch;
 }
 
+function mergeEnrichmentOntoLead(lead, extract) {
+  if (!extract || typeof extract !== 'object') return { lead, patch: {} };
+  const updates = firecrawlExtractToLeadUpdates(extract);
+  const patch = {};
+  for (const [key, value] of Object.entries(updates)) {
+    if (value == null || value === '' || value === 'N/A') continue;
+    const existing = lead[key];
+    if (existing != null && String(existing).trim() && String(existing).trim() !== 'N/A') continue;
+    patch[key] = value;
+  }
+  if (extract.website && !hasUsableWebsite(lead)) {
+    patch.website = String(extract.website).trim();
+  }
+  return {
+    lead: { ...lead, ...patch },
+    patch,
+  };
+}
+
+/**
+ * Monid unlocks website/domain (and sometimes phone/socials) so later email finders work.
+ * If Monid returns an email, use it immediately.
+ */
+async function tryMonidEnrich(lead, integrationEnv) {
+  if (!monidLeadEnrich.isConfigured(integrationEnv)) return null;
+  try {
+    const pack = await monidLeadEnrich.enrichLeadFromMonid(lead, integrationEnv);
+    if (!pack || !pack.enriched || !pack.extract) return null;
+    const merged = mergeEnrichmentOntoLead(lead, pack.extract);
+    const email = pack.extract.email || merged.patch.email;
+    if (isValidEmailForGhl(email)) {
+      return {
+        email: String(email).trim(),
+        source: 'monid',
+        patch: merged.patch,
+        lead: merged.lead,
+        unlockedWebsite: !!(merged.patch.website || pack.extract.website),
+      };
+    }
+    if (Object.keys(merged.patch).length) {
+      return {
+        email: '',
+        source: 'monid',
+        patch: merged.patch,
+        lead: merged.lead,
+        unlockedWebsite: !!merged.patch.website,
+        enrichOnly: true,
+      };
+    }
+  } catch (e) {
+    console.warn('[ensureLeadEmail] Monid failed:', e && e.message);
+  }
+  return null;
+}
+
 async function tryLocalWebsiteEmail(lead, integrationEnv) {
   const website = normalizeWebsite(lead);
   if (!website) return null;
@@ -52,7 +115,7 @@ async function tryLocalWebsiteEmail(lead, integrationEnv) {
     const pack = await localPageExtract.extractFromLocalScrape(website);
     const email = pack && pack.extract && pack.extract.email;
     if (isValidEmailForGhl(email)) {
-      return { email: String(email).trim(), source: 'local_website' };
+      return { email: String(email).trim(), source: 'local_website', lead };
     }
   } catch (e) {
     console.warn('[ensureLeadEmail] local scrape failed:', e && e.message);
@@ -69,7 +132,12 @@ async function tryRapidApiWebsiteEmail(lead, integrationEnv) {
     });
     const email = pack && pack.patch && pack.patch.email;
     if (isValidEmailForGhl(email)) {
-      return { email: String(email).trim(), source: 'rapidapi_website', patch: pack.patch };
+      return {
+        email: String(email).trim(),
+        source: 'rapidapi_website',
+        patch: pack.patch,
+        lead: { ...lead, ...(pack.patch || {}) },
+      };
     }
   } catch (e) {
     console.warn('[ensureLeadEmail] RapidAPI website failed:', e && e.message);
@@ -87,6 +155,7 @@ async function tryOutscraperEmail(lead, integrationEnv) {
         email: String(email).trim(),
         source: 'outscraper_contacts',
         patch: pack.patch || {},
+        lead: { ...lead, ...(pack.patch || {}), email: String(email).trim() },
       };
     }
   } catch (e) {
@@ -115,11 +184,23 @@ async function tryBetterContactEmail(lead, integrationEnv, opts = {}) {
       emailValidationStatus: extract.email_validation_status || '',
       decisionMakerName: extract.decision_maker_name || '',
       linkedin: extract.linkedin || '',
+      lead,
     };
   } catch (e) {
     console.warn('[ensureLeadEmail] BetterContact failed:', e && e.message);
   }
   return null;
+}
+
+async function persistLeadPatch(lead, patch, workspaceId) {
+  if (!lead || !lead.key || !patch || !Object.keys(patch).length) return lead;
+  try {
+    const key = String(lead.key).startsWith('lead:') ? lead.key : `lead:${lead.key}`;
+    return await dbService.updateLead(key, patch, workspaceId);
+  } catch (e) {
+    console.warn('[ensureLeadEmail] persist failed:', e && e.message);
+    return { ...lead, ...patch };
+  }
 }
 
 /**
@@ -132,8 +213,9 @@ async function tryBetterContactEmail(lead, integrationEnv, opts = {}) {
  * }} opts
  */
 async function ensureLeadEmail(opts) {
-  const lead = opts.lead && typeof opts.lead === 'object' ? opts.lead : {};
+  let lead = opts.lead && typeof opts.lead === 'object' ? { ...opts.lead } : {};
   const workspaceId = String(opts.workspaceId || 'default').trim() || 'default';
+  const persist = opts.persist !== false;
   if (hasUsableEmail(lead)) {
     return { found: true, alreadyHad: true, lead, email: String(lead.email).trim(), sources: [] };
   }
@@ -148,6 +230,51 @@ async function ensureLeadEmail(opts) {
   }
 
   const sourcesTried = [];
+  let accumulatedPatch = {};
+
+  // Step 0: Monid first when website/domain is missing (or always as a cheap unlock attempt).
+  if (!hasUsableWebsite(lead) || !betterContact.extractDomain(lead.website)) {
+    const monidHit = await tryMonidEnrich(lead, integrationEnv);
+    if (monidHit) {
+      sourcesTried.push(monidHit.source);
+      if (monidHit.patch && Object.keys(monidHit.patch).length) {
+        accumulatedPatch = { ...accumulatedPatch, ...monidHit.patch };
+        lead = monidHit.lead || { ...lead, ...monidHit.patch };
+        if (persist) {
+          lead = await persistLeadPatch(lead, {
+            ...monidHit.patch,
+            logs: [
+              {
+                type: 'email_find',
+                message: monidHit.unlockedWebsite
+                  ? `Monid unlocked website before email hunt: ${monidHit.patch.website}`
+                  : 'Monid enriched company signals before email hunt',
+                timestamp: new Date().toISOString(),
+              },
+            ],
+          }, workspaceId);
+        }
+      }
+      if (monidHit.email && isValidEmailForGhl(monidHit.email)) {
+        const patch = {
+          ...accumulatedPatch,
+          ...buildEmailPatch(lead, monidHit.email, monidHit),
+          email: monidHit.email,
+        };
+        if (persist) lead = await persistLeadPatch(lead, patch, workspaceId);
+        else lead = { ...lead, ...patch };
+        return {
+          found: true,
+          alreadyHad: false,
+          lead,
+          email: monidHit.email,
+          sources: sourcesTried,
+          source: 'monid',
+        };
+      }
+    }
+  }
+
   const attempts = [
     () => tryLocalWebsiteEmail(lead, integrationEnv),
     () => tryRapidApiWebsiteEmail(lead, integrationEnv),
@@ -164,6 +291,7 @@ async function ensureLeadEmail(opts) {
     const result = await run();
     if (!result) continue;
     sourcesTried.push(result.source);
+    if (result.lead) lead = result.lead;
     if (result.email && isValidEmailForGhl(result.email)) {
       hit = result;
       break;
@@ -178,32 +306,24 @@ async function ensureLeadEmail(opts) {
       email: '',
       sources: sourcesTried,
       reason: 'not_found',
+      unlockedWebsite: hasUsableWebsite(lead),
     };
   }
 
   const patch = {
+    ...accumulatedPatch,
     ...(hit.patch && typeof hit.patch === 'object' ? hit.patch : {}),
     ...buildEmailPatch(lead, hit.email, hit),
   };
   patch.email = hit.email;
 
-  let updated = lead;
-  if (opts.persist !== false && lead.key) {
-    try {
-      const key = String(lead.key).startsWith('lead:') ? lead.key : `lead:${lead.key}`;
-      updated = await dbService.updateLead(key, patch, workspaceId);
-    } catch (e) {
-      console.warn('[ensureLeadEmail] persist failed:', e && e.message);
-      updated = { ...lead, ...patch };
-    }
-  } else {
-    updated = { ...lead, ...patch };
-  }
+  if (persist) lead = await persistLeadPatch(lead, patch, workspaceId);
+  else lead = { ...lead, ...patch };
 
   return {
     found: true,
     alreadyHad: false,
-    lead: updated,
+    lead,
     email: hit.email,
     sources: sourcesTried,
     source: hit.source,
@@ -212,7 +332,9 @@ async function ensureLeadEmail(opts) {
 
 module.exports = {
   hasUsableEmail,
+  hasUsableWebsite,
   ensureLeadEmail,
   buildEmailPatch,
   normalizeWebsite,
+  mergeEnrichmentOntoLead,
 };
