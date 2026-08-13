@@ -125,21 +125,21 @@
               <% } %>
             </td>
             <td class="px-4 py-5 text-right">
-              <div class="flex items-center justify-end gap-1.5 flex-wrap">
+              <div class="inline-flex items-center justify-end gap-1.5 flex-nowrap whitespace-nowrap">
                 <% if (canManage && a.canPause) { %>
-                <button type="button" class="auto-action-btn px-2.5 py-1.5 rounded-lg border border-brand-border/60 dark:border-white/10 text-[9px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors" data-id="<%= a.id %>" data-action="pause" data-folder-key="<%= a.folderKey || '' %>" data-schedule-key="<%= a.scheduleKey || '' %>">Pause</button>
+                <button type="button" class="auto-action-btn shrink-0 px-2 py-1.5 rounded-lg border border-brand-border/60 dark:border-white/10 text-[9px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors" data-id="<%= a.id %>" data-action="pause" data-folder-key="<%= a.folderKey || '' %>" data-schedule-key="<%= a.scheduleKey || '' %>">Pause</button>
                 <% } %>
                 <% if (canManage && a.canResume) { %>
-                <button type="button" class="auto-action-btn px-2.5 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800/50 text-[9px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors" data-id="<%= a.id %>" data-action="resume" data-folder-key="<%= a.folderKey || '' %>" data-schedule-key="<%= a.scheduleKey || '' %>">Resume</button>
+                <button type="button" class="auto-action-btn shrink-0 px-2 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800/50 text-[9px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors" data-id="<%= a.id %>" data-action="resume" data-folder-key="<%= a.folderKey || '' %>" data-schedule-key="<%= a.scheduleKey || '' %>">Resume</button>
                 <% } %>
                 <% if (canManage && a.canRun) { %>
-                <button type="button" class="auto-action-btn px-2.5 py-1.5 rounded-lg bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark text-[9px] font-black uppercase tracking-wider hover:opacity-90 transition-opacity" data-id="<%= a.id %>" data-action="run" data-folder-key="<%= a.folderKey || '' %>">Run now</button>
+                <button type="button" class="auto-action-btn shrink-0 px-2 py-1.5 rounded-lg bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark text-[9px] font-black uppercase tracking-wider hover:opacity-90 transition-opacity" data-id="<%= a.id %>" data-action="run" data-folder-key="<%= a.folderKey || '' %>">Run now</button>
                 <% } %>
                 <% if (canManage && a.canStop) { %>
-                <button type="button" class="auto-action-btn px-2.5 py-1.5 rounded-lg border border-red-200 dark:border-red-800/50 text-[9px] font-black uppercase tracking-wider text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors" data-id="<%= a.id %>" data-action="stop" data-schedule-key="<%= a.scheduleKey || '' %>">Stop</button>
+                <button type="button" class="auto-action-btn shrink-0 px-2 py-1.5 rounded-lg border border-red-200 dark:border-red-800/50 text-[9px] font-black uppercase tracking-wider text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors" data-id="<%= a.id %>" data-action="stop" data-schedule-key="<%= a.scheduleKey || '' %>">Stop</button>
                 <% } %>
                 <% if (a.settingsLink) { %>
-                <a href="<%= a.settingsLink %>" class="px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider text-brand-muted hover:text-brand-dark dark:hover:text-white transition-colors" title="Open settings">→</a>
+                <a href="<%= a.settingsLink %>" class="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-lg text-brand-muted hover:text-brand-dark dark:hover:text-white hover:bg-brand-cream/60 dark:hover:bg-white/5 transition-colors" title="Open settings" aria-label="Open settings">→</a>
                 <% } %>
               </div>
             </td>

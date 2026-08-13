@@ -329,7 +329,12 @@ async function listAutomationsForWorkspace(workspaceId) {
     if (settings.lastRunAt != null && settings.lastRunAt !== '') {
       lastRunDetail = `Enrolled ${settings.lastEnrolled || 0} · ${settings.lastCandidateCount || 0} candidates`;
       if (settings.lastFolderLeadCount > 0 && settings.lastCandidateCount === 0) {
-        lastRunDetail += ` · ${settings.lastFolderLeadCount} in folder (filtered)`;
+        lastRunDetail += ` · ${settings.lastFolderLeadCount} in folder`;
+        if (settings.lastSkipSummary) {
+          lastRunDetail += ` (${settings.lastSkipSummary})`;
+        } else {
+          lastRunDetail += ' (filtered)';
+        }
       }
     }
     automations.push({

@@ -78,6 +78,47 @@ test('leadEligibleForFolderOutreach skips active auto outreach', () => {
   assert.equal(leadEligibleForFolderOutreach(lead, settings, 'folder:a'), false);
 });
 
+test('leadEligibleForFolderOutreach ignores paused cadence but blocks active other cadence', () => {
+  const settings = normalizeFolderOutreachSettings({});
+  const base = {
+    key: 'lead:4',
+    folderKey: 'folder:a',
+    phone: '+15551234567',
+    status: 'Not Contacted',
+  };
+  assert.equal(
+    leadEligibleForFolderOutreach(
+      { ...base, sequenceState: { status: 'paused', templateId: 'day1_call' } },
+      settings,
+      'folder:a',
+    ),
+    true,
+  );
+  assert.equal(
+    leadEligibleForFolderOutreach(
+      { ...base, sequenceState: { status: 'active', templateId: 'day1_call' } },
+      settings,
+      'folder:a',
+    ),
+    false,
+  );
+});
+
+test('leadEligibleForFolderOutreach allows website-only when findMissingEmail is on', () => {
+  const withHunt = normalizeFolderOutreachSettings({ findMissingEmail: true });
+  const noHunt = normalizeFolderOutreachSettings({ findMissingEmail: false });
+  const lead = {
+    key: 'lead:5',
+    folderKey: 'folder:a',
+    phone: '',
+    email: '',
+    website: 'https://example-water.com',
+    status: 'Not Contacted',
+  };
+  assert.equal(leadEligibleForFolderOutreach(lead, withHunt, 'folder:a'), true);
+  assert.equal(leadEligibleForFolderOutreach(lead, noHunt, 'folder:a'), false);
+});
+
 test('valuesFromLead maps mobile and landline for GHL', () => {
   assert.deepEqual(
     valuesFromLead({ phone: '+15551234567', phoneLineType: 'mobile', phoneCarrier: 'Verizon' }),

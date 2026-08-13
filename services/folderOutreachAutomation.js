@@ -9,12 +9,11 @@ const {
   AUTO_OUTREACH_CAMPAIGN,
   AUTO_OUTREACH_DAILY_CAP,
   isActiveProspecting,
-  isActiveCadence,
   enrollLeadInAutoOutreach,
   remainingAutoOutreachDailyBudget,
 } = require('./prospectingEnroll');
 const { reviewLeadIcpFit, DEFAULT_MIN_ICP_SCORE } = require('./icpFitReview');
-const { ensureLeadEmail, hasUsableEmail } = require('./ensureLeadEmail');
+const { ensureLeadEmail, hasUsableEmail, hasUsableWebsite } = require('./ensureLeadEmail');
 const { buildFolderTree, folderKeysIncludingDescendants } = require('./folderTree');
 
 const DEFAULT_FOLDER_OUTREACH = {
@@ -77,6 +76,7 @@ function normalizeFolderOutreachSettings(raw) {
     lastEnrolled: Number.isFinite(Number(s.lastEnrolled)) ? Number(s.lastEnrolled) : 0,
     lastCandidateCount: Number.isFinite(Number(s.lastCandidateCount)) ? Number(s.lastCandidateCount) : 0,
     lastFolderLeadCount: Number.isFinite(Number(s.lastFolderLeadCount)) ? Number(s.lastFolderLeadCount) : 0,
+    lastSkipSummary: String(s.lastSkipSummary || '').trim().slice(0, 200),
     lastIcpRejected: Number.isFinite(Number(s.lastIcpRejected)) ? Number(s.lastIcpRejected) : 0,
     lastEmailsFound: Number.isFinite(Number(s.lastEmailsFound)) ? Number(s.lastEmailsFound) : 0,
     lastEmailSkipped: Number.isFinite(Number(s.lastEmailSkipped)) ? Number(s.lastEmailSkipped) : 0,
@@ -142,33 +142,95 @@ function leadInFolderScope(lead, folderKeyOrKeys) {
   return leadFk === want;
 }
 
-function leadEligibleForFolderOutreach(lead, settings, folderKeyOrKeys) {
-  if (!lead || !lead.key) return false;
-  if (!leadInFolderScope(lead, folderKeyOrKeys)) return false;
+/** Only block true active internal cadences — not paused/completed, not legacy GHL auto_outreach. */
+function isBlockingActiveCadence(lead) {
+  const st = lead && lead.sequenceState;
+  if (!st || String(st.status || '') !== 'active') return false;
+  const tid = String(st.templateId || '');
+  return tid !== AUTO_OUTREACH_CAMPAIGN;
+}
+
+/**
+ * Why a folder lead is skipped from the drip pool (null = eligible).
+ */
+function folderOutreachSkipReason(lead, settings, folderKeyOrKeys) {
+  if (!lead || !lead.key) return 'invalid';
+  if (!leadInFolderScope(lead, folderKeyOrKeys)) return 'wrong_folder';
 
   const status = String(lead.status || '').toLowerCase();
-  if (status.includes('closed - won') || status.includes('closed - lost')) return false;
-  if (isActiveProspecting(lead)) return false;
-  if (isActiveCadence(lead)) return false;
+  if (status.includes('closed - won') || status.includes('closed - lost')) return 'closed';
+  if (isActiveProspecting(lead)) return 'already_ghl';
+  if (isBlockingActiveCadence(lead)) return 'active_cadence';
 
   if (settings.tier) {
     const tier = lead.prospectTier || scoreLocalProspect(lead).prospectTier;
-    if (String(tier).toLowerCase() !== String(settings.tier).toLowerCase()) return false;
+    if (String(tier).toLowerCase() !== String(settings.tier).toLowerCase()) return 'tier';
   }
   if (settings.minScore != null) {
     const scored = scoreLeadRecord(lead);
-    if (scored.score < settings.minScore) return false;
+    if (scored.score < settings.minScore) return 'score';
   }
 
   const phone = String(lead.phone || '').trim();
   const email = String(lead.email || '').trim();
-  if ((!phone || phone === 'N/A') && (!email || email === 'N/A')) return false;
-
-  if (settings.smsOnly && phone && phone !== 'N/A' && !phoneLineType.isSmsAllowed(lead)) {
-    return false;
+  const hasPhone = !!(phone && phone !== 'N/A');
+  const hasEmail = !!(email && email !== 'N/A');
+  if (!hasPhone && !hasEmail) {
+    // Website-only Maps leads can enter the pool when email hunt is on.
+    if (!(settings.findMissingEmail && hasUsableWebsite(lead))) return 'no_contact';
   }
 
-  return true;
+  if (settings.smsOnly && hasPhone && !phoneLineType.isSmsAllowed(lead)) {
+    return 'sms_only';
+  }
+
+  return null;
+}
+
+function leadEligibleForFolderOutreach(lead, settings, folderKeyOrKeys) {
+  return folderOutreachSkipReason(lead, settings, folderKeyOrKeys) == null;
+}
+
+function summarizeFolderSkipReasons(leads, settings, folderKeyOrKeys) {
+  const counts = {};
+  for (const lead of leads || []) {
+    const reason = folderOutreachSkipReason(lead, settings, folderKeyOrKeys);
+    if (!reason) continue;
+    counts[reason] = (counts[reason] || 0) + 1;
+  }
+  const order = [
+    'active_cadence',
+    'already_ghl',
+    'no_contact',
+    'sms_only',
+    'tier',
+    'score',
+    'closed',
+    'wrong_folder',
+    'invalid',
+  ];
+  const parts = [];
+  for (const key of order) {
+    if (!counts[key]) continue;
+    const label =
+      key === 'active_cadence'
+        ? 'on cadence'
+        : key === 'already_ghl'
+          ? 'already GHL'
+          : key === 'no_contact'
+            ? 'no phone/email'
+            : key === 'sms_only'
+              ? 'not SMS-ready'
+              : key === 'tier'
+                ? 'tier'
+                : key === 'score'
+                  ? 'score'
+                  : key === 'closed'
+                    ? 'closed'
+                    : key;
+    parts.push(`${counts[key]} ${label}`);
+  }
+  return { counts, summary: parts.slice(0, 3).join(', ') };
 }
 
 function rankLeadForFolderOutreach(lead) {
@@ -228,6 +290,7 @@ async function runFolderOutreach(opts) {
   const ws = (await dbService.getWorkspace(workspaceId)) || { id: workspaceId };
   const poolSize = Math.min(150, Math.max(cap * 5, cap));
   const inFolder = all.filter((l) => leadInFolderScope(l, folderKeys));
+  const skipPack = summarizeFolderSkipReasons(inFolder, settings, folderKeys);
   const candidates = inFolder
     .filter((l) => leadEligibleForFolderOutreach(l, settings, folderKeys))
     .map((l) => ({ lead: l, rank: rankLeadForFolderOutreach(l) }))
@@ -328,6 +391,7 @@ async function runFolderOutreach(opts) {
     lastEnrolled: enrolled,
     lastCandidateCount: candidates.length,
     lastFolderLeadCount: inFolder.length,
+    lastSkipSummary: skipPack.summary || '',
     lastIcpRejected: icpRejected,
     lastEmailsFound: emailsFound,
     lastEmailSkipped: emailSkipped,
@@ -338,6 +402,7 @@ async function runFolderOutreach(opts) {
     enrolled,
     candidates: candidates.length,
     folderLeadCount: inFolder.length,
+    skipSummary: skipPack.summary || '',
     icpRejected,
     emailsFound,
     emailSkipped,
@@ -492,7 +557,9 @@ module.exports = {
   loadFolderOutreachFromFolder,
   resolveFolderKeysForOutreach,
   leadInFolderScope,
+  folderOutreachSkipReason,
   leadEligibleForFolderOutreach,
+  summarizeFolderSkipReasons,
   rankLeadForFolderOutreach,
   runFolderOutreach,
   kickoffFolderOutreachInBackground,
