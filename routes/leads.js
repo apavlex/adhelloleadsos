@@ -91,6 +91,7 @@ const {
   resolveAuditUrlForInfoPack,
 } = require('../services/infoPack');
 const { triggerGhlProspectSync } = require('../services/ghlProspectSync');
+const { maybeRerunAutoOutreachAfterEmailFix } = require('../services/prospectingEnroll');
 const agentSessionStore = require('../services/agentSessionStore');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
 const contactHuntJobs = require('../services/contactHuntJobs');
@@ -1174,18 +1175,51 @@ router.post('/:key/update', async (req, res, next) => {
       }
     }
 
+    const emailChanging =
+      existing &&
+      updateData.email !== undefined &&
+      String(existing.email || '').trim() !== String(updateData.email || '').trim();
+    if (emailChanging && ghlClient.isValidEmailForGhl(updateData.email)) {
+      updateData.emailValidationStatus = 'manual_fixed';
+    }
+
+    const previousEmailForRerun = existing ? existing.email : '';
     const updated = await dbService.updateLead(fullKey, updateData, wid);
     if (!updated) {
       return res.status(404).json({ success: false, error: 'Lead not found' });
     }
+
+    let autoOutreachRerun = null;
+    if (emailChanging) {
+      try {
+        autoOutreachRerun = await maybeRerunAutoOutreachAfterEmailFix({
+          leadKey: fullKey,
+          workspaceId: wid,
+          previousEmail: previousEmailForRerun,
+          nextEmail: updateData.email,
+        });
+      } catch (rerunErr) {
+        console.warn(
+          '[leads/update] auto-outreach email-fix rerun failed:',
+          rerunErr && rerunErr.message,
+        );
+        autoOutreachRerun = {
+          rerun: false,
+          reason: (rerunErr && rerunErr.message) || 'rerun_failed',
+        };
+      }
+    }
+
+    const rerunHandledGhl = !!(autoOutreachRerun && autoOutreachRerun.rerun);
     const shouldSyncGhl =
-      updateData.lastTouchChannel !== undefined ||
-      updateData.status ||
-      updateData.lastDisposition !== undefined ||
-      updateData.nextActionAt !== undefined ||
-      updateData.pipelineStage !== undefined ||
-      (req.body && req.body.stageId != null) ||
-      leadContactFieldsChanged(req.body, existing);
+      !rerunHandledGhl &&
+      (updateData.lastTouchChannel !== undefined ||
+        updateData.status ||
+        updateData.lastDisposition !== undefined ||
+        updateData.nextActionAt !== undefined ||
+        updateData.pipelineStage !== undefined ||
+        (req.body && req.body.stageId != null) ||
+        leadContactFieldsChanged(req.body, existing));
     if (shouldSyncGhl) {
       triggerGhlProspectSync(fullKey, wid, {
         trigger: updateData.lastTouchChannel
@@ -1195,7 +1229,14 @@ router.post('/:key/update', async (req, res, next) => {
             : 'lead_update',
       });
     }
-    res.json({ success: true, lead: updated });
+
+    const freshLead =
+      rerunHandledGhl ? (await dbService.getLead(fullKey, wid)) || updated : updated;
+    res.json({
+      success: true,
+      lead: freshLead,
+      autoOutreachRerun: autoOutreachRerun || undefined,
+    });
   } catch (err) {
     next(err);
   }

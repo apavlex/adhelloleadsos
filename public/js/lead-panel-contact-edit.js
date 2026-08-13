@@ -234,10 +234,24 @@
     const patch = els.cfg.buildPatch(String(els.inputEl.value || '').trim());
     try {
       if (els.editBtn) els.editBtn.disabled = true;
-      await savePatch(patch);
+      const data = await savePatch(patch);
       if (typeof els.cfg.onSaved === 'function') els.cfg.onSaved(row, patch);
       refreshPanel(row);
-      toast('Saved');
+      if (
+        fieldKey === 'email' &&
+        data &&
+        data.autoOutreachRerun &&
+        data.autoOutreachRerun.rerun
+      ) {
+        const ghlOk = data.autoOutreachRerun.ghl && data.autoOutreachRerun.ghl.ok;
+        toast(
+          ghlOk
+            ? 'Email saved — auto-outreach re-triggered in GHL'
+            : 'Email saved — re-enrolled locally (check GHL sync)',
+        );
+      } else {
+        toast('Saved');
+      }
     } catch (e) {
       toast(e.message || 'Save failed', 'error');
     } finally {

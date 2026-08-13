@@ -188,6 +188,97 @@ test('enrollLeadInAutoOutreach skips already enrolled unless reEnroll', async ()
   }
 });
 
+test('maybeRerunAutoOutreachAfterEmailFix skips non-enrolled and invalid emails', async () => {
+  const {
+    maybeRerunAutoOutreachAfterEmailFix,
+    leadEligibleForEmailFixRerun,
+  } = require('../services/prospectingEnroll');
+  assert.equal(
+    leadEligibleForEmailFixRerun(
+      { prospecting: { status: 'active', campaign: AUTO_OUTREACH_CAMPAIGN } },
+      false,
+    ),
+    true,
+  );
+  assert.equal(leadEligibleForEmailFixRerun({ prospecting: null }, false), false);
+
+  let testKey = '';
+  try {
+    testKey = await dbService.saveLead({
+      title: 'Email Fix Rerun Skip',
+      workspaceId: 'default',
+      status: 'Not Contacted',
+      pipelineStage: 1,
+      tags: [],
+      phone: '+15555550299',
+      email: 'old@bad.com',
+      source: 'test',
+    });
+    const saved = await dbService.getLead(testKey);
+    const skipped = await maybeRerunAutoOutreachAfterEmailFix({
+      leadKey: testKey,
+      workspaceId: saved.workspaceId,
+      previousEmail: 'old@bad.com',
+      nextEmail: 'new@good.com',
+    });
+    assert.equal(skipped.rerun, false);
+    assert.equal(skipped.reason, 'not_enrolled');
+
+    const invalid = await maybeRerunAutoOutreachAfterEmailFix({
+      leadKey: testKey,
+      workspaceId: saved.workspaceId,
+      previousEmail: 'old@bad.com',
+      nextEmail: 'chosen-sprite@2x.png',
+    });
+    assert.equal(invalid.rerun, false);
+    assert.equal(invalid.reason, 'invalid_new_email');
+  } finally {
+    if (testKey) await dbService.deleteLead(testKey);
+  }
+});
+
+test('maybeRerunAutoOutreachAfterEmailFix re-enrolls enrolled lead on email fix', async () => {
+  const { maybeRerunAutoOutreachAfterEmailFix } = require('../services/prospectingEnroll');
+  let testKey = '';
+  try {
+    testKey = await dbService.saveLead({
+      title: 'Email Fix Rerun Enrolled',
+      workspaceId: 'default',
+      status: 'Not Contacted',
+      pipelineStage: 1,
+      tags: [],
+      phone: '+15555550298',
+      email: 'junk@2x.jpg',
+      emailValidationStatus: 'rejected_junk',
+      source: 'test',
+      prospecting: {
+        status: 'active',
+        campaign: AUTO_OUTREACH_CAMPAIGN,
+        enrolledAt: '2026-08-01T00:00:00.000Z',
+        lastEnrolledAt: '2026-08-01T00:00:00.000Z',
+      },
+    });
+    const saved = await dbService.getLead(testKey);
+    const wid = saved.workspaceId;
+    await dbService.updateLead(testKey, { email: 'owner@acmeplumbing.com' }, wid);
+
+    const result = await maybeRerunAutoOutreachAfterEmailFix({
+      leadKey: testKey,
+      workspaceId: wid,
+      previousEmail: 'junk@2x.jpg',
+      nextEmail: 'owner@acmeplumbing.com',
+    });
+    assert.equal(result.rerun, true);
+    assert.ok(result.enroll && result.enroll.enrolled);
+    const after = await dbService.getLead(testKey);
+    assert.equal(after.emailValidationStatus, 'manual_fixed');
+    assert.equal(after.prospecting.status, 'active');
+    assert.ok(after.prospecting.lastEnrolledAt > '2026-08-01T00:00:00.000Z');
+  } finally {
+    if (testKey) await dbService.deleteLead(testKey);
+  }
+});
+
 test('enrollLeadInAutoOutreach blocks active other cadence', async () => {
   let testKey = '';
   try {

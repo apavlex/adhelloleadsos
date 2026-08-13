@@ -201,10 +201,12 @@ async function enrollLeadInAutoOutreach(opts) {
     workspaceId,
   );
 
-  try {
-    triggerGhlProspectSync(key, workspaceId, { trigger: 'auto_outreach_enroll' });
-  } catch (_) {
-    /* non-fatal */
+  if (opts.skipGhlSync !== true) {
+    try {
+      triggerGhlProspectSync(key, workspaceId, { trigger: 'auto_outreach_enroll' });
+    } catch (_) {
+      /* non-fatal */
+    }
   }
 
   return {
@@ -214,6 +216,126 @@ async function enrollLeadInAutoOutreach(opts) {
     reEnroll: !!reEnroll,
     budgetConsumed: !alreadyCountedToday,
   };
+}
+
+function emailsDifferForOutreach(a, b) {
+  return String(a || '').trim().toLowerCase() !== String(b || '').trim().toLowerCase();
+}
+
+function leadEligibleForEmailFixRerun(lead, hasAutoTag) {
+  if (!lead) return false;
+  if (isActiveProspecting(lead)) return true;
+  if (hasAutoTag) return true;
+  const p = lead.prospecting;
+  if (!p || p.campaign !== AUTO_OUTREACH_CAMPAIGN) return false;
+  const st = String(p.status || '').toLowerCase();
+  return st === 'active' || st === 'paused';
+}
+
+/**
+ * Push contact email then remove + re-add auto-outreach so GHL "tag added" workflows fire again.
+ */
+async function forceRetagAutoOutreachInGhl(leadKey, workspaceId) {
+  const ghlClient = require('./ghlClient');
+  const ghlSync = require('./ghlSync');
+  const ghlProspectSync = require('./ghlProspectSync');
+  const workspaceIntegrations = require('./workspaceIntegrations');
+  const { allowsGhlPush, getWorkspaceGhlSyncDirection } = require('./ghlSyncDirection');
+
+  const key = fullLeadKey(leadKey);
+  const lead = await dbService.getLead(key, workspaceId);
+  if (!lead) return { ok: false, reason: 'missing_lead' };
+
+  const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(workspaceId);
+  if (!ghlClient.isConfigured(integrationEnv)) {
+    return { ok: false, reason: 'ghl_not_configured' };
+  }
+  const ws = await dbService.getWorkspace(workspaceId);
+  if (!allowsGhlPush(getWorkspaceGhlSyncDirection(ws))) {
+    return { ok: false, reason: 'ghl_sync_direction_pull_only' };
+  }
+
+  const prepared = await ghlProspectSync.prepareLeadForGhlPush(lead, workspaceId);
+  const pushed = await ghlSync.pushLeadToGhl(prepared, integrationEnv);
+  const contactId = String(
+    (pushed && pushed.ghlContactId) || lead.ghlContactId || '',
+  ).trim();
+  if (!contactId) return { ok: false, reason: 'no_ghl_contact' };
+
+  try {
+    await ghlClient.removeTagsFromContact(contactId, [AUTO_OUTREACH_TAG_NAME], integrationEnv);
+  } catch (_) {
+    /* tag may already be absent */
+  }
+  await new Promise((r) => setTimeout(r, 400));
+  await ghlClient.addTagsToContact(contactId, [AUTO_OUTREACH_TAG_NAME], integrationEnv);
+
+  return { ok: true, ghlContactId: contactId };
+}
+
+/**
+ * When an enrolled auto-outreach lead gets a corrected email, re-enroll and retag in GHL.
+ * @param {{ leadKey: string, workspaceId: string, previousEmail?: string, nextEmail?: string }} opts
+ */
+async function maybeRerunAutoOutreachAfterEmailFix(opts) {
+  const { isValidEmailForGhl } = require('./ghlClient');
+  const workspaceId = String(opts.workspaceId || 'default').trim() || 'default';
+  const key = fullLeadKey(opts.leadKey);
+  const nextEmail = opts.nextEmail;
+  const previousEmail = opts.previousEmail;
+
+  if (!isValidEmailForGhl(nextEmail)) {
+    return { rerun: false, reason: 'invalid_new_email' };
+  }
+  if (!emailsDifferForOutreach(previousEmail, nextEmail)) {
+    return { rerun: false, reason: 'unchanged' };
+  }
+
+  let lead = await dbService.getLead(key, workspaceId);
+  if (!lead) return { rerun: false, reason: 'missing_lead' };
+
+  const hasAutoTag = await leadHasAutoOutreachTag(lead, workspaceId);
+  if (!leadEligibleForEmailFixRerun(lead, hasAutoTag)) {
+    return { rerun: false, reason: 'not_enrolled' };
+  }
+
+  const enroll = await enrollLeadInAutoOutreach({
+    leadKey: key,
+    workspaceId,
+    reEnroll: true,
+    skipGhlSync: true,
+  });
+  if (!enroll.enrolled) {
+    return { rerun: false, reason: enroll.reason || 'enroll_failed', enroll };
+  }
+
+  let ghl;
+  try {
+    ghl = await forceRetagAutoOutreachInGhl(key, workspaceId);
+  } catch (e) {
+    ghl = { ok: false, reason: (e && e.message) || 'ghl_retag_failed' };
+  }
+
+  const now = new Date().toISOString();
+  await dbService.updateLead(
+    key,
+    {
+      emailValidationStatus: 'manual_fixed',
+      logs: [
+        {
+          type: 'prospecting_email_fix_rerun',
+          message:
+            ghl && ghl.ok
+              ? 'Email fixed — synced to GHL and re-triggered auto-outreach workflow'
+              : `Email fixed — re-enrolled locally; GHL retag: ${(ghl && ghl.reason) || 'failed'}`,
+          timestamp: now,
+        },
+      ],
+    },
+    workspaceId,
+  );
+
+  return { rerun: true, enroll, ghl };
 }
 
 /**
@@ -300,4 +422,8 @@ module.exports = {
   remainingAutoOutreachDailyBudget,
   enrollLeadInAutoOutreach,
   enrollLeadsBulk,
+  emailsDifferForOutreach,
+  leadEligibleForEmailFixRerun,
+  forceRetagAutoOutreachInGhl,
+  maybeRerunAutoOutreachAfterEmailFix,
 };
