@@ -1,8 +1,32 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
-const { hasUsableEmail, buildEmailPatch, normalizeWebsite, mergeEnrichmentOntoLead, hasUsableWebsite } = require('../services/ensureLeadEmail');
+const {
+  hasUsableEmail,
+  buildEmailPatch,
+  normalizeWebsite,
+  mergeEnrichmentOntoLead,
+  hasUsableWebsite,
+  withTimeout,
+} = require('../services/ensureLeadEmail');
 
 describe('ensureLeadEmail helpers', () => {
+  test('withTimeout rejects hung promises', async () => {
+    await assert.rejects(
+      () =>
+        withTimeout(
+          new Promise(() => {}),
+          40,
+          'hung_step',
+        ),
+      /hung_step timed out/,
+    );
+  });
+
+  test('withTimeout resolves when promise finishes first', async () => {
+    const value = await withTimeout(Promise.resolve('ok'), 200, 'fast_step');
+    assert.equal(value, 'ok');
+  });
+
   test('hasUsableEmail rejects empty and invalid', () => {
     assert.equal(hasUsableEmail({ email: '' }), false);
     assert.equal(hasUsableEmail({ email: 'N/A' }), false);

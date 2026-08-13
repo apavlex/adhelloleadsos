@@ -208,12 +208,20 @@ async function runFolderOutreach(opts) {
     }
 
     if (settings.findMissingEmail && !hasUsableEmail(lead)) {
-      // eslint-disable-next-line no-await-in-loop
-      const emailPack = await ensureLeadEmail({
-        lead,
-        workspaceId,
-        persist: true,
-      });
+      let emailPack = { found: false, reason: 'error' };
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        emailPack = await ensureLeadEmail({
+          lead,
+          workspaceId,
+          persist: true,
+        });
+      } catch (e) {
+        console.warn(
+          `[folderOutreach] email find failed for ${lead.key}:`,
+          e && e.message,
+        );
+      }
       if (emailPack.found && !emailPack.alreadyHad) {
         emailsFound += 1;
         lead = emailPack.lead || lead;

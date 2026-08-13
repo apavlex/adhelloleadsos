@@ -13,6 +13,16 @@ const localPageExtract = require('./localPageExtract');
 const monidLeadEnrich = require('./monidLeadEnrich');
 const { firecrawlExtractToLeadUpdates } = require('./enrichmentNormalize');
 
+/** Soft budgets so a hung provider never blocks the whole drip run. */
+const STEP_TIMEOUT_MS = {
+  monid: 40_000,
+  local_website: 12_000,
+  rapidapi_website: 18_000,
+  outscraper_contacts: 25_000,
+  bettercontact: 45_000,
+};
+const DEFAULT_TOTAL_BUDGET_MS = 90_000;
+
 function hasUsableEmail(lead) {
   const email = String((lead && lead.email) || '').trim();
   return isValidEmailForGhl(email);
@@ -27,6 +37,20 @@ function normalizeWebsite(lead) {
   const raw = String((lead && (lead.website || lead.url)) || '').trim();
   if (!raw || raw === 'N/A') return '';
   return /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+}
+
+function withTimeout(promise, ms, label) {
+  const timeoutMs = Math.max(1, Number(ms) || 1);
+  let timer = null;
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error(`${label || 'step'} timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+    if (typeof timer.unref === 'function') timer.unref();
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
 }
 
 function buildEmailPatch(lead, email, extras = {}) {
@@ -210,12 +234,17 @@ async function persistLeadPatch(lead, patch, workspaceId) {
  *   integrationEnv?: object|null,
  *   persist?: boolean,
  *   betterContactMaxWaitMs?: number,
+ *   totalBudgetMs?: number,
  * }} opts
  */
 async function ensureLeadEmail(opts) {
   let lead = opts.lead && typeof opts.lead === 'object' ? { ...opts.lead } : {};
   const workspaceId = String(opts.workspaceId || 'default').trim() || 'default';
   const persist = opts.persist !== false;
+  const totalBudgetMs =
+    Number(opts.totalBudgetMs) > 0 ? Number(opts.totalBudgetMs) : DEFAULT_TOTAL_BUDGET_MS;
+  const deadline = Date.now() + totalBudgetMs;
+
   if (hasUsableEmail(lead)) {
     return { found: true, alreadyHad: true, lead, email: String(lead.email).trim(), sources: [] };
   }
@@ -231,28 +260,60 @@ async function ensureLeadEmail(opts) {
 
   const sourcesTried = [];
   let accumulatedPatch = {};
+  let timedOut = false;
 
-  // Step 0: Monid first when website/domain is missing (or always as a cheap unlock attempt).
+  function remainingMs() {
+    return Math.max(0, deadline - Date.now());
+  }
+
+  function stepBudget(defaultMs) {
+    const left = remainingMs();
+    if (left <= 0) return 0;
+    return Math.min(defaultMs, left);
+  }
+
+  async function runStep(label, defaultMs, fn) {
+    const budget = stepBudget(defaultMs);
+    if (budget <= 0) {
+      timedOut = true;
+      return null;
+    }
+    try {
+      return await withTimeout(Promise.resolve().then(fn), budget, label);
+    } catch (e) {
+      console.warn(`[ensureLeadEmail] ${label} failed/skipped:`, e && e.message);
+      if (e && /timed out/i.test(String(e.message || ''))) timedOut = true;
+      return null;
+    }
+  }
+
+  // Step 0: Monid first when website/domain is missing.
   if (!hasUsableWebsite(lead) || !betterContact.extractDomain(lead.website)) {
-    const monidHit = await tryMonidEnrich(lead, integrationEnv);
+    const monidHit = await runStep('monid', STEP_TIMEOUT_MS.monid, () =>
+      tryMonidEnrich(lead, integrationEnv),
+    );
     if (monidHit) {
       sourcesTried.push(monidHit.source);
       if (monidHit.patch && Object.keys(monidHit.patch).length) {
         accumulatedPatch = { ...accumulatedPatch, ...monidHit.patch };
         lead = monidHit.lead || { ...lead, ...monidHit.patch };
         if (persist) {
-          lead = await persistLeadPatch(lead, {
-            ...monidHit.patch,
-            logs: [
-              {
-                type: 'email_find',
-                message: monidHit.unlockedWebsite
-                  ? `Monid unlocked website before email hunt: ${monidHit.patch.website}`
-                  : 'Monid enriched company signals before email hunt',
-                timestamp: new Date().toISOString(),
-              },
-            ],
-          }, workspaceId);
+          lead = await persistLeadPatch(
+            lead,
+            {
+              ...monidHit.patch,
+              logs: [
+                {
+                  type: 'email_find',
+                  message: monidHit.unlockedWebsite
+                    ? `Monid unlocked website before email hunt: ${monidHit.patch.website}`
+                    : 'Monid enriched company signals before email hunt',
+                  timestamp: new Date().toISOString(),
+                },
+              ],
+            },
+            workspaceId,
+          );
         }
       }
       if (monidHit.email && isValidEmailForGhl(monidHit.email)) {
@@ -276,21 +337,50 @@ async function ensureLeadEmail(opts) {
   }
 
   const attempts = [
-    () => tryLocalWebsiteEmail(lead, integrationEnv),
-    () => tryRapidApiWebsiteEmail(lead, integrationEnv),
-    () => tryOutscraperEmail(lead, integrationEnv),
-    () =>
-      tryBetterContactEmail(lead, integrationEnv, {
-        maxWaitMs: opts.betterContactMaxWaitMs || 45_000,
-      }),
+    {
+      label: 'local_website',
+      ms: STEP_TIMEOUT_MS.local_website,
+      run: () => tryLocalWebsiteEmail(lead, integrationEnv),
+    },
+    {
+      label: 'rapidapi_website',
+      ms: STEP_TIMEOUT_MS.rapidapi_website,
+      run: () => tryRapidApiWebsiteEmail(lead, integrationEnv),
+    },
+    {
+      label: 'outscraper_contacts',
+      ms: STEP_TIMEOUT_MS.outscraper_contacts,
+      run: () => tryOutscraperEmail(lead, integrationEnv),
+    },
+    {
+      label: 'bettercontact',
+      ms: Math.min(
+        STEP_TIMEOUT_MS.bettercontact,
+        Number(opts.betterContactMaxWaitMs) > 0
+          ? Number(opts.betterContactMaxWaitMs)
+          : STEP_TIMEOUT_MS.bettercontact,
+      ),
+      run: () =>
+        tryBetterContactEmail(lead, integrationEnv, {
+          maxWaitMs: stepBudget(
+            Number(opts.betterContactMaxWaitMs) > 0
+              ? Number(opts.betterContactMaxWaitMs)
+              : STEP_TIMEOUT_MS.bettercontact,
+          ),
+        }),
+    },
   ];
 
   let hit = null;
-  for (const run of attempts) {
+  for (const step of attempts) {
+    if (remainingMs() <= 0) {
+      timedOut = true;
+      break;
+    }
     // eslint-disable-next-line no-await-in-loop
-    const result = await run();
+    const result = await runStep(step.label, step.ms, step.run);
     if (!result) continue;
-    sourcesTried.push(result.source);
+    sourcesTried.push(result.source || step.label);
     if (result.lead) lead = result.lead;
     if (result.email && isValidEmailForGhl(result.email)) {
       hit = result;
@@ -305,7 +395,7 @@ async function ensureLeadEmail(opts) {
       lead,
       email: '',
       sources: sourcesTried,
-      reason: 'not_found',
+      reason: timedOut ? 'timed_out' : 'not_found',
       unlockedWebsite: hasUsableWebsite(lead),
     };
   }
@@ -337,4 +427,7 @@ module.exports = {
   buildEmailPatch,
   normalizeWebsite,
   mergeEnrichmentOntoLead,
+  withTimeout,
+  STEP_TIMEOUT_MS,
+  DEFAULT_TOTAL_BUDGET_MS,
 };
