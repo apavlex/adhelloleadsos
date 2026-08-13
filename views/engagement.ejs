@@ -49,6 +49,23 @@
       <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white mb-2">No engagement yet</h2>
       <p class="text-sm text-brand-muted max-w-md mx-auto mb-2">This inbox only shows <strong class="text-brand-dark dark:text-slate-200">inbound</strong> signals — SMS/email replies, link clicks, audit opens, email opens, postcard QR scans — from the last <%= windowDays %> days.</p>
       <p class="text-sm text-brand-muted max-w-md mx-auto mb-6">Your overdue <strong class="text-brand-dark dark:text-slate-200">cold-call cadence tasks</strong> on Today are separate outbound work; they won&apos;t appear here until a prospect engages.</p>
+      <% const _ghlSetup = typeof ghlWebhookSetup !== 'undefined' && ghlWebhookSetup ? ghlWebhookSetup : null; %>
+      <% if (_ghlSetup && !_ghlSetup.setupComplete) { %>
+      <div class="max-w-lg mx-auto mb-6 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-4 text-left">
+        <p class="text-sm font-semibold text-amber-950 dark:text-amber-100 mb-1">GHL replies won&apos;t show until webhooks are connected</p>
+        <p class="text-xs text-amber-900/90 dark:text-amber-200/90 leading-relaxed mb-3">Email and SMS replies in Go High Level reach this inbox via the <strong>InboundMessage</strong> webhook. Opens/clicks need <strong>EmailOpened</strong> / <strong>LinkClicked</strong>.</p>
+        <ol class="text-xs text-amber-900/90 dark:text-amber-200/90 space-y-1.5 list-decimal list-inside leading-relaxed mb-3">
+          <% if (!_ghlSetup.ghlConfigured) { %><li>Connect GHL API key + Location ID under Workspace → Integrations.</li><% } %>
+          <% if (!_ghlSetup.webhookTokenReady) { %><li>Set a webhook token on the GHL integrations card (or <code class="text-[10px] px-1 rounded bg-white/50 dark:bg-slate-900/60">GHL_WEBHOOK_SECRET</code> on the server).</li><% } %>
+          <li>In GHL → Settings → Webhooks, subscribe to <strong>InboundMessage</strong> (and <strong>OutboundMessage</strong>, <strong>EmailOpened</strong>, <strong>LinkClicked</strong>).</li>
+          <li>Point the webhook at <code class="text-[10px] break-all px-1 rounded bg-white/50 dark:bg-slate-900/60"><%= typeof ghlWebhookUrlHint !== 'undefined' ? ghlWebhookUrlHint : '/api/webhooks/ghl?token=YOUR_TOKEN' %></code></li>
+          <li>Location ID on the event must match the Location ID saved in Agency OS. Contacts must match a lead (GHL contact id, email, or phone).</li>
+        </ol>
+        <a href="/workspace/integrations/ghl-setup" class="text-xs font-bold uppercase tracking-widest text-amber-950 dark:text-amber-100 underline">Open GHL setup guide →</a>
+      </div>
+      <% } else if (_ghlSetup && _ghlSetup.setupComplete) { %>
+      <p class="text-xs text-brand-muted max-w-lg mx-auto mb-6">GHL webhook token looks configured. If replies appear in GHL but not here, confirm the webhook includes <strong class="text-brand-dark dark:text-slate-200">InboundMessage</strong>, the Location ID matches, and the contact is linked to a pipeline lead. See the <a href="/workspace/integrations/ghl-setup" class="underline font-semibold text-brand-dark dark:text-white">setup guide</a>.</p>
+      <% } %>
       <a href="/focus?channel=call" class="btn-pill btn-primary inline-flex px-8 py-3 text-xs font-black uppercase tracking-widest">Start calling</a>
       <a href="/today" class="btn-pill border border-brand-border dark:border-white/20 inline-flex px-8 py-3 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white mt-3 sm:mt-0 sm:ml-2">Back to Today queue</a>
     </div>

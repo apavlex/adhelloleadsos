@@ -147,13 +147,13 @@
       <li class="flex gap-4">
         <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-yellow text-brand-dark text-sm font-black">4</span>
         <div class="min-w-0 space-y-2">
-          <h3 class="font-bold text-brand-dark dark:text-white">Optional — real-time inbound webhooks</h3>
-          <p class="text-sm text-brand-muted leading-relaxed">When someone creates or updates a contact in GHL, Agency OS can import it automatically.</p>
+          <h3 class="font-bold text-brand-dark dark:text-white">Required for Engagement inbox — real-time inbound webhooks</h3>
+          <p class="text-sm text-brand-muted leading-relaxed">GHL email/SMS replies, email opens, and link clicks only appear in Agency OS (Engagement inbox, cadence pause, call tasks) when these webhooks are connected. Contact sync also uses them.</p>
           <ol class="text-sm text-brand-muted space-y-2 list-decimal list-inside leading-relaxed">
             <li>On the GHL integrations card, set a <strong>webhook token</strong> (or ask your operator to set <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">GHL_WEBHOOK_SECRET</code> on the server).</li>
             <li>Copy the webhook URL shown on that card.</li>
-            <li>In GHL, go to <strong>Settings → Webhooks</strong> (or your marketplace app) and subscribe to <strong>ContactCreate</strong>, <strong>ContactUpdate</strong>, <strong>InboundMessage</strong>, <strong>OutboundMessage</strong>, and (for auto outreach call queue) <strong>EmailOpened</strong> / <strong>LinkClicked</strong> if your plan exposes them.</li>
-            <li>Paste the Agency OS webhook URL. The <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">locationId</code> in each event must match the Location ID you saved.</li>
+            <li>In GHL, go to <strong>Settings → Webhooks</strong> (or your marketplace app) and subscribe to <strong>InboundMessage</strong>, <strong>OutboundMessage</strong>, <strong>ContactCreate</strong>, <strong>ContactUpdate</strong>, and (for opens/clicks) <strong>EmailOpened</strong> / <strong>LinkClicked</strong> if your plan exposes them.</li>
+            <li>Paste the Agency OS webhook URL. The <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">locationId</code> in each event must match the Location ID you saved. Contacts must match a pipeline lead by GHL contact id, email, or phone.</li>
           </ol>
           <% if (_hookReady && _base) { %>
           <p class="text-xs text-brand-muted">Webhook endpoint pattern:</p>

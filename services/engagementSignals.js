@@ -127,7 +127,7 @@ async function ensureEngagementCallTask(workspaceId, lead, scheduledAt) {
 
 /**
  * Persist engagement signal on lead and optionally create a high-priority call task.
- * @param {{ lead: object, workspaceId: string, signalType: string, at?: string, createTask?: boolean, taskAt?: string, extraPatch?: object }} ctx
+ * @param {{ lead: object, workspaceId: string, signalType: string, at?: string, createTask?: boolean, taskAt?: string, extraPatch?: object, provider?: string, linkUrl?: string, messageId?: string }} ctx
  */
 async function applyEngagementSignal(ctx) {
   const lead = ctx.lead;

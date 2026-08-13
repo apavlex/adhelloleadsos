@@ -548,30 +548,82 @@ function parseGhlWebhookPayload(body) {
   return { type, locationId, contact, contactId: String(contact.id || contactId || '').trim() };
 }
 
+function extractEmailAddress(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return '';
+  const angle = s.match(/<([^<>\s]+@[^<>\s]+)>/);
+  if (angle) return normalizeEmail(angle[1]);
+  if (s.includes('@') && !/\s/.test(s)) return normalizeEmail(s);
+  const bare = s.match(/([^\s<>]+@[^\s<>]+)/);
+  return bare ? normalizeEmail(bare[1]) : '';
+}
+
+function stripHtmlToText(html) {
+  return String(html || '')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Parse GHL InboundMessage / OutboundMessage webhooks (SMS + Email).
+ * Email payloads use emailMessageId (not messageId) and often HTML bodies.
+ */
 function parseGhlMessageWebhook(body) {
   if (!body || typeof body !== 'object') return null;
-  const type = String(body.type || body.event || '').trim();
+  const type = String(
+    body.type || body.event || body.eventType || body.webhookType || '',
+  ).trim();
   if (!/^(InboundMessage|OutboundMessage)$/i.test(type)) return null;
 
-  const messageTypeRaw = String(body.messageType || body.channel || '').toUpperCase();
+  const messageTypeRaw = String(
+    body.messageType || body.messageTypeString || body.channel || '',
+  ).toUpperCase();
   let channel = 'sms';
-  if (messageTypeRaw.includes('EMAIL')) channel = 'email';
-  else if (messageTypeRaw && !messageTypeRaw.includes('SMS') && !messageTypeRaw.includes('PHONE')) {
+  if (messageTypeRaw.includes('EMAIL')) {
+    channel = 'email';
+  } else if (
+    messageTypeRaw &&
+    !messageTypeRaw.includes('SMS') &&
+    !messageTypeRaw.includes('PHONE')
+  ) {
+    // Ignore CALL / FB / IG / Live Chat / etc. — not engagement reply channels.
     return null;
   }
 
   const locationId = String(body.locationId || body.location_id || '').trim();
   const contactId = String(body.contactId || (body.contact && body.contact.id) || '').trim();
-  const text = String(
-    body.body || body.message || body.text || body.plainText || '',
+  const rawBody = String(
+    body.body || body.message || body.text || body.plainText || body.bodyPlain || '',
   ).trim();
   const html = String(body.html || '').trim();
-  const content = text || html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-  const messageId = String(body.messageId || body.id || '').trim();
+  const subject = String(body.subject || '').trim();
+  let content = rawBody;
+  // Prefer plain text when the body is HTML (GHL email webhooks).
+  if (content && /<\/?[a-z][\s\S]*>/i.test(content)) {
+    content = stripHtmlToText(content) || content;
+  }
+  if (!content && html) content = stripHtmlToText(html);
+  if (!content && subject) content = subject;
+  // Email replies sometimes arrive with empty body (attachment-only / provider quirks).
+  if (!content && channel === 'email') content = '(email reply)';
+
+  const messageId = String(
+    body.messageId || body.emailMessageId || body.threadId || body.id || '',
+  ).trim();
   if (!contactId || !content) return null;
 
   let direction = String(body.direction || '').trim().toLowerCase();
   if (!direction) direction = /inbound/i.test(type) ? 'inbound' : 'outbound';
+
+  const fromRaw = body.from || body.fromEmail || (body.contact && body.contact.email) || '';
+  const fromEmail = extractEmailAddress(fromRaw);
+  const fromPhoneDigits = normalizePhoneKey(
+    body.from || body.phone || (body.contact && body.contact.phone) || '',
+  );
 
   return {
     type,
@@ -582,9 +634,28 @@ function parseGhlMessageWebhook(body) {
     messageId,
     direction,
     conversationId: String(body.conversationId || '').trim(),
-    dateAdded: body.dateAdded || body.timestamp || '',
+    dateAdded: body.dateAdded || body.timestamp || body.createdAt || '',
     status: String(body.status || '').trim(),
+    subject,
+    fromEmail,
+    fromPhone: fromPhoneDigits || '',
   };
+}
+
+/** Match webhook contact to a local lead by GHL id, then email, then phone. */
+function findLeadForGhlMessage(localLeads, parsed) {
+  if (!parsed) return null;
+  let lead = findLocalLeadMatch(localLeads, { id: parsed.contactId });
+  if (lead) return lead;
+  if (parsed.fromEmail) {
+    lead = findLocalLeadMatch(localLeads, { email: parsed.fromEmail });
+    if (lead) return lead;
+  }
+  if (parsed.fromPhone) {
+    lead = findLocalLeadMatch(localLeads, { phone: parsed.fromPhone });
+    if (lead) return lead;
+  }
+  return null;
 }
 
 function parseGhlEngagementWebhook(body) {
@@ -637,7 +708,15 @@ async function processEngagementWebhook(payload, opts = {}) {
   if (!wid) wid = 'default';
 
   const localLeads = await dbService.getAllLeads(wid);
-  const lead = findLocalLeadMatch(localLeads, { id: parsed.contactId });
+  const contactEmail = extractEmailAddress(
+    payload.email ||
+      payload.from ||
+      (payload.contact && (payload.contact.email || payload.contact.Email)) ||
+      '',
+  );
+  const lead =
+    findLocalLeadMatch(localLeads, { id: parsed.contactId, email: contactEmail }) ||
+    (contactEmail ? findLocalLeadMatch(localLeads, { email: contactEmail }) : null);
   if (!lead || !lead.key) {
     return { ok: true, workspaceId: wid, ignored: true, reason: 'lead_not_found' };
   }
@@ -664,7 +743,7 @@ async function processEngagementWebhook(payload, opts = {}) {
 }
 
 /**
- * Handle inbound/outbound GHL SMS webhooks (InboundMessage / OutboundMessage).
+ * Handle inbound/outbound GHL SMS + Email webhooks (InboundMessage / OutboundMessage).
  * @param {object} payload
  * @param {{ workspaceId?: string }} [opts]
  */
@@ -680,7 +759,7 @@ async function processMessageWebhook(payload, opts = {}) {
   if (!wid) wid = 'default';
 
   const localLeads = await dbService.getAllLeads(wid);
-  const lead = findLocalLeadMatch(localLeads, { id: parsed.contactId });
+  const lead = findLeadForGhlMessage(localLeads, parsed);
   if (!lead || !lead.key) {
     return { ok: true, workspaceId: wid, ignored: true, reason: 'lead_not_found' };
   }
@@ -808,6 +887,8 @@ module.exports = {
   runDirectionalSync,
   statusFromEnv,
   findLocalLeadMatch,
+  findLeadForGhlMessage,
+  extractEmailAddress,
   processWebhook,
   processMessageWebhook,
   parseGhlWebhookPayload,
