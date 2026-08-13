@@ -883,7 +883,8 @@
               if (folder && pack.data.outreachAutomation) {
                 folder.outreachAutomation = pack.data.outreachAutomation;
               }
-              setFolderOutreachStatus('Prompt optimized and saved. Copy it into GHL AI builder.');
+              var warn = pack.data.warning ? (' ' + pack.data.warning) : '';
+              setFolderOutreachStatus('Prompt optimized and saved for this goal. Copy it into GHL.' + warn);
             })
             .catch(function (err) {
               setFolderOutreachStatus(err && err.message ? err.message : 'Optimize failed.', true);
