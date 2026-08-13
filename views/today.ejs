@@ -56,6 +56,7 @@
         <div class="flex flex-wrap gap-2 shrink-0 self-start">
           <a href="/engagement" class="btn-pill border border-emerald-500/40 bg-emerald-500/10 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-emerald-900 dark:text-emerald-100 whitespace-nowrap">Engagement inbox</a>
           <a href="/tasks" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white whitespace-nowrap">All tasks</a>
+          <button type="button" id="clearAutomationQueueBtn" class="btn-pill border border-amber-500/40 bg-amber-500/10 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-amber-900 dark:text-amber-100 whitespace-nowrap" title="Remove cadence/automation tasks from this queue and pause active sequences">Reset queue</button>
         </div>
       </div>
       <ul class="divide-y divide-brand-border/40 dark:divide-white/10">
@@ -80,6 +81,42 @@
         <% }) %>
       </ul>
     </section>
+    <script>
+      (function () {
+        var btn = document.getElementById('clearAutomationQueueBtn');
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+          if (!window.confirm('Clear cadence/automation tasks from this queue and pause active cadences so they stop coming back? Manual tasks are kept.')) return;
+          btn.disabled = true;
+          btn.textContent = 'Clearing…';
+          fetch('/today/clear-automation-queue', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: '{}',
+          })
+            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+            .then(function (pack) {
+              if (!pack.ok || !pack.d || !pack.d.success) {
+                throw new Error((pack.d && pack.d.error) || 'Clear failed');
+              }
+              if (typeof window.showAppToast === 'function') {
+                window.showAppToast(pack.d.message || 'Queue cleared.', { variant: 'success', duration: 5000 });
+              }
+              window.location.reload();
+            })
+            .catch(function (err) {
+              btn.disabled = false;
+              btn.textContent = 'Reset queue';
+              if (typeof window.showAppToast === 'function') {
+                window.showAppToast(err.message || 'Clear failed', { variant: 'error' });
+              } else {
+                alert(err.message || 'Clear failed');
+              }
+            });
+        });
+      })();
+    </script>
     <% } %>
 
     <% const _callWarm = typeof callWarmQueue !== 'undefined' && callWarmQueue ? callWarmQueue : []; %>

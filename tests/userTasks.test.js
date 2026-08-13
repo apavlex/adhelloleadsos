@@ -36,6 +36,10 @@ describe('userTasks manual filter', () => {
       { id: '2', title: '[CALL] Day 1 — Cold call', source: TASK_SOURCE_CADENCE },
       { id: '3', title: '[EMAIL] Day 3 — Follow-up' },
       { id: '4', title: 'Send contract' },
+      {
+        id: '5',
+        title: '[CALL] Day 1— Cold call + text (opener) — Call first. Voicemail (~15s)',
+      },
     ];
     const manual = filterManualUserTasks(tasks);
     assert.deepEqual(manual.map((t) => t.id), ['1', '4']);

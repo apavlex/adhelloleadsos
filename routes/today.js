@@ -21,7 +21,8 @@ const { resolveDialRetryPrefs } = require('../services/dialRetryPrefs');
 const { buildNextActionsQueue } = require('../services/nextActionsQueue');
 const { buildCallQueue } = require('../services/callQueue');
 const { filterBusinessPipelineLeads } = require('../services/leadListFilters');
-const { dedupeOpenLeadTasks } = require('../services/userTasks');
+const { dedupeOpenLeadTasks, clearOpenAutomationTasks } = require('../services/userTasks');
+const { pauseActiveSequencesForWorkspace } = require('../services/sequenceEngine');
 const actionPlanTracker = require('../services/actionPlanTracker');
 function firstNameFromUser(user) {
   const raw =
@@ -226,6 +227,30 @@ router.get('/', async (req, res, next) => {
       reportsOpened24h,
       actionPlan,
       actionPlanMonthNav,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * Clear wrong/overdue automation cadence tasks from Today queue and pause active sequences
+ * so they do not recreate themselves on the next scheduler tick.
+ */
+router.post('/clear-automation-queue', express.json(), async (req, res, next) => {
+  try {
+    const email = userEmail(req);
+    if (!email) {
+      return res.status(401).json({ success: false, error: 'Sign in required.' });
+    }
+    const wid = req.workspaceId;
+    const taskResult = await clearOpenAutomationTasks(wid, email);
+    const pauseResult = await pauseActiveSequencesForWorkspace(wid);
+    return res.json({
+      success: true,
+      deletedTasks: taskResult.deleted || 0,
+      pausedSequences: pauseResult.paused || 0,
+      message: `Cleared ${taskResult.deleted || 0} automation task(s) and paused ${pauseResult.paused || 0} active cadence(s).`,
     });
   } catch (e) {
     next(e);

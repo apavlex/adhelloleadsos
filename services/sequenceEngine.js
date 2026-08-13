@@ -81,6 +81,24 @@ async function pauseSequence(leadKey) {
   return true;
 }
 
+/**
+ * Pause every active cadence in a workspace so due steps stop recreating Today tasks.
+ */
+async function pauseActiveSequencesForWorkspace(workspaceId) {
+  const wid = String(workspaceId || '').trim();
+  if (!wid) return { paused: 0 };
+  const leads = await dbService.getAllLeads(wid);
+  let paused = 0;
+  for (const lead of leads) {
+    const st = lead && lead.sequenceState;
+    if (!st || st.status !== 'active') continue;
+    // eslint-disable-next-line no-await-in-loop
+    const ok = await pauseSequence(lead.key);
+    if (ok) paused += 1;
+  }
+  return { paused };
+}
+
 function formatStepMessage(step, tplName, lead, baseUrl) {
   const ch = (step.channel || 'task').toUpperCase();
   const title = expandCadenceText(step.title || '', lead, { baseUrl });
@@ -268,6 +286,7 @@ async function runDueSequenceSteps() {
 module.exports = {
   startSequence,
   pauseSequence,
+  pauseActiveSequencesForWorkspace,
   processLeadSequence,
   runDueSequenceSteps,
   listTemplates: require('./sequenceTemplates').listTemplates,

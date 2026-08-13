@@ -154,6 +154,23 @@ async function upsertOpenTaskForLead(workspaceId, email, fields) {
   return saved;
 }
 
+/**
+ * Remove open automation/cadence tasks so Today "Due & overdue" can reset to empty.
+ * Manual tasks are kept. Returns how many were deleted.
+ */
+async function clearOpenAutomationTasks(workspaceId, email) {
+  const tasks = await dbService.listUserTasks(workspaceId, email);
+  let deleted = 0;
+  for (const t of tasks) {
+    if (!t || t.column === 'done') continue;
+    if (isManualUserTask(t)) continue;
+    // eslint-disable-next-line no-await-in-loop
+    await dbService.deleteUserTask(workspaceId, email, t.id);
+    deleted += 1;
+  }
+  return { deleted };
+}
+
 module.exports = {
   TASK_SOURCE_MANUAL,
   TASK_SOURCE_CADENCE,
@@ -166,5 +183,6 @@ module.exports = {
   newTaskId,
   dedupeOpenLeadTasks,
   upsertOpenTaskForLead,
+  clearOpenAutomationTasks,
   normRemindMinutesBefore,
 };
