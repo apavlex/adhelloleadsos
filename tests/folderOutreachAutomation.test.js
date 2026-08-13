@@ -3,11 +3,14 @@ const assert = require('node:assert/strict');
 const {
   normalizeFolderOutreachSettings,
   leadEligibleForFolderOutreach,
+  resolveFolderKeysForOutreach,
+  leadInFolderScope,
   MAX_GHL_GOAL_LEN,
   MAX_GHL_WORKFLOW_PROMPT_LEN,
 } = require('../services/folderOutreachAutomation');
 const { AUTO_OUTREACH_CAMPAIGN } = require('../services/prospectingEnroll');
 const { valuesFromLead } = require('../services/ghlPhoneLineFields');
+const { buildFolderTree } = require('../services/folderTree');
 
 test('normalizeFolderOutreachSettings applies defaults', () => {
   const s = normalizeFolderOutreachSettings({ enabled: true, maxLeads: 999, smsOnly: true });
@@ -90,4 +93,32 @@ test('kickoffFolderOutreachInBackground returns false without folderKey', () => 
   const { kickoffFolderOutreachInBackground } = require('../services/folderOutreachAutomation');
   assert.equal(kickoffFolderOutreachInBackground({ workspaceId: 'ws' }), false);
   assert.equal(kickoffFolderOutreachInBackground({ workspaceId: 'ws', folderKey: '' }), false);
+});
+
+test('leadEligibleForFolderOutreach includes nested subfolder leads via key set', () => {
+  const settings = normalizeFolderOutreachSettings({});
+  const folders = [
+    { key: 'folder:parent', name: 'Parent', parentFolderKey: '' },
+    { key: 'folder:child', name: 'Child', parentFolderKey: 'folder:parent' },
+  ];
+  const keys = resolveFolderKeysForOutreach(folders, 'folder:parent');
+  assert.equal(keys.has('folder:parent'), true);
+  assert.equal(keys.has('folder:child'), true);
+
+  const childLead = {
+    key: 'lead:1',
+    folderKey: 'folder:child',
+    phone: '+15551234567',
+    status: 'Not Contacted',
+  };
+  assert.equal(leadEligibleForFolderOutreach(childLead, settings, 'folder:parent'), false);
+  assert.equal(leadEligibleForFolderOutreach(childLead, settings, keys), true);
+  assert.equal(leadInFolderScope(childLead, keys), true);
+});
+
+test('resolveFolderKeysForOutreach falls back to root key', () => {
+  const keys = resolveFolderKeysForOutreach([], 'folder:solo');
+  assert.equal(keys.size, 1);
+  assert.equal(keys.has('folder:solo'), true);
+  assert.ok(buildFolderTree);
 });

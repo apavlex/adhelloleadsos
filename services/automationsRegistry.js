@@ -4,7 +4,7 @@
  */
 const { DateTime } = require('luxon');
 const dbService = require('./database');
-const { loadFolderOutreachFromFolder } = require('./folderOutreachAutomation');
+const { loadFolderOutreachFromFolder, resolveFolderKeysForOutreach } = require('./folderOutreachAutomation');
 const { loadAutoPoolFromWorkspace, normalizeAutoPoolSettings } = require('./prospectingAutoPool');
 const {
   isActiveProspecting,
@@ -84,11 +84,16 @@ function outreachStatus(settings) {
   return 'idle';
 }
 
-function countActiveOutreachInFolder(leads, folderKey) {
-  const fk = String(folderKey || '').trim();
-  return leads.filter(
-    (l) => String(l.folderKey || '').trim() === fk && isActiveProspecting(l),
-  ).length;
+function countActiveOutreachInFolder(leads, folderKeyOrKeys) {
+  return leads.filter((l) => {
+    if (!isActiveProspecting(l)) return false;
+    if (folderKeyOrKeys instanceof Set) {
+      return folderKeyOrKeys.has(String(l.folderKey || '').trim());
+    }
+    const fk = String(folderKeyOrKeys || '').trim();
+    if (!fk) return false;
+    return String(l.folderKey || '').trim() === fk;
+  }).length;
 }
 
 function countActiveOutreachWorkspace(leads) {
@@ -224,12 +229,17 @@ function summarizeEnrolledLead(lead, context) {
   };
 }
 
-function listGhlOutreachEnrolledLeads(leads, folderKey = null) {
-  const fk = folderKey != null ? String(folderKey).trim() : '';
+function listGhlOutreachEnrolledLeads(leads, folderKeyOrKeys = null) {
+  const scope =
+    folderKeyOrKeys instanceof Set
+      ? folderKeyOrKeys
+      : folderKeyOrKeys != null && String(folderKeyOrKeys).trim()
+        ? new Set([String(folderKeyOrKeys).trim()])
+        : null;
   return leads
     .filter((l) => {
       if (!isActiveProspecting(l)) return false;
-      if (fk && String(l.folderKey || '').trim() !== fk) return false;
+      if (scope && !scope.has(String(l.folderKey || '').trim())) return false;
       return true;
     })
     .map((l) => summarizeEnrolledLead(l, 'ghl_outreach'))
@@ -277,6 +287,12 @@ async function listAutomationsForWorkspace(workspaceId) {
   const autoPool = normalizeAutoPoolSettings(
     loadAutoPoolFromWorkspace(ws || { id: wid }),
   );
+  const folderKeySets = new Map();
+  for (const folder of folders) {
+    const key = String(folder.key || '').trim();
+    if (!key) continue;
+    folderKeySets.set(key, resolveFolderKeysForOutreach(folders, key));
+  }
 
   // Workspace auto-pool outreach
   if (autoPoolHasConfig(autoPool)) {
@@ -308,6 +324,14 @@ async function listAutomationsForWorkspace(workspaceId) {
     if (!folderHasOutreachConfig(folder)) continue;
     const settings = loadFolderOutreachFromFolder(folder);
     const folderKey = folder.key || '';
+    const folderKeys = folderKeySets.get(String(folderKey).trim()) || new Set([folderKey]);
+    let lastRunDetail = '';
+    if (settings.lastRunAt != null && settings.lastRunAt !== '') {
+      lastRunDetail = `Enrolled ${settings.lastEnrolled || 0} · ${settings.lastCandidateCount || 0} candidates`;
+      if (settings.lastFolderLeadCount > 0 && settings.lastCandidateCount === 0) {
+        lastRunDetail += ` · ${settings.lastFolderLeadCount} in folder (filtered)`;
+      }
+    }
     automations.push({
       id: `folder_outreach:${folderKey}`,
       type: 'outreach',
@@ -315,12 +339,9 @@ async function listAutomationsForWorkspace(workspaceId) {
       name: folder.name || 'Folder',
       subtitle: `Up to ${settings.maxLeads}/day${settings.tier ? ` · ${settings.tier}` : ''}${settings.smsOnly ? ' · SMS only' : ''}`,
       status: outreachStatus(settings),
-      leadsEnrolled: countActiveOutreachInFolder(leads, folderKey),
+      leadsEnrolled: countActiveOutreachInFolder(leads, folderKeys),
       lastActivity: settings.lastRunAt || null,
-      lastRunDetail:
-        settings.lastRunAt != null
-          ? `Enrolled ${settings.lastEnrolled || 0} · ${settings.lastCandidateCount || 0} candidates`
-          : '',
+      lastRunDetail,
       nextRun: settings.enabled ? computeNextDailyRunUtc() : null,
       nextRunDetail: settings.enabled ? 'Runs when turned on · next daily 09:30 UTC' : '',
       folderKey,
@@ -329,7 +350,7 @@ async function listAutomationsForWorkspace(workspaceId) {
       canResume: !settings.enabled,
       canRun: true,
       canStop: false,
-      enrolledLeads: listGhlOutreachEnrolledLeads(leads, folderKey).slice(0, 50),
+      enrolledLeads: listGhlOutreachEnrolledLeads(leads, folderKeys).slice(0, 50),
     });
   }
   const schedules = allSchedules.filter(

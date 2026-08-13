@@ -15,6 +15,7 @@ const {
 } = require('./prospectingEnroll');
 const { reviewLeadIcpFit, DEFAULT_MIN_ICP_SCORE } = require('./icpFitReview');
 const { ensureLeadEmail, hasUsableEmail } = require('./ensureLeadEmail');
+const { buildFolderTree, folderKeysIncludingDescendants } = require('./folderTree');
 
 const DEFAULT_FOLDER_OUTREACH = {
   enabled: false,
@@ -75,6 +76,7 @@ function normalizeFolderOutreachSettings(raw) {
     lastRunAt: s.lastRunAt ? String(s.lastRunAt) : '',
     lastEnrolled: Number.isFinite(Number(s.lastEnrolled)) ? Number(s.lastEnrolled) : 0,
     lastCandidateCount: Number.isFinite(Number(s.lastCandidateCount)) ? Number(s.lastCandidateCount) : 0,
+    lastFolderLeadCount: Number.isFinite(Number(s.lastFolderLeadCount)) ? Number(s.lastFolderLeadCount) : 0,
     lastIcpRejected: Number.isFinite(Number(s.lastIcpRejected)) ? Number(s.lastIcpRejected) : 0,
     lastEmailsFound: Number.isFinite(Number(s.lastEmailsFound)) ? Number(s.lastEmailsFound) : 0,
     lastEmailSkipped: Number.isFinite(Number(s.lastEmailSkipped)) ? Number(s.lastEmailSkipped) : 0,
@@ -86,9 +88,63 @@ function loadFolderOutreachFromFolder(folder) {
   return normalizeFolderOutreachSettings(f.outreachAutomation);
 }
 
-function leadEligibleForFolderOutreach(lead, settings, folderKey) {
+/**
+ * Match pipeline folder views: parent folders include leads in nested subfolders.
+ * Uses parentFolderKey edges (reliable) and folder tree when available.
+ * @param {object[]} folders
+ * @param {string} folderKey
+ * @returns {Set<string>}
+ */
+function resolveFolderKeysForOutreach(folders, folderKey) {
+  const root = String(folderKey || '').trim();
+  if (!root) return new Set();
+  const list = Array.isArray(folders) ? folders : [];
+  const out = new Set([root]);
+  const byParent = new Map();
+  for (const f of list) {
+    const key = String((f && f.key) || '').trim();
+    if (!key) continue;
+    const pk = String((f && f.parentFolderKey) || '').trim();
+    if (!pk) continue;
+    if (!byParent.has(pk)) byParent.set(pk, []);
+    byParent.get(pk).push(key);
+  }
+  const stack = [root];
+  while (stack.length) {
+    const cur = stack.pop();
+    for (const child of byParent.get(cur) || []) {
+      if (out.has(child)) continue;
+      out.add(child);
+      stack.push(child);
+    }
+  }
+  try {
+    const tree = buildFolderTree(list);
+    const treeKeys = folderKeysIncludingDescendants(tree, root);
+    if (treeKeys) {
+      for (const k of treeKeys) out.add(k);
+    }
+  } catch (_) {
+    /* tree is best-effort; parent edges above are enough */
+  }
+  return out;
+}
+
+function leadInFolderScope(lead, folderKeyOrKeys) {
+  const leadFk = String((lead && lead.folderKey) || '').trim();
+  if (!folderKeyOrKeys) return true;
+  if (folderKeyOrKeys instanceof Set) {
+    if (!folderKeyOrKeys.size) return true;
+    return folderKeyOrKeys.has(leadFk);
+  }
+  const want = String(folderKeyOrKeys).trim();
+  if (!want) return true;
+  return leadFk === want;
+}
+
+function leadEligibleForFolderOutreach(lead, settings, folderKeyOrKeys) {
   if (!lead || !lead.key) return false;
-  if (folderKey && String(lead.folderKey || '').trim() !== String(folderKey).trim()) return false;
+  if (!leadInFolderScope(lead, folderKeyOrKeys)) return false;
 
   const status = String(lead.status || '').toLowerCase();
   if (status.includes('closed - won') || status.includes('closed - lost')) return false;
@@ -167,10 +223,13 @@ async function runFolderOutreach(opts) {
   }
 
   const all = await dbService.getAllLeads(workspaceId);
+  const folders = await dbService.listFolders(workspaceId);
+  const folderKeys = resolveFolderKeysForOutreach(folders, folderKey);
   const ws = (await dbService.getWorkspace(workspaceId)) || { id: workspaceId };
   const poolSize = Math.min(150, Math.max(cap * 5, cap));
-  const candidates = all
-    .filter((l) => leadEligibleForFolderOutreach(l, settings, folderKey))
+  const inFolder = all.filter((l) => leadInFolderScope(l, folderKeys));
+  const candidates = inFolder
+    .filter((l) => leadEligibleForFolderOutreach(l, settings, folderKeys))
     .map((l) => ({ lead: l, rank: rankLeadForFolderOutreach(l) }))
     .sort((a, b) => b.rank - a.rank)
     .slice(0, poolSize);
@@ -268,6 +327,7 @@ async function runFolderOutreach(opts) {
     lastRunAt: runAt,
     lastEnrolled: enrolled,
     lastCandidateCount: candidates.length,
+    lastFolderLeadCount: inFolder.length,
     lastIcpRejected: icpRejected,
     lastEmailsFound: emailsFound,
     lastEmailSkipped: emailSkipped,
@@ -277,6 +337,7 @@ async function runFolderOutreach(opts) {
   return {
     enrolled,
     candidates: candidates.length,
+    folderLeadCount: inFolder.length,
     icpRejected,
     emailsFound,
     emailSkipped,
@@ -429,6 +490,8 @@ module.exports = {
   clampMaxLeads,
   normalizeFolderOutreachSettings,
   loadFolderOutreachFromFolder,
+  resolveFolderKeysForOutreach,
+  leadInFolderScope,
   leadEligibleForFolderOutreach,
   rankLeadForFolderOutreach,
   runFolderOutreach,
