@@ -1268,6 +1268,20 @@ router.post('/settings', express.json(), async (req, res) => {
             req.body.prospectingAutoPoolAiIcpReview === 1 ||
             req.body.prospectingAutoPoolAiIcpReview === '1';
         }
+        if (Object.prototype.hasOwnProperty.call(req.body, 'prospectingAutoPoolFindMissingEmail')) {
+          next.findMissingEmail =
+            req.body.prospectingAutoPoolFindMissingEmail === true ||
+            req.body.prospectingAutoPoolFindMissingEmail === 'true' ||
+            req.body.prospectingAutoPoolFindMissingEmail === 1 ||
+            req.body.prospectingAutoPoolFindMissingEmail === '1';
+        }
+        if (Object.prototype.hasOwnProperty.call(req.body, 'prospectingAutoPoolRequireEmail')) {
+          next.requireEmail =
+            req.body.prospectingAutoPoolRequireEmail === true ||
+            req.body.prospectingAutoPoolRequireEmail === 'true' ||
+            req.body.prospectingAutoPoolRequireEmail === 1 ||
+            req.body.prospectingAutoPoolRequireEmail === '1';
+        }
         if (Object.prototype.hasOwnProperty.call(req.body, 'prospectingAutoPoolMinIcpScore')) {
           next.minIcpScore = req.body.prospectingAutoPoolMinIcpScore;
         }

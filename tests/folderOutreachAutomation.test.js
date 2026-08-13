@@ -19,6 +19,8 @@ test('normalizeFolderOutreachSettings applies defaults', () => {
   assert.equal(s.ghlWorkflowPrompt, '');
   assert.equal(s.aiIcpReview, true);
   assert.equal(s.minIcpScore, 8);
+  assert.equal(s.findMissingEmail, true);
+  assert.equal(s.requireEmail, false);
 });
 
 test('normalizeFolderOutreachSettings can disable AI ICP review', () => {

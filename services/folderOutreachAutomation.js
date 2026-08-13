@@ -14,6 +14,7 @@ const {
   remainingAutoOutreachDailyBudget,
 } = require('./prospectingEnroll');
 const { reviewLeadIcpFit, DEFAULT_MIN_ICP_SCORE } = require('./icpFitReview');
+const { ensureLeadEmail, hasUsableEmail } = require('./ensureLeadEmail');
 
 const DEFAULT_FOLDER_OUTREACH = {
   enabled: false,
@@ -28,6 +29,8 @@ const DEFAULT_FOLDER_OUTREACH = {
   minIcpScore: DEFAULT_MIN_ICP_SCORE,
   serviceCities: '',
   serviceStates: '',
+  findMissingEmail: true,
+  requireEmail: false,
 };
 
 const MAX_GHL_GOAL_LEN = 2000;
@@ -67,10 +70,14 @@ function normalizeFolderOutreachSettings(raw) {
     minIcpScore: clampMinIcpScore(s.minIcpScore),
     serviceCities: trimStringField(s.serviceCities, 400),
     serviceStates: trimStringField(s.serviceStates, 80),
+    findMissingEmail: s.findMissingEmail !== false,
+    requireEmail: s.requireEmail === true,
     lastRunAt: s.lastRunAt ? String(s.lastRunAt) : '',
     lastEnrolled: Number.isFinite(Number(s.lastEnrolled)) ? Number(s.lastEnrolled) : 0,
     lastCandidateCount: Number.isFinite(Number(s.lastCandidateCount)) ? Number(s.lastCandidateCount) : 0,
     lastIcpRejected: Number.isFinite(Number(s.lastIcpRejected)) ? Number(s.lastIcpRejected) : 0,
+    lastEmailsFound: Number.isFinite(Number(s.lastEmailsFound)) ? Number(s.lastEmailsFound) : 0,
+    lastEmailSkipped: Number.isFinite(Number(s.lastEmailSkipped)) ? Number(s.lastEmailSkipped) : 0,
   };
 }
 
@@ -171,14 +178,17 @@ async function runFolderOutreach(opts) {
   const results = [];
   let enrolled = 0;
   let icpRejected = 0;
+  let emailsFound = 0;
+  let emailSkipped = 0;
   let budgetLeft = remainingBudget;
   for (const row of candidates) {
     if (enrolled >= cap || budgetLeft <= 0) break;
+    let lead = row.lead;
 
     if (settings.aiIcpReview) {
       // eslint-disable-next-line no-await-in-loop
       const icp = await reviewLeadIcpFit({
-        lead: row.lead,
+        lead,
         workspace: ws,
         folder,
         settings,
@@ -190,16 +200,46 @@ async function runFolderOutreach(opts) {
         results.push({
           enrolled: false,
           reason: 'icp_rejected',
-          leadKey: row.lead.key,
+          leadKey: lead.key,
           icpReview: icp,
         });
         continue;
       }
     }
 
+    if (settings.findMissingEmail && !hasUsableEmail(lead)) {
+      // eslint-disable-next-line no-await-in-loop
+      const emailPack = await ensureLeadEmail({
+        lead,
+        workspaceId,
+        persist: true,
+      });
+      if (emailPack.found && !emailPack.alreadyHad) {
+        emailsFound += 1;
+        lead = emailPack.lead || lead;
+      } else if (settings.requireEmail && !emailPack.found) {
+        emailSkipped += 1;
+        results.push({
+          enrolled: false,
+          reason: 'email_missing',
+          leadKey: lead.key,
+          emailFind: emailPack,
+        });
+        continue;
+      }
+    } else if (settings.requireEmail && !hasUsableEmail(lead)) {
+      emailSkipped += 1;
+      results.push({
+        enrolled: false,
+        reason: 'email_missing',
+        leadKey: lead.key,
+      });
+      continue;
+    }
+
     // eslint-disable-next-line no-await-in-loop
     const r = await enrollLeadInAutoOutreach({
-      leadKey: row.lead.key,
+      leadKey: lead.key,
       workspaceId,
       reEnroll: false,
       tagLead: true,
@@ -221,6 +261,8 @@ async function runFolderOutreach(opts) {
     lastEnrolled: enrolled,
     lastCandidateCount: candidates.length,
     lastIcpRejected: icpRejected,
+    lastEmailsFound: emailsFound,
+    lastEmailSkipped: emailSkipped,
   };
   await dbService.updateFolder(workspaceId, folderKey, { outreachAutomation: outreachNext });
 
@@ -228,6 +270,8 @@ async function runFolderOutreach(opts) {
     enrolled,
     candidates: candidates.length,
     icpRejected,
+    emailsFound,
+    emailSkipped,
     campaign: AUTO_OUTREACH_CAMPAIGN,
     folderKey,
     folderName: folder.name || '',

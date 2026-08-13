@@ -158,6 +158,18 @@ router.post('/save-outreach-automation', async (req, res, next) => {
       serviceStates: Object.prototype.hasOwnProperty.call(body, 'serviceStates')
         ? String(body.serviceStates || '').trim()
         : prev.serviceStates,
+      findMissingEmail: Object.prototype.hasOwnProperty.call(body, 'findMissingEmail')
+        ? body.findMissingEmail === true ||
+          body.findMissingEmail === 'true' ||
+          body.findMissingEmail === 1 ||
+          body.findMissingEmail === '1'
+        : prev.findMissingEmail,
+      requireEmail: Object.prototype.hasOwnProperty.call(body, 'requireEmail')
+        ? body.requireEmail === true ||
+          body.requireEmail === 'true' ||
+          body.requireEmail === 1 ||
+          body.requireEmail === '1'
+        : prev.requireEmail,
       lastRunAt: prev.lastRunAt,
       lastEnrolled: prev.lastEnrolled,
       lastCandidateCount: prev.lastCandidateCount,

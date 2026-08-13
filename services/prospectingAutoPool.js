@@ -13,6 +13,7 @@ const {
   remainingAutoOutreachDailyBudget,
 } = require('./prospectingEnroll');
 const { reviewLeadIcpFit, DEFAULT_MIN_ICP_SCORE } = require('./icpFitReview');
+const { ensureLeadEmail, hasUsableEmail } = require('./ensureLeadEmail');
 
 const DEFAULT_AUTO_POOL = {
   enabled: false,
@@ -24,6 +25,8 @@ const DEFAULT_AUTO_POOL = {
   minIcpScore: DEFAULT_MIN_ICP_SCORE,
   serviceCities: '',
   serviceStates: '',
+  findMissingEmail: true,
+  requireEmail: false,
 };
 
 function clampAutoPoolMaxLeads(n) {
@@ -51,6 +54,8 @@ function normalizeAutoPoolSettings(raw) {
     minIcpScore: clampMinIcpScore(s.minIcpScore),
     serviceCities: String(s.serviceCities || '').trim().slice(0, 400),
     serviceStates: String(s.serviceStates || '').trim().slice(0, 80),
+    findMissingEmail: s.findMissingEmail !== false,
+    requireEmail: s.requireEmail === true,
   };
 }
 
@@ -139,14 +144,17 @@ async function runAutoPool(opts) {
   const results = [];
   let enrolled = 0;
   let icpRejected = 0;
+  let emailsFound = 0;
+  let emailSkipped = 0;
   let budgetLeft = remainingBudget;
   for (const row of candidates) {
     if (enrolled >= cap || budgetLeft <= 0) break;
+    let lead = row.lead;
 
     if (settings.aiIcpReview) {
       // eslint-disable-next-line no-await-in-loop
       const icp = await reviewLeadIcpFit({
-        lead: row.lead,
+        lead,
         workspace: ws,
         folder: null,
         settings,
@@ -158,16 +166,46 @@ async function runAutoPool(opts) {
         results.push({
           enrolled: false,
           reason: 'icp_rejected',
-          leadKey: row.lead.key,
+          leadKey: lead.key,
           icpReview: icp,
         });
         continue;
       }
     }
 
+    if (settings.findMissingEmail && !hasUsableEmail(lead)) {
+      // eslint-disable-next-line no-await-in-loop
+      const emailPack = await ensureLeadEmail({
+        lead,
+        workspaceId,
+        persist: true,
+      });
+      if (emailPack.found && !emailPack.alreadyHad) {
+        emailsFound += 1;
+        lead = emailPack.lead || lead;
+      } else if (settings.requireEmail && !emailPack.found) {
+        emailSkipped += 1;
+        results.push({
+          enrolled: false,
+          reason: 'email_missing',
+          leadKey: lead.key,
+          emailFind: emailPack,
+        });
+        continue;
+      }
+    } else if (settings.requireEmail && !hasUsableEmail(lead)) {
+      emailSkipped += 1;
+      results.push({
+        enrolled: false,
+        reason: 'email_missing',
+        leadKey: lead.key,
+      });
+      continue;
+    }
+
     // eslint-disable-next-line no-await-in-loop
     const r = await enrollLeadInAutoOutreach({
-      leadKey: row.lead.key,
+      leadKey: lead.key,
       workspaceId,
       reEnroll: false,
       tagLead: true,
@@ -188,6 +226,8 @@ async function runAutoPool(opts) {
     lastEnrolled: enrolled,
     lastCandidateCount: candidates.length,
     lastIcpRejected: icpRejected,
+    lastEmailsFound: emailsFound,
+    lastEmailSkipped: emailSkipped,
   };
   await dbService.saveWorkspace(workspaceId, {
     ...ws,
@@ -201,6 +241,8 @@ async function runAutoPool(opts) {
     enrolled,
     candidates: candidates.length,
     icpRejected,
+    emailsFound,
+    emailSkipped,
     campaign: AUTO_OUTREACH_CAMPAIGN,
     settings: autoPoolNext,
     results,

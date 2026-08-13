@@ -54,6 +54,14 @@
         <input type="checkbox" id="autoPoolAiIcpReview" class="rounded border-brand-border mt-0.5" <%= _autoPool.aiIcpReview === false ? '' : 'checked' %> />
         <span class="text-sm text-brand-dark dark:text-white"><strong class="font-bold">AI A+ review before drip</strong> — only enroll leads that match this offer + service area. Rejects wrong niche/geo before GHL tagging.</span>
       </label>
+      <label class="flex items-start gap-3 sm:col-span-2 cursor-pointer">
+        <input type="checkbox" id="autoPoolFindMissingEmail" class="rounded border-brand-border mt-0.5" <%= _autoPool.findMissingEmail === false ? '' : 'checked' %> />
+        <span class="text-sm text-brand-dark dark:text-white"><strong class="font-bold">Find missing emails before GHL</strong> — website scrape + BetterContact for Maps leads without email. Does not invent addresses.</span>
+      </label>
+      <label class="flex items-start gap-3 sm:col-span-2 cursor-pointer">
+        <input type="checkbox" id="autoPoolRequireEmail" class="rounded border-brand-border mt-0.5" <%= _autoPool.requireEmail ? 'checked' : '' %> />
+        <span class="text-sm text-brand-dark dark:text-white"><strong class="font-bold">Require email to enroll</strong> — skip leads still without email after the hunt.</span>
+      </label>
       <label class="block">
         <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Min ICP score</span>
         <input type="number" id="autoPoolMinIcpScore" min="1" max="10" step="0.5" value="<%= _autoPool.minIcpScore != null ? _autoPool.minIcpScore : 8 %>" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" />
@@ -239,6 +247,8 @@
       prospectingAutoPoolMinScore: minRaw && minRaw.value !== '' ? minRaw.value : '',
       prospectingAutoPoolSenderOfferKey: (document.getElementById('autoPoolSenderOfferKey') || {}).value || '',
       prospectingAutoPoolAiIcpReview: !!(document.getElementById('autoPoolAiIcpReview') && document.getElementById('autoPoolAiIcpReview').checked),
+      prospectingAutoPoolFindMissingEmail: !!(document.getElementById('autoPoolFindMissingEmail') && document.getElementById('autoPoolFindMissingEmail').checked),
+      prospectingAutoPoolRequireEmail: !!(document.getElementById('autoPoolRequireEmail') && document.getElementById('autoPoolRequireEmail').checked),
       prospectingAutoPoolMinIcpScore: parseFloat((document.getElementById('autoPoolMinIcpScore') || {}).value) || 8,
       prospectingAutoPoolServiceCities: (document.getElementById('autoPoolServiceCities') || {}).value || '',
       prospectingAutoPoolServiceStates: (document.getElementById('autoPoolServiceStates') || {}).value || '',

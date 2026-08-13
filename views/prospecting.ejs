@@ -391,6 +391,14 @@
           <input type="checkbox" id="folderOutreachAiIcpReview" class="rounded border-brand-border mt-0.5" checked />
           <span><strong class="font-bold">AI A+ review before drip</strong> — only enroll leads that match this offer + service area (score ≥ min ICP). Wrong niche/geo is skipped.</span>
         </label>
+        <label class="flex items-start gap-2 text-sm text-brand-dark dark:text-white">
+          <input type="checkbox" id="folderOutreachFindMissingEmail" class="rounded border-brand-border mt-0.5" checked />
+          <span><strong class="font-bold">Find missing emails before GHL</strong> — for Google Maps leads without email, scrape the website and/or use BetterContact before tagging. Does not invent addresses.</span>
+        </label>
+        <label class="flex items-start gap-2 text-sm text-brand-dark dark:text-white">
+          <input type="checkbox" id="folderOutreachRequireEmail" class="rounded border-brand-border mt-0.5" />
+          <span><strong class="font-bold">Require email to enroll</strong> — skip leads still missing email after the hunt (best when your GHL workflow is email-first).</span>
+        </label>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label for="folderOutreachMinIcpScore" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min ICP score (A+ gate)</label>
@@ -686,6 +694,8 @@
         minIcpScore: oa.minIcpScore != null ? oa.minIcpScore : 8,
         serviceCities: oa.serviceCities || '',
         serviceStates: oa.serviceStates || '',
+        findMissingEmail: oa.findMissingEmail !== false,
+        requireEmail: oa.requireEmail === true,
       };
     }
 
@@ -728,6 +738,8 @@
       if ($('folderOutreachMinScore')) $('folderOutreachMinScore').value = s.minScore !== '' ? String(s.minScore) : '';
       if ($('folderOutreachSmsOnly')) $('folderOutreachSmsOnly').checked = !!s.smsOnly;
       if ($('folderOutreachAiIcpReview')) $('folderOutreachAiIcpReview').checked = s.aiIcpReview !== false;
+      if ($('folderOutreachFindMissingEmail')) $('folderOutreachFindMissingEmail').checked = s.findMissingEmail !== false;
+      if ($('folderOutreachRequireEmail')) $('folderOutreachRequireEmail').checked = !!s.requireEmail;
       if ($('folderOutreachMinIcpScore')) $('folderOutreachMinIcpScore').value = String(s.minIcpScore != null ? s.minIcpScore : 8);
       if ($('folderOutreachServiceCities')) $('folderOutreachServiceCities').value = s.serviceCities || '';
       if ($('folderOutreachServiceStates')) $('folderOutreachServiceStates').value = s.serviceStates || '';
@@ -750,6 +762,8 @@
         minScore: ($('folderOutreachMinScore') && $('folderOutreachMinScore').value) || '',
         smsOnly: !!($('folderOutreachSmsOnly') && $('folderOutreachSmsOnly').checked),
         aiIcpReview: !!($('folderOutreachAiIcpReview') && $('folderOutreachAiIcpReview').checked),
+        findMissingEmail: !!($('folderOutreachFindMissingEmail') && $('folderOutreachFindMissingEmail').checked),
+        requireEmail: !!($('folderOutreachRequireEmail') && $('folderOutreachRequireEmail').checked),
         minIcpScore: parseFloat(($('folderOutreachMinIcpScore') && $('folderOutreachMinIcpScore').value) || '8') || 8,
         serviceCities: ($('folderOutreachServiceCities') && $('folderOutreachServiceCities').value) || '',
         serviceStates: ($('folderOutreachServiceStates') && $('folderOutreachServiceStates').value) || '',
