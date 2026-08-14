@@ -44,7 +44,7 @@ document.querySelectorAll('.popup-tab').forEach((tabBtn) => {
     panelImport.classList.toggle('hidden', tab !== 'import');
     if (tab === 'bulk') {
       refreshBulkMapsHint();
-      refreshWebsiteQueueHint();
+      refreshWebsiteQueueHint({ autoStart: true });
     }
   });
 });
@@ -454,7 +454,7 @@ async function init() {
   }
 
   refreshBulkMapsHint();
-  refreshWebsiteQueueHint();
+  refreshWebsiteQueueHint({ autoStart: true });
 
   try {
     const { tab, lead } = await getActiveTabLead();
@@ -734,7 +734,7 @@ async function runWebsiteEnrichQueue() {
     const data = res.data || {};
     if (data.empty) {
       setBulkStatus(
-        'No pipeline website queue. In AdHello, select leads with websites → Scrape websites, then try again.',
+        'No pipeline website queue. In AdHello, select leads with websites → Enrich leads, then try again.',
         'success',
       );
       if (bulkProgressEl) bulkProgressEl.textContent = '';
@@ -760,7 +760,7 @@ async function runWebsiteEnrichQueue() {
 
 document.getElementById('bulkWebsiteEnrichBtn')?.addEventListener('click', runWebsiteEnrichQueue);
 
-async function refreshWebsiteQueueHint() {
+async function refreshWebsiteQueueHint(opts) {
   const btn = document.getElementById('bulkWebsiteEnrichBtn');
   if (!btn) return;
   try {
@@ -773,6 +773,9 @@ async function refreshWebsiteQueueHint() {
     if (count > 0) {
       btn.textContent = `Process website queue (${count})`;
       btn.classList.add('btn-accent');
+      if (opts && opts.autoStart && !bulkRunning && !reEnrichRunning && !websiteEnrichRunning) {
+        void runWebsiteEnrichQueue();
+      }
     } else {
       btn.textContent = 'Process website queue (pipeline)';
       btn.classList.remove('btn-accent');

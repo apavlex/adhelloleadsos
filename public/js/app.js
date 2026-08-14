@@ -18280,63 +18280,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Enrich leads → Chrome extension website-enrich queue (same as bulk "Scrape websites").
-  document.querySelectorAll('.js-enhance-missing-contacts').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      if (typeof window.__queueWebsiteEnrichForKeys !== 'function') {
-        const msg = 'Website enrich is not available. Refresh the page and try again.';
-        if (typeof window.showAppToast === 'function') {
-          window.showAppToast(msg, { variant: 'error' });
-        } else {
-          window.alert(msg);
-        }
-        return;
-      }
-
-      let leadKeys = [];
-      if (typeof window.__collectSelectedLeadKeysEarly === 'function') {
-        leadKeys = window.__collectSelectedLeadKeysEarly().slice(0, 150);
-      }
-      if (!leadKeys.length && typeof window.__collectVisiblePipelineLeadKeysWithWebsite === 'function') {
-        leadKeys = window.__collectVisiblePipelineLeadKeysWithWebsite(150);
-      }
-      if (!leadKeys.length) {
-        const msg =
-          'No leads with websites to enrich. Select rows with website URLs, or show visible pipeline rows that have sites.';
-        if (typeof window.showAppToast === 'function') {
-          window.showAppToast(msg, { variant: 'warning', duration: 7000 });
-        } else {
-          window.alert(msg);
-        }
-        return;
-      }
-
-      const ok = window.confirm(
-        `Queue ${leadKeys.length} lead${leadKeys.length === 1 ? '' : 's'} for Chrome website enrich (contacts & socials)?\n\nThen open the AdHello extension → Bulk scrape → Process website queue.`
-      );
-      if (!ok) return;
-
-      const originalHtml = btn.innerHTML;
-      btn.disabled = true;
-      btn.classList.add('opacity-70', 'cursor-wait');
-      btn.innerHTML =
-        '<svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg><span>Queueing…</span>';
-      try {
-        await window.__queueWebsiteEnrichForKeys(leadKeys, { toast: true });
-      } catch (err) {
-        const msg = err && err.message ? err.message : 'Could not queue website enrich.';
-        if (typeof window.showAppToast === 'function') {
-          window.showAppToast(msg, { variant: 'error', duration: 12000 });
-        } else {
-          window.alert(msg);
-        }
-      } finally {
-        btn.disabled = false;
-        btn.classList.remove('opacity-70', 'cursor-wait');
-        btn.innerHTML = originalHtml;
-      }
-    });
-  });
+  // Enrich leads (top toolbar) is bound early in pipeline-bulk-select.js
+  // (.js-enhance-missing-contacts → Chrome website enrich queue + extension).
 
   // --- Website Preview Hover Logic Removed ---
 

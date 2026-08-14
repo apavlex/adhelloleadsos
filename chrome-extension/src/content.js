@@ -1,4 +1,22 @@
 (function () {
+  // AdHello Pipeline can postMessage to start website enrich even when this page
+  // is not a "supported" lead-save page (FAB exits early below).
+  window.addEventListener('message', (event) => {
+    if (event.source !== window) return;
+    const data = event.data;
+    if (!data || data.source !== 'adhello-app') return;
+    if (data.type !== 'START_WEBSITE_ENRICH_QUEUE') return;
+    const workspaceId = String(data.workspaceId || '').trim();
+    chrome.runtime
+      .sendMessage({
+        type: 'PARALLEL_WEBSITE_ENRICH_QUEUE',
+        limit: Math.min(Math.max(parseInt(data.limit, 10) || 150, 1), 150),
+        workspaceId: workspaceId || undefined,
+        clearWhenDone: true,
+      })
+      .catch(() => {});
+  });
+
   const { extractLeadFromPage, isSupportedPage } = window.AdHelloExtractors;
 
   if (!isSupportedPage()) return;

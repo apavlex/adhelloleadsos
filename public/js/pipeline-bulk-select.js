@@ -1907,7 +1907,7 @@
   /**
    * Queue lead keys for Chrome extension website scrape (contacts + socials).
    * @param {string[]} leadKeys
-   * @param {{ toast?: boolean, busyEl?: HTMLElement|null }} [opts]
+   * @param {{ toast?: boolean, busyEl?: HTMLElement|null, notifyExtension?: boolean }} [opts]
    */
   async function queueWebsiteEnrichForKeys(leadKeys, opts) {
     const keys = (Array.isArray(leadKeys) ? leadKeys : [])
@@ -1915,7 +1915,7 @@
       .filter(Boolean)
       .slice(0, 150);
     if (!keys.length) {
-      return { ok: false, error: 'no_keys', message: 'No leads with a website to scrape.' };
+      return { ok: false, error: 'no_keys', message: 'No leads with a website to enrich.' };
     }
 
     const res = await fetch('/leads/website-enrich-queue', {
@@ -1929,23 +1929,38 @@
       throw new Error(data.error || `Queue failed (${res.status}).`);
     }
 
-    const hint =
-      data.hint ||
-      'Open AdHello Chrome extension → Bulk scrape → Process website queue.';
     const toast = !opts || opts.toast !== false;
+    const notifyExt = !opts || opts.notifyExtension !== false;
     if (data.empty || !data.queued) {
-      const msg = data.message || 'No leads need website contact scrape.';
+      const msg = data.message || 'No leads need website contact enrich.';
       if (toast && typeof window.showAppToast === 'function') {
         window.showAppToast(msg, { variant: 'info', duration: 6000 });
       }
-      return { ok: true, empty: true, queued: 0, data, message: msg, hint };
+      return { ok: true, empty: true, queued: 0, data, message: msg };
     }
 
-    const msg = `Queued ${data.queued} lead${data.queued === 1 ? '' : 's'} for Chrome website enrich. ${hint}`;
+    if (notifyExt) {
+      try {
+        window.postMessage(
+          {
+            source: 'adhello-app',
+            type: 'START_WEBSITE_ENRICH_QUEUE',
+            workspaceId: window.__ADHELLO_WORKSPACE_ID__ || undefined,
+            limit: 150,
+            queued: data.queued,
+          },
+          '*',
+        );
+      } catch (_) {
+        /* ignore */
+      }
+    }
+
+    const msg = `Queued ${data.queued} lead${data.queued === 1 ? '' : 's'} — AdHello Chrome extension is opening their websites to enrich contacts & socials (~5 at a time).`;
     if (toast && typeof window.showAppToast === 'function') {
       window.showAppToast(msg, { variant: 'success', duration: 10000 });
     }
-    return { ok: true, empty: false, queued: data.queued, data, message: msg, hint };
+    return { ok: true, empty: false, queued: data.queued, data, message: msg };
   }
   window.__queueWebsiteEnrichForKeys = queueWebsiteEnrichForKeys;
 
@@ -1974,47 +1989,63 @@
       leadKeys = collectVisiblePipelineLeadKeysWithWebsite(150);
     }
     if (!leadKeys.length) {
-      showBulkBarFeedbackEarly('Select leads with website URLs to scrape.', 'error');
+      showBulkBarFeedbackEarly(
+        'Select leads with website URLs (or show visible rows that have sites).',
+        'error',
+      );
       return;
     }
 
-    const btns = document.querySelectorAll('.js-bulk-scrape-websites');
+    const btns = document.querySelectorAll(
+      '.js-bulk-scrape-websites, .js-bulk-enrich-leads, .js-enhance-missing-contacts',
+    );
     const btnSnap = Array.from(btns).map((b) => b.innerHTML);
     window.__bulkWebsiteScrapeInFlight = true;
     btns.forEach((b) => {
       b.disabled = true;
       b.classList.add('loading');
-      b.innerHTML =
-        '<span class="text-[10px] font-black uppercase tracking-widest animate-pulse">Queueing…</span>';
+      if (b.classList.contains('js-enhance-missing-contacts')) {
+        b.innerHTML =
+          '<svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg><span>Queueing…</span>';
+      } else {
+        b.innerHTML =
+          '<span class="text-[10px] font-black uppercase tracking-widest animate-pulse">Queueing…</span>';
+      }
     });
     showBulkBarFeedbackEarly(
-      `Queueing ${leadKeys.length} lead${leadKeys.length === 1 ? '' : 's'} for website scrape…`,
+      `Queueing ${leadKeys.length} lead${leadKeys.length === 1 ? '' : 's'} for Chrome enrich…`,
       'loading',
     );
 
     try {
-      const result = await queueWebsiteEnrichForKeys(leadKeys, { toast: false });
+      const result = await queueWebsiteEnrichForKeys(leadKeys, {
+        toast: false,
+        notifyExtension: true,
+      });
       if (result.empty || !result.queued) {
         showBulkBarFeedbackEarly(
-          result.message || 'No selected leads need website contact scrape.',
+          result.message || 'No selected leads need website contact enrich.',
           'info',
         );
         btns.forEach((b) => {
+          if (b.classList.contains('js-enhance-missing-contacts')) return;
           b.innerHTML =
-            '<span class="text-[10px] font-black uppercase tracking-widest">Nothing to scrape</span>';
+            '<span class="text-[10px] font-black uppercase tracking-widest">Nothing to enrich</span>';
         });
       } else {
         showBulkBarFeedbackEarly(result.message, 'success');
         btns.forEach((b) => {
+          if (b.classList.contains('js-enhance-missing-contacts')) return;
           b.innerHTML = `<span class="text-[10px] font-black uppercase tracking-widest">Queued ${result.queued}</span>`;
         });
       }
     } catch (err) {
       showBulkBarFeedbackEarly(
-        (err && err.message) || 'Could not queue website scrape.',
+        (err && err.message) || 'Could not queue website enrich.',
         'error',
       );
       btns.forEach((b) => {
+        if (b.classList.contains('js-enhance-missing-contacts')) return;
         b.innerHTML =
           '<span class="text-[10px] font-black uppercase tracking-widest">Failed</span>';
       });
@@ -2030,6 +2061,7 @@
     }
   }
   window.__runBulkScrapeWebsitesFromBarEarly = runBulkScrapeWebsitesFromBarEarly;
+  window.__runBulkEnrichLeadsFromBarEarly = runBulkScrapeWebsitesFromBarEarly;
 
   async function runBulkSocialFromBarEarly() {
     if (window.__bulkSocialEnrichInFlight) return;
@@ -2421,9 +2453,18 @@
     document.addEventListener(
       'click',
       (e) => {
+        if (!e.target || !e.target.closest) return;
+        // Top toolbar "Enrich leads" (outside the floating bulk bar).
+        if (e.target.closest('.js-enhance-missing-contacts')) {
+          e.preventDefault();
+          e.stopPropagation();
+          void runBulkScrapeWebsitesFromBarEarly();
+          return;
+        }
+
         const bar = document.getElementById('bulkActionBar');
         if (!bar || bar.dataset.visible !== 'true') return;
-        if (!e.target || !e.target.closest || !e.target.closest('#bulkActionBar')) return;
+        if (!e.target.closest('#bulkActionBar')) return;
 
         if (e.target.closest('#bulkFolderNewToggle')) {
           e.preventDefault();
@@ -2608,7 +2649,10 @@
           void runBulkEnhanceFromBarEarly();
           return;
         }
-        if (e.target.closest('.js-bulk-scrape-websites')) {
+        if (
+          e.target.closest('.js-bulk-scrape-websites') ||
+          e.target.closest('.js-bulk-enrich-leads')
+        ) {
           e.preventDefault();
           e.stopPropagation();
           void runBulkScrapeWebsitesFromBarEarly();

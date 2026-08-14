@@ -3151,7 +3151,7 @@ router.post('/website-enrich-queue', express.json(), async (req, res, next) => {
       skippedComplete,
       empty: false,
       message: `Queued ${needing.length} lead${needing.length === 1 ? '' : 's'} for website scrape.`,
-      hint: 'Open the AdHello Chrome extension → Bulk scrape → Process website queue (5 tabs at a time).',
+      hint: 'AdHello Chrome extension opens their websites automatically (~5 at a time). If nothing happens, reload the unpacked extension (v1.8.1+) and try Enrich leads again.',
     });
   } catch (err) {
     next(err);

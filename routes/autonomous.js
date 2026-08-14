@@ -547,7 +547,7 @@ router.get('/website-enrich-queue', apiKeyAuth, async (req, res, next) => {
         totalQueued: 0,
         totalNeeding: 0,
         leads: [],
-        message: 'No website enrich queue. Select leads in Pipeline and click Scrape websites.',
+        message: 'No website enrich queue. Select leads in Pipeline and click Enrich leads.',
       });
     }
 

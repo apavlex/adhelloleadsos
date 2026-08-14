@@ -508,6 +508,7 @@ async function parallelWebsiteEnrichQueue({
 const BULK_IMPORT_BATCH_SIZE = AdHelloBulkImport.BULK_IMPORT_BATCH_SIZE;
 
 let bulkScrapeJobRunning = false;
+let websiteEnrichQueueRunning = false;
 let bulkScrapeStopRequested = false;
 
 function emitBulkJobProgress(payload) {
@@ -736,9 +737,17 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message?.type === 'PARALLEL_WEBSITE_ENRICH_QUEUE') {
+    if (websiteEnrichQueueRunning) {
+      sendResponse({ ok: false, error: 'Website enrich is already running.' });
+      return true;
+    }
+    websiteEnrichQueueRunning = true;
     parallelWebsiteEnrichQueue(message)
       .then((data) => sendResponse({ ok: true, data }))
-      .catch((err) => sendResponse({ ok: false, error: err.message || String(err) }));
+      .catch((err) => sendResponse({ ok: false, error: err.message || String(err) }))
+      .finally(() => {
+        websiteEnrichQueueRunning = false;
+      });
     return true;
   }
 
