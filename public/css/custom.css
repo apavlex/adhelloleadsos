@@ -3431,6 +3431,7 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
 #focus-outcome-panel[data-compact="true"] #focus-quick-log-section,
 #focus-outcome-panel[data-compact="true"] #focus-notes-section,
 #focus-outcome-panel[data-compact="true"] #focus-followup-strip,
+#focus-outcome-panel[data-compact="true"] #focus-quick-task-strip,
 #focus-outcome-panel[data-compact="true"] #focus-outcome-feedback {
     display: none !important;
 }
