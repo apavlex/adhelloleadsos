@@ -1454,16 +1454,76 @@
     window.__bulkAutoOutreachInFlight = true;
     if (btn) {
       btn.disabled = true;
-      btn.textContent = 'Enrolling…';
+      btn.textContent = 'Finding…';
       btn.setAttribute('aria-busy', 'true');
     }
-    showBulkBarFeedbackEarly(`Enrolling ${leadKeys.length} lead${leadKeys.length === 1 ? '' : 's'}…`, 'loading');
+    showBulkBarFeedbackEarly(
+      `Finding contacts for ${leadKeys.length} lead${leadKeys.length === 1 ? '' : 's'}, then enrolling to GHL…`,
+      'loading',
+    );
+
+    // Client enhance pass for missing phone/email (same Enhance API as Enrich leads).
+    let enhanceUpdated = 0;
+    try {
+      for (let i = 0; i < leadKeys.length; i += 1) {
+        const key = leadKeys[i];
+        const row = findResultRowByLeadKeyEarly(key);
+        const phone = String((row && row.dataset && row.dataset.phone) || '').trim();
+        const email = String((row && row.dataset && row.dataset.email) || '').trim();
+        const needsContact =
+          !row ||
+          !phone ||
+          phone === 'N/A' ||
+          phone === '—' ||
+          !email ||
+          email === 'N/A' ||
+          email === '—';
+        if (!needsContact) continue;
+
+        if (btn) btn.textContent = `Find ${i + 1}/${leadKeys.length}`;
+        showBulkBarFeedbackEarly(
+          `Finding contacts ${i + 1}/${leadKeys.length} via API…`,
+          'loading',
+        );
+
+        try {
+          const res = await fetch(`/leads/${encodeURIComponent(key)}/enhance`, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' },
+          });
+          let result = await res.json().catch(() => ({}));
+          if (res.ok && result.processing) {
+            result = await pollLeadEnhanceUntilDoneEarly(key);
+          }
+          const d = result.lead || result.data;
+          if (result.success && d) {
+            enhanceUpdated += 1;
+            if (row) {
+              applyEnhanceDataToRowEarly(row, d);
+              syncRowSocialsSlotEarly(row);
+            }
+          }
+        } catch (_) {
+          /* continue to enroll — server also finds email */
+        }
+      }
+    } catch (_) {
+      /* non-fatal; enroll still runs */
+    }
+
+    if (btn) btn.textContent = 'Enrolling…';
+    showBulkBarFeedbackEarly(
+      `Enrolling ${leadKeys.length} lead${leadKeys.length === 1 ? '' : 's'} to GHL auto-outreach…`,
+      'loading',
+    );
+
     try {
       const res = await fetch('/api/prospecting/enroll', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ leadKeys, tag: 'auto-outreach' }),
+        body: JSON.stringify({ leadKeys, tag: 'auto-outreach', findContacts: true }),
       });
       const data = await res.json().catch(function () {
         return {};
@@ -1472,11 +1532,22 @@
         throw new Error((data && data.error) || 'Enroll failed');
       }
       const n = data.enrolled != null ? data.enrolled : leadKeys.length;
-      showBulkBarFeedbackEarly(`Tagged ${n} for auto outreach — synced to GHL workflow.`, 'success');
+      const found =
+        (Number(data.emailsFound) || 0) + (enhanceUpdated > 0 ? enhanceUpdated : 0);
+      const foundNote =
+        data.emailsFound > 0
+          ? ` · found ${data.emailsFound} email${data.emailsFound === 1 ? '' : 's'}`
+          : enhanceUpdated > 0
+            ? ` · enhanced ${enhanceUpdated}`
+            : '';
+      showBulkBarFeedbackEarly(
+        `Tagged ${n} for auto outreach — synced to GHL workflow${foundNote}.`,
+        'success',
+      );
       if (typeof window.__flashBulkBarBtn === 'function') {
         window.__flashBulkBarBtn(btn, `Enrolled ${n}`, 1400);
       }
-      return { ok: true, ...data };
+      return { ok: true, found, ...data };
     } catch (err) {
       const msg = err && err.message ? err.message : 'Auto outreach enroll failed';
       showBulkBarFeedbackEarly(msg, 'error');

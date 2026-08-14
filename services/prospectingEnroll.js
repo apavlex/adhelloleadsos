@@ -339,11 +339,13 @@ async function maybeRerunAutoOutreachAfterEmailFix(opts) {
 }
 
 /**
- * @param {{ workspaceId: string, leadKeys?: string[], filter?: object, reEnroll?: boolean, tag?: string }} opts
+ * @param {{ workspaceId: string, leadKeys?: string[], filter?: object, reEnroll?: boolean, tag?: string, findContacts?: boolean }} opts
  */
 async function enrollLeadsBulk(opts) {
   const workspaceId = String(opts.workspaceId || 'default').trim() || 'default';
   const reEnroll = opts.reEnroll === true;
+  const findContacts = opts.findContacts !== false;
+  const { ensureLeadEmail, hasUsableEmail } = require('./ensureLeadEmail');
   const results = [];
   let keys = Array.isArray(opts.leadKeys)
     ? opts.leadKeys.map((k) => fullLeadKey(k)).filter(Boolean)
@@ -363,6 +365,8 @@ async function enrollLeadsBulk(opts) {
   let enrolled = 0;
   let skipped = 0;
   let dailyCapHits = 0;
+  let emailsFound = 0;
+  let contactsAttempted = 0;
   let remaining = await remainingAutoOutreachDailyBudget(workspaceId);
   for (const key of keys) {
     if (remaining <= 0) {
@@ -376,6 +380,37 @@ async function enrollLeadsBulk(opts) {
       skipped += 1;
       continue;
     }
+
+    let emailFind = null;
+    if (findContacts) {
+      // eslint-disable-next-line no-await-in-loop
+      let lead = await dbService.getLead(key, workspaceId);
+      if (lead && !hasUsableEmail(lead)) {
+        contactsAttempted += 1;
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          emailFind = await ensureLeadEmail({
+            lead,
+            workspaceId,
+            persist: true,
+          });
+          if (emailFind && emailFind.found && !emailFind.alreadyHad) {
+            emailsFound += 1;
+          }
+        } catch (e) {
+          emailFind = {
+            found: false,
+            reason: 'error',
+            error: (e && e.message) || 'contact_find_failed',
+          };
+          console.warn(
+            `[prospectingEnroll] contact find failed for ${key}:`,
+            e && e.message,
+          );
+        }
+      }
+    }
+
     // eslint-disable-next-line no-await-in-loop
     const r = await enrollLeadInAutoOutreach({
       leadKey: key,
@@ -384,7 +419,7 @@ async function enrollLeadsBulk(opts) {
       tagLead: opts.tag !== false,
       _remainingBudget: remaining,
     });
-    results.push(r);
+    results.push(emailFind ? { ...r, emailFind } : r);
     if (r.enrolled) {
       enrolled += 1;
       if (r.budgetConsumed) remaining = Math.max(0, remaining - 1);
@@ -399,6 +434,8 @@ async function enrollLeadsBulk(opts) {
     skipped,
     total: keys.length,
     results,
+    emailsFound,
+    contactsAttempted,
     dailyCap: AUTO_OUTREACH_DAILY_CAP,
     dailyCapHits,
     remainingBudget: remaining,

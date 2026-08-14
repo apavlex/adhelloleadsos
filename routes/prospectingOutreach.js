@@ -71,6 +71,7 @@ router.post('/enroll', express.json(), async (req, res, next) => {
       leadKeys,
       reEnroll,
       tag: body.tag !== false,
+      findContacts: body.findContacts !== false,
     });
     return res.json({ success: true, ...result });
   } catch (e) {
