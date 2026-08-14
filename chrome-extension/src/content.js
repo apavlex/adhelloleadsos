@@ -72,6 +72,24 @@
 
   const { extractLeadFromPage, isSupportedPage } = window.AdHelloExtractors;
 
+  // Never show Save lead FAB on the AdHello app (covers chatbot / in-app UI).
+  const onAdHelloApp =
+    !!(typeof window !== 'undefined' && window.__ADHELLO_WORKSPACE_ID__) ||
+    !!(
+      window.AdHelloWebsiteScrape &&
+      typeof window.AdHelloWebsiteScrape.isAdHelloAppUrl === 'function' &&
+      window.AdHelloWebsiteScrape.isAdHelloAppUrl(window.location.href)
+    );
+  if (onAdHelloApp) {
+    try {
+      const existing = document.getElementById('adhello-lead-saver-root');
+      if (existing) existing.remove();
+    } catch (_) {
+      /* ignore */
+    }
+    return;
+  }
+
   if (!isSupportedPage()) return;
 
   const ROOT_ID = 'adhello-lead-saver-root';

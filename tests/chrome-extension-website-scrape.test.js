@@ -60,19 +60,23 @@ test('isUsableEmail rejects asset and placeholder emails', () => {
 });
 
 test('isGenericBusinessWebsiteCandidate allows company sites and blocks directories', () => {
-  const { isGenericBusinessWebsiteCandidate } = loadWebsiteScrape();
+  const { isGenericBusinessWebsiteCandidate, isAdHelloAppUrl } = loadWebsiteScrape();
   assert.equal(isGenericBusinessWebsiteCandidate('https://www.acmeplumbing.com/'), true);
   assert.equal(isGenericBusinessWebsiteCandidate('https://servpluswaterdamage.com/contact'), true);
   assert.equal(isGenericBusinessWebsiteCandidate('https://www.yelp.com/biz/acme'), false);
   assert.equal(isGenericBusinessWebsiteCandidate('https://www.linkedin.com/company/acme'), false);
   assert.equal(isGenericBusinessWebsiteCandidate('https://www.google.com/search?q=plumber'), false);
   assert.equal(isGenericBusinessWebsiteCandidate('https://maps.google.com/maps?q=x'), false);
+  assert.equal(isGenericBusinessWebsiteCandidate('https://leads.adhello.ai/today'), false);
+  assert.equal(isGenericBusinessWebsiteCandidate('https://adhelloleadsos.onrender.com/leads'), false);
+  assert.equal(isAdHelloAppUrl('https://leads.adhello.ai/today'), true);
+  assert.equal(isAdHelloAppUrl('https://www.acmeplumbing.com/'), false);
 });
 
 test('manifest includes website-scrape and broad https matches', () => {
   const manifestPath = path.join(__dirname, '..', 'chrome-extension', 'manifest.json');
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-  assert.equal(manifest.version, '1.8.0');
+  assert.equal(manifest.version, '1.8.3');
   const scripts = manifest.content_scripts[0].js;
   assert.ok(scripts.includes('src/website-scrape.js'));
   assert.ok(manifest.content_scripts[0].matches.includes('https://*/*'));

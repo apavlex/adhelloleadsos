@@ -47,7 +47,32 @@
     'office.com',
     'live.com',
     'apple.com',
+    // AdHello product app — never treat as a lead website / never show Save lead FAB
+    'adhello.ai',
+    'adhello.com',
+    'adhelloleadsos.onrender.com',
   ];
+
+  function isAdHelloAppHost(hostname) {
+    const host = String(hostname || '')
+      .replace(/^www\./i, '')
+      .toLowerCase();
+    if (!host) return false;
+    if (host === 'localhost' || host === '127.0.0.1') return true;
+    return hostMatchesAny(host, [
+      'adhello.ai',
+      'adhello.com',
+      'adhelloleadsos.onrender.com',
+    ]);
+  }
+
+  function isAdHelloAppUrl(url) {
+    try {
+      return isAdHelloAppHost(new URL(String(url || '')).hostname);
+    } catch (_) {
+      return false;
+    }
+  }
 
   const DIRECTORY_OR_SOCIAL_HOSTS = [
     'linkedin.com',
@@ -140,6 +165,7 @@
       if (!/^https?:$/i.test(u.protocol)) return false;
       const host = u.hostname.replace(/^www\./i, '').toLowerCase();
       if (!host || host === 'localhost' || /^\d+\.\d+\.\d+\.\d+$/.test(host)) return false;
+      if (isAdHelloAppHost(host)) return false;
       if (hostMatchesAny(host, DIRECTORY_OR_SOCIAL_HOSTS)) return false;
       if (hostMatchesAny(host, NOISE_HOSTS)) return false;
       if (host.includes('google.') && u.pathname.toLowerCase().includes('/maps')) return false;
@@ -481,6 +507,8 @@
 
   window.AdHelloWebsiteScrape = {
     isGenericBusinessWebsiteCandidate,
+    isAdHelloAppHost,
+    isAdHelloAppUrl,
     isUsableEmail,
     extractBusinessWebsite,
     collectSocials,

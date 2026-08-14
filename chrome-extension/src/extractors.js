@@ -1068,6 +1068,16 @@
 
   function isSupportedPage() {
     const url = window.location.href;
+    if (
+      window.AdHelloWebsiteScrape &&
+      typeof window.AdHelloWebsiteScrape.isAdHelloAppUrl === 'function' &&
+      window.AdHelloWebsiteScrape.isAdHelloAppUrl(url)
+    ) {
+      return false;
+    }
+    if (typeof window !== 'undefined' && window.__ADHELLO_WORKSPACE_ID__) {
+      return false;
+    }
     let path = '';
     try {
       path = new URL(url).pathname.toLowerCase();
