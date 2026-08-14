@@ -14627,7 +14627,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Contact hunt (sidebar + pipeline row sparkle) ---
   window.__contactHuntInFlight = window.__contactHuntInFlight || new Set();
-  /** Lead key/title for the panel "Hunt contacts & reviews" button — avoids showing progress on every lead you browse. */
+  /** Lead key/title for the panel scrape / hunt button — avoids showing progress on every lead you browse. */
   window.__panelHuntLeadKey = window.__panelHuntLeadKey || '';
   window.__panelHuntLeadTitle = window.__panelHuntLeadTitle || '';
   window.__huntProgressInterval = window.__huntProgressInterval || null;
@@ -14847,6 +14847,17 @@ document.addEventListener('DOMContentLoaded', () => {
     expireStaleContactHunt(row);
 
     const btn = document.getElementById('deepEnhanceBtn');
+    const hasWebsite = leadRowHasScrapableWebsite(row);
+    if (btn) {
+      const label = btn.querySelector('.deep-enhance-label');
+      if (label) {
+        label.textContent = hasWebsite ? 'Scrape contacts & socials' : 'Hunt contacts & reviews';
+      }
+      btn.title = hasWebsite
+        ? 'Queue this lead for Chrome extension website enrich (contacts & socials)'
+        : 'Hunt contacts & reviews (no website on file)';
+    }
+
     const uiActive = !!(btn && btn.dataset.huntState === 'active');
     const inFlight = isPanelHuntUiActiveForRow(row);
     if (inFlight) {
@@ -15048,6 +15059,49 @@ document.addEventListener('DOMContentLoaded', () => {
     );
   }
 
+  function leadRowHasScrapableWebsite(row) {
+    const website = String((row && row.dataset && row.dataset.website) || '').trim();
+    return !!(website && website !== 'N/A' && website !== '—');
+  }
+
+  async function queueChromeWebsiteEnrichForLeadRow(row, options) {
+    const opts = options || {};
+    const triggerBtn = opts.triggerBtn || null;
+    const isSidebarTrigger = !!(triggerBtn && triggerBtn.id === 'deepEnhanceBtn');
+    const leadKey = String((row && row.dataset && row.dataset.leadKey) || '').trim();
+    if (!leadKey) {
+      return { success: false, error: 'no_key', message: 'Save this lead first, then queue website enrich.' };
+    }
+    if (typeof window.__queueWebsiteEnrichForKeys !== 'function') {
+      return {
+        success: false,
+        error: 'no_queue',
+        message: 'Website enrich is not available. Refresh the page and try again.',
+      };
+    }
+    try {
+      if (triggerBtn && !isSidebarTrigger) {
+        triggerBtn.disabled = true;
+        triggerBtn.setAttribute('aria-busy', 'true');
+      }
+      const result = await window.__queueWebsiteEnrichForKeys([leadKey], {
+        toast: opts.toast !== false,
+      });
+      return { success: true, chromeQueued: true, ...result };
+    } catch (err) {
+      return {
+        success: false,
+        error: 'queue_failed',
+        message: (err && err.message) || 'Could not queue website enrich.',
+      };
+    } finally {
+      if (triggerBtn && !isSidebarTrigger) {
+        triggerBtn.disabled = false;
+        triggerBtn.removeAttribute('aria-busy');
+      }
+    }
+  }
+
   async function runContactHuntForRow(row, options) {
     const opts = options || {};
     const silent = !!opts.silent;
@@ -15086,6 +15140,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     currentRow = row;
     if (!silent) scrollLeadPanelToSection('leadPanelContactHuntSection');
+
+    // Leads with a website: queue Chrome extension scrape (same as bulk "Scrape websites").
+    // Silent/auto hunts keep the server contact-hunt path.
+    if (!silent && !auto && leadRowHasScrapableWebsite(row)) {
+      const queued = await queueChromeWebsiteEnrichForLeadRow(row, { triggerBtn, toast: true });
+      if (!queued.success) {
+        notifyHunt(queued.message || 'Could not queue website enrich.', 'error');
+      }
+      return queued;
+    }
 
     if (triggerBtn && triggerBtn.getAttribute('aria-busy') === 'true') {
       const trackKey = contactHuntTrackingKey(row);
@@ -18216,11 +18280,39 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Enrich leads missing phone/email (and website hints) for all leads in workspace.
+  // Enrich leads → Chrome extension website-enrich queue (same as bulk "Scrape websites").
   document.querySelectorAll('.js-enhance-missing-contacts').forEach((btn) => {
     btn.addEventListener('click', async () => {
+      if (typeof window.__queueWebsiteEnrichForKeys !== 'function') {
+        const msg = 'Website enrich is not available. Refresh the page and try again.';
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast(msg, { variant: 'error' });
+        } else {
+          window.alert(msg);
+        }
+        return;
+      }
+
+      let leadKeys = [];
+      if (typeof window.__collectSelectedLeadKeysEarly === 'function') {
+        leadKeys = window.__collectSelectedLeadKeysEarly().slice(0, 150);
+      }
+      if (!leadKeys.length && typeof window.__collectVisiblePipelineLeadKeysWithWebsite === 'function') {
+        leadKeys = window.__collectVisiblePipelineLeadKeysWithWebsite(150);
+      }
+      if (!leadKeys.length) {
+        const msg =
+          'No leads with websites to enrich. Select rows with website URLs, or show visible pipeline rows that have sites.';
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast(msg, { variant: 'warning', duration: 7000 });
+        } else {
+          window.alert(msg);
+        }
+        return;
+      }
+
       const ok = window.confirm(
-        'Enrich all leads missing phone or email in this workspace?\n\nThis can take a few minutes.'
+        `Queue ${leadKeys.length} lead${leadKeys.length === 1 ? '' : 's'} for Chrome website enrich (contacts & socials)?\n\nThen open the AdHello extension → Bulk scrape → Process website queue.`
       );
       if (!ok) return;
 
@@ -18228,29 +18320,11 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.disabled = true;
       btn.classList.add('opacity-70', 'cursor-wait');
       btn.innerHTML =
-        '<svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg><span>Enriching…</span>';
+        '<svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg><span>Queueing…</span>';
       try {
-        const res = await fetch('/leads/enhance-missing-contacts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ limit: 200 }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.success) {
-          throw new Error((data && data.error) || 'Enrichment request failed.');
-        }
-
-        const msg = `Enrichment finished: ${data.updated || 0} updated out of ${data.attempted || 0} attempted${data.remaining > 0 ? ` (${data.remaining} still queued)` : ''}.`;
-        if (typeof window.showAppToast === 'function') {
-          window.showAppToast(msg, { variant: 'success', duration: 7000 });
-        } else {
-          window.alert(msg);
-        }
-        window.setTimeout(() => {
-          window.location.reload();
-        }, 900);
+        await window.__queueWebsiteEnrichForKeys(leadKeys, { toast: true });
       } catch (err) {
-        const msg = err && err.message ? err.message : 'Enrichment failed.';
+        const msg = err && err.message ? err.message : 'Could not queue website enrich.';
         if (typeof window.showAppToast === 'function') {
           window.showAppToast(msg, { variant: 'error', duration: 12000 });
         } else {

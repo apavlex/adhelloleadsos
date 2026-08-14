@@ -1904,9 +1904,75 @@
   }
   window.__runBulkEnhanceFromBarEarly = runBulkEnhanceFromBarEarly;
 
+  /**
+   * Queue lead keys for Chrome extension website scrape (contacts + socials).
+   * @param {string[]} leadKeys
+   * @param {{ toast?: boolean, busyEl?: HTMLElement|null }} [opts]
+   */
+  async function queueWebsiteEnrichForKeys(leadKeys, opts) {
+    const keys = (Array.isArray(leadKeys) ? leadKeys : [])
+      .map((k) => String(k || '').trim())
+      .filter(Boolean)
+      .slice(0, 150);
+    if (!keys.length) {
+      return { ok: false, error: 'no_keys', message: 'No leads with a website to scrape.' };
+    }
+
+    const res = await fetch('/leads/website-enrich-queue', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ leadKeys: keys }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || `Queue failed (${res.status}).`);
+    }
+
+    const hint =
+      data.hint ||
+      'Open AdHello Chrome extension → Bulk scrape → Process website queue.';
+    const toast = !opts || opts.toast !== false;
+    if (data.empty || !data.queued) {
+      const msg = data.message || 'No leads need website contact scrape.';
+      if (toast && typeof window.showAppToast === 'function') {
+        window.showAppToast(msg, { variant: 'info', duration: 6000 });
+      }
+      return { ok: true, empty: true, queued: 0, data, message: msg, hint };
+    }
+
+    const msg = `Queued ${data.queued} lead${data.queued === 1 ? '' : 's'} for Chrome website enrich. ${hint}`;
+    if (toast && typeof window.showAppToast === 'function') {
+      window.showAppToast(msg, { variant: 'success', duration: 10000 });
+    }
+    return { ok: true, empty: false, queued: data.queued, data, message: msg, hint };
+  }
+  window.__queueWebsiteEnrichForKeys = queueWebsiteEnrichForKeys;
+
+  function collectVisiblePipelineLeadKeysWithWebsite(limit) {
+    const max = Math.min(Math.max(parseInt(limit, 10) || 150, 1), 150);
+    const keys = [];
+    const seen = new Set();
+    document.querySelectorAll('#prospectLeadsTable .result-row').forEach((row) => {
+      if (keys.length >= max) return;
+      if (row.classList.contains('pipeline-row-page-hidden')) return;
+      const website = String((row.dataset && row.dataset.website) || '').trim();
+      if (!website || website === 'N/A' || website === '—') return;
+      const key = String((row.dataset && row.dataset.leadKey) || '').trim();
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      keys.push(key);
+    });
+    return keys;
+  }
+  window.__collectVisiblePipelineLeadKeysWithWebsite = collectVisiblePipelineLeadKeysWithWebsite;
+
   async function runBulkScrapeWebsitesFromBarEarly() {
     if (window.__bulkWebsiteScrapeInFlight) return;
-    const leadKeys = collectSelectedLeadKeysEarly().slice(0, 150);
+    let leadKeys = collectSelectedLeadKeysEarly().slice(0, 150);
+    if (!leadKeys.length) {
+      leadKeys = collectVisiblePipelineLeadKeysWithWebsite(150);
+    }
     if (!leadKeys.length) {
       showBulkBarFeedbackEarly('Select leads with website URLs to scrape.', 'error');
       return;
@@ -1927,20 +1993,10 @@
     );
 
     try {
-      const res = await fetch('/leads/website-enrich-queue', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ leadKeys }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || `Queue failed (${res.status}).`);
-      }
-
-      if (data.empty || !data.queued) {
+      const result = await queueWebsiteEnrichForKeys(leadKeys, { toast: false });
+      if (result.empty || !result.queued) {
         showBulkBarFeedbackEarly(
-          data.message || 'No selected leads need website contact scrape.',
+          result.message || 'No selected leads need website contact scrape.',
           'info',
         );
         btns.forEach((b) => {
@@ -1948,15 +2004,9 @@
             '<span class="text-[10px] font-black uppercase tracking-widest">Nothing to scrape</span>';
         });
       } else {
-        const hint =
-          data.hint ||
-          'Open AdHello Chrome extension → Bulk scrape → Process website queue.';
-        showBulkBarFeedbackEarly(
-          `Queued ${data.queued} lead${data.queued === 1 ? '' : 's'}. ${hint}`,
-          'success',
-        );
+        showBulkBarFeedbackEarly(result.message, 'success');
         btns.forEach((b) => {
-          b.innerHTML = `<span class="text-[10px] font-black uppercase tracking-widest">Queued ${data.queued}</span>`;
+          b.innerHTML = `<span class="text-[10px] font-black uppercase tracking-widest">Queued ${result.queued}</span>`;
         });
       }
     } catch (err) {

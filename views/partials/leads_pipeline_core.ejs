@@ -188,7 +188,7 @@
     <div class="flex flex-wrap items-center justify-between gap-2 px-5 pt-4 pb-3 border-b border-brand-border/25 dark:border-white/10 overflow-visible relative z-20">
       <div class="flex flex-wrap items-center gap-2">
         <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
-        <button type="button" class="js-enhance-missing-contacts inline-flex items-center gap-2 rounded-full border border-brand-yellow/40 bg-brand-yellow/10 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors" title="Enrich phone, email, website, and socials on leads missing core contact fields">
+        <button type="button" class="js-enhance-missing-contacts inline-flex items-center gap-2 rounded-full border border-brand-yellow/40 bg-brand-yellow/10 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors" title="Queue selected (or visible) leads with websites for Chrome extension website enrich — contacts &amp; socials">
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.091 3.091L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
           <span>Enrich leads</span>
         </button>
@@ -952,7 +952,7 @@
               </td>
               <td data-plc="actions" class="lead-actions-cell lead-col-tail-tight px-1.5 pr-4 sm:pr-5 align-middle border-b border-brand-border/15 dark:border-white/[0.07] text-right">
                 <div class="flex items-center justify-end gap-1">
-                    <button type="button" class="ai-analysis-btn w-8 h-8 rounded-lg bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-400/30 flex items-center justify-center hover:bg-sky-500/20 transition-all opacity-0 pointer-events-none group-hover/row:opacity-100 group-hover/row:pointer-events-auto" title="Hunt contacts &amp; reviews" aria-label="Hunt contacts and reviews">
+                    <button type="button" class="ai-analysis-btn w-8 h-8 rounded-lg bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-400/30 flex items-center justify-center hover:bg-sky-500/20 transition-all opacity-0 pointer-events-none group-hover/row:opacity-100 group-hover/row:pointer-events-auto" title="Scrape contacts &amp; socials (Chrome) — or hunt contacts if no website" aria-label="Scrape contacts and socials">
                       <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.091 3.091L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
                     </button>
                     <%- include('quick_outreach_btn') %>
