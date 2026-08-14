@@ -528,6 +528,11 @@ function applyLeadListFilters(leads, filters) {
     });
   }
 
+  const bookmarkedRaw = String(filters.bookmarked || '').trim().toLowerCase();
+  if (bookmarkedRaw === '1' || bookmarkedRaw === 'true' || bookmarkedRaw === 'yes') {
+    out = out.filter((l) => !!l.bookmarked);
+  }
+
   const origin = String(filters.origin || '').trim().toLowerCase();
   if (origin && origin !== 'all') {
     if (origin === 'csv' || origin === 'imported' || origin === 'csv_import') {
@@ -653,6 +658,7 @@ const LEAD_LIST_FILTER_KEYS = [
   'minRating',
   'minReviews',
   'maxReviews',
+  'bookmarked',
   'origin',
   'addedFrom',
   'addedTo',

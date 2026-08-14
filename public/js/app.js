@@ -496,6 +496,32 @@ document.addEventListener('DOMContentLoaded', () => {
     rows.forEach((row) => tableBody.appendChild(row));
   };
 
+  const rowIsBookmarkedForSort = (row) => {
+    if (!row || !row.dataset) return false;
+    if (row.dataset.bookmarked === '1') return true;
+    if (row.dataset.bookmarked === '0') return false;
+    const btn = row.querySelector('.bookmark-btn');
+    return !!(btn && (btn.dataset.saved === '1' || btn.classList.contains('bookmark-btn--saved')));
+  };
+
+  const sortBookmarkedLeadsToTop = () => {
+    const tableBody = getProspectTableBody() || document.querySelector('#prospectLeadsTable tbody');
+    if (!tableBody) return 0;
+    const rows = Array.from(tableBody.querySelectorAll('.result-row'));
+    let bookmarkedCount = 0;
+    rows.sort((a, b) => {
+      const aOn = rowIsBookmarkedForSort(a);
+      const bOn = rowIsBookmarkedForSort(b);
+      if (aOn === bOn) return 0;
+      return aOn ? -1 : 1;
+    });
+    rows.forEach((row) => {
+      if (rowIsBookmarkedForSort(row)) bookmarkedCount += 1;
+      tableBody.appendChild(row);
+    });
+    return bookmarkedCount;
+  };
+
   /** Prospect table: count phone + email + website present (not N/A). */
   const prospectContactCompleteness = (ds) => {
     let n = 0;
@@ -1569,6 +1595,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const runProspectSortFromEvent = (e) => {
         if (e.target.closest('.plc-col-resize')) return;
         if (e.target.closest('input[type="checkbox"]')) return;
+        if (e.target.closest('.prospect-bookmark-top-btn')) return;
         const sortBtn = e.target.closest('[data-prospect-sort]');
         const th = e.target.closest('th[data-plc]');
         if (!sortBtn && !th) return;
@@ -1591,7 +1618,30 @@ document.addEventListener('DOMContentLoaded', () => {
       if (thead) {
         thead.addEventListener('click', (e) => {
           if (e.target.closest('[data-prospect-sort]')) return;
+          if (e.target.closest('.prospect-bookmark-top-btn')) return;
           runProspectSortFromEvent(e);
+        });
+      }
+
+      const bookmarkTopBtn = document.getElementById('sortBookmarkedTopBtn');
+      if (bookmarkTopBtn && bookmarkTopBtn.dataset.bound !== '1') {
+        bookmarkTopBtn.dataset.bound = '1';
+        bookmarkTopBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const n = sortBookmarkedLeadsToTop();
+          bookmarkTopBtn.classList.add('prospect-bookmark-top-btn--active', 'bg-brand-yellow/25', 'border-brand-yellow/60', 'text-brand-dark');
+          bookmarkTopBtn.setAttribute('aria-pressed', 'true');
+          const svg = bookmarkTopBtn.querySelector('svg');
+          if (svg) svg.setAttribute('fill', 'currentColor');
+          if (typeof window.showProspectToast === 'function') {
+            window.showProspectToast(
+              n > 0
+                ? `${n} bookmarked lead${n === 1 ? '' : 's'} moved to the top`
+                : 'No bookmarked leads in this view',
+            );
+          }
+          if (typeof bookmarkTopBtn.blur === 'function') bookmarkTopBtn.blur();
         });
       }
     })();

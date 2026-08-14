@@ -18,7 +18,8 @@
 <% const _stOpts = typeof pipelineStatusOptions !== 'undefined' && pipelineStatusOptions ? pipelineStatusOptions : []; %>
 <% const _src = typeof sourceFilter !== 'undefined' ? sourceFilter : 'all'; %>
 <% const _hasActiveFilters = _lf && typeof _lf === 'object' && Object.keys(_lf).length > 0; %>
-<% const _advOpen = !!(_lf.addedFrom || _lf.addedTo || _lf.stage || _lf.status || _lf.tagKey || _activeCategory || (_lf.minRating != null && String(_lf.minRating) !== '') || (_lf.minReviews != null && String(_lf.minReviews) !== '') || (_lf.maxReviews != null && String(_lf.maxReviews) !== '')); %>
+<% const _bookmarkedOnly = _lf.bookmarked === '1' || _lf.bookmarked === 'true' || _lf.bookmarked === 'yes'; %>
+<% const _advOpen = !!(_lf.addedFrom || _lf.addedTo || _lf.stage || _lf.status || _lf.tagKey || _activeCategory || (_lf.minRating != null && String(_lf.minRating) !== '') || (_lf.minReviews != null && String(_lf.minReviews) !== '') || (_lf.maxReviews != null && String(_lf.maxReviews) !== '') || _bookmarkedOnly); %>
 <% const _reach = _lf.reach ? String(_lf.reach) : ''; %>
 <% const _reachLabels = { email: 'Has email', phone: 'Has phone', call: 'Has phone', double_tap: 'Double tap ready', doubletap: 'Double tap ready' }; %>
 <% function _pipelineQs(omit) {
@@ -37,6 +38,7 @@
   if (o !== 'minRating' && _lf.minRating != null && String(_lf.minRating) !== '') p.push('minRating=' + encodeURIComponent(String(_lf.minRating)));
   if (o !== 'minReviews' && _lf.minReviews != null && String(_lf.minReviews) !== '') p.push('minReviews=' + encodeURIComponent(String(_lf.minReviews)));
   if (o !== 'maxReviews' && _lf.maxReviews != null && String(_lf.maxReviews) !== '') p.push('maxReviews=' + encodeURIComponent(String(_lf.maxReviews)));
+  if (o !== 'bookmarked' && (_lf.bookmarked === '1' || _lf.bookmarked === 'true' || _lf.bookmarked === 'yes')) p.push('bookmarked=1');
   return '/prospecting?' + p.join('&');
 } %>
 <% if (typeof importError !== 'undefined' && importError) { %>
@@ -342,6 +344,17 @@
     <div class="lg:col-span-12 flex flex-wrap items-center gap-2 pt-1">
       <button type="submit" class="btn-pill btn-primary px-6 py-2.5 text-[10px] font-black uppercase tracking-widest">Apply filters</button>
       <a href="/prospecting?tab=pipeline&amp;source=<%= encodeURIComponent(_src) %><% if (_fk) { %>&amp;folderKey=<%= encodeURIComponent(_fk) %><% } %>&amp;maxReviews=<%= encodeURIComponent(String(_lowReviewsThreshold)) %>" class="inline-flex items-center gap-1.5 rounded-full border border-amber-200/80 dark:border-amber-800/50 bg-amber-50/80 dark:bg-amber-950/30 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-950/50 transition-colors" title="Show leads with <%= _lowReviewsThreshold %> or fewer Google reviews">Low reviews (≤ <%= _lowReviewsThreshold %>)</a>
+      <% if (_bookmarkedOnly) { %>
+      <a href="<%= _pipelineQs('bookmarked') %>" class="inline-flex items-center gap-1.5 rounded-full border border-brand-yellow/70 bg-brand-yellow/20 dark:bg-brand-yellow/15 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/30 transition-colors" title="Show all leads again">
+        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" /></svg>
+        Bookmarked only ×
+      </a>
+      <% } else { %>
+      <a href="/prospecting?tab=pipeline&amp;source=<%= encodeURIComponent(_src) %><% if (_fk) { %>&amp;folderKey=<%= encodeURIComponent(_fk) %><% } %>&amp;bookmarked=1" class="inline-flex items-center gap-1.5 rounded-full border border-brand-border dark:border-white/15 bg-white/80 dark:bg-slate-800/70 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-slate-200 hover:border-brand-yellow hover:bg-brand-yellow/15 transition-colors" title="Show only bookmarked leads">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" /></svg>
+        Bookmarked only
+      </a>
+      <% } %>
     </div>
     </div>
   </details>
@@ -386,6 +399,9 @@
   <% } %>
   <% if (_lf.maxReviews != null && String(_lf.maxReviews) !== '') { %>
   <a href="<%= _pipelineQs('maxReviews') %>" class="inline-flex items-center gap-1.5 rounded-full border border-amber-200/60 dark:border-amber-800/40 bg-amber-50/60 dark:bg-amber-950/30 pl-3 pr-2 py-1 text-[10px] font-bold text-amber-900 dark:text-amber-200 hover:border-amber-300/60 transition-colors">Reviews ≤ <%= _lf.maxReviews %><span class="text-brand-muted" aria-hidden="true">×</span></a>
+  <% } %>
+  <% if (_bookmarkedOnly) { %>
+  <a href="<%= _pipelineQs('bookmarked') %>" class="inline-flex items-center gap-1.5 rounded-full border border-brand-yellow/60 bg-brand-yellow/15 dark:bg-brand-yellow/10 pl-3 pr-2 py-1 text-[10px] font-bold text-brand-dark dark:text-brand-yellow hover:border-brand-yellow transition-colors" title="Remove bookmarked filter">Bookmarked<span class="text-brand-muted" aria-hidden="true">×</span></a>
   <% } %>
   <% if (_reach) { %>
   <a href="<%= _pipelineQs('reach') %>" class="inline-flex items-center gap-1.5 rounded-full border border-brand-border/60 dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800/80 pl-3 pr-2 py-1 text-[10px] font-bold text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors" title="Remove reach filter"><%= _reachLabels[_reach.toLowerCase()] || ('Reach: ' + _reach) %><span class="text-brand-muted" aria-hidden="true">×</span></a>

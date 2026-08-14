@@ -120,6 +120,17 @@ describe('leadListFilters search', () => {
     );
   });
 
+  it('filters by bookmarked only', () => {
+    const leads = [
+      { title: 'Saved', bookmarked: true },
+      { title: 'Not saved', bookmarked: false },
+      { title: 'Missing flag' },
+    ];
+    const filtered = applyLeadListFilters(leads, { bookmarked: '1' });
+    assert.equal(filtered.length, 1);
+    assert.equal(filtered[0].title, 'Saved');
+  });
+
   it('filters by category with partial match', () => {
     const leads = [
       { title: 'Green Lawn', categoryName: 'Landscaper' },
