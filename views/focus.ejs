@@ -79,8 +79,12 @@
       </div>
 
       <div id="focus-links" class="flex flex-wrap gap-2 mb-4" aria-label="Contact and social links"></div>
-      <div id="focus-contact-fields" class="mb-6 space-y-2.5 rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-800/40 px-4 py-3">
-        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mb-1">Contact details</p>
+      <div id="focus-contact-fields" class="mb-6 rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-800/40 overflow-hidden">
+        <button type="button" id="focusContactDetailsToggle" aria-expanded="false" aria-controls="focusContactDetailsDrawer" class="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-brand-cream/50 dark:hover:bg-slate-800/80 transition-colors">
+          <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Contact details</span>
+          <svg id="focusContactDetailsChevron" class="w-4 h-4 shrink-0 text-brand-muted transition-transform duration-300 ease-out rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
+        </button>
+        <div id="focusContactDetailsDrawer" class="focus-contact-details-drawer border-t border-brand-border/15 dark:border-white/10 px-4 space-y-2.5" role="region" aria-label="Contact details">
         <div id="focus-header-address-row" class="flex items-start gap-2.5 group/item">
           <div class="w-5 h-5 mt-0.5 rounded-md flex items-center justify-center shrink-0 bg-brand-cream dark:bg-slate-800 text-brand-muted"><svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg></div>
           <div class="flex-1 min-w-0"><span id="focus-header-address" class="text-[13px] font-semibold leading-snug text-brand-muted dark:text-slate-400">—</span><input id="focus-header-address-input" type="text" class="hidden w-full rounded-lg border border-brand-border/40 dark:border-white/15 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-[13px] font-semibold text-brand-dark dark:text-white" placeholder="Street, city, state" autocomplete="street-address" /></div>
@@ -118,6 +122,7 @@
           <button type="button" id="focus-edit-socials-btn" class="shrink-0 w-7 h-7 rounded-lg border border-brand-border/30 dark:border-white/10 bg-white/80 dark:bg-slate-800/80 text-brand-muted hover:text-brand-yellow hover:border-brand-yellow/40 transition-colors flex items-center justify-center" aria-label="Edit social links" title="Edit social links"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
         </div>
         <p id="focus-contact-edit-feedback" class="text-[11px] text-brand-muted min-h-[1rem]"></p>
+        </div>
       </div>
       <div class="mb-6 rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/35 dark:bg-slate-800/60 px-4 py-3">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Business info</p>
@@ -642,6 +647,10 @@
     var elFocusNotesChevron = document.getElementById('focusNotesChevron');
     var elFocusNotesIndicator = document.getElementById('focusNotesIndicator');
     var focusNotesOpen = false;
+    var btnFocusContactDetailsToggle = document.getElementById('focusContactDetailsToggle');
+    var elFocusContactDetailsDrawer = document.getElementById('focusContactDetailsDrawer');
+    var elFocusContactDetailsChevron = document.getElementById('focusContactDetailsChevron');
+    var focusContactDetailsOpen = false;
     var outcomePanelCollapsed = false;
     var outcomePanelCompact = false;
     var smsOpenedFromCompact = false;
@@ -676,6 +685,19 @@
       if (!elFocusNotesIndicator || !elOutcomeNotes) return;
       var hasNotes = !!String(elOutcomeNotes.value || '').trim();
       elFocusNotesIndicator.classList.toggle('hidden', !hasNotes);
+    }
+
+    function setFocusContactDetailsOpen(open) {
+      focusContactDetailsOpen = !!open;
+      if (elFocusContactDetailsDrawer) {
+        elFocusContactDetailsDrawer.classList.toggle('focus-contact-details-drawer--open', focusContactDetailsOpen);
+      }
+      if (btnFocusContactDetailsToggle) {
+        btnFocusContactDetailsToggle.setAttribute('aria-expanded', focusContactDetailsOpen ? 'true' : 'false');
+      }
+      if (elFocusContactDetailsChevron) {
+        elFocusContactDetailsChevron.classList.toggle('rotate-180', !focusContactDetailsOpen);
+      }
     }
 
     function setFocusNotesOpen(open) {
@@ -3482,6 +3504,13 @@
     }
     window.__setFocusSendInfoOpen = setFocusSendInfoOpen;
     setFocusSendInfoOpen(false);
+    if (btnFocusContactDetailsToggle) {
+      btnFocusContactDetailsToggle.addEventListener('click', function () {
+        var open = elFocusContactDetailsDrawer && elFocusContactDetailsDrawer.classList.contains('focus-contact-details-drawer--open');
+        setFocusContactDetailsOpen(!open);
+      });
+    }
+    setFocusContactDetailsOpen(false);
     if (btnFocusNotesToggle) {
       btnFocusNotesToggle.addEventListener('click', function () {
         var open = elFocusNotesDrawer && elFocusNotesDrawer.classList.contains('focus-notes-drawer--open');

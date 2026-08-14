@@ -3307,6 +3307,25 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
     pointer-events: auto;
     overflow: auto;
 }
+
+/* Focus mode — contact details drawer — collapsed by default */
+#focusContactDetailsDrawer.focus-contact-details-drawer {
+    max-height: 0;
+    opacity: 0;
+    transition:
+        max-height 0.34s cubic-bezier(0.33, 1, 0.68, 1),
+        opacity 0.22s ease;
+    overflow: hidden;
+    pointer-events: none;
+}
+#focusContactDetailsDrawer.focus-contact-details-drawer.focus-contact-details-drawer--open {
+    max-height: none;
+    opacity: 1;
+    pointer-events: auto;
+    overflow: visible;
+    padding-top: 0.625rem;
+    padding-bottom: 0.75rem;
+}
 #focusNotesChevron {
     transform-origin: center;
     transition: transform 0.28s cubic-bezier(0.33, 1, 0.68, 1);
