@@ -18280,8 +18280,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Enrich leads (top toolbar) is bound early in pipeline-bulk-select.js
-  // (.js-enhance-missing-contacts → Chrome website enrich queue + extension).
+  // Enrich leads (top + floating) → Enhance API then Socials API
+  // (.js-enhance-missing-contacts / .js-bulk-enrich-leads in pipeline-bulk-select.js).
 
   // --- Website Preview Hover Logic Removed ---
 
