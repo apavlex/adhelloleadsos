@@ -1956,9 +1956,9 @@
       }
     }
 
-    const msg = `Queued ${data.queued} lead${data.queued === 1 ? '' : 's'} — AdHello Chrome extension is opening their websites to enrich contacts & socials (~5 at a time).`;
+    const msg = `Enriching ${data.queued} lead${data.queued === 1 ? '' : 's'} in the background via Chrome (~5 sites at a time).`;
     if (toast && typeof window.showAppToast === 'function') {
-      window.showAppToast(msg, { variant: 'success', duration: 10000 });
+      window.showAppToast(msg, { variant: 'success', duration: 8000 });
     }
     return { ok: true, empty: false, queued: data.queued, data, message: msg };
   }
@@ -1982,6 +1982,111 @@
   }
   window.__collectVisiblePipelineLeadKeysWithWebsite = collectVisiblePipelineLeadKeysWithWebsite;
 
+  function getWebsiteEnrichButtons() {
+    return document.querySelectorAll(
+      '.js-bulk-scrape-websites, .js-bulk-enrich-leads, .js-enhance-missing-contacts',
+    );
+  }
+
+  function renderWebsiteEnrichBusyHtml(btn, label) {
+    const text = String(label || 'Enriching…');
+    if (btn.classList.contains('js-enhance-missing-contacts')) {
+      return (
+        '<svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg><span>' +
+        text +
+        '</span>'
+      );
+    }
+    return (
+      '<span class="text-[10px] font-black uppercase tracking-widest animate-pulse">' +
+      text +
+      '</span>'
+    );
+  }
+
+  function setWebsiteEnrichButtonsState(btns, label) {
+    btns.forEach((b) => {
+      b.disabled = true;
+      b.classList.add('loading');
+      b.innerHTML = renderWebsiteEnrichBusyHtml(b, label);
+    });
+  }
+
+  function waitForWebsiteEnrichExtension(expectedTotal) {
+    return new Promise((resolve) => {
+      let settled = false;
+      let sawSignal = false;
+      const totalHint = Math.max(0, Number(expectedTotal) || 0);
+
+      function finish(result) {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(noExtTimer);
+        window.clearTimeout(hardTimer);
+        window.removeEventListener('message', onMessage);
+        resolve(result);
+      }
+
+      function onMessage(event) {
+        if (event.source !== window) return;
+        const data = event.data;
+        if (!data || data.source !== 'adhello-extension') return;
+
+        if (data.type === 'WEBSITE_ENRICH_PROGRESS') {
+          sawSignal = true;
+          const current = Number(data.current) || 0;
+          const total = Number(data.total) || totalHint;
+          const label = total > 0 ? `Enriching ${current}/${total}…` : 'Enriching…';
+          const liveBtns = getWebsiteEnrichButtons();
+          setWebsiteEnrichButtonsState(liveBtns, label);
+          showBulkBarFeedbackEarly(
+            total > 0
+              ? `Enriching in background… ${current}/${total}`
+              : 'Enriching in background…',
+            'loading',
+          );
+          return;
+        }
+
+        if (data.type === 'WEBSITE_ENRICH_DONE') {
+          sawSignal = true;
+          finish({
+            ok: data.ok !== false,
+            timedOut: false,
+            noExtension: false,
+            updated: Number(data.updated) || 0,
+            current: Number(data.current) || 0,
+            total: Number(data.total) || totalHint,
+            error: data.error || null,
+            data: data.data || null,
+          });
+        }
+      }
+
+      window.addEventListener('message', onMessage);
+
+      const noExtTimer = window.setTimeout(() => {
+        if (settled || sawSignal) return;
+        finish({
+          ok: false,
+          timedOut: false,
+          noExtension: true,
+          error:
+            'Chrome extension did not start. Reload AdHello Leads (v1.8.2+) on chrome://extensions and try again.',
+        });
+      }, 9000);
+
+      const hardTimer = window.setTimeout(() => {
+        finish({
+          ok: false,
+          timedOut: true,
+          noExtension: false,
+          error: 'Website enrich timed out. Open the AdHello extension → Bulk scrape to finish.',
+        });
+      }, 12 * 60 * 1000);
+    });
+  }
+
   async function runBulkScrapeWebsitesFromBarEarly() {
     if (window.__bulkWebsiteScrapeInFlight) return;
     let leadKeys = collectSelectedLeadKeysEarly().slice(0, 150);
@@ -1996,26 +2101,26 @@
       return;
     }
 
-    const btns = document.querySelectorAll(
-      '.js-bulk-scrape-websites, .js-bulk-enrich-leads, .js-enhance-missing-contacts',
-    );
+    const btns = getWebsiteEnrichButtons();
     const btnSnap = Array.from(btns).map((b) => b.innerHTML);
     window.__bulkWebsiteScrapeInFlight = true;
-    btns.forEach((b) => {
-      b.disabled = true;
-      b.classList.add('loading');
-      if (b.classList.contains('js-enhance-missing-contacts')) {
-        b.innerHTML =
-          '<svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg><span>Queueing…</span>';
-      } else {
-        b.innerHTML =
-          '<span class="text-[10px] font-black uppercase tracking-widest animate-pulse">Queueing…</span>';
-      }
-    });
+    setWebsiteEnrichButtonsState(btns, 'Queueing…');
     showBulkBarFeedbackEarly(
       `Queueing ${leadKeys.length} lead${leadKeys.length === 1 ? '' : 's'} for Chrome enrich…`,
       'loading',
     );
+
+    const restoreButtons = (delayMs) => {
+      window.setTimeout(() => {
+        const live = getWebsiteEnrichButtons();
+        live.forEach((b, i) => {
+          b.classList.remove('loading');
+          b.disabled = false;
+          if (btnSnap[i]) b.innerHTML = btnSnap[i];
+        });
+        window.__bulkWebsiteScrapeInFlight = false;
+      }, Math.max(0, delayMs || 0));
+    };
 
     try {
       const result = await queueWebsiteEnrichForKeys(leadKeys, {
@@ -2027,37 +2132,51 @@
           result.message || 'No selected leads need website contact enrich.',
           'info',
         );
-        btns.forEach((b) => {
-          if (b.classList.contains('js-enhance-missing-contacts')) return;
-          b.innerHTML =
-            '<span class="text-[10px] font-black uppercase tracking-widest">Nothing to enrich</span>';
-        });
-      } else {
-        showBulkBarFeedbackEarly(result.message, 'success');
-        btns.forEach((b) => {
-          if (b.classList.contains('js-enhance-missing-contacts')) return;
-          b.innerHTML = `<span class="text-[10px] font-black uppercase tracking-widest">Queued ${result.queued}</span>`;
-        });
+        setWebsiteEnrichButtonsState(btns, 'Nothing to enrich');
+        restoreButtons(2800);
+        return;
       }
+
+      setWebsiteEnrichButtonsState(btns, `Enriching 0/${result.queued}…`);
+      showBulkBarFeedbackEarly(
+        `Enriching ${result.queued} lead${result.queued === 1 ? '' : 's'} in background…`,
+        'loading',
+      );
+
+      const done = await waitForWebsiteEnrichExtension(result.queued);
+      if (done.noExtension) {
+        showBulkBarFeedbackEarly(done.error, 'error');
+        setWebsiteEnrichButtonsState(btns, 'Extension needed');
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast(done.error, { variant: 'error', duration: 12000 });
+        }
+        restoreButtons(4500);
+        return;
+      }
+      if (done.timedOut || done.ok === false) {
+        const msg = done.error || 'Website enrich did not finish.';
+        showBulkBarFeedbackEarly(msg, 'error');
+        setWebsiteEnrichButtonsState(btns, 'Timed out');
+        restoreButtons(4500);
+        return;
+      }
+
+      const updated = Number(done.updated) || 0;
+      const attempted = Number(done.total) || result.queued;
+      const msg = `Enriched ${updated} of ${attempted} lead${attempted === 1 ? '' : 's'} in the background. Refresh if columns look stale.`;
+      showBulkBarFeedbackEarly(msg, 'success');
+      setWebsiteEnrichButtonsState(btns, updated ? `Done ${updated}` : 'Done');
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast(msg, { variant: 'success', duration: 9000 });
+      }
+      restoreButtons(3600);
     } catch (err) {
       showBulkBarFeedbackEarly(
         (err && err.message) || 'Could not queue website enrich.',
         'error',
       );
-      btns.forEach((b) => {
-        if (b.classList.contains('js-enhance-missing-contacts')) return;
-        b.innerHTML =
-          '<span class="text-[10px] font-black uppercase tracking-widest">Failed</span>';
-      });
-    } finally {
-      window.__bulkWebsiteScrapeInFlight = false;
-      setTimeout(() => {
-        btns.forEach((b, i) => {
-          b.classList.remove('loading');
-          b.disabled = false;
-          b.innerHTML = btnSnap[i] || b.innerHTML;
-        });
-      }, 3200);
+      setWebsiteEnrichButtonsState(btns, 'Failed');
+      restoreButtons(3200);
     }
   }
   window.__runBulkScrapeWebsitesFromBarEarly = runBulkScrapeWebsitesFromBarEarly;

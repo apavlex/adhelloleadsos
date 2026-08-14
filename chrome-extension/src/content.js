@@ -1,12 +1,47 @@
 (function () {
   // AdHello Pipeline can postMessage to start website enrich even when this page
   // is not a "supported" lead-save page (FAB exits early below).
+  function postToAdHelloApp(payload) {
+    try {
+      window.postMessage({ source: 'adhello-extension', ...payload }, '*');
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message?.action !== 'bulkScrapeProgress') return;
+    if (message?.phase === 'website-enrich-parallel') {
+      postToAdHelloApp({
+        type: 'WEBSITE_ENRICH_PROGRESS',
+        current: Number(message.current) || 0,
+        total: Number(message.total) || 0,
+      });
+      return;
+    }
+    if (message?.phase === 'website-enrich-done') {
+      postToAdHelloApp({
+        type: 'WEBSITE_ENRICH_DONE',
+        ok: true,
+        current: Number(message.current) || 0,
+        total: Number(message.total) || 0,
+        updated: Number(message.updated) || 0,
+        data: message,
+      });
+    }
+  });
+
   window.addEventListener('message', (event) => {
     if (event.source !== window) return;
     const data = event.data;
     if (!data || data.source !== 'adhello-app') return;
     if (data.type !== 'START_WEBSITE_ENRICH_QUEUE') return;
     const workspaceId = String(data.workspaceId || '').trim();
+    postToAdHelloApp({
+      type: 'WEBSITE_ENRICH_PROGRESS',
+      current: 0,
+      total: Number(data.queued) || 0,
+    });
     chrome.runtime
       .sendMessage({
         type: 'PARALLEL_WEBSITE_ENRICH_QUEUE',
@@ -14,7 +49,25 @@
         workspaceId: workspaceId || undefined,
         clearWhenDone: true,
       })
-      .catch(() => {});
+      .then((res) => {
+        const payload = res?.data || {};
+        postToAdHelloApp({
+          type: 'WEBSITE_ENRICH_DONE',
+          ok: !!res?.ok,
+          error: res?.ok ? null : res?.error || 'Website enrich failed',
+          current: Number(payload.attempted) || Number(payload.totalNeeding) || 0,
+          total: Number(payload.attempted) || Number(payload.totalNeeding) || 0,
+          updated: Number(payload.updated) || 0,
+          data: payload,
+        });
+      })
+      .catch((err) => {
+        postToAdHelloApp({
+          type: 'WEBSITE_ENRICH_DONE',
+          ok: false,
+          error: (err && err.message) || 'Extension enrich failed',
+        });
+      });
   });
 
   const { extractLeadFromPage, isSupportedPage } = window.AdHelloExtractors;

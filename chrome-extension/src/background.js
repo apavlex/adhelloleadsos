@@ -465,6 +465,12 @@ async function parallelWebsiteEnrichQueue({
   let updated = 0;
   let completed = 0;
 
+  emitEnrichProgress({
+    phase: 'website-enrich-parallel',
+    current: 0,
+    total: leads.length,
+  });
+
   await runParallelPool(
     leads,
     async (lead) => {
@@ -495,6 +501,14 @@ async function parallelWebsiteEnrichQueue({
       /* ignore */
     }
   }
+
+  emitEnrichProgress({
+    phase: 'website-enrich-done',
+    current: leads.length,
+    total: leads.length,
+    updated,
+    attempted: leads.length,
+  });
 
   return {
     updated,
