@@ -41,6 +41,15 @@ function resolveEnrichPrimary(integrationEnv) {
   return 'auto';
 }
 
+function mergeLocalContactsWithProvider(providerExtract, localExtract) {
+  const local = {};
+  for (const [k, v] of Object.entries(localExtract || {})) {
+    if (v == null || v === '' || v === 'N/A') continue;
+    local[k] = v;
+  }
+  return mapsEnrichFallback.mergeExtractPreferFirecrawl(providerExtract || {}, local);
+}
+
 /**
  * @param {string} url
  * @param {{ integrationEnv?: Record<string, string> }} [options] workspace-resolved env (Apify/Firecrawl/Outscraper/Crawl4AI)
@@ -55,6 +64,7 @@ async function enrichLeadSmart(url, options = {}) {
   }
 
   let techMergeHtml = null;
+  let localContactExtract = null;
   const shouldTryCrawl4First =
     (enrichPrimary === 'crawl4ai_first' || (enrichPrimary === 'auto' && tryCrawl4FirstEnabled())) &&
     crawl4ai.isConfigured(integrationEnv);
@@ -77,6 +87,7 @@ async function enrichLeadSmart(url, options = {}) {
       const local = await localPageExtract.extractFromLocalScrape(u);
       if (local && local.html) {
         techMergeHtml = local.html;
+        localContactExtract = local.extract || null;
         console.log(
           `[webEnrichment] Local scrape primed HTML (${techMergeHtml.length} chars, ${local.method}) for ${u}`
         );
@@ -98,7 +109,23 @@ async function enrichLeadSmart(url, options = {}) {
     return mergeHtmlTechIntoExtract({}, signals);
   }
 
-  return firecrawl.enrichLead(u, { techMergeHtml, integrationEnv });
+  let providerExtract;
+  try {
+    providerExtract = await firecrawl.enrichLead(u, { techMergeHtml, integrationEnv });
+  } catch (e) {
+    // Firecrawl missing/erroring must not discard contacts we already scraped ourselves.
+    if (localContactExtract && Object.keys(localContactExtract).length) {
+      console.warn(
+        `[webEnrichment] Firecrawl failed (${e.message}); keeping local scrape contacts for ${u}`
+      );
+      const signals = detectTechSignalsFromHtml(techMergeHtml, u);
+      return mergeHtmlTechIntoExtract(localContactExtract, signals);
+    }
+    throw e;
+  }
+  // The deterministic HTML parser often sees mailto/footer contact details that the
+  // LLM omits. Preserve those fields while still preferring Firecrawl when both exist.
+  return mergeLocalContactsWithProvider(providerExtract, localContactExtract);
 }
 
 /**
@@ -154,4 +181,5 @@ module.exports = {
   skipFirecrawlOnCrawl4Html,
   skipFirecrawlOnLocalHtml,
   resolveEnrichPrimary,
+  mergeLocalContactsWithProvider,
 };

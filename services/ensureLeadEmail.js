@@ -136,8 +136,8 @@ async function tryLocalWebsiteEmail(lead, integrationEnv) {
   if (!website) return null;
   if (!localPageExtract.localScrapeEnrichEnabled(integrationEnv)) return null;
   try {
-    const pack = await localPageExtract.extractFromLocalScrape(website);
-    const email = pack && pack.extract && pack.extract.email;
+    const hunt = await localPageExtract.findWebsiteContactEmail(website);
+    const email = hunt && hunt.email;
     if (isValidEmailForGhl(email)) {
       return { email: String(email).trim(), source: 'local_website', lead };
     }

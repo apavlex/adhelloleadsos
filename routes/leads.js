@@ -9,7 +9,10 @@ const { normalizeJobType } = require('../services/scrapeJobTypes');
 const firecrawl = require('../services/firecrawl');
 const webEnrichment = require('../services/webEnrichment');
 const { firecrawlExtractToLeadUpdates } = require('../services/enrichmentNormalize');
-const { sanitizeExtractSocials } = require('../services/socialUrlNormalize');
+const {
+  sanitizeExtractSocialsForLead,
+  buildRejectedSocialCleanupPatch,
+} = require('../services/socialUrlNormalize');
 const {
   normalizeLeadCategoryName,
   sanitizeLeadCategoryName,
@@ -20,6 +23,7 @@ const outscraperGmbEnrich = require('../services/outscraperGmbEnrich');
 const outscraperLeadEnrich = require('../services/outscraperLeadEnrich');
 const leadPanelEnrich = require('../services/leadPanelEnrich');
 const rapidapiWebsiteEnrich = require('../services/rapidapiWebsiteEnrich');
+const localPageExtract = require('../services/localPageExtract');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const builtWithEnrich = require('../services/builtWithEnrich');
 const outscraper = require('../services/outscraperClient');
@@ -3712,8 +3716,9 @@ async function runLeadEnhancement(lead, workspaceId) {
   const priorUpdateLen = baseUpdates.length;
 
   async function autosaveEnhancement(partial, label) {
+    const safePartial = sanitizeExtractSocialsForLead(partial || {}, workingLead);
     const toSave = {};
-    for (const [k, v] of Object.entries(partial || {})) {
+    for (const [k, v] of Object.entries(safePartial)) {
       if (k === 'updates' || persistedKeys.has(k)) continue;
       if (v === undefined || v === null) continue;
       toSave[k] = v;
@@ -3727,6 +3732,16 @@ async function runLeadEnhancement(lead, workspaceId) {
       console.log(`[ENHANCE] Autosaved (${label}): ${Object.keys(toSave).join(', ')}`);
     }
     return workingLead;
+  }
+
+  const rejectedSocialCleanup = buildRejectedSocialCleanupPatch(workingLead);
+  if (Object.keys(rejectedSocialCleanup).length) {
+    workingLead =
+      (await dbService.updateLead(fullKey, rejectedSocialCleanup, leadWorkspaceId)) ||
+      { ...workingLead, ...rejectedSocialCleanup };
+    console.warn(
+      `[ENHANCE] Cleared unrelated/hosting social profiles for ${workingLead.title}: ${Object.keys(rejectedSocialCleanup).join(', ')}`,
+    );
   }
 
   const leadProfile = { title: workingLead.title, city: workingLead.city, state: workingLead.state };
@@ -3886,7 +3901,7 @@ async function runLeadEnhancement(lead, workspaceId) {
 
   const hadExtract = deepData && Object.keys(deepData).length > 0;
   if (hadExtract) {
-    deepData = sanitizeExtractSocials(deepData);
+    deepData = sanitizeExtractSocialsForLead(deepData, workingLead);
     const enrichUpdates = firecrawlExtractToLeadUpdates(deepData);
     Object.assign(patch, enrichUpdates);
 
@@ -3912,6 +3927,48 @@ async function runLeadEnhancement(lead, workspaceId) {
   if ((!workingLead.website || workingLead.website === 'N/A') && urlToSave) {
     patch.website = urlToSave;
     await autosaveEnhancement({ website: urlToSave }, 'website');
+  }
+
+  // Step 3.5: last-mile website email scrape (footer/mailto + contact page), server-side only.
+  let websiteEmailFound = false;
+  const emailAfterProviders = String(patch.email || workingLead.email || '').trim();
+  const websiteForEmailHunt =
+    websiteForEnrich ||
+    (patch.website && patch.website !== 'N/A' ? patch.website : null) ||
+    urlToSave ||
+    null;
+  if (
+    websiteForEmailHunt &&
+    !ghlClient.isValidEmailForGhl(emailAfterProviders) &&
+    localPageExtract.localScrapeEnrichEnabled(integrationEnv)
+  ) {
+    try {
+      const hunt = await localPageExtract.findWebsiteContactEmail(websiteForEmailHunt);
+      const emailPatch = {};
+      if (ghlClient.isValidEmailForGhl(hunt.email)) emailPatch.email = hunt.email;
+      if (hunt.phone && (!workingLead.phone || workingLead.phone === 'N/A') && !patch.phone) {
+        emailPatch.phone = hunt.phone;
+      }
+      if (emailPatch.email) {
+        websiteEmailFound = true;
+        Object.assign(patch, emailPatch);
+        await autosaveEnhancement(emailPatch, `website email (${hunt.source})`);
+        baseUpdates.push({
+          type: 'enrichment',
+          value: `Found email on website (${hunt.source.replace(/_/g, ' ')}): ${emailPatch.email}`,
+          timestamp: new Date().toISOString(),
+        });
+        console.log(
+          `[ENHANCE] Website email for ${workingLead.title}: ${emailPatch.email} (${hunt.source}, ${hunt.pagesTried.length} page(s))`,
+        );
+      } else {
+        console.log(
+          `[ENHANCE] No website email for ${workingLead.title} after ${hunt.pagesTried.length} page(s).`,
+        );
+      }
+    } catch (e) {
+      console.warn('[ENHANCE] Website email scrape failed:', e.message);
+    }
   }
 
   // Step 4: OpenRouter review summary (Outscraper data already fetched in step 1)
@@ -3951,6 +4008,7 @@ async function runLeadEnhancement(lead, workspaceId) {
   const enrichmentHappened =
     hadExtract ||
     urlToSave ||
+    websiteEmailFound ||
     mapsFallbackUsed ||
     betterContactUsed ||
     monidUsed ||
@@ -3966,6 +4024,7 @@ async function runLeadEnhancement(lead, workspaceId) {
       betterContactUsed ? 'BetterContact' : null,
       firecrawlViaSearch ? 'web search' : null,
       !firecrawlViaSearch && websiteForEnrich && hadExtract ? 'website' : null,
+      websiteEmailFound ? 'website email scrape' : null,
       mapsFallbackUsed ? 'Maps backup' : null,
       reviewHuntUsed ? 'review summary' : null,
     ]
@@ -4022,6 +4081,12 @@ async function runSocialEnrichment(lead, workspaceId) {
   const fullKey = lead.key.startsWith('lead:') ? lead.key : `lead:${lead.key}`;
   const leadWorkspaceId = (lead && lead.workspaceId) || workspaceId;
   const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(leadWorkspaceId);
+  const rejectedSocialCleanup = buildRejectedSocialCleanupPatch(lead);
+  if (Object.keys(rejectedSocialCleanup).length) {
+    lead =
+      (await dbService.updateLead(fullKey, rejectedSocialCleanup, leadWorkspaceId)) ||
+      { ...lead, ...rejectedSocialCleanup };
+  }
 
   if (!tikHub.isConfigured(integrationEnv)) {
     return {
@@ -4047,7 +4112,7 @@ async function runSocialEnrichment(lead, workspaceId) {
     };
   }
 
-  const extract = sanitizeExtractSocials(pack.extract || {});
+  const extract = sanitizeExtractSocialsForLead(pack.extract || {}, lead);
   if (!tikHub.extractHasSignal(extract)) {
     return {
       success: false,

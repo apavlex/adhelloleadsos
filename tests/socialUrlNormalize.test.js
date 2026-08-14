@@ -2,7 +2,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
   normalizeSocialUrl,
+  isLikelyBusinessSocialUrl,
+  buildRejectedSocialCleanupPatch,
   sanitizeExtractSocials,
+  sanitizeExtractSocialsForLead,
   sanitizeLeadSocialPatch,
 } = require('../services/socialUrlNormalize');
 const { renderLinks, linkHtml } = require('../services/socialBrandIcons');
@@ -25,6 +28,60 @@ test('normalizeSocialUrl accepts full URLs and plain handles', () => {
 
 test('normalizeSocialUrl rejects wrong-platform hosts', () => {
   assert.equal(normalizeSocialUrl('https://instagram.com/acme', 'facebook'), '');
+});
+
+test('business-aware social validation rejects roots, hosting vendors, and unrelated profiles', () => {
+  const lead = {
+    title: 'Buildex Construction',
+    website: 'https://buildexconstructionnw.com',
+  };
+  assert.equal(isLikelyBusinessSocialUrl('https://facebook.com/', 'facebook', lead), false);
+  assert.equal(isLikelyBusinessSocialUrl('https://instagram.com/wix', 'instagram', lead), false);
+  assert.equal(
+    isLikelyBusinessSocialUrl('https://x.com/randomwebdesigner', 'twitter', lead),
+    false,
+  );
+  assert.equal(
+    isLikelyBusinessSocialUrl(
+      'https://instagram.com/buildexconstructionnw',
+      'instagram',
+      lead,
+    ),
+    true,
+  );
+});
+
+test('sanitizeExtractSocialsForLead keeps only profiles tied to business identity', () => {
+  const out = sanitizeExtractSocialsForLead(
+    {
+      facebook: 'https://facebook.com/wix',
+      instagram: 'https://instagram.com/buildexconstructionnw',
+      twitter: 'https://x.com/webflow',
+      email: 'buildexnw@gmail.com',
+    },
+    {
+      title: 'Buildex Construction',
+      website: 'buildexconstructionnw.com',
+    },
+  );
+  assert.equal(out.facebook, undefined);
+  assert.equal(out.instagram, 'https://instagram.com/buildexconstructionnw');
+  assert.equal(out.twitter, undefined);
+  assert.equal(out.email, 'buildexnw@gmail.com');
+});
+
+test('cleanup patch clears previously stored unrelated socials', () => {
+  const patch = buildRejectedSocialCleanupPatch({
+    title: 'Buildex Construction',
+    website: 'buildexconstructionnw.com',
+    facebook: 'https://facebook.com/wix',
+    instagram: 'https://instagram.com/buildexconstructionnw',
+    twitter: 'https://x.com/randomwebdesigner',
+  });
+  assert.deepEqual(patch, {
+    facebook: '',
+    twitter: '',
+  });
 });
 
 test('sanitizeExtractSocials strips invalid social fields', () => {
