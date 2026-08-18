@@ -56,6 +56,8 @@ Reload the extension after updates.
 3. Review auto-filled title, price, beds/baths/sqft, address, and notes
 4. Save — the lead lands in the **Chrome Extension** folder in Pipeline (created automatically on first save), or in a **custom folder** if you set one in the popup or Settings.
 
+To hide the floating yellow **Save lead** button, uncheck **Show Save lead button on pages** in Settings (or the popup). Save from the Chrome toolbar icon instead.
+
 ### Import a lead list (CSV)
 
 1. Open extension **Settings** (right-click the extension icon → Options).

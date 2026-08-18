@@ -461,5 +461,44 @@
     applyContentTheme(root);
   }
 
-  buildPanel(extractLeadFromPage());
+  function isFabEnabled(value) {
+    return value !== false;
+  }
+
+  function removeFab() {
+    try {
+      const existing = document.getElementById(ROOT_ID);
+      if (existing) existing.remove();
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
+  async function syncFabVisibility(explicitValue) {
+    let enabled = true;
+    if (explicitValue !== undefined) {
+      enabled = isFabEnabled(explicitValue);
+    } else {
+      try {
+        const stored = await chrome.storage.sync.get({ showSaveLeadFab: true });
+        enabled = isFabEnabled(stored.showSaveLeadFab);
+      } catch (_) {
+        enabled = true;
+      }
+    }
+    if (enabled) {
+      if (!document.getElementById(ROOT_ID)) {
+        buildPanel(extractLeadFromPage());
+      }
+      return;
+    }
+    removeFab();
+  }
+
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'sync' || !changes.showSaveLeadFab) return;
+    syncFabVisibility(changes.showSaveLeadFab.newValue);
+  });
+
+  syncFabVisibility();
 })();

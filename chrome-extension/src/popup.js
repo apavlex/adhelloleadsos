@@ -17,7 +17,8 @@ const panelImport = document.getElementById('panelImport');
 const panelBulk = document.getElementById('panelBulk');
 const workspaceSelect = document.getElementById('workspaceSelect');
 const workspaceThemeRow = document.getElementById('workspaceThemeRow');
-const EXT_VERSION = '1.8.0';
+const showSaveLeadFabEl = document.getElementById('showSaveLeadFab');
+const EXT_VERSION = '1.8.4';
 const PARALLEL_LABEL = '5 at a time';
 
 let bulkRunning = false;
@@ -31,6 +32,10 @@ document.getElementById('extVersion').textContent = `v${EXT_VERSION}`;
 openOptions.addEventListener('click', (e) => {
   e.preventDefault();
   chrome.runtime.openOptionsPage();
+});
+
+showSaveLeadFabEl?.addEventListener('change', async () => {
+  await chrome.storage.sync.set({ showSaveLeadFab: !!showSaveLeadFabEl.checked });
 });
 
 document.querySelectorAll('.popup-tab').forEach((tabBtn) => {
@@ -447,6 +452,10 @@ async function init() {
     if (bulkForm) bulkForm.bulkFolderName.value = defaultFolderName;
   }
 
+  if (showSaveLeadFabEl) {
+    showSaveLeadFabEl.checked = settings.showSaveLeadFab !== false;
+  }
+
   if (window.AdHelloTheme && hasKey) {
     settings = await loadWorkspacePicker(settings);
   } else if (window.AdHelloTheme && settings) {
@@ -477,7 +486,7 @@ async function init() {
       : 'Open a supported listing, profile, or business page to auto-fill.';
     fillForm(lead, defaultFolderName);
   } catch (err) {
-    platformLabel.textContent = 'Could not read this page. Use the on-page Save lead button.';
+    platformLabel.textContent = 'Could not read this page. Save from this popup, or enable the on-page button in Settings.';
     setStatus(err.message, 'error');
     if (defaultFolderName) form.folderName.value = defaultFolderName;
   }

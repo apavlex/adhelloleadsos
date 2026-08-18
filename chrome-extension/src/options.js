@@ -12,6 +12,7 @@ const DEFAULTS = {
   accountEmail: '',
   workspaceId: 'default',
   defaultFolderName: '',
+  showSaveLeadFab: true,
 };
 
 function readFormSettings() {
@@ -21,6 +22,7 @@ function readFormSettings() {
     accountEmail: form.accountEmail.value.trim().toLowerCase(),
     workspaceId: form.workspaceId.value.trim() || 'default',
     defaultFolderName: form.defaultFolderName.value.trim(),
+    showSaveLeadFab: !!form.showSaveLeadFab?.checked,
   };
 }
 
@@ -68,6 +70,9 @@ async function load() {
   form.accountEmail.value = stored.accountEmail || '';
   form.workspaceId.value = stored.workspaceId || DEFAULTS.workspaceId;
   form.defaultFolderName.value = stored.defaultFolderName || '';
+  if (form.showSaveLeadFab) {
+    form.showSaveLeadFab.checked = stored.showSaveLeadFab !== false;
+  }
   if (importForm) {
     importForm.importFolderName.value = stored.defaultFolderName || '';
   }
@@ -129,6 +134,10 @@ form.accountEmail?.addEventListener('blur', () => {
 form.apiKey?.addEventListener('blur', () => {
   refreshWorkspaceLists().catch(() => {});
 });
+form.showSaveLeadFab?.addEventListener('change', async () => {
+  await chrome.storage.sync.set({ showSaveLeadFab: !!form.showSaveLeadFab.checked });
+});
+
 form.workspaceId?.addEventListener('change', () => {
   refreshThemeFromForm().catch(() => {});
 });

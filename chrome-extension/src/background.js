@@ -6,6 +6,7 @@ const DEFAULTS = {
   accountEmail: '',
   workspaceId: 'default',
   defaultFolderName: '',
+  showSaveLeadFab: true,
 };
 
 async function getSettings(overrides = {}) {
@@ -20,6 +21,7 @@ async function getSettings(overrides = {}) {
       String(stored.workspaceId || DEFAULTS.workspaceId).trim() ||
       'default',
     defaultFolderName: String(stored.defaultFolderName || '').trim(),
+    showSaveLeadFab: stored.showSaveLeadFab !== false,
   };
 }
 

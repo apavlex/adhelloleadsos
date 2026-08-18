@@ -79,6 +79,22 @@ h1 {
   line-height: 1.4;
 }
 
+label.check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+label.check-row input[type='checkbox'] {
+  width: auto;
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+label.check-row > span {
+  margin-bottom: 0;
+}
+
 label {
   display: block;
   margin-bottom: 14px;
