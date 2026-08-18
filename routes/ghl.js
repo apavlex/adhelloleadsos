@@ -13,6 +13,7 @@ const {
   normalizeGhlSyncDirection,
 } = require('../services/ghlSyncDirection');
 const { patchLeadDispositionForGhlPush, appendPanelNoteBeforeGhlPush } = require('../services/ghlProspectSync');
+const ghlSubaccounts = require('../services/ghlSubaccounts');
 
 async function saveWorkspaceGhlSyncDirection(workspaceId, direction) {
   const wid = workspaceId || 'default';
@@ -156,6 +157,40 @@ router.post('/sync', express.json(), async (req, res, next) => {
     };
     const result = await ghlSync.runDirectionalSync(opts);
     return res.json({ success: true, syncDirection: direction, ...result });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/subaccounts', express.json(), async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({
+        success: false,
+        error: 'Only workspace admins can create GHL sub-accounts.',
+      });
+    }
+    const wid = req.workspaceId || 'default';
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const leadKeys = Array.isArray(body.leadKeys) ? body.leadKeys : [];
+    if (!leadKeys.length) {
+      return res.status(400).json({ success: false, error: 'Select at least one lead.' });
+    }
+    const result = await ghlSubaccounts.createSubaccountsForLeads({
+      workspaceId: wid,
+      integrationEnv,
+      leadKeys,
+    });
+    const firstErr = (result.results || []).find((r) => r && r.ok === false);
+    if (result.created === 0 && result.skipped === 0 && result.failed > 0) {
+      return res.status(422).json({
+        success: false,
+        error: (firstErr && firstErr.error) || 'Could not create GHL sub-accounts.',
+        ...result,
+      });
+    }
+    return res.json({ success: true, ...result });
   } catch (e) {
     next(e);
   }

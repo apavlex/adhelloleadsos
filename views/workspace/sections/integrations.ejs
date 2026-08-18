@@ -507,6 +507,20 @@
             <% if (masks.ghlLocationId) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="ghlLocationId_clear" value="1" /> Remove</label><% } %>
           </div>
           <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Agency company ID</label>
+            <% if (masks.ghlCompanyId) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.ghlCompanyId %></p><% } %>
+            <input type="text" name="ghlCompanyId" autocomplete="off" placeholder="GHL agency company ID" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Required to create client sub-accounts from the pipeline floater. Ask GHL support for your agency ID if it is not in Agency Settings.</p>
+            <% if (masks.ghlCompanyId) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="ghlCompanyId_clear" value="1" /> Remove</label><% } %>
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Snapshot ID (optional)</label>
+            <% if (masks.ghlSnapshotId) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.ghlSnapshotId %></p><% } %>
+            <input type="text" name="ghlSnapshotId" autocomplete="off" placeholder="Snapshot applied to new sub-accounts" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Leave blank for an empty sub-account. Use a snapshot ID to clone your client template.</p>
+            <% if (masks.ghlSnapshotId) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="ghlSnapshotId_clear" value="1" /> Remove</label><% } %>
+          </div>
+          <div>
             <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Outbound email from</label>
             <% if (masks.ghlEmailFrom) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.ghlEmailFrom %></p><% } %>
             <input type="email" name="ghlEmailFrom" autocomplete="off" placeholder="hello@yourdomain.com (verified in GHL)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />

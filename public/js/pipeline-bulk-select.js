@@ -125,7 +125,7 @@
         if (el) el.disabled = false;
       });
       if (bar.dataset.bulkMode !== 'search') {
-        ['bulkFocusModeBtn', 'bulkSmsBtn', 'bulkDirectMailBtn', 'bulkPushGhlBtn', 'bulkAutoOutreachBtn'].forEach((id) => {
+        ['bulkFocusModeBtn', 'bulkSmsBtn', 'bulkDirectMailBtn', 'bulkPushGhlBtn', 'bulkCreateSubaccountBtn', 'bulkAutoOutreachBtn'].forEach((id) => {
           const el = document.getElementById(id);
           if (!el) return;
           el.classList.remove('hidden', 'opacity-40', 'cursor-not-allowed');
@@ -1441,6 +1441,88 @@
     }
   }
   window.__runBulkPushGhlFromBarEarly = runBulkPushGhlFromBarEarly;
+
+  async function runBulkCreateSubaccountFromBarEarly() {
+    if (window.__bulkCreateSubaccountInFlight) return { ok: false, error: 'in_flight' };
+    const btn = document.getElementById('bulkCreateSubaccountBtn');
+    const leadKeys = collectSelectedLeadKeysEarly();
+    if (!leadKeys.length) {
+      showBulkBarFeedbackEarly('Select at least one lead.', 'error');
+      return { ok: false, error: 'no_selection' };
+    }
+    const n = leadKeys.length;
+    const msg =
+      n === 1
+        ? 'Create a GHL sub-account for the selected business?'
+        : `Create GHL sub-accounts for ${n} selected businesses?`;
+    if (!window.confirm(msg)) return { ok: false, error: 'cancelled' };
+
+    const labelDefault = 'Create subaccount';
+    const prev = btn ? String(btn.textContent || '').trim() || labelDefault : labelDefault;
+    window.__bulkCreateSubaccountInFlight = true;
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = n > 1 ? `${n} left` : 'Creating…';
+      btn.setAttribute('aria-busy', 'true');
+      btn.classList.add('is-busy');
+    }
+    showBulkBarFeedbackEarly(
+      n === 1 ? 'Creating GHL sub-account…' : `Creating ${n} GHL sub-accounts…`,
+      'loading',
+    );
+
+    try {
+      const res = await fetch('/ghl/subaccounts', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ leadKeys }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok && res.status === 403) {
+        throw new Error(data.error || 'Only workspace admins can create GHL sub-accounts.');
+      }
+      if (!res.ok && !(data && (data.created || data.skipped))) {
+        throw new Error(data.error || 'Could not create GHL sub-accounts.');
+      }
+      const created = Number(data.created || 0);
+      const skipped = Number(data.skipped || 0);
+      const failed = Number(data.failed || 0);
+      const summary = `Sub-accounts · ${created} created${skipped ? ` · ${skipped} already existed` : ''}${failed ? ` · ${failed} failed` : ''}`;
+      showBulkBarFeedbackEarly(summary, failed && !created && !skipped ? 'error' : 'success');
+      if (typeof window.__flashBulkBarBtn === 'function') {
+        window.__flashBulkBarBtn(btn, failed && !created ? 'Failed' : '✓ Created');
+      }
+      const firstUrl =
+        Array.isArray(data.results) &&
+        data.results.map((r) => r && r.url).find((u) => u);
+      const link = document.getElementById('bulkOpenGhlContactsLink');
+      if (link && firstUrl) {
+        link.href = firstUrl;
+        link.textContent = 'Open GHL sub-account →';
+        link.classList.remove('hidden');
+      }
+      return { ok: failed === 0, created, skipped, failed, results: data.results || [] };
+    } catch (err) {
+      const errMsg = err && err.message ? err.message : 'Create sub-account failed';
+      showBulkBarFeedbackEarly(errMsg, 'error');
+      if (typeof window.__flashBulkBarBtn === 'function') {
+        window.__flashBulkBarBtn(btn, 'Failed', 1200);
+      }
+      return { ok: false, error: errMsg };
+    } finally {
+      window.__bulkCreateSubaccountInFlight = false;
+      if (btn) {
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
+        btn.classList.remove('is-busy');
+        if (!btn.__flashTimer) btn.textContent = prev;
+      }
+      if (typeof window.__syncBulkBarFromDom === 'function') window.__syncBulkBarFromDom();
+      else if (typeof window.__updateBulkActionBar === 'function') window.__updateBulkActionBar();
+    }
+  }
+  window.__runBulkCreateSubaccountFromBarEarly = runBulkCreateSubaccountFromBarEarly;
 
   async function runBulkAutoOutreachFromBarEarly() {
     if (window.__bulkAutoOutreachInFlight) return { ok: false, error: 'in_flight' };
@@ -2869,6 +2951,12 @@
           e.preventDefault();
           e.stopPropagation();
           runBulkPushGhlFromBarEarly();
+          return;
+        }
+        if (e.target.closest('#bulkCreateSubaccountBtn')) {
+          e.preventDefault();
+          e.stopPropagation();
+          runBulkCreateSubaccountFromBarEarly();
           return;
         }
         if (e.target.closest('#bulkAutoOutreachBtn')) {

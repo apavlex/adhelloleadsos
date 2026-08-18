@@ -24,7 +24,9 @@ function resolveConfig(integrationEnv) {
   const locationId = String(env.GHL_LOCATION_ID || process.env.GHL_LOCATION_ID || '').trim();
   const emailFrom = String(env.GHL_EMAIL_FROM || process.env.GHL_EMAIL_FROM || '').trim();
   const smsFromNumber = String(env.GHL_SMS_FROM_NUMBER || process.env.GHL_SMS_FROM_NUMBER || '').trim();
-  return { apiKey, locationId, emailFrom, smsFromNumber };
+  const companyId = String(env.GHL_COMPANY_ID || process.env.GHL_COMPANY_ID || '').trim();
+  const snapshotId = String(env.GHL_SNAPSHOT_ID || process.env.GHL_SNAPSHOT_ID || '').trim();
+  return { apiKey, locationId, emailFrom, smsFromNumber, companyId, snapshotId };
 }
 
 function isConfigured(integrationEnv) {
@@ -544,6 +546,53 @@ async function getConversationMessages(
   });
 }
 
+function extractLocationRecord(data) {
+  if (!data || typeof data !== 'object') return null;
+  if (data.location && typeof data.location === 'object') return data.location;
+  return data;
+}
+
+function extractLocationId(data) {
+  const loc = extractLocationRecord(data);
+  if (!loc) return '';
+  return String(loc.id || loc.locationId || data.id || '').trim();
+}
+
+function extractCompanyId(data) {
+  const loc = extractLocationRecord(data);
+  if (!loc) return '';
+  return String(loc.companyId || loc.company_id || data.companyId || '').trim();
+}
+
+function locationsFromSearch(data) {
+  if (!data) return [];
+  if (Array.isArray(data.locations)) return data.locations;
+  if (Array.isArray(data)) return data;
+  return [];
+}
+
+async function getLocation(locationId, integrationEnv) {
+  const id = String(locationId || '').trim();
+  if (!id) throw new Error('locationId is required.');
+  return ghlRequest('GET', `/locations/${encodeURIComponent(id)}`, { integrationEnv });
+}
+
+async function searchLocations({ companyId, limit = 50, skip = 0, email } = {}, integrationEnv) {
+  const query = {
+    limit: String(Math.min(Math.max(Number(limit) || 50, 1), 100)),
+    skip: String(Math.max(Number(skip) || 0, 0)),
+  };
+  const cid = String(companyId || '').trim();
+  if (cid) query.companyId = cid;
+  if (email) query.email = String(email).trim();
+  return ghlRequest('GET', '/locations/search', { integrationEnv, query });
+}
+
+async function createLocation(body, integrationEnv) {
+  if (!body || typeof body !== 'object') throw new Error('Location payload is required.');
+  return ghlRequest('POST', '/locations/', { integrationEnv, body });
+}
+
 module.exports = {
   resolveConfig,
   isConfigured,
@@ -572,5 +621,13 @@ module.exports = {
   sendConversationMessage,
   searchConversations,
   getConversationMessages,
+  getLocation,
+  searchLocations,
+  createLocation,
+  extractLocationRecord,
+  extractLocationId,
+  extractCompanyId,
+  locationsFromSearch,
+  splitName,
   GHL_CONVERSATIONS_API_VERSION,
 };

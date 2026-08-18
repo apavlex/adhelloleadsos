@@ -42,6 +42,13 @@ function ghlWebsitesBuilderUrl({ dashboardUrl, locationId } = {}) {
   return `${base}/v2/location`;
 }
 
+function ghlLocationDashboardUrl({ dashboardUrl, locationId } = {}) {
+  const base = ghlCrmBaseUrl(dashboardUrl);
+  const loc = String(locationId || '').trim();
+  if (loc) return `${base}/v2/location/${encodeURIComponent(loc)}`;
+  return `${base}/`;
+}
+
 function ghlContactCrmUrl({ dashboardUrl, locationId, contactId } = {}) {
   const base = ghlCrmBaseUrl(dashboardUrl);
   const loc = String(locationId || '').trim();
@@ -58,5 +65,6 @@ module.exports = {
   websiteBuildSlug,
   websiteBuildPublicUrl,
   ghlWebsitesBuilderUrl,
+  ghlLocationDashboardUrl,
   ghlContactCrmUrl,
 };

@@ -15881,6 +15881,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const bulkFocusModeBtn = document.getElementById('bulkFocusModeBtn');
   const bulkDirectMailBtn = document.getElementById('bulkDirectMailBtn');
   const bulkPushGhlBtn = document.getElementById('bulkPushGhlBtn');
+  const bulkCreateSubaccountBtn = document.getElementById('bulkCreateSubaccountBtn');
 
   let selectedKeys = new Set();
   let bulkSelectSyncing = false;
@@ -16569,7 +16570,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const focusBtn = bulkFocusModeBtn || document.getElementById('bulkFocusModeBtn');
     const directMailBtn = bulkDirectMailBtn || document.getElementById('bulkDirectMailBtn');
     const pushGhlBtn = bulkPushGhlBtn || document.getElementById('bulkPushGhlBtn');
-    if (focusBtn || directMailBtn || pushGhlBtn) {
+    const createSubaccountBtn =
+      bulkCreateSubaccountBtn || document.getElementById('bulkCreateSubaccountBtn');
+    if (focusBtn || directMailBtn || pushGhlBtn || createSubaccountBtn) {
       const keys =
         hasSelection && typeof window.__collectFocusSelectionKeys === 'function'
           ? window.__collectFocusSelectionKeys()
@@ -16631,6 +16634,15 @@ document.addEventListener('DOMContentLoaded', () => {
         outreachCount
           ? `Sync ${outreachCount} selected lead${outreachCount === 1 ? '' : 's'} to Go High Level`
           : 'Select leads to sync to GHL',
+        'Select at least one lead',
+      );
+      syncPrimaryBtn(
+        createSubaccountBtn,
+        null,
+        hasSelection,
+        outreachCount
+          ? `Create a GHL sub-account for ${outreachCount} selected business${outreachCount === 1 ? '' : 'es'}`
+          : 'Select businesses to create GHL sub-accounts',
         'Select at least one lead',
       );
     }
@@ -17081,6 +17093,16 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       await openBulkPushGhlFromBar();
+    });
+  }
+
+  if (bulkCreateSubaccountBtn) {
+    bulkCreateSubaccountBtn.addEventListener('click', async (e) => {
+      if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+      if (e && typeof e.preventDefault === 'function') e.preventDefault();
+      if (typeof window.__runBulkCreateSubaccountFromBarEarly === 'function') {
+        await window.__runBulkCreateSubaccountFromBarEarly();
+      }
     });
   }
 
