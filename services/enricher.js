@@ -2,6 +2,7 @@ const webEnrichment = require('./webEnrichment');
 const dbService = require('./database');
 const workspaceIntegrations = require('./workspaceIntegrations');
 const monidLeadEnrich = require('./monidLeadEnrich');
+const { ENRICH_BUDGET_MS, PER_LEAD_ENRICH_MS, withTimeout } = require('./leadRunProgress');
 
 function leadNeedsMonidEnrich(lead) {
   const missing = (v) => !v || v === 'N/A';
@@ -42,16 +43,25 @@ function applyMonidExtractToLead(lead, extract) {
 module.exports = {
   /**
    * @param {object[]} leads
-   * @param {{ workspaceId?: string }} [opts]
+   * @param {{ workspaceId?: string, timeoutMs?: number }} [opts]
    */
   async enrichLeads(leads, opts = {}) {
     const workspaceId = opts.workspaceId || 'default';
+    const budgetMs = Math.max(1000, parseInt(opts.timeoutMs, 10) || ENRICH_BUDGET_MS);
+    const deadline = Date.now() + budgetMs;
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(workspaceId);
 
-    console.log(`[ENRICHER] Starting deep enrichment for ${leads.length} leads...`);
+    console.log(`[ENRICHER] Starting deep enrichment for ${leads.length} leads (budget ${budgetMs}ms)...`);
 
     const enrichedLeads = [...leads]; 
     const concurrency = 5; // Enrich 5 leads at a time
+
+    function remainingMs() {
+      return Math.max(0, deadline - Date.now());
+    }
+    function budgetExhausted() {
+      return remainingMs() <= 0;
+    }
 
     // 1. Filter leads that actually need enrichment
     const leadsInNeed = enrichedLeads.filter(l => 
@@ -91,17 +101,27 @@ module.exports = {
     }
 
     // 3. Monid pass — Apollo / PDL for phone, website, socials (works without website too)
-    if (monidLeadEnrich.isConfigured(integrationEnv)) {
+    if (!budgetExhausted() && monidLeadEnrich.isConfigured(integrationEnv)) {
       const monidNeed = enrichedLeads.filter(leadNeedsMonidEnrich);
       if (monidNeed.length) {
         console.log(`[ENRICHER] Monid enrichment for ${monidNeed.length} leads...`);
         for (let i = 0; i < monidNeed.length; i += concurrency) {
+          if (budgetExhausted()) {
+            console.warn('[ENRICHER] Enrich budget exhausted during Monid pass; returning partial results.');
+            break;
+          }
           const batch = monidNeed.slice(i, i + concurrency);
           // eslint-disable-next-line no-await-in-loop
           await Promise.all(
             batch.map(async (lead) => {
+              const slice = Math.min(PER_LEAD_ENRICH_MS, remainingMs());
+              if (slice <= 0) return;
               try {
-                const pack = await monidLeadEnrich.enrichLeadFromMonid(lead, integrationEnv);
+                const pack = await withTimeout(
+                  monidLeadEnrich.enrichLeadFromMonid(lead, integrationEnv),
+                  slice,
+                  'monid_enrich'
+                );
                 if (pack && pack.enriched && pack.extract) {
                   applyMonidExtractToLead(lead, pack.extract);
                   if (lead.website && lead.website !== 'N/A') {
@@ -132,15 +152,25 @@ module.exports = {
 
     // Process in batches to avoid API rate limits while staying fast
     for (let i = 0; i < stillInNeed.length; i += concurrency) {
+      if (budgetExhausted()) {
+        console.warn('[ENRICHER] Enrich budget exhausted; returning Maps/directory results as-is.');
+        break;
+      }
       const batch = stillInNeed.slice(i, i + concurrency);
       
       await Promise.all(batch.map(async (lead) => {
+        const slice = Math.min(PER_LEAD_ENRICH_MS, remainingMs());
+        if (slice <= 0) return;
         try {
           console.log(`[ENRICHER] [BATCH] Hunting data for: ${lead.title} (${lead.website})`);
-          const { merged: deepData } = await webEnrichment.enrichLeadSmartWithMapsFallback(
-            lead.website,
-            { title: lead.title, city: lead.city, state: lead.state },
-            { integrationEnv }
+          const { merged: deepData } = await withTimeout(
+            webEnrichment.enrichLeadSmartWithMapsFallback(
+              lead.website,
+              { title: lead.title, city: lead.city, state: lead.state },
+              { integrationEnv }
+            ),
+            slice,
+            'web_enrich'
           );
 
           if (deepData && Object.keys(deepData).length > 0) {

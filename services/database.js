@@ -17,6 +17,7 @@ const {
 } = require('./leadDedupe');
 const { normalizeLeadForPanel } = require('./leadPanelNormalize');
 const { normalizeWorkspaceAccentHex } = require('../lib/workspaceAccent');
+const { isLeadRunJobStale } = require('./leadRunProgress');
 
 const TAG_COLOR_PALETTE = ['#EAB308', '#3B82F6', '#10B981', '#F43F5E', '#8B5CF6', '#F97316', '#06B6D4', '#EC4899'];
 
@@ -1220,39 +1221,79 @@ module.exports = {
     }));
   },
 
-  async getActiveJob() {
+  _readActiveJobRaw() {
     const raw = kvGet('active_job');
     if (!raw) return null;
-    return typeof raw === 'string' ? JSON.parse(raw) : raw;
+    try {
+      return typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch (e) {
+      console.warn('[active_job] Failed to parse active job:', e && e.message);
+      return null;
+    }
+  },
+
+  async getActiveJob() {
+    const job = this._readActiveJobRaw();
+    if (!job) return null;
+    if (isLeadRunJobStale(job.startedAt)) {
+      console.warn(
+        '[active_job] Reaping stale search job started at',
+        job.startedAt,
+        job.keyword || job.query || job.type || ''
+      );
+      await this.clearActiveJob({
+        failed: true,
+        error:
+          'Search timed out before finishing. Check History — leads may already be saved.',
+      });
+      return null;
+    }
+    return job;
   },
 
   async clearActiveJob(meta = {}) {
-    const active = await this.getActiveJob();
-    if (active) {
-      const finishedAt = new Date().toISOString();
+    const active = this._readActiveJobRaw();
+    let snapshot = active;
+    if (!snapshot) {
+      try {
+        snapshot = await this.getLatestFinishedJob();
+      } catch {
+        snapshot = null;
+      }
+    }
+    snapshot = snapshot || {};
+    const finishedAt = new Date().toISOString();
+    const hasCompletion =
+      meta.failed ||
+      meta.resultCount != null ||
+      meta.searchKey != null ||
+      Object.keys(snapshot).length > 0;
+    if (hasCompletion) {
       if (meta.failed) {
         kvSet(
           'latest_finished_job',
           JSON.stringify({
-            ...active,
+            ...snapshot,
             status: 'failed',
             error: String(meta.error || 'Search failed'),
             finishedAt,
             isRead: false,
-            source: 'run',
+            source: snapshot.source || 'run',
           })
         );
       } else {
         kvSet(
           'latest_finished_job',
           JSON.stringify({
-            ...active,
+            ...snapshot,
             status: 'completed',
+            error: undefined,
             finishedAt,
             isRead: false,
-            source: 'run',
-            resultCount: meta.resultCount != null ? meta.resultCount : active.resultCount,
-            searchKey: meta.searchKey != null ? meta.searchKey : active.searchKey,
+            source: snapshot.source || 'run',
+            resultCount: meta.resultCount != null ? meta.resultCount : snapshot.resultCount,
+            searchKey: meta.searchKey != null ? meta.searchKey : snapshot.searchKey,
+            savedCount: meta.savedCount != null ? meta.savedCount : snapshot.savedCount,
           })
         );
       }

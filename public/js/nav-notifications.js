@@ -142,9 +142,12 @@
 
   const LEAD_RUN_SESSION_KEY = 'agencyOsLeadRunProgress';
   const LEAD_RUN_FOLDER_RELOAD_KEY = 'agencyOsLeadRunFolderReloadAt';
+  /** Must match services/leadRunProgress.js STALE_MS (10 minutes). */
+  const LEAD_RUN_STALE_MS = 10 * 60 * 1000;
   let leadRunDisplayPct = 0;
   let leadRunTickerId = null;
   let leadRunWasProcessing = false;
+  let leadRunStaleDismissedAt = '';
 
   function readLeadRunSession() {
     try {
@@ -229,7 +232,7 @@
     return job;
   }
 
-  /** Time-based target 1–99% (eased so it slows near the end). */
+  /** Time-based target 1–99% (eased so it slows near the end). Never 100 while running. */
   function computeLeadRunTargetPct(startedAt) {
     if (!startedAt) return 1;
     var elapsed = Date.now() - Date.parse(startedAt);
@@ -238,6 +241,16 @@
     var linear = Math.min(1, elapsed / estMs);
     var eased = 1 - Math.pow(1 - linear, 1.4);
     return Math.min(99, Math.max(1, Math.round(eased * 99)));
+  }
+
+  function isLeadRunJobStale(startedAt) {
+    if (!startedAt) return false;
+    var elapsed = Date.now() - Date.parse(startedAt);
+    return Number.isFinite(elapsed) && elapsed >= LEAD_RUN_STALE_MS;
+  }
+
+  function leadRunStartedAtKey(startedAt) {
+    return startedAt ? String(startedAt) : '';
   }
 
   function renderLeadRunProgressPct(pct) {
@@ -261,11 +274,15 @@
     if (leadRunTickerId) return;
     function tick() {
       var searching = localStorage.getItem('is_searching') === 'true';
+      var session = readLeadRunSession();
+      if (session && isLeadRunJobStale(session.startedAt)) {
+        recoverStaleLeadRun('ticker');
+        return;
+      }
       if (!searching) {
         stopLeadRunTicker();
         return;
       }
-      var session = readLeadRunSession();
       var target = computeLeadRunTargetPct(session && session.startedAt);
       if (leadRunDisplayPct < target) {
         var step = Math.max(0.15, (target - leadRunDisplayPct) * 0.08);
@@ -296,14 +313,57 @@
     requestAnimationFrame(animateComplete);
   }
 
+  function recoverStaleLeadRun(reason) {
+    var session = readLeadRunSession();
+    var startedKey = leadRunStartedAtKey(session && session.startedAt);
+    if (startedKey && leadRunStaleDismissedAt === startedKey) {
+      stopLeadRunTicker();
+      return;
+    }
+    if (startedKey) leadRunStaleDismissedAt = startedKey;
+    try {
+      localStorage.removeItem('is_searching');
+    } catch (_) {}
+    if (typeof console !== 'undefined' && console.warn) {
+      console.warn('[lead-run] Stale search progress recovered (' + (reason || 'watchdog') + ').');
+    }
+    if (typeof window.showAppToast === 'function') {
+      window.showAppToast(
+        'Lead search took too long — check the bell or History. Results may already be saved.',
+        { variant: 'info', duration: 7000 }
+      );
+    }
+    finishLeadRunProgress(function () {
+      var banner = document.getElementById('leadRunProgressBanner');
+      if (banner) {
+        banner.classList.add('hidden');
+        banner.setAttribute('aria-busy', 'false');
+      }
+      leadRunDisplayPct = 0;
+      clearLeadRunSession();
+    });
+  }
+
   function updateLeadRunProgressBanner(data, opts) {
     opts = opts || {};
     var banner = document.getElementById('leadRunProgressBanner');
     if (!banner) return;
-    var show =
+    var jobForStale = (data && data.activeJob) || readLeadRunSession();
+    var wouldShow =
       opts.forceShow === true ||
       (data && data.isProcessing) ||
       localStorage.getItem('is_searching') === 'true';
+    if (
+      wouldShow &&
+      !opts.forceShow &&
+      !opts.fresh &&
+      jobForStale &&
+      isLeadRunJobStale(jobForStale.startedAt)
+    ) {
+      recoverStaleLeadRun('banner');
+      return;
+    }
+    var show = wouldShow;
     if (!show) {
       if (leadRunDisplayPct > 0 && localStorage.getItem('is_searching') !== 'true') {
         finishLeadRunProgress(function () {
@@ -356,6 +416,7 @@
   window.showLeadRunProgressBanner = function showLeadRunProgressBanner(opts) {
     stopLeadRunTicker();
     leadRunDisplayPct = 1;
+    leadRunStaleDismissedAt = '';
     updateLeadRunProgressBanner(null, {
       forceShow: true,
       fresh: true,
@@ -1601,21 +1662,27 @@
           leadRunWasProcessing || localStorage.getItem('is_searching') === 'true';
 
         if (data.isProcessing) {
-          processingIndicator.classList.add('processing-active');
-          localStorage.setItem('is_searching', 'true');
-          updateLeadRunProgressBanner(data);
+          var staleJob = data.activeJob || readLeadRunSession();
+          if (staleJob && isLeadRunJobStale(staleJob.startedAt)) {
+            recoverStaleLeadRun('status-poll');
+            if (!clientNavbarWorkActive()) {
+              processingIndicator.classList.remove('processing-active');
+            } else {
+              applyProcessingRing();
+            }
+          } else {
+            processingIndicator.classList.add('processing-active');
+            localStorage.setItem('is_searching', 'true');
+            updateLeadRunProgressBanner(data);
+          }
         } else {
+          // Search job finished — complete the banner even if bulk enhance / hunt is still running.
+          localStorage.removeItem('is_searching');
+          updateLeadRunProgressBanner(data);
           if (!clientNavbarWorkActive()) {
             processingIndicator.classList.remove('processing-active');
-            localStorage.removeItem('is_searching');
-            updateLeadRunProgressBanner(data);
           } else {
             applyProcessingRing();
-            if (localStorage.getItem('is_searching') === 'true') {
-              updateLeadRunProgressBanner({ isProcessing: true, activeJob: data.activeJob || null });
-            } else {
-              updateLeadRunProgressBanner(data);
-            }
           }
         }
 

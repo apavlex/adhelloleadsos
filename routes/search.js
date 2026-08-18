@@ -17,6 +17,11 @@ const {
   leadMetadataForJobType,
 } = require('../services/pipelineFolders');
 const { parseAutoTags, resolveAutoTagKeys } = require('../services/folderSearchPreset');
+const {
+  ENRICH_BUDGET_MS,
+  DIRECTORY_BUDGET_MS,
+  runBestEffort,
+} = require('../services/leadRunProgress');
 
 // POST /search — Google Maps list (RapidAPI → SearchAPI.io → SerpAPI → Outscraper → Apify in Auto)
 router.post('/', async (req, res, next) => {
@@ -76,6 +81,7 @@ router.post('/', async (req, res, next) => {
         targetFolderName,
       });
       setImmediate(async () => {
+        let cleared = false;
         try {
           if (!mapsSearch.isMapsSearchConfigured(integrationEnv)) {
             console.error('[SEARCH-BG] No Maps provider for workspace:', activationWorkspaceId);
@@ -84,6 +90,7 @@ router.post('/', async (req, res, next) => {
               error:
                 'Maps search is not configured. Add a RapidAPI, SearchAPI.io, SerpAPI, Outscraper, Monid, or Apify key under Workspace → API integrations.',
             });
+            cleared = true;
             return;
           }
           console.log(`[SEARCH-BG] Starting Maps search for "${keyword}" in "${city}, ${state}"...`);
@@ -109,25 +116,51 @@ router.post('/', async (req, res, next) => {
           }
           if (wantDirectorySupplement) {
             console.log('[SEARCH-BG] Supplementing with directory listings (Outscraper: Yelp, Angi, YP, Zillow agents + BBB)…');
-            try {
-              const directoryLeads = await directoryLeadSearch.searchDirectoryLeads({
-                keyword,
-                city,
-                state,
-                maxResults: Math.min(25, maxRes),
-                integrationEnv,
-              });
+            const dirAttempt = await runBestEffort(
+              () =>
+                directoryLeadSearch.searchDirectoryLeads({
+                  keyword,
+                  city,
+                  state,
+                  maxResults: Math.min(25, maxRes),
+                  integrationEnv,
+                }),
+              [],
+              DIRECTORY_BUDGET_MS,
+              'directory_supplement'
+            );
+            if (dirAttempt.error) {
+              console.warn(
+                '[SEARCH-BG] Directory supplement skipped (Maps results kept):',
+                dirAttempt.error
+              );
+            } else {
+              const directoryLeads = dirAttempt.value || [];
               const before = results.length;
               results = directoryLeadSearch.mergeMapsAndDirectoryLeads(results, directoryLeads, maxRes);
               console.log(
                 `[SEARCH-BG] Directory supplement: +${Math.max(0, results.length - before)} leads (${results.length} total)`
               );
-            } catch (dirErr) {
-              console.warn('[SEARCH-BG] Directory supplement failed (Maps results kept):', dirErr.message);
             }
           }
           console.log('[SEARCH-BG] Starting deep enrichment pass...');
-          results = await enricher.enrichLeads(results, { workspaceId: activationWorkspaceId });
+          const enrichAttempt = await runBestEffort(
+            () =>
+              enricher.enrichLeads(results, {
+                workspaceId: activationWorkspaceId,
+                timeoutMs: ENRICH_BUDGET_MS,
+              }),
+            results,
+            ENRICH_BUDGET_MS + 5000,
+            'search_enrich'
+          );
+          if (enrichAttempt.error) {
+            console.warn(
+              '[SEARCH-BG] Trailing enrich timed out or failed; saving Maps results anyway:',
+              enrichAttempt.error
+            );
+          }
+          results = enrichAttempt.value || results;
           const searchRecord = {
             jobType: JOB_TYPES.MAPS_BUSINESS,
             keyword,
@@ -176,10 +209,23 @@ router.post('/', async (req, res, next) => {
 
           if (activationUserEmail) await activationService.recordEvent(activationUserEmail, 'search_saved');
           await dbService.clearActiveJob({ resultCount: results.length, searchKey, savedCount });
+          cleared = true;
         } catch (err) {
           console.error('[SEARCH-BG] Background search failed:', err);
           const msg = err && err.message ? String(err.message) : 'Search failed';
           await dbService.clearActiveJob({ failed: true, error: msg });
+          cleared = true;
+        } finally {
+          if (!cleared) {
+            try {
+              await dbService.clearActiveJob({
+                failed: true,
+                error: 'Search ended unexpectedly.',
+              });
+            } catch (clearErr) {
+              console.error('[SEARCH-BG] Failed to clear active job:', clearErr);
+            }
+          }
         }
       });
     }

@@ -11,6 +11,7 @@ const { formationsToLeads } = require('./businessFormationLeadEnrich');
 const { parseFlipFilter, scoreAndFilterListings } = require('./listingFlipScore');
 const enricher = require('./enricher');
 const { JOB_TYPES, normalizeJobType } = require('./scrapeJobTypes');
+const { ENRICH_BUDGET_MS, DIRECTORY_BUDGET_MS, runBestEffort } = require('./leadRunProgress');
 
 async function runMapsBusinessJob(schedule, integrationEnv, options = {}) {
   const wantDirectorySupplement = options.directorySupplement === true;
@@ -29,21 +30,27 @@ async function runMapsBusinessJob(schedule, integrationEnv, options = {}) {
   });
 
   if (wantDirectorySupplement && results && results.length > 0) {
-    try {
-      const directoryLeads = await directoryLeadSearch.searchDirectoryLeads({
-        keyword: schedule.keyword,
-        city: schedule.city,
-        state: schedule.state,
-        maxResults: Math.min(25, schedule.maxResults || 20),
-        integrationEnv,
-      });
+    const dirAttempt = await runBestEffort(
+      () =>
+        directoryLeadSearch.searchDirectoryLeads({
+          keyword: schedule.keyword,
+          city: schedule.city,
+          state: schedule.state,
+          maxResults: Math.min(25, schedule.maxResults || 20),
+          integrationEnv,
+        }),
+      [],
+      DIRECTORY_BUDGET_MS,
+      'directory_supplement'
+    );
+    if (dirAttempt.error) {
+      console.warn('[SCRAPE-JOB] Directory supplement skipped:', dirAttempt.error);
+    } else {
       results = directoryLeadSearch.mergeMapsAndDirectoryLeads(
         results,
-        directoryLeads,
+        dirAttempt.value || [],
         schedule.maxResults || 20
       );
-    } catch (dirErr) {
-      console.warn('[SCRAPE-JOB] Directory supplement failed:', dirErr.message);
     }
   }
 
@@ -53,8 +60,23 @@ async function runMapsBusinessJob(schedule, integrationEnv, options = {}) {
     );
   }
 
-  results = await enricher.enrichLeads(results, { workspaceId: schedule.workspaceId || 'default' });
-  return results;
+  const enrichAttempt = await runBestEffort(
+    () =>
+      enricher.enrichLeads(results, {
+        workspaceId: schedule.workspaceId || 'default',
+        timeoutMs: ENRICH_BUDGET_MS,
+      }),
+    results,
+    ENRICH_BUDGET_MS + 5000,
+    'maps_enrich'
+  );
+  if (enrichAttempt.error) {
+    console.warn(
+      '[SCRAPE-JOB] Trailing enrich timed out or failed; keeping Maps results:',
+      enrichAttempt.error
+    );
+  }
+  return enrichAttempt.value || results;
 }
 
 async function runListingJob(schedule, integrationEnv) {
