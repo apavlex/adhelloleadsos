@@ -7559,8 +7559,59 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function getGhlContactsUrl() {
-    return 'https://my.adhello.ai/';
+    const fromWindow =
+      typeof window !== 'undefined' && window.GHL_DASHBOARD_URL
+        ? String(window.GHL_DASHBOARD_URL).trim()
+        : '';
+    return fromWindow || 'https://my.adhello.ai/';
   }
+
+  function websiteBuildSlugFromTitle(title) {
+    const s = String(title || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 48);
+    return s || 'site';
+  }
+
+  function websiteBuildPublicUrlForRow(row) {
+    const stored = row && row.dataset ? String(row.dataset.websiteBuildUrl || '').trim() : '';
+    if (/^https?:\/\//i.test(stored)) return stored;
+    const title = row && row.dataset ? String(row.dataset.title || '').trim() : '';
+    return 'https://' + websiteBuildSlugFromTitle(title) + '.my.adhello.ai';
+  }
+
+  function syncHeaderWebsiteBuildRow(row) {
+    const link = document.getElementById('leadPanelWebsiteBuildLink');
+    if (!link) return;
+    const url = websiteBuildPublicUrlForRow(row);
+    link.href = url;
+    try {
+      link.textContent = new URL(url).hostname.replace(/^www\./i, '');
+    } catch (_) {
+      link.textContent = url.replace(/^https?:\/\//i, '');
+    }
+    if (row && row.dataset) row.dataset.websiteBuildUrl = url;
+  }
+
+  document.addEventListener('click', (e) => {
+    const btn = e.target && e.target.closest && e.target.closest('#leadPanelWebsiteBuildCopyBtn');
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const link = document.getElementById('leadPanelWebsiteBuildLink');
+    const url = (link && link.href) || websiteBuildPublicUrlForRow(resolvePanelActionRow());
+    if (!url || url === '#' || url.endsWith('/#')) return;
+    if (typeof copyTextToClipboard === 'function') {
+      copyTextToClipboard(url).then(() => {
+        if (typeof window.showProspectToast === 'function') {
+          window.showProspectToast('Website build link copied');
+        }
+      });
+    }
+  });
 
   function syncLeadPanelOutreachIntelButtons(row) {
     const phone = rowDatasetHasUsablePhone(row);
@@ -8571,6 +8622,7 @@ document.addEventListener('DOMContentLoaded', () => {
     syncGoogleReviewsLink(tableRow);
     syncHeaderPhoneRow(tableRow, phone);
     syncHeaderWebsiteRow(tableRow);
+    syncHeaderWebsiteBuildRow(tableRow);
     syncHeaderEmailRow(tableRow);
     syncLeadPanelContactLinks(tableRow);
     if (typeof window.__syncLeadPanelSocialsSummary === 'function') {

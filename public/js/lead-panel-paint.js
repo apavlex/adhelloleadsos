@@ -204,11 +204,49 @@
       }
     }
 
+    paintWebsiteBuildLink(L, row);
+
     if (row && row.dataset) {
       if (website && isEmpty(row.dataset.website)) row.dataset.website = website;
       if (address && isEmpty(row.dataset.address)) row.dataset.address = address;
       if (L && !isEmpty(L.url) && isEmpty(row.dataset.url)) row.dataset.url = String(L.url).trim();
     }
+  }
+
+  function websiteBuildSlugFromTitle(title) {
+    const s = String(title || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 48);
+    return s || 'site';
+  }
+
+  function websiteBuildPublicUrl(lead, row) {
+    const stored =
+      (lead && !isEmpty(lead.websiteBuildUrl) && String(lead.websiteBuildUrl).trim()) ||
+      (row && row.dataset && !isEmpty(row.dataset.websiteBuildUrl) && String(row.dataset.websiteBuildUrl).trim()) ||
+      '';
+    if (/^https?:\/\//i.test(stored)) return stored;
+    const title =
+      (lead && !isEmpty(lead.title) && String(lead.title).trim()) ||
+      (row && row.dataset && String(row.dataset.title || '').trim()) ||
+      '';
+    return 'https://' + websiteBuildSlugFromTitle(title) + '.my.adhello.ai';
+  }
+
+  function paintWebsiteBuildLink(lead, row) {
+    const link = panelEl('leadPanelWebsiteBuildLink');
+    if (!link) return;
+    const url = websiteBuildPublicUrl(lead, row);
+    link.href = url;
+    try {
+      link.textContent = new URL(url).hostname.replace(/^www\./i, '');
+    } catch (_) {
+      link.textContent = url.replace(/^https?:\/\//i, '');
+    }
+    if (row && row.dataset) row.dataset.websiteBuildUrl = url;
   }
 
   function scrapeRowIntoLead(row, base) {

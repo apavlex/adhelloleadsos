@@ -52,7 +52,8 @@
       : { lowReviewsThreshold: 30 }
   ) %>;
   window.WORKSPACE_IS_AGENCY_SALES = <%- JSON.stringify(typeof isAgencySalesWorkspace !== 'undefined' && isAgencySalesWorkspace) %>;
-  window.GHL_DASHBOARD_URL = <%- JSON.stringify(typeof ghlDashboardUrl !== 'undefined' && ghlDashboardUrl ? String(ghlDashboardUrl) : '') %>;
+  window.GHL_DASHBOARD_URL = <%- JSON.stringify(typeof ghlDashboardUrl !== 'undefined' && ghlDashboardUrl ? String(ghlDashboardUrl) : 'https://my.adhello.ai') %>;
+  window.GHL_WEBSITES_URL = <%- JSON.stringify(typeof ghlWebsitesUrl !== 'undefined' && ghlWebsitesUrl ? String(ghlWebsitesUrl) : 'https://my.adhello.ai/v2/location') %>;
 </script>
 
 <!-- Cold call war room: high-contrast panel, script tabs, notes, primary dial in footer -->

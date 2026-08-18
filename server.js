@@ -148,6 +148,7 @@ app.use(passport.session());
 
 app.locals.renderSocialBrandLinks = (links) => socialBrandIcons.renderLinks(links);
 
+const { ghlCrmBaseUrl, ghlWebsitesBuilderUrl } = require('./services/websiteBuildLinks');
 const { getQuickLogClientPayload, resolveActiveQuickLogFromLead } = require('./services/quickLogConfig');
 const quickLogClientPayload = getQuickLogClientPayload();
 app.locals.resolveActiveQuickLogFromLead = resolveActiveQuickLogFromLead;
@@ -156,7 +157,11 @@ app.locals.resolveActiveQuickLogFromLead = resolveActiveQuickLogFromLead;
 app.use((req, res, next) => {
   res.locals.user = req.user || null;
   res.locals.hermesWebUiUrl = process.env.HERMES_WEBUI_URL || '';
-  res.locals.ghlDashboardUrl = process.env.GHL_DASHBOARD_URL || '';
+  res.locals.ghlDashboardUrl = ghlCrmBaseUrl(process.env.GHL_DASHBOARD_URL);
+  res.locals.ghlWebsitesUrl = ghlWebsitesBuilderUrl({
+    dashboardUrl: res.locals.ghlDashboardUrl,
+    locationId: process.env.GHL_LOCATION_ID,
+  });
   res.locals.quickLogClient = quickLogClientPayload;
   next();
 });

@@ -25,6 +25,7 @@ const { pushLastProspectedField } = require('./ghlLastProspectedField');
 const { pushReviewFields } = require('./ghlReviewFields');
 const { pushPhoneLineFields } = require('./ghlPhoneLineFields');
 const { pushOutreachProfileFields } = require('./ghlOutreachProfileFields');
+const { pushWebsiteBuildField } = require('./ghlWebsiteBuildField');
 const { normalizeGhlSyncDirection } = require('./ghlSyncDirection');
 
 const GHL_TAG_NO_WEBSITE = 'no website';
@@ -273,6 +274,7 @@ async function pushLeadToGhlInner(lead, integrationEnv) {
     integrationEnv,
     lead.workspaceId,
   );
+  const websiteBuildField = await pushWebsiteBuildField(contactId, lead, integrationEnv);
   const notePush = await pushNotesToGhl(lead, contactId, integrationEnv);
   const notePull = await pullNotesFromGhl(lead, contactId, integrationEnv);
   const followUpTask = await syncFollowUpTaskToGhl(lead, contactId, integrationEnv);
@@ -314,6 +316,7 @@ async function pushLeadToGhlInner(lead, integrationEnv) {
     reviewFields,
     phoneLineFields,
     outreachProfileFields,
+    websiteBuildField,
   };
 }
 

@@ -13,6 +13,7 @@ const {
   kickoffFolderOutreachInBackground,
 } = require('../services/folderOutreachAutomation');
 const { normalizeAutoPoolSettings, runAutoPool } = require('../services/prospectingAutoPool');
+const { ghlCrmBaseUrl, ghlWebsitesBuilderUrl } = require('../services/websiteBuildLinks');
 
 /**
  * GET /ceo — Automate command center (folder outreach, searches, cadences).
@@ -50,7 +51,13 @@ router.get('/', async (req, res) => {
       automationsTimezoneLabel: (reportStats && reportStats.timezoneLabel) || '',
       recentAutomationActivity,
       ghlConfigured,
-      ghlDashboardUrl: integrationEnv.ghlDashboardUrl || process.env.GHL_DASHBOARD_URL || '',
+      ghlDashboardUrl: ghlCrmBaseUrl(
+        integrationEnv.ghlDashboardUrl || process.env.GHL_DASHBOARD_URL,
+      ),
+      ghlWebsitesUrl: ghlWebsitesBuilderUrl({
+        dashboardUrl: integrationEnv.ghlDashboardUrl || process.env.GHL_DASHBOARD_URL,
+        locationId: integrationEnv.GHL_LOCATION_ID || process.env.GHL_LOCATION_ID,
+      }),
     });
   } catch (err) {
     console.error('[CEO] Dashboard error:', err.message);
