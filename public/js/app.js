@@ -2307,10 +2307,12 @@ document.addEventListener('DOMContentLoaded', () => {
         ds.tags = '[]';
       }
     }
-    if (lead.bookmarked) {
-      ds.bookmarked = '1';
-    } else if (lead.bookmarked === false) {
-      delete ds.bookmarked;
+    if (ds.bookmarkClient !== '1') {
+      if (lead.bookmarked) {
+        ds.bookmarked = '1';
+      } else if (lead.bookmarked === false) {
+        ds.bookmarked = '0';
+      }
     }
     return true;
   }
@@ -5484,7 +5486,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!row) return;
 
       // Pipeline leads are already saved — never fall through to search save/unsave.
-      if (isPipelineBookmarkTable()) {
+      // pipeline-bookmark.js owns the click when it loaded; this is the fallback.
+      if (
+        bookmarkBtn.classList.contains('pipeline-bookmark-btn') ||
+        (isPipelineBookmarkTable() && bookmarkBtn.closest('#prospectLeadsTable'))
+      ) {
+        if (window.__PIPELINE_BOOKMARK_BOUND === '1') return;
         await togglePipelineLeadBookmark(row, bookmarkBtn);
         return;
       }
@@ -7059,15 +7066,19 @@ document.addEventListener('DOMContentLoaded', () => {
       ds.onPipelineBoard = L.onPipelineBoard ? '1' : '';
     }
     if (L.bookmarked !== undefined) {
-      if (L.bookmarked) ds.bookmarked = '1';
-      else delete ds.bookmarked;
       const bookmarkBtn = row.querySelector && row.querySelector('.bookmark-btn');
-      if (bookmarkBtn) {
-        if (L.bookmarked) markBookmarkSaved(bookmarkBtn);
-        else markBookmarkUnsaved(bookmarkBtn);
+      const clientOwnsBookmark =
+        ds.bookmarkClient === '1' ||
+        (bookmarkBtn && bookmarkBtn.dataset.bookmarkBusy === '1');
+      if (!clientOwnsBookmark) {
+        ds.bookmarked = L.bookmarked ? '1' : '0';
+        if (bookmarkBtn) {
+          if (L.bookmarked) markBookmarkSaved(bookmarkBtn);
+          else markBookmarkUnsaved(bookmarkBtn);
+        }
+        const embedded = findInitialSavedLeadRecord(row);
+        if (embedded) embedded.bookmarked = !!L.bookmarked;
       }
-      const embedded = findInitialSavedLeadRecord(row);
-      if (embedded) embedded.bookmarked = !!L.bookmarked;
     }
     coalesceRowDatasetFromContacts(row);
     hydrateRowDatasetFromTableDom(row);
@@ -15624,16 +15635,25 @@ document.addEventListener('DOMContentLoaded', () => {
       return false;
     }
 
+    const savedAttr = bookmarkBtn.getAttribute('data-saved');
     const currentlySaved =
+      savedAttr === '1' ||
       bookmarkBtn.dataset.saved === '1' ||
-      bookmarkBtn.getAttribute('data-saved') === '1' ||
-      row.dataset.bookmarked === '1';
+      bookmarkBtn.classList.contains('bookmark-btn--saved')
+        ? true
+        : savedAttr === '0' || bookmarkBtn.dataset.saved === '0'
+          ? false
+          : row.dataset.bookmarked === '1';
     const next = !currentlySaved;
 
     bookmarkBtn.dataset.bookmarkBusy = '1';
     bookmarkBtn.setAttribute('aria-busy', 'true');
     if (next) markBookmarkSaved(bookmarkBtn);
     else markBookmarkUnsaved(bookmarkBtn);
+    if (row.dataset) {
+      row.dataset.bookmarked = next ? '1' : '0';
+      row.dataset.bookmarkClient = '1';
+    }
 
     try {
       const res = await fetch('/leads/' + encodeURIComponent(leadKey) + '/update', {
@@ -15646,14 +15666,18 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!res.ok || !data.success) {
         throw new Error((data && data.error) || 'Could not update bookmark');
       }
+      const persisted =
+        data.lead && Object.prototype.hasOwnProperty.call(data.lead, 'bookmarked')
+          ? !!data.lead.bookmarked
+          : next;
       if (row.dataset) {
-        if (next) row.dataset.bookmarked = '1';
-        else delete row.dataset.bookmarked;
+        row.dataset.bookmarked = persisted ? '1' : '0';
+        row.dataset.bookmarkClient = '1';
       }
       const rec = findInitialSavedLeadRecord(row);
-      if (rec) rec.bookmarked = next;
+      if (rec) rec.bookmarked = persisted;
       // Re-assert UI in case another hydrate raced the request.
-      if (next) markBookmarkSaved(bookmarkBtn);
+      if (persisted) markBookmarkSaved(bookmarkBtn);
       else markBookmarkUnsaved(bookmarkBtn);
       if (typeof window.showProspectToast === 'function') {
         window.showProspectToast(next ? 'Lead bookmarked' : 'Bookmark removed');
@@ -15663,6 +15687,10 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error('Failed to toggle pipeline bookmark:', err);
       if (next) markBookmarkUnsaved(bookmarkBtn);
       else markBookmarkSaved(bookmarkBtn);
+      if (row.dataset) {
+        row.dataset.bookmarked = next ? '0' : '1';
+        delete row.dataset.bookmarkClient;
+      }
       if (typeof window.showAppToast === 'function') {
         window.showAppToast(err.message || 'Could not update bookmark', { variant: 'error' });
       }
@@ -15691,7 +15719,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function markBookmarkUnsaved(btn) {
     if (!btn) return;
-    delete btn.dataset.saved;
+    btn.dataset.saved = '0';
     btn.setAttribute('data-saved', '0');
     btn.setAttribute('aria-pressed', 'false');
     btn.classList.remove('bg-brand-yellow', 'text-brand-dark', 'border-brand-yellow', 'bookmark-btn--saved');

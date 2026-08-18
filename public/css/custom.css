@@ -1722,12 +1722,24 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   -webkit-user-select: text;
 }
 
+/* Sticky checkbox cell paints above company (z-index 35 vs 34) and can cover the
+   bookmark on the column seam. Let clicks pass through the empty cell. */
+.prospect-leads-table td.lead-sticky-check {
+  pointer-events: none;
+}
+.prospect-leads-table td.lead-sticky-check .lead-checkbox,
+.prospect-leads-table td.lead-sticky-check button,
+.prospect-leads-table td.lead-sticky-check a {
+  pointer-events: auto;
+}
+
 #prospectLeadsTable .pipeline-bookmark-btn {
   cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
   position: relative;
-  z-index: 36;
+  z-index: 40;
+  pointer-events: auto !important;
 }
 
 .bookmark-btn[data-saved='1'],
@@ -1739,7 +1751,7 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
 
 .bookmark-btn[data-saved='1'] svg,
 .bookmark-btn.bookmark-btn--saved svg {
-  fill: currentColor;
+  fill: currentColor !important;
 }
 
 a.website-link.website-link--holding {
@@ -1788,7 +1800,7 @@ a.website-link.website-link--holding {
 .prospect-leads-table th.lead-sticky-company,
 .prospect-leads-table td.lead-sticky-company {
   position: sticky;
-  left: var(--plc-check-sticky-w, 3rem);
+  left: var(--plc-check-sticky-w, 5.25rem);
   z-index: 34;
   box-shadow: 1px 0 0 rgba(17, 24, 39, 0.06);
   backdrop-filter: blur(14px);
@@ -1833,7 +1845,7 @@ a.website-link.website-link--holding {
 .prospect-leads-table thead th.lead-sticky-company {
   z-index: 44;
   position: sticky;
-  left: var(--plc-check-sticky-w, 3rem);
+  left: var(--plc-check-sticky-w, 5.25rem);
 }
 
 .prospect-leads-table thead th.lead-sticky-check,
@@ -1970,11 +1982,12 @@ html.dark #pipelineColumnsPopover {
   border-collapse: separate !important;
 }
 
-/* Match checkbox column width to w-12 (3rem) so tbody sticky company `left: 3rem` lines up. */
+/* Checkbox + bookmark sit in the sticky check column. */
+.prospect-leads-table th.lead-sticky-check,
 .prospect-leads-table td.lead-sticky-check {
-  width: 3rem;
-  min-width: 3rem;
-  max-width: 3rem;
+  width: 5.25rem;
+  min-width: 5.25rem;
+  max-width: 5.25rem;
   box-sizing: border-box;
 }
 
@@ -2237,7 +2250,7 @@ html[data-pipeline-prefs-ready="1"] #prospectPipelineTableScroll {
 
 .bookmark-btn[data-saved='1'] svg,
 .bookmark-btn.bookmark-btn--saved svg {
-  fill: currentColor;
+  fill: currentColor !important;
 }
 
 .prospect-leads-table tr.result-row.pipeline-row-page-hidden {
