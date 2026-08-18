@@ -198,7 +198,7 @@
                     </span>
                     <input type="search" id="findLocationQuery" autocomplete="off" placeholder="Vancouver, WA or full address…" value="<%= _prefLocationQuery %>"
                       class="min-w-0 flex-1 border-0 bg-transparent px-4 sm:px-2 py-4 sm:py-3.5 text-base sm:text-lg font-semibold text-brand-dark dark:text-white placeholder:text-brand-muted/55 focus:outline-none focus:ring-0" />
-                    <button type="button" id="findLocationResolveBtn" class="shrink-0 m-1.5 sm:m-2 rounded-full bg-brand-yellow px-5 sm:px-6 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark hover:brightness-105 active:scale-[0.98] transition-all">
+                    <button type="button" id="findLocationResolveBtn" data-step-next="2" class="shrink-0 m-1.5 sm:m-2 rounded-full bg-brand-yellow px-5 sm:px-6 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark hover:brightness-105 active:scale-[0.98] transition-all">
                       Continue to keyword
                     </button>
                   </div>
@@ -569,6 +569,7 @@
     <% } %>
   </main>
 
+  <script src="/js/find-location-resolve.js?v=<%= assetVersion %>"></script>
   <script src="/js/permit-city-picker.js?v=<%= assetVersion %>"></script>
   <script src="/js/app.js?v=<%= assetVersion %>"></script>
   <script>
@@ -812,77 +813,186 @@
       } catch (e) { /* ignore */ }
     }
 
+    function setFindLocationContinueEnabled() {
+      ['findLocationResolveBtn', 'findStep1Next'].forEach(function (id) {
+        var btn = document.getElementById(id);
+        if (!btn) return;
+        btn.disabled = false;
+        btn.removeAttribute('aria-disabled');
+        btn.classList.remove('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+      });
+    }
+
+    function applyFindLocationPicked(picked, queryFallback) {
+      if (!picked || !picked.ok) return false;
+      var q = String(queryFallback || '').trim();
+      writeFindManualLocation(picked.city, picked.state, picked.label || q);
+      syncFindPreview();
+      setFindLocationContinueEnabled();
+      return true;
+    }
+
+    function applyTypedFindLocationFromQuery() {
+      var queryEl = document.getElementById('findLocationQuery');
+      var q = queryEl ? String(queryEl.value || '').trim() : '';
+      var helper = window.AdhelloFindLocation;
+      var picked = helper && typeof helper.pickResolvedLocation === 'function'
+        ? helper.pickResolvedLocation(q, null, {})
+        : (function () {
+            var parsed = parseCityStateFromQuery(q);
+            if (parsed.city && parsed.state) {
+              return { ok: true, city: parsed.city, state: parsed.state, label: q, source: 'typed' };
+            }
+            return { ok: false };
+          })();
+      if (!q) {
+        writeFindManualLocation('', '', '');
+        return false;
+      }
+      if (!picked.ok) return false;
+      writeFindManualLocation(picked.city, picked.state, q);
+      return true;
+    }
+    window.applyTypedFindLocationFromQuery = applyTypedFindLocationFromQuery;
+
+    function locFromGeocodeResults(results, status, q) {
+      if (status === 'OK' && results && results[0]) {
+        var comps = results[0].address_components || [];
+        var city = '';
+        var state = '';
+        for (var i = 0; i < comps.length; i++) {
+          var t = comps[i].types || [];
+          if (t.indexOf('locality') >= 0) city = comps[i].long_name;
+          if (t.indexOf('administrative_area_level_1') >= 0) state = comps[i].short_name || '';
+        }
+        if (!city) {
+          for (var j = 0; j < comps.length; j++) {
+            var t2 = comps[j].types || [];
+            if (t2.indexOf('sublocality') >= 0 || t2.indexOf('neighborhood') >= 0) {
+              city = comps[j].long_name;
+              break;
+            }
+          }
+        }
+        return { city: city || '', state: (state || '').slice(0, 2).toUpperCase(), label: results[0].formatted_address || q };
+      }
+      return null;
+    }
+
+    function runGoogleGeocode(query, done) {
+      var finished = false;
+      var iv = null;
+      function finish(loc, err) {
+        if (finished) return;
+        finished = true;
+        if (iv) clearInterval(iv);
+        done(loc, err);
+      }
+      function attempt() {
+        if (!(window.google && google.maps && google.maps.Geocoder)) return false;
+        try {
+          var geocoder = new google.maps.Geocoder();
+          geocoder.geocode({ address: query }, function (results, status) {
+            finish(locFromGeocodeResults(results, status, query), status && status !== 'OK' ? status : null);
+          });
+        } catch (e) {
+          finish(null, e);
+        }
+        return true;
+      }
+      if (attempt()) return;
+      if (typeof window.__bootFindAreaMap === 'function') window.__bootFindAreaMap();
+      var started = Date.now();
+      iv = setInterval(function () {
+        if (finished) {
+          clearInterval(iv);
+          return;
+        }
+        if (attempt()) return;
+        if (Date.now() - started > 10000) finish(null, 'no_geocoder');
+      }, 150);
+    }
+
     function geocodeFindLocationQuery(query, done) {
+      var helper = window.AdhelloFindLocation;
       var q = String(query || '').trim();
+      var timeoutMs = helper && helper.GEOCODE_TIMEOUT_MS ? helper.GEOCODE_TIMEOUT_MS : 10000;
       if (!q) {
         done(null, 'Enter a city, state, or address.');
         return;
       }
-      if (window.google && google.maps && google.maps.Geocoder) {
-        var geocoder = new google.maps.Geocoder();
-        geocoder.geocode({ address: q }, function (results, status) {
-          if (status === 'OK' && results && results[0]) {
-            var comps = results[0].address_components || [];
-            var city = '';
-            var state = '';
-            for (var i = 0; i < comps.length; i++) {
-              var t = comps[i].types || [];
-              if (t.indexOf('locality') >= 0) city = comps[i].long_name;
-              if (t.indexOf('administrative_area_level_1') >= 0) state = comps[i].short_name || '';
-            }
-            if (!city) {
-              for (var j = 0; j < comps.length; j++) {
-                var t2 = comps[j].types || [];
-                if (t2.indexOf('sublocality') >= 0 || t2.indexOf('neighborhood') >= 0) {
-                  city = comps[j].long_name;
-                  break;
-                }
-              }
-            }
-            var label = results[0].formatted_address || q;
-            done({ city: city || '', state: (state || '').slice(0, 2).toUpperCase(), label: label }, null);
-            return;
-          }
-          var parsed = parseCityStateFromQuery(q);
-          if (parsed.city && parsed.state) {
-            done({ city: parsed.city, state: parsed.state, label: q }, null);
-            return;
-          }
-          done(null, 'Could not find that location — try City, ST (e.g. Vancouver, WA).');
-        });
+      if (!helper || typeof helper.resolveQueryWithGeocode !== 'function') {
+        var parsed = parseCityStateFromQuery(q);
+        if (parsed.city && parsed.state) {
+          done({ city: parsed.city, state: parsed.state, label: q }, null);
+          return;
+        }
+        done(null, parsed.city ? 'Add a state — e.g. Vancouver, WA' : 'Enter city and state — e.g. Vancouver, WA');
         return;
       }
-      var fallback = parseCityStateFromQuery(q);
-      if (fallback.city && fallback.state) {
-        done({ city: fallback.city, state: fallback.state, label: q }, null);
-        return;
-      }
-      if (fallback.city) {
-        done({ city: fallback.city, state: '', label: q }, 'Add a state — e.g. Vancouver, WA');
-        return;
-      }
-      done(null, 'Enter city and state — e.g. Vancouver, WA');
+      helper.resolveQueryWithGeocode(q, runGoogleGeocode, timeoutMs, function (result) {
+        if (result.picked && result.picked.ok) {
+          done({
+            city: result.picked.city,
+            state: result.picked.state,
+            label: result.picked.label,
+            timedOut: !!result.timedOut,
+            source: result.picked.source,
+          }, null);
+          return;
+        }
+        done(null, (result.picked && result.picked.error) || 'Could not find that location — try City, ST (e.g. Vancouver, WA).');
+      });
     }
 
+    var findLocResolveGen = 0;
     function resolveFindLocationFromQuery(cb) {
       var queryEl = document.getElementById('findLocationQuery');
       var summary = document.getElementById('findLocationSummaryText');
+      var helper = window.AdhelloFindLocation;
       var q = queryEl ? String(queryEl.value || '').trim() : '';
+      var gen = ++findLocResolveGen;
+      setFindLocationContinueEnabled();
       if (!q) {
         if (summary) summary.textContent = 'Enter a location above to continue.';
         if (cb) cb(false);
         return;
       }
-      if (typeof window.__bootFindAreaMap === 'function') window.__bootFindAreaMap();
+
+      var typed = helper && typeof helper.pickResolvedLocation === 'function'
+        ? helper.pickResolvedLocation(q, null, {})
+        : (function () {
+            var parsed = parseCityStateFromQuery(q);
+            if (parsed.city && parsed.state) {
+              return { ok: true, city: parsed.city, state: parsed.state, label: q, source: 'typed' };
+            }
+            return { ok: false };
+          })();
+      if (typed && typed.ok) {
+        applyFindLocationPicked(typed, q);
+        if (summary && helper && typeof helper.statusMessageForLocation === 'function') {
+          summary.textContent = helper.statusMessageForLocation(typed);
+        }
+        if (cb) cb(true);
+        return;
+      }
+
       if (summary) summary.textContent = 'Looking up location…';
       geocodeFindLocationQuery(q, function (loc, err) {
+        if (gen !== findLocResolveGen) return;
+        setFindLocationContinueEnabled();
         if (!loc || !loc.city || !loc.state) {
           if (summary) summary.textContent = err || 'Enter city and state — e.g. Vancouver, WA';
           if (cb) cb(false);
           return;
         }
-        writeFindManualLocation(loc.city, loc.state, loc.label || q);
-        syncFindPreview();
+        var picked = helper && typeof helper.pickResolvedLocation === 'function'
+          ? helper.pickResolvedLocation(q, loc, { timedOut: !!loc.timedOut })
+          : { ok: true, city: loc.city, state: loc.state, label: loc.label || q, source: loc.source || 'geocode' };
+        applyFindLocationPicked(picked, q);
+        if (summary && helper && typeof helper.statusMessageForLocation === 'function') {
+          summary.textContent = helper.statusMessageForLocation(picked);
+        }
         if (cb) cb(true);
       });
     }
@@ -1059,7 +1169,7 @@
           ? 'No location required — set search terms on the next step.'
           : currentType === 'permits'
             ? (locLabel !== '—' ? 'Searching permits in ' + locLabel : 'Select a supported Permit Stack city to continue.')
-            : (locLabel !== '—' ? 'Searching in ' + locLabel : 'Enter a location above to continue.');
+            : (locLabel !== '—' ? "We'll search in " + locLabel + '.' : 'Enter a location above to continue.');
         summary.classList.toggle('text-brand-dark', nationwide || locLabel !== '—');
         summary.classList.toggle('dark:text-white', nationwide || locLabel !== '—');
         summary.classList.toggle('text-brand-muted', !nationwide && locLabel === '—');
@@ -1125,15 +1235,22 @@
     if (formationEntitySel) formationEntitySel.addEventListener('change', syncFindPreview);
     var findLocQuery = document.getElementById('findLocationQuery');
     var findLocResolveBtn = document.getElementById('findLocationResolveBtn');
-    if (findLocResolveBtn) findLocResolveBtn.addEventListener('click', function () { resolveFindLocationFromQuery(); });
     if (findLocQuery) {
+      findLocQuery.addEventListener('input', function () {
+        applyTypedFindLocationFromQuery();
+        setFindLocationContinueEnabled();
+      });
       findLocQuery.addEventListener('keydown', function (e) {
         if (e.key === 'Enter') {
           e.preventDefault();
-          resolveFindLocationFromQuery();
+          applyTypedFindLocationFromQuery();
+          setFindLocationContinueEnabled();
+          var next = document.getElementById('findStep1Next') || findLocResolveBtn;
+          if (next) next.click();
         }
       });
     }
+    setFindLocationContinueEnabled();
     var openMapBtn = document.getElementById('findOpenMapBtn');
     var closeMapBtn = document.getElementById('findCloseMapBtn');
     if (openMapBtn) openMapBtn.addEventListener('click', openFindAreaMapPanel);
@@ -1190,6 +1307,8 @@
     setFindType(currentType);
     applyFolderSearchPreset();
     lockFindTypeWhenFolderPreset();
+    applyTypedFindLocationFromQuery();
+    setFindLocationContinueEnabled();
   })();
   </script>
   <%- include('/partials/app_shell_close') %>

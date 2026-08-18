@@ -2587,6 +2587,22 @@ document.addEventListener('DOMContentLoaded', () => {
       return true;
     }
 
+    function applyTypedFindLocation() {
+      if (typeof window.applyTypedFindLocationFromQuery === 'function') {
+        return window.applyTypedFindLocationFromQuery();
+      }
+      const queryEl = document.getElementById('findLocationQuery');
+      const helper = window.AdhelloFindLocation;
+      if (!queryEl || !helper || typeof helper.parseCityStateFromQuery !== 'function') return false;
+      const parsed = helper.parseCityStateFromQuery(queryEl.value);
+      if (!parsed.city || !parsed.state) return false;
+      const city = document.getElementById('findManualCity');
+      const state = document.getElementById('findManualState');
+      if (city) city.value = parsed.city;
+      if (state) state.value = parsed.state;
+      return true;
+    }
+
     function hasFindLocation() {
       if (!findTypeRequiresLocation()) return true;
       const form = document.getElementById('searchForm');
@@ -2597,15 +2613,21 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       const city = document.getElementById('findManualCity');
       const state = document.getElementById('findManualState');
-      return Boolean(
-        city && state && String(city.value || '').trim() && String(state.value || '').trim()
-      );
+      if (city && state && String(city.value || '').trim() && String(state.value || '').trim()) {
+        return true;
+      }
+      return applyTypedFindLocation();
     }
 
     function showFindLocationRequired() {
       const form = document.getElementById('searchForm');
       const type = form && form.getAttribute('data-find-type');
       const summary = document.getElementById('findLocationSummaryText');
+      applyTypedFindLocation();
+      if (type !== 'permits' && hasFindLocation()) {
+        trySetStep('2');
+        return;
+      }
       if (type !== 'permits' && typeof window.resolveFindLocationFromQuery === 'function') {
         window.resolveFindLocationFromQuery(() => {
           if (hasFindLocation()) trySetStep('2');
@@ -2637,11 +2659,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const trySetStep = (stepNo) => {
       const step = String(stepNo);
-      if (step === '2' && !hasFindLocation()) {
-        showFindLocationRequired();
-        return;
+      if (step === '2') {
+        applyTypedFindLocation();
+        if (!hasFindLocation()) {
+          showFindLocationRequired();
+          return;
+        }
+        closeFindAreaMapPanelIfOpen();
       }
-      if (step === '2') closeFindAreaMapPanelIfOpen();
       setStep(step);
     };
 
