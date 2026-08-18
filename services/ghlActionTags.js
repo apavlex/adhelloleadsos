@@ -22,6 +22,8 @@ const AO_ACTION_TAGS = Object.freeze({
   SITE_AUDIT: `${ACTION_TAG_PREFIX} Site audit`,
   NOT_INTERESTED: `${ACTION_TAG_PREFIX} Not interested`,
   SEND_INFO: `${ACTION_TAG_PREFIX} Send info`,
+  DIRECT_MAIL: `${ACTION_TAG_PREFIX} Direct mail`,
+  QR_SCAN: `${ACTION_TAG_PREFIX} QR scan`,
 });
 
 const ALL_ACTION_TAG_VALUES = Object.freeze(Object.values(AO_ACTION_TAGS));
@@ -47,6 +49,7 @@ function channelToActionTag(channel) {
   if (c === 'voicemail') return AO_ACTION_TAGS.VOICEMAIL;
   if (c === 'meeting') return AO_ACTION_TAGS.MEETING;
   if (c === 'other') return AO_ACTION_TAGS.FOLLOW_UP;
+  if (c === 'direct_mail' || c === 'postcard' || c === 'lob') return AO_ACTION_TAGS.DIRECT_MAIL;
   return null;
 }
 
@@ -75,8 +78,27 @@ function statusToActionTag(status) {
   if (s === 'follow-up') return AO_ACTION_TAGS.FOLLOW_UP;
   if (s.includes('site audit')) return AO_ACTION_TAGS.SITE_AUDIT;
   if (s.includes('email sent')) return AO_ACTION_TAGS.SEND_INFO;
+  if (s.includes('mail sent') || s.includes('postcard')) return AO_ACTION_TAGS.DIRECT_MAIL;
   if (s.includes('closed') && s.includes('lost')) return AO_ACTION_TAGS.NOT_INTERESTED;
   return null;
+}
+
+function parseStampMs(raw) {
+  const ms = Date.parse(String(raw || '').trim());
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+/** Postcard QR scan wins over a stale disposition until the operator logs a newer action. */
+function mailScanActionTagFromLead(lead) {
+  const s = lead && lead.engagementSignals && typeof lead.engagementSignals === 'object'
+    ? lead.engagementSignals
+    : {};
+  const type = String(s.lastSignalType || '').trim();
+  if (type !== 'mail_scan') return null;
+  const scanAt = parseStampMs(s.mailScannedAt || s.lastSignalAt) || 1;
+  const dispAt = parseStampMs(lead && lead.lastDispositionAt);
+  if (dispAt > scanAt) return null;
+  return AO_ACTION_TAGS.QR_SCAN;
 }
 
 function isTerminalProspectStatus(lead) {
@@ -94,9 +116,13 @@ function computeActionTagsFromLead(lead) {
   if (!lead || typeof lead !== 'object') return [];
 
   const fromDisposition = dispositionToActionTag(lead.lastDisposition);
+  if (fromDisposition === AO_ACTION_TAGS.NOT_INTERESTED) return [fromDisposition];
+  if (isTerminalProspectStatus(lead)) return [];
+
+  const fromScan = mailScanActionTagFromLead(lead);
+  if (fromScan) return [fromScan];
+
   if (fromDisposition) {
-    if (fromDisposition === AO_ACTION_TAGS.NOT_INTERESTED) return [fromDisposition];
-    if (isTerminalProspectStatus(lead)) return [];
     return [fromDisposition];
   }
 
@@ -144,4 +170,5 @@ module.exports = {
   dispositionToActionTag,
   computeActionTagsFromLead,
   formatNextActionNote,
+  mailScanActionTagFromLead,
 };

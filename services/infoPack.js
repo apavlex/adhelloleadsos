@@ -12,6 +12,7 @@ const ghlClient = require('./ghlClient');
 const phoneLineType = require('./phoneLineType');
 const lobClient = require('./lobClient');
 const lobDirectMail = require('./lobDirectMail');
+const ghlProspectSync = require('./ghlProspectSync');
 
 const EMPTY_INFO_PACK = Object.freeze({
   auditUrl: '',
@@ -437,15 +438,30 @@ async function sendInfoPackToLead({
           latestLead =
             (await dbService.updateLead(latestLead.key, {
               status: latestLead.status === 'Not Contacted' ? 'Mail Sent' : latestLead.status,
+              lastTouchChannel: 'direct_mail',
               updates,
               logs: [
                 {
                   type: 'info_pack_direct_mail',
-                  message: `Info pack postcard sent${sent.postcardId ? ` (${sent.postcardId})` : ''}`,
+                  message: `Info pack postcard sent${sent.postcardId ? ` (${sent.postcardId})` : ''}${sent.qrRedirectUrl ? ' · QR' : ''}`,
                   timestamp: new Date().toISOString(),
+                  postcardId: sent.postcardId || '',
+                  lobUrl: sent.url || '',
+                  qrRedirectUrl: sent.qrRedirectUrl || '',
+                  provider: 'lob',
                 },
               ],
             })) || latestLead;
+          const queuedNote = [
+            `Info pack postcard sent${sent.postcardId ? ` (${sent.postcardId})` : ''}`,
+            sent.qrRedirectUrl ? `QR: ${sent.qrRedirectUrl}` : '',
+          ]
+            .filter(Boolean)
+            .join('\n');
+          ghlProspectSync.triggerGhlProspectSync(latestLead.key, wid, {
+            trigger: 'postcard_queued',
+            note: queuedNote,
+          });
         }
       } catch (err) {
         results.directMail = {

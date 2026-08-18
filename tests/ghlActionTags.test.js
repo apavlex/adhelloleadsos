@@ -40,6 +40,40 @@ describe('ghlActionTags', () => {
     assert.deepEqual(tags, [AO_ACTION_TAGS.SITE_AUDIT]);
   });
 
+  it('maps direct mail channel and Mail Sent status', () => {
+    assert.equal(channelToActionTag('direct_mail'), AO_ACTION_TAGS.DIRECT_MAIL);
+    assert.deepEqual(computeActionTagsFromLead({ lastTouchChannel: 'direct_mail' }), [
+      AO_ACTION_TAGS.DIRECT_MAIL,
+    ]);
+    assert.deepEqual(computeActionTagsFromLead({ status: 'Mail Sent' }), [AO_ACTION_TAGS.DIRECT_MAIL]);
+  });
+
+  it('maps a postcard QR scan over a stale disposition', () => {
+    const tags = computeActionTagsFromLead({
+      lastDisposition: 'send_info',
+      lastDispositionAt: '2026-08-01T12:00:00.000Z',
+      lastTouchChannel: 'direct_mail',
+      engagementSignals: {
+        lastSignalType: 'mail_scan',
+        mailScannedAt: '2026-08-18T15:00:00.000Z',
+        lastSignalAt: '2026-08-18T15:00:00.000Z',
+      },
+    });
+    assert.deepEqual(tags, [AO_ACTION_TAGS.QR_SCAN]);
+  });
+
+  it('keeps a newer operator disposition after a QR scan', () => {
+    const tags = computeActionTagsFromLead({
+      lastDisposition: 'callback',
+      lastDispositionAt: '2026-08-18T16:00:00.000Z',
+      engagementSignals: {
+        lastSignalType: 'mail_scan',
+        mailScannedAt: '2026-08-18T15:00:00.000Z',
+      },
+    });
+    assert.deepEqual(tags, [AO_ACTION_TAGS.CALL_BACK]);
+  });
+
   it('maps send info and not interested quick logs to AO tags', () => {
     assert.equal(dispositionToActionTag('send_info'), AO_ACTION_TAGS.SEND_INFO);
     assert.equal(dispositionToActionTag('not_interested'), AO_ACTION_TAGS.NOT_INTERESTED);

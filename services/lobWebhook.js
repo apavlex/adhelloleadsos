@@ -89,6 +89,19 @@ async function processLobWebhook(payload, opts = {}) {
     },
   });
 
+  const noteParts = ['Postcard QR scanned'];
+  if (parsed.postcardId) noteParts.push(`Postcard: ${parsed.postcardId}`);
+  if (parsed.redirectUrl) noteParts.push(parsed.redirectUrl);
+  try {
+    // Lazy require: ghlProspectSync ↔ ghlSync is circular at load time.
+    require('./ghlProspectSync').triggerGhlProspectSync(lead.key, wid, {
+      trigger: 'postcard_qr_scan',
+      note: noteParts.join('\n'),
+    });
+  } catch (err) {
+    console.warn('[lobWebhook] GHL sync skipped:', err && err.message);
+  }
+
   return {
     ok: true,
     workspaceId: wid,

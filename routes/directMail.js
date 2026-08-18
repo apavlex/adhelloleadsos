@@ -34,6 +34,7 @@ const {
   getCreativeStorageDir,
 } = require('../services/marketingImageComposite');
 const brandKitLogo = require('../services/brandKitLogo');
+const ghlProspectSync = require('../services/ghlProspectSync');
 
 const pendingImageJobs = new Map();
 const IMAGE_JOB_TTL_MS = 30 * 60 * 1000;
@@ -1293,6 +1294,7 @@ router.post('/api/send', async (req, res, next) => {
         });
         await dbService.updateLead(fullKey, {
           status: lead.status === 'Not Contacted' ? 'Mail Sent' : lead.status,
+          lastTouchChannel: 'direct_mail',
           updates,
           logs: [
             {
@@ -1305,6 +1307,16 @@ router.post('/api/send', async (req, res, next) => {
               provider: 'lob',
             },
           ],
+        });
+        const queuedNote = [
+          `Lob postcard queued${sent.postcardId ? ` (${sent.postcardId})` : ''}${sent.testMode ? ' [test]' : ''}`,
+          sent.qrRedirectUrl ? `QR: ${sent.qrRedirectUrl}` : '',
+        ]
+          .filter(Boolean)
+          .join('\n');
+        ghlProspectSync.triggerGhlProspectSync(fullKey, req.workspaceId, {
+          trigger: 'postcard_queued',
+          note: queuedNote,
         });
         results.push({
           key: fullKey,

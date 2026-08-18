@@ -40,9 +40,12 @@ test('leadHasPostcardId matches updates and logs', () => {
 test('processLobWebhook applies mail_scan engagement', async () => {
   const saved = [];
   const dbService = require('../services/database');
+  const ghlProspectSync = require('../services/ghlProspectSync');
   const origAll = dbService.getAllLeads;
   const origUpdate = dbService.updateLead;
   const origWs = require('../services/userTasks').upsertOpenTaskForLead;
+  const origTrigger = ghlProspectSync.triggerGhlProspectSync;
+  const ghlCalls = [];
 
   dbService.getAllLeads = async () => [
     {
@@ -56,12 +59,19 @@ test('processLobWebhook applies mail_scan engagement', async () => {
     return { key, ...patch };
   };
   require('../services/userTasks').upsertOpenTaskForLead = async () => ({ id: 'task-lob' });
+  ghlProspectSync.triggerGhlProspectSync = (key, workspaceId, extra) => {
+    ghlCalls.push({ key, workspaceId, extra });
+  };
 
   try {
     const result = await processLobWebhook(
       {
         event_type: 'postcard.viewed',
-        body: { id: 'psc_xyz', date_created: '2026-08-05T15:00:00.000Z' },
+        body: {
+          id: 'psc_xyz',
+          date_created: '2026-08-05T15:00:00.000Z',
+          qr_code_redirect_url: 'https://leads.adhello.ai/audit/x',
+        },
       },
       { workspaceId: 'default' },
     );
@@ -70,9 +80,15 @@ test('processLobWebhook applies mail_scan engagement', async () => {
     assert.equal(result.key, 'lead:lob-test');
     assert.ok(saved.length >= 1);
     assert.equal(saved[0].patch.engagementSignals.lastSignalType, 'mail_scan');
+    assert.equal(ghlCalls.length, 1);
+    assert.equal(ghlCalls[0].key, 'lead:lob-test');
+    assert.equal(ghlCalls[0].extra.trigger, 'postcard_qr_scan');
+    assert.match(ghlCalls[0].extra.note, /Postcard QR scanned/);
+    assert.match(ghlCalls[0].extra.note, /psc_xyz/);
   } finally {
     dbService.getAllLeads = origAll;
     dbService.updateLead = origUpdate;
     require('../services/userTasks').upsertOpenTaskForLead = origWs;
+    ghlProspectSync.triggerGhlProspectSync = origTrigger;
   }
 });
