@@ -8,6 +8,8 @@ const {
   normalizeLibraryItem,
   composeOfferScriptText,
   splitOfferScriptForSave,
+  appendLibraryItemIdempotent,
+  dedupeLibraryItems,
 } = require('../services/salesScriptsStorage');
 
 describe('salesScriptsStorage', () => {
@@ -72,5 +74,35 @@ describe('salesScriptsStorage', () => {
     assert.equal(split.opening, 'Full script body');
     assert.equal(split.discovery, '');
     assert.equal(split.close, '');
+  });
+
+  it('appendLibraryItemIdempotent returns the existing row for a same-title same-body save', () => {
+    const first = normalizeLibraryItem(
+      { id: 'sv_1', title: 'Sample Cold Outreach · Script', text: 'Hi [Name]', savedAt: '2026-08-18T23:21:00.000Z' },
+      SCRIPT_LIBRARY_KEYS,
+    );
+    const second = normalizeLibraryItem(
+      { id: 'sv_2', title: 'Sample Cold Outreach · Script', text: 'Hi [Name]', savedAt: '2026-08-18T23:21:05.000Z' },
+      SCRIPT_LIBRARY_KEYS,
+    );
+    const once = appendLibraryItemIdempotent([], first);
+    assert.equal(once.duplicate, false);
+    const twice = appendLibraryItemIdempotent(once.items, second);
+    assert.equal(twice.duplicate, true);
+    assert.equal(twice.items.length, 1);
+    assert.equal(twice.item.id, 'sv_1');
+  });
+
+  it('dedupeLibraryItems keeps the newest of identical title+body copies in a short window', () => {
+    const rows = [
+      { id: 'a', title: 'Sample Cold Outreach · Script', text: 'Hi [Name]', savedAt: '2026-08-18T23:21:00.000Z' },
+      { id: 'b', title: 'Sample Cold Outreach · Script', text: 'Hi [Name]', savedAt: '2026-08-18T23:22:00.000Z' },
+      { id: 'c', title: 'Sample Cold Outreach · Script', text: 'Hi [Name]', savedAt: '2026-08-18T23:22:10.000Z' },
+      { id: 'd', title: 'Different script', text: 'Other body', savedAt: '2026-08-18T23:22:10.000Z' },
+    ];
+    const out = dedupeLibraryItems(rows);
+    assert.equal(out.length, 2);
+    assert.equal(out.find((x) => x.title.startsWith('Sample')).id, 'c');
+    assert.equal(out.find((x) => x.id === 'd').id, 'd');
   });
 });

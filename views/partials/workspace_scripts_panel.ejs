@@ -158,6 +158,68 @@
       return parts.join('\n\n');
     }
 
+    var Scripts = window.AdHelloScripts || {};
+    function toEditorHtml(text) {
+      return Scripts.scriptTextToEditorHtml ? Scripts.scriptTextToEditorHtml(text) : String(text || '').replace(/\n/g, '<br>');
+    }
+    function sanitizeHtml(html) {
+      return Scripts.sanitizeScriptHtml ? Scripts.sanitizeScriptHtml(html) : String(html || '');
+    }
+    function richForSnippet(ta) {
+      if (!ta) return null;
+      return document.getElementById(ta.id + '-rich') || (ta.parentElement && ta.parentElement.querySelector('.script-rich'));
+    }
+    function syncRichFromTextarea(ta) {
+      var rich = richForSnippet(ta);
+      if (!rich || !ta) return;
+      rich.innerHTML = toEditorHtml(ta.value || '');
+    }
+    function syncTextareaFromRich(rich) {
+      if (!rich) return '';
+      var html = sanitizeHtml(rich.innerHTML || '');
+      var ta = rich.parentElement && rich.parentElement.querySelector('.script-snippet');
+      if (ta && ta.value !== html) ta.value = html;
+      return html;
+    }
+    function hydrateScriptEditors() {
+      document.querySelectorAll('.script-snippet').forEach(function (ta) {
+        syncRichFromTextarea(ta);
+      });
+    }
+    function fillForCopy(html) {
+      var nameEl = document.getElementById('mergePreviewName');
+      var coEl = document.getElementById('mergePreviewCompany');
+      var cityEl = document.getElementById('mergePreviewCity');
+      var filled = Scripts.fillScriptPlaceholders
+        ? Scripts.fillScriptPlaceholders(html, {
+            sender: Scripts.getScriptProfile ? Scripts.getScriptProfile() : window.__ADHELLO_SCRIPT_PROFILE__,
+            prospect: {
+              name: nameEl ? nameEl.value : '',
+              company: coEl ? coEl.value : '',
+              city: cityEl ? cityEl.value : '',
+            },
+          })
+        : html;
+      return filled;
+    }
+    function applyScriptFormat(cmd) {
+      var rich = document.querySelector('.script-rich:focus') || (function () {
+        var ta = document.getElementById(lastFocusedSnippetId);
+        return richForSnippet(ta);
+      })();
+      if (!rich) return;
+      rich.focus();
+      try {
+        document.execCommand(cmd, false, null);
+      } catch (_) {}
+      syncTextareaFromRich(rich);
+      var ta = rich.parentElement && rich.parentElement.querySelector('.script-snippet');
+      if (ta) {
+        lastFocusedSnippetId = ta.id;
+        ta.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    }
+
     function outreachProfilePanelHtml(entry) {
       var biz = escapeHtml(entry.senderBusinessName || '');
       var vert = escapeHtml(entry.vertical || '');
@@ -260,15 +322,17 @@
             escapeHtml(entry.key) +
             '" data-section="opening"><div class="flex flex-wrap items-center justify-between gap-2 py-3 px-4 border-b border-brand-border/40 dark:border-white/10"><span class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">Call script</span><span class="script-autosave-status text-[10px] font-bold text-brand-muted tabular-nums shrink-0" data-snippet-id="snippet-' +
             escapeHtml(entry.key) +
-            '-opening">Saved</span></div><div class="px-4 pb-4 pt-3"><div class="flex flex-wrap gap-2 justify-end mb-3"><button type="button" class="use-in-coach px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-brand-dark text-white dark:bg-white dark:text-slate-900 border border-transparent hover:opacity-90 transition-opacity" data-pitch="' +
+            '-opening">Saved</span></div><div class="px-4 pb-4 pt-3"><div class="flex flex-wrap gap-2 items-center justify-between mb-3"><div class="script-fmt-bar inline-flex items-center gap-0.5 rounded-lg border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-800 p-0.5" role="toolbar" aria-label="Text formatting"><button type="button" data-script-fmt="bold" title="Bold (⌘B)" class="w-8 h-8 rounded-md text-sm font-black text-brand-dark dark:text-white hover:bg-brand-yellow/30">B</button><button type="button" data-script-fmt="italic" title="Italic (⌘I)" class="w-8 h-8 rounded-md text-sm italic font-serif text-brand-dark dark:text-white hover:bg-brand-yellow/30">I</button><button type="button" data-script-fmt="underline" title="Underline (⌘U)" class="w-8 h-8 rounded-md text-sm underline font-bold text-brand-dark dark:text-white hover:bg-brand-yellow/30">U</button></div><div class="flex flex-wrap gap-2 justify-end"><button type="button" class="use-in-coach px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-brand-dark text-white dark:bg-white dark:text-slate-900 border border-transparent hover:opacity-90 transition-opacity" data-pitch="' +
             escapeHtml(entry.key) +
             '" data-section="opening">Coach</button><button type="button" class="save-to-library px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-brand-muted hover:text-brand-dark dark:hover:text-white border border-brand-border/60 dark:border-white/10 hover:border-brand-yellow/50 transition-colors" data-snippet="snippet-' +
             escapeHtml(entry.key) +
             '-opening">Save</button><button type="button" class="copy-snippet px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-brand-muted hover:text-brand-dark dark:hover:text-white border border-brand-border/60 dark:border-white/10 hover:border-brand-yellow/50 transition-colors" data-copy-target="snippet-' +
             escapeHtml(entry.key) +
-            '-opening">Copy</button></div><textarea id="snippet-' +
+            '-opening">Copy</button></div></div><div id="snippet-' +
             escapeHtml(entry.key) +
-            '-opening" rows="14" class="script-snippet w-full text-sm leading-relaxed text-brand-dark dark:text-slate-200 bg-white dark:bg-slate-800/80 rounded-2xl p-4 border border-brand-border/50 dark:border-white/10 font-sans resize-y min-h-[12rem] focus:ring-2 focus:ring-brand-yellow focus:border-transparent outline-none">' +
+            '-opening-rich" class="script-rich w-full text-sm leading-relaxed text-brand-dark dark:text-slate-200 bg-white dark:bg-slate-800/80 rounded-2xl p-4 border border-brand-border/50 dark:border-white/10 font-sans min-h-[12rem] focus:ring-2 focus:ring-brand-yellow focus:border-transparent outline-none whitespace-pre-wrap" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Call script"></div><textarea id="snippet-' +
+            escapeHtml(entry.key) +
+            '-opening" rows="14" class="script-snippet sr-only" aria-hidden="true" tabindex="-1">' +
             escapeHtml(text) +
             '</textarea></div></div></div></div>'
           );
@@ -279,6 +343,7 @@
       });
       coachFocus.pitch = firstKey;
       lastFocusedSnippetId = 'snippet-' + firstKey + '-opening';
+      hydrateScriptEditors();
       updateCoachLabel();
     }
 
@@ -322,6 +387,12 @@
       if (host && !host.dataset.delegationBound) {
         host.dataset.delegationBound = '1';
         host.addEventListener('click', function (e) {
+          var fmtBtn = e.target.closest('[data-script-fmt]');
+          if (fmtBtn) {
+            e.preventDefault();
+            applyScriptFormat(fmtBtn.getAttribute('data-script-fmt'));
+            return;
+          }
           var renameBtn = e.target.closest('.offer-rename-btn');
           if (renameBtn) {
             var rKey = renameBtn.getAttribute('data-offer-key');
@@ -353,8 +424,12 @@
             var copyId = copyBtn.getAttribute('data-copy-target');
             var copyEl = copyId && document.getElementById(copyId);
             if (!copyEl) return;
-            var copyText = copyEl.value != null ? copyEl.value : copyEl.textContent;
-            navigator.clipboard.writeText(copyText || '').then(function () {
+            var rich = richForSnippet(copyEl);
+            var html = rich ? sanitizeHtml(rich.innerHTML) : copyEl.value != null ? copyEl.value : copyEl.textContent;
+            var doCopy = Scripts.copyScriptFormatted
+              ? Scripts.copyScriptFormatted(fillForCopy(html))
+              : navigator.clipboard.writeText(fillForCopy(html));
+            Promise.resolve(doCopy).then(function () {
               var t = copyBtn.textContent;
               copyBtn.textContent = 'Copied';
               setTimeout(function () { copyBtn.textContent = t; }, 1500);
@@ -363,9 +438,12 @@
           }
           var saveBtn = e.target.closest('.save-to-library');
           if (saveBtn) {
+            if (saveBtn.disabled || saveBtn.dataset.saving === '1') return;
             var sid = saveBtn.getAttribute('data-snippet');
             var ta = sid && document.getElementById(sid);
             if (!ta) return;
+            var richSave = richForSnippet(ta);
+            if (richSave) syncTextareaFromRich(richSave);
             var block = ta.closest('.script-block');
             var sk = block ? block.getAttribute('data-service') : '';
             var sec = block ? block.getAttribute('data-section') : '';
@@ -373,6 +451,7 @@
             if (!text) return alert('Nothing to save.');
             var title = (serviceLabels[sk] || sk) + ' · Script';
             var orig = saveBtn.textContent;
+            saveBtn.dataset.saving = '1';
             saveBtn.disabled = true;
             fetch('/workspace/scripts/library', {
               method: 'POST',
@@ -381,26 +460,49 @@
             })
               .then(function (r) { return r.json(); })
               .then(function (data) {
-                saveBtn.disabled = false;
                 if (!data || !data.success) {
+                  saveBtn.disabled = false;
+                  saveBtn.dataset.saving = '';
                   alert((data && data.error) || 'Save failed');
                   return;
                 }
                 libraryItems = data.libraryItems || libraryItems;
                 renderLibrary();
-                saveBtn.textContent = 'Saved';
-                setTimeout(function () { saveBtn.textContent = orig; }, 1500);
+                saveBtn.textContent = data.duplicate ? 'Saved' : 'Saved';
+                setTimeout(function () {
+                  saveBtn.textContent = orig;
+                  saveBtn.disabled = false;
+                  saveBtn.dataset.saving = '';
+                }, 1200);
               })
               .catch(function () {
                 saveBtn.disabled = false;
+                saveBtn.dataset.saving = '';
                 alert('Save failed');
               });
           }
+        });
+        host.addEventListener('mousedown', function (e) {
+          var fmtBtn = e.target.closest('[data-script-fmt]');
+          if (!fmtBtn) return;
+          e.preventDefault();
         });
         host.addEventListener('input', function (e) {
           if (e.target.matches('[data-offer-outreach]')) {
             var oKey = e.target.getAttribute('data-offer-key');
             if (oKey) scheduleOutreachProfilePersist(oKey);
+            return;
+          }
+          if (e.target.classList.contains('script-rich')) {
+            syncTextareaFromRich(e.target);
+            var taRich = e.target.parentElement && e.target.parentElement.querySelector('.script-snippet');
+            if (taRich) {
+              lastFocusedSnippetId = taRich.id;
+              var stRich = statusElForSnippetId(taRich.id);
+              if (stRich) stRich.textContent = 'Unsaved';
+              scheduleBlocksPersist();
+              updateMergePreview();
+            }
             return;
           }
           if (!e.target.classList.contains('script-snippet')) return;
@@ -411,9 +513,25 @@
           updateMergePreview();
         });
         host.addEventListener('focusin', function (e) {
+          if (e.target.classList.contains('script-rich')) {
+            var taFocus = e.target.parentElement && e.target.parentElement.querySelector('.script-snippet');
+            if (taFocus) lastFocusedSnippetId = taFocus.id;
+            updateMergePreview();
+            return;
+          }
           if (!e.target.classList.contains('script-snippet')) return;
           lastFocusedSnippetId = e.target.id;
           updateMergePreview();
+        });
+        host.addEventListener('keydown', function (e) {
+          if (!e.target.classList.contains('script-rich')) return;
+          var meta = e.metaKey || e.ctrlKey;
+          if (!meta) return;
+          var k = String(e.key || '').toLowerCase();
+          if (k === 'b' || k === 'i' || k === 'u') {
+            e.preventDefault();
+            applyScriptFormat(k === 'b' ? 'bold' : k === 'i' ? 'italic' : 'underline');
+          }
         });
       }
     }
@@ -538,10 +656,17 @@
       var company = coEl ? coEl.value : '';
       var city = cityEl ? cityEl.value : '';
       var s = String(raw || '');
-      s = s.split('{{name}}').join(name);
-      s = s.split('{{company}}').join(company);
-      s = s.split('{{city}}').join(city);
-      return s;
+      if (Scripts.fillScriptPlaceholders) {
+        s = Scripts.fillScriptPlaceholders(s, {
+          sender: Scripts.getScriptProfile ? Scripts.getScriptProfile() : window.__ADHELLO_SCRIPT_PROFILE__,
+          prospect: { name: name, company: company, city: city },
+        });
+      } else {
+        s = s.split('{{name}}').join(name);
+        s = s.split('{{company}}').join(company);
+        s = s.split('{{city}}').join(city);
+      }
+      return Scripts.htmlToPlain ? Scripts.htmlToPlain(s) : s;
     }
 
     function updateMergePreview() {
@@ -562,6 +687,18 @@
     }
 
     function insertAtCursor(textarea, text) {
+      var rich = richForSnippet(textarea);
+      if (rich) {
+        rich.focus();
+        try {
+          document.execCommand('insertText', false, text);
+        } catch (_) {
+          rich.appendChild(document.createTextNode(text));
+        }
+        syncTextareaFromRich(rich);
+        if (textarea) textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        return;
+      }
       if (!textarea) return;
       var start = textarea.selectionStart != null ? textarea.selectionStart : textarea.value.length;
       var end = textarea.selectionEnd != null ? textarea.selectionEnd : textarea.value.length;
@@ -584,6 +721,9 @@
     }
 
     function collectBlocksPayload() {
+      document.querySelectorAll('.script-rich').forEach(function (rich) {
+        syncTextareaFromRich(rich);
+      });
       var blocks = {};
       document.querySelectorAll('.script-snippet').forEach(function (ta) {
         var id = ta.id || '';
@@ -698,6 +838,7 @@
         var ta = document.getElementById('snippet-' + serviceKey + '-opening');
         if (!ta) return;
         ta.value = composeOfferScriptFromSections(sections);
+        syncRichFromTextarea(ta);
       });
     }
 
@@ -779,7 +920,7 @@
         sub.textContent = (item.savedAt || '').slice(0, 16).replace('T', ' ');
         var body = document.createElement('pre');
         body.className = 'mt-2 text-xs text-brand-muted dark:text-slate-300 whitespace-pre-wrap font-sans max-h-24 overflow-y-auto';
-        body.textContent = item.text || '';
+        body.textContent = fillForCopy(item.text || '') || '';
         meta.appendChild(title);
         meta.appendChild(sub);
         meta.appendChild(body);
@@ -790,9 +931,14 @@
         copyBtn.className = 'px-3 py-1.5 rounded-lg text-[10px] font-black uppercase border border-brand-border dark:border-white/10 hover:border-brand-yellow/50';
         copyBtn.textContent = 'Copy';
         copyBtn.addEventListener('click', function () {
-          navigator.clipboard.writeText(item.text || '');
-          copyBtn.textContent = 'Copied';
-          setTimeout(function () { copyBtn.textContent = 'Copy'; }, 1500);
+          var html = item.text || '';
+          var doCopy = Scripts.copyScriptFormatted
+            ? Scripts.copyScriptFormatted(fillForCopy(html))
+            : navigator.clipboard.writeText(fillForCopy(html));
+          Promise.resolve(doCopy).then(function () {
+            copyBtn.textContent = 'Copied';
+            setTimeout(function () { copyBtn.textContent = 'Copy'; }, 1500);
+          });
         });
         var delBtn = document.createElement('button');
         delBtn.type = 'button';
@@ -873,7 +1019,10 @@
     document.getElementById('coachApplyBtn').addEventListener('click', function () {
       if (!pendingRefined) return;
       var ta = snippetEl();
-      if (ta) ta.value = pendingRefined;
+      if (ta) {
+        ta.value = pendingRefined;
+        syncRichFromTextarea(ta);
+      }
       hideRefined();
       scheduleBlocksPersist();
       updateMergePreview();
@@ -888,7 +1037,9 @@
       input.value = '';
       appendCoachBubble('user', msg);
       var ta = snippetEl();
-      var scriptText = ta ? ta.value : '';
+      var scriptText = ta
+        ? (Scripts.htmlToPlain ? Scripts.htmlToPlain(ta.value) : ta.value)
+        : '';
       var hist = getCoachHistoryArray().map(function (m) { return { role: m.role, content: m.content }; });
       var btn = document.getElementById('coachSendBtn');
       btn.disabled = true;

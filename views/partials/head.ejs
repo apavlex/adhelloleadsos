@@ -20,6 +20,8 @@
 <% if (typeof workspaceId !== 'undefined' && workspaceId) { %>
 <script>window.__ADHELLO_WORKSPACE_ID__ = <%- safeJsonForScript(String(workspaceId)) %>;</script>
 <% } %>
+<script>window.__ADHELLO_SCRIPT_PROFILE__ = <%- safeJsonForScript(typeof scriptSignOffProfile !== 'undefined' && scriptSignOffProfile ? scriptSignOffProfile : { name: '', company: '', phone: '', email: '' }) %>;</script>
+<script src="/js/script-placeholders.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
 <style>
   /* First-paint background before Tailwind Play CDN injects utilities (avoids cream→dark snap). */
   html:not(.dark) { background-color: #FAF7ED; }

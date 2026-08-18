@@ -68,7 +68,7 @@ Rules:
 - Use specific lead context when relevant (city/category/reviews/offer fit).
 - Include one clear CTA.
 - Do not use markdown, bullet points, or emojis unless already present.
-- Preserve placeholders if they exist: [your name], [your company].
+- If the script already includes a real sender name, company, phone, or email, keep those. Otherwise you may leave [your name] / [your company] for the app to fill.
 - ${contextNote}`,
       },
       {

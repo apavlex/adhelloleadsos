@@ -2804,6 +2804,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const ownerInp = document.getElementById('leadPanelOwnerFirstName');
     const typedOwner = ownerInp ? String(ownerInp.value || '').trim() : '';
     const ownerTok = (typedOwner || storedOwner).split(/\s+/)[0] || '';
+    const helper = typeof window !== 'undefined' ? window.AdHelloScripts : null;
+    if (helper && helper.fillScriptPlaceholders) {
+      return helper.fillScriptPlaceholders(text, {
+        sender: helper.getScriptProfile ? helper.getScriptProfile() : window.__ADHELLO_SCRIPT_PROFILE__,
+        prospect: { name: ownerTok || title, company: title, city },
+      });
+    }
     let t = String(text);
     t = t.replace(/\{\{company\}\}/gi, title || 'your business');
     t = t.replace(/\{\{name\}\}/gi, ownerTok || title || 'there');
@@ -2822,11 +2829,16 @@ document.addEventListener('DOMContentLoaded', () => {
           .split(/\s+/)[0];
     if (ch === 'voicemail') {
       const hi = owner ? `Hi ${owner}, ` : 'Hi, ';
+      const helper = typeof window !== 'undefined' ? window.AdHelloScripts : null;
+      const sender = helper && helper.getScriptProfile ? helper.getScriptProfile() : (window.__ADHELLO_SCRIPT_PROFILE__ || {});
+      const agency = String((sender && sender.company) || '').trim();
+      const yourName = String((sender && sender.name) || '').trim();
+      const yourNumber = String((sender && sender.phone) || '').trim();
       if (!/^hi\b/i.test(t.trim())) {
-        t = `${hi}this is [your name] with [agency]. ${t}`;
+        t = `${hi}this is ${yourName || '[your name]'} with ${agency || '[agency]'}. ${t}`;
       }
       if (!/call\s+back/i.test(t)) {
-        t = `${t.trim()} Give me a call back at [your number] when you have a minute.`;
+        t = `${t.trim()} Give me a call back at ${yourNumber || '[your number]'} when you have a minute.`;
       }
     }
     if (ch === 'email') {
@@ -3207,7 +3219,14 @@ document.addEventListener('DOMContentLoaded', () => {
         : 'Pick a service above to load your script.';
       return;
     }
-    scriptEl.textContent = formatSellingScriptForChannel(raw, channel, row);
+    scriptEl.innerHTML = '';
+    const filled = formatSellingScriptForChannel(raw, channel, row);
+    const helper = typeof window !== 'undefined' ? window.AdHelloScripts : null;
+    if (helper && helper.sanitizeScriptHtml && /<(?:b|strong|i|em|u|br|p|div)\b/i.test(filled)) {
+      scriptEl.innerHTML = helper.sanitizeScriptHtml(filled);
+    } else {
+      scriptEl.textContent = filled;
+    }
     resetLeadPanelSellHint();
   }
 
@@ -10155,10 +10174,16 @@ document.addEventListener('DOMContentLoaded', () => {
       sellingCopyBtn.dataset.adhelloBound = '1';
       sellingCopyBtn.addEventListener('click', async () => {
         const scriptEl = document.getElementById('leadPanelSellingScript');
+        const helper = typeof window !== 'undefined' ? window.AdHelloScripts : null;
+        const html = scriptEl ? String(scriptEl.innerHTML || '').trim() : '';
         const text = scriptEl ? String(scriptEl.textContent || '').trim() : '';
         if (!text) return;
         try {
-          await navigator.clipboard.writeText(text);
+          if (helper && helper.copyScriptFormatted && html) {
+            await helper.copyScriptFormatted(html);
+          } else {
+            await navigator.clipboard.writeText(text);
+          }
           if (typeof window.showAppToast === 'function') {
             window.showAppToast('Script copied.', { variant: 'success' });
           }
@@ -13319,7 +13344,11 @@ document.addEventListener('DOMContentLoaded', () => {
       return String(data.options[0].text || '').trim();
     }
     const title = String((row && row.dataset && row.dataset.title) || 'your business').trim();
-    return `Hi ${title} team — this is [your name] from [your company]. We had a quick idea to help you capture more local leads. Open to a short call this week?`;
+    const fallback = `Hi ${title} team — this is [your name] from [your company]. We had a quick idea to help you capture more local leads. Open to a short call this week?`;
+    const helper = typeof window !== 'undefined' ? window.AdHelloScripts : null;
+    return helper && helper.replaceSenderPlaceholders
+      ? helper.replaceSenderPlaceholders(fallback, helper.getScriptProfile())
+      : fallback;
   }
 
   async function openLeadPanelSmsComposer() {
@@ -13492,14 +13521,19 @@ document.addEventListener('DOMContentLoaded', () => {
       smsScriptOptions = Array.isArray(data.options) ? data.options : [];
       if (!smsScriptOptions.length) {
         const title = String((currentRow && currentRow.dataset && currentRow.dataset.title) || '').trim();
+        const helper = typeof window !== 'undefined' ? window.AdHelloScripts : null;
+        const fallbackText =
+          smsModalMode === 'bulk'
+            ? 'Hi, this is [your name] from AdHello. We had a quick idea to help improve your local lead flow. Open to a short call this week?'
+            : `Hi ${title || 'there'} team, this is [your name] from AdHello. We had a quick idea to help improve your local lead flow. Open to a short call this week?`;
         smsScriptOptions = [
           {
             id: 'fallback',
             label: 'Default outreach',
             text:
-              smsModalMode === 'bulk'
-                ? 'Hi, this is [your name] from AdHello. We had a quick idea to help improve your local lead flow. Open to a short call this week?'
-                : `Hi ${title || 'there'} team, this is [your name] from AdHello. We had a quick idea to help improve your local lead flow. Open to a short call this week?`,
+              helper && helper.replaceSenderPlaceholders
+                ? helper.replaceSenderPlaceholders(fallbackText, helper.getScriptProfile())
+                : fallbackText,
           },
         ];
       }
@@ -19474,13 +19508,21 @@ document.addEventListener('DOMContentLoaded', () => {
     if (ta && lk) warRoomScriptDrafts[warRoomDraftKey(lk, tab)] = ta.value;
   }
 
+  function warRoomFillSender(text) {
+    const helper = typeof window !== 'undefined' ? window.AdHelloScripts : null;
+    if (helper && helper.replaceSenderPlaceholders) {
+      return helper.replaceSenderPlaceholders(text, helper.getScriptProfile ? helper.getScriptProfile() : window.__ADHELLO_SCRIPT_PROFILE__);
+    }
+    return text;
+  }
+
   function warRoomBuildScripts(title, city, category, gapPhrase, compPhrase, gaps) {
     const cat = category && category !== 'N/A' ? category : 'businesses';
     const place = city || 'the area';
-    const opener = `Hi, this is [your name]—I'm reaching out to local ${cat} in ${place}. I came across ${title} and had you on my list to call.\n\n${gapPhrase}${compPhrase}\n\nI'm not looking to waste your time—do you have sixty seconds for one concrete idea? If now's bad, what time works for a two-minute call later today?`;
+    const opener = warRoomFillSender(`Hi, this is [your name]—I'm reaching out to local ${cat} in ${place}. I came across ${title} and had you on my list to call.\n\n${gapPhrase}${compPhrase}\n\nI'm not looking to waste your time—do you have sixty seconds for one concrete idea? If now's bad, what time works for a two-minute call later today?`);
     const gapHint = gaps.length ? gaps[0] : 'a couple of ways to sharpen your online presence';
-    const short = `Hi, this is [your name]—quick call for ${title} in ${place}. I noticed ${gapHint} and have one specific suggestion—got thirty seconds?\n\nIf this is a bad time, when should I try you back?`;
-    const voicemail = `Hi, this is [your name] from [company]. I'm calling ${title} with a brief idea on how you're showing up online versus other ${cat} in ${place}. Worth two minutes when you have a moment—my number is [your number]. Thanks, and I'll try you again if I don't hear back.`;
+    const short = warRoomFillSender(`Hi, this is [your name]—quick call for ${title} in ${place}. I noticed ${gapHint} and have one specific suggestion—got thirty seconds?\n\nIf this is a bad time, when should I try you back?`);
+    const voicemail = warRoomFillSender(`Hi, this is [your name] from [company]. I'm calling ${title} with a brief idea on how you're showing up online versus other ${cat} in ${place}. Worth two minutes when you have a moment—my number is [your number]. Thanks, and I'll try you again if I don't hear back.`);
     return { opener, short, voicemail };
   }
 

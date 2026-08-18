@@ -23,6 +23,7 @@ const { generateOutreachCoachPayload } = require('../services/outreachCoachAi');
 const { workspaceTodayYmd } = require('../services/workspaceTimezone');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
 const workspaceSalesScripts = require('../services/workspaceSalesScripts');
+const { resolveScriptSignOffProfile, fillScriptPlaceholders } = require('../services/scriptPlaceholders');
 const {
   getCoachBriefForToday,
   persistCoachBrief,
@@ -751,11 +752,11 @@ function normalizeIncludeCouponLine(v) {
   return s === '1' || s === 'true' || s === 'yes' || s === 'on';
 }
 
-function applyScriptPlaceholders(text, { contact, company, cityState }) {
-  return String(text || '')
-    .replace(/\{\{name\}\}/gi, contact)
-    .replace(/\{\{company\}\}/gi, company)
-    .replace(/\{\{city\}\}/gi, cityState || 'your area');
+function applyScriptPlaceholders(text, { contact, company, cityState, sender }) {
+  return fillScriptPlaceholders(text, {
+    sender: sender || {},
+    prospect: { name: contact, company, city: cityState },
+  });
 }
 
 function buildFocusOutreachDraft({
@@ -972,11 +973,16 @@ router.post('/draft-outreach', async (req, res, next) => {
       includeCouponLine,
       couponLink: ws && ws.coffeeCouponLink ? ws.coffeeCouponLink : '',
     });
+    const sender = resolveScriptSignOffProfile({ user: req.user, workspace: ws, offerKey: serviceKey });
+    const filledBody = fillScriptPlaceholders(body, {
+      sender,
+      prospect: { name: contact, company, city: cityState },
+    });
 
     res.json({
       success: true,
       subject,
-      body,
+      body: filledBody,
       scriptVariant,
       tone,
       includeCouponLine,

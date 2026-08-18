@@ -57,6 +57,9 @@ const {
   sanitizeLibraryItems,
   normalizeLibraryItem,
   buildMergedScriptLibrary,
+  dedupeLibraryItems,
+  appendLibraryItemIdempotent,
+  libraryItemFingerprint,
 } = salesScriptsStorage;
 
 function normalizeCnamStatus(raw) {
@@ -1458,7 +1461,12 @@ router.get('/scripts.json', async (req, res, next) => {
   try {
     const ws = await dbService.getWorkspace(req.workspaceId);
     const { catalog, keys } = workspaceOfferBundle(ws);
-    const items = salesScriptsStorage.getInitialLibraryItemsFromWorkspace(ws);
+    const items = dedupeLibraryItems(salesScriptsStorage.getInitialLibraryItemsFromWorkspace(ws));
+    if (Array.isArray(ws.salesScriptLibraryItems) && items.length !== ws.salesScriptLibraryItems.length) {
+      ws.salesScriptLibraryItems = items;
+      ws.salesScriptsUpdatedAt = new Date().toISOString();
+      await dbService.saveWorkspace(req.workspaceId, ws);
+    }
     const overrides =
       ws && ws.salesScriptBlockOverrides && typeof ws.salesScriptBlockOverrides === 'object'
         ? ws.salesScriptBlockOverrides
@@ -1744,12 +1752,12 @@ router.post('/scripts/library', express.json({ limit: '256kb' }), async (req, re
     const { keys } = workspaceOfferBundle(ws);
     const item = normalizeLibraryItem(req.body || {}, keys.length ? keys : SCRIPT_LIBRARY_KEYS);
     if (!item) return res.status(400).json({ success: false, error: 'Text required.' });
-    const cur = Array.isArray(ws.salesScriptLibraryItems) ? [...ws.salesScriptLibraryItems] : [];
-    cur.push(item);
-    ws.salesScriptLibraryItems = cur;
+    const cur = dedupeLibraryItems(Array.isArray(ws.salesScriptLibraryItems) ? ws.salesScriptLibraryItems : []);
+    const appended = appendLibraryItemIdempotent(cur, item);
+    ws.salesScriptLibraryItems = appended.items;
     ws.salesScriptsUpdatedAt = new Date().toISOString();
     await dbService.saveWorkspace(wid, ws);
-    res.json({ success: true, item, libraryItems: cur });
+    res.json({ success: true, item: appended.item, libraryItems: appended.items, duplicate: appended.duplicate });
   } catch (e) {
     next(e);
   }
@@ -1783,16 +1791,20 @@ router.post('/scripts/library/import', express.json({ limit: '512kb' }), async (
     const incoming = req.body && req.body.items;
     const { keys } = workspaceOfferBundle(ws);
     const cleaned = sanitizeLibraryItems(incoming, keys.length ? keys : SCRIPT_LIBRARY_KEYS);
-    const cur = Array.isArray(ws.salesScriptLibraryItems) ? [...ws.salesScriptLibraryItems] : [];
+    const cur = dedupeLibraryItems(Array.isArray(ws.salesScriptLibraryItems) ? ws.salesScriptLibraryItems : []);
+    const existingKeys = new Set(cur.map((x) => libraryItemFingerprint(x)));
     const existingIds = new Set(cur.map((x) => x && x.id).filter(Boolean));
     let n = 0;
     for (const it of cleaned) {
+      const fp = libraryItemFingerprint(it);
+      if (existingKeys.has(fp)) continue;
       let id = it.id;
       if (existingIds.has(id)) {
         id = `sv_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
         it.id = id;
       }
       existingIds.add(id);
+      existingKeys.add(fp);
       cur.push(it);
       n += 1;
     }

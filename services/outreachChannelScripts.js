@@ -2,7 +2,19 @@
  * Map workspace script library sections to outreach channels (call, text, voicemail, email).
  */
 
+const { htmlToMarkdown, looksLikeScriptHtml } = require('./scriptMarkup');
+
 const CHANNELS = ['call', 'text', 'voicemail', 'email'];
+
+function asChannelCopy(raw, channel) {
+  const s = String(raw || '').trim();
+  if (!s) return '';
+  const ch = String(channel || '').toLowerCase();
+  if ((ch === 'text' || ch === 'voicemail') && looksLikeScriptHtml(s)) {
+    return htmlToMarkdown(s);
+  }
+  return s;
+}
 
 function scriptForChannel(serviceDef, channel) {
   const def = serviceDef && typeof serviceDef === 'object' ? serviceDef : {};
@@ -15,19 +27,19 @@ function scriptForChannel(serviceDef, channel) {
   switch (String(channel || '').toLowerCase()) {
     case 'call': {
       const parts = [opening, discovery].filter(Boolean);
-      return parts.join('\n\n');
+      return asChannelCopy(parts.join('\n\n'), 'call');
     }
     case 'text':
-      return opening || valueProp;
+      return asChannelCopy(opening || valueProp, 'text');
     case 'voicemail':
-      return opening || valueProp;
+      return asChannelCopy(opening || valueProp, 'voicemail');
     case 'email': {
       const body = valueProp || opening;
       if (!body) return '';
-      return body;
+      return asChannelCopy(body, 'email');
     }
     default:
-      return opening;
+      return asChannelCopy(opening, channel);
   }
 }
 

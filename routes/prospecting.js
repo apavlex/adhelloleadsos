@@ -32,6 +32,7 @@ const {
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
 const { buildOutreachLibrary } = require('../services/outreachChannelScripts');
+const { resolveScriptSignOffProfile, applySenderPlaceholdersDeep } = require('../services/scriptPlaceholders');
 const { normalizeLeadForPanel } = require('../services/leadPanelNormalize');
 const { LMV_PROSPECTING_METHODS } = require('../config/lmvProspectingMethods');
 
@@ -282,7 +283,10 @@ router.get('/', async (req, res, next) => {
       key: k,
       label: (mergedScriptLibrary[k] && mergedScriptLibrary[k].label) || k,
     }));
-    const outreachChannelLibrary = buildOutreachLibrary(mergedScriptLibrary, offerKeys);
+    const outreachChannelLibrary = applySenderPlaceholdersDeep(
+      buildOutreachLibrary(mergedScriptLibrary, offerKeys),
+      resolveScriptSignOffProfile({ user: req.user, workspace: ws }),
+    );
 
     const email = userEmail(req);
     const driveImport = await buildDriveImportBundle(req, email);

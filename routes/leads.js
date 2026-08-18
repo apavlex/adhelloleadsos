@@ -50,6 +50,7 @@ const { parseImportFile } = require('../services/csvLeadImport');
 const { findExistingLead, upsertLeadInMemoryList } = require('../services/leadDedupe');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 const { CHANNELS: OUTREACH_CHANNELS, buildOutreachLibrary } = require('../services/outreachChannelScripts');
+const { resolveScriptSignOffProfile, applySenderPlaceholdersDeep, fillScriptPlaceholders } = require('../services/scriptPlaceholders');
 const pipelineStagesService = require('../services/pipelineStagesService');
 const { scoreLeadRecord } = require('../services/opportunityScore');
 const { chatCompletion, parseLlmJson } = require('../services/llmClient');
@@ -2652,7 +2653,7 @@ router.post('/:key/send-info-pack', express.json(), async (req, res, next) => {
   }
 });
 
-function buildWorkspaceOutreachScriptsPayload(ws) {
+function buildWorkspaceOutreachScriptsPayload(ws, req) {
   const mergedLibrary = salesScriptsStorage.buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
   const offerKeys = salesScriptsStorage.getWorkspaceScriptKeys(ws, SCRIPT_LIBRARY);
   const services = offerKeys.map((k) => ({
@@ -2660,13 +2661,15 @@ function buildWorkspaceOutreachScriptsPayload(ws) {
     label: (mergedLibrary[k] && mergedLibrary[k].label) || k,
   }));
   const library = buildOutreachLibrary(mergedLibrary, offerKeys);
+  const profile = resolveScriptSignOffProfile({ user: req && req.user, workspace: ws });
   return {
     success: true,
     channels: OUTREACH_CHANNELS,
     services,
-    library,
+    library: applySenderPlaceholdersDeep(library, profile),
     offerKeys,
     defaultServiceKey: offerKeys[0] || '',
+    scriptProfile: profile,
   };
 }
 
@@ -2674,7 +2677,7 @@ function buildWorkspaceOutreachScriptsPayload(ws) {
 router.get('/outreach-library', async (req, res, next) => {
   try {
     const ws = await dbService.getWorkspace(req.workspaceId);
-    return res.json(buildWorkspaceOutreachScriptsPayload(ws));
+    return res.json(buildWorkspaceOutreachScriptsPayload(ws, req));
   } catch (err) {
     next(err);
   }
@@ -2689,7 +2692,7 @@ router.get('/:key/outreach-scripts', async (req, res, next) => {
     if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
 
     const ws = await dbService.getWorkspace(req.workspaceId);
-    const payload = buildWorkspaceOutreachScriptsPayload(ws);
+    const payload = buildWorkspaceOutreachScriptsPayload(ws, req);
     const leadServiceKey =
       (lead.kieServiceInsight && lead.kieServiceInsight.primaryServiceKey) || lead.primaryServiceKey || '';
     payload.defaultServiceKey = payload.offerKeys.includes(leadServiceKey)
@@ -2731,6 +2734,13 @@ router.get('/:key/sms-script-options', async (req, res, next) => {
       close: 'Close',
     };
 
+    const profile = resolveScriptSignOffProfile({ user: req.user, workspace: ws, offerKey: serviceKey });
+    const prospect = {
+      name: String(lead.contactName || '').trim(),
+      company: String(lead.title || '').trim(),
+      city: String(lead.city || '').trim(),
+    };
+
     const options = [];
     ['opening', 'valueProp', 'objectionHandling', 'close'].forEach((section) => {
       const text = String(serviceDef[section] || '').trim();
@@ -2738,7 +2748,7 @@ router.get('/:key/sms-script-options', async (req, res, next) => {
       options.push({
         id: `${serviceKey}:${section}`,
         label: `${serviceLabel} — ${sectionLabels[section]}`,
-        text,
+        text: fillScriptPlaceholders(text, { sender: profile, prospect }),
       });
     });
 
@@ -2761,7 +2771,7 @@ router.get('/:key/sms-script-options', async (req, res, next) => {
           label: title
             ? `Saved: ${title}`
             : `Saved script — ${itemServiceLabel}${suffix}`,
-          text: String(item.text).trim(),
+          text: fillScriptPlaceholders(String(item.text).trim(), { sender: profile, prospect }),
         });
       });
 
@@ -2793,9 +2803,15 @@ router.post('/:key/sms-personalize', async (req, res, next) => {
     const result = await smsPersonalize.personalizeSmsForLead(lead, scriptText, {
       context: context === 'cadence' ? 'cadence' : 'outreach',
     });
+    const ws = await dbService.getWorkspace(req.workspaceId);
+    const profile = resolveScriptSignOffProfile({ user: req.user, workspace: ws });
+    const personalized = fillScriptPlaceholders(result.message, {
+      sender: profile,
+      prospect: { name: lead.contactName, company: lead.title, city: lead.city },
+    });
     return res.json({
       success: true,
-      personalized: result.message,
+      personalized,
       provider: result.provider,
     });
   } catch (err) {
@@ -2821,7 +2837,11 @@ router.post('/:key/sms-ai-send', async (req, res, next) => {
     const aiResult = await smsPersonalize.personalizeSmsForLead(lead, scriptText, {
       context: context === 'cadence' ? 'cadence' : 'outreach',
     });
-    const message = String(aiResult.message || '').trim();
+    const wsSms = await dbService.getWorkspace(req.workspaceId);
+    const message = fillScriptPlaceholders(String(aiResult.message || '').trim(), {
+      sender: resolveScriptSignOffProfile({ user: req.user, workspace: wsSms }),
+      prospect: { name: lead.contactName, company: lead.title, city: lead.city },
+    });
     if (!message) {
       return res.status(500).json({ success: false, error: 'AI did not return a message.' });
     }
@@ -2902,10 +2922,12 @@ router.get('/telephony/voicemail/settings', async (req, res, next) => {
     const telephony = ws.telephony || {};
     const resolvedVoicemail = resolveActiveVoicemailAudioUrl(telephony);
     const weekly = telephony.weeklyVoicemail || {};
-    const voicemailScript = String(
+    const voicemailScriptRaw = String(
       telephony.voicemailScript ||
         'Hi, this is [your name] from [your company]. We help local businesses capture more ready-to-buy demand and turn missed opportunities into booked calls. I will send a short follow-up text with one idea tailored for your business. If that is useful, please call me back at [your number]. Thank you.',
     ).trim();
+    const profile = resolveScriptSignOffProfile({ user: req.user, workspace: ws });
+    const voicemailScript = fillScriptPlaceholders(voicemailScriptRaw, { sender: profile });
     res.json({
       success: true,
       settings: {
@@ -3495,6 +3517,12 @@ router.post('/:key/generate-prompt', async (req, res, next) => {
       const category = lead.categoryName && lead.categoryName !== 'N/A' ? lead.categoryName : 'local';
       prompt = `Hi ${lead.title || 'there'},\n\nI noticed your business in ${cityLine} has a ${rating} rating with ${reviews} reviews. We help ${category} operators like you turn visibility into booked calls.\n\nOpen to a 15-minute fit call next week?\n\nBest,\n[Your Name]`;
     }
+
+    const wsPrompt = await dbService.getWorkspace(req.workspaceId);
+    prompt = fillScriptPlaceholders(prompt, {
+      sender: resolveScriptSignOffProfile({ user: req.user, workspace: wsPrompt }),
+      prospect: { name: lead.contactName, company: lead.title, city: lead.city },
+    });
 
     const contactedPatch = await buildContactedStagePatch(lead, req.workspaceId);
     const preview = !!(req.body && req.body.preview);
