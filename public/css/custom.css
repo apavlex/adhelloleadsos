@@ -1742,15 +1742,27 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   pointer-events: auto !important;
 }
 
+#prospectLeadsTable .pipeline-bookmark-btn:hover:not(.bookmark-btn--saved):not([data-saved='1']) {
+  background-color: var(--brand-yellow);
+  border-color: var(--brand-yellow);
+  color: #111827;
+}
+
 .bookmark-btn[data-saved='1'],
-.bookmark-btn.bookmark-btn--saved {
+.bookmark-btn.bookmark-btn--saved,
+#prospectLeadsTable .pipeline-bookmark-btn.bookmark-btn--saved,
+#prospectLeadsTable .pipeline-bookmark-btn[data-saved='1'],
+#prospectLeadsTable .pipeline-bookmark-btn.bookmark-btn--saved:hover,
+#prospectLeadsTable .pipeline-bookmark-btn[data-saved='1']:hover {
   background-color: var(--brand-yellow) !important;
   color: #111827 !important;
   border-color: var(--brand-yellow) !important;
 }
 
 .bookmark-btn[data-saved='1'] svg,
-.bookmark-btn.bookmark-btn--saved svg {
+.bookmark-btn.bookmark-btn--saved svg,
+#prospectLeadsTable .pipeline-bookmark-btn.bookmark-btn--saved svg,
+#prospectLeadsTable .pipeline-bookmark-btn[data-saved='1'] svg {
   fill: currentColor !important;
 }
 

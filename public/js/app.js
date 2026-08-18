@@ -428,6 +428,30 @@ document.addEventListener('DOMContentLoaded', () => {
     return calculateOpportunityScore(lead || {});
   };
 
+  const isSearchResultsTablePage = () => !!document.getElementById('searchResultsLeadsTable');
+
+  const markOpportunityReady = (row) => {
+    if (row && row.dataset) row.dataset.opportunityReady = '1';
+  };
+
+  const paintOpportunityBadgeForRow = (row) => {
+    if (!row) return;
+    try {
+      const badgeContainer = row.querySelector('.opportunity-badge');
+      if (badgeContainer) {
+        badgeContainer.innerHTML = renderOpportunityBadges(row);
+        badgeContainer.dataset.score = getUnifiedClientScore(row.dataset);
+      }
+    } catch (err) {
+      console.error('Error rendering opportunity badge for row:', err);
+    }
+  };
+
+  const revealOpportunityForRow = (row) => {
+    markOpportunityReady(row);
+    paintOpportunityBadgeForRow(row);
+  };
+
   const renderOpportunityBadges = (row) => {
     const l = row.dataset;
     const score = getUnifiedClientScore(l);
@@ -455,23 +479,19 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const updateOpportunityBadges = () => {
+    const searchPage = isSearchResultsTablePage();
     document.querySelectorAll('.result-row:not(.pipeline-row-page-hidden)').forEach((row) => {
-      try {
-        const badgeContainer = row.querySelector('.opportunity-badge');
-        if (badgeContainer) {
-          badgeContainer.innerHTML = renderOpportunityBadges(row);
-          badgeContainer.dataset.score = getUnifiedClientScore(row.dataset);
-        }
-      } catch (err) {
-        console.error('Error rendering opportunity badge for row:', err);
-      }
+      if (searchPage && row.dataset.opportunityReady !== '1') return;
+      paintOpportunityBadgeForRow(row);
     });
     if (typeof applyTableStars === 'function') applyTableStars();
     else if (typeof window.__renderSearchResultStars === 'function') window.__renderSearchResultStars();
   };
 
-  // Defer badge paint — keeps server row order; avoids post-load table repaint flash.
+  // Pipeline: defer badge paint so server row order stays put.
+  // Search results: do not auto-vet — Opportunity stays empty until Enhance / AI audit.
   (function scheduleInitialOpportunityBadges() {
+    if (isSearchResultsTablePage()) return;
     const run = () => updateOpportunityBadges();
     if (typeof requestIdleCallback === 'function') {
       requestIdleCallback(run, { timeout: 1800 });
@@ -2354,6 +2374,9 @@ document.addEventListener('DOMContentLoaded', () => {
           if (!bookmarkBtn) return;
 
           if (pipelineTable && row.dataset.leadKey) {
+            if (row.dataset.bookmarkClient === '1' || bookmarkBtn.dataset.bookmarkBusy === '1') {
+              return;
+            }
             if (rowPipelineBookmarked(row)) markBookmarkSaved(bookmarkBtn);
             else markBookmarkUnsaved(bookmarkBtn);
             return;
@@ -5478,6 +5501,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const bookmarkBtn = e.target.closest('.bookmark-btn');
       if (!bookmarkBtn) return;
 
+      const isPipelineBtn =
+        bookmarkBtn.classList.contains('pipeline-bookmark-btn') ||
+        (isPipelineBookmarkTable() && bookmarkBtn.closest('#prospectLeadsTable'));
+
+      // pipeline-bookmark.js owns pipeline clicks. Do not stop the event first —
+      // that used to swallow the dedicated handler when app.js registered earlier.
+      if (isPipelineBtn && window.__PIPELINE_BOOKMARK_BOUND === '1') return;
+
       e.stopPropagation();
       e.preventDefault();
       e.stopImmediatePropagation();
@@ -5486,12 +5517,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!row) return;
 
       // Pipeline leads are already saved — never fall through to search save/unsave.
-      // pipeline-bookmark.js owns the click when it loaded; this is the fallback.
-      if (
-        bookmarkBtn.classList.contains('pipeline-bookmark-btn') ||
-        (isPipelineBookmarkTable() && bookmarkBtn.closest('#prospectLeadsTable'))
-      ) {
-        if (window.__PIPELINE_BOOKMARK_BOUND === '1') return;
+      if (isPipelineBtn) {
         await togglePipelineLeadBookmark(row, bookmarkBtn);
         return;
       }
@@ -5581,11 +5607,7 @@ document.addEventListener('DOMContentLoaded', () => {
     row.dataset.aiScore = String(Math.min(10, Math.max(0, Math.round(score))));
     row.dataset.aiAnalysis = JSON.stringify(analysis);
     if (ownerSignal) row.dataset.ownerSignal = ownerSignal;
-    const oppContainer = row.querySelector('.opportunity-badge');
-    if (oppContainer) {
-      oppContainer.innerHTML = renderOpportunityBadges(row);
-      oppContainer.dataset.score = row.dataset.aiScore;
-    }
+    revealOpportunityForRow(row);
     if (currentRow === row) {
       leadOutreachScriptsCache = {
         workspaceId: getActiveWorkspaceIdForScripts(),
@@ -15666,18 +15688,14 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!res.ok || !data.success) {
         throw new Error((data && data.error) || 'Could not update bookmark');
       }
-      const persisted =
-        data.lead && Object.prototype.hasOwnProperty.call(data.lead, 'bookmarked')
-          ? !!data.lead.bookmarked
-          : next;
       if (row.dataset) {
-        row.dataset.bookmarked = persisted ? '1' : '0';
+        row.dataset.bookmarked = next ? '1' : '0';
         row.dataset.bookmarkClient = '1';
       }
       const rec = findInitialSavedLeadRecord(row);
-      if (rec) rec.bookmarked = persisted;
-      // Re-assert UI in case another hydrate raced the request.
-      if (persisted) markBookmarkSaved(bookmarkBtn);
+      if (rec) rec.bookmarked = next;
+      // Keep optimistic UI after a successful POST even if lead.bookmarked is missing/false.
+      if (next) markBookmarkSaved(bookmarkBtn);
       else markBookmarkUnsaved(bookmarkBtn);
       if (typeof window.showProspectToast === 'function') {
         window.showProspectToast(next ? 'Lead bookmarked' : 'Bookmark removed');
@@ -15700,11 +15718,25 @@ document.addEventListener('DOMContentLoaded', () => {
       bookmarkBtn.removeAttribute('aria-busy');
     }
   }
-  window.__togglePipelineLeadBookmark = togglePipelineLeadBookmark;
+  if (window.__PIPELINE_BOOKMARK_BOUND !== '1') {
+    window.__togglePipelineLeadBookmark = togglePipelineLeadBookmark;
+  }
+
+  function isPipelineBookmarkControl(btn) {
+    if (!btn || !btn.classList) return false;
+    return !!(
+      btn.classList.contains('pipeline-bookmark-btn') ||
+      (isPipelineBookmarkTable() && btn.closest && btn.closest('#prospectLeadsTable'))
+    );
+  }
 
   // --- UI helpers ---
   function markBookmarkSaved(btn) {
     if (!btn) return;
+    if (isPipelineBookmarkControl(btn) && typeof window.__markPipelineBookmarkSaved === 'function') {
+      window.__markPipelineBookmarkSaved(btn);
+      return;
+    }
     btn.dataset.saved = '1';
     btn.setAttribute('data-saved', '1');
     btn.setAttribute('aria-pressed', 'true');
@@ -15719,6 +15751,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function markBookmarkUnsaved(btn) {
     if (!btn) return;
+    if (isPipelineBookmarkControl(btn) && typeof window.__markPipelineBookmarkUnsaved === 'function') {
+      window.__markPipelineBookmarkUnsaved(btn);
+      return;
+    }
     btn.dataset.saved = '0';
     btn.setAttribute('data-saved', '0');
     btn.setAttribute('aria-pressed', 'false');
@@ -17625,6 +17661,7 @@ document.addEventListener('DOMContentLoaded', () => {
       row.dataset.reviews = String(parseInt(revVal, 10));
     }
     if (d.updates) row.dataset.updates = JSON.stringify(d.updates);
+    revealOpportunityForRow(row);
     if (d.address !== undefined && d.address !== null && String(d.address).trim()) {
       row.dataset.address = d.address || 'N/A';
     }
@@ -18068,7 +18105,7 @@ document.addEventListener('DOMContentLoaded', () => {
       notifyBulkEnhanceIdle(enhanceFailMsg, 'error');
     }
     updateOpportunityBadges();
-    sortLeadsByOpportunity(false);
+    if (!isSearchResultsTablePage()) sortLeadsByOpportunity(false);
     applyTableStars();
 
     setTimeout(() => {
@@ -18227,7 +18264,7 @@ document.addEventListener('DOMContentLoaded', () => {
       notifyBulkEnhanceIdle(enhanceFailMsg, 'error');
     }
     updateOpportunityBadges();
-    sortLeadsByOpportunity(false);
+    if (!isSearchResultsTablePage()) sortLeadsByOpportunity(false);
     applyTableStars();
     setTimeout(() => {
       const snap = bulkEnhanceBtnSnapshotHtml;

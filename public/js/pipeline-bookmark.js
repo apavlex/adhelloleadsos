@@ -118,13 +118,11 @@
       if (!res.ok || !data.success) {
         throw new Error((data && data.error) || 'Could not update bookmark');
       }
-      const persisted =
-        data.lead && Object.prototype.hasOwnProperty.call(data.lead, 'bookmarked')
-          ? !!data.lead.bookmarked
-          : next;
-      applyRowBookmarked(row, bookmarkBtn, persisted);
+      // Keep the optimistic state. A missing or false `lead.bookmarked` on a
+      // successful POST must not snap the ribbon back to empty.
+      applyRowBookmarked(row, bookmarkBtn, next);
       if (typeof window.showProspectToast === 'function') {
-        window.showProspectToast(persisted ? 'Lead bookmarked' : 'Bookmark removed');
+        window.showProspectToast(next ? 'Lead bookmarked' : 'Bookmark removed');
       }
       return true;
     } catch (err) {
