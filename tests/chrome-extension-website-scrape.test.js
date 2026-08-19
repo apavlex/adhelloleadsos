@@ -76,7 +76,7 @@ test('isGenericBusinessWebsiteCandidate allows company sites and blocks director
 test('manifest includes website-scrape and broad https matches', () => {
   const manifestPath = path.join(__dirname, '..', 'chrome-extension', 'manifest.json');
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-  assert.equal(manifest.version, '1.8.4');
+  assert.equal(manifest.version, '1.8.5');
   const scripts = manifest.content_scripts[0].js;
   assert.ok(scripts.includes('src/website-scrape.js'));
   assert.ok(manifest.content_scripts[0].matches.includes('https://*/*'));

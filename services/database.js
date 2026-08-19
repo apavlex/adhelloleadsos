@@ -16,6 +16,7 @@ const {
   shouldApplyIncomingFolderKey,
 } = require('./leadDedupe');
 const { normalizeLeadForPanel } = require('./leadPanelNormalize');
+const { applyLoyaltyProgramOverwrite } = require('./loyaltyProgramNormalize');
 const { normalizeWorkspaceAccentHex } = require('../lib/workspaceAccent');
 const { isLeadRunJobStale } = require('./leadRunProgress');
 
@@ -164,6 +165,7 @@ function mergePreferExisting(existing, incoming) {
   if (isBlankValue(existing?.gbpClaimStatus) && !isBlankValue(incoming?.gbpClaimStatus)) {
     out.gbpClaimStatus = incoming.gbpClaimStatus;
   }
+  applyLoyaltyProgramOverwrite(out, incoming);
   if (isBlankValue(existing?.gbpOptimizationScore) && !isBlankValue(incoming?.gbpOptimizationScore)) {
     out.gbpOptimizationScore = incoming.gbpOptimizationScore;
   }

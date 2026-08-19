@@ -20201,6 +20201,11 @@ document.addEventListener('DOMContentLoaded', () => {
     ds.rating = lead.totalScore != null ? String(lead.totalScore) : '0';
     ds.reviews = lead.reviewsCount != null ? String(lead.reviewsCount) : '0';
     ds.gbpClaimStatus = str(lead.gbpClaimStatus);
+    ds.loyaltyProgram = str(
+      lead.loyaltyProgram || (lead.hasLoyaltyProgram === true ? 'yes' : lead.hasLoyaltyProgram === false ? 'no' : ''),
+    );
+    ds.loyaltyProgramUrl = str(lead.loyaltyProgramUrl);
+    ds.loyaltyProgramEvidence = str(lead.loyaltyProgramEvidence);
     ds.gbpOptimizationScore = str(lead.gbpOptimizationScore);
     ds.status = str(lead.status, 'Not Contacted');
     ds.source = str(lead.source);

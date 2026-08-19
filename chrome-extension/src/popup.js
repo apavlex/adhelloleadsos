@@ -18,7 +18,9 @@ const panelBulk = document.getElementById('panelBulk');
 const workspaceSelect = document.getElementById('workspaceSelect');
 const workspaceThemeRow = document.getElementById('workspaceThemeRow');
 const showSaveLeadFabEl = document.getElementById('showSaveLeadFab');
-const EXT_VERSION = '1.8.4';
+const findLoyaltyBtn = document.getElementById('findLoyaltyBtn');
+const loyaltyStatusEl = document.getElementById('loyaltyStatus');
+const EXT_VERSION = '1.8.5';
 const PARALLEL_LABEL = '5 at a time';
 
 let bulkRunning = false;
@@ -26,6 +28,7 @@ let bulkStopRequested = false;
 let reEnrichRunning = false;
 let websiteEnrichRunning = false;
 let cachedSettings = null;
+let lastLoyaltyResult = null;
 
 document.getElementById('extVersion').textContent = `v${EXT_VERSION}`;
 
@@ -94,6 +97,32 @@ chrome.runtime.onMessage.addListener((message) => {
 function setStatus(msg, type = '') {
   statusEl.textContent = msg;
   statusEl.className = `status${type ? ` status--${type}` : ''}`;
+}
+
+function setLoyaltyStatus(msg, type = '') {
+  if (!loyaltyStatusEl) return;
+  loyaltyStatusEl.textContent = msg;
+  loyaltyStatusEl.className = `status loyalty-status${type ? ` status--${type}` : ''}`;
+}
+
+function loyaltyFieldsFromResult(result) {
+  if (!result) return {};
+  return {
+    loyaltyProgram: result.found ? 'yes' : 'no',
+    hasLoyaltyProgram: !!result.found,
+    loyaltyProgramEvidence: String(result.evidence || '').slice(0, 500),
+    loyaltyProgramUrl: String(result.url || '').slice(0, 2000),
+    loyaltyProgramCheckedAt: new Date().toISOString(),
+  };
+}
+
+function formatLoyaltyResult(result) {
+  if (!result) return '';
+  if (result.found) {
+    const extra = [result.evidence, result.url].filter(Boolean).join('\n');
+    return extra ? `Found\n${extra}` : 'Found';
+  }
+  return 'Not found — no on-site loyalty program';
 }
 
 function setBulkStatus(msg, type = '') {
@@ -539,6 +568,7 @@ form.addEventListener('submit', async (e) => {
       sponsored: typeof base?.sponsored === 'boolean' ? base.sponsored : undefined,
       source: 'chrome_extension',
       sourceChannel: String(form.sourceChannel?.value || base?.sourceChannel || '').trim(),
+      ...loyaltyFieldsFromResult(lastLoyaltyResult),
     });
     const folderName = form.folderName.value.trim();
     if (folderName) payload.folderName = folderName;
@@ -578,6 +608,31 @@ form.addEventListener('submit', async (e) => {
       btn.disabled = false;
       if (!saveSucceeded) btn.textContent = 'Save';
     });
+  }
+});
+
+findLoyaltyBtn?.addEventListener('click', async () => {
+  setLoyaltyStatus('Scanning this site…');
+  findLoyaltyBtn.disabled = true;
+  findLoyaltyBtn.textContent = 'Scanning…';
+  try {
+    const tab = await getActiveTab();
+    const res = await chrome.runtime.sendMessage({ type: 'FIND_LOYALTY_PROGRAM', tabId: tab.id });
+    if (!res?.ok) throw new Error(res?.error || 'Scan failed');
+    lastLoyaltyResult = res.data || { found: false, evidence: '', url: tab.url || '' };
+    setLoyaltyStatus(formatLoyaltyResult(lastLoyaltyResult), lastLoyaltyResult.found ? 'success' : '');
+    const title = form.title.value.trim();
+    if (!title) {
+      setStatus('Enter a title, then Save to mark this lead.', 'error');
+      return;
+    }
+    form.requestSubmit();
+  } catch (err) {
+    lastLoyaltyResult = null;
+    setLoyaltyStatus(err.message || 'Scan failed', 'error');
+  } finally {
+    findLoyaltyBtn.disabled = false;
+    findLoyaltyBtn.textContent = 'Find loyalty rewards';
   }
 });
 

@@ -1,4 +1,5 @@
 importScripts('bulk-import-utils.js');
+importScripts('loyalty-detect.js');
 
 const DEFAULTS = {
   apiBaseUrl: 'https://adhelloleadsos.onrender.com',
@@ -148,6 +149,64 @@ async function patchLeadContact({ leadKey, patch, workspaceId }) {
     },
     workspaceId,
   );
+}
+
+async function fetchPageHtml(url, timeoutMs = 6000) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal, credentials: 'omit', redirect: 'follow' });
+    if (!res.ok) return '';
+    const ct = String(res.headers.get('content-type') || '');
+    if (ct && !/html|text|xml/i.test(ct)) return '';
+    const text = await res.text();
+    return String(text || '').slice(0, 250000);
+  } catch (_) {
+    return '';
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+function collectLoyaltySnapshotInPage() {
+  if (!window.AdHelloLoyaltyDetect || typeof window.AdHelloLoyaltyDetect.collectSnapshot !== 'function') {
+    return null;
+  }
+  return window.AdHelloLoyaltyDetect.collectSnapshot(document, location);
+}
+
+async function findLoyaltyProgramOnTab(tabId) {
+  const detect = self.AdHelloLoyaltyDetect;
+  if (!detect) throw new Error('Loyalty detector is not loaded.');
+  try {
+    await chrome.scripting.executeScript({ target: { tabId }, files: ['src/loyalty-detect.js'] });
+  } catch (_) {
+    /* already injected */
+  }
+  const [{ result: snapshot } = {}] = await chrome.scripting.executeScript({
+    target: { tabId },
+    func: collectLoyaltySnapshotInPage,
+  });
+  if (!snapshot) throw new Error('Could not read this page.');
+
+  const extraPages = [];
+  const candidates = detect.pickCandidateUrls(snapshot, snapshot.origin).slice(0, 4);
+  for (const url of candidates) {
+    const html = await fetchPageHtml(url);
+    if (!html) continue;
+    extraPages.push({
+      url,
+      text: detect.htmlToText(html),
+      links: detect.extractLinksFromHtml(html, url),
+    });
+  }
+
+  return detect.detectLoyaltyProgram({
+    pageUrl: snapshot.pageUrl,
+    pageText: snapshot.pageText,
+    links: snapshot.links,
+    extraPages,
+  });
 }
 
 const PARALLEL_ENRICH_CONCURRENCY = 5;
@@ -726,6 +785,18 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   if (message?.type === 'PATCH_LEAD') {
     patchLeadContact({ leadKey: message.leadKey, patch: message.patch })
+      .then((data) => sendResponse({ ok: true, data }))
+      .catch((err) => sendResponse({ ok: false, error: err.message || String(err) }));
+    return true;
+  }
+
+  if (message?.type === 'FIND_LOYALTY_PROGRAM') {
+    const tabId = Number(message.tabId) || Number(_sender?.tab?.id);
+    if (!tabId) {
+      sendResponse({ ok: false, error: 'No active tab to scan.' });
+      return true;
+    }
+    findLoyaltyProgramOnTab(tabId)
       .then((data) => sendResponse({ ok: true, data }))
       .catch((err) => sendResponse({ ok: false, error: err.message || String(err) }));
     return true;

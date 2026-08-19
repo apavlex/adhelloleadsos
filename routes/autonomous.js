@@ -29,6 +29,7 @@ const enricher = require('../services/enricher');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const { uploadCsvToDrive, safeDriveFileName } = require('../services/googleDriveUpload');
 const { sanitizeLeadSocialPatch } = require('../services/socialUrlNormalize');
+const { parseLoyaltyProgramFields } = require('../services/loyaltyProgramNormalize');
 const { getValidAccessToken } = require('../services/googleDriveAccess');
 const { autoAttachCadenceIfNeeded } = require('../services/leadCadence');
 const { clampPipelineStage } = require('../services/pipelineConstants');
@@ -368,6 +369,8 @@ router.post('/leads', apiKeyAuth, express.json(), async (req, res, next) => {
     if (reviewSnippets) leadData.reviewSnippets = reviewSnippets;
     const sponsored = parseExtensionSponsored(req.body);
     if (sponsored !== undefined) leadData.sponsored = sponsored;
+    const loyalty = parseLoyaltyProgramFields(req.body);
+    if (loyalty) Object.assign(leadData, loyalty);
 
     if (req.body.note) {
       leadData.updates = [{ type: 'note', value: String(req.body.note), timestamp: new Date().toISOString() }];
@@ -590,8 +593,9 @@ router.delete('/website-enrich-queue', apiKeyAuth, async (req, res, next) => {
 
 /**
  * PATCH /autonomous/leads/:leadKey
- * Body: { website?, city?, state?, address?, phone?, email?, zip?, facebook?, instagram?, twitter?, linkedin?, tiktok?, companyDomain? }
- * Fills missing contact/location/social fields only (does not overwrite existing values).
+ * Body: { website?, city?, state?, address?, phone?, email?, zip?, facebook?, instagram?, twitter?, linkedin?, tiktok?, companyDomain?, loyaltyProgram?, hasLoyaltyProgram?, loyaltyProgramEvidence?, loyaltyProgramUrl? }
+ * Fills missing contact/location/social fields only (does not overwrite existing values),
+ * except loyalty scan fields which always overwrite when provided (yes/no).
  */
 router.patch('/leads/:leadKey', apiKeyAuth, express.json(), async (req, res, next) => {
   try {
@@ -654,6 +658,9 @@ router.patch('/leads/:leadKey', apiKeyAuth, express.json(), async (req, res, nex
       }
     }
 
+    const loyalty = parseLoyaltyProgramFields(body);
+    if (loyalty) Object.assign(patch, loyalty);
+
     const domain =
       String(body.companyDomain || '').trim() ||
       hostnameFromWebsite(patch.website || lead.website);
@@ -680,16 +687,22 @@ router.patch('/leads/:leadKey', apiKeyAuth, express.json(), async (req, res, nex
     if (!lead.prospectTier) patch.prospectTier = scored.prospectTier;
 
     const fieldList = Object.keys(patch).filter((k) => k !== 'logs' && k !== 'importFields');
-    const logType = fieldList.some((f) =>
-      ['email', 'facebook', 'instagram', 'twitter', 'linkedin', 'tiktok'].includes(f),
-    )
-      ? 'website_enrich'
-      : 're_enrich';
+    const logType = loyalty
+      ? 'loyalty_scan'
+      : fieldList.some((f) =>
+          ['email', 'facebook', 'instagram', 'twitter', 'linkedin', 'tiktok'].includes(f),
+        )
+        ? 'website_enrich'
+        : 're_enrich';
 
     patch.logs = [
       {
         type: logType,
-        message: `Chrome extension backfill: ${fieldList.join(', ')}`,
+        message: loyalty
+          ? `Loyalty program: ${loyalty.loyaltyProgram}${
+              loyalty.loyaltyProgramEvidence ? ` — ${loyalty.loyaltyProgramEvidence}` : ''
+            }`
+          : `Chrome extension backfill: ${fieldList.join(', ')}`,
         timestamp: new Date().toISOString(),
       },
     ];

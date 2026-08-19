@@ -247,3 +247,19 @@
 #adhello-lead-saver-root .adhello-social-details[open] summary {
   margin-bottom: 8px;
 }
+
+#adhello-lead-saver-root .adhello-tool-block {
+  margin: 4px 0 8px;
+}
+
+#adhello-lead-saver-root .adhello-loyalty {
+  width: 100%;
+}
+
+#adhello-lead-saver-root .adhello-loyalty-status {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #4b5563;
+  white-space: pre-wrap;
+}

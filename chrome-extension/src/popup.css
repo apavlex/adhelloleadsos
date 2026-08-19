@@ -427,6 +427,36 @@ a {
   cursor: wait;
 }
 
+#findLoyaltyBtn {
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--ws-accent) 45%, #d1d5db);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  background: #fff;
+  color: var(--ws-accent-text);
+  cursor: pointer;
+}
+
+#findLoyaltyBtn:hover:not(:disabled) {
+  background: var(--ws-accent-soft);
+}
+
+#findLoyaltyBtn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.loyalty-tool {
+  margin-top: 4px;
+}
+
+.loyalty-status {
+  margin-top: 6px;
+  white-space: pre-wrap;
+}
+
 .platform-guide {
   margin: 0 0 12px;
   padding: 10px 12px;

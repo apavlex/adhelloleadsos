@@ -32,7 +32,7 @@ test('options and popup expose Show Save lead button on pages toggle', () => {
 
   const popupJs = readExt('src/popup.js');
   assert.match(popupJs, /chrome\.storage\.sync\.set\(\{\s*showSaveLeadFab:/);
-  assert.match(popupJs, /EXT_VERSION = '1\.8\.4'/);
+  assert.match(popupJs, /EXT_VERSION = '1\.8\.5'/);
 });
 
 test('content script skips FAB when showSaveLeadFab is off and reacts to storage', () => {
@@ -45,10 +45,29 @@ test('content script skips FAB when showSaveLeadFab is off and reacts to storage
   assert.doesNotMatch(content, /buildPanel\(extractLeadFromPage\(\)\);\s*\}\)\(\);/);
 });
 
-test('manifest is 1.8.4 and still injects extractors for popup save', () => {
+test('manifest is 1.8.5 and still injects extractors for popup save', () => {
   const manifest = JSON.parse(readExt('manifest.json'));
-  assert.equal(manifest.version, '1.8.4');
+  assert.equal(manifest.version, '1.8.5');
   const scripts = manifest.content_scripts[0].js;
   assert.ok(scripts.includes('src/extractors.js'));
+  assert.ok(scripts.includes('src/loyalty-detect.js'));
   assert.ok(scripts.includes('src/content.js'));
+});
+
+test('popup and FAB expose Find loyalty rewards', () => {
+  const popupHtml = readExt('src/popup.html');
+  assert.match(popupHtml, /id="findLoyaltyBtn"/);
+  assert.match(popupHtml, /Find loyalty rewards/);
+
+  const popupJs = readExt('src/popup.js');
+  assert.match(popupJs, /FIND_LOYALTY_PROGRAM/);
+  assert.match(popupJs, /loyaltyProgram/);
+
+  const content = readExt('src/content.js');
+  assert.match(content, /adhello-loyalty/);
+  assert.match(content, /FIND_LOYALTY_PROGRAM/);
+
+  const background = readExt('src/background.js');
+  assert.match(background, /importScripts\('loyalty-detect\.js'\)/);
+  assert.match(background, /FIND_LOYALTY_PROGRAM/);
 });

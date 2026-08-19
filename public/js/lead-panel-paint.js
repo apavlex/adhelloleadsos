@@ -249,6 +249,74 @@
     if (row && row.dataset) row.dataset.websiteBuildUrl = url;
   }
 
+  function resolveLoyaltyStatus(lead, row) {
+    const raw = String(
+      (lead && lead.loyaltyProgram) ||
+        (row && row.dataset && row.dataset.loyaltyProgram) ||
+        '',
+    )
+      .trim()
+      .toLowerCase();
+    const has = lead && lead.hasLoyaltyProgram;
+    if (raw === 'yes' || raw === 'true' || raw === '1' || has === true || has === 'true') return 'yes';
+    if (raw === 'no' || raw === 'false' || raw === '0' || has === false || has === 'false') return 'no';
+    return '';
+  }
+
+  function paintLoyaltyProgram(lead, row) {
+    const status = resolveLoyaltyStatus(lead, row);
+    const rowEl = panelEl('headerLoyaltyRow');
+    const statusEl = panelEl('leadPanelLoyaltyStatus');
+    const evidenceEl = panelEl('leadPanelLoyaltyEvidence');
+    const pill = panelEl('mobilePanelLoyaltyPill');
+    const evidence = String(
+      (lead && lead.loyaltyProgramEvidence) ||
+        (row && row.dataset && row.dataset.loyaltyProgramEvidence) ||
+        '',
+    ).trim();
+    const url = String(
+      (lead && lead.loyaltyProgramUrl) || (row && row.dataset && row.dataset.loyaltyProgramUrl) || '',
+    ).trim();
+
+    if (pill) {
+      if (status === 'yes' || status === 'no') {
+        pill.classList.remove('hidden');
+        pill.textContent = status === 'yes' ? 'Loyalty' : 'No loyalty';
+        pill.className =
+          'shrink-0 whitespace-nowrap px-2.5 py-0.5 rounded-full border text-[9px] font-black uppercase tracking-widest ' +
+          (status === 'yes'
+            ? 'text-emerald-800 dark:text-emerald-200 bg-emerald-500/15 dark:bg-emerald-950/40 border-emerald-500/35'
+            : 'text-slate-600 dark:text-slate-300 bg-slate-200/70 dark:bg-slate-800 border-slate-300/60 dark:border-white/15');
+        pill.title = status === 'yes' ? evidence || url || 'Loyalty program found' : 'No on-site loyalty program';
+      } else {
+        pill.classList.add('hidden');
+        pill.textContent = '';
+      }
+    }
+
+    if (!rowEl || !statusEl) return;
+    if (status !== 'yes' && status !== 'no') {
+      rowEl.classList.add('hidden');
+      return;
+    }
+    rowEl.classList.remove('hidden');
+    statusEl.textContent = status === 'yes' ? 'Yes' : 'No';
+    if (evidenceEl) {
+      const showEvidence = status === 'yes' && (evidence || url);
+      evidenceEl.classList.toggle('hidden', !showEvidence);
+      if (showEvidence) {
+        evidenceEl.textContent = evidence || url;
+        if (/^https?:\/\//i.test(url)) {
+          evidenceEl.href = url;
+        } else {
+          evidenceEl.removeAttribute('href');
+        }
+      } else {
+        evidenceEl.textContent = '';
+      }
+    }
+  }
+
   function scrapeRowIntoLead(row, base) {
     const lead = base && typeof base === 'object' ? { ...base } : {};
     if (!row || typeof row.querySelector !== 'function') return lead;
@@ -331,6 +399,17 @@
     if (parseInt(ds.reviews, 10) > 0 && !parseInt(lead.reviewsCount, 10)) {
       lead.reviewsCount = parseInt(ds.reviews, 10);
     }
+    if (!isEmpty(ds.loyaltyProgram) && isEmpty(lead.loyaltyProgram)) {
+      lead.loyaltyProgram = ds.loyaltyProgram;
+    }
+    if (ds.loyaltyProgram === 'yes') lead.hasLoyaltyProgram = true;
+    if (ds.loyaltyProgram === 'no') lead.hasLoyaltyProgram = false;
+    if (!isEmpty(ds.loyaltyProgramUrl) && isEmpty(lead.loyaltyProgramUrl)) {
+      lead.loyaltyProgramUrl = ds.loyaltyProgramUrl;
+    }
+    if (!isEmpty(ds.loyaltyProgramEvidence) && isEmpty(lead.loyaltyProgramEvidence)) {
+      lead.loyaltyProgramEvidence = ds.loyaltyProgramEvidence;
+    }
 
     return lead;
   }
@@ -411,6 +490,7 @@
     }
 
     paintQuickOutreachLinks(L, row);
+    paintLoyaltyProgram(L, row);
 
     const starsEl = panelEl('mobilePanelStars');
     const ratingText = panelEl('mobilePanelRatingText');
@@ -463,7 +543,7 @@
     return { phone, address: locationLine, rating, reviews };
   }
 
-  window.__PIPELINE_PANEL_PAINT_V1 = '3';
+  window.__PIPELINE_PANEL_PAINT_V1 = '4';
   window.__paintPanelFromLeadRecord = paintPanelFromLeadRecord;
   window.__findLeadRecordForPanel = findLeadRecord;
 })();

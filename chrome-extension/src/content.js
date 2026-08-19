@@ -237,6 +237,10 @@
               <input type="url" name="tiktok" placeholder="https://tiktok.com/@…" />
             </label>
           </details>
+          <div class="adhello-tool-block">
+            <button type="button" class="adhello-btn adhello-btn--ghost adhello-loyalty">Find loyalty rewards</button>
+            <p class="adhello-loyalty-status" aria-live="polite"></p>
+          </div>
         </div>
         <div class="adhello-panel__actions">
           <button type="button" class="adhello-btn adhello-btn--ghost adhello-cancel">Cancel</button>
@@ -250,6 +254,9 @@
     const closeBtn = root.querySelector('.adhello-panel__close');
     const cancelBtn = root.querySelector('.adhello-cancel');
     const saveBtns = root.querySelectorAll('.adhello-save');
+    const loyaltyBtn = root.querySelector('.adhello-loyalty');
+    const loyaltyStatusEl = root.querySelector('.adhello-loyalty-status');
+    let lastLoyaltyResult = null;
 
     const saveTypeEl = root.querySelector('#adhello-save-type');
 
@@ -431,6 +438,13 @@
         sourceChannel: String(fields.sourceChannel?.value || base.sourceChannel || '').trim(),
       });
       if (defaultFolderName) lead.folderName = defaultFolderName;
+      if (lastLoyaltyResult) {
+        lead.loyaltyProgram = lastLoyaltyResult.found ? 'yes' : 'no';
+        lead.hasLoyaltyProgram = !!lastLoyaltyResult.found;
+        lead.loyaltyProgramEvidence = String(lastLoyaltyResult.evidence || '').slice(0, 500);
+        lead.loyaltyProgramUrl = String(lastLoyaltyResult.url || '').slice(0, 2000);
+        lead.loyaltyProgramCheckedAt = new Date().toISOString();
+      }
 
       setSaving(true);
 
@@ -456,6 +470,41 @@
     closeBtn.addEventListener('click', closePanel);
     cancelBtn.addEventListener('click', closePanel);
     saveBtns.forEach((btn) => btn.addEventListener('click', handleSave));
+
+    function setLoyaltyStatus(msg) {
+      if (loyaltyStatusEl) loyaltyStatusEl.textContent = msg || '';
+    }
+
+    loyaltyBtn?.addEventListener('click', async () => {
+      if (!loyaltyBtn) return;
+      loyaltyBtn.disabled = true;
+      loyaltyBtn.textContent = 'Scanning…';
+      setLoyaltyStatus('Scanning this site…');
+      try {
+        const res = await chrome.runtime.sendMessage({ type: 'FIND_LOYALTY_PROGRAM' });
+        if (!res?.ok) throw new Error(res?.error || 'Scan failed');
+        lastLoyaltyResult = res.data || { found: false, evidence: '', url: window.location.href };
+        if (lastLoyaltyResult.found) {
+          const extra = lastLoyaltyResult.evidence || lastLoyaltyResult.url || '';
+          setLoyaltyStatus(extra ? `Found — ${extra}` : 'Found');
+        } else {
+          setLoyaltyStatus('Not found — no on-site loyalty program');
+        }
+        const title = fields.title.value.trim();
+        if (!title) {
+          toast('Enter a title, then Save to mark this lead.', 'error');
+          return;
+        }
+        await handleSave();
+      } catch (err) {
+        lastLoyaltyResult = null;
+        setLoyaltyStatus(err.message || 'Scan failed');
+        toast(err.message || 'Scan failed', 'error');
+      } finally {
+        loyaltyBtn.disabled = false;
+        loyaltyBtn.textContent = 'Find loyalty rewards';
+      }
+    });
 
     document.documentElement.appendChild(root);
     applyContentTheme(root);
