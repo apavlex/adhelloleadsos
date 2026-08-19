@@ -1627,6 +1627,12 @@
         `Tagged ${n} for auto outreach — synced to GHL workflow${foundNote}.`,
         'success',
       );
+      const results = Array.isArray(data.results) ? data.results : [];
+      results.forEach(function (item) {
+        if (item && item.lead && typeof window.__applyLeadPipelineStageFromApi === 'function') {
+          window.__applyLeadPipelineStageFromApi(item.lead);
+        }
+      });
       if (typeof window.__flashBulkBarBtn === 'function') {
         window.__flashBulkBarBtn(btn, `Enrolled ${n}`, 1400);
       }

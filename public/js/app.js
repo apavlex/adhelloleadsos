@@ -7131,6 +7131,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (L.onPipelineBoard !== undefined) {
       ds.onPipelineBoard = L.onPipelineBoard ? '1' : '';
     }
+    if (L.stageId || L.pipelineStage != null) {
+      if (typeof window.__applyLeadPipelineStageFromApi === 'function') {
+        window.__applyLeadPipelineStageFromApi(L, { row: row });
+      } else {
+        if (L.stageId) ds.stageId = String(L.stageId);
+        if (L.pipelineStage != null) ds.pipelineStage = String(L.pipelineStage);
+        if (L.pipelineLabel) ds.pipelineLabel = String(L.pipelineLabel);
+      }
+    }
     if (L.bookmarked !== undefined) {
       const bookmarkBtn = row.querySelector && row.querySelector('.bookmark-btn');
       const clientOwnsBookmark =
@@ -13064,6 +13073,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!res.ok || !data.success) {
       throw new Error((data && data.error) || 'Call failed');
     }
+    if (data.lead && typeof window.__applyLeadPipelineStageFromApi === 'function') {
+      window.__applyLeadPipelineStageFromApi(data.lead);
+    }
     if (data && data.dialMode === 'browser_device') {
       const raw = String((data && data.phone) || fallbackPhone || '').trim();
       openSoftphoneOrTel(raw);
@@ -13084,6 +13096,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.success) {
       throw new Error((data && data.error) || 'Voicemail drop failed');
+    }
+    if (data.lead && typeof window.__applyLeadPipelineStageFromApi === 'function') {
+      window.__applyLeadPipelineStageFromApi(data.lead);
     }
     return data;
   }
@@ -13350,6 +13365,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!res.ok || !data.success) {
       throw new Error((data && data.error) || 'Could not send AI SMS.');
     }
+    if (data.lead && typeof window.__applyLeadPipelineStageFromApi === 'function') {
+      window.__applyLeadPipelineStageFromApi(data.lead);
+    }
     if (typeof options.onPreview === 'function' && data.personalized) {
       options.onPreview(data.personalized);
     }
@@ -13453,6 +13471,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.success) {
       throw new Error((data && data.error) || `HTTP ${res.status}`);
+    }
+    if (data.lead && typeof window.__applyLeadPipelineStageFromApi === 'function') {
+      window.__applyLeadPipelineStageFromApi(data.lead);
     }
     return data;
   }

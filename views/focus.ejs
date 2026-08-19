@@ -1869,6 +1869,23 @@
     }
     window.__pushFocusLeadToGhl = pushFocusLeadToGhl;
 
+    function paintFocusStageBadge(lead) {
+      if (!elStage || !lead) return;
+      elStage.textContent = lead.pipelineLabel || ('Stage ' + lead.pipelineStage);
+    }
+
+    function applyFocusPipelineFromLead(lead, dataLead) {
+      if (!lead || !dataLead) return;
+      if (dataLead.stageId) lead.stageId = dataLead.stageId;
+      if (dataLead.pipelineStage != null) lead.pipelineStage = dataLead.pipelineStage;
+      if (dataLead.pipelineStageKey) lead.pipelineStageKey = dataLead.pipelineStageKey;
+      if (dataLead.pipelineLabel) lead.pipelineLabel = dataLead.pipelineLabel;
+      var cur = currentLead();
+      if (cur === lead || (cur && lead && String(cur.key) === String(lead.key))) {
+        paintFocusStageBadge(lead);
+      }
+    }
+
     function placeFocusCall() {
       var lead = currentLead();
       if (!lead || !lead.key) return Promise.resolve();
@@ -1885,6 +1902,7 @@
         .then(function (data) {
           if (data && data.lead) {
             Object.assign(lead, data.lead);
+            applyFocusPipelineFromLead(lead, data.lead);
             hydrateFocusQuickLogFromLead(lead);
             syncFollowupStripForOutcome(elOutcome ? elOutcome.value : '');
           }
@@ -1919,6 +1937,10 @@
         })
         .then(function (data) {
           setCopyFeedback('Voicemail drop started.');
+          if (data && data.lead) {
+            Object.assign(lead, data.lead);
+            applyFocusPipelineFromLead(lead, data.lead);
+          }
           return data;
         })
         .catch(function (err) {
@@ -2109,6 +2131,10 @@
       placeFocusSmsFromBody(msgBody)
         .then(function (data) {
           setFocusSmsComposeStatus(focusSmsSuccessLabel(data));
+          if (data && data.lead) {
+            Object.assign(lead, data.lead);
+            applyFocusPipelineFromLead(lead, data.lead);
+          }
           if (elSmsComposeInput) {
             elSmsComposeInput.value = '';
             syncFocusSmsComposeCount();
@@ -3296,12 +3322,15 @@
       }
     }
 
-    window.__onFocusLeadTagsUpdated = function (leadKey, tagKeys) {
+    window.__onFocusLeadTagsUpdated = function (leadKey, tagKeys, leadRecord) {
       var short = String(leadKey || '').trim().replace(/^lead:/i, '');
       var next = Array.isArray(tagKeys) ? tagKeys.map(String).filter(Boolean) : [];
       queue.forEach(function (item) {
         if (!item || !item.key) return;
-        if (String(item.key).replace(/^lead:/i, '') === short) item.tags = next.slice();
+        if (String(item.key).replace(/^lead:/i, '') === short) {
+          item.tags = next.slice();
+          if (leadRecord) applyFocusPipelineFromLead(item, leadRecord);
+        }
       });
     };
 
@@ -3499,23 +3528,8 @@
     function maybeAdvanceStage() {
       var lead = currentLead();
       if (!lead) return Promise.resolve(null);
-      var ps = parseInt(lead.pipelineStage, 10);
-      if (ps !== 1 && ps !== 2) return Promise.resolve(null);
-      var nextStage = ps + 1;
-      return fetch('/leads/' + encodeURIComponent(lead.key) + '/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({
-          pipelineStage: nextStage,
-          pipelineStageUpdatedAt: new Date().toISOString(),
-        }),
-      }).then(function (r) {
-        return r.json().then(function (j) {
-          if (!r.ok || !j.success) throw new Error('stage update failed');
-          lead.pipelineStage = nextStage;
-          return j;
-        });
-      });
+      paintFocusStageBadge(lead);
+      return Promise.resolve(null);
     }
 
     function onSendAdvance() {

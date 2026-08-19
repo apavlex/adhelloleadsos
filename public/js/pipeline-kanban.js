@@ -468,6 +468,58 @@
     initKanban();
   };
 
+  function findResultRowForLeadKey(key) {
+    const raw = String(key || '').trim();
+    if (!raw) return null;
+    const bare = raw.replace(/^lead:/i, '');
+    const variants = [raw, bare, 'lead:' + bare];
+    for (let i = 0; i < variants.length; i += 1) {
+      const row = document.querySelector(
+        '.result-row[data-lead-key="' + CSS.escape(variants[i]) + '"]',
+      );
+      if (row) return row;
+    }
+    return null;
+  }
+
+  function applyLeadPipelineStageFromApi(lead, opts) {
+    if (!lead) return false;
+    const stageId = lead.stageId ? String(lead.stageId).trim() : '';
+    if (!stageId && lead.pipelineStage == null) return false;
+    const row = (opts && opts.row) || findResultRowForLeadKey(lead.key);
+    if (row) {
+      const prevStageId = String(row.dataset.stageId || '').trim();
+      if (stageId) row.dataset.stageId = stageId;
+      if (lead.pipelineStage != null) row.dataset.pipelineStage = String(lead.pipelineStage);
+      const labels = window.PIPELINE_STAGE_LABELS || {};
+      const fullName = String(lead.pipelineLabel || labels[stageId] || '').trim();
+      const short =
+        (fullName.split('(')[0].trim().slice(0, 22)) + (fullName.length > 22 ? '…' : '');
+      if (short) row.dataset.pipelineLabel = short;
+      const pipeSel = row.querySelector('.pipeline-inline-select');
+      if (pipeSel && stageId) pipeSel.value = stageId;
+      const cell = row.querySelector('.pipeline-stage-label');
+      if (cell) cell.textContent = short || 'Stage';
+      const wrap = row.querySelector('.pipeline-stage-pill-wrap');
+      if (wrap && stageId) {
+        const dot =
+          (window.PIPELINE_STAGE_COLORS && window.PIPELINE_STAGE_COLORS[stageId]) || '#94a3b8';
+        wrap.style.boxShadow = 'inset 3px 0 0 ' + dot;
+      }
+      const changed = !!(stageId && stageId !== prevStageId);
+      if (changed && typeof window.refreshPipelineKanbanIfNeeded === 'function') {
+        window.refreshPipelineKanbanIfNeeded();
+      }
+      return true;
+    }
+    if (typeof window.refreshPipelineKanbanIfNeeded === 'function') {
+      window.refreshPipelineKanbanIfNeeded();
+    }
+    return false;
+  }
+
+  window.__applyLeadPipelineStageFromApi = applyLeadPipelineStageFromApi;
+
   document.addEventListener('adhello-pipeline-view-change', function (e) {
     if (e && e.detail && e.detail.mode === 'kanban') {
       initKanban();

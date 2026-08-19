@@ -52,6 +52,7 @@ const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConsta
 const { CHANNELS: OUTREACH_CHANNELS, buildOutreachLibrary } = require('../services/outreachChannelScripts');
 const { resolveScriptSignOffProfile, applySenderPlaceholdersDeep, fillScriptPlaceholders } = require('../services/scriptPlaceholders');
 const pipelineStagesService = require('../services/pipelineStagesService');
+const { buildPipelineAdvancePatch } = require('../services/pipelineAdvance');
 const { scoreLeadRecord } = require('../services/opportunityScore');
 const { chatCompletion, parseLlmJson } = require('../services/llmClient');
 const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
@@ -828,21 +829,8 @@ function resolveRequestedLeadCallerId(ws, requested) {
   return resolveLeadCallerId(ws);
 }
 
-async function buildContactedStagePatch(lead, workspaceId) {
-  if (!lead || !workspaceId) return {};
-  const status = String(lead.status || '').toLowerCase();
-  if (status.includes('closed - won') || status.includes('closed - lost')) return {};
-  const currentStageNum = parseInt(lead.pipelineStage, 10) || 1;
-  if (currentStageNum > 1) return {};
-
-  const stages = await pipelineStagesService.ensureWorkspaceStagesSeeded(workspaceId);
-  if (!Array.isArray(stages) || !stages.length) return {};
-  const sortedStages = [...stages].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
-  const contacted =
-    sortedStages.find((s) => String(s.key || '').toLowerCase() === 'contacted') ||
-    sortedStages[Math.min(1, sortedStages.length - 1)];
-  if (!contacted || !contacted.id) return {};
-  return pipelineStagesService.patchLeadStageFields(lead, sortedStages, contacted.id);
+async function buildContactedStagePatch(lead, workspaceId, action = 'CALL') {
+  return buildPipelineAdvancePatch(lead, action || 'CALL', workspaceId);
 }
 
 /** Log outbound call on a lead (softphone dial with leadKey, or shared call flows). */
@@ -2405,7 +2393,7 @@ router.post('/:key/sms', async (req, res, next) => {
     const saveToLead = !!(req.body && req.body.saveToLead);
 
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
-    const contactedPatch = await buildContactedStagePatch(lead, req.workspaceId);
+    const contactedPatch = await buildContactedStagePatch(lead, req.workspaceId, 'SMS');
     const preferredProvider = String((req.body && req.body.provider) || '').trim().toLowerCase();
 
     const sent = await smsOutbound.sendSmsToLead({
@@ -2847,7 +2835,7 @@ router.post('/:key/sms-ai-send', async (req, res, next) => {
     }
 
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
-    const contactedPatch = await buildContactedStagePatch(lead, req.workspaceId);
+    const contactedPatch = await buildContactedStagePatch(lead, req.workspaceId, 'SMS');
     const preferredProvider = String((req.body && req.body.provider) || '').trim().toLowerCase();
 
     const sent = await smsOutbound.sendSmsToLead({

@@ -301,7 +301,7 @@ async function sendInfoPackToLead({
           channel: sent.channel || 'sms',
         };
         if (appendLeadUpdateFn && buildContactedStagePatchFn) {
-          const contactedPatch = await buildContactedStagePatchFn(latestLead, wid);
+          const contactedPatch = await buildContactedStagePatchFn(latestLead, wid, 'SMS');
           const updates = appendLeadUpdateFn(latestLead, {
             type: 'sms_outbound',
             value: materialized.sms.body,

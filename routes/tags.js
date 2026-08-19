@@ -8,6 +8,15 @@ const {
   enrollLeadInAutoOutreach,
   AUTO_OUTREACH_TAG_NAME,
 } = require('../services/prospectingEnroll');
+const { buildPipelineAdvancePatch } = require('../services/pipelineAdvance');
+
+async function maybeAdvanceOnTagAdd(workspaceId, lead) {
+  if (!lead || !lead.key || !workspaceId) return lead;
+  const patch = await buildPipelineAdvancePatch(lead, 'ADD_TAG', workspaceId);
+  if (!patch || !Object.keys(patch).length) return lead;
+  const updated = await dbService.updateLead(lead.key, patch, workspaceId);
+  return updated || { ...lead, ...patch };
+}
 
 async function maybeEnrollAutoOutreachOnTagAdd(workspaceId, lead, addedTagKeys) {
   if (!lead || !lead.key || !Array.isArray(addedTagKeys) || !addedTagKeys.length) return null;
@@ -135,10 +144,16 @@ router.post('/assign', async (req, res, next) => {
       nextTags = tagKeys;
     }
 
-    const lead = await dbService.setLeadTags(fullKey, nextTags, req.workspaceId);
+    let lead = await dbService.setLeadTags(fullKey, nextTags, req.workspaceId);
     if (!lead) return res.status(404).json({ success: false, error: 'Could not save tags on lead.' });
-    if (mode === 'add') {
-      await maybeEnrollAutoOutreachOnTagAdd(req.workspaceId, lead, addedTagKeys(prev, nextTags));
+    const added = addedTagKeys(prev, nextTags);
+    if (added.length) {
+      lead = await maybeAdvanceOnTagAdd(req.workspaceId, lead);
+    }
+    if (mode === 'add' || added.length) {
+      await maybeEnrollAutoOutreachOnTagAdd(req.workspaceId, lead, added);
+      const refreshed = await dbService.getLead(fullKey, req.workspaceId);
+      if (refreshed) lead = refreshed;
     }
     triggerGhlProspectSync(fullKey, req.workspaceId, { trigger: 'tag_assign' });
     res.json({ success: true, lead });
@@ -213,11 +228,19 @@ router.post('/assign-bulk', async (req, res, next) => {
       }
 
       // eslint-disable-next-line no-await-in-loop
-      const lead = await dbService.setLeadTags(fullKey, nextTags, req.workspaceId);
+      let lead = await dbService.setLeadTags(fullKey, nextTags, req.workspaceId);
       if (lead) {
-        if (mode === 'add') {
+        const added = addedTagKeys(prev, nextTags);
+        if (added.length) {
           // eslint-disable-next-line no-await-in-loop
-          await maybeEnrollAutoOutreachOnTagAdd(req.workspaceId, lead, addedTagKeys(prev, nextTags));
+          lead = await maybeAdvanceOnTagAdd(req.workspaceId, lead);
+        }
+        if (mode === 'add' || added.length) {
+          // eslint-disable-next-line no-await-in-loop
+          await maybeEnrollAutoOutreachOnTagAdd(req.workspaceId, lead, added);
+          // eslint-disable-next-line no-await-in-loop
+          const refreshed = await dbService.getLead(fullKey, req.workspaceId);
+          if (refreshed) lead = refreshed;
         }
         updated.push(lead);
       } else missedKeys.push(rawKey);

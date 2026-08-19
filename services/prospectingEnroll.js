@@ -7,6 +7,7 @@ const { scoreLocalProspect } = require('./localProspectScore');
 const { scoreLeadRecord } = require('./opportunityScore');
 const phoneLineType = require('./phoneLineType');
 const { triggerGhlProspectSync } = require('./ghlProspectSync');
+const { buildPipelineAdvancePatch } = require('./pipelineAdvance');
 
 const AUTO_OUTREACH_TAG_NAME = 'auto-outreach';
 const AUTO_OUTREACH_CAMPAIGN = 'auto_outreach_7';
@@ -183,11 +184,13 @@ async function enrollLeadInAutoOutreach(opts) {
     prospecting.senderOfferKey = String(lead.prospecting.senderOfferKey).trim();
   }
 
+  const stagePatch = await buildPipelineAdvancePatch(lead, 'AUTOMATE', workspaceId);
   const updated = await dbService.updateLead(
     key,
     {
       tags,
       prospecting,
+      ...stagePatch,
       logs: [
         {
           type: 'prospecting_enroll',

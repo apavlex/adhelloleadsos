@@ -421,6 +421,9 @@
       );
       const row = (cb && cb.closest('.result-row')) || document.querySelector(`tr.result-row[data-lead-key="${CSS.escape(key)}"]`);
       if (row) setRowTags(row, tags);
+      if (lead && typeof window.__applyLeadPipelineStageFromApi === 'function') {
+        window.__applyLeadPipelineStageFromApi(lead, { row: row || undefined });
+      }
     });
   }
 
@@ -551,6 +554,9 @@
       mutator(set);
       const lead = await saveLeadTags(key, [...set]);
       if (lead && Array.isArray(lead.tags)) setRowTags(row, lead.tags);
+      if (lead && typeof window.__applyLeadPipelineStageFromApi === 'function') {
+        window.__applyLeadPipelineStageFromApi(lead, { row: row });
+      }
       tagsPanelRenderSkip = false;
       renderLeadTagsPanel(row);
       try {
@@ -1164,7 +1170,7 @@
       focusTagsContext.tagKeys = newTags;
       renderFocusLeadTags(host, leadKey, newTags);
       if (typeof window.__onFocusLeadTagsUpdated === 'function') {
-        window.__onFocusLeadTagsUpdated(leadKey, newTags);
+        window.__onFocusLeadTagsUpdated(leadKey, newTags, lead || null);
       }
       try {
         const ghl = await pushLeadTagsToGhl(storageKey);

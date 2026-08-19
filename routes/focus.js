@@ -128,6 +128,8 @@ function leadToFocusPayload(l, sortedStages, scriptLibrary, allowedKeys) {
     contactName: contact || '—',
     pipelineStage: stage,
     pipelineLabel: stageLabelFromLead(l, sortedStages),
+    stageId: l.stageId || '',
+    pipelineStageKey: l.pipelineStageKey || '',
     lastTouchLabel: touchPoints.lastTouch.summary || formatLastTouchDisplay(l),
     touchPoints,
     lastDisposition: String(l.lastDisposition || '').trim().toLowerCase(),
