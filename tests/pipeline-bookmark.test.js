@@ -30,6 +30,17 @@ describe('pipeline row bookmark wiring', () => {
     assert.equal(ejs.includes('__togglePipelineLeadBookmark(this.closest'), false);
   });
 
+  it('header bookmark-to-top control sits beside select-all, not in Company', () => {
+    const checkTh = ejs.match(/<th data-plc="check"[\s\S]*?<\/th>/);
+    const companyTh = ejs.match(/<th data-plc="company"[\s\S]*?<\/th>/);
+    assert.ok(checkTh, 'check column header exists');
+    assert.ok(companyTh, 'company column header exists');
+    assert.match(checkTh[0], /data-select-all-leads[\s\S]*id="sortBookmarkedTopBtn"/);
+    assert.match(checkTh[0], /prospect-bookmark-top-btn/);
+    assert.equal(companyTh[0].includes('sortBookmarkedTopBtn'), false);
+    assert.equal(companyTh[0].includes('prospect-bookmark-top-btn'), false);
+  });
+
   it('loads the dedicated bookmark script before app.js on pipeline pages', () => {
     assert.match(leadsEjs, /pipeline-bookmark\.js[\s\S]*pipeline-bulk-select\.js[\s\S]*app\.js/);
     assert.match(prospectingEjs, /pipeline-bookmark\.js[\s\S]*pipeline-bulk-select\.js[\s\S]*app\.js/);

@@ -236,19 +236,16 @@
             <th data-plc="check" class="plc-th-wrap lead-sticky-check pl-4 pr-1.5 py-3.5 align-middle" style="width:5.25rem;min-width:5.25rem;">
               <div class="flex items-center gap-1.5">
                 <input type="checkbox" data-select-all-leads class="w-4 h-4 rounded-md border-brand-border dark:border-slate-500 text-brand-yellow focus:ring-brand-yellow transition-all cursor-pointer" title="Select all leads on this page" aria-label="Select all leads on this page" onclick="event.stopPropagation()" oninput="event.stopPropagation(); if(window.__applySelectAllLeads){window.__applySelectAllLeads(this);}" onchange="event.stopPropagation(); if(window.__applySelectAllLeads){window.__applySelectAllLeads(this);}">
-                <span class="w-7 h-7 shrink-0" aria-hidden="true"></span>
-              </div>
-              <span class="plc-col-resize" data-plc-resize="check" title="Resize column" aria-hidden="true"></span>
-            </th>
-            <th data-plc="company" class="plc-th-wrap lead-sticky-company px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle min-w-[13rem]" scope="col">
-              <div class="inline-flex items-center gap-1.5">
-                <button type="button" class="prospect-bookmark-top-btn shrink-0 w-6 h-6 rounded-md inline-flex items-center justify-center border border-transparent text-brand-muted dark:text-slate-400 hover:border-brand-yellow/50 hover:bg-brand-yellow/15 hover:text-brand-dark dark:hover:text-brand-yellow transition-colors" id="sortBookmarkedTopBtn" title="Pull bookmarked leads to the top" aria-label="Pull bookmarked leads to the top" aria-pressed="false">
+                <button type="button" class="prospect-bookmark-top-btn shrink-0 w-7 h-7 rounded-lg inline-flex items-center justify-center border border-transparent text-brand-muted dark:text-slate-400 hover:border-brand-yellow/50 hover:bg-brand-yellow/15 hover:text-brand-dark dark:hover:text-brand-yellow transition-colors" id="sortBookmarkedTopBtn" title="Pull bookmarked leads to the top" aria-label="Pull bookmarked leads to the top" aria-pressed="false">
                   <svg class="w-3.5 h-3.5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
                   </svg>
                 </button>
-                <button type="button" class="prospect-sort-btn" data-prospect-sort="company" title="Sort by company name">Company <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
               </div>
+              <span class="plc-col-resize" data-plc-resize="check" title="Resize column" aria-hidden="true"></span>
+            </th>
+            <th data-plc="company" class="plc-th-wrap lead-sticky-company px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle min-w-[13rem]" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="company" title="Sort by company name">Company <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
               <span class="plc-col-resize" data-plc-resize="company" title="Resize column" aria-hidden="true"></span>
             </th>
             <th data-plc="permitNumber" class="plc-th-wrap px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap min-w-[6.5rem]" scope="col">

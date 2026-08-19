@@ -1742,7 +1742,8 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
 }
 .prospect-leads-table td.lead-sticky-check .lead-checkbox,
 .prospect-leads-table td.lead-sticky-check button,
-.prospect-leads-table td.lead-sticky-check a {
+.prospect-leads-table td.lead-sticky-check a,
+.prospect-leads-table th.lead-sticky-check .prospect-bookmark-top-btn {
   pointer-events: auto;
 }
 
