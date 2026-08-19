@@ -36,8 +36,8 @@ function sanitizeScriptHtml(raw) {
 function scriptTextToEditorHtml(text) {
   const s = String(text || '');
   if (!s) return '';
-  if (looksLikeScriptHtml(s)) return sanitizeScriptHtml(s);
-  return escapeHtml(s).replace(/\r\n/g, '\n').replace(/\n/g, '<br>');
+  const html = looksLikeScriptHtml(s) ? sanitizeScriptHtml(s) : escapeHtml(s);
+  return html.replace(/\r\n/g, '\n').replace(/\n/g, '<br>');
 }
 
 function htmlToPlain(raw) {

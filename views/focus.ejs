@@ -292,29 +292,57 @@
         <input id="focus-subject" type="text" class="w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-brand-dark dark:text-white" autocomplete="off" />
       </div>
       <div class="mb-6">
-        <div class="flex items-center justify-between gap-3 mb-2">
-          <label for="focus-body" id="focus-body-label" class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Outreach draft</label>
-          <div class="flex items-center gap-2 shrink-0">
-            <span id="focus-script-save-status" class="text-[10px] text-brand-muted dark:text-slate-400 tabular-nums" aria-live="polite"></span>
-            <button
-              type="button"
-              id="focus-improve-text"
-              class="btn-pill border border-brand-yellow/50 bg-brand-yellow/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 disabled:opacity-40 disabled:pointer-events-none"
-              title="Polish your draft for this lead with AI — does not send"
-            >
-              Improve text
-            </button>
-            <button
-              type="button"
-              id="focus-save-script"
-              class="btn-pill border border-brand-border dark:border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 disabled:opacity-40 disabled:pointer-events-none"
-              title="Save script to workspace library for this product"
-            >
-              Save script
-            </button>
+        <div class="script-block rounded-2xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-black/10">
+          <div class="flex flex-wrap items-center justify-between gap-2 py-3 px-4 border-b border-brand-border/40 dark:border-white/10">
+            <label for="focus-body-rich" id="focus-body-label" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">Call script</label>
+            <span id="focus-script-save-status" class="text-[10px] font-bold text-brand-muted dark:text-slate-400 tabular-nums" aria-live="polite"></span>
+          </div>
+          <div class="px-4 pb-4 pt-3">
+            <div class="flex flex-wrap gap-2 items-center justify-between mb-3">
+              <div class="script-fmt-bar inline-flex items-center gap-0.5 rounded-lg border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-800 p-0.5" role="toolbar" aria-label="Text formatting">
+                <button type="button" data-focus-script-fmt="bold" title="Bold (⌘B)" class="w-8 h-8 rounded-md text-sm font-black text-brand-dark dark:text-white hover:bg-brand-yellow/30">B</button>
+                <button type="button" data-focus-script-fmt="italic" title="Italic (⌘I)" class="w-8 h-8 rounded-md text-sm italic font-serif text-brand-dark dark:text-white hover:bg-brand-yellow/30">I</button>
+                <button type="button" data-focus-script-fmt="underline" title="Underline (⌘U)" class="w-8 h-8 rounded-md text-sm underline font-bold text-brand-dark dark:text-white hover:bg-brand-yellow/30">U</button>
+              </div>
+              <div class="flex flex-wrap gap-2 justify-end items-center">
+                <button
+                  type="button"
+                  id="focus-improve-text"
+                  class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider border border-brand-yellow/50 bg-brand-yellow/10 text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 disabled:opacity-40 disabled:pointer-events-none"
+                  title="Polish your draft for this lead with AI — does not send"
+                >
+                  Improve text
+                </button>
+                <button
+                  type="button"
+                  id="focus-save-script"
+                  class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-brand-muted hover:text-brand-dark dark:hover:text-white border border-brand-border/60 dark:border-white/10 hover:border-brand-yellow/50 transition-colors disabled:opacity-40 disabled:pointer-events-none"
+                  title="Save script to workspace library for this product"
+                >
+                  Save script
+                </button>
+                <button
+                  type="button"
+                  id="focus-copy-script"
+                  class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-brand-muted hover:text-brand-dark dark:hover:text-white border border-brand-border/60 dark:border-white/10 hover:border-brand-yellow/50 transition-colors"
+                  title="Copy formatted script"
+                >
+                  Copy
+                </button>
+              </div>
+            </div>
+            <div
+              id="focus-body-rich"
+              class="script-rich w-full text-sm leading-relaxed text-brand-dark dark:text-slate-200 bg-white dark:bg-slate-800/80 rounded-2xl p-4 border border-brand-border/50 dark:border-white/10 font-sans min-h-[12rem] focus:ring-2 focus:ring-brand-yellow focus:border-transparent outline-none whitespace-pre-wrap"
+              contenteditable="true"
+              role="textbox"
+              aria-multiline="true"
+              aria-label="Call script"
+              data-placeholder="Choose a product above — the call script loads here instantly."
+            ></div>
+            <textarea id="focus-body" class="sr-only" aria-hidden="true" tabindex="-1"></textarea>
           </div>
         </div>
-        <textarea id="focus-body" rows="10" class="w-full rounded-2xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-brand-dark dark:text-white font-medium leading-relaxed resize-y min-h-[200px]" placeholder="Choose a product above — the call script loads here instantly."></textarea>
       </div>
       <div id="focus-outcome-panel" class="mb-6 md:mb-4 md:sticky md:bottom-4 z-30 rounded-[1.35rem] border border-brand-border/60 dark:border-white/15 bg-brand-cream/25 dark:bg-slate-900/70 md:bg-white/70 md:dark:bg-slate-900/65 md:backdrop-blur-xl shadow-sm md:shadow-xl p-4 space-y-3">
         <div id="focus-outcome-header" class="flex items-center justify-between gap-2">
@@ -468,7 +496,7 @@
     <div class="bg-white dark:bg-slate-900 rounded-2xl border border-brand-border dark:border-white/10 shadow-xl max-w-md w-full p-6">
       <h2 id="focus-help-title" class="font-display font-bold text-lg text-brand-dark dark:text-white mb-4">Keyboard shortcuts</h2>
       <ul class="space-y-2 text-sm text-brand-dark dark:text-slate-200">
-        <li><kbd class="font-mono text-xs bg-brand-cream dark:bg-slate-800 px-1 rounded">E</kbd> — Focus draft textarea</li>
+        <li><kbd class="font-mono text-xs bg-brand-cream dark:bg-slate-800 px-1 rounded">E</kbd> — Focus call script</li>
         <li><kbd class="font-mono text-xs bg-brand-cream dark:bg-slate-800 px-1 rounded">⌘/Ctrl</kbd> + <kbd class="font-mono text-xs bg-brand-cream dark:bg-slate-800 px-1 rounded">Enter</kbd> — Send &amp; advance</li>
         <li><kbd class="font-mono text-xs bg-brand-cream dark:bg-slate-800 px-1 rounded">L</kbd> — Log &amp; next</li>
         <li><kbd class="font-mono text-xs bg-brand-cream dark:bg-slate-800 px-1 rounded">B</kbd> — Go back to previous lead</li>
@@ -580,6 +608,9 @@
     var elSubjectWrap = document.getElementById('focus-subject-wrap');
     var elSubject = document.getElementById('focus-subject');
     var elBody = document.getElementById('focus-body');
+    var elBodyRich = document.getElementById('focus-body-rich');
+    var btnCopyScript = document.getElementById('focus-copy-script');
+    var Scripts = window.AdHelloScripts || {};
     var channelBtns = document.querySelectorAll('.focus-channel-btn');
     var btnCall = document.getElementById('focus-btn-call');
     var btnSms = document.getElementById('focus-btn-sms');
@@ -958,8 +989,63 @@
         .catch(function () {});
     }
 
+    function focusSanitizeHtml(html) {
+      return Scripts.sanitizeScriptHtml ? Scripts.sanitizeScriptHtml(html) : String(html || '');
+    }
+
+    function focusToEditorHtml(text) {
+      if (Scripts.scriptTextToEditorHtml) return Scripts.scriptTextToEditorHtml(text);
+      return String(text || '').replace(/\r\n/g, '\n').replace(/\n/g, '<br>');
+    }
+
+    function focusHtmlToPlain(html) {
+      return Scripts.htmlToPlain ? Scripts.htmlToPlain(html) : String(html || '');
+    }
+
+    function syncFocusTextareaFromRich() {
+      if (!elBody) return '';
+      var html = elBodyRich ? focusSanitizeHtml(elBodyRich.innerHTML || '') : String(elBody.value || '');
+      if (elBody.value !== html) elBody.value = html;
+      return html;
+    }
+
+    function getFocusBodyHtml() {
+      return String(syncFocusTextareaFromRich() || '').trim();
+    }
+
+    function getFocusBodyPlain() {
+      return String(focusHtmlToPlain(getFocusBodyHtml()) || '').trim();
+    }
+
+    function setFocusBodyHtml(raw) {
+      var html = focusToEditorHtml(raw || '');
+      if (elBody) elBody.value = html;
+      if (elBodyRich) elBodyRich.innerHTML = html;
+    }
+
+    function applyFocusScriptFormat(cmd) {
+      if (!elBodyRich) return;
+      elBodyRich.focus();
+      try {
+        document.execCommand(cmd, false, null);
+      } catch (_) {}
+      syncFocusTextareaFromRich();
+      markFocusScriptDirty();
+    }
+
     function applyScriptPlaceholders(text, contact, company, cityState) {
-      return String(text || '')
+      var raw = String(text || '');
+      if (Scripts.fillScriptPlaceholders) {
+        return Scripts.fillScriptPlaceholders(raw, {
+          sender: Scripts.getScriptProfile ? Scripts.getScriptProfile() : window.__ADHELLO_SCRIPT_PROFILE__,
+          prospect: {
+            name: contact,
+            company: company,
+            city: cityState || 'your area',
+          },
+        });
+      }
+      return raw
         .replace(/\{\{name\}\}/gi, contact)
         .replace(/\{\{company\}\}/gi, company)
         .replace(/\{\{city\}\}/gi, cityState || 'your area');
@@ -1040,7 +1126,7 @@
     function updateFocusScriptSaveUi() {
       if (!btnSaveScript) return;
       var hasProduct = !!(elServiceSelect && elServiceSelect.value);
-      var hasBody = !!(elBody && String(elBody.value || '').trim());
+      var hasBody = !!getFocusBodyPlain();
       btnSaveScript.disabled = focusScriptSaving || !hasProduct || !hasBody;
       if (focusScriptDirty && !focusScriptSaving && elScriptSaveStatus && !elScriptSaveStatus.textContent) {
         setFocusScriptSaveStatus('Unsaved edits');
@@ -1065,8 +1151,8 @@
     function saveFocusScriptToLibrary() {
       if (focusScriptSaving) return Promise.resolve();
       var serviceKey = currentFocusProductKey();
-      var body = elBody ? String(elBody.value || '').trim() : '';
-      if (!serviceKey || !body) {
+      var body = getFocusBodyHtml();
+      if (!serviceKey || !getFocusBodyPlain()) {
         setFocusScriptSaveStatus('Nothing to save', true);
         return Promise.resolve();
       }
@@ -1125,7 +1211,7 @@
       }
       var draft = buildLocalFocusDraft(lead);
       if (elSubject) elSubject.value = draft.subject || '';
-      if (elBody) elBody.value = draft.body || '';
+      setFocusBodyHtml(draft.body || '');
       markFocusScriptClean('');
     }
 
@@ -1985,7 +2071,7 @@
         smsOpenedFromCompact = false;
       }
       if (elSmsComposeSection) elSmsComposeSection.classList.remove('hidden');
-      var scriptText = String((elBody && elBody.value) || '').trim();
+      var scriptText = getFocusBodyPlain();
       if (elSmsComposeInput && !String(elSmsComposeInput.value || '').trim() && scriptText) {
         elSmsComposeInput.value = scriptText;
         if (scriptText.length > 180) setFocusSmsComposeExpanded(true);
@@ -2039,9 +2125,11 @@
         return;
       }
       var composeOpen = isFocusSmsComposeOpen();
-      var targetEl = composeOpen && elSmsComposeInput ? elSmsComposeInput : elBody;
-      var activeImproveBtn = composeOpen && btnSmsImproveText ? btnSmsImproveText : btnImproveText;
-      var draft = String((targetEl && targetEl.value) || '').trim();
+      var targetingSms = composeOpen && elSmsComposeInput;
+      var activeImproveBtn = targetingSms && btnSmsImproveText ? btnSmsImproveText : btnImproveText;
+      var draft = targetingSms
+        ? String((elSmsComposeInput && elSmsComposeInput.value) || '').trim()
+        : getFocusBodyPlain();
       if (!draft) {
         var emptyMsg = 'Add a message to improve first.';
         if (composeOpen) setFocusSmsComposeStatus(emptyMsg, true);
@@ -2066,12 +2154,18 @@
           });
         })
         .then(function (data) {
-          if (data.personalized && targetEl) targetEl.value = data.personalized;
+          if (data.personalized) {
+            if (targetingSms && elSmsComposeInput) elSmsComposeInput.value = data.personalized;
+            else {
+              setFocusBodyHtml(data.personalized);
+              markFocusScriptDirty();
+            }
+          }
           if (composeOpen) {
             syncFocusSmsComposeCount();
             setFocusSmsComposeStatus('Text improved — review and tap Send SMS when ready.');
           } else {
-            setCopyFeedback('Text improved — open SMS composer when ready.');
+            setCopyFeedback('Text improved — review the script, then Call, SMS, or Save.');
           }
         })
         .catch(function (err) {
@@ -2097,7 +2191,7 @@
         return Promise.reject(new Error('missing email'));
       }
       var subject = String((elSubject && elSubject.value) || '').trim();
-      var body = String((elBody && elBody.value) || '').trim();
+      var body = getFocusBodyPlain();
       var mailto = 'mailto:' + encodeURIComponent(email);
       var params = [];
       if (subject) params.push('subject=' + encodeURIComponent(subject));
@@ -3304,7 +3398,7 @@
 
     function buildNoteText() {
       var ch = currentChannel;
-      var body = (elBody.value || '').trim();
+      var body = getFocusBodyPlain();
       var out = outcomeLabel(elOutcome && elOutcome.value);
       var outNotes = String((elOutcomeNotes && elOutcomeNotes.value) || '').trim();
       var note = '[Focus · call script]\n\n' + body;
@@ -3474,9 +3568,49 @@
         });
       });
     }
+    if (elBodyRich) {
+      elBodyRich.addEventListener('input', function () {
+        syncFocusTextareaFromRich();
+        markFocusScriptDirty();
+      });
+      elBodyRich.addEventListener('keydown', function (e) {
+        var meta = e.metaKey || e.ctrlKey;
+        if (!meta) return;
+        var k = String(e.key || '').toLowerCase();
+        if (k === 'b' || k === 'i' || k === 'u') {
+          e.preventDefault();
+          applyFocusScriptFormat(k === 'b' ? 'bold' : k === 'i' ? 'italic' : 'underline');
+        }
+      });
+    }
     if (elBody) {
       elBody.addEventListener('input', function () {
         markFocusScriptDirty();
+      });
+    }
+    document.querySelectorAll('[data-focus-script-fmt]').forEach(function (btn) {
+      btn.addEventListener('mousedown', function (e) {
+        e.preventDefault();
+      });
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        applyFocusScriptFormat(btn.getAttribute('data-focus-script-fmt'));
+      });
+    });
+    if (btnCopyScript) {
+      btnCopyScript.addEventListener('click', function () {
+        var html = getFocusBodyHtml();
+        if (!html) return;
+        var doCopy = Scripts.copyScriptFormatted
+          ? Scripts.copyScriptFormatted(html)
+          : navigator.clipboard.writeText(getFocusBodyPlain());
+        Promise.resolve(doCopy).then(function () {
+          var t = btnCopyScript.textContent;
+          btnCopyScript.textContent = 'Copied';
+          setTimeout(function () { btnCopyScript.textContent = t; }, 1500);
+        }).catch(function () {
+          setCopyFeedback('Could not copy script.', true);
+        });
       });
     }
     if (btnSaveScript) {
@@ -3886,7 +4020,7 @@
       if (e.key === 'e' || e.key === 'E') {
         if (typingTarget(document.activeElement)) return;
         e.preventDefault();
-        elBody.focus();
+        (elBodyRich || elBody).focus();
       }
       if (e.key === 'l' || e.key === 'L') {
         if (typingTarget(document.activeElement)) return;

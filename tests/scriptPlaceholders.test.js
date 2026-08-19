@@ -92,4 +92,21 @@ describe('scriptMarkup', () => {
   it('converts plain text newlines to br for the editor', () => {
     assert.equal(scriptTextToEditorHtml('Hi\nthere'), 'Hi<br>there');
   });
+
+  it('keeps formatting tags and turns remaining newlines into br', () => {
+    assert.equal(scriptTextToEditorHtml('<b>Hi</b>\nthere'), '<b>Hi</b><br>there');
+  });
+});
+
+describe('scriptPlaceholders html', () => {
+  it('fills placeholders without stripping call-script markup', () => {
+    const html = '<b>Cold Call Script</b><br><br>Hi [Name], this is [Your Name] at [Company Name].';
+    const out = fillScriptPlaceholders(html, {
+      sender: { name: 'Alex Pavlenko', company: 'AdHello' },
+      prospect: { name: 'Jordan' },
+    });
+    assert.equal(out, '<b>Cold Call Script</b><br><br>Hi Jordan, this is Alex Pavlenko at AdHello.');
+    assert.ok(!out.includes('<b>Cold Call Script for'));
+    assert.equal(scriptTextToEditorHtml(out), out);
+  });
 });
