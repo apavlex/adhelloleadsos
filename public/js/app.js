@@ -16344,13 +16344,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!btn) return;
     const duration = typeof ms === 'number' ? ms : 1600;
     if (!__bulkBarBtnLabels.has(btn)) {
-      __bulkBarBtnLabels.set(btn, String(btn.textContent || '').trim());
+      __bulkBarBtnLabels.set(btn, btn.innerHTML);
     }
     btn.textContent = tempLabel;
     if (btn.__flashTimer) clearTimeout(btn.__flashTimer);
     btn.__flashTimer = setTimeout(() => {
       const orig = __bulkBarBtnLabels.get(btn);
-      if (orig != null) btn.textContent = orig;
+      if (orig != null) btn.innerHTML = orig;
       btn.__flashTimer = null;
     }, duration);
   }
@@ -16695,15 +16695,18 @@ document.addEventListener('DOMContentLoaded', () => {
           : 'Select leads to sync to GHL',
         'Select at least one lead',
       );
-      syncPrimaryBtn(
-        createSubaccountBtn,
-        null,
-        hasSelection,
-        outreachCount
-          ? `Create a GHL sub-account for ${outreachCount} selected business${outreachCount === 1 ? '' : 'es'}`
-          : 'Select businesses to create GHL sub-accounts',
-        'Select at least one lead',
-      );
+      if (createSubaccountBtn) {
+        createSubaccountBtn.classList.remove('hidden', 'opacity-40', 'pointer-events-none', 'cursor-not-allowed');
+        createSubaccountBtn.disabled = !hasSelection;
+        createSubaccountBtn.setAttribute('aria-disabled', hasSelection ? 'false' : 'true');
+        if (hasSelection) createSubaccountBtn.style.removeProperty('pointer-events');
+        createSubaccountBtn.setAttribute(
+          'title',
+          outreachCount
+            ? `Create a GHL sub-account for ${outreachCount} selected business${outreachCount === 1 ? '' : 'es'}`
+            : 'Select businesses to create GHL sub-accounts',
+        );
+      }
     }
 
     document.querySelectorAll('.js-bulk-enhance').forEach((btn) => {

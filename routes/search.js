@@ -194,6 +194,8 @@ router.post('/', async (req, res, next) => {
               const payload = {
                 ...row,
                 ...meta,
+                keyword,
+                searchQuery: keyword,
                 workspaceId: activationWorkspaceId,
                 savedAt: new Date().toISOString(),
               };

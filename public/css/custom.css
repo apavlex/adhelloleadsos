@@ -1424,15 +1424,15 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   filter: brightness(1.06);
 }
 
-#bulkActionBar .bulk-bar-btn--subaccount.bulk-bar-btn--primary-lg {
-  background: linear-gradient(180deg, #22d3ee 0%, #0891b2 100%);
+#bulkActionBar .bulk-bar-btn--subaccount {
+  background: rgba(8, 145, 178, 0.28);
   border-color: rgba(34, 211, 238, 0.5);
-  color: #fff;
-  box-shadow: 0 2px 10px rgba(8, 145, 178, 0.28);
+  color: #a5f3fc;
 }
 
-#bulkActionBar .bulk-bar-btn--subaccount.bulk-bar-btn--primary-lg:hover:not(:disabled) {
-  filter: brightness(1.06);
+#bulkActionBar .bulk-bar-btn--subaccount:hover:not(:disabled) {
+  filter: brightness(1.08);
+  background: rgba(8, 145, 178, 0.4);
 }
 
 #bulkActionBar .bulk-bar-btn--mail {

@@ -125,7 +125,7 @@
         if (el) el.disabled = false;
       });
       if (bar.dataset.bulkMode !== 'search') {
-        ['bulkFocusModeBtn', 'bulkSmsBtn', 'bulkDirectMailBtn', 'bulkPushGhlBtn', 'bulkCreateSubaccountBtn', 'bulkAutoOutreachBtn'].forEach((id) => {
+        ['bulkFocusModeBtn', 'bulkSmsBtn', 'bulkDirectMailBtn', 'bulkPushGhlBtn', 'bulkAutoOutreachBtn'].forEach((id) => {
           const el = document.getElementById(id);
           if (!el) return;
           el.classList.remove('hidden', 'opacity-40', 'cursor-not-allowed');
@@ -1457,12 +1457,13 @@
         : `Create GHL sub-accounts for ${n} selected businesses?`;
     if (!window.confirm(msg)) return { ok: false, error: 'cancelled' };
 
-    const labelDefault = 'Create subaccount';
-    const prev = btn ? String(btn.textContent || '').trim() || labelDefault : labelDefault;
+    const prevHtml = btn ? btn.innerHTML : '';
     window.__bulkCreateSubaccountInFlight = true;
     if (btn) {
       btn.disabled = true;
-      btn.textContent = n > 1 ? `${n} left` : 'Creating…';
+      const labelEl = btn.querySelector('span');
+      if (labelEl) labelEl.textContent = n > 1 ? `${n} left` : 'Creating…';
+      else btn.textContent = n > 1 ? `${n} left` : 'Creating…';
       btn.setAttribute('aria-busy', 'true');
       btn.classList.add('is-busy');
     }
@@ -1516,7 +1517,7 @@
         btn.disabled = false;
         btn.removeAttribute('aria-busy');
         btn.classList.remove('is-busy');
-        if (!btn.__flashTimer) btn.textContent = prev;
+        if (!btn.__flashTimer && prevHtml) btn.innerHTML = prevHtml;
       }
       if (typeof window.__syncBulkBarFromDom === 'function') window.__syncBulkBarFromDom();
       else if (typeof window.__updateBulkActionBar === 'function') window.__updateBulkActionBar();

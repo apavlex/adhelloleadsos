@@ -366,6 +366,30 @@ function buildLeadSearchContext(tags, folders, options) {
   return { tagNameByKey, folderNameByKey, lowReviewsThreshold };
 }
 
+function leadKeywordSearchParts(lead) {
+  const parts = [];
+  appendSearchText(parts, lead && lead.keyword);
+  appendSearchText(parts, lead && lead.searchQuery);
+  appendSearchText(parts, lead && lead.searchKeyword);
+  appendSearchText(parts, lead && lead.query);
+  appendSearchText(parts, lead && lead.searchNotes);
+  appendSearchText(parts, lead && lead.notes);
+  appendSearchText(parts, lead && lead.company);
+  appendSearchText(parts, lead && lead.tradeSlug);
+  appendSearchText(parts, lead && lead.niche);
+  appendSearchText(parts, lead && lead.vertical);
+  appendSearchText(parts, lead && lead.primaryType);
+  appendSearchText(parts, lead && lead.primaryTypeDisplayName);
+  appendSearchText(parts, lead && lead.types);
+  appendSearchText(parts, lead && lead.subtypes);
+  appendSearchText(parts, lead && lead.categories);
+  appendSearchText(parts, lead && lead.googleTypes);
+  appendSearchText(parts, lead && lead.keywords);
+  appendSearchText(parts, lead && lead.scriptKeywords);
+  appendSearchText(parts, lead && lead.scriptKeyword);
+  return parts;
+}
+
 function buildLeadSearchHaystack(l, ctx) {
   if (!l || typeof l !== 'object') return '';
   const folderKey = String(l.folderKey || '').trim();
@@ -385,6 +409,13 @@ function buildLeadSearchHaystack(l, ctx) {
     l.categoryName,
     l.category,
     l.industry,
+    l.company,
+    l.keyword,
+    l.searchQuery,
+    l.searchKeyword,
+    l.query,
+    l.notes,
+    l.searchNotes,
     l.sourceChannel,
     l.source,
     l.companyDomain,
@@ -415,6 +446,7 @@ function buildLeadSearchHaystack(l, ctx) {
     ...leadTagSearchParts(l, ctx),
     ...leadContactSearchParts(l),
     ...leadActivitySearchParts(l),
+    ...leadKeywordSearchParts(l),
   ];
   appendSearchText(parts, l.importFields);
   appendSearchText(parts, l.cqi);
@@ -453,6 +485,11 @@ function scoreLeadSearchMatch(l, q, ctx) {
   const phone = String((l && l.phone) || '').replace(/\D/g, '');
   const needleDigits = needle.replace(/\D/g, '');
   if (needleDigits.length >= 7 && phone.includes(needleDigits)) return 2;
+  const keywordHay = leadKeywordSearchParts(l)
+    .concat([l && l.categoryName, l && l.category, l && l.industry])
+    .map((v) => String(v || '').trim().toLowerCase())
+    .join(' ');
+  if (keywordHay && tokens.every((token) => keywordHay.includes(token))) return 3;
   const tagHay = leadTagSearchParts(l, ctx)
     .map((v) => String(v || '').trim().toLowerCase())
     .join(' ');

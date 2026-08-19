@@ -20,6 +20,43 @@ describe('leadListFilters search', () => {
     assert.deepEqual(normalizeSearchTokens('  test note  '), ['test', 'note']);
   });
 
+  it('matches original search keyword, category, and searchQuery via q', () => {
+    const byKeyword = { title: 'Neighborhood Pros', keyword: 'flooring contractor' };
+    const byCategory = { title: 'DryTech', categoryName: 'Water restoration' };
+    const byQuery = { title: 'Local Crew', searchQuery: 'restoration' };
+    const byNotes = { title: 'Acme Co', notes: 'Interested in hardwood flooring' };
+    assert.equal(leadMatchesSearchQuery(byKeyword, 'flooring', ctx), true);
+    assert.equal(leadMatchesSearchQuery(byCategory, 'restoration', ctx), true);
+    assert.equal(leadMatchesSearchQuery(byQuery, 'restoration', ctx), true);
+    assert.equal(leadMatchesSearchQuery(byNotes, 'flooring', ctx), true);
+    assert.equal(leadMatchesSearchQuery(byKeyword, 'hvac', ctx), false);
+  });
+
+  it('applyLeadListFilters q matches keyword when title does not', () => {
+    const leads = [
+      { title: 'Neighborhood Pros', keyword: 'flooring' },
+      { title: 'City Comfort', keyword: 'hvac' },
+    ];
+    const filtered = applyLeadListFilters(leads, { q: 'flooring' });
+    assert.equal(filtered.length, 1);
+    assert.equal(filtered[0].title, 'Neighborhood Pros');
+  });
+
+  it('buildLeadSearchHaystack includes keyword fields', () => {
+    const hay = buildLeadSearchHaystack(
+      {
+        title: 'Biz',
+        keyword: 'flooring',
+        searchQuery: 'restoration contractor',
+        scriptKeywords: ['hardwood', 'lvp'],
+      },
+      ctx,
+    );
+    assert.match(hay, /flooring/);
+    assert.match(hay, /restoration contractor/);
+    assert.match(hay, /hardwood/);
+  });
+
   it('matches notes in updates', () => {
     const lead = {
       title: 'Acme Plumbing',
