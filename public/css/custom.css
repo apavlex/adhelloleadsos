@@ -1313,6 +1313,17 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   background: rgba(139, 92, 246, 0.12);
 }
 
+#bulkActionBar #bulkBookmarkBtn.bulk-bookmark-btn--saved {
+  color: var(--brand-dark, #0f172a) !important;
+  border-color: rgba(234, 179, 8, 0.7);
+  background: var(--brand-yellow, #eab308);
+}
+
+#bulkActionBar #bulkBookmarkBtn.bulk-bookmark-btn--saved svg {
+  fill: currentColor;
+  color: var(--brand-dark, #0f172a);
+}
+
 #bulkActionBar .bulk-bar-btn--ghost.text-brand-yellow:hover:not(:disabled),
 #bulkActionBar .bulk-bar-btn--ghost.text-sky-300:hover:not(:disabled),
 #bulkActionBar .bulk-bar-btn--ghost.text-violet-300:hover:not(:disabled) {

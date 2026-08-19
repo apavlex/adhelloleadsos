@@ -16755,6 +16755,12 @@ document.addEventListener('DOMContentLoaded', () => {
           : 'Select at least two leads to merge',
       );
     }
+    if (typeof window.__syncBulkBookmarkBtnState === 'function') {
+      window.__syncBulkBookmarkBtnState();
+    } else {
+      const bulkBookmarkBtn = document.getElementById('bulkBookmarkBtn');
+      if (bulkBookmarkBtn) bulkBookmarkBtn.disabled = !hasSelection;
+    }
     document.querySelectorAll('.js-bulk-ai-analysis').forEach((btn) => {
       btn.classList.toggle('ring-2', hasSelection);
       btn.classList.toggle('ring-sky-400/60', hasSelection);

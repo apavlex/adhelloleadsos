@@ -16,10 +16,11 @@ describe('pipeline row bookmark wiring', () => {
   it('binds a capture click handler and posts bookmarked to lead update', () => {
     assert.match(js, /addEventListener\(\s*'click',\s*onPipelineBookmarkClick,\s*true\s*\)/);
     assert.match(js, /\/leads\/' \+ encodeURIComponent\(leadKey\) \+ '\/update'/);
-    assert.match(js, /JSON\.stringify\(\{\s*bookmarked:\s*next\s*\}\)/);
+    assert.match(js, /JSON\.stringify\(\{\s*bookmarked:\s*want\s*\}\)/);
     assert.match(js, /window\.__togglePipelineLeadBookmark/);
+    assert.match(js, /window\.__setPipelineLeadBookmark/);
     assert.match(js, /bookmark-btn--saved/);
-    assert.match(js, /applyRowBookmarked\(row, bookmarkBtn, next\)/);
+    assert.match(js, /applyRowBookmarked\(row, bookmarkBtn, want\)/);
   });
 
   it('row bookmark button sits beside the checkbox and does not toggle twice', () => {
@@ -59,5 +60,23 @@ describe('pipeline row bookmark wiring', () => {
     assert.match(css, /\.pipeline-bookmark-btn[\s\S]*pointer-events:\s*auto/);
     assert.match(css, /\.bookmark-btn\.bookmark-btn--saved svg[\s\S]*fill:\s*currentColor !important/);
     assert.match(css, /\.pipeline-bookmark-btn\.bookmark-btn--saved:hover/);
+  });
+
+  it('exposes bulk Bookmark on the floating tools row after Merge', () => {
+    const bar = fs.readFileSync(path.join(ROOT, 'views/partials/bulk_action_bar.ejs'), 'utf8');
+    const bulkJs = fs.readFileSync(path.join(ROOT, 'public/js/pipeline-bulk-select.js'), 'utf8');
+    const mergeIdx = bar.indexOf('id="bulkMergeBtn"');
+    const bookmarkIdx = bar.indexOf('id="bulkBookmarkBtn"');
+    const subaccountIdx = bar.indexOf('id="bulkCreateSubaccountBtn"');
+    assert.ok(mergeIdx > 0, 'merge button exists');
+    assert.ok(bookmarkIdx > mergeIdx, 'bookmark sits after merge');
+    assert.ok(subaccountIdx > bookmarkIdx, 'create subaccount stays after bookmark');
+    assert.match(bar, /id="bulkBookmarkBtn"[\s\S]*Bookmark/);
+    assert.match(bar, /M17\.593 3\.322c1\.1\.128 1\.907 1\.077 1\.907 2\.185V21L12 17\.25/);
+    assert.match(bulkJs, /e\.target\.closest\('#bulkBookmarkBtn'\)/);
+    assert.match(bulkJs, /function bulkBookmarkSelectedLeads/);
+    assert.match(bulkJs, /Bookmarked ' \+ okCount/);
+    assert.match(bulkJs, /__setPipelineLeadBookmark/);
+    assert.equal(bar.includes('canManageWorkspace') && bookmarkIdx < bar.indexOf('canManageWorkspace', mergeIdx), true);
   });
 });

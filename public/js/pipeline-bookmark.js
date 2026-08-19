@@ -90,29 +90,32 @@
     }
   }
 
-  async function togglePipelineLeadBookmark(row, bookmarkBtn) {
+  async function setPipelineLeadBookmark(row, bookmarkBtn, next, options) {
+    options = options || {};
     if (!row || !bookmarkBtn) return false;
-    if (bookmarkBtn.dataset.bookmarkBusy === '1') return false;
+    if (bookmarkBtn.dataset.bookmarkBusy === '1' && !options.force) return false;
 
     const leadKey = leadKeyFromRow(row);
     if (!leadKey) {
-      if (typeof window.showAppToast === 'function') {
+      if (!options.silent && typeof window.showAppToast === 'function') {
         window.showAppToast('Could not bookmark — missing lead key.', { variant: 'error' });
       }
       return false;
     }
 
-    const next = !isButtonBookmarked(bookmarkBtn, row);
+    const want = !!next;
+    if (!options.force && isButtonBookmarked(bookmarkBtn, row) === want) return true;
+
     bookmarkBtn.dataset.bookmarkBusy = '1';
     bookmarkBtn.setAttribute('aria-busy', 'true');
-    applyRowBookmarked(row, bookmarkBtn, next);
+    applyRowBookmarked(row, bookmarkBtn, want);
 
     try {
       const res = await fetch('/leads/' + encodeURIComponent(leadKey) + '/update', {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ bookmarked: next }),
+        body: JSON.stringify({ bookmarked: want }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) {
@@ -120,16 +123,16 @@
       }
       // Keep the optimistic state. A missing or false `lead.bookmarked` on a
       // successful POST must not snap the ribbon back to empty.
-      applyRowBookmarked(row, bookmarkBtn, next);
-      if (typeof window.showProspectToast === 'function') {
-        window.showProspectToast(next ? 'Lead bookmarked' : 'Bookmark removed');
+      applyRowBookmarked(row, bookmarkBtn, want);
+      if (!options.silent && typeof window.showProspectToast === 'function') {
+        window.showProspectToast(want ? 'Lead bookmarked' : 'Bookmark removed');
       }
       return true;
     } catch (err) {
       console.error('Failed to toggle pipeline bookmark:', err);
-      applyRowBookmarked(row, bookmarkBtn, !next);
+      applyRowBookmarked(row, bookmarkBtn, !want);
       if (row && row.dataset) delete row.dataset.bookmarkClient;
-      if (typeof window.showAppToast === 'function') {
+      if (!options.silent && typeof window.showAppToast === 'function') {
         window.showAppToast((err && err.message) || 'Could not update bookmark', { variant: 'error' });
       }
       return false;
@@ -139,7 +142,16 @@
     }
   }
 
+  async function togglePipelineLeadBookmark(row, bookmarkBtn) {
+    if (!row || !bookmarkBtn) return false;
+    const next = !isButtonBookmarked(bookmarkBtn, row);
+    return setPipelineLeadBookmark(row, bookmarkBtn, next);
+  }
+
   window.__togglePipelineLeadBookmark = togglePipelineLeadBookmark;
+  window.__setPipelineLeadBookmark = setPipelineLeadBookmark;
+  window.__isPipelineRowBookmarked = isButtonBookmarked;
+  window.__applyRowBookmarked = applyRowBookmarked;
   window.__markPipelineBookmarkSaved = markBookmarkSaved;
   window.__markPipelineBookmarkUnsaved = markBookmarkUnsaved;
 

@@ -132,6 +132,7 @@
           el.setAttribute('aria-disabled', 'false');
         });
       }
+      syncBulkBookmarkBtnState();
       if (!_bulkBarVisibleForFolderRefresh) {
         refreshBulkFolderSelectEarly().catch(function () {
           rebuildBulkFolderSelectEarly();
@@ -1165,6 +1166,199 @@
   }
 
   window.__bulkMergeSelectedLeads = bulkMergeSelectedLeads;
+
+  function rowIsBookmarkedForBulk(row) {
+    if (!row) return false;
+    const btn = row.querySelector && row.querySelector('.bookmark-btn');
+    if (typeof window.__isPipelineRowBookmarked === 'function') {
+      return !!window.__isPipelineRowBookmarked(btn, row);
+    }
+    if (btn) {
+      const savedAttr = btn.getAttribute('data-saved');
+      if (savedAttr === '1' || btn.dataset.saved === '1' || btn.classList.contains('bookmark-btn--saved')) {
+        return true;
+      }
+      if (savedAttr === '0' || btn.dataset.saved === '0') return false;
+    }
+    return row.dataset.bookmarked === '1';
+  }
+
+  function applyBulkBookmarkBtnVisual(btn, next, count) {
+    if (!btn) return;
+    const n = Math.max(0, parseInt(count, 10) || 0);
+    const svg = btn.querySelector('svg');
+    const label = btn.querySelector('span');
+    btn.classList.toggle('bulk-bookmark-btn--saved', !!next);
+    btn.setAttribute('aria-pressed', next ? 'true' : 'false');
+    if (svg) svg.setAttribute('fill', next ? 'currentColor' : 'none');
+    if (label) label.textContent = next ? 'Unbookmark' : 'Bookmark';
+    btn.setAttribute(
+      'title',
+      next
+        ? n
+          ? `Remove bookmark from ${n} selected lead${n === 1 ? '' : 's'}`
+          : 'Remove bookmark from selected leads'
+        : n
+          ? `Bookmark ${n} selected lead${n === 1 ? '' : 's'}`
+          : 'Bookmark selected leads',
+    );
+  }
+
+  function syncBulkBookmarkBtnState() {
+    const btn = document.getElementById('bulkBookmarkBtn');
+    if (!btn) return;
+    const targets = collectBulkDeleteTargets();
+    const allOn = targets.length > 0 && targets.every(function (t) {
+      return rowIsBookmarkedForBulk(t.row);
+    });
+    applyBulkBookmarkBtnVisual(btn, allOn, targets.length);
+  }
+
+  let bulkBookmarkInFlight = false;
+
+  function applyRowBookmarkOptimistic(row, next) {
+    const btn = row && row.querySelector && row.querySelector('.bookmark-btn');
+    if (typeof window.__applyRowBookmarked === 'function' && btn) {
+      window.__applyRowBookmarked(row, btn, next);
+      return btn;
+    }
+    if (row && row.dataset) {
+      row.dataset.bookmarked = next ? '1' : '0';
+      row.dataset.bookmarkClient = '1';
+    }
+    if (btn) {
+      btn.dataset.saved = next ? '1' : '0';
+      btn.setAttribute('data-saved', next ? '1' : '0');
+      btn.setAttribute('aria-pressed', next ? 'true' : 'false');
+      btn.classList.toggle('bookmark-btn--saved', !!next);
+      btn.classList.toggle('bg-brand-yellow', !!next);
+      btn.classList.toggle('text-brand-dark', !!next);
+      btn.classList.toggle('border-brand-yellow', !!next);
+      const svg = btn.querySelector('svg');
+      if (svg) svg.setAttribute('fill', next ? 'currentColor' : 'none');
+    }
+    return btn;
+  }
+
+  async function persistRowBookmarkFallback(row, next) {
+    const btn = applyRowBookmarkOptimistic(row, next);
+    let key = String((row && row.dataset && row.dataset.leadKey) || '').trim();
+    if (!key) {
+      const cb = row && row.querySelector && row.querySelector('input.lead-checkbox[data-key], input.row-checkbox[data-key]');
+      key = String((cb && (cb.getAttribute('data-key') || cb.dataset.key)) || '').trim();
+    }
+    if (!key) return false;
+    try {
+      const res = await fetch('/leads/' + encodeURIComponent(key) + '/update', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ bookmarked: !!next }),
+      });
+      const data = await res.json().catch(function () {
+        return {};
+      });
+      if (!res.ok || !data.success) {
+        throw new Error((data && data.error) || 'Could not update bookmark');
+      }
+      return true;
+    } catch (err) {
+      applyRowBookmarkOptimistic(row, !next);
+      if (row && row.dataset) delete row.dataset.bookmarkClient;
+      if (btn) {
+        btn.dataset.saved = next ? '0' : '1';
+        btn.setAttribute('data-saved', next ? '0' : '1');
+      }
+      throw err;
+    }
+  }
+
+  async function bulkBookmarkSelectedLeads() {
+    if (bulkBookmarkInFlight) return;
+    const targets = collectBulkDeleteTargets();
+    if (!targets.length) {
+      notifyMergeResult('Select leads to bookmark.', 'error');
+      return;
+    }
+
+    const allOn = targets.every(function (t) {
+      return rowIsBookmarkedForBulk(t.row);
+    });
+    const next = !allOn;
+    const n = targets.length;
+    const btn = document.getElementById('bulkBookmarkBtn');
+
+    bulkBookmarkInFlight = true;
+    if (btn) {
+      btn.disabled = true;
+      btn.setAttribute('aria-busy', 'true');
+    }
+    applyBulkBookmarkBtnVisual(btn, next, n);
+    targets.forEach(function (target) {
+      applyRowBookmarkOptimistic(target.row, next);
+    });
+    showBulkBarFeedbackEarly(next ? 'Bookmarking selected leads…' : 'Removing bookmarks…', 'loading');
+
+    const setFn =
+      typeof window.__setPipelineLeadBookmark === 'function' ? window.__setPipelineLeadBookmark : null;
+    let okCount = 0;
+    let errorMsg = '';
+
+    try {
+      const BATCH = 8;
+      for (let i = 0; i < targets.length; i += BATCH) {
+        const slice = targets.slice(i, i + BATCH);
+        const results = await Promise.all(
+          slice.map(function (target) {
+            const row = target.row;
+            const bookmarkBtn = row && row.querySelector && row.querySelector('.bookmark-btn');
+            if (setFn && bookmarkBtn) {
+              return setFn(row, bookmarkBtn, next, { silent: true, force: true }).catch(function (err) {
+                console.error('[pipeline-bulk-select] bulk bookmark failed', err);
+                return false;
+              });
+            }
+            return persistRowBookmarkFallback(row, next).catch(function (err) {
+              console.error('[pipeline-bulk-select] bulk bookmark failed', err);
+              return false;
+            });
+          }),
+        );
+        results.forEach(function (ok) {
+          if (ok) okCount += 1;
+        });
+      }
+    } catch (err) {
+      console.error('[pipeline-bulk-select] bulk bookmark failed', err);
+      errorMsg = (err && err.message) || 'Could not update bookmarks.';
+    } finally {
+      bulkBookmarkInFlight = false;
+      if (btn) {
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
+      }
+      syncBulkBookmarkBtnState();
+    }
+
+    if (okCount > 0) {
+      const msg = next
+        ? 'Bookmarked ' + okCount + ' lead' + (okCount === 1 ? '' : 's')
+        : 'Removed bookmark from ' + okCount + ' lead' + (okCount === 1 ? '' : 's');
+      notifyMergeResult(msg, 'success');
+      if (okCount < n) {
+        notifyMergeResult(
+          'Updated ' + okCount + ' of ' + n + ' selected leads.' + (errorMsg ? ' ' + errorMsg : ''),
+          'error',
+        );
+      }
+      return;
+    }
+
+    notifyMergeResult(errorMsg || 'Could not update bookmarks.', 'error');
+  }
+
+  window.__bulkBookmarkSelectedLeads = bulkBookmarkSelectedLeads;
+  window.__syncBulkBookmarkBtnState = syncBulkBookmarkBtnState;
 
   function mountSmsModalToBodyEarly() {
     if (typeof window.__mountSmsModalToBody === 'function') {
@@ -2992,6 +3186,12 @@
           bulkMergeSelectedLeads();
           return;
         }
+        if (e.target.closest('#bulkBookmarkBtn')) {
+          e.preventDefault();
+          e.stopPropagation();
+          void bulkBookmarkSelectedLeads();
+          return;
+        }
         if (e.target.closest('.js-bulk-enhance')) {
           e.preventDefault();
           e.stopPropagation();
@@ -3076,7 +3276,7 @@
     );
   }
 
-  window.__PIPELINE_BULK_SELECT_V2 = '13';
+  window.__PIPELINE_BULK_SELECT_V2 = '14';
   window.__pipelineBulkSelectApply = applySelectAll;
   window.__applySelectAllLeads = applySelectAll;
 
