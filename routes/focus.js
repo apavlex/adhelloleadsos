@@ -14,6 +14,7 @@ const { buildFocusQueue, shortLeadKey, lastActivityMs } = require('../services/f
 const { buildLeadTouchPoints } = require('../services/leadTouchPoints');
 const { resolveDialRetryPrefs } = require('../services/dialRetryPrefs');
 const { scoreLeadRecord } = require('../services/opportunityScore');
+const { pickQuoteForDate } = require('../services/outreachCoachSnapshot');
 
 const pipelineStagesService = require('../services/pipelineStagesService');
 const websiteAiAnalysis = require('../services/websiteAiAnalysis');
@@ -326,6 +327,7 @@ router.get('/', async (req, res, next) => {
       activePage: 'today',
       touchesToday,
       touchGoal,
+      entrepreneurQuote: pickQuoteForDate(today),
       focusQueueJson: JSON.stringify(queue),
       focusProductOptions,
       focusScriptLibraryJson: JSON.stringify(focusScriptLibrary),

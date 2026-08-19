@@ -324,5 +324,6 @@ async function buildOutreachCoachSnapshot(req, opts = {}) {
 module.exports = {
   buildOutreachCoachSnapshot,
   buildNamedCoachActions,
+  pickQuoteForDate,
   ENTREPRENEUR_QUOTES,
 };
