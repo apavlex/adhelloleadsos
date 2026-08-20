@@ -1590,8 +1590,128 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   border-color: rgba(255, 255, 255, 0.12) !important;
 }
 
+/* In-app toasts — solid contrast on cream (do not rely on Tailwind JS className) */
+#appToast.app-toast,
+#appToast {
+  position: fixed !important;
+  left: 50% !important;
+  top: 4.5rem !important;
+  z-index: 520 !important;
+  max-width: min(92vw, 26rem);
+  width: max-content;
+  padding: 0.875rem 1.25rem;
+  border-radius: 1rem;
+  border-width: 1px;
+  border-style: solid;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.375;
+  text-align: center;
+  white-space: pre-line;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(0.5rem);
+  opacity: 0;
+  transition:
+    opacity 0.2s ease-out,
+    transform 0.2s ease-out;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+}
+#appToast.app-toast--visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+#appToast.app-toast--enter {
+  opacity: 0;
+  transform: translateX(-50%) translateY(0.5rem);
+}
+#appToast.app-toast--dismissible {
+  pointer-events: auto;
+  cursor: pointer;
+}
+#appToast.app-toast--error {
+  background: #fff1f2 !important;
+  color: #9f1239 !important;
+  border-color: #fb7185 !important;
+  box-shadow: 0 10px 28px rgba(159, 18, 57, 0.16);
+}
+#appToast.app-toast--warning {
+  background: #fffbeb !important;
+  color: #92400e !important;
+  border-color: #fbbf24 !important;
+}
+#appToast.app-toast--success {
+  background: #ecfdf5 !important;
+  color: #065f46 !important;
+  border-color: #34d399 !important;
+}
+#appToast.app-toast--info {
+  background: #111827 !important;
+  color: #ffffff !important;
+  border-color: rgba(234, 179, 8, 0.55) !important;
+}
+.dark #appToast.app-toast--error {
+  background: #4c0519 !important;
+  color: #fecdd3 !important;
+  border-color: #fb7185 !important;
+}
+.dark #appToast.app-toast--warning {
+  background: #451a03 !important;
+  color: #fde68a !important;
+  border-color: #f59e0b !important;
+}
+.dark #appToast.app-toast--success {
+  background: #064e3b !important;
+  color: #a7f3d0 !important;
+  border-color: #34d399 !important;
+}
+.dark #appToast.app-toast--info {
+  background: #0f172a !important;
+  color: #f8fafc !important;
+  border-color: rgba(234, 179, 8, 0.55) !important;
+}
+
+#prospectToast {
+  position: fixed !important;
+  left: 50% !important;
+  z-index: 520 !important;
+  max-width: min(90vw, 20rem);
+  padding: 0.75rem 1.25rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(234, 179, 8, 0.5);
+  background: #111827 !important;
+  color: #ffffff !important;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: center;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.34);
+  transform: translateX(-50%);
+  transition:
+    opacity 0.2s ease-out,
+    transform 0.2s ease-out;
+}
+.dark #prospectToast {
+  background: #0f172a !important;
+  color: #f8fafc !important;
+}
+
 #bulkSaveFeedback:not(.hidden) {
   animation: bulk-save-feedback-in 0.25s ease-out;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.5rem;
+  background: rgba(0, 0, 0, 0.35);
+}
+#bulkSaveFeedback.text-rose-300,
+#bulkSaveFeedback.app-bulk-feedback--error {
+  color: #fecdd3 !important;
+  background: rgba(127, 29, 29, 0.55);
+}
+#bulkSaveFeedback.text-emerald-300,
+#bulkSaveFeedback.app-bulk-feedback--success {
+  color: #a7f3d0 !important;
+}
+#bulkSaveFeedback.text-white\/80,
+#bulkSaveFeedback.app-bulk-feedback--loading {
+  color: rgba(255, 255, 255, 0.9) !important;
 }
 
 @keyframes bulk-save-feedback-in {

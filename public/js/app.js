@@ -16142,23 +16142,20 @@ document.addEventListener('DOMContentLoaded', () => {
       el = document.createElement('div');
       el.id = 'prospectToast';
       el.setAttribute('role', 'status');
-      el.className =
-        'fixed left-1/2 z-[520] -translate-x-1/2 translate-y-3 opacity-0 pointer-events-none transition-all duration-200 ease-out px-5 py-3 rounded-2xl bg-brand-dark text-white text-sm font-semibold shadow-[0_10px_24px_rgba(0,0,0,0.34)] border border-brand-yellow/50 max-w-[min(90vw,20rem)] text-center';
       document.body.appendChild(el);
     }
     const bulkBarVisible = document.getElementById('bulkActionBar')?.dataset.visible === 'true';
-    el.className =
-      'fixed left-1/2 z-[520] -translate-x-1/2 opacity-0 pointer-events-none transition-all duration-200 ease-out px-5 py-3 rounded-2xl bg-brand-dark text-white text-sm font-semibold shadow-[0_10px_24px_rgba(0,0,0,0.34)] border border-brand-yellow/50 max-w-[min(90vw,20rem)] text-center ' +
-      (bulkBarVisible ? 'bottom-24 translate-y-0' : 'bottom-28 translate-y-3');
+    el.className = 'prospect-toast';
+    el.style.bottom = bulkBarVisible ? '6rem' : '7rem';
+    el.style.opacity = '0';
+    el.style.pointerEvents = 'none';
     el.textContent = message || 'Done';
     requestAnimationFrame(() => {
-      el.classList.remove('opacity-0', 'pointer-events-none');
-      if (!bulkBarVisible) el.classList.remove('translate-y-3');
+      el.style.opacity = '1';
     });
     clearTimeout(window.__prospectToastTimer);
     window.__prospectToastTimer = setTimeout(() => {
-      el.classList.add('opacity-0', 'pointer-events-none');
-      if (!bulkBarVisible) el.classList.add('translate-y-3');
+      el.style.opacity = '0';
     }, 3200);
   };
 

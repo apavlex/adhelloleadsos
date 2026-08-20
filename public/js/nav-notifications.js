@@ -17,7 +17,13 @@
     if (!message) return;
     opts = opts || {};
     const variant =
-      opts.variant === 'error' ? 'error' : opts.variant === 'success' ? 'success' : 'info';
+      opts.variant === 'error'
+        ? 'error'
+        : opts.variant === 'success'
+          ? 'success'
+          : opts.variant === 'warning'
+            ? 'warning'
+            : 'info';
     const duration =
       typeof opts.duration === 'number'
         ? opts.duration
@@ -33,47 +39,43 @@
       el.id = 'appToast';
       document.body.appendChild(el);
     }
-    el.setAttribute('role', variant === 'error' ? 'alert' : 'status');
+    el.setAttribute('role', variant === 'error' || variant === 'warning' ? 'alert' : 'status');
 
-    var errSkin =
-      'top-[4.5rem] bg-rose-900 text-white border-rose-300/65 shadow-[0_10px_28px_rgba(0,0,0,0.38)]';
-    var successSkin =
-      'top-[4.5rem] bg-emerald-900 text-white border-emerald-300/55 shadow-[0_10px_28px_rgba(0,0,0,0.34)]';
-    var infoSkin =
-      'top-[4.5rem] bg-brand-dark text-white border-brand-yellow/55 shadow-[0_10px_28px_rgba(0,0,0,0.34)]';
+    // Colors/position live in custom.css (#appToast) — Tailwind utilities set from JS
+    // often miss the CDN scan, which left white text on cream with only a red border.
     el.className = [
-      'fixed left-1/2 z-[520] max-w-[min(92vw,26rem)] -translate-x-1/2',
-      'translate-y-2 opacity-0 transition-all duration-200 ease-out',
-      'px-5 py-3.5 rounded-2xl text-sm font-semibold leading-snug',
-      'border',
-      variant === 'error' ? errSkin : variant === 'success' ? successSkin : infoSkin,
-    ].join(' ');
-    el.style.whiteSpace = 'pre-line';
+      'app-toast',
+      'app-toast--' + variant,
+      'app-toast--enter',
+      variant === 'error' || variant === 'warning' ? 'app-toast--dismissible' : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
     el.textContent = message;
 
-    if (variant === 'error') {
-      el.classList.add('cursor-pointer', 'pointer-events-auto');
+    if (variant === 'error' || variant === 'warning') {
       el.title = 'Click to dismiss';
     } else {
       el.removeAttribute('title');
-      el.classList.remove('cursor-pointer', 'pointer-events-auto');
-      el.classList.add('pointer-events-none');
     }
 
     requestAnimationFrame(function () {
-      el.classList.remove('opacity-0', 'translate-y-2');
+      el.classList.remove('app-toast--enter');
+      el.classList.add('app-toast--visible');
     });
 
     clearTimeout(window.__appToastTimer);
     window.__appToastTimer = setTimeout(function () {
-      el.classList.add('opacity-0', 'translate-y-2');
+      el.classList.remove('app-toast--visible');
+      el.classList.add('app-toast--enter');
       el.onclick = null;
     }, duration);
 
-    if (variant === 'error') {
+    if (variant === 'error' || variant === 'warning') {
       el.onclick = function () {
         clearTimeout(window.__appToastTimer);
-        el.classList.add('opacity-0', 'translate-y-2');
+        el.classList.remove('app-toast--visible');
+        el.classList.add('app-toast--enter');
         el.onclick = null;
       };
     } else {
