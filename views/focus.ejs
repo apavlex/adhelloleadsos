@@ -1936,7 +1936,12 @@
             setCopyFeedback('Opening your dialer...');
             window.location.href = 'tel:' + phone;
           } else if (dialMode === 'agent_first') {
-            setCopyFeedback('Ringing your mobile first — answer it, then the lead is dialed.');
+            var agentShown = String((data && data.agentPhone) || '').trim();
+            setCopyFeedback(
+              agentShown
+                ? 'Ringing your mobile first (' + agentShown + ') — answer it, then the lead is dialed.'
+                : 'Ringing your mobile first — answer it, then the lead is dialed.',
+            );
           } else {
             setCopyFeedback('Cloud call started.');
           }

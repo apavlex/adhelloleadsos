@@ -85,7 +85,7 @@
   <div id="wsAgentPhoneWrap" class="<%= _callMode === 'agent_first' ? '' : 'hidden' %> mb-6">
     <label for="wsAgentPhone" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Your mobile (agent)</label>
     <input type="tel" id="wsAgentPhone" class="w-full max-w-md rounded-xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" placeholder="+15551234567" value="<%= (workspace && workspace.telephony && workspace.telephony.agentPhone) || '' %>" />
-    <p class="text-[10px] text-brand-muted mt-1">E.164. Ring this number first; when you answer, the app connects the call to the lead.</p>
+    <p class="text-[10px] text-brand-muted mt-1">E.164 personal cell only — not a Phone bank / SignalWire DID. SignalWire rings this number first; bank numbers are caller ID for the lead.</p>
   </div>
 
   <div class="mb-6 rounded-xl border border-brand-border/30 dark:border-white/10 bg-brand-cream/15 dark:bg-slate-800/40 p-4">

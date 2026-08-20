@@ -1510,6 +1510,7 @@ router.post('/:key/call', async (req, res, next) => {
       dialMode: callMode === 'agent_first' ? 'agent_first' : 'cloud_dial',
       callSid: call.sid || null,
       callerId: leadCallerId || fromPick.from,
+      agentPhone: callMode === 'agent_first' ? resolveAgentFirstNumber(ws) || null : null,
       lead: updatedLead,
       sessionActive: callMode === 'agent_first',
     });
@@ -1887,6 +1888,7 @@ router.post('/telephony/dial', async (req, res, next) => {
       callSid: call.sid || null,
       action,
       callerId: leadCallerId || fromPick.from,
+      agentPhone: useAgent ? resolveAgentFirstNumber(ws) || null : null,
       lead: updatedLead && action === 'call' ? updatedLead : undefined,
     });
   } catch (err) {

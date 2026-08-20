@@ -173,6 +173,7 @@
   var SOFTPHONE_RECENT_KEY = 'softphoneRecentNumbers';
   var spRelayWebrtc = false;
   var spSignalwireNumbers = [];
+  var spBankNumbers = [];
   var spWorkspaceCallMode = 'cloud_dial';
   var spDefaultFrom = '';
   var spActiveFrom = '';
@@ -183,6 +184,10 @@
   var spCallerIdMobile = document.getElementById('softphoneCallerIdMobile');
   var spCallerIdMobileSave = document.getElementById('softphoneCallerIdMobileSave');
   var spCallerIdMobileHint = document.getElementById('softphoneCallerIdMobileHint');
+  var spAgentRingWrap = document.getElementById('softphoneAgentRingWrap');
+  var spAgentRingLine = document.getElementById('softphoneAgentRingLine');
+  var spAgentRingHint = document.getElementById('softphoneAgentRingHint');
+  var spAgentRingFixBtn = document.getElementById('softphoneAgentRingFixBtn');
   var softphoneSession = {
     state: 'idle',
     muted: false,
@@ -198,6 +203,8 @@
     webrtcDialHardStop: null,
     webrtcSkipDeviceRetry: false,
     webrtcCloudFallback: false,
+    dialMode: '',
+    agentTo: '',
     timerTicker: null,
     startedAtMs: 0,
     stateVerbose: '',
@@ -2106,14 +2113,15 @@
   function renderSoftphoneCallerIdSelect(agentPhone, bankNumbers, selectedLeadCallerId) {
     if (!spCallerIdSelect) return;
     var agent = normalizeDial(agentPhone || spAgentPhoneCached || '');
-    var bank = Array.isArray(bankNumbers) ? bankNumbers : [];
+    var bank = Array.isArray(bankNumbers) ? bankNumbers : spBankNumbers;
+    if (!Array.isArray(bank) || !bank.length) bank = spBankNumbers || [];
     var seen = {};
     var selected = normalizeDial(selectedLeadCallerId || spLeadCallerId || spActiveFrom || spDefaultFrom || '');
     spCallerIdSelect.innerHTML = '';
     if (agent) {
       var optMobile = document.createElement('option');
       optMobile.value = agent;
-      optMobile.textContent = formatCallerIdCompact(agent);
+      optMobile.textContent = formatCallerIdCompact(agent) + ' · my mobile';
       spCallerIdSelect.appendChild(optMobile);
       seen[agent] = true;
     }
@@ -2123,29 +2131,65 @@
       seen[v] = true;
       var opt = document.createElement('option');
       opt.value = v;
-      opt.textContent = formatCallerIdCompact(v);
+      opt.textContent = formatCallerIdCompact(v) + ' · workspace';
       spCallerIdSelect.appendChild(opt);
     });
     var optCustom = document.createElement('option');
     optCustom.value = '__set_mobile__';
-    optCustom.textContent = agent ? 'Change my mobile…' : 'Use my mobile…';
+    optCustom.textContent = agent ? 'Change my cell…' : 'Set my cell (rings first)…';
     spCallerIdSelect.appendChild(optCustom);
     if (selected && seen[selected]) {
       spCallerIdSelect.value = selected;
       spLeadCallerId = selected;
+    } else if (bank.length) {
+      var preferredBank = normalizeDial(spActiveFrom || spDefaultFrom || bank[0]);
+      if (preferredBank && seen[preferredBank]) {
+        spCallerIdSelect.value = preferredBank;
+        spLeadCallerId = preferredBank;
+      } else {
+        var first = normalizeDial(bank[0]);
+        spCallerIdSelect.value = first;
+        spLeadCallerId = first;
+      }
     } else if (agent) {
       spCallerIdSelect.value = agent;
       spLeadCallerId = agent;
-    } else if (bank.length) {
-      var first = normalizeDial(bank[0]);
-      spCallerIdSelect.value = first;
-      spLeadCallerId = first;
     } else {
       spCallerIdSelect.value = '';
       spLeadCallerId = '';
     }
     if (spCallerIdMobileWrap) {
       spCallerIdMobileWrap.classList.toggle('hidden', spCallerIdSelect.value !== '__set_mobile__');
+    }
+    updateSoftphoneAgentRingLine();
+  }
+
+  function updateSoftphoneAgentRingLine() {
+    if (!spAgentRingWrap) return;
+    var mode = String(spWorkspaceCallMode || '').trim();
+    if (mode !== 'agent_first') {
+      spAgentRingWrap.classList.add('hidden');
+      return;
+    }
+    spAgentRingWrap.classList.remove('hidden');
+    var agent = normalizeDial(spAgentPhoneCached || (spAgentPhone && spAgentPhone.value) || '');
+    var missing = !agent;
+    if (spAgentRingLine) {
+      spAgentRingLine.textContent = missing
+        ? 'Not set — calls will not place'
+        : formatCallerIdDisplay(agent);
+      spAgentRingLine.classList.toggle('text-rose-600', missing);
+      spAgentRingLine.classList.toggle('dark:text-rose-400', missing);
+      spAgentRingLine.classList.toggle('text-slate-800', !missing);
+      spAgentRingLine.classList.toggle('dark:text-white', !missing);
+    }
+    if (spAgentRingHint) {
+      spAgentRingHint.textContent = missing
+        ? 'Agent first rings your personal cell first. Workspace numbers (like 971) are caller ID only — set Your mobile below or in Settings.'
+        : 'SignalWire will call this cell first. Answer it (incoming caller ID is usually your workspace number), then the lead is dialed. Caller ID above is only what the lead sees.';
+    }
+    if (spAgentRingFixBtn) {
+      spAgentRingFixBtn.classList.toggle('hidden', !missing);
     }
   }
 
@@ -2176,7 +2220,8 @@
           spActiveFrom = normalized;
         }
         updateSoftphoneOutboundMeta();
-        if (spCallerIdMobileHint) spCallerIdMobileHint.textContent = 'Saved.';
+        if (spCallerIdMobileHint) spCallerIdMobileHint.textContent = 'Saved — this cell will ring first on agent-first calls.';
+        updateSoftphoneAgentRingLine();
       });
   }
 
@@ -2194,7 +2239,7 @@
           ' · outbound via ' +
           formatCallerIdDisplay(trunk);
       } else if (trunk) {
-        line.textContent = 'Outbound line for this call';
+        line.textContent = 'Outbound line for this call (caller ID — not the phone that rings you)';
       } else {
         line.textContent = 'Set a default in Workspace → Phone bank';
       }
@@ -2208,6 +2253,7 @@
         if (hasOpt) spCallerIdSelect.value = current;
       }
     }
+    updateSoftphoneAgentRingLine();
   }
   function softphoneModeDescription(mode, hasRelayWebrtc) {
     var m = String(mode || '').trim() || 'cloud_dial';
@@ -2218,7 +2264,7 @@
       return 'Call routing: Cloud (SignalWire) — the server places the call. No in-tab audio until WebRTC is configured (Workspace phone bank + SIGNALWIRE_SPACE_URL on the server).';
     }
     if (m === 'agent_first') {
-      return 'Call routing: Agent first — your mobile rings first; when you answer, the lead is dialed. Use your iPhone (Bluetooth) for two-way talk. The browser only starts the call.';
+      return 'Call routing: Agent first — SignalWire rings Your mobile (agent) first (personal cell in Settings). Caller ID (e.g. 971) is only what the lead sees. Answer your cell, then the lead is dialed. No browser WebRTC audio.';
     }
     if (m === 'browser_device') {
       return 'Call routing: My device dialer — Call opens your system phone / headset app (audio on the device).';
@@ -2244,6 +2290,7 @@
     if (spSettingsModeDetail) {
       spSettingsModeDetail.textContent = softphoneModeDescription(mode, spRelayWebrtc).replace(/^Call routing:\s*/i, '');
     }
+    updateSoftphoneAgentRingLine();
   }
   function renderSoftphoneWebrtcDiagnostics(payload) {
     var wrap = document.getElementById('softphoneWebrtcDiagnostics');
@@ -2698,11 +2745,19 @@
       if (!softphoneSession.wasInCall) {
         softphoneSetWrapRequired(false);
         softphoneSetCallState('ready');
-        if (String(spWorkspaceCallMode || '').trim() === 'agent_first') {
+        var dialMode =
+          String(softphoneSession.dialMode || spWorkspaceCallMode || '').trim() || 'cloud_dial';
+        if (dialMode === 'agent_first') {
+          var agentLabel =
+            formatCallerIdDisplay(
+              softphoneSession.agentTo || spAgentPhoneCached || '',
+            ) || 'your mobile';
           softphoneSetStatus(
-            'Your mobile did not answer (' +
+            'Your cell did not answer (' +
               st +
-              '). Agent first rings Your mobile (agent) first — not the lead. Set it in dialer Settings or Workspace → Phone bank, answer that incoming call (caller ID is your workspace number), then the lead is dialed.',
+              '). Agent first rang ' +
+              agentLabel +
+              ' first — not the lead, and not caller ID. Answer that incoming call (workspace number as caller ID), then the lead is dialed. Fix the number under Agent mobile on this keypad or dialer Settings.',
             true,
           );
         } else {
@@ -2937,6 +2992,9 @@
         spSignalwireNumbers = Array.isArray(res.j.signalwireNumbers)
           ? res.j.signalwireNumbers.map(function (n) { return normalizeDial(n); }).filter(Boolean)
           : [];
+        spBankNumbers = Array.isArray(res.j.options)
+          ? res.j.options.map(function (n) { return normalizeDial(n); }).filter(Boolean)
+          : [];
         spDefaultFrom = String(res.j.defaultFromNumber || '').trim();
         spActiveFrom = String(res.j.activeFromNumber || '').trim();
         spLeadCallerId = String(res.j.leadCallerId || res.j.activeFromNumber || '').trim();
@@ -2956,8 +3014,9 @@
         if (spAgentPhone && res.j.agentPhone != null) {
           spAgentPhone.value = String(res.j.agentPhone || '').trim();
         }
-        var bankOptions = Array.isArray(res.j.options) ? res.j.options : [];
+        var bankOptions = spBankNumbers.length ? spBankNumbers : (Array.isArray(res.j.options) ? res.j.options : []);
         renderSoftphoneCallerIdSelect(spAgentPhoneCached, bankOptions, spLeadCallerId);
+        updateSoftphoneAgentRingLine();
         if (!spFrom) return;
         var options = bankOptions;
         var active = String(res.j.activeFromNumber || '').trim();
@@ -3196,6 +3255,8 @@
         }
         softphoneSession.isCloudPstn = true;
         softphoneSession.callSid = String((res.j && res.j.callSid) || '').trim();
+        softphoneSession.dialMode = String((res.j && res.j.dialMode) || '').trim();
+        softphoneSession.agentTo = String((res.j && res.j.agentPhone) || spAgentPhoneCached || '').trim();
         softphoneSession.startedAtMs = 0;
         addRecentDial(to, {
           title: softphoneSession.leadTitle,
@@ -3212,7 +3273,14 @@
         if (action === 'voicemail_drop') {
           softphoneSetStatus('Voicemail drop started (outbound to their line only — not played in this browser).');
         } else if (res.j.dialMode === 'agent_first') {
-          softphoneSetStatus('Ringing you first on your mobile — answer, then the lead is dialed. Audio is on your phone (Bluetooth, etc.); this tab is only a remote.');
+          var ringLabel =
+            formatCallerIdDisplay(softphoneSession.agentTo || spAgentPhoneCached || '') ||
+            'your mobile';
+          softphoneSetStatus(
+            'Ringing you first on ' +
+              ringLabel +
+              ' — answer that call, then the lead is dialed. Audio is on your phone; this tab is only a remote. Caller ID shown to the lead is separate.',
+          );
         } else {
           softphoneSetStatus(
             'Cloud call started (PSTN only — no audio in this tab). For headset audio here, confirm SIGNALWIRE_SPACE_URL on Render and that Settings shows “Cloud + browser audio”.',
@@ -3347,6 +3415,34 @@
       softphoneSetStatus('Enter a number first.', true);
       return;
     }
+    if (String(spWorkspaceCallMode || '').trim() === 'agent_first' && action === 'call') {
+      var agentReady = normalizeDial(spAgentPhoneCached || (spAgentPhone && spAgentPhone.value) || '');
+      if (!agentReady) {
+        softphoneSetStatus(
+          'Set Your mobile (agent) first — Agent first rings your personal cell, not caller ID (' +
+            (formatCallerIdDisplay(spLeadCallerId || softphoneTrunkFromNumber() || '') || 'workspace DID') +
+            '). Use Agent mobile on this keypad or dialer Settings.',
+          true,
+        );
+        updateSoftphoneAgentRingLine();
+        if (spAgentRingFixBtn) spAgentRingFixBtn.classList.remove('hidden');
+        openSoftphoneSettingsTab();
+        if (spAgentPhone) {
+          try {
+            spAgentPhone.focus();
+          } catch (_) {}
+        }
+        return;
+      }
+      if (spBankNumbers && spBankNumbers.indexOf(agentReady) !== -1) {
+        softphoneSetStatus(
+          'Your mobile is set to a workspace Phone bank number. Use your personal cell instead — bank numbers are caller ID only.',
+          true,
+        );
+        openSoftphoneSettingsTab();
+        return;
+      }
+    }
     spTo.value = to;
     var btn = action === 'voicemail_drop' ? spVm : spCall;
     var originalHtml = btn ? btn.innerHTML : '';
@@ -3356,6 +3452,8 @@
     softphoneSession.webrtcCloudFallback = false;
     softphoneSession.wasInCall = false;
     softphoneSession.audioPrimed = false;
+    softphoneSession.dialMode = '';
+    softphoneSession.agentTo = '';
     clearSoftphoneRemoteAudioWatchdog();
     showSoftphoneEnableAudioBtn(false);
     softphoneResetRecordingState();
@@ -3919,7 +4017,8 @@
           spCallerIdMobile.focus();
         }
         if (spCallerIdMobileHint) {
-          spCallerIdMobileHint.textContent = 'Enter your cell — leads see this on agent-first calls.';
+          spCallerIdMobileHint.textContent =
+            'Enter your personal cell (E.164). On agent first this number rings you first; it is not the same as workspace caller ID.';
         }
         return;
       }
@@ -3937,15 +4036,66 @@
         if (spCallerIdMobileHint) spCallerIdMobileHint.textContent = 'Enter a valid mobile number (e.g. +15551234567).';
         return;
       }
+      if (spBankNumbers && spBankNumbers.indexOf(mobile) !== -1) {
+        if (spCallerIdMobileHint) {
+          spCallerIdMobileHint.textContent =
+            'That is a workspace Phone bank number. Enter your personal cell — bank numbers are caller ID only.';
+        }
+        return;
+      }
       if (spCallerIdMobileHint) spCallerIdMobileHint.textContent = 'Saving…';
+      // Prefer keeping workspace DID as lead caller ID; agentPhone is what rings first.
+      var keepCallerId = normalizeDial(spLeadCallerId || spActiveFrom || '');
+      if (keepCallerId && spBankNumbers && spBankNumbers.indexOf(keepCallerId) !== -1) {
+        fetch('/workspace/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ agentPhone: mobile }),
+        })
+          .then(function (r) {
+            return r.json().then(function (j) {
+              return { ok: r.ok, j: j };
+            });
+          })
+          .then(function (res) {
+            if (!res.ok || !res.j || !res.j.success) {
+              throw new Error((res.j && res.j.error) || 'Could not save mobile.');
+            }
+            spAgentPhoneCached = mobile;
+            if (spAgentPhone) spAgentPhone.value = mobile;
+            renderSoftphoneCallerIdSelect(mobile, spBankNumbers, keepCallerId);
+            if (spCallerIdMobileWrap) spCallerIdMobileWrap.classList.add('hidden');
+            if (spCallerIdMobileHint) {
+              spCallerIdMobileHint.textContent =
+                'Saved. Your cell rings first; leads still see workspace caller ID.';
+            }
+            updateSoftphoneAgentRingLine();
+          })
+          .catch(function (err) {
+            if (spCallerIdMobileHint) spCallerIdMobileHint.textContent = (err && err.message) || 'Could not save mobile.';
+          });
+        return;
+      }
       saveSoftphoneLeadCallerId(mobile, { alsoAgentPhone: true })
         .then(function () {
-          renderSoftphoneCallerIdSelect(mobile, spSignalwireNumbers, mobile);
+          renderSoftphoneCallerIdSelect(mobile, spBankNumbers, keepCallerId || mobile);
           if (spCallerIdMobileWrap) spCallerIdMobileWrap.classList.add('hidden');
+          updateSoftphoneAgentRingLine();
         })
         .catch(function (err) {
           if (spCallerIdMobileHint) spCallerIdMobileHint.textContent = (err && err.message) || 'Could not save mobile.';
         });
+    });
+  }
+
+  if (spAgentRingFixBtn) {
+    spAgentRingFixBtn.addEventListener('click', function () {
+      openSoftphoneSettingsTab();
+      if (spAgentPhone) {
+        try {
+          spAgentPhone.focus();
+        } catch (_) {}
+      }
     });
   }
 
@@ -4080,6 +4230,17 @@
             throw new Error((res.j && res.j.error) || 'Could not save call routing mode.');
           }
           if (spCallModeSaveHint) spCallModeSaveHint.textContent = 'Saved';
+          if (nextMode === 'agent_first' && !normalizeDial(spAgentPhoneCached || '')) {
+            if (spCallModeSaveHint) {
+              spCallModeSaveHint.textContent = 'Saved — set Your mobile below so your cell can ring.';
+            }
+            if (spAgentPhone) {
+              try {
+                spAgentPhone.focus();
+              } catch (_) {}
+            }
+          }
+          updateSoftphoneAgentRingLine();
         })
         .catch(function (err) {
           spWorkspaceCallMode = prevMode || 'cloud_dial';
@@ -4112,9 +4273,11 @@
             throw new Error((res.j && res.j.error) || 'Could not save agent phone.');
           }
           spAgentPhoneCached = normalizeDial(spAgentPhone.value || '');
-          renderSoftphoneCallerIdSelect(spAgentPhoneCached, spSignalwireNumbers, spLeadCallerId);
+          renderSoftphoneCallerIdSelect(spAgentPhoneCached, spBankNumbers, spLeadCallerId);
+          updateSoftphoneAgentRingLine();
           if (hint) {
-            hint.textContent = 'Your phone rings first; when you answer, the lead is connected.';
+            hint.textContent =
+              'Saved. SignalWire rings this personal cell first; workspace numbers are caller ID only.';
           }
         })
         .catch(function (err) {

@@ -378,10 +378,16 @@
               <option value="">—</option>
             </select>
             <p class="mt-1.5 text-[10px] text-slate-500 dark:text-slate-400 leading-snug" id="softphoneCallingFromLine">Outbound line for this call</p>
+            <div id="softphoneAgentRingWrap" class="hidden mt-2 rounded-lg border border-amber-300/50 dark:border-amber-500/30 bg-amber-50/70 dark:bg-amber-950/25 px-2.5 py-2">
+              <p class="text-[10px] font-black uppercase tracking-widest text-amber-800 dark:text-amber-200">Agent mobile (rings first)</p>
+              <p id="softphoneAgentRingLine" class="mt-0.5 text-[12px] font-semibold tabular-nums text-slate-800 dark:text-white leading-snug">—</p>
+              <p id="softphoneAgentRingHint" class="mt-1 text-[10px] text-amber-900/80 dark:text-amber-100/80 leading-snug">Caller ID above is what the lead sees — not the phone that rings.</p>
+              <button type="button" id="softphoneAgentRingFixBtn" class="hidden mt-1.5 text-[10px] font-black uppercase tracking-wide text-brand-yellow hover:underline">Set mobile in Settings</button>
+            </div>
             <div id="softphoneCallerIdMobileWrap" class="hidden mt-2 space-y-2">
-              <label for="softphoneCallerIdMobile" class="text-[10px] font-bold uppercase tracking-wide text-slate-500">Your mobile number</label>
+              <label for="softphoneCallerIdMobile" class="text-[10px] font-bold uppercase tracking-wide text-slate-500">Your personal cell</label>
               <input type="tel" id="softphoneCallerIdMobile" class="w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold text-slate-800 dark:text-white" placeholder="+15551234567" autocomplete="tel" />
-              <button type="button" id="softphoneCallerIdMobileSave" class="w-full rounded-xl border border-brand-yellow/60 bg-brand-yellow/15 px-3 py-2 text-[10px] font-black uppercase tracking-wide text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/25 transition-colors">Use my mobile as caller ID</button>
+              <button type="button" id="softphoneCallerIdMobileSave" class="w-full rounded-xl border border-brand-yellow/60 bg-brand-yellow/15 px-3 py-2 text-[10px] font-black uppercase tracking-wide text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/25 transition-colors">Save my cell (rings first)</button>
               <p id="softphoneCallerIdMobileHint" class="text-[10px] text-slate-500 dark:text-slate-400 leading-snug"></p>
             </div>
             <p id="softphoneOutboundMeta" class="hidden sr-only">Current outbound: —</p>
@@ -551,7 +557,7 @@
           <div id="softphoneAgentPhoneWrap" class="softphone-settings-section mb-4 hidden">
             <label for="softphoneAgentPhone" class="text-[10px] font-bold uppercase tracking-wide text-slate-500">Your mobile (agent first)</label>
             <input type="tel" id="softphoneAgentPhone" class="mt-1.5 w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-800 dark:text-white" placeholder="+15551234567" autocomplete="tel" <%= (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) ? '' : 'disabled' %> />
-            <p id="softphoneAgentPhoneHint" class="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 leading-snug">Your phone rings first; when you answer, the lead is connected.</p>
+            <p id="softphoneAgentPhoneHint" class="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 leading-snug">Must be your personal cell in E.164 (not a workspace Phone bank / 971 DID). SignalWire rings this number first; caller ID above is only what the lead sees.</p>
           </div>
 
           <div id="softphoneBrowserAudioSection" class="softphone-settings-section mb-4">
