@@ -2698,12 +2698,21 @@
       if (!softphoneSession.wasInCall) {
         softphoneSetWrapRequired(false);
         softphoneSetCallState('ready');
-        softphoneSetStatus(
-          'Call did not connect (' +
-            st +
-            '). Check caller ID in Workspace → Phone bank, then try again from Focus or the keypad.',
-          true,
-        );
+        if (String(spWorkspaceCallMode || '').trim() === 'agent_first') {
+          softphoneSetStatus(
+            'Your mobile did not answer (' +
+              st +
+              '). Agent first rings Your mobile (agent) first — not the lead. Set it in dialer Settings or Workspace → Phone bank, answer that incoming call (caller ID is your workspace number), then the lead is dialed.',
+            true,
+          );
+        } else {
+          softphoneSetStatus(
+            'Call did not connect (' +
+              st +
+              '). Check caller ID in Workspace → Phone bank, then try again from Focus or the keypad.',
+            true,
+          );
+        }
         return;
       }
       softphoneSetCallState('ended');

@@ -1414,6 +1414,14 @@ router.post('/:key/call', async (req, res, next) => {
             'Set your mobile number in Workspace → Phone number bank (Agent / your phone) for agent-first calling.',
         });
       }
+      const bank = workspaceCallerNumbers(ws);
+      if (bank.includes(agentTo)) {
+        return res.status(400).json({
+          success: false,
+          error:
+            'Your mobile (agent) is set to a workspace Phone bank number. Use your personal cell instead — the bank number is only caller ID. Fix it in Workspace → Phone bank or dialer Settings.',
+        });
+      }
 
       // ── Session mode: if a session is already active, queue this lead instead of placing a new call ──
       const existingSession = agentSessionStore.getSession(req.workspaceId);
@@ -1499,6 +1507,7 @@ router.post('/:key/call', async (req, res, next) => {
     });
     res.json({
       success: true,
+      dialMode: callMode === 'agent_first' ? 'agent_first' : 'cloud_dial',
       callSid: call.sid || null,
       callerId: leadCallerId || fromPick.from,
       lead: updatedLead,
@@ -1808,6 +1817,14 @@ router.post('/telephony/dial', async (req, res, next) => {
           success: false,
           error:
             'Set your mobile number in Workspace → Phone number bank (Agent / your phone) for agent-first calling.',
+        });
+      }
+      const bank = workspaceCallerNumbers(ws);
+      if (bank.includes(agentTo)) {
+        return res.status(400).json({
+          success: false,
+          error:
+            'Your mobile (agent) is set to a workspace Phone bank number. Use your personal cell instead — the bank number is only caller ID. Fix it in Workspace → Phone bank or dialer Settings.',
         });
       }
     }

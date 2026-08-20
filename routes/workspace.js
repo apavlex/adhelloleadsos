@@ -1159,6 +1159,16 @@ router.post('/settings', express.json(), async (req, res) => {
               .status(400)
               .json({ success: false, error: 'Agent phone must be a valid E.164 number (e.g. +15551234567).' });
           }
+          const bank = numberListFromEntries(
+            Array.isArray(telephony.numberBankEntries) ? telephony.numberBankEntries : [],
+          );
+          if (bank.includes(n)) {
+            return res.status(400).json({
+              success: false,
+              error:
+                'Your mobile (agent) must be your personal cell, not a workspace Phone bank / SignalWire number. That bank number is caller ID — SignalWire rings your cell first.',
+            });
+          }
           telephony.agentPhone = n;
         }
       }
