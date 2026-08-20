@@ -39,10 +39,8 @@
       <span class="text-[9px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Auto outreach</span>
     </label>
     <button type="button" class="folder-outreach-setup px-3 py-2 rounded-xl bg-emerald-600/10 dark:bg-emerald-950/40 border border-emerald-600/30 text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-200 hover:border-emerald-500/50 transition-colors" data-folder-key="<%= _f.key %>" title="Folder outreach settings — enrolls leads into your GHL auto-outreach workflow">Outreach</button>
-    <a href="/leads/find?folderKey=<%= encodeURIComponent(_f.key) %>" class="px-3 py-2 rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark border border-brand-dark dark:border-brand-yellow text-[10px] font-black uppercase tracking-widest hover:brightness-110 transition-colors shadow-sm">Run search</a>
-    <% if (_f.isPipelineDefault) { %>
+    <button type="button" class="folder-run-search px-3 py-2 rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark border border-brand-dark dark:border-brand-yellow text-[10px] font-black uppercase tracking-widest hover:brightness-110 transition-colors shadow-sm" data-folder-key="<%= _f.key %>" title="Replay this folder’s saved search and merge new leads">Run search</button>
     <button type="button" class="folder-search-setup px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors" data-folder-key="<%= _f.key %>">Search setup</button>
-    <% } %>
     <a href="<%= _openHref %>" class="px-3 py-2 rounded-xl bg-brand-yellow text-brand-dark border border-brand-yellow text-[10px] font-black uppercase tracking-widest hover:brightness-105 transition-colors shadow-sm">Open leads</a>
     <% if (!_f.isPipelineDefault) { %>
     <% if (!_f.isTradeFolder) { %>

@@ -16,7 +16,7 @@ const {
   resolveSearchRecordFolderContext,
   leadMetadataForJobType,
 } = require('../services/pipelineFolders');
-const { parseAutoTags, resolveAutoTagKeys } = require('../services/folderSearchPreset');
+const { parseAutoTags, resolveAutoTagKeys, rememberFolderSearchFromRun } = require('../services/folderSearchPreset');
 const {
   ENRICH_BUDGET_MS,
   DIRECTORY_BUDGET_MS,
@@ -207,6 +207,11 @@ router.post('/', async (req, res, next) => {
             console.log(
               `[SEARCH-BG] Auto-saved ${savedCount} lead(s) into folder ${targetFolderKey}`
             );
+            await rememberFolderSearchFromRun(activationWorkspaceId, targetFolderKey, {
+              ...searchRecord,
+              searchKey,
+              directorySupplement: wantDirectorySupplement,
+            });
           }
 
           if (activationUserEmail) await activationService.recordEvent(activationUserEmail, 'search_saved');

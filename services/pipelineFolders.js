@@ -145,6 +145,23 @@ async function ensureTradeSubfolders(workspaceId, folders) {
     existingNames.add(String(trade.name).trim().toLowerCase());
   }
 
+  for (let i = 0; i < out.length; i += 1) {
+    const folder = out[i];
+    if (!folder || !folder.tradeSlug || folder.searchPreset) continue;
+    const trade = TRADE_FOLDERS.find((t) => t.slug === String(folder.tradeSlug));
+    if (!trade) continue;
+    const searchPreset = normalizeSearchPreset({
+      jobType: JOB_TYPES.MAPS_BUSINESS,
+      keyword: trade.keyword,
+      maxResults: 25,
+      mapsProvider: 'auto',
+      directorySupplement: true,
+    });
+    // eslint-disable-next-line no-await-in-loop
+    const updated = await dbService.updateFolder(wid, folder.key, { searchPreset });
+    if (updated) out[i] = { ...folder, ...updated };
+  }
+
   return out;
 }
 

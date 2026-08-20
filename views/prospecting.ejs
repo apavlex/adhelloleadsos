@@ -449,7 +449,7 @@
     <div id="folderSearchSetupBackdrop" class="absolute inset-0 bg-brand-dark/60 backdrop-blur-sm cursor-pointer" tabindex="-1"></div>
     <div class="relative max-w-2xl w-full max-h-[90vh] overflow-y-auto rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-8 shadow-2xl z-10">
       <h2 id="folderSearchSetupTitle" class="font-display font-black text-xl text-brand-dark dark:text-white mb-1">Search setup</h2>
-      <p id="folderSearchSetupSubtitle" class="text-sm text-brand-muted mb-5">Save how Find should run for this folder. Location (city/state) is set when you run the search.</p>
+      <p id="folderSearchSetupSubtitle" class="text-sm text-brand-muted mb-5">Save how Find should run for this folder. Run search uses these settings and merges new leads (no duplicates).</p>
       <input type="hidden" id="folderSearchSetupKey" value="" />
       <div class="space-y-4">
         <div>
@@ -465,6 +465,16 @@
         <div>
           <label for="folderSearchMaxResults" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Max results</label>
           <input type="number" id="folderSearchMaxResults" min="1" max="100" value="25" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label for="folderSearchCity" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">City</label>
+            <input type="text" id="folderSearchCity" placeholder="e.g. Portland" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
+          </div>
+          <div>
+            <label for="folderSearchState" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">State</label>
+            <input type="text" id="folderSearchState" maxlength="2" placeholder="OR" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold uppercase" />
+          </div>
         </div>
         <div id="folderSearchMapsFields" class="space-y-3">
           <div>
@@ -645,6 +655,65 @@
           e.stopPropagation();
           var key = btn.getAttribute('data-folder-key') || '';
           openFolderSearchSetup(key);
+        });
+      });
+
+      document.querySelectorAll('.folder-run-search').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          var key = btn.getAttribute('data-folder-key') || '';
+          if (!key) return;
+          if (btn.disabled) return;
+          btn.disabled = true;
+          var originalLabel = btn.textContent;
+          btn.textContent = 'Starting…';
+          fetch('/folders/run-search', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: jsonHeaders,
+            body: JSON.stringify({ folderKey: key })
+          })
+            .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+            .then(function (pack) {
+              var data = pack.data || {};
+              if (!pack.ok || !data.success) {
+                if (data.needSetup) {
+                  openFolderSearchSetup(key);
+                  var err = $('folderSearchSetupError');
+                  if (err) {
+                    err.textContent = data.error || 'Save search setup first.';
+                    err.classList.remove('hidden');
+                  }
+                  return;
+                }
+                throw new Error(data.error || 'Could not run search.');
+              }
+              if (typeof window.showLeadRunProgressBanner === 'function') {
+                window.showLeadRunProgressBanner({
+                  keyword: data.keyword || '',
+                  city: data.city || '',
+                  state: data.state || '',
+                  targetFolderKey: data.folderKey || key,
+                  targetFolderName: data.folderName || ''
+                });
+              }
+              var bellBadge = document.getElementById('bulkEnhanceBellBadge');
+              var pingDot = document.getElementById('notificationPing');
+              if (bellBadge) {
+                bellBadge.textContent = 'RUN';
+                bellBadge.classList.remove('hidden');
+                bellBadge.setAttribute('title', 'Lead search running in background');
+              }
+              if (pingDot) pingDot.classList.remove('hidden');
+            })
+            .catch(function (err) {
+              window.alert(err && err.message ? err.message : 'Could not run search.');
+            })
+            .then(function () {
+              btn.disabled = false;
+              btn.textContent = originalLabel;
+            });
         });
       });
 
@@ -1147,7 +1216,9 @@
 
       if ($('folderSearchJobType')) $('folderSearchJobType').value = jt;
       if ($('folderSearchMaxResults')) $('folderSearchMaxResults').value = String(p.maxResults || 25);
-      if ($('folderSearchKeyword')) $('folderSearchKeyword').value = p.keyword || p.query || '';
+      if ($('folderSearchCity')) $('folderSearchCity').value = p.city || '';
+      if ($('folderSearchState')) $('folderSearchState').value = p.state || '';
+      if ($('folderSearchKeyword')) $('folderSearchKeyword').value = p.keyword || p.query || (folder && folder.name) || '';
       if ($('folderSearchMapsProvider')) $('folderSearchMapsProvider').value = p.mapsProvider || 'auto';
       if ($('folderSearchMinRating')) $('folderSearchMinRating').value = p.minRating != null ? String(p.minRating) : '';
       if ($('folderSearchMinReviews')) $('folderSearchMinReviews').value = p.minReviews != null ? String(p.minReviews) : '';
@@ -1201,7 +1272,7 @@
         infoPackLink.href = '/workspace/info-packs?folder=' + encodeURIComponent(folderKey);
       }
       if ($('folderSearchSetupSubtitle')) {
-        $('folderSearchSetupSubtitle').textContent = 'Configure search for "' + (folder.name || 'folder') + '". City/state are chosen when you run search.';
+        $('folderSearchSetupSubtitle').textContent = 'Configure search for "' + (folder.name || 'folder') + '". Run search replays these settings and merges new leads into this folder.';
       }
       fillFolderSearchForm(folder.searchPreset, folder);
       var err = $('folderSearchSetupError');
@@ -1224,6 +1295,8 @@
         folderKey: key,
         jobType: jt,
         maxResults: parseInt(($('folderSearchMaxResults') && $('folderSearchMaxResults').value) || '25', 10) || 25,
+        city: ($('folderSearchCity') && $('folderSearchCity').value) || '',
+        state: ($('folderSearchState') && $('folderSearchState').value) || '',
       };
       var isListing = jt === 'real_estate' || jt === 'home_owners' || jt === 'products' || jt === 'wholesale';
       if (isListing) {

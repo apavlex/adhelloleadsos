@@ -7,6 +7,7 @@ const { migrateUnfiledLeadsToPipelineFolders, deleteFolderComplete } = require('
 const { moveFolder } = require('../services/folderMove');
 const { isInOutreachFolder } = require('../services/leadListFilters');
 const { parseSearchPresetFromForm, normalizeSearchPreset } = require('../services/folderSearchPreset');
+const { startFolderSearch } = require('../services/folderSearchRun');
 const { parseInfoPackFromBody, normalizeInfoPack } = require('../services/infoPack');
 const {
   normalizeFolderOutreachSettings,
@@ -281,6 +282,35 @@ router.post('/outreach/run', async (req, res, next) => {
       runStarted: true,
       message:
         'Drip started in the background (email hunt can take a few minutes). Refresh shortly for enroll counts.',
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/run-search', async (req, res, next) => {
+  try {
+    const folderKey = String(req.body?.folderKey || '').trim();
+    const result = await startFolderSearch(req.workspaceId, folderKey);
+    if (!result.ok) {
+      const status = result.busy ? 409 : result.needSetup ? 400 : 400;
+      return res.status(status).json({
+        success: false,
+        error: result.error || 'Could not run folder search.',
+        needSetup: !!result.needSetup,
+        needLocation: !!result.needLocation,
+        busy: !!result.busy,
+      });
+    }
+    return res.json({
+      success: true,
+      started: true,
+      folderKey: result.folderKey,
+      folderName: result.folderName,
+      keyword: result.keyword,
+      city: result.city,
+      state: result.state,
+      message: result.message,
     });
   } catch (e) {
     next(e);

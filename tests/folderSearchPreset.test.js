@@ -99,3 +99,86 @@ test('filterMapsResults applies rating and review thresholds', () => {
   assert.equal(out.length, 1);
   assert.equal(out[0].title, 'A');
 });
+
+test('resolveEffectiveSearchPreset replays trade keyword and parent location', () => {
+  const { resolveEffectiveSearchPreset } = require('../services/folderSearchPreset');
+  const resolved = resolveEffectiveSearchPreset(
+    {
+      key: 'folder:1',
+      name: 'Mechanical',
+      jobType: 'maps_business',
+      tradeSlug: 'mechanical',
+      searchPreset: { jobType: 'maps_business', keyword: 'mechanical contractor', maxResults: 25 },
+    },
+    {
+      parent: {
+        name: 'Businesses',
+        isPipelineDefault: true,
+        searchPreset: {
+          jobType: 'maps_business',
+          keyword: 'plumber',
+          city: 'Portland',
+          state: 'OR',
+          mapsProvider: 'rapidapi',
+          maxResults: 40,
+        },
+      },
+      icp: { city: 'Austin', state: 'TX' },
+    }
+  );
+  assert.equal(resolved.ok, true);
+  assert.equal(resolved.preset.keyword, 'mechanical contractor');
+  assert.equal(resolved.preset.city, 'Portland');
+  assert.equal(resolved.preset.state, 'OR');
+  assert.equal(resolved.preset.mapsProvider, 'rapidapi');
+  assert.equal(resolved.preset.maxResults, 25);
+});
+
+test('resolveEffectiveSearchPreset infers Flooring Companies keyword and does not default plumber', () => {
+  const { resolveEffectiveSearchPreset, inferKeywordForFolder } = require('../services/folderSearchPreset');
+  assert.equal(inferKeywordForFolder({ name: 'Flooring Companies' }), 'flooring');
+  const resolved = resolveEffectiveSearchPreset(
+    { key: 'folder:2', name: 'Flooring Companies', jobType: 'maps_business' },
+    { icp: { city: 'Vancouver', state: 'WA' } }
+  );
+  assert.equal(resolved.ok, true);
+  assert.equal(resolved.preset.keyword, 'flooring');
+  assert.notEqual(resolved.preset.keyword, 'plumber');
+  assert.equal(resolved.preset.city, 'Vancouver');
+  assert.equal(resolved.preset.state, 'WA');
+});
+
+test('resolveEffectiveSearchPreset requires setup when system folder has no keyword', () => {
+  const { resolveEffectiveSearchPreset } = require('../services/folderSearchPreset');
+  const resolved = resolveEffectiveSearchPreset({
+    name: 'Businesses',
+    isPipelineDefault: true,
+    jobType: 'maps_business',
+  });
+  assert.equal(resolved.ok, false);
+  assert.equal(resolved.needSetup, true);
+});
+
+test('searchPresetToFindContext keeps stored city and state', () => {
+  const ctx = searchPresetToFindContext({
+    jobType: 'maps_business',
+    keyword: 'flooring contractor',
+    city: 'Camas',
+    state: 'WA',
+    maxResults: 20,
+  });
+  assert.equal(ctx.searchPrefill.keyword, 'flooring contractor');
+  assert.equal(ctx.searchPrefill.city, 'Camas');
+  assert.equal(ctx.searchPrefill.state, 'WA');
+});
+
+test('locationFromLeads picks majority city/state for folder refresh', () => {
+  const { locationFromLeads } = require('../services/folderSearchRun');
+  const loc = locationFromLeads([
+    { city: 'Portland', state: 'OR' },
+    { city: 'Portland', state: 'OR' },
+    { city: 'Seattle', state: 'WA' },
+  ]);
+  assert.equal(loc.city, 'Portland');
+  assert.equal(loc.state, 'OR');
+});
