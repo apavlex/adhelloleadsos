@@ -18389,6 +18389,12 @@ document.addEventListener('DOMContentLoaded', () => {
       for (const row of leadsToProcess) {
         captureBulkEnhanceRowSnapshot(row, getBulkEnhanceLayout(row), spinner);
       }
+      if (typeof window.__showBulkBarFeedbackEarly === 'function') {
+        window.__showBulkBarFeedbackEarly(
+          `Enhancing ${leadsToProcess.length} lead${leadsToProcess.length === 1 ? '' : 's'} via API (no new tabs)…`,
+          'loading',
+        );
+      }
       window.agencyOsBulkEnhance.start(leadsToProcess.map((r) => r.dataset.leadKey));
       return;
     }
@@ -18630,6 +18636,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.addEventListener('agency-os-bulk-enhance-finished', (ev) => {
     const d = ev.detail || {};
+    if (typeof window.__showBulkBarFeedbackEarly === 'function' && d.attempted > 0) {
+      const msg =
+        d.successCount > 0
+          ? `Enhanced ${d.successCount} of ${d.attempted} lead${d.attempted === 1 ? '' : 's'} via API.`
+          : d.lastError ||
+            'Enhance found no new contact or review data for the selected lead(s).';
+      window.__showBulkBarFeedbackEarly(msg, d.successCount > 0 ? 'success' : 'error');
+    }
     const enhanceBtns = document.querySelectorAll('.js-bulk-enhance');
     const summaryLabel =
       d.successCount > 0

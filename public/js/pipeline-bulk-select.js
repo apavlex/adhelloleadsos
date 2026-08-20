@@ -1394,6 +1394,7 @@
     else if (variant === 'loading') el.classList.add('text-white/80');
     else el.classList.add('text-sky-200');
   }
+  window.__showBulkBarFeedbackEarly = showBulkBarFeedbackEarly;
 
   function collectPhoneLeadKeysEarly() {
     const keys = [];
@@ -1837,15 +1838,7 @@
         );
 
         try {
-          const res = await fetch(`/leads/${encodeURIComponent(key)}/enhance`, {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: { Accept: 'application/json' },
-          });
-          let result = await res.json().catch(() => ({}));
-          if (res.ok && result.processing) {
-            result = await pollLeadEnhanceUntilDoneEarly(key);
-          }
+          result = await runEnhanceApiForLeadKeyEarly(key);
           const d = result.lead || result.data;
           if (result.success && d) {
             enhanceUpdated += 1;
@@ -2161,9 +2154,9 @@
 
   async function pollLeadEnhanceUntilDoneEarly(leadKey) {
     if (typeof window.__pollLeadEnhanceUntilDone === 'function') {
-      return window.__pollLeadEnhanceUntilDone(leadKey);
+      return window.__pollLeadEnhanceUntilDone(leadKey, { maxMs: 120000 });
     }
-    const maxMs = 180000;
+    const maxMs = 120000;
     const interval = 2500;
     const deadline = Date.now() + maxMs;
     const started = Date.now();
@@ -2171,13 +2164,31 @@
     while (Date.now() < deadline) {
       // eslint-disable-next-line no-await-in-loop
       await new Promise((r) => setTimeout(r, interval));
-      // eslint-disable-next-line no-await-in-loop
-      const res = await fetch('/leads/' + encodeURIComponent(leadKey) + '/enhance-status', {
-        credentials: 'same-origin',
-        headers: { Accept: 'application/json' },
-      });
-      // eslint-disable-next-line no-await-in-loop
-      const d = await res.json().catch(() => ({}));
+      let d = {};
+      try {
+        if (typeof window.__fetchJsonWithTimeout === 'function') {
+          // eslint-disable-next-line no-await-in-loop
+          const polled = await window.__fetchJsonWithTimeout(
+            '/leads/' + encodeURIComponent(leadKey) + '/enhance-status',
+            {
+              credentials: 'same-origin',
+              headers: { Accept: 'application/json' },
+            },
+            30000,
+          );
+          d = polled.data || {};
+        } else {
+          // eslint-disable-next-line no-await-in-loop
+          const res = await fetch('/leads/' + encodeURIComponent(leadKey) + '/enhance-status', {
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' },
+          });
+          // eslint-disable-next-line no-await-in-loop
+          d = await res.json().catch(() => ({}));
+        }
+      } catch (err) {
+        d = { status: 'error', error: (err && err.message) || 'Status check failed.' };
+      }
       if (d.status === 'processing') {
         idleStreak = 0;
         continue;
@@ -2208,9 +2219,62 @@
     };
   }
 
+  async function runEnhanceApiForLeadKeyEarly(leadKey) {
+    const key = String(leadKey || '').trim();
+    if (!key) return { success: false, error: 'Missing lead key.' };
+    if (typeof window.__runEnhanceApiForLeadKey === 'function') {
+      return window.__runEnhanceApiForLeadKey(key);
+    }
+    const run = async function () {
+      let result = {};
+      if (typeof window.__fetchJsonWithTimeout === 'function') {
+        const post = await window.__fetchJsonWithTimeout(
+          '/leads/' + encodeURIComponent(key) + '/enhance',
+          {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' },
+          },
+          45000,
+        );
+        result = post.data || {};
+        if (post.res.ok && result.processing) {
+          result = await pollLeadEnhanceUntilDoneEarly(key);
+        } else if (!post.res.ok) {
+          result = { success: false, error: result.error || 'Enhance failed (' + post.res.status + ').' };
+        }
+      } else {
+        const res = await fetch('/leads/' + encodeURIComponent(key) + '/enhance', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { Accept: 'application/json' },
+        });
+        result = await res.json().catch(() => ({}));
+        if (res.ok && result.processing) {
+          result = await pollLeadEnhanceUntilDoneEarly(key);
+        } else if (!res.ok) {
+          result = { success: false, error: result.error || 'Enhance failed (' + res.status + ').' };
+        }
+      }
+      return result;
+    };
+    if (typeof window.__withBulkEnhanceLeadTimeout === 'function') {
+      return window.__withBulkEnhanceLeadTimeout(run(), 120000);
+    }
+    return run();
+  }
+
   async function runBulkEnhanceFromBarEarly() {
     if (window.__bulkEnhanceInFlight) return;
-    if (typeof window.__runBulkEnhanceSelectedLeadsImpl === 'function') {
+
+    const bar = document.getElementById('bulkActionBar');
+    const useInlinePipeline =
+      bar && bar.dataset.bulkMode === 'pipeline' && bar.dataset.visible === 'true';
+
+    if (
+      !useInlinePipeline &&
+      typeof window.__runBulkEnhanceSelectedLeadsImpl === 'function'
+    ) {
       return window.__runBulkEnhanceSelectedLeadsImpl();
     }
 
@@ -2236,8 +2300,10 @@
       b.classList.add('loading');
       b.innerHTML = loadingHtml;
     });
+
+    const total = leadsToProcess.length;
     showBulkBarFeedbackEarly(
-      `Enhancing ${leadsToProcess.length} lead${leadsToProcess.length === 1 ? '' : 's'}…`,
+      `Enhancing ${total} lead${total === 1 ? '' : 's'} via API (no new tabs)…`,
       'loading',
     );
 
@@ -2246,7 +2312,8 @@
     let lastError = '';
 
     try {
-      for (const row of leadsToProcess) {
+      for (let i = 0; i < leadsToProcess.length; i += 1) {
+        const row = leadsToProcess[i];
         const key = String(row.dataset.leadKey || row.getAttribute('data-lead-key') || '').trim();
         const url = row.dataset.website;
         const title = row.dataset.title;
@@ -2256,20 +2323,18 @@
         if (!key && (!url || url === 'N/A') && (!title || !city)) continue;
 
         attemptedCount += 1;
+        enhanceBtns.forEach((b) => {
+          b.innerHTML = `<span class="text-[10px] font-black uppercase tracking-widest animate-pulse">Enhance ${i + 1}/${total}</span>`;
+        });
+        showBulkBarFeedbackEarly(
+          `Enhancing via API ${i + 1}/${total} (no new tabs)…`,
+          'loading',
+        );
+
         try {
           let result = {};
           if (key) {
-            const res = await fetch(`/leads/${encodeURIComponent(key)}/enhance`, {
-              method: 'POST',
-              credentials: 'same-origin',
-              headers: { Accept: 'application/json' },
-            });
-            result = await res.json().catch(() => ({}));
-            if (res.ok && result.processing) {
-              result = await pollLeadEnhanceUntilDoneEarly(key);
-            } else if (!res.ok) {
-              result = { success: false, error: result.error || `Enhance failed (${res.status}).` };
-            }
+            result = await runEnhanceApiForLeadKeyEarly(key);
           } else {
             const res = await fetch('/enrich', {
               method: 'POST',
@@ -2526,12 +2591,12 @@
       b.disabled = true;
       b.classList.add('loading');
       b.innerHTML =
-        '<span class="text-[10px] font-black uppercase tracking-widest animate-pulse">Waiting…</span>';
+        '<span class="text-[10px] font-black uppercase tracking-widest animate-pulse">Queued…</span>';
     });
 
     const total = rows.length;
     showBulkBarFeedbackEarly(
-      `Enhancing ${total} lead${total === 1 ? '' : 's'} via API…`,
+      `Enhancing ${total} lead${total === 1 ? '' : 's'} via API (no new tabs)…`,
       'loading',
     );
 
@@ -2550,22 +2615,15 @@
         if (!key && (!url || url === 'N/A') && (!title || !city)) continue;
 
         setEnrichLeadsButtonsState(btns, `Enhance ${i + 1}/${total}`);
-        showBulkBarFeedbackEarly(`Enhance API ${i + 1}/${total}…`, 'loading');
+        showBulkBarFeedbackEarly(
+          `Enhancing via API ${i + 1}/${total} (no new tabs)…`,
+          'loading',
+        );
 
         try {
           let result = {};
           if (key) {
-            const res = await fetch(`/leads/${encodeURIComponent(key)}/enhance`, {
-              method: 'POST',
-              credentials: 'same-origin',
-              headers: { Accept: 'application/json' },
-            });
-            result = await res.json().catch(() => ({}));
-            if (res.ok && result.processing) {
-              result = await pollLeadEnhanceUntilDoneEarly(key);
-            } else if (!res.ok) {
-              result = { success: false, error: result.error || `Enhance failed (${res.status}).` };
-            }
+            result = await runEnhanceApiForLeadKeyEarly(key);
           } else {
             const res = await fetch('/enrich', {
               method: 'POST',
@@ -3365,6 +3423,17 @@
   window.__PIPELINE_BULK_SELECT_V2 = '16';
   window.__pipelineBulkSelectApply = applySelectAll;
   window.__applySelectAllLeads = applySelectAll;
+
+  window.addEventListener('agency-os-bulk-enhance-progress', (ev) => {
+    const d = ev.detail || {};
+    const total = d.total || 0;
+    const index = d.index != null ? d.index : 0;
+    if (!total) return;
+    showBulkBarFeedbackEarly(
+      `Enhancing via API ${index + 1}/${total} (no new tabs)…`,
+      'loading',
+    );
+  });
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);

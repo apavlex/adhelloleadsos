@@ -82,7 +82,48 @@
   };
 
   const BULK_ENHANCE_STORAGE_KEY = 'agencyOsBulkEnhanceJob';
+  const BULK_ENHANCE_LEAD_TIMEOUT_MS = 120000;
+  const BULK_ENHANCE_FETCH_TIMEOUT_MS = 45000;
   let bulkEnhanceProcessorLock = false;
+
+  /** @returns {Promise<{ res: Response, data: object }>} */
+  async function fetchJsonWithTimeout(url, opts, timeoutMs) {
+    const ms = timeoutMs != null ? timeoutMs : BULK_ENHANCE_FETCH_TIMEOUT_MS;
+    const controller = new AbortController();
+    const timer = setTimeout(function () {
+      controller.abort();
+    }, ms);
+    try {
+      const res = await fetch(url, { ...(opts || {}), signal: controller.signal });
+      const data = await res.json().catch(function () {
+        return {};
+      });
+      return { res, data };
+    } catch (err) {
+      if (err && err.name === 'AbortError') {
+        throw new Error('Request timed out after ' + Math.round(ms / 1000) + 's.');
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  window.__fetchJsonWithTimeout = fetchJsonWithTimeout;
+
+  function withBulkEnhanceLeadTimeout(promise, timeoutMs) {
+    const ms = timeoutMs != null ? timeoutMs : BULK_ENHANCE_LEAD_TIMEOUT_MS;
+    return Promise.race([
+      promise,
+      new Promise(function (_, reject) {
+        setTimeout(function () {
+          reject(new Error('Enhance timed out after ' + Math.round(ms / 1000) + 's for this lead.'));
+        }, ms);
+      }),
+    ]);
+  }
+
+  window.__withBulkEnhanceLeadTimeout = withBulkEnhanceLeadTimeout;
 
   function readBulkEnhanceJob() {
     try {
@@ -610,6 +651,47 @@
     }
   }
 
+  function emitBulkEnhanceProgress(index, total, label) {
+    window.dispatchEvent(
+      new CustomEvent('agency-os-bulk-enhance-progress', {
+        detail: { index, total, label: label || 'Enhancing via API' },
+      }),
+    );
+  }
+
+  async function runEnhanceApiForLeadKey(leadKey) {
+    const key = String(leadKey || '').trim();
+    if (!key) {
+      return { success: false, error: 'Missing lead key.' };
+    }
+    return withBulkEnhanceLeadTimeout(
+      (async function () {
+        const post = await fetchJsonWithTimeout(
+          '/leads/' + encodeURIComponent(key) + '/enhance',
+          {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' },
+          },
+          BULK_ENHANCE_FETCH_TIMEOUT_MS,
+        );
+        let result = post.data || {};
+        if (post.res.ok && result.processing) {
+          result = await pollLeadEnhanceUntilDone(key, { maxMs: BULK_ENHANCE_LEAD_TIMEOUT_MS });
+        } else if (!post.res.ok) {
+          result = {
+            success: false,
+            error: result.error || 'Enhance failed (' + post.res.status + ').',
+          };
+        }
+        return result;
+      })(),
+      BULK_ENHANCE_LEAD_TIMEOUT_MS,
+    );
+  }
+
+  window.__runEnhanceApiForLeadKey = runEnhanceApiForLeadKey;
+
   async function processBulkEnhanceQueue() {
     if (bulkEnhanceProcessorLock) return;
     if (!isBulkEnhanceJobRunning()) return;
@@ -622,26 +704,17 @@
 
         const key = job.keys[job.index];
         updateBulkEnhanceBellBadge(job.index, job.keys.length);
+        emitBulkEnhanceProgress(job.index, job.keys.length);
         if (processingIndicator) processingIndicator.classList.add('processing-active');
 
         let success = false;
         let result = {};
         try {
-          const res = await fetch('/leads/' + encodeURIComponent(key) + '/enhance', {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: { Accept: 'application/json' },
-          });
-          result = await res.json().catch(() => ({}));
-          if (res.ok && result.processing) {
-            // eslint-disable-next-line no-await-in-loop
-            result = await pollLeadEnhanceUntilDone(key);
-            success = !!(result.success && (result.lead || result.data));
-          } else {
-            success = !!(res.ok && result.success && (result.lead || result.data));
-          }
+          // eslint-disable-next-line no-await-in-loop
+          result = await runEnhanceApiForLeadKey(key);
+          success = !!(result.success && (result.lead || result.data));
         } catch (err) {
-          result = { error: err.message };
+          result = { error: (err && err.message) || 'Enhance failed.' };
         }
 
         job = readBulkEnhanceJob();
@@ -686,6 +759,31 @@
       if (enhancePingDone && !syncEnhanceSessionActive()) {
         enhancePingDone.classList.remove('animate-ping');
         enhancePingDone.classList.add('hidden');
+      }
+      if (summary.attempted > 0) {
+        const body =
+          summary.successCount > 0
+            ? 'Updated ' +
+              summary.successCount +
+              ' of ' +
+              summary.attempted +
+              ' lead' +
+              (summary.attempted === 1 ? '' : 's') +
+              ' via API (no new tabs).'
+            : summary.lastError ||
+              'No new contact or review data found for the selected lead(s).';
+        pushClientBellNotification({
+          headline: summary.successCount > 0 ? 'Bulk enhance finished' : 'Bulk enhance complete',
+          body,
+          href: '/prospecting',
+          linkLabel: 'Open pipeline →',
+        });
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast(body, {
+            variant: summary.successCount > 0 ? 'success' : summary.lastError ? 'warning' : 'info',
+            duration: 9000,
+          });
+        }
       }
       window.dispatchEvent(new CustomEvent('agency-os-bulk-enhance-finished', { detail: summary }));
     }
@@ -933,6 +1031,15 @@
     },
     start(keys) {
       if (!keys || !keys.length) return;
+      if (isBulkEnhanceJobRunning() || bulkEnhanceProcessorLock) {
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast('Bulk enhance already running — check the bell for progress.', {
+            variant: 'info',
+            duration: 7000,
+          });
+        }
+        return;
+      }
       const list = keys.slice(0, 20).filter(Boolean);
       if (!list.length) return;
       const job = {
@@ -1070,11 +1177,15 @@
   }
 
   async function pollContactHuntJobOnce(job) {
-    const res = await fetch('/leads/' + encodeURIComponent(job.leadKey) + '/enhance-status', {
-      credentials: 'same-origin',
-      headers: { Accept: 'application/json' },
-    });
-    const d = await res.json().catch(() => ({}));
+    const polled = await fetchJsonWithTimeout(
+      '/leads/' + encodeURIComponent(job.leadKey) + '/enhance-status',
+      {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      },
+      30000,
+    );
+    const d = polled.data || {};
     if (d.status === 'processing') return null;
     if (d.status === 'done') {
       return {
@@ -1093,7 +1204,7 @@
   }
 
   async function pollLeadEnhanceUntilDone(leadKey, opts) {
-    const maxMs = opts && opts.maxMs != null ? opts.maxMs : 180000;
+    const maxMs = opts && opts.maxMs != null ? opts.maxMs : BULK_ENHANCE_LEAD_TIMEOUT_MS;
     const interval = opts && opts.interval != null ? opts.interval : 2500;
     const deadline = Date.now() + maxMs;
     const started = Date.now();
