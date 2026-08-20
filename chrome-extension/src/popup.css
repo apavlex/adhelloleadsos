@@ -406,7 +406,8 @@ a {
   margin-bottom: 8px;
 }
 
-#bulkReEnrichBtn {
+#bulkReEnrichBtn,
+#bulkWebsiteEnrichBtn {
   width: 100%;
   border: 1px solid color-mix(in srgb, var(--ws-accent) 45%, #d1d5db);
   border-radius: 8px;
@@ -418,11 +419,13 @@ a {
   cursor: pointer;
 }
 
-#bulkReEnrichBtn:hover:not(:disabled) {
+#bulkReEnrichBtn:hover:not(:disabled),
+#bulkWebsiteEnrichBtn:hover:not(:disabled) {
   background: var(--ws-accent-soft);
 }
 
-#bulkReEnrichBtn:disabled {
+#bulkReEnrichBtn:disabled,
+#bulkWebsiteEnrichBtn:disabled {
   opacity: 0.6;
   cursor: wait;
 }
