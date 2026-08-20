@@ -62,21 +62,28 @@ describe('pipeline row bookmark wiring', () => {
     assert.match(css, /\.pipeline-bookmark-btn\.bookmark-btn--saved:hover/);
   });
 
-  it('exposes bulk Bookmark on the floating tools row after Merge', () => {
+  it('exposes bulk Bookmark on the tools row; Export and Merge sit before Cancel', () => {
     const bar = fs.readFileSync(path.join(ROOT, 'views/partials/bulk_action_bar.ejs'), 'utf8');
     const bulkJs = fs.readFileSync(path.join(ROOT, 'public/js/pipeline-bulk-select.js'), 'utf8');
+    const toolsRowIdx = bar.indexOf('bulk-bar-tools-row');
+    const secondaryIdx = bar.indexOf('bulk-bar-secondary-actions');
     const mergeIdx = bar.indexOf('id="bulkMergeBtn"');
+    const exportIdx = bar.indexOf('js-bulk-export-csv');
     const bookmarkIdx = bar.indexOf('id="bulkBookmarkBtn"');
     const subaccountIdx = bar.indexOf('id="bulkCreateSubaccountBtn"');
-    assert.ok(mergeIdx > 0, 'merge button exists');
-    assert.ok(bookmarkIdx > mergeIdx, 'bookmark sits after merge');
-    assert.ok(subaccountIdx > bookmarkIdx, 'create subaccount stays after bookmark');
+    const cancelIdx = bar.indexOf('id="cancelSelectionBtn"');
+    assert.ok(toolsRowIdx > 0 && secondaryIdx > toolsRowIdx, 'secondary actions follow tools row');
+    assert.ok(bookmarkIdx > toolsRowIdx && bookmarkIdx < secondaryIdx, 'bookmark stays on tools row');
+    assert.ok(subaccountIdx > bookmarkIdx && subaccountIdx < secondaryIdx, 'create subaccount stays after bookmark on tools row');
+    assert.ok(exportIdx > secondaryIdx, 'export sits in secondary actions');
+    assert.ok(mergeIdx > exportIdx, 'merge sits after export');
+    assert.ok(cancelIdx > mergeIdx, 'cancel sits after merge');
     assert.match(bar, /id="bulkBookmarkBtn"[\s\S]*Bookmark/);
     assert.match(bar, /M17\.593 3\.322c1\.1\.128 1\.907 1\.077 1\.907 2\.185V21L12 17\.25/);
     assert.match(bulkJs, /e\.target\.closest\('#bulkBookmarkBtn'\)/);
     assert.match(bulkJs, /function bulkBookmarkSelectedLeads/);
     assert.match(bulkJs, /Bookmarked ' \+ okCount/);
     assert.match(bulkJs, /__setPipelineLeadBookmark/);
-    assert.equal(bar.includes('canManageWorkspace') && bookmarkIdx < bar.indexOf('canManageWorkspace', mergeIdx), true);
+    assert.ok(bar.includes('canManageWorkspace') && bookmarkIdx < bar.indexOf('canManageWorkspace', bookmarkIdx));
   });
 });

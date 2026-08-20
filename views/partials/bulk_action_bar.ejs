@@ -93,15 +93,7 @@
         <svg class="w-3.5 h-3.5 text-pink-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" /></svg>
         <span>Socials</span>
       </button>
-      <button type="button" class="bulk-bar-btn bulk-bar-btn--ghost js-bulk-export-csv shrink-0" title="Export selected leads">
-        <svg class="w-3.5 h-3.5 text-blue-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M7.5 12L12 16.5m0 0l4.5-4.5M12 16.5V3" /></svg>
-        <span>Export</span>
-      </button>
       <% if (_bulkMode === 'pipeline') { %>
-      <button type="button" id="bulkMergeBtn" class="bulk-bar-btn bulk-bar-btn--ghost text-violet-300 shrink-0" title="Merge selected leads into one record (multi-location)">
-        <svg class="w-3.5 h-3.5 text-violet-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16 3h5v5M4 21l7.737-7.737a3 3 0 014.242 0l.818.818M4 21h5v-5M4 21l7.5-7.5M19 8l-6 6" /></svg>
-        <span>Merge</span>
-      </button>
       <button type="button" id="bulkBookmarkBtn" class="bulk-bar-btn bulk-bar-btn--ghost text-brand-yellow shrink-0" title="Bookmark selected leads">
         <svg class="w-3.5 h-3.5 text-brand-yellow shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" /></svg>
         <span>Bookmark</span>
@@ -129,7 +121,17 @@
     </div>
     <% } %>
 
-    <div class="flex flex-wrap items-center justify-center gap-2 w-full bulk-bar-secondary-actions pt-0.5">
+    <div class="flex flex-wrap items-center justify-center gap-1.5 w-full bulk-bar-secondary-actions pt-0.5">
+      <button type="button" class="bulk-bar-btn bulk-bar-btn--ghost js-bulk-export-csv shrink-0" title="Export selected leads">
+        <svg class="w-3.5 h-3.5 text-blue-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M7.5 12L12 16.5m0 0l4.5-4.5M12 16.5V3" /></svg>
+        <span>Export</span>
+      </button>
+      <% if (_bulkMode === 'pipeline') { %>
+      <button type="button" id="bulkMergeBtn" class="bulk-bar-btn bulk-bar-btn--ghost text-violet-300 shrink-0" title="Merge selected leads into one record (multi-location)">
+        <svg class="w-3.5 h-3.5 text-violet-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16 3h5v5M4 21l7.737-7.737a3 3 0 014.242 0l.818.818M4 21h5v-5M4 21l7.5-7.5M19 8l-6 6" /></svg>
+        <span>Merge</span>
+      </button>
+      <% } %>
       <button type="button" id="cancelSelectionBtn" class="text-[10px] font-bold text-white/45 hover:text-white transition-colors uppercase tracking-wide px-1">Cancel</button>
       <% if (_bulkMode === 'pipeline') { %>
       <span class="text-white/20 text-[10px]" aria-hidden="true">|</span>
