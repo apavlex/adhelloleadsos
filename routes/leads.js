@@ -4212,6 +4212,65 @@ async function runLeadEnhancement(lead, workspaceId) {
 }
 
 /**
+ * Reviews-only refresh: Outscraper GMB listing + review rows → rating, count, freshness.
+ * Skips contacts, Firecrawl, BetterContact, and AI review summary.
+ */
+async function runReviewsRefresh(lead, workspaceId) {
+  if (!lead || !lead.key) return { success: false, error: 'Lead not found.' };
+  const fullKey = lead.key.startsWith('lead:') ? lead.key : `lead:${lead.key}`;
+  const leadWorkspaceId = (lead && lead.workspaceId) || workspaceId;
+  const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(leadWorkspaceId);
+
+  if (!outscraper.isConfigured(integrationEnv)) {
+    return {
+      success: false,
+      error: 'Outscraper is not configured. Add Outscraper under Workspace → Integrations.',
+    };
+  }
+
+  let gmbPack;
+  try {
+    gmbPack = await outscraperGmbEnrich.enrichLeadFromOutscraperGmb(lead, integrationEnv);
+  } catch (e) {
+    return { success: false, error: e.message || 'Reviews refresh failed.' };
+  }
+
+  if (!gmbPack || !gmbPack.used) {
+    return {
+      success: false,
+      error:
+        (gmbPack && gmbPack.reviewError) ||
+        'No Google Business listing or reviews found for this lead.',
+      lead,
+      reviewsFetched: false,
+      reviewError: (gmbPack && gmbPack.reviewError) || null,
+      reviewQuery: (gmbPack && gmbPack.reviewQuery) || null,
+    };
+  }
+
+  const patch = { ...(gmbPack.patch || {}) };
+  const updates = [...(lead.updates || [])];
+  updates.push({
+    type: 'review_refresh',
+    value: gmbPack.reviewsFetched
+      ? 'Google reviews & freshness refreshed via Outscraper.'
+      : 'Google Business listing refreshed via Outscraper (reviews sample limited).',
+    timestamp: new Date().toISOString(),
+  });
+  patch.updates = updates;
+  patch.lastReviewRefreshAt = new Date().toISOString();
+
+  const updated = await dbService.updateLead(fullKey, patch, leadWorkspaceId);
+  return {
+    success: true,
+    lead: updated || { ...lead, ...patch },
+    reviewsFetched: !!gmbPack.reviewsFetched,
+    reviewError: gmbPack.reviewError || null,
+    reviewQuery: gmbPack.reviewQuery || null,
+  };
+}
+
+/**
  * TikHub-only social profile discovery (Instagram, TikTok, X).
  */
 async function runSocialEnrichment(lead, workspaceId) {
@@ -4454,6 +4513,29 @@ router.post('/:key/enrich-socials', async (req, res, next) => {
     return res.status(result.skipped ? 200 : 422).json(result);
   } catch (err) {
     console.error('Social enrichment error:', err.message);
+    next(err);
+  }
+});
+
+// POST /leads/:key/refresh-reviews — Outscraper GMB + reviews/freshness only (sync, lighter than enhance)
+router.post('/:key/refresh-reviews', async (req, res, next) => {
+  try {
+    const key = req.params.key;
+    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) {
+      return res.status(404).json({ success: false, error: 'Lead not found.' });
+    }
+    if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
+    const result = await runReviewsRefresh(lead, req.workspaceId);
+    if (result.success) {
+      return res.json(result);
+    }
+    return res.status(422).json(result);
+  } catch (err) {
+    console.error('Reviews refresh error:', err.message);
     next(err);
   }
 });

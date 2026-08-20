@@ -2141,6 +2141,13 @@
     if (revVal != null && !Number.isNaN(parseInt(revVal, 10))) {
       row.dataset.reviews = String(parseInt(revVal, 10));
     }
+    if (d.lastReviewAt != null) row.dataset.lastReviewAt = String(d.lastReviewAt || '');
+    if (d.reviewsLast30Days != null && d.reviewsLast30Days !== '') {
+      row.dataset.reviewsLast30Days = String(d.reviewsLast30Days);
+    }
+    if (d.reviewFreshnessCheckedAt != null) {
+      row.dataset.reviewFreshnessCheckedAt = String(d.reviewFreshnessCheckedAt || '');
+    }
     if (typeof window.syncPipelineRowAddressDisplay === 'function') {
       window.syncPipelineRowAddressDisplay(row);
     }
@@ -2149,6 +2156,36 @@
     }
     if (typeof window.syncPipelineRowCallButton === 'function') {
       window.syncPipelineRowCallButton(row, row.dataset.phone);
+    }
+    syncReviewsCellEarly(row);
+  }
+
+  function syncReviewsCellEarly(row) {
+    if (!row) return;
+    const reviewsInner = row.querySelector('.lead-reviews-inner');
+    if (!reviewsInner) return;
+    if (typeof window.renderLeadsReviewsInnerHtml === 'function') {
+      reviewsInner.innerHTML = window.renderLeadsReviewsInnerHtml(
+        row.dataset.rating,
+        row.dataset.reviews,
+        row,
+      );
+    }
+    const starEl = reviewsInner.querySelector('.row-stars');
+    const paintStars =
+      typeof window.__renderStarsInElement === 'function'
+        ? window.__renderStarsInElement
+        : typeof window.renderStarsInElement === 'function'
+          ? window.renderStarsInElement
+          : null;
+    if (starEl && paintStars) {
+      paintStars(starEl, parseFloat(row.dataset.rating) || 0);
+    } else if (typeof window.applyTableStars === 'function') {
+      window.applyTableStars();
+    }
+    const selected = document.querySelector('.result-row.selected');
+    if (selected === row && typeof window.populatePanel === 'function') {
+      window.populatePanel(row);
     }
   }
 
@@ -2832,6 +2869,135 @@
   }
   window.__runBulkSocialFromBarEarly = runBulkSocialFromBarEarly;
 
+  async function runBulkReviewsFromBarEarly() {
+    if (window.__bulkReviewsRefreshInFlight) return;
+    if (typeof window.__runBulkReviewsRefreshSelectedLeadsImpl === 'function') {
+      return window.__runBulkReviewsRefreshSelectedLeadsImpl();
+    }
+
+    const leadKeys = collectSelectedLeadKeysEarly().slice(0, 25);
+    if (!leadKeys.length) {
+      showBulkBarFeedbackEarly('Select at least one saved lead to refresh reviews.', 'error');
+      return;
+    }
+
+    const reviewBtns = document.querySelectorAll('.js-bulk-reviews');
+    const btnSnap = Array.from(reviewBtns).map((b) => b.innerHTML);
+    const loadingHtml =
+      '<span class="text-[10px] font-black uppercase tracking-widest animate-pulse">Reviews…</span>';
+
+    window.__bulkReviewsRefreshInFlight = true;
+    reviewBtns.forEach((b) => {
+      b.disabled = true;
+      b.classList.add('loading');
+      b.innerHTML = loadingHtml;
+    });
+    const total = leadKeys.length;
+    showBulkBarFeedbackEarly(
+      `Refreshing reviews for ${total} lead${total === 1 ? '' : 's'}…`,
+      'loading',
+    );
+
+    let successCount = 0;
+    let attemptedCount = 0;
+    let lastError = '';
+
+    try {
+      for (let i = 0; i < leadKeys.length; i += 1) {
+        const key = leadKeys[i];
+        attemptedCount += 1;
+        reviewBtns.forEach((b) => {
+          b.innerHTML = `<span class="text-[10px] font-black uppercase tracking-widest animate-pulse">Reviews ${i + 1}/${total}</span>`;
+        });
+        showBulkBarFeedbackEarly(`Refreshing Google reviews ${i + 1}/${total}…`, 'loading');
+        const row = findResultRowByLeadKeyEarly(key);
+        const reviewsInner = row && row.querySelector('.lead-reviews-inner');
+        if (reviewsInner) {
+          reviewsInner.innerHTML =
+            '<span class="text-[9px] font-bold text-amber-400 uppercase tracking-widest animate-pulse">Updating…</span>';
+        }
+        try {
+          let result = {};
+          if (typeof window.__fetchJsonWithTimeout === 'function') {
+            const post = await window.__fetchJsonWithTimeout(
+              '/leads/' + encodeURIComponent(key) + '/refresh-reviews',
+              {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { Accept: 'application/json' },
+              },
+              75000,
+            );
+            result = post.data || {};
+            if (!post.res.ok) {
+              result = {
+                success: false,
+                error: result.error || 'Reviews refresh failed (' + post.res.status + ').',
+                lead: result.lead,
+              };
+            }
+          } else {
+            const res = await fetch('/leads/' + encodeURIComponent(key) + '/refresh-reviews', {
+              method: 'POST',
+              credentials: 'same-origin',
+              headers: { Accept: 'application/json' },
+            });
+            result = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              result = {
+                success: false,
+                error: result.error || 'Reviews refresh failed (' + res.status + ').',
+                lead: result.lead,
+              };
+            }
+          }
+          if (result.error) lastError = String(result.error);
+          const d = result.lead;
+          const ok = !!result.success && !!d;
+          if (ok) successCount += 1;
+          if (d && row) {
+            applyEnhanceDataToRowEarly(row, d);
+          } else if (row) {
+            syncReviewsCellEarly(row);
+          }
+        } catch (err) {
+          lastError = (err && err.message) || lastError || 'Network error';
+          if (row) syncReviewsCellEarly(row);
+        }
+      }
+    } finally {
+      window.__bulkReviewsRefreshInFlight = false;
+    }
+
+    const summaryLabel =
+      successCount > 0 ? `Updated ${successCount}` : attemptedCount > 0 ? 'No review data' : 'Done';
+    reviewBtns.forEach((b) => {
+      b.innerHTML = `<span class="text-[10px] font-black uppercase tracking-widest">${summaryLabel}</span>`;
+    });
+
+    if (successCount > 0) {
+      showBulkBarFeedbackEarly(
+        `Refreshed reviews on ${successCount} lead${successCount === 1 ? '' : 's'}.`,
+        'success',
+      );
+    } else if (attemptedCount > 0) {
+      showBulkBarFeedbackEarly(
+        lastError ||
+          'No Google reviews found. Add Outscraper under Workspace → Integrations.',
+        'error',
+      );
+    }
+
+    setTimeout(() => {
+      reviewBtns.forEach((b, i) => {
+        b.classList.remove('loading');
+        b.disabled = false;
+        b.innerHTML = btnSnap[i] || b.innerHTML;
+      });
+    }, 2800);
+  }
+  window.__runBulkReviewsFromBarEarly = runBulkReviewsFromBarEarly;
+
   function handleBulkPrimaryActionClick(e, action) {
     const now = Date.now();
     if (handleBulkPrimaryActionClick.__lastAt && now - handleBulkPrimaryActionClick.__lastAt < 450) return;
@@ -3336,6 +3502,12 @@
           e.preventDefault();
           e.stopPropagation();
           void runBulkEnhanceFromBarEarly();
+          return;
+        }
+        if (e.target.closest('.js-bulk-reviews')) {
+          e.preventDefault();
+          e.stopPropagation();
+          void runBulkReviewsFromBarEarly();
           return;
         }
         if (
