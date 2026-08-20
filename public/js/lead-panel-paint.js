@@ -399,6 +399,17 @@
     if (parseInt(ds.reviews, 10) > 0 && !parseInt(lead.reviewsCount, 10)) {
       lead.reviewsCount = parseInt(ds.reviews, 10);
     }
+    if (!isEmpty(ds.lastReviewAt) && isEmpty(lead.lastReviewAt)) {
+      lead.lastReviewAt = ds.lastReviewAt;
+    }
+    if (
+      ds.reviewsLast30Days != null &&
+      ds.reviewsLast30Days !== '' &&
+      lead.reviewsLast30Days == null
+    ) {
+      const n = parseInt(ds.reviewsLast30Days, 10);
+      if (Number.isFinite(n)) lead.reviewsLast30Days = n;
+    }
     if (!isEmpty(ds.loyaltyProgram) && isEmpty(lead.loyaltyProgram)) {
       lead.loyaltyProgram = ds.loyaltyProgram;
     }
@@ -412,6 +423,66 @@
     }
 
     return lead;
+  }
+
+  function resolveFreshnessInput(lead, row) {
+    const ds = row && row.dataset ? row.dataset : {};
+    const L = lead && typeof lead === 'object' ? lead : {};
+    const lastReviewAt = L.lastReviewAt || ds.lastReviewAt || '';
+    const reviewsLast30Days =
+      L.reviewsLast30Days != null
+        ? L.reviewsLast30Days
+        : ds.reviewsLast30Days != null && ds.reviewsLast30Days !== ''
+          ? ds.reviewsLast30Days
+          : null;
+    const reviewsCount =
+      parseInt(L.reviewsCount ?? L.reviews ?? ds.reviews ?? 0, 10) || 0;
+    const totalScore = parseFloat(L.totalScore ?? L.rating ?? ds.rating ?? 0) || 0;
+    return { lastReviewAt, reviewsLast30Days, reviewsCount, totalScore };
+  }
+
+  function paintReviewFreshness(lead, row) {
+    const headerEl = panelEl('mobilePanelReviewFreshness');
+    const badge = document.getElementById('reviewFreshnessBadge');
+    const pitchEl = document.getElementById('reviewFreshnessPitch');
+    const rowWrap = document.getElementById('reviewFreshnessPanelRow');
+    const api = window.__reviewFreshness;
+    if (!api || typeof api.labelReviewFreshness !== 'function') {
+      if (headerEl) headerEl.classList.add('hidden');
+      if (rowWrap) rowWrap.classList.add('hidden');
+      return;
+    }
+    const labeled = api.labelReviewFreshness(resolveFreshnessInput(lead, row));
+    const tone =
+      typeof api.freshnessToneClass === 'function'
+        ? api.freshnessToneClass(labeled.status)
+        : 'text-brand-muted';
+
+    if (headerEl) {
+      headerEl.textContent = labeled.shortLabel || labeled.label || '';
+      headerEl.title = labeled.label || '';
+      headerEl.className = `text-[9px] font-bold tracking-wide ${tone}`;
+      headerEl.classList.toggle('hidden', !labeled.label);
+    }
+    if (badge && rowWrap) {
+      badge.textContent = labeled.label || '';
+      badge.className =
+        'inline-flex items-center px-2 py-0.5 rounded-full border border-brand-border/30 dark:border-white/10 bg-brand-cream/40 dark:bg-white/5 text-[10px] font-black uppercase tracking-widest ' +
+        tone;
+      rowWrap.classList.toggle('hidden', !labeled.label);
+      rowWrap.classList.toggle('flex', !!labeled.label);
+    }
+    if (pitchEl) {
+      const showPitch = !!(labeled.pitch && labeled.status !== 'unknown');
+      pitchEl.textContent = labeled.pitch || '';
+      pitchEl.classList.toggle('hidden', !showPitch);
+    }
+    if (row && row.dataset) {
+      if (labeled.lastReviewAt) row.dataset.lastReviewAt = labeled.lastReviewAt;
+      if (labeled.reviewsLast30Days != null) {
+        row.dataset.reviewsLast30Days = String(labeled.reviewsLast30Days);
+      }
+    }
   }
 
   function writeRowDatasetFromPaint(row, phone, address, rating, reviews, website, url) {
@@ -509,6 +580,8 @@
       }
     }
 
+    paintReviewFreshness(L, row);
+
     try {
       window.__lastPanelPaint = {
         key: lk,
@@ -545,5 +618,6 @@
 
   window.__PIPELINE_PANEL_PAINT_V1 = '4';
   window.__paintPanelFromLeadRecord = paintPanelFromLeadRecord;
+  window.__paintReviewFreshness = paintReviewFreshness;
   window.__findLeadRecordForPanel = findLeadRecord;
 })();

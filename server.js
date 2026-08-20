@@ -119,6 +119,7 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 // Root-relative EJS includes: `include('/partials/foo')` resolves under views/ from any nested partial (Replit-safe).
 app.set('view options', { root: path.join(__dirname, 'views') });
+app.locals.labelReviewFreshness = require('./services/reviewFreshness').labelReviewFreshness;
 
 const { wantsJsonResponse } = require('./lib/httpRequest');
 

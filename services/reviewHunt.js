@@ -5,6 +5,7 @@
 const outscraper = require('./outscraperClient');
 const { generateReviewSummaryForLead } = require('./reviewIntel');
 const outscraperGmbEnrich = require('./outscraperGmbEnrich');
+const { reviewDateFromRow } = require('./reviewFreshness');
 
 const REVIEWS_FETCH_LIMIT = Math.min(
   50,
@@ -13,11 +14,11 @@ const REVIEWS_FETCH_LIMIT = Math.min(
 
 /**
  * @param {object} raw
- * @returns {{ rating: number|null, text: string, author: string }}
+ * @returns {{ rating: number|null, text: string, author: string, reviewedAt: string|null }}
  */
 function normalizeReviewRow(raw) {
   if (!raw || typeof raw !== 'object') {
-    return { rating: null, text: '', author: '' };
+    return { rating: null, text: '', author: '', reviewedAt: null };
   }
   const ratingRaw =
     raw.review_rating != null ? raw.review_rating
@@ -29,10 +30,12 @@ function normalizeReviewRow(raw) {
     raw.review_text || raw.text || raw.reviewText || raw.snippet || raw.description || ''
   ).trim();
   const author = String(raw.author_title || raw.author_name || raw.author || raw.user_name || '').trim();
+  const reviewed = reviewDateFromRow(raw);
   return {
     rating: Number.isFinite(rating) ? rating : null,
     text,
     author,
+    reviewedAt: reviewed ? reviewed.toISOString() : null,
   };
 }
 

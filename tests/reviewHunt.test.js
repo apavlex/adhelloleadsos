@@ -36,6 +36,17 @@ describe('reviewHunt', () => {
     assert.equal(row.rating, 5);
     assert.equal(row.text, 'Fast and professional service.');
     assert.equal(row.author, 'Jane D.');
+    assert.equal(row.reviewedAt, null);
+  });
+
+  it('normalizeReviewRow captures Outscraper review timestamps', () => {
+    const row = normalizeReviewRow({
+      review_rating: 4,
+      review_text: 'Solid work and on time.',
+      author_title: 'Pat',
+      review_timestamp: 1616000898,
+    });
+    assert.equal(row.reviewedAt, new Date(1616000898 * 1000).toISOString());
   });
 
   it('buildHighestLowestSnippets picks polarized quotes', () => {

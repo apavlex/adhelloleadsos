@@ -6,6 +6,7 @@
 const outscraper = require('./outscraperClient');
 const mapsEnrichFallback = require('./mapsEnrichFallback');
 const { normalizeSocialUrl } = require('./socialUrlNormalize');
+const { buildReviewFreshnessPatch } = require('./reviewFreshness');
 
 function resolveReviewQuery(lead, place) {
   const pid = place && (place.placeId || place.place_id);
@@ -172,6 +173,10 @@ async function enrichLeadFromOutscraperGmb(lead, integrationEnv) {
       }
       const { buildHighestLowestSnippets } = require('./reviewHunt');
       snippets = buildHighestLowestSnippets(pack.reviews);
+      if (Array.isArray(pack.reviews) && pack.reviews.length > 0) {
+        Object.assign(patch, buildReviewFreshnessPatch(pack.reviews));
+        reviewsFetched = true;
+      }
       if (snippets.length) {
         patch.reviewSnippets = snippets;
         reviewsFetched = true;

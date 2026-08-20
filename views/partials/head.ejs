@@ -118,6 +118,7 @@
 <script src="/js/portaled-popover-surface.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
 <script src="/js/pipeline-import-export-menus.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
 <script src="/js/review-stars.js"></script>
+<script src="/js/review-freshness.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
 <%- include('/partials/app_shell_styles') %>
 <% if (typeof googleMapsStaticKey === 'string' && googleMapsStaticKey) { %>
 <script>window.__ADHELLO_GOOGLE_MAPS_STATIC_KEY__ = <%- JSON.stringify(googleMapsStaticKey) %>; window.__ADHELLO_LEAD_PANEL_JS_MAP__ = false;</script>

@@ -1,5 +1,7 @@
 <% if (leads.length > 0) { %>
   <% 
+    var labelReviewFreshnessServer =
+      typeof labelReviewFreshness === 'function' ? labelReviewFreshness : null;
     function googleMapsSocialHrefForLead(lead) {
       var raw = (lead.url && lead.url !== 'N/A') ? String(lead.url).trim() : '';
       function isGmListing(absUrl) {
@@ -437,6 +439,35 @@
               if (!_rc && lead.importFields && lead.importFields.review_count) {
                 _rc = parseInt(String(lead.importFields.review_count).replace(/,/g, ''), 10) || 0;
               }
+              var _freshShort = '';
+              var _freshTitle = '';
+              var _freshTone = 'text-brand-muted dark:text-slate-400';
+              try {
+                if (typeof labelReviewFreshnessServer === 'function') {
+                  var _fr = labelReviewFreshnessServer({
+                    lastReviewAt: lead.lastReviewAt || null,
+                    reviewsLast30Days: lead.reviewsLast30Days,
+                    reviewsCount: _rc,
+                    totalScore: lead.totalScore,
+                  });
+                  if (_fr && _fr.shortLabel) {
+                    _freshShort = _fr.shortLabel;
+                    _freshTitle = _fr.label || _fr.shortLabel;
+                    if (_fr.status === 'active') _freshTone = 'text-emerald-700 dark:text-emerald-400';
+                    else if (_fr.status === 'recent') _freshTone = 'text-sky-700 dark:text-sky-400';
+                    else if (_fr.status === 'cooling') _freshTone = 'text-amber-700 dark:text-amber-400';
+                    else if (_fr.status === 'stale' || _fr.status === 'dormant' || _fr.status === 'none') {
+                      _freshTone = 'text-rose-700 dark:text-rose-400';
+                    }
+                  }
+                } else if (lead.lastReviewAt) {
+                  _freshShort = 'Freshness on file';
+                  _freshTitle = String(lead.lastReviewAt);
+                } else if (_rc > 0) {
+                  _freshShort = 'Dates unknown';
+                  _freshTitle = 'Review dates unknown — run Enhance';
+                }
+              } catch (_freshErr) {}
               var _claimSt = lead.gbpClaimStatus ? String(lead.gbpClaimStatus).trim() : '';
               var _gbpOpt = lead.gbpOptimizationScore ? String(lead.gbpOptimizationScore).trim() : '';
               var _lastTouchRaw = lead.updatedAt || lead.lastTouchAt || lead.lastContactAt || lead.createdAt || lead.savedAt || '';
@@ -572,6 +603,8 @@
                 data-zip="<%= plcEscAttr(_listZip) %>"
                 data-rating="<%= lead.totalScore || 0 %>"
                 data-reviews="<%= lead.reviewsCount || 0 %>"
+                data-last-review-at="<%= plcEscAttr(String(lead.lastReviewAt || '')) %>"
+                data-reviews-last-30-days="<%= lead.reviewsLast30Days != null && lead.reviewsLast30Days !== '' ? plcEscAttr(String(lead.reviewsLast30Days)) : '' %>"
                 data-review-snippets="<%= plcEscJson(_reviewSnippetsForRow) %>"
                 data-sponsored="<%= _sponsoredYes ? 'yes' : (_sponsoredNo ? 'no' : '') %>"
                 <% if (lead.latitude != null && lead.latitude !== '' && lead.longitude != null && lead.longitude !== '') { %>
@@ -799,6 +832,9 @@
                     <span class="text-xs font-semibold text-brand-muted dark:text-slate-400 tabular-nums" title="<%= _rc %> reviews">— <span class="text-brand-dark dark:text-slate-200">(<%= _rc %>)</span></span>
                   <% } else { %>
                     <span class="text-sm font-semibold text-brand-muted/60 dark:text-slate-500">—</span>
+                  <% } %>
+                  <% if (_freshShort) { %>
+                    <span class="lead-review-freshness text-[9px] font-bold <%= _freshTone %>" title="<%= plcEscAttr(_freshTitle) %>"><%= _freshShort %></span>
                   <% } %>
                 </div>
               </td>

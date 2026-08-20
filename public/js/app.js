@@ -6701,6 +6701,15 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if (refreshBtn) refreshBtn.classList.remove('opacity-50', 'pointer-events-none');
       if (errEl) errEl.classList.add('hidden');
+      if (typeof window.__paintReviewFreshness === 'function' && row) {
+        try {
+          const emb =
+            typeof findInitialSavedLeadRecord === 'function' ? findInitialSavedLeadRecord(row) : null;
+          window.__paintReviewFreshness(emb || {}, row);
+        } catch (_) {
+          /* optional */
+        }
+      }
       const aiSummary = (data && data.summary && String(data.summary).trim()) || '';
       const snippetSummary = aiSummary ? '' : formatReviewSnippetSummary(snippets);
       const heuristicSummary =
@@ -6969,6 +6978,13 @@ document.addEventListener('DOMContentLoaded', () => {
     assignRowDatasetFieldIfBetter(ds, 'linkedin', L.linkedin);
     assignRowDatasetFieldIfBetter(ds, 'tiktok', L.tiktok);
     assignRowDatasetScoreIfBetter(ds, L.totalScore, L.reviewsCount);
+    if (L.lastReviewAt != null) ds.lastReviewAt = String(L.lastReviewAt || '');
+    if (L.reviewsLast30Days != null && L.reviewsLast30Days !== '') {
+      ds.reviewsLast30Days = String(L.reviewsLast30Days);
+    }
+    if (L.reviewFreshnessCheckedAt != null) {
+      ds.reviewFreshnessCheckedAt = String(L.reviewFreshnessCheckedAt || '');
+    }
     if (L.reviewSnippets != null) {
       ds.reviewSnippets = Array.isArray(L.reviewSnippets)
         ? JSON.stringify(L.reviewSnippets)
@@ -9213,7 +9229,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const reviews = parseInt(row.dataset.reviews, 10) || 0;
     const reviewsInner = row.querySelector('.lead-reviews-inner');
     if (reviewsInner && typeof renderLeadsReviewsInnerHtml === 'function') {
-      reviewsInner.innerHTML = renderLeadsReviewsInnerHtml(rating, reviews);
+      reviewsInner.innerHTML = renderLeadsReviewsInnerHtml(rating, reviews, row);
       const starEl = reviewsInner.querySelector('.row-stars');
       if (starEl && typeof window.__renderStarsInElement === 'function') {
         window.__renderStarsInElement(starEl, rating);
@@ -18048,6 +18064,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (revVal !== undefined && revVal !== null && !Number.isNaN(parseInt(revVal, 10))) {
       row.dataset.reviews = String(parseInt(revVal, 10));
     }
+    if (d.lastReviewAt != null) row.dataset.lastReviewAt = String(d.lastReviewAt || '');
+    if (d.reviewsLast30Days != null && d.reviewsLast30Days !== '') {
+      row.dataset.reviewsLast30Days = String(d.reviewsLast30Days);
+    }
+    if (d.reviewFreshnessCheckedAt != null) {
+      row.dataset.reviewFreshnessCheckedAt = String(d.reviewFreshnessCheckedAt || '');
+    }
     if (d.updates) row.dataset.updates = JSON.stringify(d.updates);
     revealOpportunityForRow(row);
     if (d.address !== undefined && d.address !== null && String(d.address).trim()) {
@@ -18188,16 +18211,44 @@ document.addEventListener('DOMContentLoaded', () => {
     return html;
   }
 
-  function renderLeadsReviewsInnerHtml(rating, reviews) {
+  function reviewFreshnessFromRow(row) {
+    const api = window.__reviewFreshness;
+    if (!api || typeof api.labelReviewFreshness !== 'function' || !row) return null;
+    const ds = row.dataset || {};
+    return api.labelReviewFreshness({
+      lastReviewAt: ds.lastReviewAt || '',
+      reviewsLast30Days: ds.reviewsLast30Days !== '' ? ds.reviewsLast30Days : null,
+      reviewsCount: ds.reviews,
+      totalScore: ds.rating,
+    });
+  }
+
+  function appendReviewFreshnessHtml(labeled) {
+    if (!labeled || !labeled.shortLabel) return '';
+    const api = window.__reviewFreshness;
+    const tone =
+      api && typeof api.freshnessToneClass === 'function'
+        ? api.freshnessToneClass(labeled.status)
+        : 'text-brand-muted dark:text-slate-400';
+    const title = escapeHtmlAttr(labeled.label || labeled.shortLabel);
+    const text = escapeHtmlText(labeled.shortLabel);
+    return `<span class="lead-review-freshness text-[9px] font-bold ${tone}" title="${title}">${text}</span>`;
+  }
+
+  function renderLeadsReviewsInnerHtml(rating, reviews, row) {
     const r = parseFloat(rating) || 0;
     const c = parseInt(reviews, 10) || 0;
+    const labeled = row ? reviewFreshnessFromRow(row) : null;
+    const freshHtml = appendReviewFreshnessHtml(labeled);
+    let core = '';
     if (r > 0) {
-      return `<div class="flex items-center gap-1.5"><div class="row-stars flex items-center gap-0.5 shrink-0" aria-hidden="true"></div><span class="lead-reviews-line text-sm font-bold tabular-nums text-brand-dark dark:text-slate-100" title="${r.toFixed(1)} stars, ${c} reviews">${r.toFixed(1)} <span class="text-brand-muted dark:text-slate-400 font-semibold">(${c})</span></span></div>`;
+      core = `<div class="flex items-center gap-1.5"><div class="row-stars flex items-center gap-0.5 shrink-0" aria-hidden="true"></div><span class="lead-reviews-line text-sm font-bold tabular-nums text-brand-dark dark:text-slate-100" title="${r.toFixed(1)} stars, ${c} reviews">${r.toFixed(1)} <span class="text-brand-muted dark:text-slate-400 font-semibold">(${c})</span></span></div>`;
+    } else if (c > 0) {
+      core = `<span class="text-xs font-semibold text-brand-muted dark:text-slate-400 tabular-nums" title="${c} reviews">— <span class="text-brand-dark dark:text-slate-200">(${c})</span></span>`;
+    } else {
+      core = '<span class="text-sm font-semibold text-brand-muted/60 dark:text-slate-500">—</span>';
     }
-    if (c > 0) {
-      return `<span class="text-xs font-semibold text-brand-muted dark:text-slate-400 tabular-nums" title="${c} reviews">— <span class="text-brand-dark dark:text-slate-200">(${c})</span></span>`;
-    }
-    return '<span class="text-sm font-semibold text-brand-muted/60 dark:text-slate-500">—</span>';
+    return `<div class="lead-reviews-inner py-0.5 flex flex-col items-start gap-1">${core}${freshHtml}</div>`;
   }
 
   function renderLeadsTableEmailCell(email) {
@@ -18254,7 +18305,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (layout.website) layout.website.innerHTML = renderLeadWebSlotInner(row.dataset.website);
         syncRowSocialsUnderPhone(row);
         if (layout.reviews) {
-          layout.reviews.innerHTML = renderLeadsReviewsInnerHtml(row.dataset.rating, row.dataset.reviews);
+          layout.reviews.innerHTML = renderLeadsReviewsInnerHtml(row.dataset.rating, row.dataset.reviews, row);
           const starElLead = layout.reviews.querySelector('.row-stars');
           if (starElLead) renderStarsInElement(starElLead, parseFloat(row.dataset.rating) || 0);
         }
@@ -20466,6 +20517,13 @@ document.addEventListener('DOMContentLoaded', () => {
     ds.twitter = str(lead.twitter, 'N/A');
     ds.rating = lead.totalScore != null ? String(lead.totalScore) : '0';
     ds.reviews = lead.reviewsCount != null ? String(lead.reviewsCount) : '0';
+    ds.lastReviewAt = lead.lastReviewAt != null ? String(lead.lastReviewAt) : '';
+    ds.reviewsLast30Days =
+      lead.reviewsLast30Days != null && lead.reviewsLast30Days !== ''
+        ? String(lead.reviewsLast30Days)
+        : '';
+    ds.reviewFreshnessCheckedAt =
+      lead.reviewFreshnessCheckedAt != null ? String(lead.reviewFreshnessCheckedAt) : '';
     ds.gbpClaimStatus = str(lead.gbpClaimStatus);
     ds.loyaltyProgram = str(
       lead.loyaltyProgram || (lead.hasLoyaltyProgram === true ? 'yes' : lead.hasLoyaltyProgram === false ? 'no' : ''),
