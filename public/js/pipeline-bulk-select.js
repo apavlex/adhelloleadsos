@@ -125,12 +125,18 @@
         if (el) el.disabled = false;
       });
       if (bar.dataset.bulkMode !== 'search') {
-        ['bulkFocusModeBtn', 'bulkSmsBtn', 'bulkDirectMailBtn', 'bulkPushGhlBtn', 'bulkAutoOutreachBtn'].forEach((id) => {
+        ['bulkFocusModeBtn', 'bulkSmsBtn', 'bulkDirectMailBtn', 'bulkEmailBtn', 'bulkAutoOutreachBtn'].forEach((id) => {
           const el = document.getElementById(id);
           if (!el) return;
           el.classList.remove('hidden', 'opacity-40', 'cursor-not-allowed');
           el.setAttribute('aria-disabled', 'false');
         });
+        const pushGhlBtn = document.getElementById('bulkPushGhlBtn');
+        if (pushGhlBtn) {
+          pushGhlBtn.classList.remove('hidden', 'opacity-40', 'cursor-not-allowed');
+          pushGhlBtn.disabled = false;
+          pushGhlBtn.setAttribute('aria-disabled', 'false');
+        }
       }
       syncBulkBookmarkBtnState();
       if (!_bulkBarVisibleForFolderRefresh) {
@@ -1410,6 +1416,27 @@
     return keys;
   }
 
+  function collectEmailLeadKeysEarly() {
+    const keys = [];
+    const seen = new Set();
+    document
+      .querySelectorAll(
+        'tbody input.lead-checkbox:checked, tbody input.row-checkbox:checked, input.lead-checkbox:checked, input.row-checkbox:checked',
+      )
+      .forEach(function (cb) {
+        const row = cb.closest('tr.result-row, tr[data-lead-key]');
+        if (!row) return;
+        const email = String(row.getAttribute('data-email') || row.dataset.email || '').trim();
+        if (!email || email === 'N/A' || !email.includes('@')) return;
+        let key = String(row.getAttribute('data-lead-key') || row.dataset.leadKey || '').trim();
+        if (!key) key = String(cb.getAttribute('data-key') || cb.dataset.key || '').trim();
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        keys.push(key);
+      });
+    return keys;
+  }
+
   function countNoWebsiteSelectedEarly() {
     let count = 0;
     document
@@ -1452,6 +1479,51 @@
     }
     return null;
   }
+
+  async function runBulkEmailFromBarEarly() {
+    mountSmsModalToBodyEarly();
+    const btn = document.getElementById('bulkEmailBtn');
+    const selectedCount = collectSelectedLeadKeysEarly().length;
+    const emailKeys = collectEmailLeadKeysEarly();
+    if (!emailKeys.length) {
+      showBulkBarFeedbackEarly('Selected leads have no email addresses.', 'error');
+      return;
+    }
+    const skipped = Math.max(0, selectedCount - emailKeys.length);
+    showBulkBarFeedbackEarly(
+      skipped
+        ? `Opening email composer for ${emailKeys.length} lead${emailKeys.length === 1 ? '' : 's'} (${skipped} skipped — no email)…`
+        : `Opening email composer for ${emailKeys.length} lead${emailKeys.length === 1 ? '' : 's'}…`,
+      'info',
+    );
+    if (typeof window.__flashBulkBarBtn === 'function') {
+      window.__flashBulkBarBtn(btn, 'Opening…', 900);
+    }
+    const modalReady = await waitForSmsModalElement(12000);
+    if (!modalReady) {
+      showBulkBarFeedbackEarly('Email composer failed to load. Hard-refresh the page and try again.', 'error');
+      return;
+    }
+    if (typeof window.__openBulkEmailFromBar === 'function') {
+      const fromBarResult = await window.__openBulkEmailFromBar();
+      if (fromBarResult && fromBarResult.ok) {
+        showBulkBarFeedbackEarly(
+          skipped
+            ? `Email composer open · ${emailKeys.length} with address · ${skipped} skipped`
+            : `Email composer open for ${emailKeys.length} lead${emailKeys.length === 1 ? '' : 's'}.`,
+          'success',
+        );
+      } else if (fromBarResult && fromBarResult.message) {
+        showBulkBarFeedbackEarly(fromBarResult.message, 'error');
+      }
+      return fromBarResult;
+    }
+    if (typeof window.__openBulkEmailModal === 'function') {
+      return window.__openBulkEmailModal(emailKeys);
+    }
+    showBulkBarFeedbackEarly('Email composer failed to load. Hard-refresh the page and try again.', 'error');
+  }
+  window.__runBulkEmailFromBarEarly = runBulkEmailFromBarEarly;
 
   async function runBulkSmsFromBarEarly() {
     mountSmsModalToBodyEarly();
@@ -1574,12 +1646,13 @@
       return { ok: false, error: 'no_selection' };
     }
     const noWebsiteCount = countNoWebsiteSelectedEarly();
-    const labelDefault = 'Sync GHL';
-    const prev = btn ? String(btn.textContent || '').trim() || labelDefault : labelDefault;
+    const prevHtml = btn ? btn.innerHTML : '';
     window.__bulkPushGhlInFlight = true;
     if (btn) {
       btn.disabled = true;
-      btn.textContent = `${leadKeys.length} left`;
+      const labelEl = btn.querySelector('span');
+      if (labelEl) labelEl.textContent = `${leadKeys.length} left`;
+      else btn.textContent = `${leadKeys.length} left`;
       btn.setAttribute('aria-busy', 'true');
       btn.classList.add('is-busy');
     }
@@ -1628,7 +1701,7 @@
         btn.disabled = false;
         btn.removeAttribute('aria-busy');
         btn.classList.remove('is-busy');
-        if (!btn.__flashTimer) btn.textContent = prev;
+        if (!btn.__flashTimer && prevHtml) btn.innerHTML = prevHtml;
       }
       if (typeof window.__syncBulkBarFromDom === 'function') window.__syncBulkBarFromDom();
       else if (typeof window.__updateBulkActionBar === 'function') window.__updateBulkActionBar();
@@ -1817,8 +1890,13 @@
           : enhanceUpdated > 0
             ? ` · enhanced ${enhanceUpdated}`
             : '';
+      const dmQueued = Number(data.directMailQueued || 0);
+      const dmNote =
+        dmQueued > 0
+          ? ` · ${dmQueued} added to Direct Mail`
+          : ' · Direct Mail queued';
       showBulkBarFeedbackEarly(
-        `Tagged ${n} for auto outreach — synced to GHL workflow${foundNote}.`,
+        `Tagged ${n} for auto outreach — synced to GHL workflow${foundNote}${dmNote}.`,
         'success',
       );
       const results = Array.isArray(data.results) ? data.results : [];
@@ -2707,7 +2785,7 @@
       return;
     }
     if (action === 'email') {
-      runBulkGhlEmailFromBarEarly();
+      runBulkEmailFromBarEarly();
     }
   }
 
@@ -3170,6 +3248,10 @@
           handleBulkPrimaryActionClick(e, 'sms');
           return;
         }
+        if (e.target.closest('#bulkEmailBtn')) {
+          handleBulkPrimaryActionClick(e, 'email');
+          return;
+        }
         if (e.target.closest('#bulkGhlNoWebsiteBtn')) {
           handleBulkPrimaryActionClick(e, 'email');
           return;
@@ -3238,6 +3320,10 @@
           handleBulkPrimaryActionClick(e, 'sms');
           return;
         }
+        if (e.target.closest('#bulkEmailBtn')) {
+          handleBulkPrimaryActionClick(e, 'email');
+          return;
+        }
         if (e.target.closest('#bulkGhlNoWebsiteBtn')) {
           handleBulkPrimaryActionClick(e, 'email');
         }
@@ -3276,7 +3362,7 @@
     );
   }
 
-  window.__PIPELINE_BULK_SELECT_V2 = '14';
+  window.__PIPELINE_BULK_SELECT_V2 = '16';
   window.__pipelineBulkSelectApply = applySelectAll;
   window.__applySelectAllLeads = applySelectAll;
 

@@ -294,6 +294,47 @@ async function removeLeadsFromDirectMailQueue(workspaceId, leadKeys, visibleLead
   };
 }
 
+function isClosedWonOrLostStatus(lead) {
+  const status = String((lead && lead.status) || '').toLowerCase();
+  if (/closed\s*-?\s*(won|lost)/.test(status)) return true;
+  return status === 'won' || status === 'lost' || status === 'closed won' || status === 'closed lost';
+}
+
+function leadAlreadyInDirectMail(lead, folderKey, tagKey) {
+  if (!lead) return false;
+  const inFolder = folderKey && String(lead.folderKey || '').trim() === String(folderKey).trim();
+  const tags = dbService.normalizeTagKeys(lead.tags);
+  const hasTag = tagKey && tags.includes(tagKey);
+  return !!(inFolder || hasTag);
+}
+
+/**
+ * Queue one lead for Direct Mail if not already queued and not Closed-Won/Lost.
+ * Used when auto-outreach enrolls a lead.
+ */
+async function queueLeadForDirectMailIfEligible(workspaceId, lead) {
+  if (!lead || !lead.key) return { queued: false, reason: 'missing_lead' };
+  if (isClosedWonOrLostStatus(lead)) return { queued: false, reason: 'closed' };
+
+  const folder = await ensureDirectMailFolder(workspaceId);
+  const tag = await ensureDirectMailListTag(workspaceId);
+  const folderKey = String(folder.key || '').trim();
+  const tagKey = String(tag.key || '').trim();
+  if (leadAlreadyInDirectMail(lead, folderKey, tagKey)) {
+    return { queued: false, reason: 'already_queued', folderKey, tagKey };
+  }
+
+  const result = await addLeadsToDirectMailQueue(workspaceId, [lead.key], [lead]);
+  return {
+    queued: Number(result.added || 0) > 0,
+    reason: Number(result.added || 0) > 0 ? 'queued' : 'skipped',
+    folderKey: result.folderKey || folderKey,
+    tagKey: result.tagKey || tagKey,
+    added: result.added || 0,
+    skipped: result.skipped || 0,
+  };
+}
+
 module.exports = {
   DIRECT_MAIL_FOLDER_NAME,
   DIRECT_MAIL_TAG_NAME,
@@ -301,6 +342,9 @@ module.exports = {
   ensureDirectMailListTag,
   listDirectMailQueueLeads,
   addLeadsToDirectMailQueue,
+  queueLeadForDirectMailIfEligible,
+  isClosedWonOrLostStatus,
+  leadAlreadyInDirectMail,
   removeLeadsFromDirectMailQueue,
   leadQueuedAt,
   queuedDayFromTimestamp,

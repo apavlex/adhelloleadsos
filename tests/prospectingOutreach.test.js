@@ -148,6 +148,13 @@ test('enrollLeadInAutoOutreach tags and sets prospecting without internal cadenc
     assert.equal(lead.prospecting.campaign, AUTO_OUTREACH_CAMPAIGN);
     assert.ok(!(lead.sequenceState && lead.sequenceState.status === 'active' && lead.sequenceState.templateId === AUTO_OUTREACH_CAMPAIGN));
     assert.equal(await leadHasAutoOutreachTag(lead, wid), true);
+    const folders = await dbService.listFolders(wid);
+    const dm = (folders || []).find(
+      (f) => String(f.name || '').trim().toLowerCase() === 'direct mail',
+    );
+    assert.ok(dm && dm.key);
+    assert.equal(String(lead.folderKey || ''), String(dm.key));
+    assert.equal(result.directMail && result.directMail.queued, true);
   } finally {
     if (testKey) await dbService.deleteLead(testKey);
   }
@@ -298,6 +305,38 @@ test('enrollLeadInAutoOutreach blocks active other cadence', async () => {
     const result = await enrollLeadInAutoOutreach({ leadKey: testKey, workspaceId: wid });
     assert.equal(result.enrolled, false);
     assert.equal(result.reason, 'active_other_cadence');
+  } finally {
+    if (testKey) await dbService.deleteLead(testKey);
+  }
+});
+
+test('enrollLeadInAutoOutreach skips Direct Mail queue for Closed-Won', async () => {
+  let testKey = '';
+  try {
+    testKey = await dbService.saveLead({
+      title: 'Closed Won No Direct Mail',
+      workspaceId: 'default',
+      status: 'Closed - Won',
+      pipelineStage: 1,
+      tags: [],
+      phone: '+15555550211',
+      email: 'won@test.com',
+      source: 'test',
+    });
+    const saved = await dbService.getLead(testKey);
+    const wid = saved.workspaceId;
+    const result = await enrollLeadInAutoOutreach({ leadKey: testKey, workspaceId: wid });
+    assert.equal(result.enrolled, true);
+    assert.equal(result.directMail && result.directMail.queued, false);
+    assert.equal(result.directMail && result.directMail.reason, 'closed');
+    const lead = await dbService.getLead(testKey, wid);
+    const folders = await dbService.listFolders(wid);
+    const dm = (folders || []).find(
+      (f) => String(f.name || '').trim().toLowerCase() === 'direct mail',
+    );
+    if (dm && dm.key) {
+      assert.notEqual(String(lead.folderKey || ''), String(dm.key));
+    }
   } finally {
     if (testKey) await dbService.deleteLead(testKey);
   }

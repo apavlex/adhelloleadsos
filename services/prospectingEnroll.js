@@ -185,7 +185,7 @@ async function enrollLeadInAutoOutreach(opts) {
   }
 
   const stagePatch = await buildPipelineAdvancePatch(lead, 'AUTOMATE', workspaceId);
-  const updated = await dbService.updateLead(
+  let updated = await dbService.updateLead(
     key,
     {
       tags,
@@ -212,12 +212,28 @@ async function enrollLeadInAutoOutreach(opts) {
     }
   }
 
+  let directMail = { queued: false, reason: 'skipped' };
+  try {
+    const { queueLeadForDirectMailIfEligible } = require('./directMailQueue');
+    directMail = await queueLeadForDirectMailIfEligible(workspaceId, updated);
+    if (directMail && directMail.queued) {
+      const refreshed = await dbService.getLead(key, workspaceId);
+      if (refreshed) updated = refreshed;
+    }
+  } catch (e) {
+    console.warn(
+      '[prospectingEnroll] Direct Mail queue after auto-outreach failed:',
+      e && e.message,
+    );
+  }
+
   return {
     enrolled: true,
     leadKey: key,
     lead: updated,
     reEnroll: !!reEnroll,
     budgetConsumed: !alreadyCountedToday,
+    directMail,
   };
 }
 
@@ -442,6 +458,7 @@ async function enrollLeadsBulk(opts) {
     dailyCap: AUTO_OUTREACH_DAILY_CAP,
     dailyCapHits,
     remainingBudget: remaining,
+    directMailQueued: results.filter((r) => r && r.directMail && r.directMail.queued).length,
   };
 }
 

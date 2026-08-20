@@ -13194,6 +13194,15 @@ document.addEventListener('DOMContentLoaded', () => {
   function getSmsScriptHelpTextEl() {
     return document.getElementById('smsScriptHelpText');
   }
+  function getSmsEmailSubjectWrapEl() {
+    return document.getElementById('smsEmailSubjectWrap');
+  }
+  function getSmsEmailSubjectInputEl() {
+    return document.getElementById('smsEmailSubjectInput');
+  }
+  function isBulkEmailModalMode() {
+    return smsModalMode === 'bulk-email';
+  }
   const smsScriptModalClose = document.getElementById('smsScriptModalClose');
   const smsScriptCancelBtn = document.getElementById('smsScriptCancelBtn');
   let smsScriptOptions = [];
@@ -13225,35 +13234,54 @@ document.addEventListener('DOMContentLoaded', () => {
     if (smsScriptSendBtn) {
       smsScriptSendBtn.textContent = 'AI write & send';
     }
+    const subjectWrap = getSmsEmailSubjectWrapEl();
+    if (subjectWrap) subjectWrap.classList.add('hidden');
+    const resetBody = getSmsBodyInputEl();
+    if (resetBody) resetBody.setAttribute('maxlength', '1600');
   }
 
   function updateSmsModalBulkUi() {
     const n = bulkSmsLeadKeys.length;
+    const emailMode = isBulkEmailModalMode();
     const smsScriptModalTitle = getSmsScriptModalTitleEl();
     const smsScriptBulkLabel = getSmsScriptBulkLabelEl();
     const smsScriptHelpText = getSmsScriptHelpTextEl();
     const smsPersonalizeBtn = getSmsPersonalizeBtnEl();
     const smsScriptSendBtn = getSmsScriptSendBtnEl();
+    const subjectWrap = getSmsEmailSubjectWrapEl();
+    if (subjectWrap) subjectWrap.classList.toggle('hidden', !emailMode);
     if (smsScriptModalTitle) {
-      smsScriptModalTitle.textContent = n > 1 ? `Bulk SMS — ${n} leads` : 'Bulk SMS';
+      if (emailMode) smsScriptModalTitle.textContent = n > 1 ? `Bulk email — ${n} leads` : 'Bulk email';
+      else smsScriptModalTitle.textContent = n > 1 ? `Bulk SMS — ${n} leads` : 'Bulk SMS';
     }
     if (smsScriptBulkLabel) {
       smsScriptBulkLabel.textContent =
         n > 0
-          ? `Each lead gets an AI-personalized message (company, city, category, reviews).`
+          ? emailMode
+            ? `Each lead gets a personalized follow-up (name, company, city). Leads without email are skipped.`
+            : `Each lead gets an AI-personalized message (company, city, category, reviews).`
           : '';
       smsScriptBulkLabel.classList.toggle('hidden', n === 0);
     }
     if (smsScriptHelpText) {
-      smsScriptHelpText.textContent =
-        'Choose a base script below. On send, AdHello personalizes it for each business, then sends through your configured SMS provider.';
+      smsScriptHelpText.textContent = emailMode
+        ? 'Choose a base script. On send, AdHello personalizes it for each business, then sends via Go High Level.'
+        : 'Choose a base script below. On send, AdHello personalizes it for each business, then sends through your configured SMS provider.';
     }
     if (smsPersonalizeBtn) {
       smsPersonalizeBtn.classList.add('hidden');
     }
     if (smsScriptSendBtn) {
-      smsScriptSendBtn.textContent = n > 1 ? `Send personalized to ${n} leads` : 'Send personalized SMS';
+      smsScriptSendBtn.textContent = emailMode
+        ? n > 1
+          ? `Send personalized to ${n} leads`
+          : 'Send personalized email'
+        : n > 1
+          ? `Send personalized to ${n} leads`
+          : 'Send personalized SMS';
     }
+    const smsBodyInput = getSmsBodyInputEl();
+    if (smsBodyInput) smsBodyInput.setAttribute('maxlength', emailMode ? '8000' : '1600');
   }
 
   function closeSmsModal() {
@@ -13317,6 +13345,43 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  async function openBulkEmailModal(emailKeys) {
+    mountSmsModalToBody();
+    const keys = (Array.isArray(emailKeys) ? emailKeys : [])
+      .map((k) => String(k || '').trim())
+      .filter(Boolean);
+    if (!keys.length) {
+      return { ok: false, error: 'no_email', message: 'Selected leads have no email addresses.' };
+    }
+    const smsScriptModal = getSmsScriptModalEl();
+    if (!smsScriptModal) {
+      return { ok: false, error: 'no_modal', message: 'Email composer failed to load. Refresh the page.' };
+    }
+    smsModalMode = 'bulk-email';
+    bulkSmsLeadKeys = keys;
+    smsScriptModal.classList.remove('hidden');
+    smsScriptModal.setAttribute('aria-hidden', 'false');
+    updateSmsModalBulkUi();
+    const smsScriptWorkspaceLabel = getSmsScriptWorkspaceLabelEl();
+    if (smsScriptWorkspaceLabel) {
+      const wsNameEl = document.querySelector('#wsSwitcherBtn .font-display');
+      const wsName = wsNameEl ? String(wsNameEl.textContent || '').trim() : '';
+      smsScriptWorkspaceLabel.textContent = `Workspace: ${wsName || 'Current workspace'}`;
+    }
+    try {
+      await loadSmsScriptOptions(keys[0]);
+      const smsBodyInput = getSmsBodyInputEl();
+      if (smsBodyInput) smsBodyInput.focus();
+      return { ok: true, count: keys.length };
+    } catch (err) {
+      return {
+        ok: false,
+        error: 'load_failed',
+        message: (err && err.message) || 'Could not load email scripts.',
+      };
+    }
+  }
+
   function setSmsCharCount() {
     const smsBodyInput = getSmsBodyInputEl();
     const smsBodyCount = getSmsBodyCountEl();
@@ -13328,7 +13393,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const smsBodyInput = getSmsBodyInputEl();
     const smsScriptSelect = getSmsScriptSelectEl();
     const fromTextarea = String((smsBodyInput && smsBodyInput.value) || '').trim();
-    if (smsModalMode === 'bulk') return fromTextarea;
+    if (smsModalMode === 'bulk' || smsModalMode === 'bulk-email') return fromTextarea;
     if (!smsScriptSelect) return fromTextarea;
     const idx = parseInt(smsScriptSelect.value, 10);
     const selected = Number.isFinite(idx) ? smsScriptOptions[idx] : null;
@@ -13547,6 +13612,66 @@ document.addEventListener('DOMContentLoaded', () => {
     return { ok, failed };
   }
 
+  async function sendEmailToLeadKey(leadKey, subject, body) {
+    const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ subject: subject || '', body }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) {
+      throw new Error((data && data.error) || `HTTP ${res.status}`);
+    }
+    if (data.lead && typeof window.__applyLeadPipelineStageFromApi === 'function') {
+      window.__applyLeadPipelineStageFromApi(data.lead);
+    }
+    return data;
+  }
+
+  async function personalizeEmailForLeadKey(leadKey, scriptText, subject) {
+    const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/email-personalize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        scriptText,
+        subject: subject || '',
+        context: 'outreach',
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) {
+      throw new Error((data && data.error) || 'Could not personalize email.');
+    }
+    return {
+      subject: String(data.subject || subject || '').trim(),
+      body: String(data.body || data.personalized || scriptText).trim(),
+    };
+  }
+
+  async function sendBulkPersonalizedEmail(emailKeys, scriptText, subject, onProgress) {
+    let ok = 0;
+    let failed = 0;
+    let skipped = 0;
+    for (let i = 0; i < emailKeys.length; i += 1) {
+      const leadKey = emailKeys[i];
+      if (typeof onProgress === 'function') {
+        onProgress(i + 1, emailKeys.length, leadKey);
+      }
+      try {
+        const personalized = await personalizeEmailForLeadKey(leadKey, scriptText, subject);
+        if (!personalized.body) throw new Error('Empty personalized message');
+        await sendEmailToLeadKey(leadKey, personalized.subject, personalized.body);
+        ok += 1;
+      } catch (err) {
+        const msg = String((err && err.message) || '');
+        if (/no email|email is required|missing email|not found/i.test(msg)) skipped += 1;
+        else failed += 1;
+        console.warn('Bulk personalized email failed for', leadKey, msg || err);
+      }
+    }
+    return { ok, failed, skipped };
+  }
+
   function getCurrentLeadKey() {
     const row = resolvePanelActionRow();
     if (!row || !row.dataset) return '';
@@ -13561,28 +13686,36 @@ document.addEventListener('DOMContentLoaded', () => {
     smsScriptSelect.disabled = true;
     smsScriptSelect.innerHTML = '<option value="">Loading scripts...</option>';
     try {
-      const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/sms-script-options`, {
+      const emailMode = isBulkEmailModalMode();
+      const endpoint = emailMode
+        ? `/leads/${encodeURIComponent(leadKey)}/email-script-options`
+        : `/leads/${encodeURIComponent(leadKey)}/sms-script-options`;
+      const res = await fetch(endpoint, {
         method: 'GET',
         headers: { Accept: 'application/json' },
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.success) throw new Error((data && data.error) || 'Could not load SMS scripts.');
+      if (!res.ok || !data.success) {
+        throw new Error((data && data.error) || (emailMode ? 'Could not load email scripts.' : 'Could not load SMS scripts.'));
+      }
       smsScriptOptions = Array.isArray(data.options) ? data.options : [];
       if (!smsScriptOptions.length) {
         const title = String((currentRow && currentRow.dataset && currentRow.dataset.title) || '').trim();
         const helper = typeof window !== 'undefined' ? window.AdHelloScripts : null;
-        const fallbackText =
-          smsModalMode === 'bulk'
+        const fallbackText = emailMode
+          ? `Hi ${title || 'there'},\n\nFollowing up after our call — a few ideas that could help your team capture more local demand.\n\nOpen to a short next step this week?\n\nBest,\n[your name]`
+          : smsModalMode === 'bulk'
             ? 'Hi, this is [your name] from AdHello. We had a quick idea to help improve your local lead flow. Open to a short call this week?'
             : `Hi ${title || 'there'} team, this is [your name] from AdHello. We had a quick idea to help improve your local lead flow. Open to a short call this week?`;
         smsScriptOptions = [
           {
             id: 'fallback',
-            label: 'Default outreach',
+            label: emailMode ? 'Call follow-up' : 'Default outreach',
             text:
               helper && helper.replaceSenderPlaceholders
                 ? helper.replaceSenderPlaceholders(fallbackText, helper.getScriptProfile())
                 : fallbackText,
+            subject: emailMode ? `Following up — ${title || 'your business'}` : '',
           },
         ];
       }
@@ -13595,6 +13728,11 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       smsScriptSelect.value = '0';
       smsBodyInput.value = smsScriptOptions[0].text || '';
+      const subjectInput = getSmsEmailSubjectInputEl();
+      if (subjectInput) {
+        subjectInput.value = String(smsScriptOptions[0].subject || '').trim() ||
+          (emailMode ? `Following up — ${String((currentRow && currentRow.dataset && currentRow.dataset.title) || 'your business').trim()}` : '');
+      }
       setSmsCharCount();
     } catch (err) {
       smsScriptSelect.innerHTML = '<option value="">No scripts available</option>';
@@ -13627,6 +13765,27 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     return openBulkSmsModal(keys);
   };
+  window.__openBulkEmailModal = openBulkEmailModal;
+  window.__openBulkEmailFromBar = async function openBulkEmailFromBar() {
+    const keys = [];
+    const seen = new Set();
+    document
+      .querySelectorAll(
+        'tbody input.lead-checkbox:checked, tbody input.row-checkbox:checked, input.lead-checkbox:checked, input.row-checkbox:checked',
+      )
+      .forEach(function (cb) {
+        const row = cb.closest('tr.result-row, tr[data-lead-key]');
+        if (!row) return;
+        const email = String(row.getAttribute('data-email') || row.dataset.email || '').trim();
+        if (!email || email === 'N/A' || !email.includes('@')) return;
+        let key = String(row.getAttribute('data-lead-key') || row.dataset.leadKey || '').trim();
+        if (!key) key = String(cb.getAttribute('data-key') || cb.dataset.key || '').trim();
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        keys.push(key);
+      });
+    return openBulkEmailModal(keys);
+  };
 
   if (sendSmsBtn) {
     /* Click handled via bindLeadPanelBottomActions delegation */
@@ -13640,6 +13799,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const idx = parseInt(smsScriptSelect.value, 10);
         const selected = Number.isFinite(idx) ? smsScriptOptions[idx] : null;
         smsBodyInput.value = selected && selected.text ? selected.text : '';
+        const subjectInput = getSmsEmailSubjectInputEl();
+        if (subjectInput && selected && selected.subject) {
+          subjectInput.value = String(selected.subject).trim();
+        }
         setSmsCharCount();
       });
       smsBodyInput.addEventListener('input', setSmsCharCount);
@@ -13685,6 +13848,49 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!smsBodyInput) return;
         const scriptText = getSelectedSmsScriptText();
         if (!scriptText) return;
+
+        if (smsModalMode === 'bulk-email' && bulkSmsLeadKeys.length) {
+          const n = bulkSmsLeadKeys.length;
+          if (
+            !window.confirm(
+              `Personalize and send this follow-up email to ${n} lead${n === 1 ? '' : 's'}? Each email will be unique. Leads without an address are skipped.`,
+            )
+          ) {
+            return;
+          }
+          const original = smsScriptSendBtn.textContent;
+          smsScriptSendBtn.disabled = true;
+          if (smsPersonalizeBtn) smsPersonalizeBtn.disabled = true;
+          const subjectInput = getSmsEmailSubjectInputEl();
+          const subject = String((subjectInput && subjectInput.value) || '').trim();
+          try {
+            const result = await sendBulkPersonalizedEmail(bulkSmsLeadKeys, scriptText, subject, (done, total) => {
+              smsScriptSendBtn.textContent = `Sending ${done}/${total}…`;
+              showBulkSaveFeedback(`Personalizing & sending email ${done}/${total}…`, 'loading');
+            });
+            const parts = [`Email: ${result.ok} sent`];
+            if (result.skipped) parts.push(`${result.skipped} skipped`);
+            if (result.failed) parts.push(`${result.failed} failed`);
+            const msg = parts.join(' · ');
+            showBulkSaveFeedback(msg, result.failed === 0 ? 'success' : 'error');
+            if (typeof window.__flashBulkBarBtn === 'function') {
+              window.__flashBulkBarBtn(
+                document.getElementById('bulkEmailBtn'),
+                result.failed === 0 ? '✓ Sent' : 'Failed',
+              );
+            }
+            closeSmsModal();
+            if (typeof window.__updateBulkActionBar === 'function') window.__updateBulkActionBar();
+          } catch (err) {
+            showBulkSaveFeedback(err.message || 'Bulk email failed.', 'error');
+          } finally {
+            smsScriptSendBtn.disabled = false;
+            smsScriptSendBtn.textContent = original;
+            if (smsPersonalizeBtn) smsPersonalizeBtn.disabled = false;
+            updateSmsModalBulkUi();
+          }
+          return;
+        }
 
         if (smsModalMode === 'bulk' && bulkSmsLeadKeys.length) {
           const n = bulkSmsLeadKeys.length;
@@ -16710,6 +16916,17 @@ document.addEventListener('DOMContentLoaded', () => {
           : 'Select leads to add to the Direct Mail folder',
         'Select at least one lead',
       );
+      const emailBtn = document.getElementById('bulkEmailBtn');
+      const anyEmail = selectedRows.some(rowHasUsableEmail);
+      syncPrimaryBtn(
+        emailBtn,
+        null,
+        hasSelection && anyEmail,
+        keys.length
+          ? `Send a personalized follow-up email to ${keys.length} selected lead${keys.length === 1 ? '' : 's'}`
+          : 'Select leads with email addresses',
+        'Selected leads have no email address',
+      );
       syncPrimaryBtn(
         pushGhlBtn,
         null,
@@ -16719,6 +16936,10 @@ document.addEventListener('DOMContentLoaded', () => {
           : 'Select leads to sync to GHL',
         'Select at least one lead',
       );
+      if (pushGhlBtn) {
+        pushGhlBtn.classList.remove('hidden');
+        pushGhlBtn.disabled = !hasSelection;
+      }
       if (createSubaccountBtn) {
         createSubaccountBtn.classList.remove('hidden', 'opacity-40', 'pointer-events-none', 'cursor-not-allowed');
         createSubaccountBtn.disabled = !hasSelection;
@@ -17119,13 +17340,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const selectedRows = getSelectedLeadRowsForBulk();
     const noWebsiteCount = selectedRows.filter((row) => rowMissingWebsite(row)).length;
-    const labelDefault = 'Sync GHL';
-    const prev = btn ? String(btn.textContent || '').trim() || labelDefault : labelDefault;
+    const prevHtml = btn ? btn.innerHTML : '';
     window.__bulkPushGhlInFlight = true;
     if (btn) {
-      __bulkBarBtnLabels.set(btn, prev);
+      __bulkBarBtnLabels.set(btn, prevHtml);
       btn.disabled = true;
-      btn.textContent = `${keys.length} left`;
+      const labelEl = btn.querySelector('span');
+      if (labelEl) labelEl.textContent = `${keys.length} left`;
+      else btn.textContent = `${keys.length} left`;
       btn.setAttribute('aria-busy', 'true');
       btn.classList.add('is-busy');
     }

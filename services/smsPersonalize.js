@@ -40,6 +40,20 @@ function fallbackPersonalizedMessage(scriptText, snapshot) {
     .trim();
 }
 
+function fallbackPersonalizedEmail(scriptText, snapshot) {
+  const body = fallbackPersonalizedMessage(scriptText, snapshot);
+  const company = snapshot.company || 'your business';
+  const contact = snapshot.contact || 'there';
+  const cityState = snapshot.cityState || 'your area';
+  const filled =
+    body ||
+    `Hi ${contact},\n\nFollowing up after our call — a few ideas that could help ${company} in ${cityState} capture more local demand.\n\nOpen to a short next step this week?\n\nBest,\n[your name]`;
+  return {
+    subject: `Following up — ${company}`,
+    body: filled,
+  };
+}
+
 /**
  * @param {object} lead
  * @param {string} scriptText — base script or cadence hint
@@ -100,8 +114,69 @@ Rules:
   };
 }
 
+/**
+ * @param {object} lead
+ * @param {string} scriptText
+ * @param {{ context?: 'cadence'|'outreach', subject?: string }} [opts]
+ */
+async function personalizeEmailForLead(lead, scriptText, opts = {}) {
+  const base = String(scriptText || '').trim();
+  if (!base) throw new Error('scriptText is required.');
+
+  const snapshot = buildLeadSmsSnapshot(lead);
+  const fallback = fallbackPersonalizedEmail(base, snapshot);
+  const subjectHint = String(opts.subject || fallback.subject).trim();
+  const contextNote =
+    opts.context === 'cadence'
+      ? 'This is a scheduled cadence email — keep it timely.'
+      : 'This is a follow-up email after a phone call to selected leads. Personalize; do not send an identical blast.';
+
+  const ai = await chatCompletion({
+    messages: [
+      {
+        role: 'system',
+        content: `You personalize outbound follow-up email for local-business sales.
+
+Rules:
+- Return JSON only: {"subject":"...","body":"..."}
+- Plain text body, 80–170 words, no markdown bullets unless the script already has them.
+- Use lead name, company, city/category when relevant.
+- One clear CTA. Human, not spammy. Do not invent metrics.
+- If the script already includes a real sender name, company, phone, or email, keep those. Otherwise you may leave [your name] / [your company] for the app to fill.
+- ${contextNote}`,
+      },
+      {
+        role: 'user',
+        content: `Lead context:\n${JSON.stringify(snapshot)}\n\nSuggested subject:\n${subjectHint}\n\nBase script:\n${base}`,
+      },
+    ],
+    jsonObject: true,
+    max_tokens: 700,
+    temperature: 0.45,
+  });
+
+  if (!ai.content || ai.error) {
+    return { ...fallback, provider: 'fallback' };
+  }
+
+  const parsed = parseLlmJson(ai.content);
+  const body = String((parsed && (parsed.body || parsed.message)) || '').trim();
+  const subject = String((parsed && parsed.subject) || subjectHint).trim();
+  if (!body) {
+    return { ...fallback, provider: 'fallback' };
+  }
+
+  return {
+    subject: (subject || fallback.subject).slice(0, 180),
+    body: body.slice(0, 8000),
+    provider: ai.provider || 'unknown',
+  };
+}
+
 module.exports = {
   buildLeadSmsSnapshot,
   personalizeSmsForLead,
+  personalizeEmailForLead,
   fallbackPersonalizedMessage,
+  fallbackPersonalizedEmail,
 };

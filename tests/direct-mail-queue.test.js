@@ -31,6 +31,7 @@ describe('directMailQueue', () => {
 
   describe('queue persistence', () => {
     let leadKey = '';
+    let workspaceId = 'default';
 
     beforeEach(async () => {
       leadKey = await dbService.saveLead({
@@ -44,6 +45,8 @@ describe('directMailQueue', () => {
         state: 'OR',
         source: 'test',
       });
+      const saved = await dbService.getLead(leadKey);
+      workspaceId = (saved && saved.workspaceId) || 'default';
     });
 
     afterEach(async () => {
@@ -52,8 +55,8 @@ describe('directMailQueue', () => {
     });
 
     it('adds a lead to the Direct Mail folder and lists it', async () => {
-      const visible = await dbService.getAllLeads('default');
-      const queued = await addLeadsToDirectMailQueue('default', [leadKey], visible);
+      const visible = await dbService.getAllLeads(workspaceId);
+      const queued = await addLeadsToDirectMailQueue(workspaceId, [leadKey], visible);
       assert.equal(queued.added, 1);
       assert.equal(queued.leads.length, 1);
       assert.equal(queued.leads[0].key, leadKey);
@@ -61,8 +64,8 @@ describe('directMailQueue', () => {
       assert.match(String(queued.leads[0].queuedDay || ''), /^\d{4}-\d{2}-\d{2}$/);
       assert.ok(queued.leads[0].addedAt);
 
-      const visibleAfter = await dbService.getAllLeads('default');
-      const listed = await listDirectMailQueueLeads('default', visibleAfter);
+      const visibleAfter = await dbService.getAllLeads(workspaceId);
+      const listed = await listDirectMailQueueLeads(workspaceId, visibleAfter);
       const hit = listed.leads.find((l) => l.key === leadKey);
       assert.ok(hit);
       assert.equal(hit.categoryName, 'Uncategorized');
@@ -70,13 +73,32 @@ describe('directMailQueue', () => {
     });
 
     it('removes a lead from the Direct Mail queue', async () => {
-      const visible = await dbService.getAllLeads('default');
-      await addLeadsToDirectMailQueue('default', [leadKey], visible);
-      const visibleAfterAdd = await dbService.getAllLeads('default');
-      const removed = await removeLeadsFromDirectMailQueue('default', [leadKey], visibleAfterAdd);
+      const visible = await dbService.getAllLeads(workspaceId);
+      await addLeadsToDirectMailQueue(workspaceId, [leadKey], visible);
+      const visibleAfterAdd = await dbService.getAllLeads(workspaceId);
+      const removed = await removeLeadsFromDirectMailQueue(workspaceId, [leadKey], visibleAfterAdd);
       assert.equal(removed.removed, 1);
-      const listed = await listDirectMailQueueLeads('default', visibleAfterAdd);
+      const listed = await listDirectMailQueueLeads(workspaceId, await dbService.getAllLeads(workspaceId));
       assert.equal(listed.leads.some((l) => l.key === leadKey), false);
+    });
+
+    it('skips Closed-Won when queueing from auto-outreach helper', async () => {
+      const { queueLeadForDirectMailIfEligible, isClosedWonOrLostStatus } = require('../services/directMailQueue');
+      assert.equal(isClosedWonOrLostStatus({ status: 'Closed - Won' }), true);
+      const closedKey = await dbService.saveLead({
+        title: 'Closed DM Skip',
+        workspaceId: 'default',
+        status: 'Closed - Lost',
+        source: 'test',
+      });
+      try {
+        const lead = await dbService.getLead(closedKey);
+        const r = await queueLeadForDirectMailIfEligible(lead.workspaceId || workspaceId, lead);
+        assert.equal(r.queued, false);
+        assert.equal(r.reason, 'closed');
+      } finally {
+        await dbService.deleteLead(closedKey);
+      }
     });
   });
 });

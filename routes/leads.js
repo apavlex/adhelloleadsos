@@ -2774,6 +2774,128 @@ router.get('/:key/sms-script-options', async (req, res, next) => {
   }
 });
 
+// GET /leads/:key/email-script-options — workspace email scripts for bulk follow-up
+router.get('/:key/email-script-options', async (req, res, next) => {
+  try {
+    const key = req.params.key;
+    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
+
+    const ws = await dbService.getWorkspace(req.workspaceId);
+    const mergedLibrary = salesScriptsStorage.buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
+    const offerKeys = salesScriptsStorage.getWorkspaceScriptKeys(ws, SCRIPT_LIBRARY);
+    const savedItems = salesScriptsStorage.getInitialLibraryItemsFromWorkspace(ws);
+
+    const leadServiceKey =
+      (lead.kieServiceInsight && lead.kieServiceInsight.primaryServiceKey) || lead.primaryServiceKey || '';
+    const serviceKey = offerKeys.includes(leadServiceKey) ? leadServiceKey : offerKeys[0];
+    const serviceDef = mergedLibrary[serviceKey] || SCRIPT_LIBRARY[serviceKey] || {};
+    const serviceLabel = serviceDef.label || 'Primary offer';
+    const profile = resolveScriptSignOffProfile({ user: req.user, workspace: ws, offerKey: serviceKey });
+    const prospect = {
+      name: String(lead.contactName || '').trim(),
+      company: String(lead.title || '').trim(),
+      city: String(lead.city || '').trim(),
+    };
+    const followUpSubject = fillScriptPlaceholders('Following up — {{company}}', {
+      sender: profile,
+      prospect,
+    });
+
+    const options = [];
+    const emailBody = scriptForChannel(serviceDef, 'email');
+    if (emailBody) {
+      options.push({
+        id: `${serviceKey}:email`,
+        label: `${serviceLabel} — Email`,
+        text: fillScriptPlaceholders(emailBody, { sender: profile, prospect }),
+        subject: followUpSubject,
+      });
+    }
+    ['opening', 'valueProp', 'close'].forEach((section) => {
+      const text = String(serviceDef[section] || '').trim();
+      if (!text) return;
+      const id = `${serviceKey}:${section}`;
+      if (options.some((o) => o.id === id)) return;
+      options.push({
+        id,
+        label: `${serviceLabel} — ${section === 'valueProp' ? 'Value proposition' : section === 'opening' ? 'Opening' : 'Close'}`,
+        text: fillScriptPlaceholders(text, { sender: profile, prospect }),
+        subject: followUpSubject,
+      });
+    });
+    savedItems
+      .filter((item) => item && String(item.text || '').trim())
+      .slice(-8)
+      .forEach((item) => {
+        options.push({
+          id: `saved:${item.id}`,
+          label: String(item.title || 'Saved script').trim() || 'Saved script',
+          text: fillScriptPlaceholders(String(item.text).trim(), { sender: profile, prospect }),
+          subject: followUpSubject,
+        });
+      });
+
+    if (!options.length) {
+      options.push({
+        id: 'fallback-followup',
+        label: 'Call follow-up',
+        text: fillScriptPlaceholders(
+          'Hi {{name}},\n\nFollowing up after our call — a few ideas that could help {{company}} in {{city}} capture more local demand.\n\nOpen to a short next step this week?\n\nBest,\n[your name]',
+          { sender: profile, prospect },
+        ),
+        subject: followUpSubject,
+      });
+    }
+
+    return res.json({
+      success: true,
+      serviceKey,
+      serviceLabel,
+      options,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /leads/:key/email-personalize — AI personalize email script for lead
+router.post('/:key/email-personalize', async (req, res, next) => {
+  try {
+    const key = req.params.key;
+    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
+
+    const scriptText = String((req.body && req.body.scriptText) || '').trim();
+    if (!scriptText) {
+      return res.status(400).json({ success: false, error: 'scriptText is required.' });
+    }
+
+    const context = String((req.body && req.body.context) || '').trim().toLowerCase();
+    const subjectHint = String((req.body && req.body.subject) || '').trim();
+    const result = await smsPersonalize.personalizeEmailForLead(lead, scriptText, {
+      context: context === 'cadence' ? 'cadence' : 'outreach',
+      subject: subjectHint,
+    });
+    const ws = await dbService.getWorkspace(req.workspaceId);
+    const profile = resolveScriptSignOffProfile({ user: req.user, workspace: ws });
+    const prospect = { name: lead.contactName, company: lead.title, city: lead.city };
+    const body = fillScriptPlaceholders(result.body, { sender: profile, prospect });
+    const subject = fillScriptPlaceholders(result.subject, { sender: profile, prospect });
+    return res.json({
+      success: true,
+      personalized: body,
+      body,
+      subject,
+      provider: result.provider,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /leads/:key/sms-personalize — AI personalize selected script for lead
 router.post('/:key/sms-personalize', async (req, res, next) => {
   try {

@@ -112,6 +112,10 @@
         <span>Create subaccount</span>
       </button>
       <% } %>
+      <button type="button" id="bulkPushGhlBtn" class="bulk-bar-btn bulk-bar-btn--ghl shrink-0" title="Sync selected leads to Go High Level — run SMS, email, and voicemail from GHL">
+        <svg class="w-3.5 h-3.5 text-orange-200 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
+        <span>Sync GHL</span>
+      </button>
       <% } %>
     </div>
 
@@ -120,7 +124,7 @@
       <a href="/focus?channel=call" id="bulkFocusModeBtn" class="bulk-bar-btn bulk-bar-btn--focus bulk-bar-btn--primary-lg bulk-bar-primary-split hidden" title="Call and log selected leads">Call</a>
       <button type="button" id="bulkSmsBtn" class="bulk-bar-btn bulk-bar-btn--sms bulk-bar-btn--primary-lg bulk-bar-primary-split hidden" title="AI-personalized SMS or iMessage to selected leads">SMS</button>
       <button type="button" id="bulkDirectMailBtn" class="bulk-bar-btn bulk-bar-btn--mail bulk-bar-btn--primary-lg bulk-bar-primary-split hidden" title="Tag and move selected leads into the Direct Mail folder">Direct Mail</button>
-      <button type="button" id="bulkPushGhlBtn" class="bulk-bar-btn bulk-bar-btn--ghl bulk-bar-btn--primary-lg bulk-bar-primary-split hidden" title="Sync selected leads to Go High Level — run SMS, email, and voicemail from GHL">Sync GHL</button>
+      <button type="button" id="bulkEmailBtn" class="bulk-bar-btn bulk-bar-btn--email bulk-bar-btn--primary-lg bulk-bar-primary-split hidden" title="AI-personalized follow-up email to selected leads">Email</button>
       <button type="button" id="bulkAutoOutreachBtn" class="bulk-bar-btn bulk-bar-btn--accent bulk-bar-btn--primary-lg bulk-bar-primary-split hidden" title="Find missing contacts via API, then tag auto-outreach and sync to GHL — your GHL workflow handles email, SMS, and RVM">Auto outreach</button>
     </div>
     <% } %>
