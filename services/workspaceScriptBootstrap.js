@@ -44,8 +44,8 @@ function inferScriptPresetKey(ws) {
   }
 
   if (
+    slug === 'adhello-agency' ||
     slug.includes('adhello-agency') ||
-    slug.includes('adhello') ||
     name.includes('adhello agency') ||
     coach.includes('digital ad agency')
   ) {

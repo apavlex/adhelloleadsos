@@ -3,9 +3,10 @@
 <head>
   <%- include('partials/head') %>
 </head>
-<body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
+<body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden<%= (typeof isAgencySalesWorkspace !== 'undefined' && isAgencySalesWorkspace) ? '' : ' lead-panel--non-agency' %>">
   <%- include('partials/navbar') %>
 
+  <% const _isAgencySalesWorkspace = typeof isAgencySalesWorkspace !== 'undefined' && isAgencySalesWorkspace; %>
   <% const _focusIsSelectionSession = typeof focusIsSelectionSession !== 'undefined' && focusIsSelectionSession; %>
   <% const _focusSelectionCount = typeof focusSelectionCount === 'number' && focusSelectionCount > 0 ? focusSelectionCount : null; %>
   <% const _focusDailyGoal = typeof touchGoal !== 'undefined' ? touchGoal : 54; %>
@@ -160,7 +161,7 @@
             <div id="focus-biz-review-stars" class="mt-1 flex items-center gap-1 text-amber-500" aria-label="Review stars"></div>
           </div>
             </div>
-            <div id="focus-builtwith-wrap" class="hidden mt-3 pt-3 border-t border-brand-border/50 dark:border-white/10">
+            <div id="focus-builtwith-wrap" class="lead-panel-agency-only hidden mt-3 pt-3 border-t border-brand-border/50 dark:border-white/10">
               <div class="flex items-center justify-between gap-2 mb-2">
                 <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted">Tech stack</p>
                 <a id="focus-builtwith-link" href="#" target="_blank" rel="noopener noreferrer" class="text-[9px] font-bold uppercase tracking-wide text-brand-yellow hover:underline shrink-0">BuiltWith →</a>
@@ -190,11 +191,11 @@
             </div>
           </div>
         </div>
-        <div class="mt-3 pt-3 border-t border-brand-border/50 dark:border-white/10">
+        <div class="lead-panel-agency-only mt-3 pt-3 border-t border-brand-border/50 dark:border-white/10">
           <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-1">AI review summary</p>
           <p id="focus-review-summary" class="text-[11px] text-brand-muted leading-snug">Loading review summary…</p>
         </div>
-        <div id="focus-owner-signal-callout" class="mt-3 rounded-xl border border-sky-300/40 dark:border-sky-700/40 bg-sky-50/60 dark:bg-sky-900/20 p-3">
+        <div id="focus-owner-signal-callout" class="lead-panel-agency-only mt-3 rounded-xl border border-sky-300/40 dark:border-sky-700/40 bg-sky-50/60 dark:bg-sky-900/20 p-3">
           <p class="text-[9px] font-black uppercase tracking-wider text-sky-700 dark:text-sky-300 mb-1">Owner signal</p>
           <p id="focus-owner-signal" class="text-[12px] font-semibold text-brand-dark dark:text-slate-100 leading-snug">Run AI analysis to generate a concrete signal for your call.</p>
           <button
@@ -208,7 +209,7 @@
           </button>
           <p id="focus-owner-signal-feedback" class="text-[11px] text-brand-muted mt-1.5 min-h-[1rem]"></p>
         </div>
-        <div class="mt-3 pt-3 border-t border-brand-border/50 dark:border-white/10">
+        <div class="lead-panel-agency-only mt-3 pt-3 border-t border-brand-border/50 dark:border-white/10">
           <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-2">Client deliverables</p>
           <div class="flex flex-wrap gap-2">
             <button type="button" id="focus-hosted-audit-open" class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-brand-border/60 dark:border-white/15 text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors">Hosted audit</button>
@@ -224,7 +225,7 @@
 
       <div
         id="focus-why-section"
-        class="hidden mb-4 rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white/50 dark:bg-slate-800/40 px-4 py-3"
+        class="lead-panel-agency-only hidden mb-4 rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white/50 dark:bg-slate-800/40 px-4 py-3"
         role="group"
         aria-label="Why this lead"
       >
@@ -238,12 +239,14 @@
           <%- include('/partials/app_info_tip', {
             tipId: 'focus-outreach-help',
             tipKey: 'focus-outreach',
-            label: 'Call and Sync GHL in Focus mode',
+            label: _isAgencySalesWorkspace ? 'Call and Sync GHL in Focus mode' : 'Call and SMS in Focus mode',
             size: 'sm',
-            content: 'Use <strong>Call</strong> for live dials in AdHello. <strong>SMS</strong> sends the message you type below (use Improve text for AI polish). <strong>Sync GHL</strong> saves your disposition and notes, then pushes the contact to Go High Level for email and voicemail.'
+            content: _isAgencySalesWorkspace
+              ? 'Use <strong>Call</strong> for live dials in AdHello. <strong>SMS</strong> sends the message you type below (use Improve text for AI polish). <strong>Sync GHL</strong> saves your disposition and notes, then pushes the contact to Go High Level for email and voicemail.'
+              : 'Use <strong>Call</strong> for live dials. <strong>SMS</strong> sends the message you type below (use Improve text for AI polish). Log the outcome, then move to the next lead.'
           }) %>
         </div>
-        <p id="focus-channel-hint" class="text-[11px] text-brand-muted dark:text-slate-400 mt-2 min-h-[1.25rem] leading-snug" aria-live="polite">Rehearse the script below, edit your SMS, then Call, SMS, or Sync GHL.</p>
+        <p id="focus-channel-hint" class="text-[11px] text-brand-muted dark:text-slate-400 mt-2 min-h-[1.25rem] leading-snug" aria-live="polite"><%= _isAgencySalesWorkspace ? 'Rehearse the script below, edit your SMS, then Call, SMS, or Sync GHL.' : 'Rehearse the script below, edit your SMS, then Call or SMS.' %></p>
       </div>
 
       <div class="mb-4 rounded-2xl border border-brand-border/70 dark:border-white/15 bg-brand-cream/35 dark:bg-slate-800/35 px-4 py-3">
@@ -539,6 +542,8 @@
   <script>
   (function () {
     var FOCUS_PRODUCT_STORAGE_KEY = 'focusProductKey';
+    var isAgencySalesWorkspace = <%= _isAgencySalesWorkspace ? 'true' : 'false' %>;
+    window.WORKSPACE_IS_AGENCY_SALES = isAgencySalesWorkspace;
     var focusScriptLibrary = {};
     try {
       focusScriptLibrary = JSON.parse(document.getElementById('focus-script-library-json').textContent || '{}');
@@ -900,8 +905,9 @@
 
     function setChannelHint() {
       if (!elChannelHint) return;
-      elChannelHint.textContent =
-        'Call: rehearse the script, dial, and log. SMS sends the message you typed below. Improve text polishes your draft with AI without sending. Sync GHL saves disposition, notes, and follow-up — then opens the contact in Go High Level.';
+      elChannelHint.textContent = isAgencySalesWorkspace
+        ? 'Call: rehearse the script, dial, and log. SMS sends the message you typed below. Improve text polishes your draft with AI without sending. Sync GHL saves disposition, notes, and follow-up — then opens the contact in Go High Level.'
+        : 'Call: rehearse the script, dial, and log. SMS sends the message you typed below. Improve text polishes your draft with AI without sending.';
     }
 
     function updateBodyLabel() {
@@ -1085,7 +1091,8 @@
           svcLabel +
           '.\n\n[Ask] If you\'re the right person, is there a better time today I could try you back?';
       } else if (v === 'reengage' || v === 'short') {
-        body =
+        body = isAgencySalesWorkspace
+          ? (
           '[Opener] Hi, calling ' +
           contact +
           ' at ' +
@@ -1094,11 +1101,24 @@
           svcLabel +
           ' for shops in ' +
           (cityState || 'this market') +
-          '.\n\n[Ask] Who would I talk to about growth or marketing ?';
+          '.\n\n[Ask] Who would I talk to about growth or marketing ?'
+            )
+          : (
+          '[Opener] Hi, calling ' +
+          contact +
+          ' at ' +
+          company +
+          ' — I’m ___. Two sentences: I help with ' +
+          svcLabel +
+          ' for shops in ' +
+          (cityState || 'this market') +
+          '.\n\n[Ask] Who would I talk to about estimates or upcoming jobs?'
+            );
       } else if (libFull) {
         body = libFull;
       } else {
-        body =
+        body = isAgencySalesWorkspace
+          ? (
           '[Opener] Hi, this is ___ calling for ' +
           contact +
           ' at ' +
@@ -1107,7 +1127,18 @@
           loc +
           ' (focus: ' +
           svcLabel +
-          ').\n\n[Ask] If it makes sense, who handles marketing day-to-day?';
+          ').\n\n[Ask] If it makes sense, who handles marketing day-to-day?'
+            )
+          : (
+          '[Opener] Hi, this is ___ calling for ' +
+          contact +
+          ' at ' +
+          company +
+          '. Did I catch you at an okay time?\n\n[Bridge] I work with local businesses on ' +
+          svcLabel +
+          loc +
+          '.\n\n[Ask] If it makes sense, who handles new jobs day-to-day?'
+            );
       }
       return { subject: '', body: body };
     }
@@ -2410,6 +2441,10 @@
 
     function renderBuiltWith(lead) {
       if (!elBuiltWithWrap || !elBuiltWithTags) return;
+      if (!isAgencySalesWorkspace) {
+        elBuiltWithWrap.classList.add('hidden');
+        return;
+      }
       var website = lead && lead.website ? String(lead.website).trim() : '';
       var domain = domainFromLeadWebsite(website);
       var cms = lead && lead.cmsPlatform ? String(lead.cmsPlatform).trim() : '';
@@ -2738,6 +2773,11 @@
 
     function renderWhyReasons(lead) {
       if (!elWhySection || !elWhyReasons) return;
+      if (!isAgencySalesWorkspace) {
+        elWhySection.classList.add('hidden');
+        elWhyReasons.innerHTML = '';
+        return;
+      }
       var reasons = lead.whyReasons;
       if (!reasons || !Array.isArray(reasons) || !reasons.length) {
         elWhySection.classList.add('hidden');
@@ -2792,6 +2832,7 @@
 
     function fetchReviewSummary() {
       var lead = currentLead();
+      if (!isAgencySalesWorkspace) return Promise.resolve();
       if (!elReviewSummary) return Promise.resolve();
       if (!lead || !lead.key) {
         elReviewSummary.textContent = 'No lead selected.';
@@ -2908,6 +2949,7 @@
     }
 
     function syncFocusOwnerSignalUi(lead) {
+      if (!isAgencySalesWorkspace) return;
       if (!elOwnerSignal) return;
       var ownerSignal = String((lead && lead.ownerSignal) || '').trim();
       var website = lead && lead.website ? String(lead.website).trim() : '';
@@ -2924,6 +2966,9 @@
     }
 
     function runFocusOwnerSignalAnalysis(lead) {
+      if (!isAgencySalesWorkspace) {
+        return Promise.reject(new Error('Website analysis is only available in agency workspaces.'));
+      }
       var key = focusLeadKeyParam(lead);
       if (!key) return Promise.reject(new Error('Lead key missing'));
       var website = lead && lead.website ? String(lead.website).trim() : '';

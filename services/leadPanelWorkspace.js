@@ -1,14 +1,14 @@
-const { isAgencyOrLocalGuideWorkspace } = require('./socialPostProfile');
 const { inferScriptPresetKey } = require('./workspaceScriptBootstrap');
 
 /**
- * Agency-style sales workspaces show audits, AI tools, share links, and enrich hunts
- * in the lead detail panel. Non-agency workspaces (flooring, SaaS, web dev, etc.) get
- * a slimmer company view focused on contact + cadence.
+ * Agency-style sales workspaces show audits, AI decks, share links, and website-gap
+ * heuristics. Non-agency verticals (flooring, SaaS, local service) get a slimmer view.
+ *
+ * Do not use social/local-guide matching here: slug/name containing "adhello" is too
+ * broad (e.g. AdHello Flooring) and would leak website-selling UI.
  */
 function isAgencySalesWorkspace(ws) {
   if (!ws || typeof ws !== 'object') return false;
-  if (isAgencyOrLocalGuideWorkspace(ws)) return true;
 
   const explicit = String(
     ws.salesScriptsPresetKey ||

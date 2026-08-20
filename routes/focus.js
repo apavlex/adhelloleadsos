@@ -20,6 +20,7 @@ const pipelineStagesService = require('../services/pipelineStagesService');
 const websiteAiAnalysis = require('../services/websiteAiAnalysis');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
+const { isAgencySalesWorkspace } = require('../services/leadPanelWorkspace');
 
 function stageLabelFromLead(l, sortedStages) {
   const row =
@@ -38,13 +39,14 @@ function formatLastTouchDisplay(l) {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function pickHeuristicServiceKey(lead, allowedKeys) {
+function pickHeuristicServiceKey(lead, allowedKeys, opts) {
   const keys = Array.isArray(allowedKeys) ? allowedKeys.filter(Boolean) : [];
   const existing =
     (lead.kieServiceInsight && lead.kieServiceInsight.primaryServiceKey) ||
     lead.primaryServiceKey ||
     '';
   if (keys.includes(existing)) return existing;
+  if (!(opts && opts.isAgency)) return keys[0] || '';
 
   const website = !!(lead.website && lead.website !== 'N/A');
   const reviews = parseInt(lead.reviewsCount, 10) || 0;
@@ -62,11 +64,13 @@ function pickHeuristicServiceKey(lead, allowedKeys) {
   return keys[0] || '';
 }
 
-function buildBusinessNeedsPayload(l, scriptLibrary, allowedKeys) {
+function buildBusinessNeedsPayload(l, scriptLibrary, allowedKeys, opts) {
   const library = scriptLibrary && typeof scriptLibrary === 'object' ? scriptLibrary : {};
   const keys = Array.isArray(allowedKeys) ? allowedKeys.filter(Boolean) : [];
+  const isAgency = !!(opts && opts.isAgency);
   const insight = l.kieServiceInsight && typeof l.kieServiceInsight === 'object' ? l.kieServiceInsight : null;
-  const analysis = l.aiWebsiteAnalysis && typeof l.aiWebsiteAnalysis === 'object' ? l.aiWebsiteAnalysis : null;
+  const analysis =
+    isAgency && l.aiWebsiteAnalysis && typeof l.aiWebsiteAnalysis === 'object' ? l.aiWebsiteAnalysis : null;
 
   let topGapLabels = [];
   if (analysis) {
@@ -76,19 +80,21 @@ function buildBusinessNeedsPayload(l, scriptLibrary, allowedKeys) {
         : websiteAiAnalysis.computeTopGapLabels(analysis, 3);
   }
 
-  const ownerSignal = String(l.ownerSignal || '').trim();
+  const ownerSignal = isAgency ? String(l.ownerSignal || '').trim() : '';
   const signal = ownerSignal || (analysis ? websiteAiAnalysis.buildOwnerSignal(l, analysis) : '');
 
   const serviceKey =
     String(l.primaryServiceKey || '').trim() ||
     (insight && insight.primaryServiceKey) ||
-    pickHeuristicServiceKey(l, keys);
+    pickHeuristicServiceKey(l, keys, { isAgency });
   const serviceDef = library[serviceKey] || null;
 
   const primaryServiceLabel =
     (insight && insight.primaryServiceLabel) || (serviceDef && serviceDef.label) || '';
-  const rationale = (insight && insight.rationale) || String(l.auditSummary || '').trim();
-  const talkTrack = (insight && insight.talkTrack) || '';
+  const rationale = isAgency
+    ? (insight && insight.rationale) || String(l.auditSummary || '').trim()
+    : '';
+  const talkTrack = isAgency ? (insight && insight.talkTrack) || '' : '';
   const headline = signal || rationale || '';
 
   return {
@@ -98,11 +104,11 @@ function buildBusinessNeedsPayload(l, scriptLibrary, allowedKeys) {
     primaryServiceLabel,
     rationale,
     talkTrack,
-    hasCachedInsight: !!(insight && insight.rationale),
+    hasCachedInsight: isAgency && !!(insight && insight.rationale),
   };
 }
 
-function leadToFocusPayload(l, sortedStages, scriptLibrary, allowedKeys) {
+function leadToFocusPayload(l, sortedStages, scriptLibrary, allowedKeys, opts) {
   const ps = parseInt(l.pipelineStage, 10);
   const stage = !Number.isNaN(ps) && ps >= 1 && ps <= 24 ? ps : 1;
   const email = String(l.email || '').trim();
@@ -117,8 +123,9 @@ function leadToFocusPayload(l, sortedStages, scriptLibrary, allowedKeys) {
     String(l.contactName || '').trim() ||
     (hasEmail ? email.split('@')[0].replace(/[._]+/g, ' ') : '');
 
-  const opp = scoreLeadRecord(l);
-  const whyReasons = (opp.reasons || []).slice(0, 5);
+  const isAgency = !!(opts && opts.isAgency);
+  const opp = isAgency ? scoreLeadRecord(l) : { reasons: [], tier: 'low' };
+  const whyReasons = isAgency ? (opp.reasons || []).slice(0, 5) : [];
   const whyTier = opp.tier || 'low';
   const touchPoints = buildLeadTouchPoints(l, { limit: 8 });
 
@@ -152,10 +159,10 @@ function leadToFocusPayload(l, sortedStages, scriptLibrary, allowedKeys) {
     url: l.url && l.url !== 'N/A' ? l.url : '',
     reviewsCount: Number.isFinite(parseInt(l.reviewsCount, 10)) ? parseInt(l.reviewsCount, 10) : 0,
     totalScore: Number.isFinite(parseFloat(l.totalScore)) ? parseFloat(l.totalScore) : 0,
-    ownerSignal: String(l.ownerSignal || '').trim(),
-    businessNeeds: buildBusinessNeedsPayload(l, scriptLibrary, allowedKeys),
-    hasAiWebsiteAnalysis: !!(l.aiWebsiteAnalysis && typeof l.aiWebsiteAnalysis === 'object'),
-    hasAiToolsAssessment: !!(l.aiToolsAssessment && typeof l.aiToolsAssessment === 'object'),
+    ownerSignal: isAgency ? String(l.ownerSignal || '').trim() : '',
+    businessNeeds: buildBusinessNeedsPayload(l, scriptLibrary, allowedKeys, { isAgency }),
+    hasAiWebsiteAnalysis: isAgency && !!(l.aiWebsiteAnalysis && typeof l.aiWebsiteAnalysis === 'object'),
+    hasAiToolsAssessment: isAgency && !!(l.aiToolsAssessment && typeof l.aiToolsAssessment === 'object'),
     defaultChannel,
     whyReasons,
     whyTier,
@@ -189,9 +196,12 @@ router.get('/queue.json', async (req, res, next) => {
     const stageRows = await pipelineStagesService.ensureWorkspaceStagesSeeded(req.workspaceId);
     const sortedStages = [...stageRows].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
     const dialRetry = resolveDialRetryPrefs(ws.telephony);
+    const isAgency = isAgencySalesWorkspace(ws);
     const ordered = buildFocusQueue(pipelineLeads, 200, { queueMode: dialRetry.queueMode });
     const queue = ordered
-      .map((l) => leadToFocusPayload(l, sortedStages, offerBundle.library, offerBundle.keys))
+      .map((l) =>
+        leadToFocusPayload(l, sortedStages, offerBundle.library, offerBundle.keys, { isAgency }),
+      )
       .filter((item) => {
         const phone = String(item.phone || '').trim();
         return phone && phone !== 'N/A' && phone !== '—';
@@ -238,6 +248,7 @@ async function ensureExplicitFocusLead({
   allowedKeys,
   dbService,
   workspaceId,
+  isAgency,
 }) {
   const key = String(explicitOpenKey || '').trim().replace(/^lead:/i, '');
   if (!key) return;
@@ -259,7 +270,7 @@ async function ensureExplicitFocusLead({
 
   promoteFocusLead(
     queue,
-    leadToFocusPayload(leadRow, sortedStages, scriptLibrary, allowedKeys),
+    leadToFocusPayload(leadRow, sortedStages, scriptLibrary, allowedKeys, { isAgency }),
   );
 }
 
@@ -299,8 +310,9 @@ router.get('/', async (req, res, next) => {
     } else {
       ordered = buildFocusQueue(pipelineLeads, 200, { queueMode: dialRetry.queueMode });
     }
+    const isAgency = isAgencySalesWorkspace(ws);
     const queue = ordered.map((l) =>
-      leadToFocusPayload(l, sortedStages, offerBundle.library, offerBundle.keys),
+      leadToFocusPayload(l, sortedStages, offerBundle.library, offerBundle.keys, { isAgency }),
     );
 
     await ensureExplicitFocusLead({
@@ -312,6 +324,7 @@ router.get('/', async (req, res, next) => {
       allowedKeys: offerBundle.keys,
       dbService,
       workspaceId: req.workspaceId,
+      isAgency,
     });
 
     const touchesToday = countUniqueLeadsTouchedOnUtcDate(visible, today);
@@ -336,6 +349,7 @@ router.get('/', async (req, res, next) => {
       focusSelectionCount: bulkSelection ? queue.length : null,
       focusIsSelectionSession: bulkSelection,
       workspaceTags,
+      isAgencySalesWorkspace: isAgency,
     });
   } catch (e) {
     next(e);
@@ -343,3 +357,7 @@ router.get('/', async (req, res, next) => {
 });
 
 module.exports = router;
+module.exports._test = {
+  pickHeuristicServiceKey,
+  leadToFocusPayload,
+};

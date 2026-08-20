@@ -16,8 +16,11 @@ const { buildWorkspaceOfferLibrary } = require('../services/workspaceSalesScript
 const { SCRIPT_LIBRARY } = require('../services/salesConstants');
 
 describe('workspaceScriptBootstrap', () => {
-  it('infers retail_install for flooring workspace names', () => {
-    assert.equal(inferScriptPresetKey({ name: 'Flooring', slug: 'flooring' }), 'retail_install');
+  it('infers retail_install for flooring even when slug is adhello-prefixed', () => {
+    assert.equal(
+      inferScriptPresetKey({ name: 'Flooring', slug: 'adhello-flooring' }),
+      'retail_install',
+    );
   });
 
   it('infers agency for Adhello Agency workspace', () => {

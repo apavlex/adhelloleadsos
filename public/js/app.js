@@ -9586,13 +9586,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (reviews > 0) {
       add(`${reviews} Google reviews${rating > 0 ? ` at ${rating.toFixed(1)}★` : ''} — social proof angle.`);
     }
-    add(hasWeb ? 'Website on file — reference something specific from their site.' : 'No website on file — lead with missed calls / credibility gap.');
-    const flags = [];
-    if (row.dataset.hasChatbot === 'false') flags.push('no chatbot');
-    if (row.dataset.isMobileFriendly === 'false') flags.push('mobile issues');
-    if (row.dataset.hasClickToCall === 'false') flags.push('click-to-call broken');
-    if (row.dataset.hasSchemaMarkup === 'false') flags.push('GEO schema weak');
-    if (flags.length) add(`Technical hooks: ${flags.join(', ')}.`);
+    const isAgencySales = window.WORKSPACE_IS_AGENCY_SALES === true;
+    if (isAgencySales) {
+      add(hasWeb ? 'Website on file — reference something specific from their site.' : 'No website on file — lead with missed calls / credibility gap.');
+      const flags = [];
+      if (row.dataset.hasChatbot === 'false') flags.push('no chatbot');
+      if (row.dataset.isMobileFriendly === 'false') flags.push('mobile issues');
+      if (row.dataset.hasClickToCall === 'false') flags.push('click-to-call broken');
+      if (row.dataset.hasSchemaMarkup === 'false') flags.push('GEO schema weak');
+      if (flags.length) add(`Technical hooks: ${flags.join(', ')}.`);
+    }
   }
 
   function syncGoogleReviewsLink(row) {
