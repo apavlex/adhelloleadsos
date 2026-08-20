@@ -1,6 +1,5 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { SCRIPT_LIBRARY } = require('../services/salesConstants');
 const {
   resolveOutreachSenderProfile,
   resolveSenderOfferKey,
@@ -86,10 +85,10 @@ describe('outreachSenderProfile', () => {
   });
 });
 
-describe('outreachSenderProfile with default SCRIPT_LIBRARY', () => {
-  it('works when workspace uses built-in catalog only', () => {
+describe('outreachSenderProfile with empty workspace catalog', () => {
+  it('returns empty offer when workspace has no catalog', () => {
     const profile = resolveOutreachSenderProfile({ brandKit: { businessName: 'Test Co' } }, {}, null);
-    assert.ok(profile.offerKey);
-    assert.ok(SCRIPT_LIBRARY[profile.offerKey]);
+    assert.equal(profile.offerKey, '');
+    assert.equal(profile.offerLabel, 'Test Co');
   });
 });

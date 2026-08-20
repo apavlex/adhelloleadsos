@@ -8,6 +8,9 @@ const {
   applyScriptPresetToWorkspace,
   applySalesIntakeToFirstOffer,
   resolveScriptPresetKeyForCreate,
+  shouldRepairAgencyCatalogLeak,
+  repairAgencyCatalogLeak,
+  workspaceCatalogHasAgencyOffers,
 } = require('../services/workspaceScriptBootstrap');
 const { buildWorkspaceOfferLibrary } = require('../services/workspaceSalesScripts');
 const { SCRIPT_LIBRARY } = require('../services/salesConstants');
@@ -91,5 +94,33 @@ describe('workspaceScriptBootstrap', () => {
       { name: 'My Business', pipelineIntake: {} },
     );
     assert.equal(key, 'retail_install');
+  });
+
+  it('shouldRepairAgencyCatalogLeak detects agency offers on flooring workspace', () => {
+    const ws = {
+      name: 'Premier Flooring',
+      slug: 'premier-flooring',
+      pipelineIntake: { presetKey: 'retail_install' },
+      salesScriptsPresetKey: 'retail_install',
+      salesScriptOfferCatalog: [{ key: 'reputation', label: 'Reputation Management' }],
+      salesScriptBlockOverrides: { reputation: { opening: 'Agency pitch' } },
+      salesScriptsSeededAt: '2026-01-01T00:00:00.000Z',
+    };
+    assert.equal(workspaceCatalogHasAgencyOffers(ws), true);
+    assert.equal(shouldRepairAgencyCatalogLeak(ws), true);
+    repairAgencyCatalogLeak(ws);
+    assert.equal(ws.salesScriptsPresetKey, 'retail_install');
+    assert.ok(ws.salesScriptOfferCatalog.some((row) => row.key === 'flooring_install'));
+    assert.ok(!ws.salesScriptOfferCatalog.some((row) => row.key === 'reputation'));
+  });
+
+  it('shouldRepairAgencyCatalogLeak ignores Adhello Agency workspace', () => {
+    const ws = {
+      name: 'Adhello Agency',
+      slug: 'adhello-agency',
+      salesScriptsPresetKey: 'agency',
+      salesScriptOfferCatalog: [{ key: 'reputation', label: 'Reputation Management' }],
+    };
+    assert.equal(shouldRepairAgencyCatalogLeak(ws), false);
   });
 });

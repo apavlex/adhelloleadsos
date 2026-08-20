@@ -39,7 +39,7 @@ function formatLastTouchDisplay(l) {
 }
 
 function pickHeuristicServiceKey(lead, allowedKeys) {
-  const keys = Array.isArray(allowedKeys) && allowedKeys.length ? allowedKeys : SCRIPT_LIBRARY_KEYS;
+  const keys = Array.isArray(allowedKeys) ? allowedKeys.filter(Boolean) : [];
   const existing =
     (lead.kieServiceInsight && lead.kieServiceInsight.primaryServiceKey) ||
     lead.primaryServiceKey ||
@@ -59,12 +59,12 @@ function pickHeuristicServiceKey(lead, allowedKeys) {
   for (const candidate of candidates) {
     if (keys.includes(candidate)) return candidate;
   }
-  return keys[0] || 'aiWebsites';
+  return keys[0] || '';
 }
 
 function buildBusinessNeedsPayload(l, scriptLibrary, allowedKeys) {
-  const library = scriptLibrary && typeof scriptLibrary === 'object' ? scriptLibrary : SCRIPT_LIBRARY;
-  const keys = Array.isArray(allowedKeys) && allowedKeys.length ? allowedKeys : SCRIPT_LIBRARY_KEYS;
+  const library = scriptLibrary && typeof scriptLibrary === 'object' ? scriptLibrary : {};
+  const keys = Array.isArray(allowedKeys) ? allowedKeys.filter(Boolean) : [];
   const insight = l.kieServiceInsight && typeof l.kieServiceInsight === 'object' ? l.kieServiceInsight : null;
   const analysis = l.aiWebsiteAnalysis && typeof l.aiWebsiteAnalysis === 'object' ? l.aiWebsiteAnalysis : null;
 

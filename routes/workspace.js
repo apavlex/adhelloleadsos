@@ -1750,7 +1750,7 @@ router.post('/scripts/library', express.json({ limit: '256kb' }), async (req, re
     const wid = req.workspaceId;
     let ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
     const { keys } = workspaceOfferBundle(ws);
-    const item = normalizeLibraryItem(req.body || {}, keys.length ? keys : SCRIPT_LIBRARY_KEYS);
+    const item = normalizeLibraryItem(req.body || {}, keys);
     if (!item) return res.status(400).json({ success: false, error: 'Text required.' });
     const cur = dedupeLibraryItems(Array.isArray(ws.salesScriptLibraryItems) ? ws.salesScriptLibraryItems : []);
     const appended = appendLibraryItemIdempotent(cur, item);
@@ -1790,7 +1790,7 @@ router.post('/scripts/library/import', express.json({ limit: '512kb' }), async (
     let ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
     const incoming = req.body && req.body.items;
     const { keys } = workspaceOfferBundle(ws);
-    const cleaned = sanitizeLibraryItems(incoming, keys.length ? keys : SCRIPT_LIBRARY_KEYS);
+    const cleaned = sanitizeLibraryItems(incoming, keys);
     const cur = dedupeLibraryItems(Array.isArray(ws.salesScriptLibraryItems) ? ws.salesScriptLibraryItems : []);
     const existingKeys = new Set(cur.map((x) => libraryItemFingerprint(x)));
     const existingIds = new Set(cur.map((x) => x && x.id).filter(Boolean));

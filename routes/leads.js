@@ -3386,7 +3386,7 @@ router.post('/:key/delete', async (req, res, next) => {
 });
 
 function pickHeuristicServiceKey(lead, allowedKeys) {
-  const keys = Array.isArray(allowedKeys) && allowedKeys.length ? allowedKeys : SCRIPT_LIBRARY_KEYS;
+  const keys = Array.isArray(allowedKeys) ? allowedKeys.filter(Boolean) : [];
   const existing =
     (lead.kieServiceInsight && lead.kieServiceInsight.primaryServiceKey) ||
     lead.primaryServiceKey ||
@@ -3406,14 +3406,14 @@ function pickHeuristicServiceKey(lead, allowedKeys) {
   for (const candidate of candidates) {
     if (keys.includes(candidate)) return candidate;
   }
-  return keys[0] || 'aiWebsites';
+  return keys[0] || '';
 }
 
 function buildHeuristicLeadInsight(lead, scriptLibrary, allowedKeys) {
-  const keys = Array.isArray(allowedKeys) && allowedKeys.length ? allowedKeys : SCRIPT_LIBRARY_KEYS;
-  const library = scriptLibrary && typeof scriptLibrary === 'object' ? scriptLibrary : SCRIPT_LIBRARY;
+  const keys = Array.isArray(allowedKeys) ? allowedKeys.filter(Boolean) : [];
+  const library = scriptLibrary && typeof scriptLibrary === 'object' ? scriptLibrary : {};
   const serviceKey = pickHeuristicServiceKey(lead, keys);
-  const def = library[serviceKey] || SCRIPT_LIBRARY[serviceKey] || library[keys[0]] || {};
+  const def = (serviceKey && library[serviceKey]) || (keys[0] && library[keys[0]]) || {};
   const company = String(lead.title || 'this business').trim() || 'this business';
   const city = [lead.city, lead.state].filter(Boolean).join(', ') || 'your area';
   const category = String(lead.categoryName || 'local business').trim();
@@ -3622,7 +3622,7 @@ Respond with JSON only, no markdown:
       return res.json({ success: true, cached: false, ...heuristic });
     }
 
-    const fallbackKey = offerKeys[0] || 'aiWebsites';
+    const fallbackKey = offerKeys[0] || '';
     const keyOk = offerKeys.includes(parsed.primaryServiceKey);
     const insight = {
       primaryServiceKey: keyOk ? parsed.primaryServiceKey : fallbackKey,

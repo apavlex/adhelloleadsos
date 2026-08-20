@@ -2135,7 +2135,7 @@ document.addEventListener('DOMContentLoaded', () => {
           try {
             const scriptsData = await fetchLeadOutreachScripts(row);
             if (reqId !== emailIntelRequestSeq) return;
-            const svcKey = scriptsData.defaultServiceKey || 'aiWebsites';
+            const svcKey = scriptsData.defaultServiceKey || '';
             const fromLib = pickEmailDraftFromOutreachLibrary(scriptsData.library, svcKey);
             if (fromLib) showDraft(interpolateOutreachScriptTemplate(fromLib, row));
           } catch (_) {

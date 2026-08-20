@@ -247,14 +247,7 @@
       </div>
 
       <div class="mb-4 rounded-2xl border border-brand-border/70 dark:border-white/15 bg-brand-cream/35 dark:bg-slate-800/35 px-4 py-3">
-        <% const _focusProductOptions = (typeof focusProductOptions !== 'undefined' && Array.isArray(focusProductOptions) && focusProductOptions.length) ? focusProductOptions : [
-          { key: 'reputation', label: 'Reputation management' },
-          { key: 'ai_automation', label: 'AI automation' },
-          { key: 'ai_websites', label: 'AI websites' },
-          { key: 'social_media', label: 'Social media' },
-          { key: 'ad_management', label: 'Ad management' },
-          { key: 'web_design', label: 'Web design' },
-        ]; %>
+        <% const _focusProductOptions = (typeof focusProductOptions !== 'undefined' && Array.isArray(focusProductOptions) && focusProductOptions.length) ? focusProductOptions : []; %>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <label class="block min-w-0" for="focus-service-select">
           <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-2">Product</span>
@@ -954,7 +947,7 @@
       if (elServiceSelect && elServiceSelect.options && elServiceSelect.options.length) {
         return elServiceSelect.options[0].value;
       }
-      return 'reputation';
+      return '';
     }
 
     function rememberProductKey(key) {

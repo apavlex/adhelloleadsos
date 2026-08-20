@@ -4,10 +4,13 @@
  */
 const dbService = require('./database');
 const { SCRIPT_PRESETS } = require('../config/workspaceScriptPresets');
+const { SCRIPT_LIBRARY } = require('./salesConstants');
 const { sanitizeOfferCatalogInput } = require('./workspaceSalesScripts');
 const { splitOfferScriptForSave } = require('./salesScriptsStorage');
 
 const KNOWN_PRESET_KEYS = new Set(Object.keys(SCRIPT_PRESETS));
+/** Keys copied from the global agency SCRIPT_LIBRARY — must not appear in vertical workspaces. */
+const AGENCY_OFFER_KEYS = new Set(Object.keys(SCRIPT_LIBRARY));
 
 function inferScriptPresetKey(ws) {
   ws = ws || {};
@@ -191,6 +194,34 @@ function workspaceScriptsAlreadySeeded(ws) {
   return !!(ws && ws.salesScriptsSeededAt);
 }
 
+function workspaceCatalogHasAgencyOffers(ws) {
+  const catalog = Array.isArray(ws && ws.salesScriptOfferCatalog) ? ws.salesScriptOfferCatalog : [];
+  return catalog.some((row) => row && AGENCY_OFFER_KEYS.has(String(row.key || '').trim()));
+}
+
+function resolveWorkspaceScriptPresetKey(ws) {
+  const explicit = String(ws && ws.salesScriptsPresetKey ? ws.salesScriptsPresetKey : '')
+    .trim()
+    .toLowerCase();
+  if (explicit && KNOWN_PRESET_KEYS.has(explicit)) return explicit;
+  return inferScriptPresetKey(ws);
+}
+
+/** Non-agency workspaces that still carry agency SCRIPT_LIBRARY offers (legacy seed / fallback). */
+function shouldRepairAgencyCatalogLeak(ws) {
+  if (!workspaceHasScriptCatalog(ws)) return false;
+  if (resolveWorkspaceScriptPresetKey(ws) === 'agency') return false;
+  return workspaceCatalogHasAgencyOffers(ws);
+}
+
+function repairAgencyCatalogLeak(ws) {
+  const presetKey = resolveWorkspaceScriptPresetKey(ws);
+  const seed = buildWorkspaceScriptSeed(ws, presetKey);
+  applyScriptSeedToWorkspace(ws, seed);
+  ws.salesScriptsUpdatedAt = new Date().toISOString();
+  return ws;
+}
+
 /**
  * @param {object} ws workspace document (mutated in memory; caller saves)
  * @param {{ presetKey?: string }} [options]
@@ -217,6 +248,12 @@ async function ensureWorkspaceScriptsSeeded(workspaceId) {
   let ws = await dbService.getWorkspace(wid);
   if (!ws) return null;
 
+  if (shouldRepairAgencyCatalogLeak(ws)) {
+    const repaired = repairAgencyCatalogLeak({ ...ws });
+    await dbService.saveWorkspace(wid, repaired);
+    return repaired;
+  }
+
   if (workspaceScriptsAlreadySeeded(ws)) return ws;
 
   if (workspaceHasScriptCatalog(ws)) {
@@ -237,6 +274,7 @@ async function ensureWorkspaceScriptsSeeded(workspaceId) {
 module.exports = {
   inferScriptPresetKey,
   resolveScriptPresetKeyForCreate,
+  resolveWorkspaceScriptPresetKey,
   buildWorkspaceScriptSeed,
   applyScriptSeedToWorkspace,
   applyScriptPresetToWorkspace,
@@ -246,5 +284,9 @@ module.exports = {
   ensureWorkspaceScriptsSeeded,
   workspaceHasScriptCatalog,
   workspaceScriptsAlreadySeeded,
+  workspaceCatalogHasAgencyOffers,
+  shouldRepairAgencyCatalogLeak,
+  repairAgencyCatalogLeak,
   KNOWN_PRESET_KEYS,
+  AGENCY_OFFER_KEYS,
 };

@@ -409,7 +409,12 @@ router.post('/new', express.urlencoded({ extended: true }), async (req, res, nex
       if (w.setupPath === 'ai' && pipelineIntake.businessDescription) {
         coachPrompt = `You coach this business owner. Context: ${String(pipelineIntake.businessDescription).slice(0, 1500)}`;
       } else {
-        const ck = String(w.presetKey || 'agency').toLowerCase();
+        const scriptPresetKey = workspaceScriptBootstrap.resolveScriptPresetKeyForCreate(w, {
+          name,
+          pipelineIntake,
+          salesIntake: w.salesIntake,
+        });
+        const ck = String(w.presetKey || scriptPresetKey || 'local_service').toLowerCase();
         if (COACH_PRESETS[ck]) coachPrompt = COACH_PRESETS[ck];
       }
 
