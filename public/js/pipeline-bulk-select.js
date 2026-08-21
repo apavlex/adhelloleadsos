@@ -3001,6 +3001,167 @@
   }
   window.__runBulkReviewsFromBarEarly = runBulkReviewsFromBarEarly;
 
+  const BULK_VERIFY_PHONES_MAX_EARLY = 40;
+
+  function rowHasUsablePhoneEarly(row) {
+    if (!row || !row.dataset) return false;
+    const phone = String(row.dataset.phone || '').trim();
+    if (!phone || phone === 'N/A' || phone === '—') return false;
+    return phone.replace(/\D/g, '').length >= 10;
+  }
+
+  function applyPhoneLineTypeToRowEarly(row, lead) {
+    if (!row || !lead) return;
+    if (typeof window.syncPersistedLeadToRowDataset === 'function') {
+      window.syncPersistedLeadToRowDataset(row, lead);
+      return;
+    }
+    if (lead.phoneLineType != null) {
+      row.dataset.phoneLineType = String(lead.phoneLineType || '').trim().toLowerCase();
+    }
+    if (lead.phoneCarrier != null) row.dataset.phoneCarrier = String(lead.phoneCarrier || '').trim();
+    if (lead.phoneLineTypeCheckedAt != null) {
+      row.dataset.phoneLineTypeCheckedAt = String(lead.phoneLineTypeCheckedAt || '').trim();
+    }
+    if (typeof window.syncPhoneLineTypePill === 'function') {
+      window.syncPhoneLineTypePill(row);
+    }
+  }
+
+  async function runBulkVerifyPhonesFromBarEarly() {
+    if (window.__bulkVerifyPhonesInFlight) return;
+    if (typeof window.__runBulkVerifyPhoneLineSelectedLeadsImpl === 'function') {
+      return window.__runBulkVerifyPhoneLineSelectedLeadsImpl();
+    }
+
+    const selectedRows = [];
+    document.querySelectorAll('.row-checkbox:checked, .lead-checkbox:checked').forEach((cb) => {
+      const row = cb.closest('.result-row');
+      if (row) selectedRows.push(row);
+    });
+    const withKeyAndPhone = selectedRows.filter(
+      (r) => String(r.dataset.leadKey || '').trim() && rowHasUsablePhoneEarly(r),
+    );
+    const rows = withKeyAndPhone.slice(0, BULK_VERIFY_PHONES_MAX_EARLY);
+    if (!rows.length) {
+      const hasPhoneNoKey = selectedRows.some(
+        (r) => rowHasUsablePhoneEarly(r) && !String(r.dataset.leadKey || '').trim(),
+      );
+      showBulkBarFeedbackEarly(
+        hasPhoneNoKey
+          ? 'Save selected leads first — phone verify needs saved pipeline records.'
+          : 'Select saved leads with a phone number to verify cell vs landline.',
+        'error',
+      );
+      return;
+    }
+    if (withKeyAndPhone.length > BULK_VERIFY_PHONES_MAX_EARLY) {
+      showBulkBarFeedbackEarly(
+        `Phone verify limited to ${BULK_VERIFY_PHONES_MAX_EARLY} leads per batch.`,
+        'info',
+      );
+    }
+
+    const verifyBtns = document.querySelectorAll('.js-bulk-verify-phones');
+    const btnSnap = Array.from(verifyBtns).map((b) => b.innerHTML);
+    const loadingHtml =
+      '<span class="text-[10px] font-black uppercase tracking-widest animate-pulse">Verifying…</span>';
+
+    window.__bulkVerifyPhonesInFlight = true;
+    verifyBtns.forEach((b) => {
+      b.disabled = true;
+      b.classList.add('loading');
+      b.innerHTML = loadingHtml;
+    });
+    const total = rows.length;
+    showBulkBarFeedbackEarly(
+      `Verifying line type for ${total} phone${total === 1 ? '' : 's'}…`,
+      'loading',
+    );
+
+    let successCount = 0;
+    let attemptedCount = 0;
+    let lastError = '';
+    let configBlocked = false;
+
+    try {
+      for (let i = 0; i < rows.length; i += 1) {
+        const row = rows[i];
+        const key = String(row.dataset.leadKey || '').trim();
+        if (!key) continue;
+        attemptedCount += 1;
+        verifyBtns.forEach((b) => {
+          b.innerHTML = `<span class="text-[10px] font-black uppercase tracking-widest animate-pulse">Verify ${i + 1}/${total}</span>`;
+        });
+        showBulkBarFeedbackEarly(`Verifying cell vs landline ${i + 1}/${total}…`, 'loading');
+        try {
+          const res = await fetch('/leads/' + encodeURIComponent(key) + '/verify-phone-line', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' },
+          });
+          const result = await res.json().catch(() => ({}));
+          if (result.error) lastError = String(result.error);
+          if (
+            !res.ok &&
+            (result.code === 'lookup_unavailable' ||
+              result.code === 'signalwire_not_configured' ||
+              result.code === 'missing_space_url' ||
+              result.code === 'lookup_disabled' ||
+              res.status === 503)
+          ) {
+            configBlocked = true;
+            break;
+          }
+          const d = result.lead;
+          const ok = res.ok && !!result.success && !!d;
+          if (ok) {
+            successCount += 1;
+            applyPhoneLineTypeToRowEarly(row, d);
+          }
+        } catch (err) {
+          lastError = (err && err.message) || lastError || 'Network error';
+        }
+      }
+    } finally {
+      window.__bulkVerifyPhonesInFlight = false;
+    }
+
+    const summaryLabel =
+      successCount > 0 ? `Verified ${successCount}` : attemptedCount > 0 ? 'No results' : 'Done';
+    verifyBtns.forEach((b) => {
+      b.innerHTML = `<span class="text-[10px] font-black uppercase tracking-widest">${summaryLabel}</span>`;
+    });
+
+    if (configBlocked) {
+      showBulkBarFeedbackEarly(
+        lastError ||
+          'SignalWire is not configured. Add credentials under Workspace → Phone bank / Integrations.',
+        'error',
+      );
+    } else if (successCount > 0) {
+      showBulkBarFeedbackEarly(
+        `Verified ${successCount} phone${successCount === 1 ? '' : 's'} (mobile / landline / VoIP).`,
+        'success',
+      );
+    } else if (attemptedCount > 0) {
+      showBulkBarFeedbackEarly(
+        lastError ||
+          'Could not verify phones. Check SignalWire under Workspace → Phone bank / Integrations.',
+        'error',
+      );
+    }
+
+    setTimeout(() => {
+      verifyBtns.forEach((b, i) => {
+        b.classList.remove('loading');
+        b.disabled = false;
+        b.innerHTML = btnSnap[i] || b.innerHTML;
+      });
+    }, 2800);
+  }
+  window.__runBulkVerifyPhonesFromBarEarly = runBulkVerifyPhonesFromBarEarly;
+
   function handleBulkPrimaryActionClick(e, action) {
     const now = Date.now();
     if (handleBulkPrimaryActionClick.__lastAt && now - handleBulkPrimaryActionClick.__lastAt < 450) return;
@@ -3526,6 +3687,12 @@
           e.preventDefault();
           e.stopPropagation();
           void runBulkSocialFromBarEarly();
+          return;
+        }
+        if (e.target.closest('.js-bulk-verify-phones')) {
+          e.preventDefault();
+          e.stopPropagation();
+          void runBulkVerifyPhonesFromBarEarly();
           return;
         }
       },

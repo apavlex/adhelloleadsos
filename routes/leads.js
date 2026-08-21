@@ -4563,6 +4563,72 @@ router.post('/:key/refresh-reviews', async (req, res, next) => {
   }
 });
 
+// POST /leads/:key/verify-phone-line — SignalWire Lookup carrier / mobile vs landline (sync)
+router.post('/:key/verify-phone-line', async (req, res, next) => {
+  try {
+    const phoneLineType = require('../services/phoneLineType');
+    const key = req.params.key;
+    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) {
+      return res.status(404).json({ success: false, error: 'Lead not found.' });
+    }
+    if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
+    if (!phoneLineType.hasUsablePhone(lead.phone)) {
+      return res.status(422).json({
+        success: false,
+        error: 'Lead has no usable phone number to verify.',
+        code: 'no_phone',
+      });
+    }
+    const blocked = phoneLineType.lookupBlockedReason();
+    if (blocked) {
+      return res.status(503).json({
+        success: false,
+        error: blocked,
+        code: 'lookup_unavailable',
+      });
+    }
+
+    const patch = await phoneLineType.forceRefresh(lead);
+    if (!patch) {
+      return res.status(422).json({
+        success: false,
+        error: 'Could not verify phone line type.',
+        code: 'lookup_empty',
+      });
+    }
+    if (
+      patch.phoneLineTypeSource === 'signalwire_not_configured' ||
+      patch.phoneLineTypeSource === 'missing_space_url' ||
+      patch.phoneLineTypeSource === 'lookup_disabled'
+    ) {
+      return res.status(503).json({
+        success: false,
+        error:
+          phoneLineType.lookupBlockedReason() ||
+          'Phone line-type lookup is unavailable. Configure SignalWire under Workspace → Phone bank / Integrations.',
+        code: patch.phoneLineTypeSource,
+      });
+    }
+
+    const updated = await dbService.updateLead(fullKey, patch, req.workspaceId);
+    const leadOut = updated || { ...lead, ...patch };
+    return res.json({
+      success: true,
+      lead: leadOut,
+      lineType: leadOut.phoneLineType || patch.phoneLineType,
+      carrier: leadOut.phoneCarrier || patch.phoneCarrier || '',
+      source: leadOut.phoneLineTypeSource || patch.phoneLineTypeSource || '',
+    });
+  } catch (err) {
+    console.error('Phone line verify error:', err.message);
+    next(err);
+  }
+});
+
 // POST /leads/:key/enhance — Firecrawl scrape/search + Maps (Outscraper/Apify) fallback (async)
 router.post('/:key/enhance', async (req, res, next) => {
   try {

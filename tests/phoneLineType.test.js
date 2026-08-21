@@ -127,4 +127,35 @@ describe('phoneLineType', () => {
     assert.equal(badge.label, 'Landline');
     assert.equal(badge.title, 'Landline · AT&T');
   });
+
+  it('forceRefresh looks up even when cache is fresh', async () => {
+    const phoneLineType = require('../services/phoneLineType');
+    const lead = {
+      phone: '+15551234567',
+      phoneLineType: 'landline',
+      phoneLineTypeCheckedAt: new Date().toISOString(),
+      phoneLineTypePhoneNorm: '5551234567',
+    };
+    const patch = await phoneLineType.forceRefresh(lead, {
+      fetch: async () => ({
+        ok: true,
+        status: 200,
+        text: async () =>
+          JSON.stringify({
+            carrier: { type: 'mobile', name: 'Verizon' },
+          }),
+      }),
+    });
+    assert.ok(patch);
+    assert.equal(patch.phoneLineType, 'mobile');
+    assert.equal(patch.phoneCarrier, 'Verizon');
+  });
+
+  it('lookupBlockedReason mentions SignalWire when not configured', () => {
+    const phoneLineType = require('../services/phoneLineType');
+    const reason = phoneLineType.lookupBlockedReason();
+    if (!require('../services/signalwire').configured()) {
+      assert.match(String(reason || ''), /SignalWire|Phone bank|Integrations/i);
+    }
+  });
 });

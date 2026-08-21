@@ -3852,7 +3852,10 @@ document.addEventListener('DOMContentLoaded', () => {
   function syncPhoneLineTypePill(row) {
     if (!row) return;
     const pillInfo = resolvePhoneLineTypePill(row);
-    const phoneCell = row.querySelector('[data-plc="phone"]');
+    const phoneCell =
+      row.querySelector('[data-plc="phone"]') ||
+      row.querySelector('.lead-cell-phone') ||
+      row.querySelector('.lead-cell-contact');
     if (!phoneCell) return;
     let pill = phoneCell.querySelector('.lead-row-phone-line-pill');
     if (!pillInfo) {
@@ -3861,15 +3864,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (!pill) {
       pill = document.createElement('span');
-      pill.className =
-        'lead-row-phone-line-pill shrink-0 self-start px-1.5 py-0.5 rounded-full border text-[8px] font-black uppercase tracking-widest';
       const wrap = phoneCell.querySelector('.flex.flex-col') || phoneCell;
-      wrap.appendChild(pill);
+      const phoneSlot = phoneCell.querySelector('.lead-contact-phone-slot');
+      const phoneRow = phoneSlot && phoneSlot.closest ? phoneSlot.closest('.flex') : null;
+      if (phoneRow && phoneRow.parentElement === wrap) {
+        phoneRow.insertAdjacentElement('afterend', pill);
+      } else {
+        wrap.appendChild(pill);
+      }
     }
     pill.textContent = pillInfo.label;
     pill.title = pillInfo.title;
     pill.className = `lead-row-phone-line-pill shrink-0 self-start px-1.5 py-0.5 rounded-full border text-[8px] font-black uppercase tracking-widest ${pillInfo.pillClass}`;
   }
+  window.syncPhoneLineTypePill = syncPhoneLineTypePill;
 
   function syncLeadPanelQuickLogPills(row) {
     const host = document.getElementById('leadNotepadTagRow');
@@ -18061,6 +18069,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (cmsPl !== undefined && cmsPl !== null) row.dataset.cmsPlatform = cmsPl;
     if (d.email) row.dataset.email = d.email;
     if (d.phone !== undefined && d.phone !== null) row.dataset.phone = d.phone || 'N/A';
+    if (d.phoneLineType != null) {
+      row.dataset.phoneLineType = String(d.phoneLineType || '').trim().toLowerCase();
+    }
+    if (d.phoneCarrier != null) row.dataset.phoneCarrier = String(d.phoneCarrier || '').trim();
+    if (d.phoneLineTypeCheckedAt != null) {
+      row.dataset.phoneLineTypeCheckedAt = String(d.phoneLineTypeCheckedAt || '').trim();
+    }
+    if (d.phoneLineType != null || d.phoneCarrier != null) {
+      syncPhoneLineTypePill(row);
+    }
     const ratingVal = d.totalScore ?? d.total_score ?? d.rating;
     const revVal = d.reviewsCount ?? d.reviews_count ?? d.reviews;
     if (ratingVal !== undefined && ratingVal !== null && !Number.isNaN(parseFloat(ratingVal))) {
@@ -18881,6 +18899,228 @@ document.addEventListener('DOMContentLoaded', () => {
   window.__runBulkReviewsRefreshSelectedLeadsImpl = runBulkReviewsRefreshSelectedLeads;
   window.__runBulkReviewsRefreshSelectedLeads = runBulkReviewsRefreshSelectedLeads;
 
+  const BULK_VERIFY_PHONES_MAX = 40;
+  const BULK_VERIFY_PHONES_FETCH_TIMEOUT_MS = 45000;
+
+  function rowHasUsablePhoneForVerify(row) {
+    if (!row || !row.dataset) return false;
+    const phone = String(row.dataset.phone || '').trim();
+    if (!phone || phone === 'N/A' || phone === '—') return false;
+    const digits = phone.replace(/\D/g, '');
+    return digits.length >= 10;
+  }
+
+  async function runVerifyPhoneLineApiForLeadKey(leadKey) {
+    const key = String(leadKey || '').trim();
+    if (!key) return { success: false, error: 'Missing lead key.' };
+    const run = async () => {
+      let post;
+      if (typeof window.__fetchJsonWithTimeout === 'function') {
+        post = await window.__fetchJsonWithTimeout(
+          `/leads/${encodeURIComponent(key)}/verify-phone-line`,
+          {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' },
+          },
+          BULK_VERIFY_PHONES_FETCH_TIMEOUT_MS,
+        );
+      } else {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), BULK_VERIFY_PHONES_FETCH_TIMEOUT_MS);
+        try {
+          const res = await fetch(`/leads/${encodeURIComponent(key)}/verify-phone-line`, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' },
+            signal: controller.signal,
+          });
+          const data = await res.json().catch(() => ({}));
+          post = { res, data };
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+      const result = post.data || {};
+      if (!post.res.ok) {
+        return {
+          success: false,
+          error: result.error || `Phone verify failed (${post.res.status}).`,
+          code: result.code,
+          lead: result.lead,
+        };
+      }
+      return result;
+    };
+    return run();
+  }
+
+  async function runBulkVerifyPhoneLineSelectedLeads() {
+    const checkedBoxes = document.querySelectorAll('.row-checkbox:checked, .lead-checkbox:checked');
+    if (checkedBoxes.length === 0) {
+      notifyBulkEnhanceIdle('Select one or more leads with phone numbers to verify.');
+      return;
+    }
+
+    const selectedRows = Array.from(checkedBoxes)
+      .map((cb) => cb.closest('.result-row'))
+      .filter(Boolean);
+    const withKeyAndPhone = selectedRows.filter(
+      (r) => r.dataset.leadKey && rowHasUsablePhoneForVerify(r),
+    );
+    const leadsToProcess = withKeyAndPhone.slice(0, BULK_VERIFY_PHONES_MAX);
+
+    if (!leadsToProcess.length) {
+      const hasPhoneNoKey = selectedRows.some(
+        (r) => rowHasUsablePhoneForVerify(r) && !r.dataset.leadKey,
+      );
+      notifyBulkEnhanceIdle(
+        hasPhoneNoKey
+          ? 'Save selected leads first — phone verify needs saved pipeline records.'
+          : 'Selected leads need a phone number (10+ digits) to verify.',
+        'warning',
+      );
+      return;
+    }
+    if (withKeyAndPhone.length > BULK_VERIFY_PHONES_MAX) {
+      notifyBulkEnhanceIdle(
+        `Phone verify limited to ${BULK_VERIFY_PHONES_MAX} leads per batch.`,
+        'info',
+      );
+    }
+
+    const verifyBtns = document.querySelectorAll('.js-bulk-verify-phones');
+    const btnSnap = Array.from(verifyBtns).map((b) => b.innerHTML);
+    const loadingHtml =
+      '<span class="text-[10px] font-black uppercase tracking-widest animate-pulse">Verifying…</span>';
+    verifyBtns.forEach((b) => {
+      b.disabled = true;
+      b.classList.add('loading');
+      b.innerHTML = loadingHtml;
+    });
+
+    if (typeof window.__showBulkBarFeedbackEarly === 'function') {
+      window.__showBulkBarFeedbackEarly(
+        `Verifying line type for ${leadsToProcess.length} phone${leadsToProcess.length === 1 ? '' : 's'}…`,
+        'loading',
+      );
+    }
+
+    let successCount = 0;
+    let attemptedCount = 0;
+    let lastError = '';
+    let configBlocked = false;
+    const total = leadsToProcess.length;
+    const typeCounts = { mobile: 0, landline: 0, voip: 0, unknown: 0 };
+
+    try {
+      updateProcessingStatus(true);
+      for (let i = 0; i < leadsToProcess.length; i += 1) {
+        const row = leadsToProcess[i];
+        const key = row.dataset.leadKey;
+        if (!key) continue;
+        attemptedCount += 1;
+        verifyBtns.forEach((b) => {
+          b.innerHTML = `<span class="text-[10px] font-black uppercase tracking-widest animate-pulse">Verify ${i + 1}/${total}</span>`;
+        });
+        if (typeof window.__showBulkBarFeedbackEarly === 'function') {
+          window.__showBulkBarFeedbackEarly(
+            `Verifying cell vs landline ${i + 1}/${total}…`,
+            'loading',
+          );
+        }
+        try {
+          const result = await runVerifyPhoneLineApiForLeadKey(key);
+          if (result.error) lastError = String(result.error);
+          if (
+            result.code === 'lookup_unavailable' ||
+            result.code === 'signalwire_not_configured' ||
+            result.code === 'missing_space_url' ||
+            result.code === 'lookup_disabled'
+          ) {
+            configBlocked = true;
+            break;
+          }
+          const d = result.lead;
+          const ok = !!result.success && !!d;
+          if (ok) {
+            successCount += 1;
+            const t = String(result.lineType || d.phoneLineType || 'unknown')
+              .trim()
+              .toLowerCase();
+            if (Object.prototype.hasOwnProperty.call(typeCounts, t)) typeCounts[t] += 1;
+            else typeCounts.unknown += 1;
+            syncPersistedLeadToRowDataset(row, d);
+            const selectedPanelRow = document.querySelector('.result-row.selected');
+            if (selectedPanelRow === row && typeof populatePanel === 'function') populatePanel(row);
+            else if (typeof syncHeaderPhoneLinePill === 'function') syncHeaderPhoneLinePill(row);
+          }
+        } catch (err) {
+          console.error('Phone verify error:', err);
+          lastError = (err && err.message) || lastError;
+        }
+      }
+    } finally {
+      updateProcessingStatus(false);
+    }
+
+    const summaryLabel =
+      successCount > 0
+        ? `Verified ${successCount}`
+        : attemptedCount > 0
+          ? 'No results'
+          : 'Done';
+    verifyBtns.forEach((b) => {
+      b.innerHTML = `<span class="text-[10px] font-black uppercase tracking-widest">${summaryLabel}</span>`;
+    });
+
+    const breakdownParts = [];
+    if (typeCounts.mobile) breakdownParts.push(`${typeCounts.mobile} mobile`);
+    if (typeCounts.landline) breakdownParts.push(`${typeCounts.landline} landline`);
+    if (typeCounts.voip) breakdownParts.push(`${typeCounts.voip} VoIP`);
+    if (typeCounts.unknown) breakdownParts.push(`${typeCounts.unknown} unknown`);
+    const breakdown =
+      breakdownParts.length > 0 ? ` (${breakdownParts.join(', ')})` : '';
+
+    if (typeof window.__showBulkBarFeedbackEarly === 'function' && attemptedCount > 0) {
+      window.__showBulkBarFeedbackEarly(
+        successCount > 0
+          ? `Verified ${successCount} phone${successCount === 1 ? '' : 's'}${breakdown}.`
+          : lastError || 'Could not verify phone line type for the selected lead(s).',
+        successCount > 0 ? 'success' : 'error',
+      );
+    }
+
+    if (configBlocked) {
+      notifyBulkEnhanceIdle(
+        lastError ||
+          'SignalWire is not configured for phone lookup. Set credentials under Workspace → Phone bank / Integrations.',
+        'error',
+      );
+    } else if (successCount === 0 && attemptedCount > 0) {
+      notifyBulkEnhanceIdle(
+        lastError ||
+          'Phone verify failed. Check SignalWire under Workspace → Phone bank / Integrations.',
+        'warning',
+      );
+    } else if (successCount > 0) {
+      notifyBulkEnhanceIdle(
+        `Verified cell vs landline on ${successCount} lead${successCount !== 1 ? 's' : ''}${breakdown}.`,
+        'ok',
+      );
+    }
+
+    setTimeout(() => {
+      verifyBtns.forEach((b, i) => {
+        b.classList.remove('loading');
+        b.disabled = false;
+        b.innerHTML = btnSnap[i] || b.innerHTML;
+      });
+    }, 2800);
+  }
+  window.__runBulkVerifyPhoneLineSelectedLeadsImpl = runBulkVerifyPhoneLineSelectedLeads;
+  window.__runBulkVerifyPhoneLineSelectedLeads = runBulkVerifyPhoneLineSelectedLeads;
+
   document.addEventListener('agency-os-bulk-enhance-item-complete', (ev) => {
     const { key, success, result } = ev.detail || {};
     if (!key) return;
@@ -18973,6 +19213,18 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       e.stopPropagation();
       void runBulkReviewsRefreshSelectedLeads();
+    },
+    true,
+  );
+
+  document.addEventListener(
+    'click',
+    (e) => {
+      const btn = e.target && e.target.closest ? e.target.closest('.js-bulk-verify-phones') : null;
+      if (!btn || btn.disabled || btn.classList.contains('loading')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      void runBulkVerifyPhoneLineSelectedLeads();
     },
     true,
   );

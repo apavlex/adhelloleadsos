@@ -191,7 +191,7 @@ function patchFromLookup(phone, result) {
  */
 async function refreshIfNeeded(lead, priorLead, opts) {
   if (!lead || !hasUsablePhone(lead.phone)) return null;
-  if (!needsRefresh(lead, priorLead)) return null;
+  if (!(opts && opts.force) && !needsRefresh(lead, priorLead)) return null;
 
   try {
     const result = await lookupPhoneLineType(lead.phone, opts);
@@ -199,6 +199,39 @@ async function refreshIfNeeded(lead, priorLead, opts) {
   } catch (err) {
     console.warn('[phoneLineType] lookup failed:', err && err.message ? err.message : err);
     return unknownPatch(lead.phone, 'lookup_failed');
+  }
+}
+
+/**
+ * Always run carrier lookup (bulk “Verify phones”), ignoring cache TTL.
+ * @returns {Promise<object|null>}
+ */
+async function forceRefresh(lead, opts) {
+  return refreshIfNeeded(lead, null, { ...(opts || {}), force: true });
+}
+
+/**
+ * Human-readable reason lookup cannot run (missing keys / disabled).
+ * @returns {string|null}
+ */
+function lookupBlockedReason() {
+  if (!lookupEnabled()) {
+    return 'Phone line-type lookup is disabled on the server (PHONE_LINE_TYPE_LOOKUP_ENABLED).';
+  }
+  if (!signalwire.configured()) {
+    return 'SignalWire is not configured for phone line-type lookup. Add SIGNALWIRE_PROJECT_ID, SIGNALWIRE_TOKEN, and SIGNALWIRE_SPACE_URL under Workspace → Phone bank / Integrations.';
+  }
+  if (!relaySpaceHostSafe()) {
+    return 'SignalWire Space URL is missing. Set SIGNALWIRE_SPACE_URL under Workspace → Phone bank / Integrations.';
+  }
+  return null;
+}
+
+function relaySpaceHostSafe() {
+  try {
+    return !!signalwire.relaySpaceHost();
+  } catch (_) {
+    return false;
   }
 }
 
@@ -237,8 +270,11 @@ module.exports = {
   phoneNormKey,
   hasUsablePhone,
   needsRefresh,
+  lookupEnabled,
+  lookupBlockedReason,
   lookupPhoneLineType,
   refreshIfNeeded,
+  forceRefresh,
   patchFromLookup,
   isSmsAllowed,
   prefersCallFirst,
