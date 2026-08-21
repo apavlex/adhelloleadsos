@@ -72,6 +72,26 @@ describe('leadDedupe', () => {
     assert.equal(match.key, 'lead:2');
   });
 
+  it('does not merge distinct Google Maps places that share a phone', () => {
+    const existing = [
+      {
+        key: 'lead:phone-a',
+        workspaceId: 'default',
+        title: 'Starbucks',
+        phone: '(253) 555-0100',
+        url: 'https://www.google.com/maps/place/Starbucks+Kent/data=!4m7!3m6!1s0x54905c1111111111:0xaaaaaaaaaaaaaaaa!8m2!3d47.38!4d-122.23!19sChIJ1111111111111111111111',
+      },
+    ];
+    const incoming = {
+      workspaceId: 'default',
+      title: 'Starbucks',
+      phone: '(253) 555-0100',
+      url: 'https://www.google.com/maps/place/Starbucks+Auburn/data=!4m7!3m6!1s0x54905c2222222222:0xbbbbbbbbbbbbbbbb!8m2!3d47.30!4d-122.22!19sChIJ2222222222222222222222',
+    };
+    const match = findExistingLead(existing, incoming, 'default');
+    assert.equal(match, null);
+  });
+
   it('prefers maps place key in dedupe key', () => {
     const key = computeDedupeKey({
       title: 'Biz',

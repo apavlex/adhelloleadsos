@@ -17773,8 +17773,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function ensureRowLeadKeyForBulkSave(row, folderKey) {
     if (!row) return '';
-    let key = syncRowLeadKeyFromSavedMap(row);
-    if (key) return key;
     const folderEl = document.getElementById('bulkFolderSelect');
     const folderFromBar = folderEl && folderEl.value ? String(folderEl.value).trim() : '';
     const targetFolder =
@@ -17786,6 +17784,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (targetFolder && folderEl && !folderFromBar) {
       folderEl.value = targetFolder;
     }
+    // Always upsert when assigning to a folder so title-only matches don't skip
+    // distinct places, and already-foldered leads get reassigned.
+    if (targetFolder) {
+      const ok = await saveLead(row, { silent: true, forceFolderKey: true });
+      if (!ok) return '';
+      return syncRowLeadKeyFromSavedMap(row);
+    }
+    let key = syncRowLeadKeyFromSavedMap(row);
+    if (key) return key;
     const ok = await saveLead(row, { silent: true });
     if (!ok) return '';
     key = syncRowLeadKeyFromSavedMap(row);

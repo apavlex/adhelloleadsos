@@ -128,6 +128,7 @@ function mergePreferExisting(existing, incoming) {
       }
       continue;
     }
+    if (k === 'forceFolderKey') continue;
     if (isBlankValue(v)) continue;
     const cur = existing ? existing[k] : undefined;
     if (isBlankValue(cur)) out[k] = v;
@@ -389,8 +390,9 @@ module.exports = {
     }
 
     const key = `lead:${Date.now()}`;
+    const { forceFolderKey: _forceFolderKey, ...incomingClean } = incoming;
     const newLead = {
-      ...incoming,
+      ...incomingClean,
       createdAt: new Date().toISOString(),
       pipelineSchemaVersion: PIPELINE_SCHEMA_VERSION,
       pipelineStage: clampPipelineStage(

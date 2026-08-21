@@ -142,6 +142,19 @@
   async function ensureRowLeadKey(row, opts) {
     const options = opts && typeof opts === 'object' ? opts : {};
     if (!row) return '';
+    // Move / force-folder: always upsert via save. Title-only lookup collapses distinct
+    // places that share a name onto one CRM key and skips reassignment from other folders.
+    if (options.forceFolderKey) {
+      const ok = await saveRow(row, {
+        silent: options.silent !== false,
+        forceFolderKey: true,
+      });
+      if (!ok) return '';
+      let forcedKey = String(row.dataset.leadKey || '').trim();
+      if (!forcedKey) forcedKey = lookupSavedLeadKeyByTitle(row.dataset.title);
+      if (forcedKey) row.dataset.leadKey = forcedKey;
+      return forcedKey;
+    }
     let key = String(row.dataset.leadKey || '').trim();
     if (!key) key = lookupSavedLeadKeyByTitle(row.dataset.title);
     if (key) {
@@ -150,7 +163,7 @@
     }
     const ok = await saveRow(row, {
       silent: options.silent !== false,
-      forceFolderKey: !!options.forceFolderKey,
+      forceFolderKey: false,
     });
     if (!ok) return '';
     key = String(row.dataset.leadKey || '').trim();
@@ -229,15 +242,11 @@
       if (folderEl && !folderEl.value) folderEl.value = folderKey;
 
       for (const row of rows) {
-        let key = String(row.dataset.leadKey || '').trim();
+        // Always upsert with forceFolderKey so already-saved leads (any folder) are
+        // reassigned, and distinct places aren't collapsed by title-only lookup.
+        const ok = await saveRow(row, { silent: true, forceFolderKey: true });
+        let key = ok ? String(row.dataset.leadKey || '').trim() : '';
         if (!key) key = lookupSavedLeadKeyByTitle(row.dataset.title);
-        if (!key) {
-          const ok = await saveRow(row, { silent: true, forceFolderKey: true });
-          if (ok) {
-            key = String(row.dataset.leadKey || '').trim();
-            if (!key) key = lookupSavedLeadKeyByTitle(row.dataset.title);
-          }
-        }
         if (key) {
           savedCount += 1;
           leadKeys.push(key.startsWith('lead:') ? key : `lead:${key}`);
@@ -302,27 +311,24 @@
   window.__bulkSaveSearchResultsToFolder = bulkSaveSelectedToFolder;
   window.__bulkSaveSelectedLeads = bulkSaveSelectedToFolder;
 
-  function buildBulkMoveResultMessage(folderName, selectedCount, moved, unresolvedCount, duplicateRowCount) {
+  function buildBulkMoveResultMessage(folderName, selectedCount, movedUnique, unresolvedCount, duplicateRowCount) {
+    const handled = Math.max(0, selectedCount - unresolvedCount);
     const base = folderName
-      ? `Moved ${moved} lead${moved === 1 ? '' : 's'} to ${folderName}`
-      : `Moved ${moved} lead${moved === 1 ? '' : 's'}`;
+      ? `Moved ${handled} lead${handled === 1 ? '' : 's'} to ${folderName}`
+      : `Moved ${handled} lead${handled === 1 ? '' : 's'}`;
     const parts = [];
     if (unresolvedCount > 0) {
       parts.push(
-        `${unresolvedCount} not saved yet — click Save first, then Move`,
+        `${unresolvedCount} could not be saved — check the row data and try again`,
       );
     }
-    if (duplicateRowCount > 0 && unresolvedCount === 0) {
+    if (duplicateRowCount > 0) {
       parts.push(
-        `${duplicateRowCount} selected row${duplicateRowCount === 1 ? '' : 's'} matched the same saved lead`,
-      );
-    } else if (duplicateRowCount > 0) {
-      parts.push(
-        `${duplicateRowCount} selected row${duplicateRowCount === 1 ? '' : 's'} shared a saved lead`,
+        `${duplicateRowCount} selected row${duplicateRowCount === 1 ? '' : 's'} matched the same CRM lead (${movedUnique} unique)`,
       );
     }
-    if (!parts.length && selectedCount > moved) {
-      parts.push(`${selectedCount - moved} of ${selectedCount} selected could not be moved`);
+    if (!parts.length && selectedCount > handled) {
+      parts.push(`${selectedCount - handled} of ${selectedCount} selected could not be moved`);
     }
     return parts.length ? `${base}. ${parts.join('; ')}` : base;
   }
@@ -374,8 +380,8 @@
       if (!uniqueKeys.length) {
         throw new Error(
           unresolvedCount > 0
-            ? `Could not move any leads — ${unresolvedCount} not saved yet. Click Save first, then Move.`
-            : 'Could not resolve saved leads. Try Save first, then Move.',
+            ? `Could not move any leads — ${unresolvedCount} could not be saved. Check the row data and try again.`
+            : 'Could not resolve saved leads. Try again.',
         );
       }
 
@@ -389,11 +395,14 @@
       if (!res.ok || !data.success) {
         throw new Error((data && data.error) || `Could not move leads (HTTP ${res.status})`);
       }
-      const moved = Array.isArray(data.updatedKeys) ? data.updatedKeys.length : uniqueKeys.length;
+      const movedUnique = Array.isArray(data.updatedKeys) ? data.updatedKeys.length : uniqueKeys.length;
+      if (!movedUnique && uniqueKeys.length) {
+        throw new Error('Leads were resolved but none were assigned to that folder. Refresh and try again.');
+      }
       const successMsg = buildBulkMoveResultMessage(
         folderName,
         selectedCount,
-        moved,
+        movedUnique,
         unresolvedCount,
         duplicateRowCount,
       );

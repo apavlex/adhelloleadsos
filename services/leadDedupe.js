@@ -117,6 +117,18 @@ function listingPageUrlsDiffer(existing, incoming) {
   return a !== b;
 }
 
+/** True when both sides have Google Maps place keys that disagree (distinct places). */
+function mapsPlaceKeysConflict(existing, incoming) {
+  const a = leadMapsPlaceKey(existing);
+  const b = leadMapsPlaceKey(incoming);
+  if (!a || !b) return false;
+  return a !== b;
+}
+
+function weakIdentityConflict(existing, incoming) {
+  return listingPageUrlsDiffer(existing, incoming) || mapsPlaceKeysConflict(existing, incoming);
+}
+
 function computeDedupeKey(lead) {
   const formationId = String(lead?.formationRegistryId || '').trim();
   const formationState = String(lead?.state || '').trim().toLowerCase();
@@ -189,36 +201,36 @@ function findExistingLead(leads, incoming, workspaceId) {
 
   if (emailNorm) {
     const byEmail = findBy((l) => normalizeEmail(l.email) === emailNorm);
-    if (byEmail && !listingPageUrlsDiffer(byEmail, incoming)) return byEmail;
+    if (byEmail && !weakIdentityConflict(byEmail, incoming)) return byEmail;
   }
 
   if (domainNorm) {
     const byDomain = findBy((l) => normalizeDomain(l.website) === domainNorm);
-    if (byDomain && !listingPageUrlsDiffer(byDomain, incoming)) return byDomain;
+    if (byDomain && !weakIdentityConflict(byDomain, incoming)) return byDomain;
   }
 
   if (phoneNorm) {
     const byPhone = findBy((l) => normalizePhone(l.phone) === phoneNorm);
-    if (byPhone && !listingPageUrlsDiffer(byPhone, incoming)) return byPhone;
+    if (byPhone && !weakIdentityConflict(byPhone, incoming)) return byPhone;
   }
 
   if (dedupeKey) {
     const byKey = findBy((l) => String(l.dedupeKey || '') === dedupeKey);
-    if (byKey && !listingPageUrlsDiffer(byKey, incoming)) return byKey;
+    if (byKey && !weakIdentityConflict(byKey, incoming)) return byKey;
   }
 
   if (nameNorm && geoNorm) {
     const byNameGeo = findBy(
       (l) => normalizeName(l.title) === nameNorm && normalizeGeo(l.city, l.state) === geoNorm
     );
-    if (byNameGeo && !listingPageUrlsDiffer(byNameGeo, incoming)) return byNameGeo;
+    if (byNameGeo && !weakIdentityConflict(byNameGeo, incoming)) return byNameGeo;
   }
 
   if (nameNorm && phoneNorm) {
     const byNamePhone = findBy(
       (l) => normalizeName(l.title) === nameNorm && normalizePhone(l.phone) === phoneNorm
     );
-    if (byNamePhone && !listingPageUrlsDiffer(byNamePhone, incoming)) return byNamePhone;
+    if (byNamePhone && !weakIdentityConflict(byNamePhone, incoming)) return byNamePhone;
   }
 
   if (incoming.ip) {

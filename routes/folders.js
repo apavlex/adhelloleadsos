@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
-const { filterLeadsForRequest } = require('../services/workspaceService');
+const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
 const { wantsJsonResponse } = require('../lib/httpRequest');
 const { migrateUnfiledLeadsToPipelineFolders, deleteFolderComplete } = require('../services/pipelineFolders');
 const { moveFolder } = require('../services/folderMove');
@@ -395,8 +395,10 @@ router.post('/assign-bulk', async (req, res, next) => {
     const all = await dbService.getAllLeads(req.workspaceId);
     const visible = filterLeadsForRequest(req, all);
     const visibleKeys = new Set(visible.map((l) => l.key));
+    const role = (req && req.workspaceRole) || 'admin';
+    const sdrEmail = role === 'sdr' ? userEmail(req).toLowerCase() : '';
 
-    const resolveVisibleLeadKey = (rawKey) => {
+    const resolveAssignableLeadKey = async (rawKey) => {
       const k = String(rawKey || '').trim();
       if (!k) return null;
       const candidates = [
@@ -407,12 +409,21 @@ router.post('/assign-bulk', async (req, res, next) => {
       for (const c of candidates) {
         if (visibleKeys.has(c)) return c;
       }
-      return null;
+      const resolved = await dbService.resolveLeadStorageKey(k, req.workspaceId);
+      if (!resolved) return null;
+      if (visibleKeys.has(resolved)) return resolved;
+      // Still allow workspace-owned leads (e.g. already in another folder / key format drift)
+      const lead = await dbService.getLead(resolved, req.workspaceId);
+      if (!lead) return null;
+      if ((lead.workspaceId || 'default') !== req.workspaceId) return null;
+      if (role === 'sdr' && (lead.assignedTo || '').toLowerCase() !== sdrEmail) return null;
+      return resolved;
     };
 
     const updated = [];
     for (const key of leadKeys) {
-      const fullKey = resolveVisibleLeadKey(key);
+      // eslint-disable-next-line no-await-in-loop
+      const fullKey = await resolveAssignableLeadKey(key);
       if (!fullKey) continue;
       // eslint-disable-next-line no-await-in-loop
       const lead = await dbService.updateLead(fullKey, { folderKey: folderKey || '' });
