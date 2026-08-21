@@ -3,11 +3,26 @@
  * Scoped to #searchResultsLeadsTable so it works even if other app.js handlers race.
  */
 (function () {
+  /** Must match app.js normalizeLeadTitleKey (case-preserving). */
   function normalizeTitleKey(title) {
     return String(title || '')
       .trim()
-      .toLowerCase()
       .replace(/\s+/g, ' ');
+  }
+
+  function lookupSavedLeadKeyByTitle(title) {
+    const map = window.__savedLeadsByTitle;
+    if (!map || typeof map.get !== 'function') return '';
+    const exact = normalizeTitleKey(title);
+    if (exact && map.has && map.has(exact)) {
+      return String(map.get(exact) || '').trim();
+    }
+    const lower = exact.toLowerCase();
+    if (!lower || typeof map.keys !== 'function') return '';
+    for (const k of map.keys()) {
+      if (String(k).toLowerCase() === lower) return String(map.get(k) || '').trim();
+    }
+    return '';
   }
 
   /** Rebuild folder dropdown from window.WORKSPACE_FOLDERS (available before app.js finishes init). */
@@ -124,19 +139,22 @@
     );
   }
 
-  async function ensureRowLeadKey(row) {
+  async function ensureRowLeadKey(row, opts) {
+    const options = opts && typeof opts === 'object' ? opts : {};
     if (!row) return '';
     let key = String(row.dataset.leadKey || '').trim();
-    if (!key && window.__savedLeadsByTitle) {
-      key = String(window.__savedLeadsByTitle.get(normalizeTitleKey(row.dataset.title)) || '').trim();
-    }
+    if (!key) key = lookupSavedLeadKeyByTitle(row.dataset.title);
     if (key) {
       row.dataset.leadKey = key;
       return key;
     }
-    const ok = await saveRow(row);
+    const ok = await saveRow(row, {
+      silent: options.silent !== false,
+      forceFolderKey: !!options.forceFolderKey,
+    });
     if (!ok) return '';
     key = String(row.dataset.leadKey || '').trim();
+    if (!key) key = lookupSavedLeadKeyByTitle(row.dataset.title);
     if (key) row.dataset.leadKey = key;
     return key;
   }
@@ -212,13 +230,12 @@
 
       for (const row of rows) {
         let key = String(row.dataset.leadKey || '').trim();
-        if (!key && window.__savedLeadsByTitle) {
-          key = String(window.__savedLeadsByTitle.get(normalizeTitleKey(row.dataset.title)) || '').trim();
-        }
+        if (!key) key = lookupSavedLeadKeyByTitle(row.dataset.title);
         if (!key) {
-          const ok = await saveRow(row);
+          const ok = await saveRow(row, { silent: true, forceFolderKey: true });
           if (ok) {
             key = String(row.dataset.leadKey || '').trim();
+            if (!key) key = lookupSavedLeadKeyByTitle(row.dataset.title);
           }
         }
         if (key) {
@@ -285,6 +302,31 @@
   window.__bulkSaveSearchResultsToFolder = bulkSaveSelectedToFolder;
   window.__bulkSaveSelectedLeads = bulkSaveSelectedToFolder;
 
+  function buildBulkMoveResultMessage(folderName, selectedCount, moved, unresolvedCount, duplicateRowCount) {
+    const base = folderName
+      ? `Moved ${moved} lead${moved === 1 ? '' : 's'} to ${folderName}`
+      : `Moved ${moved} lead${moved === 1 ? '' : 's'}`;
+    const parts = [];
+    if (unresolvedCount > 0) {
+      parts.push(
+        `${unresolvedCount} not saved yet — click Save first, then Move`,
+      );
+    }
+    if (duplicateRowCount > 0 && unresolvedCount === 0) {
+      parts.push(
+        `${duplicateRowCount} selected row${duplicateRowCount === 1 ? '' : 's'} matched the same saved lead`,
+      );
+    } else if (duplicateRowCount > 0) {
+      parts.push(
+        `${duplicateRowCount} selected row${duplicateRowCount === 1 ? '' : 's'} shared a saved lead`,
+      );
+    }
+    if (!parts.length && selectedCount > moved) {
+      parts.push(`${selectedCount - moved} of ${selectedCount} selected could not be moved`);
+    }
+    return parts.length ? `${base}. ${parts.join('; ')}` : base;
+  }
+
   async function bulkMoveSelectedToFolder() {
     if (bulkSaveInFlight) return;
     const table = document.getElementById('searchResultsLeadsTable');
@@ -302,27 +344,39 @@
     }
 
     const rows = checked.map((cb) => cb.closest('tr.result-row')).filter(Boolean);
+    const selectedCount = rows.length;
     const folderName = getFolderDisplayName(folderKey);
     const moveBtn = document.getElementById('bulkMoveFolderBtn');
     bulkSaveInFlight = true;
     showBulkSaveFeedback(
-      `Moving ${rows.length} lead${rows.length === 1 ? '' : 's'}${folderName ? ` to ${folderName}` : ''}…`,
+      `Moving ${selectedCount} lead${selectedCount === 1 ? '' : 's'}${folderName ? ` to ${folderName}` : ''}…`,
       'loading',
     );
     if (moveBtn) moveBtn.disabled = true;
 
     try {
+      const folderEl = document.getElementById('bulkFolderSelect');
+      if (folderEl && !folderEl.value) folderEl.value = folderKey;
+
       const leadKeys = [];
+      let unresolvedCount = 0;
       for (const row of rows) {
-        const key = await ensureRowLeadKey(row);
+        const key = await ensureRowLeadKey(row, { silent: true, forceFolderKey: true });
         if (key) {
           leadKeys.push(normalizeLeadKeyForApi(key));
           markSaved(row.querySelector('.bookmark-btn'));
+        } else {
+          unresolvedCount += 1;
         }
       }
       const uniqueKeys = [...new Set(leadKeys.filter(Boolean))];
+      const duplicateRowCount = Math.max(0, leadKeys.length - uniqueKeys.length);
       if (!uniqueKeys.length) {
-        throw new Error('Could not resolve saved leads. Try Save first, then Move.');
+        throw new Error(
+          unresolvedCount > 0
+            ? `Could not move any leads — ${unresolvedCount} not saved yet. Click Save first, then Move.`
+            : 'Could not resolve saved leads. Try Save first, then Move.',
+        );
       }
 
       const res = await fetch('/folders/assign-bulk', {
@@ -336,10 +390,14 @@
         throw new Error((data && data.error) || `Could not move leads (HTTP ${res.status})`);
       }
       const moved = Array.isArray(data.updatedKeys) ? data.updatedKeys.length : uniqueKeys.length;
-      const successMsg = folderName
-        ? `Moved ${moved} lead${moved === 1 ? '' : 's'} to ${folderName}`
-        : `Moved ${moved} lead${moved === 1 ? '' : 's'}`;
-      showBulkSaveFeedback(successMsg, 'ok');
+      const successMsg = buildBulkMoveResultMessage(
+        folderName,
+        selectedCount,
+        moved,
+        unresolvedCount,
+        duplicateRowCount,
+      );
+      showBulkSaveFeedback(successMsg, unresolvedCount > 0 ? 'error' : 'ok');
       if (typeof window.showProspectToast === 'function') {
         window.showProspectToast(successMsg);
       }
@@ -559,18 +617,16 @@
   }
 
   function isTitleSaved(title) {
-    const key = normalizeTitleKey(title);
-    if (!key) return false;
     if (typeof window.__isLeadTitleSaved === 'function') {
       return window.__isLeadTitleSaved(title);
     }
-    const map = window.__savedLeadsByTitle;
-    return !!(map && map.has && map.has(key));
+    return !!lookupSavedLeadKeyByTitle(title);
   }
 
-  async function saveRow(row) {
+  async function saveRow(row, opts) {
+    const options = opts && typeof opts === 'object' ? opts : {};
     if (typeof window.__saveSearchResultLead === 'function') {
-      return window.__saveSearchResultLead(row);
+      return window.__saveSearchResultLead(row, options);
     }
     const folderEl = document.getElementById('bulkFolderSelect');
     const folderFromBar = folderEl && folderEl.value ? String(folderEl.value).trim() : '';
@@ -592,6 +648,7 @@
       twitter: row.dataset.twitter,
       folderKey: folderFromBar || folderFromSearch,
     };
+    if (options.forceFolderKey) leadData.forceFolderKey = true;
     if (Array.isArray(window.SEARCH_AUTO_TAG_KEYS) && window.SEARCH_AUTO_TAG_KEYS.length) {
       leadData.tagKeys = window.SEARCH_AUTO_TAG_KEYS;
     }
@@ -611,7 +668,7 @@
         row.dataset.leadKey = data.key;
         return true;
       }
-      if (typeof window.showAppToast === 'function') {
+      if (!options.silent && typeof window.showAppToast === 'function') {
         window.showAppToast((data && data.error) || 'Could not save lead', { variant: 'error' });
       }
     } catch (err) {

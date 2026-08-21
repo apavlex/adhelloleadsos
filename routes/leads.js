@@ -458,6 +458,7 @@ router.post('/save', async (req, res, next) => {
       tagKeys,
       listing,
       realEstate,
+      forceFolderKey,
     } = req.body;
 
     if (!title) {
@@ -508,6 +509,9 @@ router.post('/save', async (req, res, next) => {
     }
     if (resolvedFolderKey) {
       leadData.folderKey = resolvedFolderKey;
+    }
+    if (forceFolderKey === true) {
+      leadData.forceFolderKey = true;
     }
 
     const incomingTags = dbService.normalizeTagKeys(

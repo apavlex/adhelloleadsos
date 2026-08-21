@@ -184,11 +184,14 @@
   }
 
   function leadKeyFromCheckboxOrRow(cb) {
+    const row = cb.closest('tr.result-row, tr[data-lead-key]');
+    const rowKey = row
+      ? String(row.getAttribute('data-lead-key') || row.dataset.leadKey || '').trim()
+      : '';
+    if (rowKey) return rowKey;
     let key = String(cb.getAttribute('data-key') || cb.dataset.key || '').trim();
-    if (!key) {
-      const row = cb.closest('tr.result-row, tr[data-lead-key]');
-      key = row ? String(row.getAttribute('data-lead-key') || row.dataset.leadKey || '').trim() : '';
-    }
+    // Search results use row index as data-key until saved — not a CRM key.
+    if (document.getElementById('searchResultsLeadsTable') && /^\d+$/.test(key)) return '';
     return key;
   }
 

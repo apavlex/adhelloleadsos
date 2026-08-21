@@ -15933,6 +15933,7 @@ document.addEventListener('DOMContentLoaded', () => {
       jobType,
       sourceType,
     };
+    if (options.forceFolderKey) leadData.forceFolderKey = true;
 
     try {
       const res = await fetch('/leads/save', {

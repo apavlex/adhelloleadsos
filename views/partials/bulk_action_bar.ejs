@@ -58,7 +58,7 @@
         <option value="<%= fd.key %>"<%= _bulkFolderPref === String(fd.key) ? ' selected' : '' %>><%= fd.name || 'Folder' %></option>
         <% }); %>
       </select>
-      <button type="button" id="bulkMoveFolderBtn" class="bulk-bar-btn bulk-bar-btn--accent" disabled title="Move saved leads into the selected folder">Move</button>
+      <button type="button" id="bulkMoveFolderBtn" class="bulk-bar-btn bulk-bar-btn--accent" disabled title="<%= _bulkMode === 'search' ? 'Save unsaved selected rows if needed, then move them into the selected folder' : 'Move saved leads into the selected folder' %>">Move</button>
       <% if (_bulkMode === 'pipeline') { %>
       <% const _boardStages = typeof pipelineStages !== 'undefined' && Array.isArray(pipelineStages) ? pipelineStages : []; %>
       <% if (_boardStages.length) { %>
