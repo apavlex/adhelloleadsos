@@ -9299,6 +9299,7 @@ document.addEventListener('DOMContentLoaded', () => {
       readPipelineRowDisplayPhone(row);
     const headerPhone = getLeadPanelEl('mobilePanelHeaderPhone');
     const starBtn = document.getElementById('headerPhonePrimaryStar');
+    const phoneRow = document.getElementById('headerPhoneRow');
     const lk = row.dataset.leadKey || '';
     if (headerPhone) {
       if (phone) {
@@ -9317,6 +9318,7 @@ document.addEventListener('DOMContentLoaded', () => {
         headerPhone.classList.add('opacity-40');
       }
     }
+    if (phoneRow) phoneRow.classList.toggle('hidden', !phone);
     if (starBtn) {
       const isPri = !!(phone && isHeaderPhonePrimary(row, phone));
       const icon = starBtn.querySelector('.header-phone-star-icon');
@@ -9374,10 +9376,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function syncHeaderWebsiteRow(row) {
     const view = getLeadPanelEl('mobilePanelHeaderWebsite');
+    const websiteRow = document.getElementById('headerWebsiteRow');
     if (!view) return;
     const website = readPipelineRowDisplayWebsite(row);
-    if (website) {
-      const href = normalizeWebsiteHref(website);
+    const href = website ? normalizeWebsiteHref(website) : '';
+    if (href) {
       view.href = href;
       view.textContent = cleanLeadPanelWebsiteLabel(href) || 'Website';
       view.classList.remove('opacity-40', 'pointer-events-none');
@@ -9388,12 +9391,16 @@ document.addEventListener('DOMContentLoaded', () => {
       view.classList.add('opacity-40');
       view.classList.remove('pointer-events-none');
     }
+    if (websiteRow) websiteRow.classList.toggle('hidden', !href);
   }
 
   function syncHeaderEmailRow(row) {
     const view = getLeadPanelEl('mobilePanelHeaderEmail');
+    const emailRow = document.getElementById('headerEmailRow');
     if (!view) return;
-    const email = readPipelineRowDisplayEmail(row);
+    const emailRaw = readPipelineRowDisplayEmail(row);
+    const email =
+      emailRaw && emailRaw.includes('@') && !isEmptyLeadField(emailRaw) ? emailRaw : '';
     if (email) {
       view.href = `mailto:${encodeURIComponent(email)}`;
       view.textContent = email;
@@ -9405,6 +9412,7 @@ document.addEventListener('DOMContentLoaded', () => {
       view.classList.add('opacity-40');
       view.classList.remove('pointer-events-none');
     }
+    if (emailRow) emailRow.classList.toggle('hidden', !email);
   }
 
   const LEAD_PANEL_CONTACT_ICON_CLASS =
@@ -9466,17 +9474,18 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderLeadPanelContactLinksHtml(row) {
     if (!row || !row.dataset) return '';
     const parts = [];
-    const website = readPipelineRowDisplayWebsite(row);
+    const websiteHref = normalizeWebsiteHref(readPipelineRowDisplayWebsite(row));
     const phone = readPipelineRowDisplayPhone(row);
-    const email = readPipelineRowDisplayEmail(row);
+    const emailRaw = readPipelineRowDisplayEmail(row);
+    const email =
+      emailRaw && emailRaw.includes('@') && !isEmptyLeadField(emailRaw) ? emailRaw : '';
     const lk = String(row.dataset.leadKey || '').trim();
     const cls = LEAD_PANEL_CONTACT_ICON_CLASS;
 
-    if (website) {
-      const href = normalizeWebsiteHref(website);
+    if (websiteHref) {
       parts.push(
         '<a href="' +
-          escapeHtmlAttr(href) +
+          escapeHtmlAttr(websiteHref) +
           '" target="_blank" rel="noopener noreferrer" class="' +
           cls +
           '" title="Website" aria-label="Website">' +
@@ -18910,6 +18919,82 @@ document.addEventListener('DOMContentLoaded', () => {
     return digits.length >= 10;
   }
 
+  /** Progress on #bulkSaveFeedback; toast only for terminal / validation (not every N/M tick). */
+  function showBulkVerifyFeedback(message, variant, opts) {
+    const msg = String(message || '').trim();
+    const options = opts && typeof opts === 'object' ? opts : {};
+    const el = document.getElementById('bulkSaveFeedback');
+    if (el) {
+      el.textContent = msg;
+      el.classList.remove(
+        'hidden',
+        'text-emerald-300',
+        'text-rose-300',
+        'text-white/80',
+        'text-sky-200',
+      );
+      if (variant === 'error') el.classList.add('text-rose-300');
+      else if (variant === 'loading') el.classList.add('text-white/80');
+      else if (variant === 'info' || variant === 'warning') el.classList.add('text-sky-200');
+      else el.classList.add('text-emerald-300');
+      if (!msg) el.classList.add('hidden');
+    }
+    const shouldToast =
+      options.toast === true ||
+      (options.toast !== false &&
+        msg &&
+        (variant === 'error' ||
+          variant === 'success' ||
+          variant === 'ok' ||
+          variant === 'warning' ||
+          variant === 'info'));
+    if (shouldToast && typeof window.showAppToast === 'function') {
+      const toastVariant =
+        variant === 'error'
+          ? 'error'
+          : variant === 'success' || variant === 'ok'
+            ? 'success'
+            : 'info';
+      window.showAppToast(msg, {
+        variant: toastVariant,
+        duration: variant === 'error' ? 9000 : 5200,
+      });
+    } else if (shouldToast && typeof window.showProspectToast === 'function') {
+      window.showProspectToast(msg);
+    }
+  }
+
+  async function ensureLeadKeyQuietForPhoneVerify(row) {
+    if (!row) return '';
+    let key =
+      typeof syncRowLeadKeyFromSavedMap === 'function' ? syncRowLeadKeyFromSavedMap(row) : '';
+    if (!key && typeof findInitialSavedLeadRecord === 'function') {
+      const embedded = findInitialSavedLeadRecord(row);
+      const embeddedKey = embedded && embedded.key ? String(embedded.key).trim() : '';
+      if (embeddedKey) {
+        row.dataset.leadKey = embeddedKey;
+        key = embeddedKey;
+      }
+    }
+    if (key) return key;
+    const saver =
+      typeof window.__saveSearchResultLead === 'function'
+        ? window.__saveSearchResultLead
+        : typeof saveLead === 'function'
+          ? saveLead
+          : null;
+    if (!saver) return '';
+    try {
+      const ok = await saver(row, { silent: true });
+      if (!ok) return '';
+      return typeof syncRowLeadKeyFromSavedMap === 'function'
+        ? syncRowLeadKeyFromSavedMap(row)
+        : String(row.dataset.leadKey || '').trim();
+    } catch (_) {
+      return '';
+    }
+  }
+
   async function runVerifyPhoneLineApiForLeadKey(leadKey) {
     const key = String(leadKey || '').trim();
     if (!key) return { success: false, error: 'Missing lead key.' };
@@ -18956,55 +19041,108 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function runBulkVerifyPhoneLineSelectedLeads() {
+    if (window.__bulkVerifyPhonesInFlight) return;
+
     const checkedBoxes = document.querySelectorAll('.row-checkbox:checked, .lead-checkbox:checked');
     if (checkedBoxes.length === 0) {
-      notifyBulkEnhanceIdle('Select one or more leads with phone numbers to verify.');
+      showBulkVerifyFeedback('Select one or more leads with phone numbers to verify.', 'error');
       return;
     }
 
     const selectedRows = Array.from(checkedBoxes)
       .map((cb) => cb.closest('.result-row'))
       .filter(Boolean);
-    const withKeyAndPhone = selectedRows.filter(
-      (r) => r.dataset.leadKey && rowHasUsablePhoneForVerify(r),
-    );
-    const leadsToProcess = withKeyAndPhone.slice(0, BULK_VERIFY_PHONES_MAX);
+    selectedRows.forEach((r) => {
+      if (typeof syncRowLeadKeyFromSavedMap === 'function') syncRowLeadKeyFromSavedMap(r);
+    });
 
-    if (!leadsToProcess.length) {
-      const hasPhoneNoKey = selectedRows.some(
-        (r) => rowHasUsablePhoneForVerify(r) && !r.dataset.leadKey,
-      );
-      notifyBulkEnhanceIdle(
-        hasPhoneNoKey
-          ? 'Save selected leads first — phone verify needs saved pipeline records.'
-          : 'Selected leads need a phone number (10+ digits) to verify.',
-        'warning',
+    const withPhone = selectedRows.filter((r) => rowHasUsablePhoneForVerify(r));
+    if (!withPhone.length) {
+      showBulkVerifyFeedback(
+        'Selected leads need a phone number (10+ digits) to verify.',
+        'error',
       );
       return;
-    }
-    if (withKeyAndPhone.length > BULK_VERIFY_PHONES_MAX) {
-      notifyBulkEnhanceIdle(
-        `Phone verify limited to ${BULK_VERIFY_PHONES_MAX} leads per batch.`,
-        'info',
-      );
     }
 
     const verifyBtns = document.querySelectorAll('.js-bulk-verify-phones');
     const btnSnap = Array.from(verifyBtns).map((b) => b.innerHTML);
-    const loadingHtml =
-      '<span class="text-[10px] font-black uppercase tracking-widest animate-pulse">Verifying…</span>';
-    verifyBtns.forEach((b) => {
-      b.disabled = true;
-      b.classList.add('loading');
-      b.innerHTML = loadingHtml;
-    });
+    const setVerifyBusyLabel = (label) => {
+      const html = `<span class="text-[10px] font-black uppercase tracking-widest animate-pulse">${label}</span>`;
+      verifyBtns.forEach((b) => {
+        b.disabled = true;
+        b.classList.add('loading');
+        b.setAttribute('aria-busy', 'true');
+        b.innerHTML = html;
+      });
+    };
+    const restoreVerifyBtns = (delayMs) => {
+      window.setTimeout(() => {
+        verifyBtns.forEach((b, i) => {
+          b.classList.remove('loading');
+          b.disabled = false;
+          b.removeAttribute('aria-busy');
+          b.innerHTML = btnSnap[i] || b.innerHTML;
+        });
+      }, Math.max(0, delayMs == null ? 2800 : delayMs));
+    };
 
-    if (typeof window.__showBulkBarFeedbackEarly === 'function') {
-      window.__showBulkBarFeedbackEarly(
-        `Verifying line type for ${leadsToProcess.length} phone${leadsToProcess.length === 1 ? '' : 's'}…`,
-        'loading',
+    window.__bulkVerifyPhonesInFlight = true;
+    setVerifyBusyLabel('Verifying…');
+
+    const batchCandidates = withPhone.slice(0, BULK_VERIFY_PHONES_MAX);
+    if (withPhone.length > BULK_VERIFY_PHONES_MAX) {
+      showBulkVerifyFeedback(
+        `Verifying first ${BULK_VERIFY_PHONES_MAX} of ${withPhone.length} selected phones…`,
+        'info',
       );
     }
+
+    let saveFailed = 0;
+    const needsSave = batchCandidates.filter((r) => !String(r.dataset.leadKey || '').trim());
+    if (needsSave.length) {
+      setVerifyBusyLabel('Saving…');
+      showBulkVerifyFeedback(
+        `Saving ${needsSave.length} lead${needsSave.length === 1 ? '' : 's'} so phones can be verified…`,
+        'loading',
+        { toast: false },
+      );
+      for (let i = 0; i < needsSave.length; i += 1) {
+        setVerifyBusyLabel(`Save ${i + 1}/${needsSave.length}`);
+        showBulkVerifyFeedback(
+          `Saving leads for phone verify ${i + 1}/${needsSave.length}…`,
+          'loading',
+          { toast: false },
+        );
+        const key = await ensureLeadKeyQuietForPhoneVerify(needsSave[i]);
+        if (!key) saveFailed += 1;
+      }
+    }
+
+    const leadsToProcess = batchCandidates.filter(
+      (r) => String(r.dataset.leadKey || '').trim() && rowHasUsablePhoneForVerify(r),
+    );
+
+    if (!leadsToProcess.length) {
+      const folderEl = document.getElementById('bulkFolderSelect');
+      const hasFolder = !!(folderEl && String(folderEl.value || '').trim());
+      const errMsg =
+        saveFailed > 0 || needsSave.length
+          ? hasFolder
+            ? 'Could not save selected leads for phone verify. Try Save in the bar, then Verify phones again.'
+            : 'Pick a folder in the bar, save selected leads (or let Verify auto-save), then try again.'
+          : 'Select saved leads with a phone number to verify cell vs landline.';
+      showBulkVerifyFeedback(errMsg, 'error');
+      window.__bulkVerifyPhonesInFlight = false;
+      restoreVerifyBtns(0);
+      return;
+    }
+
+    showBulkVerifyFeedback(
+      `Verifying line type for ${leadsToProcess.length} phone${leadsToProcess.length === 1 ? '' : 's'}…`,
+      'loading',
+      { toast: false },
+    );
 
     let successCount = 0;
     let attemptedCount = 0;
@@ -19017,18 +19155,13 @@ document.addEventListener('DOMContentLoaded', () => {
       updateProcessingStatus(true);
       for (let i = 0; i < leadsToProcess.length; i += 1) {
         const row = leadsToProcess[i];
-        const key = row.dataset.leadKey;
+        const key = String(row.dataset.leadKey || '').trim();
         if (!key) continue;
         attemptedCount += 1;
-        verifyBtns.forEach((b) => {
-          b.innerHTML = `<span class="text-[10px] font-black uppercase tracking-widest animate-pulse">Verify ${i + 1}/${total}</span>`;
+        setVerifyBusyLabel(`Verify ${i + 1}/${total}`);
+        showBulkVerifyFeedback(`Verifying cell vs landline ${i + 1}/${total}…`, 'loading', {
+          toast: false,
         });
-        if (typeof window.__showBulkBarFeedbackEarly === 'function') {
-          window.__showBulkBarFeedbackEarly(
-            `Verifying cell vs landline ${i + 1}/${total}…`,
-            'loading',
-          );
-        }
         try {
           const result = await runVerifyPhoneLineApiForLeadKey(key);
           if (result.error) lastError = String(result.error);
@@ -19062,6 +19195,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } finally {
       updateProcessingStatus(false);
+      window.__bulkVerifyPhonesInFlight = false;
     }
 
     const summaryLabel =
@@ -19082,41 +19216,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const breakdown =
       breakdownParts.length > 0 ? ` (${breakdownParts.join(', ')})` : '';
 
-    if (typeof window.__showBulkBarFeedbackEarly === 'function' && attemptedCount > 0) {
-      window.__showBulkBarFeedbackEarly(
-        successCount > 0
-          ? `Verified ${successCount} phone${successCount === 1 ? '' : 's'}${breakdown}.`
-          : lastError || 'Could not verify phone line type for the selected lead(s).',
-        successCount > 0 ? 'success' : 'error',
-      );
-    }
-
     if (configBlocked) {
-      notifyBulkEnhanceIdle(
+      showBulkVerifyFeedback(
         lastError ||
           'SignalWire is not configured for phone lookup. Set credentials under Workspace → Phone bank / Integrations.',
         'error',
       );
-    } else if (successCount === 0 && attemptedCount > 0) {
-      notifyBulkEnhanceIdle(
-        lastError ||
-          'Phone verify failed. Check SignalWire under Workspace → Phone bank / Integrations.',
-        'warning',
-      );
     } else if (successCount > 0) {
-      notifyBulkEnhanceIdle(
-        `Verified cell vs landline on ${successCount} lead${successCount !== 1 ? 's' : ''}${breakdown}.`,
-        'ok',
+      showBulkVerifyFeedback(
+        `Verified ${successCount} phone${successCount === 1 ? '' : 's'}${breakdown}.`,
+        'success',
+      );
+    } else if (attemptedCount > 0) {
+      showBulkVerifyFeedback(
+        lastError ||
+          'Could not verify phones. Check SignalWire under Workspace → Phone bank / Integrations.',
+        'error',
       );
     }
 
-    setTimeout(() => {
-      verifyBtns.forEach((b, i) => {
-        b.classList.remove('loading');
-        b.disabled = false;
-        b.innerHTML = btnSnap[i] || b.innerHTML;
-      });
-    }, 2800);
+    restoreVerifyBtns(2800);
   }
   window.__runBulkVerifyPhoneLineSelectedLeadsImpl = runBulkVerifyPhoneLineSelectedLeads;
   window.__runBulkVerifyPhoneLineSelectedLeads = runBulkVerifyPhoneLineSelectedLeads;

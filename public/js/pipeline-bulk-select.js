@@ -3039,43 +3039,99 @@
       const row = cb.closest('.result-row');
       if (row) selectedRows.push(row);
     });
-    const withKeyAndPhone = selectedRows.filter(
-      (r) => String(r.dataset.leadKey || '').trim() && rowHasUsablePhoneEarly(r),
-    );
-    const rows = withKeyAndPhone.slice(0, BULK_VERIFY_PHONES_MAX_EARLY);
-    if (!rows.length) {
-      const hasPhoneNoKey = selectedRows.some(
-        (r) => rowHasUsablePhoneEarly(r) && !String(r.dataset.leadKey || '').trim(),
-      );
+    const withPhone = selectedRows.filter((r) => rowHasUsablePhoneEarly(r));
+    if (!withPhone.length) {
       showBulkBarFeedbackEarly(
-        hasPhoneNoKey
-          ? 'Save selected leads first — phone verify needs saved pipeline records.'
-          : 'Select saved leads with a phone number to verify cell vs landline.',
+        'Select leads with a phone number (10+ digits) to verify cell vs landline.',
         'error',
       );
       return;
     }
-    if (withKeyAndPhone.length > BULK_VERIFY_PHONES_MAX_EARLY) {
+
+    const verifyBtns = document.querySelectorAll('.js-bulk-verify-phones');
+    const btnSnap = Array.from(verifyBtns).map((b) => b.innerHTML);
+    const setBusy = (label) => {
+      const html =
+        '<span class="text-[10px] font-black uppercase tracking-widest animate-pulse">' +
+        label +
+        '</span>';
+      verifyBtns.forEach((b) => {
+        b.disabled = true;
+        b.classList.add('loading');
+        b.setAttribute('aria-busy', 'true');
+        b.innerHTML = html;
+      });
+    };
+    const restoreBtns = (delayMs) => {
+      window.setTimeout(() => {
+        verifyBtns.forEach((b, i) => {
+          b.classList.remove('loading');
+          b.disabled = false;
+          b.removeAttribute('aria-busy');
+          b.innerHTML = btnSnap[i] || b.innerHTML;
+        });
+      }, Math.max(0, delayMs == null ? 2800 : delayMs));
+    };
+
+    window.__bulkVerifyPhonesInFlight = true;
+    setBusy('Verifying…');
+
+    const batchCandidates = withPhone.slice(0, BULK_VERIFY_PHONES_MAX_EARLY);
+    if (withPhone.length > BULK_VERIFY_PHONES_MAX_EARLY) {
       showBulkBarFeedbackEarly(
-        `Phone verify limited to ${BULK_VERIFY_PHONES_MAX_EARLY} leads per batch.`,
+        'Verifying first ' +
+          BULK_VERIFY_PHONES_MAX_EARLY +
+          ' of ' +
+          withPhone.length +
+          ' selected phones…',
         'info',
       );
     }
 
-    const verifyBtns = document.querySelectorAll('.js-bulk-verify-phones');
-    const btnSnap = Array.from(verifyBtns).map((b) => b.innerHTML);
-    const loadingHtml =
-      '<span class="text-[10px] font-black uppercase tracking-widest animate-pulse">Verifying…</span>';
+    let saveFailed = 0;
+    const needsSave = batchCandidates.filter((r) => !String(r.dataset.leadKey || '').trim());
+    if (needsSave.length && typeof window.__ensureRowHasLeadKey === 'function') {
+      setBusy('Saving…');
+      showBulkBarFeedbackEarly(
+        'Saving ' +
+          needsSave.length +
+          ' lead' +
+          (needsSave.length === 1 ? '' : 's') +
+          ' so phones can be verified…',
+        'loading',
+      );
+      for (let i = 0; i < needsSave.length; i += 1) {
+        setBusy('Save ' + (i + 1) + '/' + needsSave.length);
+        try {
+          await window.__ensureRowHasLeadKey(needsSave[i]);
+        } catch (_) {
+          saveFailed += 1;
+        }
+      }
+    }
 
-    window.__bulkVerifyPhonesInFlight = true;
-    verifyBtns.forEach((b) => {
-      b.disabled = true;
-      b.classList.add('loading');
-      b.innerHTML = loadingHtml;
-    });
+    const rows = batchCandidates.filter(
+      (r) => String(r.dataset.leadKey || '').trim() && rowHasUsablePhoneEarly(r),
+    );
+    if (!rows.length) {
+      const folderEl = document.getElementById('bulkFolderSelect');
+      const hasFolder = !!(folderEl && String(folderEl.value || '').trim());
+      showBulkBarFeedbackEarly(
+        saveFailed > 0 || needsSave.length
+          ? hasFolder
+            ? 'Could not save selected leads for phone verify. Try Save, then Verify phones again.'
+            : 'Pick a folder in the bar, save selected leads, then try Verify phones again.'
+          : 'Select saved leads with a phone number to verify cell vs landline.',
+        'error',
+      );
+      window.__bulkVerifyPhonesInFlight = false;
+      restoreBtns(0);
+      return;
+    }
+
     const total = rows.length;
     showBulkBarFeedbackEarly(
-      `Verifying line type for ${total} phone${total === 1 ? '' : 's'}…`,
+      'Verifying line type for ' + total + ' phone' + (total === 1 ? '' : 's') + '…',
       'loading',
     );
 
@@ -3090,10 +3146,11 @@
         const key = String(row.dataset.leadKey || '').trim();
         if (!key) continue;
         attemptedCount += 1;
-        verifyBtns.forEach((b) => {
-          b.innerHTML = `<span class="text-[10px] font-black uppercase tracking-widest animate-pulse">Verify ${i + 1}/${total}</span>`;
-        });
-        showBulkBarFeedbackEarly(`Verifying cell vs landline ${i + 1}/${total}…`, 'loading');
+        setBusy('Verify ' + (i + 1) + '/' + total);
+        showBulkBarFeedbackEarly(
+          'Verifying cell vs landline ' + (i + 1) + '/' + total + '…',
+          'loading',
+        );
         try {
           const res = await fetch('/leads/' + encodeURIComponent(key) + '/verify-phone-line', {
             method: 'POST',
@@ -3128,9 +3185,10 @@
     }
 
     const summaryLabel =
-      successCount > 0 ? `Verified ${successCount}` : attemptedCount > 0 ? 'No results' : 'Done';
+      successCount > 0 ? 'Verified ' + successCount : attemptedCount > 0 ? 'No results' : 'Done';
     verifyBtns.forEach((b) => {
-      b.innerHTML = `<span class="text-[10px] font-black uppercase tracking-widest">${summaryLabel}</span>`;
+      b.innerHTML =
+        '<span class="text-[10px] font-black uppercase tracking-widest">' + summaryLabel + '</span>';
     });
 
     if (configBlocked) {
@@ -3141,7 +3199,11 @@
       );
     } else if (successCount > 0) {
       showBulkBarFeedbackEarly(
-        `Verified ${successCount} phone${successCount === 1 ? '' : 's'} (mobile / landline / VoIP).`,
+        'Verified ' +
+          successCount +
+          ' phone' +
+          (successCount === 1 ? '' : 's') +
+          ' (mobile / landline / VoIP).',
         'success',
       );
     } else if (attemptedCount > 0) {
@@ -3152,13 +3214,7 @@
       );
     }
 
-    setTimeout(() => {
-      verifyBtns.forEach((b, i) => {
-        b.classList.remove('loading');
-        b.disabled = false;
-        b.innerHTML = btnSnap[i] || b.innerHTML;
-      });
-    }, 2800);
+    restoreBtns(2800);
   }
   window.__runBulkVerifyPhonesFromBarEarly = runBulkVerifyPhonesFromBarEarly;
 

@@ -89,6 +89,8 @@ describe('pipeline row bookmark wiring', () => {
     assert.match(bulkJs, /__setPipelineLeadBookmark/);
     assert.match(bulkJs, /js-bulk-verify-phones/);
     assert.match(bulkJs, /function runBulkVerifyPhonesFromBarEarly/);
+    assert.match(bulkJs, /Verifying first /);
+    assert.match(bulkJs, /Verify ['"] \+ \(i \+ 1\) \+ ['"]\/['"] \+ total/);
     assert.ok(bar.includes('canManageWorkspace') && bookmarkIdx < bar.indexOf('canManageWorkspace', bookmarkIdx));
   });
 });

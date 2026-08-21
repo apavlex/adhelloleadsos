@@ -1014,6 +1014,25 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
     animation: shimmer 1.5s infinite linear;
 }
 
+.js-bulk-verify-phones.loading,
+.js-bulk-reviews.loading {
+    position: relative;
+    overflow: hidden;
+    opacity: 1;
+    pointer-events: none;
+    border-color: rgba(125, 211, 252, 0.55);
+}
+
+.js-bulk-verify-phones.loading::after,
+.js-bulk-reviews.loading::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(125, 211, 252, 0.18), transparent);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite linear;
+}
+
 #deepEnhanceBtn.loading,
 #pageSpeedAuditRunBtn.audit-active {
     position: relative;
