@@ -50,6 +50,7 @@ const { UPWORK_PROPOSAL_SERVICES } = require('../config/upworkProposalServices')
 const signalwire = require('../services/signalwire');
 const { parseDialRetryFromBody } = require('../services/dialRetryPrefs');
 const { runGhlWorkflowCoach } = require('../services/ghlWorkflowCoach');
+const acquisitionBlueprint = require('../services/acquisitionBlueprint');
 const { isOpenRouterConfigured, describeOpenRouterModelStack } = require('../services/llmClient');
 const inboundForwardStats = require('../services/inboundForwardStats');
 const {
@@ -433,6 +434,9 @@ router.get('/integrations/ghl-setup', async (req, res, next) => {
       ...locals,
       ghlStatus,
       scriptLibraryOfferPicklist,
+      acquisitionBlueprint: acquisitionBlueprint.normalizeBlueprintDoc(ws && ws.acquisitionBlueprint),
+      openRouterConfigured: isOpenRouterConfigured(resolvedEnv),
+      firecrawlConfigured: acquisitionBlueprint.hasFirecrawlKey(resolvedEnv),
       title: 'Connect Go High Level · Workspace',
       workspaceSection: 'ghl-setup',
       workspaceSectionTitle: 'Connect Go High Level',
@@ -1673,6 +1677,77 @@ router.post('/ghl/workflow-coach', express.json({ limit: '128kb' }), async (req,
       integrationEnv,
     });
     res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** POST JSON: scrape owner URL → LLM Acquisition Blueprint (workspace-scoped GTM). */
+router.post('/acquisition-blueprint', express.json({ limit: '64kb' }), async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Manage permission required.' });
+    }
+    const url = typeof req.body?.url === 'string' ? req.body.url.trim() : '';
+    const wid = req.workspaceId;
+    let ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
+    const result = await acquisitionBlueprint.generateAcquisitionBlueprint({
+      workspace: ws,
+      url,
+      integrationEnv,
+    });
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+    ws.acquisitionBlueprint = result.blueprint;
+    await dbService.saveWorkspace(wid, ws);
+    res.json({
+      success: true,
+      blueprint: result.blueprint,
+      openRouterConfigured: isOpenRouterConfigured(integrationEnv),
+      firecrawlConfigured: acquisitionBlueprint.hasFirecrawlKey(integrationEnv),
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** POST JSON: apply Acquisition Blueprint draft → offers / salesIntake / first folder GHL goal. */
+router.post('/acquisition-blueprint/apply', express.json({ limit: '32kb' }), async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Manage permission required.' });
+    }
+    const wid = req.workspaceId;
+    let ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    const existing = ws.acquisitionBlueprint;
+    if (!existing || !existing.draft) {
+      return res.status(400).json({
+        success: false,
+        error: 'Generate an Acquisition Blueprint first.',
+      });
+    }
+    acquisitionBlueprint.applyBlueprintToWorkspace(ws, existing);
+    await dbService.saveWorkspace(wid, ws);
+    let folderApplied = null;
+    try {
+      folderApplied = await acquisitionBlueprint.applyBlueprintToFirstFolder(
+        dbService,
+        wid,
+        ws.acquisitionBlueprint,
+      );
+    } catch (_) {
+      folderApplied = null;
+    }
+    const bundle = workspaceOfferBundle(ws);
+    res.json({
+      success: true,
+      blueprint: acquisitionBlueprint.normalizeBlueprintDoc(ws.acquisitionBlueprint),
+      salesIntake: ws.salesIntake || {},
+      catalog: bundle.catalog,
+      folderApplied,
+    });
   } catch (e) {
     next(e);
   }

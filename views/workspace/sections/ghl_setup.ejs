@@ -11,6 +11,8 @@
   <%- include('../../partials/ghl_connection_banner', { ghlStatus: _gs }) %>
 
   <% if (_canManage) { %>
+  <%- include('../../partials/acquisition_blueprint') %>
+
   <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 md:p-8" id="autoOutreachPoolCard">
     <header class="mb-5">
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Automation</p>

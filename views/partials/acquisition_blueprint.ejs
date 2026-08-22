@@ -1,0 +1,323 @@
+<%#
+  Acquisition Blueprint — owner GTM from business/app URL.
+  Locals: acquisitionBlueprint, openRouterConfigured, firecrawlConfigured
+%>
+<%
+  const _bp = (typeof acquisitionBlueprint !== 'undefined' && acquisitionBlueprint) ? acquisitionBlueprint : {};
+  const _draft = _bp.draft && typeof _bp.draft === 'object' ? _bp.draft : {};
+  const _hasDraft = !!( _draft.strategySummary || _draft.ghlGoal || _draft.offerName || _bp.generatedAt );
+  const _orOk = typeof openRouterConfigured === 'undefined' ? true : !!openRouterConfigured;
+  const _fcOk = typeof firecrawlConfigured === 'undefined' ? false : !!firecrawlConfigured;
+%>
+<div id="acquisition-blueprint" class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 md:p-8 scroll-mt-28">
+  <header class="mb-5">
+    <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">GTM</p>
+    <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white mb-1">Acquisition Blueprint</h2>
+    <p class="text-sm text-brand-muted leading-relaxed">Paste <strong class="text-brand-dark dark:text-white">your</strong> business or app URL. We learn features &amp; benefits, then draft a GTM strategy, offer pitch, GHL copy-paste workflow prompt, and a prompt library. Nothing is created in GHL automatically — prompts only.</p>
+  </header>
+
+  <% if (!_orOk) { %>
+  <div class="mb-4 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-brand-dark dark:text-amber-100" role="status">
+    OpenRouter is required. Add a key under <a href="/workspace/integrations" class="underline font-semibold">Workspace → Integrations</a> (free at openrouter.ai/keys), then return here.
+  </div>
+  <% } else if (!_fcOk) { %>
+  <p class="mb-4 text-xs text-brand-muted">Firecrawl is optional — without it we still scrape HTML. For richer feature extraction, add Firecrawl under <a href="/workspace/integrations" class="underline">Integrations</a>.</p>
+  <% } %>
+
+  <div class="flex flex-col sm:flex-row gap-3 mb-4">
+    <label class="block flex-1 min-w-0">
+      <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Your business / app URL</span>
+      <input type="url" id="acqBlueprintUrl" value="<%= _bp.sourceUrl || '' %>" placeholder="https://yoursite.com" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm" />
+    </label>
+    <div class="flex flex-wrap gap-2 sm:items-end">
+      <button type="button" id="acqBlueprintGenerateBtn" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-5 py-2.5 text-xs font-black uppercase tracking-widest hover:opacity-90">Generate</button>
+      <button type="button" id="acqBlueprintApplyBtn" class="rounded-xl border border-brand-border/70 dark:border-white/15 px-5 py-2.5 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50<%= _hasDraft ? '' : ' opacity-50' %>" <%= _hasDraft ? '' : 'disabled' %>>Apply to workspace</button>
+    </div>
+  </div>
+  <p id="acqBlueprintStatus" class="text-xs text-brand-muted hidden mb-3" role="status"></p>
+  <p id="acqBlueprintError" class="text-xs text-red-600 dark:text-red-400 hidden mb-3" role="alert"></p>
+
+  <div id="acqBlueprintResults" class="<%= _hasDraft ? '' : 'hidden' %> space-y-5">
+    <% if (_bp.generatedAt) { %>
+    <p class="text-[11px] text-brand-muted" id="acqBlueprintMeta">Generated <%= new Date(_bp.generatedAt).toLocaleString() %><% if (_bp.appliedAt) { %> · Applied <%= new Date(_bp.appliedAt).toLocaleString() %><% } %><% if (_bp.provider) { %> · <%= _bp.provider %><% } %></p>
+    <% } else { %>
+    <p class="text-[11px] text-brand-muted hidden" id="acqBlueprintMeta"></p>
+    <% } %>
+
+    <section>
+      <h3 class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Strategy</h3>
+      <p id="acqBlueprintStrategy" class="text-sm text-brand-dark dark:text-slate-100 leading-relaxed whitespace-pre-wrap"><%= _draft.strategySummary || '' %></p>
+      <dl class="mt-3 grid gap-2 sm:grid-cols-2 text-xs text-brand-muted">
+        <div><span class="font-bold text-brand-dark dark:text-white">Business</span> · <span id="acqBlueprintBiz"><%= _draft.businessName || '—' %></span></div>
+        <div><span class="font-bold text-brand-dark dark:text-white">Vertical</span> · <span id="acqBlueprintVertical"><%= _draft.vertical || '—' %></span></div>
+        <div class="sm:col-span-2"><span class="font-bold text-brand-dark dark:text-white">GHL goal</span> · <span id="acqBlueprintGoal"><%= _draft.ghlGoal || _draft.primaryGoal || '—' %></span></div>
+      </dl>
+      <ul id="acqBlueprintValueProps" class="mt-2 list-disc list-inside text-xs text-brand-muted space-y-0.5">
+        <% (_draft.valueProps || []).forEach(function (v) { %>
+        <li><%= v %></li>
+        <% }); %>
+      </ul>
+    </section>
+
+    <section>
+      <h3 class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Offers</h3>
+      <div id="acqBlueprintOffers" class="space-y-3">
+        <% const _offers = Array.isArray(_draft.offers) && _draft.offers.length ? _draft.offers : (_draft.offerName ? [{ name: _draft.offerName, pitch: _draft.openingScript || '' }] : []); %>
+        <% _offers.forEach(function (o) { %>
+        <div class="rounded-xl border border-brand-border/40 dark:border-white/10 px-3 py-2">
+          <p class="text-sm font-bold text-brand-dark dark:text-white"><%= o.name || 'Offer' %></p>
+          <p class="text-xs text-brand-muted mt-1 whitespace-pre-wrap"><%= o.pitch || '' %></p>
+        </div>
+        <% }); %>
+      </div>
+    </section>
+
+    <section>
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+        <h3 class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">GHL setup prompt</h3>
+        <button type="button" id="acqBlueprintCopyPromptBtn" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:opacity-90">Copy prompt</button>
+      </div>
+      <textarea id="acqBlueprintGhlPrompt" readonly rows="12" class="w-full rounded-xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-3 text-[11px] md:text-xs font-mono leading-relaxed text-brand-dark dark:text-slate-100 resize-y min-h-[10rem] custom-scrollbar" aria-label="GHL workflow setup prompt"><%= _draft.ghlWorkflowPrompt || '' %></textarea>
+      <p id="acqBlueprintCopyStatus" class="mt-2 text-[11px] text-emerald-700 dark:text-emerald-300 hidden" role="status"></p>
+    </section>
+
+    <section>
+      <h3 class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Prompt library</h3>
+      <div id="acqBlueprintLibrary" class="space-y-3">
+        <% (_draft.promptLibrary || []).forEach(function (row, idx) { %>
+        <div class="rounded-xl border border-brand-border/40 dark:border-white/10 px-3 py-2" data-lib-idx="<%= idx %>">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+            <p class="text-sm font-bold text-brand-dark dark:text-white"><%= row.title %></p>
+            <button type="button" class="acq-lib-copy text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white underline" data-copy="<%= idx %>">Copy</button>
+          </div>
+          <pre class="text-[11px] text-brand-muted whitespace-pre-wrap font-mono leading-relaxed m-0"><%= row.prompt %></pre>
+        </div>
+        <% }); %>
+      </div>
+    </section>
+  </div>
+</div>
+<script>
+(function () {
+  var urlEl = document.getElementById('acqBlueprintUrl');
+  var genBtn = document.getElementById('acqBlueprintGenerateBtn');
+  var applyBtn = document.getElementById('acqBlueprintApplyBtn');
+  var statusEl = document.getElementById('acqBlueprintStatus');
+  var errEl = document.getElementById('acqBlueprintError');
+  var results = document.getElementById('acqBlueprintResults');
+  var strategyEl = document.getElementById('acqBlueprintStrategy');
+  var bizEl = document.getElementById('acqBlueprintBiz');
+  var vertEl = document.getElementById('acqBlueprintVertical');
+  var goalEl = document.getElementById('acqBlueprintGoal');
+  var propsEl = document.getElementById('acqBlueprintValueProps');
+  var offersEl = document.getElementById('acqBlueprintOffers');
+  var promptEl = document.getElementById('acqBlueprintGhlPrompt');
+  var libEl = document.getElementById('acqBlueprintLibrary');
+  var metaEl = document.getElementById('acqBlueprintMeta');
+  var copyBtn = document.getElementById('acqBlueprintCopyPromptBtn');
+  var copyStatus = document.getElementById('acqBlueprintCopyStatus');
+  var libraryCache = [];
+
+  if (!genBtn || !urlEl) return;
+
+  function showErr(msg) {
+    if (!errEl) return;
+    errEl.textContent = msg || 'Request failed';
+    errEl.classList.remove('hidden');
+  }
+  function clearErr() {
+    if (errEl) errEl.classList.add('hidden');
+  }
+  function showStatus(msg) {
+    if (!statusEl) return;
+    if (!msg) {
+      statusEl.classList.add('hidden');
+      statusEl.textContent = '';
+      return;
+    }
+    statusEl.textContent = msg;
+    statusEl.classList.remove('hidden');
+  }
+
+  function renderOffers(offers, fallbackName, fallbackPitch) {
+    if (!offersEl) return;
+    offersEl.innerHTML = '';
+    var list = Array.isArray(offers) && offers.length
+      ? offers
+      : (fallbackName ? [{ name: fallbackName, pitch: fallbackPitch || '' }] : []);
+    list.forEach(function (o) {
+      var div = document.createElement('div');
+      div.className = 'rounded-xl border border-brand-border/40 dark:border-white/10 px-3 py-2';
+      var t = document.createElement('p');
+      t.className = 'text-sm font-bold text-brand-dark dark:text-white';
+      t.textContent = o.name || 'Offer';
+      var p = document.createElement('p');
+      p.className = 'text-xs text-brand-muted mt-1 whitespace-pre-wrap';
+      p.textContent = o.pitch || '';
+      div.appendChild(t);
+      div.appendChild(p);
+      offersEl.appendChild(div);
+    });
+  }
+
+  function renderLibrary(rows) {
+    libraryCache = Array.isArray(rows) ? rows : [];
+    if (!libEl) return;
+    libEl.innerHTML = '';
+    libraryCache.forEach(function (row, idx) {
+      var div = document.createElement('div');
+      div.className = 'rounded-xl border border-brand-border/40 dark:border-white/10 px-3 py-2';
+      var head = document.createElement('div');
+      head.className = 'flex flex-wrap items-center justify-between gap-2 mb-1';
+      var title = document.createElement('p');
+      title.className = 'text-sm font-bold text-brand-dark dark:text-white';
+      title.textContent = row.title || 'Prompt';
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'acq-lib-copy text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white underline';
+      btn.textContent = 'Copy';
+      btn.addEventListener('click', function () {
+        var text = libraryCache[idx] && libraryCache[idx].prompt ? libraryCache[idx].prompt : '';
+        if (!text) return;
+        navigator.clipboard.writeText(text).then(function () {
+          btn.textContent = 'Copied';
+          setTimeout(function () { btn.textContent = 'Copy'; }, 1500);
+        }).catch(function () {});
+      });
+      head.appendChild(title);
+      head.appendChild(btn);
+      var pre = document.createElement('pre');
+      pre.className = 'text-[11px] text-brand-muted whitespace-pre-wrap font-mono leading-relaxed m-0';
+      pre.textContent = row.prompt || '';
+      div.appendChild(head);
+      div.appendChild(pre);
+      libEl.appendChild(div);
+    });
+  }
+
+  function renderBlueprint(bp) {
+    if (!bp || !bp.draft) return;
+    var d = bp.draft;
+    if (results) results.classList.remove('hidden');
+    if (strategyEl) strategyEl.textContent = d.strategySummary || '';
+    if (bizEl) bizEl.textContent = d.businessName || '—';
+    if (vertEl) vertEl.textContent = d.vertical || '—';
+    if (goalEl) goalEl.textContent = d.ghlGoal || d.primaryGoal || '—';
+    if (propsEl) {
+      propsEl.innerHTML = '';
+      (d.valueProps || []).forEach(function (v) {
+        var li = document.createElement('li');
+        li.textContent = v;
+        propsEl.appendChild(li);
+      });
+    }
+    renderOffers(d.offers, d.offerName, d.openingScript);
+    if (promptEl) promptEl.value = d.ghlWorkflowPrompt || '';
+    renderLibrary(d.promptLibrary || []);
+    if (metaEl) {
+      var bits = [];
+      if (bp.generatedAt) bits.push('Generated ' + new Date(bp.generatedAt).toLocaleString());
+      if (bp.appliedAt) bits.push('Applied ' + new Date(bp.appliedAt).toLocaleString());
+      if (bp.provider) bits.push(bp.provider);
+      metaEl.textContent = bits.join(' · ');
+      metaEl.classList.remove('hidden');
+    }
+    if (applyBtn) {
+      applyBtn.disabled = false;
+      applyBtn.classList.remove('opacity-50');
+    }
+    if (urlEl && bp.sourceUrl) urlEl.value = bp.sourceUrl;
+  }
+
+  async function generate() {
+    clearErr();
+    showStatus('Scraping site and drafting blueprint…');
+    genBtn.disabled = true;
+    genBtn.textContent = '…';
+    try {
+      var res = await fetch('/workspace/acquisition-blueprint', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ url: urlEl.value }),
+      });
+      var data = await res.json();
+      if (!data || !data.success) {
+        var msg = (data && data.error) || 'Generate failed';
+        if (data && data.integrationsHint) msg += ' — ' + data.integrationsHint;
+        showErr(msg);
+        showStatus('');
+        return;
+      }
+      renderBlueprint(data.blueprint);
+      showStatus('Blueprint saved on this workspace. Review, then Apply.');
+    } catch (e) {
+      showErr('Network error');
+      showStatus('');
+    } finally {
+      genBtn.disabled = false;
+      genBtn.textContent = 'Generate';
+    }
+  }
+
+  async function apply() {
+    clearErr();
+    showStatus('Applying to offers and GHL goal…');
+    applyBtn.disabled = true;
+    try {
+      var res = await fetch('/workspace/acquisition-blueprint/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({}),
+      });
+      var data = await res.json();
+      if (!data || !data.success) {
+        showErr((data && data.error) || 'Apply failed');
+        showStatus('');
+        return;
+      }
+      renderBlueprint(data.blueprint);
+      var extra = '';
+      if (data.folderApplied && data.folderApplied.folderName) {
+        extra = ' Seeded GHL goal on folder “' + data.folderApplied.folderName + '”.';
+      }
+      showStatus('Applied to primary offer / sales intake.' + extra);
+    } catch (e) {
+      showErr('Network error');
+      showStatus('');
+    } finally {
+      applyBtn.disabled = false;
+    }
+  }
+
+  genBtn.addEventListener('click', generate);
+  if (applyBtn) applyBtn.addEventListener('click', apply);
+  if (copyBtn && promptEl) {
+    copyBtn.addEventListener('click', function () {
+      var text = promptEl.value || '';
+      if (!text) return;
+      navigator.clipboard.writeText(text).then(function () {
+        if (copyStatus) {
+          copyStatus.textContent = 'Copied to clipboard';
+          copyStatus.classList.remove('hidden');
+          setTimeout(function () { copyStatus.classList.add('hidden'); }, 2000);
+        }
+      }).catch(function () {});
+    });
+  }
+
+  document.querySelectorAll('.acq-lib-copy[data-copy]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var wrap = btn.closest('[data-lib-idx]');
+      var pre = wrap && wrap.querySelector('pre');
+      var text = pre ? pre.textContent : '';
+      if (!text) return;
+      navigator.clipboard.writeText(text).then(function () {
+        btn.textContent = 'Copied';
+        setTimeout(function () { btn.textContent = 'Copy'; }, 1500);
+      }).catch(function () {});
+    });
+  });
+})();
+</script>

@@ -248,6 +248,8 @@ function buildWorkspaceContext(workspace) {
   const { catalog, library } = workspaceSalesScripts.buildWorkspaceOfferLibrary(ws, SCRIPT_LIBRARY);
   const brandName = String((ws.brandKit && ws.brandKit.businessName) || '').trim();
   const autoPool = ws.prospecting && ws.prospecting.autoPool ? ws.prospecting.autoPool : {};
+  const bp = ws.acquisitionBlueprint && typeof ws.acquisitionBlueprint === 'object' ? ws.acquisitionBlueprint : null;
+  const bpDraft = bp && bp.draft && typeof bp.draft === 'object' ? bp.draft : null;
 
   const offers = catalog.map((entry) => {
     const block = library[entry.key] || {};
@@ -265,6 +267,17 @@ function buildWorkspaceContext(workspace) {
     brandName,
     autoPoolSenderOfferKey: String(autoPool.senderOfferKey || '').trim(),
     offers,
+    acquisitionBlueprint: bpDraft
+      ? {
+          sourceUrl: String(bp.sourceUrl || '').trim(),
+          appliedAt: String(bp.appliedAt || '').trim(),
+          businessName: String(bpDraft.businessName || '').trim(),
+          vertical: String(bpDraft.vertical || '').trim(),
+          ghlGoal: String(bpDraft.ghlGoal || bpDraft.primaryGoal || '').trim(),
+          strategySummary: String(bpDraft.strategySummary || '').trim().slice(0, 600),
+          offerName: String(bpDraft.offerName || '').trim(),
+        }
+      : null,
   };
 }
 
@@ -317,6 +330,19 @@ ${focusLine}
 
 Configured business profiles (Offers):
 ${formatOffersForPrompt(ctx)}
+${
+  ctx.acquisitionBlueprint
+    ? `
+Acquisition Blueprint (owner GTM — align workflows to this, not generic agency audit pitches):
+• URL: ${ctx.acquisitionBlueprint.sourceUrl || '(n/a)'}
+• Business: ${ctx.acquisitionBlueprint.businessName || '(n/a)'}
+• Vertical: ${ctx.acquisitionBlueprint.vertical || '(n/a)'}
+• GHL goal: ${ctx.acquisitionBlueprint.ghlGoal || '(n/a)'}
+• Offer: ${ctx.acquisitionBlueprint.offerName || '(n/a)'}
+• Strategy: ${ctx.acquisitionBlueprint.strategySummary || '(n/a)'}
+`
+    : ''
+}
 
 Your job:
 1. Brainstorm sequence design: timing, email/SMS/RVM steps, IF branches (SMS OK, vertical), tone, CTAs.
