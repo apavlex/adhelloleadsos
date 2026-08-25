@@ -109,6 +109,128 @@
   var spDockRight = document.getElementById('softphoneDockRight');
   var spDragHandle = document.getElementById('softphoneDragHandle');
   var SOFTPHONE_POS_KEY = 'adhelloSoftphonePos';
+  var SOFTPHONE_FOCUS_EXPANDED_KEY = 'adhelloSoftphoneFocusExpanded';
+  function isFocusModePage() {
+    try {
+      var p = String(window.location.pathname || '');
+      return p === '/focus' || p.indexOf('/focus/') === 0;
+    } catch (_) {
+      return false;
+    }
+  }
+  function isSoftphoneCompactEligible() {
+    return isFocusModePage() && !isSoftphoneMobileViewport();
+  }
+  function readSoftphoneFocusExpanded() {
+    try {
+      return sessionStorage.getItem(SOFTPHONE_FOCUS_EXPANDED_KEY) === '1';
+    } catch (_) {
+      return false;
+    }
+  }
+  function writeSoftphoneFocusExpanded(on) {
+    try {
+      if (on) sessionStorage.setItem(SOFTPHONE_FOCUS_EXPANDED_KEY, '1');
+      else sessionStorage.removeItem(SOFTPHONE_FOCUS_EXPANDED_KEY);
+    } catch (_) {}
+  }
+  function applySoftphoneCompactLayout() {
+    if (!spPanel || !softphoneSession.compact) return;
+    clearSoftphonePanelLayout();
+    spPanel.style.setProperty('left', 'auto', 'important');
+    spPanel.style.setProperty('right', '0.75rem', 'important');
+    spPanel.style.setProperty('top', 'auto', 'important');
+    spPanel.style.setProperty('bottom', '1rem', 'important');
+    spPanel.style.setProperty('width', 'min(calc(100vw - 1.5rem), 22rem)', 'important');
+    spPanel.style.setProperty('height', 'auto', 'important');
+    spPanel.style.setProperty('max-height', 'none', 'important');
+  }
+  function syncSoftphoneCompactBarUi() {
+    var spCompactBar = document.getElementById('softphoneCompactBar');
+    var spCompactName = document.getElementById('softphoneCompactName');
+    var spCompactStatus = document.getElementById('softphoneCompactStatus');
+    var spCompactTimer = document.getElementById('softphoneCompactTimer');
+    var spCompactHangup = document.getElementById('softphoneCompactHangup');
+    if (!spCompactBar) return;
+    var title = String(softphoneSession.leadTitle || '').trim();
+    if (!title && softphoneSession.leadKey) {
+      title = resolveSoftphoneLeadTitle(softphoneSession.leadKey, spTo ? spTo.value : '');
+    }
+    if (!title && spTo) {
+      title = resolveSoftphoneLeadTitle('', spTo.value);
+    }
+    if (spCompactName) {
+      spCompactName.textContent = title || 'Dialer';
+      spCompactName.title = title || '';
+    }
+    var state = String(softphoneSession.state || 'idle').toLowerCase();
+    var statusLabel = state;
+    if (state === 'dialing') statusLabel = softphoneSession.stateVerbose || 'dialing';
+    else if (state === 'in_call') statusLabel = softphoneSession.hold ? 'on hold' : 'connected';
+    else if (state === 'ready') statusLabel = 'ready';
+    if (spCompactStatus) {
+      spCompactStatus.textContent = statusLabel;
+      spCompactStatus.setAttribute('data-state', state);
+    }
+    if (spCompactTimer) {
+      spCompactTimer.textContent = spTimer ? spTimer.textContent : '00:00';
+    }
+    if (spCompactHangup) {
+      var showHangup = state === 'dialing' || state === 'in_call' || state === 'ended';
+      spCompactHangup.classList.toggle('hidden', !showHangup);
+      spCompactHangup.disabled = state === 'ended' && !softphoneSession.wrapRequired;
+    }
+  }
+  function updateSoftphoneMinimizeBtnUi() {
+    var spMinimize = document.getElementById('softphoneMinimizeBtn');
+    if (!spMinimize) return;
+    var onFocus = isSoftphoneCompactEligible();
+    var modalOpen = spModal && !spModal.classList.contains('hidden');
+    var show = onFocus && modalOpen && !softphoneSession.compact;
+    spMinimize.classList.toggle('hidden', !show);
+    spMinimize.setAttribute('aria-pressed', softphoneSession.compact ? 'true' : 'false');
+    spMinimize.setAttribute('title', softphoneSession.compact ? 'Minimized' : 'Minimize to compact bar');
+  }
+  function setSoftphoneCompact(on, opts) {
+    opts = opts && typeof opts === 'object' ? opts : {};
+    if (!spPanel) return;
+    var next = !!on;
+    if (next && !isSoftphoneCompactEligible()) return;
+    if (next === softphoneSession.compact) {
+      syncSoftphoneCompactBarUi();
+      updateSoftphoneMinimizeBtnUi();
+      return;
+    }
+    softphoneSession.compact = next;
+    spPanel.classList.toggle('softphone-panel--compact', next);
+    if (next) {
+      if (spPanel.classList.contains('softphone-panel--expanded')) {
+        spPanel.classList.remove('softphone-panel--expanded');
+        var spExpandBtn = document.getElementById('softphoneExpandBtn');
+        if (spExpandBtn) {
+          spExpandBtn.setAttribute('aria-pressed', 'false');
+          spExpandBtn.classList.remove('softphone-chrome-btn--active');
+        }
+      }
+      applySoftphoneCompactLayout();
+      if (opts.userExpanded === false) writeSoftphoneFocusExpanded(false);
+    } else {
+      if (opts.userExpanded) writeSoftphoneFocusExpanded(true);
+      applySoftphoneOpenPosition();
+    }
+    syncSoftphoneCompactBarUi();
+    updateSoftphoneMinimizeBtnUi();
+  }
+  function maybeAutoCompactSoftphone() {
+    if (!isSoftphoneCompactEligible()) {
+      if (softphoneSession.compact) setSoftphoneCompact(false);
+      return;
+    }
+    if (readSoftphoneFocusExpanded()) return;
+    if (!spModal || spModal.classList.contains('hidden')) return;
+    setSoftphoneCompact(true);
+  }
+  window.__adhelloSetSoftphoneCompact = setSoftphoneCompact;
   var spStatus = document.getElementById('softphoneStatus');
   var spStatusPill = document.getElementById('softphoneStatusPill');
   var spTimer = document.getElementById('softphoneTimer');
@@ -220,6 +342,7 @@
     remoteAudioWatchdog: null,
     focusDialQueue: [],
     focusDialIndex: 0,
+    compact: false,
   };
   var RELAY_SDK_SRC = 'https://unpkg.com/@signalwire/js@1.5.0/dist/index.min.js';
   function loadRelayScript() {
@@ -1608,6 +1731,7 @@
       spCalleeName.textContent = '';
       spCalleeName.classList.add('hidden');
     }
+    syncSoftphoneCompactBarUi();
   }
 
   function setSoftphoneLeadContext(leadKey, title, phone) {
@@ -2375,6 +2499,7 @@
   function softphoneSetTimerSeconds(sec) {
     if (!spTimer) return;
     spTimer.textContent = formatTimer(sec);
+    syncSoftphoneCompactBarUi();
     syncNavBarCallIndicator();
   }
   function syncNavBarCallIndicator() {
@@ -2459,6 +2584,7 @@
       spStatusPill.className = 'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-widest ' + cls;
       spStatusPill.textContent = label;
     }
+    syncSoftphoneCompactBarUi();
     syncNavBarCallIndicator();
   }
   function updateAudioPulse() {
@@ -2687,6 +2813,7 @@
     if (state === 'ended') scrollSoftphoneToWrapPanel();
     updateSoftphoneLeadNavUi();
     updateSoftphoneRedialUi();
+    maybeAutoCompactSoftphone();
   }
   function softphoneStopPolling() {
     if (softphoneSession.pollTimer) {
@@ -2913,6 +3040,10 @@
   function applySoftphoneOpenPosition() {
     syncSoftphoneStacking();
     if (!spPanel) return;
+    if (softphoneSession.compact) {
+      applySoftphoneCompactLayout();
+      return;
+    }
     if (isSoftphoneMobileViewport()) {
       applyMobileSoftphoneLayout();
       return;
@@ -3036,6 +3167,8 @@
         updateSoftphoneOutboundMeta();
       })
       .catch(function () {});
+    maybeAutoCompactSoftphone();
+    updateSoftphoneMinimizeBtnUi();
   }
   function setSoftphoneDialNumber(num) {
     spTo = document.getElementById('softphoneToNumber');
@@ -3083,6 +3216,7 @@
     if (typeof window.__adhelloRefreshSoftphonePosition === 'function') {
       window.__adhelloRefreshSoftphonePosition();
     }
+    maybeAutoCompactSoftphone();
     setTimeout(function () {
       syncSoftphoneStacking();
       spTo = document.getElementById('softphoneToNumber');
@@ -3197,6 +3331,7 @@
   function closeSoftphone() {
     if (!spModal) return;
     setSoftphoneMobileBackdrop(false);
+    setSoftphoneCompact(false);
     spModal.classList.add('hidden');
     spModal.setAttribute('aria-hidden', 'true');
     syncSoftphoneStacking();
@@ -3553,6 +3688,9 @@
   var spBackspace = document.getElementById('softphoneBackspaceBtn');
   var spPin = document.getElementById('softphonePinBtn');
   var spExpand = document.getElementById('softphoneExpandBtn');
+  var spMinimize = document.getElementById('softphoneMinimizeBtn');
+  var spCompactExpand = document.getElementById('softphoneCompactExpand');
+  var spCompactHangup = document.getElementById('softphoneCompactHangup');
   var spOpenAddLead = document.getElementById('softphoneOpenAddLead');
   var spQueueList = document.getElementById('softphoneQueueList');
   var spQueueMeta = document.getElementById('softphoneQueueMeta');
@@ -4142,9 +4280,34 @@
     });
   }
 
+  if (spMinimize) {
+    spMinimize.addEventListener('click', function (e) {
+      e.stopPropagation();
+      setSoftphoneCompact(true, { userExpanded: false });
+    });
+  }
+
+  if (spCompactExpand) {
+    spCompactExpand.addEventListener('click', function (e) {
+      e.stopPropagation();
+      setSoftphoneCompact(false, { userExpanded: true });
+    });
+  }
+
+  if (spCompactHangup) {
+    spCompactHangup.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (spHangup) spHangup.click();
+    });
+  }
+
   if (spExpand && spPanel) {
     spExpand.addEventListener('click', function (e) {
       e.stopPropagation();
+      if (softphoneSession.compact) {
+        setSoftphoneCompact(false, { userExpanded: true });
+        return;
+      }
       var expanded = spPanel.classList.toggle('softphone-panel--expanded');
       spExpand.setAttribute('aria-pressed', expanded ? 'true' : 'false');
       spExpand.classList.toggle('softphone-chrome-btn--active', expanded);

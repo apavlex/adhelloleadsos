@@ -4136,6 +4136,145 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
   max-height: min(820px, calc(100vh - 2rem)) !important;
 }
 
+/* Focus mode — compact/minimized dialer bar (bottom-right strip) */
+.softphone-panel.softphone-panel--compact {
+  width: min(calc(100vw - 1.5rem), 22rem) !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  top: auto !important;
+  bottom: 1rem !important;
+  left: auto !important;
+  right: 0.75rem !important;
+  border-radius: 1rem !important;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.16) !important;
+}
+
+.softphone-panel.softphone-panel--compact .softphone-chrome,
+.softphone-panel.softphone-panel--compact .softphone-body,
+.softphone-panel.softphone-panel--compact .softphone-bottom-nav {
+  display: none !important;
+}
+
+.softphone-panel.softphone-panel--compact .softphone-compact-bar {
+  display: flex;
+}
+
+.softphone-compact-bar {
+  display: none;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  background: rgba(255, 255, 255, 0.96);
+  border-bottom: 0;
+}
+
+.dark .softphone-compact-bar {
+  background: rgba(15, 23, 42, 0.96);
+}
+
+.softphone-compact-bar__name {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #0f172a;
+}
+
+.dark .softphone-compact-bar__name {
+  color: #f8fafc;
+}
+
+.softphone-compact-bar__status {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.4rem;
+  border-radius: 9999px;
+  background: rgba(226, 232, 240, 0.9);
+  color: #475569;
+  font-size: 0.5625rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dark .softphone-compact-bar__status {
+  background: rgba(51, 65, 85, 0.85);
+  color: #e2e8f0;
+}
+
+.softphone-compact-bar__status[data-state='dialing'] {
+  background: rgba(251, 191, 36, 0.18);
+  color: #b45309;
+}
+
+.softphone-compact-bar__status[data-state='in_call'] {
+  background: rgba(52, 211, 153, 0.18);
+  color: #047857;
+}
+
+.softphone-compact-bar__status[data-state='ended'] {
+  background: rgba(244, 63, 94, 0.14);
+  color: #be123c;
+}
+
+.softphone-compact-bar__timer {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.dark .softphone-compact-bar__timer {
+  color: #94a3b8;
+}
+
+.softphone-compact-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: #fff;
+  color: #334155;
+  font-size: 0.625rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.dark .softphone-compact-btn {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #e2e8f0;
+}
+
+.softphone-compact-btn:hover {
+  background: #f8fafc;
+}
+
+.dark .softphone-compact-btn:hover {
+  background: rgba(51, 65, 85, 0.95);
+}
+
+.softphone-compact-btn--danger {
+  border-color: rgba(244, 63, 94, 0.45);
+  background: rgba(244, 63, 94, 0.12);
+  color: #be123c;
+}
+
+.dark .softphone-compact-btn--danger {
+  border-color: rgba(244, 63, 94, 0.35);
+  background: rgba(127, 29, 29, 0.35);
+  color: #fecdd3;
+}
+
+.softphone-compact-btn--danger:hover {
+  background: rgba(244, 63, 94, 0.2);
+}
+
 .softphone-chrome-btn {
   display: inline-flex;
   align-items: center;
