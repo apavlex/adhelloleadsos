@@ -553,7 +553,10 @@
           <section id="leadSmsThreadSection" class="hidden rounded-2xl bg-white/60 dark:bg-slate-900/40 border border-brand-border/15 dark:border-white/10 p-4 space-y-3" aria-label="SMS conversation">
             <div class="flex flex-wrap items-center justify-between gap-2">
               <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">SMS</p>
-              <button type="button" id="leadSmsThreadSyncBtn" class="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border border-brand-border/40 text-brand-muted hover:text-brand-dark dark:hover:text-white hover:border-brand-yellow/50 transition-colors">Sync</button>
+              <div class="flex flex-wrap items-center gap-2">
+                <button type="button" id="leadSmsMarkReplyBtn" class="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border border-emerald-500/40 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-500/10 transition-colors" title="Note that this lead replied by SMS — updates engagement and Focus">Mark reply</button>
+                <button type="button" id="leadSmsThreadSyncBtn" class="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border border-brand-border/40 text-brand-muted hover:text-brand-dark dark:hover:text-white hover:border-brand-yellow/50 transition-colors">Sync</button>
+              </div>
             </div>
             <div id="leadSmsThreadList" class="space-y-2 max-h-[16rem] overflow-y-auto pr-1 custom-scrollbar min-h-[3rem]">
               <p class="text-[11px] text-brand-muted italic m-0">No messages yet.</p>

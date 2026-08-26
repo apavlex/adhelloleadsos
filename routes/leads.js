@@ -1283,6 +1283,51 @@ router.post('/:key/notes/delete', express.json(), async (req, res, next) => {
   }
 });
 
+// POST /leads/:key/mark-sms-reply — manually note an SMS reply + engagement signal
+router.post('/:key/mark-sms-reply', express.json(), async (req, res, next) => {
+  try {
+    const fullKey = leadKeyFromParam(req.params.key);
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
+    if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
+    const body = String((req.body && (req.body.body || req.body.note)) || '').trim();
+    const { handleInboundReply } = require('../services/inboundReplyRules');
+    const result = await handleInboundReply({
+      lead,
+      workspaceId: req.workspaceId,
+      channel: 'sms',
+      body: body || 'Lead replied by SMS (manual).',
+      messageId: String((req.body && req.body.messageId) || `manual-sms-reply-${Date.now()}`),
+      provider: 'manual',
+      timestamp: new Date().toISOString(),
+    });
+    if (!result.applied && result.reason === 'duplicate') {
+      return res.json({ success: true, duplicate: true, lead });
+    }
+    if (!result.applied) {
+      return res.status(400).json({
+        success: false,
+        error: result.reason || 'Could not mark SMS reply',
+      });
+    }
+    const { triggerGhlProspectSync } = require('../services/ghlProspectSync');
+    triggerGhlProspectSync(fullKey, req.workspaceId, {
+      trigger: 'sms_reply_manual',
+      note: body || 'SMS reply noted',
+    });
+    return res.json({
+      success: true,
+      lead: result.lead,
+      pausedSequence: !!result.pausedSequence,
+      taskId: result.taskId || null,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /leads/:key/notes — add a note to a lead
 router.post('/:key/notes', express.json(), async (req, res, next) => {
   try {
@@ -2390,6 +2435,8 @@ router.post('/:key/sms-thread/sync', async (req, res, next) => {
     let updatedLead = lead;
     if (syncResult.patch && syncResult.added > 0) {
       updatedLead = await dbService.updateLead(fullKey, syncResult.patch);
+    } else if (syncResult.lead) {
+      updatedLead = syncResult.lead;
     }
 
     return res.json({
@@ -2397,6 +2444,7 @@ router.post('/:key/sms-thread/sync', async (req, res, next) => {
       added: syncResult.added || 0,
       messages: syncResult.messages || [],
       lead: updatedLead,
+      replyApplied: !!syncResult.replyApplied,
     });
   } catch (err) {
     next(err);

@@ -57,7 +57,7 @@ function dispositionToActionTag(code) {
   const c = String(code || '').trim().toLowerCase();
   if (!c) return null;
   if (c === 'callback') return AO_ACTION_TAGS.CALL_BACK;
-  if (c === 'connected') return AO_ACTION_TAGS.FOLLOW_UP;
+  if (c === 'connected' || c === 'sms_replied') return AO_ACTION_TAGS.FOLLOW_UP;
   if (c === 'voicemail') return AO_ACTION_TAGS.VOICEMAIL;
   if (c === 'no_answer') return AO_ACTION_TAGS.NO_ANSWER;
   if (c === 'gatekeeper') return AO_ACTION_TAGS.GATEKEEPER;

@@ -541,7 +541,7 @@
         <%- include('../../partials/integration_test_row', { provider: 'ghl' }) %>
         <div class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 px-4 py-3 space-y-2">
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Inbound webhook (GHL → Agency OS)</p>
-          <p class="text-xs text-brand-muted leading-relaxed">In GHL, subscribe to <strong>ContactCreate</strong> and <strong>ContactUpdate</strong> and point the webhook URL below at this workspace. Contacts sync in real time when the location ID matches.</p>
+          <p class="text-xs text-brand-muted leading-relaxed">In GHL, subscribe to <strong>InboundMessage</strong>, <strong>OutboundMessage</strong>, <strong>ContactCreate</strong>, and <strong>ContactUpdate</strong> (plus <strong>EmailOpened</strong> / <strong>LinkClicked</strong> if available) and point the webhook URL below at this workspace. SMS/email replies sync into the Engagement inbox and lead activity when the location ID matches.</p>
           <% const _ghlHookBase = (typeof publicAppBaseUrl !== 'undefined' && publicAppBaseUrl) ? publicAppBaseUrl : ''; %>
           <% const _ghlHasSavedToken = !!masks.ghlWebhookSecret; %>
           <% const _ghlHasServerToken = (typeof ghlWebhookTokenHint !== 'undefined' && ghlWebhookTokenHint); %>

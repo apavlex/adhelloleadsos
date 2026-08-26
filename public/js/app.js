@@ -267,27 +267,224 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  window.__openBulkSmsModal = async function openBulkSmsModalBridge(phoneKeys) {
-    if (typeof window.__openBulkSmsModalImpl === 'function') {
-      return window.__openBulkSmsModalImpl(phoneKeys);
-    }
-    const modal = document.getElementById('smsScriptModal');
-    if (!modal) {
-      return { ok: false, error: 'no_modal', message: 'SMS composer failed to load. Refresh the page.' };
-    }
-    for (let i = 0; i < 240; i += 1) {
-      if (typeof window.__openBulkSmsModalImpl === 'function') {
-        return window.__openBulkSmsModalImpl(phoneKeys);
+  // Early SMS/email composer — ready before the rest of ~13k lines of init so the bulk bar never waits.
+  (function bootstrapBulkSmsComposerEarly() {
+    function mountSmsModalToBodyEarly() {
+      const modal = document.getElementById('smsScriptModal');
+      if (modal && modal.parentElement !== document.body) {
+        document.body.appendChild(modal);
       }
-      // eslint-disable-next-line no-await-in-loop
-      await new Promise((resolve) => window.setTimeout(resolve, 50));
     }
-    return {
-      ok: false,
-      error: 'not_ready',
-      message: 'SMS composer is still loading. Wait a moment and try again.',
+
+    function collectCheckedLeadKeys(needPhone) {
+      const keys = [];
+      const seen = new Set();
+      document
+        .querySelectorAll(
+          'tbody input.lead-checkbox:checked, tbody input.row-checkbox:checked, input.lead-checkbox:checked, input.row-checkbox:checked',
+        )
+        .forEach((cb) => {
+          const row = cb.closest('tr.result-row, tr[data-lead-key]');
+          if (!row) return;
+          if (needPhone) {
+            const phone = String(row.getAttribute('data-phone') || row.dataset.phone || '').trim();
+            if (!phone || phone === 'N/A' || !/\d/.test(phone)) return;
+          } else {
+            const email = String(row.getAttribute('data-email') || row.dataset.email || '').trim();
+            if (!email || email === 'N/A' || !email.includes('@')) return;
+          }
+          let key = String(row.getAttribute('data-lead-key') || row.dataset.leadKey || '').trim();
+          if (!key) key = String(cb.getAttribute('data-key') || cb.dataset.key || '').trim();
+          if (!key || seen.has(key)) return;
+          seen.add(key);
+          keys.push(key);
+        });
+      return keys;
+    }
+
+    function paintBulkModalChrome(mode, n) {
+      const emailMode = mode === 'bulk-email';
+      const titleEl = document.getElementById('smsScriptModalTitle');
+      const bulkLabel = document.getElementById('smsScriptBulkLabel');
+      const helpText = document.getElementById('smsScriptHelpText');
+      const personalizeBtn = document.getElementById('smsPersonalizeBtn');
+      const sendBtn = document.getElementById('smsScriptSendBtn');
+      const subjectWrap = document.getElementById('smsEmailSubjectWrap');
+      const wsLabel = document.getElementById('smsScriptWorkspaceLabel');
+      if (subjectWrap) subjectWrap.classList.toggle('hidden', !emailMode);
+      if (titleEl) {
+        titleEl.textContent = emailMode
+          ? n > 1
+            ? `Bulk email — ${n} leads`
+            : 'Bulk email'
+          : n > 1
+            ? `Bulk SMS — ${n} leads`
+            : 'Bulk SMS';
+      }
+      if (bulkLabel) {
+        bulkLabel.textContent =
+          n > 0
+            ? emailMode
+              ? 'Each lead gets a personalized follow-up (name, company, city). Leads without email are skipped.'
+              : 'Each lead gets an AI-personalized message (company, city, category, reviews).'
+            : '';
+        bulkLabel.classList.toggle('hidden', n === 0);
+      }
+      if (helpText) {
+        helpText.textContent = emailMode
+          ? 'Choose a base script. On send, AdHello personalizes it for each business, then sends via Go High Level.'
+          : 'Choose a base script below. On send, AdHello personalizes it for each business, then sends through your configured SMS provider.';
+      }
+      if (personalizeBtn) personalizeBtn.classList.add('hidden');
+      if (sendBtn) {
+        sendBtn.textContent = emailMode
+          ? n > 1
+            ? `Send personalized to ${n} leads`
+            : 'Send personalized email'
+          : n > 1
+            ? `Send personalized to ${n} leads`
+            : 'Send personalized SMS';
+      }
+      if (wsLabel) {
+        const wsNameEl = document.querySelector('#wsSwitcherBtn .font-display');
+        const wsName = wsNameEl ? String(wsNameEl.textContent || '').trim() : '';
+        wsLabel.textContent = `Workspace: ${wsName || 'Current workspace'}`;
+      }
+      const body = document.getElementById('smsBodyInput');
+      if (body) body.setAttribute('maxlength', emailMode ? '8000' : '1600');
+    }
+
+    async function loadScriptsIntoModal(leadKey, emailMode) {
+      const select = document.getElementById('smsScriptSelect');
+      const body = document.getElementById('smsBodyInput');
+      const countEl = document.getElementById('smsBodyCount');
+      if (!leadKey || !select || !body) return;
+      select.disabled = true;
+      select.innerHTML = '<option value="">Loading scripts...</option>';
+      try {
+        const endpoint = emailMode
+          ? `/leads/${encodeURIComponent(leadKey)}/email-script-options`
+          : `/leads/${encodeURIComponent(leadKey)}/sms-script-options`;
+        const res = await fetch(endpoint, { method: 'GET', headers: { Accept: 'application/json' } });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+          throw new Error((data && data.error) || 'Could not load scripts.');
+        }
+        let options = Array.isArray(data.options) ? data.options : [];
+        if (!options.length) {
+          options = [
+            {
+              id: 'fallback',
+              label: emailMode ? 'Call follow-up' : 'Default outreach',
+              text: emailMode
+                ? 'Hi,\n\nFollowing up after our call — a few ideas that could help your team capture more local demand.\n\nOpen to a short next step this week?\n\nBest,\n[your name]'
+                : 'Hi, this is [your name] from AdHello. We had a quick idea to help improve your local lead flow. Open to a short call this week?',
+              subject: emailMode ? 'Following up' : '',
+            },
+          ];
+        }
+        select.innerHTML = '';
+        options.forEach((opt, idx) => {
+          const o = document.createElement('option');
+          o.value = String(idx);
+          o.textContent = opt.label || `Script ${idx + 1}`;
+          select.appendChild(o);
+        });
+        select.value = '0';
+        body.value = options[0].text || '';
+        const subjectInput = document.getElementById('smsEmailSubjectInput');
+        if (subjectInput) subjectInput.value = String(options[0].subject || '').trim();
+        if (countEl) countEl.textContent = String((body.value || '').length);
+        window.__adhelloEarlySmsScriptOptions = options;
+      } catch (err) {
+        select.innerHTML = '<option value="">No scripts available</option>';
+        body.value = '';
+        if (countEl) countEl.textContent = '0';
+        throw err;
+      } finally {
+        select.disabled = false;
+      }
+    }
+
+    async function openBulkSmsModalEarly(phoneKeys) {
+      if (typeof window.__openBulkSmsModalImplFull === 'function') {
+        return window.__openBulkSmsModalImplFull(phoneKeys);
+      }
+      mountSmsModalToBodyEarly();
+      const keys = (Array.isArray(phoneKeys) ? phoneKeys : [])
+        .map((k) => String(k || '').trim())
+        .filter(Boolean);
+      if (!keys.length) {
+        return { ok: false, error: 'no_phone', message: 'Selected leads have no phone numbers for SMS.' };
+      }
+      const modal = document.getElementById('smsScriptModal');
+      if (!modal) {
+        return { ok: false, error: 'no_modal', message: 'SMS composer failed to load. Refresh the page.' };
+      }
+      window.__adhelloSmsModalMode = 'bulk';
+      window.__adhelloBulkSmsLeadKeys = keys;
+      modal.classList.remove('hidden');
+      modal.setAttribute('aria-hidden', 'false');
+      paintBulkModalChrome('bulk', keys.length);
+      try {
+        await loadScriptsIntoModal(keys[0], false);
+        const body = document.getElementById('smsBodyInput');
+        if (body) body.focus();
+        return { ok: true, count: keys.length };
+      } catch (err) {
+        return {
+          ok: false,
+          error: 'load_failed',
+          message: (err && err.message) || 'Could not load SMS scripts.',
+        };
+      }
+    }
+
+    async function openBulkEmailModalEarly(emailKeys) {
+      if (typeof window.__openBulkEmailModalImplFull === 'function') {
+        return window.__openBulkEmailModalImplFull(emailKeys);
+      }
+      mountSmsModalToBodyEarly();
+      const keys = (Array.isArray(emailKeys) ? emailKeys : [])
+        .map((k) => String(k || '').trim())
+        .filter(Boolean);
+      if (!keys.length) {
+        return { ok: false, error: 'no_email', message: 'Selected leads have no email addresses.' };
+      }
+      const modal = document.getElementById('smsScriptModal');
+      if (!modal) {
+        return { ok: false, error: 'no_modal', message: 'Email composer failed to load. Refresh the page.' };
+      }
+      window.__adhelloSmsModalMode = 'bulk-email';
+      window.__adhelloBulkSmsLeadKeys = keys;
+      modal.classList.remove('hidden');
+      modal.setAttribute('aria-hidden', 'false');
+      paintBulkModalChrome('bulk-email', keys.length);
+      try {
+        await loadScriptsIntoModal(keys[0], true);
+        const body = document.getElementById('smsBodyInput');
+        if (body) body.focus();
+        return { ok: true, count: keys.length };
+      } catch (err) {
+        return {
+          ok: false,
+          error: 'load_failed',
+          message: (err && err.message) || 'Could not load email scripts.',
+        };
+      }
+    }
+
+    window.__openBulkSmsModalImpl = openBulkSmsModalEarly;
+    window.__openBulkSmsModal = openBulkSmsModalEarly;
+    window.__openBulkEmailModal = openBulkEmailModalEarly;
+    window.__openBulkSmsFromBar = async function openBulkSmsFromBarEarly() {
+      return openBulkSmsModalEarly(collectCheckedLeadKeys(true));
     };
-  };
+    window.__openBulkEmailFromBar = async function openBulkEmailFromBarEarly() {
+      return openBulkEmailModalEarly(collectCheckedLeadKeys(false));
+    };
+    window.__mountSmsModalToBody = mountSmsModalToBodyEarly;
+  })();
 
   // --- Lead Gen Productivity Features (CSV, Scoring, Outreach) ---
 
@@ -3087,6 +3284,49 @@ document.addEventListener('DOMContentLoaded', () => {
     return data;
   }
 
+  async function markLeadSmsReply(row) {
+    const key = normalizeLeadKeyForApi(row && row.dataset ? row.dataset.leadKey : '');
+    if (!key) {
+      setLeadSmsThreadStatus('Save this lead first.', true);
+      return;
+    }
+    const btn = document.getElementById('leadSmsMarkReplyBtn');
+    if (btn) btn.disabled = true;
+    setLeadSmsThreadStatus('Noting SMS reply…');
+    try {
+      const res = await fetch(`/leads/${encodeURIComponent(key)}/mark-sms-reply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ body: 'Lead replied by SMS (manual).' }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error((data && data.error) || 'Could not mark SMS reply');
+      }
+      if (data.lead && row) {
+        syncPersistedLeadToRowDataset(row, data.lead);
+        if (typeof paintLeadPanelFromRow === 'function') paintLeadPanelFromRow(row);
+        if (typeof refreshLeadActivityTimeline === 'function') refreshLeadActivityTimeline(row);
+        if (typeof renderLeadPanelTouchPoints === 'function') renderLeadPanelTouchPoints(row);
+        if (typeof syncLeadTouchPill === 'function') syncLeadTouchPill(row);
+      }
+      setLeadSmsThreadStatus(
+        data.duplicate ? 'SMS reply already noted' : 'SMS reply noted — engagement updated',
+      );
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast(
+          data.duplicate ? 'SMS reply already on this lead.' : 'SMS reply noted.',
+          { variant: 'success' },
+        );
+      }
+    } catch (err) {
+      setLeadSmsThreadStatus((err && err.message) || 'Could not mark reply', true);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
   async function sendLeadSmsCompose() {
     const input = document.getElementById('leadSmsComposeInput');
     const btn = document.getElementById('leadSmsComposeSendBtn');
@@ -5450,7 +5690,8 @@ document.addEventListener('DOMContentLoaded', () => {
   function shouldIgnoreRowOpenClick(target) {
     if (!target) return true;
     if (target.closest('.bookmark-btn')) return true;
-    if (target.closest('[data-plc="company"]')) return true;
+    // Company title / cell opens the panel (compact view hides the chevron column).
+    // Only skip when the user is selecting text (e.g. copying an address).
     const sel = window.getSelection && window.getSelection();
     if (sel && String(sel.toString() || '').trim()) return true;
     return !!(
@@ -5527,6 +5768,13 @@ document.addEventListener('DOMContentLoaded', () => {
           setLeadSmsThreadStatus((err && err.message) || 'Sync failed', true);
         });
       }
+      return;
+    }
+    if (e.target.closest('#leadSmsMarkReplyBtn')) {
+      e.preventDefault();
+      e.stopPropagation();
+      const row = resolvePanelActionRow ? resolvePanelActionRow() : currentRow;
+      if (row) void markLeadSmsReply(row);
       return;
     }
     if (e.target.closest('#leadSmsComposeSendBtn')) {
@@ -13776,6 +14024,7 @@ document.addEventListener('DOMContentLoaded', () => {
       smsScriptSelect.disabled = false;
     }
   }
+  window.__openBulkSmsModalImplFull = openBulkSmsModal;
   window.__openBulkSmsModalImpl = openBulkSmsModal;
   window.__openBulkSmsModal = openBulkSmsModal;
   window.__openBulkSmsFromBar = async function openBulkSmsFromBar() {
@@ -13798,6 +14047,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     return openBulkSmsModal(keys);
   };
+  window.__openBulkEmailModalImplFull = openBulkEmailModal;
   window.__openBulkEmailModal = openBulkEmailModal;
   window.__openBulkEmailFromBar = async function openBulkEmailFromBar() {
     const keys = [];

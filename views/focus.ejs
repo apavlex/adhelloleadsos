@@ -626,6 +626,8 @@
     var btnCallNext = document.getElementById('focus-btn-call-next');
     var btnDelete = document.getElementById('focus-btn-delete');
     var autoDialNext = false;
+    /** True when the SMS composer was opened or used for the current lead — Log & Next must not auto-dial. */
+    var focusSmsSessionActive = false;
     var modalHelp = document.getElementById('focus-modal-help');
     var modalCelebrate = document.getElementById('focus-modal-celebrate');
     var fill = document.getElementById('focus-progress-fill');
@@ -2048,6 +2050,7 @@
     function resetFocusSmsCompose() {
       var restoreCompact = smsOpenedFromCompact;
       smsOpenedFromCompact = false;
+      focusSmsSessionActive = false;
       if (elSmsComposeSection) elSmsComposeSection.classList.add('hidden');
       if (elSmsComposeInput) {
         elSmsComposeInput.value = '';
@@ -2079,6 +2082,7 @@
     function placeFocusSmsFromBody(msgBody) {
       var lead = currentLead();
       if (!lead || !lead.key) return Promise.resolve();
+      focusSmsSessionActive = true;
       msgBody = String(msgBody || '').trim();
       if (!msgBody) {
         setFocusSmsComposeStatus('SMS body is empty. Add a message first.', true);
@@ -2116,6 +2120,7 @@
         closeFocusSmsComposer();
         return;
       }
+      focusSmsSessionActive = true;
       var phone = normalizeTel(lead.phone || '');
       if (!phone) {
         setFocusSmsComposeStatus('No phone found for this lead.', true);
@@ -3540,6 +3545,7 @@
 
     function nextLead() {
       rememberLeadBeforeAdvance();
+      focusSmsSessionActive = false;
       idx += 1;
       if (idx >= queue.length) {
         elSection.classList.add('hidden');
@@ -3584,7 +3590,10 @@
     function onLogNext() {
       var lead = currentLead();
       if (!lead) return;
-      autoDialNext = (currentChannel === 'call-script');
+      // Call Next always dials. Log & Next only auto-dials after a call-script touch —
+      // never after SMS (composer stays open or was used on this lead).
+      var smsBlocksDial = focusSmsSessionActive || isFocusSmsComposeOpen();
+      autoDialNext = currentChannel === 'call-script' && !smsBlocksDial;
       btnLog.disabled = true;
       applyFocusQuickLogIfNeeded(lead)
         .then(function () { return postNote(); })

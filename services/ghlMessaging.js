@@ -303,6 +303,11 @@ async function syncGhlSmsToLead({ lead, integrationEnv }) {
   }
   const contactId = await resolveGhlContactIdForLead(lead, integrationEnv);
   const entries = ghlMessages.map((m) => ghlMessageToLeadUpdate(m, contactId));
+  const beforeIds = new Set(
+    (Array.isArray(lead && lead.updates) ? lead.updates : [])
+      .map(smsMessageId)
+      .filter(Boolean),
+  );
   const { updates, added } = appendUniqueSmsUpdates(lead, entries);
   if (!added) {
     return {
@@ -315,6 +320,46 @@ async function syncGhlSmsToLead({ lead, integrationEnv }) {
     updates,
     ghlContactId: lead.ghlContactId || contactId || undefined,
   };
+
+  // Newest inbound from GHL → engagement signal / cadence pause (same path as webhook).
+  const newInbound = ghlMessages
+    .filter((m) => m && m.direction === 'inbound' && m.id && !beforeIds.has(m.id))
+    .sort((a, b) => (Date.parse(b.timestamp) || 0) - (Date.parse(a.timestamp) || 0));
+  const latestInbound = newInbound[0];
+  if (latestInbound) {
+    try {
+      const { handleInboundReply } = require('./inboundReplyRules');
+      const workspaceId = String((lead && lead.workspaceId) || '').trim();
+      if (workspaceId) {
+        const replyResult = await handleInboundReply({
+          lead: { ...lead, ...patched },
+          workspaceId,
+          channel: 'sms',
+          body: latestInbound.body,
+          messageId: latestInbound.id,
+          ghlContactId: contactId,
+          conversationId: latestInbound.conversationId || '',
+          provider: 'ghl',
+          timestamp: latestInbound.timestamp || new Date().toISOString(),
+        });
+        if (replyResult && replyResult.lead) {
+          return {
+            lead: replyResult.lead,
+            added,
+            messages: mergeSmsMessages(
+              (replyResult.lead.updates || []).filter(isSmsUpdate).map(normalizeLocalSmsMessage).filter(Boolean),
+              ghlMessages,
+            ),
+            patch: null,
+            replyApplied: !!replyResult.applied,
+          };
+        }
+      }
+    } catch (e) {
+      console.warn('[ghlMessaging] inbound reply on sync failed:', e && e.message);
+    }
+  }
+
   return {
     lead: { ...lead, ...patched },
     added,

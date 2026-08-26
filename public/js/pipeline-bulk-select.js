@@ -1474,8 +1474,13 @@
     const limit = typeof maxMs === 'number' ? maxMs : 12000;
     const step = 100;
     for (let elapsed = 0; elapsed < limit; elapsed += step) {
-      if (typeof window.__openBulkSmsFromBar === 'function') return window.__openBulkSmsFromBar;
-      if (typeof window.__openBulkSmsModal === 'function') return window.__openBulkSmsModal;
+      // Prefer FromBar / Impl — not a stub bridge that waits forever.
+      if (typeof window.__openBulkSmsFromBar === 'function' && typeof window.__openBulkSmsModalImpl === 'function') {
+        return window.__openBulkSmsFromBar;
+      }
+      if (typeof window.__openBulkSmsModalImpl === 'function') {
+        return window.__openBulkSmsModalImpl;
+      }
       // eslint-disable-next-line no-await-in-loop
       await new Promise(function (resolve) {
         window.setTimeout(resolve, step);
@@ -1549,59 +1554,35 @@
       showBulkBarFeedbackEarly('SMS composer failed to load. Hard-refresh the page and try again.', 'error');
       return;
     }
-    if (typeof window.__openBulkSmsFromBar === 'function') {
-      const fromBarResult = await window.__openBulkSmsFromBar();
-      if (fromBarResult && fromBarResult.ok) {
-        showBulkBarFeedbackEarly(
-          `SMS ready — personalize and send via GHL (${phoneKeys.length} lead${phoneKeys.length === 1 ? '' : 's'}).`,
-          'success',
-        );
-        if (typeof window.__flashBulkBarBtn === 'function') window.__flashBulkBarBtn(btn, '✓ Opened');
-      } else if (fromBarResult && fromBarResult.message) {
-        showBulkBarFeedbackEarly(fromBarResult.message, 'error');
-      }
-      return;
-    }
-    if (typeof window.__openBulkSmsModal === 'function') {
-      const result = await window.__openBulkSmsModal(phoneKeys);
+    async function openSmsWithFeedback(opener) {
+      const result = await opener();
       if (result && result.ok) {
         showBulkBarFeedbackEarly(
           `SMS ready — personalize and send via GHL (${phoneKeys.length} lead${phoneKeys.length === 1 ? '' : 's'}).`,
           'success',
         );
         if (typeof window.__flashBulkBarBtn === 'function') window.__flashBulkBarBtn(btn, '✓ Opened');
+      } else if (result && result.message) {
+        showBulkBarFeedbackEarly(result.message, 'error');
       } else {
-        showBulkBarFeedbackEarly((result && result.message) || 'Could not open SMS composer.', 'error');
+        showBulkBarFeedbackEarly('Could not open SMS composer.', 'error');
       }
-      return;
+      return result;
+    }
+
+    if (typeof window.__openBulkSmsFromBar === 'function' && typeof window.__openBulkSmsModalImpl === 'function') {
+      return openSmsWithFeedback(() => window.__openBulkSmsFromBar());
+    }
+    if (typeof window.__openBulkSmsModalImpl === 'function') {
+      return openSmsWithFeedback(() => window.__openBulkSmsModalImpl(phoneKeys));
     }
     showBulkBarFeedbackEarly('Loading SMS composer…', 'loading');
     const handler = await waitForBulkSmsHandler(12000);
     if (typeof handler === 'function') {
       if (handler === window.__openBulkSmsFromBar) {
-        const fromBarResult = await window.__openBulkSmsFromBar();
-        if (fromBarResult && fromBarResult.ok) {
-          showBulkBarFeedbackEarly(
-            `SMS ready — personalize and send via GHL (${phoneKeys.length} lead${phoneKeys.length === 1 ? '' : 's'}).`,
-            'success',
-          );
-          if (typeof window.__flashBulkBarBtn === 'function') window.__flashBulkBarBtn(btn, '✓ Opened');
-        } else if (fromBarResult && fromBarResult.message) {
-          showBulkBarFeedbackEarly(fromBarResult.message, 'error');
-        }
-      } else {
-        const result = await window.__openBulkSmsModal(phoneKeys);
-        if (result && result.ok) {
-          showBulkBarFeedbackEarly(
-            `SMS ready — personalize and send via GHL (${phoneKeys.length} lead${phoneKeys.length === 1 ? '' : 's'}).`,
-            'success',
-          );
-          if (typeof window.__flashBulkBarBtn === 'function') window.__flashBulkBarBtn(btn, '✓ Opened');
-        } else {
-          showBulkBarFeedbackEarly((result && result.message) || 'Could not open SMS composer.', 'error');
-        }
+        return openSmsWithFeedback(() => window.__openBulkSmsFromBar());
       }
-      return;
+      return openSmsWithFeedback(() => handler(phoneKeys));
     }
     showBulkBarFeedbackEarly('SMS composer failed to load. Hard-refresh the page and try again.', 'error');
   }

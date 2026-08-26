@@ -33,6 +33,12 @@ const QUICK_LOG_ITEMS = Object.freeze([
     noteTemplate: 'Requested callback. Confirm best time and call back as scheduled.',
   },
   {
+    label: 'SMS replied',
+    disposition: 'sms_replied',
+    status: 'Connected - Follow Up',
+    noteTemplate: 'Lead replied by SMS. Follow up promptly.',
+  },
+  {
     label: 'DM connected',
     disposition: 'connected',
     noteTemplate: 'Connected with decision maker. Follow up with tailored recap.',

@@ -155,6 +155,11 @@ async function applyLeadDisposition(ctx) {
     patch.lastTouchChannel = 'email';
     automation = 'Send-info action tagged for GHL follow-up.';
     nextStep = 'Confirm info was sent and schedule a review follow-up.';
+  } else if (code === 'sms_replied') {
+    status = 'Connected - Follow Up';
+    patch.lastTouchChannel = 'sms';
+    automation = 'Marked SMS reply — engagement signal and follow-up.';
+    nextStep = 'Respond to their SMS and book a call.';
   } else if (code === 'wrong_number') {
     status = 'Bad Number';
     patch.needsReenrichment = true;
@@ -170,6 +175,8 @@ async function applyLeadDisposition(ctx) {
     patch.lastTouchChannel = 'call';
   } else if (code === 'voicemail') {
     patch.lastTouchChannel = 'email';
+  } else if (code === 'sms_replied') {
+    patch.lastTouchChannel = 'sms';
   }
 
   const dispNotes =
@@ -250,6 +257,24 @@ async function applyLeadDisposition(ctx) {
 
   const updated = await dbService.updateLead(fullKey, patch, workspaceId);
 
+  let engagementResult = null;
+  if (code === 'sms_replied' && updated) {
+    try {
+      const { applyEngagementSignal } = require('./engagementSignals');
+      engagementResult = await applyEngagementSignal({
+        lead: updated,
+        workspaceId,
+        signalType: 'sms_reply',
+        provider: 'manual',
+        createTask: true,
+        extraPatch: { lastTouchChannel: 'sms' },
+        messageId: `manual-sms-reply-${Date.now()}`,
+      });
+    } catch (engErr) {
+      console.warn('[disposition] sms_replied engagement failed:', engErr && engErr.message);
+    }
+  }
+
   const shouldDeferGhl = deferGhlSync || source === 'auto_dial';
   if (!shouldDeferGhl) {
     triggerGhlProspectSync(fullKey, workspaceId, {
@@ -259,7 +284,7 @@ async function applyLeadDisposition(ctx) {
   }
 
   return {
-    lead: updated,
+    lead: (engagementResult && engagementResult.lead) || updated,
     status,
     nextStep,
     automation,
