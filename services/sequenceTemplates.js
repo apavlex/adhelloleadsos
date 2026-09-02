@@ -7,6 +7,21 @@
 
 const DAY_MS = 86400000;
 
+/** Cadences that include hosted audit links / AdHello-style outreach — agency workspaces only. */
+const AUDIT_CADENCE_TEMPLATE_IDS = new Set([
+  'audit_local_14',
+  'audit_hot_5',
+  'audit_reengage_7',
+  'auto_outreach_7',
+]);
+
+function isAuditCadenceTemplate(templateId) {
+  const id = String(templateId || '').trim();
+  if (!id) return false;
+  if (AUDIT_CADENCE_TEMPLATE_IDS.has(id)) return true;
+  return /^(audit_|auto_outreach)/i.test(id);
+}
+
 const DEFAULT_SEQUENCE_TEMPLATES = [
   {
     id: 'audit_local_14',
@@ -191,7 +206,9 @@ function dueAtIso(anchorIso, dayOffset) {
 }
 
 module.exports = {
+  AUDIT_CADENCE_TEMPLATE_IDS,
   DEFAULT_SEQUENCE_TEMPLATES,
+  isAuditCadenceTemplate,
   listTemplates,
   getTemplate,
   dueAtIso,

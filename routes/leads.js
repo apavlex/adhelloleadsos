@@ -72,6 +72,11 @@ const {
 const activationService = require('../services/activationService');
 const sequenceEngine = require('../services/sequenceEngine');
 const { autoAttachCadenceIfNeeded } = require('../services/leadCadence');
+const {
+  AUDIT_CADENCE_FORBIDDEN_MSG,
+  isAuditCadenceTemplate,
+  workspaceAllowsAuditCadence,
+} = require('../services/auditCadenceGuard');
 const dialerPacing = require('../services/dialerPacing');
 const workspaceService = require('../services/workspaceService');
 const googleDriveAccess = require('../services/googleDriveAccess');
@@ -922,6 +927,12 @@ router.post('/:key/sequence/start', express.json(), async (req, res, next) => {
       return res.status(403).json({ success: false, error: 'Forbidden' });
     }
     const templateId = (req.body && req.body.templateId) || 'audit_local_14';
+    if (isAuditCadenceTemplate(templateId)) {
+      const ws = await dbService.getWorkspace(req.workspaceId);
+      if (!workspaceAllowsAuditCadence(ws)) {
+        return res.status(403).json({ success: false, error: AUDIT_CADENCE_FORBIDDEN_MSG });
+      }
+    }
     const result = await sequenceEngine.startSequence(fullKey, templateId);
     await activationService.recordEvent(userEmail(req), 'sequence_started');
     const refreshed = await dbService.getLead(fullKey);

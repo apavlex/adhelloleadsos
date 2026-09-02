@@ -1,16 +1,26 @@
 const dbService = require('./database');
 const sequenceEngine = require('./sequenceEngine');
+const { isAgencySalesWorkspace } = require('./leadPanelWorkspace');
+const { isAuditCadenceTemplate } = require('./sequenceTemplates');
 
 function includesAny(haystack, needles) {
   const h = String(haystack || '').toLowerCase();
   return needles.some((n) => h.includes(n));
 }
 
+function agencyCadenceAllowed(opts = {}) {
+  if (opts.agency === true) return true;
+  if (opts.agency === false) return false;
+  if (opts.workspace) return isAgencySalesWorkspace(opts.workspace);
+  return false;
+}
+
 /**
- * Default for cold local SMB + audit hook: 14-day / 8-touch `audit_local_14`.
+ * Default for cold local SMB + audit hook: 14-day / 8-touch `audit_local_14` (agency only).
  * Keeps Clay for high-touch hospitality; Bob for regulated verticals.
  */
-function recommendCadenceTemplate(lead, workspaceLeads) {
+function recommendCadenceTemplate(lead, workspaceLeads, opts = {}) {
+  const agency = agencyCadenceAllowed(opts);
   const category = String((lead && lead.categoryName) || '').toLowerCase();
   const source = String((lead && lead.source) || '').toLowerCase();
   const reviews = parseInt((lead && lead.reviewsCount) || 0, 10) || 0;
@@ -41,7 +51,7 @@ function recommendCadenceTemplate(lead, workspaceLeads) {
     }
   }
   if (source.startsWith('adhello_') || source === 'booking' || source.startsWith('booking_')) {
-    return { templateId: 'audit_hot_5', family: 'warm_inbound' };
+    return { templateId: agency ? 'audit_hot_5' : 'clay_standard', family: agency ? 'warm_inbound' : 'warm_inbound_non_agency' };
   }
   if (wonCategoryMatches.length >= 2) {
     const winsByTemplate = new Map();
@@ -51,7 +61,13 @@ function recommendCadenceTemplate(lead, workspaceLeads) {
       winsByTemplate.set(t, (winsByTemplate.get(t) || 0) + 1);
     });
     const top = [...winsByTemplate.entries()].sort((a, b) => b[1] - a[1])[0];
-    if (top && top[0]) return { templateId: top[0], family: 'won_history_match' };
+    if (top && top[0]) {
+      const templateId = top[0];
+      if (!agency && isAuditCadenceTemplate(templateId)) {
+        return { templateId: 'clay_standard', family: 'won_history_non_agency' };
+      }
+      return { templateId, family: 'won_history_match' };
+    }
   }
 
   if (
@@ -76,10 +92,16 @@ function recommendCadenceTemplate(lead, workspaceLeads) {
       'service',
     ])
   ) {
-    return { templateId: 'audit_local_14', family: 'audit_local_trade' };
+    return {
+      templateId: agency ? 'audit_local_14' : 'clay_standard',
+      family: agency ? 'audit_local_trade' : 'local_trade_non_agency',
+    };
   }
 
-  return { templateId: 'audit_local_14', family: 'audit_local_default' };
+  return {
+    templateId: agency ? 'audit_local_14' : 'clay_standard',
+    family: agency ? 'audit_local_default' : 'local_default_non_agency',
+  };
 }
 
 async function autoAttachCadenceIfNeeded({ leadKey, workspaceId }) {
@@ -89,8 +111,14 @@ async function autoAttachCadenceIfNeeded({ leadKey, workspaceId }) {
   if (lead.sequenceState && lead.sequenceState.status && lead.sequenceState.status !== 'completed') {
     return { attached: false, reason: 'already_active' };
   }
-  const all = await dbService.getAllLeads(workspaceId);
-  const rec = recommendCadenceTemplate(lead, all);
+  const wid = String(workspaceId || lead.workspaceId || '').trim();
+  const ws = wid ? await dbService.getWorkspace(wid) : null;
+  const all = await dbService.getAllLeads(wid || workspaceId);
+  const rec = recommendCadenceTemplate(lead, all, { workspace: ws });
+  if (!rec || !rec.templateId) return { attached: false, reason: 'no_template' };
+  if (isAuditCadenceTemplate(rec.templateId) && !isAgencySalesWorkspace(ws)) {
+    return { attached: false, reason: 'audit_cadence_non_agency' };
+  }
   await sequenceEngine.startSequence(fullKey, rec.templateId);
   await dbService.updateLead(fullKey, {
     cadenceAuto: {

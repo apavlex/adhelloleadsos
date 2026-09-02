@@ -1091,6 +1091,9 @@ router.post('/leads/:leadKey/sequence', apiKeyAuth, express.json(), async (req, 
     if (err.message.startsWith('Unknown sequence template')) {
       return res.status(400).json({ success: false, error: err.message });
     }
+    if (err.message.includes('Audit cadences are only available')) {
+      return res.status(403).json({ success: false, error: err.message });
+    }
     next(err);
   }
 });
@@ -1153,12 +1156,13 @@ router.get('/sequences/templates', apiKeyAuth, async (req, res, next) => {
 router.post('/auto-sequence', apiKeyAuth, express.json(), async (req, res, next) => {
   try {
     const wid = workspaceId(req);
+    const ws = (await dbService.getWorkspace(wid)) || { id: wid };
     const all = await dbService.getAllLeads(wid);
     const needsSequence = all.filter((l) => !l.sequenceState || l.sequenceState.status !== 'active');
     const results = [];
     for (const lead of needsSequence) {
       try {
-        const { templateId } = recommendCadenceTemplate(lead, all);
+        const { templateId } = recommendCadenceTemplate(lead, all, { workspace: ws });
         if (!templateId) {
           results.push({ key: lead.key, title: lead.title, skipped: true, reason: 'No template matched' });
           continue;
@@ -1332,8 +1336,9 @@ router.post('/audit/run', apiKeyAuth, express.json({ limit: '10mb' }), async (re
 
     // Auto-attach cadence
     try {
+      const ws = (await dbService.getWorkspace(wid)) || { id: wid };
       const all = await dbService.getAllLeads(wid);
-      const { templateId } = recommendCadenceTemplate({ ...target, workspaceId: wid }, all);
+      const { templateId } = recommendCadenceTemplate({ ...target, workspaceId: wid }, all, { workspace: ws });
       if (templateId) {
         await sequenceEngine.startSequence(leadKey, templateId);
       }

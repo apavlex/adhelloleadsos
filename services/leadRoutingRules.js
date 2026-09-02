@@ -6,6 +6,7 @@ const sequenceEngine = require('./sequenceEngine');
 const { upsertOpenTaskForLead } = require('./userTasks');
 const { resolveTaskOwnerEmail } = require('./dispositionFollowUp');
 const { triggerGhlProspectSync } = require('./ghlProspectSync');
+const { workspaceAllowsAuditCadence } = require('./auditCadenceGuard');
 
 const WARM_SOURCE_PREFIXES = ['adhello_', 'booking_', 'inbound_'];
 const COLD_TEMPLATE_IDS = new Set([
@@ -70,8 +71,10 @@ async function applyWarmInboundRules({ leadKey, workspaceId, source }) {
 
   if (needsHot) {
     try {
-      await sequenceEngine.startSequence(fullKey, 'audit_hot_5');
-      hotStarted = true;
+      if (workspaceAllowsAuditCadence(ws)) {
+        await sequenceEngine.startSequence(fullKey, 'audit_hot_5');
+        hotStarted = true;
+      }
     } catch (e) {
       console.warn('[leadRoutingRules] audit_hot_5 start failed:', e && e.message);
     }

@@ -5,6 +5,7 @@ const sequenceEngine = require('../services/sequenceEngine');
 const sequenceTemplates = require('../services/sequenceTemplates');
 const pipelineStagesService = require('../services/pipelineStagesService');
 const { filterLeadsForRequest } = require('../services/workspaceService');
+const { filterTemplatesForWorkspace } = require('../services/auditCadenceGuard');
 
 function mapTemplateSteps(steps) {
   return (Array.isArray(steps) ? steps : []).map((s) => ({
@@ -15,9 +16,10 @@ function mapTemplateSteps(steps) {
   }));
 }
 
-function serializeSequenceTemplates(req) {
+function serializeSequenceTemplates(req, ws) {
   const raw = req.app.locals.sequenceTemplates || sequenceEngine.listTemplates();
-  return (Array.isArray(raw) ? raw : []).map((t) => {
+  const scoped = filterTemplatesForWorkspace(raw, ws);
+  return (Array.isArray(scoped) ? scoped : []).map((t) => {
     if (!t || !t.id) return null;
     let steps = mapTemplateSteps(t.steps);
     if (!steps.length) {
@@ -37,15 +39,21 @@ function serializeSequenceTemplates(req) {
 }
 
 /** JSON playbook list for lead panel cadence picker (and other clients). */
-router.get('/templates.json', (req, res) => {
-  res.json({ success: true, templates: serializeSequenceTemplates(req) });
+router.get('/templates.json', async (req, res, next) => {
+  try {
+    const ws = await dbService.getWorkspace(req.workspaceId);
+    res.json({ success: true, templates: serializeSequenceTemplates(req, ws) });
+  } catch (e) {
+    next(e);
+  }
 });
 
 router.get('/', async (req, res, next) => {
   try {
+    const ws = await dbService.getWorkspace(req.workspaceId);
     const all = await dbService.getAllLeads(req.workspaceId);
     const leads = filterLeadsForRequest(req, all);
-    const templates = serializeSequenceTemplates(req).map((t) => ({
+    const templates = serializeSequenceTemplates(req, ws).map((t) => ({
       id: t.id,
       persona: t.persona,
       name: t.name,

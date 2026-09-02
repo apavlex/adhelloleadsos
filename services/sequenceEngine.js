@@ -4,6 +4,11 @@ const { createAuditReportToken } = require('./auditReportSign');
 const { expandCadenceText } = require('./cadenceTokens');
 const { upsertOpenTaskForLead } = require('./userTasks');
 const { resolveTaskOwnerEmail } = require('./dispositionFollowUp');
+const {
+  AUDIT_CADENCE_FORBIDDEN_MSG,
+  isAuditCadenceTemplate,
+  workspaceAllowsAuditCadence,
+} = require('./auditCadenceGuard');
 
 function fullLeadKey(key) {
   return key.startsWith('lead:') ? key : `lead:${key}`;
@@ -21,6 +26,13 @@ async function startSequence(leadKey, templateId, options = {}) {
   const key = fullLeadKey(leadKey);
   const lead = await dbService.getLead(key);
   if (!lead) throw new Error('Lead not found');
+
+  if (isAuditCadenceTemplate(templateId) && lead.workspaceId) {
+    const ws = await dbService.getWorkspace(lead.workspaceId);
+    if (!workspaceAllowsAuditCadence(ws)) {
+      throw new Error(AUDIT_CADENCE_FORBIDDEN_MSG);
+    }
+  }
 
   const anchorTime = options.anchorTime || new Date().toISOString();
   const stepIndex = 0;
@@ -126,6 +138,28 @@ async function processLeadSequence(lead) {
       ],
     });
     return false;
+  }
+
+  if (isAuditCadenceTemplate(st.templateId) && lead.workspaceId) {
+    const ws = await dbService.getWorkspace(lead.workspaceId);
+    if (!workspaceAllowsAuditCadence(ws)) {
+      await dbService.updateLead(lead.key, {
+        sequenceState: {
+          ...st,
+          status: 'paused',
+          pausedAt: new Date().toISOString(),
+          pauseReason: 'audit_cadence_non_agency',
+        },
+        logs: [
+          {
+            type: 'sequence_pause',
+            message: 'Audit cadence paused — agency sales workspace only',
+            timestamp: new Date().toISOString(),
+          },
+        ],
+      });
+      return true;
+    }
   }
 
   const now = Date.now();
