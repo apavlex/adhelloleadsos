@@ -55,7 +55,17 @@ function envConfig() {
     token: String(process.env.SIGNALWIRE_TOKEN || '').trim(),
     fromNumber: String(process.env.SIGNALWIRE_FROM_NUMBER || '').trim(),
     callerId: String(process.env.SIGNALWIRE_CALLER_ID || process.env.SIGNALWIRE_FROM_NUMBER || '').trim(),
-    baseUrl: String(process.env.BASE_URL || '').trim().replace(/\/+$/, ''),
+    // leads.adhello.ai has been NXDOMAIN — fall back to Render's public URL when BASE_URL is that host.
+    baseUrl: (() => {
+      const preferred = String(process.env.BASE_URL || '').trim().replace(/\/+$/, '');
+      const render = String(process.env.RENDER_EXTERNAL_URL || '').trim().replace(/\/+$/, '');
+      const preferredNorm = preferred && !/^https?:\/\//i.test(preferred) ? `https://${preferred}` : preferred;
+      const renderNorm = render && !/^https?:\/\//i.test(render) ? `https://${render}` : render;
+      if (preferredNorm && /\/\/leads\.adhello\.ai(?:\/|$)/i.test(preferredNorm) && renderNorm) {
+        return renderNorm;
+      }
+      return preferredNorm || renderNorm || '';
+    })(),
     webhookToken: String(process.env.TELEPHONY_WEBHOOK_TOKEN || '').trim(),
     enabled: truthyEnv(process.env.SIGNALWIRE_ENABLED || '1'),
     /** Full LaML account root, optional override: .../2010-04-01/Accounts/PROJECT_ID */
@@ -440,6 +450,53 @@ async function configureIncomingNumberForDialIn(phoneNumber) {
   };
 }
 
+function voiceWebhookUrlsMatch(currentUrl, expectedUrl) {
+  try {
+    const a = new URL(String(currentUrl || ''));
+    const b = new URL(String(expectedUrl || ''));
+    if (a.origin !== b.origin || a.pathname.replace(/\/$/, '') !== b.pathname.replace(/\/$/, '')) {
+      return false;
+    }
+    const ta = a.searchParams.get('token') || '';
+    const tb = b.searchParams.get('token') || '';
+    return ta === tb;
+  } catch (_) {
+    return false;
+  }
+}
+
+/**
+ * Re-point DID Voice/Status URLs when they drift (dead custom domain, stale token).
+ * Safe to call often — no-ops when already correct.
+ */
+async function ensureIncomingVoiceWebhooks(phoneNumber) {
+  const want = normalizePhone(phoneNumber);
+  if (!want || !configured()) {
+    return { ok: false, skipped: true, reason: 'not_ready' };
+  }
+  const expectedVoice = buildAppUrl('/api/telephony/voice/inbound', {});
+  const expectedStatus = buildAppUrl('/api/telephony/voice/status', {});
+  if (!expectedVoice || !expectedStatus) {
+    return { ok: false, skipped: true, reason: 'missing_base_url' };
+  }
+  const listed = await listIncomingPhoneNumbers();
+  const match = (listed.numbers || []).find((n) => n.phoneNumber === want && n.sid);
+  if (!match || !match.sid) {
+    return { ok: false, skipped: true, reason: 'number_not_found', phoneNumber: want };
+  }
+  if (voiceWebhookUrlsMatch(match.voiceUrl, expectedVoice)) {
+    return { ok: true, updated: false, phoneNumber: want, voiceUrl: match.voiceUrl };
+  }
+  const configuredNum = await configureIncomingNumberForDialIn(want);
+  return {
+    ok: true,
+    updated: true,
+    phoneNumber: want,
+    voiceUrl: configuredNum.voiceUrl,
+    previousVoiceUrl: match.voiceUrl || '',
+  };
+}
+
 function buildAppUrl(path, params) {
   const cfg = envConfig();
   let base = String(cfg.baseUrl || '').trim().replace(/\/+$/, '');
@@ -817,4 +874,5 @@ module.exports = {
   stopCallRecording,
   listIncomingPhoneNumbers,
   configureIncomingNumberForDialIn,
+  ensureIncomingVoiceWebhooks,
 };

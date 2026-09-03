@@ -73,6 +73,23 @@ function telephonyAuthorized(req) {
   return !!token && token === cfg.webhookToken;
 }
 
+/** Prefer TwiML over bare 401 so SignalWire plays a clear message instead of carrier "can't connect". */
+function telephonyUnauthorizedTwiml(res, reason) {
+  const voiceLang = String(process.env.TELEPHONY_VOICE_LANGUAGE || 'en-US').trim();
+  const voiceName = String(process.env.TELEPHONY_VOICE_NAME || 'alice').trim();
+  const say =
+    reason ||
+    'Ad Hello phone routing is misconfigured. In Render, set BASE URL to the live app host and sync the telephony webhook token, then try again.';
+  return res
+    .status(200)
+    .type('text/xml')
+    .send(
+      `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="${xmlEscape(voiceName)}" language="${xmlEscape(voiceLang)}">${xmlEscape(
+        say,
+      )}</Say><Hangup/></Response>`,
+    );
+}
+
 async function ghlWebhookAuthorized(req) {
   const token = String(
     (req.query && req.query.token) ||
@@ -785,7 +802,7 @@ router.post('/telephony/voice/amd', async (req, res) => {
 // POST|GET /api/telephony/voice/inbound — agent dials workspace DID; bridge pending lead
 router.all('/telephony/voice/inbound', async (req, res) => {
   try {
-    if (!telephonyAuthorized(req)) return res.status(401).send('Unauthorized');
+    if (!telephonyAuthorized(req)) return telephonyUnauthorizedTwiml(res);
     const body = { ...(req.query || {}), ...(req.body || {}) };
     const to = signalwire.normalizePhone(body.To || body.to || '');
     const from = signalwire.normalizePhone(body.From || body.from || '');
@@ -838,7 +855,7 @@ router.all('/telephony/voice/inbound', async (req, res) => {
 // POST|GET /api/telephony/voice/twiml/agent-test — short confirmation call to agent mobile
 router.all('/telephony/voice/twiml/agent-test', async (req, res) => {
   try {
-    if (!telephonyAuthorized(req)) return res.status(401).send('Unauthorized');
+    if (!telephonyAuthorized(req)) return telephonyUnauthorizedTwiml(res);
     const voiceLang = String(process.env.TELEPHONY_VOICE_LANGUAGE || 'en-US').trim();
     const voiceName = String(process.env.TELEPHONY_VOICE_NAME || 'alice').trim();
     const xml = [
@@ -858,7 +875,7 @@ router.all('/telephony/voice/twiml/agent-test', async (req, res) => {
 // POST|GET /api/telephony/voice/twiml — dynamic call script for calls/voicemail drops
 router.all('/telephony/voice/twiml', async (req, res) => {
   try {
-    if (!telephonyAuthorized(req)) return res.status(401).send('Unauthorized');
+    if (!telephonyAuthorized(req)) return telephonyUnauthorizedTwiml(res);
     const q = req.query || {};
     const agentFirst = String(q.agentFirst || '').trim() === '1';
     if (agentFirst) {
@@ -940,7 +957,7 @@ router.all('/telephony/voice/twiml', async (req, res) => {
 // POST|GET /api/telephony/voice/twiml/agent-bridge — after agent presses 1, dial the lead
 router.all('/telephony/voice/twiml/agent-bridge', async (req, res) => {
   try {
-    if (!telephonyAuthorized(req)) return res.status(401).send('Unauthorized');
+    if (!telephonyAuthorized(req)) return telephonyUnauthorizedTwiml(res);
     const q = { ...(req.query || {}), ...(req.body || {}) };
     const digits = String(q.Digits || q.digits || '').trim();
     const voiceLang = String(process.env.TELEPHONY_VOICE_LANGUAGE || 'en-US').trim();
@@ -997,7 +1014,7 @@ router.all('/telephony/voice/twiml/agent-bridge', async (req, res) => {
 // POST|GET /api/telephony/voice/twiml/wait — session: called when lead hangs up, keeps agent on line
 router.all('/telephony/voice/twiml/wait', async (req, res) => {
   try {
-    if (!telephonyAuthorized(req)) return res.status(401).send('Unauthorized');
+    if (!telephonyAuthorized(req)) return telephonyUnauthorizedTwiml(res);
     const q = req.query || {};
     const workspaceId = String(q.workspaceId || '').trim();
     const from = String(q.from || '').trim();
@@ -1019,7 +1036,7 @@ router.all('/telephony/voice/twiml/wait', async (req, res) => {
 // POST|GET /api/telephony/voice/twiml/poll — session: check for next queued lead
 router.all('/telephony/voice/twiml/poll', async (req, res) => {
   try {
-    if (!telephonyAuthorized(req)) return res.status(401).send('Unauthorized');
+    if (!telephonyAuthorized(req)) return telephonyUnauthorizedTwiml(res);
     const q = req.query || {};
     const workspaceId = String(q.workspaceId || '').trim();
     const from = String(q.from || process.env.SIGNALWIRE_FROM_NUMBER || '').trim();

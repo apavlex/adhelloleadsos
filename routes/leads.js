@@ -1739,6 +1739,22 @@ router.get('/telephony/call-options', async (req, res, next) => {
       '';
     const swNumbers = await signalwire.listIncomingPhoneNumbers();
     const signalwireNumbers = (swNumbers.numbers || []).map((n) => n.phoneNumber).filter(Boolean);
+    let inboundWebhook = null;
+    const repairDid =
+      signalwire.normalizePhone(resolveLeadCallerId(ws)) ||
+      signalwire.normalizePhone(defaultFrom) ||
+      signalwireNumbers[0] ||
+      '';
+    if (repairDid && typeof signalwire.ensureIncomingVoiceWebhooks === 'function') {
+      try {
+        inboundWebhook = await signalwire.ensureIncomingVoiceWebhooks(repairDid);
+      } catch (e) {
+        inboundWebhook = {
+          ok: false,
+          error: e && e.message ? String(e.message) : 'webhook_repair_failed',
+        };
+      }
+    }
     return res.json({
       success: true,
       options: numbers,
@@ -1751,6 +1767,8 @@ router.get('/telephony/call-options', async (req, res, next) => {
       defaultFromNumber: defaultFrom,
       signalwireNumbers,
       signalwireNumbersError: swNumbers.error || null,
+      inboundWebhook,
+      publicBaseUrl: cfg.baseUrl || null,
       pacing: {
         perNumberHourCap: pacingCfg.perNumberHourCap,
         quietHoursStart: pacingCfg.quietStart,
