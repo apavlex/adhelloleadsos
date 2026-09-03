@@ -182,17 +182,25 @@ app.get('/auth/login', (req, res) => {
   });
 });
 
-app.get('/auth/google',
-  requireGoogleAuth,
-  passport.authenticate('google', { scope: ['profile', 'email'] })
-);
+app.get('/auth/google', requireGoogleAuth, (req, res, next) => {
+  passport.authenticate('google', {
+    scope: ['profile', 'email'],
+    callbackURL: `${getPublicBaseUrl(req)}/auth/google/callback`,
+  })(req, res, next);
+});
 
-app.get('/auth/google/callback',
+app.get(
+  '/auth/google/callback',
   requireGoogleAuth,
-  passport.authenticate('google', { failureRedirect: '/auth/login?error=unauthorized' }),
-  function(req, res) {
+  (req, res, next) => {
+    passport.authenticate('google', {
+      failureRedirect: '/auth/login?error=unauthorized',
+      callbackURL: `${getPublicBaseUrl(req)}/auth/google/callback`,
+    })(req, res, next);
+  },
+  function (req, res) {
     res.redirect('/today');
-  }
+  },
 );
 
 /** OAuth with Drive read + file scope — import from Drive and export lists back to Drive. */
