@@ -790,7 +790,6 @@ router.all('/telephony/voice/twiml', async (req, res) => {
     const agentFirst = String(q.agentFirst || '').trim() === '1';
     if (agentFirst) {
       const dialTo = signalwire.normalizePhone(q.dialTo || '');
-      const bridgeFrom = signalwire.normalizePhone(q.bridgeFrom || '');
       if (!dialTo) {
         return res
           .type('text/xml')
@@ -798,28 +797,36 @@ router.all('/telephony/voice/twiml', async (req, res) => {
             '<?xml version="1.0" encoding="UTF-8"?><Response><Say>Missing destination number.</Say><Hangup/></Response>',
           );
       }
-      const callerId =
-        signalwire.normalizePhone(q.leadCallerId || '') ||
-        bridgeFrom ||
-        String(process.env.SIGNALWIRE_FROM_NUMBER || '').trim();
-      const workspaceId = String(q.workspaceId || '').trim();
-      const isSession = String(q.session || '').trim() === '1';
-
-      let dialExtra = '';
-      if (isSession && workspaceId) {
-        const waitUrl = signalwire.buildAppUrl('/api/telephony/voice/twiml/wait', {
-          workspaceId,
-          from: callerId,
-        });
-        if (waitUrl) {
-          dialExtra = ` action="${xmlEscape(waitUrl)}"`;
-        }
+      const voiceLang = String(process.env.TELEPHONY_VOICE_LANGUAGE || 'en-US').trim();
+      const voiceName = String(process.env.TELEPHONY_VOICE_NAME || 'alice').trim();
+      // Require DTMF confirm so voicemail / Silence Unknown Callers cannot "answer"
+      // and silently dial the lead while the agent's phone never rang.
+      const confirmUrl = signalwire.buildAppUrl('/api/telephony/voice/twiml/agent-bridge', {
+        leadKey: String(q.leadKey || '').trim(),
+        workspaceId: String(q.workspaceId || '').trim(),
+        dialTo,
+        bridgeFrom: signalwire.normalizePhone(q.bridgeFrom || ''),
+        leadCallerId: signalwire.normalizePhone(q.leadCallerId || ''),
+        session: String(q.session || '').trim() === '1' ? '1' : undefined,
+      });
+      if (!confirmUrl) {
+        return res
+          .type('text/xml')
+          .send(
+            '<?xml version="1.0" encoding="UTF-8"?><Response><Say>Call setup error.</Say><Hangup/></Response>',
+          );
       }
-
-      const n = `<?xml version="1.0" encoding="UTF-8"?><Response><Dial answerOnBridge="true" timeout="45" callerId="${xmlEscape(
-        callerId,
-      )}"${dialExtra}><Number>${xmlEscape(dialTo)}</Number></Dial></Response>`;
-      return res.type('text/xml').send(n);
+      const xml = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<Response>',
+        `<Gather numDigits="1" timeout="20" actionOnEmptyResult="true" action="${xmlEscape(confirmUrl)}">`,
+        `<Say voice="${xmlEscape(voiceName)}" language="${xmlEscape(voiceLang)}">Ad Hello. Press 1 to dial the lead.</Say>`,
+        '</Gather>',
+        `<Say voice="${xmlEscape(voiceName)}" language="${xmlEscape(voiceLang)}">No confirmation received. Goodbye.</Say>`,
+        '<Hangup/>',
+        '</Response>',
+      ].join('');
+      return res.type('text/xml').send(xml);
     }
     const action = String((q && q.action) || 'call').trim();
     const script = String(process.env.VOICEMAIL_DROP_SCRIPT || '').trim();
@@ -853,6 +860,63 @@ router.all('/telephony/voice/twiml', async (req, res) => {
     res.type('text/xml').send(body);
   } catch (err) {
     console.error('[telephony:voice:twiml]', err.message);
+    res.type('text/xml').send('<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>');
+  }
+});
+
+// POST|GET /api/telephony/voice/twiml/agent-bridge — after agent presses 1, dial the lead
+router.all('/telephony/voice/twiml/agent-bridge', async (req, res) => {
+  try {
+    if (!telephonyAuthorized(req)) return res.status(401).send('Unauthorized');
+    const q = { ...(req.query || {}), ...(req.body || {}) };
+    const digits = String(q.Digits || q.digits || '').trim();
+    const voiceLang = String(process.env.TELEPHONY_VOICE_LANGUAGE || 'en-US').trim();
+    const voiceName = String(process.env.TELEPHONY_VOICE_NAME || 'alice').trim();
+    if (digits && digits !== '1') {
+      return res.type('text/xml').send(
+        `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="${xmlEscape(voiceName)}" language="${xmlEscape(voiceLang)}">Unrecognized key. Goodbye.</Say><Hangup/></Response>`,
+      );
+    }
+    if (!digits) {
+      // Gather timed out / empty — voicemail often answers without DTMF.
+      return res.type('text/xml').send(
+        `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="${xmlEscape(voiceName)}" language="${xmlEscape(voiceLang)}">No confirmation received. Goodbye.</Say><Hangup/></Response>`,
+      );
+    }
+
+    const dialTo = signalwire.normalizePhone(q.dialTo || '');
+    const bridgeFrom = signalwire.normalizePhone(q.bridgeFrom || '');
+    if (!dialTo) {
+      return res
+        .type('text/xml')
+        .send(
+          '<?xml version="1.0" encoding="UTF-8"?><Response><Say>Missing destination number.</Say><Hangup/></Response>',
+        );
+    }
+    const callerId =
+      signalwire.normalizePhone(q.leadCallerId || '') ||
+      bridgeFrom ||
+      String(process.env.SIGNALWIRE_FROM_NUMBER || '').trim();
+    const workspaceId = String(q.workspaceId || '').trim();
+    const isSession = String(q.session || '').trim() === '1';
+
+    let dialExtra = '';
+    if (isSession && workspaceId) {
+      const waitUrl = signalwire.buildAppUrl('/api/telephony/voice/twiml/wait', {
+        workspaceId,
+        from: callerId,
+      });
+      if (waitUrl) {
+        dialExtra = ` action="${xmlEscape(waitUrl)}"`;
+      }
+    }
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="${xmlEscape(voiceName)}" language="${xmlEscape(voiceLang)}">Connecting the lead now.</Say><Dial answerOnBridge="true" timeout="45" callerId="${xmlEscape(
+      callerId,
+    )}"${dialExtra}><Number>${xmlEscape(dialTo)}</Number></Dial></Response>`;
+    return res.type('text/xml').send(xml);
+  } catch (err) {
+    console.error('[telephony:voice:agent-bridge]', err.message);
     res.type('text/xml').send('<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>');
   }
 });

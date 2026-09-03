@@ -2335,7 +2335,7 @@
     if (spAgentRingHint) {
       spAgentRingHint.textContent = missing
         ? 'Agent first rings your personal cell first. Workspace numbers (like 971) are caller ID only — set Your mobile below or in Settings.'
-        : 'SignalWire will call this cell first. Answer it (incoming caller ID is usually your workspace number), then the lead is dialed. Caller ID above is only what the lead sees.';
+        : 'SignalWire will call this cell first. Answer it (caller ID is usually your workspace number), then press 1 to dial the lead. If the phone never rings, turn off Silence Unknown Callers.';
     }
     if (spAgentRingFixBtn) {
       spAgentRingFixBtn.classList.toggle('hidden', !missing);
@@ -2413,7 +2413,7 @@
       return 'Call routing: Cloud (SignalWire) — the server places the call. No in-tab audio until WebRTC is configured (Workspace phone bank + SIGNALWIRE_SPACE_URL on the server).';
     }
     if (m === 'agent_first') {
-      return 'Call routing: Agent first — SignalWire rings Your mobile (agent) first (personal cell in Settings). Caller ID (e.g. 971) is only what the lead sees. Answer your cell, then the lead is dialed. No browser WebRTC audio.';
+      return 'Call routing: Agent first — SignalWire rings Your mobile first. Answer, then press 1 to dial the lead. If it never rings, disable Silence Unknown Callers. Caller ID is only what the lead sees. No browser WebRTC audio.';
     }
     if (m === 'browser_device') {
       return 'Call routing: My device dialer — Call opens your system phone / headset app (audio on the device).';
@@ -2934,7 +2934,7 @@
           String(softphoneSession.dialMode || spWorkspaceCallMode || '').trim() || 'cloud_dial';
         if (connectedMode === 'agent_first') {
           softphoneSetStatus(
-            'Connected on your phone. Stay on that call — the lead is dialed after you answer. No audio in this tab.',
+            'Your phone answered — press 1 to dial the lead. If you did not pick up, voicemail may have answered (Silence Unknown Callers). Hang up and try again after disabling that.',
           );
         } else {
           softphoneSetStatus('The remote end answered. No in-browser audio in cloud mode. Mute/hold are display only here.');
@@ -2956,9 +2956,9 @@
             formatCallerIdDisplay(softphoneSession.agentTo || spAgentPhoneCached || '') ||
             'your mobile';
           softphoneSetStatus(
-            'Ringing your phone (' +
+            'Ringing ' +
               agentRingLabel +
-              ') now — answer that incoming call. The lead is dialed only after you pick up.',
+              ' from your workspace number — answer it, then press 1 to dial the lead. No audio in this tab. If it never rings: iPhone Settings → Phone → turn off Silence Unknown Callers.',
           );
         } else {
           softphoneSetStatus('Cloud leg is ringing the contact. There is no sound in this tab — the call is on the PSTN.');
@@ -3468,7 +3468,7 @@
           softphoneSetStatus(
             'Ringing you first on ' +
               ringLabel +
-              ' — answer that call, then the lead is dialed. Audio is on your phone; this tab is only a remote. Caller ID shown to the lead is separate.',
+              ' — answer that call, then press 1 to dial the lead. Audio is on your phone; this tab is only a remote. If the phone never rings, disable Silence Unknown Callers / Do Not Disturb.',
           );
         } else {
           softphoneSetStatus(
