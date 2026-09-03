@@ -685,12 +685,12 @@ module.exports = {
     if (!existing) return null;
 
     if (process.env.NODE_ENV !== 'production' && expectWorkspaceId != null && expectWorkspaceId !== '') {
-      const ew = String(expectWorkspaceId).trim();
-      const lw = String(existing.workspaceId || '').trim();
-      if (!lw) {
+      const ew = this._normalizeLeadWorkspaceId(expectWorkspaceId);
+      const lw = this._normalizeLeadWorkspaceId(existing.workspaceId);
+      if (!String(existing.workspaceId || '').trim()) {
         throw new Error(`[workspace] updateLead: lead ${storageKey} is missing workspaceId`);
       }
-      if (ew && lw !== ew) {
+      if (ew && lw && ew !== lw) {
         throw new Error(`[workspace] updateLead: workspace mismatch for ${storageKey}`);
       }
     }
