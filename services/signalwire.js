@@ -46,7 +46,25 @@ function relayJwtRequestUrl() {
   return `https://${host}/api/relay/rest/jwt`;
 }
 
+/** Normalize app root URL; rewrite historical leads.adhello.ai → leads.adhello.io. */
+function normalizePublicBaseUrl(raw) {
+  let s = String(raw || '')
+    .trim()
+    .replace(/\/+$/, '');
+  if (!s) return '';
+  if (!/^https?:\/\//i.test(s)) s = `https://${s}`;
+  s = s.replace(/^(https?:\/\/)leads\.adhello\.ai(?=\/|$)/i, '$1leads.adhello.io');
+  return s;
+}
+
 function envConfig() {
+  const preferred = normalizePublicBaseUrl(process.env.BASE_URL);
+  const render = normalizePublicBaseUrl(process.env.RENDER_EXTERNAL_URL);
+  const webhookOverride = normalizePublicBaseUrl(process.env.TELEPHONY_WEBHOOK_BASE_URL);
+  // Prefer an explicit webhook base, then Render's live host, then public BASE_URL.
+  // leads.adhello.io may be configured as BASE_URL before DNS/SSL exist — keep SignalWire
+  // callbacks on RENDER_EXTERNAL_URL until TELEPHONY_WEBHOOK_BASE_URL is set to the custom domain.
+  const webhookBaseUrl = webhookOverride || render || preferred || '';
   return {
     spaceUrl: String(process.env.SIGNALWIRE_SPACE_URL || '')
       .trim()
@@ -55,17 +73,8 @@ function envConfig() {
     token: String(process.env.SIGNALWIRE_TOKEN || '').trim(),
     fromNumber: String(process.env.SIGNALWIRE_FROM_NUMBER || '').trim(),
     callerId: String(process.env.SIGNALWIRE_CALLER_ID || process.env.SIGNALWIRE_FROM_NUMBER || '').trim(),
-    // leads.adhello.ai has been NXDOMAIN — fall back to Render's public URL when BASE_URL is that host.
-    baseUrl: (() => {
-      const preferred = String(process.env.BASE_URL || '').trim().replace(/\/+$/, '');
-      const render = String(process.env.RENDER_EXTERNAL_URL || '').trim().replace(/\/+$/, '');
-      const preferredNorm = preferred && !/^https?:\/\//i.test(preferred) ? `https://${preferred}` : preferred;
-      const renderNorm = render && !/^https?:\/\//i.test(render) ? `https://${render}` : render;
-      if (preferredNorm && /\/\/leads\.adhello\.ai(?:\/|$)/i.test(preferredNorm) && renderNorm) {
-        return renderNorm;
-      }
-      return preferredNorm || renderNorm || '';
-    })(),
+    baseUrl: preferred || render || '',
+    webhookBaseUrl,
     webhookToken: String(process.env.TELEPHONY_WEBHOOK_TOKEN || '').trim(),
     enabled: truthyEnv(process.env.SIGNALWIRE_ENABLED || '1'),
     /** Full LaML account root, optional override: .../2010-04-01/Accounts/PROJECT_ID */
@@ -499,7 +508,7 @@ async function ensureIncomingVoiceWebhooks(phoneNumber) {
 
 function buildAppUrl(path, params) {
   const cfg = envConfig();
-  let base = String(cfg.baseUrl || '').trim().replace(/\/+$/, '');
+  let base = String(cfg.webhookBaseUrl || cfg.baseUrl || '').trim().replace(/\/+$/, '');
   if (!base) return '';
   if (!/^https?:\/\//i.test(base)) {
     base = `https://${base}`;

@@ -14,7 +14,7 @@ test('parseLobWebhook extracts postcard.viewed events', () => {
     body: {
       id: 'psc_abc123',
       date_created: '2026-08-05T14:00:00.000Z',
-      qr_code_redirect_url: 'https://leads.adhello.ai/audit/x',
+      qr_code_redirect_url: 'https://leads.adhello.io/audit/x',
     },
   });
   assert.ok(parsed);
@@ -70,7 +70,7 @@ test('processLobWebhook applies mail_scan engagement', async () => {
         body: {
           id: 'psc_xyz',
           date_created: '2026-08-05T15:00:00.000Z',
-          qr_code_redirect_url: 'https://leads.adhello.ai/audit/x',
+          qr_code_redirect_url: 'https://leads.adhello.io/audit/x',
         },
       },
       { workspaceId: 'default' },

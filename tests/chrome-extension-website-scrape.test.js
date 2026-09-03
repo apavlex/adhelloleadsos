@@ -67,9 +67,9 @@ test('isGenericBusinessWebsiteCandidate allows company sites and blocks director
   assert.equal(isGenericBusinessWebsiteCandidate('https://www.linkedin.com/company/acme'), false);
   assert.equal(isGenericBusinessWebsiteCandidate('https://www.google.com/search?q=plumber'), false);
   assert.equal(isGenericBusinessWebsiteCandidate('https://maps.google.com/maps?q=x'), false);
-  assert.equal(isGenericBusinessWebsiteCandidate('https://leads.adhello.ai/today'), false);
+  assert.equal(isGenericBusinessWebsiteCandidate('https://leads.adhello.io/today'), false);
   assert.equal(isGenericBusinessWebsiteCandidate('https://adhelloleadsos.onrender.com/leads'), false);
-  assert.equal(isAdHelloAppUrl('https://leads.adhello.ai/today'), true);
+  assert.equal(isAdHelloAppUrl('https://leads.adhello.io/today'), true);
   assert.equal(isAdHelloAppUrl('https://www.acmeplumbing.com/'), false);
 });
 

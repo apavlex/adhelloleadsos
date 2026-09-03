@@ -1769,6 +1769,7 @@ router.get('/telephony/call-options', async (req, res, next) => {
       signalwireNumbersError: swNumbers.error || null,
       inboundWebhook,
       publicBaseUrl: cfg.baseUrl || null,
+      webhookBaseUrl: cfg.webhookBaseUrl || null,
       pacing: {
         perNumberHourCap: pacingCfg.perNumberHourCap,
         quietHoursStart: pacingCfg.quietStart,

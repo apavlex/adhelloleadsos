@@ -4,7 +4,7 @@
 
 function openRouterExtraHeaders() {
   const refererRaw =
-    process.env.OPENROUTER_HTTP_REFERER || process.env.BASE_URL || 'https://leads.adhello.ai';
+    process.env.OPENROUTER_HTTP_REFERER || process.env.BASE_URL || 'https://leads.adhello.io';
   const referer = /^https?:\/\//i.test(refererRaw)
     ? refererRaw
     : `https://${String(refererRaw).replace(/^\/+/, '')}`;

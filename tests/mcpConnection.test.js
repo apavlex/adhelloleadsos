@@ -14,8 +14,8 @@ const {
 describe('mcpConnection', () => {
   it('builds server URL from BASE_URL', () => {
     const prev = process.env.BASE_URL;
-    process.env.BASE_URL = 'https://leads.adhello.ai';
-    assert.equal(getMcpServerUrl(), 'https://leads.adhello.ai/ceo/mcp');
+    process.env.BASE_URL = 'https://leads.adhello.io';
+    assert.equal(getMcpServerUrl(), 'https://leads.adhello.io/ceo/mcp');
     process.env.BASE_URL = prev;
   });
 

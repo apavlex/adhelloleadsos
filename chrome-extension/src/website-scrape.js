@@ -49,6 +49,7 @@
     'apple.com',
     // AdHello product app — never treat as a lead website / never show Save lead FAB
     'adhello.ai',
+    'adhello.io',
     'adhello.com',
     'adhelloleadsos.onrender.com',
   ];
@@ -61,6 +62,7 @@
     if (host === 'localhost' || host === '127.0.0.1') return true;
     return hostMatchesAny(host, [
       'adhello.ai',
+      'adhello.io',
       'adhello.com',
       'adhelloleadsos.onrender.com',
     ]);
