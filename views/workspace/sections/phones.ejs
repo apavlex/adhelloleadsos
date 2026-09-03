@@ -67,9 +67,9 @@
         <input type="radio" name="wsCallMode" value="agent_first" class="peer sr-only" <%= _callMode === 'agent_first' ? 'checked' : '' %> />
         <div class="flex-1 rounded-2xl border-2 border-brand-border/50 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-800/50 p-4 transition-all peer-checked:border-brand-yellow peer-checked:ring-2 peer-checked:ring-brand-yellow/50 peer-checked:bg-brand-yellow/10">
           <p class="text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white">Agent first</p>
-          <p class="text-[11px] text-brand-muted mt-1">Your mobile rings first, then the lead is bridged.</p>
+          <p class="text-[11px] text-brand-muted mt-1">You call the workspace number, then we bridge the lead.</p>
         </div>
-        <p class="mt-2 text-[11px] text-brand-muted leading-snug hidden peer-checked:block">Great for two-way talk on iPhone or Bluetooth. Requires your mobile in E.164. Voicemail drop still uses the cloud flow.</p>
+        <p class="mt-2 text-[11px] text-brand-muted leading-snug hidden peer-checked:block">Tap Call in AdHello, then dial your workspace DID from your cell (always rings). We connect the lead on that call. Avoids iPhone Silence Unknown Callers blocking inbound SignalWire rings.</p>
       </label>
       <label class="relative flex flex-col cursor-pointer min-h-0">
         <input type="radio" name="wsCallMode" value="browser_device" class="peer sr-only" <%= _callMode === 'browser_device' ? 'checked' : '' %> />

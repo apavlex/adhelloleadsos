@@ -23,4 +23,17 @@ describe('agentSessionStore', () => {
     assert.equal(store.removeSessionForCall('ws-test', 'CA_live'), true);
     assert.equal(store.getSession('ws-test'), null);
   });
+
+  it('findPendingDialInByDid matches workspace DID', () => {
+    store.createSession('ws-test', {
+      mode: 'dial_in',
+      dialInNumber: '+13607935057',
+      dialTo: '+13605551212',
+      agentTo: '+13606096937',
+    });
+    const hit = store.findPendingDialInByDid('+13607935057', '+13606096937');
+    assert.ok(hit);
+    assert.equal(hit.dialTo, '+13605551212');
+    assert.equal(store.findPendingDialInByDid('+13607935057', ''), hit);
+  });
 });

@@ -2335,7 +2335,7 @@
     if (spAgentRingHint) {
       spAgentRingHint.textContent = missing
         ? 'Agent first rings your personal cell first. Workspace numbers (like 971) are caller ID only — set Your mobile below or in Settings.'
-        : 'SignalWire will call this cell first. Answer it (caller ID is usually your workspace number), then press 1 to dial the lead. If the phone never rings, turn off Silence Unknown Callers.';
+        : 'After Call, dial your workspace number from this cell. We bridge the lead on that call (avoids Silence Unknown Callers).';
     }
     if (spAgentRingFixBtn) {
       spAgentRingFixBtn.classList.toggle('hidden', !missing);
@@ -2413,7 +2413,7 @@
       return 'Call routing: Cloud (SignalWire) — the server places the call. No in-tab audio until WebRTC is configured (Workspace phone bank + SIGNALWIRE_SPACE_URL on the server).';
     }
     if (m === 'agent_first') {
-      return 'Call routing: Agent first — SignalWire rings Your mobile first. Answer, then press 1 to dial the lead. If it never rings, disable Silence Unknown Callers. Caller ID is only what the lead sees. No browser WebRTC audio.';
+      return 'Call routing: Agent first (dial-in) — tap Call, then dial your workspace number from your phone. We bridge the lead when you connect. Avoids Silence Unknown Callers.';
     }
     if (m === 'browser_device') {
       return 'Call routing: My device dialer — Call opens your system phone / headset app (audio on the device).';
@@ -2994,6 +2994,48 @@
     softphoneStatusPollOnce();
     softphoneSession.pollTimer = setInterval(softphoneStatusPollOnce, 2000);
   }
+  function softphoneStopDialInPolling() {
+    if (softphoneSession.dialInPollTimer) {
+      clearInterval(softphoneSession.dialInPollTimer);
+      softphoneSession.dialInPollTimer = null;
+    }
+  }
+  function softphoneDialInPollOnce() {
+    fetch('/leads/telephony/session/status', { headers: { Accept: 'application/json' } })
+      .then(function (r) {
+        return r.json().then(function (j) {
+          return { ok: r.ok, j: j };
+        });
+      })
+      .then(function (res) {
+        if (!res.ok || !res.j || !res.j.success) return;
+        if (!res.j.active) {
+          softphoneStopDialInPolling();
+          softphoneSetCallState('ready');
+          softphoneSetStatus('Dial-in window ended. Tap Call again, then dial the workspace number from your phone.');
+          return;
+        }
+        if (res.j.pendingDialIn) {
+          var n = formatCallerIdDisplay(res.j.dialInNumber || softphoneSession.dialInNumber || '') || 'workspace number';
+          softphoneSetStatus('Waiting — call ' + n + ' from your phone. We connect the lead when you dial in.');
+          softphoneSetCallState('dialing');
+          return;
+        }
+        if (res.j.callSid) {
+          softphoneSession.callSid = String(res.j.callSid || '').trim();
+          softphoneStopDialInPolling();
+          softphoneSetCallState('in_call');
+          softphoneSetStatus('Connected — dialing the lead on your phone line now.');
+          softphoneStartPolling();
+        }
+      })
+      .catch(function () {});
+  }
+  function softphoneStartDialInPolling() {
+    softphoneStopDialInPolling();
+    softphoneDialInPollOnce();
+    softphoneSession.dialInPollTimer = setInterval(softphoneDialInPollOnce, 2000);
+  }
   function softphoneSetWrapRequired(v) {
     softphoneSession.wrapRequired = !!v;
     if (spCall) spCall.disabled = !!v;
@@ -3449,6 +3491,35 @@
             'Queued on your live agent session — stay on the line; next lead dials when the current one ends. Hang up to end the session and re-ring your phone on the next call.',
           );
           if (softphoneSession.callSid) softphoneStartPolling();
+          return;
+        }
+        if (res.j.dialMode === 'agent_dial_in') {
+          softphoneSession.dialMode = 'agent_dial_in';
+          softphoneSession.isCloudPstn = true;
+          softphoneSession.callSid = '';
+          softphoneSession.dialInNumber = String(res.j.dialInNumber || '').trim();
+          softphoneSession.agentTo = String((res.j && res.j.agentPhone) || spAgentPhoneCached || '').trim();
+          softphoneSession.startedAtMs = 0;
+          softphoneSetCallState('dialing');
+          var dialInLabel = formatCallerIdDisplay(softphoneSession.dialInNumber) || softphoneSession.dialInNumber || 'workspace number';
+          softphoneSetStatus(
+            'Call ' +
+              dialInLabel +
+              ' from your phone NOW. When you connect, we dial the lead. (This avoids Silence Unknown Callers — you place the call.)',
+          );
+          if (softphoneSession.dialInNumber) {
+            try {
+              window.location.href = 'tel:' + String(softphoneSession.dialInNumber).replace(/[^\d+]/g, '');
+            } catch (_) {}
+          }
+          softphoneStartDialInPolling();
+          if (res.j.inboundConfigured === false && res.j.inboundError) {
+            softphoneSetStatus(
+              'Almost ready — set SignalWire number Voice URL to AdHello inbound webhook. ' +
+                String(res.j.inboundError).slice(0, 160),
+              true,
+            );
+          }
           return;
         }
         softphoneSetCallState('dialing');

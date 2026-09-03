@@ -1483,11 +1483,39 @@ router.post('/:key/call', async (req, res, next) => {
         });
       }
 
-      // ── Session mode: if a live agent session is active, queue this lead instead of re-ringing ──
+      // Dial-in agent-first: YOU call the workspace DID (always rings), then we bridge the lead.
+      // Outbound SignalWire→mobile often "completes" into voicemail without the handset ringing.
+      const telephonyAf = ws && ws.telephony && typeof ws.telephony === 'object' ? ws.telephony : {};
+      const fromPickAf = dialerPacing.selectCallerIdForDial({
+        workspace: ws,
+        telephony: telephonyAf,
+        lead,
+        requestedFrom: req.body && req.body.fromNumber,
+        now: new Date(),
+      });
+      if (!fromPickAf.allowed) {
+        return res.status(429).json({ success: false, error: fromPickAf.reason || 'Dial pacing blocked this call.' });
+      }
+      const dialInNumber = resolveRequestedLeadCallerId(
+        ws,
+        req.body && (req.body.leadCallerId || req.body.callerId),
+      ) || fromPickAf.from;
+
       let existingSession = agentSessionStore.getSession(req.workspaceId);
-      if (existingSession) {
+      if (existingSession && existingSession.mode === 'dial_in' && existingSession.status === 'pending_dial_in') {
+        agentSessionStore.updateSession(req.workspaceId, {
+          dialTo: normalizedTo,
+          leadKey: fullKey,
+          currentLeadKey: fullKey,
+          leadCallerId: dialInNumber,
+          from: dialInNumber,
+          dialInNumber,
+          agentTo,
+          expiresAt: Date.now() + agentSessionStore.DIAL_IN_PENDING_MS,
+        });
+      } else if (existingSession && existingSession.callSid) {
         let sessionLive = false;
-        if (existingSession.callSid && signalwire.configured()) {
+        if (signalwire.configured()) {
           try {
             const liveCall = await signalwire.getCall(existingSession.callSid);
             const liveStatus = signalwire.normalizeCallStatus(liveCall);
@@ -1496,42 +1524,93 @@ router.post('/:key/call', async (req, res, next) => {
             sessionLive = false;
           }
         }
-        if (!sessionLive) {
+        if (sessionLive) {
+          const queued = agentSessionStore.queueNextLead(req.workspaceId, fullKey);
+          if (queued) {
+            const updates = appendLeadUpdate(lead, {
+              type: 'call_queued',
+              value: `Queued for active calling session (${lead.phone || 'unknown number'}).`,
+              provider: 'signalwire',
+            });
+            const updatedLead = await dbService.updateLead(fullKey, {
+              status: 'Queued for Call',
+              updates,
+              logs: [
+                {
+                  type: 'call_queued',
+                  message: `Queued for continuous calling session`,
+                  timestamp: new Date().toISOString(),
+                },
+              ],
+            });
+            return res.json({
+              success: true,
+              dialMode: 'agent_dial_in',
+              sessionActive: true,
+              queued: true,
+              callSid: existingSession.callSid || null,
+              dialInNumber: existingSession.dialInNumber || dialInNumber,
+              agentPhone: agentTo,
+              lead: updatedLead,
+            });
+          }
+        } else {
           agentSessionStore.removeSession(req.workspaceId);
-          existingSession = null;
         }
+      } else if (existingSession) {
+        agentSessionStore.removeSession(req.workspaceId);
       }
-      if (existingSession) {
-        const queued = agentSessionStore.queueNextLead(req.workspaceId, fullKey);
-        if (queued) {
-          const updates = appendLeadUpdate(lead, {
-            type: 'call_queued',
-            value: `Queued for active calling session (${lead.phone || 'unknown number'}).`,
-            provider: 'signalwire',
-          });
-          const updatedLead = await dbService.updateLead(fullKey, {
-            status: 'Queued for Call',
-            updates,
-            logs: [
-              {
-                type: 'call_queued',
-                message: `Queued for continuous calling session`,
-                timestamp: new Date().toISOString(),
-              },
-            ],
-          });
-          return res.json({
-            success: true,
-            dialMode: 'agent_first',
-            sessionActive: true,
-            queued: true,
-            callSid: existingSession.callSid || null,
-            agentPhone: resolveAgentFirstNumber(ws) || null,
-            lead: updatedLead,
-          });
-        }
-        return res.status(400).json({ success: false, error: 'Failed to queue lead in active session.' });
+
+      agentSessionStore.createSession(req.workspaceId, {
+        mode: 'dial_in',
+        dialTo: normalizedTo,
+        leadKey: fullKey,
+        currentLeadKey: fullKey,
+        dialInNumber,
+        agentTo,
+        from: dialInNumber,
+        leadCallerId: dialInNumber,
+        queuedLeadKeys: [],
+      });
+
+      let inboundConfigured = false;
+      let inboundError = '';
+      try {
+        await signalwire.configureIncomingNumberForDialIn(dialInNumber);
+        inboundConfigured = true;
+      } catch (e) {
+        inboundError = (e && e.message) || 'Could not set SignalWire Voice URL';
+        console.warn('[dial] configure inbound voice URL:', inboundError);
       }
+
+      dialerPacing.recordDialAttempt(telephonyAf, {
+        from: dialInNumber,
+        to: normalizedTo,
+        action: 'call',
+        leadKey: fullKey,
+        callSid: '',
+      });
+      await dbService.saveWorkspace(req.workspaceId, ws);
+
+      const updatedLeadAf = await logLeadOutboundCallInitiated(req, fullKey, lead, {
+        callSid: '',
+        normalizedTo,
+        logMessage: `Agent dial-in ready — call ${dialInNumber} from your phone to bridge`,
+        updateType: 'call_dial_in_pending',
+      });
+
+      return res.json({
+        success: true,
+        dialMode: 'agent_dial_in',
+        dialInNumber,
+        agentPhone: agentTo,
+        callerId: dialInNumber,
+        callSid: null,
+        sessionActive: true,
+        inboundConfigured,
+        inboundError: inboundConfigured ? '' : inboundError,
+        lead: updatedLeadAf,
+      });
     }
 
     const telephony = ws && ws.telephony && typeof ws.telephony === 'object' ? ws.telephony : {};
@@ -1556,9 +1635,9 @@ router.post('/:key/call', async (req, res, next) => {
       action: 'call',
       from: fromPick.from,
       leadCallerId,
-      agentFirst: callMode === 'agent_first',
-      agentTo: callMode === 'agent_first' ? resolveAgentFirstNumber(ws) : undefined,
-      session: callMode === 'agent_first',  // enable continuous session for agent-first mode
+      agentFirst: false,
+      agentTo: undefined,
+      session: false,
     });
     dialerPacing.recordDialAttempt(telephony, {
       from: fromPick.from,
@@ -1569,16 +1648,6 @@ router.post('/:key/call', async (req, res, next) => {
     });
     await dbService.saveWorkspace(req.workspaceId, ws);
 
-    // ── Create agent session for continuous calling ──
-    if (callMode === 'agent_first' && call.sid) {
-      agentSessionStore.createSession(req.workspaceId, {
-        callSid: call.sid,
-        agentTo: resolveAgentFirstNumber(ws),
-        from: fromPick.from,
-        queuedLeadKeys: [],
-      });
-    }
-
     const updatedLead = await logLeadOutboundCallInitiated(req, fullKey, lead, {
       callSid: call.sid || '',
       normalizedTo,
@@ -1586,12 +1655,12 @@ router.post('/:key/call', async (req, res, next) => {
     });
     res.json({
       success: true,
-      dialMode: callMode === 'agent_first' ? 'agent_first' : 'cloud_dial',
+      dialMode: 'cloud_dial',
       callSid: call.sid || null,
       callerId: leadCallerId || fromPick.from,
-      agentPhone: callMode === 'agent_first' ? resolveAgentFirstNumber(ws) || null : null,
+      agentPhone: null,
       lead: updatedLead,
-      sessionActive: callMode === 'agent_first',
+      sessionActive: false,
     });
   } catch (err) {
     next(err);
@@ -2211,9 +2280,14 @@ router.get('/telephony/session/status', async (req, res, next) => {
     return res.json({
       success: true,
       active: true,
-      callSid: session.callSid,
+      mode: session.mode || 'outbound',
+      status: session.status || 'active',
+      callSid: session.callSid || null,
+      dialInNumber: session.dialInNumber || session.from || null,
+      dialTo: session.dialTo || null,
       queuedCount: (session.queuedLeadKeys || []).length,
-      currentLeadKey: session.currentLeadKey || null,
+      currentLeadKey: session.currentLeadKey || session.leadKey || null,
+      pendingDialIn: session.mode === 'dial_in' && session.status === 'pending_dial_in',
     });
   } catch (err) {
     next(err);

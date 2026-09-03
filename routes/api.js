@@ -782,6 +782,59 @@ router.post('/telephony/voice/amd', async (req, res) => {
   }
 });
 
+// POST|GET /api/telephony/voice/inbound — agent dials workspace DID; bridge pending lead
+router.all('/telephony/voice/inbound', async (req, res) => {
+  try {
+    if (!telephonyAuthorized(req)) return res.status(401).send('Unauthorized');
+    const body = { ...(req.query || {}), ...(req.body || {}) };
+    const to = signalwire.normalizePhone(body.To || body.to || '');
+    const from = signalwire.normalizePhone(body.From || body.from || '');
+    const callSid = String(body.CallSid || body.callSid || '').trim();
+    const voiceLang = String(process.env.TELEPHONY_VOICE_LANGUAGE || 'en-US').trim();
+    const voiceName = String(process.env.TELEPHONY_VOICE_NAME || 'alice').trim();
+
+    let session = agentSessionStore.findPendingDialInByDid(to, from);
+    if (!session && to) {
+      // Fallback: any pending dial-in for this DID (agent From may be withheld / spoofed)
+      session = agentSessionStore.findPendingDialInByDid(to, '');
+    }
+    if (!session || !session.dialTo) {
+      return res.type('text/xml').send(
+        `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="${xmlEscape(voiceName)}" language="${xmlEscape(voiceLang)}">No lead is waiting. Open Ad Hello, tap Call, then dial this number again.</Say><Hangup/></Response>`,
+      );
+    }
+
+    const dialTo = signalwire.normalizePhone(session.dialTo);
+    const callerId =
+      signalwire.normalizePhone(session.leadCallerId || session.from || to) || to;
+    const workspaceId = String(session.workspaceId || '').trim();
+
+    agentSessionStore.updateSession(workspaceId, {
+      status: 'active',
+      callSid: callSid || session.callSid || '',
+      mode: 'dial_in',
+      expiresAt: null,
+    });
+
+    let dialExtra = '';
+    if (workspaceId) {
+      const waitUrl = signalwire.buildAppUrl('/api/telephony/voice/twiml/wait', {
+        workspaceId,
+        from: callerId,
+      });
+      if (waitUrl) dialExtra = ` action="${xmlEscape(waitUrl)}"`;
+    }
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="${xmlEscape(voiceName)}" language="${xmlEscape(voiceLang)}">Connecting the lead now.</Say><Dial answerOnBridge="true" timeout="45" callerId="${xmlEscape(
+      callerId,
+    )}"${dialExtra}><Number>${xmlEscape(dialTo)}</Number></Dial></Response>`;
+    return res.type('text/xml').send(xml);
+  } catch (err) {
+    console.error('[telephony:voice:inbound]', err.message);
+    res.type('text/xml').send('<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>');
+  }
+});
+
 // POST|GET /api/telephony/voice/twiml/agent-test — short confirmation call to agent mobile
 router.all('/telephony/voice/twiml/agent-test', async (req, res) => {
   try {

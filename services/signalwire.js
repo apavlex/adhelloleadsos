@@ -378,6 +378,7 @@ async function listIncomingPhoneNumbers() {
         friendlyName: String(n.friendly_name || n.FriendlyName || '')
           .trim()
           .slice(0, 64),
+        voiceUrl: String(n.voice_url || n.VoiceUrl || '').trim(),
       }))
       .filter((n) => n.phoneNumber);
     const seen = new Set();
@@ -392,6 +393,7 @@ async function listIncomingPhoneNumbers() {
         sid: '',
         phoneNumber: fromDefault,
         friendlyName: 'Default (SIGNALWIRE_FROM_NUMBER)',
+        voiceUrl: '',
       });
     }
     return { numbers: deduped };
@@ -403,10 +405,48 @@ async function listIncomingPhoneNumbers() {
   }
 }
 
+/**
+ * Point a DID's inbound Voice URL at AdHello dial-in webhook so agent-first
+ * works when the agent calls the workspace number (avoids Silence Unknown Callers).
+ */
+async function configureIncomingNumberForDialIn(phoneNumber) {
+  const want = normalizePhone(phoneNumber);
+  if (!want) throw new Error('Phone number is required.');
+  if (!configured()) throw new Error('SignalWire is not configured.');
+  const voiceUrl = buildAppUrl('/api/telephony/voice/inbound', {});
+  const statusCallback = buildAppUrl('/api/telephony/voice/status', {});
+  if (!voiceUrl || !statusCallback) {
+    throw new Error('BASE_URL must be a public https URL to configure inbound voice webhooks.');
+  }
+  const listed = await listIncomingPhoneNumbers();
+  const match = (listed.numbers || []).find((n) => n.phoneNumber === want && n.sid);
+  if (!match || !match.sid) {
+    throw new Error(
+      `Could not find ${want} in this SignalWire project to set Voice URL. Confirm the number is on the same Space as SIGNALWIRE_* keys.`,
+    );
+  }
+  const raw = await postForm(`/IncomingPhoneNumbers/${encodeURIComponent(match.sid)}.json`, {
+    VoiceUrl: voiceUrl,
+    VoiceMethod: 'POST',
+    StatusCallback: statusCallback,
+    StatusCallbackMethod: 'POST',
+  });
+  return {
+    sid: match.sid,
+    phoneNumber: want,
+    voiceUrl,
+    statusCallback,
+    raw,
+  };
+}
+
 function buildAppUrl(path, params) {
   const cfg = envConfig();
-  const base = cfg.baseUrl;
+  let base = String(cfg.baseUrl || '').trim().replace(/\/+$/, '');
   if (!base) return '';
+  if (!/^https?:\/\//i.test(base)) {
+    base = `https://${base}`;
+  }
   const u = new URL(path, `${base}/`);
   const qp = new URLSearchParams();
   if (params) {
@@ -776,4 +816,5 @@ module.exports = {
   startCallRecording,
   stopCallRecording,
   listIncomingPhoneNumbers,
+  configureIncomingNumberForDialIn,
 };
