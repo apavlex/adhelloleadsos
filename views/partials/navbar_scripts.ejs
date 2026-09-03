@@ -348,6 +348,9 @@
     pollTimer: null,
     webrtcDialWatchdog: null,
     webrtcDialHardStop: null,
+    dialWatchdog: null,
+    callBtnHtml: '',
+    vmBtnHtml: '',
     webrtcSkipDeviceRetry: false,
     webrtcCloudFallback: false,
     dialMode: '',
@@ -427,6 +430,66 @@
       softphoneSession.webrtcDialHardStop = null;
     }
   }
+  function softphoneRestoreDialButtons() {
+    if (spCall) {
+      spCall.disabled = !!softphoneSession.wrapRequired;
+      if (softphoneSession.callBtnHtml) {
+        spCall.innerHTML = softphoneSession.callBtnHtml;
+        softphoneSession.callBtnHtml = '';
+      }
+    }
+    if (spVm) {
+      spVm.disabled = !!softphoneSession.wrapRequired;
+      if (softphoneSession.vmBtnHtml) {
+        spVm.innerHTML = softphoneSession.vmBtnHtml;
+        softphoneSession.vmBtnHtml = '';
+      }
+    }
+  }
+  function softphoneForceAbortDial(msg, opts) {
+    opts = opts || {};
+    webrtcClearDialWatchdog();
+    if (softphoneSession.dialWatchdog) {
+      clearTimeout(softphoneSession.dialWatchdog);
+      softphoneSession.dialWatchdog = null;
+    }
+    softphoneStopPolling();
+    softphoneStopDialInPolling();
+    try {
+      if (softphoneSession.relayCall) {
+        softphoneSession.relayCall.hangup({ cause: 'NORMAL_CLEARING' }, true);
+      }
+    } catch (_) {}
+    softphoneClearWebrtcSession();
+    softphoneSession.callSid = '';
+    softphoneSession.isCloudPstn = false;
+    softphoneSession.hangupInFlight = false;
+    softphoneSession.webrtcCloudFallback = false;
+    softphoneSession.webrtcSkipDeviceRetry = false;
+    softphoneSession.stateVerbose = '';
+    softphoneSession.startedAtMs = 0;
+    softphoneResetRecordingState();
+    softphoneSetWrapRequired(false);
+    softphoneSetCallState(opts.idle ? 'idle' : 'ready');
+    softphoneSetTimerSeconds(0);
+    softphoneRestoreDialButtons();
+    updateSoftphoneRedialUi();
+    softphoneSetStatus(msg || 'Dial canceled. You can call again.', !!opts.isError);
+  }
+  function softphoneStartMasterDialWatchdog() {
+    if (softphoneSession.dialWatchdog) {
+      clearTimeout(softphoneSession.dialWatchdog);
+      softphoneSession.dialWatchdog = null;
+    }
+    softphoneSession.dialWatchdog = setTimeout(function () {
+      softphoneSession.dialWatchdog = null;
+      if (softphoneSession.state !== 'dialing') return;
+      softphoneForceAbortDial(
+        'Call setup timed out. Tap Call to try again, or Hang up then Call. If this keeps happening, use Settings → Run soundcheck.',
+        { isError: true },
+      );
+    }, 45000);
+  }
   function softphoneCancelWebrtcDial(msg, opts) {
     opts = opts || {};
     webrtcClearDialWatchdog();
@@ -438,12 +501,11 @@
     softphoneClearWebrtcSession();
     softphoneSession.stateVerbose = '';
     if (opts.readyToRedial) {
-      softphoneSetWrapRequired(false);
-      softphoneSetCallState('ready');
-    } else {
-      softphoneSetWrapRequired(!!opts.requireWrap);
-      softphoneSetCallState('ended');
+      softphoneForceAbortDial(msg || 'Call canceled.', { isError: !!opts.isError });
+      return;
     }
+    softphoneSetWrapRequired(!!opts.requireWrap);
+    softphoneSetCallState('ended');
     softphoneSetStatus(msg || 'Call canceled.', !!opts.isError);
   }
   function softphoneWebrtcFallbackToCloud(to, msg) {
@@ -2803,15 +2865,20 @@
     var prev = softphoneSession.state;
     softphoneSession.state = state;
     var needsWrap = !!softphoneSession.wrapRequired;
-    if (spCall) spCall.disabled = needsWrap;
-    if (spVm) spVm.disabled = needsWrap;
+    if (spCall) spCall.disabled = needsWrap || state === 'dialing';
+    if (spVm) spVm.disabled = needsWrap || state === 'dialing';
     if (state === 'in_call') {
       softphoneSession.wasInCall = true;
       if (!softphoneSession.startedAtMs) softphoneSession.startedAtMs = Date.now();
+      if (softphoneSession.dialWatchdog) {
+        clearTimeout(softphoneSession.dialWatchdog);
+        softphoneSession.dialWatchdog = null;
+      }
       softphoneStartTimer();
     } else if (state === 'ended' || state === 'idle' || state === 'ready') {
       softphoneStopTimer();
       if (state !== 'in_call' && prev !== 'in_call') softphoneSetTimerSeconds(0);
+      if (state === 'ready' || state === 'idle') softphoneRestoreDialButtons();
     }
     updateCallStateLabel();
     updateSoftphoneCallAudioModeLine();
@@ -3714,6 +3781,8 @@
     spTo.value = to;
     var btn = action === 'voicemail_drop' ? spVm : spCall;
     var originalHtml = btn ? btn.innerHTML : '';
+    if (action === 'voicemail_drop') softphoneSession.vmBtnHtml = originalHtml;
+    else softphoneSession.callBtnHtml = originalHtml;
     if (btn) { btn.disabled = true; btn.innerHTML = action === 'voicemail_drop' ? 'Dropping…' : 'Dialing…'; }
     softphoneSession.stateVerbose = '';
     softphoneSession.webrtcSkipDeviceRetry = false;
@@ -3729,6 +3798,7 @@
     softphoneSetTimerSeconds(0);
     softphoneSetCallState('dialing');
     softphoneSession.activeNumber = to;
+    softphoneStartMasterDialWatchdog();
     var p;
     var tryWebrtc =
       action === 'call' &&
@@ -3762,20 +3832,27 @@
       p = startCloudSoftphoneDial(to, action, action === 'voicemail_drop' ? { forceCloudVoicemail: true } : null);
     }
     p.catch(function (err) {
-      softphoneSetCallState('idle');
-      softphoneSession.callSid = '';
-      softphoneSession.isCloudPstn = false;
-      softphoneStopPolling();
-      softphoneClearWebrtcSession();
+      softphoneForceAbortDial((err && err.message) || 'Call failed.', { isError: true });
       var failMsg = (err && err.message) || 'Call failed.';
       if (/phone number bank|mobile number|agent-first|agent first|telephony is not configured|signalwire/i.test(String(failMsg))) {
         failMsg +=
           ' Tip: use “Guided setup” under Call routing mode in this dialer for a checklist that matches your mode.';
+        softphoneSetStatus(failMsg, true);
       }
-      softphoneSetStatus(failMsg, true);
     })
       .finally(function () {
-        if (btn) { btn.disabled = false; btn.innerHTML = originalHtml; }
+        if (softphoneSession.dialWatchdog && softphoneSession.state !== 'dialing') {
+          clearTimeout(softphoneSession.dialWatchdog);
+          softphoneSession.dialWatchdog = null;
+        }
+        if (btn) {
+          btn.disabled = softphoneSession.wrapRequired || softphoneSession.state === 'dialing';
+          if (softphoneSession.state !== 'dialing') {
+            btn.innerHTML = originalHtml;
+            if (action === 'voicemail_drop') softphoneSession.vmBtnHtml = '';
+            else softphoneSession.callBtnHtml = '';
+          }
+        }
       });
   }
   var callRoutingWalkthroughSoftphoneBtn = document.getElementById('callRoutingWalkthroughSoftphoneBtn');
@@ -4926,9 +5003,16 @@
   }
   if (spHangup) {
     spHangup.addEventListener('click', function () {
-      if (softphoneSession.state !== 'in_call' && softphoneSession.state !== 'dialing') {
+      // Stuck "DIALING" must always be cancelable without forcing wrap-up (which locks Call).
+      if (softphoneSession.state === 'dialing') {
+        softphoneForceAbortDial('Dial canceled. You can call again.');
+        return;
+      }
+      if (softphoneSession.state !== 'in_call') {
         if (softphoneSession.state === 'ended' || softphoneSession.wrapRequired) {
-          softphoneSetStatus('Call already ended. Tap Redial to call back, or complete wrap-up below.', false);
+          softphoneSetWrapRequired(false);
+          softphoneSetCallState('ready');
+          softphoneSetStatus('Ready. Tap Call or Redial.', false);
           return;
         }
         softphoneSetStatus('No active call to hang up.', true);
@@ -4948,10 +5032,7 @@
         return;
       }
       if (!softphoneSession.callSid) {
-        softphoneResetRecordingState();
-        softphoneSetCallState('ended');
-        softphoneSetWrapRequired(true);
-        softphoneSetStatus('Call ended. Tap Redial to call back, or complete wrap-up below.');
+        softphoneForceAbortDial('Call ended. You can call again.');
         return;
       }
       spHangup.disabled = true;
