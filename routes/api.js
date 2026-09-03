@@ -782,6 +782,26 @@ router.post('/telephony/voice/amd', async (req, res) => {
   }
 });
 
+// POST|GET /api/telephony/voice/twiml/agent-test — short confirmation call to agent mobile
+router.all('/telephony/voice/twiml/agent-test', async (req, res) => {
+  try {
+    if (!telephonyAuthorized(req)) return res.status(401).send('Unauthorized');
+    const voiceLang = String(process.env.TELEPHONY_VOICE_LANGUAGE || 'en-US').trim();
+    const voiceName = String(process.env.TELEPHONY_VOICE_NAME || 'alice').trim();
+    const xml = [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<Response>',
+      `<Say voice="${xmlEscape(voiceName)}" language="${xmlEscape(voiceLang)}">This is an Ad Hello agent phone test. If you hear this, Signal Wire can reach your mobile for agent first calling. Goodbye.</Say>`,
+      '<Hangup/>',
+      '</Response>',
+    ].join('');
+    return res.type('text/xml').send(xml);
+  } catch (err) {
+    console.error('[telephony:voice:agent-test]', err.message);
+    res.type('text/xml').send('<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>');
+  }
+});
+
 // POST|GET /api/telephony/voice/twiml — dynamic call script for calls/voicemail drops
 router.all('/telephony/voice/twiml', async (req, res) => {
   try {

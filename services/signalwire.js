@@ -419,6 +419,41 @@ function buildAppUrl(path, params) {
   return u.toString();
 }
 
+async function createOutboundPstnCall(opts) {
+  const to = normalizePhone(opts && opts.to);
+  if (!to) throw new Error('A valid destination phone number is required.');
+  const cfg = envConfig();
+  const from = normalizePhone((opts && opts.from) || cfg.callerId || cfg.fromNumber);
+  if (!from) throw new Error('SIGNALWIRE_FROM_NUMBER must be configured.');
+  if (!cfg.baseUrl) {
+    throw new Error('BASE_URL must be set to a public HTTPS URL so call webhooks can connect.');
+  }
+  const workspaceId = String((opts && opts.workspaceId) || '').trim();
+  const voicePath = String((opts && opts.voicePath) || '/api/telephony/voice/twiml').trim();
+  const voiceParams =
+    opts && opts.voiceParams && typeof opts.voiceParams === 'object' ? opts.voiceParams : {};
+  const statusAction = String((opts && opts.statusAction) || 'call').trim() || 'call';
+  const voiceUrl = buildAppUrl(voicePath, { workspaceId, ...voiceParams });
+  const statusCallback = buildAppUrl('/api/telephony/voice/status', {
+    workspaceId,
+    action: statusAction,
+  });
+  if (!String(voiceUrl || '').trim() || !String(statusCallback || '').trim()) {
+    throw new Error(
+      'TwiML or status callback URL is empty. Set BASE_URL in the environment to your public https root.',
+    );
+  }
+  const raw = await postFormCreateCall({
+    To: to,
+    From: from,
+    Url: voiceUrl,
+    StatusCallback: statusCallback,
+    StatusCallbackMethod: 'POST',
+    StatusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
+  });
+  return ensureCallWithSid(raw, 'Create call:');
+}
+
 async function createLeadCall(opts) {
   const leadTo = normalizePhone(opts && opts.to);
   if (!leadTo) throw new Error('A valid destination phone number is required.');
@@ -729,6 +764,7 @@ module.exports = {
   extractCallSid,
   buildAppUrl,
   createLeadCall,
+  createOutboundPstnCall,
   sendSms,
   getCall,
   completeCall,

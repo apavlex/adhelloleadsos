@@ -1598,6 +1598,63 @@ router.post('/:key/call', async (req, res, next) => {
   }
 });
 
+// POST /leads/telephony/test-agent-ring — place a short PSTN call to the agent mobile only
+router.post('/telephony/test-agent-ring', express.json(), async (req, res, next) => {
+  try {
+    if (!signalwire.configured()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Telephony is not configured on the server (SIGNALWIRE_* / BASE_URL).',
+      });
+    }
+    const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
+    const agentTo =
+      signalwire.normalizePhone((req.body && req.body.agentPhone) || '') ||
+      resolveAgentFirstNumber(ws);
+    if (!agentTo) {
+      return res.status(400).json({
+        success: false,
+        error: 'Set Your mobile (agent) first — personal cell in E.164.',
+      });
+    }
+    const bank = workspaceCallerNumbers(ws);
+    if (bank.includes(agentTo)) {
+      return res.status(400).json({
+        success: false,
+        error:
+          'Agent mobile cannot be a Phone bank / SignalWire DID. Use your personal cell number.',
+      });
+    }
+    const from =
+      resolveLeadCallerId(ws) ||
+      resolveWorkspaceCallerNumber(ws) ||
+      signalwire.normalizePhone(signalwire.envConfig().fromNumber);
+    if (!from) {
+      return res.status(400).json({
+        success: false,
+        error: 'Add a SignalWire number to the Phone bank to use as caller ID.',
+      });
+    }
+    const call = await signalwire.createOutboundPstnCall({
+      to: agentTo,
+      from,
+      workspaceId: req.workspaceId,
+      voicePath: '/api/telephony/voice/twiml/agent-test',
+      statusAction: 'agent_test',
+    });
+    return res.json({
+      success: true,
+      callSid: call.sid || null,
+      to: agentTo,
+      from,
+      message:
+        'Calling your mobile now from the workspace number. Save that workspace number as a contact if iPhone Silence Unknown Callers is on.',
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /leads/telephony/call-options — caller ID options for call widget
 router.get('/telephony/call-options', async (req, res, next) => {
   try {

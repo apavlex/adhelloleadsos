@@ -4548,6 +4548,51 @@
     spAgentPhone.addEventListener('change', saveSoftphoneAgentPhone);
     spAgentPhone.addEventListener('blur', saveSoftphoneAgentPhone);
   }
+  var spAgentTestRingBtn = document.getElementById('softphoneAgentTestRingBtn');
+  var spAgentTestRingMsg = document.getElementById('softphoneAgentTestRingMsg');
+  if (spAgentTestRingBtn) {
+    spAgentTestRingBtn.addEventListener('click', function () {
+      if (spAgentTestRingMsg) spAgentTestRingMsg.textContent = 'Calling your mobile…';
+      spAgentTestRingBtn.disabled = true;
+      fetch('/leads/telephony/test-agent-ring', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          agentPhone: (spAgentPhone && spAgentPhone.value) || spAgentPhoneCached || '',
+        }),
+      })
+        .then(function (r) {
+          return r.json().then(function (j) {
+            return { ok: r.ok, j: j };
+          });
+        })
+        .then(function (res) {
+          var text =
+            (res.j && (res.j.message || res.j.error)) ||
+            (res.ok ? 'Call placed.' : 'Test ring failed.');
+          if (res.j && res.j.from && res.j.to) {
+            text += ' From ' + formatCallerIdDisplay(res.j.from) + ' → ' + formatCallerIdDisplay(res.j.to) + '.';
+          }
+          if (spAgentTestRingMsg) spAgentTestRingMsg.textContent = text;
+          if (res.ok) {
+            softphoneSetStatus(
+              'Test ring placed to your mobile from the workspace number. If it never rings, save that workspace number as a contact and turn off Silence Unknown Callers.',
+              false,
+            );
+          } else {
+            softphoneSetStatus(text, true);
+          }
+        })
+        .catch(function (err) {
+          var msg = (err && err.message) || 'Test ring failed.';
+          if (spAgentTestRingMsg) spAgentTestRingMsg.textContent = msg;
+          softphoneSetStatus(msg, true);
+        })
+        .finally(function () {
+          spAgentTestRingBtn.disabled = false;
+        });
+    });
+  }
   function softphoneIsVisible() {
     return !!(spModal && !spModal.classList.contains('hidden'));
   }

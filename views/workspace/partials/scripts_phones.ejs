@@ -354,5 +354,51 @@
         });
     });
   }
+  var testRingBtn = document.getElementById('wsAgentTestRingBtn');
+  var testRingMsg = document.getElementById('wsAgentTestRingMsg');
+  if (testRingBtn) {
+    testRingBtn.addEventListener('click', function () {
+      if (testRingMsg) {
+        testRingMsg.textContent = 'Calling your mobile…';
+        testRingMsg.classList.remove('text-rose-600', 'text-emerald-700');
+      }
+      testRingBtn.disabled = true;
+      fetch('/leads/telephony/test-agent-ring', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          agentPhone: agentPhoneInput ? String(agentPhoneInput.value || '').trim() : '',
+        }),
+      })
+        .then(function (r) {
+          return r.json().then(function (j) {
+            return { ok: r.ok, j: j };
+          });
+        })
+        .then(function (res) {
+          var text =
+            (res.j && (res.j.message || res.j.error)) ||
+            (res.ok ? 'Call placed.' : 'Test ring failed.');
+          if (res.j && res.j.from && res.j.to) {
+            text += ' From ' + res.j.from + ' → ' + res.j.to + '.';
+          }
+          if (testRingMsg) {
+            testRingMsg.textContent = text;
+            testRingMsg.classList.toggle('text-rose-600', !res.ok);
+            testRingMsg.classList.toggle('text-emerald-700', !!res.ok);
+          }
+        })
+        .catch(function () {
+          if (testRingMsg) {
+            testRingMsg.textContent = 'Request failed.';
+            testRingMsg.classList.add('text-rose-600');
+          }
+        })
+        .finally(function () {
+          testRingBtn.disabled = false;
+        });
+    });
+  }
 })();
 </script>
