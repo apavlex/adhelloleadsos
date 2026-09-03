@@ -4,7 +4,6 @@
 
 const dbService = require('./database');
 const ghlClient = require('./ghlClient');
-const ghlSync = require('./ghlSync');
 const { allowsGhlPush, getWorkspaceGhlSyncDirection } = require('./ghlSyncDirection');
 const workspaceIntegrations = require('./workspaceIntegrations');
 const { mergeTagLists } = require('./ghlSyncHelpers');
@@ -196,6 +195,8 @@ async function syncLeadProspectActionToGhl(opts) {
     ];
   }
 
+  // Lazy require: ghlProspectSync ↔ ghlSync is circular at load time.
+  const ghlSync = require('./ghlSync');
   const result = await ghlSync.pushLeadToGhl(prepared, integrationEnv);
   return {
     ok: true,

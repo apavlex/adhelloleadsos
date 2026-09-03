@@ -60,4 +60,34 @@ describe('ghlProspectSync', () => {
     const prepared = await prepareLeadForGhlPush(lead, 'default');
     assert.ok(prepared.ghlTagNamesForPush.includes(AO_ACTION_TAGS.NO_ANSWER));
   });
+
+  it('ghlSync.pushLeads can prepare a lead after leads-first circular load', async () => {
+    const cycle = [
+      require.resolve('../services/ghlProspectSync'),
+      require.resolve('../services/ghlSync'),
+      require.resolve('../services/inboundReplyRules'),
+    ];
+    for (const id of cycle) delete require.cache[id];
+
+    // Production boot order: routes/leads.js requires ghlProspectSync before routes/ghl.js loads ghlSync.
+    require('../services/ghlProspectSync');
+    const ghlSync = require('../services/ghlSync');
+    assert.equal(typeof require('../services/ghlProspectSync').prepareLeadForGhlPush, 'function');
+
+    const result = await ghlSync.pushLeads({
+      workspaceId: 'default',
+      leadKeys: [testKey],
+      integrationEnv: {
+        GHL_API_KEY: 'test-key',
+        GHL_LOCATION_ID: 'test-location',
+      },
+    });
+    assert.equal(result.total, 1);
+    const err = result.results[0] && result.results[0].error;
+    assert.equal(
+      /prepareLeadForGhlPush is not a function/.test(String(err || '')),
+      false,
+      err || 'push succeeded',
+    );
+  });
 });

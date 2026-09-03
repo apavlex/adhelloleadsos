@@ -20,7 +20,6 @@ const {
   buildGhlSyncActivityNote,
 } = require('./ghlSyncHelpers');
 const { isActionTag, computeActionTagsFromLead, formatNextActionNote } = require('./ghlActionTags');
-const ghlProspectSync = require('./ghlProspectSync');
 const { pushLastProspectedField } = require('./ghlLastProspectedField');
 const { pushReviewFields } = require('./ghlReviewFields');
 const { pushPhoneLineFields } = require('./ghlPhoneLineFields');
@@ -327,6 +326,8 @@ async function pullContactToLead(contact, workspaceId, localLeads, integrationEn
 
   const ghlTags = Array.isArray(contact.tags) ? contact.tags : [];
   if (ghlTags.length) {
+    // Lazy require: ghlProspectSync ↔ ghlSync is circular at load time.
+    const ghlProspectSync = require('./ghlProspectSync');
     patch.tags = await ghlProspectSync.resolveGhlTagNamesToLeadKeys(
       workspaceId,
       ghlTags,
@@ -402,6 +403,8 @@ async function pushLeads(opts) {
   const results = [];
   for (const lead of leads) {
     try {
+      // Lazy require: ghlProspectSync ↔ ghlSync is circular at load time.
+      const ghlProspectSync = require('./ghlProspectSync');
       // eslint-disable-next-line no-await-in-loop
       let leadForPush = await ghlProspectSync.prepareLeadForGhlPush(lead, wid);
       if (tagNoWebsite && !hasUsableWebsite(lead)) {
