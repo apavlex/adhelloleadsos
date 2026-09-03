@@ -4142,10 +4142,6 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
   height: auto !important;
   min-height: 0 !important;
   max-height: none !important;
-  top: auto !important;
-  bottom: 1rem !important;
-  left: auto !important;
-  right: 0.75rem !important;
   border-radius: 1rem !important;
   box-shadow: 0 12px 32px rgba(15, 23, 42, 0.16) !important;
 }
@@ -4167,6 +4163,14 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
   padding: 0.65rem 0.75rem;
   background: rgba(255, 255, 255, 0.96);
   border-bottom: 0;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.softphone-compact-bar:active,
+.softphone-panel.softphone-panel--compact-dragging .softphone-compact-bar {
+  cursor: grabbing;
 }
 
 .dark .softphone-compact-bar {

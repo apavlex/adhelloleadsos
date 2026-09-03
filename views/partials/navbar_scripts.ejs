@@ -109,6 +109,7 @@
   var spDockRight = document.getElementById('softphoneDockRight');
   var spDragHandle = document.getElementById('softphoneDragHandle');
   var SOFTPHONE_POS_KEY = 'adhelloSoftphonePos';
+  var SOFTPHONE_COMPACT_POS_KEY = 'adhelloSoftphoneCompactPos';
   var SOFTPHONE_FOCUS_EXPANDED_KEY = 'adhelloSoftphoneFocusExpanded';
   function isFocusModePage() {
     try {
@@ -137,10 +138,34 @@
   function applySoftphoneCompactLayout() {
     if (!spPanel || !softphoneSession.compact) return;
     clearSoftphonePanelLayout();
-    spPanel.style.setProperty('left', 'auto', 'important');
-    spPanel.style.setProperty('right', '0.75rem', 'important');
-    spPanel.style.setProperty('top', 'auto', 'important');
-    spPanel.style.setProperty('bottom', '1rem', 'important');
+    var saved = null;
+    try {
+      var raw = localStorage.getItem(SOFTPHONE_COMPACT_POS_KEY);
+      if (raw) saved = JSON.parse(raw);
+    } catch (_) {
+      saved = null;
+    }
+    if (
+      saved &&
+      typeof saved.left === 'number' &&
+      typeof saved.top === 'number' &&
+      !isNaN(saved.left) &&
+      !isNaN(saved.top)
+    ) {
+      var maxL = Math.max(8, window.innerWidth - 220);
+      var maxT = Math.max(8, window.innerHeight - 72);
+      var left = Math.max(8, Math.min(Math.round(saved.left), maxL));
+      var top = Math.max(8, Math.min(Math.round(saved.top), maxT));
+      spPanel.style.setProperty('left', left + 'px', 'important');
+      spPanel.style.setProperty('top', top + 'px', 'important');
+      spPanel.style.setProperty('right', 'auto', 'important');
+      spPanel.style.setProperty('bottom', 'auto', 'important');
+    } else {
+      spPanel.style.setProperty('left', 'auto', 'important');
+      spPanel.style.setProperty('right', '0.75rem', 'important');
+      spPanel.style.setProperty('top', 'auto', 'important');
+      spPanel.style.setProperty('bottom', '1rem', 'important');
+    }
     spPanel.style.setProperty('width', 'min(calc(100vw - 1.5rem), 22rem)', 'important');
     spPanel.style.setProperty('height', 'auto', 'important');
     spPanel.style.setProperty('max-height', 'none', 'important');
@@ -2905,7 +2930,15 @@
     softphoneSession.stateVerbose = st;
     if (st === 'in-progress' || st === 'inprogress' || st === 'answered') {
       if (softphoneSession.isCloudPstn) {
-        softphoneSetStatus('The remote end answered. No in-browser audio in cloud mode. Mute/hold are display only here.');
+        var connectedMode =
+          String(softphoneSession.dialMode || spWorkspaceCallMode || '').trim() || 'cloud_dial';
+        if (connectedMode === 'agent_first') {
+          softphoneSetStatus(
+            'Connected on your phone. Stay on that call — the lead is dialed after you answer. No audio in this tab.',
+          );
+        } else {
+          softphoneSetStatus('The remote end answered. No in-browser audio in cloud mode. Mute/hold are display only here.');
+        }
       }
       if (durationStr != null && durationStr !== '') {
         var durationSeconds = parseInt(durationStr, 10);
@@ -2916,7 +2949,20 @@
       softphoneSetCallState('in_call');
     } else if (st === 'ringing' || st === 'queued' || st === 'initiated' || st === 'trying' || st === 'early') {
       if (softphoneSession.isCloudPstn) {
-        softphoneSetStatus('Cloud leg is ringing the contact. There is no sound in this tab — the call is on the PSTN.');
+        var dialModeRing =
+          String(softphoneSession.dialMode || spWorkspaceCallMode || '').trim() || 'cloud_dial';
+        if (dialModeRing === 'agent_first') {
+          var agentRingLabel =
+            formatCallerIdDisplay(softphoneSession.agentTo || spAgentPhoneCached || '') ||
+            'your mobile';
+          softphoneSetStatus(
+            'Ringing your phone (' +
+              agentRingLabel +
+              ') now — answer that incoming call. The lead is dialed only after you pick up.',
+          );
+        } else {
+          softphoneSetStatus('Cloud leg is ringing the contact. There is no sound in this tab — the call is on the PSTN.');
+        }
       } else { softphoneSetStatus('Call progressing…'); }
       softphoneSetCallState('dialing');
     } else { softphoneSetCallState('dialing'); }
@@ -3397,6 +3443,14 @@
           title: softphoneSession.leadTitle,
           leadKey: softphoneSession.leadKey,
         });
+        if (res.j.queued) {
+          softphoneSetCallState('dialing');
+          softphoneSetStatus(
+            'Queued on your live agent session — stay on the line; next lead dials when the current one ends. Hang up to end the session and re-ring your phone on the next call.',
+          );
+          if (softphoneSession.callSid) softphoneStartPolling();
+          return;
+        }
         softphoneSetCallState('dialing');
         if (!softphoneSession.callSid) {
           softphoneSetStatus('No call id returned. Check the server, SignalWire credentials, and that BASE_URL is reachable for webhooks.', true);
@@ -4353,6 +4407,48 @@
             JSON.stringify({ dock: 'float', left: Math.round(b.left), top: Math.round(b.top) })
           );
         } catch (e2) {}
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+
+  var spCompactBarEl = document.getElementById('softphoneCompactBar');
+  if (spCompactBarEl && spPanel) {
+    spCompactBarEl.addEventListener('mousedown', function (e) {
+      if (!softphoneSession.compact) return;
+      if (window.matchMedia('(max-width: 767px)').matches) return;
+      if (e.target && e.target.closest && e.target.closest('button, a, input, select, textarea')) return;
+      e.preventDefault();
+      var br = spPanel.getBoundingClientRect();
+      var ox = e.clientX - br.left;
+      var oy = e.clientY - br.top;
+      var pw = br.width;
+      var ph = br.height;
+      spPanel.classList.add('softphone-panel--compact-dragging');
+      function onMove(e2) {
+        var nl = e2.clientX - ox;
+        var nt = e2.clientY - oy;
+        var maxL = window.innerWidth - pw - 8;
+        var maxT = window.innerHeight - ph - 8;
+        nl = Math.max(8, Math.min(nl, maxL));
+        nt = Math.max(8, Math.min(nt, maxT));
+        spPanel.style.setProperty('left', nl + 'px', 'important');
+        spPanel.style.setProperty('top', nt + 'px', 'important');
+        spPanel.style.setProperty('right', 'auto', 'important');
+        spPanel.style.setProperty('bottom', 'auto', 'important');
+      }
+      function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        spPanel.classList.remove('softphone-panel--compact-dragging');
+        try {
+          var b = spPanel.getBoundingClientRect();
+          localStorage.setItem(
+            SOFTPHONE_COMPACT_POS_KEY,
+            JSON.stringify({ left: Math.round(b.left), top: Math.round(b.top) })
+          );
+        } catch (_) {}
       }
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onUp);

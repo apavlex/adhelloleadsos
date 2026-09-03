@@ -12,13 +12,33 @@
 
 const sessions = new Map();
 
+/** Drop sessions older than this even if status webhooks were missed. */
+const SESSION_MAX_AGE_MS = 2 * 60 * 60 * 1000;
+
 function getSession(workspaceId) {
-  return sessions.get(workspaceId) || null;
+  const wid = String(workspaceId || '').trim();
+  if (!wid) return null;
+  const s = sessions.get(wid) || null;
+  if (!s) return null;
+  if (isSessionStale(s)) {
+    sessions.delete(wid);
+    return null;
+  }
+  return s;
+}
+
+function isSessionStale(session, nowMs = Date.now()) {
+  if (!session || typeof session !== 'object') return true;
+  const createdAt = Number(session.createdAt) || 0;
+  if (!createdAt) return true;
+  return nowMs - createdAt > SESSION_MAX_AGE_MS;
 }
 
 function createSession(workspaceId, data) {
+  const wid = String(workspaceId || '').trim();
+  if (!wid) return null;
   const s = {
-    workspaceId,
+    workspaceId: wid,
     callSid: data.callSid || '',
     agentTo: data.agentTo || '',
     from: data.from || '',
@@ -26,23 +46,25 @@ function createSession(workspaceId, data) {
     currentLeadKey: data.currentLeadKey || null,
     createdAt: Date.now(),
   };
-  sessions.set(workspaceId, s);
+  sessions.set(wid, s);
   return s;
 }
 
 function updateSession(workspaceId, patch) {
-  const s = sessions.get(workspaceId);
+  const s = getSession(workspaceId);
   if (!s) return null;
   Object.assign(s, patch);
   return s;
 }
 
 function removeSession(workspaceId) {
-  return sessions.delete(workspaceId);
+  const wid = String(workspaceId || '').trim();
+  if (!wid) return false;
+  return sessions.delete(wid);
 }
 
 function queueNextLead(workspaceId, leadKey) {
-  const s = sessions.get(workspaceId);
+  const s = getSession(workspaceId);
   if (!s) return false;
   if (!s.queuedLeadKeys) s.queuedLeadKeys = [];
   // Deduplicate — don't re-queue same lead if it's already waiting
@@ -52,7 +74,7 @@ function queueNextLead(workspaceId, leadKey) {
 }
 
 function popNextLead(workspaceId) {
-  const s = sessions.get(workspaceId);
+  const s = getSession(workspaceId);
   if (!s || !s.queuedLeadKeys || !s.queuedLeadKeys.length) return null;
   const leadKey = s.queuedLeadKeys.shift();
   s.currentLeadKey = leadKey;
@@ -60,15 +82,32 @@ function popNextLead(workspaceId) {
 }
 
 function hasSession(workspaceId) {
-  return sessions.has(workspaceId);
+  return !!getSession(workspaceId);
+}
+
+/**
+ * Clear a session when its agent call SID matches (or when sid is empty and any session exists).
+ * Prefer matching CallSid so concurrent workspaces stay isolated.
+ */
+function removeSessionForCall(workspaceId, callSid) {
+  const wid = String(workspaceId || '').trim();
+  const sid = String(callSid || '').trim();
+  if (!wid) return false;
+  const s = sessions.get(wid);
+  if (!s) return false;
+  if (sid && s.callSid && s.callSid !== sid) return false;
+  return sessions.delete(wid);
 }
 
 module.exports = {
+  SESSION_MAX_AGE_MS,
   getSession,
   createSession,
   updateSession,
   removeSession,
+  removeSessionForCall,
   queueNextLead,
   popNextLead,
   hasSession,
+  isSessionStale,
 };

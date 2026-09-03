@@ -1483,8 +1483,24 @@ router.post('/:key/call', async (req, res, next) => {
         });
       }
 
-      // ── Session mode: if a session is already active, queue this lead instead of placing a new call ──
-      const existingSession = agentSessionStore.getSession(req.workspaceId);
+      // ── Session mode: if a live agent session is active, queue this lead instead of re-ringing ──
+      let existingSession = agentSessionStore.getSession(req.workspaceId);
+      if (existingSession) {
+        let sessionLive = false;
+        if (existingSession.callSid && signalwire.configured()) {
+          try {
+            const liveCall = await signalwire.getCall(existingSession.callSid);
+            const liveStatus = signalwire.normalizeCallStatus(liveCall);
+            sessionLive = !!liveStatus && !signalwire.isTerminalCallStatus(liveStatus);
+          } catch (_) {
+            sessionLive = false;
+          }
+        }
+        if (!sessionLive) {
+          agentSessionStore.removeSession(req.workspaceId);
+          existingSession = null;
+        }
+      }
       if (existingSession) {
         const queued = agentSessionStore.queueNextLead(req.workspaceId, fullKey);
         if (queued) {
@@ -1506,8 +1522,11 @@ router.post('/:key/call', async (req, res, next) => {
           });
           return res.json({
             success: true,
+            dialMode: 'agent_first',
             sessionActive: true,
             queued: true,
+            callSid: existingSession.callSid || null,
+            agentPhone: resolveAgentFirstNumber(ws) || null,
             lead: updatedLead,
           });
         }
@@ -2041,10 +2060,14 @@ router.get('/telephony/call-status', async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'Telephony is not configured.' });
     }
     const call = await signalwire.getCall(callSid);
+    const status = signalwire.normalizeCallStatus(call) || String(call.status || call.call_status || '').trim().toLowerCase();
+    if (signalwire.isTerminalCallStatus(status)) {
+      agentSessionStore.removeSessionForCall(req.workspaceId, callSid);
+    }
     return res.json({
       success: true,
       callSid,
-      status: String(call.status || call.call_status || '').trim().toLowerCase(),
+      status,
       duration: call.duration != null ? String(call.duration) : '',
       from: String(call.from || ''),
       to: String(call.to || ''),
@@ -2076,6 +2099,7 @@ router.post('/telephony/call-control', async (req, res, next) => {
     if (action === 'hangup') {
       try {
         const result = await signalwire.completeCall(callSid);
+        agentSessionStore.removeSessionForCall(req.workspaceId, callSid);
         return res.json({
           success: true,
           action: 'hangup',
@@ -2084,6 +2108,7 @@ router.post('/telephony/call-control', async (req, res, next) => {
         });
       } catch (err) {
         if (signalwire.isCallAlreadyFinishedError(err)) {
+          agentSessionStore.removeSessionForCall(req.workspaceId, callSid);
           return res.json({
             success: true,
             action: 'hangup',

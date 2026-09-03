@@ -697,12 +697,11 @@ router.post('/telephony/voice/status', async (req, res) => {
         /* non-fatal */
       }
 
-      // Clean up agent session when the agent's call leg completes
-      if (callStatus === 'completed' && sid) {
-        const session = agentSessionStore.getSession(workspaceId);
-        if (session && session.callSid === sid) {
-          agentSessionStore.removeSession(workspaceId);
-        }
+      // Clear agent session on any terminal agent-leg status (not only "completed").
+      // Missed no-answer/busy/failed previously left a dead session that queued dials
+      // without placing a new call — so the agent phone never rang again.
+      if (sid && signalwire.isTerminalCallStatus(callStatus)) {
+        agentSessionStore.removeSessionForCall(workspaceId, sid);
       }
     }
     if (workspaceId && isInbound) {
