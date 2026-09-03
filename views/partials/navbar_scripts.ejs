@@ -3502,14 +3502,24 @@
           softphoneSession.startedAtMs = 0;
           softphoneSetCallState('dialing');
           var dialInLabel = formatCallerIdDisplay(softphoneSession.dialInNumber) || softphoneSession.dialInNumber || 'workspace number';
-          softphoneSetStatus(
-            'Call ' +
-              dialInLabel +
-              ' from your phone NOW. When you connect, we dial the lead. (This avoids Silence Unknown Callers — you place the call.)',
-          );
-          if (softphoneSession.dialInNumber) {
+          var isPhoneUa = /iPhone|iPad|Android/i.test(String(navigator.userAgent || ''));
+          if (isPhoneUa && softphoneSession.dialInNumber) {
+            softphoneSetStatus(
+              'On this phone: dial ' + dialInLabel + ' now. When you connect, we bridge the lead.',
+            );
             try {
               window.location.href = 'tel:' + String(softphoneSession.dialInNumber).replace(/[^\d+]/g, '');
+            } catch (_) {}
+          } else {
+            softphoneSetStatus(
+              'On your iPhone (not this Mac): open Phone and dial ' +
+                dialInLabel +
+                ' now. Mac tel: links will not ring your cell. Waiting for your inbound call…',
+            );
+            try {
+              if (navigator.clipboard && softphoneSession.dialInNumber) {
+                navigator.clipboard.writeText(String(softphoneSession.dialInNumber));
+              }
             } catch (_) {}
           }
           softphoneStartDialInPolling();
@@ -3679,9 +3689,7 @@
       var agentReady = normalizeDial(spAgentPhoneCached || (spAgentPhone && spAgentPhone.value) || '');
       if (!agentReady) {
         softphoneSetStatus(
-          'Set Your mobile (agent) first — Agent first rings your personal cell, not caller ID (' +
-            (formatCallerIdDisplay(spLeadCallerId || softphoneTrunkFromNumber() || '') || 'workspace DID') +
-            '). Use Agent mobile on this keypad or dialer Settings.',
+          'Set Your mobile (agent) in Settings first. Agent first uses dial-in: after Call, you dial the workspace number from your iPhone.',
           true,
         );
         updateSoftphoneAgentRingLine();
@@ -4562,7 +4570,7 @@
           if (spCallModeSaveHint) spCallModeSaveHint.textContent = 'Saved';
           if (nextMode === 'agent_first' && !normalizeDial(spAgentPhoneCached || '')) {
             if (spCallModeSaveHint) {
-              spCallModeSaveHint.textContent = 'Saved — set Your mobile below so your cell can ring.';
+              spCallModeSaveHint.textContent = 'Saved — set Your mobile below so dial-in can match your cell.';
             }
             if (spAgentPhone) {
               try {
@@ -4571,6 +4579,22 @@
             }
           }
           updateSoftphoneAgentRingLine();
+          refreshSoftphoneWebrtcDiagnostics();
+          // Re-fetch call-options so checklist / relay flags match saved workspace mode.
+          fetch('/leads/telephony/call-options', { headers: { Accept: 'application/json' } })
+            .then(function (r) {
+              return r.json().then(function (j) {
+                return { ok: r.ok, j: j };
+              });
+            })
+            .then(function (cres) {
+              if (!cres.ok || !cres.j || !cres.j.success) return;
+              if (cres.j.callMode) spWorkspaceCallMode = String(cres.j.callMode).trim() || nextMode;
+              spRelayWebrtc = !!cres.j.relayWebrtcAvailable;
+              updateSoftphoneCallModeUi();
+              refreshSoftphoneWebrtcDiagnostics();
+            })
+            .catch(function () {});
         })
         .catch(function (err) {
           spWorkspaceCallMode = prevMode || 'cloud_dial';
