@@ -2027,20 +2027,47 @@ router.post('/telephony/dial', async (req, res, next) => {
       ws,
       req.body && (req.body.leadCallerId || req.body.callerId),
     );
+    // Prefer an explicit workspace caller ID for From when pacing would pick a stale bank number.
+    let fromNumber = fromPick.from;
+    if (leadCallerId && workspaceCallerNumbers(ws).includes(leadCallerId)) {
+      fromNumber = leadCallerId;
+    }
+    const agentToCheck = resolveAgentFirstNumber(ws);
+    if (agentToCheck && fromNumber === agentToCheck) {
+      return res.status(400).json({
+        success: false,
+        error:
+          'Caller ID cannot be your personal cell. Pick a workspace SignalWire number under Your caller ID.',
+      });
+    }
+    try {
+      const owned = await signalwire.listIncomingPhoneNumbers();
+      const ownedSet = new Set((owned.numbers || []).map((n) => n.phoneNumber).filter(Boolean));
+      if (ownedSet.size && fromNumber && !ownedSet.has(fromNumber)) {
+        return res.status(400).json({
+          success: false,
+          error: `Caller ID ${fromNumber} is not in this SignalWire project. Pick a purchased workspace number under Your caller ID (Phone bank).`,
+          fromNumber,
+          signalwireNumbers: [...ownedSet].slice(0, 25),
+        });
+      }
+    } catch (_) {
+      /* proceed; createLeadCall will still validate */
+    }
     const call = await signalwire.createLeadCall({
       to,
       leadKey: fullLeadKey,
       workspaceId: req.workspaceId,
       action,
       voicemailAudioUrl: action === 'voicemail_drop' ? voicemailAudioUrl : '',
-      from: fromPick.from,
-      leadCallerId,
+      from: fromNumber,
+      leadCallerId: leadCallerId || fromNumber,
       agentFirst: useAgent,
       agentTo: useAgent ? resolveAgentFirstNumber(ws) : undefined,
       session: useAgent && action === 'call',
     });
     dialerPacing.recordDialAttempt(telephony, {
-      from: fromPick.from,
+      from: fromNumber,
       to,
       action,
       leadKey: fullLeadKey,
@@ -2058,7 +2085,7 @@ router.post('/telephony/dial', async (req, res, next) => {
         agentSessionStore.createSession(req.workspaceId, {
           callSid: call.sid,
           agentTo: resolveAgentFirstNumber(ws),
-          from: fromPick.from,
+          from: fromNumber,
           queuedLeadKeys: [],
           currentLeadKey: fullLeadKey || '',
           dialTo: to,

@@ -2354,10 +2354,27 @@
       if (agent && v === agent) return;
       seen[v] = true;
       var opt = document.createElement('option');
+      var owned =
+        Array.isArray(spSignalwireNumbers) &&
+        spSignalwireNumbers.length &&
+        spSignalwireNumbers.indexOf(v) !== -1;
       opt.value = v;
-      opt.textContent = formatCallerIdCompact(v) + ' · workspace';
+      opt.textContent =
+        formatCallerIdCompact(v) + (owned || !spSignalwireNumbers.length ? ' · workspace' : ' · not in SignalWire');
+      if (!owned && spSignalwireNumbers.length) {
+        opt.disabled = true;
+      }
       spCallerIdSelect.appendChild(opt);
     });
+    // Prefer a SignalWire-owned workspace number when current selection is invalid.
+    if (
+      selected &&
+      Array.isArray(spSignalwireNumbers) &&
+      spSignalwireNumbers.length &&
+      spSignalwireNumbers.indexOf(selected) === -1
+    ) {
+      selected = '';
+    }
     if (selected && seen[selected]) {
       spCallerIdSelect.value = selected;
       spLeadCallerId = selected;
@@ -3581,18 +3598,81 @@
   }
   function startCloudSoftphoneDial(to, action, opts) {
     softphoneResetRecordingState();
+    var fromNumber =
+      normalizeDial(spLeadCallerId || '') ||
+      normalizeDial((spFrom && spFrom.value) || '') ||
+      normalizeDial(spActiveFrom || '') ||
+      normalizeDial(spDefaultFrom || '');
+    var agentCell = normalizeDial(spAgentPhoneCached || (spAgentPhone && spAgentPhone.value) || '');
+    if (agentCell && fromNumber === agentCell) {
+      return Promise.reject(
+        new Error('Caller ID is set to your personal cell. Pick a workspace SignalWire number under Your caller ID.'),
+      );
+    }
+    if (
+      fromNumber &&
+      Array.isArray(spSignalwireNumbers) &&
+      spSignalwireNumbers.length &&
+      spSignalwireNumbers.indexOf(fromNumber) === -1
+    ) {
+      return Promise.reject(
+        new Error(
+          'Caller ID ' +
+            (formatCallerIdDisplay(fromNumber) || fromNumber) +
+            ' is not in this SignalWire project. Pick a purchased workspace number under Your caller ID.',
+        ),
+      );
+    }
     var body = { to: to, action: action };
     if (opts && opts.forceCloudVoicemail) body.forceCloudVoicemail = true;
     if (softphoneSession.leadKey) body.leadKey = softphoneSession.leadKey;
-    if (spLeadCallerId) body.leadCallerId = spLeadCallerId;
-    if (spFrom && spFrom.value) body.fromNumber = spFrom.value;
+    if (fromNumber) {
+      body.leadCallerId = fromNumber;
+      body.fromNumber = fromNumber;
+    }
     softphoneSession.isCloudPstn = false;
+    if (String(spWorkspaceCallMode || '').trim() === 'agent_first' && action === 'call') {
+      softphoneSetStatus(
+        'Placing call to your mobile (' +
+          (formatCallerIdDisplay(agentCell) || 'agent cell') +
+          ') from ' +
+          (formatCallerIdDisplay(fromNumber) || 'workspace number') +
+          '…',
+      );
+    } else {
+      softphoneSetStatus('Connecting call…');
+    }
+    var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var abortTimer = null;
+    if (controller) {
+      abortTimer = setTimeout(function () {
+        try {
+          controller.abort();
+        } catch (_) {}
+      }, 20000);
+    }
     return fetch('/leads/telephony/dial', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify(body),
+      signal: controller ? controller.signal : undefined,
     })
-      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (r) {
+        return r.json().then(function (j) {
+          return { ok: r.ok, j: j };
+        });
+      })
+      .catch(function (err) {
+        if (err && (err.name === 'AbortError' || /aborted/i.test(String(err.message || '')))) {
+          throw new Error(
+            'Call setup timed out contacting the server. Check SignalWire / Render, then Hang up and try again.',
+          );
+        }
+        throw err;
+      })
+      .finally(function () {
+        if (abortTimer) clearTimeout(abortTimer);
+      })
       .then(function (res) {
         if (!res.ok || !res.j || !res.j.success) throw new Error((res.j && res.j.error) || 'Call failed.');
         if (res.j.dialMode === 'browser_device' && res.j.phone) {
@@ -3882,7 +3962,14 @@
     softphoneSetTimerSeconds(0);
     softphoneSetCallState('dialing');
     softphoneSession.activeNumber = to;
-    softphoneStartMasterDialWatchdog();
+    softphoneStartMasterDialWatchdog(
+      String(spWorkspaceCallMode || '').trim() === 'agent_first' ? 35000 : 45000,
+    );
+    if (String(spWorkspaceCallMode || '').trim() === 'agent_first' && action === 'call') {
+      softphoneSetStatus('Starting agent-first call — ringing your mobile next…');
+    } else {
+      softphoneSetStatus(action === 'voicemail_drop' ? 'Starting voicemail drop…' : 'Starting call…');
+    }
     var p;
     var tryWebrtc =
       action === 'call' &&
