@@ -2146,16 +2146,30 @@
       .then(function () {
         var payload = softphoneGhlPushPayload(key);
         setSoftphoneWrapFeedback('Syncing to Go High Level…', false);
+        var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        var abortTimer = null;
+        if (controller) {
+          abortTimer = setTimeout(function () {
+            try { controller.abort(); } catch (_) {}
+          }, 55000);
+        }
         return fetch('/ghl/push', {
           method: 'POST',
           credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
           body: JSON.stringify(payload),
-        }).then(function (r) {
-          return r.json().then(function (j) {
-            return { ok: r.ok, j: j };
+          signal: controller ? controller.signal : undefined,
+        })
+          .then(function (r) {
+            return r.json().then(function (j) {
+              return { ok: r.ok, j: j };
+            }).catch(function () {
+              throw new Error('GHL sync returned an invalid response.');
+            });
+          })
+          .finally(function () {
+            if (abortTimer) clearTimeout(abortTimer);
           });
-        });
       })
       .then(function (res) {
         var data = res.j || {};
@@ -2193,7 +2207,10 @@
         }
       })
       .catch(function (err) {
-        var msg = (err && err.message) || 'GHL sync failed.';
+        var msg =
+          err && err.name === 'AbortError'
+            ? 'GHL sync timed out. Check Integrations, then try again.'
+            : ((err && err.message) || 'GHL sync failed.');
         setSoftphoneWrapFeedback(msg, true);
         softphoneSetStatus(msg, true);
         if (spPushGhl) spPushGhl.textContent = labelDefault;
@@ -2203,7 +2220,7 @@
         if (spPushGhl) {
           spPushGhl.disabled = false;
           spPushGhl.removeAttribute('aria-busy');
-          if (spPushGhl.textContent === 'Syncing…') spPushGhl.textContent = labelDefault;
+          if (/^Syncing/i.test(String(spPushGhl.textContent || ''))) spPushGhl.textContent = labelDefault;
         }
       });
   }

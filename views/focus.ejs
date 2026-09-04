@@ -1799,7 +1799,15 @@
     }
 
     function pushFocusLeadToGhl() {
-      if (window.__focusPushGhlInFlight) return Promise.resolve();
+      // Allow retry if a previous sync hung and left the flag set.
+      if (window.__focusPushGhlInFlight) {
+        var startedAt = Number(window.__focusPushGhlStartedAt || 0);
+        if (startedAt && Date.now() - startedAt < 70000) {
+          setOutcomeFeedback('GHL sync already in progress…', false);
+          return Promise.resolve();
+        }
+        window.__focusPushGhlInFlight = false;
+      }
       var lead = currentLead();
       if (!lead) {
         setOutcomeFeedback('No lead loaded.', true);
@@ -1813,6 +1821,7 @@
 
       var labelDefault = 'Sync GHL';
       window.__focusPushGhlInFlight = true;
+      window.__focusPushGhlStartedAt = Date.now();
       if (btnPushGhl) {
         btnPushGhl.disabled = true;
         btnPushGhl.setAttribute('aria-busy', 'true');
@@ -1820,6 +1829,14 @@
         btnPushGhl.textContent = 'Syncing…';
       }
       setOutcomeFeedback('Saving disposition and notes…', false);
+
+      var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      var abortTimer = null;
+      if (controller) {
+        abortTimer = setTimeout(function () {
+          try { controller.abort(); } catch (_) {}
+        }, 55000);
+      }
 
       return saveFocusContextBeforeGhlSync(lead)
         .then(function () {
@@ -1830,9 +1847,12 @@
             credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
             body: JSON.stringify(payload),
+            signal: controller ? controller.signal : undefined,
           }).then(function (r) {
             return r.json().then(function (j) {
               return { ok: r.ok, j: j };
+            }).catch(function () {
+              throw new Error('GHL sync returned an invalid response.');
             });
           });
         })
@@ -1868,7 +1888,9 @@
           return data;
         })
         .catch(function (err) {
-          var errMsg = err && err.message ? err.message : 'Could not sync to GHL.';
+          var errMsg = err && err.name === 'AbortError'
+            ? 'GHL sync timed out. Check Workspace → Integrations (API key + location), then try again.'
+            : (err && err.message ? err.message : 'Could not sync to GHL.');
           setOutcomeFeedback(errMsg, true);
           setCopyFeedback(errMsg, true);
           if (btnPushGhl) {
@@ -1880,13 +1902,22 @@
                 btnPushGhl.classList.remove('is-busy');
                 btnPushGhl.removeAttribute('aria-busy');
               }
-            }, 1200);
+            }, 1800);
           }
           throw err;
         })
         .finally(function () {
+          if (abortTimer) clearTimeout(abortTimer);
           window.__focusPushGhlInFlight = false;
-          if (btnPushGhl) btnPushGhl.disabled = false;
+          window.__focusPushGhlStartedAt = 0;
+          if (btnPushGhl) {
+            btnPushGhl.disabled = false;
+            btnPushGhl.removeAttribute('aria-busy');
+            if (/^Syncing/i.test(String(btnPushGhl.textContent || ''))) {
+              btnPushGhl.textContent = labelDefault;
+              btnPushGhl.classList.remove('is-busy');
+            }
+          }
         });
     }
     window.__pushFocusLeadToGhl = pushFocusLeadToGhl;

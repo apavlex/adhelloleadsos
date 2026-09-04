@@ -5303,12 +5303,26 @@ document.addEventListener('DOMContentLoaded', () => {
       const key = await ensureRowHasLeadKey(row);
       await saveLeadPanelContextBeforeGhlSync(row);
       const payload = leadPanelGhlPushPayload(row, key);
-      const res = await fetch('/ghl/push', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const abortTimer = controller
+        ? setTimeout(() => {
+            try {
+              controller.abort();
+            } catch (_) {}
+          }, 55000)
+        : null;
+      let res;
+      try {
+        res = await fetch('/ghl/push', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(payload),
+          signal: controller ? controller.signal : undefined,
+        });
+      } finally {
+        if (abortTimer) clearTimeout(abortTimer);
+      }
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) {
         throw new Error((data && data.error) || `HTTP ${res.status}`);
@@ -5341,11 +5355,16 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       confirmOutreachBtnSuccess(btn, '✓ Synced');
     } catch (err) {
-      notifyLeadPanelDial(err.message || 'GHL sync failed.', 'error');
+      const msg =
+        err && err.name === 'AbortError'
+          ? 'GHL sync timed out. Check Workspace → Integrations, then try again.'
+          : err.message || 'GHL sync failed.';
+      notifyLeadPanelDial(msg, 'error');
       resetOutreachBtn(btn);
     } finally {
       if (btn) {
         btn.disabled = false;
+        if (/^Syncing/i.test(String(btn.textContent || ''))) btn.textContent = labelDefault;
         syncLeadPanelOutreachIntelButtons(row);
       }
     }

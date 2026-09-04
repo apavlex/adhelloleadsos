@@ -6,8 +6,35 @@
 const GHL_API_BASE = 'https://services.leadconnectorhq.com';
 const GHL_API_VERSION = '2021-07-28';
 const GHL_CONVERSATIONS_API_VERSION = '2021-04-15';
+/** Prevent Sync GHL from hanging forever when LeadConnector stalls. */
+const GHL_FETCH_TIMEOUT_MS = 20000;
 
 const { mergeTagLists, tagsToAdd, tagKey, parseGhlNotesResponse } = require('./ghlSyncHelpers');
+
+function ghlAbortSignal(ms) {
+  const timeoutMs = typeof ms === 'number' && ms > 0 ? ms : GHL_FETCH_TIMEOUT_MS;
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+    return AbortSignal.timeout(timeoutMs);
+  }
+  const controller = new AbortController();
+  setTimeout(() => {
+    try {
+      controller.abort();
+    } catch (_) {}
+  }, timeoutMs);
+  return controller.signal;
+}
+
+function mapGhlFetchError(err, method, path) {
+  const name = err && err.name ? String(err.name) : '';
+  const msg = err && err.message ? String(err.message) : '';
+  if (name === 'AbortError' || name === 'TimeoutError' || /aborted|timeout/i.test(msg)) {
+    return new Error(
+      `GHL API timed out after ${GHL_FETCH_TIMEOUT_MS / 1000}s (${method || 'GET'} ${path || ''}). Check API key, location ID, and LeadConnector status, then try Sync GHL again.`,
+    );
+  }
+  return err;
+}
 
 function syncedDateTagFor(date = new Date()) {
   const d = date instanceof Date && !Number.isNaN(date.getTime()) ? date : new Date();
@@ -48,16 +75,22 @@ async function ghlRequest(method, path, { integrationEnv, body, query, apiVersio
     });
   }
 
-  const res = await fetch(url.toString(), {
-    method: method || 'GET',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      Version: apiVersion || GHL_API_VERSION,
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    },
-    body: body != null ? JSON.stringify(body) : undefined,
-  });
+  let res;
+  try {
+    res = await fetch(url.toString(), {
+      method: method || 'GET',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Version: apiVersion || GHL_API_VERSION,
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: body != null ? JSON.stringify(body) : undefined,
+      signal: ghlAbortSignal(),
+    });
+  } catch (err) {
+    throw mapGhlFetchError(err, method || 'GET', path);
+  }
 
   const text = await res.text();
   let data = {};

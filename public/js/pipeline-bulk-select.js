@@ -362,12 +362,27 @@
       if (btn) btn.textContent = total - i > 1 ? `${total - i} left` : 'Syncing…';
       try {
         // eslint-disable-next-line no-await-in-loop
-        const res = await fetch('/ghl/push', {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ leadKeys: [key], tagNoWebsite }),
-        });
+        const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const abortTimer = controller
+          ? setTimeout(() => {
+              try {
+                controller.abort();
+              } catch (_) {}
+            }, 55000)
+          : null;
+        let res;
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          res = await fetch('/ghl/push', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ leadKeys: [key], tagNoWebsite }),
+            signal: controller ? controller.signal : undefined,
+          });
+        } finally {
+          if (abortTimer) clearTimeout(abortTimer);
+        }
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.success) {
           throw new Error((data && data.error) || `HTTP ${res.status}`);
@@ -379,7 +394,11 @@
         if (Array.isArray(data.results)) results.push(...data.results);
       } catch (err) {
         failed += 1;
-        results.push({ key, ok: false, error: err.message || String(err) });
+        const errMsg =
+          err && err.name === 'AbortError'
+            ? 'GHL sync timed out'
+            : err.message || String(err);
+        results.push({ key, ok: false, error: errMsg });
       }
     }
     if (onProgress) {

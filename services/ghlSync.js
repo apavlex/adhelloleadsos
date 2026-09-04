@@ -32,6 +32,20 @@ const GHL_TAG_PROSPECTED = 'AO: Prospected';
 
 /** Serialize GHL pushes per lead so disposition auto-sync and manual Sync GHL do not race. */
 const ghlPushInFlight = new Map();
+const GHL_PUSH_LOCK_WAIT_MS = 45000;
+const GHL_PUSH_TOTAL_MS = 90000;
+
+function withTimeout(promise, ms, label) {
+  let timer = null;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error(`${label || 'GHL sync'} timed out after ${Math.round(ms / 1000)}s. Try Sync GHL again.`));
+    }, ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
 
 async function withGhlPushLock(leadKey, fn) {
   const lockKey = String(leadKey || '').trim();
@@ -43,9 +57,19 @@ async function withGhlPushLock(leadKey, fn) {
   });
   const chain = prev.then(() => gate);
   ghlPushInFlight.set(lockKey, chain);
-  await prev;
   try {
-    return await fn();
+    await withTimeout(prev, GHL_PUSH_LOCK_WAIT_MS, 'Waiting for another GHL sync on this lead');
+  } catch (waitErr) {
+    // Drop a stuck prior lock so manual Sync GHL can proceed.
+    if (ghlPushInFlight.get(lockKey) === chain) {
+      /* keep our gate */
+    } else {
+      ghlPushInFlight.set(lockKey, chain);
+    }
+    console.warn('[ghlSync] prior push lock wait failed:', waitErr && waitErr.message);
+  }
+  try {
+    return await withTimeout(Promise.resolve().then(fn), GHL_PUSH_TOTAL_MS, 'GHL push');
   } finally {
     release();
     if (ghlPushInFlight.get(lockKey) === chain) ghlPushInFlight.delete(lockKey);
@@ -224,10 +248,14 @@ async function pushLeadToGhlInner(lead, integrationEnv) {
   let mergedTags = mergeTagLists(lead.tags);
 
   if (phoneLineType.hasUsablePhone(lead.phone) && phoneLineType.needsRefresh(lead, null)) {
-    const linePatch = await phoneLineType.refreshIfNeeded(lead, null);
-    if (linePatch) {
-      lead = { ...lead, ...linePatch };
-      await dbService.updateLead(lead.key, linePatch);
+    try {
+      const linePatch = await withTimeout(phoneLineType.refreshIfNeeded(lead, null), 4000, 'Phone line lookup');
+      if (linePatch) {
+        lead = { ...lead, ...linePatch };
+        await dbService.updateLead(lead.key, linePatch);
+      }
+    } catch (lineErr) {
+      console.warn('[ghlSync] phone line refresh skipped:', lineErr && lineErr.message);
     }
   }
 

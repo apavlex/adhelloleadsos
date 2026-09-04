@@ -59,6 +59,13 @@ router.post('/push', express.json(), async (req, res, next) => {
   try {
     const wid = req.workspaceId || 'default';
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
+    if (!ghlClient.isConfigured(integrationEnv)) {
+      return res.status(400).json({
+        success: false,
+        error:
+          'GHL is not configured. Add API key and Location ID in Workspace → Integrations, then try Sync GHL again.',
+      });
+    }
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     const disposition = String(body.disposition || '').trim().toLowerCase();
     const dispositionNotes = String(body.dispositionNotes || body.notes || '').trim();
