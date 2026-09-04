@@ -23,6 +23,11 @@ function localDayKey(timezone, fromDate = new Date()) {
   return DateTime.fromJSDate(fromDate, { zone: 'utc' }).setZone(tz).toFormat('yyyy-MM-dd');
 }
 
+/** Today's calendar date (yyyy-MM-dd) in the workspace timezone. Accepts a workspace or tz string. */
+function workspaceTodayYmd(workspaceOrTz, fromDate = new Date()) {
+  return localDayKey(workspaceOrTz, fromDate);
+}
+
 /**
  * Next daily outreach instant (09:30 in workspace TZ), as UTC ISO.
  */
@@ -82,6 +87,7 @@ module.exports = {
   DAILY_OUTREACH_MINUTE,
   resolveWorkspaceTimezone,
   localDayKey,
+  workspaceTodayYmd,
   computeNextDailyRunIso,
   formatInTimezone,
   dailyOutreachScheduleLabel,
