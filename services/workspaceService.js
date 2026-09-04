@@ -15,6 +15,24 @@ function userEmail(req) {
 }
 
 /**
+ * AdHello brand TLDs are interchangeable for the same local-part
+ * (alex@adhello.io ↔ alex@adhello.ai) so logging into either host sees the same workspaces.
+ */
+function emailAliases(email) {
+  const e = String(email || '')
+    .trim()
+    .toLowerCase();
+  if (!e) return [];
+  const out = [e];
+  if (e.endsWith('@adhello.io')) {
+    out.push(e.replace(/@adhello\.io$/, '@adhello.ai'));
+  } else if (e.endsWith('@adhello.ai')) {
+    out.push(e.replace(/@adhello\.ai$/, '@adhello.io'));
+  }
+  return [...new Set(out)];
+}
+
+/**
  * Visible leads for current workspace + role (SDRs only see assigned leads).
  */
 function filterLeadsForRequest(req, leads) {
@@ -58,9 +76,13 @@ async function ensureWorkspaceAndMember(workspaceId, userEmailRaw) {
 }
 
 function roleForEmail(workspace, email) {
-  const em = (email || '').toLowerCase().trim();
-  const m = workspace && workspace.members && workspace.members[em];
-  return (m && m.role) || 'viewer';
+  for (const em of emailAliases(email)) {
+    const m = workspace && workspace.members && workspace.members[em];
+    if (m && m.role) return m.role;
+    const ownerEm = (workspace && workspace.ownerUserId) || '';
+    if (ownerEm && String(ownerEm).toLowerCase().trim() === em) return 'owner';
+  }
+  return 'viewer';
 }
 
 function canManageTeam(role) {
@@ -160,4 +182,5 @@ module.exports = {
   normalizeRoundRobinOrder,
   pickRoundRobinAssignee,
   userEmail,
+  emailAliases,
 };

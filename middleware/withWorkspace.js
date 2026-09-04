@@ -68,13 +68,13 @@ async function withWorkspace(req, res, next) {
     }
 
     if (!wid) {
-      const ids = await dbService.getUserWorkspaceIds(email);
+      const ids = await workspaceBootstrap.collectWorkspaceIdsForEmail(email);
       wid = ids[0] || null;
     }
 
     let ws = wid ? await dbService.getWorkspace(wid) : null;
     if (!ws || !workspaceBootstrap.userCanAccessWorkspace(ws, email)) {
-      const ids = await dbService.getUserWorkspaceIds(email);
+      const ids = await workspaceBootstrap.collectWorkspaceIdsForEmail(email);
       wid = ids[0] || null;
       ws = wid ? await dbService.getWorkspace(wid) : null;
     }
@@ -101,7 +101,7 @@ async function withWorkspace(req, res, next) {
     }
 
     const summaries = [];
-    const allIds = await dbService.getUserWorkspaceIds(email);
+    const allIds = await workspaceBootstrap.collectWorkspaceIdsForEmail(email);
     for (const id of allIds) {
       const w = await dbService.getWorkspace(id);
       if (!w) continue;

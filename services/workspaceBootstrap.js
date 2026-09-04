@@ -5,6 +5,7 @@
 const { randomUUID } = require('crypto');
 const dbService = require('./database');
 const workspaceScriptBootstrap = require('./workspaceScriptBootstrap');
+const { emailAliases } = require('./workspaceService');
 
 const DEFAULT_COACH_AGENCY =
   'You are coaching a digital ad agency owner targeting small businesses. Focus on reply-bait and offer clarity.';
@@ -13,6 +14,77 @@ function normEmail(email) {
   return String(email || '')
     .trim()
     .toLowerCase();
+}
+
+async function collectWorkspaceIdsForEmail(email) {
+  const aliases = emailAliases(email);
+  const ids = [];
+  for (const a of aliases) {
+    const part = await dbService.getUserWorkspaceIds(a);
+    for (const id of part) {
+      if (id && !ids.includes(id)) ids.push(id);
+    }
+  }
+  return ids;
+}
+
+/**
+ * Link this login email onto every workspace found via brand-domain aliases
+ * (so @adhello.io sees the same Agency OS as @adhello.ai).
+ */
+async function linkAliasWorkspaces(ownerEmail) {
+  const em = normEmail(ownerEmail);
+  if (!em) return [];
+  const aliases = emailAliases(em);
+  const ids = await collectWorkspaceIdsForEmail(em);
+  if (!ids.length) return [];
+
+  for (const id of ids) {
+    await dbService.addUserWorkspaceId(em, id);
+    const ws = await dbService.getWorkspace(id);
+    if (!ws || typeof ws !== 'object') continue;
+    const members = { ...(ws.members || {}) };
+    let changed = false;
+    // Copy membership from any alias already on the workspace
+    let roleFromAlias = null;
+    for (const a of aliases) {
+      if (a === em) continue;
+      if (members[a] && members[a].role) {
+        roleFromAlias = members[a].role;
+        break;
+      }
+      if (normEmail(ws.ownerUserId) === a) roleFromAlias = 'owner';
+    }
+    if (!members[em]) {
+      members[em] = {
+        role: roleFromAlias || 'owner',
+        joinedAt: new Date().toISOString(),
+        userId: em,
+      };
+      changed = true;
+    }
+    if (changed) {
+      ws.members = members;
+      await dbService.saveWorkspace(id, ws);
+    }
+  }
+
+  const prefs = await dbService.getUserPrefs(em);
+  let activeSet = false;
+  for (const a of aliases) {
+    if (a === em) continue;
+    const ap = await dbService.getUserPrefs(a);
+    if (ap && ap.activeWorkspaceId && ids.includes(String(ap.activeWorkspaceId))) {
+      await dbService.saveUserPrefs(em, { activeWorkspaceId: String(ap.activeWorkspaceId) });
+      activeSet = true;
+      break;
+    }
+  }
+  if (!activeSet && (!prefs || !prefs.activeWorkspaceId) && ids[0]) {
+    await dbService.saveUserPrefs(em, { activeWorkspaceId: ids[0] });
+  }
+
+  return ids;
 }
 
 function parseLegacyDailyTrackerKey(key) {
@@ -227,6 +299,10 @@ async function ensureUserHasWorkspaces(ownerEmail) {
   const em = normEmail(ownerEmail);
   if (!em) return;
 
+  // Prefer existing workspaces on either brand email before creating a fresh empty one.
+  const linked = await linkAliasWorkspaces(em);
+  if (linked.length > 0) return;
+
   let ids = await dbService.getUserWorkspaceIds(em);
   if (ids.length > 0) return;
 
@@ -243,16 +319,22 @@ async function ensureUserHasWorkspaces(ownerEmail) {
 }
 
 function userCanAccessWorkspace(workspaceDoc, email) {
-  const em = normEmail(email);
-  if (!workspaceDoc || !em) return false;
-  if (normEmail(workspaceDoc.ownerUserId) === em) return true;
-  const m = workspaceDoc.members && workspaceDoc.members[em];
-  return !!(m && m.role);
+  const aliases = emailAliases(email);
+  if (!workspaceDoc || !aliases.length) return false;
+  for (const em of aliases) {
+    if (normEmail(workspaceDoc.ownerUserId) === em) return true;
+    const m = workspaceDoc.members && workspaceDoc.members[em];
+    if (m && m.role) return true;
+  }
+  return false;
 }
 
 module.exports = {
   normEmail,
+  emailAliases,
   ensureUserHasWorkspaces,
   userCanAccessWorkspace,
+  collectWorkspaceIdsForEmail,
+  linkAliasWorkspaces,
   DEFAULT_COACH_AGENCY,
 };
