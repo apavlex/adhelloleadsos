@@ -2958,6 +2958,13 @@ body.find-leads-page #findTypeTabs .find-type-tab {
 #mobilePanel.open #leadPanelNotepad.lead-panel-notepad--collapsed #leadPanelOutreachCtaRow button {
     pointer-events: auto;
 }
+
+/* Softphone keypad must stay scrollable to the top after wrap-up */
+#softphoneTabKeypad {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
 #mobilePanel.open #leadPanelNotepadBody.lead-panel-notepad-body--open,
 #mobilePanel.open #leadPanelNotepadBody.lead-panel-notepad-body--open * {
     pointer-events: auto;

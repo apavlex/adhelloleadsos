@@ -468,6 +468,8 @@
     softphoneSession.webrtcSkipDeviceRetry = false;
     softphoneSession.stateVerbose = '';
     softphoneSession.startedAtMs = 0;
+    softphoneSession.wasInCall = false;
+    softphoneSession.dialInNumber = '';
     softphoneResetRecordingState();
     softphoneSetWrapRequired(false);
     softphoneSetCallState(opts.idle ? 'idle' : 'ready');
@@ -476,19 +478,23 @@
     updateSoftphoneRedialUi();
     softphoneSetStatus(msg || 'Dial canceled. You can call again.', !!opts.isError);
   }
-  function softphoneStartMasterDialWatchdog() {
+  function softphoneClearMasterDialWatchdog() {
     if (softphoneSession.dialWatchdog) {
       clearTimeout(softphoneSession.dialWatchdog);
       softphoneSession.dialWatchdog = null;
     }
+  }
+  function softphoneStartMasterDialWatchdog(ms) {
+    softphoneClearMasterDialWatchdog();
+    var timeoutMs = typeof ms === 'number' && ms > 0 ? ms : 45000;
     softphoneSession.dialWatchdog = setTimeout(function () {
       softphoneSession.dialWatchdog = null;
       if (softphoneSession.state !== 'dialing') return;
       softphoneForceAbortDial(
-        'Call setup timed out. Tap Call to try again, or Hang up then Call. If this keeps happening, use Settings → Run soundcheck.',
+        'Call setup timed out. Tap Call to try again. If your phone never rang, turn off Silence Unknown Callers and use Test ring in Phone bank.',
         { isError: true },
       );
-    }, 45000);
+    }, timeoutMs);
   }
   function softphoneCancelWebrtcDial(msg, opts) {
     opts = opts || {};
@@ -1857,7 +1863,14 @@
     if (!spKeypadTab || !spWrapPanel) return;
     requestAnimationFrame(function () {
       requestAnimationFrame(function () {
-        spWrapPanel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        // Keep ON CALL / Redial visible — never pin the viewport to Quick log only.
+        var anchor = spInCallBar && !spInCallBar.classList.contains('hidden') ? spInCallBar : spWrapPanel;
+        var top = Math.max(0, (anchor.offsetTop || 0) - 12);
+        if (typeof spKeypadTab.scrollTo === 'function') {
+          spKeypadTab.scrollTo({ top: top, behavior: 'smooth' });
+        } else {
+          spKeypadTab.scrollTop = top;
+        }
         updateSoftphoneScrollHint();
       });
     });
@@ -1994,14 +2007,18 @@
         if (!data || !data.success || !data.lead) return;
         var lead = data.lead;
         if (spStatusSelect && lead.status) spStatusSelect.value = String(lead.status);
+        // Do not auto-fill No pickup from dial-start auto-disposition — leaves wrap empty for a real choice.
         if (spDisposition && !String(spDisposition.value || '').trim()) {
-          if (lead.lastDisposition) {
-            spDisposition.value = String(lead.lastDisposition);
+          var lastDisp = String(lead.lastDisposition || '').trim();
+          var lastSource = String(lead.lastDispositionSource || lead.dispositionSource || '').trim();
+          if (lastDisp && lastSource !== 'auto_dial' && lastDisp !== 'no_answer') {
+            spDisposition.value = lastDisp;
             syncSoftphoneQuickLogButtons();
           }
         }
         if (spNotes && lead.lastDispositionNotes && !String(spNotes.value || '').trim()) {
-          spNotes.value = String(lead.lastDispositionNotes);
+          var notes = String(lead.lastDispositionNotes);
+          if (!/^No pickup/i.test(notes)) spNotes.value = notes;
         }
       })
       .catch(function () {});
@@ -2961,22 +2978,32 @@
       softphoneSession.isCloudPstn = false;
       softphoneSession.callSid = '';
       softphoneResetRecordingState();
-      if (!softphoneSession.wasInCall) {
+      var dialMode =
+        String(softphoneSession.dialMode || spWorkspaceCallMode || '').trim() || 'cloud_dial';
+      var elapsedSec = softphoneSession.startedAtMs
+        ? Math.max(0, Math.round((Date.now() - softphoneSession.startedAtMs) / 1000))
+        : parseInt(durationStr, 10) || 0;
+      // Agent-first: voicemail / Silence Unknown Callers often "answers" then dies —
+      // that is not a real lead conversation; don't trap the user in wrap-up.
+      var agentMiss =
+        dialMode === 'agent_first' &&
+        (!softphoneSession.wasInCall || elapsedSec < 25);
+      if (!softphoneSession.wasInCall || agentMiss) {
+        softphoneSession.wasInCall = false;
         softphoneSetWrapRequired(false);
         softphoneSetCallState('ready');
-        var dialMode =
-          String(softphoneSession.dialMode || spWorkspaceCallMode || '').trim() || 'cloud_dial';
+        softphoneRestoreDialButtons();
         if (dialMode === 'agent_first') {
           var agentLabel =
             formatCallerIdDisplay(
               softphoneSession.agentTo || spAgentPhoneCached || '',
             ) || 'your mobile';
           softphoneSetStatus(
-            'Your cell did not answer (' +
-              st +
-              '). Agent first rang ' +
+            'Could not connect to ' +
               agentLabel +
-              ' first — not the lead, and not caller ID. Answer that incoming call (workspace number as caller ID), then the lead is dialed. Fix the number under Agent mobile on this keypad or dialer Settings.',
+              ' (' +
+              st +
+              '). Answer the ring and press 1. If it never rings: turn off Silence Unknown Callers / Focus, save the workspace number as a contact, then Test ring in Phone bank.',
             true,
           );
         } else {
@@ -2996,6 +3023,7 @@
     }
     softphoneSession.stateVerbose = st;
     if (st === 'in-progress' || st === 'inprogress' || st === 'answered') {
+      softphoneClearMasterDialWatchdog();
       if (softphoneSession.isCloudPstn) {
         var connectedMode =
           String(softphoneSession.dialMode || spWorkspaceCallMode || '').trim() || 'cloud_dial';
@@ -3003,6 +3031,23 @@
           softphoneSetStatus(
             'Your phone answered — press 1 to dial the lead. If you did not pick up, voicemail may have answered (Silence Unknown Callers). Hang up and try again after disabling that.',
           );
+          // Do not mark wasInCall yet — wait until we have a sustained live leg
+          if (!softphoneSession.startedAtMs) softphoneSession.startedAtMs = Date.now();
+          var agentLiveSec = Math.max(
+            0,
+            Math.round((Date.now() - softphoneSession.startedAtMs) / 1000),
+          );
+          if (durationStr != null && durationStr !== '') {
+            var dSec = parseInt(durationStr, 10);
+            if (!isNaN(dSec)) agentLiveSec = Math.max(agentLiveSec, dSec);
+          }
+          if (agentLiveSec >= 25) {
+            softphoneSetCallState('in_call');
+          } else {
+            softphoneSetCallState('dialing');
+            softphoneStartTimer();
+          }
+          return;
         } else {
           softphoneSetStatus('The remote end answered. No in-browser audio in cloud mode. Mute/hold are display only here.');
         }
@@ -3078,8 +3123,11 @@
         if (!res.ok || !res.j || !res.j.success) return;
         if (!res.j.active) {
           softphoneStopDialInPolling();
+          softphoneClearMasterDialWatchdog();
+          softphoneSetWrapRequired(false);
           softphoneSetCallState('ready');
-          softphoneSetStatus('Dial-in window ended. Tap Call again, then dial the workspace number from your phone.');
+          softphoneRestoreDialButtons();
+          softphoneSetStatus('Dial-in window ended. Tap Call again — after deploy we ring your cell first instead.');
           return;
         }
         if (res.j.pendingDialIn) {
@@ -3567,6 +3615,9 @@
           softphoneSession.dialInNumber = String(res.j.dialInNumber || '').trim();
           softphoneSession.agentTo = String((res.j && res.j.agentPhone) || spAgentPhoneCached || '').trim();
           softphoneSession.startedAtMs = 0;
+          softphoneClearMasterDialWatchdog();
+          // Dial-in waits for the agent to call the DID (server pending window ~5 min)
+          softphoneStartMasterDialWatchdog(5 * 60 * 1000);
           softphoneSetCallState('dialing');
           var dialInLabel = formatCallerIdDisplay(softphoneSession.dialInNumber) || softphoneSession.dialInNumber || 'workspace number';
           var isPhoneUa = /iPhone|iPad|Android/i.test(String(navigator.userAgent || ''));
@@ -3579,9 +3630,10 @@
             } catch (_) {}
           } else {
             softphoneSetStatus(
-              'On your iPhone (not this Mac): open Phone and dial ' +
+              'Waiting to connect. Prefer Agent first ring-your-cell after the next deploy. For now dial ' +
                 dialInLabel +
-                ' now. Mac tel: links will not ring your cell. Waiting for your inbound call…',
+                ' from your iPhone (not Mac). Or Hang up and try Cloud dial.',
+              true,
             );
             try {
               if (navigator.clipboard && softphoneSession.dialInNumber) {
@@ -3606,6 +3658,8 @@
           softphoneSession.isCloudPstn = false;
           return;
         }
+        softphoneClearMasterDialWatchdog();
+        softphoneStartMasterDialWatchdog(90000);
         softphoneStartPolling();
         if (action === 'voicemail_drop') {
           softphoneSetStatus('Voicemail drop started (outbound to their line only — not played in this browser).');

@@ -1586,6 +1586,8 @@ router.post('/:key/call', async (req, res, next) => {
       callSid: call.sid || '',
       normalizedTo,
       logMessage: `SignalWire call initiated (${call.sid || 'no sid'})`,
+      // Agent-first often fails before the lead is dialed; don't stamp No pickup yet.
+      skipAutoDisposition: callMode === 'agent_first',
     });
     res.json({
       success: true,
@@ -2058,6 +2060,7 @@ router.post('/telephony/dial', async (req, res, next) => {
         callSid: call.sid || '',
         normalizedTo: to,
         logMessage: `SignalWire call initiated (${call.sid || 'no sid'})`,
+        skipAutoDisposition: useAgent,
       });
     }
     return res.json({
