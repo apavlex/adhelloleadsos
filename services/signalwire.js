@@ -379,9 +379,22 @@ async function getJson(path) {
 
 /**
  * Phone numbers owned in this LaML project (same as Dashboard → Phone numbers).
+ * Cached briefly so softphone open does not wait on SignalWire every time.
  * @returns {{ numbers: Array<{ phoneNumber: string, friendlyName: string, sid: string }>, error?: string }}
  */
-async function listIncomingPhoneNumbers() {
+let _incomingNumbersCache = { at: 0, value: null };
+const INCOMING_NUMBERS_CACHE_MS = 60 * 1000;
+
+async function listIncomingPhoneNumbers(opts) {
+  const force = !!(opts && opts.force);
+  const now = Date.now();
+  if (
+    !force &&
+    _incomingNumbersCache.value &&
+    now - _incomingNumbersCache.at < INCOMING_NUMBERS_CACHE_MS
+  ) {
+    return _incomingNumbersCache.value;
+  }
   if (!configured()) {
     return { numbers: [], error: 'not_configured' };
   }
@@ -415,8 +428,11 @@ async function listIncomingPhoneNumbers() {
         voiceUrl: '',
       });
     }
-    return { numbers: deduped };
+    const value = { numbers: deduped };
+    _incomingNumbersCache = { at: Date.now(), value };
+    return value;
   } catch (e) {
+    if (_incomingNumbersCache.value) return _incomingNumbersCache.value;
     return {
       numbers: [],
       error: e && e.message ? String(e.message) : 'list_failed',

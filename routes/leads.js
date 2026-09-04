@@ -1673,7 +1673,12 @@ router.get('/telephony/call-options', async (req, res, next) => {
       signalwire.normalizePhone(resolveRequestedCallerNumber(ws, null)) ||
       signalwire.normalizePhone(cfg.callerId || cfg.fromNumber) ||
       '';
-    const swNumbers = await signalwire.listIncomingPhoneNumbers();
+    // Softphone open used to await SignalWire list + webhook repair every time (multi-second stalls).
+    // Default: cached number list, no repair. Pass ?repair=1 to force webhook fix.
+    const wantRepair =
+      String((req.query && req.query.repair) || '').trim() === '1' ||
+      String((req.query && req.query.repair) || '').trim() === 'true';
+    const swNumbers = await signalwire.listIncomingPhoneNumbers({ force: wantRepair });
     const signalwireNumbers = (swNumbers.numbers || []).map((n) => n.phoneNumber).filter(Boolean);
     let inboundWebhook = null;
     const repairDid =
@@ -1681,7 +1686,7 @@ router.get('/telephony/call-options', async (req, res, next) => {
       signalwire.normalizePhone(defaultFrom) ||
       signalwireNumbers[0] ||
       '';
-    if (repairDid && typeof signalwire.ensureIncomingVoiceWebhooks === 'function') {
+    if (wantRepair && repairDid && typeof signalwire.ensureIncomingVoiceWebhooks === 'function') {
       try {
         inboundWebhook = await signalwire.ensureIncomingVoiceWebhooks(repairDid);
       } catch (e) {
@@ -1690,6 +1695,12 @@ router.get('/telephony/call-options', async (req, res, next) => {
           error: e && e.message ? String(e.message) : 'webhook_repair_failed',
         };
       }
+    } else if (repairDid) {
+      // Fire-and-forget repair so open stays fast; result ignored.
+      setImmediate(() => {
+        signalwire.ensureIncomingVoiceWebhooks(repairDid).catch(() => {});
+      });
+      inboundWebhook = { ok: true, deferred: true, phoneNumber: repairDid };
     }
     return res.json({
       success: true,

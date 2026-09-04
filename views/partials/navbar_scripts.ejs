@@ -3276,6 +3276,87 @@
   window.__adhelloIsSoftphoneOpen = function () {
     return !!(spModal && !spModal.classList.contains('hidden'));
   };
+  function applySoftphoneCallOptionsPayload(j) {
+    if (!j || !j.success) return;
+    spRelayWebrtc = !!j.relayWebrtcAvailable;
+    spSignalwireNumbers = Array.isArray(j.signalwireNumbers)
+      ? j.signalwireNumbers.map(function (n) { return normalizeDial(n); }).filter(Boolean)
+      : [];
+    spBankNumbers = Array.isArray(j.options)
+      ? j.options.map(function (n) { return normalizeDial(n); }).filter(Boolean)
+      : [];
+    spDefaultFrom = String(j.defaultFromNumber || '').trim();
+    spActiveFrom = String(j.activeFromNumber || '').trim();
+    spLeadCallerId = String(j.leadCallerId || j.activeFromNumber || '').trim();
+    spAgentPhoneCached = j.agentPhone != null ? String(j.agentPhone || '').trim() : '';
+    if (j.callMode) spWorkspaceCallMode = String(j.callMode).trim() || 'cloud_dial';
+    window.__adhelloTelephonySnapshot = {
+      ts: Date.now(),
+      callMode: String(j.callMode || '').trim() || 'cloud_dial',
+      agentPhone: j.agentPhone != null ? String(j.agentPhone).trim() : '',
+      options: Array.isArray(j.options) ? j.options : [],
+      activeFromNumber: String(j.activeFromNumber || '').trim(),
+      leadCallerId: String(j.leadCallerId || '').trim(),
+      defaultFromNumber: String(j.defaultFromNumber || '').trim(),
+      relayWebrtcAvailable: !!j.relayWebrtcAvailable,
+      signalwireNumbers: Array.isArray(j.signalwireNumbers) ? j.signalwireNumbers : [],
+    };
+    updateSoftphoneCallModeUi();
+    if (spAgentPhone && j.agentPhone != null) {
+      spAgentPhone.value = String(j.agentPhone || '').trim();
+    }
+    var bankOptions = spBankNumbers.length ? spBankNumbers : (Array.isArray(j.options) ? j.options : []);
+    renderSoftphoneCallerIdSelect(spAgentPhoneCached, bankOptions, spLeadCallerId);
+    updateSoftphoneAgentRingLine();
+    if (!spFrom) return;
+    var options = bankOptions;
+    var active = String(j.activeFromNumber || '').trim();
+    spFrom.innerHTML = '';
+    var d = document.createElement('option');
+    d.value = '';
+    d.textContent = active || spDefaultFrom || 'Select outbound number';
+    spFrom.appendChild(d);
+    options.forEach(function (n) {
+      var v = String(n || '').trim();
+      if (!v) return;
+      var opt = document.createElement('option');
+      opt.value = v;
+      opt.textContent = v;
+      spFrom.appendChild(opt);
+    });
+    updateSoftphoneOutboundMeta();
+  }
+
+  function paintSoftphoneFromTelephonySnapshot() {
+    var snap = window.__adhelloTelephonySnapshot;
+    if (!snap || !snap.ts) return false;
+    if (Date.now() - Number(snap.ts || 0) > 5 * 60 * 1000) return false;
+    applySoftphoneCallOptionsPayload({
+      success: true,
+      relayWebrtcAvailable: !!snap.relayWebrtcAvailable,
+      signalwireNumbers: snap.signalwireNumbers || [],
+      options: snap.options || [],
+      defaultFromNumber: snap.defaultFromNumber || '',
+      activeFromNumber: snap.activeFromNumber || '',
+      leadCallerId: snap.leadCallerId || '',
+      agentPhone: snap.agentPhone || '',
+      callMode: snap.callMode || 'cloud_dial',
+    });
+    return true;
+  }
+
+  function refreshSoftphoneCallOptions(opts) {
+    opts = opts || {};
+    var q = opts.repair ? '?repair=1' : '';
+    return fetch('/leads/telephony/call-options' + q, { headers: { Accept: 'application/json' } })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        if (!res.ok || !res.j || !res.j.success) return;
+        applySoftphoneCallOptionsPayload(res.j);
+      })
+      .catch(function () {});
+  }
+
   function openSoftphone() {
     if (!spModal) return;
     spModal.classList.remove('hidden');
@@ -3296,10 +3377,15 @@
     softphoneSetTimerSeconds(0);
     setSoftphoneTab('keypad');
     if (spTo) setTimeout(function () { spTo.focus(); }, 80);
-    renderRecentDials();
-    renderSoftphoneFocusContacts();
-    renderSoftphoneCallQueue();
-    renderSoftphoneDirectMailQueue();
+    // Paint caller ID / agent mobile immediately from last snapshot so open feels instant.
+    paintSoftphoneFromTelephonySnapshot();
+    // Defer heavy list renders so the panel paints first.
+    setTimeout(function () {
+      renderRecentDials();
+      renderSoftphoneFocusContacts();
+      renderSoftphoneCallQueue();
+      renderSoftphoneDirectMailQueue();
+    }, 0);
     softphoneSetCallState('idle');
     softphoneSetWrapRequired(false);
     updateSoftphoneWrapLeadHint();
@@ -3318,61 +3404,14 @@
     if (mobileMenu && !mobileMenu.classList.contains('hidden')) {
       mobileMenu.classList.add('hidden', 'opacity-0', 'pointer-events-none');
     }
-    fetch('/leads/telephony/call-options', { headers: { Accept: 'application/json' } })
-      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
-      .then(function (res) {
-        if (!res.ok || !res.j || !res.j.success) return;
-        spRelayWebrtc = !!res.j.relayWebrtcAvailable;
-        spSignalwireNumbers = Array.isArray(res.j.signalwireNumbers)
-          ? res.j.signalwireNumbers.map(function (n) { return normalizeDial(n); }).filter(Boolean)
-          : [];
-        spBankNumbers = Array.isArray(res.j.options)
-          ? res.j.options.map(function (n) { return normalizeDial(n); }).filter(Boolean)
-          : [];
-        spDefaultFrom = String(res.j.defaultFromNumber || '').trim();
-        spActiveFrom = String(res.j.activeFromNumber || '').trim();
-        spLeadCallerId = String(res.j.leadCallerId || res.j.activeFromNumber || '').trim();
-        spAgentPhoneCached = res.j.agentPhone != null ? String(res.j.agentPhone || '').trim() : '';
-        if (res.j && res.j.callMode) spWorkspaceCallMode = String(res.j.callMode).trim() || 'cloud_dial';
-        window.__adhelloTelephonySnapshot = {
-          ts: Date.now(),
-          callMode: String(res.j.callMode || '').trim() || 'cloud_dial',
-          agentPhone: res.j.agentPhone != null ? String(res.j.agentPhone).trim() : '',
-          options: Array.isArray(res.j.options) ? res.j.options : [],
-          activeFromNumber: String(res.j.activeFromNumber || '').trim(),
-          leadCallerId: String(res.j.leadCallerId || '').trim(),
-          defaultFromNumber: String(res.j.defaultFromNumber || '').trim(),
-          relayWebrtcAvailable: !!res.j.relayWebrtcAvailable,
-        };
-        updateSoftphoneCallModeUi();
-        if (spAgentPhone && res.j.agentPhone != null) {
-          spAgentPhone.value = String(res.j.agentPhone || '').trim();
-        }
-        var bankOptions = spBankNumbers.length ? spBankNumbers : (Array.isArray(res.j.options) ? res.j.options : []);
-        renderSoftphoneCallerIdSelect(spAgentPhoneCached, bankOptions, spLeadCallerId);
-        updateSoftphoneAgentRingLine();
-        if (!spFrom) return;
-        var options = bankOptions;
-        var active = String(res.j.activeFromNumber || '').trim();
-        spFrom.innerHTML = '';
-        var d = document.createElement('option');
-        d.value = '';
-        d.textContent = active || spDefaultFrom || 'Select outbound number';
-        spFrom.appendChild(d);
-        options.forEach(function (n) {
-          var v = String(n || '').trim();
-          if (!v) return;
-          var opt = document.createElement('option');
-          opt.value = v;
-          opt.textContent = v;
-          spFrom.appendChild(opt);
-        });
-        updateSoftphoneOutboundMeta();
-      })
-      .catch(function () {});
+    refreshSoftphoneCallOptions();
     maybeAutoCompactSoftphone();
     updateSoftphoneMinimizeBtnUi();
   }
+  // Warm telephony options in the background so the first open is instant.
+  setTimeout(function () {
+    refreshSoftphoneCallOptions();
+  }, 1200);
   function setSoftphoneDialNumber(num) {
     spTo = document.getElementById('softphoneToNumber');
     if (!spTo) return;
@@ -4701,7 +4740,7 @@
           if (spCallModeSaveHint) spCallModeSaveHint.textContent = 'Saved';
           if (nextMode === 'agent_first' && !normalizeDial(spAgentPhoneCached || '')) {
             if (spCallModeSaveHint) {
-              spCallModeSaveHint.textContent = 'Saved — set Your mobile below so dial-in can match your cell.';
+              spCallModeSaveHint.textContent = 'Saved — set Your mobile below so we can ring your cell first.';
             }
             if (spAgentPhone) {
               try {
@@ -4711,21 +4750,9 @@
           }
           updateSoftphoneAgentRingLine();
           refreshSoftphoneWebrtcDiagnostics();
-          // Re-fetch call-options so checklist / relay flags match saved workspace mode.
-          fetch('/leads/telephony/call-options', { headers: { Accept: 'application/json' } })
-            .then(function (r) {
-              return r.json().then(function (j) {
-                return { ok: r.ok, j: j };
-              });
-            })
-            .then(function (cres) {
-              if (!cres.ok || !cres.j || !cres.j.success) return;
-              if (cres.j.callMode) spWorkspaceCallMode = String(cres.j.callMode).trim() || nextMode;
-              spRelayWebrtc = !!cres.j.relayWebrtcAvailable;
-              updateSoftphoneCallModeUi();
-              refreshSoftphoneWebrtcDiagnostics();
-            })
-            .catch(function () {});
+          refreshSoftphoneCallOptions().then(function () {
+            refreshSoftphoneWebrtcDiagnostics();
+          });
         })
         .catch(function (err) {
           spWorkspaceCallMode = prevMode || 'cloud_dial';
