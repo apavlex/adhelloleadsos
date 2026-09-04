@@ -114,7 +114,7 @@
         <input id="wsQuietEnd" type="time" value="<%= (workspace && workspace.telephony && workspace.telephony.quietHoursEnd) || '20:00' %>" class="mt-1 w-full rounded-xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs" />
       </label>
     </div>
-    <p class="text-[10px] text-brand-muted mt-2">Caller IDs rotate automatically, numbers over cap are throttled, and low-answer numbers cool down before reuse.</p>
+    <p class="text-[10px] text-brand-muted mt-2">Window is evaluated in the <strong>lead&apos;s local timezone</strong> (from state or phone area code), not your clock. Example: 5pm Pacific is already 8pm Eastern — an East Coast lead can be blocked while you still see afternoon locally. Caller IDs rotate automatically; numbers over cap are throttled.</p>
   </div>
 
   <div class="mb-6 rounded-xl border border-brand-border/30 dark:border-white/10 bg-brand-cream/15 dark:bg-slate-800/40 p-4">

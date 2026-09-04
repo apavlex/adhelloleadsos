@@ -52,6 +52,69 @@ function tzFromState(state) {
   return MAP[s] || '';
 }
 
+/** NANP area code → IANA zone (primary zone for that NPA). */
+function tzFromPhone(phone) {
+  const digits = String(phone || '').replace(/\D/g, '');
+  let npa = '';
+  if (digits.length === 11 && digits.startsWith('1')) npa = digits.slice(1, 4);
+  else if (digits.length === 10) npa = digits.slice(0, 3);
+  if (!npa) return '';
+  const PACIFIC = new Set([
+    '206', '253', '360', '425', '509', '564', // WA
+    '503', '541', '971', '458', // OR
+    '209', '213', '279', '310', '323', '341', '350', '408', '415', '424', '442', '510', '530',
+    '559', '562', '619', '626', '628', '650', '657', '661', '669', '707', '714', '747', '760',
+    '805', '818', '820', '831', '858', '909', '916', '925', '949', '951', // CA
+    '702', '725', '775', // NV
+  ]);
+  const MOUNTAIN = new Set([
+    '303', '719', '720', '970', '983', // CO
+    '385', '435', '801', // UT
+    '505', '575', // NM
+    '406', // MT
+    '208', '986', // ID
+    '307', // WY
+  ]);
+  const ARIZONA = new Set(['480', '520', '602', '623', '928']);
+  const CENTRAL = new Set([
+    '214', '254', '281', '325', '346', '361', '409', '430', '432', '469', '512', '682', '713',
+    '726', '737', '806', '817', '830', '832', '903', '915', '936', '940', '945', '956', '972',
+    '979', // TX
+    '217', '224', '309', '312', '331', '447', '464', '618', '630', '708', '773', '779', '815',
+    '847', '872', // IL
+  ]);
+  if (PACIFIC.has(npa)) return 'America/Los_Angeles';
+  if (ARIZONA.has(npa)) return 'America/Phoenix';
+  if (MOUNTAIN.has(npa)) return 'America/Denver';
+  if (CENTRAL.has(npa)) return 'America/Chicago';
+  return '';
+}
+
+function formatHmInZone(tz, now) {
+  try {
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    }).format(now || new Date());
+  } catch (_) {
+    return '';
+  }
+}
+
+function resolveLeadTimezone(lead, workspaceTimezone) {
+  const explicit = String((lead && lead.timezone) || '').trim();
+  const fromState = tzFromState(lead && lead.state);
+  const fromPhone = tzFromPhone((lead && (lead.phone || lead.mobile || lead.telephone)) || '');
+  // Prefer geography signals over a stale/default timezone on the lead record.
+  // Example: 360 WA number must not inherit workspace America/New_York.
+  if (fromState) return fromState;
+  if (fromPhone) return fromPhone;
+  if (explicit) return explicit;
+  return String(workspaceTimezone || '').trim() || 'America/Los_Angeles';
+}
+
 function currentMinuteInZone(tz, now) {
   try {
     const parts = new Intl.DateTimeFormat('en-US', {
@@ -98,7 +161,7 @@ function getPacingConfig(workspace, telephony) {
     quietStart,
     quietEnd,
     cooldownMinutes,
-    workspaceTimezone: String(ws.timezone || '').trim() || 'America/New_York',
+    workspaceTimezone: String(ws.timezone || '').trim() || 'America/Los_Angeles',
   };
 }
 
@@ -150,16 +213,17 @@ function selectCallerIdForDial({ workspace, telephony, lead, requestedFrom, now 
     return { allowed: true, from: picked, reason: 'Requested caller ID accepted', changed: false };
   }
 
-  const leadTz =
-    String((lead && lead.timezone) || '').trim() ||
-    tzFromState(lead && lead.state) ||
-    cfg.workspaceTimezone;
+  const leadTz = resolveLeadTimezone(lead, cfg.workspaceTimezone);
   if (lead) {
     const minute = currentMinuteInZone(leadTz, nowObj);
     if (minute != null && !inAllowedWindow(minute, cfg.quietStart, cfg.quietEnd)) {
+      const localHm = formatHmInZone(leadTz, nowObj);
       return {
         allowed: false,
-        reason: `Local quiet hours for lead timezone ${leadTz} (${cfg.quietStart}-${cfg.quietEnd}).`,
+        reason:
+          `Outside lead local dial window ${cfg.quietStart}–${cfg.quietEnd} in ${leadTz}` +
+          (localHm ? ` (local time there is ${localHm})` : '') +
+          '.',
         leadTimezone: leadTz,
       };
     }
@@ -266,4 +330,8 @@ module.exports = {
   recordDialAttempt,
   recordCallOutcome,
   getPacingConfig,
+  resolveLeadTimezone,
+  tzFromPhone,
+  tzFromState,
+  inAllowedWindow,
 };
