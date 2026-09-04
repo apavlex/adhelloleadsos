@@ -429,7 +429,13 @@ async function getJson(path) {
  * @returns {{ numbers: Array<{ phoneNumber: string, friendlyName: string, sid: string }>, error?: string }}
  */
 let _incomingNumbersCache = { at: 0, value: null };
-const INCOMING_NUMBERS_CACHE_MS = 60 * 1000;
+const INCOMING_NUMBERS_CACHE_MS = 5 * 60 * 1000;
+
+function getCachedIncomingPhoneNumbers() {
+  if (!_incomingNumbersCache.value) return null;
+  if (Date.now() - _incomingNumbersCache.at >= INCOMING_NUMBERS_CACHE_MS) return null;
+  return _incomingNumbersCache.value;
+}
 
 async function listIncomingPhoneNumbers(opts) {
   const force = !!(opts && opts.force);
@@ -493,10 +499,16 @@ async function listOwnedDialNumbers(opts) {
  * Prefers requested → env default (if owned) → first owned DID.
  */
 async function resolveOutboundFromNumber(preferred) {
+  const want = normalizePhone(preferred);
+  const envDefault = normalizePhone(envConfig().fromNumber);
+  // Hot path: dialer already chose the env DID — skip IncomingPhoneNumbers round-trip.
+  if (want && envDefault && want === envDefault) {
+    return { from: want, owned: [want], remapped: false, trustedEnv: true };
+  }
   const listed = await listOwnedDialNumbers();
   const owned = (listed.numbers || []).map((n) => n.phoneNumber).filter(Boolean);
   if (!owned.length) {
-    const fallback = normalizePhone(envConfig().fromNumber) || normalizePhone(preferred);
+    const fallback = envDefault || want;
     if (!fallback) {
       throw new Error(
         'No SignalWire phone numbers in this project. Buy a number in SignalWire, then set SIGNALWIRE_FROM_NUMBER and Phone bank to that DID.',
@@ -505,16 +517,14 @@ async function resolveOutboundFromNumber(preferred) {
     return {
       from: fallback,
       owned: [],
-      remapped: !!(normalizePhone(preferred) && normalizePhone(preferred) !== fallback),
-      requested: normalizePhone(preferred) || '',
+      remapped: !!(want && want !== fallback),
+      requested: want || '',
       warning: 'no_owned_numbers_listed',
     };
   }
-  const want = normalizePhone(preferred);
   if (want && owned.includes(want)) {
     return { from: want, owned, remapped: false };
   }
-  const envDefault = normalizePhone(envConfig().fromNumber);
   if (envDefault && owned.includes(envDefault)) {
     return {
       from: envDefault,
@@ -672,8 +682,12 @@ async function createLeadCall(opts) {
   const leadTo = normalizePhone(opts && opts.to);
   if (!leadTo) throw new Error('A valid destination phone number is required.');
   const cfg = envConfig();
-  const resolved = await resolveOutboundFromNumber((opts && opts.from) || cfg.callerId || cfg.fromNumber);
-  const from = resolved.from;
+  // Dial routes already resolve From — skip a second IncomingPhoneNumbers round-trip.
+  let from = normalizePhone(opts && opts.from);
+  if (!from || !(opts && opts.fromTrusted)) {
+    const resolved = await resolveOutboundFromNumber(from || cfg.callerId || cfg.fromNumber);
+    from = resolved.from;
+  }
   if (!from) throw new Error('SIGNALWIRE_FROM_NUMBER must be configured.');
   if (!cfg.baseUrl) {
     throw new Error('BASE_URL must be set to a public HTTPS URL so call webhooks can connect.');
@@ -992,6 +1006,7 @@ module.exports = {
   stopCallRecording,
   listIncomingPhoneNumbers,
   listOwnedDialNumbers,
+  getCachedIncomingPhoneNumbers,
   resolveOutboundFromNumber,
   configureIncomingNumberForDialIn,
   ensureIncomingVoiceWebhooks,

@@ -3453,7 +3453,9 @@
       softphoneSession.leadTitle = resolveSoftphoneLeadTitle(softphoneSession.leadKey, to);
     }
     updateSoftphoneWrapLeadHint();
-    hydrateSoftphoneLeadFromPanel();
+    // Don't block dial on panel hydrate — fetch in background.
+    if (!opts.autoDial) hydrateSoftphoneLeadFromPanel();
+    else setTimeout(hydrateSoftphoneLeadFromPanel, 0);
     setSoftphoneDialNumber(to);
     if (opts.leadKey && !isSoftphoneMobileViewport()) {
       applyDockRight();
@@ -3479,11 +3481,11 @@
         spTo.focus();
         spTo.select();
       } catch (e) {}
-    }, 100);
+    }, 40);
     if (opts.autoDial) {
-      setTimeout(function () {
-        runSoftphoneAction('call');
-      }, 220);
+      // Dial immediately — previous 220ms delay made Focus→Call feel broken.
+      softphoneSetStatus('Starting call…');
+      runSoftphoneAction('call');
     }
     return true;
   }

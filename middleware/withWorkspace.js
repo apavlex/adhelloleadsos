@@ -14,6 +14,13 @@ const { resolveScriptSignOffProfile } = require('../services/scriptPlaceholders'
 async function withWorkspace(req, res, next) {
   try {
     const email = workspaceService.userEmail(req);
+    const path = String(req.path || '');
+    const original = String(req.originalUrl || '');
+    // Dial / status / softphone options need workspace id fast — skip switcher list + script seed.
+    const telephonyFastPath =
+      /\/telephony\//.test(path) ||
+      /\/telephony\//.test(original) ||
+      /\/leads\/[^/]+\/call/.test(original);
 
     // API key auth — no session, use 'default' workspace directly
     const apiKey = req.headers['x-api-key'] || req.query.api_key;
@@ -93,10 +100,11 @@ async function withWorkspace(req, res, next) {
 
     await workspaceService.ensureWorkspaceAndMember(ws.id, email);
 
-    await workspaceScriptBootstrap.ensureWorkspaceScriptsSeeded(ws.id);
-
-    const refreshed = await dbService.getWorkspace(ws.id);
-    ws = refreshed || ws;
+    if (!telephonyFastPath) {
+      await workspaceScriptBootstrap.ensureWorkspaceScriptsSeeded(ws.id);
+      const refreshed = await dbService.getWorkspace(ws.id);
+      ws = refreshed || ws;
+    }
 
     req.workspace = ws;
     req.workspaceId = ws.id;
@@ -108,17 +116,19 @@ async function withWorkspace(req, res, next) {
       req.session.workspaceId = ws.id;
     }
 
-    const summaries = [];
-    const allIds = await workspaceBootstrap.collectWorkspaceIdsForEmail(email);
-    for (const id of allIds) {
-      const w = await dbService.getWorkspace(id);
-      if (!w || w.archivedAt) continue;
-      summaries.push({
-        id: w.id,
-        name: w.name || 'Workspace',
-        slug: w.slug || '',
-        accentColor: w.accentColor || '#CA8A04',
-      });
+    let summaries = [];
+    if (!telephonyFastPath) {
+      const allIds = await workspaceBootstrap.collectWorkspaceIdsForEmail(email);
+      for (const id of allIds) {
+        const w = await dbService.getWorkspace(id);
+        if (!w || w.archivedAt) continue;
+        summaries.push({
+          id: w.id,
+          name: w.name || 'Workspace',
+          slug: w.slug || '',
+          accentColor: w.accentColor || '#CA8A04',
+        });
+      }
     }
 
     res.locals.workspace = ws;

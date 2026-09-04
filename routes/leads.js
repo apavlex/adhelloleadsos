@@ -1561,6 +1561,7 @@ router.post('/:key/call', async (req, res, next) => {
       action: 'call',
       from: fromPick.from,
       leadCallerId,
+      fromTrusted: true,
       agentFirst: callMode === 'agent_first',
       agentTo: callMode === 'agent_first' ? resolveAgentFirstNumber(ws) : undefined,
       session: callMode === 'agent_first',
@@ -1688,11 +1689,30 @@ router.get('/telephony/call-options', async (req, res, next) => {
       signalwire.normalizePhone(cfg.callerId || cfg.fromNumber) ||
       '';
     // Softphone open used to await SignalWire list + webhook repair every time (multi-second stalls).
-    // Default: cached number list, no repair. Pass ?repair=1 to force webhook fix.
+    // Prefer cache; only force-refresh when ?repair=1. Background refresh keeps cache warm.
     const wantRepair =
       String((req.query && req.query.repair) || '').trim() === '1' ||
       String((req.query && req.query.repair) || '').trim() === 'true';
-    const ownedList = await signalwire.listOwnedDialNumbers({ force: wantRepair });
+    let ownedList;
+    if (wantRepair) {
+      ownedList = await signalwire.listOwnedDialNumbers({ force: true });
+    } else {
+      const cached = signalwire.getCachedIncomingPhoneNumbers
+        ? signalwire.getCachedIncomingPhoneNumbers()
+        : null;
+      if (cached && Array.isArray(cached.numbers)) {
+        ownedList = {
+          numbers: (cached.numbers || []).filter((n) => n && n.sid && n.phoneNumber),
+          error: null,
+          envFromNumber: cached.envFromNumber || '',
+        };
+        setImmediate(() => {
+          signalwire.listOwnedDialNumbers({ force: false }).catch(() => {});
+        });
+      } else {
+        ownedList = await signalwire.listOwnedDialNumbers({ force: false });
+      }
+    }
     const signalwireNumbers = (ownedList.numbers || []).map((n) => n.phoneNumber).filter(Boolean);
     let inboundWebhook = null;
     const repairDid =
@@ -2076,6 +2096,7 @@ router.post('/telephony/dial', async (req, res, next) => {
       voicemailAudioUrl: action === 'voicemail_drop' ? voicemailAudioUrl : '',
       from: fromNumber,
       leadCallerId: leadCallerId || fromNumber,
+      fromTrusted: true,
       agentFirst: useAgent,
       agentTo: useAgent ? resolveAgentFirstNumber(ws) : undefined,
       session: useAgent && action === 'call',
