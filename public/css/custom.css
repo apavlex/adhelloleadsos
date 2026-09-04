@@ -2947,6 +2947,17 @@ body.find-leads-page #findTypeTabs .find-type-tab {
     padding-top: 0.35rem;
     box-shadow: 0 -6px 24px -12px rgba(15, 23, 42, 0.12);
 }
+/* Collapsed quick-log dock: Call + SMS only (Sync GHL when expanded) */
+#leadPanelNotepad.lead-panel-notepad--collapsed #leadPanelOutreachCtaRow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+#leadPanelNotepad.lead-panel-notepad--collapsed #leadPanelPushGhlBtn {
+    display: none !important;
+}
+#mobilePanel.open #leadPanelNotepad.lead-panel-notepad--collapsed #leadPanelOutreachCtaRow,
+#mobilePanel.open #leadPanelNotepad.lead-panel-notepad--collapsed #leadPanelOutreachCtaRow button {
+    pointer-events: auto;
+}
 #mobilePanel.open #leadPanelNotepadBody.lead-panel-notepad-body--open,
 #mobilePanel.open #leadPanelNotepadBody.lead-panel-notepad-body--open * {
     pointer-events: auto;

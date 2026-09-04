@@ -903,12 +903,6 @@
           </div>
         </div>
 
-        <div id="leadPanelOutreachCtaRow" class="grid grid-cols-3 gap-2 px-0.5 shrink-0">
-          <button type="button" id="clickToCallBtn" class="btn-pill bg-emerald-500 text-white py-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-colors">Call</button>
-          <button type="button" id="leadPanelSmsBtn" class="btn-pill bg-teal-500 text-white py-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-teal-600 transition-colors" title="Open SMS composer — type your message, improve with AI, then send">SMS</button>
-          <button type="button" id="leadPanelPushGhlBtn" class="btn-pill bg-orange-500 text-white py-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-orange-600 transition-colors" title="Sync this contact and notes to Go High Level">Sync GHL</button>
-        </div>
-
         <div id="leadPanelSendInfoCard" class="rounded-2xl border border-brand-border/25 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-800/40 shadow-sm ring-1 ring-black/[0.03] dark:ring-white/5">
           <button type="button" id="leadPanelOutreachToggle" aria-expanded="false" aria-controls="leadPanelOutreachDrawer" class="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-brand-cream/50 dark:hover:bg-slate-800/80 transition-colors">
             <span class="text-[10px] font-black uppercase tracking-[0.12em] text-brand-muted dark:text-slate-400">Send info</span>
@@ -930,6 +924,13 @@
 
         <button type="button" id="mobilePanelRemoveBtn" class="w-full text-center py-3 mt-1 text-xs font-black uppercase tracking-[0.2em] text-red-500 hover:text-red-600 transition-colors border-t border-brand-border/15 dark:border-white/10 pt-3">Discard this Lead</button>
         </div><!-- /leadPanelNotepadBody -->
+
+        <!-- Stay visible when Quick log is collapsed — Call + SMS only; Sync GHL when expanded -->
+        <div id="leadPanelOutreachCtaRow" class="grid grid-cols-3 gap-2 px-0.5 pt-1.5 shrink-0">
+          <button type="button" id="clickToCallBtn" class="btn-pill bg-emerald-500 text-white py-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-colors">Call</button>
+          <button type="button" id="leadPanelSmsBtn" class="btn-pill bg-teal-500 text-white py-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-teal-600 transition-colors" title="Open SMS composer — type your message, improve with AI, then send">SMS</button>
+          <button type="button" id="leadPanelPushGhlBtn" class="btn-pill bg-orange-500 text-white py-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-orange-600 transition-colors" title="Sync this contact and notes to Go High Level">Sync GHL</button>
+        </div>
       </div>
 
 
