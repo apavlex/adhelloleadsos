@@ -863,14 +863,10 @@
       syncFocusQueueToSoftphone();
       if (typeof window.__adhelloSoftphoneGetSession === 'function') {
         var sess = window.__adhelloSoftphoneGetSession();
-        if (sess.wrapRequired && sess.leadKey && String(sess.leadKey) === String(lead.key || '')) {
+        // Wrap-up is optional — never block Focus dial behind an outcome.
+        if (sess && sess.state === 'dialing') {
+          setCopyFeedback('A dial is already in progress in the softphone.', true);
           if (typeof window.__adhelloFocusSoftphone === 'function') window.__adhelloFocusSoftphone();
-          if (typeof window.__adhelloSoftphoneRedial === 'function') {
-            window.__adhelloSoftphoneRedial();
-            setCopyFeedback('Redialing same number…');
-            return;
-          }
-          setCopyFeedback('Complete wrap-up in the dialer (quick log + Done), or tap Redial same number.', true);
           return;
         }
       }
