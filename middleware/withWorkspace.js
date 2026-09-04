@@ -75,8 +75,16 @@ async function withWorkspace(req, res, next) {
     let ws = wid ? await dbService.getWorkspace(wid) : null;
     if (!ws || !workspaceBootstrap.userCanAccessWorkspace(ws, email)) {
       const ids = await workspaceBootstrap.collectWorkspaceIdsForEmail(email);
-      wid = ids[0] || null;
-      ws = wid ? await dbService.getWorkspace(wid) : null;
+      wid = null;
+      ws = null;
+      for (const id of ids) {
+        const cand = await dbService.getWorkspace(id);
+        if (cand && workspaceBootstrap.userCanAccessWorkspace(cand, email)) {
+          wid = id;
+          ws = cand;
+          break;
+        }
+      }
     }
 
     if (!ws || !wid) {
@@ -104,7 +112,7 @@ async function withWorkspace(req, res, next) {
     const allIds = await workspaceBootstrap.collectWorkspaceIdsForEmail(email);
     for (const id of allIds) {
       const w = await dbService.getWorkspace(id);
-      if (!w) continue;
+      if (!w || w.archivedAt) continue;
       summaries.push({
         id: w.id,
         name: w.name || 'Workspace',

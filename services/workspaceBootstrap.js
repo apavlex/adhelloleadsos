@@ -84,7 +84,92 @@ async function linkAliasWorkspaces(ownerEmail) {
     await dbService.saveUserPrefs(em, { activeWorkspaceId: ids[0] });
   }
 
-  return ids;
+  await pruneEmptyDuplicateAgencyWorkspaces(em);
+  return collectWorkspaceIdsForEmail(em);
+}
+
+function isAdhelloAgencyWorkspace(ws) {
+  if (!ws || typeof ws !== 'object') return false;
+  const name = String(ws.name || '')
+    .trim()
+    .toLowerCase();
+  const slug = String(ws.slug || '')
+    .trim()
+    .toLowerCase();
+  if (slug === 'adhello-agency' || slug.startsWith('adhello-agency')) return true;
+  return name === 'adhello agency' || name === 'adhello.ai agency';
+}
+
+/**
+ * Remove empty duplicate "Adhello Agency" shells created when logging in with @adhello.io
+ * while the real Agency workspace (with leads) already existed under @adhello.ai.
+ */
+async function pruneEmptyDuplicateAgencyWorkspaces(ownerEmail) {
+  const em = normEmail(ownerEmail);
+  if (!em) return { kept: null, removed: [] };
+  const aliases = emailAliases(em);
+  const ids = await collectWorkspaceIdsForEmail(em);
+  if (ids.length < 2) return { kept: null, removed: [] };
+
+  const agency = [];
+  for (const id of ids) {
+    const ws = await dbService.getWorkspace(id);
+    if (!ws || ws.archivedAt) continue;
+    if (!isAdhelloAgencyWorkspace(ws)) continue;
+    let leadCount = 0;
+    try {
+      const leads = await dbService.getAllLeads(id);
+      leadCount = Array.isArray(leads) ? leads.length : 0;
+    } catch (_) {
+      leadCount = 0;
+    }
+    agency.push({
+      id,
+      leadCount,
+      createdAt: Date.parse(ws.createdAt || '') || 0,
+      ws,
+    });
+  }
+  if (agency.length < 2) return { kept: null, removed: [] };
+
+  agency.sort((a, b) => {
+    if (b.leadCount !== a.leadCount) return b.leadCount - a.leadCount;
+    return a.createdAt - b.createdAt;
+  });
+  const keep = agency[0];
+  const drop = agency.slice(1).filter((x) => x.leadCount === 0);
+  if (!drop.length) return { kept: keep.id, removed: [] };
+
+  const removed = [];
+  for (const d of drop) {
+    for (const a of aliases) {
+      await dbService.removeUserWorkspaceId(a, d.id);
+    }
+    const doc = d.ws;
+    doc.archivedAt = new Date().toISOString();
+    doc.archivedReason = 'empty_duplicate_adhello_agency';
+    await dbService.saveWorkspace(d.id, doc);
+    removed.push(d.id);
+  }
+
+  // Point canonical slug at the workspace that still has leads
+  try {
+    await dbService.saveWorkspaceSlug('adhello-agency', keep.id);
+  } catch (_) {
+    /* ignore */
+  }
+
+  for (const a of aliases) {
+    const prefs = await dbService.getUserPrefs(a);
+    if (prefs && removed.includes(String(prefs.activeWorkspaceId || ''))) {
+      await dbService.saveUserPrefs(a, { activeWorkspaceId: keep.id });
+    }
+  }
+
+  console.log(
+    `[workspace] Pruned ${removed.length} empty duplicate Adhello Agency workspace(s); kept ${keep.id} (${keep.leadCount} leads)`,
+  );
+  return { kept: keep.id, removed };
 }
 
 function parseLegacyDailyTrackerKey(key) {
@@ -262,6 +347,22 @@ async function runLegacyMigrationToNewWorkspace(ownerEmail) {
  */
 async function createFreshDefaultWorkspace(ownerEmail) {
   const em = normEmail(ownerEmail);
+  // Never mint a second Adhello Agency if the slug (or any alias) already has one.
+  const existingSlugId = await dbService.getWorkspaceIdForSlug('adhello-agency');
+  if (existingSlugId) {
+    const existing = await dbService.getWorkspace(existingSlugId);
+    if (existing && !existing.archivedAt) {
+      await dbService.addUserWorkspaceId(em, existingSlugId);
+      await dbService.saveUserPrefs(em, { email: em, activeWorkspaceId: existingSlugId });
+      return existingSlugId;
+    }
+  }
+  const aliasIds = await collectWorkspaceIdsForEmail(em);
+  if (aliasIds.length) {
+    await dbService.saveUserPrefs(em, { email: em, activeWorkspaceId: aliasIds[0] });
+    return aliasIds[0];
+  }
+
   const newId = randomUUID();
   const doc = {
     id: newId,
@@ -301,10 +402,16 @@ async function ensureUserHasWorkspaces(ownerEmail) {
 
   // Prefer existing workspaces on either brand email before creating a fresh empty one.
   const linked = await linkAliasWorkspaces(em);
-  if (linked.length > 0) return;
+  if (linked.length > 0) {
+    await pruneEmptyDuplicateAgencyWorkspaces(em);
+    return;
+  }
 
   let ids = await dbService.getUserWorkspaceIds(em);
-  if (ids.length > 0) return;
+  if (ids.length > 0) {
+    await pruneEmptyDuplicateAgencyWorkspaces(em);
+    return;
+  }
 
   const legacyWs = await dbService.getWorkspace('default');
   const leadKeys = await dbService.listStorageKeysWithPrefix('lead:');
@@ -321,6 +428,7 @@ async function ensureUserHasWorkspaces(ownerEmail) {
 function userCanAccessWorkspace(workspaceDoc, email) {
   const aliases = emailAliases(email);
   if (!workspaceDoc || !aliases.length) return false;
+  if (workspaceDoc.archivedAt) return false;
   for (const em of aliases) {
     if (normEmail(workspaceDoc.ownerUserId) === em) return true;
     const m = workspaceDoc.members && workspaceDoc.members[em];
@@ -336,5 +444,7 @@ module.exports = {
   userCanAccessWorkspace,
   collectWorkspaceIdsForEmail,
   linkAliasWorkspaces,
+  pruneEmptyDuplicateAgencyWorkspaces,
+  isAdhelloAgencyWorkspace,
   DEFAULT_COACH_AGENCY,
 };

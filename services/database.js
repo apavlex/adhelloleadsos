@@ -662,6 +662,16 @@ module.exports = {
     return this.setUserWorkspaceIds(email, cur);
   },
 
+  async removeUserWorkspaceId(email, workspaceId) {
+    const wid = String(workspaceId || '').trim();
+    if (!wid) return this.getUserWorkspaceIds(email);
+    const cur = await this.getUserWorkspaceIds(email);
+    return this.setUserWorkspaceIds(
+      email,
+      cur.filter((id) => id !== wid),
+    );
+  },
+
   async getWorkspaceIdForSlug(slug) {
     const s = String(slug || '').trim().toLowerCase();
     if (!s) return null;
