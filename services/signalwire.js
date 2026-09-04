@@ -324,6 +324,33 @@ async function postFormCreateCall(formBody) {
   );
 }
 
+const SIGNALWIRE_FETCH_MS = 12000;
+
+function signalwireAbortSignal(ms) {
+  const timeoutMs = typeof ms === 'number' && ms > 0 ? ms : SIGNALWIRE_FETCH_MS;
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+    return AbortSignal.timeout(timeoutMs);
+  }
+  const controller = new AbortController();
+  setTimeout(() => {
+    try {
+      controller.abort();
+    } catch (_) {}
+  }, timeoutMs);
+  return controller.signal;
+}
+
+function mapSignalwireFetchError(err, label) {
+  const name = err && err.name ? String(err.name) : '';
+  const msg = err && err.message ? String(err.message) : '';
+  if (name === 'AbortError' || name === 'TimeoutError' || /aborted|timeout/i.test(msg)) {
+    return new Error(
+      `${label || 'SignalWire'}: request timed out after ${SIGNALWIRE_FETCH_MS / 1000}s. Check SIGNALWIRE_SPACE_URL and Render outbound network.`,
+    );
+  }
+  return err;
+}
+
 async function lamlPost(path, formBody, opts) {
   const { asJson = false, label: labelIn, apiRoot: apiRootIn } = opts || {};
   const label = labelIn != null ? labelIn : 'POST ' + path;
@@ -348,15 +375,21 @@ async function lamlPost(path, formBody, opts) {
       }
     });
   }
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${auth}`,
-      'Content-Type': asJson ? 'application/json' : 'application/x-www-form-urlencoded',
-      Accept: 'application/json',
-    },
-    body: asJson ? JSON.stringify(formBody && typeof formBody === 'object' ? formBody : {}) : q.toString(),
-  });
+  let res;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${auth}`,
+        'Content-Type': asJson ? 'application/json' : 'application/x-www-form-urlencoded',
+        Accept: 'application/json',
+      },
+      body: asJson ? JSON.stringify(formBody && typeof formBody === 'object' ? formBody : {}) : q.toString(),
+      signal: signalwireAbortSignal(),
+    });
+  } catch (err) {
+    throw mapSignalwireFetchError(err, label);
+  }
   const text = await res.text();
   return parseLamlJsonBody({ res, text, url, label });
 }
@@ -373,13 +406,19 @@ async function getJson(path) {
   const root = buildApiRoot(cfg);
   const url = `${root}${path}`;
   const auth = Buffer.from(`${cfg.projectId}:${cfg.token}`).toString('base64');
-  const res = await fetch(url, {
-    method: 'GET',
-    headers: {
-      Authorization: `Basic ${auth}`,
-      Accept: 'application/json',
-    },
-  });
+  let res;
+  try {
+    res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `Basic ${auth}`,
+        Accept: 'application/json',
+      },
+      signal: signalwireAbortSignal(),
+    });
+  } catch (err) {
+    throw mapSignalwireFetchError(err, 'GET ' + path);
+  }
   const text = await res.text();
   return parseLamlJsonBody({ res, text, url, label: 'GET ' + path });
 }

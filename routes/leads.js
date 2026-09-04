@@ -1565,14 +1565,6 @@ router.post('/:key/call', async (req, res, next) => {
       agentTo: callMode === 'agent_first' ? resolveAgentFirstNumber(ws) : undefined,
       session: callMode === 'agent_first',
     });
-    dialerPacing.recordDialAttempt(telephony, {
-      from: fromPick.from,
-      to: normalizedTo,
-      action: 'call',
-      leadKey: fullKey,
-      callSid: call.sid || '',
-    });
-    await dbService.saveWorkspace(req.workspaceId, ws);
 
     if (callMode === 'agent_first' && call.sid) {
       agentSessionStore.createSession(req.workspaceId, {
@@ -1583,22 +1575,43 @@ router.post('/:key/call', async (req, res, next) => {
       });
     }
 
-    const updatedLead = await logLeadOutboundCallInitiated(req, fullKey, lead, {
-      callSid: call.sid || '',
-      normalizedTo,
-      logMessage: `SignalWire call initiated (${call.sid || 'no sid'})`,
-      // Agent-first often fails before the lead is dialed; don't stamp No pickup yet.
-      skipAutoDisposition: callMode === 'agent_first',
-    });
     res.json({
       success: true,
       dialMode: callMode === 'agent_first' ? 'agent_first' : 'cloud_dial',
       callSid: call.sid || null,
       callerId: leadCallerId || fromPick.from,
       agentPhone: callMode === 'agent_first' ? resolveAgentFirstNumber(ws) || null : null,
-      lead: updatedLead,
+      lead,
       sessionActive: callMode === 'agent_first',
     });
+
+    setImmediate(() => {
+      Promise.resolve()
+        .then(async () => {
+          dialerPacing.recordDialAttempt(telephony, {
+            from: fromPick.from,
+            to: normalizedTo,
+            action: 'call',
+            leadKey: fullKey,
+            callSid: call.sid || '',
+          });
+          await dbService.saveWorkspace(req.workspaceId, ws);
+          await logLeadOutboundCallInitiated(req, fullKey, lead, {
+            callSid: call.sid || '',
+            normalizedTo,
+            logMessage: `SignalWire call initiated (${call.sid || 'no sid'})`,
+            // Agent-first often fails before the lead is dialed; don't stamp No pickup yet.
+            skipAutoDisposition: callMode === 'agent_first',
+          });
+        })
+        .catch((persistErr) => {
+          console.error(
+            '[POST /leads/:key/call] post-create persist failed',
+            persistErr && persistErr.message ? persistErr.message : persistErr,
+          );
+        });
+    });
+    return;
   } catch (err) {
     next(err);
   }
@@ -2051,8 +2064,10 @@ router.post('/telephony/dial', async (req, res, next) => {
           'Caller ID cannot be your personal cell. Pick a workspace SignalWire number under Your caller ID.',
       });
     }
+    const dialStartedAt = Date.now();
     const fromResolved = await signalwire.resolveOutboundFromNumber(fromCandidate);
     const fromNumber = fromResolved.from;
+    const resolveMs = Date.now() - dialStartedAt;
     const call = await signalwire.createLeadCall({
       to,
       leadKey: fullLeadKey,
@@ -2065,14 +2080,7 @@ router.post('/telephony/dial', async (req, res, next) => {
       agentTo: useAgent ? resolveAgentFirstNumber(ws) : undefined,
       session: useAgent && action === 'call',
     });
-    dialerPacing.recordDialAttempt(telephony, {
-      from: fromNumber,
-      to,
-      action,
-      leadKey: fullLeadKey,
-      callSid: call.sid || '',
-    });
-    await dbService.saveWorkspace(req.workspaceId, ws);
+    const createMs = Date.now() - dialStartedAt - resolveMs;
 
     if (useAgent && action === 'call' && call.sid) {
       // Drop stale dial-in pending shells so outbound ring-first can start cleanly
@@ -2092,24 +2100,53 @@ router.post('/telephony/dial', async (req, res, next) => {
       }
     }
 
-    let updatedLead = leadForDial;
-    if (fullLeadKey && leadForDial && action === 'call') {
-      updatedLead = await logLeadOutboundCallInitiated(req, fullLeadKey, leadForDial, {
-        callSid: call.sid || '',
-        normalizedTo: to,
-        logMessage: `SignalWire call initiated (${call.sid || 'no sid'})`,
-        skipAutoDisposition: useAgent,
-      });
-    }
-    return res.json({
+    // Answer the softphone immediately — pacing + lead logs can be slow on large workspaces
+    // and were tripping the client 20s abort even after SignalWire had already placed the call.
+    res.json({
       success: true,
       dialMode: useAgent ? 'agent_first' : 'cloud_dial',
       callSid: call.sid || null,
       action,
-      callerId: leadCallerId || fromPick.from,
+      callerId: leadCallerId || fromNumber || fromPick.from,
       agentPhone: useAgent ? resolveAgentFirstNumber(ws) || null : null,
-      lead: updatedLead && action === 'call' ? updatedLead : undefined,
+      lead: leadForDial && action === 'call' ? leadForDial : undefined,
     });
+    console.log(
+      '[POST /leads/telephony/dial] ok sid=%s resolveMs=%s createMs=%s totalMs=%s',
+      call.sid || '',
+      resolveMs,
+      createMs,
+      Date.now() - dialStartedAt,
+    );
+
+    setImmediate(() => {
+      Promise.resolve()
+        .then(async () => {
+          dialerPacing.recordDialAttempt(telephony, {
+            from: fromNumber,
+            to,
+            action,
+            leadKey: fullLeadKey,
+            callSid: call.sid || '',
+          });
+          await dbService.saveWorkspace(req.workspaceId, ws);
+          if (fullLeadKey && leadForDial && action === 'call') {
+            await logLeadOutboundCallInitiated(req, fullLeadKey, leadForDial, {
+              callSid: call.sid || '',
+              normalizedTo: to,
+              logMessage: `SignalWire call initiated (${call.sid || 'no sid'})`,
+              skipAutoDisposition: useAgent,
+            });
+          }
+        })
+        .catch((persistErr) => {
+          console.error(
+            '[POST /leads/telephony/dial] post-create persist failed',
+            persistErr && persistErr.message ? persistErr.message : persistErr,
+          );
+        });
+    });
+    return;
   } catch (err) {
     console.error('[POST /leads/telephony/dial]', err && err.message ? err.message : err);
     if (!res.headersSent) {
