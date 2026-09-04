@@ -2345,50 +2345,41 @@
     if (!Array.isArray(bank) || !bank.length) bank = spBankNumbers || [];
     var seen = {};
     var selected = normalizeDial(selectedLeadCallerId || spLeadCallerId || spActiveFrom || spDefaultFrom || '');
+    // Never use personal cell as caller ID — SignalWire rejects it and it confuses agents.
+    if (agent && selected === agent) selected = '';
     spCallerIdSelect.innerHTML = '';
-    if (agent) {
-      var optMobile = document.createElement('option');
-      optMobile.value = agent;
-      optMobile.textContent = formatCallerIdCompact(agent) + ' · my mobile';
-      spCallerIdSelect.appendChild(optMobile);
-      seen[agent] = true;
-    }
     bank.forEach(function (n) {
       var v = normalizeDial(n);
       if (!v || seen[v]) return;
+      if (agent && v === agent) return;
       seen[v] = true;
       var opt = document.createElement('option');
       opt.value = v;
       opt.textContent = formatCallerIdCompact(v) + ' · workspace';
       spCallerIdSelect.appendChild(opt);
     });
-    var optCustom = document.createElement('option');
-    optCustom.value = '__set_mobile__';
-    optCustom.textContent = agent ? 'Change my cell…' : 'Set my cell (rings first)…';
-    spCallerIdSelect.appendChild(optCustom);
     if (selected && seen[selected]) {
       spCallerIdSelect.value = selected;
       spLeadCallerId = selected;
     } else if (bank.length) {
       var preferredBank = normalizeDial(spActiveFrom || spDefaultFrom || bank[0]);
+      if (preferredBank && agent && preferredBank === agent) preferredBank = '';
       if (preferredBank && seen[preferredBank]) {
         spCallerIdSelect.value = preferredBank;
         spLeadCallerId = preferredBank;
       } else {
         var first = normalizeDial(bank[0]);
-        spCallerIdSelect.value = first;
-        spLeadCallerId = first;
+        if (agent && first === agent) {
+          first = normalizeDial(bank.find(function (n) { return normalizeDial(n) !== agent; }) || '');
+        }
+        spCallerIdSelect.value = first || '';
+        spLeadCallerId = first || '';
       }
-    } else if (agent) {
-      spCallerIdSelect.value = agent;
-      spLeadCallerId = agent;
     } else {
       spCallerIdSelect.value = '';
       spLeadCallerId = '';
     }
-    if (spCallerIdMobileWrap) {
-      spCallerIdMobileWrap.classList.toggle('hidden', spCallerIdSelect.value !== '__set_mobile__');
-    }
+    if (spCallerIdMobileWrap) spCallerIdMobileWrap.classList.add('hidden');
     updateSoftphoneAgentRingLine();
   }
 
@@ -4450,84 +4441,26 @@
 
   if (spCallerIdSelect) {
     spCallerIdSelect.addEventListener('change', function () {
-      var val = String(spCallerIdSelect.value || '').trim();
-      if (val === '__set_mobile__') {
-        if (spCallerIdMobileWrap) spCallerIdMobileWrap.classList.remove('hidden');
-        if (spCallerIdMobile) {
-          spCallerIdMobile.value = spAgentPhoneCached || '';
-          spCallerIdMobile.focus();
-        }
-        if (spCallerIdMobileHint) {
-          spCallerIdMobileHint.textContent =
-            'Enter your personal cell (E.164). On agent first this number rings you first; it is not the same as workspace caller ID.';
-        }
-        return;
-      }
+      var val = normalizeDial(String(spCallerIdSelect.value || '').trim());
       if (spCallerIdMobileWrap) spCallerIdMobileWrap.classList.add('hidden');
       if (!val) return;
+      var agent = normalizeDial(spAgentPhoneCached || '');
+      if (agent && val === agent) {
+        softphoneSetStatus('Your personal cell rings first — it cannot be caller ID. Pick a workspace number.', true);
+        renderSoftphoneCallerIdSelect(spAgentPhoneCached, spBankNumbers, spActiveFrom || spDefaultFrom);
+        return;
+      }
+      if (spBankNumbers && spBankNumbers.indexOf(val) === -1) {
+        softphoneSetStatus('Caller ID must be a workspace SignalWire number — not your personal cell.', true);
+        renderSoftphoneCallerIdSelect(spAgentPhoneCached, spBankNumbers, spActiveFrom || spDefaultFrom);
+        return;
+      }
       saveSoftphoneLeadCallerId(val).catch(function (err) {
-        if (spCallerIdMobileHint) spCallerIdMobileHint.textContent = (err && err.message) || 'Could not save caller ID.';
+        softphoneSetStatus((err && err.message) || 'Could not save caller ID.', true);
       });
     });
   }
-  if (spCallerIdMobileSave && spCallerIdMobile) {
-    spCallerIdMobileSave.addEventListener('click', function () {
-      var mobile = normalizeDial(spCallerIdMobile.value || '');
-      if (!mobile) {
-        if (spCallerIdMobileHint) spCallerIdMobileHint.textContent = 'Enter a valid mobile number (e.g. +15551234567).';
-        return;
-      }
-      if (spBankNumbers && spBankNumbers.indexOf(mobile) !== -1) {
-        if (spCallerIdMobileHint) {
-          spCallerIdMobileHint.textContent =
-            'That is a workspace Phone bank number. Enter your personal cell — bank numbers are caller ID only.';
-        }
-        return;
-      }
-      if (spCallerIdMobileHint) spCallerIdMobileHint.textContent = 'Saving…';
-      // Prefer keeping workspace DID as lead caller ID; agentPhone is what rings first.
-      var keepCallerId = normalizeDial(spLeadCallerId || spActiveFrom || '');
-      if (keepCallerId && spBankNumbers && spBankNumbers.indexOf(keepCallerId) !== -1) {
-        fetch('/workspace/settings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ agentPhone: mobile }),
-        })
-          .then(function (r) {
-            return r.json().then(function (j) {
-              return { ok: r.ok, j: j };
-            });
-          })
-          .then(function (res) {
-            if (!res.ok || !res.j || !res.j.success) {
-              throw new Error((res.j && res.j.error) || 'Could not save mobile.');
-            }
-            spAgentPhoneCached = mobile;
-            if (spAgentPhone) spAgentPhone.value = mobile;
-            renderSoftphoneCallerIdSelect(mobile, spBankNumbers, keepCallerId);
-            if (spCallerIdMobileWrap) spCallerIdMobileWrap.classList.add('hidden');
-            if (spCallerIdMobileHint) {
-              spCallerIdMobileHint.textContent =
-                'Saved. Your cell rings first; leads still see workspace caller ID.';
-            }
-            updateSoftphoneAgentRingLine();
-          })
-          .catch(function (err) {
-            if (spCallerIdMobileHint) spCallerIdMobileHint.textContent = (err && err.message) || 'Could not save mobile.';
-          });
-        return;
-      }
-      saveSoftphoneLeadCallerId(mobile, { alsoAgentPhone: true })
-        .then(function () {
-          renderSoftphoneCallerIdSelect(mobile, spBankNumbers, keepCallerId || mobile);
-          if (spCallerIdMobileWrap) spCallerIdMobileWrap.classList.add('hidden');
-          updateSoftphoneAgentRingLine();
-        })
-        .catch(function (err) {
-          if (spCallerIdMobileHint) spCallerIdMobileHint.textContent = (err && err.message) || 'Could not save mobile.';
-        });
-    });
-  }
+  if (spCallerIdMobileWrap) spCallerIdMobileWrap.classList.add('hidden');
 
   if (spAgentRingFixBtn) {
     spAgentRingFixBtn.addEventListener('click', function () {

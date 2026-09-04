@@ -394,19 +394,14 @@
             <select id="softphoneCallerIdSelect" class="softphone-caller-id-select w-full min-w-0 bg-transparent border-0 p-0 text-[1.05rem] font-semibold tabular-nums text-slate-800 dark:text-white focus:outline-none focus:ring-0 appearance-none cursor-pointer" aria-label="Caller ID shown to leads">
               <option value="">—</option>
             </select>
-            <p class="mt-1.5 text-[10px] text-slate-500 dark:text-slate-400 leading-snug" id="softphoneCallingFromLine">Outbound line for this call</p>
+            <p class="mt-1.5 text-[10px] text-slate-500 dark:text-slate-400 leading-snug" id="softphoneCallingFromLine">Outbound line for this call (caller ID — workspace SignalWire number only)</p>
             <div id="softphoneAgentRingWrap" class="hidden mt-2 rounded-lg border border-amber-300/50 dark:border-amber-500/30 bg-amber-50/70 dark:bg-amber-950/25 px-2.5 py-2">
               <p class="text-[10px] font-black uppercase tracking-widest text-amber-800 dark:text-amber-200">Agent mobile (rings first)</p>
               <p id="softphoneAgentRingLine" class="mt-0.5 text-[12px] font-semibold tabular-nums text-slate-800 dark:text-white leading-snug">—</p>
               <p id="softphoneAgentRingHint" class="mt-1 text-[10px] text-amber-900/80 dark:text-amber-100/80 leading-snug">We call this cell first from your workspace number. Answer, press 1, then we dial the lead.</p>
               <button type="button" id="softphoneAgentRingFixBtn" class="hidden mt-1.5 text-[10px] font-black uppercase tracking-wide text-brand-yellow hover:underline">Set mobile in Settings</button>
             </div>
-            <div id="softphoneCallerIdMobileWrap" class="hidden mt-2 space-y-2">
-              <label for="softphoneCallerIdMobile" class="text-[10px] font-bold uppercase tracking-wide text-slate-500">Your personal cell</label>
-              <input type="tel" id="softphoneCallerIdMobile" class="w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold text-slate-800 dark:text-white" placeholder="+15551234567" autocomplete="tel" />
-              <button type="button" id="softphoneCallerIdMobileSave" class="w-full rounded-xl border border-brand-yellow/60 bg-brand-yellow/15 px-3 py-2 text-[10px] font-black uppercase tracking-wide text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/25 transition-colors">Save my cell (rings first)</button>
-              <p id="softphoneCallerIdMobileHint" class="text-[10px] text-slate-500 dark:text-slate-400 leading-snug"></p>
-            </div>
+            <div id="softphoneCallerIdMobileWrap" class="hidden" hidden aria-hidden="true"></div>
             <p id="softphoneOutboundMeta" class="hidden sr-only">Current outbound: —</p>
             <a href="https://id.signalwire.com/" target="_blank" rel="noopener noreferrer" class="sr-only">Buy number</a>
           </div>

@@ -824,7 +824,8 @@ function resolveLeadCallerId(ws) {
   const bank = workspaceCallerNumbers(ws);
   const agent = resolveAgentFirstNumber(ws);
   const preferred = signalwire.normalizePhone(telephony.leadCallerId || '');
-  if (preferred && (bank.includes(preferred) || (agent && preferred === agent))) {
+  // Personal cell is never a valid SignalWire From / caller ID.
+  if (preferred && bank.includes(preferred) && (!agent || preferred !== agent)) {
     return preferred;
   }
   return resolveWorkspaceCallerNumber(ws);
@@ -834,7 +835,7 @@ function resolveRequestedLeadCallerId(ws, requested) {
   const bank = workspaceCallerNumbers(ws);
   const agent = resolveAgentFirstNumber(ws);
   const picked = signalwire.normalizePhone(requested || '');
-  if (picked && (bank.includes(picked) || (agent && picked === agent))) return picked;
+  if (picked && bank.includes(picked) && (!agent || picked !== agent)) return picked;
   return resolveLeadCallerId(ws);
 }
 

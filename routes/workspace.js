@@ -1192,10 +1192,17 @@ router.post('/settings', express.json(), async (req, res) => {
             Array.isArray(telephony.numberBankEntries) ? telephony.numberBankEntries : [],
           );
           const agent = signalwire.normalizePhone(telephony.agentPhone || '');
-          if (!bank.includes(n) && (!agent || n !== agent)) {
+          if (agent && n === agent) {
             return res.status(400).json({
               success: false,
-              error: 'Caller ID must be your mobile (agent phone) or a number in the workspace phone bank.',
+              error:
+                'Your personal cell cannot be caller ID. Use a workspace Phone bank / SignalWire number. Set your cell under Agent mobile instead.',
+            });
+          }
+          if (!bank.includes(n)) {
+            return res.status(400).json({
+              success: false,
+              error: 'Caller ID must be a number in the workspace phone bank (SignalWire DID).',
             });
           }
           telephony.leadCallerId = n;
