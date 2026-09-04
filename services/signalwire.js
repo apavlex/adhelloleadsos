@@ -427,15 +427,9 @@ async function listIncomingPhoneNumbers(opts) {
       return true;
     });
     const fromDefault = normalizePhone(cfg.fromNumber);
-    if (fromDefault && !deduped.some((n) => n.phoneNumber === fromDefault)) {
-      deduped.unshift({
-        sid: '',
-        phoneNumber: fromDefault,
-        friendlyName: 'Default (SIGNALWIRE_FROM_NUMBER)',
-        voiceUrl: '',
-      });
-    }
-    const value = { numbers: deduped };
+    // Do NOT inject SIGNALWIRE_FROM_NUMBER into the owned list when it is not on the project —
+    // that made dialer think +1971… was valid and every call failed / never rang the agent.
+    const value = { numbers: deduped, envFromNumber: fromDefault || '' };
     _incomingNumbersCache = { at: Date.now(), value };
     return value;
   } catch (e) {
@@ -443,8 +437,59 @@ async function listIncomingPhoneNumbers(opts) {
     return {
       numbers: [],
       error: e && e.message ? String(e.message) : 'list_failed',
+      envFromNumber: normalizePhone(cfg.fromNumber),
     };
   }
+}
+
+/** Numbers that actually have a SignalWire IncomingPhoneNumbers SID (can be used as From). */
+async function listOwnedDialNumbers(opts) {
+  const listed = await listIncomingPhoneNumbers(opts);
+  const numbers = (listed.numbers || []).filter((n) => n && n.sid && n.phoneNumber);
+  return { numbers, error: listed.error || null, envFromNumber: listed.envFromNumber || '' };
+}
+
+/**
+ * Pick a From number SignalWire will accept.
+ * Prefers requested → env default (if owned) → first owned DID.
+ */
+async function resolveOutboundFromNumber(preferred) {
+  const listed = await listOwnedDialNumbers();
+  const owned = (listed.numbers || []).map((n) => n.phoneNumber).filter(Boolean);
+  if (!owned.length) {
+    const fallback = normalizePhone(envConfig().fromNumber) || normalizePhone(preferred);
+    if (!fallback) {
+      throw new Error(
+        'No SignalWire phone numbers in this project. Buy a number in SignalWire, then set SIGNALWIRE_FROM_NUMBER and Phone bank to that DID.',
+      );
+    }
+    return {
+      from: fallback,
+      owned: [],
+      remapped: !!(normalizePhone(preferred) && normalizePhone(preferred) !== fallback),
+      requested: normalizePhone(preferred) || '',
+      warning: 'no_owned_numbers_listed',
+    };
+  }
+  const want = normalizePhone(preferred);
+  if (want && owned.includes(want)) {
+    return { from: want, owned, remapped: false };
+  }
+  const envDefault = normalizePhone(envConfig().fromNumber);
+  if (envDefault && owned.includes(envDefault)) {
+    return {
+      from: envDefault,
+      owned,
+      remapped: !!(want && want !== envDefault),
+      requested: want || '',
+    };
+  }
+  return {
+    from: owned[0],
+    owned,
+    remapped: true,
+    requested: want || '',
+  };
 }
 
 /**
@@ -552,7 +597,8 @@ async function createOutboundPstnCall(opts) {
   const to = normalizePhone(opts && opts.to);
   if (!to) throw new Error('A valid destination phone number is required.');
   const cfg = envConfig();
-  const from = normalizePhone((opts && opts.from) || cfg.callerId || cfg.fromNumber);
+  const resolved = await resolveOutboundFromNumber((opts && opts.from) || cfg.callerId || cfg.fromNumber);
+  const from = resolved.from;
   if (!from) throw new Error('SIGNALWIRE_FROM_NUMBER must be configured.');
   if (!cfg.baseUrl) {
     throw new Error('BASE_URL must be set to a public HTTPS URL so call webhooks can connect.');
@@ -587,7 +633,8 @@ async function createLeadCall(opts) {
   const leadTo = normalizePhone(opts && opts.to);
   if (!leadTo) throw new Error('A valid destination phone number is required.');
   const cfg = envConfig();
-  const from = normalizePhone((opts && opts.from) || cfg.callerId || cfg.fromNumber);
+  const resolved = await resolveOutboundFromNumber((opts && opts.from) || cfg.callerId || cfg.fromNumber);
+  const from = resolved.from;
   if (!from) throw new Error('SIGNALWIRE_FROM_NUMBER must be configured.');
   if (!cfg.baseUrl) {
     throw new Error('BASE_URL must be set to a public HTTPS URL so call webhooks can connect.');
@@ -905,6 +952,8 @@ module.exports = {
   startCallRecording,
   stopCallRecording,
   listIncomingPhoneNumbers,
+  listOwnedDialNumbers,
+  resolveOutboundFromNumber,
   configureIncomingNumberForDialIn,
   ensureIncomingVoiceWebhooks,
 };

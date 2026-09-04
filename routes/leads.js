@@ -1679,12 +1679,14 @@ router.get('/telephony/call-options', async (req, res, next) => {
     const wantRepair =
       String((req.query && req.query.repair) || '').trim() === '1' ||
       String((req.query && req.query.repair) || '').trim() === 'true';
-    const swNumbers = await signalwire.listIncomingPhoneNumbers({ force: wantRepair });
-    const signalwireNumbers = (swNumbers.numbers || []).map((n) => n.phoneNumber).filter(Boolean);
+    const ownedList = await signalwire.listOwnedDialNumbers({ force: wantRepair });
+    const signalwireNumbers = (ownedList.numbers || []).map((n) => n.phoneNumber).filter(Boolean);
     let inboundWebhook = null;
     const repairDid =
-      signalwire.normalizePhone(resolveLeadCallerId(ws)) ||
-      signalwire.normalizePhone(defaultFrom) ||
+      (signalwireNumbers.includes(signalwire.normalizePhone(resolveLeadCallerId(ws)))
+        ? signalwire.normalizePhone(resolveLeadCallerId(ws))
+        : '') ||
+      (signalwireNumbers.includes(defaultFrom) ? defaultFrom : '') ||
       signalwireNumbers[0] ||
       '';
     if (wantRepair && repairDid && typeof signalwire.ensureIncomingVoiceWebhooks === 'function') {
@@ -1697,24 +1699,34 @@ router.get('/telephony/call-options', async (req, res, next) => {
         };
       }
     } else if (repairDid) {
-      // Fire-and-forget repair so open stays fast; result ignored.
       setImmediate(() => {
         signalwire.ensureIncomingVoiceWebhooks(repairDid).catch(() => {});
       });
       inboundWebhook = { ok: true, deferred: true, phoneNumber: repairDid };
     }
+    const preferredCaller =
+      (signalwireNumbers.includes(signalwire.normalizePhone(resolveLeadCallerId(ws)))
+        ? signalwire.normalizePhone(resolveLeadCallerId(ws))
+        : '') ||
+      (signalwireNumbers.includes(signalwire.normalizePhone(resolveWorkspaceCallerNumber(ws)))
+        ? signalwire.normalizePhone(resolveWorkspaceCallerNumber(ws))
+        : '') ||
+      signalwireNumbers[0] ||
+      '';
     return res.json({
       success: true,
-      options: numbers,
-      activeFromNumber: resolveWorkspaceCallerNumber(ws),
-      leadCallerId: resolveLeadCallerId(ws),
+      options: numbers.filter((n) => signalwireNumbers.includes(signalwire.normalizePhone(n))).length
+        ? numbers.filter((n) => signalwireNumbers.includes(signalwire.normalizePhone(n)))
+        : signalwireNumbers,
+      activeFromNumber: preferredCaller || resolveWorkspaceCallerNumber(ws),
+      leadCallerId: preferredCaller || resolveLeadCallerId(ws),
       callMode,
       agentPhone: resolveAgentFirstNumber(ws) || null,
       relayWebrtcAvailable:
         callMode !== 'browser_device' && callMode !== 'agent_first' && signalwire.relayWebrtcCanMint(),
-      defaultFromNumber: defaultFrom,
+      defaultFromNumber: preferredCaller || defaultFrom,
       signalwireNumbers,
-      signalwireNumbersError: swNumbers.error || null,
+      signalwireNumbersError: ownedList.error || null,
       inboundWebhook,
       publicBaseUrl: cfg.baseUrl || null,
       webhookBaseUrl: cfg.webhookBaseUrl || null,
@@ -2027,33 +2039,20 @@ router.post('/telephony/dial', async (req, res, next) => {
       ws,
       req.body && (req.body.leadCallerId || req.body.callerId),
     );
-    // Prefer an explicit workspace caller ID for From when pacing would pick a stale bank number.
-    let fromNumber = fromPick.from;
+    let fromCandidate = fromPick.from;
     if (leadCallerId && workspaceCallerNumbers(ws).includes(leadCallerId)) {
-      fromNumber = leadCallerId;
+      fromCandidate = leadCallerId;
     }
     const agentToCheck = resolveAgentFirstNumber(ws);
-    if (agentToCheck && fromNumber === agentToCheck) {
+    if (agentToCheck && fromCandidate === agentToCheck) {
       return res.status(400).json({
         success: false,
         error:
           'Caller ID cannot be your personal cell. Pick a workspace SignalWire number under Your caller ID.',
       });
     }
-    try {
-      const owned = await signalwire.listIncomingPhoneNumbers();
-      const ownedSet = new Set((owned.numbers || []).map((n) => n.phoneNumber).filter(Boolean));
-      if (ownedSet.size && fromNumber && !ownedSet.has(fromNumber)) {
-        return res.status(400).json({
-          success: false,
-          error: `Caller ID ${fromNumber} is not in this SignalWire project. Pick a purchased workspace number under Your caller ID (Phone bank).`,
-          fromNumber,
-          signalwireNumbers: [...ownedSet].slice(0, 25),
-        });
-      }
-    } catch (_) {
-      /* proceed; createLeadCall will still validate */
-    }
+    const fromResolved = await signalwire.resolveOutboundFromNumber(fromCandidate);
+    const fromNumber = fromResolved.from;
     const call = await signalwire.createLeadCall({
       to,
       leadKey: fullLeadKey,
