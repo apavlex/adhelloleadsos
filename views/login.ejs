@@ -28,7 +28,7 @@
         </div>
         
         <h1 class="font-display font-extrabold text-[2.75rem] text-[#0F172A] mb-4 tracking-tight leading-tight">Welcome Back</h1>
-        <p class="text-[11px] font-bold tracking-[0.15em] uppercase text-slate-500 mb-14 px-4 leading-relaxed line-height-1">Access is restricted to authorized @adhello.ai workspace members.</p>
+        <p class="text-[11px] font-bold tracking-[0.15em] uppercase text-slate-500 mb-14 px-4 leading-relaxed line-height-1">Access is restricted to authorized @adhello.ai and @adhello.io workspace members.</p>
 
         <% if (error === 'auth_not_configured' || !googleAuthConfigured) { %>
             <div class="bg-amber-50 text-amber-800 p-5 rounded-2xl text-[11px] font-bold mb-10 border border-amber-100/50 leading-relaxed normal-case tracking-normal">
@@ -37,7 +37,7 @@
         <% } else if (error === 'unauthorized') { %>
             <div class="bg-red-50 text-red-600 p-5 rounded-2xl text-[10px] uppercase tracking-widest font-black mb-10 border border-red-100/50 animate-shake flex items-center justify-center gap-2">
                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" /></svg>
-                Access Denied: Use an @adhello.ai email
+                Access Denied: Use an @adhello.ai or @adhello.io email
             </div>
         <% } %>
 

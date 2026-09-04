@@ -26,6 +26,7 @@ const multer = require('multer');
 const { persistWorkspaceIcp } = require('../services/workspaceIcp');
 const workspaceBootstrap = require('../services/workspaceBootstrap');
 const { normalizeWorkspaceAccentHex, WORKSPACE_UI_ACCENTS } = require('../lib/workspaceAccent');
+const { isAllowedWorkspaceEmail } = require('../services/auth');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
 const workspaceSalesScripts = require('../services/workspaceSalesScripts');
@@ -811,7 +812,7 @@ router.post('/team/invite', express.urlencoded({ extended: true }), async (req, 
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return res.redirect('/workspace/team?invite=invalid_email');
     }
-    if (!email.endsWith('@adhello.ai')) {
+    if (!isAllowedWorkspaceEmail(email)) {
       return res.redirect('/workspace/team?invite=domain_restricted');
     }
     if (ws.members && ws.members[email]) {

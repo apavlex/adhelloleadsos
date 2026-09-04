@@ -20,9 +20,17 @@ function slimGoogleProfile(profile) {
   };
 }
 
+/** Allow AdHello workspace emails on either brand TLD. */
+function isAllowedWorkspaceEmail(email) {
+  const e = String(email || '')
+    .trim()
+    .toLowerCase();
+  return e.endsWith('@adhello.ai') || e.endsWith('@adhello.io');
+}
+
 function verifyEmailAllowed(profile) {
   const email = (profile.emails && profile.emails[0] && profile.emails[0].value) || '';
-  if (email.endsWith('@adhello.ai')) return { ok: true, email };
+  if (isAllowedWorkspaceEmail(email)) return { ok: true, email };
   return { ok: false, email };
 }
 
@@ -41,7 +49,7 @@ if (isGoogleAuthConfigured) {
       function (accessToken, refreshToken, profile, done) {
         const gate = verifyEmailAllowed(profile);
         if (!gate.ok) {
-          return done(null, false, { message: 'Access restricted to adhello.ai workspace.' });
+          return done(null, false, { message: 'Access restricted to adhello.ai / adhello.io workspace.' });
         }
         return done(null, slimGoogleProfile(profile));
       }
@@ -59,7 +67,7 @@ if (isGoogleAuthConfigured) {
       async function (accessToken, refreshToken, profile, done) {
         const gate = verifyEmailAllowed(profile);
         if (!gate.ok) {
-          return done(null, false, { message: 'Access restricted to adhello.ai workspace.' });
+          return done(null, false, { message: 'Access restricted to adhello.ai / adhello.io workspace.' });
         }
         try {
           const driveEmail =
@@ -126,4 +134,5 @@ module.exports = {
   requireGoogleAuth,
   getPublicBaseUrl,
   googleOAuthRedirectUris,
+  isAllowedWorkspaceEmail,
 };
