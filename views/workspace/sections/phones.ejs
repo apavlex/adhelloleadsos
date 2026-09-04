@@ -67,9 +67,9 @@
         <input type="radio" name="wsCallMode" value="agent_first" class="peer sr-only" <%= _callMode === 'agent_first' ? 'checked' : '' %> />
         <div class="flex-1 rounded-2xl border-2 border-brand-border/50 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-800/50 p-4 transition-all peer-checked:border-brand-yellow peer-checked:ring-2 peer-checked:ring-brand-yellow/50 peer-checked:bg-brand-yellow/10">
           <p class="text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white">Agent first</p>
-          <p class="text-[11px] text-brand-muted mt-1">You call the workspace number, then we bridge the lead.</p>
+          <p class="text-[11px] text-brand-muted mt-1">We call your cell first, then bridge the lead.</p>
         </div>
-        <p class="mt-2 text-[11px] text-brand-muted leading-snug hidden peer-checked:block">Tap Call in AdHello, then dial your workspace DID from your cell (always rings). We connect the lead on that call. Avoids iPhone Silence Unknown Callers blocking inbound SignalWire rings.</p>
+        <p class="mt-2 text-[11px] text-brand-muted leading-snug hidden peer-checked:block">Tap Call in AdHello — SignalWire rings your personal cell. Answer, press 1, then we dial the lead. Save the workspace DID as a contact and turn off Silence Unknown Callers if the phone never rings.</p>
       </label>
       <label class="relative flex flex-col cursor-pointer min-h-0">
         <input type="radio" name="wsCallMode" value="browser_device" class="peer sr-only" <%= _callMode === 'browser_device' ? 'checked' : '' %> />
@@ -87,12 +87,12 @@
     <input type="tel" id="wsAgentPhone" class="w-full max-w-md rounded-xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" placeholder="+15551234567" value="<%= (workspace && workspace.telephony && workspace.telephony.agentPhone) || '' %>" />
     <p class="text-[10px] text-brand-muted mt-1">E.164 personal cell only — not a Phone bank / SignalWire DID. SignalWire rings this number first; bank numbers are caller ID for the lead.</p>
     <div class="mt-3 rounded-xl border border-amber-300/50 dark:border-amber-500/30 bg-amber-50/70 dark:bg-amber-950/25 px-3 py-2.5 max-w-xl">
-      <p class="text-[10px] font-black uppercase tracking-widest text-amber-900 dark:text-amber-200 mb-1">How agent first works now</p>
+      <p class="text-[10px] font-black uppercase tracking-widest text-amber-900 dark:text-amber-200 mb-1">How agent first works</p>
       <ol class="text-[11px] text-amber-950/90 dark:text-amber-100/85 leading-relaxed list-decimal pl-4 space-y-1">
-        <li>In AdHello (laptop OK), tap <strong>Call</strong> on a lead.</li>
-        <li>On your <strong>iPhone</strong>, dial the workspace DID (e.g. +1 360-793-5057). Mac “tel:” links will not ring your cell.</li>
-        <li>When you connect, we bridge the lead on that call.</li>
-        <li>Prefer talking in the browser on your Mac? Switch routing to <strong>Cloud dial</strong> instead.</li>
+        <li>In AdHello, tap <strong>Call</strong> on a lead.</li>
+        <li>Your <strong>cell</strong> rings from the workspace number — answer it.</li>
+        <li>Press <strong>1</strong> to confirm, then we dial the lead on the same call.</li>
+        <li>If it never rings: save the workspace DID as a contact, turn off Silence Unknown Callers / Focus, then use <strong>Test ring my phone</strong>.</li>
       </ol>
       <div class="mt-2 flex flex-wrap items-center gap-2">
         <button type="button" id="wsAgentTestRingBtn" class="rounded-xl border border-brand-yellow/60 bg-brand-yellow/15 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/25 transition-colors">Test ring my phone</button>

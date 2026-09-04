@@ -2397,7 +2397,7 @@
     if (spAgentRingHint) {
       spAgentRingHint.textContent = missing
         ? 'Agent first rings your personal cell first. Workspace numbers (like 971) are caller ID only — set Your mobile below or in Settings.'
-        : 'After Call, dial your workspace number from this cell. We bridge the lead on that call (avoids Silence Unknown Callers).';
+        : 'We call this cell first from your workspace number. Answer, press 1, then we dial the lead. Turn off Silence Unknown Callers if it never rings.';
     }
     if (spAgentRingFixBtn) {
       spAgentRingFixBtn.classList.toggle('hidden', !missing);
@@ -2475,7 +2475,7 @@
       return 'Call routing: Cloud (SignalWire) — the server places the call. No in-tab audio until WebRTC is configured (Workspace phone bank + SIGNALWIRE_SPACE_URL on the server).';
     }
     if (m === 'agent_first') {
-      return 'Call routing: Agent first (dial-in) — tap Call, then dial your workspace number from your phone. We bridge the lead when you connect. Avoids Silence Unknown Callers.';
+      return 'Call routing: Agent first — we ring your mobile first; answer and press 1 to dial the lead.';
     }
     if (m === 'browser_device') {
       return 'Call routing: My device dialer — Call opens your system phone / headset app (audio on the device).';
@@ -3756,7 +3756,7 @@
       var agentReady = normalizeDial(spAgentPhoneCached || (spAgentPhone && spAgentPhone.value) || '');
       if (!agentReady) {
         softphoneSetStatus(
-          'Set Your mobile (agent) in Settings first. Agent first uses dial-in: after Call, you dial the workspace number from your iPhone.',
+          'Set Your mobile (agent) in Settings first. Agent first rings your cell — answer and press 1 to dial the lead.',
           true,
         );
         updateSoftphoneAgentRingLine();
