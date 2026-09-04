@@ -1706,6 +1706,66 @@ module.exports = {
     kvDelete(key);
   },
 
+  _workspaceSopKey(workspaceId, sopId) {
+    const wid = String(workspaceId || 'default').trim();
+    const id = String(sopId || '').trim();
+    return `ws_sop:${wid}:${id}`;
+  },
+
+  async listWorkspaceSops(workspaceId) {
+    const wid = String(workspaceId || 'default').trim();
+    const prefix = `ws_sop:${wid}:`;
+    const keys = kvList(prefix);
+    const sops = [];
+    for (const key of keys) {
+      const raw = kvGet(key);
+      if (!raw) continue;
+      try {
+        const r = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (r && r.id && r.title) sops.push(r);
+      } catch {
+        /* skip */
+      }
+    }
+    sops.sort((a, b) => {
+      const ta = String(a.title || '').toLowerCase();
+      const tb = String(b.title || '').toLowerCase();
+      if (ta < tb) return -1;
+      if (ta > tb) return 1;
+      return 0;
+    });
+    return sops;
+  },
+
+  async getWorkspaceSop(workspaceId, sopId) {
+    const wid = String(workspaceId || 'default').trim();
+    const id = String(sopId || '').trim();
+    if (!wid || !id) return null;
+    const raw = kvGet(this._workspaceSopKey(wid, id));
+    if (!raw) return null;
+    try {
+      return typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch {
+      return null;
+    }
+  },
+
+  async saveWorkspaceSop(workspaceId, sop) {
+    const wid = String(workspaceId || 'default').trim();
+    const id = String((sop && sop.id) || '').trim();
+    if (!wid || !id) throw new Error('SOP id is required.');
+    const key = this._workspaceSopKey(wid, id);
+    kvSet(key, JSON.stringify(sop));
+    return sop;
+  },
+
+  async deleteWorkspaceSop(workspaceId, sopId) {
+    const wid = String(workspaceId || 'default').trim();
+    const id = String(sopId || '').trim();
+    if (!wid || !id) return;
+    kvDelete(this._workspaceSopKey(wid, id));
+  },
+
   async mergeUserResourcesIntoWorkspace(workspaceId, email) {
     const wid = String(workspaceId || 'default').trim();
     if (!wid || !email) return;

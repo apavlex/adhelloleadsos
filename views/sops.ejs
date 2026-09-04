@@ -7,22 +7,39 @@
   <%- include('partials/navbar') %>
 
   <main class="max-wide px-6 py-10 md:py-12">
-    <div class="mb-8">
-      <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Playbook</p>
-      <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">SOPs</h1>
-      <p class="text-sm text-brand-muted mt-2 max-w-2xl">Standard operating procedures for how we work inbound, outbound, and handoffs.</p>
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
+      <div>
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Playbook</p>
+        <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">SOPs</h1>
+        <p class="text-sm text-brand-muted mt-2 max-w-2xl">Standard operating procedures for how we work inbound, outbound, and handoffs.</p>
+      </div>
+      <a href="/sops/new" class="btn-pill btn-primary px-6 py-3 text-[10px] font-black uppercase tracking-widest shrink-0">New SOP</a>
     </div>
+
+    <% if (typeof deleted !== 'undefined' && deleted) { %>
+    <div class="mb-6 rounded-2xl border border-emerald-300/50 bg-emerald-50/90 dark:bg-emerald-950/30 px-4 py-3 text-sm text-emerald-900 dark:text-emerald-100">SOP removed.</div>
+    <% } %>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <% (sops || []).forEach(function (s) { %>
-      <a href="/sops/<%= encodeURIComponent(s.id) %>" class="brand-card p-6 dark:bg-slate-900 dark:border-white/10 block hover:border-brand-yellow/50 transition-colors no-underline">
-        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2"><%= s.owner %></p>
+      <div class="brand-card p-6 dark:bg-slate-900 dark:border-white/10 flex flex-col">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2"><%= s.owner || 'Team' %></p>
         <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white mb-2"><%= s.title %></h2>
-        <p class="text-sm text-brand-muted leading-relaxed"><%= s.purpose %></p>
-        <p class="mt-4 text-[10px] font-black uppercase tracking-widest text-brand-yellow">Open SOP →</p>
-      </a>
+        <p class="text-sm text-brand-muted leading-relaxed flex-1"><%= s.purpose || 'No purpose set yet.' %></p>
+        <div class="mt-5 flex flex-wrap gap-2">
+          <a href="/sops/<%= encodeURIComponent(s.id) %>" class="btn-pill btn-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest">Open</a>
+          <a href="/sops/<%= encodeURIComponent(s.id) %>/edit" class="btn-pill border border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Edit</a>
+        </div>
+      </div>
       <% }) %>
     </div>
+
+    <% if (!(sops || []).length) { %>
+    <div class="brand-card p-8 dark:bg-slate-900 dark:border-white/10 text-center">
+      <p class="text-sm text-brand-muted mb-4">No SOPs yet. Create your first playbook for the team.</p>
+      <a href="/sops/new" class="btn-pill btn-primary px-6 py-3 text-[10px] font-black uppercase tracking-widest">New SOP</a>
+    </div>
+    <% } %>
   </main>
 
   <%- include('partials/navbar_scripts') %>

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
+  <%- include('partials/navbar') %>
+
+  <main class="max-wide px-6 py-10 md:py-12">
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+      <a href="/sops" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white">← All SOPs</a>
+      <% if (mode === 'edit' && sop && sop.id) { %>
+      <a href="/sops/<%= encodeURIComponent(sop.id) %>" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline">View SOP</a>
+      <% } %>
+    </div>
+
+    <article class="brand-card p-6 md:p-10 dark:bg-slate-900 dark:border-white/10 max-w-3xl">
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">SOP</p>
+      <h1 class="font-display font-extrabold text-3xl tracking-tight text-brand-dark dark:text-white mb-6"><%= mode === 'edit' ? 'Edit SOP' : 'New SOP' %></h1>
+
+      <% if (formError) { %>
+      <div class="mb-6 rounded-2xl border border-red-300/60 bg-red-50/90 dark:bg-red-950/40 px-4 py-3 text-sm text-red-900 dark:text-red-100"><%= formError %></div>
+      <% } %>
+
+      <form method="post" action="<%= mode === 'edit' ? '/sops/' + encodeURIComponent(sop.id) : '/sops' %>" class="space-y-5">
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="sopTitle">Title</label>
+          <input id="sopTitle" name="title" required maxlength="160" value="<%= sop.title || '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white" />
+        </div>
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="sopPurpose">Purpose</label>
+          <input id="sopPurpose" name="purpose" maxlength="400" value="<%= sop.purpose || '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white" />
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="sopOwner">Owner</label>
+            <input id="sopOwner" name="owner" maxlength="120" value="<%= sop.owner || '' %>" placeholder="SDR" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white" />
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="sopTrigger">Trigger</label>
+            <input id="sopTrigger" name="trigger" maxlength="400" value="<%= sop.trigger || '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="sopSteps">Steps <span class="font-semibold normal-case tracking-normal text-brand-muted">(one per line)</span></label>
+          <textarea id="sopSteps" name="stepsText" required rows="10" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm text-brand-dark dark:text-white resize-y font-medium leading-relaxed"><%= stepsText || '' %></textarea>
+        </div>
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="sopSuccess">Success measure</label>
+          <textarea id="sopSuccess" name="successMeasure" rows="2" maxlength="400" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm text-brand-dark dark:text-white resize-y"><%= sop.successMeasure || '' %></textarea>
+        </div>
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="sopLinks">App links <span class="font-semibold normal-case tracking-normal text-brand-muted">(optional — Label|/path per line)</span></label>
+          <textarea id="sopLinks" name="relatedPathsText" rows="3" placeholder="Inbound leads|/leads?source=inbound" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm text-brand-dark dark:text-white resize-y font-mono text-[12px]"><%= relatedPathsText || '' %></textarea>
+        </div>
+        <div class="flex flex-wrap gap-3 pt-2">
+          <button type="submit" class="btn-pill btn-primary px-8 py-3 text-[10px] font-black uppercase tracking-widest"><%= mode === 'edit' ? 'Save changes' : 'Create SOP' %></button>
+          <a href="<%= mode === 'edit' && sop.id ? '/sops/' + encodeURIComponent(sop.id) : '/sops' %>" class="btn-pill border border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 px-6 py-3 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Cancel</a>
+        </div>
+      </form>
+
+      <% if (mode === 'edit' && sop && sop.id) { %>
+      <form method="post" action="/sops/<%= encodeURIComponent(sop.id) %>" class="mt-10 pt-6 border-t border-brand-border/40 dark:border-white/10" onsubmit="return confirm('Remove this SOP from the workspace?');">
+        <input type="hidden" name="_method" value="DELETE" />
+        <button type="submit" class="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400 hover:underline bg-transparent border-0 p-0 cursor-pointer">Delete SOP</button>
+      </form>
+      <% } %>
+    </article>
+  </main>
+
+  <%- include('partials/navbar_scripts') %>
+</body>
+</html>

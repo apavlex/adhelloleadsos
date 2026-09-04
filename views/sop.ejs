@@ -7,9 +7,14 @@
   <%- include('partials/navbar') %>
 
   <main class="max-wide px-6 py-10 md:py-12">
-    <div class="mb-6">
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
       <a href="/sops" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white">← All SOPs</a>
+      <a href="/sops/<%= encodeURIComponent(sop.id) %>/edit" class="btn-pill border border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Edit</a>
     </div>
+
+    <% if (typeof saved !== 'undefined' && saved) { %>
+    <div class="mb-6 max-w-3xl rounded-2xl border border-emerald-300/50 bg-emerald-50/90 dark:bg-emerald-950/30 px-4 py-3 text-sm text-emerald-900 dark:text-emerald-100">Saved.</div>
+    <% } %>
 
     <article class="brand-card p-6 md:p-10 dark:bg-slate-900 dark:border-white/10 max-w-3xl">
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">SOP</p>
@@ -18,15 +23,15 @@
       <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8 text-sm">
         <div>
           <dt class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Purpose</dt>
-          <dd class="text-brand-dark dark:text-white font-semibold leading-snug"><%= sop.purpose %></dd>
+          <dd class="text-brand-dark dark:text-white font-semibold leading-snug"><%= sop.purpose || '—' %></dd>
         </div>
         <div>
           <dt class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Owner</dt>
-          <dd class="text-brand-dark dark:text-white font-semibold leading-snug"><%= sop.owner %></dd>
+          <dd class="text-brand-dark dark:text-white font-semibold leading-snug"><%= sop.owner || '—' %></dd>
         </div>
         <div class="sm:col-span-2">
           <dt class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Trigger</dt>
-          <dd class="text-brand-dark dark:text-white font-semibold leading-snug"><%= sop.trigger %></dd>
+          <dd class="text-brand-dark dark:text-white font-semibold leading-snug"><%= sop.trigger || '—' %></dd>
         </div>
       </dl>
 
@@ -40,10 +45,12 @@
         <% }) %>
       </ol>
 
+      <% if (sop.successMeasure) { %>
       <div class="rounded-2xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 px-4 py-4 mb-8">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Success measure</p>
         <p class="text-sm font-bold text-brand-dark dark:text-white leading-relaxed"><%= sop.successMeasure %></p>
       </div>
+      <% } %>
 
       <% if (sop.relatedPaths && sop.relatedPaths.length) { %>
       <h2 class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-3">Open in app</h2>
