@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
+  <%- include('partials/navbar') %>
+
+  <main class="max-wide px-6 py-10 md:py-12">
+    <div class="mb-6">
+      <a href="/sops" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white">← All SOPs</a>
+    </div>
+
+    <article class="brand-card p-6 md:p-10 dark:bg-slate-900 dark:border-white/10 max-w-3xl">
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">SOP</p>
+      <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white mb-6"><%= sop.title %></h1>
+
+      <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8 text-sm">
+        <div>
+          <dt class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Purpose</dt>
+          <dd class="text-brand-dark dark:text-white font-semibold leading-snug"><%= sop.purpose %></dd>
+        </div>
+        <div>
+          <dt class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Owner</dt>
+          <dd class="text-brand-dark dark:text-white font-semibold leading-snug"><%= sop.owner %></dd>
+        </div>
+        <div class="sm:col-span-2">
+          <dt class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Trigger</dt>
+          <dd class="text-brand-dark dark:text-white font-semibold leading-snug"><%= sop.trigger %></dd>
+        </div>
+      </dl>
+
+      <h2 class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-3">Steps</h2>
+      <ol class="space-y-3 mb-8">
+        <% (sop.steps || []).forEach(function (step, i) { %>
+        <li class="flex gap-3 items-start">
+          <span class="shrink-0 w-7 h-7 rounded-full bg-brand-yellow/90 text-brand-dark text-xs font-black flex items-center justify-center"><%= i + 1 %></span>
+          <p class="text-sm font-semibold text-brand-dark dark:text-white leading-relaxed pt-1"><%= step %></p>
+        </li>
+        <% }) %>
+      </ol>
+
+      <div class="rounded-2xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 px-4 py-4 mb-8">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Success measure</p>
+        <p class="text-sm font-bold text-brand-dark dark:text-white leading-relaxed"><%= sop.successMeasure %></p>
+      </div>
+
+      <% if (sop.relatedPaths && sop.relatedPaths.length) { %>
+      <h2 class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-3">Open in app</h2>
+      <div class="flex flex-wrap gap-2">
+        <% sop.relatedPaths.forEach(function (link) { %>
+        <a href="<%= link.href %>" class="btn-pill border border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50"><%= link.label %></a>
+        <% }) %>
+      </div>
+      <% } %>
+    </article>
+  </main>
+
+  <%- include('partials/navbar_scripts') %>
+</body>
+</html>

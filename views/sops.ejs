@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
+  <%- include('partials/navbar') %>
+
+  <main class="max-wide px-6 py-10 md:py-12">
+    <div class="mb-8">
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Playbook</p>
+      <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">SOPs</h1>
+      <p class="text-sm text-brand-muted mt-2 max-w-2xl">Standard operating procedures for how we work inbound, outbound, and handoffs.</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <% (sops || []).forEach(function (s) { %>
+      <a href="/sops/<%= encodeURIComponent(s.id) %>" class="brand-card p-6 dark:bg-slate-900 dark:border-white/10 block hover:border-brand-yellow/50 transition-colors no-underline">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2"><%= s.owner %></p>
+        <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white mb-2"><%= s.title %></h2>
+        <p class="text-sm text-brand-muted leading-relaxed"><%= s.purpose %></p>
+        <p class="mt-4 text-[10px] font-black uppercase tracking-widest text-brand-yellow">Open SOP →</p>
+      </a>
+      <% }) %>
+    </div>
+  </main>
+
+  <%- include('partials/navbar_scripts') %>
+</body>
+</html>

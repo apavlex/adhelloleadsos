@@ -221,6 +221,7 @@
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-3">Settings</p>
       <nav class="flex flex-col gap-2 mb-8">
         <a href="/scripts" class="px-4 py-3 rounded-xl border border-brand-border/40 text-sm font-semibold text-brand-dark dark:text-white">Script library</a>
+        <a href="/sops" class="px-4 py-3 rounded-xl border border-brand-border/40 text-sm font-semibold text-brand-dark dark:text-white<%= np === 'sops' ? ' border-brand-yellow bg-brand-yellow/10' : '' %>">SOPs</a>
         <a href="/tags/manage" class="px-4 py-3 rounded-xl border border-brand-border/40 text-sm font-semibold text-brand-dark dark:text-white<%= np === 'tags' ? ' border-brand-yellow bg-brand-yellow/10' : '' %>">Tags</a>
         <a href="/workspace/voicemail" class="px-4 py-3 rounded-xl border border-brand-border/40 text-sm font-semibold text-brand-dark dark:text-white">Voicemail</a>
         <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>

@@ -43,6 +43,8 @@ function iaNav(req, res, next) {
     navPrimary = 'activity';
   } else if (p === '/resources' || p.startsWith('/resources/')) {
     navPrimary = 'resources';
+  } else if (p === '/sops' || p.startsWith('/sops/')) {
+    navPrimary = 'sops';
   } else if (p === '/ceo' || p.startsWith('/ceo/')) {
     navPrimary = 'ceo';
   } else if (p === '/direct-mail' || p.startsWith('/direct-mail/')) {
@@ -55,6 +57,8 @@ function iaNav(req, res, next) {
     p.startsWith('/workspace') ||
     p === '/scripts' ||
     p.startsWith('/scripts/') ||
+    p === '/sops' ||
+    p.startsWith('/sops/') ||
     p.startsWith('/activation');
 
   let navLeadsTab = '';
