@@ -128,6 +128,7 @@
       <nav id="sidebarSettingsMenu" class="sidebar-settings-menu hidden space-y-0.5 mb-1 px-1" aria-label="Settings">
         <% const _rp = typeof requestPath !== 'undefined' ? requestPath : ''; %>
         <a href="/scripts" class="sidebar-nav-link sidebar-nav-sub <%= _rp === '/scripts' || _rp.startsWith('/scripts/') ? 'active' : '' %>">Script library</a>
+        <a href="/sops" class="sidebar-nav-link sidebar-nav-sub <%= _rp === '/sops' || _rp.startsWith('/sops/') ? 'active' : '' %>">SOPs</a>
         <a href="/workspace/voicemail" class="sidebar-nav-link sidebar-nav-sub <%= _rp.startsWith('/workspace/voicemail') ? 'active' : '' %>">Voicemail</a>
         <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
         <a href="/workspace/phones" class="sidebar-nav-link sidebar-nav-sub <%= _rp.startsWith('/workspace/phones') ? 'active' : '' %>">Phone forwarding</a>
