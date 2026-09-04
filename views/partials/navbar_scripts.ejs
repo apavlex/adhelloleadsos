@@ -2422,7 +2422,7 @@
     if (spAgentRingHint) {
       spAgentRingHint.textContent = missing
         ? 'Agent first rings your personal cell first. Workspace numbers (like 971) are caller ID only — set Your mobile below or in Settings.'
-        : 'We call this cell first from your workspace number. Answer, press 1, then we dial the lead. Turn off Silence Unknown Callers if it never rings.';
+        : 'We call this cell first from your workspace number. Answer — we dial the lead automatically. Turn off Silence Unknown Callers if it never rings.';
     }
     if (spAgentRingFixBtn) {
       spAgentRingFixBtn.classList.toggle('hidden', !missing);
@@ -2500,7 +2500,7 @@
       return 'Call routing: Cloud (SignalWire) — the server places the call. No in-tab audio until WebRTC is configured (Workspace phone bank + SIGNALWIRE_SPACE_URL on the server).';
     }
     if (m === 'agent_first') {
-      return 'Call routing: Agent first — we ring your mobile first; answer and press 1 to dial the lead.';
+      return 'Call routing: Agent first — we ring your mobile first; answer and we dial the lead.';
     }
     if (m === 'browser_device') {
       return 'Call routing: My device dialer — Call opens your system phone / headset app (audio on the device).';
@@ -3011,7 +3011,7 @@
               agentLabel +
               ' (' +
               st +
-              '). Answer the ring and press 1. If it never rings: turn off Silence Unknown Callers / Focus, save the workspace number as a contact, then Test ring in Phone bank.',
+              '). Answer the ring — we dial the lead right away. If it never rings: turn off Silence Unknown Callers / Focus, save the workspace number as a contact, then Test ring in Phone bank.',
             true,
           );
         } else {
@@ -3037,7 +3037,7 @@
           String(softphoneSession.dialMode || spWorkspaceCallMode || '').trim() || 'cloud_dial';
         if (connectedMode === 'agent_first') {
           softphoneSetStatus(
-            'Your phone answered — press 1 to dial the lead. If you did not pick up, voicemail may have answered (Silence Unknown Callers). Hang up and try again after disabling that.',
+            'Your phone answered — dialing the lead now. If you did not pick up, voicemail may have answered (Silence Unknown Callers). Hang up and try again after disabling that.',
           );
           // Do not mark wasInCall yet — wait until we have a sustained live leg
           if (!softphoneSession.startedAtMs) softphoneSession.startedAtMs = Date.now();
@@ -3078,7 +3078,7 @@
           softphoneSetStatus(
             'Ringing ' +
               agentRingLabel +
-              ' from your workspace number — answer it, then press 1 to dial the lead. No audio in this tab. If it never rings: iPhone Settings → Phone → turn off Silence Unknown Callers.',
+              ' from your workspace number — answer it and we dial the lead. No audio in this tab. If it never rings: iPhone Settings → Phone → turn off Silence Unknown Callers.',
           );
         } else {
           softphoneSetStatus('Cloud leg is ringing the contact. There is no sound in this tab — the call is on the PSTN.');
@@ -3780,7 +3780,7 @@
           softphoneSetStatus(
             'Ringing you first on ' +
               ringLabel +
-              ' — answer that call, then press 1 to dial the lead. Audio is on your phone; this tab is only a remote. If the phone never rings, disable Silence Unknown Callers / Do Not Disturb.',
+              ' — answer that call and we dial the lead. Audio is on your phone; this tab is only a remote. If the phone never rings, disable Silence Unknown Callers / Do Not Disturb.',
           );
         } else {
           softphoneSetStatus(
@@ -3920,7 +3920,7 @@
       var agentReady = normalizeDial(spAgentPhoneCached || (spAgentPhone && spAgentPhone.value) || '');
       if (!agentReady) {
         softphoneSetStatus(
-          'Set Your mobile (agent) in Settings first. Agent first rings your cell — answer and press 1 to dial the lead.',
+          'Set Your mobile (agent) in Settings first. Agent first rings your cell — answer and we dial the lead.',
           true,
         );
         updateSoftphoneAgentRingLine();
