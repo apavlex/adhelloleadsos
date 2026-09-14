@@ -4106,13 +4106,14 @@
           );
         });
     } else if (action === 'call' && spWorkspaceCallMode === 'cloud_dial' && !spRelayWebrtc) {
-      return softphoneWebrtcFallbackToCloud(
+      p = softphoneWebrtcFallbackToCloud(
         to,
         'Browser audio unavailable on server.',
       );
     } else {
       p = startCloudSoftphoneDial(to, action, action === 'voicemail_drop' ? { forceCloudVoicemail: true } : null);
     }
+    if (!p || typeof p.then !== 'function') p = Promise.resolve();
     p.catch(function (err) {
       softphoneForceAbortDial((err && err.message) || 'Call failed.', { isError: true });
       var failMsg = (err && err.message) || 'Call failed.';
