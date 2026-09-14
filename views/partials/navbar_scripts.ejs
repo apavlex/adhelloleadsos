@@ -700,7 +700,59 @@
     }
     if (/external|usb|wireless/.test(l)) score += 15;
     if (/macbook|built-in|internal|default|display/.test(l)) score -= 8;
+    // Virtual cams / Continuity mics are terrible softphone endpoints.
+    if (/camo|virtual|iphone|continuity|screen|loopback|blackhole|zoom|teams/.test(l)) score -= 80;
+    if (/microphone|mic\b/.test(l)) score -= 40;
     return score;
+  }
+
+  function softphoneLabelLooksLikeBadSpeaker(label) {
+    var l = String(label || '').toLowerCase();
+    return /camo|virtual|iphone|continuity|microphone|mic\b|loopback|blackhole/.test(l);
+  }
+
+  function softphoneSanitizeAudioDevicePrefs(mics, speakers) {
+    var mic = (mics || []).find(function (d) { return d.deviceId === spPreferredMicId; });
+    var spk = (speakers || []).find(function (d) { return d.deviceId === spPreferredSpeakerId; });
+    var changed = false;
+    if (spPreferredSpeakerId && (!spk || softphoneLabelLooksLikeBadSpeaker(spk.label))) {
+      spPreferredSpeakerId = pickBestAudioDevice(speakers, 'audiooutput', '');
+      changed = true;
+    }
+    if (spPreferredMicId && mic && /camo|virtual|loopback|blackhole/.test(String(mic.label || '').toLowerCase())) {
+      spPreferredMicId = pickBestAudioDevice(mics, 'audioinput', '');
+      changed = true;
+    }
+    if (changed) {
+      saveSoftphoneAudioPrefs();
+      syncSoftphoneAudioSelectValues();
+    }
+  }
+
+  function withSoftphoneTimeout(promise, ms, label) {
+    var timeoutMs = typeof ms === 'number' && ms > 0 ? ms : 12000;
+    return new Promise(function (resolve, reject) {
+      var settled = false;
+      var timer = setTimeout(function () {
+        if (settled) return;
+        settled = true;
+        reject(new Error((label || 'Softphone step') + ' timed out after ' + Math.round(timeoutMs / 1000) + 's'));
+      }, timeoutMs);
+      Promise.resolve(promise).then(
+        function (v) {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          resolve(v);
+        },
+        function (err) {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          reject(err);
+        },
+      );
+    });
   }
 
   function pickBestAudioDevice(devices, kind, savedId) {
@@ -769,6 +821,7 @@
         var speakers = (devices || []).filter(function (d) { return d && d.kind === 'audiooutput'; });
         spPreferredMicId = pickBestAudioDevice(mics, 'audioinput', prefs.micId || spPreferredMicId);
         spPreferredSpeakerId = pickBestAudioDevice(speakers, 'audiooutput', prefs.speakerId || spPreferredSpeakerId);
+        softphoneSanitizeAudioDevicePrefs(mics, speakers);
         populateSoftphoneAudioSelects(mics, speakers);
         saveSoftphoneAudioPrefs();
         return { mics: mics, speakers: speakers };
@@ -3891,10 +3944,9 @@
               softphoneSetStatus(softphoneMicBlockedMessage(mediaErr), true);
             });
           } catch (_) {}
-          return client
-            .connect()
+          return withSoftphoneTimeout(client.connect(), 8000, 'SignalWire connect')
             .then(function () {
-              return waitForRelayReady(client, 12000);
+              return withSoftphoneTimeout(waitForRelayReady(client, 8000), 9000, 'SignalWire session ready');
             })
             .then(function () {
               return applySoftphoneAudioOutput(true).then(function () {
@@ -3985,7 +4037,7 @@
     softphoneSetCallState('dialing');
     softphoneSession.activeNumber = to;
     softphoneStartMasterDialWatchdog(
-      String(spWorkspaceCallMode || '').trim() === 'agent_first' ? 35000 : 45000,
+      String(spWorkspaceCallMode || '').trim() === 'agent_first' ? 35000 : 20000,
     );
     if (String(spWorkspaceCallMode || '').trim() === 'agent_first' && action === 'call') {
       softphoneSetStatus('Starting agent-first call — ringing your mobile next…');
@@ -3998,26 +4050,40 @@
       spRelayWebrtc &&
       spWorkspaceCallMode === 'cloud_dial';
     if (tryWebrtc) {
-      p = primeSoftphoneAudioPlayback()
-        .catch(function () {
+      softphoneSetStatus('Preparing browser audio…');
+      p = withSoftphoneTimeout(
+        primeSoftphoneAudioPlayback()
+          .catch(function () {
+            return false;
+          })
+          .then(function () {
+            softphoneSetStatus('Checking microphone…');
+            return refreshSoftphoneAudioDevices({ requestPermission: true }).catch(function () {
+              return refreshSoftphoneAudioDevices({ requestPermission: false });
+            });
+          })
+          .then(function () {
+            softphoneSetStatus('Connecting SignalWire browser audio…');
+            return tryWebrtcSoftphone(to);
+          }),
+        14000,
+        'Browser audio dial',
+      )
+        .catch(function (err) {
+          console.warn('[Softphone] WebRTC dial aborted:', err && err.message ? err.message : err);
           return false;
         })
-        .then(function () {
-          return refreshSoftphoneAudioDevices({ requestPermission: true }).catch(function () {
-            return refreshSoftphoneAudioDevices({ requestPermission: false });
-          });
-        })
-        .then(function () {
-          return tryWebrtcSoftphone(to);
-        })
         .then(function (ok) {
-        if (ok) return;
-        if (spMicStatus && /microphone blocked|not support/i.test(String(spMicStatus.textContent || ''))) {
-          throw new Error(String(spMicStatus.textContent || 'Microphone access is required for browser audio.'));
-        }
-        softphoneSetStatus('Browser audio failed — falling back to server dial (no sound in this tab). In Settings: Allow mic, pick your Bluetooth headset, then call again.', true);
-        return startCloudSoftphoneDial(to, action, action === 'voicemail_drop' ? { forceCloudVoicemail: true } : null);
-      });
+          if (ok) return;
+          if (spMicStatus && /microphone blocked|not support/i.test(String(spMicStatus.textContent || ''))) {
+            throw new Error(String(spMicStatus.textContent || 'Microphone access is required for browser audio.'));
+          }
+          softphoneSetStatus(
+            'Browser audio stuck or failed — placing a cloud call instead (no sound in this tab). For cell audio: Settings → Call routing → Agent first. Or use My device dialer.',
+            true,
+          );
+          return startCloudSoftphoneDial(to, action, action === 'voicemail_drop' ? { forceCloudVoicemail: true } : null);
+        });
     } else if (action === 'call' && spWorkspaceCallMode === 'cloud_dial' && !spRelayWebrtc) {
       softphoneSetStatus('Browser audio unavailable on server — using cloud dial without tab sound. Ask admin to set SIGNALWIRE_SPACE_URL for WebRTC.', true);
       p = startCloudSoftphoneDial(to, action, action === 'voicemail_drop' ? { forceCloudVoicemail: true } : null);
