@@ -1775,7 +1775,7 @@ router.get('/telephony/call-options', async (req, res, next) => {
 });
 
 // GET /leads/telephony/webrtc-diagnostics — checklist for in-tab WebRTC audio
-router.get('/telephony/webrtc-diagnostics', async (req, res, next) => {
+router.get('/telephony/webrtc-diagnostics', async (req, res) => {
   try {
     const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
     const callMode = resolveWorkspaceCallMode(ws);
@@ -1786,13 +1786,44 @@ router.get('/telephony/webrtc-diagnostics', async (req, res, next) => {
       signalwire.normalizePhone(resolveRequestedCallerNumber(ws, fromQuery)) ||
       signalwire.normalizePhone(cfg.callerId || cfg.fromNumber) ||
       '';
-    const swNumbers = await signalwire.listIncomingPhoneNumbers();
+
+    let swNumbers = { numbers: [], error: null };
+    try {
+      const cached = signalwire.getCachedIncomingPhoneNumbers
+        ? signalwire.getCachedIncomingPhoneNumbers()
+        : null;
+      if (cached && Array.isArray(cached.numbers)) {
+        swNumbers = cached;
+      } else {
+        swNumbers = await signalwire.listIncomingPhoneNumbers();
+      }
+    } catch (listErr) {
+      swNumbers = {
+        numbers: [],
+        error: listErr && listErr.message ? String(listErr.message) : 'list_failed',
+      };
+    }
+
     const owned = new Set((swNumbers.numbers || []).map((n) => n.phoneNumber).filter(Boolean));
     const callerInBank = !owned.size || (activeFrom && owned.has(activeFrom));
-    const jwtProbe =
-      base.relayCanMint && signalwire.probeRelayJwtMint
-        ? await signalwire.probeRelayJwtMint()
-        : { ok: false, error: 'Server cannot mint Relay JWT yet.' };
+
+    let jwtProbe = { ok: false, error: 'Server cannot mint Relay JWT yet.' };
+    try {
+      if (base.relayCanMint && signalwire.probeRelayJwtMint) {
+        jwtProbe = await Promise.race([
+          signalwire.probeRelayJwtMint(),
+          new Promise((resolve) =>
+            setTimeout(() => resolve({ ok: false, error: 'JWT mint probe timed out' }), 8000),
+          ),
+        ]);
+      }
+    } catch (probeErr) {
+      jwtProbe = {
+        ok: false,
+        error: probeErr && probeErr.message ? String(probeErr.message) : 'JWT mint failed',
+      };
+    }
+
     const modeOk = callMode === 'cloud_dial';
     const readyForInTabAudio = !!(modeOk && base.relayCanMint && jwtProbe.ok && activeFrom && callerInBank);
     const checks = [
@@ -1852,7 +1883,13 @@ router.get('/telephony/webrtc-diagnostics', async (req, res, next) => {
       signalwireNumbersError: swNumbers.error || null,
     });
   } catch (err) {
-    next(err);
+    console.error('[GET /leads/telephony/webrtc-diagnostics]', err && err.message ? err.message : err);
+    return res.status(500).json({
+      success: false,
+      error: (err && err.message) || 'WebRTC diagnostics failed.',
+      readyForInTabAudio: false,
+      checks: [],
+    });
   }
 });
 

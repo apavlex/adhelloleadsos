@@ -2666,19 +2666,53 @@
     var fromPick = spFrom && spFrom.value ? String(spFrom.value) : '';
     var q = '/leads/telephony/webrtc-diagnostics';
     if (fromPick) q += '?fromNumber=' + encodeURIComponent(fromPick);
-    return fetch(q, { headers: { Accept: 'application/json' } })
+    var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var abortTimer = null;
+    if (controller) {
+      abortTimer = setTimeout(function () {
+        try { controller.abort(); } catch (_) {}
+      }, 12000);
+    }
+    return fetch(q, {
+      headers: { Accept: 'application/json' },
+      signal: controller ? controller.signal : undefined,
+    })
       .then(function (r) {
-        return r.json().then(function (j) {
-          return { ok: r.ok, j: j };
-        });
+        return r
+          .json()
+          .then(function (j) {
+            return { ok: r.ok, j: j };
+          })
+          .catch(function () {
+            throw new Error('Diagnostics returned non-JSON (sign-in expired or server redeploying). Hard-refresh and try again.');
+          });
       })
       .then(function (res) {
-        if (!res.ok || !res.j) throw new Error((res.j && res.j.error) || 'Diagnostics unavailable');
+        if (!res.ok || !res.j || !res.j.success) {
+          throw new Error((res.j && res.j.error) || 'Diagnostics unavailable');
+        }
         renderSoftphoneWebrtcDiagnostics(res.j);
         return res.j;
       })
-      .catch(function () {
-        renderSoftphoneWebrtcDiagnostics(null);
+      .catch(function (err) {
+        var wrap = document.getElementById('softphoneWebrtcDiagnostics');
+        var list = document.getElementById('softphoneWebrtcChecklist');
+        var summary = document.getElementById('softphoneWebrtcDiagSummary');
+        if (wrap) wrap.classList.remove('hidden');
+        if (list) {
+          list.innerHTML =
+            '<li class="text-rose-600 dark:text-rose-400">Could not load WebRTC diagnostics' +
+            (err && err.message ? ' — ' + String(err.message).slice(0, 160) : '') +
+            '</li>';
+        }
+        if (summary) {
+          summary.className = 'mt-2 text-[10px] font-semibold leading-snug text-amber-700 dark:text-amber-300';
+          summary.textContent =
+            'Diagnostics failed. Hard-refresh, or use Call routing → Agent first to ring your mobile instead of browser audio.';
+        }
+      })
+      .finally(function () {
+        if (abortTimer) clearTimeout(abortTimer);
       });
   }
   function updateSoftphoneCallModeUi() {

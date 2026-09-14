@@ -926,6 +926,7 @@ async function createRelayBrowserJwt(body) {
       Accept: 'application/json',
     },
     body: JSON.stringify(payload),
+    signal: signalwireAbortSignal(10000),
   });
   const text = await res.text();
   let parsed = null;
