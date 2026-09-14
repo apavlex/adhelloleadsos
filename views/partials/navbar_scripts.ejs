@@ -519,13 +519,35 @@
     webrtcClearDialWatchdog();
     softphoneClearWebrtcSession();
     softphoneSession.webrtc = false;
-    softphoneSetCallState('dialing');
-    softphoneSetStatus(msg || 'Switching to cloud dial (no sound in this tab)…', true);
-    return startCloudSoftphoneDial(to, 'call', null).catch(function (err) {
-      softphoneSetCallState('ready');
-      softphoneSetWrapRequired(false);
-      softphoneSetStatus((err && err.message) || 'Cloud dial failed.', true);
-    });
+    var agentReady = normalizeDial(spAgentPhoneCached || (spAgentPhone && spAgentPhone.value) || '');
+    // Never place a PSTN-only cloud call for conversation — user hears nothing on Mac or phone.
+    if (agentReady && (!spBankNumbers || spBankNumbers.indexOf(agentReady) === -1)) {
+      softphoneSetCallState('dialing');
+      softphoneSetStatus(
+        (msg ? String(msg) + ' ' : '') +
+          'Browser audio failed — ringing your mobile (' +
+          (formatCallerIdDisplay(agentReady) || agentReady) +
+          ') instead. Answer that call to talk to the lead.',
+        true,
+      );
+      // Temporarily dial via agent-first path even if UI mode is cloud_dial.
+      var prevMode = spWorkspaceCallMode;
+      spWorkspaceCallMode = 'agent_first';
+      return startCloudSoftphoneDial(to, 'call', null)
+        .catch(function (err) {
+          softphoneSetCallState('ready');
+          softphoneSetWrapRequired(false);
+          softphoneSetStatus((err && err.message) || 'Agent-first dial failed.', true);
+        })
+        .finally(function () {
+          spWorkspaceCallMode = prevMode || 'cloud_dial';
+        });
+    }
+    softphoneForceAbortDial(
+      'No audio path: browser mic/speakers did not connect, so the lead was NOT dialed (that would be silent). Fix Settings → pick MacBook mic + speakers (not iPhone Continuity), Run soundcheck, or switch Call routing to Agent first / My device dialer.',
+      { isError: true },
+    );
+    return Promise.resolve();
   }
   function softphoneCallerWebrtcError(fromNum) {
     var from = normalizeDial(fromNum || '');
@@ -719,7 +741,7 @@
       spPreferredSpeakerId = pickBestAudioDevice(speakers, 'audiooutput', '');
       changed = true;
     }
-    if (spPreferredMicId && mic && /camo|virtual|loopback|blackhole/.test(String(mic.label || '').toLowerCase())) {
+    if (spPreferredMicId && mic && /camo|virtual|loopback|blackhole|iphone|continuity/.test(String(mic.label || '').toLowerCase())) {
       spPreferredMicId = pickBestAudioDevice(mics, 'audioinput', '');
       changed = true;
     }
@@ -4078,15 +4100,16 @@
           if (spMicStatus && /microphone blocked|not support/i.test(String(spMicStatus.textContent || ''))) {
             throw new Error(String(spMicStatus.textContent || 'Microphone access is required for browser audio.'));
           }
-          softphoneSetStatus(
-            'Browser audio stuck or failed — placing a cloud call instead (no sound in this tab). For cell audio: Settings → Call routing → Agent first. Or use My device dialer.',
-            true,
+          return softphoneWebrtcFallbackToCloud(
+            to,
+            'Browser audio did not connect.',
           );
-          return startCloudSoftphoneDial(to, action, action === 'voicemail_drop' ? { forceCloudVoicemail: true } : null);
         });
     } else if (action === 'call' && spWorkspaceCallMode === 'cloud_dial' && !spRelayWebrtc) {
-      softphoneSetStatus('Browser audio unavailable on server — using cloud dial without tab sound. Ask admin to set SIGNALWIRE_SPACE_URL for WebRTC.', true);
-      p = startCloudSoftphoneDial(to, action, action === 'voicemail_drop' ? { forceCloudVoicemail: true } : null);
+      return softphoneWebrtcFallbackToCloud(
+        to,
+        'Browser audio unavailable on server.',
+      );
     } else {
       p = startCloudSoftphoneDial(to, action, action === 'voicemail_drop' ? { forceCloudVoicemail: true } : null);
     }
