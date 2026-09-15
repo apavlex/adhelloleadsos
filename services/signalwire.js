@@ -667,15 +667,59 @@ async function createOutboundPstnCall(opts) {
       'TwiML or status callback URL is empty. Set BASE_URL in the environment to your public https root.',
     );
   }
-  const raw = await postFormCreateCall({
+  const body = {
     To: to,
     From: from,
     Url: voiceUrl,
     StatusCallback: statusCallback,
     StatusCallbackMethod: 'POST',
     StatusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
-  });
-  return ensureCallWithSid(raw, 'Create call:');
+  };
+  const timeoutSec = parseInt(opts && opts.timeoutSec, 10);
+  if (timeoutSec > 0) body.Timeout = String(timeoutSec);
+  const raw = await postFormCreateCall(body);
+  const call = ensureCallWithSid(raw, 'Create call:');
+  return {
+    ...call,
+    from,
+    to,
+    remapped: !!(resolved && resolved.remapped),
+  };
+}
+
+async function waitForCallProgress(callSid, opts) {
+  const sid = String(callSid || '').trim();
+  if (!sid) return { status: '', error: 'missing_sid' };
+  const maxMs = typeof (opts && opts.maxMs) === 'number' ? opts.maxMs : 10000;
+  const intervalMs = typeof (opts && opts.intervalMs) === 'number' ? opts.intervalMs : 1200;
+  const started = Date.now();
+  let last = { status: 'initiated', to: '', from: '', duration: '' };
+  while (Date.now() - started < maxMs) {
+    await new Promise((r) => setTimeout(r, intervalMs));
+    try {
+      const call = await getCall(sid);
+      const status = normalizeCallStatus(call) || String(call.status || '').trim().toLowerCase();
+      last = {
+        status,
+        to: String(call.to || call.To || ''),
+        from: String(call.from || call.From || ''),
+        duration: call.duration != null ? String(call.duration) : '',
+      };
+      if (
+        status === 'ringing' ||
+        status === 'in-progress' ||
+        status === 'inprogress' ||
+        status === 'answered' ||
+        isTerminalCallStatus(status)
+      ) {
+        break;
+      }
+    } catch (err) {
+      last.error = err && err.message ? String(err.message) : 'status_poll_failed';
+      break;
+    }
+  }
+  return last;
 }
 
 async function createLeadCall(opts) {
@@ -997,6 +1041,7 @@ module.exports = {
   buildAppUrl,
   createLeadCall,
   createOutboundPstnCall,
+  waitForCallProgress,
   sendSms,
   getCall,
   completeCall,

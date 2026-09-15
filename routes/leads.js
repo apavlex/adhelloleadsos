@@ -1603,11 +1603,11 @@ router.post('/telephony/test-agent-ring', express.json(), async (req, res, next)
           'Agent mobile cannot be a Phone bank / SignalWire DID. Use your personal cell number.',
       });
     }
-    const from =
+    const fromWanted =
       resolveLeadCallerId(ws) ||
       resolveWorkspaceCallerNumber(ws) ||
       signalwire.normalizePhone(signalwire.envConfig().fromNumber);
-    if (!from) {
+    if (!fromWanted) {
       return res.status(400).json({
         success: false,
         error: 'Add a SignalWire number to the Phone bank to use as caller ID.',
@@ -1615,18 +1615,62 @@ router.post('/telephony/test-agent-ring', express.json(), async (req, res, next)
     }
     const call = await signalwire.createOutboundPstnCall({
       to: agentTo,
-      from,
+      from: fromWanted,
       workspaceId: req.workspaceId,
       voicePath: '/api/telephony/voice/twiml/agent-test',
       statusAction: 'agent_test',
+      timeoutSec: 25,
     });
-    return res.json({
-      success: true,
-      callSid: call.sid || null,
-      to: agentTo,
-      from,
-      message:
-        'Calling your mobile now from the workspace number. Save that workspace number as a contact if iPhone Silence Unknown Callers is on.',
+    const sid = call.sid || '';
+    const progress = sid
+      ? await signalwire.waitForCallProgress(sid, { maxMs: 9000, intervalMs: 1200 })
+      : { status: '', error: 'no_sid' };
+    const status = String((progress && progress.status) || '').toLowerCase();
+    const fromUsed = signalwire.normalizePhone(call.from || fromWanted) || fromWanted;
+    const toUsed = signalwire.normalizePhone(call.to || agentTo) || agentTo;
+
+    let message = 'Call placed.';
+    let ok = true;
+    if (!sid) {
+      ok = false;
+      message = 'SignalWire did not return a call id.';
+    } else if (status === 'ringing') {
+      message = 'Your phone should be ringing now. Answer to hear the test message.';
+    } else if (status === 'in-progress' || status === 'inprogress' || status === 'answered') {
+      message =
+        'Call connected. If you did not answer, voicemail / spam filter likely picked up — save the workspace number as a contact and turn off DND.';
+    } else if (status === 'no-answer' || status === 'noanswer' || status === 'busy') {
+      ok = false;
+      message = `No ring / no answer (${status}). Confirm ${toUsed} is the handset you are holding, then disable DND / spam blocking.`;
+    } else if (status === 'failed' || status === 'canceled' || status === 'cancelled') {
+      ok = false;
+      message = `SignalWire ended the test as ${status}. Check that ${fromUsed} is a purchased number in this SignalWire project.`;
+    } else if (status === 'completed') {
+      message =
+        'Test call already completed. If you never heard a ring, the carrier screened it — save the From number as a contact and retry.';
+    } else if (status === 'initiated' || status === 'queued' || !status) {
+      ok = false;
+      message = `SignalWire accepted the call but it stayed “${status || 'initiated'}” — the handset never entered ringing. Wrong cell number, carrier block, or From DID issue.`;
+    } else {
+      message = `Call status: ${status}.`;
+    }
+
+    console.log(
+      '[POST /leads/telephony/test-agent-ring] sid=%s from=%s to=%s status=%s',
+      sid,
+      fromUsed,
+      toUsed,
+      status || '',
+    );
+
+    return res.status(ok ? 200 : 422).json({
+      success: ok,
+      callSid: sid || null,
+      to: toUsed,
+      from: fromUsed,
+      status: status || null,
+      message,
+      error: ok ? undefined : message,
     });
   } catch (err) {
     next(err);

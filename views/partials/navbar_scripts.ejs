@@ -5124,7 +5124,7 @@
   var spAgentTestRingMsg = document.getElementById('softphoneAgentTestRingMsg');
   if (spAgentTestRingBtn) {
     spAgentTestRingBtn.addEventListener('click', function () {
-      if (spAgentTestRingMsg) spAgentTestRingMsg.textContent = 'Calling your mobile…';
+      if (spAgentTestRingMsg) spAgentTestRingMsg.textContent = 'Placing test call and checking SignalWire status…';
       spAgentTestRingBtn.disabled = true;
       fetch('/leads/telephony/test-agent-ring', {
         method: 'POST',
@@ -5143,17 +5143,16 @@
             (res.j && (res.j.message || res.j.error)) ||
             (res.ok ? 'Call placed.' : 'Test ring failed.');
           if (res.j && res.j.from && res.j.to) {
-            text += ' From ' + formatCallerIdDisplay(res.j.from) + ' → ' + formatCallerIdDisplay(res.j.to) + '.';
+            text +=
+              ' From ' +
+              formatCallerIdDisplay(res.j.from) +
+              ' → ' +
+              formatCallerIdDisplay(res.j.to) +
+              '.';
           }
+          if (res.j && res.j.status) text += ' Status: ' + String(res.j.status) + '.';
           if (spAgentTestRingMsg) spAgentTestRingMsg.textContent = text;
-          if (res.ok) {
-            softphoneSetStatus(
-              'Test ring placed to your mobile from the workspace number. If it never rings, save that workspace number as a contact and turn off Silence Unknown Callers.',
-              false,
-            );
-          } else {
-            softphoneSetStatus(text, true);
-          }
+          softphoneSetStatus(text, !res.ok);
         })
         .catch(function (err) {
           var msg = (err && err.message) || 'Test ring failed.';

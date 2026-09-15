@@ -359,7 +359,7 @@
   if (testRingBtn) {
     testRingBtn.addEventListener('click', function () {
       if (testRingMsg) {
-        testRingMsg.textContent = 'Calling your mobile…';
+        testRingMsg.textContent = 'Placing test call and checking SignalWire status…';
         testRingMsg.classList.remove('text-rose-600', 'text-emerald-700');
       }
       testRingBtn.disabled = true;
@@ -383,10 +383,12 @@
           if (res.j && res.j.from && res.j.to) {
             text += ' From ' + res.j.from + ' → ' + res.j.to + '.';
           }
+          if (res.j && res.j.status) text += ' Status: ' + String(res.j.status) + '.';
           if (testRingMsg) {
             testRingMsg.textContent = text;
-            testRingMsg.classList.toggle('text-rose-600', !res.ok);
-            testRingMsg.classList.toggle('text-emerald-700', !!res.ok);
+            var failed = !res.ok || (res.j && res.j.success === false);
+            testRingMsg.classList.toggle('text-rose-600', !!failed);
+            testRingMsg.classList.toggle('text-emerald-700', !failed);
           }
         })
         .catch(function () {
