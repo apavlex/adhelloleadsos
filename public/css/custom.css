@@ -2947,12 +2947,9 @@ body.find-leads-page #findTypeTabs .find-type-tab {
     padding-top: 0.35rem;
     box-shadow: 0 -6px 24px -12px rgba(15, 23, 42, 0.12);
 }
-/* Collapsed quick-log dock: Call + SMS only (Sync GHL when expanded) */
+/* Collapsed quick-log dock: keep Call + SMS + Sync GHL */
 #leadPanelNotepad.lead-panel-notepad--collapsed #leadPanelOutreachCtaRow {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-#leadPanelNotepad.lead-panel-notepad--collapsed #leadPanelPushGhlBtn {
-    display: none !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 #mobilePanel.open #leadPanelNotepad.lead-panel-notepad--collapsed #leadPanelOutreachCtaRow,
 #mobilePanel.open #leadPanelNotepad.lead-panel-notepad--collapsed #leadPanelOutreachCtaRow button {
@@ -3663,7 +3660,6 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
 }
 
 #focus-outcome-panel[data-compact="true"] #focus-btn-open-dialer,
-#focus-outcome-panel[data-compact="true"] #focus-btn-push-ghl,
 #focus-outcome-panel[data-compact="true"] #focus-btn-back-secondary,
 #focus-outcome-panel[data-compact="true"] #focus-quick-log-section,
 #focus-outcome-panel[data-compact="true"] #focus-notes-section,
@@ -3691,16 +3687,20 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
     order: 2;
 }
 
-#focus-outcome-panel[data-compact="true"] #focus-btn-log {
+#focus-outcome-panel[data-compact="true"] #focus-btn-push-ghl {
     order: 3;
 }
 
-#focus-outcome-panel[data-compact="true"] #focus-btn-call-next {
+#focus-outcome-panel[data-compact="true"] #focus-btn-log {
     order: 4;
 }
 
-#focus-outcome-panel[data-compact="true"] #focus-btn-skip {
+#focus-outcome-panel[data-compact="true"] #focus-btn-call-next {
     order: 5;
+}
+
+#focus-outcome-panel[data-compact="true"] #focus-btn-skip {
+    order: 6;
 }
 
 #focus-outcome-panel[data-compact="true"] #focus-outcome-compact-toggle {
