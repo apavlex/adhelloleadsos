@@ -543,6 +543,21 @@ module.exports = {
     return kvList(prefix);
   },
 
+  /** Sync KV helpers for latency-sensitive telephony webhooks. */
+  getKvSync(key) {
+    return kvGet(key);
+  },
+  setKvSync(key, value) {
+    const payload = typeof value === 'string' ? value : JSON.stringify(value);
+    kvSet(key, payload);
+  },
+  deleteKvSync(key) {
+    kvDelete(key);
+  },
+  listKvKeysSync(prefix) {
+    return kvList(prefix || '');
+  },
+
   async deleteStorageKey(key) {
     kvDelete(key);
   },

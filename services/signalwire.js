@@ -61,10 +61,8 @@ function envConfig() {
   const preferred = normalizePublicBaseUrl(process.env.BASE_URL);
   const render = normalizePublicBaseUrl(process.env.RENDER_EXTERNAL_URL);
   const webhookOverride = normalizePublicBaseUrl(process.env.TELEPHONY_WEBHOOK_BASE_URL);
-  // Prefer an explicit webhook base, then Render's live host, then public BASE_URL.
-  // leads.adhello.io may be configured as BASE_URL before DNS/SSL exist — keep SignalWire
-  // callbacks on RENDER_EXTERNAL_URL until TELEPHONY_WEBHOOK_BASE_URL is set to the custom domain.
-  const webhookBaseUrl = webhookOverride || render || preferred || '';
+  // Prefer custom domain when set — same service, often warmer CDN edge; allow override.
+  const webhookBaseUrl = webhookOverride || preferred || render || '';
   return {
     spaceUrl: String(process.env.SIGNALWIRE_SPACE_URL || '')
       .trim()
@@ -623,6 +621,25 @@ async function ensureIncomingVoiceWebhooks(phoneNumber) {
   };
 }
 
+/** Fire-and-forget health ping to wake the dyno before SignalWire hits inbound. */
+async function warmTelephonyWebhooks() {
+  const cfg = envConfig();
+  const base = String(cfg.webhookBaseUrl || cfg.baseUrl || '')
+    .trim()
+    .replace(/\/+$/, '');
+  if (!base) return { ok: false, skipped: true };
+  const healthUrl = `${base}/health`;
+  try {
+    const res = await fetch(healthUrl, {
+      method: 'GET',
+      signal: signalwireAbortSignal(8000),
+    });
+    return { ok: res.ok, status: res.status };
+  } catch (err) {
+    return { ok: false, error: err && err.message ? String(err.message) : 'warm_failed' };
+  }
+}
+
 function buildAppUrl(path, params) {
   const cfg = envConfig();
   let base = String(cfg.webhookBaseUrl || cfg.baseUrl || '').trim().replace(/\/+$/, '');
@@ -1068,4 +1085,5 @@ module.exports = {
   resolveOutboundFromNumber,
   configureIncomingNumberForDialIn,
   ensureIncomingVoiceWebhooks,
+  warmTelephonyWebhooks,
 };

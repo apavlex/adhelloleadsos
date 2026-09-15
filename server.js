@@ -134,7 +134,7 @@ app.use((req, res, next) => {
   express.json({ limit: largeBody ? '15mb' : '1mb' })(req, res, next);
 });
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(session({
+const sessionMiddleware = session({
   secret: process.env.SESSION_SECRET || 'adhello-secret-key',
   resave: false,
   saveUninitialized: false,
@@ -143,9 +143,22 @@ app.use(session({
     sameSite: 'lax',
     maxAge: 7 * 24 * 60 * 60 * 1000,
   },
-}));
-app.use(passport.initialize());
-app.use(passport.session());
+});
+const passportInit = passport.initialize();
+const passportSess = passport.session();
+// SignalWire voice/SMS webhooks must not wait on session (avoids cold-start timeouts).
+app.use((req, res, next) => {
+  if (req.path && String(req.path).startsWith('/api/telephony')) return next();
+  return sessionMiddleware(req, res, next);
+});
+app.use((req, res, next) => {
+  if (req.path && String(req.path).startsWith('/api/telephony')) return next();
+  return passportInit(req, res, next);
+});
+app.use((req, res, next) => {
+  if (req.path && String(req.path).startsWith('/api/telephony')) return next();
+  return passportSess(req, res, next);
+});
 
 app.locals.renderSocialBrandLinks = (links) => socialBrandIcons.renderLinks(links);
 

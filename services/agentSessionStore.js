@@ -1,8 +1,11 @@
 /**
- * In-memory store for continuous agent-first calling sessions.
+ * Agent-first calling sessions.
  * Supports:
  *  - outbound agent ring (legacy)
  *  - dial-in: agent calls the workspace DID, then we bridge the lead
+ *
+ * Dial-in sessions are mirrored to SQLite kv so they survive Render restarts
+ * (in-memory alone is lost on every deploy / cold start).
  */
 
 const sessions = new Map();
@@ -12,17 +15,96 @@ const SESSION_MAX_AGE_MS = 2 * 60 * 60 * 1000;
 /** Dial-in pending window — agent must call the DID within this time. */
 const DIAL_IN_PENDING_MS = 5 * 60 * 1000;
 
+function kvKey(workspaceId) {
+  return `agent_session:${String(workspaceId || '').trim()}`;
+}
+
+function getDb() {
+  try {
+    return require('./database');
+  } catch (_) {
+    return null;
+  }
+}
+
+function persistSession(session) {
+  if (!session || !session.workspaceId) return;
+  const db = getDb();
+  if (!db || typeof db.setKvSync !== 'function') return;
+  try {
+    db.setKvSync(kvKey(session.workspaceId), JSON.stringify(session));
+  } catch (err) {
+    console.warn('[agentSessionStore] persist failed:', err && err.message);
+  }
+}
+
+function deletePersisted(workspaceId) {
+  const wid = String(workspaceId || '').trim();
+  if (!wid) return;
+  const db = getDb();
+  if (!db || typeof db.deleteKvSync !== 'function') return;
+  try {
+    db.deleteKvSync(kvKey(wid));
+  } catch (_) {
+    /* ignore */
+  }
+}
+
+function loadPersisted(workspaceId) {
+  const wid = String(workspaceId || '').trim();
+  if (!wid) return null;
+  const db = getDb();
+  if (!db || typeof db.getKvSync !== 'function') return null;
+  try {
+    const raw = db.getKvSync(kvKey(wid));
+    if (!raw) return null;
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!parsed || typeof parsed !== 'object') return null;
+    return parsed;
+  } catch (_) {
+    return null;
+  }
+}
+
+function listPersistedDialInSessions() {
+  const db = getDb();
+  if (!db || typeof db.listKvKeysSync !== 'function') return [];
+  try {
+    const keys = db.listKvKeysSync('agent_session:') || [];
+    const out = [];
+    for (const key of keys) {
+      try {
+        const raw = db.getKvSync(key);
+        if (!raw) continue;
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (parsed && typeof parsed === 'object') out.push(parsed);
+      } catch (_) {
+        /* skip bad row */
+      }
+    }
+    return out;
+  } catch (_) {
+    return [];
+  }
+}
+
 function getSession(workspaceId) {
   const wid = String(workspaceId || '').trim();
   if (!wid) return null;
-  const s = sessions.get(wid) || null;
+  let s = sessions.get(wid) || null;
+  if (!s) {
+    s = loadPersisted(wid);
+    if (s) sessions.set(wid, s);
+  }
   if (!s) return null;
   if (isSessionStale(s)) {
     sessions.delete(wid);
+    deletePersisted(wid);
     return null;
   }
   if (s.mode === 'dial_in' && s.status === 'pending_dial_in' && isDialInExpired(s)) {
     sessions.delete(wid);
+    deletePersisted(wid);
     return null;
   }
   return s;
@@ -64,6 +146,7 @@ function createSession(workspaceId, data) {
     expiresAt: mode === 'dial_in' ? Date.now() + DIAL_IN_PENDING_MS : null,
   };
   sessions.set(wid, s);
+  if (mode === 'dial_in') persistSession(s);
   return s;
 }
 
@@ -71,13 +154,16 @@ function updateSession(workspaceId, patch) {
   const s = getSession(workspaceId);
   if (!s) return null;
   Object.assign(s, patch);
+  if (s.mode === 'dial_in') persistSession(s);
   return s;
 }
 
 function removeSession(workspaceId) {
   const wid = String(workspaceId || '').trim();
   if (!wid) return false;
-  return sessions.delete(wid);
+  sessions.delete(wid);
+  deletePersisted(wid);
+  return true;
 }
 
 function queueNextLead(workspaceId, leadKey) {
@@ -86,6 +172,7 @@ function queueNextLead(workspaceId, leadKey) {
   if (!s.queuedLeadKeys) s.queuedLeadKeys = [];
   if (s.queuedLeadKeys.includes(leadKey)) return true;
   s.queuedLeadKeys.push(leadKey);
+  if (s.mode === 'dial_in') persistSession(s);
   return true;
 }
 
@@ -94,6 +181,7 @@ function popNextLead(workspaceId) {
   if (!s || !s.queuedLeadKeys || !s.queuedLeadKeys.length) return null;
   const leadKey = s.queuedLeadKeys.shift();
   s.currentLeadKey = leadKey;
+  if (s.mode === 'dial_in') persistSession(s);
   return leadKey;
 }
 
@@ -105,10 +193,19 @@ function removeSessionForCall(workspaceId, callSid) {
   const wid = String(workspaceId || '').trim();
   const sid = String(callSid || '').trim();
   if (!wid) return false;
-  const s = sessions.get(wid);
+  const s = sessions.get(wid) || loadPersisted(wid);
   if (!s) return false;
   if (sid && s.callSid && s.callSid !== sid) return false;
-  return sessions.delete(wid);
+  sessions.delete(wid);
+  deletePersisted(wid);
+  return true;
+}
+
+function phonesMatch(aRaw, bRaw) {
+  const a = String(aRaw || '').replace(/\D/g, '');
+  const b = String(bRaw || '').replace(/\D/g, '');
+  if (!a || !b) return false;
+  return a.endsWith(b.slice(-10)) || b.endsWith(a.slice(-10));
 }
 
 /** Find a pending dial-in session for this DID (and optional agent From). */
@@ -116,25 +213,27 @@ function findPendingDialInByDid(didRaw, fromRaw) {
   const did = String(didRaw || '').replace(/[^\d+]/g, '');
   const from = String(fromRaw || '').replace(/[^\d+]/g, '');
   const now = Date.now();
-  for (const s of sessions.values()) {
+  const candidates = [...sessions.values(), ...listPersistedDialInSessions()];
+  const seen = new Set();
+  for (const s of candidates) {
     if (!s || s.mode !== 'dial_in') continue;
+    const wid = String(s.workspaceId || '').trim();
+    if (!wid || seen.has(wid)) continue;
+    seen.add(wid);
     if (s.status !== 'pending_dial_in') continue;
     if (isSessionStale(s, now) || isDialInExpired(s, now)) continue;
     const dialIn = String(s.dialInNumber || s.from || '').replace(/[^\d+]/g, '');
     if (!dialIn || !did) continue;
-    const didDigits = did.replace(/\D/g, '');
-    const inDigits = dialIn.replace(/\D/g, '');
-    if (!didDigits.endsWith(inDigits.slice(-10)) && !inDigits.endsWith(didDigits.slice(-10))) {
-      continue;
-    }
+    if (!phonesMatch(did, dialIn)) continue;
     if (from && s.agentTo) {
-      const agentDigits = String(s.agentTo).replace(/\D/g, '');
-      const fromDigits = from.replace(/\D/g, '');
-      // Prefer matching agent mobile, but still allow if agentTo unset.
-      if (agentDigits && fromDigits && !fromDigits.endsWith(agentDigits.slice(-10))) {
-        continue;
+      // Prefer matching agent mobile when present, but do not reject when
+      // the handset presents a different From (dual-SIM / Google Voice).
+      if (!phonesMatch(from, s.agentTo)) {
+        /* keep as candidate — DID match is enough for pending dial-in */
       }
     }
+    // Hydrate memory for subsequent updates.
+    sessions.set(wid, s);
     return s;
   }
   return null;

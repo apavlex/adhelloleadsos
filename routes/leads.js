@@ -873,6 +873,18 @@ async function startAgentDialInSession(opts) {
     queuedLeadKeys: [],
   });
 
+  // Wake Render before the agent dials so SignalWire's inbound webhook does not time out.
+  try {
+    if (typeof signalwire.warmTelephonyWebhooks === 'function') {
+      await Promise.race([
+        signalwire.warmTelephonyWebhooks(),
+        new Promise((resolve) => setTimeout(() => resolve({ ok: false, skipped: true }), 6000)),
+      ]);
+    }
+  } catch (_) {
+    /* non-fatal */
+  }
+
   return {
     dialMode: 'agent_dial_in',
     dialInNumber,
