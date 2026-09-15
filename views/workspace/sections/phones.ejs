@@ -92,7 +92,7 @@
         <li>In AdHello, tap <strong>Call</strong> on a lead.</li>
         <li>Your <strong>cell</strong> rings from the workspace number — answer it.</li>
         <li>Press <strong>1</strong> to confirm, then we dial the lead on the same call.</li>
-        <li>If status says ringing/in-progress but Recents is empty: the number below may not be this phone’s line (or the carrier answered silently). Use <strong>Test SMS</strong> — if the text never arrives, fix Your mobile. Also save the workspace DID<% if (_activeFrom) { %> (<strong><%= _activeFrom %></strong>)<% } %> as a contact and turn off DND / Silence Unknown Callers.</li>
+        <li>If Test SMS arrives but Test ring never shows in Recents: the number is correct — your carrier is screening VoIP voice from the workspace DID. Turn off Scam Shield / Call Filter / Silence Unknown Callers for<% if (_activeFrom) { %> <strong><%= _activeFrom %></strong><% } else { %> the workspace number<% } %>, or switch Call routing to <strong>My device dialer</strong>.</li>
       </ol>
       <div class="mt-2 flex flex-wrap items-center gap-2">
         <button type="button" id="wsAgentTestRingBtn" class="rounded-xl border border-brand-yellow/60 bg-brand-yellow/15 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/25 transition-colors">Test ring my phone</button>
