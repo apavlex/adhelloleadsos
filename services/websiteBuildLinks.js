@@ -1,14 +1,17 @@
 /**
- * Client website-build URLs on the GHL white-label host (my.adhello.ai),
+ * Client website-build URLs on the GHL white-label host (my.adhello.io),
  * shown in Agency OS and pushed to GHL contacts.
  */
 
-const DEFAULT_CRM_HOST = 'https://my.adhello.ai';
+const DEFAULT_CRM_HOST = 'https://my.adhello.io';
+const CRM_PUBLIC_HOST = 'my.adhello.io';
 
 function ghlCrmBaseUrl(raw) {
-  const s = String(raw || process.env.GHL_DASHBOARD_URL || DEFAULT_CRM_HOST)
+  let s = String(raw || process.env.GHL_DASHBOARD_URL || DEFAULT_CRM_HOST)
     .trim()
     .replace(/\/$/, '');
+  // Historical white-label domain → current .io host.
+  s = s.replace(/^(https?:\/\/)my\.adhello\.ai(?=$|[/:?#])/i, `$1${CRM_PUBLIC_HOST}`);
   return s || DEFAULT_CRM_HOST;
 }
 
@@ -27,10 +30,14 @@ function websiteBuildSlug(title) {
 function websiteBuildPublicUrl(leadOrTitle) {
   if (leadOrTitle && typeof leadOrTitle === 'object') {
     const stored = String(leadOrTitle.websiteBuildUrl || '').trim();
-    if (/^https?:\/\//i.test(stored)) return stored;
-    return `https://${websiteBuildSlug(leadOrTitle.title || leadOrTitle.company || '')}.my.adhello.ai`;
+    if (/^https?:\/\//i.test(stored)) {
+      return stored.replace(/^(https?:\/\/)([^/]*\.)?my\.adhello\.ai(?=$|[/:?#])/i, (m, proto, sub) => {
+        return `${proto}${sub || ''}${CRM_PUBLIC_HOST}`;
+      });
+    }
+    return `https://${websiteBuildSlug(leadOrTitle.title || leadOrTitle.company || '')}.${CRM_PUBLIC_HOST}`;
   }
-  return `https://${websiteBuildSlug(leadOrTitle)}.my.adhello.ai`;
+  return `https://${websiteBuildSlug(leadOrTitle)}.${CRM_PUBLIC_HOST}`;
 }
 
 function ghlWebsitesBuilderUrl({ dashboardUrl, locationId } = {}) {

@@ -7907,7 +7907,7 @@ document.addEventListener('DOMContentLoaded', () => {
       typeof window !== 'undefined' && window.GHL_DASHBOARD_URL
         ? String(window.GHL_DASHBOARD_URL).trim()
         : '';
-    return fromWindow || 'https://my.adhello.ai/';
+    return fromWindow || 'https://my.adhello.io/';
   }
 
   function websiteBuildSlugFromTitle(title) {
@@ -7924,7 +7924,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const stored = row && row.dataset ? String(row.dataset.websiteBuildUrl || '').trim() : '';
     if (/^https?:\/\//i.test(stored)) return stored;
     const title = row && row.dataset ? String(row.dataset.title || '').trim() : '';
-    return 'https://' + websiteBuildSlugFromTitle(title) + '.my.adhello.ai';
+    return 'https://' + websiteBuildSlugFromTitle(title) + '.my.adhello.io';
   }
 
   function syncHeaderWebsiteBuildRow(row) {

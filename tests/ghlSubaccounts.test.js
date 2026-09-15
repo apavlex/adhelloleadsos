@@ -66,10 +66,10 @@ describe('ghlSubaccounts payload', () => {
     assert.equal(namesMatch('A', 'B'), false);
   });
 
-  it('builds a my.adhello.ai location dashboard URL', () => {
+  it('builds a my.adhello.io location dashboard URL', () => {
     assert.equal(
       ghlLocationDashboardUrl({ locationId: 'loc99' }),
-      'https://my.adhello.ai/v2/location/loc99',
+      'https://my.adhello.io/v2/location/loc99',
     );
   });
 

@@ -233,7 +233,7 @@
       (lead && !isEmpty(lead.title) && String(lead.title).trim()) ||
       (row && row.dataset && String(row.dataset.title || '').trim()) ||
       '';
-    return 'https://' + websiteBuildSlugFromTitle(title) + '.my.adhello.ai';
+    return 'https://' + websiteBuildSlugFromTitle(title) + '.my.adhello.io';
   }
 
   function paintWebsiteBuildLink(lead, row) {

@@ -1,5 +1,5 @@
 /**
- * Push the my.adhello.ai website-build URL onto the GHL contact.
+ * Push the my.adhello.io website-build URL onto the GHL contact.
  */
 const ghlClient = require('./ghlClient');
 const { findFieldInList } = require('./ghlPhoneLineFields');
@@ -36,7 +36,7 @@ async function ensureWebsiteBuildFieldId(integrationEnv) {
     const created = await ghlClient.createLocationContactCustomField(integrationEnv, {
       name: FIELD_NAME,
       dataType: 'TEXT',
-      placeholder: 'https://business.my.adhello.ai',
+      placeholder: 'https://business.my.adhello.io',
       position: 11,
     });
     const id = String((created && created.id) || '').trim();
