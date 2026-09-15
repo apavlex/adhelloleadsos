@@ -1635,10 +1635,11 @@ router.post('/telephony/test-agent-ring', express.json(), async (req, res, next)
       ok = false;
       message = 'SignalWire did not return a call id.';
     } else if (status === 'ringing') {
-      message = 'Your phone should be ringing now. Answer to hear the test message.';
+      message =
+        `SignalWire reports RINGING to ${toUsed} from ${fromUsed}. If that handset is silent: save ${fromUsed} as a contact, turn off DND / spam / Silence Unknown Callers, confirm this is the active SIM, then Test ring again.`;
     } else if (status === 'in-progress' || status === 'inprogress' || status === 'answered') {
       message =
-        'Call connected. If you did not answer, voicemail / spam filter likely picked up — save the workspace number as a contact and turn off DND.';
+        `Call connected to ${toUsed}. If you did not answer, voicemail / spam filter likely picked up — save ${fromUsed} as a contact and turn off DND.`;
     } else if (status === 'no-answer' || status === 'noanswer' || status === 'busy') {
       ok = false;
       message = `No ring / no answer (${status}). Confirm ${toUsed} is the handset you are holding, then disable DND / spam blocking.`;
@@ -1647,7 +1648,7 @@ router.post('/telephony/test-agent-ring', express.json(), async (req, res, next)
       message = `SignalWire ended the test as ${status}. Check that ${fromUsed} is a purchased number in this SignalWire project.`;
     } else if (status === 'completed') {
       message =
-        'Test call already completed. If you never heard a ring, the carrier screened it — save the From number as a contact and retry.';
+        `Test call already completed (${fromUsed} → ${toUsed}). If you never heard a ring, the carrier screened it — save the From number as a contact and retry.`;
     } else if (status === 'initiated' || status === 'queued' || !status) {
       ok = false;
       message = `SignalWire accepted the call but it stayed “${status || 'initiated'}” — the handset never entered ringing. Wrong cell number, carrier block, or From DID issue.`;

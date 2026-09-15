@@ -131,7 +131,7 @@
         <a href="/sops" class="sidebar-nav-link sidebar-nav-sub <%= _rp === '/sops' || _rp.startsWith('/sops/') ? 'active' : '' %>">SOPs</a>
         <a href="/workspace/voicemail" class="sidebar-nav-link sidebar-nav-sub <%= _rp.startsWith('/workspace/voicemail') ? 'active' : '' %>">Voicemail</a>
         <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
-        <a href="/workspace/phones" class="sidebar-nav-link sidebar-nav-sub <%= _rp.startsWith('/workspace/phones') ? 'active' : '' %>">Phone forwarding</a>
+        <a href="/workspace/phones" class="sidebar-nav-link sidebar-nav-sub <%= _rp.startsWith('/workspace/phones') ? 'active' : '' %>">Phone settings</a>
         <% } %>
         <a href="/workspace/team" class="sidebar-nav-link sidebar-nav-sub <%= _rp.startsWith('/workspace') && !_rp.startsWith('/workspace/voicemail') && !_rp.startsWith('/workspace/phones') ? 'active' : '' %>">Workspace settings</a>
         <a href="/activation" class="sidebar-nav-link sidebar-nav-sub <%= _rp.startsWith('/activation') ? 'active' : '' %>">7-day activation</a>

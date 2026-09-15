@@ -40,8 +40,8 @@
   });
 %>
 <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-8">
-  <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-2">Phone number bank</h2>
-  <p class="text-sm text-brand-muted mb-6">Manage outbound numbers, call routing mode, and CNAM request status. Active number is used for call/SMS/voicemail actions in cloud mode.</p>
+  <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-2">Phone settings</h2>
+  <p class="text-sm text-brand-muted mb-6">Manage outbound numbers, call routing, agent mobile, and CNAM. Active number is used for call/SMS/voicemail actions in cloud mode.</p>
   <div class="mb-6 space-y-2">
     <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Guided walkthroughs</p>
     <div class="flex flex-wrap gap-2">
@@ -92,7 +92,7 @@
         <li>In AdHello, tap <strong>Call</strong> on a lead.</li>
         <li>Your <strong>cell</strong> rings from the workspace number — answer it.</li>
         <li>Press <strong>1</strong> to confirm, then we dial the lead on the same call.</li>
-        <li>If it never rings: save the workspace DID as a contact, turn off Silence Unknown Callers / Focus, then use <strong>Test ring my phone</strong>.</li>
+        <li>If it never rings even when status says ringing: save the workspace DID<% if (_activeFrom) { %> (<strong><%= _activeFrom %></strong>)<% } %> as a contact named AdHello, turn off DND / Silence Unknown Callers / carrier spam filter, confirm your agent mobile is this handset’s active line, then use <strong>Test ring my phone</strong>.</li>
       </ol>
       <div class="mt-2 flex flex-wrap items-center gap-2">
         <button type="button" id="wsAgentTestRingBtn" class="rounded-xl border border-brand-yellow/60 bg-brand-yellow/15 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/25 transition-colors">Test ring my phone</button>
