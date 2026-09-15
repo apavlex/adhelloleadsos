@@ -3739,13 +3739,10 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
     resize: vertical;
 }
 
-#focus-sms-compose-input.focus-sms-compose-input--expanded {
-    min-height: min(32vh, 15rem);
-    max-height: min(62vh, 26rem);
-}
-
 #focus-sms-compose-input {
     resize: vertical;
+    min-height: 3.5rem;
+    max-height: 8rem;
 }
 
 .dark #focus-outcome-panel[data-compact="true"] #focus-outcome-compact-toggle {
