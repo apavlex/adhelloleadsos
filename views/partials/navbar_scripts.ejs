@@ -2686,7 +2686,12 @@
       li.textContent = (check.ok ? '✓ ' : '• ') + check.label + ' — ' + (check.detail || '');
       list.appendChild(li);
     });
-    if (payload.readyForInTabAudio) {
+    var modeNow = String(payload.callMode || spWorkspaceCallMode || '').trim();
+    if (modeNow === 'agent_first') {
+      summary.className = 'mt-2 text-[10px] font-semibold leading-snug text-emerald-700 dark:text-emerald-300';
+      summary.textContent =
+        'Agent first does not need in-tab audio. JWT / WebRTC warnings above only matter for Cloud dial — your cell should ring instead.';
+    } else if (payload.readyForInTabAudio) {
       summary.className = 'mt-2 text-[10px] font-semibold leading-snug text-emerald-700 dark:text-emerald-300';
       summary.textContent = 'Ready for in-tab call audio. Place a call — status should say “Connecting via browser audio”.';
     } else {
@@ -5121,17 +5126,22 @@
     spAgentPhone.addEventListener('blur', saveSoftphoneAgentPhone);
   }
   var spAgentTestRingBtn = document.getElementById('softphoneAgentTestRingBtn');
+  var spAgentTestSmsBtn = document.getElementById('softphoneAgentTestSmsBtn');
   var spAgentTestRingMsg = document.getElementById('softphoneAgentTestRingMsg');
+  function softphoneAgentPhoneBody() {
+    return {
+      agentPhone: (spAgentPhone && spAgentPhone.value) || spAgentPhoneCached || '',
+    };
+  }
   if (spAgentTestRingBtn) {
     spAgentTestRingBtn.addEventListener('click', function () {
       if (spAgentTestRingMsg) spAgentTestRingMsg.textContent = 'Placing test call and checking SignalWire status…';
       spAgentTestRingBtn.disabled = true;
+      if (spAgentTestSmsBtn) spAgentTestSmsBtn.disabled = true;
       fetch('/leads/telephony/test-agent-ring', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({
-          agentPhone: (spAgentPhone && spAgentPhone.value) || spAgentPhoneCached || '',
-        }),
+        body: JSON.stringify(softphoneAgentPhoneBody()),
       })
         .then(function (r) {
           return r.json().then(function (j) {
@@ -5151,6 +5161,7 @@
               '.';
           }
           if (res.j && res.j.status) text += ' Status: ' + String(res.j.status) + '.';
+          if (res.j && res.j.answeredBy) text += ' Answered by: ' + String(res.j.answeredBy) + '.';
           if (spAgentTestRingMsg) spAgentTestRingMsg.textContent = text;
           softphoneSetStatus(text, !res.ok);
         })
@@ -5161,6 +5172,40 @@
         })
         .finally(function () {
           spAgentTestRingBtn.disabled = false;
+          if (spAgentTestSmsBtn) spAgentTestSmsBtn.disabled = false;
+        });
+    });
+  }
+  if (spAgentTestSmsBtn) {
+    spAgentTestSmsBtn.addEventListener('click', function () {
+      if (spAgentTestRingMsg) spAgentTestRingMsg.textContent = 'Sending test SMS…';
+      spAgentTestSmsBtn.disabled = true;
+      if (spAgentTestRingBtn) spAgentTestRingBtn.disabled = true;
+      fetch('/leads/telephony/test-agent-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(softphoneAgentPhoneBody()),
+      })
+        .then(function (r) {
+          return r.json().then(function (j) {
+            return { ok: r.ok, j: j };
+          });
+        })
+        .then(function (res) {
+          var text =
+            (res.j && (res.j.message || res.j.error)) ||
+            (res.ok ? 'SMS sent.' : 'Test SMS failed.');
+          if (spAgentTestRingMsg) spAgentTestRingMsg.textContent = text;
+          softphoneSetStatus(text, !res.ok);
+        })
+        .catch(function (err) {
+          var msg = (err && err.message) || 'Test SMS failed.';
+          if (spAgentTestRingMsg) spAgentTestRingMsg.textContent = msg;
+          softphoneSetStatus(msg, true);
+        })
+        .finally(function () {
+          spAgentTestSmsBtn.disabled = false;
+          if (spAgentTestRingBtn) spAgentTestRingBtn.disabled = false;
         });
     });
   }

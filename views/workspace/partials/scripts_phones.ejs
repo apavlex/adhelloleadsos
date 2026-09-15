@@ -355,7 +355,13 @@
     });
   }
   var testRingBtn = document.getElementById('wsAgentTestRingBtn');
+  var testSmsBtn = document.getElementById('wsAgentTestSmsBtn');
   var testRingMsg = document.getElementById('wsAgentTestRingMsg');
+  function agentPhonePayload() {
+    return {
+      agentPhone: agentPhoneInput ? String(agentPhoneInput.value || '').trim() : '',
+    };
+  }
   if (testRingBtn) {
     testRingBtn.addEventListener('click', function () {
       if (testRingMsg) {
@@ -363,13 +369,12 @@
         testRingMsg.classList.remove('text-rose-600', 'text-emerald-700');
       }
       testRingBtn.disabled = true;
+      if (testSmsBtn) testSmsBtn.disabled = true;
       fetch('/leads/telephony/test-agent-ring', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({
-          agentPhone: agentPhoneInput ? String(agentPhoneInput.value || '').trim() : '',
-        }),
+        body: JSON.stringify(agentPhonePayload()),
       })
         .then(function (r) {
           return r.json().then(function (j) {
@@ -384,6 +389,7 @@
             text += ' From ' + res.j.from + ' → ' + res.j.to + '.';
           }
           if (res.j && res.j.status) text += ' Status: ' + String(res.j.status) + '.';
+          if (res.j && res.j.answeredBy) text += ' Answered by: ' + String(res.j.answeredBy) + '.';
           if (testRingMsg) {
             testRingMsg.textContent = text;
             var failed = !res.ok || (res.j && res.j.success === false);
@@ -399,6 +405,49 @@
         })
         .finally(function () {
           testRingBtn.disabled = false;
+          if (testSmsBtn) testSmsBtn.disabled = false;
+        });
+    });
+  }
+  if (testSmsBtn) {
+    testSmsBtn.addEventListener('click', function () {
+      if (testRingMsg) {
+        testRingMsg.textContent = 'Sending test SMS…';
+        testRingMsg.classList.remove('text-rose-600', 'text-emerald-700');
+      }
+      testSmsBtn.disabled = true;
+      if (testRingBtn) testRingBtn.disabled = true;
+      fetch('/leads/telephony/test-agent-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(agentPhonePayload()),
+      })
+        .then(function (r) {
+          return r.json().then(function (j) {
+            return { ok: r.ok, j: j };
+          });
+        })
+        .then(function (res) {
+          var text =
+            (res.j && (res.j.message || res.j.error)) ||
+            (res.ok ? 'SMS sent.' : 'Test SMS failed.');
+          if (testRingMsg) {
+            testRingMsg.textContent = text;
+            var failed = !res.ok || (res.j && res.j.success === false);
+            testRingMsg.classList.toggle('text-rose-600', !!failed);
+            testRingMsg.classList.toggle('text-emerald-700', !failed);
+          }
+        })
+        .catch(function () {
+          if (testRingMsg) {
+            testRingMsg.textContent = 'SMS request failed.';
+            testRingMsg.classList.add('text-rose-600');
+          }
+        })
+        .finally(function () {
+          testSmsBtn.disabled = false;
+          if (testRingBtn) testRingBtn.disabled = false;
         });
     });
   }

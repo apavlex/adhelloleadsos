@@ -92,11 +92,12 @@
         <li>In AdHello, tap <strong>Call</strong> on a lead.</li>
         <li>Your <strong>cell</strong> rings from the workspace number — answer it.</li>
         <li>Press <strong>1</strong> to confirm, then we dial the lead on the same call.</li>
-        <li>If it never rings even when status says ringing: save the workspace DID<% if (_activeFrom) { %> (<strong><%= _activeFrom %></strong>)<% } %> as a contact named AdHello, turn off DND / Silence Unknown Callers / carrier spam filter, confirm your agent mobile is this handset’s active line, then use <strong>Test ring my phone</strong>.</li>
+        <li>If status says ringing/in-progress but Recents is empty: the number below may not be this phone’s line (or the carrier answered silently). Use <strong>Test SMS</strong> — if the text never arrives, fix Your mobile. Also save the workspace DID<% if (_activeFrom) { %> (<strong><%= _activeFrom %></strong>)<% } %> as a contact and turn off DND / Silence Unknown Callers.</li>
       </ol>
       <div class="mt-2 flex flex-wrap items-center gap-2">
         <button type="button" id="wsAgentTestRingBtn" class="rounded-xl border border-brand-yellow/60 bg-brand-yellow/15 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/25 transition-colors">Test ring my phone</button>
-        <p id="wsAgentTestRingMsg" class="text-[11px] text-brand-muted min-h-[1rem]"></p>
+        <button type="button" id="wsAgentTestSmsBtn" class="rounded-xl border border-brand-border/50 dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:bg-brand-cream/40 dark:hover:bg-slate-800 transition-colors">Test SMS</button>
+        <p id="wsAgentTestRingMsg" class="text-[11px] text-brand-muted min-h-[1rem] w-full"></p>
       </div>
     </div>
   </div>

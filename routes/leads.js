@@ -1620,26 +1620,51 @@ router.post('/telephony/test-agent-ring', express.json(), async (req, res, next)
       voicePath: '/api/telephony/voice/twiml/agent-test',
       statusAction: 'agent_test',
       timeoutSec: 25,
+      machineDetection: 'Enable',
     });
     const sid = call.sid || '';
     const progress = sid
-      ? await signalwire.waitForCallProgress(sid, { maxMs: 9000, intervalMs: 1200 })
+      ? await signalwire.waitForCallProgress(sid, { maxMs: 12000, intervalMs: 1200 })
       : { status: '', error: 'no_sid' };
     const status = String((progress && progress.status) || '').toLowerCase();
+    const answeredBy = String((progress && progress.answeredBy) || '').toLowerCase();
     const fromUsed = signalwire.normalizePhone(call.from || fromWanted) || fromWanted;
     const toUsed = signalwire.normalizePhone(call.to || agentTo) || agentTo;
 
+    // Don't leave a long voicemail / screening session hanging.
+    if (sid && (status === 'in-progress' || status === 'inprogress' || status === 'ringing')) {
+      try {
+        await signalwire.completeCall(sid);
+      } catch (_) {
+        /* ignore hangup race */
+      }
+    }
+
     let message = 'Call placed.';
     let ok = true;
+    const machineAnswered =
+      answeredBy === 'machine' ||
+      answeredBy === 'machine_start' ||
+      answeredBy === 'machine_end_beep' ||
+      answeredBy === 'machine_end_silence' ||
+      answeredBy === 'machine_end_other' ||
+      answeredBy === 'fax';
     if (!sid) {
       ok = false;
       message = 'SignalWire did not return a call id.';
     } else if (status === 'ringing') {
       message =
-        `SignalWire reports RINGING to ${toUsed} from ${fromUsed}. If that handset is silent: save ${fromUsed} as a contact, turn off DND / spam / Silence Unknown Callers, confirm this is the active SIM, then Test ring again.`;
+        `SignalWire reports RINGING to ${toUsed} from ${fromUsed}. If Recents shows nothing: this may not be the active line on this phone — use Test SMS, or have a friend call ${toUsed}.`;
     } else if (status === 'in-progress' || status === 'inprogress' || status === 'answered') {
-      message =
-        `Call connected to ${toUsed}. If you did not answer, voicemail / spam filter likely picked up — save ${fromUsed} as a contact and turn off DND.`;
+      if (machineAnswered) {
+        ok = false;
+        message =
+          `Voicemail / carrier screening answered (${answeredBy}) — your handset never took the call. Save ${fromUsed} as a contact, disable spam filters, then Test SMS to confirm ${toUsed} is this phone.`;
+      } else {
+        ok = false;
+        message =
+          `SignalWire connected ${fromUsed} → ${toUsed} (status in-progress${answeredBy ? `, answered_by=${answeredBy}` : ''}) but if you heard no ring and Recents is empty, this number is likely wrong, forwarded, or a different SIM. Use Test SMS — if the text does not arrive, fix Your mobile.`;
+      }
     } else if (status === 'no-answer' || status === 'noanswer' || status === 'busy') {
       ok = false;
       message = `No ring / no answer (${status}). Confirm ${toUsed} is the handset you are holding, then disable DND / spam blocking.`;
@@ -1647,8 +1672,14 @@ router.post('/telephony/test-agent-ring', express.json(), async (req, res, next)
       ok = false;
       message = `SignalWire ended the test as ${status}. Check that ${fromUsed} is a purchased number in this SignalWire project.`;
     } else if (status === 'completed') {
-      message =
-        `Test call already completed (${fromUsed} → ${toUsed}). If you never heard a ring, the carrier screened it — save the From number as a contact and retry.`;
+      if (machineAnswered) {
+        ok = false;
+        message =
+          `Test ended after voicemail/screening (${answeredBy}). Save ${fromUsed} as a contact and use Test SMS to verify ${toUsed}.`;
+      } else {
+        message =
+          `Test call completed (${fromUsed} → ${toUsed}). If you never heard a ring and Recents is empty, the number may not be this handset — use Test SMS.`;
+      }
     } else if (status === 'initiated' || status === 'queued' || !status) {
       ok = false;
       message = `SignalWire accepted the call but it stayed “${status || 'initiated'}” — the handset never entered ringing. Wrong cell number, carrier block, or From DID issue.`;
@@ -1657,11 +1688,12 @@ router.post('/telephony/test-agent-ring', express.json(), async (req, res, next)
     }
 
     console.log(
-      '[POST /leads/telephony/test-agent-ring] sid=%s from=%s to=%s status=%s',
+      '[POST /leads/telephony/test-agent-ring] sid=%s from=%s to=%s status=%s answeredBy=%s',
       sid,
       fromUsed,
       toUsed,
       status || '',
+      answeredBy || '',
     );
 
     return res.status(ok ? 200 : 422).json({
@@ -1670,8 +1702,74 @@ router.post('/telephony/test-agent-ring', express.json(), async (req, res, next)
       to: toUsed,
       from: fromUsed,
       status: status || null,
+      answeredBy: answeredBy || null,
       message,
       error: ok ? undefined : message,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /leads/telephony/test-agent-sms — SMS the agent mobile from the workspace DID
+router.post('/telephony/test-agent-sms', express.json(), async (req, res, next) => {
+  try {
+    if (!signalwire.configured()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Telephony is not configured on the server (SIGNALWIRE_* / BASE_URL).',
+      });
+    }
+    const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
+    const agentTo =
+      signalwire.normalizePhone((req.body && req.body.agentPhone) || '') ||
+      resolveAgentFirstNumber(ws);
+    if (!agentTo) {
+      return res.status(400).json({
+        success: false,
+        error: 'Set Your mobile (agent) first — personal cell in E.164.',
+      });
+    }
+    const bank = workspaceCallerNumbers(ws);
+    if (bank.includes(agentTo)) {
+      return res.status(400).json({
+        success: false,
+        error:
+          'Agent mobile cannot be a Phone bank / SignalWire DID. Use your personal cell number.',
+      });
+    }
+    const fromWanted =
+      resolveLeadCallerId(ws) ||
+      resolveWorkspaceCallerNumber(ws) ||
+      signalwire.normalizePhone(signalwire.envConfig().fromNumber);
+    if (!fromWanted) {
+      return res.status(400).json({
+        success: false,
+        error: 'Add a SignalWire number to the Phone bank to use as caller ID.',
+      });
+    }
+    const body =
+      `AdHello test: if you get this SMS, ${agentTo} is reachable from ${fromWanted}. ` +
+      `If Test ring never shows in Recents, voice may be blocked — save ${fromWanted} as a contact and turn off spam filters.`;
+    const msg = await signalwire.sendSms({
+      to: agentTo,
+      from: fromWanted,
+      body,
+      workspaceId: req.workspaceId,
+    });
+    const sid = (msg && (msg.sid || msg.Sid)) || null;
+    console.log(
+      '[POST /leads/telephony/test-agent-sms] sid=%s from=%s to=%s',
+      sid || '',
+      fromWanted,
+      agentTo,
+    );
+    return res.json({
+      success: true,
+      messageSid: sid,
+      to: agentTo,
+      from: fromWanted,
+      message: `SMS sent to ${agentTo} from ${fromWanted}. If it does not arrive within a minute, that mobile number is wrong or blocked — fix Your mobile.`,
     });
   } catch (err) {
     next(err);

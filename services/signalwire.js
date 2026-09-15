@@ -677,6 +677,10 @@ async function createOutboundPstnCall(opts) {
   };
   const timeoutSec = parseInt(opts && opts.timeoutSec, 10);
   if (timeoutSec > 0) body.Timeout = String(timeoutSec);
+  // Enable AMD on test rings so we can tell human vs voicemail / network screening.
+  if (opts && opts.machineDetection) {
+    body.MachineDetection = String(opts.machineDetection);
+  }
   const raw = await postFormCreateCall(body);
   const call = ensureCallWithSid(raw, 'Create call:');
   return {
@@ -693,17 +697,23 @@ async function waitForCallProgress(callSid, opts) {
   const maxMs = typeof (opts && opts.maxMs) === 'number' ? opts.maxMs : 10000;
   const intervalMs = typeof (opts && opts.intervalMs) === 'number' ? opts.intervalMs : 1200;
   const started = Date.now();
-  let last = { status: 'initiated', to: '', from: '', duration: '' };
+  let last = { status: 'initiated', to: '', from: '', duration: '', answeredBy: '' };
   while (Date.now() - started < maxMs) {
     await new Promise((r) => setTimeout(r, intervalMs));
     try {
       const call = await getCall(sid);
       const status = normalizeCallStatus(call) || String(call.status || '').trim().toLowerCase();
+      const answeredBy = String(
+        call.answered_by || call.AnsweredBy || call.answeredBy || '',
+      )
+        .trim()
+        .toLowerCase();
       last = {
         status,
         to: String(call.to || call.To || ''),
         from: String(call.from || call.From || ''),
         duration: call.duration != null ? String(call.duration) : '',
+        answeredBy,
       };
       if (
         status === 'ringing' ||
