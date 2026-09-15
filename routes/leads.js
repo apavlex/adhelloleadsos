@@ -3043,7 +3043,7 @@ router.get('/:key/outreach-scripts', async (req, res, next) => {
   }
 });
 
-// GET /leads/:key/sms-script-options — script choices for SMS modal
+// GET /leads/:key/sms-script-options — short SMS choices (not full call scripts)
 router.get('/:key/sms-script-options', async (req, res, next) => {
   try {
     const key = req.params.key;
@@ -3055,6 +3055,7 @@ router.get('/:key/sms-script-options', async (req, res, next) => {
     const mergedLibrary = salesScriptsStorage.buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
     const offerKeys = salesScriptsStorage.getWorkspaceScriptKeys(ws, SCRIPT_LIBRARY);
     const savedItems = salesScriptsStorage.getInitialLibraryItemsFromWorkspace(ws);
+    const outreachLibrary = buildOutreachLibrary(mergedLibrary, offerKeys);
 
     const leadServiceKey =
       (lead.kieServiceInsight && lead.kieServiceInsight.primaryServiceKey) || lead.primaryServiceKey || '';
@@ -3064,14 +3065,6 @@ router.get('/:key/sms-script-options', async (req, res, next) => {
     const serviceDef = mergedLibrary[serviceKey] || SCRIPT_LIBRARY[serviceKey] || {};
     const serviceLabel = serviceDef.label || 'Primary offer';
 
-    const sectionLabels = {
-      opening: 'Opening',
-      discovery: 'Discovery',
-      valueProp: 'Value proposition',
-      objectionHandling: 'Objection handling',
-      close: 'Close',
-    };
-
     const profile = resolveScriptSignOffProfile({ user: req.user, workspace: ws, offerKey: serviceKey });
     const prospect = {
       name: String(lead.contactName || '').trim(),
@@ -3080,38 +3073,78 @@ router.get('/:key/sms-script-options', async (req, res, next) => {
     };
 
     const options = [];
-    ['opening', 'valueProp', 'objectionHandling', 'close'].forEach((section) => {
-      const text = String(serviceDef[section] || '').trim();
-      if (!text) return;
+    const pushSms = (id, label, text) => {
+      let body = String(text || '').trim();
+      if (!body) return;
+      // Prefer a single SMS paragraph — never dump multi-section call scripts.
+      if (body.length > 480 && /\n\n/.test(body)) {
+        body = body.split(/\n\n/)[0].trim();
+      }
+      if (!body) return;
       options.push({
-        id: `${serviceKey}:${section}`,
-        label: `${serviceLabel} — ${sectionLabels[section]}`,
-        text: fillScriptPlaceholders(text, { sender: profile, prospect }),
+        id,
+        label,
+        text: fillScriptPlaceholders(body, { sender: profile, prospect }),
       });
+    };
+
+    options.push({ id: 'blank', label: 'Blank — type your own', text: '' });
+
+    // Prefer channel-aware SMS copy from the outreach library.
+    offerKeys.forEach((k) => {
+      const entry = outreachLibrary[k];
+      if (!entry) return;
+      const smsText =
+        (entry.channels && entry.channels.text) ||
+        String((mergedLibrary[k] && mergedLibrary[k].opening) || '').trim();
+      pushSms(
+        `sms:${k}`,
+        `${entry.label || k} — SMS`,
+        smsText,
+      );
     });
+
+    pushSms(
+      'short-bump',
+      'Short bump',
+      `Hi ${prospect.name || 'there'} — quick note from {{name}} at {{business}}. Open to a short chat about ${serviceLabel} for ${prospect.company || 'your business'}?`,
+    );
+    pushSms(
+      'follow-up',
+      'Call follow-up',
+      `Hi ${prospect.name || 'there'}, following up from my call earlier. Happy to send a 1-pager for ${prospect.company || 'your business'} — want me to text it over?`,
+    );
 
     savedItems
       .filter((item) => item && String(item.text || '').trim())
+      .filter((item) => {
+        const t = String(item.text || '').trim();
+        const section = String(item.section || '').trim().toLowerCase();
+        // Keep saved SMS-ish items; skip long multi-section call dumps.
+        if (section && ['discovery', 'objectionhandling', 'close'].includes(section)) return false;
+        return t.length <= 600 || !/\n\n/.test(t);
+      })
       .slice(-12)
       .forEach((item) => {
-        const itemService = String(item.serviceKey || '').trim();
-        const itemSection = String(item.section || '').trim();
-        const itemServiceLabel =
-          itemService && mergedLibrary[itemService] && mergedLibrary[itemService].label
-            ? mergedLibrary[itemService].label
-            : itemService
-              ? itemService
-              : 'General';
-        const suffix = itemSection ? ` · ${sectionLabels[itemSection] || itemSection}` : '';
         const title = String(item.title || '').trim();
-        options.push({
-          id: `saved:${item.id}`,
-          label: title
-            ? `Saved: ${title}`
-            : `Saved script — ${itemServiceLabel}${suffix}`,
-          text: fillScriptPlaceholders(String(item.text).trim(), { sender: profile, prospect }),
-        });
+        pushSms(
+          `saved:${item.id}`,
+          title ? `Saved: ${title}` : 'Saved SMS script',
+          String(item.text).trim(),
+        );
       });
+
+    // Put the lead's product SMS first after Blank.
+    const preferredId = serviceKey ? `sms:${serviceKey}` : '';
+    if (preferredId) {
+      const preferred = options.find((o) => o.id === preferredId);
+      const rest = options.filter((o) => o.id !== preferredId && o.id !== 'blank');
+      const blank = options.find((o) => o.id === 'blank');
+      options.length = 0;
+      if (blank) options.push(blank);
+      if (preferred) options.push(preferred);
+      rest.forEach((o) => options.push(o));
+    }
 
     return res.json({
       success: true,

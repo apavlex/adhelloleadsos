@@ -394,7 +394,13 @@
               </button>
             </div>
           </div>
-          <textarea id="focus-sms-compose-input" rows="4" maxlength="1600" placeholder="Type your SMS…" class="focus-sms-compose-input block w-full max-w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-medium leading-relaxed text-brand-dark dark:text-white focus:ring-2 focus:ring-emerald-500/50 resize-y min-h-[5.5rem] max-h-[min(50vh,20rem)] overflow-y-auto"></textarea>
+          <label class="block" for="focus-sms-script-select">
+            <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mb-1.5 block">Scripts library</span>
+            <select id="focus-sms-script-select" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-brand-dark dark:text-white focus:ring-2 focus:ring-emerald-500/50">
+              <option value="">Loading scripts…</option>
+            </select>
+          </label>
+          <textarea id="focus-sms-compose-input" rows="3" maxlength="1600" placeholder="Short SMS — pick a script above or type your own…" class="focus-sms-compose-input block w-full max-w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-medium leading-relaxed text-brand-dark dark:text-white focus:ring-2 focus:ring-emerald-500/50 resize-y min-h-[4.5rem] max-h-[min(50vh,20rem)] overflow-y-auto"></textarea>
           <div class="flex flex-wrap items-center justify-between gap-2 w-full">
             <span id="focus-sms-compose-count" class="text-[9px] font-semibold text-brand-muted tabular-nums">0</span>
             <div class="flex flex-wrap items-center gap-2">
@@ -658,10 +664,12 @@
     var elSmsComposeInput = document.getElementById('focus-sms-compose-input');
     var elSmsComposeCount = document.getElementById('focus-sms-compose-count');
     var elSmsComposeStatus = document.getElementById('focus-sms-compose-status');
+    var elSmsScriptSelect = document.getElementById('focus-sms-script-select');
     var btnSmsComposeSend = document.getElementById('focus-sms-compose-send');
     var btnSmsExpandToggle = document.getElementById('focus-sms-expand-toggle');
     var btnSmsClose = document.getElementById('focus-sms-close');
     var btnSmsImproveText = document.getElementById('focus-sms-improve-text');
+    var focusSmsScriptOptions = [];
     var btnMobileBack = document.getElementById('focus-mobile-back');
     var btnMobileCallNext = document.getElementById('focus-mobile-call-next');
     var btnMobileLog = document.getElementById('focus-mobile-log');
@@ -2084,6 +2092,10 @@
         elSmsComposeInput.style.height = '';
         elSmsComposeInput.classList.remove('focus-sms-compose-input--expanded');
       }
+      if (elSmsScriptSelect) {
+        elSmsScriptSelect.innerHTML = '<option value="">Pick a script…</option>';
+      }
+      focusSmsScriptOptions = [];
       if (btnSmsExpandToggle) {
         btnSmsExpandToggle.textContent = 'Expand';
         btnSmsExpandToggle.setAttribute('aria-expanded', 'false');
@@ -2140,6 +2152,118 @@
       }
     }
 
+    function focusSmsProspectFields(lead) {
+      var company = String((lead && lead.title) || 'your team').trim() || 'your team';
+      var em = String((lead && lead.email) || '').trim();
+      var contact =
+        String((lead && lead.contactName) || '').trim() ||
+        (em && em.indexOf('@') !== -1 ? em.split('@')[0].replace(/[._]+/g, ' ') : '') ||
+        'there';
+      var cityState = [lead && lead.city, lead && lead.state].filter(Boolean).join(', ');
+      return { contact: contact, company: company, cityState: cityState };
+    }
+
+    /** SMS-length copy only — never the full call script (opening+discovery+…). */
+    function focusSmsTextFromServiceBlock(serviceBlock, lead) {
+      if (!serviceBlock) return '';
+      var raw =
+        String(serviceBlock.channels && serviceBlock.channels.text || '').trim() ||
+        String(serviceBlock.opening || '').trim() ||
+        String(serviceBlock.valueProp || '').trim();
+      if (!raw) return '';
+      var fields = focusSmsProspectFields(lead);
+      return String(
+        applyScriptPlaceholders(raw, fields.contact, fields.company, fields.cityState) || '',
+      ).trim();
+    }
+
+    function buildFocusSmsScriptOptions(lead) {
+      var options = [{ id: 'blank', label: 'Blank — type your own', text: '' }];
+      var fields = focusSmsProspectFields(lead);
+      var currentKey =
+        (elServiceSelect && elServiceSelect.value) || getDefaultProductKey() || '';
+      var lib = focusScriptLibrary && typeof focusScriptLibrary === 'object' ? focusScriptLibrary : {};
+      var keys = Object.keys(lib);
+      if (currentKey && keys.indexOf(currentKey) !== -1) {
+        keys = [currentKey].concat(keys.filter(function (k) { return k !== currentKey; }));
+      }
+      keys.forEach(function (key) {
+        var block = lib[key];
+        if (!block) return;
+        var text = focusSmsTextFromServiceBlock(block, lead);
+        if (!text) return;
+        // Prefer true SMS length; skip dumps that look like full call scripts.
+        if (text.length > 480 && /\n\n/.test(text)) {
+          text = text.split(/\n\n/)[0].trim();
+        }
+        if (!text) return;
+        options.push({
+          id: 'lib:' + key,
+          label: (block.label || key) + ' — SMS',
+          text: text,
+        });
+      });
+      var shortBump =
+        'Hi ' +
+        fields.contact +
+        ' — quick note from {{name}} at {{business}}. Open to a short chat about ' +
+        ((lib[currentKey] && lib[currentKey].label) || 'growing locally') +
+        ' for ' +
+        fields.company +
+        '?';
+      if (Scripts.replaceSenderPlaceholders) {
+        shortBump = Scripts.replaceSenderPlaceholders(
+          shortBump,
+          Scripts.getScriptProfile ? Scripts.getScriptProfile() : window.__ADHELLO_SCRIPT_PROFILE__,
+        );
+      } else {
+        shortBump = shortBump.replace(/\{\{name\}\}/gi, 'us').replace(/\{\{business\}\}/gi, 'AdHello');
+      }
+      options.push({ id: 'short-bump', label: 'Short bump', text: String(shortBump || '').trim() });
+      var followUp =
+        'Hi ' +
+        fields.contact +
+        ', following up from my call earlier. Happy to send a 1-pager for ' +
+        fields.company +
+        ' — want me to text it over?';
+      options.push({ id: 'follow-up', label: 'Call follow-up', text: followUp });
+      return options;
+    }
+
+    function populateFocusSmsScriptSelect(lead, opts) {
+      opts = opts || {};
+      if (!elSmsScriptSelect) return;
+      focusSmsScriptOptions = buildFocusSmsScriptOptions(lead);
+      elSmsScriptSelect.innerHTML = '';
+      focusSmsScriptOptions.forEach(function (opt, idx) {
+        var o = document.createElement('option');
+        o.value = String(idx);
+        o.textContent = opt.label || 'Script ' + (idx + 1);
+        elSmsScriptSelect.appendChild(o);
+      });
+      // Prefer the product SMS (index 1 when blank is 0), else blank.
+      var preferIdx = focusSmsScriptOptions.length > 1 ? 1 : 0;
+      if (opts.keepBlank) preferIdx = 0;
+      elSmsScriptSelect.value = String(preferIdx);
+      applyFocusSmsScriptSelection({ force: true });
+    }
+
+    function applyFocusSmsScriptSelection(opts) {
+      opts = opts || {};
+      if (!elSmsScriptSelect || !elSmsComposeInput) return;
+      var idx = parseInt(elSmsScriptSelect.value, 10);
+      if (isNaN(idx) || idx < 0 || idx >= focusSmsScriptOptions.length) return;
+      var selected = focusSmsScriptOptions[idx];
+      var nextText = selected && selected.text != null ? String(selected.text) : '';
+      var current = String(elSmsComposeInput.value || '');
+      // Don't clobber an in-progress edit unless forced (open / picker change).
+      if (!opts.force && current.trim() && selected && selected.id === 'blank') return;
+      elSmsComposeInput.value = nextText;
+      setFocusSmsComposeExpanded(nextText.length > 220);
+      syncFocusSmsComposeCount();
+      autogrowFocusSmsCompose();
+    }
+
     function openFocusSmsComposer() {
       var lead = currentLead();
       if (!lead || !lead.key) return;
@@ -2161,11 +2285,12 @@
         smsOpenedFromCompact = false;
       }
       if (elSmsComposeSection) elSmsComposeSection.classList.remove('hidden');
-      var scriptText = getFocusBodyPlain();
-      if (elSmsComposeInput && !String(elSmsComposeInput.value || '').trim() && scriptText) {
-        elSmsComposeInput.value = scriptText;
-        if (scriptText.length > 180) setFocusSmsComposeExpanded(true);
-        syncFocusSmsComposeCount();
+      // Never dump the call script into SMS — load a short library SMS instead.
+      var hadDraft = !!(elSmsComposeInput && String(elSmsComposeInput.value || '').trim());
+      if (!hadDraft) {
+        populateFocusSmsScriptSelect(lead);
+      } else if (elSmsScriptSelect && !elSmsScriptSelect.options.length) {
+        populateFocusSmsScriptSelect(lead, { keepBlank: true });
       } else {
         autogrowFocusSmsCompose();
       }
@@ -2177,7 +2302,7 @@
           if (typeof elSmsComposeInput.setSelectionRange === 'function') elSmsComposeInput.setSelectionRange(len, len);
         }, 120);
       }
-      setFocusSmsComposeStatus('Type your message, use Improve text if needed, then Send SMS.');
+      setFocusSmsComposeStatus('Pick a script from the library or type a short text, then Send SMS.');
       syncFocusSmsButtonState();
     }
 
@@ -3665,6 +3790,10 @@
       elServiceSelect.addEventListener('change', function () {
         refreshFocusScriptLibrary().finally(function () {
           updateDraftFromSelection();
+          if (isFocusSmsComposeOpen()) {
+            var lead = currentLead();
+            if (lead) populateFocusSmsScriptSelect(lead);
+          }
         });
       });
     }
@@ -3976,6 +4105,12 @@
       });
     }
     if (btnSmsClose) btnSmsClose.addEventListener('click', function () { closeFocusSmsComposer(); });
+    if (elSmsScriptSelect) {
+      elSmsScriptSelect.addEventListener('change', function () {
+        applyFocusSmsScriptSelection({ force: true });
+        setFocusSmsComposeStatus('Script loaded — edit if needed, then Send SMS.');
+      });
+    }
     if (elSmsComposeInput) {
       elSmsComposeInput.addEventListener('input', syncFocusSmsComposeCount);
       elSmsComposeInput.addEventListener('keydown', function (e) {

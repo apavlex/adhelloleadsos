@@ -14026,11 +14026,17 @@ document.addEventListener('DOMContentLoaded', () => {
         o.textContent = opt.label || `Script ${idx + 1}`;
         smsScriptSelect.appendChild(o);
       });
-      smsScriptSelect.value = '0';
-      smsBodyInput.value = smsScriptOptions[0].text || '';
+      // Prefer first real SMS script; skip "Blank — type your own" when present.
+      let preferIdx = 0;
+      const blankIdx = smsScriptOptions.findIndex(
+        (opt) => opt && (opt.id === 'blank' || /^blank/i.test(String(opt.label || ''))),
+      );
+      if (blankIdx === 0 && smsScriptOptions.length > 1) preferIdx = 1;
+      smsScriptSelect.value = String(preferIdx);
+      smsBodyInput.value = smsScriptOptions[preferIdx].text || '';
       const subjectInput = getSmsEmailSubjectInputEl();
       if (subjectInput) {
-        subjectInput.value = String(smsScriptOptions[0].subject || '').trim() ||
+        subjectInput.value = String(smsScriptOptions[preferIdx].subject || '').trim() ||
           (emailMode ? `Following up — ${String((currentRow && currentRow.dataset && currentRow.dataset.title) || 'your business').trim()}` : '');
       }
       setSmsCharCount();
