@@ -2638,7 +2638,7 @@
       return 'Call routing: Cloud (SignalWire) — the server places the call. No in-tab audio until WebRTC is configured (Workspace phone bank + SIGNALWIRE_SPACE_URL on the server).';
     }
     if (m === 'agent_first') {
-      return 'Call routing: Agent first — we ring your mobile first; answer and press 1 to dial the lead.';
+      return 'Call routing: Agent first — tap Call, then dial the workspace number from your cell; we bridge the lead (avoids carrier spam filters).';
     }
     if (m === 'browser_device') {
       return 'Call routing: My device dialer — Call opens your system phone / headset app (audio on the device).';
@@ -4007,27 +4007,21 @@
           softphoneStartMasterDialWatchdog(5 * 60 * 1000);
           softphoneSetCallState('dialing');
           var dialInLabel = formatCallerIdDisplay(softphoneSession.dialInNumber) || softphoneSession.dialInNumber || 'workspace number';
-          var isPhoneUa = /iPhone|iPad|Android/i.test(String(navigator.userAgent || ''));
-          if (isPhoneUa && softphoneSession.dialInNumber) {
-            softphoneSetStatus(
-              'On this phone: dial ' + dialInLabel + ' now. When you connect, we bridge the lead.',
-            );
-            try {
-              window.location.href = 'tel:' + String(softphoneSession.dialInNumber).replace(/[^\d+]/g, '');
-            } catch (_) {}
-          } else {
-            softphoneSetStatus(
-              'Waiting to connect. Prefer Agent first ring-your-cell after the next deploy. For now dial ' +
-                dialInLabel +
-                ' from your iPhone (not Mac). Or Hang up and try Cloud dial.',
-              true,
-            );
-            try {
-              if (navigator.clipboard && softphoneSession.dialInNumber) {
-                navigator.clipboard.writeText(String(softphoneSession.dialInNumber));
-              }
-            } catch (_) {}
-          }
+          softphoneSetStatus(
+            'Waiting for you to dial ' +
+              dialInLabel +
+              ' from your cell. On iPhone/Android this may open the Phone app. When you connect, we bridge the lead.',
+          );
+          try {
+            if (navigator.clipboard && softphoneSession.dialInNumber) {
+              navigator.clipboard.writeText(String(softphoneSession.dialInNumber));
+            }
+          } catch (_) {}
+          try {
+            if (softphoneSession.dialInNumber) {
+              window.open('tel:' + String(softphoneSession.dialInNumber).replace(/[^\d+]/g, ''), '_self');
+            }
+          } catch (_) {}
           softphoneStartDialInPolling();
           if (res.j.inboundConfigured === false && res.j.inboundError) {
             softphoneSetStatus(
@@ -5135,7 +5129,7 @@
   }
   if (spAgentTestRingBtn) {
     spAgentTestRingBtn.addEventListener('click', function () {
-      if (spAgentTestRingMsg) spAgentTestRingMsg.textContent = 'Placing test call and checking SignalWire status…';
+      if (spAgentTestRingMsg) spAgentTestRingMsg.textContent = 'Preparing dial-in test…';
       spAgentTestRingBtn.disabled = true;
       if (spAgentTestSmsBtn) spAgentTestSmsBtn.disabled = true;
       fetch('/leads/telephony/test-agent-ring', {
@@ -5152,16 +5146,27 @@
           var text =
             (res.j && (res.j.message || res.j.error)) ||
             (res.ok ? 'Call placed.' : 'Test ring failed.');
-          if (res.j && res.j.from && res.j.to) {
-            text +=
-              ' From ' +
-              formatCallerIdDisplay(res.j.from) +
-              ' → ' +
-              formatCallerIdDisplay(res.j.to) +
-              '.';
+          if (res.j && res.j.dialMode === 'agent_dial_in' && res.j.dialInNumber) {
+            text =
+              (res.j.message || text) +
+              ' Dial ' +
+              formatCallerIdDisplay(res.j.dialInNumber) +
+              ' from your cell now.';
+            try {
+              window.open('tel:' + String(res.j.dialInNumber).replace(/[^\d+]/g, ''), '_self');
+            } catch (_) {}
+          } else {
+            if (res.j && res.j.from && res.j.to) {
+              text +=
+                ' From ' +
+                formatCallerIdDisplay(res.j.from) +
+                ' → ' +
+                formatCallerIdDisplay(res.j.to) +
+                '.';
+            }
+            if (res.j && res.j.status) text += ' Status: ' + String(res.j.status) + '.';
+            if (res.j && res.j.answeredBy) text += ' Answered by: ' + String(res.j.answeredBy) + '.';
           }
-          if (res.j && res.j.status) text += ' Status: ' + String(res.j.status) + '.';
-          if (res.j && res.j.answeredBy) text += ' Answered by: ' + String(res.j.answeredBy) + '.';
           if (spAgentTestRingMsg) spAgentTestRingMsg.textContent = text;
           softphoneSetStatus(text, !res.ok);
         })

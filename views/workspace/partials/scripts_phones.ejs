@@ -365,7 +365,7 @@
   if (testRingBtn) {
     testRingBtn.addEventListener('click', function () {
       if (testRingMsg) {
-        testRingMsg.textContent = 'Placing test call and checking SignalWire status…';
+        testRingMsg.textContent = 'Preparing dial-in test…';
         testRingMsg.classList.remove('text-rose-600', 'text-emerald-700');
       }
       testRingBtn.disabled = true;
@@ -384,12 +384,13 @@
         .then(function (res) {
           var text =
             (res.j && (res.j.message || res.j.error)) ||
-            (res.ok ? 'Call placed.' : 'Test ring failed.');
-          if (res.j && res.j.from && res.j.to) {
-            text += ' From ' + res.j.from + ' → ' + res.j.to + '.';
+            (res.ok ? 'Dial-in ready.' : 'Test dial-in failed.');
+          if (res.j && res.j.dialInNumber) {
+            text += ' Call ' + res.j.dialInNumber + ' from your cell now.';
+            try {
+              window.open('tel:' + String(res.j.dialInNumber).replace(/[^\d+]/g, ''), '_self');
+            } catch (_) {}
           }
-          if (res.j && res.j.status) text += ' Status: ' + String(res.j.status) + '.';
-          if (res.j && res.j.answeredBy) text += ' Answered by: ' + String(res.j.answeredBy) + '.';
           if (testRingMsg) {
             testRingMsg.textContent = text;
             var failed = !res.ok || (res.j && res.j.success === false);

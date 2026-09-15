@@ -59,6 +59,7 @@ function createSession(workspaceId, data) {
     leadCallerId: data.leadCallerId || data.from || '',
     queuedLeadKeys: data.queuedLeadKeys || [],
     currentLeadKey: data.currentLeadKey || data.leadKey || null,
+    testDialIn: !!(data && data.testDialIn),
     createdAt: Date.now(),
     expiresAt: mode === 'dial_in' ? Date.now() + DIAL_IN_PENDING_MS : null,
   };

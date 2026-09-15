@@ -1968,13 +1968,16 @@
           if (dialMode === 'browser_device' && phone) {
             setCopyFeedback('Opening your dialer...');
             window.location.href = 'tel:' + phone;
-          } else if (dialMode === 'agent_first') {
-            var agentShown = String((data && data.agentPhone) || '').trim();
-            setCopyFeedback(
-              agentShown
-                ? 'Ringing your mobile first (' + agentShown + ') — answer it, then the lead is dialed.'
-                : 'Ringing your mobile first — answer it, then the lead is dialed.',
-            );
+          } else if (dialMode === 'agent_dial_in' || dialMode === 'agent_first') {
+            var dialIn = String((data && data.dialInNumber) || '').trim();
+            if (dialIn) {
+              setCopyFeedback('Call ' + dialIn + ' from your cell now — we will bridge the lead.');
+              try {
+                window.location.href = 'tel:' + dialIn.replace(/[^\d+]/g, '');
+              } catch (_) {}
+            } else {
+              setCopyFeedback('Agent dial-in ready — dial the workspace number from your cell.');
+            }
           } else {
             setCopyFeedback('Cloud call started.');
           }

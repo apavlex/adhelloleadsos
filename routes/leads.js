@@ -818,6 +818,70 @@ function resolveAgentFirstNumber(ws) {
   return signalwire.normalizePhone(telephony.agentPhone || '');
 }
 
+/**
+ * Agent-first via dial-in: agent calls the workspace DID (mobile→DID is not spam-screened
+ * the way SignalWire→mobile often is). Ensures inbound Voice URL, then parks a pending session.
+ */
+async function startAgentDialInSession(opts) {
+  const workspaceId = String((opts && opts.workspaceId) || '').trim();
+  const agentTo = signalwire.normalizePhone(opts && opts.agentTo);
+  const dialInNumber = signalwire.normalizePhone(opts && opts.dialInNumber);
+  const dialTo = signalwire.normalizePhone(opts && opts.dialTo);
+  const leadKey = String((opts && opts.leadKey) || '').trim();
+  const leadCallerId =
+    signalwire.normalizePhone(opts && opts.leadCallerId) || dialInNumber;
+  const testDialIn = !!(opts && opts.testDialIn);
+  if (!workspaceId) throw new Error('workspaceId is required for agent dial-in.');
+  if (!dialInNumber) throw new Error('Workspace DID is required for agent dial-in.');
+  if (!testDialIn && !dialTo) throw new Error('Lead phone is required for agent dial-in.');
+
+  const prior = agentSessionStore.getSession(workspaceId);
+  if (prior && prior.callSid) {
+    try {
+      await signalwire.completeCall(prior.callSid);
+    } catch (_) {
+      /* ignore */
+    }
+  }
+  agentSessionStore.removeSession(workspaceId);
+
+  let inboundConfigured = true;
+  let inboundError = '';
+  try {
+    if (typeof signalwire.ensureIncomingVoiceWebhooks === 'function') {
+      const ensured = await signalwire.ensureIncomingVoiceWebhooks(dialInNumber);
+      if (ensured && ensured.ok === false && !ensured.skipped) {
+        inboundConfigured = false;
+        inboundError = String(ensured.reason || 'inbound_webhook_failed');
+      }
+    }
+  } catch (err) {
+    inboundConfigured = false;
+    inboundError = err && err.message ? String(err.message) : 'inbound_webhook_failed';
+  }
+
+  agentSessionStore.createSession(workspaceId, {
+    mode: 'dial_in',
+    agentTo: agentTo || '',
+    from: dialInNumber,
+    dialInNumber,
+    dialTo: dialTo || '',
+    leadKey,
+    currentLeadKey: leadKey,
+    leadCallerId,
+    testDialIn,
+    queuedLeadKeys: [],
+  });
+
+  return {
+    dialMode: 'agent_dial_in',
+    dialInNumber,
+    agentPhone: agentTo || null,
+    inboundConfigured,
+    inboundError: inboundError || undefined,
+  };
+}
+
 function resolveLeadCallerId(ws) {
   if (!ws || typeof ws !== 'object') return '';
   const telephony = ws.telephony && typeof ws.telephony === 'object' ? ws.telephony : {};
@@ -1484,17 +1548,72 @@ router.post('/:key/call', async (req, res, next) => {
         });
       }
 
-      // Always place a fresh agent ring. Stale sessions previously queued dials
-      // without calling the cell again (UI stuck on INITIATED / never rang).
-      const prior = agentSessionStore.getSession(req.workspaceId);
-      if (prior && prior.callSid) {
-        try {
-          await signalwire.completeCall(prior.callSid);
-        } catch (_) {
-          /* ignore — next create still proceeds */
-        }
+      const telephony = ws && ws.telephony && typeof ws.telephony === 'object' ? ws.telephony : {};
+      const fromPick = dialerPacing.selectCallerIdForDial({
+        workspace: ws,
+        telephony,
+        lead,
+        requestedFrom: req.body && req.body.fromNumber,
+        now: new Date(),
+      });
+      if (!fromPick.allowed) {
+        return res.status(429).json({
+          success: false,
+          error: fromPick.reason || 'Dial pacing blocked this call.',
+        });
       }
-      agentSessionStore.removeSession(req.workspaceId);
+      const leadCallerId = resolveRequestedLeadCallerId(
+        ws,
+        req.body && (req.body.leadCallerId || req.body.callerId),
+      );
+      const dialIn = await startAgentDialInSession({
+        workspaceId: req.workspaceId,
+        agentTo,
+        dialInNumber: fromPick.from,
+        dialTo: normalizedTo,
+        leadKey: fullKey,
+        leadCallerId: leadCallerId || fromPick.from,
+      });
+
+      res.json({
+        success: true,
+        dialMode: 'agent_dial_in',
+        dialInNumber: dialIn.dialInNumber,
+        callSid: null,
+        callerId: leadCallerId || fromPick.from,
+        agentPhone: agentTo,
+        inboundConfigured: dialIn.inboundConfigured,
+        inboundError: dialIn.inboundError,
+        lead,
+        sessionActive: true,
+      });
+
+      setImmediate(() => {
+        Promise.resolve()
+          .then(async () => {
+            dialerPacing.recordDialAttempt(telephony, {
+              from: fromPick.from,
+              to: normalizedTo,
+              action: 'call',
+              leadKey: fullKey,
+              callSid: '',
+            });
+            await dbService.saveWorkspace(req.workspaceId, ws);
+            await logLeadOutboundCallInitiated(req, fullKey, lead, {
+              callSid: '',
+              normalizedTo,
+              logMessage: `Agent dial-in pending — call ${dialIn.dialInNumber} to bridge lead`,
+              skipAutoDisposition: true,
+            });
+          })
+          .catch((persistErr) => {
+            console.error(
+              '[POST /leads/:key/call] dial-in persist failed',
+              persistErr && persistErr.message ? persistErr.message : persistErr,
+            );
+          });
+      });
+      return;
     }
 
     const telephony = ws && ws.telephony && typeof ws.telephony === 'object' ? ws.telephony : {};
@@ -1520,28 +1639,19 @@ router.post('/:key/call', async (req, res, next) => {
       from: fromPick.from,
       leadCallerId,
       fromTrusted: true,
-      agentFirst: callMode === 'agent_first',
-      agentTo: callMode === 'agent_first' ? resolveAgentFirstNumber(ws) : undefined,
-      session: callMode === 'agent_first',
+      agentFirst: false,
+      agentTo: undefined,
+      session: false,
     });
-
-    if (callMode === 'agent_first' && call.sid) {
-      agentSessionStore.createSession(req.workspaceId, {
-        callSid: call.sid,
-        agentTo: resolveAgentFirstNumber(ws),
-        from: fromPick.from,
-        queuedLeadKeys: [],
-      });
-    }
 
     res.json({
       success: true,
-      dialMode: callMode === 'agent_first' ? 'agent_first' : 'cloud_dial',
+      dialMode: 'cloud_dial',
       callSid: call.sid || null,
       callerId: leadCallerId || fromPick.from,
-      agentPhone: callMode === 'agent_first' ? resolveAgentFirstNumber(ws) || null : null,
+      agentPhone: null,
       lead,
-      sessionActive: callMode === 'agent_first',
+      sessionActive: false,
     });
 
     setImmediate(() => {
@@ -1559,8 +1669,7 @@ router.post('/:key/call', async (req, res, next) => {
             callSid: call.sid || '',
             normalizedTo,
             logMessage: `SignalWire call initiated (${call.sid || 'no sid'})`,
-            // Agent-first often fails before the lead is dialed; don't stamp No pickup yet.
-            skipAutoDisposition: callMode === 'agent_first',
+            skipAutoDisposition: false,
           });
         })
         .catch((persistErr) => {
@@ -1576,7 +1685,7 @@ router.post('/:key/call', async (req, res, next) => {
   }
 });
 
-// POST /leads/telephony/test-agent-ring — place a short PSTN call to the agent mobile only
+// POST /leads/telephony/test-agent-ring — dial-in connectivity test (you call the workspace DID)
 router.post('/telephony/test-agent-ring', express.json(), async (req, res, next) => {
   try {
     if (!signalwire.configured()) {
@@ -1613,98 +1722,36 @@ router.post('/telephony/test-agent-ring', express.json(), async (req, res, next)
         error: 'Add a SignalWire number to the Phone bank to use as caller ID.',
       });
     }
-    const call = await signalwire.createOutboundPstnCall({
-      to: agentTo,
-      from: fromWanted,
+    const dialIn = await startAgentDialInSession({
       workspaceId: req.workspaceId,
-      voicePath: '/api/telephony/voice/twiml/agent-test',
-      statusAction: 'agent_test',
-      timeoutSec: 25,
-      machineDetection: 'Enable',
+      agentTo,
+      dialInNumber: fromWanted,
+      dialTo: '',
+      leadKey: '',
+      leadCallerId: fromWanted,
+      testDialIn: true,
     });
-    const sid = call.sid || '';
-    const progress = sid
-      ? await signalwire.waitForCallProgress(sid, { maxMs: 12000, intervalMs: 1200 })
-      : { status: '', error: 'no_sid' };
-    const status = String((progress && progress.status) || '').toLowerCase();
-    const answeredBy = String((progress && progress.answeredBy) || '').toLowerCase();
-    const fromUsed = signalwire.normalizePhone(call.from || fromWanted) || fromWanted;
-    const toUsed = signalwire.normalizePhone(call.to || agentTo) || agentTo;
-
-    // Don't leave a long voicemail / screening session hanging.
-    if (sid && (status === 'in-progress' || status === 'inprogress' || status === 'ringing')) {
-      try {
-        await signalwire.completeCall(sid);
-      } catch (_) {
-        /* ignore hangup race */
-      }
-    }
-
-    let message = 'Call placed.';
-    let ok = true;
-    const machineAnswered =
-      answeredBy === 'machine' ||
-      answeredBy === 'machine_start' ||
-      answeredBy === 'machine_end_beep' ||
-      answeredBy === 'machine_end_silence' ||
-      answeredBy === 'machine_end_other' ||
-      answeredBy === 'fax';
-    if (!sid) {
-      ok = false;
-      message = 'SignalWire did not return a call id.';
-    } else if (status === 'ringing') {
-      message =
-        `SignalWire reports RINGING to ${toUsed} from ${fromUsed}. If Recents shows nothing while SMS works: carrier Scam Shield / Call Filter is silencing VoIP voice — turn it off for ${fromUsed}, or switch Call routing to My device dialer.`;
-    } else if (status === 'in-progress' || status === 'inprogress' || status === 'answered') {
-      if (machineAnswered) {
-        ok = false;
-        message =
-          `Carrier voicemail/screening answered (${answeredBy}) — SMS can still work while voice from this VoIP DID is auto-answered. Disable Scam Shield / Call Filter / Silence Unknown Callers for ${fromUsed}, or use Call routing → My device dialer.`;
-      } else {
-        ok = false;
-        message =
-          `SignalWire connected ${fromUsed} → ${toUsed} (in-progress${answeredBy ? `, answered_by=${answeredBy}` : ''}) with no ring on your phone. Because Test SMS works, the number is correct — your carrier is answering/screening VoIP voice from ${fromUsed} before the handset. Turn off carrier spam voice filter, or switch to My device dialer / Cloud dial.`;
-      }
-    } else if (status === 'no-answer' || status === 'noanswer' || status === 'busy') {
-      ok = false;
-      message = `No ring / no answer (${status}). Confirm ${toUsed} is the handset you are holding, then disable DND / spam blocking.`;
-    } else if (status === 'failed' || status === 'canceled' || status === 'cancelled') {
-      ok = false;
-      message = `SignalWire ended the test as ${status}. Check that ${fromUsed} is a purchased number in this SignalWire project.`;
-    } else if (status === 'completed') {
-      if (machineAnswered) {
-        ok = false;
-        message =
-          `Test ended after voicemail/screening (${answeredBy}). Save ${fromUsed} as a contact and use Test SMS to verify ${toUsed}.`;
-      } else {
-        message =
-          `Test call completed (${fromUsed} → ${toUsed}). If you never heard a ring and Recents is empty, the number may not be this handset — use Test SMS.`;
-      }
-    } else if (status === 'initiated' || status === 'queued' || !status) {
-      ok = false;
-      message = `SignalWire accepted the call but it stayed “${status || 'initiated'}” — the handset never entered ringing. Wrong cell number, carrier block, or From DID issue.`;
-    } else {
-      message = `Call status: ${status}.`;
-    }
-
+    const dialLabel = dialIn.dialInNumber;
     console.log(
-      '[POST /leads/telephony/test-agent-ring] sid=%s from=%s to=%s status=%s answeredBy=%s',
-      sid,
-      fromUsed,
-      toUsed,
-      status || '',
-      answeredBy || '',
+      '[POST /leads/telephony/test-agent-ring] dial-in test dialIn=%s agentTo=%s inbound=%s',
+      dialLabel,
+      agentTo,
+      dialIn.inboundConfigured ? 'ok' : dialIn.inboundError || 'fail',
     );
-
-    return res.status(ok ? 200 : 422).json({
-      success: ok,
-      callSid: sid || null,
-      to: toUsed,
-      from: fromUsed,
-      status: status || null,
-      answeredBy: answeredBy || null,
-      message,
-      error: ok ? undefined : message,
+    return res.status(dialIn.inboundConfigured ? 200 : 422).json({
+      success: !!dialIn.inboundConfigured,
+      dialMode: 'agent_dial_in',
+      dialInNumber: dialLabel,
+      to: agentTo,
+      from: dialLabel,
+      status: 'pending_dial_in',
+      inboundConfigured: dialIn.inboundConfigured,
+      message: dialIn.inboundConfigured
+        ? `Dial-in ready. From your cell, call ${dialLabel} now — you should hear “Ad Hello dial in works.” Agent first uses this path (you call in; we bridge the lead).`
+        : `Could not confirm inbound Voice URL on ${dialLabel}. ${dialIn.inboundError || 'Fix SignalWire number Voice webhook, then retry.'}`,
+      error: dialIn.inboundConfigured
+        ? undefined
+        : dialIn.inboundError || 'inbound_webhook_failed',
     });
   } catch (err) {
     next(err);
@@ -1749,8 +1796,8 @@ router.post('/telephony/test-agent-sms', express.json(), async (req, res, next) 
       });
     }
     const body =
-      `AdHello test: if you get this SMS, ${agentTo} is reachable from ${fromWanted}. ` +
-      `If Test ring never shows in Recents, voice may be blocked — save ${fromWanted} as a contact and turn off spam filters.`;
+      `AdHello test: ${agentTo} is reachable by SMS from ${fromWanted}. ` +
+      `Agent first: tap Call on a lead, then dial ${fromWanted} from this phone.`;
     const msg = await signalwire.sendSms({
       to: agentTo,
       from: fromWanted,
@@ -1769,7 +1816,7 @@ router.post('/telephony/test-agent-sms', express.json(), async (req, res, next) 
       messageSid: sid,
       to: agentTo,
       from: fromWanted,
-      message: `SMS delivered path OK to ${agentTo} from ${fromWanted}. If Test ring still never shows in Recents, carriers often allow SMS but auto-answer VoIP voice — disable Scam Shield / Call Filter / Silence Unknown Callers for ${fromWanted}, or switch Call routing to My device dialer.`,
+      message: `SMS OK to ${agentTo}. Agent first no longer rings you — after Call, dial ${fromWanted} from this cell and we bridge the lead.`,
     });
   } catch (err) {
     next(err);
@@ -2256,21 +2303,68 @@ router.post('/telephony/dial', async (req, res, next) => {
     const fromNumber = fromResolved.from;
     const resolveMs = Date.now() - dialStartedAt;
 
-    // Agent-first: always start a fresh PSTN ring. A stale in-memory session
-    // (or abandoned INITIATED call) previously blocked re-rings / confused status.
+    // Agent-first: dial-in (you call the workspace DID). Outbound VoIP→mobile is often
+    // screened with empty Recents even when SMS works.
     if (useAgent && action === 'call') {
-      const prior = agentSessionStore.getSession(req.workspaceId);
-      if (prior && prior.callSid) {
-        try {
-          await signalwire.completeCall(prior.callSid);
-        } catch (hangPriorErr) {
-          console.warn(
-            '[POST /leads/telephony/dial] prior agent hangup:',
-            hangPriorErr && hangPriorErr.message ? hangPriorErr.message : hangPriorErr,
-          );
-        }
-      }
-      agentSessionStore.removeSession(req.workspaceId);
+      const agentTo = resolveAgentFirstNumber(ws);
+      const dialIn = await startAgentDialInSession({
+        workspaceId: req.workspaceId,
+        agentTo,
+        dialInNumber: fromNumber,
+        dialTo: to,
+        leadKey: fullLeadKey,
+        leadCallerId: leadCallerId || fromNumber,
+      });
+      res.json({
+        success: true,
+        dialMode: 'agent_dial_in',
+        dialInNumber: dialIn.dialInNumber,
+        callSid: null,
+        action,
+        callerId: leadCallerId || fromNumber || fromPick.from,
+        agentPhone: agentTo || null,
+        fromNumber: fromNumber || null,
+        to: agentTo || to,
+        inboundConfigured: dialIn.inboundConfigured,
+        inboundError: dialIn.inboundError,
+        lead: leadForDial || undefined,
+      });
+      console.log(
+        '[POST /leads/telephony/dial] ok mode=agent_dial_in dialIn=%s agentTo=%s leadTo=%s resolveMs=%s totalMs=%s',
+        dialIn.dialInNumber || '',
+        agentTo || '',
+        to || '',
+        resolveMs,
+        Date.now() - dialStartedAt,
+      );
+      setImmediate(() => {
+        Promise.resolve()
+          .then(async () => {
+            dialerPacing.recordDialAttempt(telephony, {
+              from: fromNumber,
+              to,
+              action,
+              leadKey: fullLeadKey,
+              callSid: '',
+            });
+            await dbService.saveWorkspace(req.workspaceId, ws);
+            if (fullLeadKey && leadForDial) {
+              await logLeadOutboundCallInitiated(req, fullLeadKey, leadForDial, {
+                callSid: '',
+                normalizedTo: to,
+                logMessage: `Agent dial-in pending — call ${dialIn.dialInNumber} to bridge lead`,
+                skipAutoDisposition: true,
+              });
+            }
+          })
+          .catch((persistErr) => {
+            console.error(
+              '[POST /leads/telephony/dial] dial-in persist failed',
+              persistErr && persistErr.message ? persistErr.message : persistErr,
+            );
+          });
+      });
+      return;
     }
 
     const call = await signalwire.createLeadCall({
@@ -2282,42 +2376,29 @@ router.post('/telephony/dial', async (req, res, next) => {
       from: fromNumber,
       leadCallerId: leadCallerId || fromNumber,
       fromTrusted: true,
-      agentFirst: useAgent,
-      agentTo: useAgent ? resolveAgentFirstNumber(ws) : undefined,
-      session: useAgent && action === 'call',
+      agentFirst: false,
+      agentTo: undefined,
+      session: false,
     });
     const createMs = Date.now() - dialStartedAt - resolveMs;
-
-    if (useAgent && action === 'call' && call.sid) {
-      agentSessionStore.createSession(req.workspaceId, {
-        callSid: call.sid,
-        agentTo: resolveAgentFirstNumber(ws),
-        from: fromNumber,
-        queuedLeadKeys: [],
-        currentLeadKey: fullLeadKey || '',
-        dialTo: to,
-      });
-    }
 
     // Answer the softphone immediately — pacing + lead logs can be slow on large workspaces
     // and were tripping the client 20s abort even after SignalWire had already placed the call.
     res.json({
       success: true,
-      dialMode: useAgent ? 'agent_first' : 'cloud_dial',
+      dialMode: 'cloud_dial',
       callSid: call.sid || null,
       action,
       callerId: leadCallerId || fromNumber || fromPick.from,
-      agentPhone: useAgent ? resolveAgentFirstNumber(ws) || null : null,
+      agentPhone: null,
       fromNumber: fromNumber || null,
-      to: useAgent ? resolveAgentFirstNumber(ws) || to : to,
+      to,
       lead: leadForDial && action === 'call' ? leadForDial : undefined,
     });
     console.log(
-      '[POST /leads/telephony/dial] ok sid=%s mode=%s from=%s agentTo=%s resolveMs=%s createMs=%s totalMs=%s',
+      '[POST /leads/telephony/dial] ok sid=%s mode=cloud_dial from=%s resolveMs=%s createMs=%s totalMs=%s',
       call.sid || '',
-      useAgent ? 'agent_first' : 'cloud_dial',
       fromNumber || '',
-      useAgent ? resolveAgentFirstNumber(ws) || '' : '',
       resolveMs,
       createMs,
       Date.now() - dialStartedAt,
@@ -2339,7 +2420,7 @@ router.post('/telephony/dial', async (req, res, next) => {
               callSid: call.sid || '',
               normalizedTo: to,
               logMessage: `SignalWire call initiated (${call.sid || 'no sid'})`,
-              skipAutoDisposition: useAgent,
+              skipAutoDisposition: false,
             });
           }
         })

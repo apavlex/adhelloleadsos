@@ -67,9 +67,9 @@
         <input type="radio" name="wsCallMode" value="agent_first" class="peer sr-only" <%= _callMode === 'agent_first' ? 'checked' : '' %> />
         <div class="flex-1 rounded-2xl border-2 border-brand-border/50 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-800/50 p-4 transition-all peer-checked:border-brand-yellow peer-checked:ring-2 peer-checked:ring-brand-yellow/50 peer-checked:bg-brand-yellow/10">
           <p class="text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white">Agent first</p>
-          <p class="text-[11px] text-brand-muted mt-1">We call your cell first, then bridge the lead.</p>
+          <p class="text-[11px] text-brand-muted mt-1">You dial the workspace number; we bridge the lead.</p>
         </div>
-        <p class="mt-2 text-[11px] text-brand-muted leading-snug hidden peer-checked:block">Tap Call in AdHello — SignalWire rings your personal cell. Answer and press 1 to dial the lead. Save the workspace DID as a contact and turn off DND / spam filter if the phone never rings.</p>
+        <p class="mt-2 text-[11px] text-brand-muted leading-snug hidden peer-checked:block">Tap Call in AdHello, then dial the workspace DID from your personal cell. We connect the lead on that call. This avoids carrier spam filters that block SignalWire from ringing you.</p>
       </label>
       <label class="relative flex flex-col cursor-pointer min-h-0">
         <input type="radio" name="wsCallMode" value="browser_device" class="peer sr-only" <%= _callMode === 'browser_device' ? 'checked' : '' %> />
@@ -90,12 +90,12 @@
       <p class="text-[10px] font-black uppercase tracking-widest text-amber-900 dark:text-amber-200 mb-1">How agent first works</p>
       <ol class="text-[11px] text-amber-950/90 dark:text-amber-100/85 leading-relaxed list-decimal pl-4 space-y-1">
         <li>In AdHello, tap <strong>Call</strong> on a lead.</li>
-        <li>Your <strong>cell</strong> rings from the workspace number — answer it.</li>
-        <li>Press <strong>1</strong> to confirm, then we dial the lead on the same call.</li>
-        <li>If Test SMS arrives but Test ring never shows in Recents: the number is correct — your carrier is screening VoIP voice from the workspace DID. Turn off Scam Shield / Call Filter / Silence Unknown Callers for<% if (_activeFrom) { %> <strong><%= _activeFrom %></strong><% } else { %> the workspace number<% } %>, or switch Call routing to <strong>My device dialer</strong>.</li>
+        <li>From your <strong>cell</strong>, dial the workspace number<% if (_activeFrom) { %> (<strong><%= _activeFrom %></strong>)<% } %>.</li>
+        <li>We bridge the lead on that call (caller ID is the workspace DID).</li>
+        <li>Use <strong>Test dial-in</strong> first — you should hear “Ad Hello dial in works.”</li>
       </ol>
       <div class="mt-2 flex flex-wrap items-center gap-2">
-        <button type="button" id="wsAgentTestRingBtn" class="rounded-xl border border-brand-yellow/60 bg-brand-yellow/15 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/25 transition-colors">Test ring my phone</button>
+        <button type="button" id="wsAgentTestRingBtn" class="rounded-xl border border-brand-yellow/60 bg-brand-yellow/15 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/25 transition-colors">Test dial-in</button>
         <button type="button" id="wsAgentTestSmsBtn" class="rounded-xl border border-brand-border/50 dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:bg-brand-cream/40 dark:hover:bg-slate-800 transition-colors">Test SMS</button>
         <p id="wsAgentTestRingMsg" class="text-[11px] text-brand-muted min-h-[1rem] w-full"></p>
       </div>

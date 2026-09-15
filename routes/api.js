@@ -815,7 +815,21 @@ router.all('/telephony/voice/inbound', async (req, res) => {
       // Fallback: any pending dial-in for this DID (agent From may be withheld / spoofed)
       session = agentSessionStore.findPendingDialInByDid(to, '');
     }
-    if (!session || !session.dialTo) {
+    if (!session) {
+      return res.type('text/xml').send(
+        `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="${xmlEscape(voiceName)}" language="${xmlEscape(voiceLang)}">No lead is waiting. Open Ad Hello, tap Call, then dial this number again.</Say><Hangup/></Response>`,
+      );
+    }
+
+    if (session.testDialIn) {
+      const workspaceId = String(session.workspaceId || '').trim();
+      if (workspaceId) agentSessionStore.removeSession(workspaceId);
+      return res.type('text/xml').send(
+        `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="${xmlEscape(voiceName)}" language="${xmlEscape(voiceLang)}">Ad Hello dial in works. When you tap Call on a lead, dial this same number from your cell and we will connect the lead.</Say><Hangup/></Response>`,
+      );
+    }
+
+    if (!session.dialTo) {
       return res.type('text/xml').send(
         `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="${xmlEscape(voiceName)}" language="${xmlEscape(voiceLang)}">No lead is waiting. Open Ad Hello, tap Call, then dial this number again.</Say><Hangup/></Response>`,
       );
