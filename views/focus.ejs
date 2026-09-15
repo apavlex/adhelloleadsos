@@ -427,6 +427,21 @@
           <button type="button" id="focus-btn-sms" class="btn-pill border-2 border-emerald-500/60 bg-emerald-500/15 text-emerald-900 dark:text-emerald-200 w-full px-4 py-3.5 text-xs font-black uppercase tracking-widest hover:bg-emerald-500/25 transition-colors min-h-[3rem]" title="Open or close SMS composer">SMS</button>
           <button type="button" id="focus-btn-push-ghl" class="btn-pill border-2 border-orange-500/60 bg-orange-500/15 text-orange-900 dark:text-orange-200 w-full px-4 py-3.5 text-xs font-black uppercase tracking-widest hover:bg-orange-500/25 transition-colors min-h-[3rem]" title="Save disposition, notes, and follow-up — then sync to Go High Level">Sync GHL</button>
         </div>
+        <% if (_isAgencySalesWorkspace) { %>
+        <div id="focus-bulk-ghl-section" class="rounded-xl border border-orange-500/30 dark:border-orange-500/25 bg-orange-500/5 dark:bg-orange-950/20 p-3 space-y-2.5">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <p class="text-[10px] font-black uppercase tracking-widest text-orange-900/80 dark:text-orange-200">Bulk GHL · this Focus queue</p>
+            <span id="focus-bulk-ghl-count" class="text-[10px] font-semibold text-brand-muted tabular-nums">0 leads</span>
+          </div>
+          <button type="button" id="focus-btn-sync-all-ghl" class="btn-pill w-full border-2 border-orange-500/60 bg-orange-500/15 text-orange-900 dark:text-orange-200 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-orange-500/25 transition-colors" title="Sync every lead in this Focus queue to GHL with Focus Mode + date tags">Sync all leads to GHL</button>
+          <div class="flex flex-col sm:flex-row gap-2">
+            <input type="text" id="focus-bulk-ghl-tag" maxlength="64" placeholder="Custom tag (e.g. Sept Blitz)" class="flex-1 rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-brand-dark dark:text-white" />
+            <button type="button" id="focus-btn-tag-sync-all-ghl" class="btn-pill shrink-0 border-2 border-brand-dark/20 dark:border-white/20 bg-white dark:bg-slate-900 text-brand-dark dark:text-white px-4 py-2.5 text-[10px] font-black uppercase tracking-widest hover:border-orange-500/50 transition-colors" title="Apply this tag to every Focus queue lead, then sync all to GHL">Tag &amp; sync all</button>
+          </div>
+          <p class="text-[10px] text-brand-muted leading-snug">Custom tag is applied in AdHello and pushed to GHL with <strong>Focus Mode</strong> + today’s date.</p>
+          <p id="focus-bulk-ghl-status" class="text-[11px] text-brand-muted min-h-[1rem]" aria-live="polite"></p>
+        </div>
+        <% } %>
         <div id="focus-quick-log-section">
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Quick log</p>
           <div class="flex flex-wrap gap-2" id="focus-quick-log-row">
@@ -629,6 +644,11 @@
     var btnPushGhl = document.getElementById('focus-btn-push-ghl');
     var btnSyncListGhl = document.getElementById('focus-btn-sync-list-ghl');
     var elSyncListStatus = document.getElementById('focus-sync-list-status');
+    var btnSyncAllGhl = document.getElementById('focus-btn-sync-all-ghl');
+    var btnTagSyncAllGhl = document.getElementById('focus-btn-tag-sync-all-ghl');
+    var elBulkGhlTag = document.getElementById('focus-bulk-ghl-tag');
+    var elBulkGhlStatus = document.getElementById('focus-bulk-ghl-status');
+    var elBulkGhlCount = document.getElementById('focus-bulk-ghl-count');
     var btnLog = document.getElementById('focus-btn-log');
     var btnSkip = document.getElementById('focus-btn-skip');
     var btnBack = document.getElementById('focus-btn-back');
@@ -1946,16 +1966,88 @@
         .filter(Boolean);
     }
 
-    function setFocusSyncListStatus(msg, isError) {
-      if (!elSyncListStatus) return;
-      elSyncListStatus.textContent = msg || '';
-      elSyncListStatus.classList.toggle('text-rose-600', !!isError);
-      elSyncListStatus.classList.toggle('dark:text-rose-400', !!isError);
-      elSyncListStatus.classList.toggle('text-emerald-700', !isError && !!msg);
-      elSyncListStatus.classList.toggle('dark:text-emerald-300', !isError && !!msg);
+    function updateFocusBulkGhlCount() {
+      var n = focusQueueLeadKeys().length;
+      if (elBulkGhlCount) elBulkGhlCount.textContent = n + ' lead' + (n === 1 ? '' : 's');
     }
 
-    function pushFocusListToGhl() {
+    function setFocusSyncListStatus(msg, isError) {
+      [elSyncListStatus, elBulkGhlStatus].forEach(function (el) {
+        if (!el) return;
+        el.textContent = msg || '';
+        el.classList.toggle('text-rose-600', !!isError);
+        el.classList.toggle('dark:text-rose-400', !!isError);
+        el.classList.toggle('text-emerald-700', !isError && !!msg);
+        el.classList.toggle('dark:text-emerald-300', !isError && !!msg);
+      });
+    }
+
+    function setFocusBulkGhlBusy(busy, label) {
+      var buttons = [btnSyncListGhl, btnSyncAllGhl, btnTagSyncAllGhl];
+      buttons.forEach(function (btn) {
+        if (!btn) return;
+        btn.disabled = !!busy;
+      });
+      if (busy) {
+        if (btnSyncListGhl) btnSyncListGhl.textContent = label || 'Syncing…';
+        if (btnSyncAllGhl) btnSyncAllGhl.textContent = label || 'Syncing…';
+        if (btnTagSyncAllGhl) btnTagSyncAllGhl.textContent = 'Working…';
+      } else {
+        if (btnSyncListGhl) btnSyncListGhl.textContent = 'Sync list to GHL';
+        if (btnSyncAllGhl) btnSyncAllGhl.textContent = 'Sync all leads to GHL';
+        if (btnTagSyncAllGhl) btnTagSyncAllGhl.textContent = 'Tag & sync all';
+      }
+    }
+
+    function ensureFocusWorkspaceTag(name) {
+      var want = String(name || '').trim();
+      if (!want) return Promise.reject(new Error('Enter a custom tag name.'));
+      var existing = Array.isArray(window.WORKSPACE_TAGS) ? window.WORKSPACE_TAGS : [];
+      var hit = existing.find(function (t) {
+        return t && String(t.name || '').trim().toLowerCase() === want.toLowerCase();
+      });
+      if (hit && hit.key) return Promise.resolve(hit);
+      return fetch('/tags', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ name: want }),
+      }).then(function (r) {
+        return r.json().then(function (j) {
+          if (!r.ok || !(j && j.tag && j.tag.key)) {
+            throw new Error((j && j.error) || 'Could not create tag.');
+          }
+          if (!Array.isArray(window.WORKSPACE_TAGS)) window.WORKSPACE_TAGS = [];
+          window.WORKSPACE_TAGS.push({
+            key: j.tag.key,
+            name: j.tag.name || want,
+            color: j.tag.color || '#94a3b8',
+            isActive: true,
+          });
+          return j.tag;
+        });
+      });
+    }
+
+    function assignFocusTagToQueue(tagKey, leadKeys) {
+      return fetch('/tags/assign-bulk', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ mode: 'add', tagKeys: [tagKey], leadKeys: leadKeys }),
+      }).then(function (r) {
+        return r.json().then(function (j) {
+          if (!r.ok || !j.success) throw new Error((j && j.error) || 'Could not assign tag.');
+          return j;
+        });
+      });
+    }
+
+    function pushFocusListToGhl(opts) {
+      opts = opts || {};
+      var customTags = Array.isArray(opts.extraTagNames)
+        ? opts.extraTagNames.map(function (t) { return String(t || '').trim(); }).filter(Boolean)
+        : [];
       var keys = focusQueueLeadKeys();
       if (!keys.length) {
         setFocusSyncListStatus('No leads in this Focus queue.', true);
@@ -1966,12 +2058,12 @@
         return Promise.resolve();
       }
       window.__focusListGhlInFlight = true;
-      var labelDefault = 'Sync list to GHL';
-      if (btnSyncListGhl) {
-        btnSyncListGhl.disabled = true;
-        btnSyncListGhl.textContent = 'Syncing ' + keys.length + '…';
-      }
-      setFocusSyncListStatus('Syncing ' + keys.length + ' leads — tagging Focus Mode + today…', false);
+      var busyLabel = 'Syncing ' + keys.length + '…';
+      setFocusBulkGhlBusy(true, busyLabel);
+      var tagNote = customTags.length
+        ? customTags.join(', ') + ' + Focus Mode + today'
+        : 'Focus Mode + today';
+      setFocusSyncListStatus('Syncing ' + keys.length + ' leads — ' + tagNote + '…', false);
       setOutcomeFeedback('Syncing Focus list to GHL…', false);
 
       var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
@@ -1991,6 +2083,7 @@
           focusMode: true,
           source: 'focus',
           limit: keys.length,
+          extraTagNames: customTags,
         }),
         signal: controller ? controller.signal : undefined,
       })
@@ -2013,14 +2106,17 @@
           }
           var pushed = data.pushed != null ? data.pushed : 0;
           var failed = data.failed != null ? data.failed : 0;
-          var tags = Array.isArray(data.focusTagsApplied) && data.focusTagsApplied.length
-            ? data.focusTagsApplied.join(', ')
-            : 'Focus Mode + date';
-          var msg = 'List synced · ' + pushed + ' pushed' + (failed ? ' · ' + failed + ' failed' : '') + ' · ' + tags;
+          var tags = customTags.slice();
+          if (Array.isArray(data.focusTagsApplied)) {
+            data.focusTagsApplied.forEach(function (t) {
+              if (tags.indexOf(t) < 0) tags.push(t);
+            });
+          }
+          if (!tags.length) tags = ['Focus Mode + date'];
+          var msg = 'List synced · ' + pushed + ' pushed' + (failed ? ' · ' + failed + ' failed' : '') + ' · ' + tags.join(', ');
           setFocusSyncListStatus(msg, failed > 0);
           setOutcomeFeedback(msg, failed > 0);
           setCopyFeedback(msg, failed > 0);
-          if (btnSyncListGhl) btnSyncListGhl.textContent = failed ? 'Synced with errors' : '✓ List synced';
           return data;
         })
         .catch(function (err) {
@@ -2030,18 +2126,42 @@
           setFocusSyncListStatus(errMsg, true);
           setOutcomeFeedback(errMsg, true);
           setCopyFeedback(errMsg, true);
-          if (btnSyncListGhl) btnSyncListGhl.textContent = 'Failed';
           throw err;
         })
         .finally(function () {
           if (abortTimer) clearTimeout(abortTimer);
           window.__focusListGhlInFlight = false;
-          if (btnSyncListGhl) {
-            btnSyncListGhl.disabled = false;
-            setTimeout(function () {
-              if (btnSyncListGhl) btnSyncListGhl.textContent = labelDefault;
-            }, 1800);
-          }
+          setFocusBulkGhlBusy(false);
+        });
+    }
+
+    function tagAndSyncFocusListToGhl() {
+      var tagName = elBulkGhlTag ? String(elBulkGhlTag.value || '').trim() : '';
+      if (!tagName) {
+        setFocusSyncListStatus('Enter a custom tag name first.', true);
+        if (elBulkGhlTag) elBulkGhlTag.focus();
+        return Promise.resolve();
+      }
+      var keys = focusQueueLeadKeys();
+      if (!keys.length) {
+        setFocusSyncListStatus('No leads in this Focus queue.', true);
+        return Promise.resolve();
+      }
+      setFocusBulkGhlBusy(true, 'Tagging…');
+      setFocusSyncListStatus('Applying “' + tagName + '” to ' + keys.length + ' leads…', false);
+      return ensureFocusWorkspaceTag(tagName)
+        .then(function (tag) {
+          return assignFocusTagToQueue(tag.key, keys).then(function () { return tag; });
+        })
+        .then(function (tag) {
+          setFocusSyncListStatus('Tag applied — syncing to GHL…', false);
+          return pushFocusListToGhl({ extraTagNames: [tag.name || tagName] });
+        })
+        .catch(function (err) {
+          var msg = err && err.message ? err.message : 'Tag & sync failed.';
+          setFocusSyncListStatus(msg, true);
+          setOutcomeFeedback(msg, true);
+          setFocusBulkGhlBusy(false);
         });
     }
 
@@ -3789,6 +3909,7 @@
         barWrap.setAttribute('aria-valuenow', String(current));
         barWrap.setAttribute('aria-valuemax', String(total));
       }
+      updateFocusBulkGhlCount();
     }
 
     function refreshMetrics() {
@@ -4257,6 +4378,33 @@
         pushFocusListToGhl();
       });
     }
+    if (btnSyncAllGhl) {
+      btnSyncAllGhl.addEventListener('click', function (e) {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        pushFocusListToGhl();
+      });
+    }
+    if (btnTagSyncAllGhl) {
+      btnTagSyncAllGhl.addEventListener('click', function (e) {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        tagAndSyncFocusListToGhl();
+      });
+    }
+    if (elBulkGhlTag) {
+      elBulkGhlTag.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          tagAndSyncFocusListToGhl();
+        }
+      });
+    }
+    updateFocusBulkGhlCount();
     document.addEventListener(
       'click',
       function (e) {

@@ -127,7 +127,7 @@ router.post('/push', express.json(), async (req, res, next) => {
     }
     return res.json({
       success: true,
-      focusTagsApplied: focusMode ? ghlClient.focusModeSyncTags() : [],
+      focusTagsApplied: extraTagNames,
       ...result,
     });
   } catch (e) {
