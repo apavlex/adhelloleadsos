@@ -2559,8 +2559,8 @@
     }
     if (spAgentRingHint) {
       spAgentRingHint.textContent = missing
-        ? 'Agent first rings your personal cell first. Workspace numbers (like 971) are caller ID only — set Your mobile below or in Settings.'
-        : 'We call this cell first from your workspace number. Answer and press 1 to dial the lead. Turn off DND / spam filter if it never rings.';
+        ? 'Agent first needs your personal cell on file. Workspace numbers are caller ID only — set Your mobile below.'
+        : 'After Call, dial the workspace number from this cell — we bridge the lead. Carriers often block SignalWire from ringing you.';
     }
     if (spAgentRingFixBtn) {
       spAgentRingFixBtn.classList.toggle('hidden', !missing);
@@ -2690,7 +2690,7 @@
     if (modeNow === 'agent_first') {
       summary.className = 'mt-2 text-[10px] font-semibold leading-snug text-emerald-700 dark:text-emerald-300';
       summary.textContent =
-        'Agent first does not need in-tab audio. JWT / WebRTC warnings above only matter for Cloud dial — your cell should ring instead.';
+        'Agent first does not need in-tab audio. After Call, dial the workspace number from your cell — we bridge the lead.';
     } else if (payload.readyForInTabAudio) {
       summary.className = 'mt-2 text-[10px] font-semibold leading-snug text-emerald-700 dark:text-emerald-300';
       summary.textContent = 'Ready for in-tab call audio. Place a call — status should say “Connecting via browser audio”.';
