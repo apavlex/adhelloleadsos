@@ -1484,59 +1484,17 @@ router.post('/:key/call', async (req, res, next) => {
         });
       }
 
-      // Session mode: if a live agent session is active, queue this lead instead of re-ringing
-      let existingSession = agentSessionStore.getSession(req.workspaceId);
-      if (existingSession) {
-        let sessionLive = false;
-        if (existingSession.callSid && signalwire.configured()) {
-          try {
-            const liveCall = await signalwire.getCall(existingSession.callSid);
-            const liveStatus = signalwire.normalizeCallStatus(liveCall);
-            sessionLive = !!liveStatus && !signalwire.isTerminalCallStatus(liveStatus);
-          } catch (_) {
-            sessionLive = false;
-          }
-        }
-        // Stale dial-in pending sessions should not block outbound ring-first
-        if (
-          !sessionLive ||
-          (existingSession.mode === 'dial_in' && existingSession.status === 'pending_dial_in')
-        ) {
-          agentSessionStore.removeSession(req.workspaceId);
-          existingSession = null;
+      // Always place a fresh agent ring. Stale sessions previously queued dials
+      // without calling the cell again (UI stuck on INITIATED / never rang).
+      const prior = agentSessionStore.getSession(req.workspaceId);
+      if (prior && prior.callSid) {
+        try {
+          await signalwire.completeCall(prior.callSid);
+        } catch (_) {
+          /* ignore — next create still proceeds */
         }
       }
-      if (existingSession) {
-        const queued = agentSessionStore.queueNextLead(req.workspaceId, fullKey);
-        if (queued) {
-          const updates = appendLeadUpdate(lead, {
-            type: 'call_queued',
-            value: `Queued for active calling session (${lead.phone || 'unknown number'}).`,
-            provider: 'signalwire',
-          });
-          const updatedLead = await dbService.updateLead(fullKey, {
-            status: 'Queued for Call',
-            updates,
-            logs: [
-              {
-                type: 'call_queued',
-                message: `Queued for continuous calling session`,
-                timestamp: new Date().toISOString(),
-              },
-            ],
-          });
-          return res.json({
-            success: true,
-            dialMode: 'agent_first',
-            sessionActive: true,
-            queued: true,
-            callSid: existingSession.callSid || null,
-            agentPhone: resolveAgentFirstNumber(ws) || null,
-            lead: updatedLead,
-          });
-        }
-        return res.status(400).json({ success: false, error: 'Failed to queue lead in active session.' });
-      }
+      agentSessionStore.removeSession(req.workspaceId);
     }
 
     const telephony = ws && ws.telephony && typeof ws.telephony === 'object' ? ws.telephony : {};
@@ -2154,6 +2112,24 @@ router.post('/telephony/dial', async (req, res, next) => {
     const fromResolved = await signalwire.resolveOutboundFromNumber(fromCandidate);
     const fromNumber = fromResolved.from;
     const resolveMs = Date.now() - dialStartedAt;
+
+    // Agent-first: always start a fresh PSTN ring. A stale in-memory session
+    // (or abandoned INITIATED call) previously blocked re-rings / confused status.
+    if (useAgent && action === 'call') {
+      const prior = agentSessionStore.getSession(req.workspaceId);
+      if (prior && prior.callSid) {
+        try {
+          await signalwire.completeCall(prior.callSid);
+        } catch (hangPriorErr) {
+          console.warn(
+            '[POST /leads/telephony/dial] prior agent hangup:',
+            hangPriorErr && hangPriorErr.message ? hangPriorErr.message : hangPriorErr,
+          );
+        }
+      }
+      agentSessionStore.removeSession(req.workspaceId);
+    }
+
     const call = await signalwire.createLeadCall({
       to,
       leadKey: fullLeadKey,
@@ -2170,21 +2146,14 @@ router.post('/telephony/dial', async (req, res, next) => {
     const createMs = Date.now() - dialStartedAt - resolveMs;
 
     if (useAgent && action === 'call' && call.sid) {
-      // Drop stale dial-in pending shells so outbound ring-first can start cleanly
-      const existing = agentSessionStore.getSession(req.workspaceId);
-      if (existing && existing.mode === 'dial_in' && existing.status === 'pending_dial_in') {
-        agentSessionStore.removeSession(req.workspaceId);
-      }
-      if (!agentSessionStore.getSession(req.workspaceId)) {
-        agentSessionStore.createSession(req.workspaceId, {
-          callSid: call.sid,
-          agentTo: resolveAgentFirstNumber(ws),
-          from: fromNumber,
-          queuedLeadKeys: [],
-          currentLeadKey: fullLeadKey || '',
-          dialTo: to,
-        });
-      }
+      agentSessionStore.createSession(req.workspaceId, {
+        callSid: call.sid,
+        agentTo: resolveAgentFirstNumber(ws),
+        from: fromNumber,
+        queuedLeadKeys: [],
+        currentLeadKey: fullLeadKey || '',
+        dialTo: to,
+      });
     }
 
     // Answer the softphone immediately — pacing + lead logs can be slow on large workspaces
@@ -2196,11 +2165,16 @@ router.post('/telephony/dial', async (req, res, next) => {
       action,
       callerId: leadCallerId || fromNumber || fromPick.from,
       agentPhone: useAgent ? resolveAgentFirstNumber(ws) || null : null,
+      fromNumber: fromNumber || null,
+      to: useAgent ? resolveAgentFirstNumber(ws) || to : to,
       lead: leadForDial && action === 'call' ? leadForDial : undefined,
     });
     console.log(
-      '[POST /leads/telephony/dial] ok sid=%s resolveMs=%s createMs=%s totalMs=%s',
+      '[POST /leads/telephony/dial] ok sid=%s mode=%s from=%s agentTo=%s resolveMs=%s createMs=%s totalMs=%s',
       call.sid || '',
+      useAgent ? 'agent_first' : 'cloud_dial',
+      fromNumber || '',
+      useAgent ? resolveAgentFirstNumber(ws) || '' : '',
       resolveMs,
       createMs,
       Date.now() - dialStartedAt,

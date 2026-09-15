@@ -747,6 +747,8 @@ async function createLeadCall(opts) {
     StatusCallbackMethod: 'POST',
     // Twilio-compatible: send one form field per event (not a single space-separated value).
     StatusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
+    // Fail the agent ring instead of sitting forever at "initiated".
+    Timeout: agentFirst ? '40' : '60',
   };
 
   if (action === 'voicemail_drop' && !agentFirst) {
