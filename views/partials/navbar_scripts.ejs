@@ -1096,16 +1096,19 @@
   }
 
   function softphoneSoundcheckMicConstraints() {
+    // Prefer exact device when set. Keep AGC on; skip heavy noise suppression so the meter moves.
+    var base = {
+      echoCancellation: true,
+      noiseSuppression: false,
+      autoGainControl: true,
+    };
     if (!spPreferredMicId) {
-      return { audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } };
+      return { audio: base };
     }
     return {
-      audio: {
-        deviceId: { ideal: spPreferredMicId },
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-      },
+      audio: Object.assign({}, base, {
+        deviceId: { exact: spPreferredMicId },
+      }),
     };
   }
 
@@ -1173,13 +1176,24 @@
   }
 
   function runSoftphoneMicLevelTest(durationMs) {
-    durationMs = Math.max(1500, parseInt(durationMs, 10) || 3500);
+    durationMs = Math.max(2500, parseInt(durationMs, 10) || 4500);
     if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
       return Promise.reject(new Error('This browser does not support microphone access.'));
     }
     if (spMicLevelWrap) spMicLevelWrap.classList.remove('hidden');
     setSoftphoneMicLevelUi(0, 'Listening…');
-    return navigator.mediaDevices.getUserMedia(softphoneSoundcheckMicConstraints()).then(function (stream) {
+    function openMicStream() {
+      return navigator.mediaDevices.getUserMedia(softphoneSoundcheckMicConstraints()).catch(function (err) {
+        // exact deviceId can fail if the device list refreshed — fall back to default mic.
+        if (spPreferredMicId) {
+          return navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: true },
+          });
+        }
+        throw err;
+      });
+    }
+    return openMicStream().then(function (stream) {
       if (softphoneSoundcheckState.cancel) {
         stream.getTracks().forEach(function (track) {
           try { track.stop(); } catch (_) {}
@@ -1187,47 +1201,61 @@
         return { maxLevel: 0, heard: false, cancelled: true };
       }
       softphoneSoundcheckState.stream = stream;
+      var liveTrack = stream.getAudioTracks()[0];
+      if (liveTrack && liveTrack.enabled === false) {
+        try { liveTrack.enabled = true; } catch (_) {}
+      }
       var AudioCtx = window.AudioContext || window.webkitAudioContext;
       var ctx = new AudioCtx();
       softphoneSoundcheckState.audioCtx = ctx;
-      var src = ctx.createMediaStreamSource(stream);
-      var analyser = ctx.createAnalyser();
-      analyser.fftSize = 512;
-      analyser.smoothingTimeConstant = 0.35;
-      src.connect(analyser);
-      var data = new Uint8Array(analyser.frequencyBinCount);
-      var maxLevel = 0;
-      var started = Date.now();
-      return new Promise(function (resolve) {
-        function tick() {
-          if (softphoneSoundcheckState.cancel) {
+      var resumeP =
+        ctx.state === 'suspended' && typeof ctx.resume === 'function'
+          ? ctx.resume().catch(function () {})
+          : Promise.resolve();
+      return resumeP.then(function () {
+        var src = ctx.createMediaStreamSource(stream);
+        var analyser = ctx.createAnalyser();
+        analyser.fftSize = 2048;
+        analyser.smoothingTimeConstant = 0.2;
+        src.connect(analyser);
+        var data = new Uint8Array(analyser.fftSize);
+        var maxLevel = 0;
+        var started = Date.now();
+        return new Promise(function (resolve) {
+          function tick() {
+            if (softphoneSoundcheckState.cancel) {
+              stream.getTracks().forEach(function (track) {
+                try { track.stop(); } catch (_) {}
+              });
+              try { ctx.close(); } catch (_) {}
+              resolve({ maxLevel: maxLevel, heard: maxLevel > 0.035, cancelled: true });
+              return;
+            }
+            // Time-domain peak — more reliable than averaged FFT bins for speech.
+            analyser.getByteTimeDomainData(data);
+            var peak = 0;
+            for (var i = 0; i < data.length; i++) {
+              var amp = Math.abs(data[i] - 128) / 128;
+              if (amp > peak) peak = amp;
+            }
+            var level = peak;
+            if (level > maxLevel) maxLevel = level;
+            var label = level > 0.45 ? 'Strong' : level > 0.12 ? 'Good' : level > 0.035 ? 'Quiet' : 'Silent';
+            setSoftphoneMicLevelUi(level, label);
+            if (Date.now() - started < durationMs) {
+              softphoneSoundcheckState.raf = requestAnimationFrame(tick);
+              return;
+            }
             stream.getTracks().forEach(function (track) {
               try { track.stop(); } catch (_) {}
             });
+            softphoneSoundcheckState.stream = null;
             try { ctx.close(); } catch (_) {}
-            resolve({ maxLevel: maxLevel, heard: maxLevel > 0.06, cancelled: true });
-            return;
+            if (softphoneSoundcheckState.audioCtx === ctx) softphoneSoundcheckState.audioCtx = null;
+            resolve({ maxLevel: maxLevel, heard: maxLevel > 0.035 });
           }
-          analyser.getByteFrequencyData(data);
-          var sum = 0;
-          for (var i = 0; i < data.length; i++) sum += data[i];
-          var level = sum / data.length / 255;
-          if (level > maxLevel) maxLevel = level;
-          var label = level > 0.45 ? 'Strong' : level > 0.12 ? 'Good' : level > 0.04 ? 'Quiet' : 'Silent';
-          setSoftphoneMicLevelUi(level, label);
-          if (Date.now() - started < durationMs) {
-            softphoneSoundcheckState.raf = requestAnimationFrame(tick);
-            return;
-          }
-          stream.getTracks().forEach(function (track) {
-            try { track.stop(); } catch (_) {}
-          });
-          softphoneSoundcheckState.stream = null;
-          try { ctx.close(); } catch (_) {}
-          if (softphoneSoundcheckState.audioCtx === ctx) softphoneSoundcheckState.audioCtx = null;
-          resolve({ maxLevel: maxLevel, heard: maxLevel > 0.06 });
-        }
-        tick();
+          tick();
+        });
       });
     });
   }
@@ -2638,6 +2666,7 @@
     list.innerHTML = '';
     (payload.checks || []).forEach(function (check) {
       var li = document.createElement('li');
+      li.setAttribute('data-webrtc-ok', check.ok ? '1' : '0');
       li.className = check.ok ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-700 dark:text-amber-300';
       li.textContent = (check.ok ? '✓ ' : '• ') + check.label + ' — ' + (check.detail || '');
       list.appendChild(li);
@@ -2662,20 +2691,46 @@
       ).replace(/^Call routing:\s*/i, '');
     }
   }
+  var softphoneWebrtcDiagAbort = null;
+  var softphoneWebrtcDiagInflight = null;
+  var softphoneWebrtcDiagSeq = 0;
   function refreshSoftphoneWebrtcDiagnostics() {
     var fromPick = spFrom && spFrom.value ? String(spFrom.value) : '';
     var q = '/leads/telephony/webrtc-diagnostics';
     if (fromPick) q += '?fromNumber=' + encodeURIComponent(fromPick);
+    if (softphoneWebrtcDiagInflight && softphoneWebrtcDiagInflight.q === q) {
+      return softphoneWebrtcDiagInflight.promise;
+    }
+    if (softphoneWebrtcDiagAbort) {
+      try {
+        softphoneWebrtcDiagAbort.abort('superseded');
+      } catch (_) {}
+    }
+    var mySeq = ++softphoneWebrtcDiagSeq;
     var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    softphoneWebrtcDiagAbort = controller;
     var abortTimer = null;
     if (controller) {
       abortTimer = setTimeout(function () {
-        try { controller.abort(); } catch (_) {}
-      }, 12000);
+        try {
+          if (typeof controller.abort === 'function') {
+            try {
+              controller.abort(new DOMException('Diagnostics timed out', 'TimeoutError'));
+            } catch (_) {
+              controller.abort();
+            }
+          }
+        } catch (_) {}
+      }, 18000);
     }
-    return fetch(q, {
+    var listEl = document.getElementById('softphoneWebrtcChecklist');
+    if (listEl && mySeq === softphoneWebrtcDiagSeq && !listEl.querySelector('[data-webrtc-ok]')) {
+      listEl.innerHTML = '<li class="text-slate-500 dark:text-slate-400">Checking WebRTC…</li>';
+    }
+    var promise = fetch(q, {
       headers: { Accept: 'application/json' },
       signal: controller ? controller.signal : undefined,
+      credentials: 'same-origin',
     })
       .then(function (r) {
         return r
@@ -2688,6 +2743,7 @@
           });
       })
       .then(function (res) {
+        if (mySeq !== softphoneWebrtcDiagSeq) return null;
         if (!res.ok || !res.j || !res.j.success) {
           throw new Error((res.j && res.j.error) || 'Diagnostics unavailable');
         }
@@ -2695,6 +2751,15 @@
         return res.j;
       })
       .catch(function (err) {
+        if (mySeq !== softphoneWebrtcDiagSeq) return null;
+        var msg = err && err.message ? String(err.message) : '';
+        if (/superseded/i.test(msg)) return null;
+        if (
+          (err && (err.name === 'AbortError' || err.name === 'TimeoutError')) ||
+          /aborted|timeout/i.test(msg)
+        ) {
+          msg = 'Timed out talking to the server. Hard-refresh after Render finishes deploying, then reopen Settings.';
+        }
         var wrap = document.getElementById('softphoneWebrtcDiagnostics');
         var list = document.getElementById('softphoneWebrtcChecklist');
         var summary = document.getElementById('softphoneWebrtcDiagSummary');
@@ -2702,7 +2767,7 @@
         if (list) {
           list.innerHTML =
             '<li class="text-rose-600 dark:text-rose-400">Could not load WebRTC diagnostics' +
-            (err && err.message ? ' — ' + String(err.message).slice(0, 160) : '') +
+            (msg ? ' — ' + msg.slice(0, 160) : '') +
             '</li>';
         }
         if (summary) {
@@ -2710,10 +2775,17 @@
           summary.textContent =
             'Diagnostics failed. Hard-refresh, or use Call routing → Agent first to ring your mobile instead of browser audio.';
         }
+        return null;
       })
       .finally(function () {
         if (abortTimer) clearTimeout(abortTimer);
+        if (softphoneWebrtcDiagInflight && softphoneWebrtcDiagInflight.seq === mySeq) {
+          softphoneWebrtcDiagInflight = null;
+        }
+        if (softphoneWebrtcDiagAbort === controller) softphoneWebrtcDiagAbort = null;
       });
+    softphoneWebrtcDiagInflight = { q: q, promise: promise, seq: mySeq };
+    return promise;
   }
   function updateSoftphoneCallModeUi() {
     if (spCallModeSelect) spCallModeSelect.value = spWorkspaceCallMode || 'cloud_dial';
@@ -4915,8 +4987,9 @@
             }
           }
           updateSoftphoneAgentRingLine();
-          refreshSoftphoneWebrtcDiagnostics();
           refreshSoftphoneCallOptions().then(function () {
+            refreshSoftphoneWebrtcDiagnostics();
+          }).catch(function () {
             refreshSoftphoneWebrtcDiagnostics();
           });
         })

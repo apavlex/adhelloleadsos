@@ -1775,6 +1775,7 @@ router.get('/telephony/call-options', async (req, res, next) => {
 });
 
 // GET /leads/telephony/webrtc-diagnostics — checklist for in-tab WebRTC audio
+// Keep this endpoint fast: client aborts ~12–15s; never await a full 12s SignalWire list here.
 router.get('/telephony/webrtc-diagnostics', async (req, res) => {
   try {
     const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
@@ -1787,15 +1788,29 @@ router.get('/telephony/webrtc-diagnostics', async (req, res) => {
       signalwire.normalizePhone(cfg.callerId || cfg.fromNumber) ||
       '';
 
-    let swNumbers = { numbers: [], error: null };
+    let swNumbers = { numbers: [], error: null, skippedLive: false };
     try {
       const cached = signalwire.getCachedIncomingPhoneNumbers
         ? signalwire.getCachedIncomingPhoneNumbers()
         : null;
       if (cached && Array.isArray(cached.numbers)) {
         swNumbers = cached;
-      } else {
-        swNumbers = await signalwire.listIncomingPhoneNumbers();
+      } else if (typeof signalwire.listIncomingPhoneNumbers === 'function') {
+        // Soft timeout — diagnostics must not wait on a cold IncomingPhoneNumbers fetch.
+        swNumbers = await Promise.race([
+          signalwire.listIncomingPhoneNumbers(),
+          new Promise((resolve) =>
+            setTimeout(
+              () =>
+                resolve({
+                  numbers: [],
+                  error: null,
+                  skippedLive: true,
+                }),
+              2500,
+            ),
+          ),
+        ]);
       }
     } catch (listErr) {
       swNumbers = {
@@ -1805,7 +1820,8 @@ router.get('/telephony/webrtc-diagnostics', async (req, res) => {
     }
 
     const owned = new Set((swNumbers.numbers || []).map((n) => n.phoneNumber).filter(Boolean));
-    const callerInBank = !owned.size || (activeFrom && owned.has(activeFrom));
+    const bankUnknown = !!(swNumbers.skippedLive && !owned.size);
+    const callerInBank = bankUnknown || !owned.size || (activeFrom && owned.has(activeFrom));
 
     let jwtProbe = { ok: false, error: 'Server cannot mint Relay JWT yet.' };
     try {
@@ -1813,9 +1829,14 @@ router.get('/telephony/webrtc-diagnostics', async (req, res) => {
         jwtProbe = await Promise.race([
           signalwire.probeRelayJwtMint(),
           new Promise((resolve) =>
-            setTimeout(() => resolve({ ok: false, error: 'JWT mint probe timed out' }), 8000),
+            setTimeout(() => resolve({ ok: false, error: 'JWT mint probe timed out (4s)' }), 4000),
           ),
         ]);
+      } else if (!base.relayCanMint) {
+        jwtProbe = {
+          ok: false,
+          error: 'Set SIGNALWIRE_SPACE_URL (+ project/token) on Render for browser WebRTC.',
+        };
       }
     } catch (probeErr) {
       jwtProbe = {
@@ -1825,7 +1846,13 @@ router.get('/telephony/webrtc-diagnostics', async (req, res) => {
     }
 
     const modeOk = callMode === 'cloud_dial';
-    const readyForInTabAudio = !!(modeOk && base.relayCanMint && jwtProbe.ok && activeFrom && callerInBank);
+    const readyForInTabAudio = !!(
+      modeOk &&
+      base.relayCanMint &&
+      jwtProbe.ok &&
+      activeFrom &&
+      (bankUnknown || callerInBank)
+    );
     const checks = [
       {
         key: 'space_url',
@@ -1852,9 +1879,11 @@ router.get('/telephony/webrtc-diagnostics', async (req, res) => {
         key: 'caller_in_bank',
         label: 'Caller ID in phone bank',
         ok: callerInBank,
-        detail: callerInBank
-          ? activeFrom || 'OK'
-          : `${activeFrom || 'Selected number'} is not in this SignalWire project`,
+        detail: bankUnknown
+          ? `${activeFrom || 'Selected number'} — phone bank check deferred (list slow); retry in a moment`
+          : callerInBank
+            ? activeFrom || 'OK'
+            : `${activeFrom || 'Selected number'} is not in this SignalWire project`,
       },
       {
         key: 'call_mode',
