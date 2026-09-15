@@ -31,6 +31,15 @@ describe('ghlClient synced date tags', () => {
     assert.equal(syncedDateTagFor(new Date('2026-06-25T12:00:00.000Z')), 'AO: Synced 2026-06-25');
   });
 
+  it('focusModeSyncTags includes Focus Mode and date', () => {
+    const { focusModeSyncTags } = require('../services/ghlClient');
+    assert.deepEqual(focusModeSyncTags(new Date('2026-09-14T18:00:00.000Z')), [
+      'Focus Mode',
+      'Focus Mode 2026-09-14',
+      'AO: Synced 2026-09-14',
+    ]);
+  });
+
   it('isSyncedDateTag recognizes AO synced tags', () => {
     assert.equal(isSyncedDateTag('AO: Synced 2026-06-25'), true);
     assert.equal(isSyncedDateTag('AO: Prospected'), false);

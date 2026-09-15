@@ -428,6 +428,9 @@ async function pushLeads(opts) {
   leads = leads.slice(0, limit);
 
   const tagNoWebsite = opts.tagNoWebsite === true;
+  const extraTagNames = Array.isArray(opts.extraTagNames)
+    ? opts.extraTagNames.map((t) => String(t || '').trim()).filter(Boolean)
+    : [];
   const results = [];
   for (const lead of leads) {
     try {
@@ -439,6 +442,12 @@ async function pushLeads(opts) {
         leadForPush = {
           ...leadForPush,
           ghlTagNamesForPush: mergeTagLists(leadForPush.ghlTagNamesForPush, [GHL_TAG_NO_WEBSITE]),
+        };
+      }
+      if (extraTagNames.length) {
+        leadForPush = {
+          ...leadForPush,
+          ghlExtraTagNames: mergeTagLists(leadForPush.ghlExtraTagNames, extraTagNames),
         };
       }
       // eslint-disable-next-line no-await-in-loop

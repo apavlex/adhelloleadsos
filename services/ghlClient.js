@@ -41,6 +41,13 @@ function syncedDateTagFor(date = new Date()) {
   return `AO: Synced ${d.toISOString().slice(0, 10)}`;
 }
 
+/** Tags applied when syncing from Focus Mode (list or single lead). */
+function focusModeSyncTags(date = new Date()) {
+  const d = date instanceof Date && !Number.isNaN(date.getTime()) ? date : new Date();
+  const day = d.toISOString().slice(0, 10);
+  return ['Focus Mode', `Focus Mode ${day}`, syncedDateTagFor(d)];
+}
+
 function isSyncedDateTag(tag) {
   return /^ao:\s*synced\s+\d{4}-\d{2}-\d{2}$/i.test(String(tag || '').trim());
 }
@@ -642,6 +649,7 @@ module.exports = {
   removeTagsFromContact,
   syncContactTags,
   syncedDateTagFor,
+  focusModeSyncTags,
   isSyncedDateTag,
   getContact,
   searchContactByEmailOrPhone,

@@ -71,6 +71,23 @@ router.post('/push', express.json(), async (req, res, next) => {
     const dispositionNotes = String(body.dispositionNotes || body.notes || '').trim();
     const pendingNote = String(body.pendingNote || body.syncNote || '').trim();
     const leadKeys = Array.isArray(body.leadKeys) ? body.leadKeys : [];
+    let extraTagNames = Array.isArray(body.extraTagNames)
+      ? body.extraTagNames.map((t) => String(t || '').trim()).filter(Boolean)
+      : [];
+    const focusMode =
+      body.focusMode === true ||
+      body.focusMode === '1' ||
+      String(body.source || '').trim().toLowerCase() === 'focus';
+    if (focusMode) {
+      const focusTags = ghlClient.focusModeSyncTags();
+      const seen = new Set(extraTagNames.map((t) => t.toLowerCase()));
+      focusTags.forEach((t) => {
+        if (!seen.has(String(t).toLowerCase())) {
+          extraTagNames.push(t);
+          seen.add(String(t).toLowerCase());
+        }
+      });
+    }
     if (disposition && leadKeys.length) {
       for (const leadKey of leadKeys) {
         // eslint-disable-next-line no-await-in-loop
@@ -97,6 +114,7 @@ router.post('/push', express.json(), async (req, res, next) => {
       leadKeys: body.leadKeys,
       limit: body.limit,
       tagNoWebsite: body.tagNoWebsite === true || body.tagNoWebsite === '1',
+      extraTagNames,
     });
     const requested = Array.isArray(body.leadKeys) ? body.leadKeys.filter(Boolean).length : 0;
     if (requested > 0 && result.pushed === 0) {
@@ -107,7 +125,11 @@ router.post('/push', express.json(), async (req, res, next) => {
         ...result,
       });
     }
-    return res.json({ success: true, ...result });
+    return res.json({
+      success: true,
+      focusTagsApplied: focusMode ? ghlClient.focusModeSyncTags() : [],
+      ...result,
+    });
   } catch (e) {
     next(e);
   }
