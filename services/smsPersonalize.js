@@ -105,7 +105,10 @@ Rules:
   const parsed = parseLlmJson(ai.content);
   const personalized = String((parsed && parsed.message) || '').trim();
   if (!personalized) {
-    throw new Error('AI did not return a message.');
+    return {
+      message: fallbackPersonalizedMessage(base, snapshot).slice(0, 480),
+      provider: 'fallback',
+    };
   }
 
   return {

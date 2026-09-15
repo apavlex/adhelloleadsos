@@ -2337,28 +2337,50 @@
       }
       if (composeOpen) setFocusSmsComposeStatus('Improving text…');
       else setCopyFeedback('Improving text…');
-      fetch('/leads/' + encodeURIComponent(lead.key) + '/sms-personalize', {
+      var improveUrl = '/leads/' + encodeURIComponent(focusLeadKeyParam(lead) || lead.key) + '/sms-personalize';
+      fetch(improveUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify({ scriptText: draft, context: 'outreach' }),
       })
         .then(function (r) {
-          return r.json().then(function (j) {
-            if (!r.ok || !j.success) throw new Error((j && j.error) || 'Could not improve text.');
+          return r.text().then(function (raw) {
+            var j = null;
+            try {
+              j = raw ? JSON.parse(raw) : null;
+            } catch (_) {
+              j = null;
+            }
+            if (!j) {
+              var looksHtml = /^\s*</.test(String(raw || ''));
+              throw new Error(
+                looksHtml
+                  ? 'Improve text failed (server returned a page instead of JSON — often a timeout). Try again, or edit the SMS manually.'
+                  : 'Improve text failed (invalid server response).',
+              );
+            }
+            if (!r.ok || !j.success) throw new Error(j.error || 'Could not improve text.');
             return j;
           });
         })
         .then(function (data) {
           if (data.personalized) {
-            if (targetingSms && elSmsComposeInput) elSmsComposeInput.value = data.personalized;
-            else {
+            if (targetingSms && elSmsComposeInput) {
+              elSmsComposeInput.value = data.personalized;
+              syncFocusSmsComposeCount();
+              autogrowFocusSmsCompose();
+            } else {
               setFocusBodyHtml(data.personalized);
               markFocusScriptDirty();
             }
           }
           if (composeOpen) {
-            syncFocusSmsComposeCount();
-            setFocusSmsComposeStatus('Text improved — review and tap Send SMS when ready.');
+            setFocusSmsComposeStatus(
+              data.provider === 'fallback'
+                ? 'Polished locally (AI unavailable). Review and tap Send SMS.'
+                : 'Text improved — review and tap Send SMS when ready.',
+            );
           } else {
             setCopyFeedback('Text improved — review the script, then Call, SMS, or Save.');
           }

@@ -3324,10 +3324,9 @@ router.post('/:key/email-personalize', async (req, res, next) => {
 });
 
 // POST /leads/:key/sms-personalize — AI personalize selected script for lead
-router.post('/:key/sms-personalize', async (req, res, next) => {
+router.post('/:key/sms-personalize', express.json({ limit: '32kb' }), async (req, res) => {
   try {
-    const key = req.params.key;
-    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+    const fullKey = leadKeyFromParam(req.params.key);
     const lead = await dbService.getLead(fullKey);
     if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
 
@@ -3337,22 +3336,43 @@ router.post('/:key/sms-personalize', async (req, res, next) => {
     }
 
     const context = String((req.body && req.body.context) || '').trim().toLowerCase();
-    const result = await smsPersonalize.personalizeSmsForLead(lead, scriptText, {
-      context: context === 'cadence' ? 'cadence' : 'outreach',
-    });
+    let result;
+    try {
+      result = await Promise.race([
+        smsPersonalize.personalizeSmsForLead(lead, scriptText, {
+          context: context === 'cadence' ? 'cadence' : 'outreach',
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Improve text timed out')), 14000),
+        ),
+      ]);
+    } catch (aiErr) {
+      console.warn(
+        '[POST /leads/:key/sms-personalize] AI failed, using local polish:',
+        aiErr && aiErr.message ? aiErr.message : aiErr,
+      );
+      result = {
+        message: scriptText.slice(0, 480),
+        provider: 'fallback',
+      };
+    }
     const ws = await dbService.getWorkspace(req.workspaceId);
     const profile = resolveScriptSignOffProfile({ user: req.user, workspace: ws });
-    const personalized = fillScriptPlaceholders(result.message, {
+    const personalized = fillScriptPlaceholders(result.message || scriptText, {
       sender: profile,
       prospect: { name: lead.contactName, company: lead.title, city: lead.city },
     });
     return res.json({
       success: true,
-      personalized,
-      provider: result.provider,
+      personalized: String(personalized || scriptText).trim().slice(0, 480),
+      provider: result.provider || 'unknown',
     });
   } catch (err) {
-    next(err);
+    console.error('[POST /leads/:key/sms-personalize]', err && err.message ? err.message : err);
+    return res.status(500).json({
+      success: false,
+      error: (err && err.message) || 'Could not improve text.',
+    });
   }
 });
 

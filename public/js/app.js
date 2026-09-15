@@ -13705,12 +13705,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/sms-personalize`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      credentials: 'same-origin',
       body: JSON.stringify({
         scriptText,
         context: context || 'outreach',
       }),
     });
-    const data = await res.json().catch(() => ({}));
+    const raw = await res.text();
+    let data = {};
+    try {
+      data = raw ? JSON.parse(raw) : {};
+    } catch (_) {
+      if (/^\s*</.test(String(raw || ''))) {
+        throw new Error(
+          'Improve text failed (server returned a page — often a timeout). Try again, or edit manually.',
+        );
+      }
+      throw new Error('Improve text failed (invalid server response).');
+    }
     if (!res.ok || !data.success) {
       throw new Error((data && data.error) || 'Could not personalize SMS.');
     }
