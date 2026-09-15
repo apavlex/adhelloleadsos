@@ -1654,16 +1654,16 @@ router.post('/telephony/test-agent-ring', express.json(), async (req, res, next)
       message = 'SignalWire did not return a call id.';
     } else if (status === 'ringing') {
       message =
-        `SignalWire reports RINGING to ${toUsed} from ${fromUsed}. If Recents shows nothing: this may not be the active line on this phone — use Test SMS, or have a friend call ${toUsed}.`;
+        `SignalWire reports RINGING to ${toUsed} from ${fromUsed}. If Recents shows nothing while SMS works: carrier Scam Shield / Call Filter is silencing VoIP voice — turn it off for ${fromUsed}, or switch Call routing to My device dialer.`;
     } else if (status === 'in-progress' || status === 'inprogress' || status === 'answered') {
       if (machineAnswered) {
         ok = false;
         message =
-          `Voicemail / carrier screening answered (${answeredBy}) — your handset never took the call. Save ${fromUsed} as a contact, disable spam filters, then Test SMS to confirm ${toUsed} is this phone.`;
+          `Carrier voicemail/screening answered (${answeredBy}) — SMS can still work while voice from this VoIP DID is auto-answered. Disable Scam Shield / Call Filter / Silence Unknown Callers for ${fromUsed}, or use Call routing → My device dialer.`;
       } else {
         ok = false;
         message =
-          `SignalWire connected ${fromUsed} → ${toUsed} (status in-progress${answeredBy ? `, answered_by=${answeredBy}` : ''}) but if you heard no ring and Recents is empty, this number is likely wrong, forwarded, or a different SIM. Use Test SMS — if the text does not arrive, fix Your mobile.`;
+          `SignalWire connected ${fromUsed} → ${toUsed} (in-progress${answeredBy ? `, answered_by=${answeredBy}` : ''}) with no ring on your phone. Because Test SMS works, the number is correct — your carrier is answering/screening VoIP voice from ${fromUsed} before the handset. Turn off carrier spam voice filter, or switch to My device dialer / Cloud dial.`;
       }
     } else if (status === 'no-answer' || status === 'noanswer' || status === 'busy') {
       ok = false;
@@ -1769,7 +1769,7 @@ router.post('/telephony/test-agent-sms', express.json(), async (req, res, next) 
       messageSid: sid,
       to: agentTo,
       from: fromWanted,
-      message: `SMS sent to ${agentTo} from ${fromWanted}. If it does not arrive within a minute, that mobile number is wrong or blocked — fix Your mobile.`,
+      message: `SMS delivered path OK to ${agentTo} from ${fromWanted}. If Test ring still never shows in Recents, carriers often allow SMS but auto-answer VoIP voice — disable Scam Shield / Call Filter / Silence Unknown Callers for ${fromWanted}, or switch Call routing to My device dialer.`,
     });
   } catch (err) {
     next(err);
