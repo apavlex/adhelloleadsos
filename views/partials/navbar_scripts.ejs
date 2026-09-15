@@ -2560,7 +2560,7 @@
     if (spAgentRingHint) {
       spAgentRingHint.textContent = missing
         ? 'Agent first rings your personal cell first. Workspace numbers (like 971) are caller ID only — set Your mobile below or in Settings.'
-        : 'We call this cell first from your workspace number. Answer — we dial the lead automatically. Turn off Silence Unknown Callers if it never rings.';
+        : 'We call this cell first from your workspace number. Answer and press 1 to dial the lead. Turn off DND / spam filter if it never rings.';
     }
     if (spAgentRingFixBtn) {
       spAgentRingFixBtn.classList.toggle('hidden', !missing);
@@ -2638,7 +2638,7 @@
       return 'Call routing: Cloud (SignalWire) — the server places the call. No in-tab audio until WebRTC is configured (Workspace phone bank + SIGNALWIRE_SPACE_URL on the server).';
     }
     if (m === 'agent_first') {
-      return 'Call routing: Agent first — we ring your mobile first; answer and we dial the lead.';
+      return 'Call routing: Agent first — we ring your mobile first; answer and press 1 to dial the lead.';
     }
     if (m === 'browser_device') {
       return 'Call routing: My device dialer — Call opens your system phone / headset app (audio on the device).';
@@ -3223,7 +3223,7 @@
               st +
               ') on ' +
               agentLabel +
-              '. Answer when it rings — we dial the lead automatically. Quick log is optional below, or tap Call / next lead.',
+              '. Answer when it rings and press 1 to dial the lead. Quick log is optional below, or tap Call / next lead.',
             st === 'failed' || st === 'busy' || st === 'no-answer',
           );
         } else {
@@ -3252,9 +3252,10 @@
           String(softphoneSession.dialMode || spWorkspaceCallMode || '').trim() || 'cloud_dial';
         if (connectedMode === 'agent_first') {
           softphoneSetStatus(
-            'Your phone answered — dialing the lead now. If you did not pick up, voicemail may have answered (Silence Unknown Callers). Hang up and try again after disabling that.',
+            'Your phone answered — press 1 to dial the lead. If you did not pick up, voicemail may have answered (DND / spam filter). Hang up and try again after disabling that.',
           );
-          // Do not mark wasInCall yet — wait until we have a sustained live leg
+          // Keep a watchdog while waiting for press-1 — clearing it left UI stuck on IN-PROGRESS.
+          softphoneStartMasterDialWatchdog(45000);
           if (!softphoneSession.startedAtMs) softphoneSession.startedAtMs = Date.now();
           var agentLiveSec = Math.max(
             0,
@@ -3264,11 +3265,14 @@
             var dSec = parseInt(durationStr, 10);
             if (!isNaN(dSec)) agentLiveSec = Math.max(agentLiveSec, dSec);
           }
-          if (agentLiveSec >= 25) {
-            softphoneSetCallState('in_call');
-          } else {
-            softphoneSetCallState('dialing');
-            softphoneStartTimer();
+          // Stay on dialing until press-1 + lead connect (sustained live leg).
+          softphoneSetCallState('dialing');
+          softphoneStartTimer();
+          if (agentLiveSec >= 40) {
+            softphoneForceAbortDial(
+              'Still IN-PROGRESS with no press 1 — likely voicemail answered. Hang up forced. Answer the ring and press 1, or turn off spam filter / Silence Unknown Callers.',
+              { isError: true },
+            );
           }
           return;
         } else {
@@ -3293,7 +3297,7 @@
           softphoneSetStatus(
             'Ringing ' +
               agentRingLabel +
-              ' from your workspace number — answer it and we dial the lead. No audio in this tab. If it never rings: turn off DND / spam blocking, save the workspace number as a contact, then use Settings → Test ring.',
+              ' from your workspace number — answer and press 1 to dial the lead. No audio in this tab. If it never rings: turn off DND / spam blocking, save the workspace number as a contact, then use Settings → Test ring.',
           );
         } else {
           softphoneSetStatus('Cloud leg is ringing the contact. There is no sound in this tab — the call is on the PSTN.');
@@ -4059,7 +4063,7 @@
           softphoneSetStatus(
             'Ringing you first on ' +
               ringLabel +
-              ' — answer that call and we dial the lead. Audio is on your phone; this tab is only a remote. If it stays on INITIATED with no ring: Settings → Test ring, turn off DND/spam filter, save the workspace number as a contact.',
+              ' — answer and press 1 to dial the lead. Audio is on your phone; this tab is only a remote. If it stays on INITIATED with no ring: Settings → Test ring, turn off DND/spam filter, save the workspace number as a contact.',
           );
         } else {
           softphoneSetStatus(
