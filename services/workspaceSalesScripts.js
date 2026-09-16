@@ -2,7 +2,7 @@
  * Workspace-scoped sales scripts: offer catalog, reach scripts, merged libraries.
  */
 
-const { mergeScriptLibrary, SCRIPT_SECTIONS } = require('./salesScriptsStorage');
+const { mergeScriptLibrary, ALL_SCRIPT_SECTIONS, clampSectionText } = require('./salesScriptsStorage');
 
 const MAX_OFFER_KEY_LEN = 64;
 const MAX_LABEL_LEN = 120;
@@ -61,7 +61,7 @@ function resolveWorkspaceOfferCatalog(ws, baseLib) {
 
 function emptyOfferBlock(entry) {
   const block = { label: entry.label, tabLabel: entry.tabLabel || entry.label };
-  for (const sec of SCRIPT_SECTIONS) block[sec] = '';
+  for (const sec of ALL_SCRIPT_SECTIONS) block[sec] = '';
   return block;
 }
 
@@ -141,11 +141,9 @@ function sanitizeBlockOverridesForCatalog(input, catalogKeys) {
     const row = src[k];
     if (!row || typeof row !== 'object') continue;
     const block = {};
-    for (const sec of SCRIPT_SECTIONS) {
+    for (const sec of ALL_SCRIPT_SECTIONS) {
       if (!Object.prototype.hasOwnProperty.call(row, sec)) continue;
-      let s = row[sec] == null ? '' : String(row[sec]);
-      if (s.length > MAX_REACH_TEXT) s = s.slice(0, MAX_REACH_TEXT);
-      block[sec] = s;
+      block[sec] = clampSectionText(sec, row[sec]);
     }
     if (Object.keys(block).length) out[k] = block;
   }

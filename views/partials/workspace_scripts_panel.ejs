@@ -133,7 +133,9 @@
       valueProp: 'Value proposition',
       objectionHandling: 'Objection handling',
       close: 'Close',
+      sms: 'SMS',
     };
+    var SMS_SEGMENT_LEN = 160;
     var serviceLabels = <%- JSON.stringify(typeof scriptServiceLabels !== 'undefined' ? scriptServiceLabels : {}) %>;
     var libraryItems = <%- JSON.stringify(typeof initialScriptLibraryItems !== 'undefined' && initialScriptLibraryItems ? initialScriptLibraryItems : []) %>;
     var offerCatalog = <%- JSON.stringify(typeof offerCatalog !== 'undefined' && offerCatalog ? offerCatalog : []) %>;
@@ -272,6 +274,82 @@
       );
     }
 
+    function smsCharCountText(value) {
+      var n = String(value || '').length;
+      if (n <= SMS_SEGMENT_LEN) return n + ' chars';
+      return n + ' chars · ' + Math.ceil(n / SMS_SEGMENT_LEN) + ' segments';
+    }
+
+    function updateSmsCharCount(ta) {
+      if (!ta) return;
+      var el = document.querySelector('.sms-char-count[data-snippet-id="' + ta.id + '"]');
+      if (el) el.textContent = smsCharCountText(ta.value);
+    }
+
+    function refreshAllSmsCharCounts() {
+      document.querySelectorAll('.script-sms-input').forEach(updateSmsCharCount);
+    }
+
+    function scriptActionButtonsHtml(key, section) {
+      var k = escapeHtml(key);
+      var sid = 'snippet-' + k + '-' + section;
+      return (
+        '<div class="flex flex-wrap gap-2 justify-end"><button type="button" class="use-in-coach px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-brand-dark text-white dark:bg-white dark:text-slate-900 border border-transparent hover:opacity-90 transition-opacity" data-pitch="' +
+        k +
+        '" data-section="' +
+        section +
+        '">Coach</button><button type="button" class="save-to-library px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-brand-muted hover:text-brand-dark dark:hover:text-white border border-brand-border/60 dark:border-white/10 hover:border-brand-yellow/50 transition-colors" data-snippet="' +
+        sid +
+        '">Save</button><button type="button" class="copy-snippet px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-brand-muted hover:text-brand-dark dark:hover:text-white border border-brand-border/60 dark:border-white/10 hover:border-brand-yellow/50 transition-colors" data-copy-target="' +
+        sid +
+        '">Copy</button></div>'
+      );
+    }
+
+    function callScriptBlockHtml(entry, text) {
+      var k = escapeHtml(entry.key);
+      var sid = 'snippet-' + k + '-opening';
+      return (
+        '<div class="script-block rounded-2xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-black/10" data-service="' +
+        k +
+        '" data-section="opening"><div class="flex flex-wrap items-center justify-between gap-2 py-3 px-4 border-b border-brand-border/40 dark:border-white/10"><span class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">Call script</span><span class="script-autosave-status text-[10px] font-bold text-brand-muted tabular-nums shrink-0" data-snippet-id="' +
+        sid +
+        '">Saved</span></div><div class="px-4 pb-4 pt-3"><div class="flex flex-wrap gap-2 items-center justify-between mb-3"><div class="script-fmt-bar inline-flex items-center gap-0.5 rounded-lg border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-800 p-0.5" role="toolbar" aria-label="Text formatting"><button type="button" data-script-fmt="bold" title="Bold (⌘B)" class="w-8 h-8 rounded-md text-sm font-black text-brand-dark dark:text-white hover:bg-brand-yellow/30">B</button><button type="button" data-script-fmt="italic" title="Italic (⌘I)" class="w-8 h-8 rounded-md text-sm italic font-serif text-brand-dark dark:text-white hover:bg-brand-yellow/30">I</button><button type="button" data-script-fmt="underline" title="Underline (⌘U)" class="w-8 h-8 rounded-md text-sm underline font-bold text-brand-dark dark:text-white hover:bg-brand-yellow/30">U</button></div>' +
+        scriptActionButtonsHtml(entry.key, 'opening') +
+        '</div><div id="' +
+        sid +
+        '-rich" class="script-rich w-full text-sm leading-relaxed text-brand-dark dark:text-slate-200 bg-white dark:bg-slate-800/80 rounded-2xl p-4 border border-brand-border/50 dark:border-white/10 font-sans min-h-[12rem] focus:ring-2 focus:ring-brand-yellow focus:border-transparent outline-none whitespace-pre-wrap" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Call script"></div><textarea id="' +
+        sid +
+        '" rows="14" class="script-snippet sr-only" aria-hidden="true" tabindex="-1">' +
+        escapeHtml(text) +
+        '</textarea></div></div>'
+      );
+    }
+
+    function smsScriptBlockHtml(entry, text) {
+      var k = escapeHtml(entry.key);
+      var sid = 'snippet-' + k + '-sms';
+      return (
+        '<div class="script-block mt-4 rounded-2xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-black/10" data-service="' +
+        k +
+        '" data-section="sms"><div class="flex flex-wrap items-center justify-between gap-2 py-3 px-4 border-b border-brand-border/40 dark:border-white/10"><span class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">SMS script</span><span class="flex items-center gap-3 shrink-0"><span class="sms-char-count text-[10px] font-bold text-brand-muted tabular-nums" data-snippet-id="' +
+        sid +
+        '">' +
+        escapeHtml(smsCharCountText(text)) +
+        '</span><span class="script-autosave-status text-[10px] font-bold text-brand-muted tabular-nums" data-snippet-id="' +
+        sid +
+        '">Saved</span></span></div><div class="px-4 pb-4 pt-3"><div class="flex flex-wrap gap-2 items-center justify-end mb-3">' +
+        scriptActionButtonsHtml(entry.key, 'sms') +
+        '</div><textarea id="' +
+        sid +
+        '" rows="3" maxlength="1600" placeholder="Short text message — one or two sentences." class="script-snippet script-sms-input w-full text-sm leading-relaxed text-brand-dark dark:text-slate-200 bg-white dark:bg-slate-800/80 rounded-2xl p-4 border border-brand-border/50 dark:border-white/10 font-sans resize-y min-h-[5rem] focus:ring-2 focus:ring-brand-yellow focus:border-transparent outline-none" aria-label="SMS script">' +
+        escapeHtml(text) +
+        '</textarea><p class="mt-2 text-[10px] text-brand-muted leading-relaxed">This is the text body Focus mode and the lead panel offer when you send an SMS. Anything over ' +
+        SMS_SEGMENT_LEN +
+        ' characters bills as more than one segment.</p></div></div>'
+      );
+    }
+
     function renderOfferPanels(activeKey) {
       var host = document.getElementById('pitchPanelsHost');
       var tabs = document.getElementById('pitchTabs');
@@ -306,6 +384,7 @@
         .map(function (entry) {
           var block = offerLibrary[entry.key] || {};
           var text = composeBlockScriptFromObj(block);
+          var smsText = String(block.sms || '');
           var hidden = entry.key !== firstKey ? ' hidden' : '';
           return (
             '<div class="pitch-panel' +
@@ -318,23 +397,10 @@
             escapeHtml(entry.key) +
             '">Rename</button></div>' +
             outreachProfilePanelHtml(entry) +
-            '<div class="px-4 sm:px-6 pb-6"><div class="script-block rounded-2xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-black/10" data-service="' +
-            escapeHtml(entry.key) +
-            '" data-section="opening"><div class="flex flex-wrap items-center justify-between gap-2 py-3 px-4 border-b border-brand-border/40 dark:border-white/10"><span class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">Call script</span><span class="script-autosave-status text-[10px] font-bold text-brand-muted tabular-nums shrink-0" data-snippet-id="snippet-' +
-            escapeHtml(entry.key) +
-            '-opening">Saved</span></div><div class="px-4 pb-4 pt-3"><div class="flex flex-wrap gap-2 items-center justify-between mb-3"><div class="script-fmt-bar inline-flex items-center gap-0.5 rounded-lg border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-800 p-0.5" role="toolbar" aria-label="Text formatting"><button type="button" data-script-fmt="bold" title="Bold (⌘B)" class="w-8 h-8 rounded-md text-sm font-black text-brand-dark dark:text-white hover:bg-brand-yellow/30">B</button><button type="button" data-script-fmt="italic" title="Italic (⌘I)" class="w-8 h-8 rounded-md text-sm italic font-serif text-brand-dark dark:text-white hover:bg-brand-yellow/30">I</button><button type="button" data-script-fmt="underline" title="Underline (⌘U)" class="w-8 h-8 rounded-md text-sm underline font-bold text-brand-dark dark:text-white hover:bg-brand-yellow/30">U</button></div><div class="flex flex-wrap gap-2 justify-end"><button type="button" class="use-in-coach px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-brand-dark text-white dark:bg-white dark:text-slate-900 border border-transparent hover:opacity-90 transition-opacity" data-pitch="' +
-            escapeHtml(entry.key) +
-            '" data-section="opening">Coach</button><button type="button" class="save-to-library px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-brand-muted hover:text-brand-dark dark:hover:text-white border border-brand-border/60 dark:border-white/10 hover:border-brand-yellow/50 transition-colors" data-snippet="snippet-' +
-            escapeHtml(entry.key) +
-            '-opening">Save</button><button type="button" class="copy-snippet px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-brand-muted hover:text-brand-dark dark:hover:text-white border border-brand-border/60 dark:border-white/10 hover:border-brand-yellow/50 transition-colors" data-copy-target="snippet-' +
-            escapeHtml(entry.key) +
-            '-opening">Copy</button></div></div><div id="snippet-' +
-            escapeHtml(entry.key) +
-            '-opening-rich" class="script-rich w-full text-sm leading-relaxed text-brand-dark dark:text-slate-200 bg-white dark:bg-slate-800/80 rounded-2xl p-4 border border-brand-border/50 dark:border-white/10 font-sans min-h-[12rem] focus:ring-2 focus:ring-brand-yellow focus:border-transparent outline-none whitespace-pre-wrap" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Call script"></div><textarea id="snippet-' +
-            escapeHtml(entry.key) +
-            '-opening" rows="14" class="script-snippet sr-only" aria-hidden="true" tabindex="-1">' +
-            escapeHtml(text) +
-            '</textarea></div></div></div></div>'
+            '<div class="px-4 sm:px-6 pb-6">' +
+            callScriptBlockHtml(entry, text) +
+            smsScriptBlockHtml(entry, smsText) +
+            '</div></div>'
           );
         })
         .join('');
@@ -344,6 +410,7 @@
       coachFocus.pitch = firstKey;
       lastFocusedSnippetId = 'snippet-' + firstKey + '-opening';
       hydrateScriptEditors();
+      refreshAllSmsCharCounts();
       updateCoachLabel();
     }
 
@@ -449,7 +516,7 @@
             var sec = block ? block.getAttribute('data-section') : '';
             var text = (ta.value || '').trim();
             if (!text) return alert('Nothing to save.');
-            var title = (serviceLabels[sk] || sk) + ' · Script';
+            var title = (serviceLabels[sk] || sk) + ' · ' + (sectionLabels[sec] || 'Script');
             var orig = saveBtn.textContent;
             saveBtn.dataset.saving = '1';
             saveBtn.disabled = true;
@@ -507,6 +574,7 @@
           }
           if (!e.target.classList.contains('script-snippet')) return;
           lastFocusedSnippetId = e.target.id;
+          updateSmsCharCount(e.target);
           var st = statusElForSnippetId(e.target.id);
           if (st) st.textContent = 'Unsaved';
           scheduleBlocksPersist();
@@ -675,10 +743,10 @@
       var ta = document.getElementById(lastFocusedSnippetId);
       if (!ta) ta = snippetEl();
       if (ctx && ta && ta.id) {
-        var m = /^snippet-(.+)-opening$/.exec(ta.id);
+        var m = /^snippet-(.+)-(opening|sms)$/.exec(ta.id);
         if (m) {
           var sLab = serviceLabels[m[1]] || m[1];
-          ctx.textContent = '— ' + sLab;
+          ctx.textContent = '— ' + sLab + (m[2] === 'sms' ? ' · SMS' : '');
         }
       }
       if (!out) return;
@@ -725,17 +793,23 @@
         syncTextareaFromRich(rich);
       });
       var blocks = {};
+      function blockFor(key) {
+        if (!blocks[key]) {
+          blocks[key] = {
+            opening: '',
+            discovery: '',
+            valueProp: '',
+            objectionHandling: '',
+            close: '',
+            sms: '',
+          };
+        }
+        return blocks[key];
+      }
       document.querySelectorAll('.script-snippet').forEach(function (ta) {
-        var id = ta.id || '';
-        var m = /^snippet-(.+)-opening$/.exec(id);
+        var m = /^snippet-(.+)-(opening|sms)$/.exec(ta.id || '');
         if (!m) return;
-        blocks[m[1]] = {
-          opening: ta.value,
-          discovery: '',
-          valueProp: '',
-          objectionHandling: '',
-          close: '',
-        };
+        blockFor(m[1])[m[2]] = ta.value;
       });
       return blocks;
     }
@@ -836,9 +910,15 @@
         var sections = blockOverrides[serviceKey];
         if (!sections || typeof sections !== 'object') return;
         var ta = document.getElementById('snippet-' + serviceKey + '-opening');
-        if (!ta) return;
-        ta.value = composeOfferScriptFromSections(sections);
-        syncRichFromTextarea(ta);
+        if (ta) {
+          ta.value = composeOfferScriptFromSections(sections);
+          syncRichFromTextarea(ta);
+        }
+        var smsTa = document.getElementById('snippet-' + serviceKey + '-sms');
+        if (smsTa && Object.prototype.hasOwnProperty.call(sections, 'sms')) {
+          smsTa.value = String(sections.sms || '');
+          updateSmsCharCount(smsTa);
+        }
       });
     }
 
@@ -984,12 +1064,12 @@
     function openCoachForBlock(pitch, section) {
       coachFocus.pitch = pitch;
       coachFocus.section = section || 'opening';
-      lastFocusedSnippetId = 'snippet-' + pitch + '-opening';
+      lastFocusedSnippetId = 'snippet-' + pitch + '-' + coachFocus.section;
       activatePitchTab(pitch);
       updateCoachLabel();
       coachHistories[coachKey()] = [];
       clearCoachMessagesUi();
-      var ta = document.getElementById('snippet-' + pitch + '-opening');
+      var ta = document.getElementById(lastFocusedSnippetId);
       appendCoachScriptPreview(ta ? ta.value : '');
       hideRefined();
       var errEl = document.getElementById('coachError');
@@ -1022,6 +1102,7 @@
       if (ta) {
         ta.value = pendingRefined;
         syncRichFromTextarea(ta);
+        updateSmsCharCount(ta);
       }
       hideRefined();
       scheduleBlocksPersist();

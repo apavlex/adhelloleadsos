@@ -23,6 +23,7 @@ function scriptForChannel(serviceDef, channel) {
   const valueProp = String(def.valueProp || '').trim();
   const objection = String(def.objectionHandling || '').trim();
   const close = String(def.close || '').trim();
+  const sms = String(def.sms || '').trim();
 
   switch (String(channel || '').toLowerCase()) {
     case 'call': {
@@ -30,7 +31,7 @@ function scriptForChannel(serviceDef, channel) {
       return asChannelCopy(parts.join('\n\n'), 'call');
     }
     case 'text':
-      return asChannelCopy(opening || valueProp, 'text');
+      return asChannelCopy(sms || opening || valueProp, 'text');
     case 'voicemail':
       return asChannelCopy(opening || valueProp, 'voicemail');
     case 'email': {

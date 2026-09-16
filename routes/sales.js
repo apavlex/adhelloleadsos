@@ -344,13 +344,14 @@ router.get('/personas/:tab', (req, res) => {
   res.redirect(302, '/sales/personas/arms-reach');
 });
 
-const SCRIPT_SECTIONS = ['opening', 'discovery', 'valueProp', 'objectionHandling', 'close'];
+const SCRIPT_SECTIONS = ['opening', 'discovery', 'valueProp', 'objectionHandling', 'close', 'sms'];
 const SECTION_LABELS = {
   opening: 'Opening',
   discovery: 'Discovery',
   valueProp: 'Value proposition',
   objectionHandling: 'Objection handling',
   close: 'Close',
+  sms: 'SMS',
 };
 
 /** POST JSON: refine script via LLM (multi-turn optional). */
@@ -379,6 +380,10 @@ router.post('/scripts/refine', async (req, res, next) => {
 
     const meta = mergedLibrary[serviceKey] || SCRIPT_LIBRARY[serviceKey];
     const sectionLabel = SECTION_LABELS[section];
+    const channelRule =
+      section === 'sms'
+        ? '\n- This is an SMS: keep refinedScript under 320 characters, one paragraph, no subject line and no signature.'
+        : '';
 
     const trimmedHistory = history
       .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
@@ -390,7 +395,7 @@ router.post('/scripts/refine', async (req, res, next) => {
         role: 'system',
         content: `You are a sales script coach for an agency selling: ${meta.label}.
 
-The rep is editing the "${sectionLabel}" part of a call or email script. Preserve merge tags like {{name}}, {{city}}, {{company}} when they appear unless the user asks to change them.
+The rep is editing the "${sectionLabel}" part of a call, SMS, or email script. Preserve merge tags like {{name}}, {{city}}, {{company}} when they appear unless the user asks to change them.
 
 Respond with JSON only, no markdown:
 {"reply":"1-3 sentences: coaching, questions, or confirmation","refinedScript":null or "full replacement script text for this section only"}
@@ -398,7 +403,7 @@ Respond with JSON only, no markdown:
 Rules:
 - Put a complete rewritten script in refinedScript only when the user asked for a rewrite, new version, shorter/longer version, tone change, or similar. Otherwise refinedScript must be null.
 - Escape any double quotes inside refinedScript as \\" in the JSON string.
-- Keep refinedScript as plain prose the rep can paste — no bullet labels like "OPENING:" unless the user asked.`,
+- Keep refinedScript as plain prose the rep can paste — no bullet labels like "OPENING:" unless the user asked.${channelRule}`,
       },
     ];
 

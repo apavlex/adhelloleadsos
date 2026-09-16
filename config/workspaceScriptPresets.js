@@ -21,6 +21,7 @@ function blocksFromLibrary(keys) {
       valueProp: block.valueProp || '',
       objectionHandling: block.objectionHandling || '',
       close: block.close || '',
+      sms: block.sms || '',
     };
   }
   return { catalog, blockOverrides };
@@ -42,6 +43,7 @@ function makeOffer(key, label, tabLabel, vertical, script) {
       valueProp: text.valueProp || '',
       objectionHandling: text.objectionHandling || '',
       close: text.close || '',
+      sms: text.sms || '',
     },
   };
 }
@@ -82,6 +84,8 @@ const RETAIL_INSTALL = buildPresetOffers([
         "Totally fair — you don't want another vendor promising leads that never show. We start with one channel (usually missed-call text-back or a focused landing page) and measure booked estimates, not vanity clicks.",
       close:
         "I'd suggest a quick look at how you're capturing demand today and one pilot to improve estimate requests. If it doesn't move booked jobs in 30 days, we stop. Open to a 15-minute call this week?",
+      sms:
+        "Hi {{name}} — saw {{company}} in {{city}}. Are you booking in-home estimates every week, or mostly referrals? Happy to share one way flooring shops book more measures.",
     },
   },
   {
@@ -100,6 +104,8 @@ const RETAIL_INSTALL = buildPresetOffers([
         'Makes sense — refinish leads can be price-shoppers. We qualify budget and timeline upfront and only book visits that match your minimum job size.',
       close:
         "We could test a refinish-specific landing page plus automated follow-up for web inquiries. Low risk — you'll see quote volume before we expand. Worth a quick walkthrough?",
+      sms:
+        "Hi {{name}} — quick one for {{company}}: are you marketing refinish jobs in {{city}}, or are they mostly upsells? I have a simple way to make them a steady line.",
     },
   },
   {
@@ -118,6 +124,8 @@ const RETAIL_INSTALL = buildPresetOffers([
         "Commercial can feel like a long sales cycle. We focus on getting you in the bid stack for the right projects — not blasting every GC in the state.",
       close:
         "Happy to share how similar shops landed 2–3 GC relationships in 90 days. If it's not a fit, no hard feelings — want me to send a one-pager?",
+      sms:
+        "Hi {{name}} — is {{company}} chasing commercial flooring bids in {{city}} right now? Can send a one-pager on how shops get into the GC bid stack.",
     },
   },
   {
@@ -136,6 +144,8 @@ const RETAIL_INSTALL = buildPresetOffers([
         "You don't want a robot embarrassing the brand. We use your tone and hand off to humans on anything complex. Start with missed-call text-back only — measure speed-to-lead and booked conversations.",
       close:
         "14-day pilot: missed-call text-back plus one form source. If response time doesn't improve, we stop. Open to a 15-minute walkthrough?",
+      sms:
+        "Hi {{name}} — when a homeowner asks {{company}} for a quote while your crew is on site, how fast does someone reply? Most shops lose a third of inbound to slow follow-up.",
     },
   },
 ]);
@@ -157,6 +167,8 @@ const LOCAL_SERVICE = buildPresetOffers([
         "Fair — you've probably heard a lot of marketing pitches. We start with one measurable improvement tied to booked work, not a six-month contract.",
       close:
         "I'd suggest a 20-minute look at your current follow-up and one low-risk pilot. If it doesn't improve booked conversations, we part friends. Sound fair?",
+      sms:
+        "Hi {{name}} — found {{company}} in {{city}}. Is your pipeline mostly referrals, or are you driving new quote requests each week? Happy to share one low-risk idea.",
     },
   },
   {
@@ -175,6 +187,8 @@ const LOCAL_SERVICE = buildPresetOffers([
         'We keep human handoff on complex jobs and use your voice — start with one channel and measure booked outcomes.',
       close:
         '14-day pilot on missed-call text-back. If it does not pay for itself, we stop. Quick walkthrough?',
+      sms:
+        "Hi {{name}} — when a lead hits {{company}} after hours, how fast does someone reply? Most local pros lose a third of inbound to slow follow-up. Worth a quick look?",
     },
   },
 ]);
@@ -196,6 +210,8 @@ const SAAS = buildPresetOffers([
         'Budget cycles are real — we help you land a champion with a low-friction pilot and metrics they can take to finance.',
       close:
         "Open to a 20-minute discovery on your current funnel? I'll share one experiment you can run this week regardless.",
+      sms:
+        "Hi {{name}} — curious how {{company}} is acquiring new accounts today: outbound, inbound, or partners? Happy to share one funnel experiment you can run this week.",
     },
   },
 ]);
@@ -217,6 +233,8 @@ const ECOMMERCE_B2B = buildPresetOffers([
         'Long cycles are normal — we focus on staying top-of-mind without being pushy, and on making the first pilot order frictionless.',
       close:
         "Happy to send a sample workflow outline. If it resonates, we book 20 minutes to map it to your catalog. Fair?",
+      sms:
+        "Hi {{name}} — is {{company}} opening new wholesale or trade accounts this quarter? Can send a short outline of how suppliers shorten the path to a first pilot order.",
     },
   },
 ]);

@@ -3,8 +3,19 @@
  */
 
 const MAX_SECTION_LEN = 24_000;
+/** Two SMS segments plus room for merge-tag expansion. */
+const MAX_SMS_LEN = 1600;
 
 const SCRIPT_SECTIONS = ['opening', 'discovery', 'valueProp', 'objectionHandling', 'close'];
+/** Channel sections edited on their own, never folded into the composed call script. */
+const CHANNEL_SECTIONS = ['sms'];
+const ALL_SCRIPT_SECTIONS = [...SCRIPT_SECTIONS, ...CHANNEL_SECTIONS];
+
+function clampSectionText(section, raw) {
+  const s = raw == null ? '' : String(raw);
+  const max = section === 'sms' ? MAX_SMS_LEN : MAX_SECTION_LEN;
+  return s.length > max ? s.slice(0, max) : s;
+}
 
 function mergeScriptLibrary(base, overrides) {
   const o = overrides && typeof overrides === 'object' ? overrides : {};
@@ -13,7 +24,7 @@ function mergeScriptLibrary(base, overrides) {
     const block = base[k];
     const patch = o[k] && typeof o[k] === 'object' ? o[k] : {};
     const next = { ...block };
-    for (const sec of SCRIPT_SECTIONS) {
+    for (const sec of ALL_SCRIPT_SECTIONS) {
       if (Object.prototype.hasOwnProperty.call(patch, sec)) {
         const v = patch[sec];
         next[sec] = v == null ? '' : String(v);
@@ -33,11 +44,9 @@ function sanitizeBlockOverrides(input, allowedServiceKeys) {
     const row = src[k];
     if (!row || typeof row !== 'object') continue;
     const block = {};
-    for (const sec of SCRIPT_SECTIONS) {
+    for (const sec of ALL_SCRIPT_SECTIONS) {
       if (!Object.prototype.hasOwnProperty.call(row, sec)) continue;
-      let s = row[sec] == null ? '' : String(row[sec]);
-      if (s.length > MAX_SECTION_LEN) s = s.slice(0, MAX_SECTION_LEN);
-      block[sec] = s;
+      block[sec] = clampSectionText(sec, row[sec]);
     }
     if (Object.keys(block).length) out[k] = block;
   }
@@ -52,7 +61,7 @@ function normalizeLibraryItem(raw, allowedServiceKeys) {
   const serviceKey = raw.serviceKey != null ? String(raw.serviceKey).trim() : '';
   const section = raw.section != null ? String(raw.section).trim() : '';
   const sk = allow.has(serviceKey) ? serviceKey : '';
-  const sec = SCRIPT_SECTIONS.includes(section) ? section : '';
+  const sec = ALL_SCRIPT_SECTIONS.includes(section) ? section : '';
   return {
     id:
       raw.id != null && String(raw.id).trim()
@@ -184,6 +193,10 @@ function splitOfferScriptForSave(fullText) {
 
 module.exports = {
   SCRIPT_SECTIONS,
+  CHANNEL_SECTIONS,
+  ALL_SCRIPT_SECTIONS,
+  MAX_SMS_LEN,
+  clampSectionText,
   mergeScriptLibrary,
   sanitizeBlockOverrides,
   sanitizeLibraryItems,

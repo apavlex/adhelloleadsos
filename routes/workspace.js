@@ -31,6 +31,7 @@ const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConsta
 const salesScriptsStorage = require('../services/salesScriptsStorage');
 const workspaceSalesScripts = require('../services/workspaceSalesScripts');
 const workspaceScriptBootstrap = require('../services/workspaceScriptBootstrap');
+const { buildOutreachLibrary } = require('../services/outreachChannelScripts');
 const {
   ARMS_REACH_FACEBOOK_SEEDS,
   ARMS_REACH_REFERRAL_SEED,
@@ -1471,8 +1472,18 @@ function workspaceOfferBundle(ws) {
 router.get('/scripts/merged.json', async (req, res, next) => {
   try {
     const ws = await dbService.getWorkspace(req.workspaceId);
-    const { library } = workspaceOfferBundle(ws);
-    res.json({ success: true, library });
+    const { library, keys } = workspaceOfferBundle(ws);
+    // Channel copy rides along so SMS consumers get the per-offer SMS script, not the call script.
+    const channelLibrary = buildOutreachLibrary(library, keys);
+    const withChannels = {};
+    keys.forEach((key) => {
+      if (!library[key]) return;
+      withChannels[key] = {
+        ...library[key],
+        channels: (channelLibrary[key] && channelLibrary[key].channels) || {},
+      };
+    });
+    res.json({ success: true, library: withChannels });
   } catch (e) {
     next(e);
   }

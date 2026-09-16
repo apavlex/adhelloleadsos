@@ -79,6 +79,8 @@ const SCRIPT_LIBRARY = {
       "Totally fair. Most owners worry this becomes extra work or another tool to babysit. We keep it lightweight: we set the cadence, your team approves guardrails, and you only review exceptions. If it doesn't clearly improve review flow in 30 days, we stop.",
     close:
       "I'd suggest we start with a small pilot: we turn on requests + response playbooks for 30 days. If you don't see cleaner sentiment and more reviews, we part friends. Fair?",
+    sms:
+      "Hi {{name}} — saw your Google profile in {{city}}. Are you actively asking for reviews each month, or is it mostly organic? Happy to share a simple cadence that works.",
   },
   aiWebsites: {
     tabLabel: 'AI websites',
@@ -93,6 +95,8 @@ const SCRIPT_LIBRARY = {
       "I hear you. If your current site 'works,' we don't rip everything apart. We start with one high-intent page and tracking so you can see lift first. If conversion doesn't improve, you keep the assets and we're done.",
     close:
       "We can pre-build a focused landing experience for your top service and connect tracking. Low four figures to prove lift before we talk full site. Want to see a wireframe this week?",
+    sms:
+      "Hi {{name}} — quick one about {{company}}: is your site mostly a brochure, or is it built to convert calls and forms? Can send a wireframe for your top service.",
   },
   aiAutomation: {
     tabLabel: 'AI automation',
@@ -107,6 +111,8 @@ const SCRIPT_LIBRARY = {
       "Makes sense — automation can feel risky. We don't replace your team; we remove repetitive tasks and keep human approvals where needed. We start with one workflow tied to revenue, measure it, and only expand if it's clearly working.",
     close:
       "I'd start with a 2-week workflow audit plus one pilot automation tied to revenue (e.g. missed-call text-back or quote follow-up). If it doesn't save real time, we stop. Open to a 20-minute scoping call?",
+    sms:
+      "Hi {{name}} — how much of the week at {{company}} still goes to manual follow-ups and copying data between tools? {{city}} operators are clawing back 5–10 hours with light AI workflows.",
   },
   socialMedia: {
     tabLabel: 'Social media',
@@ -121,6 +127,8 @@ const SCRIPT_LIBRARY = {
       "Fair point — a lot of social plans are fluff. We tie content to offers and local demand, then report on conversations, calls, and leads. If it doesn't move pipeline metrics, we adjust fast or pause.",
     close:
       "We could run a 30-day pilot on one channel with a clear CTA (book / call / offer). You'll see the calendar and approvals before anything goes live. Want me to send two sample post themes for your niche?",
+    sms:
+      "Hi {{name}} — is social something {{company}} wants to own in-house, or would you rather offload consistent posting and replies? Can send two post themes for {{city}}.",
   },
   adManagement: {
     tabLabel: 'Ad management',
@@ -135,6 +143,8 @@ const SCRIPT_LIBRARY = {
       "You're right to ask — many ad accounts burn cash. We start with tracking and one controlled test, not a full overhaul. You get transparent weekly numbers and clear stop/go rules tied to cost per booked lead.",
     close:
       "I'd suggest a 14-day account review plus one new creative angle and conversion event fix. If we don't see a credible path to efficiency, we part friends. Worth a quick look at the account together?",
+    sms:
+      "Hi {{name}} — is {{company}} running Meta or Google ads in {{city}} today, or is pipeline mostly organic? Happy to do a quick account review before we talk spend.",
   },
   speedToLeadAgent: {
     tabLabel: 'Speed to lead',
@@ -149,6 +159,8 @@ const SCRIPT_LIBRARY = {
       "Totally fair — you do not want a robot embarrassing the brand. We use your tone, your FAQs, and clear handoff rules; humans take over on anything complex. We start with one channel (usually missed-call text-back), measure response time and booked conversations, and pause if it does not pay for itself.",
     close:
       "I'd suggest a 14-day pilot: we wire up instant text-back on missed calls plus one form source, and you get a simple dashboard showing speed-to-lead and booked outcomes. If response time does not improve and you do not see more conversations, we stop. Open to a 15-minute walkthrough?",
+    sms:
+      "Hi {{name}} — when a new lead reaches {{company}} after hours, how fast does someone reply? Most owners in {{city}} lose 30–40% of inbound to slow follow-up. Worth 15 minutes?",
   },
 };
 
