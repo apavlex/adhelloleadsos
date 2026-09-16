@@ -2054,78 +2054,116 @@
         return Promise.resolve();
       }
       window.__focusListGhlInFlight = true;
-      var busyLabel = 'Syncing ' + keys.length + '…';
-      setFocusBulkGhlBusy(true, busyLabel);
+      setFocusBulkGhlBusy(true, 'Syncing…');
       var tagNote = customTags.length
         ? customTags.join(', ') + ' + Focus Mode + today'
         : 'Focus Mode + today';
-      setFocusSyncListStatus('Syncing ' + keys.length + ' leads — ' + tagNote + '…', false);
-      setOutcomeFeedback('Syncing Focus list to GHL…', false);
+      // Batch so each request stays under Render’s ~30–100s proxy limit (each lead can take several GHL API calls).
+      var BATCH = 3;
+      var pushed = 0;
+      var failed = 0;
+      var lastTags = customTags.slice();
+      var firstError = '';
 
-      var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-      var abortTimer = null;
-      if (controller) {
-        abortTimer = setTimeout(function () {
-          try { controller.abort(); } catch (_) {}
-        }, Math.min(180000, 25000 + keys.length * 6000));
+      function pushBatch(batchKeys, doneCount) {
+        setFocusBulkGhlBusy(true, 'Syncing ' + Math.min(doneCount + batchKeys.length, keys.length) + '/' + keys.length);
+        setFocusSyncListStatus(
+          'Syncing ' + (doneCount + 1) + '–' + (doneCount + batchKeys.length) + ' of ' + keys.length + ' — ' + tagNote + '…',
+          false,
+        );
+        var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        var abortTimer = null;
+        if (controller) {
+          abortTimer = setTimeout(function () {
+            try { controller.abort(); } catch (_) {}
+          }, 90000);
+        }
+        return fetch('/ghl/push', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({
+            leadKeys: batchKeys,
+            focusMode: true,
+            source: 'focus',
+            limit: batchKeys.length,
+            extraTagNames: customTags,
+          }),
+          signal: controller ? controller.signal : undefined,
+        })
+          .then(function (r) {
+            return r.json().then(function (j) {
+              return { ok: r.ok, j: j };
+            }).catch(function () {
+              throw new Error('GHL sync returned an invalid response.');
+            });
+          })
+          .then(function (res) {
+            var data = res.j || {};
+            if (!res.ok || !data.success) {
+              var failedRow = (data.results || []).find(function (x) { return x && !x.ok; });
+              var detail =
+                (data && data.error) ||
+                (failedRow && failedRow.error) ||
+                'GHL list sync failed';
+              throw new Error(detail);
+            }
+            pushed += data.pushed != null ? data.pushed : 0;
+            failed += data.failed != null ? data.failed : 0;
+            if (Array.isArray(data.focusTagsApplied)) {
+              data.focusTagsApplied.forEach(function (t) {
+                if (lastTags.indexOf(t) < 0) lastTags.push(t);
+              });
+            }
+            return data;
+          })
+          .catch(function (err) {
+            if (err && err.name === 'AbortError') {
+              throw new Error('GHL batch timed out after syncing ' + pushed + ' of ' + keys.length + '. Tap Sync again to continue.');
+            }
+            throw err;
+          })
+          .finally(function () {
+            if (abortTimer) clearTimeout(abortTimer);
+          });
       }
 
-      return fetch('/ghl/push', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({
-          leadKeys: keys,
-          focusMode: true,
-          source: 'focus',
-          limit: keys.length,
-          extraTagNames: customTags,
-        }),
-        signal: controller ? controller.signal : undefined,
-      })
-        .then(function (r) {
-          return r.json().then(function (j) {
-            return { ok: r.ok, j: j };
-          }).catch(function () {
-            throw new Error('GHL sync returned an invalid response.');
+      var chain = Promise.resolve();
+      for (var i = 0; i < keys.length; i += BATCH) {
+        (function (start) {
+          var batchKeys = keys.slice(start, start + BATCH);
+          chain = chain.then(function () {
+            return pushBatch(batchKeys, start);
           });
-        })
-        .then(function (res) {
-          var data = res.j || {};
-          if (!res.ok || !data.success) {
-            var failedRow = (data.results || []).find(function (x) { return x && !x.ok; });
-            var detail =
-              (data && data.error) ||
-              (failedRow && failedRow.error) ||
-              'GHL list sync failed';
-            throw new Error(detail);
-          }
-          var pushed = data.pushed != null ? data.pushed : 0;
-          var failed = data.failed != null ? data.failed : 0;
-          var tags = customTags.slice();
-          if (Array.isArray(data.focusTagsApplied)) {
-            data.focusTagsApplied.forEach(function (t) {
-              if (tags.indexOf(t) < 0) tags.push(t);
-            });
-          }
-          if (!tags.length) tags = ['Focus Mode + date'];
-          var msg = 'List synced · ' + pushed + ' pushed' + (failed ? ' · ' + failed + ' failed' : '') + ' · ' + tags.join(', ');
+        })(i);
+      }
+
+      return chain
+        .then(function () {
+          if (!lastTags.length) lastTags = ['Focus Mode + date'];
+          var msg =
+            'List synced · ' +
+            pushed +
+            ' pushed' +
+            (failed ? ' · ' + failed + ' failed' : '') +
+            ' · ' +
+            lastTags.join(', ');
           setFocusSyncListStatus(msg, failed > 0);
           setOutcomeFeedback(msg, failed > 0);
           setCopyFeedback(msg, failed > 0);
-          return data;
+          return { pushed: pushed, failed: failed, total: keys.length };
         })
         .catch(function (err) {
-          var errMsg = err && err.name === 'AbortError'
-            ? 'GHL list sync timed out. Try a smaller queue or check Integrations.'
-            : (err && err.message ? err.message : 'Could not sync Focus list to GHL.');
+          var errMsg = err && err.message ? err.message : 'Could not sync Focus list to GHL.';
+          if (pushed > 0) {
+            errMsg = 'Synced ' + pushed + '/' + keys.length + ' then stopped: ' + errMsg;
+          }
           setFocusSyncListStatus(errMsg, true);
           setOutcomeFeedback(errMsg, true);
           setCopyFeedback(errMsg, true);
           throw err;
         })
         .finally(function () {
-          if (abortTimer) clearTimeout(abortTimer);
           window.__focusListGhlInFlight = false;
           setFocusBulkGhlBusy(false);
         });

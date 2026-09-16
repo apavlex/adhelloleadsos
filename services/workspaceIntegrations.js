@@ -168,8 +168,10 @@ function mergeIntegrationUpdates(existingPlain, body) {
     if (!Object.prototype.hasOwnProperty.call(body, field)) continue;
     const raw = body[field];
     if (raw == null) continue;
-    const s = String(raw).trim();
+    let s = String(raw).trim();
     if (s === '') continue;
+    // Location IDs must not contain spaces (pasted values sometimes include them).
+    if (field === 'ghlLocationId') s = s.replace(/\s+/g, '');
     next[field] = s;
   }
   return next;

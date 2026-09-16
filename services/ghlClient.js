@@ -55,7 +55,9 @@ function isSyncedDateTag(tag) {
 function resolveConfig(integrationEnv) {
   const env = integrationEnv || {};
   const apiKey = String(env.GHL_API_KEY || process.env.GHL_API_KEY || '').trim();
-  const locationId = String(env.GHL_LOCATION_ID || process.env.GHL_LOCATION_ID || '').trim();
+  const locationId = String(env.GHL_LOCATION_ID || process.env.GHL_LOCATION_ID || '')
+    .replace(/\s+/g, '')
+    .trim();
   const emailFrom = String(env.GHL_EMAIL_FROM || process.env.GHL_EMAIL_FROM || '').trim();
   const smsFromNumber = String(env.GHL_SMS_FROM_NUMBER || process.env.GHL_SMS_FROM_NUMBER || '').trim();
   const companyId = String(env.GHL_COMPANY_ID || process.env.GHL_COMPANY_ID || '').trim();
