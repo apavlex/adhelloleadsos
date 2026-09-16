@@ -8,7 +8,6 @@ const phoneLineType = require('./phoneLineType');
 const workspaceIntegrations = require('./workspaceIntegrations');
 const { handleInboundReply } = require('./inboundReplyRules');
 const { applyEngagementSignal } = require('./engagementSignals');
-const { hasUsableWebsite } = require('./leadListFilters');
 const {
   mergeTagLists,
   normalizeGhlLogSync,
@@ -20,6 +19,9 @@ const {
   buildGhlSyncActivityNote,
 } = require('./ghlSyncHelpers');
 const { isActionTag, computeActionTagsFromLead, formatNextActionNote, cadenceFieldsFromGhlTags } = require('./ghlActionTags');
+const { computeLeadSignalTags, isSignalTag, stripSignalTags } = require('./leadSignalTags');
+const { getLowReviewsThresholdFromWorkspace } = require('./prospectGapLabels');
+const { pushOpportunityScoreField } = require('./ghlOpportunityScoreField');
 const { pushLastProspectedField } = require('./ghlLastProspectedField');
 const { pushReviewFields } = require('./ghlReviewFields');
 const { pushPhoneLineFields } = require('./ghlPhoneLineFields');
@@ -27,6 +29,10 @@ const { pushOutreachProfileFields } = require('./ghlOutreachProfileFields');
 const { pushWebsiteBuildField } = require('./ghlWebsiteBuildField');
 const { normalizeGhlSyncDirection } = require('./ghlSyncDirection');
 
+/**
+ * Legacy tag kept for reference only — website state now rides on the signal tags
+ * (`AO: No site found` / `AO: Social only`) so GHL does not collect two near-duplicates.
+ */
 const GHL_TAG_NO_WEBSITE = 'no website';
 const GHL_TAG_PROSPECTED = 'AO: Prospected';
 
@@ -237,6 +243,18 @@ async function syncFollowUpTaskToGhl(lead, contactId, integrationEnv) {
   }
 }
 
+/** Workspace low-reviews threshold, so signal tags match the badges the operator sees. */
+async function resolveLowReviewsThreshold(lead) {
+  const wid = String((lead && lead.workspaceId) || '').trim();
+  if (!wid) return getLowReviewsThresholdFromWorkspace(null);
+  try {
+    const ws = await dbService.getWorkspace(wid);
+    return getLowReviewsThresholdFromWorkspace(ws);
+  } catch (e) {
+    return getLowReviewsThresholdFromWorkspace(null);
+  }
+}
+
 async function pushLeadToGhl(lead, integrationEnv, opts) {
   if (!lead || !lead.key) throw new Error('Invalid lead');
   return withGhlPushLock(lead.key, () => pushLeadToGhlInner(lead, integrationEnv, opts));
@@ -288,9 +306,18 @@ async function pushLeadToGhlInner(lead, integrationEnv, opts) {
     tagsForPush = mergeTagLists(tagsForPush, lead.ghlExtraTagNames);
   }
 
+  // Quality badges (opportunity band, prospect tier, website state, gaps) travel as tags
+  // on every push path, fast list sync included.
+  const lowReviewsThreshold = await resolveLowReviewsThreshold(lead);
+  const signalTags = computeLeadSignalTags(lead, { lowReviewsThreshold });
+  if (signalTags.length) {
+    tagsForPush = mergeTagLists(tagsForPush, signalTags);
+  }
+
   mergedTags = await ghlClient.syncContactTags(contactId, tagsForPush, integrationEnv, {
     replaceActionTags: true,
-    isActionTag,
+    // Stale signal tags come off with the action tags so the CRM matches today's badges.
+    isActionTag: (t) => isActionTag(t) || isSignalTag(t),
   });
 
   let syncActivityNote = { pushed: false };
@@ -313,6 +340,7 @@ async function pushLeadToGhlInner(lead, integrationEnv, opts) {
     await pushPhoneLineFields(contactId, lead, integrationEnv);
     await pushOutreachProfileFields(contactId, lead, integrationEnv, lead.workspaceId);
     await pushWebsiteBuildField(contactId, lead, integrationEnv);
+    await pushOpportunityScoreField(contactId, lead, integrationEnv, { lowReviewsThreshold });
     notePush = await pushNotesToGhl(lead, contactId, integrationEnv);
     notePull = await pullNotesFromGhl(lead, contactId, integrationEnv);
     followUpTask = await syncFollowUpTaskToGhl(lead, contactId, integrationEnv);
@@ -337,7 +365,8 @@ async function pushLeadToGhlInner(lead, integrationEnv, opts) {
     patch.ghlFollowUpTaskDueAt = followUpTask.dueAt || '';
   }
   if (!lead.ghlTagNamesForPush) {
-    patch.tags = mergedTags;
+    // Derived signal tags are recomputed on every push — keep them out of the lead's own tags.
+    patch.tags = stripSignalTags(mergedTags);
   }
   if (notePull.newLogs.length) patch.logs = notePull.newLogs;
 
@@ -448,7 +477,6 @@ async function pushLeads(opts) {
   const limit = Math.min(parseInt(opts.limit, 10) || 500, 500);
   leads = leads.slice(0, limit);
 
-  const tagNoWebsite = opts.tagNoWebsite === true;
   const listSyncFast = opts.listSyncFast === true || opts.focusListFast === true;
   const extraTagNames = Array.isArray(opts.extraTagNames)
     ? opts.extraTagNames.map((t) => String(t || '').trim()).filter(Boolean)
@@ -460,12 +488,8 @@ async function pushLeads(opts) {
       const ghlProspectSync = require('./ghlProspectSync');
       // eslint-disable-next-line no-await-in-loop
       let leadForPush = await ghlProspectSync.prepareLeadForGhlPush(lead, wid);
-      if (tagNoWebsite && !hasUsableWebsite(lead)) {
-        leadForPush = {
-          ...leadForPush,
-          ghlTagNamesForPush: mergeTagLists(leadForPush.ghlTagNamesForPush, [GHL_TAG_NO_WEBSITE]),
-        };
-      }
+      // opts.tagNoWebsite is honoured by the signal tags: a lead with no usable website
+      // always gets `AO: No site found` (or `AO: Social only` when socials are the only presence).
       if (extraTagNames.length) {
         leadForPush = {
           ...leadForPush,

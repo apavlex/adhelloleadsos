@@ -12,6 +12,7 @@ const {
   formatNextActionNote,
   isActionTag,
 } = require('./ghlActionTags');
+const { isSignalTag } = require('./leadSignalTags');
 const { quickLogItemForDisposition } = require('./quickLogConfig');
 
 function normalizeLeadStorageKey(leadKey) {
@@ -108,7 +109,8 @@ async function resolveGhlTagNamesToLeadKeys(workspaceId, ghlTagNames, localTags 
       if (!out.includes(raw)) out.push(raw);
       continue;
     }
-    if (isActionTag(raw)) continue;
+    // AO: action and signal tags are derived on push — never adopt them as workspace tags.
+    if (isActionTag(raw) || isSignalTag(raw)) continue;
     const key = byNameLower.get(raw.toLowerCase());
     if (key) {
       if (!out.includes(key)) out.push(key);
