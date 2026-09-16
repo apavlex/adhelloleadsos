@@ -25,6 +25,11 @@ const salesScriptsStorage = require('../services/salesScriptsStorage');
 const workspaceSalesScripts = require('../services/workspaceSalesScripts');
 const { resolveScriptSignOffProfile, fillScriptPlaceholders } = require('../services/scriptPlaceholders');
 const {
+  MAX_SMS_SUGGESTION_LEN,
+  normalizeSmsSuggestion,
+  condenseCallScriptToSms,
+} = require('../services/smsScriptSuggest');
+const {
   getCoachBriefForToday,
   persistCoachBrief,
   clearCoachBrief,
@@ -444,12 +449,71 @@ Rules:
     const reply = typeof parsed.reply === 'string' ? parsed.reply : '';
     let refinedScript = parsed.refinedScript;
     if (refinedScript != null && typeof refinedScript !== 'string') refinedScript = null;
+    let refined = refinedScript && refinedScript.trim() ? refinedScript.trim() : null;
+    // The model is asked to keep SMS short; enforce it so a long reply can't land in the field.
+    if (refined && section === 'sms') refined = normalizeSmsSuggestion(refined) || null;
 
     return res.json({
       success: true,
       reply: reply || 'Here is an updated take.',
-      refinedScript: refinedScript && refinedScript.trim() ? refinedScript.trim() : null,
+      refinedScript: refined,
       provider: ai.provider || 'unknown',
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** POST JSON: draft an SMS from an offer's current call script (never writes to the workspace). */
+router.post('/scripts/suggest-sms', express.json({ limit: '64kb' }), async (req, res, next) => {
+  try {
+    const body = req.body || {};
+    const serviceKey = typeof body.serviceKey === 'string' ? body.serviceKey.trim() : '';
+    const scriptText = typeof body.scriptText === 'string' ? body.scriptText : '';
+
+    const ws = await dbService.getWorkspace(req.workspaceId);
+    const mergedLibrary = salesScriptsStorage.buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
+    const offerKeys = salesScriptsStorage.getWorkspaceScriptKeys(ws, SCRIPT_LIBRARY);
+    if (!offerKeys.includes(serviceKey)) {
+      return res.status(400).json({ success: false, error: 'Invalid serviceKey' });
+    }
+
+    const meta = mergedLibrary[serviceKey] || SCRIPT_LIBRARY[serviceKey] || {};
+    const callScript = scriptText.trim() || String(meta.opening || '');
+    const fallback = condenseCallScriptToSms(callScript);
+    if (!fallback) {
+      return res.json({ success: false, error: 'Add a call script first — there is nothing to condense.' });
+    }
+
+    const ai = await chatCompletion({
+      messages: [
+        {
+          role: 'system',
+          content: `You rewrite call scripts as cold outreach text messages for an agency selling: ${meta.label || serviceKey}.
+
+Return the SMS body only — no JSON, no quotes, no labels, no subject line, no signature.
+
+Rules:
+- Under ${MAX_SMS_SUGGESTION_LEN} characters, one paragraph, two sentences at most.
+- Keep every merge tag that appears in the call script exactly as written, e.g. {{name}}, {{company}}, {{city}}.
+- Lead with the hook, end with one easy question. Sound like a person texting, not a paragraph trimmed down.`,
+        },
+        {
+          role: 'user',
+          content: `Call script:\n\n${callScript.slice(0, 8000)}`,
+        },
+      ],
+      max_tokens: 220,
+      temperature: 0.5,
+    });
+
+    const drafted = ai && ai.content && !ai.error ? normalizeSmsSuggestion(ai.content) : '';
+    const sms = drafted || fallback;
+    return res.json({
+      success: true,
+      sms,
+      source: drafted ? 'ai' : 'local',
+      provider: (ai && ai.provider) || 'none',
     });
   } catch (e) {
     next(e);

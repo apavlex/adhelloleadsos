@@ -280,21 +280,31 @@
       return n + ' chars · ' + Math.ceil(n / SMS_SEGMENT_LEN) + ' segments';
     }
 
-    function updateSmsCharCount(ta) {
+    function updateSmsFieldState(ta) {
       if (!ta) return;
       var el = document.querySelector('.sms-char-count[data-snippet-id="' + ta.id + '"]');
       if (el) el.textContent = smsCharCountText(ta.value);
+      var hint = document.querySelector('.sms-empty-hint[data-snippet-id="' + ta.id + '"]');
+      if (hint) hint.classList.toggle('hidden', !!String(ta.value || '').trim());
     }
 
-    function refreshAllSmsCharCounts() {
-      document.querySelectorAll('.script-sms-input').forEach(updateSmsCharCount);
+    function refreshAllSmsFieldStates() {
+      document.querySelectorAll('.script-sms-input').forEach(updateSmsFieldState);
     }
 
     function scriptActionButtonsHtml(key, section) {
       var k = escapeHtml(key);
       var sid = 'snippet-' + k + '-' + section;
+      var suggestBtn =
+        section === 'sms'
+          ? '<button type="button" class="suggest-sms px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-brand-muted hover:text-brand-dark dark:hover:text-white border border-brand-border/60 dark:border-white/10 hover:border-brand-yellow/50 transition-colors" data-offer-key="' +
+            k +
+            '">Suggest from call script</button>'
+          : '';
       return (
-        '<div class="flex flex-wrap gap-2 justify-end"><button type="button" class="use-in-coach px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-brand-dark text-white dark:bg-white dark:text-slate-900 border border-transparent hover:opacity-90 transition-opacity" data-pitch="' +
+        '<div class="flex flex-wrap gap-2 justify-end">' +
+        suggestBtn +
+        '<button type="button" class="use-in-coach px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-brand-dark text-white dark:bg-white dark:text-slate-900 border border-transparent hover:opacity-90 transition-opacity" data-pitch="' +
         k +
         '" data-section="' +
         section +
@@ -344,10 +354,63 @@
         sid +
         '" rows="3" maxlength="1600" placeholder="Short text message — one or two sentences." class="script-snippet script-sms-input w-full text-sm leading-relaxed text-brand-dark dark:text-slate-200 bg-white dark:bg-slate-800/80 rounded-2xl p-4 border border-brand-border/50 dark:border-white/10 font-sans resize-y min-h-[5rem] focus:ring-2 focus:ring-brand-yellow focus:border-transparent outline-none" aria-label="SMS script">' +
         escapeHtml(text) +
-        '</textarea><p class="mt-2 text-[10px] text-brand-muted leading-relaxed">This is the text body Focus mode and the lead panel offer when you send an SMS. Anything over ' +
+        '</textarea><p class="sms-empty-hint mt-2 text-[10px] font-bold text-brand-yellow leading-relaxed" data-snippet-id="' +
+        sid +
+        '">No SMS script yet — <strong class="text-brand-dark dark:text-white">Suggest from call script</strong> drafts one from the call script above, and you can edit it before it saves.</p><p class="mt-2 text-[10px] text-brand-muted leading-relaxed">This is the text body Focus mode and the lead panel offer when you send an SMS. Anything over ' +
         SMS_SEGMENT_LEN +
         ' characters bills as more than one segment.</p></div></div>'
       );
+    }
+
+    function handleSuggestSms(btn) {
+      if (btn.disabled) return;
+      var key = btn.getAttribute('data-offer-key');
+      if (!key) return;
+      var smsTa = document.getElementById('snippet-' + key + '-sms');
+      var callTa = document.getElementById('snippet-' + key + '-opening');
+      if (!smsTa || !callTa) return;
+      var callRich = richForSnippet(callTa);
+      if (callRich) syncTextareaFromRich(callRich);
+      var callText = Scripts.htmlToPlain ? Scripts.htmlToPlain(callTa.value) : callTa.value;
+      if (!String(callText || '').trim()) {
+        window.alert('Add a call script above first — there is nothing to condense.');
+        return;
+      }
+      if (
+        String(smsTa.value || '').trim() &&
+        !window.confirm('Replace the SMS script you already wrote with a new suggestion?')
+      ) {
+        return;
+      }
+      var origText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Suggesting…';
+      fetch('/sales/scripts/suggest-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ serviceKey: key, scriptText: callText }),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          btn.disabled = false;
+          btn.textContent = origText;
+          if (!data || !data.success || !data.sms) {
+            throw new Error((data && data.error) || 'Could not draft an SMS');
+          }
+          smsTa.value = data.sms;
+          lastFocusedSnippetId = smsTa.id;
+          updateSmsFieldState(smsTa);
+          var st = statusElForSnippetId(smsTa.id);
+          if (st) st.textContent = 'Unsaved';
+          scheduleBlocksPersist();
+          updateMergePreview();
+          smsTa.focus();
+        })
+        .catch(function (err) {
+          btn.disabled = false;
+          btn.textContent = origText;
+          window.alert(err.message || 'Could not draft an SMS');
+        });
     }
 
     function renderOfferPanels(activeKey) {
@@ -410,7 +473,7 @@
       coachFocus.pitch = firstKey;
       lastFocusedSnippetId = 'snippet-' + firstKey + '-opening';
       hydrateScriptEditors();
-      refreshAllSmsCharCounts();
+      refreshAllSmsFieldStates();
       updateCoachLabel();
     }
 
@@ -479,6 +542,12 @@
                 renderOfferPanels(rKey);
               })
               .catch(function (err) { window.alert(err.message || 'Could not rename offer'); });
+            return;
+          }
+          var suggestBtn = e.target.closest('.suggest-sms');
+          if (suggestBtn) {
+            e.preventDefault();
+            handleSuggestSms(suggestBtn);
             return;
           }
           var coachBtn = e.target.closest('.use-in-coach');
@@ -574,7 +643,7 @@
           }
           if (!e.target.classList.contains('script-snippet')) return;
           lastFocusedSnippetId = e.target.id;
-          updateSmsCharCount(e.target);
+          updateSmsFieldState(e.target);
           var st = statusElForSnippetId(e.target.id);
           if (st) st.textContent = 'Unsaved';
           scheduleBlocksPersist();
@@ -917,7 +986,7 @@
         var smsTa = document.getElementById('snippet-' + serviceKey + '-sms');
         if (smsTa && Object.prototype.hasOwnProperty.call(sections, 'sms')) {
           smsTa.value = String(sections.sms || '');
-          updateSmsCharCount(smsTa);
+          updateSmsFieldState(smsTa);
         }
       });
     }
@@ -1102,7 +1171,7 @@
       if (ta) {
         ta.value = pendingRefined;
         syncRichFromTextarea(ta);
-        updateSmsCharCount(ta);
+        updateSmsFieldState(ta);
       }
       hideRefined();
       scheduleBlocksPersist();
