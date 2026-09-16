@@ -21,6 +21,24 @@ describe('ghlActionTags', () => {
     assert.deepEqual(tags, [AO_ACTION_TAGS.TEXT]);
   });
 
+  it('maps GHL AO tags back to cadence channel and disposition', () => {
+    const { cadenceFieldsFromGhlTags, actionTagToChannel } = require('../services/ghlActionTags');
+    assert.equal(actionTagToChannel(AO_ACTION_TAGS.TEXT), 'sms');
+    assert.deepEqual(cadenceFieldsFromGhlTags(['VIP', AO_ACTION_TAGS.TEXT]), {
+      ghlActionTags: [AO_ACTION_TAGS.TEXT],
+      lastTouchChannel: 'sms',
+      lastDisposition: 'sms_replied',
+    });
+    assert.equal(
+      cadenceFieldsFromGhlTags([AO_ACTION_TAGS.CALL_BACK]).lastTouchChannel,
+      'call',
+    );
+    assert.equal(
+      cadenceFieldsFromGhlTags([AO_ACTION_TAGS.CALL_BACK]).lastDisposition,
+      'callback',
+    );
+  });
+
   it('prefers disposition over channel', () => {
     const tags = computeActionTagsFromLead({
       lastDisposition: 'voicemail',

@@ -53,6 +53,96 @@ function channelToActionTag(channel) {
   return null;
 }
 
+/** Map a GHL AO: tag back to AdHello cadence channel (lastTouchChannel). */
+function actionTagToChannel(tag) {
+  const key = tagKey(tag);
+  if (!key) return null;
+  if (tagKey(AO_ACTION_TAGS.CALL) === key || tagKey(AO_ACTION_TAGS.CALL_BACK) === key) return 'call';
+  if (tagKey(AO_ACTION_TAGS.TEXT) === key) return 'sms';
+  if (tagKey(AO_ACTION_TAGS.EMAIL) === key || tagKey(AO_ACTION_TAGS.SEND_INFO) === key) return 'email';
+  if (tagKey(AO_ACTION_TAGS.SOCIAL) === key) return 'social_dm';
+  if (tagKey(AO_ACTION_TAGS.LINKEDIN) === key) return 'linkedin';
+  if (tagKey(AO_ACTION_TAGS.VOICEMAIL) === key || tagKey(AO_ACTION_TAGS.NO_ANSWER) === key) {
+    return 'voicemail';
+  }
+  if (tagKey(AO_ACTION_TAGS.MEETING) === key) return 'meeting';
+  if (
+    tagKey(AO_ACTION_TAGS.DIRECT_MAIL) === key ||
+    tagKey(AO_ACTION_TAGS.QR_SCAN) === key
+  ) {
+    return 'direct_mail';
+  }
+  if (tagKey(AO_ACTION_TAGS.FOLLOW_UP) === key || tagKey(AO_ACTION_TAGS.GATEKEEPER) === key) {
+    return 'other';
+  }
+  if (tagKey(AO_ACTION_TAGS.SITE_AUDIT) === key) return 'hosted_audit';
+  return null;
+}
+
+/** Map a GHL AO: tag back to AdHello disposition code when applicable. */
+function actionTagToDisposition(tag) {
+  const key = tagKey(tag);
+  if (!key) return null;
+  if (tagKey(AO_ACTION_TAGS.CALL_BACK) === key) return 'callback';
+  if (tagKey(AO_ACTION_TAGS.VOICEMAIL) === key) return 'voicemail';
+  if (tagKey(AO_ACTION_TAGS.NO_ANSWER) === key) return 'no_answer';
+  if (tagKey(AO_ACTION_TAGS.GATEKEEPER) === key) return 'gatekeeper';
+  if (tagKey(AO_ACTION_TAGS.SITE_AUDIT) === key) return 'site_audit';
+  if (tagKey(AO_ACTION_TAGS.NOT_INTERESTED) === key) return 'not_interested';
+  if (tagKey(AO_ACTION_TAGS.SEND_INFO) === key) return 'send_info';
+  if (tagKey(AO_ACTION_TAGS.FOLLOW_UP) === key) return 'connected';
+  if (tagKey(AO_ACTION_TAGS.TEXT) === key) return 'sms_replied';
+  return null;
+}
+
+/**
+ * From GHL contact tags, pick the primary AO action and derive cadence/disposition fields.
+ * @param {string[]} ghlTags
+ * @returns {{ lastTouchChannel?: string, lastDisposition?: string, ghlActionTags?: string[] }}
+ */
+function cadenceFieldsFromGhlTags(ghlTags) {
+  const tags = (Array.isArray(ghlTags) ? ghlTags : [])
+    .map((t) => String(t || '').trim())
+    .filter(Boolean);
+  const actionTags = tags.filter((t) => isActionTag(t));
+  if (!actionTags.length) return {};
+
+  // Prefer disposition-style tags over channel-only tags.
+  const priority = [
+    AO_ACTION_TAGS.NOT_INTERESTED,
+    AO_ACTION_TAGS.CALL_BACK,
+    AO_ACTION_TAGS.SITE_AUDIT,
+    AO_ACTION_TAGS.SEND_INFO,
+    AO_ACTION_TAGS.FOLLOW_UP,
+    AO_ACTION_TAGS.VOICEMAIL,
+    AO_ACTION_TAGS.NO_ANSWER,
+    AO_ACTION_TAGS.GATEKEEPER,
+    AO_ACTION_TAGS.QR_SCAN,
+    AO_ACTION_TAGS.DIRECT_MAIL,
+    AO_ACTION_TAGS.TEXT,
+    AO_ACTION_TAGS.EMAIL,
+    AO_ACTION_TAGS.CALL,
+    AO_ACTION_TAGS.LINKEDIN,
+    AO_ACTION_TAGS.SOCIAL,
+    AO_ACTION_TAGS.MEETING,
+  ];
+  let primary = actionTags[0];
+  for (const want of priority) {
+    const hit = actionTags.find((t) => tagKey(t) === tagKey(want));
+    if (hit) {
+      primary = hit;
+      break;
+    }
+  }
+
+  const out = { ghlActionTags: [primary] };
+  const channel = actionTagToChannel(primary);
+  if (channel) out.lastTouchChannel = channel;
+  const disposition = actionTagToDisposition(primary);
+  if (disposition) out.lastDisposition = disposition;
+  return out;
+}
+
 function dispositionToActionTag(code) {
   const c = String(code || '').trim().toLowerCase();
   if (!c) return null;
@@ -167,6 +257,9 @@ module.exports = {
   isActionTag,
   stripActionTags,
   channelToActionTag,
+  actionTagToChannel,
+  actionTagToDisposition,
+  cadenceFieldsFromGhlTags,
   dispositionToActionTag,
   computeActionTagsFromLead,
   formatNextActionNote,

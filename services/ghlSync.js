@@ -19,7 +19,7 @@ const {
   ghlNoteToLogEntry,
   buildGhlSyncActivityNote,
 } = require('./ghlSyncHelpers');
-const { isActionTag, computeActionTagsFromLead, formatNextActionNote } = require('./ghlActionTags');
+const { isActionTag, computeActionTagsFromLead, formatNextActionNote, cadenceFieldsFromGhlTags } = require('./ghlActionTags');
 const { pushLastProspectedField } = require('./ghlLastProspectedField');
 const { pushReviewFields } = require('./ghlReviewFields');
 const { pushPhoneLineFields } = require('./ghlPhoneLineFields');
@@ -237,17 +237,18 @@ async function syncFollowUpTaskToGhl(lead, contactId, integrationEnv) {
   }
 }
 
-async function pushLeadToGhl(lead, integrationEnv) {
+async function pushLeadToGhl(lead, integrationEnv, opts) {
   if (!lead || !lead.key) throw new Error('Invalid lead');
-  return withGhlPushLock(lead.key, () => pushLeadToGhlInner(lead, integrationEnv));
+  return withGhlPushLock(lead.key, () => pushLeadToGhlInner(lead, integrationEnv, opts));
 }
 
-async function pushLeadToGhlInner(lead, integrationEnv) {
+async function pushLeadToGhlInner(lead, integrationEnv, opts) {
   if (!lead || !lead.key) throw new Error('Invalid lead');
+  const listSyncFast = !!(opts && (opts.listSyncFast || opts.focusListFast));
   let contactId = String(lead.ghlContactId || '').trim();
   let mergedTags = mergeTagLists(lead.tags);
 
-  if (phoneLineType.hasUsablePhone(lead.phone) && phoneLineType.needsRefresh(lead, null)) {
+  if (!listSyncFast && phoneLineType.hasUsablePhone(lead.phone) && phoneLineType.needsRefresh(lead, null)) {
     try {
       const linePatch = await withTimeout(phoneLineType.refreshIfNeeded(lead, null), 4000, 'Phone line lookup');
       if (linePatch) {
@@ -291,20 +292,31 @@ async function pushLeadToGhlInner(lead, integrationEnv) {
     replaceActionTags: true,
     isActionTag,
   });
-  const syncActivityNote = await pushSyncActivityNote(lead, contactId, integrationEnv);
-  const lastProspected = await pushLastProspectedField(contactId, integrationEnv);
-  const reviewFields = await pushReviewFields(contactId, lead, integrationEnv);
-  const phoneLineFields = await pushPhoneLineFields(contactId, lead, integrationEnv);
-  const outreachProfileFields = await pushOutreachProfileFields(
-    contactId,
-    lead,
-    integrationEnv,
-    lead.workspaceId,
-  );
-  const websiteBuildField = await pushWebsiteBuildField(contactId, lead, integrationEnv);
-  const notePush = await pushNotesToGhl(lead, contactId, integrationEnv);
-  const notePull = await pullNotesFromGhl(lead, contactId, integrationEnv);
-  const followUpTask = await syncFollowUpTaskToGhl(lead, contactId, integrationEnv);
+
+  let syncActivityNote = { pushed: false };
+  let lastProspected = null;
+  let notePush = { pushed: 0, syncState: normalizeGhlLogSync(lead) };
+  let notePull = { pulled: 0, newLogs: [], syncState: notePush.syncState };
+  let followUpTask = null;
+
+  if (listSyncFast) {
+    // Focus / bulk list sync: contact + tags + last-prospected only (stay under proxy timeouts).
+    try {
+      lastProspected = await pushLastProspectedField(contactId, integrationEnv);
+    } catch (_) {
+      /* non-fatal */
+    }
+  } else {
+    syncActivityNote = await pushSyncActivityNote(lead, contactId, integrationEnv);
+    lastProspected = await pushLastProspectedField(contactId, integrationEnv);
+    await pushReviewFields(contactId, lead, integrationEnv);
+    await pushPhoneLineFields(contactId, lead, integrationEnv);
+    await pushOutreachProfileFields(contactId, lead, integrationEnv, lead.workspaceId);
+    await pushWebsiteBuildField(contactId, lead, integrationEnv);
+    notePush = await pushNotesToGhl(lead, contactId, integrationEnv);
+    notePull = await pullNotesFromGhl(lead, contactId, integrationEnv);
+    followUpTask = await syncFollowUpTaskToGhl(lead, contactId, integrationEnv);
+  }
 
   const ghlLogSync = notePush.syncState;
   notePull.syncState.pulledNoteIds.forEach((id) => {
@@ -340,10 +352,7 @@ async function pushLeadToGhlInner(lead, integrationEnv) {
     followUpTask,
     syncActivityNote,
     lastProspected,
-    reviewFields,
-    phoneLineFields,
-    outreachProfileFields,
-    websiteBuildField,
+    listSyncFast,
   };
 }
 
@@ -361,6 +370,18 @@ async function pullContactToLead(contact, workspaceId, localLeads, integrationEn
       ghlTags,
       existing && Array.isArray(existing.tags) ? existing.tags : patch.tags,
     );
+    const cadenceFromGhl = cadenceFieldsFromGhlTags(ghlTags);
+    if (cadenceFromGhl.lastTouchChannel) {
+      patch.lastTouchChannel = cadenceFromGhl.lastTouchChannel;
+    }
+    if (cadenceFromGhl.lastDisposition) {
+      // Only adopt GHL disposition when local lead has none — avoid clobbering fresher Focus logs.
+      const localDisp = String((existing && existing.lastDisposition) || '').trim();
+      if (!localDisp) patch.lastDisposition = cadenceFromGhl.lastDisposition;
+    }
+    if (Array.isArray(cadenceFromGhl.ghlActionTags) && cadenceFromGhl.ghlActionTags.length) {
+      patch.ghlActionTags = cadenceFromGhl.ghlActionTags;
+    }
   }
 
   const contactId = String(patch.ghlContactId || contact.id || '').trim();
@@ -428,6 +449,7 @@ async function pushLeads(opts) {
   leads = leads.slice(0, limit);
 
   const tagNoWebsite = opts.tagNoWebsite === true;
+  const listSyncFast = opts.listSyncFast === true || opts.focusListFast === true;
   const extraTagNames = Array.isArray(opts.extraTagNames)
     ? opts.extraTagNames.map((t) => String(t || '').trim()).filter(Boolean)
     : [];
@@ -451,7 +473,7 @@ async function pushLeads(opts) {
         };
       }
       // eslint-disable-next-line no-await-in-loop
-      const r = await pushLeadToGhl(leadForPush, integrationEnv);
+      const r = await pushLeadToGhl(leadForPush, integrationEnv, { listSyncFast });
       results.push({
         key: lead.key,
         ok: true,

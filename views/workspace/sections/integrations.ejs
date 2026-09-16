@@ -568,9 +568,9 @@
             <input type="hidden" name="ghlSyncDirection" id="ghlSyncDirectionInput" value="<%= typeof ghlSyncDirection !== 'undefined' ? ghlSyncDirection : 'both' %>" />
             <div class="flex flex-wrap gap-2" role="radiogroup" aria-label="GHL sync direction" id="ghlSyncDirectionGroup">
               <% const _ghlDir = typeof ghlSyncDirection !== 'undefined' ? ghlSyncDirection : 'both'; %>
-              <button type="button" class="js-ghl-direction rounded-xl border px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors disabled:opacity-50 <%= _ghlDir === 'pull' ? 'border-brand-yellow/50 bg-brand-yellow/10 text-brand-dark dark:text-brand-yellow' : 'border-brand-border/70 dark:border-white/15 bg-brand-cream/50 dark:bg-slate-800 text-brand-dark dark:text-white hover:border-brand-yellow/50' %>" data-direction="pull" aria-pressed="<%= _ghlDir === 'pull' ? 'true' : 'false' %>">Pull from GHL</button>
-              <button type="button" class="js-ghl-direction rounded-xl border px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors disabled:opacity-50 <%= _ghlDir === 'push' ? 'border-brand-yellow/50 bg-brand-yellow/10 text-brand-dark dark:text-brand-yellow' : 'border-brand-border/70 dark:border-white/15 bg-brand-cream/50 dark:bg-slate-800 text-brand-dark dark:text-white hover:border-brand-yellow/50' %>" data-direction="push" aria-pressed="<%= _ghlDir === 'push' ? 'true' : 'false' %>">Sync to GHL</button>
-              <button type="button" class="js-ghl-direction rounded-xl border px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors disabled:opacity-50 <%= _ghlDir === 'both' ? 'border-brand-yellow/50 bg-brand-yellow/10 text-brand-dark dark:text-brand-yellow' : 'border-brand-border/70 dark:border-white/15 bg-brand-cream/50 dark:bg-slate-800 text-brand-dark dark:text-white hover:border-brand-yellow/50' %>" data-direction="both" aria-pressed="<%= _ghlDir === 'both' ? 'true' : 'false' %>">Sync both ways</button>
+              <button type="button" class="js-ghl-direction rounded-xl border-2 px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors disabled:opacity-50 <%= _ghlDir === 'pull' ? 'border-emerald-600 bg-emerald-500 text-white shadow-sm' : 'border-brand-border/70 dark:border-white/15 bg-white dark:bg-slate-800 text-brand-dark dark:text-white hover:border-emerald-500/50' %>" data-direction="pull" aria-pressed="<%= _ghlDir === 'pull' ? 'true' : 'false' %>">Pull from GHL</button>
+              <button type="button" class="js-ghl-direction rounded-xl border-2 px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors disabled:opacity-50 <%= _ghlDir === 'push' ? 'border-orange-600 bg-orange-500 text-white shadow-sm' : 'border-brand-border/70 dark:border-white/15 bg-white dark:bg-slate-800 text-brand-dark dark:text-white hover:border-orange-500/50' %>" data-direction="push" aria-pressed="<%= _ghlDir === 'push' ? 'true' : 'false' %>">Sync to GHL</button>
+              <button type="button" class="js-ghl-direction rounded-xl border-2 px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors disabled:opacity-50 <%= _ghlDir === 'both' ? 'border-brand-dark bg-brand-dark text-white shadow-sm dark:border-brand-yellow dark:bg-brand-yellow dark:text-brand-dark' : 'border-brand-border/70 dark:border-white/15 bg-white dark:bg-slate-800 text-brand-dark dark:text-white hover:border-brand-yellow/50' %>" data-direction="both" aria-pressed="<%= _ghlDir === 'both' ? 'true' : 'false' %>">Sync both ways</button>
             </div>
             <p id="ghlDirectionSaveMsg" class="text-[11px] text-brand-muted mt-2 min-h-[1rem]" aria-live="polite"></p>
           </div>
@@ -1044,20 +1044,31 @@
   }
 
   function paintGhlDirectionButtons(direction) {
+    var dir = direction || 'both';
     document.querySelectorAll('.js-ghl-direction').forEach(function (btn) {
-      var on = btn.getAttribute('data-direction') === direction;
+      var d = btn.getAttribute('data-direction') || '';
+      var on = d === dir;
       btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-      btn.classList.toggle('border-brand-yellow/50', on);
-      btn.classList.toggle('bg-brand-yellow/10', on);
-      btn.classList.toggle('text-brand-dark', on);
-      btn.classList.toggle('dark:text-brand-yellow', on);
-      btn.classList.toggle('border-brand-border/70', !on);
-      btn.classList.toggle('dark:border-white/15', !on);
-      btn.classList.toggle('bg-brand-cream/50', !on);
-      btn.classList.toggle('dark:bg-slate-800', !on);
-      btn.classList.toggle('dark:text-white', !on);
+      btn.classList.remove(
+        'border-emerald-600', 'bg-emerald-500', 'text-white', 'shadow-sm',
+        'border-orange-600', 'bg-orange-500',
+        'border-brand-dark', 'bg-brand-dark', 'dark:border-brand-yellow', 'dark:bg-brand-yellow', 'dark:text-brand-dark',
+        'border-brand-border/70', 'dark:border-white/15', 'bg-white', 'dark:bg-slate-800', 'text-brand-dark', 'dark:text-white',
+        'border-brand-yellow/50', 'bg-brand-yellow/10', 'dark:text-brand-yellow', 'bg-brand-cream/50'
+      );
+      if (on && d === 'pull') {
+        btn.classList.add('border-emerald-600', 'bg-emerald-500', 'text-white', 'shadow-sm');
+      } else if (on && d === 'push') {
+        btn.classList.add('border-orange-600', 'bg-orange-500', 'text-white', 'shadow-sm');
+      } else if (on) {
+        btn.classList.add('border-brand-dark', 'bg-brand-dark', 'text-white', 'shadow-sm', 'dark:border-brand-yellow', 'dark:bg-brand-yellow', 'dark:text-brand-dark');
+      } else {
+        btn.classList.add('border-brand-border/70', 'dark:border-white/15', 'bg-white', 'dark:bg-slate-800', 'text-brand-dark', 'dark:text-white');
+      }
     });
   }
+
+  paintGhlDirectionButtons(activeGhlDirection());
 
   async function saveGhlDirection(direction) {
     var dir = direction || activeGhlDirection();

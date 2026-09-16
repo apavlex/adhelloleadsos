@@ -115,6 +115,12 @@ router.post('/push', express.json(), async (req, res, next) => {
       limit: body.limit,
       tagNoWebsite: body.tagNoWebsite === true || body.tagNoWebsite === '1',
       extraTagNames,
+      listSyncFast:
+        focusMode ||
+        body.listSyncFast === true ||
+        body.listSyncFast === '1' ||
+        body.focusListFast === true ||
+        body.focusListFast === '1',
     });
     const requested = Array.isArray(body.leadKeys) ? body.leadKeys.filter(Boolean).length : 0;
     if (requested > 0 && result.pushed === 0) {

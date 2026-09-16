@@ -2058,14 +2058,21 @@
       var tagNote = customTags.length
         ? customTags.join(', ') + ' + Focus Mode + today'
         : 'Focus Mode + today';
-      // Batch so each request stays under Render’s ~30–100s proxy limit (each lead can take several GHL API calls).
-      var BATCH = 3;
+      // Batch so each request stays under Render’s proxy limit (each lead can take several GHL API calls).
+      var BATCH = 5;
       var pushed = 0;
       var failed = 0;
       var lastTags = customTags.slice();
       var firstError = '';
 
-      function pushBatch(batchKeys, doneCount) {
+      function isTransientFetchError(err) {
+        if (!err) return false;
+        if (err.name === 'AbortError' || err.name === 'TimeoutError') return true;
+        var msg = String(err.message || err || '').toLowerCase();
+        return /fetch failed|failed to fetch|networkerror|load failed|network request failed/.test(msg);
+      }
+
+      function pushBatchOnce(batchKeys, doneCount) {
         setFocusBulkGhlBusy(true, 'Syncing ' + Math.min(doneCount + batchKeys.length, keys.length) + '/' + keys.length);
         setFocusSyncListStatus(
           'Syncing ' + (doneCount + 1) + '–' + (doneCount + batchKeys.length) + ' of ' + keys.length + ' — ' + tagNote + '…',
@@ -2086,6 +2093,7 @@
             leadKeys: batchKeys,
             focusMode: true,
             source: 'focus',
+            listSyncFast: true,
             limit: batchKeys.length,
             extraTagNames: customTags,
           }),
@@ -2117,15 +2125,33 @@
             }
             return data;
           })
-          .catch(function (err) {
-            if (err && err.name === 'AbortError') {
-              throw new Error('GHL batch timed out after syncing ' + pushed + ' of ' + keys.length + '. Tap Sync again to continue.');
-            }
-            throw err;
-          })
           .finally(function () {
             if (abortTimer) clearTimeout(abortTimer);
           });
+      }
+
+      function pushBatch(batchKeys, doneCount) {
+        return pushBatchOnce(batchKeys, doneCount).catch(function (err) {
+          if (!isTransientFetchError(err)) throw err;
+          setFocusSyncListStatus('Network blip — retrying batch ' + (doneCount + 1) + '…', false);
+          return new Promise(function (resolve) { setTimeout(resolve, 1200); }).then(function () {
+            return pushBatchOnce(batchKeys, doneCount);
+          });
+        }).catch(function (err) {
+          if (err && err.name === 'AbortError') {
+            throw new Error('GHL batch timed out after syncing ' + pushed + ' of ' + keys.length + '. Tap Sync again to continue.');
+          }
+          if (isTransientFetchError(err)) {
+            throw new Error(
+              'Connection dropped after syncing ' +
+                pushed +
+                ' of ' +
+                keys.length +
+                '. Tap Sync list again — already-synced contacts will update quickly.',
+            );
+          }
+          throw err;
+        });
       }
 
       var chain = Promise.resolve();
