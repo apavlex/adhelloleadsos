@@ -53,7 +53,9 @@ function normalizePublicBaseUrl(raw) {
     .replace(/\/+$/, '');
   if (!s) return '';
   if (!/^https?:\/\//i.test(s)) s = `https://${s}`;
+  // Custom domain is the stable public host — never leave webhooks on the raw Render URL.
   s = s.replace(/^(https?:\/\/)leads\.adhello\.ai(?=\/|$)/i, '$1leads.adhello.io');
+  s = s.replace(/^(https?:\/\/)adhelloleadsos\.onrender\.com(?=\/|$)/i, '$1leads.adhello.io');
   return s;
 }
 
@@ -562,6 +564,8 @@ async function configureIncomingNumberForDialIn(phoneNumber) {
   const raw = await postForm(`/IncomingPhoneNumbers/${encodeURIComponent(match.sid)}.json`, {
     VoiceUrl: voiceUrl,
     VoiceMethod: 'POST',
+    VoiceFallbackUrl: voiceUrl,
+    VoiceFallbackMethod: 'POST',
     StatusCallback: statusCallback,
     StatusCallbackMethod: 'POST',
   });
@@ -609,7 +613,10 @@ async function ensureIncomingVoiceWebhooks(phoneNumber) {
     return { ok: false, skipped: true, reason: 'number_not_found', phoneNumber: want };
   }
   if (voiceWebhookUrlsMatch(match.voiceUrl, expectedVoice)) {
-    return { ok: true, updated: false, phoneNumber: want, voiceUrl: match.voiceUrl };
+    // Migrate off the raw Render hostname if a prior configure left it there.
+    if (!/onrender\.com/i.test(String(match.voiceUrl || ''))) {
+      return { ok: true, updated: false, phoneNumber: want, voiceUrl: match.voiceUrl };
+    }
   }
   const configuredNum = await configureIncomingNumberForDialIn(want);
   return {

@@ -845,15 +845,21 @@ async function startAgentDialInSession(opts) {
   }
   agentSessionStore.removeSession(workspaceId);
 
-  let inboundConfigured = true;
+  let inboundConfigured = false;
   let inboundError = '';
   try {
     if (typeof signalwire.ensureIncomingVoiceWebhooks === 'function') {
       const ensured = await signalwire.ensureIncomingVoiceWebhooks(dialInNumber);
-      if (ensured && ensured.ok === false && !ensured.skipped) {
+      if (ensured && ensured.ok) {
+        inboundConfigured = true;
+      } else {
         inboundConfigured = false;
-        inboundError = String(ensured.reason || 'inbound_webhook_failed');
+        inboundError = String(
+          (ensured && (ensured.reason || ensured.error)) || 'inbound_webhook_failed',
+        );
       }
+    } else {
+      inboundError = 'inbound_webhook_unavailable';
     }
   } catch (err) {
     inboundConfigured = false;
