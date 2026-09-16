@@ -76,6 +76,18 @@ h1, h2, h3, h4, .font-display {
     stroke: #111827;
 }
 
+/* Solid brand-dark fills: keep the fill genuinely dark in dark mode (where
+   --brand-dark flips to a light body-copy token) so white/yellow lettering reads.
+   Elements that declare their own dark: background are left alone. */
+.dark [class~="bg-brand-dark"]:not([class*="dark:bg-"]) {
+    background-color: #0b1220;
+}
+
+/* Solid brand-dark fills with no explicit text color: white lettering, not dark-on-dark. */
+[class~="bg-brand-dark"]:not([class*="text-"]) {
+    color: #ffffff;
+}
+
 /* Navigation Styles */
 .nav-link {
     font-weight: 600;
@@ -1577,6 +1589,54 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
 #focus-btn-push-ghl[aria-busy='true'] {
   cursor: wait;
   animation: bulk-ghl-push-pulse 1.1s ease-in-out infinite;
+}
+
+/* Solid action fills. Written in CSS (not Tailwind utilities) so the text stays
+   white in both themes — tinted fills with dark lettering were hard to read. */
+.btn-solid {
+  color: #fff !important;
+  border-width: 2px;
+  border-style: solid;
+}
+
+.btn-solid svg {
+  color: #fff;
+  stroke: #fff;
+}
+
+.btn-solid:disabled,
+.btn-solid[aria-busy='true'] {
+  opacity: 0.7;
+}
+
+.btn-solid--ghl {
+  background-color: #ea580c;
+  border-color: #ea580c;
+}
+
+.btn-solid--ghl:hover:not(:disabled) {
+  background-color: #c2410c;
+  border-color: #c2410c;
+}
+
+.btn-solid--sms {
+  background-color: #059669;
+  border-color: #059669;
+}
+
+.btn-solid--sms:hover:not(:disabled) {
+  background-color: #047857;
+  border-color: #047857;
+}
+
+.btn-solid--mail {
+  background-color: #7c3aed;
+  border-color: #7c3aed;
+}
+
+.btn-solid--mail:hover:not(:disabled) {
+  background-color: #6d28d9;
+  border-color: #6d28d9;
 }
 
 #bulkActionBar .bulk-bar-main,

@@ -29,7 +29,7 @@
         </div>
         <div class="flex flex-col items-stretch sm:items-end gap-2">
           <a href="/today" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white text-right">← Today</a>
-          <button type="button" id="focus-btn-sync-list-ghl" class="btn-pill border-2 border-orange-500/60 bg-orange-500/15 text-orange-900 dark:text-orange-200 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-orange-500/25 transition-colors" title="Sync every lead in this Focus queue to Go High Level, tagged Focus Mode + today’s date">Sync list to GHL</button>
+          <button type="button" id="focus-btn-sync-list-ghl" class="btn-pill btn-solid btn-solid--ghl px-4 py-2.5 text-[10px] font-black uppercase tracking-widest transition-colors" title="Sync every lead in this Focus queue to Go High Level, tagged Focus Mode + today’s date. Runs in the background — the bell tracks progress.">Sync list to GHL</button>
           <p id="focus-sync-list-status" class="text-[10px] text-brand-muted dark:text-slate-400 text-right max-w-xs leading-snug min-h-[1rem]" aria-live="polite"></p>
         </div>
       </div>
@@ -422,20 +422,21 @@
         </button>
         <div class="focus-primary-actions grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
           <button type="button" id="focus-btn-call" class="btn-pill btn-primary w-full px-4 py-3.5 text-xs font-black uppercase tracking-widest shadow-md min-h-[3rem]">Call</button>
-          <button type="button" id="focus-btn-sms" class="btn-pill border-2 border-emerald-500/60 bg-emerald-500/15 text-emerald-900 dark:text-emerald-200 w-full px-4 py-3.5 text-xs font-black uppercase tracking-widest hover:bg-emerald-500/25 transition-colors min-h-[3rem]" title="Open or close SMS composer">SMS</button>
-          <button type="button" id="focus-btn-push-ghl" class="btn-pill border-2 border-orange-500/60 bg-orange-500/15 text-orange-900 dark:text-orange-200 w-full px-4 py-3.5 text-xs font-black uppercase tracking-widest hover:bg-orange-500/25 transition-colors min-h-[3rem]" title="Save disposition, notes, and follow-up — then sync to Go High Level">Sync GHL</button>
+          <button type="button" id="focus-btn-sms" class="btn-pill btn-solid btn-solid--sms w-full px-4 py-3.5 text-xs font-black uppercase tracking-widest transition-colors min-h-[3rem]" title="Open or close SMS composer">SMS</button>
+          <button type="button" id="focus-btn-push-ghl" class="btn-pill btn-solid btn-solid--ghl w-full px-4 py-3.5 text-xs font-black uppercase tracking-widest transition-colors min-h-[3rem]" title="Save disposition, notes, and follow-up — then sync to Go High Level">Sync GHL</button>
         </div>
         <div id="focus-bulk-ghl-section" class="rounded-xl border border-orange-500/30 dark:border-orange-500/25 bg-orange-500/5 dark:bg-orange-950/20 p-3 space-y-2.5">
           <div class="flex flex-wrap items-center justify-between gap-2">
             <p class="text-[10px] font-black uppercase tracking-widest text-orange-900/80 dark:text-orange-200">Bulk GHL · this Focus queue</p>
             <span id="focus-bulk-ghl-count" class="text-[10px] font-semibold text-brand-muted tabular-nums">0 leads</span>
           </div>
-          <button type="button" id="focus-btn-sync-all-ghl" class="btn-pill w-full border-2 border-orange-500/60 bg-orange-500/15 text-orange-900 dark:text-orange-200 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-orange-500/25 transition-colors" title="Sync every lead in this Focus queue to GHL with Focus Mode + date tags">Sync all leads to GHL</button>
+          <button type="button" id="focus-btn-sync-all-ghl" class="btn-pill btn-solid btn-solid--ghl w-full px-4 py-2.5 text-[10px] font-black uppercase tracking-widest transition-colors" title="Sync every lead in this Focus queue to GHL with Focus Mode + date tags. Runs in the background — the bell tracks progress.">Sync all leads to GHL</button>
           <div class="flex flex-col sm:flex-row gap-2">
             <input type="text" id="focus-bulk-ghl-tag" maxlength="64" placeholder="Custom tag (e.g. Sept Blitz)" class="flex-1 rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-brand-dark dark:text-white" />
             <button type="button" id="focus-btn-tag-sync-all-ghl" class="btn-pill shrink-0 border-2 border-brand-dark/20 dark:border-white/20 bg-white dark:bg-slate-900 text-brand-dark dark:text-white px-4 py-2.5 text-[10px] font-black uppercase tracking-widest hover:border-orange-500/50 transition-colors" title="Apply this tag to every Focus queue lead, then sync all to GHL">Tag &amp; sync all</button>
           </div>
           <p class="text-[10px] text-brand-muted leading-snug">Custom tag is applied in AdHello and pushed to GHL with <strong>Focus Mode</strong> + today’s date.</p>
+          <p class="text-[10px] text-brand-muted leading-snug">Syncs run in the background — keep working on leads while the bell shows progress, and you’ll get a browser notification when it finishes.</p>
           <p id="focus-bulk-ghl-status" class="text-[11px] text-brand-muted min-h-[1rem]" aria-live="polite"></p>
         </div>
         <div id="focus-quick-log-section">
@@ -444,7 +445,7 @@
             <%- include('/partials/quick_log_pills', {
               quickLogBtnClass: 'focus-quick-outcome btn-pill border border-brand-border dark:border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 data-[active=true]:border-brand-yellow data-[active=true]:bg-brand-yellow/15',
             }) %>
-            <button type="button" id="focus-btn-add-mail-list" class="focus-mail-list-btn btn-pill border border-violet-500/50 bg-violet-500/10 text-violet-900 dark:text-violet-200 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest hover:bg-violet-500/20 transition-colors" title="Tag this lead and move to today's Direct Mail list">+ Mail list · today</button>
+            <button type="button" id="focus-btn-add-mail-list" class="focus-mail-list-btn btn-pill btn-solid btn-solid--mail px-3 py-1.5 text-[10px] font-black uppercase tracking-widest transition-colors" title="Tag this lead and move to today's Direct Mail list">+ Mail list · today</button>
           </div>
           <p id="focus-selected-outcome-label" class="mt-2 text-[11px] text-brand-muted">Selected: none · <a href="/direct-mail?day=today" id="focus-link-mail-list-today" class="focus-mail-list-link font-semibold hover:text-brand-yellow transition-colors">View today's list</a></p>
         </div>
@@ -2039,6 +2040,12 @@
       });
     }
 
+    function focusGhlTagNote(customTags) {
+      return customTags.length
+        ? customTags.join(', ') + ' + Focus Mode + today'
+        : 'Focus Mode + today';
+    }
+
     function pushFocusListToGhl(opts) {
       opts = opts || {};
       var customTags = Array.isArray(opts.extraTagNames)
@@ -2049,15 +2056,69 @@
         setFocusSyncListStatus('No leads in this Focus queue.', true);
         return Promise.resolve();
       }
+      var bg = window.agencyOsGhlSync;
+      if (bg && typeof bg.run === 'function') {
+        return runFocusListGhlInBackground(keys, customTags, bg);
+      }
+      return pushFocusListToGhlInline(keys, customTags);
+    }
+
+    /** Hand the queue to the navbar bell job so the sync survives navigation. */
+    function runFocusListGhlInBackground(keys, customTags, bg) {
+      if (bg.isRunning && bg.isRunning()) {
+        setFocusSyncListStatus('A GHL sync is already running — watch the bell for progress.', false);
+        return Promise.resolve();
+      }
+      // Click is a user gesture, so this is the right moment to ask for browser alerts.
+      if (typeof window.agencyOsRequestDesktopNotify === 'function') {
+        window.agencyOsRequestDesktopNotify();
+      }
+      var tagNote = focusGhlTagNote(customTags);
+      setFocusBulkGhlBusy(true, 'Syncing 0/' + keys.length);
+      setFocusSyncListStatus(
+        'Syncing ' + keys.length + ' leads in the background — ' + tagNote + '. Keep working; the bell shows progress.',
+        false,
+      );
+      setOutcomeFeedback('GHL sync running in the background — check the bell.', false);
+      return bg
+        .run({
+          leadKeys: keys,
+          focusMode: true,
+          listSyncFast: true,
+          tagNoWebsite: false,
+          extraTagNames: customTags,
+          label: 'Focus GHL sync',
+          href: '/focus',
+        })
+        .then(function (summary) {
+          summary = summary || {};
+          var pushed = summary.pushed || 0;
+          var failed = summary.failed || 0;
+          var msg =
+            'List synced · ' + pushed + ' pushed' + (failed ? ' · ' + failed + ' failed' : '') + ' · ' + tagNote;
+          setFocusSyncListStatus(msg, failed > 0);
+          setOutcomeFeedback(msg, failed > 0);
+          return summary;
+        })
+        .catch(function (err) {
+          var msg = err && err.message ? err.message : 'Could not sync Focus list to GHL.';
+          setFocusSyncListStatus(msg, true);
+          setOutcomeFeedback(msg, true);
+        })
+        .then(function (out) {
+          setFocusBulkGhlBusy(false);
+          return out;
+        });
+    }
+
+    function pushFocusListToGhlInline(keys, customTags) {
       if (window.__focusListGhlInFlight) {
         setFocusSyncListStatus('List sync already in progress…', false);
         return Promise.resolve();
       }
       window.__focusListGhlInFlight = true;
       setFocusBulkGhlBusy(true, 'Syncing…');
-      var tagNote = customTags.length
-        ? customTags.join(', ') + ' + Focus Mode + today'
-        : 'Focus Mode + today';
+      var tagNote = focusGhlTagNote(customTags);
       // Batch so each request stays under Render’s proxy limit (each lead can take several GHL API calls).
       var BATCH = 5;
       var pushed = 0;
@@ -4429,6 +4490,49 @@
         pushFocusLeadToGhl();
       });
     }
+    // Keep the Focus buttons in step with the navbar bell job, including a sync
+    // started on another page (or before a reload) that is still running.
+    function renderFocusGhlBackgroundProgress(current, total, pushed, failed) {
+      if (!total) return;
+      setFocusBulkGhlBusy(true, 'Syncing ' + Math.min(current + 1, total) + '/' + total);
+      setFocusSyncListStatus(
+        'Background GHL sync ' +
+          current +
+          '/' +
+          total +
+          ' · ' +
+          (pushed || 0) +
+          ' synced' +
+          (failed ? ', ' + failed + ' failed' : '') +
+          ' — safe to browse leads.',
+        false,
+      );
+    }
+
+    window.addEventListener('agency-os-ghl-sync-progress', function (e) {
+      var p = (e && e.detail) || {};
+      renderFocusGhlBackgroundProgress(p.current, p.total, p.pushed, p.failed);
+    });
+
+    window.addEventListener('agency-os-ghl-sync-finished', function (e) {
+      var s = (e && e.detail) || {};
+      setFocusBulkGhlBusy(false);
+      if (s.total) {
+        setFocusSyncListStatus(
+          'GHL sync complete · ' + (s.pushed || 0) + ' pushed' + (s.failed ? ' · ' + s.failed + ' failed' : ''),
+          (s.failed || 0) > 0,
+        );
+      }
+    });
+
+    (function reflectRunningFocusGhlSync() {
+      var bg = window.agencyOsGhlSync;
+      if (!bg || typeof bg.isRunning !== 'function' || !bg.isRunning()) return;
+      var job = typeof bg.readJob === 'function' ? bg.readJob() : null;
+      if (!job || !Array.isArray(job.keys)) return;
+      renderFocusGhlBackgroundProgress(job.index, job.keys.length, job.pushedCount, job.failedCount);
+    })();
+
     if (btnSyncListGhl) {
       btnSyncListGhl.addEventListener('click', function (e) {
         if (e) {

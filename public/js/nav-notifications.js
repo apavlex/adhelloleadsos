@@ -866,7 +866,9 @@
       '<div class="w-8 h-8 rounded-full bg-orange-500/15 flex items-center justify-center text-orange-600 dark:text-orange-300 shrink-0">' +
       '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>' +
       '</div><div class="min-w-0">' +
-      '<div class="text-[11px] font-black text-brand-dark dark:text-white uppercase tracking-tight mb-0.5">GHL sync in progress</div>' +
+      '<div class="text-[11px] font-black text-brand-dark dark:text-white uppercase tracking-tight mb-0.5">' +
+      escapeBellHtml(job.label || 'GHL sync') +
+      ' in progress</div>' +
       '<div class="text-[10px] font-bold text-brand-muted dark:text-slate-400 leading-tight">' +
       escapeBellHtml(String(current) + ' of ' + String(total) + ' contacts') +
       (pushed || failed ? ' · ' + pushed + ' synced' + (failed ? ', ' + failed + ' failed' : '') : '') +
@@ -876,12 +878,26 @@
     );
   }
 
-  async function pushSingleLeadKeyToGhl(leadKey, tagNoWebsite) {
+  async function pushSingleLeadKeyToGhl(leadKey, job) {
+    const j = job && typeof job === 'object' ? job : {};
+    const payload = {
+      leadKeys: [String(leadKey || '').trim()],
+      tagNoWebsite: j.tagNoWebsite === true,
+    };
+    if (j.focusMode) {
+      payload.focusMode = true;
+      payload.source = 'focus';
+    }
+    // Opt-in contact + tags only mode — keeps bulk list requests under the proxy timeout.
+    if (j.listSyncFast === true) payload.listSyncFast = true;
+    if (Array.isArray(j.extraTagNames) && j.extraTagNames.length) {
+      payload.extraTagNames = j.extraTagNames;
+    }
     const res = await fetch('/ghl/push', {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ leadKeys: [String(leadKey || '').trim()], tagNoWebsite: tagNoWebsite !== false }),
+      body: JSON.stringify(payload),
     });
     const data = await res.json().catch(function () {
       return {};
@@ -903,10 +919,13 @@
 
         var key = job.keys[job.index];
         var total = job.keys.length;
+        summary.label = job.label || 'GHL sync';
+        summary.href = job.href || '/prospecting?tab=pipeline';
+        summary.tagNames = Array.isArray(job.extraTagNames) ? job.extraTagNames : [];
 
         try {
           // eslint-disable-next-line no-await-in-loop
-          var data = await pushSingleLeadKeyToGhl(key, job.tagNoWebsite);
+          var data = await pushSingleLeadKeyToGhl(key, job);
           var leadPushed = data.pushed != null ? data.pushed : 0;
           var leadFailed = data.failed != null ? data.failed : 0;
           if (leadPushed > 0) job.pushedCount = (job.pushedCount || 0) + leadPushed;
@@ -927,7 +946,7 @@
           pushed: job.pushedCount || 0,
           failed: job.failedCount || 0,
         });
-        updateBulkEnhanceBellBadge(job.index, total, 'GHL sync');
+        updateBulkEnhanceBellBadge(job.index, total, job.label || 'GHL sync');
       }
 
       var finalJob = readGhlSyncJob();
@@ -947,16 +966,21 @@
       applyProcessingRing();
 
       if (summary.total > 0) {
+        var syncLabel = summary.label || 'GHL sync';
         var doneMsg =
-          'GHL sync complete · ' +
+          syncLabel +
+          ' complete · ' +
           summary.pushed +
           ' contact' +
           (summary.pushed === 1 ? '' : 's') +
-          (summary.failed ? ' · ' + summary.failed + ' failed' : '');
+          (summary.failed ? ' · ' + summary.failed + ' failed' : '') +
+          (summary.tagNames && summary.tagNames.length ? ' · ' + summary.tagNames.join(', ') : '');
         pushClientBellNotification({
-          headline: summary.failed ? 'GHL sync finished with errors' : 'GHL sync complete',
+          headline: summary.failed ? syncLabel + ' finished with errors' : syncLabel + ' complete',
           body: doneMsg,
-          href: '/prospecting?tab=pipeline',
+          href: summary.href || '/prospecting?tab=pipeline',
+          desktop: true,
+          desktopTag: 'agency-os-ghl-sync',
         });
         if (typeof window.showAppToast === 'function') {
           window.showAppToast(doneMsg, {
@@ -1012,12 +1036,23 @@
           index: 0,
           running: true,
           tagNoWebsite: opts.tagNoWebsite !== false,
+          focusMode: opts.focusMode === true,
+          listSyncFast: opts.listSyncFast === true,
+          extraTagNames: Array.isArray(opts.extraTagNames)
+            ? opts.extraTagNames
+                .map(function (t) {
+                  return String(t || '').trim();
+                })
+                .filter(Boolean)
+            : [],
+          label: String(opts.label || 'GHL sync').slice(0, 40),
+          href: String(opts.href || '/prospecting?tab=pipeline'),
           pushedCount: 0,
           failedCount: 0,
           startedAt: Date.now(),
         };
         writeGhlSyncJob(job);
-        activateNavbarWorkBell('GHL sync');
+        activateNavbarWorkBell(job.label);
         emitGhlSyncProgress({ current: 0, total: total, remaining: total, pushed: 0, failed: 0 });
         processGhlSyncQueue().catch(function (err) {
           console.warn('[ghl-sync]', err);
@@ -1100,6 +1135,52 @@
     }
   }
 
+  /**
+   * Browser-level notification so finished background work is visible from another tab.
+   * No-ops unless the user already granted permission and reminders are not paused.
+   */
+  function notifyDesktopJobComplete(title, body, tag) {
+    try {
+      if (!('Notification' in window)) return false;
+      if (Notification.permission !== 'granted') return false;
+      if (
+        window.AgencyTaskReminders &&
+        typeof window.AgencyTaskReminders.isPaused === 'function' &&
+        window.AgencyTaskReminders.isPaused()
+      ) {
+        return false;
+      }
+      const note = new Notification(String(title || 'Agency OS').slice(0, 90), {
+        body: String(body || '').slice(0, 180),
+        tag: tag || 'agency-os-job',
+      });
+      note.onclick = function () {
+        try {
+          window.focus();
+        } catch (_) {}
+        note.close();
+      };
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  window.agencyOsNotifyDesktop = notifyDesktopJobComplete;
+
+  /** Prompt for notification permission — must be called from a user gesture (e.g. Sync click). */
+  window.agencyOsRequestDesktopNotify = function requestDesktopNotify() {
+    try {
+      if (!('Notification' in window)) return Promise.resolve('unsupported');
+      if (Notification.permission !== 'default') return Promise.resolve(Notification.permission);
+      return Promise.resolve(Notification.requestPermission()).catch(function () {
+        return 'denied';
+      });
+    } catch (_) {
+      return Promise.resolve('denied');
+    }
+  };
+
   function pushClientBellNotification(item) {
     try {
       const list = readClientBellNotifications();
@@ -1111,6 +1192,13 @@
       });
       sessionStorage.setItem(CLIENT_BELL_NOTIFS_KEY, JSON.stringify(list.slice(0, 12)));
     } catch (_) {}
+    if (item && item.desktop) {
+      notifyDesktopJobComplete(
+        item.headline || 'Agency OS',
+        item.body || '',
+        item.desktopTag || 'agency-os-job',
+      );
+    }
   }
 
   function markClientBellNotificationsRead() {
@@ -1712,10 +1800,12 @@
     if (isGhlSyncJobRunning()) {
       const ghlJob = readGhlSyncJob();
       if (ghlJob) {
-        updateBulkEnhanceBellBadge(ghlJob.index, ghlJob.keys.length, 'GHL sync');
+        updateBulkEnhanceBellBadge(ghlJob.index, ghlJob.keys.length, ghlJob.label || 'GHL sync');
         if (typeof window.showAppToast === 'function') {
           window.showAppToast(
-            'Resuming GHL sync for ' +
+            'Resuming ' +
+              (ghlJob.label || 'GHL sync') +
+              ' for ' +
               ghlJob.keys.length +
               ' contact' +
               (ghlJob.keys.length !== 1 ? 's' : '') +

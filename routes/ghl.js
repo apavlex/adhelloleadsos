@@ -115,8 +115,8 @@ router.post('/push', express.json(), async (req, res, next) => {
       limit: body.limit,
       tagNoWebsite: body.tagNoWebsite === true || body.tagNoWebsite === '1',
       extraTagNames,
+      // Opt-in only: single-lead Sync GHL still pushes notes, fields, and follow-up tasks.
       listSyncFast:
-        focusMode ||
         body.listSyncFast === true ||
         body.listSyncFast === '1' ||
         body.focusListFast === true ||
