@@ -30,6 +30,7 @@
         <div class="flex flex-col items-stretch sm:items-end gap-2">
           <a href="/today" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white text-right">← Today</a>
           <button type="button" id="focus-btn-sync-list-ghl" class="btn-pill btn-solid btn-solid--ghl px-4 py-2.5 text-[10px] font-black uppercase tracking-widest transition-colors" title="Sync every lead in this Focus queue to Go High Level, tagged Focus Mode + today’s date. Runs in the background — the bell tracks progress.">Sync list to GHL</button>
+          <button type="button" id="focus-btn-stop-ghl-sync" class="btn-pill btn-solid btn-solid--stop px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors hidden" title="Stop after the contact currently syncing — anything already pushed stays in GHL">Stop sync</button>
           <p id="focus-sync-list-status" class="text-[10px] text-brand-muted dark:text-slate-400 text-right max-w-xs leading-snug min-h-[1rem]" aria-live="polite"></p>
         </div>
       </div>
@@ -640,6 +641,7 @@
     var btnSms = document.getElementById('focus-btn-sms');
     var btnPushGhl = document.getElementById('focus-btn-push-ghl');
     var btnSyncListGhl = document.getElementById('focus-btn-sync-list-ghl');
+    var btnStopGhlSync = document.getElementById('focus-btn-stop-ghl-sync');
     var elSyncListStatus = document.getElementById('focus-sync-list-status');
     var btnSyncAllGhl = document.getElementById('focus-btn-sync-all-ghl');
     var btnTagSyncAllGhl = document.getElementById('focus-btn-tag-sync-all-ghl');
@@ -1979,6 +1981,20 @@
       });
     }
 
+    /** @param {'hidden'|'stoppable'|'stopping'} state */
+    function setFocusGhlStopControl(state) {
+      if (!btnStopGhlSync) return;
+      if (state === 'hidden') {
+        btnStopGhlSync.classList.add('hidden');
+        btnStopGhlSync.disabled = false;
+        btnStopGhlSync.textContent = 'Stop sync';
+        return;
+      }
+      btnStopGhlSync.classList.remove('hidden');
+      btnStopGhlSync.disabled = state === 'stopping';
+      btnStopGhlSync.textContent = state === 'stopping' ? 'Stopping…' : 'Stop sync';
+    }
+
     function setFocusBulkGhlBusy(busy, label) {
       var buttons = [btnSyncListGhl, btnSyncAllGhl, btnTagSyncAllGhl];
       buttons.forEach(function (btn) {
@@ -2075,8 +2091,9 @@
       }
       var tagNote = focusGhlTagNote(customTags);
       setFocusBulkGhlBusy(true, 'Syncing 0/' + keys.length);
+      setFocusGhlStopControl('stoppable');
       setFocusSyncListStatus(
-        'Syncing ' + keys.length + ' leads in the background — ' + tagNote + '. Keep working; the bell shows progress.',
+        'Syncing ' + keys.length + ' leads in the background — ' + tagNote + '. Keep working; the bell shows progress, and Stop sync halts it.',
         false,
       );
       setOutcomeFeedback('GHL sync running in the background — check the bell.', false);
@@ -2094,8 +2111,15 @@
           summary = summary || {};
           var pushed = summary.pushed || 0;
           var failed = summary.failed || 0;
-          var msg =
-            'List synced · ' + pushed + ' pushed' + (failed ? ' · ' + failed + ' failed' : '') + ' · ' + tagNote;
+          var msg = summary.cancelled
+            ? 'Sync stopped · ' +
+              pushed +
+              ' of ' +
+              (summary.total || keys.length) +
+              ' pushed' +
+              (failed ? ' · ' + failed + ' failed' : '') +
+              ' · already-synced contacts stay in GHL'
+            : 'List synced · ' + pushed + ' pushed' + (failed ? ' · ' + failed + ' failed' : '') + ' · ' + tagNote;
           setFocusSyncListStatus(msg, failed > 0);
           setOutcomeFeedback(msg, failed > 0);
           return summary;
@@ -2107,6 +2131,7 @@
         })
         .then(function (out) {
           setFocusBulkGhlBusy(false);
+          setFocusGhlStopControl('hidden');
           return out;
         });
     }
@@ -4492,19 +4517,30 @@
     }
     // Keep the Focus buttons in step with the navbar bell job, including a sync
     // started on another page (or before a reload) that is still running.
+    function focusGhlSyncStopping() {
+      var bg = window.agencyOsGhlSync;
+      return !!(bg && typeof bg.isCancelPending === 'function' && bg.isCancelPending());
+    }
+
     function renderFocusGhlBackgroundProgress(current, total, pushed, failed) {
       if (!total) return;
-      setFocusBulkGhlBusy(true, 'Syncing ' + Math.min(current + 1, total) + '/' + total);
+      var stopping = focusGhlSyncStopping();
+      setFocusBulkGhlBusy(true, (stopping ? 'Stopping ' : 'Syncing ') + Math.min(current + 1, total) + '/' + total);
+      setFocusGhlStopControl(stopping ? 'stopping' : 'stoppable');
       setFocusSyncListStatus(
-        'Background GHL sync ' +
-          current +
-          '/' +
-          total +
-          ' · ' +
-          (pushed || 0) +
-          ' synced' +
-          (failed ? ', ' + failed + ' failed' : '') +
-          ' — safe to browse leads.',
+        stopping
+          ? 'Stopping after the current contact — ' +
+            (pushed || 0) +
+            ' already pushed to GHL and staying there.'
+          : 'Background GHL sync ' +
+            current +
+            '/' +
+            total +
+            ' · ' +
+            (pushed || 0) +
+            ' synced' +
+            (failed ? ', ' + failed + ' failed' : '') +
+            ' — safe to browse leads, Stop sync halts it.',
         false,
       );
     }
@@ -4514,12 +4550,29 @@
       renderFocusGhlBackgroundProgress(p.current, p.total, p.pushed, p.failed);
     });
 
+    window.addEventListener('agency-os-ghl-sync-cancelling', function (e) {
+      var d = (e && e.detail) || {};
+      setFocusGhlStopControl('stopping');
+      setFocusSyncListStatus(
+        'Stopping after the current contact — anything already pushed stays in GHL.',
+        false,
+      );
+      if (d.total) setFocusBulkGhlBusy(true, 'Stopping ' + Math.min((d.current || 0) + 1, d.total) + '/' + d.total);
+    });
+
     window.addEventListener('agency-os-ghl-sync-finished', function (e) {
       var s = (e && e.detail) || {};
       setFocusBulkGhlBusy(false);
+      setFocusGhlStopControl('hidden');
       if (s.total) {
         setFocusSyncListStatus(
-          'GHL sync complete · ' + (s.pushed || 0) + ' pushed' + (s.failed ? ' · ' + s.failed + ' failed' : ''),
+          s.cancelled
+            ? 'Sync stopped · ' +
+              (s.pushed || 0) +
+              ' of ' +
+              s.total +
+              ' pushed · already-synced contacts stay in GHL'
+            : 'GHL sync complete · ' + (s.pushed || 0) + ' pushed' + (s.failed ? ' · ' + s.failed + ' failed' : ''),
           (s.failed || 0) > 0,
         );
       }
@@ -4532,6 +4585,27 @@
       if (!job || !Array.isArray(job.keys)) return;
       renderFocusGhlBackgroundProgress(job.index, job.keys.length, job.pushedCount, job.failedCount);
     })();
+
+    if (btnStopGhlSync) {
+      btnStopGhlSync.addEventListener('click', function (e) {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        var bg = window.agencyOsGhlSync;
+        if (!bg || typeof bg.cancel !== 'function' || !bg.cancel()) {
+          setFocusGhlStopControl('hidden');
+          setFocusBulkGhlBusy(false);
+          setFocusSyncListStatus('No sync is running.', false);
+          return;
+        }
+        setFocusGhlStopControl('stopping');
+        setFocusSyncListStatus(
+          'Stopping after the current contact — anything already pushed stays in GHL.',
+          false,
+        );
+      });
+    }
 
     if (btnSyncListGhl) {
       btnSyncListGhl.addEventListener('click', function (e) {

@@ -1639,6 +1639,17 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   border-color: #6d28d9;
 }
 
+/* Stop / cancel a running background job — dark fill, white lettering in both themes. */
+.btn-solid--stop {
+  background-color: #1f2937;
+  border-color: #1f2937;
+}
+
+.btn-solid--stop:hover:not(:disabled) {
+  background-color: #111827;
+  border-color: #111827;
+}
+
 #bulkActionBar .bulk-bar-main,
 #bulkActionBar .bulk-bar-expand-row:not(.hidden) {
   align-items: center;

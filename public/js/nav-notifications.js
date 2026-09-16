@@ -793,6 +793,7 @@
 
   const GHL_SYNC_JOB_KEY = 'agencyOsGhlSyncJob';
   let ghlSyncProcessorLock = false;
+  let ghlSyncCancelRequested = false;
   const ghlSyncWaiters = [];
 
   function readGhlSyncJob() {
@@ -817,6 +818,37 @@
   function isGhlSyncJobRunning() {
     const j = readGhlSyncJob();
     return !!(j && j.running === true && j.index < j.keys.length);
+  }
+
+  function isGhlSyncCancelPending() {
+    const j = readGhlSyncJob();
+    return !!(ghlSyncCancelRequested || (j && j.cancelRequested === true));
+  }
+
+  /**
+   * Ask the queue to stop after the lead currently being written to GHL.
+   * The in-flight request is never aborted — a half-written contact is worse than one extra push.
+   * @returns {boolean} true when a running job was asked to stop.
+   */
+  function requestGhlSyncCancel() {
+    const job = readGhlSyncJob();
+    if (!job || job.running !== true || job.index >= job.keys.length) return false;
+    ghlSyncCancelRequested = true;
+    job.cancelRequested = true;
+    writeGhlSyncJob(job);
+    updateBulkEnhanceBellBadge(job.index, job.keys.length, (job.label || 'GHL sync') + ' (stopping)');
+    if (typeof window.showAppToast === 'function') {
+      window.showAppToast('Stopping sync after the current contact…', {
+        variant: 'info',
+        duration: 5000,
+      });
+    }
+    window.dispatchEvent(
+      new CustomEvent('agency-os-ghl-sync-cancelling', {
+        detail: { current: job.index, total: job.keys.length },
+      }),
+    );
+    return true;
   }
 
   function emitGhlSyncProgress(detail) {
@@ -860,6 +892,7 @@
     const total = job.keys.length;
     const pushed = job.pushedCount || 0;
     const failed = job.failedCount || 0;
+    const stopping = job.cancelRequested === true || ghlSyncCancelRequested;
     return (
       '<div class="p-4 border-b border-brand-border/10 bg-orange-500/5 dark:bg-orange-500/10">' +
       '<div class="flex items-start gap-3">' +
@@ -868,12 +901,22 @@
       '</div><div class="min-w-0">' +
       '<div class="text-[11px] font-black text-brand-dark dark:text-white uppercase tracking-tight mb-0.5">' +
       escapeBellHtml(job.label || 'GHL sync') +
-      ' in progress</div>' +
+      (stopping ? ' stopping' : ' in progress') +
+      '</div>' +
       '<div class="text-[10px] font-bold text-brand-muted dark:text-slate-400 leading-tight">' +
       escapeBellHtml(String(current) + ' of ' + String(total) + ' contacts') +
       (pushed || failed ? ' · ' + pushed + ' synced' + (failed ? ', ' + failed + ' failed' : '') : '') +
       '</div>' +
-      '<div class="mt-1 text-[9px] font-semibold text-brand-muted dark:text-slate-500">Safe to browse other pages — we will ping the bell when done.</div>' +
+      '<div class="mt-1 text-[9px] font-semibold text-brand-muted dark:text-slate-500">' +
+      (stopping
+        ? 'Finishing the current contact, then stopping. Contacts already pushed stay in GHL.'
+        : 'Safe to browse other pages — we will ping the bell when done.') +
+      '</div>' +
+      (stopping
+        ? '<div class="mt-2 text-[9px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Stopping…</div>'
+        : '<button type="button" class="btn-solid btn-solid--stop mt-2 rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-widest" ' +
+          'onclick="event.stopPropagation();if(window.agencyOsGhlSync&amp;&amp;window.agencyOsGhlSync.cancel)window.agencyOsGhlSync.cancel();" ' +
+          'title="Stop after the contact currently syncing — anything already pushed stays in GHL">Stop sync</button>') +
       '</div></div></div>'
     );
   }
@@ -923,6 +966,12 @@
         summary.href = job.href || '/prospecting?tab=pipeline';
         summary.tagNames = Array.isArray(job.extraTagNames) ? job.extraTagNames : [];
 
+        // Stop between leads so nothing is left half-written in GHL.
+        if (ghlSyncCancelRequested || job.cancelRequested === true) {
+          summary.cancelled = true;
+          break;
+        }
+
         try {
           // eslint-disable-next-line no-await-in-loop
           var data = await pushSingleLeadKeyToGhl(key, job);
@@ -938,6 +987,11 @@
         }
 
         job.index += 1;
+        // A Stop click during the request above wrote the flag to storage; keep it.
+        var pendingCancel = readGhlSyncJob();
+        if (ghlSyncCancelRequested || (pendingCancel && pendingCancel.cancelRequested === true)) {
+          job.cancelRequested = true;
+        }
         writeGhlSyncJob(job);
         emitGhlSyncProgress({
           current: job.index,
@@ -954,10 +1008,13 @@
         summary.pushed = finalJob.pushedCount || 0;
         summary.failed = finalJob.failedCount || 0;
         summary.total = finalJob.keys.length;
+        summary.processed = finalJob.index || 0;
         summary.ok = summary.failed === 0;
+        if (finalJob.cancelRequested === true) summary.cancelled = true;
       }
     } finally {
       ghlSyncProcessorLock = false;
+      ghlSyncCancelRequested = false;
       writeGhlSyncJob(null);
       updateBulkEnhanceBellBadge(0, 0);
       if (typeof window.updateProcessingStatus === 'function') {
@@ -967,25 +1024,38 @@
 
       if (summary.total > 0) {
         var syncLabel = summary.label || 'GHL sync';
-        var doneMsg =
-          syncLabel +
-          ' complete · ' +
-          summary.pushed +
-          ' contact' +
-          (summary.pushed === 1 ? '' : 's') +
-          (summary.failed ? ' · ' + summary.failed + ' failed' : '') +
-          (summary.tagNames && summary.tagNames.length ? ' · ' + summary.tagNames.join(', ') : '');
+        var doneMsg = summary.cancelled
+          ? syncLabel +
+            ' stopped · ' +
+            summary.pushed +
+            ' of ' +
+            summary.total +
+            ' synced' +
+            (summary.failed ? ' · ' + summary.failed + ' failed' : '') +
+            ' · contacts already pushed stay in GHL'
+          : syncLabel +
+            ' complete · ' +
+            summary.pushed +
+            ' contact' +
+            (summary.pushed === 1 ? '' : 's') +
+            (summary.failed ? ' · ' + summary.failed + ' failed' : '') +
+            (summary.tagNames && summary.tagNames.length ? ' · ' + summary.tagNames.join(', ') : '');
         pushClientBellNotification({
-          headline: summary.failed ? syncLabel + ' finished with errors' : syncLabel + ' complete',
+          headline: summary.cancelled
+            ? syncLabel + ' stopped'
+            : summary.failed
+              ? syncLabel + ' finished with errors'
+              : syncLabel + ' complete',
           body: doneMsg,
           href: summary.href || '/prospecting?tab=pipeline',
-          desktop: true,
+          // No browser alert for a stop the user just clicked — and never one that reads like success.
+          desktop: !summary.cancelled,
           desktopTag: 'agency-os-ghl-sync',
         });
         if (typeof window.showAppToast === 'function') {
           window.showAppToast(doneMsg, {
-            variant: summary.failed ? 'error' : 'success',
-            duration: summary.failed ? 9000 : 5000,
+            variant: summary.cancelled ? 'warning' : summary.failed ? 'error' : 'success',
+            duration: summary.failed || summary.cancelled ? 9000 : 5000,
           });
         }
         var pingDone = document.getElementById('notificationPing');
@@ -1003,6 +1073,12 @@
   window.agencyOsGhlSync = {
     isRunning() {
       return isGhlSyncJobRunning();
+    },
+    isCancelPending() {
+      return isGhlSyncCancelPending();
+    },
+    cancel() {
+      return requestGhlSyncCancel();
     },
     readJob() {
       return readGhlSyncJob();
@@ -1031,10 +1107,12 @@
 
         if (isGhlSyncJobRunning()) return;
 
+        ghlSyncCancelRequested = false;
         var job = {
           keys: leadKeys,
           index: 0,
           running: true,
+          cancelRequested: false,
           tagNoWebsite: opts.tagNoWebsite !== false,
           focusMode: opts.focusMode === true,
           listSyncFast: opts.listSyncFast === true,
