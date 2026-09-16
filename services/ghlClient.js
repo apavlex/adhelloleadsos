@@ -113,7 +113,12 @@ async function ghlRequest(method, path, { integrationEnv, body, query, apiVersio
       (data && data.error) ||
       (data && data.msg) ||
       `GHL API error (${res.status})`;
-    const err = new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+    let text = typeof msg === 'string' ? msg : JSON.stringify(msg);
+    if (/does not have access to this location/i.test(text)) {
+      text =
+        'GHL token does not have access to this Location ID. Create the Private Integration token inside the same sub-account as the Location ID (Settings → Integrations → Private Integrations), copy that location’s ID from the URL (/location/XXXX/), then Test & save under Workspace → Integrations.';
+    }
+    const err = new Error(text);
     err.status = res.status;
     err.body = data;
     throw err;

@@ -135,7 +135,7 @@
           <h3 class="font-bold text-brand-dark dark:text-white">Save credentials in Agency OS</h3>
           <ol class="text-sm text-brand-muted space-y-2 list-decimal list-inside leading-relaxed">
             <li>Go to <a href="/workspace/integrations#ghl-integration" class="underline font-semibold text-brand-dark dark:text-white">Workspace → Integrations → Go High Level</a>.</li>
-            <li>Paste the <strong>Private integration token</strong> and <strong>Location ID</strong>.</li>
+            <li>Paste the <strong>Private integration token</strong> and <strong>Location ID</strong> from the <em>same</em> sub-account (mismatched pairs cause “token does not have access to this location”).</li>
             <li>Click <strong>Test &amp; save</strong> on the GHL card. A green check means Agency OS can read contacts from that location.</li>
           </ol>
           <% if (_gs.connected) { %>
