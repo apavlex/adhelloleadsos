@@ -3414,6 +3414,19 @@
         }
         if (res.j.pendingDialIn) {
           var n = formatCallerIdDisplay(res.j.dialInNumber || softphoneSession.dialInNumber || '') || 'workspace number';
+          if (res.j.inboundConfigured === false) {
+            // Do not tell the agent to dial a number whose inbound webhook we could
+            // not verify — that is the call that dies on a carrier failure message.
+            softphoneSetStatus(
+              'Dial-in not ready — SignalWire could not confirm the Voice webhook for ' +
+                n +
+                '. Fix it in Workspace → Phone settings, then tap Call again. ' +
+                String(res.j.inboundError || '').slice(0, 120),
+              true,
+            );
+            softphoneSetCallState('dialing');
+            return;
+          }
           softphoneSetStatus('Waiting — call ' + n + ' from your phone. We connect the lead when you dial in.');
           softphoneSetCallState('dialing');
           return;

@@ -38,6 +38,22 @@ function persistSession(session) {
   }
 }
 
+/**
+ * SQLite writes are synchronous (better-sqlite3) and block the event loop while
+ * another writer holds the lock. The inbound voice webhook must answer SignalWire
+ * in well under a second, so it persists after the response is flushed.
+ */
+function persistSessionDeferred(session) {
+  if (!session || !session.workspaceId) return;
+  setImmediate(() => {
+    try {
+      persistSession(session);
+    } catch (_) {
+      /* already logged */
+    }
+  });
+}
+
 function deletePersisted(workspaceId) {
   const wid = String(workspaceId || '').trim();
   if (!wid) return;
@@ -142,6 +158,10 @@ function createSession(workspaceId, data) {
     queuedLeadKeys: data.queuedLeadKeys || [],
     currentLeadKey: data.currentLeadKey || data.leadKey || null,
     testDialIn: !!(data && data.testDialIn),
+    // Whether the DID's inbound Voice webhook was verified when the session was
+    // parked — the UI must not promise "dial in now" when it was not.
+    inboundConfigured: data.inboundConfigured == null ? null : !!data.inboundConfigured,
+    inboundError: data.inboundError || '',
     createdAt: Date.now(),
     expiresAt: mode === 'dial_in' ? Date.now() + DIAL_IN_PENDING_MS : null,
   };
@@ -150,11 +170,14 @@ function createSession(workspaceId, data) {
   return s;
 }
 
-function updateSession(workspaceId, patch) {
+function updateSession(workspaceId, patch, opts) {
   const s = getSession(workspaceId);
   if (!s) return null;
   Object.assign(s, patch);
-  if (s.mode === 'dial_in') persistSession(s);
+  if (s.mode === 'dial_in') {
+    if (opts && opts.defer) persistSessionDeferred(s);
+    else persistSession(s);
+  }
   return s;
 }
 
@@ -201,42 +224,65 @@ function removeSessionForCall(workspaceId, callSid) {
   return true;
 }
 
-function phonesMatch(aRaw, bRaw) {
-  const a = String(aRaw || '').replace(/\D/g, '');
-  const b = String(bRaw || '').replace(/\D/g, '');
-  if (!a || !b) return false;
-  return a.endsWith(b.slice(-10)) || b.endsWith(a.slice(-10));
+/** Digits only, so "+1 (360) 609-6937", "3606096937" and "+13606096937" compare equal. */
+function phoneDigits(raw) {
+  return String(raw == null ? '' : raw).replace(/\D/g, '');
 }
 
-/** Find a pending dial-in session for this DID (and optional agent From). */
+function phonesMatch(aRaw, bRaw) {
+  const a = phoneDigits(aRaw);
+  const b = phoneDigits(bRaw);
+  if (!a || !b) return false;
+  // Short strings (extensions, partial input) must be exact — comparing suffixes
+  // there would match unrelated numbers.
+  if (a.length < 10 || b.length < 10) return a === b;
+  return a.slice(-10) === b.slice(-10);
+}
+
+function isPendingDialInFor(session, did, nowMs) {
+  if (!session || session.mode !== 'dial_in') return false;
+  if (!String(session.workspaceId || '').trim()) return false;
+  if (session.status !== 'pending_dial_in') return false;
+  if (isSessionStale(session, nowMs) || isDialInExpired(session, nowMs)) return false;
+  const dialIn = session.dialInNumber || session.from || '';
+  if (!dialIn || !did) return false;
+  return phonesMatch(did, dialIn);
+}
+
+/**
+ * Find a pending dial-in session for this DID (and optional agent From).
+ * Memory is checked first: the inbound webhook runs on the same process that
+ * parked the session, and the SQLite scan can stall behind a background writer.
+ */
 function findPendingDialInByDid(didRaw, fromRaw) {
-  const did = String(didRaw || '').replace(/[^\d+]/g, '');
-  const from = String(fromRaw || '').replace(/[^\d+]/g, '');
+  const did = phoneDigits(didRaw);
+  if (!did) return null;
+  const from = phoneDigits(fromRaw);
   const now = Date.now();
-  const candidates = [...sessions.values(), ...listPersistedDialInSessions()];
+
+  // Prefer a session whose stored agent mobile matches the calling handset, but
+  // never require it — dual-SIM, Google Voice and blocked caller ID all present
+  // a different From than the number saved in Workspace.
+  let fallback = null;
+  for (const s of sessions.values()) {
+    if (!isPendingDialInFor(s, did, now)) continue;
+    if (from && s.agentTo && phonesMatch(from, s.agentTo)) return s;
+    if (!fallback) fallback = s;
+  }
+  if (fallback) return fallback;
+
   const seen = new Set();
-  for (const s of candidates) {
-    if (!s || s.mode !== 'dial_in') continue;
+  for (const s of listPersistedDialInSessions()) {
+    if (!isPendingDialInFor(s, did, now)) continue;
     const wid = String(s.workspaceId || '').trim();
-    if (!wid || seen.has(wid)) continue;
+    if (seen.has(wid)) continue;
     seen.add(wid);
-    if (s.status !== 'pending_dial_in') continue;
-    if (isSessionStale(s, now) || isDialInExpired(s, now)) continue;
-    const dialIn = String(s.dialInNumber || s.from || '').replace(/[^\d+]/g, '');
-    if (!dialIn || !did) continue;
-    if (!phonesMatch(did, dialIn)) continue;
-    if (from && s.agentTo) {
-      // Prefer matching agent mobile when present, but do not reject when
-      // the handset presents a different From (dual-SIM / Google Voice).
-      if (!phonesMatch(from, s.agentTo)) {
-        /* keep as candidate — DID match is enough for pending dial-in */
-      }
-    }
     // Hydrate memory for subsequent updates.
     sessions.set(wid, s);
-    return s;
+    if (from && s.agentTo && phonesMatch(from, s.agentTo)) return s;
+    if (!fallback) fallback = s;
   }
-  return null;
+  return fallback;
 }
 
 module.exports = {
@@ -253,4 +299,6 @@ module.exports = {
   isSessionStale,
   isDialInExpired,
   findPendingDialInByDid,
+  phonesMatch,
+  phoneDigits,
 };

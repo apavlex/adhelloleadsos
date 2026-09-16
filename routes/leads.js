@@ -845,6 +845,21 @@ async function startAgentDialInSession(opts) {
   }
   agentSessionStore.removeSession(workspaceId);
 
+  // Park the session before talking to SignalWire: an eager agent who dials while
+  // we are still checking webhooks should still be bridged, not told "no lead waiting".
+  agentSessionStore.createSession(workspaceId, {
+    mode: 'dial_in',
+    agentTo: agentTo || '',
+    from: dialInNumber,
+    dialInNumber,
+    dialTo: dialTo || '',
+    leadKey,
+    currentLeadKey: leadKey,
+    leadCallerId,
+    testDialIn,
+    queuedLeadKeys: [],
+  });
+
   let inboundConfigured = false;
   let inboundError = '';
   try {
@@ -865,31 +880,35 @@ async function startAgentDialInSession(opts) {
     inboundConfigured = false;
     inboundError = err && err.message ? String(err.message) : 'inbound_webhook_failed';
   }
-
-  agentSessionStore.createSession(workspaceId, {
-    mode: 'dial_in',
-    agentTo: agentTo || '',
-    from: dialInNumber,
-    dialInNumber,
-    dialTo: dialTo || '',
-    leadKey,
-    currentLeadKey: leadKey,
-    leadCallerId,
-    testDialIn,
-    queuedLeadKeys: [],
-  });
+  agentSessionStore.updateSession(workspaceId, { inboundConfigured, inboundError });
 
   // Wake Render before the agent dials so SignalWire's inbound webhook does not time out.
+  // The round-trip time is logged: when it creeps past a second the instance is busy
+  // and the inbound webhook is at risk of being dropped by SignalWire.
+  let warmMs = -1;
   try {
     if (typeof signalwire.warmTelephonyWebhooks === 'function') {
+      const warmStartedAt = Date.now();
       await Promise.race([
         signalwire.warmTelephonyWebhooks(),
         new Promise((resolve) => setTimeout(() => resolve({ ok: false, skipped: true }), 6000)),
       ]);
+      warmMs = Date.now() - warmStartedAt;
     }
   } catch (_) {
     /* non-fatal */
   }
+
+  console.log(
+    '[agent-dial-in] workspace=%s did=%s agentTo=%s leadTo=%s inboundConfigured=%s warmMs=%s%s',
+    workspaceId,
+    dialInNumber,
+    agentTo || '(none)',
+    dialTo || '(test)',
+    inboundConfigured,
+    warmMs,
+    inboundError ? ' error=' + inboundError : '',
+  );
 
   return {
     dialMode: 'agent_dial_in',
@@ -2642,6 +2661,8 @@ router.get('/telephony/session/status', async (req, res, next) => {
       queuedCount: (session.queuedLeadKeys || []).length,
       currentLeadKey: session.currentLeadKey || session.leadKey || null,
       pendingDialIn: session.mode === 'dial_in' && session.status === 'pending_dial_in',
+      inboundConfigured: session.inboundConfigured == null ? null : !!session.inboundConfigured,
+      inboundError: session.inboundError || null,
     });
   } catch (err) {
     next(err);

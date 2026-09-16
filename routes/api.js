@@ -22,6 +22,7 @@ const ghlSync = require('../services/ghlSync');
 const commsClient = require('../services/commsClient');
 const commsSync = require('../services/commsSync');
 const lobWebhook = require('../services/lobWebhook');
+const dialInLaml = require('../services/dialInLaml');
 
 async function routeLeadAfterIngest(leadKey, workspaceId, source) {
   const wid = workspaceId || 'default';
@@ -75,19 +76,10 @@ function telephonyAuthorized(req) {
 
 /** Prefer TwiML over bare 401 so SignalWire plays a clear message instead of carrier "can't connect". */
 function telephonyUnauthorizedTwiml(res, reason) {
-  const voiceLang = String(process.env.TELEPHONY_VOICE_LANGUAGE || 'en-US').trim();
-  const voiceName = String(process.env.TELEPHONY_VOICE_NAME || 'alice').trim();
-  const say =
-    reason ||
-    'Ad Hello phone routing is misconfigured. In Render, set BASE URL to the live app host and sync the telephony webhook token, then try again.';
   return res
     .status(200)
     .type('text/xml')
-    .send(
-      `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="${xmlEscape(voiceName)}" language="${xmlEscape(voiceLang)}">${xmlEscape(
-        say,
-      )}</Say><Hangup/></Response>`,
-    );
+    .send(dialInLaml.buildUnauthorizedLaml({ message: reason }));
 }
 
 async function ghlWebhookAuthorized(req) {
@@ -800,69 +792,82 @@ router.post('/telephony/voice/amd', async (req, res) => {
 });
 
 // POST|GET /api/telephony/voice/inbound — agent dials workspace DID; bridge pending lead
+// Hot path: SignalWire abandons the call (caller hears the carrier "cannot be completed"
+// intercept) if this does not answer fast, so everything here stays synchronous and
+// in-memory, and the session write is deferred until after the response is flushed.
 router.all('/telephony/voice/inbound', async (req, res) => {
+  const startedAt = Date.now();
+  const body = { ...(req.query || {}), ...(req.body || {}) };
+  const to = signalwire.normalizePhone(body.To || body.to || '');
+  const from = signalwire.normalizePhone(body.From || body.from || '');
+  const callSid = String(body.CallSid || body.callSid || '').trim();
+  const viaFallback = String((req.query && req.query.fallback) || '').trim() === '1';
+  let outcome = 'error';
+
+  function finish(xml) {
+    res.type('text/xml').send(xml);
+    console.log(
+      '[telephony:voice:inbound] %s outcome=%s from=%s to=%s callSid=%s tokenOk=%s fallback=%s ms=%s',
+      req.method,
+      outcome,
+      from || '(none)',
+      to || '(none)',
+      callSid || '(none)',
+      outcome !== 'unauthorized',
+      viaFallback ? '1' : '0',
+      Date.now() - startedAt,
+    );
+  }
+
   try {
-    if (!telephonyAuthorized(req)) return telephonyUnauthorizedTwiml(res);
-    const body = { ...(req.query || {}), ...(req.body || {}) };
-    const to = signalwire.normalizePhone(body.To || body.to || '');
-    const from = signalwire.normalizePhone(body.From || body.from || '');
-    const callSid = String(body.CallSid || body.callSid || '').trim();
-    const voiceLang = String(process.env.TELEPHONY_VOICE_LANGUAGE || 'en-US').trim();
-    const voiceName = String(process.env.TELEPHONY_VOICE_NAME || 'alice').trim();
-
-    let session = agentSessionStore.findPendingDialInByDid(to, from);
-    if (!session && to) {
-      // Fallback: any pending dial-in for this DID (agent From may be withheld / spoofed)
-      session = agentSessionStore.findPendingDialInByDid(to, '');
+    if (!telephonyAuthorized(req)) {
+      outcome = 'unauthorized';
+      return finish(dialInLaml.buildUnauthorizedLaml());
     }
+
+    const session = agentSessionStore.findPendingDialInByDid(to, from);
     if (!session) {
-      return res.type('text/xml').send(
-        `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="${xmlEscape(voiceName)}" language="${xmlEscape(voiceLang)}">No lead is waiting. Open Ad Hello, tap Call, then dial this number again.</Say><Hangup/></Response>`,
-      );
+      outcome = 'no_session';
+      return finish(dialInLaml.buildNoSessionLaml());
     }
 
+    const workspaceId = String(session.workspaceId || '').trim();
     if (session.testDialIn) {
-      const workspaceId = String(session.workspaceId || '').trim();
-      if (workspaceId) agentSessionStore.removeSession(workspaceId);
-      return res.type('text/xml').send(
-        `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="${xmlEscape(voiceName)}" language="${xmlEscape(voiceLang)}">Ad Hello dial in works. When you tap Call on a lead, dial this same number from your cell and we will connect the lead.</Say><Hangup/></Response>`,
-      );
-    }
-
-    if (!session.dialTo) {
-      return res.type('text/xml').send(
-        `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="${xmlEscape(voiceName)}" language="${xmlEscape(voiceLang)}">No lead is waiting. Open Ad Hello, tap Call, then dial this number again.</Say><Hangup/></Response>`,
-      );
+      outcome = 'test_dial_in';
+      finish(dialInLaml.buildTestDialInLaml());
+      if (workspaceId) setImmediate(() => agentSessionStore.removeSession(workspaceId));
+      return;
     }
 
     const dialTo = signalwire.normalizePhone(session.dialTo);
-    const callerId =
-      signalwire.normalizePhone(session.leadCallerId || session.from || to) || to;
-    const workspaceId = String(session.workspaceId || '').trim();
-
-    agentSessionStore.updateSession(workspaceId, {
-      status: 'active',
-      callSid: callSid || session.callSid || '',
-      mode: 'dial_in',
-      expiresAt: null,
-    });
-
-    let dialExtra = '';
-    if (workspaceId) {
-      const waitUrl = signalwire.buildAppUrl('/api/telephony/voice/twiml/wait', {
-        workspaceId,
-        from: callerId,
-      });
-      if (waitUrl) dialExtra = ` action="${xmlEscape(waitUrl)}"`;
+    if (!dialTo) {
+      outcome = 'no_lead';
+      return finish(dialInLaml.buildNoLeadLaml());
     }
 
-    const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="${xmlEscape(voiceName)}" language="${xmlEscape(voiceLang)}">Connecting the lead now.</Say><Dial answerOnBridge="true" timeout="45" callerId="${xmlEscape(
-      callerId,
-    )}"${dialExtra}><Number>${xmlEscape(dialTo)}</Number></Dial></Response>`;
-    return res.type('text/xml').send(xml);
+    const callerId = signalwire.normalizePhone(session.leadCallerId || session.from || to) || to;
+    const waitUrl = workspaceId
+      ? signalwire.buildAppUrl('/api/telephony/voice/twiml/wait', { workspaceId, from: callerId })
+      : '';
+
+    outcome = 'bridging';
+    finish(dialInLaml.buildBridgeLaml({ dialTo, callerId, actionUrl: waitUrl }));
+    agentSessionStore.updateSession(
+      workspaceId,
+      {
+        status: 'active',
+        callSid: callSid || session.callSid || '',
+        mode: 'dial_in',
+        expiresAt: null,
+      },
+      { defer: true },
+    );
+    return;
   } catch (err) {
-    console.error('[telephony:voice:inbound]', err.message);
-    res.type('text/xml').send('<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>');
+    console.error('[telephony:voice:inbound]', err && err.message);
+    if (res.headersSent) return;
+    outcome = 'error';
+    return finish(dialInLaml.buildErrorLaml());
   }
 });
 

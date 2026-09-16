@@ -463,6 +463,10 @@ async function listIncomingPhoneNumbers(opts) {
           .trim()
           .slice(0, 64),
         voiceUrl: String(n.voice_url || n.VoiceUrl || '').trim(),
+        voiceMethod: String(n.voice_method || n.VoiceMethod || '').trim(),
+        voiceFallbackUrl: String(n.voice_fallback_url || n.VoiceFallbackUrl || '').trim(),
+        statusCallback: String(n.status_callback || n.StatusCallback || '').trim(),
+        voiceCapable: !!(n.capabilities && (n.capabilities.voice || n.capabilities.Voice)),
       }))
       .filter((n) => n.phoneNumber);
     const seen = new Set();
@@ -550,6 +554,9 @@ async function configureIncomingNumberForDialIn(phoneNumber) {
   if (!want) throw new Error('Phone number is required.');
   if (!configured()) throw new Error('SignalWire is not configured.');
   const voiceUrl = buildAppUrl('/api/telephony/voice/inbound', {});
+  // Same handler, tagged so Render logs show when SignalWire retried after the
+  // primary fetch failed — that is the signature of a timed-out webhook.
+  const voiceFallbackUrl = buildAppUrl('/api/telephony/voice/inbound', { fallback: '1' });
   const statusCallback = buildAppUrl('/api/telephony/voice/status', {});
   if (!voiceUrl || !statusCallback) {
     throw new Error('BASE_URL must be a public https URL to configure inbound voice webhooks.');
@@ -564,15 +571,17 @@ async function configureIncomingNumberForDialIn(phoneNumber) {
   const raw = await postForm(`/IncomingPhoneNumbers/${encodeURIComponent(match.sid)}.json`, {
     VoiceUrl: voiceUrl,
     VoiceMethod: 'POST',
-    VoiceFallbackUrl: voiceUrl,
+    VoiceFallbackUrl: voiceFallbackUrl,
     VoiceFallbackMethod: 'POST',
     StatusCallback: statusCallback,
     StatusCallbackMethod: 'POST',
   });
+  _incomingNumbersCache = { at: 0, value: null };
   return {
     sid: match.sid,
     phoneNumber: want,
     voiceUrl,
+    voiceFallbackUrl,
     statusCallback,
     raw,
   };
@@ -607,16 +616,24 @@ async function ensureIncomingVoiceWebhooks(phoneNumber) {
   if (!expectedVoice || !expectedStatus) {
     return { ok: false, skipped: true, reason: 'missing_base_url' };
   }
+  const expectedFallback = buildAppUrl('/api/telephony/voice/inbound', { fallback: '1' });
   const listed = await listIncomingPhoneNumbers();
   const match = (listed.numbers || []).find((n) => n.phoneNumber === want && n.sid);
   if (!match || !match.sid) {
     return { ok: false, skipped: true, reason: 'number_not_found', phoneNumber: want };
   }
-  if (voiceWebhookUrlsMatch(match.voiceUrl, expectedVoice)) {
+  if (match.voiceCapable === false) {
+    return { ok: false, skipped: true, reason: 'number_not_voice_capable', phoneNumber: want };
+  }
+  const drifted =
+    !voiceWebhookUrlsMatch(match.voiceUrl, expectedVoice) ||
+    !voiceWebhookUrlsMatch(match.voiceFallbackUrl, expectedFallback) ||
+    !voiceWebhookUrlsMatch(match.statusCallback, expectedStatus) ||
     // Migrate off the raw Render hostname if a prior configure left it there.
-    if (!/onrender\.com/i.test(String(match.voiceUrl || ''))) {
-      return { ok: true, updated: false, phoneNumber: want, voiceUrl: match.voiceUrl };
-    }
+    /onrender\.com/i.test(String(match.voiceUrl || '')) ||
+    (match.voiceMethod && match.voiceMethod.toUpperCase() !== 'POST');
+  if (!drifted) {
+    return { ok: true, updated: false, phoneNumber: want, voiceUrl: match.voiceUrl };
   }
   const configuredNum = await configureIncomingNumberForDialIn(want);
   return {
@@ -625,6 +642,46 @@ async function ensureIncomingVoiceWebhooks(phoneNumber) {
     phoneNumber: want,
     voiceUrl: configuredNum.voiceUrl,
     previousVoiceUrl: match.voiceUrl || '',
+  };
+}
+
+/**
+ * Read-only snapshot of a DID's live voice routing vs what this app expects.
+ * Used by `npm run telephony:doctor` and by support when a dial-in fails.
+ */
+async function describeIncomingNumber(phoneNumber) {
+  const want = normalizePhone(phoneNumber);
+  if (!want) throw new Error('Phone number is required.');
+  if (!configured()) throw new Error('SignalWire is not configured.');
+  const expected = {
+    voiceUrl: buildAppUrl('/api/telephony/voice/inbound', {}),
+    voiceFallbackUrl: buildAppUrl('/api/telephony/voice/inbound', { fallback: '1' }),
+    statusCallback: buildAppUrl('/api/telephony/voice/status', {}),
+    voiceMethod: 'POST',
+  };
+  const listed = await listIncomingPhoneNumbers({ force: true });
+  const match = (listed.numbers || []).find((n) => n.phoneNumber === want);
+  if (!match) {
+    return { phoneNumber: want, found: false, expected, listError: listed.error || null };
+  }
+  return {
+    phoneNumber: want,
+    found: true,
+    sid: match.sid,
+    friendlyName: match.friendlyName,
+    voiceCapable: match.voiceCapable,
+    current: {
+      voiceUrl: match.voiceUrl,
+      voiceMethod: match.voiceMethod,
+      voiceFallbackUrl: match.voiceFallbackUrl,
+      statusCallback: match.statusCallback,
+    },
+    expected,
+    matches: {
+      voiceUrl: voiceWebhookUrlsMatch(match.voiceUrl, expected.voiceUrl),
+      voiceFallbackUrl: voiceWebhookUrlsMatch(match.voiceFallbackUrl, expected.voiceFallbackUrl),
+      statusCallback: voiceWebhookUrlsMatch(match.statusCallback, expected.statusCallback),
+    },
   };
 }
 
@@ -1092,5 +1149,8 @@ module.exports = {
   resolveOutboundFromNumber,
   configureIncomingNumberForDialIn,
   ensureIncomingVoiceWebhooks,
+  describeIncomingNumber,
+  voiceWebhookUrlsMatch,
+  normalizePublicBaseUrl,
   warmTelephonyWebhooks,
 };
