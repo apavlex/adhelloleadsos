@@ -21,7 +21,7 @@ const workspaceThemeRow = document.getElementById('workspaceThemeRow');
 const showSaveLeadFabEl = document.getElementById('showSaveLeadFab');
 const findLoyaltyBtn = document.getElementById('findLoyaltyBtn');
 const loyaltyStatusEl = document.getElementById('loyaltyStatus');
-const EXT_VERSION = '1.9.3';
+const EXT_VERSION = '1.9.4';
 const PARALLEL_LABEL = '5 at a time';
 
 let bulkRunning = false;
@@ -1040,11 +1040,16 @@ function renderLibraryGroups(groups) {
   host.innerHTML = groups
     .map((g, i) => {
       const url = String(g.url || '');
+      const members =
+        g.memberCountLabel ||
+        (g.memberCount != null ? `${Number(g.memberCount).toLocaleString()} members` : '');
+      const metaBits = [g.category || 'Facebook Group', members, g.privacy].filter(Boolean);
       return (
         `<article class="library-card" data-kind="group" data-idx="${i}">` +
-        `<p class="library-card__meta">${escapeHtml(g.category || 'Facebook Group')}</p>` +
+        `<p class="library-card__meta">${escapeHtml(metaBits.join(' · '))}</p>` +
         `<p class="library-card__title">${escapeHtml(g.title || 'Group')}</p>` +
         (g.note ? `<p class="library-card__body">${escapeHtml(g.note)}</p>` : '') +
+        (g.location ? `<p class="library-card__body">${escapeHtml(g.location)}</p>` : '') +
         `<div class="library-card__actions">` +
         `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Open</a>` +
         `<button type="button" class="js-lib-copy" data-copy="${encodeURIComponent(url)}">Copy URL</button>` +
@@ -1128,7 +1133,51 @@ async function detectActiveFacebookGroup() {
   }
   const bar = document.getElementById('saveGroupBar');
   if (bar) bar.classList.toggle('hidden', !isGroup);
-  return { isGroup, url, title: (tab && tab.title) || '' };
+  return { isGroup, url, title: (tab && tab.title) || '', tabId: tab && tab.id };
+}
+
+function scrapeFbGroupMetaInPage() {
+  function cleanTitle(raw) {
+    let t = String(raw || '').trim();
+    t = t.replace(/^\(\d+\)\s*/, '');
+    t = t.replace(/\s*[|·•]\s*Groups\s*[|·•]\s*Facebook\s*$/i, '');
+    t = t.replace(/\s*[|·•]\s*Facebook\s*$/i, '');
+    t = t.replace(/\s*[|·•]\s*Groups\s*$/i, '');
+    return t.trim();
+  }
+  const h1 = document.querySelector('h1');
+  let title = cleanTitle((h1 && h1.textContent) || '');
+  if (!title) title = cleanTitle(document.title || '');
+  const text = String((document.body && document.body.innerText) || '').slice(0, 80000);
+  let memberCount = null;
+  let memberCountLabel = '';
+  const memberMatch = text.match(/([\d][\d,]*(?:\.\d+)?)\s*([KkMm])?\s*\+?\s*members?\b/);
+  if (memberMatch) {
+    let n = Number(String(memberMatch[1]).replace(/,/g, ''));
+    if (Number.isFinite(n)) {
+      if (/k/i.test(memberMatch[2] || '')) n *= 1000;
+      if (/m/i.test(memberMatch[2] || '')) n *= 1000000;
+      memberCount = Math.round(n);
+      memberCountLabel = memberMatch[0].replace(/\s+/g, ' ').trim();
+    }
+  }
+  let privacy = '';
+  if (/\bPublic\s+group\b/i.test(text)) privacy = 'public';
+  else if (/\bPrivate\s+group\b/i.test(text)) privacy = 'private';
+  return { title, memberCount, memberCountLabel, privacy, location: '' };
+}
+
+async function scrapeActiveFbGroupMeta(tabId) {
+  if (!tabId) return null;
+  try {
+    const [{ result }] = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: scrapeFbGroupMetaInPage,
+    });
+    return result || null;
+  } catch (_) {
+    return null;
+  }
 }
 
 async function loadLibraryPanel() {
@@ -1174,16 +1223,25 @@ document.getElementById('saveGroupBtn')?.addEventListener('click', async () => {
   try {
     const detected = await detectActiveFacebookGroup();
     if (!detected.isGroup) throw new Error('Open a Facebook group tab first.');
+    const meta = (await scrapeActiveFbGroupMeta(detected.tabId)) || {};
     const res = await chrome.runtime.sendMessage({
       type: 'SAVE_FB_GROUP',
       url: detected.url,
-      title: detected.title,
+      title: meta.title || detected.title,
+      memberCount: meta.memberCount,
+      memberCountLabel: meta.memberCountLabel || '',
+      privacy: meta.privacy || '',
+      location: meta.location || '',
       workspaceId: getSelectedWorkspaceId(),
     });
     if (!res?.ok) throw new Error(res?.error || 'Save failed');
     const already = res.data && res.data.alreadySaved;
+    const saved = res.data && res.data.group;
+    let msg = already ? 'Already in your library.' : 'Group saved to AdHello.';
+    if (saved && saved.memberCountLabel) msg += ` · ${saved.memberCountLabel}`;
+    else if (saved && saved.memberCount != null) msg += ` · ${Number(saved.memberCount).toLocaleString()} members`;
     if (statusEl) {
-      statusEl.textContent = already ? 'Already in your library.' : 'Group saved to AdHello.';
+      statusEl.textContent = msg;
       statusEl.className = 'status status--success';
     }
   } catch (err) {

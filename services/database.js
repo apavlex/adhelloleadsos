@@ -1705,6 +1705,17 @@ module.exports = {
       title: String(group.title || '').trim() || url,
       note: String(group.note || '').trim().slice(0, 2000),
       category: String(group.category || '').trim().slice(0, 80),
+      location: String(group.location || '').trim().slice(0, 120),
+      privacy: String(group.privacy || '').trim().toLowerCase() === 'private'
+        ? 'private'
+        : String(group.privacy || '').trim().toLowerCase() === 'public'
+          ? 'public'
+          : '',
+      memberCount:
+        group.memberCount != null && Number.isFinite(Number(group.memberCount))
+          ? Math.max(0, Math.round(Number(group.memberCount)))
+          : null,
+      memberCountLabel: String(group.memberCountLabel || '').trim().slice(0, 40),
       createdAt: group.createdAt || now,
       updatedAt: now,
     };

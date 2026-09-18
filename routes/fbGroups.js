@@ -82,6 +82,44 @@ function titleFromGroupUrl(urlStr) {
   }
 }
 
+/** Strip tab noise like "(1) Name | Groups | Facebook" from document titles. */
+function cleanFbGroupTitle(raw) {
+  let t = String(raw || '').trim();
+  if (!t) return '';
+  t = t.replace(/^\(\d+\)\s*/, '');
+  t = t.replace(/\s*[|·•]\s*Groups\s*[|·•]\s*Facebook\s*$/i, '');
+  t = t.replace(/\s*[|·•]\s*Facebook\s*$/i, '');
+  t = t.replace(/\s*[|·•]\s*Groups\s*$/i, '');
+  return t.trim().slice(0, 200);
+}
+
+/**
+ * Accept "12345", "12,345", "12K members", etc.
+ * @returns {{ memberCount: number|null, memberCountLabel: string }}
+ */
+function parseMemberCountInput(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return { memberCount: null, memberCountLabel: '' };
+  const m = s.match(/([\d.,]+)\s*([KkMm])?/);
+  if (!m) return { memberCount: null, memberCountLabel: s.slice(0, 40) };
+  let n = Number(String(m[1]).replace(/,/g, ''));
+  if (!Number.isFinite(n) || n < 0) return { memberCount: null, memberCountLabel: s.slice(0, 40) };
+  const suffix = m[2] || '';
+  if (/k/i.test(suffix)) n *= 1000;
+  if (/m/i.test(suffix)) n *= 1000000;
+  const memberCount = Math.round(n);
+  const memberCountLabel = memberCount >= 1000
+    ? `${memberCount.toLocaleString()} members`
+    : `${memberCount} member${memberCount === 1 ? '' : 's'}`;
+  return { memberCount, memberCountLabel };
+}
+
+function normalizePrivacy(raw) {
+  const s = String(raw || '').trim().toLowerCase();
+  if (s === 'public' || s === 'private') return s;
+  return '';
+}
+
 function newGroupId() {
   return `${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
 }
@@ -113,9 +151,14 @@ router.post('/add', express.urlencoded({ extended: true }), async (req, res, nex
       return res.redirect(302, '/fb-groups?error=not_group');
     }
     const url = canonicalizeGroupUrl(urlRaw);
-    const titleIn = String(req.body.title || '').trim().slice(0, 200);
+    const titleIn = cleanFbGroupTitle(String(req.body.title || '').trim().slice(0, 200));
     const note = String(req.body.note || '').trim().slice(0, 2000);
     const category = String(req.body.category || '').trim().slice(0, 80);
+    const location = String(req.body.location || '').trim().slice(0, 120);
+    const privacy = normalizePrivacy(req.body.privacy);
+    const { memberCount, memberCountLabel } = parseMemberCountInput(
+      req.body.memberCount || req.body.members,
+    );
     const title = titleIn || titleFromGroupUrl(url) || url;
     const id = newGroupId();
     await dbService.saveWorkspaceFbGroup(req.workspaceId, {
@@ -124,6 +167,10 @@ router.post('/add', express.urlencoded({ extended: true }), async (req, res, nex
       title,
       note,
       category,
+      location,
+      privacy,
+      memberCount,
+      memberCountLabel,
       addedBy: email,
     });
     res.redirect(302, '/fb-groups');
@@ -145,14 +192,32 @@ router.post('/:id/update', express.urlencoded({ extended: true }), async (req, r
   try {
     const existing = await dbService.getWorkspaceFbGroup(req.workspaceId, req.params.id);
     if (!existing) return res.redirect(302, '/fb-groups');
-    const title = String(req.body.title || '').trim().slice(0, 200) || existing.title;
+    const title =
+      cleanFbGroupTitle(String(req.body.title || '').trim().slice(0, 200)) || existing.title;
     const note = String(req.body.note || '').trim().slice(0, 2000);
     const category = String(req.body.category || '').trim().slice(0, 80);
+    const location = String(req.body.location || '').trim().slice(0, 120);
+    const privacy = normalizePrivacy(req.body.privacy) || existing.privacy || '';
+    const membersRaw = String(req.body.memberCount || req.body.members || '').trim();
+    let memberCount = existing.memberCount ?? null;
+    let memberCountLabel = existing.memberCountLabel || '';
+    if (!membersRaw) {
+      memberCount = null;
+      memberCountLabel = '';
+    } else {
+      const parsed = parseMemberCountInput(membersRaw);
+      memberCount = parsed.memberCount;
+      memberCountLabel = parsed.memberCountLabel;
+    }
     await dbService.saveWorkspaceFbGroup(req.workspaceId, {
       ...existing,
       title,
       note,
       category,
+      location,
+      privacy,
+      memberCount,
+      memberCountLabel,
     });
     res.redirect(302, '/fb-groups');
   } catch (e) {
@@ -183,3 +248,6 @@ module.exports.isFacebookGroupUrl = isFacebookGroupUrl;
 module.exports.canonicalizeGroupUrl = canonicalizeGroupUrl;
 module.exports.normalizeUrl = normalizeUrl;
 module.exports.titleFromGroupUrl = titleFromGroupUrl;
+module.exports.cleanFbGroupTitle = cleanFbGroupTitle;
+module.exports.parseMemberCountInput = parseMemberCountInput;
+module.exports.normalizePrivacy = normalizePrivacy;

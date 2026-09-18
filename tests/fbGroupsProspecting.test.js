@@ -24,6 +24,17 @@ describe('fb group URL helpers', () => {
     );
     assert.match(titleFromGroupUrl('https://www.facebook.com/groups/my-cool-group'), /My Cool Group/i);
   });
+
+  it('cleans tab titles and parses member counts', () => {
+    const { cleanFbGroupTitle, parseMemberCountInput, normalizePrivacy } = require('../routes/fbGroups');
+    assert.equal(
+      cleanFbGroupTitle('(1) Portland Contractors | Groups | Facebook'),
+      'Portland Contractors',
+    );
+    assert.equal(parseMemberCountInput('12K').memberCount, 12000);
+    assert.equal(parseMemberCountInput('12,450').memberCount, 12450);
+    assert.equal(normalizePrivacy('Private'), 'private');
+  });
 });
 
 describe('fb group script pack', () => {

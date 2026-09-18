@@ -1561,12 +1561,37 @@ router.post('/fb-groups', apiKeyAuth, express.json(), async (req, res, next) => 
     const url = canonicalizeGroupUrl(urlRaw);
     const existing = await dbService.listWorkspaceFbGroups(wid);
     const dup = existing.find((g) => String(g.url || '').toLowerCase() === url.toLowerCase());
-    if (dup) {
-      return res.json({ success: true, group: dup, alreadySaved: true });
-    }
-    const titleIn = String((req.body && req.body.title) || '').trim().slice(0, 200);
+    const titleIn = fbGroupsRouteHelpers.cleanFbGroupTitle(
+      String((req.body && req.body.title) || '').trim().slice(0, 200),
+    );
     const note = String((req.body && req.body.note) || '').trim().slice(0, 2000);
     const category = String((req.body && req.body.category) || '').trim().slice(0, 80);
+    const location = String((req.body && req.body.location) || '').trim().slice(0, 120);
+    const privacy = fbGroupsRouteHelpers.normalizePrivacy((req.body && req.body.privacy) || '');
+    const membersParsed = fbGroupsRouteHelpers.parseMemberCountInput(
+      (req.body && (req.body.memberCount || req.body.members || req.body.memberCountLabel)) || '',
+    );
+    const memberCount =
+      req.body && req.body.memberCount != null && Number.isFinite(Number(req.body.memberCount))
+        ? Math.max(0, Math.round(Number(req.body.memberCount)))
+        : membersParsed.memberCount;
+    const memberCountLabel =
+      String((req.body && req.body.memberCountLabel) || '').trim().slice(0, 40) ||
+      membersParsed.memberCountLabel;
+
+    if (dup) {
+      const refreshed = await dbService.saveWorkspaceFbGroup(wid, {
+        ...dup,
+        title: titleIn || dup.title,
+        note: note || dup.note || '',
+        category: category || dup.category || '',
+        location: location || dup.location || '',
+        privacy: privacy || dup.privacy || '',
+        memberCount: memberCount != null ? memberCount : dup.memberCount ?? null,
+        memberCountLabel: memberCountLabel || dup.memberCountLabel || '',
+      });
+      return res.json({ success: true, group: refreshed, alreadySaved: true });
+    }
     const id = `${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
     const group = await dbService.saveWorkspaceFbGroup(wid, {
       id,
@@ -1574,6 +1599,10 @@ router.post('/fb-groups', apiKeyAuth, express.json(), async (req, res, next) => 
       title: titleIn || titleFromGroupUrl(url) || url,
       note,
       category,
+      location,
+      privacy,
+      memberCount,
+      memberCountLabel,
       addedBy: String(req.headers['x-user-email'] || '').trim().slice(0, 320) || undefined,
     });
     res.json({ success: true, group, alreadySaved: false });

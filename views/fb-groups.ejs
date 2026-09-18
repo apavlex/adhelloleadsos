@@ -47,6 +47,24 @@
             <input id="fbGroupCategory" name="category" type="text" maxlength="80" placeholder="e.g. Local flooring" autocomplete="off" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white" />
           </div>
         </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="fbGroupMembers">Members (optional)</label>
+            <input id="fbGroupMembers" name="memberCount" type="text" maxlength="40" placeholder="e.g. 12K or 12,450" autocomplete="off" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white" />
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="fbGroupPrivacy">Privacy</label>
+            <select id="fbGroupPrivacy" name="privacy" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white">
+              <option value="">Unknown</option>
+              <option value="public">Public</option>
+              <option value="private">Private</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="fbGroupLocation">Location (optional)</label>
+            <input id="fbGroupLocation" name="location" type="text" maxlength="120" placeholder="e.g. Portland, OR" autocomplete="off" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white" />
+          </div>
+        </div>
         <div>
           <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="fbGroupNote">Note (optional)</label>
           <textarea id="fbGroupNote" name="note" rows="2" maxlength="2000" placeholder="Why this group matters, posting rules, best days…" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm text-brand-dark dark:text-white resize-y"></textarea>
@@ -62,7 +80,7 @@
       <% if (!groups || !groups.length) { %>
       <%- include('partials/empty_state', {
         emptyHeadline: 'No groups saved yet',
-        emptyBody: 'Paste a facebook.com/groups/… link above. You can also save the group you’re viewing from the Chrome extension Library tab.',
+        emptyBody: 'Paste a facebook.com/groups/… link above. You can also save the group you’re viewing from the Chrome extension Save tab.',
         emptyCtaHref: '/social-posts',
         emptyCtaLabel: 'Browse educational posts',
         emptySecondaryHref: '/resources',
@@ -70,15 +88,28 @@
       }) %>
       <% } else { %>
       <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        <% groups.forEach((g) => { %>
+        <% groups.forEach((g) => {
+          const _title = String(g.title || '').replace(/^\(\d+\)\s*/, '').replace(/\s*[|·•]\s*Groups\s*[|·•]\s*Facebook\s*$/i, '').replace(/\s*[|·•]\s*Facebook\s*$/i, '').trim() || g.title;
+          const _members = g.memberCountLabel || (g.memberCount != null ? Number(g.memberCount).toLocaleString() + ' members' : '');
+          const _privacy = g.privacy === 'public' ? 'Public' : g.privacy === 'private' ? 'Private' : '';
+          const _added = g.createdAt ? new Date(g.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+        %>
         <article class="brand-card p-5 dark:bg-slate-900 dark:border-white/10 flex flex-col gap-3">
           <div class="flex flex-wrap items-center gap-2">
             <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-[#1877F2]/15 text-[#1877F2] dark:text-sky-300 border border-[#1877F2]/25 shrink-0">Facebook Group</span>
+            <% if (_privacy) { %>
+            <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-brand-cream/60 dark:bg-white/10 text-brand-dark dark:text-slate-200 border border-brand-border/40 dark:border-white/10 shrink-0"><%= _privacy %></span>
+            <% } %>
             <% if (g.category) { %>
             <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-brand-cream/60 dark:bg-white/10 text-brand-dark dark:text-slate-200 border border-brand-border/40 dark:border-white/10 shrink-0"><%= g.category %></span>
             <% } %>
           </div>
-          <h3 class="font-display font-bold text-base text-brand-dark dark:text-white leading-snug break-words"><%= g.title %></h3>
+          <h3 class="font-display font-bold text-base text-brand-dark dark:text-white leading-snug break-words"><%= _title %></h3>
+          <div class="flex flex-wrap gap-x-3 gap-y-1 text-xs text-brand-muted">
+            <% if (_members) { %><span><strong class="text-brand-dark dark:text-slate-200"><%= _members %></strong></span><% } %>
+            <% if (g.location) { %><span><%= g.location %></span><% } %>
+            <% if (_added) { %><span>Added <%= _added %></span><% } %>
+          </div>
           <% if (g.note) { %>
           <p class="text-xs text-brand-muted leading-relaxed"><%= g.note %></p>
           <% } %>
@@ -89,6 +120,24 @@
               <button type="submit" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-rose-600 px-2 py-2">Remove</button>
             </form>
           </div>
+          <details class="mt-1 border-t border-brand-border/40 dark:border-white/10 pt-3 group/edit">
+            <summary class="cursor-pointer list-none text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white [&::-webkit-details-marker]:hidden">Edit details</summary>
+            <form action="/fb-groups/<%= encodeURIComponent(g.id) %>/update" method="post" class="mt-3 space-y-3">
+              <input name="title" type="text" maxlength="200" value="<%= _title %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white" placeholder="Name" />
+              <div class="grid grid-cols-2 gap-2">
+                <input name="memberCount" type="text" maxlength="40" value="<%= g.memberCount != null ? g.memberCount : '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-2 text-sm text-brand-dark dark:text-white" placeholder="Members" />
+                <select name="privacy" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-2 text-sm text-brand-dark dark:text-white">
+                  <option value=""<%= !g.privacy ? ' selected' : '' %>>Privacy</option>
+                  <option value="public"<%= g.privacy === 'public' ? ' selected' : '' %>>Public</option>
+                  <option value="private"<%= g.privacy === 'private' ? ' selected' : '' %>>Private</option>
+                </select>
+              </div>
+              <input name="location" type="text" maxlength="120" value="<%= g.location || '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-2 text-sm text-brand-dark dark:text-white" placeholder="Location" />
+              <input name="category" type="text" maxlength="80" value="<%= g.category || '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-2 text-sm text-brand-dark dark:text-white" placeholder="Category" />
+              <textarea name="note" rows="2" maxlength="2000" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-2 text-sm text-brand-dark dark:text-white resize-y" placeholder="Note"><%= g.note || '' %></textarea>
+              <button type="submit" class="btn-pill btn-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest">Save changes</button>
+            </form>
+          </details>
         </article>
         <% }); %>
       </div>
