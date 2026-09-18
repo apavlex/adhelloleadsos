@@ -794,7 +794,27 @@
   const GHL_SYNC_JOB_KEY = 'agencyOsGhlSyncJob';
   let ghlSyncProcessorLock = false;
   let ghlSyncCancelRequested = false;
+  /** True while the document is unloading — remaining contacts must pause, not fail. */
+  let ghlSyncNavPaused = false;
   const ghlSyncWaiters = [];
+
+  function isTransientGhlSyncError(err) {
+    if (!err) return false;
+    if (err.name === 'AbortError' || err.name === 'TimeoutError') return true;
+    const msg = String(err.message || err || '').toLowerCase();
+    return /failed to fetch|networkerror|load failed|network request failed|aborted|the operation was aborted/.test(
+      msg,
+    );
+  }
+
+  try {
+    window.addEventListener('pagehide', function () {
+      if (isGhlSyncJobRunning()) ghlSyncNavPaused = true;
+    });
+    window.addEventListener('pageshow', function () {
+      ghlSyncNavPaused = false;
+    });
+  } catch (_) {}
 
   function readGhlSyncJob() {
     try {
@@ -910,7 +930,7 @@
       '<div class="mt-1 text-[9px] font-semibold text-brand-muted dark:text-slate-500">' +
       (stopping
         ? 'Finishing the current contact, then stopping. Contacts already pushed stay in GHL.'
-        : 'Safe to browse other pages — we will ping the bell when done.') +
+        : 'OK to open other AdHello pages — sync resumes there. Keep this browser tab open.') +
       '</div>' +
       (stopping
         ? '<div class="mt-2 text-[9px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Stopping…</div>'
@@ -954,7 +974,8 @@
   async function processGhlSyncQueue() {
     if (ghlSyncProcessorLock) return;
     ghlSyncProcessorLock = true;
-    var summary = { ok: true, pushed: 0, failed: 0, total: 0, results: [] };
+    ghlSyncNavPaused = false;
+    var summary = { ok: true, pushed: 0, failed: 0, total: 0, results: [], paused: false };
     try {
       while (true) {
         var job = readGhlSyncJob();
@@ -972,15 +993,37 @@
           break;
         }
 
+        if (ghlSyncNavPaused) {
+          summary.paused = true;
+          writeGhlSyncJob(job);
+          break;
+        }
+
         try {
           // eslint-disable-next-line no-await-in-loop
           var data = await pushSingleLeadKeyToGhl(key, job);
+          if (ghlSyncNavPaused) {
+            // Request may have completed server-side; advance so we do not double-push.
+            job.index += 1;
+            if (data && data.pushed > 0) job.pushedCount = (job.pushedCount || 0) + data.pushed;
+            writeGhlSyncJob(job);
+            summary.paused = true;
+            break;
+          }
           var leadPushed = data.pushed != null ? data.pushed : 0;
           var leadFailed = data.failed != null ? data.failed : 0;
           if (leadPushed > 0) job.pushedCount = (job.pushedCount || 0) + leadPushed;
-          else job.failedCount = (job.failedCount || 0) + Math.max(1, leadFailed);
+          else if (leadFailed > 0) job.failedCount = (job.failedCount || 0) + leadFailed;
+          else job.failedCount = (job.failedCount || 0) + 1;
           if (Array.isArray(data.results)) summary.results = summary.results.concat(data.results);
         } catch (err) {
+          // Leaving the page aborts in-flight fetches. Pause — do not fail the rest of the queue.
+          if (ghlSyncNavPaused || isTransientGhlSyncError(err)) {
+            job.lastError = err && err.message ? err.message : String(err);
+            writeGhlSyncJob(job);
+            summary.paused = true;
+            break;
+          }
           job.failedCount = (job.failedCount || 0) + 1;
           job.lastError = err && err.message ? err.message : String(err);
           summary.results.push({ key: key, ok: false, error: job.lastError });
@@ -1014,6 +1057,22 @@
       }
     } finally {
       ghlSyncProcessorLock = false;
+
+      // Navigating away: keep the job so the next AdHello page resumes it.
+      if (summary.paused) {
+        ghlSyncCancelRequested = false;
+        var pausedJob = readGhlSyncJob();
+        if (pausedJob) {
+          activateNavbarWorkBell(pausedJob.label || 'GHL sync');
+          updateBulkEnhanceBellBadge(
+            pausedJob.index,
+            pausedJob.keys.length,
+            pausedJob.label || 'GHL sync',
+          );
+        }
+        return;
+      }
+
       ghlSyncCancelRequested = false;
       writeGhlSyncJob(null);
       updateBulkEnhanceBellBadge(0, 0);
