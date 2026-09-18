@@ -1579,6 +1579,14 @@ router.post('/fb-groups', apiKeyAuth, express.json(), async (req, res, next) => 
       String((req.body && req.body.memberCountLabel) || '').trim().slice(0, 40) ||
       membersParsed.memberCountLabel;
 
+    const lastPosted = fbGroupsRouteHelpers.normalizeLastPosted(
+      (req.body && req.body.lastPosted) || '',
+    );
+    const adminContact = fbGroupsRouteHelpers.normalizeAdminContact(
+      (req.body && (req.body.adminContact || req.body.admin)) || '',
+    );
+    const lastVisitedNow = new Date().toISOString();
+
     if (dup) {
       const refreshed = await dbService.saveWorkspaceFbGroup(wid, {
         ...dup,
@@ -1589,6 +1597,9 @@ router.post('/fb-groups', apiKeyAuth, express.json(), async (req, res, next) => 
         privacy: privacy || dup.privacy || '',
         memberCount: memberCount != null ? memberCount : dup.memberCount ?? null,
         memberCountLabel: memberCountLabel || dup.memberCountLabel || '',
+        lastPosted: lastPosted || dup.lastPosted || '',
+        adminContact: adminContact || dup.adminContact || '',
+        lastVisited: lastVisitedNow,
       });
       return res.json({ success: true, group: refreshed, alreadySaved: true });
     }
@@ -1603,6 +1614,9 @@ router.post('/fb-groups', apiKeyAuth, express.json(), async (req, res, next) => 
       privacy,
       memberCount,
       memberCountLabel,
+      lastPosted,
+      adminContact,
+      lastVisited: lastVisitedNow,
       addedBy: String(req.headers['x-user-email'] || '').trim().slice(0, 320) || undefined,
     });
     res.json({ success: true, group, alreadySaved: false });

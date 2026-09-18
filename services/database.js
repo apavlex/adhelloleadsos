@@ -1716,6 +1716,9 @@ module.exports = {
           ? Math.max(0, Math.round(Number(group.memberCount)))
           : null,
       memberCountLabel: String(group.memberCountLabel || '').trim().slice(0, 40),
+      lastPosted: String(group.lastPosted || '').trim().slice(0, 80),
+      lastVisited: String(group.lastVisited || '').trim().slice(0, 40),
+      adminContact: String(group.adminContact || '').trim().slice(0, 200),
       createdAt: group.createdAt || now,
       updatedAt: now,
     };

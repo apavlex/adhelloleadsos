@@ -120,8 +120,41 @@ function normalizePrivacy(raw) {
   return '';
 }
 
+function normalizeLastPosted(raw) {
+  return String(raw || '').trim().slice(0, 80);
+}
+
+function normalizeAdminContact(raw) {
+  return String(raw || '').trim().slice(0, 200);
+}
+
+/** Optional ISO / date-ish string for last visited. Empty clears; invalid ignored when keepExisting. */
+function normalizeLastVisited(raw, { keepExisting } = {}) {
+  const s = String(raw || '').trim();
+  if (!s) return keepExisting ? undefined : '';
+  const t = Date.parse(s);
+  if (Number.isFinite(t)) return new Date(t).toISOString();
+  return s.slice(0, 40);
+}
+
 function newGroupId() {
   return `${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+}
+
+function metaFromBody(body) {
+  const b = body || {};
+  const { memberCount, memberCountLabel } = parseMemberCountInput(b.memberCount || b.members);
+  return {
+    note: String(b.note || '').trim().slice(0, 2000),
+    category: String(b.category || '').trim().slice(0, 80),
+    location: String(b.location || '').trim().slice(0, 120),
+    privacy: normalizePrivacy(b.privacy),
+    memberCount,
+    memberCountLabel,
+    lastPosted: normalizeLastPosted(b.lastPosted),
+    adminContact: normalizeAdminContact(b.adminContact || b.admin || b.ownerContact),
+    lastVisited: normalizeLastVisited(b.lastVisited, { keepExisting: true }),
+  };
 }
 
 router.get('/', async (req, res, next) => {
@@ -152,28 +185,32 @@ router.post('/add', express.urlencoded({ extended: true }), async (req, res, nex
     }
     const url = canonicalizeGroupUrl(urlRaw);
     const titleIn = cleanFbGroupTitle(String(req.body.title || '').trim().slice(0, 200));
-    const note = String(req.body.note || '').trim().slice(0, 2000);
-    const category = String(req.body.category || '').trim().slice(0, 80);
-    const location = String(req.body.location || '').trim().slice(0, 120);
-    const privacy = normalizePrivacy(req.body.privacy);
-    const { memberCount, memberCountLabel } = parseMemberCountInput(
-      req.body.memberCount || req.body.members,
-    );
+    const meta = metaFromBody(req.body);
     const title = titleIn || titleFromGroupUrl(url) || url;
     const id = newGroupId();
     await dbService.saveWorkspaceFbGroup(req.workspaceId, {
       id,
       url,
       title,
-      note,
-      category,
-      location,
-      privacy,
-      memberCount,
-      memberCountLabel,
+      ...meta,
+      lastVisited: meta.lastVisited || new Date().toISOString(),
       addedBy: email,
     });
     res.redirect(302, '/fb-groups');
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/:id/open', async (req, res, next) => {
+  try {
+    const existing = await dbService.getWorkspaceFbGroup(req.workspaceId, req.params.id);
+    if (!existing || !existing.url) return res.redirect(302, '/fb-groups');
+    await dbService.saveWorkspaceFbGroup(req.workspaceId, {
+      ...existing,
+      lastVisited: new Date().toISOString(),
+    });
+    res.redirect(302, existing.url);
   } catch (e) {
     next(e);
   }
@@ -194,10 +231,7 @@ router.post('/:id/update', express.urlencoded({ extended: true }), async (req, r
     if (!existing) return res.redirect(302, '/fb-groups');
     const title =
       cleanFbGroupTitle(String(req.body.title || '').trim().slice(0, 200)) || existing.title;
-    const note = String(req.body.note || '').trim().slice(0, 2000);
-    const category = String(req.body.category || '').trim().slice(0, 80);
-    const location = String(req.body.location || '').trim().slice(0, 120);
-    const privacy = normalizePrivacy(req.body.privacy) || existing.privacy || '';
+    const meta = metaFromBody(req.body);
     const membersRaw = String(req.body.memberCount || req.body.members || '').trim();
     let memberCount = existing.memberCount ?? null;
     let memberCountLabel = existing.memberCountLabel || '';
@@ -205,19 +239,24 @@ router.post('/:id/update', express.urlencoded({ extended: true }), async (req, r
       memberCount = null;
       memberCountLabel = '';
     } else {
-      const parsed = parseMemberCountInput(membersRaw);
-      memberCount = parsed.memberCount;
-      memberCountLabel = parsed.memberCountLabel;
+      memberCount = meta.memberCount;
+      memberCountLabel = meta.memberCountLabel;
     }
+    const lastVisitedRaw = String(req.body.lastVisited || '').trim();
     await dbService.saveWorkspaceFbGroup(req.workspaceId, {
       ...existing,
       title,
-      note,
-      category,
-      location,
-      privacy,
+      note: meta.note,
+      category: meta.category,
+      location: meta.location,
+      privacy: meta.privacy || existing.privacy || '',
       memberCount,
       memberCountLabel,
+      lastPosted: meta.lastPosted,
+      adminContact: meta.adminContact,
+      lastVisited: lastVisitedRaw
+        ? normalizeLastVisited(lastVisitedRaw) || existing.lastVisited || ''
+        : existing.lastVisited || '',
     });
     res.redirect(302, '/fb-groups');
   } catch (e) {
@@ -251,3 +290,6 @@ module.exports.titleFromGroupUrl = titleFromGroupUrl;
 module.exports.cleanFbGroupTitle = cleanFbGroupTitle;
 module.exports.parseMemberCountInput = parseMemberCountInput;
 module.exports.normalizePrivacy = normalizePrivacy;
+module.exports.normalizeLastPosted = normalizeLastPosted;
+module.exports.normalizeAdminContact = normalizeAdminContact;
+module.exports.normalizeLastVisited = normalizeLastVisited;

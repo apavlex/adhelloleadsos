@@ -844,6 +844,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           privacy: message.privacy || '',
           memberCount: message.memberCount,
           memberCountLabel: message.memberCountLabel || '',
+          lastPosted: message.lastPosted || '',
+          adminContact: message.adminContact || '',
         }),
       },
       message.workspaceId,

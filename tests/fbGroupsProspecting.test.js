@@ -34,6 +34,9 @@ describe('fb group URL helpers', () => {
     assert.equal(parseMemberCountInput('12K').memberCount, 12000);
     assert.equal(parseMemberCountInput('12,450').memberCount, 12450);
     assert.equal(normalizePrivacy('Private'), 'private');
+    const { normalizeLastPosted, normalizeAdminContact } = require('../routes/fbGroups');
+    assert.equal(normalizeLastPosted('  2 days ago  '), '2 days ago');
+    assert.equal(normalizeAdminContact('Jane Admin · 503-555-0100').includes('Jane'), true);
   });
 });
 

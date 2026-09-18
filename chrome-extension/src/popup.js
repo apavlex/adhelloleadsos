@@ -21,7 +21,7 @@ const workspaceThemeRow = document.getElementById('workspaceThemeRow');
 const showSaveLeadFabEl = document.getElementById('showSaveLeadFab');
 const findLoyaltyBtn = document.getElementById('findLoyaltyBtn');
 const loyaltyStatusEl = document.getElementById('loyaltyStatus');
-const EXT_VERSION = '1.9.4';
+const EXT_VERSION = '1.9.5';
 const PARALLEL_LABEL = '5 at a time';
 
 let bulkRunning = false;
@@ -1043,7 +1043,13 @@ function renderLibraryGroups(groups) {
       const members =
         g.memberCountLabel ||
         (g.memberCount != null ? `${Number(g.memberCount).toLocaleString()} members` : '');
-      const metaBits = [g.category || 'Facebook Group', members, g.privacy].filter(Boolean);
+      const metaBits = [
+        g.category || 'Facebook Group',
+        members,
+        g.privacy,
+        g.lastPosted ? `Posted ${g.lastPosted}` : '',
+        g.adminContact ? `Admin ${g.adminContact}` : '',
+      ].filter(Boolean);
       return (
         `<article class="library-card" data-kind="group" data-idx="${i}">` +
         `<p class="library-card__meta">${escapeHtml(metaBits.join(' · '))}</p>` +
@@ -1164,7 +1170,25 @@ function scrapeFbGroupMetaInPage() {
   let privacy = '';
   if (/\bPublic\s+group\b/i.test(text)) privacy = 'public';
   else if (/\bPrivate\s+group\b/i.test(text)) privacy = 'private';
-  return { title, memberCount, memberCountLabel, privacy, location: '' };
+  let lastPosted = '';
+  const postMatch = text.match(
+    /\b((?:\d+\s*(?:min|mins|minute|minutes|hr|hrs|hour|hours|d|day|days|w|week|weeks)\s*ago)|Yesterday(?:\s+at\s+\d{1,2}:\d{2}\s*[AP]M)?|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+\d{1,2}(?:,?\s+\d{4})?(?:\s+at\s+\d{1,2}:\d{2}\s*[AP]M)?)\b/i,
+  );
+  if (postMatch) lastPosted = postMatch[1].replace(/\s+/g, ' ').trim().slice(0, 80);
+  let adminContact = '';
+  const adminMatch = text.match(
+    /(?:Group\s+)?(?:Admin|Admins|Owner)\s*[:\-]?\s*([A-Z][A-Za-z0-9 .'-]{1,48})/,
+  );
+  if (adminMatch) adminContact = adminMatch[1].trim().slice(0, 200);
+  return {
+    title,
+    memberCount,
+    memberCountLabel,
+    privacy,
+    location: '',
+    lastPosted,
+    adminContact,
+  };
 }
 
 async function scrapeActiveFbGroupMeta(tabId) {
@@ -1232,6 +1256,8 @@ document.getElementById('saveGroupBtn')?.addEventListener('click', async () => {
       memberCountLabel: meta.memberCountLabel || '',
       privacy: meta.privacy || '',
       location: meta.location || '',
+      lastPosted: meta.lastPosted || '',
+      adminContact: meta.adminContact || '',
       workspaceId: getSelectedWorkspaceId(),
     });
     if (!res?.ok) throw new Error(res?.error || 'Save failed');
@@ -1240,6 +1266,7 @@ document.getElementById('saveGroupBtn')?.addEventListener('click', async () => {
     let msg = already ? 'Already in your library.' : 'Group saved to AdHello.';
     if (saved && saved.memberCountLabel) msg += ` · ${saved.memberCountLabel}`;
     else if (saved && saved.memberCount != null) msg += ` · ${Number(saved.memberCount).toLocaleString()} members`;
+    if (saved && saved.lastPosted) msg += ` · last post ${saved.lastPosted}`;
     if (statusEl) {
       statusEl.textContent = msg;
       statusEl.className = 'status status--success';

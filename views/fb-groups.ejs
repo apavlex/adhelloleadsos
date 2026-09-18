@@ -65,6 +65,20 @@
             <input id="fbGroupLocation" name="location" type="text" maxlength="120" placeholder="e.g. Portland, OR" autocomplete="off" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white" />
           </div>
         </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="fbGroupLastPosted">Last posted (optional)</label>
+            <input id="fbGroupLastPosted" name="lastPosted" type="text" maxlength="80" placeholder="e.g. 2 days ago or Sep 12" autocomplete="off" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white" />
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="fbGroupAdmin">Owner / admin contact</label>
+            <input id="fbGroupAdmin" name="adminContact" type="text" maxlength="200" placeholder="Name, phone, or profile link" autocomplete="off" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white" />
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="fbGroupLastVisited">Last visited (optional)</label>
+            <input id="fbGroupLastVisited" name="lastVisited" type="date" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white" />
+          </div>
+        </div>
         <div>
           <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="fbGroupNote">Note (optional)</label>
           <textarea id="fbGroupNote" name="note" rows="2" maxlength="2000" placeholder="Why this group matters, posting rules, best days…" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm text-brand-dark dark:text-white resize-y"></textarea>
@@ -93,6 +107,13 @@
           const _members = g.memberCountLabel || (g.memberCount != null ? Number(g.memberCount).toLocaleString() + ' members' : '');
           const _privacy = g.privacy === 'public' ? 'Public' : g.privacy === 'private' ? 'Private' : '';
           const _added = g.createdAt ? new Date(g.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+          const _visitedTs = g.lastVisited ? Date.parse(g.lastVisited) : NaN;
+          const _visited = Number.isFinite(_visitedTs)
+            ? new Date(_visitedTs).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+            : String(g.lastVisited || '').trim();
+          const _lastPosted = String(g.lastPosted || '').trim();
+          const _admin = String(g.adminContact || '').trim();
+          const _visitDateInput = Number.isFinite(_visitedTs) ? new Date(_visitedTs).toISOString().slice(0, 10) : '';
         %>
         <article class="brand-card p-5 dark:bg-slate-900 dark:border-white/10 flex flex-col gap-3">
           <div class="flex flex-wrap items-center gap-2">
@@ -105,16 +126,31 @@
             <% } %>
           </div>
           <h3 class="font-display font-bold text-base text-brand-dark dark:text-white leading-snug break-words"><%= _title %></h3>
-          <div class="flex flex-wrap gap-x-3 gap-y-1 text-xs text-brand-muted">
-            <% if (_members) { %><span><strong class="text-brand-dark dark:text-slate-200"><%= _members %></strong></span><% } %>
-            <% if (g.location) { %><span><%= g.location %></span><% } %>
-            <% if (_added) { %><span>Added <%= _added %></span><% } %>
-          </div>
+          <dl class="grid grid-cols-1 gap-1.5 text-xs text-brand-muted">
+            <% if (_members) { %>
+            <div class="flex gap-2"><dt class="shrink-0 font-black uppercase tracking-wider text-[9px] text-brand-muted/80 w-20">Members</dt><dd class="font-semibold text-brand-dark dark:text-slate-200"><%= _members %></dd></div>
+            <% } %>
+            <% if (g.location) { %>
+            <div class="flex gap-2"><dt class="shrink-0 font-black uppercase tracking-wider text-[9px] text-brand-muted/80 w-20">Location</dt><dd><%= g.location %></dd></div>
+            <% } %>
+            <% if (_lastPosted) { %>
+            <div class="flex gap-2"><dt class="shrink-0 font-black uppercase tracking-wider text-[9px] text-brand-muted/80 w-20">Last post</dt><dd><%= _lastPosted %></dd></div>
+            <% } %>
+            <% if (_visited) { %>
+            <div class="flex gap-2"><dt class="shrink-0 font-black uppercase tracking-wider text-[9px] text-brand-muted/80 w-20">Visited</dt><dd><%= _visited %></dd></div>
+            <% } %>
+            <% if (_admin) { %>
+            <div class="flex gap-2"><dt class="shrink-0 font-black uppercase tracking-wider text-[9px] text-brand-muted/80 w-20">Admin</dt><dd class="break-words"><%= _admin %></dd></div>
+            <% } %>
+            <% if (_added) { %>
+            <div class="flex gap-2"><dt class="shrink-0 font-black uppercase tracking-wider text-[9px] text-brand-muted/80 w-20">Added</dt><dd><%= _added %></dd></div>
+            <% } %>
+          </dl>
           <% if (g.note) { %>
           <p class="text-xs text-brand-muted leading-relaxed"><%= g.note %></p>
           <% } %>
           <div class="mt-auto flex flex-wrap items-center gap-2 pt-2">
-            <a href="<%= g.url %>" target="_blank" rel="noopener noreferrer" class="btn-pill btn-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest">Open group</a>
+            <a href="/fb-groups/<%= encodeURIComponent(g.id) %>/open" target="_blank" rel="noopener noreferrer" class="btn-pill btn-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest">Open group</a>
             <button type="button" class="js-fb-copy-url btn-pill border border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white" data-url="<%= g.url %>">Copy URL</button>
             <form action="/fb-groups/<%= encodeURIComponent(g.id) %>/delete" method="post" class="inline" onsubmit="return confirm('Remove this group from your library?');">
               <button type="submit" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-rose-600 px-2 py-2">Remove</button>
@@ -133,6 +169,9 @@
                 </select>
               </div>
               <input name="location" type="text" maxlength="120" value="<%= g.location || '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-2 text-sm text-brand-dark dark:text-white" placeholder="Location" />
+              <input name="lastPosted" type="text" maxlength="80" value="<%= _lastPosted %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-2 text-sm text-brand-dark dark:text-white" placeholder="Last posted" />
+              <input name="adminContact" type="text" maxlength="200" value="<%= _admin %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-2 text-sm text-brand-dark dark:text-white" placeholder="Owner / admin contact" />
+              <input name="lastVisited" type="date" value="<%= _visitDateInput %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-2 text-sm text-brand-dark dark:text-white" />
               <input name="category" type="text" maxlength="80" value="<%= g.category || '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-2 text-sm text-brand-dark dark:text-white" placeholder="Category" />
               <textarea name="note" rows="2" maxlength="2000" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-2 text-sm text-brand-dark dark:text-white resize-y" placeholder="Note"><%= g.note || '' %></textarea>
               <button type="submit" class="btn-pill btn-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest">Save changes</button>
