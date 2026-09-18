@@ -21,7 +21,7 @@ const workspaceThemeRow = document.getElementById('workspaceThemeRow');
 const showSaveLeadFabEl = document.getElementById('showSaveLeadFab');
 const findLoyaltyBtn = document.getElementById('findLoyaltyBtn');
 const loyaltyStatusEl = document.getElementById('loyaltyStatus');
-const EXT_VERSION = '1.9.5';
+const EXT_VERSION = '1.9.6';
 const PARALLEL_LABEL = '5 at a time';
 
 let bulkRunning = false;
@@ -1151,9 +1151,40 @@ function scrapeFbGroupMetaInPage() {
     t = t.replace(/\s*[|·•]\s*Groups\s*$/i, '');
     return t.trim();
   }
-  const h1 = document.querySelector('h1');
-  let title = cleanTitle((h1 && h1.textContent) || '');
-  if (!title) title = cleanTitle(document.title || '');
+  function isJunkTitle(raw) {
+    const s = cleanTitle(raw).toLowerCase();
+    if (!s) return true;
+    return /^(notifications?|facebook|home|watch|marketplace|menu|friends|feeds?|groups?|search|reels|gaming|messages?|inbox|profile|settings|login|log in)$/i.test(
+      s,
+    );
+  }
+  function titleFromPath() {
+    try {
+      const m = location.pathname.match(/\/groups\/([^/?#]+)/i);
+      if (!m) return '';
+      const slug = decodeURIComponent(m[1]).replace(/[-_]+/g, ' ').trim();
+      if (/^\d+$/.test(slug)) return '';
+      return slug.replace(/\b\w/g, (c) => c.toUpperCase());
+    } catch (_) {
+      return '';
+    }
+  }
+  const candidates = [];
+  const og = document.querySelector('meta[property="og:title"]');
+  if (og && og.getAttribute('content')) candidates.push(og.getAttribute('content'));
+  document.querySelectorAll('h1').forEach((el) => {
+    if (el && el.textContent) candidates.push(el.textContent);
+  });
+  candidates.push(document.title || '');
+  let title = '';
+  for (let i = 0; i < candidates.length; i += 1) {
+    const cleaned = cleanTitle(candidates[i]);
+    if (cleaned && !isJunkTitle(cleaned)) {
+      title = cleaned;
+      break;
+    }
+  }
+  if (!title) title = titleFromPath();
   const text = String((document.body && document.body.innerText) || '').slice(0, 80000);
   let memberCount = null;
   let memberCountLabel = '';

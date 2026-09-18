@@ -1586,11 +1586,16 @@ router.post('/fb-groups', apiKeyAuth, express.json(), async (req, res, next) => 
       (req.body && (req.body.adminContact || req.body.admin)) || '',
     );
     const lastVisitedNow = new Date().toISOString();
+    const resolvedTitle = fbGroupsRouteHelpers.resolveFbGroupTitle({
+      titleIn,
+      url,
+      existingTitle: dup && dup.title,
+    });
 
     if (dup) {
       const refreshed = await dbService.saveWorkspaceFbGroup(wid, {
         ...dup,
-        title: titleIn || dup.title,
+        title: resolvedTitle,
         note: note || dup.note || '',
         category: category || dup.category || '',
         location: location || dup.location || '',
@@ -1600,6 +1605,7 @@ router.post('/fb-groups', apiKeyAuth, express.json(), async (req, res, next) => 
         lastPosted: lastPosted || dup.lastPosted || '',
         adminContact: adminContact || dup.adminContact || '',
         lastVisited: lastVisitedNow,
+        posts: Array.isArray(dup.posts) ? dup.posts : [],
       });
       return res.json({ success: true, group: refreshed, alreadySaved: true });
     }
@@ -1607,7 +1613,7 @@ router.post('/fb-groups', apiKeyAuth, express.json(), async (req, res, next) => 
     const group = await dbService.saveWorkspaceFbGroup(wid, {
       id,
       url,
-      title: titleIn || titleFromGroupUrl(url) || url,
+      title: resolvedTitle,
       note,
       category,
       location,
@@ -1617,6 +1623,7 @@ router.post('/fb-groups', apiKeyAuth, express.json(), async (req, res, next) => 
       lastPosted,
       adminContact,
       lastVisited: lastVisitedNow,
+      posts: [],
       addedBy: String(req.headers['x-user-email'] || '').trim().slice(0, 320) || undefined,
     });
     res.json({ success: true, group, alreadySaved: false });

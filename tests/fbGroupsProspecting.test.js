@@ -26,15 +26,31 @@ describe('fb group URL helpers', () => {
   });
 
   it('cleans tab titles and parses member counts', () => {
-    const { cleanFbGroupTitle, parseMemberCountInput, normalizePrivacy } = require('../routes/fbGroups');
+    const {
+      cleanFbGroupTitle,
+      parseMemberCountInput,
+      normalizePrivacy,
+      normalizeLastPosted,
+      normalizeAdminContact,
+      isJunkFbGroupTitle,
+      resolveFbGroupTitle,
+    } = require('../routes/fbGroups');
     assert.equal(
       cleanFbGroupTitle('(1) Portland Contractors | Groups | Facebook'),
+      'Portland Contractors',
+    );
+    assert.equal(cleanFbGroupTitle('Notifications'), '');
+    assert.equal(isJunkFbGroupTitle('Notifications'), true);
+    assert.equal(
+      resolveFbGroupTitle({
+        titleIn: 'Notifications',
+        url: 'https://www.facebook.com/groups/portland-contractors',
+      }),
       'Portland Contractors',
     );
     assert.equal(parseMemberCountInput('12K').memberCount, 12000);
     assert.equal(parseMemberCountInput('12,450').memberCount, 12450);
     assert.equal(normalizePrivacy('Private'), 'private');
-    const { normalizeLastPosted, normalizeAdminContact } = require('../routes/fbGroups');
     assert.equal(normalizeLastPosted('  2 days ago  '), '2 days ago');
     assert.equal(normalizeAdminContact('Jane Admin · 503-555-0100').includes('Jane'), true);
   });

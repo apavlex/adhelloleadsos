@@ -90,7 +90,32 @@ function cleanFbGroupTitle(raw) {
   t = t.replace(/\s*[|·•]\s*Groups\s*[|·•]\s*Facebook\s*$/i, '');
   t = t.replace(/\s*[|·•]\s*Facebook\s*$/i, '');
   t = t.replace(/\s*[|·•]\s*Groups\s*$/i, '');
-  return t.trim().slice(0, 200);
+  t = t.trim().slice(0, 200);
+  if (isJunkFbGroupTitle(t)) return '';
+  return t;
+}
+
+/** Facebook chrome titles that are not the group name. */
+function isJunkFbGroupTitle(raw) {
+  const s = String(raw || '')
+    .trim()
+    .toLowerCase()
+    .replace(/^\(\d+\)\s*/, '');
+  if (!s) return true;
+  return /^(notifications?|facebook|home|watch|marketplace|menu|friends|feeds?|groups?|search|reels|gaming|messages?|inbox|profile|settings|login|log in)$/i.test(
+    s,
+  );
+}
+
+/**
+ * Prefer a real group name; never keep Notifications / Facebook chrome titles.
+ */
+function resolveFbGroupTitle({ titleIn, url, existingTitle } = {}) {
+  const cleaned = cleanFbGroupTitle(titleIn);
+  if (cleaned) return cleaned;
+  const existing = cleanFbGroupTitle(existingTitle) || String(existingTitle || '').trim();
+  if (existing && !isJunkFbGroupTitle(existing)) return existing.slice(0, 200);
+  return titleFromGroupUrl(url) || url || 'Facebook Group';
 }
 
 /**
@@ -159,7 +184,20 @@ function metaFromBody(body) {
 
 router.get('/', async (req, res, next) => {
   try {
-    const groups = await dbService.listWorkspaceFbGroups(req.workspaceId);
+    let groups = await dbService.listWorkspaceFbGroups(req.workspaceId);
+    // Repair junk titles like "Notifications" from URL slug when possible.
+    groups = await Promise.all(
+      (groups || []).map(async (g) => {
+        if (!g || !isJunkFbGroupTitle(g.title)) return g;
+        const fixed = resolveFbGroupTitle({ titleIn: '', url: g.url, existingTitle: g.title });
+        if (!fixed || fixed === g.title) return g;
+        try {
+          return await dbService.saveWorkspaceFbGroup(req.workspaceId, { ...g, title: fixed });
+        } catch (_) {
+          return { ...g, title: fixed };
+        }
+      }),
+    );
     res.render('fb-groups', {
       title: 'Facebook Groups | Agency OS',
       activePage: 'fb-groups',
@@ -184,15 +222,18 @@ router.post('/add', express.urlencoded({ extended: true }), async (req, res, nex
       return res.redirect(302, '/fb-groups?error=not_group');
     }
     const url = canonicalizeGroupUrl(urlRaw);
-    const titleIn = cleanFbGroupTitle(String(req.body.title || '').trim().slice(0, 200));
     const meta = metaFromBody(req.body);
-    const title = titleIn || titleFromGroupUrl(url) || url;
+    const title = resolveFbGroupTitle({
+      titleIn: req.body.title,
+      url,
+    });
     const id = newGroupId();
     await dbService.saveWorkspaceFbGroup(req.workspaceId, {
       id,
       url,
       title,
       ...meta,
+      posts: [],
       lastVisited: meta.lastVisited || new Date().toISOString(),
       addedBy: email,
     });
@@ -206,8 +247,14 @@ router.get('/:id/open', async (req, res, next) => {
   try {
     const existing = await dbService.getWorkspaceFbGroup(req.workspaceId, req.params.id);
     if (!existing || !existing.url) return res.redirect(302, '/fb-groups');
+    const fixedTitle = resolveFbGroupTitle({
+      titleIn: existing.title,
+      url: existing.url,
+      existingTitle: existing.title,
+    });
     await dbService.saveWorkspaceFbGroup(req.workspaceId, {
       ...existing,
+      title: fixedTitle,
       lastVisited: new Date().toISOString(),
     });
     res.redirect(302, existing.url);
@@ -229,8 +276,11 @@ router.post('/:id/update', express.urlencoded({ extended: true }), async (req, r
   try {
     const existing = await dbService.getWorkspaceFbGroup(req.workspaceId, req.params.id);
     if (!existing) return res.redirect(302, '/fb-groups');
-    const title =
-      cleanFbGroupTitle(String(req.body.title || '').trim().slice(0, 200)) || existing.title;
+    const title = resolveFbGroupTitle({
+      titleIn: req.body.title,
+      url: existing.url,
+      existingTitle: existing.title,
+    });
     const meta = metaFromBody(req.body);
     const membersRaw = String(req.body.memberCount || req.body.members || '').trim();
     let memberCount = existing.memberCount ?? null;
@@ -257,7 +307,49 @@ router.post('/:id/update', express.urlencoded({ extended: true }), async (req, r
       lastVisited: lastVisitedRaw
         ? normalizeLastVisited(lastVisitedRaw) || existing.lastVisited || ''
         : existing.lastVisited || '',
+      posts: Array.isArray(existing.posts) ? existing.posts : [],
     });
+    res.redirect(302, '/fb-groups');
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/:id/posts', express.urlencoded({ extended: true }), async (req, res, next) => {
+  try {
+    const existing = await dbService.getWorkspaceFbGroup(req.workspaceId, req.params.id);
+    if (!existing) return res.redirect(302, '/fb-groups');
+    const text = String(req.body.postText || req.body.text || '').trim().slice(0, 4000);
+    if (!text) return res.redirect(302, '/fb-groups');
+    const postedAt = String(req.body.postedAt || '').trim().slice(0, 40);
+    const now = new Date().toISOString();
+    const entry = {
+      id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      text,
+      postedAt: postedAt || now.slice(0, 10),
+      createdAt: now,
+    };
+    const posts = [entry, ...(Array.isArray(existing.posts) ? existing.posts : [])].slice(0, 40);
+    await dbService.saveWorkspaceFbGroup(req.workspaceId, {
+      ...existing,
+      posts,
+      lastPosted: normalizeLastPosted(postedAt || existing.lastPosted || 'today') || existing.lastPosted,
+    });
+    res.redirect(302, '/fb-groups');
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/:id/posts/:postId/delete', express.urlencoded({ extended: true }), async (req, res, next) => {
+  try {
+    const existing = await dbService.getWorkspaceFbGroup(req.workspaceId, req.params.id);
+    if (!existing) return res.redirect(302, '/fb-groups');
+    const postId = String(req.params.postId || '').trim();
+    const posts = (Array.isArray(existing.posts) ? existing.posts : []).filter(
+      (p) => p && String(p.id) !== postId,
+    );
+    await dbService.saveWorkspaceFbGroup(req.workspaceId, { ...existing, posts });
     res.redirect(302, '/fb-groups');
   } catch (e) {
     next(e);
@@ -288,6 +380,8 @@ module.exports.canonicalizeGroupUrl = canonicalizeGroupUrl;
 module.exports.normalizeUrl = normalizeUrl;
 module.exports.titleFromGroupUrl = titleFromGroupUrl;
 module.exports.cleanFbGroupTitle = cleanFbGroupTitle;
+module.exports.isJunkFbGroupTitle = isJunkFbGroupTitle;
+module.exports.resolveFbGroupTitle = resolveFbGroupTitle;
 module.exports.parseMemberCountInput = parseMemberCountInput;
 module.exports.normalizePrivacy = normalizePrivacy;
 module.exports.normalizeLastPosted = normalizeLastPosted;

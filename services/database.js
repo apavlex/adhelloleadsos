@@ -1663,6 +1663,19 @@ module.exports = {
 
   // --- Facebook Groups (workspace library) ---
 
+  _normalizeFbGroupPosts(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .filter((p) => p && String(p.text || '').trim())
+      .slice(0, 40)
+      .map((p) => ({
+        id: String(p.id || `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`).slice(0, 40),
+        text: String(p.text || '').trim().slice(0, 4000),
+        postedAt: String(p.postedAt || '').trim().slice(0, 40),
+        createdAt: String(p.createdAt || '').trim().slice(0, 40),
+      }));
+  },
+
   _workspaceFbGroupKey(workspaceId, groupId) {
     const wid = String(workspaceId || 'default').trim();
     const id = String(groupId || '').trim();
@@ -1719,6 +1732,7 @@ module.exports = {
       lastPosted: String(group.lastPosted || '').trim().slice(0, 80),
       lastVisited: String(group.lastVisited || '').trim().slice(0, 40),
       adminContact: String(group.adminContact || '').trim().slice(0, 200),
+      posts: this._normalizeFbGroupPosts(group.posts),
       createdAt: group.createdAt || now,
       updatedAt: now,
     };
