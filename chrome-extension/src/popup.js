@@ -932,19 +932,36 @@ function setLibraryStatus(msg, type) {
   el.className = `status${type ? ` status--${type}` : ''}`;
 }
 
+function copyLibraryTextFallback(value) {
+  const ta = document.createElement('textarea');
+  ta.value = value;
+  ta.setAttribute('readonly', '');
+  ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  ta.setSelectionRange(0, value.length);
+  let ok = false;
+  try {
+    ok = document.execCommand('copy');
+  } finally {
+    document.body.removeChild(ta);
+  }
+  if (!ok) throw new Error('Could not copy');
+}
+
 async function copyLibraryText(text) {
   const value = String(text || '');
   if (!value) throw new Error('Nothing to copy');
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    await navigator.clipboard.writeText(value);
-    return;
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    try {
+      await navigator.clipboard.writeText(value);
+      return;
+    } catch (_) {
+      /* fall through — popup contexts often need execCommand */
+    }
   }
-  const ta = document.createElement('textarea');
-  ta.value = value;
-  document.body.appendChild(ta);
-  ta.select();
-  document.execCommand('copy');
-  document.body.removeChild(ta);
+  copyLibraryTextFallback(value);
 }
 
 function renderLibraryScripts(scripts) {
@@ -955,15 +972,17 @@ function renderLibraryScripts(scripts) {
     return;
   }
   host.innerHTML = scripts
-    .map(
-      (s, i) =>
+    .map((s, i) => {
+      const body = String(s.body || '');
+      return (
         `<article class="library-card" data-kind="script" data-idx="${i}">` +
         `<p class="library-card__meta">${escapeHtml(s.categoryLabel || '')}</p>` +
         `<p class="library-card__title">${escapeHtml(s.title || 'Script')}</p>` +
-        `<p class="library-card__body">${escapeHtml(s.body || '')}</p>` +
-        `<div class="library-card__actions"><button type="button" class="js-lib-copy">Copy</button></div>` +
-        `</article>`,
-    )
+        `<p class="library-card__body">${escapeHtml(body)}</p>` +
+        `<div class="library-card__actions"><button type="button" class="js-lib-copy" data-copy="${encodeURIComponent(body)}">Copy</button></div>` +
+        `</article>`
+      );
+    })
     .join('');
 }
 
@@ -977,13 +996,13 @@ function renderLibraryBookmarks(bookmarks) {
   }
   host.innerHTML = bookmarks
     .map((b, i) => {
-      const body = b.content || [b.hook, b.cta].filter(Boolean).join('\n\n');
+      const body = String(b.content || [b.hook, b.cta].filter(Boolean).join('\n\n') || '');
       return (
         `<article class="library-card" data-kind="bookmark" data-idx="${i}">` +
         `<p class="library-card__meta">${escapeHtml(b.platform || 'post')}</p>` +
         `<p class="library-card__title">${escapeHtml((b.hook || body || 'Post').slice(0, 80))}</p>` +
         `<p class="library-card__body">${escapeHtml(body)}</p>` +
-        `<div class="library-card__actions"><button type="button" class="js-lib-copy">Copy</button></div>` +
+        `<div class="library-card__actions"><button type="button" class="js-lib-copy" data-copy="${encodeURIComponent(body)}">Copy</button></div>` +
         `</article>`
       );
     })
@@ -999,17 +1018,19 @@ function renderLibraryGroups(groups) {
     return;
   }
   host.innerHTML = groups
-    .map(
-      (g, i) =>
+    .map((g, i) => {
+      const url = String(g.url || '');
+      return (
         `<article class="library-card" data-kind="group" data-idx="${i}">` +
         `<p class="library-card__meta">${escapeHtml(g.category || 'Facebook Group')}</p>` +
         `<p class="library-card__title">${escapeHtml(g.title || 'Group')}</p>` +
         (g.note ? `<p class="library-card__body">${escapeHtml(g.note)}</p>` : '') +
         `<div class="library-card__actions">` +
-        `<a href="${escapeHtml(g.url)}" target="_blank" rel="noopener noreferrer">Open</a>` +
-        `<button type="button" class="js-lib-copy">Copy URL</button>` +
-        `</div></article>`,
-    )
+        `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Open</a>` +
+        `<button type="button" class="js-lib-copy" data-copy="${encodeURIComponent(url)}">Copy URL</button>` +
+        `</div></article>`
+      );
+    })
     .join('');
 }
 
@@ -1039,7 +1060,16 @@ function bindLibraryCopyClicks(root) {
   root.querySelectorAll('.js-lib-copy').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const card = btn.closest('.library-card');
-      const text = libraryTextForCard(card);
+      let text = '';
+      const encoded = btn.getAttribute('data-copy');
+      if (encoded) {
+        try {
+          text = decodeURIComponent(encoded);
+        } catch (_) {
+          text = '';
+        }
+      }
+      if (!text) text = libraryTextForCard(card);
       try {
         await copyLibraryText(text);
         setLibraryStatus('Copied — paste into Facebook', 'success');

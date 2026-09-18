@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "AdHello Leads",
-  "version": "1.9.0",
+  "version": "1.9.1",
   "description": "Save leads from business websites, social profiles, and directories into AdHello. Library tab: FB group scripts, Social Post bookmarks, and save Facebook groups.",
-  "permissions": ["storage", "activeTab", "scripting", "tabs"],
+  "permissions": ["storage", "activeTab", "scripting", "tabs", "clipboardWrite"],
   "host_permissions": [
     "https://*/*",
     "http://*/*"
