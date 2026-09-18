@@ -103,7 +103,10 @@ router.get('/', async (req, res, next) => {
     const seededNotice = req.query.demo === '1' || req.query.seeded === '1';
     const searchInProgressNotice = req.query.searchInProgress === '1';
     const scheduleSavedNotice = req.query.scheduleSaved === '1';
-    const outreachCoach = await buildOutreachCoachSnapshot(req, { businessesOnly: true });
+    const outreachCoach = await buildOutreachCoachSnapshot(req, {
+      businessesOnly: true,
+      leads: all,
+    });
 
     const workspaceDoc = await dbService.getWorkspace(req.workspaceId);
     const conversionSnapshot = buildConversionSnapshot(workspaceLeads, workspaceDoc);

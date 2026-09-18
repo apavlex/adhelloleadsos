@@ -1,0 +1,5910 @@
+(function () {
+  var mobileMenu = document.getElementById('mobileMenu');
+  var mobileMenuPanel = mobileMenu ? mobileMenu.querySelector('div.absolute.inset-y-0.left-0') : null;
+  var mobileMenuBtn = document.getElementById('mobileMenuBtn');
+  var closeMobileMenuBtn = document.getElementById('closeMobileMenu');
+
+  function openMobileMenu() {
+    if (!mobileMenu || !mobileMenuPanel) return;
+    mobileMenu.classList.remove('hidden', 'pointer-events-none', 'opacity-0');
+    mobileMenu.classList.add('opacity-100');
+    mobileMenuPanel.classList.remove('-translate-x-full');
+    document.body.classList.add('overflow-hidden');
+  }
+
+  function closeMobileMenu() {
+    if (!mobileMenu || !mobileMenuPanel) return;
+    mobileMenu.classList.add('opacity-0');
+    mobileMenu.classList.add('pointer-events-none');
+    mobileMenuPanel.classList.add('-translate-x-full');
+    document.body.classList.remove('overflow-hidden');
+    setTimeout(function () {
+      if (mobileMenu.classList.contains('opacity-0')) mobileMenu.classList.add('hidden');
+    }, 220);
+  }
+
+  if (mobileMenuBtn) {
+    mobileMenuBtn.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      openMobileMenu();
+    });
+  }
+  if (closeMobileMenuBtn) {
+    closeMobileMenuBtn.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      closeMobileMenu();
+    });
+  }
+  if (mobileMenu) {
+    mobileMenu.addEventListener('click', function (e) {
+      if (e.target === mobileMenu) closeMobileMenu();
+    });
+    mobileMenu.querySelectorAll('a,button').forEach(function (el) {
+      if (el.id === 'closeMobileMenu' || el.id === 'mobileMenuBtn') return;
+      el.addEventListener('click', function () { closeMobileMenu(); });
+    });
+  }
+})();
+(function () {
+  var btn = document.getElementById('userMenuBtn');
+  var panel = document.getElementById('userMenuPanel');
+  function closeMenu() {
+    if (!panel || !btn) return;
+    panel.classList.add('hidden');
+    btn.setAttribute('aria-expanded', 'false');
+  }
+  if (btn && panel) {
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      panel.classList.toggle('hidden');
+      btn.setAttribute('aria-expanded', (!panel.classList.contains('hidden')).toString());
+    });
+    document.addEventListener('click', closeMenu);
+    panel.addEventListener('click', function (e) { e.stopPropagation(); });
+  }
+  function openConnectModal() {
+    var m = document.getElementById('connectAiModal');
+    if (m) { m.classList.remove('hidden'); m.classList.add('flex'); m.setAttribute('aria-hidden', 'false'); }
+    closeMenu();
+  }
+  function closeConnectModal() {
+    var m = document.getElementById('connectAiModal');
+    if (m) { m.classList.add('hidden'); m.classList.remove('flex'); m.setAttribute('aria-hidden', 'true'); }
+  }
+  var o = document.getElementById('connectAiOpen');
+  var om = document.getElementById('connectAiOpenMobile');
+  var c = document.getElementById('connectAiClose');
+  var bd = document.getElementById('connectAiBackdrop');
+  if (o) o.addEventListener('click', openConnectModal);
+  if (om) om.addEventListener('click', openConnectModal);
+  if (c) c.addEventListener('click', closeConnectModal);
+  if (bd) bd.addEventListener('click', closeConnectModal);
+
+  var spModal = document.getElementById('softphoneModal');
+  (function mountSoftphoneAboveLeadPanel() {
+    if (!spModal) return;
+    var host = document.getElementById('softphonePortal');
+    if (!host) {
+      host = document.createElement('div');
+      host.id = 'softphonePortal';
+      host.className = 'app-body-portal';
+      document.body.appendChild(host);
+    }
+    if (spModal.parentElement !== host) host.appendChild(spModal);
+  })();
+  var spMobileBackdrop = document.getElementById('softphoneMobileBackdrop');
+  var spPanel = document.getElementById('softphonePanel');
+  var spModeLine = document.getElementById('softphoneModeLine');
+  var spCallModeSelect = document.getElementById('softphoneCallModeSelect');
+  var spCallModeSaveHint = document.getElementById('softphoneCallModeSaveHint');
+  var spAgentPhone = document.getElementById('softphoneAgentPhone');
+  var spCallModeLocked = !!(spCallModeSelect && spCallModeSelect.disabled);
+  var spOpen = document.getElementById('navSoftphoneOpen');
+  var spOpenIcon = spOpen ? spOpen.querySelector('svg') : null;
+  var spOpenMobile = document.getElementById('navSoftphoneOpenMobile');
+  var spClose = document.getElementById('softphoneClose');
+  var spDockRight = document.getElementById('softphoneDockRight');
+  var spDragHandle = document.getElementById('softphoneDragHandle');
+  var SOFTPHONE_POS_KEY = 'adhelloSoftphonePos';
+  var SOFTPHONE_COMPACT_POS_KEY = 'adhelloSoftphoneCompactPos';
+  var SOFTPHONE_FOCUS_EXPANDED_KEY = 'adhelloSoftphoneFocusExpanded';
+  function isFocusModePage() {
+    try {
+      var p = String(window.location.pathname || '');
+      return p === '/focus' || p.indexOf('/focus/') === 0;
+    } catch (_) {
+      return false;
+    }
+  }
+  function isSoftphoneCompactEligible() {
+    return isFocusModePage() && !isSoftphoneMobileViewport();
+  }
+  function readSoftphoneFocusExpanded() {
+    try {
+      return sessionStorage.getItem(SOFTPHONE_FOCUS_EXPANDED_KEY) === '1';
+    } catch (_) {
+      return false;
+    }
+  }
+  function writeSoftphoneFocusExpanded(on) {
+    try {
+      if (on) sessionStorage.setItem(SOFTPHONE_FOCUS_EXPANDED_KEY, '1');
+      else sessionStorage.removeItem(SOFTPHONE_FOCUS_EXPANDED_KEY);
+    } catch (_) {}
+  }
+  function applySoftphoneCompactLayout() {
+    if (!spPanel || !softphoneSession.compact) return;
+    clearSoftphonePanelLayout();
+    var saved = null;
+    try {
+      var raw = localStorage.getItem(SOFTPHONE_COMPACT_POS_KEY);
+      if (raw) saved = JSON.parse(raw);
+    } catch (_) {
+      saved = null;
+    }
+    if (
+      saved &&
+      typeof saved.left === 'number' &&
+      typeof saved.top === 'number' &&
+      !isNaN(saved.left) &&
+      !isNaN(saved.top)
+    ) {
+      var maxL = Math.max(8, window.innerWidth - 220);
+      var maxT = Math.max(8, window.innerHeight - 72);
+      var left = Math.max(8, Math.min(Math.round(saved.left), maxL));
+      var top = Math.max(8, Math.min(Math.round(saved.top), maxT));
+      spPanel.style.setProperty('left', left + 'px', 'important');
+      spPanel.style.setProperty('top', top + 'px', 'important');
+      spPanel.style.setProperty('right', 'auto', 'important');
+      spPanel.style.setProperty('bottom', 'auto', 'important');
+    } else {
+      spPanel.style.setProperty('left', 'auto', 'important');
+      spPanel.style.setProperty('right', '0.75rem', 'important');
+      spPanel.style.setProperty('top', 'auto', 'important');
+      spPanel.style.setProperty('bottom', '1rem', 'important');
+    }
+    spPanel.style.setProperty('width', 'min(calc(100vw - 1.5rem), 22rem)', 'important');
+    spPanel.style.setProperty('height', 'auto', 'important');
+    spPanel.style.setProperty('max-height', 'none', 'important');
+  }
+  function syncSoftphoneCompactBarUi() {
+    var spCompactBar = document.getElementById('softphoneCompactBar');
+    var spCompactName = document.getElementById('softphoneCompactName');
+    var spCompactStatus = document.getElementById('softphoneCompactStatus');
+    var spCompactTimer = document.getElementById('softphoneCompactTimer');
+    var spCompactHangup = document.getElementById('softphoneCompactHangup');
+    if (!spCompactBar) return;
+    var title = String(softphoneSession.leadTitle || '').trim();
+    if (!title && softphoneSession.leadKey) {
+      title = resolveSoftphoneLeadTitle(softphoneSession.leadKey, spTo ? spTo.value : '');
+    }
+    if (!title && spTo) {
+      title = resolveSoftphoneLeadTitle('', spTo.value);
+    }
+    if (spCompactName) {
+      spCompactName.textContent = title || 'Dialer';
+      spCompactName.title = title || '';
+    }
+    var state = String(softphoneSession.state || 'idle').toLowerCase();
+    var statusLabel = state;
+    if (state === 'dialing') statusLabel = softphoneSession.stateVerbose || 'dialing';
+    else if (state === 'in_call') statusLabel = softphoneSession.hold ? 'on hold' : 'connected';
+    else if (state === 'ready') statusLabel = 'ready';
+    if (spCompactStatus) {
+      spCompactStatus.textContent = statusLabel;
+      spCompactStatus.setAttribute('data-state', state);
+    }
+    if (spCompactTimer) {
+      spCompactTimer.textContent = spTimer ? spTimer.textContent : '00:00';
+    }
+    if (spCompactHangup) {
+      var showHangup = state === 'dialing' || state === 'in_call' || state === 'ended';
+      spCompactHangup.classList.toggle('hidden', !showHangup);
+      spCompactHangup.disabled = state === 'ended' && !softphoneSession.wrapRequired;
+    }
+  }
+  function updateSoftphoneMinimizeBtnUi() {
+    var spMinimize = document.getElementById('softphoneMinimizeBtn');
+    if (!spMinimize) return;
+    var onFocus = isSoftphoneCompactEligible();
+    var modalOpen = spModal && !spModal.classList.contains('hidden');
+    var show = onFocus && modalOpen && !softphoneSession.compact;
+    spMinimize.classList.toggle('hidden', !show);
+    spMinimize.setAttribute('aria-pressed', softphoneSession.compact ? 'true' : 'false');
+    spMinimize.setAttribute('title', softphoneSession.compact ? 'Minimized' : 'Minimize to compact bar');
+  }
+  function setSoftphoneCompact(on, opts) {
+    opts = opts && typeof opts === 'object' ? opts : {};
+    if (!spPanel) return;
+    var next = !!on;
+    if (next && !isSoftphoneCompactEligible()) return;
+    if (next === softphoneSession.compact) {
+      syncSoftphoneCompactBarUi();
+      updateSoftphoneMinimizeBtnUi();
+      return;
+    }
+    softphoneSession.compact = next;
+    spPanel.classList.toggle('softphone-panel--compact', next);
+    if (next) {
+      if (spPanel.classList.contains('softphone-panel--expanded')) {
+        spPanel.classList.remove('softphone-panel--expanded');
+        var spExpandBtn = document.getElementById('softphoneExpandBtn');
+        if (spExpandBtn) {
+          spExpandBtn.setAttribute('aria-pressed', 'false');
+          spExpandBtn.classList.remove('softphone-chrome-btn--active');
+        }
+      }
+      applySoftphoneCompactLayout();
+      if (opts.userExpanded === false) writeSoftphoneFocusExpanded(false);
+    } else {
+      if (opts.userExpanded) writeSoftphoneFocusExpanded(true);
+      applySoftphoneOpenPosition();
+    }
+    syncSoftphoneCompactBarUi();
+    updateSoftphoneMinimizeBtnUi();
+  }
+  function maybeAutoCompactSoftphone() {
+    if (!isSoftphoneCompactEligible()) {
+      if (softphoneSession.compact) setSoftphoneCompact(false);
+      return;
+    }
+    if (readSoftphoneFocusExpanded()) return;
+    if (!spModal || spModal.classList.contains('hidden')) return;
+    setSoftphoneCompact(true);
+  }
+  window.__adhelloSetSoftphoneCompact = setSoftphoneCompact;
+  var spStatus = document.getElementById('softphoneStatus');
+  var spStatusPill = document.getElementById('softphoneStatusPill');
+  var spTimer = document.getElementById('softphoneTimer');
+  var navCallBtn = document.getElementById('navCallStatusBtn');
+  var navCallLine = document.getElementById('navCallStatusLine');
+  var navCallDot = document.getElementById('navCallStatusDot');
+  var spAudioPulse = document.getElementById('softphoneAudioPulse');
+  var spLive = document.getElementById('softphoneLiveAnnouncer');
+  var spFrom = document.getElementById('softphoneFromNumber');
+  var spOutboundMeta = document.getElementById('softphoneOutboundMeta');
+  var spTo = document.getElementById('softphoneToNumber');
+  var spCalleeName = document.getElementById('softphoneCalleeName');
+  var spLeadNav = document.getElementById('softphoneLeadNav');
+  var spLeadNavLabel = document.getElementById('softphoneLeadNavLabel');
+  var spPrevLeadBtn = document.getElementById('softphonePrevLeadBtn');
+  var spNextLeadBtn = document.getElementById('softphoneNextLeadBtn');
+  var spCall = document.getElementById('softphoneCallBtn');
+  var spVm = document.getElementById('softphoneVmBtn');
+  var spKeys = document.querySelectorAll('.softphone-key');
+  var spRecentList = document.getElementById('softphoneRecentList');
+  var spCallState = document.getElementById('softphoneCallState');
+  var spMute = document.getElementById('softphoneMuteBtn');
+  var spHold = document.getElementById('softphoneHoldBtn');
+  var spHangup = document.getElementById('softphoneHangupBtn');
+  var spRedial = document.getElementById('softphoneRedialBtn');
+  var spKeypad = document.getElementById('softphoneKeypadBtn');
+  var spTransfer = document.getElementById('softphoneTransferBtn');
+  var spRecord = document.getElementById('softphoneRecordBtn');
+  var spSpeaker = document.getElementById('softphoneSpeakerBtn');
+  var spVmNow = document.getElementById('softphoneVmNowBtn');
+  var spDisposition = document.getElementById('softphoneDisposition');
+  var spNotes = document.getElementById('softphoneNotes');
+  var spStatusSelect = document.getElementById('softphoneStatusSelect');
+  var spQuickLogRow = document.getElementById('softphoneQuickLogRow');
+  var spWrapPanel = document.getElementById('softphoneWrapPanel');
+  var spWrapLeadHint = document.getElementById('softphoneWrapLeadHint');
+  var spWrapFeedback = document.getElementById('softphoneWrapFeedback');
+  var spPushGhl = document.getElementById('softphonePushGhlBtn');
+  var spAiSummary = document.getElementById('softphoneAiSummaryBtn');
+  var spCompleteWrap = document.getElementById('softphoneCompleteWrapBtn');
+  var spSkipWrap = document.getElementById('softphoneSkipWrapBtn');
+  var spNextStep = document.getElementById('softphoneNextStep');
+  var spScrollHint = document.getElementById('softphoneScrollHint');
+  var spKeypadTab = document.getElementById('softphoneTabKeypad');
+  var spInCallBar = document.getElementById('softphoneInCallBar');
+  var spRemoteAudio = document.getElementById('softphoneRemoteAudio');
+  var spLocalAudio = document.getElementById('softphoneLocalAudio');
+  var spEnableAudioBtn = document.getElementById('softphoneEnableAudioBtn');
+  var spCallAudioMode = document.getElementById('softphoneCallAudioMode');
+  var spTestMicBtn = document.getElementById('softphoneTestMicBtn');
+  var spSoundcheckBtn = document.getElementById('softphoneSoundcheckBtn');
+  var spSoundcheckAudio = document.getElementById('softphoneSoundcheckAudio');
+  var spMicLevelWrap = document.getElementById('softphoneMicLevelWrap');
+  var spMicLevelFill = document.getElementById('softphoneMicLevelFill');
+  var spMicLevelLabel = document.getElementById('softphoneMicLevelLabel');
+  var spMicSelect = document.getElementById('softphoneMicSelect');
+  var spSpeakerSelect = document.getElementById('softphoneSpeakerSelect');
+  var spMicStatus = document.getElementById('softphoneMicStatus');
+  var spPreferredMicId = '';
+  var spPreferredSpeakerId = '';
+  var SOFTPHONE_AUDIO_PREFS_KEY = 'adhelloSoftphoneAudioPrefs';
+  var softphoneSoundcheckState = { active: false, cancel: false, raf: null };
+  var SOFTPHONE_RECENT_KEY = 'softphoneRecentNumbers';
+  var spRelayWebrtc = false;
+  var spSignalwireNumbers = [];
+  var spBankNumbers = [];
+  var spWorkspaceCallMode = 'cloud_dial';
+  var spDefaultFrom = '';
+  var spActiveFrom = '';
+  var spLeadCallerId = '';
+  var spAgentPhoneCached = '';
+  var spCallerIdSelect = document.getElementById('softphoneCallerIdSelect');
+  var spCallerIdMobileWrap = document.getElementById('softphoneCallerIdMobileWrap');
+  var spCallerIdMobile = document.getElementById('softphoneCallerIdMobile');
+  var spCallerIdMobileSave = document.getElementById('softphoneCallerIdMobileSave');
+  var spCallerIdMobileHint = document.getElementById('softphoneCallerIdMobileHint');
+  var spAgentRingWrap = document.getElementById('softphoneAgentRingWrap');
+  var spAgentRingLine = document.getElementById('softphoneAgentRingLine');
+  var spAgentRingHint = document.getElementById('softphoneAgentRingHint');
+  var spAgentRingFixBtn = document.getElementById('softphoneAgentRingFixBtn');
+  var softphoneSession = {
+    state: 'idle',
+    muted: false,
+    hold: false,
+    wrapRequired: false,
+    activeNumber: '',
+    callSid: '',
+    hangupInFlight: false,
+    recordingSid: '',
+    recordingPending: false,
+    pollTimer: null,
+    webrtcDialWatchdog: null,
+    webrtcDialHardStop: null,
+    dialWatchdog: null,
+    callBtnHtml: '',
+    vmBtnHtml: '',
+    webrtcSkipDeviceRetry: false,
+    webrtcCloudFallback: false,
+    dialMode: '',
+    agentTo: '',
+    timerTicker: null,
+    startedAtMs: 0,
+    stateVerbose: '',
+    speaker: false,
+    webrtc: false,
+    relayClient: null,
+    relayCall: null,
+    isCloudPstn: false,
+    leadKey: '',
+    leadTitle: '',
+    wasInCall: false,
+    audioPrimed: false,
+    remoteAudioWatchdog: null,
+    focusDialQueue: [],
+    focusDialIndex: 0,
+    compact: false,
+  };
+  var RELAY_SDK_SRC = 'https://unpkg.com/@signalwire/js@1.5.0/dist/index.min.js';
+  function loadRelayScript() {
+    return new Promise(function (resolve, reject) {
+      if (typeof window.Relay !== 'undefined') return resolve();
+      var existing = document.querySelector('script[data-signalwire-relay]');
+      if (existing) {
+        existing.addEventListener('load', function () { resolve(); });
+        existing.addEventListener('error', reject);
+        return;
+      }
+      var s = document.createElement('script');
+      s.src = RELAY_SDK_SRC;
+      s.async = true;
+      s.setAttribute('data-signalwire-relay', '1');
+      s.onload = function () { resolve(); };
+      s.onerror = function () { reject(new Error('Failed to load SignalWire Relay SDK.')); };
+      document.head.appendChild(s);
+    });
+  }
+  function softphoneClearWebrtcSession() {
+    webrtcClearDialWatchdog();
+    clearSoftphoneRemoteAudioWatchdog();
+    showSoftphoneEnableAudioBtn(false);
+    try {
+      if (softphoneSession.relayClient) {
+        softphoneSession.relayClient.disconnect();
+      }
+    } catch (e) {}
+    softphoneSession.relayClient = null;
+    softphoneSession.relayCall = null;
+    softphoneSession.webrtc = false;
+  }
+  function softphoneDestroyWebrtc() {
+    webrtcClearDialWatchdog();
+    try {
+      if (softphoneSession.relayCall) {
+        softphoneSession.relayCall.hangup({ cause: 'NORMAL_CLEARING' }, true);
+      }
+    } catch (e) {}
+    softphoneSession.relayCall = null;
+    try {
+      if (softphoneSession.relayClient) {
+        softphoneSession.relayClient.disconnect();
+      }
+    } catch (e) {}
+    softphoneSession.relayClient = null;
+    softphoneSession.webrtc = false;
+  }
+  function webrtcClearDialWatchdog() {
+    if (softphoneSession.webrtcDialWatchdog) {
+      clearTimeout(softphoneSession.webrtcDialWatchdog);
+      softphoneSession.webrtcDialWatchdog = null;
+    }
+    if (softphoneSession.webrtcDialHardStop) {
+      clearTimeout(softphoneSession.webrtcDialHardStop);
+      softphoneSession.webrtcDialHardStop = null;
+    }
+  }
+  function softphoneRestoreDialButtons() {
+    if (spCall) {
+      spCall.disabled = softphoneSession.state === 'dialing';
+      if (softphoneSession.callBtnHtml) {
+        spCall.innerHTML = softphoneSession.callBtnHtml;
+        softphoneSession.callBtnHtml = '';
+      }
+    }
+    if (spVm) {
+      spVm.disabled = softphoneSession.state === 'dialing';
+      if (softphoneSession.vmBtnHtml) {
+        spVm.innerHTML = softphoneSession.vmBtnHtml;
+        softphoneSession.vmBtnHtml = '';
+      }
+    }
+  }
+  function softphoneForceAbortDial(msg, opts) {
+    opts = opts || {};
+    webrtcClearDialWatchdog();
+    if (softphoneSession.dialWatchdog) {
+      clearTimeout(softphoneSession.dialWatchdog);
+      softphoneSession.dialWatchdog = null;
+    }
+    softphoneStopPolling();
+    softphoneStopDialInPolling();
+    var sidToKill = String(softphoneSession.callSid || '').trim();
+    softphoneSession.pstnStatusSinceMs = 0;
+    softphoneSession.pstnLastStatus = '';
+    softphoneSession.pstnTo = '';
+    softphoneSession.pstnFrom = '';
+    try {
+      if (softphoneSession.relayCall) {
+        softphoneSession.relayCall.hangup({ cause: 'NORMAL_CLEARING' }, true);
+      }
+    } catch (_) {}
+    softphoneClearWebrtcSession();
+    softphoneSession.callSid = '';
+    softphoneSession.isCloudPstn = false;
+    softphoneSession.hangupInFlight = false;
+    softphoneSession.webrtcCloudFallback = false;
+    softphoneSession.webrtcSkipDeviceRetry = false;
+    softphoneSession.stateVerbose = '';
+    softphoneSession.startedAtMs = 0;
+    softphoneSession.wasInCall = false;
+    softphoneSession.dialInNumber = '';
+    softphoneResetRecordingState();
+    softphoneSetWrapRequired(false);
+    softphoneSetCallState(opts.idle ? 'idle' : 'ready');
+    softphoneSetTimerSeconds(0);
+    softphoneRestoreDialButtons();
+    updateSoftphoneRedialUi();
+    softphoneSetStatus(msg || 'Dial canceled. You can call again.', !!opts.isError);
+    // Always tear down the PSTN leg + agent session — abandoning the UI left
+    // SignalWire calls stuck at "initiated" and blocked the next ring.
+    if (sidToKill) {
+      requestSoftphoneCloudHangup(sidToKill).catch(function () {});
+    }
+    fetch('/leads/telephony/session/end', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: '{}',
+    }).catch(function () {});
+  }
+  function softphoneClearMasterDialWatchdog() {
+    if (softphoneSession.dialWatchdog) {
+      clearTimeout(softphoneSession.dialWatchdog);
+      softphoneSession.dialWatchdog = null;
+    }
+  }
+  function softphoneStartMasterDialWatchdog(ms) {
+    softphoneClearMasterDialWatchdog();
+    var timeoutMs = typeof ms === 'number' && ms > 0 ? ms : 45000;
+    softphoneSession.dialWatchdog = setTimeout(function () {
+      softphoneSession.dialWatchdog = null;
+      if (softphoneSession.state !== 'dialing') return;
+      softphoneForceAbortDial(
+        'Call setup timed out. Tap Call to try again. If your phone never rang, turn off Silence Unknown Callers and use Test ring in Phone bank.',
+        { isError: true },
+      );
+    }, timeoutMs);
+  }
+  function softphoneCancelWebrtcDial(msg, opts) {
+    opts = opts || {};
+    webrtcClearDialWatchdog();
+    try {
+      if (softphoneSession.relayCall) {
+        softphoneSession.relayCall.hangup({ cause: 'NORMAL_CLEARING' }, true);
+      }
+    } catch (_) {}
+    softphoneClearWebrtcSession();
+    softphoneSession.stateVerbose = '';
+    if (opts.readyToRedial) {
+      softphoneForceAbortDial(msg || 'Call canceled.', { isError: !!opts.isError });
+      return;
+    }
+    softphoneSetWrapRequired(!!opts.requireWrap);
+    softphoneSetCallState('ended');
+    softphoneSetStatus(msg || 'Call canceled.', !!opts.isError);
+  }
+  function softphoneWebrtcFallbackToCloud(to, msg) {
+    webrtcClearDialWatchdog();
+    softphoneClearWebrtcSession();
+    softphoneSession.webrtc = false;
+    var agentReady = normalizeDial(spAgentPhoneCached || (spAgentPhone && spAgentPhone.value) || '');
+    // Never place a PSTN-only cloud call for conversation — user hears nothing on Mac or phone.
+    if (agentReady && (!spBankNumbers || spBankNumbers.indexOf(agentReady) === -1)) {
+      softphoneSetCallState('dialing');
+      softphoneSetStatus(
+        (msg ? String(msg) + ' ' : '') +
+          'Browser audio failed — ringing your mobile (' +
+          (formatCallerIdDisplay(agentReady) || agentReady) +
+          ') instead. Answer that call to talk to the lead.',
+        true,
+      );
+      // Temporarily dial via agent-first path even if UI mode is cloud_dial.
+      var prevMode = spWorkspaceCallMode;
+      spWorkspaceCallMode = 'agent_first';
+      return startCloudSoftphoneDial(to, 'call', null)
+        .catch(function (err) {
+          softphoneSetCallState('ready');
+          softphoneSetWrapRequired(false);
+          softphoneSetStatus((err && err.message) || 'Agent-first dial failed.', true);
+        })
+        .finally(function () {
+          spWorkspaceCallMode = prevMode || 'cloud_dial';
+        });
+    }
+    softphoneForceAbortDial(
+      'No audio path: browser mic/speakers did not connect, so the lead was NOT dialed (that would be silent). Fix Settings → pick MacBook mic + speakers (not iPhone Continuity), Run soundcheck, or switch Call routing to Agent first / My device dialer.',
+      { isError: true },
+    );
+    return Promise.resolve();
+  }
+  function softphoneCallerWebrtcError(fromNum) {
+    var from = normalizeDial(fromNum || '');
+    if (!from || !spSignalwireNumbers || !spSignalwireNumbers.length) return '';
+    var owned = spSignalwireNumbers.some(function (n) { return normalizeDial(n) === from; });
+    if (owned) return '';
+    return (
+      'Caller ID ' +
+      from +
+      ' is not in your SignalWire project. Tap Change next to “Calling from” and pick a verified number from Workspace → Phone bank.'
+    );
+  }
+  function waitForRelayReady(client, timeoutMs) {
+    timeoutMs = timeoutMs || 12000;
+    return new Promise(function (resolve, reject) {
+      if (!client) return reject(new Error('Relay client missing'));
+      if (client.connected === true) return resolve(client);
+      var settled = false;
+      var timer = setTimeout(function () {
+        if (settled) return;
+        settled = true;
+        reject(new Error('SignalWire session did not become ready'));
+      }, timeoutMs);
+      function done(err) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (err) reject(err);
+        else resolve(client);
+      }
+      try {
+        client.on('signalwire.ready', function () { done(null); });
+        client.on('signalwire.error', function (payload) {
+          var msg =
+            (payload && (payload.message || payload.error || payload.code)) ||
+            'SignalWire connection error';
+          done(new Error(String(msg)));
+        });
+      } catch (e) {
+        done(e);
+      }
+    });
+  }
+  function webrtcHandleDialStuck() {
+    if (softphoneSession.state !== 'dialing' || !softphoneSession.webrtc) return;
+    webrtcClearDialWatchdog();
+    var to = String(softphoneSession.activeNumber || '').trim();
+    if (!softphoneSession.webrtcSkipDeviceRetry && to) {
+      softphoneSession.webrtcSkipDeviceRetry = true;
+      softphoneDestroyWebrtc();
+      softphoneSetCallState('dialing');
+      softphoneSetStatus('Still connecting… retrying with default mic and speakers.', true);
+      tryWebrtcSoftphone(to, { skipDeviceIds: true }).then(function (ok) {
+        if (ok) return;
+        softphoneWebrtcFallbackToCloud(
+          to,
+          'Browser audio failed — placing the call via SignalWire cloud (no sound in this tab). Check caller ID in Workspace → Phone bank.',
+        );
+      });
+      return;
+    }
+    if (!softphoneSession.webrtcCloudFallback && to) {
+      softphoneSession.webrtcCloudFallback = true;
+      softphoneDestroyWebrtc();
+      softphoneWebrtcFallbackToCloud(
+        to,
+        'Browser audio timed out — placing the call via SignalWire cloud (no sound in this tab). Verify caller ID in Workspace → Phone bank.',
+      );
+      return;
+    }
+    softphoneCancelWebrtcDial(
+      'Call setup timed out. Check Workspace → Phone bank (caller ID must be a SignalWire number), allow mic in Settings, then try again.',
+      { readyToRedial: true, isError: true },
+    );
+  }
+  function webrtcStartDialWatchdog(opts) {
+    opts = opts || {};
+    var phase = opts.phase || 1;
+    webrtcClearDialWatchdog();
+    var warnMs = phase === 2 ? 12000 : 15000;
+    var stopMs = phase === 2 ? 25000 : 30000;
+    softphoneSession.webrtcDialWatchdog = setTimeout(function () {
+      if (softphoneSession.state !== 'dialing' || !softphoneSession.webrtc) return;
+      softphoneSetStatus(
+        phase === 2
+          ? 'Still connecting on retry… will switch to cloud dial if this continues.'
+          : 'Still connecting. Check mic in Settings and that “Calling from” is a SignalWire number. Retrying with default audio soon.',
+        true,
+      );
+    }, warnMs);
+    softphoneSession.webrtcDialHardStop = setTimeout(function () {
+      webrtcHandleDialStuck();
+    }, stopMs);
+  }
+  function softphoneRelayMicIdForDial(skipDeviceIds) {
+    if (skipDeviceIds || !spPreferredMicId) return Promise.resolve('');
+    if (!navigator.mediaDevices || typeof navigator.mediaDevices.enumerateDevices !== 'function') {
+      return Promise.resolve(spPreferredMicId);
+    }
+    return navigator.mediaDevices
+      .enumerateDevices()
+      .then(function (devices) {
+        var mics = (devices || []).filter(function (d) { return d && d.kind === 'audioinput'; });
+        var found = mics.some(function (d) { return d.deviceId === spPreferredMicId; });
+        if (!found) {
+          spPreferredMicId = pickBestAudioDevice(mics, 'audioinput', '');
+          saveSoftphoneAudioPrefs();
+          syncSoftphoneAudioSelectValues();
+          return spPreferredMicId || '';
+        }
+        return spPreferredMicId;
+      })
+      .catch(function () {
+        return spPreferredMicId || '';
+      });
+  }
+  function webrtcAttachCallHandlers(call) {
+    if (!call) return;
+    try {
+      if (call.errors$ && typeof call.errors$.subscribe === 'function') {
+        call.errors$.subscribe(function (err) {
+          console.error('[Softphone] WebRTC call error:', err);
+          if (softphoneSession.state !== 'dialing' && softphoneSession.state !== 'in_call') return;
+          var detail = (err && (err.message || err.code || err.error)) || 'unknown error';
+          softphoneSetStatus('WebRTC error: ' + detail + '. Check browser console or try default mic in Settings.', true);
+        });
+      }
+    } catch (_) {}
+  }
+  function softphoneMicBlockedMessage(err) {
+    var name = err && err.name ? String(err.name) : '';
+    if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+      return 'Microphone blocked. On Mac: System Settings → Privacy & Security → Microphone → turn on your browser, then tap Allow mic & refresh devices.';
+    }
+    if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+      return 'No microphone found. Pair your Bluetooth headset or check Mac Sound → Input.';
+    }
+    return (err && err.message) || 'Could not access microphone.';
+  }
+
+  function loadSoftphoneAudioPrefs() {
+    try {
+      var raw = localStorage.getItem(SOFTPHONE_AUDIO_PREFS_KEY);
+      if (!raw) return { micId: '', speakerId: '' };
+      var parsed = JSON.parse(raw);
+      return {
+        micId: String((parsed && parsed.micId) || '').trim(),
+        speakerId: String((parsed && parsed.speakerId) || '').trim(),
+      };
+    } catch (_) {
+      return { micId: '', speakerId: '' };
+    }
+  }
+
+  function saveSoftphoneAudioPrefs() {
+    try {
+      localStorage.setItem(
+        SOFTPHONE_AUDIO_PREFS_KEY,
+        JSON.stringify({
+          micId: String(spPreferredMicId || '').trim(),
+          speakerId: String(spPreferredSpeakerId || '').trim(),
+        }),
+      );
+    } catch (_) {}
+  }
+
+  function audioDeviceScore(label) {
+    var l = String(label || '').toLowerCase();
+    var score = 0;
+    if (/bluetooth|airpod|headset|headphone|beats|bose|wh-|jabra|plantronics|poly|sony|skullcandy|buds/.test(l)) {
+      score += 60;
+    }
+    if (/external|usb|wireless/.test(l)) score += 15;
+    if (/macbook|built-in|internal|default|display/.test(l)) score -= 8;
+    // Virtual cams / Continuity mics are terrible softphone endpoints.
+    if (/camo|virtual|iphone|continuity|screen|loopback|blackhole|zoom|teams/.test(l)) score -= 80;
+    if (/microphone|mic\b/.test(l)) score -= 40;
+    return score;
+  }
+
+  function softphoneLabelLooksLikeBadSpeaker(label) {
+    var l = String(label || '').toLowerCase();
+    return /camo|virtual|iphone|continuity|microphone|mic\b|loopback|blackhole/.test(l);
+  }
+
+  function softphoneSanitizeAudioDevicePrefs(mics, speakers) {
+    var mic = (mics || []).find(function (d) { return d.deviceId === spPreferredMicId; });
+    var spk = (speakers || []).find(function (d) { return d.deviceId === spPreferredSpeakerId; });
+    var changed = false;
+    if (spPreferredSpeakerId && (!spk || softphoneLabelLooksLikeBadSpeaker(spk.label))) {
+      spPreferredSpeakerId = pickBestAudioDevice(speakers, 'audiooutput', '');
+      changed = true;
+    }
+    if (spPreferredMicId && mic && /camo|virtual|loopback|blackhole|iphone|continuity/.test(String(mic.label || '').toLowerCase())) {
+      spPreferredMicId = pickBestAudioDevice(mics, 'audioinput', '');
+      changed = true;
+    }
+    if (changed) {
+      saveSoftphoneAudioPrefs();
+      syncSoftphoneAudioSelectValues();
+    }
+  }
+
+  function withSoftphoneTimeout(promise, ms, label) {
+    var timeoutMs = typeof ms === 'number' && ms > 0 ? ms : 12000;
+    return new Promise(function (resolve, reject) {
+      var settled = false;
+      var timer = setTimeout(function () {
+        if (settled) return;
+        settled = true;
+        reject(new Error((label || 'Softphone step') + ' timed out after ' + Math.round(timeoutMs / 1000) + 's'));
+      }, timeoutMs);
+      Promise.resolve(promise).then(
+        function (v) {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          resolve(v);
+        },
+        function (err) {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          reject(err);
+        },
+      );
+    });
+  }
+
+  function pickBestAudioDevice(devices, kind, savedId) {
+    var list = (devices || []).filter(function (d) {
+      return d && d.kind === kind && String(d.deviceId || '').trim();
+    });
+    if (!list.length) return '';
+    if (savedId && list.some(function (d) { return d.deviceId === savedId; })) return savedId;
+    var best = list.slice().sort(function (a, b) {
+      return audioDeviceScore(b.label) - audioDeviceScore(a.label);
+    })[0];
+    return best ? String(best.deviceId).trim() : '';
+  }
+
+  function syncSoftphoneAudioSelectValues() {
+    if (spMicSelect) spMicSelect.value = String(spPreferredMicId || '');
+    if (spSpeakerSelect) spSpeakerSelect.value = String(spPreferredSpeakerId || '');
+  }
+
+  function populateSoftphoneAudioSelects(mics, speakers) {
+    if (spMicSelect) {
+      var micVal = String(spPreferredMicId || '');
+      spMicSelect.innerHTML = '<option value="">Default microphone</option>';
+      (mics || []).forEach(function (d) {
+        var opt = document.createElement('option');
+        opt.value = d.deviceId;
+        opt.textContent = d.label || 'Microphone';
+        spMicSelect.appendChild(opt);
+      });
+      spMicSelect.value = micVal;
+    }
+    if (spSpeakerSelect) {
+      var spVal = String(spPreferredSpeakerId || '');
+      spSpeakerSelect.innerHTML = '<option value="">Default speakers</option>';
+      (speakers || []).forEach(function (d) {
+        var opt = document.createElement('option');
+        opt.value = d.deviceId;
+        opt.textContent = d.label || 'Speakers';
+        spSpeakerSelect.appendChild(opt);
+      });
+      spSpeakerSelect.value = spVal;
+    }
+  }
+
+  function softphoneAudioDeviceSummary(mics, speakers) {
+    var mic = (mics || []).find(function (d) { return d.deviceId === spPreferredMicId; });
+    var spk = (speakers || []).find(function (d) { return d.deviceId === spPreferredSpeakerId; });
+    var micLabel = mic && mic.label ? mic.label : (spPreferredMicId ? 'Selected mic' : 'Default mic');
+    var spkLabel = spk && spk.label ? spk.label : (spPreferredSpeakerId ? 'Selected output' : 'Default output');
+    return { micLabel: micLabel, spkLabel: spkLabel };
+  }
+
+  function refreshSoftphoneAudioDevices(opts) {
+    opts = opts || {};
+    if (!navigator.mediaDevices || typeof navigator.mediaDevices.enumerateDevices !== 'function') {
+      return Promise.reject(new Error('This browser does not support audio device selection.'));
+    }
+    var prefs = loadSoftphoneAudioPrefs();
+    var ensurePerm = opts.requestPermission ? ensureSoftphoneMicPermission() : Promise.resolve();
+    return ensurePerm
+      .then(function () {
+        return navigator.mediaDevices.enumerateDevices();
+      })
+      .then(function (devices) {
+        var mics = (devices || []).filter(function (d) { return d && d.kind === 'audioinput'; });
+        var speakers = (devices || []).filter(function (d) { return d && d.kind === 'audiooutput'; });
+        spPreferredMicId = pickBestAudioDevice(mics, 'audioinput', prefs.micId || spPreferredMicId);
+        spPreferredSpeakerId = pickBestAudioDevice(speakers, 'audiooutput', prefs.speakerId || spPreferredSpeakerId);
+        softphoneSanitizeAudioDevicePrefs(mics, speakers);
+        populateSoftphoneAudioSelects(mics, speakers);
+        saveSoftphoneAudioPrefs();
+        return { mics: mics, speakers: speakers };
+      });
+  }
+
+  function ensureSoftphoneMicPermission() {
+    if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+      return Promise.reject(new Error('This browser does not support in-tab microphone access.'));
+    }
+    function micConstraints(useExact) {
+      if (!spPreferredMicId) {
+        return { audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } };
+      }
+      return {
+        audio: {
+          deviceId: useExact ? { exact: spPreferredMicId } : { ideal: spPreferredMicId },
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      };
+    }
+    function releaseStream(stream) {
+      if (spLocalAudio && stream) {
+        try {
+          spLocalAudio.srcObject = stream;
+          spLocalAudio.muted = true;
+        } catch (_) {}
+      }
+      if (stream && stream.getTracks) {
+        stream.getTracks().forEach(function (track) {
+          try { track.stop(); } catch (_) {}
+        });
+      }
+      if (spLocalAudio) {
+        try { spLocalAudio.srcObject = null; } catch (_) {}
+      }
+    }
+    return navigator.mediaDevices.getUserMedia(micConstraints(true)).then(function (stream) {
+      releaseStream(stream);
+      return true;
+    }).catch(function (err) {
+      if (!spPreferredMicId) throw err;
+      var retryable =
+        err &&
+        (err.name === 'OverconstrainedError' ||
+          err.name === 'NotFoundError' ||
+          err.name === 'DevicesNotFoundError');
+      if (!retryable) throw err;
+      return navigator.mediaDevices.getUserMedia(micConstraints(false)).then(function (stream) {
+        releaseStream(stream);
+        return true;
+      }).catch(function () {
+        spPreferredMicId = '';
+        saveSoftphoneAudioPrefs();
+        syncSoftphoneAudioSelectValues();
+        return navigator.mediaDevices.getUserMedia(micConstraints(false)).then(function (stream) {
+          releaseStream(stream);
+          return true;
+        });
+      });
+    });
+  }
+
+  function attachSoftphoneRemoteStream() {
+    if (!spRemoteAudio || !softphoneSession.relayCall) return false;
+    try {
+      var call = softphoneSession.relayCall;
+      var stream =
+        call.remoteStream ||
+        call.remoteMediaStream ||
+        (typeof call.getRemoteStream === 'function' ? call.getRemoteStream() : null);
+      if (stream) {
+        spRemoteAudio.srcObject = stream;
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  function showSoftphoneEnableAudioBtn(show, msg) {
+    if (spEnableAudioBtn) spEnableAudioBtn.classList.toggle('hidden', !show);
+    if (show && msg) softphoneSetStatus(msg, true);
+  }
+
+  function updateSoftphoneCallAudioModeLine() {
+    if (!spCallAudioMode) return;
+    var inCall = softphoneSession.state === 'dialing' || softphoneSession.state === 'in_call';
+    if (!inCall) {
+      spCallAudioMode.classList.add('hidden');
+      spCallAudioMode.textContent = '';
+      return;
+    }
+    spCallAudioMode.classList.remove('hidden');
+    if (softphoneSession.webrtc) {
+      spCallAudioMode.textContent = 'Audio path: browser WebRTC → your selected headset.';
+      spCallAudioMode.classList.remove('text-amber-700', 'dark:text-amber-300');
+      spCallAudioMode.classList.add('text-emerald-700', 'dark:text-emerald-300');
+    } else if (softphoneSession.isCloudPstn) {
+      spCallAudioMode.textContent =
+        'Audio path: cloud PSTN only — no sound in this tab. Set SIGNALWIRE_SPACE_URL on the server or wait for WebRTC to connect.';
+      spCallAudioMode.classList.remove('text-emerald-700', 'dark:text-emerald-300');
+      spCallAudioMode.classList.add('text-amber-700', 'dark:text-amber-300');
+    } else {
+      spCallAudioMode.textContent = '';
+      spCallAudioMode.classList.add('hidden');
+    }
+  }
+
+  function clearSoftphoneRemoteAudioWatchdog() {
+    if (softphoneSession.remoteAudioWatchdog) {
+      clearInterval(softphoneSession.remoteAudioWatchdog);
+      softphoneSession.remoteAudioWatchdog = null;
+    }
+  }
+
+  function primeSoftphoneAudioPlayback() {
+    if (!spRemoteAudio || typeof spRemoteAudio.play !== 'function') return Promise.resolve(false);
+    spRemoteAudio.muted = true;
+    return spRemoteAudio
+      .play()
+      .then(function () {
+        try {
+          spRemoteAudio.pause();
+          spRemoteAudio.currentTime = 0;
+        } catch (_) {}
+        spRemoteAudio.muted = false;
+        softphoneSession.audioPrimed = true;
+        return true;
+      })
+      .catch(function () {
+        softphoneSession.audioPrimed = false;
+        return false;
+      });
+  }
+
+  function playSoftphoneRemoteAudio() {
+    attachSoftphoneRemoteStream();
+    if (!spRemoteAudio || typeof spRemoteAudio.play !== 'function') return Promise.resolve(false);
+    spRemoteAudio.volume = 1;
+    spRemoteAudio.muted = false;
+    var chain = Promise.resolve();
+    if (softphoneSession.relayCall && spPreferredSpeakerId && typeof softphoneSession.relayCall.setAudioOutDevice === 'function') {
+      chain = Promise.resolve(softphoneSession.relayCall.setAudioOutDevice(spPreferredSpeakerId)).catch(function () {});
+    }
+    return chain
+      .then(function () {
+        return applySoftphoneAudioOutput(true);
+      })
+      .then(function () {
+        return spRemoteAudio.play().then(function () {
+          showSoftphoneEnableAudioBtn(false);
+          return true;
+        });
+      })
+      .catch(function () {
+        showSoftphoneEnableAudioBtn(
+          true,
+          'Browser blocked call audio. Tap “Enable call audio” in the on-call panel.',
+        );
+        return false;
+      });
+  }
+
+  function applySoftphoneAudioToActiveCall() {
+    applySoftphoneMicToActiveCall();
+    return playSoftphoneRemoteAudio();
+  }
+
+  function startSoftphoneRemoteAudioWatchdog() {
+    clearSoftphoneRemoteAudioWatchdog();
+    var attempts = 0;
+    softphoneSession.remoteAudioWatchdog = setInterval(function () {
+      if (softphoneSession.state !== 'in_call' || !softphoneSession.webrtc) {
+        clearSoftphoneRemoteAudioWatchdog();
+        return;
+      }
+      attempts += 1;
+      applySoftphoneAudioToActiveCall().then(function (playing) {
+        if (playing || attempts >= 30) clearSoftphoneRemoteAudioWatchdog();
+      });
+    }, 500);
+  }
+
+  function applySoftphoneAudioOutput(force) {
+    if (!spRemoteAudio || typeof spRemoteAudio.setSinkId !== 'function') return Promise.resolve();
+    var sinkId = String(spPreferredSpeakerId || '').trim();
+    if (!sinkId && !force) return Promise.resolve();
+    if (!sinkId) return Promise.resolve();
+    return spRemoteAudio.setSinkId(sinkId).catch(function (err) {
+      console.warn('[Softphone] setSinkId failed:', err);
+    });
+  }
+
+  function applySoftphoneMicToActiveCall() {
+    if (!softphoneSession.relayCall || !spPreferredMicId) return;
+    try {
+      if (typeof softphoneSession.relayCall.setAudioInDevice === 'function') {
+        softphoneSession.relayCall.setAudioInDevice(spPreferredMicId);
+        return;
+      }
+      if (typeof softphoneSession.relayCall.switchMicrophone === 'function') {
+        softphoneSession.relayCall.switchMicrophone(spPreferredMicId);
+      }
+    } catch (_) {}
+  }
+
+  function setSoftphoneMicStatus(msg, isError) {
+    if (!spMicStatus) return;
+    spMicStatus.textContent = msg || '';
+    spMicStatus.classList.toggle('text-rose-600', !!isError);
+    spMicStatus.classList.toggle('dark:text-rose-400', !!isError);
+    spMicStatus.classList.toggle('text-emerald-700', !!msg && !isError);
+    spMicStatus.classList.toggle('dark:text-emerald-300', !!msg && !isError);
+  }
+
+  function setSoftphoneMicLevelUi(level, label) {
+    var pct = Math.max(0, Math.min(100, Math.round((Number(level) || 0) * 100)));
+    if (spMicLevelFill) spMicLevelFill.style.width = pct + '%';
+    if (spMicLevelLabel && label != null) spMicLevelLabel.textContent = label;
+  }
+
+  function stopSoftphoneSoundcheck(opts) {
+    opts = opts || {};
+    softphoneSoundcheckState.cancel = true;
+    if (softphoneSoundcheckState.raf) {
+      cancelAnimationFrame(softphoneSoundcheckState.raf);
+      softphoneSoundcheckState.raf = null;
+    }
+    if (softphoneSoundcheckState.stream && softphoneSoundcheckState.stream.getTracks) {
+      softphoneSoundcheckState.stream.getTracks().forEach(function (track) {
+        try { track.stop(); } catch (_) {}
+      });
+    }
+    softphoneSoundcheckState.stream = null;
+    if (softphoneSoundcheckState.audioCtx) {
+      try { softphoneSoundcheckState.audioCtx.close(); } catch (_) {}
+      softphoneSoundcheckState.audioCtx = null;
+    }
+    if (spSoundcheckAudio) {
+      try {
+        spSoundcheckAudio.pause();
+        spSoundcheckAudio.srcObject = null;
+      } catch (_) {}
+    }
+    if (opts.hideMeter !== false && spMicLevelWrap) spMicLevelWrap.classList.add('hidden');
+    if (opts.hideMeter !== false) setSoftphoneMicLevelUi(0, 'Waiting…');
+    softphoneSoundcheckState.active = false;
+  }
+
+  function softphoneSoundcheckMicConstraints() {
+    // Prefer exact device when set. Keep AGC on; skip heavy noise suppression so the meter moves.
+    var base = {
+      echoCancellation: true,
+      noiseSuppression: false,
+      autoGainControl: true,
+    };
+    if (!spPreferredMicId) {
+      return { audio: base };
+    }
+    return {
+      audio: Object.assign({}, base, {
+        deviceId: { exact: spPreferredMicId },
+      }),
+    };
+  }
+
+  function playSoftphoneSpeakerTestTone(sinkId) {
+    return new Promise(function (resolve, reject) {
+      if (softphoneSoundcheckState.cancel) {
+        resolve({ skipped: true });
+        return;
+      }
+      var AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) {
+        reject(new Error('Web Audio is not supported in this browser.'));
+        return;
+      }
+      if (!spSoundcheckAudio) {
+        reject(new Error('Soundcheck audio is unavailable.'));
+        return;
+      }
+      var ctx = new AudioCtx();
+      softphoneSoundcheckState.audioCtx = ctx;
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      var dest = ctx.createMediaStreamDestination();
+      gain.gain.value = 0.22;
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(440, ctx.currentTime);
+      osc.frequency.setValueAtTime(554.37, ctx.currentTime + 0.35);
+      osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.7);
+      osc.connect(gain);
+      gain.connect(dest);
+      spSoundcheckAudio.srcObject = dest.stream;
+      spSoundcheckAudio.volume = 1;
+      spSoundcheckAudio.muted = false;
+      var route = Promise.resolve();
+      if (sinkId && typeof spSoundcheckAudio.setSinkId === 'function') {
+        route = spSoundcheckAudio.setSinkId(sinkId);
+      }
+      route
+        .then(function () {
+          if (softphoneSoundcheckState.cancel) {
+            resolve({ skipped: true });
+            return;
+          }
+          return spSoundcheckAudio.play();
+        })
+        .then(function () {
+          if (softphoneSoundcheckState.cancel) {
+            resolve({ skipped: true });
+            return;
+          }
+          osc.start(ctx.currentTime);
+          osc.stop(ctx.currentTime + 1.05);
+          setTimeout(function () {
+            try {
+              spSoundcheckAudio.pause();
+              spSoundcheckAudio.srcObject = null;
+            } catch (_) {}
+            try { ctx.close(); } catch (_) {}
+            if (softphoneSoundcheckState.audioCtx === ctx) softphoneSoundcheckState.audioCtx = null;
+            resolve({ played: true, sinkRouted: !!sinkId });
+          }, 1150);
+        })
+        .catch(reject);
+    });
+  }
+
+  function runSoftphoneMicLevelTest(durationMs) {
+    durationMs = Math.max(2500, parseInt(durationMs, 10) || 4500);
+    if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+      return Promise.reject(new Error('This browser does not support microphone access.'));
+    }
+    if (spMicLevelWrap) spMicLevelWrap.classList.remove('hidden');
+    setSoftphoneMicLevelUi(0, 'Listening…');
+    function openMicStream() {
+      return navigator.mediaDevices.getUserMedia(softphoneSoundcheckMicConstraints()).catch(function (err) {
+        // exact deviceId can fail if the device list refreshed — fall back to default mic.
+        if (spPreferredMicId) {
+          return navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: true },
+          });
+        }
+        throw err;
+      });
+    }
+    return openMicStream().then(function (stream) {
+      if (softphoneSoundcheckState.cancel) {
+        stream.getTracks().forEach(function (track) {
+          try { track.stop(); } catch (_) {}
+        });
+        return { maxLevel: 0, heard: false, cancelled: true };
+      }
+      softphoneSoundcheckState.stream = stream;
+      var liveTrack = stream.getAudioTracks()[0];
+      if (liveTrack && liveTrack.enabled === false) {
+        try { liveTrack.enabled = true; } catch (_) {}
+      }
+      var AudioCtx = window.AudioContext || window.webkitAudioContext;
+      var ctx = new AudioCtx();
+      softphoneSoundcheckState.audioCtx = ctx;
+      var resumeP =
+        ctx.state === 'suspended' && typeof ctx.resume === 'function'
+          ? ctx.resume().catch(function () {})
+          : Promise.resolve();
+      return resumeP.then(function () {
+        var src = ctx.createMediaStreamSource(stream);
+        var analyser = ctx.createAnalyser();
+        analyser.fftSize = 2048;
+        analyser.smoothingTimeConstant = 0.2;
+        src.connect(analyser);
+        var data = new Uint8Array(analyser.fftSize);
+        var maxLevel = 0;
+        var started = Date.now();
+        return new Promise(function (resolve) {
+          function tick() {
+            if (softphoneSoundcheckState.cancel) {
+              stream.getTracks().forEach(function (track) {
+                try { track.stop(); } catch (_) {}
+              });
+              try { ctx.close(); } catch (_) {}
+              resolve({ maxLevel: maxLevel, heard: maxLevel > 0.035, cancelled: true });
+              return;
+            }
+            // Time-domain peak — more reliable than averaged FFT bins for speech.
+            analyser.getByteTimeDomainData(data);
+            var peak = 0;
+            for (var i = 0; i < data.length; i++) {
+              var amp = Math.abs(data[i] - 128) / 128;
+              if (amp > peak) peak = amp;
+            }
+            var level = peak;
+            if (level > maxLevel) maxLevel = level;
+            var label = level > 0.45 ? 'Strong' : level > 0.12 ? 'Good' : level > 0.035 ? 'Quiet' : 'Silent';
+            setSoftphoneMicLevelUi(level, label);
+            if (Date.now() - started < durationMs) {
+              softphoneSoundcheckState.raf = requestAnimationFrame(tick);
+              return;
+            }
+            stream.getTracks().forEach(function (track) {
+              try { track.stop(); } catch (_) {}
+            });
+            softphoneSoundcheckState.stream = null;
+            try { ctx.close(); } catch (_) {}
+            if (softphoneSoundcheckState.audioCtx === ctx) softphoneSoundcheckState.audioCtx = null;
+            resolve({ maxLevel: maxLevel, heard: maxLevel > 0.035 });
+          }
+          tick();
+        });
+      });
+    });
+  }
+
+  function runSoftphoneSoundcheck() {
+    if (softphoneSoundcheckState.active) {
+      stopSoftphoneSoundcheck();
+      return Promise.resolve();
+    }
+    if (!spSoundcheckBtn) return Promise.resolve();
+    softphoneSoundcheckState.active = true;
+    softphoneSoundcheckState.cancel = false;
+    var original = spSoundcheckBtn.textContent;
+    spSoundcheckBtn.disabled = true;
+    if (spTestMicBtn) spTestMicBtn.disabled = true;
+    spSoundcheckBtn.textContent = 'Running…';
+    setSoftphoneMicStatus('Step 1/3 — refreshing devices…', false);
+
+    return refreshSoftphoneAudioDevices({ requestPermission: true })
+      .then(function (result) {
+        if (softphoneSoundcheckState.cancel) return null;
+        var summary = softphoneAudioDeviceSummary(result.mics, result.speakers);
+        setSoftphoneMicStatus('Step 2/3 — playing test tone in ' + summary.spkLabel + '…', false);
+        softphoneSetStatus('Soundcheck: listen for three beeps in your headset or speakers.');
+        return playSoftphoneSpeakerTestTone(spPreferredSpeakerId).then(function (toneResult) {
+          return { summary: summary, toneResult: toneResult || {} };
+        });
+      })
+      .then(function (payload) {
+        if (!payload || softphoneSoundcheckState.cancel) return null;
+        setSoftphoneMicStatus('Step 3/3 — speak now. Checking mic on ' + payload.summary.micLabel + '…', false);
+        softphoneSetStatus('Soundcheck: say “testing one two three” while the mic meter moves.');
+        return runSoftphoneMicLevelTest(4000).then(function (micResult) {
+          return { summary: payload.summary, toneResult: payload.toneResult, micResult: micResult || {} };
+        });
+      })
+      .then(function (payload) {
+        if (!payload || softphoneSoundcheckState.cancel) return;
+        var heardMic = !!payload.micResult.heard;
+        var sinkNote =
+          payload.toneResult && payload.toneResult.sinkRouted
+            ? 'Tone routed to ' + payload.summary.spkLabel + '.'
+            : 'Tone played on default output (this browser may not route to a specific headset).';
+        var micNote = heardMic
+          ? 'Mic is picking up sound on ' + payload.summary.micLabel + '.'
+          : 'No mic input detected on ' +
+            payload.summary.micLabel +
+            '. Check Mac System Settings → Sound → Input, or pick a different mic above.';
+        var webrtcNote = spRelayWebrtc
+          ? ' WebRTC is ready — place a call to use this headset in-browser.'
+          : ' Note: in-tab call audio still needs WebRTC on the server (SIGNALWIRE_SPACE_URL). Soundcheck only verifies your browser + headset.';
+        setSoftphoneMicStatus(sinkNote + ' ' + micNote, !heardMic);
+        softphoneSetStatus(
+          (heardMic ? 'Soundcheck passed.' : 'Soundcheck finished with mic warnings.') + webrtcNote,
+          !heardMic,
+        );
+      })
+      .catch(function (err) {
+        var msg = softphoneMicBlockedMessage(err);
+        setSoftphoneMicStatus(msg, true);
+        softphoneSetStatus(msg, true);
+      })
+      .finally(function () {
+        stopSoftphoneSoundcheck({ hideMeter: false });
+        spSoundcheckBtn.disabled = false;
+        if (spTestMicBtn) spTestMicBtn.disabled = false;
+        spSoundcheckBtn.textContent = original;
+      });
+  }
+
+  function runSoftphoneMicSpeakerTest() {
+    if (!spTestMicBtn) return Promise.resolve();
+    var original = spTestMicBtn.textContent;
+    spTestMicBtn.disabled = true;
+    spTestMicBtn.textContent = 'Refreshing…';
+    setSoftphoneMicStatus('Requesting microphone access…', false);
+    return refreshSoftphoneAudioDevices({ requestPermission: true })
+      .then(function (result) {
+        var summary = softphoneAudioDeviceSummary(result.mics, result.speakers);
+        var btHint = /bluetooth|airpod|headset|headphone|buds/i.test(summary.micLabel + summary.spkLabel)
+          ? ' Bluetooth headset detected.'
+          : '';
+        setSoftphoneMicStatus('Mic: ' + summary.micLabel + ' · Hear: ' + summary.spkLabel + btHint + ' Tap Run soundcheck to play a test tone.', false);
+        softphoneSetStatus('Audio devices ready. Place a call — voice routes through your selected mic and speakers.');
+        return applySoftphoneAudioOutput(true);
+      })
+      .catch(function (err) {
+        var msg = softphoneMicBlockedMessage(err);
+        setSoftphoneMicStatus(msg, true);
+        softphoneSetStatus(msg, true);
+      })
+      .finally(function () {
+        spTestMicBtn.disabled = false;
+        spTestMicBtn.textContent = original;
+      });
+  }
+
+  function webrtcOnNotification(notification) {
+    if (!notification || !notification.call) return;
+    var c = notification.call;
+    var st = String(c.state || '').toLowerCase();
+    softphoneSession.stateVerbose = st || '';
+    if (st === 'ringing' || st === 'trying' || st === 'requesting' || st === 'early' || st === 'answering' || st === 'new') {
+      softphoneSetCallState('dialing');
+    } else if (st === 'active') {
+      webrtcClearDialWatchdog();
+      if (!softphoneSession.startedAtMs) softphoneSession.startedAtMs = Date.now();
+      softphoneSetCallState('in_call');
+      applySoftphoneAudioToActiveCall();
+      startSoftphoneRemoteAudioWatchdog();
+      softphoneSetStatus('In call (WebRTC). Using your selected mic and speakers/headset.');
+    } else if (st === 'held') {
+      softphoneSession.hold = true;
+      softphoneSetCallState('in_call');
+      softphoneSetStatus('On hold (WebRTC).');
+    } else if (
+      st === 'failed' ||
+      st === 'rejected' ||
+      st === 'busy' ||
+      st === 'no-answer' ||
+      st === 'cancel' ||
+      st === 'decline' ||
+      st === 'error' ||
+      st === 'canceled' ||
+      st === 'unanswered' ||
+      st === 'congestion'
+    ) {
+      webrtcClearDialWatchdog();
+      softphoneClearWebrtcSession();
+      softphoneSession.stateVerbose = '';
+      if (!softphoneSession.wasInCall) {
+        softphoneSetWrapRequired(false);
+        softphoneSetCallState('ready');
+        softphoneSetStatus(
+          'Call did not connect (WebRTC: ' +
+            (st || 'error') +
+            '). Check caller ID in Workspace → Phone bank and mic in Settings.',
+          true,
+        );
+        return;
+      }
+      softphoneSetWrapRequired(false);
+      softphoneSetCallState('ready');
+      softphoneSetStatus(
+        'Call ended (WebRTC: ' + (st || 'error') + '). Quick log is optional — or dial again.',
+      );
+    } else if (st === 'hangup' || st === 'destroy' || st === 'purge') {
+      webrtcClearDialWatchdog();
+      softphoneClearWebrtcSession();
+      softphoneSession.stateVerbose = '';
+      softphoneSession.callSid = '';
+      softphoneStopPolling();
+      softphoneSetWrapRequired(false);
+      softphoneSetCallState('ready');
+      softphoneSetStatus('Call ended. Quick log is optional below — or dial again.');
+    }
+  }
+  function normalizeDial(raw) {
+    var s = String(raw || '').trim();
+    if (!s) return '';
+    var v = s.replace(/[^\d+]/g, '');
+    if (!v) return '';
+    if (v.charAt(0) !== '+' && v.length === 10) return '+1' + v;
+    if (v.charAt(0) !== '+') return '+' + v;
+    return v;
+  }
+
+  function formatCallerIdDisplay(raw) {
+    var n = normalizeDial(raw);
+    if (!n) return '—';
+    var d = n.replace(/\D/g, '');
+    if (d.length === 11 && d.charAt(0) === '1') {
+      return (
+        '+' +
+        d.charAt(0) +
+        ' (' +
+        d.slice(1, 4) +
+        ') ' +
+        d.slice(4, 7) +
+        '-' +
+        d.slice(7)
+      );
+    }
+    if (d.length === 10) {
+      return '+1 (' + d.slice(0, 3) + ') ' + d.slice(3, 6) + '-' + d.slice(6);
+    }
+    return n;
+  }
+
+  function formatCallerIdCompact(raw) {
+    var n = normalizeDial(raw);
+    if (!n) return '—';
+    var d = n.replace(/\D/g, '');
+    if (d.length === 11 && d.charAt(0) === '1') {
+      return '+' + d.charAt(0) + ' ' + d.slice(1, 4) + '-' + d.slice(4, 7) + '-' + d.slice(7);
+    }
+    if (d.length === 10) {
+      return '+1 ' + d.slice(0, 3) + '-' + d.slice(3, 6) + '-' + d.slice(6);
+    }
+    return n;
+  }
+
+  function softphoneRedialTargetNumber() {
+    return normalizeDial(softphoneSession.activeNumber || (spTo ? spTo.value : ''));
+  }
+
+  function softphoneCanRedialNow() {
+    var to = softphoneRedialTargetNumber();
+    if (!to) return false;
+    if (softphoneSession.state === 'in_call' || softphoneSession.state === 'dialing') return false;
+    return !!(softphoneSession.wrapRequired || softphoneSession.state === 'ended');
+  }
+
+  function updateSoftphoneRedialUi() {
+    var show = softphoneCanRedialNow();
+    if (spRedial) {
+      spRedial.classList.toggle('hidden', !show);
+      spRedial.disabled = !softphoneRedialTargetNumber();
+    }
+  }
+
+  function softphonePrepareForRedial() {
+    softphoneSession.callSid = '';
+    softphoneSession.hangupInFlight = false;
+    softphoneStopPolling();
+    softphoneClearWebrtcSession();
+    softphoneResetRecordingState();
+    softphoneSession.isCloudPstn = false;
+    softphoneSession.wasInCall = false;
+    softphoneSession.stateVerbose = '';
+    softphoneSession.startedAtMs = 0;
+    softphoneSetWrapRequired(false);
+    softphoneSetCallState('ready');
+    softphoneSetTimerSeconds(0);
+    updateSoftphoneRedialUi();
+  }
+
+  function softphoneRedialSameNumber() {
+    var to = softphoneRedialTargetNumber();
+    if (!to) {
+      softphoneSetStatus('No number to redial.', true);
+      return;
+    }
+    if (softphoneSession.state === 'in_call' || softphoneSession.state === 'dialing') {
+      softphoneSetStatus('End the current call before redialing.', true);
+      return;
+    }
+    if (spTo) spTo.value = to;
+    softphoneSession.activeNumber = to;
+    softphonePrepareForRedial();
+    softphoneSetStatus('Redialing ' + formatCallerIdDisplay(to) + '…', false);
+    runSoftphoneAction('call');
+  }
+
+  var SOFTPHONE_FOCUS_QUEUE_CACHE_KEY = 'adhello_focus_call_queue';
+
+  function phoneDigits10(raw) {
+    var d = String(normalizeDial(raw) || raw || '').replace(/\D/g, '');
+    if (d.length === 11 && d.charAt(0) === '1') d = d.slice(1);
+    return d.length >= 10 ? d.slice(-10) : d;
+  }
+
+  function phonesMatchLoose(a, b) {
+    var da = phoneDigits10(a);
+    var db = phoneDigits10(b);
+    return !!(da && db && da === db);
+  }
+
+  function readFocusCallQueueCache() {
+    if (typeof window.__getFocusCallQueueLeads === 'function') {
+      var live = window.__getFocusCallQueueLeads() || [];
+      if (live.length) return live;
+    }
+    try {
+      var raw = sessionStorage.getItem(SOFTPHONE_FOCUS_QUEUE_CACHE_KEY);
+      if (!raw) return [];
+      var parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function writeFocusCallQueueCache(items) {
+    try {
+      sessionStorage.setItem(SOFTPHONE_FOCUS_QUEUE_CACHE_KEY, JSON.stringify(Array.isArray(items) ? items : []));
+    } catch (_) {}
+  }
+
+  function normalizeFocusQueueContact(item) {
+    if (!item) return null;
+    var phone = String(item.phone || item.number || '').trim();
+    if (!softphoneQueuePhoneValid(phone)) return null;
+    return {
+      key: normalizeFocusQueueKey(item.key || item.leadKey || ''),
+      title: String(item.title || 'Lead').trim(),
+      phone: normalizeDial(phone) || phone,
+      city: String(item.city || '').trim(),
+      state: String(item.state || '').trim(),
+      pipelineLabel: String(item.pipelineLabel || '').trim(),
+    };
+  }
+
+  function paintSoftphoneContactRows(host, items, fillClass, callClass) {
+    if (!host) return;
+    host.innerHTML = '';
+    if (!items || !items.length) {
+      host.innerHTML =
+        '<p class="text-xs text-slate-500">No callable focus contacts right now. Open Focus mode or add phone numbers to your pipeline leads.</p>';
+      return;
+    }
+    var queueItems = items.map(function (item, idx) {
+      return {
+        number: item.phone,
+        title: item.title,
+        leadKey: item.key,
+        queueIndex: idx,
+        metaLine: [].concat(
+          item.city || item.state ? [[item.city, item.state].filter(Boolean).join(', ')] : [],
+          item.pipelineLabel ? [item.pipelineLabel] : [],
+        ).join(' · '),
+      };
+    });
+    hydrateSoftphoneContactTitles(queueItems, function (enriched) {
+      if (!host) return;
+      host.innerHTML = '';
+      enriched.forEach(function (item, idx) {
+        var source = items[idx];
+        var metaLine = '';
+        if (source) {
+          var parts = [];
+          if (source.city || source.state) {
+            parts.push([source.city, source.state].filter(Boolean).join(', '));
+          }
+          if (source.pipelineLabel) parts.push(source.pipelineLabel);
+          metaLine = parts.join(' · ');
+        }
+        host.appendChild(
+          buildSoftphoneContactListRow(item, fillClass, callClass, metaLine, idx),
+        );
+      });
+    });
+  }
+
+  function setSoftphoneFocusDialQueue(items) {
+    softphoneSession.focusDialQueue = (items || [])
+      .map(normalizeFocusQueueContact)
+      .filter(Boolean);
+    if (softphoneSession.focusDialIndex >= softphoneSession.focusDialQueue.length) {
+      softphoneSession.focusDialIndex = 0;
+    }
+    updateSoftphoneLeadNavUi();
+  }
+
+  function updateSoftphoneLeadNavUi() {
+    var q = softphoneSession.focusDialQueue || [];
+    var show = q.length > 1;
+    if (spLeadNav) spLeadNav.classList.toggle('hidden', !show);
+    if (!show) return;
+    var idx = Math.max(0, Math.min(q.length - 1, softphoneSession.focusDialIndex || 0));
+    softphoneSession.focusDialIndex = idx;
+    var item = q[idx];
+    if (spLeadNavLabel && item) {
+      spLeadNavLabel.textContent =
+        'Lead ' + (idx + 1) + ' of ' + q.length + ' · ' + String(item.title || 'Contact');
+      spLeadNavLabel.title = String(item.title || '') + (item.phone ? ' · ' + item.phone : '');
+    }
+    var inActiveCall = softphoneSession.state === 'dialing' || softphoneSession.state === 'in_call';
+    if (spPrevLeadBtn) spPrevLeadBtn.disabled = idx <= 0 || inActiveCall;
+    if (spNextLeadBtn) spNextLeadBtn.disabled = idx >= q.length - 1 || inActiveCall;
+  }
+
+  function softphoneClearWrapForLeadAdvance() {
+    if (!softphoneSession.wrapRequired) return;
+    softphoneSetWrapRequired(false);
+    if (softphoneSession.state === 'ended') {
+      softphoneSetCallState('ready');
+      softphoneSetTimerSeconds(0);
+      softphoneSession.stateVerbose = '';
+    }
+  }
+
+  function softphoneSetFocusDialIndexFromBtn(btn) {
+    if (!btn) return;
+    var rawIdx = btn.getAttribute('data-queue-index');
+    if (rawIdx !== null && rawIdx !== '') {
+      var parsed = parseInt(rawIdx, 10);
+      if (!isNaN(parsed)) {
+        softphoneSession.focusDialIndex = parsed;
+        updateSoftphoneLeadNavUi();
+        return;
+      }
+    }
+    var key = String(btn.getAttribute('data-lead-key') || '').trim();
+    var num = normalizeDial(btn.getAttribute('data-number') || '');
+    var q = softphoneSession.focusDialQueue || [];
+    for (var i = 0; i < q.length; i++) {
+      if (key && q[i].key === key) {
+        softphoneSession.focusDialIndex = i;
+        updateSoftphoneLeadNavUi();
+        return;
+      }
+      if (num && normalizeDial(q[i].phone) === num) {
+        softphoneSession.focusDialIndex = i;
+        updateSoftphoneLeadNavUi();
+        return;
+      }
+    }
+  }
+
+  function loadSoftphoneFocusLeadAtIndex(idx, opts) {
+    opts = opts || {};
+    var q = softphoneSession.focusDialQueue || [];
+    if (!q.length) return false;
+    var i = Math.max(0, Math.min(q.length - 1, idx));
+    softphoneSession.focusDialIndex = i;
+    var item = q[i];
+    if (!item) return false;
+    setSoftphoneDialNumber(item.phone);
+    setSoftphoneLeadContext(item.key, item.title, item.phone);
+    updateSoftphoneLeadNavUi();
+    if (
+      opts.autoCall &&
+      !softphoneSession.wrapRequired &&
+      softphoneSession.state !== 'dialing' &&
+      softphoneSession.state !== 'in_call'
+    ) {
+      runSoftphoneAction('call');
+    } else {
+      softphoneSetStatus(
+        'Loaded ' + String(item.title || 'lead') + ' — press the green call button on the keypad.',
+      );
+    }
+    return true;
+  }
+
+  function stepSoftphoneFocusLead(delta, opts) {
+    var q = softphoneSession.focusDialQueue || [];
+    if (!q.length) {
+      softphoneSetStatus('Open Contacts to load your focus list.', true);
+      return;
+    }
+    if (softphoneSession.state === 'dialing' || softphoneSession.state === 'in_call') {
+      softphoneSetStatus('End the current call before switching leads.', true);
+      return;
+    }
+    softphoneClearWrapForLeadAdvance();
+    var next = (softphoneSession.focusDialIndex || 0) + delta;
+    loadSoftphoneFocusLeadAtIndex(next, opts || {});
+    setSoftphoneTab('keypad');
+  }
+
+  function openSoftphoneContactOnKeypad(btn, opts) {
+    opts = opts || {};
+    if (!btn) return;
+    applySoftphoneListSelection(btn);
+    softphoneSetFocusDialIndexFromBtn(btn);
+    setSoftphoneTab('keypad');
+    updateSoftphoneCalleeDisplay();
+    if (spTo) spTo.focus();
+    if (opts.autoCall) {
+      runSoftphoneAction('call');
+      return;
+    }
+    softphoneSetStatus('On keypad — press the green call button when ready.');
+  }
+
+  function renderSoftphoneFocusContacts() {
+    if (!spContactsList) return;
+
+    function apply(items, fromCache) {
+      var normalized = (items || [])
+        .map(normalizeFocusQueueContact)
+        .filter(Boolean);
+      if (normalized.length) writeFocusCallQueueCache(normalized);
+      setSoftphoneFocusDialQueue(normalized);
+      if (spContactsMeta) {
+        if (!normalized.length) {
+          spContactsMeta.textContent =
+            'No callable phone numbers in your focus queue. Open Focus mode to work leads or add phones in the pipeline.';
+        } else {
+          spContactsMeta.textContent =
+            normalized.length +
+            ' focus contact' +
+            (normalized.length === 1 ? '' : 's') +
+            ' ready to dial.';
+        }
+      }
+      paintSoftphoneContactRows(
+        spContactsList,
+        normalized,
+        'softphone-queue-fill hover:text-brand-yellow',
+        'softphone-queue-call',
+      );
+    }
+
+    var domItems = parseFocusQueueEntriesFromDom();
+    if (domItems.length) {
+      apply(domItems, false);
+      return;
+    }
+
+    var cached = readFocusCallQueueCache();
+    if (cached.length) apply(cached, true);
+
+    fetch('/focus/queue.json', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+      .then(function (r) {
+        return r.json().then(function (j) {
+          return { ok: r.ok, j: j };
+        });
+      })
+      .then(function (res) {
+        if (!res.ok || !res.j || !res.j.success || !Array.isArray(res.j.queue)) return;
+        apply(res.j.queue, false);
+      })
+      .catch(function () {
+        if (!cached.length && spContactsMeta) {
+          spContactsMeta.textContent = 'Could not load focus contacts. Try again or open Focus mode.';
+        }
+      });
+  }
+  window.__renderSoftphoneFocusContacts = renderSoftphoneFocusContacts;
+
+  function normalizeRecentDialEntry(x) {
+    if (!x) return null;
+    if (typeof x === 'string') {
+      var legacyNum = normalizeDial(x);
+      return legacyNum ? { number: legacyNum, title: '', leadKey: '' } : null;
+    }
+    if (typeof x === 'object') {
+      var number = normalizeDial(x.number || x.phone || '');
+      if (!number) return null;
+      return {
+        number: number,
+        title: String(x.title || '').trim(),
+        leadKey: String(x.leadKey || x.key || '').trim(),
+      };
+    }
+    return null;
+  }
+
+  function resolveSoftphoneLeadTitle(leadKey, phone) {
+    var key = String(leadKey || '').trim().replace(/^lead:/i, '');
+    var cached = readFocusCallQueueCache();
+    if (key) {
+      for (var i = 0; i < cached.length; i += 1) {
+        if (normalizeFocusQueueKey(cached[i].key) === key) {
+          return String(cached[i].title || '').trim();
+        }
+      }
+      if (typeof window.__getSelectedLeadRowsForBulk === 'function') {
+        var rows = window.__getSelectedLeadRowsForBulk() || [];
+        for (var j = 0; j < rows.length; j += 1) {
+          var rowKey = normalizeFocusQueueKey(softphoneQueueRowKey(rows[j]));
+          if (rowKey === key) return softphoneQueueRowTitle(rows[j]);
+        }
+      }
+      if (typeof window.__getActiveLeadPanelRow === 'function') {
+        var panelRow = window.__getActiveLeadPanelRow();
+        if (panelRow && normalizeFocusQueueKey(softphoneQueueRowKey(panelRow)) === key) {
+          return softphoneQueueRowTitle(panelRow);
+        }
+      }
+      var variants = [key, 'lead:' + key];
+      for (var v = 0; v < variants.length; v += 1) {
+        var row = document.querySelector(
+          'tr.result-row[data-lead-key="' + CSS.escape(variants[v]) + '"]',
+        );
+        if (row) return softphoneQueueRowTitle(row);
+      }
+    }
+    var dial = normalizeDial(phone);
+    if (!dial) return '';
+    for (var k = 0; k < cached.length; k += 1) {
+      if (phonesMatchLoose(cached[k].phone, dial)) {
+        return String(cached[k].title || '').trim();
+      }
+    }
+    var allRows = document.querySelectorAll('tr.result-row[data-phone]');
+    for (var r = 0; r < allRows.length; r += 1) {
+      if (phonesMatchLoose(allRows[r].dataset.phone || '', dial)) {
+        return softphoneQueueRowTitle(allRows[r]);
+      }
+    }
+    return '';
+  }
+
+  function resolveSoftphoneLeadKeyForPhone(phone, titleHint) {
+    var dial = normalizeDial(phone);
+    if (!dial) return '';
+    var cached = readFocusCallQueueCache();
+    for (var i = 0; i < cached.length; i += 1) {
+      if (!phonesMatchLoose(cached[i].phone, dial)) continue;
+      if (!titleHint || cached[i].title === titleHint) {
+        return normalizeFocusQueueKey(cached[i].key);
+      }
+    }
+    return '';
+  }
+
+  function enrichSoftphoneContactEntry(entry) {
+    var out = {
+      number: normalizeDial(entry.number || entry.phone || '') || String(entry.number || entry.phone || '').trim(),
+      title: String(entry.title || '').trim(),
+      leadKey: String(entry.leadKey || entry.key || '').trim(),
+    };
+    if (!out.number) return out;
+    if (!out.title) out.title = resolveSoftphoneLeadTitle(out.leadKey, out.number);
+    if (!out.leadKey) out.leadKey = resolveSoftphoneLeadKeyForPhone(out.number, out.title);
+    if (!out.title && out.leadKey) out.title = resolveSoftphoneLeadTitle(out.leadKey, out.number);
+    return out;
+  }
+
+  function hydrateSoftphoneContactTitles(entries, done) {
+    var list = (entries || []).map(enrichSoftphoneContactEntry);
+    var missing = list.filter(function (e) {
+      return e.number && !e.title;
+    });
+    if (!missing.length) {
+      done(list);
+      return;
+    }
+    fetch('/leads/telephony/resolve-contacts', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ phones: missing.map(function (e) { return e.number; }) }),
+    })
+      .then(function (r) { return r.json().catch(function () { return {}; }); })
+      .then(function (data) {
+        if (!data || !data.success || !Array.isArray(data.contacts)) {
+          done(list);
+          return;
+        }
+        var byPhone = {};
+        data.contacts.forEach(function (c) {
+          var p = normalizeDial(c.phone) || String(c.phone || '').trim();
+          if (p) byPhone[p] = c;
+          var d10 = phoneDigits10(c.phone);
+          if (d10) byPhone['10:' + d10] = c;
+        });
+        var enriched = list.map(function (e) {
+          if (e.title) return e;
+          var hit = byPhone[e.number] || byPhone['10:' + phoneDigits10(e.number)];
+          if (!hit) return e;
+          return {
+            number: e.number,
+            title: String(hit.title || '').trim(),
+            leadKey: String(hit.key || hit.leadKey || e.leadKey || '').trim(),
+          };
+        });
+        done(enriched);
+      })
+      .catch(function () {
+        done(list);
+      });
+  }
+
+  function updateSoftphoneCalleeDisplay() {
+    if (!spCalleeName) return;
+    var title = String(softphoneSession.leadTitle || '').trim();
+    if (!title && softphoneSession.leadKey) {
+      title = resolveSoftphoneLeadTitle(softphoneSession.leadKey, spTo ? spTo.value : '');
+    }
+    if (!title && spTo) {
+      title = resolveSoftphoneLeadTitle('', spTo.value);
+    }
+    if (title) {
+      spCalleeName.textContent = title;
+      spCalleeName.classList.remove('hidden');
+    } else {
+      spCalleeName.textContent = '';
+      spCalleeName.classList.add('hidden');
+    }
+    syncSoftphoneCompactBarUi();
+  }
+
+  function setSoftphoneLeadContext(leadKey, title, phone) {
+    softphoneSession.leadKey = String(leadKey || '').trim();
+    softphoneSession.leadTitle = String(title || '').trim();
+    if (!softphoneSession.leadTitle && softphoneSession.leadKey) {
+      softphoneSession.leadTitle = resolveSoftphoneLeadTitle(
+        softphoneSession.leadKey,
+        phone || (spTo ? spTo.value : ''),
+      );
+    }
+    updateSoftphoneCalleeDisplay();
+    updateSoftphoneWrapLeadHint();
+    hydrateSoftphoneLeadFromPanel();
+  }
+
+  function updateSoftphoneWrapLeadHint() {
+    if (!spWrapLeadHint) return;
+    var key = softphoneLeadStorageKey();
+    var title = String(softphoneSession.leadTitle || '').trim();
+    if (key && title) {
+      spWrapLeadHint.textContent = title;
+      spWrapLeadHint.title = title;
+      return;
+    }
+    if (key) {
+      spWrapLeadHint.textContent = 'Lead linked';
+      spWrapLeadHint.title = key;
+      return;
+    }
+    spWrapLeadHint.textContent = 'Dial a saved lead to sync GHL';
+    spWrapLeadHint.title = '';
+  }
+
+  function scrollSoftphoneToWrapPanel() {
+    // Disabled: auto-scrolling the keypad on every ENDED state felt like a trap
+    // (especially after agent-first misses / voicemail). Quick log stays visible below.
+    updateSoftphoneScrollHint();
+  }
+
+  function softphoneSkipWrap() {
+    softphoneSetWrapRequired(false);
+    softphoneSession.wasInCall = false;
+    softphoneSession.stateVerbose = '';
+    softphoneSetCallState('ready');
+    softphoneSetTimerSeconds(0);
+    softphoneRestoreDialButtons();
+    softphoneSetStatus('Wrap-up skipped. Ready to dial again.');
+    setSoftphoneWrapFeedback('Skipped — dial when ready.', false);
+  }
+
+  function softphoneQuickLogItems() {
+    return (window.__QUICK_LOG && window.__QUICK_LOG.items) || [];
+  }
+
+  function softphoneQuickLogTagConfig() {
+    return (window.__QUICK_LOG && window.__QUICK_LOG.tagConfig) || {};
+  }
+
+  function softphoneQuickLogItemForValue(value) {
+    var v = String(value || '').trim();
+    if (!v) return null;
+    if (v.indexOf('status:') === 0) {
+      var status = v.slice(7);
+      return softphoneQuickLogItems().find(function (i) { return i.status === status; }) || null;
+    }
+    return softphoneQuickLogItems().find(function (i) { return i.disposition === v; }) || null;
+  }
+
+  function softphoneBtnSelectionValue(btn) {
+    var disp = String(btn.getAttribute('data-disposition') || '').trim();
+    if (disp) return disp;
+    var status = String(btn.getAttribute('data-status') || '').trim();
+    if (status) return 'status:' + status;
+    return '';
+  }
+
+  function parseSoftphoneQuickLogSelection(value) {
+    var v = String(value || '').trim();
+    if (!v) return null;
+    if (v.indexOf('status:') === 0) {
+      var status = v.slice(7);
+      var statusItem = softphoneQuickLogItems().find(function (i) { return i.status === status; });
+      if (statusItem && statusItem.disposition) return { code: statusItem.disposition };
+      return { status: status };
+    }
+    return { code: v };
+  }
+
+  function softphoneOutcomeLabel(value) {
+    var item = softphoneQuickLogItemForValue(value);
+    if (item && item.label) return item.label;
+    return String(value || '').trim().replace(/_/g, ' ');
+  }
+
+  function setSoftphoneWrapFeedback(msg, isError) {
+    if (!spWrapFeedback) return;
+    spWrapFeedback.textContent = msg || '';
+    spWrapFeedback.classList.toggle('text-rose-600', !!isError);
+    spWrapFeedback.classList.toggle('dark:text-rose-400', !!isError);
+    spWrapFeedback.classList.toggle('text-emerald-700', !!msg && !isError);
+    spWrapFeedback.classList.toggle('dark:text-emerald-300', !!msg && !isError);
+    spWrapFeedback.classList.toggle('text-slate-500', !msg);
+    spWrapFeedback.classList.toggle('dark:text-slate-400', !msg);
+  }
+
+  function syncSoftphoneQuickLogButtons() {
+    if (!spQuickLogRow || !spDisposition) return;
+    var selected = String(spDisposition.value || '').trim();
+    spQuickLogRow.querySelectorAll('.softphone-quick-log').forEach(function (btn) {
+      var active = softphoneBtnSelectionValue(btn) === selected;
+      btn.setAttribute('data-active', active ? 'true' : 'false');
+      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+  }
+
+  function softphoneQuickSetOutcome(value) {
+    if (!spDisposition) return;
+    var v = String(value || '').trim();
+    if (!v) return;
+    spDisposition.value = v;
+    syncSoftphoneQuickLogButtons();
+    var item = softphoneQuickLogItemForValue(v);
+    if (spNotes && item && item.noteTemplate) {
+      var existing = String(spNotes.value || '').trim();
+      var templates = {};
+      softphoneQuickLogItems().forEach(function (i) {
+        var key = i.disposition || (i.status ? 'status:' + i.status : '');
+        if (key && i.noteTemplate) templates[key] = i.noteTemplate;
+      });
+      var isExistingTemplate = Object.keys(templates).some(function (k) {
+        return String(templates[k]) === existing;
+      });
+      if ((!existing || isExistingTemplate) && templates[v]) {
+        spNotes.value = templates[v];
+      }
+    }
+    if (item && item.status && spStatusSelect) {
+      spStatusSelect.value = item.status;
+    }
+    setSoftphoneWrapFeedback('Quick log: ' + (softphoneOutcomeLabel(v) || v.replace(/_/g, ' ')), false);
+  }
+
+  function readSoftphoneQuickLogSelection() {
+    if (!spDisposition) return null;
+    var value = String(spDisposition.value || '').trim();
+    if (!value) return null;
+    var item = softphoneQuickLogItemForValue(value);
+    if (item) {
+      return {
+        label: item.label,
+        disposition: item.disposition || '',
+        status: item.status || '',
+        value: value,
+      };
+    }
+    var parsed = parseSoftphoneQuickLogSelection(value);
+    if (!parsed) return null;
+    return {
+      label: softphoneOutcomeLabel(value),
+      disposition: parsed.code || '',
+      status: parsed.status || '',
+      value: value,
+    };
+  }
+
+  function softphoneLeadStorageKey() {
+    return String(softphoneSession.leadKey || '').trim().replace(/^lead:/i, '');
+  }
+
+  function hydrateSoftphoneLeadFromPanel() {
+    var key = softphoneLeadStorageKey();
+    if (!key) return;
+    fetch('/leads/' + encodeURIComponent(key) + '/panel-data', {
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' },
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data || !data.success || !data.lead) return;
+        var lead = data.lead;
+        if (spStatusSelect && lead.status) spStatusSelect.value = String(lead.status);
+        // Do not auto-fill No pickup from dial-start auto-disposition — leaves wrap empty for a real choice.
+        if (spDisposition && !String(spDisposition.value || '').trim()) {
+          var lastDisp = String(lead.lastDisposition || '').trim();
+          var lastSource = String(lead.lastDispositionSource || lead.dispositionSource || '').trim();
+          if (lastDisp && lastSource !== 'auto_dial' && lastDisp !== 'no_answer') {
+            spDisposition.value = lastDisp;
+            syncSoftphoneQuickLogButtons();
+          }
+        }
+        if (spNotes && lead.lastDispositionNotes && !String(spNotes.value || '').trim()) {
+          var notes = String(lead.lastDispositionNotes);
+          if (!/^No pickup/i.test(notes)) spNotes.value = notes;
+        }
+      })
+      .catch(function () {});
+  }
+
+  function applySoftphoneStatusIfNeeded(key) {
+    if (!key || !spStatusSelect) return Promise.resolve();
+    var status = String(spStatusSelect.value || '').trim();
+    if (!status) return Promise.resolve();
+    return fetch('/leads/' + encodeURIComponent(key) + '/update', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ status: status }),
+    }).then(function (r) {
+      return r.json().then(function (j) {
+        if (!r.ok || !j.success) throw new Error((j && j.error) || 'Could not save pipeline status.');
+        return j;
+      });
+    });
+  }
+
+  function applySoftphoneQuickLogIfNeeded(opts) {
+    opts = opts || {};
+    var key = softphoneLeadStorageKey();
+    if (!key || !spDisposition) return Promise.resolve();
+    var parsed = parseSoftphoneQuickLogSelection(spDisposition.value);
+    if (!parsed) return Promise.resolve();
+    var notes = spNotes ? String(spNotes.value || '').trim() : '';
+    if (parsed.code) {
+      var body = { code: parsed.code, notes: notes };
+      if (opts.deferGhlSync) body.deferGhlSync = true;
+      return fetch('/leads/' + encodeURIComponent(key) + '/disposition', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(body),
+      }).then(function (r) {
+        return r.json().then(function (j) {
+          if (!r.ok || !j.success) throw new Error((j && j.error) || 'Could not save disposition.');
+          return j;
+        });
+      });
+    }
+    if (parsed.status) {
+      return fetch('/leads/' + encodeURIComponent(key) + '/update', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ status: parsed.status }),
+      }).then(function (r) {
+        return r.json().then(function (j) {
+          if (!r.ok || !j.success) throw new Error((j && j.error) || 'Could not save status.');
+          return j;
+        });
+      });
+    }
+    return Promise.resolve();
+  }
+
+  function softphoneGhlPushPayload(key) {
+    var payload = { leadKeys: [key] };
+    var parsed = parseSoftphoneQuickLogSelection(spDisposition ? spDisposition.value : '');
+    var notes = spNotes ? String(spNotes.value || '').trim() : '';
+    if (parsed && parsed.code) {
+      payload.disposition = parsed.code;
+      if (notes) payload.dispositionNotes = notes;
+    }
+    return payload;
+  }
+
+  function softphoneUnlockAfterWrap() {
+    softphoneSession.callSid = '';
+    softphoneResetRecordingState();
+    softphoneStopPolling();
+    softphoneClearWebrtcSession();
+    softphoneSetWrapRequired(false);
+    softphoneSetCallState('ready');
+  }
+
+  function softphoneWrapNextStepHint(disp) {
+    var d = String(disp || '').trim();
+    if (/callback/i.test(d)) return 'Auto workflow: schedule callback task + send confirmation SMS.';
+    if (/no.?answer|voicemail/i.test(d)) return 'Auto workflow: queue retry window + send follow-up SMS.';
+    if (/connected/i.test(d)) return 'Auto workflow: send recap SMS/email and set next-step task.';
+    return 'Auto workflow: update pipeline status and assign follow-up owner.';
+  }
+
+  function saveSoftphoneWrapContext(opts) {
+    opts = opts || {};
+    var key = softphoneLeadStorageKey();
+    if (!key) return Promise.resolve();
+    return applySoftphoneStatusIfNeeded(key)
+      .then(function () { return applySoftphoneQuickLogIfNeeded({ deferGhlSync: !!opts.deferGhlSync }); });
+  }
+
+  function pushSoftphoneLeadToGhl() {
+    if (window.__softphonePushGhlInFlight) return Promise.resolve();
+    var key = softphoneLeadStorageKey();
+    if (!key) {
+      setSoftphoneWrapFeedback('Open a saved lead to sync to GHL.', true);
+      softphoneSetStatus('Link a saved lead to sync to Go High Level.', true);
+      return Promise.resolve();
+    }
+    var selection = readSoftphoneQuickLogSelection();
+    if (!selection) {
+      setSoftphoneWrapFeedback('Pick a quick log first.', true);
+      softphoneSetStatus('Select a quick log before syncing to GHL.', true);
+      return Promise.resolve();
+    }
+
+    var labelDefault = 'Sync GHL';
+    window.__softphonePushGhlInFlight = true;
+    if (spPushGhl) {
+      spPushGhl.disabled = true;
+      spPushGhl.setAttribute('aria-busy', 'true');
+      spPushGhl.textContent = 'Syncing…';
+    }
+    setSoftphoneWrapFeedback('Saving disposition and notes…', false);
+
+    return saveSoftphoneWrapContext({ deferGhlSync: true })
+      .then(function () {
+        var payload = softphoneGhlPushPayload(key);
+        setSoftphoneWrapFeedback('Syncing to Go High Level…', false);
+        var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        var abortTimer = null;
+        if (controller) {
+          abortTimer = setTimeout(function () {
+            try { controller.abort(); } catch (_) {}
+          }, 55000);
+        }
+        return fetch('/ghl/push', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(payload),
+          signal: controller ? controller.signal : undefined,
+        })
+          .then(function (r) {
+            return r.json().then(function (j) {
+              return { ok: r.ok, j: j };
+            }).catch(function () {
+              throw new Error('GHL sync returned an invalid response.');
+            });
+          })
+          .finally(function () {
+            if (abortTimer) clearTimeout(abortTimer);
+          });
+      })
+      .then(function (res) {
+        var data = res.j || {};
+        if (!res.ok || !data.success) throw new Error((data && data.error) || 'GHL sync failed');
+        var result = data.results && data.results[0] ? data.results[0] : null;
+        var actionTags = result && Array.isArray(result.actionTags) ? result.actionTags : [];
+        var tagLabel = actionTags.length
+          ? actionTags[0].replace(/^AO:\s*/i, '')
+          : (selection.disposition ? selection.disposition.replace(/_/g, ' ') : selection.label);
+        var msg = 'GHL sync complete';
+        if (tagLabel) msg += ' · AO: ' + tagLabel;
+        setSoftphoneWrapFeedback(msg, false);
+        softphoneSetStatus(msg);
+        if (spPushGhl) spPushGhl.textContent = '✓ Synced';
+        if (spNextStep) {
+          spNextStep.textContent = softphoneWrapNextStepHint(
+            selection.label || softphoneOutcomeLabel(selection.disposition || selection.value),
+          );
+          spNextStep.classList.remove('hidden');
+        }
+        softphoneUnlockAfterWrap();
+        softphoneSetStatus('Synced to GHL. Ready for next dial.');
+        if (typeof window.dispatchEvent === 'function') {
+          window.dispatchEvent(
+            new CustomEvent('adhello-softphone-wrap-complete', {
+              detail: {
+                leadKey: key,
+                disposition: selection.disposition || selection.value,
+                notes: spNotes ? String(spNotes.value || '').trim() : '',
+                number: String(softphoneSession.activeNumber || (spTo ? spTo.value : '')),
+                ghlSynced: true,
+              },
+            })
+          );
+        }
+      })
+      .catch(function (err) {
+        var msg =
+          err && err.name === 'AbortError'
+            ? 'GHL sync timed out. Check Integrations, then try again.'
+            : ((err && err.message) || 'GHL sync failed.');
+        setSoftphoneWrapFeedback(msg, true);
+        softphoneSetStatus(msg, true);
+        if (spPushGhl) spPushGhl.textContent = labelDefault;
+      })
+      .finally(function () {
+        window.__softphonePushGhlInFlight = false;
+        if (spPushGhl) {
+          spPushGhl.disabled = false;
+          spPushGhl.removeAttribute('aria-busy');
+          if (/^Syncing/i.test(String(spPushGhl.textContent || ''))) spPushGhl.textContent = labelDefault;
+        }
+      });
+  }
+
+  function buildSoftphoneContactListRow(item, fillClass, callClass, metaLine, queueIndex) {
+    var row = document.createElement('div');
+    row.className = 'softphone-contact-row';
+    var body = document.createElement('div');
+    body.className = 'softphone-contact-row__body';
+    var num = String(item.number || item.phone || '').trim();
+    var title = String(item.title || '').trim();
+    var leadKey = String(item.leadKey || item.key || '').trim();
+    var idx =
+      typeof queueIndex === 'number'
+        ? queueIndex
+        : typeof item.queueIndex === 'number'
+          ? item.queueIndex
+          : null;
+    var fillBtn = document.createElement('button');
+    fillBtn.type = 'button';
+    fillBtn.className = fillClass + ' text-left block w-full min-w-0';
+    fillBtn.setAttribute('data-number', num);
+    fillBtn.setAttribute('data-lead-key', leadKey);
+    fillBtn.setAttribute('data-title', title);
+    if (idx !== null && !isNaN(idx)) fillBtn.setAttribute('data-queue-index', String(idx));
+    if (title) {
+      var nameEl = document.createElement('span');
+      nameEl.className = 'block text-sm font-semibold text-slate-800 dark:text-white leading-snug line-clamp-2';
+      nameEl.textContent = title;
+      fillBtn.appendChild(nameEl);
+      var phoneEl = document.createElement('span');
+      phoneEl.className =
+        'block text-[11px] tabular-nums text-slate-500 dark:text-slate-400 mt-0.5';
+      phoneEl.textContent = num;
+      fillBtn.appendChild(phoneEl);
+    } else {
+      fillBtn.className +=
+        ' text-sm font-semibold text-slate-800 dark:text-white hover:text-brand-yellow tabular-nums';
+      fillBtn.textContent = num;
+    }
+    body.appendChild(fillBtn);
+    var meta = String(metaLine || item.metaLine || '').trim();
+    if (meta) {
+      var metaEl = document.createElement('p');
+      metaEl.className = 'softphone-contact-row__meta truncate';
+      metaEl.textContent = meta;
+      body.appendChild(metaEl);
+    }
+    var callBtn = document.createElement('button');
+    callBtn.type = 'button';
+    callBtn.className =
+      callClass +
+      ' softphone-contact-row__call softphone-queue-dial';
+    callBtn.setAttribute('data-number', num);
+    callBtn.setAttribute('data-lead-key', leadKey);
+    callBtn.setAttribute('data-title', title);
+    if (idx !== null && !isNaN(idx)) callBtn.setAttribute('data-queue-index', String(idx));
+    callBtn.textContent = 'Call';
+    row.appendChild(body);
+    row.appendChild(callBtn);
+    return row;
+  }
+
+  function applySoftphoneListSelection(btn) {
+    if (!btn) return;
+    var n = String(btn.getAttribute('data-number') || '');
+    var lk = String(btn.getAttribute('data-lead-key') || '');
+    var title = String(btn.getAttribute('data-title') || '');
+    spTo.value = n;
+    setSoftphoneLeadContext(lk, title, n);
+  }
+
+  function getRecentDials() {
+    try {
+      var raw = localStorage.getItem(SOFTPHONE_RECENT_KEY) || '[]';
+      var arr = JSON.parse(raw);
+      if (!Array.isArray(arr)) return [];
+      return arr
+        .map(function (x) {
+          return normalizeRecentDialEntry(x);
+        })
+        .filter(Boolean)
+        .slice(0, 10);
+    } catch (_) {
+      return [];
+    }
+  }
+  function saveRecentDials(arr) {
+    try {
+      localStorage.setItem(SOFTPHONE_RECENT_KEY, JSON.stringify((arr || []).slice(0, 10)));
+    } catch (_) {}
+  }
+  function addRecentDial(num, meta) {
+    meta = meta && typeof meta === 'object' ? meta : {};
+    var n = normalizeDial(num);
+    if (!n) return;
+    var leadKey = String(meta.leadKey || '').trim();
+    var title = String(meta.title || '').trim();
+    if (!title && leadKey) title = resolveSoftphoneLeadTitle(leadKey, n);
+    var entry = { number: n, title: title, leadKey: leadKey };
+    var cur = getRecentDials().filter(function (x) {
+      return x.number !== n;
+    });
+    cur.unshift(entry);
+    saveRecentDials(cur);
+    renderRecentDials();
+  }
+  function renderRecentDials() {
+    if (!spRecentList) return;
+    var list = getRecentDials();
+    hydrateSoftphoneContactTitles(list, function (enriched) {
+      if (!spRecentList) return;
+      var changed = enriched.some(function (e, i) {
+        return e.title && list[i] && !list[i].title;
+      });
+      if (changed) saveRecentDials(enriched);
+      spRecentList.innerHTML = '';
+      if (!enriched.length) {
+        spRecentList.innerHTML = '<p class="text-xs text-brand-muted">No recent numbers yet.</p>';
+        return;
+      }
+      enriched.forEach(function (item) {
+        spRecentList.appendChild(
+          buildSoftphoneContactListRow(
+            item,
+            'softphone-recent-fill hover:text-brand-yellow',
+            'softphone-recent-call',
+          ),
+        );
+      });
+    });
+  }
+  function softphoneTrunkFromNumber() {
+    var picked = spFrom && spFrom.value ? String(spFrom.value).trim() : '';
+    return picked || spActiveFrom || spDefaultFrom || '';
+  }
+
+  function renderSoftphoneCallerIdSelect(agentPhone, bankNumbers, selectedLeadCallerId) {
+    if (!spCallerIdSelect) return;
+    var agent = normalizeDial(agentPhone || spAgentPhoneCached || '');
+    var bank = Array.isArray(bankNumbers) ? bankNumbers : spBankNumbers;
+    if (!Array.isArray(bank) || !bank.length) bank = spBankNumbers || [];
+    var seen = {};
+    var selected = normalizeDial(selectedLeadCallerId || spLeadCallerId || spActiveFrom || spDefaultFrom || '');
+    // Never use personal cell as caller ID — SignalWire rejects it and it confuses agents.
+    if (agent && selected === agent) selected = '';
+    spCallerIdSelect.innerHTML = '';
+    bank.forEach(function (n) {
+      var v = normalizeDial(n);
+      if (!v || seen[v]) return;
+      if (agent && v === agent) return;
+      seen[v] = true;
+      var opt = document.createElement('option');
+      var owned =
+        Array.isArray(spSignalwireNumbers) &&
+        spSignalwireNumbers.length &&
+        spSignalwireNumbers.indexOf(v) !== -1;
+      opt.value = v;
+      opt.textContent =
+        formatCallerIdCompact(v) + (owned || !spSignalwireNumbers.length ? ' · workspace' : ' · not in SignalWire');
+      if (!owned && spSignalwireNumbers.length) {
+        opt.disabled = true;
+      }
+      spCallerIdSelect.appendChild(opt);
+    });
+    // Prefer a SignalWire-owned workspace number when current selection is invalid.
+    if (
+      selected &&
+      Array.isArray(spSignalwireNumbers) &&
+      spSignalwireNumbers.length &&
+      spSignalwireNumbers.indexOf(selected) === -1
+    ) {
+      selected = '';
+    }
+    if (selected && seen[selected]) {
+      spCallerIdSelect.value = selected;
+      spLeadCallerId = selected;
+    } else if (bank.length) {
+      var preferredBank = normalizeDial(spActiveFrom || spDefaultFrom || bank[0]);
+      if (preferredBank && agent && preferredBank === agent) preferredBank = '';
+      if (preferredBank && seen[preferredBank]) {
+        spCallerIdSelect.value = preferredBank;
+        spLeadCallerId = preferredBank;
+      } else {
+        var first = normalizeDial(bank[0]);
+        if (agent && first === agent) {
+          first = normalizeDial(bank.find(function (n) { return normalizeDial(n) !== agent; }) || '');
+        }
+        spCallerIdSelect.value = first || '';
+        spLeadCallerId = first || '';
+      }
+    } else {
+      spCallerIdSelect.value = '';
+      spLeadCallerId = '';
+    }
+    if (spCallerIdMobileWrap) spCallerIdMobileWrap.classList.add('hidden');
+    updateSoftphoneAgentRingLine();
+  }
+
+  function updateSoftphoneAgentRingLine() {
+    if (!spAgentRingWrap) return;
+    var mode = String(spWorkspaceCallMode || '').trim();
+    if (mode !== 'agent_first') {
+      spAgentRingWrap.classList.add('hidden');
+      return;
+    }
+    spAgentRingWrap.classList.remove('hidden');
+    var agent = normalizeDial(spAgentPhoneCached || (spAgentPhone && spAgentPhone.value) || '');
+    var missing = !agent;
+    if (spAgentRingLine) {
+      spAgentRingLine.textContent = missing
+        ? 'Not set — calls will not place'
+        : formatCallerIdDisplay(agent);
+      spAgentRingLine.classList.toggle('text-rose-600', missing);
+      spAgentRingLine.classList.toggle('dark:text-rose-400', missing);
+      spAgentRingLine.classList.toggle('text-slate-800', !missing);
+      spAgentRingLine.classList.toggle('dark:text-white', !missing);
+    }
+    if (spAgentRingHint) {
+      spAgentRingHint.textContent = missing
+        ? 'Agent first needs your personal cell on file. Workspace numbers are caller ID only — set Your mobile below.'
+        : 'After Call, dial the workspace number from this cell — we bridge the lead. Carriers often block SignalWire from ringing you.';
+    }
+    if (spAgentRingFixBtn) {
+      spAgentRingFixBtn.classList.toggle('hidden', !missing);
+    }
+  }
+
+  function saveSoftphoneLeadCallerId(nextId, opts) {
+    opts = opts || {};
+    var normalized = normalizeDial(nextId);
+    if (!normalized) return Promise.resolve();
+    var trunk = softphoneTrunkFromNumber();
+    var body = { leadCallerId: normalized };
+    if (opts.alsoAgentPhone) body.agentPhone = normalized;
+    return fetch('/workspace/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(body),
+    })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        if (!res.ok || !res.j || !res.j.success) {
+          throw new Error((res.j && res.j.error) || 'Could not save caller ID.');
+        }
+        spLeadCallerId = normalized;
+        if (opts.alsoAgentPhone) {
+          spAgentPhoneCached = normalized;
+          if (spAgentPhone) spAgentPhone.value = normalized;
+        }
+        if (spFrom && Array.isArray(spSignalwireNumbers) && spSignalwireNumbers.includes(normalized)) {
+          spFrom.value = normalized;
+          spActiveFrom = normalized;
+        }
+        updateSoftphoneOutboundMeta();
+        if (spCallerIdMobileHint) spCallerIdMobileHint.textContent = 'Saved — this cell will ring first on agent-first calls.';
+        updateSoftphoneAgentRingLine();
+      });
+  }
+
+  function updateSoftphoneOutboundMeta() {
+    if (!spOutboundMeta) return;
+    var trunk = softphoneTrunkFromNumber();
+    var display = spLeadCallerId || trunk || '';
+    spOutboundMeta.textContent = 'Current outbound: ' + (display || '—');
+    var line = document.getElementById('softphoneCallingFromLine');
+    if (line) {
+      if (display && trunk && display !== trunk) {
+        line.textContent =
+          'Leads see ' +
+          formatCallerIdDisplay(display) +
+          ' · outbound via ' +
+          formatCallerIdDisplay(trunk);
+      } else if (trunk) {
+        line.textContent = 'Outbound line for this call (caller ID — not the phone that rings you)';
+      } else {
+        line.textContent = 'Set a default in Workspace → Phone bank';
+      }
+    }
+    if (spCallerIdSelect && spCallerIdSelect.value !== '__set_mobile__') {
+      var current = normalizeDial(spLeadCallerId || trunk);
+      if (current) {
+        var hasOpt = Array.prototype.some.call(spCallerIdSelect.options, function (o) {
+          return o.value === current;
+        });
+        if (hasOpt) spCallerIdSelect.value = current;
+      }
+    }
+    updateSoftphoneAgentRingLine();
+  }
+  function softphoneModeDescription(mode, hasRelayWebrtc) {
+    var m = String(mode || '').trim() || 'cloud_dial';
+    if (m === 'cloud_dial') {
+      if (hasRelayWebrtc) {
+        return 'Call routing: Cloud + browser audio — pick your Bluetooth headset in Settings, then call.';
+      }
+      return 'Call routing: Cloud (SignalWire) — the server places the call. No in-tab audio until WebRTC is configured (Workspace phone bank + SIGNALWIRE_SPACE_URL on the server).';
+    }
+    if (m === 'agent_first') {
+      return 'Call routing: Agent first — tap Call, then dial the workspace number from your cell; we bridge the lead (avoids carrier spam filters).';
+    }
+    if (m === 'browser_device') {
+      return 'Call routing: My device dialer — Call opens your system phone / headset app (audio on the device).';
+    }
+    if (hasRelayWebrtc) {
+      return 'Call may use in-browser WebRTC if enabled. In-tab audio on WebRTC only; otherwise use cloud or device mode in Workspace.';
+    }
+    return 'Tip: WebRTC not available. In Workspace, use Cloud or My device dialer, and set SIGNALWIRE_SPACE_URL if you need browser calling.';
+  }
+  function callRoutingModeShortLabel(m) {
+    var v = String(m || '').trim();
+    if (v === 'agent_first') return 'Agent first';
+    if (v === 'browser_device') return 'My device dialer';
+    return 'Cloud dial';
+  }
+  function updateSoftphoneSettingsPanels() {
+    var mode = String(spWorkspaceCallMode || 'cloud_dial').trim();
+    var spAgentPhoneWrap = document.getElementById('softphoneAgentPhoneWrap');
+    var spBrowserAudioSection = document.getElementById('softphoneBrowserAudioSection');
+    var spSettingsModeDetail = document.getElementById('softphoneSettingsModeDetail');
+    if (spAgentPhoneWrap) spAgentPhoneWrap.classList.toggle('hidden', mode !== 'agent_first');
+    if (spBrowserAudioSection) spBrowserAudioSection.classList.toggle('hidden', mode === 'browser_device');
+    if (spSettingsModeDetail) {
+      spSettingsModeDetail.textContent = softphoneModeDescription(mode, spRelayWebrtc).replace(/^Call routing:\s*/i, '');
+    }
+    updateSoftphoneAgentRingLine();
+  }
+  function renderSoftphoneWebrtcDiagnostics(payload) {
+    var wrap = document.getElementById('softphoneWebrtcDiagnostics');
+    var list = document.getElementById('softphoneWebrtcChecklist');
+    var summary = document.getElementById('softphoneWebrtcDiagSummary');
+    if (!wrap || !list || !summary) return;
+    if (!payload || !payload.success) {
+      wrap.classList.remove('hidden');
+      list.innerHTML = '<li class="text-rose-600 dark:text-rose-400">Could not load WebRTC diagnostics.</li>';
+      summary.textContent = '';
+      return;
+    }
+    wrap.classList.remove('hidden');
+    list.innerHTML = '';
+    (payload.checks || []).forEach(function (check) {
+      var li = document.createElement('li');
+      li.setAttribute('data-webrtc-ok', check.ok ? '1' : '0');
+      li.className = check.ok ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-700 dark:text-amber-300';
+      li.textContent = (check.ok ? '✓ ' : '• ') + check.label + ' — ' + (check.detail || '');
+      list.appendChild(li);
+    });
+    var modeNow = String(payload.callMode || spWorkspaceCallMode || '').trim();
+    if (modeNow === 'agent_first') {
+      summary.className = 'mt-2 text-[10px] font-semibold leading-snug text-emerald-700 dark:text-emerald-300';
+      summary.textContent =
+        'Agent first does not need in-tab audio. After Call, dial the workspace number from your cell — we bridge the lead.';
+    } else if (payload.readyForInTabAudio) {
+      summary.className = 'mt-2 text-[10px] font-semibold leading-snug text-emerald-700 dark:text-emerald-300';
+      summary.textContent = 'Ready for in-tab call audio. Place a call — status should say “Connecting via browser audio”.';
+    } else {
+      summary.className = 'mt-2 text-[10px] font-semibold leading-snug text-amber-700 dark:text-amber-300';
+      summary.textContent =
+        'Not ready for in-tab audio yet. Fix the items above on Render or in Workspace → Phone bank, redeploy, then hard-refresh.';
+    }
+    spRelayWebrtc = !!payload.relayWebrtcAvailable;
+    if (spModeLine) {
+      spModeLine.textContent = softphoneModeDescription(spWorkspaceCallMode, spRelayWebrtc);
+    }
+    var spSettingsModeDetail = document.getElementById('softphoneSettingsModeDetail');
+    if (spSettingsModeDetail) {
+      spSettingsModeDetail.textContent = softphoneModeDescription(
+        spWorkspaceCallMode,
+        spRelayWebrtc,
+      ).replace(/^Call routing:\s*/i, '');
+    }
+  }
+  var softphoneWebrtcDiagAbort = null;
+  var softphoneWebrtcDiagInflight = null;
+  var softphoneWebrtcDiagSeq = 0;
+  function refreshSoftphoneWebrtcDiagnostics() {
+    var fromPick = spFrom && spFrom.value ? String(spFrom.value) : '';
+    var q = '/leads/telephony/webrtc-diagnostics';
+    if (fromPick) q += '?fromNumber=' + encodeURIComponent(fromPick);
+    if (softphoneWebrtcDiagInflight && softphoneWebrtcDiagInflight.q === q) {
+      return softphoneWebrtcDiagInflight.promise;
+    }
+    if (softphoneWebrtcDiagAbort) {
+      try {
+        softphoneWebrtcDiagAbort.abort('superseded');
+      } catch (_) {}
+    }
+    var mySeq = ++softphoneWebrtcDiagSeq;
+    var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    softphoneWebrtcDiagAbort = controller;
+    var abortTimer = null;
+    if (controller) {
+      abortTimer = setTimeout(function () {
+        try {
+          if (typeof controller.abort === 'function') {
+            try {
+              controller.abort(new DOMException('Diagnostics timed out', 'TimeoutError'));
+            } catch (_) {
+              controller.abort();
+            }
+          }
+        } catch (_) {}
+      }, 18000);
+    }
+    var listEl = document.getElementById('softphoneWebrtcChecklist');
+    if (listEl && mySeq === softphoneWebrtcDiagSeq && !listEl.querySelector('[data-webrtc-ok]')) {
+      listEl.innerHTML = '<li class="text-slate-500 dark:text-slate-400">Checking WebRTC…</li>';
+    }
+    var promise = fetch(q, {
+      headers: { Accept: 'application/json' },
+      signal: controller ? controller.signal : undefined,
+      credentials: 'same-origin',
+    })
+      .then(function (r) {
+        return r
+          .json()
+          .then(function (j) {
+            return { ok: r.ok, j: j };
+          })
+          .catch(function () {
+            throw new Error('Diagnostics returned non-JSON (sign-in expired or server redeploying). Hard-refresh and try again.');
+          });
+      })
+      .then(function (res) {
+        if (mySeq !== softphoneWebrtcDiagSeq) return null;
+        if (!res.ok || !res.j || !res.j.success) {
+          throw new Error((res.j && res.j.error) || 'Diagnostics unavailable');
+        }
+        renderSoftphoneWebrtcDiagnostics(res.j);
+        return res.j;
+      })
+      .catch(function (err) {
+        if (mySeq !== softphoneWebrtcDiagSeq) return null;
+        var msg = err && err.message ? String(err.message) : '';
+        if (/superseded/i.test(msg)) return null;
+        if (
+          (err && (err.name === 'AbortError' || err.name === 'TimeoutError')) ||
+          /aborted|timeout/i.test(msg)
+        ) {
+          msg = 'Timed out talking to the server. Hard-refresh after Render finishes deploying, then reopen Settings.';
+        }
+        var wrap = document.getElementById('softphoneWebrtcDiagnostics');
+        var list = document.getElementById('softphoneWebrtcChecklist');
+        var summary = document.getElementById('softphoneWebrtcDiagSummary');
+        if (wrap) wrap.classList.remove('hidden');
+        if (list) {
+          list.innerHTML =
+            '<li class="text-rose-600 dark:text-rose-400">Could not load WebRTC diagnostics' +
+            (msg ? ' — ' + msg.slice(0, 160) : '') +
+            '</li>';
+        }
+        if (summary) {
+          summary.className = 'mt-2 text-[10px] font-semibold leading-snug text-amber-700 dark:text-amber-300';
+          summary.textContent =
+            'Diagnostics failed. Hard-refresh, or use Call routing → Agent first to ring your mobile instead of browser audio.';
+        }
+        return null;
+      })
+      .finally(function () {
+        if (abortTimer) clearTimeout(abortTimer);
+        if (softphoneWebrtcDiagInflight && softphoneWebrtcDiagInflight.seq === mySeq) {
+          softphoneWebrtcDiagInflight = null;
+        }
+        if (softphoneWebrtcDiagAbort === controller) softphoneWebrtcDiagAbort = null;
+      });
+    softphoneWebrtcDiagInflight = { q: q, promise: promise, seq: mySeq };
+    return promise;
+  }
+  function updateSoftphoneCallModeUi() {
+    if (spCallModeSelect) spCallModeSelect.value = spWorkspaceCallMode || 'cloud_dial';
+    if (spModeLine) spModeLine.textContent = softphoneModeDescription(spWorkspaceCallMode, spRelayWebrtc);
+    updateSoftphoneSettingsPanels();
+    var wbtn = document.getElementById('callRoutingWalkthroughSoftphoneBtn');
+    if (wbtn) {
+      wbtn.textContent = 'Guided setup for call routing · ' + callRoutingModeShortLabel(spWorkspaceCallMode);
+    }
+  }
+  function openSoftphoneSettingsTab() {
+    setSoftphoneTab('settings');
+  }
+  function softphoneAnnounce(msg) {
+    if (!spLive) return;
+    spLive.textContent = String(msg || '');
+  }
+  function formatTimer(sec) {
+    var s = Math.max(0, parseInt(sec, 10) || 0);
+    var m = Math.floor(s / 60);
+    var r = s % 60;
+    return String(m).padStart(2, '0') + ':' + String(r).padStart(2, '0');
+  }
+  function softphoneSetTimerSeconds(sec) {
+    if (!spTimer) return;
+    spTimer.textContent = formatTimer(sec);
+    syncSoftphoneCompactBarUi();
+    syncNavBarCallIndicator();
+  }
+  function syncNavBarCallIndicator() {
+    if (!navCallLine) return;
+    var state = String(softphoneSession.state || 'idle').toLowerCase();
+    var timerText = spTimer ? spTimer.textContent : '00:00';
+    var label = 'Idle';
+    if (state === 'dialing') label = 'Dialing';
+    else if (state === 'in_call') label = softphoneSession.hold ? 'On hold · ' + timerText : 'On call · ' + timerText;
+    else if (state === 'ended') label = 'Wrap-up';
+    else if (state === 'ready') label = 'Ready';
+    navCallLine.textContent = label;
+    if (navCallDot) {
+      navCallDot.className = 'shrink-0 w-2 h-2 rounded-full ';
+      if (state === 'dialing') navCallDot.className += 'bg-amber-500 motion-safe:animate-pulse';
+      else if (state === 'in_call') navCallDot.className += 'bg-emerald-500 motion-safe:animate-pulse';
+      else if (state === 'ended') navCallDot.className += 'bg-rose-500';
+      else if (state === 'ready') navCallDot.className += 'bg-brand-yellow';
+      else navCallDot.className += 'bg-slate-400';
+    }
+    if (spOpen) {
+      var activeCall = state === 'dialing' || state === 'in_call';
+      spOpen.classList.toggle('ring-2', activeCall);
+      spOpen.classList.toggle('ring-emerald-400/60', activeCall);
+      spOpen.classList.toggle('shadow-lg', activeCall);
+      spOpen.classList.toggle('shadow-emerald-400/30', activeCall);
+    }
+    if (spOpenIcon) {
+      spOpenIcon.classList.toggle('motion-safe:animate-pulse', state === 'dialing' || state === 'in_call');
+      spOpenIcon.classList.toggle('text-emerald-500', state === 'in_call');
+      spOpenIcon.classList.toggle('text-amber-500', state === 'dialing');
+      if (state !== 'dialing' && state !== 'in_call') {
+        spOpenIcon.classList.remove('text-emerald-500', 'text-amber-500');
+      }
+    }
+    if (typeof window.dispatchEvent === 'function') {
+      window.dispatchEvent(
+        new CustomEvent('adhello-softphone-state', {
+          detail: {
+            state: state,
+            timer: timerText,
+            number: String(softphoneSession.activeNumber || ''),
+            leadKey: String(softphoneSession.leadKey || ''),
+            wrapRequired: !!softphoneSession.wrapRequired,
+            modalOpen: !!(spModal && !spModal.classList.contains('hidden')),
+          },
+        })
+      );
+    }
+  }
+  function softphoneStopTimer() {
+    if (softphoneSession.timerTicker) {
+      clearInterval(softphoneSession.timerTicker);
+      softphoneSession.timerTicker = null;
+    }
+  }
+  function softphoneStartTimer() {
+    if (!softphoneSession.startedAtMs) softphoneSession.startedAtMs = Date.now();
+    softphoneStopTimer();
+    softphoneSession.timerTicker = setInterval(function () {
+      var deltaSec = Math.floor((Date.now() - softphoneSession.startedAtMs) / 1000);
+      softphoneSetTimerSeconds(deltaSec);
+    }, 1000);
+  }
+  function updateStatusPill() {
+    if (spStatusPill) {
+      var state = String(softphoneSession.state || 'idle').toLowerCase();
+      var label = state;
+      var cls = 'border-brand-border/60 dark:border-white/15 bg-white/80 dark:bg-slate-800 text-brand-muted';
+      if (state === 'dialing') {
+        label = softphoneSession.stateVerbose || 'dialing';
+        cls = 'border-amber-300/70 dark:border-amber-700/60 bg-amber-500/10 text-amber-700 dark:text-amber-300';
+      } else if (state === 'in_call') {
+        label = softphoneSession.hold ? 'on hold' : 'connected';
+        cls = 'border-emerald-300/70 dark:border-emerald-700/60 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300';
+      } else if (state === 'ended') {
+        cls = 'border-rose-300/70 dark:border-rose-700/60 bg-rose-500/10 text-rose-700 dark:text-rose-300';
+      } else if (state === 'ready') {
+        label = 'ready';
+        cls = 'border-brand-yellow/50 bg-brand-yellow/10 text-brand-dark dark:text-brand-yellow';
+      }
+      spStatusPill.className = 'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-widest ' + cls;
+      spStatusPill.textContent = label;
+    }
+    syncSoftphoneCompactBarUi();
+    syncNavBarCallIndicator();
+  }
+  function updateAudioPulse() {
+    if (!spAudioPulse) return;
+    var active = softphoneSession.state === 'in_call' || softphoneSession.state === 'dialing';
+    if (active) spAudioPulse.classList.remove('hidden');
+    else spAudioPulse.classList.add('hidden');
+  }
+  function updateControlToggles() {
+    if (spMute) {
+      spMute.classList.toggle('bg-brand-yellow/20', !!softphoneSession.muted);
+      spMute.classList.toggle('border-brand-yellow/60', !!softphoneSession.muted);
+    }
+    if (spHold) {
+      spHold.classList.toggle('bg-brand-yellow/20', !!softphoneSession.hold);
+      spHold.classList.toggle('border-brand-yellow/60', !!softphoneSession.hold);
+    }
+    if (spSpeaker) {
+      spSpeaker.classList.toggle('bg-brand-yellow/20', !!softphoneSession.speaker);
+      spSpeaker.classList.toggle('border-brand-yellow/60', !!softphoneSession.speaker);
+    }
+  }
+  function softphoneResetRecordingState() {
+    softphoneSession.recordingSid = '';
+    softphoneSession.recordingPending = false;
+    updateRecordingToggle();
+  }
+  function updateRecordingToggle() {
+    if (!spRecord) return;
+    var can =
+      softphoneSession.state === 'in_call' &&
+      !!String(softphoneSession.callSid || '').trim() &&
+      !!softphoneSession.isCloudPstn;
+    var active = !!String(softphoneSession.recordingSid || '').trim();
+    var busy = !!softphoneSession.recordingPending;
+    var enable = can && !busy;
+    spRecord.disabled = !enable;
+    spRecord.classList.toggle('opacity-40', !enable);
+    spRecord.classList.toggle('pointer-events-none', !enable);
+    spRecord.setAttribute('aria-pressed', active ? 'true' : 'false');
+    if (active) {
+      spRecord.classList.add('bg-rose-600', 'text-white', 'border-rose-500/80', 'dark:bg-rose-600');
+      spRecord.classList.remove('bg-white/80', 'dark:bg-slate-800/80', 'text-brand-dark', 'dark:text-white');
+      spRecord.textContent = 'On';
+    } else {
+      spRecord.classList.remove('bg-rose-600', 'text-white', 'border-rose-500/80', 'dark:bg-rose-600');
+      spRecord.classList.add('bg-white/80', 'dark:bg-slate-800/80', 'text-brand-dark', 'dark:text-white');
+      spRecord.textContent = 'Rec';
+    }
+    if (can) {
+      spRecord.title = active
+        ? 'Stop recording (SignalWire carrier capture)'
+        : 'Start recording (SignalWire carrier capture)';
+    } else if (softphoneSession.state === 'in_call' && softphoneSession.webrtc) {
+      spRecord.title =
+        'In-browser WebRTC has no server call id — set Workspace call routing to Cloud dial to record via the carrier.';
+    } else if (softphoneSession.state === 'in_call' && !softphoneSession.callSid) {
+      spRecord.title =
+        'This call has no server call id — use Cloud dial from the softphone to enable carrier recording.';
+    } else {
+      spRecord.title = 'Recording is available when a cloud PSTN call is connected.';
+    }
+    var lp = document.getElementById('leadPanelRecordToggle');
+    if (lp) {
+      lp.disabled = !enable;
+      lp.classList.toggle('opacity-40', !enable);
+      lp.classList.toggle('pointer-events-none', !enable);
+      lp.setAttribute('aria-pressed', active ? 'true' : 'false');
+      if (active) {
+        lp.classList.add('bg-rose-600', 'text-white', 'border-rose-500', 'dark:bg-rose-600');
+        lp.classList.remove('bg-white/80', 'dark:bg-slate-800/80', 'text-brand-dark', 'dark:text-white');
+        lp.textContent = 'On';
+      } else {
+        lp.classList.remove('bg-rose-600', 'text-white', 'border-rose-500', 'dark:bg-rose-600');
+        lp.classList.add('bg-white/80', 'dark:bg-slate-800/80', 'text-brand-dark', 'dark:text-white');
+        lp.textContent = 'Rec';
+      }
+      lp.title = spRecord.title;
+    }
+  }
+  function performCloudRecordingToggle() {
+    if (softphoneSession.recordingPending) return;
+    if (
+      softphoneSession.state !== 'in_call' ||
+      !String(softphoneSession.callSid || '').trim() ||
+      !softphoneSession.isCloudPstn
+    ) {
+      softphoneSetStatus(
+        softphoneSession.webrtc
+          ? 'Recording uses SignalWire on the carrier leg. Switch Workspace call routing to Cloud dial, or continue without recording.'
+          : 'Recording needs an active cloud (PSTN) call with a server call id.',
+        true,
+      );
+      return;
+    }
+    var recSid = String(softphoneSession.recordingSid || '').trim();
+    if (recSid) {
+      softphoneSession.recordingPending = true;
+      updateRecordingToggle();
+      fetch('/leads/telephony/call-control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ action: 'record_stop', recordingSid: recSid }),
+      })
+        .then(function (r) {
+          return r.json().then(function (j) {
+            return { ok: r.ok, j: j };
+          });
+        })
+        .then(function (res) {
+          if (!res.ok || !res.j || !res.j.success) {
+            throw new Error((res.j && res.j.error) || 'Stop recording failed.');
+          }
+          softphoneSession.recordingSid = '';
+          softphoneSetStatus('Recording stopped.');
+        })
+        .catch(function (err) {
+          softphoneSetStatus((err && err.message) || 'Stop recording failed.', true);
+        })
+        .finally(function () {
+          softphoneSession.recordingPending = false;
+          updateRecordingToggle();
+        });
+      return;
+    }
+    softphoneSession.recordingPending = true;
+    updateRecordingToggle();
+    fetch('/leads/telephony/call-control', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ action: 'record_start', callSid: softphoneSession.callSid }),
+    })
+      .then(function (r) {
+        return r.json().then(function (j) {
+          return { ok: r.ok, j: j };
+        });
+      })
+      .then(function (res) {
+        if (!res.ok || !res.j || !res.j.success) {
+          throw new Error((res.j && res.j.error) || 'Start recording failed.');
+        }
+        softphoneSession.recordingSid = String((res.j && res.j.recordingSid) || '').trim();
+        softphoneSetStatus('Recording started (carrier capture).');
+      })
+      .catch(function (err) {
+        softphoneSetStatus((err && err.message) || 'Start recording failed.', true);
+      })
+      .finally(function () {
+        softphoneSession.recordingPending = false;
+        updateRecordingToggle();
+      });
+  }
+  window.__adhelloToggleCloudRecording = performCloudRecordingToggle;
+  window.__adhelloSyncRecordingControls = updateRecordingToggle;
+  function softphoneSetStatus(msg, isErr) {
+    if (!spStatus) return;
+    spStatus.textContent = msg || '';
+    spStatus.className = 'text-sm mt-1 ' + (isErr ? 'text-red-600 dark:text-red-400' : 'text-brand-muted');
+    if (msg) softphoneAnnounce(msg);
+  }
+  function updateCallStateLabel() {
+    if (!spCallState) return;
+    var s = String(softphoneSession.state || 'idle');
+    var verbose = String(softphoneSession.stateVerbose || '').trim();
+    if (s === 'idle' || s === 'ready' || s === 'ended') {
+      spCallState.textContent = s;
+      return;
+    }
+    if (softphoneSession.isCloudPstn) {
+      if (s === 'dialing') { spCallState.textContent = 'dialing · cloud (PSTN only)' + (verbose ? ' · ' + verbose : ''); return; }
+      if (s === 'in_call') { spCallState.textContent = 'connected · no audio in this tab'; return; }
+    } else if (softphoneSession.webrtc) { spCallState.textContent = s + ' · WebRTC' + (verbose ? ' · ' + verbose : ''); return; }
+    spCallState.textContent = s;
+  }
+  function softphoneInCallBarBelowFold() {
+    if (!spKeypadTab) return false;
+    if (spKeypadTab.classList.contains('hidden')) return false;
+    var scrollBottom = spKeypadTab.scrollTop + spKeypadTab.clientHeight;
+    if (spInCallBar && !spInCallBar.classList.contains('hidden')) {
+      if (spInCallBar.offsetTop + 24 > scrollBottom) return true;
+    }
+    if (spWrapPanel && spWrapPanel.offsetTop + 24 > scrollBottom) return true;
+    return false;
+  }
+  function updateSoftphoneScrollHint() {
+    if (!spScrollHint) return;
+    var show = softphoneInCallBarBelowFold();
+    spScrollHint.classList.toggle('hidden', !show);
+  }
+  function softphoneSetCallState(state) {
+    var prev = softphoneSession.state;
+    softphoneSession.state = state;
+    // Wrap-up is optional — never lock Call/VM behind an outcome (that blocked redial after misses).
+    if (spCall) spCall.disabled = state === 'dialing';
+    if (spVm) spVm.disabled = state === 'dialing';
+    if (state === 'in_call') {
+      softphoneSession.wasInCall = true;
+      if (!softphoneSession.startedAtMs) softphoneSession.startedAtMs = Date.now();
+      if (softphoneSession.dialWatchdog) {
+        clearTimeout(softphoneSession.dialWatchdog);
+        softphoneSession.dialWatchdog = null;
+      }
+      softphoneStartTimer();
+    } else if (state === 'ended' || state === 'idle' || state === 'ready') {
+      softphoneStopTimer();
+      if (state !== 'in_call' && prev !== 'in_call') softphoneSetTimerSeconds(0);
+      if (state === 'ready' || state === 'idle') softphoneRestoreDialButtons();
+    }
+    updateCallStateLabel();
+    updateSoftphoneCallAudioModeLine();
+    updateStatusPill();
+    updateAudioPulse();
+    updateControlToggles();
+    updateRecordingToggle();
+    syncNavBarCallIndicator();
+    var inCallBarActive = state === 'dialing' || state === 'in_call' || state === 'ended';
+    var callerIdBox = document.querySelector('.softphone-calling-from');
+    if (callerIdBox) {
+      callerIdBox.classList.toggle('softphone-calling-from--live', state === 'in_call' || state === 'dialing');
+    }
+    if (spInCallBar) {
+      spInCallBar.classList.toggle('hidden', !inCallBarActive);
+    }
+    if (inCallBarActive && spKeypadTab && spInCallBar) {
+      requestAnimationFrame(function () {
+        requestAnimationFrame(updateSoftphoneScrollHint);
+      });
+    } else {
+      updateSoftphoneScrollHint();
+    }
+    updateSoftphoneLeadNavUi();
+    updateSoftphoneRedialUi();
+    maybeAutoCompactSoftphone();
+  }
+  function softphoneStopPolling() {
+    if (softphoneSession.pollTimer) {
+      clearInterval(softphoneSession.pollTimer);
+      softphoneSession.pollTimer = null;
+    }
+  }
+  function softphoneHangupAlreadyFinishedMessage(msg) {
+    return /completed call|not in-progress|already ended|already completed|cannot update/i.test(
+      String(msg || ''),
+    );
+  }
+  function requestSoftphoneCloudHangup(callSid) {
+    var sid = String(callSid || softphoneSession.callSid || '').trim();
+    if (!sid || softphoneSession.hangupInFlight) return Promise.resolve({ alreadyCompleted: true });
+    softphoneSession.hangupInFlight = true;
+    softphoneSession.callSid = '';
+    softphoneStopPolling();
+    return fetch('/leads/telephony/call-control', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ action: 'hangup', callSid: sid }),
+    })
+      .then(function (r) {
+        return r.json().then(function (j) {
+          return { ok: r.ok, j: j };
+        });
+      })
+      .then(function (res) {
+        if (!res.ok || !res.j || !res.j.success) {
+          var errMsg = (res.j && res.j.error) || 'Hangup failed.';
+          if (softphoneHangupAlreadyFinishedMessage(errMsg)) {
+            return { alreadyCompleted: true };
+          }
+          throw new Error(errMsg);
+        }
+        return { alreadyCompleted: !!(res.j && res.j.alreadyCompleted) };
+      })
+      .catch(function (err) {
+        if (softphoneHangupAlreadyFinishedMessage(err && err.message)) {
+          return { alreadyCompleted: true };
+        }
+        throw err;
+      })
+      .finally(function () {
+        softphoneSession.hangupInFlight = false;
+      });
+  }
+  function applyCloudPollState(st, durationStr) {
+    if (st === 'completed' || st === 'canceled' || st === 'failed' || st === 'busy' || st === 'no-answer') {
+      softphoneSession.stateVerbose = st;
+      softphoneStopPolling();
+      softphoneSession.isCloudPstn = false;
+      softphoneSession.callSid = '';
+      softphoneResetRecordingState();
+      var dialMode =
+        String(softphoneSession.dialMode || spWorkspaceCallMode || '').trim() || 'cloud_dial';
+      var elapsedSec = softphoneSession.startedAtMs
+        ? Math.max(0, Math.round((Date.now() - softphoneSession.startedAtMs) / 1000))
+        : parseInt(durationStr, 10) || 0;
+      // Agent-first: voicemail / Silence Unknown Callers often "answers" then dies —
+      // never trap the user in required wrap-up. Quick log stays optional below.
+      if (dialMode === 'agent_first' || !softphoneSession.wasInCall || elapsedSec < 25) {
+        softphoneSession.wasInCall = false;
+        softphoneSetWrapRequired(false);
+        softphoneSetCallState('ready');
+        softphoneRestoreDialButtons();
+        if (dialMode === 'agent_first') {
+          var agentLabel =
+            formatCallerIdDisplay(
+              softphoneSession.agentTo || spAgentPhoneCached || '',
+            ) || 'your mobile';
+          softphoneSetStatus(
+            'Call ended (' +
+              st +
+              ') on ' +
+              agentLabel +
+              '. Answer when it rings and press 1 to dial the lead. Quick log is optional below, or tap Call / next lead.',
+            st === 'failed' || st === 'busy' || st === 'no-answer',
+          );
+        } else {
+          softphoneSetStatus(
+            'Call did not connect (' +
+              st +
+              '). Check caller ID in Workspace → Phone bank, then try again. Quick log is optional.',
+            true,
+          );
+        }
+        return;
+      }
+      // Real cloud conversation: suggest wrap-up but do not lock dialing.
+      softphoneSetCallState('ended');
+      softphoneSetWrapRequired(false);
+      softphoneSetStatus(
+        'Call ended (' + st + '). Optional: quick-log below, or tap Call / Redial.',
+      );
+      return;
+    }
+    softphoneSession.stateVerbose = st;
+    if (st === 'in-progress' || st === 'inprogress' || st === 'answered') {
+      softphoneClearMasterDialWatchdog();
+      if (softphoneSession.isCloudPstn) {
+        var connectedMode =
+          String(softphoneSession.dialMode || spWorkspaceCallMode || '').trim() || 'cloud_dial';
+        if (connectedMode === 'agent_first') {
+          softphoneSetStatus(
+            'Your phone answered — press 1 to dial the lead. If you did not pick up, voicemail may have answered (DND / spam filter). Hang up and try again after disabling that.',
+          );
+          // Keep a watchdog while waiting for press-1 — clearing it left UI stuck on IN-PROGRESS.
+          softphoneStartMasterDialWatchdog(45000);
+          if (!softphoneSession.startedAtMs) softphoneSession.startedAtMs = Date.now();
+          var agentLiveSec = Math.max(
+            0,
+            Math.round((Date.now() - softphoneSession.startedAtMs) / 1000),
+          );
+          if (durationStr != null && durationStr !== '') {
+            var dSec = parseInt(durationStr, 10);
+            if (!isNaN(dSec)) agentLiveSec = Math.max(agentLiveSec, dSec);
+          }
+          // Stay on dialing until press-1 + lead connect (sustained live leg).
+          softphoneSetCallState('dialing');
+          softphoneStartTimer();
+          if (agentLiveSec >= 40) {
+            softphoneForceAbortDial(
+              'Still IN-PROGRESS with no press 1 — likely voicemail answered. Hang up forced. Answer the ring and press 1, or turn off spam filter / Silence Unknown Callers.',
+              { isError: true },
+            );
+          }
+          return;
+        } else {
+          softphoneSetStatus('The remote end answered. No in-browser audio in cloud mode. Mute/hold are display only here.');
+        }
+      }
+      if (durationStr != null && durationStr !== '') {
+        var durationSeconds = parseInt(durationStr, 10);
+        if (!isNaN(durationSeconds)) softphoneSession.startedAtMs = Date.now() - (durationSeconds * 1000);
+      } else if (!softphoneSession.startedAtMs) {
+        softphoneSession.startedAtMs = Date.now();
+      }
+      softphoneSetCallState('in_call');
+    } else if (st === 'ringing' || st === 'queued' || st === 'initiated' || st === 'trying' || st === 'early') {
+      if (softphoneSession.isCloudPstn) {
+        var dialModeRing =
+          String(softphoneSession.dialMode || spWorkspaceCallMode || '').trim() || 'cloud_dial';
+        if (dialModeRing === 'agent_first') {
+          var agentRingLabel =
+            formatCallerIdDisplay(softphoneSession.agentTo || spAgentPhoneCached || '') ||
+            'your mobile';
+          softphoneSetStatus(
+            'Ringing ' +
+              agentRingLabel +
+              ' from your workspace number — answer and press 1 to dial the lead. No audio in this tab. If it never rings: turn off DND / spam blocking, save the workspace number as a contact, then use Settings → Test ring.',
+          );
+        } else {
+          softphoneSetStatus('Cloud leg is ringing the contact. There is no sound in this tab — the call is on the PSTN.');
+        }
+      } else { softphoneSetStatus('Call progressing…'); }
+      softphoneSetCallState('dialing');
+    } else { softphoneSetCallState('dialing'); }
+    if (spCallState && durationStr && (softphoneSession.state === 'in_call' && (st === 'in-progress' || st === 'inprogress' || st === 'answered'))) {
+      if (softphoneSession.isCloudPstn) {
+        spCallState.textContent = 'in call · ' + String(durationStr) + 's — no tab audio (cloud PSTN)';
+      } else { spCallState.textContent = 'in_call · ' + String(durationStr) + 's'; }
+    }
+  }
+  function softphoneStatusPollOnce() {
+    if (!softphoneSession.callSid) return;
+    fetch('/leads/telephony/call-status?callSid=' + encodeURIComponent(softphoneSession.callSid), {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+    })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        if (!res.ok || !res.j || !res.j.success) return;
+        var st = String(res.j.status || '').trim().toLowerCase();
+        if (!st) return;
+        var dur = res.j.duration != null && res.j.duration !== '' ? res.j.duration : null;
+        if (res.j.to) softphoneSession.pstnTo = String(res.j.to || '');
+        if (res.j.from) softphoneSession.pstnFrom = String(res.j.from || '');
+        var now = Date.now();
+        if (st !== softphoneSession.pstnLastStatus) {
+          softphoneSession.pstnLastStatus = st;
+          softphoneSession.pstnStatusSinceMs = now;
+        } else if (!softphoneSession.pstnStatusSinceMs) {
+          softphoneSession.pstnStatusSinceMs = now;
+        }
+        // Agent-first stuck at initiated/queued = phone is not ringing. Fail fast.
+        var dialModeStuck =
+          String(softphoneSession.dialMode || spWorkspaceCallMode || '').trim() || 'cloud_dial';
+        if (
+          dialModeStuck === 'agent_first' &&
+          softphoneSession.isCloudPstn &&
+          softphoneSession.state === 'dialing' &&
+          (st === 'initiated' || st === 'queued')
+        ) {
+          var stuckMs = now - (softphoneSession.pstnStatusSinceMs || now);
+          var toLabel =
+            formatCallerIdDisplay(softphoneSession.pstnTo || softphoneSession.agentTo || '') ||
+            'your mobile';
+          var fromLabel =
+            formatCallerIdDisplay(softphoneSession.pstnFrom || '') || 'workspace number';
+          if (stuckMs >= 18000) {
+            softphoneForceAbortDial(
+              'Call never left “' +
+                st +
+                '” — SignalWire did not ring ' +
+                toLabel +
+                ' (from ' +
+                fromLabel +
+                '). Hang up already forced. Tap Test ring my phone in Settings, or confirm that cell is the handset you are holding.',
+              { isError: true },
+            );
+            return;
+          }
+          if (stuckMs >= 8000) {
+            softphoneSetStatus(
+              'Still “' +
+                st +
+                '” — not ringing yet. Expecting ring on ' +
+                toLabel +
+                ' from ' +
+                fromLabel +
+                '. If nothing in 10s we cancel. Check DND / spam filter, or use Test ring in Settings.',
+              true,
+            );
+          }
+        }
+        applyCloudPollState(st, dur);
+      })
+      .catch(function () {});
+  }
+  function softphoneStartPolling() {
+    softphoneStopPolling();
+    if (!softphoneSession.callSid) return;
+    softphoneStatusPollOnce();
+    softphoneSession.pollTimer = setInterval(softphoneStatusPollOnce, 2000);
+  }
+  function softphoneStopDialInPolling() {
+    if (softphoneSession.dialInPollTimer) {
+      clearInterval(softphoneSession.dialInPollTimer);
+      softphoneSession.dialInPollTimer = null;
+    }
+  }
+  function softphoneDialInPollOnce() {
+    fetch('/leads/telephony/session/status', { headers: { Accept: 'application/json' } })
+      .then(function (r) {
+        return r.json().then(function (j) {
+          return { ok: r.ok, j: j };
+        });
+      })
+      .then(function (res) {
+        if (!res.ok || !res.j || !res.j.success) return;
+        if (!res.j.active) {
+          softphoneStopDialInPolling();
+          softphoneClearMasterDialWatchdog();
+          softphoneSetWrapRequired(false);
+          softphoneSetCallState('ready');
+          softphoneRestoreDialButtons();
+          softphoneSetStatus('Dial-in window ended. Tap Call again — after deploy we ring your cell first instead.');
+          return;
+        }
+        if (res.j.pendingDialIn) {
+          var n = formatCallerIdDisplay(res.j.dialInNumber || softphoneSession.dialInNumber || '') || 'workspace number';
+          if (res.j.inboundConfigured === false) {
+            // Do not tell the agent to dial a number whose inbound webhook we could
+            // not verify — that is the call that dies on a carrier failure message.
+            softphoneSetStatus(
+              'Dial-in not ready — SignalWire could not confirm the Voice webhook for ' +
+                n +
+                '. Fix it in Workspace → Phone settings, then tap Call again. ' +
+                String(res.j.inboundError || '').slice(0, 120),
+              true,
+            );
+            softphoneSetCallState('dialing');
+            return;
+          }
+          softphoneSetStatus('Waiting — call ' + n + ' from your phone. We connect the lead when you dial in.');
+          softphoneSetCallState('dialing');
+          return;
+        }
+        if (res.j.callSid) {
+          softphoneSession.callSid = String(res.j.callSid || '').trim();
+          softphoneStopDialInPolling();
+          softphoneSetCallState('in_call');
+          softphoneSetStatus('Connected — dialing the lead on your phone line now.');
+          softphoneStartPolling();
+        }
+      })
+      .catch(function () {});
+  }
+  function softphoneStartDialInPolling() {
+    softphoneStopDialInPolling();
+    softphoneDialInPollOnce();
+    softphoneSession.dialInPollTimer = setInterval(softphoneDialInPollOnce, 2000);
+  }
+  function softphoneSetWrapRequired(v) {
+    softphoneSession.wrapRequired = !!v;
+    // Never disable Call/VM for wrap — outcome is optional.
+    if (spCall) spCall.disabled = softphoneSession.state === 'dialing';
+    if (spVm) spVm.disabled = softphoneSession.state === 'dialing';
+    if (v) hydrateSoftphoneLeadFromPanel();
+    updateSoftphoneRedialUi();
+  }
+  function isSoftphoneMobileViewport() {
+    return window.matchMedia('(max-width: 767px)').matches;
+  }
+  var LAYOUT_P = 'left,right,top,bottom,width,height,max-width,max-height,min-height,padding-top,padding-bottom'.split(
+    ',',
+  );
+  function clearSoftphonePanelLayout() {
+    if (!spPanel) return;
+    LAYOUT_P.forEach(function (p) {
+      spPanel.style.removeProperty(p);
+    });
+  }
+  function applyMobileSoftphoneLayout() {
+    if (!spPanel) return;
+    clearSoftphonePanelLayout();
+    spPanel.style.setProperty('left', '0', 'important');
+    spPanel.style.setProperty('right', '0', 'important');
+    spPanel.style.setProperty('top', '0', 'important');
+    spPanel.style.setProperty('bottom', '0', 'important');
+    spPanel.style.setProperty('width', '100%', 'important');
+    spPanel.style.setProperty('height', '100dvh', 'important');
+    spPanel.style.setProperty('max-width', 'none', 'important');
+    spPanel.style.setProperty('max-height', 'none', 'important');
+  }
+  function setSoftphoneMobileBackdrop(open) {
+    if (!spMobileBackdrop) return;
+    if (open && isSoftphoneMobileViewport()) spMobileBackdrop.classList.remove('hidden');
+    else spMobileBackdrop.classList.add('hidden');
+  }
+  function isLeadDetailPanelOpen() {
+    var panel = document.getElementById('mobilePanel');
+    return !!(panel && panel.classList.contains('open') && !panel.classList.contains('hidden'));
+  }
+  function syncSoftphoneStacking() {
+    var modalOpen = spModal && !spModal.classList.contains('hidden');
+    var stackZ = isLeadDetailPanelOpen() ? '450' : '420';
+    if (spModal) {
+      if (modalOpen) spModal.style.setProperty('z-index', stackZ, 'important');
+      else spModal.style.removeProperty('z-index');
+    }
+    if (spPanel) {
+      if (modalOpen) spPanel.style.setProperty('z-index', String(Number(stackZ) + 1), 'important');
+      else spPanel.style.removeProperty('z-index');
+    }
+  }
+  function watchLeadPanelForSoftphoneStacking() {
+    var panel = document.getElementById('mobilePanel');
+    if (!panel || panel.dataset.softphoneStackWatch === '1') return;
+    panel.dataset.softphoneStackWatch = '1';
+    var obs = new MutationObserver(function () {
+      syncSoftphoneStacking();
+      if (typeof window.__adhelloRefreshSoftphonePosition === 'function') {
+        window.__adhelloRefreshSoftphonePosition();
+      }
+    });
+    obs.observe(panel, { attributes: true, attributeFilter: ['class'] });
+  }
+  watchLeadPanelForSoftphoneStacking();
+  function getOpenLeadSidebarWidth() {
+    var panel = document.getElementById('mobilePanel');
+    if (!panel || panel.classList.contains('hidden') || !panel.classList.contains('open')) return 0;
+    var side = panel.querySelector(':scope > div');
+    if (!side) return 0;
+    var rect = side.getBoundingClientRect();
+    if (!rect || !rect.width) return 0;
+    return Math.max(0, Math.round(rect.width));
+  }
+  function applyDockRight() {
+    if (!spPanel) return;
+    if (isSoftphoneMobileViewport()) {
+      applyMobileSoftphoneLayout();
+      return;
+    }
+    clearSoftphonePanelLayout();
+    var sidebarW = getOpenLeadSidebarWidth();
+    var baseRight = 12;
+    var rightPx = sidebarW > 0 ? (sidebarW + baseRight) : baseRight;
+    spPanel.style.setProperty('left', 'auto', 'important');
+    spPanel.style.setProperty('right', rightPx + 'px', 'important');
+    spPanel.style.setProperty('top', '4.5rem', 'important');
+    spPanel.style.setProperty('bottom', 'auto', 'important');
+  }
+  function applySoftphoneOpenPosition() {
+    syncSoftphoneStacking();
+    if (!spPanel) return;
+    if (softphoneSession.compact) {
+      applySoftphoneCompactLayout();
+      return;
+    }
+    if (isSoftphoneMobileViewport()) {
+      applyMobileSoftphoneLayout();
+      return;
+    }
+    try {
+      var raw = localStorage.getItem(SOFTPHONE_POS_KEY);
+      if (!raw) {
+        applyDockRight();
+        return;
+      }
+      var s = JSON.parse(raw);
+      if (s && s.dock === 'right') {
+        applyDockRight();
+        return;
+      }
+      if (s && typeof s.left === 'number' && typeof s.top === 'number') {
+        clearSoftphonePanelLayout();
+        spPanel.style.setProperty('left', s.left + 'px', 'important');
+        spPanel.style.setProperty('top', s.top + 'px', 'important');
+        spPanel.style.setProperty('right', 'auto', 'important');
+        spPanel.style.setProperty('bottom', 'auto', 'important');
+        return;
+      }
+    } catch (e) {}
+    applyDockRight();
+  }
+  window.__adhelloIsSoftphoneOpen = function () {
+    return !!(spModal && !spModal.classList.contains('hidden'));
+  };
+  function applySoftphoneCallOptionsPayload(j) {
+    if (!j || !j.success) return;
+    spRelayWebrtc = !!j.relayWebrtcAvailable;
+    spSignalwireNumbers = Array.isArray(j.signalwireNumbers)
+      ? j.signalwireNumbers.map(function (n) { return normalizeDial(n); }).filter(Boolean)
+      : [];
+    spBankNumbers = Array.isArray(j.options)
+      ? j.options.map(function (n) { return normalizeDial(n); }).filter(Boolean)
+      : [];
+    spDefaultFrom = String(j.defaultFromNumber || '').trim();
+    spActiveFrom = String(j.activeFromNumber || '').trim();
+    spLeadCallerId = String(j.leadCallerId || j.activeFromNumber || '').trim();
+    spAgentPhoneCached = j.agentPhone != null ? String(j.agentPhone || '').trim() : '';
+    if (j.callMode) spWorkspaceCallMode = String(j.callMode).trim() || 'cloud_dial';
+    window.__adhelloTelephonySnapshot = {
+      ts: Date.now(),
+      callMode: String(j.callMode || '').trim() || 'cloud_dial',
+      agentPhone: j.agentPhone != null ? String(j.agentPhone).trim() : '',
+      options: Array.isArray(j.options) ? j.options : [],
+      activeFromNumber: String(j.activeFromNumber || '').trim(),
+      leadCallerId: String(j.leadCallerId || '').trim(),
+      defaultFromNumber: String(j.defaultFromNumber || '').trim(),
+      relayWebrtcAvailable: !!j.relayWebrtcAvailable,
+      signalwireNumbers: Array.isArray(j.signalwireNumbers) ? j.signalwireNumbers : [],
+    };
+    updateSoftphoneCallModeUi();
+    if (spAgentPhone && j.agentPhone != null) {
+      spAgentPhone.value = String(j.agentPhone || '').trim();
+    }
+    var bankOptions = spBankNumbers.length ? spBankNumbers : (Array.isArray(j.options) ? j.options : []);
+    renderSoftphoneCallerIdSelect(spAgentPhoneCached, bankOptions, spLeadCallerId);
+    updateSoftphoneAgentRingLine();
+    if (!spFrom) return;
+    var options = bankOptions;
+    var active = String(j.activeFromNumber || '').trim();
+    spFrom.innerHTML = '';
+    var d = document.createElement('option');
+    d.value = '';
+    d.textContent = active || spDefaultFrom || 'Select outbound number';
+    spFrom.appendChild(d);
+    options.forEach(function (n) {
+      var v = String(n || '').trim();
+      if (!v) return;
+      var opt = document.createElement('option');
+      opt.value = v;
+      opt.textContent = v;
+      spFrom.appendChild(opt);
+    });
+    updateSoftphoneOutboundMeta();
+  }
+
+  function paintSoftphoneFromTelephonySnapshot() {
+    var snap = window.__adhelloTelephonySnapshot;
+    if (!snap || !snap.ts) return false;
+    if (Date.now() - Number(snap.ts || 0) > 5 * 60 * 1000) return false;
+    applySoftphoneCallOptionsPayload({
+      success: true,
+      relayWebrtcAvailable: !!snap.relayWebrtcAvailable,
+      signalwireNumbers: snap.signalwireNumbers || [],
+      options: snap.options || [],
+      defaultFromNumber: snap.defaultFromNumber || '',
+      activeFromNumber: snap.activeFromNumber || '',
+      leadCallerId: snap.leadCallerId || '',
+      agentPhone: snap.agentPhone || '',
+      callMode: snap.callMode || 'cloud_dial',
+    });
+    return true;
+  }
+
+  function refreshSoftphoneCallOptions(opts) {
+    opts = opts || {};
+    var q = opts.repair ? '?repair=1' : '';
+    return fetch('/leads/telephony/call-options' + q, { headers: { Accept: 'application/json' } })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        if (!res.ok || !res.j || !res.j.success) return;
+        applySoftphoneCallOptionsPayload(res.j);
+      })
+      .catch(function () {});
+  }
+
+  function openSoftphone() {
+    if (!spModal) return;
+    spModal.classList.remove('hidden');
+    spModal.classList.add('pointer-events-none');
+    spModal.setAttribute('aria-hidden', 'false');
+    setSoftphoneMobileBackdrop(true);
+    softphoneSession.isCloudPstn = false;
+    applySoftphoneOpenPosition();
+    softphoneSetStatus('Enter a number and place a call.');
+    softphoneSession.startedAtMs = 0;
+    softphoneSession.stateVerbose = '';
+    softphoneSession.muted = false;
+    softphoneSession.hold = false;
+    softphoneSession.speaker = false;
+    softphoneResetRecordingState();
+    if (spMute) spMute.textContent = 'Mute';
+    if (spHold) spHold.textContent = 'Hold';
+    softphoneSetTimerSeconds(0);
+    setSoftphoneTab('keypad');
+    if (spTo) setTimeout(function () { spTo.focus(); }, 80);
+    // Paint caller ID / agent mobile immediately from last snapshot so open feels instant.
+    paintSoftphoneFromTelephonySnapshot();
+    // Defer heavy list renders so the panel paints first.
+    setTimeout(function () {
+      renderRecentDials();
+      renderSoftphoneFocusContacts();
+      renderSoftphoneCallQueue();
+      renderSoftphoneDirectMailQueue();
+    }, 0);
+    softphoneSetCallState('idle');
+    softphoneSetWrapRequired(false);
+    updateSoftphoneWrapLeadHint();
+    if (!softphoneSession.focusDialQueue.length) {
+      var cachedQueue = readFocusCallQueueCache();
+      if (cachedQueue.length) setSoftphoneFocusDialQueue(cachedQueue);
+    }
+    updateSoftphoneLeadNavUi();
+    updateControlToggles();
+    syncNavBarCallIndicator();
+    if (spCallModeSaveHint) {
+      spCallModeSaveHint.textContent = spCallModeLocked ? 'Only workspace admins can change this.' : '';
+    }
+    updateSoftphoneCallModeUi();
+    var mobileMenu = document.getElementById('mobileMenu');
+    if (mobileMenu && !mobileMenu.classList.contains('hidden')) {
+      mobileMenu.classList.add('hidden', 'opacity-0', 'pointer-events-none');
+    }
+    refreshSoftphoneCallOptions();
+    maybeAutoCompactSoftphone();
+    updateSoftphoneMinimizeBtnUi();
+  }
+  // Warm telephony options in the background so the first open is instant.
+  setTimeout(function () {
+    refreshSoftphoneCallOptions();
+  }, 1200);
+  function setSoftphoneDialNumber(num) {
+    spTo = document.getElementById('softphoneToNumber');
+    if (!spTo) return;
+    spTo.value = String(num || '');
+    try {
+      spTo.dispatchEvent(new Event('input', { bubbles: true }));
+    } catch (e) {}
+    updateSoftphoneCalleeDisplay();
+  }
+  /** Fill Dial number, open softphone; optional auto-dial + lead context. Exposed for leads click-to-dial. */
+  function openSoftphoneWithDial(raw, opts) {
+    opts = opts && typeof opts === 'object' ? opts : {};
+    var to = normalizeDial(String(raw || ''));
+    if (!to) return false;
+    var nextLeadKey = opts.leadKey ? String(opts.leadKey).trim() : '';
+    if (
+      nextLeadKey &&
+      softphoneSession.wrapRequired &&
+      softphoneSession.state === 'ended' &&
+      nextLeadKey !== String(softphoneSession.leadKey || '').trim()
+    ) {
+      softphoneSetWrapRequired(false);
+      softphoneSetCallState('ready');
+    }
+    softphoneSession.leadKey = nextLeadKey;
+    softphoneSession.leadTitle = opts.title ? String(opts.title).trim() : '';
+    if (!softphoneSession.leadTitle && softphoneSession.leadKey) {
+      softphoneSession.leadTitle = resolveSoftphoneLeadTitle(softphoneSession.leadKey, to);
+    }
+    updateSoftphoneWrapLeadHint();
+    // Don't block dial on panel hydrate — fetch in background.
+    if (!opts.autoDial) hydrateSoftphoneLeadFromPanel();
+    else setTimeout(hydrateSoftphoneLeadFromPanel, 0);
+    setSoftphoneDialNumber(to);
+    if (opts.leadKey && !isSoftphoneMobileViewport()) {
+      applyDockRight();
+      if (spPin) {
+        spPin.classList.add('softphone-chrome-btn--active');
+        spPin.setAttribute('aria-pressed', 'true');
+        if (spPanel) spPanel.classList.add('softphone-panel--pinned');
+        try { localStorage.setItem('adhelloSoftphonePinned', '1'); } catch (_) {}
+      }
+    }
+    openSoftphone();
+    syncSoftphoneStacking();
+    if (typeof window.__adhelloRefreshSoftphonePosition === 'function') {
+      window.__adhelloRefreshSoftphonePosition();
+    }
+    maybeAutoCompactSoftphone();
+    setTimeout(function () {
+      syncSoftphoneStacking();
+      spTo = document.getElementById('softphoneToNumber');
+      if (!spTo) return;
+      if (spTo.value !== to) setSoftphoneDialNumber(to);
+      try {
+        spTo.focus();
+        spTo.select();
+      } catch (e) {}
+    }, 40);
+    if (opts.autoDial) {
+      // Dial immediately — previous 220ms delay made Focus→Call feel broken.
+      softphoneSetStatus('Starting call…');
+      runSoftphoneAction('call');
+    }
+    return true;
+  }
+  function adhelloPipelinePhoneClick(btn, ev) {
+    if (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+    }
+    if (!btn) return false;
+    var raw = btn.getAttribute('data-phone') || (btn.dataset && btn.dataset.phone) || '';
+    var labelEl = btn.querySelector ? btn.querySelector('.lead-contact-phone-label') : null;
+    if ((!raw || raw === 'N/A') && labelEl) raw = String(labelEl.textContent || '').trim();
+    var row = btn.closest ? btn.closest('.result-row') : null;
+    if ((!raw || raw === 'N/A') && row && row.dataset && row.dataset.phone) {
+      raw = String(row.dataset.phone).trim();
+    }
+    if (!raw || raw === 'N/A') return false;
+    var lk = btn.getAttribute('data-lead-key') || (btn.dataset && btn.dataset.leadKey) || '';
+    if (!lk && row && row.dataset && row.dataset.leadKey) lk = String(row.dataset.leadKey).trim();
+    var opts = {
+      leadKey: lk,
+      title: row ? softphoneQueueRowTitle(row) : '',
+    };
+    if (btn.closest && btn.closest('#prospectLeadsTable')) opts.autoDial = false;
+    return openSoftphoneWithDial(raw, opts);
+  }
+  window.__adhelloOpenSoftphoneWithDial = openSoftphoneWithDial;
+  window.__adhelloSetSoftphoneFocusQueue = function (items, activeKey) {
+    setSoftphoneFocusDialQueue(items);
+    var key = String(activeKey || '').trim();
+    if (key) {
+      var q = softphoneSession.focusDialQueue || [];
+      for (var i = 0; i < q.length; i++) {
+        if (String(q[i].key || '').trim() === key) {
+          softphoneSession.focusDialIndex = i;
+          break;
+        }
+      }
+    }
+    updateSoftphoneLeadNavUi();
+  };
+  window.__adhelloPipelinePhoneClick = adhelloPipelinePhoneClick;
+  window.__adhelloSoftphoneDialNow = function () {
+    runSoftphoneAction('call');
+  };
+  window.__adhelloRefreshSoftphonePosition = applySoftphoneOpenPosition;
+  window.__adhelloFocusSoftphone = function () {
+    if (!spModal || spModal.classList.contains('hidden')) {
+      openSoftphone();
+      return;
+    }
+    syncSoftphoneStacking();
+    applySoftphoneOpenPosition();
+    if (spTo) {
+      try {
+        spTo.focus();
+      } catch (e) {}
+    }
+  };
+  window.__adhelloSoftphoneHangup = function () {
+    if (spHangup) spHangup.click();
+  };
+  window.__adhelloSoftphoneRedial = function () {
+    softphoneRedialSameNumber();
+  };
+  window.__adhelloSoftphoneRunAction = function (action) {
+    var a = String(action || 'call').trim().toLowerCase();
+    runSoftphoneAction(a === 'voicemail_drop' ? 'voicemail_drop' : 'call');
+  };
+  window.__adhelloSoftphoneDropVmNext = function () {
+    if (spVmNow) {
+      spVmNow.click();
+      return true;
+    }
+    runSoftphoneAction('voicemail_drop');
+    return true;
+  };
+  window.__adhelloSoftphoneGetSession = function () {
+    return {
+      state: String(softphoneSession.state || 'idle'),
+      wrapRequired: !!softphoneSession.wrapRequired,
+      leadKey: String(softphoneSession.leadKey || ''),
+      number: String(softphoneSession.activeNumber || ''),
+    };
+  };
+  // Desktop convenience: any tel: link opens AdHello softphone prefilled.
+  document.addEventListener('click', function (e) {
+    var a = e && e.target && e.target.closest ? e.target.closest('a[href^="tel:"]') : null;
+    if (!a) return;
+    if (window.matchMedia && window.matchMedia('(max-width: 767px)').matches) return;
+    var href = String(a.getAttribute('href') || '');
+    var raw = href.replace(/^tel:/i, '').trim();
+    if (!raw) return;
+    if (typeof window.__adhelloOpenSoftphoneWithDial !== 'function') return;
+    if (!window.__adhelloOpenSoftphoneWithDial(raw)) return;
+    e.preventDefault();
+  });
+  function closeSoftphone() {
+    if (!spModal) return;
+    setSoftphoneMobileBackdrop(false);
+    setSoftphoneCompact(false);
+    spModal.classList.add('hidden');
+    spModal.setAttribute('aria-hidden', 'true');
+    syncSoftphoneStacking();
+    softphoneSession.leadKey = '';
+    softphoneSession.leadTitle = '';
+    if (spCalleeName) {
+      spCalleeName.textContent = '';
+      spCalleeName.classList.add('hidden');
+    }
+    softphoneStopPolling();
+    softphoneStopTimer();
+    softphoneDestroyWebrtc();
+    syncNavBarCallIndicator();
+  }
+  function startCloudSoftphoneDial(to, action, opts) {
+    softphoneResetRecordingState();
+    var fromNumber =
+      normalizeDial(spLeadCallerId || '') ||
+      normalizeDial((spFrom && spFrom.value) || '') ||
+      normalizeDial(spActiveFrom || '') ||
+      normalizeDial(spDefaultFrom || '');
+    var agentCell = normalizeDial(spAgentPhoneCached || (spAgentPhone && spAgentPhone.value) || '');
+    if (agentCell && fromNumber === agentCell) {
+      return Promise.reject(
+        new Error('Caller ID is set to your personal cell. Pick a workspace SignalWire number under Your caller ID.'),
+      );
+    }
+    if (
+      fromNumber &&
+      Array.isArray(spSignalwireNumbers) &&
+      spSignalwireNumbers.length &&
+      spSignalwireNumbers.indexOf(fromNumber) === -1
+    ) {
+      return Promise.reject(
+        new Error(
+          'Caller ID ' +
+            (formatCallerIdDisplay(fromNumber) || fromNumber) +
+            ' is not in this SignalWire project. Pick a purchased workspace number under Your caller ID.',
+        ),
+      );
+    }
+    var body = { to: to, action: action };
+    if (opts && opts.forceCloudVoicemail) body.forceCloudVoicemail = true;
+    if (softphoneSession.leadKey) body.leadKey = softphoneSession.leadKey;
+    if (fromNumber) {
+      body.leadCallerId = fromNumber;
+      body.fromNumber = fromNumber;
+    }
+    softphoneSession.isCloudPstn = false;
+    if (String(spWorkspaceCallMode || '').trim() === 'agent_first' && action === 'call') {
+      softphoneSetStatus(
+        'Placing call to your mobile (' +
+          (formatCallerIdDisplay(agentCell) || 'agent cell') +
+          ') from ' +
+          (formatCallerIdDisplay(fromNumber) || 'workspace number') +
+          '…',
+      );
+    } else {
+      softphoneSetStatus('Connecting call…');
+    }
+    var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var abortTimer = null;
+    if (controller) {
+      abortTimer = setTimeout(function () {
+        try {
+          controller.abort();
+        } catch (_) {}
+      }, 45000);
+    }
+    return fetch('/leads/telephony/dial', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller ? controller.signal : undefined,
+    })
+      .then(function (r) {
+        return r.json().then(function (j) {
+          return { ok: r.ok, j: j };
+        });
+      })
+      .catch(function (err) {
+        if (err && (err.name === 'AbortError' || /aborted/i.test(String(err.message || '')))) {
+          throw new Error(
+            'Call setup timed out contacting the server. Check SignalWire / Render, then Hang up and try again.',
+          );
+        }
+        throw err;
+      })
+      .finally(function () {
+        if (abortTimer) clearTimeout(abortTimer);
+      })
+      .then(function (res) {
+        if (!res.ok || !res.j || !res.j.success) throw new Error((res.j && res.j.error) || 'Call failed.');
+        if (res.j.dialMode === 'browser_device' && res.j.phone) {
+          window.location.href = 'tel:' + String(res.j.phone).replace(/[^\d+]/g, '');
+          softphoneSetStatus('Opened your device dialer (audio on your phone or headset).');
+          softphoneSetCallState('in_call');
+          softphoneSession.callSid = '';
+          softphoneStopPolling();
+          addRecentDial(to, {
+            title: softphoneSession.leadTitle,
+            leadKey: softphoneSession.leadKey,
+          });
+          if (res.j.lead && typeof window.dispatchEvent === 'function') {
+            window.dispatchEvent(
+              new CustomEvent('adhello-telephony-lead-updated', { detail: { lead: res.j.lead } })
+            );
+          }
+          return;
+        }
+        if (res.j.lead && typeof window.dispatchEvent === 'function') {
+          window.dispatchEvent(
+            new CustomEvent('adhello-telephony-lead-updated', { detail: { lead: res.j.lead } })
+          );
+        }
+        if (res.j.lead && res.j.lead.title) {
+          softphoneSession.leadTitle = String(res.j.lead.title).trim();
+          updateSoftphoneCalleeDisplay();
+        }
+        softphoneSession.isCloudPstn = true;
+        softphoneSession.callSid = String((res.j && res.j.callSid) || '').trim();
+        softphoneSession.dialMode = String((res.j && res.j.dialMode) || '').trim();
+        softphoneSession.agentTo = String((res.j && res.j.agentPhone) || spAgentPhoneCached || '').trim();
+        softphoneSession.startedAtMs = 0;
+        addRecentDial(to, {
+          title: softphoneSession.leadTitle,
+          leadKey: softphoneSession.leadKey,
+        });
+        if (res.j.queued) {
+          softphoneSetCallState('dialing');
+          softphoneSetStatus(
+            'Queued on your live agent session — stay on the line; next lead dials when the current one ends. Hang up to end the session and re-ring your phone on the next call.',
+          );
+          if (softphoneSession.callSid) softphoneStartPolling();
+          return;
+        }
+        if (res.j.dialMode === 'agent_dial_in') {
+          softphoneSession.dialMode = 'agent_dial_in';
+          softphoneSession.isCloudPstn = true;
+          softphoneSession.callSid = '';
+          softphoneSession.dialInNumber = String(res.j.dialInNumber || '').trim();
+          softphoneSession.agentTo = String((res.j && res.j.agentPhone) || spAgentPhoneCached || '').trim();
+          softphoneSession.startedAtMs = 0;
+          softphoneClearMasterDialWatchdog();
+          // Dial-in waits for the agent to call the DID (server pending window ~5 min)
+          softphoneStartMasterDialWatchdog(5 * 60 * 1000);
+          softphoneSetCallState('dialing');
+          var dialInLabel = formatCallerIdDisplay(softphoneSession.dialInNumber) || softphoneSession.dialInNumber || 'workspace number';
+          softphoneSetStatus(
+            'Waiting for you to dial ' +
+              dialInLabel +
+              ' from your cell now (within ~30s). Server is warming — dial quickly so SignalWire does not time out.',
+          );
+          try {
+            if (navigator.clipboard && softphoneSession.dialInNumber) {
+              navigator.clipboard.writeText(String(softphoneSession.dialInNumber));
+            }
+          } catch (_) {}
+          try {
+            if (softphoneSession.dialInNumber) {
+              window.open('tel:' + String(softphoneSession.dialInNumber).replace(/[^\d+]/g, ''), '_self');
+            }
+          } catch (_) {}
+          softphoneStartDialInPolling();
+          if (res.j.inboundConfigured === false && res.j.inboundError) {
+            softphoneSetStatus(
+              'Almost ready — set SignalWire number Voice URL to AdHello inbound webhook. ' +
+                String(res.j.inboundError).slice(0, 160),
+              true,
+            );
+          }
+          return;
+        }
+        softphoneSetCallState('dialing');
+        if (!softphoneSession.callSid) {
+          softphoneSetStatus('No call id returned. Check the server, SignalWire credentials, and that BASE_URL is reachable for webhooks.', true);
+          softphoneSetCallState('idle');
+          softphoneSession.isCloudPstn = false;
+          return;
+        }
+        softphoneClearMasterDialWatchdog();
+        softphoneSession.pstnStatusSinceMs = Date.now();
+        softphoneSession.pstnLastStatus = '';
+        softphoneSession.pstnTo = softphoneSession.agentTo || '';
+        softphoneSession.pstnFrom = '';
+        // Agent-first must ring quickly; don't sit on INITIATED for 90s.
+        softphoneStartMasterDialWatchdog(
+          res.j.dialMode === 'agent_first' ? 40000 : 90000,
+        );
+        softphoneStartPolling();
+        if (!softphoneSession.startedAtMs) {
+          softphoneSession.startedAtMs = Date.now();
+          softphoneStartTimer();
+        }
+        if (action === 'voicemail_drop') {
+          softphoneSetStatus('Voicemail drop started (outbound to their line only — not played in this browser).');
+        } else if (res.j.dialMode === 'agent_first') {
+          var ringLabel =
+            formatCallerIdDisplay(softphoneSession.agentTo || spAgentPhoneCached || '') ||
+            'your mobile';
+          softphoneSetStatus(
+            'Ringing you first on ' +
+              ringLabel +
+              ' — answer and press 1 to dial the lead. Audio is on your phone; this tab is only a remote. If it stays on INITIATED with no ring: Settings → Test ring, turn off DND/spam filter, save the workspace number as a contact.',
+          );
+        } else {
+          softphoneSetStatus(
+            'Cloud call started (PSTN only — no audio in this tab). For headset audio here, confirm SIGNALWIRE_SPACE_URL on Render and that Settings shows “Cloud + browser audio”.',
+            true,
+          );
+        }
+      });
+  }
+  function tryWebrtcSoftphone(to, opts) {
+    opts = opts || {};
+    softphoneResetRecordingState();
+    var fromPick = (spFrom && spFrom.value) || spDefaultFrom;
+    var q =
+      '/leads/telephony/webrtc-token?fromNumber=' +
+      encodeURIComponent(String(fromPick || '')) +
+      '&expires_in=30';
+    var callerErr = softphoneCallerWebrtcError(fromPick);
+    if (callerErr) {
+      softphoneSetStatus(callerErr, true);
+      return Promise.resolve(false);
+    }
+    return ensureSoftphoneMicPermission()
+      .catch(function (err) {
+        var msg = softphoneMicBlockedMessage(err);
+        softphoneSetStatus(msg, true);
+        setSoftphoneMicStatus(msg, true);
+        throw err;
+      })
+      .then(function () {
+        return fetch(q, { headers: { Accept: 'application/json' } })
+          .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); });
+      })
+      .then(function (res) {
+        if (!res.ok || !res.j || !res.j.success) {
+          var apiErr = (res.j && res.j.error) || 'WebRTC token unavailable';
+          if (res.j && Array.isArray(res.j.signalwireNumbers) && res.j.signalwireNumbers.length) {
+            spSignalwireNumbers = res.j.signalwireNumbers.map(function (n) {
+              return normalizeDial(n);
+            }).filter(Boolean);
+          }
+          softphoneSetStatus(apiErr, true);
+          return false;
+        }
+        return loadRelayScript().then(function () { return res.j; });
+      })
+      .then(function (tok) {
+        if (tok === false) return false;
+        if (!tok || !tok.token || !tok.projectId || !tok.host) return false;
+        if (typeof window.Relay === 'undefined') return false;
+        var Relay = window.Relay;
+        softphoneDestroyWebrtc();
+        var fromNum = normalizeDial(tok.fromNumber) || normalizeDial(fromPick);
+        if (!fromNum) return false;
+        var remoteTarget = 'softphoneRemoteAudio';
+        var skipDeviceIds = !!opts.skipDeviceIds;
+        return softphoneRelayMicIdForDial(skipDeviceIds).then(function (micId) {
+          var clientOpts = {
+            project: tok.projectId,
+            token: tok.token,
+            host: tok.host,
+            remoteElement: remoteTarget,
+          };
+          if (!skipDeviceIds && micId) clientOpts.micId = micId;
+          if (!skipDeviceIds && spPreferredSpeakerId) clientOpts.speakerId = spPreferredSpeakerId;
+          var client = new Relay(clientOpts);
+          softphoneSession.relayClient = client;
+          var callOpts = {
+            destinationNumber: to,
+            callerNumber: fromNum,
+            remoteCallerName: 'Outbound',
+            remoteCallerNumber: '',
+            callerName: 'AdHello',
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+            video: false,
+            remoteElement: remoteTarget,
+            onNotification: webrtcOnNotification,
+          };
+          if (!skipDeviceIds && micId) callOpts.micId = micId;
+          if (!skipDeviceIds && spPreferredSpeakerId) callOpts.speakerId = spPreferredSpeakerId;
+          try {
+            client.on('signalwire.notification', function (notification) {
+              if (!notification || notification.type !== 'userMediaError') return;
+              var mediaErr = notification.error || notification;
+              console.error('[Softphone] userMediaError:', mediaErr);
+              softphoneSetStatus(softphoneMicBlockedMessage(mediaErr), true);
+            });
+          } catch (_) {}
+          return withSoftphoneTimeout(client.connect(), 8000, 'SignalWire connect')
+            .then(function () {
+              return withSoftphoneTimeout(waitForRelayReady(client, 8000), 9000, 'SignalWire session ready');
+            })
+            .then(function () {
+              return applySoftphoneAudioOutput(true).then(function () {
+                return client.newCall(callOpts);
+              });
+            })
+            .then(function (call) {
+              softphoneSession.relayCall = call;
+              softphoneSession.webrtc = true;
+              softphoneSession.callSid = '';
+              softphoneStopPolling();
+              webrtcAttachCallHandlers(call);
+              webrtcStartDialWatchdog({ phase: opts.skipDeviceIds ? 2 : 1 });
+              addRecentDial(to, {
+                title: softphoneSession.leadTitle,
+                leadKey: softphoneSession.leadKey,
+              });
+              softphoneSetCallState('dialing');
+              var deviceHint = skipDeviceIds
+                ? 'Using default mic and speakers.'
+                : 'Using your selected mic and speakers.';
+              softphoneSetStatus('Connecting via browser audio. ' + deviceHint);
+              softphoneSession.isCloudPstn = false;
+              return true;
+            });
+        });
+      })
+      .catch(function (err) {
+        if (err && (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError')) {
+          return false;
+        }
+        var msg = (err && err.message) || 'WebRTC call failed.';
+        softphoneSetStatus(msg, true);
+        return false;
+      });
+  }
+  function runSoftphoneAction(action) {
+    if (!spTo) return;
+    var to = normalizeDial(spTo.value || '');
+    if (!to) {
+      softphoneSetStatus('Enter a number first.', true);
+      return;
+    }
+    if (String(spWorkspaceCallMode || '').trim() === 'agent_first' && action === 'call') {
+      var agentReady = normalizeDial(spAgentPhoneCached || (spAgentPhone && spAgentPhone.value) || '');
+      if (!agentReady) {
+        softphoneSetStatus(
+          'Set Your mobile (agent) in Settings first. Agent first rings your cell — answer and we dial the lead.',
+          true,
+        );
+        updateSoftphoneAgentRingLine();
+        if (spAgentRingFixBtn) spAgentRingFixBtn.classList.remove('hidden');
+        openSoftphoneSettingsTab();
+        if (spAgentPhone) {
+          try {
+            spAgentPhone.focus();
+          } catch (_) {}
+        }
+        return;
+      }
+      if (spBankNumbers && spBankNumbers.indexOf(agentReady) !== -1) {
+        softphoneSetStatus(
+          'Your mobile is set to a workspace Phone bank number. Use your personal cell instead — bank numbers are caller ID only.',
+          true,
+        );
+        openSoftphoneSettingsTab();
+        return;
+      }
+    }
+    spTo.value = to;
+    var btn = action === 'voicemail_drop' ? spVm : spCall;
+    var originalHtml = btn ? btn.innerHTML : '';
+    if (action === 'voicemail_drop') softphoneSession.vmBtnHtml = originalHtml;
+    else softphoneSession.callBtnHtml = originalHtml;
+    if (btn) { btn.disabled = true; btn.innerHTML = action === 'voicemail_drop' ? 'Dropping…' : 'Dialing…'; }
+    softphoneSession.stateVerbose = '';
+    softphoneSession.webrtcSkipDeviceRetry = false;
+    softphoneSession.webrtcCloudFallback = false;
+    softphoneSession.wasInCall = false;
+    softphoneSession.audioPrimed = false;
+    softphoneSession.dialMode = '';
+    softphoneSession.agentTo = '';
+    clearSoftphoneRemoteAudioWatchdog();
+    showSoftphoneEnableAudioBtn(false);
+    softphoneResetRecordingState();
+    softphoneSession.startedAtMs = 0;
+    softphoneSetTimerSeconds(0);
+    softphoneSetCallState('dialing');
+    softphoneSession.activeNumber = to;
+    softphoneStartMasterDialWatchdog(
+      String(spWorkspaceCallMode || '').trim() === 'agent_first' ? 35000 : 20000,
+    );
+    if (String(spWorkspaceCallMode || '').trim() === 'agent_first' && action === 'call') {
+      softphoneSetStatus('Starting agent-first call — ringing your mobile next…');
+    } else {
+      softphoneSetStatus(action === 'voicemail_drop' ? 'Starting voicemail drop…' : 'Starting call…');
+    }
+    var p;
+    var tryWebrtc =
+      action === 'call' &&
+      spRelayWebrtc &&
+      spWorkspaceCallMode === 'cloud_dial';
+    if (tryWebrtc) {
+      softphoneSetStatus('Preparing browser audio…');
+      p = withSoftphoneTimeout(
+        primeSoftphoneAudioPlayback()
+          .catch(function () {
+            return false;
+          })
+          .then(function () {
+            softphoneSetStatus('Checking microphone…');
+            return refreshSoftphoneAudioDevices({ requestPermission: true }).catch(function () {
+              return refreshSoftphoneAudioDevices({ requestPermission: false });
+            });
+          })
+          .then(function () {
+            softphoneSetStatus('Connecting SignalWire browser audio…');
+            return tryWebrtcSoftphone(to);
+          }),
+        14000,
+        'Browser audio dial',
+      )
+        .catch(function (err) {
+          console.warn('[Softphone] WebRTC dial aborted:', err && err.message ? err.message : err);
+          return false;
+        })
+        .then(function (ok) {
+          if (ok) return;
+          if (spMicStatus && /microphone blocked|not support/i.test(String(spMicStatus.textContent || ''))) {
+            throw new Error(String(spMicStatus.textContent || 'Microphone access is required for browser audio.'));
+          }
+          return softphoneWebrtcFallbackToCloud(
+            to,
+            'Browser audio did not connect.',
+          );
+        });
+    } else if (action === 'call' && spWorkspaceCallMode === 'cloud_dial' && !spRelayWebrtc) {
+      p = softphoneWebrtcFallbackToCloud(
+        to,
+        'Browser audio unavailable on server.',
+      );
+    } else {
+      p = startCloudSoftphoneDial(to, action, action === 'voicemail_drop' ? { forceCloudVoicemail: true } : null);
+    }
+    if (!p || typeof p.then !== 'function') p = Promise.resolve();
+    p.catch(function (err) {
+      softphoneForceAbortDial((err && err.message) || 'Call failed.', { isError: true });
+      var failMsg = (err && err.message) || 'Call failed.';
+      if (/phone number bank|mobile number|agent-first|agent first|telephony is not configured|signalwire/i.test(String(failMsg))) {
+        failMsg +=
+          ' Tip: use “Guided setup” under Call routing mode in this dialer for a checklist that matches your mode.';
+        softphoneSetStatus(failMsg, true);
+      }
+    })
+      .finally(function () {
+        if (softphoneSession.dialWatchdog && softphoneSession.state !== 'dialing') {
+          clearTimeout(softphoneSession.dialWatchdog);
+          softphoneSession.dialWatchdog = null;
+        }
+        if (btn) {
+          btn.disabled = softphoneSession.state === 'dialing';
+          if (softphoneSession.state !== 'dialing') {
+            btn.innerHTML = originalHtml;
+            if (action === 'voicemail_drop') softphoneSession.vmBtnHtml = '';
+            else softphoneSession.callBtnHtml = '';
+          }
+        }
+      });
+  }
+  var callRoutingWalkthroughSoftphoneBtn = document.getElementById('callRoutingWalkthroughSoftphoneBtn');
+  if (callRoutingWalkthroughSoftphoneBtn && typeof window.openCallRoutingWalkthrough === 'function') {
+    callRoutingWalkthroughSoftphoneBtn.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      window.openCallRoutingWalkthrough(spWorkspaceCallMode || 'cloud_dial');
+    });
+  }
+  if (spOpen) spOpen.addEventListener('click', openSoftphone);
+  if (navCallBtn) navCallBtn.addEventListener('click', openSoftphone);
+  if (spOpenMobile) spOpenMobile.addEventListener('click', openSoftphone);
+  if (spClose) spClose.addEventListener('click', closeSoftphone);
+  if (spClose) spClose.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+  if (spMobileBackdrop) {
+    spMobileBackdrop.addEventListener('click', function (e) {
+      e.preventDefault();
+      closeSoftphone();
+    });
+  }
+  var softphoneLayoutResizeT;
+  window.addEventListener('resize', function () {
+    clearTimeout(softphoneLayoutResizeT);
+    softphoneLayoutResizeT = setTimeout(function () {
+      if (spModal && !spModal.classList.contains('hidden')) {
+        setSoftphoneMobileBackdrop(true);
+        applySoftphoneOpenPosition();
+      }
+    }, 120);
+  });
+  if (spDockRight) {
+    spDockRight.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      applyDockRight();
+      try { localStorage.setItem(SOFTPHONE_POS_KEY, JSON.stringify({ dock: 'right' })); } catch (e2) {}
+    });
+  }
+
+  var SOFTPHONE_TAB_KEY = 'adhelloSoftphoneTab';
+  var SOFTPHONE_PIN_KEY = 'adhelloSoftphonePinned';
+  var spBackspace = document.getElementById('softphoneBackspaceBtn');
+  var spPin = document.getElementById('softphonePinBtn');
+  var spExpand = document.getElementById('softphoneExpandBtn');
+  var spMinimize = document.getElementById('softphoneMinimizeBtn');
+  var spCompactExpand = document.getElementById('softphoneCompactExpand');
+  var spCompactHangup = document.getElementById('softphoneCompactHangup');
+  var spOpenAddLead = document.getElementById('softphoneOpenAddLead');
+  var spQueueList = document.getElementById('softphoneQueueList');
+  var spQueueMeta = document.getElementById('softphoneQueueMeta');
+  var spContactsList = document.getElementById('softphoneContactsList');
+  var spContactsMeta = document.getElementById('softphoneContactsMeta');
+
+  function softphoneQueueRowTitle(row) {
+    if (!row || !row.dataset) return 'Lead';
+    return String(row.dataset.title || row.dataset.company || '').trim() || 'Lead';
+  }
+
+  function softphoneQueueRowKey(row) {
+    if (!row || !row.dataset) return '';
+    return String(row.dataset.leadKey || '').trim();
+  }
+
+  function softphoneQueueReadPhone(row) {
+    if (typeof window.__readPipelineRowDisplayPhone === 'function') {
+      return String(window.__readPipelineRowDisplayPhone(row) || '').trim();
+    }
+    if (!row || !row.dataset) return '';
+    var p = String(row.dataset.phone || '').trim();
+    return p && p !== 'N/A' && p !== '—' ? p : '';
+  }
+
+  function softphoneQueuePhoneValid(phone) {
+    var p = String(phone || '').trim();
+    return p && p !== 'N/A' && p !== '—';
+  }
+
+  function normalizeFocusQueueKey(key) {
+    return String(key || '').trim().replace(/^lead:/i, '');
+  }
+
+  function parseFocusQueueEntriesFromDom() {
+    var el = document.getElementById('focus-queue-json');
+    if (!el) return [];
+    var queue;
+    try {
+      queue = JSON.parse(el.textContent || '[]');
+    } catch (_) {
+      return [];
+    }
+    if (!Array.isArray(queue) || !queue.length) return [];
+
+    var keyList = [];
+    try {
+      var params = new URLSearchParams(window.location.search);
+      var rawKeys = params.get('keys') || '';
+      if (rawKeys) {
+        rawKeys.split(',').forEach(function (part) {
+          var k = normalizeFocusQueueKey(part);
+          if (k) keyList.push(k);
+        });
+      }
+      if (!keyList.length) {
+        var stored = sessionStorage.getItem('adhello_focus_selected_keys');
+        if (stored) {
+          var parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            parsed.forEach(function (part) {
+              var k = normalizeFocusQueueKey(part);
+              if (k) keyList.push(k);
+            });
+          }
+        }
+      }
+    } catch (_) {}
+
+    if (keyList.length) {
+      var order = {};
+      keyList.forEach(function (k, i) {
+        order[k] = i;
+      });
+      queue = queue
+        .filter(function (item) {
+          return Object.prototype.hasOwnProperty.call(order, normalizeFocusQueueKey(item && item.key));
+        })
+        .sort(function (a, b) {
+          return (
+            (order[normalizeFocusQueueKey(a.key)] || 0) - (order[normalizeFocusQueueKey(b.key)] || 0)
+          );
+        });
+    }
+
+    return queue
+      .filter(function (item) {
+        return softphoneQueuePhoneValid(item && item.phone);
+      })
+      .map(function (item) {
+        return {
+          key: normalizeFocusQueueKey(item.key),
+          title: String(item.title || 'Lead').trim(),
+          phone: String(item.phone || '').trim(),
+        };
+      });
+  }
+
+  function collectSoftphoneQueueEntries() {
+    var entries = [];
+    var seen = new Set();
+    var fromFocus = false;
+    var pipelineRows = 0;
+
+    function add(entry, origin) {
+      if (!entry || !softphoneQueuePhoneValid(entry.phone)) return;
+      var dial = normalizeDial(entry.phone) || String(entry.phone || '').trim();
+      if (!dial) return;
+      var dedupe = (entry.key || '') + '|' + dial;
+      if (seen.has(dedupe)) return;
+      seen.add(dedupe);
+      entries.push({
+        key: String(entry.key || '').trim(),
+        title: String(entry.title || 'Lead').trim(),
+        phone: dial,
+      });
+      if (origin === 'focus') fromFocus = true;
+    }
+
+    var focusLeads =
+      typeof window.__getFocusCallQueueLeads === 'function'
+        ? window.__getFocusCallQueueLeads()
+        : parseFocusQueueEntriesFromDom();
+    (focusLeads || []).forEach(function (item) {
+      add(item, 'focus');
+    });
+
+    if (typeof window.__getSelectedLeadRowsForBulk === 'function') {
+      (window.__getSelectedLeadRowsForBulk() || []).forEach(function (row) {
+        pipelineRows += 1;
+        add(
+          {
+            key: softphoneQueueRowKey(row),
+            title: softphoneQueueRowTitle(row),
+            phone: softphoneQueueReadPhone(row),
+          },
+          'pipeline',
+        );
+      });
+    }
+    if (typeof window.__getActiveLeadPanelRow === 'function') {
+      var panelRow = window.__getActiveLeadPanelRow();
+      if (panelRow) {
+        pipelineRows += 1;
+        add(
+          {
+            key: softphoneQueueRowKey(panelRow),
+            title: softphoneQueueRowTitle(panelRow),
+            phone: softphoneQueueReadPhone(panelRow),
+          },
+          'pipeline',
+        );
+      }
+    }
+
+    return { entries: entries, fromFocus: fromFocus, pipelineRows: pipelineRows };
+  }
+
+  function renderSoftphoneCallQueue() {
+    if (!spQueueList) return;
+    var collected = collectSoftphoneQueueEntries();
+    var callable = collected.entries || [];
+    spQueueList.innerHTML = '';
+    if (spQueueMeta) {
+      if (!callable.length) {
+        if (collected.fromFocus || document.getElementById('focus-queue-json')) {
+          spQueueMeta.textContent =
+            'Your focus session has no callable phone numbers on file.';
+        } else if (collected.pipelineRows > 0) {
+          spQueueMeta.textContent = 'Selected leads have no phone numbers on file.';
+        } else {
+          spQueueMeta.textContent =
+            'Select leads in the pipeline (checkboxes), open Focus mode, or open a lead — callable numbers appear here.';
+        }
+      } else if (collected.fromFocus) {
+        spQueueMeta.textContent =
+          callable.length +
+          ' lead' +
+          (callable.length === 1 ? '' : 's') +
+          ' ready to dial from your focus session.';
+      } else {
+        spQueueMeta.textContent =
+          callable.length +
+          ' lead' +
+          (callable.length === 1 ? '' : 's') +
+          ' ready to dial from your pipeline selection.';
+      }
+    }
+    if (!callable.length) {
+      spQueueList.innerHTML = '<p class="text-xs text-slate-500">No callable leads in your current selection.</p>';
+      return;
+    }
+    var normalized = callable.map(function (item, idx) {
+      return {
+        key: item.key,
+        title: item.title,
+        phone: item.phone,
+        city: '',
+        state: '',
+        pipelineLabel: '',
+        queueIndex: idx,
+      };
+    });
+    paintSoftphoneContactRows(
+      spQueueList,
+      normalized,
+      'softphone-queue-fill hover:text-brand-yellow',
+      'softphone-queue-call',
+    );
+  }
+  window.__renderSoftphoneCallQueue = renderSoftphoneCallQueue;
+
+  var spDirectMailList = document.getElementById('softphoneDirectMailList');
+  var spDirectMailMeta = document.getElementById('softphoneDirectMailMeta');
+  var spDirectMailAddBtn = document.getElementById('softphoneDirectMailAddBtn');
+  var spDirectMailSendLink = document.getElementById('softphoneDirectMailSendLink');
+  var spDirectMailFolderLink = document.getElementById('softphoneDirectMailFolderLink');
+
+  window.__getSoftphoneActiveLead = function () {
+    return {
+      key: String(softphoneSession.leadKey || '').trim(),
+      title: String(softphoneSession.leadTitle || '').trim(),
+    };
+  };
+
+  function buildSoftphoneDirectMailRow(item) {
+    var row = document.createElement('div');
+    row.className =
+      'flex items-start justify-between gap-2 rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/85 dark:bg-slate-800/70 px-3 py-2.5';
+    var left = document.createElement('div');
+    left.className = 'min-w-0 flex-1';
+    var titleEl = document.createElement('p');
+    titleEl.className = 'text-sm font-semibold text-slate-800 dark:text-white truncate';
+    titleEl.textContent = String(item.title || 'Lead').trim();
+    left.appendChild(titleEl);
+    var addrParts = [item.address, item.city, item.state].filter(function (p) {
+      return String(p || '').trim() && String(p) !== 'N/A';
+    });
+    if (addrParts.length) {
+      var addrEl = document.createElement('p');
+      addrEl.className = 'text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5';
+      addrEl.textContent = addrParts.join(', ');
+      left.appendChild(addrEl);
+    } else {
+      var warnEl = document.createElement('p');
+      warnEl.className = 'text-[11px] text-amber-600 dark:text-amber-300 mt-0.5';
+      warnEl.textContent = 'No mailable address on file';
+      left.appendChild(warnEl);
+    }
+    var badge = document.createElement('span');
+    badge.className =
+      'inline-block mt-1 text-[9px] font-black uppercase tracking-wider rounded-md px-1.5 py-0.5 ' +
+      (item.mailable
+        ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+        : 'bg-amber-500/15 text-amber-700 dark:text-amber-300');
+    badge.textContent = item.mailable ? 'Ready to mail' : 'Needs address';
+    left.appendChild(badge);
+    var removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className =
+      'softphone-direct-mail-remove flex-shrink-0 text-[10px] font-bold uppercase tracking-wide rounded-xl border border-slate-200 dark:border-white/15 text-slate-500 dark:text-slate-300 px-2.5 py-1.5 hover:border-rose-400/50 hover:text-rose-600';
+    removeBtn.setAttribute('data-lead-key', String(item.key || '').trim());
+    removeBtn.textContent = 'Remove';
+    row.appendChild(left);
+    row.appendChild(removeBtn);
+    return row;
+  }
+
+  function renderSoftphoneDirectMailQueue() {
+    if (!spDirectMailList) return;
+    var paint = function () {
+      var session =
+        typeof window.__readDirectMailSession === 'function' ? window.__readDirectMailSession() : [];
+      var keys =
+        typeof window.__directMailSessionKeys === 'function' ? window.__directMailSessionKeys() : [];
+      if (spDirectMailMeta) {
+        if (!session.length) {
+          spDirectMailMeta.textContent =
+            'During calls, tap + Add current lead to tag and save prospects for direct mail after your session.';
+        } else {
+          spDirectMailMeta.textContent =
+            session.length +
+            ' lead' +
+            (session.length === 1 ? '' : 's') +
+            ' tagged for direct mail this session.';
+        }
+      }
+      if (spDirectMailSendLink && typeof window.__buildDirectMailSelectionUrl === 'function') {
+        spDirectMailSendLink.href = keys.length
+          ? window.__buildDirectMailSelectionUrl(keys)
+          : '/direct-mail';
+      }
+      if (spDirectMailFolderLink && typeof window.__buildDirectMailFolderUrl === 'function') {
+        spDirectMailFolderLink.href = window.__buildDirectMailFolderUrl('');
+      }
+      spDirectMailList.innerHTML = '';
+      if (!session.length) {
+        spDirectMailList.innerHTML =
+          '<p class="text-xs text-slate-500">No leads queued yet. Open a lead or select pipeline rows, then tap + Add current lead.</p>';
+        if (typeof window.__updateDirectMailNavBadge === 'function') window.__updateDirectMailNavBadge();
+        return;
+      }
+      session.forEach(function (item) {
+        spDirectMailList.appendChild(buildSoftphoneDirectMailRow(item));
+      });
+      if (typeof window.__updateDirectMailNavBadge === 'function') window.__updateDirectMailNavBadge();
+    };
+    paint();
+    if (typeof window.__refreshDirectMailQueueFromServer === 'function') {
+      window
+        .__refreshDirectMailQueueFromServer()
+        .then(function () {
+          paint();
+        })
+        .catch(function () {
+          /* keep session-only list if server fetch fails */
+        });
+    }
+  }
+  window.__renderSoftphoneDirectMailQueue = renderSoftphoneDirectMailQueue;
+
+  function setSoftphoneTab(tab) {
+    var name = String(tab || 'keypad');
+    document.querySelectorAll('.softphone-tab-panel').forEach(function (panel) {
+      panel.classList.toggle('hidden', panel.getAttribute('data-tab') !== name);
+    });
+    document.querySelectorAll('.softphone-nav-btn').forEach(function (btn) {
+      var on = btn.getAttribute('data-tab') === name;
+      btn.classList.toggle('softphone-nav-btn--active', on);
+      btn.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    var spSettingsBtn = document.getElementById('softphoneSettingsBtn');
+    if (spSettingsBtn) spSettingsBtn.classList.toggle('softphone-chrome-btn--active', name === 'settings');
+    try { localStorage.setItem(SOFTPHONE_TAB_KEY, name); } catch (_) {}
+    if (name === 'recents') renderRecentDials();
+    if (name === 'contacts') renderSoftphoneFocusContacts();
+    if (name === 'settings') {
+      updateSoftphoneSettingsPanels();
+      refreshSoftphoneAudioDevices({ requestPermission: false }).catch(function () {});
+      refreshSoftphoneWebrtcDiagnostics();
+    }
+    if (name === 'queue') renderSoftphoneCallQueue();
+    if (name === 'direct_mail') renderSoftphoneDirectMailQueue();
+    if (name === 'keypad' && spTo) setTimeout(function () { spTo.focus(); }, 60);
+    if (name === 'keypad') setTimeout(updateSoftphoneScrollHint, 80);
+  }
+  window.__adhelloSoftphoneSetTab = setSoftphoneTab;
+
+  if (spKeypadTab) {
+    spKeypadTab.addEventListener('scroll', updateSoftphoneScrollHint, { passive: true });
+  }
+  if (spScrollHint && spInCallBar) {
+    spScrollHint.addEventListener('click', function () {
+      spInCallBar.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  }
+  window.addEventListener('resize', updateSoftphoneScrollHint);
+
+  document.querySelectorAll('.softphone-nav-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      setSoftphoneTab(btn.getAttribute('data-tab') || 'keypad');
+    });
+  });
+
+  document.addEventListener('change', function (e) {
+    if (!e.target || !e.target.matches('input.lead-checkbox, input.row-checkbox')) return;
+    var queuePanel = document.getElementById('softphoneTabQueue');
+    if (queuePanel && !queuePanel.classList.contains('hidden')) renderSoftphoneCallQueue();
+    var mailPanel = document.getElementById('softphoneTabDirectMail');
+    if (mailPanel && !mailPanel.classList.contains('hidden')) renderSoftphoneDirectMailQueue();
+  });
+
+  if (spDirectMailAddBtn) {
+    spDirectMailAddBtn.addEventListener('click', function () {
+      if (typeof window.__addCurrentLeadToDirectMailQueue !== 'function') {
+        softphoneSetStatus('Direct Mail queue did not load. Hard-refresh the page and try again.', true);
+        return;
+      }
+      var prev = spDirectMailAddBtn.textContent;
+      spDirectMailAddBtn.disabled = true;
+      spDirectMailAddBtn.textContent = 'Saving…';
+      window
+        .__addCurrentLeadToDirectMailQueue()
+        .then(function (data) {
+          var n = data && data.added != null ? data.added : 0;
+          var msg =
+            n > 0
+              ? 'Added ' + n + ' lead' + (n === 1 ? '' : 's') + ' to Direct Mail.'
+              : 'Lead already in Direct Mail queue.';
+          softphoneSetStatus(msg, false);
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast(msg, { variant: 'success' });
+          }
+          renderSoftphoneDirectMailQueue();
+        })
+        .catch(function (err) {
+          var errMsg = (err && err.message) || 'Could not queue for direct mail.';
+          softphoneSetStatus(errMsg, true);
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast(errMsg, { variant: 'error' });
+          }
+        })
+        .finally(function () {
+          spDirectMailAddBtn.disabled = false;
+          spDirectMailAddBtn.textContent = prev;
+        });
+    });
+  }
+
+  if (spDirectMailList) {
+    spDirectMailList.addEventListener('click', function (e) {
+      var removeBtn = e.target.closest('.softphone-direct-mail-remove');
+      if (!removeBtn) return;
+      var key = String(removeBtn.getAttribute('data-lead-key') || '').trim();
+      if (!key) return;
+      if (typeof window.__readDirectMailSession === 'function') {
+        var session = window.__readDirectMailSession().filter(function (item) {
+          var k = String(item && item.key || '').trim();
+          return k !== key && k.replace(/^lead:/i, '') !== key.replace(/^lead:/i, '');
+        });
+        try {
+          sessionStorage.setItem('adhello_dm_call_queue', JSON.stringify(session));
+        } catch (_) {
+          /* ignore */
+        }
+      }
+      renderSoftphoneDirectMailQueue();
+      softphoneSetStatus('Removed from session queue (lead stays in Direct Mail folder).');
+    });
+  }
+
+  if (spBackspace && spTo) {
+    spBackspace.addEventListener('click', function () {
+      spTo.value = String(spTo.value || '').slice(0, -1);
+      if (!String(spTo.value || '').trim()) {
+        softphoneSession.leadKey = '';
+        softphoneSession.leadTitle = '';
+      }
+      updateSoftphoneCalleeDisplay();
+      spTo.focus();
+    });
+  }
+  if (spTo) {
+    spTo.addEventListener('input', function () {
+      if (!String(spTo.value || '').trim()) {
+        softphoneSession.leadKey = '';
+        softphoneSession.leadTitle = '';
+      } else if (!softphoneSession.leadKey) {
+        softphoneSession.leadTitle = resolveSoftphoneLeadTitle('', spTo.value);
+      }
+      updateSoftphoneCalleeDisplay();
+    });
+  }
+
+  if (spCallerIdSelect) {
+    spCallerIdSelect.addEventListener('change', function () {
+      var val = normalizeDial(String(spCallerIdSelect.value || '').trim());
+      if (spCallerIdMobileWrap) spCallerIdMobileWrap.classList.add('hidden');
+      if (!val) return;
+      var agent = normalizeDial(spAgentPhoneCached || '');
+      if (agent && val === agent) {
+        softphoneSetStatus('Your personal cell rings first — it cannot be caller ID. Pick a workspace number.', true);
+        renderSoftphoneCallerIdSelect(spAgentPhoneCached, spBankNumbers, spActiveFrom || spDefaultFrom);
+        return;
+      }
+      if (spBankNumbers && spBankNumbers.indexOf(val) === -1) {
+        softphoneSetStatus('Caller ID must be a workspace SignalWire number — not your personal cell.', true);
+        renderSoftphoneCallerIdSelect(spAgentPhoneCached, spBankNumbers, spActiveFrom || spDefaultFrom);
+        return;
+      }
+      saveSoftphoneLeadCallerId(val).catch(function (err) {
+        softphoneSetStatus((err && err.message) || 'Could not save caller ID.', true);
+      });
+    });
+  }
+  if (spCallerIdMobileWrap) spCallerIdMobileWrap.classList.add('hidden');
+
+  if (spAgentRingFixBtn) {
+    spAgentRingFixBtn.addEventListener('click', function () {
+      openSoftphoneSettingsTab();
+      if (spAgentPhone) {
+        try {
+          spAgentPhone.focus();
+        } catch (_) {}
+      }
+    });
+  }
+
+  var spModeSettingsLink = document.getElementById('softphoneModeSettingsLink');
+  if (spModeSettingsLink) {
+    spModeSettingsLink.addEventListener('click', openSoftphoneSettingsTab);
+  }
+  var spSettingsBtn = document.getElementById('softphoneSettingsBtn');
+  if (spSettingsBtn) {
+    spSettingsBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      openSoftphoneSettingsTab();
+    });
+  }
+
+  if (spOpenAddLead) {
+    spOpenAddLead.addEventListener('click', function () {
+      var openBtn =
+        document.getElementById('manualLeadOpen') ||
+        document.getElementById('manualLeadOpenMobile') ||
+        document.getElementById('manualLeadOpenSidebar');
+      if (openBtn) openBtn.click();
+    });
+  }
+
+  if (spPin) {
+    var pinned = false;
+    try { pinned = localStorage.getItem(SOFTPHONE_PIN_KEY) === '1'; } catch (_) {}
+    function applySoftphonePin(on) {
+      pinned = !!on;
+      spPin.setAttribute('aria-pressed', pinned ? 'true' : 'false');
+      spPin.classList.toggle('softphone-chrome-btn--active', pinned);
+      if (spPanel) spPanel.classList.toggle('softphone-panel--pinned', pinned);
+      if (pinned) {
+        applyDockRight();
+        try { localStorage.setItem(SOFTPHONE_POS_KEY, JSON.stringify({ dock: 'right' })); } catch (_) {}
+      }
+      try { localStorage.setItem(SOFTPHONE_PIN_KEY, pinned ? '1' : '0'); } catch (_) {}
+    }
+    applySoftphonePin(pinned);
+    spPin.addEventListener('click', function (e) {
+      e.stopPropagation();
+      applySoftphonePin(!pinned);
+    });
+  }
+
+  if (spMinimize) {
+    spMinimize.addEventListener('click', function (e) {
+      e.stopPropagation();
+      setSoftphoneCompact(true, { userExpanded: false });
+    });
+  }
+
+  if (spCompactExpand) {
+    spCompactExpand.addEventListener('click', function (e) {
+      e.stopPropagation();
+      setSoftphoneCompact(false, { userExpanded: true });
+    });
+  }
+
+  if (spCompactHangup) {
+    spCompactHangup.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (spHangup) spHangup.click();
+    });
+  }
+
+  if (spExpand && spPanel) {
+    spExpand.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (softphoneSession.compact) {
+        setSoftphoneCompact(false, { userExpanded: true });
+        return;
+      }
+      var expanded = spPanel.classList.toggle('softphone-panel--expanded');
+      spExpand.setAttribute('aria-pressed', expanded ? 'true' : 'false');
+      spExpand.classList.toggle('softphone-chrome-btn--active', expanded);
+    });
+  }
+
+  try {
+    var savedTab = localStorage.getItem(SOFTPHONE_TAB_KEY);
+    if (savedTab) setSoftphoneTab(savedTab);
+    else setSoftphoneTab('keypad');
+  } catch (_) {
+    setSoftphoneTab('keypad');
+  }
+  if (spDragHandle && spPanel) {
+    spDragHandle.addEventListener('mousedown', function (e) {
+      if (window.matchMedia('(max-width: 767px)').matches) return;
+      if (e.target && e.target.closest && e.target.closest('button, a, input, select, textarea')) return;
+      e.preventDefault();
+      var br = spPanel.getBoundingClientRect();
+      var ox = e.clientX - br.left;
+      var oy = e.clientY - br.top;
+      var pw = br.width;
+      var ph = br.height;
+      spPanel.style.setProperty('right', 'auto', 'important');
+      function onMove(e2) {
+        var nl = e2.clientX - ox;
+        var nt = e2.clientY - oy;
+        var maxL = window.innerWidth - pw - 8;
+        var maxT = window.innerHeight - ph - 8;
+        nl = Math.max(8, Math.min(nl, maxL));
+        nt = Math.max(8, Math.min(nt, maxT));
+        spPanel.style.setProperty('left', nl + 'px', 'important');
+        spPanel.style.setProperty('top', nt + 'px', 'important');
+        spPanel.style.setProperty('bottom', 'auto', 'important');
+      }
+      function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        try {
+          var b = spPanel.getBoundingClientRect();
+          localStorage.setItem(
+            SOFTPHONE_POS_KEY,
+            JSON.stringify({ dock: 'float', left: Math.round(b.left), top: Math.round(b.top) })
+          );
+        } catch (e2) {}
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+
+  var spCompactBarEl = document.getElementById('softphoneCompactBar');
+  if (spCompactBarEl && spPanel) {
+    spCompactBarEl.addEventListener('mousedown', function (e) {
+      if (!softphoneSession.compact) return;
+      if (window.matchMedia('(max-width: 767px)').matches) return;
+      if (e.target && e.target.closest && e.target.closest('button, a, input, select, textarea')) return;
+      e.preventDefault();
+      var br = spPanel.getBoundingClientRect();
+      var ox = e.clientX - br.left;
+      var oy = e.clientY - br.top;
+      var pw = br.width;
+      var ph = br.height;
+      spPanel.classList.add('softphone-panel--compact-dragging');
+      function onMove(e2) {
+        var nl = e2.clientX - ox;
+        var nt = e2.clientY - oy;
+        var maxL = window.innerWidth - pw - 8;
+        var maxT = window.innerHeight - ph - 8;
+        nl = Math.max(8, Math.min(nl, maxL));
+        nt = Math.max(8, Math.min(nt, maxT));
+        spPanel.style.setProperty('left', nl + 'px', 'important');
+        spPanel.style.setProperty('top', nt + 'px', 'important');
+        spPanel.style.setProperty('right', 'auto', 'important');
+        spPanel.style.setProperty('bottom', 'auto', 'important');
+      }
+      function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        spPanel.classList.remove('softphone-panel--compact-dragging');
+        try {
+          var b = spPanel.getBoundingClientRect();
+          localStorage.setItem(
+            SOFTPHONE_COMPACT_POS_KEY,
+            JSON.stringify({ left: Math.round(b.left), top: Math.round(b.top) })
+          );
+        } catch (_) {}
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+  if (spCall) spCall.addEventListener('click', function () { runSoftphoneAction('call'); });
+  if (spVm) spVm.addEventListener('click', function () { runSoftphoneAction('voicemail_drop'); });
+  if (spTo) {
+    spTo.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        runSoftphoneAction('call');
+      }
+    });
+  }
+  if (spFrom) {
+    spFrom.addEventListener('change', function () {
+      updateSoftphoneOutboundMeta();
+      refreshSoftphoneWebrtcDiagnostics();
+    });
+  }
+  if (spCallModeSelect) {
+    spCallModeSelect.addEventListener('change', function () {
+      var nextMode = String(spCallModeSelect.value || '').trim() || 'cloud_dial';
+      var prevMode = spWorkspaceCallMode;
+      spWorkspaceCallMode = nextMode;
+      updateSoftphoneCallModeUi();
+      if (spCallModeSaveHint) spCallModeSaveHint.textContent = 'Saving…';
+      spCallModeSelect.disabled = true;
+      fetch('/workspace/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ callMode: nextMode }),
+      })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (res) {
+          if (!res.ok || !res.j || !res.j.success) {
+            throw new Error((res.j && res.j.error) || 'Could not save call routing mode.');
+          }
+          if (spCallModeSaveHint) spCallModeSaveHint.textContent = 'Saved';
+          if (nextMode === 'agent_first' && !normalizeDial(spAgentPhoneCached || '')) {
+            if (spCallModeSaveHint) {
+              spCallModeSaveHint.textContent = 'Saved — set Your mobile below so we can ring your cell first.';
+            }
+            if (spAgentPhone) {
+              try {
+                spAgentPhone.focus();
+              } catch (_) {}
+            }
+          }
+          updateSoftphoneAgentRingLine();
+          refreshSoftphoneCallOptions().then(function () {
+            refreshSoftphoneWebrtcDiagnostics();
+          }).catch(function () {
+            refreshSoftphoneWebrtcDiagnostics();
+          });
+        })
+        .catch(function (err) {
+          spWorkspaceCallMode = prevMode || 'cloud_dial';
+          updateSoftphoneCallModeUi();
+          if (spCallModeSaveHint) {
+            spCallModeSaveHint.textContent = (err && err.message) || 'Could not save';
+          }
+        })
+        .finally(function () {
+          spCallModeSelect.disabled = spCallModeLocked;
+          updateSoftphoneSettingsPanels();
+        });
+    });
+  }
+  var spAgentPhoneSaveTimer = null;
+  function saveSoftphoneAgentPhone() {
+    if (!spAgentPhone || spCallModeLocked) return;
+    clearTimeout(spAgentPhoneSaveTimer);
+    spAgentPhoneSaveTimer = setTimeout(function () {
+      var hint = document.getElementById('softphoneAgentPhoneHint');
+      if (hint) hint.textContent = 'Saving…';
+      fetch('/workspace/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ agentPhone: spAgentPhone.value || '' }),
+      })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (res) {
+          if (!res.ok || !res.j || !res.j.success) {
+            throw new Error((res.j && res.j.error) || 'Could not save agent phone.');
+          }
+          spAgentPhoneCached = normalizeDial(spAgentPhone.value || '');
+          renderSoftphoneCallerIdSelect(spAgentPhoneCached, spBankNumbers, spLeadCallerId);
+          updateSoftphoneAgentRingLine();
+          if (hint) {
+            hint.textContent =
+              'Saved. SignalWire rings this personal cell first; workspace numbers are caller ID only.';
+          }
+        })
+        .catch(function (err) {
+          if (hint) hint.textContent = (err && err.message) || 'Could not save agent phone.';
+        });
+    }, 450);
+  }
+  if (spAgentPhone) {
+    spAgentPhone.addEventListener('change', saveSoftphoneAgentPhone);
+    spAgentPhone.addEventListener('blur', saveSoftphoneAgentPhone);
+  }
+  var spAgentTestRingBtn = document.getElementById('softphoneAgentTestRingBtn');
+  var spAgentTestSmsBtn = document.getElementById('softphoneAgentTestSmsBtn');
+  var spAgentTestRingMsg = document.getElementById('softphoneAgentTestRingMsg');
+  function softphoneAgentPhoneBody() {
+    return {
+      agentPhone: (spAgentPhone && spAgentPhone.value) || spAgentPhoneCached || '',
+    };
+  }
+  if (spAgentTestRingBtn) {
+    spAgentTestRingBtn.addEventListener('click', function () {
+      if (spAgentTestRingMsg) spAgentTestRingMsg.textContent = 'Preparing dial-in test…';
+      spAgentTestRingBtn.disabled = true;
+      if (spAgentTestSmsBtn) spAgentTestSmsBtn.disabled = true;
+      fetch('/leads/telephony/test-agent-ring', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(softphoneAgentPhoneBody()),
+      })
+        .then(function (r) {
+          return r.json().then(function (j) {
+            return { ok: r.ok, j: j };
+          });
+        })
+        .then(function (res) {
+          var text =
+            (res.j && (res.j.message || res.j.error)) ||
+            (res.ok ? 'Call placed.' : 'Test ring failed.');
+          if (res.j && res.j.dialMode === 'agent_dial_in' && res.j.dialInNumber) {
+            text =
+              (res.j.message || text) +
+              ' Dial ' +
+              formatCallerIdDisplay(res.j.dialInNumber) +
+              ' from your cell now.';
+            try {
+              window.open('tel:' + String(res.j.dialInNumber).replace(/[^\d+]/g, ''), '_self');
+            } catch (_) {}
+          } else {
+            if (res.j && res.j.from && res.j.to) {
+              text +=
+                ' From ' +
+                formatCallerIdDisplay(res.j.from) +
+                ' → ' +
+                formatCallerIdDisplay(res.j.to) +
+                '.';
+            }
+            if (res.j && res.j.status) text += ' Status: ' + String(res.j.status) + '.';
+            if (res.j && res.j.answeredBy) text += ' Answered by: ' + String(res.j.answeredBy) + '.';
+          }
+          if (spAgentTestRingMsg) spAgentTestRingMsg.textContent = text;
+          softphoneSetStatus(text, !res.ok);
+        })
+        .catch(function (err) {
+          var msg = (err && err.message) || 'Test ring failed.';
+          if (spAgentTestRingMsg) spAgentTestRingMsg.textContent = msg;
+          softphoneSetStatus(msg, true);
+        })
+        .finally(function () {
+          spAgentTestRingBtn.disabled = false;
+          if (spAgentTestSmsBtn) spAgentTestSmsBtn.disabled = false;
+        });
+    });
+  }
+  if (spAgentTestSmsBtn) {
+    spAgentTestSmsBtn.addEventListener('click', function () {
+      if (spAgentTestRingMsg) spAgentTestRingMsg.textContent = 'Sending test SMS…';
+      spAgentTestSmsBtn.disabled = true;
+      if (spAgentTestRingBtn) spAgentTestRingBtn.disabled = true;
+      fetch('/leads/telephony/test-agent-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(softphoneAgentPhoneBody()),
+      })
+        .then(function (r) {
+          return r.json().then(function (j) {
+            return { ok: r.ok, j: j };
+          });
+        })
+        .then(function (res) {
+          var text =
+            (res.j && (res.j.message || res.j.error)) ||
+            (res.ok ? 'SMS sent.' : 'Test SMS failed.');
+          if (spAgentTestRingMsg) spAgentTestRingMsg.textContent = text;
+          softphoneSetStatus(text, !res.ok);
+        })
+        .catch(function (err) {
+          var msg = (err && err.message) || 'Test SMS failed.';
+          if (spAgentTestRingMsg) spAgentTestRingMsg.textContent = msg;
+          softphoneSetStatus(msg, true);
+        })
+        .finally(function () {
+          spAgentTestSmsBtn.disabled = false;
+          if (spAgentTestRingBtn) spAgentTestRingBtn.disabled = false;
+        });
+    });
+  }
+  function softphoneIsVisible() {
+    return !!(spModal && !spModal.classList.contains('hidden'));
+  }
+  document.addEventListener('keydown', function (e) {
+    if (!softphoneIsVisible()) return;
+    var target = e.target;
+    var inEditable = target && (
+      target.tagName === 'INPUT' ||
+      target.tagName === 'TEXTAREA' ||
+      target.tagName === 'SELECT' ||
+      target.isContentEditable
+    );
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      if (spHangup) spHangup.click();
+      return;
+    }
+    if (e.key === 'm' || e.key === 'M') {
+      if (!inEditable && spMute) { e.preventDefault(); spMute.click(); }
+      return;
+    }
+    if (e.key === 'h' || e.key === 'H') {
+      if (!inEditable && spHold) { e.preventDefault(); spHold.click(); }
+      return;
+    }
+    if (inEditable) return;
+    if (/^[0-9*#]$/.test(e.key) && spTo) {
+      e.preventDefault();
+      spTo.value = String(spTo.value || '') + e.key;
+      spTo.focus();
+    }
+  });
+  if (spKeys && spKeys.length && spTo) {
+    spKeys.forEach(function (k) {
+      k.addEventListener('click', function () {
+        var key = String(k.getAttribute('data-key') || '');
+        spTo.value = String(spTo.value || '') + key;
+        spTo.focus();
+      });
+    });
+  }
+  if (spRecentList && spTo) {
+    spRecentList.addEventListener('click', function (e) {
+      var fill = e.target.closest('.softphone-recent-fill');
+      if (fill) {
+        applySoftphoneListSelection(fill);
+        setSoftphoneTab('keypad');
+        spTo.focus();
+        return;
+      }
+      var callBtn = e.target.closest('.softphone-recent-call');
+      if (callBtn) {
+        applySoftphoneListSelection(callBtn);
+        runSoftphoneAction('call');
+      }
+    });
+  }
+  function bindSoftphoneContactListClicks(host) {
+    if (!host || !spTo || host.dataset.softphoneListBound === '1') return;
+    host.dataset.softphoneListBound = '1';
+    host.addEventListener('click', function (e) {
+      var fill = e.target.closest('.softphone-queue-fill');
+      if (fill) {
+        openSoftphoneContactOnKeypad(fill);
+        return;
+      }
+      var callBtn = e.target.closest('.softphone-queue-call');
+      if (callBtn) {
+        openSoftphoneContactOnKeypad(callBtn);
+      }
+    });
+  }
+  bindSoftphoneContactListClicks(spQueueList);
+  bindSoftphoneContactListClicks(spContactsList);
+  if (spPrevLeadBtn) {
+    spPrevLeadBtn.addEventListener('click', function () {
+      stepSoftphoneFocusLead(-1);
+    });
+  }
+  if (spNextLeadBtn) {
+    spNextLeadBtn.addEventListener('click', function () {
+      stepSoftphoneFocusLead(1, { autoCall: true });
+    });
+  }
+  if (spMute) {
+    spMute.addEventListener('click', function () {
+      if (softphoneSession.webrtc && softphoneSession.relayCall) {
+        try { softphoneSession.relayCall.toggleAudioMute(); } catch (e) {}
+        softphoneSession.muted = !softphoneSession.muted;
+        spMute.textContent = softphoneSession.muted ? 'Unmute' : 'Mute';
+        updateControlToggles();
+        softphoneSetStatus(softphoneSession.muted ? 'Mic muted (WebRTC).' : 'Mic unmuted.');
+        return;
+      }
+      softphoneSession.muted = !softphoneSession.muted;
+      spMute.textContent = softphoneSession.muted ? 'Unmute' : 'Mute';
+      updateControlToggles();
+      softphoneSetStatus(softphoneSession.muted ? 'Mic muted (UI state).' : 'Mic unmuted.');
+    });
+  }
+  if (spHold) {
+    spHold.addEventListener('click', function () {
+      if (softphoneSession.webrtc && softphoneSession.relayCall) {
+        try { softphoneSession.relayCall.toggleHold(); } catch (e) {}
+        softphoneSession.hold = !softphoneSession.hold;
+        spHold.textContent = softphoneSession.hold ? 'Resume' : 'Hold';
+        updateControlToggles();
+        softphoneSetStatus(softphoneSession.hold ? 'On hold (WebRTC).' : 'Resumed.');
+        return;
+      }
+      softphoneSession.hold = !softphoneSession.hold;
+      spHold.textContent = softphoneSession.hold ? 'Resume' : 'Hold';
+      updateControlToggles();
+      softphoneSetStatus(softphoneSession.hold ? 'Call on hold (UI state).' : 'Call resumed.');
+    });
+  }
+  if (spSpeaker) {
+    spSpeaker.addEventListener('click', function () {
+      if (!spSpeakerSelect || !spSpeakerSelect.options || spSpeakerSelect.options.length <= 1) {
+        openSoftphoneSettingsTab();
+        runSoftphoneMicSpeakerTest();
+        return;
+      }
+      var opts = [];
+      for (var i = 0; i < spSpeakerSelect.options.length; i++) {
+        var o = spSpeakerSelect.options[i];
+        if (o && o.value) opts.push(o);
+      }
+      if (!opts.length) {
+        openSoftphoneSettingsTab();
+        runSoftphoneMicSpeakerTest();
+        return;
+      }
+      var idx = 0;
+      for (var j = 0; j < opts.length; j++) {
+        if (opts[j].value === spPreferredSpeakerId) {
+          idx = j;
+          break;
+        }
+      }
+      var next = opts[(idx + 1) % opts.length];
+      spPreferredSpeakerId = String(next.value || '').trim();
+      spSpeakerSelect.value = spPreferredSpeakerId;
+      saveSoftphoneAudioPrefs();
+      softphoneSession.speaker = true;
+      updateControlToggles();
+      applySoftphoneAudioOutput(true)
+        .then(function () { return playSoftphoneRemoteAudio(); })
+        .then(function () {
+          softphoneSetStatus('Hear call on: ' + String(next.textContent || 'selected output'));
+        });
+    });
+  }
+  if (spMicSelect) {
+    spMicSelect.addEventListener('change', function () {
+      spPreferredMicId = String(spMicSelect.value || '').trim();
+      saveSoftphoneAudioPrefs();
+      applySoftphoneMicToActiveCall();
+      var label =
+        spMicSelect.options && spMicSelect.selectedIndex >= 0
+          ? spMicSelect.options[spMicSelect.selectedIndex].text
+          : 'Default microphone';
+      setSoftphoneMicStatus('Microphone: ' + label, false);
+    });
+  }
+  if (spSpeakerSelect) {
+    spSpeakerSelect.addEventListener('change', function () {
+      spPreferredSpeakerId = String(spSpeakerSelect.value || '').trim();
+      saveSoftphoneAudioPrefs();
+      softphoneSession.speaker = !!spPreferredSpeakerId;
+      updateControlToggles();
+      var label =
+        spSpeakerSelect.options && spSpeakerSelect.selectedIndex >= 0
+          ? spSpeakerSelect.options[spSpeakerSelect.selectedIndex].text
+          : 'Default speakers';
+      applySoftphoneAudioOutput(true)
+        .then(function () { return playSoftphoneRemoteAudio(); })
+        .then(function () {
+          setSoftphoneMicStatus('Output: ' + label, false);
+        });
+    });
+  }
+  if (spTestMicBtn) {
+    spTestMicBtn.addEventListener('click', function () {
+      runSoftphoneMicSpeakerTest();
+    });
+  }
+  if (spSoundcheckBtn) {
+    spSoundcheckBtn.addEventListener('click', function () {
+      runSoftphoneSoundcheck();
+    });
+  }
+  if (spEnableAudioBtn) {
+    spEnableAudioBtn.addEventListener('click', function () {
+      applySoftphoneAudioToActiveCall().then(function (playing) {
+        if (playing) {
+          softphoneSetStatus('Call audio enabled on your selected output.');
+          startSoftphoneRemoteAudioWatchdog();
+        }
+      });
+    });
+  }
+  if (navigator.mediaDevices && typeof navigator.mediaDevices.addEventListener === 'function') {
+    navigator.mediaDevices.addEventListener('devicechange', function () {
+      refreshSoftphoneAudioDevices({ requestPermission: false })
+        .then(function (result) {
+          var summary = softphoneAudioDeviceSummary(result.mics, result.speakers);
+          setSoftphoneMicStatus('Devices updated — ' + summary.micLabel + ' · ' + summary.spkLabel, false);
+        })
+        .catch(function () {});
+    });
+  }
+  (function initSoftphoneAudioPrefs() {
+    var prefs = loadSoftphoneAudioPrefs();
+    spPreferredMicId = prefs.micId;
+    spPreferredSpeakerId = prefs.speakerId;
+    syncSoftphoneAudioSelectValues();
+    refreshSoftphoneAudioDevices({ requestPermission: false }).catch(function () {});
+  })();
+  if (spKeypad) {
+    spKeypad.addEventListener('click', function () {
+      setSoftphoneTab('keypad');
+      if (spTo) spTo.focus();
+      softphoneSetStatus('Keypad ready. Use on-screen keys or keyboard digits.');
+    });
+  }
+  if (spTransfer) {
+    spTransfer.addEventListener('click', function () {
+      softphoneSetStatus('Transfer workflow is coming soon.');
+    });
+  }
+  if (spRecord) {
+    spRecord.addEventListener('click', function () {
+      performCloudRecordingToggle();
+    });
+  }
+  if (spHangup) {
+    spHangup.addEventListener('click', function () {
+      // Stuck "DIALING" must always be cancelable without forcing wrap-up (which locks Call).
+      if (softphoneSession.state === 'dialing') {
+        softphoneForceAbortDial('Dial canceled. You can call again.');
+        return;
+      }
+      if (softphoneSession.state !== 'in_call') {
+        if (softphoneSession.state === 'ended' || softphoneSession.wrapRequired) {
+          softphoneSetWrapRequired(false);
+          softphoneSetCallState('ready');
+          softphoneSetStatus('Ready. Tap Call or Redial.', false);
+          return;
+        }
+        softphoneSetStatus('No active call to hang up.', true);
+        return;
+      }
+      if (softphoneSession.webrtc && softphoneSession.relayCall) {
+        spHangup.disabled = true;
+        try { softphoneSession.relayCall.hangup({ cause: 'NORMAL_CLEARING' }, true); } catch (e) {}
+        softphoneClearWebrtcSession();
+        softphoneSession.callSid = '';
+        softphoneStopPolling();
+        softphoneResetRecordingState();
+        softphoneSetWrapRequired(false);
+        softphoneSetCallState('ready');
+        softphoneSetStatus('Call ended. Quick log is optional below — or dial again.');
+        spHangup.disabled = false;
+        return;
+      }
+      if (!softphoneSession.callSid) {
+        softphoneForceAbortDial('Call ended. You can call again.');
+        return;
+      }
+      spHangup.disabled = true;
+      requestSoftphoneCloudHangup(softphoneSession.callSid)
+        .then(function () {
+          softphoneResetRecordingState();
+          softphoneSetWrapRequired(false);
+          softphoneSetCallState('ready');
+          softphoneSetStatus('Call ended. Quick log is optional below — or dial again.');
+        })
+        .catch(function (err) {
+          softphoneSetStatus((err && err.message) || 'Hangup failed.', true);
+        })
+        .finally(function () {
+          spHangup.disabled = false;
+        });
+    });
+  }
+  if (spRedial) {
+    spRedial.addEventListener('click', function () {
+      softphoneRedialSameNumber();
+    });
+  }
+  if (spVmNow) {
+    spVmNow.addEventListener('click', function () {
+      var to = normalizeDial(softphoneSession.activeNumber || (spTo ? spTo.value : ''));
+      if (!to) {
+        softphoneSetStatus('Set a dial number first before Drop VM + Next.', true);
+        return;
+      }
+      spVmNow.disabled = true;
+      var beginVm = function () {
+        softphoneSetStatus('Starting automated voicemail drop to this number...');
+        return startCloudSoftphoneDial(to, 'voicemail_drop', { forceCloudVoicemail: true });
+      };
+      var hangupCurrent = Promise.resolve();
+      if (softphoneSession.webrtc && softphoneSession.relayCall) {
+        try { softphoneSession.relayCall.hangup({ cause: 'NORMAL_CLEARING' }, true); } catch (e) {}
+        softphoneClearWebrtcSession();
+      } else if (softphoneSession.callSid && softphoneSession.state !== 'ended') {
+        hangupCurrent = requestSoftphoneCloudHangup(softphoneSession.callSid).catch(function () {
+          return { alreadyCompleted: true };
+        });
+      }
+      hangupCurrent
+        .then(beginVm)
+        .catch(function (err) {
+          softphoneSetStatus((err && err.message) || 'Voicemail drop failed.', true);
+        })
+        .finally(function () {
+          spVmNow.disabled = false;
+        });
+    });
+  }
+  function completeWrap() {
+    var selection = readSoftphoneQuickLogSelection();
+    var disp = selection
+      ? (selection.disposition || selection.value || selection.label)
+      : (spDisposition ? String(spDisposition.value || '').trim() : '');
+    var notes = spNotes ? String(spNotes.value || '').trim() : '';
+    if (!disp) {
+      softphoneSetStatus('Select a quick log to complete wrap-up.', true);
+      setSoftphoneWrapFeedback('Pick a quick log first.', true);
+      return;
+    }
+    var key = softphoneLeadStorageKey();
+    var finalize = function () {
+      if (spNextStep) {
+        spNextStep.textContent = softphoneWrapNextStepHint(
+          selection ? selection.label || softphoneOutcomeLabel(selection.disposition || disp) : softphoneOutcomeLabel(disp),
+        );
+        spNextStep.classList.remove('hidden');
+      }
+      softphoneUnlockAfterWrap();
+      softphoneSetStatus('Wrap-up completed. Ready for next dial.');
+      if (typeof window.dispatchEvent === 'function') {
+        window.dispatchEvent(
+          new CustomEvent('adhello-softphone-wrap-complete', {
+            detail: {
+              leadKey: key,
+              disposition: disp,
+              notes: notes,
+              number: String(softphoneSession.activeNumber || (spTo ? spTo.value : '')),
+            },
+          })
+        );
+      }
+    };
+    if (key) {
+      if (spCompleteWrap) spCompleteWrap.disabled = true;
+      saveSoftphoneWrapContext()
+        .then(finalize)
+        .catch(function (err) {
+          var msg = (err && err.message) || 'Wrap-up save failed.';
+          softphoneSetStatus(msg, true);
+          setSoftphoneWrapFeedback(msg, true);
+        })
+        .finally(function () {
+          if (spCompleteWrap) spCompleteWrap.disabled = false;
+        });
+      return;
+    }
+    finalize();
+  }
+  if (spQuickLogRow) {
+    spQuickLogRow.addEventListener('click', function (e) {
+      var btn = e.target.closest('.softphone-quick-log');
+      if (!btn) return;
+      softphoneQuickSetOutcome(softphoneBtnSelectionValue(btn));
+    });
+  }
+  if (spPushGhl) spPushGhl.addEventListener('click', function () { pushSoftphoneLeadToGhl(); });
+  if (spCompleteWrap) spCompleteWrap.addEventListener('click', completeWrap);
+  if (spSkipWrap) spSkipWrap.addEventListener('click', softphoneSkipWrap);
+  if (spAiSummary) {
+    spAiSummary.addEventListener('click', function () {
+      var selection = readSoftphoneQuickLogSelection();
+      var disp = selection
+        ? (selection.disposition || selection.value || selection.label)
+        : (spDisposition ? String(spDisposition.value || '').trim() : '');
+      var notes = spNotes ? String(spNotes.value || '').trim() : '';
+      if (!disp) {
+        softphoneSetStatus('Pick a quick log first.', true);
+        setSoftphoneWrapFeedback('Pick a quick log first.', true);
+        return;
+      }
+      var original = spAiSummary.textContent;
+      spAiSummary.disabled = true;
+      spAiSummary.textContent = 'Generating…';
+      fetch('/leads/telephony/ai-summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          disposition: disp,
+          notes: notes,
+          number: softphoneSession.activeNumber || (spTo ? spTo.value : ''),
+        }),
+      })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (res) {
+          if (!res.ok || !res.j || !res.j.success) throw new Error((res.j && res.j.error) || 'AI summary failed.');
+          if (spNotes && res.j.summary) spNotes.value = res.j.summary;
+          if (spNextStep) spNextStep.textContent = (res.j.nextStep || '') + (res.j.followupSms ? ' Suggested SMS: ' + res.j.followupSms : '');
+          softphoneSetStatus('AI summary generated.');
+        })
+        .catch(function (err) {
+          softphoneSetStatus((err && err.message) || 'AI summary failed.', true);
+        })
+        .finally(function () {
+          spAiSummary.disabled = false;
+          spAiSummary.textContent = original;
+        });
+    });
+  }
+
+  var mlModal = document.getElementById('manualLeadModal');
+  var mlOpen = document.getElementById('manualLeadOpen');
+  var mlOpenM = document.getElementById('manualLeadOpenMobile');
+  var mlOpenSidebar = document.getElementById('manualLeadOpenSidebar');
+  var mlClose = document.getElementById('manualLeadClose');
+  var mlCancel = document.getElementById('manualLeadCancel');
+  var mlBackdrop = document.getElementById('manualLeadBackdrop');
+  var mlForm = document.getElementById('manualLeadForm');
+  var mlErr = document.getElementById('manualLeadError');
+  function openManualLead() {
+    if (!mlModal) return;
+    mlModal.classList.remove('hidden');
+    mlModal.classList.add('flex');
+    mlModal.setAttribute('aria-hidden', 'false');
+    if (mlErr) { mlErr.classList.add('hidden'); mlErr.textContent = ''; }
+    var mobileMenu = document.getElementById('mobileMenu');
+    if (mobileMenu && !mobileMenu.classList.contains('hidden')) {
+      mobileMenu.classList.add('hidden', 'opacity-0', 'pointer-events-none');
+    }
+    var t = document.getElementById('manualTitle');
+    if (t) setTimeout(function () { t.focus(); }, 100);
+  }
+  function closeManualLead() {
+    if (!mlModal) return;
+    mlModal.classList.add('hidden');
+    mlModal.classList.remove('flex');
+    mlModal.setAttribute('aria-hidden', 'true');
+    if (mlForm) mlForm.reset();
+    if (mlFileInput) { mlFileInput.value = ''; mlFileInput.disabled = false; if (mlFileName) { mlFileName.textContent = ''; mlFileName.classList.add('hidden'); } }
+    if (mlUploadSubmit) { mlUploadSubmit.disabled = true; mlUploadSubmit.textContent = 'Upload & import'; }
+    var mlUploadIcon = document.getElementById('manualLeadUploadIcon');
+    var mlUploadSpinner = document.getElementById('manualLeadUploadSpinner');
+    var mlUploadLoadingLabel = document.getElementById('manualLeadUploadLoadingLabel');
+    var mlUploadIdleCopy = document.getElementById('manualLeadUploadIdleCopy');
+    var mlUploadChooseLabel = document.getElementById('manualLeadUploadChooseLabel');
+    if (mlUploadIcon) mlUploadIcon.classList.remove('hidden');
+    if (mlUploadSpinner) mlUploadSpinner.classList.add('hidden');
+    if (mlUploadLoadingLabel) mlUploadLoadingLabel.classList.add('hidden');
+    if (mlUploadIdleCopy) mlUploadIdleCopy.classList.remove('hidden');
+    if (mlUploadChooseLabel) mlUploadChooseLabel.classList.remove('hidden');
+    switchManualLeadTab('single');
+  }
+  if (mlOpen) mlOpen.addEventListener('click', openManualLead);
+  if (mlOpenM) mlOpenM.addEventListener('click', openManualLead);
+  if (mlOpenSidebar) mlOpenSidebar.addEventListener('click', openManualLead);
+  if (mlClose) mlClose.addEventListener('click', closeManualLead);
+  if (mlCancel) mlCancel.addEventListener('click', closeManualLead);
+  if (mlBackdrop) mlBackdrop.addEventListener('click', closeManualLead);
+  if (mlForm) {
+    mlForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (mlErr) { mlErr.classList.add('hidden'); mlErr.textContent = ''; }
+      var fd = new FormData(mlForm);
+      var title = (fd.get('title') || '').toString().trim();
+      if (!title) return;
+      var websiteRaw = (fd.get('website') || '').toString().trim();
+      if (websiteRaw && !/^https?:\/\//i.test(websiteRaw)) {
+        websiteRaw = 'https://' + websiteRaw.replace(/^\/+/, '');
+      }
+      var payload = {
+        title: title,
+        email: (fd.get('email') || '').toString().trim() || undefined,
+        phone: (fd.get('phone') || '').toString().trim() || undefined,
+        website: websiteRaw || undefined,
+        city: (fd.get('city') || '').toString().trim() || undefined,
+        state: (fd.get('state') || '').toString().trim() || undefined,
+        address: (fd.get('address') || '').toString().trim() || undefined,
+        note: (fd.get('note') || '').toString().trim() || undefined,
+        source: 'manual',
+      };
+      var btn = document.getElementById('manualLeadSubmit');
+      if (btn) { btn.disabled = true; var ob = btn.textContent; btn.textContent = 'Saving…'; }
+      fetch('/leads/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(payload),
+      })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (_ref) {
+          var ok = _ref.ok;
+          var data = _ref.j;
+          if (btn) { btn.disabled = false; btn.textContent = 'Save to pipeline'; }
+          if (ok && data.success) {
+            closeManualLead();
+            window.location.href = '/pipeline?manual=1';
+            return;
+          }
+          if (mlErr) {
+            mlErr.textContent = (data && data.error) ? data.error : 'Could not save lead.';
+            mlErr.classList.remove('hidden');
+          }
+        })
+        .catch(function () {
+          if (btn) { btn.disabled = false; btn.textContent = 'Save to pipeline'; }
+          if (mlErr) {
+            mlErr.textContent = 'Network error. Try again.';
+            mlErr.classList.remove('hidden');
+          }
+        });
+    });
+  }
+
+  // Tab switching
+  var mlTabSingle = document.getElementById('manualLeadTabSingle');
+  var mlTabUpload = document.getElementById('manualLeadTabUpload');
+  var mlSingleTab = document.getElementById('manualLeadSingleTab');
+  var mlUploadTab = document.getElementById('manualLeadUploadTab');
+  var mlSubtitle = document.getElementById('manualLeadSubtitle');
+
+  function switchManualLeadTab(tab) {
+    var isUpload = (tab === 'upload');
+    [mlSingleTab, mlUploadTab].forEach(function (el) { if (el) el.classList.add('hidden'); });
+    if (isUpload && mlUploadTab) mlUploadTab.classList.remove('hidden');
+    if (!isUpload && mlSingleTab) mlSingleTab.classList.remove('hidden');
+    if (mlTabSingle) {
+      mlTabSingle.classList.toggle('bg-white', !isUpload);
+      mlTabSingle.classList.toggle('dark:bg-slate-900', !isUpload);
+      mlTabSingle.classList.toggle('shadow-sm', !isUpload);
+      mlTabSingle.classList.toggle('text-brand-dark', !isUpload);
+      mlTabSingle.classList.toggle('dark:text-white', !isUpload);
+      mlTabSingle.classList.toggle('text-brand-muted', isUpload);
+      mlTabSingle.classList.toggle('dark:text-slate-400', isUpload);
+      mlTabSingle.setAttribute('aria-selected', isUpload ? 'false' : 'true');
+    }
+    if (mlTabUpload) {
+      mlTabUpload.classList.toggle('bg-white', isUpload);
+      mlTabUpload.classList.toggle('dark:bg-slate-900', isUpload);
+      mlTabUpload.classList.toggle('shadow-sm', isUpload);
+      mlTabUpload.classList.toggle('text-brand-dark', isUpload);
+      mlTabUpload.classList.toggle('dark:text-white', isUpload);
+      mlTabUpload.classList.toggle('text-brand-muted', !isUpload);
+      mlTabUpload.classList.toggle('dark:text-slate-400', !isUpload);
+      mlTabUpload.setAttribute('aria-selected', isUpload ? 'true' : 'false');
+    }
+    if (mlSubtitle) {
+      mlSubtitle.textContent = isUpload
+        ? 'Drop a CSV or Excel file with business names, phones, emails, and addresses.'
+        : 'For referrals, events, or anyone you met offline — same pipeline as scraped leads.';
+    }
+    if (mlErr) { mlErr.classList.add('hidden'); mlErr.textContent = ''; }
+    var mlUploadErr = document.getElementById('manualLeadUploadError');
+    if (mlUploadErr) { mlUploadErr.classList.add('hidden'); mlUploadErr.textContent = ''; }
+  }
+
+  if (mlTabSingle) mlTabSingle.addEventListener('click', function () { switchManualLeadTab('single'); });
+  if (mlTabUpload) mlTabUpload.addEventListener('click', function () { switchManualLeadTab('upload'); });
+
+  // Upload file input handling
+  var mlFileInput = document.getElementById('manualLeadFileInput');
+  var mlFileName = document.getElementById('manualLeadFileName');
+  var mlUploadSubmit = document.getElementById('manualLeadUploadSubmit');
+  var mlUploadForm = document.getElementById('manualLeadUploadForm');
+
+  if (mlFileInput && mlUploadSubmit) {
+    mlFileInput.addEventListener('change', function () {
+      var file = mlFileInput.files && mlFileInput.files[0];
+      if (file) {
+        if (mlFileName) { mlFileName.textContent = file.name; mlFileName.classList.remove('hidden'); }
+        mlUploadSubmit.disabled = false;
+        mlUploadSubmit.classList.remove('bg-brand-yellow/40', 'text-slate-400', 'dark:text-slate-600', 'cursor-not-allowed');
+        mlUploadSubmit.classList.add('bg-brand-yellow', 'text-slate-900', 'cursor-pointer', 'hover:brightness-105');
+        mlUploadSubmit.style.pointerEvents = 'auto';
+      } else {
+        if (mlFileName) { mlFileName.textContent = ''; mlFileName.classList.add('hidden'); }
+        mlUploadSubmit.disabled = true;
+        mlUploadSubmit.classList.add('bg-brand-yellow/40', 'text-slate-400', 'dark:text-slate-600', 'cursor-not-allowed');
+        mlUploadSubmit.classList.remove('bg-brand-yellow', 'text-slate-900', 'cursor-pointer', 'hover:brightness-105');
+        mlUploadSubmit.style.pointerEvents = 'none';
+      }
+    });
+  }
+
+  if (mlUploadForm) {
+    var mlUploadIcon = document.getElementById('manualLeadUploadIcon');
+    var mlUploadSpinner = document.getElementById('manualLeadUploadSpinner');
+    var mlUploadLoadingLabel = document.getElementById('manualLeadUploadLoadingLabel');
+    var mlUploadIdleCopy = document.getElementById('manualLeadUploadIdleCopy');
+    var mlUploadChooseLabel = document.getElementById('manualLeadUploadChooseLabel');
+
+    function setManualLeadUploadLoading(isLoading) {
+      if (mlUploadIcon) mlUploadIcon.classList.toggle('hidden', isLoading);
+      if (mlUploadSpinner) mlUploadSpinner.classList.toggle('hidden', !isLoading);
+      if (mlUploadLoadingLabel) mlUploadLoadingLabel.classList.toggle('hidden', !isLoading);
+      if (mlUploadIdleCopy) mlUploadIdleCopy.classList.toggle('hidden', isLoading);
+      if (mlUploadChooseLabel) mlUploadChooseLabel.classList.toggle('hidden', isLoading);
+      if (mlFileName && isLoading) mlFileName.classList.add('hidden');
+      if (mlFileInput) mlFileInput.disabled = isLoading;
+    }
+
+    mlUploadForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var file = mlFileInput && mlFileInput.files && mlFileInput.files[0];
+      if (!file) return;
+      var mlUploadErr = document.getElementById('manualLeadUploadError');
+      if (mlUploadErr) { mlUploadErr.classList.add('hidden'); mlUploadErr.textContent = ''; }
+      setManualLeadUploadLoading(true);
+      if (mlUploadSubmit) { mlUploadSubmit.disabled = true; mlUploadSubmit.textContent = 'Importing…'; }
+      var fd = new FormData();
+      fd.append('csvfile', file);
+      fetch('/leads/import', {
+        method: 'POST',
+        headers: { Accept: 'application/json' },
+        body: fd,
+      })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (_ref) {
+          var ok = _ref.ok;
+          var data = _ref.j;
+          setManualLeadUploadLoading(false);
+          if (mlUploadSubmit) { mlUploadSubmit.disabled = false; mlUploadSubmit.textContent = 'Upload & import'; }
+          if (ok && data.success) {
+            closeManualLead();
+            window.location.href = '/prospecting?tab=pipeline&origin=csv&includeFoldered=1&source=all&imported=' + (data.imported || 0) + '&created=' + (data.created || 0) + '&updated=' + (data.updated || 0) + '&skipped=' + (data.skipped || 0) + '&failed=' + (data.failed || 0) + (data.realEstateImport ? '&realEstate=1' : '');
+            return;
+          }
+          if (mlFileName && file) {
+            mlFileName.textContent = file.name;
+            mlFileName.classList.remove('hidden');
+          }
+          if (mlUploadErr) {
+            mlUploadErr.textContent = (data && data.error) ? data.error : 'Import failed. Check file format.';
+            mlUploadErr.classList.remove('hidden');
+          }
+        })
+        .catch(function () {
+          setManualLeadUploadLoading(false);
+          if (mlUploadSubmit) { mlUploadSubmit.disabled = false; mlUploadSubmit.textContent = 'Upload & import'; }
+          if (mlFileName && file) {
+            mlFileName.textContent = file.name;
+            mlFileName.classList.remove('hidden');
+          }
+          if (mlUploadErr) {
+            mlUploadErr.textContent = 'Network error. Try again.';
+            mlUploadErr.classList.remove('hidden');
+          }
+        });
+    });
+  }
+
+  // Wire up upload cancel
+  var mlUploadCancel = document.getElementById('manualLeadUploadCancel');
+  if (mlUploadCancel) mlUploadCancel.addEventListener('click', closeManualLead);
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape' || !mlModal || mlModal.classList.contains('hidden')) return;
+    closeManualLead();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    var afm = document.getElementById('callRoutingWalkthroughModal');
+    if (afm && !afm.classList.contains('hidden')) {
+      if (typeof window.closeCallRoutingWalkthrough === 'function') window.closeCallRoutingWalkthrough();
+      else if (typeof window.closeAgentFirstSetupWizard === 'function') window.closeAgentFirstSetupWizard();
+      return;
+    }
+    if (spModal && !spModal.classList.contains('hidden')) closeSoftphone();
+  });
+  syncNavBarCallIndicator();
+})();

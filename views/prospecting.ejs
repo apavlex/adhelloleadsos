@@ -130,11 +130,11 @@
   </main>
 
   <% if (activeTab === 'pipeline') { %>
-  <script src="/js/folder-filter-picker.js?v=<%= assetVersion %>"></script>
+  <script src="/js/folder-filter-picker.js?v=<%= assetVersion %>" defer></script>
   <%- include('partials/leads_interactive_tail', { leads: typeof leads !== 'undefined' ? leads : [], leadBootstrapLeads: typeof leadBootstrapLeads !== 'undefined' ? leadBootstrapLeads : null, pipelineStages, folders, tags: typeof tags !== 'undefined' ? tags : [], activeFolderKey: typeof activeFolderKey !== 'undefined' ? activeFolderKey : '', isBusinessesView: typeof isBusinessesView !== 'undefined' ? isBusinessesView : false, scriptLibraryOfferPicklist: Array.isArray(locals.scriptLibraryOfferPicklist) ? locals.scriptLibraryOfferPicklist : [], outreachChannelLibrary: locals.outreachChannelLibrary && typeof locals.outreachChannelLibrary === 'object' ? locals.outreachChannelLibrary : {} }) %>
-  <script src="/js/httpJson.js?v=<%= assetVersion %>"></script>
-  <script src="/js/socialUrlNormalize.js?v=<%= assetVersion %>"></script>
-  <script src="/js/socialBrandIcons.js?v=<%= assetVersion %>"></script>
+  <script src="/js/httpJson.js?v=<%= assetVersion %>" defer></script>
+  <script src="/js/socialUrlNormalize.js?v=<%= assetVersion %>" defer></script>
+  <script src="/js/socialBrandIcons.js?v=<%= assetVersion %>" defer></script>
   <% if (typeof driveImport !== 'undefined' && driveImport && driveImport.pickerReady) { %>
   <script>
   (function () {
@@ -280,14 +280,12 @@
   })();
   </script>
   <% } %>
-  <script src="/js/pipeline-bookmark.js?v=<%= assetVersion %>"></script>
-  <script src="/js/pipeline-bulk-select.js?v=<%= assetVersion %>"></script>
-  <script src="/js/lead-tags.js?v=<%= assetVersion %>"></script>
-  <script src="/js/lead-outreach-lists.js?v=<%= assetVersion %>"></script>
-  <script src="/js/lead-panel-merges.js?v=<%= assetVersion %>"></script>
-  <script src="/js/lead-panel-notes.js?v=<%= assetVersion %>"></script>
-  <script src="/js/lead-panel-paint.js?v=<%= assetVersion %>"></script>
-  <script src="/js/app.js?v=<%= assetVersion %>"></script>
+  <script src="/js/pipeline-bookmark.js?v=<%= assetVersion %>" defer></script>
+  <script src="/js/pipeline-bulk-select.js?v=<%= assetVersion %>" defer></script>
+  <script src="/js/lead-tags.js?v=<%= assetVersion %>" defer></script>
+  <script src="/js/lead-outreach-lists.js?v=<%= assetVersion %>" defer></script>
+  <script src="/js/lead-panel-paint.js?v=<%= assetVersion %>" defer></script>
+  <script src="/js/app.js?v=<%= assetVersion %>" defer></script>
   <% } else if (activeTab === 'folders') { %>
   <div id="folderCreateModal" class="fixed inset-0 z-[6000] flex items-center justify-center p-4" style="display: none;" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="folderCreateTitle">
     <div id="folderCreateBackdrop" class="absolute inset-0 bg-brand-dark/60 backdrop-blur-sm cursor-pointer" tabindex="-1"></div>

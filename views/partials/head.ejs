@@ -4,8 +4,7 @@
 <link rel="icon" href="/images/adhello-app-icon.png" type="image/png">
 <link rel="apple-touch-icon" href="/images/adhello-app-icon.png">
 <script>
-  /* Before CSS: set dark/light on <html> so custom.css variables match on first paint.
-     (localStorage 'in' check is unreliable across browsers — use getItem only.) */
+  /* Before CSS: set dark/light on <html> so custom.css variables match on first paint. */
   (function () {
     try {
       var d = document.documentElement;
@@ -21,7 +20,6 @@
 <script>window.__ADHELLO_WORKSPACE_ID__ = <%- safeJsonForScript(String(workspaceId)) %>;</script>
 <% } %>
 <script>window.__ADHELLO_SCRIPT_PROFILE__ = <%- safeJsonForScript(typeof scriptSignOffProfile !== 'undefined' && scriptSignOffProfile ? scriptSignOffProfile : { name: '', company: '', phone: '', email: '' }) %>;</script>
-<script src="/js/script-placeholders.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
 <style>
   /* First-paint background before Tailwind Play CDN injects utilities (avoids cream→dark snap). */
   html:not(.dark) { background-color: #FAF7ED; }
@@ -29,7 +27,8 @@
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Manrope:wght@700;800&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Manrope:wght@700;800&display=swap" rel="stylesheet"></noscript>
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
   tailwind.config = {
@@ -112,78 +111,52 @@
   }
 </style>
 <link rel="stylesheet" href="/css/custom.css?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>">
-<script src="/js/gcal-datetime-picker.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
-<script src="/js/direct-mail-queue.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
-<script src="/js/pipeline-prefs-prime.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
-<script src="/js/portaled-popover-surface.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
-<script src="/js/pipeline-import-export-menus.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
-<script src="/js/review-stars.js"></script>
-<script src="/js/review-freshness.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
 <%- include('/partials/app_shell_styles') %>
-<% if (typeof googleMapsStaticKey === 'string' && googleMapsStaticKey) { %>
-<script>window.__ADHELLO_GOOGLE_MAPS_STATIC_KEY__ = <%- JSON.stringify(googleMapsStaticKey) %>; window.__ADHELLO_LEAD_PANEL_JS_MAP__ = false;</script>
-<script src="/js/googleMapsLoader.js"></script>
-<% } %>
 <% if (typeof workspaceAccent !== 'undefined' && workspaceAccent) { %>
 <style>:root { --brand-yellow: <%= workspaceAccent %>; --workspace-accent: <%= workspaceAccent %>; }</style>
 <% } %>
-<script>
-(function () {
-  function typingTarget(el) {
-    if (!el) return false;
-    var tag = el.tagName;
-    if (tag === 'TEXTAREA') return true;
-    if (tag === 'SELECT') return true;
-    if (tag === 'INPUT') {
-      var t = el.type;
-      if (t === 'button' || t === 'submit' || t === 'checkbox' || t === 'radio' || t === 'file') return false;
-      return true;
-    }
-    return el.isContentEditable;
-  }
-  var armed = false;
-  var timer = null;
-  document.addEventListener('keydown', function (e) {
-    if (typingTarget(document.activeElement)) return;
-    var k = e.key;
-    if (armed) {
-      armed = false;
-      if (timer) clearTimeout(timer);
-      timer = null;
-      if (k === 'f' || k === 'F') {
-        e.preventDefault();
-        var focusUrl = '/focus';
-        try {
-          var raw = sessionStorage.getItem('adhello_focus_selected_keys');
-          if (raw) {
-            var keys = JSON.parse(raw);
-            if (Array.isArray(keys) && keys.length) {
-              focusUrl =
-                '/focus?lead=' +
-                encodeURIComponent(String(keys[0])) +
-                '&keys=' +
-                encodeURIComponent(keys.join(','));
-            }
-          }
-        } catch (_) {}
-        window.location.href = focusUrl;
-        return;
-      }
-      if (k === 't' || k === 'T') {
-        e.preventDefault();
-        window.location.href = '/today';
-        return;
-      }
-    }
-    if (k === 'g' || k === 'G') {
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      armed = true;
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(function () { armed = false; timer = null; }, 900);
-    }
-  }, true);
-})();
-</script>
 <% if (typeof quickLogClient !== 'undefined' && quickLogClient) { %>
 <script>window.__QUICK_LOG=<%- JSON.stringify(quickLogClient).replace(/</g, '\\u003c') %>;</script>
 <% } %>
+<%
+  const _np = typeof navPrimary !== 'undefined' ? String(navPrimary) : '';
+  const _rp = typeof requestPath !== 'undefined' ? String(requestPath) : '';
+  const _needPipeline =
+    _np === 'prospecting' ||
+    _np === 'find' ||
+    _rp.startsWith('/leads') ||
+    _rp.startsWith('/prospecting') ||
+    _rp.startsWith('/pipeline');
+  const _needGcal =
+    _np === 'today' ||
+    _np === 'tasks' ||
+    _rp.startsWith('/focus') ||
+    _rp.startsWith('/today') ||
+    _rp.startsWith('/tasks') ||
+    _rp.startsWith('/engagement');
+  const _needDmQueue = _np === 'direct-mail' || _rp.startsWith('/direct-mail');
+  const _needReviews = _needPipeline || _rp.startsWith('/focus');
+  const _av = typeof assetVersion !== 'undefined' ? assetVersion : '1';
+%>
+<%# Shared helpers — deferred so first paint isn't blocked by page-specific JS %>
+<script src="/js/script-placeholders.js?v=<%= _av %>" defer></script>
+<script src="/js/portaled-popover-surface.js?v=<%= _av %>" defer></script>
+<% if (_needGcal) { %>
+<script src="/js/gcal-datetime-picker.js?v=<%= _av %>" defer></script>
+<% } %>
+<% if (_needDmQueue) { %>
+<script src="/js/direct-mail-queue.js?v=<%= _av %>" defer></script>
+<% } %>
+<% if (_needPipeline) { %>
+<script src="/js/pipeline-prefs-prime.js?v=<%= _av %>" defer></script>
+<script src="/js/pipeline-import-export-menus.js?v=<%= _av %>" defer></script>
+<% } %>
+<% if (_needReviews) { %>
+<script src="/js/review-stars.js?v=<%= _av %>" defer></script>
+<script src="/js/review-freshness.js?v=<%= _av %>" defer></script>
+<% } %>
+<% if (typeof googleMapsStaticKey === 'string' && googleMapsStaticKey) { %>
+<script>window.__ADHELLO_GOOGLE_MAPS_STATIC_KEY__ = <%- JSON.stringify(googleMapsStaticKey) %>; window.__ADHELLO_LEAD_PANEL_JS_MAP__ = false;</script>
+<script src="/js/googleMapsLoader.js?v=<%= _av %>" defer></script>
+<% } %>
+<script defer src="/js/keyboard-nav-shortcuts.js?v=<%= _av %>"></script>

@@ -126,6 +126,11 @@ const { wantsJsonResponse } = require('./lib/httpRequest');
 
 // Middleware
 app.use(cors());
+try {
+  app.use(require('compression')({ threshold: 1024 }));
+} catch (_) {
+  /* optional dep */
+}
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 app.use((req, res, next) => {
   const largeBody =
@@ -134,7 +139,18 @@ app.use((req, res, next) => {
       req.path === '/leads/ai-analysis/export-csv');
   express.json({ limit: largeBody ? '15mb' : '1mb' })(req, res, next);
 });
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(
+  express.static(path.join(__dirname, 'public'), {
+    etag: true,
+    lastModified: true,
+    maxAge: process.env.NODE_ENV === 'production' ? '7d' : 0,
+    setHeaders(res, filePath) {
+      if (/\.(?:js|css|png|jpg|jpeg|gif|webp|svg|woff2?)$/i.test(filePath)) {
+        res.setHeader('Cache-Control', 'public, max-age=604800, stale-while-revalidate=86400');
+      }
+    },
+  }),
+);
 const sessionMiddleware = session({
   secret: process.env.SESSION_SECRET || 'adhello-secret-key',
   resave: false,

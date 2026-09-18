@@ -216,7 +216,7 @@ async function buildOutreachCoachSnapshot(req, opts = {}) {
     throw new Error('buildOutreachCoachSnapshot requires req.workspaceId');
   }
 
-  const all = await dbService.getAllLeads(wid);
+  const all = Array.isArray(opts.leads) ? opts.leads : await dbService.getAllLeads(wid);
   let leads = filterLeadsForRequest(req, all);
   if (opts.businessesOnly !== false) {
     leads = filterBusinessPipelineLeads(leads);

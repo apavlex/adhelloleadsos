@@ -569,9 +569,9 @@
     <% } %>
   </main>
 
-  <script src="/js/find-location-resolve.js?v=<%= assetVersion %>"></script>
-  <script src="/js/permit-city-picker.js?v=<%= assetVersion %>"></script>
-  <script src="/js/app.js?v=<%= assetVersion %>"></script>
+  <script src="/js/find-location-resolve.js?v=<%= assetVersion %>" defer></script>
+  <script src="/js/permit-city-picker.js?v=<%= assetVersion %>" defer></script>
+  <script src="/js/app.js?v=<%= assetVersion %>" defer></script>
   <script>
   (function () {
     window.FOLDER_SEARCH_PRESET = <%- JSON.stringify(typeof folderSearchPreset !== 'undefined' ? folderSearchPreset : null) %>;

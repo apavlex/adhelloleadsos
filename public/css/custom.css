@@ -851,8 +851,10 @@ body.sidebar-settings-open .sidebar-settings-toggle {
 /* Table row selection & clickability */
 .result-row {
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.15s ease, transform 0.15s ease;
     border-radius: 1rem;
+    content-visibility: auto;
+    contain-intrinsic-size: auto 72px;
 }
 
 table {
