@@ -437,7 +437,7 @@
             <button type="button" id="focus-btn-tag-sync-all-ghl" class="btn-pill shrink-0 border-2 border-brand-dark/20 dark:border-white/20 bg-white dark:bg-slate-900 text-brand-dark dark:text-white px-4 py-2.5 text-[10px] font-black uppercase tracking-widest hover:border-orange-500/50 transition-colors" title="Apply this tag to every Focus queue lead, then sync all to GHL">Tag &amp; sync all</button>
           </div>
           <p class="text-[10px] text-brand-muted leading-snug">Custom tag is applied in AdHello and pushed to GHL with <strong>Focus Mode</strong> + today’s date.</p>
-          <p class="text-[10px] text-brand-muted leading-snug">Syncs run in the background — keep working on leads while the bell shows progress, and you’ll get a browser notification when it finishes.</p>
+          <p class="text-[10px] text-brand-muted leading-snug">Sync continues when you open other AdHello pages (bell shows progress). Keep this browser tab open — closing the tab stops the queue.</p>
           <p id="focus-bulk-ghl-status" class="text-[11px] text-brand-muted min-h-[1rem]" aria-live="polite"></p>
         </div>
         <div id="focus-quick-log-section">
@@ -2093,10 +2093,10 @@
       setFocusBulkGhlBusy(true, 'Syncing 0/' + keys.length);
       setFocusGhlStopControl('stoppable');
       setFocusSyncListStatus(
-        'Syncing ' + keys.length + ' leads in the background — ' + tagNote + '. Keep working; the bell shows progress, and Stop sync halts it.',
+        'Syncing ' + keys.length + ' leads — ' + tagNote + '. You can open other AdHello pages; the bell shows progress. Stop sync halts it.',
         false,
       );
-      setOutcomeFeedback('GHL sync running in the background — check the bell.', false);
+      setOutcomeFeedback('GHL sync running — check the bell (OK to change pages in this tab).', false);
       return bg
         .run({
           leadKeys: keys,
