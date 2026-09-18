@@ -21,7 +21,7 @@ const workspaceThemeRow = document.getElementById('workspaceThemeRow');
 const showSaveLeadFabEl = document.getElementById('showSaveLeadFab');
 const findLoyaltyBtn = document.getElementById('findLoyaltyBtn');
 const loyaltyStatusEl = document.getElementById('loyaltyStatus');
-const EXT_VERSION = '1.9.0';
+const EXT_VERSION = '1.9.2';
 const PARALLEL_LABEL = '5 at a time';
 
 let bulkRunning = false;
@@ -58,6 +58,9 @@ document.querySelectorAll('.popup-tab').forEach((tabBtn) => {
     }
     if (tab === 'library') {
       loadLibraryPanel();
+    }
+    if (tab === 'save') {
+      detectActiveFacebookGroup();
     }
   });
 });
@@ -519,10 +522,12 @@ async function init() {
       ? `From ${formatSourceChannelLabel(platform) || platform.replace(/_/g, ' ')} · ${new URL(tab.url).hostname}`
       : 'Open a supported listing, profile, or business page to auto-fill.';
     fillForm(lead, defaultFolderName);
+    await detectActiveFacebookGroup();
   } catch (err) {
     platformLabel.textContent = 'Could not read this page. Save from this popup, or enable the on-page button in Settings.';
     setStatus(err.message, 'error');
     if (defaultFolderName) form.folderName.value = defaultFolderName;
+    await detectActiveFacebookGroup().catch(() => {});
   }
 }
 
@@ -1106,7 +1111,7 @@ async function detectActiveFacebookGroup() {
   } catch (_) {
     isGroup = false;
   }
-  const bar = document.getElementById('libraryGroupBar');
+  const bar = document.getElementById('saveGroupBar');
   if (bar) bar.classList.toggle('hidden', !isGroup);
   return { isGroup, url, title: (tab && tab.title) || '' };
 }
@@ -1114,7 +1119,6 @@ async function detectActiveFacebookGroup() {
 async function loadLibraryPanel() {
   setLibraryStatus('Loading library…');
   try {
-    await detectActiveFacebookGroup();
     const res = await chrome.runtime.sendMessage({
       type: 'GET_PROSPECTING_LIBRARY',
       workspaceId: getSelectedWorkspaceId(),
@@ -1141,9 +1145,9 @@ document.querySelectorAll('.library-subtab').forEach((btn) => {
   });
 });
 
-document.getElementById('librarySaveGroupBtn')?.addEventListener('click', async () => {
-  const statusEl = document.getElementById('libraryGroupStatus');
-  const btn = document.getElementById('librarySaveGroupBtn');
+document.getElementById('saveGroupBtn')?.addEventListener('click', async () => {
+  const statusEl = document.getElementById('saveGroupStatus');
+  const btn = document.getElementById('saveGroupBtn');
   if (btn) {
     btn.disabled = true;
     btn.textContent = 'Saving…';
@@ -1167,8 +1171,6 @@ document.getElementById('librarySaveGroupBtn')?.addEventListener('click', async 
       statusEl.textContent = already ? 'Already in your library.' : 'Group saved to AdHello.';
       statusEl.className = 'status status--success';
     }
-    await loadLibraryPanel();
-    showLibrarySection('groups');
   } catch (err) {
     if (statusEl) {
       statusEl.textContent = err.message || 'Could not save group';
