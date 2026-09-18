@@ -70,7 +70,6 @@ router.get('/', async (req, res, next) => {
       title: 'Facebook Groups | Agency OS',
       activePage: 'fb-groups',
       groups,
-      scriptCategories: FB_GROUP_SCRIPT_CATEGORIES,
       saveError: req.query.error === 'invalid',
       notGroupError: req.query.error === 'not_group',
     });

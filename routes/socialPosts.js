@@ -62,6 +62,7 @@ router.get('/', async (req, res, next) => {
     const styleProfile = await dbService.getSocialStyleProfile(wid).catch(() => null);
     const bookmarkFolders = await dbService.getSocialBookmarkFolders(wid).catch(() => []);
     const { profile } = await loadWorkspaceProfile(wid);
+    const { FB_GROUP_SCRIPT_CATEGORIES } = require('../config/fbGroupScripts');
     res.render('social-posts', {
       activePage: 'social-posts',
       savedPosts,
@@ -69,6 +70,7 @@ router.get('/', async (req, res, next) => {
       bookmarkFolders,
       businessProfile: profile,
       workspaceId: wid,
+      fbGroupScriptCategories: FB_GROUP_SCRIPT_CATEGORIES,
     });
   } catch (err) {
     next(err);

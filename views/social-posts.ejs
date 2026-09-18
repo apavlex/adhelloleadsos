@@ -116,7 +116,7 @@
         </button>
         <button onclick="qaGeneratePlatform('facebook_group')" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white flex items-center gap-1">
           <svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-          FB Groups
+          Facebook Groups
         </button>
         <button onclick="qaGeneratePlatform('linkedin')" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white flex items-center gap-1">
           <svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
@@ -198,11 +198,50 @@
       <button class="platform-tab active px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="all">All</button>
       <button class="platform-tab px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="instagram">Instagram</button>
       <button class="platform-tab px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="facebook">Facebook</button>
-      <button class="platform-tab px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="facebook_group">FB Groups</button>
+      <button class="platform-tab px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="facebook_group">Facebook Groups</button>
       <button class="platform-tab px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="linkedin">LinkedIn</button>
       <button class="platform-tab px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="x">X / Twitter</button>
       <button class="platform-tab px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="tiktok">TikTok</button>
       <button class="platform-tab px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="gmb">Google Business</button>
+    </div>
+
+    <!-- Facebook Groups script pack (shown only on that tab) -->
+    <div id="fbGroupScriptPack" class="hidden mb-10">
+      <div class="mb-6">
+        <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white mb-1">Group script pack</h2>
+        <p class="text-sm text-brand-muted max-w-2xl">Educational posts you can paste into groups or repost on your profile. Soft asks stay optional — lead with value. Bookmark any script to keep it in your library below.</p>
+      </div>
+      <% const _fbCats = typeof fbGroupScriptCategories !== 'undefined' && fbGroupScriptCategories ? fbGroupScriptCategories : []; %>
+      <% _fbCats.forEach((cat) => { %>
+      <section class="mb-8" data-fb-script-category="<%= cat.id %>">
+        <div class="flex flex-wrap items-baseline gap-2 mb-3">
+          <h3 class="font-display font-bold text-base text-brand-dark dark:text-white"><%= cat.label %></h3>
+          <% if (cat.hint) { %><p class="text-[11px] text-brand-muted"><%= cat.hint %></p><% } %>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <% (cat.scripts || []).forEach((s) => { %>
+          <article class="post-card rounded-2xl border border-brand-border/50 dark:border-white/10 bg-white/70 dark:bg-slate-900/60 overflow-hidden flex flex-col" data-fb-script-id="<%= s.id %>">
+            <div class="flex items-center justify-between gap-2 px-4 py-3 border-b border-brand-border/30 dark:border-white/10">
+              <div class="min-w-0">
+                <p class="platform-badge mb-0">Facebook Groups · <%= cat.label %></p>
+                <p class="text-[11px] font-black uppercase tracking-widest text-brand-dark dark:text-white"><%= s.title %></p>
+              </div>
+              <div class="flex items-center gap-1.5 shrink-0">
+                <button type="button" class="js-sp-fb-bookmark post-card-action-btn" title="Bookmark" data-script-id="<%= s.id %>" data-script-title="<%= s.title %>" aria-label="Bookmark script">
+                  <svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
+                </button>
+                <button type="button" class="js-sp-fb-copy inline-flex items-center rounded-lg px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wider border border-brand-border/60 dark:border-white/15 text-brand-muted hover:text-brand-dark dark:hover:text-white transition-colors" data-script-id="<%= s.id %>">Copy</button>
+              </div>
+            </div>
+            <textarea readonly rows="8" id="spFbScript_<%= s.id %>" class="w-full text-sm leading-relaxed text-brand-dark dark:text-slate-200 bg-transparent px-4 py-3 font-sans resize-y min-h-[9rem] border-0 focus:ring-0 outline-none"><%= s.body %></textarea>
+          </article>
+          <% }); %>
+        </div>
+      </section>
+      <% }); %>
+      <% if (!_fbCats.length) { %>
+      <p class="text-sm text-brand-muted italic">No group scripts configured.</p>
+      <% } %>
     </div>
 
     <!-- Ideas Grid -->
@@ -532,7 +571,7 @@
       download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
     };
 
-    const PLATFORM_LABELS = { instagram: 'Instagram', facebook: 'Facebook', facebook_group: 'FB Groups', linkedin: 'LinkedIn', x: 'X / Twitter', tiktok: 'TikTok', gmb: 'Google Business' };
+    const PLATFORM_LABELS = { instagram: 'Instagram', facebook: 'Facebook', facebook_group: 'Facebook Groups', linkedin: 'LinkedIn', x: 'X / Twitter', tiktok: 'TikTok', gmb: 'Google Business' };
     const DM_PLATFORMS = { instagram: 'instagram_feed', facebook: 'facebook_feed', facebook_group: 'facebook_feed', linkedin: 'linkedin_post', x: 'instagram_feed', tiktok: 'instagram_story', gmb: 'google_business_post' };
 
     // ── Hashtag Sets ───────────────────────────────────────────────────────────
@@ -611,7 +650,14 @@
       loadSavedPosts();
       renderCalendar();
       renderHashtags();
-      regenerateAll();
+      await regenerateAll();
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const plat = String(params.get('platform') || params.get('tab') || '').trim();
+        if (plat === 'facebook_group' || plat === 'fb-groups' || plat === 'fb_groups') {
+          switchTab('facebook_group');
+        }
+      } catch (_) {}
     });
 
     function renderNicheLabel() {
@@ -662,7 +708,68 @@
       document.querySelectorAll('.platform-tab').forEach(t => t.classList.remove('active'));
       const tab = document.querySelector(`[data-platform="${platform}"]`);
       if (tab) tab.classList.add('active');
-      renderIdeas();
+      const pack = document.getElementById('fbGroupScriptPack');
+      const ideas = document.getElementById('ideasContainer');
+      const onGroups = platform === 'facebook_group';
+      if (pack) pack.classList.toggle('hidden', !onGroups);
+      if (ideas) {
+        // On Facebook Groups, the script pack is the main content; hide short idea hooks.
+        ideas.classList.toggle('hidden', onGroups);
+      }
+      if (!onGroups) renderIdeas();
+      try {
+        const url = new URL(window.location.href);
+        if (onGroups) url.searchParams.set('platform', 'facebook_group');
+        else url.searchParams.delete('platform');
+        window.history.replaceState({}, '', url.pathname + url.search);
+      } catch (_) {}
+    }
+
+    function copyFbGroupScript(scriptId) {
+      const ta = document.getElementById('spFbScript_' + scriptId);
+      const text = ta ? ta.value : '';
+      if (!text) return;
+      navigator.clipboard.writeText(text).then(function () {
+        showCopyToast();
+        qaStatus('Script copied — paste into Facebook');
+      }).catch(function () {
+        qaStatus('Could not copy');
+      });
+    }
+
+    async function bookmarkFbGroupScript(scriptId, title) {
+      const ta = document.getElementById('spFbScript_' + scriptId);
+      const content = ta ? String(ta.value || '').trim() : '';
+      if (!content) {
+        qaStatus('Nothing to bookmark');
+        return;
+      }
+      const ideaId = 'fb_script_' + scriptId;
+      try {
+        const res = await fetch('/social-posts/api/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({
+            platform: 'facebook_group',
+            content,
+            cta: '',
+            ideaId,
+            tags: ['Facebook Groups', title || 'Group script'].filter(Boolean),
+          }),
+        });
+        const data = await res.json().catch(function () { return {}; });
+        if (!res.ok || !data.success) throw new Error((data && data.error) || 'Save failed');
+        if (data.post) {
+          const existingIdx = savedPosts.findIndex(function (p) { return p.id === data.post.id; });
+          if (existingIdx >= 0) savedPosts[existingIdx] = data.post;
+          else savedPosts.unshift(data.post);
+        }
+        renderSavedPosts();
+        renderTagFilters();
+        qaStatus('Bookmarked in library');
+      } catch (err) {
+        qaStatus((err && err.message) || 'Could not bookmark');
+      }
     }
 
     // ── CONTENT CALENDAR ────────────────────────────────────────────────────────
@@ -771,10 +878,21 @@
     // ── Platform Tabs ──────────────────────────────────────────────────────────
     document.querySelectorAll('.platform-tab').forEach(tab => {
       tab.addEventListener('click', () => {
-        document.querySelectorAll('.platform-tab').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        currentPlatform = tab.dataset.platform;
-        renderIdeas();
+        switchTab(tab.dataset.platform);
+      });
+    });
+
+    document.querySelectorAll('.js-sp-fb-copy').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        copyFbGroupScript(btn.getAttribute('data-script-id'));
+      });
+    });
+    document.querySelectorAll('.js-sp-fb-bookmark').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        bookmarkFbGroupScript(
+          btn.getAttribute('data-script-id'),
+          btn.getAttribute('data-script-title') || '',
+        );
       });
     });
 
@@ -783,7 +901,9 @@
       const preset = document.getElementById('nicheInput').value.trim();
       const q = preset ? '&preset=' + encodeURIComponent(preset) : '';
       const container = document.getElementById('ideasContainer');
-      container.innerHTML = '<div class="col-span-full text-center py-20 text-brand-muted"><p class="text-lg font-bold">Generating fresh ideas...</p></div>';
+      if (currentPlatform !== 'facebook_group') {
+        container.innerHTML = '<div class="col-span-full text-center py-20 text-brand-muted"><p class="text-lg font-bold">Generating fresh ideas...</p></div>';
+      }
       try {
         const res = await fetch('/social-posts/api/ideas?' + wsQuery() + q);
         const data = await res.json();
@@ -793,7 +913,8 @@
             const lbl = document.getElementById('nicheLabel');
             if (lbl) lbl.textContent = 'Ideas for: ' + data.niche;
           }
-          renderIdeas();
+          if (currentPlatform === 'facebook_group') switchTab('facebook_group');
+          else renderIdeas();
         }
         else { container.innerHTML = '<div class="col-span-full text-center py-20 text-red-500"><p class="font-bold">Error: ' + (data.error || 'Failed') + '</p></div>'; }
       } catch (err) { container.innerHTML = '<div class="col-span-full text-center py-20 text-red-500"><p class="font-bold">Connection error.</p></div>'; }

@@ -11,10 +11,10 @@
       <div>
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Prospecting</p>
         <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Facebook Groups</h1>
-        <p class="text-sm text-brand-muted mt-2 max-w-xl leading-relaxed">Save the groups you prospect in, open them in one click, and copy educational scripts for your profile or group posts.</p>
+        <p class="text-sm text-brand-muted mt-2 max-w-xl leading-relaxed">Save the groups you prospect in and open them in one click. Educational scripts live on Social Posts → Facebook Groups.</p>
       </div>
       <div class="flex flex-wrap gap-2">
-        <a href="/social-posts" class="btn-pill border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50">Social Posts library</a>
+        <a href="/social-posts?platform=facebook_group" class="btn-pill btn-primary px-4 py-2.5 text-[10px] font-black uppercase tracking-widest">Group scripts</a>
         <a href="/sales/personas/arms-reach" class="btn-pill border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50">Arm's Reach scripts</a>
       </div>
     </div>
@@ -96,27 +96,13 @@
     </div>
 
     <div class="mb-4">
-      <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white mb-1">Group script pack</h2>
-      <p class="text-sm text-brand-muted mb-6 max-w-2xl">Educational posts you can paste into groups or repost on your profile. Soft asks stay optional — lead with value.</p>
-      <% (scriptCategories || []).forEach((cat) => { %>
-      <section class="mb-8">
-        <div class="flex flex-wrap items-baseline gap-2 mb-3">
-          <h3 class="font-display font-bold text-base text-brand-dark dark:text-white"><%= cat.label %></h3>
-          <% if (cat.hint) { %><p class="text-[11px] text-brand-muted"><%= cat.hint %></p><% } %>
+      <div class="rounded-2xl border border-brand-border/50 dark:border-white/10 bg-white/70 dark:bg-slate-900/60 px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h2 class="font-display font-bold text-base text-brand-dark dark:text-white">Group script pack</h2>
+          <p class="text-sm text-brand-muted mt-1">Educational copy for groups and your profile now lives on Social Posts → <strong>Facebook Groups</strong>.</p>
         </div>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <% (cat.scripts || []).forEach((s) => { %>
-          <article class="rounded-2xl border border-brand-border/50 dark:border-white/10 bg-white/70 dark:bg-slate-900/60 overflow-hidden flex flex-col">
-            <div class="flex items-center justify-between gap-2 px-4 py-3 border-b border-brand-border/30 dark:border-white/10">
-              <p class="text-[11px] font-black uppercase tracking-widest text-brand-dark dark:text-white"><%= s.title %></p>
-              <button type="button" class="js-fb-copy-script inline-flex items-center rounded-lg px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wider border border-brand-border/60 dark:border-white/15 text-brand-muted hover:text-brand-dark dark:hover:text-white transition-colors" data-script-id="<%= s.id %>">Copy</button>
-            </div>
-            <textarea readonly rows="8" id="fbScript_<%= s.id %>" class="w-full text-sm leading-relaxed text-brand-dark dark:text-slate-200 bg-transparent px-4 py-3 font-sans resize-y min-h-[9rem] border-0 focus:ring-0 outline-none"><%= s.body %></textarea>
-          </article>
-          <% }); %>
-        </div>
-      </section>
-      <% }); %>
+        <a href="/social-posts?platform=facebook_group" class="btn-pill btn-primary px-5 py-2.5 text-[10px] font-black uppercase tracking-widest shrink-0 text-center">Open Facebook Groups tab</a>
+      </div>
     </div>
 
     <p id="fbGroupsToast" class="fixed bottom-6 right-6 hidden z-[80] rounded-xl bg-brand-dark text-white dark:bg-white dark:text-slate-900 px-4 py-2.5 text-xs font-bold shadow-lg" role="status"></p>
@@ -159,17 +145,6 @@
       btn.addEventListener('click', function () {
         copyText(btn.getAttribute('data-url') || '').then(function () {
           toast('Group URL copied');
-        }).catch(function () {
-          toast('Could not copy');
-        });
-      });
-    });
-    document.querySelectorAll('.js-fb-copy-script').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var id = btn.getAttribute('data-script-id');
-        var ta = document.getElementById('fbScript_' + id);
-        copyText(ta ? ta.value : '').then(function () {
-          toast('Script copied — paste into Facebook');
         }).catch(function () {
           toast('Could not copy');
         });
