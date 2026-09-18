@@ -21,7 +21,7 @@ const workspaceThemeRow = document.getElementById('workspaceThemeRow');
 const showSaveLeadFabEl = document.getElementById('showSaveLeadFab');
 const findLoyaltyBtn = document.getElementById('findLoyaltyBtn');
 const loyaltyStatusEl = document.getElementById('loyaltyStatus');
-const EXT_VERSION = '1.9.2';
+const EXT_VERSION = '1.9.3';
 const PARALLEL_LABEL = '5 at a time';
 
 let bulkRunning = false;
@@ -394,6 +394,21 @@ function fillForm(lead, defaultFolderName) {
     socialDetails.open = hasSocial;
   }
   form.reviews.value = formatReviewsField(lead);
+
+  const listingDetails = document.getElementById('listingDetails');
+  if (listingDetails) {
+    const hasListing = !!(
+      form.price.value ||
+      form.beds.value ||
+      form.baths.value ||
+      form.sqft.value ||
+      lead.listingType === 'products' ||
+      lead.jobType === 'products' ||
+      lead.listingType === 'real_estate' ||
+      lead.jobType === 'real_estate'
+    );
+    listingDetails.open = hasListing;
+  }
 
   const listingLabel =
     lead.listingType === 'products' || lead.jobType === 'products'

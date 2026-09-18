@@ -114,8 +114,8 @@
           <input type="text" name="reviews" placeholder="4.5★ · 120 reviews" />
         </label>
 
-        <section class="form-section" aria-labelledby="listingSectionTitle">
-          <h2 id="listingSectionTitle" class="form-section__title">Real estate &amp; products</h2>
+        <details class="social-details" id="listingDetails">
+          <summary>Real estate &amp; products</summary>
           <p class="form-section__hint">Optional — for Zillow, MHVillage, OfferUp, and other listings.</p>
           <label>
             <span>Price</span>
@@ -135,21 +135,21 @@
               <input type="text" name="sqft" />
             </label>
           </div>
-        </section>
+        </details>
 
         <div class="popup-form-actions popup-form-actions--bottom">
           <button type="submit" id="saveBtn">Save</button>
         </div>
       </form>
       <p id="status" class="status" aria-live="polite"></p>
-      <section class="form-section loyalty-tool" aria-labelledby="loyaltyToolTitle">
-        <h2 id="loyaltyToolTitle" class="form-section__title">On-site tools</h2>
+      <details class="social-details loyalty-tool" id="loyaltyDetails">
+        <summary>On-site tools</summary>
         <p class="form-section__hint">Scan this business site for a loyalty / rewards program, then mark the lead yes or no.</p>
         <div class="popup-form-actions popup-form-actions--secondary">
           <button type="button" id="findLoyaltyBtn">Find loyalty rewards</button>
         </div>
         <p id="loyaltyStatus" class="status loyalty-status" aria-live="polite"></p>
-      </section>
+      </details>
       <label class="bulk-check-row" for="showSaveLeadFab">
         <input type="checkbox" id="showSaveLeadFab" checked />
         <span>Show Save lead button on pages</span>
