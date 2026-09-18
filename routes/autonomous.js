@@ -1591,12 +1591,25 @@ router.post('/fb-groups', apiKeyAuth, express.json(), async (req, res, next) => 
       url,
       existingTitle: dup && dup.title,
     });
+    const noteText = String((req.body && (req.body.noteText || req.body.appendNote)) || '').trim();
+    const incomingNote = noteText || note;
+    const incomingTags = fbGroupsRouteHelpers.normalizeFbGroupTags(
+      (req.body && (req.body.tags || req.body.tagNames)) || '',
+    );
 
     if (dup) {
+      let notes = fbGroupsRouteHelpers.listFbGroupNotes(dup);
+      if (incomingNote) {
+        const latest = notes[0] && notes[0].text ? String(notes[0].text).trim() : '';
+        if (incomingNote !== latest) {
+          notes = fbGroupsRouteHelpers.appendFbGroupNote(notes, incomingNote);
+        }
+      }
+      const tags = fbGroupsRouteHelpers.mergeFbGroupTags(dup.tags, incomingTags);
       const refreshed = await dbService.saveWorkspaceFbGroup(wid, {
         ...dup,
         title: resolvedTitle,
-        note: note || dup.note || '',
+        note: notes[0] ? notes[0].text : note || dup.note || '',
         category: category || dup.category || '',
         location: location || dup.location || '',
         privacy: privacy || dup.privacy || '',
@@ -1606,15 +1619,20 @@ router.post('/fb-groups', apiKeyAuth, express.json(), async (req, res, next) => 
         adminContact: adminContact || dup.adminContact || '',
         lastVisited: lastVisitedNow,
         posts: Array.isArray(dup.posts) ? dup.posts : [],
+        notes,
+        tags,
       });
       return res.json({ success: true, group: refreshed, alreadySaved: true });
     }
     const id = `${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+    const notes = incomingNote
+      ? fbGroupsRouteHelpers.appendFbGroupNote([], incomingNote)
+      : [];
     const group = await dbService.saveWorkspaceFbGroup(wid, {
       id,
       url,
       title: resolvedTitle,
-      note,
+      note: notes[0] ? notes[0].text : note,
       category,
       location,
       privacy,
@@ -1624,6 +1642,8 @@ router.post('/fb-groups', apiKeyAuth, express.json(), async (req, res, next) => 
       adminContact,
       lastVisited: lastVisitedNow,
       posts: [],
+      notes,
+      tags: incomingTags,
       addedBy: String(req.headers['x-user-email'] || '').trim().slice(0, 320) || undefined,
     });
     res.json({ success: true, group, alreadySaved: false });

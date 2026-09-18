@@ -153,6 +153,59 @@ function normalizeAdminContact(raw) {
   return String(raw || '').trim().slice(0, 200);
 }
 
+function normalizeFbGroupTags(raw) {
+  const list = Array.isArray(raw)
+    ? raw
+    : String(raw || '')
+        .split(/[,#]+/)
+        .map((t) => t.trim());
+  const seen = new Set();
+  const out = [];
+  for (const t of list) {
+    const tag = String(t || '')
+      .trim()
+      .replace(/^#/, '')
+      .slice(0, 40);
+    if (!tag) continue;
+    const key = tag.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(tag);
+    if (out.length >= 20) break;
+  }
+  return out;
+}
+
+function mergeFbGroupTags(existing, incoming) {
+  return normalizeFbGroupTags([...(normalizeFbGroupTags(existing) || []), ...(normalizeFbGroupTags(incoming) || [])]);
+}
+
+function listFbGroupNotes(group) {
+  const notes = Array.isArray(group && group.notes) ? group.notes.filter((n) => n && String(n.text || '').trim()) : [];
+  if (notes.length) return notes;
+  const legacy = String((group && group.note) || '').trim();
+  if (!legacy) return [];
+  return [
+    {
+      id: 'legacy',
+      text: legacy.slice(0, 4000),
+      createdAt: String((group && (group.updatedAt || group.createdAt)) || '').slice(0, 40),
+    },
+  ];
+}
+
+function appendFbGroupNote(existingNotes, text) {
+  const body = String(text || '').trim().slice(0, 4000);
+  if (!body) return existingNotes || [];
+  const now = new Date().toISOString();
+  const entry = {
+    id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    text: body,
+    createdAt: now,
+  };
+  return [entry, ...(Array.isArray(existingNotes) ? existingNotes : [])].slice(0, 40);
+}
+
 /** Optional ISO / date-ish string for last visited. Empty clears; invalid ignored when keepExisting. */
 function normalizeLastVisited(raw, { keepExisting } = {}) {
   const s = String(raw || '').trim();
@@ -179,6 +232,7 @@ function metaFromBody(body) {
     lastPosted: normalizeLastPosted(b.lastPosted),
     adminContact: normalizeAdminContact(b.adminContact || b.admin || b.ownerContact),
     lastVisited: normalizeLastVisited(b.lastVisited, { keepExisting: true }),
+    tags: normalizeFbGroupTags(b.tags || b.tagNames),
   };
 }
 
@@ -234,6 +288,10 @@ router.post('/add', express.urlencoded({ extended: true }), async (req, res, nex
       title,
       ...meta,
       posts: [],
+      notes: meta.note
+        ? [{ id: `${Date.now()}_n`, text: meta.note, createdAt: new Date().toISOString() }]
+        : [],
+      tags: meta.tags || [],
       lastVisited: meta.lastVisited || new Date().toISOString(),
       addedBy: email,
     });
@@ -293,10 +351,17 @@ router.post('/:id/update', express.urlencoded({ extended: true }), async (req, r
       memberCountLabel = meta.memberCountLabel;
     }
     const lastVisitedRaw = String(req.body.lastVisited || '').trim();
+    let notes = listFbGroupNotes(existing);
+    const nextNote = meta.note;
+    const latestText = notes[0] && notes[0].text ? String(notes[0].text).trim() : '';
+    if (nextNote && nextNote !== latestText) {
+      notes = appendFbGroupNote(notes, nextNote);
+    }
+    const tags = mergeFbGroupTags(existing.tags, meta.tags);
     await dbService.saveWorkspaceFbGroup(req.workspaceId, {
       ...existing,
       title,
-      note: meta.note,
+      note: nextNote || (notes[0] && notes[0].text) || '',
       category: meta.category,
       location: meta.location,
       privacy: meta.privacy || existing.privacy || '',
@@ -308,6 +373,45 @@ router.post('/:id/update', express.urlencoded({ extended: true }), async (req, r
         ? normalizeLastVisited(lastVisitedRaw) || existing.lastVisited || ''
         : existing.lastVisited || '',
       posts: Array.isArray(existing.posts) ? existing.posts : [],
+      notes,
+      tags,
+    });
+    res.redirect(302, '/fb-groups');
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/:id/notes', express.urlencoded({ extended: true }), async (req, res, next) => {
+  try {
+    const existing = await dbService.getWorkspaceFbGroup(req.workspaceId, req.params.id);
+    if (!existing) return res.redirect(302, '/fb-groups');
+    const text = String(req.body.noteText || req.body.text || '').trim().slice(0, 4000);
+    if (!text) return res.redirect(302, '/fb-groups');
+    const notes = appendFbGroupNote(listFbGroupNotes(existing), text);
+    const tags = mergeFbGroupTags(existing.tags, req.body.tags);
+    await dbService.saveWorkspaceFbGroup(req.workspaceId, {
+      ...existing,
+      notes,
+      tags,
+      note: notes[0] ? notes[0].text : existing.note || '',
+    });
+    res.redirect(302, '/fb-groups');
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/:id/notes/:noteId/delete', express.urlencoded({ extended: true }), async (req, res, next) => {
+  try {
+    const existing = await dbService.getWorkspaceFbGroup(req.workspaceId, req.params.id);
+    if (!existing) return res.redirect(302, '/fb-groups');
+    const noteId = String(req.params.noteId || '').trim();
+    const notes = listFbGroupNotes(existing).filter((n) => n && String(n.id) !== noteId);
+    await dbService.saveWorkspaceFbGroup(req.workspaceId, {
+      ...existing,
+      notes,
+      note: notes[0] ? notes[0].text : '',
     });
     res.redirect(302, '/fb-groups');
   } catch (e) {
@@ -387,3 +491,7 @@ module.exports.normalizePrivacy = normalizePrivacy;
 module.exports.normalizeLastPosted = normalizeLastPosted;
 module.exports.normalizeAdminContact = normalizeAdminContact;
 module.exports.normalizeLastVisited = normalizeLastVisited;
+module.exports.normalizeFbGroupTags = normalizeFbGroupTags;
+module.exports.mergeFbGroupTags = mergeFbGroupTags;
+module.exports.listFbGroupNotes = listFbGroupNotes;
+module.exports.appendFbGroupNote = appendFbGroupNote;

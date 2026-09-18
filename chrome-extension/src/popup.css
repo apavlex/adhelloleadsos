@@ -141,6 +141,63 @@ header h1 {
   color: #1e40af;
 }
 
+.library-group-bar__note {
+  margin: 0 0 8px;
+  padding: 8px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid #dbeafe;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #1e3a8a;
+  white-space: pre-wrap;
+}
+
+.library-group-bar__note.hidden,
+.library-group-bar__tags.hidden {
+  display: none;
+}
+
+.library-group-bar__tags {
+  margin: 0 0 8px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #1d4ed8;
+}
+
+.library-group-field {
+  display: block;
+  margin: 0 0 8px;
+}
+
+.library-group-field span {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #1e40af;
+}
+
+.library-group-field input,
+.library-group-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  background: #fff;
+  color: #111827;
+}
+
+.library-group-field textarea {
+  resize: vertical;
+  min-height: 64px;
+}
+
 .library-primary-btn {
   width: 100%;
   border: none;

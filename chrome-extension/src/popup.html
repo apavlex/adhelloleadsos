@@ -32,7 +32,17 @@
     <div id="panelSave" class="popup-panel">
       <div id="saveGroupBar" class="library-group-bar hidden">
         <p class="library-group-bar__label">This tab looks like a Facebook group</p>
-        <button type="button" id="saveGroupBtn" class="library-primary-btn">Save this group to AdHello</button>
+        <p id="saveGroupLatestNote" class="library-group-bar__note hidden"></p>
+        <p id="saveGroupTagsPreview" class="library-group-bar__tags hidden"></p>
+        <label class="library-group-field">
+          <span>Tags</span>
+          <input type="text" id="saveGroupTags" maxlength="200" placeholder="e.g. flooring, portland, warm" autocomplete="off" />
+        </label>
+        <label class="library-group-field">
+          <span>Quick note</span>
+          <textarea id="saveGroupNote" rows="3" maxlength="4000" placeholder="What you’re doing here, angle, what to post…"></textarea>
+        </label>
+        <button type="button" id="saveGroupBtn" class="library-primary-btn">Save group + note to AdHello</button>
         <p id="saveGroupStatus" class="status" aria-live="polite"></p>
       </div>
       <form id="leadForm">

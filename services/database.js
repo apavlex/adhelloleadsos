@@ -1676,6 +1676,41 @@ module.exports = {
       }));
   },
 
+  _normalizeFbGroupNotes(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .filter((n) => n && String(n.text || '').trim())
+      .slice(0, 40)
+      .map((n) => ({
+        id: String(n.id || `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`).slice(0, 40),
+        text: String(n.text || '').trim().slice(0, 4000),
+        createdAt: String(n.createdAt || '').trim().slice(0, 40),
+      }));
+  },
+
+  _normalizeFbGroupTags(raw) {
+    const list = Array.isArray(raw)
+      ? raw
+      : String(raw || '')
+          .split(/[,#]+/)
+          .map((t) => t.trim());
+    const seen = new Set();
+    const out = [];
+    for (const t of list) {
+      const tag = String(t || '')
+        .trim()
+        .replace(/^#/, '')
+        .slice(0, 40);
+      if (!tag) continue;
+      const key = tag.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(tag);
+      if (out.length >= 20) break;
+    }
+    return out;
+  },
+
   _workspaceFbGroupKey(workspaceId, groupId) {
     const wid = String(workspaceId || 'default').trim();
     const id = String(groupId || '').trim();
@@ -1733,9 +1768,23 @@ module.exports = {
       lastVisited: String(group.lastVisited || '').trim().slice(0, 40),
       adminContact: String(group.adminContact || '').trim().slice(0, 200),
       posts: this._normalizeFbGroupPosts(group.posts),
+      notes: this._normalizeFbGroupNotes(
+        Array.isArray(group.notes) && group.notes.length
+          ? group.notes
+          : group.note
+            ? [{ id: 'legacy', text: String(group.note).trim(), createdAt: group.updatedAt || now }]
+            : [],
+      ),
+      tags: this._normalizeFbGroupTags(group.tags),
       createdAt: group.createdAt || now,
       updatedAt: now,
     };
+    // Keep legacy `note` in sync with the latest notes entry when notes exist.
+    if (payload.notes.length) {
+      payload.note = payload.notes[0].text.slice(0, 2000);
+    } else {
+      payload.note = String(group.note || '').trim().slice(0, 2000);
+    }
     if (group.addedBy) payload.addedBy = String(group.addedBy).trim().slice(0, 320);
     kvSet(this._workspaceFbGroupKey(wid, id), JSON.stringify(payload));
     return payload;

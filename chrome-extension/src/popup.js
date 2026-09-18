@@ -21,7 +21,7 @@ const workspaceThemeRow = document.getElementById('workspaceThemeRow');
 const showSaveLeadFabEl = document.getElementById('showSaveLeadFab');
 const findLoyaltyBtn = document.getElementById('findLoyaltyBtn');
 const loyaltyStatusEl = document.getElementById('loyaltyStatus');
-const EXT_VERSION = '1.9.6';
+const EXT_VERSION = '1.9.7';
 const PARALLEL_LABEL = '5 at a time';
 
 let bulkRunning = false;
@@ -1043,10 +1043,14 @@ function renderLibraryGroups(groups) {
       const members =
         g.memberCountLabel ||
         (g.memberCount != null ? `${Number(g.memberCount).toLocaleString()} members` : '');
+      const latestNote =
+        (Array.isArray(g.notes) && g.notes[0] && g.notes[0].text) || g.note || '';
+      const tags = Array.isArray(g.tags) ? g.tags : [];
       const metaBits = [
         g.category || 'Facebook Group',
         members,
         g.privacy,
+        tags.length ? tags.map((t) => '#' + t).join(' ') : '',
         g.lastPosted ? `Posted ${g.lastPosted}` : '',
         g.adminContact ? `Admin ${g.adminContact}` : '',
       ].filter(Boolean);
@@ -1054,7 +1058,9 @@ function renderLibraryGroups(groups) {
         `<article class="library-card" data-kind="group" data-idx="${i}">` +
         `<p class="library-card__meta">${escapeHtml(metaBits.join(' · '))}</p>` +
         `<p class="library-card__title">${escapeHtml(g.title || 'Group')}</p>` +
-        (g.note ? `<p class="library-card__body">${escapeHtml(g.note)}</p>` : '') +
+        (latestNote
+          ? `<p class="library-card__body">${escapeHtml(String(latestNote).slice(0, 220))}${String(latestNote).length > 220 ? '…' : ''}</p>`
+          : '') +
         (g.location ? `<p class="library-card__body">${escapeHtml(g.location)}</p>` : '') +
         `<div class="library-card__actions">` +
         `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Open</a>` +
@@ -1139,7 +1145,76 @@ async function detectActiveFacebookGroup() {
   }
   const bar = document.getElementById('saveGroupBar');
   if (bar) bar.classList.toggle('hidden', !isGroup);
+  if (isGroup) {
+    hydrateSaveGroupFields(url).catch(function () {});
+  }
   return { isGroup, url, title: (tab && tab.title) || '', tabId: tab && tab.id };
+}
+
+function normalizeGroupUrlKey(url) {
+  try {
+    const u = new URL(url);
+    const m = u.pathname.match(/\/groups\/([^/?#]+)/i);
+    return m ? m[1].toLowerCase() : String(url || '').toLowerCase();
+  } catch (_) {
+    return String(url || '').toLowerCase();
+  }
+}
+
+function latestNoteFromGroup(g) {
+  if (!g) return '';
+  if (Array.isArray(g.notes) && g.notes.length && g.notes[0].text) return String(g.notes[0].text);
+  return String(g.note || '');
+}
+
+async function hydrateSaveGroupFields(url) {
+  const noteEl = document.getElementById('saveGroupLatestNote');
+  const tagsPreview = document.getElementById('saveGroupTagsPreview');
+  const tagsInput = document.getElementById('saveGroupTags');
+  try {
+    const res = await chrome.runtime.sendMessage({
+      type: 'GET_PROSPECTING_LIBRARY',
+      workspaceId: getSelectedWorkspaceId(),
+    });
+    if (!res?.ok) return;
+    const groups = (res.data && res.data.groups) || [];
+    const key = normalizeGroupUrlKey(url);
+    const match = groups.find((g) => normalizeGroupUrlKey(g.url) === key);
+    if (!match) {
+      if (noteEl) {
+        noteEl.textContent = '';
+        noteEl.classList.add('hidden');
+      }
+      if (tagsPreview) {
+        tagsPreview.textContent = '';
+        tagsPreview.classList.add('hidden');
+      }
+      return;
+    }
+    const latest = latestNoteFromGroup(match);
+    if (noteEl) {
+      if (latest) {
+        noteEl.textContent = 'Latest note: ' + latest.slice(0, 280) + (latest.length > 280 ? '…' : '');
+        noteEl.classList.remove('hidden');
+      } else {
+        noteEl.textContent = '';
+        noteEl.classList.add('hidden');
+      }
+    }
+    const tags = Array.isArray(match.tags) ? match.tags : [];
+    if (tagsPreview) {
+      if (tags.length) {
+        tagsPreview.textContent = tags.map((t) => '#' + t).join('  ');
+        tagsPreview.classList.remove('hidden');
+      } else {
+        tagsPreview.textContent = '';
+        tagsPreview.classList.add('hidden');
+      }
+    }
+    if (tagsInput && !String(tagsInput.value || '').trim() && tags.length) {
+      tagsInput.value = tags.join(', ');
+    }
+  } catch (_) {}
 }
 
 function scrapeFbGroupMetaInPage() {
@@ -1267,6 +1342,8 @@ document.querySelectorAll('.library-subtab').forEach((btn) => {
 document.getElementById('saveGroupBtn')?.addEventListener('click', async () => {
   const statusEl = document.getElementById('saveGroupStatus');
   const btn = document.getElementById('saveGroupBtn');
+  const noteInput = document.getElementById('saveGroupNote');
+  const tagsInput = document.getElementById('saveGroupTags');
   if (btn) {
     btn.disabled = true;
     btn.textContent = 'Saving…';
@@ -1279,6 +1356,8 @@ document.getElementById('saveGroupBtn')?.addEventListener('click', async () => {
     const detected = await detectActiveFacebookGroup();
     if (!detected.isGroup) throw new Error('Open a Facebook group tab first.');
     const meta = (await scrapeActiveFbGroupMeta(detected.tabId)) || {};
+    const noteText = noteInput ? String(noteInput.value || '').trim() : '';
+    const tags = tagsInput ? String(tagsInput.value || '').trim() : '';
     const res = await chrome.runtime.sendMessage({
       type: 'SAVE_FB_GROUP',
       url: detected.url,
@@ -1289,19 +1368,23 @@ document.getElementById('saveGroupBtn')?.addEventListener('click', async () => {
       location: meta.location || '',
       lastPosted: meta.lastPosted || '',
       adminContact: meta.adminContact || '',
+      noteText,
+      tags,
       workspaceId: getSelectedWorkspaceId(),
     });
     if (!res?.ok) throw new Error(res?.error || 'Save failed');
     const already = res.data && res.data.alreadySaved;
     const saved = res.data && res.data.group;
-    let msg = already ? 'Already in your library.' : 'Group saved to AdHello.';
+    let msg = already ? 'Updated in AdHello.' : 'Group saved to AdHello.';
+    if (noteText) msg += ' · note synced';
+    if (tags) msg += ' · tags synced';
     if (saved && saved.memberCountLabel) msg += ` · ${saved.memberCountLabel}`;
-    else if (saved && saved.memberCount != null) msg += ` · ${Number(saved.memberCount).toLocaleString()} members`;
-    if (saved && saved.lastPosted) msg += ` · last post ${saved.lastPosted}`;
     if (statusEl) {
       statusEl.textContent = msg;
       statusEl.className = 'status status--success';
     }
+    if (noteInput) noteInput.value = '';
+    await hydrateSaveGroupFields(detected.url);
   } catch (err) {
     if (statusEl) {
       statusEl.textContent = err.message || 'Could not save group';
@@ -1310,7 +1393,7 @@ document.getElementById('saveGroupBtn')?.addEventListener('click', async () => {
   } finally {
     if (btn) {
       btn.disabled = false;
-      btn.textContent = 'Save this group to AdHello';
+      btn.textContent = 'Save group + note to AdHello';
     }
   }
 });
