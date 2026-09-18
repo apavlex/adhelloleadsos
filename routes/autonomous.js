@@ -1481,4 +1481,114 @@ router.post('/ghl/sync', apiKeyAuth, express.json(), async (req, res, next) => {
   }
 });
 
+// ── Facebook Groups + prospecting library (Chrome extension) ─────────────────
+
+const {
+  FB_GROUP_SCRIPT_CATEGORIES,
+  listFbGroupScriptsFlat,
+} = require('../config/fbGroupScripts');
+const fbGroupsRouteHelpers = require('./fbGroups');
+
+/**
+ * GET /autonomous/library
+ * Group scripts + bookmarked social posts for the Chrome extension Library tab.
+ */
+router.get('/library', apiKeyAuth, async (req, res, next) => {
+  try {
+    const wid = workspaceId(req);
+    const posts = await dbService.getSocialPosts(wid).catch(() => []);
+    const bookmarked = (posts || [])
+      .filter((p) => p && (p.bookmarked === true || p.bookmarked === 1 || p.content))
+      .slice(0, 80)
+      .map((p) => ({
+        id: p.id,
+        platform: p.platform || '',
+        content: p.content || [p.hook, p.cta].filter(Boolean).join('\n\n'),
+        hook: p.hook || '',
+        cta: p.cta || '',
+        tags: Array.isArray(p.tags) ? p.tags : [],
+        folderId: p.folderId || '',
+        updatedAt: p.updatedAt || p.createdAt || '',
+      }));
+    const groups = await dbService.listWorkspaceFbGroups(wid).catch(() => []);
+    res.json({
+      success: true,
+      workspaceId: wid,
+      scripts: listFbGroupScriptsFlat(),
+      scriptCategories: FB_GROUP_SCRIPT_CATEGORIES,
+      bookmarks: bookmarked,
+      groups,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/fb-group-scripts', apiKeyAuth, (req, res) => {
+  res.json({
+    success: true,
+    categories: FB_GROUP_SCRIPT_CATEGORIES,
+    scripts: listFbGroupScriptsFlat(),
+  });
+});
+
+router.get('/fb-groups', apiKeyAuth, async (req, res, next) => {
+  try {
+    const groups = await dbService.listWorkspaceFbGroups(workspaceId(req));
+    res.json({ success: true, groups });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/fb-groups', apiKeyAuth, express.json(), async (req, res, next) => {
+  try {
+    const wid = workspaceId(req);
+    const normalizeUrl = fbGroupsRouteHelpers.normalizeUrl;
+    const isFacebookGroupUrl = fbGroupsRouteHelpers.isFacebookGroupUrl;
+    const canonicalizeGroupUrl = fbGroupsRouteHelpers.canonicalizeGroupUrl;
+    const titleFromGroupUrl = fbGroupsRouteHelpers.titleFromGroupUrl;
+    const urlRaw = normalizeUrl(req.body && req.body.url);
+    if (!urlRaw || urlRaw.length > 2048) {
+      return res.status(400).json({ success: false, error: 'Valid group URL is required.' });
+    }
+    if (!isFacebookGroupUrl(urlRaw)) {
+      return res.status(400).json({
+        success: false,
+        error: 'URL must be a Facebook group (path includes /groups/).',
+      });
+    }
+    const url = canonicalizeGroupUrl(urlRaw);
+    const existing = await dbService.listWorkspaceFbGroups(wid);
+    const dup = existing.find((g) => String(g.url || '').toLowerCase() === url.toLowerCase());
+    if (dup) {
+      return res.json({ success: true, group: dup, alreadySaved: true });
+    }
+    const titleIn = String((req.body && req.body.title) || '').trim().slice(0, 200);
+    const note = String((req.body && req.body.note) || '').trim().slice(0, 2000);
+    const category = String((req.body && req.body.category) || '').trim().slice(0, 80);
+    const id = `${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+    const group = await dbService.saveWorkspaceFbGroup(wid, {
+      id,
+      url,
+      title: titleIn || titleFromGroupUrl(url) || url,
+      note,
+      category,
+      addedBy: String(req.headers['x-user-email'] || '').trim().slice(0, 320) || undefined,
+    });
+    res.json({ success: true, group, alreadySaved: false });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/fb-groups/:id', apiKeyAuth, async (req, res, next) => {
+  try {
+    await dbService.deleteWorkspaceFbGroup(workspaceId(req), req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;

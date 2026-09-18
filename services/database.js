@@ -1661,6 +1661,75 @@ module.exports = {
     kvDelete(key);
   },
 
+  // --- Facebook Groups (workspace library) ---
+
+  _workspaceFbGroupKey(workspaceId, groupId) {
+    const wid = String(workspaceId || 'default').trim();
+    const id = String(groupId || '').trim();
+    return `ws_fb_group:${wid}:${id}`;
+  },
+
+  async listWorkspaceFbGroups(workspaceId) {
+    const wid = String(workspaceId || 'default').trim();
+    const prefix = `ws_fb_group:${wid}:`;
+    const keys = kvList(prefix);
+    const groups = [];
+    for (const key of keys) {
+      const raw = kvGet(key);
+      if (!raw) continue;
+      try {
+        const g = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (g && g.id && g.url) groups.push(g);
+      } catch {
+        /* skip */
+      }
+    }
+    groups.sort((a, b) => {
+      const ta = Date.parse(a.updatedAt || a.createdAt || '') || 0;
+      const tb = Date.parse(b.updatedAt || b.createdAt || '') || 0;
+      return tb - ta;
+    });
+    return groups;
+  },
+
+  async saveWorkspaceFbGroup(workspaceId, group) {
+    const wid = String(workspaceId || 'default').trim();
+    const id = String(group.id || '').trim();
+    if (!id) throw new Error('Group id is required.');
+    const now = new Date().toISOString();
+    const url = String(group.url || '').trim();
+    if (!url) throw new Error('URL is required.');
+    const payload = {
+      id,
+      url,
+      title: String(group.title || '').trim() || url,
+      note: String(group.note || '').trim().slice(0, 2000),
+      category: String(group.category || '').trim().slice(0, 80),
+      createdAt: group.createdAt || now,
+      updatedAt: now,
+    };
+    if (group.addedBy) payload.addedBy = String(group.addedBy).trim().slice(0, 320);
+    kvSet(this._workspaceFbGroupKey(wid, id), JSON.stringify(payload));
+    return payload;
+  },
+
+  async deleteWorkspaceFbGroup(workspaceId, groupId) {
+    const id = String(groupId || '').trim();
+    if (!id) return false;
+    kvDelete(this._workspaceFbGroupKey(workspaceId, id));
+    return true;
+  },
+
+  async getWorkspaceFbGroup(workspaceId, groupId) {
+    const raw = kvGet(this._workspaceFbGroupKey(workspaceId, groupId));
+    if (!raw) return null;
+    try {
+      return typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch {
+      return null;
+    }
+  },
+
   // --- Workspace resources (shared links) ---
 
   _workspaceResourceKey(workspaceId, resourceId) {

@@ -15,12 +15,13 @@ const openOptions = document.getElementById('openOptions');
 const panelSave = document.getElementById('panelSave');
 const panelImport = document.getElementById('panelImport');
 const panelBulk = document.getElementById('panelBulk');
+const panelLibrary = document.getElementById('panelLibrary');
 const workspaceSelect = document.getElementById('workspaceSelect');
 const workspaceThemeRow = document.getElementById('workspaceThemeRow');
 const showSaveLeadFabEl = document.getElementById('showSaveLeadFab');
 const findLoyaltyBtn = document.getElementById('findLoyaltyBtn');
 const loyaltyStatusEl = document.getElementById('loyaltyStatus');
-const EXT_VERSION = '1.8.5';
+const EXT_VERSION = '1.9.0';
 const PARALLEL_LABEL = '5 at a time';
 
 let bulkRunning = false;
@@ -48,11 +49,15 @@ document.querySelectorAll('.popup-tab').forEach((tabBtn) => {
       b.classList.toggle('popup-tab--active', b === tabBtn);
     });
     panelSave.classList.toggle('hidden', tab !== 'save');
+    if (panelLibrary) panelLibrary.classList.toggle('hidden', tab !== 'library');
     panelBulk.classList.toggle('hidden', tab !== 'bulk');
     panelImport.classList.toggle('hidden', tab !== 'import');
     if (tab === 'bulk') {
       refreshBulkMapsHint();
       refreshWebsiteQueueHint({ autoStart: true });
+    }
+    if (tab === 'library') {
+      loadLibraryPanel();
     }
   });
 });
@@ -906,6 +911,244 @@ importForm?.addEventListener('submit', async (e) => {
       btn.disabled = false;
       btn.textContent = 'Import list to AdHello';
     });
+  }
+});
+
+let libraryCache = null;
+let libraryActiveTabUrl = '';
+
+function escapeHtml(s) {
+  return String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function setLibraryStatus(msg, type) {
+  const el = document.getElementById('libraryStatus');
+  if (!el) return;
+  el.textContent = msg || '';
+  el.className = `status${type ? ` status--${type}` : ''}`;
+}
+
+async function copyLibraryText(text) {
+  const value = String(text || '');
+  if (!value) throw new Error('Nothing to copy');
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+  const ta = document.createElement('textarea');
+  ta.value = value;
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
+}
+
+function renderLibraryScripts(scripts) {
+  const host = document.getElementById('libraryScripts');
+  if (!host) return;
+  if (!scripts || !scripts.length) {
+    host.innerHTML = '<p class="import-hint">No scripts loaded.</p>';
+    return;
+  }
+  host.innerHTML = scripts
+    .map(
+      (s, i) =>
+        `<article class="library-card" data-kind="script" data-idx="${i}">` +
+        `<p class="library-card__meta">${escapeHtml(s.categoryLabel || '')}</p>` +
+        `<p class="library-card__title">${escapeHtml(s.title || 'Script')}</p>` +
+        `<p class="library-card__body">${escapeHtml(s.body || '')}</p>` +
+        `<div class="library-card__actions"><button type="button" class="js-lib-copy">Copy</button></div>` +
+        `</article>`,
+    )
+    .join('');
+}
+
+function renderLibraryBookmarks(bookmarks) {
+  const host = document.getElementById('libraryBookmarks');
+  if (!host) return;
+  if (!bookmarks || !bookmarks.length) {
+    host.innerHTML =
+      '<p class="import-hint">No bookmarked Social Posts yet. Bookmark ideas on /social-posts.</p>';
+    return;
+  }
+  host.innerHTML = bookmarks
+    .map((b, i) => {
+      const body = b.content || [b.hook, b.cta].filter(Boolean).join('\n\n');
+      return (
+        `<article class="library-card" data-kind="bookmark" data-idx="${i}">` +
+        `<p class="library-card__meta">${escapeHtml(b.platform || 'post')}</p>` +
+        `<p class="library-card__title">${escapeHtml((b.hook || body || 'Post').slice(0, 80))}</p>` +
+        `<p class="library-card__body">${escapeHtml(body)}</p>` +
+        `<div class="library-card__actions"><button type="button" class="js-lib-copy">Copy</button></div>` +
+        `</article>`
+      );
+    })
+    .join('');
+}
+
+function renderLibraryGroups(groups) {
+  const host = document.getElementById('libraryGroups');
+  if (!host) return;
+  if (!groups || !groups.length) {
+    host.innerHTML =
+      '<p class="import-hint">No saved groups yet. Open a group and tap Save this group, or add one on /fb-groups.</p>';
+    return;
+  }
+  host.innerHTML = groups
+    .map(
+      (g, i) =>
+        `<article class="library-card" data-kind="group" data-idx="${i}">` +
+        `<p class="library-card__meta">${escapeHtml(g.category || 'Facebook Group')}</p>` +
+        `<p class="library-card__title">${escapeHtml(g.title || 'Group')}</p>` +
+        (g.note ? `<p class="library-card__body">${escapeHtml(g.note)}</p>` : '') +
+        `<div class="library-card__actions">` +
+        `<a href="${escapeHtml(g.url)}" target="_blank" rel="noopener noreferrer">Open</a>` +
+        `<button type="button" class="js-lib-copy">Copy URL</button>` +
+        `</div></article>`,
+    )
+    .join('');
+}
+
+function libraryTextForCard(card) {
+  if (!card || !libraryCache) return '';
+  const kind = card.getAttribute('data-kind');
+  const idx = Number(card.getAttribute('data-idx'));
+  if (!Number.isFinite(idx) || idx < 0) return '';
+  if (kind === 'script') {
+    const s = (libraryCache.scripts || [])[idx];
+    return (s && s.body) || '';
+  }
+  if (kind === 'bookmark') {
+    const b = (libraryCache.bookmarks || [])[idx];
+    if (!b) return '';
+    return b.content || [b.hook, b.cta].filter(Boolean).join('\n\n');
+  }
+  if (kind === 'group') {
+    const g = (libraryCache.groups || [])[idx];
+    return (g && g.url) || '';
+  }
+  return '';
+}
+
+function bindLibraryCopyClicks(root) {
+  if (!root) return;
+  root.querySelectorAll('.js-lib-copy').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const card = btn.closest('.library-card');
+      const text = libraryTextForCard(card);
+      try {
+        await copyLibraryText(text);
+        setLibraryStatus('Copied — paste into Facebook', 'success');
+      } catch (err) {
+        setLibraryStatus(err.message || 'Could not copy', 'error');
+      }
+    });
+  });
+}
+
+function showLibrarySection(which) {
+  document.querySelectorAll('.library-subtab').forEach((b) => {
+    b.classList.toggle('library-subtab--active', b.getAttribute('data-lib') === which);
+  });
+  const scripts = document.getElementById('libraryScripts');
+  const bookmarks = document.getElementById('libraryBookmarks');
+  const groups = document.getElementById('libraryGroups');
+  if (scripts) scripts.classList.toggle('hidden', which !== 'scripts');
+  if (bookmarks) bookmarks.classList.toggle('hidden', which !== 'bookmarks');
+  if (groups) groups.classList.toggle('hidden', which !== 'groups');
+}
+
+async function detectActiveFacebookGroup() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const url = String((tab && tab.url) || '');
+  libraryActiveTabUrl = url;
+  let isGroup = false;
+  try {
+    const u = new URL(url);
+    const h = u.hostname.replace(/^www\./, '').toLowerCase();
+    isGroup =
+      (h === 'facebook.com' || h === 'm.facebook.com' || h === 'web.facebook.com') &&
+      /\/groups\//i.test(u.pathname);
+  } catch (_) {
+    isGroup = false;
+  }
+  const bar = document.getElementById('libraryGroupBar');
+  if (bar) bar.classList.toggle('hidden', !isGroup);
+  return { isGroup, url, title: (tab && tab.title) || '' };
+}
+
+async function loadLibraryPanel() {
+  setLibraryStatus('Loading library…');
+  try {
+    await detectActiveFacebookGroup();
+    const res = await chrome.runtime.sendMessage({
+      type: 'GET_PROSPECTING_LIBRARY',
+      workspaceId: getSelectedWorkspaceId(),
+    });
+    if (!res?.ok) throw new Error(res?.error || 'Could not load library');
+    libraryCache = res.data || {};
+    renderLibraryScripts(libraryCache.scripts || []);
+    renderLibraryBookmarks(libraryCache.bookmarks || []);
+    renderLibraryGroups(libraryCache.groups || []);
+    bindLibraryCopyClicks(document.getElementById('libraryScripts'));
+    bindLibraryCopyClicks(document.getElementById('libraryBookmarks'));
+    bindLibraryCopyClicks(document.getElementById('libraryGroups'));
+    setLibraryStatus(
+      `${(libraryCache.scripts || []).length} scripts · ${(libraryCache.bookmarks || []).length} bookmarks · ${(libraryCache.groups || []).length} groups`,
+    );
+  } catch (err) {
+    setLibraryStatus(err.message || 'Could not load library', 'error');
+  }
+}
+
+document.querySelectorAll('.library-subtab').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    showLibrarySection(btn.getAttribute('data-lib') || 'scripts');
+  });
+});
+
+document.getElementById('librarySaveGroupBtn')?.addEventListener('click', async () => {
+  const statusEl = document.getElementById('libraryGroupStatus');
+  const btn = document.getElementById('librarySaveGroupBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+  }
+  if (statusEl) {
+    statusEl.textContent = '';
+    statusEl.className = 'status';
+  }
+  try {
+    const detected = await detectActiveFacebookGroup();
+    if (!detected.isGroup) throw new Error('Open a Facebook group tab first.');
+    const res = await chrome.runtime.sendMessage({
+      type: 'SAVE_FB_GROUP',
+      url: detected.url,
+      title: detected.title,
+      workspaceId: getSelectedWorkspaceId(),
+    });
+    if (!res?.ok) throw new Error(res?.error || 'Save failed');
+    const already = res.data && res.data.alreadySaved;
+    if (statusEl) {
+      statusEl.textContent = already ? 'Already in your library.' : 'Group saved to AdHello.';
+      statusEl.className = 'status status--success';
+    }
+    await loadLibraryPanel();
+    showLibrarySection('groups');
+  } catch (err) {
+    if (statusEl) {
+      statusEl.textContent = err.message || 'Could not save group';
+      statusEl.className = 'status status--error';
+    }
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Save this group to AdHello';
+    }
   }
 });
 

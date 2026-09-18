@@ -113,6 +113,139 @@ header h1 {
   padding: 8px 6px;
 }
 
+.popup-tabs--four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.popup-tabs--four .popup-tab {
+  font-size: 10px;
+  padding: 8px 2px;
+}
+
+.library-group-bar {
+  margin: 0 0 12px;
+  padding: 10px;
+  border-radius: 10px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+}
+
+.library-group-bar.hidden {
+  display: none;
+}
+
+.library-group-bar__label {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #1e40af;
+}
+
+.library-primary-btn {
+  width: 100%;
+  border: none;
+  border-radius: 8px;
+  background: #1877f2;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.library-primary-btn:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.library-subtabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.library-subtab {
+  flex: 1;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 6px 4px;
+  color: #6b7280;
+  cursor: pointer;
+}
+
+.library-subtab--active {
+  background: var(--ws-accent-soft, #fffbeb);
+  border-color: var(--ws-accent, #ca8a04);
+  color: var(--ws-accent-text, #92400e);
+}
+
+.library-section.hidden {
+  display: none;
+}
+
+.library-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 8px;
+  background: #fafafa;
+}
+
+.library-card__title {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #111827;
+}
+
+.library-card__meta {
+  margin: 0 0 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.library-card__body {
+  margin: 0 0 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #374151;
+  white-space: pre-wrap;
+  max-height: 4.5em;
+  overflow: hidden;
+}
+
+.library-card__actions {
+  display: flex;
+  gap: 6px;
+}
+
+.library-card__actions button,
+.library-card__actions a {
+  flex: 1;
+  text-align: center;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 7px 6px;
+  color: #111827;
+  text-decoration: none;
+  cursor: pointer;
+}
+
 .popup-tab {
   border: 1px solid #d1d5db;
   border-radius: 8px;

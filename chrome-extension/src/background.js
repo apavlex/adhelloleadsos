@@ -823,6 +823,32 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
+  if (message?.type === 'GET_PROSPECTING_LIBRARY') {
+    apiFetch('/autonomous/library', {}, message.workspaceId)
+      .then((data) => sendResponse({ ok: true, data }))
+      .catch((err) => sendResponse({ ok: false, error: err.message || String(err) }));
+    return true;
+  }
+
+  if (message?.type === 'SAVE_FB_GROUP') {
+    apiFetch(
+      '/autonomous/fb-groups',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          url: message.url,
+          title: message.title || '',
+          note: message.note || '',
+          category: message.category || '',
+        }),
+      },
+      message.workspaceId,
+    )
+      .then((data) => sendResponse({ ok: true, data }))
+      .catch((err) => sendResponse({ ok: false, error: err.message || String(err) }));
+    return true;
+  }
+
   if (message?.type === 'PARALLEL_WEBSITE_ENRICH_QUEUE') {
     if (websiteEnrichQueueRunning) {
       sendResponse({ ok: false, error: 'Website enrich is already running.' });

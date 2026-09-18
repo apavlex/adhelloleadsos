@@ -85,6 +85,7 @@
             content: 'Post ideas scoped to your workspace business profile. Bookmark favorites into folders, then open Marketing Studio from any card thumbnail — your post copy loads in the studio and you choose when to Chat and Generate.'
           }) %>
         </div>
+        <p class="text-xs text-brand-muted mt-1 max-w-xl">Educational ideas for your profile and Facebook groups — bookmark favorites, then copy or open Marketing Studio.</p>
         <p id="nicheLabel" class="text-xs text-brand-muted mt-1"></p>
         <div id="styleTags" class="flex flex-wrap gap-2 mt-2"></div>
       </div>
@@ -112,6 +113,10 @@
         <button onclick="qaGeneratePlatform('facebook')" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white flex items-center gap-1">
           <svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/></svg>
           Facebook
+        </button>
+        <button onclick="qaGeneratePlatform('facebook_group')" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white flex items-center gap-1">
+          <svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+          FB Groups
         </button>
         <button onclick="qaGeneratePlatform('linkedin')" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white flex items-center gap-1">
           <svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
@@ -193,6 +198,7 @@
       <button class="platform-tab active px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="all">All</button>
       <button class="platform-tab px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="instagram">Instagram</button>
       <button class="platform-tab px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="facebook">Facebook</button>
+      <button class="platform-tab px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="facebook_group">FB Groups</button>
       <button class="platform-tab px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="linkedin">LinkedIn</button>
       <button class="platform-tab px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="x">X / Twitter</button>
       <button class="platform-tab px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="tiktok">TikTok</button>
@@ -526,8 +532,8 @@
       download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
     };
 
-    const PLATFORM_LABELS = { instagram: 'Instagram', facebook: 'Facebook', linkedin: 'LinkedIn', x: 'X / Twitter', tiktok: 'TikTok', gmb: 'Google Business' };
-    const DM_PLATFORMS = { instagram: 'instagram_feed', facebook: 'facebook_feed', linkedin: 'linkedin_post', x: 'instagram_feed', tiktok: 'instagram_story', gmb: 'google_business_post' };
+    const PLATFORM_LABELS = { instagram: 'Instagram', facebook: 'Facebook', facebook_group: 'FB Groups', linkedin: 'LinkedIn', x: 'X / Twitter', tiktok: 'TikTok', gmb: 'Google Business' };
+    const DM_PLATFORMS = { instagram: 'instagram_feed', facebook: 'facebook_feed', facebook_group: 'facebook_feed', linkedin: 'linkedin_post', x: 'instagram_feed', tiktok: 'instagram_story', gmb: 'google_business_post' };
 
     // ── Hashtag Sets ───────────────────────────────────────────────────────────
     function businessHashtagTag(name) {
@@ -826,7 +832,7 @@
         if (format === 'portrait') return 'instagram_portrait';
         return 'instagram_feed';
       }
-      if (platform === 'facebook') {
+      if (platform === 'facebook' || platform === 'facebook_group') {
         if (format === 'story') return 'facebook_story';
         if (format === 'cover') return 'facebook_cover';
         return 'facebook_feed';

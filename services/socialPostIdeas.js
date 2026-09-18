@@ -12,12 +12,20 @@ function agencyTemplates(n) {
       { hook: `Stop losing ${n} leads to competitors who show up higher on Google`, single: true, cta: 'Comment LEADS and we will send you the fix' },
     ],
     facebook: [
-      { hook: `Free tip for ${n} business owners: This one Google setting could double your calls`, cta: 'Like & share if you found this helpful' },
-      { hook: `We just audited 50 ${n} businesses in [city]. Here's what 47 of them were missing:`, cta: 'Comment "AUDIT" for your free report' },
-      { hook: `The ${n} industry has a dirty secret: most businesses are invisible online. Here's the proof`, cta: 'Tag a ${n} business owner who needs to see this' },
-      { hook: `"I had no idea Google was hiding my business" — ${n} owner reaction`, cta: 'Learn more at adhello.ai' },
-      { hook: `${n} business owners: If your website takes longer than 3 seconds to load, you're losing 50% of your leads. Here's how to fix it.`, cta: 'Free website audit — link in comments' },
-      { hook: `POV: You're a ${n} customer searching Google Maps. You pick the first 3 results. Do you even scroll past them? Your customers don't either.`, cta: 'Get found first. Link in bio.' },
+      { hook: `Educational: Why most ${n} businesses lose calls to whoever shows up first on Google Maps (and how to check your listing in 2 minutes)`, educational: true, cta: 'Save & share with a ${n} owner' },
+      { hook: `Free lesson for ${n} owners: reviews that mention your service + city beat a higher star rating with vague praise`, educational: true, cta: 'Comment REVIEW for a 1-sentence ask template' },
+      { hook: `Teach-back: 3 Google Business Profile basics every ${n} owner should fix before spending on ads`, educational: true, cta: 'Like if this was useful — share in your local groups' },
+      { hook: `What ${n} customers actually do when they search "near me" — and why the map pack wins`, educational: true, cta: 'Tag a friend who runs a ${n} business' },
+      { hook: `${n} tip: if your site takes longer than 3 seconds on mobile, fix speed before buying more ads`, educational: true, cta: 'Comment SPEED for free tools to check' },
+      { hook: `Checklist post: claim listing → fresh photos → review ask. The ${n} visibility loop that compounds`, educational: true, cta: 'Share this on your profile or in a group' },
+    ],
+    facebook_group: [
+      { hook: `Quick tip for this group: when people search for ${n} nearby, Google usually shows 3 businesses first. Here's how to check if you're one of them.`, educational: true, group: true, cta: 'Comment VISIBLE if you want the 3-step check' },
+      { hook: `Educational post for local owners: a 4.9 with 12 reviews often loses to a 4.6 with 80. Volume + recency matter for ${n}.`, educational: true, group: true, cta: 'Drop REVIEW if you want a text template to ask customers' },
+      { hook: `Something useful for ${n} folks here: your Google profile photos and categories often matter more than a fancy website for phone calls.`, educational: true, group: true, cta: 'Happy to share a short checklist — comment CHECKLIST' },
+      { hook: `Group question + tip: what's helped YOU get more local ${n} leads — reviews, photos, Google posts, or referrals? Here's one tip that usually helps…`, educational: true, group: true, cta: 'Reply with what worked for you' },
+      { hook: `No-pitch tip for ${n} owners in this group: open your listing on mobile cellular and time how long until Call is tappable.`, educational: true, group: true, cta: 'Comment SPEED if yours felt slow' },
+      { hook: `Sharing a free ${n} visibility checklist I use with local owners (Google listing, photos, reviews, homepage city+service).`, educational: true, group: true, cta: "Comment CHECKLIST and I'll send it" },
     ],
     linkedin: [
       { hook: `I audited 100 ${n} businesses last month. 83 of them had the same problem:`, long: true, cta: 'What is the biggest marketing challenge in your industry? 👇' },
@@ -66,12 +74,20 @@ function businessTemplates(n) {
       { hook: `Premium ${n} without the premium price tag — here's how`, single: true, cta: 'Comment QUOTE for pricing' },
     ],
     facebook: [
-      { hook: `Thinking about ${n}? Here's what to know before you start`, cta: 'Like & share if this helps someone you know' },
-      { hook: `We just finished another ${n} project — here's what the customer chose and why`, cta: 'Comment for a free consultation' },
-      { hook: `Local ${n} tip: the one question to ask every contractor before you hire`, cta: 'Tag a friend planning a project' },
-      { hook: `"Best decision we made this year" — what customers say about our ${n} work`, cta: 'Book online — link in comments' },
-      { hook: `5-star ${n} service in your neighborhood — here's our latest project`, cta: 'Message us for availability' },
-      { hook: `Weekend project? Don't DIY this part of ${n} — here's why`, cta: 'Free estimate — link below' },
+      { hook: `Educational: What to know before hiring for ${n} (the questions that save money)`, educational: true, cta: 'Save & share with someone planning a project' },
+      { hook: `Teach-back: 3 signs you need a pro for ${n} — and what DIY usually costs later`, educational: true, cta: 'Like if this helps — share on your profile' },
+      { hook: `Local tip: the one question to ask every ${n} contractor before you hire`, educational: true, cta: 'Tag a friend planning a project' },
+      { hook: `How we scope a ${n} job so homeowners aren't surprised mid-project`, educational: true, cta: 'Comment QUESTIONS for our pre-hire list' },
+      { hook: `Before & after lesson from a recent ${n} project — what changed the outcome`, educational: true, cta: 'Share if you know someone starting soon' },
+      { hook: `Weekend project? Don't DIY this part of ${n} — here's why (short explainer)`, educational: true, cta: 'Save for later' },
+    ],
+    facebook_group: [
+      { hook: `Useful for homeowners in this group: 3 questions to ask before hiring anyone for ${n}.`, educational: true, group: true, cta: 'Comment QUESTIONS if you want the full list' },
+      { hook: `Educational post: what "cheap" ${n} usually costs later — from someone who sees the repairs.`, educational: true, group: true, cta: 'Share with a friend planning a project' },
+      { hook: `Quick tip for this group: before you hire ${n}, check recent Google photos + reviews that mention the service.`, educational: true, group: true, cta: 'What else do you check? Reply below' },
+      { hook: `Sharing what we wish every ${n} customer knew before starting (no sales pitch — just the gotchas).`, educational: true, group: true, cta: 'Happy to answer honest questions in the comments' },
+      { hook: `Group tip: measure twice, schedule once — how delays happen on ${n} jobs and how to avoid them.`, educational: true, group: true, cta: 'Save this for your next project' },
+      { hook: `For neighbors here: red flags when hiring for ${n} (watch for #2).`, educational: true, group: true, cta: 'Add your own red flags in the comments' },
     ],
     linkedin: [
       { hook: `After 10+ years in ${n}, here are the 5 things that separate great projects from costly ones:`, long: true, cta: "What's your biggest challenge on active jobs? 👇" },
@@ -115,7 +131,9 @@ function businessTemplates(n) {
  */
 function generatePostIdeas(niche = '', platformFilter = null, opts = {}) {
   const subject = String(opts.contentSubject || niche || '').trim() || 'local business';
-  const platforms = platformFilter ? [platformFilter] : ['instagram', 'facebook', 'linkedin', 'x', 'tiktok', 'gmb'];
+  const platforms = platformFilter
+    ? [platformFilter]
+    : ['instagram', 'facebook', 'facebook_group', 'linkedin', 'x', 'tiktok', 'gmb'];
   const ideas = {};
   const useAgency = opts.isAgencyWorkspace === true || isAgencyOrLocalGuideWorkspace({ socialPostsPreset: niche, coachPrompt: niche, name: niche });
   const baseIdeas = useAgency ? agencyTemplates(subject) : businessTemplates(subject);

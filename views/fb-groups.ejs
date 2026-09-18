@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
+  <%- include('partials/navbar') %>
+
+  <main class="max-wide px-6 py-10 md:py-12">
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
+      <div>
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Prospecting</p>
+        <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Facebook Groups</h1>
+        <p class="text-sm text-brand-muted mt-2 max-w-xl leading-relaxed">Save the groups you prospect in, open them in one click, and copy educational scripts for your profile or group posts.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a href="/social-posts" class="btn-pill border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50">Social Posts library</a>
+        <a href="/sales/personas/arms-reach" class="btn-pill border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50">Arm's Reach scripts</a>
+      </div>
+    </div>
+
+    <% if (typeof saveError !== 'undefined' && saveError) { %>
+    <div class="mb-6 rounded-2xl border border-red-300/60 bg-red-50/90 dark:bg-red-950/40 dark:border-red-500/30 px-4 py-3 text-sm text-red-900 dark:text-red-100">
+      Could not save that URL. Use a valid Facebook group link.
+    </div>
+    <% } %>
+    <% if (typeof notGroupError !== 'undefined' && notGroupError) { %>
+    <div class="mb-6 rounded-2xl border border-amber-300/60 bg-amber-50/90 dark:bg-amber-950/40 dark:border-amber-500/30 px-4 py-3 text-sm text-amber-950 dark:text-amber-100">
+      That link doesn't look like a Facebook <strong>group</strong>. Paste a URL that includes <code class="text-xs">/groups/</code> (e.g. facebook.com/groups/…).
+    </div>
+    <% } %>
+
+    <div class="brand-card p-6 md:p-8 dark:bg-slate-900 dark:border-white/10 mb-8">
+      <h2 class="font-display font-bold text-lg text-brand-dark dark:text-white mb-4">Save a group</h2>
+      <form action="/fb-groups/add" method="post" class="space-y-4">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          <div class="lg:col-span-6">
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="fbGroupUrl">Group URL</label>
+            <input id="fbGroupUrl" name="url" type="text" required maxlength="2048" placeholder="https://www.facebook.com/groups/…" autocomplete="off" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white placeholder:text-brand-muted/50" />
+          </div>
+          <div class="lg:col-span-3">
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="fbGroupTitle">Name (optional)</label>
+            <input id="fbGroupTitle" name="title" type="text" maxlength="200" placeholder="Defaults from URL" autocomplete="off" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white" />
+          </div>
+          <div class="lg:col-span-3">
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="fbGroupCategory">Category (optional)</label>
+            <input id="fbGroupCategory" name="category" type="text" maxlength="80" placeholder="e.g. Local flooring" autocomplete="off" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="fbGroupNote">Note (optional)</label>
+          <textarea id="fbGroupNote" name="note" rows="2" maxlength="2000" placeholder="Why this group matters, posting rules, best days…" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm text-brand-dark dark:text-white resize-y"></textarea>
+        </div>
+        <button type="submit" class="btn-pill btn-primary px-8 py-3 text-[10px] font-black uppercase tracking-widest">Save group</button>
+      </form>
+    </div>
+
+    <div class="mb-10">
+      <div class="flex items-center justify-between gap-3 mb-4">
+        <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white">Your groups <span class="text-brand-muted font-semibold text-base">· <%= (groups || []).length %></span></h2>
+      </div>
+      <% if (!groups || !groups.length) { %>
+      <%- include('partials/empty_state', {
+        emptyHeadline: 'No groups saved yet',
+        emptyBody: 'Paste a facebook.com/groups/… link above. You can also save the group you’re viewing from the Chrome extension Library tab.',
+        emptyCtaHref: '/social-posts',
+        emptyCtaLabel: 'Browse educational posts',
+        emptySecondaryHref: '/resources',
+        emptySecondaryLabel: 'Resources library',
+      }) %>
+      <% } else { %>
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <% groups.forEach((g) => { %>
+        <article class="brand-card p-5 dark:bg-slate-900 dark:border-white/10 flex flex-col gap-3">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-[#1877F2]/15 text-[#1877F2] dark:text-sky-300 border border-[#1877F2]/25 shrink-0">Facebook Group</span>
+            <% if (g.category) { %>
+            <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-brand-cream/60 dark:bg-white/10 text-brand-dark dark:text-slate-200 border border-brand-border/40 dark:border-white/10 shrink-0"><%= g.category %></span>
+            <% } %>
+          </div>
+          <h3 class="font-display font-bold text-base text-brand-dark dark:text-white leading-snug break-words"><%= g.title %></h3>
+          <% if (g.note) { %>
+          <p class="text-xs text-brand-muted leading-relaxed"><%= g.note %></p>
+          <% } %>
+          <div class="mt-auto flex flex-wrap items-center gap-2 pt-2">
+            <a href="<%= g.url %>" target="_blank" rel="noopener noreferrer" class="btn-pill btn-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest">Open group</a>
+            <button type="button" class="js-fb-copy-url btn-pill border border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white" data-url="<%= g.url %>">Copy URL</button>
+            <form action="/fb-groups/<%= encodeURIComponent(g.id) %>/delete" method="post" class="inline" onsubmit="return confirm('Remove this group from your library?');">
+              <button type="submit" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-rose-600 px-2 py-2">Remove</button>
+            </form>
+          </div>
+        </article>
+        <% }); %>
+      </div>
+      <% } %>
+    </div>
+
+    <div class="mb-4">
+      <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white mb-1">Group script pack</h2>
+      <p class="text-sm text-brand-muted mb-6 max-w-2xl">Educational posts you can paste into groups or repost on your profile. Soft asks stay optional — lead with value.</p>
+      <% (scriptCategories || []).forEach((cat) => { %>
+      <section class="mb-8">
+        <div class="flex flex-wrap items-baseline gap-2 mb-3">
+          <h3 class="font-display font-bold text-base text-brand-dark dark:text-white"><%= cat.label %></h3>
+          <% if (cat.hint) { %><p class="text-[11px] text-brand-muted"><%= cat.hint %></p><% } %>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <% (cat.scripts || []).forEach((s) => { %>
+          <article class="rounded-2xl border border-brand-border/50 dark:border-white/10 bg-white/70 dark:bg-slate-900/60 overflow-hidden flex flex-col">
+            <div class="flex items-center justify-between gap-2 px-4 py-3 border-b border-brand-border/30 dark:border-white/10">
+              <p class="text-[11px] font-black uppercase tracking-widest text-brand-dark dark:text-white"><%= s.title %></p>
+              <button type="button" class="js-fb-copy-script inline-flex items-center rounded-lg px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wider border border-brand-border/60 dark:border-white/15 text-brand-muted hover:text-brand-dark dark:hover:text-white transition-colors" data-script-id="<%= s.id %>">Copy</button>
+            </div>
+            <textarea readonly rows="8" id="fbScript_<%= s.id %>" class="w-full text-sm leading-relaxed text-brand-dark dark:text-slate-200 bg-transparent px-4 py-3 font-sans resize-y min-h-[9rem] border-0 focus:ring-0 outline-none"><%= s.body %></textarea>
+          </article>
+          <% }); %>
+        </div>
+      </section>
+      <% }); %>
+    </div>
+
+    <p id="fbGroupsToast" class="fixed bottom-6 right-6 hidden z-[80] rounded-xl bg-brand-dark text-white dark:bg-white dark:text-slate-900 px-4 py-2.5 text-xs font-bold shadow-lg" role="status"></p>
+  </main>
+
+  <%- include('partials/footer') %>
+  <script>
+  (function () {
+    function toast(msg) {
+      var el = document.getElementById('fbGroupsToast');
+      if (!el) return;
+      el.textContent = msg;
+      el.classList.remove('hidden');
+      clearTimeout(window.__fbGroupsToastTimer);
+      window.__fbGroupsToastTimer = setTimeout(function () {
+        el.classList.add('hidden');
+      }, 2200);
+    }
+    function copyText(text) {
+      if (!text) return Promise.reject(new Error('empty'));
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text);
+      }
+      return new Promise(function (resolve, reject) {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+          document.execCommand('copy');
+          resolve();
+        } catch (e) {
+          reject(e);
+        } finally {
+          document.body.removeChild(ta);
+        }
+      });
+    }
+    document.querySelectorAll('.js-fb-copy-url').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        copyText(btn.getAttribute('data-url') || '').then(function () {
+          toast('Group URL copied');
+        }).catch(function () {
+          toast('Could not copy');
+        });
+      });
+    });
+    document.querySelectorAll('.js-fb-copy-script').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.getAttribute('data-script-id');
+        var ta = document.getElementById('fbScript_' + id);
+        copyText(ta ? ta.value : '').then(function () {
+          toast('Script copied — paste into Facebook');
+        }).catch(function () {
+          toast('Could not copy');
+        });
+      });
+    });
+  })();
+  </script>
+</body>
+</html>

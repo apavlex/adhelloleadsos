@@ -43,6 +43,8 @@ function iaNav(req, res, next) {
     navPrimary = 'activity';
   } else if (p === '/resources' || p.startsWith('/resources/')) {
     navPrimary = 'resources';
+  } else if (p === '/fb-groups' || p.startsWith('/fb-groups/')) {
+    navPrimary = 'fb-groups';
   } else if (p === '/sops' || p.startsWith('/sops/')) {
     navPrimary = 'sops';
   } else if (p === '/ceo' || p.startsWith('/ceo/')) {

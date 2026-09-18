@@ -18,10 +18,11 @@
       <p id="saveTypeLabel" class="save-type hidden"></p>
     </header>
 
-    <nav class="popup-tabs popup-tabs--three" aria-label="Extension mode">
-      <button type="button" class="popup-tab popup-tab--active" data-tab="save" id="tabSave">Save lead</button>
-      <button type="button" class="popup-tab" data-tab="bulk" id="tabBulk">Bulk scrape</button>
-      <button type="button" class="popup-tab" data-tab="import" id="tabImport">Import CSV</button>
+    <nav class="popup-tabs popup-tabs--four" aria-label="Extension mode">
+      <button type="button" class="popup-tab popup-tab--active" data-tab="save" id="tabSave">Save</button>
+      <button type="button" class="popup-tab" data-tab="library" id="tabLibrary">Library</button>
+      <button type="button" class="popup-tab" data-tab="bulk" id="tabBulk">Bulk</button>
+      <button type="button" class="popup-tab" data-tab="import" id="tabImport">CSV</button>
     </nav>
 
     <div id="setupNotice" class="notice notice--warn hidden">
@@ -148,6 +149,25 @@
         <input type="checkbox" id="showSaveLeadFab" checked />
         <span>Show Save lead button on pages</span>
       </label>
+    </div>
+
+    <div id="panelLibrary" class="popup-panel hidden">
+      <p class="import-hint">Copy educational scripts and bookmarked Social Posts while you’re in a Facebook group. Paste into the composer — nothing auto-posts.</p>
+      <div id="libraryGroupBar" class="library-group-bar hidden">
+        <p class="library-group-bar__label">This tab looks like a Facebook group</p>
+        <button type="button" id="librarySaveGroupBtn" class="library-primary-btn">Save this group to AdHello</button>
+        <p id="libraryGroupStatus" class="status" aria-live="polite"></p>
+      </div>
+      <div class="library-subtabs" role="tablist" aria-label="Library sections">
+        <button type="button" class="library-subtab library-subtab--active" data-lib="scripts">Scripts</button>
+        <button type="button" class="library-subtab" data-lib="bookmarks">Bookmarks</button>
+        <button type="button" class="library-subtab" data-lib="groups">Groups</button>
+      </div>
+      <div id="libraryScripts" class="library-section"></div>
+      <div id="libraryBookmarks" class="library-section hidden"></div>
+      <div id="libraryGroups" class="library-section hidden"></div>
+      <p id="libraryStatus" class="status" aria-live="polite"></p>
+      <p class="bulk-folder-note">Manage groups on the web: <strong>/fb-groups</strong> · Bookmarks: <strong>/social-posts</strong></p>
     </div>
 
     <div id="panelBulk" class="popup-panel hidden">
