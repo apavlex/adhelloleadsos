@@ -4,19 +4,5 @@
 <script src="/js/lead-send-info.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
 <script src="/js/task-reminders.js" defer></script>
 <script src="/js/quick-add-task.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
-<%# Bell / status polling — idle so first paint isn't competing with notifications JS %>
-<script>
-(function () {
-  function loadNavNotifications() {
-    var s = document.createElement('script');
-    s.src = '/js/nav-notifications.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>';
-    s.defer = true;
-    document.head.appendChild(s);
-  }
-  if ('requestIdleCallback' in window) {
-    requestIdleCallback(loadNavNotifications, { timeout: 2500 });
-  } else {
-    setTimeout(loadNavNotifications, 400);
-  }
-})();
-</script>
+<%# Bell must load with defer (not idle): idle often runs after DOMContentLoaded and never binds clicks / resumes GHL sync. %>
+<script src="/js/nav-notifications.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>

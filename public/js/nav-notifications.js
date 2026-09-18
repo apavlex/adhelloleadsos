@@ -1814,13 +1814,15 @@
     applyProcessingRing();
   };
 
-  document.addEventListener('DOMContentLoaded', function () {
+  function initNavNotificationsBell() {
+    if (window.__navNotificationsBellBound) return;
     processingIndicator = document.getElementById('processingIndicator');
     const notificationPing = document.getElementById('notificationPing');
     const notificationDropdown = document.getElementById('notificationDropdown');
     const notificationList = document.getElementById('notificationList');
 
     if (!processingIndicator) return;
+    window.__navNotificationsBellBound = true;
 
     applyProcessingRing();
     if (readLeadRunSession() && localStorage.getItem('is_searching') === 'true') {
@@ -1878,6 +1880,7 @@
     if (isGhlSyncJobRunning()) {
       const ghlJob = readGhlSyncJob();
       if (ghlJob) {
+        activateNavbarWorkBell(ghlJob.label || 'GHL sync');
         updateBulkEnhanceBellBadge(ghlJob.index, ghlJob.keys.length, ghlJob.label || 'GHL sync');
         if (typeof window.showAppToast === 'function') {
           window.showAppToast(
@@ -2234,6 +2237,8 @@
         syncDesktopAlertsUi();
         if (isGhlSyncJobRunning() && notificationList) {
           notificationList.innerHTML = buildGhlSyncProgressBellHtml(readGhlSyncJob());
+          if (processingIndicator) processingIndicator.classList.add('processing-active');
+          activateNavbarWorkBell(readGhlSyncJob().label || 'GHL sync');
         } else if (isArtworkGenJobRunning() && notificationList) {
           notificationList.innerHTML = buildArtworkGenProgressBellHtml(readArtworkGenJob());
         }
@@ -2258,5 +2263,11 @@
         notificationDropdown.classList.add('hidden');
       }
     });
-  });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initNavNotificationsBell);
+  } else {
+    initNavNotificationsBell();
+  }
 })();
