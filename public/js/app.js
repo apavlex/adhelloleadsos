@@ -3198,7 +3198,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const show = channel === 'text' && !!String(phone || '').trim() && String(phone).trim() !== '—';
     section.classList.toggle('hidden', !show);
     if (show && row) {
-      loadLeadSmsThread(row, { sync: true }).catch(() => {});
+      // Local thread only — GHL sync can hang; user taps Sync when they want it.
+      populateLeadSmsTemplateSelect(row);
+      loadLeadSmsThread(row, { sync: false }).catch((err) => {
+        setLeadSmsThreadStatus((err && err.message) || 'Could not load messages', true);
+      });
       startLeadSmsThreadPolling(row);
     } else {
       stopLeadSmsThreadPolling();
@@ -3219,8 +3223,120 @@ document.addEventListener('DOMContentLoaded', () => {
       if ((window.__leadOutreachChannel || 'call') !== 'text') return;
       const active = resolvePanelActionRow ? resolvePanelActionRow() : currentRow;
       if (!active || active !== row) return;
-      loadLeadSmsThread(row, { sync: true, quiet: true }).catch(() => {});
+      // Quiet local refresh only — never auto-sync GHL on the interval.
+      loadLeadSmsThread(row, { sync: false, quiet: true }).catch(() => {});
     }, 45000);
+  }
+
+  let leadSmsTemplateOptions = [];
+  let leadSmsTemplateSelectBound = false;
+
+  function fillLeadSmsTemplateText(raw, row) {
+    let text = String(raw || '').trim();
+    if (!text) return '';
+    if (text.length > 480 && /\n\n/.test(text)) {
+      text = text.split(/\n\n/)[0].trim();
+    }
+    const helper = typeof window !== 'undefined' ? window.AdHelloScripts : null;
+    const profile = helper && helper.getScriptProfile ? helper.getScriptProfile() : null;
+    const prospect = {
+      name: String((row && row.dataset && (row.dataset.contactName || row.dataset.ownerName)) || '').trim(),
+      company: String((row && row.dataset && row.dataset.title) || '').trim(),
+      city: String((row && row.dataset && row.dataset.city) || '').trim(),
+    };
+    if (helper && helper.fillScriptPlaceholders) {
+      return helper.fillScriptPlaceholders(text, { sender: profile, prospect });
+    }
+    if (helper && helper.replaceSenderPlaceholders) {
+      return helper.replaceSenderPlaceholders(text, profile);
+    }
+    return text;
+  }
+
+  function buildLeadSmsTemplateOptionsFromLibrary(row) {
+    const options = [{ id: 'blank', label: 'Blank — type your own', text: '' }];
+    const lib =
+      (window.__ADHELLO_OUTREACH_LIBRARY__ && typeof window.__ADHELLO_OUTREACH_LIBRARY__ === 'object'
+        ? window.__ADHELLO_OUTREACH_LIBRARY__
+        : null) ||
+      (leadOutreachScriptsCache.data && leadOutreachScriptsCache.data.library) ||
+      {};
+    Object.keys(lib).forEach((k) => {
+      const entry = lib[k];
+      if (!entry) return;
+      const smsText =
+        (entry.channels && (entry.channels.text || entry.channels.sms)) ||
+        String(entry.opening || '').trim();
+      if (!String(smsText || '').trim()) return;
+      options.push({
+        id: 'sms:' + k,
+        label: (entry.label || k) + ' — SMS',
+        text: fillLeadSmsTemplateText(smsText, row),
+      });
+    });
+    const title = String((row && row.dataset && row.dataset.title) || 'your business').trim();
+    const name = String((row && row.dataset && (row.dataset.contactName || row.dataset.ownerName)) || 'there').trim() || 'there';
+    options.push({
+      id: 'short-bump',
+      label: 'Short bump',
+      text: fillLeadSmsTemplateText(
+        `Hi ${name} — quick note from {{name}} at {{business}}. Open to a short chat about ${title}?`,
+        row,
+      ),
+    });
+    options.push({
+      id: 'follow-up',
+      label: 'Call follow-up',
+      text: fillLeadSmsTemplateText(
+        `Hi ${name}, following up from my call earlier. Happy to send a 1-pager for ${title} — want me to text it over?`,
+        row,
+      ),
+    });
+    return options;
+  }
+
+  function populateLeadSmsTemplateSelect(row) {
+    const select = document.getElementById('leadSmsTemplateSelect');
+    if (!select) return;
+    leadSmsTemplateOptions = buildLeadSmsTemplateOptionsFromLibrary(row);
+    const prev = String(select.value || '');
+    select.innerHTML = '';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Choose a template…';
+    select.appendChild(placeholder);
+    leadSmsTemplateOptions.forEach((opt, idx) => {
+      const o = document.createElement('option');
+      o.value = String(idx);
+      o.textContent = opt.label || `Template ${idx + 1}`;
+      select.appendChild(o);
+    });
+    if (prev && Array.from(select.options).some((o) => o.value === prev)) {
+      select.value = prev;
+    } else {
+      select.value = '';
+    }
+    if (!leadSmsTemplateSelectBound) {
+      leadSmsTemplateSelectBound = true;
+      select.addEventListener('change', onLeadSmsTemplateSelected);
+    }
+  }
+
+  function onLeadSmsTemplateSelected() {
+    const select = document.getElementById('leadSmsTemplateSelect');
+    const input = document.getElementById('leadSmsComposeInput');
+    if (!select || !input) return;
+    const idx = select.value;
+    if (idx === '') return;
+    const opt = leadSmsTemplateOptions[Number(idx)];
+    if (!opt) return;
+    input.value = String(opt.text || '');
+    const countEl = document.getElementById('leadSmsComposeCount');
+    if (countEl) countEl.textContent = String(input.value.length);
+    setLeadSmsThreadStatus(
+      opt.id === 'blank' ? 'Type your own message, then Send SMS.' : 'Template loaded — edit if needed, then Send SMS.',
+    );
+    input.focus();
   }
 
   function renderLeadSmsThread(messages) {
@@ -3258,30 +3374,63 @@ document.addEventListener('DOMContentLoaded', () => {
     const options = opts || {};
     const key = normalizeLeadKeyForApi(row && row.dataset ? row.dataset.leadKey : '');
     if (!key) return;
-    if (!options.quiet) setLeadSmsThreadStatus('Loading messages…');
+    if (!options.quiet) setLeadSmsThreadStatus(options.sync ? 'Syncing from GHL…' : 'Loading messages…');
     const syncQ = options.sync ? '?sync=1' : '';
-    const res = await fetch(`/leads/${encodeURIComponent(key)}/sms-thread${syncQ}`, {
-      headers: { Accept: 'application/json' },
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.success) {
-      throw new Error((data && data.error) || `HTTP ${res.status}`);
-    }
-    renderLeadSmsThread(data.messages || []);
-    if (data.lead && row) {
-      syncPersistedLeadToRowDataset(row, data.lead);
-      if (typeof refreshLeadActivityTimeline === 'function') {
-        refreshLeadActivityTimeline(row);
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timeoutMs = options.sync ? 20000 : 8000;
+    const timer = controller
+      ? setTimeout(() => {
+          try {
+            controller.abort();
+          } catch (_) {
+            /* ignore */
+          }
+        }, timeoutMs)
+      : null;
+    try {
+      const res = await fetch(`/leads/${encodeURIComponent(key)}/sms-thread${syncQ}`, {
+        headers: { Accept: 'application/json' },
+        signal: controller ? controller.signal : undefined,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error((data && data.error) || `HTTP ${res.status}`);
       }
+      renderLeadSmsThread(data.messages || []);
+      if (data.lead && row) {
+        syncPersistedLeadToRowDataset(row, data.lead);
+        if (typeof refreshLeadActivityTimeline === 'function') {
+          refreshLeadActivityTimeline(row);
+        }
+      }
+      if (!options.quiet) {
+        const n = Array.isArray(data.messages) ? data.messages.length : 0;
+        const synced = data.synced || 0;
+        setLeadSmsThreadStatus(
+          synced > 0
+            ? `${n} messages · ${synced} new from GHL`
+            : n
+              ? `${n} messages`
+              : 'Ready — pick a template or type a reply',
+        );
+      }
+      return data;
+    } catch (err) {
+      if (!options.quiet) {
+        const aborted = err && (err.name === 'AbortError' || /abort/i.test(String(err.message || '')));
+        setLeadSmsThreadStatus(
+          aborted
+            ? options.sync
+              ? 'GHL sync timed out — try Sync again, or send without it.'
+              : 'Messages took too long — tap Sync or continue typing.'
+            : (err && err.message) || 'Could not load messages',
+          true,
+        );
+      }
+      throw err;
+    } finally {
+      if (timer) clearTimeout(timer);
     }
-    if (!options.quiet) {
-      const n = Array.isArray(data.messages) ? data.messages.length : 0;
-      const synced = data.synced || 0;
-      setLeadSmsThreadStatus(
-        synced > 0 ? `${n} messages · ${synced} new from GHL` : n ? `${n} messages` : 'Ready',
-      );
-    }
-    return data;
   }
 
   async function markLeadSmsReply(row) {
@@ -13791,24 +13940,23 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     setLeadOutreachChannel('text');
+    populateLeadSmsTemplateSelect(row);
     const section = document.getElementById('leadSmsThreadSection');
     const input = document.getElementById('leadSmsComposeInput');
-    const scriptEl = document.getElementById('leadPanelSellingScript');
-    const scriptText = scriptEl ? String(scriptEl.textContent || '').trim() : '';
-    if (input && !String(input.value || '').trim() && scriptText && scriptText !== '—' && scriptText.length > 12) {
-      input.value = scriptText;
-      const countEl = document.getElementById('leadSmsComposeCount');
-      if (countEl) countEl.textContent = String(scriptText.length);
-    }
+    const select = document.getElementById('leadSmsTemplateSelect');
+    // Do not auto-inject a long script — user picks a template title first.
     if (section) section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    if (input) {
+    if (select) {
+      window.setTimeout(() => select.focus(), 80);
+    } else if (input) {
       window.setTimeout(() => {
         input.focus();
         const len = input.value.length;
         if (typeof input.setSelectionRange === 'function') input.setSelectionRange(len, len);
       }, 120);
     }
-    notifyLeadPanelDial('Type your SMS, use Improve text if needed, then Send SMS.', 'success');
+    setLeadSmsThreadStatus('Pick an SMS template above, or type your own message.');
+    notifyLeadPanelDial('Pick an SMS template, edit if needed, then Send SMS.', 'success');
   }
 
   async function improveLeadSmsComposeText() {
@@ -14032,26 +14180,26 @@ document.addEventListener('DOMContentLoaded', () => {
         ];
       }
       smsScriptSelect.innerHTML = '';
+      const pickFirst = document.createElement('option');
+      pickFirst.value = '';
+      pickFirst.textContent = 'Choose a script title…';
+      smsScriptSelect.appendChild(pickFirst);
       smsScriptOptions.forEach((opt, idx) => {
         const o = document.createElement('option');
         o.value = String(idx);
         o.textContent = opt.label || `Script ${idx + 1}`;
         smsScriptSelect.appendChild(o);
       });
-      // Prefer first real SMS script; skip "Blank — type your own" when present.
-      let preferIdx = 0;
-      const blankIdx = smsScriptOptions.findIndex(
-        (opt) => opt && (opt.id === 'blank' || /^blank/i.test(String(opt.label || ''))),
-      );
-      if (blankIdx === 0 && smsScriptOptions.length > 1) preferIdx = 1;
-      smsScriptSelect.value = String(preferIdx);
-      smsBodyInput.value = smsScriptOptions[preferIdx].text || '';
+      smsScriptSelect.value = '';
+      smsBodyInput.value = '';
       const subjectInput = getSmsEmailSubjectInputEl();
-      if (subjectInput) {
-        subjectInput.value = String(smsScriptOptions[preferIdx].subject || '').trim() ||
-          (emailMode ? `Following up — ${String((currentRow && currentRow.dataset && currentRow.dataset.title) || 'your business').trim()}` : '');
-      }
+      if (subjectInput) subjectInput.value = '';
       setSmsCharCount();
+      // Wait for the user to pick a title — don't auto-load a body (that felt "stuck").
+      const helpText = getSmsScriptHelpTextEl();
+      if (helpText) {
+        helpText.textContent = 'Pick a script title above to load the message, then edit and send.';
+      }
     } catch (err) {
       smsScriptSelect.innerHTML = '<option value="">No scripts available</option>';
       smsBodyInput.value = '';

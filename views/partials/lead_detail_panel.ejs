@@ -562,7 +562,12 @@
               <p class="text-[11px] text-brand-muted italic m-0">No messages yet.</p>
             </div>
             <div class="flex flex-col gap-2 pt-1 border-t border-brand-border/15 dark:border-white/10">
-              <textarea id="leadSmsComposeInput" rows="2" maxlength="1600" placeholder="Type a reply…" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow resize-y min-h-[2.75rem]"></textarea>
+              <label for="leadSmsTemplateSelect" class="block text-[9px] font-black uppercase tracking-widest text-brand-muted">SMS template</label>
+              <select id="leadSmsTemplateSelect" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow">
+                <option value="">Choose a template…</option>
+                <option value="blank">Blank — type your own</option>
+              </select>
+              <textarea id="leadSmsComposeInput" rows="2" maxlength="1600" placeholder="Type a reply… or pick a template above" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow resize-y min-h-[2.75rem]"></textarea>
               <div class="flex flex-wrap items-center justify-between gap-2">
                 <span id="leadSmsComposeCount" class="text-[9px] font-semibold text-brand-muted tabular-nums">0</span>
                 <div class="flex flex-wrap items-center gap-2">
