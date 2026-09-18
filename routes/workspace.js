@@ -25,7 +25,7 @@ const {
 const multer = require('multer');
 const { persistWorkspaceIcp } = require('../services/workspaceIcp');
 const workspaceBootstrap = require('../services/workspaceBootstrap');
-const { normalizeWorkspaceAccentHex, WORKSPACE_UI_ACCENTS } = require('../lib/workspaceAccent');
+const { normalizeWorkspaceAccentHex, WORKSPACE_UI_ACCENTS, WORKSPACE_UI_ACCENT_TEXT } = require('../lib/workspaceAccent');
 const { isAllowedWorkspaceEmail } = require('../services/auth');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
@@ -384,6 +384,7 @@ async function loadWorkspacePageLocals(req) {
     scrapeSourcesLivePing: process.env.SCRAPE_SOURCES_LIVE_PING === '1',
     scrapeCostOnWorkspace: true,
     workspaceAccentChoices: WORKSPACE_UI_ACCENTS,
+    workspaceAccentTextChoices: WORKSPACE_UI_ACCENT_TEXT,
     showWorkspaceSwitchForm: process.env.ADHELLO_WORKSPACE_SWITCH === '1',
   };
 }
@@ -1090,6 +1091,18 @@ router.post('/settings', express.json(), async (req, res) => {
           return res.status(400).json({ success: false, error: 'Invalid accent color.' });
         }
         ws.accentColor = norm;
+      }
+    }
+    if (req.body && Object.prototype.hasOwnProperty.call(req.body, 'accentTextColor')) {
+      const raw = req.body.accentTextColor;
+      if (raw != null && String(raw).trim() !== '') {
+        const norm = normalizeWorkspaceAccentHex(raw);
+        if (!norm) {
+          return res.status(400).json({ success: false, error: 'Invalid button text color.' });
+        }
+        ws.accentTextColor = norm;
+      } else {
+        ws.accentTextColor = '';
       }
     }
     if (req.body && Object.prototype.hasOwnProperty.call(req.body, 'coffeeCouponLink')) {

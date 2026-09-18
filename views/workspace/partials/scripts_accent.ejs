@@ -7,6 +7,10 @@
   var customHex = document.getElementById('wsAccentCustomHex');
   var selectedHex = document.getElementById('wsAccentSelectedHex');
   var couponLinkInput = document.getElementById('wsCoffeeCouponLink');
+  var textCustom = document.getElementById('wsAccentTextCustom');
+  var textHex = document.getElementById('wsAccentTextHex');
+  var textAuto = document.getElementById('wsAccentTextAuto');
+  var textLocked = false;
 
   function normalizeHex(v) {
     var raw = String(v || '').trim();
@@ -16,55 +20,194 @@
     return raw.toLowerCase();
   }
 
+  function luminance(hex) {
+    var n = normalizeHex(hex);
+    if (!n) return 0.5;
+    function lin(c) {
+      c = c / 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    }
+    var r = parseInt(n.slice(1, 3), 16);
+    var g = parseInt(n.slice(3, 5), 16);
+    var b = parseInt(n.slice(5, 7), 16);
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  }
+
+  function autoContrast(accent) {
+    return luminance(accent) > 0.45 ? '#111827' : '#ffffff';
+  }
+
   function getPickedColor() {
     var picked = document.querySelector('input[name="wsAccentChoice"]:checked');
     if (picked && picked.value) return normalizeHex(picked.value);
     return normalizeHex(customHex && customHex.value ? customHex.value : (custom && custom.value ? custom.value : ''));
   }
 
-  function applyPreview(hex) {
+  function getPickedTextColor() {
+    var picked = document.querySelector('input[name="wsAccentTextChoice"]:checked');
+    if (picked && picked.value) return normalizeHex(picked.value);
+    return normalizeHex(textHex && textHex.value ? textHex.value : (textCustom && textCustom.value ? textCustom.value : ''));
+  }
+
+  function setTextInputs(hex) {
     if (!hex) return;
-    if (preview) preview.style.setProperty('--preview-accent', hex);
-    if (custom) custom.value = hex;
-    if (customHex) customHex.value = hex;
-    if (selectedHex) selectedHex.textContent = hex;
+    if (textCustom) textCustom.value = hex;
+    if (textHex) textHex.value = hex;
+    document.querySelectorAll('input[name="wsAccentTextChoice"]').forEach(function (r) {
+      r.checked = normalizeHex(r.value) === hex;
+    });
+    document.querySelectorAll('[data-ws-text-swatch]').forEach(function (el) {
+      el.style.color = hex;
+    });
+  }
+
+  function applyPreview(accent, onAccent) {
+    var a = accent || getPickedColor();
+    if (!a) return;
+    var t = onAccent || getPickedTextColor() || autoContrast(a);
+    if (preview) {
+      preview.style.setProperty('--preview-accent', a);
+      preview.style.setProperty('--preview-on-accent', t);
+    }
+    if (custom) custom.value = a;
+    if (customHex) customHex.value = a;
+    document.querySelectorAll('[data-ws-text-swatch]').forEach(function (el) {
+      el.style.backgroundColor = a;
+      el.style.color = t;
+    });
+    if (selectedHex) selectedHex.textContent = a + ' · ' + t;
   }
 
   function syncPreview() {
-    applyPreview(getPickedColor());
+    var a = getPickedColor();
+    if (!textLocked) {
+      var suggested = autoContrast(a);
+      setTextInputs(suggested);
+      applyPreview(a, suggested);
+      return;
+    }
+    applyPreview(a, getPickedTextColor());
   }
 
   document.querySelectorAll('input[name="wsAccentChoice"]').forEach(function (r) {
     r.addEventListener('change', function () {
-      applyPreview(normalizeHex(r.value));
+      applyPreview(normalizeHex(r.value), textLocked ? getPickedTextColor() : null);
+      if (!textLocked) {
+        var suggested = autoContrast(r.value);
+        setTextInputs(suggested);
+        applyPreview(normalizeHex(r.value), suggested);
+      }
     });
   });
   if (custom) {
     custom.addEventListener('input', function () {
       document.querySelectorAll('input[name="wsAccentChoice"]').forEach(function (r) { r.checked = false; });
-      applyPreview(normalizeHex(custom.value));
+      var a = normalizeHex(custom.value);
+      if (!textLocked) {
+        var suggested = autoContrast(a);
+        setTextInputs(suggested);
+        applyPreview(a, suggested);
+      } else {
+        applyPreview(a, getPickedTextColor());
+      }
     });
   }
   if (customHex) {
     customHex.addEventListener('input', function () {
       document.querySelectorAll('input[name="wsAccentChoice"]').forEach(function (r) { r.checked = false; });
       var hex = normalizeHex(customHex.value);
-      if (hex) applyPreview(hex);
+      if (!hex) return;
+      if (!textLocked) {
+        var suggested = autoContrast(hex);
+        setTextInputs(suggested);
+        applyPreview(hex, suggested);
+      } else {
+        applyPreview(hex, getPickedTextColor());
+      }
     });
     customHex.addEventListener('blur', function () {
       var hex = normalizeHex(customHex.value);
-      if (hex) applyPreview(hex);
-      else syncPreview();
+      if (hex) {
+        if (!textLocked) {
+          var suggested = autoContrast(hex);
+          setTextInputs(suggested);
+          applyPreview(hex, suggested);
+        } else {
+          applyPreview(hex, getPickedTextColor());
+        }
+      } else syncPreview();
     });
   }
-  syncPreview();
+
+  document.querySelectorAll('input[name="wsAccentTextChoice"]').forEach(function (r) {
+    r.addEventListener('change', function () {
+      textLocked = true;
+      var t = normalizeHex(r.value);
+      setTextInputs(t);
+      applyPreview(getPickedColor(), t);
+    });
+  });
+  if (textCustom) {
+    textCustom.addEventListener('input', function () {
+      textLocked = true;
+      document.querySelectorAll('input[name="wsAccentTextChoice"]').forEach(function (r) { r.checked = false; });
+      var t = normalizeHex(textCustom.value);
+      if (t) {
+        if (textHex) textHex.value = t;
+        applyPreview(getPickedColor(), t);
+      }
+    });
+  }
+  if (textHex) {
+    textHex.addEventListener('input', function () {
+      textLocked = true;
+      document.querySelectorAll('input[name="wsAccentTextChoice"]').forEach(function (r) { r.checked = false; });
+      var t = normalizeHex(textHex.value);
+      if (t) {
+        if (textCustom) textCustom.value = t;
+        applyPreview(getPickedColor(), t);
+      }
+    });
+    textHex.addEventListener('blur', function () {
+      var t = normalizeHex(textHex.value);
+      if (t) {
+        setTextInputs(t);
+        applyPreview(getPickedColor(), t);
+      } else {
+        setTextInputs(getPickedTextColor() || autoContrast(getPickedColor()));
+        applyPreview(getPickedColor(), getPickedTextColor());
+      }
+    });
+  }
+  if (textAuto) {
+    textAuto.addEventListener('click', function () {
+      textLocked = false;
+      var suggested = autoContrast(getPickedColor());
+      setTextInputs(suggested);
+      applyPreview(getPickedColor(), suggested);
+    });
+  }
+
+  // Saved text color counts as locked so Auto doesn't overwrite on load.
+  textLocked = !!(textHex && textHex.value && normalizeHex(textHex.value));
+  applyPreview(getPickedColor(), getPickedTextColor() || autoContrast(getPickedColor()));
+
   if (!btn) return;
   btn.addEventListener('click', function () {
     var pickedHex = getPickedColor();
+    var pickedText = getPickedTextColor() || autoContrast(pickedHex);
     if (!pickedHex) {
       if (msg) {
         msg.classList.remove('hidden');
         msg.textContent = 'Choose a swatch or enter a valid 6-digit hex color.';
+        msg.className = 'text-sm mb-3 text-rose-600';
+      }
+      return;
+    }
+    if (!pickedText) {
+      if (msg) {
+        msg.classList.remove('hidden');
+        msg.textContent = 'Choose a button text & icon color.';
         msg.className = 'text-sm mb-3 text-rose-600';
       }
       return;
@@ -74,6 +217,7 @@
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({
         accentColor: pickedHex,
+        accentTextColor: pickedText,
         coffeeCouponLink: couponLinkInput && couponLinkInput.value ? String(couponLinkInput.value).trim() : '',
       }),
     }).then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); }).then(function (res) {

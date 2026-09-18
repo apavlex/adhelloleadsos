@@ -113,7 +113,11 @@
 <link rel="stylesheet" href="/css/custom.css?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>">
 <%- include('/partials/app_shell_styles') %>
 <% if (typeof workspaceAccent !== 'undefined' && workspaceAccent) { %>
-<style>:root { --brand-yellow: <%= workspaceAccent %>; --workspace-accent: <%= workspaceAccent %>; }</style>
+<style>:root {
+  --brand-yellow: <%= workspaceAccent %>;
+  --workspace-accent: <%= workspaceAccent %>;
+  --brand-on-accent: <%= typeof workspaceAccentText !== 'undefined' && workspaceAccentText ? workspaceAccentText : '#111827' %>;
+}</style>
 <% } %>
 <% if (typeof quickLogClient !== 'undefined' && quickLogClient) { %>
 <script>window.__QUICK_LOG=<%- JSON.stringify(quickLogClient).replace(/</g, '\\u003c') %>;</script>

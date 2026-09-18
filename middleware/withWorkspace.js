@@ -6,6 +6,7 @@ const { wantsJsonResponse } = require('../lib/httpRequest');
 const { getGoogleMapsApiKey } = require('../services/googleMapsKey');
 const { isAgencySalesWorkspace } = require('../services/leadPanelWorkspace');
 const { resolveScriptSignOffProfile } = require('../services/scriptPlaceholders');
+const { resolveAccentTextColor } = require('../lib/workspaceAccent');
 
 /**
  * After auth: bootstrap workspaces, resolve active workspace (?ws= slug → session → user prefs → first),
@@ -34,6 +35,7 @@ async function withWorkspace(req, res, next) {
       res.locals.workspace = ws;
       res.locals.workspaceId = ws.id;
       res.locals.workspaceAccent = ws.accentColor || '#CA8A04';
+      res.locals.workspaceAccentText = resolveAccentTextColor(ws.accentColor, ws.accentTextColor);
       res.locals.isAgencySalesWorkspace = isAgencySalesWorkspace(ws);
       res.locals.scriptSignOffProfile = resolveScriptSignOffProfile({ user: req.user, workspace: ws });
       return next();
@@ -137,6 +139,7 @@ async function withWorkspace(req, res, next) {
     res.locals.canManageWorkspace = req.canManageWorkspace;
     res.locals.workspaceSwitcherList = summaries;
     res.locals.workspaceAccent = ws.accentColor || '#CA8A04';
+    res.locals.workspaceAccentText = resolveAccentTextColor(ws.accentColor, ws.accentTextColor);
     res.locals.workspaceReturnPath = req.originalUrl || '/today';
     res.locals.googleMapsStaticKey = getGoogleMapsApiKey();
     res.locals.isAgencySalesWorkspace = isAgencySalesWorkspace(ws);

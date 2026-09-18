@@ -8,6 +8,7 @@
     --brand-card-bg: #FFFFFF;
     --brand-cream: #FAF7ED;
     --brand-yellow: #FFD644; /* More vibrant Agency yellow */
+    --brand-on-accent: #111827; /* Text + icons on solid accent fills */
 }
 
 /* Dark Mode Overrides - Midnight Navy Theme */
@@ -55,25 +56,58 @@ h1, h2, h3, h4, .font-display {
 
 .btn-primary {
     background-color: var(--brand-yellow);
-    color: #111827;
+    color: var(--brand-on-accent, #111827);
 }
 
 .btn-primary:hover {
     background-color: color-mix(in srgb, var(--brand-yellow) 88%, #000);
 }
 
-/* Solid brand-yellow fills: always dark lettering. In .dark, text-brand-dark is a light token for body copy. Use exact class tokens so hover:bg-brand-yellow alone does not match. */
+/* Solid accent fills: on-accent color for labels AND icons (stroke/currentColor).
+   Exact class tokens so hover:bg-brand-yellow / bg-brand-yellow/20 do not match.
+   !important beats Tailwind text-brand-dark on dark custom accents. */
+.btn-primary,
+[class~="bg-brand-yellow"],
+[class~="dark:bg-brand-yellow"] {
+    color: var(--brand-on-accent, #111827) !important;
+}
+
+.btn-primary svg,
+[class~="bg-brand-yellow"] svg,
+[class~="dark:bg-brand-yellow"] svg,
+.btn-primary i,
+[class~="bg-brand-yellow"] i,
+[class~="dark:bg-brand-yellow"] i {
+    color: var(--brand-on-accent, #111827) !important;
+    stroke: var(--brand-on-accent, #111827) !important;
+}
+
+.btn-primary svg[fill]:not([fill="none"]),
+[class~="bg-brand-yellow"] svg[fill]:not([fill="none"]),
+[class~="dark:bg-brand-yellow"] svg[fill]:not([fill="none"]) {
+    fill: var(--brand-on-accent, #111827) !important;
+}
+
 .dark .btn-primary,
 .dark [class~="bg-brand-yellow"],
 .dark [class~="dark:bg-brand-yellow"] {
-    color: #111827;
+    color: var(--brand-on-accent, #111827) !important;
 }
 
 .dark .btn-primary svg,
 .dark [class~="bg-brand-yellow"] svg,
-.dark [class~="dark:bg-brand-yellow"] svg {
-    color: #111827;
-    stroke: #111827;
+.dark [class~="dark:bg-brand-yellow"] svg,
+.dark .btn-primary i,
+.dark [class~="bg-brand-yellow"] i,
+.dark [class~="dark:bg-brand-yellow"] i {
+    color: var(--brand-on-accent, #111827) !important;
+    stroke: var(--brand-on-accent, #111827) !important;
+}
+
+.dark .btn-primary svg[fill]:not([fill="none"]),
+.dark [class~="bg-brand-yellow"] svg[fill]:not([fill="none"]),
+.dark [class~="dark:bg-brand-yellow"] svg[fill]:not([fill="none"]) {
+    fill: var(--brand-on-accent, #111827) !important;
 }
 
 /* Solid brand-dark fills: keep the fill genuinely dark in dark mode (where
