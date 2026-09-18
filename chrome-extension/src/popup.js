@@ -1092,6 +1092,19 @@ function libraryTextForCard(card) {
   return '';
 }
 
+function flashCopyButton(btn, ok) {
+  if (!btn) return;
+  const previous = btn.textContent;
+  clearTimeout(btn._copyFlashTimer);
+  btn.classList.toggle('is-copied', !!ok);
+  btn.classList.toggle('is-copy-failed', !ok);
+  btn.textContent = ok ? 'Copied!' : 'Failed';
+  btn._copyFlashTimer = setTimeout(() => {
+    btn.classList.remove('is-copied', 'is-copy-failed');
+    btn.textContent = previous;
+  }, 1600);
+}
+
 function bindLibraryCopyClicks(root) {
   if (!root) return;
   root.querySelectorAll('.js-lib-copy').forEach((btn) => {
@@ -1109,8 +1122,10 @@ function bindLibraryCopyClicks(root) {
       if (!text) text = libraryTextForCard(card);
       try {
         await copyLibraryText(text);
+        flashCopyButton(btn, true);
         setLibraryStatus('Copied — paste into Facebook', 'success');
       } catch (err) {
+        flashCopyButton(btn, false);
         setLibraryStatus(err.message || 'Could not copy', 'error');
       }
     });
