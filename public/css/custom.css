@@ -65,11 +65,21 @@ h1, h2, h3, h4, .font-display {
 
 /* Solid accent fills: on-accent color for labels AND icons (stroke/currentColor).
    Exact class tokens so hover:bg-brand-yellow / bg-brand-yellow/20 do not match.
-   !important beats Tailwind text-brand-dark on dark custom accents. */
+   !important beats Tailwind text-brand-dark / text-slate-900 / .ws-nav-item-active. */
 .btn-primary,
 [class~="bg-brand-yellow"],
-[class~="dark:bg-brand-yellow"] {
+[class~="dark:bg-brand-yellow"],
+.ws-nav-item-active.bg-brand-yellow,
+a[class~="bg-brand-yellow"],
+button[class~="bg-brand-yellow"] {
     color: var(--brand-on-accent, #111827) !important;
+}
+
+.btn-primary *,
+[class~="bg-brand-yellow"] *,
+[class~="dark:bg-brand-yellow"] *,
+.ws-nav-item-active[class~="bg-brand-yellow"] * {
+    color: inherit;
 }
 
 .btn-primary svg,
@@ -90,7 +100,8 @@ h1, h2, h3, h4, .font-display {
 
 .dark .btn-primary,
 .dark [class~="bg-brand-yellow"],
-.dark [class~="dark:bg-brand-yellow"] {
+.dark [class~="dark:bg-brand-yellow"],
+.dark .ws-nav-item-active[class~="bg-brand-yellow"] {
     color: var(--brand-on-accent, #111827) !important;
 }
 
@@ -520,11 +531,11 @@ h1, h2, h3, h4, .font-display {
 }
 
 .ws-nav-item-active {
-    color: var(--brand-dark) !important;
+    color: var(--brand-on-accent, #111827) !important;
 }
 
 .dark .ws-nav-item-active {
-    color: #111827 !important;
+    color: var(--brand-on-accent, #111827) !important;
 }
 
 .sidebar-settings-toggle {

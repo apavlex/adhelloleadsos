@@ -48,6 +48,16 @@
     return normalizeHex(textHex && textHex.value ? textHex.value : (textCustom && textCustom.value ? textCustom.value : ''));
   }
 
+  function syncTextSwatchFaces(accentHex) {
+    var a = accentHex || getPickedColor();
+    document.querySelectorAll('input[name="wsAccentTextChoice"]').forEach(function (r) {
+      var face = r.parentElement && r.parentElement.querySelector('[data-ws-text-swatch]');
+      if (!face) return;
+      if (a) face.style.backgroundColor = a;
+      face.style.color = normalizeHex(r.value) || face.style.color;
+    });
+  }
+
   function setTextInputs(hex) {
     if (!hex) return;
     if (textCustom) textCustom.value = hex;
@@ -55,9 +65,7 @@
     document.querySelectorAll('input[name="wsAccentTextChoice"]').forEach(function (r) {
       r.checked = normalizeHex(r.value) === hex;
     });
-    document.querySelectorAll('[data-ws-text-swatch]').forEach(function (el) {
-      el.style.color = hex;
-    });
+    syncTextSwatchFaces(getPickedColor());
   }
 
   function applyPreview(accent, onAccent) {
@@ -70,10 +78,7 @@
     }
     if (custom) custom.value = a;
     if (customHex) customHex.value = a;
-    document.querySelectorAll('[data-ws-text-swatch]').forEach(function (el) {
-      el.style.backgroundColor = a;
-      el.style.color = t;
-    });
+    syncTextSwatchFaces(a);
     if (selectedHex) selectedHex.textContent = a + ' · ' + t;
   }
 
