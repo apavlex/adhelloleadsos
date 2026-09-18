@@ -11,11 +11,15 @@
 <% const _ingestMask = typeof apiIngestKeyMask !== 'undefined' ? apiIngestKeyMask : ''; %>
 <% const _ingestPlain = typeof apiIngestKeyPlain !== 'undefined' ? apiIngestKeyPlain : ''; %>
 <% const _admin = typeof canManageWorkspace !== 'undefined' && canManageWorkspace; %>
+<% const _nested = typeof chromeExtensionNested !== 'undefined' && chromeExtensionNested; %>
 
-<section id="chrome-extension" class="scroll-mt-28 mb-8 md:mb-10" aria-labelledby="chrome-extension-heading">
-  <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 md:p-8 shadow-sm">
+<section id="chrome-extension" class="<%= _nested ? 'scroll-mt-28' : 'scroll-mt-28 mb-8 md:mb-10' %>" aria-labelledby="chrome-extension-heading">
+  <div class="<%= _nested
+    ? ''
+    : 'rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 md:p-8 shadow-sm' %>">
     <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-6">
       <div>
+        <% if (!_nested) { %>
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Browser extension</p>
         <h2 id="chrome-extension-heading" class="font-display font-extrabold text-xl md:text-2xl text-brand-dark dark:text-white tracking-tight">AdHello Leads for Chrome</h2>
         <p class="text-sm text-brand-muted mt-2 max-w-3xl leading-relaxed">
@@ -23,6 +27,14 @@
           <a href="/prospecting?tab=pipeline" class="text-brand-yellow hover:underline font-semibold">pipeline</a>
           with the correct folder (Real estate or Products).
         </p>
+        <% } else { %>
+        <h2 id="chrome-extension-heading" class="sr-only">AdHello Leads for Chrome</h2>
+        <p class="text-sm text-brand-muted max-w-3xl leading-relaxed">
+          Save leads while you browse. Items land in your
+          <a href="/prospecting?tab=pipeline" class="text-brand-yellow hover:underline font-semibold">pipeline</a>
+          with the correct folder. Use the Library tab to save the Facebook group you’re viewing.
+        </p>
+        <% } %>
       </div>
       <div class="flex flex-col sm:flex-row gap-2 shrink-0">
         <% if (_downloadReady) { %>
