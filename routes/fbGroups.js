@@ -6,6 +6,29 @@ const {
   FB_GROUP_SCRIPT_CATEGORIES,
   listFbGroupScriptsFlat,
 } = require('../config/fbGroupScripts');
+const { isChromeExtensionAvailable } = require('../services/chromeExtensionPack');
+
+function chromeExtensionRenderLocals() {
+  const base = String(process.env.BASE_URL || '').trim().replace(/\/$/, '');
+  const ingestKeyRaw = String(process.env.API_INGEST_KEY || '').trim();
+  const apiIngestKeyConfigured = !!ingestKeyRaw;
+  const apiIngestKeyMask =
+    apiIngestKeyConfigured && ingestKeyRaw.length >= 4 ? `••••${ingestKeyRaw.slice(-4)}` : '';
+  const apiIngestKeyPlain = apiIngestKeyConfigured ? ingestKeyRaw : '';
+  const chromeExtensionRepoUrl = String(
+    process.env.CHROME_EXTENSION_REPO_URL ||
+      'https://github.com/apavlex/adhelloleadsos/tree/main/chrome-extension',
+  ).trim();
+  return {
+    publicAppBaseUrl: base,
+    apiIngestKeyConfigured,
+    apiIngestKeyMask,
+    apiIngestKeyPlain,
+    chromeExtensionRepoUrl,
+    chromeExtensionDownloadUrl: '/workspace/integrations/chrome-extension/download',
+    chromeExtensionDownloadReady: isChromeExtensionAvailable(),
+  };
+}
 
 function normalizeUrl(raw) {
   let s = String(raw || '').trim();
@@ -72,6 +95,7 @@ router.get('/', async (req, res, next) => {
       groups,
       saveError: req.query.error === 'invalid',
       notGroupError: req.query.error === 'not_group',
+      ...chromeExtensionRenderLocals(),
     });
   } catch (e) {
     next(e);
