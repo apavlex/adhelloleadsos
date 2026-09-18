@@ -213,6 +213,13 @@
         </div>
       </div>
     </div>
+    <div id="pipelineTableLoading" class="pipeline-table-loading px-5 py-16 flex flex-col items-center justify-center gap-4" role="status" aria-live="polite" aria-busy="true">
+      <div class="animate-spin rounded-full h-10 w-10 border-[3px] border-brand-yellow/35 border-t-brand-yellow" aria-hidden="true"></div>
+      <div class="text-center">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Loading leads</p>
+        <p class="text-sm font-semibold text-brand-dark dark:text-white mt-1">Preparing your pipeline…</p>
+      </div>
+    </div>
     <div id="prospectPipelineTableScroll" class="overflow-x-auto" style="--plc-check-sticky-w: 3rem;">
       <datalist id="lead-category-pipeline-options">
         <option value="General contractor"></option>

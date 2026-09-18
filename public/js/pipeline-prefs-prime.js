@@ -402,7 +402,37 @@
     }
   }
 
+  function tryPrimeDomSoon() {
+    if (typeof window.__primePipelinePrefsDom === 'function') {
+      window.__primePipelinePrefsDom();
+    }
+    // If the table markup is still streaming, retry briefly then fall back.
+    if (document.documentElement.getAttribute('data-pipeline-prefs-ready') === '1') return;
+    var tries = 0;
+    var timer = setInterval(function () {
+      tries += 1;
+      if (typeof window.__primePipelinePrefsDom === 'function') {
+        window.__primePipelinePrefsDom();
+      }
+      if (
+        document.documentElement.getAttribute('data-pipeline-prefs-ready') === '1' ||
+        tries >= 20
+      ) {
+        clearInterval(timer);
+        if (document.documentElement.getAttribute('data-pipeline-prefs-ready') !== '1') {
+          releasePipelinePrefsPending();
+        }
+      }
+    }, 50);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', tryPrimeDomSoon);
+  } else {
+    tryPrimeDomSoon();
+  }
+  // Safety net if something blocks priming
   document.addEventListener('DOMContentLoaded', function () {
-    setTimeout(releasePipelinePrefsPending, 4000);
+    setTimeout(releasePipelinePrefsPending, 1500);
   });
 })();

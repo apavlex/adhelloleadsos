@@ -2524,10 +2524,19 @@ html[data-prospect-density="comfortable"] #tableView .lead-density-btn[data-dens
 
 html.pipeline-prefs-pending #prospectPipelineTableScroll {
   visibility: hidden;
+  min-height: 12rem;
 }
 
 html[data-pipeline-prefs-ready="1"] #prospectPipelineTableScroll {
   visibility: visible;
+}
+
+#pipelineTableLoading {
+  display: none;
+}
+
+html.pipeline-prefs-pending #pipelineTableLoading {
+  display: flex;
 }
 
 .lead-checkbox:checked {
