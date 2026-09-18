@@ -346,6 +346,43 @@
       });
     }
 
+    const coffeeSave = $('wsCoffeeCouponSave');
+    if (coffeeSave) {
+      coffeeSave.addEventListener('click', function () {
+        const input = $('wsCoffeeCouponLink');
+        const msg = $('wsCoffeeCouponMsg');
+        coffeeSave.disabled = true;
+        fetch('/workspace/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({
+            coffeeCouponLink: input && input.value ? String(input.value).trim() : '',
+          }),
+        })
+          .then(function (r) {
+            return r.json().then(function (data) {
+              return { ok: r.ok, data: data };
+            });
+          })
+          .then(function (res) {
+            flashMsg(
+              msg,
+              res.ok && res.data && res.data.success
+                ? 'Coffee coupon link saved.'
+                : (res.data && res.data.error) || 'Save failed',
+              !!(res.ok && res.data && res.data.success),
+            );
+          })
+          .catch(function () {
+            flashMsg(msg, 'Save failed.', false);
+          })
+          .finally(function () {
+            coffeeSave.disabled = false;
+          });
+      });
+    }
+
     const defaultSave = $('infoPackDefaultSave');
     if (defaultSave) {
       defaultSave.addEventListener('click', function () {

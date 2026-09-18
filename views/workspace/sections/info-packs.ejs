@@ -3,14 +3,28 @@
 <% const _folders = Array.isArray(folders) ? folders : []; %>
 <% const _playbooks = Array.isArray(mailPlaybooks) ? mailPlaybooks : []; %>
 <% const _preselect = typeof preselectFolderKey !== 'undefined' ? String(preselectFolderKey || '') : ''; %>
+<% const _coffeeLink = (workspace && workspace.coffeeCouponLink) ? String(workspace.coffeeCouponLink) : ''; %>
 <div class="space-y-6">
+  <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 md:p-8">
+    <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-2">Coffee coupon link</h2>
+    <p class="text-sm text-brand-muted mb-4">Used when Focus tone is Coffee-chat and “Include coupon line” is enabled.</p>
+    <div class="flex flex-col sm:flex-row gap-3 sm:items-end">
+      <div class="flex-1 min-w-0">
+        <label for="wsCoffeeCouponLink" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Coupon / gift URL</label>
+        <input id="wsCoffeeCouponLink" type="url" value="<%= _coffeeLink %>" placeholder="https://gift.example.com/your-offer" class="w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-semibold text-brand-dark dark:text-white" aria-label="Coffee coupon URL for outreach drafts" />
+      </div>
+      <button type="button" id="wsCoffeeCouponSave" class="rounded-xl bg-brand-yellow px-6 py-3 text-xs font-black uppercase tracking-widest shrink-0">Save coffee link</button>
+    </div>
+    <p id="wsCoffeeCouponMsg" class="hidden text-sm mt-3" role="status"></p>
+  </div>
+
   <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 md:p-8">
     <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-2">Workspace default</h2>
     <p class="text-sm text-brand-muted mb-4">Used when a folder has no custom info pack. Set the audit/form URL below, then use merge tokens in your templates: <code class="text-xs">{business}</code>, <code class="text-xs">{city}</code>, <code class="text-xs">{state}</code>, <code class="text-xs">{audit_url}</code>.</p>
     <div id="infoPackDefaultForm" class="info-pack-form space-y-4" data-scope="default">
       <%- include('../partials/info_pack_fields', { pack: _packDefault, playbooks: _playbooks, idPrefix: 'ipDefault' }) %>
       <p id="infoPackDefaultMsg" class="hidden text-sm" role="status"></p>
-      <button type="button" id="infoPackDefaultSave" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-6 py-3 text-xs font-black uppercase tracking-widest">Save workspace default</button>
+      <button type="button" id="infoPackDefaultSave" class="rounded-xl bg-brand-yellow px-6 py-3 text-xs font-black uppercase tracking-widest">Save workspace default</button>
     </div>
   </div>
 
@@ -30,7 +44,7 @@
       <%- include('../partials/info_pack_fields', { pack: null, playbooks: _playbooks, idPrefix: 'ipFolder' }) %>
       <p id="infoPackFolderMsg" class="hidden text-sm" role="status"></p>
       <div class="flex flex-wrap gap-2">
-        <button type="button" id="infoPackFolderSave" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-6 py-3 text-xs font-black uppercase tracking-widest">Save folder pack</button>
+        <button type="button" id="infoPackFolderSave" class="rounded-xl bg-brand-yellow px-6 py-3 text-xs font-black uppercase tracking-widest">Save folder pack</button>
         <button type="button" id="infoPackFolderClear" class="rounded-xl border border-brand-border dark:border-white/15 px-6 py-3 text-xs font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white">Clear folder override</button>
       </div>
     </div>
@@ -44,7 +58,7 @@ window.INFO_PACK_BOOT = {
   kieImageReady: <%- typeof kieImageReady !== 'undefined' && kieImageReady ? 'true' : 'false' %>
 };
 </script>
-<script src="/js/info-pack-settings.js"></script>
+<script src="/js/info-pack-settings.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
 <% } else { %>
 <p class="text-sm text-brand-muted">Only workspace admins can edit info packs.</p>
 <% } %>

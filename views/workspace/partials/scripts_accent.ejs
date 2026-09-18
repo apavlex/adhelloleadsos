@@ -6,7 +6,6 @@
   var custom = document.getElementById('wsAccentCustom');
   var customHex = document.getElementById('wsAccentCustomHex');
   var selectedHex = document.getElementById('wsAccentSelectedHex');
-  var couponLinkInput = document.getElementById('wsCoffeeCouponLink');
   var textCustom = document.getElementById('wsAccentTextCustom');
   var textHex = document.getElementById('wsAccentTextHex');
   var textAuto = document.getElementById('wsAccentTextAuto');
@@ -218,7 +217,6 @@
       body: JSON.stringify({
         accentColor: pickedHex,
         accentTextColor: pickedText,
-        coffeeCouponLink: couponLinkInput && couponLinkInput.value ? String(couponLinkInput.value).trim() : '',
       }),
     }).then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); }).then(function (res) {
       if (msg) {
