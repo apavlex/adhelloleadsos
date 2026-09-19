@@ -70,6 +70,31 @@ function isConfigured(integrationEnv) {
   return !!(apiKey && locationId);
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** GHL burst limit is ~100 req / 10s per location. Honor Retry-After / rate-limit headers. */
+function rateLimitWaitMs(res, attempt) {
+  const retryAfter = Number(res && res.headers && res.headers.get('Retry-After'));
+  if (Number.isFinite(retryAfter) && retryAfter > 0) {
+    return Math.min(Math.max(retryAfter * 1000, 1000), 30000);
+  }
+  const interval = Number(
+    res && res.headers && res.headers.get('X-RateLimit-Interval-Milliseconds'),
+  );
+  if (Number.isFinite(interval) && interval > 0) {
+    return Math.min(Math.max(interval, 1000), 30000);
+  }
+  const base = 1000 * Math.pow(2, Math.max(0, attempt));
+  return Math.min(base + Math.floor(Math.random() * 400), 15000);
+}
+
+function isDailyRateLimitExhausted(res) {
+  const daily = res && res.headers && res.headers.get('X-RateLimit-Daily-Remaining');
+  return daily != null && String(daily).trim() === '0';
+}
+
 async function ghlRequest(method, path, { integrationEnv, body, query, apiVersion } = {}) {
   const { apiKey, locationId } = resolveConfig(integrationEnv);
   if (!apiKey) throw new Error('GHL API key is not configured.');
@@ -84,49 +109,67 @@ async function ghlRequest(method, path, { integrationEnv, body, query, apiVersio
     });
   }
 
-  let res;
-  try {
-    res = await fetch(url.toString(), {
-      method: method || 'GET',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        Version: apiVersion || GHL_API_VERSION,
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: body != null ? JSON.stringify(body) : undefined,
-      signal: ghlAbortSignal(),
-    });
-  } catch (err) {
-    throw mapGhlFetchError(err, method || 'GET', path);
-  }
+  const maxAttempts = 4;
+  let lastErr = null;
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    let res;
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      res = await fetch(url.toString(), {
+        method: method || 'GET',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          Version: apiVersion || GHL_API_VERSION,
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: body != null ? JSON.stringify(body) : undefined,
+        signal: ghlAbortSignal(),
+      });
+    } catch (err) {
+      throw mapGhlFetchError(err, method || 'GET', path);
+    }
 
-  const text = await res.text();
-  let data = {};
-  try {
-    data = text ? JSON.parse(text) : {};
-  } catch (_) {
-    data = { raw: text };
-  }
+    const text = await res.text();
+    let data = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch (_) {
+      data = { raw: text };
+    }
 
-  if (!res.ok) {
+    if (res.ok) return data;
+
+    if (res.status === 429 && attempt < maxAttempts - 1 && !isDailyRateLimitExhausted(res)) {
+      const waitMs = rateLimitWaitMs(res, attempt);
+      console.warn(
+        `[ghlClient] 429 rate limit on ${method || 'GET'} ${path} — retry in ${waitMs}ms (attempt ${attempt + 1}/${maxAttempts})`,
+      );
+      // eslint-disable-next-line no-await-in-loop
+      await sleep(waitMs);
+      continue;
+    }
+
     const msg =
       (data && data.message) ||
       (data && data.error) ||
       (data && data.msg) ||
       `GHL API error (${res.status})`;
-    let text = typeof msg === 'string' ? msg : JSON.stringify(msg);
-    if (/does not have access to this location/i.test(text)) {
-      text =
+    let errText = typeof msg === 'string' ? msg : JSON.stringify(msg);
+    if (/does not have access to this location/i.test(errText)) {
+      errText =
         'GHL token does not have access to this Location ID. Create the Private Integration token inside the same sub-account as the Location ID (Settings → Integrations → Private Integrations), copy that location’s ID from the URL (/location/XXXX/), then Test & save under Workspace → Integrations.';
+    } else if (res.status === 429) {
+      errText =
+        'GHL rate limit hit (too many requests). Wait about 15 seconds and resume Sync list to GHL — remaining contacts will continue.';
     }
-    const err = new Error(text);
-    err.status = res.status;
-    err.body = data;
-    throw err;
+    lastErr = new Error(errText);
+    lastErr.status = res.status;
+    lastErr.body = data;
+    throw lastErr;
   }
 
-  return data;
+  throw lastErr || new Error('GHL API request failed');
 }
 
 /** Ping connection — list 1 contact for the configured location. */

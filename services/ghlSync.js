@@ -293,8 +293,26 @@ async function pushLeadToGhlInner(lead, integrationEnv, opts) {
       contactId = String(existing.id);
       await ghlClient.updateContact(contactId, lead, integrationEnv);
     } else {
-      const created = await ghlClient.createContact(lead, integrationEnv);
-      contactId = String((created && created.id) || '');
+      try {
+        const created = await ghlClient.createContact(lead, integrationEnv);
+        contactId = String((created && created.id) || '');
+      } catch (createErr) {
+        // GHL often rejects creates when phone/email already exists but search missed them.
+        const meta = createErr && createErr.body && createErr.body.meta;
+        const dupId = String(
+          (meta && (meta.contactId || meta.contact_id || meta.id)) || '',
+        ).trim();
+        const looksDup = !!(dupId || /duplicat|already exists/i.test(String(createErr.message || '')));
+        if (!looksDup) throw createErr;
+        if (dupId) {
+          contactId = dupId;
+        } else {
+          const again = await ghlClient.searchContactByEmailOrPhone(lead, integrationEnv);
+          contactId = String((again && again.id) || '').trim();
+        }
+        if (!contactId) throw createErr;
+        await ghlClient.updateContact(contactId, lead, integrationEnv);
+      }
     }
   }
 

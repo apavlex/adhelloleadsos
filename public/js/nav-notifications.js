@@ -802,9 +802,16 @@
     if (!err) return false;
     if (err.name === 'AbortError' || err.name === 'TimeoutError') return true;
     const msg = String(err.message || err || '').toLowerCase();
+    // Only navigation / network aborts pause the queue. Rate limits are retried server-side;
+    // remaining leads keep processing with client pacing.
     return /failed to fetch|networkerror|load failed|network request failed|aborted|the operation was aborted/.test(
       msg,
     );
+  }
+
+  function ghlSyncPaceMs() {
+    // Stay under GHL's ~100 req / 10s burst — each lead uses several API calls.
+    return 450;
   }
 
   try {
@@ -927,6 +934,11 @@
       escapeBellHtml(String(current) + ' of ' + String(total) + ' contacts') +
       (pushed || failed ? ' · ' + pushed + ' synced' + (failed ? ', ' + failed + ' failed' : '') : '') +
       '</div>' +
+      (job.lastError
+        ? '<div class="mt-1 text-[9px] font-semibold text-red-700/90 dark:text-red-300/90 leading-snug break-words">' +
+          escapeBellHtml(String(job.lastError).slice(0, 220)) +
+          '</div>'
+        : '') +
       '<div class="mt-1 text-[9px] font-semibold text-brand-muted dark:text-slate-500">' +
       (stopping
         ? 'Finishing the current contact, then stopping. Contacts already pushed stay in GHL.'
@@ -1012,9 +1024,21 @@
           }
           var leadPushed = data.pushed != null ? data.pushed : 0;
           var leadFailed = data.failed != null ? data.failed : 0;
-          if (leadPushed > 0) job.pushedCount = (job.pushedCount || 0) + leadPushed;
-          else if (leadFailed > 0) job.failedCount = (job.failedCount || 0) + leadFailed;
-          else job.failedCount = (job.failedCount || 0) + 1;
+          if (leadPushed > 0) {
+            job.pushedCount = (job.pushedCount || 0) + leadPushed;
+            job.lastError = '';
+          } else if (leadFailed > 0) {
+            job.failedCount = (job.failedCount || 0) + leadFailed;
+            var failRow = Array.isArray(data.results)
+              ? data.results.find(function (r) {
+                  return r && r.ok === false;
+                })
+              : null;
+            job.lastError = (failRow && failRow.error) || data.error || 'GHL sync failed';
+          } else {
+            job.failedCount = (job.failedCount || 0) + 1;
+            job.lastError = (data && data.error) || 'GHL sync returned no contact';
+          }
           if (Array.isArray(data.results)) summary.results = summary.results.concat(data.results);
         } catch (err) {
           // Leaving the page aborts in-flight fetches. Pause — do not fail the rest of the queue.
@@ -1030,6 +1054,11 @@
         }
 
         job.index += 1;
+        // Pace between leads so we stay under GHL's burst rate limit.
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise(function (r) {
+          setTimeout(r, ghlSyncPaceMs());
+        });
         // A Stop click during the request above wrote the flag to storage; keep it.
         var pendingCancel = readGhlSyncJob();
         if (ghlSyncCancelRequested || (pendingCancel && pendingCancel.cancelRequested === true)) {
