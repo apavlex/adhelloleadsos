@@ -168,69 +168,72 @@
             <% } %>
           </dl>
 
-          <div class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-950/40 px-3 py-2.5">
-            <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Latest note</p>
-            <% if (_latestNote) { %>
-            <p class="text-xs text-brand-dark dark:text-slate-200 leading-relaxed whitespace-pre-wrap"><%= _latestNote.text %></p>
-            <% if (_latestNote.createdAt) { %>
-            <p class="mt-1 text-[9px] font-semibold text-brand-muted"><%= String(_latestNote.createdAt).slice(0, 10) %></p>
-            <% } %>
-            <% if (_olderNotes.length) { %>
-            <details class="mt-2 group/notes">
-              <summary class="cursor-pointer list-none text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline [&::-webkit-details-marker]:hidden">View more · <%= _olderNotes.length %> older</summary>
-              <ul class="mt-2 space-y-2 max-h-40 overflow-y-auto">
-                <% _olderNotes.forEach((n) => { %>
-                <li class="text-xs text-brand-muted leading-relaxed border-t border-brand-border/30 dark:border-white/10 pt-2">
-                  <% if (n.createdAt) { %><p class="text-[9px] font-black uppercase tracking-wider mb-0.5"><%= String(n.createdAt).slice(0, 10) %></p><% } %>
-                  <p class="whitespace-pre-wrap text-brand-dark dark:text-slate-200"><%= n.text %></p>
-                  <form action="/fb-groups/<%= encodeURIComponent(g.id) %>/notes/<%= encodeURIComponent(n.id) %>/delete" method="post" class="mt-1">
-                    <button type="submit" class="text-[9px] font-black uppercase tracking-widest text-brand-muted hover:text-rose-600">Delete</button>
-                  </form>
-                </li>
-                <% }); %>
-              </ul>
-            </details>
-            <% } %>
-            <% } else { %>
-            <p class="text-xs text-brand-muted">No notes yet — add from the Chrome extension while you’re in the group, or below.</p>
-            <% } %>
-            <form action="/fb-groups/<%= encodeURIComponent(g.id) %>/notes" method="post" class="mt-3 space-y-2">
+          <div class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-950/40 px-3 py-2.5 space-y-3">
+            <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Notes &amp; posts</p>
+
+            <form action="/fb-groups/<%= encodeURIComponent(g.id) %>/notes" method="post" class="space-y-2">
+              <input name="tags" type="text" maxlength="200" value="<%= _tags.join(', ') %>" placeholder="Tags (comma-separated)" class="w-full rounded-lg border border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-800/70 px-3 py-1.5 text-[11px] text-brand-dark dark:text-white" />
               <textarea name="noteText" rows="2" maxlength="4000" required placeholder="Quick note from prospecting…" class="w-full rounded-lg border border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-800/70 px-3 py-2 text-xs text-brand-dark dark:text-white resize-y"></textarea>
-              <div class="flex flex-wrap items-center gap-2">
-                <input name="tags" type="text" maxlength="200" value="<%= _tags.join(', ') %>" placeholder="Tags (comma-separated)" class="flex-1 min-w-[8rem] rounded-lg border border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-800/70 px-3 py-1.5 text-[11px] text-brand-dark dark:text-white" />
+              <div class="flex justify-end">
                 <button type="submit" class="btn-pill btn-primary px-3 py-1.5 text-[9px] font-black uppercase tracking-widest">Add note</button>
               </div>
             </form>
-          </div>
 
-          <div class="rounded-xl border border-brand-border/40 dark:border-white/10 px-3 py-2.5">
-            <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-2">Posts log · <%= _posts.length %></p>
-            <% if (_posts.length) { %>
-            <ul class="space-y-2 mb-3 max-h-40 overflow-y-auto">
-              <% _posts.forEach((p) => { %>
-              <li class="text-xs text-brand-dark dark:text-slate-200 leading-relaxed border-b border-brand-border/30 dark:border-white/10 pb-2 last:border-0 last:pb-0">
-                <div class="flex items-start justify-between gap-2">
-                  <div class="min-w-0">
-                    <% if (p.postedAt) { %><p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-0.5"><%= p.postedAt %></p><% } %>
-                    <p class="whitespace-pre-wrap break-words"><%= p.text %></p>
-                  </div>
-                  <form action="/fb-groups/<%= encodeURIComponent(g.id) %>/posts/<%= encodeURIComponent(p.id) %>/delete" method="post" class="shrink-0">
-                    <button type="submit" class="text-[9px] font-black uppercase tracking-widest text-brand-muted hover:text-rose-600">Delete</button>
-                  </form>
-                </div>
-              </li>
-              <% }); %>
-            </ul>
-            <% } else { %>
-            <p class="text-xs text-brand-muted mb-2">Log what you posted so you don’t repeat yourself.</p>
+            <% if (_latestNote) { %>
+            <div class="border-t border-brand-border/30 dark:border-white/10 pt-2">
+              <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Latest note</p>
+              <p class="text-xs text-brand-dark dark:text-slate-200 leading-relaxed whitespace-pre-wrap"><%= _latestNote.text %></p>
+              <% if (_latestNote.createdAt) { %>
+              <p class="mt-1 text-[9px] font-semibold text-brand-muted"><%= String(_latestNote.createdAt).slice(0, 10) %></p>
+              <% } %>
+              <% if (_olderNotes.length) { %>
+              <details class="mt-2 group/notes">
+                <summary class="cursor-pointer list-none text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline [&::-webkit-details-marker]:hidden">View more · <%= _olderNotes.length %> older</summary>
+                <ul class="mt-2 space-y-2 max-h-40 overflow-y-auto">
+                  <% _olderNotes.forEach((n) => { %>
+                  <li class="text-xs text-brand-muted leading-relaxed border-t border-brand-border/30 dark:border-white/10 pt-2">
+                    <% if (n.createdAt) { %><p class="text-[9px] font-black uppercase tracking-wider mb-0.5"><%= String(n.createdAt).slice(0, 10) %></p><% } %>
+                    <p class="whitespace-pre-wrap text-brand-dark dark:text-slate-200"><%= n.text %></p>
+                    <form action="/fb-groups/<%= encodeURIComponent(g.id) %>/notes/<%= encodeURIComponent(n.id) %>/delete" method="post" class="mt-1">
+                      <button type="submit" class="text-[9px] font-black uppercase tracking-widest text-brand-muted hover:text-rose-600">Delete</button>
+                    </form>
+                  </li>
+                  <% }); %>
+                </ul>
+              </details>
+              <% } %>
+            </div>
             <% } %>
-            <form action="/fb-groups/<%= encodeURIComponent(g.id) %>/posts" method="post" class="space-y-2">
-              <textarea name="postText" rows="2" maxlength="4000" required placeholder="Paste the post you made (or plan to make)…" class="w-full rounded-lg border border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-800/70 px-3 py-2 text-xs text-brand-dark dark:text-white resize-y"></textarea>
-              <div class="flex flex-wrap items-center gap-2">
-                <input name="postedAt" type="date" class="rounded-lg border border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-800/70 px-2 py-1.5 text-[11px] text-brand-dark dark:text-white" />
-                <button type="submit" class="btn-pill btn-primary px-3 py-1.5 text-[9px] font-black uppercase tracking-widest">Add post</button>
-              </div>
-            </form>
+
+            <div class="border-t border-brand-border/30 dark:border-white/10 pt-2">
+              <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-2">Posts · <%= _posts.length %></p>
+              <% if (_posts.length) { %>
+              <ul class="space-y-2 mb-3 max-h-40 overflow-y-auto">
+                <% _posts.forEach((p) => { %>
+                <li class="text-xs text-brand-dark dark:text-slate-200 leading-relaxed border-b border-brand-border/30 dark:border-white/10 pb-2 last:border-0 last:pb-0">
+                  <div class="flex items-start justify-between gap-2">
+                    <div class="min-w-0">
+                      <% if (p.postedAt) { %><p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-0.5"><%= p.postedAt %></p><% } %>
+                      <p class="whitespace-pre-wrap break-words"><%= p.text %></p>
+                    </div>
+                    <form action="/fb-groups/<%= encodeURIComponent(g.id) %>/posts/<%= encodeURIComponent(p.id) %>/delete" method="post" class="shrink-0">
+                      <button type="submit" class="text-[9px] font-black uppercase tracking-widest text-brand-muted hover:text-rose-600">Delete</button>
+                    </form>
+                  </div>
+                </li>
+                <% }); %>
+              </ul>
+              <% } else { %>
+              <p class="text-xs text-brand-muted mb-2">Log what you posted so you don’t repeat yourself.</p>
+              <% } %>
+              <form action="/fb-groups/<%= encodeURIComponent(g.id) %>/posts" method="post" class="space-y-2">
+                <textarea name="postText" rows="2" maxlength="4000" required placeholder="Paste the post you made (or plan to make)…" class="w-full rounded-lg border border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-800/70 px-3 py-2 text-xs text-brand-dark dark:text-white resize-y"></textarea>
+                <div class="flex flex-wrap items-center gap-2">
+                  <input name="postedAt" type="date" class="rounded-lg border border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-800/70 px-2 py-1.5 text-[11px] text-brand-dark dark:text-white" />
+                  <button type="submit" class="btn-pill btn-primary px-3 py-1.5 text-[9px] font-black uppercase tracking-widest">Add post</button>
+                </div>
+              </form>
+            </div>
           </div>
 
           <div class="mt-auto flex flex-wrap items-center gap-2 pt-2">
