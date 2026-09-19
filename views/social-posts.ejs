@@ -141,6 +141,36 @@
     body.sp-posts-view--list .js-sp-posts-layout.sp-layout--list .post-card textarea {
       min-height: 6.5rem;
     }
+    /* List view: keep the image strip ~1/10 the usual 16:9 height */
+    body.sp-posts-view--list .js-sp-posts-layout.sp-layout--list .post-card-thumb {
+      aspect-ratio: auto;
+      height: 2.75rem;
+      max-height: 2.75rem;
+      margin-bottom: 8px;
+      border-radius: 8px;
+    }
+    body.sp-posts-view--list .js-sp-posts-layout.sp-layout--list .post-card-thumb:hover {
+      transform: none;
+    }
+    body.sp-posts-view--list .js-sp-posts-layout.sp-layout--list .post-card-thumb .thumb-note-display {
+      padding: 4px 8px;
+      background: linear-gradient(transparent 10%, rgba(0,0,0,.55));
+    }
+    body.sp-posts-view--list .js-sp-posts-layout.sp-layout--list .post-card-thumb .thumb-note-display span {
+      -webkit-line-clamp: 1;
+      font-size: 10px;
+    }
+    body.sp-posts-view--list .js-sp-posts-layout.sp-layout--list .post-card-thumb .thumb-note-btn,
+    body.sp-posts-view--list .js-sp-posts-layout.sp-layout--list .post-card-thumb .thumb-bookmark-badge {
+      top: 4px;
+      padding: 3px 5px;
+    }
+    body.sp-posts-view--list .js-sp-posts-layout.sp-layout--list .post-card-thumb .thumb-note-btn { left: 4px; }
+    body.sp-posts-view--list .js-sp-posts-layout.sp-layout--list .post-card-thumb .thumb-bookmark-badge { right: 4px; }
+    body.sp-posts-view--list .js-sp-posts-layout.sp-layout--list .post-card-thumb .thumb-label {
+      padding: 2px 8px;
+      font-size: 9px;
+    }
   </style>
 </head>
 <body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
