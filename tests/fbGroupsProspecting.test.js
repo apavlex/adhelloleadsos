@@ -51,7 +51,13 @@ describe('fb group URL helpers', () => {
     assert.equal(parseMemberCountInput('12K').memberCount, 12000);
     assert.equal(parseMemberCountInput('12,450').memberCount, 12450);
     assert.equal(normalizePrivacy('Private'), 'private');
-    assert.equal(normalizeLastPosted('  2 days ago  '), '2 days ago');
+    assert.match(normalizeLastPosted('yesterday'), /^[A-Z][a-z]{2} \d{1,2}$/);
+    assert.match(normalizeLastPosted('2 days ago'), /^[A-Z][a-z]{2} \d{1,2}$/);
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowLabel = tomorrow.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const todayLabel = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    assert.equal(normalizeLastPosted(tomorrowLabel), todayLabel);
     assert.equal(normalizeAdminContact('Jane Admin · 503-555-0100').includes('Jane'), true);
   });
 });

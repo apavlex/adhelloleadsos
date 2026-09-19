@@ -1500,10 +1500,18 @@ function scrapeFbGroupMetaInPage() {
   if (/\bPublic\s+group\b/i.test(text)) privacy = 'public';
   else if (/\bPrivate\s+group\b/i.test(text)) privacy = 'private';
   let lastPosted = '';
-  const postMatch = text.match(
-    /\b((?:\d+\s*(?:min|mins|minute|minutes|hr|hrs|hour|hours|d|day|days|w|week|weeks)\s*ago)|Yesterday(?:\s+at\s+\d{1,2}:\d{2}\s*[AP]M)?|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+\d{1,2}(?:,?\s+\d{4})?(?:\s+at\s+\d{1,2}:\d{2}\s*[AP]M)?)\b/i,
+  // Prefer relative Facebook timestamps — absolute "Sep 20" often matches events/upcoming UI.
+  const relativeMatch = text.match(
+    /\b((?:\d+\s*(?:min|mins|minute|minutes|hr|hrs|hour|hours|d|day|days|w|week|weeks)\s*ago)|Yesterday(?:\s+at\s+\d{1,2}:\d{2}\s*[AP]M)?)\b/i,
   );
-  if (postMatch) lastPosted = postMatch[1].replace(/\s+/g, ' ').trim().slice(0, 80);
+  if (relativeMatch) {
+    lastPosted = relativeMatch[1].replace(/\s+/g, ' ').trim().slice(0, 80);
+  } else {
+    const absoluteMatch = text.match(
+      /\b((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+\d{1,2}(?:,?\s+\d{4})?(?:\s+at\s+\d{1,2}:\d{2}\s*[AP]M)?)\b/i,
+    );
+    if (absoluteMatch) lastPosted = absoluteMatch[1].replace(/\s+/g, ' ').trim().slice(0, 80);
+  }
   let adminContact = '';
   const adminMatch = text.match(
     /(?:Group\s+)?(?:Admin|Admins|Owner)\s*[:\-]?\s*([A-Z][A-Za-z0-9 .'-]{1,48})/,

@@ -145,8 +145,93 @@ function normalizePrivacy(raw) {
   return '';
 }
 
+function formatLocalShortDate(d) {
+  const date = d instanceof Date && !Number.isNaN(d.getTime()) ? d : new Date();
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function startOfLocalDay(d = new Date()) {
+  const out = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  return out;
+}
+
+function parseLocalCalendarDate(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return null;
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) {
+    const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  m = s.match(
+    /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+(\d{1,2})(?:,?\s*(\d{4}))?/i,
+  );
+  if (!m) return null;
+  const monKey = m[1].toLowerCase().slice(0, 3);
+  const months = {
+    jan: 0,
+    feb: 1,
+    mar: 2,
+    apr: 3,
+    may: 4,
+    jun: 5,
+    jul: 6,
+    aug: 7,
+    sep: 8,
+    oct: 9,
+    nov: 10,
+    dec: 11,
+  };
+  const month = months[monKey];
+  if (month == null) return null;
+  const day = Number(m[2]);
+  const year = m[3] ? Number(m[3]) : new Date().getFullYear();
+  const d = new Date(year, month, day);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * Normalize last-activity labels. Uses the local calendar (not UTC) so
+ * evening saves don't show as "tomorrow", and future dates are clamped to today.
+ */
 function normalizeLastPosted(raw) {
-  return String(raw || '').trim().slice(0, 80);
+  const s = String(raw || '').trim().slice(0, 80);
+  if (!s) return '';
+  const lower = s.toLowerCase();
+
+  if (lower === 'today' || lower === 'just now' || /^today\b/i.test(s)) {
+    return formatLocalShortDate(new Date());
+  }
+  if (lower === 'yesterday' || /^yesterday\b/i.test(s)) {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return formatLocalShortDate(d);
+  }
+
+  const ago = lower.match(
+    /^(\d+)\s*(min|mins|minute|minutes|hr|hrs|hour|hours|d|day|days|w|week|weeks)\s*ago$/,
+  );
+  if (ago) {
+    const n = Math.max(0, Number(ago[1]) || 0);
+    const unit = ago[2];
+    const d = new Date();
+    if (/^d$|^day/.test(unit)) d.setDate(d.getDate() - n);
+    else if (/^w$|^week/.test(unit)) d.setDate(d.getDate() - n * 7);
+    // minutes/hours → same local calendar day
+    return formatLocalShortDate(d);
+  }
+
+  const cal = parseLocalCalendarDate(s);
+  if (cal) {
+    const today = startOfLocalDay();
+    if (startOfLocalDay(cal).getTime() > today.getTime()) {
+      // Last activity cannot be in the future (UTC bleed / bad scrape).
+      return formatLocalShortDate(today);
+    }
+    return formatLocalShortDate(cal);
+  }
+
+  return s;
 }
 
 function normalizeAdminContact(raw) {
@@ -239,16 +324,24 @@ function metaFromBody(body) {
 router.get('/', async (req, res, next) => {
   try {
     let groups = await dbService.listWorkspaceFbGroups(req.workspaceId);
-    // Repair junk titles like "Notifications" from URL slug when possible.
+    // Repair junk titles and future lastPosted labels (UTC / scrape off-by-one).
     groups = await Promise.all(
       (groups || []).map(async (g) => {
-        if (!g || !isJunkFbGroupTitle(g.title)) return g;
-        const fixed = resolveFbGroupTitle({ titleIn: '', url: g.url, existingTitle: g.title });
-        if (!fixed || fixed === g.title) return g;
+        if (!g) return g;
+        let next = g;
+        if (isJunkFbGroupTitle(g.title)) {
+          const fixed = resolveFbGroupTitle({ titleIn: '', url: g.url, existingTitle: g.title });
+          if (fixed && fixed !== g.title) next = { ...next, title: fixed };
+        }
+        const posted = normalizeLastPosted(g.lastPosted);
+        if (posted && posted !== String(g.lastPosted || '').trim()) {
+          next = { ...next, lastPosted: posted };
+        }
+        if (next === g) return g;
         try {
-          return await dbService.saveWorkspaceFbGroup(req.workspaceId, { ...g, title: fixed });
+          return await dbService.saveWorkspaceFbGroup(req.workspaceId, next);
         } catch (_) {
-          return { ...g, title: fixed };
+          return next;
         }
       }),
     );
@@ -425,19 +518,21 @@ router.post('/:id/posts', express.urlencoded({ extended: true }), async (req, re
     if (!existing) return res.redirect(302, '/fb-groups');
     const text = String(req.body.postText || req.body.text || '').trim().slice(0, 4000);
     if (!text) return res.redirect(302, '/fb-groups');
-    const postedAt = String(req.body.postedAt || '').trim().slice(0, 40);
-    const now = new Date().toISOString();
+    const postedAtRaw = String(req.body.postedAt || '').trim().slice(0, 40);
+    const now = new Date();
+    const localYmd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const entry = {
       id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       text,
-      postedAt: postedAt || now.slice(0, 10),
-      createdAt: now,
+      postedAt: postedAtRaw || localYmd,
+      createdAt: now.toISOString(),
     };
     const posts = [entry, ...(Array.isArray(existing.posts) ? existing.posts : [])].slice(0, 40);
     await dbService.saveWorkspaceFbGroup(req.workspaceId, {
       ...existing,
       posts,
-      lastPosted: normalizeLastPosted(postedAt || existing.lastPosted || 'today') || existing.lastPosted,
+      lastPosted:
+        normalizeLastPosted(postedAtRaw || existing.lastPosted || 'today') || existing.lastPosted,
     });
     res.redirect(302, '/fb-groups');
   } catch (e) {
