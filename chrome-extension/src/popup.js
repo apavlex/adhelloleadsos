@@ -936,6 +936,121 @@ importForm?.addEventListener('submit', async (e) => {
 
 let libraryCache = null;
 let libraryActiveTabUrl = '';
+let libraryUsedCache = { scripts: {}, bookmarks: {} };
+const LIBRARY_USED_STORAGE_KEY = 'adhelloLibraryUsed';
+
+function libraryUsedWorkspaceKey() {
+  return String(getSelectedWorkspaceId() || 'default').trim() || 'default';
+}
+
+function libraryItemId(kind, item, fallbackIdx) {
+  if (!item) return `${kind}:${fallbackIdx}`;
+  const raw = item.id != null && String(item.id).trim() ? String(item.id).trim() : '';
+  if (raw) return `${kind}:${raw}`;
+  const title = String(item.title || item.hook || '').trim().slice(0, 80);
+  const body = String(item.body || item.content || '').trim().slice(0, 120);
+  return `${kind}:${title}|${body}` || `${kind}:${fallbackIdx}`;
+}
+
+async function loadLibraryUsedCache() {
+  try {
+    const store = await chrome.storage.local.get(LIBRARY_USED_STORAGE_KEY);
+    const all =
+      store && store[LIBRARY_USED_STORAGE_KEY] && typeof store[LIBRARY_USED_STORAGE_KEY] === 'object'
+        ? store[LIBRARY_USED_STORAGE_KEY]
+        : {};
+    const bucket = all[libraryUsedWorkspaceKey()] || {};
+    libraryUsedCache = {
+      scripts: bucket.scripts && typeof bucket.scripts === 'object' ? bucket.scripts : {},
+      bookmarks: bucket.bookmarks && typeof bucket.bookmarks === 'object' ? bucket.bookmarks : {},
+    };
+  } catch (_) {
+    libraryUsedCache = { scripts: {}, bookmarks: {} };
+  }
+  return libraryUsedCache;
+}
+
+async function persistLibraryUsedCache() {
+  try {
+    const store = await chrome.storage.local.get(LIBRARY_USED_STORAGE_KEY);
+    const all =
+      store && store[LIBRARY_USED_STORAGE_KEY] && typeof store[LIBRARY_USED_STORAGE_KEY] === 'object'
+        ? { ...store[LIBRARY_USED_STORAGE_KEY] }
+        : {};
+    all[libraryUsedWorkspaceKey()] = {
+      scripts: libraryUsedCache.scripts || {},
+      bookmarks: libraryUsedCache.bookmarks || {},
+    };
+    await chrome.storage.local.set({ [LIBRARY_USED_STORAGE_KEY]: all });
+  } catch (_) {}
+}
+
+function isLibraryItemUsed(kind, id) {
+  const map = kind === 'bookmark' ? libraryUsedCache.bookmarks : libraryUsedCache.scripts;
+  return !!(map && map[id]);
+}
+
+function availableLibraryScripts() {
+  const list = Array.isArray(libraryCache && libraryCache.scripts) ? libraryCache.scripts : [];
+  return list
+    .map((s, i) => ({ item: s, id: libraryItemId('script', s, i), idx: i }))
+    .filter((row) => !isLibraryItemUsed('script', row.id));
+}
+
+function availableLibraryBookmarks() {
+  const list = Array.isArray(libraryCache && libraryCache.bookmarks) ? libraryCache.bookmarks : [];
+  return list
+    .map((b, i) => ({ item: b, id: libraryItemId('bookmark', b, i), idx: i }))
+    .filter((row) => !isLibraryItemUsed('bookmark', row.id));
+}
+
+function usedLibraryItems() {
+  const scripts = Object.values(libraryUsedCache.scripts || {}).map((s) => ({
+    ...s,
+    kind: 'script',
+  }));
+  const bookmarks = Object.values(libraryUsedCache.bookmarks || {}).map((b) => ({
+    ...b,
+    kind: 'bookmark',
+  }));
+  return scripts
+    .concat(bookmarks)
+    .sort((a, b) => String(b.usedAt || '').localeCompare(String(a.usedAt || '')));
+}
+
+async function markLibraryItemUsed(kind, item, idx) {
+  if (kind !== 'script' && kind !== 'bookmark') return;
+  const id = libraryItemId(kind, item, idx);
+  const body =
+    kind === 'script'
+      ? String((item && item.body) || '')
+      : String(
+          (item && (item.content || [item.hook, item.cta].filter(Boolean).join('\n\n'))) || '',
+        );
+  const entry = {
+    id,
+    sourceId: item && item.id != null ? String(item.id) : '',
+    title:
+      kind === 'script'
+        ? String((item && item.title) || 'Script')
+        : String((item && (item.hook || body || 'Post')) || 'Post').slice(0, 80),
+    body,
+    categoryLabel:
+      kind === 'script'
+        ? String((item && item.categoryLabel) || '')
+        : String((item && item.platform) || 'post'),
+    usedAt: new Date().toISOString(),
+  };
+  if (kind === 'script') libraryUsedCache.scripts[id] = entry;
+  else libraryUsedCache.bookmarks[id] = entry;
+  await persistLibraryUsedCache();
+}
+
+async function restoreLibraryItem(kind, id) {
+  if (kind === 'script' && libraryUsedCache.scripts[id]) delete libraryUsedCache.scripts[id];
+  else if (kind === 'bookmark' && libraryUsedCache.bookmarks[id]) delete libraryUsedCache.bookmarks[id];
+  await persistLibraryUsedCache();
+}
 
 function escapeHtml(s) {
   return String(s || '')
@@ -984,18 +1099,21 @@ async function copyLibraryText(text) {
   copyLibraryTextFallback(value);
 }
 
-function renderLibraryScripts(scripts) {
+function renderLibraryScripts() {
   const host = document.getElementById('libraryScripts');
   if (!host) return;
-  if (!scripts || !scripts.length) {
-    host.innerHTML = '<p class="import-hint">No scripts loaded.</p>';
+  const rows = availableLibraryScripts();
+  if (!rows.length) {
+    host.innerHTML =
+      '<p class="import-hint">No unused scripts left. Open <strong>Used</strong> to restore one, or wait for new pack updates.</p>';
     return;
   }
-  host.innerHTML = scripts
-    .map((s, i) => {
+  host.innerHTML = rows
+    .map((row) => {
+      const s = row.item;
       const body = String(s.body || '');
       return (
-        `<article class="library-card" data-kind="script" data-idx="${i}">` +
+        `<article class="library-card" data-kind="script" data-id="${escapeHtml(row.id)}" data-idx="${row.idx}">` +
         `<p class="library-card__meta">${escapeHtml(s.categoryLabel || '')}</p>` +
         `<p class="library-card__title">${escapeHtml(s.title || 'Script')}</p>` +
         `<p class="library-card__body">${escapeHtml(body)}</p>` +
@@ -1006,24 +1124,57 @@ function renderLibraryScripts(scripts) {
     .join('');
 }
 
-function renderLibraryBookmarks(bookmarks) {
+function renderLibraryBookmarks() {
   const host = document.getElementById('libraryBookmarks');
   if (!host) return;
-  if (!bookmarks || !bookmarks.length) {
+  const rows = availableLibraryBookmarks();
+  if (!rows.length) {
     host.innerHTML =
-      '<p class="import-hint">No bookmarked Social Posts yet. Bookmark ideas on /social-posts.</p>';
+      '<p class="import-hint">No unused bookmarks. Bookmark ideas on /social-posts, or restore from <strong>Used</strong>.</p>';
     return;
   }
-  host.innerHTML = bookmarks
-    .map((b, i) => {
+  host.innerHTML = rows
+    .map((row) => {
+      const b = row.item;
       const body = String(b.content || [b.hook, b.cta].filter(Boolean).join('\n\n') || '');
       return (
-        `<article class="library-card" data-kind="bookmark" data-idx="${i}">` +
+        `<article class="library-card" data-kind="bookmark" data-id="${escapeHtml(row.id)}" data-idx="${row.idx}">` +
         `<p class="library-card__meta">${escapeHtml(b.platform || 'post')}</p>` +
         `<p class="library-card__title">${escapeHtml((b.hook || body || 'Post').slice(0, 80))}</p>` +
         `<p class="library-card__body">${escapeHtml(body)}</p>` +
         `<div class="library-card__actions"><button type="button" class="js-lib-copy" data-copy="${encodeURIComponent(body)}">Copy</button></div>` +
         `</article>`
+      );
+    })
+    .join('');
+}
+
+function renderLibraryUsed() {
+  const host = document.getElementById('libraryUsed');
+  if (!host) return;
+  const items = usedLibraryItems();
+  if (!items.length) {
+    host.innerHTML =
+      '<p class="import-hint">Nothing used yet. Copy a script or bookmark and it moves here so you don’t reuse it by accident.</p>';
+    return;
+  }
+  host.innerHTML = items
+    .map((item) => {
+      const body = String(item.body || '');
+      const when = item.usedAt ? String(item.usedAt).slice(0, 10) : '';
+      return (
+        `<article class="library-card" data-kind="used" data-used-kind="${escapeHtml(item.kind)}" data-id="${escapeHtml(item.id)}">` +
+        `<p class="library-card__meta">${escapeHtml(
+          (item.kind === 'script' ? 'Script' : 'Bookmark') +
+            (item.categoryLabel ? ` · ${item.categoryLabel}` : '') +
+            (when ? ` · Used ${when}` : ''),
+        )}</p>` +
+        `<p class="library-card__title">${escapeHtml(item.title || 'Used item')}</p>` +
+        `<p class="library-card__body">${escapeHtml(body)}</p>` +
+        `<div class="library-card__actions">` +
+        `<button type="button" class="js-lib-copy" data-copy="${encodeURIComponent(body)}">Copy again</button>` +
+        `<button type="button" class="js-lib-restore">Restore</button>` +
+        `</div></article>`
       );
     })
     .join('');
@@ -1074,6 +1225,12 @@ function renderLibraryGroups(groups) {
 function libraryTextForCard(card) {
   if (!card || !libraryCache) return '';
   const kind = card.getAttribute('data-kind');
+  if (kind === 'used') {
+    const id = card.getAttribute('data-id');
+    const usedKind = card.getAttribute('data-used-kind');
+    const map = usedKind === 'bookmark' ? libraryUsedCache.bookmarks : libraryUsedCache.scripts;
+    return (map && map[id] && map[id].body) || '';
+  }
   const idx = Number(card.getAttribute('data-idx'));
   if (!Number.isFinite(idx) || idx < 0) return '';
   if (kind === 'script') {
@@ -1105,6 +1262,43 @@ function flashCopyButton(btn, ok) {
   }, 1600);
 }
 
+function libraryStatusCounts() {
+  const scriptsLeft = availableLibraryScripts().length;
+  const bookmarksLeft = availableLibraryBookmarks().length;
+  const usedCount = usedLibraryItems().length;
+  const groups = (libraryCache && libraryCache.groups) || [];
+  return `${scriptsLeft} scripts · ${bookmarksLeft} bookmarks · ${usedCount} used · ${groups.length} groups`;
+}
+
+async function refreshLibraryPanels(activeSection) {
+  renderLibraryScripts();
+  renderLibraryBookmarks();
+  renderLibraryUsed();
+  renderLibraryGroups((libraryCache && libraryCache.groups) || []);
+  bindLibraryCopyClicks(document.getElementById('libraryScripts'));
+  bindLibraryCopyClicks(document.getElementById('libraryBookmarks'));
+  bindLibraryCopyClicks(document.getElementById('libraryUsed'));
+  bindLibraryCopyClicks(document.getElementById('libraryGroups'));
+  bindLibraryRestoreClicks(document.getElementById('libraryUsed'));
+  setLibraryStatus(libraryStatusCounts());
+  if (activeSection) showLibrarySection(activeSection);
+}
+
+function bindLibraryRestoreClicks(root) {
+  if (!root) return;
+  root.querySelectorAll('.js-lib-restore').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const card = btn.closest('.library-card');
+      if (!card) return;
+      const kind = card.getAttribute('data-used-kind');
+      const id = card.getAttribute('data-id');
+      await restoreLibraryItem(kind, id);
+      await refreshLibraryPanels('used');
+      setLibraryStatus('Restored to library', 'success');
+    });
+  });
+}
+
 function bindLibraryCopyClicks(root) {
   if (!root) return;
   root.querySelectorAll('.js-lib-copy').forEach((btn) => {
@@ -1123,6 +1317,18 @@ function bindLibraryCopyClicks(root) {
       try {
         await copyLibraryText(text);
         flashCopyButton(btn, true);
+        const kind = card && card.getAttribute('data-kind');
+        if (kind === 'script' || kind === 'bookmark') {
+          const idx = Number(card.getAttribute('data-idx'));
+          const list = kind === 'script' ? libraryCache.scripts || [] : libraryCache.bookmarks || [];
+          const item = Number.isFinite(idx) ? list[idx] : null;
+          if (item) {
+            await markLibraryItemUsed(kind, item, idx);
+            await refreshLibraryPanels(kind === 'script' ? 'scripts' : 'bookmarks');
+            setLibraryStatus('Copied — moved to Used', 'success');
+            return;
+          }
+        }
         setLibraryStatus('Copied — paste into Facebook', 'success');
       } catch (err) {
         flashCopyButton(btn, false);
@@ -1138,9 +1344,11 @@ function showLibrarySection(which) {
   });
   const scripts = document.getElementById('libraryScripts');
   const bookmarks = document.getElementById('libraryBookmarks');
+  const used = document.getElementById('libraryUsed');
   const groups = document.getElementById('libraryGroups');
   if (scripts) scripts.classList.toggle('hidden', which !== 'scripts');
   if (bookmarks) bookmarks.classList.toggle('hidden', which !== 'bookmarks');
+  if (used) used.classList.toggle('hidden', which !== 'used');
   if (groups) groups.classList.toggle('hidden', which !== 'groups');
 }
 
@@ -1328,21 +1536,14 @@ async function scrapeActiveFbGroupMeta(tabId) {
 async function loadLibraryPanel() {
   setLibraryStatus('Loading library…');
   try {
+    await loadLibraryUsedCache();
     const res = await chrome.runtime.sendMessage({
       type: 'GET_PROSPECTING_LIBRARY',
       workspaceId: getSelectedWorkspaceId(),
     });
     if (!res?.ok) throw new Error(res?.error || 'Could not load library');
     libraryCache = res.data || {};
-    renderLibraryScripts(libraryCache.scripts || []);
-    renderLibraryBookmarks(libraryCache.bookmarks || []);
-    renderLibraryGroups(libraryCache.groups || []);
-    bindLibraryCopyClicks(document.getElementById('libraryScripts'));
-    bindLibraryCopyClicks(document.getElementById('libraryBookmarks'));
-    bindLibraryCopyClicks(document.getElementById('libraryGroups'));
-    setLibraryStatus(
-      `${(libraryCache.scripts || []).length} scripts · ${(libraryCache.bookmarks || []).length} bookmarks · ${(libraryCache.groups || []).length} groups`,
-    );
+    await refreshLibraryPanels();
   } catch (err) {
     setLibraryStatus(err.message || 'Could not load library', 'error');
   }

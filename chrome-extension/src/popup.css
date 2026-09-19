@@ -219,12 +219,14 @@ header h1 {
 
 .library-subtabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   margin-bottom: 10px;
 }
 
 .library-subtab {
-  flex: 1;
+  flex: 1 1 calc(50% - 6px);
+  min-width: 0;
   border: 1px solid #e5e7eb;
   background: #fff;
   border-radius: 999px;
