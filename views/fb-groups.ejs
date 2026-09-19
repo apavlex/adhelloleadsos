@@ -231,7 +231,7 @@
             <div class="flex flex-wrap items-center gap-2 min-w-0">
               <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-[#1877F2]/15 text-[#1877F2] dark:text-sky-300 border border-[#1877F2]/25 shrink-0">Facebook Group</span>
               <% if (_bookmarked) { %>
-              <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-brand-yellow/25 text-brand-dark dark:text-brand-yellow border border-brand-yellow/40 shrink-0">Bookmarked</span>
+              <span class="js-fb-bookmark-badge inline-flex items-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-brand-yellow/25 text-brand-dark dark:text-brand-yellow border border-brand-yellow/40 shrink-0">Bookmarked</span>
               <% } %>
               <% if (_privacy) { %>
               <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-brand-cream/60 dark:bg-white/10 text-brand-dark dark:text-slate-200 border border-brand-border/40 dark:border-white/10 shrink-0"><%= _privacy %></span>
@@ -243,8 +243,8 @@
               <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-brand-yellow/20 text-brand-dark dark:text-brand-yellow border border-brand-yellow/30 shrink-0">#<%= tag %></span>
               <% }); %>
             </div>
-            <form action="/fb-groups/<%= encodeURIComponent(g.id) %>/bookmark" method="post" class="shrink-0">
-              <button type="submit" class="fb-group-bookmark<%= _bookmarked ? ' is-on' : '' %>" title="<%= _bookmarked ? 'Remove bookmark' : 'Bookmark group' %>" aria-label="<%= _bookmarked ? 'Remove bookmark' : 'Bookmark group' %>" aria-pressed="<%= _bookmarked ? 'true' : 'false' %>">
+            <form action="/fb-groups/<%= encodeURIComponent(g.id) %>/bookmark" method="post" class="shrink-0 js-fb-bookmark-form" data-group-id="<%= g.id %>">
+              <button type="submit" class="fb-group-bookmark js-fb-bookmark-btn<%= _bookmarked ? ' is-on' : '' %>" title="<%= _bookmarked ? 'Remove bookmark' : 'Bookmark group' %>" aria-label="<%= _bookmarked ? 'Remove bookmark' : 'Bookmark group' %>" aria-pressed="<%= _bookmarked ? 'true' : 'false' %>">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
               </button>
             </form>
@@ -416,6 +416,93 @@
         }).catch(function () {
           toast('Could not copy');
         });
+      });
+    });
+
+    function setBookmarkUi(card, btn, on) {
+      if (!card || !btn) return;
+      btn.classList.toggle('is-on', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      btn.setAttribute('title', on ? 'Remove bookmark' : 'Bookmark group');
+      btn.setAttribute('aria-label', on ? 'Remove bookmark' : 'Bookmark group');
+      card.classList.toggle('is-bookmarked', on);
+      var badges = card.querySelector('.flex.flex-wrap.items-center.gap-2.min-w-0');
+      var badge = card.querySelector('.js-fb-bookmark-badge');
+      if (on) {
+        if (!badge && badges) {
+          badge = document.createElement('span');
+          badge.className =
+            'js-fb-bookmark-badge inline-flex items-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-brand-yellow/25 text-brand-dark dark:text-brand-yellow border border-brand-yellow/40 shrink-0';
+          badge.textContent = 'Bookmarked';
+          var after = badges.querySelector('span');
+          if (after && after.nextSibling) badges.insertBefore(badge, after.nextSibling);
+          else badges.appendChild(badge);
+        } else if (badge) {
+          badge.classList.remove('hidden');
+        }
+      } else if (badge) {
+        badge.remove();
+      }
+    }
+
+    function reorderBookmarkedCards() {
+      var grid = document.getElementById('fbGroupsGrid');
+      if (!grid) return;
+      var cards = Array.prototype.slice.call(grid.querySelectorAll('.fb-group-card'));
+      cards.sort(function (a, b) {
+        var ba = a.classList.contains('is-bookmarked') ? 1 : 0;
+        var bb = b.classList.contains('is-bookmarked') ? 1 : 0;
+        return bb - ba;
+      });
+      cards.forEach(function (card) {
+        grid.appendChild(card);
+      });
+    }
+
+    document.querySelectorAll('.js-fb-bookmark-form').forEach(function (form) {
+      form.addEventListener('submit', function (ev) {
+        ev.preventDefault();
+        var btn = form.querySelector('.js-fb-bookmark-btn');
+        var card = form.closest('.fb-group-card');
+        if (!btn || btn.disabled) return;
+        var nextOn = !btn.classList.contains('is-on');
+        setBookmarkUi(card, btn, nextOn);
+        reorderBookmarkedCards();
+        btn.disabled = true;
+        fetch(form.getAttribute('action'), {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+          body: JSON.stringify({ bookmarked: nextOn ? '1' : '0', ajax: '1' }),
+        })
+          .then(function (res) {
+            return res.json().then(function (data) {
+              return { ok: res.ok, data: data };
+            });
+          })
+          .then(function (result) {
+            if (!result.ok || !result.data || !result.data.success) {
+              throw new Error((result.data && result.data.error) || 'Could not update bookmark');
+            }
+            var serverOn = !!result.data.bookmarked;
+            if (serverOn !== nextOn) {
+              setBookmarkUi(card, btn, serverOn);
+              reorderBookmarkedCards();
+            }
+            toast(serverOn ? 'Bookmarked' : 'Bookmark removed');
+          })
+          .catch(function (err) {
+            setBookmarkUi(card, btn, !nextOn);
+            reorderBookmarkedCards();
+            toast((err && err.message) || 'Could not update bookmark');
+          })
+          .finally(function () {
+            btn.disabled = false;
+          });
       });
     });
 
