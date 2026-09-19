@@ -64,6 +64,83 @@
     .tag-filter-btn.active { background: var(--brand-yellow); color: #111827; border-color: var(--brand-yellow); font-weight: 800; }
     .icon-flat { width: 14px; height: 14px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
     .icon-flat-sm { width: 12px; height: 12px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+
+    /* Facebook-style list / grid view toggle */
+    .sp-view-toggle {
+      display: flex;
+      width: 100%;
+      border-radius: 0.75rem;
+      border: 1px solid var(--brand-border);
+      background: rgba(255,255,255,.7);
+      overflow: hidden;
+      margin-bottom: 1.25rem;
+    }
+    .dark .sp-view-toggle { background: rgba(15,23,42,.55); border-color: rgba(255,255,255,.1); }
+    .sp-view-toggle__btn {
+      flex: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.7rem 0.75rem;
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--brand-muted);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      position: relative;
+      transition: color .15s ease, background .15s ease;
+    }
+    .sp-view-toggle__btn + .sp-view-toggle__btn {
+      border-left: 1px solid var(--brand-border);
+    }
+    .dark .sp-view-toggle__btn + .sp-view-toggle__btn { border-left-color: rgba(255,255,255,.1); }
+    .sp-view-toggle__btn svg { width: 16px; height: 16px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .sp-view-toggle__btn.is-active {
+      color: #1877F2;
+      background: rgba(24,119,242,.06);
+    }
+    .sp-view-toggle__btn.is-active::after {
+      content: '';
+      position: absolute;
+      left: 12%;
+      right: 12%;
+      bottom: 0;
+      height: 3px;
+      border-radius: 3px 3px 0 0;
+      background: #1877F2;
+    }
+    .sp-view-toggle__btn:hover:not(.is-active) { color: var(--brand-dark); background: rgba(0,0,0,.03); }
+    .dark .sp-view-toggle__btn:hover:not(.is-active) { color: #f8fafc; background: rgba(255,255,255,.04); }
+
+    .js-sp-posts-layout.sp-layout--list {
+      grid-template-columns: minmax(0, 1fr) !important;
+    }
+    .js-sp-posts-layout.sp-layout--grid.sp-layout-grid--scripts {
+      grid-template-columns: repeat(1, minmax(0, 1fr));
+    }
+    @media (min-width: 1024px) {
+      .js-sp-posts-layout.sp-layout--grid.sp-layout-grid--scripts {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    .js-sp-posts-layout.sp-layout--grid.sp-layout-grid--posts {
+      grid-template-columns: repeat(1, minmax(0, 1fr));
+    }
+    @media (min-width: 768px) {
+      .js-sp-posts-layout.sp-layout--grid.sp-layout-grid--posts {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    @media (min-width: 1280px) {
+      .js-sp-posts-layout.sp-layout--grid.sp-layout-grid--posts {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+    body.sp-posts-view--list .js-sp-posts-layout.sp-layout--list .post-card textarea {
+      min-height: 6.5rem;
+    }
   </style>
 </head>
 <body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
@@ -205,6 +282,17 @@
       <button class="platform-tab px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="gmb">Google Business</button>
     </div>
 
+    <div class="sp-view-toggle" role="tablist" aria-label="Post layout">
+      <button type="button" class="sp-view-toggle__btn is-active" data-sp-view="list" role="tab" aria-selected="true">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+        List view
+      </button>
+      <button type="button" class="sp-view-toggle__btn" data-sp-view="grid" role="tab" aria-selected="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Grid view
+      </button>
+    </div>
+
     <!-- Facebook Groups script pack (shown only on that tab) -->
     <div id="fbGroupScriptPack" class="hidden mb-10">
       <div class="mb-6">
@@ -218,7 +306,7 @@
           <h3 class="font-display font-bold text-base text-brand-dark dark:text-white"><%= cat.label %></h3>
           <% if (cat.hint) { %><p class="text-[11px] text-brand-muted"><%= cat.hint %></p><% } %>
         </div>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="js-sp-posts-layout sp-layout-grid--scripts grid gap-4 sp-layout--list">
           <% (cat.scripts || []).forEach((s) => { %>
           <article class="post-card rounded-2xl border border-brand-border/50 dark:border-white/10 bg-white/70 dark:bg-slate-900/60 overflow-hidden flex flex-col" data-fb-script-id="<%= s.id %>">
             <div class="flex items-center justify-between gap-2 px-4 py-3 border-b border-brand-border/30 dark:border-white/10">
@@ -245,7 +333,7 @@
     </div>
 
     <!-- Ideas Grid -->
-    <div id="ideasContainer" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 mb-10">
+    <div id="ideasContainer" class="js-sp-posts-layout sp-layout-grid--posts grid gap-5 mb-10 sp-layout--list">
       <div class="col-span-full text-center py-20 text-brand-muted">
         <p class="text-lg font-bold mb-2">Loading today's ideas...</p>
       </div>
@@ -265,7 +353,7 @@
         <span id="savedCount" class="text-xs text-brand-muted font-bold">0 saved</span>
       </div>
     </div>
-    <div id="savedPostsContainer" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+    <div id="savedPostsContainer" class="js-sp-posts-layout sp-layout-grid--posts grid gap-5 sp-layout--list">
       <div class="col-span-full text-center py-12 text-brand-muted text-sm italic" id="noSavedMsg">
         No saved posts yet. Click the bookmark icon on any idea to save it.
       </div>
@@ -282,7 +370,7 @@
       </div>
       <span id="localCount" class="text-xs text-brand-muted font-bold">0 items</span>
     </div>
-    <div id="localContentContainer" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 mb-10">
+    <div id="localContentContainer" class="js-sp-posts-layout sp-layout-grid--posts grid gap-5 mb-10 sp-layout--list">
       <div class="col-span-full text-center py-12 text-brand-muted text-sm italic" id="noLocalMsg">
         No content yet. The daily scout will populate this each morning.
       </div>
@@ -303,7 +391,7 @@
         <button onclick="clearNewsletterPicks()" class="text-xs font-bold text-brand-muted hover:text-red-500">Clear All</button>
       </div>
     </div>
-    <div id="newsletterContainer" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 mb-10">
+    <div id="newsletterContainer" class="js-sp-posts-layout sp-layout-grid--posts grid gap-5 mb-10 sp-layout--list">
       <div class="col-span-full text-center py-12 text-brand-muted text-sm italic" id="noNewsletterMsg">
         No picks yet. Click the star on any Clark County content item to save it here.
       </div>
@@ -399,6 +487,39 @@
     const WORKSPACE_ID = <%- JSON.stringify(workspaceId || 'default') %>;
     const businessProfile = <%- JSON.stringify(typeof businessProfile !== 'undefined' ? businessProfile : {}) %>;
     let currentPlatform = 'all';
+    const SP_VIEW_KEY = 'adhelloSocialPostsView';
+    let currentPostsView = 'list';
+
+    function applySocialPostsView(view) {
+      const next = view === 'grid' ? 'grid' : 'list';
+      currentPostsView = next;
+      document.body.classList.toggle('sp-posts-view--list', next === 'list');
+      document.body.classList.toggle('sp-posts-view--grid', next === 'grid');
+      document.querySelectorAll('.js-sp-posts-layout').forEach(function (el) {
+        el.classList.toggle('sp-layout--list', next === 'list');
+        el.classList.toggle('sp-layout--grid', next === 'grid');
+      });
+      document.querySelectorAll('[data-sp-view]').forEach(function (btn) {
+        const active = btn.getAttribute('data-sp-view') === next;
+        btn.classList.toggle('is-active', active);
+        btn.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      try { localStorage.setItem(SP_VIEW_KEY, next); } catch (_) {}
+    }
+
+    function initSocialPostsViewToggle() {
+      let saved = 'list';
+      try {
+        const raw = localStorage.getItem(SP_VIEW_KEY);
+        if (raw === 'grid' || raw === 'list') saved = raw;
+      } catch (_) {}
+      applySocialPostsView(saved);
+      document.querySelectorAll('[data-sp-view]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          applySocialPostsView(btn.getAttribute('data-sp-view') || 'list');
+        });
+      });
+    }
     let allIdeas = {};
     let savedPosts = [];
     let bookmarkFolders = <%- JSON.stringify(typeof bookmarkFolders !== 'undefined' ? bookmarkFolders : []) %>;
@@ -634,6 +755,7 @@
 
     // ── Init: auto-load ideas on page visit ────────────────────────────────────
     document.addEventListener('DOMContentLoaded', async () => {
+      initSocialPostsViewToggle();
       loadIdeaCardState();
       await loadIdeaArtworks();
       renderTagFilters();
