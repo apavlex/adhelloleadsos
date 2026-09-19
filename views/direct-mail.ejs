@@ -464,7 +464,7 @@
 
     <!-- Send workflow (below studio) -->
     <section class="dm-workflow-section">
-      <details class="dm-workflow-details" open>
+      <details class="dm-workflow-details">
         <summary class="dm-workflow-summary">
           <span>Recent sends</span>
           <span class="text-brand-muted font-normal normal-case tracking-normal text-xs"><%= recentSends.length ? recentSends.length + ' campaign' + (recentSends.length === 1 ? '' : 's') : 'None yet' %></span>
@@ -496,7 +496,12 @@
         </div>
       </details>
 
-      <div class="brand-card overflow-hidden dark:bg-slate-900 dark:border-white/10 mt-6">
+      <details class="dm-workflow-details mt-6">
+        <summary class="dm-workflow-summary">
+          <span><% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %>Selected leads<% } else if (typeof dmIsQueueSession !== 'undefined' && dmIsQueueSession) { %>Direct Mail queue<% } else { %>Mailable leads<% } %></span>
+          <span class="text-brand-muted font-normal normal-case tracking-normal text-xs"><%= mailableLeads.length %> lead<%= mailableLeads.length === 1 ? '' : 's' %> · expand to select &amp; send</span>
+        </summary>
+      <div class="brand-card overflow-hidden dark:bg-slate-900 dark:border-white/10 mt-2">
         <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-brand-border/25 dark:border-white/10">
           <div>
             <h2 class="font-display font-bold text-lg text-brand-dark dark:text-white"><% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %>Selected leads<% } else if (typeof dmIsQueueSession !== 'undefined' && dmIsQueueSession) { %>Direct Mail queue<% } else { %>Mailable leads<% } %></h2>
@@ -577,6 +582,7 @@
         </div>
         <% } %>
       </div>
+      </details>
     </section>
   </main>
 
