@@ -1733,6 +1733,9 @@ module.exports = {
       }
     }
     groups.sort((a, b) => {
+      const ba = a && (a.bookmarked === true || a.bookmarked === 1) ? 1 : 0;
+      const bb = b && (b.bookmarked === true || b.bookmarked === 1) ? 1 : 0;
+      if (bb !== ba) return bb - ba;
       const ta = Date.parse(a.updatedAt || a.createdAt || '') || 0;
       const tb = Date.parse(b.updatedAt || b.createdAt || '') || 0;
       return tb - ta;
@@ -1767,6 +1770,7 @@ module.exports = {
       lastPosted: String(group.lastPosted || '').trim().slice(0, 80),
       lastVisited: String(group.lastVisited || '').trim().slice(0, 40),
       adminContact: String(group.adminContact || '').trim().slice(0, 200),
+      bookmarked: group.bookmarked === true || group.bookmarked === 1 || group.bookmarked === '1',
       posts: this._normalizeFbGroupPosts(group.posts),
       notes: this._normalizeFbGroupNotes(
         Array.isArray(group.notes) && group.notes.length

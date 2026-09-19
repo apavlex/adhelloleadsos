@@ -423,6 +423,24 @@ router.post('/:id/delete', express.urlencoded({ extended: true }), async (req, r
   }
 });
 
+router.post('/:id/bookmark', express.urlencoded({ extended: true }), async (req, res, next) => {
+  try {
+    const existing = await dbService.getWorkspaceFbGroup(req.workspaceId, req.params.id);
+    if (!existing) return res.redirect(302, '/fb-groups');
+    const force = String(req.body.bookmarked || '').trim().toLowerCase();
+    let next = !(existing.bookmarked === true || existing.bookmarked === 1);
+    if (force === '1' || force === 'true' || force === 'on') next = true;
+    if (force === '0' || force === 'false' || force === 'off') next = false;
+    await dbService.saveWorkspaceFbGroup(req.workspaceId, {
+      ...existing,
+      bookmarked: next,
+    });
+    res.redirect(302, '/fb-groups');
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.post('/:id/update', express.urlencoded({ extended: true }), async (req, res, next) => {
   try {
     const existing = await dbService.getWorkspaceFbGroup(req.workspaceId, req.params.id);

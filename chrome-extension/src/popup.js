@@ -1188,7 +1188,13 @@ function renderLibraryGroups(groups) {
       '<p class="import-hint">No saved groups yet. Open a group and tap Save this group, or add one on /fb-groups.</p>';
     return;
   }
-  host.innerHTML = groups
+  const sorted = groups.slice().sort((a, b) => {
+    const ba = a && (a.bookmarked === true || a.bookmarked === 1) ? 1 : 0;
+    const bb = b && (b.bookmarked === true || b.bookmarked === 1) ? 1 : 0;
+    if (bb !== ba) return bb - ba;
+    return 0;
+  });
+  host.innerHTML = sorted
     .map((g, i) => {
       const url = String(g.url || '');
       const members =
@@ -1197,7 +1203,9 @@ function renderLibraryGroups(groups) {
       const latestNote =
         (Array.isArray(g.notes) && g.notes[0] && g.notes[0].text) || g.note || '';
       const tags = Array.isArray(g.tags) ? g.tags : [];
+      const bookmarked = g.bookmarked === true || g.bookmarked === 1;
       const metaBits = [
+        bookmarked ? 'Bookmarked' : '',
         g.category || 'Facebook Group',
         members,
         g.privacy,
@@ -1205,8 +1213,9 @@ function renderLibraryGroups(groups) {
         g.lastPosted ? `Posted ${g.lastPosted}` : '',
         g.adminContact ? `Admin ${g.adminContact}` : '',
       ].filter(Boolean);
+      const origIdx = groups.indexOf(g);
       return (
-        `<article class="library-card" data-kind="group" data-idx="${i}">` +
+        `<article class="library-card" data-kind="group" data-idx="${origIdx >= 0 ? origIdx : i}">` +
         `<p class="library-card__meta">${escapeHtml(metaBits.join(' · '))}</p>` +
         `<p class="library-card__title">${escapeHtml(g.title || 'Group')}</p>` +
         (latestNote

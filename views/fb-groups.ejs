@@ -2,6 +2,87 @@
 <html lang="en">
 <head>
   <%- include('partials/head') %>
+  <style>
+    .fb-view-toggle {
+      display: flex;
+      width: 100%;
+      max-width: 28rem;
+      border-radius: 0.75rem;
+      border: 1px solid var(--brand-border);
+      background: rgba(255,255,255,.7);
+      overflow: hidden;
+    }
+    .dark .fb-view-toggle { background: rgba(15,23,42,.55); border-color: rgba(255,255,255,.1); }
+    .fb-view-toggle__btn {
+      flex: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      padding: 0.65rem 0.75rem;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--brand-muted);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      position: relative;
+    }
+    .fb-view-toggle__btn + .fb-view-toggle__btn { border-left: 1px solid var(--brand-border); }
+    .dark .fb-view-toggle__btn + .fb-view-toggle__btn { border-left-color: rgba(255,255,255,.1); }
+    .fb-view-toggle__btn svg { width: 15px; height: 15px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .fb-view-toggle__btn.is-active { color: #1877F2; background: rgba(24,119,242,.06); }
+    .fb-view-toggle__btn.is-active::after {
+      content: '';
+      position: absolute;
+      left: 14%;
+      right: 14%;
+      bottom: 0;
+      height: 3px;
+      border-radius: 3px 3px 0 0;
+      background: #1877F2;
+    }
+    #fbGroupsGrid.fb-layout--list {
+      grid-template-columns: minmax(0, 1fr) !important;
+    }
+    #fbGroupsGrid.fb-layout--grid {
+      grid-template-columns: repeat(1, minmax(0, 1fr));
+    }
+    @media (min-width: 768px) {
+      #fbGroupsGrid.fb-layout--grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (min-width: 1280px) {
+      #fbGroupsGrid.fb-layout--grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    .fb-group-bookmark {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2rem;
+      height: 2rem;
+      border-radius: 9999px;
+      border: 1px solid var(--brand-border);
+      background: rgba(255,255,255,.85);
+      color: var(--brand-muted);
+      cursor: pointer;
+      transition: color .15s ease, border-color .15s ease, background .15s ease, transform .15s ease;
+    }
+    .dark .fb-group-bookmark { background: rgba(15,23,42,.7); border-color: rgba(255,255,255,.12); }
+    .fb-group-bookmark:hover { color: var(--brand-yellow); border-color: rgba(255,214,68,.45); transform: translateY(-1px); }
+    .fb-group-bookmark.is-on {
+      color: #111827;
+      background: var(--brand-yellow);
+      border-color: var(--brand-yellow);
+    }
+    .fb-group-bookmark svg { width: 14px; height: 14px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .fb-group-bookmark.is-on svg { fill: currentColor; }
+    .fb-group-card.is-bookmarked {
+      border-color: rgba(255,214,68,.55);
+      box-shadow: 0 0 0 1px rgba(255,214,68,.18);
+    }
+  </style>
 </head>
 <body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
   <%- include('partials/navbar') %>
@@ -98,8 +179,20 @@
     </details>
 
     <div class="mb-10">
-      <div class="flex items-center justify-between gap-3 mb-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white">Your groups <span class="text-brand-muted font-semibold text-base">· <%= (groups || []).length %></span></h2>
+        <% if (groups && groups.length) { %>
+        <div class="fb-view-toggle" role="tablist" aria-label="Group layout">
+          <button type="button" class="fb-view-toggle__btn is-active" data-fb-view="list" role="tab" aria-selected="true">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+            List
+          </button>
+          <button type="button" class="fb-view-toggle__btn" data-fb-view="grid" role="tab" aria-selected="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            Grid
+          </button>
+        </div>
+        <% } %>
       </div>
       <% if (!groups || !groups.length) { %>
       <%- include('partials/empty_state', {
@@ -111,7 +204,7 @@
         emptySecondaryLabel: 'Resources library',
       }) %>
       <% } else { %>
-      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div id="fbGroupsGrid" class="grid gap-4 fb-layout--list">
         <% groups.forEach((g) => {
           const _title = String(g.title || '').replace(/^\(\d+\)\s*/, '').replace(/\s*[|·•]\s*Groups\s*[|·•]\s*Facebook\s*$/i, '').replace(/\s*[|·•]\s*Facebook\s*$/i, '').trim() || g.title;
           const _members = g.memberCountLabel || (g.memberCount != null ? Number(g.memberCount).toLocaleString() + ' members' : '');
@@ -131,19 +224,30 @@
           const _latestNote = _notes[0] || null;
           const _olderNotes = _notes.slice(1);
           const _tags = Array.isArray(g.tags) ? g.tags : [];
+          const _bookmarked = g.bookmarked === true || g.bookmarked === 1 || g.bookmarked === '1';
         %>
-        <article class="brand-card p-5 dark:bg-slate-900 dark:border-white/10 flex flex-col gap-3">
-          <div class="flex flex-wrap items-center gap-2">
-            <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-[#1877F2]/15 text-[#1877F2] dark:text-sky-300 border border-[#1877F2]/25 shrink-0">Facebook Group</span>
-            <% if (_privacy) { %>
-            <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-brand-cream/60 dark:bg-white/10 text-brand-dark dark:text-slate-200 border border-brand-border/40 dark:border-white/10 shrink-0"><%= _privacy %></span>
-            <% } %>
-            <% if (g.category) { %>
-            <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-brand-cream/60 dark:bg-white/10 text-brand-dark dark:text-slate-200 border border-brand-border/40 dark:border-white/10 shrink-0"><%= g.category %></span>
-            <% } %>
-            <% _tags.forEach((tag) => { %>
-            <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-brand-yellow/20 text-brand-dark dark:text-brand-yellow border border-brand-yellow/30 shrink-0">#<%= tag %></span>
-            <% }); %>
+        <article class="brand-card p-5 dark:bg-slate-900 dark:border-white/10 flex flex-col gap-3 fb-group-card<%= _bookmarked ? ' is-bookmarked' : '' %>">
+          <div class="flex items-start justify-between gap-2">
+            <div class="flex flex-wrap items-center gap-2 min-w-0">
+              <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-[#1877F2]/15 text-[#1877F2] dark:text-sky-300 border border-[#1877F2]/25 shrink-0">Facebook Group</span>
+              <% if (_bookmarked) { %>
+              <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-brand-yellow/25 text-brand-dark dark:text-brand-yellow border border-brand-yellow/40 shrink-0">Bookmarked</span>
+              <% } %>
+              <% if (_privacy) { %>
+              <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-brand-cream/60 dark:bg-white/10 text-brand-dark dark:text-slate-200 border border-brand-border/40 dark:border-white/10 shrink-0"><%= _privacy %></span>
+              <% } %>
+              <% if (g.category) { %>
+              <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-brand-cream/60 dark:bg-white/10 text-brand-dark dark:text-slate-200 border border-brand-border/40 dark:border-white/10 shrink-0"><%= g.category %></span>
+              <% } %>
+              <% _tags.forEach((tag) => { %>
+              <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-brand-yellow/20 text-brand-dark dark:text-brand-yellow border border-brand-yellow/30 shrink-0">#<%= tag %></span>
+              <% }); %>
+            </div>
+            <form action="/fb-groups/<%= encodeURIComponent(g.id) %>/bookmark" method="post" class="shrink-0">
+              <button type="submit" class="fb-group-bookmark<%= _bookmarked ? ' is-on' : '' %>" title="<%= _bookmarked ? 'Remove bookmark' : 'Bookmark group' %>" aria-label="<%= _bookmarked ? 'Remove bookmark' : 'Bookmark group' %>" aria-pressed="<%= _bookmarked ? 'true' : 'false' %>">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
+              </button>
+            </form>
           </div>
           <h3 class="font-display font-bold text-base text-brand-dark dark:text-white leading-snug break-words"><%= _title %></h3>
           <dl class="grid grid-cols-1 gap-1.5 text-xs text-brand-muted">
@@ -314,6 +418,35 @@
         });
       });
     });
+
+    var FB_VIEW_KEY = 'adhelloFbGroupsView';
+    function applyFbGroupsView(view) {
+      var next = view === 'grid' ? 'grid' : 'list';
+      var grid = document.getElementById('fbGroupsGrid');
+      if (grid) {
+        grid.classList.toggle('fb-layout--list', next === 'list');
+        grid.classList.toggle('fb-layout--grid', next === 'grid');
+      }
+      document.querySelectorAll('[data-fb-view]').forEach(function (btn) {
+        var active = btn.getAttribute('data-fb-view') === next;
+        btn.classList.toggle('is-active', active);
+        btn.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      try { localStorage.setItem(FB_VIEW_KEY, next); } catch (_) {}
+    }
+    (function initFbGroupsView() {
+      var saved = 'list';
+      try {
+        var raw = localStorage.getItem(FB_VIEW_KEY);
+        if (raw === 'grid' || raw === 'list') saved = raw;
+      } catch (_) {}
+      applyFbGroupsView(saved);
+      document.querySelectorAll('[data-fb-view]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          applyFbGroupsView(btn.getAttribute('data-fb-view') || 'list');
+        });
+      });
+    })();
   })();
   </script>
 </body>
