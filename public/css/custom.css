@@ -71,14 +71,23 @@ h1, h2, h3, h4, .font-display {
 [class~="dark:bg-brand-yellow"],
 .ws-nav-item-active.bg-brand-yellow,
 a[class~="bg-brand-yellow"],
-button[class~="bg-brand-yellow"] {
+button[class~="bg-brand-yellow"],
+.dm-prompt-btn--primary,
+.dm-prompt-btn--generate,
+.dm-studio-topbtn--primary,
+.bulk-bar-btn--accent,
+.bulk-bar-btn--focus,
+.sidebar-nav-link.sidebar-nav-cta {
     color: var(--brand-on-accent, #111827) !important;
 }
 
 .btn-primary *,
 [class~="bg-brand-yellow"] *,
 [class~="dark:bg-brand-yellow"] *,
-.ws-nav-item-active[class~="bg-brand-yellow"] * {
+.ws-nav-item-active[class~="bg-brand-yellow"] *,
+.dm-prompt-btn--primary *,
+.dm-prompt-btn--generate *,
+.dm-studio-topbtn--primary * {
     color: inherit;
 }
 
@@ -87,21 +96,32 @@ button[class~="bg-brand-yellow"] {
 [class~="dark:bg-brand-yellow"] svg,
 .btn-primary i,
 [class~="bg-brand-yellow"] i,
-[class~="dark:bg-brand-yellow"] i {
+[class~="dark:bg-brand-yellow"] i,
+.dm-prompt-btn--primary svg,
+.dm-prompt-btn--generate svg,
+.dm-studio-topbtn--primary svg {
     color: var(--brand-on-accent, #111827) !important;
     stroke: var(--brand-on-accent, #111827) !important;
 }
 
 .btn-primary svg[fill]:not([fill="none"]),
 [class~="bg-brand-yellow"] svg[fill]:not([fill="none"]),
-[class~="dark:bg-brand-yellow"] svg[fill]:not([fill="none"]) {
+[class~="dark:bg-brand-yellow"] svg[fill]:not([fill="none"]),
+.dm-prompt-btn--primary svg[fill]:not([fill="none"]),
+.dm-prompt-btn--generate svg[fill]:not([fill="none"]) {
     fill: var(--brand-on-accent, #111827) !important;
 }
 
 .dark .btn-primary,
 .dark [class~="bg-brand-yellow"],
 .dark [class~="dark:bg-brand-yellow"],
-.dark .ws-nav-item-active[class~="bg-brand-yellow"] {
+.dark .ws-nav-item-active[class~="bg-brand-yellow"],
+.dark .dm-prompt-btn--primary,
+.dark .dm-prompt-btn--generate,
+.dark .dm-studio-topbtn--primary,
+.dark .bulk-bar-btn--accent,
+.dark .bulk-bar-btn--focus,
+.dark .sidebar-nav-link.sidebar-nav-cta {
     color: var(--brand-on-accent, #111827) !important;
 }
 
@@ -110,14 +130,19 @@ button[class~="bg-brand-yellow"] {
 .dark [class~="dark:bg-brand-yellow"] svg,
 .dark .btn-primary i,
 .dark [class~="bg-brand-yellow"] i,
-.dark [class~="dark:bg-brand-yellow"] i {
+.dark [class~="dark:bg-brand-yellow"] i,
+.dark .dm-prompt-btn--primary svg,
+.dark .dm-prompt-btn--generate svg,
+.dark .dm-studio-topbtn--primary svg {
     color: var(--brand-on-accent, #111827) !important;
     stroke: var(--brand-on-accent, #111827) !important;
 }
 
 .dark .btn-primary svg[fill]:not([fill="none"]),
 .dark [class~="bg-brand-yellow"] svg[fill]:not([fill="none"]),
-.dark [class~="dark:bg-brand-yellow"] svg[fill]:not([fill="none"]) {
+.dark [class~="dark:bg-brand-yellow"] svg[fill]:not([fill="none"]),
+.dark .dm-prompt-btn--primary svg[fill]:not([fill="none"]),
+.dark .dm-prompt-btn--generate svg[fill]:not([fill="none"]) {
     fill: var(--brand-on-accent, #111827) !important;
 }
 
@@ -488,7 +513,7 @@ button[class~="bg-brand-yellow"] {
     margin-top: 0.25rem;
     margin-bottom: 0.25rem;
     background: var(--brand-yellow);
-    color: #111827;
+    color: var(--brand-on-accent, #111827) !important;
     font-weight: 800;
     font-size: 0.8125rem;
     text-transform: uppercase;
@@ -496,8 +521,8 @@ button[class~="bg-brand-yellow"] {
 }
 
 .sidebar-nav-link.sidebar-nav-cta:hover {
-    background: #facc15;
-    color: #111827;
+    background: color-mix(in srgb, var(--brand-yellow) 88%, #000);
+    color: var(--brand-on-accent, #111827) !important;
 }
 
 .sidebar-nav-link.sidebar-nav-cta.active {
@@ -1392,15 +1417,15 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
 }
 
 #bulkActionBar #bulkBookmarkBtn.bulk-bookmark-btn--saved {
-  color: #fff !important;
-  border-color: rgba(255, 255, 255, 0.18);
-  background: #111827;
+  color: var(--brand-on-accent, #111827) !important;
+  border-color: transparent;
+  background: var(--brand-yellow, #ffd644);
 }
 
 #bulkActionBar #bulkBookmarkBtn.bulk-bookmark-btn--saved svg {
   fill: currentColor;
-  color: #fff !important;
-  stroke: #fff;
+  color: var(--brand-on-accent, #111827) !important;
+  stroke: var(--brand-on-accent, #111827);
 }
 
 #bulkActionBar .bulk-bar-btn--ghost.text-brand-yellow:hover:not(:disabled),
@@ -1414,16 +1439,22 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   border-color: rgba(255, 255, 255, 0.18);
 }
 
-/* Brand navy fills — always white labels (same as Move). */
+/* Brand accent fills — fill + on-accent text from Workspace → Brand accent. */
 #bulkActionBar .bulk-bar-btn--accent {
-  background: #111827;
-  color: #fff !important;
-  border-color: rgba(255, 255, 255, 0.14);
+  background: var(--brand-yellow, #ffd644);
+  color: var(--brand-on-accent, #111827) !important;
+  border-color: transparent;
 }
 
 #bulkActionBar .bulk-bar-btn--accent:hover:not(:disabled) {
-  background: #1f2937;
+  background: color-mix(in srgb, var(--brand-yellow, #ffd644) 88%, #000);
   filter: none;
+}
+
+#bulkActionBar .bulk-bar-btn--accent svg,
+#bulkActionBar .bulk-bar-btn--accent i {
+  color: var(--brand-on-accent, #111827) !important;
+  stroke: var(--brand-on-accent, #111827) !important;
 }
 
 #bulkActionBar .bulk-bar-btn--board {
@@ -1465,26 +1496,26 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
 }
 
 #bulkActionBar .bulk-bar-btn--focus.bulk-bar-btn--primary-lg {
-  background: #111827;
-  border-color: var(--brand-yellow, #ffd644);
-  color: #fff !important;
-  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.35);
+  background: var(--brand-yellow, #ffd644);
+  border-color: transparent;
+  color: var(--brand-on-accent, #111827) !important;
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--brand-yellow, #ffd644) 35%, transparent);
 }
 
 #bulkActionBar .bulk-bar-btn--focus.bulk-bar-btn--primary-lg:hover:not(:disabled) {
-  background: #1f2937;
+  background: color-mix(in srgb, var(--brand-yellow, #ffd644) 88%, #000);
   filter: none;
 }
 
 #bulkActionBar .bulk-bar-btn--accent.bulk-bar-btn--primary-lg {
-  background: #111827;
-  border-color: rgba(255, 255, 255, 0.16);
-  color: #fff !important;
-  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.35);
+  background: var(--brand-yellow, #ffd644);
+  border-color: transparent;
+  color: var(--brand-on-accent, #111827) !important;
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--brand-yellow, #ffd644) 35%, transparent);
 }
 
 #bulkActionBar .bulk-bar-btn--accent.bulk-bar-btn--primary-lg:hover:not(:disabled) {
-  background: #1f2937;
+  background: color-mix(in srgb, var(--brand-yellow, #ffd644) 88%, #000);
   filter: none;
 }
 
@@ -1576,9 +1607,9 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
 }
 
 #bulkActionBar .bulk-bar-btn--focus {
-  background: #111827;
-  border-color: var(--brand-yellow, #ffd644);
-  color: #fff !important;
+  background: var(--brand-yellow, #ffd644);
+  border-color: transparent;
+  color: var(--brand-on-accent, #111827) !important;
   text-decoration: none;
 }
 
@@ -2058,7 +2089,7 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
 #prospectLeadsTable .pipeline-bookmark-btn:hover:not(.bookmark-btn--saved):not([data-saved='1']) {
   background-color: var(--brand-yellow);
   border-color: var(--brand-yellow);
-  color: #111827;
+  color: var(--brand-on-accent, #111827);
 }
 
 .bookmark-btn[data-saved='1'],
@@ -2068,7 +2099,7 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
 #prospectLeadsTable .pipeline-bookmark-btn.bookmark-btn--saved:hover,
 #prospectLeadsTable .pipeline-bookmark-btn[data-saved='1']:hover {
   background-color: var(--brand-yellow) !important;
-  color: #111827 !important;
+  color: var(--brand-on-accent, #111827) !important;
   border-color: var(--brand-yellow) !important;
 }
 
@@ -2537,7 +2568,7 @@ html[data-prospect-density="comfortable"] #prospectLeadsTable .lead-col-opportun
 html[data-prospect-density="compact"] #tableView .lead-density-btn[data-density="compact"],
 html[data-prospect-density="comfortable"] #tableView .lead-density-btn[data-density="comfortable"] {
   background-color: var(--brand-yellow);
-  color: #111827;
+  color: var(--brand-on-accent, #111827);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
@@ -2578,7 +2609,7 @@ html.pipeline-prefs-pending #pipelineTableLoading {
 .bookmark-btn[data-saved='1'],
 .bookmark-btn.bookmark-btn--saved {
   background-color: var(--brand-yellow) !important;
-  color: #111827 !important;
+  color: var(--brand-on-accent, #111827) !important;
   border-color: var(--brand-yellow) !important;
 }
 
@@ -4137,7 +4168,7 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
 
 .gcal-datetime-day--selected {
   background: var(--brand-yellow, #ca8a04);
-  color: var(--brand-dark, #111827);
+  color: var(--brand-on-accent, #111827) !important;
   box-shadow: 0 2px 8px -2px color-mix(in srgb, var(--brand-yellow, #ca8a04) 55%, transparent);
 }
 
@@ -5354,20 +5385,26 @@ html.dark .tag-filter-combobox-menu {
 }
 
 .dm-studio-topbtn--primary {
-  background: var(--brand-yellow, #ffd644);
-  border-color: transparent;
-  color: #111827 !important;
+  background: var(--brand-yellow, #ffd644) !important;
+  border-color: transparent !important;
+  color: var(--brand-on-accent, #111827) !important;
 }
 
 .dm-studio-topbtn--primary:hover {
-  background: color-mix(in srgb, var(--brand-yellow, #ffd644) 88%, #000);
-  border-color: transparent;
+  background: color-mix(in srgb, var(--brand-yellow, #ffd644) 88%, #000) !important;
+  border-color: transparent !important;
 }
 
 .dark .dm-studio-topbtn--primary {
-  background: var(--brand-yellow, #ffd644);
-  border-color: transparent;
-  color: #111827 !important;
+  background: var(--brand-yellow, #ffd644) !important;
+  border-color: transparent !important;
+  color: var(--brand-on-accent, #111827) !important;
+}
+
+.dm-studio-topbtn--primary svg,
+.dm-studio-topbtn--primary i {
+  color: var(--brand-on-accent, #111827) !important;
+  stroke: var(--brand-on-accent, #111827) !important;
 }
 
 .dm-studio-topbtn--match {
@@ -6618,7 +6655,7 @@ body.dm-prompt-resize-active {
   gap: 0.35rem;
   background: var(--brand-yellow, #ffd644) !important;
   border-color: transparent !important;
-  color: #111827 !important;
+  color: var(--brand-on-accent, #111827) !important;
   padding-inline: 1rem;
   box-shadow: 0 1px 2px rgba(17, 24, 39, 0.08);
 }
@@ -6632,43 +6669,51 @@ body.dm-prompt-resize-active {
 .dark .dm-prompt-btn--primary {
   background: var(--brand-yellow, #ffd644) !important;
   border-color: transparent !important;
-  color: #111827 !important;
+  color: var(--brand-on-accent, #111827) !important;
+}
+
+.dm-prompt-btn--primary svg,
+.dm-prompt-btn--primary i {
+  color: var(--brand-on-accent, #111827) !important;
+  stroke: var(--brand-on-accent, #111827) !important;
 }
 
 .dm-prompt-btn--primary:disabled {
   opacity: 0.75;
 }
 
-/* Generate stays available but secondary while chatting to build the prompt. */
+/* Generate: solid brand accent + paired on-accent text/icons from Branding. */
 .dm-prompt-btn--generate {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  background: #111827 !important;
+  background: var(--brand-yellow, #ffd644) !important;
   border-color: transparent !important;
-  color: #fff !important;
+  color: var(--brand-on-accent, #111827) !important;
   padding-inline: 0.95rem;
 }
 
 .dm-prompt-btn--generate:hover:not(:disabled) {
-  background: #1f2937 !important;
+  background: color-mix(in srgb, var(--brand-yellow, #ffd644) 88%, #000) !important;
   border-color: transparent !important;
 }
 
 .dark .dm-prompt-btn--generate {
-  background: #f8fafc !important;
+  background: var(--brand-yellow, #ffd644) !important;
   border-color: transparent !important;
-  color: #0f172a !important;
+  color: var(--brand-on-accent, #111827) !important;
 }
 
-.dark .dm-prompt-btn--generate:hover:not(:disabled) {
-  background: #e2e8f0 !important;
+.dm-prompt-btn--generate svg,
+.dm-prompt-btn--generate i {
+  color: var(--brand-on-accent, #111827) !important;
+  stroke: var(--brand-on-accent, #111827) !important;
 }
 
 .dm-prompt-btn--generate.is-generating,
 .dm-prompt-btn--generate:disabled.is-generating {
   background: var(--brand-yellow, #ffd644) !important;
-  color: #111827 !important;
+  color: var(--brand-on-accent, #111827) !important;
   opacity: 1;
 }
 
