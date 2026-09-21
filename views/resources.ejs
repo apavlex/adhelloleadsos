@@ -89,9 +89,10 @@
         </div>
         <div>
           <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="resNoteOnlyBody">Note</label>
-          <textarea id="resNoteOnlyBody" name="note" rows="5" required maxlength="2000" placeholder="Write anything — no link or file needed…" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm text-brand-dark dark:text-white resize-y"></textarea>
+          <textarea id="resNoteOnlyBody" name="note" rows="8" required maxlength="20000" placeholder="Write anything — no link or file needed…" class="w-full min-h-[10rem] max-h-[28rem] overflow-y-auto rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm text-brand-dark dark:text-white resize-y leading-relaxed"></textarea>
+          <p id="resNoteOnlyCount" class="mt-1 text-[11px] text-brand-muted tabular-nums"></p>
         </div>
-        <button type="submit" class="btn-pill border border-brand-border dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800 px-8 py-3 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50">Save note</button>
+        <button type="submit" class="btn-pill bg-brand-dark text-white dark:bg-white dark:text-slate-900 px-8 py-3 text-[10px] font-black uppercase tracking-widest hover:opacity-90">Save note</button>
       </form>
       </div>
     </div>
@@ -255,6 +256,24 @@
 
   <%- include('partials/footer') %>
   <script>
+  (function () {
+    var noteBody = document.getElementById('resNoteOnlyBody');
+    var noteCount = document.getElementById('resNoteOnlyCount');
+    if (!noteBody) return;
+    var MAX = parseInt(noteBody.getAttribute('maxlength') || '20000', 10) || 20000;
+    function syncNoteUi() {
+      var len = String(noteBody.value || '').length;
+      if (noteCount) {
+        noteCount.textContent = len ? (len.toLocaleString() + ' / ' + MAX.toLocaleString() + ' characters') : '';
+      }
+      noteBody.style.height = 'auto';
+      var next = Math.min(Math.max(noteBody.scrollHeight, 160), 448);
+      noteBody.style.height = next + 'px';
+    }
+    noteBody.addEventListener('input', syncNoteUi);
+    noteBody.addEventListener('paste', function () { setTimeout(syncNoteUi, 0); });
+    syncNoteUi();
+  })();
   (function () {
     var btn = document.getElementById('resAdvancedToggle');
     var panel = document.getElementById('resKindAdvancedPanel');

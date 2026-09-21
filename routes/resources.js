@@ -149,7 +149,7 @@ router.post('/add', express.urlencoded({ extended: true }), async (req, res, nex
 router.post('/note', express.urlencoded({ extended: true }), async (req, res, next) => {
   try {
     const email = userEmail(req);
-    const note = String(req.body.note || '').trim().slice(0, 2000);
+    const note = String(req.body.note || '').trim().slice(0, 20000);
     const titleIn = String(req.body.title || '').trim().slice(0, 200);
     if (!note && !titleIn) {
       return res.redirect(302, '/resources?error=invalid_note');
@@ -272,7 +272,7 @@ router.post('/update', express.json(), async (req, res, next) => {
       }
     }
     if (req.body.note !== undefined) {
-      update.note = String(req.body.note || '').trim().slice(0, 2000);
+      update.note = String(req.body.note || '').trim().slice(0, 20000);
     }
     if (req.body.kind !== undefined && resource.kind !== 'note') {
       const k = String(req.body.kind || 'auto').toLowerCase();
