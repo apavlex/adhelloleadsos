@@ -3319,7 +3319,6 @@ router.get('/:key/sms-script-options', async (req, res, next) => {
     const ws = await dbService.getWorkspace(req.workspaceId);
     const mergedLibrary = salesScriptsStorage.buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
     const offerKeys = salesScriptsStorage.getWorkspaceScriptKeys(ws, SCRIPT_LIBRARY);
-    const savedItems = salesScriptsStorage.getInitialLibraryItemsFromWorkspace(ws);
     const outreachLibrary = buildOutreachLibrary(mergedLibrary, offerKeys);
 
     const leadServiceKey =
@@ -3400,24 +3399,9 @@ router.get('/:key/sms-script-options', async (req, res, next) => {
       `Hi ${prospect.name || 'there'}, following up from my call earlier. Happy to send a 1-pager for ${prospect.company || 'your business'} — want me to text it over?`,
     );
 
-    savedItems
-      .filter((item) => item && String(item.text || '').trim())
-      .filter((item) => {
-        const section = String(item.section || '').trim().toLowerCase();
-        if (section && ['discovery', 'objectionhandling', 'close', 'call'].includes(section)) return false;
-        const plain = toSmsBody(item.text);
-        // Keep only SMS-length saved copy — skip long call-script HTML dumps.
-        return Boolean(plain) && plain.length <= 480;
-      })
-      .slice(-12)
-      .forEach((item) => {
-        const title = String(item.title || '').trim();
-        pushSms(
-          `saved:${item.id}`,
-          title ? `Saved: ${title}` : 'Saved SMS script',
-          String(item.text).trim(),
-        );
-      });
+    // Do not append salesScriptLibraryItems here. Those "Saved: … · Script/SMS"
+    // snapshots duplicate the live offer SMS rows above and mix call-script copies
+    // into the SMS composer.
 
     // Put the lead's product SMS first after Blank.
     const preferredId = serviceKey ? `sms:${serviceKey}` : '';

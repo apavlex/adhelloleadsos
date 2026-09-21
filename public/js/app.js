@@ -589,6 +589,111 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     window.__closeSmsModal = closeSmsModalEarly;
 
+    async function sendBulkSmsFromModalEarly() {
+      const mode = String(window.__adhelloSmsModalMode || '').trim();
+      const keys = Array.isArray(window.__adhelloBulkSmsLeadKeys)
+        ? window.__adhelloBulkSmsLeadKeys.map((k) => String(k || '').trim()).filter(Boolean)
+        : [];
+      const bodyEl = document.getElementById('smsBodyInput');
+      const sendBtn = document.getElementById('smsScriptSendBtn');
+      const scriptText = String((bodyEl && bodyEl.value) || '').trim();
+      if (mode !== 'bulk' && mode !== 'bulk-email') return false;
+      if (!keys.length) {
+        window.alert('No leads selected for bulk send. Close and select leads with phone numbers, then try again.');
+        return true;
+      }
+      if (!scriptText) {
+        window.alert('Add a message before sending.');
+        return true;
+      }
+      // Prefer the full app handler once it is ready (keeps progress UI + GHL paths in sync).
+      if (typeof window.__handleSmsScriptSend === 'function') {
+        await window.__handleSmsScriptSend();
+        return true;
+      }
+      const n = keys.length;
+      const emailMode = mode === 'bulk-email';
+      if (
+        !window.confirm(
+          emailMode
+            ? `Personalize and send this follow-up email to ${n} lead${n === 1 ? '' : 's'}?`
+            : `Personalize and send this script to ${n} lead${n === 1 ? '' : 's'}? Each message will be unique.`,
+        )
+      ) {
+        return true;
+      }
+      const original = sendBtn ? sendBtn.textContent : '';
+      if (sendBtn) {
+        sendBtn.disabled = true;
+        sendBtn.textContent = `Sending 0/${n}…`;
+      }
+      let ok = 0;
+      let failed = 0;
+      for (let i = 0; i < keys.length; i += 1) {
+        const leadKey = keys[i];
+        if (sendBtn) sendBtn.textContent = `Sending ${i + 1}/${n}…`;
+        try {
+          if (emailMode) {
+            const subjectEl = document.getElementById('smsEmailSubjectInput');
+            const subject = String((subjectEl && subjectEl.value) || '').trim();
+            const pRes = await fetch(`/leads/${encodeURIComponent(leadKey)}/email-personalize`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+              credentials: 'same-origin',
+              body: JSON.stringify({ scriptText, subject, context: 'outreach' }),
+            });
+            const pData = await pRes.json().catch(() => ({}));
+            if (!pRes.ok || !pData.success) throw new Error((pData && pData.error) || 'Personalize failed');
+            const sRes = await fetch(`/leads/${encodeURIComponent(leadKey)}/email`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+              credentials: 'same-origin',
+              body: JSON.stringify({
+                subject: String(pData.subject || subject || '').trim(),
+                body: String(pData.body || pData.personalized || scriptText).trim(),
+              }),
+            });
+            const sData = await sRes.json().catch(() => ({}));
+            if (!sRes.ok || !sData.success) throw new Error((sData && sData.error) || 'Send failed');
+          } else {
+            const pRes = await fetch(`/leads/${encodeURIComponent(leadKey)}/sms-personalize`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+              credentials: 'same-origin',
+              body: JSON.stringify({ scriptText, context: 'outreach' }),
+            });
+            const pData = await pRes.json().catch(() => ({}));
+            if (!pRes.ok || !pData.success) throw new Error((pData && pData.error) || 'Personalize failed');
+            const msg = String(pData.personalized || scriptText).trim();
+            if (!msg) throw new Error('Empty personalized message');
+            const sRes = await fetch(`/leads/${encodeURIComponent(leadKey)}/sms`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+              credentials: 'same-origin',
+              body: JSON.stringify({ body: msg }),
+            });
+            const sData = await sRes.json().catch(() => ({}));
+            if (!sRes.ok || !sData.success) throw new Error((sData && sData.error) || 'Send failed');
+          }
+          ok += 1;
+        } catch (err) {
+          failed += 1;
+          console.warn('Early bulk send failed for', leadKey, err && err.message ? err.message : err);
+        }
+      }
+      if (sendBtn) {
+        sendBtn.disabled = false;
+        sendBtn.textContent = original || (emailMode ? 'Send personalized email' : 'Send personalized SMS');
+      }
+      window.alert(
+        emailMode
+          ? `Email: ${ok} sent${failed ? ` · ${failed} failed` : ''}`
+          : `SMS: ${ok} sent${failed ? ` · ${failed} failed` : ''}`,
+      );
+      if (ok > 0) closeSmsModalEarly();
+      return true;
+    }
+
     if (!window.__adhelloSmsModalCloseBound) {
       window.__adhelloSmsModalCloseBound = true;
       document.addEventListener(
@@ -610,6 +715,25 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!modal || modal.classList.contains('hidden')) return;
         closeSmsModalEarly();
       });
+    }
+
+    if (!window.__adhelloSmsSendBound) {
+      window.__adhelloSmsSendBound = true;
+      document.addEventListener(
+        'click',
+        function (e) {
+          const btn = e.target && e.target.closest ? e.target.closest('#smsScriptSendBtn') : null;
+          if (!btn) return;
+          const modal = document.getElementById('smsScriptModal');
+          if (!modal || modal.classList.contains('hidden')) return;
+          // Full app owns the click once its handler is registered.
+          if (typeof window.__handleSmsScriptSend === 'function' && window.__adhelloSmsSendFullReady) return;
+          e.preventDefault();
+          e.stopPropagation();
+          void sendBulkSmsFromModalEarly();
+        },
+        true,
+      );
     }
   })();
 
@@ -13788,6 +13912,8 @@ document.addEventListener('DOMContentLoaded', () => {
   function resetSmsModalMode() {
     smsModalMode = 'single';
     bulkSmsLeadKeys = [];
+    window.__adhelloSmsModalMode = 'single';
+    window.__adhelloBulkSmsLeadKeys = [];
     const smsScriptModalTitle = getSmsScriptModalTitleEl();
     const smsScriptBulkLabel = getSmsScriptBulkLabelEl();
     const smsScriptHelpText = getSmsScriptHelpTextEl();
@@ -13814,6 +13940,23 @@ document.addEventListener('DOMContentLoaded', () => {
     if (subjectWrap) subjectWrap.classList.add('hidden');
     const resetBody = getSmsBodyInputEl();
     if (resetBody) resetBody.setAttribute('maxlength', '1600');
+  }
+
+  /** Prefer live bulk state; fall back to early-open window globals if locals were never set. */
+  function resolveSmsModalBulkState() {
+    let mode = smsModalMode;
+    let keys = Array.isArray(bulkSmsLeadKeys) ? bulkSmsLeadKeys.slice() : [];
+    const winMode = String(window.__adhelloSmsModalMode || '').trim();
+    const winKeys = Array.isArray(window.__adhelloBulkSmsLeadKeys)
+      ? window.__adhelloBulkSmsLeadKeys.map((k) => String(k || '').trim()).filter(Boolean)
+      : [];
+    if ((!keys.length || mode === 'single') && (winMode === 'bulk' || winMode === 'bulk-email') && winKeys.length) {
+      mode = winMode;
+      keys = winKeys;
+      smsModalMode = mode;
+      bulkSmsLeadKeys = keys.slice();
+    }
+    return { mode, keys };
   }
 
   function updateSmsModalBulkUi() {
@@ -13904,6 +14047,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     smsModalMode = 'bulk';
     bulkSmsLeadKeys = keys;
+    window.__adhelloSmsModalMode = 'bulk';
+    window.__adhelloBulkSmsLeadKeys = keys.slice();
     smsScriptModal.classList.remove('hidden');
     smsScriptModal.setAttribute('aria-hidden', 'false');
     smsScriptModal.style.removeProperty('display');
@@ -13942,6 +14087,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     smsModalMode = 'bulk-email';
     bulkSmsLeadKeys = keys;
+    window.__adhelloSmsModalMode = 'bulk-email';
+    window.__adhelloBulkSmsLeadKeys = keys.slice();
     smsScriptModal.classList.remove('hidden');
     smsScriptModal.setAttribute('aria-hidden', 'false');
     smsScriptModal.style.removeProperty('display');
@@ -13977,12 +14124,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const smsBodyInput = getSmsBodyInputEl();
     const smsScriptSelect = getSmsScriptSelectEl();
     const fromTextarea = String((smsBodyInput && smsBodyInput.value) || '').trim();
-    if (smsModalMode === 'bulk' || smsModalMode === 'bulk-email') return fromTextarea;
-    if (!smsScriptSelect) return fromTextarea;
+    const { mode } = resolveSmsModalBulkState();
+    if (mode === 'bulk' || mode === 'bulk-email') return fromTextarea;
+    // Always prefer what the user is looking at in the composer.
+    if (fromTextarea) return fromTextarea;
+    if (!smsScriptSelect) return '';
     const idx = parseInt(smsScriptSelect.value, 10);
     const selected = Number.isFinite(idx) ? smsScriptOptions[idx] : null;
     if (selected && selected.text) return String(selected.text).trim();
-    return fromTextarea;
+    return '';
   }
 
   async function personalizeSmsForLead(leadKey, scriptText, context) {
@@ -14509,72 +14659,84 @@ document.addEventListener('DOMContentLoaded', () => {
     const smsScriptSendBtn = getSmsScriptSendBtnEl();
     const smsBodyInput = getSmsBodyInputEl();
     const smsPersonalizeBtn = getSmsPersonalizeBtnEl();
-    if (smsScriptSendBtn) {
-      smsScriptSendBtn.addEventListener('click', async () => {
-        if (!smsBodyInput) return;
-        const scriptText = getSelectedSmsScriptText();
-        if (!scriptText) return;
+    async function handleSmsScriptSend() {
+      if (!smsBodyInput) {
+        window.alert('SMS composer is missing. Refresh the page and try again.');
+        return;
+      }
+      const scriptText = getSelectedSmsScriptText();
+      if (!scriptText) {
+        window.alert('Add a message before sending.');
+        return;
+      }
 
-        if (smsModalMode === 'bulk-email' && bulkSmsLeadKeys.length) {
-          const n = bulkSmsLeadKeys.length;
-          if (
-            !window.confirm(
-              `Personalize and send this follow-up email to ${n} lead${n === 1 ? '' : 's'}? Each email will be unique. Leads without an address are skipped.`,
-            )
-          ) {
-            return;
-          }
-          const original = smsScriptSendBtn.textContent;
-          smsScriptSendBtn.disabled = true;
-          if (smsPersonalizeBtn) smsPersonalizeBtn.disabled = true;
-          const subjectInput = getSmsEmailSubjectInputEl();
-          const subject = String((subjectInput && subjectInput.value) || '').trim();
-          try {
-            const result = await sendBulkPersonalizedEmail(bulkSmsLeadKeys, scriptText, subject, (done, total) => {
-              smsScriptSendBtn.textContent = `Sending ${done}/${total}…`;
-              showBulkSaveFeedback(`Personalizing & sending email ${done}/${total}…`, 'loading');
-            });
-            const parts = [`Email: ${result.ok} sent`];
-            if (result.skipped) parts.push(`${result.skipped} skipped`);
-            if (result.failed) parts.push(`${result.failed} failed`);
-            const msg = parts.join(' · ');
-            showBulkSaveFeedback(msg, result.failed === 0 ? 'success' : 'error');
-            if (typeof window.__flashBulkBarBtn === 'function') {
-              window.__flashBulkBarBtn(
-                document.getElementById('bulkEmailBtn'),
-                result.failed === 0 ? '✓ Sent' : 'Failed',
-              );
-            }
-            closeSmsModal();
-            if (typeof window.__updateBulkActionBar === 'function') window.__updateBulkActionBar();
-          } catch (err) {
-            showBulkSaveFeedback(err.message || 'Bulk email failed.', 'error');
-          } finally {
-            smsScriptSendBtn.disabled = false;
-            smsScriptSendBtn.textContent = original;
-            if (smsPersonalizeBtn) smsPersonalizeBtn.disabled = false;
-            updateSmsModalBulkUi();
-          }
+      const bulkState = resolveSmsModalBulkState();
+      const activeMode = bulkState.mode;
+      const activeKeys = bulkState.keys;
+
+      if (activeMode === 'bulk-email' && activeKeys.length) {
+        const n = activeKeys.length;
+        if (
+          !window.confirm(
+            `Personalize and send this follow-up email to ${n} lead${n === 1 ? '' : 's'}? Each email will be unique. Leads without an address are skipped.`,
+          )
+        ) {
           return;
         }
-
-        if (smsModalMode === 'bulk' && bulkSmsLeadKeys.length) {
-          const n = bulkSmsLeadKeys.length;
-          if (
-            !window.confirm(
-              `Personalize and send this script to ${n} lead${n === 1 ? '' : 's'}? Each message will be unique.`,
-            )
-          ) {
-            return;
+        const original = smsScriptSendBtn ? smsScriptSendBtn.textContent : '';
+        if (smsScriptSendBtn) smsScriptSendBtn.disabled = true;
+        if (smsPersonalizeBtn) smsPersonalizeBtn.disabled = true;
+        const subjectInput = getSmsEmailSubjectInputEl();
+        const subject = String((subjectInput && subjectInput.value) || '').trim();
+        try {
+          const result = await sendBulkPersonalizedEmail(activeKeys, scriptText, subject, (done, total) => {
+            if (smsScriptSendBtn) smsScriptSendBtn.textContent = `Sending ${done}/${total}…`;
+            showBulkSaveFeedback(`Personalizing & sending email ${done}/${total}…`, 'loading');
+          });
+          const parts = [`Email: ${result.ok} sent`];
+          if (result.skipped) parts.push(`${result.skipped} skipped`);
+          if (result.failed) parts.push(`${result.failed} failed`);
+          const msg = parts.join(' · ');
+          showBulkSaveFeedback(msg, result.failed === 0 ? 'success' : 'error');
+          if (typeof window.__flashBulkBarBtn === 'function') {
+            window.__flashBulkBarBtn(
+              document.getElementById('bulkEmailBtn'),
+              result.failed === 0 ? '✓ Sent' : 'Failed',
+            );
           }
-          const original = smsScriptSendBtn.textContent;
-          smsScriptSendBtn.disabled = true;
-          if (smsPersonalizeBtn) smsPersonalizeBtn.disabled = true;
-          try {
-            const result = await sendBulkPersonalizedSms(bulkSmsLeadKeys, scriptText, (done, total) => {
-              smsScriptSendBtn.textContent = `Sending ${done}/${total}…`;
-              showBulkSaveFeedback(`Personalizing & sending SMS ${done}/${total}…`, 'loading');
-            });
+          closeSmsModal();
+          if (typeof window.__updateBulkActionBar === 'function') window.__updateBulkActionBar();
+        } catch (err) {
+          showBulkSaveFeedback(err.message || 'Bulk email failed.', 'error');
+          window.alert(err.message || 'Bulk email failed.');
+        } finally {
+          if (smsScriptSendBtn) {
+            smsScriptSendBtn.disabled = false;
+            smsScriptSendBtn.textContent = original;
+          }
+          if (smsPersonalizeBtn) smsPersonalizeBtn.disabled = false;
+          updateSmsModalBulkUi();
+        }
+        return;
+      }
+
+      if (activeMode === 'bulk' && activeKeys.length) {
+        const n = activeKeys.length;
+        if (
+          !window.confirm(
+            `Personalize and send this script to ${n} lead${n === 1 ? '' : 's'}? Each message will be unique.`,
+          )
+        ) {
+          return;
+        }
+        const original = smsScriptSendBtn ? smsScriptSendBtn.textContent : '';
+        if (smsScriptSendBtn) smsScriptSendBtn.disabled = true;
+        if (smsPersonalizeBtn) smsPersonalizeBtn.disabled = true;
+        try {
+          const result = await sendBulkPersonalizedSms(activeKeys, scriptText, (done, total) => {
+            if (smsScriptSendBtn) smsScriptSendBtn.textContent = `Sending ${done}/${total}…`;
+            showBulkSaveFeedback(`Personalizing & sending SMS ${done}/${total}…`, 'loading');
+          });
           const msg = `SMS: ${result.ok} sent${result.failed ? ` · ${result.failed} failed` : ''}`;
           showBulkSaveFeedback(msg, result.failed === 0 ? 'success' : 'error');
           if (typeof window.__flashBulkBarBtn === 'function') {
@@ -14584,26 +14746,35 @@ document.addEventListener('DOMContentLoaded', () => {
           if (typeof window.__updateBulkActionBar === 'function') window.__updateBulkActionBar();
         } catch (err) {
           showBulkSaveFeedback(err.message || 'Bulk SMS failed.', 'error');
+          window.alert(err.message || 'Bulk SMS failed.');
         } finally {
-          smsScriptSendBtn.disabled = false;
-          smsScriptSendBtn.textContent = original;
+          if (smsScriptSendBtn) {
+            smsScriptSendBtn.disabled = false;
+            smsScriptSendBtn.textContent = original;
+          }
           if (smsPersonalizeBtn) smsPersonalizeBtn.disabled = false;
           updateSmsModalBulkUi();
         }
         return;
       }
 
+      if (activeMode === 'bulk' || activeMode === 'bulk-email') {
+        window.alert('No leads available for bulk send. Close the dialog, select leads, and try again.');
+        return;
+      }
+
       const leadKey = getCurrentLeadKey();
       if (!leadKey) {
         notifyLeadPanelDial('Select a lead first.', 'error');
+        window.alert('Select a lead first, or use Bulk SMS from the selection bar.');
         return;
       }
-      const original = smsScriptSendBtn.textContent;
-      smsScriptSendBtn.disabled = true;
+      const original = smsScriptSendBtn ? smsScriptSendBtn.textContent : '';
+      if (smsScriptSendBtn) smsScriptSendBtn.disabled = true;
       smsPersonalizeBtn && (smsPersonalizeBtn.disabled = true);
-      smsScriptSendBtn.textContent = 'Writing…';
+      if (smsScriptSendBtn) smsScriptSendBtn.textContent = 'Writing…';
       try {
-        smsScriptSendBtn.textContent = 'Sending…';
+        if (smsScriptSendBtn) smsScriptSendBtn.textContent = 'Sending…';
         const data = await aiWriteAndSendSmsToLead(leadKey, scriptText, {
           context: 'outreach',
           onPreview: (msg) => {
@@ -14618,12 +14789,27 @@ document.addEventListener('DOMContentLoaded', () => {
         notifyLeadPanelDial(smsSentSuccessMessage(data), 'success');
       } catch (err) {
         notifyLeadPanelDial(err.message || 'Failed to send SMS.', 'error');
+        window.alert(err.message || 'Failed to send SMS.');
       } finally {
-        smsScriptSendBtn.disabled = false;
-        smsScriptSendBtn.textContent = original;
+        if (smsScriptSendBtn) {
+          smsScriptSendBtn.disabled = false;
+          smsScriptSendBtn.textContent = original;
+        }
         if (smsPersonalizeBtn) smsPersonalizeBtn.disabled = false;
       }
-    });
+    }
+
+    window.__handleSmsScriptSend = handleSmsScriptSend;
+    window.__adhelloSmsSendFullReady = true;
+
+    if (smsScriptSendBtn) {
+      smsScriptSendBtn.addEventListener('click', function (e) {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        void handleSmsScriptSend();
+      });
     }
   }
   [document.getElementById('smsScriptModalClose'), document.getElementById('smsScriptCancelBtn')].forEach((btnEl) => {
