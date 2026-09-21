@@ -403,13 +403,19 @@ When they ask to remove, delete, change, move, or tweak something ("remove the s
 - Do NOT rewrite the whole creative from scratch.` : ''}
 
 Respond with JSON only, no markdown:
-{"reply":"2-4 sentences: coaching, questions, or creative direction","imagePrompt":"null or a detailed English prompt ready for GPT Image 2 — specify platform (${plat}), ${ratio} composition, typography zones, brand colors, mood. ${isPostcard && slot === 'back' ? 'For postcard back: CTA layout (Call, Scan QR placeholder, Visit website) — not a duplicated contact footer.' : 'Include business contact details in the design when the user wants them on the ad.'} Null if still exploring."}
+{"reply":"2-4 sentences: coaching toward a draft image prompt — questions while exploring, or confirm direction when drafting","imagePrompt":"null or a detailed English prompt ready for GPT Image 2 — specify platform (${plat}), ${ratio} composition, typography zones, brand colors, mood. ${isPostcard && slot === 'back' ? 'For postcard back: CTA layout (Call, Scan QR placeholder, Visit website) — not a duplicated contact footer.' : 'Include business contact details in the design when the user wants them on the ad.'} Null if still exploring."}
+
+Workflow (important):
+- Your job is to lead the user to a production-ready imagePrompt they can review and edit BEFORE artwork is generated.
+- Never tell the user the image is being generated, that you already generated it, or to wait for artwork. Generation happens only when they click Generate after editing the prompt.
+- When you set imagePrompt, the reply must say the draft prompt is ready to edit (in Prompt & refine / the prompt editor) and they should tweak it, then click Generate when happy. Invite one small tweak if useful.
+- Do not pressure them to click Generate immediately — editing the prompt first is the next step.
 
 Rules:
 - Never repeat the same clarifying question if the user already answered it in this conversation. Acknowledge their direction and move forward.
-- When the user describes look/style (colors, photo vs illustration, mood, hook, audience, or "make it…"), treat that as enough to draft a production imagePrompt — set imagePrompt now. Reply should confirm the direction and say they can click Generate (or ask for one small tweak), not re-ask for colors/photo/hook.
+- When the user describes look/style (colors, photo vs illustration, mood, hook, audience, or "make it…"), treat that as enough to draft a production imagePrompt — set imagePrompt now. Reply should confirm the direction and point them to edit the draft prompt, not re-ask for colors/photo/hook.
 - imagePrompt must be null only while the user is still exploring with no usable creative direction yet.
-- If the user asks you to generate, create, or make the design (including phrases like "make an ad", "create an ad", "design a post", "make it with…"), set imagePrompt from the conversation and business info — do not leave it null.
+- If the user asks you to generate, create, or make the design (including phrases like "make an ad", "create an ad", "design a post", "make it with…"), set imagePrompt from the conversation and business info — do not leave it null. Remind them to review/edit the prompt, then click Generate — do not claim artwork is already generating.
 - ${isPostcard && slot === 'back' ? 'Postcard BACK: use action CTAs (Call us with phone, Scan QR placeholder square, Visit website with URL). Do NOT duplicate the front contact footer (address, hours block).' : 'When business info is provided, weave phone, website, hours, and address into the imagePrompt layout.'}
 - Optimize for ${plat}: safe margins, readable text at mobile size, professional local-business marketing aesthetic.
 - ${isPostcard && slot === 'back' ? 'Postcard back: full-bleed image; CTA blocks on left half only; no text in bottom-right address zone; QR placeholder on left marketing area. Match front style when a front design exists.' : isPostcard ? 'Postcard front: full-bleed photo; full contact footer OK; no text in bottom-right QR zone or near edges.' : 'Single-sided social/display ad — one strong focal creative.'}
@@ -1086,7 +1092,7 @@ router.post('/api/design-chat', async (req, res, next) => {
     if (lastAskedClarify && userGaveDirection) {
       if (!reply || reply === DEFAULT_CLARIFY || /tell me more about the look|brand colors,\s*photo vs illustration/i.test(reply)) {
         reply =
-          'Got it — locking that look in. I drafted a production prompt from your direction; review it on the right, tweak if you want, then click Generate.';
+          'Got it — locking that look in. I drafted an image prompt from your direction. Edit it in Prompt & refine (or tell me what to change), then click Generate when you are happy with it.';
       }
       if (!imagePrompt) {
         const kit = brandKitSummary(brandKit);

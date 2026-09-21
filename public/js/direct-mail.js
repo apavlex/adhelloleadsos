@@ -2244,14 +2244,12 @@
       '',
       'Tell me what you want on this ' +
         formatLabel +
-        ' — business name, style, colors, headline, or photo mood. I will help turn it into a detailed image prompt.',
+        ' — business name, style, colors, headline, or photo mood. I will draft a detailed image prompt in this chat.',
       '',
-      'Next step: describe your idea in the box below and tap Chat.',
+      'Next: describe your idea below and tap Chat. When the prompt appears, edit it in Prompt & refine, then click Generate for artwork.',
     ];
     if (dual) {
-      lines.push('For postcards, use Generate both after the front prompt is ready.');
-    } else {
-      lines.push('When you see “Prompt ready,” click Generate to create the image.');
+      lines.push('For postcards, use Generate both after both prompts look right.');
     }
     return lines.join('\n');
   }
@@ -2293,6 +2291,82 @@
     wrap.appendChild(inner);
     log.appendChild(wrap);
     log.scrollTop = log.scrollHeight;
+  }
+
+  function focusPromptEditor() {
+    var editor = document.getElementById('dmPromptEditor');
+    if (!editor) return;
+    try {
+      editor.focus({ preventScroll: false });
+      editor.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      var len = String(editor.value || '').length;
+      if (typeof editor.setSelectionRange === 'function') {
+        editor.setSelectionRange(len, len);
+      }
+    } catch (_) {
+      /* ignore focus errors */
+    }
+  }
+
+  /** Show the drafted image prompt in chat so the user can review before Generate. */
+  function appendChatPromptDraft(prompt) {
+    var log = document.getElementById('dmChatLog');
+    var text = String(prompt || '').trim();
+    if (!log || !text) return;
+    var starter = log.querySelector('.dm-chat-starter');
+    if (starter) starter.remove();
+
+    var wrap = document.createElement('div');
+    wrap.className = 'flex justify-start';
+    var card = document.createElement('div');
+    card.className = 'dm-chat-prompt-card max-w-[96%]';
+
+    var head = document.createElement('div');
+    head.className = 'dm-chat-prompt-card__head';
+    head.innerHTML =
+      '<span class="dm-chat-prompt-card__label">Draft image prompt</span>' +
+      '<span class="dm-chat-prompt-card__hint">Edit before Generate</span>';
+
+    var body = document.createElement('pre');
+    body.className = 'dm-chat-prompt-card__body';
+    body.textContent = text;
+
+    var actions = document.createElement('div');
+    actions.className = 'dm-chat-prompt-card__actions';
+    var editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'dm-chat-prompt-card__btn';
+    editBtn.textContent = 'Edit prompt';
+    editBtn.addEventListener('click', function () {
+      showPromptEditor(currentDesignSlot(), text);
+      focusPromptEditor();
+      setDesignStatus('Edit the prompt, then click Generate when you are ready.', true);
+    });
+    actions.appendChild(editBtn);
+
+    card.appendChild(head);
+    card.appendChild(body);
+    card.appendChild(actions);
+    wrap.appendChild(card);
+    log.appendChild(wrap);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function applyDraftImagePrompt(prompt, replyText) {
+    var draft = String(prompt || '').trim();
+    if (!draft) return;
+    var slot = currentDesignSlot();
+    lastImagePrompt = draft;
+    if (designMeta[slot]) designMeta[slot].prompt = draft;
+    showPromptEditor(slot, draft);
+    appendChatPromptDraft(draft);
+    var historyNote =
+      String(replyText || '').trim() ||
+      'Draft image prompt is ready. Edit it in Prompt & refine, then click Generate when you are happy with it.';
+    chatHistory.push({
+      role: 'assistant',
+      content: historyNote + '\n\n[Draft image prompt]\n' + draft,
+    });
   }
 
   function currentDesignSlot() {
@@ -3085,23 +3159,44 @@
       var reply = String(data.reply || '').trim();
       if (reply) {
         appendChatBubble('assistant', reply);
-        chatHistory.push({ role: 'assistant', content: reply });
       }
       if (data.imagePrompt) {
-        lastImagePrompt = String(data.imagePrompt).trim();
+        var draftPrompt = String(data.imagePrompt).trim();
         var slot = currentDesignSlot();
-        designMeta[slot].prompt = lastImagePrompt;
-        showPromptEditor(slot, lastImagePrompt);
-        if (designs[slot] && (/^INCREMENTAL EDIT/i.test(lastImagePrompt) || userWantsIncrementalEdit(text))) {
+        if (designs[slot] && (/^INCREMENTAL EDIT/i.test(draftPrompt) || userWantsIncrementalEdit(text))) {
+          lastImagePrompt = draftPrompt;
+          designMeta[slot].prompt = draftPrompt;
+          showPromptEditor(slot, draftPrompt);
+          chatHistory.push({
+            role: 'assistant',
+            content:
+              (reply || 'Editing your current design.') +
+              '\n\n[Draft image prompt]\n' +
+              draftPrompt,
+          });
           setDesignStatus('Applying edit to your current design…', true);
           btn.disabled = false;
-          await generateImage({ editMode: true, prompt: lastImagePrompt, skipPromptRead: true });
+          await generateImage({ editMode: true, prompt: draftPrompt, skipPromptRead: true });
           return;
         }
-        setDesignStatus('Prompt ready — edit below or click Generate.', true);
+        applyDraftImagePrompt(draftPrompt, reply);
+        setDesignStatus('Prompt ready — edit it in Prompt & refine, then click Generate.', true);
+        focusPromptEditor();
+        btn.disabled = false;
+        return;
+      } else if (reply) {
+        chatHistory.push({ role: 'assistant', content: reply });
+        if (userWantsAdGeneration(text)) {
+          setDesignStatus(
+            'Chat could not build a prompt yet — add more detail, or describe the look you want.',
+            false,
+          );
+        } else {
+          setDesignStatus('', true);
+        }
       } else if (userWantsAdGeneration(text)) {
         setDesignStatus(
-          'Chat could not build a prompt — click Generate and we will compose one from your brief and business info.',
+          'Chat could not build a prompt — describe the look you want, then edit the draft before Generate.',
           false,
         );
       } else {
@@ -3111,7 +3206,10 @@
       setDesignStatus(e && e.message ? e.message : 'Chat failed', false);
     } finally {
       btn.disabled = false;
-      input.focus();
+      var thinking = document.getElementById('dmChatThinking');
+      var promptFocused = document.activeElement && document.activeElement.id === 'dmPromptEditor';
+      if (!promptFocused && input) input.focus();
+      if (thinking && !thinking.hidden) setChatThinking(false);
     }
   }
 
@@ -3781,10 +3879,7 @@
           void applyIncrementalEdit(text);
           return;
         }
-        if (userWantsAdGeneration(text) && !designs[currentDesignSlot()]) {
-          generateImage();
-          return;
-        }
+        // Always coach through Chat first so the user can edit the prompt before Generate.
         sendChatMessage();
       }
     });

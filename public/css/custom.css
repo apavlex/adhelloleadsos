@@ -6387,6 +6387,94 @@ body.dm-prompt-resize-active {
   background: rgba(30, 41, 59, 0.45);
 }
 
+.dm-chat-prompt-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.85rem 0.85rem 0.85rem 0.35rem;
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.dark .dm-chat-prompt-card {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.92);
+}
+
+.dm-chat-prompt-card__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.dm-chat-prompt-card__label {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brand-muted, #6b7280);
+}
+
+.dm-chat-prompt-card__hint {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #059669;
+}
+
+.dark .dm-chat-prompt-card__hint {
+  color: #34d399;
+}
+
+.dm-chat-prompt-card__body {
+  margin: 0;
+  max-height: 9.5rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--brand-dark, #111827);
+}
+
+.dark .dm-chat-prompt-card__body {
+  color: #e2e8f0;
+}
+
+.dm-chat-prompt-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.dm-chat-prompt-card__btn {
+  appearance: none;
+  border: 1px solid rgba(17, 24, 39, 0.14);
+  background: rgba(250, 247, 237, 0.9);
+  color: var(--brand-dark, #111827);
+  border-radius: 0.45rem;
+  padding: 0.28rem 0.55rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dark .dm-chat-prompt-card__btn {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(30, 41, 59, 0.85);
+  color: #e2e8f0;
+}
+
+.dm-chat-prompt-card__btn:hover,
+.dm-chat-prompt-card__btn:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--brand-yellow, #facc15) 55%, rgba(17, 24, 39, 0.2));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand-yellow, #facc15) 30%, transparent);
+}
+
 .dm-chat-welcome {
   font-size: 0.6875rem;
   color: var(--brand-muted, #6b7280);
