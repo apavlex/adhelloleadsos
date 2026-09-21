@@ -6414,9 +6414,50 @@ body.dm-prompt-resize-active {
   min-height: 1.25rem;
 }
 
+.dm-prompt-input-head__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
 .dm-prompt-input-head__help {
   margin-left: auto;
   flex-shrink: 0;
+}
+
+.dm-chat-thinking {
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: #4b5563;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.dark .dm-chat-thinking {
+  color: #94a3b8;
+}
+
+.dm-chat-thinking__dots::after {
+  content: '...';
+  display: inline-block;
+  width: 1.15em;
+  overflow: hidden;
+  vertical-align: bottom;
+  animation: dm-chat-thinking-dots 1.15s steps(4, end) infinite;
+}
+
+@keyframes dm-chat-thinking-dots {
+  0% { width: 0; }
+  100% { width: 1.15em; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dm-chat-thinking__dots::after {
+    animation: none;
+    width: 1.15em;
+  }
 }
 
 /* Design studio status icon — color dot + hover tooltip */

@@ -1511,13 +1511,27 @@
     return ok ? 'ok' : 'error';
   }
 
+  function setChatThinking(active) {
+    var tip = document.getElementById('dmChatThinking');
+    if (!tip) return;
+    if (active) {
+      tip.classList.remove('hidden');
+      tip.hidden = false;
+    } else {
+      tip.classList.add('hidden');
+      tip.hidden = true;
+    }
+  }
+
   function setDesignStatus(text, ok) {
     var el = document.getElementById('dmDesignStatus');
     if (!el) return;
     var inner = el.querySelector('.dm-status-tip__panel-inner');
     var btn = el.querySelector('.dm-status-tip__btn');
     var msg = text == null ? '' : String(text);
+    var thinking = /^thinking/i.test(msg.trim());
     if (!msg || msg === 'true' || msg === 'false') {
+      setChatThinking(false);
       el.classList.add('hidden');
       if (inner) inner.textContent = '';
       el.classList.remove(
@@ -1533,8 +1547,10 @@
     var tone = designStatusTone(msg, ok);
     el.classList.remove('hidden', 'dm-status-tip--ok', 'dm-status-tip--error', 'dm-status-tip--info', 'dm-status-tip--warn', 'dm-status-tip--idle');
     el.classList.add('dm-status-tip--' + tone);
-    if (inner) inner.textContent = msg;
-    if (btn) btn.setAttribute('aria-label', msg.slice(0, 140));
+    setChatThinking(thinking);
+    // Keep detailed status in the tooltip; show animated label beside the icon while thinking.
+    if (inner) inner.textContent = thinking ? 'Working on your reply…' : msg;
+    if (btn) btn.setAttribute('aria-label', (thinking ? 'Thinking' : msg).slice(0, 140));
   }
 
   function setArtworkGenerating(active, label) {

@@ -406,8 +406,10 @@ Respond with JSON only, no markdown:
 {"reply":"2-4 sentences: coaching, questions, or creative direction","imagePrompt":"null or a detailed English prompt ready for GPT Image 2 — specify platform (${plat}), ${ratio} composition, typography zones, brand colors, mood. ${isPostcard && slot === 'back' ? 'For postcard back: CTA layout (Call, Scan QR placeholder, Visit website) — not a duplicated contact footer.' : 'Include business contact details in the design when the user wants them on the ad.'} Null if still exploring."}
 
 Rules:
-- imagePrompt must be null until the user wants to generate or asks for a final prompt.
-- If the user asks you to generate, create, or make the design (including phrases like "make an ad", "create an ad", "design a post"), set imagePrompt from the conversation and business info — do not leave it null.
+- Never repeat the same clarifying question if the user already answered it in this conversation. Acknowledge their direction and move forward.
+- When the user describes look/style (colors, photo vs illustration, mood, hook, audience, or "make it…"), treat that as enough to draft a production imagePrompt — set imagePrompt now. Reply should confirm the direction and say they can click Generate (or ask for one small tweak), not re-ask for colors/photo/hook.
+- imagePrompt must be null only while the user is still exploring with no usable creative direction yet.
+- If the user asks you to generate, create, or make the design (including phrases like "make an ad", "create an ad", "design a post", "make it with…"), set imagePrompt from the conversation and business info — do not leave it null.
 - ${isPostcard && slot === 'back' ? 'Postcard BACK: use action CTAs (Call us with phone, Scan QR placeholder square, Visit website with URL). Do NOT duplicate the front contact footer (address, hours block).' : 'When business info is provided, weave phone, website, hours, and address into the imagePrompt layout.'}
 - Optimize for ${plat}: safe margins, readable text at mobile size, professional local-business marketing aesthetic.
 - ${isPostcard && slot === 'back' ? 'Postcard back: full-bleed image; CTA blocks on left half only; no text in bottom-right address zone; QR placeholder on left marketing area. Match front style when a front design exists.' : isPostcard ? 'Postcard front: full-bleed photo; full contact footer OK; no text in bottom-right QR zone or near edges.' : 'Single-sided social/display ad — one strong focal creative.'}
@@ -1051,10 +1053,63 @@ router.post('/api/design-chat', async (req, res, next) => {
     }
 
     const parsed = parseLlmJson(ai.content) || {};
+    const DEFAULT_CLARIFY =
+      'Tell me more about the look you want — brand colors, photo vs illustration, and the main hook.';
+    let reply = String(parsed.reply || '').trim();
+    let imagePrompt = parsed.imagePrompt ? String(parsed.imagePrompt).trim() : '';
+    if (imagePrompt && /^(null|undefined|none)$/i.test(imagePrompt)) imagePrompt = '';
+
+    // If JSON parse failed, prefer the model’s plain text over a canned clarification loop.
+    if (!reply) {
+      const raw = String(ai.content || '')
+        .replace(/^```(?:json)?\s*/i, '')
+        .replace(/\s*```$/i, '')
+        .trim();
+      if (raw && !raw.startsWith('{')) {
+        reply = raw.slice(0, 800);
+      }
+    }
+
+    const lastAssistant = [...history].reverse().find((m) => m.role === 'assistant');
+    const lastAskedClarify =
+      lastAssistant &&
+      /tell me more about the look|brand colors,\s*photo vs illustration|main hook/i.test(
+        String(lastAssistant.content || ''),
+      );
+    const userGaveDirection =
+      userMessage.length >= 24 &&
+      /(color|photo|illustration|realistic|gold|black|white|hook|make (it|a|an)|design|style|mood|marketing|brand)/i.test(
+        userMessage,
+      );
+
+    // User already answered the stock clarifying question — do not ask it again.
+    if (lastAskedClarify && userGaveDirection) {
+      if (!reply || reply === DEFAULT_CLARIFY || /tell me more about the look|brand colors,\s*photo vs illustration/i.test(reply)) {
+        reply =
+          'Got it — locking that look in. I drafted a production prompt from your direction; review it on the right, tweak if you want, then click Generate.';
+      }
+      if (!imagePrompt) {
+        const kit = brandKitSummary(brandKit);
+        imagePrompt = [
+          `Professional ${platformLabel(platform)} ad, ${aspectRatio} aspect ratio.`,
+          `Creative direction from the marketer: ${userMessage}`,
+          headline ? `Headline concept: ${headline}` : '',
+          bodyText ? `Supporting copy: ${bodyText}` : '',
+          kit && kit !== '(no business info set yet)' ? `Business details to include where relevant:\n${kit}` : '',
+          'Sharp typography, clean hierarchy, mobile-readable text, no watermark, no invented logos.',
+        ]
+          .filter(Boolean)
+          .join('\n\n')
+          .slice(0, 3500);
+      }
+    }
+
+    if (!reply) reply = DEFAULT_CLARIFY;
+
     res.json({
       success: true,
-      reply: String(parsed.reply || 'Tell me more about the look you want — brand colors, photo vs illustration, and the main hook.').trim(),
-      imagePrompt: parsed.imagePrompt ? String(parsed.imagePrompt).trim() : null,
+      reply,
+      imagePrompt: imagePrompt || null,
       provider: ai.provider || null,
     });
   } catch (err) {

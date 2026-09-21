@@ -344,15 +344,20 @@
           <div id="dmChatLog" class="dm-chat-log custom-scrollbar" aria-live="polite"></div>
           <div class="dm-prompt-compose">
             <div class="dm-prompt-input-head">
-              <%- include('/partials/dm_status_tip', {
-                id: 'dmDesignStatus',
-                state: 'idle',
-                label: 'Design status',
-                placement: 'top',
-                align: 'start',
-                hidden: true,
-                text: ''
-              }) %>
+              <div class="dm-prompt-input-head__status">
+                <%- include('/partials/dm_status_tip', {
+                  id: 'dmDesignStatus',
+                  state: 'idle',
+                  label: 'Design status',
+                  placement: 'top',
+                  align: 'start',
+                  hidden: true,
+                  text: ''
+                }) %>
+                <span id="dmChatThinking" class="dm-chat-thinking hidden" aria-live="polite" hidden>
+                  Thinking<span class="dm-chat-thinking__dots" aria-hidden="true"></span>
+                </span>
+              </div>
               <span class="dm-prompt-input-head__help">
                 <%- include('/partials/app_info_tip', {
                   tipId: 'dm-design-assistant-tip',
