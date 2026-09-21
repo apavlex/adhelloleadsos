@@ -89,7 +89,7 @@ router.get('/', async (req, res, next) => {
     await dbService.mergeUserResourcesIntoWorkspace(req.workspaceId, email);
     const filterKind = String(req.query.kind || 'all').toLowerCase();
     const resourcesAll = await dbService.listWorkspaceResources(req.workspaceId);
-    const allowedFilters = new Set(['all', 'youtube', 'drive', 'x', 'link']);
+    const allowedFilters = new Set(['all', 'youtube', 'drive', 'x', 'link', 'note']);
     const fk = allowedFilters.has(filterKind) ? filterKind : 'all';
     const resourceKindCounts = {
       all: resourcesAll.length,
@@ -97,6 +97,7 @@ router.get('/', async (req, res, next) => {
       drive: 0,
       x: 0,
       link: 0,
+      note: 0,
     };
     for (const r of resourcesAll) {
       const k = String(r.kind || 'link').toLowerCase();
@@ -112,6 +113,7 @@ router.get('/', async (req, res, next) => {
       resourceKindCounts,
       saveError: req.query.error === 'invalid',
       uploadError: req.query.error === 'invalid_upload',
+      noteError: req.query.error === 'invalid_note',
     });
   } catch (e) {
     next(e);
@@ -137,6 +139,30 @@ router.post('/add', express.urlencoded({ extended: true }), async (req, res, nex
       note,
       kind,
       addedBy: email,
+    });
+    res.redirect(302, '/resources');
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/note', express.urlencoded({ extended: true }), async (req, res, next) => {
+  try {
+    const email = userEmail(req);
+    const note = String(req.body.note || '').trim().slice(0, 2000);
+    const titleIn = String(req.body.title || '').trim().slice(0, 200);
+    if (!note && !titleIn) {
+      return res.redirect(302, '/resources?error=invalid_note');
+    }
+    const id = newResourceId();
+    await dbService.saveWorkspaceResource(req.workspaceId, {
+      id,
+      url: '',
+      title: titleIn,
+      note: note || titleIn,
+      kind: 'note',
+      addedBy: email,
+      sourceType: 'note',
     });
     res.redirect(302, '/resources');
   } catch (e) {
@@ -235,12 +261,20 @@ router.post('/update', express.json(), async (req, res, next) => {
     const update = {};
     if (req.body.title !== undefined) {
       update.title = String(req.body.title || '').trim().slice(0, 200);
-      if (!update.title) update.title = resource.url;
+      if (!update.title) {
+        const fallbackNote = String(
+          req.body.note !== undefined ? req.body.note : resource.note || '',
+        )
+          .trim()
+          .split('\n')[0]
+          .slice(0, 120);
+        update.title = resource.url || fallbackNote || 'Note';
+      }
     }
     if (req.body.note !== undefined) {
       update.note = String(req.body.note || '').trim().slice(0, 2000);
     }
-    if (req.body.kind !== undefined) {
+    if (req.body.kind !== undefined && resource.kind !== 'note') {
       const k = String(req.body.kind || 'auto').toLowerCase();
       update.kind = resolveKind(resource.url, k);
     }

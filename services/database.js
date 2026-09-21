@@ -1829,7 +1829,11 @@ module.exports = {
       if (!raw) continue;
       try {
         const r = typeof raw === 'string' ? JSON.parse(raw) : raw;
-        if (r && r.id && r.url) resources.push(r);
+        if (!r || !r.id) continue;
+        const kind = String(r.kind || '').toLowerCase();
+        const hasUrl = !!String(r.url || '').trim();
+        const hasNote = !!String(r.note || '').trim();
+        if (hasUrl || kind === 'note' || hasNote) resources.push(r);
       } catch {
         /* skip */
       }
@@ -1848,16 +1852,24 @@ module.exports = {
     if (!id) throw new Error('Resource id is required.');
     const now = new Date().toISOString();
     const url = String(resource.url || '').trim();
-    if (!url) throw new Error('URL is required.');
+    const note = String(resource.note || '').trim();
     const kind = String(resource.kind || 'link').toLowerCase();
-    const allowedKinds = new Set(['youtube', 'drive', 'x', 'link']);
+    const allowedKinds = new Set(['youtube', 'drive', 'x', 'link', 'note']);
     const safeKind = allowedKinds.has(kind) ? kind : 'link';
+    const isNote = safeKind === 'note' || (!url && !!note);
+    if (!url && !isNote) throw new Error('URL is required.');
+    if (isNote && !note && !String(resource.title || '').trim()) {
+      throw new Error('Note text is required.');
+    }
+    const titleFallback = isNote
+      ? note.split('\n')[0].slice(0, 120) || 'Note'
+      : url;
     const payload = {
       id,
-      url,
-      title: String(resource.title || '').trim() || url,
-      note: String(resource.note || '').trim(),
-      kind: safeKind,
+      url: isNote ? '' : url,
+      title: String(resource.title || '').trim() || titleFallback,
+      note,
+      kind: isNote ? 'note' : safeKind,
       createdAt: resource.createdAt || now,
       updatedAt: now,
     };
