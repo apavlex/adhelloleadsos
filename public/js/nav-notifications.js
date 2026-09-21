@@ -809,9 +809,20 @@
     );
   }
 
+  /** Errors that will fail every remaining lead — pause so the user can fix and resume. */
+  function isSystemicGhlSyncError(errOrMsg) {
+    const msg = String(
+      (errOrMsg && errOrMsg.message) || errOrMsg || '',
+    ).toLowerCase();
+    if (!msg) return false;
+    return /rate limit|too many requests|does not have access to this location|ghl is not configured|api key is not configured|location id is not configured|token does not have access|unauthorized|401|403/.test(
+      msg,
+    );
+  }
+
   function ghlSyncPaceMs() {
-    // Stay under GHL's ~100 req / 10s burst — each lead uses several API calls.
-    return 450;
+    // Stay under GHL's ~100 req / 10s burst — each fast-list lead still uses several API calls.
+    return 750;
   }
 
   try {
@@ -942,13 +953,19 @@
       '<div class="mt-1 text-[9px] font-semibold text-brand-muted dark:text-slate-500">' +
       (stopping
         ? 'Finishing the current contact, then stopping. Contacts already pushed stay in GHL.'
-        : 'OK to open other AdHello pages — sync resumes there. Keep this browser tab open.') +
+        : job.pausedForError
+          ? 'Paused — fix the error above, then resume. Contacts already pushed stay in GHL.'
+          : 'OK to open other AdHello pages — sync resumes there. Keep this browser tab open.') +
       '</div>' +
       (stopping
         ? '<div class="mt-2 text-[9px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Stopping…</div>'
-        : '<button type="button" class="btn-solid btn-solid--stop mt-2 rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-widest" ' +
-          'onclick="event.stopPropagation();if(window.agencyOsGhlSync&amp;&amp;window.agencyOsGhlSync.cancel)window.agencyOsGhlSync.cancel();" ' +
-          'title="Stop after the contact currently syncing — anything already pushed stays in GHL">Stop sync</button>') +
+        : job.pausedForError
+          ? '<button type="button" class="btn-pill mt-2 rounded-full bg-orange-500 text-white px-3 py-1 text-[9px] font-black uppercase tracking-widest" ' +
+            'onclick="event.stopPropagation();if(window.agencyOsGhlSync&amp;&amp;window.agencyOsGhlSync.resume)window.agencyOsGhlSync.resume();" ' +
+            'title="Resume syncing remaining contacts">Resume sync</button>'
+          : '<button type="button" class="btn-solid btn-solid--stop mt-2 rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-widest" ' +
+            'onclick="event.stopPropagation();if(window.agencyOsGhlSync&amp;&amp;window.agencyOsGhlSync.cancel)window.agencyOsGhlSync.cancel();" ' +
+            'title="Stop after the contact currently syncing — anything already pushed stays in GHL">Stop sync</button>') +
       '</div></div></div>'
     );
   }
@@ -1028,13 +1045,25 @@
             job.pushedCount = (job.pushedCount || 0) + leadPushed;
             job.lastError = '';
           } else if (leadFailed > 0) {
-            job.failedCount = (job.failedCount || 0) + leadFailed;
             var failRow = Array.isArray(data.results)
               ? data.results.find(function (r) {
                   return r && r.ok === false;
                 })
               : null;
             job.lastError = (failRow && failRow.error) || data.error || 'GHL sync failed';
+            if (isSystemicGhlSyncError(job.lastError)) {
+              writeGhlSyncJob(job);
+              summary.paused = true;
+              summary.pauseReason = job.lastError;
+              if (typeof window.showAppToast === 'function') {
+                window.showAppToast(
+                  'GHL sync paused — ' + String(job.lastError).slice(0, 160),
+                  { variant: 'error', duration: 10000 },
+                );
+              }
+              break;
+            }
+            job.failedCount = (job.failedCount || 0) + leadFailed;
           } else {
             job.failedCount = (job.failedCount || 0) + 1;
             job.lastError = (data && data.error) || 'GHL sync returned no contact';
@@ -1048,8 +1077,20 @@
             summary.paused = true;
             break;
           }
-          job.failedCount = (job.failedCount || 0) + 1;
           job.lastError = err && err.message ? err.message : String(err);
+          if (isSystemicGhlSyncError(err) || isSystemicGhlSyncError(job.lastError)) {
+            writeGhlSyncJob(job);
+            summary.paused = true;
+            summary.pauseReason = job.lastError;
+            if (typeof window.showAppToast === 'function') {
+              window.showAppToast(
+                'GHL sync paused — ' + String(job.lastError).slice(0, 160),
+                { variant: 'error', duration: 10000 },
+              );
+            }
+            break;
+          }
+          job.failedCount = (job.failedCount || 0) + 1;
           summary.results.push({ key: key, ok: false, error: job.lastError });
         }
 
@@ -1071,6 +1112,7 @@
           remaining: Math.max(0, total - job.index),
           pushed: job.pushedCount || 0,
           failed: job.failedCount || 0,
+          lastError: job.lastError || '',
         });
         updateBulkEnhanceBellBadge(job.index, total, job.label || 'GHL sync');
       }
@@ -1087,17 +1129,31 @@
     } finally {
       ghlSyncProcessorLock = false;
 
-      // Navigating away: keep the job so the next AdHello page resumes it.
+      // Navigating away or systemic API errors: keep the job so the next AdHello page can resume.
       if (summary.paused) {
         ghlSyncCancelRequested = false;
         var pausedJob = readGhlSyncJob();
         if (pausedJob) {
+          if (summary.pauseReason) {
+            pausedJob.pausedForError = true;
+            pausedJob.lastError = summary.pauseReason;
+            writeGhlSyncJob(pausedJob);
+          }
           activateNavbarWorkBell(pausedJob.label || 'GHL sync');
           updateBulkEnhanceBellBadge(
             pausedJob.index,
             pausedJob.keys.length,
             pausedJob.label || 'GHL sync',
           );
+          emitGhlSyncProgress({
+            current: pausedJob.index,
+            total: pausedJob.keys.length,
+            remaining: Math.max(0, pausedJob.keys.length - pausedJob.index),
+            pushed: pausedJob.pushedCount || 0,
+            failed: pausedJob.failedCount || 0,
+            lastError: pausedJob.lastError || summary.pauseReason || '',
+            paused: true,
+          });
         }
         return;
       }
@@ -1173,6 +1229,31 @@
     },
     buildProgressHtml(job) {
       return buildGhlSyncProgressBellHtml(job || readGhlSyncJob());
+    },
+    /** Resume a queue paused by rate-limit / auth errors (or after a tab reload). */
+    resume() {
+      var job = readGhlSyncJob();
+      if (!job || !Array.isArray(job.keys) || job.index >= job.keys.length) return false;
+      job.pausedForError = false;
+      job.running = true;
+      job.cancelRequested = false;
+      writeGhlSyncJob(job);
+      ghlSyncCancelRequested = false;
+      activateNavbarWorkBell(job.label || 'GHL sync');
+      emitGhlSyncProgress({
+        current: job.index,
+        total: job.keys.length,
+        remaining: Math.max(0, job.keys.length - job.index),
+        pushed: job.pushedCount || 0,
+        failed: job.failedCount || 0,
+        lastError: '',
+        paused: false,
+      });
+      processGhlSyncQueue().catch(function (err) {
+        console.warn('[ghl-sync-resume]', err);
+        failGhlSyncWaiters(err);
+      });
+      return true;
     },
     run(opts) {
       opts = opts || {};
@@ -1970,24 +2051,44 @@
       if (ghlJob) {
         activateNavbarWorkBell(ghlJob.label || 'GHL sync');
         updateBulkEnhanceBellBadge(ghlJob.index, ghlJob.keys.length, ghlJob.label || 'GHL sync');
-        if (typeof window.showAppToast === 'function') {
-          window.showAppToast(
-            'Resuming ' +
-              (ghlJob.label || 'GHL sync') +
-              ' for ' +
-              ghlJob.keys.length +
-              ' contact' +
-              (ghlJob.keys.length !== 1 ? 's' : '') +
-              ' (' +
-              (ghlJob.index + 1) +
-              ' of ' +
-              ghlJob.keys.length +
-              ').',
-            { variant: 'info', duration: 7000 },
-          );
+        if (ghlJob.pausedForError) {
+          emitGhlSyncProgress({
+            current: ghlJob.index,
+            total: ghlJob.keys.length,
+            remaining: Math.max(0, ghlJob.keys.length - ghlJob.index),
+            pushed: ghlJob.pushedCount || 0,
+            failed: ghlJob.failedCount || 0,
+            lastError: ghlJob.lastError || '',
+            paused: true,
+          });
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast(
+              'GHL sync paused' +
+                (ghlJob.lastError ? ' — ' + String(ghlJob.lastError).slice(0, 140) : '') +
+                '. Fix the issue, then resume from Focus or the bell.',
+              { variant: 'error', duration: 10000 },
+            );
+          }
+        } else {
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast(
+              'Resuming ' +
+                (ghlJob.label || 'GHL sync') +
+                ' for ' +
+                ghlJob.keys.length +
+                ' contact' +
+                (ghlJob.keys.length !== 1 ? 's' : '') +
+                ' (' +
+                (ghlJob.index + 1) +
+                ' of ' +
+                ghlJob.keys.length +
+                ').',
+              { variant: 'info', duration: 7000 },
+            );
+          }
+          processGhlSyncQueue().catch((e) => console.warn('[ghl-sync-resume]', e));
         }
       }
-      processGhlSyncQueue().catch((e) => console.warn('[ghl-sync-resume]', e));
     }
 
     function maybeDesktopNotify(data) {

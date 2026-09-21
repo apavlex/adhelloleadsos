@@ -406,6 +406,7 @@
           <div class="flex flex-wrap items-center justify-between gap-2 w-full">
             <span id="focus-sms-compose-count" class="text-[9px] font-semibold text-brand-muted tabular-nums">0</span>
             <div class="flex flex-wrap items-center gap-2">
+              <button type="button" id="focus-sms-save-script" class="btn-pill border-2 border-brand-dark/20 dark:border-white/20 bg-white dark:bg-slate-900 text-brand-dark dark:text-white px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:border-emerald-500/50 transition-all" title="Save the current SMS text back to Scripts library">Save</button>
               <button type="button" id="focus-sms-improve-text" class="btn-pill border border-brand-yellow/50 bg-brand-yellow/10 text-brand-dark dark:text-brand-yellow px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-brand-yellow/20 transition-all" title="Polish your SMS draft with AI — does not send">Improve text</button>
               <button type="button" id="focus-sms-compose-send" class="btn-pill bg-emerald-500 text-white px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:brightness-95 transition-all">Send SMS</button>
             </div>
@@ -692,6 +693,7 @@
     var btnSmsComposeSend = document.getElementById('focus-sms-compose-send');
     var btnSmsClose = document.getElementById('focus-sms-close');
     var btnSmsImproveText = document.getElementById('focus-sms-improve-text');
+    var btnSmsSaveScript = document.getElementById('focus-sms-save-script');
     var focusSmsScriptOptions = [];
     var btnMobileBack = document.getElementById('focus-mobile-back');
     var btnMobileCallNext = document.getElementById('focus-mobile-call-next');
@@ -2082,6 +2084,14 @@
     /** Hand the queue to the navbar bell job so the sync survives navigation. */
     function runFocusListGhlInBackground(keys, customTags, bg) {
       if (bg.isRunning && bg.isRunning()) {
+        var existing = typeof bg.readJob === 'function' ? bg.readJob() : null;
+        if (existing && existing.pausedForError && typeof bg.resume === 'function') {
+          setFocusSyncListStatus('Resuming paused GHL sync…', false);
+          setFocusBulkGhlBusy(true, 'Syncing ' + existing.index + '/' + existing.keys.length);
+          setFocusGhlStopControl('stoppable');
+          bg.resume();
+          return Promise.resolve();
+        }
         setFocusSyncListStatus('A GHL sync is already running — watch the bell for progress.', false);
         return Promise.resolve();
       }
@@ -2532,6 +2542,7 @@
     function focusSmsTextFromServiceBlock(serviceBlock, lead) {
       if (!serviceBlock) return '';
       var raw =
+        String(serviceBlock.sms || '').trim() ||
         String(serviceBlock.channels && serviceBlock.channels.text || '').trim() ||
         String(serviceBlock.opening || '').trim() ||
         String(serviceBlock.valueProp || '').trim();
@@ -2626,6 +2637,84 @@
       elSmsComposeInput.value = nextText;
       syncFocusSmsComposeCount();
       autogrowFocusSmsCompose();
+    }
+
+    function focusSmsOfferKeyForSave() {
+      if (elSmsScriptSelect && focusSmsScriptOptions && focusSmsScriptOptions.length) {
+        var idx = parseInt(elSmsScriptSelect.value, 10);
+        if (!isNaN(idx) && idx >= 0 && idx < focusSmsScriptOptions.length) {
+          var selected = focusSmsScriptOptions[idx];
+          var id = selected && selected.id != null ? String(selected.id) : '';
+          if (id.indexOf('lib:') === 0) return id.slice(4);
+          if (id.indexOf('sms:') === 0) return id.slice(4);
+        }
+      }
+      return currentFocusProductKey();
+    }
+
+    function saveFocusSmsScriptToLibrary() {
+      var serviceKey = focusSmsOfferKeyForSave();
+      var text = String((elSmsComposeInput && elSmsComposeInput.value) || '').trim();
+      if (!serviceKey) {
+        setFocusSmsComposeStatus('Pick an offer script from the library first.', true);
+        return;
+      }
+      if (!text) {
+        setFocusSmsComposeStatus('Add SMS text before saving.', true);
+        return;
+      }
+      if (text.length > 1600) text = text.slice(0, 1600);
+      if (btnSmsSaveScript) {
+        btnSmsSaveScript.disabled = true;
+        btnSmsSaveScript.textContent = 'Saving…';
+      }
+      setFocusSmsComposeStatus('Saving SMS to Scripts…');
+      var blocks = {};
+      blocks[serviceKey] = { sms: text };
+      fetch('/workspace/scripts/blocks', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ blocks: blocks }),
+      })
+        .then(function (r) {
+          return r.json().then(function (j) {
+            return { ok: r.ok, j: j };
+          });
+        })
+        .then(function (res) {
+          if (!res.ok || !res.j || !res.j.success) {
+            throw new Error((res.j && res.j.error) || 'Could not save SMS script.');
+          }
+          if (!focusScriptLibrary[serviceKey]) focusScriptLibrary[serviceKey] = {};
+          focusScriptLibrary[serviceKey].sms = text;
+          if (!focusScriptLibrary[serviceKey].channels) focusScriptLibrary[serviceKey].channels = {};
+          focusScriptLibrary[serviceKey].channels.text = text;
+          var label =
+            (focusScriptLibrary[serviceKey] && focusScriptLibrary[serviceKey].label) || serviceKey;
+          // Keep the edited SMS in the box; refresh library options underneath.
+          var keepText = text;
+          var lead = currentLead();
+          if (lead) populateFocusSmsScriptSelect(lead, { keepBlank: false });
+          if (elSmsComposeInput) {
+            elSmsComposeInput.value = keepText;
+            syncFocusSmsComposeCount();
+            autogrowFocusSmsCompose();
+          }
+          setFocusSmsComposeStatus('Saved to Scripts · ' + label + ' — SMS');
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast('SMS script saved to ' + label, { variant: 'success' });
+          }
+        })
+        .catch(function (err) {
+          setFocusSmsComposeStatus((err && err.message) || 'Could not save SMS script.', true);
+        })
+        .finally(function () {
+          if (btnSmsSaveScript) {
+            btnSmsSaveScript.disabled = false;
+            btnSmsSaveScript.textContent = 'Save';
+          }
+        });
     }
 
     function openFocusSmsComposer() {
@@ -4486,6 +4575,7 @@
     if (btnSmsImproveText) btnSmsImproveText.addEventListener('click', function () { onFocusImproveText(); });
     if (btnSmsComposeSend) btnSmsComposeSend.addEventListener('click', function () { sendFocusSmsCompose(); });
     if (btnSmsClose) btnSmsClose.addEventListener('click', function () { closeFocusSmsComposer(); });
+    if (btnSmsSaveScript) btnSmsSaveScript.addEventListener('click', function () { saveFocusSmsScriptToLibrary(); });
     if (elSmsScriptSelect) {
       elSmsScriptSelect.addEventListener('change', function () {
         applyFocusSmsScriptSelection({ force: true });
@@ -4522,9 +4612,25 @@
       return !!(bg && typeof bg.isCancelPending === 'function' && bg.isCancelPending());
     }
 
-    function renderFocusGhlBackgroundProgress(current, total, pushed, failed) {
+    function renderFocusGhlBackgroundProgress(current, total, pushed, failed, lastError, paused) {
       if (!total) return;
       var stopping = focusGhlSyncStopping();
+      var err = String(lastError || '').trim();
+      if (paused) {
+        setFocusBulkGhlBusy(false);
+        setFocusGhlStopControl('hidden');
+        setFocusSyncListStatus(
+          'GHL sync paused' +
+            (err ? ' — ' + err.slice(0, 180) : '') +
+            ' · ' +
+            (pushed || 0) +
+            '/' +
+            total +
+            ' synced. Fix the issue, then tap Sync list / Resume in the bell.',
+          true,
+        );
+        return;
+      }
       setFocusBulkGhlBusy(true, (stopping ? 'Stopping ' : 'Syncing ') + Math.min(current + 1, total) + '/' + total);
       setFocusGhlStopControl(stopping ? 'stopping' : 'stoppable');
       setFocusSyncListStatus(
@@ -4540,14 +4646,15 @@
             (pushed || 0) +
             ' synced' +
             (failed ? ', ' + failed + ' failed' : '') +
+            (err ? ' — ' + err.slice(0, 140) : '') +
             ' — safe to browse leads, Stop sync halts it.',
-        false,
+        !!failed || !!err,
       );
     }
 
     window.addEventListener('agency-os-ghl-sync-progress', function (e) {
       var p = (e && e.detail) || {};
-      renderFocusGhlBackgroundProgress(p.current, p.total, p.pushed, p.failed);
+      renderFocusGhlBackgroundProgress(p.current, p.total, p.pushed, p.failed, p.lastError, p.paused);
     });
 
     window.addEventListener('agency-os-ghl-sync-cancelling', function (e) {
@@ -4565,6 +4672,16 @@
       setFocusBulkGhlBusy(false);
       setFocusGhlStopControl('hidden');
       if (s.total) {
+        var failDetail = '';
+        try {
+          var jobSnap = window.agencyOsGhlSync && window.agencyOsGhlSync.readJob && window.agencyOsGhlSync.readJob();
+          // Job is cleared on finish — pull last error from summary results if present.
+          if (Array.isArray(s.results)) {
+            var firstFail = s.results.find(function (r) { return r && r.ok === false && r.error; });
+            if (firstFail) failDetail = String(firstFail.error || '').slice(0, 160);
+          }
+          if (!failDetail && jobSnap && jobSnap.lastError) failDetail = String(jobSnap.lastError).slice(0, 160);
+        } catch (_) {}
         setFocusSyncListStatus(
           s.cancelled
             ? 'Sync stopped · ' +
@@ -4572,7 +4689,11 @@
               ' of ' +
               s.total +
               ' pushed · already-synced contacts stay in GHL'
-            : 'GHL sync complete · ' + (s.pushed || 0) + ' pushed' + (s.failed ? ' · ' + s.failed + ' failed' : ''),
+            : 'GHL sync complete · ' +
+              (s.pushed || 0) +
+              ' pushed' +
+              (s.failed ? ' · ' + s.failed + ' failed' : '') +
+              (failDetail ? ' — ' + failDetail : ''),
           (s.failed || 0) > 0,
         );
       }
@@ -4583,7 +4704,14 @@
       if (!bg || typeof bg.isRunning !== 'function' || !bg.isRunning()) return;
       var job = typeof bg.readJob === 'function' ? bg.readJob() : null;
       if (!job || !Array.isArray(job.keys)) return;
-      renderFocusGhlBackgroundProgress(job.index, job.keys.length, job.pushedCount, job.failedCount);
+      renderFocusGhlBackgroundProgress(
+        job.index,
+        job.keys.length,
+        job.pushedCount,
+        job.failedCount,
+        job.lastError,
+        !!job.pausedForError,
+      );
     })();
 
     if (btnStopGhlSync) {
