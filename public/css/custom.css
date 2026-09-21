@@ -2288,6 +2288,10 @@ html.dark #pipelineColumnsPopover {
   pointer-events: auto !important;
 }
 
+#smsScriptModal.hidden {
+  display: none !important;
+}
+
 #smsScriptModal:not(.hidden) {
   display: flex !important;
   align-items: flex-start;

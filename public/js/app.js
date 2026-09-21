@@ -510,6 +510,7 @@ document.addEventListener('DOMContentLoaded', () => {
       window.__adhelloBulkSmsLeadKeys = keys;
       modal.classList.remove('hidden');
       modal.setAttribute('aria-hidden', 'false');
+      modal.style.removeProperty('display');
       paintBulkModalChrome('bulk', keys.length);
       try {
         await loadScriptsIntoModal(keys[0], false);
@@ -544,6 +545,7 @@ document.addEventListener('DOMContentLoaded', () => {
       window.__adhelloBulkSmsLeadKeys = keys;
       modal.classList.remove('hidden');
       modal.setAttribute('aria-hidden', 'false');
+      modal.style.removeProperty('display');
       paintBulkModalChrome('bulk-email', keys.length);
       try {
         await loadScriptsIntoModal(keys[0], true);
@@ -569,6 +571,46 @@ document.addEventListener('DOMContentLoaded', () => {
       return openBulkEmailModalEarly(collectCheckedLeadKeys(false));
     };
     window.__mountSmsModalToBody = mountSmsModalToBodyEarly;
+
+    function closeSmsModalEarly() {
+      const modal = document.getElementById('smsScriptModal');
+      if (!modal) return;
+      modal.classList.add('hidden');
+      modal.setAttribute('aria-hidden', 'true');
+      // Beat any display:!important open rule so the dialog actually disappears.
+      modal.style.setProperty('display', 'none', 'important');
+      window.__adhelloSmsModalMode = 'single';
+      window.__adhelloBulkSmsLeadKeys = [];
+      const bulkLabel = document.getElementById('smsScriptBulkLabel');
+      if (bulkLabel) {
+        bulkLabel.textContent = '';
+        bulkLabel.classList.add('hidden');
+      }
+    }
+    window.__closeSmsModal = closeSmsModalEarly;
+
+    if (!window.__adhelloSmsModalCloseBound) {
+      window.__adhelloSmsModalCloseBound = true;
+      document.addEventListener(
+        'click',
+        function (e) {
+          const t = e.target && e.target.closest ? e.target.closest('#smsScriptModalClose, #smsScriptCancelBtn, [data-sms-modal-close]') : null;
+          if (!t) return;
+          const modal = document.getElementById('smsScriptModal');
+          if (!modal || modal.classList.contains('hidden')) return;
+          e.preventDefault();
+          e.stopPropagation();
+          closeSmsModalEarly();
+        },
+        true,
+      );
+      document.addEventListener('keydown', function (e) {
+        if (!e || e.key !== 'Escape') return;
+        const modal = document.getElementById('smsScriptModal');
+        if (!modal || modal.classList.contains('hidden')) return;
+        closeSmsModalEarly();
+      });
+    }
   })();
 
   // --- Lead Gen Productivity Features (CSV, Scoring, Outreach) ---
@@ -13819,10 +13861,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function closeSmsModal() {
+    if (typeof window.__closeSmsModal === 'function') {
+      window.__closeSmsModal();
+    }
     const smsScriptModal = getSmsScriptModalEl();
-    if (!smsScriptModal) return;
-    smsScriptModal.classList.add('hidden');
-    smsScriptModal.setAttribute('aria-hidden', 'true');
+    if (smsScriptModal) {
+      smsScriptModal.classList.add('hidden');
+      smsScriptModal.setAttribute('aria-hidden', 'true');
+      smsScriptModal.style.setProperty('display', 'none', 'important');
+    }
     resetSmsModalMode();
   }
 
@@ -13833,6 +13880,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!smsScriptModal) return false;
     smsScriptModal.classList.remove('hidden');
     smsScriptModal.setAttribute('aria-hidden', 'false');
+    smsScriptModal.style.removeProperty('display');
     const smsScriptWorkspaceLabel = getSmsScriptWorkspaceLabelEl();
     if (smsScriptWorkspaceLabel) {
       const wsNameEl = document.querySelector('#wsSwitcherBtn .font-display');
@@ -13858,6 +13906,7 @@ document.addEventListener('DOMContentLoaded', () => {
     bulkSmsLeadKeys = keys;
     smsScriptModal.classList.remove('hidden');
     smsScriptModal.setAttribute('aria-hidden', 'false');
+    smsScriptModal.style.removeProperty('display');
     updateSmsModalBulkUi();
     const smsScriptWorkspaceLabel = getSmsScriptWorkspaceLabelEl();
     if (smsScriptWorkspaceLabel) {
@@ -13895,6 +13944,7 @@ document.addEventListener('DOMContentLoaded', () => {
     bulkSmsLeadKeys = keys;
     smsScriptModal.classList.remove('hidden');
     smsScriptModal.setAttribute('aria-hidden', 'false');
+    smsScriptModal.style.removeProperty('display');
     updateSmsModalBulkUi();
     const smsScriptWorkspaceLabel = getSmsScriptWorkspaceLabelEl();
     if (smsScriptWorkspaceLabel) {
@@ -14578,13 +14628,21 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   [document.getElementById('smsScriptModalClose'), document.getElementById('smsScriptCancelBtn')].forEach((btnEl) => {
     if (!btnEl) return;
-    btnEl.addEventListener('click', closeSmsModal);
+    btnEl.addEventListener('click', function (e) {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      closeSmsModal();
+    });
   });
   {
     const smsScriptModal = getSmsScriptModalEl();
     if (smsScriptModal) {
       smsScriptModal.addEventListener('click', (e) => {
-        if (e.target && e.target.hasAttribute('data-sms-modal-close')) closeSmsModal();
+        const hit =
+          e.target && e.target.closest ? e.target.closest('[data-sms-modal-close]') : null;
+        if (hit) closeSmsModal();
       });
     }
   }
