@@ -1,6 +1,6 @@
 {
   "name": "google-maps-lead-agent",
-  "version": "{b}",
+  "version": "1.0.142",
   "description": "Google Maps lead generation tool using Apify",
   "main": "server.js",
   "scripts": {
