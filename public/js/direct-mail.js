@@ -11,6 +11,10 @@
   var lightboxSlot = 'front';
   var DM_SAVED_KEY = 'adhello_dm_saved_designs';
   var DM_SAVED_MAX = 24;
+  var DM_PROMPTS_KEY = 'adhello_dm_saved_prompts';
+  var DM_PROMPTS_MAX = 20;
+  var artworkGenerating = false;
+  var genBtnLabelBackup = {};
   var brandKit = {
     businessName: '',
     address: '',
@@ -1533,6 +1537,147 @@
     if (btn) btn.setAttribute('aria-label', msg.slice(0, 140));
   }
 
+  function setArtworkGenerating(active, label) {
+    artworkGenerating = !!active;
+    var msg = String(label || 'Generating artwork…').trim() || 'Generating artwork…';
+    var overlay = document.getElementById('dmGeneratingOverlay');
+    var overlayText = document.getElementById('dmGeneratingOverlayText');
+    if (overlay) {
+      if (artworkGenerating) {
+        overlay.classList.remove('hidden');
+        overlay.hidden = false;
+        overlay.setAttribute('aria-busy', 'true');
+      } else {
+        overlay.classList.add('hidden');
+        overlay.hidden = true;
+        overlay.setAttribute('aria-busy', 'false');
+      }
+    }
+    if (overlayText) overlayText.textContent = msg;
+
+    var ids = ['dmGenerateBtn', 'dmPromptRegenerate', 'dmGenerateBothBtn', 'dmGenerateMatchingBackBtn', 'dmChatSend'];
+    ids.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      if (artworkGenerating) {
+        if (genBtnLabelBackup[id] == null) genBtnLabelBackup[id] = el.innerHTML;
+        if (id === 'dmGenerateBtn' || id === 'dmPromptRegenerate') {
+          el.textContent = 'Generating artwork…';
+        } else if (id === 'dmGenerateBothBtn') {
+          el.textContent = 'Generating…';
+        }
+        el.disabled = true;
+      } else {
+        if (genBtnLabelBackup[id] != null) {
+          el.innerHTML = genBtnLabelBackup[id];
+          delete genBtnLabelBackup[id];
+        }
+        if (id !== 'dmGenerateMatchingBackBtn') el.disabled = false;
+        else syncMatchFrontBackBtnVisibility();
+      }
+    });
+    syncGenerateBothBtnVisibility();
+  }
+
+  function getSavedPrompts() {
+    try {
+      var raw = localStorage.getItem(DM_PROMPTS_KEY) || '[]';
+      var parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function persistSavedPrompts(list) {
+    try {
+      localStorage.setItem(DM_PROMPTS_KEY, JSON.stringify((list || []).slice(0, DM_PROMPTS_MAX)));
+    } catch (_) {}
+  }
+
+  function saveCurrentPrompt() {
+    var text = readPromptEditor() || lastImagePrompt || '';
+    text = String(text || '').trim();
+    if (!text) {
+      setDesignStatus('Enter a prompt before saving.', false);
+      return false;
+    }
+    var title = text.split('\n')[0].replace(/\s+/g, ' ').trim().slice(0, 72) || 'Saved prompt';
+    var item = {
+      id: 'pr_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+      title: title,
+      prompt: text,
+      platform: currentPlatformKey(),
+      slot: currentDesignSlot(),
+      savedAt: new Date().toISOString(),
+    };
+    var list = getSavedPrompts().filter(function (x) {
+      return String((x && x.prompt) || '').trim() !== text;
+    });
+    list.unshift(item);
+    persistSavedPrompts(list);
+    renderSavedPrompts();
+    setDesignStatus('Prompt saved — click it below to reload anytime.', true);
+    if (typeof window.showAppToast === 'function') {
+      window.showAppToast('Prompt saved', { variant: 'success' });
+    }
+    return true;
+  }
+
+  function loadSavedPrompt(item) {
+    if (!item || !item.prompt) return;
+    var slot = item.slot === 'back' ? 'back' : currentDesignSlot();
+    showPromptEditor(slot, item.prompt);
+    lastImagePrompt = String(item.prompt).trim();
+    if (designMeta[slot]) designMeta[slot].prompt = lastImagePrompt;
+    setDesignStatus('Loaded saved prompt — click Generate for artwork.', true);
+  }
+
+  function deleteSavedPrompt(id) {
+    persistSavedPrompts(
+      getSavedPrompts().filter(function (x) {
+        return String(x && x.id) !== String(id);
+      }),
+    );
+    renderSavedPrompts();
+  }
+
+  function renderSavedPrompts() {
+    var root = document.getElementById('dmSavedPrompts');
+    var countEl = document.getElementById('dmSavedPromptsCount');
+    if (!root) return;
+    var list = getSavedPrompts();
+    if (countEl) countEl.textContent = String(list.length);
+    root.innerHTML = '';
+    if (!list.length) {
+      root.innerHTML =
+        '<p class="text-[11px] text-brand-muted mb-0">No saved prompts yet — click Save prompt to keep one.</p>';
+      return;
+    }
+    list.forEach(function (item) {
+      var row = document.createElement('div');
+      row.className = 'dm-saved-prompt-row';
+      var useBtn = document.createElement('button');
+      useBtn.type = 'button';
+      useBtn.className = 'dm-saved-prompt-row__title';
+      useBtn.title = 'Load this prompt';
+      useBtn.textContent = item.title || 'Saved prompt';
+      useBtn.addEventListener('click', function () {
+        loadSavedPrompt(item);
+      });
+      var del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'dm-saved-prompt-row__del';
+      del.textContent = 'Remove';
+      del.addEventListener('click', function () {
+        deleteSavedPrompt(item.id);
+      });
+      row.appendChild(useBtn);
+      row.appendChild(del);
+      root.appendChild(row);
+    });
+  }
+
   function userWantsAdGeneration(text) {
     return /make\s+(an?\s+)?(ad|add)|create\s+(an?\s+)?(ad|add)|design\s+(an?\s+)?(ad|add)|generate|go ahead|make it|build it|design it/i.test(
       String(text || ''),
@@ -2032,12 +2177,18 @@
         designMeta.front.prompt = prompt;
         showPromptEditor('front', prompt);
         setDesignStatus('Generating artwork for ' + (plat.label || 'social') + '…', true);
-        var generated = await generateImage({
-          prompt: prompt,
-          skipPromptRead: true,
-          slot: 'front',
-          suppressButtonToggle: true,
-        });
+        setArtworkGenerating(true, 'Generating artwork…');
+        var generated = false;
+        try {
+          generated = await generateImage({
+            prompt: prompt,
+            skipPromptRead: true,
+            slot: 'front',
+            suppressButtonToggle: true,
+          });
+        } finally {
+          setArtworkGenerating(false);
+        }
         if (!generated) {
           setDesignStatus('Image generation failed — click Generate to retry.', false);
           if (typeof window.showAppToast === 'function') {
@@ -3041,8 +3192,7 @@
 
     var btn = document.getElementById('dmGenerateBtn');
     var bothBtn = document.getElementById('dmGenerateBothBtn');
-    if (btn) btn.disabled = true;
-    if (bothBtn) bothBtn.disabled = true;
+    setArtworkGenerating(true, 'Generating front artwork…');
     setDesignStatus('Generating front… then back (this can take a few minutes).', true);
 
     try {
@@ -3059,6 +3209,7 @@
       }
 
       setActiveDesignSlot('back');
+      setArtworkGenerating(true, 'Generating matching back artwork…');
       setDesignStatus('Front done — generating matching back…', true);
       var backOk = await generateImageForSlot('back', {
         prompt: backPrompt,
@@ -3077,6 +3228,7 @@
         window.showAppToast('Postcard front and back generated', { variant: 'success' });
       }
     } finally {
+      setArtworkGenerating(false);
       if (btn) btn.disabled = false;
       if (bothBtn) bothBtn.disabled = false;
     }
@@ -3223,10 +3375,17 @@
 
     if (btn && !opts.suppressButtonToggle) btn.disabled = true;
     if (!opts.suppressButtonToggle) {
+      setArtworkGenerating(true, editMode ? 'Applying edit to artwork…' : 'Generating artwork…');
       setDesignStatus(
-        editMode ? 'Applying edit to your design…' : 'Generating with GPT Image 2… this can take up to 2 minutes.',
+        editMode ? 'Applying edit to your design…' : 'Generating artwork… this can take up to 2 minutes.',
         true,
       );
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast(
+          editMode ? 'Applying edit to artwork…' : 'Generating artwork…',
+          { variant: 'info', duration: 5000 },
+        );
+      }
     }
 
     try {
@@ -3248,13 +3407,14 @@
         var platToast = DM_PLATFORMS[ctx.platform] || DM_PLATFORMS.custom;
         var genLabel = (platToast.dualSided ? 'Postcard ' + slot : platToast.label) || 'Artwork';
         if (!opts.suppressButtonToggle) {
+          setArtworkGenerating(true, 'Generating ' + genLabel + ' artwork…');
           setDesignStatus(
-            'Generating ' + genLabel + ' — bell will notify when ready. Safe to browse other pages.',
+            'Generating ' + genLabel + ' artwork — bell will notify when ready. Safe to browse other pages.',
             true,
           );
           if (typeof window.showAppToast === 'function') {
             window.showAppToast(
-              'Generating ' + genLabel + ' — bell will notify when ready. Safe to browse other pages.',
+              'Generating ' + genLabel + ' artwork…',
               { variant: 'info', duration: 7500 },
             );
           }
@@ -3371,6 +3531,7 @@
       }
       return false;
     } finally {
+      if (!opts.suppressButtonToggle) setArtworkGenerating(false);
       if (btn && !opts.suppressButtonToggle) btn.disabled = false;
     }
   }
@@ -3640,6 +3801,10 @@
 
   var promptApply = document.getElementById('dmPromptApply');
   if (promptApply) promptApply.addEventListener('click', applyPromptFromEditor);
+
+  var promptSave = document.getElementById('dmPromptSave');
+  if (promptSave) promptSave.addEventListener('click', saveCurrentPrompt);
+  renderSavedPrompts();
 
   var promptRegen = document.getElementById('dmPromptRegenerate');
   if (promptRegen) {

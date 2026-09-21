@@ -286,6 +286,13 @@
         </div>
 
         <div class="dm-canvas-viewport" id="dmCanvasViewport">
+          <div id="dmGeneratingOverlay" class="dm-generating-overlay hidden" aria-live="polite" aria-busy="false" hidden>
+            <div class="dm-generating-overlay__card">
+              <div class="dm-generating-overlay__spinner" aria-hidden="true"></div>
+              <p id="dmGeneratingOverlayText" class="dm-generating-overlay__text">Generating artwork…</p>
+              <p class="dm-generating-overlay__sub">This can take up to 2 minutes</p>
+            </div>
+          </div>
           <div class="dm-canvas-scaler" id="dmCanvasScaler" style="--dm-zoom: 1">
             <div class="dm-artboard-wrap">
               <button type="button" id="dmPreviewFrontBtn" class="dm-artboard dm-preview-btn is-active-page" style="aspect-ratio:3/2" data-slot="front" aria-label="Front design">
@@ -420,9 +427,17 @@
           </div>
           <textarea id="dmPromptEditor" rows="8" class="dm-input dm-prompt-editor" placeholder="The full image generation prompt appears here after Chat or Generate…"></textarea>
           <div class="flex flex-wrap gap-2 mt-2">
+            <button type="button" id="dmPromptSave" class="dm-studio-topbtn">Save prompt</button>
             <button type="button" id="dmPromptApply" class="dm-studio-topbtn">Use prompt</button>
             <button type="button" id="dmPromptRegenerate" class="dm-studio-topbtn dm-studio-topbtn--primary">Generate</button>
             <button type="button" id="dmGenerateMatchingBackBtn" class="dm-studio-topbtn dm-studio-topbtn--match" hidden title="Generate back side using this prompt, matching front colors and style">Generate back</button>
+          </div>
+          <div id="dmSavedPromptsWrap" class="dm-saved-prompts-wrap mt-3">
+            <div class="flex items-center justify-between gap-2 mb-1.5">
+              <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-0">Saved prompts</p>
+              <span id="dmSavedPromptsCount" class="text-[10px] text-brand-muted tabular-nums">0</span>
+            </div>
+            <div id="dmSavedPrompts" class="dm-saved-prompts"></div>
           </div>
         </div>
         <div id="dmPostCopySection" class="dm-post-copy-section mt-4 hidden">
