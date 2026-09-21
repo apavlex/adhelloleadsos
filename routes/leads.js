@@ -107,6 +107,8 @@ const { triggerGhlProspectSync } = require('../services/ghlProspectSync');
 const { maybeRerunAutoOutreachAfterEmailFix } = require('../services/prospectingEnroll');
 const agentSessionStore = require('../services/agentSessionStore');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
+const { htmlToPlain, looksLikeScriptHtml } = require('../services/scriptMarkup');
+const { condenseCallScriptToSms, normalizeSmsSuggestion } = require('../services/smsScriptSuggest');
 const contactHuntJobs = require('../services/contactHuntJobs');
 const { mergeLeadsByKeys } = require('../services/leadMerge');
 const { quickLogItemForStatus, quickLogLabelForDisposition } = require('../services/quickLogConfig');
@@ -3335,14 +3337,36 @@ router.get('/:key/sms-script-options', async (req, res, next) => {
       city: String(lead.city || '').trim(),
     };
 
+    const looksLikeCssJunk = (raw) =>
+      /--tw-|border-spacing|translate-x|skew-x|gradient-from-position|scroll-snap-strictness|pinch-zoom|ordinal\s*:/i.test(
+        String(raw || ''),
+      ) ||
+      (/style\s*=/i.test(String(raw || '')) && String(raw || '').length > 400);
+
+    /** Rich call-script HTML / CSS must never land in an SMS composer. */
+    const toSmsBody = (raw) => {
+      const source = String(raw || '');
+      if (!source.trim()) return '';
+      if (looksLikeCssJunk(source)) {
+        const plain = htmlToPlain(source);
+        if (!plain || looksLikeCssJunk(plain)) return '';
+        return normalizeSmsSuggestion(condenseCallScriptToSms(plain));
+      }
+      const plain = looksLikeScriptHtml(source) || /<[a-z][\s\S]*>/i.test(source) ? htmlToPlain(source) : source;
+      if (!plain || looksLikeCssJunk(plain)) return '';
+      if (plain.length > 480) return normalizeSmsSuggestion(condenseCallScriptToSms(plain));
+      return normalizeSmsSuggestion(plain);
+    };
+
     const options = [];
     const pushSms = (id, label, text) => {
-      let body = String(text || '').trim();
+      let body = toSmsBody(text);
       if (!body) return;
       // Prefer a single SMS paragraph — never dump multi-section call scripts.
       if (body.length > 480 && /\n\n/.test(body)) {
         body = body.split(/\n\n/)[0].trim();
       }
+      body = toSmsBody(body);
       if (!body) return;
       options.push({
         id,
@@ -3353,18 +3377,16 @@ router.get('/:key/sms-script-options', async (req, res, next) => {
 
     options.push({ id: 'blank', label: 'Blank — type your own', text: '' });
 
-    // Prefer channel-aware SMS copy from the outreach library.
+    // Prefer channel-aware SMS copy from the outreach library (dedicated .sms first).
     offerKeys.forEach((k) => {
       const entry = outreachLibrary[k];
       if (!entry) return;
+      const def = mergedLibrary[k] || {};
       const smsText =
+        String(def.sms || '').trim() ||
         (entry.channels && entry.channels.text) ||
-        String((mergedLibrary[k] && mergedLibrary[k].opening) || '').trim();
-      pushSms(
-        `sms:${k}`,
-        `${entry.label || k} — SMS`,
-        smsText,
-      );
+        String(def.opening || '').trim();
+      pushSms(`sms:${k}`, `${entry.label || k} — SMS`, smsText);
     });
 
     pushSms(
@@ -3381,11 +3403,11 @@ router.get('/:key/sms-script-options', async (req, res, next) => {
     savedItems
       .filter((item) => item && String(item.text || '').trim())
       .filter((item) => {
-        const t = String(item.text || '').trim();
         const section = String(item.section || '').trim().toLowerCase();
-        // Keep saved SMS-ish items; skip long multi-section call dumps.
-        if (section && ['discovery', 'objectionhandling', 'close'].includes(section)) return false;
-        return t.length <= 600 || !/\n\n/.test(t);
+        if (section && ['discovery', 'objectionhandling', 'close', 'call'].includes(section)) return false;
+        const plain = toSmsBody(item.text);
+        // Keep only SMS-length saved copy — skip long call-script HTML dumps.
+        return Boolean(plain) && plain.length <= 480;
       })
       .slice(-12)
       .forEach((item) => {

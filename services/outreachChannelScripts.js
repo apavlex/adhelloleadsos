@@ -2,7 +2,7 @@
  * Map workspace script library sections to outreach channels (call, text, voicemail, email).
  */
 
-const { htmlToMarkdown, looksLikeScriptHtml } = require('./scriptMarkup');
+const { htmlToMarkdown, htmlToPlain, looksLikeScriptHtml } = require('./scriptMarkup');
 
 const CHANNELS = ['call', 'text', 'voicemail', 'email'];
 
@@ -10,7 +10,14 @@ function asChannelCopy(raw, channel) {
   const s = String(raw || '').trim();
   if (!s) return '';
   const ch = String(channel || '').toLowerCase();
-  if ((ch === 'text' || ch === 'voicemail') && looksLikeScriptHtml(s)) {
+  if (ch === 'text') {
+    // SMS must be plain text — never rich-editor HTML / Tailwind style dumps.
+    if (looksLikeScriptHtml(s) || /<[a-z][\s\S]*>/i.test(s) || /--tw-/i.test(s)) {
+      return htmlToPlain(s);
+    }
+    return s;
+  }
+  if (ch === 'voicemail' && looksLikeScriptHtml(s)) {
     return htmlToMarkdown(s);
   }
   return s;

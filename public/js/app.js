@@ -302,6 +302,38 @@ document.addEventListener('DOMContentLoaded', () => {
       return keys;
     }
 
+    function looksLikeSmsCssJunk(raw) {
+      const s = String(raw || '');
+      return (
+        /--tw-|border-spacing|translate-x|skew-x|gradient-from-position|scroll-snap-strictness|pinch-zoom/i.test(s) ||
+        (/style\s*=/i.test(s) && s.length > 400)
+      );
+    }
+
+    function sanitizeSmsComposerText(raw) {
+      let s = String(raw || '');
+      if (!s) return '';
+      if (/<[a-z][\s\S]*>/i.test(s) || looksLikeSmsCssJunk(s)) {
+        const helper = typeof window !== 'undefined' ? window.AdHelloScripts : null;
+        if (helper && typeof helper.htmlToPlain === 'function') {
+          s = helper.htmlToPlain(s);
+        } else {
+          s = s
+            .replace(/<br\s*\/?>/gi, '\n')
+            .replace(/<\/(?:p|div)>/gi, '\n')
+            .replace(/<[^>]+>/g, '')
+            .replace(/&nbsp;/gi, ' ')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .trim();
+        }
+      }
+      if (looksLikeSmsCssJunk(s)) return '';
+      return String(s || '').trim();
+    }
+
     function paintBulkModalChrome(mode, n) {
       const emailMode = mode === 'bulk-email';
       const titleEl = document.getElementById('smsScriptModalTitle');
@@ -371,6 +403,12 @@ document.addEventListener('DOMContentLoaded', () => {
           throw new Error((data && data.error) || 'Could not load scripts.');
         }
         let options = Array.isArray(data.options) ? data.options : [];
+        if (!emailMode) {
+          options = options.map(function (opt) {
+            if (!opt || typeof opt !== 'object') return opt;
+            return Object.assign({}, opt, { text: sanitizeSmsComposerText(opt.text) });
+          });
+        }
         if (!options.length) {
           options = [
             {
@@ -390,18 +428,23 @@ document.addEventListener('DOMContentLoaded', () => {
           o.textContent = opt.label || `Script ${idx + 1}`;
           select.appendChild(o);
         });
-        // Prefer the first script that actually has body text (skip Blank).
+        // Prefer the first script that actually has body text (skip Blank / HTML junk).
         let pickIdx = options.findIndex(function (opt) {
-          return opt && String(opt.text || '').trim() && String(opt.id || '') !== 'blank';
+          return (
+            opt &&
+            String(opt.id || '') !== 'blank' &&
+            String(opt.text || '').trim() &&
+            !looksLikeSmsCssJunk(opt.text)
+          );
         });
         if (pickIdx < 0) {
           pickIdx = options.findIndex(function (opt) {
-            return opt && String(opt.text || '').trim();
+            return opt && String(opt.text || '').trim() && !looksLikeSmsCssJunk(opt.text);
           });
         }
         if (pickIdx < 0) pickIdx = 0;
         select.value = String(pickIdx);
-        body.value = String((options[pickIdx] && options[pickIdx].text) || '');
+        body.value = sanitizeSmsComposerText((options[pickIdx] && options[pickIdx].text) || '');
         const subjectInput = document.getElementById('smsEmailSubjectInput');
         if (subjectInput) subjectInput.value = String((options[pickIdx] && options[pickIdx].subject) || '').trim();
         if (countEl) countEl.textContent = String((body.value || '').length);
@@ -432,7 +475,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const selected = Number.isFinite(idx) ? options[idx] : null;
         const body = document.getElementById('smsBodyInput');
         const countEl = document.getElementById('smsBodyCount');
-        if (body) body.value = selected && selected.text ? String(selected.text) : '';
+        if (body) {
+          body.value =
+            selected && selected.text
+              ? typeof sanitizeSmsComposerText === 'function'
+                ? sanitizeSmsComposerText(selected.text)
+                : String(selected.text)
+              : '';
+        }
         const subjectInput = document.getElementById('smsEmailSubjectInput');
         if (subjectInput && selected && selected.subject) {
           subjectInput.value = String(selected.subject).trim();
@@ -14173,6 +14223,38 @@ document.addEventListener('DOMContentLoaded', () => {
     return String(row.dataset.leadKey || '').trim();
   }
 
+  function looksLikeSmsCssJunk(raw) {
+    const s = String(raw || '');
+    return (
+      /--tw-|border-spacing|translate-x|skew-x|gradient-from-position|scroll-snap-strictness|pinch-zoom/i.test(s) ||
+      (/style\s*=/i.test(s) && s.length > 400)
+    );
+  }
+
+  function sanitizeSmsComposerText(raw) {
+    let s = String(raw || '');
+    if (!s) return '';
+    if (/<[a-z][\s\S]*>/i.test(s) || looksLikeSmsCssJunk(s)) {
+      const helper = typeof window !== 'undefined' ? window.AdHelloScripts : null;
+      if (helper && typeof helper.htmlToPlain === 'function') {
+        s = helper.htmlToPlain(s);
+      } else {
+        s = s
+          .replace(/<br\s*\/?>/gi, '\n')
+          .replace(/<\/(?:p|div)>/gi, '\n')
+          .replace(/<[^>]+>/g, '')
+          .replace(/&nbsp;/gi, ' ')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .trim();
+      }
+    }
+    if (looksLikeSmsCssJunk(s)) return '';
+    return String(s || '').trim();
+  }
+
   async function loadSmsScriptOptions(forLeadKey) {
     const leadKey = String(forLeadKey || getCurrentLeadKey() || '').trim();
     const smsScriptSelect = getSmsScriptSelectEl();
@@ -14194,6 +14276,12 @@ document.addEventListener('DOMContentLoaded', () => {
         throw new Error((data && data.error) || (emailMode ? 'Could not load email scripts.' : 'Could not load SMS scripts.'));
       }
       smsScriptOptions = Array.isArray(data.options) ? data.options : [];
+      if (!emailMode) {
+        smsScriptOptions = smsScriptOptions.map(function (opt) {
+          if (!opt || typeof opt !== 'object') return opt;
+          return Object.assign({}, opt, { text: sanitizeSmsComposerText(opt.text) });
+        });
+      }
       if (!smsScriptOptions.length) {
         const title = String((currentRow && currentRow.dataset && currentRow.dataset.title) || '').trim();
         const helper = typeof window !== 'undefined' ? window.AdHelloScripts : null;
@@ -14223,19 +14311,24 @@ document.addEventListener('DOMContentLoaded', () => {
         o.textContent = opt.label || `Script ${idx + 1}`;
         smsScriptSelect.appendChild(o);
       });
-      // Auto-load the first script that has real SMS text (skip Blank).
+      // Auto-load the first script that has real SMS text (skip Blank / HTML junk).
       let pickIdx = smsScriptOptions.findIndex(function (opt) {
-        return opt && String(opt.text || '').trim() && String(opt.id || '') !== 'blank';
+        return (
+          opt &&
+          String(opt.id || '') !== 'blank' &&
+          String(opt.text || '').trim() &&
+          !looksLikeSmsCssJunk(opt.text)
+        );
       });
       if (pickIdx < 0) {
         pickIdx = smsScriptOptions.findIndex(function (opt) {
-          return opt && String(opt.text || '').trim();
+          return opt && String(opt.text || '').trim() && !looksLikeSmsCssJunk(opt.text);
         });
       }
       if (pickIdx < 0) pickIdx = 0;
       smsScriptSelect.value = String(pickIdx);
       const picked = smsScriptOptions[pickIdx] || null;
-      smsBodyInput.value = picked && picked.text ? String(picked.text) : '';
+      smsBodyInput.value = picked && picked.text ? sanitizeSmsComposerText(picked.text) : '';
       const subjectInput = getSmsEmailSubjectInputEl();
       if (subjectInput) subjectInput.value = picked && picked.subject ? String(picked.subject).trim() : '';
       setSmsCharCount();
@@ -14313,7 +14406,7 @@ document.addEventListener('DOMContentLoaded', () => {
       smsScriptSelect.addEventListener('change', () => {
         const idx = parseInt(smsScriptSelect.value, 10);
         const selected = Number.isFinite(idx) ? smsScriptOptions[idx] : null;
-        smsBodyInput.value = selected && selected.text ? selected.text : '';
+        smsBodyInput.value = selected && selected.text ? sanitizeSmsComposerText(selected.text) : '';
         const subjectInput = getSmsEmailSubjectInputEl();
         if (subjectInput && selected && selected.subject) {
           subjectInput.value = String(selected.subject).trim();
