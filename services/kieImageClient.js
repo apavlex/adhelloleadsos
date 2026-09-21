@@ -35,9 +35,43 @@ function isVagueImagePrompt(prompt) {
 }
 
 /**
+ * KIE GPT Image 2 rejects some aspect/resolution combos (e.g. 1:1 + 4K).
+ * Normalize to a valid pair before createTask.
+ * @returns {{ aspectRatio: string, resolution: string, adjusted: boolean, note: string }}
+ */
+function normalizeAspectAndResolution(aspectRatio, resolution) {
+  let ar = String(aspectRatio || '1:1').trim() || '1:1';
+  let res = String(resolution || '2K').trim().toUpperCase() || '2K';
+  if (!['1K', '2K', '4K'].includes(res)) res = '2K';
+
+  const notes = [];
+  const highResBlocked = new Set(['5:4', '4:5', '3:1', '1:3', '9:21']);
+
+  if (ar === 'auto' && res !== '1K') {
+    res = '1K';
+    notes.push('Auto aspect ratio only supports 1K — switched to 1K.');
+  }
+  if (ar === '1:1' && res === '4K') {
+    res = '2K';
+    notes.push('Square (1:1) cannot use 4K on GPT Image 2 — switched to 2K.');
+  }
+  if ((res === '2K' || res === '4K') && highResBlocked.has(ar)) {
+    res = '1K';
+    notes.push(`${ar} only supports 1K on GPT Image 2 — switched to 1K.`);
+  }
+
+  return {
+    aspectRatio: ar,
+    resolution: res,
+    adjusted: notes.length > 0,
+    note: notes.join(' '),
+  };
+}
+
+/**
  * Turn raw KIE / generation errors into actionable copy for the Design studio UI.
  */
-function friendlyKieImageError(raw, { prompt } = {}) {
+function friendlyKieImageError(raw, { prompt, aspectRatio, resolution } = {}) {
   const msg = String(raw || '').trim();
   const lower = msg.toLowerCase();
   const vague = isVagueImagePrompt(prompt);
@@ -46,6 +80,19 @@ function friendlyKieImageError(raw, { prompt } = {}) {
     return (
       'That isn’t a detailed image prompt yet. Use Chat to describe the postcard, then ask for a “final image prompt.” ' +
       'When you see “Prompt ready — click Generate,” hit Generate. Short phrases like “make it for me” are sent to Chat, not the image API.'
+    );
+  }
+
+  if (
+    /1:1.*4k|4k.*1:1|aspect.?ratio.*resolution|resolution.*aspect|cannot be converted to 4k|only.*1k/i.test(
+      lower,
+    ) ||
+    (/422|invalid.*param|param.*invalid|validation/i.test(lower) &&
+      (String(aspectRatio) === '1:1' || String(resolution) === '4K'))
+  ) {
+    return (
+      'That aspect ratio and export quality aren’t compatible on GPT Image 2. ' +
+      'Square (1:1) maxes out at 2K — switch Export quality to 2K (or change the ratio), then Generate again.'
     );
   }
 
@@ -166,23 +213,43 @@ async function createTask({ prompt, inputUrls, aspectRatio, resolution }) {
     .map((u) => String(u || '').trim())
     .filter((u) => /^https?:\/\//i.test(u));
 
+  const normalized = normalizeAspectAndResolution(aspectRatio, resolution);
   const model = urls.length ? IMAGE_MODEL : TEXT_MODEL;
   const input = {
     prompt: p.slice(0, 20000),
-    aspect_ratio: aspectRatio || '2:3',
+    aspect_ratio: normalized.aspectRatio || '1:1',
   };
-  if (resolution) input.resolution = resolution;
+  if (normalized.resolution) input.resolution = normalized.resolution;
   if (urls.length) input.input_urls = urls.slice(0, 16);
 
-  const response = await kieRequest('POST', '/api/v1/jobs/createTask', {
-    body: { model, input },
-  });
+  let response;
+  try {
+    response = await kieRequest('POST', '/api/v1/jobs/createTask', {
+      body: { model, input },
+    });
+  } catch (err) {
+    if (err && !err.kieFriendly) {
+      throwFriendlyKieError(err.message, {
+        prompt: p,
+        aspectRatio: normalized.aspectRatio,
+        resolution: normalized.resolution,
+      });
+    }
+    throw err;
+  }
 
   const taskId = String((response.data && response.data.taskId) || '').trim();
   if (!taskId) {
     throw new Error('KIE did not return a task id.');
   }
-  return { taskId, model, createResponse: response };
+  return {
+    taskId,
+    model,
+    createResponse: response,
+    aspectRatio: normalized.aspectRatio,
+    resolution: normalized.resolution,
+    normalizeNote: normalized.note || '',
+  };
 }
 
 async function getTaskRecord(taskId) {
@@ -278,6 +345,7 @@ module.exports = {
   apiKey,
   isConfigured,
   isVagueImagePrompt,
+  normalizeAspectAndResolution,
   friendlyKieImageError,
   testConnection,
   createTask,

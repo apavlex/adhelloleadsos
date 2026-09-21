@@ -70,3 +70,22 @@ test('friendlyKieImageError explains moderation and vague prompts', () => {
     /content filter blocked/i,
   );
 });
+
+test('normalizeAspectAndResolution downgrades incompatible 1:1 + 4K', () => {
+  const { normalizeAspectAndResolution } = require('../services/kieImageClient');
+  const out = normalizeAspectAndResolution('1:1', '4K');
+  assert.equal(out.aspectRatio, '1:1');
+  assert.equal(out.resolution, '2K');
+  assert.equal(out.adjusted, true);
+  assert.match(out.note, /2K/i);
+
+  const auto = normalizeAspectAndResolution('auto', '4K');
+  assert.equal(auto.resolution, '1K');
+
+  const portrait = normalizeAspectAndResolution('4:5', '2K');
+  assert.equal(portrait.resolution, '1K');
+
+  const ok = normalizeAspectAndResolution('16:9', '4K');
+  assert.equal(ok.resolution, '4K');
+  assert.equal(ok.adjusted, false);
+});

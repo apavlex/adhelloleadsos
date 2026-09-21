@@ -74,6 +74,33 @@
     return (ratioEl && ratioEl.value) || '3:2';
   }
 
+  /** GPT Image 2: 1:1 cannot use 4K; auto / 4:5 only support 1K at higher quality. */
+  function syncResolutionForAspect() {
+    var ratioEl = document.getElementById('dmAspectRatio');
+    var resEl = document.getElementById('dmResolution');
+    if (!ratioEl || !resEl) return;
+    var ar = String(ratioEl.value || '').trim();
+    var res = String(resEl.value || '2K').trim();
+    var opt4k = Array.prototype.find.call(resEl.options, function (o) {
+      return o.value === '4K';
+    });
+    var opt2k = Array.prototype.find.call(resEl.options, function (o) {
+      return o.value === '2K';
+    });
+    if (opt4k) {
+      opt4k.disabled = ar === '1:1' || ar === 'auto' || ar === '4:5';
+      if (opt4k.disabled && res === '4K') {
+        resEl.value = ar === 'auto' || ar === '4:5' ? '1K' : '2K';
+      }
+    }
+    if (opt2k) {
+      opt2k.disabled = ar === 'auto' || ar === '4:5';
+      if (opt2k.disabled && (resEl.value === '2K' || resEl.value === '4K')) {
+        resEl.value = '1K';
+      }
+    }
+  }
+
   function applyPlatformPreset(platformKey) {
     var preset = DM_PLATFORMS[platformKey] || DM_PLATFORMS.custom;
     var ratioEl = document.getElementById('dmAspectRatio');
@@ -89,6 +116,7 @@
       });
       if (!hasOpt) ratioEl.value = 'auto';
     }
+    syncResolutionForAspect();
 
     if (sideWrap) sideWrap.classList.toggle('hidden', !preset.dualSided);
     if (backCol) backCol.hidden = !preset.dualSided;
@@ -3181,6 +3209,17 @@
 
     var aspectRatio = currentAspectRatio();
     var resolution = (document.getElementById('dmResolution') || {}).value || '2K';
+    // Client-side guard matching KIE rules (server also normalizes)
+    if (aspectRatio === '1:1' && resolution === '4K') {
+      resolution = '2K';
+      var resElFix = document.getElementById('dmResolution');
+      if (resElFix) resElFix.value = '2K';
+    }
+    if ((aspectRatio === 'auto' || aspectRatio === '4:5') && resolution !== '1K') {
+      resolution = '1K';
+      var resElFix2 = document.getElementById('dmResolution');
+      if (resElFix2) resElFix2.value = '1K';
+    }
 
     if (btn && !opts.suppressButtonToggle) btn.disabled = true;
     if (!opts.suppressButtonToggle) {
@@ -3608,7 +3647,11 @@
       applyPromptFromEditor();
       var ok = await generateImage();
       if (!ok && typeof window.showAppToast === 'function') {
-        window.showAppToast('Generation failed — check the prompt and try again.', { variant: 'error' });
+        var statusEl = document.getElementById('dmDesignStatus');
+        var detail =
+          (statusEl && String(statusEl.textContent || '').trim()) ||
+          'Generation failed — check aspect ratio vs export quality (1:1 maxes at 2K), then try again.';
+        window.showAppToast(detail, { variant: 'error', duration: 9000 });
       }
     });
   }
@@ -3669,7 +3712,15 @@
   renderChatWelcome();
 
   var ratioEl = document.getElementById('dmAspectRatio');
-  if (ratioEl) ratioEl.addEventListener('change', updatePreviewAspectRatio);
+  if (ratioEl) {
+    ratioEl.addEventListener('change', function () {
+      syncResolutionForAspect();
+      updatePreviewAspectRatio();
+    });
+  }
+  var resEl = document.getElementById('dmResolution');
+  if (resEl) resEl.addEventListener('change', syncResolutionForAspect);
+  syncResolutionForAspect();
 
   bindBrandKitUi();
   bindCreativeUploadUi();
