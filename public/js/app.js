@@ -390,10 +390,20 @@ document.addEventListener('DOMContentLoaded', () => {
           o.textContent = opt.label || `Script ${idx + 1}`;
           select.appendChild(o);
         });
-        select.value = '0';
-        body.value = options[0].text || '';
+        // Prefer the first script that actually has body text (skip Blank).
+        let pickIdx = options.findIndex(function (opt) {
+          return opt && String(opt.text || '').trim() && String(opt.id || '') !== 'blank';
+        });
+        if (pickIdx < 0) {
+          pickIdx = options.findIndex(function (opt) {
+            return opt && String(opt.text || '').trim();
+          });
+        }
+        if (pickIdx < 0) pickIdx = 0;
+        select.value = String(pickIdx);
+        body.value = String((options[pickIdx] && options[pickIdx].text) || '');
         const subjectInput = document.getElementById('smsEmailSubjectInput');
-        if (subjectInput) subjectInput.value = String(options[0].subject || '').trim();
+        if (subjectInput) subjectInput.value = String((options[pickIdx] && options[pickIdx].subject) || '').trim();
         if (countEl) countEl.textContent = String((body.value || '').length);
         window.__adhelloEarlySmsScriptOptions = options;
       } catch (err) {
@@ -404,6 +414,31 @@ document.addEventListener('DOMContentLoaded', () => {
       } finally {
         select.disabled = false;
       }
+    }
+
+    // Keep message in sync when the user changes the base script (early path has no full app listeners yet).
+    if (!window.__adhelloSmsScriptSelectBound) {
+      window.__adhelloSmsScriptSelectBound = true;
+      document.addEventListener('change', function (e) {
+        const t = e && e.target;
+        if (!t || t.id !== 'smsScriptSelect') return;
+        const idx = parseInt(t.value, 10);
+        const options =
+          (typeof window.__adhelloSmsScriptOptions === 'object' && Array.isArray(window.__adhelloSmsScriptOptions)
+            ? window.__adhelloSmsScriptOptions
+            : null) ||
+          (Array.isArray(window.__adhelloEarlySmsScriptOptions) ? window.__adhelloEarlySmsScriptOptions : null) ||
+          [];
+        const selected = Number.isFinite(idx) ? options[idx] : null;
+        const body = document.getElementById('smsBodyInput');
+        const countEl = document.getElementById('smsBodyCount');
+        if (body) body.value = selected && selected.text ? String(selected.text) : '';
+        const subjectInput = document.getElementById('smsEmailSubjectInput');
+        if (subjectInput && selected && selected.subject) {
+          subjectInput.value = String(selected.subject).trim();
+        }
+        if (countEl && body) countEl.textContent = String((body.value || '').length);
+      });
     }
 
     async function openBulkSmsModalEarly(phoneKeys) {
@@ -14179,26 +14214,37 @@ document.addEventListener('DOMContentLoaded', () => {
           },
         ];
       }
+      window.__adhelloSmsScriptOptions = smsScriptOptions;
+      window.__adhelloEarlySmsScriptOptions = smsScriptOptions;
       smsScriptSelect.innerHTML = '';
-      const pickFirst = document.createElement('option');
-      pickFirst.value = '';
-      pickFirst.textContent = 'Choose a script title…';
-      smsScriptSelect.appendChild(pickFirst);
       smsScriptOptions.forEach((opt, idx) => {
         const o = document.createElement('option');
         o.value = String(idx);
         o.textContent = opt.label || `Script ${idx + 1}`;
         smsScriptSelect.appendChild(o);
       });
-      smsScriptSelect.value = '';
-      smsBodyInput.value = '';
+      // Auto-load the first script that has real SMS text (skip Blank).
+      let pickIdx = smsScriptOptions.findIndex(function (opt) {
+        return opt && String(opt.text || '').trim() && String(opt.id || '') !== 'blank';
+      });
+      if (pickIdx < 0) {
+        pickIdx = smsScriptOptions.findIndex(function (opt) {
+          return opt && String(opt.text || '').trim();
+        });
+      }
+      if (pickIdx < 0) pickIdx = 0;
+      smsScriptSelect.value = String(pickIdx);
+      const picked = smsScriptOptions[pickIdx] || null;
+      smsBodyInput.value = picked && picked.text ? String(picked.text) : '';
       const subjectInput = getSmsEmailSubjectInputEl();
-      if (subjectInput) subjectInput.value = '';
+      if (subjectInput) subjectInput.value = picked && picked.subject ? String(picked.subject).trim() : '';
       setSmsCharCount();
-      // Wait for the user to pick a title — don't auto-load a body (that felt "stuck").
       const helpText = getSmsScriptHelpTextEl();
       if (helpText) {
-        helpText.textContent = 'Pick a script title above to load the message, then edit and send.';
+        helpText.textContent =
+          smsModalMode === 'bulk' || smsModalMode === 'bulk-email'
+            ? 'Base script loaded — edit if needed, then send. Change the dropdown to switch templates.'
+            : 'Script loaded — personalize with AI, edit, then send.';
       }
     } catch (err) {
       smsScriptSelect.innerHTML = '<option value="">No scripts available</option>';
@@ -14262,7 +14308,8 @@ document.addEventListener('DOMContentLoaded', () => {
   {
     const smsScriptSelect = getSmsScriptSelectEl();
     const smsBodyInput = getSmsBodyInputEl();
-    if (smsScriptSelect && smsBodyInput) {
+    if (smsScriptSelect && smsBodyInput && !smsScriptSelect.dataset.smsChangeBound) {
+      smsScriptSelect.dataset.smsChangeBound = '1';
       smsScriptSelect.addEventListener('change', () => {
         const idx = parseInt(smsScriptSelect.value, 10);
         const selected = Number.isFinite(idx) ? smsScriptOptions[idx] : null;
@@ -14270,8 +14317,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const subjectInput = getSmsEmailSubjectInputEl();
         if (subjectInput && selected && selected.subject) {
           subjectInput.value = String(selected.subject).trim();
+        } else if (subjectInput && (!selected || !selected.subject)) {
+          // Keep prior subject unless switching to a script without one.
         }
         setSmsCharCount();
+        const helpText = getSmsScriptHelpTextEl();
+        if (helpText && selected) {
+          helpText.textContent = selected.text
+            ? 'Script loaded — edit if needed, then send.'
+            : 'Blank script — type your message, then send.';
+        }
       });
       smsBodyInput.addEventListener('input', setSmsCharCount);
     }
