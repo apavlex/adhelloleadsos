@@ -162,7 +162,7 @@
       <% const isUpload = String(r.sourceType || '') === 'upload' || !!r.storagePath; %>
       <% const isNote = String(r.kind || '') === 'note' || (!r.url && !!r.note); %>
       <% const sizeLabel = isUpload && r.sizeBytes != null ? formatResourceBytes(r.sizeBytes) : ''; %>
-      <article class="brand-card p-5 dark:bg-slate-900 dark:border-white/10 flex flex-col gap-3">
+      <article class="brand-card p-5 dark:bg-slate-900 dark:border-white/10 flex flex-col gap-3 res-card-equal">
         <div class="flex items-start justify-between gap-3">
           <div class="flex flex-wrap items-center gap-2 min-w-0">
             <% if (isNote) { %>
@@ -234,9 +234,15 @@
           </div>
         </div>
         <% if (r.note) { %>
-        <p class="text-sm text-brand-muted dark:text-slate-400 leading-relaxed whitespace-pre-wrap res-note-preview" data-res-note-preview="<%= r.id %>"><%= r.note %></p>
+        <div class="res-note-block" data-res-note-block="<%= r.id %>">
+          <p class="text-sm text-brand-muted dark:text-slate-400 leading-relaxed whitespace-pre-wrap res-note-preview is-collapsed" data-res-note-preview="<%= r.id %>"><%= r.note %></p>
+          <button type="button" class="js-res-note-toggle mt-1.5 text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline bg-transparent border-0 p-0 cursor-pointer hidden" data-res-id="<%= r.id %>" aria-expanded="false">Show more</button>
+        </div>
         <% } else { %>
-        <p class="text-sm text-brand-muted dark:text-slate-400 leading-relaxed whitespace-pre-wrap res-note-preview hidden" data-res-note-preview="<%= r.id %>"></p>
+        <div class="res-note-block hidden" data-res-note-block="<%= r.id %>">
+          <p class="text-sm text-brand-muted dark:text-slate-400 leading-relaxed whitespace-pre-wrap res-note-preview is-collapsed" data-res-note-preview="<%= r.id %>"></p>
+          <button type="button" class="js-res-note-toggle mt-1.5 text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline bg-transparent border-0 p-0 cursor-pointer hidden" data-res-id="<%= r.id %>" aria-expanded="false">Show more</button>
+        </div>
         <% } %>
         <div class="mt-auto pt-2 flex flex-wrap items-center gap-3">
           <% if (!isNote && r.url) { %>
@@ -333,6 +339,53 @@
       });
     });
   })();
+  // ── Collapse long notes; click to expand ─────────────────────────────────
+  (function () {
+    function syncNoteClamp(id) {
+      var preview = document.querySelector('[data-res-note-preview="' + id + '"]');
+      var toggle = document.querySelector('.js-res-note-toggle[data-res-id="' + id + '"]');
+      var block = document.querySelector('[data-res-note-block="' + id + '"]');
+      if (!preview || !toggle) return;
+      var text = String(preview.textContent || '').trim();
+      if (!text) {
+        if (block) block.classList.add('hidden');
+        toggle.classList.add('hidden');
+        return;
+      }
+      if (block) block.classList.remove('hidden');
+      var expanded = toggle.getAttribute('aria-expanded') === 'true';
+      if (!expanded) preview.classList.add('is-collapsed');
+      else preview.classList.remove('is-collapsed');
+      // Measure overflow while collapsed
+      var wasCollapsed = preview.classList.contains('is-collapsed');
+      if (!wasCollapsed) preview.classList.add('is-collapsed');
+      var overflows = preview.scrollHeight > preview.clientHeight + 2;
+      if (!wasCollapsed && expanded) preview.classList.remove('is-collapsed');
+      if (overflows || expanded) {
+        toggle.classList.remove('hidden');
+        toggle.textContent = expanded ? 'Show less' : 'Show more';
+        toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      } else {
+        toggle.classList.add('hidden');
+        preview.classList.remove('is-collapsed');
+      }
+    }
+    document.querySelectorAll('.js-res-note-toggle').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.getAttribute('data-res-id');
+        var preview = document.querySelector('[data-res-note-preview="' + id + '"]');
+        if (!preview) return;
+        var open = btn.getAttribute('aria-expanded') === 'true';
+        btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+        preview.classList.toggle('is-collapsed', open);
+        btn.textContent = open ? 'Show more' : 'Show less';
+      });
+    });
+    document.querySelectorAll('[data-res-note-preview]').forEach(function (el) {
+      syncNoteClamp(el.getAttribute('data-res-note-preview'));
+    });
+    window.__adhelloSyncResNoteClamp = syncNoteClamp;
+  })();
   // ── Inline resource editing ──────────────────────────────────────────────
   (function () {
     document.querySelectorAll('.js-res-edit-btn').forEach(function (btn) {
@@ -340,10 +393,10 @@
         var id = btn.getAttribute('data-res-id');
         var preview = document.querySelector('[data-res-preview=\"' + id + '\"]');
         var edit = document.querySelector('[data-res-edit=\"' + id + '\"]');
-        var notePreview = document.querySelector('[data-res-note-preview=\"' + id + '\"]');
+        var noteBlock = document.querySelector('[data-res-note-block=\"' + id + '\"]');
         if (preview) preview.classList.add('hidden');
         if (edit) edit.classList.remove('hidden');
-        if (notePreview) notePreview.classList.add('hidden');
+        if (noteBlock) noteBlock.classList.add('hidden');
       });
     });
     document.querySelectorAll('.js-res-cancel-btn').forEach(function (btn) {
@@ -351,10 +404,11 @@
         var id = btn.getAttribute('data-res-id');
         var preview = document.querySelector('[data-res-preview=\"' + id + '\"]');
         var edit = document.querySelector('[data-res-edit=\"' + id + '\"]');
-        var notePreview = document.querySelector('[data-res-note-preview=\"' + id + '\"]');
+        var noteBlock = document.querySelector('[data-res-note-block=\"' + id + '\"]');
         if (preview) preview.classList.remove('hidden');
         if (edit) edit.classList.add('hidden');
-        if (notePreview) notePreview.classList.remove('hidden');
+        if (noteBlock) noteBlock.classList.remove('hidden');
+        if (window.__adhelloSyncResNoteClamp) window.__adhelloSyncResNoteClamp(id);
       });
     });
     document.querySelectorAll('.js-res-save-btn').forEach(function (btn) {
@@ -366,6 +420,7 @@
         var note = noteEl ? noteEl.value.trim() : '';
         var preview = document.querySelector('[data-res-preview=\"' + id + '\"]');
         var edit = document.querySelector('[data-res-edit=\"' + id + '\"]');
+        var noteBlock = document.querySelector('[data-res-note-block=\"' + id + '\"]');
         var notePreview = document.querySelector('[data-res-note-preview=\"' + id + '\"]');
         var titleH3 = preview ? preview.querySelector('h3') : null;
         btn.disabled = true;
@@ -377,17 +432,20 @@
         })
           .then(function (r) { return r.json(); })
           .then(function (data) {
-            if (!data.success) throw new Error(data.error || 'Update failed');
-            if (titleH3) titleH3.textContent = title || id;
+            if (!data || !data.success) throw new Error((data && data.error) || 'Save failed');
+            if (titleH3) titleH3.textContent = title || (data.resource && data.resource.title) || '';
             if (notePreview) {
               notePreview.textContent = note;
-              notePreview.classList.toggle('hidden', !note);
+              var toggle = document.querySelector('.js-res-note-toggle[data-res-id=\"' + id + '\"]');
+              if (toggle) toggle.setAttribute('aria-expanded', 'false');
             }
             if (preview) preview.classList.remove('hidden');
             if (edit) edit.classList.add('hidden');
+            if (noteBlock) noteBlock.classList.toggle('hidden', !note);
+            if (window.__adhelloSyncResNoteClamp) window.__adhelloSyncResNoteClamp(id);
           })
           .catch(function (err) {
-            alert(err.message || 'Could not save.');
+            alert((err && err.message) || 'Could not save.');
           })
           .finally(function () {
             btn.disabled = false;

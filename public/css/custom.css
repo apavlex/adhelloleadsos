@@ -2835,6 +2835,32 @@ body.find-leads-page #findTypeTabs .find-type-tab {
     pointer-events: auto;
 }
 
+/* Resources library: clamp long notes; click Show more to expand */
+.res-note-block {
+    min-width: 0;
+}
+.res-note-preview.is-collapsed {
+    max-height: 7.5rem;
+    overflow: hidden;
+    position: relative;
+}
+.res-note-preview.is-collapsed::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2.25rem;
+    pointer-events: none;
+    background: linear-gradient(to bottom, transparent, var(--brand-card-bg, #fff));
+}
+.dark .res-note-preview.is-collapsed::after {
+    background: linear-gradient(to bottom, transparent, rgb(15 23 42));
+}
+.res-card-equal {
+    height: 100%;
+}
+
 /* ========= Lead panel map strip (tiles only; contact card is separate) ========= */
 #leadPanelHeroBackdropTint {
     background: linear-gradient(145deg, var(--brand-cream) 0%, #ffffff 48%, var(--brand-cream) 100%);
