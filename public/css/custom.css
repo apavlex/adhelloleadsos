@@ -6546,22 +6546,22 @@ body.dm-prompt-resize-active {
 
 .dm-prompt-btn {
   flex-shrink: 0;
-  border: 1.5px solid rgba(17, 24, 39, 0.2);
+  border: 1.5px solid rgba(17, 24, 39, 0.2) !important;
   border-radius: 0.75rem;
   padding: 0.55rem 0.85rem;
   font-size: 0.625rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  background: #fff;
+  background: #fff !important;
   color: #111827 !important;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
 }
 
 .dm-prompt-btn:hover:not(:disabled) {
-  background: rgba(17, 24, 39, 0.04);
-  border-color: rgba(17, 24, 39, 0.35);
+  background: rgba(17, 24, 39, 0.04) !important;
+  border-color: rgba(17, 24, 39, 0.35) !important;
 }
 
 .dm-prompt-btn:disabled {
@@ -6570,25 +6570,25 @@ body.dm-prompt-resize-active {
 }
 
 .dark .dm-prompt-btn {
-  background: transparent;
-  border-color: rgba(255, 255, 255, 0.22);
+  background: transparent !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
   color: #f8fafc !important;
 }
 
 .dark .dm-prompt-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
 }
 
 .dm-prompt-btn--secondary {
-  background: #fff;
-  border-color: rgba(17, 24, 39, 0.2);
+  background: #fff !important;
+  border-color: rgba(17, 24, 39, 0.2) !important;
   color: #111827 !important;
 }
 
 .dark .dm-prompt-btn--secondary {
-  background: transparent;
-  border-color: rgba(255, 255, 255, 0.22);
+  background: transparent !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
   color: #f8fafc !important;
 }
 
@@ -6596,27 +6596,60 @@ body.dm-prompt-resize-active {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  background: var(--brand-yellow, #ffd644);
-  border-color: transparent;
+  background: var(--brand-yellow, #ffd644) !important;
+  border-color: transparent !important;
   color: #111827 !important;
   padding-inline: 1rem;
   box-shadow: 0 1px 2px rgba(17, 24, 39, 0.08);
 }
 
 .dm-prompt-btn--primary:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--brand-yellow, #ffd644) 88%, #000);
-  border-color: transparent;
+  background: color-mix(in srgb, var(--brand-yellow, #ffd644) 88%, #000) !important;
+  border-color: transparent !important;
   filter: none;
 }
 
 .dark .dm-prompt-btn--primary {
-  background: var(--brand-yellow, #ffd644);
-  border-color: transparent;
+  background: var(--brand-yellow, #ffd644) !important;
+  border-color: transparent !important;
   color: #111827 !important;
 }
 
 .dm-prompt-btn--primary:disabled {
   opacity: 0.75;
+}
+
+/* Generate stays available but secondary while chatting to build the prompt. */
+.dm-prompt-btn--generate {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #111827 !important;
+  border-color: transparent !important;
+  color: #fff !important;
+  padding-inline: 0.95rem;
+}
+
+.dm-prompt-btn--generate:hover:not(:disabled) {
+  background: #1f2937 !important;
+  border-color: transparent !important;
+}
+
+.dark .dm-prompt-btn--generate {
+  background: #f8fafc !important;
+  border-color: transparent !important;
+  color: #0f172a !important;
+}
+
+.dark .dm-prompt-btn--generate:hover:not(:disabled) {
+  background: #e2e8f0 !important;
+}
+
+.dm-prompt-btn--generate.is-generating,
+.dm-prompt-btn--generate:disabled.is-generating {
+  background: var(--brand-yellow, #ffd644) !important;
+  color: #111827 !important;
+  opacity: 1;
 }
 
 .dm-prompt-btn--both {

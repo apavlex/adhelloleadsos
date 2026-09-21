@@ -1563,11 +1563,14 @@
         if (genBtnLabelBackup[id] == null) genBtnLabelBackup[id] = el.innerHTML;
         if (id === 'dmGenerateBtn' || id === 'dmPromptRegenerate') {
           el.textContent = 'Generating artwork…';
+          el.classList.add('is-generating');
         } else if (id === 'dmGenerateBothBtn') {
           el.textContent = 'Generating…';
+          el.classList.add('is-generating');
         }
         el.disabled = true;
       } else {
+        el.classList.remove('is-generating');
         if (genBtnLabelBackup[id] != null) {
           el.innerHTML = genBtnLabelBackup[id];
           delete genBtnLabelBackup[id];
