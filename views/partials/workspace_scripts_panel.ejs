@@ -183,8 +183,27 @@
       if (ta && ta.value !== html) ta.value = html;
       return html;
     }
+    function getSnippetPlainText(ta) {
+      if (!ta) return '';
+      var rich = richForSnippet(ta);
+      if (rich) syncTextareaFromRich(rich);
+      var raw = String(ta.value || '');
+      if (ta.classList.contains('script-sms-input')) {
+        return Scripts.htmlToPlain ? Scripts.htmlToPlain(raw) : raw;
+      }
+      return Scripts.htmlToPlain ? Scripts.htmlToPlain(raw) : raw;
+    }
     function hydrateScriptEditors() {
       document.querySelectorAll('.script-snippet').forEach(function (ta) {
+        var raw = String(ta.value || '');
+        if (ta.classList.contains('script-sms-input')) {
+          // SMS must stay plain text (strip any pasted HTML/CSS)
+          var plain = Scripts.htmlToPlain ? Scripts.htmlToPlain(raw) : raw;
+          if (plain !== raw) ta.value = plain;
+          return;
+        }
+        var clean = sanitizeHtml(raw);
+        if (clean !== raw) ta.value = clean;
         syncRichFromTextarea(ta);
       });
     }
@@ -583,7 +602,7 @@
             var block = ta.closest('.script-block');
             var sk = block ? block.getAttribute('data-service') : '';
             var sec = block ? block.getAttribute('data-section') : '';
-            var text = (ta.value || '').trim();
+            var text = getSnippetPlainText(ta).trim();
             if (!text) return alert('Nothing to save.');
             var title = (serviceLabels[sk] || sk) + ' · ' + (sectionLabels[sec] || 'Script');
             var orig = saveBtn.textContent;
@@ -643,11 +662,30 @@
           }
           if (!e.target.classList.contains('script-snippet')) return;
           lastFocusedSnippetId = e.target.id;
+          // Keep SMS plain — strip accidental HTML/CSS paste
+          if (e.target.classList.contains('script-sms-input') && Scripts.htmlToPlain) {
+            var plainSms = Scripts.htmlToPlain(e.target.value);
+            if (plainSms !== e.target.value) e.target.value = plainSms;
+          }
           updateSmsFieldState(e.target);
           var st = statusElForSnippetId(e.target.id);
           if (st) st.textContent = 'Unsaved';
           scheduleBlocksPersist();
           updateMergePreview();
+        });
+        host.addEventListener('paste', function (e) {
+          if (!e.target.classList.contains('script-rich')) return;
+          // Let browser paste, then strip inline styles / CSS variable dumps
+          setTimeout(function () {
+            e.target.innerHTML = sanitizeHtml(e.target.innerHTML || '');
+            syncTextareaFromRich(e.target);
+            var taP = e.target.parentElement && e.target.parentElement.querySelector('.script-snippet');
+            if (taP) {
+              lastFocusedSnippetId = taP.id;
+              scheduleBlocksPersist();
+              updateMergePreview();
+            }
+          }, 0);
         });
         host.addEventListener('focusin', function (e) {
           if (e.target.classList.contains('script-rich')) {
@@ -878,7 +916,13 @@
       document.querySelectorAll('.script-snippet').forEach(function (ta) {
         var m = /^snippet-(.+)-(opening|sms)$/.exec(ta.id || '');
         if (!m) return;
-        blockFor(m[1])[m[2]] = ta.value;
+        var val = ta.value;
+        if (m[2] === 'sms') {
+          val = Scripts.htmlToPlain ? Scripts.htmlToPlain(val) : val;
+        } else {
+          val = sanitizeHtml(val);
+        }
+        blockFor(m[1])[m[2]] = val;
       });
       return blocks;
     }
@@ -1139,7 +1183,7 @@
       coachHistories[coachKey()] = [];
       clearCoachMessagesUi();
       var ta = document.getElementById(lastFocusedSnippetId);
-      appendCoachScriptPreview(ta ? ta.value : '');
+      appendCoachScriptPreview(getSnippetPlainText(ta));
       hideRefined();
       var errEl = document.getElementById('coachError');
       if (errEl) errEl.classList.add('hidden');
@@ -1169,8 +1213,13 @@
       if (!pendingRefined) return;
       var ta = snippetEl();
       if (ta) {
-        ta.value = pendingRefined;
-        syncRichFromTextarea(ta);
+        var next = String(pendingRefined || '').trim();
+        if (ta.classList.contains('script-sms-input')) {
+          ta.value = Scripts.htmlToPlain ? Scripts.htmlToPlain(next) : next;
+        } else {
+          ta.value = sanitizeHtml(Scripts.scriptTextToEditorHtml ? Scripts.scriptTextToEditorHtml(next) : next);
+          syncRichFromTextarea(ta);
+        }
         updateSmsFieldState(ta);
       }
       hideRefined();
@@ -1187,9 +1236,7 @@
       input.value = '';
       appendCoachBubble('user', msg);
       var ta = snippetEl();
-      var scriptText = ta
-        ? (Scripts.htmlToPlain ? Scripts.htmlToPlain(ta.value) : ta.value)
-        : '';
+      var scriptText = getSnippetPlainText(ta);
       var hist = getCoachHistoryArray().map(function (m) { return { role: m.role, content: m.content }; });
       var btn = document.getElementById('coachSendBtn');
       btn.disabled = true;
