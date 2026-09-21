@@ -508,8 +508,8 @@
             <p class="text-xs text-brand-muted mt-0.5"><% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %>Mailable rows are pre-selected. Fix or enrich others in pipeline.<% } else if (typeof dmIsQueueSession !== 'undefined' && dmIsQueueSession) { %>Lob needs street, city, state, and ZIP on each row. Link is the audit/landing URL merged at send.<% } else { %>Street address, city, state, and ZIP required for Lob.<% } %></p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
-            <button type="button" id="dmSelectAll" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 text-[10px] font-black uppercase tracking-widest px-3 py-2">Select all</button>
-            <button type="button" id="dmSendBtn" class="btn-pill btn-primary text-[10px] font-black uppercase tracking-widest px-4 py-2.5 disabled:opacity-50" <%= lobReady.configured ? '' : 'disabled' %>>Send postcards</button>
+            <button type="button" id="dmSelectAll" class="btn-pill bg-brand-dark text-white dark:bg-brand-dark dark:text-white text-[10px] font-black uppercase tracking-widest px-3 py-2">Select all</button>
+            <button type="button" id="dmSendBtn" class="btn-pill bg-brand-dark text-white text-[10px] font-black uppercase tracking-widest px-4 py-2.5 disabled:opacity-50" <%= lobReady.configured ? '' : 'disabled' %>>Send postcards</button>
           </div>
         </div>
         <p id="dmStatus" class="hidden px-5 py-2 text-xs font-semibold" aria-live="polite"></p>
@@ -602,10 +602,10 @@
         <img id="dmLightboxImg" src="" alt="Postcard design preview" class="max-w-full max-h-[min(70vh,720px)] w-auto h-auto rounded-lg shadow-lg object-contain" />
       </div>
       <div class="flex flex-wrap gap-2 px-4 py-3 border-t border-brand-border/20 dark:border-white/10 bg-white/95 dark:bg-slate-900/95">
-        <button type="button" id="dmLightboxSave" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 text-[10px] font-black uppercase tracking-widest px-3 py-2">Save for later</button>
-        <button type="button" id="dmLightboxDownload" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 text-[10px] font-black uppercase tracking-widest px-3 py-2">Download</button>
-        <button type="button" id="dmLightboxDrive" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 text-[10px] font-black uppercase tracking-widest px-3 py-2">Save to Drive</button>
-        <button type="button" id="dmLightboxEditPrompt" class="btn-pill btn-primary text-[10px] font-black uppercase tracking-widest px-3 py-2 ml-auto">Edit prompt</button>
+        <button type="button" id="dmLightboxSave" class="btn-pill bg-brand-dark text-white text-[10px] font-black uppercase tracking-widest px-3 py-2">Save for later</button>
+        <button type="button" id="dmLightboxDownload" class="btn-pill bg-brand-dark text-white text-[10px] font-black uppercase tracking-widest px-3 py-2">Download</button>
+        <button type="button" id="dmLightboxDrive" class="btn-pill bg-brand-dark text-white text-[10px] font-black uppercase tracking-widest px-3 py-2">Save to Drive</button>
+        <button type="button" id="dmLightboxEditPrompt" class="btn-pill bg-brand-dark text-white text-[10px] font-black uppercase tracking-widest px-3 py-2 ml-auto">Edit prompt</button>
       </div>
     </div>
   </div>

@@ -5309,38 +5309,39 @@ html.dark .tag-filter-combobox-menu {
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  border: 1px solid rgba(17, 24, 39, 0.12);
-  background: #fff;
-  color: var(--brand-dark, #111827);
-  transition: border-color 0.15s ease, background 0.15s ease;
+  border: 1px solid transparent;
+  background: var(--brand-dark, #111827);
+  color: #fff !important;
+  transition: opacity 0.15s ease, filter 0.15s ease;
 }
 
 .dark .dm-studio-topbtn {
-  background: rgba(30, 41, 59, 0.9);
-  border-color: rgba(255, 255, 255, 0.12);
-  color: #f8fafc;
+  background: var(--brand-dark, #111827);
+  border-color: transparent;
+  color: #fff !important;
 }
 
 .dm-studio-topbtn:hover {
-  border-color: rgba(250, 204, 21, 0.55);
+  opacity: 0.9;
+  filter: brightness(1.05);
 }
 
 .dm-studio-topbtn--primary {
-  background: var(--brand-yellow, #facc15);
+  background: var(--brand-dark, #111827);
   border-color: transparent;
-  color: var(--brand-dark, #111827);
+  color: #fff !important;
 }
 
 .dm-studio-topbtn--match {
-  background: rgba(99, 102, 241, 0.1);
-  border-color: rgba(99, 102, 241, 0.35);
-  color: rgb(67, 56, 202);
+  background: rgb(67, 56, 202);
+  border-color: transparent;
+  color: #fff !important;
 }
 
 .dark .dm-studio-topbtn--match {
-  background: rgba(129, 140, 248, 0.12);
-  border-color: rgba(129, 140, 248, 0.35);
-  color: rgb(199, 210, 254);
+  background: rgb(79, 70, 229);
+  border-color: transparent;
+  color: #fff !important;
 }
 
 .dm-lob-banner {
@@ -6388,15 +6389,15 @@ body.dm-prompt-resize-active {
 
 .dm-prompt-btn {
   flex-shrink: 0;
-  border: 1px solid rgba(17, 24, 39, 0.12);
+  border: 1px solid transparent;
   border-radius: 0.75rem;
   padding: 0.55rem 0.85rem;
   font-size: 0.625rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  background: #fff;
-  color: var(--brand-dark, #111827);
+  background: var(--brand-dark, #111827);
+  color: #fff !important;
   cursor: pointer;
 }
 
@@ -6404,20 +6405,21 @@ body.dm-prompt-resize-active {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  background: var(--brand-yellow, #facc15);
+  background: var(--brand-dark, #111827);
   border-color: transparent;
+  color: #fff !important;
 }
 
 .dm-prompt-btn--both {
-  background: rgba(139, 92, 246, 0.12);
-  border-color: rgba(139, 92, 246, 0.35);
-  color: #5b21b6;
+  background: #5b21b6;
+  border-color: transparent;
+  color: #fff !important;
 }
 
 .dark .dm-prompt-btn--both {
-  background: rgba(139, 92, 246, 0.18);
-  border-color: rgba(167, 139, 250, 0.4);
-  color: #ddd6fe;
+  background: #6d28d9;
+  border-color: transparent;
+  color: #fff !important;
 }
 
 
