@@ -82,6 +82,16 @@
     });
   }
 
+  var addFromMenu = document.getElementById('oppAddFromMenu');
+  if (addFromMenu) {
+    addFromMenu.addEventListener('click', function () {
+      var menu = document.getElementById('manualLeadOpenSidebar')
+        || document.getElementById('manualLeadOpen')
+        || document.getElementById('manualLeadOpenMobile');
+      if (menu) menu.click();
+    });
+  }
+
   var addCardBtn = document.getElementById('oppAddCard');
   var addForm = document.getElementById('oppAddForm');
   if (addCardBtn && addForm) {
