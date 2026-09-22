@@ -63,10 +63,33 @@ h1, h2, h3, h4, .font-display {
     background-color: color-mix(in srgb, var(--brand-yellow) 88%, #000);
 }
 
+/* Alias used across Social Posts / studio CTAs — same fill + on-accent pairing. */
+.btn-brand-yellow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--brand-yellow);
+    color: var(--brand-on-accent, #111827) !important;
+    border: 1px solid transparent;
+    transition: filter 0.15s ease, background-color 0.15s ease;
+}
+
+.btn-brand-yellow:hover {
+    background-color: color-mix(in srgb, var(--brand-yellow) 88%, #000);
+    filter: brightness(1.03);
+}
+
+.btn-brand-yellow:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    filter: none;
+}
+
 /* Solid accent fills: on-accent color for labels AND icons (stroke/currentColor).
    Exact class tokens so hover:bg-brand-yellow / bg-brand-yellow/20 do not match.
    !important beats Tailwind text-brand-dark / text-slate-900 / .ws-nav-item-active. */
 .btn-primary,
+.btn-brand-yellow,
 [class~="bg-brand-yellow"],
 [class~="dark:bg-brand-yellow"],
 .ws-nav-item-active.bg-brand-yellow,
@@ -77,34 +100,44 @@ button[class~="bg-brand-yellow"],
 .dm-studio-topbtn--primary,
 .bulk-bar-btn--accent,
 .bulk-bar-btn--focus,
-.sidebar-nav-link.sidebar-nav-cta {
+.sidebar-nav-link.sidebar-nav-cta,
+.platform-tab.active,
+.sp-fb-copy-btn {
     color: var(--brand-on-accent, #111827) !important;
 }
 
 .btn-primary *,
+.btn-brand-yellow *,
 [class~="bg-brand-yellow"] *,
 [class~="dark:bg-brand-yellow"] *,
 .ws-nav-item-active[class~="bg-brand-yellow"] *,
 .dm-prompt-btn--primary *,
 .dm-prompt-btn--generate *,
-.dm-studio-topbtn--primary * {
+.dm-studio-topbtn--primary *,
+.platform-tab.active *,
+.sp-fb-copy-btn * {
     color: inherit;
 }
 
 .btn-primary svg,
+.btn-brand-yellow svg,
 [class~="bg-brand-yellow"] svg,
 [class~="dark:bg-brand-yellow"] svg,
 .btn-primary i,
+.btn-brand-yellow i,
 [class~="bg-brand-yellow"] i,
 [class~="dark:bg-brand-yellow"] i,
 .dm-prompt-btn--primary svg,
 .dm-prompt-btn--generate svg,
-.dm-studio-topbtn--primary svg {
+.dm-studio-topbtn--primary svg,
+.platform-tab.active svg,
+.sp-fb-copy-btn svg {
     color: var(--brand-on-accent, #111827) !important;
     stroke: var(--brand-on-accent, #111827) !important;
 }
 
 .btn-primary svg[fill]:not([fill="none"]),
+.btn-brand-yellow svg[fill]:not([fill="none"]),
 [class~="bg-brand-yellow"] svg[fill]:not([fill="none"]),
 [class~="dark:bg-brand-yellow"] svg[fill]:not([fill="none"]),
 .dm-prompt-btn--primary svg[fill]:not([fill="none"]),
@@ -113,6 +146,7 @@ button[class~="bg-brand-yellow"],
 }
 
 .dark .btn-primary,
+.dark .btn-brand-yellow,
 .dark [class~="bg-brand-yellow"],
 .dark [class~="dark:bg-brand-yellow"],
 .dark .ws-nav-item-active[class~="bg-brand-yellow"],
@@ -121,14 +155,18 @@ button[class~="bg-brand-yellow"],
 .dark .dm-studio-topbtn--primary,
 .dark .bulk-bar-btn--accent,
 .dark .bulk-bar-btn--focus,
-.dark .sidebar-nav-link.sidebar-nav-cta {
+.dark .sidebar-nav-link.sidebar-nav-cta,
+.dark .platform-tab.active,
+.dark .sp-fb-copy-btn {
     color: var(--brand-on-accent, #111827) !important;
 }
 
 .dark .btn-primary svg,
+.dark .btn-brand-yellow svg,
 .dark [class~="bg-brand-yellow"] svg,
 .dark [class~="dark:bg-brand-yellow"] svg,
 .dark .btn-primary i,
+.dark .btn-brand-yellow i,
 .dark [class~="bg-brand-yellow"] i,
 .dark [class~="dark:bg-brand-yellow"] i,
 .dark .dm-prompt-btn--primary svg,

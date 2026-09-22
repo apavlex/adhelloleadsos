@@ -4,9 +4,50 @@
   <%- include('partials/head') %>
   <style>
     .platform-tab { transition: all .15s ease; }
-    .platform-tab.active { background: var(--brand-yellow); color: #111827; font-weight: 800; }
+    .platform-tab.active {
+      background: var(--brand-yellow);
+      color: var(--brand-on-accent, #111827) !important;
+      font-weight: 800;
+      border-color: transparent;
+    }
     .platform-tab:not(.active) { background: transparent; color: var(--brand-muted); border: 1px solid var(--brand-border); }
     .platform-tab:not(.active):hover { border-color: var(--brand-yellow); color: var(--brand-yellow); }
+    .sp-fb-copy-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 0.5rem;
+      padding: 0.375rem 0.75rem;
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      background: var(--brand-yellow);
+      color: var(--brand-on-accent, #111827) !important;
+      border: 1px solid transparent;
+      transition: filter .15s ease, transform .15s ease;
+    }
+    .sp-fb-copy-btn:hover { filter: brightness(1.05); transform: translateY(-1px); }
+    .sp-fb-schedule-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.25rem;
+      border-radius: 0.5rem;
+      padding: 0.375rem 0.65rem;
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      background: transparent;
+      color: var(--brand-dark);
+      border: 1px solid var(--brand-border);
+      transition: border-color .15s ease, color .15s ease;
+    }
+    .dark .sp-fb-schedule-btn { color: #f8fafc; border-color: rgba(255,255,255,.15); }
+    .sp-fb-schedule-btn:hover { border-color: var(--brand-yellow); color: var(--brand-yellow); }
+    .sp-fb-schedule-btn svg { width: 14px; height: 14px; }
+    .sp-fb-used-empty { font-size: 0.8125rem; color: var(--brand-muted); font-style: italic; }
     .post-card { transition: box-shadow .15s ease; }
     .post-card:hover { box-shadow: 0 4px 24px rgba(255,214,68,.12); }
     .post-card-thumb { aspect-ratio: 16/9; border-radius: 12px; overflow: hidden; cursor: pointer; transition: transform .15s ease, box-shadow .15s ease; margin-bottom: 12px; position: relative; background: var(--brand-cream, #f1f5f9); }
@@ -98,8 +139,8 @@
     .dark .sp-view-toggle__btn + .sp-view-toggle__btn { border-left-color: rgba(255,255,255,.1); }
     .sp-view-toggle__btn svg { width: 16px; height: 16px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
     .sp-view-toggle__btn.is-active {
-      color: #1877F2;
-      background: rgba(24,119,242,.06);
+      color: var(--brand-yellow);
+      background: color-mix(in srgb, var(--brand-yellow) 8%, transparent);
     }
     .sp-view-toggle__btn.is-active::after {
       content: '';
@@ -109,7 +150,7 @@
       bottom: 0;
       height: 3px;
       border-radius: 3px 3px 0 0;
-      background: #1877F2;
+      background: var(--brand-yellow);
     }
     .sp-view-toggle__btn:hover:not(.is-active) { color: var(--brand-dark); background: rgba(0,0,0,.03); }
     .dark .sp-view-toggle__btn:hover:not(.is-active) { color: #f8fafc; background: rgba(255,255,255,.04); }
@@ -328,39 +369,62 @@
     <div id="fbGroupScriptPack" class="hidden mb-10">
       <div class="mb-6">
         <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white mb-1">Group script pack</h2>
-        <p class="text-sm text-brand-muted max-w-2xl">Educational posts you can paste into groups or repost on your profile. Soft asks stay optional — lead with value. Bookmark any script to keep it in your library below.</p>
+        <p class="text-sm text-brand-muted max-w-2xl">Educational posts you can paste into groups or repost on your profile. Soft asks stay optional — lead with value. Copy moves a script to Used so it leaves the active pack. Bookmark keeps it in your library below.</p>
       </div>
       <% const _fbCats = typeof fbGroupScriptCategories !== 'undefined' && fbGroupScriptCategories ? fbGroupScriptCategories : []; %>
       <% _fbCats.forEach((cat) => { %>
-      <section class="mb-8" data-fb-script-category="<%= cat.id %>">
+      <section class="mb-8 js-fb-script-category" data-fb-script-category="<%= cat.id %>">
         <div class="flex flex-wrap items-baseline gap-2 mb-3">
           <h3 class="font-display font-bold text-base text-brand-dark dark:text-white"><%= cat.label %></h3>
           <% if (cat.hint) { %><p class="text-[11px] text-brand-muted"><%= cat.hint %></p><% } %>
         </div>
         <div class="js-sp-posts-layout sp-layout-grid--scripts grid gap-4 sp-layout--list">
           <% (cat.scripts || []).forEach((s) => { %>
-          <article class="post-card rounded-2xl border border-brand-border/50 dark:border-white/10 bg-white/70 dark:bg-slate-900/60 overflow-hidden flex flex-col" data-fb-script-id="<%= s.id %>">
+          <article
+            class="post-card js-fb-script-card rounded-2xl border border-brand-border/50 dark:border-white/10 bg-white/70 dark:bg-slate-900/60 overflow-hidden flex flex-col"
+            data-fb-script-id="<%= s.id %>"
+            data-fb-script-title="<%= s.title %>"
+            data-fb-script-category="<%= cat.id %>"
+            data-fb-script-category-label="<%= cat.label %>"
+          >
             <div class="flex items-center justify-between gap-2 px-4 py-3 border-b border-brand-border/30 dark:border-white/10">
               <div class="min-w-0">
                 <p class="platform-badge mb-0">Facebook Groups · <%= cat.label %></p>
                 <p class="text-[11px] font-black uppercase tracking-widest text-brand-dark dark:text-white"><%= s.title %></p>
               </div>
-              <div class="flex items-center gap-1.5 shrink-0">
+              <div class="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
                 <button type="button" class="js-sp-fb-bookmark post-card-action-btn" title="Bookmark" data-script-id="<%= s.id %>" data-script-title="<%= s.title %>" aria-label="Bookmark script">
                   <svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
                 </button>
-                <button type="button" class="js-sp-fb-copy inline-flex items-center rounded-lg px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wider border border-brand-border/60 dark:border-white/15 text-brand-muted hover:text-brand-dark dark:hover:text-white transition-colors" data-script-id="<%= s.id %>">Copy</button>
+                <button type="button" class="js-sp-fb-schedule sp-fb-schedule-btn" data-script-id="<%= s.id %>" title="Schedule post" aria-label="Schedule post">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  Schedule
+                </button>
+                <button type="button" class="js-sp-fb-copy sp-fb-copy-btn" data-script-id="<%= s.id %>">Copy</button>
               </div>
             </div>
             <textarea readonly rows="8" id="spFbScript_<%= s.id %>" class="w-full text-sm leading-relaxed text-brand-dark dark:text-slate-200 bg-transparent px-4 py-3 font-sans resize-y min-h-[9rem] border-0 focus:ring-0 outline-none"><%= s.body %></textarea>
           </article>
           <% }); %>
+          <p class="js-fb-category-empty hidden col-span-full text-sm text-brand-muted italic">All scripts in this section are in Used.</p>
         </div>
       </section>
       <% }); %>
       <% if (!_fbCats.length) { %>
       <p class="text-sm text-brand-muted italic">No group scripts configured.</p>
       <% } %>
+
+      <section id="fbGroupScriptsUsedSection" class="mt-10 pt-8 border-t border-brand-border/40 dark:border-white/10">
+        <div class="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+          <div>
+            <h3 class="font-display font-bold text-base text-brand-dark dark:text-white">Used</h3>
+            <p class="text-[11px] text-brand-muted mt-0.5">Copied scripts leave the active pack so you don’t reuse them by accident. Restore to put one back.</p>
+          </div>
+          <span id="fbGroupScriptsUsedCount" class="text-xs text-brand-muted font-bold">0 used</span>
+        </div>
+        <div id="fbGroupScriptsUsedList" class="js-sp-posts-layout sp-layout-grid--scripts grid gap-4 sp-layout--list"></div>
+        <p id="fbGroupScriptsUsedEmpty" class="sp-fb-used-empty">Nothing used yet. Copy a script and it moves here.</p>
+      </section>
     </div>
 
     <!-- Ideas Grid -->
@@ -894,6 +958,7 @@
         // On Facebook Groups, the script pack is the main content; hide short idea hooks.
         ideas.classList.toggle('hidden', onGroups);
       }
+      if (onGroups) applyFbGroupUsedState();
       if (!onGroups) renderIdeas();
       try {
         const url = new URL(window.location.href);
@@ -903,21 +968,184 @@
       } catch (_) {}
     }
 
-    function copyFbGroupScript(scriptId) {
+    const FB_USED_KEY = 'adhello-fb-group-scripts-used-' + WORKSPACE_ID;
+    let fbGroupUsedScripts = {};
+
+    function loadFbGroupUsedScripts() {
+      try {
+        const raw = localStorage.getItem(FB_USED_KEY);
+        const parsed = raw ? JSON.parse(raw) : {};
+        fbGroupUsedScripts = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+      } catch (_) {
+        fbGroupUsedScripts = {};
+      }
+    }
+
+    function persistFbGroupUsedScripts() {
+      try {
+        localStorage.setItem(FB_USED_KEY, JSON.stringify(fbGroupUsedScripts));
+      } catch (_) { /* ignore */ }
+    }
+
+    function getFbScriptCardMeta(scriptId) {
+      const card = document.querySelector('.js-fb-script-card[data-fb-script-id="' + scriptId + '"]');
       const ta = document.getElementById('spFbScript_' + scriptId);
-      const text = ta ? ta.value : '';
+      const body = ta ? String(ta.value || '') : (fbGroupUsedScripts[scriptId] && fbGroupUsedScripts[scriptId].body) || '';
+      return {
+        id: scriptId,
+        title: (card && card.getAttribute('data-fb-script-title')) || (fbGroupUsedScripts[scriptId] && fbGroupUsedScripts[scriptId].title) || 'Script',
+        categoryId: (card && card.getAttribute('data-fb-script-category')) || (fbGroupUsedScripts[scriptId] && fbGroupUsedScripts[scriptId].categoryId) || '',
+        categoryLabel: (card && card.getAttribute('data-fb-script-category-label')) || (fbGroupUsedScripts[scriptId] && fbGroupUsedScripts[scriptId].categoryLabel) || 'Facebook Groups',
+        body,
+      };
+    }
+
+    function markFbGroupScriptUsed(scriptId) {
+      if (!scriptId) return;
+      const meta = getFbScriptCardMeta(scriptId);
+      fbGroupUsedScripts[scriptId] = {
+        id: scriptId,
+        title: meta.title,
+        categoryId: meta.categoryId,
+        categoryLabel: meta.categoryLabel,
+        body: meta.body,
+        usedAt: new Date().toISOString(),
+      };
+      persistFbGroupUsedScripts();
+      applyFbGroupUsedState();
+    }
+
+    function restoreFbGroupScript(scriptId) {
+      if (!scriptId || !fbGroupUsedScripts[scriptId]) return;
+      delete fbGroupUsedScripts[scriptId];
+      persistFbGroupUsedScripts();
+      applyFbGroupUsedState();
+      qaStatus('Script restored to active pack');
+    }
+
+    function applyFbGroupUsedState() {
+      document.querySelectorAll('.js-fb-script-card').forEach(function (card) {
+        const id = card.getAttribute('data-fb-script-id');
+        const used = !!(id && fbGroupUsedScripts[id]);
+        card.classList.toggle('hidden', used);
+      });
+      document.querySelectorAll('.js-fb-script-category').forEach(function (section) {
+        const cards = Array.prototype.slice.call(section.querySelectorAll('.js-fb-script-card'));
+        const visible = cards.filter(function (c) { return !c.classList.contains('hidden'); });
+        const empty = section.querySelector('.js-fb-category-empty');
+        if (empty) empty.classList.toggle('hidden', visible.length > 0 || !cards.length);
+        section.classList.toggle('hidden', !cards.length);
+      });
+      renderFbGroupUsedList();
+    }
+
+    function renderFbGroupUsedList() {
+      const list = document.getElementById('fbGroupScriptsUsedList');
+      const empty = document.getElementById('fbGroupScriptsUsedEmpty');
+      const countEl = document.getElementById('fbGroupScriptsUsedCount');
+      if (!list) return;
+      const items = Object.keys(fbGroupUsedScripts).map(function (id) {
+        return fbGroupUsedScripts[id];
+      }).filter(Boolean).sort(function (a, b) {
+        return String(b.usedAt || '').localeCompare(String(a.usedAt || ''));
+      });
+      if (countEl) countEl.textContent = items.length + ' used';
+      if (empty) empty.classList.toggle('hidden', items.length > 0);
+      if (!items.length) {
+        list.innerHTML = '';
+        return;
+      }
+      list.innerHTML = items.map(function (item) {
+        const id = String(item.id || '').replace(/"/g, '');
+        const when = item.usedAt ? String(item.usedAt).slice(0, 10) : '';
+        const title = escapeHtml(item.title || 'Script');
+        const cat = escapeHtml(item.categoryLabel || 'Facebook Groups');
+        const body = escapeHtml(item.body || '');
+        return (
+          '<article class="post-card rounded-2xl border border-brand-border/50 dark:border-white/10 bg-white/70 dark:bg-slate-900/60 overflow-hidden flex flex-col" data-fb-used-id="' + id + '">' +
+            '<div class="flex items-center justify-between gap-2 px-4 py-3 border-b border-brand-border/30 dark:border-white/10">' +
+              '<div class="min-w-0">' +
+                '<p class="platform-badge mb-0">Used · ' + cat + (when ? ' · ' + escapeHtml(when) : '') + '</p>' +
+                '<p class="text-[11px] font-black uppercase tracking-widest text-brand-dark dark:text-white">' + title + '</p>' +
+              '</div>' +
+              '<div class="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">' +
+                '<button type="button" class="js-sp-fb-used-schedule sp-fb-schedule-btn" data-script-id="' + id + '" title="Schedule post">Schedule</button>' +
+                '<button type="button" class="js-sp-fb-used-copy sp-fb-copy-btn" data-script-id="' + id + '">Copy</button>' +
+                '<button type="button" class="js-sp-fb-used-restore text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded-lg border border-brand-border/60 dark:border-white/15 text-brand-muted hover:text-brand-dark dark:hover:text-white" data-script-id="' + id + '">Restore</button>' +
+              '</div>' +
+            '</div>' +
+            '<pre class="w-full text-sm leading-relaxed text-brand-dark dark:text-slate-200 bg-transparent px-4 py-3 font-sans whitespace-pre-wrap m-0">' + body + '</pre>' +
+          '</article>'
+        );
+      }).join('');
+      list.querySelectorAll('.js-sp-fb-used-copy').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          copyFbGroupScript(btn.getAttribute('data-script-id'), { alreadyUsed: true });
+        });
+      });
+      list.querySelectorAll('.js-sp-fb-used-schedule').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          openScheduleFbGroupScript(btn.getAttribute('data-script-id'));
+        });
+      });
+      list.querySelectorAll('.js-sp-fb-used-restore').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          restoreFbGroupScript(btn.getAttribute('data-script-id'));
+        });
+      });
+    }
+
+    function copyFbGroupScript(scriptId, opts) {
+      opts = opts || {};
+      const meta = getFbScriptCardMeta(scriptId);
+      const text = meta.body || '';
       if (!text) return;
-      navigator.clipboard.writeText(text).then(function () {
+      const afterCopy = function () {
         showCopyToast();
-        qaStatus('Script copied — paste into Facebook');
-      }).catch(function () {
-        qaStatus('Could not copy');
+        if (!opts.alreadyUsed) {
+          markFbGroupScriptUsed(scriptId);
+          qaStatus('Copied — moved to Used');
+        } else {
+          qaStatus('Script copied — paste into Facebook');
+        }
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(afterCopy).catch(function () {
+          qaStatus('Could not copy');
+        });
+      } else {
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+          afterCopy();
+        } catch (_) {
+          qaStatus('Could not copy');
+        }
+      }
+    }
+
+    function openScheduleFbGroupScript(scriptId) {
+      const meta = getFbScriptCardMeta(scriptId);
+      if (!meta.body) {
+        qaStatus('Nothing to schedule');
+        return;
+      }
+      openSchedulePostModal({
+        platform: 'facebook_group',
+        content: meta.body,
+        cta: '',
+        scriptId: scriptId,
+        markUsedOnSchedule: true,
       });
     }
 
     async function bookmarkFbGroupScript(scriptId, title) {
-      const ta = document.getElementById('spFbScript_' + scriptId);
-      const content = ta ? String(ta.value || '').trim() : '';
+      const meta = getFbScriptCardMeta(scriptId);
+      const content = String(meta.body || '').trim();
       if (!content) {
         qaStatus('Nothing to bookmark');
         return;
@@ -932,7 +1160,7 @@
             content,
             cta: '',
             ideaId,
-            tags: ['Facebook Groups', title || 'Group script'].filter(Boolean),
+            tags: ['Facebook Groups', title || meta.title || 'Group script'].filter(Boolean),
           }),
         });
         const data = await res.json().catch(function () { return {}; });
@@ -1113,6 +1341,11 @@
         copyFbGroupScript(btn.getAttribute('data-script-id'));
       });
     });
+    document.querySelectorAll('.js-sp-fb-schedule').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        openScheduleFbGroupScript(btn.getAttribute('data-script-id'));
+      });
+    });
     document.querySelectorAll('.js-sp-fb-bookmark').forEach(function (btn) {
       btn.addEventListener('click', function () {
         bookmarkFbGroupScript(
@@ -1121,6 +1354,8 @@
         );
       });
     });
+    loadFbGroupUsedScripts();
+    applyFbGroupUsedState();
 
     // ── Generate Ideas ───────────────────────────────────────────────────────────
     async function regenerateAll() {
@@ -1591,7 +1826,7 @@
       const selectedDay = selected && !Number.isNaN(selected.getTime()) ? selected.getDay() : -1;
       wrap.innerHTML = labels.map(function (label, i) {
         const active = selectedDay === i
-          ? ' bg-brand-yellow text-brand-dark border-brand-yellow'
+          ? ' bg-brand-yellow border-brand-yellow'
           : ' bg-white dark:bg-slate-800 text-brand-muted border-brand-border dark:border-white/10 hover:border-brand-yellow';
         return '<button type="button" onclick="pickScheduleWeekday(' + i + ')" class="text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded-lg border' + active + '">' + label + '</button>';
       }).join('');
@@ -1721,6 +1956,9 @@
         }
         showToast('Scheduled for ' + whenLabel);
         qaStatus('Post scheduled — reminder set in Tasks');
+        if (pendingSchedule.scriptId && pendingSchedule.markUsedOnSchedule) {
+          markFbGroupScriptUsed(pendingSchedule.scriptId);
+        }
         closeSchedulePostModal();
       } catch (err) {
         const msg = (err && err.message) || 'Could not schedule post.';
