@@ -3499,12 +3499,9 @@ document.addEventListener('DOMContentLoaded', () => {
   let leadSmsTemplateOptions = [];
   let leadSmsTemplateSelectBound = false;
 
-  function fillLeadSmsTemplateText(raw, row) {
-    let text = String(raw || '').trim();
+  function applyLeadTemplatePlaceholders(raw, row) {
+    const text = String(raw || '').trim();
     if (!text) return '';
-    if (text.length > 480 && /\n\n/.test(text)) {
-      text = text.split(/\n\n/)[0].trim();
-    }
     const helper = typeof window !== 'undefined' ? window.AdHelloScripts : null;
     const profile = helper && helper.getScriptProfile ? helper.getScriptProfile() : null;
     const prospect = {
@@ -3517,6 +3514,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (helper && helper.replaceSenderPlaceholders) {
       return helper.replaceSenderPlaceholders(text, profile);
+    }
+    return text;
+  }
+
+  function fillLeadSmsTemplateText(raw, row) {
+    let text = applyLeadTemplatePlaceholders(raw, row);
+    if (text.length > 480 && /\n\n/.test(text)) {
+      text = text.split(/\n\n/)[0].trim();
     }
     return text;
   }
@@ -5891,9 +5896,13 @@ document.addEventListener('DOMContentLoaded', () => {
     );
   }
 
+  let leadEmailTemplateOptions = [];
+  let leadPanelGhlEmailBound = false;
+
   function bindLeadPanelBottomActions() {
     if (window.__leadPanelBottomActionsBound) return;
     window.__leadPanelBottomActionsBound = true;
+    bindLeadPanelGhlEmailComposer();
 
     bindLeadPanelQuickLogTagRow();
 
@@ -5948,7 +5957,15 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.target.closest('#leadPanelSmsBtn')) {
         e.preventDefault();
         e.stopPropagation();
+        closeLeadPanelGhlEmailComposer();
         await openLeadPanelSmsComposer();
+        return;
+      }
+
+      if (e.target.closest('#leadPanelGhlEmailBtn')) {
+        e.preventDefault();
+        e.stopPropagation();
+        await openLeadPanelGhlEmailComposer();
         return;
       }
 
@@ -8385,7 +8402,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const phone = rowDatasetHasUsablePhone(row);
     const callBtn = document.getElementById('clickToCallBtn');
     const smsBtn = document.getElementById('leadPanelSmsBtn');
+    const emailBtn = document.getElementById('leadPanelGhlEmailBtn');
     const ghlBtn = document.getElementById('leadPanelPushGhlBtn');
+    const hasEmail = rowDatasetHasUsableEmail(row);
     const setBtn = (btn, enabled, titleOn, titleOff) => {
       if (!btn) return;
       btn.removeAttribute('disabled');
@@ -8400,6 +8419,12 @@ document.addEventListener('DOMContentLoaded', () => {
       phone,
       'Open SMS composer — type your message, improve with AI, then send',
       'Add a phone number first',
+    );
+    setBtn(
+      emailBtn,
+      hasEmail,
+      'Open GHL email composer — pick a script, edit, then send through Go High Level',
+      'Add an email address first',
     );
     setBtn(ghlBtn, !!row, 'Sync to Go High Level for SMS, email, and voicemail', 'Select a lead first');
   }
@@ -14286,6 +14311,278 @@ document.addEventListener('DOMContentLoaded', () => {
     return helper && helper.replaceSenderPlaceholders
       ? helper.replaceSenderPlaceholders(fallback, helper.getScriptProfile())
       : fallback;
+  }
+
+  function setLeadPanelGhlEmailStatus(text, isError) {
+    const el = document.getElementById('leadPanelGhlEmailStatus');
+    if (!el) return;
+    el.textContent = String(text || '');
+    el.classList.toggle('text-rose-600', !!isError);
+    el.classList.toggle('dark:text-rose-400', !!isError);
+    el.classList.toggle('text-brand-muted', !isError);
+  }
+
+  function syncLeadPanelGhlEmailCount() {
+    const input = document.getElementById('leadPanelGhlEmailBody');
+    const countEl = document.getElementById('leadPanelGhlEmailCount');
+    if (countEl) countEl.textContent = String((input && input.value ? input.value : '').length);
+  }
+
+  function leadPanelGhlEmailDefaultSubject(row) {
+    const company = String((row && row.dataset && row.dataset.title) || 'your business').trim() || 'your business';
+    return `Quick idea for ${company}`;
+  }
+
+  function buildLeadEmailTemplateOptions(row) {
+    const options = [{ id: 'blank', label: 'Blank — type your own', text: '' }];
+    const lib =
+      (window.__ADHELLO_OUTREACH_LIBRARY__ && typeof window.__ADHELLO_OUTREACH_LIBRARY__ === 'object'
+        ? window.__ADHELLO_OUTREACH_LIBRARY__
+        : null) ||
+      (leadOutreachScriptsCache.data && leadOutreachScriptsCache.data.library) ||
+      {};
+    const preferred = String((row && row.dataset && row.dataset.primaryServiceKey) || '').trim();
+    const keys = Object.keys(lib);
+    if (preferred && keys.includes(preferred)) {
+      keys.splice(keys.indexOf(preferred), 1);
+      keys.unshift(preferred);
+    }
+    keys.forEach((k) => {
+      const entry = lib[k];
+      if (!entry) return;
+      const emailText = String(
+        (entry.channels && entry.channels.email) || entry.email || '',
+      ).trim();
+      if (!emailText) return;
+      options.push({
+        id: 'email:' + k,
+        label: (entry.label || k) + ' — Email',
+        text: applyLeadTemplatePlaceholders(emailText, row),
+      });
+    });
+    return options;
+  }
+
+  function applyLeadEmailScriptSelection(force) {
+    const select = document.getElementById('leadPanelGhlEmailScript');
+    const input = document.getElementById('leadPanelGhlEmailBody');
+    if (!select || !input) return;
+    const idx = parseInt(select.value, 10);
+    const opt = Number.isFinite(idx) ? leadEmailTemplateOptions[idx] : null;
+    if (!opt) return;
+    if (!force && String(input.value || '').trim() && opt.id === 'blank') return;
+    input.value = String(opt.text || '');
+    syncLeadPanelGhlEmailCount();
+    setLeadPanelGhlEmailStatus(
+      opt.id === 'blank'
+        ? 'Type your email, then Send via GHL.'
+        : 'Script loaded — edit if needed, then Send via GHL.',
+    );
+  }
+
+  function populateLeadEmailTemplateSelect(row, opts) {
+    const select = document.getElementById('leadPanelGhlEmailScript');
+    if (!select) return;
+    leadEmailTemplateOptions = buildLeadEmailTemplateOptions(row);
+    select.innerHTML = '';
+    leadEmailTemplateOptions.forEach((opt, idx) => {
+      const o = document.createElement('option');
+      o.value = String(idx);
+      o.textContent = opt.label || 'Script ' + (idx + 1);
+      select.appendChild(o);
+    });
+    const keepBlank = !!(opts && opts.keepBlank);
+    const preferIdx = keepBlank ? 0 : leadEmailTemplateOptions.length > 1 ? 1 : 0;
+    select.value = String(preferIdx);
+    if (!keepBlank) applyLeadEmailScriptSelection(true);
+  }
+
+  function syncLeadPanelGhlEmailButton(open) {
+    const btn = document.getElementById('leadPanelGhlEmailBtn');
+    if (!btn) return;
+    btn.setAttribute('aria-pressed', open ? 'true' : 'false');
+    btn.classList.toggle('ring-2', !!open);
+    btn.classList.toggle('ring-white/70', !!open);
+  }
+
+  function closeLeadPanelGhlEmailComposer() {
+    const section = document.getElementById('leadPanelGhlEmailSection');
+    if (section) section.classList.add('hidden');
+    syncLeadPanelGhlEmailButton(false);
+  }
+
+  function isLeadPanelGhlEmailOpen() {
+    const section = document.getElementById('leadPanelGhlEmailSection');
+    return !!(section && !section.classList.contains('hidden'));
+  }
+
+  async function openLeadPanelGhlEmailComposer() {
+    const row = resolvePanelActionRow ? resolvePanelActionRow() : currentRow;
+    if (!row) {
+      notifyLeadPanelDial('Select a lead first.', 'error');
+      return;
+    }
+    if (isLeadPanelGhlEmailOpen()) {
+      closeLeadPanelGhlEmailComposer();
+      return;
+    }
+    if (!rowDatasetHasUsableEmail(row)) {
+      notifyLeadPanelDial('No email on file — add one on this lead first.', 'error');
+      return;
+    }
+    try {
+      await ensureRowHasLeadKey(row);
+    } catch (err) {
+      notifyLeadPanelDial((err && err.message) || 'Save this lead first.', 'error');
+      return;
+    }
+    const section = document.getElementById('leadPanelGhlEmailSection');
+    const toEl = document.getElementById('leadPanelGhlEmailTo');
+    const subjectEl = document.getElementById('leadPanelGhlEmailSubject');
+    const bodyEl = document.getElementById('leadPanelGhlEmailBody');
+    const key = String((row.dataset && row.dataset.leadKey) || '').trim();
+    const previousKey = section ? String(section.dataset.leadKey || '') : '';
+    const switchedLead = previousKey && previousKey !== key;
+    if (section) section.dataset.leadKey = key;
+    if (toEl) toEl.textContent = readPipelineRowDisplayEmail(row) || '—';
+    if (subjectEl && (!String(subjectEl.value || '').trim() || switchedLead)) {
+      subjectEl.value = leadPanelGhlEmailDefaultSubject(row);
+    }
+    try {
+      await fetchWorkspaceOutreachLibrary();
+    } catch (_) {
+      /* library is optional */
+    }
+    const hadDraft = !!(bodyEl && String(bodyEl.value || '').trim()) && !switchedLead;
+    if (switchedLead && bodyEl) bodyEl.value = '';
+    populateLeadEmailTemplateSelect(row, { keepBlank: hadDraft });
+    if (hadDraft && bodyEl) {
+      /* keep the in-progress draft; picker stays on blank */
+    }
+    if (section) section.classList.remove('hidden');
+    syncLeadPanelGhlEmailButton(true);
+    syncLeadPanelGhlEmailCount();
+    setLeadPanelGhlEmailStatus('Pick a script or type the email, then Send via GHL.');
+    if (section) section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    const focusEl = bodyEl && String(bodyEl.value || '').trim() ? bodyEl : subjectEl || bodyEl;
+    if (focusEl) {
+      window.setTimeout(() => focusEl.focus(), 80);
+    }
+  }
+
+  async function improveLeadPanelGhlEmail() {
+    const row = resolvePanelActionRow ? resolvePanelActionRow() : currentRow;
+    const key = normalizeLeadKeyForApi(row && row.dataset ? row.dataset.leadKey : '');
+    const bodyEl = document.getElementById('leadPanelGhlEmailBody');
+    const subjectEl = document.getElementById('leadPanelGhlEmailSubject');
+    const btn = document.getElementById('leadPanelGhlEmailImprove');
+    const draft = String((bodyEl && bodyEl.value) || '').trim();
+    const subject = String((subjectEl && subjectEl.value) || '').trim();
+    if (!key) {
+      setLeadPanelGhlEmailStatus('Select a lead first.', true);
+      return;
+    }
+    if (!draft) {
+      setLeadPanelGhlEmailStatus('Add a message to improve first.', true);
+      return;
+    }
+    if (btn) btn.disabled = true;
+    setLeadPanelGhlEmailStatus('Improving text…');
+    try {
+      const personalized = await personalizeEmailForLeadKey(key, draft, subject);
+      if (bodyEl && personalized.body) bodyEl.value = personalized.body;
+      if (subjectEl && personalized.subject) subjectEl.value = personalized.subject;
+      syncLeadPanelGhlEmailCount();
+      setLeadPanelGhlEmailStatus('Text improved — review and tap Send via GHL when ready.');
+    } catch (err) {
+      setLeadPanelGhlEmailStatus((err && err.message) || 'Could not improve text.', true);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  async function sendLeadPanelGhlEmail() {
+    const row = resolvePanelActionRow ? resolvePanelActionRow() : currentRow;
+    const btn = document.getElementById('leadPanelGhlEmailSend');
+    const bodyEl = document.getElementById('leadPanelGhlEmailBody');
+    const subjectEl = document.getElementById('leadPanelGhlEmailSubject');
+    if (!row) {
+      setLeadPanelGhlEmailStatus('Select a lead first.', true);
+      return;
+    }
+    if (!rowDatasetHasUsableEmail(row)) {
+      setLeadPanelGhlEmailStatus('No email on file for this lead.', true);
+      return;
+    }
+    let key = '';
+    try {
+      key = await ensureRowHasLeadKey(row);
+    } catch (err) {
+      setLeadPanelGhlEmailStatus((err && err.message) || 'Save this lead first.', true);
+      return;
+    }
+    const apiKey = normalizeLeadKeyForApi(key);
+    const subject = String((subjectEl && subjectEl.value) || '').trim() || leadPanelGhlEmailDefaultSubject(row);
+    const original = btn ? btn.textContent : 'Send via GHL';
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Sending…';
+    }
+    setLeadPanelGhlEmailStatus('Sending via Go High Level…');
+    try {
+      await sendEmailToLeadKey(apiKey, subject, String((bodyEl && bodyEl.value) || ''));
+      if (bodyEl) bodyEl.value = '';
+      syncLeadPanelGhlEmailCount();
+      setLeadPanelGhlEmailStatus('Email sent via Go High Level.');
+      notifyLeadPanelDial('Email sent via Go High Level.', 'success');
+      confirmOutreachBtnSuccess(document.getElementById('leadPanelGhlEmailBtn'), '✓ Sent');
+    } catch (err) {
+      const msg = (err && err.message) || 'Could not send email.';
+      setLeadPanelGhlEmailStatus(msg, true);
+      notifyLeadPanelDial(msg, 'error');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    }
+  }
+
+  function bindLeadPanelGhlEmailComposer() {
+    if (leadPanelGhlEmailBound) return;
+    leadPanelGhlEmailBound = true;
+    const select = document.getElementById('leadPanelGhlEmailScript');
+    const bodyEl = document.getElementById('leadPanelGhlEmailBody');
+    const closeBtn = document.getElementById('leadPanelGhlEmailClose');
+    const improveBtn = document.getElementById('leadPanelGhlEmailImprove');
+    const sendBtn = document.getElementById('leadPanelGhlEmailSend');
+    if (select) {
+      select.addEventListener('change', () => applyLeadEmailScriptSelection(true));
+    }
+    if (bodyEl) {
+      bodyEl.addEventListener('input', syncLeadPanelGhlEmailCount);
+    }
+    if (closeBtn) {
+      closeBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        closeLeadPanelGhlEmailComposer();
+      });
+    }
+    if (improveBtn) {
+      improveBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        void improveLeadPanelGhlEmail();
+      });
+    }
+    if (sendBtn) {
+      sendBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        void sendLeadPanelGhlEmail();
+      });
+    }
   }
 
   async function openLeadPanelSmsComposer() {

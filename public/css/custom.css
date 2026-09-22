@@ -3228,12 +3228,14 @@ body.find-leads-page #findTypeTabs .find-type-tab {
     padding-top: 0.35rem;
     box-shadow: 0 -6px 24px -12px rgba(15, 23, 42, 0.12);
 }
-/* Collapsed quick-log dock: keep Call + SMS + Sync GHL */
+/* Collapsed quick-log dock: keep Call + SMS + GHL eMail + Sync GHL */
 #leadPanelNotepad.lead-panel-notepad--collapsed #leadPanelOutreachCtaRow {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 #mobilePanel.open #leadPanelNotepad.lead-panel-notepad--collapsed #leadPanelOutreachCtaRow,
-#mobilePanel.open #leadPanelNotepad.lead-panel-notepad--collapsed #leadPanelOutreachCtaRow button {
+#mobilePanel.open #leadPanelNotepad.lead-panel-notepad--collapsed #leadPanelOutreachCtaRow button,
+#mobilePanel.open #leadPanelNotepad.lead-panel-notepad--collapsed #leadPanelGhlEmailSection,
+#mobilePanel.open #leadPanelNotepad.lead-panel-notepad--collapsed #leadPanelGhlEmailSection * {
     pointer-events: auto;
 }
 
