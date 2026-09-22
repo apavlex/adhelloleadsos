@@ -191,13 +191,11 @@ async function testConnection() {
     await getTaskRecord('adhello_connection_probe');
   } catch (err) {
     const msg = String((err && err.message) || '');
-    if (/401|unauthorized|invalid.*key|api key/i.test(msg)) {
+    if (/401|403|unauthorized|invalid.*key|api key is missing|api key is not configured/i.test(msg)) {
       return { configured: true, ok: false, message: 'KIE API key is invalid or unauthorized.' };
     }
-    if (/not found|invalid task|taskid|404/i.test(msg)) {
-      return { configured: true, ok: true, message: 'KIE API key accepted.' };
-    }
-    return { configured: true, ok: false, message: msg || 'KIE connection check failed.' };
+    // The probe uses a fake task id. Any non-auth response means the key was accepted.
+    return { configured: true, ok: true, message: 'KIE API key accepted.' };
   }
   return { configured: true, ok: true, message: 'KIE API key accepted.' };
 }

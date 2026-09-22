@@ -630,6 +630,8 @@
           'Chat AI not configured — set OPENROUTER_API_KEY (or KIE/Gemini/OpenAI) on the server.',
           false,
         );
+      } else {
+        setDesignStatus('Connected', true);
       }
     } catch (_) {}
   }
@@ -1501,16 +1503,10 @@
     if (btn && msg) btn.setAttribute('aria-label', msg.slice(0, 120));
   }
 
-  function designStatusTone(msg, ok) {
-    if (ok === false) return 'error';
-    if (/generating|thinking|uploading|importing|processing|still processing|adding your logo/i.test(msg)) {
-      return 'info';
-    }
-    if (/ready|loaded|generated|saved|updated|started|reset|done/i.test(msg)) return 'ok';
-    if (/first|describe|enter|add a|paste|pick a|only available|failed|not authorized|unavailable/i.test(msg)) {
-      return ok === true ? 'warn' : 'error';
-    }
-    return ok ? 'ok' : 'error';
+  function isThinkingStatus(msg) {
+    return /generating|thinking|uploading|importing|processing|still processing|adding your logo|writing your image prompt/i.test(
+      msg,
+    );
   }
 
   function setChatThinking(active) {
@@ -1530,29 +1526,37 @@
     if (!el) return;
     var inner = el.querySelector('.dm-status-tip__panel-inner');
     var btn = el.querySelector('.dm-status-tip__btn');
-    var msg = text == null ? '' : String(text);
-    var thinking = /^thinking/i.test(msg.trim());
-    if (!msg || msg === 'true' || msg === 'false') {
-      setChatThinking(false);
-      el.classList.add('hidden');
-      if (inner) inner.textContent = '';
-      el.classList.remove(
-        'dm-status-tip--ok',
-        'dm-status-tip--error',
-        'dm-status-tip--info',
-        'dm-status-tip--warn',
-        'dm-status-tip--idle',
-      );
-      el.classList.add('dm-status-tip--idle');
+    var msg = text == null ? '' : String(text).trim();
+    if (msg === 'true' || msg === 'false') msg = '';
+    var thinking = isThinkingStatus(msg);
+    var isError = ok === false && !thinking;
+    el.classList.remove(
+      'hidden',
+      'dm-status-tip--ok',
+      'dm-status-tip--error',
+      'dm-status-tip--info',
+      'dm-status-tip--warn',
+      'dm-status-tip--idle',
+      'dm-status-tip--thinking',
+    );
+    if (thinking) {
+      el.classList.add('dm-status-tip--thinking');
+      setChatThinking(true);
+      if (inner) inner.textContent = msg || 'Thinking…';
+      if (btn) btn.setAttribute('aria-label', (msg || 'Thinking').slice(0, 140));
       return;
     }
-    var tone = designStatusTone(msg, ok);
-    el.classList.remove('hidden', 'dm-status-tip--ok', 'dm-status-tip--error', 'dm-status-tip--info', 'dm-status-tip--warn', 'dm-status-tip--idle');
-    el.classList.add('dm-status-tip--' + tone);
-    setChatThinking(thinking);
-    // Keep detailed status in the tooltip; show animated label beside the icon while thinking.
-    if (inner) inner.textContent = thinking ? 'Working on your reply…' : msg;
-    if (btn) btn.setAttribute('aria-label', (thinking ? 'Thinking' : msg).slice(0, 140));
+    setChatThinking(false);
+    if (isError && msg) {
+      el.classList.add('dm-status-tip--error');
+      if (inner) inner.textContent = msg;
+      if (btn) btn.setAttribute('aria-label', msg.slice(0, 140));
+      return;
+    }
+    el.classList.add('dm-status-tip--ok');
+    var label = msg || 'Connected';
+    if (inner) inner.textContent = label;
+    if (btn) btn.setAttribute('aria-label', label.slice(0, 140));
   }
 
   function setArtworkGenerating(active, label) {

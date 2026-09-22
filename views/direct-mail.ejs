@@ -393,6 +393,33 @@
           <% } %>
         </div>
 
+        <style>
+          #dmDesignStatus.dm-status-tip--ok { --dm-status-color: #059669; }
+          #dmDesignStatus.dm-status-tip--error { --dm-status-color: #e11d48; }
+          #dmDesignStatus.dm-status-tip--thinking .dm-status-tip__dot {
+            animation: dm-alexa-think 1.8s ease-in-out infinite;
+          }
+          @keyframes dm-alexa-think {
+            0%, 100% {
+              background: #19d3ff;
+              box-shadow: 0 0 0 3px rgba(25, 211, 255, 0.28), 0 0 12px rgba(25, 211, 255, 0.9);
+            }
+            33% {
+              background: #5b6cff;
+              box-shadow: 0 0 0 3px rgba(91, 108, 255, 0.28), 0 0 12px rgba(91, 108, 255, 0.9);
+            }
+            66% {
+              background: #d946ef;
+              box-shadow: 0 0 0 3px rgba(217, 70, 239, 0.28), 0 0 12px rgba(217, 70, 239, 0.85);
+            }
+          }
+          #dmDesignStatus:hover .dm-status-tip__panel,
+          #dmDesignStatus:focus-within .dm-status-tip__panel {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0);
+          }
+        </style>
         <!-- Magic Design prompt bar -->
         <div class="dm-prompt-resizer" id="dmPromptResizer" role="separator" aria-orientation="horizontal" aria-label="Drag to resize chat panel" title="Drag to resize chat"></div>
         <div class="dm-prompt-dock" id="dmPromptDock">
@@ -402,12 +429,12 @@
               <div class="dm-prompt-input-head__status">
                 <%- include('/partials/dm_status_tip', {
                   id: 'dmDesignStatus',
-                  state: 'idle',
-                  label: 'Design status',
+                  state: kieImageReady ? 'ok' : 'error',
+                  label: kieImageReady ? 'Connected' : 'Image generation is not connected',
                   placement: 'top',
                   align: 'start',
-                  hidden: true,
-                  text: ''
+                  hidden: false,
+                  text: kieImageReady ? 'Connected' : 'Image generation is not connected. Set KIE_AI_API_KEY on the server.'
                 }) %>
                 <span id="dmChatThinking" class="dm-chat-thinking hidden" aria-live="polite" hidden>
                   Thinking<span class="dm-chat-thinking__dots" aria-hidden="true"></span>
