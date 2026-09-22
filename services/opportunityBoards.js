@@ -3,7 +3,7 @@ const { isManualSource } = require('./leadListFilters');
 const { normalizeEngagementSignals } = require('./engagementSignals');
 const { isReferralLead, isFollowUpTask } = require('./todayPriorityLeads');
 
-const DEFAULT_STAGE_NAMES = ['New lead', 'Contacted', 'Qualified', 'Proposal sent', 'Won'];
+const DEFAULT_STAGE_NAMES = ['New opportunity', 'Contacted', 'Qualified', 'Proposal sent', 'Won'];
 const MAX_PIPELINES = 12;
 const MAX_STAGES = 12;
 const MAX_NAME = 40;
@@ -68,6 +68,14 @@ function normalizeBoards(raw) {
     activePipelineId = pipelines[0].id;
     created = true;
   }
+  pipelines.forEach((pipeline) => {
+    pipeline.stages.forEach((stage) => {
+      if (stage.name.toLowerCase() === 'new lead') {
+        stage.name = 'New opportunity';
+        created = true;
+      }
+    });
+  });
   return { boards: { activePipelineId, pipelines }, created };
 }
 
@@ -101,7 +109,7 @@ function cardSource(lead, keys) {
   if (isManualSource(lead)) return 'Added by you';
   if (hasReply(lead)) return 'Replied';
   if (keys.has(lead && lead.key)) return 'Follow-up';
-  return 'Lead';
+  return 'Opportunity';
 }
 
 function cardValue(lead) {
@@ -115,7 +123,7 @@ function money(amount) {
 }
 
 function leadTitle(lead) {
-  return String((lead && (lead.title || lead.company || lead.email)) || 'Lead').slice(0, 80);
+  return String((lead && (lead.title || lead.company || lead.email)) || 'Opportunity').slice(0, 80);
 }
 
 function focusHref(lead) {

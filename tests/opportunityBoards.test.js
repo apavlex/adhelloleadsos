@@ -15,11 +15,27 @@ test('normalizeBoards creates a marketing pipeline with default stages', () => {
   assert.equal(boards.pipelines.length, 1);
   assert.deepEqual(
     boards.pipelines[0].stages.map((stage) => stage.name),
-    ['New lead', 'Contacted', 'Qualified', 'Proposal sent', 'Won'],
+    ['New opportunity', 'Contacted', 'Qualified', 'Proposal sent', 'Won'],
   );
 });
 
-test('buildOpportunityBoard places important leads in New lead until they are moved', () => {
+test('normalizeBoards renames the default New lead stage to New opportunity', () => {
+  const { boards, created } = normalizeBoards({
+    activePipelineId: 'opl_abc123',
+    pipelines: [
+      {
+        id: 'opl_abc123',
+        name: 'Marketing Pipeline',
+        stages: [{ id: 'ops_abc123', name: 'New lead' }, { id: 'ops_def456', name: 'Won' }],
+      },
+    ],
+  });
+  assert.equal(created, true);
+  assert.equal(boards.pipelines[0].stages[0].name, 'New opportunity');
+  assert.equal(boards.pipelines[0].stages[1].name, 'Won');
+});
+
+test('buildOpportunityBoard places important leads in New opportunity until they are moved', () => {
   const { boards } = normalizeBoards(null);
   const board = buildOpportunityBoard({
     boards,

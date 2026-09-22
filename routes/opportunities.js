@@ -135,7 +135,7 @@ router.post('/move', express.json({ limit: '16kb' }), async (req, res, next) => 
     const pipelineId = String((req.body && req.body.pipelineId) || '').trim();
     const stageId = String((req.body && req.body.stageId) || '').trim();
     if (!leadKey || !pipelineId || !stageId) {
-      return jsonError(res, 400, 'Choose a lead and a stage.');
+      return jsonError(res, 400, 'Choose an opportunity and a stage.');
     }
     const workspace = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
     if (!stageBelongsToPipeline(workspace.opportunityBoards, pipelineId, stageId)) {
