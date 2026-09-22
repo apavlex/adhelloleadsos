@@ -24,7 +24,7 @@ const { filterBusinessPipelineLeads } = require('../services/leadListFilters');
 const { dedupeOpenLeadTasks, clearOpenAutomationTasks } = require('../services/userTasks');
 const { pauseActiveSequencesForWorkspace } = require('../services/sequenceEngine');
 const actionPlanTracker = require('../services/actionPlanTracker');
-const { buildTodayPriorityLeads } = require('../services/todayPriorityLeads');
+const { buildOpportunityBoard, normalizeBoards } = require('../services/opportunityBoards');
 function firstNameFromUser(user) {
   const raw =
     (user && user.displayName) ||
@@ -166,9 +166,17 @@ router.get('/', async (req, res, next) => {
     });
 
     const tasksEnriched = enrichTasksWithLeadsForToday(rawTasks, workspaceLeads);
-    const priorityLeads = buildTodayPriorityLeads({
+    const normalizedBoards = normalizeBoards(workspaceDoc && workspaceDoc.opportunityBoards);
+    if (normalizedBoards.created && workspaceDoc) {
+      workspaceDoc.opportunityBoards = normalizedBoards.boards;
+      await dbService.saveWorkspace(req.workspaceId, workspaceDoc);
+    }
+    const opportunityBoard = buildOpportunityBoard({
+      boards: (workspaceDoc && workspaceDoc.opportunityBoards) || normalizedBoards.boards,
       leads: businessLeads,
       tasks: rawTasks,
+      pipelineId: req.query && req.query.pipeline,
+      compactLimit: 4,
     });
     const callWarmQueue = buildCallQueue(businessLeads, { limit: 20 });
     const nextActions = buildNextActionsQueue({
@@ -228,7 +236,8 @@ router.get('/', async (req, res, next) => {
       searchInProgressNotice,
       scheduleSavedNotice,
       followUpTasksToday,
-      priorityLeads,
+      opportunityBoard,
+      opportunityCompact: true,
       nextActions,
       callWarmQueue,
       cadenceQueue,

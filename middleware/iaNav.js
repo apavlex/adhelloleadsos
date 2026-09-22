@@ -55,6 +55,8 @@ function iaNav(req, res, next) {
     navPrimary = 'social-posts';
   } else if (p === '/menu' || p.startsWith('/menu/')) {
     navPrimary = 'custom-menu';
+  } else if (p === '/opportunities' || p.startsWith('/opportunities/')) {
+    navPrimary = 'opportunities';
   }
   res.locals.requestPath = p;
   res.locals.sidebarSettingsOpen =

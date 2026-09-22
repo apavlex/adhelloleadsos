@@ -1,0 +1,110 @@
+<% const _board = typeof opportunityBoard !== 'undefined' && opportunityBoard ? opportunityBoard : null; %>
+<% const _compact = typeof opportunityCompact !== 'undefined' && opportunityCompact; %>
+<% if (_board && _board.pipeline) { %>
+<style>
+  .opp-board { display: flex; gap: 0.75rem; overflow-x: auto; padding-bottom: 0.35rem; align-items: flex-start; }
+  .opp-stage { flex: 0 0 16.5rem; min-width: 16.5rem; background: rgba(250, 247, 237, 0.7); border: 1px solid rgba(17, 24, 39, 0.08); border-radius: 1rem; padding: 0.7rem; }
+  html.dark .opp-stage { background: rgba(15, 23, 42, 0.55); border-color: rgba(255, 255, 255, 0.08); }
+  .opp-stage-cards { display: flex; flex-direction: column; gap: 0.5rem; min-height: 4.5rem; }
+  .opp-compact .opp-stage-cards { max-height: 18rem; overflow: auto; }
+  .opp-card { background: #fff; border: 1px solid rgba(17, 24, 39, 0.1); border-radius: 0.85rem; padding: 0.7rem 0.75rem; cursor: grab; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
+  html.dark .opp-card { background: #0f172a; border-color: rgba(255, 255, 255, 0.1); }
+  .opp-card.sortable-ghost { opacity: 0.45; }
+  .opp-card-title { display: block; font-weight: 800; font-size: 0.9rem; color: inherit; text-decoration: none; }
+  .opp-card-title:hover { color: var(--brand-yellow, #ca8a04); }
+  .opp-card-meta { margin: 0.2rem 0 0; font-size: 0.75rem; color: #6b7280; }
+  #oppAddForm.hidden, #oppBoardMsg.hidden { display: none; }
+</style>
+<section class="mb-8 md:mb-10 rounded-[2rem] border-2 border-brand-yellow/55 bg-white dark:bg-slate-900/90 shadow-lg shadow-brand-yellow/10 overflow-hidden <%= _compact ? 'opp-compact' : '' %>" id="oppBoard" data-pipeline-id="<%= _board.pipeline.id %>" aria-label="Opportunities">
+  <div class="px-5 sm:px-6 md:px-8 pt-5 sm:pt-6 pb-4 border-b border-brand-border/40 dark:border-white/10">
+    <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+      <div class="min-w-0">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Opportunities</p>
+        <% if (_compact) { %>
+        <h2 class="font-display font-extrabold text-2xl md:text-3xl text-brand-dark dark:text-white leading-tight"><%= _board.pipeline.name %></h2>
+        <p class="text-sm text-brand-muted mt-1">Drag a lead into a stage. The full board is where you add pipelines and edit stages.</p>
+        <% } else { %>
+        <h1 class="font-display font-extrabold text-2xl md:text-3xl text-brand-dark dark:text-white leading-tight">Opportunities</h1>
+        <p class="text-sm text-brand-muted mt-1">Same board as Today. Drag cards between stages, or change the stages themselves.</p>
+        <% } %>
+      </div>
+      <div class="flex flex-wrap items-center gap-2 shrink-0">
+        <% if (_board.pipelines.length > 1 || !_compact) { %>
+        <label class="sr-only" for="oppPipelineSelect">Pipeline</label>
+        <select id="oppPipelineSelect" class="rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white">
+          <% _board.pipelines.forEach(function (pipeline) { %>
+          <option value="<%= pipeline.id %>" <%= pipeline.id === _board.pipeline.id ? 'selected' : '' %>><%= pipeline.name %></option>
+          <% }); %>
+        </select>
+        <% } %>
+        <% if (_compact) { %>
+        <a href="/opportunities?pipeline=<%= encodeURIComponent(_board.pipeline.id) %>" class="btn-pill btn-primary px-5 py-2.5 text-[10px] font-black uppercase tracking-widest">Open opportunities</a>
+        <% } else { %>
+        <button type="button" id="oppNewPipeline" class="btn-pill border border-brand-border dark:border-white/20 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">New pipeline</button>
+        <button type="button" id="oppRenamePipeline" class="btn-pill border border-brand-border dark:border-white/20 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Rename</button>
+        <button type="button" id="oppAddStage" class="btn-pill border border-brand-border dark:border-white/20 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Add stage</button>
+        <button type="button" id="oppAddCard" class="btn-pill btn-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest">Add opportunity</button>
+        <% } %>
+      </div>
+    </div>
+    <% if (!_compact) { %>
+    <form id="oppAddForm" class="hidden mt-4 grid grid-cols-1 md:grid-cols-[1.4fr_1fr_8rem_1fr_auto] gap-2 items-end">
+      <div>
+        <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1" for="oppCardTitle">Name</label>
+        <input id="oppCardTitle" class="w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2 text-sm" placeholder="Business name" />
+      </div>
+      <div>
+        <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1" for="oppCardSource">Source</label>
+        <input id="oppCardSource" class="w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2 text-sm" placeholder="Referral" />
+      </div>
+      <div>
+        <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1" for="oppCardValue">Value</label>
+        <input id="oppCardValue" type="number" min="0" step="1" class="w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2 text-sm" placeholder="0" />
+      </div>
+      <div>
+        <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1" for="oppCardStage">Stage</label>
+        <select id="oppCardStage" class="w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2 text-sm">
+          <% _board.stages.forEach(function (stage) { %>
+          <option value="<%= stage.id %>"><%= stage.name %></option>
+          <% }); %>
+        </select>
+      </div>
+      <button type="submit" class="btn-pill btn-primary px-4 py-2.5 text-[10px] font-black uppercase tracking-widest">Save</button>
+    </form>
+    <p id="oppBoardMsg" class="hidden mt-3 text-sm text-red-700" role="status"></p>
+    <% } %>
+  </div>
+  <div class="px-4 sm:px-5 md:px-6 py-4">
+    <div class="opp-board" id="oppStageRow">
+      <% _board.stages.forEach(function (stage) { %>
+      <section class="opp-stage" data-stage-id="<%= stage.id %>">
+        <div class="flex items-start justify-between gap-2 mb-2">
+          <div class="min-w-0">
+            <h3 class="text-sm font-extrabold text-brand-dark dark:text-white truncate"><%= stage.name %></h3>
+            <p class="text-[11px] text-brand-muted"><%= stage.count %> <%= stage.count === 1 ? 'opportunity' : 'opportunities' %><% if (stage.valueLabel) { %> · <%= stage.valueLabel %><% } %></p>
+          </div>
+          <% if (!_compact) { %>
+          <div class="flex items-center gap-1 shrink-0">
+            <button type="button" class="opp-rename text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark" data-stage-id="<%= stage.id %>" data-stage-name="<%= stage.name %>">Edit</button>
+            <button type="button" class="opp-remove text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-red-700" data-stage-id="<%= stage.id %>">Remove</button>
+          </div>
+          <% } %>
+        </div>
+        <div class="opp-stage-cards" data-stage-id="<%= stage.id %>">
+          <% stage.cards.forEach(function (card) { %>
+          <article class="opp-card" data-lead-key="<%= card.key %>">
+            <a class="opp-card-title" href="<%= card.href %>"><%= card.title %></a>
+            <% if (card.source) { %><p class="opp-card-meta">Source: <%= card.source %></p><% } %>
+            <% if (card.valueLabel) { %><p class="opp-card-meta">Value: <%= card.valueLabel %></p><% } %>
+          </article>
+          <% }); %>
+        </div>
+        <% if (stage.hiddenCount) { %>
+        <a href="/opportunities?pipeline=<%= encodeURIComponent(_board.pipeline.id) %>" class="inline-block mt-2 text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline">+ <%= stage.hiddenCount %> more</a>
+        <% } %>
+      </section>
+      <% }); %>
+    </div>
+  </div>
+</section>
+<% } %>
