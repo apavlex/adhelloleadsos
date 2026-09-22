@@ -181,6 +181,55 @@
     return replaceProspectPlaceholders(s, c.prospect);
   }
 
+  function looksLikeOutreachCssJunk(raw) {
+    var s = String(raw || '');
+    return (
+      /--tw-|border-spacing|translate-x|skew-x|gradient-from-position|scroll-snap-strictness|pinch-zoom|ordinal\s*:/i.test(
+        s,
+      ) || (/style\s*=/i.test(s) && s.length > 400)
+    );
+  }
+
+  function sanitizeOutreachComposerText(raw, channel) {
+    var ch = channel === 'email' ? 'email' : 'sms';
+    var s = String(raw || '');
+    if (!s.trim()) return '';
+    var hasHtml = looksLikeScriptHtml(s) || /<[a-z][\s\S]*>/i.test(s);
+    if (hasHtml || looksLikeOutreachCssJunk(s)) {
+      s = htmlToPlain(s);
+    }
+    if (looksLikeOutreachCssJunk(s)) return '';
+    s = String(s || '').trim();
+    if (ch === 'sms') {
+      s = s.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+    }
+    return s.trim();
+  }
+
+  function validateOutreachComposerBody(raw, channel) {
+    var ch = channel === 'email' ? 'email' : 'sms';
+    var text = sanitizeOutreachComposerText(raw, ch);
+    var minLen = ch === 'email' ? 20 : 12;
+    if (!text || text.length < minLen) {
+      return {
+        ok: false,
+        text: text || '',
+        error:
+          ch === 'email'
+            ? 'Email body is empty or was stripped (often call-script HTML). Add plain follow-up copy under Workspace → Scripts, then try again.'
+            : 'SMS body is empty or was stripped (often call-script HTML in the SMS field). Add plain SMS text under Workspace → Scripts, then try again.',
+      };
+    }
+    if (!/[a-zA-Z]/.test(text)) {
+      return {
+        ok: false,
+        text: text,
+        error: 'Message must include real words — not only symbols or formatting.',
+      };
+    }
+    return { ok: true, text: text };
+  }
+
   function getScriptProfile() {
     var p = global.__ADHELLO_SCRIPT_PROFILE__;
     return p && typeof p === 'object' ? p : { name: '', company: '', phone: '', email: '' };
@@ -215,6 +264,9 @@
     replaceSenderPlaceholders: replaceSenderPlaceholders,
     replaceProspectPlaceholders: replaceProspectPlaceholders,
     fillScriptPlaceholders: fillScriptPlaceholders,
+    looksLikeOutreachCssJunk: looksLikeOutreachCssJunk,
+    sanitizeOutreachComposerText: sanitizeOutreachComposerText,
+    validateOutreachComposerBody: validateOutreachComposerBody,
     getScriptProfile: getScriptProfile,
     copyScriptFormatted: copyScriptFormatted,
   };

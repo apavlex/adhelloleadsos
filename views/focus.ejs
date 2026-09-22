@@ -2497,11 +2497,15 @@
       var lead = currentLead();
       if (!lead || !lead.key) return Promise.resolve();
       focusSmsSessionActive = true;
-      msgBody = String(msgBody || '').trim();
-      if (!msgBody) {
-        setFocusSmsComposeStatus('SMS body is empty. Add a message first.', true);
-        return Promise.reject(new Error('sms body empty'));
+      var validated =
+        Scripts.validateOutreachComposerBody
+          ? Scripts.validateOutreachComposerBody(msgBody, 'sms')
+          : { ok: !!String(msgBody || '').trim(), text: String(msgBody || '').trim() };
+      if (!validated.ok) {
+        setFocusSmsComposeStatus(validated.error || 'SMS body is empty. Add a message first.', true);
+        return Promise.reject(new Error(validated.error || 'sms body empty'));
       }
+      msgBody = validated.text;
       var phone = normalizeTel(lead.phone || '');
       if (!phone) {
         setFocusSmsComposeStatus('No phone found for this lead.', true);

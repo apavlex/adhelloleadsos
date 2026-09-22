@@ -310,28 +310,32 @@ document.addEventListener('DOMContentLoaded', () => {
       );
     }
 
-    function sanitizeSmsComposerText(raw) {
-      let s = String(raw || '');
-      if (!s) return '';
-      if (/<[a-z][\s\S]*>/i.test(s) || looksLikeSmsCssJunk(s)) {
-        const helper = typeof window !== 'undefined' ? window.AdHelloScripts : null;
-        if (helper && typeof helper.htmlToPlain === 'function') {
-          s = helper.htmlToPlain(s);
-        } else {
-          s = s
-            .replace(/<br\s*\/?>/gi, '\n')
-            .replace(/<\/(?:p|div)>/gi, '\n')
-            .replace(/<[^>]+>/g, '')
-            .replace(/&nbsp;/gi, ' ')
-            .replace(/&amp;/g, '&')
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>')
-            .replace(/&quot;/g, '"')
-            .trim();
-        }
+    function sanitizeOutreachComposerTextEarly(raw, channel) {
+      const helper = typeof window !== 'undefined' ? window.AdHelloScripts : null;
+      if (helper && typeof helper.sanitizeOutreachComposerText === 'function') {
+        return helper.sanitizeOutreachComposerText(raw, channel || 'sms');
       }
-      if (looksLikeSmsCssJunk(s)) return '';
-      return String(s || '').trim();
+      return String(raw || '').trim();
+    }
+
+    function validateOutreachComposerBodyEarly(raw, channel) {
+      const helper = typeof window !== 'undefined' ? window.AdHelloScripts : null;
+      if (helper && typeof helper.validateOutreachComposerBody === 'function') {
+        return helper.validateOutreachComposerBody(raw, channel || 'sms');
+      }
+      const text = String(raw || '').trim();
+      if (!text || text.length < 12) {
+        return {
+          ok: false,
+          text: text || '',
+          error: 'Add plain message text before sending (Workspace → Scripts).',
+        };
+      }
+      return { ok: true, text };
+    }
+
+    function sanitizeSmsComposerText(raw) {
+      return sanitizeOutreachComposerTextEarly(raw, 'sms');
     }
 
     function paintBulkModalChrome(mode, n) {
@@ -403,12 +407,11 @@ document.addEventListener('DOMContentLoaded', () => {
           throw new Error((data && data.error) || 'Could not load scripts.');
         }
         let options = Array.isArray(data.options) ? data.options : [];
-        if (!emailMode) {
-          options = options.map(function (opt) {
-            if (!opt || typeof opt !== 'object') return opt;
-            return Object.assign({}, opt, { text: sanitizeSmsComposerText(opt.text) });
-          });
-        }
+        options = options.map(function (opt) {
+          if (!opt || typeof opt !== 'object') return opt;
+          const ch = emailMode ? 'email' : 'sms';
+          return Object.assign({}, opt, { text: sanitizeOutreachComposerTextEarly(opt.text, ch) });
+        });
         if (!options.length) {
           options = [
             {
@@ -444,10 +447,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (pickIdx < 0) pickIdx = 0;
         select.value = String(pickIdx);
-        body.value = sanitizeSmsComposerText((options[pickIdx] && options[pickIdx].text) || '');
+        const ch = emailMode ? 'email' : 'sms';
+        body.value = sanitizeOutreachComposerTextEarly((options[pickIdx] && options[pickIdx].text) || '', ch);
         const subjectInput = document.getElementById('smsEmailSubjectInput');
         if (subjectInput) subjectInput.value = String((options[pickIdx] && options[pickIdx].subject) || '').trim();
         if (countEl) countEl.textContent = String((body.value || '').length);
+        const helpText = document.getElementById('smsScriptHelpText');
+        if (helpText) {
+          const v = validateOutreachComposerBodyEarly(body.value, ch);
+          if (!v.ok) {
+            helpText.textContent = v.error;
+            helpText.classList.add('text-red-600', 'dark:text-red-400');
+          }
+        }
         window.__adhelloEarlySmsScriptOptions = options;
       } catch (err) {
         select.innerHTML = '<option value="">No scripts available</option>';
@@ -596,23 +608,27 @@ document.addEventListener('DOMContentLoaded', () => {
         : [];
       const bodyEl = document.getElementById('smsBodyInput');
       const sendBtn = document.getElementById('smsScriptSendBtn');
-      const scriptText = String((bodyEl && bodyEl.value) || '').trim();
       if (mode !== 'bulk' && mode !== 'bulk-email') return false;
       if (!keys.length) {
         window.alert('No leads selected for bulk send. Close and select leads with phone numbers, then try again.');
         return true;
       }
-      if (!scriptText) {
-        window.alert('Add a message before sending.');
+      const emailMode = mode === 'bulk-email';
+      const resolved = validateOutreachComposerBodyEarly(
+        String((bodyEl && bodyEl.value) || '').trim(),
+        emailMode ? 'email' : 'sms',
+      );
+      if (!resolved.ok) {
+        window.alert(resolved.error || 'Add a message before sending.');
         return true;
       }
+      const scriptText = resolved.text;
       // Prefer the full app handler once it is ready (keeps progress UI + GHL paths in sync).
       if (typeof window.__handleSmsScriptSend === 'function') {
         await window.__handleSmsScriptSend();
         return true;
       }
       const n = keys.length;
-      const emailMode = mode === 'bulk-email';
       if (
         !window.confirm(
           emailMode
@@ -3734,7 +3750,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const row = resolvePanelActionRow ? resolvePanelActionRow() : currentRow;
     const key = normalizeLeadKeyForApi(row && row.dataset ? row.dataset.leadKey : '');
     const body = String((input && input.value) || '').trim();
-    if (!key || !body) return;
+    if (!key) {
+      setLeadSmsThreadStatus('Select a lead first.', true);
+      return;
+    }
+    if (!body) {
+      setLeadSmsThreadStatus('Add a message before sending.', true);
+      return;
+    }
     if (btn) btn.disabled = true;
     setLeadSmsThreadStatus('Sending…');
     try {
@@ -14121,19 +14144,75 @@ document.addEventListener('DOMContentLoaded', () => {
     smsBodyCount.textContent = String((smsBodyInput.value || '').length);
   }
 
-  function getSelectedSmsScriptText() {
-    const smsBodyInput = getSmsBodyInputEl();
-    const smsScriptSelect = getSmsScriptSelectEl();
-    const fromTextarea = String((smsBodyInput && smsBodyInput.value) || '').trim();
+  function outreachComposerChannelFromModal() {
     const { mode } = resolveSmsModalBulkState();
-    if (mode === 'bulk' || mode === 'bulk-email') return fromTextarea;
-    // Always prefer what the user is looking at in the composer.
-    if (fromTextarea) return fromTextarea;
-    if (!smsScriptSelect) return '';
-    const idx = parseInt(smsScriptSelect.value, 10);
-    const selected = Number.isFinite(idx) ? smsScriptOptions[idx] : null;
-    if (selected && selected.text) return String(selected.text).trim();
-    return '';
+    return mode === 'bulk-email' ? 'email' : 'sms';
+  }
+
+  function sanitizeOutreachComposerTextClient(raw, channel) {
+    const helper = typeof window !== 'undefined' ? window.AdHelloScripts : null;
+    if (helper && typeof helper.sanitizeOutreachComposerText === 'function') {
+      return helper.sanitizeOutreachComposerText(raw, channel || 'sms');
+    }
+    return sanitizeSmsComposerText(raw);
+  }
+
+  function validateOutreachComposerBodyClient(raw, channel) {
+    const helper = typeof window !== 'undefined' ? window.AdHelloScripts : null;
+    if (helper && typeof helper.validateOutreachComposerBody === 'function') {
+      return helper.validateOutreachComposerBody(raw, channel || 'sms');
+    }
+    const text = sanitizeSmsComposerText(raw);
+    if (!text || text.length < 12) {
+      return {
+        ok: false,
+        text: text || '',
+        error: 'Add plain message text before sending (Workspace → Scripts).',
+      };
+    }
+    return { ok: true, text };
+  }
+
+  function resolveOutreachMessageForSend(channel) {
+    const ch = channel === 'email' ? 'email' : 'sms';
+    const smsBodyInput = getSmsBodyInputEl();
+    let raw = String((smsBodyInput && smsBodyInput.value) || '').trim();
+    const { mode } = resolveSmsModalBulkState();
+    if (!raw && mode !== 'bulk' && mode !== 'bulk-email') {
+      const smsScriptSelect = getSmsScriptSelectEl();
+      if (smsScriptSelect) {
+        const idx = parseInt(smsScriptSelect.value, 10);
+        const selected = Number.isFinite(idx) ? smsScriptOptions[idx] : null;
+        if (selected && selected.text) raw = String(selected.text).trim();
+      }
+    }
+    return validateOutreachComposerBodyClient(raw, ch);
+  }
+
+  function getSelectedSmsScriptText() {
+    const resolved = resolveOutreachMessageForSend(outreachComposerChannelFromModal());
+    return resolved.ok ? resolved.text : '';
+  }
+
+  function setOutreachComposerHelpFromValidation(validation, channel) {
+    const helpText = getSmsScriptHelpTextEl();
+    if (!helpText) return;
+    const ch = channel === 'email' ? 'email' : 'sms';
+    if (validation && validation.ok) {
+      helpText.classList.remove('text-red-600', 'dark:text-red-400');
+      const { mode } = resolveSmsModalBulkState();
+      helpText.textContent =
+        mode === 'bulk' || mode === 'bulk-email'
+          ? 'Base script loaded — edit if needed, then send. Change the dropdown to switch templates.'
+          : 'Script loaded — personalize with AI, edit, then send.';
+      return;
+    }
+    helpText.textContent =
+      (validation && validation.error) ||
+      (ch === 'email'
+        ? 'Email body is empty or unusable. Add plain copy under Workspace → Scripts.'
+        : 'SMS body is empty or unusable. Add plain SMS under Workspace → Scripts.');
+    helpText.classList.add('text-red-600', 'dark:text-red-400');
   }
 
   async function personalizeSmsForLead(leadKey, scriptText, context) {
@@ -14277,11 +14356,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function sendSmsToLeadKey(leadKey, body) {
+    const validated = validateOutreachComposerBodyClient(body, 'sms');
+    if (!validated.ok) throw new Error(validated.error || 'SMS body is empty.');
     const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/sms`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       credentials: 'same-origin',
-      body: JSON.stringify({ body, provider: 'ghl' }),
+      body: JSON.stringify({ body: validated.text, provider: 'ghl' }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.success) {
@@ -14338,6 +14419,11 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   async function sendBulkPersonalizedSms(phoneKeys, scriptText, onProgress) {
+    const baseValidated = validateOutreachComposerBodyClient(scriptText, 'sms');
+    if (!baseValidated.ok) {
+      throw new Error(baseValidated.error || 'SMS script is empty.');
+    }
+    const baseScript = baseValidated.text;
     let ok = 0;
     let failed = 0;
     const errors = [];
@@ -14347,10 +14433,11 @@ document.addEventListener('DOMContentLoaded', () => {
         onProgress(i + 1, phoneKeys.length, leadKey);
       }
       try {
-        const personalized = await personalizeSmsForLead(leadKey, scriptText);
-        if (!personalized) throw new Error('Empty personalized message');
+        const personalized = await personalizeSmsForLead(leadKey, baseScript);
+        const outValidated = validateOutreachComposerBodyClient(personalized, 'sms');
+        if (!outValidated.ok) throw new Error(outValidated.error || 'Empty personalized message');
         // eslint-disable-next-line no-await-in-loop
-        await sendSmsToLeadKey(leadKey, personalized);
+        await sendSmsToLeadKey(leadKey, outValidated.text);
         ok += 1;
       } catch (err) {
         failed += 1;
@@ -14363,10 +14450,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function sendEmailToLeadKey(leadKey, subject, body) {
+    const validated = validateOutreachComposerBodyClient(body, 'email');
+    if (!validated.ok) throw new Error(validated.error || 'Email body is empty.');
     const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/email`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ subject: subject || '', body }),
+      body: JSON.stringify({ subject: subject || '', body: validated.text }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.success) {
@@ -14399,6 +14488,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function sendBulkPersonalizedEmail(emailKeys, scriptText, subject, onProgress) {
+    const baseValidated = validateOutreachComposerBodyClient(scriptText, 'email');
+    if (!baseValidated.ok) {
+      throw new Error(baseValidated.error || 'Email script is empty.');
+    }
+    const baseScript = baseValidated.text;
     let ok = 0;
     let failed = 0;
     let skipped = 0;
@@ -14409,8 +14503,10 @@ document.addEventListener('DOMContentLoaded', () => {
         onProgress(i + 1, emailKeys.length, leadKey);
       }
       try {
-        const personalized = await personalizeEmailForLeadKey(leadKey, scriptText, subject);
-        if (!personalized.body) throw new Error('Empty personalized message');
+        const personalized = await personalizeEmailForLeadKey(leadKey, baseScript, subject);
+        const bodyValidated = validateOutreachComposerBodyClient(personalized.body, 'email');
+        if (!bodyValidated.ok) throw new Error(bodyValidated.error || 'Empty personalized message');
+        personalized.body = bodyValidated.text;
         await sendEmailToLeadKey(leadKey, personalized.subject, personalized.body);
         ok += 1;
       } catch (err) {
@@ -14447,27 +14543,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function sanitizeSmsComposerText(raw) {
-    let s = String(raw || '');
-    if (!s) return '';
-    if (/<[a-z][\s\S]*>/i.test(s) || looksLikeSmsCssJunk(s)) {
-      const helper = typeof window !== 'undefined' ? window.AdHelloScripts : null;
-      if (helper && typeof helper.htmlToPlain === 'function') {
-        s = helper.htmlToPlain(s);
-      } else {
-        s = s
-          .replace(/<br\s*\/?>/gi, '\n')
-          .replace(/<\/(?:p|div)>/gi, '\n')
-          .replace(/<[^>]+>/g, '')
-          .replace(/&nbsp;/gi, ' ')
-          .replace(/&amp;/g, '&')
-          .replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>')
-          .replace(/&quot;/g, '"')
-          .trim();
-      }
-    }
-    if (looksLikeSmsCssJunk(s)) return '';
-    return String(s || '').trim();
+    return sanitizeOutreachComposerTextClient(raw, outreachComposerChannelFromModal());
   }
 
   async function loadSmsScriptOptions(forLeadKey) {
@@ -14491,12 +14567,11 @@ document.addEventListener('DOMContentLoaded', () => {
         throw new Error((data && data.error) || (emailMode ? 'Could not load email scripts.' : 'Could not load SMS scripts.'));
       }
       smsScriptOptions = Array.isArray(data.options) ? data.options : [];
-      if (!emailMode) {
-        smsScriptOptions = smsScriptOptions.map(function (opt) {
-          if (!opt || typeof opt !== 'object') return opt;
-          return Object.assign({}, opt, { text: sanitizeSmsComposerText(opt.text) });
-        });
-      }
+      const composerCh = emailMode ? 'email' : 'sms';
+      smsScriptOptions = smsScriptOptions.map(function (opt) {
+        if (!opt || typeof opt !== 'object') return opt;
+        return Object.assign({}, opt, { text: sanitizeOutreachComposerTextClient(opt.text, composerCh) });
+      });
       if (!smsScriptOptions.length) {
         const title = String((currentRow && currentRow.dataset && currentRow.dataset.title) || '').trim();
         const helper = typeof window !== 'undefined' ? window.AdHelloScripts : null;
@@ -14543,17 +14618,15 @@ document.addEventListener('DOMContentLoaded', () => {
       if (pickIdx < 0) pickIdx = 0;
       smsScriptSelect.value = String(pickIdx);
       const picked = smsScriptOptions[pickIdx] || null;
-      smsBodyInput.value = picked && picked.text ? sanitizeSmsComposerText(picked.text) : '';
+      smsBodyInput.value =
+        picked && picked.text ? sanitizeOutreachComposerTextClient(picked.text, composerCh) : '';
       const subjectInput = getSmsEmailSubjectInputEl();
       if (subjectInput) subjectInput.value = picked && picked.subject ? String(picked.subject).trim() : '';
       setSmsCharCount();
-      const helpText = getSmsScriptHelpTextEl();
-      if (helpText) {
-        helpText.textContent =
-          smsModalMode === 'bulk' || smsModalMode === 'bulk-email'
-            ? 'Base script loaded — edit if needed, then send. Change the dropdown to switch templates.'
-            : 'Script loaded — personalize with AI, edit, then send.';
-      }
+      setOutreachComposerHelpFromValidation(
+        validateOutreachComposerBodyClient(smsBodyInput.value, composerCh),
+        composerCh,
+      );
     } catch (err) {
       smsScriptSelect.innerHTML = '<option value="">No scripts available</option>';
       smsBodyInput.value = '';
@@ -14621,7 +14694,9 @@ document.addEventListener('DOMContentLoaded', () => {
       smsScriptSelect.addEventListener('change', () => {
         const idx = parseInt(smsScriptSelect.value, 10);
         const selected = Number.isFinite(idx) ? smsScriptOptions[idx] : null;
-        smsBodyInput.value = selected && selected.text ? sanitizeSmsComposerText(selected.text) : '';
+        const ch = outreachComposerChannelFromModal();
+        smsBodyInput.value =
+          selected && selected.text ? sanitizeOutreachComposerTextClient(selected.text, ch) : '';
         const subjectInput = getSmsEmailSubjectInputEl();
         if (subjectInput && selected && selected.subject) {
           subjectInput.value = String(selected.subject).trim();
@@ -14629,12 +14704,7 @@ document.addEventListener('DOMContentLoaded', () => {
           // Keep prior subject unless switching to a script without one.
         }
         setSmsCharCount();
-        const helpText = getSmsScriptHelpTextEl();
-        if (helpText && selected) {
-          helpText.textContent = selected.text
-            ? 'Script loaded — edit if needed, then send.'
-            : 'Blank script — type your message, then send.';
-        }
+        setOutreachComposerHelpFromValidation(validateOutreachComposerBodyClient(smsBodyInput.value, ch), ch);
       });
       smsBodyInput.addEventListener('input', setSmsCharCount);
     }
@@ -14679,11 +14749,14 @@ document.addEventListener('DOMContentLoaded', () => {
         window.alert('SMS composer is missing. Refresh the page and try again.');
         return;
       }
-      const scriptText = getSelectedSmsScriptText();
-      if (!scriptText) {
-        window.alert('Add a message before sending.');
+      const ch = outreachComposerChannelFromModal();
+      const resolved = resolveOutreachMessageForSend(ch);
+      if (!resolved.ok) {
+        setOutreachComposerHelpFromValidation(resolved, ch);
+        window.alert(resolved.error || 'Add a message before sending.');
         return;
       }
+      const scriptText = resolved.text;
 
       const bulkState = resolveSmsModalBulkState();
       const activeMode = bulkState.mode;

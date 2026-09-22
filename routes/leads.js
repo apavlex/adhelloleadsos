@@ -108,6 +108,11 @@ const { maybeRerunAutoOutreachAfterEmailFix } = require('../services/prospecting
 const agentSessionStore = require('../services/agentSessionStore');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
 const { htmlToPlain, looksLikeScriptHtml } = require('../services/scriptMarkup');
+const {
+  validateOutreachComposerBody,
+  sanitizeOutreachComposerText,
+  looksLikeOutreachCssJunk,
+} = require('../services/outreachComposerSanitize');
 const { condenseCallScriptToSms, normalizeSmsSuggestion } = require('../services/smsScriptSuggest');
 const contactHuntJobs = require('../services/contactHuntJobs');
 const { mergeLeadsByKeys } = require('../services/leadMerge');
@@ -3001,8 +3006,12 @@ router.post('/:key/sms', async (req, res, next) => {
     const fullKey = leadKeyFromParam(req.params.key);
     const lead = await dbService.getLead(fullKey);
     if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
-    const body = String((req.body && req.body.body) || '').trim();
-    if (!body) return res.status(400).json({ success: false, error: 'Message body is required.' });
+    const rawBody = String((req.body && req.body.body) || '').trim();
+    const validated = validateOutreachComposerBody(rawBody, 'sms');
+    if (!validated.ok) {
+      return res.status(400).json({ success: false, error: validated.error });
+    }
+    const body = validated.text;
 
     const toOverride = String((req.body && req.body.to) || '').trim();
     const saveToLead = !!(req.body && req.body.saveToLead);
@@ -3094,11 +3103,14 @@ router.post('/:key/email', async (req, res, next) => {
     if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
 
     const subject = String((req.body && req.body.subject) || '').trim();
-    const body = String((req.body && req.body.body) || '').trim();
-    const html = String((req.body && req.body.html) || '').trim();
-    if (!body && !html) {
-      return res.status(400).json({ success: false, error: 'Email body is required.' });
+    const rawBody = String((req.body && req.body.body) || '').trim();
+    const rawHtml = String((req.body && req.body.html) || '').trim();
+    const validated = validateOutreachComposerBody(rawBody || rawHtml, 'email');
+    if (!validated.ok) {
+      return res.status(400).json({ success: false, error: validated.error });
     }
+    const body = validated.text;
+    const html = rawHtml && !looksLikeOutreachCssJunk(rawHtml) ? rawHtml : '';
 
     const toOverride = String((req.body && req.body.to) || '').trim();
     const saveToLead = !!(req.body && req.body.saveToLead);
@@ -3523,10 +3535,12 @@ router.post('/:key/email-personalize', async (req, res, next) => {
     const lead = await dbService.getLead(fullKey);
     if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
 
-    const scriptText = String((req.body && req.body.scriptText) || '').trim();
-    if (!scriptText) {
-      return res.status(400).json({ success: false, error: 'scriptText is required.' });
+    const scriptTextRaw = String((req.body && req.body.scriptText) || '').trim();
+    const scriptValidated = validateOutreachComposerBody(scriptTextRaw, 'email');
+    if (!scriptValidated.ok) {
+      return res.status(400).json({ success: false, error: scriptValidated.error });
     }
+    const scriptText = scriptValidated.text;
 
     const context = String((req.body && req.body.context) || '').trim().toLowerCase();
     const subjectHint = String((req.body && req.body.subject) || '').trim();
@@ -3537,7 +3551,12 @@ router.post('/:key/email-personalize', async (req, res, next) => {
     const ws = await dbService.getWorkspace(req.workspaceId);
     const profile = resolveScriptSignOffProfile({ user: req.user, workspace: ws });
     const prospect = { name: lead.contactName, company: lead.title, city: lead.city };
-    const body = fillScriptPlaceholders(result.body, { sender: profile, prospect });
+    const bodyFilled = fillScriptPlaceholders(result.body, { sender: profile, prospect });
+    const bodyValidated = validateOutreachComposerBody(bodyFilled, 'email');
+    if (!bodyValidated.ok) {
+      return res.status(400).json({ success: false, error: bodyValidated.error });
+    }
+    const body = bodyValidated.text;
     const subject = fillScriptPlaceholders(result.subject, { sender: profile, prospect });
     return res.json({
       success: true,
@@ -3558,10 +3577,12 @@ router.post('/:key/sms-personalize', express.json({ limit: '32kb' }), async (req
     const lead = await dbService.getLead(fullKey);
     if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
 
-    const scriptText = String((req.body && req.body.scriptText) || '').trim();
-    if (!scriptText) {
-      return res.status(400).json({ success: false, error: 'scriptText is required.' });
+    const scriptTextRaw = String((req.body && req.body.scriptText) || '').trim();
+    const scriptValidated = validateOutreachComposerBody(scriptTextRaw, 'sms');
+    if (!scriptValidated.ok) {
+      return res.status(400).json({ success: false, error: scriptValidated.error });
     }
+    const scriptText = scriptValidated.text;
 
     const context = String((req.body && req.body.context) || '').trim().toLowerCase();
     let result;
@@ -3590,9 +3611,16 @@ router.post('/:key/sms-personalize', express.json({ limit: '32kb' }), async (req
       sender: profile,
       prospect: { name: lead.contactName, company: lead.title, city: lead.city },
     });
+    const outValidated = validateOutreachComposerBody(
+      String(personalized || scriptText).trim().slice(0, 480),
+      'sms',
+    );
+    if (!outValidated.ok) {
+      return res.status(400).json({ success: false, error: outValidated.error });
+    }
     return res.json({
       success: true,
-      personalized: String(personalized || scriptText).trim().slice(0, 480),
+      personalized: outValidated.text,
       provider: result.provider || 'unknown',
     });
   } catch (err) {
@@ -3611,25 +3639,29 @@ router.post('/:key/sms-ai-send', async (req, res, next) => {
     const lead = await dbService.getLead(fullKey);
     if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
 
-    const scriptText = String(
+    const scriptTextRaw = String(
       (req.body && (req.body.scriptText || req.body.cadenceHint)) || '',
     ).trim();
-    if (!scriptText) {
-      return res.status(400).json({ success: false, error: 'scriptText is required.' });
+    const scriptValidated = validateOutreachComposerBody(scriptTextRaw, 'sms');
+    if (!scriptValidated.ok) {
+      return res.status(400).json({ success: false, error: scriptValidated.error });
     }
+    const scriptText = scriptValidated.text;
 
     const context = String((req.body && req.body.context) || '').trim().toLowerCase();
     const aiResult = await smsPersonalize.personalizeSmsForLead(lead, scriptText, {
       context: context === 'cadence' ? 'cadence' : 'outreach',
     });
     const wsSms = await dbService.getWorkspace(req.workspaceId);
-    const message = fillScriptPlaceholders(String(aiResult.message || '').trim(), {
+    const messageFilled = fillScriptPlaceholders(String(aiResult.message || '').trim(), {
       sender: resolveScriptSignOffProfile({ user: req.user, workspace: wsSms }),
       prospect: { name: lead.contactName, company: lead.title, city: lead.city },
     });
-    if (!message) {
-      return res.status(500).json({ success: false, error: 'AI did not return a message.' });
+    const messageValidated = validateOutreachComposerBody(messageFilled, 'sms');
+    if (!messageValidated.ok) {
+      return res.status(400).json({ success: false, error: messageValidated.error });
     }
+    const message = messageValidated.text;
 
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
     const contactedPatch = await buildContactedStagePatch(lead, req.workspaceId, 'SMS');
