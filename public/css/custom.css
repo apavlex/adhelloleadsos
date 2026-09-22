@@ -2543,6 +2543,48 @@ html[data-prospect-density="comfortable"] #prospectLeadsTable .lead-contact-phon
   flex-wrap: nowrap;
 }
 
+.lead-phone-line-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 999px;
+  border: 1.5px solid currentColor;
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0;
+  flex-shrink: 0;
+}
+
+.lead-phone-line-mark--cell {
+  color: #0369a1;
+  background: rgba(14, 165, 233, 0.14);
+}
+
+.lead-phone-line-mark--landline {
+  color: #b45309;
+  background: rgba(245, 158, 11, 0.16);
+}
+
+.lead-phone-line-mark--voip {
+  color: #6d28d9;
+  background: rgba(139, 92, 246, 0.16);
+}
+
+.dark .lead-phone-line-mark--cell {
+  color: #7dd3fc;
+}
+
+.dark .lead-phone-line-mark--landline {
+  color: #fcd34d;
+}
+
+.dark .lead-phone-line-mark--voip {
+  color: #c4b5fd;
+}
+
 .prospect-leads-table--compact .lead-col-tail-tight,
 .prospect-leads-table--compact th.lead-col-tail-tight {
   padding-left: 0.35rem;

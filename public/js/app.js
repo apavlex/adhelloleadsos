@@ -4500,53 +4500,48 @@ document.addEventListener('DOMContentLoaded', () => {
       .trim()
       .toLowerCase();
     const carrier = String((row && row.dataset && row.dataset.phoneCarrier) || '').trim();
-    let label = 'Unknown';
-    let pillClass =
-      'text-brand-muted dark:text-slate-400 bg-brand-cream/80 dark:bg-slate-800 border-brand-border/40 dark:border-white/10';
-    if (type === 'mobile') {
-      label = 'Mobile';
-      pillClass =
-        'text-sky-800 dark:text-sky-200 bg-sky-500/15 dark:bg-sky-950/40 border-sky-500/35';
+    let mark = '';
+    let kind = '';
+    let label = '';
+    if (type === 'mobile' || type === 'cell') {
+      mark = 'C';
+      kind = 'cell';
+      label = 'Cell';
     } else if (type === 'landline') {
+      mark = 'L';
+      kind = 'landline';
       label = 'Landline';
-      pillClass =
-        'text-amber-800 dark:text-amber-200 bg-amber-500/15 dark:bg-amber-950/40 border-amber-500/35';
     } else if (type === 'voip') {
+      mark = 'V';
+      kind = 'voip';
       label = 'VoIP';
-      pillClass =
-        'text-violet-800 dark:text-violet-200 bg-violet-500/15 dark:bg-violet-950/40 border-violet-500/35';
+    } else {
+      return null;
     }
     const title = carrier ? `${label} · ${carrier}` : label;
-    return { label, pillClass, title, type: type || 'unknown' };
+    return { mark, kind, label, title, type };
   }
 
   function syncPhoneLineTypePill(row) {
     if (!row) return;
     const pillInfo = resolvePhoneLineTypePill(row);
-    const phoneCell =
-      row.querySelector('[data-plc="phone"]') ||
-      row.querySelector('.lead-cell-phone') ||
-      row.querySelector('.lead-cell-contact');
-    if (!phoneCell) return;
-    let pill = phoneCell.querySelector('.lead-row-phone-line-pill');
-    if (!pillInfo) {
-      if (pill) pill.remove();
-      return;
-    }
-    if (!pill) {
-      pill = document.createElement('span');
-      const wrap = phoneCell.querySelector('.flex.flex-col') || phoneCell;
-      const phoneSlot = phoneCell.querySelector('.lead-contact-phone-slot');
-      const phoneRow = phoneSlot && phoneSlot.closest ? phoneSlot.closest('.flex') : null;
-      if (phoneRow && phoneRow.parentElement === wrap) {
-        phoneRow.insertAdjacentElement('afterend', pill);
-      } else {
-        wrap.appendChild(pill);
+    row.querySelectorAll('.lead-row-phone-line-pill').forEach((pill) => pill.remove());
+    row.querySelectorAll('.lead-contact-phone-slot').forEach((slot) => {
+      if (!slot || (slot.tagName !== 'BUTTON' && slot.tagName !== 'A')) return;
+      let mark = slot.querySelector('.lead-phone-line-mark');
+      if (!pillInfo) {
+        if (mark) mark.remove();
+        return;
       }
-    }
-    pill.textContent = pillInfo.label;
-    pill.title = pillInfo.title;
-    pill.className = `lead-row-phone-line-pill shrink-0 self-start px-1.5 py-0.5 rounded-full border text-[8px] font-black uppercase tracking-widest ${pillInfo.pillClass}`;
+      if (!mark) {
+        mark = document.createElement('span');
+        slot.appendChild(mark);
+      }
+      mark.textContent = pillInfo.mark;
+      mark.title = pillInfo.title;
+      mark.setAttribute('aria-label', pillInfo.title);
+      mark.className = `lead-phone-line-mark lead-phone-line-mark--${pillInfo.kind} pointer-events-none`;
+    });
   }
   window.syncPhoneLineTypePill = syncPhoneLineTypePill;
 
@@ -10073,11 +10068,11 @@ document.addEventListener('DOMContentLoaded', () => {
       pill.removeAttribute('title');
       return;
     }
-    pill.textContent = pillInfo.label;
+    pill.textContent = pillInfo.mark;
     pill.title = pillInfo.title;
+    pill.setAttribute('aria-label', pillInfo.title);
     pill.className =
-      'mt-1 inline-flex px-1.5 py-0.5 rounded-full border text-[8px] font-black uppercase tracking-widest ' +
-      pillInfo.pillClass;
+      'lead-phone-line-mark lead-phone-line-mark--' + pillInfo.kind + ' mt-1';
     pill.classList.remove('hidden');
   }
 
@@ -14369,6 +14364,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const select = document.getElementById('leadPanelGhlEmailScript');
     const input = document.getElementById('leadPanelGhlEmailBody');
     if (!select || !input) return;
+    if (select.value === '') return;
     const idx = parseInt(select.value, 10);
     const opt = Number.isFinite(idx) ? leadEmailTemplateOptions[idx] : null;
     if (!opt) return;
@@ -14377,26 +14373,33 @@ document.addEventListener('DOMContentLoaded', () => {
     syncLeadPanelGhlEmailCount();
     setLeadPanelGhlEmailStatus(
       opt.id === 'blank'
-        ? 'Type your email, then Send via GHL.'
-        : 'Script loaded — edit if needed, then Send via GHL.',
+        ? 'Type your own email, then Send eMail.'
+        : 'Template loaded — edit if needed, then Send eMail.',
     );
+    input.focus();
   }
 
   function populateLeadEmailTemplateSelect(row, opts) {
     const select = document.getElementById('leadPanelGhlEmailScript');
     if (!select) return;
     leadEmailTemplateOptions = buildLeadEmailTemplateOptions(row);
+    const prev = String(select.value || '');
     select.innerHTML = '';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Choose a template…';
+    select.appendChild(placeholder);
     leadEmailTemplateOptions.forEach((opt, idx) => {
       const o = document.createElement('option');
       o.value = String(idx);
-      o.textContent = opt.label || 'Script ' + (idx + 1);
+      o.textContent = opt.label || 'Template ' + (idx + 1);
       select.appendChild(o);
     });
-    const keepBlank = !!(opts && opts.keepBlank);
-    const preferIdx = keepBlank ? 0 : leadEmailTemplateOptions.length > 1 ? 1 : 0;
-    select.value = String(preferIdx);
-    if (!keepBlank) applyLeadEmailScriptSelection(true);
+    if (prev && Array.from(select.options).some((o) => o.value === prev)) {
+      select.value = prev;
+      return;
+    }
+    select.value = '';
   }
 
   function syncLeadPanelGhlEmailButton(open) {
@@ -14450,28 +14453,24 @@ document.addEventListener('DOMContentLoaded', () => {
     if (subjectEl && (!String(subjectEl.value || '').trim() || switchedLead)) {
       subjectEl.value = leadPanelGhlEmailDefaultSubject(row);
     }
-    try {
-      await fetchWorkspaceOutreachLibrary();
-    } catch (_) {
-      /* library is optional */
-    }
-    const hadDraft = !!(bodyEl && String(bodyEl.value || '').trim()) && !switchedLead;
     if (switchedLead && bodyEl) bodyEl.value = '';
-    populateLeadEmailTemplateSelect(row, { keepBlank: hadDraft });
-    if (hadDraft && bodyEl) {
-      /* keep the in-progress draft; picker stays on blank */
-    }
     if (typeof openLeadPanelNotepad === 'function') openLeadPanelNotepad();
-    const smsSection = document.getElementById('leadSmsThreadSection');
-    if (smsSection) smsSection.classList.add('hidden');
+    if (typeof setLeadOutreachChannel === 'function') setLeadOutreachChannel('email');
     if (section) section.classList.remove('hidden');
     syncLeadPanelGhlEmailButton(true);
+    populateLeadEmailTemplateSelect(row);
     syncLeadPanelGhlEmailCount();
-    setLeadPanelGhlEmailStatus('Pick a script or type the email, then Send via GHL.');
-    if (section) section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    const focusEl = bodyEl && String(bodyEl.value || '').trim() ? bodyEl : subjectEl || bodyEl;
-    if (focusEl) {
-      window.setTimeout(() => focusEl.focus(), 80);
+    setLeadPanelGhlEmailStatus('Ready — pick a template or type an email');
+    if (section && section.scrollIntoView) section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    const select = document.getElementById('leadPanelGhlEmailScript');
+    if (select) {
+      window.setTimeout(() => select.focus(), 80);
+    }
+    try {
+      await fetchWorkspaceOutreachLibrary();
+      populateLeadEmailTemplateSelect(row);
+    } catch (_) {
+      /* library is optional — fields stay usable */
     }
   }
 
