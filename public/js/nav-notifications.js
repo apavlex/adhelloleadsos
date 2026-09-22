@@ -1053,8 +1053,8 @@
               summary.pauseReason = job.lastError;
               if (typeof window.showAppToast === 'function') {
                 window.showAppToast(
-                  'GHL sync paused — ' + String(job.lastError).slice(0, 160),
-                  { variant: 'error', duration: 10000 },
+                  'GHL sync paused — ' + String(job.lastError).slice(0, 280),
+                  { variant: 'error', duration: 14000 },
                 );
               }
               break;
@@ -1080,8 +1080,8 @@
             summary.pauseReason = job.lastError;
             if (typeof window.showAppToast === 'function') {
               window.showAppToast(
-                'GHL sync paused — ' + String(job.lastError).slice(0, 160),
-                { variant: 'error', duration: 10000 },
+                'GHL sync paused — ' + String(job.lastError).slice(0, 280),
+                { variant: 'error', duration: 14000 },
               );
             }
             break;
