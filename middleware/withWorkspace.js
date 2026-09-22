@@ -7,6 +7,7 @@ const { getGoogleMapsApiKey } = require('../services/googleMapsKey');
 const { isAgencySalesWorkspace } = require('../services/leadPanelWorkspace');
 const { resolveScriptSignOffProfile } = require('../services/scriptPlaceholders');
 const { resolveAccentTextColor } = require('../lib/workspaceAccent');
+const { normalizeCustomMenuLinks } = require('../services/customMenuLinks');
 
 /**
  * After auth: bootstrap workspaces, resolve active workspace (?ws= slug → session → user prefs → first),
@@ -38,6 +39,7 @@ async function withWorkspace(req, res, next) {
       res.locals.workspaceAccentText = resolveAccentTextColor(ws.accentColor, ws.accentTextColor);
       res.locals.isAgencySalesWorkspace = isAgencySalesWorkspace(ws);
       res.locals.scriptSignOffProfile = resolveScriptSignOffProfile({ user: req.user, workspace: ws });
+      res.locals.customMenuLinks = normalizeCustomMenuLinks(ws.customMenuLinks);
       return next();
     }
 
@@ -110,6 +112,7 @@ async function withWorkspace(req, res, next) {
         res.locals.canManageWorkspace = false;
         res.locals.workspaceSwitcherList = [];
         res.locals.workspaceAccent = '#CA8A04';
+        res.locals.customMenuLinks = [];
         res.locals.workspaceReturnPath = req.originalUrl || '/workspace/team';
         return next();
       }
@@ -170,6 +173,7 @@ async function withWorkspace(req, res, next) {
     res.locals.googleMapsStaticKey = getGoogleMapsApiKey();
     res.locals.isAgencySalesWorkspace = isAgencySalesWorkspace(ws);
     res.locals.scriptSignOffProfile = resolveScriptSignOffProfile({ user: req.user, workspace: ws });
+    res.locals.customMenuLinks = normalizeCustomMenuLinks(ws.customMenuLinks);
 
     next();
   } catch (err) {

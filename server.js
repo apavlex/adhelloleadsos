@@ -606,6 +606,7 @@ app.use('/ceo', ceoRoutes);
 app.use('/newsletter', newsletterRoutes);
 app.use('/social-posts', socialPostsRoutes);
 app.use('/direct-mail', directMailRoutes);
+app.use('/menu', require('./routes/menuLinks'));
 
 // Error handler
 app.use((err, req, res, next) => {

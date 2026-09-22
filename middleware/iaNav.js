@@ -53,6 +53,8 @@ function iaNav(req, res, next) {
     navPrimary = 'direct-mail';
   } else if (p === '/social-posts' || p.startsWith('/social-posts/')) {
     navPrimary = 'social-posts';
+  } else if (p === '/menu' || p.startsWith('/menu/')) {
+    navPrimary = 'custom-menu';
   }
   res.locals.requestPath = p;
   res.locals.sidebarSettingsOpen =

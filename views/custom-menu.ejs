@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+  <style>
+    body.app-with-sidebar .app-shell-content > main.custom-menu-page {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      padding: 0 0.75rem 0.75rem;
+    }
+    .custom-menu-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.65rem 0.15rem 0.55rem;
+    }
+    .custom-menu-frame {
+      flex: 1 1 auto;
+      width: 100%;
+      min-height: calc(100dvh - 8.5rem);
+      border: 0;
+      border-radius: 1rem;
+      background: #fff;
+      box-shadow: 0 1px 0 rgba(17, 24, 39, 0.06);
+    }
+  </style>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
+  <%- include('partials/navbar') %>
+  <main class="custom-menu-page">
+    <% const _link = typeof customMenuLink !== 'undefined' ? customMenuLink : null; %>
+    <div class="custom-menu-bar">
+      <h1 class="font-display font-extrabold text-lg text-brand-dark dark:text-white truncate"><%= _link ? _link.label : 'Link' %></h1>
+      <% if (_link && _link.url) { %>
+      <a href="<%= _link.url %>" target="_blank" rel="noopener noreferrer" class="shrink-0 rounded-xl border border-brand-border/50 dark:border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white">Open in new tab</a>
+      <% } %>
+    </div>
+    <% if (_link && _link.url) { %>
+    <iframe class="custom-menu-frame" title="<%= _link.label %>" src="<%= _link.url %>" referrerpolicy="no-referrer-when-downgrade"></iframe>
+    <% } %>
+  </main>
+  <%- include('partials/footer') %>
+</body>
+</html>

@@ -27,6 +27,7 @@ const { persistWorkspaceIcp } = require('../services/workspaceIcp');
 const workspaceBootstrap = require('../services/workspaceBootstrap');
 const { normalizeWorkspaceAccentHex, WORKSPACE_UI_ACCENTS, WORKSPACE_UI_ACCENT_TEXT } = require('../lib/workspaceAccent');
 const { isAllowedWorkspaceEmail } = require('../services/auth');
+const { parseCustomMenuLinksInput } = require('../services/customMenuLinks');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
 const workspaceSalesScripts = require('../services/workspaceSalesScripts');
@@ -207,6 +208,7 @@ const WORKSPACE_SECTION_SLUGS = new Set([
   'revenue',
   'info-packs',
   'audit-page',
+  'menu-links',
   'advanced',
 ]);
 
@@ -253,6 +255,10 @@ const WORKSPACE_SECTION_META = {
     title: 'Audit request page',
     description:
       'Custom public form prospects open from Send info links. After submit they can view the hosted audit when ready.',
+  },
+  'menu-links': {
+    title: 'Menu links',
+    description: 'Custom links in the left menu. Open each one inside the app or in a new tab.',
   },
   advanced: {
     title: 'Advanced',
@@ -1934,6 +1940,26 @@ router.post('/scripts/library/import', express.json({ limit: '512kb' }), async (
   }
 });
 
+/** POST JSON: custom sidebar links (iframe or new tab). */
+router.post('/menu-links', express.json({ limit: '64kb' }), async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Only admins can change workspace settings.' });
+    }
+    const parsed = parseCustomMenuLinksInput(req.body && req.body.links);
+    if (!parsed.ok) {
+      return res.status(400).json({ success: false, error: parsed.error });
+    }
+    const wid = req.workspaceId;
+    let ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    ws.customMenuLinks = parsed.links;
+    await dbService.saveWorkspace(wid, ws);
+    res.json({ success: true, links: parsed.links });
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.get('/:section', async (req, res, next) => {
   try {
     const section = String(req.params.section || '').toLowerCase();
@@ -1942,7 +1968,7 @@ router.get('/:section', async (req, res, next) => {
     }
     const locals = await loadWorkspacePageLocals(req);
     const ws = locals.workspace;
-    const managerSections = new Set(['phones', 'voicemail', 'revenue', 'info-packs', 'audit-page']);
+    const managerSections = new Set(['phones', 'voicemail', 'revenue', 'info-packs', 'audit-page', 'menu-links']);
     if (managerSections.has(section) && !req.canManageWorkspace) {
       return res.redirect(302, '/workspace/team');
     }

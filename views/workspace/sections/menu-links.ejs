@@ -1,0 +1,124 @@
+<% const _links = typeof customMenuLinks !== 'undefined' && Array.isArray(customMenuLinks) ? customMenuLinks : []; %>
+<div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 md:p-8">
+  <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-1">Custom menu links</h2>
+  <p class="text-sm text-brand-muted mb-6 max-w-2xl">Add links to the left menu. Open a page inside the app, or send it to a new browser tab. Some sites refuse to load inside the app — use New tab for those.</p>
+
+  <div id="menuLinksList" class="space-y-3"></div>
+  <p id="menuLinksEmpty" class="hidden text-sm text-brand-muted mb-4">No custom links yet.</p>
+
+  <div class="mt-4 flex flex-wrap items-center gap-3">
+    <button type="button" id="menuLinksAdd" class="rounded-xl border border-brand-border dark:border-white/15 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white hover:border-brand-yellow/50">Add link</button>
+    <button type="button" id="menuLinksSave" class="rounded-xl bg-brand-yellow px-6 py-2.5 text-[10px] font-black uppercase tracking-widest">Save links</button>
+    <span id="menuLinksMsg" class="text-sm hidden" role="status"></span>
+  </div>
+</div>
+<script>
+(function () {
+  var initial = <%- JSON.stringify(_links).replace(/</g, '\\u003c') %>;
+  var list = document.getElementById('menuLinksList');
+  var empty = document.getElementById('menuLinksEmpty');
+  var msg = document.getElementById('menuLinksMsg');
+  if (!list) return;
+
+  function fieldClass() {
+    return 'w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-brand-dark dark:text-white';
+  }
+
+  function syncEmpty() {
+    if (!empty) return;
+    empty.classList.toggle('hidden', list.children.length > 0);
+  }
+
+  function moveRow(row, dir) {
+    var sibling = dir < 0 ? row.previousElementSibling : row.nextElementSibling;
+    if (!sibling) return;
+    if (dir < 0) list.insertBefore(row, sibling);
+    else list.insertBefore(sibling, row);
+  }
+
+  function addRow(link) {
+    var row = document.createElement('div');
+    row.className = 'grid grid-cols-1 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.4fr)_9.5rem_auto] gap-2 items-center';
+    row.innerHTML =
+      '<input type="text" data-field="label" maxlength="40" placeholder="Name" aria-label="Link name" class="' + fieldClass() + '" />' +
+      '<input type="url" data-field="url" placeholder="https://" aria-label="Link URL" class="' + fieldClass() + '" />' +
+      '<select data-field="open" aria-label="Where to open" class="' + fieldClass() + '">' +
+        '<option value="iframe">In the app</option>' +
+        '<option value="tab">New tab</option>' +
+      '</select>' +
+      '<div class="flex items-center gap-1">' +
+        '<button type="button" data-move="up" class="rounded-lg border border-brand-border/50 dark:border-white/10 px-2 py-2 text-xs text-brand-muted" aria-label="Move up">↑</button>' +
+        '<button type="button" data-move="down" class="rounded-lg border border-brand-border/50 dark:border-white/10 px-2 py-2 text-xs text-brand-muted" aria-label="Move down">↓</button>' +
+        '<button type="button" data-remove="1" class="rounded-lg border border-brand-border/50 dark:border-white/10 px-2 py-2 text-xs text-brand-muted" aria-label="Remove link">Remove</button>' +
+      '</div>';
+    var data = link || {};
+    if (data.id) row.dataset.id = data.id;
+    row.querySelector('[data-field="label"]').value = data.label || '';
+    row.querySelector('[data-field="url"]').value = data.url || '';
+    row.querySelector('[data-field="open"]').value = data.open === 'tab' ? 'tab' : 'iframe';
+    row.addEventListener('click', function (ev) {
+      var btn = ev.target.closest('button');
+      if (!btn) return;
+      if (btn.getAttribute('data-remove') != null) row.remove();
+      else if (btn.getAttribute('data-move') === 'up') moveRow(row, -1);
+      else if (btn.getAttribute('data-move') === 'down') moveRow(row, 1);
+      syncEmpty();
+    });
+    list.appendChild(row);
+    syncEmpty();
+  }
+
+  function collect() {
+    var rows = list.querySelectorAll(':scope > div');
+    var links = [];
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      links.push({
+        id: row.dataset.id || '',
+        label: row.querySelector('[data-field="label"]').value,
+        url: row.querySelector('[data-field="url"]').value,
+        open: row.querySelector('[data-field="open"]').value
+      });
+    }
+    return links;
+  }
+
+  function showMsg(text, ok) {
+    if (!msg) return;
+    msg.textContent = text;
+    msg.classList.remove('hidden', 'text-emerald-700', 'dark:text-emerald-300', 'text-red-700', 'dark:text-red-300');
+    msg.classList.add(ok ? 'text-emerald-700' : 'text-red-700');
+  }
+
+  (initial || []).forEach(addRow);
+  syncEmpty();
+
+  document.getElementById('menuLinksAdd').addEventListener('click', function () {
+    addRow(null);
+    var last = list.lastElementChild;
+    if (last) last.querySelector('[data-field="label"]').focus();
+  });
+
+  document.getElementById('menuLinksSave').addEventListener('click', function () {
+    var btn = document.getElementById('menuLinksSave');
+    btn.disabled = true;
+    fetch('/workspace/menu-links', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ links: collect() })
+    }).then(function (res) {
+      return res.json().then(function (data) { return { ok: res.ok, data: data }; });
+    }).then(function (result) {
+      if (!result.ok || !result.data || !result.data.success) {
+        showMsg((result.data && result.data.error) || 'Could not save links.', false);
+        btn.disabled = false;
+        return;
+      }
+      window.location.reload();
+    }).catch(function () {
+      showMsg('Could not save links.', false);
+      btn.disabled = false;
+    });
+  });
+})();
+</script>
