@@ -24,6 +24,7 @@ const { filterBusinessPipelineLeads } = require('../services/leadListFilters');
 const { dedupeOpenLeadTasks, clearOpenAutomationTasks } = require('../services/userTasks');
 const { pauseActiveSequencesForWorkspace } = require('../services/sequenceEngine');
 const actionPlanTracker = require('../services/actionPlanTracker');
+const { buildTodayPriorityLeads } = require('../services/todayPriorityLeads');
 function firstNameFromUser(user) {
   const raw =
     (user && user.displayName) ||
@@ -165,6 +166,10 @@ router.get('/', async (req, res, next) => {
     });
 
     const tasksEnriched = enrichTasksWithLeadsForToday(rawTasks, workspaceLeads);
+    const priorityLeads = buildTodayPriorityLeads({
+      leads: businessLeads,
+      tasks: rawTasks,
+    });
     const callWarmQueue = buildCallQueue(businessLeads, { limit: 20 });
     const nextActions = buildNextActionsQueue({
       tasks: tasksEnriched,
@@ -223,6 +228,7 @@ router.get('/', async (req, res, next) => {
       searchInProgressNotice,
       scheduleSavedNotice,
       followUpTasksToday,
+      priorityLeads,
       nextActions,
       callWarmQueue,
       cadenceQueue,

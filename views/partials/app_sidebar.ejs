@@ -8,6 +8,22 @@
 <% const _wsCount = _wsList.length; %>
 <% const _wsSubLabel = _wsCount > 1 ? (_wsCount + ' workspaces · switch') : 'Agency OS'; %>
 <aside id="appSidebar" class="app-sidebar ghl-sidebar flex-col shrink-0 overflow-y-auto custom-scrollbar" aria-label="Main navigation">
+<style>
+  #manualLeadOpenSidebar {
+    border: 1.5px solid rgba(17, 24, 39, 0.38);
+    border-radius: 0.7rem;
+    font-weight: 700;
+    margin: 0.1rem 0.15rem 0.45rem;
+    background: transparent;
+  }
+  html.dark #manualLeadOpenSidebar {
+    border-color: rgba(255, 255, 255, 0.4);
+  }
+  #manualLeadOpenSidebar:hover {
+    border-color: var(--brand-yellow, #ca8a04);
+    background: rgba(255, 214, 68, 0.16);
+  }
+</style>
   <div class="sidebar-logo-row flex items-center justify-center pt-4 pb-2 px-3">
     <a href="/today" class="sidebar-logo-link flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden shadow-sm ring-1 ring-black/5 dark:ring-white/10" title="AdHello — Today" aria-label="AdHello home">
       <img src="/images/adhello-app-icon.png" alt="" width="40" height="40" class="h-full w-full object-contain" loading="eager" decoding="async" />
@@ -40,7 +56,7 @@
       <p class="sidebar-nav-group-label sr-only">Prospecting</p>
       <div class="sidebar-nav-group-items">
         <% if (user) { %>
-        <button type="button" id="manualLeadOpenSidebar" class="sidebar-nav-link w-full text-left" title="Add lead">
+        <button type="button" id="manualLeadOpenSidebar" class="sidebar-nav-link sidebar-add-lead w-full text-left" title="Add lead">
           <svg class="sidebar-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
           <span>Add lead</span>
         </button>
