@@ -584,7 +584,6 @@
     if (summary && summary.active) {
       el.textContent = 'LIVE';
       el.classList.remove('hidden');
-      el.classList.add('bg-emerald-600');
       el.setAttribute(
         'title',
         (summary.headline || 'Auto outreach') +
@@ -593,7 +592,6 @@
     } else if (el.textContent === 'LIVE') {
       el.textContent = '';
       el.classList.add('hidden');
-      el.classList.remove('bg-emerald-600');
       el.removeAttribute('title');
     }
   }
@@ -604,7 +602,6 @@
     if (total > 0 && currentZeroBasedIndex < total) {
       el.textContent = currentZeroBasedIndex + 1 + '/' + total;
       el.classList.remove('hidden');
-      el.classList.remove('bg-emerald-600');
       el.setAttribute(
         'title',
         (label || 'Enhancing leads') +
@@ -620,7 +617,6 @@
       } else {
         el.textContent = '';
         el.classList.add('hidden');
-        el.classList.remove('bg-emerald-600');
         el.removeAttribute('title');
       }
     }
