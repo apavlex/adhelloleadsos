@@ -97,7 +97,33 @@ async function withWorkspace(req, res, next) {
     }
 
     if (!ws || !wid) {
-      return next(new Error('No workspace available for this account.'));
+      const inviteAccept =
+        req.method === 'GET' && /^\/workspace\/invite\/[^/]+\/?$/.test(String(req.path || ''));
+      if (inviteAccept) {
+        req.workspace = null;
+        req.workspaceId = '';
+        req.workspaceRole = '';
+        req.canManageWorkspace = false;
+        res.locals.workspace = null;
+        res.locals.workspaceId = '';
+        res.locals.workspaceRole = '';
+        res.locals.canManageWorkspace = false;
+        res.locals.workspaceSwitcherList = [];
+        res.locals.workspaceAccent = '#CA8A04';
+        res.locals.workspaceReturnPath = req.originalUrl || '/workspace/team';
+        return next();
+      }
+      if (wantsJsonResponse(req)) {
+        return res.status(403).json({
+          success: false,
+          error: 'This account is not on a workspace yet. Open your invite link first.',
+        });
+      }
+      return res.status(403).render('error', {
+        message:
+          'This account is not on a workspace yet. Open the invite link, then sign in with that same Google account.',
+        activePage: '',
+      });
     }
 
     await workspaceService.ensureWorkspaceAndMember(ws.id, email);

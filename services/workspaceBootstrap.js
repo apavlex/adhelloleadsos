@@ -413,6 +413,14 @@ async function ensureUserHasWorkspaces(ownerEmail) {
     return;
   }
 
+  // Workspaces already exist. A new Google account waits for an invite
+  // instead of inheriting or rebuilding the agency workspace.
+  const existingAgencyId = await dbService.getWorkspaceIdForSlug('adhello-agency');
+  const workspaceIds = await dbService.listWorkspaceIds();
+  if (existingAgencyId || (Array.isArray(workspaceIds) && workspaceIds.length > 0)) {
+    return;
+  }
+
   const legacyWs = await dbService.getWorkspace('default');
   const leadKeys = await dbService.listStorageKeysWithPrefix('lead:');
   const hasLeads = leadKeys.length > 0;

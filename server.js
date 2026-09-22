@@ -229,7 +229,11 @@ app.get(
     })(req, res, next);
   },
   function (req, res) {
-    res.redirect('/today');
+    const dest = req.session && req.session.returnTo;
+    if (req.session) delete req.session.returnTo;
+    const safe =
+      typeof dest === 'string' && dest.startsWith('/') && !dest.startsWith('//') ? dest : '/today';
+    res.redirect(safe);
   },
 );
 

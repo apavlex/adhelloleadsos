@@ -20,17 +20,17 @@ function slimGoogleProfile(profile) {
   };
 }
 
-/** Allow AdHello workspace emails on either brand TLD. */
+/** Any real email can be invited. Sign-in still requires that Google account. */
 function isAllowedWorkspaceEmail(email) {
   const e = String(email || '')
     .trim()
     .toLowerCase();
-  return e.endsWith('@adhello.ai') || e.endsWith('@adhello.io');
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 }
 
 function verifyEmailAllowed(profile) {
   const email = (profile.emails && profile.emails[0] && profile.emails[0].value) || '';
-  if (isAllowedWorkspaceEmail(email)) return { ok: true, email };
+  if (isAllowedWorkspaceEmail(email)) return { ok: true, email: String(email).trim().toLowerCase() };
   return { ok: false, email };
 }
 
@@ -49,7 +49,7 @@ if (isGoogleAuthConfigured) {
       function (accessToken, refreshToken, profile, done) {
         const gate = verifyEmailAllowed(profile);
         if (!gate.ok) {
-          return done(null, false, { message: 'Access restricted to adhello.ai / adhello.io workspace.' });
+          return done(null, false, { message: 'Google did not return an email address for this account.' });
         }
         return done(null, slimGoogleProfile(profile));
       }
@@ -67,7 +67,7 @@ if (isGoogleAuthConfigured) {
       async function (accessToken, refreshToken, profile, done) {
         const gate = verifyEmailAllowed(profile);
         if (!gate.ok) {
-          return done(null, false, { message: 'Access restricted to adhello.ai / adhello.io workspace.' });
+          return done(null, false, { message: 'Google did not return an email address for this account.' });
         }
         try {
           const driveEmail =
@@ -118,6 +118,12 @@ function ensureAuthenticated(req, res, next) {
   }
   if (wantsJsonResponse(req)) {
     return res.status(401).json({ success: false, error: 'Sign in required.' });
+  }
+  if (req.session) {
+    const dest = String(req.originalUrl || '');
+    if (dest.startsWith('/') && !dest.startsWith('//') && !dest.startsWith('/auth/')) {
+      req.session.returnTo = dest;
+    }
   }
   res.redirect('/auth/login');
 }
