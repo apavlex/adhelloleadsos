@@ -3471,27 +3471,33 @@ router.get('/:key/email-script-options', async (req, res, next) => {
     });
 
     const options = [];
+    const dedicatedEmail = String(serviceDef.email || '').trim();
     const emailBody = scriptForChannel(serviceDef, 'email');
     if (emailBody) {
       options.push({
         id: `${serviceKey}:email`,
-        label: `${serviceLabel} — Email`,
+        label: dedicatedEmail
+          ? `${serviceLabel} — Email`
+          : `${serviceLabel} — Follow-up (from call script)`,
         text: fillScriptPlaceholders(emailBody, { sender: profile, prospect }),
         subject: followUpSubject,
       });
     }
-    ['opening', 'valueProp', 'close'].forEach((section) => {
-      const text = String(serviceDef[section] || '').trim();
-      if (!text) return;
-      const id = `${serviceKey}:${section}`;
-      if (options.some((o) => o.id === id)) return;
-      options.push({
-        id,
-        label: `${serviceLabel} — ${section === 'valueProp' ? 'Value proposition' : section === 'opening' ? 'Opening' : 'Close'}`,
-        text: fillScriptPlaceholders(text, { sender: profile, prospect }),
-        subject: followUpSubject,
+    // When a dedicated email script exists, don't also list call-script sections as email bodies.
+    if (!dedicatedEmail) {
+      ['opening', 'valueProp', 'close'].forEach((section) => {
+        const text = String(serviceDef[section] || '').trim();
+        if (!text) return;
+        const id = `${serviceKey}:${section}`;
+        if (options.some((o) => o.id === id || o.id === `${serviceKey}:email`)) return;
+        options.push({
+          id,
+          label: `${serviceLabel} — ${section === 'valueProp' ? 'Value proposition' : section === 'opening' ? 'Opening' : 'Close'}`,
+          text: fillScriptPlaceholders(text, { sender: profile, prospect }),
+          subject: followUpSubject,
+        });
       });
-    });
+    }
     savedItems
       .filter((item) => item && String(item.text || '').trim())
       .slice(-8)

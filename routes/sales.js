@@ -349,7 +349,7 @@ router.get('/personas/:tab', (req, res) => {
   res.redirect(302, '/sales/personas/arms-reach');
 });
 
-const SCRIPT_SECTIONS = ['opening', 'discovery', 'valueProp', 'objectionHandling', 'close', 'sms'];
+const SCRIPT_SECTIONS = ['opening', 'discovery', 'valueProp', 'objectionHandling', 'close', 'sms', 'email'];
 const SECTION_LABELS = {
   opening: 'Opening',
   discovery: 'Discovery',
@@ -357,6 +357,7 @@ const SECTION_LABELS = {
   objectionHandling: 'Objection handling',
   close: 'Close',
   sms: 'SMS',
+  email: 'Email',
 };
 
 /** POST JSON: refine script via LLM (multi-turn optional). */
@@ -388,7 +389,9 @@ router.post('/scripts/refine', async (req, res, next) => {
     const channelRule =
       section === 'sms'
         ? '\n- This is an SMS: keep refinedScript under 320 characters, one paragraph, no subject line and no signature.'
-        : '';
+        : section === 'email'
+          ? '\n- This is an email body: plain prose with short paragraphs, no HTML, include a clear ask. Do not invent a Subject line inside refinedScript.'
+          : '';
 
     const trimmedHistory = history
       .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')

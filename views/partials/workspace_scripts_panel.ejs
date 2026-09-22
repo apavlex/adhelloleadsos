@@ -188,7 +188,7 @@
       var rich = richForSnippet(ta);
       if (rich) syncTextareaFromRich(rich);
       var raw = String(ta.value || '');
-      if (ta.classList.contains('script-sms-input')) {
+      if (ta.classList.contains('script-sms-input') || ta.classList.contains('script-email-input')) {
         return Scripts.htmlToPlain ? Scripts.htmlToPlain(raw) : raw;
       }
       return Scripts.htmlToPlain ? Scripts.htmlToPlain(raw) : raw;
@@ -196,8 +196,8 @@
     function hydrateScriptEditors() {
       document.querySelectorAll('.script-snippet').forEach(function (ta) {
         var raw = String(ta.value || '');
-        if (ta.classList.contains('script-sms-input')) {
-          // SMS must stay plain text (strip any pasted HTML/CSS)
+        if (ta.classList.contains('script-sms-input') || ta.classList.contains('script-email-input')) {
+          // SMS / email must stay plain text (strip any pasted HTML/CSS)
           var plain = Scripts.htmlToPlain ? Scripts.htmlToPlain(raw) : raw;
           if (plain !== raw) ta.value = plain;
           return;
@@ -335,6 +335,28 @@
       );
     }
 
+    function emailScriptBlockHtml(entry, text) {
+      var k = escapeHtml(entry.key);
+      var sid = 'snippet-' + k + '-email';
+      return (
+        '<div class="script-block mt-4 rounded-2xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-black/10" data-service="' +
+        k +
+        '" data-section="email"><div class="flex flex-wrap items-center justify-between gap-2 py-3 px-4 border-b border-brand-border/40 dark:border-white/10"><span class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">Email script</span><span class="script-autosave-status text-[10px] font-bold text-brand-muted tabular-nums shrink-0" data-snippet-id="' +
+        sid +
+        '">Saved</span></div><div class="px-4 pb-4 pt-3"><div class="flex flex-wrap gap-2 items-center justify-end mb-3">' +
+        scriptActionButtonsHtml(entry.key, 'email') +
+        '</div><textarea id="' +
+        sid +
+        '" rows="8" maxlength="8000" placeholder="Hi {{name}},&#10;&#10;Following up for {{company}} in {{city}}…&#10;&#10;Best,&#10;[your name]" class="script-snippet script-email-input w-full text-sm leading-relaxed text-brand-dark dark:text-slate-200 bg-white dark:bg-slate-800/80 rounded-2xl p-4 border border-brand-border/50 dark:border-white/10 font-sans resize-y min-h-[10rem] focus:ring-2 focus:ring-brand-yellow focus:border-transparent outline-none" aria-label="Email script">' +
+        escapeHtml(text) +
+        '</textarea><p class="email-empty-hint mt-2 text-[10px] font-bold text-brand-yellow leading-relaxed' +
+        (String(text || '').trim() ? ' hidden' : '') +
+        '" data-snippet-id="' +
+        sid +
+        '">No email script yet — write a plain follow-up body here. Bulk email and the lead panel load this first.</p><p class="mt-2 text-[10px] text-brand-muted leading-relaxed">Plain text only (no HTML). Use merge tags like {{name}}, {{company}}, {{city}}. Subject is set in the bulk email popup.</p></div></div>'
+      );
+    }
+
     function callScriptBlockHtml(entry, text) {
       var k = escapeHtml(entry.key);
       var sid = 'snippet-' + k + '-opening';
@@ -467,6 +489,7 @@
           var block = offerLibrary[entry.key] || {};
           var text = composeBlockScriptFromObj(block);
           var smsText = String(block.sms || '');
+          var emailText = String(block.email || '');
           var hidden = entry.key !== firstKey ? ' hidden' : '';
           return (
             '<div class="pitch-panel' +
@@ -482,6 +505,7 @@
             '<div class="px-4 sm:px-6 pb-6">' +
             callScriptBlockHtml(entry, text) +
             smsScriptBlockHtml(entry, smsText) +
+            emailScriptBlockHtml(entry, emailText) +
             '</div></div>'
           );
         })
@@ -662,12 +686,19 @@
           }
           if (!e.target.classList.contains('script-snippet')) return;
           lastFocusedSnippetId = e.target.id;
-          // Keep SMS plain — strip accidental HTML/CSS paste
-          if (e.target.classList.contains('script-sms-input') && Scripts.htmlToPlain) {
+          // Keep SMS / email plain — strip accidental HTML/CSS paste
+          if (
+            (e.target.classList.contains('script-sms-input') || e.target.classList.contains('script-email-input')) &&
+            Scripts.htmlToPlain
+          ) {
             var plainSms = Scripts.htmlToPlain(e.target.value);
             if (plainSms !== e.target.value) e.target.value = plainSms;
           }
           updateSmsFieldState(e.target);
+          if (e.target.classList.contains('script-email-input')) {
+            var emailHint = document.querySelector('.email-empty-hint[data-snippet-id="' + e.target.id + '"]');
+            if (emailHint) emailHint.classList.toggle('hidden', !!String(e.target.value || '').trim());
+          }
           var st = statusElForSnippetId(e.target.id);
           if (st) st.textContent = 'Unsaved';
           scheduleBlocksPersist();
@@ -850,10 +881,11 @@
       var ta = document.getElementById(lastFocusedSnippetId);
       if (!ta) ta = snippetEl();
       if (ctx && ta && ta.id) {
-        var m = /^snippet-(.+)-(opening|sms)$/.exec(ta.id);
+        var m = /^snippet-(.+)-(opening|sms|email)$/.exec(ta.id);
         if (m) {
           var sLab = serviceLabels[m[1]] || m[1];
-          ctx.textContent = '— ' + sLab + (m[2] === 'sms' ? ' · SMS' : '');
+          var chLab = m[2] === 'sms' ? ' · SMS' : m[2] === 'email' ? ' · Email' : '';
+          ctx.textContent = '— ' + sLab + chLab;
         }
       }
       if (!out) return;
@@ -909,15 +941,16 @@
             objectionHandling: '',
             close: '',
             sms: '',
+            email: '',
           };
         }
         return blocks[key];
       }
       document.querySelectorAll('.script-snippet').forEach(function (ta) {
-        var m = /^snippet-(.+)-(opening|sms)$/.exec(ta.id || '');
+        var m = /^snippet-(.+)-(opening|sms|email)$/.exec(ta.id || '');
         if (!m) return;
         var val = ta.value;
-        if (m[2] === 'sms') {
+        if (m[2] === 'sms' || m[2] === 'email') {
           val = Scripts.htmlToPlain ? Scripts.htmlToPlain(val) : val;
         } else {
           val = sanitizeHtml(val);
@@ -1031,6 +1064,12 @@
         if (smsTa && Object.prototype.hasOwnProperty.call(sections, 'sms')) {
           smsTa.value = String(sections.sms || '');
           updateSmsFieldState(smsTa);
+        }
+        var emailTa = document.getElementById('snippet-' + serviceKey + '-email');
+        if (emailTa && Object.prototype.hasOwnProperty.call(sections, 'email')) {
+          emailTa.value = String(sections.email || '');
+          var emailHint = document.querySelector('.email-empty-hint[data-snippet-id="' + emailTa.id + '"]');
+          if (emailHint) emailHint.classList.toggle('hidden', !!String(emailTa.value || '').trim());
         }
       });
     }
@@ -1214,8 +1253,12 @@
       var ta = snippetEl();
       if (ta) {
         var next = String(pendingRefined || '').trim();
-        if (ta.classList.contains('script-sms-input')) {
+        if (ta.classList.contains('script-sms-input') || ta.classList.contains('script-email-input')) {
           ta.value = Scripts.htmlToPlain ? Scripts.htmlToPlain(next) : next;
+          if (ta.classList.contains('script-email-input')) {
+            var emailHintApply = document.querySelector('.email-empty-hint[data-snippet-id="' + ta.id + '"]');
+            if (emailHintApply) emailHintApply.classList.toggle('hidden', !!String(ta.value || '').trim());
+          }
         } else {
           ta.value = sanitizeHtml(Scripts.scriptTextToEditorHtml ? Scripts.scriptTextToEditorHtml(next) : next);
           syncRichFromTextarea(ta);
