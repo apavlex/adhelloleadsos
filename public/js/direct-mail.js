@@ -11,6 +11,8 @@
   var lightboxSlot = 'front';
   var DM_SAVED_KEY = 'adhello_dm_saved_designs';
   var DM_SAVED_MAX = 24;
+  var DM_HISTORY_KEY = 'adhello_dm_design_history';
+  var DM_HISTORY_MAX = 48;
   var DM_PROMPTS_KEY = 'adhello_dm_saved_prompts';
   var DM_PROMPTS_MAX = 20;
   var artworkGenerating = false;
@@ -2431,6 +2433,47 @@
     } catch (_) {}
   }
 
+  function getDesignHistory() {
+    try {
+      var raw = localStorage.getItem(DM_HISTORY_KEY) || '[]';
+      var parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function persistDesignHistory(list) {
+    try {
+      localStorage.setItem(DM_HISTORY_KEY, JSON.stringify((list || []).slice(0, DM_HISTORY_MAX)));
+    } catch (_) {}
+  }
+
+  function rememberGeneratedDesign(item) {
+    if (!item || !item.imageUrl) return;
+    var entry = {
+      id: item.id || 'dmh_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+      taskId: String(item.taskId || ''),
+      slot: item.slot === 'back' ? 'back' : 'front',
+      imageUrl: item.imageUrl,
+      prompt: String(item.prompt || '').trim(),
+      aspectRatio: String(item.aspectRatio || ''),
+      resolution: String(item.resolution || ''),
+      platform: String(item.platform || ''),
+      label: String(item.label || 'Artwork'),
+      savedAt: item.savedAt || new Date().toISOString(),
+    };
+    var list = getDesignHistory().filter(function (x) {
+      if (!x) return false;
+      if (x.imageUrl === entry.imageUrl) return false;
+      if (entry.taskId && x.taskId && x.taskId === entry.taskId) return false;
+      return true;
+    });
+    list.unshift(entry);
+    persistDesignHistory(list);
+    renderHistoryLibrary();
+  }
+
   function saveDesignToLibrary(slot, opts) {
     opts = opts || {};
     var imageUrl = opts.imageUrl || designs[slot];
@@ -2443,6 +2486,7 @@
       aspectRatio: String(opts.aspectRatio || designMeta[slot].aspectRatio || currentAspectRatio()),
       resolution: String(opts.resolution || designMeta[slot].resolution || '2K'),
       platform: String(opts.platform || currentPlatformKey()),
+      taskId: String(opts.taskId || ''),
       savedAt: new Date().toISOString(),
     };
     var list = getSavedDesigns().filter(function (x) {
@@ -2451,6 +2495,7 @@
     list.unshift(item);
     persistSavedDesigns(list);
     renderSavedLibrary();
+    if (opts.recordHistory) rememberGeneratedDesign(item);
     if (!opts.silent && typeof window.showAppToast === 'function') {
       window.showAppToast('Design saved to library', { variant: 'success' });
     }
@@ -2676,28 +2721,21 @@
     }
   }
 
-  function renderSavedLibrary() {
-    var root = document.getElementById('dmSavedLibrary');
-    var countEl = document.getElementById('dmSavedCount');
-    if (!root) return;
-    var list = getSavedDesigns();
-    if (countEl) {
-      countEl.textContent = list.length + ' saved';
-    }
-    root.innerHTML = '';
-    if (!list.length) {
-      root.innerHTML =
-        '<p class="col-span-3 text-[11px] text-brand-muted">' +
-        'No saved designs yet — generate front or back art and it will autosave here.' +
-        '</p>';
-      return;
-    }
+  function removeDesignHistory(id) {
+    var list = getDesignHistory().filter(function (x) {
+      return x && x.id !== id;
+    });
+    persistDesignHistory(list);
+    renderHistoryLibrary();
+  }
+
+  function renderDesignCards(root, list, onRemove) {
     list.forEach(function (item) {
       var card = document.createElement('div');
       card.className = 'dm-saved-card';
       var img = document.createElement('img');
       img.src = item.imageUrl;
-      img.alt = 'Saved design';
+      img.alt = 'Generated design';
       card.appendChild(img);
       var actions = document.createElement('div');
       actions.className = 'dm-saved-card-actions';
@@ -2740,7 +2778,7 @@
       delBtn.textContent = 'Remove';
       delBtn.addEventListener('click', function (e) {
         e.stopPropagation();
-        removeSavedDesign(item.id);
+        onRemove(item.id);
       });
       actions.appendChild(loadBtn);
       actions.appendChild(dlBtn);
@@ -2752,6 +2790,44 @@
       });
       root.appendChild(card);
     });
+  }
+
+  function renderSavedLibrary() {
+    var root = document.getElementById('dmSavedLibrary');
+    var countEl = document.getElementById('dmSavedCount');
+    if (!root) return;
+    var list = getSavedDesigns();
+    if (countEl) {
+      countEl.textContent = list.length + ' saved';
+    }
+    root.innerHTML = '';
+    if (!list.length) {
+      root.innerHTML =
+        '<p class="col-span-3 text-[11px] text-brand-muted">' +
+        'No saved designs yet — generate front or back art and it will autosave here.' +
+        '</p>';
+      return;
+    }
+    renderDesignCards(root, list, removeSavedDesign);
+  }
+
+  function renderHistoryLibrary() {
+    var root = document.getElementById('dmHistoryLibrary');
+    var countEl = document.getElementById('dmHistoryCount');
+    if (!root) return;
+    var list = getDesignHistory();
+    if (countEl) {
+      countEl.textContent = list.length + ' generated';
+    }
+    root.innerHTML = '';
+    if (!list.length) {
+      root.innerHTML =
+        '<p class="col-span-3 text-[11px] text-brand-muted">' +
+        'No generated graphics yet. Every design you generate is kept here, even if you leave the page.' +
+        '</p>';
+      return;
+    }
+    renderDesignCards(root, list, removeDesignHistory);
   }
 
   function openLightbox(slot, imageUrl, prompt) {
@@ -3391,7 +3467,9 @@
       aspectRatio: aspectRatio,
       resolution: resolution,
       platform: platform,
+      taskId: detail.taskId || '',
       silent: true,
+      recordHistory: true,
     });
     if (!opts.suppressStatus) {
       setDesignStatus((detail.label || 'Artwork') + ' loaded — saved to library.', true);
@@ -3409,12 +3487,31 @@
     return true;
   }
 
-  function loadPendingArtworkFromBell() {
+  async function loadPendingArtworkFromBell() {
+    var params = new URLSearchParams(window.location.search || '');
+    var wantsReady = params.get('artworkReady') === '1';
+    var deadline = Date.now() + 8000;
+    while (
+      (!window.agencyOsArtworkGen || typeof window.agencyOsArtworkGen.consumeReadyResult !== 'function') &&
+      Date.now() < deadline
+    ) {
+      await new Promise(function (resolve) {
+        setTimeout(resolve, 50);
+      });
+    }
+    renderHistoryLibrary();
+    renderSavedLibrary();
     if (!window.agencyOsArtworkGen || typeof window.agencyOsArtworkGen.consumeReadyResult !== 'function') {
+      if (wantsReady) switchDmDrawerTab('history');
       return;
     }
     var pending = window.agencyOsArtworkGen.consumeReadyResult();
-    if (pending) applyArtworkGenerationResult(pending, {});
+    if (pending && pending.imageUrl) {
+      applyArtworkGenerationResult(pending, {});
+      switchDmDrawerTab('history');
+      return;
+    }
+    if (wantsReady) switchDmDrawerTab('history');
   }
 
   async function generateImageForSlot(slot, opts) {
@@ -3581,7 +3678,9 @@
           aspectRatio: aspectRatio,
           resolution: resolution,
           platform: ctx.platform,
+          taskId: data.taskId || '',
           silent: true,
+          recordHistory: true,
         });
         if (!opts.suppressButtonToggle) {
           var statusMsg = editMode
@@ -3638,6 +3737,16 @@
         refreshPostCopyFromFields(true);
         if (slot === 'front' && isSocialPlatform(ctx.platform)) {
           syncArtworkToLinkedSocialPost(data.imageUrl, prompt);
+        }
+        if (
+          window.agencyOsArtworkGen &&
+          typeof window.agencyOsArtworkGen.consumeReadyResult === 'function' &&
+          typeof window.agencyOsArtworkGen.readReadyResult === 'function'
+        ) {
+          var readyNow = window.agencyOsArtworkGen.readReadyResult();
+          if (readyNow && (!data.taskId || readyNow.taskId === data.taskId)) {
+            window.agencyOsArtworkGen.consumeReadyResult();
+          }
         }
         return true;
       }
@@ -4076,9 +4185,22 @@
   });
 
   renderSavedLibrary();
+  renderHistoryLibrary();
+  window.addEventListener('agency-os-artwork-gen-finished', function (e) {
+    var detail = e && e.detail;
+    if (window.agencyOsArtworkGen && typeof window.agencyOsArtworkGen.consumeReadyResult === 'function') {
+      window.agencyOsArtworkGen.consumeReadyResult();
+    }
+    renderHistoryLibrary();
+    renderSavedLibrary();
+    if (detail && detail.success && detail.imageUrl) {
+      applyArtworkGenerationResult(detail, {});
+      switchDmDrawerTab('history');
+    }
+  });
   loadMailPlaybooksFromUrl();
   void loadFromSocialPostParams();
-  loadPendingArtworkFromBell();
+  void loadPendingArtworkFromBell();
   initDmListFilters();
 
   (function scrollToLeadsIfNeededFromFocus() {

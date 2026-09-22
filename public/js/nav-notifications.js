@@ -1790,6 +1790,48 @@
     );
   }
 
+  function pushGeneratedDesignRecord(storageKey, item, max) {
+    try {
+      const raw = localStorage.getItem(storageKey) || '[]';
+      let list = JSON.parse(raw);
+      if (!Array.isArray(list)) list = [];
+      list = list.filter((x) => {
+        if (!x) return false;
+        if (x.imageUrl === item.imageUrl) return false;
+        if (item.taskId && x.taskId && x.taskId === item.taskId) return false;
+        return true;
+      });
+      list.unshift(item);
+      localStorage.setItem(storageKey, JSON.stringify(list.slice(0, max)));
+    } catch (_) {}
+  }
+
+  function rememberGeneratedArtwork(job, result) {
+    const imageUrl = String((result && result.imageUrl) || '').trim();
+    if (!imageUrl) return;
+    const base = {
+      taskId: String((job && job.taskId) || ''),
+      slot: result.slot === 'back' || (job && job.slot === 'back') ? 'back' : 'front',
+      imageUrl,
+      prompt: String((job && job.prompt) || '').trim(),
+      aspectRatio: String((job && job.aspectRatio) || '').trim(),
+      resolution: String((job && job.resolution) || '').trim(),
+      platform: String((job && job.platform) || '').trim(),
+      label: String((job && job.label) || 'Artwork').trim() || 'Artwork',
+      savedAt: new Date().toISOString(),
+    };
+    pushGeneratedDesignRecord(
+      'adhello_dm_design_history',
+      Object.assign({ id: 'dmh_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) }, base),
+      48,
+    );
+    pushGeneratedDesignRecord(
+      'adhello_dm_saved_designs',
+      Object.assign({ id: 'dm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) }, base),
+      24,
+    );
+  }
+
   function storeArtworkReadyResult(job, result) {
     try {
       sessionStorage.setItem(
@@ -1921,11 +1963,12 @@
         const label = job.label || 'Artwork';
         if (result.success) {
           storeArtworkReadyResult(job, result);
+          rememberGeneratedArtwork(job, result);
           pushClientBellNotification({
             headline: 'Artwork ready',
-            body: label + ' finished generating — open Marketing Studio to review.',
+            body: label + ' finished generating — open History in Marketing Studio to review.',
             href: '/direct-mail?artworkReady=1',
-            linkLabel: 'Open Marketing Studio →',
+            linkLabel: 'Open History →',
           });
           if (typeof window.showAppToast === 'function') {
             window.showAppToast(label + ' is ready — open Marketing Studio from the bell.', {

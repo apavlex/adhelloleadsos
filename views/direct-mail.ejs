@@ -77,6 +77,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h14"/></svg>
           <span>Copy</span>
         </button>
+        <button type="button" class="dm-rail-btn" data-dm-tab="history" title="Generated graphics">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span>History</span>
+        </button>
         <button type="button" class="dm-rail-btn" data-dm-tab="library" title="Saved designs">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
           <span>Saved</span>
@@ -234,6 +238,18 @@
             <div id="dmPlaybookList" class="dm-playbook-list space-y-2">
               <p class="text-[11px] text-brand-muted">Loading playbooks…</p>
             </div>
+          </div>
+        </div>
+
+        <!-- History panel -->
+        <div class="dm-drawer-panel" data-dm-panel="history" hidden>
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <h2 class="dm-drawer-title mb-0">History</h2>
+            <span id="dmHistoryCount" class="text-[11px] text-brand-muted">0 generated</span>
+          </div>
+          <p class="dm-drawer-desc">Every graphic you generate is kept here, even if you leave the page. Click a design to load it onto whichever canvas side is active (Front or Back).</p>
+          <div id="dmHistoryLibrary" class="dm-saved-library">
+            <p class="text-[11px] text-brand-muted col-span-full">No generated graphics yet.</p>
           </div>
         </div>
 
