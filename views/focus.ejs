@@ -2085,11 +2085,11 @@
     function runFocusListGhlInBackground(keys, customTags, bg) {
       if (bg.isRunning && bg.isRunning()) {
         var existing = typeof bg.readJob === 'function' ? bg.readJob() : null;
-        if (existing && existing.pausedForError && typeof bg.resume === 'function') {
-          setFocusSyncListStatus('Resuming paused GHL sync…', false);
-          setFocusBulkGhlBusy(true, 'Syncing ' + existing.index + '/' + existing.keys.length);
-          setFocusGhlStopControl('stoppable');
-          bg.resume();
+        if (existing && existing.pausedForError) {
+          setFocusSyncListStatus(
+            'GHL sync is paused — fix token + Location ID under Workspace → Integrations, then Resume in the bell. Or tap Clear sync in the bell to stop the reminder.',
+            true,
+          );
           return Promise.resolve();
         }
         setFocusSyncListStatus('A GHL sync is already running — watch the bell for progress.', false);
@@ -4626,7 +4626,7 @@
             (pushed || 0) +
             '/' +
             total +
-            ' synced. Fix the issue, then tap Sync list / Resume in the bell.',
+            ' synced. Fix Integrations, Resume in the bell, or Clear sync to dismiss.',
           true,
         );
         return;
@@ -4721,7 +4721,19 @@
           e.stopPropagation();
         }
         var bg = window.agencyOsGhlSync;
-        if (!bg || typeof bg.cancel !== 'function' || !bg.cancel()) {
+        if (!bg || typeof bg.cancel !== 'function') {
+          setFocusGhlStopControl('hidden');
+          setFocusBulkGhlBusy(false);
+          setFocusSyncListStatus('No sync is running.', false);
+          return;
+        }
+        if (!bg.cancel()) {
+          if (typeof bg.dismiss === 'function' && bg.dismiss()) {
+            setFocusGhlStopControl('hidden');
+            setFocusBulkGhlBusy(false);
+            setFocusSyncListStatus('GHL sync cleared.', false);
+            return;
+          }
           setFocusGhlStopControl('hidden');
           setFocusBulkGhlBusy(false);
           setFocusSyncListStatus('No sync is running.', false);

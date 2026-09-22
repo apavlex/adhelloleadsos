@@ -788,6 +788,7 @@
   }
 
   const GHL_SYNC_JOB_KEY = 'agencyOsGhlSyncJob';
+  const GHL_PAUSED_TOAST_KEY = 'agencyOsGhlSyncPausedToast';
   let ghlSyncProcessorLock = false;
   let ghlSyncCancelRequested = false;
   /** True while the document is unloading — remaining contacts must pause, not fail. */
@@ -860,13 +861,62 @@
   }
 
   /**
+   * Drop a paused or finished queue from session storage and reset the bell.
+   * Contacts already pushed to GHL are not rolled back.
+   */
+  function clearGhlSyncJobState(opts) {
+    opts = opts || {};
+    var job = readGhlSyncJob();
+    var summary = {
+      ok: false,
+      cancelled: true,
+      dismissed: opts.dismissed !== false,
+      pushed: (job && job.pushedCount) || 0,
+      failed: (job && job.failedCount) || 0,
+      total: job && Array.isArray(job.keys) ? job.keys.length : 0,
+      processed: (job && job.index) || 0,
+      label: (job && job.label) || 'GHL sync',
+      href: (job && job.href) || '/prospecting?tab=pipeline',
+      results: [],
+    };
+    ghlSyncCancelRequested = false;
+    ghlSyncProcessorLock = false;
+    writeGhlSyncJob(null);
+    try {
+      sessionStorage.removeItem(GHL_PAUSED_TOAST_KEY);
+    } catch (_) {}
+    updateBulkEnhanceBellBadge(0, 0);
+    if (typeof window.updateProcessingStatus === 'function') {
+      window.updateProcessingStatus(false);
+    }
+    if (typeof applyProcessingRing === 'function') applyProcessingRing();
+    var ping = document.getElementById('notificationPing');
+    if (ping) ping.classList.add('hidden');
+    window.dispatchEvent(new CustomEvent('agency-os-ghl-sync-finished', { detail: summary }));
+    finishGhlSyncWaiters(summary);
+    if (typeof window.showAppToast === 'function' && opts.toast !== false) {
+      window.showAppToast('GHL sync cleared. Contacts already pushed stay in GHL.', {
+        variant: 'info',
+        duration: 6500,
+      });
+    }
+    return summary;
+  }
+
+  /**
    * Ask the queue to stop after the lead currently being written to GHL.
    * The in-flight request is never aborted — a half-written contact is worse than one extra push.
+   * When paused on a config error there is nothing in flight — clear the job immediately.
    * @returns {boolean} true when a running job was asked to stop.
    */
   function requestGhlSyncCancel() {
     const job = readGhlSyncJob();
-    if (!job || job.running !== true || job.index >= job.keys.length) return false;
+    if (!job) return false;
+    if (job.pausedForError) {
+      clearGhlSyncJobState({ dismissed: true });
+      return true;
+    }
+    if (job.running !== true || job.index >= job.keys.length) return false;
     ghlSyncCancelRequested = true;
     job.cancelRequested = true;
     writeGhlSyncJob(job);
@@ -927,15 +977,19 @@
     const pushed = job.pushedCount || 0;
     const failed = job.failedCount || 0;
     const stopping = job.cancelRequested === true || ghlSyncCancelRequested;
+    const paused = job.pausedForError === true;
+    const spinClass = paused || stopping ? '' : ' animate-spin';
     return (
       '<div class="p-4 border-b border-brand-border/10 bg-orange-500/5 dark:bg-orange-500/10">' +
       '<div class="flex items-start gap-3">' +
       '<div class="w-8 h-8 rounded-full bg-orange-500/15 flex items-center justify-center text-orange-600 dark:text-orange-300 shrink-0">' +
-      '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>' +
+      '<svg class="w-4 h-4' +
+      spinClass +
+      '" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>' +
       '</div><div class="min-w-0">' +
       '<div class="text-[11px] font-black text-brand-dark dark:text-white uppercase tracking-tight mb-0.5">' +
       escapeBellHtml(job.label || 'GHL sync') +
-      (stopping ? ' stopping' : ' in progress') +
+      (paused ? ' paused' : stopping ? ' stopping' : ' in progress') +
       '</div>' +
       '<div class="text-[10px] font-bold text-brand-muted dark:text-slate-400 leading-tight">' +
       escapeBellHtml(String(current) + ' of ' + String(total) + ' contacts') +
@@ -956,9 +1010,14 @@
       (stopping
         ? '<div class="mt-2 text-[9px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Stopping…</div>'
         : job.pausedForError
-          ? '<button type="button" class="btn-pill mt-2 rounded-full bg-orange-500 text-white px-3 py-1 text-[9px] font-black uppercase tracking-widest" ' +
+          ? '<div class="mt-2 flex flex-wrap gap-2">' +
+            '<button type="button" class="btn-pill rounded-full bg-orange-500 text-white px-3 py-1 text-[9px] font-black uppercase tracking-widest" ' +
             'onclick="event.stopPropagation();if(window.agencyOsGhlSync&amp;&amp;window.agencyOsGhlSync.resume)window.agencyOsGhlSync.resume();" ' +
-            'title="Resume syncing remaining contacts">Resume sync</button>'
+            'title="Resume syncing remaining contacts">Resume sync</button>' +
+            '<button type="button" class="btn-solid btn-solid--stop rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-widest" ' +
+            'onclick="event.stopPropagation();if(window.agencyOsGhlSync&amp;&amp;window.agencyOsGhlSync.dismiss)window.agencyOsGhlSync.dismiss();" ' +
+            'title="Clear this paused sync from the bell — contacts already pushed stay in GHL">Clear sync</button>' +
+            '</div>'
           : '<button type="button" class="btn-solid btn-solid--stop mt-2 rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-widest" ' +
             'onclick="event.stopPropagation();if(window.agencyOsGhlSync&amp;&amp;window.agencyOsGhlSync.cancel)window.agencyOsGhlSync.cancel();" ' +
             'title="Stop after the contact currently syncing — anything already pushed stays in GHL">Stop sync</button>') +
@@ -1219,6 +1278,11 @@
     },
     cancel() {
       return requestGhlSyncCancel();
+    },
+    dismiss() {
+      if (!readGhlSyncJob()) return false;
+      clearGhlSyncJobState({ dismissed: true });
+      return true;
     },
     readJob() {
       return readGhlSyncJob();
@@ -2058,14 +2122,28 @@
             paused: true,
           });
           if (typeof window.showAppToast === 'function') {
-            window.showAppToast(
-              'GHL sync paused' +
-                (ghlJob.lastError ? ' — ' + String(ghlJob.lastError).slice(0, 140) : '') +
-                '. Fix the issue, then resume from Focus or the bell.',
-              { variant: 'error', duration: 10000 },
-            );
+            var pausedSig =
+              String(ghlJob.startedAt || '') +
+              '|' +
+              String(ghlJob.lastError || '').slice(0, 120);
+            var showPausedToast = true;
+            try {
+              if (sessionStorage.getItem(GHL_PAUSED_TOAST_KEY) === pausedSig) showPausedToast = false;
+              else sessionStorage.setItem(GHL_PAUSED_TOAST_KEY, pausedSig);
+            } catch (_) {}
+            if (showPausedToast) {
+              window.showAppToast(
+                'GHL sync paused' +
+                  (ghlJob.lastError ? ' — ' + String(ghlJob.lastError).slice(0, 140) : '') +
+                  '. Fix Integrations, resume from the bell, or tap Clear sync to dismiss.',
+                { variant: 'error', duration: 10000 },
+              );
+            }
           }
         } else {
+          try {
+            sessionStorage.removeItem(GHL_PAUSED_TOAST_KEY);
+          } catch (_) {}
           if (typeof window.showAppToast === 'function') {
             window.showAppToast(
               'Resuming ' +
