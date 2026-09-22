@@ -42,20 +42,35 @@
         <% } %>
         <a href="/workspace/integrations/lob-setup" class="dm-studio-topbtn">Design guide</a>
         <a href="/prospecting?tab=pipeline&amp;reach=direct_mail#tableView" class="dm-studio-topbtn">Pipeline</a>
-        <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
-        <a href="/workspace/integrations#lob-integration" class="dm-studio-topbtn dm-studio-topbtn--primary">Lob settings</a>
-        <% } %>
+        <div class="dm-lob-hover">
+          <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
+          <a href="/workspace/integrations#lob-integration" class="dm-studio-topbtn dm-studio-topbtn--primary dm-lob-trigger" aria-describedby="dmLobHoverDetails">
+            <span class="dm-lob-dot<%= lobReady.configured ? '' : ' dm-lob-dot--warn' %>" aria-hidden="true"></span>
+            Lob settings
+          </a>
+          <% } else { %>
+          <span class="dm-studio-topbtn dm-lob-trigger" tabindex="0" aria-describedby="dmLobHoverDetails">
+            <span class="dm-lob-dot<%= lobReady.configured ? '' : ' dm-lob-dot--warn' %>" aria-hidden="true"></span>
+            Lob
+          </span>
+          <% } %>
+          <div class="dm-lob-hover__panel" id="dmLobHoverDetails" role="tooltip">
+            <div class="dm-lob-hover__card<%= lobReady.configured ? ' dm-lob-hover__card--ok' : ' dm-lob-hover__card--warn' %>">
+              <% if (lobReady.configured) { %>
+              <p class="dm-lob-text"><strong>Lob connected</strong><%= lobReady.testMode ? ' · test mode. Postcards appear in Lob only when the dashboard is set to Test.' : ' · live.' %></p>
+              <p class="dm-lob-text"><% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %><%= typeof dmMailableCount === 'number' ? dmMailableCount : mailableLeads.length %> of <%= typeof dmSelectionCount === 'number' ? dmSelectionCount : mailableLeads.length %> selected lead<%= (typeof dmSelectionCount === 'number' ? dmSelectionCount : mailableLeads.length) === 1 ? '' : 's' %> ready.<% } else { %><%= mailableLeads.filter(function (l) { return l.mailable !== false; }).length %> mailable lead<%= mailableLeads.filter(function (l) { return l.mailable !== false; }).length === 1 ? '' : 's' %>.<% } %></p>
+              <p class="dm-lob-text"><% if (lobReady.hasCustomPostcard) { %>Using your uploaded PDFs.<% } else { %>Built-in template — <a href="/workspace/integrations#lob-integration" class="text-brand-yellow hover:underline">upload PDFs</a> for branded mail.<% } %></p>
+              <% if (lobReady.testMode) { %>
+              <p class="dm-lob-text"><a href="https://dashboard.lob.com/postcards" target="_blank" rel="noopener noreferrer" class="text-brand-yellow hover:underline">Open Lob postcards (Test view)</a></p>
+              <% } %>
+              <% } else { %>
+              <p class="dm-lob-text"><strong>Lob not configured.</strong> Add an API key under <a href="/workspace/integrations#lob-integration" class="text-brand-yellow hover:underline">Integrations</a>.</p>
+              <% } %>
+            </div>
+          </div>
+        </div>
       </div>
     </header>
-
-    <div id="lobStatusBanner" class="dm-lob-banner <%= lobReady.configured ? 'dm-lob-banner--ok' : 'dm-lob-banner--warn' %>">
-      <% if (lobReady.configured) { %>
-      <span class="dm-lob-dot"></span>
-      <p class="dm-lob-text">Lob connected<%= lobReady.testMode ? ' · <strong>test mode</strong> — postcards appear in Lob only when dashboard is set to Test' : ' · live' %> — <% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %><%= typeof dmMailableCount === 'number' ? dmMailableCount : mailableLeads.length %> of <%= typeof dmSelectionCount === 'number' ? dmSelectionCount : mailableLeads.length %> selected lead<%= (typeof dmSelectionCount === 'number' ? dmSelectionCount : mailableLeads.length) === 1 ? '' : 's' %> ready.<% } else { %><%= mailableLeads.filter(function (l) { return l.mailable !== false; }).length %> mailable lead<%= mailableLeads.filter(function (l) { return l.mailable !== false; }).length === 1 ? '' : 's' %>.<% } %><% if (lobReady.hasCustomPostcard) { %> Using your uploaded PDFs.<% } else { %> Built-in template — <a href="/workspace/integrations#lob-integration" class="text-brand-yellow hover:underline">upload PDFs</a> for branded mail.<% } %><% if (lobReady.testMode) { %> <a href="https://dashboard.lob.com/postcards" target="_blank" rel="noopener noreferrer" class="text-brand-yellow hover:underline">Open Lob postcards (Test view)</a>.<% } %></p>
-      <% } else { %>
-      <p class="dm-lob-text"><strong>Lob not configured</strong> — Add API key under <a href="/workspace/integrations#lob-integration" class="text-brand-yellow hover:underline">Integrations</a>.</p>
-      <% } %>
-    </div>
     <% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession && typeof dmMailableCount === 'number' && dmMailableCount === 0 && typeof dmSelectionCount === 'number' && dmSelectionCount > 0) { %>
     <div id="dmAddressFixBanner" class="mx-4 md:mx-6 mb-4 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-950 dark:text-amber-100">
       <strong>Address needed.</strong> This lead needs a complete street, city, state, and ZIP before Lob can send. Scroll to <strong>Selected leads</strong> below to review, or enrich the address in the pipeline and return.
