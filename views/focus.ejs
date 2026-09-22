@@ -4618,7 +4618,11 @@
       var err = String(lastError || '').trim();
       if (paused) {
         setFocusBulkGhlBusy(false);
-        setFocusGhlStopControl('hidden');
+        if (btnStopGhlSync) {
+          btnStopGhlSync.classList.remove('hidden');
+          btnStopGhlSync.disabled = false;
+          btnStopGhlSync.textContent = 'Clear sync';
+        }
         setFocusSyncListStatus(
           'GHL sync paused' +
             (err ? ' — ' + err.slice(0, 180) : '') +
