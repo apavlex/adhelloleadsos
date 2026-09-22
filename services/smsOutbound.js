@@ -16,9 +16,13 @@ const PROVIDER_CHAINS = {
 };
 
 function resolveSmsPrimary(integrationEnv) {
-  return String(integrationEnv.SMS_PRIMARY || process.env.SMS_PRIMARY || 'auto')
+  // Prefer GHL whenever it is connected — Agency OS outreach is GHL-first.
+  const configuredPrimary = String(integrationEnv.SMS_PRIMARY || process.env.SMS_PRIMARY || '')
     .trim()
     .toLowerCase();
+  if (configuredPrimary && PROVIDER_CHAINS[configuredPrimary]) return configuredPrimary;
+  if (ghlClient.isConfigured(integrationEnv)) return 'ghl';
+  return 'auto';
 }
 
 function isProviderConfigured(provider, integrationEnv) {
@@ -88,11 +92,17 @@ async function sendSmsToLead(opts) {
   const provider = resolveSmsProvider(integrationEnv, { force: opts.provider });
   if (!provider) {
     throw new Error(
-      'Outbound SMS is not configured. Connect Saperly, Comms, or Go High Level in Workspace → Integrations, or set SignalWire env vars.',
+      'Outbound SMS is not configured. Connect Go High Level in Workspace → Integrations (API key, Location ID, and SMS from number), then Test & save.',
     );
   }
 
-  if (provider === 'ghl') {
+  // When GHL is connected, never silently fall through to another provider for Agency OS sends
+  // unless the caller explicitly forced a different provider.
+  const force = String(opts.provider || '').trim().toLowerCase();
+  const useProvider =
+    !force && ghlClient.isConfigured(integrationEnv) ? 'ghl' : provider;
+
+  if (useProvider === 'ghl') {
     const sent = await ghlMessaging.sendSmsToLead({ lead, message, integrationEnv, toPhone: toRaw });
     return {
       provider: 'ghl',
@@ -103,7 +113,7 @@ async function sendSmsToLead(opts) {
     };
   }
 
-  if (provider === 'comms') {
+  if (useProvider === 'comms') {
     const to = ghlClient.normalizePhoneE164(toRaw);
     if (!to) throw new Error('Recipient phone number is not valid for SMS.');
     const data = await commsClient.sendMessage({ to, body: message }, integrationEnv);
@@ -115,7 +125,7 @@ async function sendSmsToLead(opts) {
     };
   }
 
-  if (provider === 'saperly') {
+  if (useProvider === 'saperly') {
     const to = ghlClient.normalizePhoneE164(toRaw);
     if (!to) throw new Error('Recipient phone number is not valid for SMS.');
     const data = await saperlyClient.sendMessage({ to, body: message }, integrationEnv);
@@ -125,6 +135,10 @@ async function sendSmsToLead(opts) {
       channel: 'sms',
       raw: data,
     };
+  }
+
+  if (useProvider !== 'signalwire') {
+    throw new Error(`Unsupported SMS provider: ${useProvider}`);
   }
 
   const sms = await signalwire.sendSms({

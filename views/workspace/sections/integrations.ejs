@@ -533,10 +533,10 @@
             <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Required to send email from Agency OS. Use a verified sender in your GHL sub-account.</p>
           </div>
           <div>
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">SMS from number (optional)</label>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">SMS from number</label>
             <% if (masks.ghlSmsFromNumber) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.ghlSmsFromNumber %></p><% } %>
             <input type="text" name="ghlSmsFromNumber" autocomplete="off" placeholder="+15551234567" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-            <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Leave blank to use your GHL location default. E.164 format recommended.</p>
+            <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Required to send SMS from Agency OS via GHL. Use an SMS-capable number from this GHL location (E.164, e.g. +15551234567).</p>
           </div>
         </div>
         <%- include('../../partials/integration_test_row', { provider: 'ghl' }) %>

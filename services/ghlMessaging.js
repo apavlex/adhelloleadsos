@@ -39,12 +39,13 @@ function textToHtml(text) {
 function messagingReady(integrationEnv) {
   const configured = ghlClient.isConfigured(integrationEnv);
   const emailFrom = resolveEmailFrom(integrationEnv);
+  const smsFrom = resolveSmsFromNumber(integrationEnv);
   return {
     configured,
-    smsReady: configured,
+    smsReady: configured && !!smsFrom,
     emailReady: configured && !!emailFrom,
     hasEmailFrom: !!emailFrom,
-    hasSmsFromNumber: !!resolveSmsFromNumber(integrationEnv),
+    hasSmsFromNumber: !!smsFrom,
   };
 }
 
@@ -75,18 +76,33 @@ async function sendSmsToLead({ lead, message, integrationEnv, toPhone }) {
   const body = String(message || '').trim();
   if (!body) throw new Error('Message body is required.');
 
+  if (!ghlClient.isConfigured(integrationEnv)) {
+    throw new Error(
+      'Go High Level is not connected. Add your GHL API key and Location ID under Workspace → Integrations, then Test & save.',
+    );
+  }
+
+  const fromNumber = resolveSmsFromNumber(integrationEnv);
+  if (!fromNumber) {
+    throw new Error(
+      'Set GHL SMS from number in Workspace → Integrations (must be an SMS-capable number in this GHL location), then Test & save.',
+    );
+  }
+
   const contactId = await ensureGhlContactId(lead, integrationEnv);
+  const toNumber = ghlClient.normalizePhoneE164(phoneRaw);
+  if (!toNumber) {
+    throw new Error('Recipient phone number is not valid for GHL SMS (use a full number with area code).');
+  }
+
   const payload = {
     type: 'SMS',
     contactId,
     message: body,
-    status: 'delivered',
+    fromNumber,
+    toNumber,
+    status: 'pending',
   };
-
-  const fromNumber = resolveSmsFromNumber(integrationEnv);
-  const toNumber = ghlClient.normalizePhoneE164(phoneRaw);
-  if (fromNumber) payload.fromNumber = fromNumber;
-  if (toNumber) payload.toNumber = toNumber;
 
   const data = await ghlClient.sendConversationMessage(payload, integrationEnv);
   const messageId =
@@ -398,7 +414,7 @@ async function sendEmailToLead({ lead, subject, body, html, integrationEnv, toEm
     message: text || htmlBody.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
     emailFrom,
     emailTo,
-    status: 'delivered',
+    status: 'pending',
   };
 
   const data = await ghlClient.sendConversationMessage(payload, integrationEnv);

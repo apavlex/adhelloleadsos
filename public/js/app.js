@@ -629,6 +629,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       let ok = 0;
       let failed = 0;
+      let lastError = '';
       for (let i = 0; i < keys.length; i += 1) {
         const leadKey = keys[i];
         if (sendBtn) sendBtn.textContent = `Sending ${i + 1}/${n}…`;
@@ -670,7 +671,7 @@ document.addEventListener('DOMContentLoaded', () => {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
               credentials: 'same-origin',
-              body: JSON.stringify({ body: msg }),
+              body: JSON.stringify({ body: msg, provider: 'ghl' }),
             });
             const sData = await sRes.json().catch(() => ({}));
             if (!sRes.ok || !sData.success) throw new Error((sData && sData.error) || 'Send failed');
@@ -678,18 +679,18 @@ document.addEventListener('DOMContentLoaded', () => {
           ok += 1;
         } catch (err) {
           failed += 1;
-          console.warn('Early bulk send failed for', leadKey, err && err.message ? err.message : err);
+          lastError = String((err && err.message) || 'Send failed');
+          console.warn('Early bulk send failed for', leadKey, lastError);
         }
       }
       if (sendBtn) {
         sendBtn.disabled = false;
         sendBtn.textContent = original || (emailMode ? 'Send personalized email' : 'Send personalized SMS');
       }
-      window.alert(
-        emailMode
-          ? `Email: ${ok} sent${failed ? ` · ${failed} failed` : ''}`
-          : `SMS: ${ok} sent${failed ? ` · ${failed} failed` : ''}`,
-      );
+      const summary = emailMode
+        ? `Email: ${ok} sent${failed ? ` · ${failed} failed` : ''}`
+        : `SMS: ${ok} sent${failed ? ` · ${failed} failed` : ''}`;
+      window.alert(lastError ? `${summary}\n\n${lastError}` : summary);
       if (ok > 0) closeSmsModalEarly();
       return true;
     }
@@ -14279,7 +14280,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/sms`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ body }),
+      credentials: 'same-origin',
+      body: JSON.stringify({ body, provider: 'ghl' }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.success) {
@@ -14338,6 +14340,7 @@ document.addEventListener('DOMContentLoaded', () => {
   async function sendBulkPersonalizedSms(phoneKeys, scriptText, onProgress) {
     let ok = 0;
     let failed = 0;
+    const errors = [];
     for (let i = 0; i < phoneKeys.length; i += 1) {
       const leadKey = phoneKeys[i];
       if (typeof onProgress === 'function') {
@@ -14351,10 +14354,12 @@ document.addEventListener('DOMContentLoaded', () => {
         ok += 1;
       } catch (err) {
         failed += 1;
-        console.warn('Bulk personalized SMS failed for', leadKey, err && err.message ? err.message : err);
+        const msg = String((err && err.message) || 'Send failed');
+        errors.push({ leadKey, error: msg });
+        console.warn('Bulk personalized SMS failed for', leadKey, msg);
       }
     }
-    return { ok, failed };
+    return { ok, failed, errors, lastError: errors.length ? errors[errors.length - 1].error : '' };
   }
 
   async function sendEmailToLeadKey(leadKey, subject, body) {
@@ -14397,6 +14402,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let ok = 0;
     let failed = 0;
     let skipped = 0;
+    const errors = [];
     for (let i = 0; i < emailKeys.length; i += 1) {
       const leadKey = emailKeys[i];
       if (typeof onProgress === 'function') {
@@ -14409,12 +14415,21 @@ document.addEventListener('DOMContentLoaded', () => {
         ok += 1;
       } catch (err) {
         const msg = String((err && err.message) || '');
-        if (/no email|email is required|missing email|not found/i.test(msg)) skipped += 1;
-        else failed += 1;
+        if (/no email|email is required|missing email|not found|recipient email/i.test(msg)) skipped += 1;
+        else {
+          failed += 1;
+          errors.push({ leadKey, error: msg || 'Send failed' });
+        }
         console.warn('Bulk personalized email failed for', leadKey, msg || err);
       }
     }
-    return { ok, failed, skipped };
+    return {
+      ok,
+      failed,
+      skipped,
+      errors,
+      lastError: errors.length ? errors[errors.length - 1].error : '',
+    };
   }
 
   function getCurrentLeadKey() {
@@ -14697,14 +14712,16 @@ document.addEventListener('DOMContentLoaded', () => {
           if (result.skipped) parts.push(`${result.skipped} skipped`);
           if (result.failed) parts.push(`${result.failed} failed`);
           const msg = parts.join(' · ');
+          const detail = result.lastError ? `\n\n${result.lastError}` : '';
           showBulkSaveFeedback(msg, result.failed === 0 ? 'success' : 'error');
+          if (result.failed) window.alert(msg + detail);
           if (typeof window.__flashBulkBarBtn === 'function') {
             window.__flashBulkBarBtn(
               document.getElementById('bulkEmailBtn'),
               result.failed === 0 ? '✓ Sent' : 'Failed',
             );
           }
-          closeSmsModal();
+          if (result.ok > 0) closeSmsModal();
           if (typeof window.__updateBulkActionBar === 'function') window.__updateBulkActionBar();
         } catch (err) {
           showBulkSaveFeedback(err.message || 'Bulk email failed.', 'error');
@@ -14738,11 +14755,13 @@ document.addEventListener('DOMContentLoaded', () => {
             showBulkSaveFeedback(`Personalizing & sending SMS ${done}/${total}…`, 'loading');
           });
           const msg = `SMS: ${result.ok} sent${result.failed ? ` · ${result.failed} failed` : ''}`;
+          const detail = result.lastError ? `\n\n${result.lastError}` : '';
           showBulkSaveFeedback(msg, result.failed === 0 ? 'success' : 'error');
+          if (result.failed) window.alert(msg + detail);
           if (typeof window.__flashBulkBarBtn === 'function') {
             window.__flashBulkBarBtn(document.getElementById('bulkSmsBtn'), result.failed === 0 ? '✓ Sent' : 'Failed');
           }
-          closeSmsModal();
+          if (result.ok > 0) closeSmsModal();
           if (typeof window.__updateBulkActionBar === 'function') window.__updateBulkActionBar();
         } catch (err) {
           showBulkSaveFeedback(err.message || 'Bulk SMS failed.', 'error');

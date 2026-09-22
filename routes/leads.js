@@ -3010,6 +3010,9 @@ router.post('/:key/sms', async (req, res, next) => {
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
     const contactedPatch = await buildContactedStagePatch(lead, req.workspaceId, 'SMS');
     const preferredProvider = String((req.body && req.body.provider) || '').trim().toLowerCase();
+    const forceProvider =
+      preferredProvider ||
+      (ghlClient.isConfigured(integrationEnv) ? 'ghl' : undefined);
 
     const sent = await smsOutbound.sendSmsToLead({
       lead,
@@ -3017,7 +3020,7 @@ router.post('/:key/sms', async (req, res, next) => {
       integrationEnv,
       workspaceId: req.workspaceId,
       fromNumber: resolveWorkspaceCallerNumber(await dbService.getWorkspace(req.workspaceId)),
-      provider: preferredProvider || undefined,
+      provider: forceProvider,
       to: toOverride || undefined,
     });
 
@@ -3631,6 +3634,9 @@ router.post('/:key/sms-ai-send', async (req, res, next) => {
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
     const contactedPatch = await buildContactedStagePatch(lead, req.workspaceId, 'SMS');
     const preferredProvider = String((req.body && req.body.provider) || '').trim().toLowerCase();
+    const forceProvider =
+      preferredProvider ||
+      (ghlClient.isConfigured(integrationEnv) ? 'ghl' : undefined);
 
     const sent = await smsOutbound.sendSmsToLead({
       lead,
@@ -3638,7 +3644,7 @@ router.post('/:key/sms-ai-send', async (req, res, next) => {
       integrationEnv,
       workspaceId: req.workspaceId,
       fromNumber: resolveWorkspaceCallerNumber(await dbService.getWorkspace(req.workspaceId)),
-      provider: preferredProvider || undefined,
+      provider: forceProvider,
     });
 
     const providerLabel = smsOutbound.providerDisplayName(sent.provider);
