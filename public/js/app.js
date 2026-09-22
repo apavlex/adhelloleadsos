@@ -3466,6 +3466,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const show = channel === 'text' && !!String(phone || '').trim() && String(phone).trim() !== '—';
     section.classList.toggle('hidden', !show);
     if (show && row) {
+      if (typeof openLeadPanelNotepad === 'function') openLeadPanelNotepad();
+      if (typeof closeLeadPanelGhlEmailComposer === 'function') closeLeadPanelGhlEmailComposer();
       // Local thread only — GHL sync can hang; user taps Sync when they want it.
       populateLeadSmsTemplateSelect(row);
       loadLeadSmsThread(row, { sync: false }).catch((err) => {
@@ -14459,6 +14461,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (hadDraft && bodyEl) {
       /* keep the in-progress draft; picker stays on blank */
     }
+    if (typeof openLeadPanelNotepad === 'function') openLeadPanelNotepad();
+    const smsSection = document.getElementById('leadSmsThreadSection');
+    if (smsSection) smsSection.classList.add('hidden');
     if (section) section.classList.remove('hidden');
     syncLeadPanelGhlEmailButton(true);
     syncLeadPanelGhlEmailCount();
@@ -14601,6 +14606,7 @@ document.addEventListener('DOMContentLoaded', () => {
       notifyLeadPanelDial(err.message || 'Save this lead first.', 'error');
       return;
     }
+    if (typeof openLeadPanelNotepad === 'function') openLeadPanelNotepad();
     setLeadOutreachChannel('text');
     populateLeadSmsTemplateSelect(row);
     const section = document.getElementById('leadSmsThreadSection');
