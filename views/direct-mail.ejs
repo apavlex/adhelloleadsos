@@ -42,6 +42,30 @@
         <% } %>
         <a href="/workspace/integrations/lob-setup" class="dm-studio-topbtn">Design guide</a>
         <a href="/prospecting?tab=pipeline&amp;reach=direct_mail#tableView" class="dm-studio-topbtn">Pipeline</a>
+        <style>
+          .dm-lob-hover { position: relative; display: inline-flex; align-items: center; flex: 0 0 auto; }
+          #dmLobHoverDetails {
+            display: none !important;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            z-index: 80;
+            width: min(20rem, 72vw);
+            padding-top: 0.45rem;
+            margin: 0;
+            pointer-events: none;
+          }
+          .dm-lob-hover:hover #dmLobHoverDetails { display: block !important; pointer-events: auto; }
+          #dmLobHoverDetails .dm-lob-hover__card {
+            padding: 0.7rem 0.8rem;
+            border-radius: 0.75rem;
+            background: #fff;
+            border: 1px solid rgba(16, 185, 129, 0.28);
+            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+          }
+          #dmLobHoverDetails .dm-lob-text { margin: 0; color: #6b7280; line-height: 1.45; font-size: 0.75rem; }
+          #dmLobHoverDetails .dm-lob-text + .dm-lob-text { margin-top: 0.35rem; }
+        </style>
         <div class="dm-lob-hover">
           <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
           <a href="/workspace/integrations#lob-integration" class="dm-studio-topbtn dm-studio-topbtn--primary dm-lob-trigger" aria-describedby="dmLobHoverDetails">
