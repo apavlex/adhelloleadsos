@@ -1933,7 +1933,8 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
 }
 #bulkSaveFeedback.text-emerald-300,
 #bulkSaveFeedback.app-bulk-feedback--success {
-  color: #a7f3d0 !important;
+  color: #d1fae5 !important;
+  background: rgba(6, 78, 59, 0.78);
 }
 #bulkSaveFeedback.text-white\/80,
 #bulkSaveFeedback.app-bulk-feedback--loading {

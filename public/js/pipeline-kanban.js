@@ -123,7 +123,7 @@
     if (!boards || !Array.isArray(boards.pipelines) || !boards.pipelines.length) return null;
     const sel = document.getElementById('bulkOpportunityPipelineSelect');
     const id = sel && sel.value ? String(sel.value).trim() : String(boards.activePipelineId || '');
-    return boards.pipelines.find(function (pipeline) { return pipeline.id === id; }) || boards.pipelines[0];
+    return boards.pipelines.find(function (pipeline) { return pipeline.id === id; }) || null;
   }
 
   function rowOpportunityPipelineId(row) {
@@ -138,6 +138,10 @@
     const sel = document.getElementById('bulkPipelineStageSelect');
     if (!sel || !pipeline || !Array.isArray(pipeline.stages)) return;
     const current = sel.value;
+    const currentName =
+      sel.options && sel.options[sel.selectedIndex]
+        ? String(sel.options[sel.selectedIndex].textContent || '').trim().toLowerCase()
+        : '';
     sel.innerHTML = '';
     pipeline.stages.forEach(function (stage) {
       const opt = document.createElement('option');
@@ -145,7 +149,13 @@
       opt.textContent = stage.name;
       sel.appendChild(opt);
     });
-    if (pipeline.stages.some(function (stage) { return stage.id === current; })) sel.value = current;
+    sel.setAttribute('data-board-id', pipeline.id);
+    const match =
+      pipeline.stages.find(function (stage) { return stage.id === current; }) ||
+      pipeline.stages.find(function (stage) {
+        return currentName && String(stage.name || '').trim().toLowerCase() === currentName;
+      });
+    if (match) sel.value = match.id;
   }
 
   function rebuildOpportunityColumns(pipeline) {

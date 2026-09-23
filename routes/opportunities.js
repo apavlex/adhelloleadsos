@@ -12,7 +12,7 @@ const {
   renameStage,
   renamePipeline,
   removeStage,
-  stageBelongsToPipeline,
+  resolvePlacement,
 } = require('../services/opportunityBoards');
 
 async function loadContext(req, pipelineId) {
@@ -137,6 +137,7 @@ router.post('/bulk-move', express.json({ limit: '64kb' }), async (req, res, next
   try {
     const pipelineId = String((req.body && req.body.pipelineId) || '').trim();
     const stageId = String((req.body && req.body.stageId) || '').trim();
+    const stageName = String((req.body && req.body.stageName) || '').trim();
     const folderKey =
       req.body && req.body.folderKey != null && String(req.body.folderKey).trim()
         ? String(req.body.folderKey).trim()
@@ -146,9 +147,8 @@ router.post('/bulk-move', express.json({ limit: '64kb' }), async (req, res, next
       .filter(Boolean);
     if (!leadKeys.length) return jsonError(res, 400, 'Select at least one lead.');
     const workspace = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
-    if (!stageBelongsToPipeline(workspace.opportunityBoards, pipelineId, stageId)) {
-      return jsonError(res, 400, 'That stage is not on this board.');
-    }
+    const placement = resolvePlacement(workspace.opportunityBoards, pipelineId, stageId, stageName);
+    if (!placement.ok) return jsonError(res, 400, placement.error);
     const all = await dbService.getAllLeads(req.workspaceId);
     const visibleKeys = new Set(filterLeadsForRequest(req, all).map((lead) => lead.key));
     const resolveKey = (rawKey) => {
@@ -161,8 +161,8 @@ router.post('/bulk-move', express.json({ limit: '64kb' }), async (req, res, next
       const fullKey = resolveKey(rawKey);
       if (!fullKey) continue;
       const patch = {
-        opportunityPipelineId: pipelineId,
-        opportunityStageId: stageId,
+        opportunityPipelineId: placement.pipelineId,
+        opportunityStageId: placement.stageId,
         onPipelineBoard: true,
       };
       if (folderKey) patch.folderKey = folderKey;
@@ -170,7 +170,14 @@ router.post('/bulk-move', express.json({ limit: '64kb' }), async (req, res, next
       if (lead) updatedKeys.push(lead.key);
     }
     if (!updatedKeys.length) return jsonError(res, 404, 'No leads were updated.');
-    res.json({ success: true, updatedKeys, pipelineId, stageId });
+    res.json({
+      success: true,
+      updatedKeys,
+      pipelineId: placement.pipelineId,
+      stageId: placement.stageId,
+      pipelineName: placement.pipelineName,
+      stageName: placement.stageName,
+    });
   } catch (e) {
     next(e);
   }
@@ -181,16 +188,16 @@ router.post('/move', express.json({ limit: '16kb' }), async (req, res, next) => 
     const leadKey = String((req.body && req.body.leadKey) || '').trim();
     const pipelineId = String((req.body && req.body.pipelineId) || '').trim();
     const stageId = String((req.body && req.body.stageId) || '').trim();
+    const stageName = String((req.body && req.body.stageName) || '').trim();
     if (!leadKey || !pipelineId || !stageId) {
       return jsonError(res, 400, 'Choose an opportunity and a stage.');
     }
     const workspace = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
-    if (!stageBelongsToPipeline(workspace.opportunityBoards, pipelineId, stageId)) {
-      return jsonError(res, 400, 'That stage is not on this pipeline.');
-    }
+    const placement = resolvePlacement(workspace.opportunityBoards, pipelineId, stageId, stageName);
+    if (!placement.ok) return jsonError(res, 400, placement.error);
     const updated = await dbService.updateLead(
       leadKey,
-      { opportunityPipelineId: pipelineId, opportunityStageId: stageId },
+      { opportunityPipelineId: placement.pipelineId, opportunityStageId: placement.stageId },
       req.workspaceId,
     );
     if (!updated) return jsonError(res, 404, 'Lead not found.');

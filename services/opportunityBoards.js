@@ -305,6 +305,43 @@ function stageBelongsToPipeline(boards, pipelineId, stageId) {
   return pipeline.stages.some((stage) => stage.id === stageId);
 }
 
+function resolvePlacement(boards, pipelineId, stageId, stageNameHint) {
+  const normalized = normalizeBoards(boards).boards;
+  const requestedPipeline = String(pipelineId || '').trim();
+  const requestedStage = String(stageId || '').trim();
+  const pipeline = normalized.pipelines.find((item) => item.id === requestedPipeline);
+  if (!pipeline) return { ok: false, error: 'Choose an opportunity board.' };
+  const direct = pipeline.stages.find((stage) => stage.id === requestedStage);
+  if (direct) {
+    return {
+      ok: true,
+      pipelineId: pipeline.id,
+      stageId: direct.id,
+      pipelineName: pipeline.name,
+      stageName: direct.name,
+    };
+  }
+  let stageName = String(stageNameHint || '').trim();
+  if (!stageName) {
+    normalized.pipelines.forEach((item) => {
+      item.stages.forEach((stage) => {
+        if (stage.id === requestedStage) stageName = stage.name;
+      });
+    });
+  }
+  const matched = stageName
+    ? pipeline.stages.find((stage) => stage.name.toLowerCase() === stageName.toLowerCase())
+    : null;
+  if (!matched) return { ok: false, error: 'That stage is not on this board.' };
+  return {
+    ok: true,
+    pipelineId: pipeline.id,
+    stageId: matched.id,
+    pipelineName: pipeline.name,
+    stageName: matched.name,
+  };
+}
+
 module.exports = {
   DEFAULT_STAGE_NAMES,
   normalizeBoards,
@@ -316,4 +353,5 @@ module.exports = {
   renamePipeline,
   removeStage,
   stageBelongsToPipeline,
+  resolvePlacement,
 };

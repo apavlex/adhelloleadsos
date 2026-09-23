@@ -3334,7 +3334,7 @@
         body: JSON.stringify({
           leadKeys: keys.map(normalizeLeadKeyForBoardApi).filter(Boolean),
           stageId: stageId,
-          ...(opportunityMove ? { pipelineId: opportunityPipelineId } : {}),
+          ...(opportunityMove ? { pipelineId: opportunityPipelineId, stageName: stageName } : {}),
           ...(folderKey ? { folderKey: folderKey } : {}),
         }),
       });

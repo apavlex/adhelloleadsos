@@ -8,6 +8,7 @@ const {
   addStage,
   renameStage,
   removeStage,
+  resolvePlacement,
 } = require('../services/opportunityBoards');
 
 test('normalizeBoards creates a marketing pipeline with default stages', () => {
@@ -75,6 +76,22 @@ test('buildOpportunityBoard places important leads in New opportunity until they
   assert.match(board.stages[2].cards[0].scheduleHref, /intent=schedule/);
   assert.match(board.stages[2].cards[0].taskHref, /intent=task/);
   assert.match(board.stages[2].cards[0].tagsHref, /focusLead=/);
+});
+
+test('resolvePlacement maps a same-named stage onto the selected board', () => {
+  const { boards } = normalizeBoards(null);
+  const extra = addPipeline(boards, 'Marketing Pipeline');
+  const otherStage = boards.pipelines[0].stages[0];
+  const resolved = resolvePlacement(extra.boards, extra.pipelineId, otherStage.id);
+  assert.equal(resolved.ok, true);
+  assert.equal(resolved.pipelineId, extra.pipelineId);
+  assert.equal(resolved.stageName, 'New opportunity');
+  assert.notEqual(resolved.stageId, otherStage.id);
+  const byLabel = resolvePlacement(extra.boards, extra.pipelineId, 'ops_missing', 'Qualified');
+  assert.equal(byLabel.ok, true);
+  assert.equal(byLabel.stageName, 'Qualified');
+  const missing = resolvePlacement(extra.boards, extra.pipelineId, 'ops_missing', 'Not a stage');
+  assert.equal(missing.ok, false);
 });
 
 test('stage edits stay on the same board object the Today page reads', () => {

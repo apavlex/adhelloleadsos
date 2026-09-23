@@ -18671,7 +18671,7 @@ document.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify({
           leadKeys: keys.map(normalizeLeadKeyForApi).filter(Boolean),
           stageId,
-          ...(opportunityMove ? { pipelineId: opportunityPipelineId } : {}),
+          ...(opportunityMove ? { pipelineId: opportunityPipelineId, stageName } : {}),
           ...(folderKey ? { folderKey } : {}),
         }),
       });
@@ -18977,15 +18977,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const boardEl = document.getElementById('bulkOpportunityPipelineSelect');
     const stageEl = document.getElementById('bulkPipelineStageSelect');
     const pipelineId = boardEl && boardEl.value ? String(boardEl.value).trim() : '';
-    const stageId = stageEl && stageEl.value ? String(stageEl.value).trim() : '';
-    if (!pipelineId || stageId.indexOf('ops_') !== 0) return null;
+    let stageId = stageEl && stageEl.value ? String(stageEl.value).trim() : '';
+    if (!pipelineId) return null;
     const pipelineName =
       (boardEl.options && boardEl.options[boardEl.selectedIndex] && boardEl.options[boardEl.selectedIndex].textContent.trim()) ||
       'pipeline';
-    const stageName =
-      (stageEl.options && stageEl.options[stageEl.selectedIndex] && stageEl.options[stageEl.selectedIndex].textContent.trim()) ||
-      'stage';
-    return { pipelineId, stageId, pipelineName, stageName };
+    let stageName =
+      (stageEl && stageEl.options && stageEl.options[stageEl.selectedIndex] && stageEl.options[stageEl.selectedIndex].textContent.trim()) ||
+      '';
+    const boards = window.OPPORTUNITY_BOARDS;
+    const pipelines = boards && Array.isArray(boards.pipelines) ? boards.pipelines : [];
+    const pipeline = pipelines.find(function (item) { return item && item.id === pipelineId; });
+    if (pipeline && Array.isArray(pipeline.stages)) {
+      let stage = pipeline.stages.find(function (item) { return item.id === stageId; });
+      if (!stage && stageName) {
+        stage = pipeline.stages.find(function (item) {
+          return String(item.name || '').trim().toLowerCase() === stageName.toLowerCase();
+        });
+      }
+      if (stage) {
+        stageId = stage.id;
+        stageName = stage.name || stageName;
+      }
+    }
+    if (stageId.indexOf('ops_') !== 0) return null;
+    return { pipelineId, stageId, pipelineName, stageName: stageName || 'stage' };
   }
 
   async function bulkSaveSelectedLeads(triggerBtn) {
@@ -19062,6 +19078,7 @@ document.addEventListener('DOMContentLoaded', () => {
               leadKeys: savedKeys,
               pipelineId: opportunityPlacement.pipelineId,
               stageId: opportunityPlacement.stageId,
+              stageName: opportunityPlacement.stageName,
               ...(folderKey ? { folderKey } : {}),
             }),
           });
@@ -19070,6 +19087,10 @@ document.addEventListener('DOMContentLoaded', () => {
             throw new Error((data && data.error) || 'Could not save those leads to the selected pipeline.');
           }
           savedKeys = Array.isArray(data.updatedKeys) && data.updatedKeys.length ? data.updatedKeys : savedKeys;
+          if (data.pipelineName) opportunityPlacement.pipelineName = data.pipelineName;
+          if (data.stageName) opportunityPlacement.stageName = data.stageName;
+          if (data.pipelineId) opportunityPlacement.pipelineId = data.pipelineId;
+          if (data.stageId) opportunityPlacement.stageId = data.stageId;
           if (typeof window.__adhelloApplyOpportunityPlacement === 'function') {
             window.__adhelloApplyOpportunityPlacement(
               savedKeys,
@@ -19095,8 +19116,11 @@ document.addEventListener('DOMContentLoaded', () => {
           cb.checked = false;
         });
         const assignCount = savedKeys.length;
-        const successMsg = placeLabel
-          ? `Saved ${assignCount} lead${assignCount === 1 ? '' : 's'} to ${placeLabel}`
+        const savedPlace = opportunityPlacement
+          ? `${opportunityPlacement.pipelineName} · ${opportunityPlacement.stageName}`
+          : placeLabel;
+        const successMsg = savedPlace
+          ? `Saved ${assignCount} lead${assignCount === 1 ? '' : 's'} to ${savedPlace}`
           : folderName
             ? `Saved ${assignCount} lead${assignCount === 1 ? '' : 's'} to ${folderName}`
             : `Saved ${assignCount} lead${assignCount === 1 ? '' : 's'}`;
