@@ -8,10 +8,12 @@ const referralNetwork = require('../services/referralNetwork');
 const ACTION_NOTICE = {
   connect: 'Marked connected.',
   intro: 'Intro marked as sent.',
-  highlight: 'Added to your referral network.',
-  clear: 'Removed from your referral network.',
-  sent: 'Referral sent recorded.',
-  received: 'Referral received recorded.',
+  highlight: 'Added to your referral partners.',
+  clear: 'Removed from referral partners.',
+  sent: 'Lead sent recorded.',
+  received: 'Lead received recorded.',
+  note: 'Note saved on the lead.',
+  ghl: 'Synced to Go High Level.',
 };
 
 function backUrl(query, notice) {
@@ -30,8 +32,8 @@ async function workspaceLeads(req) {
 async function findLead(req, key) {
   const id = String(key || '').trim();
   if (!id) return null;
-  const leads = await workspaceLeads(req);
-  return leads.find((lead) => lead && lead.key === id) || null;
+  const lead = await dbService.getLead(id, req.workspaceId);
+  return lead && lead.key ? lead : null;
 }
 
 router.get('/', async (req, res, next) => {
@@ -39,7 +41,7 @@ router.get('/', async (req, res, next) => {
     const q = String(req.query.q || '').trim();
     const leads = await workspaceLeads(req);
     res.render('referrals', {
-      title: 'Referral network',
+      title: 'Referral partners',
       activePage: 'referrals',
       query: q,
       partners: referralNetwork.listPartners(leads, q),
@@ -94,10 +96,20 @@ router.post('/partner', express.urlencoded({ extended: false }), async (req, res
   try {
     const lead = await findLead(req, req.body.leadKey);
     if (!lead) return res.redirect(backUrl(q, 'That partner is not in this workspace.'));
-    const applied = referralNetwork.applyPartnerAction(lead, req.body.action);
+    const action = String(req.body.action || '').trim();
+    const note = String(req.body.note || '').trim();
+    const applied = referralNetwork.applyPartnerAction(lead, action, undefined, note);
     if (!applied.ok) return res.redirect(backUrl(q, applied.error));
-    await dbService.updateLead(lead.key, { referralPartner: applied.referralPartner }, req.workspaceId);
-    res.redirect(backUrl(q, ACTION_NOTICE[String(req.body.action || '').trim()] || 'Updated.'));
+    const patch = { referralPartner: applied.referralPartner };
+    if (action === 'note') {
+      const ts = applied.referralPartner.lastNoteAt || new Date().toISOString();
+      const updates = Array.isArray(lead.updates) ? lead.updates.slice() : [];
+      updates.push({ type: 'note', value: note, timestamp: ts, source: 'referral_partner' });
+      patch.updates = updates;
+      patch.logs = [{ type: 'note', message: note, timestamp: ts }];
+    }
+    await dbService.updateLead(lead.key, patch, req.workspaceId);
+    res.redirect(backUrl(q, ACTION_NOTICE[action] || 'Updated.'));
   } catch (err) {
     console.error('[referrals] partner update failed:', err.message);
     res.redirect(backUrl(q, 'Could not update that partner.'));

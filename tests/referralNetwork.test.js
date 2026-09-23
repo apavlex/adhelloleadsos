@@ -55,10 +55,16 @@ test('connect, intro, and referral tallies stay on the partner record', () => {
   assert.equal(connected.referralPartner.highlighted, true);
   const intro = referral.applyPartnerAction({ referralPartner: connected.referralPartner }, 'intro');
   assert.equal(intro.referralPartner.status, 'intro_sent');
-  const sent = referral.applyPartnerAction({ referralPartner: intro.referralPartner }, 'sent');
-  const received = referral.applyPartnerAction({ referralPartner: sent.referralPartner }, 'received');
+  const sent = referral.applyPartnerAction({ referralPartner: intro.referralPartner }, 'sent', '2026-09-22T15:00:00.000Z');
+  const received = referral.applyPartnerAction({ referralPartner: sent.referralPartner }, 'received', '2026-09-22T16:00:00.000Z');
   assert.equal(received.referralPartner.sent, 1);
   assert.equal(received.referralPartner.received, 1);
+  assert.equal(received.referralPartner.lastSentAt, '2026-09-22T15:00:00.000Z');
+  assert.equal(received.referralPartner.lastReceivedAt, '2026-09-22T16:00:00.000Z');
+  assert.equal(received.referralPartner.events.at(-1).type, 'received');
+  const noted = referral.applyPartnerAction({ referralPartner: received.referralPartner }, 'note', '2026-09-22T17:00:00.000Z', 'Sends roofing jobs.');
+  assert.equal(noted.ok, true);
+  assert.equal(noted.referralPartner.events.at(-1).text, 'Sends roofing jobs.');
   const cleared = referral.applyPartnerAction({ referralPartner: received.referralPartner }, 'clear');
   assert.equal(cleared.referralPartner.highlighted, false);
   assert.equal(cleared.referralPartner.status, '');
