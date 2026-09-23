@@ -87,7 +87,7 @@
         animation: 150,
         draggable: '.opp-card',
         filter: '.opp-card-tools, .opp-card-tools *',
-        preventOnFilter: false,
+        preventOnFilter: true,
         ghostClass: 'sortable-ghost',
         onEnd: function (evt) {
           if (evt.from) syncStage(evt.from);
@@ -192,37 +192,98 @@
     });
   }
 
+  function leadTitle(action) {
+    return action.getAttribute('data-title') || 'this opportunity';
+  }
+
+  function leadKeyOf(action) {
+    return action.getAttribute('data-lead-key') || '';
+  }
+
+  function saveTask(action, body, okText) {
+    if (action.disabled) return;
+    action.disabled = true;
+    post('/tasks/api', body).then(function (result) {
+      action.disabled = false;
+      if (!result.ok || !result.data || !result.data.success) {
+        showError((result.data && result.data.error) || 'Could not save that.');
+        return;
+      }
+      showStatus(okText, true);
+    }).catch(function () {
+      action.disabled = false;
+      showError('Could not save that.');
+    });
+  }
+
   board.addEventListener('click', function (ev) {
     var action = ev.target.closest('[data-opp-action]');
     if (action) {
+      ev.preventDefault();
+      ev.stopPropagation();
       var kind = action.getAttribute('data-opp-action');
-      if (kind === 'call' || kind === 'email' || kind === 'ghl') {
-        ev.preventDefault();
-        ev.stopPropagation();
-      }
       if (kind === 'call') {
         var phone = action.getAttribute('data-phone') || '';
         if (!phone) {
           showError('No phone number on this opportunity.');
           return;
         }
-        if (typeof window.__adhelloOpenSoftphoneWithDial !== 'function' || !window.__adhelloOpenSoftphoneWithDial(phone, {
-          leadKey: action.getAttribute('data-lead-key') || '',
-          title: action.getAttribute('data-title') || '',
-        })) {
-          showError('Could not open the dialer for that number.');
-        }
+        var dialed = typeof window.__adhelloOpenSoftphoneWithDial === 'function' && window.__adhelloOpenSoftphoneWithDial(phone, {
+          leadKey: leadKeyOf(action),
+          title: leadTitle(action),
+        });
+        if (!dialed) window.location.href = 'tel:' + phone.replace(/[^\d+]/g, '');
         return;
       }
       if (kind === 'email') {
-        showError('No email on this opportunity.');
+        var email = action.getAttribute('data-email') || '';
+        if (!email) {
+          showError('No email on this opportunity.');
+          return;
+        }
+        window.location.href = 'mailto:' + email;
+        return;
+      }
+      if (kind === 'schedule') {
+        var whenRaw = window.prompt('Schedule a follow-up. Use a date and time like 2026-09-23 15:00', '');
+        if (whenRaw == null) return;
+        var when = String(whenRaw).trim();
+        if (!when) return;
+        var parsed = new Date(when.replace(' ', 'T'));
+        if (Number.isNaN(parsed.getTime())) {
+          showError('Use a date and time like 2026-09-23 15:00.');
+          return;
+        }
+        saveTask(action, {
+          title: 'Follow up with ' + leadTitle(action),
+          leadKey: leadKeyOf(action),
+          scheduledAt: parsed.toISOString(),
+          remindMinutesBefore: 15,
+        }, 'Scheduled.');
+        return;
+      }
+      if (kind === 'task') {
+        var taskTitle = window.prompt('Task for ' + leadTitle(action), 'Follow up');
+        if (taskTitle == null) return;
+        taskTitle = String(taskTitle).trim();
+        if (!taskTitle) return;
+        saveTask(action, {
+          title: taskTitle,
+          leadKey: leadKeyOf(action),
+        }, 'Task saved.');
+        return;
+      }
+      if (kind === 'tags') {
+        var tagKey = leadKeyOf(action);
+        if (!tagKey) return;
+        window.location.href = '/prospecting?tab=pipeline&focusLead=' + encodeURIComponent(tagKey);
         return;
       }
       if (kind === 'ghl') {
-        var leadKey = action.getAttribute('data-lead-key') || '';
-        if (!leadKey || action.disabled) return;
+        var ghlKey = leadKeyOf(action);
+        if (!ghlKey || action.disabled) return;
         action.disabled = true;
-        post('/ghl/push', { leadKeys: [leadKey] }).then(function (result) {
+        post('/ghl/push', { leadKeys: [ghlKey] }).then(function (result) {
           action.disabled = false;
           if (!result.ok || !result.data || !result.data.success) {
             showError((result.data && result.data.error) || 'Could not sync that opportunity to Go High Level.');

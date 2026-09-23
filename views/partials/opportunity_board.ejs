@@ -12,7 +12,7 @@
   html.dark .opp-stage-cards { background: rgba(2, 6, 23, 0.35); }
   .opp-drop { flex: 1 1 auto; min-height: 6.5rem; display: flex; align-items: center; justify-content: center; border: 1px dashed rgba(17, 24, 39, 0.14); border-radius: 0.7rem; color: #9ca3af; font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; text-align: center; }
   html.dark .opp-drop { border-color: rgba(255, 255, 255, 0.14); }
-  .opp-card { width: 100%; min-width: 0; box-sizing: border-box; background: #fff; border: 1px solid rgba(17, 24, 39, 0.08); border-radius: 0.8rem; padding: 0.7rem 0.75rem; cursor: grab; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
+  .opp-card { position: relative; width: 100%; min-width: 0; box-sizing: border-box; background: #fff; border: 1px solid rgba(17, 24, 39, 0.08); border-radius: 0.8rem; padding: 0.7rem 0.75rem; cursor: grab; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
   html.dark .opp-card { background: #0f172a; border-color: rgba(255, 255, 255, 0.1); }
   .opp-card.sortable-ghost { opacity: 0.45; }
   .opp-card-title { display: block; font-weight: 800; font-size: 0.875rem; line-height: 1.3; color: inherit; text-decoration: none; overflow-wrap: anywhere; }
@@ -21,7 +21,7 @@
   .opp-card-source { font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #6b7280; }
   .opp-card-value { font-size: 0.75rem; font-weight: 800; color: #111827; }
   html.dark .opp-card-value { color: #f8fafc; }
-  .opp-card-tools { display: flex; align-items: center; gap: 0.1rem; margin-top: 0.55rem; padding-top: 0.45rem; border-top: 1px solid rgba(17, 24, 39, 0.06); }
+  .opp-card-tools { position: relative; z-index: 2; display: flex; align-items: center; gap: 0.1rem; margin-top: 0.55rem; padding-top: 0.45rem; border-top: 1px solid rgba(17, 24, 39, 0.06); }
   html.dark .opp-card-tools { border-top-color: rgba(255, 255, 255, 0.08); }
   .opp-card-tools a, .opp-card-tools button { display: inline-flex; align-items: center; justify-content: center; width: 1.45rem; height: 1.45rem; border: 0; background: transparent; color: #64748b; border-radius: 0.35rem; padding: 0; cursor: pointer; text-decoration: none; }
   .opp-card-tools a:hover, .opp-card-tools button:hover { color: #a16207; background: rgba(250, 204, 21, 0.22); }
@@ -100,14 +100,10 @@
             <% } %>
             <div class="opp-card-tools">
               <button type="button" data-opp-action="call" data-phone="<%= card.phone %>" data-lead-key="<%= card.key %>" data-title="<%= card.title %>" title="Call" aria-label="Call"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.35 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.35 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg></button>
-              <% if (card.emailHref) { %>
-              <a href="<%= card.emailHref %>" title="Email" aria-label="Email"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></a>
-              <% } else { %>
-              <button type="button" data-opp-action="email" title="Email" aria-label="Email"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></button>
-              <% } %>
-              <a href="<%= card.scheduleHref %>" title="Schedule" aria-label="Schedule"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg></a>
-              <a href="<%= card.taskHref %>" title="Task" aria-label="Task"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m8 12 3 3 5-6"/></svg></a>
-              <a href="<%= card.tagsHref %>" title="Tags" aria-label="Tags"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.59 13.41 13.42 20.6a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1.25"/></svg></a>
+              <button type="button" data-opp-action="email" data-email="<%= card.email %>" data-lead-key="<%= card.key %>" data-title="<%= card.title %>" title="Email" aria-label="Email"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></button>
+              <button type="button" data-opp-action="schedule" data-lead-key="<%= card.key %>" data-title="<%= card.title %>" title="Schedule" aria-label="Schedule"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg></button>
+              <button type="button" data-opp-action="task" data-lead-key="<%= card.key %>" data-title="<%= card.title %>" title="Task" aria-label="Task"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m8 12 3 3 5-6"/></svg></button>
+              <button type="button" data-opp-action="tags" data-lead-key="<%= card.key %>" title="Tags" aria-label="Tags"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.59 13.41 13.42 20.6a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1.25"/></svg></button>
               <button type="button" data-opp-action="ghl" data-lead-key="<%= card.key %>" title="Sync GHL" aria-label="Sync GHL"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M21 21v-5h-5"/></svg></button>
             </div>
           </article>
