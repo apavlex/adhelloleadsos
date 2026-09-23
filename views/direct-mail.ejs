@@ -14,16 +14,16 @@
         <div>
           <p class="dm-studio-eyebrow">Outreach · Creative studio</p>
           <div class="page-heading-with-tip flex items-center gap-2 flex-wrap">
-            <h1 class="dm-studio-title"><% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %>Mail <%= typeof dmSelectionCount === 'number' ? dmSelectionCount : mailableLeads.length %> selected<% } else { %>Marketing Studio<% } %></h1>
+            <h1 class="dm-studio-title"><% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %>Design for <%= typeof dmSelectionCount === 'number' ? dmSelectionCount : mailableLeads.length %> selected<% } else { %>Marketing Studio<% } %></h1>
             <%- include('/partials/app_info_tip', {
               tipId: 'direct-mail-help',
               tipKey: 'direct-mail',
-              label: 'Direct mail overview',
+              label: 'Marketing Studio overview',
               size: 'md',
               wide: true,
               content: (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession)
-                ? ('From your pipeline selection — design a postcard, pick mailable leads below, then send via Lob.' + ((typeof dmSkippedCount === 'number' && dmSkippedCount > 0) ? ' <span class="text-amber-700 dark:text-amber-300 font-semibold">' + dmSkippedCount + ' lead' + (dmSkippedCount === 1 ? '' : 's') + ' skipped (incomplete address).</span>' : ''))
-                : 'Send 4×6 postcards to leads with a mailable address via <a href="https://www.lob.com/" target="_blank" rel="noopener noreferrer" class="text-brand-yellow hover:underline">Lob.com</a>. Upload custom PDF designs in <a href="/workspace/integrations/lob-setup" class="text-brand-yellow hover:underline">Workspace → Lob design guide</a>. Test keys print in Lob’s test mode — no postage charged.'
+                ? ('From your selection — pick a format (Facebook Cover, postcard, etc.), design the creative, then send postcards via Lob when you need mail.' + ((typeof dmSkippedCount === 'number' && dmSkippedCount > 0) ? ' <span class="text-amber-700 dark:text-amber-300 font-semibold">' + dmSkippedCount + ' lead' + (dmSkippedCount === 1 ? '' : 's') + ' skipped (incomplete address).</span>' : ''))
+                : 'Design social creatives and Lob 4×6 postcards. Upload custom PDF designs in <a href="/workspace/integrations/lob-setup" class="text-brand-yellow hover:underline">Workspace → Lob design guide</a>. Test keys print in Lob’s test mode — no postage charged.'
             }) %>
           </div>
         </div>
@@ -350,13 +350,13 @@
           </div>
           <div class="dm-canvas-scaler" id="dmCanvasScaler" style="--dm-zoom: 1">
             <div class="dm-artboard-wrap">
-              <button type="button" id="dmPreviewFrontBtn" class="dm-artboard dm-preview-btn is-active-page" style="aspect-ratio:3/2" data-slot="front" aria-label="Front design">
+              <button type="button" id="dmPreviewFrontBtn" class="dm-artboard dm-preview-btn is-active-page" style="aspect-ratio:3/2" data-slot="front" aria-label="Design preview">
                 <div id="dmPreviewFront" class="dm-artboard-inner">
-                  <span class="dm-artboard-empty">No front yet — describe your design and generate</span>
+                  <span class="dm-artboard-empty">No design yet — describe your creative and generate</span>
                   <div class="dm-lob-zone dm-lob-zone--safe" aria-hidden="true" title="Keep all text inside this safe area"></div>
                   <div class="dm-lob-zone dm-lob-zone--qr" aria-hidden="true" title="No text here — Lob prints QR on top of your photo"></div>
                 </div>
-                <span class="dm-artboard-badge">Front</span>
+                <span class="dm-artboard-badge">Design</span>
                 <span class="dm-preview-zoom-badge">Click to zoom in</span>
               </button>
               <button type="button" id="dmPreviewBackBtn" class="dm-artboard dm-preview-btn dm-artboard--back" style="aspect-ratio:3/2" data-slot="back" aria-label="Back design" hidden>
@@ -374,14 +374,14 @@
 
         <div class="dm-artboard-actions">
           <div id="dmPreviewFrontCol" class="dm-page-actions">
-            <label class="dm-check-row">
+            <label class="dm-check-row" id="dmUseFrontLabel">
               <input type="checkbox" id="dmUseFront" disabled />
               Use front on send
             </label>
             <button type="button" id="dmSaveFront" class="dm-text-btn hidden" data-slot="front">Save to library</button>
           </div>
           <div id="dmPreviewBackCol" class="dm-page-actions" hidden>
-            <label class="dm-check-row">
+            <label class="dm-check-row" id="dmUseBackLabel">
               <input type="checkbox" id="dmUseBack" disabled />
               Use back on send
             </label>

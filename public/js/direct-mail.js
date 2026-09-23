@@ -447,10 +447,25 @@
     var backBtn = document.getElementById('dmPreviewBackBtn');
     var frontActions = document.getElementById('dmPreviewFrontCol');
     var backActions = document.getElementById('dmPreviewBackCol');
+    var useFrontLabel = document.getElementById('dmUseFrontLabel');
+    var useBackLabel = document.getElementById('dmUseBackLabel');
+    var frontBadge = frontBtn && frontBtn.querySelector('.dm-artboard-badge');
+    var backBadge = backBtn && backBtn.querySelector('.dm-artboard-badge');
 
     if (pageTabs) pageTabs.classList.toggle('hidden', !preset.dualSided);
-    if (frontActions) frontActions.hidden = !preset.dualSided && slot !== 'front';
+    // Postcard-only: "Use front/back on send". Social formats keep Save / Upload only.
+    if (frontActions) frontActions.hidden = false;
     if (backActions) backActions.hidden = !preset.dualSided;
+    if (useFrontLabel) useFrontLabel.hidden = !preset.dualSided;
+    if (useBackLabel) useBackLabel.hidden = !preset.dualSided;
+    if (frontBadge) frontBadge.textContent = preset.dualSided ? 'Front' : preset.label || 'Design';
+    if (backBadge) backBadge.textContent = 'Back';
+    if (frontBtn) {
+      frontBtn.setAttribute(
+        'aria-label',
+        preset.dualSided ? 'Front design' : (preset.label || 'Design') + ' preview',
+      );
+    }
 
     if (!preset.dualSided) {
       if (frontBtn) {
@@ -2396,7 +2411,14 @@
     }
     wrap.classList.remove('hidden');
     editor.value = text;
-    if (slotLabel) slotLabel.textContent = slot === 'back' ? 'Back' : 'Front';
+    if (slotLabel) {
+      var plat = DM_PLATFORMS[currentPlatformKey()] || DM_PLATFORMS.custom;
+      slotLabel.textContent = plat.dualSided
+        ? slot === 'back'
+          ? 'Back'
+          : 'Front'
+        : plat.label || 'Design';
+    }
     lastImagePrompt = text;
     if (designMeta[slot]) designMeta[slot].prompt = text;
   }
@@ -2938,6 +2960,8 @@
     var el = document.getElementById(slot === 'back' ? 'dmPreviewBack' : 'dmPreviewFront');
     var useCb = document.getElementById(slot === 'back' ? 'dmUseBack' : 'dmUseFront');
     var saveBtn = document.getElementById(slot === 'back' ? 'dmSaveBack' : 'dmSaveFront');
+    var plat = DM_PLATFORMS[currentPlatformKey()] || DM_PLATFORMS.custom;
+    var formatLabel = plat.label || 'Design';
     if (!el) return;
     if (meta && typeof meta === 'object') {
       designMeta[slot] = Object.assign({}, designMeta[slot], meta);
@@ -2947,8 +2971,12 @@
     if (!imageUrl) {
       var span = document.createElement('span');
       span.className = 'dm-artboard-empty';
-      span.textContent =
-        slot === 'back' ? 'No back yet — generate or switch to Front' : 'No front yet — describe your design and generate';
+      if (plat.dualSided) {
+        span.textContent =
+          slot === 'back' ? 'No back yet — generate or switch to Front' : 'No front yet — describe your design and generate';
+      } else {
+        span.textContent = 'No ' + formatLabel + ' yet — describe your design and generate';
+      }
       el.appendChild(span);
       appendLobSafeZones(el, slot);
       if (useCb) {
@@ -2963,8 +2991,19 @@
     }
     var img = document.createElement('img');
     img.src = imageUrl;
-    img.alt = slot + ' postcard design';
+    img.alt =
+      (plat.dualSided ? slot + ' ' : '') +
+      formatLabel +
+      ' design';
     img.className = 'w-full h-full object-cover';
+    img.addEventListener('error', function () {
+      if (img.dataset.broken === '1') return;
+      img.dataset.broken = '1';
+      setDesignStatus(
+        formatLabel + ' image could not load. Try Generate again, or upload a new image.',
+        false,
+      );
+    });
     el.appendChild(img);
     var artboardBtn = document.getElementById(slot === 'back' ? 'dmPreviewBackBtn' : 'dmPreviewFrontBtn');
     if (artboardBtn) artboardBtn.classList.add('has-image');
