@@ -82,43 +82,17 @@
     });
   }
 
-  var addFromMenu = document.getElementById('oppAddFromMenu');
-  if (addFromMenu) {
-    addFromMenu.addEventListener('click', function () {
-      var menu = document.getElementById('manualLeadOpenSidebar')
-        || document.getElementById('manualLeadOpen')
-        || document.getElementById('manualLeadOpenMobile');
-      if (menu) menu.click();
-    });
+  function openAddOpportunity() {
+    var menu = document.getElementById('manualLeadOpenSidebar')
+      || document.getElementById('manualLeadOpen')
+      || document.getElementById('manualLeadOpenMobile');
+    if (menu) menu.click();
   }
 
-  var addCardBtn = document.getElementById('oppAddCard');
-  var addForm = document.getElementById('oppAddForm');
-  if (addCardBtn && addForm) {
-    addCardBtn.addEventListener('click', function () {
-      addForm.classList.toggle('hidden');
-      var title = document.getElementById('oppCardTitle');
-      if (!addForm.classList.contains('hidden') && title) title.focus();
-    });
-    addForm.addEventListener('submit', function (ev) {
-      ev.preventDefault();
-      post('/opportunities/cards', {
-        title: document.getElementById('oppCardTitle').value,
-        source: document.getElementById('oppCardSource').value,
-        value: document.getElementById('oppCardValue').value,
-        stageId: document.getElementById('oppCardStage').value,
-        pipelineId: pipelineId,
-      }).then(function (result) {
-        if (!result.ok || !result.data || !result.data.success) {
-          showError((result.data && result.data.error) || 'Could not add that opportunity.');
-          return;
-        }
-        reloadPipeline(result.data.pipelineId || pipelineId);
-      }).catch(function () {
-        showError('Could not add that opportunity.');
-      });
-    });
-  }
+  ['oppAddFromMenu', 'oppAddCard'].forEach(function (id) {
+    var btn = document.getElementById(id);
+    if (btn) btn.addEventListener('click', openAddOpportunity);
+  });
 
   function ask(label, current) {
     var value = window.prompt(label, current || '');
