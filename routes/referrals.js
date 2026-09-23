@@ -58,24 +58,33 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-router.post('/highlight', express.json({ limit: '64kb' }), async (req, res) => {
+function highlightKeys(req) {
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const fromBody = Array.isArray(body.leadKeys) ? body.leadKeys : (body.leadKeys ? [body.leadKeys] : []);
+  const fromQuery = String(req.query.leadKeys || '')
+    .split(',')
+    .map((key) => {
+      try { return decodeURIComponent(key); } catch (err) { return key; }
+    });
+  return [...new Set(
+    fromBody.concat(fromQuery)
+      .map((key) => String(key || '').trim())
+      .filter((key) => key && !/^\d+$/.test(key)),
+  )].slice(0, 100);
+}
+
+router.post('/highlight', async (req, res) => {
   try {
-    const wanted = [...new Set(
-      (Array.isArray(req.body && req.body.leadKeys) ? req.body.leadKeys : [])
-        .map((key) => String(key || '').trim())
-        .filter(Boolean),
-    )].slice(0, 100);
+    const wanted = highlightKeys(req);
     if (!wanted.length) return res.status(400).json({ success: false, error: 'Select a lead first.' });
-    const leads = await workspaceLeads(req);
-    const strip = (key) => String(key || '').replace(/^lead:/i, '');
     let added = 0;
     for (const key of wanted) {
-      const lead = leads.find((row) => row && (row.key === key || strip(row.key) === strip(key)));
-      if (!lead) continue;
+      const lead = await dbService.getLead(key, req.workspaceId);
+      if (!lead || !lead.key) continue;
       const applied = referralNetwork.applyPartnerAction(lead, 'highlight');
       if (!applied.ok) continue;
-      await dbService.updateLead(lead.key, { referralPartner: applied.referralPartner }, req.workspaceId);
-      lead.referralPartner = applied.referralPartner;
+      const saved = await dbService.updateLead(lead.key, { referralPartner: applied.referralPartner }, req.workspaceId);
+      if (!saved) continue;
       added += 1;
     }
     if (!added) return res.status(404).json({ success: false, error: 'Those leads are not in this workspace.' });

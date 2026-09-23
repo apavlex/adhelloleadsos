@@ -151,36 +151,70 @@
 </div>
 <script>
 (function () {
-  var btn = document.getElementById('bulkAddReferralBtn');
-  if (!btn || btn.getAttribute('data-bound') === '1') return;
-  btn.setAttribute('data-bound', '1');
-  btn.addEventListener('click', function () {
-    if (btn.disabled) return;
-    var keys = typeof window.__getSelectedLeadKeysForBulk === 'function' ? window.__getSelectedLeadKeysForBulk() : [];
-    keys = (Array.isArray(keys) ? keys : []).map(function (key) { return String(key || '').trim(); }).filter(Boolean);
-    var feedback = document.getElementById('bulkSaveFeedback');
-    function say(text, ok) {
-      if (!feedback) return;
-      feedback.textContent = text;
-      feedback.classList.remove('hidden');
-      feedback.style.color = ok ? '#6ee7b7' : '#fecaca';
+  if (window.__bulkReferralBound === '1') return;
+  window.__bulkReferralBound = '1';
+
+  function addKey(out, seen, raw) {
+    var key = String(raw || '').trim();
+    if (!key || seen[key] || /^\d+$/.test(key)) return;
+    seen[key] = true;
+    out.push(key);
+  }
+
+  function selectedKeys() {
+    var out = [];
+    var seen = {};
+    document.querySelectorAll('input.lead-checkbox:checked, input.row-checkbox:checked').forEach(function (cb) {
+      var row = cb.closest ? cb.closest('tr') : null;
+      var key = row ? String(row.getAttribute('data-lead-key') || '').trim() : '';
+      if (!key) key = String(cb.getAttribute('data-key') || '').trim();
+      addKey(out, seen, key);
+    });
+    if (!out.length && typeof window.__collectSelectedLeadKeysEarly === 'function') {
+      window.__collectSelectedLeadKeysEarly().forEach(function (key) { addKey(out, seen, key); });
     }
+    if (!out.length && typeof window.__getSelectedLeadKeysForBulk === 'function') {
+      var bulk = window.__getSelectedLeadKeysForBulk();
+      if (Array.isArray(bulk)) bulk.forEach(function (key) { addKey(out, seen, key); });
+    }
+    return out;
+  }
+
+  function say(text, ok) {
+    var feedback = document.getElementById('bulkSaveFeedback');
+    if (!feedback) return;
+    feedback.textContent = text;
+    feedback.classList.remove('hidden');
+    feedback.style.color = ok ? '#6ee7b7' : '#fecaca';
+  }
+
+  document.addEventListener('click', function (e) {
+    var btn = e.target && e.target.closest ? e.target.closest('#bulkAddReferralBtn') : null;
+    if (!btn) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    if (btn.disabled || btn.getAttribute('aria-busy') === 'true') return;
+    var keys = selectedKeys();
     if (!keys.length) {
       say('Select a lead first.', false);
       return;
     }
     var label = btn.getAttribute('data-default-label') || 'Referral';
     btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
     btn.textContent = 'Adding…';
-    fetch('/referrals/highlight', {
+    fetch('/referrals/highlight?leadKeys=' + encodeURIComponent(keys.join(',')), {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({ leadKeys: keys })
     }).then(function (res) {
-      return res.json().then(function (data) { return { ok: res.ok, data: data }; });
+      return res.json().then(function (data) { return { ok: res.ok, data: data || {} }; }).catch(function () {
+        return { ok: false, data: {} };
+      });
     }).then(function (result) {
       btn.disabled = false;
+      btn.removeAttribute('aria-busy');
       if (!result.ok || !result.data || !result.data.success) {
         btn.textContent = label;
         say((result.data && result.data.error) || 'Could not add those leads.', false);
@@ -188,13 +222,14 @@
       }
       var n = result.data.added || keys.length;
       btn.textContent = 'Added';
-      say('Added ' + n + ' to referrals. Open Referral Partners in the menu to connect or send an intro.', true);
+      say('Added ' + n + ' to referral partners. Open Referral Partners in the menu to connect or send an intro.', true);
       window.setTimeout(function () { btn.textContent = label; }, 2200);
     }).catch(function () {
       btn.disabled = false;
+      btn.removeAttribute('aria-busy');
       btn.textContent = label;
       say('Could not add those leads.', false);
     });
-  });
+  }, true);
 })();
 </script>
