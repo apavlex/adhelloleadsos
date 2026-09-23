@@ -954,7 +954,9 @@
         <button type="button" id="mobilePanelRemoveBtn" class="w-full text-center py-3 mt-1 text-xs font-black uppercase tracking-[0.2em] text-red-500 hover:text-red-600 transition-colors border-t border-brand-border/15 dark:border-white/10 pt-3">Discard this Lead</button>
         </div><!-- /leadPanelNotepadBody -->
 
-        <!-- Stay visible when Quick log is collapsed — Call + SMS + GHL eMail + Sync GHL -->
+        <!-- Stay visible when Quick log is collapsed — Referral + Call + SMS + GHL eMail + Sync GHL -->
+        <button type="button" id="leadPanelReferralBtn" class="btn-pill w-full bg-brand-yellow text-brand-dark py-2.5 text-[10px] font-black uppercase tracking-widest hover:brightness-95 transition-colors shrink-0" title="Add this lead to referral partners" data-default-label="Referral">Referral</button>
+        <p id="leadPanelReferralStatus" class="hidden text-center text-[10px] font-semibold leading-tight px-1" role="status" aria-live="polite"></p>
         <div id="leadPanelOutreachCtaRow" class="grid grid-cols-4 gap-1.5 px-0.5 pt-1.5 shrink-0">
           <button type="button" id="clickToCallBtn" class="btn-pill bg-emerald-500 text-white py-2.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wide whitespace-nowrap hover:bg-emerald-600 transition-colors">Call</button>
           <button type="button" id="leadPanelSmsBtn" class="btn-pill bg-teal-500 text-white py-2.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wide whitespace-nowrap hover:bg-teal-600 transition-colors" title="Open SMS composer — type your message, improve with AI, then send">SMS</button>
@@ -1005,4 +1007,65 @@
   <script src="/js/lead-panel-contact-edit.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
   <script>
     window.ADHELLO_SEQUENCE_TEMPLATES = <%- JSON.stringify(playbookTemplates) %>;
+  </script>
+  <script>
+    (function () {
+      if (window.__leadPanelReferralBound === '1') return;
+      window.__leadPanelReferralBound = '1';
+      function openLeadKey() {
+        var host = document.getElementById('leadPanelDatasetHost');
+        var key = host ? String(host.getAttribute('data-lead-key') || '').trim() : '';
+        if (!key && typeof window.__getActiveLeadPanelRow === 'function') {
+          var row = window.__getActiveLeadPanelRow();
+          if (row) key = String(row.getAttribute('data-lead-key') || '').trim();
+        }
+        if (!key) {
+          var phone = document.getElementById('mobilePanelHeaderPhone');
+          if (phone) key = String(phone.getAttribute('data-lead-key') || '').trim();
+        }
+        return key;
+      }
+      document.addEventListener('click', function (event) {
+        var btn = event.target && event.target.closest ? event.target.closest('#leadPanelReferralBtn') : null;
+        if (!btn || btn.disabled) return;
+        event.preventDefault();
+        var key = openLeadKey();
+        var status = document.getElementById('leadPanelReferralStatus');
+        var label = btn.getAttribute('data-default-label') || 'Referral';
+        function say(text, ok) {
+          if (!status) return;
+          status.textContent = text;
+          status.classList.remove('hidden');
+          status.style.color = ok ? '#6ee7b7' : '#fca5a5';
+        }
+        if (!key) {
+          say('Save this lead first.', false);
+          return;
+        }
+        btn.disabled = true;
+        btn.textContent = 'Adding…';
+        fetch('/referrals/highlight', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ leadKeys: [key] })
+        }).then(function (res) {
+          return res.json().then(function (data) { return { ok: res.ok, data: data || {} }; }).catch(function () { return { ok: false, data: {} }; });
+        }).then(function (result) {
+          btn.disabled = false;
+          if (!result.ok || !result.data || !result.data.success) {
+            btn.textContent = label;
+            say((result.data && result.data.error) || 'Could not add this lead.', false);
+            return;
+          }
+          btn.textContent = 'Added';
+          say('Added to referral partners.', true);
+          window.setTimeout(function () { btn.textContent = label; }, 2200);
+        }).catch(function () {
+          btn.disabled = false;
+          btn.textContent = label;
+          say('Could not add this lead.', false);
+        });
+      });
+    })();
   </script>
