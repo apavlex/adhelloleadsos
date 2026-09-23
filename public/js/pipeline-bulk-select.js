@@ -99,6 +99,9 @@
   function showBulkActionBar(count) {
     const bar = mountBulkBarToBody();
     if (!bar) return;
+    const boardBtn = document.getElementById('bulkAddToBoardBtn');
+    if (boardBtn) boardBtn.remove();
+    if (bar.dataset.holdSaved === '1') return;
     const n = Math.max(0, parseInt(count, 10) || 0);
     const visible = n > 0;
     bar.dataset.visible = visible ? 'true' : 'false';
@@ -3567,7 +3570,12 @@
         if (e.target.closest('#bulkAddToBoardBtn')) {
           e.preventDefault();
           e.stopPropagation();
-          void runBulkAddToBoardFromBarEarly();
+          const boardBtn = e.target.closest('#bulkAddToBoardBtn');
+          if (boardBtn) boardBtn.remove();
+          const saveBtn = document.getElementById('bulkSaveBtn');
+          if (typeof window.__bulkSaveSelectedLeads === 'function') {
+            void window.__bulkSaveSelectedLeads(saveBtn);
+          }
           return;
         }
         if (e.target.closest('#bulkSaveBtn')) {
@@ -3746,7 +3754,12 @@
         if (e.target.closest('#bulkAddToBoardBtn')) {
           e.preventDefault();
           e.stopPropagation();
-          void runBulkAddToBoardFromBarEarly();
+          const boardBtn = e.target.closest('#bulkAddToBoardBtn');
+          if (boardBtn) boardBtn.remove();
+          const saveBtn = document.getElementById('bulkSaveBtn');
+          if (typeof window.__bulkSaveSelectedLeads === 'function') {
+            void window.__bulkSaveSelectedLeads(saveBtn);
+          }
           return;
         }
         if (e.target.closest('#bulkDirectMailBtn')) {

@@ -19179,11 +19179,18 @@ document.addEventListener('DOMContentLoaded', () => {
           : folderName
             ? `Saved ${assignCount} lead${assignCount === 1 ? '' : 's'} to ${folderName}`
             : `Saved ${assignCount} lead${assignCount === 1 ? '' : 's'}`;
+        const bar = document.getElementById('bulkActionBar');
+        const boardBtn = document.getElementById('bulkAddToBoardBtn');
+        if (boardBtn) boardBtn.remove();
+        if (bar) bar.dataset.holdSaved = '1';
         setBulkSaveButtonsState(buttons, BULK_SAVE_DONE_HTML, true, true);
         showBulkSaveFeedback(successMsg, 'ok');
         if (typeof window.showProspectToast === 'function') window.showProspectToast(successMsg);
-        updateBulkActionBar();
-        setTimeout(() => resetBulkSaveButtons(buttons, originalHtml, false), 3500);
+        setTimeout(() => {
+          if (bar) bar.dataset.holdSaved = '';
+          resetBulkSaveButtons(buttons, originalHtml, false);
+          updateBulkActionBar();
+        }, 4200);
       } catch (err) {
         console.error('Bulk save to folder failed:', err);
         showBulkSaveFeedback(err && err.message ? err.message : 'Could not save leads to folder.', 'error');
