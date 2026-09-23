@@ -3,7 +3,7 @@ const { isManualSource } = require('./leadListFilters');
 const { normalizeEngagementSignals } = require('./engagementSignals');
 const { isReferralLead, isFollowUpTask } = require('./todayPriorityLeads');
 const { noteEntryBody } = require('./leadNotes');
-const { quickLogLabelForDisposition, quickLogItemForStatus } = require('./quickLogConfig');
+const { quickLogLabelForDisposition, quickLogItemForLabel, quickLogItemForStatus } = require('./quickLogConfig');
 
 const DEFAULT_STAGE_NAMES = ['New opportunity', 'Contacted', 'Qualified', 'Proposal sent', 'Won'];
 const MAX_PIPELINES = 12;
@@ -248,6 +248,19 @@ function latestNote(lead) {
   return text.length > 90 ? `${text.slice(0, 87)}…` : text;
 }
 
+function noteEchoesStatus(note, status) {
+  const body = String(note || '')
+    .replace(/^\[[^\]]+\]\s*/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const core = String(status || '').split(' · ')[0].trim();
+  if (!body || !core) return false;
+  if (body.toLowerCase() === core.toLowerCase()) return true;
+  const item = quickLogItemForLabel(core);
+  const template = String((item && item.noteTemplate) || '').trim();
+  return !!template && body.toLowerCase() === template.toLowerCase();
+}
+
 function stageForLead(lead, pipeline, homePipelineId, keys) {
   if (!lead || !pipeline) return null;
   const stageIds = new Set(pipeline.stages.map((stage) => stage.id));
@@ -278,6 +291,8 @@ function buildOpportunityBoard(input) {
     const value = cardValue(lead);
     const phone = usableContact(lead.phone || lead.mobile || lead.telephone);
     const email = usableContact(lead.email);
+    const status = statusLabel(lead);
+    const note = latestNote(lead);
     grouped.get(stageId).push({
       key: String(lead.key),
       title: leadTitle(lead),
@@ -289,8 +304,8 @@ function buildOpportunityBoard(input) {
       email,
       category: categoryLabel(lead),
       city: cityLabel(lead),
-      status: statusLabel(lead),
-      note: latestNote(lead),
+      status,
+      note: noteEchoesStatus(note, status) ? '' : note,
       reviews: reviewsLabel(lead),
       tagKeys: Array.isArray(lead.tags) ? lead.tags.map((tag) => String(tag || '')).filter(Boolean) : [],
       emailHref: email ? `mailto:${email}` : '',

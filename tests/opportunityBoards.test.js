@@ -109,6 +109,40 @@ test('opportunity cards show category, status, the latest note, and reviews', ()
   assert.equal(card.city, 'Austin, TX');
 });
 
+test('opportunity cards hide a note that only repeats the status', () => {
+  const { boards } = normalizeBoards(null);
+  const stageId = boards.pipelines[0].stages[1].id;
+  const board = buildOpportunityBoard({
+    boards,
+    leads: [
+      {
+        key: 'lead:floor',
+        title: 'Columbia Flooring Group, LLC',
+        opportunityPipelineId: boards.pipelines[0].id,
+        opportunityStageId: stageId,
+        lastDisposition: 'not_interested',
+        lastDispositionAt: '2026-07-23T21:37:00.000Z',
+        lastDispositionNotes: '[Jul 23, 2026, 2:37 PM] Not interested',
+      },
+      {
+        key: 'lead:keep',
+        title: 'Keep Note Co',
+        opportunityPipelineId: boards.pipelines[0].id,
+        opportunityStageId: stageId,
+        lastDisposition: 'not_interested',
+        lastDispositionAt: '2026-07-23T21:37:00.000Z',
+        updates: [{ type: 'note', value: 'Owner said they already signed with another agency.', timestamp: '2026-07-23T21:40:00.000Z' }],
+      },
+    ],
+    tasks: [],
+  });
+  const floor = board.stages[1].cards.find((card) => card.key === 'lead:floor');
+  const keep = board.stages[1].cards.find((card) => card.key === 'lead:keep');
+  assert.match(floor.status, /^Not interested/);
+  assert.equal(floor.note, '');
+  assert.equal(keep.note, 'Owner said they already signed with another agency.');
+});
+
 test('resolvePlacement maps a same-named stage onto the selected board', () => {
   const { boards } = normalizeBoards(null);
   const extra = addPipeline(boards, 'Marketing Pipeline');
