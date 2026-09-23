@@ -198,6 +198,7 @@ function buildOpportunityBoard(input) {
       valueLabel: money(value),
       phone,
       email,
+      tagKeys: Array.isArray(lead.tags) ? lead.tags.map((tag) => String(tag || '')).filter(Boolean) : [],
       emailHref: email ? `mailto:${email}` : '',
       scheduleHref: taskHref(lead, 'schedule'),
       taskHref: taskHref(lead, 'task'),

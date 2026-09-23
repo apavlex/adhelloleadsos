@@ -26,6 +26,23 @@
   .opp-card-tools a, .opp-card-tools button { display: inline-flex; align-items: center; justify-content: center; width: 1.45rem; height: 1.45rem; border: 0; background: transparent; color: #64748b; border-radius: 0.35rem; padding: 0; cursor: pointer; text-decoration: none; }
   .opp-card-tools a:hover, .opp-card-tools button:hover { color: #a16207; background: rgba(250, 204, 21, 0.22); }
   .opp-card-tools svg { width: 0.95rem; height: 0.95rem; display: block; }
+  .opp-card-tools button.is-syncing svg { animation: opp-sync-spin 0.7s linear infinite; }
+  @keyframes opp-sync-spin { to { transform: rotate(360deg); } }
+  .opp-pop { position: fixed; z-index: 80; width: min(18rem, calc(100vw - 1.5rem)); background: #fff; border: 1px solid rgba(17, 24, 39, 0.1); border-radius: 1rem; box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16); padding: 0.85rem; }
+  html.dark .opp-pop { background: #0f172a; border-color: rgba(255, 255, 255, 0.1); color: #f8fafc; }
+  .opp-pop h4 { margin: 0 0 0.55rem; font-size: 0.8rem; font-weight: 800; }
+  .opp-pop-tags { display: flex; flex-wrap: wrap; gap: 0.35rem; max-height: 11rem; overflow: auto; }
+  .opp-pop-tag, .opp-pop-add { border: 1px solid rgba(17, 24, 39, 0.12); background: #fff; border-radius: 999px; padding: 0.28rem 0.6rem; font-size: 0.68rem; font-weight: 700; cursor: pointer; }
+  .opp-pop-tag.is-on { background: rgba(250, 204, 21, 0.35); border-color: rgba(202, 138, 4, 0.45); }
+  .opp-pop-row { display: flex; gap: 0.35rem; margin-top: 0.55rem; }
+  .opp-pop-row input, .opp-pop-time { flex: 1; min-width: 0; border: 1px solid rgba(17, 24, 39, 0.12); border-radius: 0.7rem; padding: 0.4rem 0.55rem; font-size: 0.75rem; }
+  .opp-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.15rem; }
+  .opp-cal button, .opp-cal span { height: 1.7rem; border: 0; background: transparent; border-radius: 0.4rem; font-size: 0.68rem; font-weight: 700; }
+  .opp-cal button { cursor: pointer; }
+  .opp-cal button.is-today { box-shadow: inset 0 0 0 1px rgba(17, 24, 39, 0.25); }
+  .opp-cal button.is-selected { background: #FFDB3A; color: #111827; }
+  .opp-cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem; font-size: 0.75rem; font-weight: 800; }
+  .opp-cal-nav button { border: 0; background: transparent; font-weight: 800; cursor: pointer; padding: 0.15rem 0.4rem; }
   #oppBoardMsg.is-ok { color: #047857; }
   .opp-actions { display: inline-flex; align-items: center; gap: 0.15rem; }
   .opp-actions button { border: 0; background: transparent; padding: 0.1rem 0.3rem; font-size: 0.625rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #9ca3af; cursor: pointer; }
@@ -99,11 +116,11 @@
             </div>
             <% } %>
             <div class="opp-card-tools">
-              <button type="button" data-opp-action="call" data-phone="<%= card.phone %>" data-lead-key="<%= card.key %>" data-title="<%= card.title %>" title="Call" aria-label="Call"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.35 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.35 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg></button>
+              <button type="button" data-opp-action="sms" data-phone="<%= card.phone %>" data-lead-key="<%= card.key %>" data-title="<%= card.title %>" title="SMS" aria-label="SMS"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-8 8H7l-4 3V12a8 8 0 1 1 18 0z"/></svg></button>
               <button type="button" data-opp-action="email" data-email="<%= card.email %>" data-lead-key="<%= card.key %>" data-title="<%= card.title %>" title="Email" aria-label="Email"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></button>
               <button type="button" data-opp-action="schedule" data-lead-key="<%= card.key %>" data-title="<%= card.title %>" title="Schedule" aria-label="Schedule"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg></button>
               <button type="button" data-opp-action="task" data-lead-key="<%= card.key %>" data-title="<%= card.title %>" title="Task" aria-label="Task"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m8 12 3 3 5-6"/></svg></button>
-              <button type="button" data-opp-action="tags" data-lead-key="<%= card.key %>" title="Tags" aria-label="Tags"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.59 13.41 13.42 20.6a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1.25"/></svg></button>
+              <button type="button" data-opp-action="tags" data-lead-key="<%= card.key %>" data-title="<%= card.title %>" data-tags="<%= JSON.stringify(card.tagKeys || []) %>" title="Tags" aria-label="Tags"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.59 13.41 13.42 20.6a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1.25"/></svg></button>
               <button type="button" data-opp-action="ghl" data-lead-key="<%= card.key %>" title="Sync GHL" aria-label="Sync GHL"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M21 21v-5h-5"/></svg></button>
             </div>
           </article>
@@ -117,4 +134,330 @@
     </div>
   </div>
 </section>
+<script>
+(function () {
+  var board = document.getElementById('oppBoard');
+  if (!board || board.getAttribute('data-opp-icons') === '1') return;
+  board.setAttribute('data-opp-icons', '1');
+  var press = null;
+  var pop = null;
+
+  function status(text, ok) {
+    var msg = document.getElementById('oppBoardMsg');
+    if (!msg) return;
+    msg.textContent = text;
+    msg.classList.toggle('is-ok', !!ok);
+    msg.classList.remove('hidden');
+  }
+
+  function post(url, body) {
+    return fetch(url, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(body || {})
+    }).then(function (res) {
+      return res.json().then(function (data) { return { ok: res.ok, data: data }; });
+    });
+  }
+
+  function closePop() {
+    if (pop && pop.parentNode) pop.parentNode.removeChild(pop);
+    pop = null;
+  }
+
+  function placePop(anchor) {
+    var rect = anchor.getBoundingClientRect();
+    var width = pop.offsetWidth || 280;
+    var left = Math.min(rect.left, window.innerWidth - width - 12);
+    if (left < 8) left = 8;
+    var top = rect.bottom + 8;
+    if (top + pop.offsetHeight > window.innerHeight - 8) top = Math.max(8, rect.top - pop.offsetHeight - 8);
+    pop.style.left = left + 'px';
+    pop.style.top = top + 'px';
+  }
+
+  function openPop(anchor) {
+    closePop();
+    pop = document.createElement('div');
+    pop.className = 'opp-pop';
+    pop.setAttribute('role', 'dialog');
+    document.body.appendChild(pop);
+    return pop;
+  }
+
+  function leadKey(action) {
+    return action.getAttribute('data-lead-key') || '';
+  }
+
+  function leadTitle(action) {
+    return action.getAttribute('data-title') || 'this opportunity';
+  }
+
+  function openComposer(kind, action) {
+    var key = leadKey(action);
+    if (!key) return;
+    var opener = kind === 'email'
+      ? (window.__openBulkEmailModal || window.__openBulkEmailModalImplFull)
+      : (window.__openBulkSmsModalImpl || window.__openBulkSmsModal || window.__openBulkSmsModalImplFull);
+    if (typeof opener !== 'function') {
+      status(kind === 'email' ? 'Email templates are still loading. Try again.' : 'SMS templates are still loading. Try again.', false);
+      return;
+    }
+    status(kind === 'email' ? 'Opening email templates…' : 'Opening SMS templates…', true);
+    Promise.resolve(opener([key])).then(function (result) {
+      if (result && result.ok === false) status(result.message || 'Could not open that composer.', false);
+    }).catch(function () {
+      status('Could not open that composer.', false);
+    });
+  }
+
+  function openTags(action) {
+    var key = leadKey(action);
+    if (!key) return;
+    var applied = [];
+    try { applied = JSON.parse(action.getAttribute('data-tags') || '[]'); } catch (e) { applied = []; }
+    if (!Array.isArray(applied)) applied = [];
+    var box = openPop(action);
+    box.innerHTML = '<h4>Add a tag</h4><div class="opp-pop-tags">Loading tags…</div><form class="opp-pop-row"><input type="text" name="name" placeholder="New tag" maxlength="40" /><button type="submit" class="opp-pop-add">Add</button></form>';
+    placePop(action);
+    var list = box.querySelector('.opp-pop-tags');
+    function paint(tags) {
+      list.textContent = '';
+      if (!tags.length) {
+        list.textContent = 'No tags yet. Create one below.';
+        return;
+      }
+      tags.forEach(function (tag) {
+        if (!tag || !tag.key) return;
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'opp-pop-tag' + (applied.indexOf(tag.key) >= 0 ? ' is-on' : '');
+        btn.textContent = (applied.indexOf(tag.key) >= 0 ? '' : '+ ') + (tag.name || 'Tag');
+        btn.addEventListener('click', function () {
+          var on = applied.indexOf(tag.key) >= 0;
+          btn.disabled = true;
+          post('/tags/assign', { leadKey: key, tagKeys: [tag.key], mode: on ? 'remove' : 'add' }).then(function (result) {
+            btn.disabled = false;
+            if (!result.ok || !result.data || !result.data.success) {
+              status((result.data && result.data.error) || 'Could not update that tag.', false);
+              return;
+            }
+            if (on) applied = applied.filter(function (item) { return item !== tag.key; });
+            else applied.push(tag.key);
+            action.setAttribute('data-tags', JSON.stringify(applied));
+            status(on ? 'Tag removed.' : 'Tag added.', true);
+            paint(tags);
+          }).catch(function () {
+            btn.disabled = false;
+            status('Could not update that tag.', false);
+          });
+        });
+        list.appendChild(btn);
+      });
+    }
+    fetch('/tags', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+      .then(function (res) { return res.json(); })
+      .then(function (data) { paint((data && data.tags) || []); })
+      .catch(function () { list.textContent = 'Could not load tags.'; });
+    box.querySelector('form').addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var input = box.querySelector('input');
+      var name = String(input.value || '').trim();
+      if (!name) return;
+      input.disabled = true;
+      post('/tags', { name: name }).then(function (created) {
+        if (!created.ok || !created.data || !created.data.tag) {
+          input.disabled = false;
+          status((created.data && created.data.error) || 'Could not create that tag.', false);
+          return;
+        }
+        return post('/tags/assign', { leadKey: key, tagKeys: [created.data.tag.key], mode: 'add' }).then(function (assigned) {
+          input.disabled = false;
+          input.value = '';
+          if (!assigned.ok || !assigned.data || !assigned.data.success) {
+            status((assigned.data && assigned.data.error) || 'Tag created, but it was not added.', false);
+            return;
+          }
+          applied.push(created.data.tag.key);
+          action.setAttribute('data-tags', JSON.stringify(applied));
+          status('Tag added.', true);
+          return fetch('/tags', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+            .then(function (res) { return res.json(); })
+            .then(function (data) { paint((data && data.tags) || []); });
+        });
+      }).catch(function () {
+        input.disabled = false;
+        status('Could not create that tag.', false);
+      });
+    });
+  }
+
+  function openCalendar(action) {
+    var key = leadKey(action);
+    var title = leadTitle(action);
+    var box = openPop(action);
+    var view = new Date();
+    view.setDate(1);
+    var selected = '';
+    box.innerHTML = '<h4>Schedule follow-up</h4><div class="opp-cal-nav"><button type="button" data-cal="prev" aria-label="Previous month">‹</button><span data-cal="label"></span><button type="button" data-cal="next" aria-label="Next month">›</button></div><div class="opp-cal" data-cal="grid"></div><div class="opp-pop-row"><select class="opp-pop-time" data-cal="time"></select><button type="button" class="opp-pop-add" data-cal="save">Save</button></div>';
+    var time = box.querySelector('[data-cal="time"]');
+    for (var hour = 8; hour <= 18; hour++) {
+      var opt = document.createElement('option');
+      opt.value = String(hour);
+      opt.textContent = (hour > 12 ? hour - 12 : hour) + ':00 ' + (hour >= 12 ? 'PM' : 'AM');
+      if (hour === 15) opt.selected = true;
+      time.appendChild(opt);
+    }
+    function render() {
+      var label = box.querySelector('[data-cal="label"]');
+      var grid = box.querySelector('[data-cal="grid"]');
+      label.textContent = view.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+      grid.textContent = '';
+      ['Su','Mo','Tu','We','Th','Fr','Sa'].forEach(function (day) {
+        var span = document.createElement('span');
+        span.textContent = day;
+        grid.appendChild(span);
+      });
+      var first = new Date(view.getFullYear(), view.getMonth(), 1);
+      for (var i = 0; i < first.getDay(); i++) grid.appendChild(document.createElement('span'));
+      var days = new Date(view.getFullYear(), view.getMonth() + 1, 0).getDate();
+      var today = new Date();
+      for (var day = 1; day <= days; day++) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = String(day);
+        var iso = view.getFullYear() + '-' + String(view.getMonth() + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+        btn.setAttribute('data-day', iso);
+        if (today.getFullYear() === view.getFullYear() && today.getMonth() === view.getMonth() && today.getDate() === day) btn.classList.add('is-today');
+        if (selected === iso) btn.classList.add('is-selected');
+        grid.appendChild(btn);
+      }
+    }
+    box.addEventListener('click', function (ev) {
+      var prev = ev.target.closest('[data-cal="prev"]');
+      var next = ev.target.closest('[data-cal="next"]');
+      var day = ev.target.closest('[data-day]');
+      var save = ev.target.closest('[data-cal="save"]');
+      if (prev || next) {
+        view.setMonth(view.getMonth() + (next ? 1 : -1));
+        render();
+        return;
+      }
+      if (day) {
+        selected = day.getAttribute('data-day');
+        render();
+        return;
+      }
+      if (!save) return;
+      if (!selected) {
+        status('Pick a day first.', false);
+        return;
+      }
+      var when = new Date(selected + 'T' + String(time.value).padStart(2, '0') + ':00:00');
+      if (Number.isNaN(when.getTime())) {
+        status('Pick a valid day.', false);
+        return;
+      }
+      save.disabled = true;
+      post('/tasks/api', {
+        title: 'Follow up with ' + title,
+        leadKey: key,
+        scheduledAt: when.toISOString(),
+        remindMinutesBefore: 15
+      }).then(function (result) {
+        save.disabled = false;
+        if (!result.ok || !result.data || !result.data.success) {
+          status((result.data && result.data.error) || 'Could not schedule that.', false);
+          return;
+        }
+        closePop();
+        status('Scheduled.', true);
+      }).catch(function () {
+        save.disabled = false;
+        status('Could not schedule that.', false);
+      });
+    });
+    render();
+    placePop(action);
+  }
+
+  function syncGhl(action) {
+    var key = leadKey(action);
+    if (!key || action.classList.contains('is-syncing')) return;
+    action.classList.add('is-syncing');
+    action.setAttribute('aria-label', 'Sync in progress');
+    status('Sync in progress…', true);
+    post('/ghl/push', { leadKeys: [key] }).then(function (result) {
+      action.classList.remove('is-syncing');
+      action.setAttribute('aria-label', 'Sync GHL');
+      if (!result.ok || !result.data || !result.data.success) {
+        status((result.data && result.data.error) || 'Could not sync that opportunity.', false);
+        return;
+      }
+      status('Synced to Go High Level.', true);
+    }).catch(function () {
+      action.classList.remove('is-syncing');
+      action.setAttribute('aria-label', 'Sync GHL');
+      status('Could not sync that opportunity.', false);
+    });
+  }
+
+  function run(action) {
+    var kind = action.getAttribute('data-opp-action');
+    if (kind === 'profile') {
+      closePop();
+      var profileKey = leadKey(action);
+      if (profileKey && typeof window.openLeadDetailFromKey === 'function') window.openLeadDetailFromKey(profileKey);
+      else status('Could not open that company.', false);
+      return;
+    }
+    if (kind === 'sms' || kind === 'email') {
+      closePop();
+      openComposer(kind, action);
+      return;
+    }
+    if (kind === 'schedule') {
+      openCalendar(action);
+      return;
+    }
+    if (kind === 'task') {
+      closePop();
+      var taskKey = leadKey(action);
+      window.location.href = '/tasks' + (taskKey ? '?leadKey=' + encodeURIComponent(taskKey) : '');
+      return;
+    }
+    if (kind === 'tags') {
+      openTags(action);
+      return;
+    }
+    if (kind === 'ghl') syncGhl(action);
+  }
+
+  board.addEventListener('pointerdown', function (ev) {
+    var action = ev.target.closest('[data-opp-action]');
+    press = action ? { x: ev.clientX, y: ev.clientY, action: action } : null;
+  }, true);
+
+  board.addEventListener('pointerup', function (ev) {
+    var action = ev.target.closest('[data-opp-action]');
+    if (!action || !press || press.action !== action) return;
+    var moved = Math.abs(ev.clientX - press.x) > 6 || Math.abs(ev.clientY - press.y) > 6;
+    press = null;
+    if (moved) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    run(action);
+  }, true);
+
+  document.addEventListener('pointerdown', function (ev) {
+    if (!pop) return;
+    if (pop.contains(ev.target) || ev.target.closest('[data-opp-action]')) return;
+    closePop();
+  });
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape') closePop();
+  });
+})();
+</script>
 <% } %>
