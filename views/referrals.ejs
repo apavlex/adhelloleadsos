@@ -9,7 +9,7 @@
     html.dark .ref-card { background: rgba(15, 23, 42, 0.78); border-color: rgba(255, 255, 255, 0.08); }
     .ref-fact { min-width: 0; }
     .ref-fact p { margin: 0; }
-    .ref-btn { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; padding: 0.42rem 0.8rem; font-size: 0.72rem; font-weight: 700; line-height: 1; white-space: nowrap; border: 1px solid transparent; cursor: pointer; transition: transform 80ms ease, background 120ms ease, border-color 120ms ease; }
+    .ref-btn { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; padding: 0.42rem 0.8rem; font-size: 0.72rem; font-weight: 700; line-height: 1; white-space: nowrap; border: 1px solid transparent; cursor: pointer; text-decoration: none; transition: transform 80ms ease, background 120ms ease, border-color 120ms ease; }
     .ref-btn:active { transform: scale(0.96); }
     .ref-btn:disabled { opacity: 0.7; cursor: default; }
     .ref-btn.is-done { background: #FFDB3A; color: #0F172A; border-color: transparent; }
@@ -189,7 +189,7 @@
           <button type="button" class="ref-btn ref-btn-ghost" data-referral-action="tags" data-lead-key="<%= partner.key %>" data-title="<%= partner.title %>" data-tags="<%= (partner.tagKeys || []).join(',') %>">Tags</button>
           <button type="button" class="ref-btn ref-btn-ghost" data-referral-action="sms" data-lead-key="<%= partner.key %>" data-title="<%= partner.title %>">SMS</button>
           <button type="button" class="ref-btn ref-btn-ghost" data-referral-action="email" data-lead-key="<%= partner.key %>" data-title="<%= partner.title %>">Email</button>
-          <button type="button" class="ref-btn ref-btn-ghost" data-referral-action="dm" data-lead-key="<%= partner.key %>" data-title="<%= partner.title %>" data-instagram="<%= partner.instagram %>" data-facebook="<%= partner.facebook %>">DM</button>
+          <a class="ref-btn ref-btn-ghost" href="/direct-mail?keys=<%= encodeURIComponent(partner.key) %>">Direct Mail</a>
           <button type="button" class="ref-btn ref-btn-ghost" data-referral-ghl data-lead-key="<%= partner.key %>" data-default-label="Sync GHL">Sync GHL</button>
           <button type="button" class="ref-btn ref-btn-quiet" data-ref-track="clear" data-lead-key="<%= partner.key %>" data-default-label="Remove">Remove</button>
         </div>
@@ -251,22 +251,6 @@
         }).then(function (res) {
           return res.json().then(function (data) { return { ok: res.ok, data: data || {} }; }).catch(function () { return { ok: false, data: {} }; });
         });
-      }
-
-      function plainText(value) {
-        return String(value || '')
-          .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-          .replace(/<[^>]+>/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim();
-      }
-
-      function socialHref(raw, host) {
-        var value = String(raw || '').trim();
-        if (!value || /^n\/?a$/i.test(value)) return '';
-        if (/^https?:\/\//i.test(value)) return value;
-        if (value.indexOf(host) !== -1) return 'https://' + value.replace(/^\/\//, '');
-        return 'https://' + host + '/' + value.replace(/^@/, '');
       }
 
       function openComposer(kind, key) {
@@ -359,86 +343,6 @@
             say('Could not create that tag.', false);
           });
         });
-      }
-
-      function openDm(button) {
-        var key = button.getAttribute('data-lead-key');
-        var title = button.getAttribute('data-title') || 'this partner';
-        var ig = socialHref(button.getAttribute('data-instagram'), 'instagram.com');
-        var fb = socialHref(button.getAttribute('data-facebook'), 'facebook.com');
-        openPop('DM · ' + title);
-        popBody.innerHTML = '<p class="ref-pop-kicker">Template</p><select><option>Loading templates…</option></select><p class="ref-pop-kicker">Message</p><textarea maxlength="1000"></textarea><div class="ref-pop-actions"><button type="button" class="ref-btn ref-btn-yellow" data-dm-copy>Copy message</button></div>';
-        var select = popBody.querySelector('select');
-        var area = popBody.querySelector('textarea');
-        var actions = popBody.querySelector('.ref-pop-actions');
-        if (ig) {
-          var igLink = document.createElement('a');
-          igLink.className = 'ref-btn ref-btn-ghost';
-          igLink.href = ig;
-          igLink.target = '_blank';
-          igLink.rel = 'noopener noreferrer';
-          igLink.textContent = 'Open Instagram';
-          actions.appendChild(igLink);
-        }
-        if (fb) {
-          var fbLink = document.createElement('a');
-          fbLink.className = 'ref-btn ref-btn-ghost';
-          fbLink.href = fb;
-          fbLink.target = '_blank';
-          fbLink.rel = 'noopener noreferrer';
-          fbLink.textContent = 'Open Facebook';
-          actions.appendChild(fbLink);
-        }
-        var templates = [{ label: 'Referral intro', text: 'Hi — I work with businesses nearby and wanted to connect about trading referrals. Open to a quick chat?' }];
-        function paintTemplates() {
-          select.textContent = '';
-          templates.forEach(function (item, index) {
-            var option = document.createElement('option');
-            option.value = String(index);
-            option.textContent = item.label;
-            select.appendChild(option);
-          });
-          area.value = templates[0] ? templates[0].text : '';
-        }
-        select.addEventListener('change', function () {
-          var picked = templates[Number(select.value)] || templates[0];
-          if (picked) area.value = picked.text;
-        });
-        actions.querySelector('[data-dm-copy]').addEventListener('click', function () {
-          var text = String(area.value || '').trim();
-          if (!text) {
-            say('Write a message first.', false);
-            return;
-          }
-          var done = function () { say('DM copied. Paste it in the message.', true); };
-          if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(text).then(done).catch(function () {
-              area.select();
-              document.execCommand('copy');
-              done();
-            });
-          } else {
-            area.select();
-            document.execCommand('copy');
-            done();
-          }
-        });
-        fetch('/leads/' + encodeURIComponent(key) + '/outreach-scripts', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
-          .then(function (res) { return res.json(); })
-          .then(function (data) {
-            var library = data && data.library ? data.library : {};
-            var fromLibrary = [];
-            Object.keys(library).forEach(function (id) {
-              var entry = library[id] || {};
-              var channels = entry.channels || {};
-              var text = plainText(channels.text || channels.call || '');
-              if (!text) return;
-              fromLibrary.push({ label: (entry.label || id) + ' — DM', text: text.slice(0, 1000) });
-            });
-            if (fromLibrary.length) templates = fromLibrary.concat(templates);
-            paintTemplates();
-          })
-          .catch(function () { paintTemplates(); });
       }
 
       function syncGhl(button) {
@@ -684,7 +588,6 @@
           if (kind === 'tags') openTags(action);
           else if (kind === 'sms') openComposer('sms', leadKey);
           else if (kind === 'email') openComposer('email', leadKey);
-          else if (kind === 'dm') openDm(action);
           return;
         }
         var ghl = event.target.closest('[data-referral-ghl]');
