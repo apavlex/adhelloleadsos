@@ -21,6 +21,11 @@ const {
 } = require('../services/directMailPlaybooks');
 const kieImageClient = require('../services/kieImageClient');
 const { chatCompletion, parseLlmJson, providersForChain } = require('../services/llmClient');
+const {
+  sanitizeDesignImagePrompt,
+  userAskedForDesign,
+  buildFallbackDesignImagePrompt,
+} = require('../services/designCoachImagePrompt');
 const googleDriveAccess = require('../services/googleDriveAccess');
 const { downloadDriveFileAsImageBuffer } = require('../services/googleDriveImages');
 const {
@@ -402,8 +407,14 @@ When they ask to remove, delete, change, move, or tweak something ("remove the s
 - Tell the model to make ONLY that change and preserve everything else unchanged.
 - Do NOT rewrite the whole creative from scratch.` : ''}
 
-Respond with JSON only, no markdown:
-{"reply":"2-4 sentences: coaching toward a draft image prompt — questions while exploring, or confirm direction when drafting","imagePrompt":"null or a detailed English prompt ready for GPT Image 2 — specify platform (${plat}), ${ratio} composition, typography zones, brand colors, mood. ${isPostcard && slot === 'back' ? 'For postcard back: CTA layout (Call, Scan QR placeholder, Visit website) — not a duplicated contact footer.' : 'Include business contact details in the design when the user wants them on the ad.'} Null if still exploring."}
+Respond with JSON only, no markdown. Example shape:
+{"reply":"Short coaching reply for the marketer.","imagePrompt":null}
+
+imagePrompt rules:
+- Use JSON null (not the string "null") while still exploring with no usable creative direction.
+- Otherwise set imagePrompt to a detailed English production prompt for GPT Image 2: name the platform (${plat}), ${ratio} composition, typography zones, brand colors, mood, and layout.
+- ${isPostcard && slot === 'back' ? 'For postcard back: CTA layout (Call, Scan QR placeholder, Visit website) — not a duplicated contact footer.' : 'Include business contact details in the design when the user wants them on the ad.'}
+- Never copy these instructions, schema text, or the word "null" into imagePrompt. Write the actual visual prompt, or null.
 
 Workflow (important):
 - Your job is to lead the user to a production-ready imagePrompt they can review and edit BEFORE artwork is generated.
@@ -1061,9 +1072,10 @@ router.post('/api/design-chat', async (req, res, next) => {
     const parsed = parseLlmJson(ai.content) || {};
     const DEFAULT_CLARIFY =
       'Tell me more about the look you want — brand colors, photo vs illustration, and the main hook.';
+    const DRAFT_READY =
+      'Got it — locking that look in. I drafted an image prompt from your direction. Edit it in Prompt & refine (or tell me what to change), then click Generate when you are happy with it.';
     let reply = String(parsed.reply || '').trim();
-    let imagePrompt = parsed.imagePrompt ? String(parsed.imagePrompt).trim() : '';
-    if (imagePrompt && /^(null|undefined|none)$/i.test(imagePrompt)) imagePrompt = '';
+    let imagePrompt = sanitizeDesignImagePrompt(parsed.imagePrompt);
 
     // If JSON parse failed, prefer the model’s plain text over a canned clarification loop.
     if (!reply) {
@@ -1084,30 +1096,26 @@ router.post('/api/design-chat', async (req, res, next) => {
       );
     const userGaveDirection =
       userMessage.length >= 24 &&
-      /(color|photo|illustration|realistic|gold|black|white|hook|make (it|a|an)|design|style|mood|marketing|brand)/i.test(
+      /(color|photo|illustration|realistic|gold|black|white|hook|make (it|a|an)|design|style|mood|marketing|brand|banner|cover|hvac|flooring|electrician)/i.test(
         userMessage,
       );
+    const shouldDraftPrompt =
+      !imagePrompt && (userAskedForDesign(userMessage) || userGaveDirection || lastAskedClarify);
 
-    // User already answered the stock clarifying question — do not ask it again.
-    if (lastAskedClarify && userGaveDirection) {
+    if (shouldDraftPrompt) {
       if (!reply || reply === DEFAULT_CLARIFY || /tell me more about the look|brand colors,\s*photo vs illustration/i.test(reply)) {
-        reply =
-          'Got it — locking that look in. I drafted an image prompt from your direction. Edit it in Prompt & refine (or tell me what to change), then click Generate when you are happy with it.';
+        reply = DRAFT_READY;
+      } else if (/null if still exploring|null or a detailed english prompt|ready for gpt image/i.test(reply)) {
+        reply = DRAFT_READY;
       }
-      if (!imagePrompt) {
-        const kit = brandKitSummary(brandKit);
-        imagePrompt = [
-          `Professional ${platformLabel(platform)} ad, ${aspectRatio} aspect ratio.`,
-          `Creative direction from the marketer: ${userMessage}`,
-          headline ? `Headline concept: ${headline}` : '',
-          bodyText ? `Supporting copy: ${bodyText}` : '',
-          kit && kit !== '(no business info set yet)' ? `Business details to include where relevant:\n${kit}` : '',
-          'Sharp typography, clean hierarchy, mobile-readable text, no watermark, no invented logos.',
-        ]
-          .filter(Boolean)
-          .join('\n\n')
-          .slice(0, 3500);
-      }
+      imagePrompt = buildFallbackDesignImagePrompt({
+        userMessage,
+        platformLabel: platformLabel(platform),
+        aspectRatio,
+        headline,
+        bodyText,
+        brandKitSummary: brandKitSummary(brandKit),
+      });
     }
 
     if (!reply) reply = DEFAULT_CLARIFY;
