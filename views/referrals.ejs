@@ -178,8 +178,8 @@
         <p class="ref-latest text-brand-dark dark:text-slate-200" data-ref-note <%= partner.note ? '' : 'hidden' %>><span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Note · </span><span data-ref-note-text><%= partner.note %></span></p>
 
         <div class="mt-3 flex flex-wrap items-center gap-2">
-          <button type="button" class="ref-btn ref-btn-yellow" data-ref-track="sent" data-lead-key="<%= partner.key %>" data-default-label="Log sent">Log sent</button>
-          <button type="button" class="ref-btn ref-btn-ghost" data-ref-track="received" data-lead-key="<%= partner.key %>" data-default-label="Log received">Log received</button>
+          <button type="button" class="ref-btn ref-btn-yellow" data-ref-track="sent" data-lead-key="<%= partner.key %>" data-default-label="Lead sent">Lead sent</button>
+          <button type="button" class="ref-btn ref-btn-ghost" data-ref-track="received" data-lead-key="<%= partner.key %>" data-default-label="Lead received">Lead received</button>
           <% if (partner.status !== 'connected') { %>
           <button type="button" class="ref-btn ref-btn-ghost" data-ref-track="connect" data-lead-key="<%= partner.key %>" data-default-label="Mark connected">Mark connected</button>
           <% } %>
