@@ -65,7 +65,7 @@
       <div class="sidebar-nav-group-items">
         <% if (user) { %>
         <button type="button" id="manualLeadOpenSidebar" class="sidebar-nav-link sidebar-add-lead w-full text-left" title="Add opportunity">
-          <svg class="sidebar-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+          <span class="sidebar-nav-icon sidebar-nav-letter" aria-hidden="true">O</span>
           <span>Add opportunity</span>
         </button>
         <% } %>
@@ -74,7 +74,7 @@
           <span>Today</span>
         </a>
         <a href="/opportunities" class="sidebar-nav-link <%= np === 'opportunities' ? 'active' : '' %>" title="Opportunity pipelines">
-          <span class="sidebar-nav-icon sidebar-nav-letter" aria-hidden="true">O</span>
+          <svg class="sidebar-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6h16.5M3.75 12h16.5M3.75 18h16.5M6 6v.01M6 12v.01M6 18v.01" /></svg>
           <span>Opportunities</span>
         </a>
         <a href="/engagement" class="sidebar-nav-link <%= np === 'engagement' ? 'active' : '' %>" title="Engagement inbox — warm signals">
