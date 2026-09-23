@@ -4,7 +4,6 @@ const dbService = require('../services/database');
 const { filterLeadsForRequest } = require('../services/workspaceService');
 const { filterBusinessPipelineLeads } = require('../services/leadListFilters');
 const referralNetwork = require('../services/referralNetwork');
-const { getWorkspaceIcp } = require('../services/workspaceIcp');
 
 const ACTION_NOTICE = {
   connect: 'Marked connected.',
@@ -39,8 +38,6 @@ router.get('/', async (req, res, next) => {
   try {
     const q = String(req.query.q || '').trim();
     const leads = await workspaceLeads(req);
-    const ws = req.workspaceId ? await dbService.getWorkspace(req.workspaceId) : null;
-    const icp = getWorkspaceIcp(ws);
     res.render('referrals', {
       title: 'Referral network',
       activePage: 'referrals',
@@ -48,9 +45,6 @@ router.get('/', async (req, res, next) => {
       partners: referralNetwork.listPartners(leads, q),
       totals: referralNetwork.networkTotals(leads),
       savedCount: leads.length,
-      trade: icp.keyword,
-      city: icp.city,
-      state: icp.state,
       notice: String(req.query.notice || '').trim(),
     });
   } catch (err) {

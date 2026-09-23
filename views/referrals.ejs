@@ -26,11 +26,9 @@
 <body class="bg-brand-bg min-h-screen text-brand-dark dark:text-white overflow-x-hidden">
   <%- include('partials/navbar') %>
   <%
-    const placeParts = [];
-    if (trade) placeParts.push(String(trade));
-    const geo = [city, state].filter(Boolean).join(', ');
-    if (geo) placeParts.push(geo);
-    const placeLabel = placeParts.join(' · ');
+    const placeLabel = (typeof workspace !== 'undefined' && workspace && workspace.name)
+      ? String(workspace.name).trim()
+      : '';
     const rows = Array.isArray(partners) ? partners : [];
     const counts = totals || { partners: 0, connected: 0, intros: 0, sent: 0, received: 0 };
   %>
