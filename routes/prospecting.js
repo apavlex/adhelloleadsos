@@ -35,6 +35,7 @@ const { buildOutreachLibrary } = require('../services/outreachChannelScripts');
 const { resolveScriptSignOffProfile, applySenderPlaceholdersDeep } = require('../services/scriptPlaceholders');
 const { normalizeLeadForPanel } = require('../services/leadPanelNormalize');
 const { LMV_PROSPECTING_METHODS } = require('../config/lmvProspectingMethods');
+const { normalizeBoards } = require('../services/opportunityBoards');
 
 router.get('/', async (req, res, next) => {
   try {
@@ -56,6 +57,12 @@ router.get('/', async (req, res, next) => {
     const tags = await dbService.listTags(wid);
     const ws = await dbService.getWorkspace(wid);
     const workspaceProspecting = normalizeProspectingSettings(ws && ws.prospecting);
+    const opportunityNormalized = normalizeBoards(ws && ws.opportunityBoards);
+    if (ws && opportunityNormalized.created) {
+      ws.opportunityBoards = opportunityNormalized.boards;
+      await dbService.saveWorkspace(wid, ws);
+    }
+    const opportunityBoards = opportunityNormalized.boards;
 
     const scheduleSuccess = req.query.scheduleSuccess === 'true';
     let schedulesSorted = [];
@@ -334,6 +341,7 @@ router.get('/', async (req, res, next) => {
       importError,
       pipelineMigrateNotice,
       pipelineStages,
+      opportunityBoards,
       scriptLibraryOfferPicklist,
       outreachChannelLibrary,
       lmvProspectingMethods: LMV_PROSPECTING_METHODS,

@@ -133,6 +133,49 @@ router.post('/stages/:stageId/delete', express.json({ limit: '8kb' }), async (re
   }
 });
 
+router.post('/bulk-move', express.json({ limit: '64kb' }), async (req, res, next) => {
+  try {
+    const pipelineId = String((req.body && req.body.pipelineId) || '').trim();
+    const stageId = String((req.body && req.body.stageId) || '').trim();
+    const folderKey =
+      req.body && req.body.folderKey != null && String(req.body.folderKey).trim()
+        ? String(req.body.folderKey).trim()
+        : '';
+    const leadKeys = (Array.isArray(req.body && req.body.leadKeys) ? req.body.leadKeys : [])
+      .map((key) => String(key || '').trim())
+      .filter(Boolean);
+    if (!leadKeys.length) return jsonError(res, 400, 'Select at least one lead.');
+    const workspace = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
+    if (!stageBelongsToPipeline(workspace.opportunityBoards, pipelineId, stageId)) {
+      return jsonError(res, 400, 'That stage is not on this board.');
+    }
+    const all = await dbService.getAllLeads(req.workspaceId);
+    const visibleKeys = new Set(filterLeadsForRequest(req, all).map((lead) => lead.key));
+    const resolveKey = (rawKey) => {
+      const key = String(rawKey || '').trim();
+      const candidates = [key, key.startsWith('lead:') ? key.slice(5) : `lead:${key}`].filter(Boolean);
+      return candidates.find((candidate) => visibleKeys.has(candidate)) || '';
+    };
+    const updatedKeys = [];
+    for (const rawKey of leadKeys) {
+      const fullKey = resolveKey(rawKey);
+      if (!fullKey) continue;
+      const patch = {
+        opportunityPipelineId: pipelineId,
+        opportunityStageId: stageId,
+        onPipelineBoard: true,
+      };
+      if (folderKey) patch.folderKey = folderKey;
+      const lead = await dbService.updateLead(fullKey, patch, req.workspaceId);
+      if (lead) updatedKeys.push(lead.key);
+    }
+    if (!updatedKeys.length) return jsonError(res, 404, 'No leads were updated.');
+    res.json({ success: true, updatedKeys, pipelineId, stageId });
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.post('/move', express.json({ limit: '16kb' }), async (req, res, next) => {
   try {
     const leadKey = String((req.body && req.body.leadKey) || '').trim();

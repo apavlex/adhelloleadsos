@@ -60,15 +60,25 @@
       </select>
       <button type="button" id="bulkMoveFolderBtn" class="bulk-bar-btn bulk-bar-btn--accent" disabled title="<%= _bulkMode === 'search' ? 'Save unsaved selected rows if needed, then move them into the selected folder' : 'Move saved leads into the selected folder' %>">Move</button>
       <% if (_bulkMode === 'pipeline') { %>
-      <% const _boardStages = typeof pipelineStages !== 'undefined' && Array.isArray(pipelineStages) ? pipelineStages : []; %>
+      <% const _oppBoards = typeof opportunityBoards !== 'undefined' && opportunityBoards && Array.isArray(opportunityBoards.pipelines) ? opportunityBoards : null; %>
+      <% const _oppActive = _oppBoards ? (_oppBoards.pipelines.find(function (pipeline) { return pipeline.id === _oppBoards.activePipelineId; }) || _oppBoards.pipelines[0]) : null; %>
+      <% const _boardStages = _oppActive ? _oppActive.stages : (typeof pipelineStages !== 'undefined' && Array.isArray(pipelineStages) ? pipelineStages : []); %>
+      <% if (_oppBoards && _oppBoards.pipelines.length) { %>
+      <label for="bulkOpportunityPipelineSelect" class="sr-only">Opportunity board</label>
+      <select id="bulkOpportunityPipelineSelect" class="bulk-bar-select min-w-[7rem] max-w-[11rem] rounded-md bg-white/10 border border-white/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white/90 focus:outline-none focus:ring-1 focus:ring-brand-yellow/50 cursor-pointer" title="Opportunity board">
+        <% _oppBoards.pipelines.forEach(function (pipeline) { if (!pipeline || !pipeline.id) return; %>
+        <option value="<%= pipeline.id %>"<%= pipeline.id === _oppActive.id ? ' selected' : '' %>><%= pipeline.name %></option>
+        <% }); %>
+      </select>
+      <% } %>
       <% if (_boardStages.length) { %>
-      <label for="bulkPipelineStageSelect" class="sr-only">Pipeline stage</label>
-      <select id="bulkPipelineStageSelect" class="bulk-bar-select min-w-[6.5rem] max-w-[10rem] rounded-md bg-white/10 border border-white/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white/90 focus:outline-none focus:ring-1 focus:ring-brand-yellow/50 cursor-pointer" title="Stage for pipeline board">
+      <label for="bulkPipelineStageSelect" class="sr-only">Opportunity stage</label>
+      <select id="bulkPipelineStageSelect" class="bulk-bar-select min-w-[6.5rem] max-w-[10rem] rounded-md bg-white/10 border border-white/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white/90 focus:outline-none focus:ring-1 focus:ring-brand-yellow/50 cursor-pointer" title="<%= _oppActive ? 'Stage on the selected opportunity board' : 'Stage for pipeline board' %>">
         <% _boardStages.forEach(function (st, idx) { if (!st || !st.id) return; %>
         <option value="<%= st.id %>"<%= idx === 0 ? ' selected' : '' %>><%= st.name %></option>
         <% }); %>
       </select>
-      <button type="button" id="bulkAddToBoardBtn" class="bulk-bar-btn bulk-bar-btn--board" disabled title="Save selected leads to this stage and show on the pipeline board">Board</button>
+      <button type="button" id="bulkAddToBoardBtn" class="bulk-bar-btn bulk-bar-btn--board" disabled title="<%= _oppActive ? 'Place selected leads on this opportunity board and stage' : 'Save selected leads to this stage and show on the pipeline board' %>">Board</button>
       <% } %>
       <% } %>
       <button type="button" id="bulkSaveBtn" class="bulk-bar-btn bulk-bar-btn--save bulk-save-btn" disabled data-default-label="<%= _bulkMode === 'search' ? 'Save' : 'Save' %>">

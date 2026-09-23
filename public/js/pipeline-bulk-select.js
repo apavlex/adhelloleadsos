@@ -3292,6 +3292,9 @@
     }
     const stageEl = document.getElementById('bulkPipelineStageSelect');
     const stageId = stageEl && stageEl.value ? String(stageEl.value).trim() : '';
+    const boardEl = document.getElementById('bulkOpportunityPipelineSelect');
+    const opportunityPipelineId = boardEl && boardEl.value ? String(boardEl.value).trim() : '';
+    const opportunityMove = !!(opportunityPipelineId && stageId.indexOf('ops_') === 0);
     if (!stageId) {
       showBulkBarFeedbackEarly('Choose a pipeline stage first.', 'error');
       return;
@@ -3324,13 +3327,14 @@
       'loading',
     );
     try {
-      const res = await fetch('/leads/bulk-stage-assign', {
+      const res = await fetch(opportunityMove ? '/opportunities/bulk-move' : '/leads/bulk-stage-assign', {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({
           leadKeys: keys.map(normalizeLeadKeyForBoardApi).filter(Boolean),
           stageId: stageId,
+          ...(opportunityMove ? { pipelineId: opportunityPipelineId } : {}),
           ...(folderKey ? { folderKey: folderKey } : {}),
         }),
       });
@@ -3346,8 +3350,11 @@
         throw new Error('No leads were updated. Refresh the page and try again.');
       }
 
+      if (opportunityMove && typeof window.__adhelloApplyOpportunityPlacement === 'function') {
+        window.__adhelloApplyOpportunityPlacement(updatedKeys, opportunityPipelineId, stageId);
+      }
       updated.forEach(function (item) {
-        if (!item || !item.key) return;
+        if (!item || !item.key || opportunityMove) return;
         const row = findLeadRowForBoardKey(item.key);
         if (!row) return;
         applyPipelineStageToRowEarly(row, item.stageId || stageId, item.pipelineStage);

@@ -113,12 +113,85 @@
     row.dataset.twitter = lead.twitter || 'N/A';
     row.dataset.linkedin = lead.linkedin || '';
     if (lead.onPipelineBoard) row.dataset.onPipelineBoard = '1';
+    row.dataset.opportunityPipelineId = lead.opportunityPipelineId || '';
+    row.dataset.opportunityStageId = lead.opportunityStageId || '';
     return row;
+  }
+
+  function selectedOpportunityBoard() {
+    const boards = window.OPPORTUNITY_BOARDS;
+    if (!boards || !Array.isArray(boards.pipelines) || !boards.pipelines.length) return null;
+    const sel = document.getElementById('bulkOpportunityPipelineSelect');
+    const id = sel && sel.value ? String(sel.value).trim() : String(boards.activePipelineId || '');
+    return boards.pipelines.find(function (pipeline) { return pipeline.id === id; }) || boards.pipelines[0];
+  }
+
+  function rowOpportunityPipelineId(row) {
+    return String((row && row.dataset && row.dataset.opportunityPipelineId) || (row && row.getAttribute && row.getAttribute('data-opportunity-pipeline-id')) || '').trim();
+  }
+
+  function rowOpportunityStageId(row) {
+    return String((row && row.dataset && row.dataset.opportunityStageId) || (row && row.getAttribute && row.getAttribute('data-opportunity-stage-id')) || '').trim();
+  }
+
+  function fillOpportunityStageSelect(pipeline) {
+    const sel = document.getElementById('bulkPipelineStageSelect');
+    if (!sel || !pipeline || !Array.isArray(pipeline.stages)) return;
+    const current = sel.value;
+    sel.innerHTML = '';
+    pipeline.stages.forEach(function (stage) {
+      const opt = document.createElement('option');
+      opt.value = stage.id;
+      opt.textContent = stage.name;
+      sel.appendChild(opt);
+    });
+    if (pipeline.stages.some(function (stage) { return stage.id === current; })) sel.value = current;
+  }
+
+  function rebuildOpportunityColumns(pipeline) {
+    const row = document.getElementById('kanbanColumns');
+    if (!row || !pipeline) return;
+    row.innerHTML = '';
+    pipeline.stages.forEach(function (stage) {
+      const col = document.createElement('div');
+      col.className = 'kanban-column w-[min(100vw-2rem,17rem)] shrink-0 flex flex-col gap-3';
+      col.setAttribute('data-pipeline-stage', stage.id);
+      col.setAttribute('data-opportunity-pipeline', pipeline.id);
+      col.innerHTML =
+        '<div class="flex items-center justify-between px-1 mb-1">' +
+        '<h3 class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white leading-tight">' +
+        escapeHtml(stage.name) +
+        '</h3>' +
+        '<span class="px-2 py-0.5 rounded-full bg-brand-cream dark:bg-slate-800 text-[10px] font-bold text-brand-muted dark:text-slate-300 column-count">0</span>' +
+        '</div>' +
+        '<div class="kanban-list kanban-drop-zone min-h-[480px] flex flex-col gap-3 p-2 bg-brand-cream/20 dark:bg-white/5 rounded-3xl border border-dashed border-brand-border/40 dark:border-white/10"></div>';
+      row.appendChild(col);
+    });
+    const caption = document.getElementById('kanbanOpportunityCaption');
+    if (caption) caption.textContent = pipeline.name + ' — same board as Opportunities. Drag a card to change its stage.';
   }
 
   function getKanbanRowSources() {
     hydratePipelineBoardKeysFromDom();
+    const pipeline = selectedOpportunityBoard();
     const table = document.getElementById('prospectLeadsTable');
+    if (pipeline) {
+      if (table) {
+        return Array.from(
+          table.querySelectorAll('tbody tr.result-row:not(.result-row--panel-source)'),
+        ).filter(function (row) {
+          return rowOpportunityPipelineId(row) === pipeline.id;
+        });
+      }
+      if (Array.isArray(window.INITIAL_SAVED_LEADS)) {
+        return window.INITIAL_SAVED_LEADS.filter(function (lead) {
+          return lead && String(lead.opportunityPipelineId || '') === pipeline.id;
+        })
+          .map(leadRecordToRowShape)
+          .filter(Boolean);
+      }
+      return [];
+    }
     if (table) {
       const rows = Array.from(
         table.querySelectorAll('tbody tr.result-row:not(.result-row--panel-source)'),
@@ -138,6 +211,8 @@
 
   function resolveRowColumnIndex(row, stageIds) {
     if (!stageIds.length) return 0;
+    const oppStage = rowOpportunityStageId(row);
+    if (oppStage && stageIds.indexOf(oppStage) >= 0) return stageIds.indexOf(oppStage);
     const sid = String(row.dataset.stageId || row.getAttribute('data-stage-id') || '').trim();
     if (sid) {
       const exact = stageIds.indexOf(sid);
@@ -363,7 +438,31 @@
         const key = item && item.dataset ? item.dataset.leadKey : '';
         if (!key || !toCol) return;
         const newStageId = String(toCol.dataset.pipelineStage || '').trim();
+        const opportunityPipelineId = String(toCol.dataset.opportunityPipeline || '').trim();
         if (!newStageId) return;
+        if (opportunityPipelineId && newStageId.indexOf('ops_') === 0) {
+          fetch('/opportunities/move', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({
+              leadKey: key,
+              pipelineId: opportunityPipelineId,
+              stageId: newStageId,
+            }),
+          })
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+              if (!data || !data.success) return;
+              const originalRow = document.querySelector('.result-row[data-lead-key="' + CSS.escape(key) + '"]');
+              if (!originalRow) return;
+              originalRow.dataset.opportunityPipelineId = opportunityPipelineId;
+              originalRow.dataset.opportunityStageId = newStageId;
+              markRowOnPipelineBoard(originalRow);
+            })
+            .catch(function () {});
+          return;
+        }
         fetch('/leads/' + encodeURIComponent(key) + '/update', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -404,6 +503,12 @@
   function buildPipelineKanbanBoard() {
     const kanbanRoot = document.querySelector('#kanbanView[data-kanban-mode="pipeline"]');
     if (!kanbanRoot) return 0;
+
+    const opportunityPipeline = selectedOpportunityBoard();
+    if (opportunityPipeline) {
+      fillOpportunityStageSelect(opportunityPipeline);
+      rebuildOpportunityColumns(opportunityPipeline);
+    }
 
     const columnEls = Array.from(kanbanRoot.querySelectorAll('.kanban-column'));
     if (!columnEls.length) return 0;
@@ -461,7 +566,50 @@
     return buildPipelineKanbanBoard();
   }
 
+  function applyOpportunityPlacement(keys, pipelineId, stageId) {
+    const wanted = new Set();
+    (Array.isArray(keys) ? keys : []).forEach(function (key) {
+      const raw = String(key || '').trim();
+      if (!raw) return;
+      const bare = raw.replace(/^lead:/i, '');
+      wanted.add(raw);
+      wanted.add(bare);
+      wanted.add('lead:' + bare);
+    });
+    document.querySelectorAll('.result-row').forEach(function (row) {
+      const key = String(row.dataset.leadKey || '').trim();
+      const bare = key.replace(/^lead:/i, '');
+      if (!wanted.has(key) && !wanted.has(bare) && !wanted.has('lead:' + bare)) return;
+      row.dataset.opportunityPipelineId = pipelineId;
+      row.dataset.opportunityStageId = stageId;
+      markRowOnPipelineBoard(row);
+    });
+    if (Array.isArray(window.INITIAL_SAVED_LEADS)) {
+      window.INITIAL_SAVED_LEADS.forEach(function (lead) {
+        if (!lead) return;
+        const key = String(lead.key || '').trim();
+        const bare = key.replace(/^lead:/i, '');
+        if (!wanted.has(key) && !wanted.has(bare) && !wanted.has('lead:' + bare)) return;
+        lead.opportunityPipelineId = pipelineId;
+        lead.opportunityStageId = stageId;
+        lead.onPipelineBoard = true;
+      });
+    }
+    initKanban();
+  }
+
+  window.__adhelloApplyOpportunityPlacement = applyOpportunityPlacement;
   window.__adhelloBuildPipelineKanbanBoard = buildPipelineKanbanBoard;
+
+  const opportunityBoardSelect = document.getElementById('bulkOpportunityPipelineSelect');
+  if (opportunityBoardSelect && opportunityBoardSelect.getAttribute('data-opp-bound') !== '1') {
+    opportunityBoardSelect.setAttribute('data-opp-bound', '1');
+    opportunityBoardSelect.addEventListener('change', function () {
+      const pipeline = selectedOpportunityBoard();
+      fillOpportunityStageSelect(pipeline);
+      buildPipelineKanbanBoard();
+    });
+  }
   window.__adhelloInitKanban = initKanban;
   window.refreshPipelineKanbanIfNeeded = function refreshPipelineKanbanIfNeeded() {
     if (!isKanbanVisible()) return;

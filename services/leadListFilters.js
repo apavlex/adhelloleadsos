@@ -660,6 +660,8 @@ function mapLeadPipelineBootstrap(l) {
     pipelineStage: l.pipelineStage,
     stageId: l.stageId,
     onPipelineBoard: !!l.onPipelineBoard,
+    opportunityPipelineId: l.opportunityPipelineId || '',
+    opportunityStageId: l.opportunityStageId || '',
     status: l.status,
     folderKey: l.folderKey || '',
     tags: Array.isArray(l.tags) ? l.tags : [],

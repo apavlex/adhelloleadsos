@@ -18706,12 +18706,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const stageEl = document.getElementById('bulkPipelineStageSelect') || bulkPipelineStageSelect;
     const stageId = stageEl && stageEl.value ? String(stageEl.value).trim() : '';
+    const boardEl = document.getElementById('bulkOpportunityPipelineSelect');
+    const opportunityPipelineId = boardEl && boardEl.value ? String(boardEl.value).trim() : '';
+    const opportunityMove = !!(opportunityPipelineId && stageId.indexOf('ops_') === 0);
     if (!stageId) {
       showBulkSaveFeedback('Choose a pipeline stage first.', 'error');
       return;
     }
     const stageName =
-      (window.PIPELINE_STAGE_LABELS && window.PIPELINE_STAGE_LABELS[stageId]) || 'pipeline board';
+      (stageEl && stageEl.options && stageEl.options[stageEl.selectedIndex] && stageEl.options[stageEl.selectedIndex].textContent.trim()) ||
+      (window.PIPELINE_STAGE_LABELS && window.PIPELINE_STAGE_LABELS[stageId]) ||
+      'pipeline board';
     const folderEl = document.getElementById('bulkFolderSelect') || bulkFolderSelect;
     const folderKey = folderEl && folderEl.value ? String(folderEl.value).trim() : '';
     const viewingFolder =
@@ -18732,13 +18737,14 @@ document.addEventListener('DOMContentLoaded', () => {
       'loading',
     );
     try {
-      const res = await fetch('/leads/bulk-stage-assign', {
+      const res = await fetch(opportunityMove ? '/opportunities/bulk-move' : '/leads/bulk-stage-assign', {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({
           leadKeys: keys.map(normalizeLeadKeyForApi).filter(Boolean),
           stageId,
+          ...(opportunityMove ? { pipelineId: opportunityPipelineId } : {}),
           ...(folderKey ? { folderKey } : {}),
         }),
       });
@@ -18752,8 +18758,11 @@ document.addEventListener('DOMContentLoaded', () => {
         throw new Error('No leads were updated. Refresh the page and try again.');
       }
 
+      if (opportunityMove && typeof window.__adhelloApplyOpportunityPlacement === 'function') {
+        window.__adhelloApplyOpportunityPlacement(updatedKeys, opportunityPipelineId, stageId);
+      }
       updated.forEach((item) => {
-        if (!item || !item.key) return;
+        if (!item || !item.key || opportunityMove) return;
         const row = findLeadRowForBulkKey(item.key);
         if (!row) return;
         applyPipelineStageToRow(row, item.stageId || stageId, item.pipelineStage);

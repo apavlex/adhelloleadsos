@@ -593,6 +593,8 @@
                 data-bookmarked="<%= lead.bookmarked ? '1' : '0' %>"
                 data-stage-id="<%= plcEscAttr(activeStageId || '') %>"
                 data-pipeline-stage="<%= psRow %>"
+                data-opportunity-pipeline-id="<%= plcEscAttr(lead.opportunityPipelineId || '') %>"
+                data-opportunity-stage-id="<%= plcEscAttr(lead.opportunityStageId || '') %>"
                 <% if (lead.onPipelineBoard) { %>data-on-pipeline-board="1"<% } %>
                 data-pipeline-label="<%= plcEscAttr(pipeShort) %>"
                 data-title="<%= plcEscAttr(lead.title) %>"
@@ -1052,8 +1054,9 @@
   <div id="kanbanView" class="hidden w-full overflow-x-auto pb-12 custom-scrollbar" data-kanban-mode="pipeline">
           <div class="mb-4">
             <%- include('/partials/help/kanban_drag_info') %>
+            <p id="kanbanOpportunityCaption" class="mt-2 text-[11px] font-semibold text-brand-muted dark:text-slate-400"></p>
           </div>
-      <div class="flex gap-4 min-w-max pb-2">
+      <div id="kanbanColumns" class="flex gap-4 min-w-max pb-2">
           <% if (typeof pipelineStages !== 'undefined' && pipelineStages) { pipelineStages.forEach((col) => { %>
           <div class="kanban-column w-[min(100vw-2rem,17rem)] shrink-0 flex flex-col gap-3" data-pipeline-stage="<%= col.id %>">
               <div class="flex items-center justify-between px-1 mb-1">
