@@ -57,6 +57,8 @@ function iaNav(req, res, next) {
     navPrimary = 'custom-menu';
   } else if (p === '/opportunities' || p.startsWith('/opportunities/')) {
     navPrimary = 'opportunities';
+  } else if (p === '/referrals' || p.startsWith('/referrals/')) {
+    navPrimary = 'referrals';
   }
   res.locals.requestPath = p;
   res.locals.sidebarSettingsOpen =
