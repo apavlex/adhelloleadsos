@@ -2,6 +2,8 @@ const crypto = require('crypto');
 const { isManualSource } = require('./leadListFilters');
 const { normalizeEngagementSignals } = require('./engagementSignals');
 const { isReferralLead, isFollowUpTask } = require('./todayPriorityLeads');
+const { noteEntryBody } = require('./leadNotes');
+const { quickLogLabelForDisposition, quickLogItemForStatus } = require('./quickLogConfig');
 
 const DEFAULT_STAGE_NAMES = ['New opportunity', 'Contacted', 'Qualified', 'Proposal sent', 'Won'];
 const MAX_PIPELINES = 12;
@@ -159,6 +161,93 @@ function tagsHref(lead) {
   return `/pipeline?focusLead=${encodeURIComponent(key)}`;
 }
 
+function stampMs(value) {
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+function shortWhen(ms) {
+  if (!ms) return '';
+  const date = new Date(ms);
+  const now = new Date();
+  const sameDay = date.toDateString() === now.toDateString();
+  if (sameDay) {
+    let hour = date.getHours();
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const suffix = hour >= 12 ? 'p' : 'a';
+    hour = hour % 12 || 12;
+    return `${hour}:${minutes}${suffix}`;
+  }
+  const days = (now.getTime() - date.getTime()) / 86400000;
+  if (days >= 0 && days < 7) return date.toLocaleDateString('en-US', { weekday: 'short' });
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function withWhen(text, ms) {
+  const when = shortWhen(ms);
+  return when ? `${text} · ${when}` : text;
+}
+
+function categoryLabel(lead) {
+  return String((lead && (lead.categoryName || lead.category)) || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .slice(0, 32);
+}
+
+function cityLabel(lead) {
+  const city = String((lead && lead.city) || '').trim();
+  const state = String((lead && lead.state) || '').trim();
+  return [city, state].filter(Boolean).join(', ');
+}
+
+function reviewsLabel(lead) {
+  const rating = parseFloat(lead && lead.totalScore);
+  const count = parseInt(lead && lead.reviewsCount, 10);
+  const parts = [];
+  if (Number.isFinite(rating) && rating > 0) parts.push(rating.toFixed(1));
+  if (Number.isFinite(count) && count > 0) parts.push(`${count} review${count === 1 ? '' : 's'}`);
+  return parts.join(' · ');
+}
+
+function statusLabel(lead) {
+  const signals = normalizeEngagementSignals(lead && lead.engagementSignals);
+  const events = [];
+  if (signals.smsRepliedAt) events.push({ at: stampMs(signals.smsRepliedAt), text: 'Replied to SMS' });
+  if (signals.emailRepliedAt) events.push({ at: stampMs(signals.emailRepliedAt), text: 'Replied to email' });
+  const disposition = quickLogLabelForDisposition(lead && lead.lastDisposition);
+  if (disposition) events.push({ at: stampMs(lead.lastDispositionAt), text: disposition });
+  if (lead && lead.ghlSyncedAt) events.push({ at: stampMs(lead.ghlSyncedAt), text: 'Synced to CRM' });
+  if (!events.length) {
+    const fromStatus = quickLogItemForStatus(lead && lead.status);
+    if (fromStatus) return fromStatus.label;
+    return '';
+  }
+  events.sort((a, b) => b.at - a.at);
+  return withWhen(events[0].text, events[0].at);
+}
+
+function latestNote(lead) {
+  const rows = []
+    .concat(Array.isArray(lead && lead.updates) ? lead.updates : [])
+    .concat(Array.isArray(lead && lead.logs) ? lead.logs : []);
+  let best = null;
+  rows.forEach((entry) => {
+    if (!entry || String(entry.type || '') !== 'note') return;
+    const text = noteEntryBody(entry);
+    if (!text) return;
+    const at = stampMs(entry.timestamp || entry.ts || entry.createdAt);
+    if (!best || at >= best.at) best = { at, text };
+  });
+  if (!best) {
+    const fallback = String((lead && lead.lastDispositionNotes) || '').trim();
+    if (fallback) best = { text: fallback };
+  }
+  if (!best) return '';
+  const text = best.text.replace(/\s+/g, ' ').trim();
+  return text.length > 90 ? `${text.slice(0, 87)}…` : text;
+}
+
 function stageForLead(lead, pipeline, homePipelineId, keys) {
   if (!lead || !pipeline) return null;
   const stageIds = new Set(pipeline.stages.map((stage) => stage.id));
@@ -198,6 +287,11 @@ function buildOpportunityBoard(input) {
       valueLabel: money(value),
       phone,
       email,
+      category: categoryLabel(lead),
+      city: cityLabel(lead),
+      status: statusLabel(lead),
+      note: latestNote(lead),
+      reviews: reviewsLabel(lead),
       tagKeys: Array.isArray(lead.tags) ? lead.tags.map((tag) => String(tag || '')).filter(Boolean) : [],
       emailHref: email ? `mailto:${email}` : '',
       scheduleHref: taskHref(lead, 'schedule'),

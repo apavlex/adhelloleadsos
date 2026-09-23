@@ -78,6 +78,37 @@ test('buildOpportunityBoard places important leads in New opportunity until they
   assert.match(board.stages[2].cards[0].tagsHref, /focusLead=/);
 });
 
+test('opportunity cards show category, status, the latest note, and reviews', () => {
+  const { boards } = normalizeBoards(null);
+  const board = buildOpportunityBoard({
+    boards,
+    leads: [
+      {
+        key: 'lead:cafe',
+        title: 'Bluebird Cafe',
+        source: 'manual',
+        categoryName: 'Cafe',
+        city: 'Austin',
+        state: 'TX',
+        totalScore: 4.8,
+        reviewsCount: 48,
+        opportunityPipelineId: boards.pipelines[0].id,
+        opportunityStageId: boards.pipelines[0].stages[0].id,
+        lastDisposition: 'connected',
+        lastDispositionAt: new Date().toISOString(),
+        updates: [{ type: 'note', value: 'Asked for a proposal next week.', timestamp: '2026-09-22T15:00:00.000Z' }],
+      },
+    ],
+    tasks: [],
+  });
+  const card = board.stages[0].cards[0];
+  assert.equal(card.category, 'Cafe');
+  assert.match(card.status, /^DM connected/);
+  assert.equal(card.note, 'Asked for a proposal next week.');
+  assert.equal(card.reviews, '4.8 · 48 reviews');
+  assert.equal(card.city, 'Austin, TX');
+});
+
 test('resolvePlacement maps a same-named stage onto the selected board', () => {
   const { boards } = normalizeBoards(null);
   const extra = addPipeline(boards, 'Marketing Pipeline');

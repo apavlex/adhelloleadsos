@@ -15,11 +15,18 @@
   .opp-card { position: relative; width: 100%; min-width: 0; box-sizing: border-box; background: #fff; border: 1px solid rgba(17, 24, 39, 0.08); border-radius: 0.8rem; padding: 0.7rem 0.75rem; cursor: grab; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
   html.dark .opp-card { background: #0f172a; border-color: rgba(255, 255, 255, 0.1); }
   .opp-card.sortable-ghost { opacity: 0.45; }
-  .opp-card-title { display: block; width: 100%; border: 0; background: transparent; padding: 0; text-align: left; font-weight: 800; font-size: 0.875rem; line-height: 1.3; color: inherit; text-decoration: none; overflow-wrap: anywhere; cursor: pointer; }
+  .opp-card-head { display: flex; align-items: flex-start; gap: 0.35rem; }
+  .opp-card-title { display: block; width: 100%; min-width: 0; border: 0; background: transparent; padding: 0; text-align: left; font-weight: 800; font-size: 0.875rem; line-height: 1.3; color: inherit; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
   .opp-card-title:hover { color: var(--brand-yellow, #ca8a04); }
-  .opp-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-top: 0.45rem; }
-  .opp-card-source { font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #6b7280; }
-  .opp-card-value { font-size: 0.75rem; font-weight: 800; color: #111827; }
+  .opp-card-pin { flex: none; color: #94a3b8; margin-top: 0.1rem; }
+  .opp-card-pin svg { width: 0.85rem; height: 0.85rem; display: block; }
+  .opp-card-category { margin: 0.2rem 0 0; font-size: 0.625rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #94a3b8; }
+  .opp-card-status { margin: 0.28rem 0 0; font-size: 0.72rem; font-weight: 600; color: #64748b; }
+  .opp-card-note { margin: 0.2rem 0 0; font-size: 0.72rem; line-height: 1.35; color: #334155; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  html.dark .opp-card-note { color: #e2e8f0; }
+  .opp-card-reviews { margin: 0.22rem 0 0; font-size: 0.68rem; font-weight: 600; color: #64748b; }
+  .opp-card-reviews span { color: #d97706; }
+  .opp-card-value { margin: 0.2rem 0 0; font-size: 0.75rem; font-weight: 800; color: #111827; }
   html.dark .opp-card-value { color: #f8fafc; }
   .opp-card-tools { position: relative; z-index: 2; display: flex; align-items: center; gap: 0.1rem; margin-top: 0.55rem; padding-top: 0.45rem; border-top: 1px solid rgba(17, 24, 39, 0.06); }
   html.dark .opp-card-tools { border-top-color: rgba(255, 255, 255, 0.08); }
@@ -108,13 +115,19 @@
           <% if (!stage.cards.length) { %><div class="opp-drop">Drop here</div><% } %>
           <% stage.cards.forEach(function (card) { %>
           <article class="opp-card" data-lead-key="<%= card.key %>" data-value="<%= card.value %>">
-            <button type="button" class="opp-card-title" data-opp-action="profile" data-lead-key="<%= card.key %>"><%= card.title %></button>
-            <% if (card.source || card.valueLabel) { %>
-            <div class="opp-card-foot">
-              <span class="opp-card-source"><%= card.source || 'Opportunity' %></span>
-              <% if (card.valueLabel) { %><span class="opp-card-value"><%= card.valueLabel %></span><% } %>
+            <div class="opp-card-head">
+              <button type="button" class="opp-card-title" data-opp-action="profile" data-lead-key="<%= card.key %>" title="<%= card.title %>"><%= card.title %></button>
+              <% if (card.city) { %>
+              <span class="opp-card-pin" title="<%= card.city %>" aria-label="<%= card.city %>">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21s7-5.4 7-11a7 7 0 1 0-14 0c0 5.6 7 11 7 11z"/><circle cx="12" cy="10" r="2.25"/></svg>
+              </span>
+              <% } %>
             </div>
-            <% } %>
+            <% if (card.category) { %><p class="opp-card-category"><%= card.category %></p><% } %>
+            <% if (card.status) { %><p class="opp-card-status"><%= card.status %></p><% } %>
+            <% if (card.note) { %><p class="opp-card-note"><%= card.note %></p><% } %>
+            <% if (card.reviews) { %><p class="opp-card-reviews"><span aria-hidden="true">★</span> <%= card.reviews %></p><% } else if (card.city && !card.status) { %><p class="opp-card-status"><%= card.city %></p><% } %>
+            <% if (card.valueLabel) { %><p class="opp-card-value"><%= card.valueLabel %></p><% } %>
             <div class="opp-card-tools">
               <button type="button" data-opp-action="sms" data-phone="<%= card.phone %>" data-lead-key="<%= card.key %>" data-title="<%= card.title %>" title="SMS" aria-label="SMS"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-8 8H7l-4 3V12a8 8 0 1 1 18 0z"/></svg></button>
               <button type="button" data-opp-action="email" data-email="<%= card.email %>" data-lead-key="<%= card.key %>" data-title="<%= card.title %>" title="Email" aria-label="Email"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></button>
