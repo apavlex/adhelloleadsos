@@ -156,6 +156,31 @@
         return currentName && String(stage.name || '').trim().toLowerCase() === currentName;
       });
     if (match) sel.value = match.id;
+    syncInlineOpportunityStages(pipeline);
+  }
+
+  function syncInlineOpportunityStages(pipeline) {
+    if (!pipeline || !Array.isArray(pipeline.stages)) return;
+    document.querySelectorAll('.pipeline-inline-select').forEach(function (sel) {
+      const row = sel.closest('.result-row');
+      const onThisBoard = !!(row && rowOpportunityPipelineId(row) === pipeline.id);
+      const currentStage = row ? rowOpportunityStageId(row) : '';
+      sel.innerHTML = '';
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = 'Not on board';
+      sel.appendChild(placeholder);
+      pipeline.stages.forEach(function (stage) {
+        const opt = document.createElement('option');
+        opt.value = stage.id;
+        opt.textContent = stage.name;
+        sel.appendChild(opt);
+      });
+      const match = pipeline.stages.find(function (stage) { return stage.id === currentStage; });
+      sel.value = onThisBoard && match ? match.id : onThisBoard ? pipeline.stages[0].id : '';
+      sel.setAttribute('data-board-id', pipeline.id);
+      sel.title = 'Stage on ' + pipeline.name;
+    });
   }
 
   function rebuildOpportunityColumns(pipeline) {
@@ -186,21 +211,23 @@
     const pipeline = selectedOpportunityBoard();
     const table = document.getElementById('prospectLeadsTable');
     if (pipeline) {
+      const byKey = new Map();
+      function addRow(row) {
+        if (!row || rowOpportunityPipelineId(row) !== pipeline.id) return;
+        const bare = String(row.dataset.leadKey || '').replace(/^lead:/i, '');
+        if (!bare || byKey.has(bare)) return;
+        byKey.set(bare, row);
+      }
       if (table) {
-        return Array.from(
-          table.querySelectorAll('tbody tr.result-row:not(.result-row--panel-source)'),
-        ).filter(function (row) {
-          return rowOpportunityPipelineId(row) === pipeline.id;
+        Array.from(table.querySelectorAll('tbody tr.result-row:not(.result-row--panel-source)')).forEach(addRow);
+      }
+      if (Array.isArray(window.OPPORTUNITY_BOARD_LEADS)) {
+        window.OPPORTUNITY_BOARD_LEADS.forEach(function (lead) {
+          if (!lead || String(lead.opportunityPipelineId || '') !== pipeline.id) return;
+          addRow(leadRecordToRowShape(lead));
         });
       }
-      if (Array.isArray(window.INITIAL_SAVED_LEADS)) {
-        return window.INITIAL_SAVED_LEADS.filter(function (lead) {
-          return lead && String(lead.opportunityPipelineId || '') === pipeline.id;
-        })
-          .map(leadRecordToRowShape)
-          .filter(Boolean);
-      }
-      return [];
+      return Array.from(byKey.values());
     }
     if (table) {
       const rows = Array.from(
@@ -219,8 +246,14 @@
     return [];
   }
 
-  function resolveRowColumnIndex(row, stageIds) {
+  function resolveRowColumnIndex(row, stageIds, pipelineId) {
     if (!stageIds.length) return 0;
+    if (pipelineId) {
+      if (rowOpportunityPipelineId(row) !== pipelineId) return -1;
+      const oppStage = rowOpportunityStageId(row);
+      const exact = stageIds.indexOf(oppStage);
+      return exact >= 0 ? exact : 0;
+    }
     const oppStage = rowOpportunityStageId(row);
     if (oppStage && stageIds.indexOf(oppStage) >= 0) return stageIds.indexOf(oppStage);
     const sid = String(row.dataset.stageId || row.getAttribute('data-stage-id') || '').trim();
@@ -530,10 +563,11 @@
     const buckets = columnEls.map(function () {
       return [];
     });
+    const boardId = opportunityPipeline ? opportunityPipeline.id : '';
 
     rows.forEach(function (row) {
-      let idx = resolveRowColumnIndex(row, stageIds);
-      if (idx < 0) idx = 0;
+      let idx = resolveRowColumnIndex(row, stageIds, boardId);
+      if (idx < 0) return;
       if (idx >= buckets.length) idx = buckets.length - 1;
       buckets[idx].push(row);
     });
@@ -593,6 +627,32 @@
       row.dataset.opportunityPipelineId = pipelineId;
       row.dataset.opportunityStageId = stageId;
       markRowOnPipelineBoard(row);
+    });
+    if (!Array.isArray(window.OPPORTUNITY_BOARD_LEADS)) window.OPPORTUNITY_BOARD_LEADS = [];
+    window.OPPORTUNITY_BOARD_LEADS.forEach(function (lead) {
+      if (!lead) return;
+      const key = String(lead.key || '').trim();
+      const bare = key.replace(/^lead:/i, '');
+      if (!wanted.has(key) && !wanted.has(bare) && !wanted.has('lead:' + bare)) return;
+      lead.opportunityPipelineId = pipelineId;
+      lead.opportunityStageId = stageId;
+    });
+    (Array.isArray(keys) ? keys : []).forEach(function (key) {
+      const raw = String(key || '').trim();
+      if (!raw) return;
+      const bare = raw.replace(/^lead:/i, '');
+      const exists = window.OPPORTUNITY_BOARD_LEADS.some(function (lead) {
+        const leadKey = String((lead && lead.key) || '').replace(/^lead:/i, '');
+        return leadKey === bare;
+      });
+      if (!exists) {
+        window.OPPORTUNITY_BOARD_LEADS.push({
+          key: raw.indexOf('lead:') === 0 ? raw : 'lead:' + bare,
+          opportunityPipelineId: pipelineId,
+          opportunityStageId: stageId,
+          title: '',
+        });
+      }
     });
     if (Array.isArray(window.INITIAL_SAVED_LEADS)) {
       window.INITIAL_SAVED_LEADS.forEach(function (lead) {

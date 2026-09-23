@@ -170,6 +170,11 @@ router.post('/bulk-move', express.json({ limit: '64kb' }), async (req, res, next
       if (lead) updatedKeys.push(lead.key);
     }
     if (!updatedKeys.length) return jsonError(res, 404, 'No leads were updated.');
+    const remembered = selectPipeline(workspace.opportunityBoards, placement.pipelineId);
+    if (remembered.changed) {
+      workspace.opportunityBoards = remembered.boards;
+      await dbService.saveWorkspace(req.workspaceId, workspace);
+    }
     res.json({
       success: true,
       updatedKeys,
@@ -201,7 +206,18 @@ router.post('/move', express.json({ limit: '16kb' }), async (req, res, next) => 
       req.workspaceId,
     );
     if (!updated) return jsonError(res, 404, 'Lead not found.');
-    res.json({ success: true });
+    const remembered = selectPipeline(workspace.opportunityBoards, placement.pipelineId);
+    if (remembered.changed) {
+      workspace.opportunityBoards = remembered.boards;
+      await dbService.saveWorkspace(req.workspaceId, workspace);
+    }
+    res.json({
+      success: true,
+      pipelineId: placement.pipelineId,
+      stageId: placement.stageId,
+      pipelineName: placement.pipelineName,
+      stageName: placement.stageName,
+    });
   } catch (e) {
     next(e);
   }

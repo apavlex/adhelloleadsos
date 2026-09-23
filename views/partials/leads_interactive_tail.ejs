@@ -29,6 +29,11 @@
   window.PIPELINE_STAGE_LABELS = <%- safeJsonForScript((typeof pipelineStages !== 'undefined' && pipelineStages ? pipelineStages : []).reduce((m, s) => { m[s.id] = s.name; return m; }, {})) %>;
   window.PIPELINE_STAGE_COLORS = <%- safeJsonForScript((typeof pipelineStages !== 'undefined' && pipelineStages ? pipelineStages : []).reduce((m, s) => { m[s.id] = s.color || '#94a3b8'; return m; }, {})) %>;
   window.PIPELINE_STAGES = <%- safeJsonForScript((typeof pipelineStages !== 'undefined' && pipelineStages ? pipelineStages : []).map((s) => ({ id: s.id, name: s.name, color: s.color || '#94a3b8' }))) %>;
+  window.OPPORTUNITY_BOARD_LEADS = <%- safeJsonForScript(
+    typeof opportunityBoardLeads !== 'undefined' && Array.isArray(opportunityBoardLeads)
+      ? opportunityBoardLeads
+      : []
+  ) %>;
   window.OPPORTUNITY_BOARDS = <%- safeJsonForScript(
     typeof opportunityBoards !== 'undefined' && opportunityBoards && Array.isArray(opportunityBoards.pipelines)
       ? {

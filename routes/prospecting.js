@@ -239,6 +239,12 @@ router.get('/', async (req, res, next) => {
     const queueListLeads = safeTab === 'queue' ? pipelineVisible.map(mapLeadListJson) : [];
     const folderListLeads = safeTab === 'folders' ? visible.map(mapLeadListJson) : [];
     const leadBootstrapLeads = safeTab === 'pipeline' ? leads.map(mapLeadPipelineBootstrap) : [];
+    const opportunityBoardLeads =
+      safeTab === 'pipeline'
+        ? visible
+            .filter((lead) => lead && String(lead.opportunityPipelineId || '').trim())
+            .map(mapLeadPipelineBootstrap)
+        : [];
 
     const directFolderCounts = {};
     if (safeTab === 'folders') {
@@ -342,6 +348,7 @@ router.get('/', async (req, res, next) => {
       pipelineMigrateNotice,
       pipelineStages,
       opportunityBoards,
+      opportunityBoardLeads,
       scriptLibraryOfferPicklist,
       outreachChannelLibrary,
       lmvProspectingMethods: LMV_PROSPECTING_METHODS,

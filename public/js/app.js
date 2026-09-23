@@ -13408,6 +13408,61 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!key) return;
     const newStageId = String(sel.value || '').trim();
     if (!newStageId) return;
+    const boardId = String(sel.getAttribute('data-board-id') || '').trim();
+    const boardEl = document.getElementById('bulkOpportunityPipelineSelect');
+    const pipelineId =
+      boardId || (boardEl && boardEl.value ? String(boardEl.value).trim() : '');
+    if (pipelineId && newStageId.indexOf('ops_') === 0) {
+      const prevOpp = String(row.dataset.opportunityStageId || '').trim();
+      const prevPipe = String(row.dataset.opportunityPipelineId || '').trim();
+      if (newStageId === prevOpp && pipelineId === prevPipe) return;
+      const stageName =
+        (sel.options && sel.options[sel.selectedIndex] && sel.options[sel.selectedIndex].textContent.trim()) ||
+        'stage';
+      sel.disabled = true;
+      try {
+        const res = await fetch('/opportunities/move', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({
+            leadKey: key,
+            pipelineId,
+            stageId: newStageId,
+            stageName,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+          sel.value = prevOpp && prevPipe === pipelineId ? prevOpp : '';
+          if (typeof window.showProspectToast === 'function') {
+            window.showProspectToast((data && data.error) || 'Could not move that opportunity.');
+          }
+          return;
+        }
+        const placedPipeline = data.pipelineId || pipelineId;
+        const placedStage = data.stageId || newStageId;
+        if (typeof window.__adhelloApplyOpportunityPlacement === 'function') {
+          window.__adhelloApplyOpportunityPlacement([key], placedPipeline, placedStage);
+        } else {
+          row.dataset.opportunityPipelineId = placedPipeline;
+          row.dataset.opportunityStageId = placedStage;
+        }
+        const pipelineName =
+          (boardEl && boardEl.options && boardEl.options[boardEl.selectedIndex] && boardEl.options[boardEl.selectedIndex].textContent.trim()) ||
+          data.pipelineName ||
+          'pipeline';
+        const placedName = data.stageName || stageName;
+        if (typeof window.showProspectToast === 'function') {
+          window.showProspectToast('Saved to ' + pipelineName + ' · ' + placedName);
+        }
+      } catch {
+        sel.value = prevOpp && prevPipe === pipelineId ? prevOpp : '';
+      } finally {
+        sel.disabled = false;
+      }
+      return;
+    }
     const prevId = String(row.dataset.stageId || '').trim();
     if (newStageId === prevId) return;
     sel.disabled = true;

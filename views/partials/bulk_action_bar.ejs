@@ -71,10 +71,9 @@
         <option value="<%= st.id %>"<%= idx === 0 ? ' selected' : '' %>><%= st.name %></option>
         <% }); %>
       </select>
-      <button type="button" id="bulkAddToBoardBtn" class="bulk-bar-btn bulk-bar-btn--board" disabled title="<%= _oppActive ? 'Place selected leads on this opportunity board and stage' : 'Save selected leads to this stage and show on the pipeline board' %>">Board</button>
       <% } %>
       <% } %>
-      <button type="button" id="bulkSaveBtn" class="bulk-bar-btn bulk-bar-btn--save bulk-save-btn" disabled data-default-label="<%= _bulkMode === 'search' ? 'Save' : 'Save' %>">
+      <button type="button" id="bulkSaveBtn" class="bulk-bar-btn bulk-bar-btn--save bulk-save-btn" disabled title="<%= _bulkMode === 'search' ? 'Save selected leads into the folder' : 'Save selected leads onto this opportunity board and stage' %>" data-default-label="Save">
         <%= _bulkMode === 'search' ? 'Save' : 'Save' %>
       </button>
       <button type="button" id="bulkFolderNewToggle" class="bulk-bar-btn bulk-bar-btn--ghost text-brand-yellow" title="Create a new folder" aria-expanded="false" aria-controls="bulkFolderNewRow">+ Folder</button>
