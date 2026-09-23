@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
   normalizeBoards,
+  selectPipeline,
   buildOpportunityBoard,
   addPipeline,
   addStage,
@@ -17,6 +18,16 @@ test('normalizeBoards creates a marketing pipeline with default stages', () => {
     boards.pipelines[0].stages.map((stage) => stage.name),
     ['New opportunity', 'Contacted', 'Qualified', 'Proposal sent', 'Won'],
   );
+});
+
+test('selectPipeline remembers a chosen pipeline', () => {
+  const { boards } = normalizeBoards(null);
+  const extra = addPipeline(boards, 'Referrals');
+  const selected = selectPipeline(extra.boards, boards.pipelines[0].id);
+  assert.equal(selected.changed, true);
+  assert.equal(selected.boards.activePipelineId, boards.pipelines[0].id);
+  const again = selectPipeline(selected.boards, boards.pipelines[0].id);
+  assert.equal(again.changed, false);
 });
 
 test('normalizeBoards renames the default New lead stage to New opportunity', () => {

@@ -5,6 +5,7 @@ const fs = require('fs/promises');
 const router = express.Router();
 const dbService = require('../services/database');
 const { folderKeyForJobType, leadMetadataForJobType } = require('../services/pipelineFolders');
+const { selectPipeline } = require('../services/opportunityBoards');
 const { normalizeJobType } = require('../services/scrapeJobTypes');
 const firecrawl = require('../services/firecrawl');
 const webEnrichment = require('../services/webEnrichment');
@@ -544,6 +545,28 @@ router.post('/save', async (req, res, next) => {
       ];
     }
 
+    let savedPipelineId = '';
+    if (isManual) {
+      const workspace = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
+      const requestedPipeline = String((req.body && req.body.opportunityPipelineId) || '').trim();
+      const requestedStage = String((req.body && req.body.opportunityStageId) || '').trim();
+      const selected = selectPipeline(workspace.opportunityBoards, requestedPipeline);
+      const boards = selected.boards;
+      let pipeline = boards.pipelines.find((item) => item.id === requestedPipeline);
+      if (!pipeline || !pipeline.stages.some((stage) => stage.id === requestedStage)) {
+        pipeline = boards.pipelines.find((item) => item.id === boards.activePipelineId) || boards.pipelines[0];
+      }
+      const stage = pipeline.stages.find((item) => item.id === requestedStage) || pipeline.stages[0];
+      leadData.opportunityPipelineId = pipeline.id;
+      leadData.opportunityStageId = stage.id;
+      if (noteText) leadData.opportunitySource = noteText.slice(0, 40);
+      savedPipelineId = pipeline.id;
+      if (selected.changed) {
+        workspace.opportunityBoards = boards;
+        await dbService.saveWorkspace(req.workspaceId, workspace);
+      }
+    }
+
     const key = await dbService.saveLead(leadData);
     try {
       await autoAttachCadenceIfNeeded({ leadKey: key, workspaceId: req.workspaceId });
@@ -557,7 +580,7 @@ router.post('/save', async (req, res, next) => {
         /* non-fatal */
       }
     }
-    res.json({ success: true, key });
+    res.json({ success: true, key, pipelineId: savedPipelineId || undefined });
   } catch (err) {
     next(err);
   }

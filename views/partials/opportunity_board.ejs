@@ -29,7 +29,7 @@
   .opp-pipeline-select { height: 2.5rem; border-radius: 999px; border: 1px solid rgba(17, 24, 39, 0.12); background: #fff; padding: 0 0.85rem; font-size: 0.75rem; font-weight: 700; color: #111827; }
   html.dark .opp-pipeline-select { background: #0f172a; border-color: rgba(255, 255, 255, 0.12); color: #f8fafc; }
 </style>
-<section class="mb-8 md:mb-10 rounded-[2rem] border-2 border-brand-yellow/50 dark:border-brand-yellow/35 bg-white dark:bg-slate-900/90 shadow-lg shadow-brand-yellow/10 overflow-hidden <%= _compact ? 'opp-compact' : '' %>" id="oppBoard" data-pipeline-id="<%= _board.pipeline.id %>" aria-label="Opportunities">
+<section class="mb-8 md:mb-10 rounded-[2rem] border-2 border-brand-yellow/50 dark:border-brand-yellow/35 bg-white dark:bg-slate-900/90 shadow-lg shadow-brand-yellow/10 overflow-hidden <%= _compact ? 'opp-compact' : '' %>" id="oppBoard" data-pipeline-id="<%= _board.pipeline.id %>" data-first-stage-id="<%= _board.stages[0] ? _board.stages[0].id : '' %>" aria-label="Opportunities">
   <div class="px-5 sm:px-6 md:px-8 pt-5 sm:pt-6 pb-4 md:pb-5 border-b border-brand-border/40 dark:border-white/10">
     <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
       <div class="min-w-0">

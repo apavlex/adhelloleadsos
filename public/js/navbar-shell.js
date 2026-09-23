@@ -5719,6 +5719,11 @@
         note: (fd.get('note') || '').toString().trim() || undefined,
         source: 'manual',
       };
+      var oppBoard = document.getElementById('oppBoard');
+      if (oppBoard) {
+        payload.opportunityPipelineId = oppBoard.getAttribute('data-pipeline-id') || '';
+        payload.opportunityStageId = oppBoard.getAttribute('data-first-stage-id') || '';
+      }
       var btn = document.getElementById('manualLeadSubmit');
       if (btn) { btn.disabled = true; var ob = btn.textContent; btn.textContent = 'Saving…'; }
       fetch('/leads/save', {
@@ -5733,7 +5738,11 @@
           if (btn) { btn.disabled = false; btn.textContent = 'Save to pipeline'; }
           if (ok && data.success) {
             closeManualLead();
-            window.location.href = '/pipeline?manual=1';
+            var pipelineId = (data && data.pipelineId) || (oppBoard && oppBoard.getAttribute('data-pipeline-id')) || '';
+            var here = window.location.pathname || '';
+            var stay = here.indexOf('/today') === 0 || here.indexOf('/opportunities') === 0;
+            var nextPath = stay ? here : '/opportunities';
+            window.location.href = nextPath + (pipelineId ? '?pipeline=' + encodeURIComponent(pipelineId) : '');
             return;
           }
           if (mlErr) {

@@ -24,7 +24,7 @@ const { filterBusinessPipelineLeads } = require('../services/leadListFilters');
 const { dedupeOpenLeadTasks, clearOpenAutomationTasks } = require('../services/userTasks');
 const { pauseActiveSequencesForWorkspace } = require('../services/sequenceEngine');
 const actionPlanTracker = require('../services/actionPlanTracker');
-const { buildOpportunityBoard, normalizeBoards } = require('../services/opportunityBoards');
+const { buildOpportunityBoard, selectPipeline } = require('../services/opportunityBoards');
 function firstNameFromUser(user) {
   const raw =
     (user && user.displayName) ||
@@ -166,13 +166,13 @@ router.get('/', async (req, res, next) => {
     });
 
     const tasksEnriched = enrichTasksWithLeadsForToday(rawTasks, workspaceLeads);
-    const normalizedBoards = normalizeBoards(workspaceDoc && workspaceDoc.opportunityBoards);
-    if (normalizedBoards.created && workspaceDoc) {
-      workspaceDoc.opportunityBoards = normalizedBoards.boards;
+    const selectedBoards = selectPipeline(workspaceDoc && workspaceDoc.opportunityBoards, req.query && req.query.pipeline);
+    if (selectedBoards.changed && workspaceDoc) {
+      workspaceDoc.opportunityBoards = selectedBoards.boards;
       await dbService.saveWorkspace(req.workspaceId, workspaceDoc);
     }
     const opportunityBoard = buildOpportunityBoard({
-      boards: (workspaceDoc && workspaceDoc.opportunityBoards) || normalizedBoards.boards,
+      boards: (workspaceDoc && workspaceDoc.opportunityBoards) || selectedBoards.boards,
       leads: businessLeads,
       tasks: rawTasks,
       pipelineId: req.query && req.query.pipeline,

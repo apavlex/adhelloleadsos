@@ -79,6 +79,18 @@ function normalizeBoards(raw) {
   return { boards: { activePipelineId, pipelines }, created };
 }
 
+function selectPipeline(boards, pipelineId) {
+  const normalized = normalizeBoards(boards);
+  const next = normalized.boards;
+  const id = String(pipelineId || '').trim();
+  let changed = normalized.created;
+  if (id && next.pipelines.some((pipeline) => pipeline.id === id) && next.activePipelineId !== id) {
+    next.activePipelineId = id;
+    changed = true;
+  }
+  return { boards: next, changed };
+}
+
 function cloneBoards(boards) {
   return JSON.parse(JSON.stringify(boards));
 }
@@ -272,6 +284,7 @@ function stageBelongsToPipeline(boards, pipelineId, stageId) {
 module.exports = {
   DEFAULT_STAGE_NAMES,
   normalizeBoards,
+  selectPipeline,
   buildOpportunityBoard,
   addPipeline,
   addStage,

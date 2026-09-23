@@ -5,6 +5,7 @@ const { filterLeadsForRequest, userEmail } = require('../services/workspaceServi
 const { filterBusinessPipelineLeads } = require('../services/leadListFilters');
 const {
   normalizeBoards,
+  selectPipeline,
   buildOpportunityBoard,
   addPipeline,
   addStage,
@@ -16,9 +17,12 @@ const {
 
 async function loadContext(req, pipelineId) {
   const workspace = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
-  const normalized = normalizeBoards(workspace.opportunityBoards);
-  if (normalized.created) {
-    workspace.opportunityBoards = normalized.boards;
+  const selected = selectPipeline(
+    workspace.opportunityBoards,
+    pipelineId || (req.query && req.query.pipeline),
+  );
+  if (selected.changed) {
+    workspace.opportunityBoards = selected.boards;
     await dbService.saveWorkspace(req.workspaceId, workspace);
   }
   const all = await dbService.getAllLeads(req.workspaceId);
