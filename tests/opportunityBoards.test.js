@@ -56,6 +56,8 @@ test('buildOpportunityBoard places important leads in New opportunity until they
         key: 'lead:moved',
         title: 'Moved Co',
         source: 'manual',
+        phone: 'N/A',
+        email: 'ada@example.com',
         opportunityPipelineId: boards.pipelines[0].id,
         opportunityStageId: boards.pipelines[0].stages[2].id,
         opportunityValue: 880,
@@ -67,6 +69,12 @@ test('buildOpportunityBoard places important leads in New opportunity until they
   assert.equal(board.stages[0].cards[0].source, 'Replied');
   assert.equal(board.stages[2].cards[0].title, 'Moved Co');
   assert.equal(board.stages[2].valueLabel, '$880.00');
+  assert.equal(board.stages[2].cards[0].phone, '');
+  assert.equal(board.stages[2].cards[0].email, 'ada@example.com');
+  assert.equal(board.stages[2].cards[0].emailHref, 'mailto:ada@example.com');
+  assert.match(board.stages[2].cards[0].scheduleHref, /intent=schedule/);
+  assert.match(board.stages[2].cards[0].taskHref, /intent=task/);
+  assert.match(board.stages[2].cards[0].tagsHref, /focusLead=/);
 });
 
 test('stage edits stay on the same board object the Today page reads', () => {

@@ -310,6 +310,13 @@
     if (taskAddOptions && (leadKeyInput && leadKeyInput.value)) {
       taskAddOptions.setAttribute('data-keep-open', '1');
     }
+    var taskIntent = '';
+    try { taskIntent = new URLSearchParams(window.location.search).get('intent') || ''; } catch (e) {}
+    if (taskIntent === 'schedule' || taskIntent === 'task') {
+      if (taskAddOptions) taskAddOptions.open = true;
+      var taskFocusEl = taskIntent === 'schedule' ? scheduledInput : document.getElementById('taskTitleInput');
+      if (taskFocusEl && taskFocusEl.focus) setTimeout(function () { taskFocusEl.focus(); }, 50);
+    }
 
     function endOfTodayMs() {
       var now = new Date();

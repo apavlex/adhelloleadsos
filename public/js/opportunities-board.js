@@ -6,14 +6,56 @@
 
   var pipelineId = board.getAttribute('data-pipeline-id') || '';
 
-  function showError(text) {
+  function showStatus(text, ok) {
     var msg = document.getElementById('oppBoardMsg');
     if (!msg) {
-      window.alert(text);
+      if (!ok) window.alert(text);
       return;
     }
     msg.textContent = text;
+    msg.classList.toggle('is-ok', !!ok);
     msg.classList.remove('hidden');
+  }
+
+  function showError(text) {
+    showStatus(text, false);
+  }
+
+  function money(amount) {
+    var n = Number(amount) || 0;
+    if (n <= 0) return '';
+    try {
+      return n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+    } catch (e) {
+      return '$' + n.toFixed(2);
+    }
+  }
+
+  function syncStage(list) {
+    if (!list) return;
+    var cards = list.querySelectorAll('.opp-card');
+    var count = cards.length;
+    var drop = list.querySelector('.opp-drop');
+    if (count && drop) drop.remove();
+    if (!count && !list.querySelector('.opp-drop')) {
+      drop = document.createElement('div');
+      drop.className = 'opp-drop';
+      drop.textContent = 'Drop here';
+      list.appendChild(drop);
+    }
+    list.classList.toggle('is-empty', count === 0);
+    var stage = list.closest('.opp-stage');
+    if (!stage) return;
+    var badge = stage.querySelector('.opp-stage-count');
+    if (badge) badge.textContent = String(count);
+    var meta = stage.querySelector('.opp-stage-meta');
+    if (!meta) return;
+    var total = 0;
+    Array.prototype.forEach.call(cards, function (card) {
+      total += Number(card.getAttribute('data-value')) || 0;
+    });
+    var label = money(total);
+    meta.textContent = label || (count === 1 ? '1 opportunity' : count + ' opportunities');
   }
 
   function post(url, body) {
@@ -44,8 +86,12 @@
         group: 'opportunities',
         animation: 150,
         draggable: '.opp-card',
+        filter: '.opp-card-tools, .opp-card-tools *',
+        preventOnFilter: false,
         ghostClass: 'sortable-ghost',
         onEnd: function (evt) {
+          if (evt.from) syncStage(evt.from);
+          if (evt.to && evt.to !== evt.from) syncStage(evt.to);
           var card = evt.item;
           var stage = card && card.parentElement;
           var leadKey = card && card.getAttribute('data-lead-key');
@@ -147,6 +193,49 @@
   }
 
   board.addEventListener('click', function (ev) {
+    var action = ev.target.closest('[data-opp-action]');
+    if (action) {
+      var kind = action.getAttribute('data-opp-action');
+      if (kind === 'call' || kind === 'email' || kind === 'ghl') {
+        ev.preventDefault();
+        ev.stopPropagation();
+      }
+      if (kind === 'call') {
+        var phone = action.getAttribute('data-phone') || '';
+        if (!phone) {
+          showError('No phone number on this opportunity.');
+          return;
+        }
+        if (typeof window.__adhelloOpenSoftphoneWithDial !== 'function' || !window.__adhelloOpenSoftphoneWithDial(phone, {
+          leadKey: action.getAttribute('data-lead-key') || '',
+          title: action.getAttribute('data-title') || '',
+        })) {
+          showError('Could not open the dialer for that number.');
+        }
+        return;
+      }
+      if (kind === 'email') {
+        showError('No email on this opportunity.');
+        return;
+      }
+      if (kind === 'ghl') {
+        var leadKey = action.getAttribute('data-lead-key') || '';
+        if (!leadKey || action.disabled) return;
+        action.disabled = true;
+        post('/ghl/push', { leadKeys: [leadKey] }).then(function (result) {
+          action.disabled = false;
+          if (!result.ok || !result.data || !result.data.success) {
+            showError((result.data && result.data.error) || 'Could not sync that opportunity to Go High Level.');
+            return;
+          }
+          showStatus('Synced to Go High Level.', true);
+        }).catch(function () {
+          action.disabled = false;
+          showError('Could not sync that opportunity to Go High Level.');
+        });
+        return;
+      }
+    }
     var rename = ev.target.closest('.opp-rename');
     var remove = ev.target.closest('.opp-remove');
     if (rename) {

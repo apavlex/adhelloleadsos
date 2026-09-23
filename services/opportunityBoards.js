@@ -138,9 +138,25 @@ function leadTitle(lead) {
   return String((lead && (lead.title || lead.company || lead.email)) || 'Opportunity').slice(0, 80);
 }
 
+function usableContact(raw) {
+  const value = String(raw || '').trim();
+  if (!value || value.toLowerCase() === 'n/a' || value === '-' || value === '—') return '';
+  return value;
+}
+
 function focusHref(lead) {
   const short = String((lead && lead.key) || '').replace(/^lead:/i, '');
   return `/focus?lead=${encodeURIComponent(short)}`;
+}
+
+function taskHref(lead, intent) {
+  const key = String((lead && lead.key) || '');
+  return `/tasks?leadKey=${encodeURIComponent(key)}&intent=${encodeURIComponent(intent)}`;
+}
+
+function tagsHref(lead) {
+  const key = String((lead && lead.key) || '');
+  return `/pipeline?focusLead=${encodeURIComponent(key)}`;
 }
 
 function stageForLead(lead, pipeline, homePipelineId, keys) {
@@ -171,6 +187,8 @@ function buildOpportunityBoard(input) {
     const stageId = stageForLead(lead, pipeline, homePipelineId, keys);
     if (!stageId || !grouped.has(stageId)) return;
     const value = cardValue(lead);
+    const phone = usableContact(lead.phone || lead.mobile || lead.telephone);
+    const email = usableContact(lead.email);
     grouped.get(stageId).push({
       key: String(lead.key),
       title: leadTitle(lead),
@@ -178,6 +196,12 @@ function buildOpportunityBoard(input) {
       source: cardSource(lead, keys),
       value,
       valueLabel: money(value),
+      phone,
+      email,
+      emailHref: email ? `mailto:${email}` : '',
+      scheduleHref: taskHref(lead, 'schedule'),
+      taskHref: taskHref(lead, 'task'),
+      tagsHref: tagsHref(lead),
     });
   });
 
