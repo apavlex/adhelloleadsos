@@ -3,6 +3,26 @@ const crypto = require('crypto');
 const MAX_LINKS = 24;
 const MAX_LABEL = 40;
 const ID_RE = /^ml_[a-z0-9]{8,24}$/i;
+const MENU_LINK_ICONS = [
+  'letter',
+  'link',
+  'grid',
+  'star',
+  'pin',
+  'home',
+  'calendar',
+  'chat',
+  'briefcase',
+  'globe',
+  'phone',
+  'mail',
+  'users',
+];
+
+function cleanIcon(raw) {
+  const icon = String(raw || '').trim().toLowerCase();
+  return MENU_LINK_ICONS.includes(icon) ? icon : 'letter';
+}
 
 function newMenuLinkId() {
   return `ml_${crypto.randomBytes(6).toString('hex')}`;
@@ -25,7 +45,7 @@ function parseHttpUrl(raw) {
 /**
  * Keep saved links that are safe to render. Drops blank or invalid rows.
  * @param {unknown} raw
- * @returns {{ id: string, label: string, url: string, open: 'iframe' | 'tab' }[]}
+ * @returns {{ id: string, label: string, url: string, open: 'iframe' | 'tab', icon: string }[]}
  */
 function normalizeCustomMenuLinks(raw) {
   if (!Array.isArray(raw)) return [];
@@ -43,7 +63,7 @@ function normalizeCustomMenuLinks(raw) {
     if (!ID_RE.test(id) || seen.has(id)) id = newMenuLinkId();
     seen.add(id);
     const open = String(item.open || item.mode || '').toLowerCase() === 'tab' ? 'tab' : 'iframe';
-    out.push({ id, label, url, open });
+    out.push({ id, label, url, open, icon: cleanIcon(item.icon) });
     if (out.length >= MAX_LINKS) break;
   }
   return out;
@@ -80,6 +100,7 @@ function parseCustomMenuLinksInput(raw) {
       label,
       url,
       open: item.open || item.mode,
+      icon: item.icon,
     });
   }
   return { ok: true, links: normalizeCustomMenuLinks(pending) };
@@ -88,6 +109,7 @@ function parseCustomMenuLinksInput(raw) {
 module.exports = {
   MAX_LINKS,
   MAX_LABEL,
+  MENU_LINK_ICONS,
   newMenuLinkId,
   normalizeCustomMenuLinks,
   parseCustomMenuLinksInput,

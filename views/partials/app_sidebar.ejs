@@ -23,6 +23,14 @@
     border-color: var(--brand-yellow, #ca8a04);
     background: rgba(255, 214, 68, 0.16);
   }
+  .sidebar-nav-letter {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8125rem;
+    font-weight: 800;
+    line-height: 1;
+  }
 </style>
   <div class="sidebar-logo-row flex items-center justify-center pt-4 pb-2 px-3">
     <a href="/today" class="sidebar-logo-link flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden shadow-sm ring-1 ring-black/5 dark:ring-white/10" title="AdHello — Today" aria-label="AdHello home">
@@ -66,7 +74,7 @@
           <span>Today</span>
         </a>
         <a href="/opportunities" class="sidebar-nav-link <%= np === 'opportunities' ? 'active' : '' %>" title="Opportunity pipelines">
-          <svg class="sidebar-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6h16.5M3.75 12h16.5M3.75 18h16.5M6 6v.01M6 12v.01M6 18v.01" /></svg>
+          <span class="sidebar-nav-icon sidebar-nav-letter" aria-hidden="true">O</span>
           <span>Opportunities</span>
         </a>
         <a href="/engagement" class="sidebar-nav-link <%= np === 'engagement' ? 'active' : '' %>" title="Engagement inbox — warm signals">
@@ -155,12 +163,12 @@
         <% _menuLinks.forEach(function (link) { %>
         <% if (link.open === 'tab') { %>
         <a href="<%= link.url %>" target="_blank" rel="noopener noreferrer" class="sidebar-nav-link" title="<%= link.label %> (new tab)">
-          <svg class="sidebar-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
+          <%- include('/partials/menu_link_icon', { icon: link.icon, label: link.label }) %>
           <span><%= link.label %></span>
         </a>
         <% } else { %>
         <a href="/menu/<%= link.id %>" class="sidebar-nav-link <%= _menuPath === '/menu/' + link.id ? 'active' : '' %>" title="<%= link.label %>">
-          <svg class="sidebar-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" /></svg>
+          <%- include('/partials/menu_link_icon', { icon: link.icon, label: link.label }) %>
           <span><%= link.label %></span>
         </a>
         <% } %>

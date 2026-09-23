@@ -1,7 +1,7 @@
 <% const _links = typeof customMenuLinks !== 'undefined' && Array.isArray(customMenuLinks) ? customMenuLinks : []; %>
 <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 md:p-8">
   <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-1">Custom menu links</h2>
-  <p class="text-sm text-brand-muted mb-6 max-w-2xl">Add links to the left menu. Open a page inside the app, or send it to a new browser tab. Some sites refuse to load inside the app — use New tab for those.</p>
+  <p class="text-sm text-brand-muted mb-6 max-w-2xl">Add links to the left menu. Pick an icon, or leave Letter to use the name’s first capital. Open a page inside the app, or send it to a new browser tab.</p>
 
   <div id="menuLinksList" class="space-y-3"></div>
   <p id="menuLinksEmpty" class="hidden text-sm text-brand-muted mb-4">No custom links yet.</p>
@@ -38,10 +38,25 @@
 
   function addRow(link) {
     var row = document.createElement('div');
-    row.className = 'grid grid-cols-1 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.4fr)_9.5rem_auto] gap-2 items-center';
+    row.className = 'grid grid-cols-1 md:grid-cols-[minmax(0,0.7fr)_minmax(0,1.2fr)_8.5rem_9.5rem_auto] gap-2 items-center';
     row.innerHTML =
       '<input type="text" data-field="label" maxlength="40" placeholder="Name" aria-label="Link name" class="' + fieldClass() + '" />' +
       '<input type="url" data-field="url" placeholder="https://" aria-label="Link URL" class="' + fieldClass() + '" />' +
+      '<select data-field="icon" aria-label="Menu icon" class="' + fieldClass() + '">' +
+        '<option value="letter">Letter</option>' +
+        '<option value="link">Link</option>' +
+        '<option value="grid">Grid</option>' +
+        '<option value="star">Star</option>' +
+        '<option value="pin">Pin</option>' +
+        '<option value="home">Home</option>' +
+        '<option value="calendar">Calendar</option>' +
+        '<option value="chat">Chat</option>' +
+        '<option value="briefcase">Briefcase</option>' +
+        '<option value="globe">Globe</option>' +
+        '<option value="phone">Phone</option>' +
+        '<option value="mail">Mail</option>' +
+        '<option value="users">People</option>' +
+      '</select>' +
       '<select data-field="open" aria-label="Where to open" class="' + fieldClass() + '">' +
         '<option value="iframe">In the app</option>' +
         '<option value="tab">New tab</option>' +
@@ -56,6 +71,8 @@
     row.querySelector('[data-field="label"]').value = data.label || '';
     row.querySelector('[data-field="url"]').value = data.url || '';
     row.querySelector('[data-field="open"]').value = data.open === 'tab' ? 'tab' : 'iframe';
+    var iconField = row.querySelector('[data-field="icon"]');
+    iconField.value = iconField.querySelector('option[value="' + (data.icon || 'letter') + '"]') ? (data.icon || 'letter') : 'letter';
     row.addEventListener('click', function (ev) {
       var btn = ev.target.closest('button');
       if (!btn) return;
@@ -77,7 +94,8 @@
         id: row.dataset.id || '',
         label: row.querySelector('[data-field="label"]').value,
         url: row.querySelector('[data-field="url"]').value,
-        open: row.querySelector('[data-field="open"]').value
+        open: row.querySelector('[data-field="open"]').value,
+        icon: row.querySelector('[data-field="icon"]').value
       });
     }
     return links;

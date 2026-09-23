@@ -12,6 +12,7 @@ test('normalizeCustomMenuLinks keeps https links and assigns ids', () => {
   assert.equal(links[0].open, 'iframe');
   assert.match(links[0].id, /^ml_[a-z0-9]+$/);
   assert.equal(links[1].open, 'tab');
+  assert.equal(links[0].icon, 'letter');
   assert.notEqual(links[0].id, links[1].id);
 });
 
@@ -42,4 +43,15 @@ test('parseCustomMenuLinksInput ignores empty rows and keeps a valid id', () => 
   assert.equal(result.ok, true);
   assert.equal(result.links.length, 1);
   assert.equal(result.links[0].id, 'ml_abc12345');
+  assert.equal(result.links[0].icon, 'letter');
+});
+
+test('parseCustomMenuLinksInput keeps a known icon and drops an unknown one', () => {
+  const result = parseCustomMenuLinksInput([
+    { label: 'Angies', url: 'https://example.com/a', open: 'tab', icon: 'star' },
+    { label: 'Thumbtack', url: 'https://example.com/t', open: 'iframe', icon: 'nope' },
+  ]);
+  assert.equal(result.ok, true);
+  assert.equal(result.links[0].icon, 'star');
+  assert.equal(result.links[1].icon, 'letter');
 });
