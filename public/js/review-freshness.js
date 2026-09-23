@@ -81,8 +81,8 @@
     if (!lastDate) {
       return {
         status: 'unknown',
-        label: 'Review dates unknown — run Enhance',
-        shortLabel: 'Dates unknown',
+        label: '',
+        shortLabel: '',
         pitch: null,
         daysSinceLast: null,
         lastReviewAt: null,

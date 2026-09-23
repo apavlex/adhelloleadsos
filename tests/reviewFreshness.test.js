@@ -66,14 +66,15 @@ describe('reviewFreshness', () => {
     assert.match(labeled.pitch || '', /reputation management/i);
   });
 
-  it('labelReviewFreshness asks for Enhance when dates unknown', () => {
+  it('labelReviewFreshness stays blank when the review has no date', () => {
     const labeled = labelReviewFreshness({
       reviewsCount: 40,
       totalScore: 4.1,
       lastReviewAt: null,
     });
     assert.equal(labeled.status, 'unknown');
-    assert.match(labeled.label, /run Enhance/i);
+    assert.equal(labeled.shortLabel, '');
+    assert.equal(labeled.label, '');
   });
 
   it('computeReviewFreshnessFromReviews counts window and last review', () => {

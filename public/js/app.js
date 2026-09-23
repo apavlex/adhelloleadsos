@@ -19555,7 +19555,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function appendReviewFreshnessHtml(labeled) {
-    if (!labeled || !labeled.shortLabel) return '';
+    if (!labeled || !labeled.shortLabel || labeled.status === 'unknown') return '';
     const api = window.__reviewFreshness;
     const tone =
       api && typeof api.freshnessToneClass === 'function'

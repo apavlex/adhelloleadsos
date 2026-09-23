@@ -459,7 +459,7 @@
                     reviewsCount: _rc,
                     totalScore: lead.totalScore,
                   });
-                  if (_fr && _fr.shortLabel) {
+                  if (_fr && _fr.shortLabel && _fr.status !== 'unknown') {
                     _freshShort = _fr.shortLabel;
                     _freshTitle = _fr.label || _fr.shortLabel;
                     if (_fr.status === 'active') _freshTone = 'text-emerald-700 dark:text-emerald-400';
@@ -472,9 +472,6 @@
                 } else if (lead.lastReviewAt) {
                   _freshShort = 'Freshness on file';
                   _freshTitle = String(lead.lastReviewAt);
-                } else if (_rc > 0) {
-                  _freshShort = 'Dates unknown';
-                  _freshTitle = 'Review dates unknown — run Enhance';
                 }
               } catch (_freshErr) {}
               var _claimSt = lead.gbpClaimStatus ? String(lead.gbpClaimStatus).trim() : '';

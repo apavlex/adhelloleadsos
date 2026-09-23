@@ -458,19 +458,20 @@
         ? api.freshnessToneClass(labeled.status)
         : 'text-brand-muted';
 
+    const hasDate = labeled.status !== 'unknown' && !!(labeled.shortLabel || labeled.label);
     if (headerEl) {
-      headerEl.textContent = labeled.shortLabel || labeled.label || '';
-      headerEl.title = labeled.label || '';
+      headerEl.textContent = hasDate ? labeled.shortLabel || labeled.label || '' : '';
+      headerEl.title = hasDate ? labeled.label || '' : '';
       headerEl.className = `text-[9px] font-bold tracking-wide ${tone}`;
-      headerEl.classList.toggle('hidden', !labeled.label);
+      headerEl.classList.toggle('hidden', !hasDate);
     }
     if (badge && rowWrap) {
-      badge.textContent = labeled.label || '';
+      badge.textContent = hasDate ? labeled.label || '' : '';
       badge.className =
         'inline-flex items-center px-2 py-0.5 rounded-full border border-brand-border/30 dark:border-white/10 bg-brand-cream/40 dark:bg-white/5 text-[10px] font-black uppercase tracking-widest ' +
         tone;
-      rowWrap.classList.toggle('hidden', !labeled.label);
-      rowWrap.classList.toggle('flex', !!labeled.label);
+      rowWrap.classList.toggle('hidden', !hasDate);
+      rowWrap.classList.toggle('flex', hasDate);
     }
     if (pitchEl) {
       const showPitch = !!(labeled.pitch && labeled.status !== 'unknown');
