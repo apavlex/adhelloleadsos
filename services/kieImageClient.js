@@ -78,7 +78,7 @@ function friendlyKieImageError(raw, { prompt, aspectRatio, resolution } = {}) {
 
   if (vague) {
     return (
-      'That isn’t a detailed image prompt yet. Use Chat to describe the postcard, then ask for a “final image prompt.” ' +
+      'That isn’t a detailed image prompt yet. Use Chat to describe the creative for your selected format, then ask for a “final image prompt.” ' +
       'When you see “Prompt ready — click Generate,” hit Generate. Short phrases like “make it for me” are sent to Chat, not the image API.'
     );
   }

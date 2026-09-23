@@ -26,6 +26,12 @@ const {
   userAskedForDesign,
   buildFallbackDesignImagePrompt,
 } = require('../services/designCoachImagePrompt');
+const {
+  DM_PLATFORMS,
+  platformLabel,
+  platformAspectRatio,
+  platformGenerationSpec,
+} = require('../services/dmPlatforms');
 const googleDriveAccess = require('../services/googleDriveAccess');
 const { downloadDriveFileAsImageBuffer } = require('../services/googleDriveImages');
 const {
@@ -255,22 +261,6 @@ const creativeUpload = multer({
   },
 });
 
-const DM_PLATFORMS = {
-  postcard: { label: '4×6 Postcard', aspectRatio: '3:2', dualSided: true },
-  instagram_feed: { label: 'Instagram Feed', aspectRatio: '1:1', dualSided: false },
-  instagram_story: { label: 'Instagram Story / Reels', aspectRatio: '9:16', dualSided: false },
-  instagram_portrait: { label: 'Instagram Portrait', aspectRatio: '4:5', dualSided: false },
-  facebook_feed: { label: 'Facebook Feed', aspectRatio: '1:1', dualSided: false },
-  facebook_cover: { label: 'Facebook Cover', aspectRatio: '16:9', dualSided: false },
-  facebook_story: { label: 'Facebook Story', aspectRatio: '9:16', dualSided: false },
-  linkedin_post: { label: 'LinkedIn Post', aspectRatio: '1:1', dualSided: false },
-  linkedin_banner: { label: 'LinkedIn Banner', aspectRatio: '16:9', dualSided: false },
-  google_display: { label: 'Google Display', aspectRatio: '16:9', dualSided: false },
-  google_business_post: { label: 'Google Business Post', aspectRatio: '4:3', dualSided: false },
-  youtube_thumb: { label: 'YouTube Thumbnail', aspectRatio: '16:9', dualSided: false },
-  custom: { label: 'Custom ratio', aspectRatio: null, dualSided: false },
-};
-
 function publicBaseUrl(req) {
   const env = String(process.env.BASE_URL || '').trim().replace(/\/$/, '');
   if (env) return env;
@@ -328,11 +318,6 @@ function brandKitSummary(kit) {
   return lines.length ? lines.join('\n') : '(no business info set yet)';
 }
 
-function platformLabel(key) {
-  const row = DM_PLATFORMS[String(key || '').trim()] || DM_PLATFORMS.custom;
-  return row.label || 'Custom';
-}
-
 function buildDesignCoachSystemPrompt({
   slot,
   platform,
@@ -349,7 +334,8 @@ function buildDesignCoachSystemPrompt({
 }) {
   const plat = platformLabel(platform);
   const isPostcard = platform === 'postcard';
-  const ratio = aspectRatio || '3:2';
+  const ratio = aspectRatio || platformAspectRatio(platform, '16:9');
+  const formatSpec = String(platformGenerationSpec(platform, slot) || '').trim();
   const lobBackRules =
     isPostcard && slot === 'back'
       ? `For Lob 4×6 postcard BACK (landscape 3:2, 1875×1275px):
@@ -369,6 +355,13 @@ function buildDesignCoachSystemPrompt({
 - Keep ALL text and contact info at least 0.3″ from every edge (especially bottom — Lob trims bleed).
 - Do not place text in the bottom-right ~1″ where Lob prints the QR code; photo/background may continue there.
 - Do NOT use placeholder text like {business} or curly-brace merge tokens in the image.`
+      : '';
+  const socialFormatRules =
+    !isPostcard && formatSpec
+      ? `Format requirements for ${plat}:
+- ${formatSpec}
+- Single-sided creative only (no front/back). Match ${ratio} composition exactly.
+- Do NOT describe this as a postcard, Lob mailer, or dual-sided print piece.`
       : '';
   const frontStyleContext =
     slot === 'back' && (frontImageUrl || matchFrontStyle)
@@ -394,6 +387,7 @@ Merge tokens ({business}, {city}, {state}, {audit_url}) are applied at SEND time
 
 ${frontStyleContext ? `${frontStyleContext}\n\n` : ''}${lobBackRules}
 ${lobFrontRules}
+${socialFormatRules}
 
 Help the user brainstorm visuals and write a strong GPT Image 2 prompt. Images are generated via KIE GPT Image 2. When logo overlay is enabled (see Business info), the saved brand logo is composited in the top-right after Generate — the image model must leave that corner empty and must not draw any logo, wordmark, or duplicate brand mark.
 
@@ -429,7 +423,7 @@ Rules:
 - If the user asks you to generate, create, or make the design (including phrases like "make an ad", "create an ad", "design a post", "make it with…"), set imagePrompt from the conversation and business info — do not leave it null. Remind them to review/edit the prompt, then click Generate — do not claim artwork is already generating.
 - ${isPostcard && slot === 'back' ? 'Postcard BACK: use action CTAs (Call us with phone, Scan QR placeholder square, Visit website with URL). Do NOT duplicate the front contact footer (address, hours block).' : 'When business info is provided, weave phone, website, hours, and address into the imagePrompt layout.'}
 - Optimize for ${plat}: safe margins, readable text at mobile size, professional local-business marketing aesthetic.
-- ${isPostcard && slot === 'back' ? 'Postcard back: full-bleed image; CTA blocks on left half only; no text in bottom-right address zone; QR placeholder on left marketing area. Match front style when a front design exists.' : isPostcard ? 'Postcard front: full-bleed photo; full contact footer OK; no text in bottom-right QR zone or near edges.' : 'Single-sided social/display ad — one strong focal creative.'}
+- ${isPostcard && slot === 'back' ? 'Postcard back: full-bleed image; CTA blocks on left half only; no text in bottom-right address zone; QR placeholder on left marketing area. Match front style when a front design exists.' : isPostcard ? 'Postcard front: full-bleed photo; full contact footer OK; no text in bottom-right QR zone or near edges.' : `Single-sided ${plat} — follow format requirements above; one strong focal creative at ${ratio}.`}
 - Escape double quotes inside strings as \\".`;
 }
 
@@ -480,20 +474,10 @@ function augmentImagePromptWithBrand(prompt, brandKit, platform, slot, { matchFr
       'Logo overlay is off — weave the business name into typography if needed, but do not place a separate logo mark that would conflict with a later overlay',
     );
   }
-  let lobSpec = '';
-  if (isPostcard && side === 'back') {
-    lobSpec =
-      ' Lob 4×6 postcard BACK: landscape 3:2 full-bleed. CTA-focused left half only (Call us, Scan QR placeholder square, Visit website) — do NOT duplicate front contact footer (no address/hours block). 0.3″ from edges. No text in bottom-right address zone (photo OK). Never render {business} or placeholder tokens.';
-    if (matchFrontStyle || styleReferenceUrl) {
-      lobSpec +=
-        ' Use the attached front design reference for color palette, typography, and brand mood ONLY — create a DISTINCT back-side layout (left-half bullets + CTAs), not a duplicate or minor variation of the front hero.';
-    }
-  } else if (isPostcard) {
-    lobSpec =
-      ' Lob 4×6 postcard FRONT: landscape 3:2 full-bleed photo. No text within 0.3″ of edges or in bottom-right QR zone (photo OK, no white box). Never render {business} or placeholder tokens. Never draw a company logo or wordmark — real logo is added top-right after generation when enabled.';
-  } else if (String(platform || '').trim() === 'google_business_post') {
-    lobSpec =
-      ' Google Business Profile post image: 4:3 landscape (1200×900). One hero photo, bold readable headline, minimal on-image text — post caption and Learn more button are added in Google separately. No QR codes or dense contact footers on the image.';
+  let lobSpec = platformGenerationSpec(platform, side);
+  if (isPostcard && side === 'back' && (matchFrontStyle || styleReferenceUrl)) {
+    lobSpec +=
+      ' Use the attached front design reference for color palette, typography, and brand mood ONLY — create a DISTINCT back-side layout (left-half bullets + CTAs), not a duplicate or minor variation of the front hero.';
   }
   const suffix = extras.length
     ? `\n\nPlatform: ${plat}.${lobSpec}${isPostcardBack ? ` CTA elements: ${extras.join('; ')}. Include a clear square QR placeholder zone on the left.` : ` Include on the ad where appropriate: ${extras.join('; ')}.`}`
@@ -1042,7 +1026,7 @@ router.post('/api/design-chat', async (req, res, next) => {
     const bodyText = String(body.bodyText || '').trim();
     const ctaUrl = String(body.ctaUrl || '').trim();
     const platform = String(body.platform || 'postcard').trim() || 'postcard';
-    const aspectRatio = String(body.aspectRatio || DM_PLATFORMS[platform]?.aspectRatio || '3:2').trim() || '3:2';
+    const aspectRatio = String(body.aspectRatio || platformAspectRatio(platform, '16:9')).trim() || '16:9';
     const brandKit = await mergeBrandKitForGeneration(req, body.brandKit);
     const frontImageUrl = toAbsoluteAssetUrl(req, String(body.frontImageUrl || '').trim());
     const currentImageUrl = toAbsoluteAssetUrl(req, String(body.currentImageUrl || '').trim());
@@ -1223,7 +1207,7 @@ router.post('/api/generate-image', async (req, res, next) => {
     }
 
     const aspectRatio =
-      String(body.aspectRatio || DM_PLATFORMS[platform]?.aspectRatio || '3:2').trim() || '3:2';
+      String(body.aspectRatio || platformAspectRatio(platform, '16:9')).trim() || '16:9';
     const resolution = String(body.resolution || '2K').trim() || '2K';
     const logoReferenceUrl = await resolveLogoReferenceUrl(req, brandKit);
     const inputUrls = buildGenerationInputUrls(req, {

@@ -34,19 +34,19 @@
   var linkedSocialPost = { postId: '', ideaId: '', platform: '' };
 
   var DM_PLATFORMS = {
-    postcard: { label: '4×6 Postcard', aspectRatio: '3:2', dualSided: true },
-    instagram_feed: { label: 'Instagram Feed', aspectRatio: '1:1', dualSided: false },
-    instagram_story: { label: 'Instagram Story / Reels', aspectRatio: '9:16', dualSided: false },
-    instagram_portrait: { label: 'Instagram Portrait', aspectRatio: '4:5', dualSided: false },
-    facebook_feed: { label: 'Facebook Feed', aspectRatio: '1:1', dualSided: false },
-    facebook_cover: { label: 'Facebook Cover', aspectRatio: '16:9', dualSided: false },
-    facebook_story: { label: 'Facebook Story', aspectRatio: '9:16', dualSided: false },
-    linkedin_post: { label: 'LinkedIn Post', aspectRatio: '1:1', dualSided: false },
-    linkedin_banner: { label: 'LinkedIn Banner', aspectRatio: '16:9', dualSided: false },
-    google_display: { label: 'Google Display', aspectRatio: '16:9', dualSided: false },
-    google_business_post: { label: 'Google Business Post', aspectRatio: '4:3', dualSided: false },
-    youtube_thumb: { label: 'YouTube Thumbnail', aspectRatio: '16:9', dualSided: false },
-    custom: { label: 'Custom ratio', aspectRatio: null, dualSided: false },
+    postcard: { label: '4×6 Postcard', aspectRatio: '3:2', dualSided: true, hint: 'Lob 4×6 postcard: landscape 3:2 full-bleed. Keep text 0.3″ from edges.' },
+    instagram_feed: { label: 'Instagram Feed', aspectRatio: '1:1', dualSided: false, hint: 'Instagram feed square 1:1. Strong focal image, short readable headline, mobile-first.' },
+    instagram_story: { label: 'Instagram Story / Reels', aspectRatio: '9:16', dualSided: false, hint: 'Instagram Story / Reels 9:16 vertical. Keep key text in the safe center; avoid top and bottom UI zones.' },
+    instagram_portrait: { label: 'Instagram Portrait', aspectRatio: '4:5', dualSided: false, hint: 'Instagram portrait 4:5. Tall crop, bold type, one clear offer.' },
+    facebook_feed: { label: 'Facebook Feed', aspectRatio: '1:1', dualSided: false, hint: 'Facebook feed square 1:1. Scroll-stopping photo, short headline, clear CTA.' },
+    facebook_cover: { label: 'Facebook Cover', aspectRatio: '16:9', dualSided: false, hint: 'Facebook Cover / page banner 16:9 wide. Wide hero composition; keep important text away from profile-photo overlap on the left.' },
+    facebook_story: { label: 'Facebook Story', aspectRatio: '9:16', dualSided: false, hint: 'Facebook Story 9:16 vertical. Full-bleed vertical creative with safe margins for stickers/UI.' },
+    linkedin_post: { label: 'LinkedIn Post', aspectRatio: '1:1', dualSided: false, hint: 'LinkedIn post square 1:1. Professional tone, clean typography, business-appropriate imagery.' },
+    linkedin_banner: { label: 'LinkedIn Banner', aspectRatio: '16:9', dualSided: false, hint: 'LinkedIn profile/company banner 16:9 wide. Wide brand panel; leave space for profile photo overlap on the left.' },
+    google_display: { label: 'Google Display', aspectRatio: '16:9', dualSided: false, hint: 'Google Display landscape 16:9. Bold offer, high contrast, minimal text for ad thumbnail clarity.' },
+    google_business_post: { label: 'Google Business Post', aspectRatio: '4:3', dualSided: false, hint: 'Google Business Profile post 4:3. One hero photo, bold headline, minimal on-image text.' },
+    youtube_thumb: { label: 'YouTube Thumbnail', aspectRatio: '16:9', dualSided: false, hint: 'YouTube thumbnail 16:9. Large faces or product, huge readable title text, high contrast for small sizes.' },
+    custom: { label: 'Custom ratio', aspectRatio: null, dualSided: false, hint: 'Custom marketing creative. Follow the selected aspect ratio; sharp hierarchy and mobile-readable text.' },
   };
 
   try {
@@ -114,6 +114,11 @@
     var backCol = document.getElementById('dmPreviewBackCol');
     var previewGrid = document.getElementById('dmPreviewGrid');
     var ratio = preset.aspectRatio;
+    var slotEl = document.getElementById('dmDesignSlot');
+
+    if (!preset.dualSided && slotEl && slotEl.value !== 'front') {
+      slotEl.value = 'front';
+    }
 
     if (ratio && ratioEl) {
       ratioEl.value = ratio;
@@ -132,9 +137,17 @@
     }
     var hintText = preset.dualSided
       ? 'Switch Front / Back tabs above the canvas. Check sides to include when sending.'
-      : 'Generated ' + preset.label + ' creative — zoom, save, or send when ready.';
+      : 'Generating ' + (preset.label || 'this format') + ' — zoom, save, or download when ready.';
     setCanvasHintText(hintText);
     refreshChatWelcomeIfEmpty();
+    refreshEmptyArtboardLabels();
+
+    // Keep designMeta ratio in sync so Generate always uses the selected format size.
+    ['front', 'back'].forEach(function (slot) {
+      if (designMeta[slot]) {
+        designMeta[slot].aspectRatio = currentAspectRatio();
+      }
+    });
 
     syncStudioFormatPill(platformKey);
     syncStudioPageView();
@@ -144,6 +157,24 @@
     syncMatchFrontBackBtnVisibility();
     syncCopyPanelForPlatform();
     syncPostCopySection();
+  }
+
+  function refreshEmptyArtboardLabels() {
+    var plat = DM_PLATFORMS[currentPlatformKey()] || DM_PLATFORMS.custom;
+    var formatLabel = plat.label || 'Design';
+    ['front', 'back'].forEach(function (slot) {
+      if (designs[slot]) return;
+      var el = document.getElementById(slot === 'back' ? 'dmPreviewBack' : 'dmPreviewFront');
+      if (!el) return;
+      var empty = el.querySelector('.dm-artboard-empty');
+      if (!empty) return;
+      if (plat.dualSided) {
+        empty.textContent =
+          slot === 'back' ? 'No back yet — generate or switch to Front' : 'No front yet — describe your design and generate';
+      } else if (slot === 'front') {
+        empty.textContent = 'No ' + formatLabel + ' yet — describe your design and generate';
+      }
+    });
   }
 
   function isSocialPlatform(platformKey) {
@@ -1761,37 +1792,26 @@
     var parts = [
       'Professional ' + plat.label + ' ad creative, ' + ctx.aspectRatio + ' aspect ratio.',
     ];
+    if (plat.hint) parts.push(plat.hint);
     if (ctx.platform === 'postcard' && slot === 'back') {
       parts.push(
-        'Polished local-business marketing design with bold action CTAs (Call us, Scan QR placeholder, Visit website) — not a duplicated contact footer.',
-      );
-    } else {
-      parts.push('Polished local-business marketing design with strong headline area and clear contact block.');
-    }
-    if (ctx.platform === 'postcard' && slot === 'back') {
-      parts.push(
-        'Lob 4×6 postcard BACK: landscape 3:2 full-bleed. Text on left half, 0.3″ from edges. No text in bottom-right address zone — photo background OK.',
+        'Postcard BACK: CTA-focused left half (Call us, Scan QR placeholder, Visit website) — not a duplicated contact footer.',
       );
       parts.push(
-        'Do NOT duplicate the front contact footer (no repeated address, hours, or full contact block). Use action-oriented CTAs instead: a bold "Call us" CTA with phone number, a "Visit our website" CTA with URL, and a clear square placeholder zone labeled "Scan QR code" for a future QR (left marketing area — not in the Lob address zone).',
+        'Lob 4×6 postcard BACK: landscape 3:2 full-bleed. Text on left half, 0.3″ from edges. No text in bottom-right address zone.',
       );
     } else if (ctx.platform === 'postcard') {
       parts.push(
-        'Lob 4×6 postcard FRONT: landscape 3:2 full-bleed photo. Keep text 0.3″ from all edges. No text in bottom-right QR zone — photo continues there, no white box. Never render {business} or curly-brace placeholder text.',
-      );
-    } else if (ctx.platform === 'google_business_post') {
-      parts.push(
-        'Google Business Profile post image: 4:3 landscape (1200×900 recommended). One strong hero photo, bold readable headline, minimal on-image text — the post caption and Learn more button are added in Google separately.',
-      );
-      parts.push(
-        'Local business marketing aesthetic; avoid cluttered contact footers, QR codes, or tiny legal text on the image.',
+        'Lob 4×6 postcard FRONT: landscape 3:2 full-bleed photo. Keep text 0.3″ from all edges. No text in bottom-right QR zone.',
       );
     }
     if (kit.businessName) parts.push('Business name: ' + kit.businessName + '.');
     if (userText) parts.push('Creative brief: ' + userText + '.');
     if (ctx.platform === 'postcard' && slot === 'back') {
-      if (kit.phone) parts.push('Call-us CTA: display phone ' + kit.phone + ' as an action button or bold callout, not a contact footer.');
-      if (kit.website) parts.push('Visit-website CTA: display ' + kit.website + ' as a clickable-style action line.');
+      if (kit.phone) parts.push('Call-us CTA phone: ' + kit.phone + '.');
+      if (kit.website) parts.push('Visit-website CTA: ' + kit.website + '.');
+    } else if (ctx.platform === 'google_business_post' || ctx.platform === 'youtube_thumb') {
+      if (kit.website) parts.push('Optional website mention: ' + kit.website + '.');
     } else {
       if (kit.phone) parts.push('Display phone ' + kit.phone + ' prominently.');
       if (kit.website) parts.push('Include website ' + kit.website + '.');
@@ -1801,19 +1821,17 @@
     }
     if (kit.useLogoInDesign) {
       parts.unshift(
-        'CRITICAL: Do not draw any logo, wordmark, or brand icon anywhere (especially not top-left). Real logo is composited top-right after generation — keep top-right empty background only.',
+        'CRITICAL: Do not draw any logo, wordmark, or brand icon anywhere. Real logo is composited top-right after generation — keep top-right empty background only.',
       );
-      parts.push(
-        'Keep the top-right corner empty for logo overlay — no fake logo in top-left or any corner.',
-      );
+      parts.push('Keep the top-right corner empty for logo overlay.');
     }
     if (ctx.platform === 'postcard' && slot === 'back' && (ctx.matchFrontStyle || designs.front)) {
       parts.push(
-        'Use the attached front design ONLY for color palette, typography, photo treatment, and brand mood — create a DISTINCT back-side layout (bullet benefits + CTAs on the left), not a duplicate or minor variation of the front hero.',
+        'Use the attached front design ONLY for color palette, typography, and brand mood — create a DISTINCT back-side layout.',
       );
     }
     parts.push('High contrast, readable at mobile size, modern trustworthy aesthetic, no watermarks.');
-    return parts.join(' ');
+    return parts.filter(Boolean).join(' ');
   }
 
   function latestUserChatText() {
