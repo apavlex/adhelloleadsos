@@ -1,0 +1,11 @@
+<%- include('/partials/lead_detail_panel') %>
+<div id="leadPanelDatasetHost" class="result-row result-row--panel-source fixed left-[-9999px] top-0 w-px h-px overflow-hidden opacity-0 pointer-events-none" aria-hidden="true" tabindex="-1"></div>
+<script>
+  window.INITIAL_SAVED_LEADS = window.INITIAL_SAVED_LEADS || [];
+  window.PIPELINE_STAGE_LABELS = window.PIPELINE_STAGE_LABELS || {};
+  window.PIPELINE_STAGE_COLORS = window.PIPELINE_STAGE_COLORS || {};
+</script>
+<script src="/js/lead-panel-merges.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '' %>"></script>
+<script src="/js/lead-panel-notes.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '' %>"></script>
+<script src="/js/lead-panel-paint.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '' %>"></script>
+<script src="/js/app.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '' %>"></script>

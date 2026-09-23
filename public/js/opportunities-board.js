@@ -86,7 +86,7 @@
         group: 'opportunities',
         animation: 150,
         draggable: '.opp-card',
-        filter: '.opp-card-tools, .opp-card-tools *',
+        filter: '.opp-card-tools, .opp-card-tools *, .opp-card-title',
         preventOnFilter: true,
         ghostClass: 'sortable-ghost',
         onEnd: function (evt) {
@@ -222,6 +222,15 @@
       ev.preventDefault();
       ev.stopPropagation();
       var kind = action.getAttribute('data-opp-action');
+      if (kind === 'profile') {
+        var profileKey = leadKeyOf(action);
+        if (!profileKey || typeof window.openLeadDetailFromKey !== 'function') {
+          showError('Could not open that company.');
+          return;
+        }
+        window.openLeadDetailFromKey(profileKey);
+        return;
+      }
       if (kind === 'call') {
         var phone = action.getAttribute('data-phone') || '';
         if (!phone) {

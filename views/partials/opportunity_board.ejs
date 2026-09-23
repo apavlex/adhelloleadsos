@@ -15,7 +15,7 @@
   .opp-card { position: relative; width: 100%; min-width: 0; box-sizing: border-box; background: #fff; border: 1px solid rgba(17, 24, 39, 0.08); border-radius: 0.8rem; padding: 0.7rem 0.75rem; cursor: grab; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
   html.dark .opp-card { background: #0f172a; border-color: rgba(255, 255, 255, 0.1); }
   .opp-card.sortable-ghost { opacity: 0.45; }
-  .opp-card-title { display: block; font-weight: 800; font-size: 0.875rem; line-height: 1.3; color: inherit; text-decoration: none; overflow-wrap: anywhere; }
+  .opp-card-title { display: block; width: 100%; border: 0; background: transparent; padding: 0; text-align: left; font-weight: 800; font-size: 0.875rem; line-height: 1.3; color: inherit; text-decoration: none; overflow-wrap: anywhere; cursor: pointer; }
   .opp-card-title:hover { color: var(--brand-yellow, #ca8a04); }
   .opp-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-top: 0.45rem; }
   .opp-card-source { font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #6b7280; }
@@ -91,7 +91,7 @@
           <% if (!stage.cards.length) { %><div class="opp-drop">Drop here</div><% } %>
           <% stage.cards.forEach(function (card) { %>
           <article class="opp-card" data-lead-key="<%= card.key %>" data-value="<%= card.value %>">
-            <a class="opp-card-title" href="<%= card.href %>"><%= card.title %></a>
+            <button type="button" class="opp-card-title" data-opp-action="profile" data-lead-key="<%= card.key %>"><%= card.title %></button>
             <% if (card.source || card.valueLabel) { %>
             <div class="opp-card-foot">
               <span class="opp-card-source"><%= card.source || 'Opportunity' %></span>
