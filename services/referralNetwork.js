@@ -62,7 +62,10 @@ function partnerRecord(lead) {
 }
 
 function pushEvent(record, event) {
-  record.events = cleanEvents(record.events).concat(event).slice(-12);
+  const prior = cleanEvents(record.events);
+  const type = event && event.type;
+  const kept = type && type !== 'note' ? prior.filter((item) => item.type !== type) : prior;
+  record.events = kept.concat(event).slice(-8);
 }
 
 function formatWhen(value) {
@@ -190,11 +193,6 @@ function toCard(lead) {
     receivedWhen: whenOrEmpty(partner.lastReceivedAt),
     ghlWhen: whenOrEmpty(ghlAt),
     note: String(note || '').replace(/\s+/g, ' ').trim().slice(0, 180),
-    activity: partner.events.slice(-4).reverse().map((event) => ({
-      label: EVENT_LABELS[event.type] || 'Update',
-      when: whenOrEmpty(event.at),
-      text: event.text,
-    })),
   };
 }
 
@@ -294,6 +292,7 @@ module.exports = {
   partnerScore,
   matchesQuery,
   listPartners,
+  presentPartner: toCard,
   applyPartnerAction,
   networkTotals,
 };

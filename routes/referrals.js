@@ -98,8 +98,12 @@ router.post('/partner', express.urlencoded({ extended: false }), async (req, res
     if (!lead) return res.redirect(backUrl(q, 'That partner is not in this workspace.'));
     const action = String(req.body.action || '').trim();
     const note = String(req.body.note || '').trim();
+    const wantsJson = /application\/json/i.test(String(req.get('accept') || ''));
     const applied = referralNetwork.applyPartnerAction(lead, action, undefined, note);
-    if (!applied.ok) return res.redirect(backUrl(q, applied.error));
+    if (!applied.ok) {
+      if (wantsJson) return res.status(400).json({ success: false, error: applied.error });
+      return res.redirect(backUrl(q, applied.error));
+    }
     const patch = { referralPartner: applied.referralPartner };
     if (action === 'note') {
       const ts = applied.referralPartner.lastNoteAt || new Date().toISOString();
@@ -108,7 +112,14 @@ router.post('/partner', express.urlencoded({ extended: false }), async (req, res
       patch.updates = updates;
       patch.logs = [{ type: 'note', message: note, timestamp: ts }];
     }
-    await dbService.updateLead(lead.key, patch, req.workspaceId);
+    const saved = await dbService.updateLead(lead.key, patch, req.workspaceId);
+    if (wantsJson) {
+      return res.json({
+        success: true,
+        notice: ACTION_NOTICE[action] || 'Updated.',
+        card: referralNetwork.presentPartner(saved || Object.assign({}, lead, patch)),
+      });
+    }
     res.redirect(backUrl(q, ACTION_NOTICE[action] || 'Updated.'));
   } catch (err) {
     console.error('[referrals] partner update failed:', err.message);
