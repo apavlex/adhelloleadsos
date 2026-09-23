@@ -25,6 +25,21 @@
     html.dark .ref-pill-intro { color: #fcd34d; }
     .ref-note { width: 100%; border-radius: 0.85rem; border: 1px solid rgba(15, 23, 42, 0.1); background: rgba(247, 244, 238, 0.7); padding: 0.55rem 0.75rem; font-size: 0.8rem; }
     html.dark .ref-note { background: rgba(2, 6, 23, 0.35); border-color: rgba(255, 255, 255, 0.1); color: #f8fafc; }
+    .ref-pop { position: fixed; inset: 0; z-index: 80; display: flex; align-items: flex-start; justify-content: center; padding: 4.5rem 1rem 1rem; background: rgba(2, 6, 23, 0.72); }
+    .ref-pop[hidden] { display: none !important; }
+    .ref-pop-card { width: 100%; max-width: 32rem; max-height: min(82vh, 42rem); overflow: auto; border-radius: 1.5rem; background: #fff; color: #0f172a; border: 1px solid rgba(15, 23, 42, 0.08); padding: 1.25rem; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28); }
+    html.dark .ref-pop-card { background: #0f172a; color: #f8fafc; border-color: rgba(255, 255, 255, 0.1); }
+    .ref-pop-card h3 { font-size: 1.05rem; font-weight: 800; margin: 0; }
+    .ref-pop-kicker { display: block; margin: 0.9rem 0 0.35rem; font-size: 10px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; color: #64748b; }
+    .ref-pop-card select, .ref-pop-card textarea, .ref-pop-card input[type="text"] { width: 100%; border-radius: 0.9rem; border: 1px solid rgba(148, 163, 184, 0.35); background: rgba(248, 250, 252, 0.8); padding: 0.65rem 0.8rem; font-size: 0.875rem; color: inherit; }
+    html.dark .ref-pop-card select, html.dark .ref-pop-card textarea, html.dark .ref-pop-card input[type="text"] { background: rgba(15, 23, 42, 0.8); border-color: rgba(255, 255, 255, 0.1); }
+    .ref-pop-card textarea { min-height: 9rem; resize: vertical; }
+    .ref-pop-tags { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.75rem; }
+    .ref-pop-tag { border-radius: 999px; border: 1px solid rgba(15, 23, 42, 0.14); padding: 0.35rem 0.75rem; font-size: 12px; font-weight: 700; background: transparent; color: inherit; cursor: pointer; }
+    html.dark .ref-pop-tag { border-color: rgba(255, 255, 255, 0.16); }
+    .ref-pop-tag.is-on { background: #FFDB3A; color: #0f172a; border-color: transparent; }
+    .ref-pop-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
+    .ref-pop-close { margin-left: auto; }
   </style>
 </head>
 <body class="bg-brand-bg min-h-screen text-brand-dark dark:text-white overflow-x-hidden">
@@ -160,6 +175,13 @@
         <% } %>
 
         <div class="mt-4 flex flex-wrap items-center gap-2">
+          <button type="button" class="ref-btn ref-btn-ghost" data-referral-action="tags" data-lead-key="<%= partner.key %>" data-title="<%= partner.title %>" data-tags="<%= (partner.tagKeys || []).join(',') %>">Tags</button>
+          <button type="button" class="ref-btn ref-btn-ghost" data-referral-action="sms" data-lead-key="<%= partner.key %>" data-title="<%= partner.title %>">SMS</button>
+          <button type="button" class="ref-btn ref-btn-ghost" data-referral-action="email" data-lead-key="<%= partner.key %>" data-title="<%= partner.title %>">Email</button>
+          <button type="button" class="ref-btn ref-btn-ghost" data-referral-action="dm" data-lead-key="<%= partner.key %>" data-title="<%= partner.title %>" data-instagram="<%= partner.instagram %>" data-facebook="<%= partner.facebook %>">DM</button>
+          <button type="button" class="ref-btn ref-btn-ghost" data-referral-ghl data-lead-key="<%= partner.key %>" data-default-label="<%= partner.ghlWhen ? 'Sync GHL' : 'Connect GHL' %>"><%= partner.ghlWhen ? 'Sync GHL' : 'Connect GHL' %></button>
+        </div>
+        <div class="mt-2 flex flex-wrap items-center gap-2">
           <form method="post" action="/referrals/partner"><input type="hidden" name="leadKey" value="<%= partner.key %>" /><input type="hidden" name="q" value="<%= query %>" /><input type="hidden" name="action" value="sent" /><button type="submit" class="ref-btn ref-btn-yellow">Log lead sent</button></form>
           <form method="post" action="/referrals/partner"><input type="hidden" name="leadKey" value="<%= partner.key %>" /><input type="hidden" name="q" value="<%= query %>" /><input type="hidden" name="action" value="received" /><button type="submit" class="ref-btn ref-btn-ghost">Log lead received</button></form>
           <% if (partner.status !== 'connected') { %>
@@ -168,7 +190,6 @@
           <% if (partner.status !== 'intro_sent') { %>
           <form method="post" action="/referrals/partner"><input type="hidden" name="leadKey" value="<%= partner.key %>" /><input type="hidden" name="q" value="<%= query %>" /><input type="hidden" name="action" value="intro" /><button type="submit" class="ref-btn ref-btn-ghost">Mark intro sent</button></form>
           <% } %>
-          <button type="button" class="ref-btn ref-btn-ghost" data-referral-ghl data-lead-key="<%= partner.key %>" data-default-label="<%= partner.ghlWhen ? 'Sync GHL' : 'Connect GHL' %>"><%= partner.ghlWhen ? 'Sync GHL' : 'Connect GHL' %></button>
           <% if (partner.ghlWhen) { %><span class="text-[11px] text-brand-muted">In GHL · <%= partner.ghlWhen %></span><% } %>
           <form method="post" action="/referrals/partner"><input type="hidden" name="leadKey" value="<%= partner.key %>" /><input type="hidden" name="q" value="<%= query %>" /><input type="hidden" name="action" value="clear" /><button type="submit" class="ref-btn ref-btn-quiet">Remove</button></form>
         </div>
@@ -187,19 +208,23 @@
     <% } %>
   </main>
   <%- include('partials/opportunity_company_panel') %>
+  <div id="referralContactPop" class="ref-pop" hidden>
+    <div class="ref-pop-card" role="dialog" aria-modal="true" aria-labelledby="referralPopTitle">
+      <div class="flex items-start justify-between gap-3">
+        <h3 id="referralPopTitle">Contact</h3>
+        <button type="button" class="ref-btn ref-btn-quiet ref-pop-close" data-referral-pop-close>Close</button>
+      </div>
+      <div id="referralPopBody"></div>
+    </div>
+  </div>
   <script>
-    document.addEventListener('click', function (event) {
-      var profile = event.target.closest('[data-referral-profile]');
-      if (profile) {
-        var key = profile.getAttribute('data-lead-key');
-        if (key && typeof window.openLeadDetailFromKey === 'function') window.openLeadDetailFromKey(key);
-        return;
-      }
-      var ghl = event.target.closest('[data-referral-ghl]');
-      if (!ghl || ghl.disabled) return;
-      var leadKey = ghl.getAttribute('data-lead-key');
-      var label = ghl.getAttribute('data-default-label') || 'Connect GHL';
+    (function () {
+      var pop = document.getElementById('referralContactPop');
+      var popBody = document.getElementById('referralPopBody');
+      var popTitle = document.getElementById('referralPopTitle');
       var status = document.getElementById('referralStatus');
+      var searchQuery = <%- JSON.stringify(query || '') %>;
+
       function say(text, ok) {
         if (!status) return;
         status.textContent = text;
@@ -207,43 +232,282 @@
         if (ok) status.classList.add('bg-emerald-50', 'text-emerald-900', 'dark:bg-emerald-950/40', 'dark:text-emerald-100');
         else status.classList.add('bg-amber-50', 'text-amber-950', 'dark:bg-amber-950/50', 'dark:text-amber-100');
       }
-      ghl.disabled = true;
-      ghl.textContent = 'Connecting…';
-      fetch('/ghl/push', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ leadKeys: [leadKey], extraTagNames: ['Referral partner'] })
-      }).then(function (res) {
-        return res.json().then(function (data) { return { ok: res.ok, data: data || {} }; }).catch(function () { return { ok: false, data: {} }; });
-      }).then(function (result) {
-        if (!result.ok || !result.data || !result.data.success) {
-          ghl.disabled = false;
-          ghl.textContent = label;
-          say((result.data && result.data.error) || 'Could not connect that partner in Go High Level.', false);
-          return;
-        }
-        var body = new URLSearchParams();
-        body.set('leadKey', leadKey);
-        body.set('action', 'ghl');
-        body.set('q', <%- JSON.stringify(query || '') %>);
-        return fetch('/referrals/partner', {
+
+      function closePop() {
+        if (!pop) return;
+        pop.hidden = true;
+        if (popBody) popBody.textContent = '';
+      }
+
+      function openPop(title) {
+        if (popTitle) popTitle.textContent = title;
+        if (popBody) popBody.textContent = '';
+        if (pop) pop.hidden = false;
+      }
+
+      function postJson(url, payload) {
+        return fetch(url, {
           method: 'POST',
           credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: body
-        }).then(function () {
-          var next = '/referrals?notice=' + encodeURIComponent('Connected in Go High Level.');
-          var q = <%- JSON.stringify(query || '') %>;
-          if (q) next += '&q=' + encodeURIComponent(q);
-          window.location.href = next;
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(payload)
+        }).then(function (res) {
+          return res.json().then(function (data) { return { ok: res.ok, data: data || {} }; }).catch(function () { return { ok: false, data: {} }; });
         });
-      }).catch(function () {
-        ghl.disabled = false;
-        ghl.textContent = label;
-        say('Could not connect that partner in Go High Level.', false);
+      }
+
+      function plainText(value) {
+        return String(value || '')
+          .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+      }
+
+      function socialHref(raw, host) {
+        var value = String(raw || '').trim();
+        if (!value || /^n\/?a$/i.test(value)) return '';
+        if (/^https?:\/\//i.test(value)) return value;
+        if (value.indexOf(host) !== -1) return 'https://' + value.replace(/^\/\//, '');
+        return 'https://' + host + '/' + value.replace(/^@/, '');
+      }
+
+      function openComposer(kind, key) {
+        var opener = kind === 'email'
+          ? (window.__openBulkEmailModal || window.__openBulkEmailModalImplFull)
+          : (window.__openBulkSmsModalImpl || window.__openBulkSmsModal || window.__openBulkSmsModalImplFull);
+        if (typeof opener !== 'function') {
+          say(kind === 'email' ? 'Email templates are still loading. Try again.' : 'SMS templates are still loading. Try again.', false);
+          return;
+        }
+        say(kind === 'email' ? 'Opening email templates…' : 'Opening SMS templates…', true);
+        Promise.resolve(opener([key])).then(function (result) {
+          if (result && result.ok === false) say(result.message || 'Could not open that composer.', false);
+        }).catch(function () {
+          say('Could not open that composer.', false);
+        });
+      }
+
+      function openTags(button) {
+        var key = button.getAttribute('data-lead-key');
+        var applied = String(button.getAttribute('data-tags') || '').split(',').map(function (item) { return item.trim(); }).filter(Boolean);
+        openPop('Tags · ' + (button.getAttribute('data-title') || 'Partner'));
+        popBody.innerHTML = '<div class="ref-pop-tags">Loading tags…</div><form class="ref-pop-actions"><input type="text" name="name" maxlength="40" placeholder="New tag" /><button type="submit" class="ref-btn ref-btn-yellow">Add</button></form>';
+        var list = popBody.querySelector('.ref-pop-tags');
+        function paint(tags) {
+          list.textContent = '';
+          if (!tags.length) {
+            list.textContent = 'No tags yet. Create one below.';
+            return;
+          }
+          tags.forEach(function (tag) {
+            if (!tag || !tag.key) return;
+            var on = applied.indexOf(tag.key) >= 0;
+            var chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'ref-pop-tag' + (on ? ' is-on' : '');
+            chip.textContent = (on ? '' : '+ ') + (tag.name || 'Tag');
+            chip.addEventListener('click', function () {
+              chip.disabled = true;
+              postJson('/tags/assign', { leadKey: key, tagKeys: [tag.key], mode: on ? 'remove' : 'add' }).then(function (result) {
+                chip.disabled = false;
+                if (!result.ok || !result.data || !result.data.success) {
+                  say((result.data && result.data.error) || 'Could not update that tag.', false);
+                  return;
+                }
+                applied = on ? applied.filter(function (item) { return item !== tag.key; }) : applied.concat([tag.key]);
+                button.setAttribute('data-tags', applied.join(','));
+                say(on ? 'Tag removed.' : 'Tag added.', true);
+                paint(tags);
+              }).catch(function () {
+                chip.disabled = false;
+                say('Could not update that tag.', false);
+              });
+            });
+            list.appendChild(chip);
+          });
+        }
+        fetch('/tags', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+          .then(function (res) { return res.json(); })
+          .then(function (data) { paint((data && data.tags) || []); })
+          .catch(function () { list.textContent = 'Could not load tags.'; });
+        popBody.querySelector('form').addEventListener('submit', function (event) {
+          event.preventDefault();
+          var input = popBody.querySelector('input');
+          var name = String(input.value || '').trim();
+          if (!name) return;
+          input.disabled = true;
+          postJson('/tags', { name: name }).then(function (created) {
+            if (!created.ok || !created.data || !created.data.tag) {
+              input.disabled = false;
+              say((created.data && created.data.error) || 'Could not create that tag.', false);
+              return;
+            }
+            return postJson('/tags/assign', { leadKey: key, tagKeys: [created.data.tag.key], mode: 'add' }).then(function (assigned) {
+              input.disabled = false;
+              input.value = '';
+              if (!assigned.ok || !assigned.data || !assigned.data.success) {
+                say((assigned.data && assigned.data.error) || 'Tag created, but it was not added.', false);
+                return;
+              }
+              applied.push(created.data.tag.key);
+              button.setAttribute('data-tags', applied.join(','));
+              say('Tag added.', true);
+              return fetch('/tags', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+                .then(function (res) { return res.json(); })
+                .then(function (data) { paint((data && data.tags) || []); });
+            });
+          }).catch(function () {
+            input.disabled = false;
+            say('Could not create that tag.', false);
+          });
+        });
+      }
+
+      function openDm(button) {
+        var key = button.getAttribute('data-lead-key');
+        var title = button.getAttribute('data-title') || 'this partner';
+        var ig = socialHref(button.getAttribute('data-instagram'), 'instagram.com');
+        var fb = socialHref(button.getAttribute('data-facebook'), 'facebook.com');
+        openPop('DM · ' + title);
+        popBody.innerHTML = '<p class="ref-pop-kicker">Template</p><select><option>Loading templates…</option></select><p class="ref-pop-kicker">Message</p><textarea maxlength="1000"></textarea><div class="ref-pop-actions"><button type="button" class="ref-btn ref-btn-yellow" data-dm-copy>Copy message</button></div>';
+        var select = popBody.querySelector('select');
+        var area = popBody.querySelector('textarea');
+        var actions = popBody.querySelector('.ref-pop-actions');
+        if (ig) {
+          var igLink = document.createElement('a');
+          igLink.className = 'ref-btn ref-btn-ghost';
+          igLink.href = ig;
+          igLink.target = '_blank';
+          igLink.rel = 'noopener noreferrer';
+          igLink.textContent = 'Open Instagram';
+          actions.appendChild(igLink);
+        }
+        if (fb) {
+          var fbLink = document.createElement('a');
+          fbLink.className = 'ref-btn ref-btn-ghost';
+          fbLink.href = fb;
+          fbLink.target = '_blank';
+          fbLink.rel = 'noopener noreferrer';
+          fbLink.textContent = 'Open Facebook';
+          actions.appendChild(fbLink);
+        }
+        var templates = [{ label: 'Referral intro', text: 'Hi — I work with businesses nearby and wanted to connect about trading referrals. Open to a quick chat?' }];
+        function paintTemplates() {
+          select.textContent = '';
+          templates.forEach(function (item, index) {
+            var option = document.createElement('option');
+            option.value = String(index);
+            option.textContent = item.label;
+            select.appendChild(option);
+          });
+          area.value = templates[0] ? templates[0].text : '';
+        }
+        select.addEventListener('change', function () {
+          var picked = templates[Number(select.value)] || templates[0];
+          if (picked) area.value = picked.text;
+        });
+        actions.querySelector('[data-dm-copy]').addEventListener('click', function () {
+          var text = String(area.value || '').trim();
+          if (!text) {
+            say('Write a message first.', false);
+            return;
+          }
+          var done = function () { say('DM copied. Paste it in the message.', true); };
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(done).catch(function () {
+              area.select();
+              document.execCommand('copy');
+              done();
+            });
+          } else {
+            area.select();
+            document.execCommand('copy');
+            done();
+          }
+        });
+        fetch('/leads/' + encodeURIComponent(key) + '/outreach-scripts', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+          .then(function (res) { return res.json(); })
+          .then(function (data) {
+            var library = data && data.library ? data.library : {};
+            var fromLibrary = [];
+            Object.keys(library).forEach(function (id) {
+              var entry = library[id] || {};
+              var channels = entry.channels || {};
+              var text = plainText(channels.text || channels.call || '');
+              if (!text) return;
+              fromLibrary.push({ label: (entry.label || id) + ' — DM', text: text.slice(0, 1000) });
+            });
+            if (fromLibrary.length) templates = fromLibrary.concat(templates);
+            paintTemplates();
+          })
+          .catch(function () { paintTemplates(); });
+      }
+
+      function syncGhl(button) {
+        if (!button || button.disabled) return;
+        var leadKey = button.getAttribute('data-lead-key');
+        var label = button.getAttribute('data-default-label') || 'Connect GHL';
+        button.disabled = true;
+        button.textContent = 'Syncing…';
+        postJson('/ghl/push', { leadKeys: [leadKey], extraTagNames: ['Referral partner'] }).then(function (result) {
+          if (!result.ok || !result.data || !result.data.success) {
+            button.disabled = false;
+            button.textContent = label;
+            say((result.data && result.data.error) || 'Could not sync that partner to Go High Level.', false);
+            return;
+          }
+          var body = new URLSearchParams();
+          body.set('leadKey', leadKey);
+          body.set('action', 'ghl');
+          body.set('q', searchQuery);
+          return fetch('/referrals/partner', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: body
+          }).then(function () {
+            var next = '/referrals?notice=' + encodeURIComponent('Synced to Go High Level.');
+            if (searchQuery) next += '&q=' + encodeURIComponent(searchQuery);
+            window.location.href = next;
+          });
+        }).catch(function () {
+          button.disabled = false;
+          button.textContent = label;
+          say('Could not sync that partner to Go High Level.', false);
+        });
+      }
+
+      document.addEventListener('click', function (event) {
+        if (event.target.closest('[data-referral-pop-close]') || event.target === pop) {
+          closePop();
+          return;
+        }
+        var profile = event.target.closest('[data-referral-profile]');
+        if (profile) {
+          var profileKey = profile.getAttribute('data-lead-key');
+          if (profileKey && typeof window.openLeadDetailFromKey === 'function') window.openLeadDetailFromKey(profileKey);
+          return;
+        }
+        var action = event.target.closest('[data-referral-action]');
+        if (action) {
+          var kind = action.getAttribute('data-referral-action');
+          var leadKey = action.getAttribute('data-lead-key');
+          if (!leadKey) return;
+          if (kind === 'tags') openTags(action);
+          else if (kind === 'sms') openComposer('sms', leadKey);
+          else if (kind === 'email') openComposer('email', leadKey);
+          else if (kind === 'dm') openDm(action);
+          return;
+        }
+        var ghl = event.target.closest('[data-referral-ghl]');
+        if (ghl) syncGhl(ghl);
       });
-    });
+
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') closePop();
+      });
+    })();
   </script>
   <%- include('partials/footer') %>
 </body>

@@ -149,6 +149,12 @@ function whenOrEmpty(value) {
   return formatWhen(value);
 }
 
+function tagKeys(lead) {
+  const raw = lead && lead.tags;
+  if (!Array.isArray(raw)) return [];
+  return raw.map((item) => String(item || '').trim()).filter(Boolean).slice(0, 40);
+}
+
 function toCard(lead) {
   const partner = partnerRecord(lead);
   const rating = ratingValue(lead);
@@ -167,6 +173,10 @@ function toCard(lead) {
     city: usableText(lead.city),
     state: usableText(lead.state),
     phone: usableText(lead && lead.phone),
+    email: usableText(lead && lead.email),
+    instagram: usableText(lead && (lead.instagram || lead.instagram_url)),
+    facebook: usableText(lead && (lead.facebook || lead.facebook_url)),
+    tagKeys: tagKeys(lead),
     website: hasWebsite(lead),
     rating: rating ? rating.toFixed(1) : '',
     reviews: reviewCount(lead),
