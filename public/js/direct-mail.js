@@ -1704,7 +1704,7 @@
   }
 
   function userWantsAdGeneration(text) {
-    return /make\s+(an?\s+)?(ad|add)|create\s+(an?\s+)?(ad|add)|design\s+(an?\s+)?(ad|add)|generate|go ahead|make it|build it|design it/i.test(
+    return /make\s+(an?\s+)?(ad|add)|create\s+(an?\s+)?(ad|add)|design\s+(an?\s+)?(ad|add)|generate|go ahead|make it|build it|design it|facebook\s+cover|banner\s+cover|make\s+me\s+a/i.test(
       String(text || ''),
     );
   }
@@ -3214,6 +3214,22 @@
       });
       btn.disabled = false;
       await applyIncrementalEdit(text);
+      return;
+    }
+
+    // Instant draft for clear make/design briefs — do not wait on the coach LLM.
+    var wantsDesignNow = userWantsAdGeneration(text);
+    if (wantsDesignNow) {
+      var quickCtx = designRequestContext();
+      var quickPrompt = buildQuickImagePrompt(text, quickCtx);
+      var quickReply =
+        'Got it — locking that look in. I drafted an image prompt from your direction. Edit it in Prompt & refine, then click Generate when you are happy with it.';
+      appendChatBubble('assistant', quickReply);
+      applyDraftImagePrompt(quickPrompt, quickReply);
+      setDesignStatus('Prompt ready — edit it in Prompt & refine, then click Generate.', true);
+      btn.disabled = false;
+      var thinkingQuick = document.getElementById('dmChatThinking');
+      if (thinkingQuick && !thinkingQuick.hidden) setChatThinking(false);
       return;
     }
 

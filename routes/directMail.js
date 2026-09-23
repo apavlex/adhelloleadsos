@@ -538,29 +538,40 @@ async function buildGenerationInputUrls(req, { styleReferenceUrl, referenceUrl, 
 function formatDesignCoachError(ai) {
   if (ai && typeof ai.error === 'string' && ai.error.trim()) return ai.error.trim();
   const provider = ai && ai.provider ? String(ai.provider) : '';
+  if (provider === 'timeout') {
+    return 'Design coach is taking too long. Try a shorter brief, or use the draft prompt and click Generate.';
+  }
   if (provider && provider !== 'none') {
     return `Design coach is unavailable (${provider}). Check AI provider keys on the server and try again.`;
   }
   return 'Design coach is unavailable. Set OPENROUTER_API_KEY, or KIE/Gemini/OpenAI keys on the server.';
 }
 
+function withTimeout(promise, ms, label) {
+  let timer = null;
+  const timeout = new Promise((resolve) => {
+    timer = setTimeout(() => {
+      resolve({ content: null, provider: 'timeout', timedOut: true, error: true, errorMessage: label || 'Timed out' });
+    }, ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
 async function runDesignCoachChat(messages) {
-  let ai = await chatCompletion({
-    messages,
-    jsonObject: true,
-    max_tokens: 900,
-    temperature: 0.65,
-    providerChain: 'openrouter',
-  });
-  if (ai.content) return ai;
-  ai = await chatCompletion({
-    messages,
-    jsonObject: true,
-    max_tokens: 900,
-    temperature: 0.65,
-    providerChain: 'legacy',
-  });
-  return ai;
+  // OpenRouter only — skip the slow legacy chain. Cap wait so chat stays snappy.
+  return withTimeout(
+    chatCompletion({
+      messages,
+      jsonObject: true,
+      max_tokens: 450,
+      temperature: 0.5,
+      providerChain: 'openrouter',
+    }),
+    3500,
+    'Design coach timed out',
+  );
 }
 
 function appendLeadUpdate(lead, entry) {
@@ -597,14 +608,26 @@ function collectRecentSends(leads, limit = 30) {
 
 router.get('/', async (req, res, next) => {
   try {
-    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
+    const [integrationEnv, all, wsRaw, folders, tags, driveImport] = await Promise.all([
+      workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId),
+      dbService.getAllLeads(req.workspaceId),
+      dbService.getWorkspace(req.workspaceId),
+      dbService.listFolders(req.workspaceId),
+      dbService.listTags(req.workspaceId),
+      googleDriveAccess.buildDriveImportBundle(req, userEmail(req)),
+    ]);
     const ready = lobDirectMail.directMailReady(integrationEnv);
+    const ws = wsRaw || { id: req.workspaceId };
 
-    const all = await dbService.getAllLeads(req.workspaceId);
     const visible = filterLeadsForRequest(req, all);
     const pipelineVisible = excludeOutreachFolderLeads(visible);
     const selectedKeyOrder = parseBulkSelectionKeys(req.query.keys);
     const selectedOnly = selectedKeyOrder.length > 0;
+
+    const dmQueueMeta = await directMailQueue.listDirectMailQueueLeads(req.workspaceId, visible);
+    const queueByKey = new Map(
+      (dmQueueMeta && Array.isArray(dmQueueMeta.leads) ? dmQueueMeta.leads : []).map((q) => [q.key, q])
+    );
 
     let tableLeads;
     let dmIsQueueSession = false;
@@ -617,26 +640,18 @@ router.get('/', async (req, res, next) => {
         visibleLeads: visible,
         keyOrder: selectedKeyOrder,
       });
-    } else {
-      const queue = await directMailQueue.listDirectMailQueueLeads(req.workspaceId, visible);
-      if (queue.leads.length) {
-        dmIsQueueSession = true;
-        const byKey = new Map(visible.map((l) => [l.key, l]));
-        tableLeads = [];
-        for (const q of queue.leads) {
-          const lead = byKey.get(q.key);
-          if (lead) tableLeads.push(lead);
-        }
-      } else {
-        dmQueueEmpty = true;
-        tableLeads = pipelineVisible.filter((l) => lobDirectMail.hasMailableAddress(l));
+    } else if (dmQueueMeta && Array.isArray(dmQueueMeta.leads) && dmQueueMeta.leads.length) {
+      dmIsQueueSession = true;
+      const byKey = new Map(visible.map((l) => [l.key, l]));
+      tableLeads = [];
+      for (const q of dmQueueMeta.leads) {
+        const lead = byKey.get(q.key);
+        if (lead) tableLeads.push(lead);
       }
+    } else {
+      dmQueueEmpty = true;
+      tableLeads = pipelineVisible.filter((l) => lobDirectMail.hasMailableAddress(l)).slice(0, 120);
     }
-
-    const dmQueueMeta = await directMailQueue.listDirectMailQueueLeads(req.workspaceId, visible);
-    const queueByKey = new Map(
-      (dmQueueMeta && Array.isArray(dmQueueMeta.leads) ? dmQueueMeta.leads : []).map((q) => [q.key, q])
-    );
 
     const mailableLeads = tableLeads.map((l) => {
       const lob = lobDirectMail.getLeadLobAddressPreview(l);
@@ -668,11 +683,7 @@ router.get('/', async (req, res, next) => {
     const mailableCount = mailableLeads.filter((l) => l.mailable).length;
     const skippedCount = selectedOnly ? mailableLeads.length - mailableCount : 0;
 
-    const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
     const brandKit = resolveBrandKitForClient(ws);
-    const driveImport = await googleDriveAccess.buildDriveImportBundle(req, userEmail(req));
-    const folders = await dbService.listFolders(req.workspaceId);
-    const tags = await dbService.listTags(req.workspaceId);
 
     res.render('direct-mail', {
       activePage: 'direct-mail',
@@ -685,7 +696,7 @@ router.get('/', async (req, res, next) => {
       dmQueueEmpty,
       dmMailableCount: mailableCount,
       dmSkippedCount: skippedCount,
-      recentSends: collectRecentSends(visible),
+      recentSends: collectRecentSends(visible, 20),
       canManageWorkspace: !!req.canManageWorkspace,
       brandKit,
       brandKitJson: JSON.stringify(brandKit),
@@ -1023,8 +1034,8 @@ router.post('/api/design-chat', async (req, res, next) => {
 
     const history = (Array.isArray(body.history) ? body.history : [])
       .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
-      .slice(-12)
-      .map((m) => ({ role: m.role, content: m.content.slice(0, 4000) }));
+      .slice(-6)
+      .map((m) => ({ role: m.role, content: m.content.slice(0, 1800) }));
 
     const slot = String(body.slot || 'front').toLowerCase() === 'back' ? 'back' : 'front';
     const headline = String(body.headline || '').trim();
@@ -1038,6 +1049,37 @@ router.post('/api/design-chat', async (req, res, next) => {
     const frontPrompt = String(body.frontPrompt || '').trim();
     const matchFrontStyle = body.matchFrontStyle === true;
     const incrementalEdit = body.incrementalEdit === true;
+
+    const DEFAULT_CLARIFY =
+      'Tell me more about the look you want — brand colors, photo vs illustration, and the main hook.';
+    const DRAFT_READY =
+      'Got it — locking that look in. I drafted an image prompt from your direction. Edit it in Prompt & refine (or tell me what to change), then click Generate when you are happy with it.';
+
+    const userGaveDirection =
+      userMessage.length >= 24 &&
+      /(color|photo|illustration|realistic|gold|black|white|hook|make (it|a|an)|design|style|mood|marketing|brand|banner|cover|hvac|flooring|electrician)/i.test(
+        userMessage,
+      );
+
+    // Fast path: clear "make me a cover/ad" briefs skip the LLM so the prompt is ready immediately.
+    if (!incrementalEdit && (userAskedForDesign(userMessage) || (userGaveDirection && history.length <= 1))) {
+      const imagePrompt = buildFallbackDesignImagePrompt({
+        userMessage,
+        platformLabel: platformLabel(platform),
+        aspectRatio,
+        headline,
+        bodyText,
+        brandKitSummary: brandKitSummary(brandKit),
+      });
+      if (imagePrompt) {
+        return res.json({
+          success: true,
+          reply: DRAFT_READY,
+          imagePrompt,
+          provider: 'local-fast',
+        });
+      }
+    }
 
     const messages = [
       {
@@ -1058,11 +1100,30 @@ router.post('/api/design-chat', async (req, res, next) => {
         }),
       },
       ...history,
-      { role: 'user', content: userMessage.slice(0, 4000) },
+      { role: 'user', content: userMessage.slice(0, 1800) },
     ];
 
     const ai = await runDesignCoachChat(messages);
     if (!ai.content) {
+      // Timed out or provider failed — still return a usable draft when the user asked for a design.
+      if (userAskedForDesign(userMessage) || userGaveDirection) {
+        const imagePrompt = buildFallbackDesignImagePrompt({
+          userMessage,
+          platformLabel: platformLabel(platform),
+          aspectRatio,
+          headline,
+          bodyText,
+          brandKitSummary: brandKitSummary(brandKit),
+        });
+        if (imagePrompt) {
+          return res.json({
+            success: true,
+            reply: DRAFT_READY,
+            imagePrompt,
+            provider: ai.timedOut ? 'local-timeout' : 'local-fallback',
+          });
+        }
+      }
       return res.status(502).json({
         success: false,
         error: formatDesignCoachError(ai),
@@ -1070,10 +1131,6 @@ router.post('/api/design-chat', async (req, res, next) => {
     }
 
     const parsed = parseLlmJson(ai.content) || {};
-    const DEFAULT_CLARIFY =
-      'Tell me more about the look you want — brand colors, photo vs illustration, and the main hook.';
-    const DRAFT_READY =
-      'Got it — locking that look in. I drafted an image prompt from your direction. Edit it in Prompt & refine (or tell me what to change), then click Generate when you are happy with it.';
     let reply = String(parsed.reply || '').trim();
     let imagePrompt = sanitizeDesignImagePrompt(parsed.imagePrompt);
 
@@ -1093,11 +1150,6 @@ router.post('/api/design-chat', async (req, res, next) => {
       lastAssistant &&
       /tell me more about the look|brand colors,\s*photo vs illustration|main hook/i.test(
         String(lastAssistant.content || ''),
-      );
-    const userGaveDirection =
-      userMessage.length >= 24 &&
-      /(color|photo|illustration|realistic|gold|black|white|hook|make (it|a|an)|design|style|mood|marketing|brand|banner|cover|hvac|flooring|electrician)/i.test(
-        userMessage,
       );
     const shouldDraftPrompt =
       !imagePrompt && (userAskedForDesign(userMessage) || userGaveDirection || lastAskedClarify);
