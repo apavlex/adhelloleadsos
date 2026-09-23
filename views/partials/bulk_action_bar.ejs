@@ -78,6 +78,7 @@
       </button>
       <button type="button" id="bulkFolderNewToggle" class="bulk-bar-btn bulk-bar-btn--ghost text-brand-yellow" title="Create a new folder" aria-expanded="false" aria-controls="bulkFolderNewRow">+ Folder</button>
       <button type="button" id="bulkTagsToggle" class="bulk-bar-btn bulk-bar-btn--ghost text-sky-300" title="Add or remove tags">Tags</button>
+      <button type="button" id="bulkAddReferralBtn" class="bulk-bar-btn bulk-bar-btn--ghost text-brand-yellow" title="Add the selected leads to the referral network" data-default-label="Referral">Referral</button>
       </div>
     </div>
 
@@ -148,3 +149,52 @@
   <p id="bulkSaveFeedback" class="hidden w-full text-center text-[10px] font-semibold leading-tight px-0.5" role="status" aria-live="polite"></p>
   <a id="bulkOpenGhlContactsLink" href="https://my.adhello.io/" target="_blank" rel="noopener noreferrer" class="hidden text-[10px] font-bold uppercase tracking-wide text-brand-yellow hover:text-white underline underline-offset-2">Open GHL contacts →</a>
 </div>
+<script>
+(function () {
+  var btn = document.getElementById('bulkAddReferralBtn');
+  if (!btn || btn.getAttribute('data-bound') === '1') return;
+  btn.setAttribute('data-bound', '1');
+  btn.addEventListener('click', function () {
+    if (btn.disabled) return;
+    var keys = typeof window.__getSelectedLeadKeysForBulk === 'function' ? window.__getSelectedLeadKeysForBulk() : [];
+    keys = (Array.isArray(keys) ? keys : []).map(function (key) { return String(key || '').trim(); }).filter(Boolean);
+    var feedback = document.getElementById('bulkSaveFeedback');
+    function say(text, ok) {
+      if (!feedback) return;
+      feedback.textContent = text;
+      feedback.classList.remove('hidden');
+      feedback.style.color = ok ? '#6ee7b7' : '#fecaca';
+    }
+    if (!keys.length) {
+      say('Select a lead first.', false);
+      return;
+    }
+    var label = btn.getAttribute('data-default-label') || 'Referral';
+    btn.disabled = true;
+    btn.textContent = 'Adding…';
+    fetch('/referrals/highlight', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ leadKeys: keys })
+    }).then(function (res) {
+      return res.json().then(function (data) { return { ok: res.ok, data: data }; });
+    }).then(function (result) {
+      btn.disabled = false;
+      if (!result.ok || !result.data || !result.data.success) {
+        btn.textContent = label;
+        say((result.data && result.data.error) || 'Could not add those leads.', false);
+        return;
+      }
+      var n = result.data.added || keys.length;
+      btn.textContent = 'Added';
+      say('Added ' + n + ' to referrals. Open Referrals in the menu to connect or send an intro.', true);
+      window.setTimeout(function () { btn.textContent = label; }, 2200);
+    }).catch(function () {
+      btn.disabled = false;
+      btn.textContent = label;
+      say('Could not add those leads.', false);
+    });
+  });
+})();
+</script>

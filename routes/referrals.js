@@ -58,6 +58,34 @@ router.get('/', async (req, res, next) => {
   }
 });
 
+router.post('/highlight', express.json({ limit: '64kb' }), async (req, res) => {
+  try {
+    const wanted = [...new Set(
+      (Array.isArray(req.body && req.body.leadKeys) ? req.body.leadKeys : [])
+        .map((key) => String(key || '').trim())
+        .filter(Boolean),
+    )].slice(0, 100);
+    if (!wanted.length) return res.status(400).json({ success: false, error: 'Select a lead first.' });
+    const leads = await workspaceLeads(req);
+    const strip = (key) => String(key || '').replace(/^lead:/i, '');
+    let added = 0;
+    for (const key of wanted) {
+      const lead = leads.find((row) => row && (row.key === key || strip(row.key) === strip(key)));
+      if (!lead) continue;
+      const applied = referralNetwork.applyPartnerAction(lead, 'highlight');
+      if (!applied.ok) continue;
+      await dbService.updateLead(lead.key, { referralPartner: applied.referralPartner }, req.workspaceId);
+      lead.referralPartner = applied.referralPartner;
+      added += 1;
+    }
+    if (!added) return res.status(404).json({ success: false, error: 'Those leads are not in this workspace.' });
+    res.json({ success: true, added });
+  } catch (err) {
+    console.error('[referrals] highlight failed:', err.message);
+    res.status(500).json({ success: false, error: 'Could not add those leads.' });
+  }
+});
+
 router.post('/partner', express.urlencoded({ extended: false }), async (req, res) => {
   const q = String(req.body.q || '').trim();
   try {
