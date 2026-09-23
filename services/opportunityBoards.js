@@ -269,6 +269,7 @@ function stageForLead(lead, pipeline, homePipelineId, keys) {
   if (savedPipeline && savedPipeline !== pipeline.id) return null;
   if (savedPipeline === pipeline.id && stageIds.has(savedStage)) return savedStage;
   if (savedPipeline === pipeline.id) return pipeline.stages[0].id;
+  if (lead.opportunityDismissed) return null;
   if (pipeline.id !== homePipelineId) return null;
   if (!isImportantLead(lead, keys)) return null;
   return pipeline.stages[0].id;

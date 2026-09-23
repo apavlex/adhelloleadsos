@@ -163,6 +163,7 @@ router.post('/bulk-move', express.json({ limit: '64kb' }), async (req, res, next
       const patch = {
         opportunityPipelineId: placement.pipelineId,
         opportunityStageId: placement.stageId,
+        opportunityDismissed: false,
         onPipelineBoard: true,
       };
       if (folderKey) patch.folderKey = folderKey;
@@ -202,7 +203,11 @@ router.post('/move', express.json({ limit: '16kb' }), async (req, res, next) => 
     if (!placement.ok) return jsonError(res, 400, placement.error);
     const updated = await dbService.updateLead(
       leadKey,
-      { opportunityPipelineId: placement.pipelineId, opportunityStageId: placement.stageId },
+      {
+        opportunityPipelineId: placement.pipelineId,
+        opportunityStageId: placement.stageId,
+        opportunityDismissed: false,
+      },
       req.workspaceId,
     );
     if (!updated) return jsonError(res, 404, 'Lead not found.');
@@ -218,6 +223,22 @@ router.post('/move', express.json({ limit: '16kb' }), async (req, res, next) => 
       pipelineName: placement.pipelineName,
       stageName: placement.stageName,
     });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/remove', express.json({ limit: '16kb' }), async (req, res, next) => {
+  try {
+    const leadKey = String((req.body && req.body.leadKey) || '').trim();
+    if (!leadKey) return jsonError(res, 400, 'Choose an opportunity to remove.');
+    const updated = await dbService.updateLead(
+      leadKey,
+      { opportunityPipelineId: '', opportunityStageId: '', opportunityDismissed: true },
+      req.workspaceId,
+    );
+    if (!updated) return jsonError(res, 404, 'Lead not found.');
+    res.json({ success: true, key: updated.key });
   } catch (e) {
     next(e);
   }

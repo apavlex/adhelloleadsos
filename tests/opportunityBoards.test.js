@@ -143,6 +143,33 @@ test('opportunity cards hide a note that only repeats the status', () => {
   assert.equal(keep.note, 'Owner said they already signed with another agency.');
 });
 
+test('dismissed leads stay off the opportunity board until they are placed again', () => {
+  const { boards } = normalizeBoards(null);
+  const board = buildOpportunityBoard({
+    boards,
+    leads: [
+      {
+        key: 'lead:gone',
+        title: 'Columbia Flooring Group, LLC',
+        source: 'manual',
+        opportunityDismissed: true,
+      },
+      {
+        key: 'lead:back',
+        title: 'Courtney Coffee',
+        source: 'manual',
+        opportunityDismissed: true,
+        opportunityPipelineId: boards.pipelines[0].id,
+        opportunityStageId: boards.pipelines[0].stages[1].id,
+      },
+    ],
+    tasks: [],
+  });
+  const titles = board.stages.flatMap((stage) => stage.cards.map((card) => card.title));
+  assert.deepEqual(titles, ['Courtney Coffee']);
+  assert.equal(board.stages[1].cards[0].key, 'lead:back');
+});
+
 test('resolvePlacement maps a same-named stage onto the selected board', () => {
   const { boards } = normalizeBoards(null);
   const extra = addPipeline(boards, 'Marketing Pipeline');
