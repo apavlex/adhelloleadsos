@@ -25,6 +25,8 @@ const {
   sanitizeDesignImagePrompt,
   userAskedForDesign,
   buildFallbackDesignImagePrompt,
+  hasRichCreativeDirection,
+  isVagueDesignBrief,
 } = require('../services/designCoachImagePrompt');
 const {
   DM_PLATFORMS,
@@ -413,8 +415,10 @@ Respond with JSON only, no markdown. Example shape:
 {"reply":"Short coaching reply for the marketer.","imagePrompt":null}
 
 imagePrompt rules:
-- Use JSON null (not the string "null") while still exploring with no usable creative direction.
-- Otherwise set imagePrompt to a detailed English production prompt for GPT Image 2: name the platform (${plat}), ${ratio} composition, typography zones, brand colors, mood, and layout.
+- Use JSON null (not the string "null") while the brief is still too vague to write a strong production prompt.
+- When ready, set imagePrompt to a rich English production prompt for GPT Image 2 — art-directed, specific, and optimized (not a template dump of platform + brief + contact fields).
+- A strong imagePrompt names: platform (${plat}), ${ratio} composition, camera/lighting or illustration style, subject matter, color palette, typography treatment, layout zones, and mood. Weave in concrete scene details from the conversation.
+- Never paste the user's vague request verbatim as the whole prompt. Translate it into visual direction.
 - ${isPostcard && slot === 'back' ? 'For postcard back: CTA layout (Call, Scan QR placeholder, Visit website) — not a duplicated contact footer.' : 'Include business contact details in the design when the user wants them on the ad.'}
 - Never copy these instructions, schema text, or the word "null" into imagePrompt. Write the actual visual prompt, or null.
 
@@ -424,11 +428,12 @@ Workflow (important):
 - When you set imagePrompt, the reply must say the draft prompt is ready to edit (in Prompt & refine / the prompt editor) and they should tweak it, then click Generate when happy. Invite one small tweak if useful.
 - Do not pressure them to click Generate immediately — editing the prompt first is the next step.
 
-Rules:
-- Never repeat the same clarifying question if the user already answered it in this conversation. Acknowledge their direction and move forward.
-- When the user describes look/style (colors, photo vs illustration, mood, hook, audience, or "make it…"), treat that as enough to draft a production imagePrompt — set imagePrompt now. Reply should confirm the direction and point them to edit the draft prompt, not re-ask for colors/photo/hook.
-- imagePrompt must be null only while the user is still exploring with no usable creative direction yet.
-- If the user asks you to generate, create, or make the design (including phrases like "make an ad", "create an ad", "design a post", "make it with…"), set imagePrompt from the conversation and business info — do not leave it null. Remind them to review/edit the prompt, then click Generate — do not claim artwork is already generating.
+Clarify-first rules (critical):
+- If the user only names a format + industry/topic (e.g. "facebook cover for home services / flooring / HVAC") with little visual direction, set imagePrompt to null and ask 2–3 short, specific questions in reply. Prioritize: (1) photo vs illustration, (2) color palette or brand colors, (3) main headline/hook or hero subject (who/what is in the shot).
+- Ask only what is still missing. Never repeat a clarifying question the user already answered in this conversation.
+- Do NOT draft a generic prompt just because they said "make an ad / create a cover / design a banner." Vague make-requests need questions first unless conversation history already has rich direction.
+- Once they give enough (colors, photo/illustration, mood, headline/hook, hero subject, layout preference, or similar), set imagePrompt now — write an optimized production prompt from the full conversation + business info. Reply confirms the direction and points them to edit the draft; do not re-ask answered questions.
+- If they explicitly say "just draft it", "use your best judgment", "surprise me", or answer enough after your questions, draft immediately with smart creative choices — still specific, never generic filler.
 - ${isPostcard && slot === 'back' ? 'Postcard BACK: use action CTAs (Call us with phone, Scan QR placeholder square, Visit website with URL). Do NOT duplicate the front contact footer (address, hours block).' : 'When business info is provided, weave phone, website, hours, and address into the imagePrompt layout.'}
 - Optimize for ${plat}: safe margins, readable text at mobile size, professional local-business marketing aesthetic.
 - ${isPostcard && slot === 'back' ? 'Postcard back: full-bleed image; CTA blocks on left half only; no text in bottom-right address zone; QR placeholder on left marketing area. Match front style when a front design exists.' : isPostcard ? 'Postcard front: full-bleed photo; full contact footer OK; no text in bottom-right QR zone or near edges.' : `Single-sided ${plat} — follow format requirements above; one strong focal creative at ${ratio}.`}
@@ -1043,35 +1048,23 @@ router.post('/api/design-chat', async (req, res, next) => {
     const incrementalEdit = body.incrementalEdit === true;
 
     const DEFAULT_CLARIFY =
-      'Tell me more about the look you want — brand colors, photo vs illustration, and the main hook.';
+      'Quick questions so I can write a strong prompt: (1) Photo or illustration? (2) Main colors or brand palette? (3) What’s the headline/hook, and who or what should be the hero in the shot?';
     const DRAFT_READY =
-      'Got it — locking that look in. I drafted an image prompt from your direction. Edit it in Prompt & refine (or tell me what to change), then click Generate when you are happy with it.';
-
-    const userGaveDirection =
-      userMessage.length >= 24 &&
-      /(color|photo|illustration|realistic|gold|black|white|hook|make (it|a|an)|design|style|mood|marketing|brand|banner|cover|hvac|flooring|electrician)/i.test(
+      'Got it — locking that look in. I drafted an optimized image prompt from your direction. Edit it in Prompt & refine (or tell me what to change), then click Generate when you are happy with it.';
+    const SKIP_CLARIFY =
+      /\b(just draft|draft it|best judgment|surprise me|use your (best )?judgment|skip (the )?questions|go ahead and (draft|write)|enough —?\s*draft)\b/i.test(
         userMessage,
       );
 
-    // Fast path: clear "make me a cover/ad" briefs skip the LLM so the prompt is ready immediately.
-    if (!incrementalEdit && (userAskedForDesign(userMessage) || (userGaveDirection && history.length <= 1))) {
-      const imagePrompt = buildFallbackDesignImagePrompt({
-        userMessage,
-        platformLabel: platformLabel(platform),
-        aspectRatio,
-        headline,
-        bodyText,
-        brandKitSummary: brandKitSummary(brandKit),
-      });
-      if (imagePrompt) {
-        return res.json({
-          success: true,
-          reply: DRAFT_READY,
-          imagePrompt,
-          provider: 'local-fast',
-        });
-      }
-    }
+    const conversationText = [...history.map((m) => m.content), userMessage].join('\n');
+    const richEnough =
+      hasRichCreativeDirection(userMessage) ||
+      hasRichCreativeDirection(conversationText) ||
+      SKIP_CLARIFY;
+    const vagueBrief = isVagueDesignBrief(userMessage) && !richEnough;
+
+    // Vague make-a-cover briefs: ask in chat first (no local template dump).
+    // Rich direction or "just draft it": still prefer the LLM for an optimized prompt.
 
     const messages = [
       {
@@ -1097,10 +1090,10 @@ router.post('/api/design-chat', async (req, res, next) => {
 
     const ai = await runDesignCoachChat(messages);
     if (!ai.content) {
-      // Timed out or provider failed — still return a usable draft when the user asked for a design.
-      if (userAskedForDesign(userMessage) || userGaveDirection) {
+      // Timed out / provider failed: draft only when we already have rich direction; otherwise ask.
+      if (!vagueBrief && (richEnough || userAskedForDesign(userMessage))) {
         const imagePrompt = buildFallbackDesignImagePrompt({
-          userMessage,
+          userMessage: conversationText.slice(-1800),
           platformLabel: platformLabel(platform),
           aspectRatio,
           headline,
@@ -1115,6 +1108,14 @@ router.post('/api/design-chat', async (req, res, next) => {
             provider: ai.timedOut ? 'local-timeout' : 'local-fallback',
           });
         }
+      }
+      if (vagueBrief || userAskedForDesign(userMessage)) {
+        return res.json({
+          success: true,
+          reply: DEFAULT_CLARIFY,
+          imagePrompt: null,
+          provider: ai.timedOut ? 'local-timeout-clarify' : 'local-clarify',
+        });
       }
       return res.status(502).json({
         success: false,
@@ -1140,20 +1141,24 @@ router.post('/api/design-chat', async (req, res, next) => {
     const lastAssistant = [...history].reverse().find((m) => m.role === 'assistant');
     const lastAskedClarify =
       lastAssistant &&
-      /tell me more about the look|brand colors,\s*photo vs illustration|main hook/i.test(
+      /photo or illustration|brand (colors|palette)|headline\/hook|quick questions so i can write|tell me more about the look|main hook/i.test(
         String(lastAssistant.content || ''),
       );
+    const userAnsweredClarify =
+      lastAskedClarify &&
+      (richEnough || hasRichCreativeDirection(userMessage) || userMessage.length >= 40 || SKIP_CLARIFY);
+
+    // Only force a local draft when the model failed to produce one AND we have enough direction
+    // (or the user just answered clarifying questions / asked to skip). Never dump a template on a vague brief.
     const shouldDraftPrompt =
-      !imagePrompt && (userAskedForDesign(userMessage) || userGaveDirection || lastAskedClarify);
+      !imagePrompt && !vagueBrief && (richEnough || userAnsweredClarify || SKIP_CLARIFY);
 
     if (shouldDraftPrompt) {
-      if (!reply || reply === DEFAULT_CLARIFY || /tell me more about the look|brand colors,\s*photo vs illustration/i.test(reply)) {
-        reply = DRAFT_READY;
-      } else if (/null if still exploring|null or a detailed english prompt|ready for gpt image/i.test(reply)) {
+      if (!reply || /null if still exploring|null or a detailed english prompt|ready for gpt image/i.test(reply)) {
         reply = DRAFT_READY;
       }
       imagePrompt = buildFallbackDesignImagePrompt({
-        userMessage,
+        userMessage: conversationText.slice(-1800),
         platformLabel: platformLabel(platform),
         aspectRatio,
         headline,
@@ -1162,7 +1167,15 @@ router.post('/api/design-chat', async (req, res, next) => {
       });
     }
 
-    if (!reply) reply = DEFAULT_CLARIFY;
+    // Model drafted on a vague brief — strip it and ask instead (unless they skipped questions).
+    if (imagePrompt && vagueBrief && !SKIP_CLARIFY) {
+      imagePrompt = '';
+      if (!reply || /drafted|prompt is ready|locking that look/i.test(reply)) {
+        reply = DEFAULT_CLARIFY;
+      }
+    }
+
+    if (!reply) reply = imagePrompt ? DRAFT_READY : DEFAULT_CLARIFY;
 
     res.json({
       success: true,

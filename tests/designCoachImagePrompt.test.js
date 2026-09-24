@@ -4,6 +4,8 @@ const {
   isUnusableDesignImagePrompt,
   sanitizeDesignImagePrompt,
   userAskedForDesign,
+  hasRichCreativeDirection,
+  isVagueDesignBrief,
   buildFallbackDesignImagePrompt,
 } = require('../services/designCoachImagePrompt');
 
@@ -34,6 +36,21 @@ test('detects make-me-a-cover requests', () => {
   assert.equal(userAskedForDesign('what colors work best?'), false);
 });
 
+test('treats industry-only cover requests as vague', () => {
+  const brief =
+    'Make a design for facebook cover highlight marketing for home services such as flooring, cabinets, electrician, hvac, etc.';
+  assert.equal(userAskedForDesign(brief), true);
+  assert.equal(isVagueDesignBrief(brief), true);
+  assert.equal(hasRichCreativeDirection(brief), false);
+});
+
+test('detects rich creative direction', () => {
+  const rich =
+    'Photo style, navy and amber palette, lifestyle shot of a flooring installer in a bright kitchen, headline "Floors that sell the job" on the left.';
+  assert.equal(hasRichCreativeDirection(rich), true);
+  assert.equal(isVagueDesignBrief(rich), false);
+});
+
 test('fallback prompt includes the marketer direction and platform', () => {
   const prompt = buildFallbackDesignImagePrompt({
     userMessage: 'Make me a facebook banner cover for HVAC and flooring ads',
@@ -47,5 +64,6 @@ test('fallback prompt includes the marketer direction and platform', () => {
   assert.match(prompt, /16:9/);
   assert.match(prompt, /HVAC and flooring/);
   assert.match(prompt, /AdHello Agency/);
+  assert.match(prompt, /Art direction/i);
   assert.doesNotMatch(prompt, /Null if still exploring/i);
 });

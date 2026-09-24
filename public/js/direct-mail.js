@@ -1796,7 +1796,8 @@
     var plat = DM_PLATFORMS[ctx.platform] || DM_PLATFORMS.custom;
     var slot = ctx.slot || currentDesignSlot();
     var parts = [
-      'Professional ' + plat.label + ' ad creative, ' + ctx.aspectRatio + ' aspect ratio.',
+      'Production-ready ' + plat.label + ' creative, ' + ctx.aspectRatio + ' aspect ratio.',
+      'Art direction: one dominant photographic hero, clear hierarchy, premium local-business marketing — no cluttered icon grids.',
     ];
     if (plat.hint) parts.push(plat.hint);
     if (ctx.platform === 'postcard' && slot === 'back') {
@@ -1812,7 +1813,13 @@
       );
     }
     if (kit.businessName) parts.push('Business name: ' + kit.businessName + '.');
-    if (userText) parts.push('Creative brief: ' + userText + '.');
+    if (userText) {
+      parts.push(
+        'Marketer brief (interpret into concrete visuals; invent a short punchy headline if none given): ' +
+          userText +
+          '.',
+      );
+    }
     if (ctx.platform === 'postcard' && slot === 'back') {
       if (kit.phone) parts.push('Call-us CTA phone: ' + kit.phone + '.');
       if (kit.website) parts.push('Visit-website CTA: ' + kit.website + '.');
@@ -1836,7 +1843,9 @@
         'Use the attached front design ONLY for color palette, typography, and brand mood — create a DISTINCT back-side layout.',
       );
     }
-    parts.push('High contrast, readable at mobile size, modern trustworthy aesthetic, no watermarks.');
+    parts.push(
+      'Typography: bold modern sans, high contrast, mobile-readable. Natural commercial lighting, soft depth of field, no watermarks.',
+    );
     return parts.filter(Boolean).join(' ');
   }
 
@@ -2289,9 +2298,9 @@
       '',
       'Tell me what you want on this ' +
         formatLabel +
-        ' — business name, style, colors, headline, or photo mood. I will draft a detailed image prompt in this chat.',
+        '. I’ll ask a few quick questions if I need more (photo vs illustration, colors, headline/hero), then write an optimized image prompt in this chat.',
       '',
-      'Next: describe your idea below and tap Chat. When the prompt appears, edit it in Prompt & refine, then click Generate for artwork.',
+      'Next: describe your idea below and tap Chat. When the draft prompt appears, edit it in Prompt & refine, then click Generate for artwork.',
     ];
     if (dual) {
       lines.push('For postcards, use Generate both after both prompts look right.');
@@ -3284,22 +3293,7 @@
       return;
     }
 
-    // Instant draft for clear make/design briefs — do not wait on the coach LLM.
-    var wantsDesignNow = userWantsAdGeneration(text);
-    if (wantsDesignNow) {
-      var quickCtx = designRequestContext();
-      var quickPrompt = buildQuickImagePrompt(text, quickCtx);
-      var quickReply =
-        'Got it — locking that look in. I drafted an image prompt from your direction. Edit it in Prompt & refine, then click Generate when you are happy with it.';
-      appendChatBubble('assistant', quickReply);
-      applyDraftImagePrompt(quickPrompt, quickReply);
-      setDesignStatus('Prompt ready — edit it in Prompt & refine, then click Generate.', true);
-      btn.disabled = false;
-      var thinkingQuick = document.getElementById('dmChatThinking');
-      if (thinkingQuick && !thinkingQuick.hidden) setChatThinking(false);
-      return;
-    }
-
+    // Always go through design-chat so the AI can ask clarifying questions or write an optimized prompt.
     try {
       var ctx = designRequestContext();
       var matchFront = shouldMatchFrontStyle(ctx.slot);
@@ -3349,17 +3343,10 @@
         return;
       } else if (reply) {
         chatHistory.push({ role: 'assistant', content: reply });
-        if (userWantsAdGeneration(text)) {
-          setDesignStatus(
-            'Chat could not build a prompt yet — add more detail, or describe the look you want.',
-            false,
-          );
-        } else {
-          setDesignStatus('', true);
-        }
+        setDesignStatus('Answer in Chat so I can write a stronger prompt.', true);
       } else if (userWantsAdGeneration(text)) {
         setDesignStatus(
-          'Chat could not build a prompt — describe the look you want, then edit the draft before Generate.',
+          'Chat needs a bit more detail — answer the questions above, or say “just draft it”.',
           false,
         );
       } else {
