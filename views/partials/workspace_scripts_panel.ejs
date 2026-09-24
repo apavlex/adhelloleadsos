@@ -134,6 +134,7 @@
       objectionHandling: 'Objection handling',
       close: 'Close',
       sms: 'SMS',
+      email: 'Email',
     };
     var SMS_SEGMENT_LEN = 160;
     var serviceLabels = <%- JSON.stringify(typeof scriptServiceLabels !== 'undefined' ? scriptServiceLabels : {}) %>;
@@ -814,6 +815,36 @@
       box.scrollTop = box.scrollHeight;
     }
 
+    function clearCoachThinking() {
+      var el = document.getElementById('coachThinkingBubble');
+      if (el) el.remove();
+    }
+
+    function appendCoachThinking() {
+      clearCoachThinking();
+      var box = coachMessagesEl();
+      if (!box) return null;
+      var wrap = document.createElement('div');
+      wrap.id = 'coachThinkingBubble';
+      wrap.className =
+        'mr-6 rounded-2xl rounded-tl-md border border-brand-yellow/40 bg-brand-yellow/10 dark:bg-brand-yellow/10 px-3 py-3 flex items-start gap-3';
+      wrap.setAttribute('aria-live', 'polite');
+      wrap.setAttribute('aria-busy', 'true');
+      wrap.innerHTML =
+        '<span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-brand-yellow/25 dark:bg-brand-yellow/20">' +
+        '<svg class="h-4 w-4 text-brand-dark dark:text-brand-yellow animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">' +
+        '<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>' +
+        '<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>' +
+        '</svg></span>' +
+        '<div class="min-w-0 pt-0.5">' +
+        '<p class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow">Script coach is thinking<span class="coach-thinking-dots" aria-hidden="true"></span></p>' +
+        '<p class="text-[11px] text-brand-muted dark:text-slate-400 mt-1 leading-snug">Drafting a reply for this section…</p>' +
+        '</div>';
+      box.appendChild(wrap);
+      box.scrollTop = box.scrollHeight;
+      return wrap;
+    }
+
     function clearCoachMessagesUi() {
       var box = coachMessagesEl();
       if (box) box.innerHTML = '';
@@ -1242,6 +1273,7 @@
 
     document.getElementById('coachResetBtn').addEventListener('click', function () {
       coachHistories[coachKey()] = [];
+      clearCoachThinking();
       var box = coachMessagesEl();
       if (box) box.innerHTML = '';
       hideRefined();
@@ -1283,7 +1315,8 @@
       var hist = getCoachHistoryArray().map(function (m) { return { role: m.role, content: m.content }; });
       var btn = document.getElementById('coachSendBtn');
       btn.disabled = true;
-      btn.textContent = '…';
+      btn.textContent = 'Thinking…';
+      appendCoachThinking();
       try {
         var res = await fetch('/sales/scripts/refine', {
           method: 'POST',
@@ -1296,7 +1329,8 @@
             chatHistory: hist
           })
         });
-        var data = await res.json();
+        var data = await res.json().catch(function () { return {}; });
+        clearCoachThinking();
         if (!data.success) {
           errEl.textContent = data.error || 'Request failed';
           errEl.classList.remove('hidden');
@@ -1308,9 +1342,11 @@
         if (data.refinedScript) showRefined(data.refinedScript);
         else hideRefined();
       } catch (e) {
-        errEl.textContent = 'Network error';
+        clearCoachThinking();
+        errEl.textContent = 'Network error — check your connection and try again.';
         errEl.classList.remove('hidden');
       } finally {
+        clearCoachThinking();
         btn.disabled = false;
         btn.textContent = 'Send';
       }

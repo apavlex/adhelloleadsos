@@ -6700,6 +6700,28 @@ body.dm-prompt-resize-active {
   }
 }
 
+/* Workspace Scripts — AI script coach thinking indicator */
+.coach-thinking-dots::after {
+  content: '...';
+  display: inline-block;
+  width: 1.15em;
+  overflow: hidden;
+  vertical-align: bottom;
+  animation: coach-thinking-dots 1.15s steps(4, end) infinite;
+}
+
+@keyframes coach-thinking-dots {
+  0% { width: 0; }
+  100% { width: 1.15em; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coach-thinking-dots::after {
+    animation: none;
+    width: 1.15em;
+  }
+}
+
 /* Design studio status icon — color dot + hover tooltip */
 .dm-status-tip {
   position: relative;

@@ -4,6 +4,7 @@ const dbService = require('../services/database');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS, PERSONAS } = require('../services/salesConstants');
 const pipelineStagesService = require('../services/pipelineStagesService');
 const { chatCompletion, parseLlmJson } = require('../services/llmClient');
+const { parseScriptCoachAiContent } = require('../services/scriptCoachParse');
 const { buildDayRollup } = require('../services/trackerStats');
 const {
   inferDailyTouchCountsFromLeads,
@@ -384,8 +385,8 @@ router.post('/scripts/refine', async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'Invalid serviceKey' });
     }
 
-    const meta = mergedLibrary[serviceKey] || SCRIPT_LIBRARY[serviceKey];
-    const sectionLabel = SECTION_LABELS[section];
+    const meta = mergedLibrary[serviceKey] || SCRIPT_LIBRARY[serviceKey] || { label: serviceKey };
+    const sectionLabel = SECTION_LABELS[section] || section;
     const channelRule =
       section === 'sms'
         ? '\n- This is an SMS: keep refinedScript under 320 characters, one paragraph, no subject line and no signature.'
@@ -401,16 +402,17 @@ router.post('/scripts/refine', async (req, res, next) => {
     const messages = [
       {
         role: 'system',
-        content: `You are a sales script coach for an agency selling: ${meta.label}.
+        content: `You are a sales script coach for an agency selling: ${meta.label || serviceKey}.
 
 The rep is editing the "${sectionLabel}" part of a call, SMS, or email script. Preserve merge tags like {{name}}, {{city}}, {{company}} when they appear unless the user asks to change them.
 
-Respond with JSON only, no markdown:
-{"reply":"1-3 sentences: coaching, questions, or confirmation","refinedScript":null or "full replacement script text for this section only"}
+Respond with JSON only, no markdown fences:
+{"reply":"1-3 sentences: coaching, questions, or confirmation","refinedScript":null}
+
+When the user asks you to write, rewrite, draft, personalize, shorten, or change tone, set refinedScript to the FULL replacement script for this section only (plain text). Otherwise refinedScript must be null.
 
 Rules:
-- Put a complete rewritten script in refinedScript only when the user asked for a rewrite, new version, shorter/longer version, tone change, or similar. Otherwise refinedScript must be null.
-- Escape any double quotes inside refinedScript as \\" in the JSON string.
+- Escape double quotes inside strings as \\". Use \\n for line breaks inside refinedScript — do not put raw line breaks inside the JSON string.
 - Keep refinedScript as plain prose the rep can paste — no bullet labels like "OPENING:" unless the user asked.${channelRule}`,
       },
     ];
@@ -432,7 +434,7 @@ Rules:
     const ai = await chatCompletion({
       messages,
       jsonObject: true,
-      max_tokens: 900,
+      max_tokens: section === 'email' ? 1600 : 1000,
       temperature: 0.45,
     });
 
@@ -440,19 +442,27 @@ Rules:
       return res.json({
         success: false,
         error:
+          (ai && ai.errorMessage) ||
           'No AI provider configured (set OPENROUTER_API_KEY) or request failed.',
       });
     }
 
-    const parsed = parseLlmJson(ai.content);
+    const parsed = parseScriptCoachAiContent(ai.content, { userMessage });
     if (!parsed) {
-      return res.json({ success: false, error: 'Invalid AI response' });
+      console.warn(
+        '[sales/scripts/refine] could not parse coach response:',
+        String(ai.content).slice(0, 320),
+      );
+      return res.json({
+        success: false,
+        error: 'Script coach returned an unreadable answer. Try again with a shorter ask.',
+      });
     }
 
     const reply = typeof parsed.reply === 'string' ? parsed.reply : '';
-    let refinedScript = parsed.refinedScript;
-    if (refinedScript != null && typeof refinedScript !== 'string') refinedScript = null;
-    let refined = refinedScript && refinedScript.trim() ? refinedScript.trim() : null;
+    let refined = parsed.refinedScript && String(parsed.refinedScript).trim()
+      ? String(parsed.refinedScript).trim()
+      : null;
     // The model is asked to keep SMS short; enforce it so a long reply can't land in the field.
     if (refined && section === 'sms') refined = normalizeSmsSuggestion(refined) || null;
 
