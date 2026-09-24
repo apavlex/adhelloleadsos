@@ -3582,17 +3582,16 @@ router.post('/:key/email-personalize', async (req, res, next) => {
     const prospect = { name: lead.contactName, company: lead.title, city: lead.city };
     const bodyFilled = fillScriptPlaceholders(result.body, { sender: profile, prospect });
     const bodyValidated = validateOutreachComposerBody(bodyFilled, 'email');
-    if (!bodyValidated.ok) {
-      return res.status(400).json({ success: false, error: bodyValidated.error });
-    }
-    const body = bodyValidated.text;
-    const subject = fillScriptPlaceholders(result.subject, { sender: profile, prospect });
+    // Same fallback as SMS: keep the marketer's validated script if AI returns junk.
+    const body = bodyValidated.ok ? bodyValidated.text : scriptText;
+    const subject = fillScriptPlaceholders(result.subject || subjectHint, { sender: profile, prospect });
     return res.json({
       success: true,
       personalized: body,
       body,
       subject,
       provider: result.provider,
+      fellBackToScript: !bodyValidated.ok,
     });
   } catch (err) {
     next(err);
@@ -3644,13 +3643,14 @@ router.post('/:key/sms-personalize', express.json({ limit: '32kb' }), async (req
       String(personalized || scriptText).trim().slice(0, 480),
       'sms',
     );
-    if (!outValidated.ok) {
-      return res.status(400).json({ success: false, error: outValidated.error });
-    }
+    // AI sometimes returns call-script HTML/CSS junk; never fail the send path — keep the
+    // already-validated base script the marketer saw in the composer.
+    const finalText = outValidated.ok ? outValidated.text : scriptText;
     return res.json({
       success: true,
-      personalized: outValidated.text,
+      personalized: finalText,
       provider: result.provider || 'unknown',
+      fellBackToScript: !outValidated.ok,
     });
   } catch (err) {
     console.error('[POST /leads/:key/sms-personalize]', err && err.message ? err.message : err);

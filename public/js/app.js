@@ -14792,9 +14792,9 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const personalized = await personalizeSmsForLead(leadKey, baseScript);
         const outValidated = validateOutreachComposerBodyClient(personalized, 'sms');
-        if (!outValidated.ok) throw new Error(outValidated.error || 'Empty personalized message');
+        const toSend = outValidated.ok ? outValidated.text : baseScript;
         // eslint-disable-next-line no-await-in-loop
-        await sendSmsToLeadKey(leadKey, outValidated.text);
+        await sendSmsToLeadKey(leadKey, toSend);
         ok += 1;
       } catch (err) {
         failed += 1;
@@ -14862,8 +14862,7 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const personalized = await personalizeEmailForLeadKey(leadKey, baseScript, subject);
         const bodyValidated = validateOutreachComposerBodyClient(personalized.body, 'email');
-        if (!bodyValidated.ok) throw new Error(bodyValidated.error || 'Empty personalized message');
-        personalized.body = bodyValidated.text;
+        personalized.body = bodyValidated.ok ? bodyValidated.text : baseScript;
         await sendEmailToLeadKey(leadKey, personalized.subject, personalized.body);
         ok += 1;
       } catch (err) {

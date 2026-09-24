@@ -47,13 +47,18 @@ function validateOutreachComposerBody(raw, channel = 'sms') {
   const text = sanitizeOutreachComposerText(raw, channel);
   const minLen = channel === 'email' ? MIN_EMAIL_LEN : MIN_SMS_LEN;
   if (!text || text.length < minLen) {
+    const hadContent = String(raw || '').trim().length > 0;
     return {
       ok: false,
       text: text || '',
       error:
         channel === 'email'
-          ? 'Email body is empty or was stripped (often call-script HTML). Add plain follow-up copy under Workspace → Scripts, then try again.'
-          : 'SMS body is empty or was stripped (often call-script HTML in the SMS field). Add plain SMS text under Workspace → Scripts, then try again.',
+          ? hadContent
+            ? 'That email copy looked like call-script HTML/CSS and was stripped. Paste plain follow-up text, or fix the Email field under Workspace → Scripts.'
+            : 'Email body is empty. Add plain follow-up copy under Workspace → Scripts, then try again.'
+          : hadContent
+            ? 'That SMS looked like call-script HTML/CSS and was stripped after personalize. Your composer text is fine — try Send again (we keep the original), or paste plain SMS under Workspace → Scripts.'
+            : 'SMS body is empty. Add plain SMS text under Workspace → Scripts, then try again.',
     };
   }
   if (!/[a-zA-Z]/.test(text)) {
