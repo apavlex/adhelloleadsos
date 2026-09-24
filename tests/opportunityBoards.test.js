@@ -4,6 +4,7 @@ const {
   normalizeBoards,
   selectPipeline,
   buildOpportunityBoard,
+  cardNotePreview,
   addPipeline,
   addStage,
   renameStage,
@@ -200,4 +201,40 @@ test('stage edits stay on the same board object the Today page reads', () => {
   assert.equal(extra.ok, true);
   assert.equal(extra.boards.pipelines.length, 2);
   assert.equal(extra.boards.activePipelineId, extra.pipelineId);
+});
+
+test('cardNotePreview strips Focus call script body for compact cards', () => {
+  assert.equal(
+    cardNotePreview('[Focus · call script]\n\nHi —, I noticed Diplomat Flooring on Maps…'),
+    'Focus · call script',
+  );
+  assert.equal(
+    cardNotePreview('[Focus · call script]\n\nLong script\n\nOutcome: Call back'),
+    'Focus · call script · Call back',
+  );
+  assert.equal(cardNotePreview('Asked for a proposal next week.'), 'Asked for a proposal next week.');
+});
+
+test('opportunity cards show Focus label without script body', () => {
+  const { boards } = normalizeBoards(null);
+  const board = buildOpportunityBoard({
+    boards,
+    leads: [
+      {
+        key: 'lead:diplomat',
+        title: 'Diplomat Flooring',
+        opportunityPipelineId: boards.pipelines[0].id,
+        opportunityStageId: boards.pipelines[0].stages[0].id,
+        updates: [
+          {
+            type: 'note',
+            value: '[Focus · call script]\n\nHi —, I noticed Diplomat Flooring…',
+            timestamp: '2026-09-24T15:00:00.000Z',
+          },
+        ],
+      },
+    ],
+    tasks: [],
+  });
+  assert.equal(board.stages[0].cards[0].note, 'Focus · call script');
 });

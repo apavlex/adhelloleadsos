@@ -22,8 +22,17 @@
   .opp-card-pin svg { width: 0.85rem; height: 0.85rem; display: block; }
   .opp-card-category { margin: 0.2rem 0 0; font-size: 0.625rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #94a3b8; }
   .opp-card-status { margin: 0.28rem 0 0; font-size: 0.72rem; font-weight: 600; color: #64748b; }
-  .opp-card-note { margin: 0.2rem 0 0; font-size: 0.72rem; line-height: 1.35; color: #334155; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  html.dark .opp-card-note { color: #e2e8f0; }
+  .opp-card-note {
+    margin: 0.2rem 0 0;
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1.25;
+    color: #64748b;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  html.dark .opp-card-note { color: #94a3b8; }
   .opp-card-reviews { margin: 0.22rem 0 0; font-size: 0.68rem; font-weight: 600; color: #64748b; }
   .opp-card-reviews span { color: #d97706; }
   .opp-card-value { margin: 0.2rem 0 0; font-size: 0.75rem; font-weight: 800; color: #111827; }

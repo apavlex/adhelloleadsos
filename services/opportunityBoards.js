@@ -261,6 +261,24 @@ function noteEchoesStatus(note, status) {
   return !!template && body.toLowerCase() === template.toLowerCase();
 }
 
+/** Compact note for kanban cards — Focus logs keep the channel label only (no script body). */
+function cardNotePreview(note) {
+  const raw = String(note || '').trim();
+  if (!raw) return '';
+  const focusMatch = raw.match(/^\[Focus\s*[·•]\s*([^\]]+)\]/i);
+  if (focusMatch) {
+    const channel = String(focusMatch[1] || '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 28);
+    const outcomeMatch = raw.match(/\nOutcome:\s*(.+?)(?:\n|$)/i);
+    const outcome = outcomeMatch ? String(outcomeMatch[1] || '').replace(/\s+/g, ' ').trim().slice(0, 32) : '';
+    if (outcome) return `Focus · ${channel} · ${outcome}`;
+    return `Focus · ${channel}`;
+  }
+  return raw.replace(/\s+/g, ' ').trim().slice(0, 90);
+}
+
 function stageForLead(lead, pipeline, homePipelineId, keys) {
   if (!lead || !pipeline) return null;
   const stageIds = new Set(pipeline.stages.map((stage) => stage.id));
@@ -306,7 +324,7 @@ function buildOpportunityBoard(input) {
       category: categoryLabel(lead),
       city: cityLabel(lead),
       status,
-      note: noteEchoesStatus(note, status) ? '' : note,
+      note: noteEchoesStatus(note, status) ? '' : cardNotePreview(note),
       reviews: reviewsLabel(lead),
       tagKeys: Array.isArray(lead.tags) ? lead.tags.map((tag) => String(tag || '')).filter(Boolean) : [],
       emailHref: email ? `mailto:${email}` : '',
@@ -458,6 +476,7 @@ module.exports = {
   normalizeBoards,
   selectPipeline,
   buildOpportunityBoard,
+  cardNotePreview,
   addPipeline,
   addStage,
   renameStage,
