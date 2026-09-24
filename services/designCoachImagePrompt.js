@@ -78,6 +78,73 @@ function isVagueDesignBrief(message) {
   return false;
 }
 
+/** Model chain-of-thought / meta instructions leaking into the chat reply. */
+function isDesignCoachReasoningLeak(raw) {
+  const text = String(raw == null ? '' : raw).trim();
+  if (!text) return false;
+  if (/need (obey|valid )?json|respond json|json only|escaped\.|developer (role|user|content)|system prompt|imagePrompt null|must null and ask/i.test(text)) {
+    return true;
+  }
+  if (/we (need|should|must)\b.{0,40}\b(json|null|ask)/i.test(text) && /photo vs illustration|palette|headline/i.test(text)) {
+    return true;
+  }
+  if (/\b(chain of thought|reasoning|thinking out loud)\b/i.test(text)) return true;
+  // Dense meta prose without a normal marketer-facing greeting/question shape
+  const looksLikeQuestions = /\b(1\.|2\.|do you prefer|what colors|what(?:'s| is) the)\b/i.test(text);
+  const looksLikeMeta =
+    /\b(we need|need obey|ensure no|since brief|perhaps concise|no markdown)\b/i.test(text);
+  if (looksLikeMeta && !looksLikeQuestions) return true;
+  if (looksLikeMeta && text.length > 280 && (text.match(/\?/g) || []).length < 2) return true;
+  return false;
+}
+
+function sanitizeDesignCoachReply(raw) {
+  const text = String(raw == null ? '' : raw).trim();
+  if (!text) return '';
+  if (isDesignCoachReasoningLeak(text)) return '';
+  if (/^\{[\s\S]*"reply"\s*:/i.test(text)) return '';
+  return text;
+}
+
+/**
+ * Multi-line clarifying reply for chat (newlines render as <br> in the UI).
+ */
+function formatDesignCoachClarifyReply(opts = {}) {
+  const plat = String(opts.platformLabel || 'ad').trim() || 'ad';
+  return [
+    `Happy to help with your ${plat}.`,
+    '',
+    'A few quick questions so I can write a strong prompt:',
+    '',
+    '1. Photo, illustration, or mixed?',
+    '2. Main colors or brand palette?',
+    '3. What’s the headline/hook — and who or what should be the hero in the shot?',
+    '',
+    'Reply here, or say “just draft it” and I’ll pick a strong direction.',
+  ].join('\n');
+}
+
+/** Turn single-line "1. … 2. … 3. …" replies into readable multi-line chat text. */
+function formatDesignCoachReplyForDisplay(raw) {
+  let text = sanitizeDesignCoachReply(raw);
+  if (!text) return '';
+
+  // Normalize escaped newlines from JSON
+  text = text.replace(/\\n/g, '\n');
+
+  // Put numbered items on their own lines when jammed into one paragraph
+  if (!/\n\s*\d+\.\s/.test(text) && /(?:^|\s)1\.\s/.test(text) && /\s2\.\s/.test(text)) {
+    text = text.replace(/(?:^|\s+)(\d+)\.\s+/g, '\n$1. ');
+  }
+
+  // Blank line before a numbered list when it follows a colon
+  text = text.replace(/:\s*\n(\d+)\.\s/g, ':\n\n$1. ');
+
+  // Collapse excess blank lines
+  text = text.replace(/\n{3,}/g, '\n\n').trim();
+  return text;
+}
+
 function buildFallbackDesignImagePrompt({
   userMessage,
   platformLabel: platLabel,
@@ -115,5 +182,9 @@ module.exports = {
   userAskedForDesign,
   hasRichCreativeDirection,
   isVagueDesignBrief,
+  isDesignCoachReasoningLeak,
+  sanitizeDesignCoachReply,
+  formatDesignCoachClarifyReply,
+  formatDesignCoachReplyForDisplay,
   buildFallbackDesignImagePrompt,
 };

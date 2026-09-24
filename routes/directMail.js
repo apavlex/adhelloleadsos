@@ -27,6 +27,9 @@ const {
   buildFallbackDesignImagePrompt,
   hasRichCreativeDirection,
   isVagueDesignBrief,
+  formatDesignCoachClarifyReply,
+  formatDesignCoachReplyForDisplay,
+  sanitizeDesignCoachReply,
 } = require('../services/designCoachImagePrompt');
 const {
   DM_PLATFORMS,
@@ -412,7 +415,7 @@ When they ask to remove, delete, change, move, or tweak something ("remove the s
 - Do NOT rewrite the whole creative from scratch.` : ''}
 
 Respond with JSON only, no markdown. Example shape:
-{"reply":"Short coaching reply for the marketer.","imagePrompt":null}
+{"reply":"Happy to help.\\n\\n1. Photo or illustration?\\n2. Main colors?\\n3. Headline or hero subject?","imagePrompt":null}
 
 imagePrompt rules:
 - Use JSON null (not the string "null") while the brief is still too vague to write a strong production prompt.
@@ -422,6 +425,11 @@ imagePrompt rules:
 - ${isPostcard && slot === 'back' ? 'For postcard back: CTA layout (Call, Scan QR placeholder, Visit website) — not a duplicated contact footer.' : 'Include business contact details in the design when the user wants them on the ad.'}
 - Never copy these instructions, schema text, or the word "null" into imagePrompt. Write the actual visual prompt, or null.
 
+Reply field rules (critical):
+- "reply" is marketer-facing chat text only. Use \\n for line breaks so questions appear as a readable list (intro line, blank line, then 1. 2. 3.).
+- NEVER put chain-of-thought, planning, "need JSON", "developer role", system instructions, or meta reasoning in "reply".
+- Output ONLY the JSON object — no text before or after it.
+
 Workflow (important):
 - Your job is to lead the user to a production-ready imagePrompt they can review and edit BEFORE artwork is generated.
 - Never tell the user the image is being generated, that you already generated it, or to wait for artwork. Generation happens only when they click Generate after editing the prompt.
@@ -429,7 +437,7 @@ Workflow (important):
 - Do not pressure them to click Generate immediately — editing the prompt first is the next step.
 
 Clarify-first rules (critical):
-- If the user only names a format + industry/topic (e.g. "facebook cover for home services / flooring / HVAC") with little visual direction, set imagePrompt to null and ask 2–3 short, specific questions in reply. Prioritize: (1) photo vs illustration, (2) color palette or brand colors, (3) main headline/hook or hero subject (who/what is in the shot).
+- If the user only names a format + industry/topic (e.g. "facebook cover for home services / flooring / HVAC") with little visual direction, set imagePrompt to null and ask 2–3 short, specific questions in reply (multi-line list). Prioritize: (1) photo vs illustration, (2) color palette or brand colors, (3) main headline/hook or hero subject (who/what is in the shot).
 - Ask only what is still missing. Never repeat a clarifying question the user already answered in this conversation.
 - Do NOT draft a generic prompt just because they said "make an ad / create a cover / design a banner." Vague make-requests need questions first unless conversation history already has rich direction.
 - Once they give enough (colors, photo/illustration, mood, headline/hook, hero subject, layout preference, or similar), set imagePrompt now — write an optimized production prompt from the full conversation + business info. Reply confirms the direction and points them to edit the draft; do not re-ask answered questions.
@@ -562,11 +570,11 @@ async function runDesignCoachChat(messages) {
     chatCompletion({
       messages,
       jsonObject: true,
-      max_tokens: 450,
-      temperature: 0.5,
+      max_tokens: 700,
+      temperature: 0.4,
       providerChain: 'openrouter',
     }),
-    3500,
+    8000,
     'Design coach timed out',
   );
 }
@@ -1047,10 +1055,9 @@ router.post('/api/design-chat', async (req, res, next) => {
     const matchFrontStyle = body.matchFrontStyle === true;
     const incrementalEdit = body.incrementalEdit === true;
 
-    const DEFAULT_CLARIFY =
-      'Quick questions so I can write a strong prompt: (1) Photo or illustration? (2) Main colors or brand palette? (3) What’s the headline/hook, and who or what should be the hero in the shot?';
+    const DEFAULT_CLARIFY = formatDesignCoachClarifyReply({ platformLabel: platformLabel(platform) });
     const DRAFT_READY =
-      'Got it — locking that look in. I drafted an optimized image prompt from your direction. Edit it in Prompt & refine (or tell me what to change), then click Generate when you are happy with it.';
+      'Got it — locking that look in.\n\nI drafted an optimized image prompt from your direction. Edit it in Prompt & refine (or tell me what to change), then click Generate when you are happy with it.';
     const SKIP_CLARIFY =
       /\b(just draft|draft it|best judgment|surprise me|use your (best )?judgment|skip (the )?questions|go ahead and (draft|write)|enough —?\s*draft)\b/i.test(
         userMessage,
@@ -1063,8 +1070,15 @@ router.post('/api/design-chat', async (req, res, next) => {
       SKIP_CLARIFY;
     const vagueBrief = isVagueDesignBrief(userMessage) && !richEnough;
 
-    // Vague make-a-cover briefs: ask in chat first (no local template dump).
-    // Rich direction or "just draft it": still prefer the LLM for an optimized prompt.
+    // First vague make-a-cover message: return a clean multi-line clarify (skip flaky model meta text).
+    if (!incrementalEdit && vagueBrief && history.length === 0) {
+      return res.json({
+        success: true,
+        reply: DEFAULT_CLARIFY,
+        imagePrompt: null,
+        provider: 'local-clarify',
+      });
+    }
 
     const messages = [
       {
@@ -1124,24 +1138,24 @@ router.post('/api/design-chat', async (req, res, next) => {
     }
 
     const parsed = parseLlmJson(ai.content) || {};
-    let reply = String(parsed.reply || '').trim();
+    let reply = formatDesignCoachReplyForDisplay(parsed.reply);
     let imagePrompt = sanitizeDesignImagePrompt(parsed.imagePrompt);
 
-    // If JSON parse failed, prefer the model’s plain text over a canned clarification loop.
+    // Never show raw model reasoning / failed JSON as the chat message.
     if (!reply) {
-      const raw = String(ai.content || '')
-        .replace(/^```(?:json)?\s*/i, '')
-        .replace(/\s*```$/i, '')
-        .trim();
-      if (raw && !raw.startsWith('{')) {
-        reply = raw.slice(0, 800);
-      }
+      const rawFallback = sanitizeDesignCoachReply(
+        String(ai.content || '')
+          .replace(/^```(?:json)?\s*/i, '')
+          .replace(/\s*```$/i, '')
+          .trim(),
+      );
+      reply = formatDesignCoachReplyForDisplay(rawFallback);
     }
 
     const lastAssistant = [...history].reverse().find((m) => m.role === 'assistant');
     const lastAskedClarify =
       lastAssistant &&
-      /photo or illustration|brand (colors|palette)|headline\/hook|quick questions so i can write|tell me more about the look|main hook/i.test(
+      /photo or illustration|brand (colors|palette)|headline\/hook|quick questions so i can write|a few quick questions|tell me more about the look|main hook|just draft it/i.test(
         String(lastAssistant.content || ''),
       );
     const userAnsweredClarify =
@@ -1176,6 +1190,7 @@ router.post('/api/design-chat', async (req, res, next) => {
     }
 
     if (!reply) reply = imagePrompt ? DRAFT_READY : DEFAULT_CLARIFY;
+    reply = formatDesignCoachReplyForDisplay(reply) || reply;
 
     res.json({
       success: true,

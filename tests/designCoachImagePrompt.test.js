@@ -6,6 +6,10 @@ const {
   userAskedForDesign,
   hasRichCreativeDirection,
   isVagueDesignBrief,
+  isDesignCoachReasoningLeak,
+  sanitizeDesignCoachReply,
+  formatDesignCoachClarifyReply,
+  formatDesignCoachReplyForDisplay,
   buildFallbackDesignImagePrompt,
 } = require('../services/designCoachImagePrompt');
 
@@ -49,6 +53,28 @@ test('detects rich creative direction', () => {
     'Photo style, navy and amber palette, lifestyle shot of a flooring installer in a bright kitchen, headline "Floors that sell the job" on the left.';
   assert.equal(hasRichCreativeDirection(rich), true);
   assert.equal(isVagueDesignBrief(rich), false);
+});
+
+test('strips model reasoning leaks from chat replies', () => {
+  const leak =
+    'We need answer based on developer user task. Need obey JSON only. Must null and ask 2-3 specific questions. Need valid JSON.';
+  assert.equal(isDesignCoachReasoningLeak(leak), true);
+  assert.equal(sanitizeDesignCoachReply(leak), '');
+});
+
+test('formats clarifying replies with line breaks', () => {
+  const clarify = formatDesignCoachClarifyReply({ platformLabel: 'Facebook Cover' });
+  assert.match(clarify, /Happy to help with your Facebook Cover/);
+  assert.match(clarify, /\n1\. Photo/);
+  assert.match(clarify, /\n2\. Main colors/);
+  assert.match(clarify, /\n3\. /);
+
+  const jammed =
+    'Happy to help. A few questions: 1. Photo or illustration? 2. Main colors? 3. What’s the hero?';
+  const formatted = formatDesignCoachReplyForDisplay(jammed);
+  assert.match(formatted, /\n1\. /);
+  assert.match(formatted, /\n2\. /);
+  assert.match(formatted, /\n3\. /);
 });
 
 test('fallback prompt includes the marketer direction and platform', () => {
