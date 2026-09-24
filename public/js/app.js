@@ -639,7 +639,12 @@ document.addEventListener('DOMContentLoaded', () => {
         return true;
       }
       if (window.__adhelloBulkOutreachInflight) {
-        window.alert('A bulk send is already running in the background. Wait for it to finish.');
+        if (typeof window.showBulkActionConfirmation === 'function') {
+          window.showBulkActionConfirmation(
+            'A bulk send is already running — check the notification bell.',
+            'error',
+          );
+        }
         return true;
       }
       const leadKeys = keys.slice();
@@ -653,13 +658,20 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       closeSmsModalEarly();
       window.__adhelloBulkOutreachInflight = true;
+      if (window.agencyOsBulkOutreach && typeof window.agencyOsBulkOutreach.start === 'function') {
+        window.agencyOsBulkOutreach.start({ channel: emailMode ? 'email' : 'sms', total: n });
+      }
       void (async function runEarlyBulkInBackground() {
         let ok = 0;
         let failed = 0;
+        let skipped = 0;
         let lastError = '';
         try {
           for (let i = 0; i < leadKeys.length; i += 1) {
             const leadKey = leadKeys[i];
+            if (window.agencyOsBulkOutreach && typeof window.agencyOsBulkOutreach.progress === 'function') {
+              window.agencyOsBulkOutreach.progress({ done: i + 1, total: n, ok, failed, skipped });
+            }
             if (typeof window.showBulkActionConfirmation === 'function') {
               window.showBulkActionConfirmation(
                 `${emailMode ? 'Email' : 'SMS'}: sending ${i + 1}/${n}…`,
@@ -676,14 +688,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 const pData = await pRes.json().catch(() => ({}));
                 if (!pRes.ok || !pData.success) throw new Error((pData && pData.error) || 'Personalize failed');
+                const rowEmail = (function findEmail() {
+                  try {
+                    const rows = document.querySelectorAll('tr[data-lead-key]');
+                    for (let r = 0; r < rows.length; r += 1) {
+                      const k = String(rows[r].getAttribute('data-lead-key') || '').trim();
+                      if (k !== leadKey && k !== String(leadKey).replace(/^lead:/, '')) continue;
+                      const em = String(rows[r].getAttribute('data-email') || '').trim();
+                      if (em && em.includes('@')) return em;
+                    }
+                  } catch (_) {}
+                  return '';
+                })();
+                const sBody = {
+                  subject: String(pData.subject || subject || '').trim(),
+                  body: String(pData.body || pData.personalized || scriptText).trim(),
+                };
+                if (rowEmail) {
+                  sBody.to = rowEmail;
+                  sBody.saveToLead = true;
+                }
                 const sRes = await fetch(`/leads/${encodeURIComponent(leadKey)}/email`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
                   credentials: 'same-origin',
-                  body: JSON.stringify({
-                    subject: String(pData.subject || subject || '').trim(),
-                    body: String(pData.body || pData.personalized || scriptText).trim(),
-                  }),
+                  body: JSON.stringify(sBody),
                 });
                 const sData = await sRes.json().catch(() => ({}));
                 if (!sRes.ok || !sData.success) throw new Error((sData && sData.error) || 'Send failed');
@@ -709,18 +738,41 @@ document.addEventListener('DOMContentLoaded', () => {
               }
               ok += 1;
             } catch (err) {
-              failed += 1;
-              lastError = String((err && err.message) || 'Send failed');
-              console.warn('Early bulk send failed for', leadKey, lastError);
+              const msg = String((err && err.message) || 'Send failed');
+              if (/no email|recipient email|on file in Agency OS/i.test(msg)) skipped += 1;
+              else {
+                failed += 1;
+                lastError = msg;
+              }
+              console.warn('Early bulk send failed for', leadKey, msg);
             }
           }
-          const summary = emailMode
-            ? `Email: ${ok} sent${failed ? ` · ${failed} failed` : ''}`
-            : `SMS: ${ok} sent${failed ? ` · ${failed} failed` : ''}`;
+          const summaryParts = [
+            `${emailMode ? 'Email' : 'SMS'}: ${ok} sent`,
+            skipped ? `${skipped} skipped` : '',
+            failed ? `${failed} failed` : '',
+          ].filter(Boolean);
+          const summary = summaryParts.join(' · ');
+          if (window.agencyOsBulkOutreach && typeof window.agencyOsBulkOutreach.finish === 'function') {
+            window.agencyOsBulkOutreach.finish({
+              channel: emailMode ? 'email' : 'sms',
+              ok,
+              failed,
+              skipped,
+              lastError,
+            });
+          } else if (typeof window.agencyOsPushBellNotification === 'function') {
+            window.agencyOsPushBellNotification({
+              headline: failed ? 'Send finished with errors' : 'Send complete',
+              body: lastError ? `${summary} — ${lastError.slice(0, 160)}` : summary,
+              href: '/prospecting?tab=pipeline',
+              linkLabel: 'Open pipeline →',
+              desktop: true,
+            });
+          }
           if (typeof window.showBulkActionConfirmation === 'function') {
             window.showBulkActionConfirmation(summary, failed ? 'error' : 'success');
           }
-          if (failed) window.alert(lastError ? `${summary}\n\n${lastError}` : summary);
         } finally {
           window.__adhelloBulkOutreachInflight = false;
         }
@@ -14823,13 +14875,20 @@ document.addEventListener('DOMContentLoaded', () => {
     return { ok, failed, errors, lastError: errors.length ? errors[errors.length - 1].error : '' };
   }
 
-  async function sendEmailToLeadKey(leadKey, subject, body) {
+  async function sendEmailToLeadKey(leadKey, subject, body, opts) {
+    opts = opts || {};
     const validated = validateOutreachComposerBodyClient(body, 'email');
     if (!validated.ok) throw new Error(validated.error || 'Email body is empty.');
+    const payload = { subject: subject || '', body: validated.text };
+    const toEmail = String(opts.to || '').trim();
+    if (toEmail && toEmail.includes('@')) {
+      payload.to = toEmail;
+      payload.saveToLead = opts.saveToLead !== false;
+    }
     const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/email`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ subject: subject || '', body: validated.text }),
+      body: JSON.stringify(payload),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.success) {
@@ -14839,6 +14898,56 @@ document.addEventListener('DOMContentLoaded', () => {
       window.__applyLeadPipelineStageFromApi(data.lead);
     }
     return data;
+  }
+
+  function resolveRowEmailForLeadKey(leadKey) {
+    const want = String(leadKey || '').trim();
+    if (!want) return '';
+    const rows = document.querySelectorAll('tr.result-row[data-lead-key], tr[data-lead-key]');
+    for (let i = 0; i < rows.length; i += 1) {
+      const row = rows[i];
+      const key = String(row.getAttribute('data-lead-key') || row.dataset.leadKey || '').trim();
+      if (key !== want && key !== want.replace(/^lead:/, '') && `lead:${key}` !== want) continue;
+      if (typeof coalesceRowDatasetFromContacts === 'function') coalesceRowDatasetFromContacts(row);
+      if (typeof hydrateRowDatasetFromTableDom === 'function') hydrateRowDatasetFromTableDom(row);
+      const email = String(row.getAttribute('data-email') || row.dataset.email || '').trim();
+      if (email && email !== 'N/A' && email.includes('@')) return email;
+    }
+    return '';
+  }
+
+  function notifyBulkOutreachProgress(message, variant) {
+    if (typeof showBulkSaveFeedback === 'function') {
+      showBulkSaveFeedback(message, variant || 'loading');
+    } else if (typeof window.showAppToast === 'function') {
+      window.showAppToast(message, { variant: variant === 'error' ? 'error' : 'info', duration: 3200 });
+    }
+  }
+
+  function finishBulkOutreachBell(result, channel) {
+    const api = window.agencyOsBulkOutreach;
+    if (api && typeof api.finish === 'function') {
+      return api.finish({
+        channel: channel === 'sms' ? 'sms' : 'email',
+        ok: result.ok || 0,
+        failed: result.failed || 0,
+        skipped: result.skipped || 0,
+        lastError: result.lastError || '',
+      });
+    }
+    if (typeof window.agencyOsPushBellNotification === 'function') {
+      const parts = [`${channel === 'sms' ? 'SMS' : 'Email'}: ${result.ok || 0} sent`];
+      if (result.skipped) parts.push(`${result.skipped} skipped`);
+      if (result.failed) parts.push(`${result.failed} failed`);
+      window.agencyOsPushBellNotification({
+        headline: result.failed ? 'Send finished with errors' : 'Send complete',
+        body: result.lastError ? `${parts.join(' · ')} — ${String(result.lastError).slice(0, 160)}` : parts.join(' · '),
+        href: '/prospecting?tab=pipeline',
+        linkLabel: 'Open pipeline →',
+        desktop: true,
+      });
+    }
+    return null;
   }
 
   async function personalizeEmailForLeadKey(leadKey, scriptText, subject) {
@@ -14880,12 +14989,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const personalized = await personalizeEmailForLeadKey(leadKey, baseScript, subject);
         const bodyValidated = validateOutreachComposerBodyClient(personalized.body, 'email');
         personalized.body = bodyValidated.ok ? bodyValidated.text : baseScript;
-        await sendEmailToLeadKey(leadKey, personalized.subject, personalized.body);
+        const toFromRow = resolveRowEmailForLeadKey(leadKey);
+        await sendEmailToLeadKey(leadKey, personalized.subject, personalized.body, {
+          to: toFromRow,
+          saveToLead: true,
+        });
         ok += 1;
       } catch (err) {
         const msg = String((err && err.message) || '');
-        if (/no email|email is required|missing email|not found|recipient email/i.test(msg)) skipped += 1;
-        else {
+        if (
+          /no email|email is required|missing email|not found|recipient email|no recipient email|on file in Agency OS/i.test(
+            msg,
+          )
+        ) {
+          skipped += 1;
+        } else {
           failed += 1;
           errors.push({ leadKey, error: msg || 'Send failed' });
         }
@@ -15145,7 +15263,7 @@ document.addEventListener('DOMContentLoaded', () => {
           return;
         }
         if (window.__adhelloBulkOutreachInflight) {
-          window.alert('A bulk send is already running in the background. Wait for it to finish.');
+          notifyBulkOutreachProgress('A bulk send is already running — check the notification bell.', 'error');
           return;
         }
         const keys = activeKeys.slice();
@@ -15156,13 +15274,19 @@ document.addEventListener('DOMContentLoaded', () => {
           smsScriptSendBtn.disabled = true;
           smsScriptSendBtn.textContent = `Sending 0/${n}…`;
         }
-        showBulkSaveFeedback(`Sending email in background (0/${n})…`, 'loading');
+        notifyBulkOutreachProgress(`Sending email in background (0/${n})…`, 'loading');
         closeSmsModal();
         window.__adhelloBulkOutreachInflight = true;
+        if (window.agencyOsBulkOutreach && typeof window.agencyOsBulkOutreach.start === 'function') {
+          window.agencyOsBulkOutreach.start({ channel: 'email', total: n });
+        }
         void (async function runBulkEmailInBackground() {
           try {
             const result = await sendBulkPersonalizedEmail(keys, script, subject, (done, total) => {
-              showBulkSaveFeedback(`Personalizing & sending email ${done}/${total}…`, 'loading');
+              notifyBulkOutreachProgress(`Personalizing & sending email ${done}/${total}…`, 'loading');
+              if (window.agencyOsBulkOutreach && typeof window.agencyOsBulkOutreach.progress === 'function') {
+                window.agencyOsBulkOutreach.progress({ done, total });
+              }
               if (typeof window.__flashBulkBarBtn === 'function') {
                 window.__flashBulkBarBtn(
                   document.getElementById('bulkEmailBtn'),
@@ -15171,13 +15295,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 );
               }
             });
-            const parts = [`Email: ${result.ok} sent`];
-            if (result.skipped) parts.push(`${result.skipped} skipped`);
-            if (result.failed) parts.push(`${result.failed} failed`);
-            const msg = parts.join(' · ');
-            const detail = result.lastError ? `\n\n${result.lastError}` : '';
-            showBulkSaveFeedback(msg, result.failed === 0 ? 'success' : 'error');
-            if (result.failed) window.alert(msg + detail);
+            const finished = finishBulkOutreachBell(result, 'email');
+            const msg =
+              (finished && finished.summary) ||
+              [
+                `Email: ${result.ok} sent`,
+                result.skipped ? `${result.skipped} skipped` : '',
+                result.failed ? `${result.failed} failed` : '',
+              ]
+                .filter(Boolean)
+                .join(' · ');
+            notifyBulkOutreachProgress(msg, result.failed === 0 ? 'success' : 'error');
             if (typeof window.__flashBulkBarBtn === 'function') {
               window.__flashBulkBarBtn(
                 document.getElementById('bulkEmailBtn'),
@@ -15186,8 +15314,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (typeof window.__updateBulkActionBar === 'function') window.__updateBulkActionBar();
           } catch (err) {
-            showBulkSaveFeedback(err.message || 'Bulk email failed.', 'error');
-            window.alert(err.message || 'Bulk email failed.');
+            finishBulkOutreachBell(
+              { ok: 0, failed: 1, skipped: 0, lastError: (err && err.message) || 'Bulk email failed.' },
+              'email',
+            );
+            notifyBulkOutreachProgress(err.message || 'Bulk email failed.', 'error');
           } finally {
             window.__adhelloBulkOutreachInflight = false;
           }
@@ -15205,7 +15336,7 @@ document.addEventListener('DOMContentLoaded', () => {
           return;
         }
         if (window.__adhelloBulkOutreachInflight) {
-          window.alert('A bulk send is already running in the background. Wait for it to finish.');
+          notifyBulkOutreachProgress('A bulk send is already running — check the notification bell.', 'error');
           return;
         }
         const keys = activeKeys.slice();
@@ -15214,28 +15345,38 @@ document.addEventListener('DOMContentLoaded', () => {
           smsScriptSendBtn.disabled = true;
           smsScriptSendBtn.textContent = `Sending 0/${n}…`;
         }
-        showBulkSaveFeedback(`Sending SMS in background (0/${n})…`, 'loading');
+        notifyBulkOutreachProgress(`Sending SMS in background (0/${n})…`, 'loading');
         closeSmsModal();
         window.__adhelloBulkOutreachInflight = true;
+        if (window.agencyOsBulkOutreach && typeof window.agencyOsBulkOutreach.start === 'function') {
+          window.agencyOsBulkOutreach.start({ channel: 'sms', total: n });
+        }
         void (async function runBulkSmsInBackground() {
           try {
             const result = await sendBulkPersonalizedSms(keys, script, (done, total) => {
-              showBulkSaveFeedback(`Personalizing & sending SMS ${done}/${total}…`, 'loading');
+              notifyBulkOutreachProgress(`Personalizing & sending SMS ${done}/${total}…`, 'loading');
+              if (window.agencyOsBulkOutreach && typeof window.agencyOsBulkOutreach.progress === 'function') {
+                window.agencyOsBulkOutreach.progress({ done, total });
+              }
               if (typeof window.__flashBulkBarBtn === 'function') {
                 window.__flashBulkBarBtn(document.getElementById('bulkSmsBtn'), `${done}/${total}`, 1400);
               }
             });
-            const msg = `SMS: ${result.ok} sent${result.failed ? ` · ${result.failed} failed` : ''}`;
-            const detail = result.lastError ? `\n\n${result.lastError}` : '';
-            showBulkSaveFeedback(msg, result.failed === 0 ? 'success' : 'error');
-            if (result.failed) window.alert(msg + detail);
+            const finished = finishBulkOutreachBell(result, 'sms');
+            const msg =
+              (finished && finished.summary) ||
+              `SMS: ${result.ok} sent${result.failed ? ` · ${result.failed} failed` : ''}`;
+            notifyBulkOutreachProgress(msg, result.failed === 0 ? 'success' : 'error');
             if (typeof window.__flashBulkBarBtn === 'function') {
               window.__flashBulkBarBtn(document.getElementById('bulkSmsBtn'), result.failed === 0 ? '✓ Sent' : 'Failed');
             }
             if (typeof window.__updateBulkActionBar === 'function') window.__updateBulkActionBar();
           } catch (err) {
-            showBulkSaveFeedback(err.message || 'Bulk SMS failed.', 'error');
-            window.alert(err.message || 'Bulk SMS failed.');
+            finishBulkOutreachBell(
+              { ok: 0, failed: 1, skipped: 0, lastError: (err && err.message) || 'Bulk SMS failed.' },
+              'sms',
+            );
+            notifyBulkOutreachProgress(err.message || 'Bulk SMS failed.', 'error');
           } finally {
             window.__adhelloBulkOutreachInflight = false;
           }

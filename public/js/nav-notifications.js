@@ -167,7 +167,8 @@
       syncEnhanceSessionActive() ||
       isContactHuntJobRunning() ||
       isGhlSyncJobRunning() ||
-      isArtworkGenJobRunning()
+      isArtworkGenJobRunning() ||
+      isBulkOutreachJobRunning()
     );
   }
 
@@ -626,12 +627,14 @@
     if (!processingIndicator) return;
     const bulk = isBulkEnhanceJobRunning();
     const ghl = isGhlSyncJobRunning();
+    const outreach = typeof isBulkOutreachJobRunning === 'function' && isBulkOutreachJobRunning();
     if (
       activeProcessingCount > 0 ||
       localStorage.getItem('is_searching') === 'true' ||
       bulk ||
       ghl ||
-      isArtworkGenJobRunning()
+      isArtworkGenJobRunning() ||
+      outreach
     ) {
       processingIndicator.classList.add('processing-active');
       if (bulk) {
@@ -640,6 +643,8 @@
       } else if (ghl) {
         const j = readGhlSyncJob();
         if (j) updateBulkEnhanceBellBadge(j.index, j.keys.length, 'GHL sync');
+      } else if (outreach) {
+        updateBulkOutreachBellBadge(readBulkOutreachJob());
       } else if (isArtworkGenJobRunning()) {
         updateArtworkGenBellBadge(readArtworkGenJob());
       }
@@ -2071,6 +2076,166 @@
     },
   };
 
+  const BULK_OUTREACH_JOB_KEY = 'agencyOsBulkOutreachJob';
+
+  function readBulkOutreachJob() {
+    try {
+      const raw = sessionStorage.getItem(BULK_OUTREACH_JOB_KEY);
+      if (!raw) return null;
+      const o = JSON.parse(raw);
+      return o && o.running ? o : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function writeBulkOutreachJob(job) {
+    try {
+      if (!job) sessionStorage.removeItem(BULK_OUTREACH_JOB_KEY);
+      else sessionStorage.setItem(BULK_OUTREACH_JOB_KEY, JSON.stringify(job));
+    } catch (_) {}
+  }
+
+  function isBulkOutreachJobRunning() {
+    return !!readBulkOutreachJob();
+  }
+
+  function updateBulkOutreachBellBadge(job) {
+    const el = document.getElementById('bulkEnhanceBellBadge');
+    if (!el || !job) return;
+    const done = Math.max(0, Number(job.done) || 0);
+    const total = Math.max(0, Number(job.total) || 0);
+    if (total > 0) {
+      el.textContent = Math.min(done, total) + '/' + total;
+      el.classList.remove('hidden');
+      el.setAttribute(
+        'title',
+        (job.channel === 'sms' ? 'Sending SMS' : 'Sending email') +
+          ': ' +
+          Math.min(done, total) +
+          ' of ' +
+          total,
+      );
+    }
+  }
+
+  function buildBulkOutreachProgressBellHtml(job) {
+    if (!job) return '';
+    const channel = job.channel === 'sms' ? 'SMS' : 'Email';
+    const done = Math.max(0, Number(job.done) || 0);
+    const total = Math.max(1, Number(job.total) || 1);
+    return (
+      '<div class="p-4 border-b border-brand-border/10 bg-sky-500/5 dark:bg-sky-500/10">' +
+      '<div class="flex items-start gap-3">' +
+      '<div class="w-8 h-8 rounded-full bg-sky-500/15 flex items-center justify-center text-sky-700 dark:text-sky-300 shrink-0">' +
+      '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>' +
+      '</div><div class="min-w-0">' +
+      '<div class="text-[11px] font-black text-brand-dark dark:text-white uppercase tracking-tight mb-0.5">Sending ' +
+      escapeBellHtml(channel) +
+      '</div>' +
+      '<div class="text-[10px] font-bold text-brand-muted dark:text-slate-400 leading-tight">' +
+      Math.min(done, total) +
+      ' of ' +
+      total +
+      ' · keep this tab open</div>' +
+      '<div class="mt-1 text-[9px] font-semibold text-brand-muted dark:text-slate-500">Progress stays in the bell — no popup alerts while sending.</div>' +
+      '</div></div></div>'
+    );
+  }
+
+  window.agencyOsPushBellNotification = function agencyOsPushBellNotification(item) {
+    pushClientBellNotification(item || {});
+    const ping = document.getElementById('notificationPing');
+    if (ping) {
+      ping.classList.remove('hidden');
+      ping.classList.add('animate-ping');
+    }
+  };
+
+  window.agencyOsBulkOutreach = {
+    isRunning() {
+      return isBulkOutreachJobRunning();
+    },
+    getJob() {
+      return readBulkOutreachJob();
+    },
+    start(opts) {
+      opts = opts || {};
+      const total = Math.max(1, Number(opts.total) || 1);
+      const job = {
+        channel: opts.channel === 'sms' ? 'sms' : 'email',
+        total,
+        done: 0,
+        ok: 0,
+        failed: 0,
+        skipped: 0,
+        running: true,
+        startedAt: Date.now(),
+      };
+      writeBulkOutreachJob(job);
+      if (typeof window.updateProcessingStatus === 'function') {
+        window.updateProcessingStatus(true);
+      }
+      updateBulkOutreachBellBadge(job);
+      if (processingIndicator) processingIndicator.classList.add('processing-active');
+      const ping = document.getElementById('notificationPing');
+      if (ping) {
+        ping.classList.remove('hidden');
+        ping.classList.add('animate-ping');
+      }
+      return job;
+    },
+    progress(opts) {
+      opts = opts || {};
+      const job = readBulkOutreachJob();
+      if (!job) return null;
+      if (opts.done != null) job.done = Math.max(0, Number(opts.done) || 0);
+      if (opts.ok != null) job.ok = Math.max(0, Number(opts.ok) || 0);
+      if (opts.failed != null) job.failed = Math.max(0, Number(opts.failed) || 0);
+      if (opts.skipped != null) job.skipped = Math.max(0, Number(opts.skipped) || 0);
+      writeBulkOutreachJob(job);
+      updateBulkOutreachBellBadge(job);
+      return job;
+    },
+    finish(opts) {
+      opts = opts || {};
+      const job = readBulkOutreachJob() || {};
+      const channel = (opts.channel || job.channel) === 'sms' ? 'SMS' : 'Email';
+      const ok = opts.ok != null ? Number(opts.ok) : Number(job.ok) || 0;
+      const failed = opts.failed != null ? Number(opts.failed) : Number(job.failed) || 0;
+      const skipped = opts.skipped != null ? Number(opts.skipped) : Number(job.skipped) || 0;
+      const parts = [channel + ': ' + ok + ' sent'];
+      if (skipped) parts.push(skipped + ' skipped');
+      if (failed) parts.push(failed + ' failed');
+      const summary = parts.join(' · ');
+      const detail = String(opts.lastError || '').trim();
+      writeBulkOutreachJob(null);
+      if (typeof window.updateProcessingStatus === 'function') {
+        window.updateProcessingStatus(false);
+      }
+      const badge = document.getElementById('bulkEnhanceBellBadge');
+      if (badge && !isBulkEnhanceJobRunning() && !isArtworkGenJobRunning() && !isGhlSyncJobRunning()) {
+        badge.textContent = '';
+        badge.classList.add('hidden');
+        badge.removeAttribute('title');
+      }
+      pushClientBellNotification({
+        headline: failed ? channel + ' send finished with errors' : channel + ' send complete',
+        body: detail ? summary + ' — ' + detail.slice(0, 180) : summary,
+        href: opts.href || '/prospecting?tab=pipeline',
+        linkLabel: 'Open pipeline →',
+        desktop: true,
+        desktopTag: 'agency-os-bulk-' + String(job.channel || 'email'),
+      });
+      const ping = document.getElementById('notificationPing');
+      if (ping) {
+        ping.classList.remove('hidden');
+        ping.classList.add('animate-ping');
+      }
+      return { summary, ok, failed, skipped };
+    },
+  };
+
   /** Called from app.js when starting/finishing client-side search flows. */
   window.updateProcessingStatus = function (isActive) {
     if (!processingIndicator) return;
@@ -2365,6 +2530,13 @@
           if (autoOutreachHtml && notificationList) {
             notificationList.innerHTML = autoOutreachHtml + notificationList.innerHTML;
           }
+        } else if (isBulkOutreachJobRunning() && notificationList) {
+          notificationList.innerHTML =
+            autoOutreachHtml + buildBulkOutreachProgressBellHtml(readBulkOutreachJob());
+          if (notificationPing) {
+            notificationPing.classList.remove('hidden');
+            notificationPing.classList.add('animate-ping');
+          }
         } else if (isArtworkGenJobRunning() && notificationList) {
           notificationList.innerHTML =
             autoOutreachHtml + buildArtworkGenProgressBellHtml(readArtworkGenJob());
@@ -2390,6 +2562,7 @@
             isContactHuntJobRunning() ||
             isGhlSyncJobRunning() ||
             isArtworkGenJobRunning() ||
+            isBulkOutreachJobRunning() ||
             readClientBellNotifications().some((n) => !n.isRead);
           if (notificationPing && !keepPingForClientWork) {
             notificationPing.classList.remove('animate-ping');
@@ -2547,6 +2720,8 @@
           notificationList.innerHTML = buildGhlSyncProgressBellHtml(readGhlSyncJob());
           if (processingIndicator) processingIndicator.classList.add('processing-active');
           activateNavbarWorkBell(readGhlSyncJob().label || 'GHL sync');
+        } else if (isBulkOutreachJobRunning() && notificationList) {
+          notificationList.innerHTML = buildBulkOutreachProgressBellHtml(readBulkOutreachJob());
         } else if (isArtworkGenJobRunning() && notificationList) {
           notificationList.innerHTML = buildArtworkGenProgressBellHtml(readArtworkGenJob());
         }
@@ -2554,7 +2729,12 @@
           await fetch('/api/notifications/read', { method: 'POST' });
         } catch (_) {}
         markClientBellNotificationsRead();
-        if (notificationPing && !isGhlSyncJobRunning() && !isArtworkGenJobRunning()) {
+        if (
+          notificationPing &&
+          !isGhlSyncJobRunning() &&
+          !isArtworkGenJobRunning() &&
+          !isBulkOutreachJobRunning()
+        ) {
           notificationPing.classList.add('hidden');
         }
       } else {

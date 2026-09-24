@@ -3176,7 +3176,12 @@ router.post('/:key/email', async (req, res, next) => {
         },
       ],
     };
-    if (saveToLead && toOverride) {
+    // Persist recipient when we sent via contacts[] / override and top-level email was empty.
+    const sentTo = String((sent && sent.emailTo) || toOverride || '').trim();
+    const topEmail = String(lead.email || '').trim();
+    if (sentTo && (!topEmail || topEmail === 'N/A') && (saveToLead || !toOverride)) {
+      emailPatch.email = sentTo;
+    } else if (saveToLead && toOverride) {
       emailPatch.email = toOverride;
     }
     const updatedLead = await dbService.updateLead(fullKey, emailPatch);

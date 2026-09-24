@@ -11,9 +11,47 @@ function leadHasPhone(lead) {
   return !!(p && String(p).trim() && String(p).trim() !== 'N/A');
 }
 
+function looksLikeEmail(raw) {
+  const e = String(raw || '').trim();
+  return !!(e && e !== 'N/A' && e.includes('@') && e.length >= 5);
+}
+
+/**
+ * Prefer top-level lead.email, then primary/first contact email, then website-audit emails.
+ */
+function resolveLeadRecipientEmail(lead) {
+  if (!lead || typeof lead !== 'object') return '';
+  const top = String(lead.email || '').trim();
+  if (looksLikeEmail(top)) return top;
+
+  const contacts = Array.isArray(lead.contacts) ? lead.contacts : [];
+  const withEmail = contacts.filter((c) => c && looksLikeEmail(c.email));
+  const primary = withEmail.find((c) => c.primary) || withEmail[0];
+  if (primary) return String(primary.email).trim();
+
+  const analysisEmails =
+    (lead.websiteAiAnalysis && lead.websiteAiAnalysis.emails) ||
+    (lead.aiAnalysis && lead.aiAnalysis.emails) ||
+    lead.emails ||
+    lead.emailAddresses ||
+    [];
+  if (Array.isArray(analysisEmails)) {
+    for (const item of analysisEmails) {
+      const candidate =
+        typeof item === 'string'
+          ? item
+          : item && (item.email || item.address || item.value);
+      if (looksLikeEmail(candidate)) return String(candidate).trim();
+    }
+  }
+
+  const alt = lead.contactEmail || lead.ownerEmail || lead.primaryEmail;
+  if (looksLikeEmail(alt)) return String(alt).trim();
+  return '';
+}
+
 function leadHasEmail(lead) {
-  const e = lead && lead.email;
-  return !!(e && String(e).trim() && String(e).trim() !== 'N/A');
+  return !!resolveLeadRecipientEmail(lead);
 }
 
 function resolveEmailFrom(integrationEnv) {
@@ -388,9 +426,11 @@ async function syncGhlSmsToLead({ lead, integrationEnv }) {
 }
 
 async function sendEmailToLead({ lead, subject, body, html, integrationEnv, toEmail }) {
-  const emailRaw = String(toEmail || (lead && lead.email) || '').trim();
-  if (!emailRaw || emailRaw === 'N/A') {
-    throw new Error('Recipient email address is required.');
+  const emailRaw = String(toEmail || resolveLeadRecipientEmail(lead) || '').trim();
+  if (!emailRaw || emailRaw === 'N/A' || !emailRaw.includes('@')) {
+    throw new Error(
+      'This lead has no recipient email on file in Agency OS. Add an email on the lead (panel or contacts) — your GHL “Outbound email from” is only the sender, not the recipient.',
+    );
   }
   const emailFrom = resolveEmailFrom(integrationEnv);
   if (!emailFrom) {
@@ -428,6 +468,7 @@ async function sendEmailToLead({ lead, subject, body, html, integrationEnv, toEm
     provider: 'ghl',
     contactId,
     messageId: String(messageId || ''),
+    emailTo,
     raw: data,
   };
 }
@@ -435,6 +476,7 @@ async function sendEmailToLead({ lead, subject, body, html, integrationEnv, toEm
 module.exports = {
   leadHasPhone,
   leadHasEmail,
+  resolveLeadRecipientEmail,
   messagingReady,
   ensureGhlContactId,
   sendSmsToLead,
