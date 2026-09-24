@@ -7634,3 +7634,18 @@ body.dm-prompt-resize-active {
     flex-wrap: wrap;
     gap: 0.45rem;
 }
+
+/* Opportunity board schedule popup — keep opaque over kanban */
+.opp-pop {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  opacity: 1 !important;
+  z-index: 240 !important;
+  isolation: isolate;
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.28);
+}
+html.dark .opp-pop {
+  background: #0f172a !important;
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+}

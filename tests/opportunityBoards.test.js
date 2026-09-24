@@ -209,6 +209,10 @@ test('cardNotePreview strips Focus call script body for compact cards', () => {
     'Focus · call script',
   );
   assert.equal(
+    cardNotePreview('[Focus · call script] Hi —, I noticed Diplomat Flooring…'),
+    'Focus · call script',
+  );
+  assert.equal(
     cardNotePreview('[Focus · call script]\n\nLong script\n\nOutcome: Call back'),
     'Focus · call script · Call back',
   );

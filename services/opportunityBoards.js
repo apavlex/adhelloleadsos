@@ -244,6 +244,9 @@ function latestNote(lead) {
     if (fallback) best = { text: fallback };
   }
   if (!best) return '';
+  // Compact Focus scripts before flattening/truncating so cards never show the body.
+  const compact = cardNotePreview(best.text);
+  if (compact) return compact;
   const text = best.text.replace(/\s+/g, ' ').trim();
   return text.length > 90 ? `${text.slice(0, 87)}…` : text;
 }
@@ -251,6 +254,7 @@ function latestNote(lead) {
 function noteEchoesStatus(note, status) {
   const body = String(note || '')
     .replace(/^\[[^\]]+\]\s*/, '')
+    .replace(/^Focus\s*[·•\-–—|:]\s*/i, '')
     .replace(/\s+/g, ' ')
     .trim();
   const core = String(status || '').split(' · ')[0].trim();
@@ -265,17 +269,24 @@ function noteEchoesStatus(note, status) {
 function cardNotePreview(note) {
   const raw = String(note || '').trim();
   if (!raw) return '';
-  const focusMatch = raw.match(/^\[Focus\s*[·•]\s*([^\]]+)\]/i);
+  // Require the closing ] so we don't stop at the first letter of "call script".
+  const focusMatch = raw.match(/^\[\s*Focus\s*[·•\-–—|:]\s*([^\]]+)\]/i);
   if (focusMatch) {
     const channel = String(focusMatch[1] || '')
       .replace(/\s+/g, ' ')
       .trim()
-      .slice(0, 28);
-    const outcomeMatch = raw.match(/\nOutcome:\s*(.+?)(?:\n|$)/i);
-    const outcome = outcomeMatch ? String(outcomeMatch[1] || '').replace(/\s+/g, ' ').trim().slice(0, 32) : '';
+      .slice(0, 28) || 'call script';
+    const outcomeMatch = raw.match(/(?:^|\n)\s*Outcome:\s*(.+?)(?:\n|$)/i);
+    const outcome = outcomeMatch
+      ? String(outcomeMatch[1] || '')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 32)
+      : '';
     if (outcome) return `Focus · ${channel} · ${outcome}`;
     return `Focus · ${channel}`;
   }
+  if (/^\[?\s*Focus\b/i.test(raw)) return 'Focus · call script';
   return raw.replace(/\s+/g, ' ').trim().slice(0, 90);
 }
 

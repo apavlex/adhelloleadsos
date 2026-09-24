@@ -48,16 +48,16 @@
   @keyframes opp-sync-spin { to { transform: rotate(360deg); } }
   .opp-pop {
     position: fixed;
-    z-index: 120;
+    z-index: 240;
     width: min(18rem, calc(100vw - 1.5rem));
-    background: #ffffff;
-    background-color: #ffffff;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
     color: #111827;
     border: 1px solid rgba(17, 24, 39, 0.12);
     border-radius: 1rem;
-    box-shadow: 0 18px 44px rgba(15, 23, 42, 0.22);
+    box-shadow: 0 18px 44px rgba(15, 23, 42, 0.28);
     padding: 0.85rem;
-    opacity: 1;
+    opacity: 1 !important;
     isolation: isolate;
   }
   html.dark .opp-pop {
@@ -229,10 +229,14 @@
     pop = document.createElement('div');
     pop.className = 'opp-pop';
     pop.setAttribute('role', 'dialog');
-    // Inline fallback — some global styles were washing out the panel background.
+    // Inline + !important so the panel stays opaque over the board (global CSS was washing it out).
     var dark = document.documentElement.classList.contains('dark');
-    pop.style.backgroundColor = dark ? '#0f172a' : '#ffffff';
-    pop.style.color = dark ? '#f8fafc' : '#111827';
+    pop.style.setProperty('background', dark ? '#0f172a' : '#ffffff', 'important');
+    pop.style.setProperty('background-color', dark ? '#0f172a' : '#ffffff', 'important');
+    pop.style.setProperty('color', dark ? '#f8fafc' : '#111827', 'important');
+    pop.style.setProperty('opacity', '1', 'important');
+    pop.style.setProperty('z-index', '240', 'important');
+    pop.style.setProperty('box-shadow', '0 18px 44px rgba(15, 23, 42, 0.28)', 'important');
     document.body.appendChild(pop);
     return pop;
   }
