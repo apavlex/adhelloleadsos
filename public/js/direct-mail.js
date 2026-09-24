@@ -2989,6 +2989,23 @@
     if (window.confirm(msg)) resetDesignSession();
   }
 
+  function normalizeStudioPreviewUrl(url) {
+    var raw = String(url || '').trim();
+    if (!raw) return '';
+    try {
+      if (/^https?:\/\//i.test(raw)) {
+        var parsed = new URL(raw, window.location.origin);
+        if (
+          parsed.origin === window.location.origin &&
+          (parsed.pathname.indexOf('/direct-mail/') === 0 || parsed.pathname.indexOf('/uploads/') === 0)
+        ) {
+          return parsed.pathname + parsed.search;
+        }
+      }
+    } catch (_) {}
+    return raw;
+  }
+
   function setPreview(slot, imageUrl, meta) {
     var el = document.getElementById(slot === 'back' ? 'dmPreviewBack' : 'dmPreviewFront');
     var useCb = document.getElementById(slot === 'back' ? 'dmUseBack' : 'dmUseFront');
@@ -2999,9 +3016,10 @@
     if (meta && typeof meta === 'object') {
       designMeta[slot] = Object.assign({}, designMeta[slot], meta);
     }
-    designs[slot] = imageUrl || null;
+    var previewUrl = normalizeStudioPreviewUrl(imageUrl);
+    designs[slot] = previewUrl || imageUrl || null;
     el.innerHTML = '';
-    if (!imageUrl) {
+    if (!previewUrl && !imageUrl) {
       var span = document.createElement('span');
       span.className = 'dm-artboard-empty';
       if (plat.dualSided) {
@@ -3023,13 +3041,18 @@
       return;
     }
     var img = document.createElement('img');
-    img.src = imageUrl;
+    img.src = previewUrl || imageUrl;
     img.alt =
       (plat.dualSided ? slot + ' ' : '') +
       formatLabel +
       ' design';
     img.className = 'w-full h-full object-cover';
     img.addEventListener('error', function () {
+      if (img.dataset.retried !== '1' && previewUrl && previewUrl !== imageUrl) {
+        img.dataset.retried = '1';
+        img.src = imageUrl;
+        return;
+      }
       if (img.dataset.broken === '1') return;
       img.dataset.broken = '1';
       setDesignStatus(

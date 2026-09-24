@@ -286,6 +286,31 @@ function extractImageUrls(record) {
   return [...new Set(collectUrls(parseResultJson(record), []))];
 }
 
+/**
+ * Convert a KIE result URL into a short-lived downloadable link.
+ * Useful when the raw tempfile CDN URL is blocked or flaky.
+ */
+async function resolveDownloadableUrl(imageUrl) {
+  const url = String(imageUrl || '').trim();
+  if (!url || !/^https?:\/\//i.test(url)) return '';
+  try {
+    const response = await kieRequest('POST', '/api/v1/common/download-url', {
+      body: { url },
+    });
+    const data = (response && response.data) || {};
+    const fresh =
+      data.downloadUrl ||
+      data.download_url ||
+      data.url ||
+      (response && (response.downloadUrl || response.url)) ||
+      '';
+    const out = String(fresh || '').trim();
+    return /^https?:\/\//i.test(out) ? out : '';
+  } catch (_) {
+    return '';
+  }
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -347,6 +372,7 @@ module.exports = {
   friendlyKieImageError,
   testConnection,
   createTask,
+  resolveDownloadableUrl,
   getTaskRecord,
   parseResultJson,
   extractImageUrls,

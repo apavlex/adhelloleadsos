@@ -385,6 +385,7 @@ module.exports = {
   compositePosition,
   getCreativeStorageDir,
   creativePublicPath,
+  saveCompositedImageBuffer,
   normalizeBaseForOverlay,
   fetchImageBuffer,
   prepareLogoBufferForOverlay,
