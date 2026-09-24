@@ -95,6 +95,7 @@ async function buildPersonasViewData(req) {
 
 async function renderPersonasTab(req, res, activeScriptsTab) {
   const data = await buildPersonasViewData(req);
+  res.setHeader('Cache-Control', 'private, no-store');
   res.render('sales-personas', {
     title: 'Sales scripts',
     activePage: 'sales',
