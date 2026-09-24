@@ -1526,13 +1526,19 @@
       if (res.status === 502 || res.status === 503 || res.status === 504) {
         if (typeof err === 'string' && err.trim()) return err.trim();
         return (
-          'Image service unavailable (HTTP ' +
+          'Marketing Studio could not finish this design (HTTP ' +
           res.status +
-          '). If this persists, verify KIE_AI_API_KEY in Render → Environment and redeploy.'
+          '). Check the prompt, aspect ratio vs export quality, then Generate again. If it keeps failing, verify KIE_AI_API_KEY on the server.'
         );
       }
       if (res.status === 401 || res.status === 403) {
         return 'Not authorized — refresh the page and sign in again.';
+      }
+      if (res.status === 404) {
+        return (
+          (typeof err === 'string' && err.trim()) ||
+          'Image job expired after a server restart — click Generate again.'
+        );
       }
       return 'Request failed (HTTP ' + res.status + ').';
     }
@@ -3094,8 +3100,12 @@
       await new Promise(function (resolve) {
         setTimeout(resolve, 4000);
       });
+      var slot = currentDesignSlot();
       var res = await fetch(
-        '/direct-mail/api/generate-image/status?taskId=' + encodeURIComponent(taskId),
+        '/direct-mail/api/generate-image/status?taskId=' +
+          encodeURIComponent(taskId) +
+          '&slot=' +
+          encodeURIComponent(slot),
         { credentials: 'same-origin', headers: { Accept: 'application/json' } },
       );
       var data = {};

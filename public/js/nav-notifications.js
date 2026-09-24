@@ -1910,7 +1910,9 @@
 
   async function pollArtworkGenJobOnce(job) {
     const res = await fetch(
-      '/direct-mail/api/generate-image/status?taskId=' + encodeURIComponent(job.taskId),
+      '/direct-mail/api/generate-image/status?taskId=' +
+        encodeURIComponent(job.taskId) +
+        (job.slot ? '&slot=' + encodeURIComponent(job.slot) : ''),
       { credentials: 'same-origin', headers: { Accept: 'application/json' } },
     );
     const d = await res.json().catch(() => ({}));

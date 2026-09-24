@@ -203,15 +203,23 @@ async function finalizeGeneratedImage(req, imageUrl, brandKit, { taskId } = {}) 
 }
 
 function kieHttpError(err, req, fallback) {
+  // Prefer the already-friendly message when kieFriendly is set — never return the boolean flag itself.
+  const fromKie =
+    err && err.kieFriendly && typeof err.message === 'string' && err.message.trim()
+      ? err.message.trim()
+      : '';
   const friendly =
-    (err && err.kieFriendly) ||
+    fromKie ||
     kieImageClient.friendlyKieImageError(err && err.message, {
       prompt: req.body && req.body.prompt,
+      aspectRatio: req.body && req.body.aspectRatio,
+      resolution: req.body && req.body.resolution,
     }) ||
+    (err && typeof err.message === 'string' && err.message.trim()) ||
     fallback ||
     'Image generation failed.';
   const status = err && err.status === 400 ? 400 : 502;
-  return { status, error: friendly };
+  return { status, error: String(friendly) };
 }
 
 function userEmail(req) {
@@ -503,7 +511,7 @@ async function resolveLogoReferenceUrl(req, brandKit) {
   }
 }
 
-async function buildGenerationInputUrls(req, { styleReferenceUrl, referenceUrl, logoReferenceUrl, editMode }) {
+function buildGenerationInputUrls(req, { styleReferenceUrl, referenceUrl, logoReferenceUrl, editMode }) {
   const urls = [];
   const ref = toAbsoluteAssetUrl(req, String(referenceUrl || '').trim());
   const styleRef = toAbsoluteAssetUrl(req, String(styleReferenceUrl || '').trim());
@@ -1285,9 +1293,20 @@ router.get('/api/generate-image/status', async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'taskId is required.' });
     }
 
-    const job = getImageJob(taskId);
-    if (!job || job.workspaceId !== req.workspaceId) {
+    let job = getImageJob(taskId);
+    if (job && job.workspaceId && job.workspaceId !== req.workspaceId) {
       return res.status(404).json({ success: false, error: 'Image job not found or expired.' });
+    }
+    // Survive Render redeploys / multi-instance: still poll KIE when the in-memory job map was wiped.
+    if (!job) {
+      job = {
+        slot: String(req.query.slot || 'front').toLowerCase() === 'back' ? 'back' : 'front',
+        brandKit: {},
+        model: '',
+        prompt: '',
+        workspaceId: req.workspaceId,
+        recovered: true,
+      };
     }
 
     const record = await kieImageClient.getTaskRecord(taskId);
@@ -1325,7 +1344,11 @@ router.get('/api/generate-image/status', async (req, res, next) => {
     if (state === 'fail') {
       forgetImageJob(taskId);
       const msg = data.failMsg || data.failCode || 'Image generation failed.';
-      const friendly = kieImageClient.friendlyKieImageError(String(msg), { prompt: job.prompt });
+      const friendly = kieImageClient.friendlyKieImageError(String(msg), {
+        prompt: job.prompt,
+        aspectRatio: req.query.aspectRatio,
+        resolution: req.query.resolution,
+      });
       return res.status(502).json({ success: false, status: 'failed', error: friendly });
     }
 
