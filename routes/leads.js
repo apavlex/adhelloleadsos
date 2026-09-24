@@ -50,7 +50,7 @@ const { buildAiToolsReportViewModel } = require('../services/aiToolsReportModel'
 const { parseImportFile } = require('../services/csvLeadImport');
 const { findExistingLead, upsertLeadInMemoryList } = require('../services/leadDedupe');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
-const { CHANNELS: OUTREACH_CHANNELS, buildOutreachLibrary } = require('../services/outreachChannelScripts');
+const { CHANNELS: OUTREACH_CHANNELS, buildOutreachLibrary, scriptForChannel } = require('../services/outreachChannelScripts');
 const { resolveScriptSignOffProfile, applySenderPlaceholdersDeep, fillScriptPlaceholders } = require('../services/scriptPlaceholders');
 const pipelineStagesService = require('../services/pipelineStagesService');
 const { buildPipelineAdvancePatch } = require('../services/pipelineAdvance');
@@ -3494,55 +3494,57 @@ router.get('/:key/email-script-options', async (req, res, next) => {
     });
 
     const options = [];
-    const dedicatedEmail = String(serviceDef.email || '').trim();
-    const emailBody = scriptForChannel(serviceDef, 'email');
-    if (emailBody) {
+    const pushEmail = (id, label, text) => {
+      const body = String(text || '').trim();
+      if (!body) return;
+      if (options.some((o) => o.id === id)) return;
       options.push({
-        id: `${serviceKey}:email`,
-        label: dedicatedEmail
-          ? `${serviceLabel} — Email`
-          : `${serviceLabel} — Follow-up (from call script)`,
-        text: fillScriptPlaceholders(emailBody, { sender: profile, prospect }),
+        id,
+        label,
+        text: fillScriptPlaceholders(body, { sender: profile, prospect }),
         subject: followUpSubject,
       });
-    }
-    // When a dedicated email script exists, don't also list call-script sections as email bodies.
-    if (!dedicatedEmail) {
-      ['opening', 'valueProp', 'close'].forEach((section) => {
-        const text = String(serviceDef[section] || '').trim();
-        if (!text) return;
-        const id = `${serviceKey}:${section}`;
-        if (options.some((o) => o.id === id || o.id === `${serviceKey}:email`)) return;
-        options.push({
-          id,
-          label: `${serviceLabel} — ${section === 'valueProp' ? 'Value proposition' : section === 'opening' ? 'Opening' : 'Close'}`,
-          text: fillScriptPlaceholders(text, { sender: profile, prospect }),
-          subject: followUpSubject,
-        });
-      });
-    }
+    };
+
+    // Prefer the lead's offer first, then every other offer with an email (or call-script fallback).
+    const orderedKeys = serviceKey
+      ? [serviceKey, ...offerKeys.filter((k) => k !== serviceKey)]
+      : offerKeys.slice();
+    orderedKeys.forEach((k) => {
+      const def = mergedLibrary[k] || SCRIPT_LIBRARY[k] || {};
+      const label = def.label || k;
+      const dedicatedEmail = String(def.email || '').trim();
+      const emailBody = scriptForChannel(def, 'email');
+      if (!emailBody) return;
+      pushEmail(
+        `${k}:email`,
+        dedicatedEmail ? `${label} — Email` : `${label} — Follow-up (from call script)`,
+        emailBody,
+      );
+    });
+
+    // Library snapshots saved from the Email script editor.
     savedItems
       .filter((item) => item && String(item.text || '').trim())
-      .slice(-8)
+      .slice()
+      .reverse()
+      .slice(0, 8)
       .forEach((item) => {
-        options.push({
-          id: `saved:${item.id}`,
-          label: String(item.title || 'Saved script').trim() || 'Saved script',
-          text: fillScriptPlaceholders(String(item.text).trim(), { sender: profile, prospect }),
-          subject: followUpSubject,
-        });
+        const section = String(item.section || '').toLowerCase();
+        const title = String(item.title || 'Saved script').trim() || 'Saved script';
+        pushEmail(
+          `saved:${item.id}`,
+          section === 'email' ? title : `Saved: ${title}`,
+          String(item.text).trim(),
+        );
       });
 
     if (!options.length) {
-      options.push({
-        id: 'fallback-followup',
-        label: 'Call follow-up',
-        text: fillScriptPlaceholders(
-          'Hi {{name}},\n\nFollowing up after our call — a few ideas that could help {{company}} in {{city}} capture more local demand.\n\nOpen to a short next step this week?\n\nBest,\n[your name]',
-          { sender: profile, prospect },
-        ),
-        subject: followUpSubject,
-      });
+      pushEmail(
+        'fallback-followup',
+        'Call follow-up',
+        'Hi {{name}},\n\nFollowing up after our call — a few ideas that could help {{company}} in {{city}} capture more local demand.\n\nOpen to a short next step this week?\n\nBest,\n[your name]',
+      );
     }
 
     return res.json({
