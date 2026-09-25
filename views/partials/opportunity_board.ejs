@@ -48,21 +48,24 @@
   @keyframes opp-sync-spin { to { transform: rotate(360deg); } }
   .opp-pop {
     position: fixed;
-    z-index: 240;
+    z-index: 10060;
     width: min(18rem, calc(100vw - 1.5rem));
     background: #ffffff !important;
     background-color: #ffffff !important;
+    background-image: linear-gradient(#ffffff, #ffffff) !important;
     color: #111827;
     border: 1px solid rgba(17, 24, 39, 0.12);
     border-radius: 1rem;
     box-shadow: 0 18px 44px rgba(15, 23, 42, 0.28);
     padding: 0.85rem;
     opacity: 1 !important;
-    isolation: isolate;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
   }
   html.dark .opp-pop {
-    background: #0f172a;
-    background-color: #0f172a;
+    background: #0f172a !important;
+    background-color: #0f172a !important;
+    background-image: linear-gradient(#0f172a, #0f172a) !important;
     border-color: rgba(255, 255, 255, 0.14);
     color: #f8fafc;
   }
@@ -74,7 +77,7 @@
   .opp-pop-row { display: flex; gap: 0.35rem; margin-top: 0.55rem; }
   .opp-pop-row input, .opp-pop-time { flex: 1; min-width: 0; border: 1px solid rgba(17, 24, 39, 0.12); border-radius: 0.7rem; padding: 0.4rem 0.55rem; font-size: 0.75rem; background: #fff; }
   html.dark .opp-pop-row input, html.dark .opp-pop-time { background: #1e293b; border-color: rgba(255, 255, 255, 0.14); color: #f8fafc; }
-  .opp-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.15rem; }
+  .opp-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.15rem; background: transparent; }
   .opp-cal button, .opp-cal span { height: 1.7rem; border: 0; background: transparent; border-radius: 0.4rem; font-size: 0.68rem; font-weight: 700; color: inherit; }
   .opp-cal button { cursor: pointer; }
   .opp-cal button:hover { background: rgba(17, 24, 39, 0.06); }
@@ -227,16 +230,27 @@
   function openPop(anchor) {
     closePop();
     pop = document.createElement('div');
-    pop.className = 'opp-pop';
+    pop.className = 'opp-pop portaled-popover-surface';
     pop.setAttribute('role', 'dialog');
-    // Inline + !important so the panel stays opaque over the board (global CSS was washing it out).
+    // Match other portaled pickers: solid fill + high z-index so the kanban never shows through.
     var dark = document.documentElement.classList.contains('dark');
-    pop.style.setProperty('background', dark ? '#0f172a' : '#ffffff', 'important');
-    pop.style.setProperty('background-color', dark ? '#0f172a' : '#ffffff', 'important');
-    pop.style.setProperty('color', dark ? '#f8fafc' : '#111827', 'important');
-    pop.style.setProperty('opacity', '1', 'important');
-    pop.style.setProperty('z-index', '240', 'important');
-    pop.style.setProperty('box-shadow', '0 18px 44px rgba(15, 23, 42, 0.28)', 'important');
+    var fill = dark ? '#0f172a' : '#ffffff';
+    pop.style.cssText = [
+      'position:fixed',
+      'z-index:10060',
+      'width:min(18rem, calc(100vw - 1.5rem))',
+      'background:' + fill,
+      'background-color:' + fill,
+      'background-image:linear-gradient(' + fill + ',' + fill + ')',
+      'color:' + (dark ? '#f8fafc' : '#111827'),
+      'opacity:1',
+      'backdrop-filter:none',
+      '-webkit-backdrop-filter:none',
+      'border:1px solid ' + (dark ? 'rgba(255,255,255,0.14)' : 'rgba(17,24,39,0.12)'),
+      'border-radius:1rem',
+      'box-shadow:0 18px 44px rgba(15,23,42,0.28)',
+      'padding:0.85rem',
+    ].join(';');
     document.body.appendChild(pop);
     return pop;
   }
