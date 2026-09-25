@@ -5176,10 +5176,11 @@
       });
     }
     if (btnMobileFabToggle && elMobileFabActions) {
-      btnMobileFabToggle.addEventListener('click', function () {
-        var isOpen = !elMobileFabActions.classList.contains('hidden');
-        elMobileFabActions.classList.toggle('hidden', isOpen);
-        btnMobileFabToggle.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+      closeMobileFabActions();
+      btnMobileFabToggle.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleMobileFabActions();
       });
       document.addEventListener('click', function (e) {
         if (!elMobileFabWrap || elMobileFabWrap.classList.contains('hidden')) return;
