@@ -28,6 +28,12 @@
     z-index: 6;
     cursor: col-resize;
     touch-action: none;
+    opacity: 0;
+    pointer-events: none;
+  }
+  #oppBoard.is-editing .opp-stage-resize {
+    opacity: 1;
+    pointer-events: auto;
   }
   .opp-stage-resize::after {
     content: '';
@@ -39,19 +45,56 @@
     transform: translateX(-50%);
     border-radius: 999px;
     background: rgba(17, 24, 39, 0.12);
-    transition: background 0.15s ease, width 0.15s ease;
+    transition: background 0.15s ease, width 0.15s ease, opacity 0.15s ease;
   }
-  .opp-stage:hover .opp-stage-resize::after,
-  .opp-stage.is-resizing .opp-stage-resize::after {
+  #oppBoard.is-editing .opp-stage:hover .opp-stage-resize::after,
+  #oppBoard.is-editing .opp-stage.is-resizing .opp-stage-resize::after {
     background: rgba(15, 39, 71, 0.45);
     width: 0.25rem;
   }
   html.dark .opp-stage-resize::after { background: rgba(255, 255, 255, 0.18); }
-  html.dark .opp-stage:hover .opp-stage-resize::after,
-  html.dark .opp-stage.is-resizing .opp-stage-resize::after {
+  html.dark #oppBoard.is-editing .opp-stage:hover .opp-stage-resize::after,
+  html.dark #oppBoard.is-editing .opp-stage.is-resizing .opp-stage-resize::after {
     background: rgba(250, 204, 21, 0.7);
   }
   .opp-stage-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.65rem; }
+  .opp-stage-title { margin: 0; }
+  .opp-stage-name-input {
+    display: none;
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid rgba(17, 24, 39, 0.14);
+    border-radius: 0.55rem;
+    background: rgba(250, 247, 237, 0.9);
+    padding: 0.35rem 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 800;
+    color: inherit;
+    outline: none;
+  }
+  .opp-stage-name-input:focus {
+    border-color: rgba(250, 204, 21, 0.75);
+    box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.28);
+  }
+  html.dark .opp-stage-name-input {
+    background: rgba(15, 23, 42, 0.85);
+    border-color: rgba(255, 255, 255, 0.14);
+  }
+  #oppBoard.is-editing .opp-stage-title { display: none; }
+  #oppBoard.is-editing .opp-stage-name-input { display: block; }
+  #oppBoard:not(.is-editing) .opp-actions { display: none !important; }
+  #oppBoard.is-editing { outline: 2px solid rgba(250, 204, 21, 0.45); outline-offset: -2px; }
+  #oppCancelEdit[hidden] { display: none !important; }
+  #oppEditBoard.is-saving-mode {
+    background: #0f2747;
+    color: #fff;
+    border-color: #0f2747;
+  }
+  html.dark #oppEditBoard.is-saving-mode {
+    background: #FFDB3A;
+    color: #111827;
+    border-color: #FFDB3A;
+  }
   .opp-stage-count { display: inline-flex; align-items: center; justify-content: center; min-width: 1.35rem; height: 1.35rem; padding: 0 0.35rem; border-radius: 999px; background: rgba(250, 204, 21, 0.22); color: #111827; font-size: 0.6875rem; font-weight: 800; }
   html.dark .opp-stage-count { color: #f8fafc; }
   .opp-stage-cards { display: flex; flex-direction: column; gap: 0.45rem; min-height: 7.25rem; min-width: 0; flex: 1; border-radius: 0.85rem; background: rgba(250, 247, 237, 0.72); padding: 0.4rem; }
@@ -254,6 +297,7 @@
         </select>
         <button type="button" id="oppNewPipeline" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">New pipeline</button>
         <button type="button" id="oppEditBoard" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Edit</button>
+        <button type="button" id="oppCancelEdit" hidden class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Cancel</button>
         <% if (_compact) { %>
         <a href="/opportunities?pipeline=<%= encodeURIComponent(_board.pipeline.id) %>" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Open full board</a>
         <button type="button" id="oppAddFromMenu" class="btn-pill btn-primary px-6 py-3 text-[10px] font-black uppercase tracking-widest">Add opportunity</button>
@@ -270,17 +314,16 @@
       <% _board.stages.forEach(function (stage) { %>
       <section class="opp-stage" data-stage-id="<%= stage.id %>">
         <div class="opp-stage-head">
-          <div class="min-w-0">
-            <h3 class="text-sm font-extrabold text-brand-dark dark:text-white truncate"><%= stage.name %></h3>
+          <div class="min-w-0 flex-1">
+            <h3 class="opp-stage-title text-sm font-extrabold text-brand-dark dark:text-white truncate"><%= stage.name %></h3>
+            <input type="text" class="opp-stage-name-input" maxlength="40" value="<%= stage.name %>" aria-label="Stage name" data-stage-id="<%= stage.id %>" />
             <p class="opp-stage-meta text-[11px] text-brand-muted mt-0.5"><% if (stage.valueLabel) { %><%= stage.valueLabel %><% } else { %><%= stage.count === 1 ? '1 opportunity' : stage.count + ' opportunities' %><% } %></p>
           </div>
           <span class="opp-stage-count"><%= stage.count %></span>
         </div>
-        <% if (!_compact) { %>
         <div class="opp-actions mb-2">
           <button type="button" class="opp-remove" data-stage-id="<%= stage.id %>">Remove</button>
         </div>
-        <% } %>
         <div class="opp-stage-cards<%= stage.cards.length ? '' : ' is-empty' %>" data-stage-id="<%= stage.id %>">
           <% if (!stage.cards.length) { %><div class="opp-drop">Drop here</div><% } %>
           <% stage.cards.forEach(function (card) { %>

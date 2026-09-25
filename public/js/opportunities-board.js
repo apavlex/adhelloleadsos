@@ -278,112 +278,200 @@
   }
 
   var editBoard = document.getElementById('oppEditBoard');
-  if (editBoard) {
-    editBoard.addEventListener('click', function () {
-      var stages = [];
+  var cancelEdit = document.getElementById('oppCancelEdit');
+  var editSnapshot = null;
+  var pendingRemoveIds = [];
+
+  function isEditing() {
+    return board.classList.contains('is-editing');
+  }
+
+  function captureEditSnapshot() {
+    var stages = [];
+    Array.prototype.forEach.call(board.querySelectorAll('.opp-stage'), function (stageEl) {
+      var id = stageEl.getAttribute('data-stage-id') || '';
+      var title = stageEl.querySelector('.opp-stage-title');
+      var input = stageEl.querySelector('.opp-stage-name-input');
+      var name = title
+        ? String(title.textContent || '').trim()
+        : input
+          ? String(input.value || '').trim()
+          : 'Stage';
+      stages.push({
+        id: id,
+        name: name,
+        width: Math.round(stageEl.getBoundingClientRect().width) || 252,
+      });
+    });
+    return { stages: stages };
+  }
+
+  function setEditing(on) {
+    board.classList.toggle('is-editing', !!on);
+    if (editBoard) {
+      editBoard.textContent = on ? 'Save' : 'Edit';
+      editBoard.classList.toggle('is-saving-mode', !!on);
+      editBoard.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+    if (cancelEdit) cancelEdit.hidden = !on;
+    if (on) {
       Array.prototype.forEach.call(board.querySelectorAll('.opp-stage'), function (stageEl) {
-        var id = stageEl.getAttribute('data-stage-id') || '';
-        var title = stageEl.querySelector('.opp-stage-head h3');
-        stages.push({
-          id: id,
-          name: title ? String(title.textContent || '').trim() : 'Stage',
-          width: Math.round(stageEl.getBoundingClientRect().width) || 252,
+        var title = stageEl.querySelector('.opp-stage-title');
+        var input = stageEl.querySelector('.opp-stage-name-input');
+        if (title && input) input.value = String(title.textContent || '').trim();
+      });
+      showStatus('Edit mode — rename columns, drag edges to resize, then Save.', true);
+    }
+  }
+
+  function exitEditing(opts) {
+    opts = opts || {};
+    pendingRemoveIds = [];
+    editSnapshot = null;
+    setEditing(false);
+    if (opts.reload) {
+      window.location.reload();
+      return;
+    }
+    if (opts.message) showStatus(opts.message, true);
+  }
+
+  function restoreFromSnapshot() {
+    if (!editSnapshot) {
+      exitEditing({ reload: true });
+      return;
+    }
+    if (pendingRemoveIds.length) {
+      exitEditing({ reload: true });
+      return;
+    }
+    editSnapshot.stages.forEach(function (stage) {
+      var stageEl = board.querySelector('.opp-stage[data-stage-id="' + stage.id + '"]');
+      if (!stageEl) return;
+      applyStageWidth(stageEl, stage.width);
+      var title = stageEl.querySelector('.opp-stage-title');
+      var input = stageEl.querySelector('.opp-stage-name-input');
+      if (title) title.textContent = stage.name;
+      if (input) input.value = stage.name;
+    });
+    exitEditing({ message: 'Edits discarded.' });
+  }
+
+  function saveInlineEdits() {
+    var current = [];
+    var emptyInput = null;
+    Array.prototype.forEach.call(board.querySelectorAll('.opp-stage'), function (stageEl) {
+      var id = stageEl.getAttribute('data-stage-id') || '';
+      var input = stageEl.querySelector('.opp-stage-name-input');
+      var name = String((input && input.value) || '').trim();
+      if (!name) {
+        emptyInput = input;
+        return;
+      }
+      current.push({
+        id: id,
+        name: name,
+        width: Math.round(stageEl.getBoundingClientRect().width) || 252,
+      });
+    });
+    if (emptyInput) {
+      showError('Every column needs a name.');
+      emptyInput.focus();
+      return;
+    }
+    if (!current.length) {
+      showError('A pipeline needs at least one stage.');
+      return;
+    }
+
+    var originalById = {};
+    (editSnapshot && editSnapshot.stages ? editSnapshot.stages : []).forEach(function (stage) {
+      originalById[stage.id] = stage;
+    });
+
+    showStatus('Saving board…', true);
+    var removedIds = pendingRemoveIds.slice();
+
+    function runDeletes() {
+      var chain = Promise.resolve({ ok: true, data: { success: true } });
+      removedIds.forEach(function (stageId) {
+        chain = chain.then(function (prev) {
+          if (!prev.ok || !prev.data || !prev.data.success) return prev;
+          return post('/opportunities/stages/' + encodeURIComponent(stageId) + '/delete', {});
         });
       });
-      var currentPipelineName =
-        (select && select.options[select.selectedIndex] && select.options[select.selectedIndex].text) ||
-        'Pipeline';
+      return chain;
+    }
 
-      var open =
-        typeof window.adhelloBoardSettings === 'function'
-          ? window.adhelloBoardSettings({
-              pipelineName: currentPipelineName,
-              stages: stages,
-              minWidth: 220,
-              maxWidth: 448,
-            })
-          : ask('Pipeline name', currentPipelineName).then(function (name) {
-              if (!name) return null;
-              return { pipelineName: name, stages: stages };
-            });
-
-      open.then(function (result) {
-        if (!result || !result.pipelineName) return;
-        showStatus('Saving board…', true);
-        var nextName = String(result.pipelineName || '').trim();
-        var removedIds = (Array.isArray(result.removedStageIds) ? result.removedStageIds : []).filter(Boolean);
-        var renamed = Array.isArray(result.stages) ? result.stages : [];
-
-        function runDeletes() {
-          var chain = Promise.resolve({ ok: true, data: { success: true } });
-          removedIds.forEach(function (stageId) {
-            chain = chain.then(function (prev) {
-              if (!prev.ok || !prev.data || !prev.data.success) return prev;
-              return post('/opportunities/stages/' + encodeURIComponent(stageId) + '/delete', {});
-            });
-          });
-          return chain;
+    function runRenames() {
+      var tasks = [];
+      current.forEach(function (stage) {
+        var original = originalById[stage.id];
+        if (!original) return;
+        if (String(stage.name) !== String(original.name || '').trim()) {
+          tasks.push(
+            post('/opportunities/stages/' + encodeURIComponent(stage.id), { name: stage.name })
+          );
         }
-
-        function runUpdates() {
-          var tasks = [];
-          if (nextName && nextName !== String(currentPipelineName || '').trim()) {
-            tasks.push(
-              post('/opportunities/pipelines/' + encodeURIComponent(pipelineId), { name: nextName })
-            );
-          }
-          renamed.forEach(function (stage) {
-            if (removedIds.indexOf(stage.id) !== -1) return;
-            var original = stages.find(function (item) { return item.id === stage.id; });
-            if (!original) return;
-            if (String(stage.name || '').trim() && String(stage.name).trim() !== String(original.name || '').trim()) {
-              tasks.push(
-                post('/opportunities/stages/' + encodeURIComponent(stage.id), { name: String(stage.name).trim() })
-              );
-            }
-            var stageEl = board.querySelector('.opp-stage[data-stage-id="' + stage.id + '"]');
-            if (stageEl) {
-              applyStageWidth(stageEl, stage.width);
-              persistStageWidth(stage.id, stage.width);
-              var heading = stageEl.querySelector('.opp-stage-head h3');
-              if (heading && stage.name) heading.textContent = String(stage.name).trim();
-            }
-          });
-          return Promise.all(tasks).then(function (results) {
-            return { results: results, hadTasks: tasks.length > 0 };
-          });
-        }
-
-        runDeletes()
-          .then(function (deleteResult) {
-            if (!deleteResult.ok || !deleteResult.data || !deleteResult.data.success) {
-              showError((deleteResult.data && deleteResult.data.error) || 'Could not delete that column.');
-              return null;
-            }
-            return runUpdates();
-          })
-          .then(function (updatePack) {
-            if (!updatePack) return;
-            var failed = (updatePack.results || []).find(function (item) {
-              return !item.ok || !item.data || !item.data.success;
-            });
-            if (failed) {
-              showError((failed.data && failed.data.error) || 'Could not save all board changes.');
-              return;
-            }
-            if (nextName && select) {
-              var opt = select.options[select.selectedIndex];
-              if (opt) opt.text = nextName;
-              var compactTitle = board.querySelector('h2');
-              if (compactTitle) compactTitle.textContent = nextName;
-            }
-            showStatus('Board updated.', true);
-            if (removedIds.length || updatePack.hadTasks) window.location.reload();
-          })
-          .catch(function () {
-            showError('Could not save board changes.');
-          });
       });
+      return Promise.all(tasks).then(function (results) {
+        return { results: results, hadTasks: tasks.length > 0 };
+      });
+    }
+
+    runDeletes()
+      .then(function (deleteResult) {
+        if (!deleteResult.ok || !deleteResult.data || !deleteResult.data.success) {
+          showError((deleteResult.data && deleteResult.data.error) || 'Could not delete that column.');
+          return null;
+        }
+        return runRenames();
+      })
+      .then(function (updatePack) {
+        if (!updatePack) return;
+        var failed = (updatePack.results || []).find(function (item) {
+          return !item.ok || !item.data || !item.data.success;
+        });
+        if (failed) {
+          showError((failed.data && failed.data.error) || 'Could not save all board changes.');
+          return;
+        }
+        current.forEach(function (stage) {
+          persistStageWidth(stage.id, stage.width);
+          var stageEl = board.querySelector('.opp-stage[data-stage-id="' + stage.id + '"]');
+          if (!stageEl) return;
+          var title = stageEl.querySelector('.opp-stage-title');
+          var input = stageEl.querySelector('.opp-stage-name-input');
+          if (title) title.textContent = stage.name;
+          if (input) input.value = stage.name;
+        });
+        if (removedIds.length) {
+          exitEditing({ reload: true });
+          return;
+        }
+        exitEditing({ message: 'Board saved. Column widths are locked until you Edit again.' });
+      })
+      .catch(function () {
+        showError('Could not save board changes.');
+      });
+  }
+
+  if (editBoard) {
+    editBoard.addEventListener('click', function () {
+      if (isEditing()) {
+        saveInlineEdits();
+        return;
+      }
+      editSnapshot = captureEditSnapshot();
+      pendingRemoveIds = [];
+      setEditing(true);
+    });
+  }
+
+  if (cancelEdit) {
+    cancelEdit.addEventListener('click', function () {
+      if (!isEditing()) return;
+      restoreFromSnapshot();
     });
   }
 
@@ -414,18 +502,22 @@
     if (ev.target.closest('[data-opp-action]')) return;
     var remove = ev.target.closest('.opp-remove');
     if (!remove) return;
+    if (!isEditing()) return;
+    var stageId = remove.getAttribute('data-stage-id') || '';
+    var stageEl = remove.closest('.opp-stage');
+    var remaining = board.querySelectorAll('.opp-stage').length;
+    if (remaining <= 1) {
+      showError('A pipeline needs at least one stage.');
+      return;
+    }
     confirmAction(
-      'Opportunities in this stage move to the neighboring stage.',
+      'Opportunities in this stage move to the neighboring stage when you save.',
       'Remove this stage?'
     ).then(function (ok) {
       if (!ok) return;
-      post('/opportunities/stages/' + encodeURIComponent(remove.getAttribute('data-stage-id')) + '/delete', {}).then(function (result) {
-        if (!result.ok || !result.data || !result.data.success) {
-          showError((result.data && result.data.error) || 'Could not remove that stage.');
-          return;
-        }
-        window.location.reload();
-      });
+      if (stageId) pendingRemoveIds.push(stageId);
+      if (stageEl) stageEl.remove();
+      showStatus('Stage removed — click Save to keep this change.', true);
     });
   });
   function widthStorageKey() {
@@ -475,6 +567,7 @@
       if (!handle || handle.getAttribute('data-bound') === '1') return;
       handle.setAttribute('data-bound', '1');
       handle.addEventListener('pointerdown', function (ev) {
+        if (!isEditing()) return;
         if (ev.button != null && ev.button !== 0) return;
         ev.preventDefault();
         ev.stopPropagation();
@@ -497,8 +590,7 @@
           handle.removeEventListener('pointermove', onMove);
           handle.removeEventListener('pointerup', onUp);
           handle.removeEventListener('pointercancel', onUp);
-          var stageId = stage.getAttribute('data-stage-id') || '';
-          persistStageWidth(stageId, stage.getBoundingClientRect().width);
+          /* Widths persist only when Save is clicked in edit mode. */
         }
 
         handle.addEventListener('pointermove', onMove);
