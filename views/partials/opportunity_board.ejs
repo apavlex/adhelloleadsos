@@ -550,14 +550,17 @@
       action.classList.remove('is-syncing');
       action.setAttribute('aria-label', 'Sync GHL');
       if (!result.ok || !result.data || !result.data.success) {
-        status((result.data && result.data.error) || 'Could not sync that opportunity.', false);
+        var err =
+          (result.data && result.data.error) ||
+          'Could not sync that opportunity. Check Workspace → Integrations (token + Location ID must match).';
+        status(err, false);
         return;
       }
       status('Synced to Go High Level.', true);
     }).catch(function () {
       action.classList.remove('is-syncing');
       action.setAttribute('aria-label', 'Sync GHL');
-      status('Could not sync that opportunity.', false);
+      status('Could not sync that opportunity. Check Workspace → Integrations.', false);
     });
   }
 
@@ -566,8 +569,28 @@
     if (kind === 'profile') {
       closePop();
       var profileKey = leadKey(action);
-      if (profileKey && typeof window.openLeadDetailFromKey === 'function') window.openLeadDetailFromKey(profileKey);
-      else status('Could not open that company.', false);
+      if (!profileKey) {
+        status('Could not open that company.', false);
+        return;
+      }
+      var opener =
+        typeof window.openLeadDetailFromKey === 'function'
+          ? window.openLeadDetailFromKey
+          : typeof window.__adhelloOpenLeadDetailFromKeyLite === 'function'
+            ? window.__adhelloOpenLeadDetailFromKeyLite
+            : null;
+      if (!opener) {
+        status('Could not open that company. Refresh the page and try again.', false);
+        return;
+      }
+      status('Opening company…', true);
+      Promise.resolve(opener(profileKey)).then(function (result) {
+        if (result && result.ok === false) return;
+        var msg = document.getElementById('oppBoardMsg');
+        if (msg && msg.textContent === 'Opening company…') msg.classList.add('hidden');
+      }).catch(function () {
+        status('Could not open that company.', false);
+      });
       return;
     }
     if (kind === 'sms' || kind === 'email') {

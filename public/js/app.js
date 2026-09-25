@@ -21,6 +21,13 @@ window.__openWarRoomFromSelection = function openWarRoomFromSelectionBridge() {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Ensure company profile opener exists even if later init throws.
+  if (
+    typeof window.openLeadDetailFromKey !== 'function' &&
+    typeof window.__adhelloOpenLeadDetailFromKeyLite === 'function'
+  ) {
+    window.openLeadDetailFromKey = window.__adhelloOpenLeadDetailFromKeyLite;
+  }
   try {
     const raw = localStorage.getItem('adhello_panel_notes_v1');
     if (raw) {
@@ -22736,22 +22743,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.openLeadDetailFromKey = async (rawKey) => {
     const k = String(rawKey || '').replace(/^lead:/, '').trim();
-    if (!k) return;
+    if (!k) return { ok: false };
     const host = document.getElementById('leadPanelDatasetHost');
-    if (!host) return;
+    if (!host) {
+      if (typeof window.__adhelloOpenLeadDetailFromKeyLite === 'function') {
+        return window.__adhelloOpenLeadDetailFromKeyLite(rawKey);
+      }
+      return { ok: false };
+    }
     try {
       const res = await fetch(`/leads/${encodeURIComponent(k)}/panel-data`, {
         credentials: 'same-origin',
         headers: { Accept: 'application/json' },
       });
       const data = await res.json().catch(() => ({}));
-      if (!data.success || !data.lead) return;
+      if (!data.success || !data.lead) {
+        const err = (data && data.error) || 'Could not load that company.';
+        const msg = document.getElementById('oppBoardMsg');
+        if (msg) {
+          msg.textContent = err;
+          msg.classList.remove('hidden', 'is-ok');
+        }
+        return { ok: false, error: err };
+      }
       applyLeadObjectToPanelHost(host, data.lead);
-      selectRow(host);
+      await selectRow(host);
+      return { ok: true };
     } catch (err) {
       console.error(err);
+      if (typeof window.__adhelloOpenLeadDetailFromKeyLite === 'function') {
+        return window.__adhelloOpenLeadDetailFromKeyLite(rawKey);
+      }
+      return { ok: false };
     }
   };
+  window.__applyLeadObjectToPanelHost = applyLeadObjectToPanelHost;
+  window.__selectLeadPanelRow = selectRow;
 
   (function openFocusLeadFromQuery() {
     if (!getLeadDetailPanel()) return;
