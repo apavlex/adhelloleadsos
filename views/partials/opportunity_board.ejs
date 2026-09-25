@@ -744,23 +744,39 @@
     var card = action.closest('.opp-card');
     if (!key || !card || action.disabled) return;
     var name = leadTitle(action);
-    if (!window.confirm('Remove ' + name + ' from opportunities? The lead stays in your list.')) return;
-    action.disabled = true;
-    status('Removing…', true);
-    post('/opportunities/remove', { leadKey: key }).then(function (result) {
-      action.disabled = false;
-      if (!result.ok || !result.data || !result.data.success) {
-        status((result.data && result.data.error) || 'Could not remove that opportunity.', false);
-        return;
-      }
-      var column = card.closest('.opp-stage');
-      card.remove();
-      refreshStage(column);
-      status('Removed from opportunities.', true);
-    }).catch(function () {
-      action.disabled = false;
-      status('Could not remove that opportunity.', false);
-    });
+    var message = 'Remove ' + name + ' from opportunities? The lead stays in your list.';
+    var runRemove = function () {
+      action.disabled = true;
+      status('Removing…', true);
+      post('/opportunities/remove', { leadKey: key }).then(function (result) {
+        action.disabled = false;
+        if (!result.ok || !result.data || !result.data.success) {
+          status((result.data && result.data.error) || 'Could not remove that opportunity.', false);
+          return;
+        }
+        var column = card.closest('.opp-stage');
+        card.remove();
+        refreshStage(column);
+        status('Removed from opportunities.', true);
+      }).catch(function () {
+        action.disabled = false;
+        status('Could not remove that opportunity.', false);
+      });
+    };
+    if (typeof window.adhelloConfirm === 'function') {
+      window.adhelloConfirm({
+        title: 'Remove opportunity?',
+        message: message,
+        confirmLabel: 'Remove',
+        cancelLabel: 'Cancel',
+        danger: true,
+      }).then(function (ok) {
+        if (ok) runRemove();
+      });
+      return;
+    }
+    if (!window.confirm(message)) return;
+    runRemove();
   }
 
   board.addEventListener('pointerdown', function (ev) {

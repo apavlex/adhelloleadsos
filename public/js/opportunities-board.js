@@ -141,22 +141,45 @@
   });
 
   function ask(label, current) {
+    if (typeof window.adhelloPrompt === 'function') {
+      return window.adhelloPrompt({
+        title: label,
+        label: label,
+        value: current || '',
+        confirmLabel: 'Save',
+        maxLength: 40,
+      });
+    }
     var value = window.prompt(label, current || '');
-    if (value == null) return '';
-    return String(value).trim();
+    if (value == null) return Promise.resolve('');
+    return Promise.resolve(String(value).trim());
+  }
+
+  function confirmAction(message, title) {
+    if (typeof window.adhelloConfirm === 'function') {
+      return window.adhelloConfirm({
+        title: title || 'Please confirm',
+        message: message,
+        confirmLabel: 'Remove',
+        cancelLabel: 'Cancel',
+        danger: true,
+      });
+    }
+    return Promise.resolve(window.confirm(message));
   }
 
   var newPipeline = document.getElementById('oppNewPipeline');
   if (newPipeline) {
     newPipeline.addEventListener('click', function () {
-      var name = ask('New pipeline name', 'New pipeline');
-      if (!name) return;
-      post('/opportunities/pipelines', { name: name }).then(function (result) {
-        if (!result.ok || !result.data || !result.data.success) {
-          showError((result.data && result.data.error) || 'Could not create that pipeline.');
-          return;
-        }
-        reloadPipeline(result.data.pipelineId);
+      ask('New pipeline name', 'New pipeline').then(function (name) {
+        if (!name) return;
+        post('/opportunities/pipelines', { name: name }).then(function (result) {
+          if (!result.ok || !result.data || !result.data.success) {
+            showError((result.data && result.data.error) || 'Could not create that pipeline.');
+            return;
+          }
+          reloadPipeline(result.data.pipelineId);
+        });
       });
     });
   }
@@ -165,14 +188,15 @@
   if (renamePipeline && select) {
     renamePipeline.addEventListener('click', function () {
       var current = select.options[select.selectedIndex] ? select.options[select.selectedIndex].text : '';
-      var name = ask('Pipeline name', current);
-      if (!name) return;
-      post('/opportunities/pipelines/' + encodeURIComponent(pipelineId), { name: name }).then(function (result) {
-        if (!result.ok || !result.data || !result.data.success) {
-          showError((result.data && result.data.error) || 'Could not rename that pipeline.');
-          return;
-        }
-        window.location.reload();
+      ask('Pipeline name', current).then(function (name) {
+        if (!name) return;
+        post('/opportunities/pipelines/' + encodeURIComponent(pipelineId), { name: name }).then(function (result) {
+          if (!result.ok || !result.data || !result.data.success) {
+            showError((result.data && result.data.error) || 'Could not rename that pipeline.');
+            return;
+          }
+          window.location.reload();
+        });
       });
     });
   }
@@ -180,14 +204,15 @@
   var addStage = document.getElementById('oppAddStage');
   if (addStage) {
     addStage.addEventListener('click', function () {
-      var name = ask('New stage name', '');
-      if (!name) return;
-      post('/opportunities/pipelines/' + encodeURIComponent(pipelineId) + '/stages', { name: name }).then(function (result) {
-        if (!result.ok || !result.data || !result.data.success) {
-          showError((result.data && result.data.error) || 'Could not add that stage.');
-          return;
-        }
-        window.location.reload();
+      ask('New stage name', '').then(function (name) {
+        if (!name) return;
+        post('/opportunities/pipelines/' + encodeURIComponent(pipelineId) + '/stages', { name: name }).then(function (result) {
+          if (!result.ok || !result.data || !result.data.success) {
+            showError((result.data && result.data.error) || 'Could not add that stage.');
+            return;
+          }
+          window.location.reload();
+        });
       });
     });
   }
@@ -197,24 +222,30 @@
     var rename = ev.target.closest('.opp-rename');
     var remove = ev.target.closest('.opp-remove');
     if (rename) {
-      var name = ask('Stage name', rename.getAttribute('data-stage-name') || '');
-      if (!name) return;
-      post('/opportunities/stages/' + encodeURIComponent(rename.getAttribute('data-stage-id')), { name: name }).then(function (result) {
-        if (!result.ok || !result.data || !result.data.success) {
-          showError((result.data && result.data.error) || 'Could not rename that stage.');
-          return;
-        }
-        window.location.reload();
+      ask('Stage name', rename.getAttribute('data-stage-name') || '').then(function (name) {
+        if (!name) return;
+        post('/opportunities/stages/' + encodeURIComponent(rename.getAttribute('data-stage-id')), { name: name }).then(function (result) {
+          if (!result.ok || !result.data || !result.data.success) {
+            showError((result.data && result.data.error) || 'Could not rename that stage.');
+            return;
+          }
+          window.location.reload();
+        });
       });
     }
     if (remove) {
-      if (!window.confirm('Remove this stage? Opportunities in it move to the neighboring stage.')) return;
-      post('/opportunities/stages/' + encodeURIComponent(remove.getAttribute('data-stage-id')) + '/delete', {}).then(function (result) {
-        if (!result.ok || !result.data || !result.data.success) {
-          showError((result.data && result.data.error) || 'Could not remove that stage.');
-          return;
-        }
-        window.location.reload();
+      confirmAction(
+        'Opportunities in this stage move to the neighboring stage.',
+        'Remove this stage?'
+      ).then(function (ok) {
+        if (!ok) return;
+        post('/opportunities/stages/' + encodeURIComponent(remove.getAttribute('data-stage-id')) + '/delete', {}).then(function (result) {
+          if (!result.ok || !result.data || !result.data.success) {
+            showError((result.data && result.data.error) || 'Could not remove that stage.');
+            return;
+          }
+          window.location.reload();
+        });
       });
     }
   });
