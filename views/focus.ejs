@@ -3,7 +3,7 @@
 <head>
   <%- include('partials/head') %>
 </head>
-<body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden<%= (typeof isAgencySalesWorkspace !== 'undefined' && isAgencySalesWorkspace) ? '' : ' lead-panel--non-agency' %>">
+<body class="focus-mode-page bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden<%= (typeof isAgencySalesWorkspace !== 'undefined' && isAgencySalesWorkspace) ? '' : ' lead-panel--non-agency' %>">
   <%- include('partials/navbar') %>
 
   <% const _isAgencySalesWorkspace = typeof isAgencySalesWorkspace !== 'undefined' && isAgencySalesWorkspace; %>
@@ -14,6 +14,150 @@
   <% const _focusProgressGoal = _focusIsSelectionSession && _focusSelectionCount ? _focusSelectionCount : _focusDailyGoal; %>
   <% const _focusProgressPct = _focusProgressGoal > 0 ? Math.min(100, Math.round((_focusProgressCurrent / _focusProgressGoal) * 100)) : 0; %>
   <% const _eq = typeof entrepreneurQuote !== 'undefined' && entrepreneurQuote ? entrepreneurQuote : null; %>
+  <style>
+    /* Focus mobile cold-call dock — thumb-zone controls */
+    @media (max-width: 767px) {
+      body.focus-mode-page main.max-wide {
+        padding-bottom: calc(6.75rem + env(safe-area-inset-bottom, 0px));
+      }
+      body.focus-mode-page #ceoChatFloat,
+      body.focus-mode-page #chatBubble,
+      body.focus-mode-page #appFloatingWidgets {
+        display: none !important;
+      }
+      body.focus-mode-page #focus-outcome-actions .focus-primary-actions,
+      body.focus-mode-page #focus-outcome-actions .focus-secondary-actions,
+      body.focus-mode-page #focus-btn-open-dialer,
+      body.focus-mode-page #focus-outcome-shortcuts {
+        display: none !important;
+      }
+      body.focus-mode-page .focus-quick-outcome,
+      body.focus-mode-page #focus-btn-add-mail-list {
+        min-height: 2.75rem;
+        padding: 0.7rem 1rem;
+        font-size: 0.75rem;
+        letter-spacing: 0.06em;
+      }
+      body.focus-mode-page #focus-quick-log-row {
+        gap: 0.5rem;
+      }
+      .focus-mobile-dock {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 95;
+        padding: 0.55rem 0.65rem calc(0.55rem + env(safe-area-inset-bottom, 0px));
+        background: linear-gradient(to top, rgba(250, 247, 237, 0.98) 70%, rgba(250, 247, 237, 0.72));
+        border-top: 1px solid rgba(17, 24, 39, 0.1);
+        box-shadow: 0 -10px 28px rgba(15, 23, 42, 0.12);
+      }
+      html.dark .focus-mobile-dock {
+        background: linear-gradient(to top, rgba(15, 23, 42, 0.98) 70%, rgba(15, 23, 42, 0.75));
+        border-top-color: rgba(255, 255, 255, 0.1);
+      }
+      .focus-mobile-dock-sheet {
+        margin-bottom: 0.55rem;
+        border-radius: 1.15rem;
+        border: 1px solid rgba(17, 24, 39, 0.1);
+        background: #fff;
+        padding: 0.65rem;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem;
+        max-height: min(50vh, 22rem);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      html.dark .focus-mobile-dock-sheet {
+        background: #0f172a;
+        border-color: rgba(255, 255, 255, 0.12);
+      }
+      .focus-mobile-dock-sheet .focus-dock-btn {
+        min-height: 3.1rem;
+        font-size: 0.7rem;
+        letter-spacing: 0.08em;
+        font-weight: 900;
+        text-transform: uppercase;
+        border-radius: 0.9rem;
+        padding: 0.65rem 0.5rem;
+      }
+      .focus-mobile-dock-bar {
+        display: grid;
+        grid-template-columns: 1.35fr 1fr 1.2fr auto;
+        gap: 0.45rem;
+        align-items: stretch;
+      }
+      .focus-mobile-dock-bar .focus-dock-btn {
+        min-height: 3.35rem;
+        border-radius: 1rem;
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        font-weight: 900;
+        text-transform: uppercase;
+        padding: 0.55rem 0.35rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.35rem;
+        border: 0;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
+      }
+      .focus-dock-btn--call {
+        background: #111827;
+        color: #fff;
+        box-shadow: 0 8px 18px rgba(17, 24, 39, 0.28);
+      }
+      html.dark .focus-dock-btn--call {
+        background: #FFDB3A;
+        color: #111827;
+      }
+      .focus-dock-btn--sms {
+        background: rgba(16, 185, 129, 0.18);
+        color: #065f46;
+        border: 1.5px solid rgba(16, 185, 129, 0.45) !important;
+      }
+      html.dark .focus-dock-btn--sms {
+        color: #a7f3d0;
+      }
+      .focus-dock-btn--next {
+        background: rgba(250, 204, 21, 0.35);
+        color: #111827;
+        border: 1.5px solid rgba(202, 138, 4, 0.45) !important;
+      }
+      .focus-dock-btn--more {
+        width: 3.35rem;
+        min-width: 3.35rem;
+        background: #fff;
+        color: #111827;
+        border: 1.5px solid rgba(17, 24, 39, 0.14) !important;
+      }
+      html.dark .focus-dock-btn--more {
+        background: #1e293b;
+        color: #f8fafc;
+        border-color: rgba(255, 255, 255, 0.14) !important;
+      }
+      .focus-dock-btn--more[aria-expanded="true"] {
+        background: #111827;
+        color: #fff;
+      }
+      html.dark .focus-dock-btn--more[aria-expanded="true"] {
+        background: #FFDB3A;
+        color: #111827;
+      }
+      .focus-dock-btn:disabled {
+        opacity: 0.4;
+        pointer-events: none;
+      }
+      .focus-dock-btn svg {
+        width: 1.15rem;
+        height: 1.15rem;
+        flex-shrink: 0;
+      }
+    }
+  </style>
   <main class="max-wide px-6 py-8 pb-28 md:pb-10 md:py-10">
     <header class="mb-8">
       <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-3">
@@ -533,19 +677,30 @@
       </div>
     </section>
   </main>
-  <div id="focus-mobile-fab-wrap" class="md:hidden fixed right-4 bottom-[max(0.9rem,env(safe-area-inset-bottom))] z-[90] hidden" aria-label="Mobile quick actions">
-    <div id="focus-mobile-fab-actions" class="hidden mb-2.5 w-[min(78vw,18rem)] rounded-2xl border border-brand-border/70 dark:border-white/15 bg-white/95 dark:bg-slate-900/95 backdrop-blur shadow-xl p-2.5 space-y-2">
-      <button type="button" id="focus-mobile-back" disabled class="w-full btn-pill border-2 border-brand-border dark:border-white/15 bg-brand-cream/30 dark:bg-slate-800/50 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 disabled:opacity-40 disabled:pointer-events-none">Go back</button>
-      <button type="button" id="focus-mobile-call" class="w-full btn-pill btn-primary py-2.5 text-[10px] font-black uppercase tracking-widest">Call now</button>
-      <button type="button" id="focus-mobile-sms" class="w-full btn-pill border-2 border-emerald-500/60 bg-emerald-500/15 text-emerald-800 dark:text-emerald-200 py-2.5 text-[10px] font-black uppercase tracking-widest" title="Open SMS composer to type and send a message">SMS</button>
-      <button type="button" id="focus-mobile-email" class="w-full btn-pill border-2 border-sky-500/60 bg-sky-500/15 text-sky-800 dark:text-sky-200 py-2.5 text-[10px] font-black uppercase tracking-widest" title="Open email composer — send via Go High Level">eMail</button>
-      <button type="button" id="focus-mobile-call-next" class="w-full btn-pill border-2 border-emerald-500/60 bg-emerald-500/15 text-emerald-800 dark:text-emerald-200 py-2.5 text-[10px] font-black uppercase tracking-widest">Call next</button>
-      <button type="button" id="focus-mobile-log" class="w-full btn-pill border-2 border-brand-dark dark:border-white/25 bg-white dark:bg-slate-900 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Log &amp; next</button>
-      <button type="button" id="focus-mobile-skip" class="w-full btn-pill border-2 border-brand-border dark:border-white/15 bg-brand-cream/30 dark:bg-slate-800/50 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Skip</button>
+  <div id="focus-mobile-fab-wrap" class="focus-mobile-dock md:hidden hidden" aria-label="Cold call session controls">
+    <div id="focus-mobile-fab-actions" class="focus-mobile-dock-sheet hidden" role="menu">
+      <button type="button" id="focus-mobile-back" disabled class="focus-dock-btn border border-brand-border/60 dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800 text-brand-muted dark:text-slate-300" role="menuitem">Back</button>
+      <button type="button" id="focus-mobile-log" class="focus-dock-btn border border-brand-dark/25 dark:border-white/20 bg-white dark:bg-slate-900 text-brand-dark dark:text-white" role="menuitem">Log &amp; next</button>
+      <button type="button" id="focus-mobile-skip" class="focus-dock-btn border border-brand-border/60 dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800 text-brand-muted dark:text-slate-300" role="menuitem">Skip</button>
+      <button type="button" id="focus-mobile-email" class="focus-dock-btn border border-sky-500/50 bg-sky-500/15 text-sky-900 dark:text-sky-200" role="menuitem" title="Open email composer">eMail</button>
+      <button type="button" id="focus-mobile-dialer" class="focus-dock-btn border border-brand-yellow/50 bg-brand-yellow/20 text-brand-dark dark:text-brand-yellow col-span-2" role="menuitem" title="Open AdHello softphone">Open dialer</button>
     </div>
-    <button type="button" id="focus-mobile-fab-toggle" class="w-14 h-14 rounded-full bg-brand-yellow text-brand-dark shadow-xl border border-amber-400/40 inline-flex items-center justify-center" aria-label="Open quick actions" aria-expanded="false" aria-controls="focus-mobile-fab-actions">
-      <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"/></svg>
-    </button>
+    <div class="focus-mobile-dock-bar">
+      <button type="button" id="focus-mobile-call" class="focus-dock-btn focus-dock-btn--call" title="Call this lead now">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+        <span>Call</span>
+      </button>
+      <button type="button" id="focus-mobile-sms" class="focus-dock-btn focus-dock-btn--sms" title="Open SMS composer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h8M8 14h5M21 12a8 8 0 01-8 8H7l-4 3V12a8 8 0 1118 0z"/></svg>
+        <span>SMS</span>
+      </button>
+      <button type="button" id="focus-mobile-call-next" class="focus-dock-btn focus-dock-btn--next" title="Log, advance, and dial the next lead">
+        <span>Call next</span>
+      </button>
+      <button type="button" id="focus-mobile-fab-toggle" class="focus-dock-btn focus-dock-btn--more" aria-label="More session actions" aria-expanded="false" aria-controls="focus-mobile-fab-actions" title="More">
+        <svg class="focus-dock-more-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+      </button>
+    </div>
   </div>
 
   <div id="focus-modal-help" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-brand-dark/50 dark:bg-black/60" role="dialog" aria-modal="true" aria-labelledby="focus-help-title">
@@ -723,6 +878,7 @@
     var btnMobileCall = document.getElementById('focus-mobile-call');
     var btnMobileSms = document.getElementById('focus-mobile-sms');
     var btnMobileEmail = document.getElementById('focus-mobile-email');
+    var btnMobileDialer = document.getElementById('focus-mobile-dialer');
     var btnImproveText = document.getElementById('focus-improve-text');
     var elSmsComposeSection = document.getElementById('focus-sms-compose-section');
     var elSmsComposeInput = document.getElementById('focus-sms-compose-input');
@@ -1016,9 +1172,13 @@
         btnCallNext.classList.toggle('hidden', !hasPhone || currentChannel !== 'call-script');
       }
       if (elMobileFabWrap) {
-        var showFab = isMobileViewport() && hasPhone;
+        var showFab = isMobileViewport() && !!lead;
         elMobileFabWrap.classList.toggle('hidden', !showFab);
         if (!showFab) closeMobileFabActions();
+        if (btnMobileCall) btnMobileCall.disabled = !hasPhone;
+        if (btnMobileCallNext) btnMobileCallNext.disabled = !hasPhone;
+        if (btnMobileDialer) btnMobileDialer.disabled = !hasPhone;
+        if (btnMobileSms) btnMobileSms.disabled = !hasPhone;
       }
     }
 
@@ -4892,6 +5052,13 @@
         openFocusEmailComposer();
       });
     }
+    if (btnMobileDialer) {
+      btnMobileDialer.addEventListener('click', function () {
+        closeMobileFabActions();
+        if (btnOpenDialer) btnOpenDialer.click();
+        else openDialerForLead();
+      });
+    }
     if (btnMobileCallNext) {
       btnMobileCallNext.addEventListener('click', function () {
         closeMobileFabActions();
@@ -5487,6 +5654,7 @@
     refreshMetrics();
   })();
   </script>
+  <% locals.ceoChatFloatIncluded = true; /* Focus uses the cold-call dock — hide Pavlex chat FAB */ %>
   <%- include('/partials/app_shell_close') %>
 </body>
 </html>
