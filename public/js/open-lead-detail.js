@@ -127,6 +127,7 @@
       return { ok: false };
     }
 
+    var gen = (global.__adhelloOpenLeadGen = (global.__adhelloOpenLeadGen || 0) + 1);
     openPanelShell();
 
     try {
@@ -137,6 +138,7 @@
       var data = await res.json().catch(function () {
         return {};
       });
+      if (gen !== global.__adhelloOpenLeadGen) return { ok: false, stale: true };
       if (!res.ok || !data.success || !data.lead) {
         reportError((data && data.error) || 'Could not load that company.');
         return { ok: false };
@@ -144,20 +146,24 @@
 
       paintHost(host, data.lead);
       host.classList.add('selected');
+      if (gen !== global.__adhelloOpenLeadGen) return { ok: false, stale: true };
 
       // Prefer full app.js path once ready
       if (typeof global.__selectLeadPanelRow === 'function') {
         try {
           await global.__selectLeadPanelRow(host);
+          if (gen !== global.__adhelloOpenLeadGen) return { ok: false, stale: true };
           return { ok: true };
         } catch (err) {
           console.warn('[openLeadDetailFromKey] selectRow failed, using fallback paint:', err);
         }
       }
 
+      if (gen !== global.__adhelloOpenLeadGen) return { ok: false, stale: true };
       populateWhenReady(host, data.lead, 0);
       return { ok: true };
     } catch (err) {
+      if (gen !== global.__adhelloOpenLeadGen) return { ok: false, stale: true };
       reportError((err && err.message) || 'Could not open that company.');
       return { ok: false };
     }

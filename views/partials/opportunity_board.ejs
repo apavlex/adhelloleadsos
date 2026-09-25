@@ -141,9 +141,10 @@
   html.dark .opp-stage-cards::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.22); }
   .opp-drop { flex: 1 1 auto; min-height: 6.5rem; display: flex; align-items: center; justify-content: center; border: 1px dashed rgba(17, 24, 39, 0.14); border-radius: 0.7rem; color: #9ca3af; font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; text-align: center; }
   html.dark .opp-drop { border-color: rgba(255, 255, 255, 0.14); }
-  .opp-card { position: relative; flex: 0 0 auto; width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; overflow: hidden; background: #fff; border: 1px solid rgba(17, 24, 39, 0.08); border-radius: 0.8rem; padding: 0.65rem 0.7rem; cursor: grab; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
+  .opp-card { position: relative; flex: 0 0 auto; width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; overflow: hidden; background: #fff; border: 1px solid rgba(17, 24, 39, 0.08); border-radius: 0.8rem; padding: 0.65rem 0.7rem; cursor: pointer; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
   html.dark .opp-card { background: #0f172a; border-color: rgba(255, 255, 255, 0.1); }
-  .opp-card.sortable-ghost { opacity: 0.45; }
+  .opp-card.sortable-ghost { opacity: 0.45; cursor: grabbing; }
+  .opp-card.sortable-fallback { cursor: grabbing; }
   .opp-card-head { display: flex; align-items: flex-start; gap: 0.35rem; min-width: 0; }
   .opp-card-title { display: block; flex: 1 1 auto; width: auto; min-width: 0; border: 0; background: transparent; padding: 0; text-align: left; font-weight: 800; font-size: 0.8125rem; line-height: 1.3; color: inherit; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
   .opp-card-title:hover { color: var(--brand-yellow, #ca8a04); }
@@ -450,9 +451,9 @@
         <div class="opp-stage-cards<%= stage.cards.length ? '' : ' is-empty' %>" data-stage-id="<%= stage.id %>">
           <% if (!stage.cards.length) { %><div class="opp-drop">Drop here</div><% } %>
           <% stage.cards.forEach(function (card) { %>
-          <article class="opp-card" data-lead-key="<%= card.key %>" data-value="<%= card.value %>">
+          <article class="opp-card" data-lead-key="<%= card.key %>" data-title="<%= card.title %>" data-value="<%= card.value %>">
             <div class="opp-card-head">
-              <button type="button" class="opp-card-title" data-opp-action="profile" data-lead-key="<%= card.key %>" title="<%= card.title %>"><%= card.title %></button>
+              <button type="button" class="opp-card-title" data-opp-action="profile" data-lead-key="<%= card.key %>" data-title="<%= card.title %>" title="<%= card.title %>"><%= card.title %></button>
               <% if (card.city) { %>
               <span class="opp-card-pin" title="<%= card.city %>" aria-label="<%= card.city %>">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21s7-5.4 7-11a7 7 0 1 0-14 0c0 5.6 7 11 7 11z"/><circle cx="12" cy="10" r="2.25"/></svg>
@@ -591,11 +592,87 @@
   }
 
   function leadKey(action) {
+    if (!action) return '';
+    var card = action.closest ? action.closest('.opp-card') : null;
+    var fromCard = card && card.getAttribute('data-lead-key');
+    if (fromCard) return fromCard;
     return action.getAttribute('data-lead-key') || '';
   }
 
   function leadTitle(action) {
-    return action.getAttribute('data-title') || 'this opportunity';
+    if (!action) return 'this opportunity';
+    var fromAction = action.getAttribute('data-title');
+    if (fromAction) return fromAction;
+    var card = action.closest ? action.closest('.opp-card') : null;
+    var fromCard = card && card.getAttribute('data-title');
+    if (fromCard) return fromCard;
+    return 'this opportunity';
+  }
+
+  function openProfileByKey(profileKey) {
+    var key = String(profileKey || '').trim();
+    if (!key) {
+      status('Could not open that company.', false);
+      return;
+    }
+    closePop();
+    var opener =
+      typeof window.openLeadDetailFromKey === 'function'
+        ? window.openLeadDetailFromKey
+        : typeof window.__adhelloOpenLeadDetailFromKeyLite === 'function'
+          ? window.__adhelloOpenLeadDetailFromKeyLite
+          : null;
+    if (!opener) {
+      status('Could not open that company. Refresh the page and try again.', false);
+      return;
+    }
+    status('Opening company…', true);
+    Promise.resolve(opener(key)).then(function (result) {
+      if (result && result.ok === false) return;
+      var msg = document.getElementById('oppBoardMsg');
+      if (msg && msg.textContent === 'Opening company…') msg.classList.add('hidden');
+    }).catch(function () {
+      status('Could not open that company.', false);
+    });
+  }
+
+  function resolvePressTarget(ev) {
+    if (ev.button != null && ev.button !== 0) return null;
+    var card = ev.target.closest('.opp-card');
+    var tools = ev.target.closest('.opp-card-tools');
+    var action = ev.target.closest('[data-opp-action]');
+    if (tools) {
+      if (!action || !card) return null;
+      return {
+        x: ev.clientX,
+        y: ev.clientY,
+        action: action,
+        kind: action.getAttribute('data-opp-action') || '',
+        leadKey: card.getAttribute('data-lead-key') || action.getAttribute('data-lead-key') || '',
+      };
+    }
+    if (action) {
+      return {
+        x: ev.clientX,
+        y: ev.clientY,
+        action: action,
+        kind: action.getAttribute('data-opp-action') || '',
+        leadKey:
+          (card && card.getAttribute('data-lead-key')) ||
+          action.getAttribute('data-lead-key') ||
+          '',
+      };
+    }
+    if (card) {
+      return {
+        x: ev.clientX,
+        y: ev.clientY,
+        action: null,
+        kind: 'profile',
+        leadKey: card.getAttribute('data-lead-key') || '',
+      };
+    }
+    return null;
   }
 
   function openComposer(kind, action) {
@@ -916,30 +993,7 @@
   function run(action) {
     var kind = action.getAttribute('data-opp-action');
     if (kind === 'profile') {
-      closePop();
-      var profileKey = leadKey(action);
-      if (!profileKey) {
-        status('Could not open that company.', false);
-        return;
-      }
-      var opener =
-        typeof window.openLeadDetailFromKey === 'function'
-          ? window.openLeadDetailFromKey
-          : typeof window.__adhelloOpenLeadDetailFromKeyLite === 'function'
-            ? window.__adhelloOpenLeadDetailFromKeyLite
-            : null;
-      if (!opener) {
-        status('Could not open that company. Refresh the page and try again.', false);
-        return;
-      }
-      status('Opening company…', true);
-      Promise.resolve(opener(profileKey)).then(function (result) {
-        if (result && result.ok === false) return;
-        var msg = document.getElementById('oppBoardMsg');
-        if (msg && msg.textContent === 'Opening company…') msg.classList.add('hidden');
-      }).catch(function () {
-        status('Could not open that company.', false);
-      });
+      openProfileByKey(leadKey(action));
       return;
     }
     if (kind === 'sms' || kind === 'email') {
@@ -1039,19 +1093,26 @@
   }
 
   board.addEventListener('pointerdown', function (ev) {
-    var action = ev.target.closest('[data-opp-action]');
-    press = action ? { x: ev.clientX, y: ev.clientY, action: action } : null;
+    press = resolvePressTarget(ev);
   }, true);
 
   board.addEventListener('pointerup', function (ev) {
-    var action = ev.target.closest('[data-opp-action]');
-    if (!action || !press || press.action !== action) return;
-    var moved = Math.abs(ev.clientX - press.x) > 6 || Math.abs(ev.clientY - press.y) > 6;
+    if (!press) return;
+    var moved = Math.abs(ev.clientX - press.x) > 8 || Math.abs(ev.clientY - press.y) > 8;
+    var snapshot = press;
     press = null;
     if (moved) return;
+    // Use the lead key captured on press — not whatever is under the cursor on release
+    // (scroll containers / Sortable can shift hit-testing by one card).
     ev.preventDefault();
     ev.stopPropagation();
-    run(action);
+    if (snapshot.kind === 'profile') {
+      openProfileByKey(snapshot.leadKey);
+      return;
+    }
+    if (!snapshot.action) return;
+    if (snapshot.leadKey) snapshot.action.setAttribute('data-lead-key', snapshot.leadKey);
+    run(snapshot.action);
   }, true);
 
   document.addEventListener('pointerdown', function (ev) {

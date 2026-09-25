@@ -5386,6 +5386,11 @@ document.addEventListener('DOMContentLoaded', () => {
       .replace(/^lead:/i, '');
     if (!keyParam) return;
 
+    const rowKeyNorm = (el) =>
+      String((el && el.dataset && el.dataset.leadKey) || '')
+        .trim()
+        .replace(/^lead:/i, '');
+
     if (__panelDataHydrateInflight.has(keyParam)) {
       try {
         await __panelDataHydrateInflight.get(keyParam);
@@ -5393,6 +5398,8 @@ document.addEventListener('DOMContentLoaded', () => {
         /* sibling request failed */
       }
       const tableRow = resolvePipelineTableRowForPanel(row) || row;
+      // Shared host on Opportunities: skip if the open lead changed while we waited.
+      if (rowKeyNorm(tableRow) !== keyParam) return;
       if (currentRow === tableRow) {
         if (typeof paintLeadPanelFromRow === 'function') paintLeadPanelFromRow(tableRow);
         populatePanel(tableRow);
@@ -5410,6 +5417,9 @@ document.addEventListener('DOMContentLoaded', () => {
         throw new Error((data && data.error) || 'panel-data unavailable');
       }
       const tableRow = resolvePipelineTableRowForPanel(row) || row;
+      if (rowKeyNorm(tableRow) !== keyParam) {
+        return { lead: data.lead, skipped: true, needsBackgroundEnhance: !!data.needsBackgroundEnhance };
+      }
       syncPersistedLeadToRowDataset(tableRow, data.lead);
       prepareLeadRowForPanel(tableRow);
       if (typeof window.__paintPanelFromLeadRecord === 'function') {
@@ -5421,9 +5431,11 @@ document.addEventListener('DOMContentLoaded', () => {
     __panelDataHydrateInflight.set(keyParam, p);
     try {
       const panelResult = await p;
+      if (panelResult && panelResult.skipped) return;
       const leadRecord = panelResult.lead || panelResult;
       const needsBackgroundEnhance = !!panelResult.needsBackgroundEnhance;
       const tableRow = resolvePipelineTableRowForPanel(row) || row;
+      if (rowKeyNorm(tableRow) !== keyParam) return;
       if (currentRow === tableRow) {
         if (typeof window.__paintPanelFromLeadRecord === 'function') {
           window.__paintPanelFromLeadRecord(leadRecord, tableRow);
@@ -5438,6 +5450,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (err) {
       console.warn('[Lead panel] panel-data hydrate failed:', err);
       const tableRow = resolvePipelineTableRowForPanel(row) || row;
+      if (rowKeyNorm(tableRow) !== keyParam) return;
       if (syncRowFromInitialSavedLeads(tableRow) && currentRow === tableRow) {
         if (typeof paintLeadPanelFromRow === 'function') paintLeadPanelFromRow(tableRow);
         populatePanel(tableRow);
@@ -22751,12 +22764,14 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       return { ok: false };
     }
+    const gen = (window.__adhelloOpenLeadGen = (window.__adhelloOpenLeadGen || 0) + 1);
     try {
       const res = await fetch(`/leads/${encodeURIComponent(k)}/panel-data`, {
         credentials: 'same-origin',
         headers: { Accept: 'application/json' },
       });
       const data = await res.json().catch(() => ({}));
+      if (gen !== window.__adhelloOpenLeadGen) return { ok: false, stale: true };
       if (!data.success || !data.lead) {
         const err = (data && data.error) || 'Could not load that company.';
         const msg = document.getElementById('oppBoardMsg');
@@ -22767,10 +22782,13 @@ document.addEventListener('DOMContentLoaded', () => {
         return { ok: false, error: err };
       }
       applyLeadObjectToPanelHost(host, data.lead);
+      if (gen !== window.__adhelloOpenLeadGen) return { ok: false, stale: true };
       await selectRow(host);
+      if (gen !== window.__adhelloOpenLeadGen) return { ok: false, stale: true };
       return { ok: true };
     } catch (err) {
       console.error(err);
+      if (gen !== window.__adhelloOpenLeadGen) return { ok: false, stale: true };
       if (typeof window.__adhelloOpenLeadDetailFromKeyLite === 'function') {
         return window.__adhelloOpenLeadDetailFromKeyLite(rawKey);
       }

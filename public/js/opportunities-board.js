@@ -86,6 +86,13 @@
         group: 'opportunities',
         animation: 150,
         draggable: '.opp-card',
+        // Delay so a normal click opens the card instead of starting a drag (avoids
+        // off-by-one opens when Sortable remaps pointer targets in tall scroll columns).
+        delay: 160,
+        delayOnTouchOnly: false,
+        touchStartThreshold: 5,
+        forceFallback: true,
+        fallbackOnBody: true,
         filter: '.opp-card-tools, .opp-card-tools *, .opp-card-title, .opp-pop, .opp-pop *',
         preventOnFilter: false,
         ghostClass: 'sortable-ghost',
