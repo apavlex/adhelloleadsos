@@ -50,6 +50,7 @@
     position: fixed;
     z-index: 10060;
     width: min(18rem, calc(100vw - 1.5rem));
+    min-width: 16rem;
     padding: 0;
     margin: 0;
     color: #111827;
@@ -59,9 +60,10 @@
     background: #ffffff !important;
     background-color: #ffffff !important;
     opacity: 1 !important;
+    visibility: visible !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
-    overflow: hidden;
+    overflow: visible;
   }
   .opp-pop::before {
     content: '';
@@ -79,6 +81,8 @@
     padding: 0.85rem;
     background: #ffffff !important;
     background-color: #ffffff !important;
+    color: #111827 !important;
+    min-height: 12rem;
   }
   html.dark .opp-pop,
   html.dark .opp-pop::before,
@@ -268,8 +272,12 @@
     var shadow = '0 18px 44px rgba(15, 23, 42, 0.28)';
     [
       ['position', 'fixed'],
+      ['display', 'block'],
+      ['visibility', 'visible'],
+      ['pointer-events', 'auto'],
       ['z-index', '10060'],
       ['width', 'min(18rem, calc(100vw - 1.5rem))'],
+      ['min-width', '16rem'],
       ['background', fill],
       ['background-color', fill],
       ['background-image', 'none'],
@@ -279,7 +287,10 @@
       ['-webkit-backdrop-filter', 'none'],
       ['isolation', 'isolate'],
       ['box-shadow', shadow],
-      ['overflow', 'hidden'],
+      ['overflow', 'visible'],
+      ['transform', 'none'],
+      ['clip-path', 'none'],
+      ['filter', 'none'],
       ['padding', '0'],
     ].forEach(function (pair) {
       pop.style.setProperty(pair[0], pair[1], 'important');
@@ -291,20 +302,24 @@
       node.style.setProperty('background', fill, 'important');
       node.style.setProperty('background-color', fill, 'important');
       node.style.setProperty('background-image', 'none', 'important');
+      node.style.setProperty('color', ink, 'important');
+      node.style.setProperty('visibility', 'visible', 'important');
+      node.style.setProperty('opacity', '1', 'important');
     });
   }
 
   function placePop(anchor) {
-    if (!pop) return;
+    if (!pop || !anchor) return;
+    paintOppPopSurface();
     var rect = anchor.getBoundingClientRect();
-    var width = pop.offsetWidth || 280;
+    var width = Math.max(pop.offsetWidth || 280, 256);
+    var height = pop.offsetHeight || 280;
     var left = Math.min(rect.left, window.innerWidth - width - 12);
     if (left < 8) left = 8;
     var top = rect.bottom + 8;
-    if (top + pop.offsetHeight > window.innerHeight - 8) top = Math.max(8, rect.top - pop.offsetHeight - 8);
-    pop.style.left = left + 'px';
-    pop.style.top = top + 'px';
-    paintOppPopSurface();
+    if (top + height > window.innerHeight - 8) top = Math.max(8, rect.top - height - 8);
+    pop.style.setProperty('left', left + 'px', 'important');
+    pop.style.setProperty('top', top + 'px', 'important');
   }
 
   function openPop(anchor) {
@@ -357,6 +372,9 @@
     box.innerHTML = '<h4>Add a tag</h4><div class="opp-pop-tags">Loading tags…</div><form class="opp-pop-row"><input type="text" name="name" placeholder="New tag" maxlength="40" /><button type="submit" class="opp-pop-add">Add</button></form>';
     paintOppPopSurface();
     placePop(action);
+    requestAnimationFrame(function () {
+      placePop(action);
+    });
     var list = box.querySelector('.opp-pop-tags');
     function paint(tags) {
       list.textContent = '';
@@ -517,6 +535,9 @@
     });
     render();
     placePop(action);
+    requestAnimationFrame(function () {
+      placePop(action);
+    });
   }
 
   function syncGhl(action) {
