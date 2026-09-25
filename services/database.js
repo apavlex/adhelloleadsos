@@ -38,10 +38,10 @@ if (!fs.existsSync(DB_DIR)) {
 }
 const DB_PATH = path.join(DB_DIR, 'app.db');
 
-/** Short-lived workspace lead list cache — cuts repeat getAllLeads on Today → Focus/Pipeline. */
+/** Workspace lead list cache — warms after Today / first nav so sidebar hops stay fast. */
 const LEADS_LIST_CACHE_TTL_MS = Math.max(
   1000,
-  parseInt(process.env.LEADS_LIST_CACHE_TTL_MS || '12000', 10) || 12000,
+  parseInt(process.env.LEADS_LIST_CACHE_TTL_MS || '90000', 10) || 90000,
 );
 const _leadsListCache = new Map();
 
@@ -518,17 +518,13 @@ module.exports = {
       return cached.leads.slice();
     }
     const normLeadW = (lw) => this._normalizeLeadWorkspaceId(lw);
-    const keys = kvList('lead:');
-    keys.sort((a, b) => {
-      const tsA = parseInt(String(a.split(':')[1] || ''), 10);
-      const tsB = parseInt(String(b.split(':')[1] || ''), 10);
-      return (Number.isFinite(tsB) ? tsB : 0) - (Number.isFinite(tsA) ? tsA : 0);
-    });
-    const valueMap = kvGetMany(keys);
+    // Single LIKE scan for key+value (avoids list-keys then chunked IN fetches).
+    const rows = sqlite.prepare("SELECT key, value FROM kv WHERE key LIKE 'lead:%'").all();
     const leads = [];
-    for (const key of keys) {
-      const raw = valueMap.get(key);
-      if (!raw) continue;
+    for (const row of rows) {
+      const key = row && row.key;
+      const raw = row && row.value;
+      if (!key || raw == null) continue;
       let parsed;
       try {
         parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
@@ -539,6 +535,11 @@ module.exports = {
       if (normLeadW(parsed.workspaceId) !== wid) continue;
       leads.push({ ...parsed, key, workspaceId: wid });
     }
+    leads.sort((a, b) => {
+      const tsA = parseInt(String(String(a.key || '').split(':')[1] || ''), 10);
+      const tsB = parseInt(String(String(b.key || '').split(':')[1] || ''), 10);
+      return (Number.isFinite(tsB) ? tsB : 0) - (Number.isFinite(tsA) ? tsA : 0);
+    });
     _leadsListCache.set(wid, { at: Date.now(), leads });
     return leads.slice();
   },

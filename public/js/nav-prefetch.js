@@ -50,10 +50,20 @@
   // Idle-warm common destinations from Today and the shell.
   function idleWarmDefaults() {
     var path = window.location.pathname || '';
-    if (path === '/today' || path.indexOf('/today') === 0) {
-      warm('/focus');
-      warm('/prospecting?tab=pipeline');
-    }
+    var common = [
+      '/today',
+      '/opportunities',
+      '/focus',
+      '/prospecting?tab=pipeline',
+      '/tasks',
+      '/engagement',
+      '/activity',
+      '/referrals',
+    ];
+    common.forEach(function (url) {
+      if (path === url || (url.indexOf('?') === -1 && path.indexOf(url) === 0)) return;
+      warm(url);
+    });
   }
 
   if ('requestIdleCallback' in window) {

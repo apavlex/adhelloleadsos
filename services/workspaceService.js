@@ -70,9 +70,10 @@ async function ensureWorkspaceAndMember(workspaceId, userEmailRaw) {
     else role = 'viewer';
     w.members = { ...(w.members || {}), [em]: { role, joinedAt: new Date().toISOString(), userId: em } };
     await dbService.saveWorkspace(id, w);
+    return dbService.getWorkspace(id);
   }
 
-  return dbService.getWorkspace(id);
+  return w;
 }
 
 function roleForEmail(workspace, email) {

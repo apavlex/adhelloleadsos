@@ -9,6 +9,16 @@ const { resolveScriptSignOffProfile } = require('../services/scriptPlaceholders'
 const { resolveAccentTextColor } = require('../lib/workspaceAccent');
 const { normalizeCustomMenuLinks } = require('../services/customMenuLinks');
 
+/** In-process cache for sidebar workspace switcher (avoids N getWorkspace calls per nav). */
+const SWITCHER_TTL_MS = 60_000;
+const _switcherCache = new Map();
+
+function switcherCacheKey(email) {
+  return String(email || '')
+    .trim()
+    .toLowerCase();
+}
+
 /**
  * After auth: bootstrap workspaces, resolve active workspace (?ws= slug → session → user prefs → first),
  * attach req.workspace / req.workspaceId, res.locals for nav + accent.
@@ -30,7 +40,7 @@ async function withWorkspace(req, res, next) {
 
     if (isApiKeyAuth && !email) {
       const wid = 'default';
-      let ws = await dbService.getWorkspace(wid) || { id: wid, name: 'Default', slug: 'default' };
+      let ws = (await dbService.getWorkspace(wid)) || { id: wid, name: 'Default', slug: 'default' };
       req.workspace = ws;
       req.workspaceId = ws.id;
       res.locals.workspace = ws;
@@ -43,18 +53,18 @@ async function withWorkspace(req, res, next) {
       return next();
     }
 
-    await workspaceBootstrap.ensureUserHasWorkspaces(email);
+    // ensureUserHasWorkspaces can scan all leads (agency prune) — once per session is enough.
+    if (!(req.session && req.session._wsBootstrapped)) {
+      await workspaceBootstrap.ensureUserHasWorkspaces(email);
+      if (req.session) req.session._wsBootstrapped = 1;
+    }
 
     let wid = null;
-    const slugQ =
-      req.query && req.query.ws ? String(req.query.ws).trim().toLowerCase() : '';
+    const slugQ = req.query && req.query.ws ? String(req.query.ws).trim().toLowerCase() : '';
     if (slugQ) {
       const bySlug = await dbService.getWorkspaceIdForSlug(slugQ);
       const wsSlug = bySlug ? await dbService.getWorkspace(bySlug) : null;
-      if (
-        !wsSlug ||
-        !workspaceBootstrap.userCanAccessWorkspace(wsSlug, email)
-      ) {
+      if (!wsSlug || !workspaceBootstrap.userCanAccessWorkspace(wsSlug, email)) {
         if (wantsJsonResponse(req)) {
           return res.status(404).json({ success: false, error: 'Workspace not found.' });
         }
@@ -129,12 +139,16 @@ async function withWorkspace(req, res, next) {
       });
     }
 
-    await workspaceService.ensureWorkspaceAndMember(ws.id, email);
+    ws = (await workspaceService.ensureWorkspaceAndMember(ws.id, email)) || ws;
 
     if (!telephonyFastPath) {
-      await workspaceScriptBootstrap.ensureWorkspaceScriptsSeeded(ws.id);
-      const refreshed = await dbService.getWorkspace(ws.id);
-      ws = refreshed || ws;
+      const needsScriptSeed =
+        !workspaceScriptBootstrap.workspaceScriptsAlreadySeeded(ws) ||
+        workspaceScriptBootstrap.shouldRepairAgencyCatalogLeak(ws);
+      if (needsScriptSeed) {
+        const refreshed = await workspaceScriptBootstrap.ensureWorkspaceScriptsSeeded(ws.id);
+        ws = refreshed || ws;
+      }
     }
 
     req.workspace = ws;
@@ -149,16 +163,23 @@ async function withWorkspace(req, res, next) {
 
     let summaries = [];
     if (!telephonyFastPath) {
-      const allIds = await workspaceBootstrap.collectWorkspaceIdsForEmail(email);
-      for (const id of allIds) {
-        const w = await dbService.getWorkspace(id);
-        if (!w || w.archivedAt) continue;
-        summaries.push({
-          id: w.id,
-          name: w.name || 'Workspace',
-          slug: w.slug || '',
-          accentColor: w.accentColor || '#CA8A04',
-        });
+      const sk = switcherCacheKey(email);
+      const hit = sk && _switcherCache.get(sk);
+      if (hit && Date.now() - hit.at < SWITCHER_TTL_MS) {
+        summaries = hit.summaries;
+      } else {
+        const allIds = await workspaceBootstrap.collectWorkspaceIdsForEmail(email);
+        const docs = await Promise.all(allIds.map((id) => dbService.getWorkspace(id)));
+        for (const w of docs) {
+          if (!w || w.archivedAt) continue;
+          summaries.push({
+            id: w.id,
+            name: w.name || 'Workspace',
+            slug: w.slug || '',
+            accentColor: w.accentColor || '#CA8A04',
+          });
+        }
+        if (sk) _switcherCache.set(sk, { at: Date.now(), summaries });
       }
     }
 

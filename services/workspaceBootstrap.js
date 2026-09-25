@@ -103,10 +103,17 @@ function isAdhelloAgencyWorkspace(ws) {
 /**
  * Remove empty duplicate "Adhello Agency" shells created when logging in with @adhello.io
  * while the real Agency workspace (with leads) already existed under @adhello.ai.
+ *
+ * Runs at most once per email per process — calling getAllLeads here on every request
+ * made every sidebar navigation take 10–15s+ with large lead DBs.
  */
+const _agencyPruneDone = new Set();
+
 async function pruneEmptyDuplicateAgencyWorkspaces(ownerEmail) {
   const em = normEmail(ownerEmail);
   if (!em) return { kept: null, removed: [] };
+  if (_agencyPruneDone.has(em)) return { kept: null, removed: [] };
+  _agencyPruneDone.add(em);
   const aliases = emailAliases(em);
   const ids = await collectWorkspaceIdsForEmail(em);
   if (ids.length < 2) return { kept: null, removed: [] };
