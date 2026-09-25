@@ -2818,6 +2818,109 @@
     if (toolbarPrev) toolbarPrev.classList.toggle('hidden', !hasImage);
   }
 
+  function extFromMime(mime) {
+    var m = String(mime || '').toLowerCase();
+    if (m.indexOf('png') >= 0) return 'png';
+    if (m.indexOf('webp') >= 0) return 'webp';
+    if (m.indexOf('gif') >= 0) return 'gif';
+    return 'jpg';
+  }
+
+  function looksLikeImageBytes(bytes) {
+    if (!bytes || bytes.length < 12) return false;
+    // JPEG
+    if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return true;
+    // PNG
+    if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return true;
+    // GIF
+    if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) return true;
+    // WEBP
+    if (
+      bytes[0] === 0x52 &&
+      bytes[1] === 0x49 &&
+      bytes[2] === 0x46 &&
+      bytes[3] === 0x46 &&
+      bytes[8] === 0x57 &&
+      bytes[9] === 0x45 &&
+      bytes[10] === 0x42 &&
+      bytes[11] === 0x50
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  async function assertImageBlob(blob) {
+    if (!blob || !blob.size) throw new Error('Download was empty.');
+    var buf = await blob.arrayBuffer();
+    var bytes = new Uint8Array(buf);
+    if (!looksLikeImageBytes(bytes)) {
+      var head = '';
+      try {
+        head = new TextDecoder().decode(bytes.slice(0, 48));
+      } catch (_) {}
+      if (/^\s*<(!doctype|html)|^\s*\{/i.test(head)) {
+        throw new Error('Download saved a web page instead of an image. Generate again, then retry.');
+      }
+      throw new Error('Downloaded file is not a valid image. Generate again, then retry.');
+    }
+    var mime = 'image/jpeg';
+    if (bytes[0] === 0x89) mime = 'image/png';
+    else if (bytes[0] === 0x47) mime = 'image/gif';
+    else if (bytes[0] === 0x52) mime = 'image/webp';
+    return new Blob([buf], { type: mime });
+  }
+
+  function triggerBlobDownload(blob, side, mime) {
+    var ext = extFromMime(mime || blob.type);
+    var blobUrl = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = blobUrl;
+    a.download =
+      'AdHello_' +
+      currentPlatformKey() +
+      '_' +
+      side +
+      '_' +
+      new Date().toISOString().slice(0, 10) +
+      '.' +
+      ext;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () {
+      try {
+        URL.revokeObjectURL(blobUrl);
+      } catch (_) {}
+    }, 4000);
+  }
+
+  async function exportArtboardImageBlob(slot) {
+    var side = slot === 'back' ? 'back' : 'front';
+    var host = document.getElementById(side === 'back' ? 'dmPreviewBackBtn' : 'dmPreviewFrontBtn');
+    var img = host && host.querySelector ? host.querySelector('img') : null;
+    if (img && img.complete && img.naturalWidth) {
+      try {
+        var c = document.createElement('canvas');
+        c.width = img.naturalWidth;
+        c.height = img.naturalHeight;
+        c.getContext('2d').drawImage(img, 0, 0);
+        var fromCanvas = await new Promise(function (resolve) {
+          c.toBlob(function (b) {
+            resolve(b || null);
+          }, 'image/jpeg', 0.95);
+        });
+        if (fromCanvas && fromCanvas.size) return fromCanvas;
+      } catch (_) {
+        /* tainted canvas — fall through */
+      }
+    }
+    var url = designs[side] || previewUrlForSlot(side);
+    if (!url || /^data:/.test(url)) return null;
+    return downloadGeneratedImageBlob(url);
+  }
+
   async function downloadDesignToComputer(slot, imageUrl) {
     var side = slot === 'back' ? 'back' : 'front';
     var url = imageUrl || designs[side] || previewUrlForSlot(side);
@@ -2830,53 +2933,45 @@
     }
     setExportStatus('Preparing download…', true);
     try {
-      var res = await fetch('/direct-mail/api/download-image', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/octet-stream, application/json' },
-        body: JSON.stringify({
-          imageUrl: url,
-          slot: side,
-          platform: currentPlatformKey(),
-        }),
-      });
-      var contentType = String(res.headers.get('content-type') || '');
-      if (!res.ok) {
-        var errJson = {};
-        if (/json/i.test(contentType)) {
-          errJson = await res.json().catch(function () {
-            return {};
-          });
-        } else {
-          var errText = await res.text().catch(function () {
-            return '';
-          });
-          errJson = { error: errText.slice(0, 180) || 'Download failed.' };
-        }
-        throw new Error((errJson && errJson.error) || 'Download failed (' + res.status + ').');
+      var blob = null;
+      // Prefer the image already on the canvas — more reliable than server re-fetch of CDN URLs.
+      try {
+        blob = await exportArtboardImageBlob(side);
+      } catch (_) {
+        blob = null;
       }
-      var blob = await res.blob();
-      if (!blob || !blob.size) throw new Error('Download was empty.');
-      var blobUrl = URL.createObjectURL(blob);
-      var a = document.createElement('a');
-      a.href = blobUrl;
-      a.download =
-        'AdHello_' +
-        currentPlatformKey() +
-        '_' +
-        side +
-        '_' +
-        new Date().toISOString().slice(0, 10) +
-        '.jpg';
-      a.rel = 'noopener';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(function () {
-        try {
-          URL.revokeObjectURL(blobUrl);
-        } catch (_) {}
-      }, 4000);
+
+      if (!blob || !blob.size) {
+        var res = await fetch('/direct-mail/api/download-image', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/octet-stream, application/json' },
+          body: JSON.stringify({
+            imageUrl: url,
+            slot: side,
+            platform: currentPlatformKey(),
+          }),
+        });
+        var contentType = String(res.headers.get('content-type') || '');
+        if (!res.ok || /json/i.test(contentType)) {
+          var errJson = {};
+          if (/json/i.test(contentType)) {
+            errJson = await res.json().catch(function () {
+              return {};
+            });
+          } else {
+            var errText = await res.text().catch(function () {
+              return '';
+            });
+            errJson = { error: errText.slice(0, 180) || 'Download failed.' };
+          }
+          throw new Error((errJson && errJson.error) || 'Download failed (' + res.status + ').');
+        }
+        blob = await res.blob();
+      }
+
+      blob = await assertImageBlob(blob);
+      triggerBlobDownload(blob, side, blob.type);
       setExportStatus('Download started.', true);
       if (typeof window.showAppToast === 'function') {
         window.showAppToast('Design downloaded', { variant: 'success' });

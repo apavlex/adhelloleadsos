@@ -307,6 +307,36 @@ function marketingDesignFileName(platform, slot, ext) {
   return safeImageFileName(`AdHello_${plat}_${side}_${Date.now()}.${suffix}`);
 }
 
+function detectImageKind(buffer) {
+  if (!buffer || buffer.length < 12) return null;
+  // JPEG
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return { ext: 'jpg', contentType: 'image/jpeg' };
+  }
+  // PNG
+  if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
+    return { ext: 'png', contentType: 'image/png' };
+  }
+  // GIF
+  if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) {
+    return { ext: 'gif', contentType: 'image/gif' };
+  }
+  // WEBP (RIFF....WEBP)
+  if (
+    buffer[0] === 0x52 &&
+    buffer[1] === 0x49 &&
+    buffer[2] === 0x46 &&
+    buffer[3] === 0x46 &&
+    buffer[8] === 0x57 &&
+    buffer[9] === 0x45 &&
+    buffer[10] === 0x42 &&
+    buffer[11] === 0x50
+  ) {
+    return { ext: 'webp', contentType: 'image/webp' };
+  }
+  return null;
+}
+
 async function fetchRemoteImageBuffer(imageUrl) {
   const raw = String(imageUrl || '').trim();
   if (!raw) throw new Error('A valid image URL is required.');
@@ -319,7 +349,7 @@ async function fetchRemoteImageBuffer(imageUrl) {
   } catch (_) {
     pathname = '';
   }
-  if (pathname.startsWith('/uploads/')) {
+  if (pathname.startsWith('/uploads/') || pathname.startsWith('/direct-mail/')) {
     const absPath = path.join(process.cwd(), 'public', pathname.replace(/^\/+/, ''));
     const publicRoot = path.join(process.cwd(), 'public');
     const resolved = path.resolve(absPath);
@@ -329,35 +359,49 @@ async function fetchRemoteImageBuffer(imageUrl) {
     try {
       const buffer = await fs.readFile(resolved);
       if (!buffer || !buffer.length) throw new Error('Image file was empty.');
-      const ext = path.extname(resolved).replace('.', '').toLowerCase() || 'jpg';
-      const contentType =
-        ext === 'png'
-          ? 'image/png'
-          : ext === 'webp'
-            ? 'image/webp'
-            : ext === 'gif'
-              ? 'image/gif'
-              : 'image/jpeg';
-      return { buffer, contentType, ext: ext === 'jpeg' ? 'jpg' : ext };
+      const kind = detectImageKind(buffer);
+      if (!kind) throw new Error('Saved file is not a valid image.');
+      return { buffer, contentType: kind.contentType, ext: kind.ext };
     } catch (e) {
-      if (e && e.message === 'Invalid image path.') throw e;
+      if (e && (e.message === 'Invalid image path.' || e.message === 'Saved file is not a valid image.')) {
+        throw e;
+      }
       // Fall through to HTTP fetch if the file is not on this host.
     }
   }
 
-  const url = /^https?:\/\//i.test(raw) ? raw : '';
-  if (!url) throw new Error('A valid image URL is required.');
-  const res = await fetch(url, { redirect: 'follow' });
-  if (!res.ok) {
-    throw new Error(`Could not fetch image (${res.status}).`);
+  const url = /^https?:\/\//i.test(raw)
+    ? raw
+    : raw.startsWith('/')
+      ? null
+      : '';
+  if (!url) {
+    // Relative path that wasn't on disk — build absolute from BASE_URL later via caller.
+    throw new Error('Could not read that image from disk. Generate again, then download.');
   }
-  const contentType = String(res.headers.get('content-type') || 'image/jpeg').split(';')[0].trim();
+  const res = await fetch(url, {
+    redirect: 'follow',
+    headers: { Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8' },
+  });
+  if (!res.ok) {
+    throw new Error(`Could not fetch image (${res.status}). The link may have expired — generate again.`);
+  }
+  const headerType = String(res.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+  if (headerType && !/^image\//.test(headerType) && headerType !== 'application/octet-stream') {
+    throw new Error('Download URL did not return an image (got ' + headerType + '). Generate again, then retry.');
+  }
   const ab = await res.arrayBuffer();
   if (!ab || !ab.byteLength) throw new Error('Image download was empty.');
-  let ext = 'jpg';
-  if (/png/i.test(contentType)) ext = 'png';
-  else if (/webp/i.test(contentType)) ext = 'webp';
-  return { buffer: Buffer.from(ab), contentType, ext };
+  const buffer = Buffer.from(ab);
+  const kind = detectImageKind(buffer);
+  if (!kind) {
+    const sniff = buffer.slice(0, 40).toString('utf8').replace(/\s+/g, ' ').trim();
+    if (/^<!doctype|^<html|^\s*\{/i.test(sniff)) {
+      throw new Error('Download returned a web page instead of an image. Generate again, then retry.');
+    }
+    throw new Error('Downloaded file is not a valid image. Generate again, then retry.');
+  }
+  return { buffer, contentType: kind.contentType, ext: kind.ext };
 }
 
 const logoUpload = multer({
