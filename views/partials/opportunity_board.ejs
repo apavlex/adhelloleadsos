@@ -101,6 +101,9 @@
   #oppBoard:not(.is-editing) .opp-actions { display: none !important; }
   #oppBoard.is-editing { outline: 2px solid rgba(250, 204, 21, 0.45); outline-offset: -2px; }
   #oppCancelEdit[hidden] { display: none !important; }
+  #oppBoard:not(.is-editing) #oppDeletePipeline {
+    display: none !important;
+  }
   #oppDeletePipeline:disabled {
     opacity: 0.45;
     cursor: not-allowed;
