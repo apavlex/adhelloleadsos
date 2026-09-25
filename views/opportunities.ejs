@@ -3,12 +3,12 @@
 <head>
   <%- include('partials/head') %>
 </head>
-<body class="bg-brand-bg min-h-screen text-brand-dark">
+<body class="opp-page bg-brand-bg text-brand-dark overflow-hidden">
   <%- include('partials/navbar') %>
-  <main class="max-wide px-6 py-8 md:py-12">
+  <main class="opp-page-main flex flex-col flex-1 min-h-0 w-full min-w-0 px-3 sm:px-4 md:px-5 py-3 md:py-4">
     <%- include('partials/opportunity_board') %>
   </main>
   <%- include('partials/opportunity_company_panel') %>
-  <%- include('partials/footer') %>
+  <%- include('/partials/app_shell_close') %>
 </body>
 </html>
