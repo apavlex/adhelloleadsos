@@ -21,7 +21,7 @@ const { resolveDialRetryPrefs } = require('../services/dialRetryPrefs');
 const { buildNextActionsQueue } = require('../services/nextActionsQueue');
 const { buildCallQueue } = require('../services/callQueue');
 const { filterBusinessPipelineLeads } = require('../services/leadListFilters');
-const { dedupeOpenLeadTasks, clearOpenAutomationTasks } = require('../services/userTasks');
+const { dedupeOpenLeadTasks, clearOpenAutomationTasks, filterManualUserTasks } = require('../services/userTasks');
 const { pauseActiveSequencesForWorkspace } = require('../services/sequenceEngine');
 const actionPlanTracker = require('../services/actionPlanTracker');
 const { buildOpportunityBoard, selectPipeline } = require('../services/opportunityBoards');
@@ -84,6 +84,40 @@ function followUpTasksNeedingAttention(tasksEnriched) {
     })
     .sort((a, b) => Date.parse(a.scheduledAt) - Date.parse(b.scheduledAt))
     .slice(0, 15);
+}
+
+/** Same set as /tasks “Due & overdue” — manual tasks only (not cadence / lead nextActionAt). */
+function manualTasksDueToday(tasksEnriched) {
+  const now = new Date();
+  const endToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime();
+  const nowMs = now.getTime();
+  return filterManualUserTasks(tasksEnriched)
+    .filter((t) => {
+      if (!t || t.column === 'done' || !t.scheduledAt) return false;
+      const ts = Date.parse(t.scheduledAt);
+      return Number.isFinite(ts) && ts < endToday;
+    })
+    .map((t) => {
+      const ts = Date.parse(t.scheduledAt);
+      return {
+        id: t.id,
+        title: t.title,
+        scheduledAt: t.scheduledAt,
+        leadKey: t.leadKey || null,
+        leadTitle: t.leadTitle || null,
+        column: t.column,
+        overdue: Number.isFinite(ts) && ts < nowMs,
+        href: t.leadKey
+          ? `/pipeline?focusLead=${encodeURIComponent(t.leadKey)}`
+          : '/tasks',
+        kindLabel: 'Task',
+      };
+    })
+    .sort((a, b) => {
+      if (a.overdue !== b.overdue) return a.overdue ? -1 : 1;
+      return Date.parse(a.scheduledAt) - Date.parse(b.scheduledAt);
+    })
+    .slice(0, 30);
 }
 
 router.get('/', async (req, res, next) => {
@@ -166,6 +200,7 @@ router.get('/', async (req, res, next) => {
     });
 
     const tasksEnriched = enrichTasksWithLeadsForToday(rawTasks, workspaceLeads);
+    const todayTasks = manualTasksDueToday(tasksEnriched);
     const selectedBoards = selectPipeline(workspaceDoc && workspaceDoc.opportunityBoards, req.query && req.query.pipeline);
     if (selectedBoards.changed && workspaceDoc) {
       workspaceDoc.opportunityBoards = selectedBoards.boards;
@@ -240,6 +275,7 @@ router.get('/', async (req, res, next) => {
       opportunityBoard,
       opportunityCompact: true,
       nextActions,
+      todayTasks,
       callWarmQueue,
       cadenceQueue,
       contactQueue,

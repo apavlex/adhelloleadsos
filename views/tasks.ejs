@@ -175,6 +175,10 @@
     var leadMenu = document.getElementById('taskLeadMenu');
     var leadMenuList = document.getElementById('taskLeadMenuList');
     var currentFilter = 'all';
+    try {
+      var qf = new URLSearchParams(window.location.search).get('filter');
+      if (qf === 'due' || qf === 'lead' || qf === 'all') currentFilter = qf;
+    } catch (e) { /* ignore */ }
     var leadChoicesCache = [];
 
     (function buildLeadChoices() {
