@@ -343,5 +343,90 @@
     }
   });
 
+  function widthStorageKey() {
+    return 'adhello.oppStageWidths.' + (pipelineId || 'default');
+  }
+
+  function readSavedWidths() {
+    try {
+      var raw = window.localStorage.getItem(widthStorageKey());
+      var parsed = raw ? JSON.parse(raw) : null;
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function saveWidths(map) {
+    try {
+      window.localStorage.setItem(widthStorageKey(), JSON.stringify(map || {}));
+    } catch (e) { /* ignore quota */ }
+  }
+
+  function clampStageWidth(px) {
+    var min = 220;
+    var max = 448;
+    var n = Number(px) || min;
+    if (n < min) return min;
+    if (n > max) return max;
+    return Math.round(n);
+  }
+
+  function applyStageWidth(stage, px) {
+    if (!stage) return;
+    var width = clampStageWidth(px);
+    stage.style.width = width + 'px';
+    stage.style.flex = '0 0 auto';
+    stage.style.minWidth = Math.min(width, 220) + 'px';
+  }
+
+  function bindColumnResize() {
+    var stages = board.querySelectorAll('.opp-stage');
+    var saved = readSavedWidths();
+    Array.prototype.forEach.call(stages, function (stage) {
+      var id = stage.getAttribute('data-stage-id') || '';
+      if (id && saved[id]) applyStageWidth(stage, saved[id]);
+      var handle = stage.querySelector('.opp-stage-resize');
+      if (!handle || handle.getAttribute('data-bound') === '1') return;
+      handle.setAttribute('data-bound', '1');
+      handle.addEventListener('pointerdown', function (ev) {
+        if (ev.button != null && ev.button !== 0) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        var startX = ev.clientX;
+        var startWidth = stage.getBoundingClientRect().width;
+        stage.classList.add('is-resizing');
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        try { handle.setPointerCapture(ev.pointerId); } catch (e) { /* ignore */ }
+
+        function onMove(moveEv) {
+          applyStageWidth(stage, startWidth + (moveEv.clientX - startX));
+        }
+
+        function onUp(upEv) {
+          stage.classList.remove('is-resizing');
+          document.body.style.cursor = '';
+          document.body.style.userSelect = '';
+          try { handle.releasePointerCapture(upEv.pointerId); } catch (e) { /* ignore */ }
+          handle.removeEventListener('pointermove', onMove);
+          handle.removeEventListener('pointerup', onUp);
+          handle.removeEventListener('pointercancel', onUp);
+          var next = readSavedWidths();
+          var stageId = stage.getAttribute('data-stage-id') || '';
+          if (stageId) {
+            next[stageId] = clampStageWidth(stage.getBoundingClientRect().width);
+            saveWidths(next);
+          }
+        }
+
+        handle.addEventListener('pointermove', onMove);
+        handle.addEventListener('pointerup', onUp);
+        handle.addEventListener('pointercancel', onUp);
+      });
+    });
+  }
+
+  bindColumnResize();
   ensureSortable();
 })();
