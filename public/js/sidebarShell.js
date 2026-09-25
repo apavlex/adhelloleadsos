@@ -186,4 +186,7 @@
 
   bindWsSwitcher('wsSwitcherBtnSidebar', 'wsSwitcherMenuSidebar', 'wsSwitcherWrapSidebar');
   bindWsSwitcher('wsSwitcherBtn', 'wsSwitcherMenu', 'wsSwitcherWrap');
+
+  window.__adhelloGetSidebarState = getState;
+  window.__adhelloSetSidebarState = applyState;
 })();

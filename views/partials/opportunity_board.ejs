@@ -189,10 +189,14 @@
   }
   .opp-compact .opp-drop { min-height: 6.25rem; }
 
-  /* Full Opportunities page — board fills the viewport; columns stretch and scroll inside */
+  /* Full Opportunities page — board is the page (no floating card), columns fill height */
   body.opp-page {
     height: 100dvh;
     max-height: 100dvh;
+    background: #fff;
+  }
+  html.dark body.opp-page {
+    background: #0f172a;
   }
   body.opp-page .app-shell-content {
     height: 100dvh;
@@ -208,6 +212,8 @@
     overflow: hidden;
     width: 100%;
     max-width: none;
+    padding: 0;
+    margin: 0;
   }
   body.opp-page #oppBoard.opp-page-board {
     flex: 1 1 auto;
@@ -216,10 +222,23 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    border-radius: 1.35rem;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    outline: none;
+  }
+  body.opp-page #oppBoard.opp-page-board.is-editing {
+    outline: none;
   }
   body.opp-page #oppBoard.opp-page-board > .opp-page-toolbar {
     flex: 0 0 auto;
+    border-bottom: 1px solid rgba(17, 24, 39, 0.08);
+    background: #fff;
+  }
+  html.dark body.opp-page #oppBoard.opp-page-board > .opp-page-toolbar {
+    background: #0f172a;
+    border-bottom-color: rgba(255, 255, 255, 0.08);
   }
   body.opp-page #oppBoard.opp-page-board > .opp-page-board-body {
     flex: 1 1 auto;
@@ -227,8 +246,11 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    padding-top: 0.85rem;
-    padding-bottom: 0.85rem;
+    padding: 0.75rem 0.85rem 0.85rem;
+    background: rgba(250, 247, 237, 0.55);
+  }
+  html.dark body.opp-page #oppBoard.opp-page-board > .opp-page-board-body {
+    background: rgba(2, 6, 23, 0.45);
   }
   body.opp-page #oppBoard.opp-page-board .opp-board {
     flex: 1 1 auto;
@@ -254,6 +276,13 @@
   body.opp-page #oppBoard.opp-page-board .opp-drop {
     min-height: 8rem;
   }
+  body.opp-page.opp-fullscreen .app-shell-top {
+    /* keep top bar; icons-only sidebar is enough for “fullscreen” board mode */
+  }
+  #oppFullscreenBtn .opp-fs-exit { display: none; }
+  body.opp-page.opp-fullscreen #oppFullscreenBtn .opp-fs-enter { display: none; }
+  body.opp-page.opp-fullscreen #oppFullscreenBtn .opp-fs-exit { display: inline; }
+  #oppFullscreenBtn svg { width: 0.85rem; height: 0.85rem; display: inline-block; vertical-align: -0.1rem; margin-right: 0.35rem; }
   .opp-move-list { display: flex; flex-direction: column; gap: 0.55rem; max-height: 16rem; overflow: auto; }
   .opp-move-pipe { border: 1px solid rgba(17, 24, 39, 0.1); border-radius: 0.75rem; padding: 0.45rem 0.55rem; background: #fff; }
   html.dark .opp-move-pipe { background: #1e293b; border-color: rgba(255, 255, 255, 0.12); }
@@ -363,10 +392,10 @@
   .opp-pipeline-select { height: 2.5rem; border-radius: 999px; border: 1px solid rgba(17, 24, 39, 0.12); background: #fff; padding: 0 0.85rem; font-size: 0.75rem; font-weight: 700; color: #111827; }
   html.dark .opp-pipeline-select { background: #0f172a; border-color: rgba(255, 255, 255, 0.12); color: #f8fafc; }
 </style>
-<section class="mb-8 md:mb-10 rounded-[2rem] border-2 border-brand-yellow/50 dark:border-brand-yellow/35 bg-white dark:bg-slate-900/90 shadow-lg shadow-brand-yellow/10 overflow-hidden <%= _compact ? 'opp-compact' : 'opp-page-board' %>" id="oppBoard" data-pipeline-id="<%= _board.pipeline.id %>" data-first-stage-id="<%= _board.stages[0] ? _board.stages[0].id : '' %>" aria-label="Opportunities">
+<section class="<%= _compact ? 'mb-8 md:mb-10 rounded-[2rem] border-2 border-brand-yellow/50 dark:border-brand-yellow/35 bg-white dark:bg-slate-900/90 shadow-lg shadow-brand-yellow/10 overflow-hidden opp-compact' : 'opp-page-board overflow-hidden' %>" id="oppBoard" data-pipeline-id="<%= _board.pipeline.id %>" data-first-stage-id="<%= _board.stages[0] ? _board.stages[0].id : '' %>" aria-label="Opportunities">
   <script type="application/json" id="oppBoardPipelinesJson"><%- JSON.stringify(_board.pipelines || []).replace(/</g, '\\u003c') %></script>
   <script type="application/json" id="oppBoardTemplatesJson"><%- JSON.stringify(_board.templates || []).replace(/</g, '\\u003c') %></script>
-  <div class="opp-page-toolbar px-5 sm:px-6 md:px-8 pt-5 sm:pt-6 pb-4 md:pb-5 border-b border-brand-border/40 dark:border-white/10">
+  <div class="opp-page-toolbar px-4 sm:px-5 md:px-6 pt-4 sm:pt-5 pb-3 md:pb-4 border-b border-brand-border/40 dark:border-white/10">
     <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
       <div class="min-w-0">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Opportunities</p>
@@ -393,13 +422,17 @@
         <button type="button" id="oppAddFromMenu" class="btn-pill btn-primary px-6 py-3 text-[10px] font-black uppercase tracking-widest">Add opportunity</button>
         <% } else { %>
         <button type="button" id="oppAddStage" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Add stage</button>
+        <button type="button" id="oppFullscreenBtn" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white" title="Fullscreen — collapse menu to icons" aria-pressed="false">
+          <span class="opp-fs-enter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>Fullscreen</span>
+          <span class="opp-fs-exit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>Exit</span>
+        </button>
         <button type="button" id="oppAddCard" class="btn-pill btn-primary px-6 py-3 text-[10px] font-black uppercase tracking-widest">Add opportunity</button>
         <% } %>
       </div>
     </div>
     <p id="oppBoardMsg" class="hidden mt-3 text-sm font-semibold text-red-700" role="status"></p>
   </div>
-  <div class="opp-page-board-body px-4 sm:px-5 md:px-6 py-4 md:py-5 bg-brand-cream/40 dark:bg-slate-950/30">
+  <div class="opp-page-board-body px-3 sm:px-4 md:px-5 py-3 md:py-4">
     <div class="opp-board" id="oppStageRow">
       <% _board.stages.forEach(function (stage) { %>
       <section class="opp-stage" data-stage-id="<%= stage.id %>">

@@ -639,4 +639,52 @@
   bindColumnResize();
   bindBoardWheelScroll();
   ensureSortable();
+
+  (function bindOppFullscreen() {
+    if (!document.body.classList.contains('opp-page')) return;
+    var btn = document.getElementById('oppFullscreenBtn');
+    if (!btn || btn.getAttribute('data-bound') === '1') return;
+    btn.setAttribute('data-bound', '1');
+    var FS_KEY = 'adhello-opp-fullscreen';
+    var prevSidebar = null;
+
+    function setFullscreen(on) {
+      document.body.classList.toggle('opp-fullscreen', !!on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      try {
+        localStorage.setItem(FS_KEY, on ? '1' : '0');
+      } catch (e) {}
+      if (typeof window.__adhelloSetSidebarState === 'function') {
+        if (on) {
+          if (prevSidebar == null && typeof window.__adhelloGetSidebarState === 'function') {
+            prevSidebar = window.__adhelloGetSidebarState();
+          }
+          window.__adhelloSetSidebarState('collapsed');
+        } else if (prevSidebar) {
+          window.__adhelloSetSidebarState(prevSidebar);
+          prevSidebar = null;
+        } else {
+          window.__adhelloSetSidebarState('expanded');
+        }
+      }
+    }
+
+    var startOn = false;
+    try {
+      startOn = localStorage.getItem(FS_KEY) === '1';
+    } catch (e) {}
+    if (startOn) setFullscreen(true);
+
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      setFullscreen(!document.body.classList.contains('opp-fullscreen'));
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape') return;
+      if (!document.body.classList.contains('opp-fullscreen')) return;
+      if (e.target && (e.target.closest('input, textarea, select, [contenteditable="true"]') || e.target.closest('.opp-pop'))) return;
+      setFullscreen(false);
+    });
+  })();
 })();
