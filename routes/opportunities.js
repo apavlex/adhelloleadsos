@@ -220,11 +220,8 @@ router.post('/move', express.json({ limit: '16kb' }), async (req, res, next) => 
       req.workspaceId,
     );
     if (!updated) return jsonError(res, 404, 'Lead not found.');
-    const remembered = selectPipeline(workspace.opportunityBoards, placement.pipelineId);
-    if (remembered.changed) {
-      workspace.opportunityBoards = remembered.boards;
-      await dbService.saveWorkspace(req.workspaceId, workspace);
-    }
+
+    // Reply as soon as the lead is placed; remember last pipeline off the critical path.
     res.json({
       success: true,
       pipelineId: placement.pipelineId,
@@ -232,6 +229,16 @@ router.post('/move', express.json({ limit: '16kb' }), async (req, res, next) => 
       pipelineName: placement.pipelineName,
       stageName: placement.stageName,
     });
+
+    try {
+      const remembered = selectPipeline(workspace.opportunityBoards, placement.pipelineId);
+      if (remembered.changed) {
+        workspace.opportunityBoards = remembered.boards;
+        await dbService.saveWorkspace(req.workspaceId, workspace);
+      }
+    } catch (rememberErr) {
+      console.warn('[opportunities/move] remember pipeline', rememberErr && rememberErr.message);
+    }
   } catch (e) {
     next(e);
   }

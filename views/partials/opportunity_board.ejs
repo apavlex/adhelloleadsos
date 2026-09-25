@@ -783,24 +783,33 @@
       var stageId = target.getAttribute('data-move-stage');
       var label = target.getAttribute('data-move-label') || 'that pipeline';
       if (!pipelineId || !stageId) return;
-      var buttons = box.querySelectorAll('[data-move-pipeline]');
-      Array.prototype.forEach.call(buttons, function (btn) { btn.disabled = true; });
-      status('Moving…', true);
+
+      var card = action.closest('.opp-card');
+      var column = card && card.closest('.opp-stage');
+      var nextSibling = card && card.nextSibling;
+      var parentList = card && card.parentNode;
+
+      // Optimistic: leave the board immediately; persist in the background.
+      closePop();
+      if (card) card.remove();
+      refreshStage(column);
+      status('Moved to ' + label + '.', true);
+
       post('/opportunities/move', { leadKey: key, pipelineId: pipelineId, stageId: stageId }).then(function (result) {
-        if (!result.ok || !result.data || !result.data.success) {
-          Array.prototype.forEach.call(buttons, function (btn) { btn.disabled = false; });
-          status((result.data && result.data.error) || 'Could not move that opportunity.', false);
-          return;
+        if (result.ok && result.data && result.data.success) return;
+        if (card && parentList) {
+          if (nextSibling && nextSibling.parentNode === parentList) parentList.insertBefore(card, nextSibling);
+          else parentList.appendChild(card);
+          refreshStage(column);
         }
-        closePop();
-        var card = action.closest('.opp-card');
-        var column = card && card.closest('.opp-stage');
-        if (card) card.remove();
-        refreshStage(column);
-        status('Moved to ' + label + '.', true);
+        status((result.data && result.data.error) || 'Could not move that opportunity. Card restored.', false);
       }).catch(function () {
-        Array.prototype.forEach.call(buttons, function (btn) { btn.disabled = false; });
-        status('Could not move that opportunity.', false);
+        if (card && parentList) {
+          if (nextSibling && nextSibling.parentNode === parentList) parentList.insertBefore(card, nextSibling);
+          else parentList.appendChild(card);
+          refreshStage(column);
+        }
+        status('Could not move that opportunity. Card restored.', false);
       });
     });
   }
