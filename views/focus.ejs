@@ -26,6 +26,12 @@
           </blockquote>
           <% } %>
           <p class="text-sm text-brand-muted dark:text-slate-400 mt-2">One lead at a time — draft, log, next. <button type="button" id="focus-help-btn" class="font-bold text-brand-dark dark:text-white underline decoration-brand-yellow/60 hover:decoration-brand-yellow">Shortcuts (?)</button></p>
+          <% const _focusQueueTotal = typeof focusQueueTotal === 'number' ? focusQueueTotal : null; %>
+          <% if (_focusQueueTotal != null && !_focusIsSelectionSession) { %>
+          <p id="focus-queue-size" class="text-xs font-bold text-brand-muted dark:text-slate-400 mt-1.5 tabular-nums" data-queue-total="<%= _focusQueueTotal %>">Session queue: <span id="focus-queue-size-n"><%= _focusQueueTotal %></span> early-stage leads</p>
+          <% } else { %>
+          <p id="focus-queue-size" class="text-xs font-bold text-brand-muted dark:text-slate-400 mt-1.5 tabular-nums hidden" data-queue-total=""></p>
+          <% } %>
         </div>
         <div class="flex flex-col items-stretch sm:items-end gap-2">
           <a href="/today" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white text-right">← Today</a>
@@ -36,7 +42,7 @@
       </div>
       <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white/70 dark:bg-slate-900/60 px-4 py-3">
         <div class="flex justify-between items-baseline text-sm mb-2">
-          <span id="focus-progress-label" class="text-brand-muted dark:text-slate-400">Touches today</span>
+          <span id="focus-progress-label" class="text-brand-muted dark:text-slate-400"><%= _focusIsSelectionSession ? 'Selection progress' : 'Daily touch goal' %></span>
           <span class="font-display font-black text-brand-dark dark:text-white"><span id="focus-touch-count"><%= _focusProgressCurrent %></span> <span class="text-brand-muted font-bold text-sm">/ <span id="focus-touch-goal"><%= _focusProgressGoal %></span></span></span>
         </div>
         <div class="h-2 rounded-full bg-brand-cream/80 dark:bg-slate-800 overflow-hidden" role="progressbar" aria-valuemin="0" aria-valuemax="<%= _focusProgressGoal %>" aria-valuenow="<%= _focusProgressCurrent %>" id="focus-progress-bar-wrap">
@@ -575,6 +581,10 @@
   <script type="application/json" id="focus-queue-json"><%- typeof focusQueueJson !== 'undefined' ? focusQueueJson : '[]' %></script>
   <script type="application/json" id="focus-script-library-json"><%- typeof focusScriptLibraryJson !== 'undefined' ? focusScriptLibraryJson : '{}' %></script>
   <script type="application/json" id="workspace-tags-json"><%- JSON.stringify(typeof workspaceTags !== 'undefined' ? workspaceTags : []) %></script>
+  <script>
+    window.__FOCUS_HYDRATE_QUEUE = <%= typeof focusHydrateQueue !== 'undefined' && focusHydrateQueue ? 'true' : 'false' %>;
+    window.__FOCUS_QUEUE_TOTAL = <%= typeof focusQueueTotal === 'number' ? focusQueueTotal : 'null' %>;
+  </script>
   <script src="/js/socialUrlNormalize.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
   <script src="/js/lead-send-info.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
   <script src="/js/lead-rapidapi-enrich.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
@@ -5434,6 +5444,47 @@
         if (initial >= touchGoal) modalCelebrate.classList.remove('hidden');
       }
     }
+
+    function updateFocusQueueSizeLabel(total) {
+      var wrap = document.getElementById('focus-queue-size');
+      var nEl = document.getElementById('focus-queue-size-n');
+      if (!wrap || isSelectionSession) return;
+      if (!(total > 0)) {
+        wrap.classList.add('hidden');
+        return;
+      }
+      wrap.classList.remove('hidden');
+      wrap.setAttribute('data-queue-total', String(total));
+      if (nEl) nEl.textContent = String(total);
+      else wrap.textContent = 'Session queue: ' + total + ' early-stage leads';
+    }
+
+    function hydrateFocusQueueFromServer() {
+      if (!window.__FOCUS_HYDRATE_QUEUE || isSelectionSession) return;
+      var currentKey = queue[idx] && queue[idx].key;
+      fetch('/focus/queue.json?scope=session', { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data || !data.success || !Array.isArray(data.queue) || data.queue.length <= queue.length) return;
+          var next = data.queue.slice();
+          queue = next;
+          var keepIdx = 0;
+          if (currentKey) {
+            var found = next.findIndex(function (q) { return q && q.key === currentKey; });
+            if (found >= 0) keepIdx = found;
+          }
+          idx = keepIdx;
+          updateFocusQueueSizeLabel(queue.length);
+          if (typeof updateFocusBulkGhlCount === 'function') updateFocusBulkGhlCount();
+          updateSelectionProgress();
+          syncBackButton();
+        })
+        .catch(function () {});
+    }
+
+    if (window.__FOCUS_QUEUE_TOTAL != null) updateFocusQueueSizeLabel(window.__FOCUS_QUEUE_TOTAL);
+    hydrateFocusQueueFromServer();
+    refreshMetrics();
   })();
   </script>
   <%- include('/partials/app_shell_close') %>

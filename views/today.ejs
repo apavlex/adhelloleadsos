@@ -267,11 +267,11 @@
           </h2>
           <p class="text-sm text-brand-muted mb-5 max-w-xl">Start a focused calling block and work the queue in order. AdHello will keep wrap-up and next steps aligned.</p>
           <div class="flex flex-col sm:flex-row gap-3 mb-5">
-            <a href="/focus" class="btn-pill btn-primary px-8 py-3 text-xs font-black uppercase tracking-widest text-center inline-flex items-center justify-center gap-2">
+            <a href="/focus" data-nav-prefetch="/focus" class="btn-pill btn-primary px-8 py-3 text-xs font-black uppercase tracking-widest text-center inline-flex items-center justify-center gap-2">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3l14 9-14 9V3z"/></svg>
               Start session
             </a>
-            <a href="/pipeline" class="btn-pill border border-brand-border dark:border-white/20 px-8 py-3 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white text-center inline-flex items-center justify-center gap-2">
+            <a href="/pipeline" data-nav-prefetch="/prospecting?tab=pipeline" class="btn-pill border border-brand-border dark:border-white/20 px-8 py-3 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white text-center inline-flex items-center justify-center gap-2">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h10M4 18h7"/></svg>
               Open pipeline queue
             </a>
@@ -280,7 +280,7 @@
             <div class="today-viz-metric">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg>
               <div class="min-w-0">
-                <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Touches</p>
+                <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Daily goal</p>
                 <p class="text-sm font-extrabold text-brand-dark dark:text-white tabular-nums"><%= _tt %>/<%= _tg %></p>
               </div>
             </div>

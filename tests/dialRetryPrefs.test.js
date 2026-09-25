@@ -64,4 +64,19 @@ describe('buildFocusQueue dial retry deferral', () => {
     assert.equal(ordered.length, 1);
     assert.equal(ordered[0].key, 'lead:1');
   });
+
+  it('earlyStagesOnly keeps stages 1–2 and drops later stages (matches Today queue count)', () => {
+    const leads = [
+      { key: 'lead:a', pipelineStage: 1, title: 'A' },
+      { key: 'lead:b', pipelineStage: 2, title: 'B' },
+      { key: 'lead:c', pipelineStage: 5, title: 'C' },
+      { key: 'lead:d', pipelineStage: 3, title: 'D' },
+    ];
+    const ordered = buildFocusQueue(leads, 500, { earlyStagesOnly: true });
+    assert.equal(ordered.length, 2);
+    assert.deepEqual(
+      ordered.map((l) => l.key).sort(),
+      ['lead:a', 'lead:b'],
+    );
+  });
 });

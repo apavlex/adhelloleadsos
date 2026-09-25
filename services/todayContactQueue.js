@@ -77,7 +77,10 @@ function nextCadencePresentation(lead, baseUrl) {
  */
 function buildTodayContactQueue(leads, baseUrl, max = 20, queueOpts = {}) {
   const filtered = filterBusinessPipelineLeads(Array.isArray(leads) ? leads : []);
-  const ordered = buildFocusQueue(filtered, 200, queueOpts);
+  const ordered = buildFocusQueue(filtered, 200, {
+    ...queueOpts,
+    earlyStagesOnly: queueOpts.earlyStagesOnly !== false,
+  });
   const cap = Math.min(Math.max(5, max), 50);
 
   return ordered.slice(0, cap).map((lead) => {

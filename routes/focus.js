@@ -10,7 +10,12 @@ const {
   countUniqueLeadsTouchedOnUtcDate,
 } = require('../services/trackerStats');
 const { loadDailyTouchGoal, saveDailyTouchGoal } = require('../services/touchGoalPrefs');
-const { buildFocusQueue, shortLeadKey, lastActivityMs } = require('../services/focusQueue');
+const {
+  buildFocusQueue,
+  FOCUS_QUEUE_HARD_CAP,
+  shortLeadKey,
+  lastActivityMs,
+} = require('../services/focusQueue');
 const { buildLeadTouchPoints } = require('../services/leadTouchPoints');
 const { resolveDialRetryPrefs } = require('../services/dialRetryPrefs');
 const { scoreLeadRecord } = require('../services/opportunityScore');
@@ -21,6 +26,9 @@ const websiteAiAnalysis = require('../services/websiteAiAnalysis');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
 const { isAgencySalesWorkspace } = require('../services/leadPanelWorkspace');
+
+/** First N leads in HTML so Focus paints before the full early-stage queue hydrates. */
+const FOCUS_SSR_CHUNK = 40;
 
 function stageLabelFromLead(l, sortedStages) {
   const row =
@@ -182,31 +190,44 @@ router.get('/metrics.json', async (req, res, next) => {
   }
 });
 
-/** Callable focus queue for softphone Contacts tab and dialer integrations. */
+/**
+ * Callable focus queue.
+ * - default: phone-bearing leads for softphone Contacts
+ * - ?scope=session: full early-stage Focus session (matches Today’s queued count)
+ */
 router.get('/queue.json', async (req, res, next) => {
   try {
-    const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
+    const scope = String(req.query.scope || '').trim().toLowerCase();
+    const sessionScope = scope === 'session' || scope === 'focus' || scope === 'all';
+    const [wsRaw, all, stageRows] = await Promise.all([
+      dbService.getWorkspace(req.workspaceId),
+      dbService.getAllLeads(req.workspaceId),
+      pipelineStagesService.ensureWorkspaceStagesSeeded(req.workspaceId),
+    ]);
+    const ws = wsRaw || { id: req.workspaceId };
     const offerBundle = require('../services/workspaceSalesScripts').buildWorkspaceOfferLibrary(
       ws,
       SCRIPT_LIBRARY,
     );
-    const all = await dbService.getAllLeads(req.workspaceId);
     const visible = filterLeadsForRequest(req, all);
     const pipelineLeads = filterBusinessPipelineLeads(visible);
-    const stageRows = await pipelineStagesService.ensureWorkspaceStagesSeeded(req.workspaceId);
     const sortedStages = [...stageRows].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
     const dialRetry = resolveDialRetryPrefs(ws.telephony);
     const isAgency = isAgencySalesWorkspace(ws);
-    const ordered = buildFocusQueue(pipelineLeads, 200, { queueMode: dialRetry.queueMode });
-    const queue = ordered
-      .map((l) =>
-        leadToFocusPayload(l, sortedStages, offerBundle.library, offerBundle.keys, { isAgency }),
-      )
-      .filter((item) => {
+    const ordered = buildFocusQueue(pipelineLeads, FOCUS_QUEUE_HARD_CAP, {
+      queueMode: dialRetry.queueMode,
+      earlyStagesOnly: true,
+    });
+    let queue = ordered.map((l) =>
+      leadToFocusPayload(l, sortedStages, offerBundle.library, offerBundle.keys, { isAgency }),
+    );
+    if (!sessionScope) {
+      queue = queue.filter((item) => {
         const phone = String(item.phone || '').trim();
         return phone && phone !== 'N/A' && phone !== '—';
       });
-    res.json({ success: true, queue });
+    }
+    res.json({ success: true, queue, total: queue.length, earlyStagesOnly: true });
   } catch (e) {
     next(e);
   }
@@ -277,17 +298,22 @@ async function ensureExplicitFocusLead({
 router.get('/', async (req, res, next) => {
   try {
     const today = new Date().toISOString().slice(0, 10);
-    const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
+    const [wsRaw, all, stageRows, workspaceTags, touchGoal] = await Promise.all([
+      dbService.getWorkspace(req.workspaceId),
+      dbService.getAllLeads(req.workspaceId),
+      pipelineStagesService.ensureWorkspaceStagesSeeded(req.workspaceId),
+      dbService.listTags(req.workspaceId),
+      loadDailyTouchGoal(req),
+    ]);
+    const ws = wsRaw || { id: req.workspaceId };
     const offerBundle = require('../services/workspaceSalesScripts').buildWorkspaceOfferLibrary(
       ws,
       SCRIPT_LIBRARY,
     );
-    const all = await dbService.getAllLeads(req.workspaceId);
     const visible = filterLeadsForRequest(req, all);
     // Include pipeline-folder businesses (maps saves file into Businesses folder).
     // Listing/product folders are excluded via filterBusinessPipelineLeads.
     const pipelineLeads = filterBusinessPipelineLeads(visible);
-    const stageRows = await pipelineStagesService.ensureWorkspaceStagesSeeded(req.workspaceId);
     const sortedStages = [...stageRows].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
     const dialRetry = resolveDialRetryPrefs(ws.telephony);
     const selectedKeyOrder = parseBulkSelectionKeys(req.query.keys);
@@ -308,10 +334,17 @@ router.get('/', async (req, res, next) => {
       // Single-lead opens (navbar search) skip business-only filter so foldered picks still load.
       ordered = bulkSelection ? filterBusinessPipelineLeads(resolved) : resolved;
     } else {
-      ordered = buildFocusQueue(pipelineLeads, 200, { queueMode: dialRetry.queueMode });
+      // Match Today’s “queued for action” count: all early-stage (1–2) business leads.
+      ordered = buildFocusQueue(pipelineLeads, FOCUS_QUEUE_HARD_CAP, {
+        queueMode: dialRetry.queueMode,
+        earlyStagesOnly: true,
+      });
     }
     const isAgency = isAgencySalesWorkspace(ws);
-    const queue = ordered.map((l) =>
+    const focusQueueTotal = ordered.length;
+    const hydrateFullQueue = !bulkSelection && !selectedKeyOrder.length && focusQueueTotal > FOCUS_SSR_CHUNK;
+    const ssrLeads = hydrateFullQueue ? ordered.slice(0, FOCUS_SSR_CHUNK) : ordered;
+    const queue = ssrLeads.map((l) =>
       leadToFocusPayload(l, sortedStages, offerBundle.library, offerBundle.keys, { isAgency }),
     );
 
@@ -328,14 +361,12 @@ router.get('/', async (req, res, next) => {
     });
 
     const touchesToday = countUniqueLeadsTouchedOnUtcDate(visible, today);
-    const touchGoal = await loadDailyTouchGoal(req);
 
     const focusScriptLibrary = offerBundle.library;
     const focusProductOptions = offerBundle.keys.map((k) => ({
       key: k,
       label: (offerBundle.library[k] && offerBundle.library[k].label) || k,
     }));
-    const workspaceTags = await dbService.listTags(req.workspaceId);
 
     res.render('focus', {
       title: 'Focus Mode | Agency OS',
@@ -344,9 +375,11 @@ router.get('/', async (req, res, next) => {
       touchGoal,
       entrepreneurQuote: pickQuoteForDate(today),
       focusQueueJson: JSON.stringify(queue),
+      focusQueueTotal,
+      focusHydrateQueue: hydrateFullQueue,
       focusProductOptions,
       focusScriptLibraryJson: JSON.stringify(focusScriptLibrary),
-      focusSelectionCount: bulkSelection ? queue.length : null,
+      focusSelectionCount: bulkSelection ? focusQueueTotal : null,
       focusIsSelectionSession: bulkSelection,
       workspaceTags,
       isAgencySalesWorkspace: isAgency,

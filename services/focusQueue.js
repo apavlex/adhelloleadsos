@@ -65,15 +65,32 @@ function sortKey(l, opts = {}) {
   return { bucket, a: 0, b: last, c: lpRank };
 }
 
+/** Safety ceiling — early-stage action queues can be large; keep HTML/JSON bounded. */
+const FOCUS_QUEUE_HARD_CAP = 5000;
+
+/** Same early-stage rule as Today’s “leads queued for action” (stages 1–2). */
+function isEarlyStageActionLead(l) {
+  const ps = parseInt(l && l.pipelineStage, 10);
+  const n = !Number.isNaN(ps) && ps >= 1 && ps <= 10 ? ps : 1;
+  return n <= 2;
+}
+
+function filterEarlyStageActionLeads(leads) {
+  return (Array.isArray(leads) ? leads : []).filter(isEarlyStageActionLead);
+}
+
 /**
  * @param {object[]} leads — workspace-visible leads (e.g. after excludeOutreachFolderLeads)
- * @param {number} cap
- * @param {{ queueMode?: string }} [opts]
+ * @param {number} [cap]
+ * @param {{ queueMode?: string, earlyStagesOnly?: boolean }} [opts]
  * @returns {object[]} same lead objects, ordered for Focus Mode
  */
-function buildFocusQueue(leads, cap = 200, opts = {}) {
+function buildFocusQueue(leads, cap = FOCUS_QUEUE_HARD_CAP, opts = {}) {
   const queueMode = opts.queueMode || 'continue_list';
   let list = Array.isArray(leads) ? [...leads] : [];
+  if (opts.earlyStagesOnly) {
+    list = list.filter(isEarlyStageActionLead);
+  }
   if (queueMode === 'retry_when_due') {
     const now = Date.now();
     list = list.filter((l) => !isLeadDeferredForRetry(l, 'continue_list', now));
@@ -86,7 +103,8 @@ function buildFocusQueue(leads, cap = 200, opts = {}) {
     if (sx.c !== sy.c) return sx.c - sy.c;
     return sx.b - sy.b;
   });
-  return list.slice(0, cap);
+  const limit = Number.isFinite(cap) && cap > 0 ? Math.min(Math.floor(cap), FOCUS_QUEUE_HARD_CAP) : FOCUS_QUEUE_HARD_CAP;
+  return list.slice(0, limit);
 }
 
 function shortLeadKey(l) {
@@ -96,6 +114,9 @@ function shortLeadKey(l) {
 
 module.exports = {
   buildFocusQueue,
+  filterEarlyStageActionLeads,
+  isEarlyStageActionLead,
+  FOCUS_QUEUE_HARD_CAP,
   shortLeadKey,
   lastActivityMs,
   isOverdueCadence,
