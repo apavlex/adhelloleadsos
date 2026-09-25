@@ -79,6 +79,9 @@
   function bindSortable() {
     if (typeof Sortable === 'undefined') return;
     var lists = board.querySelectorAll('.opp-stage-cards');
+    var coarse =
+      (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) ||
+      (navigator.maxTouchPoints || 0) > 0;
     Array.prototype.forEach.call(lists, function (list) {
       if (list.getAttribute('data-opp-bound') === '1') return;
       list.setAttribute('data-opp-bound', '1');
@@ -86,17 +89,30 @@
         group: 'opportunities',
         animation: 150,
         draggable: '.opp-card',
-        // Delay so a normal click opens the card instead of starting a drag (avoids
-        // off-by-one opens when Sortable remaps pointer targets in tall scroll columns).
-        delay: 160,
-        delayOnTouchOnly: false,
-        touchStartThreshold: 5,
+        // Desktop: short delay so a click opens profile. Touch: longer press to drag
+        // without fighting column scroll (iPhone Safari).
+        delay: coarse ? 220 : 120,
+        delayOnTouchOnly: true,
+        touchStartThreshold: coarse ? 12 : 5,
         forceFallback: true,
         fallbackOnBody: true,
+        fallbackTolerance: 4,
+        scroll: true,
+        bubbleScroll: true,
         filter: '.opp-card-tools, .opp-card-tools *, .opp-card-title, .opp-pop, .opp-pop *',
         preventOnFilter: false,
         ghostClass: 'sortable-ghost',
+        chosenClass: 'sortable-chosen',
+        dragClass: 'sortable-drag',
+        onStart: function () {
+          board.setAttribute('data-opp-sorting', '1');
+          document.body.classList.add('opp-sorting');
+        },
         onEnd: function (evt) {
+          setTimeout(function () {
+            board.removeAttribute('data-opp-sorting');
+            document.body.classList.remove('opp-sorting');
+          }, 100);
           if (evt.from) syncStage(evt.from);
           if (evt.to && evt.to !== evt.from) syncStage(evt.to);
           var card = evt.item;
