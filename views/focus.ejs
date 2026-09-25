@@ -261,7 +261,6 @@
         </div>
       </div>
 
-      <div id="focus-links" class="flex flex-wrap gap-2 mb-4" aria-label="Contact and social links"></div>
       <div id="focus-contact-fields" class="mb-6 rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-800/40 overflow-hidden">
         <button type="button" id="focusContactDetailsToggle" aria-expanded="false" aria-controls="focusContactDetailsDrawer" class="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-brand-cream/50 dark:hover:bg-slate-800/80 transition-colors">
           <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Contact details</span>
@@ -310,13 +309,17 @@
       <div class="mb-6 rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/35 dark:bg-slate-800/60 px-4 py-3">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Business info</p>
         <div class="flex flex-col md:flex-row gap-4 items-stretch">
-          <div id="focus-map-wrap" class="hidden w-full md:w-[min(100%,280px)] shrink-0 rounded-xl border border-brand-border/50 dark:border-white/10 overflow-hidden bg-slate-200/80 dark:bg-slate-950/80 aspect-[4/3] md:aspect-auto md:h-52 min-h-[11rem] relative shadow-inner" aria-hidden="true">
-            <img id="focus-map-img" class="absolute inset-0 z-0 w-full h-full object-cover opacity-0 pointer-events-none transition-opacity duration-200" alt="" loading="eager" width="560" height="336" decoding="async" />
-            <div id="focus-map-fallback" class="absolute inset-0 z-0 hidden flex-col items-center justify-center gap-2 px-4 text-center bg-brand-cream/85 dark:bg-slate-800/95">
-              <svg class="w-7 h-7 text-brand-yellow shrink-0 opacity-95" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-              <a id="focus-map-open-link" href="#" target="_blank" rel="noopener noreferrer" class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 hover:text-brand-yellow transition-colors">Open in Google Maps</a>
+          <div class="w-full md:w-[min(100%,280px)] shrink-0 flex flex-col gap-2 min-w-0">
+            <div id="focus-map-wrap" class="hidden w-full rounded-xl border border-brand-border/50 dark:border-white/10 overflow-hidden bg-slate-200/80 dark:bg-slate-950/80 aspect-[4/3] md:aspect-auto md:h-52 min-h-[11rem] relative shadow-inner" aria-hidden="true">
+              <iframe id="focus-map-embed" class="absolute inset-0 z-0 hidden w-full h-full border-0" title="Lead location map" loading="eager" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+              <img id="focus-map-img" class="absolute inset-0 z-0 w-full h-full object-cover opacity-0 pointer-events-none transition-opacity duration-200" alt="" loading="eager" width="560" height="336" decoding="async" />
+              <div id="focus-map-fallback" class="absolute inset-0 z-0 hidden flex-col items-center justify-center gap-2 px-4 text-center bg-brand-cream/85 dark:bg-slate-800/95">
+                <svg class="w-7 h-7 text-brand-yellow shrink-0 opacity-95" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                <a id="focus-map-open-link" href="#" target="_blank" rel="noopener noreferrer" class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 hover:text-brand-yellow transition-colors">Open in Google Maps</a>
+              </div>
+              <a id="focus-map-attribution" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" class="hidden absolute bottom-1 right-1 z-[1] text-[8px] font-semibold text-white/90 bg-black/50 px-1.5 py-0.5 rounded hover:bg-black/65 transition-colors">© OpenStreetMap</a>
             </div>
-            <a id="focus-map-attribution" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" class="hidden absolute bottom-1 right-1 z-[1] text-[8px] font-semibold text-white/90 bg-black/50 px-1.5 py-0.5 rounded hover:bg-black/65 transition-colors">© OpenStreetMap</a>
+            <div id="focus-links" class="flex flex-wrap gap-2" aria-label="Contact and social links"></div>
           </div>
           <div class="flex-1 min-w-0 w-full">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -3601,13 +3604,47 @@
       return '';
     }
 
+    function focusMapEmbedSrc(q, lat, lng) {
+      var query = String(q || '').trim();
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        query = lat + ',' + lng;
+      }
+      if (!query) return '';
+      var mapKey = (typeof window !== 'undefined' && window.__ADHELLO_GOOGLE_MAPS_STATIC_KEY__) || '';
+      if (typeof window !== 'undefined' && window.AdhelloMaps && typeof window.AdhelloMaps.embedSrc === 'function') {
+        return window.AdhelloMaps.embedSrc(query, mapKey);
+      }
+      if (mapKey) {
+        return (
+          'https://www.google.com/maps/embed/v1/place?key=' +
+          encodeURIComponent(mapKey) +
+          '&q=' +
+          encodeURIComponent(query) +
+          '&zoom=15&maptype=roadmap'
+        );
+      }
+      return (
+        'https://www.google.com/maps?q=' +
+        encodeURIComponent(query) +
+        '&hl=en&z=15&output=embed'
+      );
+    }
+
     function renderFocusMap(lead) {
       var wrap = document.getElementById('focus-map-wrap');
       var img = document.getElementById('focus-map-img');
+      var embed = document.getElementById('focus-map-embed');
       var attrib = document.getElementById('focus-map-attribution');
       var fallback = document.getElementById('focus-map-fallback');
       var openLink = document.getElementById('focus-map-open-link');
       if (!wrap || !img) return;
+
+      function clearEmbed() {
+        if (!embed) return;
+        embed.removeAttribute('src');
+        embed.classList.add('hidden');
+      }
+
       var q = mapQueryFromFocusLead(lead);
       if (!q) {
         wrap.classList.add('hidden');
@@ -3616,6 +3653,7 @@
         img.onerror = null;
         img.removeAttribute('src');
         img.classList.add('opacity-0');
+        clearEmbed();
         if (attrib) attrib.classList.add('hidden');
         if (fallback) {
           fallback.classList.add('hidden');
@@ -3632,42 +3670,26 @@
       img.onerror = null;
       img.removeAttribute('src');
       img.classList.add('opacity-0');
+      clearEmbed();
       if (attrib) attrib.classList.add('hidden');
       if (fallback) {
         fallback.classList.add('hidden');
         fallback.classList.remove('flex');
       }
 
-      var params = new URLSearchParams();
-      params.set('center', q);
-      params.set('w', '560');
-      params.set('h', '336');
       var lat = Number(lead && lead.latitude);
       var lng = Number(lead && lead.longitude);
-      if (Number.isFinite(lat) && Number.isFinite(lng)) {
-        params.set('lat', String(lat));
-        params.set('lng', String(lng));
-      }
 
       var loadGen = (window.__focusMapLoadGen = (window.__focusMapLoadGen || 0) + 1);
       var isCurrent = function () { return loadGen === window.__focusMapLoadGen; };
 
-      var revealMap = function () {
-        if (!isCurrent()) return;
-        img.classList.remove('opacity-0');
-        if (attrib) attrib.classList.remove('hidden');
-        if (fallback) {
-          fallback.classList.add('hidden');
-          fallback.classList.remove('flex');
-        }
-      };
-
-      var showFallback = function () {
+      var showLinkFallback = function () {
         if (!isCurrent()) return;
         img.onload = null;
         img.onerror = null;
         img.removeAttribute('src');
         img.classList.add('opacity-0');
+        clearEmbed();
         if (attrib) attrib.classList.add('hidden');
         if (fallback) {
           fallback.classList.remove('hidden');
@@ -3675,32 +3697,27 @@
         }
       };
 
-      var tryLoad = function (url, nextUrl) {
-        if (!url) {
-          if (nextUrl) tryLoad(nextUrl, '');
-          else showFallback();
+      var showGoogleEmbed = function () {
+        if (!isCurrent()) return;
+        var src = focusMapEmbedSrc(q, lat, lng);
+        if (!src || !embed) {
+          showLinkFallback();
           return;
         }
-        img.onload = function () {
-          if (!isCurrent()) return;
-          revealMap();
-        };
-        img.onerror = function () {
-          if (!isCurrent()) return;
-          img.onload = null;
-          img.onerror = null;
-          img.removeAttribute('src');
-          img.classList.add('opacity-0');
-          if (nextUrl) tryLoad(nextUrl, '');
-          else showFallback();
-        };
-        img.alt = q ? 'Map near ' + q.slice(0, 120) : 'Location map';
-        img.src = url;
+        img.onload = null;
+        img.onerror = null;
+        img.removeAttribute('src');
+        img.classList.add('opacity-0');
+        if (attrib) attrib.classList.add('hidden');
+        if (fallback) {
+          fallback.classList.add('hidden');
+          fallback.classList.remove('flex');
+        }
+        embed.src = src;
+        embed.classList.remove('hidden');
       };
 
-      var serverUrl = '/leads/map-preview?' + params.toString();
-      var clientFallback = focusMapPreviewFallbackUrl(q, lat, lng);
-      tryLoad(serverUrl, clientFallback);
+      showGoogleEmbed();
     }
 
     function parseFocusTechStackTags(raw) {
