@@ -4685,6 +4685,7 @@
         elEmptyDesc.textContent = 'Add or import leads to your pipeline, then come back.';
         var fwEmpty = document.getElementById('focus-map-wrap');
         var fiEmpty = document.getElementById('focus-map-img');
+        var feEmpty = document.getElementById('focus-map-embed');
         if (fwEmpty) {
           fwEmpty.classList.add('hidden');
           fwEmpty.setAttribute('aria-hidden', 'true');
@@ -4694,6 +4695,10 @@
           fiEmpty.onerror = null;
           fiEmpty.removeAttribute('src');
           fiEmpty.classList.add('opacity-0');
+        }
+        if (feEmpty) {
+          feEmpty.removeAttribute('src');
+          feEmpty.classList.add('hidden');
         }
         syncFocusMailListBtn(null);
         setFocusNotesOpen(false);
