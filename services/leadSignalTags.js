@@ -113,7 +113,11 @@ function computeLeadSignalTags(lead, options) {
   if (!lead || typeof lead !== 'object') return [];
 
   const lowReviewsThreshold = resolveLowReviewsThreshold(options);
-  const scored = scoreLeadRecord(lead, { lowReviewsThreshold });
+  const scored = scoreLeadRecord(lead, {
+    lowReviewsThreshold,
+    workspace: options && options.workspace,
+    roiProfile: options && options.roiProfile,
+  });
   const localProspect = scored.localProspect || {};
 
   const out = [];
@@ -142,7 +146,11 @@ function computeLeadSignalTags(lead, options) {
 function leadOpportunityScore(lead, options) {
   if (!lead || typeof lead !== 'object') return null;
   const lowReviewsThreshold = resolveLowReviewsThreshold(options);
-  const { score } = scoreLeadRecord(lead, { lowReviewsThreshold });
+  const { score } = scoreLeadRecord(lead, {
+    lowReviewsThreshold,
+    workspace: options && options.workspace,
+    roiProfile: options && options.roiProfile,
+  });
   if (!Number.isFinite(score)) return null;
   return Math.round(score * 10) / 10;
 }
