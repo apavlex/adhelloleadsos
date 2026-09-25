@@ -602,8 +602,8 @@
 
   function bindBoardWheelScroll() {
     var row = document.getElementById('oppStageRow');
-    if (!board || !row || board.getAttribute('data-wheel-bound') === '1') return;
-    board.setAttribute('data-wheel-bound', '1');
+    if (!row || row.getAttribute('data-wheel-bound') === '1') return;
+    row.setAttribute('data-wheel-bound', '1');
 
     function canScrollY(el, deltaY) {
       if (!el) return false;
@@ -613,7 +613,7 @@
       return false;
     }
 
-    board.addEventListener(
+    row.addEventListener(
       'wheel',
       function (ev) {
         if (ev.ctrlKey || ev.metaKey) return;
@@ -621,39 +621,28 @@
           return;
         }
 
-        var dx = ev.deltaX || 0;
-        var dy = ev.deltaY || 0;
-        if (ev.deltaMode === 1) {
-          dx *= 16;
-          dy *= 16;
-        } else if (ev.deltaMode === 2) {
-          dx *= row.clientWidth;
-          dy *= row.clientHeight;
+        var dx = Number(ev.deltaX) || 0;
+        var dy = Number(ev.deltaY) || 0;
+        if (ev.shiftKey && Math.abs(dy) >= Math.abs(dx)) {
+          dx = dy;
+          dy = 0;
         }
 
         var list = ev.target && ev.target.closest ? ev.target.closest('.opp-stage-cards') : null;
+        var wantsHorizontal = Math.abs(dx) > Math.abs(dy);
+        var primary = wantsHorizontal ? dx : dy;
 
-        // Trackpad / shift horizontal intent — pan the board.
-        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 0.5) {
-          if (row.scrollWidth > row.clientWidth + 1) {
-            row.scrollLeft += dx;
-            ev.preventDefault();
-          }
+        // Over a column that can still scroll vertically — use native scroll (no preventDefault).
+        if (!wantsHorizontal && list && canScrollY(list, dy)) {
           return;
         }
 
-        // Hovering a column that can still scroll vertically — scroll that column.
-        if (list && canScrollY(list, dy)) {
-          list.scrollTop += dy;
-          ev.preventDefault();
-          return;
-        }
+        // Pan the board horizontally (wheel / trackpad / shift+wheel).
+        if (row.scrollWidth <= row.clientWidth + 1) return;
+        if (Math.abs(primary) < 0.5) return;
 
-        // Otherwise convert vertical wheel into horizontal board pan.
-        if (Math.abs(dy) > 0.5 && row.scrollWidth > row.clientWidth + 1) {
-          row.scrollLeft += dy;
-          ev.preventDefault();
-        }
+        row.scrollLeft += primary;
+        ev.preventDefault();
       },
       { passive: false }
     );

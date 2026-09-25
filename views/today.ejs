@@ -319,22 +319,14 @@
     <section aria-labelledby="actions-heading" class="mb-8 md:mb-10">
       <h2 id="actions-heading" class="sr-only">Quick actions</h2>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
-        <div class="today-viz-action today-viz-reveal today-viz-reveal-delay-1 flex min-w-0 flex-col rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm overflow-hidden">
-          <a href="/leads/find" class="group flex flex-1 flex-col p-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900">
-            <span class="today-viz-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="m20 20-3.5-3.5"/></svg>
-            </span>
-            <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Find</p>
-            <h3 class="font-display font-extrabold text-xl text-brand-dark dark:text-white mb-2 group-hover:text-brand-yellow transition-colors">Start a lead search</h3>
-            <p class="text-sm text-brand-muted leading-relaxed flex-1">Keyword + location; Maps via Outscraper first when configured, Apify fallback.</p>
-            <svg class="today-viz-spark" viewBox="0 0 120 36" aria-hidden="true">
-              <path d="M2 28 C18 28, 22 8, 38 12 S58 30, 74 18 S98 6, 118 10"></path>
-            </svg>
-          </a>
-          <p class="text-[11px] text-brand-muted px-8 pb-6 pt-0 border-t border-brand-border/30 dark:border-white/10">
-            <a href="/workspace/integrations" class="text-brand-yellow font-bold hover:underline">Workspace</a> — API keys &amp; cost-aware stack guide.
-          </p>
-        </div>
+        <a href="/leads/find" class="today-viz-action today-viz-reveal today-viz-reveal-delay-1 group flex min-w-0 flex-col rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-8 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900">
+          <span class="today-viz-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="m20 20-3.5-3.5"/></svg>
+          </span>
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Find</p>
+          <h3 class="font-display font-extrabold text-xl text-brand-dark dark:text-white mb-2 group-hover:text-brand-yellow transition-colors">Start a lead search</h3>
+          <p class="text-sm text-brand-muted leading-relaxed mt-auto">Keyword + location; Maps via Outscraper first when configured, Apify fallback.</p>
+        </a>
         <a href="/pipeline" class="today-viz-action today-viz-reveal today-viz-reveal-delay-2 group flex min-w-0 flex-col rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-8 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900">
           <span class="today-viz-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h6v12H4zM14 6h6v7h-6zM14 16h6v2h-6z"/></svg>
@@ -374,10 +366,7 @@
 
     <% const _wr = typeof weekReview !== 'undefined' && weekReview ? weekReview : null; %>
     <% if (_wr) { %>
-    <%
-      const _wrLeads = Array.isArray(_wr.topLeads) ? _wr.topLeads.slice(0, 5) : [];
-      const _wrMax = Math.max(1, ..._wrLeads.map((L) => Number(L.touches) || 0));
-    %>
+    <% const _wrLeads = Array.isArray(_wr.topLeads) ? _wr.topLeads.slice(0, 5) : []; %>
     <div id="weekReviewCard" class="today-viz today-viz-reveal mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-900/70 p-6 md:p-8 shadow-sm">
       <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-5">
         <div>
@@ -388,46 +377,26 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18M7 15l3-3 3 2 5-6"/></svg>
         </span>
       </div>
-      <div class="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-8">
-        <div class="space-y-5">
-          <div>
-            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Best-performing cadence</p>
-            <p class="font-display font-bold text-brand-dark dark:text-white"><%= _wr.cadence && _wr.cadence.label ? _wr.cadence.label : '—' %><% if (_wr.cadence && _wr.cadence.count) { %> <span class="text-brand-muted font-sans font-semibold text-sm">(<%= _wr.cadence.count %> touches logged)</span><% } %></p>
-          </div>
-          <div>
-            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Top leads by engagement</p>
-            <ol class="list-decimal list-inside space-y-1.5 text-sm text-brand-dark dark:text-slate-200">
-              <% if (_wrLeads.length) { %>
-                <% _wrLeads.forEach(function (L) { %>
-                <li><a href="/focus?lead=<%= encodeURIComponent(String(L.key || '').replace(/^lead:/i, '')) %>" class="font-semibold hover:text-brand-yellow"><%= L.title %></a> <span class="text-brand-muted">· <%= L.touches %> events</span></li>
-                <% }); %>
-              <% } else { %>
-                <li class="text-brand-muted">No activity this week yet — log touches from Focus or the pipeline.</li>
-              <% } %>
-            </ol>
-          </div>
-          <div class="rounded-2xl border border-brand-yellow/30 bg-brand-yellow/10 dark:bg-brand-yellow/5 px-4 py-3">
-            <p class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow mb-1">Suggested experiment</p>
-            <p class="text-sm text-brand-dark dark:text-slate-200 leading-relaxed"><%= _wr.experiment || '' %></p>
-          </div>
+      <div class="space-y-5 max-w-3xl">
+        <div>
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Best-performing cadence</p>
+          <p class="font-display font-bold text-brand-dark dark:text-white"><%= _wr.cadence && _wr.cadence.label ? _wr.cadence.label : '—' %><% if (_wr.cadence && _wr.cadence.count) { %> <span class="text-brand-muted font-sans font-semibold text-sm">(<%= _wr.cadence.count %> touches logged)</span><% } %></p>
         </div>
-        <div class="rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/40 dark:bg-slate-950/40 p-4" aria-hidden="true">
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-3">Engagement bars</p>
-          <% if (_wrLeads.length) { %>
-          <div class="today-viz-bars">
-            <% _wrLeads.forEach(function (L, i) { %>
-              <% const h = Math.max(12, Math.round(((Number(L.touches) || 0) / _wrMax) * 100)); %>
-              <div class="today-viz-bar" style="height:<%= h %>%; animation-delay:<%= (i * 0.08).toFixed(2) %>s" title="<%= String(L.title || '').replace(/"/g, '') %>: <%= L.touches %>"></div>
-            <% }); %>
-          </div>
-          <div class="mt-2 flex gap-0.5">
-            <% _wrLeads.forEach(function (L) { %>
-            <p class="flex-1 min-w-0 text-[9px] font-bold text-brand-muted truncate text-center"><%= String(L.title || '').split(/\s+/)[0] %></p>
-            <% }); %>
-          </div>
-          <% } else { %>
-          <p class="text-sm text-brand-muted py-8 text-center">Charts fill in as you log touches.</p>
-          <% } %>
+        <div>
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Top leads by engagement</p>
+          <ol class="list-decimal list-inside space-y-1.5 text-sm text-brand-dark dark:text-slate-200">
+            <% if (_wrLeads.length) { %>
+              <% _wrLeads.forEach(function (L) { %>
+              <li><a href="/focus?lead=<%= encodeURIComponent(String(L.key || '').replace(/^lead:/i, '')) %>" class="font-semibold hover:text-brand-yellow"><%= L.title %></a> <span class="text-brand-muted">· <%= L.touches %> events</span></li>
+              <% }); %>
+            <% } else { %>
+              <li class="text-brand-muted">No activity this week yet — log touches from Focus or the pipeline.</li>
+            <% } %>
+          </ol>
+        </div>
+        <div class="rounded-2xl border border-brand-yellow/30 bg-brand-yellow/10 dark:bg-brand-yellow/5 px-4 py-3">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow mb-1">Suggested experiment</p>
+          <p class="text-sm text-brand-dark dark:text-slate-200 leading-relaxed"><%= _wr.experiment || '' %></p>
         </div>
       </div>
     </div>
