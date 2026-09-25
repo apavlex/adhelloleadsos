@@ -15,6 +15,8 @@
   var DM_HISTORY_MAX = 48;
   var DM_PROMPTS_KEY = 'adhello_dm_saved_prompts';
   var DM_PROMPTS_MAX = 20;
+  var DM_MODEL_KEY = 'adhello_dm_image_model';
+  var DM_DEFAULT_MODEL = 'gpt-image-2';
   var artworkGenerating = false;
   var genBtnLabelBackup = {};
   var brandKit = {
@@ -1772,12 +1774,66 @@
     if (!t) return false;
     if (/^INCREMENTAL EDIT/i.test(t)) return true;
     return (
-      /^(remove|delete|take out|get rid of|drop|hide|eliminate|without|no more|lose the|take off|strip|move the|swap the|replace the|fix the|adjust the|change only|just change|only change|make the .+ (bigger|smaller|lighter|darker|bolder|smaller))/i.test(
+      /^(remove|delete|take out|get rid of|drop|hide|eliminate|without|no more|lose the|take off|strip|move the|swap the|replace the|fix the|adjust the|change only|just change|only change|add |put |make the .+ (bigger|smaller|lighter|darker|bolder|smaller)|wear|wearing)/i.test(
         t,
       ) ||
-      /\b(remove|delete|take out|get rid of|drop|hide|without)\s+(the|this|that|my)\b/i.test(t) ||
-      /\b(no|without)\s+(more|longer)\s+/i.test(t)
+      /\b(remove|delete|take out|get rid of|drop|hide|without|add|put|replace|swap|change|update|edit|tweak|adjust)\s+(the|this|that|my|a|an)\b/i.test(
+        t,
+      ) ||
+      /\b(no|without)\s+(more|longer)\s+/i.test(t) ||
+      /\b(make it|turn it|update it|edit it|tweak it)\b/i.test(t)
     );
+  }
+
+  function currentImageModelKey() {
+    var el = document.getElementById('dmImageModel');
+    var fromUi = el && el.value ? String(el.value).trim() : '';
+    if (fromUi) return fromUi;
+    try {
+      var stored = localStorage.getItem(DM_MODEL_KEY);
+      if (stored) return String(stored).trim();
+    } catch (_) {}
+    return DM_DEFAULT_MODEL;
+  }
+
+  function currentImageModelLabel() {
+    var el = document.getElementById('dmImageModel');
+    if (el && el.selectedOptions && el.selectedOptions[0]) {
+      return String(el.selectedOptions[0].textContent || '').trim() || 'Image model';
+    }
+    return 'Image model';
+  }
+
+  function syncGenerateButtonLabels() {
+    var hasArt = !!designs[currentDesignSlot()];
+    var label = hasArt ? 'Update' : 'Generate';
+    var genBtn = document.getElementById('dmGenerateBtn');
+    if (genBtn) {
+      var span = genBtn.querySelector('[data-gen-label]');
+      if (span) span.textContent = label;
+      genBtn.title = hasArt
+        ? 'Update the current design with your prompt (selected KIE model)'
+        : 'Generate artwork with the selected KIE model';
+    }
+    var regen = document.getElementById('dmPromptRegenerate');
+    if (regen) regen.textContent = hasArt ? 'Update' : 'Generate';
+  }
+
+  function initImageModelPicker() {
+    var el = document.getElementById('dmImageModel');
+    if (!el) return;
+    try {
+      var stored = localStorage.getItem(DM_MODEL_KEY);
+      if (stored && Array.prototype.some.call(el.options, function (o) { return o.value === stored; })) {
+        el.value = stored;
+      }
+    } catch (_) {}
+    el.addEventListener('change', function () {
+      try {
+        localStorage.setItem(DM_MODEL_KEY, el.value);
+      } catch (_) {}
+      setDesignStatus(currentImageModelLabel() + ' selected', true);
+    });
   }
 
   function buildIncrementalEditPrompt(changeRequest) {
@@ -3038,6 +3094,7 @@
       var emptyBoard = document.getElementById(slot === 'back' ? 'dmPreviewBackBtn' : 'dmPreviewFrontBtn');
       if (emptyBoard) emptyBoard.classList.remove('has-image');
       syncMatchFrontBackBtnVisibility();
+      syncGenerateButtonLabels();
       return;
     }
     var img = document.createElement('img');
@@ -3072,9 +3129,8 @@
     syncDownloadActions();
     syncMatchFrontBackBtnVisibility();
     refreshPostCopyFromFields(false);
+    syncGenerateButtonLabels();
   }
-
-  function activeDesignUrls() {
     var out = { frontImageUrl: '', backImageUrl: '' };
     var useFront = document.getElementById('dmUseFront');
     var useBack = document.getElementById('dmUseBack');
@@ -3626,6 +3682,28 @@
         (designMeta[slot] && designMeta[slot].prompt) ||
         String((document.getElementById('dmChatInput') || {}).value || '').trim() ||
         latestUserChatText();
+
+    // Canvas already has art + a refine instruction → update via image-edit, not a fresh T2I.
+    if (
+      !editMode &&
+      designs[slot] &&
+      prompt &&
+      (opts.forceUpdate === true ||
+        userWantsIncrementalEdit(prompt) ||
+        userWantsIncrementalEdit(latestUserChatText()) ||
+        userWantsIncrementalEdit(String((document.getElementById('dmChatInput') || {}).value || '')))
+    ) {
+      editMode = true;
+      var chatRefine = String((document.getElementById('dmChatInput') || {}).value || '').trim();
+      var changeSrc =
+        (userWantsIncrementalEdit(chatRefine) && chatRefine) ||
+        (userWantsIncrementalEdit(latestUserChatText()) && latestUserChatText()) ||
+        prompt;
+      if (!/^INCREMENTAL EDIT/i.test(prompt)) {
+        prompt = buildIncrementalEditPrompt(changeSrc);
+      }
+    }
+
     var ctx = designRequestContext();
     ctx.slot = slot;
     var matchFrontStyle =
@@ -3672,6 +3750,8 @@
 
     var aspectRatio = currentAspectRatio();
     var resolution = (document.getElementById('dmResolution') || {}).value || '2K';
+    var modelKey = currentImageModelKey();
+    var modelLabel = currentImageModelLabel();
     // Client-side guard matching KIE rules (server also normalizes)
     if (aspectRatio === '1:1' && resolution === '4K') {
       resolution = '2K';
@@ -3686,14 +3766,19 @@
 
     if (btn && !opts.suppressButtonToggle) btn.disabled = true;
     if (!opts.suppressButtonToggle) {
-      setArtworkGenerating(true, editMode ? 'Applying edit to artwork…' : 'Generating artwork…');
+      setArtworkGenerating(
+        true,
+        editMode ? 'Updating with ' + modelLabel + '…' : 'Generating with ' + modelLabel + '…',
+      );
       setDesignStatus(
-        editMode ? 'Applying edit to your design…' : 'Generating artwork… this can take up to 2 minutes.',
+        editMode
+          ? 'Updating your design with ' + modelLabel + '…'
+          : 'Generating with ' + modelLabel + '… this can take up to 2 minutes.',
         true,
       );
       if (typeof window.showAppToast === 'function') {
         window.showAppToast(
-          editMode ? 'Applying edit to artwork…' : 'Generating artwork…',
+          editMode ? 'Updating artwork with ' + modelLabel + '…' : 'Generating with ' + modelLabel + '…',
           { variant: 'info', duration: 5000 },
         );
       }
@@ -3709,6 +3794,7 @@
         brandKit: ctx.brandKit,
         matchFrontStyle: matchFrontStyle,
         editMode: editMode,
+        modelKey: modelKey,
       };
       if (referenceUrl) body.referenceUrl = referenceUrl;
       if (styleReferenceUrl) body.styleReferenceUrl = styleReferenceUrl;
@@ -3716,18 +3802,19 @@
       var data = await postJson('/direct-mail/api/generate-image', body);
       if (data.status === 'processing' && data.taskId) {
         var platToast = DM_PLATFORMS[ctx.platform] || DM_PLATFORMS.custom;
-        var genLabel = (platToast.dualSided ? 'Postcard ' + slot : platToast.label) || 'Artwork';
+        var genLabel =
+          (editMode ? 'Updating ' : 'Generating ') +
+          ((platToast.dualSided ? 'Postcard ' + slot : platToast.label) || 'Artwork') +
+          ' · ' +
+          modelLabel;
         if (!opts.suppressButtonToggle) {
-          setArtworkGenerating(true, 'Generating ' + genLabel + ' artwork…');
+          setArtworkGenerating(true, genLabel + '…');
           setDesignStatus(
-            'Generating ' + genLabel + ' artwork — bell will notify when ready. Safe to browse other pages.',
+            genLabel + ' — bell will notify when ready. Safe to browse other pages.',
             true,
           );
           if (typeof window.showAppToast === 'function') {
-            window.showAppToast(
-              'Generating ' + genLabel + ' artwork…',
-              { variant: 'info', duration: 7500 },
-            );
+            window.showAppToast(genLabel + '…', { variant: 'info', duration: 7500 });
           }
         }
         data = await awaitArtworkGeneration(data.taskId, {
@@ -3737,6 +3824,7 @@
           prompt: prompt,
           aspectRatio: aspectRatio,
           resolution: resolution,
+          modelKey: modelKey,
         });
       }
       if (
@@ -4102,7 +4190,11 @@
   }
 
   var genBtn = document.getElementById('dmGenerateBtn');
-  if (genBtn) genBtn.addEventListener('click', generateImage);
+  if (genBtn) {
+    genBtn.addEventListener('click', function () {
+      generateImage({ fromGenerateClick: true });
+    });
+  }
 
   var genBothBtn = document.getElementById('dmGenerateBothBtn');
   if (genBothBtn) genBothBtn.addEventListener('click', generateBothSides);
@@ -4130,7 +4222,7 @@
   if (promptRegen) {
     promptRegen.addEventListener('click', async function () {
       applyPromptFromEditor();
-      var ok = await generateImage();
+      var ok = await generateImage({ fromGenerateClick: true });
       if (!ok && typeof window.showAppToast === 'function') {
         var statusEl = document.getElementById('dmDesignStatus');
         var detail =
@@ -4423,4 +4515,6 @@
   syncDmRowHighlights();
   syncCheckAll();
   updateMergePreview();
+  initImageModelPicker();
+  syncGenerateButtonLabels();
 })();

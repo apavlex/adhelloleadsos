@@ -471,7 +471,7 @@ ${frontStyleContext ? `${frontStyleContext}\n\n` : ''}${lobBackRules}
 ${lobFrontRules}
 ${socialFormatRules}
 
-Help the user brainstorm visuals and write a strong GPT Image 2 prompt. Images are generated via KIE GPT Image 2. When logo overlay is enabled (see Business info), the saved brand logo is composited in the top-right after Generate — the image model must leave that corner empty and must not draw any logo, wordmark, or duplicate brand mark.
+Help the user brainstorm visuals and write a strong image prompt for the selected Marketing Studio format. Images are generated via KIE (GPT Image 2, Grok Imagine, Flux.2, or Nano Banana 2). When logo overlay is enabled (see Business info), the saved brand logo is composited in the top-right after Generate — the image model must leave that corner empty and must not draw any logo, wordmark, or duplicate brand mark.
 
 Logo coaching rules:
 - If Business info says "Logo: ON", confirm the user's uploaded logo will appear automatically in the top-right after Generate. Do NOT say you cannot see the logo file or that the logo is missing — you never receive image bytes in chat; the server handles overlay.
@@ -763,6 +763,8 @@ router.get('/', async (req, res, next) => {
       activePage: 'direct-mail',
       lobReady: ready,
       kieImageReady: kieImageClient.isConfigured(),
+      kieImageModels: kieImageClient.listImageModels(),
+      kieDefaultModelKey: kieImageClient.DEFAULT_MODEL_KEY,
       mailableLeads,
       dmSelectionCount: selectedOnly ? selectedKeyOrder.length : null,
       dmIsSelectionSession: selectedOnly,
@@ -812,6 +814,8 @@ router.get('/api/status', async (req, res, next) => {
       kieImageReady: kieImageStatus.ok,
       kieImageConfigured: kieImageStatus.configured,
       kieImageStatus,
+      kieImageModels: kieImageClient.listImageModels(),
+      kieDefaultModelKey: kieImageClient.DEFAULT_MODEL_KEY,
       chatReady,
       brandKit: resolveBrandKitForClient(ws),
       platforms: DM_PLATFORMS,
@@ -1296,6 +1300,8 @@ router.post('/api/generate-image', async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'Image prompt is required.' });
     }
 
+    const modelKey = String(body.modelKey || kieImageClient.DEFAULT_MODEL_KEY).trim();
+    const modelMeta = kieImageClient.getImageModel(modelKey);
     const platform = String(body.platform || 'postcard').trim() || 'postcard';
     const slot = String(body.slot || 'front').toLowerCase() === 'back' ? 'back' : 'front';
     const brandKit = await mergeBrandKitForGeneration(req, body.brandKit);
@@ -1313,17 +1319,21 @@ router.post('/api/generate-image', async (req, res, next) => {
       editMode,
     });
 
-    if (kieImageClient.isVagueImagePrompt(prompt)) {
+    if (kieImageClient.isVagueImagePrompt(prompt, { editMode })) {
       return res.status(400).json({
         success: false,
-        error: kieImageClient.friendlyKieImageError('', { prompt }),
+        error: kieImageClient.friendlyKieImageError('', {
+          prompt,
+          editMode,
+          modelKey: modelMeta.key,
+        }),
       });
     }
 
     const aspectRatio =
       String(body.aspectRatio || platformAspectRatio(platform, '16:9')).trim() || '16:9';
     const resolution = String(body.resolution || '2K').trim() || '2K';
-    const logoReferenceUrl = await resolveLogoReferenceUrl(req, brandKit);
+    const logoReferenceUrl = editMode ? '' : await resolveLogoReferenceUrl(req, brandKit);
     const inputUrls = buildGenerationInputUrls(req, {
       referenceUrl: referenceAbs,
       styleReferenceUrl,
@@ -1331,29 +1341,27 @@ router.post('/api/generate-image', async (req, res, next) => {
       editMode,
     });
 
+    const createOpts = {
+      prompt,
+      inputUrls,
+      aspectRatio,
+      resolution,
+      modelKey: modelMeta.key,
+      editMode,
+    };
+
     let created;
     try {
-      created = await kieImageClient.createTask({
-        prompt,
-        inputUrls,
-        aspectRatio,
-        resolution,
-      });
+      created = await kieImageClient.createTask(createOpts);
     } catch (firstErr) {
       const styleOnly = inputUrls.filter((u) => u !== logoReferenceUrl);
       if (styleOnly.length && styleOnly.length < inputUrls.length) {
+        created = await kieImageClient.createTask({ ...createOpts, inputUrls: styleOnly });
+      } else if (styleOnly.length && !editMode) {
         created = await kieImageClient.createTask({
-          prompt,
-          inputUrls: styleOnly,
-          aspectRatio,
-          resolution,
-        });
-      } else if (styleOnly.length) {
-        created = await kieImageClient.createTask({
-          prompt,
+          ...createOpts,
           inputUrls: [],
-          aspectRatio,
-          resolution,
+          editMode: false,
         });
       } else {
         throw firstErr;
@@ -1364,6 +1372,8 @@ router.post('/api/generate-image', async (req, res, next) => {
       slot,
       brandKit,
       model: created.model,
+      modelKey: created.modelKey || modelMeta.key,
+      modelLabel: created.modelLabel || modelMeta.label,
       prompt,
       workspaceId: req.workspaceId,
     });
@@ -1374,6 +1384,8 @@ router.post('/api/generate-image', async (req, res, next) => {
       slot,
       taskId: created.taskId,
       model: created.model,
+      modelKey: created.modelKey || modelMeta.key,
+      modelLabel: created.modelLabel || modelMeta.label,
     });
   } catch (err) {
     const { status, error } = kieHttpError(

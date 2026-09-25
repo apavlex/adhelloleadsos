@@ -1,6 +1,6 @@
 /**
- * KIE Market API — GPT Image 2 text-to-image and image-to-image.
- * Docs: https://kie.ai/gpt-image-2
+ * KIE Market API — multi-model text-to-image and image edit.
+ * Docs: https://docs.kie.ai
  *
  * Env:
  *   KIE_AI_API_KEY or KIE_API_KEY — Bearer token
@@ -8,8 +8,83 @@
  */
 
 const DEFAULT_BASE = 'https://api.kie.ai';
+const DEFAULT_MODEL_KEY = 'gpt-image-2';
+
+/** @deprecated Prefer IMAGE_MODELS / getImageModel — kept for older callers. */
 const TEXT_MODEL = 'gpt-image-2-text-to-image';
+/** @deprecated Prefer IMAGE_MODELS / getImageModel — kept for older callers. */
 const IMAGE_MODEL = 'gpt-image-2-image-to-image';
+
+/**
+ * Curated Marketing Studio models.
+ * urlField: how reference images are passed on createTask input.
+ */
+const IMAGE_MODELS = {
+  'gpt-image-2': {
+    key: 'gpt-image-2',
+    label: 'GPT Image 2',
+    shortLabel: 'GPT Image 2',
+    textModel: 'gpt-image-2-text-to-image',
+    editModel: 'gpt-image-2-image-to-image',
+    urlField: 'input_urls',
+    maxUrls: 16,
+    supportsResolution: true,
+    resolutions: ['1K', '2K', '4K'],
+    aspectRatios: null, // accept studio ratios; normalizeAspectAndResolution applies GPT rules
+    promptMax: 20000,
+  },
+  'grok-imagine-2': {
+    key: 'grok-imagine-2',
+    label: 'Grok Imagine 2.0',
+    shortLabel: 'Grok',
+    textModel: 'grok-imagine-image-2-0/text-to-image',
+    editModel: 'grok-imagine-image-2-0/image-edit',
+    urlField: 'image_urls',
+    maxUrls: 5,
+    supportsResolution: false,
+    resolutions: [],
+    aspectRatios: ['1:1', '2:3', '3:2', '16:9', '9:16', 'auto'],
+    promptMax: 8000,
+  },
+  'flux-2': {
+    key: 'flux-2',
+    label: 'Flux.2',
+    shortLabel: 'Flux.2',
+    textModel: 'flux-2/flex-text-to-image',
+    editModel: 'flux-2/flex-image-to-image',
+    urlField: 'input_urls',
+    maxUrls: 8,
+    supportsResolution: true,
+    resolutions: ['1K', '2K'],
+    aspectRatios: ['1:1', '4:3', '3:4', '16:9', '9:16', '3:2', '2:3', 'auto'],
+    promptMax: 5000,
+  },
+  'nano-banana-2': {
+    key: 'nano-banana-2',
+    label: 'Nano Banana 2',
+    shortLabel: 'Nano Banana',
+    textModel: 'nano-banana-2',
+    editModel: 'nano-banana-2',
+    urlField: 'image_input',
+    maxUrls: 14,
+    supportsResolution: true,
+    resolutions: ['1K', '2K'],
+    aspectRatios: [
+      '1:1',
+      '2:3',
+      '3:2',
+      '4:3',
+      '3:4',
+      '4:5',
+      '5:4',
+      '9:16',
+      '16:9',
+      '21:9',
+      'auto',
+    ],
+    promptMax: 20000,
+  },
+};
 
 function apiKey() {
   return String(process.env.KIE_AI_API_KEY || process.env.KIE_API_KEY || '').trim();
@@ -23,41 +98,137 @@ function isConfigured() {
   return !!apiKey();
 }
 
-/** True when the text is too short to send as a GPT Image 2 prompt. */
-function isVagueImagePrompt(prompt) {
+function listImageModels() {
+  return Object.values(IMAGE_MODELS).map((m) => ({
+    key: m.key,
+    label: m.label,
+    shortLabel: m.shortLabel,
+    supportsResolution: m.supportsResolution,
+    resolutions: m.resolutions.slice(),
+  }));
+}
+
+function getImageModel(modelKey) {
+  const key = String(modelKey || '').trim();
+  return IMAGE_MODELS[key] || IMAGE_MODELS[DEFAULT_MODEL_KEY];
+}
+
+function nearestAspectRatio(requested, allowed) {
+  const req = String(requested || '1:1').trim() || '1:1';
+  if (!allowed || !allowed.length) return req;
+  if (allowed.includes(req)) return req;
+  if (req === 'auto' && allowed.includes('auto')) return 'auto';
+
+  function parts(r) {
+    const m = /^(\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)$/.exec(r);
+    if (!m) return null;
+    const w = Number(m[1]);
+    const h = Number(m[2]);
+    if (!w || !h) return null;
+    return w / h;
+  }
+
+  const target = parts(req);
+  if (target == null) {
+    return allowed.includes('1:1') ? '1:1' : allowed[0];
+  }
+
+  let best = allowed[0];
+  let bestDist = Infinity;
+  for (const candidate of allowed) {
+    if (candidate === 'auto') continue;
+    const ratio = parts(candidate);
+    if (ratio == null) continue;
+    const dist = Math.abs(Math.log(ratio) - Math.log(target));
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = candidate;
+    }
+  }
+  return best;
+}
+
+/**
+ * True when the text is too short to send as a fresh text-to-image prompt.
+ * Short refine instructions are allowed when editing an existing canvas image.
+ */
+function isVagueImagePrompt(prompt, { editMode } = {}) {
   const p = String(prompt || '').trim();
   if (!p) return true;
+  if (editMode) {
+    if (p.length < 8) return true;
+    if (/^(ok|okay|yes|sure|generate|go ahead|please)\b/i.test(p) && p.length < 24) return true;
+    return false;
+  }
   if (p.length < 48) return true;
-  if (p.length < 140 && /^(ok|okay|yes|sure|make it|do it|generate|go ahead|please|create it|make this|make one|make the|build it|design it)\b/i.test(p)) {
+  if (
+    p.length < 140 &&
+    /^(ok|okay|yes|sure|make it|do it|generate|go ahead|please|create it|make this|make one|make the|build it|design it)\b/i.test(
+      p,
+    )
+  ) {
     return true;
   }
   return false;
 }
 
 /**
- * KIE GPT Image 2 rejects some aspect/resolution combos (e.g. 1:1 + 4K).
- * Normalize to a valid pair before createTask.
+ * Normalize aspect/resolution for a specific model (defaults to GPT Image 2 rules).
  * @returns {{ aspectRatio: string, resolution: string, adjusted: boolean, note: string }}
  */
-function normalizeAspectAndResolution(aspectRatio, resolution) {
+function normalizeAspectAndResolution(aspectRatio, resolution, modelKey) {
+  const model = getImageModel(modelKey);
   let ar = String(aspectRatio || '1:1').trim() || '1:1';
   let res = String(resolution || '2K').trim().toUpperCase() || '2K';
-  if (!['1K', '2K', '4K'].includes(res)) res = '2K';
-
   const notes = [];
-  const highResBlocked = new Set(['5:4', '4:5', '3:1', '1:3', '9:21']);
 
-  if (ar === 'auto' && res !== '1K') {
-    res = '1K';
-    notes.push('Auto aspect ratio only supports 1K — switched to 1K.');
+  if (model.aspectRatios && model.aspectRatios.length) {
+    const mapped = nearestAspectRatio(ar, model.aspectRatios);
+    if (mapped !== ar) {
+      notes.push(`${model.label} does not support ${ar} — using ${mapped}.`);
+      ar = mapped;
+    }
   }
-  if (ar === '1:1' && res === '4K') {
+
+  if (!model.supportsResolution) {
+    return {
+      aspectRatio: ar,
+      resolution: '',
+      adjusted: notes.length > 0,
+      note: notes.join(' '),
+    };
+  }
+
+  if (!model.resolutions.includes(res)) {
+    const fallback = model.resolutions.includes('2K')
+      ? '2K'
+      : model.resolutions[model.resolutions.length - 1] || '1K';
+    if (res !== fallback) {
+      notes.push(`${model.label} max export is ${fallback} — switched from ${res}.`);
+    }
+    res = fallback;
+  }
+
+  // GPT-specific combo rules (kept for default model)
+  if (model.key === 'gpt-image-2') {
+    const highResBlocked = new Set(['5:4', '4:5', '3:1', '1:3', '9:21']);
+    if (ar === 'auto' && res !== '1K') {
+      res = '1K';
+      notes.push('Auto aspect ratio only supports 1K — switched to 1K.');
+    }
+    if (ar === '1:1' && res === '4K') {
+      res = '2K';
+      notes.push('Square (1:1) cannot use 4K on GPT Image 2 — switched to 2K.');
+    }
+    if ((res === '2K' || res === '4K') && highResBlocked.has(ar)) {
+      res = '1K';
+      notes.push(`${ar} only supports 1K on GPT Image 2 — switched to 1K.`);
+    }
+  }
+
+  if (model.key === 'flux-2' && res === '4K') {
     res = '2K';
-    notes.push('Square (1:1) cannot use 4K on GPT Image 2 — switched to 2K.');
-  }
-  if ((res === '2K' || res === '4K') && highResBlocked.has(ar)) {
-    res = '1K';
-    notes.push(`${ar} only supports 1K on GPT Image 2 — switched to 1K.`);
+    notes.push('Flux.2 max export is 2K — switched from 4K.');
   }
 
   return {
@@ -71,12 +242,18 @@ function normalizeAspectAndResolution(aspectRatio, resolution) {
 /**
  * Turn raw KIE / generation errors into actionable copy for the Design studio UI.
  */
-function friendlyKieImageError(raw, { prompt, aspectRatio, resolution } = {}) {
+function friendlyKieImageError(raw, { prompt, aspectRatio, resolution, editMode, modelKey } = {}) {
   const msg = String(raw || '').trim();
   const lower = msg.toLowerCase();
-  const vague = isVagueImagePrompt(prompt);
+  const model = getImageModel(modelKey);
+  const vague = isVagueImagePrompt(prompt, { editMode });
 
   if (vague) {
+    if (editMode) {
+      return (
+        'Add a short edit instruction (e.g. “add a cowboy hat” or “make the headline orange”), then click Update.'
+      );
+    }
     return (
       'That isn’t a detailed image prompt yet. Use Chat to describe the creative for your selected format, then ask for a “final image prompt.” ' +
       'When you see “Prompt ready — click Generate,” hit Generate. Short phrases like “make it for me” are sent to Chat, not the image API.'
@@ -91,8 +268,8 @@ function friendlyKieImageError(raw, { prompt, aspectRatio, resolution } = {}) {
       (String(aspectRatio) === '1:1' || String(resolution) === '4K'))
   ) {
     return (
-      'That aspect ratio and export quality aren’t compatible on GPT Image 2. ' +
-      'Square (1:1) maxes out at 2K — switch Export quality to 2K (or change the ratio), then Generate again.'
+      `That aspect ratio and export quality aren’t compatible on ${model.label}. ` +
+      'Switch Export quality or the ratio, then Generate again.'
     );
   }
 
@@ -158,7 +335,9 @@ async function kieRequest(method, path, { body } = {}) {
       (data && data.error) ||
       `KIE API error (${res.status})`;
     const raw = typeof msg === 'string' ? msg : JSON.stringify(msg);
-    const err = new Error(friendlyKieImageError(raw, { prompt: body && body.input && body.input.prompt }));
+    const err = new Error(
+      friendlyKieImageError(raw, { prompt: body && body.input && body.input.prompt }),
+    );
     err.status = res.status;
     err.body = data;
     err.kieFriendly = true;
@@ -173,7 +352,9 @@ async function kieRequest(method, path, { body } = {}) {
       (data && data.error) ||
       `KIE API error (code ${bizCode})`;
     const raw = typeof msg === 'string' ? msg : JSON.stringify(msg);
-    const err = new Error(friendlyKieImageError(raw, { prompt: body && body.input && body.input.prompt }));
+    const err = new Error(
+      friendlyKieImageError(raw, { prompt: body && body.input && body.input.prompt }),
+    );
     err.status = bizCode >= 400 && bizCode < 600 ? bizCode : 502;
     err.body = data;
     err.kieFriendly = true;
@@ -194,36 +375,64 @@ async function testConnection() {
     if (/401|403|unauthorized|invalid.*key|api key is missing|api key is not configured/i.test(msg)) {
       return { configured: true, ok: false, message: 'KIE API key is invalid or unauthorized.' };
     }
-    // The probe uses a fake task id. Any non-auth response means the key was accepted.
     return { configured: true, ok: true, message: 'KIE API key accepted.' };
   }
   return { configured: true, ok: true, message: 'KIE API key accepted.' };
 }
 
-async function createTask({ prompt, inputUrls, aspectRatio, resolution }) {
+function buildModelInput(model, { prompt, urls, aspectRatio, resolution }) {
+  const maxLen = model.promptMax || 20000;
+  const input = {
+    prompt: String(prompt || '').slice(0, maxLen),
+    aspect_ratio: aspectRatio || '1:1',
+  };
+  if (model.supportsResolution && resolution) {
+    input.resolution = resolution;
+  }
+  const capped = (urls || []).slice(0, model.maxUrls || 8);
+  if (capped.length) {
+    input[model.urlField] = capped;
+  } else if (model.urlField === 'image_input') {
+    // Nano Banana expects the field even for pure text-to-image.
+    input.image_input = [];
+  }
+  return input;
+}
+
+async function createTask({
+  prompt,
+  inputUrls,
+  aspectRatio,
+  resolution,
+  modelKey,
+  editMode,
+}) {
+  const model = getImageModel(modelKey);
   const p = String(prompt || '').trim();
   if (!p) throw new Error('Image prompt is required.');
-  if (isVagueImagePrompt(p)) {
-    throwFriendlyKieError('', { prompt: p });
-  }
 
   const urls = (Array.isArray(inputUrls) ? inputUrls : [])
     .map((u) => String(u || '').trim())
     .filter((u) => /^https?:\/\//i.test(u));
 
-  const normalized = normalizeAspectAndResolution(aspectRatio, resolution);
-  const model = urls.length ? IMAGE_MODEL : TEXT_MODEL;
-  const input = {
-    prompt: p.slice(0, 20000),
-    aspect_ratio: normalized.aspectRatio || '1:1',
-  };
-  if (normalized.resolution) input.resolution = normalized.resolution;
-  if (urls.length) input.input_urls = urls.slice(0, 16);
+  const isEdit = editMode === true || urls.length > 0;
+  if (isVagueImagePrompt(p, { editMode: isEdit })) {
+    throwFriendlyKieError('', { prompt: p, editMode: isEdit, modelKey: model.key });
+  }
+
+  const normalized = normalizeAspectAndResolution(aspectRatio, resolution, model.key);
+  const kieModel = isEdit ? model.editModel : model.textModel;
+  const input = buildModelInput(model, {
+    prompt: p,
+    urls,
+    aspectRatio: normalized.aspectRatio,
+    resolution: normalized.resolution,
+  });
 
   let response;
   try {
     response = await kieRequest('POST', '/api/v1/jobs/createTask', {
-      body: { model, input },
+      body: { model: kieModel, input },
     });
   } catch (err) {
     if (err && !err.kieFriendly) {
@@ -231,6 +440,8 @@ async function createTask({ prompt, inputUrls, aspectRatio, resolution }) {
         prompt: p,
         aspectRatio: normalized.aspectRatio,
         resolution: normalized.resolution,
+        editMode: isEdit,
+        modelKey: model.key,
       });
     }
     throw err;
@@ -242,7 +453,9 @@ async function createTask({ prompt, inputUrls, aspectRatio, resolution }) {
   }
   return {
     taskId,
-    model,
+    model: kieModel,
+    modelKey: model.key,
+    modelLabel: model.label,
     createResponse: response,
     aspectRatio: normalized.aspectRatio,
     resolution: normalized.resolution,
@@ -319,7 +532,7 @@ function sleep(ms) {
  * Poll KIE task until success, fail, or timeout.
  * @returns {{ state: string, urls: string[], record: object }}
  */
-async function pollUntilDone(taskId, { maxWaitMs = 120000, intervalMs = 4000, prompt } = {}) {
+async function pollUntilDone(taskId, { maxWaitMs = 120000, intervalMs = 4000, prompt, modelKey } = {}) {
   const deadline = Date.now() + maxWaitMs;
   let last = {};
 
@@ -338,24 +551,47 @@ async function pollUntilDone(taskId, { maxWaitMs = 120000, intervalMs = 4000, pr
 
     if (state === 'fail') {
       const msg = data.failMsg || data.failCode || 'Image generation failed.';
-      throwFriendlyKieError(String(msg), { prompt });
+      throwFriendlyKieError(String(msg), { prompt, modelKey });
     }
 
     await sleep(intervalMs);
   }
 
-  throwFriendlyKieError('Image generation timed out — try again in a moment.', { prompt });
+  throwFriendlyKieError('Image generation timed out — try again in a moment.', { prompt, modelKey });
 }
 
 /**
  * Create task and wait for the first result image URL.
  */
-async function generate({ prompt, inputUrls, aspectRatio, resolution, maxWaitMs, intervalMs }) {
-  const { taskId, model } = await createTask({ prompt, inputUrls, aspectRatio, resolution });
-  const result = await pollUntilDone(taskId, { maxWaitMs, intervalMs, prompt });
+async function generate({
+  prompt,
+  inputUrls,
+  aspectRatio,
+  resolution,
+  modelKey,
+  editMode,
+  maxWaitMs,
+  intervalMs,
+}) {
+  const created = await createTask({
+    prompt,
+    inputUrls,
+    aspectRatio,
+    resolution,
+    modelKey,
+    editMode,
+  });
+  const result = await pollUntilDone(created.taskId, {
+    maxWaitMs,
+    intervalMs,
+    prompt,
+    modelKey: created.modelKey,
+  });
   return {
-    taskId,
-    model,
+    taskId: created.taskId,
+    model: created.model,
+    modelKey: created.modelKey,
+    modelLabel: created.modelLabel,
     imageUrl: result.urls[0],
     urls: result.urls,
     record: result.record,
@@ -363,12 +599,17 @@ async function generate({ prompt, inputUrls, aspectRatio, resolution, maxWaitMs,
 }
 
 module.exports = {
+  DEFAULT_MODEL_KEY,
   TEXT_MODEL,
   IMAGE_MODEL,
+  IMAGE_MODELS,
   apiKey,
   isConfigured,
+  listImageModels,
+  getImageModel,
   isVagueImagePrompt,
   normalizeAspectAndResolution,
+  nearestAspectRatio,
   friendlyKieImageError,
   testConnection,
   createTask,

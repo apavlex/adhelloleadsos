@@ -89,3 +89,33 @@ test('normalizeAspectAndResolution downgrades incompatible 1:1 + 4K', () => {
   assert.equal(ok.resolution, '4K');
   assert.equal(ok.adjusted, false);
 });
+
+test('listImageModels includes curated KIE models', () => {
+  const { listImageModels, getImageModel, DEFAULT_MODEL_KEY } = require('../services/kieImageClient');
+  const models = listImageModels();
+  const keys = models.map((m) => m.key);
+  assert.deepEqual(keys.sort(), ['flux-2', 'gpt-image-2', 'grok-imagine-2', 'nano-banana-2'].sort());
+  assert.equal(DEFAULT_MODEL_KEY, 'gpt-image-2');
+  assert.equal(getImageModel('grok-imagine-2').editModel, 'grok-imagine-image-2-0/image-edit');
+  assert.equal(getImageModel('flux-2').urlField, 'input_urls');
+  assert.equal(getImageModel('nano-banana-2').urlField, 'image_input');
+  assert.equal(getImageModel('unknown').key, 'gpt-image-2');
+});
+
+test('normalizeAspectAndResolution maps ratios per model', () => {
+  const { normalizeAspectAndResolution } = require('../services/kieImageClient');
+  const grok = normalizeAspectAndResolution('4:5', '2K', 'grok-imagine-2');
+  assert.equal(grok.aspectRatio, '2:3');
+  assert.equal(grok.resolution, '');
+
+  const flux = normalizeAspectAndResolution('16:9', '4K', 'flux-2');
+  assert.equal(flux.aspectRatio, '16:9');
+  assert.equal(flux.resolution, '2K');
+});
+
+test('isVagueImagePrompt allows short refine prompts in edit mode', () => {
+  const { isVagueImagePrompt } = require('../services/kieImageClient');
+  assert.equal(isVagueImagePrompt('add a cowboy hat'), true);
+  assert.equal(isVagueImagePrompt('add a cowboy hat', { editMode: true }), false);
+  assert.equal(isVagueImagePrompt('ok', { editMode: true }), true);
+});

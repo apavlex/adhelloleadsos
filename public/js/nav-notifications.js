@@ -1894,7 +1894,7 @@
       '<div class="text-[10px] font-bold text-brand-muted dark:text-slate-400 leading-tight">' +
       label +
       '</div>' +
-      '<div class="mt-1 text-[9px] font-semibold text-brand-muted dark:text-slate-500">Safe to browse other pages — we will ping the bell when GPT Image 2 finishes.</div>' +
+      '<div class="mt-1 text-[9px] font-semibold text-brand-muted dark:text-slate-500">Safe to browse other pages — we will ping the bell when artwork finishes.</div>' +
       '</div></div></div>'
     );
   }
