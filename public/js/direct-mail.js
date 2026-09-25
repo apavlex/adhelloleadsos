@@ -508,7 +508,7 @@
 
   function syncPreviewZoomBadges() {
     document.querySelectorAll('.dm-preview-zoom-badge').forEach(function (badge) {
-      badge.textContent = studioZoom > 1.02 ? 'Click to reset zoom' : 'Click to zoom in';
+      badge.textContent = studioZoom > 1.02 ? 'Click for Download' : 'Click to zoom in';
     });
   }
 
