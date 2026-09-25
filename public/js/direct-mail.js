@@ -17,6 +17,7 @@
   var DM_PROMPTS_MAX = 20;
   var DM_MODEL_KEY = 'adhello_dm_image_model';
   var DM_DEFAULT_MODEL = 'gpt-image-2';
+  var DM_PLATFORM_STORAGE_KEY = 'adhello_dm_platform';
   var artworkGenerating = false;
   var genBtnLabelBackup = {};
   var brandKit = {
@@ -75,6 +76,55 @@
     var el = document.getElementById('dmPlatform');
     var key = el && el.value ? String(el.value).trim() : 'postcard';
     return DM_PLATFORMS[key] ? key : 'custom';
+  }
+
+  function ensurePlatformSelectOption(key) {
+    var platformEl = document.getElementById('dmPlatform');
+    if (!platformEl || !key) return platformEl;
+    var has = Array.prototype.some.call(platformEl.options || [], function (o) {
+      return o.value === key;
+    });
+    if (!has) {
+      var opt = document.createElement('option');
+      opt.value = key;
+      opt.textContent = (DM_PLATFORMS[key] && DM_PLATFORMS[key].label) || key;
+      platformEl.appendChild(opt);
+    }
+    return platformEl;
+  }
+
+  /** Set format and refresh canvas/UI. Do not rely on the hidden select's change event alone. */
+  function selectPlatform(platformKey, opts) {
+    opts = opts || {};
+    var key = String(platformKey || '').trim();
+    if (!DM_PLATFORMS[key]) key = 'postcard';
+    var platformEl = ensurePlatformSelectOption(key);
+    if (platformEl) platformEl.value = key;
+    try {
+      localStorage.setItem(DM_PLATFORM_STORAGE_KEY, key);
+    } catch (_) {}
+    applyPlatformPreset(key);
+    // If the select silently rejected the value, still keep UI on the requested format.
+    if (platformEl && platformEl.value !== key) {
+      platformEl.value = key;
+      syncStudioFormatPill(key);
+    }
+    if (!opts.silent) {
+      var label = (DM_PLATFORMS[key] && DM_PLATFORMS[key].label) || key;
+      setDesignStatus(label + ' selected', true);
+    }
+    return key;
+  }
+
+  function restoreStoredPlatform() {
+    try {
+      var stored = String(localStorage.getItem(DM_PLATFORM_STORAGE_KEY) || '').trim();
+      if (stored && DM_PLATFORMS[stored]) {
+        selectPlatform(stored, { silent: true });
+        return stored;
+      }
+    } catch (_) {}
+    return currentPlatformKey();
   }
 
   function currentAspectRatio() {
@@ -543,16 +593,18 @@
       });
     });
 
-    document.querySelectorAll('.dm-format-card').forEach(function (card) {
-      card.addEventListener('click', function () {
-        var key = card.getAttribute('data-dm-platform') || 'postcard';
-        var platformEl = document.getElementById('dmPlatform');
-        if (platformEl) {
-          platformEl.value = key;
-          platformEl.dispatchEvent(new Event('change', { bubbles: true }));
-        }
+    // Format grid: apply platform directly (hidden select change alone was unreliable).
+    var formatGrid = document.querySelector('.dm-format-grid');
+    if (formatGrid && !formatGrid.dataset.dmPlatformBound) {
+      formatGrid.dataset.dmPlatformBound = '1';
+      formatGrid.addEventListener('click', function (e) {
+        var card = e.target && e.target.closest ? e.target.closest('.dm-format-card') : null;
+        if (!card || !formatGrid.contains(card)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        selectPlatform(card.getAttribute('data-dm-platform') || 'postcard');
       });
-    });
+    }
 
     document.querySelectorAll('.dm-page-tab').forEach(function (tab) {
       tab.addEventListener('click', function () {
@@ -2223,8 +2275,7 @@
 
     var platformEl = document.getElementById('dmPlatform');
     if (platformEl && DM_PLATFORMS[platform]) {
-      platformEl.value = platform;
-      applyPlatformPreset(platform);
+      selectPlatform(platform, { silent: true });
     }
 
     setActiveDesignSlot('front');
@@ -2631,8 +2682,7 @@
     if (item.platform) {
       var platformEl = document.getElementById('dmPlatform');
       if (platformEl && DM_PLATFORMS[item.platform]) {
-        platformEl.value = item.platform;
-        applyPlatformPreset(item.platform);
+        selectPlatform(item.platform, { silent: true });
       }
     }
     if (item.aspectRatio) {
@@ -3597,13 +3647,14 @@
       detail.aspectRatio || (designMeta[slot] && designMeta[slot].aspectRatio) || currentAspectRatio();
     var resolution =
       detail.resolution || (designMeta[slot] && designMeta[slot].resolution) || '2K';
-    var platform = String(detail.platform || currentPlatformKey() || '').trim();
-    if (platform && DM_PLATFORMS[platform]) {
-      var platformEl = document.getElementById('dmPlatform');
-      if (platformEl) {
-        platformEl.value = platform;
-        applyPlatformPreset(platform);
-      }
+    var platform = String(detail.platform || '').trim();
+    // Don't clobber a format the user already switched to while a background job finished.
+    if (
+      platform &&
+      DM_PLATFORMS[platform] &&
+      (opts.forcePlatform || !opts.fromBackground || currentPlatformKey() === platform)
+    ) {
+      selectPlatform(platform, { silent: true });
     }
     setActiveDesignSlot(slot);
     designMeta[slot].prompt = prompt;
@@ -3660,7 +3711,7 @@
     }
     var pending = window.agencyOsArtworkGen.consumeReadyResult();
     if (pending && pending.imageUrl) {
-      applyArtworkGenerationResult(pending, {});
+      applyArtworkGenerationResult(pending, { forcePlatform: true });
       switchDmDrawerTab('history');
       return;
     }
@@ -4281,8 +4332,10 @@
   var platformEl = document.getElementById('dmPlatform');
   if (platformEl) {
     platformEl.addEventListener('change', function () {
-      applyPlatformPreset(currentPlatformKey());
+      selectPlatform(currentPlatformKey(), { silent: true });
     });
+    restoreStoredPlatform();
+  } else {
     applyPlatformPreset(currentPlatformKey());
   }
 
@@ -4383,7 +4436,7 @@
     renderHistoryLibrary();
     renderSavedLibrary();
     if (detail && detail.success && detail.imageUrl) {
-      applyArtworkGenerationResult(detail, {});
+      applyArtworkGenerationResult(detail, { fromBackground: true });
       switchDmDrawerTab('history');
     }
   });
