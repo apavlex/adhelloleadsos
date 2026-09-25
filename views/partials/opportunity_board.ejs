@@ -220,10 +220,12 @@
   .opp-cal button.is-selected { background: #FFDB3A; color: #111827; }
   .opp-cal-nav button { border: 0; background: transparent; font-weight: 800; cursor: pointer; padding: 0.15rem 0.4rem; color: inherit; }
   #oppBoardMsg.is-ok { color: #047857; }
-  .opp-actions { display: inline-flex; align-items: center; gap: 0.15rem; }
-  .opp-actions button { border: 0; background: transparent; padding: 0.1rem 0.3rem; font-size: 0.625rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #9ca3af; cursor: pointer; }
-  .opp-actions .opp-rename:hover { color: #111827; }
-  .opp-actions .opp-remove:hover { color: #be123c; }
+  .opp-actions { display: inline-flex; align-items: center; gap: 0.35rem; }
+  .opp-actions button { border: 0; background: transparent; padding: 0.15rem 0.35rem; font-size: 0.625rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #9ca3af; cursor: pointer; border-radius: 0.4rem; }
+  .opp-actions .opp-rename { color: #0f2747; background: rgba(15, 39, 71, 0.06); }
+  .opp-actions .opp-rename:hover { color: #111827; background: rgba(250, 204, 21, 0.28); }
+  .opp-actions .opp-remove:hover { color: #be123c; background: rgba(244, 63, 94, 0.1); }
+  html.dark .opp-actions .opp-rename { color: #f8fafc; background: rgba(255, 255, 255, 0.08); }
   #oppBoardMsg.hidden { display: none; }
   .opp-pipeline-select { height: 2.5rem; border-radius: 999px; border: 1px solid rgba(17, 24, 39, 0.12); background: #fff; padding: 0 0.85rem; font-size: 0.75rem; font-weight: 700; color: #111827; }
   html.dark .opp-pipeline-select { background: #0f172a; border-color: rgba(255, 255, 255, 0.12); color: #f8fafc; }
@@ -274,12 +276,10 @@
           </div>
           <span class="opp-stage-count"><%= stage.count %></span>
         </div>
-        <% if (!_compact) { %>
         <div class="opp-actions mb-2">
-          <button type="button" class="opp-rename" data-stage-id="<%= stage.id %>" data-stage-name="<%= stage.name %>">Edit</button>
+          <button type="button" class="opp-rename" data-stage-id="<%= stage.id %>" data-stage-name="<%= stage.name %>">Edit column</button>
           <button type="button" class="opp-remove" data-stage-id="<%= stage.id %>">Remove</button>
         </div>
-        <% } %>
         <div class="opp-stage-cards<%= stage.cards.length ? '' : ' is-empty' %>" data-stage-id="<%= stage.id %>">
           <% if (!stage.cards.length) { %><div class="opp-drop">Drop here</div><% } %>
           <% stage.cards.forEach(function (card) { %>

@@ -46,6 +46,13 @@
       '#' + ROOT_ID + ' .adhello-dialog-stages{display:flex;flex-wrap:wrap;gap:0.28rem;margin-top:0.45rem;}',
       '#' + ROOT_ID + ' .adhello-dialog-stage{display:inline-flex;align-items:center;border-radius:999px;padding:0.18rem 0.45rem;font-size:0.62rem;font-weight:700;background:rgba(15,39,71,0.08);color:#0f2747;}',
       'html.dark #' + ROOT_ID + ' .adhello-dialog-stage{background:rgba(255,255,255,0.08);color:#f8fafc;}',
+      '#' + ROOT_ID + ' .adhello-dialog-range-row{display:flex;align-items:center;gap:0.65rem;margin-top:0.35rem;}',
+      '#' + ROOT_ID + ' .adhello-dialog-range{flex:1;min-width:0;accent-color:#0f2747;}',
+      '#' + ROOT_ID + ' .adhello-dialog-range-value{min-width:3.2rem;text-align:right;font-size:0.75rem;font-weight:800;color:#64748b;}',
+      'html.dark #' + ROOT_ID + ' .adhello-dialog-range-value{color:#94a3b8;}',
+      '#' + ROOT_ID + ' .adhello-dialog-hint{margin:0.35rem 0 0;font-size:0.72rem;font-weight:600;color:#94a3b8;line-height:1.35;}',
+      '#' + ROOT_ID + ' .adhello-dialog-actions--split{justify-content:space-between;}',
+      '#' + ROOT_ID + ' .adhello-dialog-actions--split .adhello-dialog-actions-right{display:flex;flex-wrap:wrap;gap:0.5rem;}',
     ].join('');
     document.head.appendChild(style);
   }
@@ -351,6 +358,103 @@
           return;
         }
         closeActive({ templateId: selectedId, name: name });
+      });
+
+      requestAnimationFrame(function () {
+        input.focus();
+        input.select();
+      });
+    });
+  };
+
+  window.adhelloStageSettings = function (options) {
+    options = options || {};
+    if (active) closeActive(null);
+
+    return new Promise(function (resolve) {
+      var root = ensureRoot();
+      var min = Number(options.minWidth) > 0 ? Number(options.minWidth) : 220;
+      var max = Number(options.maxWidth) > 0 ? Number(options.maxWidth) : 448;
+      var width = Number(options.width) || 252;
+      if (width < min) width = min;
+      if (width > max) width = max;
+      var name = String(options.name || 'Stage');
+      var canRemove = options.canRemove !== false;
+
+      root.innerHTML =
+        '<div class="adhello-dialog-backdrop" data-adhello-dialog="cancel" aria-hidden="true"></div>' +
+        '<div class="adhello-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="adhelloDialogTitle">' +
+        '<p class="adhello-dialog-eyebrow">Column settings</p>' +
+        '<h3 class="adhello-dialog-title" id="adhelloDialogTitle">Edit column</h3>' +
+        '<p class="adhello-dialog-message">Rename this stage and set how wide the column should be.</p>' +
+        '<label class="adhello-dialog-label" for="adhelloDialogInput">Stage name</label>' +
+        '<input id="adhelloDialogInput" class="adhello-dialog-input" type="text" maxlength="40" autocomplete="off" />' +
+        '<label class="adhello-dialog-label" for="adhelloDialogRange">Column width</label>' +
+        '<div class="adhello-dialog-range-row">' +
+        '<input id="adhelloDialogRange" class="adhello-dialog-range" type="range" min="' + min + '" max="' + max + '" step="4" />' +
+        '<span class="adhello-dialog-range-value" id="adhelloDialogRangeValue"></span>' +
+        '</div>' +
+        '<p class="adhello-dialog-hint">Wider columns fit more of the action icons. You can also drag the column’s right edge anytime.</p>' +
+        '<div class="adhello-dialog-actions adhello-dialog-actions--split">' +
+        (canRemove
+          ? '<button type="button" class="adhello-dialog-btn adhello-dialog-btn--danger" data-adhello-dialog="remove">Remove</button>'
+          : '<span></span>') +
+        '<div class="adhello-dialog-actions-right">' +
+        '<button type="button" class="adhello-dialog-btn adhello-dialog-btn--ghost" data-adhello-dialog="cancel">Cancel</button>' +
+        '<button type="button" class="adhello-dialog-btn adhello-dialog-btn--primary" data-adhello-dialog="confirm">Save</button>' +
+        '</div></div></div>';
+
+      var input = root.querySelector('#adhelloDialogInput');
+      var range = root.querySelector('#adhelloDialogRange');
+      var rangeValue = root.querySelector('#adhelloDialogRangeValue');
+      input.value = name;
+      range.value = String(width);
+
+      function paintRange() {
+        rangeValue.textContent = Math.round(Number(range.value) || width) + 'px';
+      }
+      paintRange();
+      range.addEventListener('input', paintRange);
+
+      function onKey(ev) {
+        if (ev.key === 'Escape') {
+          ev.preventDefault();
+          closeActive(null);
+          return;
+        }
+        if (ev.key === 'Enter' && document.activeElement === input) {
+          ev.preventDefault();
+          root.querySelector('[data-adhello-dialog="confirm"]').click();
+        }
+      }
+
+      active = { resolve: resolve, onKey: onKey };
+      root.hidden = false;
+      root.setAttribute('aria-hidden', 'false');
+      document.addEventListener('keydown', onKey, true);
+
+      root.addEventListener('click', function (ev) {
+        var action = ev.target.closest('[data-adhello-dialog]');
+        if (!action || !root.contains(action)) return;
+        var kind = action.getAttribute('data-adhello-dialog');
+        if (kind === 'cancel') {
+          closeActive(null);
+          return;
+        }
+        if (kind === 'remove') {
+          closeActive({ remove: true });
+          return;
+        }
+        if (kind !== 'confirm') return;
+        var nextName = String(input.value || '').trim();
+        if (!nextName) {
+          input.focus();
+          return;
+        }
+        closeActive({
+          name: nextName,
+          width: Math.round(Number(range.value) || width),
+        });
       });
 
       requestAnimationFrame(function () {

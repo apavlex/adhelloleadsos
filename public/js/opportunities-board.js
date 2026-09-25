@@ -310,21 +310,87 @@
     });
   }
 
+  function persistStageWidth(stageId, px) {
+    if (!stageId) return;
+    var next = readSavedWidths();
+    next[stageId] = clampStageWidth(px);
+    saveWidths(next);
+  }
+
+  function openStageEditor(stageEl, stageId, currentName) {
+    if (!stageEl || !stageId) return;
+    var currentWidth = Math.round(stageEl.getBoundingClientRect().width) || 252;
+    var open =
+      typeof window.adhelloStageSettings === 'function'
+        ? window.adhelloStageSettings({
+            name: currentName || 'Stage',
+            width: currentWidth,
+            minWidth: 220,
+            maxWidth: 448,
+            canRemove: true,
+          })
+        : ask('Stage name', currentName || '').then(function (name) {
+            if (!name) return null;
+            return { name: name, width: currentWidth };
+          });
+
+    open.then(function (result) {
+      if (!result) return;
+      if (result.remove) {
+        confirmAction(
+          'Opportunities in this stage move to the neighboring stage.',
+          'Remove this stage?'
+        ).then(function (ok) {
+          if (!ok) return;
+          post('/opportunities/stages/' + encodeURIComponent(stageId) + '/delete', {}).then(function (res) {
+            if (!res.ok || !res.data || !res.data.success) {
+              showError((res.data && res.data.error) || 'Could not remove that stage.');
+              return;
+            }
+            window.location.reload();
+          });
+        });
+        return;
+      }
+
+      var nextName = String(result.name || '').trim();
+      var nextWidth = clampStageWidth(result.width);
+      applyStageWidth(stageEl, nextWidth);
+      persistStageWidth(stageId, nextWidth);
+
+      var title = stageEl.querySelector('.opp-stage-head h3');
+      if (title && nextName) title.textContent = nextName;
+      var editBtn = stageEl.querySelector('.opp-rename');
+      if (editBtn && nextName) editBtn.setAttribute('data-stage-name', nextName);
+
+      if (nextName && nextName !== String(currentName || '').trim()) {
+        post('/opportunities/stages/' + encodeURIComponent(stageId), { name: nextName }).then(function (res) {
+          if (!res.ok || !res.data || !res.data.success) {
+            showError((res.data && res.data.error) || 'Could not rename that stage.');
+            return;
+          }
+          showStatus('Column updated.', true);
+        }).catch(function () {
+          showError('Could not rename that stage.');
+        });
+      } else {
+        showStatus('Column width saved.', true);
+      }
+    });
+  }
+
   board.addEventListener('click', function (ev) {
     if (ev.target.closest('[data-opp-action]')) return;
     var rename = ev.target.closest('.opp-rename');
     var remove = ev.target.closest('.opp-remove');
     if (rename) {
-      ask('Stage name', rename.getAttribute('data-stage-name') || '').then(function (name) {
-        if (!name) return;
-        post('/opportunities/stages/' + encodeURIComponent(rename.getAttribute('data-stage-id')), { name: name }).then(function (result) {
-          if (!result.ok || !result.data || !result.data.success) {
-            showError((result.data && result.data.error) || 'Could not rename that stage.');
-            return;
-          }
-          window.location.reload();
-        });
-      });
+      var stageEl = rename.closest('.opp-stage');
+      openStageEditor(
+        stageEl,
+        rename.getAttribute('data-stage-id') || (stageEl && stageEl.getAttribute('data-stage-id')),
+        rename.getAttribute('data-stage-name') || ''
+      );
+      return;
     }
     if (remove) {
       confirmAction(
@@ -412,12 +478,8 @@
           handle.removeEventListener('pointermove', onMove);
           handle.removeEventListener('pointerup', onUp);
           handle.removeEventListener('pointercancel', onUp);
-          var next = readSavedWidths();
           var stageId = stage.getAttribute('data-stage-id') || '';
-          if (stageId) {
-            next[stageId] = clampStageWidth(stage.getBoundingClientRect().width);
-            saveWidths(next);
-          }
+          persistStageWidth(stageId, stage.getBoundingClientRect().width);
         }
 
         handle.addEventListener('pointermove', onMove);
