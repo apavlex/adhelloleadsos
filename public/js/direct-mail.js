@@ -2812,13 +2812,20 @@
     var hasImage = !!designs[slot];
     var wrap = document.getElementById('dmExportActions');
     if (wrap) wrap.classList.toggle('hidden', !hasImage);
+    var toolbarDl = document.getElementById('dmToolbarDownloadBtn');
+    var toolbarPrev = document.getElementById('dmToolbarPreviewBtn');
+    if (toolbarDl) toolbarDl.classList.toggle('hidden', !hasImage);
+    if (toolbarPrev) toolbarPrev.classList.toggle('hidden', !hasImage);
   }
 
   async function downloadDesignToComputer(slot, imageUrl) {
     var side = slot === 'back' ? 'back' : 'front';
-    var url = imageUrl || designs[side];
-    if (!url) {
+    var url = imageUrl || designs[side] || previewUrlForSlot(side);
+    if (!url || /^data:/.test(url)) {
       setExportStatus('Generate or load a design first.', false);
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Generate a design first, then download.', { variant: 'error' });
+      }
       return;
     }
     setExportStatus('Preparing download…', true);
@@ -2826,20 +2833,30 @@
       var res = await fetch('/direct-mail/api/download-image', {
         method: 'POST',
         credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/octet-stream' },
+        headers: { 'Content-Type': 'application/json', Accept: 'application/octet-stream, application/json' },
         body: JSON.stringify({
           imageUrl: url,
           slot: side,
           platform: currentPlatformKey(),
         }),
       });
+      var contentType = String(res.headers.get('content-type') || '');
       if (!res.ok) {
-        var errJson = await res.json().catch(function () {
-          return {};
-        });
-        throw new Error((errJson && errJson.error) || 'Download failed.');
+        var errJson = {};
+        if (/json/i.test(contentType)) {
+          errJson = await res.json().catch(function () {
+            return {};
+          });
+        } else {
+          var errText = await res.text().catch(function () {
+            return '';
+          });
+          errJson = { error: errText.slice(0, 180) || 'Download failed.' };
+        }
+        throw new Error((errJson && errJson.error) || 'Download failed (' + res.status + ').');
       }
       var blob = await res.blob();
+      if (!blob || !blob.size) throw new Error('Download was empty.');
       var blobUrl = URL.createObjectURL(blob);
       var a = document.createElement('a');
       a.href = blobUrl;
@@ -2851,16 +2868,25 @@
         '_' +
         new Date().toISOString().slice(0, 10) +
         '.jpg';
+      a.rel = 'noopener';
       document.body.appendChild(a);
       a.click();
       a.remove();
-      URL.revokeObjectURL(blobUrl);
+      setTimeout(function () {
+        try {
+          URL.revokeObjectURL(blobUrl);
+        } catch (_) {}
+      }, 4000);
       setExportStatus('Download started.', true);
       if (typeof window.showAppToast === 'function') {
         window.showAppToast('Design downloaded', { variant: 'success' });
       }
     } catch (e) {
-      setExportStatus((e && e.message) || 'Download failed.', false);
+      var msg = (e && e.message) || 'Download failed.';
+      setExportStatus(msg, false);
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast(msg, { variant: 'error' });
+      }
     }
   }
 
@@ -3402,14 +3428,14 @@
       setDesignStatus('Generate a design first, then click the preview to zoom in on the canvas.', false);
       return;
     }
+    // Already zoomed — open full preview (Download / Drive live there).
     if (studioZoom > 1.02) {
-      studioZoomFocusBtn = null;
-      setStudioZoom(1);
-      setDesignStatus('Canvas zoom reset to 100%.', true);
+      openLightbox(slot, url, designMeta[slot] && designMeta[slot].prompt);
+      setDesignStatus('Full preview open — use Download there or Fit to reset zoom.', true);
       return;
     }
     setStudioZoom(1.85, btn);
-    setDesignStatus('Zoomed in on canvas — use Fit or click the preview again to reset.', true);
+    setDesignStatus('Zoomed in — click again for full preview + Download, or use Fit to reset.', true);
   }
 
   async function applyIncrementalEdit(changeText, opts) {
@@ -4422,6 +4448,26 @@
   if (dmDownloadBtn) {
     dmDownloadBtn.addEventListener('click', function () {
       downloadDesignToComputer(currentDesignSlot());
+    });
+  }
+
+  var dmToolbarDownloadBtn = document.getElementById('dmToolbarDownloadBtn');
+  if (dmToolbarDownloadBtn) {
+    dmToolbarDownloadBtn.addEventListener('click', function () {
+      downloadDesignToComputer(currentDesignSlot());
+    });
+  }
+
+  var dmToolbarPreviewBtn = document.getElementById('dmToolbarPreviewBtn');
+  if (dmToolbarPreviewBtn) {
+    dmToolbarPreviewBtn.addEventListener('click', function () {
+      var slot = currentDesignSlot();
+      var url = designs[slot] || previewUrlForSlot(slot);
+      if (!url || /^data:/.test(url)) {
+        setDesignStatus('Generate a design first.', false);
+        return;
+      }
+      openLightbox(slot, url, designMeta[slot] && designMeta[slot].prompt);
     });
   }
 

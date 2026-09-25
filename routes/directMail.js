@@ -308,10 +308,45 @@ function marketingDesignFileName(platform, slot, ext) {
 }
 
 async function fetchRemoteImageBuffer(imageUrl) {
-  const url = String(imageUrl || '').trim();
-  if (!url || !/^https?:\/\//i.test(url)) {
-    throw new Error('A valid image URL is required.');
+  const raw = String(imageUrl || '').trim();
+  if (!raw) throw new Error('A valid image URL is required.');
+
+  // Prefer local disk for same-origin uploads (avoids BASE_URL / loopback fetch failures).
+  let pathname = '';
+  try {
+    if (/^https?:\/\//i.test(raw)) pathname = new URL(raw).pathname;
+    else if (raw.startsWith('/')) pathname = raw.split('?')[0];
+  } catch (_) {
+    pathname = '';
   }
+  if (pathname.startsWith('/uploads/')) {
+    const absPath = path.join(process.cwd(), 'public', pathname.replace(/^\/+/, ''));
+    const publicRoot = path.join(process.cwd(), 'public');
+    const resolved = path.resolve(absPath);
+    if (!resolved.startsWith(path.resolve(publicRoot) + path.sep) && resolved !== path.resolve(publicRoot)) {
+      throw new Error('Invalid image path.');
+    }
+    try {
+      const buffer = await fs.readFile(resolved);
+      if (!buffer || !buffer.length) throw new Error('Image file was empty.');
+      const ext = path.extname(resolved).replace('.', '').toLowerCase() || 'jpg';
+      const contentType =
+        ext === 'png'
+          ? 'image/png'
+          : ext === 'webp'
+            ? 'image/webp'
+            : ext === 'gif'
+              ? 'image/gif'
+              : 'image/jpeg';
+      return { buffer, contentType, ext: ext === 'jpeg' ? 'jpg' : ext };
+    } catch (e) {
+      if (e && e.message === 'Invalid image path.') throw e;
+      // Fall through to HTTP fetch if the file is not on this host.
+    }
+  }
+
+  const url = /^https?:\/\//i.test(raw) ? raw : '';
+  if (!url) throw new Error('A valid image URL is required.');
   const res = await fetch(url, { redirect: 'follow' });
   if (!res.ok) {
     throw new Error(`Could not fetch image (${res.status}).`);
@@ -1777,17 +1812,18 @@ router.post('/api/google-drive/import-image', express.json({ limit: '32kb' }), a
   }
 });
 
-router.post('/api/download-image', express.json(), async (req, res, next) => {
+router.post('/api/download-image', express.json(), async (req, res) => {
   try {
     const body = req.body || {};
-    const imageUrl = toAbsoluteAssetUrl(req, body.imageUrl);
+    const imageUrl = toAbsoluteAssetUrl(req, body.imageUrl) || String(body.imageUrl || '').trim();
     const { buffer, contentType, ext } = await fetchRemoteImageBuffer(imageUrl);
     const fileName = marketingDesignFileName(body.platform, body.slot, ext);
     res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     res.send(buffer);
   } catch (err) {
-    next(err);
+    const message = (err && err.message) || 'Download failed.';
+    res.status(400).json({ success: false, error: message });
   }
 });
 
