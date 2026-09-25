@@ -244,14 +244,14 @@
           <%- include('/partials/app_info_tip', {
             tipId: 'focus-outreach-help',
             tipKey: 'focus-outreach',
-            label: _isAgencySalesWorkspace ? 'Call and Sync GHL in Focus mode' : 'Call and SMS in Focus mode',
+            label: _isAgencySalesWorkspace ? 'Call, SMS, and eMail in Focus mode' : 'Call and SMS in Focus mode',
             size: 'sm',
             content: _isAgencySalesWorkspace
-              ? 'Use <strong>Call</strong> for live dials in AdHello. <strong>SMS</strong> sends the message you type below (use Improve text for AI polish). <strong>Sync GHL</strong> saves your disposition and notes, then pushes the contact to Go High Level for email and voicemail.'
+              ? 'Use <strong>Call</strong> for live dials in AdHello. <strong>SMS</strong> sends the message you type below (use Improve text for AI polish). <strong>eMail</strong> opens a template composer and sends via Go High Level.'
               : 'Use <strong>Call</strong> for live dials. <strong>SMS</strong> sends the message you type below (use Improve text for AI polish). Log the outcome, then move to the next lead.'
           }) %>
         </div>
-        <p id="focus-channel-hint" class="text-[11px] text-brand-muted dark:text-slate-400 mt-2 min-h-[1.25rem] leading-snug" aria-live="polite"><%= _isAgencySalesWorkspace ? 'Rehearse the script below, edit your SMS, then Call, SMS, or Sync GHL.' : 'Rehearse the script below, edit your SMS, then Call or SMS.' %></p>
+        <p id="focus-channel-hint" class="text-[11px] text-brand-muted dark:text-slate-400 mt-2 min-h-[1.25rem] leading-snug" aria-live="polite"><%= _isAgencySalesWorkspace ? 'Rehearse the script below, edit your SMS or eMail, then Call, SMS, or eMail.' : 'Rehearse the script below, edit your SMS, then Call or SMS.' %></p>
       </div>
 
       <div class="mb-4 rounded-2xl border border-brand-border/70 dark:border-white/15 bg-brand-cream/35 dark:bg-slate-800/35 px-4 py-3">
@@ -532,6 +532,7 @@
       <button type="button" id="focus-mobile-back" disabled class="w-full btn-pill border-2 border-brand-border dark:border-white/15 bg-brand-cream/30 dark:bg-slate-800/50 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 disabled:opacity-40 disabled:pointer-events-none">Go back</button>
       <button type="button" id="focus-mobile-call" class="w-full btn-pill btn-primary py-2.5 text-[10px] font-black uppercase tracking-widest">Call now</button>
       <button type="button" id="focus-mobile-sms" class="w-full btn-pill border-2 border-emerald-500/60 bg-emerald-500/15 text-emerald-800 dark:text-emerald-200 py-2.5 text-[10px] font-black uppercase tracking-widest" title="Open SMS composer to type and send a message">SMS</button>
+      <button type="button" id="focus-mobile-email" class="w-full btn-pill border-2 border-sky-500/60 bg-sky-500/15 text-sky-800 dark:text-sky-200 py-2.5 text-[10px] font-black uppercase tracking-widest" title="Open email composer — send via Go High Level">eMail</button>
       <button type="button" id="focus-mobile-call-next" class="w-full btn-pill border-2 border-emerald-500/60 bg-emerald-500/15 text-emerald-800 dark:text-emerald-200 py-2.5 text-[10px] font-black uppercase tracking-widest">Call next</button>
       <button type="button" id="focus-mobile-log" class="w-full btn-pill border-2 border-brand-dark dark:border-white/25 bg-white dark:bg-slate-900 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Log &amp; next</button>
       <button type="button" id="focus-mobile-skip" class="w-full btn-pill border-2 border-brand-border dark:border-white/15 bg-brand-cream/30 dark:bg-slate-800/50 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Skip</button>
@@ -711,6 +712,7 @@
     var btnMobileFabToggle = document.getElementById('focus-mobile-fab-toggle');
     var btnMobileCall = document.getElementById('focus-mobile-call');
     var btnMobileSms = document.getElementById('focus-mobile-sms');
+    var btnMobileEmail = document.getElementById('focus-mobile-email');
     var btnImproveText = document.getElementById('focus-improve-text');
     var elSmsComposeSection = document.getElementById('focus-sms-compose-section');
     var elSmsComposeInput = document.getElementById('focus-sms-compose-input');
@@ -976,7 +978,7 @@
     function setChannelHint() {
       if (!elChannelHint) return;
       elChannelHint.textContent = isAgencySalesWorkspace
-        ? 'Call: rehearse the script, dial, and log. SMS sends the message you typed below. Improve text polishes your draft with AI without sending. Sync GHL saves disposition, notes, and follow-up — then opens the contact in Go High Level.'
+        ? 'Call: rehearse the script, dial, and log. SMS and eMail send what you type below (Improve text polishes without sending). eMail goes out through Go High Level.'
         : 'Call: rehearse the script, dial, and log. SMS sends the message you typed below. Improve text polishes your draft with AI without sending.';
     }
 
@@ -2825,11 +2827,13 @@
 
     function syncFocusEmailButtonState() {
       var open = isFocusEmailComposeOpen();
-      if (!btnEmail) return;
-      btnEmail.setAttribute('aria-pressed', open ? 'true' : 'false');
-      btnEmail.classList.toggle('ring-2', open);
-      btnEmail.classList.toggle('ring-sky-500/70', open);
-      btnEmail.classList.toggle('ring-offset-1', open);
+      [btnEmail, btnMobileEmail].forEach(function (b) {
+        if (!b) return;
+        b.setAttribute('aria-pressed', open ? 'true' : 'false');
+        b.classList.toggle('ring-2', open);
+        b.classList.toggle('ring-sky-500/70', open);
+        b.classList.toggle('ring-offset-1', open);
+      });
     }
 
     function closeFocusEmailComposer() {
@@ -4857,6 +4861,12 @@
       btnMobileSms.addEventListener('click', function () {
         closeMobileFabActions();
         openFocusSmsComposer();
+      });
+    }
+    if (btnMobileEmail) {
+      btnMobileEmail.addEventListener('click', function () {
+        closeMobileFabActions();
+        openFocusEmailComposer();
       });
     }
     if (btnMobileCallNext) {
