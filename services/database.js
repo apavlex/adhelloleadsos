@@ -38,6 +38,21 @@ if (!fs.existsSync(DB_DIR)) {
 }
 const DB_PATH = path.join(DB_DIR, 'app.db');
 
+/** Short-lived workspace lead list cache — cuts repeat getAllLeads on Today → Focus/Pipeline. */
+const LEADS_LIST_CACHE_TTL_MS = Math.max(
+  1000,
+  parseInt(process.env.LEADS_LIST_CACHE_TTL_MS || '12000', 10) || 12000,
+);
+const _leadsListCache = new Map();
+
+function invalidateLeadsListCache(workspaceId) {
+  if (workspaceId == null || workspaceId === '') {
+    _leadsListCache.clear();
+    return;
+  }
+  _leadsListCache.delete(String(workspaceId));
+}
+
 function getPersistenceStats() {
   let dbSizeBytes = 0;
   let dbExists = false;
@@ -437,6 +452,7 @@ module.exports = {
     }
 
     kvSet(key, JSON.stringify(newLead));
+    invalidateLeadsListCache(wid || newLead.workspaceId);
     return { key, merged: false, lead: { key, ...newLead } };
   },
 
@@ -497,6 +513,10 @@ module.exports = {
   async getAllLeads(workspaceId) {
     const wid = await this._resolveWorkspaceIdForWrite(workspaceId);
     assertLeadScopedWorkspaceId(wid, 'getAllLeads');
+    const cached = _leadsListCache.get(wid);
+    if (cached && Date.now() - cached.at < LEADS_LIST_CACHE_TTL_MS) {
+      return cached.leads.slice();
+    }
     const normLeadW = (lw) => this._normalizeLeadWorkspaceId(lw);
     const keys = kvList('lead:');
     keys.sort((a, b) => {
@@ -519,7 +539,8 @@ module.exports = {
       if (normLeadW(parsed.workspaceId) !== wid) continue;
       leads.push({ ...parsed, key, workspaceId: wid });
     }
-    return leads;
+    _leadsListCache.set(wid, { at: Date.now(), leads });
+    return leads.slice();
   },
 
   async getAllLeadsUnscoped() {
@@ -763,6 +784,7 @@ module.exports = {
     }
 
     kvSet(storageKey, JSON.stringify(updated));
+    invalidateLeadsListCache(expectWorkspaceId || updated.workspaceId);
     return {
       ...updated,
       key: updated.key || storageKey,
@@ -771,6 +793,7 @@ module.exports = {
 
   async deleteLead(key) {
     kvDelete(key);
+    invalidateLeadsListCache();
     return true;
   },
 

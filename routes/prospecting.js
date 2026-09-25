@@ -44,18 +44,22 @@ router.get('/', async (req, res, next) => {
       return res.redirect(302, '/reports?tab=tracker');
     }
     const safeTab = ['queue', 'pipeline', 'folders'].includes(tab) ? tab : 'pipeline';
+    const wid = req.workspaceId;
 
-    const all = await dbService.getAllLeads(req.workspaceId);
+    const [all, foldersInitial, tags, wsRaw] = await Promise.all([
+      dbService.getAllLeads(wid),
+      ensurePipelineFolders(wid),
+      dbService.listTags(wid),
+      dbService.getWorkspace(wid),
+    ]);
     const visible = filterLeadsForRequest(req, all);
     const pipelineVisible = excludeOutreachFolderLeads(visible);
-    const wid = req.workspaceId;
-    let folders = await ensurePipelineFolders(wid);
+    let folders = foldersInitial;
     const migrated = await migrateLegacyFolders(wid, folders);
     folders = migrated.folders;
     let folderTree = buildFolderTree(folders);
     const folderPickerTree = buildFolderPickerTree(folderTree, String(req.query.folderKey || '').trim());
-    const tags = await dbService.listTags(wid);
-    const ws = await dbService.getWorkspace(wid);
+    const ws = wsRaw;
     const workspaceProspecting = normalizeProspectingSettings(ws && ws.prospecting);
     const opportunityNormalized = normalizeBoards(ws && ws.opportunityBoards);
     if (ws && opportunityNormalized.created) {
@@ -95,6 +99,7 @@ router.get('/', async (req, res, next) => {
 
     const leadListFilters = normalizeLeadListFilters(req.query);
     const hasGlobalSearch = !!String(leadListFilters.q || '').trim();
+    // Apply default Businesses folder in-process — avoid a second full page load via redirect.
     if (
       safeTab === 'pipeline' &&
       !String(leadListFilters.folderKey || '').trim() &&
@@ -107,10 +112,7 @@ router.get('/', async (req, res, next) => {
         (f) => f && f.jobType === 'maps_business' && f.isPipelineDefault,
       );
       if (bizFolder && bizFolder.key) {
-        const qs = new URLSearchParams(req.query);
-        qs.set('tab', 'pipeline');
-        qs.set('folderKey', String(bizFolder.key));
-        return res.redirect(302, `/prospecting?${qs.toString()}`);
+        leadListFilters.folderKey = String(bizFolder.key);
       }
     }
     const includeFoldered =
@@ -186,7 +188,11 @@ router.get('/', async (req, res, next) => {
       inbound: pipelineBase.filter((l) => l.source && l.source.startsWith('adhello_')).length,
     };
 
-    const stageRows = await pipelineStagesService.ensureWorkspaceStagesSeeded(wid);
+    const email = userEmail(req);
+    const [stageRows, driveImport] = await Promise.all([
+      pipelineStagesService.ensureWorkspaceStagesSeeded(wid),
+      buildDriveImportBundle(req, email),
+    ]);
     const pipelineStages = pipelineStagesService.stagesForKanban(stageRows);
     leads = leads.map((l) => {
       const sid = pipelineStagesService.resolveStageIdForLead(l, stageRows);
@@ -300,9 +306,6 @@ router.get('/', async (req, res, next) => {
       buildOutreachLibrary(mergedScriptLibrary, offerKeys),
       resolveScriptSignOffProfile({ user: req.user, workspace: ws }),
     );
-
-    const email = userEmail(req);
-    const driveImport = await buildDriveImportBundle(req, email);
 
     const folderedLeadCount = visible.filter((l) => String(l.folderKey || '').trim()).length;
     const totalVisibleLeadCount = visible.length;

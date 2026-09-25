@@ -34,35 +34,44 @@ function stage2AgingOver3Days(l) {
   return Date.now() - last > 3 * 86400000;
 }
 
-function priorityBucket(l, opts = {}) {
-  const queueMode = opts.queueMode || 'continue_list';
-  if (isLeadDeferredForRetry(l, queueMode)) return 6;
-  if (isOverdueCadence(l)) return 0;
-  const lp = scoreLocalProspect(l);
-  if (lp.prospectTier === 'Skip') return 5;
-  if (stage2AgingOver3Days(l)) return 1;
-  const { tier } = scoreLeadRecord(l);
-  if (tier === 'high') return 2;
-  const ps = parseInt(l.pipelineStage, 10);
-  const n = !Number.isNaN(ps) && ps >= 1 && ps <= 10 ? ps : 1;
-  if (n === 1) return 3;
-  return 4;
-}
-
+/**
+ * Precomputed sort tuple — scored once per lead (not once per comparator call).
+ * @returns {{ bucket: number, a: number, b: number, c: number }}
+ */
 function sortKey(l, opts = {}) {
-  const lpRank = prospectTierSortRank(scoreLocalProspect(l).prospectTier);
-  const { score } = scoreLeadRecord(l);
-  const bucket = priorityBucket(l, opts);
+  const queueMode = opts.queueMode || 'continue_list';
   const last = lastActivityMs(l);
   const due = l.sequenceState && l.sequenceState.nextDueAt ? Date.parse(l.sequenceState.nextDueAt) : 0;
   const retryAt = l.nextActionAt ? Date.parse(l.nextActionAt) : Infinity;
-  if (bucket === 0) return { bucket, a: due, b: -score, c: lpRank };
-  if (bucket === 1) return { bucket, a: 0, b: last, c: lpRank };
-  if (bucket === 2) return { bucket, a: 0, b: -score, c: lpRank };
-  if (bucket === 3) return { bucket, a: 0, b: last, c: lpRank };
-  if (bucket === 5) return { bucket, a: 0, b: 0, c: lpRank };
-  if (bucket === 6) return { bucket, a: retryAt, b: last, c: lpRank };
-  return { bucket, a: 0, b: last, c: lpRank };
+
+  if (isLeadDeferredForRetry(l, queueMode)) {
+    return { bucket: 6, a: retryAt, b: last, c: 0 };
+  }
+  if (isOverdueCadence(l)) {
+    const { score } = scoreLeadRecord(l);
+    const lpRank = prospectTierSortRank(scoreLocalProspect(l).prospectTier);
+    return { bucket: 0, a: due, b: -score, c: lpRank };
+  }
+
+  const lp = scoreLocalProspect(l);
+  const lpRank = prospectTierSortRank(lp.prospectTier);
+  if (lp.prospectTier === 'Skip') {
+    return { bucket: 5, a: 0, b: 0, c: lpRank };
+  }
+  if (stage2AgingOver3Days(l)) {
+    return { bucket: 1, a: 0, b: last, c: lpRank };
+  }
+
+  const { score, tier } = scoreLeadRecord(l);
+  if (tier === 'high') {
+    return { bucket: 2, a: 0, b: -score, c: lpRank };
+  }
+  const ps = parseInt(l.pipelineStage, 10);
+  const n = !Number.isNaN(ps) && ps >= 1 && ps <= 10 ? ps : 1;
+  if (n === 1) {
+    return { bucket: 3, a: 0, b: last, c: lpRank };
+  }
+  return { bucket: 4, a: 0, b: last, c: lpRank };
 }
 
 /** Safety ceiling — early-stage action queues can be large; keep HTML/JSON bounded. */
@@ -95,16 +104,18 @@ function buildFocusQueue(leads, cap = FOCUS_QUEUE_HARD_CAP, opts = {}) {
     const now = Date.now();
     list = list.filter((l) => !isLeadDeferredForRetry(l, 'continue_list', now));
   }
-  list.sort((x, y) => {
-    const sx = sortKey(x, opts);
-    const sy = sortKey(y, opts);
+  const keyed = list.map((lead) => ({ lead, key: sortKey(lead, opts) }));
+  keyed.sort((x, y) => {
+    const sx = x.key;
+    const sy = y.key;
     if (sx.bucket !== sy.bucket) return sx.bucket - sy.bucket;
     if (sx.a !== sy.a) return sx.a - sy.a;
     if (sx.c !== sy.c) return sx.c - sy.c;
     return sx.b - sy.b;
   });
-  const limit = Number.isFinite(cap) && cap > 0 ? Math.min(Math.floor(cap), FOCUS_QUEUE_HARD_CAP) : FOCUS_QUEUE_HARD_CAP;
-  return list.slice(0, limit);
+  const limit =
+    Number.isFinite(cap) && cap > 0 ? Math.min(Math.floor(cap), FOCUS_QUEUE_HARD_CAP) : FOCUS_QUEUE_HARD_CAP;
+  return keyed.slice(0, limit).map((row) => row.lead);
 }
 
 function shortLeadKey(l) {

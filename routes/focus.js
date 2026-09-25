@@ -28,7 +28,7 @@ const salesScriptsStorage = require('../services/salesScriptsStorage');
 const { isAgencySalesWorkspace } = require('../services/leadPanelWorkspace');
 
 /** First N leads in HTML so Focus paints before the full early-stage queue hydrates. */
-const FOCUS_SSR_CHUNK = 40;
+const FOCUS_SSR_CHUNK = 20;
 
 function stageLabelFromLead(l, sortedStages) {
   const row =
@@ -360,7 +360,7 @@ router.get('/', async (req, res, next) => {
       isAgency,
     });
 
-    const touchesToday = countUniqueLeadsTouchedOnUtcDate(visible, today);
+    const touchesToday = 0; // hydrated immediately via /focus/metrics.json — skip scanning all lead logs on SSR
 
     const focusScriptLibrary = offerBundle.library;
     const focusProductOptions = offerBundle.keys.map((k) => ({
