@@ -25,11 +25,35 @@
       body.focus-mode-page #appFloatingWidgets {
         display: none !important;
       }
+      body.focus-mode-page #focus-btn-sync-list-ghl,
+      body.focus-mode-page #focus-btn-stop-ghl-sync,
+      body.focus-mode-page #focus-sync-list-status {
+        display: none !important;
+      }
       body.focus-mode-page #focus-outcome-actions .focus-primary-actions,
       body.focus-mode-page #focus-outcome-actions .focus-secondary-actions,
       body.focus-mode-page #focus-btn-open-dialer,
       body.focus-mode-page #focus-outcome-shortcuts {
         display: none !important;
+      }
+      body.focus-mode-page #focus-sms-compose-input {
+        min-height: 11rem !important;
+        max-height: min(42vh, 18rem) !important;
+        font-size: 1rem !important;
+        line-height: 1.45 !important;
+        padding: 0.85rem 1rem !important;
+      }
+      body.focus-mode-page #focus-email-compose-input {
+        min-height: 10rem !important;
+        max-height: min(40vh, 16rem) !important;
+        font-size: 1rem !important;
+        line-height: 1.45 !important;
+        padding: 0.85rem 1rem !important;
+      }
+      body.focus-mode-page #focus-sms-compose-section,
+      body.focus-mode-page #focus-email-compose-section {
+        scroll-margin-bottom: calc(7.25rem + env(safe-area-inset-bottom, 0px));
+        scroll-margin-top: 5.5rem;
       }
       body.focus-mode-page .focus-quick-outcome,
       body.focus-mode-page #focus-btn-add-mail-list {
@@ -557,7 +581,7 @@
               <option value="">Loading scripts…</option>
             </select>
           </label>
-          <textarea id="focus-sms-compose-input" rows="2" maxlength="1600" placeholder="Short SMS — pick a script above or type your own…" class="focus-sms-compose-input block w-full max-w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-medium leading-relaxed text-brand-dark dark:text-white focus:ring-2 focus:ring-emerald-500/50 resize-y min-h-[3.5rem] max-h-[8rem] overflow-y-auto"></textarea>
+          <textarea id="focus-sms-compose-input" rows="6" maxlength="1600" placeholder="Short SMS — pick a script above or type your own…" class="focus-sms-compose-input block w-full max-w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-medium leading-relaxed text-brand-dark dark:text-white focus:ring-2 focus:ring-emerald-500/50 resize-y min-h-[3.5rem] max-h-[8rem] md:min-h-[3.5rem] overflow-y-auto"></textarea>
           <div class="flex flex-wrap items-center justify-between gap-2 w-full">
             <span id="focus-sms-compose-count" class="text-[9px] font-semibold text-brand-muted tabular-nums">0</span>
             <div class="flex flex-wrap items-center gap-2">
@@ -583,7 +607,7 @@
             </select>
           </label>
           <input id="focus-email-compose-subject" type="text" maxlength="180" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-medium text-brand-dark dark:text-white focus:ring-2 focus:ring-sky-500/50" placeholder="Subject" aria-label="Email subject" />
-          <textarea id="focus-email-compose-input" rows="3" maxlength="8000" placeholder="Type an email… or pick a template above" class="focus-email-compose-input block w-full max-w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-medium leading-relaxed text-brand-dark dark:text-white focus:ring-2 focus:ring-sky-500/50 resize-y min-h-[4.5rem] max-h-[12rem] overflow-y-auto"></textarea>
+          <textarea id="focus-email-compose-input" rows="6" maxlength="8000" placeholder="Type an email… or pick a template above" class="focus-email-compose-input block w-full max-w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-medium leading-relaxed text-brand-dark dark:text-white focus:ring-2 focus:ring-sky-500/50 resize-y min-h-[4.5rem] max-h-[12rem] md:min-h-[4.5rem] overflow-y-auto"></textarea>
           <div class="flex flex-wrap items-center justify-between gap-2">
             <span id="focus-email-compose-count" class="text-[9px] font-semibold text-brand-muted tabular-nums">0</span>
             <div class="flex flex-wrap items-center gap-2">
@@ -1049,6 +1073,44 @@
     function isMobileViewport() {
       return window.matchMedia && window.matchMedia('(max-width: 767px)').matches;
     }
+    function scrollFocusComposerIntoView(sectionEl, inputEl) {
+      if (!sectionEl) return;
+      sectionEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      window.setTimeout(function () {
+        var dockH = 0;
+        if (isMobileViewport() && elMobileFabWrap && !elMobileFabWrap.classList.contains('hidden')) {
+          dockH = elMobileFabWrap.getBoundingClientRect().height + 16;
+        }
+        var rect = sectionEl.getBoundingClientRect();
+        var room = window.innerHeight - dockH;
+        if (rect.bottom > room) {
+          window.scrollBy({ top: rect.bottom - room + 12, left: 0, behavior: 'smooth' });
+        }
+        if (inputEl) {
+          try {
+            inputEl.focus({ preventScroll: true });
+          } catch (e) {
+            inputEl.focus();
+          }
+          var len = String(inputEl.value || '').length;
+          if (typeof inputEl.setSelectionRange === 'function') {
+            try {
+              inputEl.setSelectionRange(len, len);
+            } catch (e2) {}
+          }
+        }
+      }, 140);
+    }
+
+    function ensureFocusComposersVisible() {
+      if (outcomePanelCompact) {
+        setOutcomePanelCompact(false, { persist: false });
+      }
+      if (typeof setOutcomePanelCollapsed === 'function') {
+        setOutcomePanelCollapsed(false);
+      }
+    }
+
     function closeMobileFabActions() {
       if (elMobileFabActions) elMobileFabActions.classList.add('hidden');
       if (btnMobileFabToggle) btnMobileFabToggle.setAttribute('aria-expanded', 'false');
@@ -2917,17 +2979,15 @@
       }
       if (isFocusEmailComposeOpen()) closeFocusEmailComposer();
       focusSmsSessionActive = true;
+      smsOpenedFromCompact = !!outcomePanelCompact;
+      ensureFocusComposersVisible();
       var phone = normalizeTel(lead.phone || '');
       if (!phone) {
         setFocusSmsComposeStatus('No phone found for this lead.', true);
         if (elSmsComposeSection) elSmsComposeSection.classList.remove('hidden');
+        scrollFocusComposerIntoView(elSmsComposeSection, elSmsComposeInput);
         syncFocusSmsButtonState();
         return;
-      }
-      if (outcomePanelCompact) {
-        smsOpenedFromCompact = true;
-      } else {
-        smsOpenedFromCompact = false;
       }
       if (elSmsComposeSection) elSmsComposeSection.classList.remove('hidden');
       // Never dump the call script into SMS — load a short library SMS instead.
@@ -2939,14 +2999,7 @@
       } else {
         autogrowFocusSmsCompose();
       }
-      if (elSmsComposeSection) elSmsComposeSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      if (elSmsComposeInput) {
-        window.setTimeout(function () {
-          elSmsComposeInput.focus();
-          var len = elSmsComposeInput.value.length;
-          if (typeof elSmsComposeInput.setSelectionRange === 'function') elSmsComposeInput.setSelectionRange(len, len);
-        }, 120);
-      }
+      scrollFocusComposerIntoView(elSmsComposeSection, elSmsComposeInput);
       setFocusSmsComposeStatus('Pick a script from the library or type a short text, then Send SMS.');
       syncFocusSmsButtonState();
     }
@@ -3227,17 +3280,15 @@
       }
       if (isFocusSmsComposeOpen()) closeFocusSmsComposer();
       focusEmailSessionActive = true;
+      emailOpenedFromCompact = !!outcomePanelCompact;
+      ensureFocusComposersVisible();
       if (!focusLeadHasUsableEmail(lead)) {
         setFocusEmailComposeStatus('No email on file — add one on this lead first.', true);
         if (elEmailComposeSection) elEmailComposeSection.classList.remove('hidden');
         if (elEmailComposeTo) elEmailComposeTo.textContent = '—';
+        scrollFocusComposerIntoView(elEmailComposeSection, elEmailComposeInput);
         syncFocusEmailButtonState();
         return;
-      }
-      if (outcomePanelCompact) {
-        emailOpenedFromCompact = true;
-      } else {
-        emailOpenedFromCompact = false;
       }
       if (elEmailComposeTo) elEmailComposeTo.textContent = String(lead.email || '').trim() || '—';
       if (elEmailComposeSubject && !String(elEmailComposeSubject.value || '').trim()) {
@@ -3246,12 +3297,9 @@
       populateFocusEmailScriptSelect(lead);
       syncFocusEmailComposeCount();
       if (elEmailComposeSection) elEmailComposeSection.classList.remove('hidden');
-      if (elEmailComposeSection) elEmailComposeSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       setFocusEmailComposeStatus('Ready — pick a template or type an email');
       syncFocusEmailButtonState();
-      if (elEmailScriptSelect) {
-        window.setTimeout(function () { elEmailScriptSelect.focus(); }, 80);
-      }
+      scrollFocusComposerIntoView(elEmailComposeSection, elEmailComposeInput);
       fetchFocusEmailScriptOptions(lead);
     }
 
