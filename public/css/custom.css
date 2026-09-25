@@ -7802,3 +7802,89 @@ html.dark .opp-pop .opp-cal-nav {
   background-color: #0f172a !important;
   color: #f8fafc !important;
 }
+
+/* ─── Mobile / PWA shell ─────────────────────────────────────────────── */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  overflow-x: clip;
+  overscroll-behavior-x: none;
+}
+
+/* Installed app: use dynamic viewport + notch-safe padding */
+@media all and (display-mode: standalone) {
+  html,
+  body {
+    min-height: 100dvh;
+  }
+  body.app-with-sidebar {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  #appTopbar {
+    padding-top: max(0.75rem, env(safe-area-inset-top, 0px)) !important;
+  }
+}
+
+@media (max-width: 767px) {
+  /* Prevent accidental horizontal scroll from wide tables / boards */
+  .app-shell-content,
+  .app-shell-content > main {
+    max-width: 100vw;
+    overflow-x: clip;
+  }
+
+  /* Touch-friendly tap targets in chrome */
+  #mobileMenuBtn,
+  #closeMobileMenu,
+  #wsSwitcherBtn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Wide pipeline / board surfaces: allow intentional horizontal scroll */
+  .pipeline-board,
+  .opp-board,
+  .kanban-board,
+  [data-pipeline-board],
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+
+  /* Forms & inputs: 16px+ avoids iOS focus zoom */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
+
+  /* Modals fill safe area on small screens */
+  #manualLeadModal > .relative,
+  [role="dialog"] .relative.max-w-lg,
+  [role="dialog"] .relative.max-w-xl {
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 2rem);
+  }
+
+  /* Sticky bottom bars clear home indicator */
+  .sticky.bottom-0,
+  .fixed.bottom-0,
+  [data-mobile-sticky-bottom] {
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Topbar: keep actions usable when cramped */
+  #appTopbar .app-topbar-inner {
+    gap: 0.35rem;
+  }
+
+  #navFindLeadsBtn span:not(.sr-only) {
+    max-width: 4.5rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+

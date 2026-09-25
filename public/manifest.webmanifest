@@ -1,0 +1,33 @@
+{
+  "name": "AdHello.ai | Leads",
+  "short_name": "AdHello",
+  "description": "Lead generation, pipeline, and outreach for AdHello.ai",
+  "start_url": "/today?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#FAF7ED",
+  "theme_color": "#FFDB3A",
+  "lang": "en",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/images/adhello-app-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/images/adhello-app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/images/adhello-app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

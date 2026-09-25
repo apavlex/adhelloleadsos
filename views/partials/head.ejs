@@ -1,8 +1,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#FFDB3A" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0F172A" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AdHello">
+<meta name="application-name" content="AdHello">
+<meta name="format-detection" content="telephone=no">
 <title><%= typeof title !== 'undefined' ? title : 'AdHello.ai | Leads' %></title>
+<link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/images/adhello-app-icon.png" type="image/png">
-<link rel="apple-touch-icon" href="/images/adhello-app-icon.png">
+<link rel="apple-touch-icon" href="/images/adhello-app-icon-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="/images/adhello-app-icon-512.png" sizes="512x512">
 <script>
   /* Before CSS: set dark/light on <html> so custom.css variables match on first paint. */
   (function () {
@@ -172,3 +182,4 @@
 <script src="/js/googleMapsLoader.js?v=<%= _av %>" defer></script>
 <% } %>
 <script defer src="/js/keyboard-nav-shortcuts.js?v=<%= _av %>"></script>
+<script src="/js/pwa-register.js?v=<%= _av %>" defer></script>

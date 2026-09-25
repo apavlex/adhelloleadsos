@@ -146,6 +146,15 @@ app.use(
     lastModified: true,
     maxAge: process.env.NODE_ENV === 'production' ? '7d' : 0,
     setHeaders(res, filePath) {
+      const base = path.basename(filePath);
+      // Service worker + manifest must revalidate so PWA updates ship quickly.
+      if (base === 'sw.js' || base === 'manifest.webmanifest') {
+        res.setHeader('Cache-Control', 'no-cache, max-age=0, must-revalidate');
+        if (base === 'sw.js') {
+          res.setHeader('Service-Worker-Allowed', '/');
+        }
+        return;
+      }
       if (/\.(?:js|css|png|jpg|jpeg|gif|webp|svg|woff2?)$/i.test(filePath)) {
         res.setHeader('Cache-Control', 'public, max-age=604800, stale-while-revalidate=86400');
       }
