@@ -5649,6 +5649,7 @@ html.dark .tag-filter-combobox-menu {
   display: grid;
   grid-template-columns: var(--dm-rail-w) var(--dm-sidebar-w) minmax(0, 1fr) var(--dm-inspector-w);
   min-height: min(78vh, 820px);
+  height: min(78vh, 820px);
   margin: 0 1rem;
   border-radius: 1rem;
   overflow: hidden;
@@ -5716,7 +5717,10 @@ html.dark .tag-filter-combobox-menu {
 
 .dm-studio-drawer {
   border-right: 1px solid rgba(17, 24, 39, 0.08);
+  overflow-x: hidden;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  min-height: 0;
   padding: 1rem 0.85rem 1.25rem;
   background: #fff;
 }
@@ -5852,9 +5856,29 @@ html.dark .tag-filter-combobox-menu {
   display: none;
 }
 
+/* Marketing Studio: never trap the document scroll outside fullscreen */
+html:has(body.dm-studio-page) {
+  height: auto;
+  overflow-y: auto;
+}
+
+body.dm-studio-page {
+  overflow-x: hidden;
+  overflow-y: auto;
+  height: auto;
+  min-height: 100dvh;
+}
+
+body.dm-studio-page .dm-studio-root,
+body.dm-studio-page .dm-studio-shell {
+  overflow: visible;
+}
+
 /* Full-screen studio mode */
 body.dm-studio-fullscreen-active {
-  overflow: hidden;
+  overflow: hidden !important;
+  height: 100dvh;
+  max-height: 100dvh;
 }
 
 body.dm-studio-fullscreen-active #appSidebar,
@@ -5868,7 +5892,14 @@ body.dm-studio-fullscreen-active.app-with-sidebar {
 
 body.dm-studio-fullscreen-active .app-shell-content {
   grid-column: 1 / -1;
-  min-height: 100vh;
+  min-height: 0;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+body.dm-studio-fullscreen-active .dm-studio-root {
+  height: 100%;
+  overflow: hidden;
 }
 
 body.dm-studio-fullscreen-active .dm-studio-shell {
@@ -5877,6 +5908,9 @@ body.dm-studio-fullscreen-active .dm-studio-shell {
   z-index: 280;
   display: flex;
   flex-direction: column;
+  width: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
   overflow: hidden;
   background: var(--brand-bg, #faf7ed);
   padding: 0;
@@ -5889,26 +5923,55 @@ body.dm-studio-fullscreen-active .dm-studio-shell {
 body.dm-studio-fullscreen-active .dm-studio-topbar {
   position: relative;
   top: auto;
-  flex-shrink: 0;
+  flex: 0 0 auto;
+  z-index: 2;
 }
 
 body.dm-studio-fullscreen-active .dm-studio {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
-  margin: 0 0.75rem 0.75rem;
+  height: auto;
   max-height: none;
+  margin: 0 0.5rem 0.5rem;
+  overflow: hidden;
+}
+
+body.dm-studio-fullscreen-active .dm-studio-rail,
+body.dm-studio-fullscreen-active .dm-studio-drawer,
+body.dm-studio-fullscreen-active .dm-studio-inspector {
+  min-height: 0;
+  max-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 body.dm-studio-fullscreen-active .dm-studio-stage {
   min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 body.dm-studio-fullscreen-active .dm-canvas-viewport {
+  flex: 1 1 auto;
   min-height: 0;
+  overflow: auto;
+}
+
+body.dm-studio-fullscreen-active .dm-prompt-dock {
+  flex: 0 0 auto;
+  max-height: min(40vh, 22rem);
 }
 
 body.dm-studio-fullscreen-active .dm-workflow-section {
-  display: none;
+  display: none !important;
+}
+
+@media (max-width: 1280px) {
+  body.dm-studio-fullscreen-active .dm-studio-drawer {
+    max-height: min(40vh, 16rem);
+  }
 }
 
 .dm-format-label {
@@ -6042,6 +6105,8 @@ body.dm-studio-fullscreen-active .dm-workflow-section {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
   background: var(--dm-canvas-bg);
   background-image: radial-gradient(var(--dm-canvas-dot) 1px, transparent 1px);
   background-size: 16px 16px;
@@ -7107,7 +7172,10 @@ body.dm-prompt-resize-active {
 .dm-studio-inspector {
   border-left: 1px solid rgba(17, 24, 39, 0.08);
   padding: 1rem 0.85rem;
+  overflow-x: hidden;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  min-height: 0;
   background: #fff;
 }
 
@@ -7187,7 +7255,9 @@ body.dm-prompt-resize-active {
 @media (max-width: 1280px) {
   .dm-studio {
     grid-template-columns: var(--dm-rail-w) minmax(0, 1fr);
-    grid-template-rows: auto auto;
+    grid-template-rows: auto minmax(0, 1fr);
+    height: min(85vh, 900px);
+    min-height: min(85vh, 900px);
   }
 
   .dm-studio-drawer {
@@ -7201,7 +7271,7 @@ body.dm-prompt-resize-active {
   .dm-studio-stage {
     grid-column: 1 / -1;
     grid-row: 2;
-    min-height: 28rem;
+    min-height: 0;
   }
 
   .dm-studio-inspector {

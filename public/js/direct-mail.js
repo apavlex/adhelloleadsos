@@ -755,12 +755,25 @@
     var enable = !!on;
     shell.classList.toggle('dm-studio-shell--fullscreen', enable);
     document.body.classList.toggle('dm-studio-fullscreen-active', enable);
+    document.documentElement.classList.toggle('dm-studio-fs', enable);
+    if (enable) {
+      document.body.classList.add('overflow-hidden');
+    } else {
+      // Clear fullscreen + any leftover lightbox body lock so the page can scroll again.
+      document.body.classList.remove('overflow-hidden');
+      document.body.style.removeProperty('overflow');
+    }
     syncFullscreenUi(enable);
+    try {
+      window.dispatchEvent(new Event('resize'));
+    } catch (_) {}
   }
 
-  function toggleStudioFullscreen() {
-    var shell = document.getElementById('dmStudioShell');
-    if (!shell) return;
+  function toggleStudioFullscreen(e) {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     setStudioFullscreen(!document.body.classList.contains('dm-studio-fullscreen-active'));
   }
 
@@ -770,10 +783,22 @@
     if (topBtn) topBtn.addEventListener('click', toggleStudioFullscreen);
     if (canvasBtn) canvasBtn.addEventListener('click', toggleStudioFullscreen);
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && document.body.classList.contains('dm-studio-fullscreen-active')) {
+      if (e.key !== 'Escape') return;
+      if (document.body.classList.contains('dm-studio-fullscreen-active')) {
+        e.preventDefault();
         setStudioFullscreen(false);
       }
     });
+    // Recover from a stuck body lock if fullscreen class was lost.
+    if (
+      document.body.classList.contains('overflow-hidden') &&
+      !document.body.classList.contains('dm-studio-fullscreen-active')
+    ) {
+      var lb = document.getElementById('dmImageLightbox');
+      if (!lb || lb.classList.contains('hidden')) {
+        document.body.classList.remove('overflow-hidden');
+      }
+    }
   }
 
   function readBrandKitFromForm() {
@@ -3024,7 +3049,10 @@
     if (!modal) return;
     modal.classList.add('hidden');
     modal.setAttribute('aria-hidden', 'true');
-    document.body.classList.remove('overflow-hidden');
+    // Don't unlock body scroll while studio fullscreen is active.
+    if (!document.body.classList.contains('dm-studio-fullscreen-active')) {
+      document.body.classList.remove('overflow-hidden');
+    }
   }
 
   function appendLobSafeZones(el, slot) {
@@ -3181,6 +3209,8 @@
     refreshPostCopyFromFields(false);
     syncGenerateButtonLabels();
   }
+
+  function activeDesignUrls() {
     var out = { frontImageUrl: '', backImageUrl: '' };
     var useFront = document.getElementById('dmUseFront');
     var useBack = document.getElementById('dmUseBack');
