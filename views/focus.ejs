@@ -62,12 +62,17 @@
         border: 1px solid rgba(17, 24, 39, 0.1);
         background: #fff;
         padding: 0.65rem;
-        display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 0.5rem;
         max-height: min(50vh, 22rem);
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
+      }
+      .focus-mobile-dock-sheet:not(.hidden) {
+        display: grid;
+      }
+      #focus-mobile-fab-actions.hidden {
+        display: none !important;
       }
       html.dark .focus-mobile-dock-sheet {
         background: #0f172a;
@@ -1049,6 +1054,17 @@
     function closeMobileFabActions() {
       if (elMobileFabActions) elMobileFabActions.classList.add('hidden');
       if (btnMobileFabToggle) btnMobileFabToggle.setAttribute('aria-expanded', 'false');
+    }
+
+    function openMobileFabActions() {
+      if (elMobileFabActions) elMobileFabActions.classList.remove('hidden');
+      if (btnMobileFabToggle) btnMobileFabToggle.setAttribute('aria-expanded', 'true');
+    }
+
+    function toggleMobileFabActions() {
+      if (!elMobileFabActions) return;
+      if (elMobileFabActions.classList.contains('hidden')) openMobileFabActions();
+      else closeMobileFabActions();
     }
 
     function normalizeTel(raw) {
