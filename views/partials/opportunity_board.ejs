@@ -253,7 +253,7 @@
           <% }); %>
         </select>
         <button type="button" id="oppNewPipeline" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">New pipeline</button>
-        <button type="button" id="oppRenamePipeline" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Rename</button>
+        <button type="button" id="oppEditBoard" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Edit</button>
         <% if (_compact) { %>
         <a href="/opportunities?pipeline=<%= encodeURIComponent(_board.pipeline.id) %>" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Open full board</a>
         <button type="button" id="oppAddFromMenu" class="btn-pill btn-primary px-6 py-3 text-[10px] font-black uppercase tracking-widest">Add opportunity</button>
@@ -276,10 +276,11 @@
           </div>
           <span class="opp-stage-count"><%= stage.count %></span>
         </div>
+        <% if (!_compact) { %>
         <div class="opp-actions mb-2">
-          <button type="button" class="opp-rename" data-stage-id="<%= stage.id %>" data-stage-name="<%= stage.name %>">Edit column</button>
           <button type="button" class="opp-remove" data-stage-id="<%= stage.id %>">Remove</button>
         </div>
+        <% } %>
         <div class="opp-stage-cards<%= stage.cards.length ? '' : ' is-empty' %>" data-stage-id="<%= stage.id %>">
           <% if (!stage.cards.length) { %><div class="opp-drop">Drop here</div><% } %>
           <% stage.cards.forEach(function (card) { %>

@@ -53,6 +53,12 @@
       '#' + ROOT_ID + ' .adhello-dialog-hint{margin:0.35rem 0 0;font-size:0.72rem;font-weight:600;color:#94a3b8;line-height:1.35;}',
       '#' + ROOT_ID + ' .adhello-dialog-actions--split{justify-content:space-between;}',
       '#' + ROOT_ID + ' .adhello-dialog-actions--split .adhello-dialog-actions-right{display:flex;flex-wrap:wrap;gap:0.5rem;}',
+      '#' + ROOT_ID + ' .adhello-dialog-panel--board{width:min(36rem,calc(100vw - 2rem));}',
+      '#' + ROOT_ID + ' .adhello-dialog-stage-list{display:flex;flex-direction:column;gap:0.55rem;margin-top:0.75rem;max-height:min(22rem,46vh);overflow:auto;padding-right:0.15rem;}',
+      '#' + ROOT_ID + ' .adhello-dialog-stage-row{border:1px solid rgba(17,24,39,0.1);border-radius:0.9rem;padding:0.65rem 0.7rem;background:#fff;}',
+      'html.dark #' + ROOT_ID + ' .adhello-dialog-stage-row{background:#1e293b;border-color:rgba(255,255,255,0.12);}',
+      '#' + ROOT_ID + ' .adhello-dialog-stage-row .adhello-dialog-label{margin-top:0.45rem;}',
+      '#' + ROOT_ID + ' .adhello-dialog-stage-row .adhello-dialog-input{margin-top:0.2rem;}',
     ].join('');
     document.head.appendChild(style);
   }
@@ -460,6 +466,137 @@
       requestAnimationFrame(function () {
         input.focus();
         input.select();
+      });
+    });
+  };
+
+  window.adhelloBoardSettings = function (options) {
+    options = options || {};
+    if (active) closeActive(null);
+
+    return new Promise(function (resolve) {
+      var root = ensureRoot();
+      var min = Number(options.minWidth) > 0 ? Number(options.minWidth) : 220;
+      var max = Number(options.maxWidth) > 0 ? Number(options.maxWidth) : 448;
+      var pipelineName = String(options.pipelineName || 'Pipeline');
+      var stages = Array.isArray(options.stages) ? options.stages.slice() : [];
+
+      function stageRowHtml(stage, index) {
+        var width = Number(stage.width) || 252;
+        if (width < min) width = min;
+        if (width > max) width = max;
+        return (
+          '<div class="adhello-dialog-stage-row" data-stage-index="' +
+          index +
+          '" data-stage-id="' +
+          escapeHtml(stage.id || '') +
+          '">' +
+          '<label class="adhello-dialog-label">Stage name</label>' +
+          '<input class="adhello-dialog-input" data-field="name" type="text" maxlength="40" value="' +
+          escapeHtml(stage.name || '') +
+          '" />' +
+          '<label class="adhello-dialog-label">Column width</label>' +
+          '<div class="adhello-dialog-range-row">' +
+          '<input class="adhello-dialog-range" data-field="width" type="range" min="' +
+          min +
+          '" max="' +
+          max +
+          '" step="4" value="' +
+          Math.round(width) +
+          '" />' +
+          '<span class="adhello-dialog-range-value">' +
+          Math.round(width) +
+          'px</span>' +
+          '</div></div>'
+        );
+      }
+
+      root.innerHTML =
+        '<div class="adhello-dialog-backdrop" data-adhello-dialog="cancel" aria-hidden="true"></div>' +
+        '<div class="adhello-dialog-panel adhello-dialog-panel--board" role="dialog" aria-modal="true" aria-labelledby="adhelloDialogTitle">' +
+        '<p class="adhello-dialog-eyebrow">Board settings</p>' +
+        '<h3 class="adhello-dialog-title" id="adhelloDialogTitle">Edit board</h3>' +
+        '<p class="adhello-dialog-message">Rename this pipeline and adjust every column’s name and width in one place.</p>' +
+        '<label class="adhello-dialog-label" for="adhelloDialogInput">Pipeline name</label>' +
+        '<input id="adhelloDialogInput" class="adhello-dialog-input" type="text" maxlength="40" autocomplete="off" />' +
+        '<div class="adhello-dialog-stage-list">' +
+        stages.map(stageRowHtml).join('') +
+        '</div>' +
+        '<p class="adhello-dialog-hint">You can still drag a column’s right edge anytime. Add Stage stays on the full board.</p>' +
+        '<div class="adhello-dialog-actions">' +
+        '<button type="button" class="adhello-dialog-btn adhello-dialog-btn--ghost" data-adhello-dialog="cancel">Cancel</button>' +
+        '<button type="button" class="adhello-dialog-btn adhello-dialog-btn--primary" data-adhello-dialog="confirm">Save</button>' +
+        '</div></div>';
+
+      var pipelineInput = root.querySelector('#adhelloDialogInput');
+      pipelineInput.value = pipelineName;
+
+      Array.prototype.forEach.call(root.querySelectorAll('.adhello-dialog-stage-row'), function (row) {
+        var range = row.querySelector('[data-field="width"]');
+        var value = row.querySelector('.adhello-dialog-range-value');
+        if (!range || !value) return;
+        range.addEventListener('input', function () {
+          value.textContent = Math.round(Number(range.value) || min) + 'px';
+        });
+      });
+
+      function onKey(ev) {
+        if (ev.key === 'Escape') {
+          ev.preventDefault();
+          closeActive(null);
+          return;
+        }
+        if (ev.key === 'Enter' && document.activeElement === pipelineInput) {
+          ev.preventDefault();
+          root.querySelector('[data-adhello-dialog="confirm"]').click();
+        }
+      }
+
+      active = { resolve: resolve, onKey: onKey };
+      root.hidden = false;
+      root.setAttribute('aria-hidden', 'false');
+      document.addEventListener('keydown', onKey, true);
+
+      root.addEventListener('click', function (ev) {
+        var action = ev.target.closest('[data-adhello-dialog]');
+        if (!action || !root.contains(action)) return;
+        var kind = action.getAttribute('data-adhello-dialog');
+        if (kind === 'cancel') {
+          closeActive(null);
+          return;
+        }
+        if (kind !== 'confirm') return;
+        var nextPipelineName = String(pipelineInput.value || '').trim();
+        if (!nextPipelineName) {
+          pipelineInput.focus();
+          return;
+        }
+        var nextStages = [];
+        var rows = root.querySelectorAll('.adhello-dialog-stage-row');
+        for (var i = 0; i < rows.length; i++) {
+          var row = rows[i];
+          var nameInput = row.querySelector('[data-field="name"]');
+          var widthInput = row.querySelector('[data-field="width"]');
+          var stageName = String((nameInput && nameInput.value) || '').trim();
+          if (!stageName) {
+            if (nameInput) nameInput.focus();
+            return;
+          }
+          nextStages.push({
+            id: row.getAttribute('data-stage-id') || '',
+            name: stageName,
+            width: Math.round(Number((widthInput && widthInput.value) || min)),
+          });
+        }
+        closeActive({
+          pipelineName: nextPipelineName,
+          stages: nextStages,
+        });
+      });
+
+      requestAnimationFrame(function () {
+        pipelineInput.focus();
+        pipelineInput.select();
       });
     });
   };
