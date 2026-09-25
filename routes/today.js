@@ -176,7 +176,8 @@ router.get('/', async (req, res, next) => {
       leads: businessLeads,
       tasks: rawTasks,
       pipelineId: req.query && req.query.pipeline,
-      compactLimit: 4,
+      // Today shows every card; columns scroll after ~2 visible.
+      compactLimit: 0,
     });
     const callWarmQueue = buildCallQueue(businessLeads, { limit: 20 });
     const nextActions = buildNextActionsQueue({

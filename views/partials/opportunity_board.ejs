@@ -48,6 +48,27 @@
   .opp-card-tools button[data-opp-action="remove"]:hover { color: #e11d48; background: rgba(244, 63, 94, 0.12); }
   .opp-compact .opp-stage { min-width: 10.75rem; padding: 0.7rem 0.65rem 0.55rem; }
   .opp-compact .opp-card { padding: 0.55rem 0.55rem; }
+  .opp-compact .opp-stage-cards {
+    max-height: 15.5rem; /* ~2 lead cards visible; scroll for the rest */
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
+  }
+  .opp-compact .opp-stage-cards.is-empty {
+    max-height: none;
+    min-height: 7.25rem;
+  }
+  .opp-compact .opp-drop { min-height: 6.25rem; }
+  .opp-compact .opp-stage-cards::-webkit-scrollbar { width: 0.35rem; }
+  .opp-compact .opp-stage-cards::-webkit-scrollbar-thumb {
+    background: rgba(17, 24, 39, 0.18);
+    border-radius: 999px;
+  }
+  html.dark .opp-compact .opp-stage-cards::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.22);
+  }
   .opp-move-list { display: flex; flex-direction: column; gap: 0.55rem; max-height: 16rem; overflow: auto; }
   .opp-move-pipe { border: 1px solid rgba(17, 24, 39, 0.1); border-radius: 0.75rem; padding: 0.45rem 0.55rem; background: #fff; }
   html.dark .opp-move-pipe { background: #1e293b; border-color: rgba(255, 255, 255, 0.12); }
@@ -237,7 +258,7 @@
           </article>
           <% }); %>
         </div>
-        <% if (stage.hiddenCount) { %>
+        <% if (!_compact && stage.hiddenCount) { %>
         <a href="/opportunities?pipeline=<%= encodeURIComponent(_board.pipeline.id) %>" class="inline-block mt-2 text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline">+ <%= stage.hiddenCount %> more</a>
         <% } %>
       </section>
