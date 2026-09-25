@@ -141,6 +141,23 @@
     }
   }
 
+  var navQuickTaskPicker = null;
+
+  function ensureNavQuickTaskPicker() {
+    var scheduled = document.getElementById('navQuickTaskScheduled');
+    if (!scheduled || typeof window.initGcalDatetimePicker !== 'function') return null;
+    if (!navQuickTaskPicker) {
+      navQuickTaskPicker = window.initGcalDatetimePicker(scheduled, {
+        label: 'Reminder date and time',
+        emptyLabel: 'No reminder',
+        triggerId: 'navQuickTaskScheduled-trigger',
+        fixedPopover: true,
+        portalHost: document.body,
+      });
+    }
+    return navQuickTaskPicker;
+  }
+
   function openNavQuickTaskModal() {
     var modal = document.getElementById('navQuickTaskModal');
     var input = document.getElementById('navQuickTaskInput');
@@ -156,7 +173,12 @@
       err.classList.add('hidden');
     }
     if (input) input.value = '';
-    if (scheduled) scheduled.value = '';
+    var picker = ensureNavQuickTaskPicker();
+    if (picker && typeof picker.setValue === 'function') {
+      picker.setValue(null);
+    } else if (scheduled) {
+      scheduled.value = '';
+    }
 
     var leadKey = resolvePanelLeadKey();
     var label = resolvePanelLeadLabel(leadKey);

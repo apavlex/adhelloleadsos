@@ -631,19 +631,24 @@
           <button type="button" id="focus-btn-sms" class="btn-pill btn-solid btn-solid--sms w-full px-4 py-3.5 text-xs font-black uppercase tracking-widest transition-colors min-h-[3rem]" title="Open or close SMS composer">SMS</button>
           <button type="button" id="focus-btn-email" class="btn-pill btn-solid btn-solid--email w-full px-4 py-3.5 text-xs font-black uppercase tracking-widest transition-colors min-h-[3rem]" title="Open email composer — send via Go High Level" aria-pressed="false">eMail</button>
         </div>
-        <div id="focus-bulk-ghl-section" class="rounded-xl border border-orange-500/30 dark:border-orange-500/25 bg-orange-500/5 dark:bg-orange-950/20 p-3 space-y-2.5">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <p class="text-[10px] font-black uppercase tracking-widest text-orange-900/80 dark:text-orange-200">Bulk GHL · this Money queue</p>
-            <span id="focus-bulk-ghl-count" class="text-[10px] font-semibold text-brand-muted tabular-nums">0 leads</span>
+        <div id="focus-bulk-ghl-section" class="rounded-xl border border-orange-500/30 dark:border-orange-500/25 bg-orange-500/5 dark:bg-orange-950/20 overflow-hidden" data-open="false">
+          <button type="button" id="focus-bulk-ghl-toggle" class="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-orange-500/10 dark:hover:bg-orange-500/15 transition-colors" aria-expanded="false" aria-controls="focus-bulk-ghl-details" title="Show or hide bulk Go High Level sync">
+            <span class="inline-flex items-center gap-2 min-w-0">
+              <span class="text-[10px] font-black uppercase tracking-widest text-orange-900/80 dark:text-orange-200">Bulk GHL · this Money queue</span>
+              <span id="focus-bulk-ghl-count" class="text-[10px] font-semibold text-brand-muted tabular-nums">0 leads</span>
+            </span>
+            <svg id="focus-bulk-ghl-chevron" class="w-4 h-4 shrink-0 text-orange-800/70 dark:text-orange-200/80 transition-transform duration-200 rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
+          </button>
+          <div id="focus-bulk-ghl-details" class="hidden border-t border-orange-500/20 dark:border-orange-400/15 px-3 pb-3 pt-2.5 space-y-2.5" role="region" aria-label="Bulk Go High Level sync options">
+            <button type="button" id="focus-btn-sync-all-ghl" class="btn-pill btn-solid btn-solid--ghl w-full px-4 py-2.5 text-[10px] font-black uppercase tracking-widest transition-colors" title="Sync every lead in this Money queue to GHL with Money Mode + date tags. Runs in the background — the bell tracks progress.">Sync all leads to GHL</button>
+            <div class="flex flex-col sm:flex-row gap-2 min-w-0">
+              <input type="text" id="focus-bulk-ghl-tag" maxlength="64" placeholder="Custom tag (e.g. Sept Blitz)" class="min-w-0 flex-1 rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-brand-dark dark:text-white" />
+              <button type="button" id="focus-btn-tag-sync-all-ghl" class="btn-pill shrink-0 border-2 border-brand-dark/20 dark:border-white/20 bg-white dark:bg-slate-900 text-brand-dark dark:text-white px-4 py-2.5 text-[10px] font-black uppercase tracking-widest hover:border-orange-500/50 transition-colors" title="Apply this tag to every Money queue lead, then sync all to GHL">Tag &amp; sync all</button>
+            </div>
+            <p class="text-[10px] text-brand-muted leading-snug">Custom tag is applied in AdHello and pushed to GHL with <strong>Money Mode</strong> + today’s date.</p>
+            <p class="text-[10px] text-brand-muted leading-snug">Sync continues when you open other AdHello pages (bell shows progress). Keep this browser tab open — closing the tab stops the queue.</p>
+            <p id="focus-bulk-ghl-status" class="text-[11px] text-brand-muted min-h-[1rem]" aria-live="polite"></p>
           </div>
-          <button type="button" id="focus-btn-sync-all-ghl" class="btn-pill btn-solid btn-solid--ghl w-full px-4 py-2.5 text-[10px] font-black uppercase tracking-widest transition-colors" title="Sync every lead in this Money queue to GHL with Money Mode + date tags. Runs in the background — the bell tracks progress.">Sync all leads to GHL</button>
-          <div class="flex flex-col sm:flex-row gap-2">
-            <input type="text" id="focus-bulk-ghl-tag" maxlength="64" placeholder="Custom tag (e.g. Sept Blitz)" class="flex-1 rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-brand-dark dark:text-white" />
-            <button type="button" id="focus-btn-tag-sync-all-ghl" class="btn-pill shrink-0 border-2 border-brand-dark/20 dark:border-white/20 bg-white dark:bg-slate-900 text-brand-dark dark:text-white px-4 py-2.5 text-[10px] font-black uppercase tracking-widest hover:border-orange-500/50 transition-colors" title="Apply this tag to every Money queue lead, then sync all to GHL">Tag &amp; sync all</button>
-          </div>
-          <p class="text-[10px] text-brand-muted leading-snug">Custom tag is applied in AdHello and pushed to GHL with <strong>Money Mode</strong> + today’s date.</p>
-          <p class="text-[10px] text-brand-muted leading-snug">Sync continues when you open other AdHello pages (bell shows progress). Keep this browser tab open — closing the tab stops the queue.</p>
-          <p id="focus-bulk-ghl-status" class="text-[11px] text-brand-muted min-h-[1rem]" aria-live="polite"></p>
         </div>
         <div id="focus-quick-log-section">
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Quick log</p>
@@ -868,6 +873,10 @@
     var elBulkGhlTag = document.getElementById('focus-bulk-ghl-tag');
     var elBulkGhlStatus = document.getElementById('focus-bulk-ghl-status');
     var elBulkGhlCount = document.getElementById('focus-bulk-ghl-count');
+    var elBulkGhlSection = document.getElementById('focus-bulk-ghl-section');
+    var elBulkGhlDetails = document.getElementById('focus-bulk-ghl-details');
+    var btnBulkGhlToggle = document.getElementById('focus-bulk-ghl-toggle');
+    var elBulkGhlChevron = document.getElementById('focus-bulk-ghl-chevron');
     var btnLog = document.getElementById('focus-btn-log');
     var btnSkip = document.getElementById('focus-btn-skip');
     var btnBack = document.getElementById('focus-btn-back');
@@ -5429,6 +5438,24 @@
           e.stopPropagation();
         }
         pushFocusListToGhl();
+      });
+    }
+    function setBulkGhlOpen(open) {
+      var on = !!open;
+      if (elBulkGhlSection) elBulkGhlSection.setAttribute('data-open', on ? 'true' : 'false');
+      if (elBulkGhlDetails) elBulkGhlDetails.classList.toggle('hidden', !on);
+      if (btnBulkGhlToggle) btnBulkGhlToggle.setAttribute('aria-expanded', on ? 'true' : 'false');
+      if (elBulkGhlChevron) elBulkGhlChevron.classList.toggle('rotate-180', !on);
+    }
+    if (btnBulkGhlToggle) {
+      setBulkGhlOpen(false);
+      btnBulkGhlToggle.addEventListener('click', function (e) {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        var open = btnBulkGhlToggle.getAttribute('aria-expanded') === 'true';
+        setBulkGhlOpen(!open);
       });
     }
     if (btnSyncAllGhl) {

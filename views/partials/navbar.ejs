@@ -355,11 +355,11 @@
     </div>
   </div>
 
-  <div id="navQuickTaskModal" class="fixed inset-0 z-[215] hidden items-center justify-center p-4" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="navQuickTaskTitle">
+  <div id="navQuickTaskModal" class="fixed inset-0 z-[215] hidden items-center justify-center p-4 overflow-x-hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="navQuickTaskTitle">
     <div id="navQuickTaskBackdrop" class="absolute inset-0 bg-brand-dark/60 backdrop-blur-sm"></div>
-    <div class="relative max-w-md w-full rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-2xl z-10">
+    <div class="relative w-full max-w-[min(28rem,calc(100vw-2rem))] min-w-0 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-2xl z-10 overflow-x-hidden">
       <div class="flex items-start justify-between gap-3 mb-5">
-        <div>
+        <div class="min-w-0">
           <h2 id="navQuickTaskTitle" class="font-display font-black text-xl text-brand-dark dark:text-white">Add task</h2>
           <p class="text-sm text-brand-muted mt-1">Quick capture — shows up on your Tasks board.</p>
         </div>
@@ -367,16 +367,16 @@
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
       </div>
-      <form id="navQuickTaskForm" class="space-y-4">
-        <div>
+      <form id="navQuickTaskForm" class="space-y-4 min-w-0">
+        <div class="min-w-0">
           <label for="navQuickTaskInput" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Task <span class="text-red-500">*</span></label>
-          <input type="text" id="navQuickTaskInput" name="title" required maxlength="200" autocomplete="off" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/80 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white placeholder:text-brand-muted/50 focus:ring-2 focus:ring-brand-yellow" placeholder="e.g. Call back about proposal…" />
+          <input type="text" id="navQuickTaskInput" name="title" required maxlength="200" autocomplete="off" class="w-full min-w-0 max-w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/80 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white placeholder:text-brand-muted/50 focus:ring-2 focus:ring-brand-yellow" placeholder="e.g. Call back about proposal…" />
         </div>
-        <div>
-          <label for="navQuickTaskScheduled" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Reminder</label>
-          <input type="datetime-local" id="navQuickTaskScheduled" name="scheduledAt" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/80 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow" />
+        <div class="min-w-0 overflow-hidden">
+          <label for="navQuickTaskScheduled-trigger" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Reminder</label>
+          <input type="datetime-local" id="navQuickTaskScheduled" name="scheduledAt" class="gcal-datetime-value sr-only" tabindex="-1" aria-hidden="true" />
         </div>
-        <label id="navQuickTaskLeadRow" class="hidden items-start gap-3 rounded-xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-800/40 px-4 py-3 cursor-pointer">
+        <label id="navQuickTaskLeadRow" class="hidden items-start gap-3 rounded-xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-800/40 px-4 py-3 cursor-pointer min-w-0">
           <input type="checkbox" id="navQuickTaskLinkLead" class="mt-0.5 rounded border-brand-border text-brand-yellow focus:ring-brand-yellow" checked />
           <span class="min-w-0">
             <span class="block text-[10px] font-black uppercase tracking-widest text-brand-muted">Link to open lead</span>
@@ -384,7 +384,7 @@
           </span>
         </label>
         <p id="navQuickTaskError" class="hidden text-sm text-red-600 dark:text-red-400"></p>
-        <div class="flex flex-col sm:flex-row gap-3 pt-1">
+        <div class="flex flex-col sm:flex-row gap-3 pt-1 min-w-0">
           <button type="submit" id="navQuickTaskSubmit" class="flex-1 btn-pill btn-primary py-4 text-xs font-black uppercase tracking-widest">Add task</button>
           <a href="/tasks" id="navQuickTaskAllLink" class="flex-1 btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 py-4 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white text-center">Open Tasks</a>
         </div>

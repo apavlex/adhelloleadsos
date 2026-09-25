@@ -40,8 +40,8 @@
     );
   }
 
-  function formatDisplay(d) {
-    if (!d) return 'Select date & time';
+  function formatDisplay(d, emptyLabel) {
+    if (!d) return emptyLabel || 'Select date & time';
     return d.toLocaleString(undefined, {
       weekday: 'short',
       month: 'short',
@@ -233,7 +233,7 @@
     function syncInput() {
       inputEl.value = selected ? toLocalInputValue(selected) : '';
       if (displayEl) {
-        displayEl.textContent = formatDisplay(selected);
+        displayEl.textContent = formatDisplay(selected, opts.emptyLabel);
         trigger.classList.toggle('gcal-datetime-trigger--empty', !selected);
       }
       inputEl.dispatchEvent(new Event('change', { bubbles: true }));

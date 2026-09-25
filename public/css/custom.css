@@ -4168,6 +4168,25 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
   font-weight: 500;
 }
 
+.gcal-datetime-display {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#navQuickTaskModal .gcal-datetime,
+#navQuickTaskModal .gcal-datetime-trigger {
+  max-width: 100%;
+  min-width: 0;
+}
+
+#navQuickTaskModal input[type="datetime-local"] {
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
 .gcal-datetime-icon {
   width: 1.15rem;
   height: 1.15rem;
