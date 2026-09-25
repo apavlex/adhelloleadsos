@@ -600,6 +600,66 @@
     });
   }
 
+  function bindBoardWheelScroll() {
+    var row = document.getElementById('oppStageRow');
+    if (!board || !row || board.getAttribute('data-wheel-bound') === '1') return;
+    board.setAttribute('data-wheel-bound', '1');
+
+    function canScrollY(el, deltaY) {
+      if (!el) return false;
+      if (el.scrollHeight <= el.clientHeight + 1) return false;
+      if (deltaY > 0) return el.scrollTop + el.clientHeight < el.scrollHeight - 1;
+      if (deltaY < 0) return el.scrollTop > 0;
+      return false;
+    }
+
+    board.addEventListener(
+      'wheel',
+      function (ev) {
+        if (ev.ctrlKey || ev.metaKey) return;
+        if (ev.target && ev.target.closest && ev.target.closest('input, textarea, select, [contenteditable="true"]')) {
+          return;
+        }
+
+        var dx = ev.deltaX || 0;
+        var dy = ev.deltaY || 0;
+        if (ev.deltaMode === 1) {
+          dx *= 16;
+          dy *= 16;
+        } else if (ev.deltaMode === 2) {
+          dx *= row.clientWidth;
+          dy *= row.clientHeight;
+        }
+
+        var list = ev.target && ev.target.closest ? ev.target.closest('.opp-stage-cards') : null;
+
+        // Trackpad / shift horizontal intent — pan the board.
+        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 0.5) {
+          if (row.scrollWidth > row.clientWidth + 1) {
+            row.scrollLeft += dx;
+            ev.preventDefault();
+          }
+          return;
+        }
+
+        // Hovering a column that can still scroll vertically — scroll that column.
+        if (list && canScrollY(list, dy)) {
+          list.scrollTop += dy;
+          ev.preventDefault();
+          return;
+        }
+
+        // Otherwise convert vertical wheel into horizontal board pan.
+        if (Math.abs(dy) > 0.5 && row.scrollWidth > row.clientWidth + 1) {
+          row.scrollLeft += dy;
+          ev.preventDefault();
+        }
+      },
+      { passive: false }
+    );
+  }
+
   bindColumnResize();
+  bindBoardWheelScroll();
   ensureSortable();
 })();
