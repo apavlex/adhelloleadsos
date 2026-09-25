@@ -5,9 +5,16 @@ const workspaceScriptBootstrap = require('../services/workspaceScriptBootstrap')
 const { wantsJsonResponse } = require('../lib/httpRequest');
 const { getGoogleMapsApiKey } = require('../services/googleMapsKey');
 const { isAgencySalesWorkspace } = require('../services/leadPanelWorkspace');
+const { getQuickLogClientPayload } = require('../services/quickLogConfig');
 const { resolveScriptSignOffProfile } = require('../services/scriptPlaceholders');
 const { resolveAccentTextColor } = require('../lib/workspaceAccent');
 const { normalizeCustomMenuLinks } = require('../services/customMenuLinks');
+
+function attachWorkspaceQuickLog(res, ws) {
+  const agencySales = isAgencySalesWorkspace(ws);
+  res.locals.isAgencySalesWorkspace = agencySales;
+  res.locals.quickLogClient = getQuickLogClientPayload({ agencySales });
+}
 
 /** In-process cache for sidebar workspace switcher (avoids N getWorkspace calls per nav). */
 const SWITCHER_TTL_MS = 60_000;
@@ -47,7 +54,7 @@ async function withWorkspace(req, res, next) {
       res.locals.workspaceId = ws.id;
       res.locals.workspaceAccent = ws.accentColor || '#CA8A04';
       res.locals.workspaceAccentText = resolveAccentTextColor(ws.accentColor, ws.accentTextColor);
-      res.locals.isAgencySalesWorkspace = isAgencySalesWorkspace(ws);
+      attachWorkspaceQuickLog(res, ws);
       res.locals.scriptSignOffProfile = resolveScriptSignOffProfile({ user: req.user, workspace: ws });
       res.locals.customMenuLinks = normalizeCustomMenuLinks(ws.customMenuLinks);
       return next();
@@ -192,7 +199,7 @@ async function withWorkspace(req, res, next) {
     res.locals.workspaceAccentText = resolveAccentTextColor(ws.accentColor, ws.accentTextColor);
     res.locals.workspaceReturnPath = req.originalUrl || '/today';
     res.locals.googleMapsStaticKey = getGoogleMapsApiKey();
-    res.locals.isAgencySalesWorkspace = isAgencySalesWorkspace(ws);
+    attachWorkspaceQuickLog(res, ws);
     res.locals.scriptSignOffProfile = resolveScriptSignOffProfile({ user: req.user, workspace: ws });
     res.locals.customMenuLinks = normalizeCustomMenuLinks(ws.customMenuLinks);
 

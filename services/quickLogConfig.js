@@ -53,15 +53,22 @@ const QUICK_LOG_ITEMS = Object.freeze([
     label: 'Site audit',
     disposition: 'site_audit',
     noteTemplate: 'Site audit scheduled or sent. Follow up after they review.',
+    agencyOnly: true,
   },
 ].map((item) => ({
   ...item,
   enableFollowup: item.disposition ? !SKIP_FOLLOW_UP_DISPOSITIONS.has(item.disposition) : false,
 })));
 
-function getQuickLogTagConfigMap() {
+function visibleQuickLogItems(opts = {}) {
+  const agencySales = !!opts.agencySales;
+  return QUICK_LOG_ITEMS.filter((item) => !item.agencyOnly || agencySales);
+}
+
+function getQuickLogTagConfigMap(items) {
+  const list = Array.isArray(items) ? items : QUICK_LOG_ITEMS;
   const map = Object.create(null);
-  for (const item of QUICK_LOG_ITEMS) {
+  for (const item of list) {
     map[item.label] = {
       disposition: item.disposition || '',
       status: item.status || '',
@@ -72,19 +79,21 @@ function getQuickLogTagConfigMap() {
   return map;
 }
 
-function getQuickLogClientPayload() {
+/** Client pills + tag config. Pass `{ agencySales: true }` for agency workspaces. */
+function getQuickLogClientPayload(opts = {}) {
+  const items = visibleQuickLogItems(opts);
   return {
-    items: QUICK_LOG_ITEMS.map(({ label, disposition, status, noteTemplate, enableFollowup }) => ({
+    items: items.map(({ label, disposition, status, noteTemplate, enableFollowup }) => ({
       label,
       disposition: disposition || '',
       status: status || '',
       noteTemplate: noteTemplate || '',
       enableFollowup: !!enableFollowup,
     })),
-    tagConfig: getQuickLogTagConfigMap(),
-    pillLabelsPattern: QUICK_LOG_ITEMS.map((i) =>
-      i.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    ).join('|'),
+    tagConfig: getQuickLogTagConfigMap(items),
+    pillLabelsPattern: items
+      .map((i) => i.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+      .join('|'),
   };
 }
 
@@ -184,6 +193,7 @@ function leadMatchesQuickLogFilter(lead, tagKey) {
 module.exports = {
   QUICK_LOG_ITEMS,
   QUICK_LOG_TAG_PREFIX,
+  visibleQuickLogItems,
   getQuickLogTagConfigMap,
   getQuickLogClientPayload,
   quickLogLabelForDisposition,

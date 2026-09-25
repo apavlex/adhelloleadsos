@@ -191,7 +191,8 @@ app.locals.renderSocialBrandLinks = (links) => socialBrandIcons.renderLinks(link
 
 const { ghlCrmBaseUrl, ghlWebsitesBuilderUrl } = require('./services/websiteBuildLinks');
 const { getQuickLogClientPayload, resolveActiveQuickLogFromLead } = require('./services/quickLogConfig');
-const quickLogClientPayload = getQuickLogClientPayload();
+/** Default (no workspace yet): no agency-only pills. withWorkspace overrides per workspace. */
+const quickLogClientPayload = getQuickLogClientPayload({ agencySales: false });
 app.locals.resolveActiveQuickLogFromLead = resolveActiveQuickLogFromLead;
 
 // Global middleware for templates
