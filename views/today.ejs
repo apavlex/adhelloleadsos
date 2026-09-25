@@ -42,6 +42,26 @@
       }
     })();
     </script>
+    <script>
+    (function () {
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      var el = document.querySelector('[data-today-count]');
+      if (!el) return;
+      var target = parseInt(el.getAttribute('data-today-count'), 10);
+      if (!Number.isFinite(target) || target <= 0) return;
+      var start = 0;
+      var duration = 700;
+      var t0 = null;
+      function frame(ts) {
+        if (t0 == null) t0 = ts;
+        var p = Math.min(1, (ts - t0) / duration);
+        var eased = 1 - Math.pow(1 - p, 3);
+        el.textContent = String(Math.round(start + (target - start) * eased));
+        if (p < 1) requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    })();
+    </script>
 
     <% const _tl = typeof totalLeads !== 'undefined' ? totalLeads : 0; %>
     <% const empty = _tl === 0; %>
@@ -52,40 +72,299 @@
     <% const _isDayOne = typeof activation !== 'undefined' && activation && (activation.progress || 0) === 0; %>
     <% const _showDayOneHero = empty && _showAct && _isDayOne; %>
     <% const _todayTasks = typeof todayTasks !== 'undefined' && todayTasks ? todayTasks : []; %>
+    <% const _q = typeof queueNeedingAction !== 'undefined' ? Number(queueNeedingAction) || 0 : 0; %>
+    <% const _tt = typeof touchesToday !== 'undefined' ? Number(touchesToday) || 0 : 0; %>
+    <% const _tg = typeof touchGoal !== 'undefined' ? Math.max(1, Number(touchGoal) || 54) : 54; %>
+    <% const _st = typeof streak !== 'undefined' ? Number(streak) || 0 : 0; %>
+    <% const _rw = typeof repliesWaiting !== 'undefined' ? Number(repliesWaiting) || 0 : 0; %>
+    <% const _touchPct = Math.max(0, Math.min(100, Math.round((_tt / _tg) * 100))); %>
+    <% const _sessionGoal = 30; %>
+    <% const _sessionPct = Math.max(0, Math.min(100, Math.round((_q / Math.max(_sessionGoal, 1)) * 100))); %>
+    <% const _ringC = 2 * Math.PI * 42; %>
+    <% const _ringOffset = _ringC * (1 - _sessionPct / 100); %>
+    <% const _touchRingOffset = _ringC * (1 - _touchPct / 100); %>
+
+    <style>
+      .today-viz { --today-ink: #0f2747; --today-mute: #64748b; }
+      .today-viz-hero {
+        position: relative;
+        overflow: hidden;
+        background:
+          radial-gradient(120% 80% at 100% 0%, rgba(255, 219, 58, 0.22), transparent 55%),
+          radial-gradient(90% 70% at 0% 100%, rgba(15, 39, 71, 0.06), transparent 50%),
+          #fff;
+      }
+      html.dark .today-viz-hero {
+        background:
+          radial-gradient(120% 80% at 100% 0%, rgba(255, 219, 58, 0.12), transparent 55%),
+          radial-gradient(90% 70% at 0% 100%, rgba(255, 255, 255, 0.04), transparent 50%),
+          rgba(15, 23, 42, 0.92);
+      }
+      .today-viz-grid {
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(15, 39, 71, 0.035) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(15, 39, 71, 0.035) 1px, transparent 1px);
+        background-size: 28px 28px;
+        mask-image: linear-gradient(90deg, transparent, #000 20%, #000 80%, transparent);
+        pointer-events: none;
+      }
+      html.dark .today-viz-grid {
+        background-image:
+          linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+      }
+      .today-viz-ring { transform: rotate(-90deg); }
+      .today-viz-ring-track { stroke: rgba(15, 39, 71, 0.1); }
+      html.dark .today-viz-ring-track { stroke: rgba(255, 255, 255, 0.12); }
+      .today-viz-ring-progress {
+        stroke: #0f2747;
+        stroke-linecap: round;
+        transition: stroke-dashoffset 1.1s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      html.dark .today-viz-ring-progress { stroke: #FFDB3A; }
+      .today-viz-metric {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        border-radius: 1rem;
+        border: 1px solid rgba(17, 24, 39, 0.1);
+        background: rgba(255, 255, 255, 0.72);
+        padding: 0.55rem 0.75rem;
+        min-width: 0;
+      }
+      html.dark .today-viz-metric {
+        background: rgba(30, 41, 59, 0.75);
+        border-color: rgba(255, 255, 255, 0.12);
+      }
+      .today-viz-metric svg { width: 1.05rem; height: 1.05rem; flex: none; color: #0f2747; }
+      html.dark .today-viz-metric svg { color: #FFDB3A; }
+      .today-viz-action {
+        position: relative;
+        transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+      }
+      .today-viz-action:hover {
+        transform: translateY(-3px);
+        border-color: rgba(202, 138, 4, 0.45);
+        box-shadow: 0 12px 28px rgba(15, 39, 71, 0.08);
+      }
+      .today-viz-icon {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 0.85rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 219, 58, 0.22);
+        color: #0f2747;
+        margin-bottom: 0.85rem;
+      }
+      html.dark .today-viz-icon {
+        background: rgba(255, 219, 58, 0.14);
+        color: #FFDB3A;
+      }
+      .today-viz-icon svg { width: 1.2rem; height: 1.2rem; }
+      .today-viz-bars { display: flex; align-items: flex-end; gap: 0.35rem; height: 3.25rem; }
+      .today-viz-bar {
+        flex: 1;
+        min-width: 0;
+        border-radius: 0.35rem 0.35rem 0.15rem 0.15rem;
+        background: linear-gradient(180deg, #FFDB3A, rgba(15, 39, 71, 0.85));
+        transform-origin: bottom;
+        animation: today-bar-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+      }
+      html.dark .today-viz-bar {
+        background: linear-gradient(180deg, #FFDB3A, rgba(255, 255, 255, 0.35));
+      }
+      .today-viz-spark {
+        display: block;
+        width: 100%;
+        height: 2.25rem;
+        margin-top: 0.75rem;
+      }
+      .today-viz-spark path {
+        fill: none;
+        stroke: #0f2747;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-dasharray: 180;
+        stroke-dashoffset: 180;
+        animation: today-draw 1.2s ease forwards 0.2s;
+      }
+      html.dark .today-viz-spark path { stroke: #FFDB3A; }
+      .today-viz-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        gap: 0.75rem;
+        padding: 1.5rem 1rem;
+        border-radius: 1.25rem;
+        border: 1px dashed rgba(17, 24, 39, 0.14);
+        background: rgba(250, 247, 237, 0.55);
+      }
+      html.dark .today-viz-empty {
+        border-color: rgba(255, 255, 255, 0.14);
+        background: rgba(2, 6, 23, 0.35);
+      }
+      .today-viz-empty-art {
+        width: 4.5rem;
+        height: 4.5rem;
+        border-radius: 1.25rem;
+        display: grid;
+        place-items: center;
+        background: rgba(255, 219, 58, 0.2);
+        color: #0f2747;
+        animation: today-float 3.2s ease-in-out infinite;
+      }
+      html.dark .today-viz-empty-art { color: #FFDB3A; }
+      .today-viz-reveal {
+        animation: today-rise 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+      }
+      .today-viz-reveal-delay-1 { animation-delay: 0.08s; }
+      .today-viz-reveal-delay-2 { animation-delay: 0.16s; }
+      .today-viz-reveal-delay-3 { animation-delay: 0.24s; }
+      @keyframes today-rise {
+        from { opacity: 0; transform: translateY(12px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes today-draw {
+        to { stroke-dashoffset: 0; }
+      }
+      @keyframes today-bar-rise {
+        from { transform: scaleY(0.15); opacity: 0.4; }
+        to { transform: scaleY(1); opacity: 1; }
+      }
+      @keyframes today-float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-5px); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .today-viz-reveal,
+        .today-viz-bar,
+        .today-viz-spark path,
+        .today-viz-empty-art,
+        .today-viz-action:hover {
+          animation: none !important;
+          transition: none !important;
+          transform: none !important;
+        }
+        .today-viz-spark path { stroke-dashoffset: 0; }
+      }
+    </style>
 
     <% if (!empty) { %>
-    <section class="mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-6 md:p-8 shadow-sm" aria-label="Next 30 minutes">
-      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Next 30 minutes</p>
-      <h2 class="font-display font-extrabold text-xl md:text-2xl text-brand-dark dark:text-white mb-2">You have <%= typeof queueNeedingAction !== 'undefined' ? queueNeedingAction : 0 %> leads queued for action today.</h2>
-      <p class="text-sm text-brand-muted mb-5">Start a focused calling block and work the queue in order. AdHello will keep wrap-up and next steps aligned.</p>
-      <div class="flex flex-col sm:flex-row gap-3">
-        <a href="/focus" class="btn-pill btn-primary px-8 py-3 text-xs font-black uppercase tracking-widest text-center">Start session</a>
-        <a href="/pipeline" class="btn-pill border border-brand-border dark:border-white/20 px-8 py-3 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white text-center">Open pipeline queue</a>
+    <section class="today-viz today-viz-hero today-viz-reveal mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 p-6 md:p-8 shadow-sm" aria-label="Next 30 minutes">
+      <div class="today-viz-grid" aria-hidden="true"></div>
+      <div class="relative z-[1] flex flex-col lg:flex-row lg:items-center gap-8">
+        <div class="flex-1 min-w-0">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Next 30 minutes</p>
+          <h2 class="font-display font-extrabold text-xl md:text-3xl text-brand-dark dark:text-white mb-2 leading-tight">
+            You have <span class="tabular-nums" data-today-count="<%= _q %>"><%= _q %></span> leads queued for action today.
+          </h2>
+          <p class="text-sm text-brand-muted mb-5 max-w-xl">Start a focused calling block and work the queue in order. AdHello will keep wrap-up and next steps aligned.</p>
+          <div class="flex flex-col sm:flex-row gap-3 mb-5">
+            <a href="/focus" class="btn-pill btn-primary px-8 py-3 text-xs font-black uppercase tracking-widest text-center inline-flex items-center justify-center gap-2">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3l14 9-14 9V3z"/></svg>
+              Start session
+            </a>
+            <a href="/pipeline" class="btn-pill border border-brand-border dark:border-white/20 px-8 py-3 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white text-center inline-flex items-center justify-center gap-2">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h10M4 18h7"/></svg>
+              Open pipeline queue
+            </a>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div class="today-viz-metric">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg>
+              <div class="min-w-0">
+                <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Touches</p>
+                <p class="text-sm font-extrabold text-brand-dark dark:text-white tabular-nums"><%= _tt %>/<%= _tg %></p>
+              </div>
+            </div>
+            <div class="today-viz-metric">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 2L4 14h7l-1 8 10-14h-7l1-6z"/></svg>
+              <div class="min-w-0">
+                <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Streak</p>
+                <p class="text-sm font-extrabold text-brand-dark dark:text-white tabular-nums"><%= _st %>d</p>
+              </div>
+            </div>
+            <div class="today-viz-metric">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>
+              <div class="min-w-0">
+                <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Replies</p>
+                <p class="text-sm font-extrabold text-brand-dark dark:text-white tabular-nums"><%= _rw %></p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="shrink-0 mx-auto lg:mx-0 relative w-[9.5rem] h-[9.5rem]" aria-hidden="true">
+          <svg class="today-viz-ring w-full h-full" viewBox="0 0 100 100">
+            <circle class="today-viz-ring-track" cx="50" cy="50" r="42" fill="none" stroke-width="8"></circle>
+            <circle class="today-viz-ring-progress" cx="50" cy="50" r="42" fill="none" stroke-width="8"
+              stroke-dasharray="<%= _ringC.toFixed(2) %>"
+              stroke-dashoffset="<%= _ringOffset.toFixed(2) %>"></circle>
+          </svg>
+          <div class="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
+            <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Queue</p>
+            <p class="font-display font-black text-2xl text-brand-dark dark:text-white tabular-nums leading-none"><%= _q %></p>
+            <p class="text-[10px] font-bold text-brand-muted mt-1"><%= _sessionPct %>% of <%= _sessionGoal %></p>
+          </div>
+        </div>
       </div>
     </section>
 
     <section aria-labelledby="actions-heading" class="mb-8 md:mb-10">
       <h2 id="actions-heading" class="sr-only">Quick actions</h2>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
-        <div class="flex min-w-0 flex-col rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm overflow-hidden hover:border-brand-yellow/50 transition-colors">
+        <div class="today-viz-action today-viz-reveal today-viz-reveal-delay-1 flex min-w-0 flex-col rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm overflow-hidden">
           <a href="/leads/find" class="group flex flex-1 flex-col p-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900">
-            <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Find</p>
+            <span class="today-viz-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="m20 20-3.5-3.5"/></svg>
+            </span>
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Find</p>
             <h3 class="font-display font-extrabold text-xl text-brand-dark dark:text-white mb-2 group-hover:text-brand-yellow transition-colors">Start a lead search</h3>
             <p class="text-sm text-brand-muted leading-relaxed flex-1">Keyword + location; Maps via Outscraper first when configured, Apify fallback.</p>
+            <svg class="today-viz-spark" viewBox="0 0 120 36" aria-hidden="true">
+              <path d="M2 28 C18 28, 22 8, 38 12 S58 30, 74 18 S98 6, 118 10"></path>
+            </svg>
           </a>
-          <p class="text-[11px] text-brand-muted px-8 pb-6 pt-0 border-t border-brand-border/30 dark:border-white/10 -mt-1">
+          <p class="text-[11px] text-brand-muted px-8 pb-6 pt-0 border-t border-brand-border/30 dark:border-white/10">
             <a href="/workspace/integrations" class="text-brand-yellow font-bold hover:underline">Workspace</a> — API keys &amp; cost-aware stack guide.
           </p>
         </div>
-        <a href="/pipeline" class="group flex min-w-0 flex-col rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-8 shadow-sm hover:border-brand-yellow/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900">
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Pipeline</p>
-          <h3 class="font-display font-extrabold text-xl text-brand-dark dark:text-white mb-2 group-hover:text-brand-yellow transition-colors">Work your queue — <%= typeof queueNeedingAction !== 'undefined' ? queueNeedingAction : 0 %> leads in early stages</h3>
-          <p class="text-sm text-brand-muted leading-relaxed mt-auto">Stages 1–2 need movement or outreach.</p>
+        <a href="/pipeline" class="today-viz-action today-viz-reveal today-viz-reveal-delay-2 group flex min-w-0 flex-col rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-8 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900">
+          <span class="today-viz-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h6v12H4zM14 6h6v7h-6zM14 16h6v2h-6z"/></svg>
+          </span>
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Pipeline</p>
+          <h3 class="font-display font-extrabold text-xl text-brand-dark dark:text-white mb-2 group-hover:text-brand-yellow transition-colors">Work your queue — <%= _q %> leads in early stages</h3>
+          <p class="text-sm text-brand-muted leading-relaxed">Stages 1–2 need movement or outreach.</p>
+          <div class="mt-4 h-2 rounded-full bg-brand-cream/80 dark:bg-slate-800 overflow-hidden" role="progressbar" aria-valuemin="0" aria-valuemax="<%= _sessionGoal %>" aria-valuenow="<%= Math.min(_q, _sessionGoal) %>">
+            <div class="h-full rounded-full bg-brand-yellow transition-[width] duration-700" style="width:<%= _sessionPct %>%"></div>
+          </div>
+          <p class="text-[10px] font-bold text-brand-muted mt-2 tabular-nums"><%= _q %> early-stage · <%= _tl %> total</p>
         </a>
-        <a href="/reports?tab=tracker" class="group flex min-w-0 flex-col rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-8 shadow-sm hover:border-brand-yellow/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900">
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Touches</p>
+        <a href="/reports?tab=tracker" class="today-viz-action today-viz-reveal today-viz-reveal-delay-3 group flex min-w-0 flex-col rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-8 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900">
+          <div class="flex items-start justify-between gap-3 mb-1">
+            <span class="today-viz-icon !mb-0" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 19V5M4 19h16M8 16V9m4 7V6m4 10v-4"/></svg>
+            </span>
+            <div class="relative w-14 h-14 shrink-0" aria-hidden="true">
+              <svg class="today-viz-ring w-full h-full" viewBox="0 0 100 100">
+                <circle class="today-viz-ring-track" cx="50" cy="50" r="42" fill="none" stroke-width="10"></circle>
+                <circle class="today-viz-ring-progress" cx="50" cy="50" r="42" fill="none" stroke-width="10"
+                  stroke-dasharray="<%= _ringC.toFixed(2) %>"
+                  stroke-dashoffset="<%= _touchRingOffset.toFixed(2) %>"></circle>
+              </svg>
+              <span class="absolute inset-0 grid place-items-center text-[10px] font-black tabular-nums text-brand-dark dark:text-white"><%= _touchPct %>%</span>
+            </div>
+          </div>
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2 mt-3">Touches</p>
           <h3 class="font-display font-extrabold text-xl text-brand-dark dark:text-white mb-2 group-hover:text-brand-yellow transition-colors">Review daily tracker</h3>
-          <p class="text-sm text-brand-muted leading-relaxed mt-auto">Auto-detected calls and cadence steps plus anything you adjust — streaks and charts in Reports.</p>
+          <p class="text-sm text-brand-muted leading-relaxed mt-auto"><%= _tt %> of <%= _tg %> today · streak <%= _st %>d. Auto-detected calls plus anything you adjust.</p>
         </a>
       </div>
     </section>
@@ -95,28 +374,60 @@
 
     <% const _wr = typeof weekReview !== 'undefined' && weekReview ? weekReview : null; %>
     <% if (_wr) { %>
-    <div id="weekReviewCard" class="mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-900/70 p-6 md:p-8 shadow-sm">
-      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-4">This week&apos;s review</p>
-      <div class="space-y-6">
+    <%
+      const _wrLeads = Array.isArray(_wr.topLeads) ? _wr.topLeads.slice(0, 5) : [];
+      const _wrMax = Math.max(1, ..._wrLeads.map((L) => Number(L.touches) || 0));
+    %>
+    <div id="weekReviewCard" class="today-viz today-viz-reveal mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-900/70 p-6 md:p-8 shadow-sm">
+      <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-5">
         <div>
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Best-performing cadence</p>
-          <p class="font-display font-bold text-brand-dark dark:text-white"><%= _wr.cadence && _wr.cadence.label ? _wr.cadence.label : '—' %><% if (_wr.cadence && _wr.cadence.count) { %> <span class="text-brand-muted font-sans font-semibold text-sm">(<%= _wr.cadence.count %> touches logged)</span><% } %></p>
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">This week&apos;s review</p>
+          <p class="text-sm text-brand-muted">Cadence performance and who engaged most.</p>
         </div>
-        <div>
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Top leads by engagement</p>
-          <ol class="list-decimal list-inside space-y-1 text-sm text-brand-dark dark:text-slate-200">
-            <% if (_wr.topLeads && _wr.topLeads.length) { %>
-              <% _wr.topLeads.forEach(function (L) { %>
-              <li><a href="/focus?lead=<%= encodeURIComponent(String(L.key || '').replace(/^lead:/i, '')) %>" class="font-semibold hover:text-brand-yellow"><%= L.title %></a> <span class="text-brand-muted">· <%= L.touches %> events</span></li>
-              <% }); %>
-            <% } else { %>
-              <li class="text-brand-muted">No activity this week yet — log touches from Focus or the pipeline.</li>
-            <% } %>
-          </ol>
+        <span class="today-viz-icon !mb-0 !w-10 !h-10" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18M7 15l3-3 3 2 5-6"/></svg>
+        </span>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-8">
+        <div class="space-y-5">
+          <div>
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Best-performing cadence</p>
+            <p class="font-display font-bold text-brand-dark dark:text-white"><%= _wr.cadence && _wr.cadence.label ? _wr.cadence.label : '—' %><% if (_wr.cadence && _wr.cadence.count) { %> <span class="text-brand-muted font-sans font-semibold text-sm">(<%= _wr.cadence.count %> touches logged)</span><% } %></p>
+          </div>
+          <div>
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Top leads by engagement</p>
+            <ol class="list-decimal list-inside space-y-1.5 text-sm text-brand-dark dark:text-slate-200">
+              <% if (_wrLeads.length) { %>
+                <% _wrLeads.forEach(function (L) { %>
+                <li><a href="/focus?lead=<%= encodeURIComponent(String(L.key || '').replace(/^lead:/i, '')) %>" class="font-semibold hover:text-brand-yellow"><%= L.title %></a> <span class="text-brand-muted">· <%= L.touches %> events</span></li>
+                <% }); %>
+              <% } else { %>
+                <li class="text-brand-muted">No activity this week yet — log touches from Focus or the pipeline.</li>
+              <% } %>
+            </ol>
+          </div>
+          <div class="rounded-2xl border border-brand-yellow/30 bg-brand-yellow/10 dark:bg-brand-yellow/5 px-4 py-3">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow mb-1">Suggested experiment</p>
+            <p class="text-sm text-brand-dark dark:text-slate-200 leading-relaxed"><%= _wr.experiment || '' %></p>
+          </div>
         </div>
-        <div class="rounded-2xl border border-brand-yellow/30 bg-brand-yellow/10 dark:bg-brand-yellow/5 px-4 py-3">
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow mb-1">Suggested experiment</p>
-          <p class="text-sm text-brand-dark dark:text-slate-200 leading-relaxed"><%= _wr.experiment || '' %></p>
+        <div class="rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/40 dark:bg-slate-950/40 p-4" aria-hidden="true">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-3">Engagement bars</p>
+          <% if (_wrLeads.length) { %>
+          <div class="today-viz-bars">
+            <% _wrLeads.forEach(function (L, i) { %>
+              <% const h = Math.max(12, Math.round(((Number(L.touches) || 0) / _wrMax) * 100)); %>
+              <div class="today-viz-bar" style="height:<%= h %>%; animation-delay:<%= (i * 0.08).toFixed(2) %>s" title="<%= String(L.title || '').replace(/"/g, '') %>: <%= L.touches %>"></div>
+            <% }); %>
+          </div>
+          <div class="mt-2 flex gap-0.5">
+            <% _wrLeads.forEach(function (L) { %>
+            <p class="flex-1 min-w-0 text-[9px] font-bold text-brand-muted truncate text-center"><%= String(L.title || '').split(/\s+/)[0] %></p>
+            <% }); %>
+          </div>
+          <% } else { %>
+          <p class="text-sm text-brand-muted py-8 text-center">Charts fill in as you log touches.</p>
+          <% } %>
         </div>
       </div>
     </div>
@@ -159,7 +470,13 @@
         <% }) %>
       </ul>
       <% } else { %>
-      <p class="text-sm text-brand-muted py-2">No due tasks yet. <a href="/tasks" class="text-brand-yellow font-bold hover:underline">Add one on Tasks</a> with a reminder time — scheduled follow-ups on leads stay in Focus / Pipeline until you turn them into a task.</p>
+      <div class="today-viz-empty">
+        <div class="today-viz-empty-art" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="w-7 h-7"><path stroke-linecap="round" stroke-linejoin="round" d="M9 11l3 3L22 4"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        </div>
+        <p class="text-sm font-semibold text-brand-dark dark:text-white">No due tasks yet</p>
+        <p class="text-sm text-brand-muted max-w-md">Add one on <a href="/tasks" class="text-brand-yellow font-bold hover:underline">Tasks</a> with a reminder time — scheduled follow-ups on leads stay in Focus / Pipeline until you turn them into a task.</p>
+      </div>
       <% } %>
     </section>
 
