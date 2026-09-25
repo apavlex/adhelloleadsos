@@ -1,5 +1,5 @@
 /**
- * Focus Mode — lead-by-lead outreach (/focus).
+ * Money Mode — lead-by-lead outreach (/focus).
  */
 const express = require('express');
 const router = express.Router();
@@ -369,7 +369,7 @@ router.get('/', async (req, res, next) => {
     }));
 
     res.render('focus', {
-      title: 'Focus Mode | Agency OS',
+      title: 'Money Mode | Agency OS',
       activePage: 'today',
       touchesToday,
       touchGoal,

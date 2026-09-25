@@ -231,15 +231,15 @@ test('stage edits stay on the same board object the Today page reads', () => {
 test('cardNotePreview strips Focus call script body for compact cards', () => {
   assert.equal(
     cardNotePreview('[Focus · call script]\n\nHi —, I noticed Diplomat Flooring on Maps…'),
-    'Focus · call script',
+    'Money · call script',
   );
   assert.equal(
     cardNotePreview('[Focus · call script] Hi —, I noticed Diplomat Flooring…'),
-    'Focus · call script',
+    'Money · call script',
   );
   assert.equal(
     cardNotePreview('[Focus · call script]\n\nLong script\n\nOutcome: Call back'),
-    'Focus · call script · Call back',
+    'Money · call script · Call back',
   );
   assert.equal(cardNotePreview('Asked for a proposal next week.'), 'Asked for a proposal next week.');
 });
@@ -265,5 +265,5 @@ test('opportunity cards show Focus label without script body', () => {
     ],
     tasks: [],
   });
-  assert.equal(board.stages[0].cards[0].note, 'Focus · call script');
+  assert.equal(board.stages[0].cards[0].note, 'Money · call script');
 });

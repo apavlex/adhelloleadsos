@@ -164,7 +164,7 @@ function buildSourceCards(live = {}, resolvedEnv) {
       configured: ghl,
       live: null,
       tip: ghl
-        ? 'Sync/pull from Workspace → Integrations, bulk actions on the pipeline, Focus mode, and sub-agents. Outbound email needs a verified sender; SMS can use your location default number.'
+        ? 'Sync/pull from Workspace → Integrations, bulk actions on the pipeline, Money mode, and sub-agents. Outbound email needs a verified sender; SMS can use your location default number.'
         : 'Set GHL private integration token + location ID under CRM. Enable contacts (read/write) and conversations/message.write scopes. See the setup guide for webhook URL.',
     },
     {

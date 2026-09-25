@@ -957,7 +957,7 @@ function buildFocusOutreachDraft({
   return { subject, body };
 }
 
-/** POST /sales/draft-outreach — Focus Mode copy (stub templates; replace with LLM later). */
+/** POST /sales/draft-outreach — Money Mode copy (stub templates; replace with LLM later). */
 router.post('/draft-outreach', async (req, res, next) => {
   try {
     const rawId = String((req.body && req.body.leadId) || '')

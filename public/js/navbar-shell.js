@@ -1578,7 +1578,7 @@
     host.innerHTML = '';
     if (!items || !items.length) {
       host.innerHTML =
-        '<p class="text-xs text-slate-500">No callable focus contacts right now. Open Focus mode or add phone numbers to your pipeline leads.</p>';
+        '<p class="text-xs text-slate-500">No callable focus contacts right now. Open Money mode or add phone numbers to your pipeline leads.</p>';
       return;
     }
     var queueItems = items.map(function (item, idx) {
@@ -1749,7 +1749,7 @@
       if (spContactsMeta) {
         if (!normalized.length) {
           spContactsMeta.textContent =
-            'No callable phone numbers in your focus queue. Open Focus mode to work leads or add phones in the pipeline.';
+            'No callable phone numbers in your focus queue. Open Money mode to work leads or add phones in the pipeline.';
         } else {
           spContactsMeta.textContent =
             normalized.length +
@@ -1787,7 +1787,7 @@
       })
       .catch(function () {
         if (!cached.length && spContactsMeta) {
-          spContactsMeta.textContent = 'Could not load focus contacts. Try again or open Focus mode.';
+          spContactsMeta.textContent = 'Could not load focus contacts. Try again or open Money mode.';
         }
       });
   }
@@ -4553,7 +4553,7 @@
           spQueueMeta.textContent = 'Selected leads have no phone numbers on file.';
         } else {
           spQueueMeta.textContent =
-            'Select leads in the pipeline (checkboxes), open Focus mode, or open a lead — callable numbers appear here.';
+            'Select leads in the pipeline (checkboxes), open Money mode, or open a lead — callable numbers appear here.';
         }
       } else if (collected.fromFocus) {
         spQueueMeta.textContent =

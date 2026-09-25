@@ -339,7 +339,8 @@ function cardNotePreview(note) {
   const raw = String(note || '').trim();
   if (!raw) return '';
   // Require the closing ] so we don't stop at the first letter of "call script".
-  const focusMatch = raw.match(/^\[\s*Focus\s*[·•\-–—|:]\s*([^\]]+)\]/i);
+  // Accept legacy "[Focus · …]" notes and current "[Money · …]" notes.
+  const focusMatch = raw.match(/^\[\s*(?:Focus|Money)\s*[·•\-–—|:]\s*([^\]]+)\]/i);
   if (focusMatch) {
     const channel = String(focusMatch[1] || '')
       .replace(/\s+/g, ' ')
@@ -352,10 +353,10 @@ function cardNotePreview(note) {
           .trim()
           .slice(0, 32)
       : '';
-    if (outcome) return `Focus · ${channel} · ${outcome}`;
-    return `Focus · ${channel}`;
+    if (outcome) return `Money · ${channel} · ${outcome}`;
+    return `Money · ${channel}`;
   }
-  if (/^\[?\s*Focus\b/i.test(raw)) return 'Focus · call script';
+  if (/^\[?\s*(?:Focus|Money)\b/i.test(raw)) return 'Money · call script';
   return raw.replace(/\s+/g, ' ').trim().slice(0, 90);
 }
 

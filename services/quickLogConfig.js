@@ -1,5 +1,5 @@
 /**
- * Shared quick-log pills for Focus mode and lead panel sidemenu.
+ * Shared quick-log pills for Money mode and lead panel sidemenu.
  * Disposition codes sync to GHL via ghlActionTags (AO: tags).
  */
 

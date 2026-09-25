@@ -41,11 +41,11 @@ function syncedDateTagFor(date = new Date()) {
   return `AO: Synced ${d.toISOString().slice(0, 10)}`;
 }
 
-/** Tags applied when syncing from Focus Mode (list or single lead). */
+/** Tags applied when syncing from Money Mode (list or single lead). */
 function focusModeSyncTags(date = new Date()) {
   const d = date instanceof Date && !Number.isNaN(date.getTime()) ? date : new Date();
   const day = d.toISOString().slice(0, 10);
-  return ['Focus Mode', `Focus Mode ${day}`, syncedDateTagFor(d)];
+  return ['Money Mode', `Money Mode ${day}`, syncedDateTagFor(d)];
 }
 
 function isSyncedDateTag(tag) {

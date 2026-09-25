@@ -167,7 +167,7 @@
     <header class="mb-8">
       <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-3">
         <div>
-          <h1 id="focus-session-title" class="font-display font-extrabold text-3xl md:text-4xl text-brand-dark dark:text-white tracking-tight">Focus Mode</h1>
+          <h1 id="focus-session-title" class="font-display font-extrabold text-3xl md:text-4xl text-brand-dark dark:text-white tracking-tight">Money Mode</h1>
           <% if (_eq && _eq.text) { %>
           <blockquote class="mt-3 max-w-xl">
             <p class="font-display font-bold text-base md:text-lg leading-snug text-brand-dark dark:text-slate-100">“<%= _eq.text %>”</p>
@@ -184,7 +184,7 @@
         </div>
         <div class="flex flex-col items-stretch sm:items-end gap-2">
           <a href="/today" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white text-right">← Today</a>
-          <button type="button" id="focus-btn-sync-list-ghl" class="btn-pill btn-solid btn-solid--ghl px-4 py-2.5 text-[10px] font-black uppercase tracking-widest transition-colors" title="Sync every lead in this Focus queue to Go High Level, tagged Focus Mode + today’s date. Runs in the background — the bell tracks progress.">Sync list to GHL</button>
+          <button type="button" id="focus-btn-sync-list-ghl" class="btn-pill btn-solid btn-solid--ghl px-4 py-2.5 text-[10px] font-black uppercase tracking-widest transition-colors" title="Sync every lead in this Money queue to Go High Level, tagged Money Mode + today’s date. Runs in the background — the bell tracks progress.">Sync list to GHL</button>
           <button type="button" id="focus-btn-stop-ghl-sync" class="btn-pill btn-solid btn-solid--stop px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors hidden" title="Stop after the contact currently syncing — anything already pushed stays in GHL">Stop sync</button>
           <p id="focus-sync-list-status" class="text-[10px] text-brand-muted dark:text-slate-400 text-right max-w-xs leading-snug min-h-[1rem]" aria-live="polite"></p>
         </div>
@@ -399,7 +399,7 @@
           <%- include('/partials/app_info_tip', {
             tipId: 'focus-outreach-help',
             tipKey: 'focus-outreach',
-            label: _isAgencySalesWorkspace ? 'Call, SMS, and eMail in Focus mode' : 'Call and SMS in Focus mode',
+            label: _isAgencySalesWorkspace ? 'Call, SMS, and eMail in Money mode' : 'Call and SMS in Money mode',
             size: 'sm',
             content: _isAgencySalesWorkspace
               ? 'Use <strong>Call</strong> for live dials in AdHello. <strong>SMS</strong> sends the message you type below (use Improve text for AI polish). <strong>eMail</strong> opens a template composer and sends via Go High Level.'
@@ -609,15 +609,15 @@
         </div>
         <div id="focus-bulk-ghl-section" class="rounded-xl border border-orange-500/30 dark:border-orange-500/25 bg-orange-500/5 dark:bg-orange-950/20 p-3 space-y-2.5">
           <div class="flex flex-wrap items-center justify-between gap-2">
-            <p class="text-[10px] font-black uppercase tracking-widest text-orange-900/80 dark:text-orange-200">Bulk GHL · this Focus queue</p>
+            <p class="text-[10px] font-black uppercase tracking-widest text-orange-900/80 dark:text-orange-200">Bulk GHL · this Money queue</p>
             <span id="focus-bulk-ghl-count" class="text-[10px] font-semibold text-brand-muted tabular-nums">0 leads</span>
           </div>
-          <button type="button" id="focus-btn-sync-all-ghl" class="btn-pill btn-solid btn-solid--ghl w-full px-4 py-2.5 text-[10px] font-black uppercase tracking-widest transition-colors" title="Sync every lead in this Focus queue to GHL with Focus Mode + date tags. Runs in the background — the bell tracks progress.">Sync all leads to GHL</button>
+          <button type="button" id="focus-btn-sync-all-ghl" class="btn-pill btn-solid btn-solid--ghl w-full px-4 py-2.5 text-[10px] font-black uppercase tracking-widest transition-colors" title="Sync every lead in this Money queue to GHL with Money Mode + date tags. Runs in the background — the bell tracks progress.">Sync all leads to GHL</button>
           <div class="flex flex-col sm:flex-row gap-2">
             <input type="text" id="focus-bulk-ghl-tag" maxlength="64" placeholder="Custom tag (e.g. Sept Blitz)" class="flex-1 rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-brand-dark dark:text-white" />
-            <button type="button" id="focus-btn-tag-sync-all-ghl" class="btn-pill shrink-0 border-2 border-brand-dark/20 dark:border-white/20 bg-white dark:bg-slate-900 text-brand-dark dark:text-white px-4 py-2.5 text-[10px] font-black uppercase tracking-widest hover:border-orange-500/50 transition-colors" title="Apply this tag to every Focus queue lead, then sync all to GHL">Tag &amp; sync all</button>
+            <button type="button" id="focus-btn-tag-sync-all-ghl" class="btn-pill shrink-0 border-2 border-brand-dark/20 dark:border-white/20 bg-white dark:bg-slate-900 text-brand-dark dark:text-white px-4 py-2.5 text-[10px] font-black uppercase tracking-widest hover:border-orange-500/50 transition-colors" title="Apply this tag to every Money queue lead, then sync all to GHL">Tag &amp; sync all</button>
           </div>
-          <p class="text-[10px] text-brand-muted leading-snug">Custom tag is applied in AdHello and pushed to GHL with <strong>Focus Mode</strong> + today’s date.</p>
+          <p class="text-[10px] text-brand-muted leading-snug">Custom tag is applied in AdHello and pushed to GHL with <strong>Money Mode</strong> + today’s date.</p>
           <p class="text-[10px] text-brand-muted leading-snug">Sync continues when you open other AdHello pages (bell shows progress). Keep this browser tab open — closing the tab stops the queue.</p>
           <p id="focus-bulk-ghl-status" class="text-[11px] text-brand-muted min-h-[1rem]" aria-live="polite"></p>
         </div>
@@ -2125,7 +2125,7 @@
           var tagLabel = actionTags.length
             ? actionTags[0].replace(/^AO:\s*/i, '')
             : (payload.disposition ? payload.disposition.replace(/_/g, ' ') : '');
-          var msg = 'GHL sync complete · Focus Mode + today';
+          var msg = 'GHL sync complete · Money Mode + today';
           if (tagLabel) msg += ' · AO: ' + tagLabel;
           if (payload.tagNoWebsite) msg += ' · no website';
           setOutcomeFeedback(msg, false);
@@ -2247,8 +2247,8 @@
 
     function focusGhlTagNote(customTags) {
       return customTags.length
-        ? customTags.join(', ') + ' + Focus Mode + today'
-        : 'Focus Mode + today';
+        ? customTags.join(', ') + ' + Money Mode + today'
+        : 'Money Mode + today';
     }
 
     function pushFocusListToGhl(opts) {
@@ -2258,7 +2258,7 @@
         : [];
       var keys = focusQueueLeadKeys();
       if (!keys.length) {
-        setFocusSyncListStatus('No leads in this Focus queue.', true);
+        setFocusSyncListStatus('No leads in this Money queue.', true);
         return Promise.resolve();
       }
       var bg = window.agencyOsGhlSync;
@@ -2449,7 +2449,7 @@
 
       return chain
         .then(function () {
-          if (!lastTags.length) lastTags = ['Focus Mode + date'];
+          if (!lastTags.length) lastTags = ['Money Mode + date'];
           var msg =
             'List synced · ' +
             pushed +
@@ -2487,7 +2487,7 @@
       }
       var keys = focusQueueLeadKeys();
       if (!keys.length) {
-        setFocusSyncListStatus('No leads in this Focus queue.', true);
+        setFocusSyncListStatus('No leads in this Money queue.', true);
         return Promise.resolve();
       }
       setFocusBulkGhlBusy(true, 'Tagging…');
@@ -4706,18 +4706,18 @@
       var body = getFocusBodyPlain();
       var out = outcomeLabel(elOutcome && elOutcome.value);
       var outNotes = String((elOutcomeNotes && elOutcomeNotes.value) || '').trim();
-      var note = '[Focus · call script]\n\n' + body;
+      var note = '[Money · call script]\n\n' + body;
       if (ch === 'email') {
         var sub = (elSubject.value || '').trim();
-        note = sub ? '[Focus · email] ' + sub + '\n\n' + body : '[Focus · email]\n\n' + body;
+        note = sub ? '[Money · email] ' + sub + '\n\n' + body : '[Money · email]\n\n' + body;
       } else if (ch === 'voicemail-drop') {
-        note = '[Focus · voicemail drop]\n\n' + body;
+        note = '[Money · voicemail drop]\n\n' + body;
       } else if (ch === 'sms') {
-        note = '[Focus · sms]\n\n' + body;
+        note = '[Money · sms]\n\n' + body;
       } else if (ch === 'dm') {
-        note = '[Focus · DM]\n\n' + body;
+        note = '[Money · DM]\n\n' + body;
       } else if (ch === 'objection-handling') {
-        note = '[Focus · objection handling]\n\n' + body;
+        note = '[Money · objection handling]\n\n' + body;
       }
       if (out) note += '\n\nOutcome: ' + out;
       if (outNotes) note += '\nNotes: ' + outNotes;

@@ -13,7 +13,7 @@ const BUILTIN_SOPS = [
     successMeasure: 'First response time under 15 minutes; all activities logged in CRM.',
     relatedPaths: [
       { href: '/leads?source=inbound', label: 'Inbound leads' },
-      { href: '/focus?channel=call', label: 'Focus · Call' },
+      { href: '/focus?channel=call', label: 'Money · Call' },
       { href: '/sequences', label: 'Cadence playbooks' },
       { href: '/scripts', label: 'Script library' },
     ],

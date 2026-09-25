@@ -1,5 +1,5 @@
 /**
- * Ordering leads for Focus Mode (single-lead outreach flow).
+ * Ordering leads for Money Mode (single-lead outreach flow).
  */
 
 const { scoreLeadRecord } = require('./opportunityScore');
@@ -92,7 +92,7 @@ function filterEarlyStageActionLeads(leads) {
  * @param {object[]} leads — workspace-visible leads (e.g. after excludeOutreachFolderLeads)
  * @param {number} [cap]
  * @param {{ queueMode?: string, earlyStagesOnly?: boolean }} [opts]
- * @returns {object[]} same lead objects, ordered for Focus Mode
+ * @returns {object[]} same lead objects, ordered for Money Mode
  */
 function buildFocusQueue(leads, cap = FOCUS_QUEUE_HARD_CAP, opts = {}) {
   const queueMode = opts.queueMode || 'continue_list';
