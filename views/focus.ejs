@@ -2892,7 +2892,7 @@
         var text = focusEmailTextFromServiceBlock(block, lead);
         if (!text) return;
         options.push({
-          id: 'email:' + key,
+          id: key + ':email',
           label: (block.label || key) + ' — Email',
           text: text,
           subject: focusEmailDefaultSubject(lead),
@@ -2955,15 +2955,28 @@
     function mergeFocusEmailScriptOptionsFromApi(apiOptions, lead) {
       if (!Array.isArray(apiOptions) || !apiOptions.length) return;
       var existingIds = {};
+      var existingBodies = {};
+      function bodyFp(text) {
+        return String(text || '')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .toLowerCase();
+      }
       focusEmailScriptOptions.forEach(function (o) {
         if (o && o.id) existingIds[o.id] = true;
+        var fp = bodyFp(o && o.text);
+        if (fp) existingBodies[fp] = true;
       });
       apiOptions.forEach(function (opt) {
         if (!opt) return;
         var id = String(opt.id || '').trim();
         var text = String(opt.text || '').trim();
+        var fp = bodyFp(text);
         if (!id || !text || existingIds[id]) return;
+        if (fp && existingBodies[fp]) return;
         existingIds[id] = true;
+        if (fp) existingBodies[fp] = true;
         focusEmailScriptOptions.push({
           id: id,
           label: String(opt.label || id).trim() || id,

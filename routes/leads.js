@@ -3480,7 +3480,6 @@ router.get('/:key/email-script-options', async (req, res, next) => {
     const ws = await dbService.getWorkspace(req.workspaceId);
     const mergedLibrary = salesScriptsStorage.buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
     const offerKeys = salesScriptsStorage.getWorkspaceScriptKeys(ws, SCRIPT_LIBRARY);
-    const savedItems = salesScriptsStorage.getInitialLibraryItemsFromWorkspace(ws);
 
     const leadServiceKey =
       (lead.kieServiceInsight && lead.kieServiceInsight.primaryServiceKey) || lead.primaryServiceKey || '';
@@ -3499,10 +3498,20 @@ router.get('/:key/email-script-options', async (req, res, next) => {
     });
 
     const options = [];
+    const seenBodies = new Set();
+    const bodyKey = (text) =>
+      String(text || '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
     const pushEmail = (id, label, text) => {
       const body = String(text || '').trim();
       if (!body) return;
       if (options.some((o) => o.id === id)) return;
+      const fp = bodyKey(body);
+      if (fp && seenBodies.has(fp)) return;
+      if (fp) seenBodies.add(fp);
       options.push({
         id,
         label,
@@ -3528,21 +3537,19 @@ router.get('/:key/email-script-options', async (req, res, next) => {
       );
     });
 
-    // Library snapshots saved from the Email script editor.
-    savedItems
+    // Email snapshots only — SMS / call-script library saves used to appear as
+    // "Saved: … · SMS/Script" and often duplicated (different ids, same title+body).
+    const savedItems = salesScriptsStorage
+      .dedupeLibraryItems(salesScriptsStorage.getInitialLibraryItemsFromWorkspace(ws), Number.POSITIVE_INFINITY)
       .filter((item) => item && String(item.text || '').trim())
+      .filter((item) => String(item.section || '').toLowerCase() === 'email')
       .slice()
       .reverse()
-      .slice(0, 8)
-      .forEach((item) => {
-        const section = String(item.section || '').toLowerCase();
-        const title = String(item.title || 'Saved script').trim() || 'Saved script';
-        pushEmail(
-          `saved:${item.id}`,
-          section === 'email' ? title : `Saved: ${title}`,
-          String(item.text).trim(),
-        );
-      });
+      .slice(0, 8);
+    savedItems.forEach((item) => {
+      const title = String(item.title || 'Saved email').trim() || 'Saved email';
+      pushEmail(`saved:${item.id}`, title, String(item.text).trim());
+    });
 
     if (!options.length) {
       pushEmail(
