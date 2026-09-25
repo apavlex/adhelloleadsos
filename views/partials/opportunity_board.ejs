@@ -12,18 +12,20 @@
   html.dark .opp-stage-cards { background: rgba(2, 6, 23, 0.35); }
   .opp-drop { flex: 1 1 auto; min-height: 6.5rem; display: flex; align-items: center; justify-content: center; border: 1px dashed rgba(17, 24, 39, 0.14); border-radius: 0.7rem; color: #9ca3af; font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; text-align: center; }
   html.dark .opp-drop { border-color: rgba(255, 255, 255, 0.14); }
-  .opp-card { position: relative; width: 100%; min-width: 0; box-sizing: border-box; background: #fff; border: 1px solid rgba(17, 24, 39, 0.08); border-radius: 0.8rem; padding: 0.7rem 0.75rem; cursor: grab; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
+  .opp-card { position: relative; width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; overflow: hidden; background: #fff; border: 1px solid rgba(17, 24, 39, 0.08); border-radius: 0.8rem; padding: 0.6rem 0.65rem; cursor: grab; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
   html.dark .opp-card { background: #0f172a; border-color: rgba(255, 255, 255, 0.1); }
   .opp-card.sortable-ghost { opacity: 0.45; }
-  .opp-card-head { display: flex; align-items: flex-start; gap: 0.35rem; }
-  .opp-card-title { display: block; width: 100%; min-width: 0; border: 0; background: transparent; padding: 0; text-align: left; font-weight: 800; font-size: 0.875rem; line-height: 1.3; color: inherit; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+  .opp-card-head { display: flex; align-items: flex-start; gap: 0.35rem; min-width: 0; }
+  .opp-card-title { display: block; flex: 1 1 auto; width: auto; min-width: 0; border: 0; background: transparent; padding: 0; text-align: left; font-weight: 800; font-size: 0.8125rem; line-height: 1.3; color: inherit; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
   .opp-card-title:hover { color: var(--brand-yellow, #ca8a04); }
   .opp-card-pin { flex: none; color: #94a3b8; margin-top: 0.1rem; }
   .opp-card-pin svg { width: 0.85rem; height: 0.85rem; display: block; }
-  .opp-card-category { margin: 0.2rem 0 0; font-size: 0.625rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #94a3b8; }
-  .opp-card-status { margin: 0.28rem 0 0; font-size: 0.72rem; font-weight: 600; color: #64748b; }
+  .opp-card-category { margin: 0.2rem 0 0; min-width: 0; max-width: 100%; font-size: 0.625rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #94a3b8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .opp-card-status { margin: 0.28rem 0 0; min-width: 0; max-width: 100%; font-size: 0.72rem; font-weight: 600; color: #64748b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .opp-card-note {
     margin: 0.2rem 0 0;
+    min-width: 0;
+    max-width: 100%;
     font-size: 0.68rem;
     font-weight: 700;
     line-height: 1.25;
@@ -33,18 +35,28 @@
     white-space: nowrap;
   }
   html.dark .opp-card-note { color: #94a3b8; }
-  .opp-card-reviews { margin: 0.22rem 0 0; font-size: 0.68rem; font-weight: 600; color: #64748b; }
+  .opp-card-reviews { margin: 0.22rem 0 0; min-width: 0; max-width: 100%; font-size: 0.68rem; font-weight: 600; color: #64748b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .opp-card-reviews span { color: #d97706; }
-  .opp-card-value { margin: 0.2rem 0 0; font-size: 0.75rem; font-weight: 800; color: #111827; }
+  .opp-card-value { margin: 0.2rem 0 0; min-width: 0; max-width: 100%; font-size: 0.75rem; font-weight: 800; color: #111827; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   html.dark .opp-card-value { color: #f8fafc; }
-  .opp-card-tools { position: relative; z-index: 2; display: flex; align-items: center; gap: 0.1rem; margin-top: 0.55rem; padding-top: 0.45rem; border-top: 1px solid rgba(17, 24, 39, 0.06); }
+  .opp-card-tools { position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 0; margin-top: 0.45rem; padding-top: 0.4rem; border-top: 1px solid rgba(17, 24, 39, 0.06); min-width: 0; max-width: 100%; }
   html.dark .opp-card-tools { border-top-color: rgba(255, 255, 255, 0.08); }
-  .opp-card-tools a, .opp-card-tools button { display: inline-flex; align-items: center; justify-content: center; width: 1.45rem; height: 1.45rem; border: 0; background: transparent; color: #64748b; border-radius: 0.35rem; padding: 0; cursor: pointer; text-decoration: none; }
+  .opp-card-tools a, .opp-card-tools button { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 1.28rem; height: 1.28rem; border: 0; background: transparent; color: #64748b; border-radius: 0.3rem; padding: 0; cursor: pointer; text-decoration: none; }
   .opp-card-tools a:hover, .opp-card-tools button:hover { color: #a16207; background: rgba(250, 204, 21, 0.22); }
-  .opp-card-tools svg { width: 0.95rem; height: 0.95rem; display: block; }
+  .opp-card-tools svg { width: 0.82rem; height: 0.82rem; display: block; }
   .opp-card-tools button.is-syncing svg { animation: opp-sync-spin 0.7s linear infinite; }
-  .opp-card-tools button[data-opp-action="remove"] { margin-left: auto; }
   .opp-card-tools button[data-opp-action="remove"]:hover { color: #e11d48; background: rgba(244, 63, 94, 0.12); }
+  .opp-compact .opp-stage { min-width: 10.75rem; padding: 0.7rem 0.65rem 0.55rem; }
+  .opp-compact .opp-card { padding: 0.55rem 0.55rem; }
+  .opp-move-list { display: flex; flex-direction: column; gap: 0.55rem; max-height: 16rem; overflow: auto; }
+  .opp-move-pipe { border: 1px solid rgba(17, 24, 39, 0.1); border-radius: 0.75rem; padding: 0.45rem 0.55rem; background: #fff; }
+  html.dark .opp-move-pipe { background: #1e293b; border-color: rgba(255, 255, 255, 0.12); }
+  .opp-move-pipe strong { display: block; font-size: 0.72rem; font-weight: 800; margin-bottom: 0.35rem; }
+  .opp-move-stages { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+  .opp-move-stage { border: 1px solid rgba(17, 24, 39, 0.12); background: #fff; border-radius: 999px; padding: 0.28rem 0.55rem; font-size: 0.68rem; font-weight: 700; cursor: pointer; color: inherit; }
+  html.dark .opp-move-stage { background: #0f172a; border-color: rgba(255, 255, 255, 0.14); color: #f8fafc; }
+  .opp-move-stage:hover { background: rgba(250, 204, 21, 0.35); border-color: rgba(202, 138, 4, 0.45); }
+  .opp-move-empty { margin: 0; font-size: 0.72rem; font-weight: 600; color: #64748b; }
   @keyframes opp-sync-spin { to { transform: rotate(360deg); } }
   .opp-pop {
     position: fixed;
@@ -143,33 +155,31 @@
   .opp-pipeline-select { height: 2.5rem; border-radius: 999px; border: 1px solid rgba(17, 24, 39, 0.12); background: #fff; padding: 0 0.85rem; font-size: 0.75rem; font-weight: 700; color: #111827; }
   html.dark .opp-pipeline-select { background: #0f172a; border-color: rgba(255, 255, 255, 0.12); color: #f8fafc; }
 </style>
-<section class="mb-8 md:mb-10 rounded-[2rem] border-2 border-brand-yellow/50 dark:border-brand-yellow/35 bg-white dark:bg-slate-900/90 shadow-lg shadow-brand-yellow/10 overflow-hidden <%= _compact ? 'opp-compact' : '' %>" id="oppBoard" data-pipeline-id="<%= _board.pipeline.id %>" data-first-stage-id="<%= _board.stages[0] ? _board.stages[0].id : '' %>" aria-label="Opportunities">
+<section class="mb-8 md:mb-10 rounded-[2rem] border-2 border-brand-yellow/50 dark:border-brand-yellow/35 bg-white dark:bg-slate-900/90 shadow-lg shadow-brand-yellow/10 overflow-hidden <%= _compact ? 'opp-compact' : '' %>" id="oppBoard" data-pipeline-id="<%= _board.pipeline.id %>" data-first-stage-id="<%= _board.stages[0] ? _board.stages[0].id : '' %>" data-pipelines="<%= JSON.stringify(_board.pipelines || []).replace(/"/g, '&quot;') %>" aria-label="Opportunities">
   <div class="px-5 sm:px-6 md:px-8 pt-5 sm:pt-6 pb-4 md:pb-5 border-b border-brand-border/40 dark:border-white/10">
     <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
       <div class="min-w-0">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Opportunities</p>
         <% if (_compact) { %>
         <h2 class="font-display font-extrabold text-2xl md:text-3xl text-brand-dark dark:text-white leading-tight"><%= _board.pipeline.name %></h2>
-        <p class="text-xs font-semibold text-brand-muted mt-2">Drag a card between stages. The full board is where you edit stages and pipelines.</p>
+        <p class="text-xs font-semibold text-brand-muted mt-2">Switch pipelines here. Drag cards between stages, or move a lead to another pipeline from the card.</p>
         <% } else { %>
         <h1 class="font-display font-extrabold text-2xl md:text-3xl text-brand-dark dark:text-white leading-tight">Opportunities</h1>
-        <p class="text-xs font-semibold text-brand-muted mt-2">Same board as Today. Drag cards between stages, or change the stages themselves.</p>
+        <p class="text-xs font-semibold text-brand-muted mt-2">Same board as Today. Switch pipelines, drag cards between stages, or move a lead to another pipeline.</p>
         <% } %>
       </div>
       <div class="flex flex-wrap items-center gap-2 shrink-0">
-        <% if (_board.pipelines.length > 1 || !_compact) { %>
         <label class="sr-only" for="oppPipelineSelect">Pipeline</label>
-        <select id="oppPipelineSelect" class="opp-pipeline-select">
+        <select id="oppPipelineSelect" class="opp-pipeline-select" title="Switch pipeline">
           <% _board.pipelines.forEach(function (pipeline) { %>
           <option value="<%= pipeline.id %>" <%= pipeline.id === _board.pipeline.id ? 'selected' : '' %>><%= pipeline.name %></option>
           <% }); %>
         </select>
-        <% } %>
+        <button type="button" id="oppNewPipeline" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">New pipeline</button>
         <% if (_compact) { %>
-        <a href="/opportunities?pipeline=<%= encodeURIComponent(_board.pipeline.id) %>" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Open opportunities</a>
+        <a href="/opportunities?pipeline=<%= encodeURIComponent(_board.pipeline.id) %>" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Open full board</a>
         <button type="button" id="oppAddFromMenu" class="btn-pill btn-primary px-6 py-3 text-[10px] font-black uppercase tracking-widest">Add opportunity</button>
         <% } else { %>
-        <button type="button" id="oppNewPipeline" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">New pipeline</button>
         <button type="button" id="oppRenamePipeline" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Rename</button>
         <button type="button" id="oppAddStage" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Add stage</button>
         <button type="button" id="oppAddCard" class="btn-pill btn-primary px-6 py-3 text-[10px] font-black uppercase tracking-widest">Add opportunity</button>
@@ -207,9 +217,9 @@
               </span>
               <% } %>
             </div>
-            <% if (card.category) { %><p class="opp-card-category"><%= card.category %></p><% } %>
-            <% if (card.status) { %><p class="opp-card-status"><%= card.status %></p><% } %>
-            <% if (card.note) { %><p class="opp-card-note"><%= card.note %></p><% } %>
+            <% if (card.category) { %><p class="opp-card-category" title="<%= card.category %>"><%= card.category %></p><% } %>
+            <% if (card.status) { %><p class="opp-card-status" title="<%= card.status %>"><%= card.status %></p><% } %>
+            <% if (card.note) { %><p class="opp-card-note" title="<%= card.note %>"><%= card.note %></p><% } %>
             <% if (card.reviews) { %><p class="opp-card-reviews"><span aria-hidden="true">★</span> <%= card.reviews %></p><% } else if (card.city && !card.status) { %><p class="opp-card-status"><%= card.city %></p><% } %>
             <% if (card.valueLabel) { %><p class="opp-card-value"><%= card.valueLabel %></p><% } %>
             <div class="opp-card-tools">
@@ -218,6 +228,7 @@
               <button type="button" data-opp-action="schedule" data-lead-key="<%= card.key %>" data-title="<%= card.title %>" title="Schedule" aria-label="Schedule"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg></button>
               <button type="button" data-opp-action="task" data-lead-key="<%= card.key %>" data-title="<%= card.title %>" title="Task" aria-label="Task"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m8 12 3 3 5-6"/></svg></button>
               <button type="button" data-opp-action="tags" data-lead-key="<%= card.key %>" data-title="<%= card.title %>" data-tags="<%= JSON.stringify(card.tagKeys || []) %>" title="Tags" aria-label="Tags"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.59 13.41 13.42 20.6a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1.25"/></svg></button>
+              <button type="button" data-opp-action="move" data-lead-key="<%= card.key %>" data-title="<%= card.title %>" title="Move to another pipeline" aria-label="Move to another pipeline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 7h11M16 3l4 4-4 4"/><path d="M16 17H5M8 21l-4-4 4-4"/></svg></button>
               <button type="button" data-opp-action="ghl" data-lead-key="<%= card.key %>" title="Sync GHL" aria-label="Sync GHL"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M21 21v-5h-5"/></svg></button>
               <button type="button" data-opp-action="remove" data-lead-key="<%= card.key %>" data-title="<%= card.title %>" title="Remove from opportunities" aria-label="Remove from opportunities"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M8 7l1 12h6l1-12"/><path d="M10 11v5M14 11v5"/></svg></button>
             </div>
@@ -564,6 +575,85 @@
     });
   }
 
+  function pipelinesCatalog() {
+    try {
+      var raw = board.getAttribute('data-pipelines') || '[]';
+      var parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function openMove(action) {
+    var key = leadKey(action);
+    if (!key) return;
+    var currentPipelineId = board.getAttribute('data-pipeline-id') || '';
+    var others = pipelinesCatalog().filter(function (pipe) {
+      return pipe && pipe.id && pipe.id !== currentPipelineId;
+    });
+    var box = openPop(action);
+    if (!others.length) {
+      box.innerHTML = '<h4>Move to another pipeline</h4><p class="opp-move-empty">Create another pipeline first, then you can move this lead there.</p><button type="button" class="opp-pop-add" data-move="new" style="margin-top:0.65rem">New pipeline</button>';
+      paintOppPopSurface();
+      placePop(action);
+      box.querySelector('[data-move="new"]').addEventListener('click', function () {
+        closePop();
+        var btn = document.getElementById('oppNewPipeline');
+        if (btn) btn.click();
+        else status('Open the full board to create a pipeline.', false);
+      });
+      return;
+    }
+    var html = '<h4>Move to another pipeline</h4><div class="opp-move-list">';
+    others.forEach(function (pipe) {
+      html += '<div class="opp-move-pipe"><strong>' + escapeHtml(pipe.name || 'Pipeline') + '</strong><div class="opp-move-stages">';
+      (Array.isArray(pipe.stages) ? pipe.stages : []).forEach(function (stage) {
+        html += '<button type="button" class="opp-move-stage" data-move-pipeline="' + escapeHtml(pipe.id) + '" data-move-stage="' + escapeHtml(stage.id) + '" data-move-label="' + escapeHtml((pipe.name || 'Pipeline') + ' · ' + (stage.name || 'Stage')) + '">' + escapeHtml(stage.name || 'Stage') + '</button>';
+      });
+      html += '</div></div>';
+    });
+    html += '</div>';
+    box.innerHTML = html;
+    paintOppPopSurface();
+    placePop(action);
+    box.addEventListener('click', function (ev) {
+      var target = ev.target.closest('[data-move-pipeline]');
+      if (!target || target.disabled) return;
+      var pipelineId = target.getAttribute('data-move-pipeline');
+      var stageId = target.getAttribute('data-move-stage');
+      var label = target.getAttribute('data-move-label') || 'that pipeline';
+      if (!pipelineId || !stageId) return;
+      var buttons = box.querySelectorAll('[data-move-pipeline]');
+      Array.prototype.forEach.call(buttons, function (btn) { btn.disabled = true; });
+      status('Moving…', true);
+      post('/opportunities/move', { leadKey: key, pipelineId: pipelineId, stageId: stageId }).then(function (result) {
+        if (!result.ok || !result.data || !result.data.success) {
+          Array.prototype.forEach.call(buttons, function (btn) { btn.disabled = false; });
+          status((result.data && result.data.error) || 'Could not move that opportunity.', false);
+          return;
+        }
+        closePop();
+        var card = action.closest('.opp-card');
+        var column = card && card.closest('.opp-stage');
+        if (card) card.remove();
+        refreshStage(column);
+        status('Moved to ' + label + '.', true);
+      }).catch(function () {
+        Array.prototype.forEach.call(buttons, function (btn) { btn.disabled = false; });
+        status('Could not move that opportunity.', false);
+      });
+    });
+  }
+
   function run(action) {
     var kind = action.getAttribute('data-opp-action');
     if (kind === 'profile') {
@@ -610,6 +700,10 @@
     }
     if (kind === 'tags') {
       openTags(action);
+      return;
+    }
+    if (kind === 'move') {
+      openMove(action);
       return;
     }
     if (kind === 'ghl') syncGhl(action);

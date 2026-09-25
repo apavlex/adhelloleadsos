@@ -192,7 +192,7 @@ function categoryLabel(lead) {
   return String((lead && (lead.categoryName || lead.category)) || '')
     .trim()
     .replace(/\s+/g, ' ')
-    .slice(0, 32);
+    .slice(0, 28);
 }
 
 function cityLabel(lead) {
@@ -363,7 +363,11 @@ function buildOpportunityBoard(input) {
     boards,
     created: normalized.created,
     pipeline: { id: pipeline.id, name: pipeline.name },
-    pipelines: boards.pipelines.map((item) => ({ id: item.id, name: item.name })),
+    pipelines: boards.pipelines.map((item) => ({
+      id: item.id,
+      name: item.name,
+      stages: item.stages.map((stage) => ({ id: stage.id, name: stage.name })),
+    })),
     stages,
     homePipelineId,
   };
