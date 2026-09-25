@@ -310,34 +310,61 @@
       open.then(function (result) {
         if (!result || !result.pipelineName) return;
         showStatus('Saving board…', true);
-        var tasks = [];
         var nextName = String(result.pipelineName || '').trim();
-        if (nextName && nextName !== String(currentPipelineName || '').trim()) {
-          tasks.push(
-            post('/opportunities/pipelines/' + encodeURIComponent(pipelineId), { name: nextName })
-          );
-        }
+        var removedIds = (Array.isArray(result.removedStageIds) ? result.removedStageIds : []).filter(Boolean);
         var renamed = Array.isArray(result.stages) ? result.stages : [];
-        renamed.forEach(function (stage) {
-          var original = stages.find(function (item) { return item.id === stage.id; });
-          if (!original) return;
-          if (String(stage.name || '').trim() && String(stage.name).trim() !== String(original.name || '').trim()) {
+
+        function runDeletes() {
+          var chain = Promise.resolve({ ok: true, data: { success: true } });
+          removedIds.forEach(function (stageId) {
+            chain = chain.then(function (prev) {
+              if (!prev.ok || !prev.data || !prev.data.success) return prev;
+              return post('/opportunities/stages/' + encodeURIComponent(stageId) + '/delete', {});
+            });
+          });
+          return chain;
+        }
+
+        function runUpdates() {
+          var tasks = [];
+          if (nextName && nextName !== String(currentPipelineName || '').trim()) {
             tasks.push(
-              post('/opportunities/stages/' + encodeURIComponent(stage.id), { name: String(stage.name).trim() })
+              post('/opportunities/pipelines/' + encodeURIComponent(pipelineId), { name: nextName })
             );
           }
-          var stageEl = board.querySelector('.opp-stage[data-stage-id="' + stage.id + '"]');
-          if (stageEl) {
-            applyStageWidth(stageEl, stage.width);
-            persistStageWidth(stage.id, stage.width);
-            var heading = stageEl.querySelector('.opp-stage-head h3');
-            if (heading && stage.name) heading.textContent = String(stage.name).trim();
-          }
-        });
+          renamed.forEach(function (stage) {
+            if (removedIds.indexOf(stage.id) !== -1) return;
+            var original = stages.find(function (item) { return item.id === stage.id; });
+            if (!original) return;
+            if (String(stage.name || '').trim() && String(stage.name).trim() !== String(original.name || '').trim()) {
+              tasks.push(
+                post('/opportunities/stages/' + encodeURIComponent(stage.id), { name: String(stage.name).trim() })
+              );
+            }
+            var stageEl = board.querySelector('.opp-stage[data-stage-id="' + stage.id + '"]');
+            if (stageEl) {
+              applyStageWidth(stageEl, stage.width);
+              persistStageWidth(stage.id, stage.width);
+              var heading = stageEl.querySelector('.opp-stage-head h3');
+              if (heading && stage.name) heading.textContent = String(stage.name).trim();
+            }
+          });
+          return Promise.all(tasks).then(function (results) {
+            return { results: results, hadTasks: tasks.length > 0 };
+          });
+        }
 
-        Promise.all(tasks)
-          .then(function (results) {
-            var failed = results.find(function (item) {
+        runDeletes()
+          .then(function (deleteResult) {
+            if (!deleteResult.ok || !deleteResult.data || !deleteResult.data.success) {
+              showError((deleteResult.data && deleteResult.data.error) || 'Could not delete that column.');
+              return null;
+            }
+            return runUpdates();
+          })
+          .then(function (updatePack) {
+            if (!updatePack) return;
+            var failed = (updatePack.results || []).find(function (item) {
               return !item.ok || !item.data || !item.data.success;
             });
             if (failed) {
@@ -351,7 +378,7 @@
               if (compactTitle) compactTitle.textContent = nextName;
             }
             showStatus('Board updated.', true);
-            if (tasks.length) window.location.reload();
+            if (removedIds.length || updatePack.hadTasks) window.location.reload();
           })
           .catch(function () {
             showError('Could not save board changes.');

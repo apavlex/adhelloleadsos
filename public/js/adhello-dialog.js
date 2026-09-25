@@ -57,6 +57,11 @@
       '#' + ROOT_ID + ' .adhello-dialog-stage-list{display:flex;flex-direction:column;gap:0.55rem;margin-top:0.75rem;max-height:min(22rem,46vh);overflow:auto;padding-right:0.15rem;}',
       '#' + ROOT_ID + ' .adhello-dialog-stage-row{border:1px solid rgba(17,24,39,0.1);border-radius:0.9rem;padding:0.65rem 0.7rem;background:#fff;}',
       'html.dark #' + ROOT_ID + ' .adhello-dialog-stage-row{background:#1e293b;border-color:rgba(255,255,255,0.12);}',
+      '#' + ROOT_ID + ' .adhello-dialog-stage-row-head{display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.15rem;}',
+      '#' + ROOT_ID + ' .adhello-dialog-stage-row-head .adhello-dialog-label{margin:0;}',
+      '#' + ROOT_ID + ' .adhello-dialog-stage-delete{border:0;background:transparent;padding:0.2rem 0.45rem;border-radius:0.5rem;font-size:0.625rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#be123c;cursor:pointer;}',
+      '#' + ROOT_ID + ' .adhello-dialog-stage-delete:hover{background:rgba(244,63,94,0.1);}',
+      '#' + ROOT_ID + ' .adhello-dialog-stage-delete:disabled{opacity:0.4;cursor:not-allowed;background:transparent;}',
       '#' + ROOT_ID + ' .adhello-dialog-stage-row .adhello-dialog-label{margin-top:0.45rem;}',
       '#' + ROOT_ID + ' .adhello-dialog-stage-row .adhello-dialog-input{margin-top:0.2rem;}',
     ].join('');
@@ -480,6 +485,8 @@
       var max = Number(options.maxWidth) > 0 ? Number(options.maxWidth) : 448;
       var pipelineName = String(options.pipelineName || 'Pipeline');
       var stages = Array.isArray(options.stages) ? options.stages.slice() : [];
+      var removedStageIds = [];
+      var stageListEl = null;
 
       function stageRowHtml(stage, index) {
         var width = Number(stage.width) || 252;
@@ -491,7 +498,10 @@
           '" data-stage-id="' +
           escapeHtml(stage.id || '') +
           '">' +
+          '<div class="adhello-dialog-stage-row-head">' +
           '<label class="adhello-dialog-label">Stage name</label>' +
+          '<button type="button" class="adhello-dialog-stage-delete" data-adhello-dialog="delete-stage" title="Delete this column">Delete</button>' +
+          '</div>' +
           '<input class="adhello-dialog-input" data-field="name" type="text" maxlength="40" value="' +
           escapeHtml(stage.name || '') +
           '" />' +
@@ -511,18 +521,41 @@
         );
       }
 
+      function bindStageRow(row) {
+        var range = row.querySelector('[data-field="width"]');
+        var value = row.querySelector('.adhello-dialog-range-value');
+        if (!range || !value) return;
+        range.addEventListener('input', function () {
+          value.textContent = Math.round(Number(range.value) || min) + 'px';
+        });
+      }
+
+      function refreshDeleteButtons() {
+        if (!stageListEl) return;
+        var rows = stageListEl.querySelectorAll('.adhello-dialog-stage-row');
+        var onlyOne = rows.length <= 1;
+        Array.prototype.forEach.call(rows, function (row) {
+          var btn = row.querySelector('[data-adhello-dialog="delete-stage"]');
+          if (!btn) return;
+          btn.disabled = onlyOne;
+          btn.title = onlyOne
+            ? 'A pipeline needs at least one stage'
+            : 'Delete this column';
+        });
+      }
+
       root.innerHTML =
         '<div class="adhello-dialog-backdrop" data-adhello-dialog="cancel" aria-hidden="true"></div>' +
         '<div class="adhello-dialog-panel adhello-dialog-panel--board" role="dialog" aria-modal="true" aria-labelledby="adhelloDialogTitle">' +
         '<p class="adhello-dialog-eyebrow">Board settings</p>' +
         '<h3 class="adhello-dialog-title" id="adhelloDialogTitle">Edit board</h3>' +
-        '<p class="adhello-dialog-message">Rename this pipeline and adjust every column’s name and width in one place.</p>' +
+        '<p class="adhello-dialog-message">Rename this pipeline, adjust every column’s name and width, or delete a column.</p>' +
         '<label class="adhello-dialog-label" for="adhelloDialogInput">Pipeline name</label>' +
         '<input id="adhelloDialogInput" class="adhello-dialog-input" type="text" maxlength="40" autocomplete="off" />' +
         '<div class="adhello-dialog-stage-list">' +
         stages.map(stageRowHtml).join('') +
         '</div>' +
-        '<p class="adhello-dialog-hint">You can still drag a column’s right edge anytime. Add Stage stays on the full board.</p>' +
+        '<p class="adhello-dialog-hint">Deleting a column moves its leads to a neighboring stage when you save. Add Stage stays on the full board.</p>' +
         '<div class="adhello-dialog-actions">' +
         '<button type="button" class="adhello-dialog-btn adhello-dialog-btn--ghost" data-adhello-dialog="cancel">Cancel</button>' +
         '<button type="button" class="adhello-dialog-btn adhello-dialog-btn--primary" data-adhello-dialog="confirm">Save</button>' +
@@ -530,15 +563,10 @@
 
       var pipelineInput = root.querySelector('#adhelloDialogInput');
       pipelineInput.value = pipelineName;
+      stageListEl = root.querySelector('.adhello-dialog-stage-list');
 
-      Array.prototype.forEach.call(root.querySelectorAll('.adhello-dialog-stage-row'), function (row) {
-        var range = row.querySelector('[data-field="width"]');
-        var value = row.querySelector('.adhello-dialog-range-value');
-        if (!range || !value) return;
-        range.addEventListener('input', function () {
-          value.textContent = Math.round(Number(range.value) || min) + 'px';
-        });
-      });
+      Array.prototype.forEach.call(root.querySelectorAll('.adhello-dialog-stage-row'), bindStageRow);
+      refreshDeleteButtons();
 
       function onKey(ev) {
         if (ev.key === 'Escape') {
@@ -565,6 +593,21 @@
           closeActive(null);
           return;
         }
+        if (kind === 'delete-stage') {
+          if (action.disabled) return;
+          var row = action.closest('.adhello-dialog-stage-row');
+          if (!row || !stageListEl) return;
+          var rowsNow = stageListEl.querySelectorAll('.adhello-dialog-stage-row');
+          if (rowsNow.length <= 1) {
+            refreshDeleteButtons();
+            return;
+          }
+          var stageId = String(row.getAttribute('data-stage-id') || '').trim();
+          if (stageId) removedStageIds.push(stageId);
+          row.remove();
+          refreshDeleteButtons();
+          return;
+        }
         if (kind !== 'confirm') return;
         var nextPipelineName = String(pipelineInput.value || '').trim();
         if (!nextPipelineName) {
@@ -573,17 +616,18 @@
         }
         var nextStages = [];
         var rows = root.querySelectorAll('.adhello-dialog-stage-row');
+        if (!rows.length) return;
         for (var i = 0; i < rows.length; i++) {
-          var row = rows[i];
-          var nameInput = row.querySelector('[data-field="name"]');
-          var widthInput = row.querySelector('[data-field="width"]');
+          var stageRow = rows[i];
+          var nameInput = stageRow.querySelector('[data-field="name"]');
+          var widthInput = stageRow.querySelector('[data-field="width"]');
           var stageName = String((nameInput && nameInput.value) || '').trim();
           if (!stageName) {
             if (nameInput) nameInput.focus();
             return;
           }
           nextStages.push({
-            id: row.getAttribute('data-stage-id') || '',
+            id: stageRow.getAttribute('data-stage-id') || '',
             name: stageName,
             width: Math.round(Number((widthInput && widthInput.value) || min)),
           });
@@ -591,6 +635,7 @@
         closeActive({
           pipelineName: nextPipelineName,
           stages: nextStages,
+          removedStageIds: removedStageIds.slice(),
         });
       });
 
