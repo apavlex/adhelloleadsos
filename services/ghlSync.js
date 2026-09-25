@@ -265,6 +265,7 @@ async function pushLeadToGhlInner(lead, integrationEnv, opts) {
   const listSyncFast = !!(opts && (opts.listSyncFast || opts.focusListFast));
   let contactId = String(lead.ghlContactId || '').trim();
   let mergedTags = mergeTagLists(lead.tags);
+  let clearedStaleContact = false;
 
   if (!listSyncFast && phoneLineType.hasUsablePhone(lead.phone) && phoneLineType.needsRefresh(lead, null)) {
     try {
@@ -282,8 +283,19 @@ async function pushLeadToGhlInner(lead, integrationEnv, opts) {
     try {
       await ghlClient.updateContact(contactId, lead, integrationEnv);
     } catch (e) {
-      if (e.status === 404) contactId = '';
-      else throw e;
+      // Stale contact from an old location/token — re-link under the current credentials.
+      if (e.status === 404 || ghlClient.isGhlLocationAccessError(e)) {
+        console.warn(
+          '[ghlSync] clearing stale ghlContactId for',
+          lead.key,
+          ':',
+          e.message || e.status,
+        );
+        contactId = '';
+        clearedStaleContact = true;
+      } else {
+        throw e;
+      }
     }
   }
 
@@ -332,11 +344,20 @@ async function pushLeadToGhlInner(lead, integrationEnv, opts) {
     tagsForPush = mergeTagLists(tagsForPush, signalTags);
   }
 
-  mergedTags = await ghlClient.syncContactTags(contactId, tagsForPush, integrationEnv, {
-    replaceActionTags: true,
-    // Stale signal tags come off with the action tags so the CRM matches today's badges.
-    isActionTag: (t) => isActionTag(t) || isSignalTag(t),
-  });
+  try {
+    mergedTags = await ghlClient.syncContactTags(contactId, tagsForPush, integrationEnv, {
+      replaceActionTags: true,
+      // Stale signal tags come off with the action tags so the CRM matches today's badges.
+      isActionTag: (t) => isActionTag(t) || isSignalTag(t),
+    });
+  } catch (tagErr) {
+    if (ghlClient.isGhlLocationAccessError(tagErr) || tagErr.status === 404) {
+      console.warn('[ghlSync] tag sync failed after contact link:', tagErr.message || tagErr);
+      mergedTags = tagsForPush;
+    } else {
+      throw tagErr;
+    }
+  }
 
   let syncActivityNote = { pushed: false };
   let lastProspected = null;
@@ -352,16 +373,58 @@ async function pushLeadToGhlInner(lead, integrationEnv, opts) {
       /* non-fatal */
     }
   } else {
-    syncActivityNote = await pushSyncActivityNote(lead, contactId, integrationEnv);
-    lastProspected = await pushLastProspectedField(contactId, integrationEnv);
-    await pushReviewFields(contactId, lead, integrationEnv);
-    await pushPhoneLineFields(contactId, lead, integrationEnv);
-    await pushOutreachProfileFields(contactId, lead, integrationEnv, lead.workspaceId);
-    await pushWebsiteBuildField(contactId, lead, integrationEnv);
-    await pushOpportunityScoreField(contactId, lead, integrationEnv, { lowReviewsThreshold });
-    notePush = await pushNotesToGhl(lead, contactId, integrationEnv);
-    notePull = await pullNotesFromGhl(lead, contactId, integrationEnv);
-    followUpTask = await syncFollowUpTaskToGhl(lead, contactId, integrationEnv);
+    // Enrichment is best-effort — contact + tags already succeeded.
+    try {
+      syncActivityNote = await pushSyncActivityNote(lead, contactId, integrationEnv);
+    } catch (_) {
+      syncActivityNote = { pushed: false };
+    }
+    try {
+      lastProspected = await pushLastProspectedField(contactId, integrationEnv);
+    } catch (_) {
+      /* non-fatal */
+    }
+    try {
+      await pushReviewFields(contactId, lead, integrationEnv);
+    } catch (_) {
+      /* non-fatal */
+    }
+    try {
+      await pushPhoneLineFields(contactId, lead, integrationEnv);
+    } catch (_) {
+      /* non-fatal */
+    }
+    try {
+      await pushOutreachProfileFields(contactId, lead, integrationEnv, lead.workspaceId);
+    } catch (_) {
+      /* non-fatal */
+    }
+    try {
+      await pushWebsiteBuildField(contactId, lead, integrationEnv);
+    } catch (_) {
+      /* non-fatal */
+    }
+    try {
+      await pushOpportunityScoreField(contactId, lead, integrationEnv, { lowReviewsThreshold });
+    } catch (_) {
+      /* non-fatal */
+    }
+    try {
+      notePush = await pushNotesToGhl(lead, contactId, integrationEnv);
+    } catch (_) {
+      /* non-fatal */
+    }
+    try {
+      notePull = await pullNotesFromGhl(lead, contactId, integrationEnv);
+    } catch (_) {
+      /* non-fatal */
+    }
+    try {
+      followUpTask = await syncFollowUpTaskToGhl(lead, contactId, integrationEnv);
+    } catch (taskErr) {
+      console.warn('[ghlSync] follow-up task skipped:', taskErr && taskErr.message);
+      followUpTask = null;
+    }
   }
 
   const ghlLogSync = notePush.syncState;
@@ -375,6 +438,10 @@ async function pushLeadToGhlInner(lead, integrationEnv, opts) {
     ghlSyncDirection: 'push',
     ghlLogSync,
   };
+  if (clearedStaleContact) {
+    patch.ghlFollowUpTaskId = '';
+    patch.ghlFollowUpTaskDueAt = '';
+  }
   if (Array.isArray(lead.ghlActionTags)) {
     patch.ghlActionTags = lead.ghlActionTags;
   }

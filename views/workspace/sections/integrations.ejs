@@ -487,7 +487,7 @@
               Dispositions and cadence channels also sync <strong>AO:</strong> action tags to GHL (e.g. <em>AO: Call back</em>, <em>AO: Text</em>) so you can filter follow-up in GHL.
               Requires <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">contacts</code> (read + write) and
               <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">conversations/message.write</code> on your private integration token.
-              <strong class="text-brand-dark dark:text-white">Token and Location ID must be from the same sub-account</strong> — otherwise sync fails with “token does not have access to this location.”
+              <strong class="text-brand-dark dark:text-white">Token and Location ID must be from the same sub-account</strong> — otherwise sync fails with “token does not have access to this location.” Enable <strong>contacts write</strong> (and locations/custom fields) on the Private Integration — read-only tokens can pass Test but fail when syncing from Opportunities.
             </p>
           </div>
           <div class="flex flex-wrap gap-2 shrink-0">

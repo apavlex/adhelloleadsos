@@ -172,7 +172,16 @@ async function ghlRequest(method, path, { integrationEnv, body, query, apiVersio
   throw lastErr || new Error('GHL API request failed');
 }
 
-/** Ping connection — list 1 contact for the configured location. */
+function isGhlLocationAccessError(err) {
+  const msg = String((err && err.message) || '');
+  const status = Number(err && err.status) || 0;
+  if (/does not have access to this location/i.test(msg)) return true;
+  if (/token does not have access to this Location ID/i.test(msg)) return true;
+  if (status === 401 || status === 403) return true;
+  return false;
+}
+
+/** Ping connection — list contacts and verify location-scoped access used by Sync. */
 async function testConnection(integrationEnv) {
   const { locationId } = resolveConfig(integrationEnv);
   const data = await ghlRequest('GET', '/contacts/', {
@@ -180,9 +189,25 @@ async function testConnection(integrationEnv) {
     query: { locationId, limit: 1 },
   });
   const contacts = Array.isArray(data.contacts) ? data.contacts : [];
+
+  let locationOk = false;
+  let locationHint = '';
+  try {
+    await ghlRequest('GET', `/locations/${encodeURIComponent(locationId)}`, { integrationEnv });
+    locationOk = true;
+  } catch (locErr) {
+    if (isGhlLocationAccessError(locErr)) {
+      locationHint =
+        ' Contacts work, but this token cannot access the Location API (needed for sync custom fields). Edit the Private Integration and enable Locations + Contacts write scopes, or recreate the token inside this same sub-account.';
+    } else {
+      locationHint = ` Location check skipped: ${String((locErr && locErr.message) || 'unknown error')}`;
+    }
+  }
+
   return {
     ok: true,
-    message: `Connected — location ${locationId.slice(0, 12)}… (${contacts.length ? 'contacts readable' : 'no contacts yet'})`,
+    message: `Connected — location ${locationId.slice(0, 12)}… (${contacts.length ? 'contacts readable' : 'no contacts yet'})${locationOk ? '; location OK' : ''}${locationHint}`,
+    locationOk,
   };
 }
 
@@ -687,6 +712,7 @@ module.exports = {
   resolveConfig,
   isConfigured,
   testConnection,
+  isGhlLocationAccessError,
   isValidEmailForGhl,
   leadToGhlContactPayload,
   ghlContactToLeadPatch,
