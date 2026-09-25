@@ -45,10 +45,13 @@ test('pickHeuristicServiceKey does not prefer website offers for non-agency', ()
   assert.equal(pickHeuristicServiceKey(lead, keys, { isAgency: true }), 'aiWebsites');
 });
 
-test('leadToFocusPayload omits website-gap chips for non-agency', () => {
+test('leadToFocusPayload uses partner-fit why chips for non-agency (not website-gap UI)', () => {
   const lead = {
     title: 'Acme Floors',
+    phone: '360-555-0100',
     website: 'https://example.com',
+    reviewsCount: 22,
+    totalScore: 4.6,
     isOutdated: true,
     isMobileFriendly: false,
     hasChatbot: false,
@@ -56,12 +59,19 @@ test('leadToFocusPayload omits website-gap chips for non-agency', () => {
     ownerSignal: 'Their site UX is weak — pitch a redesign.',
     auditSummary: 'Standalone site UX/SEO gaps',
   };
-  const agency = leadToFocusPayload(lead, [], {}, ['aiWebsites'], { isAgency: true });
+  const agency = leadToFocusPayload(lead, [], {}, ['aiWebsites'], {
+    isAgency: true,
+    scoreOpts: { roiProfile: 'agency_gap' },
+  });
   const retail = leadToFocusPayload(lead, [], { flooring_install: { label: 'Install' } }, ['flooring_install'], {
     isAgency: false,
+    scoreOpts: { roiProfile: 'partner_fit' },
   });
   assert.ok(agency.whyReasons.length > 0);
-  assert.equal(retail.whyReasons.length, 0);
+  assert.ok(agency.whyReasons.some((r) => /gap|outdated|mobile|schema|chat/i.test(r)));
+  assert.ok(retail.whyReasons.length > 0);
+  assert.ok(retail.whyReasons.some((r) => /website|review|partner|referral/i.test(r)));
+  assert.ok(!retail.whyReasons.some((r) => /owned-site hook|redesign pitch|No chatbot/i.test(r)));
   assert.equal(retail.ownerSignal, '');
   assert.equal(retail.businessNeeds.rationale, '');
   assert.equal(retail.hasAiWebsiteAnalysis, false);

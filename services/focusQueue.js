@@ -1,10 +1,12 @@
 /**
  * Ordering leads for Money Mode (single-lead outreach flow).
+ * Ranking weights follow the workspace ROI profile (agency gap vs partner fit).
  */
 
 const { scoreLeadRecord } = require('./opportunityScore');
 const { scoreLocalProspect, prospectTierSortRank } = require('./localProspectScore');
 const { isLeadDeferredForRetry } = require('./dialRetryPrefs');
+const { resolveRoiProfileFromOptions } = require('./workspaceRoiProfile');
 
 function isOverdueCadence(l) {
   const st = l.sequenceState;
@@ -34,12 +36,22 @@ function stage2AgingOver3Days(l) {
   return Date.now() - last > 3 * 86400000;
 }
 
+function scoreOptsFromQueueOpts(opts) {
+  const o = opts && typeof opts === 'object' ? opts : {};
+  return {
+    workspace: o.workspace || null,
+    roiProfile: o.roiProfile || resolveRoiProfileFromOptions(o),
+    lowReviewsThreshold: o.lowReviewsThreshold,
+  };
+}
+
 /**
  * Precomputed sort tuple — scored once per lead (not once per comparator call).
  * @returns {{ bucket: number, a: number, b: number, c: number }}
  */
 function sortKey(l, opts = {}) {
   const queueMode = opts.queueMode || 'continue_list';
+  const scoreOpts = scoreOptsFromQueueOpts(opts);
   const last = lastActivityMs(l);
   const due = l.sequenceState && l.sequenceState.nextDueAt ? Date.parse(l.sequenceState.nextDueAt) : 0;
   const retryAt = l.nextActionAt ? Date.parse(l.nextActionAt) : Infinity;
@@ -48,12 +60,12 @@ function sortKey(l, opts = {}) {
     return { bucket: 6, a: retryAt, b: last, c: 0 };
   }
   if (isOverdueCadence(l)) {
-    const { score } = scoreLeadRecord(l);
-    const lpRank = prospectTierSortRank(scoreLocalProspect(l).prospectTier);
+    const { score } = scoreLeadRecord(l, scoreOpts);
+    const lpRank = prospectTierSortRank(scoreLocalProspect(l, scoreOpts).prospectTier);
     return { bucket: 0, a: due, b: -score, c: lpRank };
   }
 
-  const lp = scoreLocalProspect(l);
+  const lp = scoreLocalProspect(l, scoreOpts);
   const lpRank = prospectTierSortRank(lp.prospectTier);
   if (lp.prospectTier === 'Skip') {
     return { bucket: 5, a: 0, b: 0, c: lpRank };
@@ -62,7 +74,7 @@ function sortKey(l, opts = {}) {
     return { bucket: 1, a: 0, b: last, c: lpRank };
   }
 
-  const { score, tier } = scoreLeadRecord(l);
+  const { score, tier } = scoreLeadRecord(l, scoreOpts);
   if (tier === 'high') {
     return { bucket: 2, a: 0, b: -score, c: lpRank };
   }

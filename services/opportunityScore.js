@@ -1,11 +1,16 @@
 /**
  * Server-side opportunity scoring — aligned with public/js/app.js calculateOpportunityScore.
- * Higher score = more gaps = better prospect for agency / SaaS offers.
+ * Higher score = better prospect for the workspace ROI profile:
+ * - agency_gap: more website / SEO gaps (AdHello)
+ * - partner_fit: stronger local partner signals — site, reviews, referrals (Flooring, etc.)
  * Merges Local Client Prospector–style Hot/Warm/Low/Skip via {@link scoreLocalProspect}.
  */
 
-const { scoreLocalProspect } = require('./localProspectScore');
+const { scoreLocalProspect, classifyWebsiteStatus } = require('./localProspectScore');
 const { getLowReviewsThresholdFromWorkspace, isLowReviews } = require('./prospectGapLabels');
+const { resolveRoiProfileFromOptions, ROI_PROFILES } = require('./workspaceRoiProfile');
+const { isReferralLead } = require('./todayPriorityLeads');
+
 function hasSocial(val) {
   return !!(val && String(val).trim() && String(val).trim() !== 'N/A');
 }
@@ -16,16 +21,105 @@ function boolGap(lead, key, whenTrue) {
   return false;
 }
 
+function usableWebsite(lead) {
+  return !!(lead && lead.website && lead.website !== 'N/A');
+}
+
+function activeReferralBoost(lead) {
+  const rp = lead && lead.referralPartner && typeof lead.referralPartner === 'object' ? lead.referralPartner : null;
+  if (!rp) return { points: 0, reason: '' };
+  const status = String(rp.status || '').trim().toLowerCase();
+  const sent = parseInt(rp.sent, 10) || 0;
+  const received = parseInt(rp.received, 10) || 0;
+  if (status === 'connected' || (rp.highlighted && status === 'intro_sent')) {
+    return { points: 3, reason: 'Connected referral partner' };
+  }
+  if (status === 'intro_sent' || rp.highlighted === true || sent > 0 || received > 0) {
+    return { points: 2.5, reason: 'Referral partner in play' };
+  }
+  return { points: 0, reason: '' };
+}
+
 /**
- * @param {object} lead — saved lead from DB
- * @param {{ lowReviewsThreshold?: number, workspace?: object }} [options]
- * @returns {{ score: number, tier: 'high'|'medium'|'low', reasons: string[] }}
+ * Flooring / retail / local — reward partner-ready businesses, not website gaps.
  */
-function scoreLeadRecord(lead, options) {
+function scorePartnerFitRecord(lead, options) {
+  const reasons = [];
+  let score = 0;
+  const reviews = parseInt(lead.reviewsCount != null ? lead.reviewsCount : lead.reviews, 10) || 0;
+  const rating = parseFloat(lead.totalScore != null ? lead.totalScore : lead.rating) || 0;
+  const phone = lead.phone && lead.phone !== 'N/A';
+  const email = lead.email && lead.email !== 'N/A';
+  const siteStatus = classifyWebsiteStatus(lead).status;
+
+  if (siteStatus === 'has_site') {
+    score += 3.5;
+    reasons.push('Has a real website — ready for partner / referral conversations');
+  } else if (siteStatus === 'weak_site') {
+    score += 2;
+    reasons.push('Has a site with room to grow — still a local contact');
+  } else if (siteStatus === 'marketplace') {
+    score += 1.5;
+    reasons.push('Marketplace listing — reachable but prefer owned-site partners');
+  } else if (siteStatus === 'social_only') {
+    score += 0.5;
+    reasons.push('Social-only presence — lower partner priority');
+  } else {
+    reasons.push('No website — weak fit for referral-partner outreach');
+  }
+
+  if (reviews >= 25) {
+    score += 2.5;
+    reasons.push('Strong review footprint — credibility for local intros');
+  } else if (reviews >= 10) {
+    score += 2;
+    reasons.push('Growing reviews — solid local reputation');
+  } else if (reviews >= 5) {
+    score += 1;
+    reasons.push('Some reviews — relationship worth building');
+  }
+
+  if (rating >= 4.5) {
+    score += 1.5;
+    reasons.push('Strong star rating');
+  } else if (rating >= 4.2) {
+    score += 1;
+    reasons.push('Solid star rating');
+  }
+
+  const referral = activeReferralBoost(lead);
+  if (referral.points) {
+    score += referral.points;
+    reasons.push(referral.reason);
+  } else if (isReferralLead(lead)) {
+    score += 1.5;
+    reasons.push('Tagged / sourced as referral');
+  }
+
+  if (phone && email) {
+    score += 1;
+    reasons.push('Phone + email on file');
+  } else if (phone || email) {
+    score += 0.5;
+  }
+
+  if (hasSocial(lead.facebook) || hasSocial(lead.instagram)) {
+    score += 0.5;
+    reasons.push('Active social presence');
+  }
+
+  void options;
+  return { score: Math.min(10, score), reasons };
+}
+
+/**
+ * Agency / AdHello — reward website and SEO gaps.
+ */
+function scoreAgencyGapRecord(lead, options) {
   const reasons = [];
   let score = 0;
 
-  const website = lead.website && lead.website !== 'N/A';
+  const website = usableWebsite(lead);
   const reviews = parseInt(lead.reviewsCount != null ? lead.reviewsCount : lead.reviews, 10) || 0;
   const rating = parseFloat(lead.totalScore != null ? lead.totalScore : lead.rating) || 0;
   const lowReviewsThreshold =
@@ -114,9 +208,25 @@ function scoreLeadRecord(lead, options) {
     reasons.push('Enrich this lead to unlock full gap analysis');
   }
 
-  score = Math.min(10, score);
+  return { score: Math.min(10, score), reasons };
+}
 
-  const localProspect = scoreLocalProspect(lead);
+/**
+ * @param {object} lead — saved lead from DB
+ * @param {{ lowReviewsThreshold?: number, workspace?: object, roiProfile?: string }} [options]
+ * @returns {{ score: number, tier: 'high'|'medium'|'low', reasons: string[], localProspect: object, roiProfile: string }}
+ */
+function scoreLeadRecord(lead, options) {
+  const roiProfile = resolveRoiProfileFromOptions(options);
+  const base =
+    roiProfile === ROI_PROFILES.PARTNER_FIT
+      ? scorePartnerFitRecord(lead, options)
+      : scoreAgencyGapRecord(lead, options);
+
+  let score = base.score;
+  const reasons = base.reasons;
+
+  const localProspect = scoreLocalProspect(lead, options);
 
   let adjusted = score;
   if (localProspect.prospectTier === 'Skip') {
@@ -145,6 +255,7 @@ function scoreLeadRecord(lead, options) {
     tier: tierAdj,
     reasons: mergedReasons.slice(0, 10),
     localProspect,
+    roiProfile,
   };
 }
 

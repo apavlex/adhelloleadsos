@@ -26,6 +26,7 @@ const websiteAiAnalysis = require('../services/websiteAiAnalysis');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
 const { isAgencySalesWorkspace } = require('../services/leadPanelWorkspace');
+const { roiScoreOptionsFromWorkspace } = require('../services/workspaceRoiProfile');
 
 /** First N leads in HTML so Focus paints before the full early-stage queue hydrates. */
 const FOCUS_SSR_CHUNK = 20;
@@ -132,8 +133,9 @@ function leadToFocusPayload(l, sortedStages, scriptLibrary, allowedKeys, opts) {
     (hasEmail ? email.split('@')[0].replace(/[._]+/g, ' ') : '');
 
   const isAgency = !!(opts && opts.isAgency);
-  const opp = isAgency ? scoreLeadRecord(l) : { reasons: [], tier: 'low' };
-  const whyReasons = isAgency ? (opp.reasons || []).slice(0, 5) : [];
+  const scoreOpts = (opts && opts.scoreOpts) || {};
+  const opp = scoreLeadRecord(l, scoreOpts);
+  const whyReasons = (opp.reasons || []).slice(0, 5);
   const whyTier = opp.tier || 'low';
   const touchPoints = buildLeadTouchPoints(l, { limit: 8 });
 
@@ -214,12 +216,14 @@ router.get('/queue.json', async (req, res, next) => {
     const sortedStages = [...stageRows].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
     const dialRetry = resolveDialRetryPrefs(ws.telephony);
     const isAgency = isAgencySalesWorkspace(ws);
+    const scoreOpts = roiScoreOptionsFromWorkspace(ws);
     const ordered = buildFocusQueue(pipelineLeads, FOCUS_QUEUE_HARD_CAP, {
       queueMode: dialRetry.queueMode,
       earlyStagesOnly: true,
+      ...scoreOpts,
     });
     let queue = ordered.map((l) =>
-      leadToFocusPayload(l, sortedStages, offerBundle.library, offerBundle.keys, { isAgency }),
+      leadToFocusPayload(l, sortedStages, offerBundle.library, offerBundle.keys, { isAgency, scoreOpts }),
     );
     if (!sessionScope) {
       queue = queue.filter((item) => {
@@ -270,6 +274,7 @@ async function ensureExplicitFocusLead({
   dbService,
   workspaceId,
   isAgency,
+  scoreOpts,
 }) {
   const key = String(explicitOpenKey || '').trim().replace(/^lead:/i, '');
   if (!key) return;
@@ -291,7 +296,7 @@ async function ensureExplicitFocusLead({
 
   promoteFocusLead(
     queue,
-    leadToFocusPayload(leadRow, sortedStages, scriptLibrary, allowedKeys, { isAgency }),
+    leadToFocusPayload(leadRow, sortedStages, scriptLibrary, allowedKeys, { isAgency, scoreOpts }),
   );
 }
 
@@ -338,14 +343,16 @@ router.get('/', async (req, res, next) => {
       ordered = buildFocusQueue(pipelineLeads, FOCUS_QUEUE_HARD_CAP, {
         queueMode: dialRetry.queueMode,
         earlyStagesOnly: true,
+        ...roiScoreOptionsFromWorkspace(ws),
       });
     }
     const isAgency = isAgencySalesWorkspace(ws);
+    const scoreOpts = roiScoreOptionsFromWorkspace(ws);
     const focusQueueTotal = ordered.length;
     const hydrateFullQueue = !bulkSelection && !selectedKeyOrder.length && focusQueueTotal > FOCUS_SSR_CHUNK;
     const ssrLeads = hydrateFullQueue ? ordered.slice(0, FOCUS_SSR_CHUNK) : ordered;
     const queue = ssrLeads.map((l) =>
-      leadToFocusPayload(l, sortedStages, offerBundle.library, offerBundle.keys, { isAgency }),
+      leadToFocusPayload(l, sortedStages, offerBundle.library, offerBundle.keys, { isAgency, scoreOpts }),
     );
 
     await ensureExplicitFocusLead({
@@ -358,6 +365,7 @@ router.get('/', async (req, res, next) => {
       dbService,
       workspaceId: req.workspaceId,
       isAgency,
+      scoreOpts,
     });
 
     const touchesToday = 0; // hydrated immediately via /focus/metrics.json — skip scanning all lead logs on SSR

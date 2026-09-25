@@ -16,8 +16,9 @@ const { buildConversionSnapshot } = require('../services/conversionMetrics');
 const { buildWeekReview } = require('../services/weekReview');
 const { getWorkspaceIcp } = require('../services/workspaceIcp');
 const { buildCadenceQueue } = require('../services/cadenceQueue');
-const { buildTodayContactQueue } = require('../services/todayContactQueue');
+const { buildTodayContactQueue, contactQueueSortBlurb } = require('../services/todayContactQueue');
 const { resolveDialRetryPrefs } = require('../services/dialRetryPrefs');
+const { roiScoreOptionsFromWorkspace } = require('../services/workspaceRoiProfile');
 const { buildNextActionsQueue } = require('../services/nextActionsQueue');
 const { buildCallQueue } = require('../services/callQueue');
 const { filterBusinessPipelineLeads } = require('../services/leadListFilters');
@@ -171,9 +172,12 @@ router.get('/', async (req, res, next) => {
     const baseUrl = `${req.protocol}://${req.get('host')}`.replace(/\/$/, '');
     const cadenceQueue = buildCadenceQueue(businessLeads, baseUrl);
     const dialRetry = resolveDialRetryPrefs(workspaceDoc && workspaceDoc.telephony);
+    const roiOpts = roiScoreOptionsFromWorkspace(workspaceDoc);
     const contactQueue = buildTodayContactQueue(businessLeads, baseUrl, 20, {
       queueMode: dialRetry.queueMode,
+      ...roiOpts,
     });
+    const contactQueueBlurb = contactQueueSortBlurb(roiOpts.roiProfile);
     const since24 = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const reportViewsRaw = await dbService.listReportViewsForWorkspaceSince(req.workspaceId, since24, 600);
     const byLead = new Map();
@@ -279,6 +283,7 @@ router.get('/', async (req, res, next) => {
       callWarmQueue,
       cadenceQueue,
       contactQueue,
+      contactQueueBlurb,
       reportsOpened24h,
       actionPlan,
       actionPlanMonthNav,

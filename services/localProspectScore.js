@@ -1,7 +1,13 @@
 /**
  * Local Client Prospector–style qualification (ported from Codex SKILL.md rubric).
  * Classifies website presence (no site / social-only / weak / has site) and tiers: Hot, Warm, Low, Skip.
+ *
+ * Profile-aware via options.roiProfile / options.workspace:
+ * - agency_gap (default): no site + contact = Hot (website-selling offer)
+ * - partner_fit: real site + reviews / referral signals = Hot (flooring & local partners)
  */
+
+const { resolveRoiProfileFromOptions, ROI_PROFILES } = require('./workspaceRoiProfile');
 
 const SOCIAL_ONLY_HOSTS = [
   'facebook.com',
@@ -182,18 +188,121 @@ function classifyConfidence(lead, websiteStatus) {
   return 'Low';
 }
 
+function reviewCount(lead) {
+  return parseInt(lead && (lead.reviewsCount != null ? lead.reviewsCount : lead.reviews), 10) || 0;
+}
+
+function ratingValue(lead) {
+  return parseFloat(lead && (lead.totalScore != null ? lead.totalScore : lead.rating)) || 0;
+}
+
+function isActiveReferralPartner(lead) {
+  const rp = lead && lead.referralPartner && typeof lead.referralPartner === 'object' ? lead.referralPartner : null;
+  if (!rp) return false;
+  if (rp.highlighted === true) return true;
+  const status = String(rp.status || '').trim().toLowerCase();
+  if (status === 'connected' || status === 'intro_sent') return true;
+  const sent = parseInt(rp.sent, 10) || 0;
+  const received = parseInt(rp.received, 10) || 0;
+  return sent > 0 || received > 0;
+}
+
+/**
+ * Partner / referral ROI (flooring, retail, local service): prefer real sites + reviews.
+ */
+function scorePartnerFitProspect(lead, websiteStatus) {
+  const contact = hasContact(lead);
+  const reviews = reviewCount(lead);
+  const rating = ratingValue(lead);
+  const referral = isActiveReferralPartner(lead);
+  const reasons = [];
+  let prospectTier = 'Low';
+
+  if (!contact) {
+    prospectTier = 'Low';
+    reasons.push('Add phone or email before outreach');
+  } else if (websiteStatus === 'has_site') {
+    if (referral || reviews >= 10 || rating >= 4.3) {
+      prospectTier = 'Hot';
+      if (referral) reasons.push('Active referral partner — prioritize relationship');
+      else if (reviews >= 10) reasons.push('Solid website + growing reviews — strong local partner');
+      else reasons.push('Credible site + strong rating — cultivate as referral partner');
+    } else {
+      prospectTier = 'Warm';
+      reasons.push('Has a real website — good partner / referral candidate');
+    }
+  } else if (websiteStatus === 'weak_site') {
+    prospectTier = reviews >= 5 || rating >= 4.0 ? 'Warm' : 'Low';
+    reasons.push(
+      prospectTier === 'Warm'
+        ? 'Listed site with room to grow — still contactable locally'
+        : 'Thin web presence — lower partner priority',
+    );
+  } else if (websiteStatus === 'marketplace') {
+    prospectTier = 'Warm';
+    reasons.push('Marketplace listing — reachable, but prefer partners with owned sites');
+  } else if (websiteStatus === 'social_only' || websiteStatus === 'no_site') {
+    prospectTier = 'Low';
+    reasons.push(
+      websiteStatus === 'no_site'
+        ? 'No website — weak referral-partner signal for this workspace'
+        : 'Social-only — prefer locals with a real site and reviews',
+    );
+  }
+
+  return { prospectTier, reasons };
+}
+
+/**
+ * Agency gap ROI (AdHello): no site / social-only + contact = Hot.
+ */
+function scoreAgencyGapProspect(lead, websiteStatus) {
+  const contact = hasContact(lead);
+  const reasons = [];
+  let prospectTier = 'Low';
+
+  if (websiteStatus === 'no_site' || websiteStatus === 'social_only') {
+    if (contact) {
+      prospectTier = 'Hot';
+      reasons.push(
+        websiteStatus === 'no_site'
+          ? 'No standalone website — strong owned-site hook'
+          : 'Social / link-in-bio only — needs credible standalone site',
+      );
+    } else {
+      prospectTier = 'Low';
+      reasons.push('No or thin standalone web presence — add phone/email before strong outbound');
+    }
+  } else if (websiteStatus === 'weak_site' || websiteStatus === 'marketplace') {
+    prospectTier = 'Warm';
+    reasons.push(
+      websiteStatus === 'marketplace'
+        ? 'Booking or marketplace-first — pitch owned funnel + site'
+        : 'Standalone site with visible UX / SEO gaps',
+    );
+  } else if (websiteStatus === 'has_site') {
+    prospectTier = 'Low';
+    reasons.push('Credible site — pitch specific gaps or nurture');
+  }
+
+  return { prospectTier, reasons };
+}
+
 /**
  * @param {object} lead — saved or enriched Maps row
+ * @param {{ roiProfile?: string, workspace?: object }} [options]
  * @returns {{
  *   prospectTier: 'Hot'|'Warm'|'Low'|'Skip',
  *   websiteStatus: string,
  *   websiteStatusLabel: string,
  *   confidence: 'High'|'Medium'|'Low',
  *   reasons: string[],
- *   why: string
+ *   why: string,
+ *   roiProfile: string
  * }}
  */
-function scoreLocalProspect(lead) {
+function scoreLocalProspect(lead, options) {
+  const roiProfile = resolveRoiProfileFromOptions(options);
   const skipMeta = shouldSkipProspect(lead);
   if (skipMeta.skip) {
     return {
@@ -203,48 +312,27 @@ function scoreLocalProspect(lead) {
       confidence: 'Low',
       reasons: [skipMeta.reason],
       why: skipMeta.reason,
+      roiProfile,
     };
   }
 
   const ws = classifyWebsiteStatus(lead);
   const conf = classifyConfidence(lead, ws.status);
-  const contact = hasContact(lead);
-  const reasons = [];
-  let prospectTier = 'Low';
+  const tiered =
+    roiProfile === ROI_PROFILES.PARTNER_FIT
+      ? scorePartnerFitProspect(lead, ws.status)
+      : scoreAgencyGapProspect(lead, ws.status);
 
-  if (ws.status === 'no_site' || ws.status === 'social_only') {
-    if (contact) {
-      prospectTier = 'Hot';
-      reasons.push(
-        ws.status === 'no_site'
-          ? 'No standalone website — strong owned-site hook'
-          : 'Social / link-in-bio only — needs credible standalone site',
-      );
-    } else {
-      prospectTier = 'Low';
-      reasons.push('No or thin standalone web presence — add phone/email before strong outbound');
-    }
-  } else if (ws.status === 'weak_site' || ws.status === 'marketplace') {
-    prospectTier = 'Warm';
-    reasons.push(
-      ws.status === 'marketplace'
-        ? 'Booking or marketplace-first — pitch owned funnel + site'
-        : 'Standalone site with visible UX / SEO gaps',
-    );
-  } else if (ws.status === 'has_site') {
-    prospectTier = 'Low';
-    reasons.push('Credible site — pitch specific gaps or nurture');
-  }
-
-  const why = reasons[0] || '';
+  const why = tiered.reasons[0] || '';
 
   return {
-    prospectTier,
+    prospectTier: tiered.prospectTier,
     websiteStatus: ws.status,
     websiteStatusLabel: ws.label,
     confidence: conf,
-    reasons: reasons.slice(0, 5),
+    reasons: tiered.reasons.slice(0, 5),
     why,
+    roiProfile,
   };
 }
 

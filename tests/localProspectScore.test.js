@@ -16,6 +16,33 @@ describe('localProspectScore', () => {
     assert.match(r.websiteStatus, /no_site|social_only/);
   });
 
+  it('partner_fit: no website is Low even with phone', () => {
+    const lead = {
+      title: 'Joe Pizza',
+      phone: '503-555-0100',
+      website: 'N/A',
+      email: 'N/A',
+      url: 'https://maps.google.com/?q=1',
+    };
+    const r = scoreLocalProspect(lead, { roiProfile: 'partner_fit' });
+    assert.equal(r.prospectTier, 'Low');
+  });
+
+  it('partner_fit: site + reviews is Hot', () => {
+    const r = scoreLocalProspect(
+      {
+        title: 'Flooring Partner',
+        phone: '503-555-0999',
+        website: 'https://flooringpartner.example',
+        reviewsCount: 18,
+        totalScore: 4.6,
+      },
+      { roiProfile: 'partner_fit' },
+    );
+    assert.equal(r.prospectTier, 'Hot');
+    assert.equal(r.websiteStatus, 'has_site');
+  });
+
   it('Social-only URL is Hot with contact', () => {
     const lead = {
       title: 'Salon X',

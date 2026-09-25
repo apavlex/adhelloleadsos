@@ -1,5 +1,6 @@
 /**
  * Ranked "who to contact today" rows for /today — Focus queue + next cadence channel/hint.
+ * Ordering follows the workspace ROI profile (agency gap vs partner fit).
  */
 
 const { filterBusinessPipelineLeads } = require('./leadListFilters');
@@ -7,6 +8,11 @@ const { buildFocusQueue, shortLeadKey } = require('./focusQueue');
 const { getTemplate } = require('./sequenceTemplates');
 const { expandCadenceText } = require('./cadenceTokens');
 const { scoreLeadRecord } = require('./opportunityScore');
+const {
+  contactQueueSortBlurb,
+  resolveRoiProfileFromOptions,
+  roiScoreOptionsFromWorkspace,
+} = require('./workspaceRoiProfile');
 
 function channelLabel(ch) {
   const c = String(ch || 'task').toLowerCase();
@@ -20,8 +26,9 @@ function channelLabel(ch) {
 /**
  * @param {object} lead
  * @param {string} baseUrl
+ * @param {object} [scoreOpts]
  */
-function nextCadencePresentation(lead, baseUrl) {
+function nextCadencePresentation(lead, baseUrl, scoreOpts) {
   const st = lead.sequenceState;
   const safeUrl = String(baseUrl || '').replace(/\/$/, '');
 
@@ -58,13 +65,13 @@ function nextCadencePresentation(lead, baseUrl) {
     }
   }
 
-  const { tier, score } = scoreLeadRecord(lead);
+  const { tier, score } = scoreLeadRecord(lead, scoreOpts);
   return {
     mode: 'none',
     channel: null,
     channelLabel: null,
     stepTitle: 'No active cadence',
-    stepHint: `Opportunity ${tier} (${score.toFixed(1)}/10). Open Focus to start a sequence or call manually.`,
+    stepHint: `Opportunity ${tier} (${score.toFixed(1)}/10). Open Money Mode to start a sequence or call manually.`,
     dueAt: null,
     overdue: false,
   };
@@ -74,19 +81,29 @@ function nextCadencePresentation(lead, baseUrl) {
  * @param {object[]} leads — workspace-visible leads
  * @param {string} baseUrl
  * @param {number} [max]
+ * @param {{ queueMode?: string, earlyStagesOnly?: boolean, workspace?: object, roiProfile?: string }} [queueOpts]
  */
 function buildTodayContactQueue(leads, baseUrl, max = 20, queueOpts = {}) {
+  const scoreOpts = queueOpts.workspace
+    ? { ...roiScoreOptionsFromWorkspace(queueOpts.workspace), ...queueOpts }
+    : {
+        workspace: queueOpts.workspace || null,
+        roiProfile: resolveRoiProfileFromOptions(queueOpts),
+        lowReviewsThreshold: queueOpts.lowReviewsThreshold,
+      };
   const filtered = filterBusinessPipelineLeads(Array.isArray(leads) ? leads : []);
   const ordered = buildFocusQueue(filtered, 200, {
     ...queueOpts,
+    ...scoreOpts,
     earlyStagesOnly: queueOpts.earlyStagesOnly !== false,
   });
   const cap = Math.min(Math.max(5, max), 50);
+  const roiProfile = scoreOpts.roiProfile || resolveRoiProfileFromOptions(scoreOpts);
 
   return ordered.slice(0, cap).map((lead) => {
-    const scored = scoreLeadRecord(lead);
+    const scored = scoreLeadRecord(lead, scoreOpts);
     const { tier, score, localProspect } = scored;
-    const cadence = nextCadencePresentation(lead, baseUrl);
+    const cadence = nextCadencePresentation(lead, baseUrl, scoreOpts);
     const short = shortLeadKey(lead);
     return {
       leadKey: lead.key,
@@ -102,6 +119,7 @@ function buildTodayContactQueue(leads, baseUrl, max = 20, queueOpts = {}) {
       websiteStatusLabel: localProspect.websiteStatusLabel,
       prospectConfidence: localProspect.confidence,
       prospectWhy: localProspect.why,
+      roiProfile,
       cadence,
     };
   });
@@ -111,4 +129,5 @@ module.exports = {
   buildTodayContactQueue,
   nextCadencePresentation,
   channelLabel,
+  contactQueueSortBlurb,
 };
