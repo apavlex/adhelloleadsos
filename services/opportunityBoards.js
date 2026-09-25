@@ -10,6 +10,51 @@ const MAX_PIPELINES = 12;
 const MAX_STAGES = 12;
 const MAX_NAME = 40;
 
+const PIPELINE_TEMPLATES = [
+  {
+    id: 'marketing',
+    name: 'Marketing Pipeline',
+    description: 'Outbound and inbound contractor opportunities',
+    stages: ['New opportunity', 'Contacted', 'Qualified', 'Proposal sent', 'Won'],
+  },
+  {
+    id: 'sales',
+    name: 'Sales Pipeline',
+    description: 'Deals from first chat through close',
+    stages: ['New lead', 'Discovery', 'Proposal', 'Negotiation', 'Closed won', 'Closed lost'],
+  },
+  {
+    id: 'referrals',
+    name: 'Referral Partners',
+    description: 'Partner intros to active referral flow',
+    stages: ['Introduced', 'Meeting booked', 'Onboarded', 'Active referrals', 'Inactive'],
+  },
+  {
+    id: 'outreach',
+    name: 'Outreach Sequence',
+    description: 'Cold outreach and reply follow-through',
+    stages: ['To contact', 'Sequenced', 'Replied', 'Meeting set', 'Nurture', 'Disqualified'],
+  },
+  {
+    id: 'ai-review',
+    name: 'AI Assistant Review',
+    description: 'AI drafts waiting on your approval',
+    stages: ['Queued', 'AI drafting', 'Needs review', 'Approved', 'Sent', 'Done'],
+  },
+  {
+    id: 'simple',
+    name: 'Simple Board',
+    description: 'Three clear stages, easy to customize later',
+    stages: ['New', 'In progress', 'Done'],
+  },
+  {
+    id: 'blank',
+    name: 'Start Blank',
+    description: 'One stage — add the rest yourself',
+    stages: ['New opportunity'],
+  },
+];
+
 function newId(prefix) {
   return `${prefix}_${crypto.randomBytes(6).toString('hex')}`;
 }
@@ -22,15 +67,39 @@ function cleanName(raw, fallback) {
   return name || fallback;
 }
 
-function defaultStages() {
-  return DEFAULT_STAGE_NAMES.map((name) => ({ id: newId('ops'), name }));
+function listPipelineTemplates() {
+  return PIPELINE_TEMPLATES.map((template) => ({
+    id: template.id,
+    name: template.name,
+    description: template.description,
+    stages: template.stages.slice(),
+  }));
 }
 
-function defaultPipeline(name) {
+function getPipelineTemplate(templateId) {
+  const id = String(templateId || '').trim().toLowerCase();
+  return PIPELINE_TEMPLATES.find((template) => template.id === id) || PIPELINE_TEMPLATES[0];
+}
+
+function stagesFromNames(names) {
+  return (Array.isArray(names) ? names : [])
+    .map((name) => cleanName(name, ''))
+    .filter(Boolean)
+    .slice(0, MAX_STAGES)
+    .map((name) => ({ id: newId('ops'), name }));
+}
+
+function defaultStages() {
+  return stagesFromNames(DEFAULT_STAGE_NAMES);
+}
+
+function defaultPipeline(name, templateId) {
+  const template = getPipelineTemplate(templateId);
+  const stages = stagesFromNames(template.stages);
   return {
     id: newId('opl'),
-    name: cleanName(name, 'Marketing Pipeline'),
-    stages: defaultStages(),
+    name: cleanName(name, template.name),
+    stages: stages.length ? stages : defaultStages(),
   };
 }
 
@@ -368,20 +437,21 @@ function buildOpportunityBoard(input) {
       name: item.name,
       stages: item.stages.map((stage) => ({ id: stage.id, name: stage.name })),
     })),
+    templates: listPipelineTemplates(),
     stages,
     homePipelineId,
   };
 }
 
-function addPipeline(boards, name) {
+function addPipeline(boards, name, templateId) {
   const next = cloneBoards(normalizeBoards(boards).boards);
   if (next.pipelines.length >= MAX_PIPELINES) {
     return { ok: false, error: `You can keep up to ${MAX_PIPELINES} pipelines.` };
   }
-  const pipeline = defaultPipeline(name);
+  const pipeline = defaultPipeline(name, templateId);
   next.pipelines.push(pipeline);
   next.activePipelineId = pipeline.id;
-  return { ok: true, boards: next, pipelineId: pipeline.id };
+  return { ok: true, boards: next, pipelineId: pipeline.id, templateId: getPipelineTemplate(templateId).id };
 }
 
 function addStage(boards, pipelineId, name) {
@@ -488,6 +558,9 @@ function resolvePlacement(boards, pipelineId, stageId, stageNameHint) {
 
 module.exports = {
   DEFAULT_STAGE_NAMES,
+  PIPELINE_TEMPLATES,
+  listPipelineTemplates,
+  getPipelineTemplate,
   normalizeBoards,
   selectPipeline,
   buildOpportunityBoard,

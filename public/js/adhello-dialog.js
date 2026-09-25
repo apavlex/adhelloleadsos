@@ -34,6 +34,18 @@
       '#' + ROOT_ID + ' .adhello-dialog-btn--primary:hover{filter:brightness(1.08);}',
       '#' + ROOT_ID + ' .adhello-dialog-btn--danger{background:#e11d48;color:#fff;}',
       '#' + ROOT_ID + ' .adhello-dialog-btn--danger:hover{filter:brightness(1.05);}',
+      '#' + ROOT_ID + ' .adhello-dialog-panel--wide{width:min(34rem,calc(100vw - 2rem));}',
+      '#' + ROOT_ID + ' .adhello-dialog-choices{display:flex;flex-direction:column;gap:0.45rem;margin-top:0.9rem;max-height:min(22rem,48vh);overflow:auto;padding-right:0.15rem;}',
+      '#' + ROOT_ID + ' .adhello-dialog-choice{display:block;width:100%;text-align:left;border:1px solid rgba(17,24,39,0.12);border-radius:1rem;background:#fff;padding:0.7rem 0.8rem;cursor:pointer;color:inherit;}',
+      'html.dark #' + ROOT_ID + ' .adhello-dialog-choice{background:#1e293b;border-color:rgba(255,255,255,0.12);}',
+      '#' + ROOT_ID + ' .adhello-dialog-choice:hover{border-color:rgba(202,138,4,0.45);background:rgba(250,204,21,0.12);}',
+      '#' + ROOT_ID + ' .adhello-dialog-choice.is-on{border-color:rgba(202,138,4,0.55);background:rgba(250,204,21,0.22);box-shadow:inset 0 0 0 1px rgba(202,138,4,0.25);}',
+      '#' + ROOT_ID + ' .adhello-dialog-choice strong{display:block;font-size:0.82rem;font-weight:800;}',
+      '#' + ROOT_ID + ' .adhello-dialog-choice span{display:block;margin-top:0.2rem;font-size:0.72rem;font-weight:600;color:#64748b;line-height:1.35;}',
+      'html.dark #' + ROOT_ID + ' .adhello-dialog-choice span{color:#94a3b8;}',
+      '#' + ROOT_ID + ' .adhello-dialog-stages{display:flex;flex-wrap:wrap;gap:0.28rem;margin-top:0.45rem;}',
+      '#' + ROOT_ID + ' .adhello-dialog-stage{display:inline-flex;align-items:center;border-radius:999px;padding:0.18rem 0.45rem;font-size:0.62rem;font-weight:700;background:rgba(15,39,71,0.08);color:#0f2747;}',
+      'html.dark #' + ROOT_ID + ' .adhello-dialog-stage{background:rgba(255,255,255,0.08);color:#f8fafc;}',
     ].join('');
     document.head.appendChild(style);
   }
@@ -192,6 +204,142 @@
       title: String(title || 'Please confirm'),
       message: String(messageOrOptions || ''),
       danger: true,
+    });
+  };
+
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  window.adhelloPickPipelineTemplate = function (options) {
+    options = options || {};
+    var templates = Array.isArray(options.templates) ? options.templates : [];
+    if (!templates.length) {
+      return window.adhelloPrompt({
+        title: 'New pipeline name',
+        label: 'Pipeline name',
+        value: 'New pipeline',
+        confirmLabel: 'Create',
+      }).then(function (name) {
+        if (!name) return null;
+        return { templateId: 'marketing', name: name };
+      });
+    }
+
+    if (active) closeActive(null);
+
+    return new Promise(function (resolve) {
+      var root = ensureRoot();
+      var selectedId = String(options.selectedId || templates[0].id || 'marketing');
+      var initialName = String(options.value || '');
+
+      function findTemplate(id) {
+        for (var i = 0; i < templates.length; i++) {
+          if (templates[i].id === id) return templates[i];
+        }
+        return templates[0];
+      }
+
+      function choiceHtml(template) {
+        var stages = Array.isArray(template.stages) ? template.stages : [];
+        var chips = stages
+          .map(function (stage) {
+            return '<span class="adhello-dialog-stage">' + escapeHtml(stage) + '</span>';
+          })
+          .join('');
+        return (
+          '<button type="button" class="adhello-dialog-choice' +
+          (template.id === selectedId ? ' is-on' : '') +
+          '" data-adhello-dialog="pick" data-template-id="' +
+          escapeHtml(template.id) +
+          '"><strong>' +
+          escapeHtml(template.name) +
+          '</strong><span>' +
+          escapeHtml(template.description || '') +
+          '</span><div class="adhello-dialog-stages">' +
+          chips +
+          '</div></button>'
+        );
+      }
+
+      root.innerHTML =
+        '<div class="adhello-dialog-backdrop" data-adhello-dialog="cancel" aria-hidden="true"></div>' +
+        '<div class="adhello-dialog-panel adhello-dialog-panel--wide" role="dialog" aria-modal="true" aria-labelledby="adhelloDialogTitle">' +
+        '<p class="adhello-dialog-eyebrow">AdHello</p>' +
+        '<h3 class="adhello-dialog-title" id="adhelloDialogTitle">New pipeline</h3>' +
+        '<p class="adhello-dialog-message">Pick a template, then name the board. You can edit stages anytime.</p>' +
+        '<div class="adhello-dialog-choices">' +
+        templates.map(choiceHtml).join('') +
+        '</div>' +
+        '<label class="adhello-dialog-label" for="adhelloDialogInput">Pipeline name</label>' +
+        '<input id="adhelloDialogInput" class="adhello-dialog-input" type="text" maxlength="40" autocomplete="off" />' +
+        '<div class="adhello-dialog-actions">' +
+        '<button type="button" class="adhello-dialog-btn adhello-dialog-btn--ghost" data-adhello-dialog="cancel">Cancel</button>' +
+        '<button type="button" class="adhello-dialog-btn adhello-dialog-btn--primary" data-adhello-dialog="confirm">Create pipeline</button>' +
+        '</div></div>';
+
+      var input = root.querySelector('#adhelloDialogInput');
+      var selected = findTemplate(selectedId);
+      input.value = initialName || selected.name || 'New pipeline';
+
+      function syncSelection() {
+        var buttons = root.querySelectorAll('[data-adhello-dialog="pick"]');
+        Array.prototype.forEach.call(buttons, function (btn) {
+          btn.classList.toggle('is-on', btn.getAttribute('data-template-id') === selectedId);
+        });
+      }
+
+      function onKey(ev) {
+        if (ev.key === 'Escape') {
+          ev.preventDefault();
+          closeActive(null);
+          return;
+        }
+        if (ev.key === 'Enter' && document.activeElement === input) {
+          ev.preventDefault();
+          root.querySelector('[data-adhello-dialog="confirm"]').click();
+        }
+      }
+
+      active = { resolve: resolve, onKey: onKey };
+      root.hidden = false;
+      root.setAttribute('aria-hidden', 'false');
+      document.addEventListener('keydown', onKey, true);
+
+      root.addEventListener('click', function (ev) {
+        var action = ev.target.closest('[data-adhello-dialog]');
+        if (!action || !root.contains(action)) return;
+        var kind = action.getAttribute('data-adhello-dialog');
+        if (kind === 'cancel') {
+          closeActive(null);
+          return;
+        }
+        if (kind === 'pick') {
+          selectedId = action.getAttribute('data-template-id') || selectedId;
+          var next = findTemplate(selectedId);
+          if (!String(input.value || '').trim() || templates.some(function (item) { return item.name === input.value; })) {
+            input.value = next.name || '';
+          }
+          syncSelection();
+          return;
+        }
+        if (kind !== 'confirm') return;
+        var name = String(input.value || '').trim();
+        if (!name) {
+          input.focus();
+          return;
+        }
+        closeActive({ templateId: selectedId, name: name });
+      });
+
+      requestAnimationFrame(function () {
+        input.focus();
+        input.select();
+      });
     });
   };
 })();

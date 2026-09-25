@@ -13,6 +13,7 @@ const {
   renamePipeline,
   removeStage,
   resolvePlacement,
+  listPipelineTemplates,
 } = require('../services/opportunityBoards');
 
 async function loadContext(req, pipelineId) {
@@ -63,13 +64,21 @@ router.get('/', async (req, res, next) => {
   }
 });
 
+router.get('/templates', (_req, res) => {
+  res.json({ success: true, templates: listPipelineTemplates() });
+});
+
 router.post('/pipelines', express.json({ limit: '32kb' }), async (req, res, next) => {
   try {
     const { workspace } = await loadContext(req);
-    const result = addPipeline(workspace.opportunityBoards, req.body && req.body.name);
+    const result = addPipeline(
+      workspace.opportunityBoards,
+      req.body && req.body.name,
+      req.body && req.body.templateId,
+    );
     if (!result.ok) return jsonError(res, 400, result.error);
     await saveBoards(req, result.boards);
-    res.json({ success: true, pipelineId: result.pipelineId });
+    res.json({ success: true, pipelineId: result.pipelineId, templateId: result.templateId });
   } catch (e) {
     next(e);
   }

@@ -168,12 +168,38 @@
     return Promise.resolve(window.confirm(message));
   }
 
+  function pipelineTemplates() {
+    try {
+      var raw = board.getAttribute('data-pipeline-templates') || '[]';
+      var parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function askNewPipeline() {
+    if (typeof window.adhelloPickPipelineTemplate === 'function') {
+      return window.adhelloPickPipelineTemplate({
+        templates: pipelineTemplates(),
+        selectedId: 'marketing',
+      });
+    }
+    return ask('New pipeline name', 'New pipeline').then(function (name) {
+      if (!name) return null;
+      return { templateId: 'marketing', name: name };
+    });
+  }
+
   var newPipeline = document.getElementById('oppNewPipeline');
   if (newPipeline) {
     newPipeline.addEventListener('click', function () {
-      ask('New pipeline name', 'New pipeline').then(function (name) {
-        if (!name) return;
-        post('/opportunities/pipelines', { name: name }).then(function (result) {
+      askNewPipeline().then(function (choice) {
+        if (!choice || !choice.name) return;
+        post('/opportunities/pipelines', {
+          name: choice.name,
+          templateId: choice.templateId || 'marketing',
+        }).then(function (result) {
           if (!result.ok || !result.data || !result.data.success) {
             showError((result.data && result.data.error) || 'Could not create that pipeline.');
             return;

@@ -22,6 +22,31 @@ test('normalizeBoards creates a marketing pipeline with default stages', () => {
   );
 });
 
+test('addPipeline can create from a template with ready-made stages', () => {
+  const { boards } = normalizeBoards(null);
+  const {
+    listPipelineTemplates,
+    getPipelineTemplate,
+  } = require('../services/opportunityBoards');
+  const templates = listPipelineTemplates();
+  assert.ok(templates.length >= 5);
+  assert.equal(getPipelineTemplate('ai-review').name, 'AI Assistant Review');
+  const created = addPipeline(boards, 'Partner board', 'referrals');
+  assert.equal(created.ok, true);
+  assert.equal(created.templateId, 'referrals');
+  const pipeline = created.boards.pipelines.find((item) => item.id === created.pipelineId);
+  assert.equal(pipeline.name, 'Partner board');
+  assert.deepEqual(
+    pipeline.stages.map((stage) => stage.name),
+    ['Introduced', 'Meeting booked', 'Onboarded', 'Active referrals', 'Inactive'],
+  );
+  const blank = addPipeline(created.boards, 'Custom', 'blank');
+  assert.deepEqual(
+    blank.boards.pipelines.find((item) => item.id === blank.pipelineId).stages.map((stage) => stage.name),
+    ['New opportunity'],
+  );
+});
+
 test('selectPipeline remembers a chosen pipeline', () => {
   const { boards } = normalizeBoards(null);
   const extra = addPipeline(boards, 'Referrals');
