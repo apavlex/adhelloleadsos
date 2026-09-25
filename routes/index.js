@@ -20,6 +20,19 @@ const {
   ENTITY_TYPES,
   defaultRegisteredAfter,
 } = require('../services/businessFormationConstants');
+const { isChromeExtensionAvailable } = require('../services/chromeExtensionPack');
+
+function chromeExtensionFindLocals() {
+  const chromeExtensionRepoUrl = String(
+    process.env.CHROME_EXTENSION_REPO_URL ||
+      'https://github.com/apavlex/adhelloleadsos/tree/main/chrome-extension',
+  ).trim();
+  return {
+    chromeExtensionRepoUrl,
+    chromeExtensionDownloadUrl: '/workspace/integrations/chrome-extension/download',
+    chromeExtensionDownloadReady: isChromeExtensionAvailable(),
+  };
+}
 
 async function renderFindLeads(req, res, next) {
   try {
@@ -125,6 +138,7 @@ async function renderFindLeads(req, res, next) {
       formationStates: FORMATION_STATES,
       formationEntityTypes: ENTITY_TYPES,
       formationDefaultRegisteredAfter: defaultRegisteredAfter(30),
+      ...chromeExtensionFindLocals(),
     });
   } catch (e) {
     return next(e);
