@@ -101,6 +101,10 @@
   #oppBoard:not(.is-editing) .opp-actions { display: none !important; }
   #oppBoard.is-editing { outline: 2px solid rgba(250, 204, 21, 0.45); outline-offset: -2px; }
   #oppCancelEdit[hidden] { display: none !important; }
+  #oppDeletePipeline:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
   #oppEditBoard.is-saving-mode {
     background: #0f2747;
     color: #fff;
@@ -421,6 +425,7 @@
         </select>
         <button type="button" id="oppNewPipeline" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">New pipeline</button>
         <button type="button" id="oppEditBoard" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Edit</button>
+        <button type="button" id="oppDeletePipeline" class="btn-pill border border-rose-400/50 dark:border-rose-400/40 bg-white dark:bg-slate-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-rose-700 dark:text-rose-300" title="Delete this opportunity pipeline" <%= (_board.pipelines || []).length <= 1 ? 'disabled' : '' %>>Delete pipeline</button>
         <button type="button" id="oppCancelEdit" hidden class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Cancel</button>
         <% if (_compact) { %>
         <a href="/opportunities?pipeline=<%= encodeURIComponent(_board.pipeline.id) %>" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Open full board</a>

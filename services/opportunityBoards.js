@@ -497,6 +497,33 @@ function renamePipeline(boards, pipelineId, name) {
   return { ok: true, boards: next };
 }
 
+/**
+ * Remove an entire opportunity board. Keeps at least one pipeline.
+ * Caller should clear lead opportunity placements for the removed pipeline/stages.
+ */
+function removePipeline(boards, pipelineId) {
+  const next = cloneBoards(normalizeBoards(boards).boards);
+  if (next.pipelines.length <= 1) {
+    return { ok: false, error: 'Keep at least one pipeline.' };
+  }
+  const id = String(pipelineId || '').trim();
+  const index = next.pipelines.findIndex((item) => item.id === id);
+  if (index === -1) return { ok: false, error: 'Pipeline not found.' };
+  const removed = next.pipelines[index];
+  const stageIds = (removed.stages || []).map((stage) => stage.id);
+  next.pipelines.splice(index, 1);
+  const fallback = next.pipelines[Math.min(index, next.pipelines.length - 1)];
+  next.activePipelineId = fallback.id;
+  return {
+    ok: true,
+    boards: next,
+    removedPipelineId: removed.id,
+    removedName: removed.name,
+    stageIds,
+    activePipelineId: fallback.id,
+  };
+}
+
 function removeStage(boards, stageId) {
   const next = cloneBoards(normalizeBoards(boards).boards);
   for (const pipeline of next.pipelines) {
@@ -570,6 +597,7 @@ module.exports = {
   addStage,
   renameStage,
   renamePipeline,
+  removePipeline,
   removeStage,
   stageBelongsToPipeline,
   resolvePlacement,

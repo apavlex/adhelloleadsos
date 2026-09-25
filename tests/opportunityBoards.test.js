@@ -9,6 +9,7 @@ const {
   addStage,
   renameStage,
   removeStage,
+  removePipeline,
   resolvePlacement,
 } = require('../services/opportunityBoards');
 
@@ -226,6 +227,14 @@ test('stage edits stay on the same board object the Today page reads', () => {
   assert.equal(extra.ok, true);
   assert.equal(extra.boards.pipelines.length, 2);
   assert.equal(extra.boards.activePipelineId, extra.pipelineId);
+  const deleted = removePipeline(extra.boards, extra.pipelineId);
+  assert.equal(deleted.ok, true);
+  assert.equal(deleted.boards.pipelines.length, 1);
+  assert.equal(deleted.removedPipelineId, extra.pipelineId);
+  assert.notEqual(deleted.activePipelineId, extra.pipelineId);
+  const last = removePipeline(deleted.boards, deleted.activePipelineId);
+  assert.equal(last.ok, false);
+  assert.match(last.error, /at least one/i);
 });
 
 test('cardNotePreview strips Focus call script body for compact cards', () => {

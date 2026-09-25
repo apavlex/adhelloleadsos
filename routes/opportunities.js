@@ -11,6 +11,7 @@ const {
   addStage,
   renameStage,
   renamePipeline,
+  removePipeline,
   removeStage,
   resolvePlacement,
   listPipelineTemplates,
@@ -91,6 +92,39 @@ router.post('/pipelines/:pipelineId', express.json({ limit: '32kb' }), async (re
     if (!result.ok) return jsonError(res, 400, result.error);
     await saveBoards(req, result.boards);
     res.json({ success: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/pipelines/:pipelineId/delete', express.json({ limit: '8kb' }), async (req, res, next) => {
+  try {
+    const { workspace, leads } = await loadContext(req);
+    const result = removePipeline(workspace.opportunityBoards, req.params.pipelineId);
+    if (!result.ok) return jsonError(res, 400, result.error);
+    await saveBoards(req, result.boards);
+    const stageSet = new Set((result.stageIds || []).map(String));
+    let cleared = 0;
+    for (const lead of leads) {
+      const onPipeline = String(lead.opportunityPipelineId || '') === String(result.removedPipelineId);
+      const onStage = stageSet.has(String(lead.opportunityStageId || ''));
+      if (!onPipeline && !onStage) continue;
+      await dbService.updateLead(
+        lead.key,
+        {
+          opportunityPipelineId: '',
+          opportunityStageId: '',
+        },
+        req.workspaceId,
+      );
+      cleared += 1;
+    }
+    res.json({
+      success: true,
+      activePipelineId: result.activePipelineId,
+      cleared,
+      removedName: result.removedName || '',
+    });
   } catch (e) {
     next(e);
   }

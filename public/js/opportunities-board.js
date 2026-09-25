@@ -491,6 +491,43 @@
     });
   }
 
+  var deletePipelineBtn = document.getElementById('oppDeletePipeline');
+  if (deletePipelineBtn) {
+    deletePipelineBtn.addEventListener('click', function () {
+      if (deletePipelineBtn.disabled) {
+        showError('Keep at least one pipeline.');
+        return;
+      }
+      var nameEl = board.querySelector('h1, h2');
+      var pipelineName = nameEl ? String(nameEl.textContent || '').trim() : 'this pipeline';
+      var pipelineCount = (readJsonScript('oppBoardPipelinesJson') || []).length;
+      if (pipelineCount <= 1) {
+        showError('Keep at least one pipeline.');
+        return;
+      }
+      confirmAction(
+        'Deletes “' +
+          pipelineName +
+          '” and clears opportunities currently on it. Leads stay in your CRM — they just leave this board. This cannot be undone.',
+        'Delete this pipeline?'
+      ).then(function (ok) {
+        if (!ok) return;
+        showStatus('Deleting pipeline…', true);
+        post('/opportunities/pipelines/' + encodeURIComponent(pipelineId) + '/delete', {})
+          .then(function (result) {
+            if (!result.ok || !result.data || !result.data.success) {
+              showError((result.data && result.data.error) || 'Could not delete that pipeline.');
+              return;
+            }
+            reloadPipeline(result.data.activePipelineId || '');
+          })
+          .catch(function () {
+            showError('Could not delete that pipeline.');
+          });
+      });
+    });
+  }
+
   if (cancelEdit) {
     cancelEdit.addEventListener('click', function () {
       if (!isEditing()) return;
