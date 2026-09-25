@@ -605,14 +605,6 @@
     if (!row || row.getAttribute('data-wheel-bound') === '1') return;
     row.setAttribute('data-wheel-bound', '1');
 
-    function canScrollY(el, deltaY) {
-      if (!el) return false;
-      if (el.scrollHeight <= el.clientHeight + 1) return false;
-      if (deltaY > 0) return el.scrollTop + el.clientHeight < el.scrollHeight - 1;
-      if (deltaY < 0) return el.scrollTop > 0;
-      return false;
-    }
-
     row.addEventListener(
       'wheel',
       function (ev) {
@@ -623,25 +615,21 @@
 
         var dx = Number(ev.deltaX) || 0;
         var dy = Number(ev.deltaY) || 0;
-        if (ev.shiftKey && Math.abs(dy) >= Math.abs(dx)) {
+
+        // Shift+wheel is the explicit horizontal shortcut (mouse wheels emit dy only).
+        if (ev.shiftKey && Math.abs(dy) > Math.abs(dx)) {
           dx = dy;
           dy = 0;
         }
 
-        var list = ev.target && ev.target.closest ? ev.target.closest('.opp-stage-cards') : null;
-        var wantsHorizontal = Math.abs(dx) > Math.abs(dy);
-        var primary = wantsHorizontal ? dx : dy;
+        // Vertical-dominant gestures must never pan the board sideways (Mac trackpad).
+        // Let the column / page scroll natively.
+        if (Math.abs(dy) >= Math.abs(dx)) return;
 
-        // Over a column that can still scroll vertically — use native scroll (no preventDefault).
-        if (!wantsHorizontal && list && canScrollY(list, dy)) {
-          return;
-        }
-
-        // Pan the board horizontally (wheel / trackpad / shift+wheel).
         if (row.scrollWidth <= row.clientWidth + 1) return;
-        if (Math.abs(primary) < 0.5) return;
+        if (Math.abs(dx) < 0.5) return;
 
-        row.scrollLeft += primary;
+        row.scrollLeft += dx;
         ev.preventDefault();
       },
       { passive: false }
