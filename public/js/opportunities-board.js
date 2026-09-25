@@ -168,24 +168,83 @@
     return Promise.resolve(window.confirm(message));
   }
 
-  function pipelineTemplates() {
+  var DEFAULT_PIPELINE_TEMPLATES = [
+    {
+      id: 'marketing',
+      name: 'Marketing Pipeline',
+      description: 'Outbound and inbound contractor opportunities',
+      stages: ['New opportunity', 'Contacted', 'Qualified', 'Proposal sent', 'Won'],
+    },
+    {
+      id: 'sales',
+      name: 'Sales Pipeline',
+      description: 'Deals from first chat through close',
+      stages: ['New lead', 'Discovery', 'Proposal', 'Negotiation', 'Closed won', 'Closed lost'],
+    },
+    {
+      id: 'referrals',
+      name: 'Referral Partners',
+      description: 'Partner intros to active referral flow',
+      stages: ['Introduced', 'Meeting booked', 'Onboarded', 'Active referrals', 'Inactive'],
+    },
+    {
+      id: 'outreach',
+      name: 'Outreach Sequence',
+      description: 'Cold outreach and reply follow-through',
+      stages: ['To contact', 'Sequenced', 'Replied', 'Meeting set', 'Nurture', 'Disqualified'],
+    },
+    {
+      id: 'ai-review',
+      name: 'AI Assistant Review',
+      description: 'AI drafts waiting on your approval',
+      stages: ['Queued', 'AI drafting', 'Needs review', 'Approved', 'Sent', 'Done'],
+    },
+    {
+      id: 'simple',
+      name: 'Simple Board',
+      description: 'Three clear stages, easy to customize later',
+      stages: ['New', 'In progress', 'Done'],
+    },
+    {
+      id: 'blank',
+      name: 'Start Blank',
+      description: 'One stage — add the rest yourself',
+      stages: ['New opportunity'],
+    },
+  ];
+
+  function readJsonScript(id) {
+    var node = document.getElementById(id);
+    if (!node) return null;
     try {
-      var raw = board.getAttribute('data-pipeline-templates') || '[]';
-      var parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
+      return JSON.parse(node.textContent || 'null');
     } catch (e) {
-      return [];
+      return null;
     }
   }
 
+  function pipelineTemplates() {
+    var fromPage = readJsonScript('oppBoardTemplatesJson');
+    if (Array.isArray(fromPage) && fromPage.length) return fromPage;
+    var attr = board.getAttribute('data-pipeline-templates');
+    if (attr) {
+      try {
+        var parsed = JSON.parse(attr);
+        if (Array.isArray(parsed) && parsed.length) return parsed;
+      } catch (e) { /* ignore broken attribute encoding */ }
+    }
+    return DEFAULT_PIPELINE_TEMPLATES.slice();
+  }
+
   function askNewPipeline() {
+    var templates = pipelineTemplates();
     if (typeof window.adhelloPickPipelineTemplate === 'function') {
       return window.adhelloPickPipelineTemplate({
-        templates: pipelineTemplates(),
+        templates: templates,
         selectedId: 'marketing',
       });
     }
-    return ask('New pipeline name', 'New pipeline').then(function (name) {
+    return ask('New pipeline name', templates[0] ? templates[0].name : 'New pipeline').then(function (name) {
       if (!name) return null;
       return { templateId: 'marketing', name: name };
     });
@@ -196,8 +255,14 @@
     newPipeline.addEventListener('click', function () {
       askNewPipeline().then(function (choice) {
         if (!choice || !choice.name) return;
+        var name = String(choice.name || '').trim();
+        if (!name) {
+          showError('Enter a pipeline name.');
+          return;
+        }
+        showStatus('Creating pipeline…', true);
         post('/opportunities/pipelines', {
-          name: choice.name,
+          name: name,
           templateId: choice.templateId || 'marketing',
         }).then(function (result) {
           if (!result.ok || !result.data || !result.data.success) {
@@ -205,6 +270,8 @@
             return;
           }
           reloadPipeline(result.data.pipelineId);
+        }).catch(function () {
+          showError('Could not create that pipeline.');
         });
       });
     });

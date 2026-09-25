@@ -217,17 +217,34 @@
 
   window.adhelloPickPipelineTemplate = function (options) {
     options = options || {};
-    var templates = Array.isArray(options.templates) ? options.templates : [];
+    var templates = Array.isArray(options.templates) ? options.templates.slice() : [];
     if (!templates.length) {
-      return window.adhelloPrompt({
-        title: 'New pipeline name',
-        label: 'Pipeline name',
-        value: 'New pipeline',
-        confirmLabel: 'Create',
-      }).then(function (name) {
-        if (!name) return null;
-        return { templateId: 'marketing', name: name };
-      });
+      templates = [
+        {
+          id: 'marketing',
+          name: 'Marketing Pipeline',
+          description: 'Outbound and inbound contractor opportunities',
+          stages: ['New opportunity', 'Contacted', 'Qualified', 'Proposal sent', 'Won'],
+        },
+        {
+          id: 'sales',
+          name: 'Sales Pipeline',
+          description: 'Deals from first chat through close',
+          stages: ['New lead', 'Discovery', 'Proposal', 'Negotiation', 'Closed won', 'Closed lost'],
+        },
+        {
+          id: 'simple',
+          name: 'Simple Board',
+          description: 'Three clear stages, easy to customize later',
+          stages: ['New', 'In progress', 'Done'],
+        },
+        {
+          id: 'blank',
+          name: 'Start Blank',
+          description: 'One stage — add the rest yourself',
+          stages: ['New opportunity'],
+        },
+      ];
     }
 
     if (active) closeActive(null);
