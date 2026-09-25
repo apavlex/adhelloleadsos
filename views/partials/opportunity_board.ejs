@@ -50,22 +50,41 @@
     position: fixed;
     z-index: 10060;
     width: min(18rem, calc(100vw - 1.5rem));
-    background: #ffffff !important;
-    background-color: #ffffff !important;
-    background-image: linear-gradient(#ffffff, #ffffff) !important;
+    padding: 0;
+    margin: 0;
     color: #111827;
     border: 1px solid rgba(17, 24, 39, 0.12);
     border-radius: 1rem;
     box-shadow: 0 18px 44px rgba(15, 23, 42, 0.28);
-    padding: 0.85rem;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
     opacity: 1 !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
+    overflow: hidden;
   }
-  html.dark .opp-pop {
+  .opp-pop::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    pointer-events: none;
+  }
+  .opp-pop__surface {
+    position: relative;
+    z-index: 1;
+    padding: 0.85rem;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+  }
+  html.dark .opp-pop,
+  html.dark .opp-pop::before,
+  html.dark .opp-pop__surface {
     background: #0f172a !important;
     background-color: #0f172a !important;
-    background-image: linear-gradient(#0f172a, #0f172a) !important;
     border-color: rgba(255, 255, 255, 0.14);
     color: #f8fafc;
   }
@@ -77,14 +96,39 @@
   .opp-pop-row { display: flex; gap: 0.35rem; margin-top: 0.55rem; }
   .opp-pop-row input, .opp-pop-time { flex: 1; min-width: 0; border: 1px solid rgba(17, 24, 39, 0.12); border-radius: 0.7rem; padding: 0.4rem 0.55rem; font-size: 0.75rem; background: #fff; }
   html.dark .opp-pop-row input, html.dark .opp-pop-time { background: #1e293b; border-color: rgba(255, 255, 255, 0.14); color: #f8fafc; }
-  .opp-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.15rem; background: transparent; }
+  .opp-cal {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.15rem;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    border-radius: 0.5rem;
+    padding: 0.15rem;
+  }
+  html.dark .opp-cal {
+    background: #0f172a !important;
+    background-color: #0f172a !important;
+  }
+  .opp-cal-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.35rem;
+    font-size: 0.75rem;
+    font-weight: 800;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+  }
+  html.dark .opp-cal-nav {
+    background: #0f172a !important;
+    background-color: #0f172a !important;
+  }
   .opp-cal button, .opp-cal span { height: 1.7rem; border: 0; background: transparent; border-radius: 0.4rem; font-size: 0.68rem; font-weight: 700; color: inherit; }
   .opp-cal button { cursor: pointer; }
   .opp-cal button:hover { background: rgba(17, 24, 39, 0.06); }
   html.dark .opp-cal button:hover { background: rgba(255, 255, 255, 0.08); }
   .opp-cal button.is-today { box-shadow: inset 0 0 0 1px rgba(17, 24, 39, 0.25); }
   .opp-cal button.is-selected { background: #FFDB3A; color: #111827; }
-  .opp-cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem; font-size: 0.75rem; font-weight: 800; }
   .opp-cal-nav button { border: 0; background: transparent; font-weight: 800; cursor: pointer; padding: 0.15rem 0.4rem; color: inherit; }
   #oppBoardMsg.is-ok { color: #047857; }
   .opp-actions { display: inline-flex; align-items: center; gap: 0.15rem; }
@@ -216,7 +260,42 @@
     pop = null;
   }
 
+  function paintOppPopSurface() {
+    if (!pop) return;
+    var dark = document.documentElement.classList.contains('dark');
+    var fill = dark ? '#0f172a' : '#ffffff';
+    var ink = dark ? '#f8fafc' : '#111827';
+    var shadow = '0 18px 44px rgba(15, 23, 42, 0.28)';
+    [
+      ['position', 'fixed'],
+      ['z-index', '10060'],
+      ['width', 'min(18rem, calc(100vw - 1.5rem))'],
+      ['background', fill],
+      ['background-color', fill],
+      ['background-image', 'none'],
+      ['color', ink],
+      ['opacity', '1'],
+      ['backdrop-filter', 'none'],
+      ['-webkit-backdrop-filter', 'none'],
+      ['isolation', 'isolate'],
+      ['box-shadow', shadow],
+      ['overflow', 'hidden'],
+      ['padding', '0'],
+    ].forEach(function (pair) {
+      pop.style.setProperty(pair[0], pair[1], 'important');
+    });
+    if (typeof window.applyPortaledPopoverSurface === 'function') {
+      window.applyPortaledPopoverSurface(pop);
+    }
+    pop.querySelectorAll('.opp-pop__surface, .adhello-mini-calendar__surface, .opp-cal, .opp-cal-nav').forEach(function (node) {
+      node.style.setProperty('background', fill, 'important');
+      node.style.setProperty('background-color', fill, 'important');
+      node.style.setProperty('background-image', 'none', 'important');
+    });
+  }
+
   function placePop(anchor) {
+    if (!pop) return;
     var rect = anchor.getBoundingClientRect();
     var width = pop.offsetWidth || 280;
     var left = Math.min(rect.left, window.innerWidth - width - 12);
@@ -225,6 +304,7 @@
     if (top + pop.offsetHeight > window.innerHeight - 8) top = Math.max(8, rect.top - pop.offsetHeight - 8);
     pop.style.left = left + 'px';
     pop.style.top = top + 'px';
+    paintOppPopSurface();
   }
 
   function openPop(anchor) {
@@ -232,27 +312,13 @@
     pop = document.createElement('div');
     pop.className = 'opp-pop portaled-popover-surface';
     pop.setAttribute('role', 'dialog');
-    // Match other portaled pickers: solid fill + high z-index so the kanban never shows through.
-    var dark = document.documentElement.classList.contains('dark');
-    var fill = dark ? '#0f172a' : '#ffffff';
-    pop.style.cssText = [
-      'position:fixed',
-      'z-index:10060',
-      'width:min(18rem, calc(100vw - 1.5rem))',
-      'background:' + fill,
-      'background-color:' + fill,
-      'background-image:linear-gradient(' + fill + ',' + fill + ')',
-      'color:' + (dark ? '#f8fafc' : '#111827'),
-      'opacity:1',
-      'backdrop-filter:none',
-      '-webkit-backdrop-filter:none',
-      'border:1px solid ' + (dark ? 'rgba(255,255,255,0.14)' : 'rgba(17,24,39,0.12)'),
-      'border-radius:1rem',
-      'box-shadow:0 18px 44px rgba(15,23,42,0.28)',
-      'padding:0.85rem',
-    ].join(';');
+    var surface = document.createElement('div');
+    surface.className = 'opp-pop__surface adhello-mini-calendar__surface';
+    pop.appendChild(surface);
     document.body.appendChild(pop);
-    return pop;
+    paintOppPopSurface();
+    // Callers fill the opaque surface; positioning uses the outer shell.
+    return surface;
   }
 
   function leadKey(action) {
@@ -289,6 +355,7 @@
     if (!Array.isArray(applied)) applied = [];
     var box = openPop(action);
     box.innerHTML = '<h4>Add a tag</h4><div class="opp-pop-tags">Loading tags…</div><form class="opp-pop-row"><input type="text" name="name" placeholder="New tag" maxlength="40" /><button type="submit" class="opp-pop-add">Add</button></form>';
+    paintOppPopSurface();
     placePop(action);
     var list = box.querySelector('.opp-pop-tags');
     function paint(tags) {
@@ -370,6 +437,7 @@
     view.setDate(1);
     var selected = '';
     box.innerHTML = '<h4>Schedule follow-up</h4><div class="opp-cal-nav"><button type="button" data-cal="prev" aria-label="Previous month">‹</button><span data-cal="label"></span><button type="button" data-cal="next" aria-label="Next month">›</button></div><div class="opp-cal" data-cal="grid"></div><div class="opp-pop-row"><select class="opp-pop-time" data-cal="time"></select><button type="button" class="opp-pop-add" data-cal="save">Save</button></div>';
+    paintOppPopSurface();
     var time = box.querySelector('[data-cal="time"]');
     for (var hour = 8; hour <= 18; hour++) {
       var opt = document.createElement('option');

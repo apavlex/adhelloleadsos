@@ -7759,17 +7759,46 @@ body.dm-prompt-resize-active {
 .opp-pop.portaled-popover-surface {
   background: #ffffff !important;
   background-color: #ffffff !important;
-  background-image: linear-gradient(#ffffff, #ffffff) !important;
+  background-image: none !important;
   opacity: 1 !important;
   z-index: 10060 !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   box-shadow: 0 18px 44px rgba(15, 23, 42, 0.28);
+  overflow: hidden;
+  padding: 0 !important;
+}
+.opp-pop::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  pointer-events: none;
+}
+.opp-pop__surface,
+.opp-pop .adhello-mini-calendar__surface {
+  position: relative;
+  z-index: 1;
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  padding: 0.85rem;
+}
+.opp-pop .opp-cal,
+.opp-pop .opp-cal-nav {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
 }
 html.dark .opp-pop,
-html.dark .opp-pop.portaled-popover-surface {
+html.dark .opp-pop.portaled-popover-surface,
+html.dark .opp-pop::before,
+html.dark .opp-pop__surface,
+html.dark .opp-pop .adhello-mini-calendar__surface,
+html.dark .opp-pop .opp-cal,
+html.dark .opp-pop .opp-cal-nav {
   background: #0f172a !important;
   background-color: #0f172a !important;
-  background-image: linear-gradient(#0f172a, #0f172a) !important;
   color: #f8fafc !important;
 }
