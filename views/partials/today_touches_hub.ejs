@@ -1,6 +1,5 @@
 <% const _cadenceQ = typeof cadenceQueue !== 'undefined' && cadenceQueue ? cadenceQueue : { calls: [], emails: [], texts: [], linkedin: [], other: [], overdueCount: 0, totalDue: 0 }; %>
 <% const _contactQ = typeof contactQueue !== 'undefined' && contactQueue ? contactQueue : []; %>
-<% const _oc = typeof outreachCoach !== 'undefined' && outreachCoach ? outreachCoach : null; %>
 <% const _ap = typeof actionPlan !== 'undefined' && actionPlan ? actionPlan : null; %>
 <% const _csHeader = typeof conversionSnapshot !== 'undefined' && conversionSnapshot ? conversionSnapshot : {}; %>
 <% const _pvHeader = typeof _csHeader.pipelineValueCreated7d === 'number' ? _csHeader.pipelineValueCreated7d : 0; %>
@@ -89,26 +88,6 @@
       <div class="today-hub-panel-body">
         <div class="today-hub-panel-inner">
         <%- include('/partials/today_contact_queue', { hubEmbed: true }) %>
-        </div>
-      </div>
-    </details>
-    <% } %>
-
-    <% if (_oc) { %>
-    <details id="today-hub-coach" class="today-hub-panel group bg-white dark:bg-slate-900/90" open>
-      <summary class="today-hub-panel-summary bg-white dark:bg-slate-900/90">
-        <span class="min-w-0">
-          <span class="block text-[10px] font-black uppercase tracking-widest text-brand-yellow">Outreach coach</span>
-          <span class="block font-display font-bold text-base text-brand-dark dark:text-white mt-0.5">What to do next</span>
-        </span>
-        <span class="flex items-center gap-2 shrink-0">
-          <span class="text-[10px] font-black uppercase tracking-wider text-brand-muted tabular-nums"><%= _oc.touchesToday %>/<%= _oc.touchGoal %> today</span>
-          <span class="today-hub-chevron text-brand-muted" aria-hidden="true">▼</span>
-        </span>
-      </summary>
-      <div class="today-hub-panel-body">
-        <div class="today-hub-panel-inner">
-        <%- include('/partials/prospecting_coach_card', { hubEmbed: true, coachCardClass: '' }) %>
         </div>
       </div>
     </details>

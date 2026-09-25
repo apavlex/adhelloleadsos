@@ -42,24 +42,71 @@
       }
     })();
     </script>
-    <%- include('/partials/opportunity_board') %>
-    <%- include('/partials/today_touches_hub') %>
 
+    <% const _tl = typeof totalLeads !== 'undefined' ? totalLeads : 0; %>
+    <% const empty = _tl === 0; %>
+    <% const _leadTarget = 50; %>
+    <% const _underProvisioned = !empty && _tl < _leadTarget; %>
+    <% const _leadPct = Math.max(0, Math.min(100, Math.round((_tl / _leadTarget) * 100))); %>
+    <% const _showAct = typeof showActivationRibbon !== 'undefined' && showActivationRibbon; %>
+    <% const _isDayOne = typeof activation !== 'undefined' && activation && (activation.progress || 0) === 0; %>
+    <% const _showDayOneHero = empty && _showAct && _isDayOne; %>
     <% const _nextActions = typeof nextActions !== 'undefined' && nextActions ? nextActions : []; %>
-    <% if (_nextActions.length) { %>
-    <section class="mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-6 md:p-8 shadow-sm" aria-label="Next actions">
+
+    <% if (!empty) { %>
+    <section class="mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-6 md:p-8 shadow-sm" aria-label="Next 30 minutes">
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Next 30 minutes</p>
+      <h2 class="font-display font-extrabold text-xl md:text-2xl text-brand-dark dark:text-white mb-2">You have <%= typeof queueNeedingAction !== 'undefined' ? queueNeedingAction : 0 %> leads queued for action today.</h2>
+      <p class="text-sm text-brand-muted mb-5">Start a focused calling block and work the queue in order. AdHello will keep wrap-up and next steps aligned.</p>
+      <div class="flex flex-col sm:flex-row gap-3">
+        <a href="/focus" class="btn-pill btn-primary px-8 py-3 text-xs font-black uppercase tracking-widest text-center">Start session</a>
+        <a href="/pipeline" class="btn-pill border border-brand-border dark:border-white/20 px-8 py-3 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white text-center">Open pipeline queue</a>
+      </div>
+    </section>
+
+    <section aria-labelledby="actions-heading" class="mb-8 md:mb-10">
+      <h2 id="actions-heading" class="sr-only">Quick actions</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+        <div class="flex min-w-0 flex-col rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm overflow-hidden hover:border-brand-yellow/50 transition-colors">
+          <a href="/leads/find" class="group flex flex-1 flex-col p-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Find</p>
+            <h3 class="font-display font-extrabold text-xl text-brand-dark dark:text-white mb-2 group-hover:text-brand-yellow transition-colors">Start a lead search</h3>
+            <p class="text-sm text-brand-muted leading-relaxed flex-1">Keyword + location; Maps via Outscraper first when configured, Apify fallback.</p>
+          </a>
+          <p class="text-[11px] text-brand-muted px-8 pb-6 pt-0 border-t border-brand-border/30 dark:border-white/10 -mt-1">
+            <a href="/workspace/integrations" class="text-brand-yellow font-bold hover:underline">Workspace</a> — API keys &amp; cost-aware stack guide.
+          </p>
+        </div>
+        <a href="/pipeline" class="group flex min-w-0 flex-col rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-8 shadow-sm hover:border-brand-yellow/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Pipeline</p>
+          <h3 class="font-display font-extrabold text-xl text-brand-dark dark:text-white mb-2 group-hover:text-brand-yellow transition-colors">Work your queue — <%= typeof queueNeedingAction !== 'undefined' ? queueNeedingAction : 0 %> leads in early stages</h3>
+          <p class="text-sm text-brand-muted leading-relaxed mt-auto">Stages 1–2 need movement or outreach.</p>
+        </a>
+        <a href="/reports?tab=tracker" class="group flex min-w-0 flex-col rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-8 shadow-sm hover:border-brand-yellow/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Touches</p>
+          <h3 class="font-display font-extrabold text-xl text-brand-dark dark:text-white mb-2 group-hover:text-brand-yellow transition-colors">Review daily tracker</h3>
+          <p class="text-sm text-brand-muted leading-relaxed mt-auto">Auto-detected calls and cadence steps plus anything you adjust — streaks and charts in Reports.</p>
+        </a>
+      </div>
+    </section>
+    <% } %>
+
+    <section class="mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-6 md:p-8 shadow-sm" aria-label="Tasks">
       <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
         <div>
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Next actions</p>
-          <h2 class="font-display font-extrabold text-xl text-brand-dark dark:text-white">Due &amp; overdue — unified queue</h2>
-          <p class="text-sm text-brand-muted dark:text-slate-400 mt-1">Your outbound work due today — cadence steps, tasks, and follow-ups. <strong class="text-brand-dark dark:text-slate-200 font-semibold">Warm replies and clicks</strong> live in <a href="/engagement" class="text-brand-yellow hover:underline">Engagement inbox</a> (only fills when prospects engage).</p>
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Tasks</p>
+          <h2 class="font-display font-extrabold text-xl text-brand-dark dark:text-white">Due &amp; overdue</h2>
+          <p class="text-sm text-brand-muted dark:text-slate-400 mt-1">Cadence steps, follow-ups, and manual tasks for today. Warm replies live in <a href="/engagement" class="text-brand-yellow hover:underline">Engagement inbox</a>.</p>
         </div>
         <div class="flex flex-wrap gap-2 shrink-0 self-start">
           <a href="/engagement" class="btn-pill border border-emerald-500/40 bg-emerald-500/10 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-emerald-900 dark:text-emerald-100 whitespace-nowrap">Engagement inbox</a>
           <a href="/tasks" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white whitespace-nowrap">All tasks</a>
+          <% if (_nextActions.length) { %>
           <button type="button" id="clearAutomationQueueBtn" class="btn-pill border border-amber-500/40 bg-amber-500/10 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-amber-900 dark:text-amber-100 whitespace-nowrap" title="Remove cadence/automation tasks from this queue and pause active sequences">Reset queue</button>
+          <% } %>
         </div>
       </div>
+      <% if (_nextActions.length) { %>
       <ul class="divide-y divide-brand-border/40 dark:divide-white/10">
         <% _nextActions.forEach((item) => { %>
           <li class="py-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
@@ -81,7 +128,11 @@
           </li>
         <% }) %>
       </ul>
+      <% } else { %>
+      <p class="text-sm text-brand-muted py-2">No tasks due right now. <a href="/tasks" class="text-brand-yellow font-bold hover:underline">Open the board</a> to add one, or start a session above.</p>
+      <% } %>
     </section>
+    <% if (_nextActions.length) { %>
     <script>
       (function () {
         var btn = document.getElementById('clearAutomationQueueBtn');
@@ -119,6 +170,9 @@
       })();
     </script>
     <% } %>
+
+    <%- include('/partials/opportunity_board') %>
+    <%- include('/partials/today_touches_hub') %>
 
     <% const _callWarm = typeof callWarmQueue !== 'undefined' && callWarmQueue ? callWarmQueue : []; %>
     <% if (false && _callWarm.length) { %>
@@ -197,15 +251,6 @@
       </ul>
     </section>
     <% } %>
-
-    <% const _tl = typeof totalLeads !== 'undefined' ? totalLeads : 0; %>
-    <% const empty = _tl === 0; %>
-    <% const _leadTarget = 50; %>
-    <% const _underProvisioned = !empty && _tl < _leadTarget; %>
-    <% const _leadPct = Math.max(0, Math.min(100, Math.round((_tl / _leadTarget) * 100))); %>
-    <% const _showAct = typeof showActivationRibbon !== 'undefined' && showActivationRibbon; %>
-    <% const _isDayOne = typeof activation !== 'undefined' && activation && (activation.progress || 0) === 0; %>
-    <% const _showDayOneHero = empty && _showAct && _isDayOne; %>
 
     <% if (empty) { %>
     <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-900/70 px-6 py-8 md:px-8 md:py-10 mb-10 shadow-sm" aria-label="Get started">
@@ -291,44 +336,6 @@
       } catch (e) {}
     })();
     </script>
-    <% } %>
-
-    <% if (!empty) { %>
-    <section class="mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-6 md:p-8 shadow-sm" aria-label="Next 30 minutes">
-      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Next 30 minutes</p>
-      <h2 class="font-display font-extrabold text-xl md:text-2xl text-brand-dark dark:text-white mb-2">You have <%= typeof queueNeedingAction !== 'undefined' ? queueNeedingAction : 0 %> leads queued for action today.</h2>
-      <p class="text-sm text-brand-muted mb-5">Start a focused calling block and work the queue in order. AdHello will keep wrap-up and next steps aligned.</p>
-      <div class="flex flex-col sm:flex-row gap-3">
-        <a href="/focus" class="btn-pill btn-primary px-8 py-3 text-xs font-black uppercase tracking-widest text-center">Start session</a>
-        <a href="/pipeline" class="btn-pill border border-brand-border dark:border-white/20 px-8 py-3 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white text-center">Open pipeline queue</a>
-      </div>
-    </section>
-
-    <section aria-labelledby="actions-heading" class="mb-12 md:mb-16">
-      <h2 id="actions-heading" class="sr-only">Quick actions</h2>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
-        <div class="flex min-w-0 flex-col rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm overflow-hidden hover:border-brand-yellow/50 transition-colors">
-          <a href="/leads/find" class="group flex flex-1 flex-col p-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900">
-            <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Find</p>
-            <h3 class="font-display font-extrabold text-xl text-brand-dark dark:text-white mb-2 group-hover:text-brand-yellow transition-colors">Start a lead search</h3>
-            <p class="text-sm text-brand-muted leading-relaxed flex-1">Keyword + location; Maps via Outscraper first when configured, Apify fallback.</p>
-          </a>
-          <p class="text-[11px] text-brand-muted px-8 pb-6 pt-0 border-t border-brand-border/30 dark:border-white/10 -mt-1">
-            <a href="/workspace/integrations" class="text-brand-yellow font-bold hover:underline">Workspace</a> — API keys &amp; cost-aware stack guide.
-          </p>
-        </div>
-        <a href="/pipeline" class="group flex min-w-0 flex-col rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-8 shadow-sm hover:border-brand-yellow/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900">
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Pipeline</p>
-          <h3 class="font-display font-extrabold text-xl text-brand-dark dark:text-white mb-2 group-hover:text-brand-yellow transition-colors">Work your queue — <%= typeof queueNeedingAction !== 'undefined' ? queueNeedingAction : 0 %> leads in early stages</h3>
-          <p class="text-sm text-brand-muted leading-relaxed mt-auto">Stages 1–2 need movement or outreach.</p>
-        </a>
-        <a href="/reports?tab=tracker" class="group flex min-w-0 flex-col rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-8 shadow-sm hover:border-brand-yellow/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900">
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Touches</p>
-          <h3 class="font-display font-extrabold text-xl text-brand-dark dark:text-white mb-2 group-hover:text-brand-yellow transition-colors">Review daily tracker</h3>
-          <p class="text-sm text-brand-muted leading-relaxed mt-auto">Auto-detected calls and cadence steps plus anything you adjust — streaks and charts in Reports.</p>
-        </a>
-      </div>
-    </section>
     <% } %>
 
     <% const _wr = typeof weekReview !== 'undefined' && weekReview ? weekReview : null; %>
