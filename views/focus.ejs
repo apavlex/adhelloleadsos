@@ -55,8 +55,7 @@
         scroll-margin-bottom: calc(7.25rem + env(safe-area-inset-bottom, 0px));
         scroll-margin-top: 5.5rem;
       }
-      body.focus-mode-page .focus-quick-outcome,
-      body.focus-mode-page #focus-btn-add-mail-list {
+      body.focus-mode-page .focus-quick-outcome {
         min-height: 2.75rem;
         padding: 0.7rem 1rem;
         font-size: 0.75rem;
@@ -656,7 +655,6 @@
             <%- include('/partials/quick_log_pills', {
               quickLogBtnClass: 'focus-quick-outcome btn-pill border border-brand-border dark:border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 data-[active=true]:border-brand-yellow data-[active=true]:bg-brand-yellow/15',
             }) %>
-            <button type="button" id="focus-btn-add-mail-list" class="focus-mail-list-btn btn-pill btn-solid btn-solid--mail px-3 py-1.5 text-[10px] font-black uppercase tracking-widest transition-colors" title="Tag this lead and move to today's Direct Mail list">+ Mail list · today</button>
           </div>
           <p id="focus-selected-outcome-label" class="mt-2 text-[11px] text-brand-muted">Selected: none · <a href="/direct-mail?day=today" id="focus-link-mail-list-today" class="focus-mail-list-link font-semibold hover:text-brand-yellow transition-colors">View today's list</a></p>
         </div>
