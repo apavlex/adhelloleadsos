@@ -1721,12 +1721,6 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   }
 }
 
-#focus-btn-push-ghl.is-busy,
-#focus-btn-push-ghl[aria-busy='true'] {
-  cursor: wait;
-  animation: bulk-ghl-push-pulse 1.1s ease-in-out infinite;
-}
-
 /* Solid action fills. Written in CSS (not Tailwind utilities) so the text stays
    white in both themes — tinted fills with dark lettering were hard to read. */
 .btn-solid {
@@ -1763,6 +1757,16 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
 .btn-solid--sms:hover:not(:disabled) {
   background-color: #047857;
   border-color: #047857;
+}
+
+.btn-solid--email {
+  background-color: #0284c7;
+  border-color: #0284c7;
+}
+
+.btn-solid--email:hover:not(:disabled) {
+  background-color: #0369a1;
+  border-color: #0369a1;
 }
 
 .btn-solid--mail {
@@ -3957,7 +3961,8 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
     flex-shrink: 0;
 }
 
-#focus-outcome-panel[data-compact="true"]:has(#focus-sms-compose-section:not(.hidden)) #focus-outcome-compact-toggle {
+#focus-outcome-panel[data-compact="true"]:has(#focus-sms-compose-section:not(.hidden)) #focus-outcome-compact-toggle,
+#focus-outcome-panel[data-compact="true"]:has(#focus-email-compose-section:not(.hidden)) #focus-outcome-compact-toggle {
     display: none;
 }
 
@@ -4014,7 +4019,7 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
     order: 2;
 }
 
-#focus-outcome-panel[data-compact="true"] #focus-btn-push-ghl {
+#focus-outcome-panel[data-compact="true"] #focus-btn-email {
     order: 3;
 }
 
@@ -4036,21 +4041,24 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
     background: color-mix(in srgb, var(--brand-yellow, #facc15) 12%, transparent);
 }
 
-/* Focus compact bar — SMS composer spans full width above action buttons */
-#focus-outcome-panel[data-compact="true"]:has(#focus-sms-compose-section:not(.hidden)) {
+/* Focus compact bar — SMS/email composer spans full width above action buttons */
+#focus-outcome-panel[data-compact="true"]:has(#focus-sms-compose-section:not(.hidden)),
+#focus-outcome-panel[data-compact="true"]:has(#focus-email-compose-section:not(.hidden)) {
     flex-wrap: wrap;
     align-items: stretch;
     padding: 0.5rem 0.65rem 0.55rem;
 }
 
-#focus-outcome-panel[data-compact="true"]:has(#focus-sms-compose-section:not(.hidden)) #focus-sms-compose-section {
+#focus-outcome-panel[data-compact="true"]:has(#focus-sms-compose-section:not(.hidden)) #focus-sms-compose-section,
+#focus-outcome-panel[data-compact="true"]:has(#focus-email-compose-section:not(.hidden)) #focus-email-compose-section {
     order: 0;
     flex: 1 1 100%;
     width: 100%;
     min-width: 0;
 }
 
-#focus-outcome-panel[data-compact="true"]:has(#focus-sms-compose-section:not(.hidden)) #focus-outcome-actions {
+#focus-outcome-panel[data-compact="true"]:has(#focus-sms-compose-section:not(.hidden)) #focus-outcome-actions,
+#focus-outcome-panel[data-compact="true"]:has(#focus-email-compose-section:not(.hidden)) #focus-outcome-actions {
     order: 1;
     flex: 1 1 100%;
     width: 100%;
@@ -4058,7 +4066,8 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
     overflow-x: visible;
 }
 
-#focus-outcome-panel[data-compact="true"]:has(#focus-sms-compose-section:not(.hidden)) #focus-sms-compose-input {
+#focus-outcome-panel[data-compact="true"]:has(#focus-sms-compose-section:not(.hidden)) #focus-sms-compose-input,
+#focus-outcome-panel[data-compact="true"]:has(#focus-email-compose-section:not(.hidden)) #focus-email-compose-input {
     width: 100%;
     max-width: 100%;
     min-width: 0;
@@ -4070,6 +4079,12 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
     resize: vertical;
     min-height: 3.5rem;
     max-height: 8rem;
+}
+
+#focus-email-compose-input {
+    resize: vertical;
+    min-height: 4.5rem;
+    max-height: 12rem;
 }
 
 .dark #focus-outcome-panel[data-compact="true"] #focus-outcome-compact-toggle {

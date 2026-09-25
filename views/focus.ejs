@@ -413,6 +413,31 @@
           </div>
           <p id="focus-sms-compose-status" class="text-[10px] font-semibold text-brand-muted m-0" aria-live="polite"></p>
         </section>
+        <section id="focus-email-compose-section" class="hidden w-full rounded-2xl bg-white/60 dark:bg-slate-900/40 border border-sky-500/30 dark:border-sky-400/25 p-4 space-y-3" aria-label="Email composer">
+          <div class="flex items-center justify-between gap-2">
+            <p class="text-[10px] font-black uppercase tracking-widest text-sky-800 dark:text-sky-300">eMail</p>
+            <button type="button" id="focus-email-close" class="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-brand-border/50 dark:border-white/15 text-brand-muted hover:border-red-400/50 hover:text-red-600 dark:hover:text-red-400 transition-colors shrink-0" aria-label="Close email composer" title="Close email composer">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <p id="focus-email-compose-to" class="text-[11px] font-semibold text-brand-dark dark:text-white truncate">—</p>
+          <label class="block" for="focus-email-script-select">
+            <span class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Email template</span>
+            <select id="focus-email-script-select" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-brand-dark dark:text-white focus:ring-2 focus:ring-sky-500/50">
+              <option value="">Choose a template…</option>
+            </select>
+          </label>
+          <input id="focus-email-compose-subject" type="text" maxlength="180" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-medium text-brand-dark dark:text-white focus:ring-2 focus:ring-sky-500/50" placeholder="Subject" aria-label="Email subject" />
+          <textarea id="focus-email-compose-input" rows="3" maxlength="8000" placeholder="Type an email… or pick a template above" class="focus-email-compose-input block w-full max-w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-medium leading-relaxed text-brand-dark dark:text-white focus:ring-2 focus:ring-sky-500/50 resize-y min-h-[4.5rem] max-h-[12rem] overflow-y-auto"></textarea>
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span id="focus-email-compose-count" class="text-[9px] font-semibold text-brand-muted tabular-nums">0</span>
+            <div class="flex flex-wrap items-center gap-2">
+              <button type="button" id="focus-email-improve-text" class="btn-pill border border-brand-yellow/50 bg-brand-yellow/10 text-brand-dark dark:text-brand-yellow px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-brand-yellow/20 transition-all" title="Polish your email draft with AI — does not send">Improve text</button>
+              <button type="button" id="focus-email-compose-send" class="btn-pill bg-sky-600 text-white px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-sky-700 transition-all">Send eMail</button>
+            </div>
+          </div>
+          <p id="focus-email-compose-status" class="text-[10px] font-semibold text-brand-muted m-0" aria-live="polite">Ready — pick a template or type an email</p>
+        </section>
         <div id="focus-outcome-actions" class="flex flex-col gap-3 pt-1">
         <button
           type="button"
@@ -425,7 +450,7 @@
         <div class="focus-primary-actions grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
           <button type="button" id="focus-btn-call" class="btn-pill btn-primary w-full px-4 py-3.5 text-xs font-black uppercase tracking-widest shadow-md min-h-[3rem]">Call</button>
           <button type="button" id="focus-btn-sms" class="btn-pill btn-solid btn-solid--sms w-full px-4 py-3.5 text-xs font-black uppercase tracking-widest transition-colors min-h-[3rem]" title="Open or close SMS composer">SMS</button>
-          <button type="button" id="focus-btn-push-ghl" class="btn-pill btn-solid btn-solid--ghl w-full px-4 py-3.5 text-xs font-black uppercase tracking-widest transition-colors min-h-[3rem]" title="Save disposition, notes, and follow-up — then sync to Go High Level">Sync GHL</button>
+          <button type="button" id="focus-btn-email" class="btn-pill btn-solid btn-solid--email w-full px-4 py-3.5 text-xs font-black uppercase tracking-widest transition-colors min-h-[3rem]" title="Open email composer — send via Go High Level" aria-pressed="false">eMail</button>
         </div>
         <div id="focus-bulk-ghl-section" class="rounded-xl border border-orange-500/30 dark:border-orange-500/25 bg-orange-500/5 dark:bg-orange-950/20 p-3 space-y-2.5">
           <div class="flex flex-wrap items-center justify-between gap-2">
@@ -640,7 +665,7 @@
     var channelBtns = document.querySelectorAll('.focus-channel-btn');
     var btnCall = document.getElementById('focus-btn-call');
     var btnSms = document.getElementById('focus-btn-sms');
-    var btnPushGhl = document.getElementById('focus-btn-push-ghl');
+    var btnEmail = document.getElementById('focus-btn-email');
     var btnSyncListGhl = document.getElementById('focus-btn-sync-list-ghl');
     var btnStopGhlSync = document.getElementById('focus-btn-stop-ghl-sync');
     var elSyncListStatus = document.getElementById('focus-sync-list-status');
@@ -659,6 +684,8 @@
     var autoDialNext = false;
     /** True when the SMS composer was opened or used for the current lead — Log & Next must not auto-dial. */
     var focusSmsSessionActive = false;
+    /** True when the GHL email composer was opened or used for the current lead — Log & Next must not auto-dial. */
+    var focusEmailSessionActive = false;
     var modalHelp = document.getElementById('focus-modal-help');
     var modalCelebrate = document.getElementById('focus-modal-celebrate');
     var fill = document.getElementById('focus-progress-fill');
@@ -695,6 +722,17 @@
     var btnSmsImproveText = document.getElementById('focus-sms-improve-text');
     var btnSmsSaveScript = document.getElementById('focus-sms-save-script');
     var focusSmsScriptOptions = [];
+    var elEmailComposeSection = document.getElementById('focus-email-compose-section');
+    var elEmailComposeTo = document.getElementById('focus-email-compose-to');
+    var elEmailComposeInput = document.getElementById('focus-email-compose-input');
+    var elEmailComposeSubject = document.getElementById('focus-email-compose-subject');
+    var elEmailComposeCount = document.getElementById('focus-email-compose-count');
+    var elEmailComposeStatus = document.getElementById('focus-email-compose-status');
+    var elEmailScriptSelect = document.getElementById('focus-email-script-select');
+    var btnEmailComposeSend = document.getElementById('focus-email-compose-send');
+    var btnEmailClose = document.getElementById('focus-email-close');
+    var btnEmailImproveText = document.getElementById('focus-email-improve-text');
+    var focusEmailScriptOptions = [];
     var btnMobileBack = document.getElementById('focus-mobile-back');
     var btnMobileCallNext = document.getElementById('focus-mobile-call-next');
     var btnMobileLog = document.getElementById('focus-mobile-log');
@@ -723,6 +761,7 @@
     var outcomePanelCollapsed = false;
     var outcomePanelCompact = false;
     var smsOpenedFromCompact = false;
+    var emailOpenedFromCompact = false;
     try {
       outcomePanelCompact = localStorage.getItem('focus-outcome-compact') === 'true';
     } catch (e) {}
@@ -1852,15 +1891,8 @@
         return Promise.resolve();
       }
 
-      var labelDefault = 'Sync GHL';
       window.__focusPushGhlInFlight = true;
       window.__focusPushGhlStartedAt = Date.now();
-      if (btnPushGhl) {
-        btnPushGhl.disabled = true;
-        btnPushGhl.setAttribute('aria-busy', 'true');
-        btnPushGhl.classList.add('is-busy');
-        btnPushGhl.textContent = 'Syncing…';
-      }
       setOutcomeFeedback('Saving disposition and notes…', false);
 
       var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
@@ -1913,17 +1945,6 @@
           if (payload.tagNoWebsite) msg += ' · no website';
           setOutcomeFeedback(msg, false);
           setCopyFeedback(msg, false);
-          if (btnPushGhl) {
-            btnPushGhl.textContent = '✓ Synced';
-            if (window.__focusPushGhlFlashTimer) clearTimeout(window.__focusPushGhlFlashTimer);
-            window.__focusPushGhlFlashTimer = setTimeout(function () {
-              if (btnPushGhl) {
-                btnPushGhl.textContent = labelDefault;
-                btnPushGhl.classList.remove('is-busy');
-                btnPushGhl.removeAttribute('aria-busy');
-              }
-            }, 1600);
-          }
           return data;
         })
         .catch(function (err) {
@@ -1932,31 +1953,12 @@
             : (err && err.message ? err.message : 'Could not sync to GHL.');
           setOutcomeFeedback(errMsg, true);
           setCopyFeedback(errMsg, true);
-          if (btnPushGhl) {
-            btnPushGhl.textContent = 'Failed';
-            if (window.__focusPushGhlFlashTimer) clearTimeout(window.__focusPushGhlFlashTimer);
-            window.__focusPushGhlFlashTimer = setTimeout(function () {
-              if (btnPushGhl) {
-                btnPushGhl.textContent = labelDefault;
-                btnPushGhl.classList.remove('is-busy');
-                btnPushGhl.removeAttribute('aria-busy');
-              }
-            }, 1800);
-          }
           throw err;
         })
         .finally(function () {
           if (abortTimer) clearTimeout(abortTimer);
           window.__focusPushGhlInFlight = false;
           window.__focusPushGhlStartedAt = 0;
-          if (btnPushGhl) {
-            btnPushGhl.disabled = false;
-            btnPushGhl.removeAttribute('aria-busy');
-            if (/^Syncing/i.test(String(btnPushGhl.textContent || ''))) {
-              btnPushGhl.textContent = labelDefault;
-              btnPushGhl.classList.remove('is-busy');
-            }
-          }
         });
     }
     window.__pushFocusLeadToGhl = pushFocusLeadToGhl;
@@ -2728,6 +2730,7 @@
         closeFocusSmsComposer();
         return;
       }
+      if (isFocusEmailComposeOpen()) closeFocusEmailComposer();
       focusSmsSessionActive = true;
       var phone = normalizeTel(lead.phone || '');
       if (!phone) {
@@ -2793,11 +2796,396 @@
         });
     }
 
+    function focusLeadHasUsableEmail(lead) {
+      var email = String((lead && lead.email) || '').trim();
+      return !!(email && email !== 'N/A' && email.indexOf('@') !== -1);
+    }
+
+    function focusEmailDefaultSubject(lead) {
+      var company = String((lead && lead.title) || 'your business').trim() || 'your business';
+      return 'Quick idea for ' + company;
+    }
+
+    function isFocusEmailComposeOpen() {
+      return elEmailComposeSection && !elEmailComposeSection.classList.contains('hidden');
+    }
+
+    function setFocusEmailComposeStatus(msg, isError) {
+      if (!elEmailComposeStatus) return;
+      elEmailComposeStatus.textContent = msg || '';
+      elEmailComposeStatus.classList.toggle('text-red-500', Boolean(isError));
+      elEmailComposeStatus.classList.toggle('text-brand-muted', !isError);
+    }
+
+    function syncFocusEmailComposeCount() {
+      if (elEmailComposeCount && elEmailComposeInput) {
+        elEmailComposeCount.textContent = String((elEmailComposeInput.value || '').length);
+      }
+    }
+
+    function syncFocusEmailButtonState() {
+      var open = isFocusEmailComposeOpen();
+      if (!btnEmail) return;
+      btnEmail.setAttribute('aria-pressed', open ? 'true' : 'false');
+      btnEmail.classList.toggle('ring-2', open);
+      btnEmail.classList.toggle('ring-sky-500/70', open);
+      btnEmail.classList.toggle('ring-offset-1', open);
+    }
+
+    function closeFocusEmailComposer() {
+      if (elEmailComposeSection) elEmailComposeSection.classList.add('hidden');
+      setFocusEmailComposeStatus('');
+      syncFocusEmailButtonState();
+      if (emailOpenedFromCompact) {
+        emailOpenedFromCompact = false;
+        setOutcomePanelCompact(true);
+      }
+    }
+
+    function resetFocusEmailCompose() {
+      var restoreCompact = emailOpenedFromCompact;
+      emailOpenedFromCompact = false;
+      focusEmailSessionActive = false;
+      if (elEmailComposeSection) elEmailComposeSection.classList.add('hidden');
+      if (elEmailComposeInput) elEmailComposeInput.value = '';
+      if (elEmailComposeSubject) elEmailComposeSubject.value = '';
+      if (elEmailComposeTo) elEmailComposeTo.textContent = '—';
+      if (elEmailScriptSelect) {
+        elEmailScriptSelect.innerHTML = '<option value="">Choose a template…</option>';
+      }
+      focusEmailScriptOptions = [];
+      syncFocusEmailComposeCount();
+      setFocusEmailComposeStatus('');
+      syncFocusEmailButtonState();
+      if (restoreCompact) setOutcomePanelCompact(true);
+    }
+
+    function focusEmailTextFromServiceBlock(serviceBlock, lead) {
+      if (!serviceBlock) return '';
+      var raw =
+        String(serviceBlock.email || '').trim() ||
+        String(serviceBlock.channels && serviceBlock.channels.email || '').trim();
+      if (!raw) return '';
+      var fields = focusSmsProspectFields(lead);
+      return String(
+        applyScriptPlaceholders(raw, fields.contact, fields.company, fields.cityState) || '',
+      ).trim();
+    }
+
+    function buildFocusEmailScriptOptions(lead) {
+      var options = [{ id: 'blank', label: 'Blank — type your own', text: '', subject: '' }];
+      var fields = focusSmsProspectFields(lead);
+      var currentKey =
+        (elServiceSelect && elServiceSelect.value) || getDefaultProductKey() || '';
+      var lib = focusScriptLibrary && typeof focusScriptLibrary === 'object' ? focusScriptLibrary : {};
+      var keys = Object.keys(lib);
+      if (currentKey && keys.indexOf(currentKey) !== -1) {
+        keys = [currentKey].concat(keys.filter(function (k) { return k !== currentKey; }));
+      }
+      keys.forEach(function (key) {
+        var block = lib[key];
+        if (!block) return;
+        var text = focusEmailTextFromServiceBlock(block, lead);
+        if (!text) return;
+        options.push({
+          id: 'email:' + key,
+          label: (block.label || key) + ' — Email',
+          text: text,
+          subject: focusEmailDefaultSubject(lead),
+        });
+      });
+      options.push({
+        id: 'follow-up',
+        label: 'Call follow-up',
+        text:
+          'Hi ' +
+          fields.contact +
+          ',\n\nFollowing up after our call — a few ideas that could help ' +
+          fields.company +
+          (fields.cityState ? ' in ' + fields.cityState : '') +
+          ' capture more local demand.\n\nOpen to a short next step this week?\n\nBest',
+        subject: focusEmailDefaultSubject(lead),
+      });
+      return options;
+    }
+
+    function populateFocusEmailScriptSelect(lead) {
+      if (!elEmailScriptSelect) return;
+      focusEmailScriptOptions = buildFocusEmailScriptOptions(lead);
+      elEmailScriptSelect.innerHTML = '';
+      var placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = 'Choose a template…';
+      elEmailScriptSelect.appendChild(placeholder);
+      focusEmailScriptOptions.forEach(function (opt, idx) {
+        var o = document.createElement('option');
+        o.value = String(idx);
+        o.textContent = opt.label || 'Template ' + (idx + 1);
+        elEmailScriptSelect.appendChild(o);
+      });
+      elEmailScriptSelect.value = '';
+    }
+
+    function applyFocusEmailScriptSelection(opts) {
+      opts = opts || {};
+      if (!elEmailScriptSelect || !elEmailComposeInput) return;
+      if (elEmailScriptSelect.value === '') return;
+      var idx = parseInt(elEmailScriptSelect.value, 10);
+      if (isNaN(idx) || idx < 0 || idx >= focusEmailScriptOptions.length) return;
+      var selected = focusEmailScriptOptions[idx];
+      var nextText = selected && selected.text != null ? String(selected.text) : '';
+      var current = String(elEmailComposeInput.value || '');
+      if (!opts.force && current.trim() && selected && selected.id === 'blank') return;
+      elEmailComposeInput.value = nextText;
+      if (elEmailComposeSubject && selected && selected.subject) {
+        elEmailComposeSubject.value = String(selected.subject);
+      }
+      syncFocusEmailComposeCount();
+      setFocusEmailComposeStatus(
+        selected && selected.id === 'blank'
+          ? 'Type your own email, then Send eMail.'
+          : 'Template loaded — edit if needed, then Send eMail.',
+      );
+    }
+
+    function mergeFocusEmailScriptOptionsFromApi(apiOptions, lead) {
+      if (!Array.isArray(apiOptions) || !apiOptions.length) return;
+      var existingIds = {};
+      focusEmailScriptOptions.forEach(function (o) {
+        if (o && o.id) existingIds[o.id] = true;
+      });
+      apiOptions.forEach(function (opt) {
+        if (!opt) return;
+        var id = String(opt.id || '').trim();
+        var text = String(opt.text || '').trim();
+        if (!id || !text || existingIds[id]) return;
+        existingIds[id] = true;
+        focusEmailScriptOptions.push({
+          id: id,
+          label: String(opt.label || id).trim() || id,
+          text: text,
+          subject: String(opt.subject || '').trim() || focusEmailDefaultSubject(lead),
+        });
+      });
+      if (!elEmailScriptSelect) return;
+      var prev = String(elEmailScriptSelect.value || '');
+      elEmailScriptSelect.innerHTML = '';
+      var placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = 'Choose a template…';
+      elEmailScriptSelect.appendChild(placeholder);
+      focusEmailScriptOptions.forEach(function (opt, idx) {
+        var o = document.createElement('option');
+        o.value = String(idx);
+        o.textContent = opt.label || 'Template ' + (idx + 1);
+        elEmailScriptSelect.appendChild(o);
+      });
+      if (prev && Array.from(elEmailScriptSelect.options).some(function (o) { return o.value === prev; })) {
+        elEmailScriptSelect.value = prev;
+      } else {
+        elEmailScriptSelect.value = '';
+      }
+    }
+
+    function fetchFocusEmailScriptOptions(lead) {
+      var key = focusLeadKeyParam(lead) || (lead && lead.key);
+      if (!key) return Promise.resolve();
+      return fetch('/leads/' + encodeURIComponent(key) + '/email-script-options', {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      })
+        .then(function (r) {
+          return r.json().then(function (j) {
+            if (!r.ok || !j.success) return null;
+            return j;
+          });
+        })
+        .then(function (data) {
+          if (data && Array.isArray(data.options)) {
+            mergeFocusEmailScriptOptionsFromApi(data.options, lead);
+          }
+        })
+        .catch(function () { /* library is optional */ });
+    }
+
+    function setFocusEmailSendBusy(busy) {
+      if (btnEmailComposeSend) {
+        btnEmailComposeSend.disabled = !!busy;
+        btnEmailComposeSend.textContent = busy ? 'Sending…' : 'Send eMail';
+      }
+    }
+
+    function openFocusEmailComposer() {
+      var lead = currentLead();
+      if (!lead || !lead.key) {
+        setOutcomeFeedback('No lead loaded.', true);
+        return;
+      }
+      if (isFocusEmailComposeOpen()) {
+        closeFocusEmailComposer();
+        return;
+      }
+      if (isFocusSmsComposeOpen()) closeFocusSmsComposer();
+      focusEmailSessionActive = true;
+      if (!focusLeadHasUsableEmail(lead)) {
+        setFocusEmailComposeStatus('No email on file — add one on this lead first.', true);
+        if (elEmailComposeSection) elEmailComposeSection.classList.remove('hidden');
+        if (elEmailComposeTo) elEmailComposeTo.textContent = '—';
+        syncFocusEmailButtonState();
+        return;
+      }
+      if (outcomePanelCompact) {
+        emailOpenedFromCompact = true;
+      } else {
+        emailOpenedFromCompact = false;
+      }
+      if (elEmailComposeTo) elEmailComposeTo.textContent = String(lead.email || '').trim() || '—';
+      if (elEmailComposeSubject && !String(elEmailComposeSubject.value || '').trim()) {
+        elEmailComposeSubject.value = focusEmailDefaultSubject(lead);
+      }
+      populateFocusEmailScriptSelect(lead);
+      syncFocusEmailComposeCount();
+      if (elEmailComposeSection) elEmailComposeSection.classList.remove('hidden');
+      if (elEmailComposeSection) elEmailComposeSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      setFocusEmailComposeStatus('Ready — pick a template or type an email');
+      syncFocusEmailButtonState();
+      if (elEmailScriptSelect) {
+        window.setTimeout(function () { elEmailScriptSelect.focus(); }, 80);
+      }
+      fetchFocusEmailScriptOptions(lead);
+    }
+
+    function sendFocusEmailCompose() {
+      var lead = currentLead();
+      if (!lead || !lead.key) return;
+      if (!focusLeadHasUsableEmail(lead)) {
+        setFocusEmailComposeStatus('No email on file for this lead.', true);
+        return;
+      }
+      var subject =
+        String((elEmailComposeSubject && elEmailComposeSubject.value) || '').trim() ||
+        focusEmailDefaultSubject(lead);
+      var body = String((elEmailComposeInput && elEmailComposeInput.value) || '');
+      var validated =
+        Scripts.validateOutreachComposerBody
+          ? Scripts.validateOutreachComposerBody(body, 'email')
+          : { ok: !!String(body || '').trim(), text: String(body || '').trim() };
+      if (!validated.ok) {
+        setFocusEmailComposeStatus(validated.error || 'Email body is empty. Add a message first.', true);
+        return;
+      }
+      var key = focusLeadKeyParam(lead) || lead.key;
+      setFocusEmailSendBusy(true);
+      setFocusEmailComposeStatus('Sending via Go High Level…');
+      fetch('/leads/' + encodeURIComponent(key) + '/email', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          subject: subject,
+          body: validated.text,
+          to: String(lead.email || '').trim(),
+          saveToLead: true,
+        }),
+      })
+        .then(function (r) {
+          return r.json().then(function (j) {
+            if (!r.ok || !j.success) throw new Error((j && j.error) || 'Email failed');
+            return j;
+          });
+        })
+        .then(function (data) {
+          setFocusEmailComposeStatus('Email sent via Go High Level.');
+          if (data && data.lead) {
+            Object.assign(lead, data.lead);
+            applyFocusPipelineFromLead(lead, data.lead);
+          }
+          if (elEmailComposeInput) {
+            elEmailComposeInput.value = '';
+            syncFocusEmailComposeCount();
+          }
+          if (btnEmail) {
+            var prev = btnEmail.textContent;
+            btnEmail.textContent = '✓ Sent';
+            window.setTimeout(function () {
+              if (btnEmail) btnEmail.textContent = prev || 'eMail';
+            }, 1600);
+          }
+        })
+        .catch(function (err) {
+          setFocusEmailComposeStatus(err && err.message ? err.message : 'Could not send email.', true);
+        })
+        .finally(function () {
+          setFocusEmailSendBusy(false);
+        });
+    }
+
+    function improveFocusEmailCompose() {
+      var lead = currentLead();
+      if (!lead || !lead.key) {
+        setFocusEmailComposeStatus('No lead selected.', true);
+        return;
+      }
+      var draft = String((elEmailComposeInput && elEmailComposeInput.value) || '').trim();
+      var subject = String((elEmailComposeSubject && elEmailComposeSubject.value) || '').trim();
+      if (!draft) {
+        setFocusEmailComposeStatus('Add a message to improve first.', true);
+        return;
+      }
+      if (btnEmailImproveText) {
+        btnEmailImproveText.disabled = true;
+        btnEmailImproveText.textContent = 'Improving…';
+      }
+      setFocusEmailComposeStatus('Improving text…');
+      var improveUrl =
+        '/leads/' + encodeURIComponent(focusLeadKeyParam(lead) || lead.key) + '/email-personalize';
+      fetch(improveUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ scriptText: draft, subject: subject, context: 'outreach' }),
+      })
+        .then(function (r) {
+          return r.json().then(function (j) {
+            if (!r.ok || !j.success) throw new Error((j && j.error) || 'Could not improve text.');
+            return j;
+          });
+        })
+        .then(function (data) {
+          if (elEmailComposeInput && (data.body || data.personalized)) {
+            elEmailComposeInput.value = String(data.body || data.personalized || '');
+            syncFocusEmailComposeCount();
+          }
+          if (elEmailComposeSubject && data.subject) {
+            elEmailComposeSubject.value = String(data.subject);
+          }
+          setFocusEmailComposeStatus(
+            data.provider === 'fallback'
+              ? 'Polished locally (AI unavailable). Review and tap Send eMail.'
+              : 'Text improved — review and tap Send eMail when ready.',
+          );
+        })
+        .catch(function (err) {
+          setFocusEmailComposeStatus(err && err.message ? err.message : 'Could not improve text.', true);
+        })
+        .finally(function () {
+          if (btnEmailImproveText) {
+            btnEmailImproveText.disabled = false;
+            btnEmailImproveText.textContent = 'Improve text';
+          }
+        });
+    }
+
     function onFocusImproveText() {
       var lead = currentLead();
       if (!lead || !lead.key) {
-        if (isFocusSmsComposeOpen()) setFocusSmsComposeStatus('No lead selected.', true);
+        if (isFocusEmailComposeOpen()) setFocusEmailComposeStatus('No lead selected.', true);
+        else if (isFocusSmsComposeOpen()) setFocusSmsComposeStatus('No lead selected.', true);
         else setCopyFeedback('No lead selected.', true);
+        return;
+      }
+      if (isFocusEmailComposeOpen()) {
+        improveFocusEmailCompose();
         return;
       }
       var composeOpen = isFocusSmsComposeOpen();
@@ -4039,6 +4427,7 @@
         setFocusNotesOpen(false);
         syncFocusNotesIndicator();
         resetFocusSmsCompose();
+        resetFocusEmailCompose();
         return;
       }
       elEmpty.classList.add('hidden');
@@ -4073,6 +4462,7 @@
       }
       setOutcomeFeedback('');
       resetFocusSmsCompose();
+      resetFocusEmailCompose();
       syncFocusSendInfo(lead);
       applyChannelUI();
       updateDraftFromSelection();
@@ -4178,6 +4568,7 @@
     function nextLead() {
       rememberLeadBeforeAdvance();
       focusSmsSessionActive = false;
+      focusEmailSessionActive = false;
       idx += 1;
       if (idx >= queue.length) {
         elSection.classList.add('hidden');
@@ -4223,9 +4614,13 @@
       var lead = currentLead();
       if (!lead) return;
       // Call Next always dials. Log & Next only auto-dials after a call-script touch —
-      // never after SMS (composer stays open or was used on this lead).
-      var smsBlocksDial = focusSmsSessionActive || isFocusSmsComposeOpen();
-      autoDialNext = currentChannel === 'call-script' && !smsBlocksDial;
+      // never after SMS/email (composer stays open or was used on this lead).
+      var outreachBlocksDial =
+        focusSmsSessionActive ||
+        isFocusSmsComposeOpen() ||
+        focusEmailSessionActive ||
+        isFocusEmailComposeOpen();
+      autoDialNext = currentChannel === 'call-script' && !outreachBlocksDial;
       btnLog.disabled = true;
       applyFocusQuickLogIfNeeded(lead)
         .then(function () { return postNote(); })
@@ -4270,9 +4665,12 @@
       elServiceSelect.addEventListener('change', function () {
         refreshFocusScriptLibrary().finally(function () {
           updateDraftFromSelection();
-          if (isFocusSmsComposeOpen()) {
-            var lead = currentLead();
-            if (lead) populateFocusSmsScriptSelect(lead);
+          var lead = currentLead();
+          if (!lead) return;
+          if (isFocusSmsComposeOpen()) populateFocusSmsScriptSelect(lead);
+          if (isFocusEmailComposeOpen()) {
+            populateFocusEmailScriptSelect(lead);
+            fetchFocusEmailScriptOptions(lead);
           }
         });
       });
@@ -4575,6 +4973,7 @@
 
     if (btnCall) btnCall.addEventListener('click', function () { onFocusCall(); });
     if (btnSms) btnSms.addEventListener('click', function () { openFocusSmsComposer(); });
+    if (btnEmail) btnEmail.addEventListener('click', function () { openFocusEmailComposer(); });
     if (btnImproveText) btnImproveText.addEventListener('click', function () { onFocusImproveText(); });
     if (btnSmsImproveText) btnSmsImproveText.addEventListener('click', function () { onFocusImproveText(); });
     if (btnSmsComposeSend) btnSmsComposeSend.addEventListener('click', function () { sendFocusSmsCompose(); });
@@ -4600,13 +4999,26 @@
         }
       });
     }
-    if (btnPushGhl) {
-      btnPushGhl.addEventListener('click', function (e) {
-        if (e) {
+    if (btnEmailImproveText) btnEmailImproveText.addEventListener('click', function () { improveFocusEmailCompose(); });
+    if (btnEmailComposeSend) btnEmailComposeSend.addEventListener('click', function () { sendFocusEmailCompose(); });
+    if (btnEmailClose) btnEmailClose.addEventListener('click', function () { closeFocusEmailComposer(); });
+    if (elEmailScriptSelect) {
+      elEmailScriptSelect.addEventListener('change', function () {
+        applyFocusEmailScriptSelection({ force: true });
+      });
+    }
+    if (elEmailComposeInput) {
+      elEmailComposeInput.addEventListener('input', syncFocusEmailComposeCount);
+      elEmailComposeInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
           e.preventDefault();
-          e.stopPropagation();
+          closeFocusEmailComposer();
+          return;
         }
-        pushFocusLeadToGhl();
+        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+          e.preventDefault();
+          sendFocusEmailCompose();
+        }
       });
     }
     // Keep the Focus buttons in step with the navbar bell job, including a sync
@@ -4791,17 +5203,6 @@
       });
     }
     updateFocusBulkGhlCount();
-    document.addEventListener(
-      'click',
-      function (e) {
-        if (!e.target || !e.target.closest || !e.target.closest('#focus-btn-push-ghl')) return;
-        if (e.defaultPrevented) return;
-        e.preventDefault();
-        e.stopPropagation();
-        pushFocusLeadToGhl();
-      },
-      true,
-    );
     btnLog.addEventListener('click', onLogNext);
     btnSkip.addEventListener('click', onSkip);
     if (btnBack) btnBack.addEventListener('click', prevLead);
