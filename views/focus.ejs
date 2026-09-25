@@ -688,7 +688,6 @@
       <button type="button" id="focus-mobile-log" class="focus-dock-btn border border-brand-dark/25 dark:border-white/20 bg-white dark:bg-slate-900 text-brand-dark dark:text-white" role="menuitem">Log &amp; next</button>
       <button type="button" id="focus-mobile-skip" class="focus-dock-btn border border-brand-border/60 dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800 text-brand-muted dark:text-slate-300" role="menuitem">Skip</button>
       <button type="button" id="focus-mobile-email" class="focus-dock-btn border border-sky-500/50 bg-sky-500/15 text-sky-900 dark:text-sky-200" role="menuitem" title="Open email composer">eMail</button>
-      <button type="button" id="focus-mobile-dialer" class="focus-dock-btn border border-brand-yellow/50 bg-brand-yellow/20 text-brand-dark dark:text-brand-yellow col-span-2" role="menuitem" title="Open AdHello softphone">Open dialer</button>
     </div>
     <div class="focus-mobile-dock-bar">
       <button type="button" id="focus-mobile-call" class="focus-dock-btn focus-dock-btn--call" title="Call this lead now">
@@ -883,7 +882,6 @@
     var btnMobileCall = document.getElementById('focus-mobile-call');
     var btnMobileSms = document.getElementById('focus-mobile-sms');
     var btnMobileEmail = document.getElementById('focus-mobile-email');
-    var btnMobileDialer = document.getElementById('focus-mobile-dialer');
     var btnImproveText = document.getElementById('focus-improve-text');
     var elSmsComposeSection = document.getElementById('focus-sms-compose-section');
     var elSmsComposeInput = document.getElementById('focus-sms-compose-input');
@@ -1193,7 +1191,6 @@
         if (!showFab) closeMobileFabActions();
         if (btnMobileCall) btnMobileCall.disabled = !hasPhone;
         if (btnMobileCallNext) btnMobileCallNext.disabled = !hasPhone;
-        if (btnMobileDialer) btnMobileDialer.disabled = !hasPhone;
         if (btnMobileSms) btnMobileSms.disabled = !hasPhone;
       }
     }
