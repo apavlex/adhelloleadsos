@@ -660,19 +660,21 @@
     try {
       stored = parseInt(localStorage.getItem('adhello_dm_prompt_h') || '0', 10);
     } catch (_) {}
-    if (stored >= 120 && stored <= 520) {
+    if (stored >= 200 && stored <= 520) {
       dock.style.setProperty('--dm-prompt-h', stored + 'px');
     }
 
     var dragging = false;
     var startY = 0;
     var startH = 0;
+    var PROMPT_MIN = 200;
+    var PROMPT_MAX = 520;
 
     function onMove(e) {
       if (!dragging) return;
       var clientY = e.touches ? e.touches[0].clientY : e.clientY;
       var delta = startY - clientY;
-      var next = Math.min(520, Math.max(120, startH + delta));
+      var next = Math.min(PROMPT_MAX, Math.max(PROMPT_MIN, startH + delta));
       dock.style.setProperty('--dm-prompt-h', next + 'px');
     }
 
@@ -682,7 +684,7 @@
       resizer.classList.remove('is-dragging');
       document.body.classList.remove('dm-prompt-resize-active');
       var h = parseInt(getComputedStyle(dock).height, 10);
-      if (h >= 120) {
+      if (h >= PROMPT_MIN) {
         try {
           localStorage.setItem('adhello_dm_prompt_h', String(h));
         } catch (_) {}

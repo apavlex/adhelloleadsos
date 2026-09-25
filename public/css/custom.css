@@ -5963,7 +5963,9 @@ body.dm-studio-fullscreen-active .dm-studio-inspector {
 
 body.dm-studio-fullscreen-active .dm-studio-stage {
   min-height: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   display: flex;
   flex-direction: column;
 }
@@ -5976,7 +5978,9 @@ body.dm-studio-fullscreen-active .dm-canvas-viewport {
 
 body.dm-studio-fullscreen-active .dm-prompt-dock {
   flex: 0 0 auto;
-  max-height: min(40vh, 22rem);
+  max-height: min(42vh, 24rem);
+  min-height: 12.5rem;
+  overflow-y: auto;
 }
 
 body.dm-studio-fullscreen-active .dm-workflow-section {
@@ -6121,7 +6125,10 @@ body.dm-studio-fullscreen-active .dm-workflow-section {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   background: var(--dm-canvas-bg);
   background-image: radial-gradient(var(--dm-canvas-dot) 1px, transparent 1px);
   background-size: 16px 16px;
@@ -6257,8 +6264,8 @@ body.dm-studio-fullscreen-active .dm-workflow-section {
 
 .dm-canvas-viewport {
   position: relative;
-  flex: 1;
-  min-height: 14rem;
+  flex: 1 1 auto;
+  min-height: 8rem;
   overflow: auto;
   display: flex;
   align-items: center;
@@ -6558,6 +6565,7 @@ body:not(.dm-show-lob-zones) .dm-lob-zone {
   flex-wrap: wrap;
   justify-content: center;
   gap: 1rem;
+  flex-shrink: 0;
   padding: 0.35rem 0.75rem 0.5rem;
   background: rgba(255, 255, 255, 0.55);
   border-top: 1px solid rgba(17, 24, 39, 0.06);
@@ -6624,13 +6632,16 @@ body.dm-prompt-resize-active {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  min-height: 7.5rem;
+  min-height: 12.5rem;
   max-height: min(52vh, 28rem);
-  height: var(--dm-prompt-h, 11.5rem);
+  height: var(--dm-prompt-h, 14.5rem);
   padding: 0.65rem 0.75rem 0.75rem;
   background: rgba(255, 255, 255, 0.92);
   border-top: 1px solid rgba(17, 24, 39, 0.08);
   backdrop-filter: blur(8px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .dark .dm-prompt-dock {
@@ -6639,8 +6650,8 @@ body.dm-prompt-resize-active {
 }
 
 .dm-chat-log {
-  flex: 1;
-  min-height: 4.5rem;
+  flex: 1 1 auto;
+  min-height: 0;
   max-height: none;
   overflow-y: auto;
   margin-bottom: 0.5rem;
@@ -7006,6 +7017,8 @@ body.dm-prompt-resize-active {
   gap: 0.5rem 0.75rem;
   align-items: center;
   justify-content: space-between;
+  flex-shrink: 0;
+  padding-bottom: 0.15rem;
 }
 
 .dm-prompt-actions__secondary,
