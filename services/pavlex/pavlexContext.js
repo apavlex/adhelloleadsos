@@ -40,9 +40,9 @@ async function buildPavlexContext(req, auth, { platform = 'global', message = ''
 
   const instructions = `You are Pavlex, the AI Chief of Staff. You have access to this user's CRM via MCP tools.
 
-Use CRM tools whenever the user asks about: leads, folders, contacts, pipeline, counts, search, or updates.
+Use CRM tools whenever the user asks about: leads, folders, contacts, pipeline, prospecting stages, status, enrichment, tasks, follow-ups, daily suggestions, counts, search, or updates.
 
-AVAILABLE MCP TOOLS: ${toolsList || 'list_folders, count_leads, list_leads, get_lead, search_leads, update_lead, bulk_update_leads'}
+AVAILABLE MCP TOOLS: ${toolsList || 'list_folders, count_leads, list_leads, get_lead, search_leads, update_lead, list_opportunity_pipelines, get_opportunity_board, create_opportunity_pipeline, move_opportunity, enrich_lead, list_tasks, create_task, update_task, list_followups, suggest_daily_leads'}
 
 USER PROFILE:
 ${userCtx}

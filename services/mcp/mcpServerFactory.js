@@ -3,7 +3,7 @@
  */
 const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
 const { z } = require('zod');
-const { executeCrmTool } = require('./mcpToolExecutor');
+const { executeCrmTool, TOOL_NAMES } = require('./mcpToolExecutor');
 const mcpLogger = require('./mcpLogger');
 
 function jsonToolResult(payload) {
@@ -52,20 +52,14 @@ const folderRefSchema = z
 function createCrmMcpServer(ctx) {
   const server = new McpServer({
     name: 'adhello-ceo-crm',
-    version: '1.1.0',
+    version: '1.2.0',
   });
 
-  const toolNames = [
-    'list_folders',
-    'get_folder',
-    'count_leads',
-    'list_leads',
-    'get_lead',
-    'update_lead',
-    'bulk_update_leads',
-    'search_leads',
-  ];
-  mcpLogger.toolsDiscovered({ workspaceId: ctx.workspaceId, tools: toolNames, source: 'mcp_server' });
+  mcpLogger.toolsDiscovered({
+    workspaceId: ctx.workspaceId,
+    tools: TOOL_NAMES.slice(),
+    source: 'mcp_server',
+  });
 
   server.registerTool(
     'list_folders',
@@ -109,7 +103,7 @@ function createCrmMcpServer(ctx) {
   server.registerTool(
     'get_lead',
     {
-      description: 'Fetch the full lead record by lead id/key.',
+      description: 'Fetch the full lead record by lead id/key (status, stage, contact fields).',
       inputSchema: z.object({
         lead_id: z.string().min(1).describe('Lead key, with or without the lead: prefix.'),
       }),
@@ -164,6 +158,134 @@ function createCrmMcpServer(ctx) {
     async ({ query, limit, offset }) => runTool(ctx, 'search_leads', { query, limit, offset }),
   );
 
+  server.registerTool(
+    'list_opportunity_pipelines',
+    {
+      description: 'List opportunity pipelines, stages, active pipeline, and templates.',
+      inputSchema: z.object({}),
+    },
+    async () => runTool(ctx, 'list_opportunity_pipelines', {}),
+  );
+
+  server.registerTool(
+    'get_opportunity_board',
+    {
+      description: 'Get prospecting stages and sample leads on an opportunity pipeline.',
+      inputSchema: z.object({
+        pipeline_id: z.string().min(1).optional(),
+        limit: z.number().int().min(1).max(20).optional(),
+      }),
+    },
+    async (args) => runTool(ctx, 'get_opportunity_board', args),
+  );
+
+  server.registerTool(
+    'create_opportunity_pipeline',
+    {
+      description: 'Create a new opportunity pipeline from a template.',
+      inputSchema: z.object({
+        name: z.string().min(1),
+        template_id: z.string().min(1).optional(),
+      }),
+    },
+    async (args) => runTool(ctx, 'create_opportunity_pipeline', args),
+  );
+
+  server.registerTool(
+    'move_opportunity',
+    {
+      description: 'Move a lead onto a pipeline stage (stage_id or stage_name).',
+      inputSchema: z.object({
+        lead_id: z.string().min(1),
+        pipeline_id: z.string().min(1).optional(),
+        stage_id: z.string().min(1).optional(),
+        stage_name: z.string().min(1).optional(),
+      }),
+    },
+    async (args) => runTool(ctx, 'move_opportunity', args),
+  );
+
+  server.registerTool(
+    'enrich_lead',
+    {
+      description: 'Hunt for email/phone enrichment on a lead.',
+      inputSchema: z.object({
+        lead_id: z.string().min(1),
+        force: z.boolean().optional(),
+      }),
+    },
+    async (args) => runTool(ctx, 'enrich_lead', args),
+  );
+
+  server.registerTool(
+    'list_tasks',
+    {
+      description: 'List signed-in user manual tasks.',
+      inputSchema: z.object({
+        column: z.string().optional(),
+        lead_id: z.string().optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+      }),
+    },
+    async (args) => runTool(ctx, 'list_tasks', args),
+  );
+
+  server.registerTool(
+    'create_task',
+    {
+      description: 'Create or upsert an open task (optionally linked to a lead / scheduled).',
+      inputSchema: z.object({
+        title: z.string().min(1),
+        column: z.string().optional(),
+        lead_id: z.string().optional(),
+        scheduled_at: z.string().optional(),
+        remind_minutes_before: z.number().int().optional(),
+      }),
+    },
+    async (args) => runTool(ctx, 'create_task', args),
+  );
+
+  server.registerTool(
+    'update_task',
+    {
+      description: 'Update an existing task.',
+      inputSchema: z.object({
+        task_id: z.string().min(1),
+        title: z.string().optional(),
+        column: z.string().optional(),
+        lead_id: z.string().optional(),
+        scheduled_at: z.string().optional(),
+        remind_minutes_before: z.number().int().optional(),
+      }),
+    },
+    async (args) => runTool(ctx, 'update_task', args),
+  );
+
+  server.registerTool(
+    'list_followups',
+    {
+      description: 'List upcoming or overdue scheduled follow-up tasks.',
+      inputSchema: z.object({
+        within_hours: z.number().int().min(1).max(336).optional(),
+        include_done: z.boolean().optional(),
+      }),
+    },
+    async (args) => runTool(ctx, 'list_followups', args),
+  );
+
+  server.registerTool(
+    'suggest_daily_leads',
+    {
+      description:
+        'Suggest top leads to work today from the active opportunity pipeline (early prospecting stages first).',
+      inputSchema: z.object({
+        pipeline_id: z.string().min(1).optional(),
+        limit: z.number().int().min(1).max(20).optional(),
+      }),
+    },
+    async (args) => runTool(ctx, 'suggest_daily_leads', args),
+  );
+
   return server;
 }
 
@@ -176,8 +298,9 @@ function getOpenAiToolManifest() {
 
   return {
     name: 'adhello-ceo-crm',
-    version: '1.1.0',
-    description: 'AdHello CEO Command Center CRM — folders, leads, search, and enrichment updates.',
+    version: '1.2.0',
+    description:
+      'AdHello CEO Command Center CRM — folders, leads, opportunities, enrichment, tasks, and follow-ups.',
     authentication: {
       type: 'bearer',
       header: 'Authorization',
@@ -278,6 +401,134 @@ function getOpenAiToolManifest() {
             offset: { type: 'integer', minimum: 0 },
           },
           required: ['query'],
+          additionalProperties: false,
+        },
+      },
+      {
+        name: 'list_opportunity_pipelines',
+        description: 'List opportunity pipelines and templates.',
+        input_schema: { type: 'object', properties: {}, additionalProperties: false },
+      },
+      {
+        name: 'get_opportunity_board',
+        description: 'Get prospecting stages and sample leads on a pipeline.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            pipeline_id: { type: 'string' },
+            limit: { type: 'integer', minimum: 1, maximum: 20 },
+          },
+          additionalProperties: false,
+        },
+      },
+      {
+        name: 'create_opportunity_pipeline',
+        description: 'Create an opportunity pipeline from a template.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+            template_id: { type: 'string' },
+          },
+          required: ['name'],
+          additionalProperties: false,
+        },
+      },
+      {
+        name: 'move_opportunity',
+        description: 'Move a lead to a pipeline stage.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            lead_id: { type: 'string' },
+            pipeline_id: { type: 'string' },
+            stage_id: { type: 'string' },
+            stage_name: { type: 'string' },
+          },
+          required: ['lead_id'],
+          additionalProperties: false,
+        },
+      },
+      {
+        name: 'enrich_lead',
+        description: 'Enrich a lead with email/phone hunt.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            lead_id: { type: 'string' },
+            force: { type: 'boolean' },
+          },
+          required: ['lead_id'],
+          additionalProperties: false,
+        },
+      },
+      {
+        name: 'list_tasks',
+        description: 'List user tasks.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            column: { type: 'string' },
+            lead_id: { type: 'string' },
+            limit: { type: 'integer', minimum: 1, maximum: 100 },
+          },
+          additionalProperties: false,
+        },
+      },
+      {
+        name: 'create_task',
+        description: 'Create or upsert a task.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            title: { type: 'string' },
+            column: { type: 'string' },
+            lead_id: { type: 'string' },
+            scheduled_at: { type: 'string' },
+            remind_minutes_before: { type: 'integer' },
+          },
+          required: ['title'],
+          additionalProperties: false,
+        },
+      },
+      {
+        name: 'update_task',
+        description: 'Update a task.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            task_id: { type: 'string' },
+            title: { type: 'string' },
+            column: { type: 'string' },
+            lead_id: { type: 'string' },
+            scheduled_at: { type: 'string' },
+            remind_minutes_before: { type: 'integer' },
+          },
+          required: ['task_id'],
+          additionalProperties: false,
+        },
+      },
+      {
+        name: 'list_followups',
+        description: 'List upcoming/overdue follow-up tasks.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            within_hours: { type: 'integer', minimum: 1, maximum: 336 },
+            include_done: { type: 'boolean' },
+          },
+          additionalProperties: false,
+        },
+      },
+      {
+        name: 'suggest_daily_leads',
+        description: 'Suggest daily leads from the top opportunity pipeline.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            pipeline_id: { type: 'string' },
+            limit: { type: 'integer', minimum: 1, maximum: 20 },
+          },
           additionalProperties: false,
         },
       },
