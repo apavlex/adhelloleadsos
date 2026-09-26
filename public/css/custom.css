@@ -5026,64 +5026,74 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
 }
 
 @media (max-width: 767px) {
+  .softphone-keypad-dock {
+    /* Keep dial pad fully visible above the bottom nav */
+    padding-bottom: max(0.45rem, env(safe-area-inset-bottom));
+  }
+
   .softphone-keypad-grid {
-    grid-template-columns: repeat(3, 4.35rem);
-    column-gap: 0.95rem;
-    row-gap: 0.55rem;
-    max-width: 16rem;
+    grid-template-columns: repeat(3, 3.65rem);
+    column-gap: 0.85rem;
+    row-gap: 0.4rem;
+    max-width: 13.5rem;
+    margin-top: 0.15rem;
   }
 
   .softphone-key {
-    width: 4.35rem;
-    height: 4.35rem;
+    width: 3.65rem;
+    height: 3.65rem;
   }
 
   .softphone-key-main {
-    font-size: 1.7rem;
+    font-size: 1.45rem;
     font-weight: 600;
   }
 
   .softphone-key-sub {
-    font-size: 0.55rem;
+    font-size: 0.5rem;
     letter-spacing: 0.04em;
     text-transform: uppercase;
   }
 
   .softphone-call-btn {
-    width: 4.35rem;
-    height: 4.35rem;
+    width: 3.65rem;
+    height: 3.65rem;
   }
 
   .softphone-call-row {
-    gap: 1.35rem;
-    margin-top: 0.85rem;
+    gap: 1.1rem;
+    margin-top: 0.55rem;
+  }
+
+  .softphone-number-display {
+    font-size: 1.2rem;
   }
 }
 
 @media (max-height: 720px) {
   .softphone-key {
-    width: 3.85rem;
-    height: 3.85rem;
+    width: 3.35rem;
+    height: 3.35rem;
   }
 
   .softphone-key-main {
-    font-size: 1.45rem;
+    font-size: 1.3rem;
   }
 
   .softphone-call-btn {
-    width: 3.85rem;
-    height: 3.85rem;
+    width: 3.35rem;
+    height: 3.35rem;
   }
 
   .softphone-keypad-grid {
-    grid-template-columns: repeat(3, 3.85rem);
-    column-gap: 0.85rem;
-    row-gap: 0.45rem;
-    max-width: 14.5rem;
+    grid-template-columns: repeat(3, 3.35rem);
+    column-gap: 0.7rem;
+    row-gap: 0.3rem;
+    max-width: 12.5rem;
   }
 
   .softphone-call-row {
-    margin-top: 0.75rem;
+    margin-top: 0.45rem;
   }
 }
 

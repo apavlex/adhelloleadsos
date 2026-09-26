@@ -279,6 +279,8 @@
   var spTo = document.getElementById('softphoneToNumber');
   var spCalleeName = document.getElementById('softphoneCalleeName');
   var spBizReview = document.getElementById('softphoneBizReview');
+  var spBizName = document.getElementById('softphoneBizName');
+  var spBizAddress = document.getElementById('softphoneBizAddress');
   var spBizReviewStars = document.getElementById('softphoneBizReviewStars');
   var spBizReviewScore = document.getElementById('softphoneBizReviewScore');
   var spBizReviewSummary = document.getElementById('softphoneBizReviewSummary');
@@ -387,6 +389,7 @@
     isCloudPstn: false,
     leadKey: '',
     leadTitle: '',
+    leadAddress: '',
     wasInCall: false,
     audioPrimed: false,
     remoteAudioWatchdog: null,
@@ -1957,22 +1960,60 @@
       });
   }
 
-  function updateSoftphoneCalleeDisplay() {
-    if (!spCalleeName) return;
-    var title = String(softphoneSession.leadTitle || '').trim();
+  function formatSoftphoneLeadAddress(lead) {
+    if (!lead || typeof lead !== 'object') return '';
+    var street = String(lead.address || lead.street || '').trim();
+    if (/^n\/?a$/i.test(street) || street === '—' || street === '-') street = '';
+    var city = String(lead.city || '').trim();
+    var state = String(lead.state || '').trim();
+    var zip = String(lead.zip || lead.postalCode || '').trim();
+    var cityLine = [city, state].filter(Boolean).join(', ');
+    if (zip) cityLine = cityLine ? cityLine + ' ' + zip : zip;
+    return [street, cityLine].filter(Boolean).join(' · ');
+  }
+
+  function updateSoftphoneBizLeadMeta(opts) {
+    opts = opts || {};
+    var title = String(opts.title != null ? opts.title : softphoneSession.leadTitle || '').trim();
     if (!title && softphoneSession.leadKey) {
       title = resolveSoftphoneLeadTitle(softphoneSession.leadKey, spTo ? spTo.value : '');
     }
-    if (!title && spTo) {
-      title = resolveSoftphoneLeadTitle('', spTo.value);
+    var address = String(opts.address != null ? opts.address : softphoneSession.leadAddress || '').trim();
+    if (spBizName) {
+      if (title) {
+        spBizName.textContent = title;
+        spBizName.classList.remove('hidden');
+      } else {
+        spBizName.textContent = '';
+        spBizName.classList.add('hidden');
+      }
     }
-    if (title) {
-      spCalleeName.textContent = title;
-      spCalleeName.classList.remove('hidden');
-    } else {
-      spCalleeName.textContent = '';
-      spCalleeName.classList.add('hidden');
+    if (spBizAddress) {
+      if (address) {
+        spBizAddress.textContent = address;
+        spBizAddress.classList.remove('hidden');
+      } else {
+        spBizAddress.textContent = '';
+        spBizAddress.classList.add('hidden');
+      }
     }
+    if (spBizReview && (title || address || softphoneSession.leadKey)) {
+      spBizReview.classList.remove('hidden');
+    }
+  }
+
+  function updateSoftphoneCalleeDisplay() {
+    if (spCalleeName) {
+      var title = String(softphoneSession.leadTitle || '').trim();
+      if (!title && softphoneSession.leadKey) {
+        title = resolveSoftphoneLeadTitle(softphoneSession.leadKey, spTo ? spTo.value : '');
+      }
+      if (!title && spTo) {
+        title = resolveSoftphoneLeadTitle('', spTo.value);
+      }
+      spCalleeName.textContent = title || '';
+    }
+    updateSoftphoneBizLeadMeta();
     syncSoftphoneCompactBarUi();
   }
 
@@ -1989,6 +2030,7 @@
     updateSoftphoneWrapLeadHint();
     syncSoftphoneBookmarkEnabled();
     if (!softphoneSession.leadKey) {
+      softphoneSession.leadAddress = '';
       clearSoftphoneBizReview();
       paintSoftphoneBookmark(false);
       return;
@@ -2368,7 +2410,16 @@
 
   function clearSoftphoneBizReview() {
     softphoneReviewReqToken += 1;
+    softphoneSession.leadAddress = '';
     if (spBizReview) spBizReview.classList.add('hidden');
+    if (spBizName) {
+      spBizName.textContent = '';
+      spBizName.classList.add('hidden');
+    }
+    if (spBizAddress) {
+      spBizAddress.textContent = '';
+      spBizAddress.classList.add('hidden');
+    }
     if (spBizReviewStars) spBizReviewStars.innerHTML = '';
     if (spBizReviewScore) spBizReviewScore.textContent = '—';
     if (spBizReviewSummary) spBizReviewSummary.textContent = '';
@@ -2400,12 +2451,16 @@
     var summary = String(opts.summary || '').trim();
     var last30 = parseInt(opts.reviewsLast30Days, 10);
     if (!Number.isFinite(last30)) last30 = -1;
-    var hasSignal = rating > 0 || reviews > 0 || !!summary;
+    var title = String(opts.title != null ? opts.title : softphoneSession.leadTitle || '').trim();
+    var address = String(opts.address != null ? opts.address : softphoneSession.leadAddress || '').trim();
+    var hasLeadMeta = !!(title || address || softphoneSession.leadKey);
+    var hasSignal = rating > 0 || reviews > 0 || !!summary || !!opts.loadingSummary || hasLeadMeta;
     if (!hasSignal) {
       spBizReview.classList.add('hidden');
       return;
     }
     spBizReview.classList.remove('hidden');
+    updateSoftphoneBizLeadMeta({ title: title, address: address });
     if (spBizReviewStars) {
       if (rating > 0 && typeof window.__renderStarsInElement === 'function') {
         window.__renderStarsInElement(spBizReviewStars, rating, 'w-3.5 h-3.5');
@@ -2423,6 +2478,10 @@
           (reviews === 1 ? '' : 's');
       } else if (reviews > 0) {
         spBizReviewScore.textContent = reviews + ' review' + (reviews === 1 ? '' : 's');
+      } else if (opts.loadingSummary) {
+        spBizReviewScore.textContent = 'Loading reviews…';
+      } else if (hasLeadMeta) {
+        spBizReviewScore.textContent = 'No reviews yet';
       } else {
         spBizReviewScore.textContent = 'Reviews';
       }
@@ -2562,7 +2621,14 @@
         if (lead.title && !String(softphoneSession.leadTitle || '').trim()) {
           softphoneSession.leadTitle = String(lead.title).trim();
           updateSoftphoneCalleeDisplay();
+        } else if (lead.title) {
+          softphoneSession.leadTitle = String(lead.title).trim();
         }
+        softphoneSession.leadAddress = formatSoftphoneLeadAddress(lead);
+        updateSoftphoneBizLeadMeta({
+          title: softphoneSession.leadTitle,
+          address: softphoneSession.leadAddress,
+        });
         var rating = Number(lead.totalScore || lead.rating || 0) || 0;
         var reviews = parseInt(lead.reviewsCount != null ? lead.reviewsCount : lead.reviews, 10) || 0;
         var last30 = parseInt(lead.reviewsLast30Days, 10);
@@ -2573,6 +2639,8 @@
           reviewsLast30Days: Number.isFinite(last30) ? last30 : null,
           summary: cachedSummary,
           loadingSummary: !cachedSummary,
+          title: softphoneSession.leadTitle,
+          address: softphoneSession.leadAddress,
         });
         fetchSoftphoneBizReviewSummary(key);
       })
@@ -2927,6 +2995,19 @@
       }
     });
   }
+  function setSoftphoneCallerIdMobileWrapVisible(show) {
+    if (!spCallerIdMobileWrap) return;
+    if (show) {
+      spCallerIdMobileWrap.classList.remove('hidden');
+      spCallerIdMobileWrap.removeAttribute('hidden');
+      spCallerIdMobileWrap.setAttribute('aria-hidden', 'false');
+    } else {
+      spCallerIdMobileWrap.classList.add('hidden');
+      spCallerIdMobileWrap.setAttribute('hidden', '');
+      spCallerIdMobileWrap.setAttribute('aria-hidden', 'true');
+    }
+  }
+
   function softphoneTrunkFromNumber() {
     var picked = spFrom && spFrom.value ? String(spFrom.value).trim() : '';
     return picked || spActiveFrom || spDefaultFrom || '';
@@ -2948,19 +3029,20 @@
         deviceOpt.value = agent;
         deviceOpt.textContent = formatCallerIdCompact(agent) + ' · my device';
         spCallerIdSelect.appendChild(deviceOpt);
+        var changeOpt = document.createElement('option');
+        changeOpt.value = '__change_mobile__';
+        changeOpt.textContent = 'Change / add number…';
+        spCallerIdSelect.appendChild(changeOpt);
         spCallerIdSelect.value = agent;
         seen[agent] = true;
+        setSoftphoneCallerIdMobileWrapVisible(false);
       } else {
         var missingOpt = document.createElement('option');
         missingOpt.value = '__set_mobile__';
         missingOpt.textContent = 'Set the phone you call with…';
         spCallerIdSelect.appendChild(missingOpt);
         spCallerIdSelect.value = '__set_mobile__';
-      }
-      if (spCallerIdMobileWrap) {
-        spCallerIdMobileWrap.classList.remove('hidden');
-        spCallerIdMobileWrap.removeAttribute('hidden');
-        spCallerIdMobileWrap.setAttribute('aria-hidden', 'false');
+        setSoftphoneCallerIdMobileWrapVisible(true);
       }
       if (spCallerIdMobile && agent && !String(spCallerIdMobile.value || '').trim()) {
         spCallerIdMobile.value = agent;
@@ -5969,6 +6051,7 @@
       if (!String(spTo.value || '').trim()) {
         softphoneSession.leadKey = '';
         softphoneSession.leadTitle = '';
+        softphoneSession.leadAddress = '';
         clearSoftphoneBizReview();
         syncSoftphoneBookmarkEnabled();
         paintSoftphoneBookmark(false);
@@ -5983,33 +6066,38 @@
     spCallerIdSelect.addEventListener('change', function () {
       var raw = String(spCallerIdSelect.value || '').trim();
       var mode = String(spWorkspaceCallMode || '').trim();
-      if (raw === '__set_mobile__' || (mode === 'browser_device' && !normalizeDial(spAgentPhoneCached || ''))) {
-        if (spCallerIdMobileWrap) {
-          spCallerIdMobileWrap.classList.remove('hidden');
-          spCallerIdMobileWrap.removeAttribute('hidden');
-          spCallerIdMobileWrap.setAttribute('aria-hidden', 'false');
-        }
+      if (
+        raw === '__set_mobile__' ||
+        raw === '__change_mobile__' ||
+        (mode === 'browser_device' && !normalizeDial(spAgentPhoneCached || ''))
+      ) {
+        setSoftphoneCallerIdMobileWrapVisible(true);
         if (spCallerIdMobile) {
+          if (raw === '__change_mobile__' && normalizeDial(spAgentPhoneCached || '')) {
+            spCallerIdMobile.value = normalizeDial(spAgentPhoneCached);
+          }
           try {
             spCallerIdMobile.focus();
           } catch (_) {}
         }
-        softphoneSetStatus('Enter the phone number you call with, then Save.', false);
+        softphoneSetStatus(
+          raw === '__change_mobile__'
+            ? 'Update the phone number you call with, then Save.'
+            : 'Enter the phone number you call with, then Save.',
+          false,
+        );
         return;
       }
       var val = normalizeDial(raw);
       if (!val) return;
       if (mode === 'browser_device') {
         // Device mode caller ID is always the personal line — already selected.
+        setSoftphoneCallerIdMobileWrapVisible(false);
         if (spCallerIdMobile) spCallerIdMobile.value = val;
         updateSoftphoneOutboundMeta();
         return;
       }
-      if (spCallerIdMobileWrap) {
-        spCallerIdMobileWrap.classList.add('hidden');
-        spCallerIdMobileWrap.setAttribute('hidden', '');
-        spCallerIdMobileWrap.setAttribute('aria-hidden', 'true');
-      }
+      setSoftphoneCallerIdMobileWrapVisible(false);
       var agent = normalizeDial(spAgentPhoneCached || '');
       if (agent && val === agent) {
         softphoneSetStatus('Your personal cell rings first — it cannot be caller ID. Pick a workspace number.', true);
@@ -6052,11 +6140,12 @@
         spAgentPhoneCached = normalized;
         if (spAgentPhone) spAgentPhone.value = normalized;
         if (spCallerIdMobile) spCallerIdMobile.value = normalized;
+        setSoftphoneCallerIdMobileWrapVisible(false);
         renderSoftphoneCallerIdSelect(spAgentPhoneCached, spBankNumbers, spLeadCallerId);
         updateSoftphoneOutboundMeta();
         if (spCallerIdMobileHint) {
           spCallerIdMobileHint.textContent =
-            'Saved — leads will see ' + formatCallerIdDisplay(normalized) + ' when you dial from this device.';
+            'Leads see this number when you dial from your device. Use the cell/SIM on the phone you call with.';
         }
         softphoneSetStatus('Device caller ID saved: ' + formatCallerIdDisplay(normalized), false);
         if (typeof window.showAppToast === 'function') {
