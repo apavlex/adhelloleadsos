@@ -152,7 +152,7 @@
     _rp.startsWith('/today') ||
     _rp.startsWith('/tasks') ||
     _rp.startsWith('/engagement');
-  const _needDmQueue = _np === 'direct-mail' || _rp.startsWith('/direct-mail');
+  const _needDmQueue = true; /* softphone Mail tab is global — always load queue helpers */
   const _needReviews = _needPipeline || _rp.startsWith('/focus');
   const _av = typeof assetVersion !== 'undefined' ? assetVersion : '1';
 %>

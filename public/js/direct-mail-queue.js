@@ -294,12 +294,34 @@
     return queueLeadKeys(keys);
   }
 
-  async function addCurrentLeadToDirectMailQueue() {
+  async function addCurrentLeadToDirectMailQueue(opts) {
+    opts = opts || {};
+    // Softphone "+ Add current lead" — only the active dialer lead, never all pipeline selections.
+    if (opts.softphoneOnly || opts.currentOnly) {
+      var active =
+        typeof window.__getSoftphoneActiveLead === 'function'
+          ? window.__getSoftphoneActiveLead()
+          : null;
+      var key = normalizeKey(active && active.key);
+      if (!key && active && active.phone && typeof window.__resolveLeadKeyForPhone === 'function') {
+        key = normalizeKey(window.__resolveLeadKeyForPhone(active.phone, active.title));
+      }
+      if (!key) {
+        throw new Error(
+          'Load a saved lead on the keypad first (open from Contacts / Recents / pipeline), then tap + Add current lead.',
+        );
+      }
+      return queueLeadKeys([key]);
+    }
     var candidates = collectDirectMailCandidates();
     if (!candidates.length) {
       throw new Error('Open a lead or select pipeline rows first.');
     }
     return addCandidatesToDirectMailQueue(candidates);
+  }
+
+  async function addLeadKeysToDirectMailQueue(leadKeys) {
+    return queueLeadKeys(leadKeys);
   }
 
   function buildDirectMailFolderUrl(folderKey) {
@@ -342,6 +364,7 @@
   window.__directMailSessionKeys = sessionKeys;
   window.__addLeadsToDirectMailQueue = queueLeadKeys;
   window.__addCurrentLeadToDirectMailQueue = addCurrentLeadToDirectMailQueue;
+  window.__addLeadKeysToDirectMailQueue = addLeadKeysToDirectMailQueue;
   window.__collectDirectMailCandidates = collectDirectMailCandidates;
   window.__refreshDirectMailQueueFromServer = refreshDirectMailQueueFromServer;
   window.__buildDirectMailFolderUrl = buildDirectMailFolderUrl;

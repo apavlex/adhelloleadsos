@@ -591,7 +591,8 @@
         </div>
 
         <div id="softphoneTabRecents" class="softphone-tab-panel hidden flex-1 min-h-0 overflow-y-auto custom-scrollbar px-4 py-3" data-tab="recents">
-          <p class="text-[15px] font-bold text-slate-800 dark:text-white mb-3">Recents</p>
+          <p class="text-[15px] font-bold text-slate-800 dark:text-white mb-1">Recents</p>
+          <p class="text-[11px] text-slate-500 dark:text-slate-400 mb-3 leading-snug">Recent dials with business names. Use the Mail tab to bulk-save them for Direct Mail.</p>
           <div id="softphoneRecentList" class="space-y-2">
             <p class="text-xs text-slate-500">No recent numbers yet.</p>
           </div>
@@ -707,9 +708,22 @@
         </div>
 
         <div id="softphoneTabDirectMail" class="softphone-tab-panel hidden flex-1 min-h-0 overflow-y-auto custom-scrollbar px-4 py-3" data-tab="direct_mail">
-          <p class="text-[15px] font-bold text-slate-800 dark:text-white mb-1">Direct mail queue</p>
-          <p id="softphoneDirectMailMeta" class="text-[11px] text-slate-500 dark:text-slate-400 mb-3 leading-snug">Tag hot prospects during your call session — mail them after you wrap up.</p>
+          <p class="text-[15px] font-bold text-slate-800 dark:text-white mb-1">Direct mail</p>
+          <p id="softphoneDirectMailMeta" class="text-[11px] text-slate-500 dark:text-slate-400 mb-3 leading-snug">Tag the lead you are on, or bulk-select from this session&apos;s recent dials.</p>
           <button type="button" id="softphoneDirectMailAddBtn" class="w-full mb-3 rounded-2xl border-2 border-violet-400/50 bg-violet-500/10 px-4 py-3 text-[11px] font-black uppercase tracking-widest text-violet-900 dark:text-violet-200 hover:bg-violet-500/20 transition-colors">+ Add current lead</button>
+          <p id="softphoneDirectMailAddStatus" class="min-h-[1rem] text-[11px] text-slate-500 dark:text-slate-400 mb-3 leading-snug" role="status" aria-live="polite"></p>
+
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <p class="text-[10px] font-bold uppercase tracking-wide text-slate-500">Session dials</p>
+            <div class="flex items-center gap-2">
+              <button type="button" id="softphoneDirectMailSelectAllBtn" class="text-[10px] font-bold uppercase tracking-wide text-violet-700 dark:text-violet-300 hover:underline">Select all</button>
+              <button type="button" id="softphoneDirectMailClearSelBtn" class="text-[10px] font-bold uppercase tracking-wide text-slate-500 hover:underline">Clear</button>
+            </div>
+          </div>
+          <div id="softphoneDirectMailRecentList" class="space-y-2 mb-3"></div>
+          <button type="button" id="softphoneDirectMailSaveSelectedBtn" class="w-full mb-4 rounded-2xl bg-violet-600 text-white px-4 py-3 text-[11px] font-black uppercase tracking-widest hover:brightness-95 transition-colors disabled:opacity-45" disabled>Save selected to Direct Mail</button>
+
+          <p class="text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-2">Queued this session</p>
           <div id="softphoneDirectMailList" class="space-y-2 mb-4"></div>
           <p class="text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-2">After your session</p>
           <div class="space-y-2">
