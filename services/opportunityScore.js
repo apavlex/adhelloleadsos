@@ -41,8 +41,46 @@ function activeReferralBoost(lead) {
 }
 
 /**
- * Flooring / retail / local — reward partner-ready businesses, not website gaps.
+ * Flooring / retail / local — reward high + recent reviews (referral-ready locals).
  */
+function reviewRecencySignals(lead) {
+  const last30 = parseInt(lead && lead.reviewsLast30Days, 10);
+  const hasLast30 = Number.isFinite(last30) && last30 > 0;
+  const lastAtMs = lead && lead.lastReviewAt ? Date.parse(lead.lastReviewAt) : NaN;
+  const hasLastAt = Number.isFinite(lastAtMs);
+  const ageDays = hasLastAt ? (Date.now() - lastAtMs) / 86400000 : Infinity;
+
+  let points = 0;
+  let reason = '';
+  if (hasLast30 && last30 >= 5) {
+    points = 3;
+    reason = `${last30} reviews in the last 30 days — hottest social proof`;
+  } else if (hasLast30 && last30 >= 2) {
+    points = 2;
+    reason = `${last30} reviews this month — active reputation`;
+  } else if (hasLast30) {
+    points = 1.25;
+    reason = 'Fresh review this month';
+  } else if (ageDays <= 30) {
+    points = 2;
+    reason = 'Last review within 30 days';
+  } else if (ageDays <= 90) {
+    points = 1.25;
+    reason = 'Last review within 90 days';
+  } else if (ageDays <= 180) {
+    points = 0.5;
+    reason = 'Review activity in the last 6 months';
+  }
+
+  // Higher = better for ascending sort when negated
+  const sortKey =
+    (hasLast30 ? last30 * 1e10 : 0) +
+    (hasLastAt ? lastAtMs : 0) +
+    (parseInt(lead && (lead.reviewsCount != null ? lead.reviewsCount : lead.reviews), 10) || 0);
+
+  return { points, reason, sortKey, last30: hasLast30 ? last30 : 0, ageDays };
+}
+
 function scorePartnerFitRecord(lead, options) {
   const reasons = [];
   let score = 0;
@@ -51,32 +89,31 @@ function scorePartnerFitRecord(lead, options) {
   const phone = lead.phone && lead.phone !== 'N/A';
   const email = lead.email && lead.email !== 'N/A';
   const siteStatus = classifyWebsiteStatus(lead).status;
+  const recency = reviewRecencySignals(lead);
 
-  if (siteStatus === 'has_site') {
+  // Reviews first — this workspace ROI is review volume + freshness.
+  if (reviews >= 100) {
     score += 3.5;
-    reasons.push('Has a real website — ready for partner / referral conversations');
-  } else if (siteStatus === 'weak_site') {
-    score += 2;
-    reasons.push('Has a site with room to grow — still a local contact');
-  } else if (siteStatus === 'marketplace') {
-    score += 1.5;
-    reasons.push('Marketplace listing — reachable but prefer owned-site partners');
-  } else if (siteStatus === 'social_only') {
-    score += 0.5;
-    reasons.push('Social-only presence — lower partner priority');
-  } else {
-    reasons.push('No website — weak fit for referral-partner outreach');
-  }
-
-  if (reviews >= 25) {
+    reasons.push(`High review count (${reviews}) — top-tier local credibility`);
+  } else if (reviews >= 50) {
+    score += 3;
+    reasons.push(`Strong review footprint (${reviews}) — great referral signal`);
+  } else if (reviews >= 25) {
     score += 2.5;
-    reasons.push('Strong review footprint — credibility for local intros');
+    reasons.push(`Solid review volume (${reviews})`);
   } else if (reviews >= 10) {
-    score += 2;
-    reasons.push('Growing reviews — solid local reputation');
+    score += 1.75;
+    reasons.push(`Growing reviews (${reviews})`);
   } else if (reviews >= 5) {
     score += 1;
     reasons.push('Some reviews — relationship worth building');
+  } else {
+    reasons.push('Few or no reviews — lower partner priority until reputation grows');
+  }
+
+  if (recency.points) {
+    score += recency.points;
+    if (recency.reason) reasons.push(recency.reason);
   }
 
   if (rating >= 4.5) {
@@ -85,6 +122,18 @@ function scorePartnerFitRecord(lead, options) {
   } else if (rating >= 4.2) {
     score += 1;
     reasons.push('Solid star rating');
+  } else if (rating > 0 && rating < 4.0) {
+    score -= 0.5;
+    reasons.push('Rating under 4★ — watch reputation risk');
+  }
+
+  if (siteStatus === 'has_site') {
+    score += 1.5;
+    reasons.push('Has a real website — ready for partner conversations');
+  } else if (siteStatus === 'weak_site') {
+    score += 0.75;
+  } else if (siteStatus === 'marketplace') {
+    score += 0.5;
   }
 
   const referral = activeReferralBoost(lead);
@@ -92,24 +141,23 @@ function scorePartnerFitRecord(lead, options) {
     score += referral.points;
     reasons.push(referral.reason);
   } else if (isReferralLead(lead)) {
-    score += 1.5;
+    score += 1;
     reasons.push('Tagged / sourced as referral');
   }
 
   if (phone && email) {
-    score += 1;
+    score += 0.75;
     reasons.push('Phone + email on file');
   } else if (phone || email) {
-    score += 0.5;
+    score += 0.4;
   }
 
   if (hasSocial(lead.facebook) || hasSocial(lead.instagram)) {
-    score += 0.5;
-    reasons.push('Active social presence');
+    score += 0.4;
   }
 
   void options;
-  return { score: Math.min(10, score), reasons };
+  return { score: Math.min(10, Math.max(0, score)), reasons, reviewSortKey: recency.sortKey };
 }
 
 /**

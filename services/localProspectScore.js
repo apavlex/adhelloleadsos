@@ -208,13 +208,17 @@ function isActiveReferralPartner(lead) {
 }
 
 /**
- * Partner / referral ROI (flooring, retail, local service): prefer real sites + reviews.
+ * Partner / referral ROI: prefer high review volume + recent review activity.
  */
 function scorePartnerFitProspect(lead, websiteStatus) {
   const contact = hasContact(lead);
   const reviews = reviewCount(lead);
   const rating = ratingValue(lead);
   const referral = isActiveReferralPartner(lead);
+  const last30 = parseInt(lead && lead.reviewsLast30Days, 10) || 0;
+  const lastAtMs = lead && lead.lastReviewAt ? Date.parse(lead.lastReviewAt) : NaN;
+  const recent =
+    last30 > 0 || (Number.isFinite(lastAtMs) && Date.now() - lastAtMs < 90 * 86400000);
   const reasons = [];
   let prospectTier = 'Low';
 
@@ -222,25 +226,43 @@ function scorePartnerFitProspect(lead, websiteStatus) {
     prospectTier = 'Low';
     reasons.push('Add phone or email before outreach');
   } else if (websiteStatus === 'has_site') {
-    if (referral || reviews >= 10 || rating >= 4.3) {
+    if (referral || (reviews >= 25 && recent) || reviews >= 50 || (reviews >= 15 && rating >= 4.4)) {
       prospectTier = 'Hot';
       if (referral) reasons.push('Active referral partner — prioritize relationship');
-      else if (reviews >= 10) reasons.push('Solid website + growing reviews — strong local partner');
-      else reasons.push('Credible site + strong rating — cultivate as referral partner');
+      else if (last30 >= 2) {
+        reasons.push(`High + fresh reviews (${reviews} total, ${last30} last 30 days)`);
+      } else if (reviews >= 50) {
+        reasons.push(`High review count (${reviews}) — top local partner signal`);
+      } else if (recent) {
+        reasons.push(`Strong reviews with recent activity (${reviews})`);
+      } else {
+        reasons.push(`High reviews (${reviews}) — cultivate as referral partner`);
+      }
+    } else if (reviews >= 10 || rating >= 4.3) {
+      prospectTier = 'Warm';
+      reasons.push(
+        recent
+          ? 'Solid reviews with recent activity — good partner candidate'
+          : 'Has reviews — good partner / referral candidate',
+      );
     } else {
       prospectTier = 'Warm';
       reasons.push('Has a real website — good partner / referral candidate');
     }
   } else if (websiteStatus === 'weak_site') {
-    prospectTier = reviews >= 5 || rating >= 4.0 ? 'Warm' : 'Low';
+    prospectTier = reviews >= 15 || (reviews >= 5 && recent) || rating >= 4.0 ? 'Warm' : 'Low';
     reasons.push(
       prospectTier === 'Warm'
-        ? 'Listed site with room to grow — still contactable locally'
+        ? 'Listed site with review traction — still contactable locally'
         : 'Thin web presence — lower partner priority',
     );
   } else if (websiteStatus === 'marketplace') {
-    prospectTier = 'Warm';
-    reasons.push('Marketplace listing — reachable, but prefer partners with owned sites');
+    prospectTier = reviews >= 20 ? 'Warm' : 'Low';
+    reasons.push(
+      prospectTier === 'Warm'
+        ? 'Marketplace listing with reviews — reachable partner'
+        : 'Marketplace listing — prefer partners with owned sites + reviews',
+    );
   } else if (websiteStatus === 'social_only' || websiteStatus === 'no_site') {
     prospectTier = 'Low';
     reasons.push(

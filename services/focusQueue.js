@@ -45,6 +45,15 @@ function scoreOptsFromQueueOpts(opts) {
   };
 }
 
+function partnerReviewSortKey(l) {
+  const last30 = parseInt(l && l.reviewsLast30Days, 10) || 0;
+  const lastAt = l && l.lastReviewAt ? Date.parse(l.lastReviewAt) : 0;
+  const reviews = parseInt(l && (l.reviewsCount != null ? l.reviewsCount : l.reviews), 10) || 0;
+  const rating = Math.round((parseFloat(l && (l.totalScore != null ? l.totalScore : l.rating)) || 0) * 10);
+  // Prefer recent activity, then volume, then stars
+  return last30 * 1e12 + (Number.isFinite(lastAt) ? lastAt : 0) + reviews * 1e3 + rating;
+}
+
 /**
  * Precomputed sort tuple — scored once per lead (not once per comparator call).
  * @returns {{ bucket: number, a: number, b: number, c: number }}
@@ -52,9 +61,11 @@ function scoreOptsFromQueueOpts(opts) {
 function sortKey(l, opts = {}) {
   const queueMode = opts.queueMode || 'continue_list';
   const scoreOpts = scoreOptsFromQueueOpts(opts);
+  const partnerFit = resolveRoiProfileFromOptions(scoreOpts) === 'partner_fit';
   const last = lastActivityMs(l);
   const due = l.sequenceState && l.sequenceState.nextDueAt ? Date.parse(l.sequenceState.nextDueAt) : 0;
   const retryAt = l.nextActionAt ? Date.parse(l.nextActionAt) : Infinity;
+  const reviewKey = partnerFit ? partnerReviewSortKey(l) : 0;
 
   if (isLeadDeferredForRetry(l, queueMode)) {
     return { bucket: 6, a: retryAt, b: last, c: 0 };
@@ -62,7 +73,12 @@ function sortKey(l, opts = {}) {
   if (isOverdueCadence(l)) {
     const { score } = scoreLeadRecord(l, scoreOpts);
     const lpRank = prospectTierSortRank(scoreLocalProspect(l, scoreOpts).prospectTier);
-    return { bucket: 0, a: due, b: -score, c: lpRank };
+    return {
+      bucket: 0,
+      a: due,
+      b: partnerFit ? -reviewKey : -score,
+      c: partnerFit ? -score : lpRank,
+    };
   }
 
   const lp = scoreLocalProspect(l, scoreOpts);
@@ -71,19 +87,39 @@ function sortKey(l, opts = {}) {
     return { bucket: 5, a: 0, b: 0, c: lpRank };
   }
   if (stage2AgingOver3Days(l)) {
-    return { bucket: 1, a: 0, b: last, c: lpRank };
+    return {
+      bucket: 1,
+      a: partnerFit ? -reviewKey : 0,
+      b: partnerFit ? -scoreLeadRecord(l, scoreOpts).score : last,
+      c: lpRank,
+    };
   }
 
   const { score, tier } = scoreLeadRecord(l, scoreOpts);
   if (tier === 'high') {
-    return { bucket: 2, a: 0, b: -score, c: lpRank };
+    return {
+      bucket: 2,
+      a: partnerFit ? -reviewKey : 0,
+      b: -score,
+      c: partnerFit ? -reviewKey : lpRank,
+    };
   }
   const ps = parseInt(l.pipelineStage, 10);
   const n = !Number.isNaN(ps) && ps >= 1 && ps <= 10 ? ps : 1;
   if (n === 1) {
-    return { bucket: 3, a: 0, b: last, c: lpRank };
+    return {
+      bucket: 3,
+      a: partnerFit ? -reviewKey : 0,
+      b: partnerFit ? -score : last,
+      c: lpRank,
+    };
   }
-  return { bucket: 4, a: 0, b: last, c: lpRank };
+  return {
+    bucket: 4,
+    a: partnerFit ? -reviewKey : 0,
+    b: partnerFit ? -score : last,
+    c: lpRank,
+  };
 }
 
 /** Safety ceiling — early-stage action queues can be large; keep HTML/JSON bounded. */

@@ -59,7 +59,7 @@ function contactQueueSortBlurb(profileOrWs) {
       ? profileOrWs
       : resolveRoiProfile(profileOrWs);
   if (profile === ROI_PROFILES.PARTNER_FIT) {
-    return 'Sorted by overdue cadence, aging pipeline, and partner fit — website, reviews, and referral-ready locals. Next channel follows your sequence template.';
+    return 'Sorted by overdue cadence, then high + recent reviews (volume, last 30 days, last review date), star rating, and partner fit. Next channel follows your sequence template.';
   }
   return 'Sorted by overdue cadence, aging pipeline, gap score, and Local Prospector tiers (Hot / Warm / Low / Skip). Next channel follows your sequence template.';
 }

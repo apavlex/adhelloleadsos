@@ -19,7 +19,7 @@ describe('workspaceRoiProfile', () => {
   });
 
   it('uses partner-fit blurb for Flooring', () => {
-    assert.match(contactQueueSortBlurb(flooringWs), /partner fit/i);
+    assert.match(contactQueueSortBlurb(flooringWs), /high \+ recent reviews/i);
     assert.match(contactQueueSortBlurb(agencyWs), /gap score/i);
   });
 });
@@ -39,8 +39,32 @@ describe('partner_fit vs agency_gap scoring', () => {
     email: 'hello@cabinets.example',
     website: 'https://cabinets.example',
     reviewsCount: 42,
+    reviewsLast30Days: 4,
+    lastReviewAt: new Date().toISOString(),
     totalScore: 4.7,
     referralPartner: { highlighted: true, status: 'connected', sent: 2, received: 1 },
+    pipelineStage: 1,
+  };
+  const staleLead = {
+    title: 'Quiet Floors Inc',
+    phone: '360-555-0300',
+    email: 'hi@quiet.example',
+    website: 'https://quietfloors.example',
+    reviewsCount: 12,
+    reviewsLast30Days: 0,
+    lastReviewAt: '2024-01-01T00:00:00.000Z',
+    totalScore: 4.2,
+    pipelineStage: 1,
+  };
+  const hotReviewsLead = {
+    title: 'Busy Tile Co',
+    phone: '360-555-0400',
+    email: 'sales@busytile.example',
+    website: 'https://busytile.example',
+    reviewsCount: 180,
+    reviewsLast30Days: 8,
+    lastReviewAt: new Date().toISOString(),
+    totalScore: 4.8,
     pipelineStage: 1,
   };
 
@@ -70,5 +94,17 @@ describe('partner_fit vs agency_gap scoring', () => {
     assert.ok(scored.score >= 7);
     const weak = scoreLeadRecord(noSiteLead, { workspace: flooringWs });
     assert.ok(weak.score < scored.score);
+  });
+
+  it('Flooring ranks high + recent reviews above stale lower-volume leads', () => {
+    const ordered = buildFocusQueue([staleLead, hotReviewsLead], 10, {
+      workspace: flooringWs,
+      earlyStagesOnly: true,
+    });
+    assert.equal(ordered[0].title, hotReviewsLead.title);
+    const hot = scoreLeadRecord(hotReviewsLead, { workspace: flooringWs });
+    const stale = scoreLeadRecord(staleLead, { workspace: flooringWs });
+    assert.ok(hot.score > stale.score);
+    assert.match(hot.reasons.join(' '), /review|30 days|High review/i);
   });
 });
