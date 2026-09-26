@@ -170,116 +170,79 @@
   <% } %>
 
   <div id="mobileMenu" class="fixed inset-0 z-[100] bg-brand-dark/40 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300 pointer-events-none md:hidden">
-    <div id="mobileMenuPanel" class="absolute inset-y-0 left-0 w-72 max-w-[min(90vw,20rem)] bg-white dark:bg-slate-900 shadow-2xl p-6 sm:p-8 -translate-x-full transition-transform duration-300 pointer-events-auto overflow-y-auto overscroll-contain [padding-top:max(1.5rem,env(safe-area-inset-top))] [padding-bottom:max(1.5rem,env(safe-area-inset-bottom))] [padding-left:max(1.5rem,env(safe-area-inset-left))]">
-      <div class="flex items-center justify-between mb-6">
-        <span class="font-display font-extrabold text-xl tracking-tight text-brand-dark dark:text-white">Menu</span>
-        <button id="closeMobileMenu" type="button" class="w-11 h-11 flex items-center justify-center text-brand-muted hover:text-brand-dark dark:hover:text-white rounded-full transition-colors border border-brand-border dark:border-white/10" aria-label="Close menu">
-          <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+    <div id="mobileMenuPanel" class="ghl-sidebar absolute inset-y-0 left-0 w-72 max-w-[min(88vw,18rem)] shadow-2xl px-2 pb-4 -translate-x-full transition-transform duration-300 pointer-events-auto overflow-y-auto overscroll-contain custom-scrollbar flex flex-col [padding-top:max(0.75rem,env(safe-area-inset-top))] [padding-bottom:max(1rem,env(safe-area-inset-bottom))] [padding-left:max(0.5rem,env(safe-area-inset-left))]">
+      <div class="flex items-center justify-between px-2 pb-3">
+        <a href="/today" class="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden shadow-sm ring-1 ring-black/5 dark:ring-white/10" aria-label="AdHello home">
+          <img src="/images/adhello-app-icon.png" alt="" width="40" height="40" class="h-full w-full object-contain" loading="eager" decoding="async" />
+        </a>
+        <button id="closeMobileMenu" type="button" class="w-10 h-10 flex items-center justify-center text-brand-muted hover:text-brand-dark dark:hover:text-white rounded-full transition-colors border border-brand-border dark:border-white/10" aria-label="Close menu">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
       </div>
 
-      <div class="relative mb-5" id="wsSwitcherWrap">
-        <button type="button" id="wsSwitcherBtn" class="flex items-center gap-2.5 group w-full min-w-0 text-left rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/40 dark:bg-slate-800/60 px-3 py-2.5 hover:bg-brand-cream/70 dark:hover:bg-slate-800 transition-colors" aria-expanded="false" aria-haspopup="true" aria-controls="wsSwitcherMenu" title="Switch workspace">
-          <span class="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[22%]" aria-hidden="true">
-            <img src="/images/adhello-app-icon.png" alt="" width="40" height="40" class="h-full w-full object-contain" loading="eager" decoding="async" />
-            <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-slate-900" style="background-color: <%= _wsAccent %>" aria-hidden="true"></span>
+      <div class="relative px-1 pb-3" id="wsSwitcherWrap">
+        <button type="button" id="wsSwitcherBtn" class="sidebar-ws-btn ghl-ws-switcher flex items-center gap-2.5 group w-full min-w-0 text-left rounded-lg px-3 py-2.5 transition-colors" aria-expanded="false" aria-haspopup="true" aria-controls="wsSwitcherMenu" title="Switch workspace">
+          <span class="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white dark:bg-slate-800 text-[#6B7280] dark:text-slate-400 ring-1 ring-[#E5E7EB] dark:ring-white/10" aria-hidden="true">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" /></svg>
+            <span class="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full ring-2 ring-white dark:ring-slate-900" style="background-color: <%= _wsAccent %>" aria-hidden="true"></span>
           </span>
           <span class="min-w-0 flex-1 flex flex-col">
-            <span class="font-display font-black text-sm tracking-tight text-brand-dark dark:text-white truncate"><%= _ws && _ws.name ? _ws.name : 'Workspace' %></span>
-            <span class="text-[9px] font-bold text-brand-muted truncate"><%= _wsSubLabel %></span>
+            <span class="font-display text-sm font-semibold text-[#111827] dark:text-white truncate leading-tight"><%= _ws && _ws.name ? _ws.name : 'Workspace' %></span>
+            <span class="text-xs text-[#6B7280] dark:text-slate-400 truncate leading-tight mt-0.5"><%= _wsSubLabel %></span>
           </span>
-          <svg class="w-3.5 h-3.5 shrink-0 text-brand-muted opacity-70 ws-switcher-chevron transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
+          <svg class="w-3.5 h-3.5 shrink-0 text-[#9CA3AF] ws-switcher-chevron transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
         </button>
-        <div id="wsSwitcherMenu" class="hidden absolute left-0 right-0 mt-2 w-full rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 shadow-xl py-2 z-[120] text-left max-h-[min(24rem,50vh)] overflow-y-auto custom-scrollbar" role="menu">
+        <div id="wsSwitcherMenu" class="hidden rounded-xl border border-[#E5E7EB] dark:border-white/10 bg-white dark:bg-slate-900 shadow-xl py-2 z-[120] text-left max-h-[min(24rem,50vh)] overflow-y-auto custom-scrollbar" role="menu">
           <%- include('workspace_switcher_menu') %>
         </div>
       </div>
 
-      <div class="grid grid-cols-2 gap-2 mb-6">
-        <button type="button" class="theme-toggle-btn flex items-center justify-center gap-2 rounded-2xl border border-brand-border/60 dark:border-white/10 px-3 py-3 text-sm font-bold text-brand-dark dark:text-white hover:bg-brand-cream/60 dark:hover:bg-white/5 transition-colors" aria-label="Toggle theme">
-          <svg class="hidden dark:block w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.364 6.364l-1.414-1.414M7.05 7.05L5.636 5.636m12.728 0l-1.414 1.414M7.05 16.95l-1.414 1.414M12 8a4 4 0 100 8 4 4 0 000-8z" /></svg>
-          <svg class="block dark:hidden w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
-          Theme
+      <div class="grid grid-cols-2 gap-1.5 px-2 pb-3">
+        <button type="button" class="theme-toggle-btn sidebar-nav-link justify-center border border-[#E5E7EB] dark:border-white/10" aria-label="Toggle theme">
+          <svg class="sidebar-nav-icon hidden dark:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.364 6.364l-1.414-1.414M7.05 7.05L5.636 5.636m12.728 0l-1.414 1.414M7.05 16.95l-1.414 1.414M12 8a4 4 0 100 8 4 4 0 000-8z" /></svg>
+          <svg class="sidebar-nav-icon block dark:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+          <span>Theme</span>
         </button>
         <% if (user) { %>
-        <button type="button" id="navQuickTaskOpenMobile" class="flex items-center justify-center gap-2 rounded-2xl border border-brand-border/60 dark:border-white/10 px-3 py-3 text-sm font-bold text-brand-dark dark:text-white hover:bg-brand-cream/60 dark:hover:bg-white/5 transition-colors" aria-label="Add task" aria-haspopup="dialog" aria-controls="navQuickTaskModal">
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 5a2 2 0 012-2h2a2 2 0 012 2v0a2 2 0 01-2 2h-2a2 2 0 01-2-2v0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6M9 16h4"/></svg>
-          Add task
+        <button type="button" id="navQuickTaskOpenMobile" class="sidebar-nav-link justify-center border border-[#E5E7EB] dark:border-white/10" aria-label="Add task" aria-haspopup="dialog" aria-controls="navQuickTaskModal">
+          <svg class="sidebar-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 5a2 2 0 012-2h2a2 2 0 012 2v0a2 2 0 01-2 2h-2a2 2 0 01-2-2v0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6M9 16h4"/></svg>
+          <span>Add task</span>
         </button>
         <% } %>
       </div>
 
-      <nav class="flex flex-col gap-3 mb-8" aria-label="Mobile primary">
+      <%- include('/partials/app_nav_items', { navVariant: 'mobile' }) %>
+
+      <% const _mrp = typeof requestPath !== 'undefined' ? requestPath : ''; %>
+      <% const _mSettingsActive = _mrp === '/scripts' || _mrp.startsWith('/scripts/') || _mrp.startsWith('/sops') || _mrp.startsWith('/workspace') || _mrp.startsWith('/activation'); %>
+      <div class="mt-2 pt-2 px-1 border-t border-[#E5E7EB] dark:border-white/10">
+        <details class="group"<%= _mSettingsActive ? ' open' : '' %>>
+          <summary class="sidebar-nav-link sidebar-leads-summary list-none cursor-pointer select-none [&::-webkit-details-marker]:hidden <%= _mSettingsActive ? 'active' : '' %>">
+            <svg class="sidebar-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+            <span>Settings</span>
+            <svg class="sidebar-leads-chevron w-3.5 h-3.5 shrink-0 text-[#9CA3AF] ml-auto transition-transform duration-200 group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
+          </summary>
+          <nav class="sidebar-leads-sub mt-0.5 ml-2 pl-3 space-y-0.5 pb-1" aria-label="Settings">
+            <a href="/scripts" class="sidebar-nav-link sidebar-nav-sub <%= _mrp === '/scripts' || _mrp.startsWith('/scripts/') ? 'active' : '' %>">Script library</a>
+            <a href="/sops" class="sidebar-nav-link sidebar-nav-sub <%= _mrp.startsWith('/sops') ? 'active' : '' %>">SOPs</a>
+            <a href="/workspace/voicemail" class="sidebar-nav-link sidebar-nav-sub <%= _mrp.startsWith('/workspace/voicemail') ? 'active' : '' %>">Voicemail</a>
+            <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
+            <a href="/workspace/phones" class="sidebar-nav-link sidebar-nav-sub <%= _mrp.startsWith('/workspace/phones') ? 'active' : '' %>">Phone settings</a>
+            <% } %>
+            <a href="/workspace/team" class="sidebar-nav-link sidebar-nav-sub <%= _mrp.startsWith('/workspace') && !_mrp.startsWith('/workspace/voicemail') && !_mrp.startsWith('/workspace/phones') ? 'active' : '' %>">Workspace settings</a>
+            <a href="/activation" class="sidebar-nav-link sidebar-nav-sub <%= _mrp.startsWith('/activation') ? 'active' : '' %>">7-day activation</a>
+            <button type="button" id="connectAiOpenMobile" class="sidebar-nav-link sidebar-nav-sub w-full text-left">Connect AI</button>
+          </nav>
+        </details>
         <% if (user) { %>
-        <a href="/leads/find" class="flex items-center p-4 rounded-2xl border-2 border-brand-yellow/50 bg-brand-yellow/10 text-brand-dark dark:text-white text-left w-full">
-          <span class="font-display font-bold text-lg">Find leads</span>
+        <a href="/logout" class="sidebar-nav-link !text-red-600 dark:!text-red-400">
+          <svg class="sidebar-nav-icon !text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" /></svg>
+          <span>Log out</span>
         </a>
-        <button type="button" id="manualLeadOpenMobile" class="flex items-center p-4 rounded-2xl border-2 border-brand-border dark:border-white/20 text-brand-dark dark:text-white text-left w-full">
-          <span class="font-display font-bold text-lg">+ Add Opportunity</span>
-        </button>
-        <% } %>
-        <a href="/today" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'today' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Today</span></a>
-        <a href="/opportunities" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'opportunities' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Opportunities</span></a>
-        <a href="/referrals" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'referrals' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Referral Partners</span></a>
-        <a href="/engagement" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'engagement' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Engagement</span></a>
-        <div class="rounded-2xl border border-brand-border/50 dark:border-white/10 p-3 space-y-2">
-          <p class="px-2 text-[9px] font-black uppercase tracking-widest text-brand-muted">Leads</p>
-          <a href="/leads/find" class="flex items-center p-3 rounded-xl <%= (typeof navLeadsTab !== 'undefined' && navLeadsTab === 'find') ? 'bg-brand-yellow/15 text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-semibold text-sm">Find</span></a>
-          <a href="/prospecting?tab=queue" class="flex items-center p-3 rounded-xl <%= (typeof navLeadsTab !== 'undefined' && navLeadsTab === 'queue') ? 'bg-brand-yellow/15 text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-semibold text-sm">Queue</span></a>
-          <a href="/pipeline" class="flex items-center p-3 rounded-xl <%= (typeof navLeadsTab !== 'undefined' && navLeadsTab === 'pipeline') ? 'bg-brand-yellow/15 text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-semibold text-sm">Pipeline</span></a>
-          <a href="/prospecting?tab=folders" class="flex items-center p-3 rounded-xl <%= (typeof navLeadsTab !== 'undefined' && navLeadsTab === 'folders') ? 'bg-brand-yellow/15 text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-semibold text-sm">Folders</span></a>
-          <a href="/history" class="flex items-center p-3 rounded-xl <%= (typeof navLeadsTab !== 'undefined' && navLeadsTab === 'history') ? 'bg-brand-yellow/15 text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-semibold text-sm">Search history</span></a>
-        </div>
-        <a href="/ceo" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'ceo' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Automate</span></a>
-        <a href="/activity" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'activity' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Activity</span></a>
-        <a href="/tasks" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'tasks' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Tasks</span></a>
-        <a href="/direct-mail" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'direct-mail' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Marketing Studio</span></a>
-        <a href="/social-posts" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'social-posts' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Social Posts</span></a>
-        <a href="/fb-groups" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'fb-groups' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">FB Groups</span></a>
-        <a href="/reports" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'reports' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Reports</span></a>
-        <a href="/resources" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'resources' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Resources</span></a>
-        <% if (typeof ghlDashboardUrl !== 'undefined' && ghlDashboardUrl) { %>
-        <a href="<%= ghlDashboardUrl %>" target="_blank" rel="noopener noreferrer" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 text-brand-muted"><span class="font-display font-bold text-lg">GHL</span></a>
-        <% } %>
-        <% if (typeof hermesWebUiUrl !== 'undefined' && hermesWebUiUrl) { %>
-        <a href="<%= hermesWebUiUrl %>" target="_blank" rel="noopener noreferrer" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 text-brand-muted"><span class="font-display font-bold text-lg">AI Chat</span></a>
-        <% } %>
-        <% const _mobileMenuLinks = typeof customMenuLinks !== 'undefined' && Array.isArray(customMenuLinks) ? customMenuLinks : []; %>
-        <% const _mobileMenuPath = typeof requestPath !== 'undefined' ? requestPath : ''; %>
-        <% _mobileMenuLinks.forEach(function (link) { %>
-        <% if (link.open === 'tab') { %>
-        <a href="<%= link.url %>" target="_blank" rel="noopener noreferrer" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 text-brand-muted"><span class="font-display font-bold text-lg"><%= link.label %></span></a>
         <% } else { %>
-        <a href="/menu/<%= link.id %>" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= _mobileMenuPath === '/menu/' + link.id ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg"><%= link.label %></span></a>
-        <% } %>
-        <% }); %>
-        <% if (user) { %>
-        <button type="button" id="navSoftphoneOpenMobile" class="flex items-center justify-center gap-2 p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 text-brand-dark dark:text-white font-display font-bold text-lg text-left w-full">
-          <svg class="w-5 h-5 text-brand-yellow shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.3"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
-          AdHello dialer
-        </button>
-        <% } %>
-      </nav>
-
-      <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-3">Settings</p>
-      <nav class="flex flex-col gap-2 mb-8">
-        <% const _mrp = typeof requestPath !== 'undefined' ? requestPath : ''; %>
-        <a href="/scripts" class="px-4 py-3 rounded-xl border border-brand-border/40 text-sm font-semibold text-brand-dark dark:text-white<%= _mrp === '/scripts' || _mrp.startsWith('/scripts/') ? ' border-brand-yellow bg-brand-yellow/10' : '' %>">Script library</a>
-        <a href="/sops" class="px-4 py-3 rounded-xl border border-brand-border/40 text-sm font-semibold text-brand-dark dark:text-white<%= np === 'sops' || _mrp.startsWith('/sops') ? ' border-brand-yellow bg-brand-yellow/10' : '' %>">SOPs</a>
-        <a href="/workspace/voicemail" class="px-4 py-3 rounded-xl border border-brand-border/40 text-sm font-semibold text-brand-dark dark:text-white<%= _mrp.startsWith('/workspace/voicemail') ? ' border-brand-yellow bg-brand-yellow/10' : '' %>">Voicemail</a>
-        <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
-        <a href="/workspace/phones" class="px-4 py-3 rounded-xl border border-brand-border/40 text-sm font-semibold text-brand-dark dark:text-white<%= _mrp.startsWith('/workspace/phones') ? ' border-brand-yellow bg-brand-yellow/10' : '' %>">Phone settings</a>
-        <% } %>
-        <a href="/workspace/team" class="px-4 py-3 rounded-xl border border-brand-border/40 text-sm font-semibold text-brand-dark dark:text-white<%= _mrp.startsWith('/workspace') && !_mrp.startsWith('/workspace/voicemail') && !_mrp.startsWith('/workspace/phones') ? ' border-brand-yellow bg-brand-yellow/10' : '' %>">Workspace settings</a>
-        <a href="/activation" class="px-4 py-3 rounded-xl border border-brand-border/40 text-sm font-semibold text-brand-dark dark:text-white<%= _mrp.startsWith('/activation') ? ' border-brand-yellow bg-brand-yellow/10' : '' %>">7-day activation</a>
-        <button type="button" id="connectAiOpenMobile" class="w-full text-left px-4 py-3 rounded-xl border border-brand-border/40 text-sm font-semibold text-brand-dark dark:text-white">Connect AI</button>
-      </nav>
-
-      <div class="pt-6 border-t border-brand-border dark:border-white/10">
-        <% if (user) { %>
-        <a href="/logout" class="text-sm font-bold text-red-600 dark:text-red-400">Log out</a>
-        <% } else { %>
-        <a href="/auth/google" class="text-sm font-bold text-brand-yellow">Login</a>
+        <a href="/auth/google" class="sidebar-nav-link">
+          <span>Login</span>
+        </a>
         <% } %>
       </div>
     </div>
