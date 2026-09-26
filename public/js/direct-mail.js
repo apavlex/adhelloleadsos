@@ -3,6 +3,9 @@
 
   var chatHistory = [];
   var lastImagePrompt = '';
+  /** When true, welcome must not wipe a social-post seed already shown in chat. */
+  var socialPostChatSeeded = false;
+  var SOCIAL_POST_HANDOFF_KEY = 'adhello_dm_social_post_handoff';
   var designs = { front: null, back: null };
   var designMeta = {
     front: { prompt: '', aspectRatio: '3:2', resolution: '2K' },
@@ -2304,12 +2307,15 @@
     var imageNote = String(opts.imageNote || '').trim();
     var tags = String(opts.tags || '').trim();
     var platform = String(opts.platform || 'instagram_feed').trim();
-    if (!(copy || headline)) return;
+    if (!(copy || headline)) return false;
 
+    socialPostChatSeeded = true;
     appendChatPostContextCard(copy, headline, body, platform);
 
     var contextMsg = buildSocialPostDesignChatMessage(copy, headline, body, imageNote, tags, platform);
-    chatHistory.push({ role: 'user', content: contextMsg });
+    if (!chatHistory.some(function (m) { return m && m.role === 'user' && m.content === contextMsg; })) {
+      chatHistory.push({ role: 'user', content: contextMsg });
+    }
 
     var askMsg =
       'Ask me 2–4 short clarifying questions so you can write a strong image prompt for this post (photo vs illustration, colors, hero subject, mood). Do not return an imagePrompt yet — questions only until I answer.';
@@ -2360,6 +2366,22 @@
         'Your post is loaded above. Describe the image you want (style, colors, hero subject), then tap Chat — I’ll ask follow-ups and draft a prompt.',
       );
     }
+    return true;
+  }
+
+  function readSocialPostHandoff() {
+    try {
+      var raw = sessionStorage.getItem(SOCIAL_POST_HANDOFF_KEY);
+      if (!raw) return null;
+      sessionStorage.removeItem(SOCIAL_POST_HANDOFF_KEY);
+      var data = JSON.parse(raw);
+      return data && typeof data === 'object' ? data : null;
+    } catch (_) {
+      try {
+        sessionStorage.removeItem(SOCIAL_POST_HANDOFF_KEY);
+      } catch (_2) {}
+      return null;
+    }
   }
 
   function syncArtworkToLinkedSocialPost(imageUrl, prompt) {
@@ -2397,22 +2419,34 @@
 
   async function loadFromSocialPostParams() {
     var params = new URLSearchParams(window.location.search || '');
-    if (String(params.get('fromSocialPost') || '') !== '1') return;
+    var handoff = readSocialPostHandoff();
+    var fromSocial =
+      String(params.get('fromSocialPost') || '') === '1' ||
+      !!(handoff && (handoff.copy || handoff.headline || handoff.fromSocialPost));
+    if (!fromSocial) return;
 
-    var platform = String(params.get('platform') || 'instagram_feed').trim();
-    var copy = String(params.get('copy') || '').trim();
-    var headline = String(params.get('headline') || '').trim();
-    var body = String(params.get('body') || '').trim();
-    var imageNote = String(params.get('imageNote') || '').trim();
-    var tags = String(params.get('tags') || '').trim();
+    var platform = String(
+      (handoff && handoff.platform) || params.get('platform') || 'instagram_feed',
+    ).trim();
+    var copy = String((handoff && handoff.copy) || params.get('copy') || '').trim();
+    var headline = String((handoff && handoff.headline) || params.get('headline') || '').trim();
+    var body = String((handoff && handoff.body) || params.get('body') || '').trim();
+    var imageNote = String((handoff && handoff.imageNote) || params.get('imageNote') || '').trim();
+    var tags = String((handoff && handoff.tags) || params.get('tags') || '').trim();
     var autoPrompt =
       String(params.get('autoPrompt') || '') === '1' ||
-      String(params.get('autoGenerate') || '') === '1';
+      String(params.get('autoGenerate') || '') === '1' ||
+      !!(handoff && handoff.autoPrompt);
 
     linkedSocialPost = {
-      postId: String(params.get('postId') || '').trim(),
-      ideaId: String(params.get('ideaId') || '').trim(),
-      platform: String(params.get('socialPlatform') || params.get('platform') || '').trim(),
+      postId: String((handoff && handoff.postId) || params.get('postId') || '').trim(),
+      ideaId: String((handoff && handoff.ideaId) || params.get('ideaId') || '').trim(),
+      platform: String(
+        (handoff && handoff.socialPlatform) ||
+          params.get('socialPlatform') ||
+          params.get('platform') ||
+          '',
+      ).trim(),
     };
 
     var platformEl = document.getElementById('dmPlatform');
@@ -2437,7 +2471,9 @@
       postCopyEl.value = copy;
     } else {
       refreshPostCopyFromFields(true);
+      if (!copy && postCopyEl) copy = String(postCopyEl.value || '').trim();
     }
+    if (!headline && copy) headline = copy.split('\n')[0].slice(0, 160);
 
     switchDmDrawerTab('formats');
     syncPostCopySection();
@@ -2569,6 +2605,7 @@
   }
 
   function renderChatWelcome() {
+    if (socialPostChatSeeded || chatHistory.length > 0) return;
     var log = document.getElementById('dmChatLog');
     if (!log) return;
     log.innerHTML = '';
@@ -2585,7 +2622,7 @@
   }
 
   function refreshChatWelcomeIfEmpty() {
-    if (chatHistory.length > 0) return;
+    if (socialPostChatSeeded || chatHistory.length > 0) return;
     renderChatWelcome();
   }
 
@@ -3338,6 +3375,7 @@
   }
 
   function resetDesignSession() {
+    socialPostChatSeeded = false;
     chatHistory = [];
     lastImagePrompt = '';
     var ratio = currentAspectRatio();
@@ -4589,6 +4627,30 @@
   }
   var postCopyCopyBtn = document.getElementById('dmPostCopyCopyBtn');
   if (postCopyCopyBtn) postCopyCopyBtn.addEventListener('click', copyPostCopyToClipboard);
+  var postCopyToChatBtn = document.getElementById('dmPostCopyToChatBtn');
+  if (postCopyToChatBtn) {
+    postCopyToChatBtn.addEventListener('click', function () {
+      var postCopyEl = document.getElementById('dmPostCopy');
+      var copy = String((postCopyEl && postCopyEl.value) || '').trim();
+      var headlineEl = document.getElementById('dmHeadline');
+      var bodyEl = document.getElementById('dmBody');
+      var headline = String((headlineEl && headlineEl.value) || '').trim();
+      var body = String((bodyEl && bodyEl.value) || '').trim();
+      if (!copy && !headline) {
+        setPostCopyStatus('Add post copy first.', false);
+        return;
+      }
+      if (!headline && copy) headline = copy.split('\n')[0].slice(0, 160);
+      void seedChatWithSocialPostForPrompt({
+        copy: copy || headline,
+        headline: headline,
+        body: body,
+        platform: currentPlatformKey(),
+      }).then(function () {
+        setPostCopyStatus('Post added to chat.', true);
+      });
+    });
+  }
   syncPostCopySection();
 
   var slotEl = document.getElementById('dmDesignSlot');

@@ -1366,15 +1366,32 @@
       const params = new URLSearchParams({
         fromSocialPost: '1',
         platform: dmPlatform,
-        copy: copy,
-        headline: hook.slice(0, 120),
-        body: cta || '',
+        // Keep URL short — full copy rides in sessionStorage handoff.
+        headline: String(hook || '').slice(0, 120),
+        body: String(cta || '').slice(0, 200),
       });
       if (extras.imageNote) params.set('imageNote', String(extras.imageNote).slice(0, 500));
       if (extras.tags && extras.tags.length) params.set('tags', extras.tags.join(', ').slice(0, 200));
       if (extras.postId) params.set('postId', String(extras.postId));
       if (extras.ideaId) params.set('ideaId', String(extras.ideaId));
       if (extras.socialPlatform) params.set('socialPlatform', String(extras.socialPlatform));
+      try {
+        sessionStorage.setItem(
+          'adhello_dm_social_post_handoff',
+          JSON.stringify({
+            fromSocialPost: 1,
+            platform: dmPlatform,
+            socialPlatform: extras.socialPlatform || platform || '',
+            copy: copy,
+            headline: hook,
+            body: cta || '',
+            imageNote: extras.imageNote || '',
+            tags: Array.isArray(extras.tags) ? extras.tags.join(', ') : String(extras.tags || ''),
+            postId: extras.postId || '',
+            ideaId: extras.ideaId || '',
+          }),
+        );
+      } catch (_) {}
       return '/direct-mail?' + params.toString();
     }
 
