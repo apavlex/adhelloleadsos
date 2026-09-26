@@ -31,6 +31,23 @@
     }
   }
 
+  function nextStageColumn(column) {
+    if (!column) return null;
+    var next = column.nextElementSibling;
+    while (next && !(next.classList && next.classList.contains('opp-stage'))) {
+      next = next.nextElementSibling;
+    }
+    return next;
+  }
+
+  function syncAdvanceButtons(column) {
+    if (!column) return;
+    var hasNext = !!nextStageColumn(column);
+    Array.prototype.forEach.call(column.querySelectorAll('[data-opp-action="advance"]'), function (btn) {
+      btn.hidden = !hasNext;
+    });
+  }
+
   function syncStage(list) {
     if (!list) return;
     var cards = list.querySelectorAll('.opp-card');
@@ -49,6 +66,7 @@
     var badge = stage.querySelector('.opp-stage-count');
     if (badge) badge.textContent = String(count);
     var meta = stage.querySelector('.opp-stage-meta');
+    syncAdvanceButtons(stage);
     if (!meta) return;
     var total = 0;
     Array.prototype.forEach.call(cards, function (card) {
