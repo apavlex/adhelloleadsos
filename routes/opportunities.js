@@ -201,7 +201,20 @@ router.post('/bulk-move', express.json({ limit: '64kb' }), async (req, res, next
     };
     const updatedKeys = [];
     for (const rawKey of leadKeys) {
-      const fullKey = resolveKey(rawKey);
+      let fullKey = resolveKey(rawKey);
+      if (!fullKey) {
+        try {
+          const resolved = await dbService.resolveLeadStorageKey(rawKey, req.workspaceId);
+          if (resolved) {
+            const lead = await dbService.getLead(resolved, req.workspaceId);
+            if (lead && (lead.workspaceId || 'default') === req.workspaceId) {
+              fullKey = resolved;
+            }
+          }
+        } catch (_) {
+          /* ignore resolve errors */
+        }
+      }
       if (!fullKey) continue;
       const patch = {
         opportunityPipelineId: placement.pipelineId,

@@ -19238,7 +19238,8 @@ document.addEventListener('DOMContentLoaded', () => {
   function readOpportunityPlacementFromBar() {
     const boardEl = document.getElementById('bulkOpportunityPipelineSelect');
     const stageEl = document.getElementById('bulkPipelineStageSelect');
-    const pipelineId = boardEl && boardEl.value ? String(boardEl.value).trim() : '';
+    if (!boardEl) return null;
+    const pipelineId = boardEl.value ? String(boardEl.value).trim() : '';
     let stageId = stageEl && stageEl.value ? String(stageEl.value).trim() : '';
     if (!pipelineId) return null;
     const pipelineName =
@@ -19249,20 +19250,31 @@ document.addEventListener('DOMContentLoaded', () => {
       '';
     const boards = window.OPPORTUNITY_BOARDS;
     const pipelines = boards && Array.isArray(boards.pipelines) ? boards.pipelines : [];
-    const pipeline = pipelines.find(function (item) { return item && item.id === pipelineId; });
+    const pipeline = pipelines.find(function (item) {
+      return item && item.id === pipelineId;
+    });
     if (pipeline && Array.isArray(pipeline.stages)) {
-      let stage = pipeline.stages.find(function (item) { return item.id === stageId; });
+      let stage = pipeline.stages.find(function (item) {
+        return item.id === stageId;
+      });
       if (!stage && stageName) {
         stage = pipeline.stages.find(function (item) {
           return String(item.name || '').trim().toLowerCase() === stageName.toLowerCase();
         });
+      }
+      if (!stage && pipeline.stages.length) {
+        stage = pipeline.stages[0];
       }
       if (stage) {
         stageId = stage.id;
         stageName = stage.name || stageName;
       }
     }
-    if (stageId.indexOf('ops_') !== 0) return null;
+    // Opportunity stages are ops_*; also accept any id that matched the selected board above.
+    if (!stageId) return null;
+    if (stageId.indexOf('ops_') !== 0 && !(pipeline && pipeline.stages && pipeline.stages.some((s) => s.id === stageId))) {
+      return null;
+    }
     return { pipelineId, stageId, pipelineName, stageName: stageName || 'stage' };
   }
 
@@ -19272,33 +19284,46 @@ document.addEventListener('DOMContentLoaded', () => {
       return window.__bulkSaveSearchResultsToFolder(triggerBtn);
     }
 
-    const table = getActiveLeadsTable();
-    const scope = table || document;
-    const checkedBoxes = scope.querySelectorAll(
-      'tbody .row-checkbox:checked, tbody .lead-checkbox:checked',
-    );
-    if (checkedBoxes.length === 0) return;
-
-    const selectedRows = Array.from(checkedBoxes)
-      .map((cb) => cb.closest('.result-row'))
-      .filter(Boolean);
-
-    const isSearchBulk = !!document.getElementById('searchResultsLeadsTable');
+    const activeTable = getActiveLeadsTable();
+    const isSearchBulk = !!(activeTable && activeTable.id === 'searchResultsLeadsTable');
     const isProspectPipeline = !!document.getElementById('prospectLeadsTable') && !isSearchBulk;
+
     const folderKey = getBulkSaveFolderKey();
     const opportunityPlacement = isProspectPipeline ? readOpportunityPlacementFromBar() : null;
 
+    // Prefer canonical bulk keys (works even if the active table scope misses a checkbox).
+    let leadKeys = getSelectedLeadKeysForBulk().map(normalizeLeadKeyForApi).filter(Boolean);
+    if (!leadKeys.length) {
+      const table = activeTable;
+      const scope = table || document;
+      const checkedBoxes = scope.querySelectorAll(
+        'tbody .row-checkbox:checked, tbody .lead-checkbox:checked, .row-checkbox:checked, .lead-checkbox:checked',
+      );
+      checkedBoxes.forEach((cb) => {
+        const key = leadKeyFromBulkCheckbox(cb);
+        if (key) leadKeys.push(normalizeLeadKeyForApi(key));
+      });
+      leadKeys = [...new Set(leadKeys.filter(Boolean))];
+    }
+
+    if (!leadKeys.length) {
+      showBulkSaveFeedback('Select at least one lead first.', 'error');
+      return;
+    }
+
+    // Opportunity board selected in the bar but stage could not be resolved — don't silently no-op.
+    const boardEl = document.getElementById('bulkOpportunityPipelineSelect');
+    if (isProspectPipeline && boardEl && boardEl.value && !opportunityPlacement) {
+      showBulkSaveFeedback('Choose an opportunity stage, then click Save again.', 'error');
+      return;
+    }
+
     if ((isSearchBulk || isProspectPipeline) && !folderKey && !window.SEARCH_TARGET_FOLDER_KEY && !opportunityPlacement) {
-      window.alert('Select a folder from the dropdown first.');
+      window.alert('Select a folder or an opportunity board stage first.');
       return;
     }
 
     if (isProspectPipeline && (folderKey || opportunityPlacement)) {
-      const leadKeys = getSelectedLeadKeysForBulk().map(normalizeLeadKeyForApi).filter(Boolean);
-      if (!leadKeys.length) {
-        showBulkSaveFeedback('Select a saved lead first.', 'error');
-        return;
-      }
       const buttons = [triggerBtn, bulkSaveBtn, document.getElementById('headerBulkSaveBtn')].filter(Boolean);
       const originalHtml = buttons.map((b) => b.innerHTML);
       const folderName =
@@ -19326,8 +19351,13 @@ document.addEventListener('DOMContentLoaded', () => {
           if (!res.ok || !data.success) {
             throw new Error((data && data.error) || `Could not assign folder (HTTP ${res.status})`);
           }
-          savedKeys = Array.isArray(data.updatedKeys) ? data.updatedKeys : [];
-          if (!savedKeys.length) {
+          const folderUpdated = Array.isArray(data.updatedKeys) ? data.updatedKeys : [];
+          // Keep original keys when folder assign is a no-op (already in that folder) so
+          // opportunity placement still runs.
+          if (folderUpdated.length) {
+            savedKeys = folderUpdated.map(normalizeLeadKeyForApi).filter(Boolean);
+          }
+          if (!savedKeys.length && !opportunityPlacement) {
             throw new Error('No leads were saved to that folder. Refresh the page and try again.');
           }
         }
@@ -19337,7 +19367,7 @@ document.addEventListener('DOMContentLoaded', () => {
             credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
             body: JSON.stringify({
-              leadKeys: savedKeys,
+              leadKeys: savedKeys.length ? savedKeys : leadKeys,
               pipelineId: opportunityPlacement.pipelineId,
               stageId: opportunityPlacement.stageId,
               stageName: opportunityPlacement.stageName,
@@ -19360,6 +19390,13 @@ document.addEventListener('DOMContentLoaded', () => {
               opportunityPlacement.stageId,
             );
           }
+          savedKeys.forEach((leadKey) => {
+            const row = findLeadRowForBulkKey(leadKey);
+            if (!row) return;
+            row.dataset.opportunityPipelineId = opportunityPlacement.pipelineId;
+            row.dataset.opportunityStageId = opportunityPlacement.stageId;
+            row.dataset.onPipelineBoard = '1';
+          });
         }
         const viewingFolder =
           typeof window.PROSPECTING_ACTIVE_FOLDER_KEY === 'string'
@@ -19377,7 +19414,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.lead-checkbox, .row-checkbox').forEach((cb) => {
           cb.checked = false;
         });
-        const assignCount = savedKeys.length;
+        const assignCount = savedKeys.length || leadKeys.length;
         const savedPlace = opportunityPlacement
           ? `${opportunityPlacement.pipelineName} · ${opportunityPlacement.stageName}`
           : placeLabel;
@@ -19393,14 +19430,20 @@ document.addEventListener('DOMContentLoaded', () => {
         setBulkSaveButtonsState(buttons, BULK_SAVE_DONE_HTML, true, true);
         showBulkSaveFeedback(successMsg, 'ok');
         if (typeof window.showProspectToast === 'function') window.showProspectToast(successMsg);
+        if (opportunityPlacement && typeof window.showAppToast === 'function') {
+          window.showAppToast(`${successMsg}. Open Opportunities to see them on the board.`, {
+            variant: 'success',
+            duration: 7000,
+          });
+        }
         setTimeout(() => {
           if (bar) bar.dataset.holdSaved = '';
           resetBulkSaveButtons(buttons, originalHtml, false);
           updateBulkActionBar();
         }, 4200);
       } catch (err) {
-        console.error('Bulk save to folder failed:', err);
-        showBulkSaveFeedback(err && err.message ? err.message : 'Could not save leads to folder.', 'error');
+        console.error('Bulk save to opportunity/folder failed:', err);
+        showBulkSaveFeedback(err && err.message ? err.message : 'Could not save leads.', 'error');
         resetBulkSaveButtons(buttons, originalHtml, false);
       }
       return;
@@ -19408,6 +19451,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (isSearchBulk && !folderKey && !window.SEARCH_TARGET_FOLDER_KEY) {
       window.alert('Select a folder (or create one) before saving leads.');
+      return;
+    }
+
+    const table = activeTable;
+    const scope = table || document;
+    const checkedBoxes = scope.querySelectorAll(
+      'tbody .row-checkbox:checked, tbody .lead-checkbox:checked',
+    );
+    const selectedRows = Array.from(checkedBoxes)
+      .map((cb) => cb.closest('.result-row'))
+      .filter(Boolean);
+
+    if (!selectedRows.length) {
+      showBulkSaveFeedback('Select at least one lead first.', 'error');
       return;
     }
 
@@ -19428,18 +19485,18 @@ document.addEventListener('DOMContentLoaded', () => {
     let hadError = false;
 
     try {
-      const leadKeys = [];
+      const upsertKeys = [];
       for (const row of selectedRows) {
         const key = await ensureRowLeadKeyForBulkSave(row, folderKey);
         if (key) {
-          leadKeys.push(normalizeLeadKeyForApi(key));
+          upsertKeys.push(normalizeLeadKeyForApi(key));
           savedCount += 1;
           const bookmarkBtn = row.querySelector('.bookmark-btn');
           if (bookmarkBtn) markBookmarkSaved(bookmarkBtn);
         }
       }
 
-      const uniqueLeadKeys = [...new Set(leadKeys.filter(Boolean))];
+      const uniqueLeadKeys = [...new Set(upsertKeys.filter(Boolean))];
 
       if (folderKey && uniqueLeadKeys.length) {
         const res = await fetch('/folders/assign-bulk', {
