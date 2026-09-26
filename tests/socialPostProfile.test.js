@@ -8,17 +8,26 @@ const {
 } = require('../services/socialPostProfile');
 const { generatePostIdeas } = require('../services/socialPostIdeas');
 
-test('resolveSocialPostProfile uses icpKeyword for flooring workspace', () => {
+test('Flooring with leftover agency coach prompt stays business social', () => {
   const profile = resolveSocialPostProfile({
-    name: 'Flooring Co',
-    icpKeyword: 'flooring retail and installation',
-    brandKit: { businessName: 'Pacific Floor & Design' },
-    cwIntake: { businessDescription: 'Hardwood, LVP, and tile for homeowners and GCs' },
+    name: 'Flooring',
+    salesScriptsPresetKey: 'retail_install',
+    brandKit: { businessName: 'TPR Supply' },
+    icpKeyword: 'flooring',
+    coachPrompt: 'You are coaching a digital ad agency owner',
+    socialPostsPreset: 'TPR Supply',
   });
-  assert.match(profile.niche, /flooring/i);
   assert.equal(profile.isAgencyWorkspace, false);
   assert.equal(profile.showLocalContent, false);
-  assert.equal(profile.businessName, 'Pacific Floor & Design');
+  assert.equal(profile.businessName, 'TPR Supply');
+  assert.equal(profile.contentSubject, 'flooring');
+  assert.match(profile.niche, /TPR Supply/i);
+  const ideas = generatePostIdeas(profile.niche, 'instagram', {
+    isAgencyWorkspace: profile.isAgencyWorkspace,
+    contentSubject: profile.contentSubject,
+  });
+  assert.match(ideas.instagram[0].hook, /flooring/i);
+  assert.doesNotMatch(ideas.instagram[0].cta || '', /adhello\.ai/i);
 });
 
 test('resolveSocialPostProfile defaults to agency preset for AdHello workspace', () => {

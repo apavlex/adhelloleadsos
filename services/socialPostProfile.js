@@ -2,31 +2,53 @@
  * Resolve workspace business context for Social Post Ideas.
  */
 
-function isAgencyOrLocalGuideWorkspace(ws) {
+const { isAgencySalesWorkspace } = require('./leadPanelWorkspace');
+
+function isClarkCountyLocalGuide(ws) {
   if (!ws || typeof ws !== 'object') return false;
   const slug = String(ws.slug || '').toLowerCase();
   const name = String(ws.name || '').toLowerCase();
   const preset = String(ws.socialPostsPreset || '').toLowerCase();
-  if (
-    slug.includes('adhello') ||
+  return (
     slug.includes('clark') ||
     name.includes('clark county') ||
-    name.includes('adhello') ||
-    name.includes('clarkcounty')
-  ) {
-    return true;
+    name.includes('clarkcounty') ||
+    preset.includes('clark') ||
+    preset.includes('clarkcounty')
+  );
+}
+
+/**
+ * Agency / local-guide social voice (AdHello templates, GBP tips, Clark scout).
+ * Partner verticals (flooring, etc.) must NOT inherit this from leftover coach
+ * prompts or a brand-kit client name — that caused "Ideas for: TPR Supply"
+ * with AdHello copy underneath.
+ */
+function isAgencyOrLocalGuideWorkspace(ws) {
+  if (!ws || typeof ws !== 'object') return false;
+
+  // Explicit non-agency sales preset wins (Flooring / retail_install / saas…).
+  const salesKey = String(
+    ws.salesScriptsPresetKey ||
+      (ws.pipelineIntake && ws.pipelineIntake.presetKey) ||
+      '',
+  )
+    .trim()
+    .toLowerCase();
+  if (salesKey && salesKey !== 'agency') {
+    return isClarkCountyLocalGuide(ws);
   }
-  if (preset.includes('clark') || preset.includes('adhello') || preset.includes('clarkcounty')) {
-    return true;
-  }
-  const coach = String(ws.coachPrompt || '').toLowerCase();
-  if (
-    coach.includes('digital ad agency') ||
-    coach.includes('clarkcounty') ||
-    coach.includes('@clarkcountyguide')
-  ) {
-    return true;
-  }
+
+  if (isAgencySalesWorkspace(ws)) return true;
+  if (isClarkCountyLocalGuide(ws)) return true;
+
+  const slug = String(ws.slug || '').toLowerCase();
+  const name = String(ws.name || '').toLowerCase();
+  if (slug.includes('adhello') || name.includes('adhello')) return true;
+
+  const preset = String(ws.socialPostsPreset || '').toLowerCase();
+  if (preset.includes('adhello')) return true;
+
   return false;
 }
 
@@ -35,6 +57,7 @@ function isAgencyOrLocalGuideWorkspace(ws) {
  * @returns {{
  *   niche: string,
  *   businessName: string,
+ *   contentSubject: string,
  *   icpKeyword: string,
  *   businessDescription: string,
  *   isAgencyWorkspace: boolean,
@@ -71,8 +94,15 @@ function resolveSocialPostProfile(ws) {
       niche = `${businessName} — digital marketing for local businesses`;
     } else {
       const parts = [];
-      if (icpKeyword) parts.push(icpKeyword);
-      else if (businessName) parts.push(businessName);
+      if (businessName) parts.push(businessName);
+      else if (icpKeyword) parts.push(icpKeyword);
+      if (
+        icpKeyword &&
+        businessName &&
+        !businessName.toLowerCase().includes(icpKeyword.toLowerCase())
+      ) {
+        parts.push(icpKeyword);
+      }
       if (businessDescription) {
         parts.push(businessDescription.slice(0, 140));
       }
@@ -84,7 +114,7 @@ function resolveSocialPostProfile(ws) {
     niche = `${businessName || 'AdHello'} — local business marketing`;
   }
   if (!niche) {
-    niche = icpKeyword || businessName || 'local home service business';
+    niche = businessName || icpKeyword || 'local home service business';
   }
 
   return {
@@ -94,7 +124,7 @@ function resolveSocialPostProfile(ws) {
     icpKeyword,
     businessDescription,
     isAgencyWorkspace,
-    showLocalContent: isAgencyWorkspace,
+    showLocalContent: isAgencyWorkspace || isClarkCountyLocalGuide(ws),
   };
 }
 
@@ -115,6 +145,7 @@ function marketingPlatformForSocial(platform) {
 
 module.exports = {
   isAgencyOrLocalGuideWorkspace,
+  isClarkCountyLocalGuide,
   resolveSocialPostProfile,
   marketingPlatformForSocial,
   SOCIAL_TO_MARKETING_PLATFORM,

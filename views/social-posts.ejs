@@ -233,7 +233,7 @@
             content: 'Post ideas scoped to your workspace business profile. Bookmark favorites into folders, then open Marketing Studio from any card thumbnail — your post copy loads in the studio and you choose when to Chat and Generate.'
           }) %>
         </div>
-        <p class="text-xs text-brand-muted mt-1 max-w-xl">Educational ideas for your profile and Facebook groups — bookmark favorites, then copy or open Marketing Studio.</p>
+        <p class="text-xs text-brand-muted mt-1 max-w-xl"><%= (typeof businessProfile !== 'undefined' && businessProfile && businessProfile.isAgencyWorkspace) ? 'Educational ideas for your profile and Facebook groups — bookmark favorites, then copy or open Marketing Studio.' : 'Post ideas for your business — bookmark favorites, then copy or open Marketing Studio.' %></p>
         <p id="nicheLabel" class="text-xs text-brand-muted mt-1"></p>
         <div id="styleTags" class="flex flex-wrap gap-2 mt-2"></div>
       </div>
@@ -331,8 +331,10 @@
       </button>
     </div>
 
-    <!-- Facebook Groups script pack (shown only on that tab) -->
-    <div id="fbGroupScriptPack" class="hidden mb-10">
+    <!-- Facebook Groups script pack (AdHello agency prospecting only) -->
+    <% const _isAgencySocial = typeof businessProfile !== 'undefined' && businessProfile && businessProfile.isAgencyWorkspace; %>
+    <div id="fbGroupScriptPack" class="hidden mb-10" data-agency-pack="<%= _isAgencySocial ? '1' : '0' %>">
+      <% if (_isAgencySocial) { %>
       <div class="mb-6">
         <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white mb-1">Group script pack</h2>
         <p class="text-sm text-brand-muted max-w-2xl">Educational posts you can paste into groups or repost on your profile. Soft asks stay optional — lead with value. Copy moves a script to Used so it leaves the active pack. Bookmark keeps it in your library below.</p>
@@ -391,6 +393,7 @@
         <div id="fbGroupScriptsUsedList" class="js-sp-posts-layout sp-layout-grid--scripts grid gap-4 sp-layout--list"></div>
         <p id="fbGroupScriptsUsedEmpty" class="sp-fb-used-empty">Nothing used yet. Copy a script and it moves here.</p>
       </section>
+      <% } %>
     </div>
 
     <!-- Ideas Grid -->
@@ -903,13 +906,14 @@
       const pack = document.getElementById('fbGroupScriptPack');
       const ideas = document.getElementById('ideasContainer');
       const onGroups = platform === 'facebook_group';
-      if (pack) pack.classList.toggle('hidden', !onGroups);
+      const agencyPack = !!(pack && pack.getAttribute('data-agency-pack') === '1');
+      if (pack) pack.classList.toggle('hidden', !(onGroups && agencyPack));
       if (ideas) {
-        // On Facebook Groups, the script pack is the main content; hide short idea hooks.
-        ideas.classList.toggle('hidden', onGroups);
+        // Agency: Groups tab shows the AdHello script pack. Business: show generated ideas.
+        ideas.classList.toggle('hidden', onGroups && agencyPack);
       }
-      if (onGroups) applyFbGroupUsedState();
-      if (!onGroups) renderIdeas();
+      if (onGroups && agencyPack) applyFbGroupUsedState();
+      if (!(onGroups && agencyPack)) renderIdeas();
       try {
         const url = new URL(window.location.href);
         if (onGroups) url.searchParams.set('platform', 'facebook_group');
@@ -1312,7 +1316,7 @@
       const preset = document.getElementById('nicheInput').value.trim();
       const q = preset ? '&preset=' + encodeURIComponent(preset) : '';
       const container = document.getElementById('ideasContainer');
-      if (currentPlatform !== 'facebook_group') {
+      if (currentPlatform !== 'facebook_group' || !(document.getElementById('fbGroupScriptPack') && document.getElementById('fbGroupScriptPack').getAttribute('data-agency-pack') === '1')) {
         container.innerHTML = '<div class="col-span-full text-center py-20 text-brand-muted"><p class="text-lg font-bold">Generating fresh ideas...</p></div>';
       }
       try {
@@ -1324,8 +1328,13 @@
             const lbl = document.getElementById('nicheLabel');
             if (lbl) lbl.textContent = 'Ideas for: ' + data.niche;
           }
-          if (currentPlatform === 'facebook_group') switchTab('facebook_group');
-          else renderIdeas();
+          if (data.profile && data.profile.contentSubject && data.niche) {
+            const lbl = document.getElementById('nicheLabel');
+            if (lbl && data.profile.contentSubject !== data.niche) {
+              lbl.textContent = 'Ideas for: ' + data.niche + ' · ' + data.profile.contentSubject;
+            }
+          }
+          switchTab(currentPlatform);
         }
         else { container.innerHTML = '<div class="col-span-full text-center py-20 text-red-500"><p class="font-bold">Error: ' + (data.error || 'Failed') + '</p></div>'; }
       } catch (err) { container.innerHTML = '<div class="col-span-full text-center py-20 text-red-500"><p class="font-bold">Connection error.</p></div>'; }

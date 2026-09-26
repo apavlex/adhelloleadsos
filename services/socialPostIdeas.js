@@ -135,7 +135,14 @@ function generatePostIdeas(niche = '', platformFilter = null, opts = {}) {
     ? [platformFilter]
     : ['instagram', 'facebook', 'facebook_group', 'linkedin', 'x', 'tiktok', 'gmb'];
   const ideas = {};
-  const useAgency = opts.isAgencyWorkspace === true || isAgencyOrLocalGuideWorkspace({ socialPostsPreset: niche, coachPrompt: niche, name: niche });
+  const useAgency =
+    typeof opts.isAgencyWorkspace === 'boolean'
+      ? opts.isAgencyWorkspace
+      : isAgencyOrLocalGuideWorkspace({
+          socialPostsPreset: niche,
+          coachPrompt: niche,
+          name: niche,
+        });
   const baseIdeas = useAgency ? agencyTemplates(subject) : businessTemplates(subject);
 
   for (const p of platforms) {
