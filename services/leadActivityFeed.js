@@ -1,7 +1,7 @@
 /** Workspace-wide lead activity feed (notes, calls, SMS, status changes). */
 
 const QUICK_LOG_PILL_LABELS =
-  'Gatekeeper|No pickup|Left VM|Not interested|Callback requested|DM connected|Send info|Site audit';
+  'Gatekeeper|No pickup|Left VM|Connected|Not interested|Callback requested|DM connected|Send info|Site audit';
 
 const NOISE_LOG_TYPES = new Set(['sequence_step']);
 const NOISE_UPDATE_TYPES = new Set(['sms_status', 'call_status', 'voicemail_amd', 'voicemail_status']);

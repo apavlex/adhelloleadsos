@@ -130,7 +130,7 @@ test('opportunity cards show category, status, the latest note, and reviews', ()
   });
   const card = board.stages[0].cards[0];
   assert.equal(card.category, 'Cafe');
-  assert.match(card.status, /^DM connected/);
+  assert.match(card.status, /^Connected/);
   assert.equal(card.note, 'Asked for a proposal next week.');
   assert.equal(card.reviews, '4.8 · 48 reviews');
   assert.equal(card.city, 'Austin, TX');

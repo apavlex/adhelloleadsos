@@ -36,4 +36,13 @@ describe('quickLogConfig agency-only pills', () => {
       true
     );
   });
+
+  it('includes Connected quick-log pill', () => {
+    const payload = getQuickLogClientPayload({ agencySales: false });
+    const connected = payload.items.find((i) => i.disposition === 'connected');
+    assert.ok(connected);
+    assert.equal(connected.label, 'Connected');
+    assert.equal(payload.tagConfig.Connected.disposition, 'connected');
+    assert.match(payload.pillLabelsPattern, /Connected/);
+  });
 });

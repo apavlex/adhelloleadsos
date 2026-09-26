@@ -4547,9 +4547,11 @@ document.addEventListener('DOMContentLoaded', () => {
       Gatekeeper: { disposition: 'gatekeeper' },
       'No pickup': { disposition: 'no_answer' },
       'Left VM': { disposition: 'voicemail' },
+      Connected: { disposition: 'connected' },
+      'DM connected': { disposition: 'connected' },
       'Not interested': { disposition: 'not_interested', status: 'Closed - Lost' },
       'Callback requested': { disposition: 'callback' },
-      'DM connected': { disposition: 'connected' },
+      'SMS replied': { disposition: 'sms_replied', status: 'Connected - Follow Up' },
       'Send info': { disposition: 'send_info', status: 'Email Sent' },
       'Site audit': { disposition: 'site_audit' },
     };
@@ -10726,7 +10728,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const QUICK_LOG_PILL_LABELS =
     (window.__QUICK_LOG && window.__QUICK_LOG.pillLabelsPattern) ||
-    'Gatekeeper|No pickup|Left VM|Not interested|Callback requested|DM connected|Send info|Site audit';
+    'Gatekeeper|No pickup|Left VM|Connected|Not interested|Callback requested|DM connected|Send info|Site audit';
 
   function isQuickLogMirroredNote(entry) {
     const typ = String(entry.typ || '').toLowerCase();

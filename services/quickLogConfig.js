@@ -22,6 +22,11 @@ const QUICK_LOG_ITEMS = Object.freeze([
     noteTemplate: 'Left voicemail with value prop and callback number.',
   },
   {
+    label: 'Connected',
+    disposition: 'connected',
+    noteTemplate: 'Connected with decision maker. Follow up with tailored recap.',
+  },
+  {
     label: 'Not interested',
     disposition: 'not_interested',
     status: 'Closed - Lost',
@@ -37,11 +42,6 @@ const QUICK_LOG_ITEMS = Object.freeze([
     disposition: 'sms_replied',
     status: 'Connected - Follow Up',
     noteTemplate: 'Lead replied by SMS. Follow up promptly.',
-  },
-  {
-    label: 'DM connected',
-    disposition: 'connected',
-    noteTemplate: 'Connected with decision maker. Follow up with tailored recap.',
   },
   {
     label: 'Send info',
@@ -111,7 +111,12 @@ function quickLogItemForDisposition(code) {
 
 function quickLogItemForLabel(label) {
   const l = String(label || '').trim();
-  return QUICK_LOG_ITEMS.find((i) => i.label === l) || null;
+  if (!l) return null;
+  const direct = QUICK_LOG_ITEMS.find((i) => i.label === l);
+  if (direct) return direct;
+  // Legacy pill label before rename to Connected
+  if (/^dm\s*connected$/i.test(l)) return quickLogItemForDisposition('connected');
+  return null;
 }
 
 function quickLogItemForStatus(status) {
