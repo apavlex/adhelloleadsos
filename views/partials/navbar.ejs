@@ -429,7 +429,7 @@
 
       <div class="softphone-body flex-1 min-h-0 overflow-hidden flex flex-col bg-[#f7f7f8] dark:bg-slate-900">
         <div id="softphoneTabKeypad" class="softphone-tab-panel softphone-tab-keypad flex-1 min-h-0 overflow-hidden flex flex-col" data-tab="keypad">
-          <div class="softphone-keypad-scroll flex-1 min-h-0 overflow-y-auto custom-scrollbar px-4 pt-2.5 pb-2">
+          <div class="softphone-keypad-scroll flex-1 min-h-0 overflow-y-auto custom-scrollbar px-4 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <div class="softphone-calling-from mb-2 rounded-xl border border-brand-border/50 dark:border-white/10 bg-white/80 dark:bg-slate-800/60 px-3 py-2">
             <label for="softphoneCallerIdSelect" class="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 block mb-1">Your caller ID</label>
             <select id="softphoneCallerIdSelect" class="softphone-caller-id-select w-full min-w-0 bg-transparent border-0 p-0 text-[1.05rem] font-semibold tabular-nums text-slate-800 dark:text-white focus:outline-none focus:ring-0 appearance-none cursor-pointer" aria-label="Caller ID shown to leads">
@@ -513,42 +513,39 @@
             <button type="button" id="softphoneRedialBtn" class="hidden w-full mt-2 rounded-xl border-2 border-brand-yellow/70 bg-brand-yellow/20 px-3 py-2.5 text-[11px] font-black uppercase tracking-wide text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/30 transition-colors" title="Call the same number again without completing wrap-up">Redial same number</button>
           </div>
 
-          <div id="softphoneWrapPanel" class="softphone-wrap-panel mt-2 rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-slate-800/80 p-2.5">
-            <div class="flex items-center justify-between gap-2 mb-2">
-              <span class="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Notes &amp; sync</span>
-            </div>
-            <div class="relative mb-2">
-              <label for="softphoneStatusSelect" class="sr-only">Pipeline status</label>
-              <select id="softphoneStatusSelect" class="w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 pr-9 text-[11px] font-bold text-slate-800 dark:text-white appearance-none">
-                <option value="Not Contacted">Not Contacted</option>
-                <option value="Video Recorded">Video Recorded</option>
-                <option value="Called Lead">Called Lead</option>
-                <option value="Email Sent">Email Sent</option>
-                <option value="Follow-up">Follow-up</option>
-                <option value="Closed - Won">Closed - Won</option>
-                <option value="Closed - Lost">Closed - Lost</option>
-              </select>
-              <div class="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" aria-hidden="true">
-                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-              </div>
-            </div>
-            <input type="hidden" id="softphoneDisposition" value="" />
-            <p id="softphoneQuickLogSummary" class="mb-2 text-[10px] font-semibold text-slate-500 dark:text-slate-400">Pick a quick log above the keypad · follow-up optional</p>
-            <%- include('/partials/lead_send_info', { sendInfoId: 'softphoneSendInfo', sendInfoCompact: true, sendInfoHidden: true }) %>
-            <label for="softphoneNotes" class="sr-only">Call notes</label>
-            <textarea id="softphoneNotes" rows="2" class="w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-[11px] text-slate-800 dark:text-white placeholder:text-slate-400 resize-y min-h-[3rem]" placeholder="Owner response, objection, next step…"></textarea>
-            <p id="softphoneWrapFeedback" class="min-h-[1rem] text-[10px] text-slate-500 dark:text-slate-400 mt-1 leading-snug" role="status" aria-live="polite"></p>
-            <p id="softphoneNextStep" class="hidden text-[10px] text-slate-500 dark:text-slate-400 mt-1 leading-snug"></p>
-            <div class="grid grid-cols-2 gap-1.5 mt-2">
-              <button type="button" id="softphonePushGhlBtn" class="softphone-ctrl-btn softphone-ctrl-btn--ghl col-span-2" title="Save quick log and notes, then sync to Go High Level">Sync GHL</button>
-              <button type="button" id="softphoneAiSummaryBtn" class="softphone-ctrl-btn">AI summary</button>
-              <button type="button" id="softphoneCompleteWrapBtn" class="softphone-ctrl-btn softphone-ctrl-btn--primary">Done</button>
-              <button type="button" id="softphoneSkipWrapBtn" class="softphone-ctrl-btn col-span-2" title="Skip outcome and dial again">Skip wrap-up</button>
-            </div>
-          </div>
+          <div class="softphone-keypad-dock pt-1 pb-1">
+          <div class="softphone-keypad-grid" role="group" aria-label="Dial pad">
+            <%
+              var softphoneKeyLabels = {
+                '1': '', '2': 'ABC', '3': 'DEF', '4': 'GHI', '5': 'JKL', '6': 'MNO',
+                '7': 'PQRS', '8': 'TUV', '9': 'WXYZ', '*': '', '0': '+', '#': ''
+              };
+              ['1','2','3','4','5','6','7','8','9','*','0','#'].forEach(function (k) {
+                var sub = softphoneKeyLabels[k] || '';
+            %>
+            <button type="button" class="softphone-key" data-key="<%= k %>" aria-label="Dial <%= k %>">
+              <span class="softphone-key-main"><%= k %></span>
+              <% if (sub) { %><span class="softphone-key-sub"><%= sub %></span><% } %>
+            </button>
+            <% }); %>
           </div>
 
-          <div id="softphoneQuickLogBar" class="softphone-quicklog-bar shrink-0 px-3 pt-2 pb-2 border-t border-slate-200/70 dark:border-white/10 bg-white/95 dark:bg-slate-900/95">
+          <div class="softphone-call-row">
+            <span class="w-14" aria-hidden="true"></span>
+            <button type="button" id="softphoneCallBtn" class="softphone-call-btn" aria-label="Start call">
+              <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+            </button>
+            <button type="button" id="softphoneBackspaceBtn" class="softphone-backspace-btn" aria-label="Delete last digit">
+              <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 14l-4-4 4-4M5 10h10.5a4.5 4.5 0 010 9H5"/></svg>
+            </button>
+          </div>
+
+          <button type="button" id="softphoneScrollHint" class="softphone-scroll-hint hidden" aria-label="Scroll to quick log and GHL sync" title="Quick log &amp; GHL sync below">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          </div>
+
+          <div id="softphoneQuickLogBar" class="softphone-quicklog-bar mt-2 rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-slate-800/80 p-2.5">
             <div class="flex items-center justify-between gap-2 mb-1.5">
               <span class="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Quick log</span>
               <span id="softphoneWrapLeadHint" class="text-[10px] font-semibold text-slate-500 dark:text-slate-400 truncate max-w-[55%]"></span>
@@ -578,36 +575,40 @@
             </div>
           </div>
 
-          <div class="softphone-keypad-dock shrink-0 px-4 pt-1.5 pb-[max(0.65rem,env(safe-area-inset-bottom))] border-t border-slate-200/60 dark:border-white/10 bg-[#f7f7f8]/90 dark:bg-slate-900/95 backdrop-blur-sm">
-          <div class="softphone-keypad-grid" role="group" aria-label="Dial pad">
-            <%
-              var softphoneKeyLabels = {
-                '1': '', '2': 'ABC', '3': 'DEF', '4': 'GHI', '5': 'JKL', '6': 'MNO',
-                '7': 'PQRS', '8': 'TUV', '9': 'WXYZ', '*': '', '0': '+', '#': ''
-              };
-              ['1','2','3','4','5','6','7','8','9','*','0','#'].forEach(function (k) {
-                var sub = softphoneKeyLabels[k] || '';
-            %>
-            <button type="button" class="softphone-key" data-key="<%= k %>" aria-label="Dial <%= k %>">
-              <span class="softphone-key-main"><%= k %></span>
-              <% if (sub) { %><span class="softphone-key-sub"><%= sub %></span><% } %>
-            </button>
-            <% }); %>
+          <div id="softphoneWrapPanel" class="softphone-wrap-panel mt-2 rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-slate-800/80 p-2.5">
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <span class="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Notes &amp; sync</span>
+            </div>
+            <div class="relative mb-2">
+              <label for="softphoneStatusSelect" class="sr-only">Pipeline status</label>
+              <select id="softphoneStatusSelect" class="w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 pr-9 text-[11px] font-bold text-slate-800 dark:text-white appearance-none">
+                <option value="Not Contacted">Not Contacted</option>
+                <option value="Video Recorded">Video Recorded</option>
+                <option value="Called Lead">Called Lead</option>
+                <option value="Email Sent">Email Sent</option>
+                <option value="Follow-up">Follow-up</option>
+                <option value="Closed - Won">Closed - Won</option>
+                <option value="Closed - Lost">Closed - Lost</option>
+              </select>
+              <div class="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" aria-hidden="true">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+              </div>
+            </div>
+            <input type="hidden" id="softphoneDisposition" value="" />
+            <p id="softphoneQuickLogSummary" class="mb-2 text-[10px] font-semibold text-slate-500 dark:text-slate-400">Pick a quick log above · follow-up optional</p>
+            <%- include('/partials/lead_send_info', { sendInfoId: 'softphoneSendInfo', sendInfoCompact: true, sendInfoHidden: true }) %>
+            <label for="softphoneNotes" class="sr-only">Call notes</label>
+            <textarea id="softphoneNotes" rows="2" class="w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-[11px] text-slate-800 dark:text-white placeholder:text-slate-400 resize-y min-h-[3rem]" placeholder="Owner response, objection, next step…"></textarea>
+            <p id="softphoneWrapFeedback" class="min-h-[1rem] text-[10px] text-slate-500 dark:text-slate-400 mt-1 leading-snug" role="status" aria-live="polite"></p>
+            <p id="softphoneNextStep" class="hidden text-[10px] text-slate-500 dark:text-slate-400 mt-1 leading-snug"></p>
+            <div class="grid grid-cols-2 gap-1.5 mt-2">
+              <button type="button" id="softphonePushGhlBtn" class="softphone-ctrl-btn softphone-ctrl-btn--ghl col-span-2" title="Save quick log and notes, then sync to Go High Level">Sync GHL</button>
+              <button type="button" id="softphoneAiSummaryBtn" class="softphone-ctrl-btn">AI summary</button>
+              <button type="button" id="softphoneCompleteWrapBtn" class="softphone-ctrl-btn softphone-ctrl-btn--primary">Done</button>
+              <button type="button" id="softphoneSkipWrapBtn" class="softphone-ctrl-btn col-span-2" title="Skip outcome and dial again">Skip wrap-up</button>
+            </div>
           </div>
 
-          <div class="softphone-call-row">
-            <span class="w-14" aria-hidden="true"></span>
-            <button type="button" id="softphoneCallBtn" class="softphone-call-btn" aria-label="Start call">
-              <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
-            </button>
-            <button type="button" id="softphoneBackspaceBtn" class="softphone-backspace-btn" aria-label="Delete last digit">
-              <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 14l-4-4 4-4M5 10h10.5a4.5 4.5 0 010 9H5"/></svg>
-            </button>
-          </div>
-
-          <button type="button" id="softphoneScrollHint" class="softphone-scroll-hint hidden" aria-label="Scroll to call controls" title="More call controls below">
-            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-          </button>
           </div>
         </div>
 

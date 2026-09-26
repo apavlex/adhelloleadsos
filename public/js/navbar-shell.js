@@ -6,6 +6,7 @@
 
   function openMobileMenu() {
     if (!mobileMenu || !mobileMenuPanel) return;
+    document.dispatchEvent(new CustomEvent('adhello:nav-popover', { detail: { id: 'mobile-menu' } }));
     mobileMenu.classList.remove('hidden', 'pointer-events-none', 'opacity-0');
     mobileMenu.classList.add('opacity-100');
     mobileMenuPanel.classList.remove('-translate-x-full');
@@ -61,9 +62,16 @@
     btn.addEventListener('click', function (e) {
       e.stopPropagation();
       panel.classList.toggle('hidden');
-      btn.setAttribute('aria-expanded', (!panel.classList.contains('hidden')).toString());
+      var isOpen = !panel.classList.contains('hidden');
+      btn.setAttribute('aria-expanded', isOpen.toString());
+      if (isOpen) {
+        document.dispatchEvent(new CustomEvent('adhello:nav-popover', { detail: { id: 'user-menu' } }));
+      }
     });
     document.addEventListener('click', closeMenu);
+    document.addEventListener('adhello:nav-popover', function (e) {
+      if (!e.detail || e.detail.id !== 'user-menu') closeMenu();
+    });
     panel.addEventListener('click', function (e) { e.stopPropagation(); });
   }
   function openConnectModal() {
@@ -325,6 +333,8 @@
   var spNextStep = document.getElementById('softphoneNextStep');
   var spScrollHint = document.getElementById('softphoneScrollHint');
   var spKeypadTab = document.getElementById('softphoneTabKeypad');
+  var spKeypadScroll = spKeypadTab ? spKeypadTab.querySelector('.softphone-keypad-scroll') : null;
+  var spQuickLogBar = document.getElementById('softphoneQuickLogBar');
   var spInCallBar = document.getElementById('softphoneInCallBar');
   var spRemoteAudio = document.getElementById('softphoneRemoteAudio');
   var spLocalAudio = document.getElementById('softphoneLocalAudio');
@@ -2235,8 +2245,8 @@
     if (summary) {
       var label = softphoneOutcomeLabel(value);
       summary.textContent = label
-        ? ('Selected: ' + label + (needs ? ' · follow-up ready above keypad' : ' · no follow-up'))
-        : 'Pick a quick log above the keypad · follow-up optional';
+        ? ('Selected: ' + label + (needs ? ' · follow-up ready above' : ' · no follow-up'))
+        : 'Pick a quick log above · follow-up optional';
     }
   }
 
@@ -3754,9 +3764,10 @@
     );
     updateSoftphoneHangupButtonLabel();
     setSoftphoneTab('keypad');
-    if (spWrapPanel) {
+    var logTarget = spQuickLogBar || spWrapPanel;
+    if (logTarget) {
       try {
-        spWrapPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        logTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
       } catch (_) {}
     }
   }
@@ -3800,14 +3811,10 @@
     spCallState.textContent = s;
   }
   function softphoneInCallBarBelowFold() {
-    if (!spKeypadTab) return false;
+    if (!spKeypadTab || !spKeypadScroll || !spQuickLogBar) return false;
     if (spKeypadTab.classList.contains('hidden')) return false;
-    var scrollBottom = spKeypadTab.scrollTop + spKeypadTab.clientHeight;
-    if (spInCallBar && !spInCallBar.classList.contains('hidden')) {
-      if (spInCallBar.offsetTop + 24 > scrollBottom) return true;
-    }
-    if (spWrapPanel && spWrapPanel.offsetTop + 24 > scrollBottom) return true;
-    return false;
+    var viewBottom = spKeypadScroll.getBoundingClientRect().bottom;
+    return spQuickLogBar.getBoundingClientRect().top + 24 > viewBottom;
   }
   function updateSoftphoneScrollHint() {
     if (!spScrollHint) return;
@@ -5947,12 +5954,12 @@
   }
   window.__adhelloSoftphoneSetTab = setSoftphoneTab;
 
-  if (spKeypadTab) {
-    spKeypadTab.addEventListener('scroll', updateSoftphoneScrollHint, { passive: true });
+  if (spKeypadScroll) {
+    spKeypadScroll.addEventListener('scroll', updateSoftphoneScrollHint, { passive: true });
   }
-  if (spScrollHint && spInCallBar) {
+  if (spScrollHint && spQuickLogBar) {
     spScrollHint.addEventListener('click', function () {
-      spInCallBar.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      spQuickLogBar.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   }
   window.addEventListener('resize', updateSoftphoneScrollHint);

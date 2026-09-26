@@ -332,10 +332,29 @@
 
   var mobileBtn = document.getElementById('navLeadSearchMobileBtn');
   var mobileRow = document.getElementById('navLeadSearchMobileRow');
+  function closeMobileSearchRow() {
+    if (!mobileRow || mobileRow.classList.contains('hidden')) return;
+    mobileRow.classList.add('hidden');
+    if (mobileBtn) mobileBtn.setAttribute('aria-expanded', 'false');
+    if (mobile) {
+      mobile.closeDropdown();
+      mobile.input.blur();
+    }
+  }
+
+  document.addEventListener('adhello:nav-popover', function (e) {
+    if (e.detail && e.detail.id === 'search') return;
+    closeMobileSearchRow();
+    if (desktop) desktop.closeDropdown();
+  });
+
   if (mobileBtn && mobileRow) {
     mobileBtn.addEventListener('click', function () {
       var open = mobileRow.classList.toggle('hidden');
       mobileBtn.setAttribute('aria-expanded', open ? 'false' : 'true');
+      if (!open) {
+        document.dispatchEvent(new CustomEvent('adhello:nav-popover', { detail: { id: 'search' } }));
+      }
       if (!open && mobile) {
         mobile.input.focus();
         if (String(mobile.input.value || '').trim().length >= MIN_Q) {

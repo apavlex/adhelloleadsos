@@ -2714,6 +2714,7 @@
       e.stopPropagation();
       const isHidden = notificationDropdown.classList.contains('hidden');
       if (isHidden) {
+        document.dispatchEvent(new CustomEvent('adhello:nav-popover', { detail: { id: 'notifications' } }));
         notificationDropdown.classList.remove('hidden');
         syncDesktopAlertsUi();
         if (isGhlSyncJobRunning() && notificationList) {
@@ -2748,6 +2749,12 @@
         !notificationDropdown.contains(e.target) &&
         !processingIndicator.contains(e.target)
       ) {
+        notificationDropdown.classList.add('hidden');
+      }
+    });
+
+    document.addEventListener('adhello:nav-popover', function (e) {
+      if (notificationDropdown && (!e.detail || e.detail.id !== 'notifications')) {
         notificationDropdown.classList.add('hidden');
       }
     });

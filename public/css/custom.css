@@ -4697,22 +4697,10 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
   fill: currentColor;
 }
 
-.softphone-quicklog-bar {
-  max-height: min(42vh, 18rem);
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
 .softphone-quicklog-bar .gcal-datetime-trigger {
   width: 100%;
   margin-top: 0.25rem;
   font-size: 0.6875rem;
-}
-
-@media (max-width: 767px) {
-  .softphone-quicklog-bar {
-    max-height: min(36vh, 15.5rem);
-  }
 }
 
 .dark .softphone-bookmark-btn[data-saved='1'],
@@ -5039,11 +5027,6 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
 }
 
 @media (max-width: 767px) {
-  .softphone-keypad-dock {
-    /* Keep dial pad fully visible above the bottom nav */
-    padding-bottom: max(0.45rem, env(safe-area-inset-bottom));
-  }
-
   .softphone-keypad-grid {
     grid-template-columns: repeat(3, 3.65rem);
     column-gap: 0.85rem;
