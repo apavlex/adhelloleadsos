@@ -4697,9 +4697,22 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
   fill: currentColor;
 }
 
-.softphone-bookmark-btn:disabled {
-  opacity: 0.4;
-  pointer-events: none;
+.softphone-quicklog-bar {
+  max-height: min(42vh, 18rem);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.softphone-quicklog-bar .gcal-datetime-trigger {
+  width: 100%;
+  margin-top: 0.25rem;
+  font-size: 0.6875rem;
+}
+
+@media (max-width: 767px) {
+  .softphone-quicklog-bar {
+    max-height: min(36vh, 15.5rem);
+  }
 }
 
 .dark .softphone-bookmark-btn[data-saved='1'],
