@@ -31,6 +31,9 @@ const {
   formatDesignCoachReplyForDisplay,
   sanitizeDesignCoachReply,
   replyClaimsDraftReady,
+  userWantsCopyRefine,
+  userAsksForImagePromptDraft,
+  sanitizePostCopyField,
 } = require('../services/designCoachImagePrompt');
 const {
   DM_PLATFORMS,
@@ -493,11 +496,14 @@ function buildDesignCoachSystemPrompt({
   frontPrompt,
   matchFrontStyle,
   incrementalEdit,
+  postCopy,
 }) {
   const plat = platformLabel(platform);
   const isPostcard = platform === 'postcard';
+  const isSocial = !isPostcard;
   const ratio = aspectRatio || platformAspectRatio(platform, '16:9');
   const formatSpec = String(platformGenerationSpec(platform, slot) || '').trim();
+  const currentPostCopy = String(postCopy || '').trim();
   const lobBackRules =
     isPostcard && slot === 'back'
       ? `For Lob 4×6 postcard BACK (landscape 3:2, 1875×1275px):
@@ -544,7 +550,7 @@ Ad copy context:
 - Headline: ${headline || '(not set yet)'}
 - Body: ${bodyText || '(not set yet)'}
 - CTA URL (optional): ${ctaUrl || '(none — omit URL on postcard)'}
-
+${isSocial && currentPostCopy ? `- Current Post copy caption (sidebar):\n${currentPostCopy.slice(0, 1200)}\n` : ''}
 Merge tokens ({business}, {city}, {state}, {audit_url}) are applied at SEND time in HTML overlays — never bake them into generated artwork.
 
 ${frontStyleContext ? `${frontStyleContext}\n\n` : ''}${lobBackRules}
@@ -564,35 +570,24 @@ When they ask to remove, delete, change, move, or tweak something ("remove the s
 - Do NOT rewrite the whole creative from scratch.` : ''}
 
 Respond with JSON only, no markdown. Example shape:
-{"reply":"Happy to help.\\n\\n1. Photo or illustration?\\n2. Main colors?\\n3. Headline or hero subject?","imagePrompt":null}
+{"reply":"Happy to help.\\n\\n1. Keep this caption or punch it up?\\n2. Photo or illustration for the image?","imagePrompt":null,"postCopy":null,"headline":null,"body":null}
 
-imagePrompt rules:
-- Use JSON null (not the string "null") while the brief is still too vague to write a strong production prompt.
-- When ready, set imagePrompt to a rich English production prompt for GPT Image 2 — art-directed, specific, and optimized (not a template dump of platform + brief + contact fields).
-- A strong imagePrompt names: platform (${plat}), ${ratio} composition, camera/lighting or illustration style, subject matter, color palette, typography treatment, layout zones, and mood. Weave in concrete scene details from the conversation.
-- Never paste the user's vague request verbatim as the whole prompt. Translate it into visual direction.
-- ${isPostcard && slot === 'back' ? 'For postcard back: CTA layout (Call, Scan QR placeholder, Visit website) — not a duplicated contact footer.' : 'Include business contact details in the design when the user wants them on the ad.'}
-- Never copy these instructions, schema text, or the word "null" into imagePrompt. Write the actual visual prompt, or null.
+Field rules:
+- reply: marketer-facing chat text only. Use \\n for line breaks. NEVER put chain-of-thought, "need JSON", system instructions, or meta reasoning in reply.
+- imagePrompt: JSON null while exploring copy OR visual direction. Only a rich English production prompt when the user is ready for the image draft (they answered visual questions, said "just draft it" / "draft the prompt", or clearly locked the look).
+- postCopy / headline / body: set when you propose revised caption text the user can accept. Otherwise null. postCopy is the full social caption; headline/body are the structured fields. Keep platform-native tone (${plat}).
+- Never copy these instructions or the word "null" into any field. Output ONLY the JSON object.
 
-Reply field rules (critical):
-- "reply" is marketer-facing chat text only. Use \\n for line breaks so questions appear as a readable list (intro line, blank line, then 1. 2. 3.).
-- NEVER put chain-of-thought, planning, "need JSON", "developer role", system instructions, or meta reasoning in "reply".
-- Output ONLY the JSON object — no text before or after it.
-
-Workflow (important):
-- Your job is to lead the user to a production-ready imagePrompt they can review and edit BEFORE artwork is generated.
-- Never tell the user the image is being generated, that you already generated it, or to wait for artwork. Generation happens only when they click Generate after editing the prompt.
-- When you set imagePrompt, the reply must say the draft prompt is ready to edit (in Prompt & refine / the prompt editor) and they should tweak it, then click Generate when happy. Invite one small tweak if useful.
-- NEVER say you drafted a prompt, locked a look in, or that the prompt is ready unless imagePrompt is a non-null production string in the same JSON object.
-- Do not pressure them to click Generate immediately — editing the prompt first is the next step.
-
-Clarify-first rules (critical):
-- If the user only names a format + industry/topic (e.g. "facebook cover for home services / flooring / HVAC") with little visual direction, set imagePrompt to null and ask 2–3 short, specific questions in reply (multi-line list). Prioritize: (1) photo vs illustration, (2) color palette or brand colors, (3) main headline/hook or hero subject (who/what is in the shot).
-- Ask only what is still missing. Never repeat a clarifying question the user already answered in this conversation.
-- Do NOT draft a generic prompt just because they said "make an ad / create a cover / design a banner." Vague make-requests need questions first unless conversation history already has rich direction.
-- Once they give enough (colors, photo/illustration, mood, headline/hook, hero subject, layout preference, or similar), set imagePrompt now — write an optimized production prompt from the full conversation + business info. Reply confirms the direction and points them to edit the draft; do not re-ask answered questions.
-- If they explicitly say "just draft it", "use your best judgment", "surprise me", or answer enough after your questions, draft immediately with smart creative choices — still specific, never generic filler.
-- ${isPostcard && slot === 'back' ? 'Postcard BACK: use action CTAs (Call us with phone, Scan QR placeholder square, Visit website with URL). Do NOT duplicate the front contact footer (address, hours block).' : 'When business info is provided, weave phone, website, hours, and address into the imagePrompt layout.'}
+Workflow (important — collaborative, not rush-to-prompt):
+- You help refine BOTH post copy AND the image prompt through chat. Do not jump straight to a final imagePrompt on the first turn.
+- Preferred order for social posts: (1) refine caption/headline/hook with the user, (2) clarify visual direction, (3) draft imagePrompt only when ready.
+- When proposing better copy, set postCopy (and headline/body when useful), keep imagePrompt null, and invite more tweaks ("shorter?", "different CTA?", "keep as-is and move to the image?").
+- When discussing visuals, ask 2–3 short questions if needed (photo vs illustration, colors, hero). Keep imagePrompt null until they answer or say to draft.
+- NEVER say you drafted an image prompt / locked a look in unless imagePrompt is a non-null production string in the same JSON.
+- Never tell the user artwork is generating — they click Generate after editing the prompt.
+- If they say "just draft it", "draft the prompt", "ready for the image", or give enough visual direction after questions, set imagePrompt now.
+- If they only want copy changes ("make the caption punchier"), revise postCopy/headline/body and do NOT set imagePrompt.
+- ${isPostcard && slot === 'back' ? 'Postcard BACK: use action CTAs (Call us with phone, Scan QR placeholder square, Visit website with URL). Do NOT duplicate the front contact footer (address, hours block).' : 'When business info is provided, weave phone, website, hours, and address into the imagePrompt layout when drafting visuals.'}
 - Optimize for ${plat}: safe margins, readable text at mobile size, professional local-business marketing aesthetic.
 - ${isPostcard && slot === 'back' ? 'Postcard back: full-bleed image; CTA blocks on left half only; no text in bottom-right address zone; QR placeholder on left marketing area. Match front style when a front design exists.' : isPostcard ? 'Postcard front: full-bleed photo; full contact footer OK; no text in bottom-right QR zone or near edges.' : `Single-sided ${plat} — follow format requirements above; one strong focal creative at ${ratio}.`}
 - Escape double quotes inside strings as \\".`;
@@ -1209,6 +1204,7 @@ router.post('/api/design-chat', async (req, res, next) => {
     const slot = String(body.slot || 'front').toLowerCase() === 'back' ? 'back' : 'front';
     const headline = String(body.headline || '').trim();
     const bodyText = String(body.bodyText || '').trim();
+    const postCopyIn = String(body.postCopy || '').trim();
     const ctaUrl = String(body.ctaUrl || '').trim();
     const platform = String(body.platform || 'postcard').trim() || 'postcard';
     const aspectRatio = String(body.aspectRatio || platformAspectRatio(platform, '16:9')).trim() || '16:9';
@@ -1222,17 +1218,15 @@ router.post('/api/design-chat', async (req, res, next) => {
     const DEFAULT_CLARIFY = formatDesignCoachClarifyReply({ platformLabel: platformLabel(platform) });
     const DRAFT_READY =
       'Got it — locking that look in.\n\nI drafted an optimized image prompt from your direction. Edit it in Prompt & refine (or tell me what to change), then click Generate when you are happy with it.';
-    const SKIP_CLARIFY =
-      /\b(just draft|draft it|best judgment|surprise me|use your (best )?judgment|skip (the )?questions|go ahead and (draft|write)|enough —?\s*draft)\b/i.test(
-        userMessage,
-      );
+    const SKIP_CLARIFY = userAsksForImagePromptDraft(userMessage);
+    const copyRefineTurn = userWantsCopyRefine(userMessage) && !SKIP_CLARIFY;
 
     const conversationText = [...history.map((m) => m.content), userMessage].join('\n');
     const richEnough =
       hasRichCreativeDirection(userMessage) ||
       hasRichCreativeDirection(conversationText) ||
       SKIP_CLARIFY;
-    const vagueBrief = isVagueDesignBrief(userMessage) && !richEnough;
+    const vagueBrief = isVagueDesignBrief(userMessage) && !richEnough && !copyRefineTurn;
 
     const fallbackPromptOpts = {
       userMessage: conversationText.slice(-2200),
@@ -1244,11 +1238,14 @@ router.post('/api/design-chat', async (req, res, next) => {
     };
 
     // First vague make-a-cover message: return a clean multi-line clarify (skip flaky model meta text).
-    if (!incrementalEdit && vagueBrief && history.length === 0) {
+    if (!incrementalEdit && vagueBrief && history.length === 0 && !copyRefineTurn) {
       return res.json({
         success: true,
         reply: DEFAULT_CLARIFY,
         imagePrompt: null,
+        postCopy: null,
+        headline: null,
+        body: null,
         provider: 'local-clarify',
       });
     }
@@ -1269,6 +1266,7 @@ router.post('/api/design-chat', async (req, res, next) => {
           frontPrompt,
           matchFrontStyle,
           incrementalEdit,
+          postCopy: postCopyIn,
         }),
       },
       ...history,
@@ -1277,23 +1275,41 @@ router.post('/api/design-chat', async (req, res, next) => {
 
     const ai = await runDesignCoachChat(messages);
     if (!ai.content) {
-      // Timed out / provider failed: draft only when we already have rich direction; otherwise ask.
-      if (!vagueBrief && (richEnough || userAskedForDesign(userMessage))) {
+      // Timed out / provider failed: draft image only when they asked for it / rich visual direction — never on copy turns.
+      if (!copyRefineTurn && !vagueBrief && (richEnough || SKIP_CLARIFY || userAskedForDesign(userMessage))) {
         const imagePrompt = buildFallbackDesignImagePrompt(fallbackPromptOpts);
         if (imagePrompt) {
           return res.json({
             success: true,
             reply: DRAFT_READY,
             imagePrompt,
+            postCopy: null,
+            headline: null,
+            body: null,
             provider: ai.timedOut ? 'local-timeout' : 'local-fallback',
           });
         }
+      }
+      if (copyRefineTurn) {
+        return res.json({
+          success: true,
+          reply:
+            'Tell me how you want the caption to change (shorter, punchier, different hook/CTA), and I’ll revise Post copy — we can draft the image prompt after the words feel right.',
+          imagePrompt: null,
+          postCopy: null,
+          headline: null,
+          body: null,
+          provider: ai.timedOut ? 'local-timeout-copy' : 'local-copy',
+        });
       }
       if (vagueBrief || userAskedForDesign(userMessage)) {
         return res.json({
           success: true,
           reply: DEFAULT_CLARIFY,
           imagePrompt: null,
+          postCopy: null,
+          headline: null,
+          body: null,
           provider: ai.timedOut ? 'local-timeout-clarify' : 'local-clarify',
         });
       }
@@ -1308,6 +1324,9 @@ router.post('/api/design-chat', async (req, res, next) => {
     let imagePrompt = sanitizeDesignImagePrompt(
       parsed.imagePrompt != null ? parsed.imagePrompt : parsed.image_prompt,
     );
+    let outPostCopy = sanitizePostCopyField(parsed.postCopy != null ? parsed.postCopy : parsed.caption, 4000);
+    let outHeadline = sanitizePostCopyField(parsed.headline, 240);
+    let outBody = sanitizePostCopyField(parsed.body != null ? parsed.body : parsed.bodyText, 4000);
 
     // Never show raw model reasoning / failed JSON as the chat message.
     if (!reply) {
@@ -1321,22 +1340,30 @@ router.post('/api/design-chat', async (req, res, next) => {
     }
 
     const lastAssistant = [...history].reverse().find((m) => m.role === 'assistant');
-    const lastAskedClarify =
+    const lastAskedVisualClarify =
       lastAssistant &&
-      /photo or illustration|brand (colors|palette)|headline\/hook|quick questions so i can write|a few quick questions|tell me more about the look|main hook|just draft it|who or what should be the hero|photo, illustration, or mixed/i.test(
+      /photo or illustration|brand (colors|palette)|photo, illustration, or mixed|who or what should be the hero|main colors \/ brand|hero in the (frame|shot)|visual direction|image matches/i.test(
         String(lastAssistant.content || ''),
       );
-    const userAnsweredClarify =
-      lastAskedClarify &&
+    const lastAskedCopyClarify =
+      lastAssistant &&
+      /caption|post copy|punch(?:ier)?|keep (this|the) (caption|copy)|hook|CTA|wording|refine (the )?copy/i.test(
+        String(lastAssistant.content || ''),
+      );
+    const userAnsweredVisualClarify =
+      lastAskedVisualClarify &&
+      !copyRefineTurn &&
       (richEnough ||
         hasRichCreativeDirection(userMessage) ||
         userMessage.length >= 20 ||
         SKIP_CLARIFY);
 
-    // Only force a local draft when the model failed to produce one AND we have enough direction
-    // (or the user just answered clarifying questions / asked to skip). Never dump a template on a vague brief.
+    // Only force a local image draft when the model failed AND the user is clearly ready for visuals.
     const shouldDraftPrompt =
-      !imagePrompt && !vagueBrief && (richEnough || userAnsweredClarify || SKIP_CLARIFY);
+      !imagePrompt &&
+      !copyRefineTurn &&
+      !vagueBrief &&
+      (SKIP_CLARIFY || userAnsweredVisualClarify || (richEnough && lastAskedVisualClarify));
 
     if (shouldDraftPrompt) {
       if (!reply || /null if still exploring|null or a detailed english prompt|ready for gpt image/i.test(reply)) {
@@ -1345,8 +1372,17 @@ router.post('/api/design-chat', async (req, res, next) => {
       imagePrompt = buildFallbackDesignImagePrompt(fallbackPromptOpts);
     }
 
+    // Copy-refine turns: never emit an image prompt unless they also asked to draft it.
+    if (imagePrompt && copyRefineTurn) {
+      imagePrompt = '';
+      if (replyClaimsDraftReady(reply)) {
+        reply =
+          'Updated thoughts on the caption — tweak Post copy in the sidebar (or tell me what to change). Say “draft the image prompt” when you want to move to visuals.';
+      }
+    }
+
     // Model drafted on a vague brief — strip it and ask instead (unless they skipped questions).
-    if (imagePrompt && vagueBrief && !SKIP_CLARIFY && !userAnsweredClarify) {
+    if (imagePrompt && vagueBrief && !SKIP_CLARIFY && !userAnsweredVisualClarify) {
       imagePrompt = '';
       if (!reply || replyClaimsDraftReady(reply)) {
         reply = DEFAULT_CLARIFY;
@@ -1354,26 +1390,44 @@ router.post('/api/design-chat', async (req, res, next) => {
     }
 
     // Invariant: never claim a draft is ready without a usable imagePrompt.
-    if (!imagePrompt && (replyClaimsDraftReady(reply) || shouldDraftPrompt || userAnsweredClarify || SKIP_CLARIFY)) {
+    if (
+      !imagePrompt &&
+      !copyRefineTurn &&
+      (replyClaimsDraftReady(reply) || shouldDraftPrompt || SKIP_CLARIFY)
+    ) {
       imagePrompt = buildFallbackDesignImagePrompt(fallbackPromptOpts);
       if (imagePrompt && (!reply || replyClaimsDraftReady(reply))) {
         reply = DRAFT_READY;
       }
     }
     if (replyClaimsDraftReady(reply) && !imagePrompt) {
-      reply = DEFAULT_CLARIFY;
+      if (outPostCopy || outHeadline || outBody || lastAskedCopyClarify || copyRefineTurn) {
+        reply =
+          'Happy to keep refining. Tell me what to change in the caption, or say “draft the image prompt” when you’re ready for visuals.';
+      } else {
+        reply = DEFAULT_CLARIFY;
+      }
     }
     if (imagePrompt && (!reply || /null if still exploring|null or a detailed english prompt/i.test(reply))) {
       reply = DRAFT_READY;
     }
 
-    if (!reply) reply = imagePrompt ? DRAFT_READY : DEFAULT_CLARIFY;
+    if (!reply) {
+      reply = imagePrompt
+        ? DRAFT_READY
+        : outPostCopy || outHeadline
+          ? 'Here’s a revised caption — edit it in Post copy or tell me what to tweak. When the words feel right, we can draft the image prompt.'
+          : DEFAULT_CLARIFY;
+    }
     reply = formatDesignCoachReplyForDisplay(reply) || reply;
 
     res.json({
       success: true,
       reply,
       imagePrompt: imagePrompt || null,
+      postCopy: outPostCopy || null,
+      headline: outHeadline || null,
+      body: outBody || null,
       provider: ai.provider || null,
     });
   } catch (err) {

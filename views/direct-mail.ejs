@@ -458,11 +458,11 @@
                   placement: 'top',
                   align: 'end',
                   wide: true,
-                  content: '<strong>AI design assistant</strong> — Chat back and forth to refine the idea (OpenRouter). When the look is clear, a draft image prompt appears in Prompt &amp; refine — edit it, then click Generate (KIE) for artwork.'
+                  content: '<strong>AI design assistant</strong> — Chat to refine post copy and the image idea (OpenRouter). When you&apos;re ready, say “draft the image prompt” — edit it in Prompt &amp; refine, then click Generate (KIE).'
                 }) %>
               </span>
             </div>
-            <textarea id="dmChatInput" rows="2" class="dm-prompt-input dm-prompt-input--stacked" placeholder="Describe your ad — style, colors, headline, mood…" <%= kieImageReady ? '' : 'disabled' %>></textarea>
+            <textarea id="dmChatInput" rows="2" class="dm-prompt-input dm-prompt-input--stacked" placeholder="Refine copy or describe the image — e.g. punchier caption, photo, colors…" <%= kieImageReady ? '' : 'disabled' %>></textarea>
             <div class="dm-prompt-actions">
               <div class="dm-prompt-actions__secondary">
                 <button type="button" id="dmUploadCreativeBtn" class="dm-prompt-btn dm-prompt-btn--secondary" title="Upload your own photo or graphic">Upload</button>

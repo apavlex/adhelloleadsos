@@ -12,6 +12,9 @@ const {
   formatDesignCoachReplyForDisplay,
   buildFallbackDesignImagePrompt,
   replyClaimsDraftReady,
+  userWantsCopyRefine,
+  userAsksForImagePromptDraft,
+  sanitizePostCopyField,
 } = require('../services/designCoachImagePrompt');
 
 const SCHEMA_LEAK =
@@ -103,4 +106,14 @@ test('detects replies that claim a draft prompt is ready', () => {
     true,
   );
   assert.equal(replyClaimsDraftReady('A few quick questions so I can write a strong prompt:'), false);
+});
+
+test('detects copy refine vs image-prompt draft intents', () => {
+  assert.equal(userWantsCopyRefine('make the caption punchier and shorter'), true);
+  assert.equal(userWantsCopyRefine('rewrite the headline hook'), true);
+  assert.equal(userAsksForImagePromptDraft('draft the image prompt now'), true);
+  assert.equal(userAsksForImagePromptDraft('just draft it'), true);
+  assert.equal(userWantsCopyRefine('draft the image prompt'), false);
+  assert.equal(sanitizePostCopyField('null'), '');
+  assert.equal(sanitizePostCopyField('Come see our flooring sale this week.'), 'Come see our flooring sale this week.');
 });

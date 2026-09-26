@@ -2318,8 +2318,8 @@
     }
 
     var askMsg =
-      'Ask me 2–4 short clarifying questions so you can write a strong image prompt for this post (photo vs illustration, colors, hero subject, mood). Do not return an imagePrompt yet — questions only until I answer.';
-    setDesignStatus('Reading your post — preparing questions for a stronger image…', true);
+      'I loaded this social post. First help me refine the post copy if needed (hook, length, tone, CTA) — ask 1–2 short questions OR offer one improved caption. Set postCopy/headline/body only if you propose revised copy. Do NOT return imagePrompt yet. After copy feels good, ask if I want to move to the image.';
+    setDesignStatus('Reading your post — starting with copy, then image…', true);
 
     try {
       var plat = DM_PLATFORMS[platform] || DM_PLATFORMS.instagram_feed;
@@ -2331,6 +2331,7 @@
         history: chatHistory.slice(),
         headline: headline,
         bodyText: body || copy,
+        postCopy: copy,
         slot: 'front',
         platform: platform,
         aspectRatio: ctx.aspectRatio,
@@ -2340,16 +2341,22 @@
       var reply = String(data.reply || '').trim();
       if (!reply) {
         reply =
-          'Got it — I have your post. A few quick questions so the image matches:\n\n' +
-          '1) Photo-real or illustrated?\n' +
-          '2) Main colors / brand vibe?\n' +
-          '3) Who or what should be the hero in the frame?\n' +
-          '4) Any text that must appear on the image (or keep text off-image)?\n\n' +
-          'Answer below, then I’ll draft the image prompt.';
+          'Got it — I have your post. Want to refine the caption first, or jump to the image?\n\n' +
+          '1) Keep the copy as-is\n' +
+          '2) Make it shorter / punchier (tell me the vibe)\n' +
+          '3) Change the hook or CTA\n\n' +
+          'Or say “draft the image prompt” when you’re ready for visuals.';
       }
       appendChatBubble('assistant', reply);
       chatHistory.push({ role: 'assistant', content: reply });
-      setDesignStatus('Answer in Chat to refine the image prompt — then Generate when ready.', true);
+      if (data.postCopy || data.headline || data.body) {
+        applyDraftPostCopy({
+          postCopy: data.postCopy,
+          headline: data.headline,
+          body: data.body,
+        });
+      }
+      setDesignStatus('Refine copy in Chat (or Post copy) — say “draft the image prompt” when ready.', true);
       var chatInput = document.getElementById('dmChatInput');
       if (chatInput) {
         try {
@@ -2363,7 +2370,7 @@
       setDesignStatus(errMsg, false);
       appendChatBubble(
         'assistant',
-        'Your post is loaded above. Describe the image you want (style, colors, hero subject), then tap Chat — I’ll ask follow-ups and draft a prompt.',
+        'Your post is loaded above. Refine the caption in Chat (“make it punchier”) or describe the image look — I’ll draft a prompt when you ask.',
       );
     }
     return true;
@@ -2499,87 +2506,37 @@
         );
       }
       if (typeof window.showAppToast === 'function') {
-        window.showAppToast('Post loaded in chat — answer the questions, then Generate.', {
+        window.showAppToast('Post loaded — refine copy in chat, then draft the image prompt.', {
           variant: 'success',
         });
       }
       return;
     }
 
+    // Legacy autoPrompt / autoGenerate: still start collaborative copy→image chat (no silent dump).
     if (typeof window.showAppToast === 'function') {
-      window.showAppToast('Post loaded — AI is building your image prompt…', { variant: 'success' });
+      window.showAppToast('Post loaded — refine copy first, then we’ll draft the image prompt.', {
+        variant: 'success',
+      });
     }
 
     if (!(copy || headline)) return;
 
-    var chatMessage = buildSocialPostDesignChatMessage(copy, headline, body, imageNote, tags, platform);
-    chatHistory.push({ role: 'user', content: chatMessage });
-    appendChatBubble('user', chatMessage);
-    setDesignStatus('AI is writing your image prompt…', true);
-
-    try {
-      var plat = DM_PLATFORMS[platform] || DM_PLATFORMS.instagram_feed;
-      var ctx = designRequestContext();
-      ctx.platform = platform;
-      ctx.aspectRatio = plat.aspectRatio || '1:1';
-      var data = await postJson('/direct-mail/api/design-chat', {
-        message: chatMessage,
-        history: [],
-        headline: headline,
-        bodyText: body,
-        slot: 'front',
-        platform: platform,
-        aspectRatio: ctx.aspectRatio,
-        brandKit: ctx.brandKit,
-      });
-      var reply = String(data.reply || '').trim();
-      if (reply) {
-        appendChatBubble('assistant', reply);
-        chatHistory.push({ role: 'assistant', content: reply });
-      }
-      var prompt = data.imagePrompt ? String(data.imagePrompt).trim() : '';
-      if (!prompt) {
-        prompt = buildQuickImagePrompt(chatMessage, ctx);
-      }
-      if (prompt) {
-        lastImagePrompt = prompt;
-        designMeta.front.prompt = prompt;
-        showPromptEditor('front', prompt);
-        setDesignStatus('Generating artwork for ' + (plat.label || 'social') + '…', true);
-        setArtworkGenerating(true, 'Generating artwork…');
-        var generated = false;
-        try {
-          generated = await generateImage({
-            prompt: prompt,
-            skipPromptRead: true,
-            slot: 'front',
-            suppressButtonToggle: true,
-          });
-        } finally {
-          setArtworkGenerating(false);
-        }
-        if (!generated) {
-          setDesignStatus('Image generation failed — click Generate to retry.', false);
-          if (typeof window.showAppToast === 'function') {
-            window.showAppToast('Could not generate artwork — try Generate again.', { variant: 'error' });
-          }
-        }
-      } else {
-        setDesignStatus('Could not build an image prompt — describe the design in Chat.', false);
-      }
-    } catch (e) {
-      var errMsg = e && e.message ? e.message : 'Could not build image prompt from post';
-      setDesignStatus(errMsg, false);
-      if (typeof window.showAppToast === 'function') {
-        window.showAppToast(errMsg, { variant: 'error' });
-      }
-    }
+    await seedChatWithSocialPostForPrompt({
+      copy: copy,
+      headline: headline,
+      body: body,
+      imageNote: imageNote,
+      tags: tags,
+      platform: platform,
+    });
   }
 
   function copyContext() {
     return {
       headline: (document.getElementById('dmHeadline') || {}).value || '',
       bodyText: (document.getElementById('dmBody') || {}).value || '',
+      postCopy: (document.getElementById('dmPostCopy') || {}).value || '',
       ctaUrl: readOptionalCtaUrl(),
       slot: (document.getElementById('dmDesignSlot') || {}).value || 'front',
     };
@@ -2589,14 +2546,19 @@
     var plat = DM_PLATFORMS[currentPlatformKey()] || DM_PLATFORMS.custom;
     var formatLabel = String(plat.label || 'creative').toLowerCase();
     var dual = !!plat.dualSided;
+    var social = isSocialPlatform();
     var lines = [
       'Welcome to the AI design assistant.',
       '',
-      'Tell me what you want on this ' +
-        formatLabel +
-        '. I’ll ask a few quick questions if I need more (photo vs illustration, colors, headline/hero), then write an optimized image prompt in this chat.',
+      social
+        ? 'Use Chat to refine your post copy and the image idea together — no rush. When the caption feels right, we’ll clarify the visual look, then draft an image prompt you can edit before Generate.'
+        : 'Tell me what you want on this ' +
+          formatLabel +
+          '. I’ll ask a few questions if needed, then draft an image prompt you can edit before Generate.',
       '',
-      'Next: describe your idea below and tap Chat. When the draft prompt appears, edit it in Prompt & refine, then click Generate for artwork.',
+      social
+        ? 'Try: “make the caption punchier”, “shorten the hook”, or “draft the image prompt” when you’re ready for visuals.'
+        : 'Next: describe your idea below and tap Chat. Edit the draft in Prompt & refine, then click Generate.',
     ];
     if (dual) {
       lines.push('For postcards, use Generate both after both prompts look right.');
@@ -2701,6 +2663,83 @@
     wrap.appendChild(card);
     log.appendChild(wrap);
     log.scrollTop = log.scrollHeight;
+  }
+
+  /** Show a revised caption draft in chat and sync Post copy / Copy fields. */
+  function appendChatCopyDraft(copyText) {
+    var log = document.getElementById('dmChatLog');
+    var text = String(copyText || '').trim();
+    if (!log || !text) return;
+    var starter = log.querySelector('.dm-chat-starter');
+    if (starter) starter.remove();
+
+    var wrap = document.createElement('div');
+    wrap.className = 'flex justify-start';
+    var card = document.createElement('div');
+    card.className = 'dm-chat-prompt-card dm-chat-copy-card max-w-[96%]';
+
+    var head = document.createElement('div');
+    head.className = 'dm-chat-prompt-card__head';
+    head.innerHTML =
+      '<span class="dm-chat-prompt-card__label">Revised post copy</span>' +
+      '<span class="dm-chat-prompt-card__hint">Synced to sidebar</span>';
+
+    var body = document.createElement('pre');
+    body.className = 'dm-chat-prompt-card__body';
+    body.textContent = text;
+
+    var actions = document.createElement('div');
+    actions.className = 'dm-chat-prompt-card__actions';
+    var focusBtn = document.createElement('button');
+    focusBtn.type = 'button';
+    focusBtn.className = 'dm-chat-prompt-card__btn';
+    focusBtn.textContent = 'Edit in Post copy';
+    focusBtn.addEventListener('click', function () {
+      var el = document.getElementById('dmPostCopy');
+      if (el) {
+        try {
+          el.focus({ preventScroll: false });
+          el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } catch (_) {
+          el.focus();
+        }
+      }
+      setDesignStatus('Edit Post copy, or keep chatting to refine further.', true);
+    });
+    actions.appendChild(focusBtn);
+
+    card.appendChild(head);
+    card.appendChild(body);
+    card.appendChild(actions);
+    wrap.appendChild(card);
+    log.appendChild(wrap);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function applyDraftPostCopy(opts) {
+    opts = opts || {};
+    var postCopy = String(opts.postCopy || '').trim();
+    var headline = String(opts.headline || '').trim();
+    var body = String(opts.body || '').trim();
+    if (!postCopy && !headline && !body) return false;
+
+    dmPostCopyManualEdit = true;
+    var headlineEl = document.getElementById('dmHeadline');
+    var bodyEl = document.getElementById('dmBody');
+    var postCopyEl = document.getElementById('dmPostCopy');
+
+    if (headline && headlineEl) headlineEl.value = headline;
+    if (body && bodyEl) bodyEl.value = body;
+
+    var caption = postCopy;
+    if (!caption && (headline || body)) {
+      caption = [headline, body].filter(Boolean).join('\n\n');
+    }
+    if (postCopyEl && caption) postCopyEl.value = caption;
+
+    if (caption) appendChatCopyDraft(caption);
+    setPostCopyStatus('Updated from chat — keep refining or move to the image.', true);
+    return true;
   }
 
   function applyDraftImagePrompt(prompt, replyText) {
@@ -3748,6 +3787,7 @@
         history: chatHistory.slice(0, -1),
         headline: ctx.headline,
         bodyText: ctx.bodyText,
+        postCopy: ctx.postCopy,
         ctaUrl: ctx.ctaUrl,
         slot: ctx.slot,
         platform: ctx.platform,
@@ -3762,6 +3802,14 @@
       var reply = String(data.reply || '').trim();
       if (reply) {
         appendChatBubble('assistant', reply);
+      }
+      var appliedCopy = false;
+      if (data.postCopy || data.headline || data.body) {
+        appliedCopy = applyDraftPostCopy({
+          postCopy: data.postCopy,
+          headline: data.headline,
+          body: data.body,
+        });
       }
       if (data.imagePrompt) {
         var draftPrompt = String(data.imagePrompt).trim();
@@ -3793,11 +3841,16 @@
           /locking that look|drafted an optimized|prompt is ready|edit it in Prompt/i.test(reply)
         ) {
           setDesignStatus(
-            'Prompt did not come through — say “just draft it” in Chat, or describe the look again.',
+            'Prompt did not come through — say “draft the image prompt” in Chat.',
             false,
           );
+        } else if (appliedCopy) {
+          setDesignStatus('Copy updated — keep refining, or say “draft the image prompt” for visuals.', true);
         } else {
-          setDesignStatus('Answer in Chat so I can write a stronger prompt — go back and forth as much as you want.', true);
+          setDesignStatus(
+            'Keep chatting to refine copy or the image idea — say “draft the image prompt” when ready.',
+            true,
+          );
         }
       } else if (userWantsAdGeneration(text)) {
         setDesignStatus(

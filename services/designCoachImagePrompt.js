@@ -158,6 +158,54 @@ function replyClaimsDraftReady(raw) {
   );
 }
 
+/** User wants to refine caption / headline / post text (not the image prompt yet). */
+function userWantsCopyRefine(message) {
+  const text = String(message || '').trim();
+  if (!text) return false;
+  if (
+    /\b(image prompt|visual prompt|draft (the )?(image )?prompt|photo[- ]?real|illustration style|generate (the )?image)\b/i.test(
+      text,
+    )
+  ) {
+    // Mixed: copy + image — treat as copy refine only if copy words dominate and they didn't ask to draft prompt
+    if (!/\b(copy|caption|headline|hook|post text|wording|rewrite|rephrase)\b/i.test(text)) {
+      return false;
+    }
+    if (/\b(draft (the )?(image )?prompt|write (the )?prompt|ready for (the )?(image|prompt))\b/i.test(text)) {
+      return false;
+    }
+  }
+  return (
+    /\b(copy|caption|headline|hook|post text|wording|rewrite|rephrase|punchier|shorter|longer|soften|tone|cta text|opening line|first line)\b/i.test(
+      text,
+    ) ||
+    /\b(make (it|the) (copy|caption|headline|post)\b)/i.test(text) ||
+    /\b(improve|tweak|fix|edit|change)\b.{0,40}\b(copy|caption|headline|post)\b/i.test(text)
+  );
+}
+
+/** User explicitly wants the image prompt drafted now. */
+function userAsksForImagePromptDraft(message) {
+  const text = String(message || '').trim();
+  if (!text) return false;
+  return (
+    /\b(just draft|draft it|best judgment|surprise me|use your (best )?judgment|skip (the )?questions|go ahead and (draft|write)|enough —?\s*draft)\b/i.test(
+      text,
+    ) ||
+    /\b(draft (the )?(image )?prompt|write (the )?(image )?prompt|ready for (the )?(image|prompt|visual)|lock(ing)? (in )?the look|image (prompt )?now|visual prompt)\b/i.test(
+      text,
+    )
+  );
+}
+
+function sanitizePostCopyField(raw, maxLen = 4000) {
+  const text = String(raw == null ? '' : raw).trim();
+  if (!text) return '';
+  if (/^(null|undefined|none)$/i.test(text)) return '';
+  if (/null if still exploring|null or a detailed/i.test(text)) return '';
+  return text.slice(0, maxLen);
+}
+
 function buildFallbackDesignImagePrompt({
   userMessage,
   platformLabel: platLabel,
@@ -200,5 +248,8 @@ module.exports = {
   formatDesignCoachClarifyReply,
   formatDesignCoachReplyForDisplay,
   replyClaimsDraftReady,
+  userWantsCopyRefine,
+  userAsksForImagePromptDraft,
+  sanitizePostCopyField,
   buildFallbackDesignImagePrompt,
 };

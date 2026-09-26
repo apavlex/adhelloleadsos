@@ -6789,6 +6789,19 @@ body.dm-prompt-resize-active {
   color: #facc15;
 }
 
+.dm-chat-copy-card {
+  border-color: color-mix(in srgb, var(--brand-yellow) 45%, transparent);
+  background: color-mix(in srgb, var(--brand-yellow) 10%, transparent);
+}
+
+.dm-chat-copy-card .dm-chat-prompt-card__label {
+  color: var(--brand-yellow);
+}
+
+.dark .dm-chat-copy-card .dm-chat-prompt-card__label {
+  color: color-mix(in srgb, var(--brand-yellow) 85%, white);
+}
+
 .dm-chat-welcome {
   font-size: 0.6875rem;
   color: var(--brand-muted, #6b7280);
