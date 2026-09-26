@@ -5022,7 +5022,6 @@
   var SOFTPHONE_TAB_KEY = 'adhelloSoftphoneTab';
   var spBackspace = document.getElementById('softphoneBackspaceBtn');
   var spBookmark = document.getElementById('softphoneBookmarkBtn');
-  var spExpand = document.getElementById('softphoneExpandBtn');
   var softphoneFollowupPicker = null;
   var spMinimize = document.getElementById('softphoneMinimizeBtn');
   var spCompactExpand = document.getElementById('softphoneCompactExpand');
