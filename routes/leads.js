@@ -1592,10 +1592,14 @@ router.post('/:key/call', async (req, res, next) => {
       });
     }
     if (callMode === 'browser_device') {
+      const deviceFrom = resolveAgentFirstNumber(ws);
       const updates = appendLeadUpdate(lead, {
         type: 'call_browser_handoff',
-        value: `Opened device dialer for ${normalizedTo}.`,
+        value: deviceFrom
+          ? `Opened device dialer for ${normalizedTo} (from ${deviceFrom}).`
+          : `Opened device dialer for ${normalizedTo}.`,
         to: normalizedTo,
+        from: deviceFrom || undefined,
         provider: 'device',
       });
       const contactedPatch = await buildContactedStagePatch(lead, req.workspaceId);
@@ -1606,7 +1610,9 @@ router.post('/:key/call', async (req, res, next) => {
         logs: [
           {
             type: 'call_browser_handoff',
-            message: `Device dialer initiated (${normalizedTo})`,
+            message: deviceFrom
+              ? `Device dialer initiated (${normalizedTo}) from ${deviceFrom}`
+              : `Device dialer initiated (${normalizedTo})`,
             timestamp: new Date().toISOString(),
           },
         ],
@@ -1625,6 +1631,7 @@ router.post('/:key/call', async (req, res, next) => {
         success: true,
         dialMode: 'browser_device',
         phone: normalizedTo,
+        from: deviceFrom || null,
         lead: updatedLead,
       });
     }

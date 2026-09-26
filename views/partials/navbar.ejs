@@ -461,7 +461,14 @@
               <p id="softphoneAgentRingHint" class="mt-1 text-[10px] text-amber-900/80 dark:text-amber-100/80 leading-snug">We call this cell first from your workspace number. Answer and press 1 to dial the lead.</p>
               <button type="button" id="softphoneAgentRingFixBtn" class="hidden mt-1.5 text-[10px] font-black uppercase tracking-wide text-brand-yellow hover:underline">Set mobile in Settings</button>
             </div>
-            <div id="softphoneCallerIdMobileWrap" class="hidden" hidden aria-hidden="true"></div>
+            <div id="softphoneCallerIdMobileWrap" class="hidden mt-2 rounded-lg border border-emerald-400/40 dark:border-emerald-500/30 bg-emerald-50/60 dark:bg-emerald-950/20 px-2.5 py-2">
+              <label for="softphoneCallerIdMobile" class="text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-200">Phone number you call with</label>
+              <div class="mt-1.5 flex items-center gap-2">
+                <input type="tel" id="softphoneCallerIdMobile" class="min-w-0 flex-1 rounded-lg border border-emerald-500/30 dark:border-emerald-400/25 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-[12px] font-semibold tabular-nums text-slate-800 dark:text-white" placeholder="+15551234567" autocomplete="tel" inputmode="tel" />
+                <button type="button" id="softphoneCallerIdMobileSave" class="shrink-0 rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wide text-emerald-900 dark:text-emerald-200 hover:bg-emerald-500/25 transition-colors">Save</button>
+              </div>
+              <p id="softphoneCallerIdMobileHint" class="mt-1.5 text-[10px] text-emerald-900/80 dark:text-emerald-100/80 leading-snug">Leads see this number when you dial from your device. Use the cell/SIM on the phone you call with.</p>
+            </div>
             <p id="softphoneOutboundMeta" class="hidden sr-only">Current outbound: —</p>
             <a href="https://id.signalwire.com/" target="_blank" rel="noopener noreferrer" class="sr-only">Buy number</a>
           </div>
@@ -635,10 +642,10 @@
           </div>
 
           <div id="softphoneAgentPhoneWrap" class="softphone-settings-section mb-4 hidden">
-            <label for="softphoneAgentPhone" class="text-[10px] font-bold uppercase tracking-wide text-slate-500">Your mobile (agent first)</label>
+            <label for="softphoneAgentPhone" id="softphoneAgentPhoneLabel" class="text-[10px] font-bold uppercase tracking-wide text-slate-500">Your mobile (agent first)</label>
             <input type="tel" id="softphoneAgentPhone" class="mt-1.5 w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-800 dark:text-white" placeholder="+15551234567" autocomplete="tel" <%= (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) ? '' : 'disabled' %> />
             <p id="softphoneAgentPhoneHint" class="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 leading-snug">Personal cell in E.164. Agent first: tap Call, then dial the workspace number from this phone — we bridge the lead. (Carriers often block SignalWire from ringing you; dial-in avoids that.)</p>
-            <div class="mt-2 grid grid-cols-2 gap-2">
+            <div id="softphoneAgentTestActions" class="mt-2 grid grid-cols-2 gap-2">
               <button type="button" id="softphoneAgentTestRingBtn" class="rounded-xl border border-brand-yellow/60 bg-brand-yellow/15 px-3 py-2 text-[10px] font-black uppercase tracking-wide text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/25 transition-colors">Test dial-in</button>
               <button type="button" id="softphoneAgentTestSmsBtn" class="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800 px-3 py-2 text-[10px] font-black uppercase tracking-wide text-slate-800 dark:text-white hover:border-brand-yellow/50 transition-colors">Test SMS</button>
             </div>

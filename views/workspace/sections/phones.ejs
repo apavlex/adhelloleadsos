@@ -82,11 +82,11 @@
     </div>
   </fieldset>
 
-  <div id="wsAgentPhoneWrap" class="<%= _callMode === 'agent_first' ? '' : 'hidden' %> mb-6">
-    <label for="wsAgentPhone" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Your mobile (agent)</label>
+  <div id="wsAgentPhoneWrap" class="<%= (_callMode === 'agent_first' || _callMode === 'browser_device') ? '' : 'hidden' %> mb-6">
+    <label for="wsAgentPhone" id="wsAgentPhoneLabel" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1"><%= _callMode === 'browser_device' ? 'Phone number you call with (caller ID)' : 'Your mobile (agent)' %></label>
     <input type="tel" id="wsAgentPhone" class="w-full max-w-md rounded-xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" placeholder="+15551234567" value="<%= (workspace && workspace.telephony && workspace.telephony.agentPhone) || '' %>" />
-    <p class="text-[10px] text-brand-muted mt-1">E.164 personal cell only — not a Phone bank / SignalWire DID. SignalWire rings this number first; bank numbers are caller ID for the lead.</p>
-    <div class="mt-3 rounded-xl border border-amber-300/50 dark:border-amber-500/30 bg-amber-50/70 dark:bg-amber-950/25 px-3 py-2.5 max-w-xl">
+    <p id="wsAgentPhoneHint" class="text-[10px] text-brand-muted mt-1"><%= _callMode === 'browser_device' ? 'E.164 personal cell/SIM on the phone you dial with — not a Phone bank DID. Leads see this number as caller ID when My device dialer opens your phone app.' : 'E.164 personal cell only — not a Phone bank / SignalWire DID. SignalWire rings this number first; bank numbers are caller ID for the lead.' %></p>
+    <div id="wsAgentFirstHelp" class="mt-3 rounded-xl border border-amber-300/50 dark:border-amber-500/30 bg-amber-50/70 dark:bg-amber-950/25 px-3 py-2.5 max-w-xl <%= _callMode === 'agent_first' ? '' : 'hidden' %>">
       <p class="text-[10px] font-black uppercase tracking-widest text-amber-900 dark:text-amber-200 mb-1">How agent first works</p>
       <ol class="text-[11px] text-amber-950/90 dark:text-amber-100/85 leading-relaxed list-decimal pl-4 space-y-1">
         <li>In AdHello, tap <strong>Call</strong> on a lead.</li>
@@ -99,6 +99,10 @@
         <button type="button" id="wsAgentTestSmsBtn" class="rounded-xl border border-brand-border/50 dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:bg-brand-cream/40 dark:hover:bg-slate-800 transition-colors">Test SMS</button>
         <p id="wsAgentTestRingMsg" class="text-[11px] text-brand-muted min-h-[1rem] w-full"></p>
       </div>
+    </div>
+    <div id="wsDeviceDialerHelp" class="mt-3 rounded-xl border border-emerald-400/40 dark:border-emerald-500/30 bg-emerald-50/60 dark:bg-emerald-950/20 px-3 py-2.5 max-w-xl <%= _callMode === 'browser_device' ? '' : 'hidden' %>">
+      <p class="text-[10px] font-black uppercase tracking-widest text-emerald-900 dark:text-emerald-200 mb-1">My device dialer caller ID</p>
+      <p class="text-[11px] text-emerald-950/90 dark:text-emerald-100/85 leading-relaxed">Save the number on the phone you actually dial with. AdHello opens your phone app; the lead sees that line’s caller ID (your carrier — not a SignalWire DID).</p>
     </div>
   </div>
 

@@ -61,7 +61,27 @@
   }
   function syncAgentPhoneVisibility() {
     if (!agentWrap) return;
-    agentWrap.classList.toggle('hidden', getCallMode() !== 'agent_first');
+    var mode = getCallMode();
+    var show = mode === 'agent_first' || mode === 'browser_device';
+    agentWrap.classList.toggle('hidden', !show);
+    var label = document.getElementById('wsAgentPhoneLabel');
+    var hint = document.getElementById('wsAgentPhoneHint');
+    var agentHelp = document.getElementById('wsAgentFirstHelp');
+    var deviceHelp = document.getElementById('wsDeviceDialerHelp');
+    if (label) {
+      label.textContent =
+        mode === 'browser_device'
+          ? 'Phone number you call with (caller ID)'
+          : 'Your mobile (agent)';
+    }
+    if (hint) {
+      hint.textContent =
+        mode === 'browser_device'
+          ? 'E.164 personal cell/SIM on the phone you dial with — not a Phone bank DID. Leads see this number as caller ID when My device dialer opens your phone app.'
+          : 'E.164 personal cell only — not a Phone bank / SignalWire DID. SignalWire rings this number first; bank numbers are caller ID for the lead.';
+    }
+    if (agentHelp) agentHelp.classList.toggle('hidden', mode !== 'agent_first');
+    if (deviceHelp) deviceHelp.classList.toggle('hidden', mode !== 'browser_device');
   }
   function bindCallModeRadios() {
     document.querySelectorAll('input[name="wsCallMode"]').forEach(function (r) {
