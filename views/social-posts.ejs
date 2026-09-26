@@ -247,47 +247,13 @@
       </div>
     </div>
 
-    <!-- QUICK ACTIONS BAR -->
+    <!-- QUICK ACTIONS BAR — platform filter lives in the tabs below -->
     <div class="brand-card p-4 md:p-5 dark:bg-slate-900 dark:border-white/10 mb-6">
       <div class="flex items-center justify-between mb-3">
         <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Quick Actions</span>
         <span id="qaStatus" class="text-[10px] text-brand-muted font-bold"></span>
       </div>
       <div class="flex flex-wrap gap-2">
-        <button onclick="qaGeneratePlatform('instagram')" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white flex items-center gap-1">
-          <svg class="icon-flat-sm" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
-          Instagram
-        </button>
-        <button onclick="qaGeneratePlatform('facebook')" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white flex items-center gap-1">
-          <svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/></svg>
-          Facebook
-        </button>
-        <button onclick="qaGeneratePlatform('facebook_group')" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white flex items-center gap-1">
-          <svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-          Facebook Groups
-        </button>
-        <button onclick="qaGeneratePlatform('linkedin')" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white flex items-center gap-1">
-          <svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
-          LinkedIn
-        </button>
-        <button onclick="qaGeneratePlatform('x')" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white flex items-center gap-1">
-          <svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M4 4l16 16M20 4L4 20"/></svg>
-          X
-        </button>
-        <button onclick="qaGeneratePlatform('tiktok')" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white flex items-center gap-1">
-          <svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M9 12a4 4 0 104 4V4a5 5 0 005 5"/></svg>
-          TikTok
-        </button>
-        <button onclick="qaGeneratePlatform('gmb')" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white flex items-center gap-1">
-          <svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-          Google Business
-        </button>
-        <button onclick="qaGenerateAll()" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white flex items-center gap-1">
-          <svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-6.219-8.56"/><polyline points="21 3 21 9 15 9"/></svg>
-          All Platforms
-        </button>
-      </div>
-      <div class="flex flex-wrap gap-2 mt-2 pt-2 border-t border-brand-border/30 dark:border-white/10">
         <button onclick="qaCopyAllVisible()" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white flex items-center gap-1">
           <svg class="icon-flat-sm" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
           Copy All
@@ -916,22 +882,6 @@
       el.textContent = msg;
       setTimeout(() => el.textContent = '', 3000);
     }
-
-    async function qaGeneratePlatform(platform) {
-      const preset = document.getElementById('nicheInput').value.trim();
-      const q = preset ? '&preset=' + encodeURIComponent(preset) : '';
-      try {
-        const res = await fetch('/social-posts/api/ideas?' + wsQuery() + q);
-        const data = await res.json();
-        if (data.success) {
-          allIdeas = data.ideas;
-          switchTab(platform);
-          qaStatus((PLATFORM_LABELS[platform] || platform) + ' ideas ready');
-        }
-      } catch (err) { qaStatus('Error generating'); }
-    }
-
-    async function qaGenerateAll() { await regenerateAll(); qaStatus('All platforms generated'); }
 
     function qaCopyAllVisible() {
       const platforms = currentPlatform === 'all' ? Object.keys(allIdeas) : [currentPlatform];
