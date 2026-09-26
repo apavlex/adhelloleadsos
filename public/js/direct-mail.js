@@ -2247,6 +2247,121 @@
     return parts.join('\n\n');
   }
 
+  function appendChatPostContextCard(copy, headline, body, platformKey) {
+    var log = document.getElementById('dmChatLog');
+    if (!log) return;
+    var starter = log.querySelector('.dm-chat-starter');
+    if (starter) starter.remove();
+
+    var plat = DM_PLATFORMS[platformKey] || DM_PLATFORMS.instagram_feed;
+    var title = String(headline || '').trim();
+    var cta = String(body || '').trim();
+    var full = String(copy || '').trim();
+    if (!title && full) title = full.split('\n')[0].slice(0, 160);
+    var bodyText = full;
+    if (title && bodyText.indexOf(title) === 0) {
+      bodyText = bodyText.slice(title.length).replace(/^\s+/, '');
+    }
+    if (!bodyText && cta) bodyText = 'CTA: ' + cta;
+    else if (cta && bodyText.indexOf(cta) === -1) bodyText = (bodyText ? bodyText + '\n\n' : '') + 'CTA: ' + cta;
+
+    var wrap = document.createElement('div');
+    wrap.className = 'flex justify-start';
+    var card = document.createElement('div');
+    card.className = 'dm-chat-prompt-card dm-chat-post-card max-w-[96%]';
+    var head = document.createElement('div');
+    head.className = 'dm-chat-prompt-card__head';
+    head.innerHTML =
+      '<span class="dm-chat-prompt-card__label">Post for prompt</span>' +
+      '<span class="dm-chat-prompt-card__hint">' +
+      escapeHtml(String(plat.label || 'Social')) +
+      '</span>';
+    var bodyEl = document.createElement('div');
+    bodyEl.className = 'dm-chat-prompt-card__body';
+    var html = '';
+    if (title) html += '<strong>' + escapeHtml(title) + '</strong>';
+    if (bodyText) {
+      if (html) html += '<br><br>';
+      html += escapeHtml(bodyText).replace(/\n/g, '<br>');
+    }
+    bodyEl.innerHTML = html || escapeHtml(full || 'Post loaded');
+    card.appendChild(head);
+    card.appendChild(bodyEl);
+    wrap.appendChild(card);
+    log.appendChild(wrap);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  /**
+   * Seed chat with the social post so the coach can ask clarifying questions
+   * before writing an image prompt (no auto-generate).
+   */
+  async function seedChatWithSocialPostForPrompt(opts) {
+    opts = opts || {};
+    var copy = String(opts.copy || '').trim();
+    var headline = String(opts.headline || '').trim();
+    var body = String(opts.body || '').trim();
+    var imageNote = String(opts.imageNote || '').trim();
+    var tags = String(opts.tags || '').trim();
+    var platform = String(opts.platform || 'instagram_feed').trim();
+    if (!(copy || headline)) return;
+
+    appendChatPostContextCard(copy, headline, body, platform);
+
+    var contextMsg = buildSocialPostDesignChatMessage(copy, headline, body, imageNote, tags, platform);
+    chatHistory.push({ role: 'user', content: contextMsg });
+
+    var askMsg =
+      'Ask me 2–4 short clarifying questions so you can write a strong image prompt for this post (photo vs illustration, colors, hero subject, mood). Do not return an imagePrompt yet — questions only until I answer.';
+    setDesignStatus('Reading your post — preparing questions for a stronger image…', true);
+
+    try {
+      var plat = DM_PLATFORMS[platform] || DM_PLATFORMS.instagram_feed;
+      var ctx = designRequestContext();
+      ctx.platform = platform;
+      ctx.aspectRatio = plat.aspectRatio || ctx.aspectRatio || '1:1';
+      var data = await postJson('/direct-mail/api/design-chat', {
+        message: askMsg,
+        history: chatHistory.slice(),
+        headline: headline,
+        bodyText: body || copy,
+        slot: 'front',
+        platform: platform,
+        aspectRatio: ctx.aspectRatio,
+        brandKit: ctx.brandKit,
+      });
+      chatHistory.push({ role: 'user', content: askMsg });
+      var reply = String(data.reply || '').trim();
+      if (!reply) {
+        reply =
+          'Got it — I have your post. A few quick questions so the image matches:\n\n' +
+          '1) Photo-real or illustrated?\n' +
+          '2) Main colors / brand vibe?\n' +
+          '3) Who or what should be the hero in the frame?\n' +
+          '4) Any text that must appear on the image (or keep text off-image)?\n\n' +
+          'Answer below, then I’ll draft the image prompt.';
+      }
+      appendChatBubble('assistant', reply);
+      chatHistory.push({ role: 'assistant', content: reply });
+      setDesignStatus('Answer in Chat to refine the image prompt — then Generate when ready.', true);
+      var chatInput = document.getElementById('dmChatInput');
+      if (chatInput) {
+        try {
+          chatInput.focus({ preventScroll: false });
+        } catch (_) {
+          chatInput.focus();
+        }
+      }
+    } catch (e) {
+      var errMsg = e && e.message ? e.message : 'Could not start design chat';
+      setDesignStatus(errMsg, false);
+      appendChatBubble(
+        'assistant',
+        'Your post is loaded above. Describe the image you want (style, colors, hero subject), then tap Chat — I’ll ask follow-ups and draft a prompt.',
+      );
+    }
+  }
+
   function syncArtworkToLinkedSocialPost(imageUrl, prompt) {
     var url = String(imageUrl || '').trim();
     if (!url) return;
@@ -2332,12 +2447,23 @@
       if (chatInput && imageNote && !String(chatInput.value || '').trim()) {
         chatInput.value = 'Art direction: ' + imageNote;
       }
-      setDesignStatus(
-        'Post loaded — pick a format, describe your design in Chat, then click Generate when ready.',
-        true,
-      );
+      if (copy || headline) {
+        await seedChatWithSocialPostForPrompt({
+          copy: copy,
+          headline: headline,
+          body: body,
+          imageNote: imageNote,
+          tags: tags,
+          platform: platform,
+        });
+      } else {
+        setDesignStatus(
+          'Post loaded — pick a format, describe your design in Chat, then click Generate when ready.',
+          true,
+        );
+      }
       if (typeof window.showAppToast === 'function') {
-        window.showAppToast('Post loaded in Marketing Studio — use Chat, then Generate when ready.', {
+        window.showAppToast('Post loaded in chat — answer the questions, then Generate.', {
           variant: 'success',
         });
       }

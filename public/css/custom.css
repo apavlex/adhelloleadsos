@@ -6771,6 +6771,24 @@ body.dm-prompt-resize-active {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand-yellow, #facc15) 30%, transparent);
 }
 
+.dm-chat-post-card {
+  border-color: rgba(202, 138, 4, 0.35);
+  background: rgba(250, 204, 21, 0.08);
+}
+
+.dark .dm-chat-post-card {
+  border-color: rgba(250, 204, 21, 0.28);
+  background: rgba(250, 204, 21, 0.08);
+}
+
+.dm-chat-post-card .dm-chat-prompt-card__label {
+  color: #a16207;
+}
+
+.dark .dm-chat-post-card .dm-chat-prompt-card__label {
+  color: #facc15;
+}
+
 .dm-chat-welcome {
   font-size: 0.6875rem;
   color: var(--brand-muted, #6b7280);

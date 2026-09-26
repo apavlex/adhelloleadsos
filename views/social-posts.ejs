@@ -247,24 +247,7 @@
       </div>
     </div>
 
-    <!-- QUICK ACTIONS BAR — platform filter lives in the tabs below -->
-    <div class="brand-card p-4 md:p-5 dark:bg-slate-900 dark:border-white/10 mb-6">
-      <div class="flex items-center justify-between mb-3">
-        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Quick Actions</span>
-        <span id="qaStatus" class="text-[10px] text-brand-muted font-bold"></span>
-      </div>
-      <div class="flex flex-wrap gap-2">
-        <button onclick="qaCopyAllVisible()" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white flex items-center gap-1">
-          <svg class="icon-flat-sm" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-          Copy All
-        </button>
-        <button onclick="qaSaveAllForReview()" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white flex items-center gap-1">
-          <svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
-          Save all for review
-        </button>
-        <div id="tagFilterBar" class="hidden flex flex-wrap items-center gap-2 basis-full pt-1 border-t border-brand-border/30 dark:border-white/10 mt-1"></div>
-      </div>
-    </div>
+    <p id="qaStatus" class="text-[10px] text-brand-muted font-bold min-h-[1rem] mb-2" role="status" aria-live="polite"></p>
 
     <!-- CONTENT CALENDAR -->
     <div class="mb-8">
@@ -309,7 +292,7 @@
     </div>
 
     <!-- Platform Tabs -->
-    <div class="flex flex-wrap gap-2 mb-6" id="platformTabs">
+    <div class="flex flex-wrap gap-2 mb-3" id="platformTabs">
       <button class="platform-tab active px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="all">All</button>
       <button class="platform-tab px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="instagram">Instagram</button>
       <button class="platform-tab px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="facebook">Facebook</button>
@@ -319,6 +302,7 @@
       <button class="platform-tab px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="tiktok">TikTok</button>
       <button class="platform-tab px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="gmb">Google Business</button>
     </div>
+    <div id="tagFilterBar" class="hidden flex flex-wrap items-center gap-2 mb-4"></div>
 
     <div class="sp-view-toggle" role="tablist" aria-label="Post layout">
       <button type="button" class="sp-view-toggle__btn is-active" data-sp-view="list" role="tab" aria-selected="true">
@@ -879,23 +863,12 @@
 
     function wsQuery() { return 'workspaceId=' + encodeURIComponent(WORKSPACE_ID); }
 
-    // ── QUICK ACTIONS ───────────────────────────────────────────────────────────
+    // ── Status toast line (bookmark / copy / schedule feedback) ─────────────────
     function qaStatus(msg) {
       const el = document.getElementById('qaStatus');
+      if (!el) return;
       el.textContent = msg;
-      setTimeout(() => el.textContent = '', 3000);
-    }
-
-    function qaCopyAllVisible() {
-      const platforms = currentPlatform === 'all' ? Object.keys(allIdeas) : [currentPlatform];
-      let allText = '';
-      for (const p of platforms) {
-        const ideas = allIdeas[p] || [];
-        allText += '=== ' + p.toUpperCase() + ' ===\n';
-        for (const idea of ideas) { allText += idea.hook + '\n'; if (idea.cta) allText += 'CTA: ' + idea.cta + '\n'; allText += '\n'; }
-      }
-      if (!allText.trim()) { qaStatus('No ideas to copy'); return; }
-      navigator.clipboard.writeText(allText.trim()).then(() => { showCopyToast(); qaStatus('Copied all visible ideas'); });
+      setTimeout(() => { if (el.textContent === msg) el.textContent = ''; }, 3000);
     }
 
     function switchTab(platform) {
@@ -1530,7 +1503,7 @@
         '<button type="button" onclick="event.stopPropagation();' + editHandler + '" class="post-card-action-btn" title="Edit">' + ICONS.edit + '</button>' +
         deleteBtn +
         '</div>' +
-        '<div class="preview-area">' +
+        '<div class="preview-area cursor-pointer" onclick="event.stopPropagation();' + studioLaunch + '" title="Open in Marketing Studio">' +
         '<span class="platform-badge">' + escapeHtml(platformLabel) + (metaLabel ? ' · ' + escapeHtml(metaLabel) : '') + '</span>' +
         '<p class="text-sm font-semibold text-brand-dark dark:text-white leading-relaxed whitespace-pre-wrap preview-hook">' + escapeHtml(hook) + '</p>' +
         (cta ? '<p class="text-xs text-brand-muted mt-2 italic preview-cta">CTA: ' + escapeHtml(cta) + '</p>' : '') +
@@ -1596,46 +1569,6 @@
           }
         }
       } catch { /* ignore */ }
-    }
-
-    async function qaSaveAllForReview() {
-      if (!reviewFolderId) await ensureReviewFolder();
-      if (!reviewFolderId) { qaStatus('Review folder unavailable'); return; }
-      const cards = document.querySelectorAll('#ideasContainer [data-idea-id]');
-      if (!cards.length) { qaStatus('No visible ideas'); return; }
-      let saved = 0;
-      for (const card of cards) {
-        const ideaId = card.dataset.ideaId;
-        const platform = card.dataset.platform;
-        const content = card.querySelector('.preview-hook')?.textContent || '';
-        const ctaEl = card.querySelector('.preview-cta');
-        const cta = ctaEl ? ctaEl.textContent.replace(/^CTA:\s*/, '') : '';
-        if (!content) continue;
-        const existing = savedPosts.find(sp => sp.content === content && sp.platform === platform);
-        if (existing) continue;
-        const state = getIdeaState(ideaId);
-        try {
-          const res = await fetch('/social-posts/api/save', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              platform, content, cta, ideaId,
-              niche: businessProfile.niche || '',
-              folderId: reviewFolderId,
-              liked: state.liked,
-              tags: state.tags || [],
-              imageNote: state.imageNote || '',
-              workspaceId: WORKSPACE_ID,
-            }),
-          });
-          const data = await res.json();
-          if (data.success) {
-            savedPosts.unshift(data.post || { id: data.id, platform, content, cta, folderId: reviewFolderId });
-            saved++;
-          }
-        } catch { /* continue */ }
-      }
-      renderSavedPosts(); renderIdeas();
-      qaStatus(saved ? ('Saved ' + saved + ' ideas for review') : 'All visible ideas already bookmarked');
     }
 
     function toggleLikeIdea(ideaId) {
