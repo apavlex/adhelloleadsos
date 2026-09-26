@@ -1959,6 +1959,10 @@
     updateSoftphoneCalleeDisplay();
     updateSoftphoneWrapLeadHint();
     hydrateSoftphoneLeadFromPanel();
+    var smsPanel = document.getElementById('softphoneTabSms');
+    if (smsPanel && !smsPanel.classList.contains('hidden') && typeof loadSoftphoneSmsTemplates === 'function') {
+      loadSoftphoneSmsTemplates();
+    }
   }
 
   function updateSoftphoneWrapLeadHint() {
@@ -2810,6 +2814,7 @@
     if (spCallModeSelect) spCallModeSelect.value = spWorkspaceCallMode || 'cloud_dial';
     if (spModeLine) spModeLine.textContent = softphoneModeDescription(spWorkspaceCallMode, spRelayWebrtc);
     updateSoftphoneSettingsPanels();
+    updateSoftphoneSmsRouteHint();
     var wbtn = document.getElementById('callRoutingWalkthroughSoftphoneBtn');
     if (wbtn) {
       wbtn.textContent = 'Guided setup for call routing · ' + callRoutingModeShortLabel(spWorkspaceCallMode);
@@ -3742,6 +3747,10 @@
       softphoneSession.leadTitle = resolveSoftphoneLeadTitle(softphoneSession.leadKey, to);
     }
     updateSoftphoneWrapLeadHint();
+    var smsPanelOpen = document.getElementById('softphoneTabSms');
+    if (smsPanelOpen && !smsPanelOpen.classList.contains('hidden')) {
+      loadSoftphoneSmsTemplates();
+    }
     // Don't block dial on panel hydrate — fetch in background.
     if (!opts.autoDial) hydrateSoftphoneLeadFromPanel();
     else setTimeout(hydrateSoftphoneLeadFromPanel, 0);
@@ -4391,6 +4400,15 @@
   var spQueueMeta = document.getElementById('softphoneQueueMeta');
   var spContactsList = document.getElementById('softphoneContactsList');
   var spContactsMeta = document.getElementById('softphoneContactsMeta');
+  var spSmsTemplateSelect = document.getElementById('softphoneSmsTemplateSelect');
+  var spSmsBody = document.getElementById('softphoneSmsBody');
+  var spSmsSendBtn = document.getElementById('softphoneSmsSendBtn');
+  var spSmsStatus = document.getElementById('softphoneSmsStatus');
+  var spSmsMeta = document.getElementById('softphoneSmsMeta');
+  var spSmsCount = document.getElementById('softphoneSmsCount');
+  var spSmsRouteHint = document.getElementById('softphoneSmsRouteHint');
+  var softphoneSmsOptions = [];
+  var softphoneSmsLoadToken = 0;
 
   function softphoneQueueRowTitle(row) {
     if (!row || !row.dataset) return 'Lead';
@@ -4598,6 +4616,256 @@
   }
   window.__renderSoftphoneCallQueue = renderSoftphoneCallQueue;
 
+  function softphoneUsesDeviceSms() {
+    return String(spWorkspaceCallMode || '').trim() === 'browser_device';
+  }
+
+  function softphoneSmsDialPhone() {
+    return normalizeDial(softphoneSession.activeNumber || (spTo ? spTo.value : '') || '');
+  }
+
+  function updateSoftphoneSmsCount() {
+    if (!spSmsCount || !spSmsBody) return;
+    spSmsCount.textContent = String((spSmsBody.value || '').length);
+  }
+
+  function updateSoftphoneSmsRouteHint() {
+    if (!spSmsRouteHint && !spSmsMeta) return;
+    var device = softphoneUsesDeviceSms();
+    if (spSmsRouteHint) {
+      spSmsRouteHint.textContent = device
+        ? 'My device dialer · copy + open Messages'
+        : 'Sends via Go High Level SMS';
+    }
+    if (spSmsMeta) {
+      spSmsMeta.textContent = device
+        ? 'Send copies the text, opens Messages on this phone, and fills the draft for the dialed number.'
+        : 'Send delivers through Go High Level using your workspace SMS number.';
+    }
+  }
+
+  function setSoftphoneSmsStatus(msg, isError) {
+    if (!spSmsStatus) return;
+    spSmsStatus.textContent = String(msg || '');
+    spSmsStatus.classList.toggle('text-red-600', !!isError);
+    spSmsStatus.classList.toggle('dark:text-red-400', !!isError);
+    spSmsStatus.classList.toggle('text-slate-500', !isError);
+    spSmsStatus.classList.toggle('dark:text-slate-400', !isError);
+  }
+
+  function softphoneFillSmsSelect(options) {
+    softphoneSmsOptions = Array.isArray(options) ? options.slice() : [];
+    if (!spSmsTemplateSelect) return;
+    spSmsTemplateSelect.innerHTML = '';
+    if (!softphoneSmsOptions.length) {
+      var empty = document.createElement('option');
+      empty.value = '';
+      empty.textContent = 'No templates — type your own';
+      spSmsTemplateSelect.appendChild(empty);
+      return;
+    }
+    softphoneSmsOptions.forEach(function (opt, idx) {
+      var o = document.createElement('option');
+      o.value = String(idx);
+      o.textContent = String((opt && opt.label) || 'Template') || 'Template';
+      spSmsTemplateSelect.appendChild(o);
+    });
+  }
+
+  function softphoneApplySmsTemplateIndex(idx) {
+    var opt = softphoneSmsOptions[idx];
+    if (!spSmsBody || !opt) return;
+    spSmsBody.value = String(opt.text || '');
+    updateSoftphoneSmsCount();
+  }
+
+  function loadSoftphoneSmsTemplates() {
+    updateSoftphoneSmsRouteHint();
+    var leadKey = String(softphoneSession.leadKey || '').trim().replace(/^lead:/i, '');
+    var token = ++softphoneSmsLoadToken;
+    if (spSmsTemplateSelect) {
+      spSmsTemplateSelect.innerHTML = '<option value="">Loading templates…</option>';
+    }
+    setSoftphoneSmsStatus('');
+    var url = leadKey
+      ? '/leads/' + encodeURIComponent(leadKey) + '/sms-script-options'
+      : '/leads/outreach-library';
+    return fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+      .then(function (res) {
+        return res.json().then(function (data) {
+          return { ok: res.ok, data: data || {} };
+        });
+      })
+      .then(function (result) {
+        if (token !== softphoneSmsLoadToken) return;
+        var options = [];
+        if (leadKey && result.ok && Array.isArray(result.data.options)) {
+          options = result.data.options.map(function (o) {
+            return {
+              id: o.id || '',
+              label: o.label || 'SMS',
+              text: String(o.text || ''),
+            };
+          });
+        } else if (result.ok && result.data) {
+          var library = result.data.library || result.data.scripts || {};
+          var keys = Array.isArray(result.data.offerKeys)
+            ? result.data.offerKeys
+            : Object.keys(library);
+          options.push({ id: 'blank', label: 'Blank — type your own', text: '' });
+          keys.forEach(function (k) {
+            var entry = library[k] || {};
+            var smsText =
+              String(entry.sms || '').trim() ||
+              String((entry.channels && entry.channels.text) || '').trim();
+            if (!smsText) return;
+            options.push({
+              id: 'sms:' + k,
+              label: String(entry.label || k) + ' — SMS',
+              text: smsText,
+            });
+          });
+        }
+        if (!options.length) {
+          options = [{ id: 'blank', label: 'Blank — type your own', text: '' }];
+        }
+        softphoneFillSmsSelect(options);
+        var preferIdx = 0;
+        for (var i = 0; i < options.length; i += 1) {
+          if (options[i].id !== 'blank' && String(options[i].text || '').trim()) {
+            preferIdx = i;
+            break;
+          }
+        }
+        if (spSmsTemplateSelect) spSmsTemplateSelect.value = String(preferIdx);
+        softphoneApplySmsTemplateIndex(preferIdx);
+        if (!leadKey) {
+          setSoftphoneSmsStatus('No lead loaded — templates are workspace defaults. Dial a lead for personalized SMS.');
+        }
+      })
+      .catch(function () {
+        if (token !== softphoneSmsLoadToken) return;
+        softphoneFillSmsSelect([{ id: 'blank', label: 'Blank — type your own', text: '' }]);
+        softphoneApplySmsTemplateIndex(0);
+        setSoftphoneSmsStatus('Could not load templates. Type a message and send.', true);
+      });
+  }
+
+  function softphoneCopyText(text) {
+    var value = String(text || '');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(value).catch(function () {
+        return false;
+      });
+    }
+    return Promise.resolve(false);
+  }
+
+  function softphoneOpenDeviceSmsApp(phone, body) {
+    var digits = String(phone || '').replace(/[^\d+]/g, '');
+    if (!digits) return Promise.reject(new Error('No phone number to text.'));
+    var text = String(body || '');
+    return softphoneCopyText(text).then(function () {
+      var ua = String(navigator.userAgent || '');
+      var isIOS = /iPhone|iPad|iPod/i.test(ua);
+      var href = isIOS
+        ? 'sms:' + encodeURIComponent(digits) + '&body=' + encodeURIComponent(text)
+        : 'sms:' + encodeURIComponent(digits) + '?body=' + encodeURIComponent(text);
+      window.location.href = href;
+      return true;
+    });
+  }
+
+  function softphoneSendSmsViaGhl(leadKey, body, phone) {
+    var payload = { body: body, provider: 'ghl' };
+    if (phone) payload.to = phone;
+    return fetch('/leads/' + encodeURIComponent(leadKey) + '/sms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(payload),
+    }).then(function (res) {
+      return res.json().then(function (data) {
+        if (!res.ok || !data.success) {
+          throw new Error((data && data.error) || 'SMS failed (' + res.status + ')');
+        }
+        return data;
+      });
+    });
+  }
+
+  function softphoneSendSmsFromTab() {
+    var body = String((spSmsBody && spSmsBody.value) || '').trim();
+    if (!body) {
+      setSoftphoneSmsStatus('Add a message before sending.', true);
+      return;
+    }
+    var phone = softphoneSmsDialPhone();
+    if (!phone) {
+      setSoftphoneSmsStatus('Enter or load a phone number on the keypad first.', true);
+      return;
+    }
+    var leadKey = String(softphoneSession.leadKey || '').trim().replace(/^lead:/i, '');
+    var device = softphoneUsesDeviceSms();
+    if (spSmsSendBtn) {
+      spSmsSendBtn.disabled = true;
+      spSmsSendBtn.textContent = device ? 'Opening…' : 'Sending…';
+    }
+    setSoftphoneSmsStatus(device ? 'Copying text and opening Messages…' : 'Sending via Go High Level…');
+    var done = device
+      ? softphoneOpenDeviceSmsApp(phone, body).then(function () {
+          setSoftphoneSmsStatus('Messages opened — draft copied. Paste if the body is blank.');
+          softphoneSetStatus('SMS draft opened on your device.');
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast('Text copied · Messages opened', { variant: 'success' });
+          }
+        })
+      : (function () {
+          if (!leadKey) {
+            return Promise.reject(
+              new Error('Load a saved lead to send via GHL, or switch Call routing to My device dialer.'),
+            );
+          }
+          return softphoneSendSmsViaGhl(leadKey, body, phone).then(function (data) {
+            var label =
+              (data && data.providerLabel) ||
+              (data && data.provider === 'ghl' ? 'Go High Level' : 'SMS');
+            setSoftphoneSmsStatus('Sent via ' + label + '.');
+            softphoneSetStatus('SMS sent via ' + label + '.');
+            if (typeof window.showAppToast === 'function') {
+              window.showAppToast('SMS sent via ' + label, { variant: 'success' });
+            }
+          });
+        })();
+    Promise.resolve(done)
+      .catch(function (err) {
+        setSoftphoneSmsStatus((err && err.message) || 'Could not send SMS.', true);
+      })
+      .finally(function () {
+        if (spSmsSendBtn) {
+          spSmsSendBtn.disabled = false;
+          spSmsSendBtn.textContent = 'Send SMS';
+        }
+      });
+  }
+
+  if (spSmsTemplateSelect) {
+    spSmsTemplateSelect.addEventListener('change', function () {
+      var idx = parseInt(spSmsTemplateSelect.value, 10);
+      if (!Number.isFinite(idx)) return;
+      softphoneApplySmsTemplateIndex(idx);
+      setSoftphoneSmsStatus('');
+    });
+  }
+  if (spSmsBody) {
+    spSmsBody.addEventListener('input', updateSoftphoneSmsCount);
+  }
+  if (spSmsSendBtn) {
+    spSmsSendBtn.addEventListener('click', function () {
+      softphoneSendSmsFromTab();
+    });
+  }
+
   var spDirectMailList = document.getElementById('softphoneDirectMailList');
   var spDirectMailMeta = document.getElementById('softphoneDirectMailMeta');
   var spDirectMailAddBtn = document.getElementById('softphoneDirectMailAddBtn');
@@ -4709,6 +4977,7 @@
 
   function setSoftphoneTab(tab) {
     var name = String(tab || 'keypad');
+    if (name === 'queue') name = 'sms';
     document.querySelectorAll('.softphone-tab-panel').forEach(function (panel) {
       panel.classList.toggle('hidden', panel.getAttribute('data-tab') !== name);
     });
@@ -4727,7 +4996,10 @@
       refreshSoftphoneAudioDevices({ requestPermission: false }).catch(function () {});
       refreshSoftphoneWebrtcDiagnostics();
     }
-    if (name === 'queue') renderSoftphoneCallQueue();
+    if (name === 'sms') {
+      updateSoftphoneSmsRouteHint();
+      loadSoftphoneSmsTemplates();
+    }
     if (name === 'direct_mail') renderSoftphoneDirectMailQueue();
     if (name === 'keypad' && spTo) setTimeout(function () { spTo.focus(); }, 60);
     if (name === 'keypad') setTimeout(updateSoftphoneScrollHint, 80);
@@ -4752,8 +5024,6 @@
 
   document.addEventListener('change', function (e) {
     if (!e.target || !e.target.matches('input.lead-checkbox, input.row-checkbox')) return;
-    var queuePanel = document.getElementById('softphoneTabQueue');
-    if (queuePanel && !queuePanel.classList.contains('hidden')) renderSoftphoneCallQueue();
     var mailPanel = document.getElementById('softphoneTabDirectMail');
     if (mailPanel && !mailPanel.classList.contains('hidden')) renderSoftphoneDirectMailQueue();
   });

@@ -4739,11 +4739,16 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
 }
 
 .softphone-keypad-grid {
+  /* Fixed columns (not 1fr) so keys stay clustered like a native dialer */
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.85rem 1rem;
+  grid-template-columns: repeat(3, 4.5rem);
+  column-gap: 1.15rem;
+  row-gap: 0.7rem;
+  justify-content: center;
   justify-items: center;
-  margin-top: 0.35rem;
+  max-width: 17.5rem;
+  width: 100%;
+  margin: 0.35rem auto 0;
 }
 
 .softphone-key {
@@ -4751,8 +4756,8 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 4.35rem;
-  height: 4.35rem;
+  width: 4.5rem;
+  height: 4.5rem;
   border-radius: 9999px;
   border: 0;
   background: #ececf1;
@@ -4996,10 +5001,45 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
   pointer-events: none;
 }
 
+@media (max-width: 767px) {
+  .softphone-keypad-grid {
+    grid-template-columns: repeat(3, 4.35rem);
+    column-gap: 0.95rem;
+    row-gap: 0.55rem;
+    max-width: 16rem;
+  }
+
+  .softphone-key {
+    width: 4.35rem;
+    height: 4.35rem;
+  }
+
+  .softphone-key-main {
+    font-size: 1.7rem;
+    font-weight: 600;
+  }
+
+  .softphone-key-sub {
+    font-size: 0.55rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .softphone-call-btn {
+    width: 4.35rem;
+    height: 4.35rem;
+  }
+
+  .softphone-call-row {
+    gap: 1.35rem;
+    margin-top: 0.85rem;
+  }
+}
+
 @media (max-height: 720px) {
   .softphone-key {
-    width: 3.75rem;
-    height: 3.75rem;
+    width: 3.85rem;
+    height: 3.85rem;
   }
 
   .softphone-key-main {
@@ -5007,12 +5047,15 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
   }
 
   .softphone-call-btn {
-    width: 3.75rem;
-    height: 3.75rem;
+    width: 3.85rem;
+    height: 3.85rem;
   }
 
   .softphone-keypad-grid {
-    gap: 0.55rem 0.75rem;
+    grid-template-columns: repeat(3, 3.85rem);
+    column-gap: 0.85rem;
+    row-gap: 0.45rem;
+    max-width: 14.5rem;
   }
 
   .softphone-call-row {
