@@ -11518,49 +11518,7 @@ document.addEventListener('DOMContentLoaded', () => {
       fallback.classList.remove('flex');
     }
 
-    const showOsmIframe = (src) => {
-      if (!isCurrentLoad() || !iframe || !src) return false;
-      img.onload = null;
-      img.onerror = null;
-      img.removeAttribute('src');
-      img.classList.add('hidden');
-      iframe.onerror = () => {
-        if (!isCurrentLoad()) return;
-        iframe.removeAttribute('src');
-        iframe.classList.add('hidden');
-        loadStaticFallbacks(showFallback);
-      };
-      iframe.src = src;
-      iframe.classList.remove('hidden');
-      revealMapSurface();
-      return true;
-    };
-
-    const immediateEmbed =
-      typeof window !== 'undefined' && window.AdhelloMaps && window.AdhelloMaps.embedSrc
-        ? window.AdhelloMaps.embedSrc(geocodeQ || centerQ, '', lat, lng)
-        : '';
-    if (immediateEmbed && showOsmIframe(immediateEmbed)) {
-      return true;
-    }
-
-    if (
-      typeof window !== 'undefined' &&
-      window.AdhelloMaps &&
-      typeof window.AdhelloMaps.resolveEmbed === 'function'
-    ) {
-      window.AdhelloMaps.resolveEmbed({
-        q: geocodeQ || centerQ,
-        lat: Number.isFinite(lat) ? lat : undefined,
-        lng: Number.isFinite(lng) ? lng : undefined,
-      }).then((loc) => {
-        if (!isCurrentLoad()) return;
-        if (loc && loc.embedUrl && showOsmIframe(loc.embedUrl)) return;
-        loadStaticFallbacks(showFallback);
-      });
-      return true;
-    }
-
+    // Prefer static map image (no WebGL). OSM website embeds can fail in some browsers.
     loadStaticFallbacks(showFallback);
     return true;
   }
@@ -11664,31 +11622,7 @@ document.addEventListener('DOMContentLoaded', () => {
             heroFallback.classList.remove('flex', 'flex-col');
           };
 
-          const applyHeroEmbed = (src, openUrl) => {
-            if (!src) return false;
-            heroImg.classList.add('hidden');
-            heroImg.removeAttribute('src');
-            heroEmbed.onload = null;
-            heroEmbed.onerror = function onHeroEmbedErr() {
-              heroEmbed.onerror = null;
-              heroEmbed.removeAttribute('src');
-              heroEmbed.classList.add('hidden');
-              showHeroPinFallback();
-            };
-            if (openUrl) heroLink.href = openUrl;
-            heroEmbed.src = src;
-            heroEmbed.title = address
-              ? `Map · ${address.slice(0, 100)}`
-              : title
-                ? `Location · ${title}`
-                : 'Business location';
-            heroEmbed.classList.remove('hidden');
-            setLeadPanelMapEmbedMode(true);
-            heroFallback.classList.add('hidden');
-            heroFallback.classList.remove('flex', 'flex-col');
-            return true;
-          };
-
+          // Static map image only — avoid OSM/Google iframes (WebGL / API key issues).
           const loadHeroPreviewImage = () => {
             const previewUrl = buildLeadPanelMapPreviewUrl({
               center,
@@ -11702,11 +11636,11 @@ document.addEventListener('DOMContentLoaded', () => {
               showHeroPinFallback();
               return;
             }
+            heroEmbed.removeAttribute('src');
+            heroEmbed.classList.add('hidden');
             heroImg.onload = () => {
               setLeadPanelMapEmbedMode(false);
               heroImg.classList.remove('hidden');
-              heroEmbed.removeAttribute('src');
-              heroEmbed.classList.add('hidden');
               heroFallback.classList.add('hidden');
               heroFallback.classList.remove('flex', 'flex-col');
             };
@@ -11721,32 +11655,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
           };
 
-          const immediate = heroEmbedSrcForQuery(
-            geocodeCenter || center,
-            Number.isFinite(rowLat) ? rowLat : undefined,
-            Number.isFinite(rowLng) ? rowLng : undefined,
-          );
-          if (immediate) {
-            applyHeroEmbed(immediate, hrefOpen);
-          } else if (
-            typeof window !== 'undefined' &&
-            window.AdhelloMaps &&
-            typeof window.AdhelloMaps.resolveEmbed === 'function'
-          ) {
-            window.AdhelloMaps.resolveEmbed({
-              q: geocodeCenter || center,
-              lat: Number.isFinite(rowLat) ? rowLat : undefined,
-              lng: Number.isFinite(rowLng) ? rowLng : undefined,
-            }).then((loc) => {
-              if (loc && loc.embedUrl) {
-                applyHeroEmbed(loc.embedUrl, loc.openUrl || hrefOpen);
-              } else {
-                loadHeroPreviewImage();
-              }
-            });
-          } else {
-            loadHeroPreviewImage();
-          }
+          loadHeroPreviewImage();
         }
       };
 

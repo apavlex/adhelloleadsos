@@ -3671,29 +3671,7 @@
         }
       };
 
-      var showOsmEmbed = function (src, openUrl) {
-        if (!isCurrent()) return;
-        if (!src || !embed) {
-          showLinkFallback();
-          return;
-        }
-        if (openUrl && openLink) openLink.href = openUrl;
-        img.onload = null;
-        img.onerror = null;
-        img.removeAttribute('src');
-        img.classList.add('opacity-0');
-        if (attrib) {
-          attrib.textContent = '© OpenStreetMap';
-          attrib.classList.remove('hidden');
-        }
-        if (fallback) {
-          fallback.classList.add('hidden');
-          fallback.classList.remove('flex');
-        }
-        embed.src = src;
-        embed.classList.remove('hidden');
-      };
-
+      // Static OSM image via our server — no WebGL / no Google API key.
       var showPreviewImage = function () {
         if (!isCurrent()) return;
         var previewUrl = focusMapPreviewFallbackUrl(q, lat, lng);
@@ -3721,25 +3699,7 @@
         img.src = previewUrl;
       };
 
-      var resolve =
-        typeof window !== 'undefined' &&
-        window.AdhelloMaps &&
-        typeof window.AdhelloMaps.resolveEmbed === 'function'
-          ? window.AdhelloMaps.resolveEmbed({ q: q, lat: lat, lng: lng })
-          : Promise.resolve(
-              Number.isFinite(lat) && Number.isFinite(lng)
-                ? { embedUrl: focusMapEmbedSrc(q, lat, lng), openUrl: mapsHref, lat: lat, lng: lng }
-                : null,
-            );
-
-      resolve.then(function (loc) {
-        if (!isCurrent()) return;
-        if (loc && loc.embedUrl) {
-          showOsmEmbed(loc.embedUrl, loc.openUrl || mapsHref);
-          return;
-        }
-        showPreviewImage();
-      });
+      showPreviewImage();
     }
 
     function parseFocusTechStackTags(raw) {
