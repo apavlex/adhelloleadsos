@@ -84,7 +84,7 @@ const googleDriveAccess = require('../services/googleDriveAccess');
 const { getGoogleDriveAccount } = googleDriveAccess;
 const { downloadDriveFileAsCsvBuffer } = require('../services/googleDriveCsv');
 const { uploadCsvToDrive, safeDriveFileName } = require('../services/googleDriveUpload');
-const { getMapPreviewImage } = require('../services/mapPreview');
+const { getMapPreviewImage, resolveMapLocation } = require('../services/mapPreview');
 const { getWebsitePreviewImage } = require('../services/websitePreview');
 const signalwire = require('../services/signalwire');
 const { shortLeadKey } = require('../services/focusQueue');
@@ -317,6 +317,37 @@ router.get('/map-preview', async (req, res, next) => {
     res.set('Cache-Control', 'private, max-age=86400');
     res.set('X-Map-Preview-Source', preview.source);
     res.type(preview.contentType).send(preview.buffer);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /leads/map-location.json — free OSM embed coords from address (Nominatim / existing geocoders)
+router.get('/map-location.json', async (req, res, next) => {
+  try {
+    const center = String(req.query.center || req.query.q || '').trim();
+    const lat = parseFloat(req.query.lat);
+    const lng = parseFloat(req.query.lng);
+    if (!center && !(Number.isFinite(lat) && Number.isFinite(lng))) {
+      return res.status(400).json({ success: false, error: 'center or lat/lng required' });
+    }
+    const loc = await resolveMapLocation({
+      center,
+      lat: Number.isFinite(lat) ? lat : undefined,
+      lng: Number.isFinite(lng) ? lng : undefined,
+    });
+    if (!loc) {
+      return res.status(404).json({ success: false, error: 'location_unavailable' });
+    }
+    res.set('Cache-Control', 'private, max-age=86400');
+    res.json({
+      success: true,
+      lat: loc.lat,
+      lng: loc.lng,
+      embedUrl: loc.embedUrl,
+      openUrl: loc.openUrl,
+      source: loc.source,
+    });
   } catch (err) {
     next(err);
   }

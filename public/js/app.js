@@ -11397,17 +11397,22 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  function leadPanelEmbedSrcForQuery(centerQuery, mapKey, useKeyless) {
+  function leadPanelEmbedSrcForQuery(centerQuery, mapKey, useKeyless, lat, lng) {
     const q = String(centerQuery || '').trim();
-    if (!q) return '';
-    const k = useKeyless ? '' : String(mapKey || '').trim();
     if (typeof window !== 'undefined' && window.AdhelloMaps && window.AdhelloMaps.embedSrc) {
-      return window.AdhelloMaps.embedSrc(q, k);
+      return window.AdhelloMaps.embedSrc(q, '', lat, lng);
     }
-    if (k) {
-      return `https://www.google.com/maps/embed/v1/place?key=${encodeURIComponent(k)}&q=${encodeURIComponent(q)}&zoom=15&maptype=roadmap`;
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      const delta = 0.01;
+      const bbox = `${lng - delta},${lat - delta},${lng + delta},${lat + delta}`;
+      return (
+        'https://www.openstreetmap.org/export/embed.html?bbox=' +
+        encodeURIComponent(bbox) +
+        '&layer=mapnik&marker=' +
+        encodeURIComponent(`${lat},${lng}`)
+      );
     }
-    return `https://www.google.com/maps?q=${encodeURIComponent(q)}&hl=en&z=15&output=embed`;
+    return '';
   }
 
   function syncLeadPanelStripEmbedMap(opts) {
@@ -11513,6 +11518,49 @@ document.addEventListener('DOMContentLoaded', () => {
       fallback.classList.remove('flex');
     }
 
+    const showOsmIframe = (src) => {
+      if (!isCurrentLoad() || !iframe || !src) return false;
+      img.onload = null;
+      img.onerror = null;
+      img.removeAttribute('src');
+      img.classList.add('hidden');
+      iframe.onerror = () => {
+        if (!isCurrentLoad()) return;
+        iframe.removeAttribute('src');
+        iframe.classList.add('hidden');
+        loadStaticFallbacks(showFallback);
+      };
+      iframe.src = src;
+      iframe.classList.remove('hidden');
+      revealMapSurface();
+      return true;
+    };
+
+    const immediateEmbed =
+      typeof window !== 'undefined' && window.AdhelloMaps && window.AdhelloMaps.embedSrc
+        ? window.AdhelloMaps.embedSrc(geocodeQ || centerQ, '', lat, lng)
+        : '';
+    if (immediateEmbed && showOsmIframe(immediateEmbed)) {
+      return true;
+    }
+
+    if (
+      typeof window !== 'undefined' &&
+      window.AdhelloMaps &&
+      typeof window.AdhelloMaps.resolveEmbed === 'function'
+    ) {
+      window.AdhelloMaps.resolveEmbed({
+        q: geocodeQ || centerQ,
+        lat: Number.isFinite(lat) ? lat : undefined,
+        lng: Number.isFinite(lng) ? lng : undefined,
+      }).then((loc) => {
+        if (!isCurrentLoad()) return;
+        if (loc && loc.embedUrl && showOsmIframe(loc.embedUrl)) return;
+        loadStaticFallbacks(showFallback);
+      });
+      return true;
+    }
+
     loadStaticFallbacks(showFallback);
     return true;
   }
@@ -11581,9 +11629,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const heroFallback = document.getElementById('leadPanelHeroBackdropFallback');
     let headerMapBannerActive = false;
 
-    /** Matches Focus page embed behavior; Embed API when key is configured (enable Maps Embed API on the key). */
-    const heroEmbedSrcForQuery = (centerQuery, useKeyless) =>
-      leadPanelEmbedSrcForQuery(centerQuery, mapKey, useKeyless);
+    /** OpenStreetMap embed — free, no Google API key. */
+    const heroEmbedSrcForQuery = (centerQuery, lat, lng) =>
+      leadPanelEmbedSrcForQuery(centerQuery, '', true, lat, lng);
 
     if (heroLink && heroImg && heroFallback && heroEmbed) {
       const paintHeroBackdrop = () => {
@@ -11616,21 +11664,18 @@ document.addEventListener('DOMContentLoaded', () => {
             heroFallback.classList.remove('flex', 'flex-col');
           };
 
-          const openHeroEmbed = (useKeyless) => {
-            if (!center) return false;
+          const applyHeroEmbed = (src, openUrl) => {
+            if (!src) return false;
             heroImg.classList.add('hidden');
             heroImg.removeAttribute('src');
             heroEmbed.onload = null;
-            heroEmbed.onerror = null;
-            const src = heroEmbedSrcForQuery(geocodeCenter || center, useKeyless);
-            if (!src) return false;
             heroEmbed.onerror = function onHeroEmbedErr() {
               heroEmbed.onerror = null;
               heroEmbed.removeAttribute('src');
               heroEmbed.classList.add('hidden');
-              if (!useKeyless && mapKey) openHeroEmbed(true);
-              else showHeroPinFallback();
+              showHeroPinFallback();
             };
+            if (openUrl) heroLink.href = openUrl;
             heroEmbed.src = src;
             heroEmbed.title = address
               ? `Map · ${address.slice(0, 100)}`
@@ -11644,15 +11689,19 @@ document.addEventListener('DOMContentLoaded', () => {
             return true;
           };
 
-          const previewUrl = buildLeadPanelMapPreviewUrl({
-            center,
-            geocodeCenter,
-            lat: Number.isFinite(rowLat) ? rowLat : undefined,
-            lng: Number.isFinite(rowLng) ? rowLng : undefined,
-            w: 640,
-            h: 320,
-          });
-          if (previewUrl) {
+          const loadHeroPreviewImage = () => {
+            const previewUrl = buildLeadPanelMapPreviewUrl({
+              center,
+              geocodeCenter,
+              lat: Number.isFinite(rowLat) ? rowLat : undefined,
+              lng: Number.isFinite(rowLng) ? rowLng : undefined,
+              w: 640,
+              h: 320,
+            });
+            if (!previewUrl) {
+              showHeroPinFallback();
+              return;
+            }
             heroImg.onload = () => {
               setLeadPanelMapEmbedMode(false);
               heroImg.classList.remove('hidden');
@@ -11661,11 +11710,7 @@ document.addEventListener('DOMContentLoaded', () => {
               heroFallback.classList.add('hidden');
               heroFallback.classList.remove('flex', 'flex-col');
             };
-            heroImg.onerror = () => {
-              heroImg.classList.add('hidden');
-              heroImg.removeAttribute('src');
-              if (!openHeroEmbed(false)) showHeroPinFallback();
-            };
+            heroImg.onerror = showHeroPinFallback;
             heroImg.alt = address
               ? `Map near ${address.slice(0, 120)}`
               : title
@@ -11674,10 +11719,33 @@ document.addEventListener('DOMContentLoaded', () => {
             requestAnimationFrame(() => {
               heroImg.src = previewUrl;
             });
-          } else if (openHeroEmbed(false)) {
-            /* embedded map fallback */
+          };
+
+          const immediate = heroEmbedSrcForQuery(
+            geocodeCenter || center,
+            Number.isFinite(rowLat) ? rowLat : undefined,
+            Number.isFinite(rowLng) ? rowLng : undefined,
+          );
+          if (immediate) {
+            applyHeroEmbed(immediate, hrefOpen);
+          } else if (
+            typeof window !== 'undefined' &&
+            window.AdhelloMaps &&
+            typeof window.AdhelloMaps.resolveEmbed === 'function'
+          ) {
+            window.AdhelloMaps.resolveEmbed({
+              q: geocodeCenter || center,
+              lat: Number.isFinite(rowLat) ? rowLat : undefined,
+              lng: Number.isFinite(rowLng) ? rowLng : undefined,
+            }).then((loc) => {
+              if (loc && loc.embedUrl) {
+                applyHeroEmbed(loc.embedUrl, loc.openUrl || hrefOpen);
+              } else {
+                loadHeroPreviewImage();
+              }
+            });
           } else {
-            showHeroPinFallback();
+            loadHeroPreviewImage();
           }
         }
       };

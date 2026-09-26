@@ -464,6 +464,60 @@ async function getMapPreviewImage(opts) {
   return null;
 }
 
+function buildOsmEmbedUrl(lat, lng, zoom) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return '';
+  const z = Math.min(18, Math.max(12, parseInt(zoom, 10) || 15));
+  // ~0.012° ≈ 1.3km at mid-latitudes — readable neighborhood view
+  const delta = z >= 16 ? 0.006 : z >= 15 ? 0.01 : 0.018;
+  const west = lng - delta;
+  const south = lat - delta;
+  const east = lng + delta;
+  const north = lat + delta;
+  return (
+    'https://www.openstreetmap.org/export/embed.html?' +
+    `bbox=${encodeURIComponent(`${west},${south},${east},${north}`)}` +
+    '&layer=mapnik' +
+    `&marker=${encodeURIComponent(`${lat},${lng}`)}`
+  );
+}
+
+function buildOsmOpenUrl(lat, lng, query) {
+  if (Number.isFinite(lat) && Number.isFinite(lng)) {
+    return `https://www.openstreetmap.org/?mlat=${encodeURIComponent(lat)}&mlon=${encodeURIComponent(lng)}#map=16/${encodeURIComponent(lat)}/${encodeURIComponent(lng)}`;
+  }
+  const q = String(query || '').trim();
+  if (!q) return 'https://www.openstreetmap.org/';
+  return `https://www.openstreetmap.org/search?query=${encodeURIComponent(q)}`;
+}
+
+async function resolveMapLocation(opts) {
+  const o = opts || {};
+  let lat = Number(o.lat);
+  let lng = Number(o.lng);
+  if (!(Number.isFinite(lat) && Number.isFinite(lng))) {
+    const pair = parseLatLngPair(o.center || o.q || '');
+    if (pair) {
+      lat = pair.lat;
+      lng = pair.lng;
+    }
+  }
+  if (!(Number.isFinite(lat) && Number.isFinite(lng))) {
+    const geo = await geocodeCenterQuery(o.center || o.q || '');
+    if (geo) {
+      lat = geo.lat;
+      lng = geo.lng;
+    }
+  }
+  if (!(Number.isFinite(lat) && Number.isFinite(lng))) return null;
+  return {
+    lat,
+    lng,
+    embedUrl: buildOsmEmbedUrl(lat, lng),
+    openUrl: buildOsmOpenUrl(lat, lng, o.center || o.q || ''),
+    source: 'openstreetmap',
+  };
+}
+
 module.exports = {
   parseLatLngPair,
   normalizeAddressSeparators,
@@ -472,8 +526,12 @@ module.exports = {
   buildGoogleStaticMapUrl,
   buildGeoapifyStaticMapUrl,
   buildOsmStaticMapUrl,
+  buildOsmEmbedUrl,
+  buildOsmOpenUrl,
   buildGeocodeQueryVariants,
   latLngToTileFraction,
+  geocodeCenterQuery,
+  resolveMapLocation,
   getMapPreviewImage,
   isGoogleStaticMapErrorImage,
 };

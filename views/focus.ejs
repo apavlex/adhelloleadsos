@@ -3576,58 +3576,32 @@
     }
 
     function focusMapPreviewFallbackUrl(q, lat, lng) {
-      var mapKey = (typeof window !== 'undefined' && window.__ADHELLO_GOOGLE_MAPS_STATIC_KEY__) || '';
-      if (mapKey && Number.isFinite(lat) && Number.isFinite(lng)) {
-        var center = lat + ',' + lng;
-        return (
-          'https://maps.googleapis.com/maps/api/staticmap?center=' + encodeURIComponent(center) +
-          '&zoom=15&size=560x336&scale=2&maptype=roadmap&markers=' + encodeURIComponent('color:0xEAB308|' + center) +
-          '&key=' + encodeURIComponent(mapKey)
-        );
-      }
-      if (mapKey && q) {
-        return (
-          'https://maps.googleapis.com/maps/api/staticmap?center=' + encodeURIComponent(q) +
-          '&zoom=15&size=560x336&scale=2&maptype=roadmap&markers=' + encodeURIComponent('color:0xEAB308|' + q) +
-          '&key=' + encodeURIComponent(mapKey)
-        );
-      }
+      var params = new URLSearchParams();
       if (Number.isFinite(lat) && Number.isFinite(lng)) {
-        var point = lat + ',' + lng;
-        return 'https://staticmap.openstreetmap.de/staticmap.php?center=' + encodeURIComponent(point) +
-          '&zoom=15&size=560x336&markers=' + encodeURIComponent(point + ',red-pushpin');
+        params.set('lat', String(lat));
+        params.set('lng', String(lng));
       }
-      if (q) {
-        return 'https://staticmap.openstreetmap.de/staticmap.php?center=' + encodeURIComponent(q) +
-          '&zoom=15&size=560x336&markers=' + encodeURIComponent(q + ',red-pushpin');
-      }
-      return '';
+      if (q) params.set('center', q);
+      params.set('w', '560');
+      params.set('h', '336');
+      return '/leads/map-preview?' + params.toString();
     }
 
     function focusMapEmbedSrc(q, lat, lng) {
-      var query = String(q || '').trim();
-      if (Number.isFinite(lat) && Number.isFinite(lng)) {
-        query = lat + ',' + lng;
-      }
-      if (!query) return '';
-      var mapKey = (typeof window !== 'undefined' && window.__ADHELLO_GOOGLE_MAPS_STATIC_KEY__) || '';
       if (typeof window !== 'undefined' && window.AdhelloMaps && typeof window.AdhelloMaps.embedSrc === 'function') {
-        return window.AdhelloMaps.embedSrc(query, mapKey);
+        return window.AdhelloMaps.embedSrc(q, '', lat, lng);
       }
-      if (mapKey) {
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        var delta = 0.01;
+        var bbox = (lng - delta) + ',' + (lat - delta) + ',' + (lng + delta) + ',' + (lat + delta);
         return (
-          'https://www.google.com/maps/embed/v1/place?key=' +
-          encodeURIComponent(mapKey) +
-          '&q=' +
-          encodeURIComponent(query) +
-          '&zoom=15&maptype=roadmap'
+          'https://www.openstreetmap.org/export/embed.html?bbox=' +
+          encodeURIComponent(bbox) +
+          '&layer=mapnik&marker=' +
+          encodeURIComponent(lat + ',' + lng)
         );
       }
-      return (
-        'https://www.google.com/maps?q=' +
-        encodeURIComponent(query) +
-        '&hl=en&z=15&output=embed'
-      );
+      return '';
     }
 
     function renderFocusMap(lead) {
@@ -3661,7 +3635,7 @@
         }
         return;
       }
-      var mapsHref = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
+      var mapsHref = 'https://www.openstreetmap.org/search?query=' + encodeURIComponent(q);
       if (openLink) openLink.href = mapsHref;
 
       wrap.classList.remove('hidden');
@@ -3697,18 +3671,21 @@
         }
       };
 
-      var showGoogleEmbed = function () {
+      var showOsmEmbed = function (src, openUrl) {
         if (!isCurrent()) return;
-        var src = focusMapEmbedSrc(q, lat, lng);
         if (!src || !embed) {
           showLinkFallback();
           return;
         }
+        if (openUrl && openLink) openLink.href = openUrl;
         img.onload = null;
         img.onerror = null;
         img.removeAttribute('src');
         img.classList.add('opacity-0');
-        if (attrib) attrib.classList.add('hidden');
+        if (attrib) {
+          attrib.textContent = '© OpenStreetMap';
+          attrib.classList.remove('hidden');
+        }
         if (fallback) {
           fallback.classList.add('hidden');
           fallback.classList.remove('flex');
@@ -3717,7 +3694,52 @@
         embed.classList.remove('hidden');
       };
 
-      showGoogleEmbed();
+      var showPreviewImage = function () {
+        if (!isCurrent()) return;
+        var previewUrl = focusMapPreviewFallbackUrl(q, lat, lng);
+        if (!previewUrl) {
+          showLinkFallback();
+          return;
+        }
+        clearEmbed();
+        img.onload = function () {
+          if (!isCurrent()) return;
+          img.classList.remove('opacity-0');
+          if (attrib) {
+            attrib.textContent = '© OpenStreetMap';
+            attrib.classList.remove('hidden');
+          }
+          if (fallback) {
+            fallback.classList.add('hidden');
+            fallback.classList.remove('flex');
+          }
+        };
+        img.onerror = function () {
+          if (!isCurrent()) return;
+          showLinkFallback();
+        };
+        img.src = previewUrl;
+      };
+
+      var resolve =
+        typeof window !== 'undefined' &&
+        window.AdhelloMaps &&
+        typeof window.AdhelloMaps.resolveEmbed === 'function'
+          ? window.AdhelloMaps.resolveEmbed({ q: q, lat: lat, lng: lng })
+          : Promise.resolve(
+              Number.isFinite(lat) && Number.isFinite(lng)
+                ? { embedUrl: focusMapEmbedSrc(q, lat, lng), openUrl: mapsHref, lat: lat, lng: lng }
+                : null,
+            );
+
+      resolve.then(function (loc) {
+        if (!isCurrent()) return;
+        if (loc && loc.embedUrl) {
+          showOsmEmbed(loc.embedUrl, loc.openUrl || mapsHref);
+          return;
+        }
+        showPreviewImage();
+      });
     }
 
     function parseFocusTechStackTags(raw) {
