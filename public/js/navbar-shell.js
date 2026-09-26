@@ -5398,6 +5398,103 @@
     updateSoftphoneSmsCount();
   }
 
+  function softphoneBuiltinSmsTemplates() {
+    return [
+      { id: 'blank', label: 'Blank — type your own', text: '' },
+      {
+        id: 'short-bump',
+        label: 'Short bump',
+        text: 'Hi — quick note from our team. Open to a short chat this week about growing your local leads?',
+      },
+      {
+        id: 'follow-up',
+        label: 'Call follow-up',
+        text: 'Hi, following up from my call earlier. Happy to send a 1-pager — want me to text it over?',
+      },
+    ];
+  }
+
+  function softphoneNormalizeSmsOptions(list) {
+    var options = Array.isArray(list) ? list.slice() : [];
+    options = options
+      .map(function (o) {
+        if (!o) return null;
+        return {
+          id: String(o.id || ''),
+          label: String(o.label || 'SMS'),
+          text: String(o.text || ''),
+        };
+      })
+      .filter(Boolean);
+    if (!options.length) return softphoneBuiltinSmsTemplates();
+    if (!options.some(function (o) { return o.id === 'blank'; })) {
+      options.unshift({ id: 'blank', label: 'Blank — type your own', text: '' });
+    }
+    return options;
+  }
+
+  function softphoneSmsOptionsFromLibraryPayload(data) {
+    var options = [{ id: 'blank', label: 'Blank — type your own', text: '' }];
+    if (data && typeof data === 'object') {
+      var library = data.library || data.scripts || {};
+      var keys = Array.isArray(data.offerKeys) ? data.offerKeys : Object.keys(library);
+      keys.forEach(function (k) {
+        var entry = library[k] || {};
+        var smsText =
+          String(entry.sms || '').trim() ||
+          String((entry.channels && (entry.channels.text || entry.channels.sms)) || '').trim() ||
+          String(entry.opening || '').trim();
+        if (!smsText) return;
+        options.push({
+          id: 'sms:' + k,
+          label: String(entry.label || k) + ' — SMS',
+          text: smsText,
+        });
+      });
+    }
+    // Always include usable defaults so the dropdown never looks empty.
+    softphoneBuiltinSmsTemplates().forEach(function (opt) {
+      if (!opt || opt.id === 'blank') return;
+      if (options.some(function (o) { return o.id === opt.id; })) return;
+      options.push(opt);
+    });
+    return options;
+  }
+
+  function softphoneFetchJson(url) {
+    return fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' } }).then(
+      function (res) {
+        return res.text().then(function (raw) {
+          var data = {};
+          if (raw) {
+            try {
+              data = JSON.parse(raw);
+            } catch (_) {
+              data = {};
+            }
+          }
+          return { ok: res.ok, status: res.status, data: data || {} };
+        });
+      },
+    );
+  }
+
+  function softphonePaintSmsOptions(options, statusMsg, isError) {
+    var list = softphoneNormalizeSmsOptions(options);
+    softphoneFillSmsSelect(list);
+    var preferIdx = 0;
+    for (var i = 0; i < list.length; i += 1) {
+      if (list[i].id !== 'blank' && String(list[i].text || '').trim()) {
+        preferIdx = i;
+        break;
+      }
+    }
+    if (spSmsTemplateSelect) spSmsTemplateSelect.value = String(preferIdx);
+    softphoneApplySmsTemplateIndex(preferIdx);
+    if (statusMsg) setSoftphoneSmsStatus(statusMsg, !!isError);
+    else setSoftphoneSmsStatus('');
+  }
+
   function loadSoftphoneSmsTemplates() {
     updateSoftphoneSmsRouteHint();
     var leadKey = String(softphoneSession.leadKey || '').trim().replace(/^lead:/i, '');
@@ -5405,68 +5502,53 @@
     if (spSmsTemplateSelect) {
       spSmsTemplateSelect.innerHTML = '<option value="">Loading templates…</option>';
     }
-    setSoftphoneSmsStatus('');
-    var url = leadKey
+    setSoftphoneSmsStatus('Loading templates…');
+
+    var primaryUrl = leadKey
       ? '/leads/' + encodeURIComponent(leadKey) + '/sms-script-options'
       : '/leads/outreach-library';
-    return fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
-      .then(function (res) {
-        return res.json().then(function (data) {
-          return { ok: res.ok, data: data || {} };
-        });
-      })
+
+    return softphoneFetchJson(primaryUrl)
       .then(function (result) {
-        if (token !== softphoneSmsLoadToken) return;
-        var options = [];
+        if (token !== softphoneSmsLoadToken) return null;
         if (leadKey && result.ok && Array.isArray(result.data.options)) {
-          options = result.data.options.map(function (o) {
-            return {
-              id: o.id || '',
-              label: o.label || 'SMS',
-              text: String(o.text || ''),
-            };
-          });
-        } else if (result.ok && result.data) {
-          var library = result.data.library || result.data.scripts || {};
-          var keys = Array.isArray(result.data.offerKeys)
-            ? result.data.offerKeys
-            : Object.keys(library);
-          options.push({ id: 'blank', label: 'Blank — type your own', text: '' });
-          keys.forEach(function (k) {
-            var entry = library[k] || {};
-            var smsText =
-              String(entry.sms || '').trim() ||
-              String((entry.channels && entry.channels.text) || '').trim();
-            if (!smsText) return;
-            options.push({
-              id: 'sms:' + k,
-              label: String(entry.label || k) + ' — SMS',
-              text: smsText,
-            });
-          });
+          softphonePaintSmsOptions(result.data.options);
+          return true;
         }
-        if (!options.length) {
-          options = [{ id: 'blank', label: 'Blank — type your own', text: '' }];
+        if (!leadKey && result.ok) {
+          softphonePaintSmsOptions(
+            softphoneSmsOptionsFromLibraryPayload(result.data),
+            'No lead linked — workspace SMS templates. Dial a lead for personalized copy.',
+          );
+          return true;
         }
-        softphoneFillSmsSelect(options);
-        var preferIdx = 0;
-        for (var i = 0; i < options.length; i += 1) {
-          if (options[i].id !== 'blank' && String(options[i].text || '').trim()) {
-            preferIdx = i;
-            break;
+        // Lead-specific call failed (404/500) — fall back to workspace library.
+        return softphoneFetchJson('/leads/outreach-library').then(function (libResult) {
+          if (token !== softphoneSmsLoadToken) return null;
+          if (libResult && libResult.ok) {
+            softphonePaintSmsOptions(
+              softphoneSmsOptionsFromLibraryPayload(libResult.data),
+              leadKey
+                ? 'Using workspace SMS templates (lead templates unavailable).'
+                : '',
+            );
+            return true;
           }
-        }
-        if (spSmsTemplateSelect) spSmsTemplateSelect.value = String(preferIdx);
-        softphoneApplySmsTemplateIndex(preferIdx);
-        if (!leadKey) {
-          setSoftphoneSmsStatus('No lead loaded — templates are workspace defaults. Dial a lead for personalized SMS.');
-        }
+          softphonePaintSmsOptions(
+            softphoneBuiltinSmsTemplates(),
+            'Could not load workspace templates — showing defaults. Type your own if needed.',
+            true,
+          );
+          return false;
+        });
       })
       .catch(function () {
         if (token !== softphoneSmsLoadToken) return;
-        softphoneFillSmsSelect([{ id: 'blank', label: 'Blank — type your own', text: '' }]);
-        softphoneApplySmsTemplateIndex(0);
-        setSoftphoneSmsStatus('Could not load templates. Type a message and send.', true);
+        softphonePaintSmsOptions(
+          softphoneBuiltinSmsTemplates(),
+          'Could not load templates. Type a message and send.',
+          true,
+        );
       });
   }
 
@@ -6233,10 +6315,14 @@
   }
 
   if (spFollowupAt && typeof window.initGcalDatetimePicker === 'function') {
-    softphoneFollowupPicker = window.initGcalDatetimePicker(spFollowupAt, {
-      label: 'Follow-up date & time',
-      triggerId: 'softphone-followup-at-trigger',
-    });
+    try {
+      softphoneFollowupPicker = window.initGcalDatetimePicker(spFollowupAt, {
+        label: 'Follow-up date & time',
+        triggerId: 'softphone-followup-at-trigger',
+      });
+    } catch (_) {
+      softphoneFollowupPicker = null;
+    }
   }
   if (spFollowupStrip) {
     spFollowupStrip.classList.remove('hidden');

@@ -3669,12 +3669,14 @@ document.addEventListener('DOMContentLoaded', () => {
         ? window.__ADHELLO_OUTREACH_LIBRARY__
         : null) ||
       (leadOutreachScriptsCache.data && leadOutreachScriptsCache.data.library) ||
+      (leadOutreachScriptsCache.workspaceData && leadOutreachScriptsCache.workspaceData.library) ||
       {};
     Object.keys(lib).forEach((k) => {
       const entry = lib[k];
       if (!entry) return;
       const smsText =
-        (entry.channels && (entry.channels.text || entry.channels.sms)) ||
+        String(entry.sms || '').trim() ||
+        String((entry.channels && (entry.channels.text || entry.channels.sms)) || '').trim() ||
         String(entry.opening || '').trim();
       if (!String(smsText || '').trim()) return;
       options.push({
@@ -3704,11 +3706,11 @@ document.addEventListener('DOMContentLoaded', () => {
     return options;
   }
 
-  function populateLeadSmsTemplateSelect(row) {
+  function paintLeadSmsTemplateSelect(options, prevValue) {
     const select = document.getElementById('leadSmsTemplateSelect');
     if (!select) return;
-    leadSmsTemplateOptions = buildLeadSmsTemplateOptionsFromLibrary(row);
-    const prev = String(select.value || '');
+    leadSmsTemplateOptions = Array.isArray(options) ? options.slice() : [];
+    const prev = prevValue != null ? String(prevValue) : String(select.value || '');
     select.innerHTML = '';
     const placeholder = document.createElement('option');
     placeholder.value = '';
@@ -3729,6 +3731,41 @@ document.addEventListener('DOMContentLoaded', () => {
       leadSmsTemplateSelectBound = true;
       select.addEventListener('change', onLeadSmsTemplateSelected);
     }
+  }
+
+  async function populateLeadSmsTemplateSelect(row) {
+    const select = document.getElementById('leadSmsTemplateSelect');
+    if (!select) return;
+    const prev = String(select.value || '');
+    select.innerHTML = '<option value="">Loading templates…</option>';
+    const key = normalizeLeadKeyForApi(row && row.dataset ? row.dataset.leadKey : '');
+    try {
+      if (key) {
+        const res = await fetch(`/leads/${encodeURIComponent(key)}/sms-script-options`, {
+          method: 'GET',
+          credentials: 'same-origin',
+          headers: { Accept: 'application/json' },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && Array.isArray(data.options) && data.options.length) {
+          paintLeadSmsTemplateSelect(
+            data.options.map((o) => ({
+              id: o.id || '',
+              label: o.label || 'SMS',
+              text: String(o.text || ''),
+            })),
+            prev,
+          );
+          return;
+        }
+      }
+      if (typeof fetchWorkspaceOutreachLibrary === 'function') {
+        await fetchWorkspaceOutreachLibrary().catch(() => null);
+      }
+    } catch (_) {
+      /* fall through */
+    }
+    paintLeadSmsTemplateSelect(buildLeadSmsTemplateOptionsFromLibrary(row), prev);
   }
 
   function onLeadSmsTemplateSelected() {
