@@ -122,6 +122,7 @@
       }
       containerEl.innerHTML = '';
       containerEl.classList.remove('hidden');
+      containerEl._adhelloTileFallback = false;
 
       var map = L.map(containerEl, {
         zoomControl: false,
@@ -130,10 +131,29 @@
         scrollWheelZoom: false,
       }).setView([coords.lat, coords.lng], o.zoom || 15);
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      }).addTo(map);
+      // OSM.org tiles often block browser apps (x-blocked). Use Carto (OSM data) + Esri fallback.
+      var tile =
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+          maxZoom: 20,
+          subdomains: 'abcd',
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        });
+      tile.on('tileerror', function () {
+        if (containerEl._adhelloTileFallback) return;
+        containerEl._adhelloTileFallback = true;
+        try {
+          map.removeLayer(tile);
+        } catch (_) {}
+        L.tileLayer(
+          'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+          {
+            maxZoom: 19,
+            attribution: 'Tiles &copy; Esri',
+          },
+        ).addTo(map);
+      });
+      tile.addTo(map);
 
       L.marker([coords.lat, coords.lng]).addTo(map);
 
@@ -143,6 +163,11 @@
           map.invalidateSize();
         } catch (_) {}
       }, 80);
+      setTimeout(function () {
+        try {
+          map.invalidateSize();
+        } catch (_) {}
+      }, 300);
 
       containerEl._adhelloLeaflet = map;
       return {
