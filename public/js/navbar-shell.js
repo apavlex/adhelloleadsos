@@ -3716,11 +3716,16 @@
     } catch (e) {}
     updateSoftphoneCalleeDisplay();
   }
-  /** Fill Dial number, open softphone; optional auto-dial + lead context. Exposed for leads click-to-dial. */
+  /** Fill Dial number, open softphone; optional auto-dial + lead context. Exposed for leads click-to-dial.
+   * On phones, use the device dialer instead of the in-browser softphone. */
   function openSoftphoneWithDial(raw, opts) {
     opts = opts && typeof opts === 'object' ? opts : {};
     var to = normalizeDial(String(raw || ''));
     if (!to) return false;
+    if (isSoftphoneMobileViewport() && !opts.forceSoftphone) {
+      window.location.href = 'tel:' + to;
+      return true;
+    }
     var nextLeadKey = opts.leadKey ? String(opts.leadKey).trim() : '';
     if (
       nextLeadKey &&

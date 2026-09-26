@@ -5914,8 +5914,15 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const opened = openLeadPanelSoftphone(phone, key, { autoDial: true });
       if (opened) {
-        notifyLeadPanelDial('AdHello dialer opened — number loaded.', 'success');
-        confirmOutreachBtnSuccess(clickToCallBtn, '✓ Dialer open');
+        const mobile =
+          window.matchMedia && window.matchMedia('(max-width: 767px)').matches;
+        notifyLeadPanelDial(
+          mobile
+            ? 'Opening your phone app…'
+            : 'AdHello dialer opened — number loaded.',
+          'success'
+        );
+        confirmOutreachBtnSuccess(clickToCallBtn, mobile ? '✓ Calling' : '✓ Dialer open');
         return;
       }
       if (typeof window.__adhelloOpenSoftphoneWithDial !== 'function') {
@@ -13935,21 +13942,24 @@ document.addEventListener('DOMContentLoaded', () => {
   function openSoftphoneOrTel(rawPhone, opts) {
     const raw = String(rawPhone || '').trim();
     if (!raw) return false;
+    const mobile =
+      window.matchMedia && window.matchMedia('(max-width: 767px)').matches;
+    if (mobile && !(opts && opts.forceSoftphone)) {
+      const digits = raw.replace(/[^\d+]/g, '');
+      if (!digits) return false;
+      window.location.href = `tel:${digits}`;
+      return true;
+    }
     if (
       typeof window.__adhelloOpenSoftphoneWithDial === 'function' &&
       window.__adhelloOpenSoftphoneWithDial(raw, opts || undefined)
     ) {
       return true;
     }
-    const desktop =
-      !(window.matchMedia && window.matchMedia('(max-width: 767px)').matches);
-    if (!desktop) {
-      const digits = raw.replace(/[^\d+]/g, '');
-      if (!digits) return false;
-      window.location.href = `tel:${digits}`;
-      return true;
-    }
-    return false;
+    const digits = raw.replace(/[^\d+]/g, '');
+    if (!digits) return false;
+    window.location.href = `tel:${digits}`;
+    return true;
   }
 
   async function requestLeadCallByKey(leadKey, fallbackPhone, options) {
