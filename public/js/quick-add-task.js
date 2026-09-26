@@ -267,7 +267,7 @@
       void submitLeadQuickTask();
       return;
     }
-    if (e.target.closest('#navQuickTaskOpen')) {
+    if (e.target.closest('#navQuickTaskOpen') || e.target.closest('#navQuickTaskOpenMobile')) {
       e.preventDefault();
       openNavQuickTaskModal();
       return;

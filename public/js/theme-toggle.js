@@ -17,7 +17,9 @@
   }
 
   function bind() {
-    document.querySelectorAll('#themeToggleBtn').forEach(function (btn) {
+    document.querySelectorAll('.theme-toggle-btn, #themeToggleBtn').forEach(function (btn) {
+      if (btn.dataset.themeBound === '1') return;
+      btn.dataset.themeBound = '1';
       btn.addEventListener('click', function () {
         var isDark = document.documentElement.classList.contains('dark');
         setTheme(isDark ? 'light' : 'dark');

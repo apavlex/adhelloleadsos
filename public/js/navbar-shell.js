@@ -43,6 +43,8 @@
     });
     mobileMenu.querySelectorAll('a,button').forEach(function (el) {
       if (el.id === 'closeMobileMenu' || el.id === 'mobileMenuBtn') return;
+      if (el.id === 'wsSwitcherBtn' || el.closest('#wsSwitcherMenu')) return;
+      if (el.classList && el.classList.contains('theme-toggle-btn')) return;
       el.addEventListener('click', function () { closeMobileMenu(); });
     });
   }
@@ -1761,7 +1763,7 @@
     softphoneSetFocusDialIndexFromBtn(btn);
     setSoftphoneTab('keypad');
     updateSoftphoneCalleeDisplay();
-    if (spTo) spTo.focus();
+    softphoneFocusDialInput();
     if (opts.autoCall) {
       runSoftphoneAction('call');
       return;
@@ -4393,7 +4395,7 @@
     if (spHold) spHold.textContent = 'Hold';
     softphoneSetTimerSeconds(0);
     setSoftphoneTab('keypad');
-    if (spTo) setTimeout(function () { spTo.focus(); }, 80);
+    if (spTo) setTimeout(softphoneFocusDialInput, 80);
     // Paint caller ID / agent mobile immediately from last snapshot so open feels instant.
     paintSoftphoneFromTelephonySnapshot();
     // Defer heavy list renders so the panel paints first.
@@ -4487,8 +4489,10 @@
       if (!spTo) return;
       if (spTo.value !== to) setSoftphoneDialNumber(to);
       try {
-        spTo.focus();
-        spTo.select();
+        softphoneFocusDialInput();
+        if (spTo && !spTo.hasAttribute('readonly')) {
+          try { spTo.select(); } catch (_) {}
+        }
       } catch (e) {}
     }, 40);
     if (opts.autoDial) {
@@ -4549,9 +4553,7 @@
     syncSoftphoneStacking();
     applySoftphoneOpenPosition();
     if (spTo) {
-      try {
-        spTo.focus();
-      } catch (e) {}
+      softphoneFocusDialInput();
     }
   };
   window.__adhelloSoftphoneHangup = function () {
@@ -5940,7 +5942,7 @@
       loadSoftphoneSmsTemplates();
     }
     if (name === 'direct_mail') renderSoftphoneDirectMailQueue();
-    if (name === 'keypad' && spTo) setTimeout(function () { spTo.focus(); }, 60);
+    if (name === 'keypad' && spTo) setTimeout(softphoneFocusDialInput, 60);
     if (name === 'keypad') setTimeout(updateSoftphoneScrollHint, 80);
   }
   window.__adhelloSoftphoneSetTab = setSoftphoneTab;
@@ -6131,10 +6133,49 @@
         paintSoftphoneBookmark(false);
       }
       updateSoftphoneCalleeDisplay();
-      spTo.focus();
+      if (!spTo.hasAttribute('readonly')) spTo.focus();
     });
   }
   if (spTo) {
+    function softphoneConfigureDialInput() {
+      var mobile = typeof isSoftphoneMobileViewport === 'function'
+        ? isSoftphoneMobileViewport()
+        : window.matchMedia('(max-width: 767px)').matches;
+      if (mobile) {
+        spTo.setAttribute('readonly', 'readonly');
+        spTo.setAttribute('inputmode', 'none');
+        spTo.setAttribute('autocomplete', 'off');
+      } else {
+        spTo.removeAttribute('readonly');
+        spTo.setAttribute('inputmode', 'tel');
+        spTo.setAttribute('autocomplete', 'tel');
+      }
+    }
+    softphoneConfigureDialInput();
+    window.addEventListener('resize', softphoneConfigureDialInput);
+    spTo.addEventListener('focus', function () {
+      // Custom keypad owns dialing on phones — never open the OS number pad.
+      if (spTo.hasAttribute('readonly') || spTo.getAttribute('inputmode') === 'none') {
+        try { spTo.blur(); } catch (_) {}
+      }
+    });
+    spTo.addEventListener('paste', function (e) {
+      var text = '';
+      try {
+        text = (e.clipboardData || window.clipboardData).getData('text') || '';
+      } catch (_) {
+        text = '';
+      }
+      if (!text) return;
+      e.preventDefault();
+      var digits = String(text).replace(/[^\d+*#]/g, '');
+      if (!digits) return;
+      spTo.value = digits;
+      try {
+        spTo.dispatchEvent(new Event('input', { bubbles: true }));
+      } catch (_) {}
+      updateSoftphoneCalleeDisplay();
+    });
     spTo.addEventListener('input', function () {
       if (!String(spTo.value || '').trim()) {
         softphoneSession.leadKey = '';
@@ -6688,6 +6729,12 @@
         });
     });
   }
+  function softphoneFocusDialInput() {
+    if (!spTo || spTo.hasAttribute('readonly')) return;
+    try {
+      spTo.focus();
+    } catch (_) {}
+  }
   function softphoneIsVisible() {
     return !!(spModal && !spModal.classList.contains('hidden'));
   }
@@ -6717,7 +6764,8 @@
     if (/^[0-9*#]$/.test(e.key) && spTo) {
       e.preventDefault();
       spTo.value = String(spTo.value || '') + e.key;
-      spTo.focus();
+      try { spTo.dispatchEvent(new Event('input', { bubbles: true })); } catch (_) {}
+      if (!spTo.hasAttribute('readonly')) spTo.focus();
     }
   });
   if (spKeys && spKeys.length && spTo) {
@@ -6725,7 +6773,8 @@
       k.addEventListener('click', function () {
         var key = String(k.getAttribute('data-key') || '');
         spTo.value = String(spTo.value || '') + key;
-        spTo.focus();
+        try { spTo.dispatchEvent(new Event('input', { bubbles: true })); } catch (_) {}
+        if (!spTo.hasAttribute('readonly')) spTo.focus();
       });
     });
   }
@@ -6735,7 +6784,7 @@
       if (fill) {
         applySoftphoneListSelection(fill);
         setSoftphoneTab('keypad');
-        spTo.focus();
+        softphoneFocusDialInput();
         return;
       }
       var callBtn = e.target.closest('.softphone-recent-call');
@@ -6910,7 +6959,7 @@
   if (spKeypad) {
     spKeypad.addEventListener('click', function () {
       setSoftphoneTab('keypad');
-      if (spTo) spTo.focus();
+      softphoneFocusDialInput();
       softphoneSetStatus('Keypad ready. Use on-screen keys or keyboard digits.');
     });
   }

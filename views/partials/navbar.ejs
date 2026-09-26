@@ -25,28 +25,11 @@
 <header id="appTopbar" class="sticky top-0 z-50 w-full px-3 sm:px-6 py-3 sm:py-4 border-t-[3px] md:border-t-0 [padding-top:max(0.75rem,env(safe-area-inset-top))]" style="border-top-color: <%= _wsAccent %>">
   <span id="adhelloAppMeta" class="sr-only" data-can-manage-workspace="<%= (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) ? '1' : '0' %>" aria-hidden="true"></span>
   <div class="app-topbar-inner w-full mx-auto flex items-center gap-2 sm:gap-3 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md px-3 sm:px-6 py-2.5 sm:py-3 rounded-2xl sm:rounded-full border border-brand-border dark:border-white/10 shadow-sm">
-    <div class="flex items-center gap-2 min-w-0 md:hidden">
-      <button id="mobileMenuBtn" type="button" class="w-10 h-10 flex items-center justify-center text-brand-dark hover:bg-brand-cream rounded-full transition-colors border border-brand-border shrink-0" aria-label="Open menu">
-        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16m-7 6h7" />
-        </svg>
+    <div class="flex items-center shrink-0 md:hidden">
+      <button id="mobileMenuBtn" type="button" class="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-[22%] border border-brand-border/70 dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800/80 hover:bg-brand-cream dark:hover:bg-slate-700 transition-colors shrink-0" aria-label="Open menu" title="Menu">
+        <img src="/images/adhello-app-icon.png" alt="" width="40" height="40" class="h-full w-full object-contain" loading="eager" decoding="async" />
+        <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-slate-900" style="background-color: <%= _wsAccent %>" aria-hidden="true"></span>
       </button>
-      <div class="relative shrink-0 min-w-0 flex-1" id="wsSwitcherWrap">
-      <button type="button" id="wsSwitcherBtn" class="flex items-center gap-2 sm:gap-2.5 group h-9 sm:h-10 w-full min-w-0 text-left rounded-xl px-1 py-1 hover:bg-brand-cream/50 dark:hover:bg-white/5 transition-colors" aria-expanded="false" aria-haspopup="true" aria-controls="wsSwitcherMenu" title="Switch workspace">
-        <span class="relative flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center overflow-hidden rounded-[22%]" aria-hidden="true">
-          <img src="/images/adhello-app-icon.png" alt="" width="40" height="40" class="h-full w-full object-contain" loading="eager" decoding="async" />
-          <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-slate-900" style="background-color: <%= _wsAccent %>" aria-hidden="true"></span>
-        </span>
-        <span class="min-w-0 flex-1 flex flex-col">
-          <span class="font-display font-black text-sm tracking-tight text-brand-dark dark:text-white truncate"><%= _ws && _ws.name ? _ws.name : 'Workspace' %></span>
-          <span class="text-[9px] font-bold text-brand-muted truncate"><%= _wsSubLabel %></span>
-        </span>
-        <svg class="w-3.5 h-3.5 shrink-0 text-brand-muted opacity-70 ws-switcher-chevron transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
-      </button>
-      <div id="wsSwitcherMenu" class="hidden absolute left-0 mt-2 w-72 max-w-[90vw] rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 shadow-xl py-2 z-[120] text-left max-h-[min(24rem,70vh)] overflow-y-auto custom-scrollbar" role="menu">
-        <%- include('workspace_switcher_menu') %>
-      </div>
-    </div>
     </div>
     <div class="hidden md:flex items-center min-w-0 flex-1 basis-0">
       <button type="button" id="sidebarOpenBtn" class="hidden md:inline-flex items-center justify-center w-10 h-10 shrink-0 mr-2 text-brand-dark dark:text-white hover:bg-brand-cream dark:hover:bg-white/10 rounded-full transition-colors border border-brand-border dark:border-white/10" aria-label="Show sidebar" title="Show sidebar">
@@ -71,24 +54,27 @@
       <% } %>
     </div>
 
-    <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+    <div class="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto">
       <% if (user) { %>
       <button type="button" id="navCallStatusBtn" class="hidden md:inline-flex items-center gap-2 max-w-[11rem] min-w-0 rounded-full border border-brand-border/70 dark:border-white/15 bg-brand-cream/50 dark:bg-slate-800/90 px-3 py-2 text-left hover:bg-brand-cream dark:hover:bg-slate-700 transition-colors" title="Dialer status — open phone" aria-live="polite">
         <span class="shrink-0 w-2 h-2 rounded-full bg-slate-400" id="navCallStatusDot" aria-hidden="true"></span>
         <span class="truncate text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white" id="navCallStatusLine">Idle</span>
       </button>
-      <a href="/leads/find" id="navFindLeadsBtn" class="inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-yellow px-3 sm:px-4 py-2 h-10 text-[10px] sm:text-[11px] font-black uppercase tracking-widest shadow-lg shadow-brand-yellow/40 hover:shadow-xl hover:shadow-brand-yellow/55 hover:brightness-105 active:scale-[0.98] transition-all border border-brand-yellow/30 <%= np === 'find' ? 'ring-2 ring-brand-yellow ring-offset-2 ring-offset-white dark:ring-offset-slate-900' : '' %>" title="Search and import leads" aria-label="Find leads">
+      <button type="button" id="navLeadSearchMobileBtn" class="md:hidden w-10 h-10 flex items-center justify-center text-brand-dark bg-brand-cream/70 hover:bg-brand-cream dark:text-gray-300 dark:bg-slate-800/80 dark:hover:bg-slate-700 rounded-full transition-colors border border-brand-border/60 dark:border-white/10" title="Search existing leads" aria-label="Search existing leads" aria-expanded="false" aria-controls="navLeadSearchMobileRow">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
+      </button>
+      <a href="/leads/find" id="navFindLeadsBtn" class="hidden md:inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-yellow px-3 sm:px-4 py-2 h-10 text-[10px] sm:text-[11px] font-black uppercase tracking-widest shadow-lg shadow-brand-yellow/40 hover:shadow-xl hover:shadow-brand-yellow/55 hover:brightness-105 active:scale-[0.98] transition-all border border-brand-yellow/30 <%= np === 'find' ? 'ring-2 ring-brand-yellow ring-offset-2 ring-offset-white dark:ring-offset-slate-900' : '' %>" title="Search and import leads" aria-label="Find leads">
         <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
         <span class="hidden sm:inline">Find leads</span>
       </a>
-      <button type="button" id="navQuickTaskOpen" class="w-10 h-10 flex items-center justify-center text-brand-dark bg-brand-cream/70 hover:bg-brand-cream dark:text-gray-300 dark:bg-slate-800/80 dark:hover:bg-slate-700 rounded-full transition-colors border border-brand-border/60 dark:border-white/10" title="Add task" aria-label="Add task" aria-haspopup="dialog" aria-controls="navQuickTaskModal">
+      <button type="button" id="navQuickTaskOpen" class="hidden md:flex w-10 h-10 items-center justify-center text-brand-dark bg-brand-cream/70 hover:bg-brand-cream dark:text-gray-300 dark:bg-slate-800/80 dark:hover:bg-slate-700 rounded-full transition-colors border border-brand-border/60 dark:border-white/10" title="Add task" aria-label="Add task" aria-haspopup="dialog" aria-controls="navQuickTaskModal">
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
           <path stroke-linecap="round" stroke-linejoin="round" d="M9 5a2 2 0 012-2h2a2 2 0 012 2v0a2 2 0 01-2 2h-2a2 2 0 01-2-2v0z"/>
           <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6M9 16h4"/>
         </svg>
       </button>
-      <button type="button" id="manualLeadOpen" class="md:hidden inline-flex items-center justify-center gap-1.5 rounded-full border border-brand-border/70 dark:border-white/15 bg-white dark:bg-slate-800 text-brand-dark dark:text-white px-3 py-2 h-10 text-[10px] font-black uppercase tracking-widest hover:border-brand-yellow/50 active:scale-[0.98] transition-all" title="Add Opportunity" aria-label="Add Opportunity">
+      <button type="button" id="manualLeadOpen" class="md:hidden inline-flex items-center justify-center gap-1.5 rounded-full border border-brand-border/70 dark:border-white/15 bg-white dark:bg-slate-800 text-brand-dark dark:text-white w-10 h-10 hover:border-brand-yellow/50 active:scale-[0.98] transition-all" title="Add Opportunity" aria-label="Add Opportunity">
         <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
       </button>
       <% } %>
@@ -126,7 +112,7 @@
         </svg>
       </button>
 
-      <button id="themeToggleBtn" type="button" class="w-10 h-10 flex items-center justify-center text-brand-dark hover:bg-brand-cream dark:text-gray-300 dark:hover:bg-gray-800 rounded-full transition-colors" aria-label="Toggle theme">
+      <button id="themeToggleBtn" type="button" class="theme-toggle-btn hidden md:flex w-10 h-10 items-center justify-center text-brand-dark hover:bg-brand-cream dark:text-gray-300 dark:hover:bg-gray-800 rounded-full transition-colors" aria-label="Toggle theme">
         <svg class="hidden dark:block w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.364 6.364l-1.414-1.414M7.05 7.05L5.636 5.636m12.728 0l-1.414 1.414M7.05 16.95l-1.414 1.414M12 8a4 4 0 100 8 4 4 0 000-8z" />
         </svg>
@@ -185,15 +171,49 @@
 
   <div id="mobileMenu" class="fixed inset-0 z-[100] bg-brand-dark/40 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300 pointer-events-none md:hidden">
     <div id="mobileMenuPanel" class="absolute inset-y-0 left-0 w-72 max-w-[min(90vw,20rem)] bg-white dark:bg-slate-900 shadow-2xl p-6 sm:p-8 -translate-x-full transition-transform duration-300 pointer-events-auto overflow-y-auto overscroll-contain [padding-top:max(1.5rem,env(safe-area-inset-top))] [padding-bottom:max(1.5rem,env(safe-area-inset-bottom))] [padding-left:max(1.5rem,env(safe-area-inset-left))]">
-      <div class="flex items-center justify-between mb-8">
+      <div class="flex items-center justify-between mb-6">
         <span class="font-display font-extrabold text-xl tracking-tight text-brand-dark dark:text-white">Menu</span>
         <button id="closeMobileMenu" type="button" class="w-11 h-11 flex items-center justify-center text-brand-muted hover:text-brand-dark dark:hover:text-white rounded-full transition-colors border border-brand-border dark:border-white/10" aria-label="Close menu">
           <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
       </div>
 
+      <div class="relative mb-5" id="wsSwitcherWrap">
+        <button type="button" id="wsSwitcherBtn" class="flex items-center gap-2.5 group w-full min-w-0 text-left rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/40 dark:bg-slate-800/60 px-3 py-2.5 hover:bg-brand-cream/70 dark:hover:bg-slate-800 transition-colors" aria-expanded="false" aria-haspopup="true" aria-controls="wsSwitcherMenu" title="Switch workspace">
+          <span class="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[22%]" aria-hidden="true">
+            <img src="/images/adhello-app-icon.png" alt="" width="40" height="40" class="h-full w-full object-contain" loading="eager" decoding="async" />
+            <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-slate-900" style="background-color: <%= _wsAccent %>" aria-hidden="true"></span>
+          </span>
+          <span class="min-w-0 flex-1 flex flex-col">
+            <span class="font-display font-black text-sm tracking-tight text-brand-dark dark:text-white truncate"><%= _ws && _ws.name ? _ws.name : 'Workspace' %></span>
+            <span class="text-[9px] font-bold text-brand-muted truncate"><%= _wsSubLabel %></span>
+          </span>
+          <svg class="w-3.5 h-3.5 shrink-0 text-brand-muted opacity-70 ws-switcher-chevron transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
+        </button>
+        <div id="wsSwitcherMenu" class="hidden absolute left-0 right-0 mt-2 w-full rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 shadow-xl py-2 z-[120] text-left max-h-[min(24rem,50vh)] overflow-y-auto custom-scrollbar" role="menu">
+          <%- include('workspace_switcher_menu') %>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 mb-6">
+        <button type="button" class="theme-toggle-btn flex items-center justify-center gap-2 rounded-2xl border border-brand-border/60 dark:border-white/10 px-3 py-3 text-sm font-bold text-brand-dark dark:text-white hover:bg-brand-cream/60 dark:hover:bg-white/5 transition-colors" aria-label="Toggle theme">
+          <svg class="hidden dark:block w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.364 6.364l-1.414-1.414M7.05 7.05L5.636 5.636m12.728 0l-1.414 1.414M7.05 16.95l-1.414 1.414M12 8a4 4 0 100 8 4 4 0 000-8z" /></svg>
+          <svg class="block dark:hidden w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+          Theme
+        </button>
+        <% if (user) { %>
+        <button type="button" id="navQuickTaskOpenMobile" class="flex items-center justify-center gap-2 rounded-2xl border border-brand-border/60 dark:border-white/10 px-3 py-3 text-sm font-bold text-brand-dark dark:text-white hover:bg-brand-cream/60 dark:hover:bg-white/5 transition-colors" aria-label="Add task" aria-haspopup="dialog" aria-controls="navQuickTaskModal">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 5a2 2 0 012-2h2a2 2 0 012 2v0a2 2 0 01-2 2h-2a2 2 0 01-2-2v0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6M9 16h4"/></svg>
+          Add task
+        </button>
+        <% } %>
+      </div>
+
       <nav class="flex flex-col gap-3 mb-8" aria-label="Mobile primary">
         <% if (user) { %>
+        <a href="/leads/find" class="flex items-center p-4 rounded-2xl border-2 border-brand-yellow/50 bg-brand-yellow/10 text-brand-dark dark:text-white text-left w-full">
+          <span class="font-display font-bold text-lg">Find leads</span>
+        </a>
         <button type="button" id="manualLeadOpenMobile" class="flex items-center p-4 rounded-2xl border-2 border-brand-border dark:border-white/20 text-brand-dark dark:text-white text-left w-full">
           <span class="font-display font-bold text-lg">+ Add Opportunity</span>
         </button>
@@ -481,7 +501,7 @@
 
           <div class="softphone-display-row flex items-center justify-between gap-2 mb-1.5">
             <div class="min-w-0 flex-1">
-              <input type="tel" id="softphoneToNumber" placeholder="Enter number" inputmode="tel" autocomplete="tel" class="softphone-number-display w-full min-w-0 bg-transparent border-0 p-0 text-[1.35rem] font-semibold tabular-nums text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-0" aria-label="Dial number" />
+              <input type="text" id="softphoneToNumber" placeholder="Enter number" inputmode="none" autocomplete="off" readonly class="softphone-number-display w-full min-w-0 bg-transparent border-0 p-0 text-[1.35rem] font-semibold tabular-nums text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-0 cursor-default" aria-label="Dial number" />
             </div>
             <div class="flex items-center gap-1 shrink-0">
               <span id="softphoneStatusPill" class="softphone-status-pill">idle</span>
