@@ -30,6 +30,7 @@ const {
   formatDesignCoachClarifyReply,
   formatDesignCoachReplyForDisplay,
   sanitizeDesignCoachReply,
+  replyClaimsDraftReady,
 } = require('../services/designCoachImagePrompt');
 const {
   DM_PLATFORMS,
@@ -582,6 +583,7 @@ Workflow (important):
 - Your job is to lead the user to a production-ready imagePrompt they can review and edit BEFORE artwork is generated.
 - Never tell the user the image is being generated, that you already generated it, or to wait for artwork. Generation happens only when they click Generate after editing the prompt.
 - When you set imagePrompt, the reply must say the draft prompt is ready to edit (in Prompt & refine / the prompt editor) and they should tweak it, then click Generate when happy. Invite one small tweak if useful.
+- NEVER say you drafted a prompt, locked a look in, or that the prompt is ready unless imagePrompt is a non-null production string in the same JSON object.
 - Do not pressure them to click Generate immediately — editing the prompt first is the next step.
 
 Clarify-first rules (critical):
@@ -713,16 +715,17 @@ function withTimeout(promise, ms, label) {
 }
 
 async function runDesignCoachChat(messages) {
-  // OpenRouter only — skip the slow legacy chain. Cap wait so chat stays snappy.
+  // OpenRouter for chat (same stack as other AI coaches). Images stay on KIE Generate.
+  // Cap wait so chat stays snappy, but give free models enough time to return JSON + prompt.
   return withTimeout(
     chatCompletion({
       messages,
       jsonObject: true,
-      max_tokens: 700,
+      max_tokens: 1200,
       temperature: 0.4,
       providerChain: 'openrouter',
     }),
-    8000,
+    15000,
     'Design coach timed out',
   );
 }
@@ -1200,8 +1203,8 @@ router.post('/api/design-chat', async (req, res, next) => {
 
     const history = (Array.isArray(body.history) ? body.history : [])
       .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
-      .slice(-6)
-      .map((m) => ({ role: m.role, content: m.content.slice(0, 1800) }));
+      .slice(-12)
+      .map((m) => ({ role: m.role, content: m.content.slice(0, 2200) }));
 
     const slot = String(body.slot || 'front').toLowerCase() === 'back' ? 'back' : 'front';
     const headline = String(body.headline || '').trim();
@@ -1230,6 +1233,15 @@ router.post('/api/design-chat', async (req, res, next) => {
       hasRichCreativeDirection(conversationText) ||
       SKIP_CLARIFY;
     const vagueBrief = isVagueDesignBrief(userMessage) && !richEnough;
+
+    const fallbackPromptOpts = {
+      userMessage: conversationText.slice(-2200),
+      platformLabel: platformLabel(platform),
+      aspectRatio,
+      headline,
+      bodyText,
+      brandKitSummary: brandKitSummary(brandKit),
+    };
 
     // First vague make-a-cover message: return a clean multi-line clarify (skip flaky model meta text).
     if (!incrementalEdit && vagueBrief && history.length === 0) {
@@ -1260,21 +1272,14 @@ router.post('/api/design-chat', async (req, res, next) => {
         }),
       },
       ...history,
-      { role: 'user', content: userMessage.slice(0, 1800) },
+      { role: 'user', content: userMessage.slice(0, 2200) },
     ];
 
     const ai = await runDesignCoachChat(messages);
     if (!ai.content) {
       // Timed out / provider failed: draft only when we already have rich direction; otherwise ask.
       if (!vagueBrief && (richEnough || userAskedForDesign(userMessage))) {
-        const imagePrompt = buildFallbackDesignImagePrompt({
-          userMessage: conversationText.slice(-1800),
-          platformLabel: platformLabel(platform),
-          aspectRatio,
-          headline,
-          bodyText,
-          brandKitSummary: brandKitSummary(brandKit),
-        });
+        const imagePrompt = buildFallbackDesignImagePrompt(fallbackPromptOpts);
         if (imagePrompt) {
           return res.json({
             success: true,
@@ -1300,7 +1305,9 @@ router.post('/api/design-chat', async (req, res, next) => {
 
     const parsed = parseLlmJson(ai.content) || {};
     let reply = formatDesignCoachReplyForDisplay(parsed.reply);
-    let imagePrompt = sanitizeDesignImagePrompt(parsed.imagePrompt);
+    let imagePrompt = sanitizeDesignImagePrompt(
+      parsed.imagePrompt != null ? parsed.imagePrompt : parsed.image_prompt,
+    );
 
     // Never show raw model reasoning / failed JSON as the chat message.
     if (!reply) {
@@ -1316,12 +1323,15 @@ router.post('/api/design-chat', async (req, res, next) => {
     const lastAssistant = [...history].reverse().find((m) => m.role === 'assistant');
     const lastAskedClarify =
       lastAssistant &&
-      /photo or illustration|brand (colors|palette)|headline\/hook|quick questions so i can write|a few quick questions|tell me more about the look|main hook|just draft it/i.test(
+      /photo or illustration|brand (colors|palette)|headline\/hook|quick questions so i can write|a few quick questions|tell me more about the look|main hook|just draft it|who or what should be the hero|photo, illustration, or mixed/i.test(
         String(lastAssistant.content || ''),
       );
     const userAnsweredClarify =
       lastAskedClarify &&
-      (richEnough || hasRichCreativeDirection(userMessage) || userMessage.length >= 40 || SKIP_CLARIFY);
+      (richEnough ||
+        hasRichCreativeDirection(userMessage) ||
+        userMessage.length >= 20 ||
+        SKIP_CLARIFY);
 
     // Only force a local draft when the model failed to produce one AND we have enough direction
     // (or the user just answered clarifying questions / asked to skip). Never dump a template on a vague brief.
@@ -1332,22 +1342,29 @@ router.post('/api/design-chat', async (req, res, next) => {
       if (!reply || /null if still exploring|null or a detailed english prompt|ready for gpt image/i.test(reply)) {
         reply = DRAFT_READY;
       }
-      imagePrompt = buildFallbackDesignImagePrompt({
-        userMessage: conversationText.slice(-1800),
-        platformLabel: platformLabel(platform),
-        aspectRatio,
-        headline,
-        bodyText,
-        brandKitSummary: brandKitSummary(brandKit),
-      });
+      imagePrompt = buildFallbackDesignImagePrompt(fallbackPromptOpts);
     }
 
     // Model drafted on a vague brief — strip it and ask instead (unless they skipped questions).
-    if (imagePrompt && vagueBrief && !SKIP_CLARIFY) {
+    if (imagePrompt && vagueBrief && !SKIP_CLARIFY && !userAnsweredClarify) {
       imagePrompt = '';
-      if (!reply || /drafted|prompt is ready|locking that look/i.test(reply)) {
+      if (!reply || replyClaimsDraftReady(reply)) {
         reply = DEFAULT_CLARIFY;
       }
+    }
+
+    // Invariant: never claim a draft is ready without a usable imagePrompt.
+    if (!imagePrompt && (replyClaimsDraftReady(reply) || shouldDraftPrompt || userAnsweredClarify || SKIP_CLARIFY)) {
+      imagePrompt = buildFallbackDesignImagePrompt(fallbackPromptOpts);
+      if (imagePrompt && (!reply || replyClaimsDraftReady(reply))) {
+        reply = DRAFT_READY;
+      }
+    }
+    if (replyClaimsDraftReady(reply) && !imagePrompt) {
+      reply = DEFAULT_CLARIFY;
+    }
+    if (imagePrompt && (!reply || /null if still exploring|null or a detailed english prompt/i.test(reply))) {
+      reply = DRAFT_READY;
     }
 
     if (!reply) reply = imagePrompt ? DRAFT_READY : DEFAULT_CLARIFY;

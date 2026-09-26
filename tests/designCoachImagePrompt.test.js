@@ -11,6 +11,7 @@ const {
   formatDesignCoachClarifyReply,
   formatDesignCoachReplyForDisplay,
   buildFallbackDesignImagePrompt,
+  replyClaimsDraftReady,
 } = require('../services/designCoachImagePrompt');
 
 const SCHEMA_LEAK =
@@ -92,4 +93,14 @@ test('fallback prompt includes the marketer direction and platform', () => {
   assert.match(prompt, /AdHello Agency/);
   assert.match(prompt, /Art direction/i);
   assert.doesNotMatch(prompt, /Null if still exploring/i);
+});
+
+test('detects replies that claim a draft prompt is ready', () => {
+  assert.equal(
+    replyClaimsDraftReady(
+      'Got it — locking that look in.\n\nI drafted an optimized image prompt from your direction. Edit it in Prompt & refine.',
+    ),
+    true,
+  );
+  assert.equal(replyClaimsDraftReady('A few quick questions so I can write a strong prompt:'), false);
 });

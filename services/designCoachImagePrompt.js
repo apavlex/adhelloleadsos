@@ -145,6 +145,19 @@ function formatDesignCoachReplyForDisplay(raw) {
   return text;
 }
 
+/** True when the chat reply tells the user a draft prompt is ready (must pair with imagePrompt). */
+function replyClaimsDraftReady(raw) {
+  const text = String(raw == null ? '' : raw).trim();
+  if (!text) return false;
+  return (
+    /locking that look/i.test(text) ||
+    /drafted an optimized (image )?prompt/i.test(text) ||
+    /draft (image )?prompt is ready/i.test(text) ||
+    /optimized image prompt from your direction/i.test(text) ||
+    (/prompt (?:is )?ready/i.test(text) && /edit (?:it )?in Prompt/i.test(text))
+  );
+}
+
 function buildFallbackDesignImagePrompt({
   userMessage,
   platformLabel: platLabel,
@@ -186,5 +199,6 @@ module.exports = {
   sanitizeDesignCoachReply,
   formatDesignCoachClarifyReply,
   formatDesignCoachReplyForDisplay,
+  replyClaimsDraftReady,
   buildFallbackDesignImagePrompt,
 };

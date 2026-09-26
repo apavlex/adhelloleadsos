@@ -3789,7 +3789,16 @@
         return;
       } else if (reply) {
         chatHistory.push({ role: 'assistant', content: reply });
-        setDesignStatus('Answer in Chat so I can write a stronger prompt.', true);
+        if (
+          /locking that look|drafted an optimized|prompt is ready|edit it in Prompt/i.test(reply)
+        ) {
+          setDesignStatus(
+            'Prompt did not come through — say “just draft it” in Chat, or describe the look again.',
+            false,
+          );
+        } else {
+          setDesignStatus('Answer in Chat so I can write a stronger prompt — go back and forth as much as you want.', true);
+        }
       } else if (userWantsAdGeneration(text)) {
         setDesignStatus(
           'Chat needs a bit more detail — answer the questions above, or say “just draft it”.',
