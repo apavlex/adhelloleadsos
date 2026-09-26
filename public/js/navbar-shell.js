@@ -190,19 +190,35 @@
     var state = String(softphoneSession.state || 'idle').toLowerCase();
     var statusLabel = state;
     if (state === 'dialing') statusLabel = softphoneSession.stateVerbose || 'dialing';
-    else if (state === 'in_call') statusLabel = softphoneSession.hold ? 'on hold' : 'connected';
-    else if (state === 'ready') statusLabel = 'ready';
+    else if (state === 'in_call') {
+      statusLabel = softphoneIsDeviceHandoffActive()
+        ? 'on phone'
+        : softphoneSession.hold
+          ? 'on hold'
+          : 'connected';
+    } else if (state === 'ready') statusLabel = 'ready';
+    else if (state === 'ended') statusLabel = 'wrap-up';
     if (spCompactStatus) {
       spCompactStatus.textContent = statusLabel;
       spCompactStatus.setAttribute('data-state', state);
     }
     if (spCompactTimer) {
-      spCompactTimer.textContent = spTimer ? spTimer.textContent : '00:00';
+      spCompactTimer.textContent =
+        softphoneIsDeviceHandoffActive()
+          ? '—'
+          : spTimer
+            ? spTimer.textContent
+            : '00:00';
     }
     if (spCompactHangup) {
       var showHangup = state === 'dialing' || state === 'in_call' || state === 'ended';
       spCompactHangup.classList.toggle('hidden', !showHangup);
       spCompactHangup.disabled = state === 'ended' && !softphoneSession.wrapRequired;
+      if (softphoneIsDeviceHandoffActive()) {
+        spCompactHangup.textContent = 'Done';
+      } else if (state === 'in_call' || state === 'dialing') {
+        spCompactHangup.textContent = 'Hang up';
+      }
     }
   }
   function updateSoftphoneMinimizeBtnUi() {
@@ -377,6 +393,9 @@
     focusDialQueue: [],
     focusDialIndex: 0,
     compact: false,
+    deviceHandoffPending: false,
+    deviceHandoffAt: 0,
+    deviceHandoffHiddenAt: 0,
   };
   var RELAY_SDK_SRC = 'https://unpkg.com/@signalwire/js@1.5.0/dist/index.min.js';
   function loadRelayScript() {
@@ -481,12 +500,16 @@
     softphoneSession.startedAtMs = 0;
     softphoneSession.wasInCall = false;
     softphoneSession.dialInNumber = '';
+    softphoneSession.deviceHandoffPending = false;
+    softphoneSession.deviceHandoffAt = 0;
+    softphoneSession.deviceHandoffHiddenAt = 0;
     softphoneResetRecordingState();
     softphoneSetWrapRequired(false);
     softphoneSetCallState(opts.idle ? 'idle' : 'ready');
     softphoneSetTimerSeconds(0);
     softphoneRestoreDialButtons();
     updateSoftphoneRedialUi();
+    updateSoftphoneHangupButtonLabel();
     softphoneSetStatus(msg || 'Dial canceled. You can call again.', !!opts.isError);
     // Always tear down the PSTN leg + agent session — abandoning the UI left
     // SignalWire calls stuck at "initiated" and blocked the next ring.
@@ -3098,10 +3121,16 @@
     if (!navCallLine) return;
     var state = String(softphoneSession.state || 'idle').toLowerCase();
     var timerText = spTimer ? spTimer.textContent : '00:00';
+    var device = softphoneIsDeviceHandoffActive();
     var label = 'Idle';
     if (state === 'dialing') label = 'Dialing';
-    else if (state === 'in_call') label = softphoneSession.hold ? 'On hold · ' + timerText : 'On call · ' + timerText;
-    else if (state === 'ended') label = 'Wrap-up';
+    else if (state === 'in_call') {
+      label = device
+        ? 'On phone · tap Call done'
+        : softphoneSession.hold
+          ? 'On hold · ' + timerText
+          : 'On call · ' + timerText;
+    } else if (state === 'ended') label = 'Wrap-up';
     else if (state === 'ready') label = 'Ready';
     navCallLine.textContent = label;
     if (navCallDot) {
@@ -3165,8 +3194,14 @@
         label = softphoneSession.stateVerbose || 'dialing';
         cls = 'border-amber-300/70 dark:border-amber-700/60 bg-amber-500/10 text-amber-700 dark:text-amber-300';
       } else if (state === 'in_call') {
-        label = softphoneSession.hold ? 'on hold' : 'connected';
-        cls = 'border-emerald-300/70 dark:border-emerald-700/60 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300';
+        label = softphoneIsDeviceHandoffActive()
+          ? 'on phone'
+          : softphoneSession.hold
+            ? 'on hold'
+            : 'connected';
+        cls = softphoneIsDeviceHandoffActive()
+          ? 'border-sky-300/70 dark:border-sky-700/60 bg-sky-500/10 text-sky-800 dark:text-sky-200'
+          : 'border-emerald-300/70 dark:border-emerald-700/60 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300';
       } else if (state === 'ended') {
         cls = 'border-rose-300/70 dark:border-rose-700/60 bg-rose-500/10 text-rose-700 dark:text-rose-300';
       } else if (state === 'ready') {
@@ -3181,7 +3216,10 @@
   }
   function updateAudioPulse() {
     if (!spAudioPulse) return;
-    var active = softphoneSession.state === 'in_call' || softphoneSession.state === 'dialing';
+    // Device dialer has no in-tab audio — don't fake a live pulse.
+    var active =
+      (softphoneSession.state === 'in_call' || softphoneSession.state === 'dialing') &&
+      !softphoneIsDeviceHandoffActive();
     if (active) spAudioPulse.classList.remove('hidden');
     else spAudioPulse.classList.add('hidden');
   }
@@ -3337,12 +3375,89 @@
     spStatus.className = 'text-sm mt-1 ' + (isErr ? 'text-red-600 dark:text-red-400' : 'text-brand-muted');
     if (msg) softphoneAnnounce(msg);
   }
+  function softphoneIsDeviceHandoffActive() {
+    if (String(softphoneSession.dialMode || '').trim() !== 'browser_device') return false;
+    if (softphoneSession.state !== 'in_call') return false;
+    if (String(softphoneSession.callSid || '').trim()) return false;
+    return true;
+  }
+
+  function updateSoftphoneHangupButtonLabel() {
+    var device = softphoneIsDeviceHandoffActive();
+    if (spHangup) {
+      spHangup.textContent = device ? 'Call done' : 'Hang up';
+      spHangup.setAttribute(
+        'title',
+        device ? 'Mark device call finished (native dialer cannot report hang-up)' : 'End call (Esc)',
+      );
+      spHangup.setAttribute('aria-label', device ? 'Mark device call done' : 'Hang up call');
+    }
+    if (spCompactHangup) {
+      spCompactHangup.textContent = device ? 'Done' : 'Hang up';
+      spCompactHangup.setAttribute(
+        'title',
+        device ? 'Mark device call finished' : 'Hang up',
+      );
+      spCompactHangup.setAttribute('aria-label', device ? 'Mark device call done' : 'Hang up call');
+    }
+  }
+
+  function softphoneCompleteDeviceHandoff(msg, opts) {
+    opts = opts || {};
+    softphoneSession.deviceHandoffPending = false;
+    softphoneSession.deviceHandoffHiddenAt = 0;
+    softphoneStopTimer();
+    softphoneStopPolling();
+    softphoneClearMasterDialWatchdog();
+    softphoneSession.callSid = '';
+    softphoneSession.isCloudPstn = false;
+    softphoneSession.wasInCall = true;
+    softphoneSetWrapRequired(opts.requireWrap !== false);
+    softphoneSetCallState('ended');
+    softphoneSetStatus(
+      msg ||
+        'Device call finished. Log the outcome below, or dial the next lead.',
+      !!opts.isError,
+    );
+    updateSoftphoneHangupButtonLabel();
+    setSoftphoneTab('keypad');
+    if (spWrapPanel) {
+      try {
+        spWrapPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } catch (_) {}
+    }
+  }
+
+  function softphoneMaybeEndDeviceHandoffFromReturn() {
+    if (!softphoneSession.deviceHandoffPending) return;
+    if (!softphoneIsDeviceHandoffActive()) return;
+    var opened = softphoneSession.deviceHandoffAt || 0;
+    var hiddenAt = softphoneSession.deviceHandoffHiddenAt || 0;
+    var now = Date.now();
+    // Need enough time away in the native dialer so we don't end on the tel: handoff itself.
+    if (opened && now - opened < 3500) return;
+    if (hiddenAt && now - hiddenAt < 1200) return;
+    if (!hiddenAt && opened && now - opened < 8000) return;
+    softphoneCompleteDeviceHandoff(
+      'Back from your phone — call marked done. Quick log is optional, or dial next.',
+    );
+  }
+
+  function softphoneMarkDeviceHandoffHidden() {
+    if (!softphoneSession.deviceHandoffPending) return;
+    if (!softphoneIsDeviceHandoffActive()) return;
+    softphoneSession.deviceHandoffHiddenAt = Date.now();
+  }
   function updateCallStateLabel() {
     if (!spCallState) return;
     var s = String(softphoneSession.state || 'idle');
     var verbose = String(softphoneSession.stateVerbose || '').trim();
     if (s === 'idle' || s === 'ready' || s === 'ended') {
       spCallState.textContent = s;
+      return;
+    }
+    if (softphoneIsDeviceHandoffActive()) {
+      spCallState.textContent = 'on your phone · tap Call done when finished';
       return;
     }
     if (softphoneSession.isCloudPstn) {
@@ -3379,11 +3494,26 @@
         clearTimeout(softphoneSession.dialWatchdog);
         softphoneSession.dialWatchdog = null;
       }
-      softphoneStartTimer();
+      // Native device dialer cannot report hang-up — don't run a fake live call timer.
+      if (
+        String(softphoneSession.dialMode || '').trim() === 'browser_device' &&
+        !String(softphoneSession.callSid || '').trim()
+      ) {
+        softphoneStopTimer();
+        softphoneSetTimerSeconds(0);
+        if (spTimer) spTimer.textContent = '—';
+      } else {
+        softphoneStartTimer();
+      }
     } else if (state === 'ended' || state === 'idle' || state === 'ready') {
       softphoneStopTimer();
       if (state !== 'in_call' && prev !== 'in_call') softphoneSetTimerSeconds(0);
       if (state === 'ready' || state === 'idle') softphoneRestoreDialButtons();
+      if (state === 'ready' || state === 'idle') {
+        softphoneSession.deviceHandoffPending = false;
+        softphoneSession.deviceHandoffAt = 0;
+        softphoneSession.deviceHandoffHiddenAt = 0;
+      }
     }
     updateCallStateLabel();
     updateSoftphoneCallAudioModeLine();
@@ -3391,6 +3521,7 @@
     updateAudioPulse();
     updateControlToggles();
     updateRecordingToggle();
+    updateSoftphoneHangupButtonLabel();
     syncNavBarCallIndicator();
     var inCallBarActive = state === 'dialing' || state === 'in_call' || state === 'ended';
     var callerIdBox = document.querySelector('.softphone-calling-from');
@@ -4234,11 +4365,18 @@
       .then(function (res) {
         if (!res.ok || !res.j || !res.j.success) throw new Error((res.j && res.j.error) || 'Call failed.');
         if (res.j.dialMode === 'browser_device' && res.j.phone) {
-          window.location.href = 'tel:' + String(res.j.phone).replace(/[^\d+]/g, '');
-          softphoneSetStatus('Opened your device dialer (audio on your phone or headset).');
-          softphoneSetCallState('in_call');
+          softphoneSession.dialMode = 'browser_device';
+          softphoneSession.isCloudPstn = false;
           softphoneSession.callSid = '';
+          softphoneSession.deviceHandoffPending = true;
+          softphoneSession.deviceHandoffAt = Date.now();
+          softphoneSession.deviceHandoffHiddenAt = 0;
           softphoneStopPolling();
+          softphoneSetCallState('in_call');
+          softphoneSetStatus(
+            'Opened on your phone. When you hang up, return here — we mark the call done automatically, or tap Call done.',
+          );
+          window.location.href = 'tel:' + String(res.j.phone).replace(/[^\d+]/g, '');
           addRecentDial(to, {
             title: softphoneSession.leadTitle,
             leadKey: softphoneSession.leadKey,
@@ -5790,6 +5928,20 @@
     });
   }
 
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden') {
+      softphoneMarkDeviceHandoffHidden();
+      return;
+    }
+    softphoneMaybeEndDeviceHandoffFromReturn();
+  });
+  window.addEventListener('pageshow', function () {
+    softphoneMaybeEndDeviceHandoffFromReturn();
+  });
+  window.addEventListener('focus', function () {
+    softphoneMaybeEndDeviceHandoffFromReturn();
+  });
+
   if (spExpand && spPanel) {
     spExpand.addEventListener('click', function (e) {
       e.stopPropagation();
@@ -6349,9 +6501,17 @@
           softphoneSetWrapRequired(false);
           softphoneSetCallState('ready');
           softphoneSetStatus('Ready. Tap Call or Redial.', false);
+          updateSoftphoneHangupButtonLabel();
           return;
         }
         softphoneSetStatus('No active call to hang up.', true);
+        return;
+      }
+      // My device dialer: browser never learns native hang-up — user confirms done.
+      if (softphoneIsDeviceHandoffActive() || softphoneSession.deviceHandoffPending) {
+        softphoneCompleteDeviceHandoff(
+          'Call marked done. Quick log is optional below — or dial the next lead.',
+        );
         return;
       }
       if (softphoneSession.webrtc && softphoneSession.relayCall) {
@@ -6365,10 +6525,12 @@
         softphoneSetCallState('ready');
         softphoneSetStatus('Call ended. Quick log is optional below — or dial again.');
         spHangup.disabled = false;
+        updateSoftphoneHangupButtonLabel();
         return;
       }
       if (!softphoneSession.callSid) {
         softphoneForceAbortDial('Call ended. You can call again.');
+        updateSoftphoneHangupButtonLabel();
         return;
       }
       spHangup.disabled = true;
@@ -6384,6 +6546,7 @@
         })
         .finally(function () {
           spHangup.disabled = false;
+          updateSoftphoneHangupButtonLabel();
         });
     });
   }
