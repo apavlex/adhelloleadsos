@@ -73,7 +73,7 @@
       </select>
       <% } %>
       <% } %>
-      <button type="button" id="bulkSaveBtn" class="bulk-bar-btn bulk-bar-btn--save bulk-save-btn" disabled title="<%= _bulkMode === 'search' ? 'Save selected leads into the folder' : 'Save selected leads onto this opportunity board and stage' %>" data-default-label="Save to board">
+      <button type="button" id="bulkSaveBtn" class="bulk-bar-btn bulk-bar-btn--save bulk-save-btn" disabled title="<%= _bulkMode === 'search' ? 'Save selected leads into the folder' : 'Save selected leads onto this opportunity board and stage' %>" data-default-label="<%= _bulkMode === 'search' ? 'Save' : 'Save to board' %>">
         <%= _bulkMode === 'search' ? 'Save' : 'Save to board' %>
       </button>
       <button type="button" id="bulkFolderNewToggle" class="bulk-bar-btn bulk-bar-btn--ghost text-brand-yellow" title="Create a new folder" aria-expanded="false" aria-controls="bulkFolderNewRow">+ Folder</button>
@@ -151,7 +151,8 @@
 </div>
 <script>
 (function () {
-  if (window.__bulkReferralBound === '1') return;
+  if (window.__bulkBarInlineActionsBound === '1') return;
+  window.__bulkBarInlineActionsBound = '1';
   window.__bulkReferralBound = '1';
 
   function addKey(out, seen, raw) {
@@ -185,8 +186,255 @@
     if (!feedback) return;
     feedback.textContent = text;
     feedback.classList.remove('hidden');
-    feedback.style.color = ok ? '#6ee7b7' : '#fecaca';
+    feedback.style.color = ok === 'loading' ? '#e2e8f0' : ok ? '#6ee7b7' : '#fecaca';
   }
+
+  function normalizeLeadKey(key) {
+    var k = String(key || '').trim();
+    if (!k) return '';
+    return k.indexOf('lead:') === 0 ? k : 'lead:' + k;
+  }
+
+  function readOpportunityPlacement() {
+    var boardEl = document.getElementById('bulkOpportunityPipelineSelect');
+    var stageEl = document.getElementById('bulkPipelineStageSelect');
+    if (!boardEl) return null;
+    var pipelineId = boardEl.value ? String(boardEl.value).trim() : '';
+    var stageId = stageEl && stageEl.value ? String(stageEl.value).trim() : '';
+    if (!pipelineId || !stageId) return null;
+    var pipelineName =
+      (boardEl.options && boardEl.options[boardEl.selectedIndex] && String(boardEl.options[boardEl.selectedIndex].textContent || '').trim()) ||
+      'pipeline';
+    var stageName =
+      (stageEl && stageEl.options && stageEl.options[stageEl.selectedIndex] && String(stageEl.options[stageEl.selectedIndex].textContent || '').trim()) ||
+      'stage';
+    var boards = window.OPPORTUNITY_BOARDS;
+    var pipelines = boards && Array.isArray(boards.pipelines) ? boards.pipelines : [];
+    var pipeline = null;
+    for (var i = 0; i < pipelines.length; i += 1) {
+      if (pipelines[i] && pipelines[i].id === pipelineId) {
+        pipeline = pipelines[i];
+        break;
+      }
+    }
+    if (pipeline && Array.isArray(pipeline.stages) && pipeline.stages.length) {
+      var stage = null;
+      for (var s = 0; s < pipeline.stages.length; s += 1) {
+        if (pipeline.stages[s] && pipeline.stages[s].id === stageId) {
+          stage = pipeline.stages[s];
+          break;
+        }
+      }
+      if (!stage) {
+        var want = stageName.toLowerCase();
+        for (var t = 0; t < pipeline.stages.length; t += 1) {
+          if (
+            pipeline.stages[t] &&
+            String(pipeline.stages[t].name || '')
+              .trim()
+              .toLowerCase() === want
+          ) {
+            stage = pipeline.stages[t];
+            break;
+          }
+        }
+      }
+      if (!stage) stage = pipeline.stages[0];
+      if (stage) {
+        stageId = stage.id;
+        stageName = stage.name || stageName;
+      }
+    }
+    if (!stageId) return null;
+    return { pipelineId: pipelineId, stageId: stageId, pipelineName: pipelineName, stageName: stageName };
+  }
+
+  function findRow(key) {
+    var k = String(key || '').trim();
+    if (!k || !window.CSS || !CSS.escape) return null;
+    var bare = k.replace(/^lead:/i, '');
+    var variants = [k, bare, 'lead:' + bare];
+    for (var i = 0; i < variants.length; i += 1) {
+      var row = document.querySelector('tr.result-row[data-lead-key="' + CSS.escape(variants[i]) + '"]');
+      if (row) return row;
+    }
+    return null;
+  }
+
+  // Capture-phase Save — runs before deferred app.js / bulk-select so it never hits
+  // the "Save is still loading" stub.
+  document.addEventListener(
+    'click',
+    function (e) {
+      var btn = e.target && e.target.closest ? e.target.closest('#bulkSaveBtn') : null;
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+
+      if (btn.disabled || btn.getAttribute('aria-busy') === 'true') return;
+      if (document.getElementById('searchResultsLeadsTable')) {
+        if (typeof window.__bulkSaveSearchResultsToFolder === 'function') {
+          void window.__bulkSaveSearchResultsToFolder(btn);
+          return;
+        }
+        if (typeof window.__bulkSaveSelectedLeadsImpl === 'function') {
+          void window.__bulkSaveSelectedLeadsImpl(btn);
+          return;
+        }
+      }
+      if (typeof window.__bulkSaveSelectedLeadsImpl === 'function') {
+        void window.__bulkSaveSelectedLeadsImpl(btn);
+        return;
+      }
+
+      var keys = selectedKeys().map(normalizeLeadKey).filter(Boolean);
+      if (!keys.length) {
+        say('Select at least one lead first.', false);
+        return;
+      }
+      var folderEl = document.getElementById('bulkFolderSelect');
+      var folderKey = folderEl && folderEl.value ? String(folderEl.value).trim() : '';
+      var placement = readOpportunityPlacement();
+      var boardEl = document.getElementById('bulkOpportunityPipelineSelect');
+      if (boardEl && boardEl.value && !placement) {
+        say('Choose an opportunity stage, then click Save again.', false);
+        return;
+      }
+      if (!folderKey && !placement) {
+        say('Select a folder or an opportunity board stage first.', false);
+        return;
+      }
+
+      var label = btn.getAttribute('data-default-label') || 'Save to board';
+      var placeLabel = placement ? placement.pipelineName + ' · ' + placement.stageName : '';
+      btn.disabled = true;
+      btn.setAttribute('aria-busy', 'true');
+      btn.textContent = 'Saving…';
+      say(
+        'Saving ' + keys.length + ' lead' + (keys.length === 1 ? '' : 's') + (placeLabel ? ' to ' + placeLabel : '') + '…',
+        'loading',
+      );
+
+      var chain = Promise.resolve({ savedKeys: keys.slice() });
+      if (folderKey) {
+        chain = chain.then(function (state) {
+          return fetch('/folders/assign-bulk', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ leadKeys: keys, folderKey: folderKey }),
+          }).then(function (res) {
+            return res.json().then(function (data) {
+              return { ok: res.ok, data: data || {}, state: state };
+            }).catch(function () {
+              return { ok: false, data: {}, state: state };
+            });
+          }).then(function (result) {
+            if (!result.ok || !result.data.success) {
+              throw new Error((result.data && result.data.error) || 'Could not assign folder.');
+            }
+            var updated = Array.isArray(result.data.updatedKeys) ? result.data.updatedKeys : [];
+            if (updated.length) {
+              result.state.savedKeys = updated.map(normalizeLeadKey).filter(Boolean);
+            }
+            return result.state;
+          });
+        });
+      }
+
+      if (placement) {
+        chain = chain.then(function (state) {
+          return fetch('/opportunities/bulk-move', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({
+              leadKeys: state.savedKeys.length ? state.savedKeys : keys,
+              pipelineId: placement.pipelineId,
+              stageId: placement.stageId,
+              stageName: placement.stageName,
+              ...(folderKey ? { folderKey: folderKey } : {}),
+            }),
+          }).then(function (res) {
+            return res.json().then(function (data) {
+              return { ok: res.ok, data: data || {}, state: state };
+            }).catch(function () {
+              return { ok: false, data: {}, state: state };
+            });
+          }).then(function (result) {
+            if (!result.ok || !result.data.success) {
+              throw new Error(
+                (result.data && result.data.error) || 'Could not save those leads to the selected pipeline.',
+              );
+            }
+            if (Array.isArray(result.data.updatedKeys) && result.data.updatedKeys.length) {
+              result.state.savedKeys = result.data.updatedKeys.map(normalizeLeadKey).filter(Boolean);
+            }
+            if (result.data.pipelineName) placement.pipelineName = result.data.pipelineName;
+            if (result.data.stageName) placement.stageName = result.data.stageName;
+            if (result.data.pipelineId) placement.pipelineId = result.data.pipelineId;
+            if (result.data.stageId) placement.stageId = result.data.stageId;
+            if (typeof window.__adhelloApplyOpportunityPlacement === 'function') {
+              window.__adhelloApplyOpportunityPlacement(
+                result.state.savedKeys,
+                placement.pipelineId,
+                placement.stageId,
+              );
+            }
+            result.state.savedKeys.forEach(function (leadKey) {
+              var row = findRow(leadKey);
+              if (!row) return;
+              row.dataset.opportunityPipelineId = placement.pipelineId;
+              row.dataset.opportunityStageId = placement.stageId;
+              row.dataset.onPipelineBoard = '1';
+            });
+            return result.state;
+          });
+        });
+      }
+
+      chain
+        .then(function (state) {
+          document.querySelectorAll('.lead-checkbox:checked, .row-checkbox:checked').forEach(function (cb) {
+            cb.checked = false;
+          });
+          var n = (state && state.savedKeys && state.savedKeys.length) || keys.length;
+          var savedPlace = placement
+            ? placement.pipelineName + ' · ' + placement.stageName
+            : placeLabel;
+          var msg = savedPlace
+            ? 'Saved ' + n + ' lead' + (n === 1 ? '' : 's') + ' to ' + savedPlace
+            : 'Saved ' + n + ' lead' + (n === 1 ? '' : 's');
+          var bar = document.getElementById('bulkActionBar');
+          if (bar) bar.dataset.holdSaved = '1';
+          btn.textContent = 'Saved ✓';
+          btn.removeAttribute('aria-busy');
+          btn.disabled = false;
+          say(msg, true);
+          if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
+          if (placement && typeof window.showAppToast === 'function') {
+            window.showAppToast(msg + '. Open Opportunities to see them on the board.', {
+              variant: 'success',
+              duration: 7000,
+            });
+          }
+          window.setTimeout(function () {
+            if (bar) bar.dataset.holdSaved = '';
+            btn.textContent = label;
+            if (typeof window.__syncBulkBarFromDom === 'function') window.__syncBulkBarFromDom();
+            else if (typeof window.__updateBulkActionBar === 'function') window.__updateBulkActionBar();
+          }, 4200);
+        })
+        .catch(function (err) {
+          btn.disabled = false;
+          btn.removeAttribute('aria-busy');
+          btn.textContent = label;
+          say((err && err.message) || 'Could not save leads.', false);
+        });
+    },
+    true,
+  );
 
   document.addEventListener('click', function (e) {
     var btn = e.target && e.target.closest ? e.target.closest('#bulkAddReferralBtn') : null;

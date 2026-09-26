@@ -17744,14 +17744,31 @@ document.addEventListener('DOMContentLoaded', () => {
   const bulkPushGhlBtn = document.getElementById('bulkPushGhlBtn');
   const bulkCreateSubaccountBtn = document.getElementById('bulkCreateSubaccountBtn');
 
-  // Prefer early Save from pipeline-bulk-select until the full impl below is ready.
-  // Do not install an alerting stub — that blocked Save while app.js was still parsing.
+  // Early Save lives in bulk_action_bar.ejs + pipeline-bulk-select — never alert-block here.
   if (typeof window.__bulkSaveSelectedLeads !== 'function') {
     window.__bulkSaveSelectedLeads = function bulkSaveSelectedLeadsPending(triggerBtn) {
       if (typeof window.__bulkSaveSelectedLeadsImpl === 'function') {
         return window.__bulkSaveSelectedLeadsImpl(triggerBtn);
       }
-      window.alert('Save is still loading. Wait a second and try again.');
+      // Soft wait for deferred app parse instead of a dead-end alert.
+      return new Promise(function (resolve) {
+        var tries = 0;
+        var timer = setInterval(function () {
+          tries += 1;
+          if (typeof window.__bulkSaveSelectedLeadsImpl === 'function') {
+            clearInterval(timer);
+            resolve(window.__bulkSaveSelectedLeadsImpl(triggerBtn));
+          } else if (tries >= 40) {
+            clearInterval(timer);
+            var feedback = document.getElementById('bulkSaveFeedback');
+            if (feedback) {
+              feedback.textContent = 'Could not save — refresh the page and try again.';
+              feedback.classList.remove('hidden');
+            }
+            resolve();
+          }
+        }, 250);
+      });
     };
   }
 
