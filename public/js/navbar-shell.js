@@ -267,6 +267,12 @@
   var spOutboundMeta = document.getElementById('softphoneOutboundMeta');
   var spTo = document.getElementById('softphoneToNumber');
   var spCalleeName = document.getElementById('softphoneCalleeName');
+  var spBizReview = document.getElementById('softphoneBizReview');
+  var spBizReviewStars = document.getElementById('softphoneBizReviewStars');
+  var spBizReviewScore = document.getElementById('softphoneBizReviewScore');
+  var spBizReviewSummary = document.getElementById('softphoneBizReviewSummary');
+  var spBizReviewFresh = document.getElementById('softphoneBizReviewFresh');
+  var softphoneReviewReqToken = 0;
   var spLeadNav = document.getElementById('softphoneLeadNav');
   var spLeadNavLabel = document.getElementById('softphoneLeadNavLabel');
   var spPrevLeadBtn = document.getElementById('softphonePrevLeadBtn');
@@ -1958,6 +1964,10 @@
     }
     updateSoftphoneCalleeDisplay();
     updateSoftphoneWrapLeadHint();
+    if (!softphoneSession.leadKey) {
+      clearSoftphoneBizReview();
+      return;
+    }
     hydrateSoftphoneLeadFromPanel();
     var smsPanel = document.getElementById('softphoneTabSms');
     if (smsPanel && !smsPanel.classList.contains('hidden') && typeof loadSoftphoneSmsTemplates === 'function') {
@@ -2119,16 +2129,165 @@
     return String(softphoneSession.leadKey || '').trim().replace(/^lead:/i, '');
   }
 
+  function clearSoftphoneBizReview() {
+    softphoneReviewReqToken += 1;
+    if (spBizReview) spBizReview.classList.add('hidden');
+    if (spBizReviewStars) spBizReviewStars.innerHTML = '';
+    if (spBizReviewScore) spBizReviewScore.textContent = '—';
+    if (spBizReviewSummary) spBizReviewSummary.textContent = '';
+    if (spBizReviewFresh) spBizReviewFresh.textContent = '';
+  }
+
+  function softphoneReviewSummaryFromIntel(ri) {
+    if (!ri || typeof ri !== 'object') return '';
+    if (typeof ri.summary === 'string' && ri.summary.trim()) return ri.summary.trim();
+    var bits = [];
+    if (Array.isArray(ri.strengths)) {
+      ri.strengths.forEach(function (s) {
+        if (s) bits.push(String(s).trim());
+      });
+    }
+    if (Array.isArray(ri.weaknesses)) {
+      ri.weaknesses.forEach(function (s) {
+        if (s) bits.push(String(s).trim());
+      });
+    }
+    return bits.filter(Boolean).join(' · ');
+  }
+
+  function paintSoftphoneBizReview(opts) {
+    opts = opts || {};
+    if (!spBizReview) return;
+    var rating = Number(opts.rating || 0);
+    var reviews = parseInt(opts.reviews, 10) || 0;
+    var summary = String(opts.summary || '').trim();
+    var last30 = parseInt(opts.reviewsLast30Days, 10);
+    if (!Number.isFinite(last30)) last30 = -1;
+    var hasSignal = rating > 0 || reviews > 0 || !!summary;
+    if (!hasSignal) {
+      spBizReview.classList.add('hidden');
+      return;
+    }
+    spBizReview.classList.remove('hidden');
+    if (spBizReviewStars) {
+      if (rating > 0 && typeof window.__renderStarsInElement === 'function') {
+        window.__renderStarsInElement(spBizReviewStars, rating, 'w-3.5 h-3.5');
+      } else {
+        spBizReviewStars.innerHTML = '';
+      }
+    }
+    if (spBizReviewScore) {
+      if (rating > 0) {
+        spBizReviewScore.textContent =
+          rating.toFixed(1) +
+          ' · ' +
+          reviews +
+          ' review' +
+          (reviews === 1 ? '' : 's');
+      } else if (reviews > 0) {
+        spBizReviewScore.textContent = reviews + ' review' + (reviews === 1 ? '' : 's');
+      } else {
+        spBizReviewScore.textContent = 'Reviews';
+      }
+    }
+    if (spBizReviewFresh) {
+      spBizReviewFresh.textContent =
+        last30 > 0 ? last30 + ' in last 30 days' : last30 === 0 ? 'No recent reviews' : '';
+    }
+    if (spBizReviewSummary) {
+      spBizReviewSummary.textContent = summary || (opts.loadingSummary ? 'Loading review summary…' : '');
+    }
+  }
+
+  function softphoneReviewFromDomRow(key) {
+    var k = String(key || '').trim().replace(/^lead:/i, '');
+    if (!k) return null;
+    var variants = [k, 'lead:' + k];
+    for (var i = 0; i < variants.length; i += 1) {
+      var row = document.querySelector(
+        'tr.result-row[data-lead-key="' + CSS.escape(variants[i]) + '"]',
+      );
+      if (!row || !row.dataset) continue;
+      var rating = parseFloat(row.dataset.rating || row.dataset.totalScore || '') || 0;
+      var reviews = parseInt(row.dataset.reviews || row.dataset.reviewsCount || '', 10) || 0;
+      var last30 = parseInt(row.dataset.reviewsLast30Days || '', 10);
+      return {
+        rating: rating,
+        reviews: reviews,
+        reviewsLast30Days: Number.isFinite(last30) ? last30 : null,
+      };
+    }
+    return null;
+  }
+
+  function fetchSoftphoneBizReviewSummary(leadKey) {
+    var key = String(leadKey || '').trim().replace(/^lead:/i, '');
+    if (!key || !spBizReviewSummary) return;
+    var token = ++softphoneReviewReqToken;
+    if (!String(spBizReviewSummary.textContent || '').trim()) {
+      spBizReviewSummary.textContent = 'Loading review summary…';
+    }
+    fetch('/leads/' + encodeURIComponent(key) + '/review-intelligence', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({}),
+    })
+      .then(function (r) {
+        return r.json().then(function (j) {
+          return { ok: r.ok, j: j || {} };
+        });
+      })
+      .then(function (res) {
+        if (token !== softphoneReviewReqToken) return;
+        if (softphoneLeadStorageKey() !== key) return;
+        if (!res.ok || !res.j.success) {
+          if (!String(spBizReviewSummary.textContent || '').trim() ||
+              /Loading review summary/i.test(spBizReviewSummary.textContent || '')) {
+            spBizReviewSummary.textContent = 'No review summary yet.';
+          }
+          return;
+        }
+        var summary =
+          String(res.j.summary || '').trim() ||
+          softphoneReviewSummaryFromIntel(res.j.reviewIntel || res.j);
+        spBizReviewSummary.textContent = summary || 'No review summary yet.';
+      })
+      .catch(function () {
+        if (token !== softphoneReviewReqToken) return;
+        if (/Loading review summary/i.test(String(spBizReviewSummary.textContent || ''))) {
+          spBizReviewSummary.textContent = 'No review summary available.';
+        }
+      });
+  }
+
   function hydrateSoftphoneLeadFromPanel() {
     var key = softphoneLeadStorageKey();
-    if (!key) return;
-    fetch('/leads/' + encodeURIComponent(key) + '/panel-data', {
+    if (!key) {
+      clearSoftphoneBizReview();
+      return;
+    }
+    var fromDom = softphoneReviewFromDomRow(key);
+    if (fromDom && (fromDom.rating > 0 || fromDom.reviews > 0)) {
+      paintSoftphoneBizReview({
+        rating: fromDom.rating,
+        reviews: fromDom.reviews,
+        reviewsLast30Days: fromDom.reviewsLast30Days,
+        loadingSummary: true,
+      });
+    } else if (spBizReview) {
+      spBizReview.classList.remove('hidden');
+      if (spBizReviewScore) spBizReviewScore.textContent = 'Loading reviews…';
+      if (spBizReviewSummary) spBizReviewSummary.textContent = '';
+    }
+    fetch('/leads/' + encodeURIComponent(key) + '/panel-data?enrich=0', {
       credentials: 'same-origin',
       headers: { Accept: 'application/json' },
     })
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (!data || !data.success || !data.lead) return;
+        if (softphoneLeadStorageKey() !== key) return;
         var lead = data.lead;
         if (spStatusSelect && lead.status) spStatusSelect.value = String(lead.status);
         // Do not auto-fill No pickup from dial-start auto-disposition — leaves wrap empty for a real choice.
@@ -2144,8 +2303,26 @@
           var notes = String(lead.lastDispositionNotes);
           if (!/^No pickup/i.test(notes)) spNotes.value = notes;
         }
+        if (lead.title && !String(softphoneSession.leadTitle || '').trim()) {
+          softphoneSession.leadTitle = String(lead.title).trim();
+          updateSoftphoneCalleeDisplay();
+        }
+        var rating = Number(lead.totalScore || lead.rating || 0) || 0;
+        var reviews = parseInt(lead.reviewsCount != null ? lead.reviewsCount : lead.reviews, 10) || 0;
+        var last30 = parseInt(lead.reviewsLast30Days, 10);
+        var cachedSummary = softphoneReviewSummaryFromIntel(lead.reviewIntel);
+        paintSoftphoneBizReview({
+          rating: rating,
+          reviews: reviews,
+          reviewsLast30Days: Number.isFinite(last30) ? last30 : null,
+          summary: cachedSummary,
+          loadingSummary: !cachedSummary,
+        });
+        fetchSoftphoneBizReviewSummary(key);
       })
-      .catch(function () {});
+      .catch(function () {
+        if (softphoneLeadStorageKey() === key) fetchSoftphoneBizReviewSummary(key);
+      });
   }
 
   function applySoftphoneStatusIfNeeded(key) {

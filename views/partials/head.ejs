@@ -153,7 +153,7 @@
     _rp.startsWith('/tasks') ||
     _rp.startsWith('/engagement');
   const _needDmQueue = true; /* softphone Mail tab is global — always load queue helpers */
-  const _needReviews = _needPipeline || _rp.startsWith('/focus');
+  const _needReviews = true; /* softphone keypad shows stars on every page */
   const _av = typeof assetVersion !== 'undefined' ? assetVersion : '1';
 %>
 <%# Shared helpers — deferred so first paint isn't blocked by page-specific JS %>
