@@ -131,29 +131,46 @@
         scrollWheelZoom: false,
       }).setView([coords.lat, coords.lng], o.zoom || 15);
 
-      // OSM.org tiles often block browser apps (x-blocked). Use Carto (OSM data) + Esri fallback.
-      var tile =
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-          maxZoom: 20,
-          subdomains: 'abcd',
-          attribution:
-            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-        });
-      tile.on('tileerror', function () {
-        if (containerEl._adhelloTileFallback) return;
-        containerEl._adhelloTileFallback = true;
-        try {
-          map.removeLayer(tile);
-        } catch (_) {}
-        L.tileLayer(
-          'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
-          {
+      // No Carto — free basemaps now require an API key and return watermarked tiles
+      // (200 OK, so tileerror never fires). Esri + OSM.fr are key-free.
+      var tileProviders = [
+        {
+          url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+          opts: {
             maxZoom: 19,
-            attribution: 'Tiles &copy; Esri',
+            attribution:
+              'Tiles &copy; Esri &mdash; Source: Esri, OpenStreetMap',
           },
-        ).addTo(map);
-      });
-      tile.addTo(map);
+        },
+        {
+          url: 'https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png',
+          opts: {
+            maxZoom: 20,
+            subdomains: 'abc',
+            attribution:
+              '&copy; <a href="https://www.openstreetmap.fr">OpenStreetMap France</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+          },
+        },
+      ];
+      var providerIndex = 0;
+      function addProvider(index) {
+        if (index >= tileProviders.length) return null;
+        var spec = tileProviders[index];
+        var layer = L.tileLayer(spec.url, spec.opts);
+        layer.on('tileerror', function () {
+          if (containerEl._adhelloTileFallback) return;
+          containerEl._adhelloTileFallback = true;
+          try {
+            map.removeLayer(layer);
+          } catch (_) {}
+          containerEl._adhelloTileFallback = false;
+          var next = addProvider(index + 1);
+          if (next) next.addTo(map);
+        });
+        return layer;
+      }
+      var tile = addProvider(providerIndex);
+      if (tile) tile.addTo(map);
 
       L.marker([coords.lat, coords.lng]).addTo(map);
 
