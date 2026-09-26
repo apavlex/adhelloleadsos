@@ -311,6 +311,7 @@
         <div class="flex flex-col md:flex-row gap-4 items-stretch">
           <div class="w-full md:w-[min(100%,280px)] shrink-0 flex flex-col gap-2 min-w-0">
             <div id="focus-map-wrap" class="hidden w-full rounded-xl border border-brand-border/50 dark:border-white/10 overflow-hidden bg-slate-200/80 dark:bg-slate-950/80 aspect-[4/3] md:aspect-auto md:h-52 min-h-[11rem] relative shadow-inner" aria-hidden="true">
+              <div id="focus-map-leaflet" class="absolute inset-0 z-0 hidden w-full h-full" role="img" aria-label="Lead location map"></div>
               <iframe id="focus-map-embed" class="absolute inset-0 z-0 hidden w-full h-full border-0" title="Lead location map" loading="eager" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
               <img id="focus-map-img" class="absolute inset-0 z-0 w-full h-full object-cover opacity-0 pointer-events-none transition-opacity duration-200" alt="" loading="eager" width="560" height="336" decoding="async" />
               <div id="focus-map-fallback" class="absolute inset-0 z-0 hidden flex-col items-center justify-center gap-2 px-4 text-center bg-brand-cream/85 dark:bg-slate-800/95">
@@ -3606,6 +3607,7 @@
 
     function renderFocusMap(lead) {
       var wrap = document.getElementById('focus-map-wrap');
+      var leafletHost = document.getElementById('focus-map-leaflet');
       var img = document.getElementById('focus-map-img');
       var embed = document.getElementById('focus-map-embed');
       var attrib = document.getElementById('focus-map-attribution');
@@ -3619,6 +3621,15 @@
         embed.classList.add('hidden');
       }
 
+      function clearLeaflet() {
+        if (leafletHost && window.AdhelloOsmMap && typeof window.AdhelloOsmMap.destroy === 'function') {
+          window.AdhelloOsmMap.destroy(leafletHost);
+        } else if (leafletHost) {
+          leafletHost.innerHTML = '';
+          leafletHost.classList.add('hidden');
+        }
+      }
+
       var q = mapQueryFromFocusLead(lead);
       if (!q) {
         wrap.classList.add('hidden');
@@ -3628,6 +3639,7 @@
         img.removeAttribute('src');
         img.classList.add('opacity-0');
         clearEmbed();
+        clearLeaflet();
         if (attrib) attrib.classList.add('hidden');
         if (fallback) {
           fallback.classList.add('hidden');
@@ -3635,7 +3647,8 @@
         }
         return;
       }
-      var mapsHref = 'https://www.openstreetmap.org/search?query=' + encodeURIComponent(q);
+      // Prefer Google Maps for the open link (user habit); map tiles are OSM/Leaflet.
+      var mapsHref = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
       if (openLink) openLink.href = mapsHref;
 
       wrap.classList.remove('hidden');
@@ -3645,6 +3658,7 @@
       img.removeAttribute('src');
       img.classList.add('opacity-0');
       clearEmbed();
+      clearLeaflet();
       if (attrib) attrib.classList.add('hidden');
       if (fallback) {
         fallback.classList.add('hidden');
@@ -3664,6 +3678,7 @@
         img.removeAttribute('src');
         img.classList.add('opacity-0');
         clearEmbed();
+        clearLeaflet();
         if (attrib) attrib.classList.add('hidden');
         if (fallback) {
           fallback.classList.remove('hidden');
@@ -3671,7 +3686,6 @@
         }
       };
 
-      // Static OSM image via our server — no WebGL / no Google API key.
       var showPreviewImage = function () {
         if (!isCurrent()) return;
         var previewUrl = focusMapPreviewFallbackUrl(q, lat, lng);
@@ -3680,6 +3694,7 @@
           return;
         }
         clearEmbed();
+        clearLeaflet();
         img.onload = function () {
           if (!isCurrent()) return;
           img.classList.remove('opacity-0');
@@ -3699,7 +3714,57 @@
         img.src = previewUrl;
       };
 
-      showPreviewImage();
+      var showLeaflet = function () {
+        if (!isCurrent() || !leafletHost) {
+          showPreviewImage();
+          return;
+        }
+        var tries = 0;
+        var attempt = function () {
+          if (!isCurrent()) return;
+          if (!window.AdhelloOsmMap || typeof window.AdhelloOsmMap.mount !== 'function') {
+            tries += 1;
+            if (tries < 40) {
+              setTimeout(attempt, 50);
+              return;
+            }
+            showPreviewImage();
+            return;
+          }
+          leafletHost.classList.remove('hidden');
+          window.AdhelloOsmMap.mount(leafletHost, {
+            q: q,
+            lat: Number.isFinite(lat) ? lat : undefined,
+            lng: Number.isFinite(lng) ? lng : undefined,
+            zoom: 15,
+          })
+            .then(function (result) {
+              if (!isCurrent()) return;
+              if (!result) {
+                leafletHost.classList.add('hidden');
+                showPreviewImage();
+                return;
+              }
+              img.classList.add('opacity-0');
+              img.removeAttribute('src');
+              clearEmbed();
+              if (attrib) attrib.classList.add('hidden');
+              if (fallback) {
+                fallback.classList.add('hidden');
+                fallback.classList.remove('flex');
+              }
+              if (openLink) openLink.href = mapsHref;
+            })
+            .catch(function () {
+              if (!isCurrent()) return;
+              leafletHost.classList.add('hidden');
+              showPreviewImage();
+            });
+        };
+        attempt();
+      };
+
+      showLeaflet();
     }
 
     function parseFocusTechStackTags(raw) {

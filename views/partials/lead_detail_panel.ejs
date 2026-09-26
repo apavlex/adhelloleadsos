@@ -43,6 +43,7 @@
           <div id="leadPanelMapStripWrap" class="hidden relative w-full shrink-0 border-b border-brand-border/15 dark:border-white/10 rounded-t-[2rem]">
             <!-- Embedded Google Maps (iframe — reliable inside slide-in sidebar) -->
             <div id="leadPanelJsMapWrap" class="hidden relative w-full h-[280px] sm:h-[300px] shrink-0 bg-slate-200 dark:bg-slate-950">
+              <div id="leadPanelMapLeaflet" class="absolute inset-0 z-0 hidden h-full w-full" role="img" aria-label="Lead location map"></div>
               <img id="leadPanelMapStaticImg" class="absolute inset-0 z-0 hidden h-full w-full object-cover pointer-events-none" alt="" loading="eager" width="640" height="300" decoding="async" />
               <iframe id="leadPanelMapEmbed" class="absolute inset-0 z-0 hidden h-full w-full border-0 pointer-events-auto" title="Lead location map" loading="eager" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
               <div id="leadPanelMapEmbedFallback" class="absolute inset-0 z-0 hidden flex-col items-center justify-center gap-2 px-4 text-center bg-brand-cream/85 dark:bg-slate-800/95">

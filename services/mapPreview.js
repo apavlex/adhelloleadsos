@@ -193,14 +193,14 @@ async function geocodeCenterQuery(centerQuery) {
     const direct = parseLatLngPair(variant);
     if (direct) return direct;
 
-    const google = await geocodeViaGoogle(variant);
-    if (google) return google;
+    const osm = await geocodeViaNominatim(variant);
+    if (osm) return osm;
 
     const geoapify = await geocodeViaGeoapify(variant);
     if (geoapify) return geoapify;
 
-    const osm = await geocodeViaNominatim(variant);
-    if (osm) return osm;
+    const google = await geocodeViaGoogle(variant);
+    if (google) return google;
   }
   return null;
 }

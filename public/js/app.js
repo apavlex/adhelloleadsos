@@ -11419,12 +11419,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const img = document.getElementById('leadPanelMapStaticImg');
     const fallback = document.getElementById('leadPanelMapEmbedFallback');
     const openLink = document.getElementById('leadPanelJsMapOpenLink');
+    const leafletHost = document.getElementById('leadPanelMapLeaflet');
     const centerQ = String((opts && opts.center) || '').trim();
     const geocodeQ = String((opts && opts.geocodeCenter) || centerQ || '').trim();
     const lat = opts && Number.isFinite(opts.lat) ? opts.lat : NaN;
     const lng = opts && Number.isFinite(opts.lng) ? opts.lng : NaN;
-    const mapKey =
-      (typeof window !== 'undefined' && window.__ADHELLO_GOOGLE_MAPS_STATIC_KEY__) || '';
     if (!img || (!geocodeQ && !centerQ && !(Number.isFinite(lat) && Number.isFinite(lng)))) return false;
 
     const loadKey = [centerQ, geocodeQ, lat, lng].join('|');
@@ -11452,6 +11451,8 @@ document.addEventListener('DOMContentLoaded', () => {
         iframe.removeAttribute('src');
         iframe.classList.add('hidden');
       }
+      if (leafletHost && window.AdhelloOsmMap) window.AdhelloOsmMap.destroy(leafletHost);
+      if (leafletHost) leafletHost.classList.add('hidden');
       if (fallback) {
         fallback.classList.remove('hidden');
         fallback.classList.add('flex');
@@ -11478,6 +11479,7 @@ document.addEventListener('DOMContentLoaded', () => {
           iframe.removeAttribute('src');
           iframe.classList.add('hidden');
         }
+        if (leafletHost) leafletHost.classList.add('hidden');
         img.classList.remove('hidden');
         revealMapSurface();
       };
@@ -11517,8 +11519,42 @@ document.addEventListener('DOMContentLoaded', () => {
       fallback.classList.add('hidden');
       fallback.classList.remove('flex');
     }
+    if (leafletHost && window.AdhelloOsmMap) {
+      window.AdhelloOsmMap.destroy(leafletHost);
+      leafletHost.classList.add('hidden');
+    }
 
-    // Prefer static map image (no WebGL). OSM website embeds can fail in some browsers.
+    if (leafletHost && window.AdhelloOsmMap && typeof window.AdhelloOsmMap.mount === 'function') {
+      leafletHost.classList.remove('hidden');
+      window.AdhelloOsmMap.mount(leafletHost, {
+        q: geocodeQ || centerQ,
+        lat: Number.isFinite(lat) ? lat : undefined,
+        lng: Number.isFinite(lng) ? lng : undefined,
+        zoom: 15,
+      })
+        .then((result) => {
+          if (!isCurrentLoad()) return;
+          if (result) {
+            img.classList.add('hidden');
+            img.removeAttribute('src');
+            if (iframe) {
+              iframe.removeAttribute('src');
+              iframe.classList.add('hidden');
+            }
+            revealMapSurface();
+            return;
+          }
+          leafletHost.classList.add('hidden');
+          loadStaticFallbacks(showFallback);
+        })
+        .catch(() => {
+          if (!isCurrentLoad()) return;
+          leafletHost.classList.add('hidden');
+          loadStaticFallbacks(showFallback);
+        });
+      return true;
+    }
+
     loadStaticFallbacks(showFallback);
     return true;
   }
