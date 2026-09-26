@@ -533,7 +533,7 @@ function buildDesignCoachSystemPrompt({
       : '';
   const frontStyleContext =
     slot === 'back' && (frontImageUrl || matchFrontStyle)
-      ? `An existing FRONT-side design is already approved${frontImageUrl ? ' (reference image will be passed to GPT Image 2)' : ''}.
+      ? `An existing FRONT-side design is already approved${frontImageUrl ? ' (reference image will be passed to the selected image model)' : ''}.
 ${frontPrompt ? `Front design prompt for style context:\n${String(frontPrompt).slice(0, 1200)}\n` : ''}
 When the user asks to match the front, coordinate with it, or make a similar design for the back:
 - imagePrompt MUST reuse the same color palette, typography style, graphic language, and brand mood as the front — but use a COMPLETELY DIFFERENT layout suited to the back (CTA-focused left half, bullet benefits, QR placeholder).
@@ -563,7 +563,7 @@ Logo coaching rules:
 - If Business info says "Logo: ON", confirm the user's uploaded logo will appear automatically in the top-right after Generate. Do NOT say you cannot see the logo file or that the logo is missing — you never receive image bytes in chat; the server handles overlay.
 - Never instruct the image model to recreate, invent, or approximate the logo in imagePrompt.
 
-${currentImageUrl || incrementalEdit ? `The user already has a design on the canvas${currentImageUrl ? ' (reference will be passed to GPT Image 2)' : ''}.
+${currentImageUrl || incrementalEdit ? `The user already has a design on the canvas${currentImageUrl ? ' (reference will be passed to the selected image model)' : ''}.
 When they ask to remove, delete, change, move, or tweak something ("remove the seal", "make headline smaller", "drop the badge"):
 - imagePrompt MUST be an INCREMENTAL EDIT instruction starting with "INCREMENTAL EDIT — use the attached image as the exact starting design."
 - Tell the model to make ONLY that change and preserve everything else unchanged.
@@ -1463,6 +1463,12 @@ router.post('/api/generate-image', async (req, res, next) => {
     const referenceAbs = body.referenceUrl
       ? toAbsoluteAssetUrl(req, String(body.referenceUrl).trim())
       : '';
+    if (editMode && !/^https?:\/\//i.test(referenceAbs)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Update needs the current canvas image. Generate or upload artwork first, then describe the change.',
+      });
+    }
     prompt = augmentImagePromptWithBrand(prompt, brandKit, platform, slot, {
       matchFrontStyle: matchFrontStyle || (slot === 'back' && !!styleReferenceUrl),
       styleReferenceUrl: styleReferenceUrl || (editMode ? '' : referenceAbs),

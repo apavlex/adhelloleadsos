@@ -1928,6 +1928,14 @@
     );
   }
 
+  function buildCanvasRevisionPrompt(brief) {
+    return (
+      'CANVAS UPDATE — use the attached image as the starting design. ' +
+      'Revise it to match this brief while keeping the existing composition, subject, and brand details wherever the brief does not ask for a change: ' +
+      String(brief || '').trim()
+    );
+  }
+
   function buildQuickImagePrompt(userText, ctx) {
     ctx = ctx || designRequestContext();
     var kit = ctx.brandKit || {};
@@ -3612,7 +3620,7 @@
       if (!res.ok || data.status === 'failed' || data.success === false) {
         throw new Error(formatApiError(data, 'Image generation failed', res));
       }
-      setDesignStatus('Generating with GPT Image 2… still processing', true);
+      setDesignStatus('Generating with ' + currentImageModelLabel() + '… still processing', true);
     }
     throw new Error('Image generation timed out — try Generate again in a moment.');
   }
@@ -4114,23 +4122,34 @@
         latestUserChatText();
 
     // Canvas already has art + a refine instruction → update via image-edit, not a fresh T2I.
+    // The button reads "Update" when art exists, so a click with a changed prompt edits the canvas;
+    // an unchanged prompt re-rolls from scratch.
+    var alreadyEditPrompt = /^(INCREMENTAL EDIT|CANVAS UPDATE)/i.test(prompt);
+    var sourcePrompt = String((designMeta[slot] && designMeta[slot].prompt) || '').trim();
+    var clickUpdate =
+      opts.fromGenerateClick === true && !!designs[slot] && !!prompt && prompt !== sourcePrompt;
     if (
       !editMode &&
       designs[slot] &&
       prompt &&
       (opts.forceUpdate === true ||
+        alreadyEditPrompt ||
+        clickUpdate ||
         userWantsIncrementalEdit(prompt) ||
         userWantsIncrementalEdit(latestUserChatText()) ||
         userWantsIncrementalEdit(String((document.getElementById('dmChatInput') || {}).value || '')))
     ) {
       editMode = true;
       var chatRefine = String((document.getElementById('dmChatInput') || {}).value || '').trim();
-      var changeSrc =
+      var incrementalSrc =
         (userWantsIncrementalEdit(chatRefine) && chatRefine) ||
         (userWantsIncrementalEdit(latestUserChatText()) && latestUserChatText()) ||
-        prompt;
-      if (!/^INCREMENTAL EDIT/i.test(prompt)) {
-        prompt = buildIncrementalEditPrompt(changeSrc);
+        (userWantsIncrementalEdit(prompt) && prompt) ||
+        '';
+      if (!alreadyEditPrompt) {
+        prompt = incrementalSrc
+          ? buildIncrementalEditPrompt(incrementalSrc)
+          : buildCanvasRevisionPrompt(prompt);
       }
     }
 

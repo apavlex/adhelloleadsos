@@ -415,7 +415,14 @@ async function createTask({
     .map((u) => String(u || '').trim())
     .filter((u) => /^https?:\/\//i.test(u));
 
-  const isEdit = editMode === true || urls.length > 0;
+  if (editMode === true && !urls.length) {
+    const err = new Error(
+      'Could not attach the current canvas image for this update. Save or re-upload the design, then try again.',
+    );
+    err.kieFriendly = true;
+    throw err;
+  }
+  const isEdit = urls.length > 0;
   if (isVagueImagePrompt(p, { editMode: isEdit })) {
     throwFriendlyKieError('', { prompt: p, editMode: isEdit, modelKey: model.key });
   }

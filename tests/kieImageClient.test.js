@@ -119,3 +119,83 @@ test('isVagueImagePrompt allows short refine prompts in edit mode', () => {
   assert.equal(isVagueImagePrompt('add a cowboy hat', { editMode: true }), false);
   assert.equal(isVagueImagePrompt('ok', { editMode: true }), true);
 });
+
+async function captureCreateTask(opts) {
+  const { createTask } = require('../services/kieImageClient');
+  const prevKey = process.env.KIE_AI_API_KEY;
+  const prevFetch = global.fetch;
+  process.env.KIE_AI_API_KEY = 'test-key';
+  let sent = null;
+  global.fetch = async (url, init) => {
+    sent = { url, body: JSON.parse(init.body) };
+    return {
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ code: 200, data: { taskId: 'task-1' } }),
+    };
+  };
+  try {
+    const out = await createTask(opts);
+    return { out, sent };
+  } finally {
+    global.fetch = prevFetch;
+    if (prevKey) process.env.KIE_AI_API_KEY = prevKey;
+    else delete process.env.KIE_AI_API_KEY;
+  }
+}
+
+const LONG_PROMPT =
+  'A friendly golden retriever sitting on a sunny porch, warm natural light, premium local business ad style.';
+
+test('createTask sends each model its own reference-url field and edit model', async () => {
+  const ref = ['https://example.com/canvas.png'];
+  const cases = [
+    ['gpt-image-2', 'gpt-image-2-image-to-image', 'input_urls'],
+    ['grok-imagine-2', 'grok-imagine-image-2-0/image-edit', 'image_urls'],
+    ['flux-2', 'flux-2/flex-image-to-image', 'input_urls'],
+    ['nano-banana-2', 'nano-banana-2', 'image_input'],
+  ];
+  for (const [modelKey, kieModel, field] of cases) {
+    const { out, sent } = await captureCreateTask({
+      modelKey,
+      prompt: 'add a cowboy hat',
+      inputUrls: ref,
+      editMode: true,
+      aspectRatio: '1:1',
+      resolution: '2K',
+    });
+    assert.equal(sent.body.model, kieModel, modelKey);
+    assert.deepEqual(sent.body.input[field], ref, modelKey);
+    assert.equal(out.modelKey, modelKey);
+  }
+});
+
+test('createTask uses text models without refs and omits Grok resolution', async () => {
+  const grok = await captureCreateTask({
+    modelKey: 'grok-imagine-2',
+    prompt: LONG_PROMPT,
+    aspectRatio: '4:5',
+    resolution: '2K',
+  });
+  assert.equal(grok.sent.body.model, 'grok-imagine-image-2-0/text-to-image');
+  assert.equal('resolution' in grok.sent.body.input, false);
+  assert.equal(grok.sent.body.input.aspect_ratio, '2:3');
+
+  const nano = await captureCreateTask({ modelKey: 'nano-banana-2', prompt: LONG_PROMPT });
+  assert.deepEqual(nano.sent.body.input.image_input, []);
+
+  const fallback = await captureCreateTask({ modelKey: 'unknown-model', prompt: LONG_PROMPT });
+  assert.equal(fallback.sent.body.model, 'gpt-image-2-text-to-image');
+});
+
+test('createTask refuses an update when no canvas image url survives', async () => {
+  await assert.rejects(
+    captureCreateTask({
+      modelKey: 'gpt-image-2',
+      prompt: 'add a cowboy hat',
+      inputUrls: ['/direct-mail/api/creative/relative.png'],
+      editMode: true,
+    }),
+    /current canvas image/i,
+  );
+});
