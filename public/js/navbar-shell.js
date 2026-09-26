@@ -246,11 +246,6 @@
     if (next) {
       if (spPanel.classList.contains('softphone-panel--expanded')) {
         spPanel.classList.remove('softphone-panel--expanded');
-        var spExpandBtn = document.getElementById('softphoneExpandBtn');
-        if (spExpandBtn) {
-          spExpandBtn.setAttribute('aria-pressed', 'false');
-          spExpandBtn.classList.remove('softphone-chrome-btn--active');
-        }
       }
       applySoftphoneCompactLayout();
       if (opts.userExpanded === false) writeSoftphoneFocusExpanded(false);
@@ -6204,19 +6199,6 @@
   window.addEventListener('focus', function () {
     softphoneMaybeEndDeviceHandoffFromReturn();
   });
-
-  if (spExpand && spPanel) {
-    spExpand.addEventListener('click', function (e) {
-      e.stopPropagation();
-      if (softphoneSession.compact) {
-        setSoftphoneCompact(false, { userExpanded: true });
-        return;
-      }
-      var expanded = spPanel.classList.toggle('softphone-panel--expanded');
-      spExpand.setAttribute('aria-pressed', expanded ? 'true' : 'false');
-      spExpand.classList.toggle('softphone-chrome-btn--active', expanded);
-    });
-  }
 
   try {
     var savedTab = localStorage.getItem(SOFTPHONE_TAB_KEY);
