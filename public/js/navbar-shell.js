@@ -5580,6 +5580,7 @@
       if (!String(spTo.value || '').trim()) {
         softphoneSession.leadKey = '';
         softphoneSession.leadTitle = '';
+        clearSoftphoneBizReview();
       }
       updateSoftphoneCalleeDisplay();
       spTo.focus();
@@ -5590,6 +5591,7 @@
       if (!String(spTo.value || '').trim()) {
         softphoneSession.leadKey = '';
         softphoneSession.leadTitle = '';
+        clearSoftphoneBizReview();
       } else if (!softphoneSession.leadKey) {
         softphoneSession.leadTitle = resolveSoftphoneLeadTitle('', spTo.value);
       }
