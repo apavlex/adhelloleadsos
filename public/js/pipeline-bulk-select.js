@@ -3487,6 +3487,68 @@
     }
   }
 
+  function readOpportunityPlacementFromBarEarly() {
+    const boardEl = document.getElementById('bulkOpportunityPipelineSelect');
+    const stageEl = document.getElementById('bulkPipelineStageSelect');
+    if (!boardEl) return null;
+    const pipelineId = boardEl.value ? String(boardEl.value).trim() : '';
+    let stageId = stageEl && stageEl.value ? String(stageEl.value).trim() : '';
+    if (!pipelineId) return null;
+    const pipelineName =
+      (boardEl.options &&
+        boardEl.options[boardEl.selectedIndex] &&
+        String(boardEl.options[boardEl.selectedIndex].textContent || '').trim()) ||
+      'pipeline';
+    let stageName =
+      (stageEl &&
+        stageEl.options &&
+        stageEl.options[stageEl.selectedIndex] &&
+        String(stageEl.options[stageEl.selectedIndex].textContent || '').trim()) ||
+      '';
+    const boards = window.OPPORTUNITY_BOARDS;
+    const pipelines = boards && Array.isArray(boards.pipelines) ? boards.pipelines : [];
+    const pipeline = pipelines.find(function (item) {
+      return item && item.id === pipelineId;
+    });
+    if (pipeline && Array.isArray(pipeline.stages)) {
+      let stage = pipeline.stages.find(function (item) {
+        return item && item.id === stageId;
+      });
+      if (!stage && stageName) {
+        const want = stageName.toLowerCase();
+        stage = pipeline.stages.find(function (item) {
+          return String((item && item.name) || '')
+            .trim()
+            .toLowerCase() === want;
+        });
+      }
+      if (!stage && pipeline.stages.length) stage = pipeline.stages[0];
+      if (stage) {
+        stageId = stage.id;
+        stageName = stage.name || stageName;
+      }
+    }
+    if (!stageId) return null;
+    if (
+      stageId.indexOf('ops_') !== 0 &&
+      !(
+        pipeline &&
+        pipeline.stages &&
+        pipeline.stages.some(function (s) {
+          return s && s.id === stageId;
+        })
+      )
+    ) {
+      return null;
+    }
+    return {
+      pipelineId: pipelineId,
+      stageId: stageId,
+      pipelineName: pipelineName,
+      stageName: stageName || 'stage',
+    };
+  }
+
   async function runBulkSaveFolderFromBarEarly(triggerBtn) {
     if (
       document.getElementById('searchResultsLeadsTable') &&
@@ -3494,12 +3556,213 @@
     ) {
       return window.__bulkSaveSearchResultsToFolder(triggerBtn);
     }
-    if (typeof window.__bulkSaveSelectedLeads === 'function') {
-      return window.__bulkSaveSelectedLeads(triggerBtn);
+    // Prefer full app.js impl once it finished loading (not this early handler / not a stub).
+    if (
+      typeof window.__bulkSaveSelectedLeadsImpl === 'function' &&
+      window.__bulkSaveSelectedLeadsImpl !== runBulkSaveFolderFromBarEarly
+    ) {
+      return window.__bulkSaveSelectedLeadsImpl(triggerBtn);
     }
-    // Never fall through to Move — Save is opportunity/folder persist, not folder relocate.
-    window.alert('Save is still loading. Wait a second and try again, or refresh the page.');
+
+    const isProspectPipeline = !!document.getElementById('prospectLeadsTable');
+    const folderEl = document.getElementById('bulkFolderSelect');
+    const folderKey = folderEl && folderEl.value ? String(folderEl.value).trim() : '';
+    const opportunityPlacement = isProspectPipeline ? readOpportunityPlacementFromBarEarly() : null;
+    let leadKeys = collectSelectedLeadKeysEarly()
+      .map(normalizeLeadKeyForBoardApi)
+      .filter(Boolean);
+
+    if (!leadKeys.length) {
+      showBulkBarFeedbackEarly('Select at least one lead first.', 'error');
+      return;
+    }
+
+    const boardEl = document.getElementById('bulkOpportunityPipelineSelect');
+    if (isProspectPipeline && boardEl && boardEl.value && !opportunityPlacement) {
+      showBulkBarFeedbackEarly('Choose an opportunity stage, then click Save again.', 'error');
+      return;
+    }
+    if (!folderKey && !opportunityPlacement) {
+      window.alert('Select a folder or an opportunity board stage first.');
+      return;
+    }
+
+    const btn = triggerBtn || document.getElementById('bulkSaveBtn');
+    const buttons = [btn, document.getElementById('bulkSaveBtn'), document.getElementById('headerBulkSaveBtn')].filter(
+      Boolean,
+    );
+    const originalHtml = buttons.map(function (b) {
+      return b.innerHTML;
+    });
+    const placeLabel = opportunityPlacement
+      ? opportunityPlacement.pipelineName + ' · ' + opportunityPlacement.stageName
+      : '';
+    const folderName =
+      folderKey && Array.isArray(window.WORKSPACE_FOLDERS)
+        ? ((window.WORKSPACE_FOLDERS.find(function (f) {
+            return f && f.key === folderKey;
+          }) || {}).name || '')
+        : '';
+
+    buttons.forEach(function (b) {
+      b.disabled = true;
+      b.setAttribute('aria-busy', 'true');
+      b.innerHTML = 'Saving…';
+    });
+    showBulkBarFeedbackEarly(
+      'Saving ' +
+        leadKeys.length +
+        ' lead' +
+        (leadKeys.length === 1 ? '' : 's') +
+        (placeLabel ? ' to ' + placeLabel : folderName ? ' to ' + folderName : '') +
+        '…',
+      'loading',
+    );
+
+    try {
+      let savedKeys = leadKeys.slice();
+      if (folderKey) {
+        const res = await fetch('/folders/assign-bulk', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ leadKeys: leadKeys, folderKey: folderKey }),
+        });
+        const data = await res.json().catch(function () {
+          return {};
+        });
+        if (!res.ok || !data.success) {
+          throw new Error((data && data.error) || 'Could not assign folder (HTTP ' + res.status + ')');
+        }
+        const folderUpdated = Array.isArray(data.updatedKeys) ? data.updatedKeys : [];
+        if (folderUpdated.length) {
+          savedKeys = folderUpdated.map(normalizeLeadKeyForBoardApi).filter(Boolean);
+        }
+        if (!savedKeys.length && !opportunityPlacement) {
+          throw new Error('No leads were saved to that folder. Refresh the page and try again.');
+        }
+      }
+
+      if (opportunityPlacement) {
+        const res = await fetch('/opportunities/bulk-move', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({
+            leadKeys: savedKeys.length ? savedKeys : leadKeys,
+            pipelineId: opportunityPlacement.pipelineId,
+            stageId: opportunityPlacement.stageId,
+            stageName: opportunityPlacement.stageName,
+            ...(folderKey ? { folderKey: folderKey } : {}),
+          }),
+        });
+        const data = await res.json().catch(function () {
+          return {};
+        });
+        if (!res.ok || !data.success) {
+          throw new Error(
+            (data && data.error) || 'Could not save those leads to the selected pipeline.',
+          );
+        }
+        if (Array.isArray(data.updatedKeys) && data.updatedKeys.length) {
+          savedKeys = data.updatedKeys.map(normalizeLeadKeyForBoardApi).filter(Boolean);
+        }
+        if (data.pipelineName) opportunityPlacement.pipelineName = data.pipelineName;
+        if (data.stageName) opportunityPlacement.stageName = data.stageName;
+        if (data.pipelineId) opportunityPlacement.pipelineId = data.pipelineId;
+        if (data.stageId) opportunityPlacement.stageId = data.stageId;
+        if (typeof window.__adhelloApplyOpportunityPlacement === 'function') {
+          window.__adhelloApplyOpportunityPlacement(
+            savedKeys,
+            opportunityPlacement.pipelineId,
+            opportunityPlacement.stageId,
+          );
+        }
+        savedKeys.forEach(function (leadKey) {
+          const row = findLeadRowForBoardKey(leadKey);
+          if (!row) return;
+          row.dataset.opportunityPipelineId = opportunityPlacement.pipelineId;
+          row.dataset.opportunityStageId = opportunityPlacement.stageId;
+          row.dataset.onPipelineBoard = '1';
+        });
+      }
+
+      const viewingFolder =
+        typeof window.PROSPECTING_ACTIVE_FOLDER_KEY === 'string'
+          ? window.PROSPECTING_ACTIVE_FOLDER_KEY.trim()
+          : '';
+      // Opportunity Save must not strip rows like Move. Only remove on folder reassignment.
+      if (folderKey && !opportunityPlacement) {
+        savedKeys.forEach(function (leadKey) {
+          const row = findLeadRowForBoardKey(leadKey);
+          if (!row) return;
+          if (viewingFolder && folderKey !== viewingFolder) row.remove();
+          else if (!viewingFolder && folderKey) row.remove();
+        });
+      } else if (folderKey && opportunityPlacement && viewingFolder && folderKey !== viewingFolder) {
+        savedKeys.forEach(function (leadKey) {
+          const row = findLeadRowForBoardKey(leadKey);
+          if (row) row.remove();
+        });
+      }
+
+      document.querySelectorAll('.lead-checkbox:checked, .row-checkbox:checked').forEach(function (cb) {
+        cb.checked = false;
+      });
+
+      const assignCount = savedKeys.length || leadKeys.length;
+      const savedPlace = opportunityPlacement
+        ? opportunityPlacement.pipelineName + ' · ' + opportunityPlacement.stageName
+        : placeLabel;
+      const successMsg = savedPlace
+        ? 'Saved ' + assignCount + ' lead' + (assignCount === 1 ? '' : 's') + ' to ' + savedPlace
+        : folderName
+          ? 'Saved ' + assignCount + ' lead' + (assignCount === 1 ? '' : 's') + ' to ' + folderName
+          : 'Saved ' + assignCount + ' lead' + (assignCount === 1 ? '' : 's');
+
+      const bar = document.getElementById('bulkActionBar');
+      const boardBtn = document.getElementById('bulkAddToBoardBtn');
+      if (boardBtn) boardBtn.remove();
+      if (bar) bar.dataset.holdSaved = '1';
+      buttons.forEach(function (b) {
+        b.disabled = false;
+        b.removeAttribute('aria-busy');
+        b.innerHTML = 'Saved ✓';
+      });
+      showBulkBarFeedbackEarly(successMsg, 'success');
+      if (typeof window.showProspectToast === 'function') window.showProspectToast(successMsg);
+      if (opportunityPlacement && typeof window.showAppToast === 'function') {
+        window.showAppToast(successMsg + '. Open Opportunities to see them on the board.', {
+          variant: 'success',
+          duration: 7000,
+        });
+      }
+      window.setTimeout(function () {
+        if (bar) bar.dataset.holdSaved = '';
+        buttons.forEach(function (b, i) {
+          b.disabled = false;
+          b.removeAttribute('aria-busy');
+          if (originalHtml[i] != null) b.innerHTML = originalHtml[i];
+        });
+        if (typeof window.__syncBulkBarFromDom === 'function') window.__syncBulkBarFromDom();
+        else if (typeof window.__updateBulkActionBar === 'function') window.__updateBulkActionBar();
+      }, 4200);
+    } catch (err) {
+      console.error('[pipeline-bulk-select] bulk save failed:', err);
+      showBulkBarFeedbackEarly(
+        (err && err.message) || 'Could not save leads.',
+        'error',
+      );
+      buttons.forEach(function (b, i) {
+        b.disabled = false;
+        b.removeAttribute('aria-busy');
+        if (originalHtml[i] != null) b.innerHTML = originalHtml[i];
+      });
+    }
   }
+
+  // Register immediately so Save works before app.js finishes parsing.
+  window.__bulkSaveSelectedLeads = runBulkSaveFolderFromBarEarly;
 
   function bindBulkBoardButtonDirect() {
     const btn = document.getElementById('bulkAddToBoardBtn');
@@ -3818,7 +4081,7 @@
     );
   }
 
-  window.__PIPELINE_BULK_SELECT_V2 = '16';
+  window.__PIPELINE_BULK_SELECT_V2 = '17';
   window.__pipelineBulkSelectApply = applySelectAll;
   window.__applySelectAllLeads = applySelectAll;
 

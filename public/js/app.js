@@ -17744,10 +17744,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const bulkPushGhlBtn = document.getElementById('bulkPushGhlBtn');
   const bulkCreateSubaccountBtn = document.getElementById('bulkCreateSubaccountBtn');
 
-  // Expose early so capture-phase bulk bar handlers never fall back to Move.
-  window.__bulkSaveSelectedLeads = function bulkSaveSelectedLeadsPending() {
-    window.alert('Save is still loading. Wait a second and try again.');
-  };
+  // Prefer early Save from pipeline-bulk-select until the full impl below is ready.
+  // Do not install an alerting stub — that blocked Save while app.js was still parsing.
+  if (typeof window.__bulkSaveSelectedLeads !== 'function') {
+    window.__bulkSaveSelectedLeads = function bulkSaveSelectedLeadsPending(triggerBtn) {
+      if (typeof window.__bulkSaveSelectedLeadsImpl === 'function') {
+        return window.__bulkSaveSelectedLeadsImpl(triggerBtn);
+      }
+      window.alert('Save is still loading. Wait a second and try again.');
+    };
+  }
 
   let selectedKeys = new Set();
   let bulkSelectSyncing = false;
@@ -19616,6 +19622,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }, 3500);
     }
   }
+  window.__bulkSaveSelectedLeadsImpl = bulkSaveSelectedLeads;
   window.__bulkSaveSelectedLeads = bulkSaveSelectedLeads;
 
   const isSearchResultsPage = !!document.getElementById('searchResultsLeadsTable');
