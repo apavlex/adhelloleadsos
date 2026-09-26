@@ -205,7 +205,8 @@
       <% if (_hasActiveFilters) { %>
       <span class="rounded-full bg-brand-yellow/25 dark:bg-brand-yellow/20 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow border border-brand-yellow/40">Filtered</span>
       <% } %>
-      <span class="text-[10px] font-semibold text-brand-muted dark:text-slate-400"><%= leads.length %> lead<%= leads.length === 1 ? '' : 's' %> in view</span>
+      <% const _viewCount = typeof pipelineLeadsTotal === 'number' ? pipelineLeadsTotal : leads.length; %>
+      <span class="text-[10px] font-semibold text-brand-muted dark:text-slate-400"><%= _viewCount %> lead<%= _viewCount === 1 ? '' : 's' %> in view</span>
     </div>
   </div>
 <form method="get" action="/prospecting" class="px-5 py-4 md:px-6 md:py-5">

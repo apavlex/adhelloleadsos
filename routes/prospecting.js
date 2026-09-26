@@ -37,6 +37,12 @@ const { normalizeLeadForPanel } = require('../services/leadPanelNormalize');
 const { LMV_PROSPECTING_METHODS } = require('../config/lmvProspectingMethods');
 const { normalizeBoards } = require('../services/opportunityBoards');
 
+/** First-paint HTML rows — remaining rows load via /prospecting/table-rows. */
+const PIPELINE_SSR_ROW_CAP = Math.min(
+  200,
+  Math.max(25, parseInt(process.env.PIPELINE_SSR_ROW_CAP || '50', 10) || 50),
+);
+
 router.get('/', async (req, res, next) => {
   try {
     const tab = String(req.query.tab || 'pipeline').toLowerCase();
@@ -147,7 +153,6 @@ router.get('/', async (req, res, next) => {
     }
 
     leads = applyLeadListFilters(leads, leadListFilters);
-    leads = leads.map((l) => normalizeLeadForPanel(l));
 
     const activeFolder = folders.find((f) => f && String(f.key) === activeFolderKey);
     const originFilter = String(leadListFilters.origin || '').trim().toLowerCase();
@@ -194,14 +199,34 @@ router.get('/', async (req, res, next) => {
       buildDriveImportBundle(req, email),
     ]);
     const pipelineStages = pipelineStagesService.stagesForKanban(stageRows);
-    leads = leads.map((l) => {
-      const sid = pipelineStagesService.resolveStageIdForLead(l, stageRows);
+
+    const pipelineLeadsTotal = leads.length;
+    const ssrCap =
+      safeTab === 'pipeline' ? Math.min(PIPELINE_SSR_ROW_CAP, pipelineLeadsTotal) : pipelineLeadsTotal;
+    // Normalize + stage-resolve only what we ship in HTML / bootstrap paths that need it.
+    const decorateLead = (l) => {
+      const normalized = normalizeLeadForPanel(l);
+      const sid = pipelineStagesService.resolveStageIdForLead(normalized, stageRows);
       return {
-        ...l,
+        ...normalized,
         stageId: sid,
         pipelineStage: pipelineStagesService.stageIndex1Based(stageRows, sid),
       };
-    });
+    };
+    const ssrLeads = leads.slice(0, ssrCap).map(decorateLead);
+    // Full filtered list for client bootstrap / kanban (slim map — no full panel normalize).
+    const bootstrapSource =
+      safeTab === 'pipeline'
+        ? leads.map((l) => {
+            const sid = pipelineStagesService.resolveStageIdForLead(l, stageRows);
+            return {
+              ...l,
+              stageId: sid,
+              pipelineStage: pipelineStagesService.stageIndex1Based(stageRows, sid),
+            };
+          })
+        : [];
+    leads = ssrLeads;
 
     let importNotice = null;
     if (
@@ -244,7 +269,8 @@ router.get('/', async (req, res, next) => {
 
     const queueListLeads = safeTab === 'queue' ? pipelineVisible.map(mapLeadListJson) : [];
     const folderListLeads = safeTab === 'folders' ? visible.map(mapLeadListJson) : [];
-    const leadBootstrapLeads = safeTab === 'pipeline' ? leads.map(mapLeadPipelineBootstrap) : [];
+    const leadBootstrapLeads =
+      safeTab === 'pipeline' ? bootstrapSource.map(mapLeadPipelineBootstrap) : [];
     const opportunityBoardLeads =
       safeTab === 'pipeline'
         ? visible
@@ -359,6 +385,145 @@ router.get('/', async (req, res, next) => {
       canManageWorkspace: req.canManageWorkspace,
       driveImport,
       workspaceProspecting,
+      pipelineLeadsTotal: safeTab === 'pipeline' ? pipelineLeadsTotal : leads.length,
+      pipelineSsrOffset: 0,
+      pipelineSsrHasMore: safeTab === 'pipeline' && pipelineLeadsTotal > ssrCap,
+      pipelineRowsQuery:
+        safeTab === 'pipeline'
+          ? [
+              'tab=pipeline',
+              sourceFilter && sourceFilter !== 'all' ? `source=${encodeURIComponent(sourceFilter)}` : '',
+              includeFoldered ? 'includeFoldered=1' : '',
+              leadsFilterSuffix ? leadsFilterSuffix.replace(/^&/, '') : '',
+            ]
+              .filter(Boolean)
+              .join('&')
+          : '',
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * HTML fragment of additional pipeline table rows (Load more).
+ * Query: offset, limit, same filters as /prospecting?tab=pipeline.
+ */
+router.get('/table-rows', async (req, res, next) => {
+  try {
+    const wid = req.workspaceId;
+    const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
+    const limit = Math.min(
+      200,
+      Math.max(1, parseInt(req.query.limit, 10) || PIPELINE_SSR_ROW_CAP),
+    );
+
+    const [all, foldersInitial, tags, stageRows, ws] = await Promise.all([
+      dbService.getAllLeads(wid),
+      ensurePipelineFolders(wid),
+      dbService.listTags(wid),
+      pipelineStagesService.ensureWorkspaceStagesSeeded(wid),
+      dbService.getWorkspace(wid),
+    ]);
+    const visible = filterLeadsForRequest(req, all);
+    const pipelineVisible = excludeOutreachFolderLeads(visible);
+    const migrated = await migrateLegacyFolders(wid, foldersInitial);
+    const folders = migrated.folders;
+    const folderTree = buildFolderTree(folders);
+
+    const leadListFilters = normalizeLeadListFilters(req.query);
+    const hasGlobalSearch = !!String(leadListFilters.q || '').trim();
+    if (
+      !String(leadListFilters.folderKey || '').trim() &&
+      !String(leadListFilters.origin || '').trim() &&
+      !hasGlobalSearch &&
+      req.query.includeFoldered !== '1' &&
+      req.query.includeFoldered !== 'true'
+    ) {
+      const bizFolder = folders.find(
+        (f) => f && f.jobType === 'maps_business' && f.isPipelineDefault,
+      );
+      if (bizFolder && bizFolder.key) {
+        leadListFilters.folderKey = String(bizFolder.key);
+      }
+    }
+    const includeFoldered =
+      req.query.includeFoldered === '1' ||
+      req.query.includeFoldered === 'true' ||
+      hasGlobalSearch ||
+      String(leadListFilters.origin || '').trim().toLowerCase() === 'csv';
+    const activeFolderKey = String(leadListFilters.folderKey || '').trim();
+    const folderKeys = activeFolderKey
+      ? folderKeysIncludingDescendants(folderTree, activeFolderKey)
+      : null;
+    if (folderKeys) leadListFilters.folderKeys = folderKeys;
+    if (hasGlobalSearch) {
+      leadListFilters.searchContext = buildLeadSearchContext(tags, folders, { workspace: ws });
+    }
+    const folderMembers = folderKeys
+      ? visible.filter((l) => folderKeys.has(String(l.folderKey || '').trim()))
+      : null;
+    const pipelineBase =
+      folderMembers != null
+        ? folderMembers
+        : includeFoldered
+          ? visible
+          : pipelineVisible;
+
+    const sourceFilter = String(req.query.source || 'all').toLowerCase();
+    let leads = pipelineBase;
+    if (sourceFilter === 'inbound') {
+      leads = pipelineBase.filter((l) => l.source && l.source.startsWith('adhello_'));
+    } else if (sourceFilter === 'cold') {
+      leads = pipelineBase.filter((l) => !l.source || !l.source.startsWith('adhello_'));
+    }
+    leads = applyLeadListFilters(leads, leadListFilters);
+
+    const activeFolder = folders.find((f) => f && String(f.key) === activeFolderKey);
+    const originFilter = String(leadListFilters.origin || '').trim().toLowerCase();
+    const isBusinessesView =
+      (activeFolder && activeFolder.jobType === 'maps_business') ||
+      originFilter === 'maps_business' ||
+      originFilter === 'maps' ||
+      originFilter === 'business';
+    if (isBusinessesView) {
+      leads.sort((a, b) => {
+        const ha = hasUsableWebsite(a) ? 1 : 0;
+        const hb = hasUsableWebsite(b) ? 1 : 0;
+        if (ha !== hb) return ha - hb;
+        return String(a.title || '').localeCompare(String(b.title || ''), undefined, {
+          sensitivity: 'base',
+        });
+      });
+    }
+
+    const total = leads.length;
+    const slice = leads.slice(offset, offset + limit).map((l) => {
+      const normalized = normalizeLeadForPanel(l);
+      const sid = pipelineStagesService.resolveStageIdForLead(normalized, stageRows);
+      return {
+        ...normalized,
+        stageId: sid,
+        pipelineStage: pipelineStagesService.stageIndex1Based(stageRows, sid),
+      };
+    });
+    const pipelineStages = pipelineStagesService.stagesForKanban(stageRows);
+    const nextOffset = offset + slice.length;
+    const hasMore = nextOffset < total;
+
+    res.set({
+      'Cache-Control': 'private, no-store',
+      'X-Pipeline-Total': String(total),
+      'X-Pipeline-Offset': String(offset),
+      'X-Pipeline-Next-Offset': String(nextOffset),
+      'X-Pipeline-Has-More': hasMore ? '1' : '0',
+      'X-Pipeline-Count': String(slice.length),
+    });
+    res.render('partials/pipeline_lead_rows', {
+      leads: slice,
+      pipelineStages,
+      tags,
+      rowIndexOffset: offset,
     });
   } catch (e) {
     next(e);

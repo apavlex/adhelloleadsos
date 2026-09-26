@@ -1481,6 +1481,16 @@ document.addEventListener('DOMContentLoaded', () => {
       const pagingWrap = document.getElementById('pipelineTablePaging');
       if (!tbody || !statusEl || !loadMoreBtn || !pagingWrap) return;
 
+      const meta =
+        window.__PIPELINE_ROWS_META && typeof window.__PIPELINE_ROWS_META === 'object'
+          ? window.__PIPELINE_ROWS_META
+          : { total: 0, loaded: 0, hasMore: false, nextOffset: 0, query: '' };
+      let serverTotal = Math.max(0, parseInt(meta.total, 10) || 0);
+      let serverNextOffset = Math.max(0, parseInt(meta.nextOffset, 10) || 0);
+      let serverHasMore = !!meta.hasMore;
+      const rowsQuery = String(meta.query || '');
+      let fetchInFlight = false;
+
       let pageSize = readPipelinePageSize();
       let visibleLimit = pageSize;
       if (pageSizeSelect) {
@@ -1501,24 +1511,33 @@ document.addEventListener('DOMContentLoaded', () => {
         return Array.from(tbody.querySelectorAll('tr.result-row'));
       }
 
+      function pipelineListTotal() {
+        return Math.max(serverTotal, pipelineRows().length);
+      }
+
       function applyPipelinePaging() {
         const rows = pipelineRows();
-        const total = rows.length;
+        const domCount = rows.length;
+        const total = pipelineListTotal();
         rows.forEach((row, index) => {
           row.classList.toggle('pipeline-row-page-hidden', index >= visibleLimit);
         });
-        const shown = Math.min(visibleLimit, total);
+        const shown = Math.min(visibleLimit, domCount);
         statusEl.textContent =
           total > 0
             ? `Showing ${shown} of ${total} lead${total === 1 ? '' : 's'} · ${pageSize} per page`
             : '';
-        const hasMore = total > visibleLimit;
-        loadMoreBtn.classList.toggle('hidden', !hasMore);
+        const needServerFetch = serverHasMore && visibleLimit > domCount;
+        const hasMore = total > visibleLimit || serverHasMore || needServerFetch;
+        loadMoreBtn.classList.toggle('hidden', !hasMore && !fetchInFlight);
         pagingWrap.classList.toggle('hidden', total === 0);
-        if (hasMore) {
-          const nextBatch = Math.min(pageSize, total - visibleLimit);
-          loadMoreBtn.textContent = `Load more (${nextBatch} more)`;
-          loadMoreBtn.disabled = false;
+        if (hasMore || fetchInFlight) {
+          const remaining = Math.max(0, total - Math.min(visibleLimit, domCount));
+          const nextBatch = Math.min(pageSize, remaining || pageSize);
+          loadMoreBtn.textContent = fetchInFlight
+            ? 'Loading…'
+            : `Load more (${nextBatch} more)`;
+          loadMoreBtn.disabled = fetchInFlight;
         }
         if (typeof window.__syncSelectAllLeadCheckbox === 'function') {
           window.__syncSelectAllLeadCheckbox();
@@ -1534,9 +1553,62 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof window.__initLeadRowTags === 'function') {
           window.__initLeadRowTags();
         }
+        if (typeof window.__primePipelinePrefsDom === 'function') {
+          window.__primePipelinePrefsDom();
+        }
       }
 
-      loadMoreBtn.addEventListener('click', () => {
+      async function fetchMorePipelineRows() {
+        if (fetchInFlight || !serverHasMore) return false;
+        fetchInFlight = true;
+        applyPipelinePaging();
+        try {
+          const qs = [
+            rowsQuery,
+            `offset=${encodeURIComponent(String(serverNextOffset))}`,
+            `limit=${encodeURIComponent(String(Math.max(pageSize, 25)))}`,
+          ]
+            .filter(Boolean)
+            .join('&');
+          const res = await fetch(`/prospecting/table-rows?${qs}`, {
+            credentials: 'same-origin',
+            headers: { Accept: 'text/html' },
+          });
+          if (!res.ok) throw new Error(`table-rows ${res.status}`);
+          const html = await res.text();
+          const totalHdr = parseInt(res.headers.get('X-Pipeline-Total') || '', 10);
+          const nextHdr = parseInt(res.headers.get('X-Pipeline-Next-Offset') || '', 10);
+          const hasMoreHdr = res.headers.get('X-Pipeline-Has-More');
+          if (Number.isFinite(totalHdr) && totalHdr >= 0) serverTotal = totalHdr;
+          if (Number.isFinite(nextHdr) && nextHdr >= 0) serverNextOffset = nextHdr;
+          if (hasMoreHdr === '0' || hasMoreHdr === '1') serverHasMore = hasMoreHdr === '1';
+          else serverHasMore = serverNextOffset < serverTotal;
+          if (html && html.trim()) {
+            tbody.insertAdjacentHTML('beforeend', html);
+          }
+          window.__PIPELINE_ROWS_META = {
+            ...(window.__PIPELINE_ROWS_META || {}),
+            total: serverTotal,
+            loaded: pipelineRows().length,
+            hasMore: serverHasMore,
+            nextOffset: serverNextOffset,
+            query: rowsQuery,
+          };
+          return true;
+        } catch (err) {
+          console.warn('[pipeline] load more rows failed', err);
+          return false;
+        } finally {
+          fetchInFlight = false;
+          applyPipelinePaging();
+        }
+      }
+
+      loadMoreBtn.addEventListener('click', async () => {
+        const domCount = pipelineRows().length;
+        if (visibleLimit >= domCount && serverHasMore) {
+          await fetchMorePipelineRows();
+        }
         visibleLimit += pageSize;
         applyPipelinePaging();
       });
@@ -1553,21 +1625,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!rowsAlreadyPaged) {
         applyPipelinePaging();
       } else {
-        const rows = pipelineRows();
-        const total = rows.length;
-        const shown = Math.min(visibleLimit, total);
-        statusEl.textContent =
-          total > 0
-            ? `Showing ${shown} of ${total} lead${total === 1 ? '' : 's'} · ${pageSize} per page`
-            : '';
-        const hasMore = total > visibleLimit;
-        loadMoreBtn.classList.toggle('hidden', !hasMore);
-        pagingWrap.classList.toggle('hidden', total === 0);
-        if (hasMore) {
-          const nextBatch = Math.min(pageSize, total - visibleLimit);
-          loadMoreBtn.textContent = `Load more (${nextBatch} more)`;
-          loadMoreBtn.disabled = false;
-        }
+        applyPipelinePaging();
       }
     })();
 

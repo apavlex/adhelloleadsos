@@ -26,6 +26,13 @@
       ? leadBootstrapLeads
       : (leads || [])
   ) %>;
+  window.__PIPELINE_ROWS_META = <%- safeJsonForScript({
+    total: typeof pipelineLeadsTotal === 'number' ? pipelineLeadsTotal : (Array.isArray(leads) ? leads.length : 0),
+    loaded: Array.isArray(leads) ? leads.length : 0,
+    hasMore: !!(typeof pipelineSsrHasMore !== 'undefined' && pipelineSsrHasMore),
+    nextOffset: typeof pipelineLeadsTotal === 'number' && Array.isArray(leads) ? leads.length : 0,
+    query: typeof pipelineRowsQuery === 'string' ? pipelineRowsQuery : '',
+  }) %>;
   window.PIPELINE_STAGE_LABELS = <%- safeJsonForScript((typeof pipelineStages !== 'undefined' && pipelineStages ? pipelineStages : []).reduce((m, s) => { m[s.id] = s.name; return m; }, {})) %>;
   window.PIPELINE_STAGE_COLORS = <%- safeJsonForScript((typeof pipelineStages !== 'undefined' && pipelineStages ? pipelineStages : []).reduce((m, s) => { m[s.id] = s.color || '#94a3b8'; return m; }, {})) %>;
   window.PIPELINE_STAGES = <%- safeJsonForScript((typeof pipelineStages !== 'undefined' && pipelineStages ? pipelineStages : []).map((s) => ({ id: s.id, name: s.name, color: s.color || '#94a3b8' }))) %>;
