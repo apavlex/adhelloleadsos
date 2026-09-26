@@ -426,7 +426,7 @@
           <button type="button" id="softphoneSettingsBtn" class="softphone-chrome-btn" aria-label="Dialer settings" title="Settings">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
           </button>
-          <button type="button" id="softphonePinBtn" class="softphone-chrome-btn" aria-label="Pin dialer to sidebar" title="Pin dialer" aria-pressed="false">
+          <button type="button" id="softphoneBookmarkBtn" class="softphone-chrome-btn softphone-bookmark-btn" aria-label="Bookmark lead" title="Bookmark lead for pipeline review" aria-pressed="false" data-saved="0" disabled>
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
           </button>
           <button type="button" id="softphoneMinimizeBtn" class="softphone-chrome-btn hidden" aria-label="Minimize dialer" title="Minimize to compact bar" aria-pressed="false">
@@ -587,6 +587,23 @@
               }) %>
             </div>
             <input type="hidden" id="softphoneDisposition" value="" />
+            <div id="softphoneFollowupStrip" class="hidden mb-2 rounded-xl border border-slate-200/80 dark:border-white/10 bg-slate-50/80 dark:bg-slate-900/50 p-2.5 space-y-2">
+              <label class="flex items-center gap-2 text-[11px] font-bold text-slate-700 dark:text-slate-200 cursor-pointer">
+                <input type="checkbox" id="softphoneFollowupEnable" class="rounded border-slate-300 dark:border-white/20 text-brand-yellow focus:ring-brand-yellow/40" checked />
+                Schedule follow-up task
+              </label>
+              <div id="softphoneFollowupPresets" class="flex flex-wrap gap-1">
+                <button type="button" class="softphone-followup-preset softphone-quick-log" data-preset="tomorrow">Tomorrow 10am</button>
+                <button type="button" class="softphone-followup-preset softphone-quick-log" data-preset="3days">In 3 days</button>
+                <button type="button" class="softphone-followup-preset softphone-quick-log" data-preset="nextweek">Next week</button>
+                <button type="button" class="softphone-followup-preset softphone-quick-log" data-preset="custom">Custom</button>
+              </div>
+              <div id="softphoneFollowupWrap">
+                <label for="softphoneFollowupAt" class="sr-only">Follow-up date and time</label>
+                <input id="softphoneFollowupAt" type="datetime-local" class="gcal-datetime-value sr-only" tabindex="-1" aria-hidden="true" />
+              </div>
+              <p class="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">Saves to Tasks with a reminder notification when due.</p>
+            </div>
             <%- include('/partials/lead_send_info', { sendInfoId: 'softphoneSendInfo', sendInfoCompact: true, sendInfoHidden: true }) %>
             <label for="softphoneNotes" class="sr-only">Call notes</label>
             <textarea id="softphoneNotes" rows="2" class="w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-[11px] text-slate-800 dark:text-white placeholder:text-slate-400 resize-y min-h-[3rem]" placeholder="Owner response, objection, next step…"></textarea>

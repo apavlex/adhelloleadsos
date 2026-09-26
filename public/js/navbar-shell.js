@@ -311,6 +311,11 @@
   var spNotes = document.getElementById('softphoneNotes');
   var spStatusSelect = document.getElementById('softphoneStatusSelect');
   var spQuickLogRow = document.getElementById('softphoneQuickLogRow');
+  var spFollowupStrip = document.getElementById('softphoneFollowupStrip');
+  var spFollowupEnable = document.getElementById('softphoneFollowupEnable');
+  var spFollowupWrap = document.getElementById('softphoneFollowupWrap');
+  var spFollowupAt = document.getElementById('softphoneFollowupAt');
+  var spFollowupPresets = document.querySelectorAll('.softphone-followup-preset');
   var spWrapPanel = document.getElementById('softphoneWrapPanel');
   var spWrapLeadHint = document.getElementById('softphoneWrapLeadHint');
   var spWrapFeedback = document.getElementById('softphoneWrapFeedback');
@@ -1987,8 +1992,10 @@
     }
     updateSoftphoneCalleeDisplay();
     updateSoftphoneWrapLeadHint();
+    syncSoftphoneBookmarkEnabled();
     if (!softphoneSession.leadKey) {
       clearSoftphoneBizReview();
+      paintSoftphoneBookmark(false);
       return;
     }
     hydrateSoftphoneLeadFromPanel();
@@ -2122,7 +2129,219 @@
     if (item && item.status && spStatusSelect) {
       spStatusSelect.value = item.status;
     }
+    syncSoftphoneFollowupStripForOutcome(v);
     setSoftphoneWrapFeedback('Quick log: ' + (softphoneOutcomeLabel(v) || v.replace(/_/g, ' ')), false);
+  }
+
+  function softphonePad2(n) {
+    return String(n).padStart(2, '0');
+  }
+
+  function setSoftphoneFollowupDatetimeLocal(d) {
+    if (!(d instanceof Date) || Number.isNaN(d.getTime())) return;
+    if (softphoneFollowupPicker && typeof softphoneFollowupPicker.setDate === 'function') {
+      softphoneFollowupPicker.setDate(d);
+      return;
+    }
+    if (!spFollowupAt) return;
+    spFollowupAt.value =
+      d.getFullYear() +
+      '-' +
+      softphonePad2(d.getMonth() + 1) +
+      '-' +
+      softphonePad2(d.getDate()) +
+      'T' +
+      softphonePad2(d.getHours()) +
+      ':' +
+      softphonePad2(d.getMinutes());
+  }
+
+  function defaultSoftphoneFollowupDatetime() {
+    var d = new Date();
+    d.setDate(d.getDate() + 1);
+    d.setHours(10, 0, 0, 0);
+    setSoftphoneFollowupDatetimeLocal(d);
+  }
+
+  function applySoftphoneFollowupPreset(preset) {
+    var d = new Date();
+    if (preset === 'tomorrow') {
+      d.setDate(d.getDate() + 1);
+      d.setHours(10, 0, 0, 0);
+    } else if (preset === '3days') {
+      d.setDate(d.getDate() + 3);
+      d.setHours(10, 0, 0, 0);
+    } else if (preset === 'nextweek') {
+      d.setDate(d.getDate() + 7);
+      d.setHours(10, 0, 0, 0);
+    } else if (preset === 'custom') {
+      if (softphoneFollowupPicker && typeof softphoneFollowupPicker.open === 'function') {
+        softphoneFollowupPicker.open();
+      } else if (spFollowupAt && typeof spFollowupAt.showPicker === 'function') {
+        try { spFollowupAt.showPicker(); } catch (_) {}
+      }
+      return;
+    }
+    setSoftphoneFollowupDatetimeLocal(d);
+  }
+
+  function syncSoftphoneFollowupStripForOutcome(value) {
+    var item = softphoneQuickLogItemForValue(value);
+    var needs = !!(item && item.enableFollowup);
+    if (spFollowupStrip) spFollowupStrip.classList.toggle('hidden', !needs);
+    if (!needs) return;
+    if (spFollowupEnable) spFollowupEnable.checked = true;
+    if (spFollowupWrap) spFollowupWrap.classList.remove('hidden');
+    defaultSoftphoneFollowupDatetime();
+  }
+
+  function softphoneFollowUpPayload() {
+    var item = softphoneQuickLogItemForValue(spDisposition ? spDisposition.value : '');
+    if (!item || !item.enableFollowup) return { skipFollowUp: true };
+    if (!spFollowupEnable || !spFollowupEnable.checked) return { skipFollowUp: true };
+    var when = String((spFollowupAt && spFollowupAt.value) || '').trim();
+    if (!when) {
+      defaultSoftphoneFollowupDatetime();
+      when = String((spFollowupAt && spFollowupAt.value) || '').trim();
+    }
+    if (!when) return { skipFollowUp: true };
+    var parsed = new Date(when);
+    if (Number.isNaN(parsed.getTime())) {
+      setSoftphoneWrapFeedback('Invalid follow-up date/time.', true);
+      return null;
+    }
+    return { scheduledAt: parsed.toISOString(), skipFollowUp: false };
+  }
+
+  function softphoneRequestTaskReminderPermission() {
+    if (window.AgencyTaskReminders && typeof window.AgencyTaskReminders.ensurePermissionForScheduledTask === 'function') {
+      return window.AgencyTaskReminders.ensurePermissionForScheduledTask();
+    }
+    if (!('Notification' in window)) return Promise.resolve('unsupported');
+    if (Notification.permission !== 'default') return Promise.resolve(Notification.permission);
+    return Promise.resolve(Notification.requestPermission()).catch(function () {
+      return 'denied';
+    });
+  }
+
+  function softphoneRefreshTaskReminders() {
+    if (window.AgencyTaskReminders && typeof window.AgencyTaskReminders.refresh === 'function') {
+      try { window.AgencyTaskReminders.refresh(); } catch (_) {}
+    }
+  }
+
+  function softphoneBookmarkTitles(saved) {
+    return saved
+      ? { title: 'Bookmarked — tap to remove', label: 'Remove bookmark' }
+      : { title: 'Bookmark lead for pipeline review', label: 'Bookmark lead' };
+  }
+
+  function paintSoftphoneBookmark(saved) {
+    if (!spBookmark) return;
+    var on = !!saved;
+    spBookmark.dataset.saved = on ? '1' : '0';
+    spBookmark.setAttribute('data-saved', on ? '1' : '0');
+    spBookmark.setAttribute('aria-pressed', on ? 'true' : 'false');
+    spBookmark.classList.toggle('softphone-chrome-btn--bookmarked', on);
+    var titles = softphoneBookmarkTitles(on);
+    spBookmark.setAttribute('title', titles.title);
+    spBookmark.setAttribute('aria-label', titles.label);
+    var svg = spBookmark.querySelector('svg');
+    if (svg) svg.setAttribute('fill', on ? 'currentColor' : 'none');
+  }
+
+  function syncSoftphoneBookmarkEnabled() {
+    if (!spBookmark) return;
+    var key = softphoneLeadStorageKey();
+    spBookmark.disabled = !key;
+    if (!key) paintSoftphoneBookmark(false);
+  }
+
+  function syncPipelineBookmarkForLead(key, on) {
+    var k = String(key || '').trim().replace(/^lead:/i, '');
+    if (!k) return;
+    var variants = [k, 'lead:' + k];
+    variants.forEach(function (variant) {
+      var row = document.querySelector(
+        'tr.result-row[data-lead-key="' + CSS.escape(variant) + '"]',
+      );
+      if (!row || !row.dataset) return;
+      row.dataset.bookmarked = on ? '1' : '0';
+      row.dataset.bookmarkClient = '1';
+      var btn = row.querySelector('.bookmark-btn');
+      if (!btn) return;
+      if (typeof window.markBookmarkSaved === 'function' && typeof window.markBookmarkUnsaved === 'function') {
+        if (on) window.markBookmarkSaved(btn);
+        else window.markBookmarkUnsaved(btn);
+      } else {
+        btn.dataset.saved = on ? '1' : '0';
+        btn.setAttribute('data-saved', on ? '1' : '0');
+        btn.classList.toggle('bookmark-btn--saved', on);
+        btn.classList.toggle('bg-brand-yellow', on);
+        btn.classList.toggle('text-brand-dark', on);
+        btn.classList.toggle('border-brand-yellow', on);
+      }
+    });
+    var list = window.INITIAL_SAVED_LEADS;
+    if (Array.isArray(list)) {
+      var full = 'lead:' + k;
+      var rec = list.find(function (L) {
+        return L && (L.key === full || L.key === k || String(L.key || '').replace(/^lead:/i, '') === k);
+      });
+      if (rec) rec.bookmarked = on;
+    }
+  }
+
+  function toggleSoftphoneLeadBookmark() {
+    if (!spBookmark || spBookmark.disabled || spBookmark.dataset.bookmarkBusy === '1') return;
+    var key = softphoneLeadStorageKey();
+    if (!key) {
+      softphoneSetStatus('Open a saved lead to bookmark it.', true);
+      setSoftphoneWrapFeedback('Link a lead before bookmarking.', true);
+      return;
+    }
+    var next = spBookmark.dataset.saved !== '1';
+    spBookmark.dataset.bookmarkBusy = '1';
+    spBookmark.setAttribute('aria-busy', 'true');
+    paintSoftphoneBookmark(next);
+    syncPipelineBookmarkForLead(key, next);
+    fetch('/leads/' + encodeURIComponent(key) + '/update', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ bookmarked: next }),
+    })
+      .then(function (r) {
+        return r.json().then(function (j) {
+          return { ok: r.ok, j: j || {} };
+        });
+      })
+      .then(function (res) {
+        if (!res.ok || !res.j.success) {
+          throw new Error((res.j && res.j.error) || 'Could not update bookmark');
+        }
+        paintSoftphoneBookmark(next);
+        syncPipelineBookmarkForLead(key, next);
+        var msg = next ? 'Lead bookmarked for pipeline review.' : 'Bookmark removed.';
+        softphoneSetStatus(msg);
+        if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
+        else if (typeof window.showAppToast === 'function') {
+          window.showAppToast(msg, { variant: 'success' });
+        }
+      })
+      .catch(function (err) {
+        paintSoftphoneBookmark(!next);
+        syncPipelineBookmarkForLead(key, !next);
+        var msg = (err && err.message) || 'Could not update bookmark';
+        softphoneSetStatus(msg, true);
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast(msg, { variant: 'error' });
+        }
+      })
+      .finally(function () {
+        delete spBookmark.dataset.bookmarkBusy;
+        spBookmark.removeAttribute('aria-busy');
+      });
   }
 
   function readSoftphoneQuickLogSelection() {
@@ -2286,8 +2505,10 @@
 
   function hydrateSoftphoneLeadFromPanel() {
     var key = softphoneLeadStorageKey();
+    syncSoftphoneBookmarkEnabled();
     if (!key) {
       clearSoftphoneBizReview();
+      paintSoftphoneBookmark(false);
       return;
     }
     var fromDom = softphoneReviewFromDomRow(key);
@@ -2303,6 +2524,20 @@
       if (spBizReviewScore) spBizReviewScore.textContent = 'Loading reviews…';
       if (spBizReviewSummary) spBizReviewSummary.textContent = '';
     }
+    var rowBookmarked = false;
+    try {
+      var row = document.querySelector(
+        'tr.result-row[data-lead-key="' + CSS.escape(key) + '"], tr.result-row[data-lead-key="' + CSS.escape('lead:' + key) + '"]',
+      );
+      if (row && row.dataset && row.dataset.bookmarked === '1') rowBookmarked = true;
+      else if (row) {
+        var bb = row.querySelector('.bookmark-btn');
+        if (bb && (bb.dataset.saved === '1' || bb.classList.contains('bookmark-btn--saved'))) {
+          rowBookmarked = true;
+        }
+      }
+    } catch (_) {}
+    if (rowBookmarked) paintSoftphoneBookmark(true);
     fetch('/leads/' + encodeURIComponent(key) + '/panel-data?enrich=0', {
       credentials: 'same-origin',
       headers: { Accept: 'application/json' },
@@ -2312,6 +2547,8 @@
         if (!data || !data.success || !data.lead) return;
         if (softphoneLeadStorageKey() !== key) return;
         var lead = data.lead;
+        paintSoftphoneBookmark(!!lead.bookmarked);
+        syncSoftphoneBookmarkEnabled();
         if (spStatusSelect && lead.status) spStatusSelect.value = String(lead.status);
         // Do not auto-fill No pickup from dial-start auto-disposition — leaves wrap empty for a real choice.
         if (spDisposition && !String(spDisposition.value || '').trim()) {
@@ -2320,6 +2557,7 @@
           if (lastDisp && lastSource !== 'auto_dial' && lastDisp !== 'no_answer') {
             spDisposition.value = lastDisp;
             syncSoftphoneQuickLogButtons();
+            syncSoftphoneFollowupStripForOutcome(lastDisp);
           }
         }
         if (spNotes && lead.lastDispositionNotes && !String(spNotes.value || '').trim()) {
@@ -2375,6 +2613,10 @@
     if (parsed.code) {
       var body = { code: parsed.code, notes: notes };
       if (opts.deferGhlSync) body.deferGhlSync = true;
+      var followPayload = softphoneFollowUpPayload();
+      if (followPayload === null) return Promise.reject(new Error('Invalid follow-up date/time.'));
+      if (followPayload.skipFollowUp) body.skipFollowUp = true;
+      else if (followPayload.scheduledAt) body.scheduledAt = followPayload.scheduledAt;
       return fetch('/leads/' + encodeURIComponent(key) + '/disposition', {
         method: 'POST',
         credentials: 'same-origin',
@@ -2383,6 +2625,12 @@
       }).then(function (r) {
         return r.json().then(function (j) {
           if (!r.ok || !j.success) throw new Error((j && j.error) || 'Could not save disposition.');
+          if (j.scheduledAt && !j.skipFollowUp) {
+            setSoftphoneWrapFeedback('Logged — follow-up task scheduled.', false);
+            softphoneRequestTaskReminderPermission().then(function () {
+              softphoneRefreshTaskReminders();
+            });
+          }
           return j;
         });
       });
@@ -4143,12 +4391,6 @@
     setSoftphoneDialNumber(to);
     if (opts.leadKey && !isSoftphoneMobileViewport()) {
       applyDockRight();
-      if (spPin) {
-        spPin.classList.add('softphone-chrome-btn--active');
-        spPin.setAttribute('aria-pressed', 'true');
-        if (spPanel) spPanel.classList.add('softphone-panel--pinned');
-        try { localStorage.setItem('adhelloSoftphonePinned', '1'); } catch (_) {}
-      }
     }
     openSoftphone();
     syncSoftphoneStacking();
@@ -4276,6 +4518,8 @@
     syncSoftphoneStacking();
     softphoneSession.leadKey = '';
     softphoneSession.leadTitle = '';
+    syncSoftphoneBookmarkEnabled();
+    paintSoftphoneBookmark(false);
     if (spCalleeName) {
       spCalleeName.textContent = '';
       spCalleeName.classList.add('hidden');
@@ -4781,10 +5025,10 @@
   }
 
   var SOFTPHONE_TAB_KEY = 'adhelloSoftphoneTab';
-  var SOFTPHONE_PIN_KEY = 'adhelloSoftphonePinned';
   var spBackspace = document.getElementById('softphoneBackspaceBtn');
-  var spPin = document.getElementById('softphonePinBtn');
+  var spBookmark = document.getElementById('softphoneBookmarkBtn');
   var spExpand = document.getElementById('softphoneExpandBtn');
+  var softphoneFollowupPicker = null;
   var spMinimize = document.getElementById('softphoneMinimizeBtn');
   var spCompactExpand = document.getElementById('softphoneCompactExpand');
   var spCompactHangup = document.getElementById('softphoneCompactHangup');
@@ -5719,6 +5963,8 @@
         softphoneSession.leadKey = '';
         softphoneSession.leadTitle = '';
         clearSoftphoneBizReview();
+        syncSoftphoneBookmarkEnabled();
+        paintSoftphoneBookmark(false);
       }
       updateSoftphoneCalleeDisplay();
       spTo.focus();
@@ -5730,6 +5976,8 @@
         softphoneSession.leadKey = '';
         softphoneSession.leadTitle = '';
         clearSoftphoneBizReview();
+        syncSoftphoneBookmarkEnabled();
+        paintSoftphoneBookmark(false);
       } else if (!softphoneSession.leadKey) {
         softphoneSession.leadTitle = resolveSoftphoneLeadTitle('', spTo.value);
       }
@@ -5886,24 +6134,39 @@
     });
   }
 
-  if (spPin) {
-    var pinned = false;
-    try { pinned = localStorage.getItem(SOFTPHONE_PIN_KEY) === '1'; } catch (_) {}
-    function applySoftphonePin(on) {
-      pinned = !!on;
-      spPin.setAttribute('aria-pressed', pinned ? 'true' : 'false');
-      spPin.classList.toggle('softphone-chrome-btn--active', pinned);
-      if (spPanel) spPanel.classList.toggle('softphone-panel--pinned', pinned);
-      if (pinned) {
-        applyDockRight();
-        try { localStorage.setItem(SOFTPHONE_POS_KEY, JSON.stringify({ dock: 'right' })); } catch (_) {}
-      }
-      try { localStorage.setItem(SOFTPHONE_PIN_KEY, pinned ? '1' : '0'); } catch (_) {}
-    }
-    applySoftphonePin(pinned);
-    spPin.addEventListener('click', function (e) {
+  if (spBookmark) {
+    syncSoftphoneBookmarkEnabled();
+    spBookmark.addEventListener('click', function (e) {
+      e.preventDefault();
       e.stopPropagation();
-      applySoftphonePin(!pinned);
+      toggleSoftphoneLeadBookmark();
+    });
+  }
+
+  if (spFollowupAt && typeof window.initGcalDatetimePicker === 'function') {
+    softphoneFollowupPicker = window.initGcalDatetimePicker(spFollowupAt, {
+      label: 'Schedule follow-up date and time',
+      triggerId: 'softphone-followup-at-trigger',
+    });
+  }
+
+  if (spFollowupEnable && spFollowupWrap) {
+    spFollowupEnable.addEventListener('change', function () {
+      var on = !!spFollowupEnable.checked;
+      spFollowupWrap.classList.toggle('hidden', !on);
+      if (on && spFollowupAt && !String(spFollowupAt.value || '').trim()) {
+        defaultSoftphoneFollowupDatetime();
+      }
+    });
+  }
+
+  if (spFollowupPresets && spFollowupPresets.length) {
+    spFollowupPresets.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (spFollowupEnable) spFollowupEnable.checked = true;
+        if (spFollowupWrap) spFollowupWrap.classList.remove('hidden');
+        applySoftphoneFollowupPreset(btn.getAttribute('data-preset') || 'tomorrow');
+      });
     });
   }
 

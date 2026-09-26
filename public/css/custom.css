@@ -4685,6 +4685,30 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
   border-color: rgba(100, 116, 139, 0.45);
 }
 
+.softphone-bookmark-btn[data-saved='1'],
+.softphone-bookmark-btn.softphone-chrome-btn--bookmarked {
+  background: #facc15;
+  border-color: #eab308;
+  color: #0f172a;
+}
+
+.softphone-bookmark-btn[data-saved='1'] svg,
+.softphone-bookmark-btn.softphone-chrome-btn--bookmarked svg {
+  fill: currentColor;
+}
+
+.softphone-bookmark-btn:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.dark .softphone-bookmark-btn[data-saved='1'],
+.dark .softphone-bookmark-btn.softphone-chrome-btn--bookmarked {
+  background: #facc15;
+  border-color: #eab308;
+  color: #0f172a;
+}
+
 .softphone-settings-section {
   padding: 0.85rem 0.9rem;
   border-radius: 1rem;
