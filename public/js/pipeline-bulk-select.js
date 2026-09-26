@@ -3497,7 +3497,8 @@
     if (typeof window.__bulkSaveSelectedLeads === 'function') {
       return window.__bulkSaveSelectedLeads(triggerBtn);
     }
-    return runBulkMoveFolderFromBarEarly();
+    // Never fall through to Move — Save is opportunity/folder persist, not folder relocate.
+    window.alert('Save is still loading. Wait a second and try again, or refresh the page.');
   }
 
   function bindBulkBoardButtonDirect() {
@@ -3535,13 +3536,17 @@
         if (!bar || bar.dataset.visible !== 'true') return;
         if (!e.target.closest('#bulkActionBar')) return;
 
-        if (e.target.closest('#bulkFolderNewToggle')) {
+        // Resolve the exact button under the pointer — never match a sibling via loose closest.
+        const btn = e.target.closest('button[id]');
+        const btnId = btn && bar.contains(btn) ? String(btn.id || '') : '';
+
+        if (btnId === 'bulkFolderNewToggle' || e.target.closest('#bulkFolderNewToggle')) {
           e.preventDefault();
           e.stopPropagation();
           toggleBulkFolderNewRow();
           return;
         }
-        if (e.target.closest('#bulkFolderNewCancel')) {
+        if (btnId === 'bulkFolderNewCancel' || e.target.closest('#bulkFolderNewCancel')) {
           e.preventDefault();
           e.stopPropagation();
           if (typeof window.__setBulkFolderNewRowVisible === 'function') {
@@ -3551,13 +3556,34 @@
           }
           return;
         }
-        if (e.target.closest('#bulkFolderNewSave')) {
+        if (btnId === 'bulkFolderNewSave' || e.target.closest('#bulkFolderNewSave')) {
           e.preventDefault();
           e.stopPropagation();
           bulkFolderSaveFromBar();
           return;
         }
-        if (e.target.closest('#bulkMoveFolderBtn')) {
+        // Save MUST be checked before Move — never let Save fall through to folder Move.
+        if (btnId === 'bulkSaveBtn') {
+          e.preventDefault();
+          e.stopPropagation();
+          if (typeof window.__bulkSaveSelectedLeads === 'function') {
+            void window.__bulkSaveSelectedLeads(btn);
+          } else {
+            void runBulkSaveFolderFromBarEarly(btn);
+          }
+          return;
+        }
+        if (btnId === 'bulkAddToBoardBtn') {
+          e.preventDefault();
+          e.stopPropagation();
+          if (btn) btn.remove();
+          const saveBtn = document.getElementById('bulkSaveBtn');
+          if (typeof window.__bulkSaveSelectedLeads === 'function') {
+            void window.__bulkSaveSelectedLeads(saveBtn);
+          }
+          return;
+        }
+        if (btnId === 'bulkMoveFolderBtn') {
           e.preventDefault();
           e.stopPropagation();
           if (typeof window.__bulkMoveFolderFromBar === 'function') {
@@ -3567,29 +3593,7 @@
           }
           return;
         }
-        if (e.target.closest('#bulkAddToBoardBtn')) {
-          e.preventDefault();
-          e.stopPropagation();
-          const boardBtn = e.target.closest('#bulkAddToBoardBtn');
-          if (boardBtn) boardBtn.remove();
-          const saveBtn = document.getElementById('bulkSaveBtn');
-          if (typeof window.__bulkSaveSelectedLeads === 'function') {
-            void window.__bulkSaveSelectedLeads(saveBtn);
-          }
-          return;
-        }
-        if (e.target.closest('#bulkSaveBtn')) {
-          e.preventDefault();
-          e.stopPropagation();
-          const btn = e.target.closest('#bulkSaveBtn');
-          if (typeof window.__bulkSaveSelectedLeads === 'function') {
-            void window.__bulkSaveSelectedLeads(btn);
-          } else {
-            void runBulkSaveFolderFromBarEarly(btn);
-          }
-          return;
-        }
-        if (e.target.closest('#bulkTagsToggle')) {
+        if (btnId === 'bulkTagsToggle' || e.target.closest('#bulkTagsToggle')) {
           e.preventDefault();
           e.stopPropagation();
           if (typeof window.__toggleBulkTagsRow === 'function') {
@@ -3600,7 +3604,7 @@
           }
           return;
         }
-        if (e.target.closest('#bulkTagsCancel')) {
+        if (btnId === 'bulkTagsCancel' || e.target.closest('#bulkTagsCancel')) {
           e.preventDefault();
           e.stopPropagation();
           if (typeof window.__setBulkTagsRowVisible === 'function') {
@@ -3608,7 +3612,7 @@
           }
           return;
         }
-        if (e.target.closest('#bulkTagAddBtn')) {
+        if (btnId === 'bulkTagAddBtn' || e.target.closest('#bulkTagAddBtn')) {
           e.preventDefault();
           e.stopPropagation();
           if (typeof window.__runBulkTagFromBar === 'function') {
@@ -3616,7 +3620,7 @@
           }
           return;
         }
-        if (e.target.closest('#bulkTagRemoveBtn')) {
+        if (btnId === 'bulkTagRemoveBtn' || e.target.closest('#bulkTagRemoveBtn')) {
           e.preventDefault();
           e.stopPropagation();
           if (typeof window.__runBulkTagFromBar === 'function') {
@@ -3624,7 +3628,7 @@
           }
           return;
         }
-        if (e.target.closest('#bulkTagNewSave')) {
+        if (btnId === 'bulkTagNewSave' || e.target.closest('#bulkTagNewSave')) {
           e.preventDefault();
           e.stopPropagation();
           if (typeof window.__bulkTagCreateAndAddFromBar === 'function') {

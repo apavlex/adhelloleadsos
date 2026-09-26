@@ -17686,6 +17686,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const bulkPushGhlBtn = document.getElementById('bulkPushGhlBtn');
   const bulkCreateSubaccountBtn = document.getElementById('bulkCreateSubaccountBtn');
 
+  // Expose early so capture-phase bulk bar handlers never fall back to Move.
+  window.__bulkSaveSelectedLeads = function bulkSaveSelectedLeadsPending() {
+    window.alert('Save is still loading. Wait a second and try again.');
+  };
+
   let selectedKeys = new Set();
   let bulkSelectSyncing = false;
 
@@ -19402,12 +19407,19 @@ document.addEventListener('DOMContentLoaded', () => {
           typeof window.PROSPECTING_ACTIVE_FOLDER_KEY === 'string'
             ? window.PROSPECTING_ACTIVE_FOLDER_KEY.trim()
             : '';
-        if (folderKey) {
+        // Opportunity Save must not strip rows from the main pipeline like Move does.
+        // Only remove when the user is viewing a folder and Save also reassigned them elsewhere.
+        if (folderKey && !opportunityPlacement) {
           savedKeys.forEach((leadKey) => {
             const row = findLeadRowForBulkKey(leadKey);
             if (!row) return;
             if (viewingFolder && folderKey !== viewingFolder) row.remove();
             else if (!viewingFolder && folderKey) row.remove();
+          });
+        } else if (folderKey && opportunityPlacement && viewingFolder && folderKey !== viewingFolder) {
+          savedKeys.forEach((leadKey) => {
+            const row = findLeadRowForBulkKey(leadKey);
+            if (row) row.remove();
           });
         }
         selectedKeys.clear();

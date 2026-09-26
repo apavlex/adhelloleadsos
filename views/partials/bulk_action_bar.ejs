@@ -51,7 +51,7 @@
         <option value="<%= fd.key %>"<%= _bulkFolderPref === String(fd.key) ? ' selected' : '' %>><%= fd.name || 'Folder' %></option>
         <% }); %>
       </select>
-      <button type="button" id="bulkMoveFolderBtn" class="bulk-bar-btn bulk-bar-btn--accent" disabled title="<%= _bulkMode === 'search' ? 'Save unsaved selected rows if needed, then move them into the selected folder' : 'Move saved leads into the selected folder' %>">Move</button>
+      <button type="button" id="bulkMoveFolderBtn" class="bulk-bar-btn bulk-bar-btn--accent" disabled title="<%= _bulkMode === 'search' ? 'Save unsaved selected rows if needed, then move them into the selected folder' : 'Move saved leads into the selected folder only (does not add to Opportunities)' %>">To folder</button>
       <% if (_bulkMode === 'pipeline') { %>
       <% const _oppBoards = typeof opportunityBoards !== 'undefined' && opportunityBoards && Array.isArray(opportunityBoards.pipelines) ? opportunityBoards : null; %>
       <% const _oppActive = _oppBoards ? (_oppBoards.pipelines.find(function (pipeline) { return pipeline.id === _oppBoards.activePipelineId; }) || _oppBoards.pipelines[0]) : null; %>
@@ -73,8 +73,8 @@
       </select>
       <% } %>
       <% } %>
-      <button type="button" id="bulkSaveBtn" class="bulk-bar-btn bulk-bar-btn--save bulk-save-btn" disabled title="<%= _bulkMode === 'search' ? 'Save selected leads into the folder' : 'Save selected leads onto this opportunity board and stage' %>" data-default-label="Save">
-        <%= _bulkMode === 'search' ? 'Save' : 'Save' %>
+      <button type="button" id="bulkSaveBtn" class="bulk-bar-btn bulk-bar-btn--save bulk-save-btn" disabled title="<%= _bulkMode === 'search' ? 'Save selected leads into the folder' : 'Save selected leads onto this opportunity board and stage' %>" data-default-label="Save to board">
+        <%= _bulkMode === 'search' ? 'Save' : 'Save to board' %>
       </button>
       <button type="button" id="bulkFolderNewToggle" class="bulk-bar-btn bulk-bar-btn--ghost text-brand-yellow" title="Create a new folder" aria-expanded="false" aria-controls="bulkFolderNewRow">+ Folder</button>
       <button type="button" id="bulkTagsToggle" class="bulk-bar-btn bulk-bar-btn--ghost text-sky-300" title="Add or remove tags">Tags</button>
