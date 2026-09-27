@@ -377,9 +377,21 @@ router.get('/', async (req, res, next) => {
       label: (offerBundle.library[k] && offerBundle.library[k].label) || k,
     }));
 
+    let focusBackHref = '/today';
+    let focusBackLabel = 'Today';
+    if (String(req.query.from || '').trim().toLowerCase() === 'opportunities') {
+      const pipelineParam = String(req.query.pipeline || '').trim();
+      focusBackHref = pipelineParam
+        ? `/opportunities?pipeline=${encodeURIComponent(pipelineParam)}`
+        : '/opportunities';
+      focusBackLabel = 'Opportunities';
+    }
+
     res.render('focus', {
       title: 'Money Mode | Agency OS',
       activePage: 'today',
+      focusBackHref,
+      focusBackLabel,
       touchesToday,
       touchGoal,
       entrepreneurQuote: pickQuoteForDate(today),

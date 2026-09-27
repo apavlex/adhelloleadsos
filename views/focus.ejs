@@ -222,7 +222,7 @@
           <% } %>
         </div>
         <div class="flex flex-col items-stretch sm:items-end gap-2">
-          <a href="/today" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white text-right">← Today</a>
+          <a href="<%= typeof focusBackHref !== 'undefined' ? focusBackHref : '/today' %>" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white text-right">← <%= typeof focusBackLabel !== 'undefined' ? focusBackLabel : 'Today' %></a>
           <button type="button" id="focus-btn-sync-list-ghl" class="btn-pill btn-solid btn-solid--ghl px-4 py-2.5 text-[10px] font-black uppercase tracking-widest transition-colors" title="Sync every lead in this Money queue to Go High Level, tagged Money Mode + today’s date. Runs in the background — the bell tracks progress.">Sync list to GHL</button>
           <button type="button" id="focus-btn-stop-ghl-sync" class="btn-pill btn-solid btn-solid--stop px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors hidden" title="Stop after the contact currently syncing — anything already pushed stays in GHL">Stop sync</button>
           <p id="focus-sync-list-status" class="text-[10px] text-brand-muted dark:text-slate-400 text-right max-w-xs leading-snug min-h-[1rem]" aria-live="polite"></p>

@@ -635,6 +635,36 @@
     return 'this opportunity';
   }
 
+  /* Long stages are capped so the /focus URL stays under proxy header limits. */
+  var MONEY_MODE_STAGE_KEY_CAP = 80;
+
+  function moneyModeUrlForKey(key) {
+    var stageKeys = [];
+    var cards = document.querySelectorAll('.opp-card[data-lead-key]');
+    var clicked = null;
+    Array.prototype.forEach.call(cards, function (c) {
+      if (!clicked && c.getAttribute('data-lead-key') === key) clicked = c;
+    });
+    var list = clicked && clicked.closest('.opp-stage-cards');
+    if (list) {
+      Array.prototype.forEach.call(list.querySelectorAll('.opp-card[data-lead-key]'), function (c) {
+        var k = c.getAttribute('data-lead-key');
+        if (k && stageKeys.indexOf(k) === -1) stageKeys.push(k);
+      });
+    }
+    var start = stageKeys.indexOf(key);
+    if (start > 0) stageKeys = stageKeys.slice(start).concat(stageKeys.slice(0, start));
+    if (start === -1) stageKeys.unshift(key);
+    stageKeys = stageKeys.slice(0, MONEY_MODE_STAGE_KEY_CAP);
+    var params = new URLSearchParams();
+    params.set('lead', key);
+    if (stageKeys.length > 1) params.set('keys', stageKeys.join(','));
+    params.set('from', 'opportunities');
+    var pipelineId = board && board.getAttribute('data-pipeline-id');
+    if (pipelineId) params.set('pipeline', pipelineId);
+    return '/focus?' + params.toString();
+  }
+
   function openProfileByKey(profileKey) {
     var key = String(profileKey || '').trim();
     if (!key) {
@@ -642,24 +672,8 @@
       return;
     }
     closePop();
-    var opener =
-      typeof window.openLeadDetailFromKey === 'function'
-        ? window.openLeadDetailFromKey
-        : typeof window.__adhelloOpenLeadDetailFromKeyLite === 'function'
-          ? window.__adhelloOpenLeadDetailFromKeyLite
-          : null;
-    if (!opener) {
-      status('Could not open that company. Refresh the page and try again.', false);
-      return;
-    }
-    status('Opening company…', true);
-    Promise.resolve(opener(key)).then(function (result) {
-      if (result && result.ok === false) return;
-      var msg = document.getElementById('oppBoardMsg');
-      if (msg && msg.textContent === 'Opening company…') msg.classList.add('hidden');
-    }).catch(function () {
-      status('Could not open that company.', false);
-    });
+    status('Opening Money mode…', true);
+    window.location.href = moneyModeUrlForKey(key);
   }
 
   function resolvePressTarget(ev) {
