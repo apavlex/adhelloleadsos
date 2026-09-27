@@ -15,8 +15,7 @@
   <% const _focusProgressPct = _focusProgressGoal > 0 ? Math.min(100, Math.round((_focusProgressCurrent / _focusProgressGoal) * 100)) : 0; %>
   <% const _eq = typeof entrepreneurQuote !== 'undefined' && entrepreneurQuote ? entrepreneurQuote : null; %>
   <style>
-    /* Focus mobile cold-call dock — thumb-zone controls */
-    @media (max-width: 767px) {
+    /* Money mode cold-call dock — same thumb-zone layout on every screen size */
       body.focus-mode-page main.max-wide {
         padding-bottom: calc(6.75rem + env(safe-area-inset-bottom, 0px));
       }
@@ -25,30 +24,15 @@
       body.focus-mode-page #appFloatingWidgets {
         display: none !important;
       }
-      body.focus-mode-page #focus-btn-sync-list-ghl,
-      body.focus-mode-page #focus-btn-stop-ghl-sync,
-      body.focus-mode-page #focus-sync-list-status {
+      body.focus-mode-page #focus-btn-sync-list-ghl {
         display: none !important;
       }
       body.focus-mode-page #focus-outcome-actions .focus-primary-actions,
       body.focus-mode-page #focus-outcome-actions .focus-secondary-actions,
       body.focus-mode-page #focus-btn-open-dialer,
-      body.focus-mode-page #focus-outcome-shortcuts {
+      body.focus-mode-page #focus-outcome-shortcuts,
+      body.focus-mode-page #focus-outcome-compact-toggle {
         display: none !important;
-      }
-      body.focus-mode-page #focus-sms-compose-input {
-        min-height: 11rem !important;
-        max-height: min(42vh, 18rem) !important;
-        font-size: 1rem !important;
-        line-height: 1.45 !important;
-        padding: 0.85rem 1rem !important;
-      }
-      body.focus-mode-page #focus-email-compose-input {
-        min-height: 10rem !important;
-        max-height: min(40vh, 16rem) !important;
-        font-size: 1rem !important;
-        line-height: 1.45 !important;
-        padding: 0.85rem 1rem !important;
       }
       body.focus-mode-page #focus-sms-compose-section,
       body.focus-mode-page #focus-email-compose-section {
@@ -184,10 +168,34 @@
         height: 1.15rem;
         flex-shrink: 0;
       }
+    /* 16px composer text keeps iOS from zooming into the field */
+    @media (max-width: 767px) {
+      body.focus-mode-page #focus-sms-compose-input {
+        min-height: 11rem !important;
+        max-height: min(42vh, 18rem) !important;
+        font-size: 1rem !important;
+        line-height: 1.45 !important;
+        padding: 0.85rem 1rem !important;
+      }
+      body.focus-mode-page #focus-email-compose-input {
+        min-height: 10rem !important;
+        max-height: min(40vh, 16rem) !important;
+        font-size: 1rem !important;
+        line-height: 1.45 !important;
+        padding: 0.85rem 1rem !important;
+      }
+    }
+    @media (min-width: 768px) {
+      .focus-mobile-dock-bar,
+      .focus-mobile-dock-sheet {
+        max-width: 36rem;
+        margin-left: auto;
+        margin-right: auto;
+      }
     }
   </style>
   <main class="max-wide px-6 py-8 pb-28 md:pb-10 md:py-10">
-    <header class="mb-8">
+    <header class="mb-8 max-w-3xl mx-auto w-full">
       <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-3">
         <div>
           <h1 id="focus-session-title" class="font-display font-extrabold text-3xl md:text-4xl text-brand-dark dark:text-white tracking-tight">Money Mode</h1>
@@ -223,7 +231,7 @@
       </div>
     </header>
 
-    <div id="focus-empty" class="hidden rounded-[2rem] border-2 border-dashed border-brand-border dark:border-white/15 bg-white/60 dark:bg-slate-900/50 px-8 py-14 text-center">
+    <div id="focus-empty" class="hidden max-w-3xl mx-auto rounded-[2rem] border-2 border-dashed border-brand-border dark:border-white/15 bg-white/60 dark:bg-slate-900/50 px-8 py-14 text-center">
       <h2 id="focus-empty-title" class="font-display font-extrabold text-xl text-brand-dark dark:text-white mb-2">No leads in this queue</h2>
       <p id="focus-empty-desc" class="text-sm text-brand-muted mb-6 max-w-md mx-auto">Add or import business leads to your pipeline, then come back. Listings and products are excluded from Focus.</p>
       <div class="flex flex-col sm:flex-row gap-3 justify-center items-center">
@@ -233,7 +241,7 @@
       </div>
     </div>
 
-    <section id="focus-card-section" class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/85 dark:bg-slate-900/75 shadow-sm p-6 md:p-8 max-w-4xl lg:max-w-5xl xl:max-w-6xl mx-auto w-full min-w-0" aria-label="Current lead">
+    <section id="focus-card-section" class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/85 dark:bg-slate-900/75 shadow-sm p-6 max-w-3xl mx-auto w-full min-w-0" aria-label="Current lead">
       <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
         <div class="min-w-0">
           <h2 id="focus-company" class="font-display font-black text-2xl text-brand-dark dark:text-white truncate">—</h2>
@@ -308,9 +316,9 @@
       </div>
       <div class="mb-6 rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/35 dark:bg-slate-800/60 px-4 py-3">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Business info</p>
-        <div class="flex flex-col md:flex-row gap-4 items-stretch">
-          <div class="w-full md:w-[min(100%,280px)] shrink-0 flex flex-col gap-2 min-w-0">
-            <div id="focus-map-wrap" class="hidden w-full rounded-xl border border-brand-border/50 dark:border-white/10 overflow-hidden bg-slate-200/80 dark:bg-slate-950/80 aspect-[4/3] md:aspect-auto md:h-52 min-h-[11rem] relative shadow-inner" aria-hidden="true">
+        <div class="flex flex-col gap-4 items-stretch">
+          <div class="w-full shrink-0 flex flex-col gap-2 min-w-0">
+            <div id="focus-map-wrap" class="hidden w-full rounded-xl border border-brand-border/50 dark:border-white/10 overflow-hidden bg-slate-200/80 dark:bg-slate-950/80 aspect-[4/3] min-h-[11rem] relative shadow-inner" aria-hidden="true">
               <div id="focus-map-leaflet" class="absolute inset-0 z-0 hidden w-full h-full" role="img" aria-label="Lead location map"></div>
               <iframe id="focus-map-embed" class="absolute inset-0 z-0 hidden w-full h-full border-0" title="Lead location map" loading="eager" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
               <img id="focus-map-img" class="absolute inset-0 z-0 w-full h-full object-cover opacity-0 pointer-events-none transition-opacity duration-200" alt="" loading="eager" width="560" height="336" decoding="async" />
@@ -532,7 +540,7 @@
           </div>
         </div>
       </div>
-      <div id="focus-outcome-panel" class="mb-6 md:mb-4 md:sticky md:bottom-4 z-30 rounded-[1.35rem] border border-brand-border/60 dark:border-white/15 bg-brand-cream/25 dark:bg-slate-900/70 md:bg-white/70 md:dark:bg-slate-900/65 md:backdrop-blur-xl shadow-sm md:shadow-xl p-4 space-y-3">
+      <div id="focus-outcome-panel" class="mb-6 z-30 rounded-[1.35rem] border border-brand-border/60 dark:border-white/15 bg-brand-cream/25 dark:bg-slate-900/70 shadow-sm p-4 space-y-3">
         <div id="focus-outcome-header" class="flex items-center justify-between gap-2">
           <p id="focus-outcome-heading" class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Call outcome + notes</p>
           <div class="flex items-center gap-1 shrink-0">
@@ -719,7 +727,7 @@
       </div>
     </section>
   </main>
-  <div id="focus-mobile-fab-wrap" class="focus-mobile-dock md:hidden hidden" aria-label="Cold call session controls">
+  <div id="focus-mobile-fab-wrap" class="focus-mobile-dock hidden" aria-label="Cold call session controls">
     <div id="focus-mobile-fab-actions" class="focus-mobile-dock-sheet hidden" role="menu">
       <button type="button" id="focus-mobile-back" disabled class="focus-dock-btn border border-brand-border/60 dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800 text-brand-muted dark:text-slate-300" role="menuitem">Back</button>
       <button type="button" id="focus-mobile-log" class="focus-dock-btn border border-brand-dark/25 dark:border-white/20 bg-white dark:bg-slate-900 text-brand-dark dark:text-white" role="menuitem">Log &amp; next</button>
@@ -974,9 +982,6 @@
     var outcomePanelCompact = false;
     var smsOpenedFromCompact = false;
     var emailOpenedFromCompact = false;
-    try {
-      outcomePanelCompact = localStorage.getItem('focus-outcome-compact') === 'true';
-    } catch (e) {}
     var elWhySection = document.getElementById('focus-why-section');
     var elWhyReasons = document.getElementById('focus-why-reasons');
 
@@ -1095,7 +1100,7 @@
       sectionEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
       window.setTimeout(function () {
         var dockH = 0;
-        if (isMobileViewport() && elMobileFabWrap && !elMobileFabWrap.classList.contains('hidden')) {
+        if (elMobileFabWrap && !elMobileFabWrap.classList.contains('hidden')) {
           dockH = elMobileFabWrap.getBoundingClientRect().height + 16;
         }
         var rect = sectionEl.getBoundingClientRect();
@@ -1265,7 +1270,7 @@
         btnCallNext.classList.toggle('hidden', !hasPhone || currentChannel !== 'call-script');
       }
       if (elMobileFabWrap) {
-        var showFab = isMobileViewport() && !!lead;
+        var showFab = !!lead;
         elMobileFabWrap.classList.toggle('hidden', !showFab);
         if (!showFab) closeMobileFabActions();
         if (btnMobileCall) btnMobileCall.disabled = !hasPhone;
@@ -5219,8 +5224,8 @@
       });
     }
     function setFollowupDatetimeLocal(d) {
-      if (focusFollowupPicker && typeof focusFollowupPicker.setDate === 'function') {
-        focusFollowupPicker.setDate(d);
+      if (focusFollowupPicker && typeof focusFollowupPicker.setValue === 'function') {
+        focusFollowupPicker.setValue(d);
         return;
       }
       if (!elFollowupAt) return;
