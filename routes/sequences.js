@@ -6,6 +6,74 @@ const sequenceTemplates = require('../services/sequenceTemplates');
 const pipelineStagesService = require('../services/pipelineStagesService');
 const { filterLeadsForRequest } = require('../services/workspaceService');
 const { filterTemplatesForWorkspace } = require('../services/auditCadenceGuard');
+const workspaceIntegrations = require('../services/workspaceIntegrations');
+const ghlSync = require('../services/ghlSync');
+const prospectingEnroll = require('../services/prospectingEnroll');
+const {
+  getActiveAutoOutreachSummary,
+  loadFolderOutreachFromFolder,
+} = require('../services/folderOutreachAutomation');
+const { SCRIPT_LIBRARY } = require('../services/salesConstants');
+const salesScriptsStorage = require('../services/salesScriptsStorage');
+
+function senderOfferPicklist(ws) {
+  const merged = salesScriptsStorage.buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
+  return salesScriptsStorage.getWorkspaceScriptKeys(ws, SCRIPT_LIBRARY).map((k) => ({
+    key: k,
+    label: (merged[k] && merged[k].label) || k,
+  }));
+}
+
+async function buildGhlOutreachLocals(req, ws, leads) {
+  const wid = req.workspaceId || 'default';
+  const [integrationEnv, campaigns, folders] = await Promise.all([
+    workspaceIntegrations.getResolvedIntegrationEnv(wid).catch(() => ({})),
+    getActiveAutoOutreachSummary(wid).catch(() => null),
+    dbService.listFolders(wid).catch(() => []),
+  ]);
+  const folderPrompts = (Array.isArray(folders) ? folders : [])
+    .map((f) => {
+      const s = loadFolderOutreachFromFolder(f);
+      const prompt = String(s.ghlWorkflowPrompt || '').trim();
+      if (!prompt) return null;
+      return {
+        key: String(f.key || ''),
+        name: String(f.name || f.key || 'Folder'),
+        enabled: !!s.enabled,
+        goal: String(s.ghlGoal || '').trim(),
+        prompt,
+      };
+    })
+    .filter(Boolean);
+  const today = prospectingEnroll.utcDayKey(new Date());
+  const enrolledToday = leads.filter((l) => prospectingEnroll.leadAutoOutreachEnrolledOnDay(l, today)).length;
+  const ghlOutreachLeads = leads
+    .filter((l) => prospectingEnroll.isActiveProspecting(l))
+    .map((l) => ({
+      key: l.key,
+      title: l.title,
+      enrolledAt: (l.prospecting && (l.prospecting.lastEnrolledAt || l.prospecting.enrolledAt)) || '',
+    }))
+    .sort((a, b) => String(b.enrolledAt).localeCompare(String(a.enrolledAt)));
+  let senderOffers = [];
+  try {
+    senderOffers = senderOfferPicklist(ws);
+  } catch (_) {
+    senderOffers = [];
+  }
+  return {
+    ghlStatus: ghlSync.statusFromEnv(integrationEnv),
+    ghlOutreach: {
+      tagName: prospectingEnroll.AUTO_OUTREACH_TAG_NAME,
+      dailyCap: prospectingEnroll.AUTO_OUTREACH_DAILY_CAP,
+      enrolledToday,
+      campaigns,
+    },
+    ghlOutreachLeads,
+    folderPrompts,
+    senderOffers,
+  };
+}
 
 function mapTemplateSteps(steps) {
   return (Array.isArray(steps) ? steps : []).map((s) => ({
@@ -65,6 +133,7 @@ router.get('/', async (req, res, next) => {
     );
     const stageRows = await pipelineStagesService.ensureWorkspaceStagesSeeded(req.workspaceId);
     const pipelineStages = pipelineStagesService.stagesForKanban(stageRows);
+    const ghlLocals = await buildGhlOutreachLocals(req, ws, leads);
     res.render('sequences', {
       title: 'Cadences | Agency OS',
       activePage: 'sequences',
@@ -72,6 +141,7 @@ router.get('/', async (req, res, next) => {
       activeSequences: active,
       activeCount: active.length,
       pipelineStages,
+      ...ghlLocals,
     });
   } catch (e) {
     next(e);

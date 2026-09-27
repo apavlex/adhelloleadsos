@@ -40,6 +40,96 @@
       <% } %>
     </div>
 
+    <% const _gs = typeof ghlStatus !== 'undefined' && ghlStatus ? ghlStatus : {}; %>
+    <% const _go = typeof ghlOutreach !== 'undefined' && ghlOutreach ? ghlOutreach : { tagName: 'auto-outreach', dailyCap: 100, enrolledToday: 0, campaigns: null }; %>
+    <% const _goLeads = typeof ghlOutreachLeads !== 'undefined' && Array.isArray(ghlOutreachLeads) ? ghlOutreachLeads : []; %>
+    <% const _camp = _go.campaigns || {}; %>
+    <% const _canManage = typeof canManageWorkspace !== 'undefined' && canManageWorkspace; %>
+    <section id="ghl-auto-outreach" class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-900/70 p-8 mb-10 scroll-mt-28 space-y-6">
+      <header class="flex flex-wrap items-start justify-between gap-4">
+        <div class="min-w-0 max-w-2xl">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Runs in GHL</p>
+          <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white">GHL auto outreach</h2>
+          <p class="text-sm text-brand-muted leading-relaxed mt-1">Enrolled leads get the <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800"><%= _go.tagName %></code> tag in GHL, and your GHL workflow sends the email, SMS, and voicemail. A lead is either on an in-app cadence above or on GHL auto outreach — never both, so nobody gets double-messaged.</p>
+        </div>
+        <a href="/prospecting?tab=folders" class="text-sm font-black uppercase tracking-widest text-brand-yellow hover:underline shrink-0">Enroll from folders</a>
+      </header>
+
+      <div class="grid gap-3 sm:grid-cols-3">
+        <div id="ghlOutreachConn" class="rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/30 dark:bg-white/5 p-4" data-ghl-configured="<%= _gs.configured ? '1' : '0' %>">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">GHL connection</p>
+          <p class="flex items-center gap-2 text-sm font-bold text-brand-dark dark:text-white">
+            <span id="ghlOutreachConnDot" class="w-2.5 h-2.5 rounded-full shrink-0 <%= _gs.configured ? 'bg-brand-muted animate-pulse' : 'bg-rose-500' %>" aria-hidden="true"></span>
+            <span id="ghlOutreachConnText"><%= _gs.configured ? 'Checking…' : 'Not connected' %></span>
+          </p>
+          <a href="/workspace/integrations/ghl-setup" class="text-[11px] text-brand-muted underline hover:text-brand-dark dark:hover:text-white">Setup guide</a>
+        </div>
+        <div class="rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/30 dark:bg-white/5 p-4">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Enrolled today</p>
+          <p class="text-sm font-bold text-brand-dark dark:text-white"><%= _go.enrolledToday %> / <%= _go.dailyCap %></p>
+          <p class="text-[11px] text-brand-muted">Daily cap keeps GHL out of spam filters (resets midnight UTC).</p>
+        </div>
+        <div class="rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/30 dark:bg-white/5 p-4">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Enrolling automatically</p>
+          <% if (_camp.active) { %>
+          <p class="text-sm font-bold text-brand-dark dark:text-white"><%= _camp.folderCount || 0 %> folder<%= _camp.folderCount === 1 ? '' : 's' %><%= _camp.autoPoolEnabled ? ' + auto-pool' : '' %></p>
+          <a href="<%= _camp.href || '/prospecting?tab=folders' %>" class="text-[11px] text-brand-muted underline hover:text-brand-dark dark:hover:text-white">Manage campaigns</a>
+          <% } else { %>
+          <p class="text-sm font-bold text-brand-dark dark:text-white">Off</p>
+          <a href="/workspace/integrations/ghl-setup#autoOutreachPoolCard" class="text-[11px] text-brand-muted underline hover:text-brand-dark dark:hover:text-white">Turn on auto-pool</a>
+          <% } %>
+        </div>
+      </div>
+
+      <div>
+        <h3 class="font-bold text-brand-dark dark:text-white text-sm mb-2"><%= _goLeads.length %> lead(s) on GHL auto outreach</h3>
+        <% if (_goLeads.length === 0) { %>
+        <p class="text-sm text-brand-muted italic">No leads enrolled yet. Select leads on Pipeline and choose Auto outreach, or turn on a folder campaign.</p>
+        <% } else { %>
+        <ul class="space-y-2">
+          <% _goLeads.slice(0, 20).forEach((l) => { %>
+          <li>
+            <button type="button" class="cadence-lead-open group w-full flex flex-wrap justify-between gap-2 p-4 rounded-2xl bg-brand-cream/40 dark:bg-white/5 border border-brand-border/50 text-left cursor-pointer transition-colors hover:border-brand-yellow/50 hover:bg-brand-yellow/10 dark:hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow" data-lead-key="<%= String(l.key || '').replace(/"/g, '&quot;') %>" title="Open lead details">
+              <span class="font-bold text-brand-dark dark:text-white group-hover:text-brand-dark dark:group-hover:text-brand-yellow"><%= l.title %></span>
+              <span class="text-xs text-brand-muted">Runs in GHL · enrolled <%= l.enrolledAt ? new Date(l.enrolledAt).toLocaleDateString() : '—' %></span>
+            </button>
+          </li>
+          <% }) %>
+        </ul>
+        <% if (_goLeads.length > 20) { %>
+        <p class="text-[11px] text-brand-muted mt-3">Showing the 20 most recent of <%= _goLeads.length %>.</p>
+        <% } %>
+        <% } %>
+      </div>
+
+      <%- include('partials/ghl_auto_outreach_workflow_prompt', { promptId: 'ghlAutoOutreachPromptCadences', compact: false }) %>
+
+      <% const _folderPrompts = typeof folderPrompts !== 'undefined' && Array.isArray(folderPrompts) ? folderPrompts : []; %>
+      <% if (_folderPrompts.length) { %>
+      <div class="space-y-2">
+        <h3 class="font-bold text-brand-dark dark:text-white text-sm">Folder prompts</h3>
+        <p class="text-xs text-brand-muted">Custom GHL prompts saved on folder campaigns. Edit them from the folder's Auto outreach settings.</p>
+        <% _folderPrompts.forEach(function (fp, i) { %>
+        <details class="rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-950/50 p-4">
+          <summary class="cursor-pointer flex flex-wrap items-center justify-between gap-2 text-sm font-bold text-brand-dark dark:text-white">
+            <span><%= fp.name %><% if (fp.goal) { %> <span class="font-normal text-brand-muted">· <%= fp.goal.length > 80 ? fp.goal.slice(0, 80) + '…' : fp.goal %></span><% } %></span>
+            <span class="text-[10px] font-black uppercase tracking-widest <%= fp.enabled ? 'text-emerald-700 dark:text-emerald-300' : 'text-brand-muted' %>"><%= fp.enabled ? 'Campaign on' : 'Campaign off' %></span>
+          </summary>
+          <textarea readonly rows="12" id="folderPromptText<%= i %>" class="mt-3 w-full rounded-xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-3 text-[11px] md:text-xs font-mono leading-relaxed text-brand-dark dark:text-slate-100 resize-y custom-scrollbar" aria-label="GHL prompt for <%= fp.name %>"><%= fp.prompt %></textarea>
+          <div class="mt-2 flex flex-wrap items-center gap-3">
+            <button type="button" class="folder-prompt-copy rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:opacity-90" data-target="folderPromptText<%= i %>">Copy prompt</button>
+            <a href="/prospecting?tab=folders&folderKey=<%= encodeURIComponent(fp.key) %>" class="text-[11px] text-brand-muted underline hover:text-brand-dark dark:hover:text-white">Open folder</a>
+          </div>
+        </details>
+        <% }) %>
+      </div>
+      <% } %>
+
+      <% if (_canManage) { %>
+      <%- include('partials/ghl_workflow_coach', { senderOffers: typeof senderOffers !== 'undefined' ? senderOffers : [] }) %>
+      <% } %>
+    </section>
+
     <div class="mb-4 max-w-3xl">
       <div class="page-heading-with-tip mb-2">
         <h2 class="font-display font-bold text-2xl text-brand-dark dark:text-white">Templates (persona)</h2>
@@ -87,6 +177,39 @@
           }
         });
       });
+
+      document.querySelectorAll('.folder-prompt-copy').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var ta = document.getElementById(btn.getAttribute('data-target'));
+          if (!ta) return;
+          function done(ok) {
+            btn.textContent = ok ? 'Copied' : 'Select and copy';
+            setTimeout(function () { btn.textContent = 'Copy prompt'; }, 2500);
+          }
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(ta.value).then(function () { done(true); }).catch(function () { done(false); });
+          } else {
+            ta.select();
+            try { done(document.execCommand('copy')); } catch (e) { done(false); }
+          }
+        });
+      });
+
+      var conn = document.getElementById('ghlOutreachConn');
+      if (!conn || conn.getAttribute('data-ghl-configured') !== '1') return;
+      var dot = document.getElementById('ghlOutreachConnDot');
+      var text = document.getElementById('ghlOutreachConnText');
+      function setConn(ok, label) {
+        if (dot) dot.className = 'w-2.5 h-2.5 rounded-full shrink-0 ' + (ok ? 'bg-emerald-500' : 'bg-amber-500');
+        if (text) text.textContent = label;
+      }
+      fetch('/ghl/status?verify=1', { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data && data.connected) setConn(true, data.emailReady ? 'Connected' : 'Connected · set email sender');
+          else setConn(false, 'Saved, not verified');
+        })
+        .catch(function () { setConn(false, 'Could not check'); });
     })();
   </script>
   <%- include('partials/footer') %>
