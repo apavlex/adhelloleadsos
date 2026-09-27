@@ -31,7 +31,7 @@
         <button type="button" class="lead-panel-section-link lead-panel-agency-only inline-flex items-center px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-indigo-500/30 text-indigo-700 dark:text-indigo-300 hover:border-indigo-500/50 transition-colors" data-scroll-target="leadPanelEmailReportSection">Share links</button>
         <button type="button" class="lead-panel-section-link lead-panel-agency-only inline-flex items-center px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-orange-500/35 text-orange-700 dark:text-orange-300 hover:border-orange-500/60 transition-colors" data-scroll-target="leadPanelAiToolsSection">AI tools</button>
         <button type="button" class="lead-panel-section-link inline-flex items-center px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-violet-500/30 text-violet-700 dark:text-violet-300 hover:border-violet-500/50 transition-colors" data-scroll-target="leadCadencePlaybookHeading">Cadence</button>
-        <button type="button" class="lead-panel-section-link inline-flex items-center px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-brand-border/50 dark:border-white/15 text-brand-muted hover:border-brand-yellow/50 hover:text-brand-dark dark:hover:text-white transition-colors" data-scroll-target="leadPanelHistorySection">History</button>
+        <button type="button" class="lead-panel-section-link inline-flex items-center px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-brand-border/50 dark:border-white/15 text-brand-muted hover:border-brand-yellow/50 hover:text-brand-dark dark:hover:text-white transition-colors" data-scroll-target="leadPanelHistorySection">Notes</button>
       </nav>
 
       <!-- Scroll body: glance (map + facts), dial rail, tabs, and tab panels scroll together; quick log dock collapses below -->
@@ -247,7 +247,25 @@
                 <span id="leadPanelEngagementBadge" class="hidden mt-2 inline-flex text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-emerald-500/40 text-emerald-800 dark:text-emerald-200"></span>
                 <ul id="leadPanelTouchPointsList" class="mt-2 space-y-1.5 max-h-40 overflow-y-auto custom-scrollbar text-[11px]" aria-label="Recent touch points"></ul>
               </div>
-              <div id="leadPanelCompanyTagsSection" class="pt-2 pointer-events-auto">
+              <section id="leadPanelHistorySection" class="mt-3 pt-3 border-t border-brand-border/15 dark:border-white/10 pointer-events-auto">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                  <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Notes &amp; history</p>
+                  <div class="inline-flex flex-wrap rounded-full border border-brand-border/40 dark:border-white/10 p-0.5 bg-brand-cream/40 dark:bg-slate-800/80" role="group" aria-label="Activity filter">
+                    <button type="button" class="lead-activity-filter px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-white dark:bg-slate-900 text-brand-dark dark:text-white shadow-sm" data-activity-filter="all">All</button>
+                    <button type="button" class="lead-activity-filter px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white" data-activity-filter="notes">My notes</button>
+                    <button type="button" class="lead-activity-filter px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white" data-activity-filter="calls">Calls</button>
+                    <button type="button" class="lead-activity-filter px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white" data-activity-filter="engagement">Engagement</button>
+                    <button type="button" class="lead-activity-filter px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white" data-activity-filter="merges">Merges</button>
+                  </div>
+                </div>
+                <p id="activityLogCount" class="hidden text-[9px] font-semibold uppercase tracking-widest text-brand-muted dark:text-slate-500 mb-2" aria-live="polite"></p>
+                <div id="activityLogScroll" class="max-h-[16rem] overflow-y-auto overflow-x-hidden pr-1 -mr-1 custom-scrollbar relative rounded-xl border border-brand-border/20 dark:border-white/10 bg-white/60 dark:bg-slate-900/40 p-3">
+                  <div id="activityLog" class="space-y-5 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-brand-border/40 dark:before:bg-white/10">
+                    <div class="pl-10 text-xs text-brand-muted italic">Select a lead to load activity.</div>
+                  </div>
+                </div>
+              </section>
+              <div id="leadPanelCompanyTagsSection" class="mt-3 pt-3 border-t border-brand-border/15 dark:border-white/10 pointer-events-auto">
                 <div class="flex items-center justify-between gap-2 mb-2">
                   <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Tags</p>
                   <p class="text-[9px] font-semibold text-brand-muted dark:text-slate-500 shrink-0">Syncs to Go High Level when connected</p>
@@ -789,25 +807,6 @@
         <p id="leadQuickTaskHint" class="text-[11px] text-brand-muted hidden mt-2" role="status" aria-live="polite"></p>
       </section>
 
-      <section id="leadPanelHistorySection" class="lead-panel-widget lead-panel-widget--plain">
-        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <h3 class="lead-panel-widget__title lead-panel-widget__title--muted mb-0">Activity &amp; history</h3>
-          <div class="inline-flex rounded-full border border-brand-border/40 dark:border-white/10 p-0.5 bg-brand-cream/40 dark:bg-slate-800/80" role="group" aria-label="Activity filter">
-            <button type="button" class="lead-activity-filter px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-white dark:bg-slate-900 text-brand-dark dark:text-white shadow-sm" data-activity-filter="all">All</button>
-            <button type="button" class="lead-activity-filter px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white" data-activity-filter="calls">Calls</button>
-            <button type="button" class="lead-activity-filter px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white" data-activity-filter="engagement">Engagement</button>
-            <button type="button" class="lead-activity-filter px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white" data-activity-filter="notes">My notes</button>
-            <button type="button" class="lead-activity-filter px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white" data-activity-filter="merges">Merges</button>
-          </div>
-        </div>
-        <p id="activityLogCount" class="hidden text-[9px] font-semibold uppercase tracking-widest text-brand-muted dark:text-slate-500 mb-3" aria-live="polite"></p>
-        <div id="activityLogScroll" class="max-h-[19rem] overflow-y-auto overflow-x-hidden pr-1 -mr-1 custom-scrollbar relative rounded-2xl border border-brand-border/20 dark:border-white/10 bg-brand-cream/20 dark:bg-white/[0.03] p-3">
-          <div id="activityLog" class="space-y-5 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-brand-border/40 dark:before:bg-white/10">
-            <div class="pl-10 text-xs text-brand-muted italic">Select a lead to load activity.</div>
-          </div>
-        </div>
-      </section>
-
       </div><!-- /lead-tab-history -->
       </div><!-- /leadPanelTabScroll -->
 
@@ -947,12 +946,12 @@
           </div>
         </div>
 
+        <button type="button" id="leadPanelReferralBtn" class="btn-pill w-full bg-brand-yellow text-brand-dark py-2.5 text-[10px] font-black uppercase tracking-widest hover:brightness-95 transition-colors shrink-0" title="Add this lead to referral partners" data-default-label="Referral">Referral</button>
+        <p id="leadPanelReferralStatus" class="hidden text-center text-[10px] font-semibold leading-tight px-1" role="status" aria-live="polite"></p>
         <button type="button" id="mobilePanelRemoveBtn" class="w-full text-center py-3 mt-1 text-xs font-black uppercase tracking-[0.2em] text-red-500 hover:text-red-600 transition-colors border-t border-brand-border/15 dark:border-white/10 pt-3">Discard this Lead</button>
         </div><!-- /leadPanelNotepadBody -->
 
-        <!-- Stay visible when Quick log is collapsed — Referral + Call + SMS + GHL eMail + Sync GHL -->
-        <button type="button" id="leadPanelReferralBtn" class="btn-pill w-full bg-brand-yellow text-brand-dark py-2.5 text-[10px] font-black uppercase tracking-widest hover:brightness-95 transition-colors shrink-0" title="Add this lead to referral partners" data-default-label="Referral">Referral</button>
-        <p id="leadPanelReferralStatus" class="hidden text-center text-[10px] font-semibold leading-tight px-1" role="status" aria-live="polite"></p>
+        <!-- Stay visible when Quick log is collapsed — Call + SMS + GHL eMail + Sync GHL -->
         <div id="leadPanelOutreachCtaRow" class="grid grid-cols-4 gap-1.5 px-0.5 pt-1.5 shrink-0">
           <button type="button" id="clickToCallBtn" class="btn-pill bg-emerald-500 text-white py-2.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wide whitespace-nowrap hover:bg-emerald-600 transition-colors">Call</button>
           <button type="button" id="leadPanelSmsBtn" class="btn-pill bg-teal-500 text-white py-2.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wide whitespace-nowrap hover:bg-teal-600 transition-colors" title="Open SMS composer — type your message, improve with AI, then send">SMS</button>

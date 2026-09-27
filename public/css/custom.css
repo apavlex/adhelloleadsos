@@ -945,6 +945,13 @@ body.sidebar-settings-open .sidebar-settings-toggle {
     background-color: var(--brand-card-bg) !important;
 }
 
+/* Full-screen sheet below lg: keep prev/next/close clear of the status bar (viewport-fit=cover) */
+@media (max-width: 1023px) {
+    #leadPanelSheet {
+        padding-top: max(1rem, calc(env(safe-area-inset-top, 0px) + 0.5rem));
+    }
+}
+
 /* Sidebar behavior on Desktop */
 @media (min-width: 1024px) {
     #mobilePanel > div {
