@@ -2212,8 +2212,8 @@
 
   function setSoftphoneFollowupDatetimeLocal(d) {
     if (!(d instanceof Date) || Number.isNaN(d.getTime())) return;
-    if (softphoneFollowupPicker && typeof softphoneFollowupPicker.setDate === 'function') {
-      softphoneFollowupPicker.setDate(d);
+    if (softphoneFollowupPicker && typeof softphoneFollowupPicker.setValue === 'function') {
+      softphoneFollowupPicker.setValue(d);
       return;
     }
     if (!spFollowupAt) return;

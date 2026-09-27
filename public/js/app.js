@@ -5639,10 +5639,14 @@ document.addEventListener('DOMContentLoaded', () => {
     window.__leadActivityFilter = window.__leadActivityFilter || 'all';
     refreshLeadActivityTimeline(currentRow);
 
+    const followup = window.__adhelloLeadFollowup;
+    let followupLabel = '';
     try {
       if (cfg.disposition) {
-        const data = await applyLeadPanelDisposition(cfg.disposition, noteLine);
+        const followupOpts = followup ? followup.payloadFor(cfg) : {};
+        const data = await applyLeadPanelDisposition(cfg.disposition, noteLine, followupOpts);
         if (data.lead) syncPersistedLeadToRowDataset(currentRow, data.lead);
+        if (followup) followupLabel = followup.afterLogged(data);
       } else if (cfg.status) {
         const res = await fetch(`/leads/${encodeURIComponent(key)}/update`, {
           method: 'POST',
@@ -5676,10 +5680,9 @@ document.addEventListener('DOMContentLoaded', () => {
         window.__leadSendInfoOpenWithAudit({ rootId: 'leadPanelSendInfo', scroll: true });
       }
 
-      const msg =
-        cfg.disposition || cfg.status
-          ? `Logged: ${label}`
-          : `Logged: ${label}`;
+      const msg = followupLabel
+        ? `Logged: ${label} · follow-up ${followupLabel}`
+        : `Logged: ${label}`;
       if (typeof window.showAppToast === 'function') {
         window.showAppToast(msg, { variant: 'success' });
       }
@@ -13302,8 +13305,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!row) return;
     openLeadPanelQuickLog();
     setLeadPanelOutreachFeedback('');
-    if (typeof window.__adhelloResetLeadCallbackScheduler === 'function') {
-      window.__adhelloResetLeadCallbackScheduler();
+    if (window.__adhelloLeadFollowup) {
+      window.__adhelloLeadFollowup.resetForRow(row);
     }
     prepareLeadRowForPanel(row);
     window.__leadActivityFilter = window.__leadActivityFilter || 'all';
@@ -23075,7 +23078,7 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 
   ensureLeadDetailPanelNotBlockingPage();
-  window.__ADHELLO_BUILD = '1.0.55-lead-callback-task-module';
+  window.__ADHELLO_BUILD = '1.0.56-lead-quicklog-followup';
   window.__postLeadJsonUpdate = postLeadJsonUpdate;
   window.__syncPersistedLeadToRowDataset = syncPersistedLeadToRowDataset;
   window.__populateLeadPanel = populatePanel;

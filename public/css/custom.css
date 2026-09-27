@@ -3842,32 +3842,28 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
     color: rgb(56, 189, 248);
 }
 
-#leadPanelCallbackSection .gcal-datetime {
+#leadPanelFollowupStrip .gcal-datetime {
     width: 100%;
 }
 
-#leadPanelCallbackSection .gcal-datetime-trigger {
+#leadPanelFollowupStrip .gcal-datetime-trigger {
     width: 100%;
     border-radius: 0.75rem;
     border-color: color-mix(in srgb, var(--brand-border, #d6d3d1) 50%, transparent);
     background: #fff;
     padding: 0.5rem 0.75rem;
-    font-size: 0.875rem;
+    font-size: 0.75rem;
     font-weight: 600;
 }
 
-.dark #leadPanelCallbackSection .gcal-datetime-trigger {
+.dark #leadPanelFollowupStrip .gcal-datetime-trigger {
     background: rgb(15 23 42);
     border-color: rgba(255, 255, 255, 0.1);
 }
 
-#leadPanelCallbackSection .gcal-datetime-trigger:hover,
-#leadPanelCallbackSection .gcal-datetime-trigger:focus-visible {
-    border-color: color-mix(in srgb, rgb(14 165 233) 50%, transparent);
-}
-
-#leadPanelCallbackSection .gcal-datetime-popover.gcal-datetime-popover {
-    width: 13.25rem;
+#leadPanelFollowupStrip .gcal-datetime-trigger:hover,
+#leadPanelFollowupStrip .gcal-datetime-trigger:focus-visible {
+    border-color: color-mix(in srgb, var(--brand-yellow, #facc15) 55%, transparent);
 }
 
 .lead-callback-hint {
@@ -4211,7 +4207,8 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
 }
 
 .focus-quick-outcome[data-active="true"],
-.lead-notepad-tag[data-active="true"] {
+.lead-notepad-tag[data-active="true"],
+.lead-followup-preset[data-active="true"] {
     border-color: var(--brand-yellow, #ca8a04) !important;
     background: color-mix(in srgb, var(--brand-yellow, #facc15) 20%, transparent) !important;
     color: var(--brand-dark, #111827);
@@ -4221,7 +4218,8 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
 }
 
 .dark .focus-quick-outcome[data-active="true"],
-.dark .lead-notepad-tag[data-active="true"] {
+.dark .lead-notepad-tag[data-active="true"],
+.dark .lead-followup-preset[data-active="true"] {
     color: var(--brand-yellow, #facc15);
 }
 
