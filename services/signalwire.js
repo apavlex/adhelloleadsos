@@ -311,7 +311,7 @@ async function postFormCreateCall(formBody) {
       if (/from must be a purchased or verified/i.test(msg)) {
         const fromUsed = normalizePhone(formBody && (formBody.From || formBody.from));
         throw new Error(
-          `Caller ID ${fromUsed || '(empty)'} is not a SignalWire number in this project. In the dialer, pick a workspace number you bought in SignalWire (not your personal cell). Fix Phone bank / “Your caller ID”, then try again.`,
+          `Caller ID ${fromUsed || '(empty)'} is not a SignalWire number in this project. In the dialer, pick a workspace number you bought in SignalWire (not your personal cell). Fix Phone bank / the dialer’s Caller ID, then try again.`,
         );
       }
       throw e;

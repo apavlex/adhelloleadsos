@@ -293,9 +293,7 @@
   var spBizAddress = document.getElementById('softphoneBizAddress');
   var spBizReviewStars = document.getElementById('softphoneBizReviewStars');
   var spBizReviewScore = document.getElementById('softphoneBizReviewScore');
-  var spBizReviewSummary = document.getElementById('softphoneBizReviewSummary');
   var spBizReviewFresh = document.getElementById('softphoneBizReviewFresh');
-  var softphoneReviewReqToken = 0;
   var spLeadNav = document.getElementById('softphoneLeadNav');
   var spLeadNavLabel = document.getElementById('softphoneLeadNavLabel');
   var spPrevLeadBtn = document.getElementById('softphonePrevLeadBtn');
@@ -1979,9 +1977,12 @@
     var city = String(lead.city || '').trim();
     var state = String(lead.state || '').trim();
     var zip = String(lead.zip || lead.postalCode || '').trim();
+    street = street.replace(/,\s*(USA|United States)$/i, '');
     var cityLine = [city, state].filter(Boolean).join(', ');
     if (zip) cityLine = cityLine ? cityLine + ' ' + zip : zip;
-    return [street, cityLine].filter(Boolean).join(' · ');
+    // Maps leads often store the full "street, city, ST zip" in address already.
+    if (street && city && street.toLowerCase().indexOf(city.toLowerCase()) >= 0) return street;
+    return [street, cityLine].filter(Boolean).join(', ');
   }
 
   function updateSoftphoneBizLeadMeta(opts) {
@@ -2427,7 +2428,6 @@
   }
 
   function clearSoftphoneBizReview() {
-    softphoneReviewReqToken += 1;
     softphoneSession.leadAddress = '';
     if (spBizReview) spBizReview.classList.add('hidden');
     if (spBizName) {
@@ -2440,25 +2440,7 @@
     }
     if (spBizReviewStars) spBizReviewStars.innerHTML = '';
     if (spBizReviewScore) spBizReviewScore.textContent = '—';
-    if (spBizReviewSummary) spBizReviewSummary.textContent = '';
     if (spBizReviewFresh) spBizReviewFresh.textContent = '';
-  }
-
-  function softphoneReviewSummaryFromIntel(ri) {
-    if (!ri || typeof ri !== 'object') return '';
-    if (typeof ri.summary === 'string' && ri.summary.trim()) return ri.summary.trim();
-    var bits = [];
-    if (Array.isArray(ri.strengths)) {
-      ri.strengths.forEach(function (s) {
-        if (s) bits.push(String(s).trim());
-      });
-    }
-    if (Array.isArray(ri.weaknesses)) {
-      ri.weaknesses.forEach(function (s) {
-        if (s) bits.push(String(s).trim());
-      });
-    }
-    return bits.filter(Boolean).join(' · ');
   }
 
   function paintSoftphoneBizReview(opts) {
@@ -2466,13 +2448,12 @@
     if (!spBizReview) return;
     var rating = Number(opts.rating || 0);
     var reviews = parseInt(opts.reviews, 10) || 0;
-    var summary = String(opts.summary || '').trim();
     var last30 = parseInt(opts.reviewsLast30Days, 10);
     if (!Number.isFinite(last30)) last30 = -1;
     var title = String(opts.title != null ? opts.title : softphoneSession.leadTitle || '').trim();
     var address = String(opts.address != null ? opts.address : softphoneSession.leadAddress || '').trim();
     var hasLeadMeta = !!(title || address || softphoneSession.leadKey);
-    var hasSignal = rating > 0 || reviews > 0 || !!summary || !!opts.loadingSummary || hasLeadMeta;
+    var hasSignal = rating > 0 || reviews > 0 || !!opts.loadingReviews || hasLeadMeta;
     if (!hasSignal) {
       spBizReview.classList.add('hidden');
       return;
@@ -2496,7 +2477,7 @@
           (reviews === 1 ? '' : 's');
       } else if (reviews > 0) {
         spBizReviewScore.textContent = reviews + ' review' + (reviews === 1 ? '' : 's');
-      } else if (opts.loadingSummary) {
+      } else if (opts.loadingReviews) {
         spBizReviewScore.textContent = 'Loading reviews…';
       } else if (hasLeadMeta) {
         spBizReviewScore.textContent = 'No reviews yet';
@@ -2507,9 +2488,6 @@
     if (spBizReviewFresh) {
       spBizReviewFresh.textContent =
         last30 > 0 ? last30 + ' in last 30 days' : last30 === 0 ? 'No recent reviews' : '';
-    }
-    if (spBizReviewSummary) {
-      spBizReviewSummary.textContent = summary || (opts.loadingSummary ? 'Loading review summary…' : '');
     }
   }
 
@@ -2534,47 +2512,6 @@
     return null;
   }
 
-  function fetchSoftphoneBizReviewSummary(leadKey) {
-    var key = String(leadKey || '').trim().replace(/^lead:/i, '');
-    if (!key || !spBizReviewSummary) return;
-    var token = ++softphoneReviewReqToken;
-    if (!String(spBizReviewSummary.textContent || '').trim()) {
-      spBizReviewSummary.textContent = 'Loading review summary…';
-    }
-    fetch('/leads/' + encodeURIComponent(key) + '/review-intelligence', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({}),
-    })
-      .then(function (r) {
-        return r.json().then(function (j) {
-          return { ok: r.ok, j: j || {} };
-        });
-      })
-      .then(function (res) {
-        if (token !== softphoneReviewReqToken) return;
-        if (softphoneLeadStorageKey() !== key) return;
-        if (!res.ok || !res.j.success) {
-          if (!String(spBizReviewSummary.textContent || '').trim() ||
-              /Loading review summary/i.test(spBizReviewSummary.textContent || '')) {
-            spBizReviewSummary.textContent = 'No review summary yet.';
-          }
-          return;
-        }
-        var summary =
-          String(res.j.summary || '').trim() ||
-          softphoneReviewSummaryFromIntel(res.j.reviewIntel || res.j);
-        spBizReviewSummary.textContent = summary || 'No review summary yet.';
-      })
-      .catch(function () {
-        if (token !== softphoneReviewReqToken) return;
-        if (/Loading review summary/i.test(String(spBizReviewSummary.textContent || ''))) {
-          spBizReviewSummary.textContent = 'No review summary available.';
-        }
-      });
-  }
-
   function hydrateSoftphoneLeadFromPanel() {
     var key = softphoneLeadStorageKey();
     syncSoftphoneBookmarkEnabled();
@@ -2589,12 +2526,10 @@
         rating: fromDom.rating,
         reviews: fromDom.reviews,
         reviewsLast30Days: fromDom.reviewsLast30Days,
-        loadingSummary: true,
       });
     } else if (spBizReview) {
       spBizReview.classList.remove('hidden');
       if (spBizReviewScore) spBizReviewScore.textContent = 'Loading reviews…';
-      if (spBizReviewSummary) spBizReviewSummary.textContent = '';
     }
     var rowBookmarked = false;
     try {
@@ -2650,20 +2585,17 @@
         var rating = Number(lead.totalScore || lead.rating || 0) || 0;
         var reviews = parseInt(lead.reviewsCount != null ? lead.reviewsCount : lead.reviews, 10) || 0;
         var last30 = parseInt(lead.reviewsLast30Days, 10);
-        var cachedSummary = softphoneReviewSummaryFromIntel(lead.reviewIntel);
         paintSoftphoneBizReview({
           rating: rating,
           reviews: reviews,
           reviewsLast30Days: Number.isFinite(last30) ? last30 : null,
-          summary: cachedSummary,
-          loadingSummary: !cachedSummary,
           title: softphoneSession.leadTitle,
           address: softphoneSession.leadAddress,
         });
-        fetchSoftphoneBizReviewSummary(key);
       })
       .catch(function () {
-        if (softphoneLeadStorageKey() === key) fetchSoftphoneBizReviewSummary(key);
+        if (softphoneLeadStorageKey() !== key || !spBizReviewScore) return;
+        if (/Loading reviews/i.test(spBizReviewScore.textContent || '')) spBizReviewScore.textContent = 'Reviews';
       });
   }
 
@@ -3715,7 +3647,8 @@
   function softphoneSetStatus(msg, isErr) {
     if (!spStatus) return;
     spStatus.textContent = msg || '';
-    spStatus.className = 'text-sm mt-1 ' + (isErr ? 'text-red-600 dark:text-red-400' : 'text-brand-muted');
+    spStatus.className = 'softphone-status-line ' + (isErr ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400');
+    spStatus.title = msg || '';
     if (msg) softphoneAnnounce(msg);
   }
   function softphoneIsDeviceHandoffActive() {
@@ -3764,11 +3697,26 @@
     );
     updateSoftphoneHangupButtonLabel();
     setSoftphoneTab('keypad');
-    var logTarget = spQuickLogBar || spWrapPanel;
-    if (logTarget) {
-      try {
-        logTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      } catch (_) {}
+    softphoneScrollKeypadTo(null);
+    setTimeout(updateSoftphoneScrollHint, 120);
+  }
+
+  /** Scroll only the keypad pane — scrollIntoView also pans the iOS viewport under the fixed panel. */
+  function softphoneScrollKeypadTo(target) {
+    if (!spKeypadScroll) return;
+    var top = 0;
+    if (target) {
+      top =
+        target.getBoundingClientRect().top -
+        spKeypadScroll.getBoundingClientRect().top +
+        spKeypadScroll.scrollTop -
+        8;
+    }
+    top = Math.max(0, top);
+    try {
+      spKeypadScroll.scrollTo({ top: top, behavior: 'smooth' });
+    } catch (_) {
+      spKeypadScroll.scrollTop = top;
     }
   }
 
@@ -4631,7 +4579,7 @@
     var agentCell = normalizeDial(spAgentPhoneCached || (spAgentPhone && spAgentPhone.value) || '');
     if (agentCell && fromNumber === agentCell) {
       return Promise.reject(
-        new Error('Caller ID is set to your personal cell. Pick a workspace SignalWire number under Your caller ID.'),
+        new Error('Caller ID is set to your personal cell. Pick a workspace SignalWire number under Caller ID in the dialer.'),
       );
     }
     if (
@@ -4644,7 +4592,7 @@
         new Error(
           'Caller ID ' +
             (formatCallerIdDisplay(fromNumber) || fromNumber) +
-            ' is not in this SignalWire project. Pick a purchased workspace number under Your caller ID.',
+            ' is not in this SignalWire project. Pick a purchased workspace number under Caller ID in the dialer.',
         ),
       );
     }
@@ -5959,7 +5907,7 @@
   }
   if (spScrollHint && spQuickLogBar) {
     spScrollHint.addEventListener('click', function () {
-      spQuickLogBar.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      softphoneScrollKeypadTo(spQuickLogBar);
     });
   }
   window.addEventListener('resize', updateSoftphoneScrollHint);

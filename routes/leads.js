@@ -2400,7 +2400,7 @@ router.post('/telephony/dial', async (req, res, next) => {
       return res.status(400).json({
         success: false,
         error:
-          'Caller ID cannot be your personal cell. Pick a workspace SignalWire number under Your caller ID.',
+          'Caller ID cannot be your personal cell. Pick a workspace SignalWire number under Caller ID in the dialer.',
       });
     }
     const dialStartedAt = Date.now();
