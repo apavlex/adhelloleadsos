@@ -4821,9 +4821,9 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
 
 .softphone-bookmark-btn[data-saved='1'],
 .softphone-bookmark-btn.softphone-chrome-btn--bookmarked {
-  background: #facc15;
-  border-color: #eab308;
-  color: #0f172a;
+  background: var(--brand-yellow);
+  border-color: var(--brand-yellow);
+  color: var(--brand-on-accent);
 }
 
 .softphone-bookmark-btn[data-saved='1'] svg,
@@ -4839,9 +4839,9 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
 
 .dark .softphone-bookmark-btn[data-saved='1'],
 .dark .softphone-bookmark-btn.softphone-chrome-btn--bookmarked {
-  background: #facc15;
-  border-color: #eab308;
-  color: #0f172a;
+  background: var(--brand-yellow);
+  border-color: var(--brand-yellow);
+  color: var(--brand-on-accent);
 }
 
 .softphone-settings-section {
@@ -5022,9 +5022,9 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
   height: 4.35rem;
   border-radius: 9999px;
   border: 0;
-  background: #6ee7b7;
-  color: #fff;
-  box-shadow: 0 10px 24px rgba(16, 185, 129, 0.28);
+  background: var(--brand-yellow);
+  color: var(--brand-on-accent);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--brand-yellow) 32%, transparent);
   transition: transform 0.12s ease, filter 0.12s ease;
 }
 
@@ -5135,8 +5135,8 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
 .softphone-queue-dial {
   flex-shrink: 0;
   border-radius: 0.75rem;
-  background: #6ee7b7;
-  color: #fff;
+  background: var(--brand-yellow);
+  color: var(--brand-on-accent);
   padding: 0.45rem 0.75rem;
   font-size: 0.625rem;
   font-weight: 800;
@@ -5207,7 +5207,7 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
 }
 
 .softphone-lead-nav-btn:hover:not(:disabled) {
-  border-color: rgba(250, 204, 21, 0.55);
+  border-color: color-mix(in srgb, var(--brand-yellow) 55%, transparent);
 }
 
 .softphone-lead-nav-btn:disabled {
@@ -5357,7 +5357,7 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
   color: #e2e8f0;
 }
 
-.softphone-ctrl-btn--danger {
+.softphone-ctrl-btn.softphone-ctrl-btn--danger {
   background: #ef4444;
   border-color: #ef4444;
   color: #fff;
@@ -5378,13 +5378,14 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
   font-size: 0.75rem;
 }
 
-.softphone-ctrl-btn--ghl {
+/* Chained with .softphone-ctrl-btn so `.dark .softphone-ctrl-btn` can't flatten the fill */
+.softphone-ctrl-btn.softphone-ctrl-btn--ghl {
   background: #f97316;
   border-color: #ea580c;
   color: #fff;
 }
 
-.softphone-ctrl-btn--ghl:hover {
+.softphone-ctrl-btn.softphone-ctrl-btn--ghl:hover {
   background: #ea580c;
 }
 
@@ -5393,16 +5394,10 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
   pointer-events: none;
 }
 
-.softphone-ctrl-btn--primary {
-  background: #0f172a;
-  border-color: #0f172a;
-  color: #fff;
-}
-
-.dark .softphone-ctrl-btn--primary {
-  background: #f8fafc;
-  border-color: #f8fafc;
-  color: #0f172a;
+.softphone-ctrl-btn.softphone-ctrl-btn--primary {
+  background: var(--brand-yellow);
+  border-color: var(--brand-yellow);
+  color: var(--brand-on-accent);
 }
 
 .softphone-quick-log {
@@ -5425,17 +5420,42 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
 }
 
 .softphone-quick-log:hover {
-  border-color: rgba(250, 204, 21, 0.55);
+  border-color: color-mix(in srgb, var(--brand-yellow) 55%, transparent);
 }
 
 .softphone-quick-log[data-active='true'] {
-  border-color: #facc15;
-  box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.35);
-  background: rgba(250, 204, 21, 0.14);
+  border-color: var(--brand-yellow);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand-yellow) 35%, transparent);
+  background: color-mix(in srgb, var(--brand-yellow) 14%, transparent);
 }
 
 .dark .softphone-quick-log[data-active='true'] {
-  background: rgba(250, 204, 21, 0.12);
+  background: color-mix(in srgb, var(--brand-yellow) 18%, transparent);
+}
+
+.softphone-followup-preset[data-off='true'] {
+  opacity: 0.45;
+}
+
+#softphoneFollowupStrip {
+  border-color: color-mix(in srgb, var(--brand-yellow) 40%, transparent);
+  background: color-mix(in srgb, var(--brand-yellow) 9%, transparent);
+}
+
+#softphoneFollowupEnable {
+  accent-color: var(--brand-yellow);
+}
+
+/* iOS zooms into focused fields under 16px */
+@media (max-width: 767px) {
+  #softphonePanel input:not([type='checkbox']):not([type='radio']):not([readonly]),
+  #softphonePanel textarea,
+  #softphonePanel select,
+  #leadPanelSheet input:not([type='checkbox']):not([type='radio']),
+  #leadPanelSheet textarea,
+  #leadPanelSheet select {
+    font-size: 16px;
+  }
 }
 
 .softphone-action-btn {

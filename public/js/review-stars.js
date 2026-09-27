@@ -19,7 +19,7 @@
       const star = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       star.setAttribute(
         'class',
-        `${size} shrink-0 ${lit ? 'text-amber-400 dark:text-brand-yellow' : 'text-slate-300 dark:text-slate-600'}`
+        `${size} shrink-0 ${lit ? 'text-amber-400' : 'text-slate-300 dark:text-slate-600'}`
       );
       star.setAttribute('viewBox', '0 0 20 20');
       star.setAttribute('fill', 'currentColor');

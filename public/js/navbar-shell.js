@@ -2200,8 +2200,8 @@
         spNotes.value = templates[v];
       }
     }
-    if (item && item.status && spStatusSelect) {
-      spStatusSelect.value = item.status;
+    if (spStatusSelect) {
+      spStatusSelect.value = (item && item.status) || '';
     }
     syncSoftphoneFollowupStripForOutcome(v);
     setSoftphoneWrapFeedback('Quick log: ' + (softphoneOutcomeLabel(v) || v.replace(/_/g, ' ')), false);
@@ -2230,11 +2230,31 @@
       softphonePad2(d.getMinutes());
   }
 
+  function markSoftphoneFollowupPreset(preset) {
+    if (!spFollowupPresets || !spFollowupPresets.length) return;
+    spFollowupPresets.forEach(function (btn) {
+      var on = !!preset && btn.getAttribute('data-preset') === preset;
+      btn.setAttribute('data-active', on ? 'true' : 'false');
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  }
+
+  function syncSoftphoneFollowupPresetsEnabled() {
+    var on = !spFollowupEnable || !!spFollowupEnable.checked;
+    if (!spFollowupPresets || !spFollowupPresets.length) return;
+    spFollowupPresets.forEach(function (btn) {
+      btn.disabled = false;
+      btn.classList.remove('opacity-40');
+      btn.setAttribute('data-off', on ? 'false' : 'true');
+    });
+  }
+
   function defaultSoftphoneFollowupDatetime() {
     var d = new Date();
     d.setDate(d.getDate() + 1);
     d.setHours(10, 0, 0, 0);
     setSoftphoneFollowupDatetimeLocal(d);
+    markSoftphoneFollowupPreset('tomorrow');
   }
 
   function applySoftphoneFollowupPreset(preset) {
@@ -2249,6 +2269,7 @@
       d.setDate(d.getDate() + 7);
       d.setHours(10, 0, 0, 0);
     } else if (preset === 'custom') {
+      markSoftphoneFollowupPreset('custom');
       if (softphoneFollowupPicker && typeof softphoneFollowupPicker.open === 'function') {
         softphoneFollowupPicker.open();
       } else if (spFollowupAt && typeof spFollowupAt.showPicker === 'function') {
@@ -2257,6 +2278,7 @@
       return;
     }
     setSoftphoneFollowupDatetimeLocal(d);
+    markSoftphoneFollowupPreset(preset);
   }
 
   function syncSoftphoneFollowupStripForOutcome(value) {
@@ -2265,7 +2287,9 @@
     if (spFollowupStrip) spFollowupStrip.classList.remove('hidden');
     if (spFollowupEnable) spFollowupEnable.checked = needs;
     if (spFollowupWrap) spFollowupWrap.classList.toggle('hidden', !needs);
+    syncSoftphoneFollowupPresetsEnabled();
     if (needs) defaultSoftphoneFollowupDatetime();
+    else markSoftphoneFollowupPreset('');
     var summary = document.getElementById('softphoneQuickLogSummary');
     if (summary) {
       var label = softphoneOutcomeLabel(value);
@@ -2631,7 +2655,9 @@
         paintSoftphoneBookmark(!!lead.bookmarked);
         if (spDnc) spDnc.checked = !!lead.doNotCall;
         syncSoftphoneBookmarkEnabled();
-        if (spStatusSelect && lead.status) spStatusSelect.value = String(lead.status);
+        if (spStatusSelect && !(spDisposition && String(spDisposition.value || '').trim())) {
+          spStatusSelect.value = '';
+        }
         // Do not auto-fill No pickup from dial-start auto-disposition — leaves wrap empty for a real choice.
         if (spDisposition && !String(spDisposition.value || '').trim()) {
           var lastDisp = String(lead.lastDisposition || '').trim();
@@ -6508,12 +6534,7 @@
     spFollowupEnable.addEventListener('change', function () {
       var on = !!spFollowupEnable.checked;
       spFollowupWrap.classList.toggle('hidden', !on);
-      if (spFollowupPresets && spFollowupPresets.length) {
-        spFollowupPresets.forEach(function (btn) {
-          btn.classList.toggle('opacity-40', !on);
-          btn.disabled = !on;
-        });
-      }
+      syncSoftphoneFollowupPresetsEnabled();
       if (on && spFollowupAt && !String(spFollowupAt.value || '').trim()) {
         defaultSoftphoneFollowupDatetime();
       }
@@ -6521,10 +6542,14 @@
   }
 
   if (spFollowupPresets && spFollowupPresets.length) {
+    syncSoftphoneFollowupPresetsEnabled();
     spFollowupPresets.forEach(function (btn) {
-      btn.addEventListener('click', function () {
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
         if (spFollowupEnable) spFollowupEnable.checked = true;
         if (spFollowupWrap) spFollowupWrap.classList.remove('hidden');
+        syncSoftphoneFollowupPresetsEnabled();
         applySoftphoneFollowupPreset(btn.getAttribute('data-preset') || 'tomorrow');
       });
     });
