@@ -228,6 +228,10 @@
           </div>
           <div class="flex-1 min-w-0 w-full space-y-3">
             <div id="focus-links" class="flex flex-wrap gap-2" aria-label="Contact and social links"></div>
+            <div>
+              <button type="button" id="focus-rapidapi-enrich-btn" class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-brand-yellow/50 bg-brand-yellow/10 text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors disabled:opacity-40">Enrich contacts</button>
+              <p id="focus-rapidapi-enrich-status" class="hidden text-[11px] leading-relaxed mt-1" role="status"></p>
+            </div>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 text-xs">
           <div>
             <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-1">Website</p>
@@ -250,14 +254,34 @@
           </div>
           </div>
           <div class="min-w-0 w-full">
-            <div id="focus-builtwith-wrap" class="lead-panel-agency-only hidden mt-3 pt-3 border-t border-brand-border/50 dark:border-white/10">
-              <div class="flex items-center justify-between gap-2 mb-2">
-                <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted">Tech stack</p>
-                <a id="focus-builtwith-link" href="#" target="_blank" rel="noopener noreferrer" class="text-[9px] font-bold uppercase tracking-wide text-brand-yellow hover:underline shrink-0">BuiltWith →</a>
+            <div id="focusLeadTagsSection" class="pt-3 border-t border-brand-border/50 dark:border-white/10">
+              <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-2">Tags</p>
+              <div id="focusLeadTagsHost">
+                <p class="text-[11px] text-brand-muted dark:text-slate-400 italic">Loading tags…</p>
               </div>
-              <p id="focus-builtwith-cms" class="hidden text-xs font-semibold text-brand-dark dark:text-slate-100 mb-2"></p>
-              <div id="focus-builtwith-tags" class="flex flex-wrap gap-1.5" aria-label="Technology tags"></div>
-              <p id="focus-builtwith-meta" class="hidden text-[11px] text-brand-muted mt-2 italic">Click BuiltWith → to load tech stack for this site.</p>
+            </div>
+            <div id="focus-notes-section" class="mt-3 pt-3 border-t border-brand-border/50 dark:border-white/10">
+              <div class="flex items-center gap-2 min-w-0 mb-2">
+                <label for="focus-outcome-notes" class="text-[9px] font-black uppercase tracking-wider text-brand-muted">Notes</label>
+                <span id="focusNotesIndicator" class="hidden text-[10px] font-semibold text-brand-yellow truncate">Has notes</span>
+              </div>
+              <div id="focusNotesDrawer" role="region" aria-label="Call notes">
+                <textarea id="focus-outcome-notes" rows="3" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-base sm:text-sm text-brand-dark dark:text-white focus:outline-none focus:ring-1 focus:ring-brand-yellow" placeholder="Owner response, objection, timing, next step… saved with your quick log"></textarea>
+              </div>
+            </div>
+            <div id="focus-builtwith-wrap" class="lead-panel-agency-only hidden mt-3 pt-3 border-t border-brand-border/50 dark:border-white/10">
+              <button type="button" data-focus-collapse="focusBuiltWithBody" aria-expanded="false" aria-controls="focusBuiltWithBody" class="w-full flex items-center justify-between gap-2 text-left">
+                <span class="text-[9px] font-black uppercase tracking-wider text-brand-muted">Tech stack</span>
+                <svg class="focus-collapse-chevron w-4 h-4 shrink-0 text-brand-muted transition-transform duration-200 rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
+              </button>
+              <div id="focusBuiltWithBody" class="hidden mt-2">
+                <div class="flex justify-end mb-2">
+                  <a id="focus-builtwith-link" href="#" target="_blank" rel="noopener noreferrer" class="text-[9px] font-bold uppercase tracking-wide text-brand-yellow hover:underline shrink-0">BuiltWith →</a>
+                </div>
+                <p id="focus-builtwith-cms" class="hidden text-xs font-semibold text-brand-dark dark:text-slate-100 mb-2"></p>
+                <div id="focus-builtwith-tags" class="flex flex-wrap gap-1.5" aria-label="Technology tags"></div>
+                <p id="focus-builtwith-meta" class="hidden text-[11px] text-brand-muted mt-2 italic">Click BuiltWith → to load tech stack for this site.</p>
+              </div>
             </div>
             <div id="focus-touch-points-wrap" class="mt-3 pt-3 border-t border-brand-border/50 dark:border-white/10">
               <button type="button" id="focusTouchPointsToggle" aria-expanded="false" aria-controls="focusTouchPointsBody" class="w-full flex items-center justify-between gap-2 text-left">
@@ -280,17 +304,6 @@
               <p id="focus-touch-summary" class="text-[11px] font-semibold text-brand-dark dark:text-slate-200 mb-2">—</p>
               <ul id="focus-touch-points-list" class="space-y-2 max-h-44 overflow-y-auto custom-scrollbar text-[11px]" aria-label="Recent touch points"></ul>
               </div>
-            </div>
-            <div class="mt-3 pt-3 border-t border-brand-border/50 dark:border-white/10">
-              <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-2">Quick copy</p>
-              <div class="flex flex-wrap gap-2">
-                <button type="button" id="focus-rapidapi-enrich-btn" class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-brand-yellow/50 bg-brand-yellow/10 text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors">Enrich Contacts</button>
-                <button type="button" id="focus-copy-phone" class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-brand-border/60 dark:border-white/15 text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors">Phone</button>
-                <button type="button" id="focus-copy-email" class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-brand-border/60 dark:border-white/15 text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors">Email</button>
-                <button type="button" id="focus-copy-website" class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-brand-border/60 dark:border-white/15 text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors">Website</button>
-              </div>
-              <p id="focus-copy-feedback" class="text-[11px] text-brand-muted mt-2 min-h-[1rem]"></p>
-              <p id="focus-rapidapi-enrich-status" class="hidden text-[11px] leading-relaxed mt-1" role="status"></p>
             </div>
           </div>
         </div>
@@ -332,41 +345,6 @@
         </div>
         </div>
         </div>
-      </div>
-
-      <div id="focusLeadTagsSection" class="mb-4 rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-800/40 overflow-hidden">
-        <button type="button" data-focus-collapse="focusLeadTagsBody" aria-expanded="false" aria-controls="focusLeadTagsBody" class="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-brand-cream/50 dark:hover:bg-slate-800/80 transition-colors">
-          <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Tags</span>
-          <svg class="focus-collapse-chevron w-4 h-4 shrink-0 text-brand-muted transition-transform duration-200 rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
-        </button>
-        <div id="focusLeadTagsBody" class="hidden px-4 pb-3">
-          <div class="flex justify-end mb-2">
-            <a href="/tags/manage" class="text-[9px] font-bold uppercase tracking-wide text-brand-yellow hover:underline shrink-0">Manage all tags →</a>
-          </div>
-          <div id="focusLeadTagsHost" class="rounded-xl border border-brand-border/20 dark:border-white/10 bg-white/60 dark:bg-slate-900/40 p-3">
-            <p class="text-[11px] text-brand-muted dark:text-slate-400 italic">Loading tags…</p>
-          </div>
-        </div>
-      </div>
-
-      <div id="focus-notes-section" class="mb-6 rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-800/40 overflow-hidden">
-        <div class="flex items-center gap-2 min-w-0 px-4 py-3">
-          <label for="focus-outcome-notes" class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Add notes</label>
-          <span id="focusNotesIndicator" class="hidden text-[10px] font-semibold text-brand-yellow truncate">Has notes</span>
-        </div>
-        <div id="focusNotesDrawer" class="border-t border-brand-border/15 dark:border-white/10" role="region" aria-label="Call notes">
-          <textarea id="focus-outcome-notes" rows="3" class="w-full rounded-none border-0 bg-white dark:bg-slate-900 px-4 py-2.5 text-base sm:text-sm text-brand-dark dark:text-white focus:ring-0 focus:outline-none" placeholder="Owner response, objection, timing, next step… saved with your quick log"></textarea>
-        </div>
-      </div>
-
-      <div
-        id="focus-why-section"
-        class="lead-panel-agency-only hidden mb-4 rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white/50 dark:bg-slate-800/40 px-4 py-3"
-        role="group"
-        aria-label="Why this lead"
-      >
-        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Why this lead</p>
-        <div id="focus-why-reasons" class="space-y-1.5"></div>
       </div>
 
       <div class="mb-4 rounded-2xl border-2 border-brand-yellow/35 dark:border-brand-yellow/35 bg-brand-yellow/10 dark:bg-brand-yellow/10 px-4 py-3 shadow-sm">
@@ -633,23 +611,26 @@
             <input id="focus-followup-at" type="datetime-local" class="gcal-datetime-value sr-only" tabindex="-1" aria-hidden="true" />
           </div>
         </div>
-        <div id="focus-quick-task-strip" class="rounded-xl border border-brand-border/70 dark:border-white/10 bg-white/60 dark:bg-slate-900/40 p-3 space-y-2">
+        <div id="focus-quick-task-strip" class="rounded-xl border border-brand-border/70 dark:border-white/10 bg-white/60 dark:bg-slate-900/40 p-3 space-y-3">
           <div class="flex flex-wrap items-center justify-between gap-2">
-            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Quick task</p>
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Quick task + notes</p>
             <a href="/tasks" class="text-[10px] font-bold text-brand-yellow hover:underline">Tasks</a>
           </div>
+          <div>
+            <label for="focus-outcome-notes-log" class="block text-[9px] font-black uppercase tracking-wider text-brand-muted mb-1">Notes <span class="normal-case tracking-normal font-semibold text-brand-muted/80">· last note, synced with notes above</span></label>
+            <textarea id="focus-outcome-notes-log" rows="3" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-base sm:text-sm text-brand-dark dark:text-white focus:outline-none focus:ring-1 focus:ring-brand-yellow" placeholder="Owner response, objection, timing, next step…"></textarea>
+          </div>
+          <div>
+            <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-1">Open tasks on this lead</p>
+            <ul id="focus-lead-tasks" class="space-y-1" aria-live="polite">
+              <li class="text-[11px] text-brand-muted italic">Loading tasks…</li>
+            </ul>
+          </div>
           <div class="flex flex-col sm:flex-row gap-2">
-            <input type="text" id="focus-quick-task-title" maxlength="200" placeholder="e.g. Email pricing deck after this call" class="flex-1 rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-brand-dark dark:text-white" />
-            <button type="button" id="focus-btn-add-task" class="btn-pill shrink-0 bg-brand-yellow text-brand-dark px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:brightness-95 transition-colors">Add</button>
+            <input type="text" id="focus-quick-task-title" maxlength="200" placeholder="e.g. Email pricing deck after this call" class="flex-1 rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-base sm:text-sm text-brand-dark dark:text-white" />
+            <button type="button" id="focus-btn-add-task" class="btn-pill shrink-0 bg-brand-yellow text-brand-dark px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:brightness-95 transition-colors">Add task</button>
           </div>
           <p id="focus-quick-task-hint" class="hidden text-[11px] text-brand-muted" role="status" aria-live="polite"></p>
-        </div>
-        <div id="focus-outcome-notes-strip" class="rounded-xl border border-brand-border/70 dark:border-white/10 bg-white/60 dark:bg-slate-900/40 p-3 space-y-2">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <label for="focus-outcome-notes-log" class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Notes</label>
-            <span class="text-[10px] font-semibold text-brand-muted">Synced with notes above · saved with your quick log</span>
-          </div>
-          <textarea id="focus-outcome-notes-log" rows="3" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-base sm:text-sm text-brand-dark dark:text-white focus:outline-none focus:ring-1 focus:ring-brand-yellow" placeholder="Owner response, objection, timing, next step…"></textarea>
         </div>
         <p id="focus-outcome-feedback" class="min-h-[1rem] text-[11px] text-brand-muted"></p>
         <div class="focus-secondary-actions flex flex-col sm:flex-row flex-wrap gap-3 w-full">
@@ -4747,6 +4728,7 @@
       elStage.textContent = lead.pipelineLabel || ('Stage ' + lead.pipelineStage);
       elLast.textContent = lead.lastTouchLabel || '—';
       renderTouchPoints(lead);
+      renderFocusLeadTasks(lead);
       if (typeof window.__renderFocusLeadTags === 'function') {
         window.__renderFocusLeadTags(
           document.getElementById('focusLeadTagsHost'),
@@ -5119,6 +5101,77 @@
           });
       });
     }
+    var focusTasksRequest = null;
+    function loadFocusTasks(force) {
+      if (!force && focusTasksRequest) return focusTasksRequest;
+      focusTasksRequest = fetch('/tasks/api', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+        .then(function (res) { return res.ok ? res.json() : { tasks: [] }; })
+        .then(function (data) { return data && Array.isArray(data.tasks) ? data.tasks : []; })
+        .catch(function () {
+          focusTasksRequest = null;
+          return [];
+        });
+      return focusTasksRequest;
+    }
+
+    function focusShortKey(lead) {
+      return lead && lead.key ? String(focusLeadKeyParam(lead) || '').replace(/^lead:/i, '') : '';
+    }
+
+    function renderFocusLeadTasks(lead, force) {
+      var list = document.getElementById('focus-lead-tasks');
+      if (!list) return;
+      var key = focusShortKey(lead);
+      function note(text) {
+        list.innerHTML = '';
+        var li = document.createElement('li');
+        li.className = 'text-[11px] text-brand-muted italic';
+        li.textContent = text;
+        list.appendChild(li);
+      }
+      if (!key) {
+        note('No lead selected.');
+        return;
+      }
+      loadFocusTasks(force).then(function (tasks) {
+        if (focusShortKey(currentLead()) !== key) return;
+        var open = tasks
+          .filter(function (t) {
+            return t && String(t.leadKey || '').replace(/^lead:/i, '') === key && String(t.column || '').toLowerCase() !== 'done';
+          })
+          .sort(function (a, b) {
+            return String(a.scheduledAt || '9999').localeCompare(String(b.scheduledAt || '9999'));
+          });
+        if (!open.length) {
+          note('No open tasks on this lead.');
+          return;
+        }
+        list.innerHTML = '';
+        open.slice(0, 5).forEach(function (t) {
+          var li = document.createElement('li');
+          li.className = 'flex items-start justify-between gap-2 rounded-lg border border-brand-border/40 dark:border-white/10 bg-white/70 dark:bg-slate-900/50 px-2.5 py-1.5';
+          var title = document.createElement('span');
+          title.className = 'text-[12px] font-semibold text-brand-dark dark:text-slate-100 leading-snug min-w-0 break-words';
+          title.textContent = String(t.title || 'Task');
+          li.appendChild(title);
+          var due = t.scheduledAt ? new Date(t.scheduledAt) : null;
+          if (due && !Number.isNaN(due.getTime())) {
+            var when = document.createElement('span');
+            when.className = 'shrink-0 text-[10px] font-bold text-brand-muted whitespace-nowrap';
+            when.textContent = due.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+            li.appendChild(when);
+          }
+          list.appendChild(li);
+        });
+        if (open.length > 5) {
+          var more = document.createElement('li');
+          more.className = 'text-[10px] font-semibold text-brand-muted';
+          more.textContent = '+' + (open.length - 5) + ' more in Tasks';
+          list.appendChild(more);
+        }
+      });
+    }
+
     if (btnAddTask && elQuickTaskTitle) {
       function submitFocusQuickTask() {
         var lead = currentLead();
@@ -5147,6 +5200,7 @@
             elQuickTaskTitle.value = '';
             if (elQuickTaskHint) elQuickTaskHint.textContent = 'Saved to Tasks.';
             setOutcomeFeedback('Task saved to Tasks.', false);
+            renderFocusLeadTasks(currentLead(), true);
           })
           .catch(function (err) {
             var msg = (err && err.message) || 'Could not save task.';

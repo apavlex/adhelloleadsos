@@ -458,6 +458,47 @@
     setBulkTagsRowVisible(show);
   };
 
+  let focusTagsMoreOpen = false;
+
+  /* Money mode: applied tags always visible; create + add list behind a toggle. */
+  function focusTagsEditorHtml(hostId, createRowHtml, allTags, applied, availableActive) {
+    let pills = `<div class="flex flex-wrap gap-1.5" data-tag-pills-host="${escapeHtml(hostId)}">`;
+    if (!applied.length) {
+      pills += '<p class="text-[10px] text-brand-muted dark:text-slate-400 w-full">No tags on this lead yet.</p>';
+    } else {
+      applied.forEach((t) => {
+        const color = t.color || '#94a3b8';
+        pills += `<span class="inline-flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide border" style="background:${color}33;border-color:${color}66;color:${color}">
+          <span>${escapeHtml(t.name)}</span>
+          <button type="button" class="lead-panel-tag-remove w-5 h-5 rounded-md flex items-center justify-center text-[13px] leading-none font-bold opacity-70 hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10 transition-opacity" data-tag-key="${escapeHtml(t.key)}" data-tags-host="${escapeHtml(hostId)}" aria-label="Remove ${escapeHtml(t.name)} tag">×</button>
+        </span>`;
+      });
+    }
+    pills += '</div>';
+
+    let more = '';
+    if (availableActive.length) {
+      more += `<div class="flex flex-wrap gap-1.5 mb-3" data-tag-add-host="${escapeHtml(hostId)}">`;
+      availableActive.forEach((t) => {
+        more += `<button type="button" class="${addTagButtonClass}" data-tag-key="${escapeHtml(t.key)}" data-tags-host="${escapeHtml(hostId)}" aria-pressed="false">+ ${escapeHtml(t.name)}</button>`;
+      });
+      more += '</div>';
+    } else if (allTags.length) {
+      more +=
+        '<p class="text-[10px] text-brand-muted dark:text-slate-400 mb-3">No other active tags — turn tags on under <a href="/tags/manage" class="text-brand-yellow hover:underline">Manage all tags</a>.</p>';
+    }
+    more += createRowHtml.replace('mb-3 pb-3 border-b', 'mb-2');
+    more += '<a href="/tags/manage" class="text-[10px] font-bold uppercase tracking-wide text-brand-yellow hover:underline">Manage all tags →</a>';
+
+    const open = focusTagsMoreOpen;
+    return `${pills}
+      <button type="button" class="focus-tags-more-toggle mt-2 inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white transition-colors" aria-expanded="${open ? 'true' : 'false'}">
+        <span>${open ? 'Hide tags' : 'Add tags'}</span>
+        <svg class="w-3.5 h-3.5 transition-transform ${open ? '' : 'rotate-180'}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
+      </button>
+      <div class="focus-tags-more mt-2 pt-2 border-t border-brand-border/20 dark:border-white/10${open ? '' : ' hidden'}">${more}</div>`;
+  }
+
   function renderLeadTagsEditor(host, row, opts) {
     if (!host) return;
     const primary = !!(opts && opts.primary);
@@ -492,6 +533,11 @@
 
     const applied = allTags.filter((t) => t && t.key && active.has(t.key));
     const availableActive = tags.filter((t) => t && t.key && !active.has(t.key));
+
+    if (opts && opts.focusMode) {
+      host.innerHTML = focusTagsEditorHtml(hostId, html, allTags, applied, availableActive);
+      return;
+    }
 
     html += `<div class="flex flex-wrap gap-1.5 ${compact ? '' : 'mb-2'}" data-tag-pills-host="${escapeHtml(hostId)}">`;
     if (!allTags.length) {
@@ -1189,6 +1235,18 @@
     section.dataset.tagPanelBound = '1';
 
     section.addEventListener('click', async (e) => {
+      const moreToggle = e.target.closest('.focus-tags-more-toggle');
+      if (moreToggle) {
+        focusTagsMoreOpen = !focusTagsMoreOpen;
+        const panel = moreToggle.parentElement && moreToggle.parentElement.querySelector('.focus-tags-more');
+        if (panel) panel.classList.toggle('hidden', !focusTagsMoreOpen);
+        moreToggle.setAttribute('aria-expanded', focusTagsMoreOpen ? 'true' : 'false');
+        const label = moreToggle.querySelector('span');
+        if (label) label.textContent = focusTagsMoreOpen ? 'Hide tags' : 'Add tags';
+        const chevron = moreToggle.querySelector('svg');
+        if (chevron) chevron.classList.toggle('rotate-180', !focusTagsMoreOpen);
+        return;
+      }
       const toggle = e.target.closest('.lead-panel-tag-toggle');
       const remove = e.target.closest('.lead-panel-tag-remove');
       const createBtn = e.target.closest('.lead-panel-tag-create');
