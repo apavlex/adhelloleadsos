@@ -498,12 +498,12 @@
             </div>
             <button type="button" id="softphoneEnableAudioBtn" class="hidden w-full mb-2 rounded-xl border-2 border-brand-yellow/70 bg-brand-yellow/20 px-3 py-2 text-[11px] font-black uppercase tracking-wide text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/30 transition-colors">Tap to enable call audio</button>
             <p id="softphoneCallAudioMode" class="hidden text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-2 leading-snug"></p>
-            <div class="grid grid-cols-3 gap-1.5">
-              <button type="button" id="softphoneMuteBtn" class="softphone-ctrl-btn" title="Toggle mute (M)">Mute</button>
-              <button type="button" id="softphoneHoldBtn" class="softphone-ctrl-btn" title="Toggle hold (H)">Hold</button>
+            <div class="softphone-ctrl-row--primary grid grid-cols-3 gap-1.5">
+              <button type="button" id="softphoneMuteBtn" class="softphone-ctrl-btn softphone-ctrl-btn--in-app" title="Toggle mute (M)">Mute</button>
+              <button type="button" id="softphoneHoldBtn" class="softphone-ctrl-btn softphone-ctrl-btn--in-app" title="Toggle hold (H)">Hold</button>
               <button type="button" id="softphoneHangupBtn" class="softphone-ctrl-btn softphone-ctrl-btn--danger" title="End call (Esc)">Hang up</button>
             </div>
-            <div class="grid grid-cols-4 gap-1.5 mt-1.5">
+            <div class="softphone-ctrl-row--secondary grid grid-cols-4 gap-1.5 mt-1.5">
               <button type="button" id="softphoneKeypadBtn" class="softphone-ctrl-btn" title="Focus keypad">Keypad</button>
               <button type="button" id="softphoneTransferBtn" class="softphone-ctrl-btn" title="Transfer">Transfer</button>
               <button type="button" id="softphoneRecordBtn" class="softphone-ctrl-btn opacity-40 pointer-events-none" aria-pressed="false">Rec</button>

@@ -5329,6 +5329,21 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
   color: #fff;
 }
 
+/* My device dialer: the call lives in the native phone app, so in-app controls are inert. */
+.softphone-in-call--device .softphone-ctrl-btn--in-app,
+.softphone-in-call--device .softphone-ctrl-row--secondary {
+  display: none;
+}
+
+.softphone-in-call--device .softphone-ctrl-row--primary {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.softphone-in-call--device .softphone-ctrl-btn--danger {
+  padding: 0.7rem 0.5rem;
+  font-size: 0.75rem;
+}
+
 .softphone-ctrl-btn--ghl {
   background: #f97316;
   border-color: #ea580c;

@@ -3681,8 +3681,17 @@
     return true;
   }
 
+  function softphoneIsDeviceDialerCall() {
+    if (String(softphoneSession.callSid || '').trim()) return false;
+    var mode = String(softphoneSession.dialMode || '').trim() || String(spWorkspaceCallMode || '').trim();
+    return mode === 'browser_device';
+  }
+
   function updateSoftphoneHangupButtonLabel() {
     var device = softphoneIsDeviceHandoffActive();
+    if (spInCallBar) {
+      spInCallBar.classList.toggle('softphone-in-call--device', softphoneIsDeviceDialerCall());
+    }
     if (spHangup) {
       spHangup.textContent = device ? 'Call done' : 'Hang up';
       spHangup.setAttribute(
