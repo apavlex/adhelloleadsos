@@ -65,110 +65,8 @@
         background: linear-gradient(to top, rgba(15, 23, 42, 0.98) 70%, rgba(15, 23, 42, 0.75));
         border-top-color: rgba(255, 255, 255, 0.1);
       }
-      .focus-mobile-dock-sheet {
-        margin-bottom: 0.55rem;
-        border-radius: 1.15rem;
-        border: 1px solid rgba(17, 24, 39, 0.1);
-        background: #fff;
-        padding: 0.65rem;
-        grid-template-columns: 1fr 1fr;
-        gap: 0.5rem;
-        max-height: min(50vh, 22rem);
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-      }
-      .focus-mobile-dock-sheet:not(.hidden) {
-        display: grid;
-      }
       #focus-mobile-fab-actions.hidden {
         display: none !important;
-      }
-      html.dark .focus-mobile-dock-sheet {
-        background: #0f172a;
-        border-color: rgba(255, 255, 255, 0.12);
-      }
-      .focus-mobile-dock-sheet .focus-dock-btn {
-        min-height: 3.1rem;
-        font-size: 0.7rem;
-        letter-spacing: 0.08em;
-        font-weight: 900;
-        text-transform: uppercase;
-        border-radius: 0.9rem;
-        padding: 0.65rem 0.5rem;
-      }
-      .focus-mobile-dock-bar {
-        display: grid;
-        grid-template-columns: 1.35fr 1fr 1.2fr auto;
-        gap: 0.45rem;
-        align-items: stretch;
-      }
-      .focus-mobile-dock-bar .focus-dock-btn {
-        min-height: 3.35rem;
-        border-radius: 1rem;
-        font-size: 0.72rem;
-        letter-spacing: 0.08em;
-        font-weight: 900;
-        text-transform: uppercase;
-        padding: 0.55rem 0.35rem;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.35rem;
-        border: 0;
-        cursor: pointer;
-        -webkit-tap-highlight-color: transparent;
-        user-select: none;
-      }
-      .focus-dock-btn--call {
-        background: #111827;
-        color: #fff;
-        box-shadow: 0 8px 18px rgba(17, 24, 39, 0.28);
-      }
-      html.dark .focus-dock-btn--call {
-        background: #FFDB3A;
-        color: #111827;
-      }
-      .focus-dock-btn--sms {
-        background: rgba(16, 185, 129, 0.18);
-        color: #065f46;
-        border: 1.5px solid rgba(16, 185, 129, 0.45) !important;
-      }
-      html.dark .focus-dock-btn--sms {
-        color: #a7f3d0;
-      }
-      .focus-dock-btn--next {
-        background: rgba(250, 204, 21, 0.35);
-        color: #111827;
-        border: 1.5px solid rgba(202, 138, 4, 0.45) !important;
-      }
-      .focus-dock-btn--more {
-        width: 3.35rem;
-        min-width: 3.35rem;
-        background: #fff;
-        color: #111827;
-        border: 1.5px solid rgba(17, 24, 39, 0.14) !important;
-      }
-      html.dark .focus-dock-btn--more {
-        background: #1e293b;
-        color: #f8fafc;
-        border-color: rgba(255, 255, 255, 0.14) !important;
-      }
-      .focus-dock-btn--more[aria-expanded="true"] {
-        background: #111827;
-        color: #fff;
-      }
-      html.dark .focus-dock-btn--more[aria-expanded="true"] {
-        background: #FFDB3A;
-        color: #111827;
-      }
-      .focus-dock-btn:disabled {
-        opacity: 0.4;
-        pointer-events: none;
-      }
-      .focus-dock-btn svg {
-        width: 1.15rem;
-        height: 1.15rem;
-        flex-shrink: 0;
       }
     /* 16px composer text keeps iOS from zooming into the field */
     @media (max-width: 767px) {
@@ -746,6 +644,13 @@
           </div>
           <p id="focus-quick-task-hint" class="hidden text-[11px] text-brand-muted" role="status" aria-live="polite"></p>
         </div>
+        <div id="focus-outcome-notes-strip" class="rounded-xl border border-brand-border/70 dark:border-white/10 bg-white/60 dark:bg-slate-900/40 p-3 space-y-2">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <label for="focus-outcome-notes-log" class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Notes</label>
+            <span class="text-[10px] font-semibold text-brand-muted">Synced with notes above · saved with your quick log</span>
+          </div>
+          <textarea id="focus-outcome-notes-log" rows="3" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-base sm:text-sm text-brand-dark dark:text-white focus:outline-none focus:ring-1 focus:ring-brand-yellow" placeholder="Owner response, objection, timing, next step…"></textarea>
+        </div>
         <p id="focus-outcome-feedback" class="min-h-[1rem] text-[11px] text-brand-muted"></p>
         <div class="focus-secondary-actions flex flex-col sm:flex-row flex-wrap gap-3 w-full">
         <button type="button" id="focus-btn-back-secondary" disabled class="btn-pill border-2 border-brand-border dark:border-white/15 bg-brand-cream/30 dark:bg-slate-800/50 flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 hover:border-brand-yellow/40 disabled:opacity-40 disabled:pointer-events-none" title="Return to the previous lead you viewed">Go back</button>
@@ -1039,8 +944,14 @@
       }
     }
 
+    var elOutcomeNotesLog = document.getElementById('focus-outcome-notes-log');
+
     function syncFocusNotesIndicator() {
-      if (!elFocusNotesIndicator || !elOutcomeNotes) return;
+      if (!elOutcomeNotes) return;
+      if (elOutcomeNotesLog && elOutcomeNotesLog.value !== elOutcomeNotes.value) {
+        elOutcomeNotesLog.value = elOutcomeNotes.value;
+      }
+      if (!elFocusNotesIndicator) return;
       var hasNotes = !!String(elOutcomeNotes.value || '').trim();
       elFocusNotesIndicator.classList.toggle('hidden', !hasNotes);
     }
@@ -5160,6 +5071,12 @@
     }
     if (elOutcomeNotes) {
       elOutcomeNotes.addEventListener('input', syncFocusNotesIndicator);
+    }
+    if (elOutcomeNotesLog && elOutcomeNotes) {
+      elOutcomeNotesLog.addEventListener('input', function () {
+        elOutcomeNotes.value = elOutcomeNotesLog.value;
+        syncFocusNotesIndicator();
+      });
     }
     window.__setFocusNotesOpen = setFocusNotesOpen;
     setFocusNotesOpen(false);

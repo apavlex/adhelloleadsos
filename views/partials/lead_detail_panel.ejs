@@ -946,17 +946,23 @@
           </div>
         </div>
 
-        <button type="button" id="leadPanelReferralBtn" class="btn-pill w-full bg-brand-yellow text-brand-dark py-2.5 text-[10px] font-black uppercase tracking-widest hover:brightness-95 transition-colors shrink-0" title="Add this lead to referral partners" data-default-label="Referral">Referral</button>
-        <p id="leadPanelReferralStatus" class="hidden text-center text-[10px] font-semibold leading-tight px-1" role="status" aria-live="polite"></p>
-        <button type="button" id="mobilePanelRemoveBtn" class="w-full text-center py-3 mt-1 text-xs font-black uppercase tracking-[0.2em] text-red-500 hover:text-red-600 transition-colors border-t border-brand-border/15 dark:border-white/10 pt-3">Discard this Lead</button>
         </div><!-- /leadPanelNotepadBody -->
 
-        <!-- Stay visible when Quick log is collapsed — Call + SMS + GHL eMail + Sync GHL -->
-        <div id="leadPanelOutreachCtaRow" class="grid grid-cols-4 gap-1.5 px-0.5 pt-1.5 shrink-0">
-          <button type="button" id="clickToCallBtn" class="btn-pill bg-emerald-500 text-white py-2.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wide whitespace-nowrap hover:bg-emerald-600 transition-colors">Call</button>
-          <button type="button" id="leadPanelSmsBtn" class="btn-pill bg-teal-500 text-white py-2.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wide whitespace-nowrap hover:bg-teal-600 transition-colors" title="Open SMS composer — type your message, improve with AI, then send">SMS</button>
-          <button type="button" id="leadPanelGhlEmailBtn" class="btn-pill bg-sky-600 text-white py-2.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wide whitespace-nowrap hover:bg-sky-700 transition-colors" title="Open email composer — pick a template, edit, then send" aria-pressed="false">eMail</button>
-          <button type="button" id="leadPanelPushGhlBtn" class="btn-pill bg-orange-500 text-white py-2.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wide whitespace-nowrap hover:bg-orange-600 transition-colors" title="Sync this contact and notes to Go High Level">Sync GHL</button>
+        <!-- Same dock as Money mode: Call · SMS · eMail · More (Sync GHL, Quick log, Referral, Discard) -->
+        <div id="leadPanelDockSheet" class="focus-mobile-dock-sheet hidden" role="menu" aria-label="More lead actions">
+          <button type="button" id="leadPanelPushGhlBtn" class="focus-dock-btn col-span-2 border border-orange-600 bg-orange-500 text-white" role="menuitem" title="Sync this contact and notes to Go High Level">Sync GHL</button>
+          <button type="button" id="leadPanelDockQuickLog" class="focus-dock-btn border border-brand-dark/25 dark:border-white/20 bg-white dark:bg-slate-900 text-brand-dark dark:text-white" role="menuitem">Quick log</button>
+          <button type="button" id="leadPanelReferralBtn" class="focus-dock-btn border border-yellow-600/40 bg-brand-yellow text-brand-dark" role="menuitem" title="Add this lead to referral partners" data-default-label="Referral">Referral</button>
+          <button type="button" id="mobilePanelRemoveBtn" class="focus-dock-btn col-span-2 border border-red-500/40 bg-red-500/10 text-red-600 dark:text-red-300" role="menuitem">Discard this lead</button>
+        </div>
+        <p id="leadPanelReferralStatus" class="hidden text-center text-[10px] font-semibold leading-tight px-1 pb-1" role="status" aria-live="polite"></p>
+        <div id="leadPanelOutreachCtaRow" class="focus-mobile-dock-bar px-0.5 pt-1.5 shrink-0">
+          <button type="button" id="clickToCallBtn" class="focus-dock-btn focus-dock-btn--call focus-dock-btn--icon-call">Call</button>
+          <button type="button" id="leadPanelSmsBtn" class="focus-dock-btn focus-dock-btn--sms focus-dock-btn--icon-sms" title="Open SMS composer — type your message, improve with AI, then send">SMS</button>
+          <button type="button" id="leadPanelGhlEmailBtn" class="focus-dock-btn focus-dock-btn--next" title="Open email composer — pick a template, edit, then send" aria-pressed="false">eMail</button>
+          <button type="button" id="leadPanelDockMoreBtn" class="focus-dock-btn focus-dock-btn--more" aria-label="More lead actions" aria-expanded="false" aria-controls="leadPanelDockSheet" title="More">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+          </button>
         </div>
       </div>
 
@@ -1062,5 +1068,41 @@
           say('Could not add this lead.', false);
         });
       });
+    })();
+    (function () {
+      var sheet = document.getElementById('leadPanelDockSheet');
+      var moreBtn = document.getElementById('leadPanelDockMoreBtn');
+      if (!sheet || !moreBtn) return;
+      function setOpen(open) {
+        sheet.classList.toggle('hidden', !open);
+        moreBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      }
+      moreBtn.addEventListener('click', function (event) {
+        event.preventDefault();
+        setOpen(sheet.classList.contains('hidden'));
+      });
+      document.addEventListener('click', function (event) {
+        if (sheet.classList.contains('hidden')) return;
+        var target = event.target;
+        if (moreBtn.contains(target)) return;
+        if (sheet.contains(target) && !(target.closest && target.closest('[role="menuitem"]'))) return;
+        setOpen(false);
+      });
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !sheet.classList.contains('hidden')) setOpen(false);
+      });
+      var quickLogBtn = document.getElementById('leadPanelDockQuickLog');
+      if (quickLogBtn) {
+        quickLogBtn.addEventListener('click', function () {
+          var notepad = document.getElementById('leadPanelNotepad');
+          var toggle = document.getElementById('leadPanelNotepadToggle');
+          if (notepad && toggle && notepad.classList.contains('lead-panel-notepad--collapsed')) {
+            toggle.click();
+            return;
+          }
+          var drawer = document.getElementById('leadPanelQuickLogDrawer');
+          if (drawer && drawer.scrollIntoView) drawer.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        });
+      }
     })();
   </script>
