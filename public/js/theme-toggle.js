@@ -3,6 +3,9 @@
  * Persisted preference: localStorage key `color-theme` (matches inline script in partials/head.ejs).
  */
 (function () {
+  if (window.__adhelloThemeToggleBound) return;
+  window.__adhelloThemeToggleBound = true;
+
   function setTheme(theme) {
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
@@ -16,20 +19,11 @@
     } catch (_) {}
   }
 
-  function bind() {
-    document.querySelectorAll('.theme-toggle-btn, #themeToggleBtn').forEach(function (btn) {
-      if (btn.dataset.themeBound === '1') return;
-      btn.dataset.themeBound = '1';
-      btn.addEventListener('click', function () {
-        var isDark = document.documentElement.classList.contains('dark');
-        setTheme(isDark ? 'light' : 'dark');
-      });
-    });
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bind);
-  } else {
-    bind();
-  }
+  // Delegated so every theme button works (desktop top bar, mobile menu, ones added later).
+  document.addEventListener('click', function (e) {
+    var btn = e.target && e.target.closest ? e.target.closest('.theme-toggle-btn, #themeToggleBtn') : null;
+    if (!btn) return;
+    var isDark = document.documentElement.classList.contains('dark');
+    setTheme(isDark ? 'light' : 'dark');
+  });
 })();

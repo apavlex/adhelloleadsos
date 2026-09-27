@@ -1580,7 +1580,11 @@
     return !!(da && db && da === db);
   }
 
+  /** Set only while hydrating a contact list so each entry doesn't re-parse the cache / rescan rows. */
+  var spContactLookupMemo = null;
+
   function readFocusCallQueueCache() {
+    if (spContactLookupMemo && spContactLookupMemo.queue) return spContactLookupMemo.queue;
     if (typeof window.__getFocusCallQueueLeads === 'function') {
       var live = window.__getFocusCallQueueLeads() || [];
       if (live.length) return live;
@@ -1890,6 +1894,18 @@
         return String(cached[k].title || '').trim();
       }
     }
+    if (spContactLookupMemo) {
+      if (!spContactLookupMemo.rowsByPhone) {
+        var byPhone = Object.create(null);
+        document.querySelectorAll('tr.result-row[data-phone]').forEach(function (row) {
+          var d10 = phoneDigits10(row.dataset.phone || '');
+          if (d10 && !byPhone[d10]) byPhone[d10] = row;
+        });
+        spContactLookupMemo.rowsByPhone = byPhone;
+      }
+      var hit = spContactLookupMemo.rowsByPhone[phoneDigits10(dial)];
+      return hit ? softphoneQueueRowTitle(hit) : '';
+    }
     var allRows = document.querySelectorAll('tr.result-row[data-phone]');
     for (var r = 0; r < allRows.length; r += 1) {
       if (phonesMatchLoose(allRows[r].dataset.phone || '', dial)) {
@@ -1926,7 +1942,14 @@
   }
 
   function hydrateSoftphoneContactTitles(entries, done) {
-    var list = (entries || []).map(enrichSoftphoneContactEntry);
+    var list;
+    spContactLookupMemo = { queue: null };
+    try {
+      spContactLookupMemo.queue = readFocusCallQueueCache();
+      list = (entries || []).map(enrichSoftphoneContactEntry);
+    } finally {
+      spContactLookupMemo = null;
+    }
     var missing = list.filter(function (e) {
       return e.number && !e.title;
     });
@@ -3767,7 +3790,65 @@
   function updateSoftphoneScrollHint() {
     if (!spScrollHint) return;
     var show = softphoneInCallBarBelowFold();
+    var changed = spScrollHint.classList.contains('hidden') === show;
     spScrollHint.classList.toggle('hidden', !show);
+    if (changed) softphoneScheduleKeypadFit();
+  }
+
+  var spKeypadDock = spKeypadTab ? spKeypadTab.querySelector('.softphone-keypad-dock') : null;
+  var spKeypadMain = spKeypadTab ? spKeypadTab.querySelector('.softphone-main-screen') : null;
+  var spKeypadFitRaf = 0;
+  // Dock height ≈ 4 key rows + 3 row gaps (0.16) + call button (0.97), in key-size units.
+  var SP_KEYPAD_HEIGHT_UNITS = 5.45;
+
+  function softphoneScheduleKeypadFit() {
+    if (spKeypadFitRaf) return;
+    spKeypadFitRaf = requestAnimationFrame(function () {
+      spKeypadFitRaf = 0;
+      softphoneFitKeypad();
+    });
+  }
+
+  /** Grow the dial pad into the free space under the lead info so the keypad fills the first screen. */
+  function softphoneFitKeypad() {
+    if (!spKeypadDock || !spKeypadMain || !spKeypadScroll || !spKeypadTab) return;
+    if (spKeypadTab.classList.contains('hidden') || !spKeypadScroll.clientHeight) return;
+    var padTop = parseFloat(getComputedStyle(spKeypadScroll).paddingTop) || 0;
+    var targetH = spKeypadScroll.clientHeight - padTop;
+    var maxByWidth = spKeypadDock.clientWidth / 3.6;
+    var clamp = function (s) {
+      return Math.floor(Math.max(48, Math.min(s, maxByWidth, 92)));
+    };
+    spKeypadDock.classList.add('is-fit');
+    var size = clamp(56);
+    spKeypadDock.style.setProperty('--sp-key', size + 'px');
+    var prevBottom = spKeypadMain.getBoundingClientRect().top;
+    for (var el = spKeypadDock.previousElementSibling; el; el = el.previousElementSibling) {
+      var r = el.getBoundingClientRect();
+      if (r.height > 0) {
+        prevBottom = r.bottom + (parseFloat(getComputedStyle(el).marginBottom) || 0);
+        break;
+      }
+    }
+    var spare = spKeypadDock.getBoundingClientRect().top - prevBottom - 4;
+    if (spare > 0) {
+      size = clamp(size + spare / SP_KEYPAD_HEIGHT_UNITS);
+      spKeypadDock.style.setProperty('--sp-key', size + 'px');
+    }
+    for (var pass = 0; pass < 2; pass += 1) {
+      var over = spKeypadMain.offsetHeight - targetH;
+      if (over <= 1) break;
+      size = clamp(size - Math.ceil(over / SP_KEYPAD_HEIGHT_UNITS));
+      spKeypadDock.style.setProperty('--sp-key', size + 'px');
+    }
+  }
+
+  if (spKeypadMain && typeof ResizeObserver === 'function') {
+    var spKeypadRo = new ResizeObserver(softphoneScheduleKeypadFit);
+    if (spKeypadScroll) spKeypadRo.observe(spKeypadScroll);
+    Array.prototype.forEach.call(spKeypadMain.children, function (child) {
+      if (child !== spKeypadDock) spKeypadRo.observe(child);
+    });
   }
   function softphoneSetCallState(state) {
     var prev = softphoneSession.state;
@@ -5815,9 +5896,34 @@
     return row;
   }
 
+  function softphoneDirectMailTabOpen() {
+    var mailPanel = document.getElementById('softphoneTabDirectMail');
+    return !!(mailPanel && !mailPanel.classList.contains('hidden'));
+  }
+
+  var spDirectMailRefreshInFlight = null;
+
   function renderSoftphoneDirectMailQueue() {
     if (!spDirectMailList && !spDirectMailRecentList) return;
-    var paint = function () {
+    paintSoftphoneDirectMailQueue();
+    if (typeof window.__refreshDirectMailQueueFromServer !== 'function') return;
+    if (spDirectMailRefreshInFlight) return;
+    spDirectMailRefreshInFlight = window
+      .__refreshDirectMailQueueFromServer()
+      .then(function () {
+        paintSoftphoneDirectMailQueue();
+      })
+      .catch(function () {
+        /* keep session-only list if server fetch fails */
+      })
+      .then(function () {
+        spDirectMailRefreshInFlight = null;
+      });
+  }
+
+  function paintSoftphoneDirectMailQueue() {
+    if (!spDirectMailList && !spDirectMailRecentList) return;
+    (function () {
       var session =
         typeof window.__readDirectMailSession === 'function' ? window.__readDirectMailSession() : [];
       var keys =
@@ -5854,22 +5960,15 @@
           });
         }
       }
-      renderSoftphoneDirectMailRecentPicker(queuedSet);
+      if (softphoneDirectMailTabOpen()) renderSoftphoneDirectMailRecentPicker(queuedSet);
       if (typeof window.__updateDirectMailNavBadge === 'function') window.__updateDirectMailNavBadge();
-    };
-    paint();
-    if (typeof window.__refreshDirectMailQueueFromServer === 'function') {
-      window
-        .__refreshDirectMailQueueFromServer()
-        .then(function () {
-          paint();
-        })
-        .catch(function () {
-          /* keep session-only list if server fetch fails */
-        });
-    }
+    })();
   }
-  window.__renderSoftphoneDirectMailQueue = renderSoftphoneDirectMailQueue;
+  // direct-mail-queue.js calls this after every session write (including server refreshes),
+  // so it must only repaint — fetching here looped refresh → write → render forever.
+  window.__renderSoftphoneDirectMailQueue = function () {
+    if (softphoneDirectMailTabOpen()) paintSoftphoneDirectMailQueue();
+  };
 
   function setSoftphoneTab(tab) {
     var name = String(tab || 'keypad');
@@ -5898,7 +5997,12 @@
     }
     if (name === 'direct_mail') renderSoftphoneDirectMailQueue();
     if (name === 'keypad' && spTo) setTimeout(softphoneFocusDialInput, 60);
-    if (name === 'keypad') setTimeout(updateSoftphoneScrollHint, 80);
+    if (name === 'keypad') {
+      setTimeout(function () {
+        updateSoftphoneScrollHint();
+        softphoneScheduleKeypadFit();
+      }, 80);
+    }
   }
   window.__adhelloSoftphoneSetTab = setSoftphoneTab;
 
@@ -5910,7 +6014,10 @@
       softphoneScrollKeypadTo(spQuickLogBar);
     });
   }
-  window.addEventListener('resize', updateSoftphoneScrollHint);
+  window.addEventListener('resize', function () {
+    updateSoftphoneScrollHint();
+    softphoneScheduleKeypadFit();
+  });
 
   document.querySelectorAll('.softphone-nav-btn').forEach(function (btn) {
     btn.addEventListener('click', function () {

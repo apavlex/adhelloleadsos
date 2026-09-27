@@ -4767,11 +4767,44 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
 .softphone-main-screen {
   display: flex;
   flex-direction: column;
-  min-height: 100%;
+  /* + the scroller's bottom padding so the quick log starts fully below the fold */
+  min-height: calc(100% + max(0.75rem, env(safe-area-inset-bottom, 0px)));
 }
 
 .softphone-main-screen .softphone-keypad-dock {
   margin-top: auto;
+}
+
+/* --sp-key is set by softphoneFitKeypad() to fill the free height */
+.softphone-keypad-dock.is-fit .softphone-keypad-grid {
+  grid-template-columns: repeat(3, var(--sp-key));
+  column-gap: calc(var(--sp-key) * 0.3);
+  row-gap: calc(var(--sp-key) * 0.16);
+  max-width: none;
+  margin-top: 0.25rem;
+}
+
+.softphone-keypad-dock.is-fit .softphone-key {
+  width: var(--sp-key);
+  height: var(--sp-key);
+}
+
+.softphone-keypad-dock.is-fit .softphone-key-main {
+  font-size: calc(var(--sp-key) * 0.38);
+}
+
+.softphone-keypad-dock.is-fit .softphone-key-sub {
+  font-size: calc(var(--sp-key) * 0.13);
+}
+
+.softphone-keypad-dock.is-fit .softphone-call-row {
+  gap: calc(var(--sp-key) * 0.35);
+  margin-top: calc(var(--sp-key) * 0.2);
+}
+
+.softphone-keypad-dock.is-fit .softphone-call-btn {
+  width: calc(var(--sp-key) * 0.97);
+  height: calc(var(--sp-key) * 0.97);
 }
 
 .softphone-status-line {
