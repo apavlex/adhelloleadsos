@@ -5576,6 +5576,10 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
   accent-color: var(--brand-yellow);
 }
 
+#softphoneSyncGhlOnDone {
+  accent-color: #f97316;
+}
+
 /* iOS zooms into focused fields under 16px */
 @media (max-width: 767px) {
   #softphonePanel input:not([type='checkbox']):not([type='radio']):not([readonly]),

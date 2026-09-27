@@ -328,6 +328,16 @@
   var spPushGhl = document.getElementById('softphonePushGhlBtn');
   var spAiSummary = document.getElementById('softphoneAiSummaryBtn');
   var spCompleteWrap = document.getElementById('softphoneCompleteWrapBtn');
+  var spSyncGhlOnDone = document.getElementById('softphoneSyncGhlOnDone');
+  var SOFTPHONE_SYNC_GHL_ON_DONE_KEY = 'adhello-softphone-sync-ghl-on-done';
+  function syncSoftphoneDoneLabel() {
+    if (!spCompleteWrap || window.__softphonePushGhlInFlight) return;
+    var sync = !!(spSyncGhlOnDone && spSyncGhlOnDone.checked);
+    spCompleteWrap.textContent = sync ? 'Done · Save & sync GHL' : 'Done · Save';
+    spCompleteWrap.title = sync
+      ? 'Save the quick log and notes to this lead, then sync to Go High Level'
+      : 'Save the quick log and notes to this lead';
+  }
   var spSkipWrap = document.getElementById('softphoneSkipWrapBtn');
   var spNextStep = document.getElementById('softphoneNextStep');
   var spScrollHint = document.getElementById('softphoneScrollHint');
@@ -2802,6 +2812,7 @@
   }
 
   function pushSoftphoneLeadToGhl() {
+    var spPushGhl = document.getElementById('softphonePushGhlBtn') || spCompleteWrap;
     if (window.__softphonePushGhlInFlight) return Promise.resolve();
     var key = softphoneLeadStorageKey();
     if (!key) {
@@ -2816,7 +2827,7 @@
       return Promise.resolve();
     }
 
-    var labelDefault = 'Sync GHL';
+    var labelDefault = spPushGhl ? String(spPushGhl.textContent || '').trim() || 'Sync GHL' : 'Sync GHL';
     window.__softphonePushGhlInFlight = true;
     if (spPushGhl) {
       spPushGhl.disabled = true;
@@ -2866,7 +2877,12 @@
         if (tagLabel) msg += ' · AO: ' + tagLabel;
         setSoftphoneWrapFeedback(msg, false);
         softphoneSetStatus(msg);
-        if (spPushGhl) spPushGhl.textContent = '✓ Synced';
+        if (spPushGhl) {
+          spPushGhl.textContent = '✓ Saved & synced';
+          setTimeout(function () {
+            if (spPushGhl.textContent === '✓ Saved & synced') spPushGhl.textContent = labelDefault;
+          }, 1800);
+        }
         if (spNextStep) {
           spNextStep.textContent = softphoneWrapNextStepHint(
             selection.label || softphoneOutcomeLabel(selection.disposition || selection.value),
@@ -2894,6 +2910,9 @@
           err && err.name === 'AbortError'
             ? 'GHL sync timed out. Check Integrations, then try again.'
             : ((err && err.message) || 'GHL sync failed.');
+        if (spSyncGhlOnDone && spSyncGhlOnDone.checked) {
+          msg += ' Notes are saved — uncheck Sync to GHL and tap Done to finish.';
+        }
         setSoftphoneWrapFeedback(msg, true);
         softphoneSetStatus(msg, true);
         if (spPushGhl) spPushGhl.textContent = labelDefault;
@@ -7241,6 +7260,10 @@
       return;
     }
     var key = softphoneLeadStorageKey();
+    if (key && spSyncGhlOnDone && spSyncGhlOnDone.checked) {
+      pushSoftphoneLeadToGhl();
+      return;
+    }
     var finalize = function () {
       if (spNextStep) {
         spNextStep.textContent = softphoneWrapNextStepHint(
@@ -7288,6 +7311,19 @@
   }
   if (spPushGhl) spPushGhl.addEventListener('click', function () { pushSoftphoneLeadToGhl(); });
   if (spCompleteWrap) spCompleteWrap.addEventListener('click', completeWrap);
+  if (spSyncGhlOnDone) {
+    try {
+      var savedSyncPref = localStorage.getItem(SOFTPHONE_SYNC_GHL_ON_DONE_KEY);
+      if (savedSyncPref === '0') spSyncGhlOnDone.checked = false;
+    } catch (_) {}
+    syncSoftphoneDoneLabel();
+    spSyncGhlOnDone.addEventListener('change', function () {
+      try {
+        localStorage.setItem(SOFTPHONE_SYNC_GHL_ON_DONE_KEY, spSyncGhlOnDone.checked ? '1' : '0');
+      } catch (_) {}
+      syncSoftphoneDoneLabel();
+    });
+  }
   if (spSkipWrap) spSkipWrap.addEventListener('click', softphoneSkipWrap);
   if (spAiSummary) {
     spAiSummary.addEventListener('click', function () {

@@ -593,11 +593,14 @@
             <textarea id="softphoneNotes" rows="2" class="w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-[11px] text-slate-800 dark:text-white placeholder:text-slate-400 resize-y min-h-[3rem]" placeholder="Owner response, objection, next step…"></textarea>
             <p id="softphoneWrapFeedback" class="min-h-[1rem] text-[10px] text-slate-500 dark:text-slate-400 mt-1 leading-snug" role="status" aria-live="polite"></p>
             <p id="softphoneNextStep" class="hidden text-[10px] text-slate-500 dark:text-slate-400 mt-1 leading-snug"></p>
+            <label class="mt-2 flex items-center gap-2 text-[11px] font-bold text-slate-800 dark:text-slate-100 cursor-pointer select-none">
+              <input type="checkbox" id="softphoneSyncGhlOnDone" class="rounded border-orange-400 text-orange-500 focus:ring-orange-400/40" checked />
+              Sync to GHL when saving
+            </label>
             <div class="grid grid-cols-2 gap-1.5 mt-2">
-              <button type="button" id="softphonePushGhlBtn" class="softphone-ctrl-btn softphone-ctrl-btn--ghl col-span-2" title="Save quick log and notes, then sync to Go High Level">Sync GHL</button>
+              <button type="button" id="softphoneCompleteWrapBtn" class="softphone-ctrl-btn softphone-ctrl-btn--primary col-span-2" title="Save the quick log and notes to this lead">Done · Save &amp; sync GHL</button>
               <button type="button" id="softphoneAiSummaryBtn" class="softphone-ctrl-btn">AI summary</button>
-              <button type="button" id="softphoneCompleteWrapBtn" class="softphone-ctrl-btn softphone-ctrl-btn--primary">Done</button>
-              <button type="button" id="softphoneSkipWrapBtn" class="softphone-ctrl-btn col-span-2" title="Skip outcome and dial again">Skip wrap-up</button>
+              <button type="button" id="softphoneSkipWrapBtn" class="softphone-ctrl-btn" title="Skip outcome and dial again">Skip wrap-up</button>
             </div>
           </div>
 
