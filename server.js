@@ -54,6 +54,8 @@ const todayRoutes = require('./routes/today');
 const focusRoutes = require('./routes/focus');
 const engagementRoutes = require('./routes/engagement');
 const referralRoutes = require('./routes/referrals');
+const networkRoutes = require('./routes/network');
+const networkPublicRoutes = require('./routes/networkPublic');
 const pipelineRoutes = require('./routes/pipeline');
 const auditReportPublicRoutes = require('./routes/auditReportPublic');
 const auditLandingPublicRoutes = require('./routes/auditLandingPublic');
@@ -444,6 +446,8 @@ app.use('/', sharePhoneAnalyticsRoutes);
 app.use('/', auditReportPublicRoutes);
 app.use('/', auditLandingPublicRoutes);
 app.use('/', aiToolsReportPublicRoutes);
+// Referral network member links (signed token; no session)
+app.use('/', networkPublicRoutes);
 
 // Autonomous prospecting API (API key auth, no session required)
 app.use('/autonomous', autonomousRoutes);
@@ -581,6 +585,7 @@ app.use('/today', todayRoutes);
 app.use('/focus', focusRoutes);
 app.use('/engagement', engagementRoutes);
 app.use('/referrals', referralRoutes);
+app.use('/network', networkRoutes);
 app.use('/', indexRoutes);
 app.use('/search', searchRoutes);
 app.use('/permits', permitsRoutes);

@@ -63,6 +63,9 @@
     const rows = Array.isArray(partners) ? partners : [];
     const counts = totals || { partners: 0, connected: 0, intros: 0, sent: 0, received: 0 };
     const noticeBad = notice && /^(Could not|That partner|Unknown|Write a note)/.test(notice);
+    const net = (typeof networkSetup !== 'undefined' && networkSetup) ? networkSetup : { trades: [], zones: [], memberLeadKeys: [] };
+    const netMembers = new Set(net.memberLeadKeys || []);
+    const netReady = net.zones.length > 0 && net.trades.length > 0;
   %>
   <main class="max-wide px-6 py-8 md:py-12">
     <header class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -191,6 +194,13 @@
           <button type="button" class="ref-btn ref-btn-ghost" data-referral-action="email" data-lead-key="<%= partner.key %>" data-title="<%= partner.title %>">Email</button>
           <a class="ref-btn ref-btn-ghost" href="/direct-mail?keys=<%= encodeURIComponent(partner.key) %>">Direct Mail</a>
           <button type="button" class="ref-btn ref-btn-ghost" data-referral-ghl data-lead-key="<%= partner.key %>" data-default-label="Sync GHL">Sync GHL</button>
+          <% if (netMembers.has(partner.key)) { %>
+          <a class="ref-btn ref-btn-ghost" href="/network?tab=members">Network member</a>
+          <% } else if (netReady) { %>
+          <button type="button" class="ref-btn ref-btn-ghost" data-network-member data-lead-key="<%= partner.key %>" data-title="<%= partner.title %>">Make network member</button>
+          <% } else { %>
+          <a class="ref-btn ref-btn-ghost" href="/network?tab=members&leadKey=<%= encodeURIComponent(partner.key) %>">Make network member</a>
+          <% } %>
           <button type="button" class="ref-btn ref-btn-quiet" data-ref-track="clear" data-lead-key="<%= partner.key %>" data-default-label="Remove">Remove</button>
         </div>
 
@@ -221,6 +231,7 @@
       var popTitle = document.getElementById('referralPopTitle');
       var status = document.getElementById('referralStatus');
       var searchQuery = <%- JSON.stringify(query || '') %>;
+      var networkSetup = <%- JSON.stringify(net).replace(/</g, '\\u003c') %>;
 
       function say(text, ok) {
         if (!status) return;
@@ -341,6 +352,83 @@
           }).catch(function () {
             input.disabled = false;
             say('Could not create that tag.', false);
+          });
+        });
+      }
+
+      function openNetworkMember(button) {
+        var key = button.getAttribute('data-lead-key');
+        openPop('Network member · ' + (button.getAttribute('data-title') || 'Partner'));
+        function checks(name, rows, labelKey, valueKey, preselectAll) {
+          return rows.map(function (row) {
+            var label = document.createElement('label');
+            label.className = 'ref-pop-tag';
+            label.style.display = 'inline-flex';
+            label.style.gap = '0.35rem';
+            label.style.alignItems = 'center';
+            var input = document.createElement('input');
+            input.type = 'checkbox';
+            input.name = name;
+            input.value = row[valueKey];
+            input.checked = !!preselectAll;
+            label.appendChild(input);
+            label.appendChild(document.createTextNode(row[labelKey]));
+            return label;
+          });
+        }
+        var formEl = document.createElement('form');
+        var tradeKicker = document.createElement('span');
+        tradeKicker.className = 'ref-pop-kicker';
+        tradeKicker.textContent = 'Trades they cover';
+        var tradeWrap = document.createElement('div');
+        tradeWrap.className = 'ref-pop-tags';
+        checks('trades', networkSetup.trades, 'name', 'slug', false).forEach(function (el) { tradeWrap.appendChild(el); });
+        var zoneKicker = document.createElement('span');
+        zoneKicker.className = 'ref-pop-kicker';
+        zoneKicker.textContent = 'Zones (one seat per trade per zone)';
+        var zoneWrap = document.createElement('div');
+        zoneWrap.className = 'ref-pop-tags';
+        checks('zoneIds', networkSetup.zones, 'name', 'id', networkSetup.zones.length === 1).forEach(function (el) { zoneWrap.appendChild(el); });
+        var actions = document.createElement('div');
+        actions.className = 'ref-pop-actions';
+        var submit = document.createElement('button');
+        submit.type = 'submit';
+        submit.className = 'ref-btn ref-btn-yellow';
+        submit.textContent = 'Add to network';
+        actions.appendChild(submit);
+        formEl.appendChild(tradeKicker);
+        formEl.appendChild(tradeWrap);
+        formEl.appendChild(zoneKicker);
+        formEl.appendChild(zoneWrap);
+        formEl.appendChild(actions);
+        popBody.appendChild(formEl);
+        formEl.addEventListener('submit', function (event) {
+          event.preventDefault();
+          var picked = function (name) {
+            return Array.prototype.slice.call(formEl.querySelectorAll('input[name="' + name + '"]:checked')).map(function (el) { return el.value; });
+          };
+          var tradesPicked = picked('trades');
+          if (!tradesPicked.length) { say('Pick at least one trade.', false); return; }
+          submit.disabled = true;
+          submit.textContent = 'Adding…';
+          postJson('/network/members', { leadKey: key, trades: tradesPicked, zoneIds: picked('zoneIds') }).then(function (result) {
+            submit.disabled = false;
+            submit.textContent = 'Add to network';
+            if (!result.ok || !result.data || !result.data.success) {
+              say((result.data && result.data.error) || 'Could not add that member.', false);
+              return;
+            }
+            closePop();
+            say(result.data.notice || 'Added to the network.', !(result.data.conflicts && result.data.conflicts.length));
+            var link = document.createElement('a');
+            link.className = 'ref-btn ref-btn-ghost';
+            link.href = '/network?tab=members';
+            link.textContent = 'Network member';
+            button.replaceWith(link);
+          }).catch(function () {
+            submit.disabled = false;
+            submit.textContent = 'Add to network';
+            say('Could not add that member.', false);
           });
         });
       }
@@ -591,7 +679,9 @@
           return;
         }
         var ghl = event.target.closest('[data-referral-ghl]');
-        if (ghl) syncGhl(ghl);
+        if (ghl) { syncGhl(ghl); return; }
+        var makeMember = event.target.closest('[data-network-member]');
+        if (makeMember) openNetworkMember(makeMember);
       });
 
       document.addEventListener('keydown', function (event) {

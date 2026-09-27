@@ -8,6 +8,8 @@ const TASK_SOURCE_CADENCE = 'cadence';
 const TASK_SOURCE_ENGAGEMENT = 'engagement';
 const TASK_SOURCE_DISPOSITION = 'disposition';
 const TASK_SOURCE_ROUTING = 'routing';
+/** Referral network follow-ups for the operator — shown with manual tasks. */
+const TASK_SOURCE_NETWORK = 'network';
 
 const AUTOMATION_TASK_SOURCES = new Set([
   TASK_SOURCE_CADENCE,
@@ -31,7 +33,7 @@ function normalizeTaskSource(raw) {
 function isManualUserTask(task) {
   if (!task || typeof task !== 'object') return false;
   const source = normalizeTaskSource(task.source);
-  if (source === TASK_SOURCE_MANUAL) return true;
+  if (source === TASK_SOURCE_MANUAL || source === TASK_SOURCE_NETWORK) return true;
   if (source && AUTOMATION_TASK_SOURCES.has(source)) return false;
   return !isAutomationTaskTitle(task.title);
 }
@@ -177,6 +179,7 @@ module.exports = {
   TASK_SOURCE_ENGAGEMENT,
   TASK_SOURCE_DISPOSITION,
   TASK_SOURCE_ROUTING,
+  TASK_SOURCE_NETWORK,
   isAutomationTaskTitle,
   isManualUserTask,
   filterManualUserTasks,

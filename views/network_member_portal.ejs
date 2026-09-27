@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+  <title><%= invalid ? 'Link unavailable' : (member.companyName + ' · ' + network.name) %></title>
+  <style>
+    .np-card { border-radius: 1.25rem; border: 1px solid rgba(15, 23, 42, 0.08); background: #fff; padding: 1rem; }
+    html.dark .np-card { background: rgba(15, 23, 42, 0.85); border-color: rgba(255, 255, 255, 0.08); }
+    .np-btn { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; padding: 0.8rem 1.1rem; font-size: 0.85rem; font-weight: 800; border: 0; cursor: pointer; width: 100%; background: #FFDB3A; color: #0F172A; }
+    .np-input { width: 100%; border-radius: 0.9rem; border: 1px solid rgba(148, 163, 184, 0.45); background: #fff; padding: 0.7rem 0.85rem; font-size: 1rem; color: inherit; }
+    html.dark .np-input { background: rgba(2, 6, 23, 0.5); border-color: rgba(255, 255, 255, 0.14); }
+    .np-label { display: block; font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #64748b; margin-bottom: 0.3rem; }
+    .np-stat { border-radius: 1rem; padding: 0.6rem 0.75rem; background: rgba(255, 255, 255, 0.85); border: 1px solid rgba(15, 23, 42, 0.06); }
+    html.dark .np-stat { background: rgba(15, 23, 42, 0.7); border-color: rgba(255, 255, 255, 0.08); }
+    .np-stat span { display: block; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #64748b; }
+    .np-stat strong { font-size: 1.25rem; font-weight: 900; font-variant-numeric: tabular-nums; }
+    .np-pill { display: inline-flex; border-radius: 999px; padding: 0.2rem 0.55rem; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; background: rgba(148, 163, 184, 0.16); color: #64748b; }
+    .np-pill-sent { background: rgba(59, 130, 246, 0.14); color: #1d4ed8; }
+    .np-pill-won { background: rgba(16, 185, 129, 0.14); color: #047857; }
+    .np-pill-accepted, .np-pill-booked { background: rgba(245, 158, 11, 0.16); color: #b45309; }
+  </style>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark dark:text-white">
+  <main class="max-w-md mx-auto px-5 py-8 space-y-5">
+    <% if (invalid) { %>
+    <div class="np-card text-center p-8">
+      <h1 class="font-display font-bold text-xl mb-2">This link is unavailable</h1>
+      <p class="text-sm text-brand-muted">Ask the network operator for a new member link.</p>
+    </div>
+    <% } else { const fv = formValues || {}; %>
+    <header>
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1"><%= network.name %></p>
+      <h1 class="font-display font-extrabold text-2xl leading-tight"><%= member.companyName %></h1>
+      <% if (member.status !== 'active') { %><p class="text-sm font-semibold text-rose-600 mt-1">Membership paused</p><% } %>
+    </header>
+
+    <div class="grid grid-cols-4 gap-2">
+      <div class="np-stat"><span>New</span><strong><%= received.filter(function (r) { return r.status === 'sent'; }).length %></strong></div>
+      <div class="np-stat"><span>Got</span><strong><%= stats.received %></strong></div>
+      <div class="np-stat"><span>Gave</span><strong><%= stats.given %></strong></div>
+      <div class="np-stat"><span>Won</span><strong><%= stats.won %></strong></div>
+    </div>
+
+    <% if (flash && flash.ok) { %>
+    <p class="rounded-xl px-3 py-2 text-sm font-medium bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100" role="status"><%= flash.ok %></p>
+    <% } else if (flash && flash.error) { %>
+    <p class="rounded-xl px-3 py-2 text-sm font-medium bg-amber-50 text-amber-950 dark:bg-amber-950/50 dark:text-amber-100" role="alert"><%= flash.error %></p>
+    <% } %>
+
+    <section>
+      <h2 class="font-display font-bold text-lg mb-2">Referrals sent to you</h2>
+      <% if (!received.length) { %>
+      <p class="np-card text-sm text-brand-muted">None yet. You'll get a text when one comes in.</p>
+      <% } else { %>
+      <div class="space-y-2">
+        <% received.forEach(function (r) { %>
+        <a href="<%= r.href %>" class="np-card flex items-center justify-between gap-3 no-underline">
+          <span class="min-w-0">
+            <span class="block font-semibold truncate"><%= r.trade %> · <%= r.homeowner.name %></span>
+            <span class="block text-xs text-brand-muted truncate"><%= [r.homeowner.city, r.homeowner.zip].filter(Boolean).join(' ') %> · from <%= r.from %></span>
+          </span>
+          <span class="np-pill np-pill-<%= r.status %> shrink-0"><%= r.statusLabel %></span>
+        </a>
+        <% }); %>
+      </div>
+      <% } %>
+    </section>
+
+    <% if (member.status === 'active') { %>
+    <section>
+      <h2 class="font-display font-bold text-lg mb-2">Send a referral</h2>
+      <form method="post" action="/r/m/<%= token %>/referrals" class="np-card space-y-3">
+        <div>
+          <label class="np-label" for="npTrade">Trade needed</label>
+          <select id="npTrade" name="tradeSlug" class="np-input" required>
+            <option value="">Pick a trade…</option>
+            <% directory.forEach(function (t) { %>
+            <option value="<%= t.slug %>" <%= fv.tradeSlug === t.slug ? 'selected' : '' %>><%= t.name %><%= t.holders.length ? ' — ' + t.holders.join(', ') : '' %></option>
+            <% }); %>
+          </select>
+        </div>
+        <div>
+          <label class="np-label" for="npName">Homeowner name</label>
+          <input id="npName" name="name" value="<%= fv.name || '' %>" class="np-input" required autocomplete="off" />
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="np-label" for="npPhone">Phone</label>
+            <input id="npPhone" name="phone" type="tel" value="<%= fv.phone || '' %>" class="np-input" autocomplete="off" />
+          </div>
+          <div>
+            <label class="np-label" for="npZip">ZIP</label>
+            <input id="npZip" name="zip" inputmode="numeric" maxlength="10" value="<%= fv.zip || '' %>" class="np-input" autocomplete="off" />
+          </div>
+        </div>
+        <div>
+          <label class="np-label" for="npCity">City</label>
+          <input id="npCity" name="city" value="<%= fv.city || '' %>" class="np-input" autocomplete="off" />
+        </div>
+        <div>
+          <label class="np-label" for="npEmail">Email (optional)</label>
+          <input id="npEmail" name="email" type="email" value="<%= fv.email || '' %>" class="np-input" autocomplete="off" />
+        </div>
+        <div>
+          <label class="np-label" for="npNote">What they need</label>
+          <textarea id="npNote" name="note" rows="2" maxlength="1000" class="np-input"><%= fv.note || '' %></textarea>
+        </div>
+        <label class="flex items-start gap-2 text-sm font-semibold">
+          <input type="checkbox" name="consent" value="on" required class="mt-1" />
+          The homeowner agreed to be contacted by a network member.
+        </label>
+        <button type="submit" class="np-btn">Send referral</button>
+      </form>
+    </section>
+    <% } %>
+
+    <% if (given.length) { %>
+    <section>
+      <h2 class="font-display font-bold text-lg mb-2">Referrals you sent</h2>
+      <div class="space-y-2">
+        <% given.forEach(function (g) { %>
+        <div class="np-card flex items-center justify-between gap-3">
+          <span class="min-w-0">
+            <span class="block font-semibold truncate"><%= g.trade %> · <%= g.homeowner %></span>
+            <span class="block text-xs text-brand-muted truncate">To <%= g.to %></span>
+          </span>
+          <span class="np-pill np-pill-<%= g.status %> shrink-0"><%= g.statusLabel %></span>
+        </div>
+        <% }); %>
+      </div>
+    </section>
+    <% } %>
+    <% } %>
+  </main>
+</body>
+</html>

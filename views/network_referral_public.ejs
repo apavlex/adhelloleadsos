@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+  <title><%= invalid ? 'Link unavailable' : (referral.trade + ' referral · ' + network.name) %></title>
+  <style>
+    .nr-btn { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; padding: 0.8rem 1.1rem; font-size: 0.85rem; font-weight: 800; border: 1px solid transparent; cursor: pointer; width: 100%; }
+    .nr-yellow { background: #FFDB3A; color: #0F172A; }
+    .nr-ghost { background: transparent; border-color: rgba(15, 23, 42, 0.16); color: inherit; }
+    html.dark .nr-ghost { border-color: rgba(255, 255, 255, 0.18); }
+    .nr-danger { background: transparent; border-color: rgba(225, 29, 72, 0.35); color: #e11d48; }
+    .nr-input { width: 100%; border-radius: 0.9rem; border: 1px solid rgba(148, 163, 184, 0.45); background: #fff; padding: 0.75rem 0.85rem; font-size: 1rem; color: inherit; }
+    html.dark .nr-input { background: rgba(2, 6, 23, 0.5); border-color: rgba(255, 255, 255, 0.14); }
+    .nr-fact { display: flex; justify-content: space-between; gap: 1rem; padding: 0.55rem 0; border-bottom: 1px solid rgba(148, 163, 184, 0.2); font-size: 0.9rem; }
+    .nr-fact:last-child { border-bottom: 0; }
+    .nr-fact span:first-child { color: #64748b; font-weight: 600; }
+    .nr-fact span:last-child { text-align: right; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+  </style>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark dark:text-white">
+  <main class="max-w-md mx-auto px-5 py-8">
+    <% if (invalid) { %>
+    <div class="rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-8 text-center">
+      <h1 class="font-display font-bold text-xl mb-2">This link is unavailable</h1>
+      <p class="text-sm text-brand-muted"><%= message || 'It may have expired. Ask the network operator for a new link.' %></p>
+    </div>
+    <% } else { const h = referral.homeowner || {}; const tel = String(h.phone || '').replace(/[^0-9+]/g, ''); %>
+    <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1"><%= network.name %> · for <%= member.companyName %></p>
+    <h1 class="font-display font-extrabold text-2xl leading-tight mb-1"><%= referral.trade %> referral</h1>
+    <p class="text-sm text-brand-muted mb-4">From <%= referral.from %> · <span class="font-bold text-brand-dark dark:text-white"><%= referral.statusLabel %><%= referral.value ? ' · ' + referral.value : '' %></span></p>
+
+    <% if (flash && flash.ok) { %>
+    <p class="mb-4 rounded-xl px-3 py-2 text-sm font-medium bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100" role="status"><%= flash.ok %></p>
+    <% } else if (flash && flash.error) { %>
+    <p class="mb-4 rounded-xl px-3 py-2 text-sm font-medium bg-amber-50 text-amber-950 dark:bg-amber-950/50 dark:text-amber-100" role="alert"><%= flash.error %></p>
+    <% } %>
+
+    <section class="rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-4 mb-4">
+      <div class="nr-fact"><span>Homeowner</span><span><%= h.name %></span></div>
+      <% if (h.phone) { %><div class="nr-fact"><span>Phone</span><span><a class="underline" href="tel:<%= tel %>"><%= h.phone %></a></span></div><% } %>
+      <% if (h.email) { %><div class="nr-fact"><span>Email</span><span><a class="underline" href="mailto:<%= h.email %>"><%= h.email %></a></span></div><% } %>
+      <% if (h.address || h.city || h.zip) { %><div class="nr-fact"><span>Address</span><span><%= [h.address, [h.city, h.zip].filter(Boolean).join(' ')].filter(Boolean).join(', ') %></span></div><% } %>
+      <% if (h.note) { %><div class="nr-fact"><span>Needs</span><span><%= h.note %></span></div><% } %>
+      <div class="nr-fact"><span>Consent</span><span>Agreed to be contacted</span></div>
+    </section>
+
+    <% if (referral.actions.length) { %>
+    <section class="space-y-2 mb-4">
+      <% if (referral.actions.indexOf('accept') >= 0) { %>
+      <form method="post"><input type="hidden" name="action" value="accept" /><button type="submit" class="nr-btn nr-yellow">Accept referral</button></form>
+      <% } %>
+      <% if (referral.actions.indexOf('book') >= 0) { %>
+      <form method="post"><input type="hidden" name="action" value="book" /><button type="submit" class="nr-btn nr-yellow">Job booked</button></form>
+      <% } %>
+      <% if (referral.actions.indexOf('win') >= 0) { %>
+      <form method="post" class="rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-3 space-y-2">
+        <input type="hidden" name="action" value="win" />
+        <label class="block text-[11px] font-black uppercase tracking-widest text-brand-muted" for="nrValue">Won — job value</label>
+        <input id="nrValue" name="value" inputmode="decimal" placeholder="$ amount" class="nr-input" required />
+        <button type="submit" class="nr-btn nr-ghost">Mark won</button>
+      </form>
+      <% } %>
+      <% if (referral.actions.indexOf('lose') >= 0) { %>
+      <form method="post"><input type="hidden" name="action" value="lose" /><button type="submit" class="nr-btn nr-ghost">Didn't get the job</button></form>
+      <% } %>
+      <% if (referral.actions.indexOf('decline') >= 0) { %>
+      <form method="post" onsubmit="return confirm('Decline this referral? The operator will send it to someone else.');"><input type="hidden" name="action" value="decline" /><button type="submit" class="nr-btn nr-danger">Decline</button></form>
+      <% } %>
+    </section>
+    <% } %>
+
+    <form method="post" class="rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-3 space-y-2 mb-4">
+      <input type="hidden" name="action" value="note" />
+      <label class="block text-[11px] font-black uppercase tracking-widest text-brand-muted" for="nrNote">Update for the network</label>
+      <textarea id="nrNote" name="text" rows="2" maxlength="500" class="nr-input" placeholder="e.g. Left a voicemail, quoting Friday" required></textarea>
+      <button type="submit" class="nr-btn nr-ghost">Save note</button>
+    </form>
+
+    <% if (referral.events.length) { %>
+    <section class="mb-4">
+      <p class="text-[11px] font-black uppercase tracking-widest text-brand-muted mb-1">Notes</p>
+      <% referral.events.forEach(function (e) { %>
+      <p class="text-sm py-1"><%= e.text %> <span class="text-brand-muted text-xs">— <%= e.by %></span></p>
+      <% }); %>
+    </section>
+    <% } %>
+
+    <a href="<%= portalHref %>" class="block text-center text-sm font-bold underline text-brand-muted">All my referrals · send one to another member</a>
+    <% } %>
+  </main>
+</body>
+</html>

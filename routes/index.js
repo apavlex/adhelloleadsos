@@ -108,6 +108,10 @@ async function renderFindLeads(req, res, next) {
         searchPrefill = { ...searchPrefill, ...ctx.searchPrefill };
       }
     }
+    for (const field of ['keyword', 'city', 'state']) {
+      const value = String(req.query[field] || '').trim().slice(0, 120);
+      if (value) searchPrefill = { ...searchPrefill, [field]: value };
+    }
 
     return res.render('index', {
       title: 'Agency OS | Daily Leads',

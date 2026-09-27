@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+  <style>
+    .net-stat { border: 1px solid rgba(15, 23, 42, 0.08); background: rgba(255, 255, 255, 0.86); border-radius: 1.15rem; padding: 0.9rem 1rem; }
+    html.dark .net-stat { background: rgba(15, 23, 42, 0.72); border-color: rgba(255, 255, 255, 0.08); }
+    .net-card { border: 1px solid rgba(15, 23, 42, 0.08); background: #fff; border-radius: 1.35rem; padding: 1rem 1.05rem; }
+    html.dark .net-card { background: rgba(15, 23, 42, 0.78); border-color: rgba(255, 255, 255, 0.08); }
+    .net-tabs { display: flex; gap: 0.35rem; overflow-x: auto; padding-bottom: 0.25rem; margin-bottom: 1rem; }
+    .net-tab { flex-shrink: 0; border-radius: 999px; padding: 0.5rem 0.95rem; font-size: 0.78rem; font-weight: 700; border: 1px solid rgba(15, 23, 42, 0.12); color: inherit; text-decoration: none; }
+    html.dark .net-tab { border-color: rgba(255, 255, 255, 0.14); }
+    .net-tab.is-on { background: #FFDB3A; color: #0F172A; border-color: transparent; }
+    .net-btn { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; padding: 0.45rem 0.85rem; font-size: 0.74rem; font-weight: 700; line-height: 1; white-space: nowrap; border: 1px solid transparent; cursor: pointer; text-decoration: none; }
+    .net-btn-yellow { background: #FFDB3A; color: #0F172A; }
+    .net-btn-ghost { background: transparent; border-color: rgba(15, 23, 42, 0.14); color: inherit; }
+    html.dark .net-btn-ghost { border-color: rgba(255, 255, 255, 0.16); }
+    .net-btn-ghost:hover { border-color: #FFDB3A; }
+    .net-btn-danger { background: transparent; color: #e11d48; border-color: rgba(225, 29, 72, 0.3); }
+    .net-label { display: block; font-size: 10px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: #64748b; margin-bottom: 0.3rem; }
+    .net-input { width: 100%; border-radius: 0.85rem; border: 1px solid rgba(148, 163, 184, 0.4); background: rgba(248, 250, 252, 0.9); padding: 0.6rem 0.75rem; font-size: 0.875rem; color: inherit; }
+    html.dark .net-input { background: rgba(2, 6, 23, 0.45); border-color: rgba(255, 255, 255, 0.12); color: #f8fafc; }
+    .net-checks { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+    .net-check { display: inline-flex; align-items: center; gap: 0.35rem; border-radius: 999px; border: 1px solid rgba(15, 23, 42, 0.12); padding: 0.3rem 0.65rem; font-size: 12px; font-weight: 600; cursor: pointer; }
+    html.dark .net-check { border-color: rgba(255, 255, 255, 0.14); }
+    .net-check:has(input:checked) { background: #FFDB3A; color: #0F172A; border-color: transparent; }
+    .net-check input { accent-color: #0F172A; }
+    .net-pill { display: inline-flex; align-items: center; border-radius: 999px; padding: 0.25rem 0.6rem; font-size: 0.66rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; background: rgba(148, 163, 184, 0.16); color: #64748b; }
+    .net-pill-sent { background: rgba(59, 130, 246, 0.14); color: #1d4ed8; }
+    .net-pill-accepted, .net-pill-booked { background: rgba(245, 158, 11, 0.16); color: #b45309; }
+    .net-pill-won { background: rgba(16, 185, 129, 0.14); color: #047857; }
+    .net-pill-unrouted, .net-pill-declined { background: rgba(225, 29, 72, 0.12); color: #be123c; }
+    html.dark .net-pill-sent { color: #93c5fd; }
+    html.dark .net-pill-accepted, html.dark .net-pill-booked { color: #fcd34d; }
+    html.dark .net-pill-won { color: #6ee7b7; }
+    html.dark .net-pill-unrouted, html.dark .net-pill-declined { color: #fda4af; }
+    .net-seats { display: grid; grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr)); gap: 0.45rem; margin-top: 0.75rem; }
+    .net-seat { border-radius: 0.9rem; padding: 0.55rem 0.7rem; border: 1px dashed rgba(148, 163, 184, 0.55); min-width: 0; }
+    .net-seat.is-held { border-style: solid; border-color: rgba(250, 204, 21, 0.6); background: rgba(255, 219, 58, 0.12); }
+    .net-seat.is-paused { opacity: 0.6; }
+    .net-seat p { margin: 0; }
+    .net-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.45rem; margin-top: 0.75rem; }
+    @media (min-width: 640px) { .net-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+    .net-metric { border-radius: 0.8rem; padding: 0.45rem 0.6rem; background: rgba(15, 23, 42, 0.03); }
+    html.dark .net-metric { background: rgba(255, 255, 255, 0.04); }
+    .net-metric span { display: block; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #64748b; }
+    .net-metric strong { display: block; font-size: 1.05rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+    details.net-more > summary { list-style: none; cursor: pointer; }
+    details.net-more > summary::-webkit-details-marker { display: none; }
+  </style>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark dark:text-white overflow-x-hidden">
+  <%- include('partials/navbar') %>
+  <%
+    const noticeBad = notice && /^(Could not|Only|Pick|Name|Add|Confirm|That|Member not|Zone not|Referral not|Can't|Unknown|Write|This referral|The sender)/.test(notice);
+    const tabs = [
+      { id: 'seats', label: 'Seats' },
+      { id: 'members', label: 'Members (' + totals.members + ')' },
+      { id: 'referrals', label: 'Referrals (' + totals.total + ')' },
+      { id: 'send', label: 'Send referral' },
+      { id: 'setup', label: 'Setup' },
+    ];
+    function tradeChecks(name, selected) {
+      return networkTrades.map(function (t) {
+        return '<label class="net-check"><input type="checkbox" name="' + name + '" value="' + t.slug + '"' + (selected.indexOf(t.slug) >= 0 ? ' checked' : '') + ' />' + t.name + '</label>';
+      }).join('');
+    }
+    function zoneChecks(name, selected) {
+      return zones.map(function (z) {
+        return '<label class="net-check"><input type="checkbox" name="' + name + '" value="' + z.id + '"' + (selected.indexOf(z.id) >= 0 ? ' checked' : '') + ' />' + z.name.replace(/</g, '&lt;') + '</label>';
+      }).join('');
+    }
+  %>
+  <main class="max-wide px-6 py-8 md:py-12">
+    <header class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <p class="text-[11px] font-black uppercase tracking-[0.22em] text-brand-muted mb-2">Referral network</p>
+        <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight"><%= network.name %></h1>
+        <p class="mt-2 max-w-2xl text-sm leading-relaxed text-brand-muted dark:text-slate-400">One company per trade in each zone. Referrals go to the seat holder, who accepts and reports the outcome from a text link — no login needed.</p>
+      </div>
+      <a href="/network?tab=send" class="net-btn net-btn-yellow self-start sm:self-auto">Send referral</a>
+    </header>
+
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+      <div class="net-stat">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Members</p>
+        <p class="font-display font-black text-2xl"><%= totals.members %></p>
+      </div>
+      <div class="net-stat">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Seats held / open</p>
+        <p class="font-display font-black text-2xl"><%= totals.heldSeats %> <span class="text-brand-muted text-lg">/ <%= totals.openSeats %></span></p>
+      </div>
+      <div class="net-stat">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Open referrals</p>
+        <p class="font-display font-black text-2xl"><%= totals.open %><% if (totals.unrouted) { %> <span class="text-rose-600 text-sm font-bold"><%= totals.unrouted %> need a member</span><% } %></p>
+      </div>
+      <div class="net-stat">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Won</p>
+        <p class="font-display font-black text-2xl"><%= totals.wonValueLabel %> <span class="text-brand-muted text-sm font-bold"><%= totals.won %> <%= totals.won === 1 ? 'job' : 'jobs' %></span></p>
+      </div>
+    </div>
+
+    <nav class="net-tabs" aria-label="Network sections">
+      <% tabs.forEach(function (t) { %>
+      <a href="/network?tab=<%= t.id %>" class="net-tab <%= tab === t.id ? 'is-on' : '' %>" <%= tab === t.id ? 'aria-current=page' : '' %>><%= t.label %></a>
+      <% }); %>
+    </nav>
+
+    <% if (notice) { %>
+    <p id="networkStatus" class="mb-4 rounded-xl px-3 py-2 text-sm font-medium <%= noticeBad ? 'bg-amber-50 text-amber-950 dark:bg-amber-950/50 dark:text-amber-100' : 'bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100' %>" role="status"><%= notice %></p>
+    <% } else { %>
+    <p id="networkStatus" class="mb-4 hidden rounded-xl px-3 py-2 text-sm font-medium" role="status"></p>
+    <% } %>
+
+    <% if (tab === 'seats') { %>
+      <% if (!zones.length) { %>
+      <div class="net-card text-center py-10">
+        <p class="text-sm text-brand-muted max-w-md mx-auto">Add your first zone (the cities and ZIP codes it covers) to see one seat per trade.</p>
+        <a href="/network?tab=setup" class="net-btn net-btn-yellow mt-4">Add a zone</a>
+      </div>
+      <% } else { %>
+      <div class="space-y-4">
+        <% seatRows.forEach(function (row) { const held = row.seats.filter(function (s) { return s.holder; }).length; %>
+        <section class="net-card">
+          <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 class="font-display font-bold text-lg"><%= row.zone.name %></h2>
+            <p class="text-[11px] font-bold uppercase tracking-wide text-brand-muted"><%= held %> of <%= row.seats.length %> seats held</p>
+          </div>
+          <% if (row.zone.cities.length || row.zone.zips.length) { %>
+          <p class="text-[12px] text-brand-muted mt-0.5 truncate"><%= row.zone.cities.join(' · ') %><% if (row.zone.zips.length) { %><%= row.zone.cities.length ? ' · ' : '' %><%= row.zone.zips.length %> ZIP<%= row.zone.zips.length === 1 ? '' : 's' %><% } %></p>
+          <% } %>
+          <div class="net-seats">
+            <% row.seats.forEach(function (seat) { %>
+            <div class="net-seat <%= seat.holder ? 'is-held' : '' %> <%= seat.holder && seat.holder.paused ? 'is-paused' : '' %>">
+              <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted truncate"><%= seat.trade.name %></p>
+              <% if (seat.holder) { %>
+              <p class="text-[13px] font-semibold truncate" title="<%= seat.holder.name %>"><%= seat.holder.name %><%= seat.holder.paused ? ' (paused)' : '' %></p>
+              <% } else { %>
+              <a href="<%= seat.recruitUrl %>" class="text-[12px] font-semibold text-brand-muted hover:underline">Open · Recruit →</a>
+              <% } %>
+            </div>
+            <% }); %>
+          </div>
+        </section>
+        <% }); %>
+      </div>
+      <% } %>
+    <% } %>
+
+    <% if (tab === 'members') { %>
+      <% if (canManage) { %>
+      <details class="net-card net-more mb-4" <%= prefillLeadKey || !members.length ? 'open' : '' %>>
+        <summary class="flex items-center justify-between gap-2">
+          <span class="font-display font-bold">Add a member</span>
+          <span class="net-btn net-btn-ghost">From referral partners</span>
+        </summary>
+        <% if (!candidates.length) { %>
+        <p class="mt-3 text-sm text-brand-muted">No referral partners to add. <a class="underline" href="/referrals">Add partners</a> first, then make them network members.</p>
+        <% } else if (!zones.length) { %>
+        <p class="mt-3 text-sm text-brand-muted"><a class="underline" href="/network?tab=setup">Add a zone</a> first so members can hold seats.</p>
+        <% } else { %>
+        <form method="post" action="/network/members" class="mt-3 space-y-3">
+          <div>
+            <label class="net-label" for="netMemberLead">Partner</label>
+            <select id="netMemberLead" name="leadKey" class="net-input" required>
+              <option value="">Pick a referral partner…</option>
+              <% candidates.forEach(function (c) { %>
+              <option value="<%= c.key %>" <%= c.key === prefillLeadKey ? 'selected' : '' %>><%= c.title %><%= c.where ? ' — ' + c.where : '' %></option>
+              <% }); %>
+            </select>
+          </div>
+          <div>
+            <span class="net-label">Trades</span>
+            <div class="net-checks"><%- tradeChecks('trades', []) %></div>
+          </div>
+          <div>
+            <span class="net-label">Zones</span>
+            <div class="net-checks"><%- zoneChecks('zoneIds', zones.length === 1 ? [zones[0].id] : []) %></div>
+          </div>
+          <button type="submit" class="net-btn net-btn-yellow">Add to network</button>
+        </form>
+        <% } %>
+      </details>
+      <% } %>
+
+      <% if (!members.length) { %>
+      <div class="net-card text-center py-10"><p class="text-sm text-brand-muted">No members yet.</p></div>
+      <% } else { %>
+      <div class="space-y-3">
+        <% members.forEach(function (m) { %>
+        <article class="net-card">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="text-base font-semibold truncate"><%= m.companyName %></p>
+              <p class="text-[12px] text-brand-muted truncate"><%= [m.contactName, m.phone, m.email].filter(Boolean).join(' · ') || 'No contact on file' %></p>
+            </div>
+            <span class="net-pill <%= m.status === 'active' ? 'net-pill-won' : '' %>"><%= m.status === 'active' ? 'Active' : 'Paused' %></span>
+          </div>
+          <p class="mt-2 text-[12px]"><span class="font-bold">Seats:</span> <%= m.seats.length ? m.seats.join(', ') : 'None — edit seats below' %></p>
+          <div class="net-metrics">
+            <div class="net-metric"><span>Received</span><strong><%= m.stats.received %></strong></div>
+            <div class="net-metric"><span>Given</span><strong><%= m.stats.given %></strong></div>
+            <div class="net-metric"><span>Open</span><strong><%= m.stats.open %></strong></div>
+            <div class="net-metric"><span>Won</span><strong>$<%= Math.round(m.stats.wonValue).toLocaleString('en-US') %></strong></div>
+          </div>
+          <div class="mt-3 flex flex-wrap items-center gap-2">
+            <button type="button" class="net-btn net-btn-ghost" data-net-copy-portal="<%= m.id %>">Copy member page link</button>
+            <form method="post" action="/network/members/<%= m.id %>/send-portal-link"><button type="submit" class="net-btn net-btn-ghost">Text member page link</button></form>
+            <% if (canManage) { %>
+            <form method="post" action="/network/members/<%= m.id %>/status">
+              <input type="hidden" name="status" value="<%= m.status === 'active' ? 'paused' : 'active' %>" />
+              <button type="submit" class="net-btn net-btn-ghost"><%= m.status === 'active' ? 'Pause' : 'Activate' %></button>
+            </form>
+            <% } %>
+          </div>
+          <% if (canManage) { %>
+          <details class="net-more mt-3">
+            <summary class="text-[12px] font-bold text-brand-muted hover:underline">Edit trades &amp; zones</summary>
+            <form method="post" action="/network/members/<%= m.id %>/seats" class="mt-2 space-y-3">
+              <div><span class="net-label">Trades</span><div class="net-checks"><%- tradeChecks('trades', m.trades) %></div></div>
+              <div><span class="net-label">Zones</span><div class="net-checks"><%- zoneChecks('zoneIds', m.zoneIds) %></div></div>
+              <button type="submit" class="net-btn net-btn-yellow">Save seats</button>
+            </form>
+          </details>
+          <% } %>
+        </article>
+        <% }); %>
+      </div>
+      <% } %>
+    <% } %>
+
+    <% if (tab === 'referrals') { %>
+      <div class="net-checks mb-3">
+        <a href="/network?tab=referrals" class="net-tab <%= !statusFilter ? 'is-on' : '' %>">All</a>
+        <% statuses.forEach(function (s) { if (!s.count && statusFilter !== s.id) return; %>
+        <a href="/network?tab=referrals&status=<%= s.id %>" class="net-tab <%= statusFilter === s.id ? 'is-on' : '' %>"><%= s.label %> (<%= s.count %>)</a>
+        <% }); %>
+      </div>
+      <% if (!referrals.length) { %>
+      <div class="net-card text-center py-10">
+        <p class="text-sm text-brand-muted">No referrals<%= statusFilter ? ' with that status' : ' yet' %>.</p>
+        <a href="/network?tab=send" class="net-btn net-btn-yellow mt-4">Send a referral</a>
+      </div>
+      <% } else { %>
+      <div class="space-y-3">
+        <% referrals.forEach(function (r) { const h = r.homeowner || {}; %>
+        <article class="net-card">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="text-base font-semibold truncate"><%= r.trade %> · <%= h.name %></p>
+              <p class="text-[12px] text-brand-muted truncate"><%= [h.phone, h.email, [h.city, h.zip].filter(Boolean).join(' ')].filter(Boolean).join(' · ') %></p>
+              <p class="text-[12px] mt-0.5"><%= r.from %> → <%= r.to || 'unassigned' %><%= r.zone ? ' · ' + r.zone : '' %> · <%= r.when %></p>
+            </div>
+            <span class="net-pill net-pill-<%= r.status %>"><%= r.statusLabel %><%= r.value ? ' · ' + r.value : '' %></span>
+          </div>
+          <% if (r.reason) { %><p class="mt-2 text-[12px] text-rose-700 dark:text-rose-300"><%= r.reason %></p><% } %>
+          <% if (r.note) { %><p class="mt-2 text-[13px]"><span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Note · </span><%= r.note %></p><% } %>
+          <% if (r.lastEvent && r.lastEvent.type === 'note') { %><p class="mt-1 text-[12px] text-brand-muted">Latest: <%= r.lastEvent.text %></p><% } %>
+          <div class="mt-3 flex flex-wrap items-center gap-2">
+            <% r.actions.forEach(function (a) { if (a === 'win') return; %>
+            <form method="post" action="/network/referrals/<%= r.id %>/action">
+              <input type="hidden" name="action" value="<%= a %>" />
+              <button type="submit" class="net-btn <%= a === 'decline' || a === 'lose' ? 'net-btn-danger' : 'net-btn-ghost' %>"><%= { accept: 'Accept', decline: 'Decline', book: 'Booked', lose: 'Lost' }[a] %></button>
+            </form>
+            <% }); %>
+            <% if (r.actions.indexOf('win') >= 0) { %>
+            <form method="post" action="/network/referrals/<%= r.id %>/action" class="flex items-center gap-1.5">
+              <input type="hidden" name="action" value="win" />
+              <input type="text" inputmode="decimal" name="value" placeholder="Job $" class="net-input" style="width: 6.5rem; padding: 0.4rem 0.6rem;" required />
+              <button type="submit" class="net-btn net-btn-yellow">Won</button>
+            </form>
+            <% } %>
+            <% if (r.canAssign && activeMembers.length) { %>
+            <form method="post" action="/network/referrals/<%= r.id %>/action" class="flex items-center gap-1.5">
+              <input type="hidden" name="action" value="assign" />
+              <select name="toMemberId" class="net-input" style="width: auto; padding: 0.4rem 0.6rem;" required>
+                <option value=""><%= r.status === 'sent' ? 'Reassign to…' : 'Assign to…' %></option>
+                <% activeMembers.forEach(function (m) { if (m.id === r.fromMemberId || m.id === r.toMemberId) return; %>
+                <option value="<%= m.id %>"><%= m.companyName %></option>
+                <% }); %>
+              </select>
+              <button type="submit" class="net-btn net-btn-ghost">Assign</button>
+            </form>
+            <% } %>
+          </div>
+          <form method="post" action="/network/referrals/<%= r.id %>/action" class="mt-2 flex gap-2">
+            <input type="hidden" name="action" value="note" />
+            <input type="text" name="text" maxlength="500" placeholder="Add a note" class="net-input" />
+            <button type="submit" class="net-btn net-btn-ghost shrink-0">Save note</button>
+          </form>
+        </article>
+        <% }); %>
+      </div>
+      <% } %>
+    <% } %>
+
+    <% if (tab === 'send') { %>
+      <form method="post" action="/network/referrals" class="net-card space-y-3 max-w-2xl">
+        <h2 class="font-display font-bold text-lg">Send a referral</h2>
+        <p class="text-[12px] text-brand-muted -mt-2">It goes to the member holding that trade seat in the homeowner's zone and they get a text to accept.</p>
+        <div class="grid sm:grid-cols-2 gap-3">
+          <div>
+            <label class="net-label" for="netSendTrade">Trade needed</label>
+            <select id="netSendTrade" name="tradeSlug" class="net-input" required>
+              <option value="">Pick a trade…</option>
+              <% networkTrades.forEach(function (t) { %><option value="<%= t.slug %>"><%= t.name %></option><% }); %>
+            </select>
+          </div>
+          <div>
+            <label class="net-label" for="netSendZone">Zone</label>
+            <select id="netSendZone" name="zoneId" class="net-input">
+              <option value="">Auto from city / ZIP</option>
+              <% zones.forEach(function (z) { %><option value="<%= z.id %>"><%= z.name %></option><% }); %>
+            </select>
+          </div>
+          <div>
+            <label class="net-label" for="netSendName">Homeowner name</label>
+            <input id="netSendName" name="name" class="net-input" required autocomplete="off" />
+          </div>
+          <div>
+            <label class="net-label" for="netSendPhone">Phone</label>
+            <input id="netSendPhone" name="phone" type="tel" class="net-input" autocomplete="off" />
+          </div>
+          <div>
+            <label class="net-label" for="netSendEmail">Email</label>
+            <input id="netSendEmail" name="email" type="email" class="net-input" autocomplete="off" />
+          </div>
+          <div>
+            <label class="net-label" for="netSendAddress">Street address</label>
+            <input id="netSendAddress" name="address" class="net-input" autocomplete="off" />
+          </div>
+          <div>
+            <label class="net-label" for="netSendCity">City</label>
+            <input id="netSendCity" name="city" class="net-input" autocomplete="off" />
+          </div>
+          <div>
+            <label class="net-label" for="netSendZip">ZIP</label>
+            <input id="netSendZip" name="zip" inputmode="numeric" maxlength="10" class="net-input" autocomplete="off" />
+          </div>
+        </div>
+        <div>
+          <label class="net-label" for="netSendNote">What they need</label>
+          <textarea id="netSendNote" name="note" rows="3" maxlength="1000" class="net-input" placeholder="e.g. AC not cooling, wants a quote this week"></textarea>
+        </div>
+        <label class="flex items-start gap-2 text-sm font-semibold">
+          <input type="checkbox" name="consent" value="on" required class="mt-0.5" />
+          The homeowner agreed to be contacted by a network member.
+        </label>
+        <button type="submit" class="net-btn net-btn-yellow">Send referral</button>
+      </form>
+    <% } %>
+
+    <% if (tab === 'setup') { %>
+      <div class="space-y-4 max-w-3xl">
+        <% if (canManage) { %>
+        <form method="post" action="/network/setup" class="net-card space-y-3">
+          <h2 class="font-display font-bold text-lg">Network</h2>
+          <div>
+            <label class="net-label" for="netName">Name</label>
+            <input id="netName" name="name" value="<%= network.name %>" class="net-input" maxlength="120" required />
+          </div>
+          <details class="net-more">
+            <summary class="text-[12px] font-bold text-brand-muted hover:underline">Trades in this network (<%= network.trades.length %>)</summary>
+            <div class="net-checks mt-2">
+              <% allTrades.forEach(function (t) { %>
+              <label class="net-check"><input type="checkbox" name="trades" value="<%= t.slug %>" <%= network.trades.indexOf(t.slug) >= 0 ? 'checked' : '' %> /><%= t.name %></label>
+              <% }); %>
+            </div>
+          </details>
+          <button type="submit" class="net-btn net-btn-yellow">Save</button>
+        </form>
+        <% } %>
+
+        <section class="net-card space-y-3">
+          <h2 class="font-display font-bold text-lg">Zones</h2>
+          <p class="text-[12px] text-brand-muted -mt-2">A zone is a service area. Each trade has one seat per zone. Referrals match a zone by ZIP first, then city.</p>
+          <% zones.forEach(function (z) { %>
+          <details class="net-more rounded-xl border border-brand-border dark:border-white/10 p-3" <%= editZoneId === z.id ? 'open' : '' %>>
+            <summary class="flex items-center justify-between gap-2">
+              <span class="font-semibold"><%= z.name %></span>
+              <span class="text-[11px] text-brand-muted"><%= z.cities.length %> cities · <%= z.zips.length %> ZIPs</span>
+            </summary>
+            <% if (canManage) { %>
+            <form method="post" action="/network/zones" class="mt-3 space-y-2">
+              <input type="hidden" name="id" value="<%= z.id %>" />
+              <input name="name" value="<%= z.name %>" class="net-input" required />
+              <textarea name="cities" rows="3" class="net-input" placeholder="One city per line, e.g. Austin, TX"><%= z.cities.join('\n') %></textarea>
+              <textarea name="zips" rows="2" class="net-input" placeholder="ZIP codes, separated by spaces or commas"><%= z.zips.join(', ') %></textarea>
+              <div class="flex gap-2">
+                <button type="submit" class="net-btn net-btn-yellow">Save zone</button>
+              </div>
+            </form>
+            <form method="post" action="/network/zones/<%= z.id %>/delete" class="mt-2" onsubmit="return confirm('Remove this zone and its seats?');">
+              <button type="submit" class="net-btn net-btn-danger">Remove zone</button>
+            </form>
+            <% } %>
+          </details>
+          <% }); %>
+          <% if (canManage) { %>
+          <form method="post" action="/network/zones" class="rounded-xl border border-dashed border-brand-border dark:border-white/15 p-3 space-y-2">
+            <p class="font-semibold text-sm">Add a zone</p>
+            <input name="name" placeholder="Zone name, e.g. Austin North" class="net-input" required />
+            <textarea name="cities" rows="3" class="net-input" placeholder="One city per line, e.g. Austin, TX"></textarea>
+            <textarea name="zips" rows="2" class="net-input" placeholder="ZIP codes, separated by spaces or commas"></textarea>
+            <button type="submit" class="net-btn net-btn-yellow">Add zone</button>
+          </form>
+          <% } %>
+        </section>
+      </div>
+    <% } %>
+  </main>
+  <script>
+    (function () {
+      var status = document.getElementById('networkStatus');
+      function say(text, ok) {
+        if (!status) return;
+        status.textContent = text;
+        status.className = 'mb-4 rounded-xl px-3 py-2 text-sm font-medium ' + (ok
+          ? 'bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100'
+          : 'bg-amber-50 text-amber-950 dark:bg-amber-950/50 dark:text-amber-100');
+      }
+      document.addEventListener('click', function (event) {
+        var btn = event.target.closest('[data-net-copy-portal]');
+        if (!btn) return;
+        var id = btn.getAttribute('data-net-copy-portal');
+        btn.disabled = true;
+        fetch('/network/members/' + encodeURIComponent(id) + '/portal-link', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+          .then(function (res) { return res.json(); })
+          .then(function (data) {
+            btn.disabled = false;
+            if (!data || !data.url) { say((data && data.error) || 'Could not build that link.', false); return; }
+            var done = function () { say('Member page link copied.', true); };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(data.url).then(done).catch(function () { window.prompt('Copy the member page link:', data.url); });
+            } else {
+              window.prompt('Copy the member page link:', data.url);
+            }
+          })
+          .catch(function () { btn.disabled = false; say('Could not build that link.', false); });
+      });
+    })();
+  </script>
+  <%- include('partials/footer') %>
+</body>
+</html>

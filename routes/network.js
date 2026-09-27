@@ -1,0 +1,378 @@
+const express = require('express');
+const router = express.Router();
+const dbService = require('../services/database');
+const { userEmail, filterLeadsForRequest } = require('../services/workspaceService');
+const { filterBusinessPipelineLeads } = require('../services/leadListFilters');
+const store = require('../services/networkStore');
+const ex = require('../services/referralExchange');
+const trades = require('../services/networkTrades');
+const notify = require('../services/networkNotify');
+const networkReferrals = require('../services/networkReferrals');
+const referralNetwork = require('../services/referralNetwork');
+
+const TABS = new Set(['seats', 'members', 'referrals', 'send', 'setup']);
+
+function wantsJson(req) {
+  return /application\/json/i.test(String(req.get('accept') || ''));
+}
+
+function listFrom(value) {
+  if (Array.isArray(value)) return value.map((v) => String(v || '').trim()).filter(Boolean);
+  if (value == null || value === '') return [];
+  return String(value).split(',').map((v) => v.trim()).filter(Boolean);
+}
+
+function back(tab, notice, extra) {
+  const params = new URLSearchParams();
+  if (tab) params.set('tab', tab);
+  if (notice) params.set('notice', notice);
+  Object.entries(extra || {}).forEach(([k, v]) => { if (v) params.set(k, v); });
+  return `/network?${params.toString()}`;
+}
+
+function reply(req, res, { ok, tab, notice, data, status }) {
+  if (wantsJson(req)) return res.status(ok ? 200 : (status || 400)).json({ success: ok, notice, error: ok ? undefined : notice, ...(data || {}) });
+  return res.redirect(back(tab, notice));
+}
+
+function canManage(req) {
+  return req.canManageWorkspace !== false;
+}
+
+async function loadNetwork(req) {
+  return store.getOrCreateNetworkForWorkspace(req.workspaceId, {
+    name: req.workspace && req.workspace.name ? `${req.workspace.name} network` : 'Referral network',
+    ownerEmail: userEmail(req),
+  });
+}
+
+function money(n) {
+  return `$${Math.round(Number(n) || 0).toLocaleString('en-US')}`;
+}
+
+function formatWhen(iso) {
+  const ms = Date.parse(iso || '');
+  if (!Number.isFinite(ms)) return '';
+  return new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function presentReferral(ref, membersById, zonesById) {
+  const h = ref.homeowner || {};
+  const from = ref.fromMemberId === 'operator' ? 'You' : (membersById[ref.fromMemberId] || {}).companyName || 'Member';
+  const to = ref.toMemberId ? (membersById[ref.toMemberId] || {}).companyName || 'Member' : '';
+  return {
+    id: ref.id,
+    status: ref.status,
+    statusLabel: ex.STATUS_LABELS[ref.status] || ref.status,
+    trade: trades.tradeLabel(ref.tradeSlug),
+    tradeSlug: ref.tradeSlug,
+    zone: ref.zoneId && zonesById[ref.zoneId] ? zonesById[ref.zoneId].name : '',
+    from,
+    to,
+    toMemberId: ref.toMemberId || '',
+    fromMemberId: ref.fromMemberId,
+    homeowner: h,
+    note: h.note || '',
+    value: ref.value ? money(ref.value) : '',
+    when: formatWhen(ref.createdAt),
+    reason: ref.status === 'unrouted' ? (ex.UNROUTED_REASONS[ref.unroutedReason] || '') : '',
+    actions: ex.allowedActions(ref),
+    canAssign: ['unrouted', 'declined', 'sent'].includes(ref.status),
+    lastEvent: (ref.events || []).slice(-1)[0] || null,
+  };
+}
+
+router.get('/', async (req, res, next) => {
+  try {
+    const network = await loadNetwork(req);
+    const tab = TABS.has(String(req.query.tab || '')) ? String(req.query.tab) : 'seats';
+    const [zones, members, referrals] = await Promise.all([
+      store.listZones(network.id),
+      store.listMembers(network.id),
+      store.listReferrals(network.id),
+    ]);
+    const membersById = Object.fromEntries(members.map((m) => [m.id, m]));
+    const zonesById = Object.fromEntries(zones.map((z) => [z.id, z]));
+    const networkTrades = trades.tradesForNetwork(network);
+
+    const seatRows = zones.map((zone) => ({
+      zone,
+      seats: networkTrades.map((trade) => {
+        const holderId = ex.seatHolder(zone, trade.slug);
+        const holder = holderId ? membersById[holderId] : null;
+        return {
+          trade,
+          holder: holder ? { id: holder.id, name: holder.companyName, paused: holder.status !== 'active' } : null,
+          recruitUrl: holder ? '' : trades.recruitSearchUrl(trade.slug, zone),
+        };
+      }),
+    }));
+
+    const memberRows = members.map((member) => ({
+      ...member,
+      tradeLabels: member.trades.map(trades.tradeLabel),
+      zoneNames: member.zoneIds.map((id) => (zonesById[id] ? zonesById[id].name : '')).filter(Boolean),
+      seats: ex.seatsForMember(zones, member.id).map((s) => `${trades.tradeLabel(s.tradeSlug)} · ${s.zoneName}`),
+      stats: ex.memberStats(referrals, member.id),
+    }));
+
+    const statusFilter = ex.STATUSES.includes(String(req.query.status || '')) ? String(req.query.status) : '';
+    const referralRows = referrals
+      .filter((ref) => !statusFilter || ref.status === statusFilter)
+      .slice(0, 200)
+      .map((ref) => presentReferral(ref, membersById, zonesById));
+
+    let candidates = [];
+    if (tab === 'members') {
+      const memberLeadKeys = new Set(members.map((m) => m.leadKey));
+      const leads = filterBusinessPipelineLeads(filterLeadsForRequest(req, await dbService.getAllLeads(req.workspaceId)));
+      candidates = referralNetwork.listPartners(leads, '')
+        .filter((card) => !memberLeadKeys.has(card.key))
+        .map((card) => ({ key: card.key, title: card.title, where: [card.category, card.city].filter(Boolean).join(' · ') }));
+      const prefill = String(req.query.leadKey || '').trim();
+      if (prefill && !memberLeadKeys.has(prefill) && !candidates.some((c) => c.key === prefill)) {
+        const lead = await dbService.getLead(prefill, req.workspaceId);
+        if (lead && lead.key) candidates.unshift({ key: lead.key, title: lead.title || 'Untitled', where: lead.city || '' });
+      }
+    }
+
+    const totals = ex.networkTotals(referrals);
+    const openSeats = seatRows.reduce((n, row) => n + row.seats.filter((s) => !s.holder).length, 0);
+    const heldSeats = seatRows.reduce((n, row) => n + row.seats.filter((s) => s.holder).length, 0);
+
+    res.render('network', {
+      title: 'Referral network',
+      activePage: 'network',
+      navPrimary: 'network',
+      tab,
+      network,
+      networkTrades,
+      allTrades: trades.DEFAULT_TRADES,
+      zones,
+      seatRows,
+      members: memberRows,
+      activeMembers: members.filter((m) => m.status === 'active'),
+      referrals: referralRows,
+      statusFilter,
+      statuses: ex.STATUSES.map((s) => ({ id: s, label: ex.STATUS_LABELS[s], count: referrals.filter((r) => r.status === s).length })),
+      totals: { ...totals, wonValueLabel: money(totals.wonValue), openSeats, heldSeats, members: members.length },
+      canManage: canManage(req),
+      notice: String(req.query.notice || '').trim(),
+      editZoneId: String(req.query.zone || '').trim(),
+      prefillLeadKey: String(req.query.leadKey || '').trim(),
+      candidates,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/setup', async (req, res) => {
+  if (!canManage(req)) return reply(req, res, { ok: false, tab: 'setup', notice: 'Only owners and admins can change the network.', status: 403 });
+  try {
+    const network = await loadNetwork(req);
+    const chosen = trades.normalizeTradeSlugs(listFrom(req.body.trades));
+    await store.saveNetwork({
+      ...network,
+      name: String(req.body.name || '').trim() || network.name,
+      trades: chosen.length ? chosen : network.trades,
+    });
+    return reply(req, res, { ok: true, tab: 'setup', notice: 'Network saved.' });
+  } catch (err) {
+    console.error('[network] setup failed:', err.message);
+    return reply(req, res, { ok: false, tab: 'setup', notice: 'Could not save the network.', status: 500 });
+  }
+});
+
+router.post('/zones', async (req, res) => {
+  if (!canManage(req)) return reply(req, res, { ok: false, tab: 'setup', notice: 'Only owners and admins can edit zones.', status: 403 });
+  try {
+    const network = await loadNetwork(req);
+    const name = String(req.body.name || '').trim();
+    if (!name) return reply(req, res, { ok: false, tab: 'setup', notice: 'Name the zone.' });
+    const existing = req.body.id ? await store.getZone(network.id, String(req.body.id)) : null;
+    const zone = await store.saveZone(network.id, {
+      ...(existing || {}),
+      name,
+      cities: ex.parseCityList(req.body.cities),
+      zips: ex.parseZipList(req.body.zips),
+    });
+    return reply(req, res, { ok: true, tab: 'setup', notice: existing ? `Updated ${zone.name}.` : `Added ${zone.name}.`, data: { zone } });
+  } catch (err) {
+    console.error('[network] zone save failed:', err.message);
+    return reply(req, res, { ok: false, tab: 'setup', notice: 'Could not save that zone.', status: 500 });
+  }
+});
+
+router.post('/zones/:id/delete', async (req, res) => {
+  if (!canManage(req)) return reply(req, res, { ok: false, tab: 'setup', notice: 'Only owners and admins can edit zones.', status: 403 });
+  try {
+    const network = await loadNetwork(req);
+    const zone = await store.getZone(network.id, req.params.id);
+    if (!zone) return reply(req, res, { ok: false, tab: 'setup', notice: 'Zone not found.', status: 404 });
+    await store.deleteZone(network.id, zone.id);
+    const members = await store.listMembers(network.id);
+    for (const member of members.filter((m) => m.zoneIds.includes(zone.id))) {
+      await store.saveMember(network.id, { ...member, zoneIds: member.zoneIds.filter((id) => id !== zone.id) });
+    }
+    return reply(req, res, { ok: true, tab: 'setup', notice: `Removed ${zone.name}.` });
+  } catch (err) {
+    console.error('[network] zone delete failed:', err.message);
+    return reply(req, res, { ok: false, tab: 'setup', notice: 'Could not remove that zone.', status: 500 });
+  }
+});
+
+function seatNotice(prefix, conflicts) {
+  if (!conflicts.length) return prefix;
+  const list = conflicts.map((c) => `${trades.tradeLabel(c.tradeSlug)} in ${c.zoneName}`).join(', ');
+  return `${prefix} Already taken by another member: ${list}.`;
+}
+
+router.post('/members', async (req, res) => {
+  if (!canManage(req)) return reply(req, res, { ok: false, tab: 'members', notice: 'Only owners and admins can add members.', status: 403 });
+  try {
+    const network = await loadNetwork(req);
+    const leadKey = String(req.body.leadKey || '').trim();
+    const lead = leadKey ? await dbService.getLead(leadKey, req.workspaceId) : null;
+    if (!lead || !lead.key) return reply(req, res, { ok: false, tab: 'members', notice: 'Pick a saved partner lead first.', status: 404 });
+    const tradeSlugs = trades.normalizeTradeSlugs(listFrom(req.body.trades));
+    if (!tradeSlugs.length) return reply(req, res, { ok: false, tab: 'members', notice: 'Pick at least one trade.' });
+    const existing = await store.findMemberByLeadKey(network.id, lead.key);
+    const clean = (v) => (v && v !== 'N/A' ? String(v).trim() : '');
+    const { member, conflicts } = await networkReferrals.saveMemberWithSeats(network, {
+      ...(existing || {}),
+      leadKey: lead.key,
+      companyName: clean(lead.title) || 'Member',
+      contactName: clean(lead.contactName) || (existing && existing.contactName) || '',
+      phone: clean(lead.phone) || (existing && existing.phone) || '',
+      email: clean(lead.email) || (existing && existing.email) || '',
+      status: existing ? existing.status : 'active',
+    }, { trades: tradeSlugs, zoneIds: listFrom(req.body.zoneIds) });
+
+    const applied = referralNetwork.applyPartnerAction(lead, 'connect');
+    if (applied.ok) await dbService.updateLead(lead.key, { referralPartner: applied.referralPartner }, req.workspaceId);
+
+    const notice = seatNotice(existing ? `Updated ${member.companyName}.` : `${member.companyName} joined the network.`, conflicts);
+    return reply(req, res, { ok: true, tab: 'members', notice, data: { member, conflicts } });
+  } catch (err) {
+    console.error('[network] add member failed:', err.message);
+    return reply(req, res, { ok: false, tab: 'members', notice: 'Could not add that member.', status: 500 });
+  }
+});
+
+router.post('/members/:id/seats', async (req, res) => {
+  if (!canManage(req)) return reply(req, res, { ok: false, tab: 'members', notice: 'Only owners and admins can change seats.', status: 403 });
+  try {
+    const network = await loadNetwork(req);
+    const member = await store.getMember(network.id, req.params.id);
+    if (!member) return reply(req, res, { ok: false, tab: 'members', notice: 'Member not found.', status: 404 });
+    const { member: saved, conflicts } = await networkReferrals.saveMemberWithSeats(network, member, {
+      trades: trades.normalizeTradeSlugs(listFrom(req.body.trades)),
+      zoneIds: listFrom(req.body.zoneIds),
+    });
+    return reply(req, res, { ok: true, tab: 'members', notice: seatNotice(`Seats saved for ${saved.companyName}.`, conflicts), data: { member: saved, conflicts } });
+  } catch (err) {
+    console.error('[network] seats failed:', err.message);
+    return reply(req, res, { ok: false, tab: 'members', notice: 'Could not save those seats.', status: 500 });
+  }
+});
+
+router.post('/members/:id/status', async (req, res) => {
+  if (!canManage(req)) return reply(req, res, { ok: false, tab: 'members', notice: 'Only owners and admins can pause members.', status: 403 });
+  try {
+    const network = await loadNetwork(req);
+    const member = await store.getMember(network.id, req.params.id);
+    if (!member) return reply(req, res, { ok: false, tab: 'members', notice: 'Member not found.', status: 404 });
+    const status = req.body.status === 'paused' ? 'paused' : 'active';
+    const saved = await store.saveMember(network.id, { ...member, status });
+    return reply(req, res, { ok: true, tab: 'members', notice: status === 'paused' ? `${saved.companyName} paused — their seats stop receiving referrals.` : `${saved.companyName} is active again.` });
+  } catch (err) {
+    console.error('[network] member status failed:', err.message);
+    return reply(req, res, { ok: false, tab: 'members', notice: 'Could not update that member.', status: 500 });
+  }
+});
+
+router.get('/members/:id/portal-link', async (req, res) => {
+  try {
+    const network = await loadNetwork(req);
+    const member = await store.getMember(network.id, req.params.id);
+    if (!member) return res.status(404).json({ success: false, error: 'Member not found.' });
+    return res.json({ success: true, url: notify.memberPortalLink(notify.baseUrlFromReq(req), network, member) });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: 'Could not build that link.' });
+  }
+});
+
+router.post('/members/:id/send-portal-link', async (req, res) => {
+  try {
+    const network = await loadNetwork(req);
+    const member = await store.getMember(network.id, req.params.id);
+    if (!member) return reply(req, res, { ok: false, tab: 'members', notice: 'Member not found.', status: 404 });
+    const sent = await notify.sendMemberPortalLink({ network, member, baseUrl: notify.baseUrlFromReq(req) });
+    const notice = sent.ok
+      ? `Member page link sent to ${member.companyName} by ${sent.channel === 'sms' ? 'text' : 'email'}.`
+      : `Could not send the link: ${sent.error}`;
+    return reply(req, res, { ok: sent.ok, tab: 'members', notice });
+  } catch (err) {
+    console.error('[network] portal link send failed:', err.message);
+    return reply(req, res, { ok: false, tab: 'members', notice: 'Could not send the member page link.', status: 500 });
+  }
+});
+
+function sendNotice(result) {
+  const r = result.referral;
+  if (r.status === 'unrouted') {
+    return `Referral saved but not routed: ${ex.UNROUTED_REASONS[r.unroutedReason] || 'no seat holder.'} A task was added so you can assign it.`;
+  }
+  const n = result.notified;
+  if (n && n.ok) return `Referral sent and the member was notified by ${n.channel === 'sms' ? 'text' : 'email'}.`;
+  const why = n && n.error ? ` (${String(n.error).replace(/[.\s]+$/, '')})` : '';
+  return `Referral sent. The member was not notified${why}. Copy their member page link from Members.`;
+}
+
+router.post('/referrals', async (req, res) => {
+  try {
+    const network = await loadNetwork(req);
+    const result = await networkReferrals.sendReferral({
+      network,
+      input: req.body || {},
+      fromMemberId: 'operator',
+      by: userEmail(req) || 'operator',
+      baseUrl: notify.baseUrlFromReq(req),
+    });
+    if (!result.ok) return reply(req, res, { ok: false, tab: 'send', notice: result.error });
+    return reply(req, res, { ok: true, tab: 'referrals', notice: sendNotice(result), data: { referral: result.referral } });
+  } catch (err) {
+    console.error('[network] send referral failed:', err.message);
+    return reply(req, res, { ok: false, tab: 'send', notice: 'Could not send that referral.', status: 500 });
+  }
+});
+
+router.post('/referrals/:id/action', async (req, res) => {
+  try {
+    const network = await loadNetwork(req);
+    const action = String(req.body.action || '').trim();
+    const result = await networkReferrals.actOnReferral({
+      network,
+      referralId: req.params.id,
+      action,
+      opts: {
+        value: req.body.value,
+        text: req.body.text,
+        toMemberId: String(req.body.toMemberId || '').trim(),
+        by: userEmail(req) || 'operator',
+      },
+      baseUrl: notify.baseUrlFromReq(req),
+    });
+    if (!result.ok) return reply(req, res, { ok: false, tab: 'referrals', notice: result.error });
+    let notice = `Marked ${ex.STATUS_LABELS[result.referral.status].toLowerCase()}.`;
+    if (action === 'note') notice = 'Note added.';
+    if (action === 'assign') notice = result.notified && result.notified.ok ? 'Assigned and the member was notified.' : `Assigned. The member was not notified${result.notified && result.notified.error ? ` (${String(result.notified.error).replace(/[.\s]+$/, '')})` : ''}.`;
+    return reply(req, res, { ok: true, tab: 'referrals', notice, data: { referral: result.referral } });
+  } catch (err) {
+    console.error('[network] referral action failed:', err.message);
+    return reply(req, res, { ok: false, tab: 'referrals', notice: 'Could not update that referral.', status: 500 });
+  }
+});
+
+module.exports = router;

@@ -4,6 +4,8 @@ const dbService = require('../services/database');
 const { filterLeadsForRequest } = require('../services/workspaceService');
 const { filterBusinessPipelineLeads } = require('../services/leadListFilters');
 const referralNetwork = require('../services/referralNetwork');
+const networkStore = require('../services/networkStore');
+const { tradesForNetwork } = require('../services/networkTrades');
 
 const ACTION_NOTICE = {
   connect: 'Marked connected.',
@@ -40,7 +42,16 @@ router.get('/', async (req, res, next) => {
   try {
     const q = String(req.query.q || '').trim();
     const leads = await workspaceLeads(req);
+    const network = await networkStore.getNetworkForWorkspace(req.workspaceId);
+    const [zones, members] = network
+      ? await Promise.all([networkStore.listZones(network.id), networkStore.listMembers(network.id)])
+      : [[], []];
     res.render('referrals', {
+      networkSetup: {
+        trades: network ? tradesForNetwork(network).map((t) => ({ slug: t.slug, name: t.name })) : [],
+        zones: zones.map((z) => ({ id: z.id, name: z.name })),
+        memberLeadKeys: members.map((m) => m.leadKey),
+      },
       title: 'Referral partners',
       activePage: 'referrals',
       query: q,
