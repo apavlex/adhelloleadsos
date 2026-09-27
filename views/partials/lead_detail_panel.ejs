@@ -881,7 +881,7 @@
           </div>
         </div>
 
-        <section id="leadSmsThreadSection" class="hidden rounded-2xl bg-white/80 dark:bg-slate-900/60 border border-teal-500/25 dark:border-teal-400/20 p-3 space-y-2.5" aria-label="SMS conversation">
+        <section id="leadSmsThreadSection" class="lead-panel-composer hidden rounded-2xl bg-white/80 dark:bg-slate-900/60 border border-teal-500/25 dark:border-teal-400/20 p-3 space-y-2.5" aria-label="SMS conversation">
           <div class="flex flex-wrap items-center justify-between gap-2">
             <p class="text-[10px] font-black uppercase tracking-widest text-teal-800 dark:text-teal-300">SMS</p>
             <div class="flex flex-wrap items-center gap-2">
@@ -899,9 +899,9 @@
               <option value="blank">Blank — type your own</option>
             </select>
             <textarea id="leadSmsComposeInput" rows="2" maxlength="1600" placeholder="Type a reply… or pick a template above" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow resize-y min-h-[2.75rem]"></textarea>
-            <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="lead-panel-composer-footer flex flex-wrap items-center justify-between gap-2">
               <span id="leadSmsComposeCount" class="text-[9px] font-semibold text-brand-muted tabular-nums">0</span>
-              <div class="flex flex-wrap items-center gap-2">
+              <div class="lead-panel-composer-actions flex flex-wrap items-center gap-2">
                 <button type="button" id="leadSmsImproveTextBtn" class="btn-pill border border-brand-yellow/50 bg-brand-yellow/10 text-brand-dark dark:text-brand-yellow px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-brand-yellow/20 transition-all" title="Polish your draft for this lead with AI — does not send">Improve text</button>
                 <button type="button" id="leadSmsComposeSendBtn" class="btn-pill bg-brand-yellow text-brand-dark px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:brightness-95 transition-all">Send SMS</button>
               </div>
@@ -910,7 +910,7 @@
           <p id="leadSmsThreadStatus" class="text-[10px] font-semibold text-brand-muted m-0" aria-live="polite"></p>
         </section>
 
-        <section id="leadPanelGhlEmailSection" class="hidden rounded-2xl bg-white/80 dark:bg-slate-900/60 border border-sky-500/30 dark:border-sky-400/25 p-3 space-y-2.5" aria-label="Email composer">
+        <section id="leadPanelGhlEmailSection" class="lead-panel-composer hidden rounded-2xl bg-white/80 dark:bg-slate-900/60 border border-sky-500/30 dark:border-sky-400/25 p-3 space-y-2.5" aria-label="Email composer">
           <div class="flex flex-wrap items-center justify-between gap-2">
             <p class="text-[10px] font-black uppercase tracking-widest text-sky-800 dark:text-sky-300">eMail</p>
             <p id="leadPanelGhlEmailTo" class="text-[11px] font-semibold text-brand-dark dark:text-white truncate max-w-[16rem]">—</p>
@@ -922,9 +922,9 @@
             </select>
             <input id="leadPanelGhlEmailSubject" type="text" maxlength="180" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow" placeholder="Subject" aria-label="Email subject" />
             <textarea id="leadPanelGhlEmailBody" rows="2" maxlength="8000" placeholder="Type an email… or pick a template above" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow resize-y min-h-[2.75rem]"></textarea>
-            <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="lead-panel-composer-footer flex flex-wrap items-center justify-between gap-2">
               <span id="leadPanelGhlEmailCount" class="text-[9px] font-semibold text-brand-muted tabular-nums">0</span>
-              <div class="flex flex-wrap items-center gap-2">
+              <div class="lead-panel-composer-actions flex flex-wrap items-center gap-2">
                 <button type="button" id="leadPanelGhlEmailImprove" class="btn-pill border border-brand-yellow/50 bg-brand-yellow/10 text-brand-dark dark:text-brand-yellow px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-brand-yellow/20 transition-all" title="Polish your draft for this lead with AI — does not send">Improve text</button>
                 <button type="button" id="leadPanelGhlEmailSend" class="btn-pill bg-brand-yellow text-brand-dark px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:brightness-95 transition-all">Send eMail</button>
               </div>

@@ -1801,14 +1801,36 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
 }
 
 @media (max-width: 639px) {
-  #bulkActionBar .bulk-bar-primary-row {
-    gap: 0.4rem;
+  #bulkActionBar {
+    max-height: calc(100dvh - 5.5rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 
+  #bulkActionBar .bulk-bar-primary-row {
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+
+  /* Call / SMS / Email share the first line; Direct Mail + Auto outreach take the second. */
   #bulkActionBar .bulk-bar-primary-split {
-    min-height: 2.65rem;
-    padding: 0.7rem 0.65rem;
+    flex: 1 1 28%;
+    width: auto;
+    min-height: 3rem;
+    padding: 0.7rem 0.5rem;
     font-size: 0.6875rem;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+  }
+
+  #bulkActionBar #bulkDirectMailBtn,
+  #bulkActionBar #bulkAutoOutreachBtn {
+    flex-basis: 40%;
+  }
+
+  #bulkActionBar .bulk-bar-tools-row {
+    flex-wrap: wrap;
+    overflow-x: visible;
   }
 }
 
@@ -3295,6 +3317,84 @@ body.find-leads-page #findTypeTabs .find-type-tab {
 #mobilePanel.open #leadPanelNotepadBody.lead-panel-notepad-body--open,
 #mobilePanel.open #leadPanelNotepadBody.lead-panel-notepad-body--open * {
     pointer-events: auto;
+}
+
+/* Dock cards keep their natural height — overflow scrolls instead of squishing (and clipping) the quick log card. */
+#leadPanelNotepadBody > * {
+    flex-shrink: 0;
+}
+
+/* SMS bubbles: long links / tokens wrap inside the bubble instead of being clipped by the thread. */
+#leadSmsThreadList {
+    overflow-x: hidden;
+}
+#leadSmsThreadList > div {
+    min-width: 0;
+}
+#leadSmsThreadList > div > div {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+@media (max-width: 767px) {
+    /* Expanded dock on phones: tab content + quick log / SMS / email share one scroller. A capped
+       nested dock squeezed #leadPanelTabScroll to zero height and trapped touch scrolling. */
+    #leadPanelMiddle.lead-panel-middle--dock-open {
+        overflow-y: auto;
+        overflow-x: hidden;
+        overscroll-behavior-y: contain;
+        -webkit-overflow-scrolling: touch;
+        margin-inline: -0.5rem;
+        padding-inline: 0.5rem;
+    }
+    #leadPanelMiddle.lead-panel-middle--dock-open > #leadPanelTabScroll {
+        flex: 0 0 auto;
+        min-height: auto;
+        overflow: visible;
+    }
+    #leadPanelMiddle.lead-panel-middle--dock-open #leadPanelNotepadBody.lead-panel-notepad-body--open {
+        max-height: none;
+        overflow: visible;
+    }
+
+    #leadSmsThreadSection.lead-panel-composer,
+    #leadPanelGhlEmailSection.lead-panel-composer {
+        padding: 0.9rem;
+    }
+    #leadSmsThreadList {
+        min-height: 40vh;
+        max-height: 60vh;
+        -webkit-overflow-scrolling: touch;
+    }
+    #leadSmsThreadList > div {
+        max-width: 88%;
+    }
+    #leadSmsThreadList > div > div {
+        font-size: 0.875rem;
+        line-height: 1.45;
+    }
+    #leadSmsComposeInput {
+        min-height: 9.5rem;
+    }
+    #leadPanelGhlEmailBody {
+        min-height: 14rem;
+    }
+    #leadPanelGhlEmailTo {
+        max-width: 100%;
+    }
+    #leadPanelNotepadBody .lead-panel-composer-footer {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    #leadPanelNotepadBody .lead-panel-composer-actions {
+        width: 100%;
+        flex-wrap: nowrap;
+    }
+    #leadPanelNotepadBody .lead-panel-composer-actions > button {
+        flex: 1 1 0;
+        min-height: 2.9rem;
+    }
 }
 
 /* Lead panel scroll body: uniform vertical rhythm */

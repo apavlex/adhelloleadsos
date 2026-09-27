@@ -3600,7 +3600,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const show = channel === 'text' && !!String(phone || '').trim() && String(phone).trim() !== '—';
     section.classList.toggle('hidden', !show);
     if (show && row) {
-      if (typeof openLeadPanelNotepad === 'function') openLeadPanelNotepad();
+      const phoneViewport = typeof isLeadPanelPhoneViewport === 'function' && isLeadPanelPhoneViewport();
+      if (!phoneViewport && typeof openLeadPanelNotepad === 'function') openLeadPanelNotepad();
       if (typeof closeLeadPanelGhlEmailComposer === 'function') closeLeadPanelGhlEmailComposer();
       // Local thread only — GHL sync can hang; user taps Sync when they want it.
       populateLeadSmsTemplateSelect(row);
@@ -4526,6 +4527,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const btn = document.getElementById('leadPanelNotepadToggle');
     const ch = document.getElementById('leadPanelNotepadChevron');
     const shell = document.getElementById('leadPanelNotepad');
+    const middle = document.getElementById('leadPanelMiddle');
+    const wasDockOpen = !!(middle && middle.classList.contains('lead-panel-middle--dock-open'));
     if (body) body.classList.add('lead-panel-notepad-body--open');
     if (btn) btn.setAttribute('aria-expanded', 'true');
     if (ch) {
@@ -4533,16 +4536,37 @@ document.addEventListener('DOMContentLoaded', () => {
       ch.style.transform = '';
     }
     if (shell) shell.classList.remove('lead-panel-notepad--collapsed');
+    if (middle) middle.classList.add('lead-panel-middle--dock-open');
+    // Phones: the middle column becomes the scroller, so bring the dock into view instead of the tab top.
+    if (!wasDockOpen && middle && shell && isLeadPanelPhoneViewport()) {
+      middle.scrollTop += shell.getBoundingClientRect().top - middle.getBoundingClientRect().top;
+    }
     try {
       sessionStorage.setItem(LEAD_PANEL_NOTEPAD_COLLAPSED_KEY, '0');
     } catch (_) { /* ignore */ }
   }
 
-  function closeLeadPanelNotepad() {
+  function getLeadPanelScrollHost() {
+    const middle = document.getElementById('leadPanelMiddle');
+    if (middle && middle.classList.contains('lead-panel-middle--dock-open') && isLeadPanelPhoneViewport()) {
+      return middle;
+    }
+    return document.getElementById('leadPanelTabScroll');
+  }
+
+  function isLeadPanelPhoneViewport() {
+    return !!(window.matchMedia && window.matchMedia('(max-width: 767px)').matches);
+  }
+
+  function closeLeadPanelNotepad(opts) {
+    const persist = !(opts && opts.persist === false);
     const body = document.getElementById('leadPanelNotepadBody');
     const btn = document.getElementById('leadPanelNotepadToggle');
     const ch = document.getElementById('leadPanelNotepadChevron');
     const shell = document.getElementById('leadPanelNotepad');
+    const middle = document.getElementById('leadPanelMiddle');
+    const tabScroll = document.getElementById('leadPanelTabScroll');
+    const middleScrollTop = middle ? middle.scrollTop : 0;
     if (body) body.classList.remove('lead-panel-notepad-body--open');
     if (btn) btn.setAttribute('aria-expanded', 'false');
     if (ch) {
@@ -4550,6 +4574,12 @@ document.addEventListener('DOMContentLoaded', () => {
       ch.style.transform = '';
     }
     if (shell) shell.classList.add('lead-panel-notepad--collapsed');
+    if (middle && middle.classList.contains('lead-panel-middle--dock-open')) {
+      middle.classList.remove('lead-panel-middle--dock-open');
+      middle.scrollTop = 0;
+      if (tabScroll && middleScrollTop > 0) tabScroll.scrollTop = middleScrollTop;
+    }
+    if (!persist) return;
     try {
       sessionStorage.setItem(LEAD_PANEL_NOTEPAD_COLLAPSED_KEY, '1');
     } catch (_) { /* ignore */ }
@@ -4566,6 +4596,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function restoreLeadPanelNotepadCollapsedState() {
+    if (isLeadPanelPhoneViewport()) {
+      closeLeadPanelNotepad({ persist: false });
+      return;
+    }
     try {
       if (sessionStorage.getItem(LEAD_PANEL_NOTEPAD_COLLAPSED_KEY) === '1') {
         closeLeadPanelNotepad();
@@ -6231,6 +6265,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // the sheet must still appear; previously the open block never ran after a throw.
     const panelRoot = getLeadDetailPanel();
     if (panelRoot) {
+      const panelWasOpen = panelRoot.classList.contains('open');
+      if (!panelWasOpen && typeof isLeadPanelPhoneViewport === 'function' && isLeadPanelPhoneViewport()) {
+        closeLeadPanelNotepad({ persist: false });
+      }
       panelRoot.classList.remove('hidden');
       panelRoot.classList.add('open');
       panelRoot.classList.remove('opacity-0');
@@ -7336,20 +7374,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const stickyTitle = document.getElementById('stickyPanelTitle');
     if (panelScroll && stickyTitle) {
       const STICKY_THRESHOLD = 200;
-      panelScroll.addEventListener(
-        'scroll',
-        () => {
-          const show = panelScroll.scrollTop > STICKY_THRESHOLD;
-          if (show) {
-            stickyTitle.classList.remove('opacity-0', 'pointer-events-none');
-            stickyTitle.classList.add('opacity-100');
-          } else {
-            stickyTitle.classList.add('opacity-0', 'pointer-events-none');
-            stickyTitle.classList.remove('opacity-100');
-          }
-        },
-        { passive: true }
-      );
+      const syncStickyTitle = (scroller) => {
+        const show = scroller.scrollTop > STICKY_THRESHOLD;
+        if (show) {
+          stickyTitle.classList.remove('opacity-0', 'pointer-events-none');
+          stickyTitle.classList.add('opacity-100');
+        } else {
+          stickyTitle.classList.add('opacity-0', 'pointer-events-none');
+          stickyTitle.classList.remove('opacity-100');
+        }
+      };
+      panelScroll.addEventListener('scroll', () => syncStickyTitle(panelScroll), { passive: true });
+      const panelMiddle = document.getElementById('leadPanelMiddle');
+      if (panelMiddle) {
+        panelMiddle.addEventListener('scroll', () => syncStickyTitle(panelMiddle), { passive: true });
+      }
     }
   }
 
@@ -8380,7 +8419,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function scrollLeadPanelToSection(sectionId) {
-    const scrollEl = document.getElementById('leadPanelTabScroll');
+    const scrollEl = getLeadPanelScrollHost();
     if (!scrollEl || !sectionId) return;
 
     let target = document.getElementById(sectionId);
