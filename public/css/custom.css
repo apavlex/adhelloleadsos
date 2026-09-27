@@ -1832,6 +1832,35 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
     flex-wrap: wrap;
     overflow-x: visible;
   }
+
+  /* Minimized: a small pill showing only the selection count */
+  #bulkActionBar[data-minimized='true'] {
+    width: auto;
+    max-width: calc(100vw - 1rem);
+    padding: 0.4rem 0.55rem;
+    cursor: pointer;
+  }
+
+  #bulkActionBar[data-minimized='true'] .bulk-bar-expand-row,
+  #bulkActionBar[data-minimized='true'] #bulkOpenGhlContactsLink,
+  #bulkActionBar[data-minimized='true'] .bulk-bar-folder-strip,
+  #bulkActionBar[data-minimized='true'] .bulk-bar-main > :not(:first-child) {
+    display: none !important;
+  }
+
+  #bulkActionBar[data-minimized='true'] .bulk-bar-count {
+    border-right: 0;
+    padding-right: 0;
+    margin-right: 0;
+  }
+
+  #bulkActionBar[data-minimized='true'] .bulk-bar-selected-label {
+    display: inline;
+  }
+
+  #bulkActionBar[data-minimized='true'] #bulkBarMinimizeBtn svg {
+    transform: rotate(180deg);
+  }
 }
 
 .dark #bulkActionBar {
