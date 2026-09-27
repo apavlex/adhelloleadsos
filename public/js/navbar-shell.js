@@ -321,6 +321,7 @@
   var spFollowupWrap = document.getElementById('softphoneFollowupWrap');
   var spFollowupAt = document.getElementById('softphoneFollowupAt');
   var spFollowupPresets = document.querySelectorAll('.softphone-followup-preset');
+  var spDnc = document.getElementById('softphoneDoNotCall');
   var spWrapPanel = document.getElementById('softphoneWrapPanel');
   var spWrapLeadHint = document.getElementById('softphoneWrapLeadHint');
   var spWrapFeedback = document.getElementById('softphoneWrapFeedback');
@@ -2329,7 +2330,56 @@
     if (svg) svg.setAttribute('fill', on ? 'currentColor' : 'none');
   }
 
+  function syncSoftphoneDncEnabled() {
+    if (!spDnc) return;
+    var key = softphoneLeadStorageKey();
+    spDnc.disabled = !key;
+    if (!key) spDnc.checked = false;
+  }
+
+  function softphonePipelineRowForKey(key) {
+    var k = String(key || '').trim().replace(/^lead:/i, '');
+    if (!k) return null;
+    return document.querySelector(
+      'tr.result-row[data-lead-key="' + CSS.escape(k) + '"], tr.result-row[data-lead-key="' + CSS.escape('lead:' + k) + '"]',
+    );
+  }
+
+  function saveSoftphoneDnc() {
+    var key = softphoneLeadStorageKey();
+    if (!spDnc || !key) return;
+    var on = !!spDnc.checked;
+    spDnc.disabled = true;
+    fetch('/leads/' + encodeURIComponent(key) + '/update', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ doNotCall: on }),
+    })
+      .then(function (r) {
+        return r.json().then(function (j) {
+          if (!r.ok || !j || !j.success) throw new Error((j && j.error) || 'Could not update DNC');
+        });
+      })
+      .then(function () {
+        var row = softphonePipelineRowForKey(key);
+        if (row) row.dataset.doNotCall = on ? '1' : '';
+        document.dispatchEvent(
+          new CustomEvent('adhello-lead-dnc-changed', { detail: { leadKey: key, doNotCall: on, source: 'softphone' } }),
+        );
+        setSoftphoneWrapFeedback(on ? 'Marked Do Not Call.' : 'DNC removed.', false);
+      })
+      .catch(function (err) {
+        if (softphoneLeadStorageKey() === key) spDnc.checked = !on;
+        setSoftphoneWrapFeedback((err && err.message) || 'Could not update DNC', true);
+      })
+      .finally(function () {
+        syncSoftphoneDncEnabled();
+      });
+  }
+
   function syncSoftphoneBookmarkEnabled() {
+    syncSoftphoneDncEnabled();
     if (!spBookmark) return;
     var key = softphoneLeadStorageKey();
     spBookmark.disabled = !key;
@@ -2556,9 +2606,10 @@
     }
     var rowBookmarked = false;
     try {
-      var row = document.querySelector(
-        'tr.result-row[data-lead-key="' + CSS.escape(key) + '"], tr.result-row[data-lead-key="' + CSS.escape('lead:' + key) + '"]',
-      );
+      var row = softphonePipelineRowForKey(key);
+      if (spDnc && row && row.dataset) {
+        spDnc.checked = row.dataset.doNotCall === '1' || row.dataset.doNotCall === 'true';
+      }
       if (row && row.dataset && row.dataset.bookmarked === '1') rowBookmarked = true;
       else if (row) {
         var bb = row.querySelector('.bookmark-btn');
@@ -2578,6 +2629,7 @@
         if (softphoneLeadStorageKey() !== key) return;
         var lead = data.lead;
         paintSoftphoneBookmark(!!lead.bookmarked);
+        if (spDnc) spDnc.checked = !!lead.doNotCall;
         syncSoftphoneBookmarkEnabled();
         if (spStatusSelect && lead.status) spStatusSelect.value = String(lead.status);
         // Do not auto-fill No pickup from dial-start auto-disposition — leaves wrap empty for a real choice.
@@ -6423,6 +6475,17 @@
       e.preventDefault();
       e.stopPropagation();
       toggleSoftphoneLeadBookmark();
+    });
+  }
+
+  if (spDnc) {
+    syncSoftphoneDncEnabled();
+    spDnc.addEventListener('change', saveSoftphoneDnc);
+    document.addEventListener('adhello-lead-dnc-changed', function (e) {
+      var d = (e && e.detail) || {};
+      if (d.source === 'softphone') return;
+      var k = String(d.leadKey || '').trim().replace(/^lead:/i, '');
+      if (k && k === softphoneLeadStorageKey()) spDnc.checked = !!d.doNotCall;
     });
   }
 

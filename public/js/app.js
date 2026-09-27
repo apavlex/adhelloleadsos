@@ -11105,8 +11105,22 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
           await postLeadJsonUpdate(currentRow, { doNotCall: !!dnc.checked });
           currentRow.dataset.doNotCall = dnc.checked ? '1' : '';
+          document.dispatchEvent(
+            new CustomEvent('adhello-lead-dnc-changed', {
+              detail: { leadKey: currentRow.dataset.leadKey, doNotCall: !!dnc.checked, source: 'lead_panel' },
+            }),
+          );
         } catch (e) {
           if (typeof window.showAppToast === 'function') window.showAppToast(e.message || 'Save failed', { variant: 'error' });
+        }
+      });
+      document.addEventListener('adhello-lead-dnc-changed', (e) => {
+        const d = (e && e.detail) || {};
+        if (d.source === 'lead_panel' || !currentRow) return;
+        const norm = (k) => String(k || '').trim().replace(/^lead:/i, '');
+        if (norm(d.leadKey) && norm(d.leadKey) === norm(currentRow.dataset.leadKey)) {
+          currentRow.dataset.doNotCall = d.doNotCall ? '1' : '';
+          dnc.checked = !!d.doNotCall;
         }
       });
     }

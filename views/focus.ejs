@@ -654,7 +654,13 @@
           </div>
         </div>
         <div id="focus-quick-log-section">
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Quick log</p>
+          <div class="flex items-center justify-between gap-2 mb-1.5">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Quick log</p>
+            <label class="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-rose-500/35 bg-rose-500/[0.06] dark:bg-rose-950/25 cursor-pointer" title="Do not call — compliance flag saved on the lead">
+              <input id="focus-do-not-call" type="checkbox" class="w-3 h-3 rounded border-rose-400 text-rose-600 focus:ring-rose-500" />
+              <span class="text-[9px] font-black uppercase tracking-wider text-rose-700 dark:text-rose-300">DNC</span>
+            </label>
+          </div>
           <div class="flex flex-wrap gap-2" id="focus-quick-log-row">
             <%- include('/partials/quick_log_pills', {
               quickLogBtnClass: 'focus-quick-outcome btn-pill border border-brand-border dark:border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 data-[active=true]:border-brand-yellow data-[active=true]:bg-brand-yellow/15',
@@ -4523,6 +4529,11 @@
     }
 
     function hydrateFocusQuickLogFromLead(lead) {
+      var dncEl = document.getElementById('focus-do-not-call');
+      if (dncEl) {
+        dncEl.checked = !!(lead && lead.doNotCall);
+        dncEl.disabled = !(lead && lead.key);
+      }
       if (!elOutcome) return;
       var value = '';
       var disp = String((lead && lead.lastDisposition) || '').trim().toLowerCase();
@@ -5287,6 +5298,20 @@
         btn.addEventListener('click', function () {
           quickSetOutcome(focusBtnSelectionValue(btn));
         });
+      });
+    }
+    var elFocusDnc = document.getElementById('focus-do-not-call');
+    if (elFocusDnc) {
+      elFocusDnc.addEventListener('change', function () {
+        var on = !!elFocusDnc.checked;
+        focusSaveLeadPatch({ doNotCall: on })
+          .then(function () {
+            setOutcomeFeedback(on ? 'Marked Do Not Call.' : 'DNC removed.', false);
+          })
+          .catch(function (err) {
+            elFocusDnc.checked = !on;
+            setOutcomeFeedback((err && err.message) || 'Could not update DNC.', true);
+          });
       });
     }
     if (btnMobileFabToggle && elMobileFabActions) {

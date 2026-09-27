@@ -151,6 +151,7 @@ function leadToFocusPayload(l, sortedStages, scriptLibrary, allowedKeys, opts) {
     touchPoints,
     lastDisposition: String(l.lastDisposition || '').trim().toLowerCase(),
     lastDispositionNotes: String(l.lastDispositionNotes || '').trim(),
+    doNotCall: !!l.doNotCall,
     website: l.website && l.website !== 'N/A' ? l.website : '',
     phone: l.phone && l.phone !== 'N/A' ? l.phone : '',
     email: hasEmail ? email : '',
