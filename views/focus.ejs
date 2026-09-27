@@ -259,16 +259,6 @@
         </div>
       </div>
 
-      <div id="focusLeadTagsSection" class="mb-6 rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-800/40 px-4 py-3">
-        <div class="flex items-center justify-between gap-2 mb-2">
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Tags</p>
-          <a href="/tags/manage" class="text-[9px] font-bold uppercase tracking-wide text-brand-yellow hover:underline shrink-0">Manage all tags →</a>
-        </div>
-        <div id="focusLeadTagsHost" class="rounded-xl border border-brand-border/20 dark:border-white/10 bg-white/60 dark:bg-slate-900/40 p-3">
-          <p class="text-[11px] text-brand-muted dark:text-slate-400 italic">Loading tags…</p>
-        </div>
-      </div>
-
       <div id="focus-contact-fields" class="mb-6 rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-800/40 overflow-hidden">
         <button type="button" id="focusContactDetailsToggle" aria-expanded="false" aria-controls="focusContactDetailsDrawer" class="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-brand-cream/50 dark:hover:bg-slate-800/80 transition-colors">
           <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Contact details</span>
@@ -360,8 +350,15 @@
               <p id="focus-builtwith-meta" class="hidden text-[11px] text-brand-muted mt-2 italic">Click BuiltWith → to load tech stack for this site.</p>
             </div>
             <div id="focus-touch-points-wrap" class="mt-3 pt-3 border-t border-brand-border/50 dark:border-white/10">
-              <div class="flex items-center justify-between gap-2 mb-2">
-                <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted">Touch points</p>
+              <button type="button" id="focusTouchPointsToggle" aria-expanded="false" aria-controls="focusTouchPointsBody" class="w-full flex items-center justify-between gap-2 text-left">
+                <span class="inline-flex items-center gap-2 min-w-0">
+                  <span class="text-[9px] font-black uppercase tracking-wider text-brand-muted">Touch points</span>
+                  <span id="focusTouchPointsCount" class="text-[10px] font-semibold text-brand-muted/80 truncate"></span>
+                </span>
+                <svg id="focusTouchPointsChevron" class="w-4 h-4 shrink-0 text-brand-muted transition-transform duration-200 rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
+              </button>
+              <div id="focusTouchPointsBody" class="hidden mt-2">
+              <div class="flex justify-end mb-2">
                 <a href="/engagement" class="text-[9px] font-bold uppercase tracking-wide text-brand-yellow hover:underline shrink-0">Engagement inbox →</a>
               </div>
               <div class="mb-2.5 rounded-xl border border-brand-border/40 dark:border-white/10 bg-white/70 dark:bg-slate-900/50 px-2.5 py-2">
@@ -372,6 +369,7 @@
               </div>
               <p id="focus-touch-summary" class="text-[11px] font-semibold text-brand-dark dark:text-slate-200 mb-2">—</p>
               <ul id="focus-touch-points-list" class="space-y-2 max-h-44 overflow-y-auto custom-scrollbar text-[11px]" aria-label="Recent touch points"></ul>
+              </div>
             </div>
             <div class="mt-3 pt-3 border-t border-brand-border/50 dark:border-white/10">
               <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-2">Quick copy</p>
@@ -415,6 +413,29 @@
             <button type="button" id="focus-ai-tools-open" class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-brand-border/60 dark:border-white/15 text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors">Open presentation</button>
           </div>
           <p id="focus-deliverables-feedback" class="text-[11px] text-brand-muted mt-2 min-h-[1rem]"></p>
+        </div>
+      </div>
+
+      <div id="focusLeadTagsSection" class="mb-4 rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-800/40 px-4 py-3">
+        <div class="flex items-center justify-between gap-2 mb-2">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Tags</p>
+          <a href="/tags/manage" class="text-[9px] font-bold uppercase tracking-wide text-brand-yellow hover:underline shrink-0">Manage all tags →</a>
+        </div>
+        <div id="focusLeadTagsHost" class="rounded-xl border border-brand-border/20 dark:border-white/10 bg-white/60 dark:bg-slate-900/40 p-3">
+          <p class="text-[11px] text-brand-muted dark:text-slate-400 italic">Loading tags…</p>
+        </div>
+      </div>
+
+      <div id="focus-notes-section" class="mb-6 rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-800/40 overflow-hidden">
+        <button type="button" id="focusNotesToggle" aria-expanded="false" aria-controls="focusNotesDrawer" class="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-brand-cream/50 dark:hover:bg-slate-800/80 transition-colors">
+          <span class="inline-flex items-center gap-2 min-w-0">
+            <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Add notes</span>
+            <span id="focusNotesIndicator" class="hidden text-[10px] font-semibold text-brand-yellow truncate">Has notes</span>
+          </span>
+          <svg id="focusNotesChevron" class="w-4 h-4 shrink-0 text-brand-muted transition-transform duration-300 ease-out rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
+        </button>
+        <div id="focusNotesDrawer" class="focus-notes-drawer border-t border-brand-border/15 dark:border-white/10" role="region" aria-label="Call notes">
+          <textarea id="focus-outcome-notes" rows="3" class="w-full rounded-none border-0 bg-white dark:bg-slate-900 px-4 py-2.5 text-base sm:text-sm text-brand-dark dark:text-white focus:ring-0 focus:outline-none" placeholder="Owner response, objection, timing, next step… saved with your quick log"></textarea>
         </div>
       </div>
 
@@ -676,28 +697,16 @@
           </div>
           <p id="focus-selected-outcome-label" class="mt-2 text-[11px] text-brand-muted">Selected: none · <a href="/direct-mail?day=today" id="focus-link-mail-list-today" class="focus-mail-list-link font-semibold hover:text-brand-yellow transition-colors">View today's list</a></p>
         </div>
-        <div id="focus-notes-section" class="rounded-xl border border-brand-border/25 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-800/40 overflow-hidden">
-          <button type="button" id="focusNotesToggle" aria-expanded="false" aria-controls="focusNotesDrawer" class="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-brand-cream/50 dark:hover:bg-slate-800/80 transition-colors">
-            <span class="inline-flex items-center gap-2 min-w-0">
-              <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Notes</span>
-              <span id="focusNotesIndicator" class="hidden text-[10px] font-semibold text-brand-yellow truncate">Has notes</span>
-            </span>
-            <svg id="focusNotesChevron" class="w-4 h-4 shrink-0 text-brand-muted transition-transform duration-300 ease-out rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
-          </button>
-          <div id="focusNotesDrawer" class="focus-notes-drawer border-t border-brand-border/15 dark:border-white/10" role="region" aria-label="Call notes">
-            <textarea id="focus-outcome-notes" rows="3" class="w-full rounded-none border-0 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-brand-dark dark:text-white focus:ring-0 focus:outline-none" placeholder="Owner response, objection, timing, next step…"></textarea>
-          </div>
-        </div>
-        <div id="focus-followup-strip" class="hidden rounded-xl border border-brand-border/70 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-800/40 p-3 space-y-3">
+        <div id="focus-followup-strip" class="rounded-xl border border-brand-border/70 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-800/40 p-3 space-y-3">
           <label class="inline-flex items-center gap-2 text-xs font-semibold text-brand-dark dark:text-white">
             <input type="checkbox" id="focus-followup-enable" class="rounded border-brand-border" checked />
             Schedule next follow-up
           </label>
           <div id="focus-followup-presets" class="flex flex-wrap gap-2">
-            <button type="button" class="focus-followup-preset btn-pill border border-brand-border dark:border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50" data-preset="tomorrow">Tomorrow 10am</button>
-            <button type="button" class="focus-followup-preset btn-pill border border-brand-border dark:border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50" data-preset="3days">In 3 days</button>
-            <button type="button" class="focus-followup-preset btn-pill border border-brand-border dark:border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50" data-preset="nextweek">Next week</button>
-            <button type="button" class="focus-followup-preset btn-pill border border-brand-border dark:border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50" data-preset="custom">Custom</button>
+            <button type="button" class="focus-followup-preset btn-pill border border-brand-border dark:border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 data-[active=true]:border-brand-yellow data-[active=true]:ring-1 data-[active=true]:ring-brand-yellow" data-preset="tomorrow">Tomorrow 10am</button>
+            <button type="button" class="focus-followup-preset btn-pill border border-brand-border dark:border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 data-[active=true]:border-brand-yellow data-[active=true]:ring-1 data-[active=true]:ring-brand-yellow" data-preset="3days">In 3 days</button>
+            <button type="button" class="focus-followup-preset btn-pill border border-brand-border dark:border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 data-[active=true]:border-brand-yellow data-[active=true]:ring-1 data-[active=true]:ring-brand-yellow" data-preset="nextweek">Next week</button>
+            <button type="button" class="focus-followup-preset btn-pill border border-brand-border dark:border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 data-[active=true]:border-brand-yellow data-[active=true]:ring-1 data-[active=true]:ring-brand-yellow" data-preset="custom">Custom</button>
           </div>
           <div id="focus-followup-wrap">
             <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1.5">Follow-up date &amp; time</p>
@@ -733,6 +742,7 @@
       <button type="button" id="focus-mobile-log" class="focus-dock-btn border border-brand-dark/25 dark:border-white/20 bg-white dark:bg-slate-900 text-brand-dark dark:text-white" role="menuitem">Log &amp; next</button>
       <button type="button" id="focus-mobile-skip" class="focus-dock-btn border border-brand-border/60 dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800 text-brand-muted dark:text-slate-300" role="menuitem">Skip</button>
       <button type="button" id="focus-mobile-email" class="focus-dock-btn border border-sky-500/50 bg-sky-500/15 text-sky-900 dark:text-sky-200" role="menuitem" title="Open email composer">eMail</button>
+      <button type="button" id="focus-mobile-sync-ghl" class="focus-dock-btn col-span-2 border border-orange-600 bg-orange-500 text-white" role="menuitem" title="Save quick log and notes, then sync this lead to Go High Level">Sync GHL</button>
     </div>
     <div class="focus-mobile-dock-bar">
       <button type="button" id="focus-mobile-call" class="focus-dock-btn focus-dock-btn--call" title="Call this lead now">
@@ -931,6 +941,7 @@
     var btnMobileCall = document.getElementById('focus-mobile-call');
     var btnMobileSms = document.getElementById('focus-mobile-sms');
     var btnMobileEmail = document.getElementById('focus-mobile-email');
+    var btnMobileSyncGhl = document.getElementById('focus-mobile-sync-ghl');
     var btnImproveText = document.getElementById('focus-improve-text');
     var elSmsComposeSection = document.getElementById('focus-sms-compose-section');
     var elSmsComposeInput = document.getElementById('focus-sms-compose-input');
@@ -4031,6 +4042,8 @@
         elTouchSummary.textContent = total
           ? (total + ' logged touch' + (total === 1 ? '' : 'es') + ' — most recent below')
           : 'No touches logged yet — log calls and outreach to build history.';
+        var elTouchCount = document.getElementById('focusTouchPointsCount');
+        if (elTouchCount) elTouchCount.textContent = total ? '· ' + total : '· none';
       }
       if (!elTouchPointsList) return;
       var items = tp && Array.isArray(tp.recentTouches) ? tp.recentTouches : [];
@@ -4589,11 +4602,15 @@
     function syncFollowupStripForOutcome(value) {
       var item = focusQuickLogItemForValue(value);
       var needs = !!(item && item.enableFollowup);
-      if (elFollowupStrip) elFollowupStrip.classList.toggle('hidden', !needs);
-      if (!needs) return;
-      if (elFollowupEnable) elFollowupEnable.checked = true;
-      if (elFollowupWrap) elFollowupWrap.classList.remove('hidden');
+      if (elFollowupStrip) elFollowupStrip.classList.remove('hidden');
+      if (elFollowupEnable) elFollowupEnable.checked = needs;
+      syncFollowupPresetsDim();
+      if (!needs) {
+        markFollowupPreset('');
+        return;
+      }
       defaultFollowupDatetime();
+      markFollowupPreset('tomorrow');
     }
 
     function quickSetOutcome(value) {
@@ -4793,13 +4810,14 @@
       }
       currentChannel = 'call-script';
       hydrateFocusQuickLogFromLead(lead);
-      if (elFollowupEnable) elFollowupEnable.checked = false;
-      if (elFollowupWrap) elFollowupWrap.classList.add('hidden');
       if (focusFollowupPicker && typeof focusFollowupPicker.clear === 'function') {
         focusFollowupPicker.clear();
       } else if (elFollowupAt) {
         elFollowupAt.value = '';
       }
+      if (elFollowupEnable) elFollowupEnable.checked = false;
+      markFollowupPreset('');
+      syncFollowupPresetsDim();
       setOutcomeFeedback('');
       resetFocusSmsCompose();
       resetFocusEmailCompose();
@@ -5223,6 +5241,31 @@
         onSkip();
       });
     }
+    if (btnMobileSyncGhl) {
+      btnMobileSyncGhl.addEventListener('click', function () {
+        closeMobileFabActions();
+        var toast = typeof window.showAppToast === 'function' ? window.showAppToast : null;
+        if (toast) toast('Syncing this lead to Go High Level…', { variant: 'info' });
+        pushFocusLeadToGhl()
+          .then(function (data) {
+            if (data && toast) toast('Synced to Go High Level.', { variant: 'success' });
+          })
+          .catch(function (err) {
+            if (toast) toast((err && err.message) || 'Could not sync to GHL.', { variant: 'error' });
+          });
+      });
+    }
+    var btnTouchPointsToggle = document.getElementById('focusTouchPointsToggle');
+    if (btnTouchPointsToggle) {
+      btnTouchPointsToggle.addEventListener('click', function () {
+        var body = document.getElementById('focusTouchPointsBody');
+        var chevron = document.getElementById('focusTouchPointsChevron');
+        var open = btnTouchPointsToggle.getAttribute('aria-expanded') !== 'true';
+        btnTouchPointsToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (body) body.classList.toggle('hidden', !open);
+        if (chevron) chevron.classList.toggle('rotate-180', !open);
+      });
+    }
     function setFollowupDatetimeLocal(d) {
       if (focusFollowupPicker && typeof focusFollowupPicker.setValue === 'function') {
         focusFollowupPicker.setValue(d);
@@ -5242,7 +5285,25 @@
       setFollowupDatetimeLocal(d);
     }
 
+    function markFollowupPreset(preset) {
+      if (!elFollowupPresets || !elFollowupPresets.length) return;
+      elFollowupPresets.forEach(function (btn) {
+        var on = !!preset && btn.getAttribute('data-preset') === preset;
+        btn.setAttribute('data-active', on ? 'true' : 'false');
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+    }
+
+    function syncFollowupPresetsDim() {
+      var on = !elFollowupEnable || !!elFollowupEnable.checked;
+      if (!elFollowupPresets || !elFollowupPresets.length) return;
+      elFollowupPresets.forEach(function (btn) {
+        btn.classList.toggle('opacity-50', !on);
+      });
+    }
+
     function applyFollowupPreset(preset) {
+      markFollowupPreset(preset);
       var d = new Date();
       if (preset === 'tomorrow') {
         d.setDate(d.getDate() + 1);
@@ -5280,20 +5341,32 @@
       });
     }
 
-    if (elFollowupEnable && elFollowupWrap) {
+    if (elFollowupEnable) {
       elFollowupEnable.addEventListener('change', function () {
         var on = !!elFollowupEnable.checked;
-        elFollowupWrap.classList.toggle('hidden', !on);
+        syncFollowupPresetsDim();
         if (on && elFollowupAt && !String(elFollowupAt.value || '').trim()) {
           defaultFollowupDatetime();
+          markFollowupPreset('tomorrow');
         }
       });
     }
+    if (elFollowupAt) {
+      elFollowupAt.addEventListener('change', function () {
+        if (!String(elFollowupAt.value || '').trim() || !elFollowupEnable || elFollowupEnable.checked) return;
+        elFollowupEnable.checked = true;
+        syncFollowupPresetsDim();
+      });
+    }
+    syncFollowupPresetsDim();
     if (elFollowupPresets && elFollowupPresets.length) {
       elFollowupPresets.forEach(function (btn) {
-        btn.addEventListener('click', function () {
+        btn.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
           if (elFollowupEnable) elFollowupEnable.checked = true;
           if (elFollowupWrap) elFollowupWrap.classList.remove('hidden');
+          syncFollowupPresetsDim();
           applyFollowupPreset(btn.getAttribute('data-preset') || 'tomorrow');
         });
       });
