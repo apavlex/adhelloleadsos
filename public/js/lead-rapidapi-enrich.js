@@ -1,5 +1,6 @@
 /**
- * RapidAPI website / contact enrich — binds before app.js (same pattern as lead-contact-hunt.js).
+ * "Get more contacts" (Focus + company panel) — same Outscraper / Apify search as the pipeline's
+ * Find a contact column (POST /leads/:key/find-contacts). Binds before app.js (same pattern as lead-contact-hunt.js).
  */
 (function (global) {
   'use strict';
@@ -117,7 +118,7 @@
 
     var key = leadKeyFromArg(leadKey);
     if (!key) {
-      var missingMsg = 'Select a saved lead before enriching contacts.';
+      var missingMsg = 'Select a saved lead before searching for contacts.';
       setStatus(opts.statusEl, missingMsg, true);
       toast(missingMsg, 'warning');
       return { success: false, error: 'missing_key' };
@@ -134,11 +135,11 @@
         setProgress(btn, Math.min(92, cur + (cur < 50 ? 6 : 2)));
       }, 450);
     }
-    setStatus(opts.statusEl, 'Scraping website for email, phone, and socials…', false);
-    toast('Enriching contacts…', 'info');
+    setStatus(opts.statusEl, 'Searching Outscraper / Apify for people, emails & socials — up to a minute…', false);
+    toast('Getting more contacts…', 'info');
 
     try {
-      var res = await fetch('/leads/' + encodeURIComponent(key) + '/enrich-rapidapi-website', {
+      var res = await fetch('/leads/' + encodeURIComponent(key) + '/find-contacts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         credentials: 'same-origin',
@@ -147,14 +148,15 @@
       var data = await res.json().catch(function () {
         return {};
       });
+      if (data && data.lead && typeof opts.onUpdated === 'function') opts.onUpdated(data.lead, data);
       if (!res.ok || !data.success) {
-        var err = (data && data.error) || 'Enrich failed';
+        var err = (data && data.error) || 'Contact search failed';
         setStatus(opts.statusEl, err, true);
         toast(err, 'error');
         if (btn) setEnrichUi(btn, 'idle');
         return { success: false, error: err };
       }
-      var msg = data.message || 'Contacts enriched.';
+      var msg = data.message || 'Contacts updated.';
       setStatus(opts.statusEl, msg, false);
       toast(msg, 'success');
       if (btn) {
@@ -165,7 +167,6 @@
           setProgress(btn, 8);
         }, 2200);
       }
-      if (typeof opts.onUpdated === 'function') opts.onUpdated(data.lead || null, data);
       return data;
     } catch (e) {
       var netMsg = 'Network error — try again.';
@@ -206,21 +207,24 @@
       global.__adhelloSetCurrentLeadRow(row);
     }
 
+    var bound = btn.__enrichOpts || {};
     var key =
       btn.getAttribute('data-lead-key') ||
+      (typeof bound.getLeadKey === 'function' ? bound.getLeadKey() : '') ||
       (row && String(row.dataset.leadKey || '').trim()) ||
       '';
     var blocked =
       btn.getAttribute('data-enrich-blocked') === '1'
         ? btn.getAttribute('data-enrich-blocked-reason') ||
-          'Add a website URL to this lead before enriching contacts.'
+          'Add the company website to this lead first — contacts are looked up by domain.'
         : '';
 
     void runLeadRapidapiWebsiteEnrich(key, {
       btn: btn,
-      statusEl: statusElForButton(btn),
+      statusEl: bound.statusEl || statusElForButton(btn),
       blockedReason: blocked,
       onUpdated: function (lead, data) {
+        if (typeof bound.onUpdated === 'function') bound.onUpdated(lead, data);
         if (!lead || !row) return;
         var ds = row.dataset;
         var forceKeys =
@@ -243,7 +247,9 @@
   }
 
   function bindRapidapiWebsiteEnrichButton(btn, opts) {
-    if (!btn || btn.dataset.rapidapiEnrichBound === '1') return;
+    if (!btn) return;
+    if (opts) btn.__enrichOpts = opts;
+    if (btn.dataset.rapidapiEnrichBound === '1') return;
     btn.dataset.rapidapiEnrichBound = '1';
     btn.addEventListener('click', function (e) {
       runEnrichClick(e);

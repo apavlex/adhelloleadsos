@@ -230,7 +230,7 @@
           <div class="flex-1 min-w-0 w-full space-y-3">
             <div id="focus-links" class="flex flex-wrap gap-2" aria-label="Contact and social links"></div>
             <div>
-              <button type="button" id="focus-rapidapi-enrich-btn" class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-brand-yellow/50 bg-brand-yellow/10 text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors disabled:opacity-40">Enrich contacts</button>
+              <button type="button" id="focus-rapidapi-enrich-btn" class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-brand-yellow/50 bg-brand-yellow/10 text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors disabled:opacity-40" title="Find people, emails &amp; socials via Outscraper / Apify">Get more contacts</button>
               <p id="focus-rapidapi-enrich-status" class="hidden text-[11px] leading-relaxed mt-1" role="status"></p>
             </div>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 text-xs">
@@ -248,8 +248,10 @@
           </div>
           <div>
             <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-1">Reviews</p>
-            <p id="focus-biz-reviews" class="font-semibold text-brand-dark dark:text-slate-100 truncate">—</p>
-            <div id="focus-biz-review-stars" class="mt-1 flex items-center gap-1 text-amber-500" aria-label="Review stars"></div>
+            <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <div id="focus-biz-review-stars" class="flex items-center gap-0.5 text-amber-500" aria-label="Review stars"></div>
+              <p id="focus-biz-reviews" class="text-base font-bold text-brand-dark dark:text-slate-100 truncate">—</p>
+            </div>
           </div>
             </div>
           </div>
@@ -711,6 +713,7 @@
   </script>
   <script src="/js/socialUrlNormalize.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
   <script src="/js/contact-finder-cell.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
+  <script src="/js/review-stars.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
   <script src="/js/lead-send-info.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
   <script src="/js/lead-rapidapi-enrich.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
   <script src="/js/gcal-datetime-picker.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
@@ -3963,7 +3966,7 @@
       var score = Number(lead.totalScore || 0);
       var reviews = parseInt(lead.reviewsCount, 10) || 0;
       if (score > 0) {
-        elBizReviews.textContent = score.toFixed(1) + ' stars · ' + reviews + ' review' + (reviews === 1 ? '' : 's');
+        elBizReviews.textContent = score.toFixed(1) + ' · ' + reviews + ' review' + (reviews === 1 ? '' : 's');
       } else if (reviews > 0) {
         elBizReviews.textContent = reviews + ' review' + (reviews === 1 ? '' : 's');
       } else {
@@ -4042,13 +4045,13 @@
       if (!(val > 0)) {
         elBizReviewStars.innerHTML = '';
         var noData = document.createElement('span');
-        noData.className = 'text-[10px] text-brand-muted';
+        noData.className = 'text-xs text-brand-muted';
         noData.textContent = 'No rating data';
         elBizReviewStars.appendChild(noData);
         return;
       }
       if (typeof window.__renderStarsInElement === 'function') {
-        window.__renderStarsInElement(elBizReviewStars, val, 'w-3.5 h-3.5');
+        window.__renderStarsInElement(elBizReviewStars, val, 'w-5 h-5');
       }
     }
 
@@ -5901,7 +5904,7 @@
           renderFocusContactFields(lead || updatedLead);
           renderBusinessInfo(lead || updatedLead);
           if (elCopyFeedback) {
-            elCopyFeedback.textContent = 'Contacts enriched.';
+            elCopyFeedback.textContent = 'Contacts updated.';
           }
         },
       });

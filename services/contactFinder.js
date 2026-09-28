@@ -184,12 +184,34 @@ async function runApifyContactScraper(website, integrationEnv) {
  * @param {Record<string, string>|null} integrationEnv
  * @param {{ deps?: { fetchContactsAndLeads?: Function, runApify?: Function } }} [opts]
  */
+/** Listing / directory / social hosts — searching these by domain returns the platform's staff, not the business. */
+const DIRECTORY_HOSTS = [
+  'procore.com', 'yelp.com', 'yellowpages.com', 'bbb.org', 'houzz.com', 'angi.com', 'angieslist.com',
+  'homeadvisor.com', 'thumbtack.com', 'porch.com', 'buildzoom.com', 'manta.com', 'superpages.com',
+  'nextdoor.com', 'mapquest.com', 'facebook.com', 'instagram.com', 'linkedin.com', 'twitter.com', 'x.com',
+  'tiktok.com', 'youtube.com', 'google.com', 'g.page', 'goo.gl', 'business.site', 'linktr.ee',
+  'zillow.com', 'realtor.com', 'trulia.com', 'redfin.com', 'loopnet.com', 'craigslist.org',
+];
+
+function directoryHost(domain) {
+  const d = String(domain || '').toLowerCase();
+  return DIRECTORY_HOSTS.find((h) => d === h || d.endsWith(`.${h}`)) || '';
+}
+
 async function findContactsForLead(lead, integrationEnv, opts = {}) {
   const deps = opts.deps || {};
   const domain = resolveLeadDomain(lead);
   const result = emptyResult(domain);
   if (!domain) {
     const err = new Error('Add a website to this lead first — contacts are looked up by domain.');
+    err.code = 'no_website';
+    throw err;
+  }
+  const listing = directoryHost(domain);
+  if (listing) {
+    const err = new Error(
+      `This lead's website is a ${listing} listing, not the company's own site — add the company website to find contacts.`,
+    );
     err.code = 'no_website';
     throw err;
   }

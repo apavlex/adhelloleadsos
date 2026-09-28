@@ -275,3 +275,52 @@ test('clicking Find a contact searches, fills the row and lists everyone in the 
   d.body.click();
   assert.equal(d.querySelector('.lead-find-contact-popover'), null, 'outside click closes the popover');
 });
+
+test('directory listing websites (Procore, Yelp…) are not searched as the company domain', async () => {
+  let called = false;
+  const deps = { fetchContactsAndLeads: async () => { called = true; return {}; } };
+  await assert.rejects(
+    contactFinder.findContactsForLead(
+      { website: 'https://www.procore.com/network/p/az-homes-inc-vancouver' },
+      OUTSCRAPER_ENV,
+      { deps },
+    ),
+    (e) => e.code === 'no_website' && /procore\.com listing/.test(e.message),
+  );
+  assert.equal(called, false);
+});
+
+test('Get more contacts button (Money mode + panel) runs the Outscraper / Apify finder', async () => {
+  const dom = new JSDOM(
+    '<body><button id="focus-rapidapi-enrich-btn" data-lead-key="lead:az">Get more contacts</button><p id="focus-rapidapi-enrich-status" class="hidden"></p></body>',
+    { url: 'https://leads.example/focus', runScripts: 'outside-only' },
+  );
+  const w = dom.window;
+  const calls = [];
+  w.fetch = async (url, init) => {
+    calls.push({ url, method: init && init.method });
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ success: true, message: 'Found 2 emails via Outscraper.', lead: { key: 'lead:az', contacts: [{ email: 'a@az.com' }] } }),
+    };
+  };
+  w.showAppToast = () => {};
+  w.eval(fs.readFileSync(path.join(ROOT, 'public/js/lead-rapidapi-enrich.js'), 'utf8'));
+  const btn = w.document.getElementById('focus-rapidapi-enrich-btn');
+  let updated = null;
+  w.bindRapidapiWebsiteEnrichButton(btn, { onUpdated: (lead) => { updated = lead; } });
+  btn.click();
+  await new Promise((r) => setTimeout(r, 0));
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(calls[0].url, '/leads/az/find-contacts');
+  assert.equal(calls[0].method, 'POST');
+  assert.ok(updated && updated.contacts.length === 1, 'Money mode repaints with the updated lead');
+  assert.match(w.document.getElementById('focus-rapidapi-enrich-status').textContent, /Found 2 emails/);
+
+  const focus = fs.readFileSync(path.join(ROOT, 'views/focus.ejs'), 'utf8');
+  assert.match(focus, />Get more contacts</);
+  assert.match(focus, /<script src="\/js\/review-stars\.js[^"]*"><\/script>/, 'stars load before the inline Money mode script');
+  const panel = fs.readFileSync(path.join(ROOT, 'views/partials/lead_detail_panel.ejs'), 'utf8');
+  assert.match(panel, />Get More Contacts</);
+});

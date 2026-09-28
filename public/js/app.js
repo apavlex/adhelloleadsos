@@ -13519,15 +13519,15 @@ document.addEventListener('DOMContentLoaded', () => {
       const blocked = !panelLeadKey || !hasWebsite;
       rapidapiEnrichBtn.dataset.enrichBlocked = blocked ? '1' : '0';
       rapidapiEnrichBtn.dataset.enrichBlockedReason = !panelLeadKey
-        ? 'Save this lead before enriching.'
+        ? 'Save this lead before searching for contacts.'
         : !hasWebsite
-          ? 'Add a website URL to this lead before enriching.'
+          ? 'Add the company website to this lead first — contacts are looked up by domain.'
           : '';
       rapidapiEnrichBtn.disabled = false;
       rapidapiEnrichBtn.classList.toggle('opacity-55', blocked);
       rapidapiEnrichBtn.title = hasWebsite
-        ? 'Scrape website for email, phone, and social links via RapidAPI'
-        : 'Add a website URL to enrich from RapidAPI';
+        ? 'Find people, emails & socials via Outscraper / Apify'
+        : 'Add the company website to find contacts';
       if (typeof window.setRapidapiWebsiteEnrichUi === 'function') {
         window.setRapidapiWebsiteEnrichUi(rapidapiEnrichBtn, 'idle');
       }
