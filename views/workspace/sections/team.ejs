@@ -7,6 +7,23 @@
 <% const _inviteLink = typeof inviteLink !== 'undefined' ? String(inviteLink) : ''; %>
 <% const _wsId = workspace && workspace.id ? String(workspace.id) : ''; %>
 <% const _wsName = workspace && workspace.name ? String(workspace.name) : ''; %>
+<%
+  const _wsTz = (function () {
+    const raw = workspace && workspace.timezone ? String(workspace.timezone).trim() : '';
+    try { if (raw) { new Intl.DateTimeFormat('en-US', { timeZone: raw }); return raw; } } catch (e) {}
+    return 'America/Los_Angeles';
+  })();
+  function _wsDateTime(iso) {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleString('en-US', { timeZone: _wsTz, month: 'numeric', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+  }
+  function _wsDate(iso) {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString('en-US', { timeZone: _wsTz, year: 'numeric', month: 'short', day: 'numeric' });
+  }
+%>
 <% const _wsMetaDesc = typeof workspaceSectionDescription !== 'undefined' ? String(workspaceSectionDescription) : 'Who belongs to this workspace and what they can do.'; %>
 
 <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
@@ -157,8 +174,8 @@
           <td class="px-3 align-middle whitespace-nowrap">
             <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted"><%= inv.role || 'viewer' %></span>
           </td>
-          <td class="px-3 align-middle text-sm text-brand-muted whitespace-nowrap"><%= inv.invitedAt ? new Date(inv.invitedAt).toLocaleString() : '—' %></td>
-          <td class="px-3 align-middle text-sm text-brand-muted whitespace-nowrap"><%= inv.expiresAt ? new Date(inv.expiresAt).toLocaleString() : '—' %></td>
+          <td class="px-3 align-middle text-sm text-brand-muted whitespace-nowrap"><%= inv.invitedAt ? _wsDateTime(inv.invitedAt) : '—' %></td>
+          <td class="px-3 align-middle text-sm text-brand-muted whitespace-nowrap"><%= inv.expiresAt ? _wsDateTime(inv.expiresAt) : '—' %></td>
           <td class="pr-5 pl-3 align-middle text-right">
             <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace && inv.id) { %>
             <div class="inline-flex flex-wrap items-center justify-end gap-2">
@@ -214,7 +231,7 @@
           <td class="px-3 align-middle whitespace-nowrap">
             <span class="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg bg-brand-yellow/15 text-amber-900 dark:text-amber-200"><%= meta.role %></span>
           </td>
-          <td class="pr-5 pl-3 align-middle text-right text-sm text-brand-muted whitespace-nowrap"><%= meta.joinedAt ? new Date(meta.joinedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '—' %></td>
+          <td class="pr-5 pl-3 align-middle text-right text-sm text-brand-muted whitespace-nowrap"><%= meta.joinedAt ? _wsDate(meta.joinedAt) : '—' %></td>
         </tr>
         <% }) %>
       </tbody>
