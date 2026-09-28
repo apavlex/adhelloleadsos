@@ -1,119 +1,119 @@
 const dbService = require('./database');
-
-/** @typedef {'d1'|'d2'|'d3'|'d4'|'d5'|'d6'|'d7'} ActivationDay */
-
-const PLAN = [
-  {
-    id: 'd1',
-    label: 'Day 1 — First search',
-    hint: 'Run a Maps + Apify lead pull',
-    href: '/',
-    event: 'search_saved',
-  },
-  {
-    id: 'd2',
-    label: 'Day 2 — Import CSV',
-    hint: 'Drop enriched or exported leads',
-    href: '/prospecting?tab=pipeline',
-    event: 'csv_import',
-  },
-  {
-    id: 'd3',
-    label: 'Day 3 — Schedule lead runs',
-    hint: 'Daily / weekly scrape while you sleep',
-    href: '/prospecting?tab=queue',
-    event: 'autopilot_scheduled',
-  },
-  {
-    id: 'd4',
-    label: 'Day 4 — Start a cadence',
-    hint: 'Default is the 14-day audit hook (8 touches) — Cadences page or voicemail disposition auto-starts it',
-    href: '/sequences',
-    event: 'sequence_started',
-  },
-  {
-    id: 'd5',
-    label: 'Day 5 — Log outreach',
-    hint: 'Streak + discipline in the tracker',
-    href: '/prospecting?tab=queue',
-    event: 'outreach_logged',
-  },
-  {
-    id: 'd6',
-    label: 'Day 6 — Advance the pipeline',
-    hint: 'Move a card past New (stage 1)',
-    href: '/sales/workflow',
-    event: 'pipeline_advanced',
-  },
-  {
-    id: 'd7',
-    label: 'Day 7 — Review reports',
-    hint: 'See traffic + conversion momentum',
-    href: '/reports',
-    event: 'analytics_visit',
-  },
-];
-
-const EVENT_TO_DAY = PLAN.reduce((acc, row) => {
-  acc[row.event] = row.id;
-  return acc;
-}, {});
-
-function emptyState() {
-  return {
-    version: 1,
-    startedAt: null,
-    days: {},
-    updatedAt: null,
-  };
-}
-
-async function getState(email) {
-  if (!email) return { ...emptyState(), plan: PLAN, progress: 0, total: PLAN.length };
-  let s = await dbService.getActivationState(email);
-  if (!s || typeof s !== 'object') s = emptyState();
-  if (!s.days || typeof s.days !== 'object') s.days = {};
-  const done = PLAN.filter((p) => s.days[p.id]).length;
-  return {
-    ...s,
-    plan: PLAN,
-    progress: done,
-    total: PLAN.length,
-  };
-}
-
-async function completeDay(email, dayId) {
-  if (!email || !/^d[1-7]$/.test(dayId)) return getState(email);
-  let s = await dbService.getActivationState(email);
-  if (!s || typeof s !== 'object') s = emptyState();
-  if (!s.days) s.days = {};
-  if (!s.startedAt) s.startedAt = new Date().toISOString();
-  s.days[dayId] = { at: new Date().toISOString(), manual: true };
-  s.updatedAt = new Date().toISOString();
-  await dbService.saveActivationState(email, s);
-  return getState(email);
-}
+const { onboardingForWorkspace, stepLabel, EVENT_KEYS } = require('./onboardingConfig');
 
 /**
- * Record an activation milestone by product event name.
+ * Stored per user:
+ *   events  — product milestones ({ search_saved: iso, ... }), shared across workspaces
+ *   manual  — { [workspaceId]: { [stepId]: iso } } for "Mark done"
+ *   days    — legacy v1 map ({ d1: { at, event|manual } }) kept for the default step ids
  */
+const LEGACY_DAY_IDS = new Set(['d1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7']);
+
+function emptyState() {
+  return { version: 2, startedAt: null, events: {}, manual: {}, days: {}, updatedAt: null };
+}
+
+function loadState(raw) {
+  const s = raw && typeof raw === 'object' ? { ...raw } : emptyState();
+  if (!s.days || typeof s.days !== 'object') s.days = {};
+  if (!s.events || typeof s.events !== 'object') s.events = {};
+  if (!s.manual || typeof s.manual !== 'object') s.manual = {};
+  Object.values(s.days).forEach((d) => {
+    if (d && d.event && !s.events[d.event]) s.events[d.event] = d.at || new Date().toISOString();
+  });
+  s.version = 2;
+  return s;
+}
+
+async function resolveWorkspace(email, workspaceOrId) {
+  if (workspaceOrId && typeof workspaceOrId === 'object') return workspaceOrId;
+  let wid = workspaceOrId ? String(workspaceOrId) : '';
+  if (!wid && email) {
+    const prefs = await dbService.getUserPrefs(email);
+    wid = (prefs && prefs.activeWorkspaceId) || '';
+  }
+  return wid ? dbService.getWorkspace(wid) : null;
+}
+
+function workspaceKey(ws) {
+  return (ws && ws.id) || 'default';
+}
+
+function planFor(ws) {
+  return onboardingForWorkspace(ws).steps.map((s, i) => ({
+    id: s.id,
+    day: i + 1,
+    label: stepLabel(s, i),
+    title: s.title,
+    hint: s.hint,
+    href: s.href,
+    event: s.event,
+  }));
+}
+
+/** { [stepId]: { at, event|manual } } for steps this user has completed in the workspace. */
+function completedSteps(state, plan, ws) {
+  const manual = state.manual[workspaceKey(ws)] || {};
+  const out = {};
+  plan.forEach((step) => {
+    if (manual[step.id]) out[step.id] = { at: manual[step.id], manual: true };
+    else if (step.event && state.events[step.event]) out[step.id] = { at: state.events[step.event], event: step.event };
+    else if (LEGACY_DAY_IDS.has(step.id) && state.days[step.id] && state.days[step.id].manual) {
+      out[step.id] = state.days[step.id];
+    }
+  });
+  return out;
+}
+
+async function getState(email, workspaceOrId) {
+  const ws = await resolveWorkspace(email, workspaceOrId);
+  const plan = planFor(ws);
+  const state = loadState(email ? await dbService.getActivationState(email) : null);
+  const days = completedSteps(state, plan, ws);
+  return {
+    version: state.version,
+    startedAt: state.startedAt,
+    updatedAt: state.updatedAt,
+    workspaceId: (ws && ws.id) || '',
+    days,
+    plan,
+    progress: plan.filter((p) => days[p.id]).length,
+    total: plan.length,
+  };
+}
+
+async function completeDay(email, stepId, workspaceOrId) {
+  const ws = await resolveWorkspace(email, workspaceOrId);
+  const id = String(stepId || '').trim();
+  if (!email || !planFor(ws).some((p) => p.id === id)) return getState(email, ws);
+  const state = loadState(await dbService.getActivationState(email));
+  const now = new Date().toISOString();
+  const key = workspaceKey(ws);
+  state.manual[key] = { ...(state.manual[key] || {}), [id]: now };
+  if (!state.startedAt) state.startedAt = now;
+  state.updatedAt = now;
+  await dbService.saveActivationState(email, state);
+  return getState(email, ws);
+}
+
+/** Record an activation milestone by product event name. */
 async function recordEvent(email, eventKey) {
-  if (!email || !EVENT_TO_DAY[eventKey]) return getState(email);
-  const dayId = EVENT_TO_DAY[eventKey];
-  let s = await dbService.getActivationState(email);
-  if (!s || typeof s !== 'object') s = emptyState();
-  if (!s.days) s.days = {};
-  if (s.days[dayId]) return getState(email);
-  if (!s.startedAt) s.startedAt = new Date().toISOString();
-  s.days[dayId] = { at: new Date().toISOString(), event: eventKey };
-  s.updatedAt = new Date().toISOString();
-  await dbService.saveActivationState(email, s);
-  return getState(email);
+  if (!email || !eventKey || !EVENT_KEYS.has(eventKey)) return null;
+  const state = loadState(await dbService.getActivationState(email));
+  if (state.events[eventKey]) return state;
+  const now = new Date().toISOString();
+  state.events[eventKey] = now;
+  if (!state.startedAt) state.startedAt = now;
+  state.updatedAt = now;
+  await dbService.saveActivationState(email, state);
+  return state;
 }
 
 module.exports = {
-  PLAN,
   getState,
   completeDay,
   recordEvent,
+  planFor,
+  completedSteps,
+  loadState,
 };

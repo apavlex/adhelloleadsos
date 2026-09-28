@@ -135,7 +135,7 @@ router.get('/', async (req, res, next) => {
     const repliesWaiting = countReplySignals(businessLeads);
     const queueNeedingAction = countQueueNeedingAction(businessLeads);
 
-    const activation = await activationService.getState(email);
+    const activation = await activationService.getState(email, req.workspace || req.workspaceId);
     const seededNotice = req.query.demo === '1' || req.query.seeded === '1';
     const searchInProgressNotice = req.query.searchInProgress === '1';
     const scheduleSavedNotice = req.query.scheduleSaved === '1';

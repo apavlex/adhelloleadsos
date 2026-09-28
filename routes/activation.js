@@ -6,9 +6,9 @@ const workspaceService = require('../services/workspaceService');
 router.get('/', async (req, res, next) => {
   try {
     const email = workspaceService.userEmail(req);
-    const activation = await activationService.getState(email);
+    const activation = await activationService.getState(email, req.workspace || req.workspaceId);
     res.render('activation', {
-      title: '7-day activation plan',
+      title: `${activation.total}-day activation plan`,
       activePage: 'activation',
       activation,
     });
@@ -21,9 +21,8 @@ router.post('/day/:dayId', express.urlencoded({ extended: true }), async (req, r
   try {
     const email = workspaceService.userEmail(req);
     const dayId = (req.params.dayId || '').trim();
-    await activationService.completeDay(email, dayId);
+    const activation = await activationService.completeDay(email, dayId, req.workspace || req.workspaceId);
     if (req.headers.accept && req.headers.accept.includes('application/json')) {
-      const activation = await activationService.getState(email);
       return res.json({ success: true, activation });
     }
     res.redirect('/activation');

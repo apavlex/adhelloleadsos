@@ -9,6 +9,7 @@ const { runDueSequenceSteps } = require('./sequenceEngine');
 const { maybeWarmAllMorningBriefs } = require('./morningBriefWarm');
 const signalwire = require('./signalwire');
 const { maybeRunDailyOutreachForEnabledWorkspaces } = require('./dailyOutreachScheduler');
+const { runOnboardingDrips } = require('./onboardingDrip');
 
 function normalizeVoicemailLibrary(raw) {
   if (!Array.isArray(raw)) return [];
@@ -355,6 +356,9 @@ module.exports = {
       );
       runWeeklyVoicemailDrops().catch((e) =>
         console.error('[SCHEDULER] Weekly voicemail drops failed:', e.message)
+      );
+      runOnboardingDrips().catch((e) =>
+        console.error('[SCHEDULER] Teammate onboarding emails failed:', e.message)
       );
     });
 

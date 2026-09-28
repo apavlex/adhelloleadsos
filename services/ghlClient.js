@@ -361,7 +361,7 @@ function leadToGhlContactPayload(lead, locationId, { includeTags = true } = {}) 
     firstName: firstName || companyName || 'Lead',
     lastName: lastName || '',
     name: title || companyName || 'Lead',
-    companyName: companyName || title,
+    companyName: lead.companyName != null ? String(lead.companyName).trim() : companyName || title,
     email: email || undefined,
     phone: phone || undefined,
     address1: address || undefined,

@@ -616,7 +616,7 @@
     <% if (typeof activation !== 'undefined' && activation && typeof activationComplete !== 'undefined' && !activationComplete && _showAct && !_showDayOneHero) { %>
     <div id="activationRibbonWrap" class="mb-10">
       <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
-        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">7-day activation</p>
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted"><%= activation.total || 7 %>-day activation</p>
         <div class="flex items-center gap-3">
           <button type="button" id="activationRibbonDismiss" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white">Dismiss</button>
         </div>

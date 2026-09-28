@@ -28,6 +28,10 @@ const workspaceBootstrap = require('../services/workspaceBootstrap');
 const { normalizeWorkspaceAccentHex, WORKSPACE_UI_ACCENTS, WORKSPACE_UI_ACCENT_TEXT } = require('../lib/workspaceAccent');
 const { isAllowedWorkspaceEmail } = require('../services/auth');
 const { parseCustomMenuLinksInput } = require('../services/customMenuLinks');
+const onboardingConfig = require('../services/onboardingConfig');
+const onboardingDrip = require('../services/onboardingDrip');
+const onboardingAi = require('../services/onboardingAi');
+const teamActivity = require('../services/teamActivity');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
 const workspaceSalesScripts = require('../services/workspaceSalesScripts');
@@ -192,15 +196,41 @@ function hashInviteToken(raw) {
   return crypto.createHash('sha256').update(String(raw || '')).digest('hex');
 }
 
+function requestBaseUrl(req) {
+  return (String(process.env.BASE_URL || '').trim() || `${req.protocol}://${req.get('host')}`).replace(/\/+$/, '');
+}
+
 function buildInvitePublicUrl(req, token) {
-  const base = String(process.env.BASE_URL || '').trim() || `${req.protocol}://${req.get('host')}`;
-  return `${base.replace(/\/+$/, '')}/workspace/invite/${encodeURIComponent(token)}`;
+  return `${requestBaseUrl(req)}/workspace/invite/${encodeURIComponent(token)}`;
+}
+
+function requestUserName(req) {
+  const u = (req && req.user) || {};
+  return u.displayName ? String(u.displayName).trim() : '';
+}
+
+/** Email the invite through the workspace's GHL; returns a query-string suffix for the Team page banner. */
+async function emailInviteQuery(req, ws, email, inviteLink) {
+  try {
+    const r = await onboardingDrip.sendInviteEmail({
+      ws,
+      email,
+      inviteLink,
+      inviterName: requestUserName(req) || workspaceService.userEmail(req),
+      baseUrl: requestBaseUrl(req),
+    });
+    return r.sent ? '&emailed=1' : '';
+  } catch (e) {
+    const msg = String((e && e.message) || 'Email failed').slice(0, 300);
+    return `&email_error=${encodeURIComponent(msg)}`;
+  }
 }
 
 const WORKSPACE_SECTION_SLUGS = new Set([
   'pipeline',
   'branding',
   'team',
+  'onboarding',
   'integrations',
   'phones',
   'voicemail',
@@ -224,6 +254,11 @@ const WORKSPACE_SECTION_META = {
   team: {
     title: 'Members & roles',
     description: 'Who belongs to this workspace and what they can do.',
+  },
+  onboarding: {
+    title: 'Teammate onboarding',
+    description:
+      'Invite email and daily activation emails sent through this workspace’s GHL. The same steps power the in-app activation checklist.',
   },
   integrations: {
     title: 'Integrations',
@@ -843,6 +878,7 @@ router.post('/team/invite', express.urlencoded({ extended: true }), async (req, 
       role,
       tokenHash,
       invitedBy: workspaceService.userEmail(req),
+      invitedByName: requestUserName(req),
       invitedAt: nowIso,
       expiresAt,
       acceptedAt: '',
@@ -850,8 +886,9 @@ router.post('/team/invite', express.urlencoded({ extended: true }), async (req, 
     ws.pendingInvites = filtered.slice(-100);
     await dbService.saveWorkspace(wid, ws);
     const inviteLink = buildInvitePublicUrl(req, token);
+    const emailQuery = await emailInviteQuery(req, ws, email, inviteLink);
     return res.redirect(
-      `/workspace/team?invite=created&email=${encodeURIComponent(email)}&link=${encodeURIComponent(inviteLink)}`,
+      `/workspace/team?invite=created&email=${encodeURIComponent(email)}&link=${encodeURIComponent(inviteLink)}${emailQuery}`,
     );
   } catch (e) {
     return res.redirect('/workspace/team?invite=error');
@@ -904,6 +941,17 @@ router.get('/invite/:token', async (req, res, next) => {
       await dbService.saveWorkspace(wid, ws);
       await dbService.addUserWorkspaceId(invEmail, wid);
       await dbService.saveUserPrefs(invEmail, { activeWorkspaceId: wid });
+      if (onboardingConfig.onboardingForWorkspace(ws).enabled) {
+        onboardingDrip
+          .enrollMember({
+            workspaceId: wid,
+            email: invEmail,
+            name: requestUserName(req),
+            baseUrl: requestBaseUrl(req),
+            inviterName: inv.invitedByName || inv.invitedBy || '',
+          })
+          .catch((e) => console.error('[ONBOARDING] enroll failed:', e.message));
+      }
       if (req.session) {
         req.session.activeWorkspaceId = wid;
         req.session.workspaceId = wid;
@@ -976,17 +1024,135 @@ router.post('/team/invite/regenerate', express.urlencoded({ extended: true }), a
       ...inv,
       tokenHash,
       invitedBy: workspaceService.userEmail(req),
+      invitedByName: requestUserName(req),
       invitedAt: nowIso,
       expiresAt,
     };
     ws.pendingInvites = pending;
     await dbService.saveWorkspace(wid, ws);
     const inviteLink = buildInvitePublicUrl(req, token);
+    const emailQuery = await emailInviteQuery(req, ws, email, inviteLink);
     return res.redirect(
-      `/workspace/team?invite=created&email=${encodeURIComponent(email)}&link=${encodeURIComponent(inviteLink)}`,
+      `/workspace/team?invite=created&email=${encodeURIComponent(email)}&link=${encodeURIComponent(inviteLink)}${emailQuery}`,
     );
   } catch (e) {
     return res.redirect('/workspace/team?invite=regen_error');
+  }
+});
+
+function requireOnboardingManager(req, res) {
+  if (req.canManageWorkspace && req.workspaceId) return true;
+  res.status(403).json({ success: false, error: 'Only workspace admins can edit teammate onboarding.' });
+  return false;
+}
+
+router.post('/onboarding', express.json({ limit: '512kb' }), async (req, res, next) => {
+  try {
+    if (!requireOnboardingManager(req, res)) return;
+    const wid = req.workspaceId;
+    const ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    const onboarding = onboardingConfig.normalizeOnboarding((req.body && req.body.onboarding) || {});
+    onboarding.updatedAt = new Date().toISOString();
+    ws.onboarding = onboarding;
+    await dbService.saveWorkspace(wid, ws);
+    res.json({ success: true, onboarding });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/onboarding/rewrite', express.json({ limit: '128kb' }), async (req, res) => {
+  if (!requireOnboardingManager(req, res)) return;
+  try {
+    const b = req.body || {};
+    const ws = await dbService.getWorkspace(req.workspaceId);
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
+    const out = await onboardingAi.rewriteEmail({
+      ws,
+      kind: b.kind === 'invite' ? 'invite' : 'step',
+      subject: String(b.subject || '').slice(0, 300),
+      body: String(b.body || '').slice(0, 6000),
+      title: String(b.title || '').slice(0, 200),
+      hint: String(b.hint || '').slice(0, 400),
+      instruction: String(b.instruction || '').slice(0, 600),
+      integrationEnv,
+    });
+    res.json({ success: true, ...out });
+  } catch (e) {
+    res.status(400).json({ success: false, error: (e && e.message) || 'Rewrite failed' });
+  }
+});
+
+router.post('/onboarding/generate-plan', express.json({ limit: '64kb' }), async (req, res) => {
+  if (!requireOnboardingManager(req, res)) return;
+  try {
+    const b = req.body || {};
+    const ws = await dbService.getWorkspace(req.workspaceId);
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
+    const out = await onboardingAi.generatePlan({
+      ws,
+      instruction: String(b.instruction || '').slice(0, 800),
+      days: b.days,
+      integrationEnv,
+    });
+    res.json({ success: true, ...out });
+  } catch (e) {
+    res.status(400).json({ success: false, error: (e && e.message) || 'Could not generate a plan' });
+  }
+});
+
+router.post('/onboarding/test', express.json({ limit: '512kb' }), async (req, res) => {
+  if (!requireOnboardingManager(req, res)) return;
+  try {
+    const b = req.body || {};
+    const ws = await dbService.getWorkspace(req.workspaceId);
+    const toEmail = workspaceService.userEmail(req);
+    if (!toEmail) return res.status(401).json({ success: false, error: 'Sign in again to send a test.' });
+    await onboardingDrip.sendTestEmail({
+      ws,
+      toEmail,
+      toName: requestUserName(req),
+      subject: String(b.subject || '').slice(0, 300),
+      body: String(b.body || '').slice(0, 6000),
+      stepIndex: b.kind === 'invite' ? null : b.stepIndex,
+      steps: Array.isArray(b.steps) ? b.steps : undefined,
+      baseUrl: requestBaseUrl(req),
+    });
+    res.json({ success: true, sentTo: toEmail });
+  } catch (e) {
+    res.status(400).json({ success: false, error: (e && e.message) || 'Test send failed' });
+  }
+});
+
+router.post('/onboarding/member', express.json({ limit: '16kb' }), async (req, res) => {
+  if (!requireOnboardingManager(req, res)) return;
+  try {
+    const wid = req.workspaceId;
+    const email = String((req.body && req.body.email) || '').trim().toLowerCase();
+    const action = String((req.body && req.body.action) || '');
+    const ws = await dbService.getWorkspace(wid);
+    if (!ws || !ws.members || !ws.members[email]) {
+      return res.status(404).json({ success: false, error: 'That person is not a member of this workspace.' });
+    }
+    if (action === 'stop') {
+      await onboardingDrip.stopMember(wid, email);
+    } else if (action === 'start' || action === 'restart') {
+      const prev = await onboardingDrip.readEnrollment(wid, email);
+      await onboardingDrip.enrollMember({
+        workspaceId: wid,
+        email,
+        name: (prev && prev.name) || ws.members[email].name || '',
+        baseUrl: requestBaseUrl(req),
+        inviterName: requestUserName(req) || workspaceService.userEmail(req),
+        restart: true,
+      });
+    } else {
+      return res.status(400).json({ success: false, error: 'Unknown action.' });
+    }
+    const members = await onboardingDrip.memberStatuses(await dbService.getWorkspace(wid));
+    res.json({ success: true, member: members.find((m) => m.email === email) || null });
+  } catch (e) {
+    res.status(400).json({ success: false, error: (e && e.message) || 'Update failed' });
   }
 });
 
@@ -1968,7 +2134,7 @@ router.get('/:section', async (req, res, next) => {
     }
     const locals = await loadWorkspacePageLocals(req);
     const ws = locals.workspace;
-    const managerSections = new Set(['phones', 'voicemail', 'revenue', 'info-packs', 'audit-page', 'menu-links']);
+    const managerSections = new Set(['phones', 'voicemail', 'revenue', 'info-packs', 'audit-page', 'menu-links', 'onboarding']);
     if (managerSections.has(section) && !req.canManageWorkspace) {
       return res.redirect(302, '/workspace/team');
     }
@@ -1991,6 +2157,8 @@ router.get('/:section', async (req, res, next) => {
       inviteStatus,
       inviteEmail,
       inviteLink,
+      inviteEmailed: section === 'team' && String((req.query && req.query.emailed) || '') === '1',
+      inviteEmailError: section === 'team' ? String((req.query && req.query.email_error) || '').slice(0, 300) : '',
     };
     if (section === 'info-packs') {
       renderLocals.folders = await dbService.listFolders(req.workspaceId);
@@ -2005,6 +2173,19 @@ router.get('/:section', async (req, res, next) => {
       renderLocals.auditLandingPage = normalizeAuditLanding(
         ws && ws.auditLandingPage ? ws.auditLandingPage : DEFAULT_AUDIT_LANDING,
       );
+    }
+    if (section === 'onboarding') {
+      const { ready } = await onboardingDrip.workspaceEmailEnv(req.workspaceId);
+      renderLocals.onboardingEditor = {
+        config: onboardingConfig.onboardingForWorkspace(ws),
+        defaults: onboardingConfig.normalizeOnboarding(onboardingConfig.DEFAULT_ONBOARDING),
+        events: onboardingConfig.ACTIVATION_EVENTS,
+        links: onboardingConfig.SUGGESTED_LINKS,
+        placeholders: onboardingConfig.PLACEHOLDERS,
+        maxSteps: onboardingConfig.MAX_STEPS,
+        emailReady: ready,
+        members: ws && ws.id ? await onboardingDrip.memberStatuses(ws) : [],
+      };
     }
     res.render('workspace', renderLocals);
   } catch (e) {

@@ -7,6 +7,10 @@
 <% const _inviteLink = typeof inviteLink !== 'undefined' ? String(inviteLink) : ''; %>
 <% const _wsId = workspace && workspace.id ? String(workspace.id) : ''; %>
 <% const _wsName = workspace && workspace.name ? String(workspace.name) : ''; %>
+<% const _inviteEmailed = typeof inviteEmailed !== 'undefined' && inviteEmailed; %>
+<% const _inviteEmailError = typeof inviteEmailError !== 'undefined' ? String(inviteEmailError) : ''; %>
+<% const _obCfg = workspace && workspace.onboarding ? workspace.onboarding : {}; %>
+<% const _obInviteOn = _obCfg.enabled !== false && _obCfg.sendInviteEmail !== false; %>
 <%
   function _wsDateTime(iso) {
     return wsDateTime(iso, { month: 'numeric', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }) || '—';
@@ -58,7 +62,13 @@
 
 <% if (_inviteStatus === 'created') { %>
   <div class="mb-8 rounded-2xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800 px-6 py-4 text-sm text-emerald-900 dark:text-emerald-100">
-    Invite created for <strong><%= _inviteEmail %></strong>. Share the link below.
+    Invite created for <strong><%= _inviteEmail %></strong>.
+    <% if (_inviteEmailed) { %>We emailed the invite through GHL. You can also share the link below.<% } else { %>Share the link below.<% } %>
+    <% if (_inviteEmailError) { %>
+      <div class="mt-2 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-700 px-3 py-2 text-xs text-amber-900 dark:text-amber-100">
+        The invite email was not sent: <%= _inviteEmailError %> <a href="/workspace/onboarding" class="font-bold underline">Onboarding settings</a>
+      </div>
+    <% } %>
     <% if (_inviteLink) { %>
       <div class="mt-2 flex flex-col sm:flex-row gap-2 sm:items-center">
         <input id="teamInviteLinkField" type="text" readonly value="<%= _inviteLink %>" class="w-full rounded-lg border border-emerald-300/60 bg-white/80 dark:bg-slate-900/70 px-3 py-2 text-xs text-emerald-900 dark:text-emerald-100" />
@@ -127,7 +137,12 @@
         <button type="submit" class="btn-pill btn-primary w-full sm:w-auto px-5 py-2.5 text-[10px] font-black uppercase tracking-widest">Create invite</button>
       </div>
     </div>
-    <p class="mt-3 text-[11px] text-brand-muted">Creates a secure invite link for this email.</p>
+    <p class="mt-3 text-[11px] text-brand-muted">
+      Creates a secure invite link for this email.
+      <% const _obDays = Array.isArray(_obCfg.steps) && _obCfg.steps.length ? _obCfg.steps.length : 7; %>
+      <% if (_obInviteOn) { %>The invite and <%= _obDays %> daily onboarding emails go out through this workspace&apos;s GHL.<% } else if (_obCfg.enabled !== false) { %><%= _obDays %> daily onboarding emails start after they join (invite email is off).<% } else { %>Onboarding emails are off.<% } %>
+      <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %><a href="/workspace/onboarding" class="font-bold text-brand-dark dark:text-white underline">Edit onboarding emails</a><% } %>
+    </p>
   </form>
 </details>
 <% } %>

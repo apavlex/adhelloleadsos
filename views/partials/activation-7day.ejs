@@ -28,10 +28,10 @@
   </div>
 <% } %>
   <ul class="space-y-3">
-    <% (act.plan || []).forEach((day) => { %>
+    <% (act.plan || []).forEach((day, dayIdx) => { %>
       <% const done = act.days && act.days[day.id]; %>
       <li class="flex gap-4 items-start p-4 rounded-2xl border <%= done ? 'border-emerald-500/40 bg-emerald-500/10' : 'border-brand-border/60 dark:border-white/10 bg-white/60 dark:bg-slate-900/40' %>">
-        <span class="mt-0.5 w-8 h-8 shrink-0 rounded-xl flex items-center justify-center font-black text-xs <%= done ? 'bg-emerald-500 text-white' : 'bg-brand-cream dark:bg-slate-800 text-brand-muted' %>"><%= done ? '✓' : day.id.replace('d','') %></span>
+        <span class="mt-0.5 w-8 h-8 shrink-0 rounded-xl flex items-center justify-center font-black text-xs <%= done ? 'bg-emerald-500 text-white' : 'bg-brand-cream dark:bg-slate-800 text-brand-muted' %>"><%= done ? '✓' : (day.day || dayIdx + 1) %></span>
         <div class="flex-1 min-w-0">
           <div class="font-bold text-brand-dark dark:text-white"><%= day.label %></div>
           <p class="text-xs text-brand-muted mt-0.5"><%= day.hint %></p>
