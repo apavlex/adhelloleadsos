@@ -331,6 +331,7 @@ function buildWebsiteEnrichPatchFromDetail(detail, lead) {
   const patch = {};
   const email = String(detail?.email || '').trim().toLowerCase();
   if (email && email !== 'n/a' && missing.has('email')) patch.email = email;
+  if (Array.isArray(detail?.emails) && detail.emails.length > 1) patch.emails = detail.emails;
   const phone = String(detail?.phone || '').trim();
   if (phone && phone !== 'N/A' && missing.has('phone')) patch.phone = phone;
   const address = String(detail?.address || '').trim();

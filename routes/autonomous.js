@@ -30,6 +30,7 @@ const workspaceIntegrations = require('../services/workspaceIntegrations');
 const { uploadCsvToDrive, safeDriveFileName } = require('../services/googleDriveUpload');
 const { sanitizeLeadSocialPatch } = require('../services/socialUrlNormalize');
 const { parseLoyaltyProgramFields } = require('../services/loyaltyProgramNormalize');
+const { addEmailContacts } = require('../services/leadEmailContacts');
 const { getValidAccessToken } = require('../services/googleDriveAccess');
 const { autoAttachCadenceIfNeeded } = require('../services/leadCadence');
 const { clampPipelineStage } = require('../services/pipelineConstants');
@@ -364,6 +365,15 @@ router.post('/leads', apiKeyAuth, express.json(), async (req, res, next) => {
       leadData.email = 'N/A';
       leadData.emailValidationStatus = 'rejected_junk';
     }
+    const bodyEmails = Array.isArray(req.body.emails) ? req.body.emails : [];
+    if (bodyEmails.length) {
+      if (leadData.email === 'N/A') {
+        const firstValid = bodyEmails.find((e) => ghlClient.isValidEmailForGhl(String(e || '').trim()));
+        if (firstValid) leadData.email = String(firstValid).trim().toLowerCase();
+      }
+      const { contacts, added } = addEmailContacts([], leadData.email, bodyEmails, ghlClient.isValidEmailForGhl);
+      if (added) leadData.contacts = contacts;
+    }
 
     const reviewSnippets = parseExtensionReviewSnippets(req.body);
     if (reviewSnippets) leadData.reviewSnippets = reviewSnippets;
@@ -640,6 +650,15 @@ router.patch('/leads/:leadKey', apiKeyAuth, express.json(), async (req, res, nex
       if (email && email !== 'n/a' && ghlClient.isValidEmailForGhl(email)) {
         patch.email = email;
       }
+    }
+    if (Array.isArray(body.emails) && body.emails.length) {
+      const { contacts, added } = addEmailContacts(
+        lead.contacts,
+        patch.email || lead.email,
+        body.emails,
+        ghlClient.isValidEmailForGhl,
+      );
+      if (added) patch.contacts = contacts;
     }
 
     const socialBody = sanitizeLeadSocialPatch({

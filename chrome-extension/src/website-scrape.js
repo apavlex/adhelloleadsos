@@ -324,21 +324,110 @@
     return found;
   }
 
+  const MAX_EMAILS = 25;
+
   function collectEmails(root) {
     const scope = root || document;
-    const emails = [];
-    scope.querySelectorAll('a[href^="mailto:"]').forEach((a) => {
-      const href = a.getAttribute('href') || '';
-      const email = href.replace(/^mailto:/i, '').split('?')[0].trim();
-      if (isUsableEmail(email)) emails.push(email.toLowerCase());
+    const found = new Set();
+    scope.querySelectorAll('a[href^="mailto:" i]').forEach((a) => {
+      let target = (a.getAttribute('href') || '').replace(/^mailto:/i, '').split('?')[0];
+      try {
+        target = decodeURIComponent(target);
+      } catch (_) {
+        /* keep raw */
+      }
+      target
+        .split(/[,;]/)
+        .map((e) => e.trim().toLowerCase())
+        .forEach((email) => {
+          if (found.size < MAX_EMAILS && isUsableEmail(email)) found.add(email);
+        });
     });
-    const text = `${scope.body ? scope.body.innerText : scope.innerText || ''} ${document.documentElement?.innerHTML || ''}`;
+    const htmlRoot = scope.documentElement || scope;
+    const visible = scope.body ? scope.body.innerText || scope.body.textContent : scope.innerText || '';
+    const text = `${visible || ''} ${htmlRoot.innerHTML || ''}`;
     const re = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
     let m;
-    while ((m = re.exec(text)) && emails.length < 12) {
-      if (isUsableEmail(m[0])) emails.push(m[0].toLowerCase());
+    while ((m = re.exec(text)) && found.size < MAX_EMAILS) {
+      const email = m[0].toLowerCase();
+      if (isUsableEmail(email)) found.add(email);
     }
-    return Array.from(new Set(emails));
+    return Array.from(found);
+  }
+
+  const CONTACT_PAGE_RE =
+    /(contact|about|team|staff|our-people|people|leadership|meet-|management|locations?|get-in-touch|reach-us|directory|support)/i;
+  const SKIP_FILE_RE = /\.(pdf|jpe?g|png|gif|webp|svg|zip|docx?|xlsx?|mp4|mp3)(\?|$)/i;
+
+  /** Same-site pages most likely to list staff or department emails. */
+  function contactPageCandidates(limit) {
+    const here = window.location.href.split('#')[0];
+    const out = [];
+    const seen = new Set([here]);
+    document.querySelectorAll('a[href]').forEach((a) => {
+      if (out.length >= limit) return;
+      let u;
+      try {
+        u = new URL(a.getAttribute('href') || '', here);
+      } catch (_) {
+        return;
+      }
+      if (u.origin !== window.location.origin || SKIP_FILE_RE.test(u.pathname)) return;
+      u.hash = '';
+      const key = u.href;
+      if (seen.has(key)) return;
+      const label = `${u.pathname} ${(a.textContent || '').trim()}`;
+      if (!CONTACT_PAGE_RE.test(label)) return;
+      seen.add(key);
+      out.push(key);
+    });
+    if (!out.length) {
+      ['/contact', '/contact-us', '/about'].forEach((p) => {
+        const key = `${window.location.origin}${p}`;
+        if (!seen.has(key)) out.push(key);
+      });
+    }
+    return out.slice(0, limit);
+  }
+
+  async function fetchSitePage(url, timeoutMs) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { signal: ctrl.signal, credentials: 'same-origin', redirect: 'follow' });
+      if (!res.ok) return null;
+      const ct = String(res.headers.get('content-type') || '');
+      if (ct && !/html|text/i.test(ct)) return null;
+      const html = (await res.text()).slice(0, 400000);
+      return new DOMParser().parseFromString(html, 'text/html');
+    } catch (_) {
+      return null;
+    } finally {
+      clearTimeout(t);
+    }
+  }
+
+  /**
+   * Scan Contact / About / Team pages on this site for more emails.
+   * @returns {Promise<{ emails: Array<{ email: string, page: string }>, pagesChecked: string[] }>}
+   */
+  async function collectSiteEmails(opts) {
+    const o = opts || {};
+    const pages = contactPageCandidates(o.maxPages || 5);
+    const docs = await Promise.all(pages.map((url) => fetchSitePage(url, o.timeoutMs || 6000)));
+    const seen = new Set();
+    const emails = [];
+    const pagesChecked = [];
+    docs.forEach((doc, i) => {
+      if (!doc) return;
+      pagesChecked.push(pages[i]);
+      collectEmails(doc).forEach((email) => {
+        if (seen.has(email) || emails.length >= MAX_EMAILS) return;
+        seen.add(email);
+        emails.push({ email, page: pages[i] });
+      });
+    });
+    return { emails, pagesChecked };
   }
 
   function collectPhones(root) {
@@ -480,6 +569,7 @@
       categoryName: 'Business website',
       phone: phone || 'N/A',
       email: email || 'N/A',
+      emails: Array.from(new Set([email, ...emails].filter(Boolean))),
       website: origin || url,
       address: (fromDomAddr && fromDomAddr.address) || 'N/A',
       city: (fromDomAddr && fromDomAddr.city) || '',
@@ -515,6 +605,7 @@
     extractBusinessWebsite,
     collectSocials,
     collectEmails,
+    collectSiteEmails,
     collectPhones,
     SOCIAL_HOSTS,
     NOISE_HOSTS,

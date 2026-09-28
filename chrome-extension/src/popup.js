@@ -21,7 +21,7 @@ const workspaceThemeRow = document.getElementById('workspaceThemeRow');
 const showSaveLeadFabEl = document.getElementById('showSaveLeadFab');
 const findLoyaltyBtn = document.getElementById('findLoyaltyBtn');
 const loyaltyStatusEl = document.getElementById('loyaltyStatus');
-const EXT_VERSION = '1.9.7';
+const EXT_VERSION = '1.9.12';
 const PARALLEL_LABEL = '5 at a time';
 
 let bulkRunning = false;
@@ -354,6 +354,126 @@ function formatSourceChannelLabel(sourceChannel) {
   return key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+const emailListEl = document.getElementById('emailList');
+const emailScanStatusEl = document.getElementById('emailScanStatus');
+/** Every email found for this lead, in display order; the Email field holds the main one. */
+let foundEmails = [];
+const emailSourcePages = new Map();
+
+function looksLikeEmail(v) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v || '').trim());
+}
+
+function mainEmail() {
+  return String(form.email.value || '').trim().toLowerCase();
+}
+
+function addFoundEmails(list, page) {
+  let added = 0;
+  (list || []).forEach((raw) => {
+    const email = String(raw || '').trim().toLowerCase();
+    if (!looksLikeEmail(email) || foundEmails.includes(email)) return;
+    foundEmails.push(email);
+    if (page) emailSourcePages.set(email, page);
+    added++;
+  });
+  return added;
+}
+
+function renderEmailList() {
+  if (!emailListEl) return;
+  const main = mainEmail();
+  const shown = main && looksLikeEmail(main) && !foundEmails.includes(main) ? [main, ...foundEmails] : foundEmails;
+  if (shown.length < 2) {
+    emailListEl.classList.add('hidden');
+    emailListEl.innerHTML = '';
+    return;
+  }
+  emailListEl.classList.remove('hidden');
+  emailListEl.innerHTML = '';
+  const title = document.createElement('p');
+  title.className = 'email-list__title';
+  title.textContent = `${shown.length} emails · all are saved to the lead`;
+  emailListEl.appendChild(title);
+  shown.forEach((email) => {
+    const row = document.createElement('div');
+    row.className = 'email-list__row';
+    const addr = document.createElement('span');
+    addr.className = 'email-list__addr';
+    addr.textContent = email;
+    const page = emailSourcePages.get(email);
+    addr.title = page ? `Found on ${page}` : email;
+    row.appendChild(addr);
+    if (email === main) {
+      const badge = document.createElement('span');
+      badge.className = 'email-list__badge';
+      badge.textContent = 'Main';
+      row.appendChild(badge);
+    } else {
+      const makeMain = document.createElement('button');
+      makeMain.type = 'button';
+      makeMain.className = 'email-list__btn';
+      makeMain.textContent = 'Make main';
+      makeMain.addEventListener('click', () => {
+        if (main && looksLikeEmail(main) && !foundEmails.includes(main)) foundEmails.unshift(main);
+        form.email.value = email;
+        renderEmailList();
+      });
+      row.appendChild(makeMain);
+    }
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'email-list__btn email-list__btn--remove';
+    remove.textContent = '×';
+    remove.title = 'Don’t save this email';
+    remove.setAttribute('aria-label', `Remove ${email}`);
+    remove.addEventListener('click', () => {
+      foundEmails = foundEmails.filter((e) => e !== email);
+      if (email === main) form.email.value = foundEmails[0] || '';
+      renderEmailList();
+    });
+    row.appendChild(remove);
+    emailListEl.appendChild(row);
+  });
+}
+
+function setEmailScanStatus(text) {
+  if (!emailScanStatusEl) return;
+  emailScanStatusEl.textContent = text || '';
+  emailScanStatusEl.classList.toggle('hidden', !text);
+}
+
+/** Check Contact / About / Team pages on the open site for more emails. */
+async function scanSiteForEmails(tab) {
+  setEmailScanStatus('Checking Contact, About & Team pages for more emails…');
+  try {
+    const [{ result } = {}] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: async () => {
+        if (!window.AdHelloWebsiteScrape?.collectSiteEmails) return null;
+        return window.AdHelloWebsiteScrape.collectSiteEmails({ maxPages: 5 });
+      },
+    });
+    if (!result) {
+      setEmailScanStatus('');
+      return;
+    }
+    let added = 0;
+    (result.emails || []).forEach((row) => {
+      added += addFoundEmails([row.email], row.page);
+    });
+    if (!mainEmail() && foundEmails[0]) form.email.value = foundEmails[0];
+    renderEmailList();
+    const pages = (result.pagesChecked || []).length;
+    const checked = `Checked ${pages} other page${pages === 1 ? '' : 's'} on this site`;
+    setEmailScanStatus(added ? `${checked} · ${added} more email${added === 1 ? '' : 's'} found` : `${checked} · no other emails`);
+  } catch (_) {
+    setEmailScanStatus('');
+  }
+}
+
+form.email.addEventListener('input', renderEmailList);
+
 function fillForm(lead, defaultFolderName) {
   if (!lead) return;
   form.title.value = lead.title || '';
@@ -380,6 +500,11 @@ function fillForm(lead, defaultFolderName) {
   if (form.zip) form.zip.value = lead.zip || lead.postalCode || '';
   form.website.value = lead.website && lead.website !== 'N/A' ? lead.website : '';
   form.email.value = lead.email && lead.email !== 'N/A' ? lead.email : '';
+  foundEmails = [];
+  emailSourcePages.clear();
+  addFoundEmails([form.email.value, ...(Array.isArray(lead.emails) ? lead.emails : [])]);
+  if (!form.email.value && foundEmails[0]) form.email.value = foundEmails[0];
+  renderEmailList();
   form.phone.value = lead.phone && lead.phone !== 'N/A' ? lead.phone : '';
   if (form.facebook) form.facebook.value = lead.facebook && lead.facebook !== 'N/A' ? lead.facebook : '';
   if (form.instagram) form.instagram.value = lead.instagram && lead.instagram !== 'N/A' ? lead.instagram : '';
@@ -537,6 +662,7 @@ async function init() {
       ? `From ${formatSourceChannelLabel(platform) || platform.replace(/_/g, ' ')} · ${new URL(tab.url).hostname}`
       : 'Open a supported listing, profile, or business page to auto-fill.';
     fillForm(lead, defaultFolderName);
+    if (lead && lead.sourceChannel === 'business_website') scanSiteForEmails(tab);
     await detectActiveFacebookGroup();
   } catch (err) {
     platformLabel.textContent = 'Could not read this page. Save from this popup, or enable the on-page button in Settings.';
@@ -579,6 +705,7 @@ form.addEventListener('submit', async (e) => {
       postalCode: form.zip?.value?.trim() || base?.postalCode || base?.zip || '',
       website: form.website.value.trim() || 'N/A',
       email: form.email.value.trim() || 'N/A',
+      emails: Array.from(new Set([mainEmail(), ...foundEmails].filter(looksLikeEmail))),
       phone: form.phone.value.trim() || 'N/A',
       facebook: form.facebook?.value?.trim() || base?.facebook || 'N/A',
       instagram: form.instagram?.value?.trim() || base?.instagram || 'N/A',

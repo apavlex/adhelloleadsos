@@ -89,9 +89,11 @@
           <input type="url" name="website" placeholder="https://" />
         </label>
         <label>
-          <span>Email</span>
+          <span>Email <small class="email-main-hint">(main)</small></span>
           <input type="email" name="email" />
         </label>
+        <div id="emailList" class="email-list hidden" aria-label="All emails found"></div>
+        <p id="emailScanStatus" class="email-scan-status hidden" aria-live="polite"></p>
         <label>
           <span>Phone</span>
           <input type="tel" name="phone" />

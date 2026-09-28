@@ -10360,7 +10360,38 @@ document.addEventListener('DOMContentLoaded', () => {
       view.classList.add('opacity-40');
       view.classList.remove('pointer-events-none');
     }
-    if (emailRow) emailRow.classList.toggle('hidden', !email);
+    const others = syncHeaderOtherEmails(row, email);
+    if (emailRow) emailRow.classList.toggle('hidden', !email && !others);
+  }
+
+  /** Extra emails saved as contacts (e.g. every address found by the Chrome extension). */
+  function syncHeaderOtherEmails(row, mainEmail) {
+    const box = document.getElementById('headerOtherEmails');
+    if (!box) return 0;
+    const main = String(mainEmail || '').trim().toLowerCase();
+    const seen = new Set(main ? [main] : []);
+    const extra = [];
+    parseRowContacts(row).forEach((c) => {
+      const em = String((c && c.email) || '').trim().toLowerCase();
+      if (!em || !em.includes('@') || seen.has(em)) return;
+      seen.add(em);
+      extra.push(em);
+    });
+    box.textContent = '';
+    box.classList.toggle('hidden', !extra.length);
+    if (!extra.length) return 0;
+    const label = document.createElement('p');
+    label.className = 'text-[9px] font-black uppercase tracking-widest text-brand-muted';
+    label.textContent = `Other emails (${extra.length})`;
+    box.appendChild(label);
+    extra.forEach((em) => {
+      const a = document.createElement('a');
+      a.href = `mailto:${encodeURIComponent(em)}`;
+      a.textContent = em;
+      a.className = 'block text-[12px] font-semibold text-brand-muted hover:text-brand-yellow truncate no-underline';
+      box.appendChild(a);
+    });
+    return extra.length;
   }
 
   const LEAD_PANEL_CONTACT_ICON_CLASS =

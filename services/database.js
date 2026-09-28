@@ -17,6 +17,7 @@ const {
 } = require('./leadDedupe');
 const { normalizeLeadForPanel } = require('./leadPanelNormalize');
 const { applyLoyaltyProgramOverwrite } = require('./loyaltyProgramNormalize');
+const { mergeContactLists } = require('./leadEmailContacts');
 const { normalizeWorkspaceAccentHex } = require('../lib/workspaceAccent');
 const { isLeadRunJobStale } = require('./leadRunProgress');
 
@@ -184,6 +185,12 @@ function mergePreferExisting(existing, incoming) {
       continue;
     }
     if (k === 'forceFolderKey') continue;
+    if (k === 'contacts' && Array.isArray(v)) {
+      const cur = Array.isArray(existing && existing.contacts) ? existing.contacts : [];
+      const merged = mergeContactLists(cur, v);
+      if (merged.length !== cur.length) out.contacts = merged;
+      continue;
+    }
     if (isBlankValue(v)) continue;
     const cur = existing ? existing[k] : undefined;
     if (isBlankValue(cur)) out[k] = v;
