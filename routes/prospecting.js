@@ -375,6 +375,7 @@ router.get('/', async (req, res, next) => {
       leadSourceCounts,
       leadListFilters,
       leadsFilterSuffix,
+      folderFromQuery: !!String(req.query.folderKey || '').trim(),
       teamMembers: teamActivity.memberDirectory(req.workspace, []).map((m) => ({
         email: m.email,
         label: m.email === String(email || '').toLowerCase() ? 'Me' : teamActivity.displayName(m),

@@ -6,6 +6,7 @@
 <% const _folders = typeof folders !== 'undefined' && folders ? folders : []; %>
 <% const _tags = typeof tags !== 'undefined' && tags ? tags : []; %>
 <% const _activeFolder = _fk ? _folders.find(function (x) { return x && String(x.key) === _fk; }) : null; %>
+<% const _headingFolder = _activeFolder && typeof folderFromQuery !== 'undefined' && folderFromQuery ? _activeFolder : null; %>
 <% const _tagKey = _lf.tagKey ? String(_lf.tagKey) : ''; %>
 <% const _qlItems = (typeof quickLogClient !== 'undefined' && quickLogClient && quickLogClient.items) ? quickLogClient.items : []; %>
 <% const _isQlTag = _tagKey.indexOf('ql:') === 0; %>
@@ -157,13 +158,19 @@
 <div class="space-y-6 mb-10 md:mb-12">
   <div class="min-w-0">
       <div class="inline-flex items-center gap-2 bg-white dark:bg-slate-900 px-3 py-1 rounded-full border border-brand-border dark:border-white/10 shadow-sm mb-3">
-        <span class="text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400">Pipeline</span>
+        <span class="text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400"><%= _headingFolder ? 'Pipeline · Folder' : 'Pipeline' %></span>
       </div>
       <% const _wsAll = typeof leadSourceCounts !== 'undefined' && leadSourceCounts ? leadSourceCounts.all : leads.length; %>
       <div class="page-heading-with-tip mt-1">
+        <% if (_headingFolder) { %>
+        <h2 class="font-display font-extrabold text-2xl md:text-3xl tracking-tight text-brand-dark dark:text-white break-words" title="<%= _headingFolder.name %>">
+          <%= _headingFolder.name || 'Folder' %>
+        </h2>
+        <% } else { %>
         <h2 class="font-display font-extrabold text-2xl md:text-3xl tracking-tight text-brand-dark dark:text-white">
           <span class="text-brand-muted dark:text-slate-500">Board</span> &amp; stages
         </h2>
+        <% } %>
         <%- include('/partials/help/pipeline_board_info') %>
       </div>
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mt-4 flex flex-wrap gap-x-4 gap-y-2">
