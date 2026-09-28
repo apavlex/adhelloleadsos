@@ -36,6 +36,18 @@
     );
   }
 
+  /** Same rule as lib/workspaceAccent.js contrastTextForAccent: light accents → dark ink, dark → white. */
+  function contrastTextForAccent(hex) {
+    const rgb = hexToRgb(hex);
+    if (!rgb) return '#111827';
+    const lin = (c) => {
+      const v = c / 255;
+      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    };
+    const L = 0.2126 * lin(rgb.r) + 0.7152 * lin(rgb.g) + 0.0722 * lin(rgb.b);
+    return L > 0.45 ? '#111827' : '#FFFFFF';
+  }
+
   function applyWorkspaceTheme(theme) {
     applyWorkspaceThemeToElement(document.documentElement, theme);
   }
@@ -48,7 +60,10 @@
     el.style.setProperty('--ws-accent-muted', mixHex(accent, '#FFFFFF', 0.72));
     el.style.setProperty('--ws-accent-text', mixHex(accent, '#111827', 0.72));
     el.style.setProperty('--ws-accent-hover', mixHex(accent, '#111827', 0.12));
-    el.style.setProperty('--ws-accent-hover', mixHex(accent, '#111827', 0.12));
+    el.style.setProperty(
+      '--ws-on-accent',
+      normalizeHex(theme && theme.accentTextColor) || contrastTextForAccent(accent),
+    );
 
     if (el === document.documentElement) {
       const nameEl = document.getElementById('workspaceThemeName');
@@ -164,6 +179,7 @@
 
   window.AdHelloTheme = {
     DEFAULT_ACCENT,
+    contrastTextForAccent,
     applyWorkspaceTheme,
     applyWorkspaceThemeToElement,
     fetchWorkspaceTheme,

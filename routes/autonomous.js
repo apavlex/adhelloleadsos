@@ -46,7 +46,7 @@ const ghlSync = require('../services/ghlSync');
 const ghlClient = require('../services/ghlClient');
 const { getWorkspaceGhlSyncDirection, normalizeGhlSyncDirection } = require('../services/ghlSyncDirection');
 const { ensureChromeExtensionFolder, ensureFolderByName, chromeExtensionFolderUrl } = require('../services/chromeExtensionInbox');
-const { normalizeWorkspaceAccentHex } = require('../lib/workspaceAccent');
+const { normalizeWorkspaceAccentHex, resolveAccentTextColor } = require('../lib/workspaceAccent');
 const { scoreLocalProspect } = require('../services/localProspectScore');
 const { normalizeDomain } = require('../services/leadDedupe');
 const workspaceBootstrap = require('../services/workspaceBootstrap');
@@ -959,6 +959,7 @@ router.get('/workspaces', apiKeyAuth, async (req, res, next) => {
         name: (ws && ws.name) || id,
         slug: (ws && ws.slug) || '',
         accentColor: normalizeWorkspaceAccentHex(ws && ws.accentColor) || '#CA8A04',
+        accentTextColor: resolveAccentTextColor(ws && ws.accentColor, ws && ws.accentTextColor),
       };
     }
 
@@ -982,6 +983,7 @@ router.get('/workspaces', apiKeyAuth, async (req, res, next) => {
         name: ws.name || ws.id,
         slug: ws.slug || '',
         accentColor: normalizeWorkspaceAccentHex(ws.accentColor) || '#CA8A04',
+        accentTextColor: resolveAccentTextColor(ws.accentColor, ws.accentTextColor),
       });
     }
 
@@ -1019,6 +1021,7 @@ router.get('/status', apiKeyAuth, async (req, res) => {
       id: wid,
       name: (ws && ws.name) || wid,
       accentColor,
+      accentTextColor: resolveAccentTextColor(accentColor, ws && ws.accentTextColor),
     },
     mapsConfigured: mapsSearch.isMapsSearchConfigured(integrationEnv),
     timestamp: new Date().toISOString(),
