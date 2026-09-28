@@ -91,7 +91,9 @@ async function applyLeadDisposition(ctx) {
     skipFollowUp = false,
     deferGhlSync = false,
     source = 'api',
+    authorName = '',
   } = ctx;
+  const by = source === 'auto_dial' ? '' : String(authorName || '').trim();
 
   const code = String(rawCode || '').trim().toLowerCase();
   const notes = String(rawNotes || '').trim();
@@ -189,6 +191,7 @@ async function applyLeadDisposition(ctx) {
     notes: dispNotes,
     automation,
     source: source === 'auto_dial' ? 'auto_dial' : undefined,
+    ...(by ? { by } : {}),
   });
   patch.updates = updates;
   patch.logs = [
@@ -196,6 +199,7 @@ async function applyLeadDisposition(ctx) {
       type: 'call_disposition',
       message: `Disposition set to ${humanizeDisposition(code)}${automation ? ` · ${automation}` : ''}`,
       timestamp: new Date().toISOString(),
+      ...(by ? { by } : {}),
     },
   ];
 

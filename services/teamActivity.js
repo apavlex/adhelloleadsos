@@ -33,6 +33,13 @@ function actorFromReq(req) {
   return { email, name, avatar };
 }
 
+/** "Name (email)" for stamping notes that sync to GHL, where teammates have no user seat. */
+function authorLabel(req) {
+  const actor = actorFromReq(req);
+  if (!actor) return '';
+  return actor.name && actor.name.toLowerCase() !== actor.email ? `${actor.name} (${actor.email})` : actor.email;
+}
+
 /** Snapshot for work that finishes after the request (background searches, imports). */
 function captureContext(req) {
   return { workspaceId: req && req.workspaceId, actor: actorFromReq(req) };
@@ -187,6 +194,7 @@ function displayName(entry) {
 module.exports = {
   CATEGORIES,
   actorFromReq,
+  authorLabel,
   captureContext,
   record,
   recordOnSuccess,

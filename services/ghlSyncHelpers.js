@@ -62,8 +62,11 @@ function formatLogAsNoteBody(log) {
   const type = String(log.type || 'activity').trim();
   const message = String(log.message || log.value || '').trim();
   const ts = log.timestamp ? new Date(log.timestamp).toISOString() : '';
+  const by = String(log.by || '').trim();
   const lines = [`${AGENCY_OS_NOTE_PREFIX} ${type}`];
   if (message) lines.push(message);
+  // Teammates aren't GHL users, so authorship travels in the note text.
+  if (by) lines.push(`By: ${by}`);
   if (ts && !Number.isNaN(Date.parse(ts))) lines.push(`Logged: ${ts}`);
   return lines.join('\n');
 }
@@ -135,6 +138,8 @@ function buildGhlSyncActivityNote(lead, opts = {}) {
     `Prospected in AdHello · ${when}`,
     `Next action: ${actionLabel}`,
   ];
+  const syncedBy = String(opts.syncedBy || '').trim();
+  if (syncedBy) lines.push(`Synced by: ${syncedBy}`);
   const reviewLine = formatReviewSummaryForNote(lead);
   if (reviewLine) lines.push(reviewLine);
   const notes = String((lead && lead.lastDispositionNotes) || '').trim();

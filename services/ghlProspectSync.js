@@ -83,6 +83,7 @@ async function appendPanelNoteBeforeGhlPush(opts) {
     type: 'note',
     value: content,
     source: 'panel_post',
+    ...(opts.by ? { by: String(opts.by) } : {}),
   });
   const updated = await dbService.updateLead(storageKey, { updates }, workspaceId);
   return { ok: true, lead: updated, key: storageKey };

@@ -1277,6 +1277,7 @@ router.post('/:key/disposition', async (req, res, next) => {
       skipFollowUp,
       deferGhlSync: !!(req.body && req.body.deferGhlSync),
       source: 'api',
+      authorName: teamActivity.authorLabel(req),
     });
     teamActivity.record(req, {
       category: 'notes',
@@ -1659,12 +1660,14 @@ router.post('/:key/notes', express.json(), async (req, res, next) => {
     const rawType = String((req.body && req.body.type) || 'note').trim().toLowerCase();
     const entryType = rawType === 'quick_log' ? 'quick_log' : 'note';
     const ts = new Date().toISOString();
+    const author = teamActivity.authorLabel(req);
     const entry = {
       type: entryType,
       value: content,
       timestamp: ts,
       source: entryType === 'quick_log' ? 'quick_log_pill' : 'panel_post',
     };
+    if (author) entry.by = author;
     if (req.body && req.body.disposition) {
       entry.disposition = String(req.body.disposition).trim();
     }
@@ -1683,6 +1686,7 @@ router.post('/:key/notes', express.json(), async (req, res, next) => {
             type: entryType === 'quick_log' ? 'quick_log' : 'note',
             message: content,
             timestamp: ts,
+            ...(author ? { by: author } : {}),
           },
         ],
       },

@@ -43,6 +43,15 @@ test('record writes activity and attribution; created_by sticks to the first act
   assert.equal(dbService.listLeadKeysByActor('ws_team', 'anna@example.com', 'any').length, 2);
 });
 
+test('authorLabel formats name and email, falling back to email', () => {
+  assert.equal(
+    teamActivity.authorLabel({ user: { emails: [{ value: 'Anna@Example.com' }], displayName: 'Anna Lee' } }),
+    'Anna Lee (anna@example.com)',
+  );
+  assert.equal(teamActivity.authorLabel({ user: { emails: [{ value: 'bob@example.com' }] } }), 'bob@example.com');
+  assert.equal(teamActivity.authorLabel({}), '');
+});
+
 test('record ignores unknown categories and missing actors without throwing', () => {
   assert.equal(teamActivity.record(fakeReq('x@example.com'), { category: 'ghl_sync', summary: 'nope' }), null);
   assert.equal(teamActivity.record({ workspaceId: 'ws_team', headers: {} }, { category: 'search' }), null);

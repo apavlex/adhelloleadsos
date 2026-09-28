@@ -125,6 +125,7 @@ async function pushNotesToGhl(lead, contactId, integrationEnv) {
       value: entry.value,
       timestamp: entry.timestamp,
       source: entry.source,
+      by: entry.by,
     }));
   const combined = [...logs, ...fromUpdates];
   const pending = combined.filter((log) => shouldPushLog(log, syncState));
@@ -177,12 +178,12 @@ async function pullNotesFromGhl(lead, contactId, integrationEnv) {
   return { pulled: newLogs.length, newLogs, syncState };
 }
 
-async function pushSyncActivityNote(lead, contactId, integrationEnv) {
+async function pushSyncActivityNote(lead, contactId, integrationEnv, syncedBy) {
   const actionTags = computeActionTagsFromLead(lead);
   const actionLabel = actionTags.length
     ? actionTags[0].replace(/^AO:\s*/, '')
     : 'Follow-up';
-  const body = buildGhlSyncActivityNote(lead, { actionLabel });
+  const body = buildGhlSyncActivityNote(lead, { actionLabel, syncedBy });
   if (!body) return { pushed: false };
   try {
     await ghlClient.createContactNote(contactId, body, integrationEnv);
@@ -375,7 +376,7 @@ async function pushLeadToGhlInner(lead, integrationEnv, opts) {
   } else {
     // Enrichment is best-effort — contact + tags already succeeded.
     try {
-      syncActivityNote = await pushSyncActivityNote(lead, contactId, integrationEnv);
+      syncActivityNote = await pushSyncActivityNote(lead, contactId, integrationEnv, opts && opts.syncedBy);
     } catch (_) {
       syncActivityNote = { pushed: false };
     }
@@ -582,7 +583,7 @@ async function pushLeads(opts) {
         };
       }
       // eslint-disable-next-line no-await-in-loop
-      const r = await pushLeadToGhl(leadForPush, integrationEnv, { listSyncFast });
+      const r = await pushLeadToGhl(leadForPush, integrationEnv, { listSyncFast, syncedBy: opts.syncedBy });
       results.push({
         key: lead.key,
         ok: true,

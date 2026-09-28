@@ -14,6 +14,7 @@ const {
 } = require('../services/ghlSyncDirection');
 const { patchLeadDispositionForGhlPush, appendPanelNoteBeforeGhlPush } = require('../services/ghlProspectSync');
 const ghlSubaccounts = require('../services/ghlSubaccounts');
+const teamActivity = require('../services/teamActivity');
 
 async function saveWorkspaceGhlSyncDirection(workspaceId, direction) {
   const wid = workspaceId || 'default';
@@ -105,6 +106,7 @@ router.post('/push', express.json(), async (req, res, next) => {
           leadKey,
           content: pendingNote,
           workspaceId: wid,
+          by: teamActivity.authorLabel(req),
         });
       }
     }
@@ -115,6 +117,7 @@ router.post('/push', express.json(), async (req, res, next) => {
       limit: body.limit,
       tagNoWebsite: body.tagNoWebsite === true || body.tagNoWebsite === '1',
       extraTagNames,
+      syncedBy: teamActivity.authorLabel(req),
       // Opt-in only: single-lead Sync GHL still pushes notes, fields, and follow-up tasks.
       listSyncFast:
         body.listSyncFast === true ||

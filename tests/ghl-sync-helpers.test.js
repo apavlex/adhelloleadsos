@@ -40,6 +40,21 @@ test('formatLogAsNoteBody prefixes Agency OS notes', () => {
   assert.equal(isAgencyOsNoteBody(body), true);
 });
 
+test('GHL notes carry the teammate author since teammates have no GHL user seat', () => {
+  const body = formatLogAsNoteBody({
+    type: 'note',
+    message: 'Owner wants a quote',
+    by: 'Anna Lee (anna@example.com)',
+    timestamp: '2024-06-01T12:00:00.000Z',
+  });
+  assert.match(body, /\nBy: Anna Lee \(anna@example\.com\)\n/);
+  assert.doesNotMatch(formatLogAsNoteBody({ type: 'note', message: 'x' }), /By:/);
+
+  const sync = buildGhlSyncActivityNote({}, { actionLabel: 'Call', syncedBy: 'bob@example.com' });
+  assert.match(sync, /Synced by: bob@example\.com/);
+  assert.doesNotMatch(buildGhlSyncActivityNote({}, { actionLabel: 'Call' }), /Synced by/);
+});
+
 test('ghlNoteToLogEntry maps GHL notes to lead logs', () => {
   const log = ghlNoteToLogEntry({ id: 'n1', body: 'Spoke with owner', dateAdded: '2024-06-01T12:00:00.000Z' });
   assert.equal(log.type, 'ghl_note');
