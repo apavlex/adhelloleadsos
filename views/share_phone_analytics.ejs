@@ -91,7 +91,7 @@
                 <td class="num"><%= s.voicemail != null ? s.voicemail : 0 %></td>
                 <td class="muted">
                   <% if (row.lastInboundAt) { %>
-                    <%= new Date(row.lastInboundAt).toLocaleString() %>
+                    <%= wsDateTime(row.lastInboundAt) %>
                   <% } else { %>
                     —
                   <% } %>
@@ -104,9 +104,9 @@
     <% } %>
 
     <p class="foot">
-      Page generated <%= new Date(generatedAt).toLocaleString() %>.
+      Page generated <%= wsDateTime(generatedAt) %>.
       <% if (shareCreatedAt) { %>
-        Share link created <%= new Date(shareCreatedAt).toLocaleString() %>.
+        Share link created <%= wsDateTime(shareCreatedAt) %>.
       <% } %>
     </p>
   </div>

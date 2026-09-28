@@ -73,7 +73,7 @@
     <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm overflow-hidden" aria-label="Engagement events">
       <ul class="divide-y divide-brand-border/40 dark:divide-white/10" id="engagementInboxList">
         <% _events.forEach(function (ev) {
-          var _when = ev.at ? new Date(ev.at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '';
+          var _when = ev.at ? wsDateTime(ev.at, { dateStyle: 'medium', timeStyle: 'short' }) : '';
           var _warm = ev.priority <= 2;
         %>
         <li class="engagement-inbox-row px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 hover:bg-brand-cream/20 dark:hover:bg-slate-800/40 transition-colors">

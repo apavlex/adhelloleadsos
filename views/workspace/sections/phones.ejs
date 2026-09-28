@@ -238,7 +238,7 @@
     <p id="wsPhoneShareUrl" class="mt-2 text-[10px] font-mono break-all text-brand-muted hidden"></p>
     <p id="wsPhoneShareMsg" class="mt-2 text-[11px] hidden"></p>
     <% if (_shareOn && _shareCreated) { %>
-      <p class="mt-2 text-[10px] text-brand-muted">Share link is active · created <%= new Date(_shareCreated).toLocaleString() %>. Use <strong>Copy link</strong> if this browser still has the URL in session; otherwise rotate to issue a new URL.</p>
+      <p class="mt-2 text-[10px] text-brand-muted">Share link is active · created <%= wsDateTime(_shareCreated) %>. Use <strong>Copy link</strong> if this browser still has the URL in session; otherwise rotate to issue a new URL.</p>
     <% } %>
   </div>
 
@@ -286,7 +286,7 @@
         <span class="text-[10px] text-emerald-700 dark:text-emerald-300 font-semibold tabular-nums"><%= Number.isFinite(_conn) ? _conn : 0 %> connected</span>
         <span class="text-[10px] text-rose-700 dark:text-rose-300 font-semibold tabular-nums"><%= Number.isFinite(_miss) ? _miss : 0 %> missed</span>
         <span class="text-[10px] text-violet-700 dark:text-violet-300 font-semibold tabular-nums"><%= Number.isFinite(_vm) ? _vm : 0 %> voicemail</span>
-        <% if (entry.lastInboundAt) { %><span class="text-[10px] text-brand-muted">Last: <%= new Date(entry.lastInboundAt).toLocaleString() %></span><% } %>
+        <% if (entry.lastInboundAt) { %><span class="text-[10px] text-brand-muted">Last: <%= wsDateTime(entry.lastInboundAt) %></span><% } %>
       </div>
       <div class="md:col-span-12">
         <label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">CNAM notes</label>

@@ -107,7 +107,7 @@
         <% _savedUpwork.slice().reverse().forEach(function (item) {
           var svc = _upworkServices.find(function (s) { return s.key === item.serviceKey; });
           var svcLabel = svc ? svc.label : (item.serviceKey || 'General');
-          var savedDate = item.savedAt ? new Date(item.savedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+          var savedDate = item.savedAt ? wsDate(item.savedAt, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
         %>
         <li class="upwork-saved-item rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 overflow-hidden" data-id="<%= item.id %>">
           <div class="flex flex-wrap items-start justify-between gap-2 px-4 py-3 border-b border-brand-border/40 dark:border-white/10">

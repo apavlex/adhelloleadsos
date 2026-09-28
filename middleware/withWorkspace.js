@@ -10,6 +10,7 @@ const { getQuickLogClientPayload } = require('../services/quickLogConfig');
 const { resolveScriptSignOffProfile } = require('../services/scriptPlaceholders');
 const { resolveAccentTextColor } = require('../lib/workspaceAccent');
 const { normalizeCustomMenuLinks } = require('../services/customMenuLinks');
+const { viewDateFormatters } = require('../services/workspaceTimezone');
 
 function attachWorkspaceQuickLog(res, ws) {
   const agencySales = isAgencySalesWorkspace(ws);
@@ -198,6 +199,7 @@ async function withWorkspace(req, res, next) {
     res.locals.workspaceId = ws.id;
     res.locals.workspaceRole = req.workspaceRole;
     res.locals.canManageWorkspace = req.canManageWorkspace;
+    Object.assign(res.locals, viewDateFormatters(ws));
     res.locals.workspaceSwitcherList = summaries;
     res.locals.workspaceAccent = ws.accentColor || '#CA8A04';
     res.locals.workspaceAccentText = resolveAccentTextColor(ws.accentColor, ws.accentTextColor);

@@ -52,6 +52,26 @@ function formatInTimezone(iso, timezone) {
   return dt.toFormat('LLL d, h:mm a');
 }
 
+/**
+ * EJS date helpers bound to a workspace timezone (the server runs in UTC, so bare
+ * toLocaleString() in views would show UTC). Signatures mirror Date#toLocale*String options.
+ */
+function viewDateFormatters(workspaceOrTz) {
+  const zone = resolveWorkspaceTimezone(workspaceOrTz);
+  const make = (method) => (value, opts) => {
+    if (value == null || value === '') return '';
+    const d = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(d.getTime())) return '';
+    return d[method]('en-US', { ...(opts || {}), timeZone: zone });
+  };
+  return {
+    workspaceTimezone: zone,
+    wsDateTime: make('toLocaleString'),
+    wsDate: make('toLocaleDateString'),
+    wsTime: make('toLocaleTimeString'),
+  };
+}
+
 function dailyOutreachScheduleLabel(timezone) {
   const tz = resolveWorkspaceTimezone(timezone);
   const sample = DateTime.now().setZone(tz).set({
@@ -90,6 +110,7 @@ module.exports = {
   workspaceTodayYmd,
   computeNextDailyRunIso,
   formatInTimezone,
+  viewDateFormatters,
   dailyOutreachScheduleLabel,
   isDailyOutreachWindow,
   lastDailyOutreachLocalDay,

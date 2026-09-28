@@ -732,7 +732,7 @@
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Access token</p>
           <p id="mcpTokenStatusLine" class="text-xs text-brand-muted leading-relaxed">
             <% if (_mcpStatus.configured) { %>
-            Active token ending in <strong class="text-brand-dark dark:text-white"><%= _mcpStatus.hint || '••••' %></strong><% if (_mcpStatus.createdAt) { %> · created <%= new Date(_mcpStatus.createdAt).toLocaleString() %><% } %><% if (_mcpStatus.createdBy) { %> by <%= _mcpStatus.createdBy %><% } %>
+            Active token ending in <strong class="text-brand-dark dark:text-white"><%= _mcpStatus.hint || '••••' %></strong><% if (_mcpStatus.createdAt) { %> · created <%= wsDateTime(_mcpStatus.createdAt) %><% } %><% if (_mcpStatus.createdBy) { %> by <%= _mcpStatus.createdBy %><% } %>
             <% } else { %>
             No workspace token yet. Generate one to connect ChatGPT or other MCP clients outside the browser.
             <% } %>

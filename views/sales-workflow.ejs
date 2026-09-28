@@ -150,7 +150,7 @@
                   <td class="px-6 py-4 align-top text-[11px] text-brand-muted max-w-xs">
                     <% if (lead.cqi && (lead.cqi.monthlyRevenue || lead.cqi.marketingSpend || lead.cqi.notes)) { %>
                       <span class="text-emerald-600 dark:text-emerald-400 font-bold">Logged</span>
-                      <% if (lead.cqi.recordedAt) { %><br><span class="opacity-70"><%= new Date(lead.cqi.recordedAt).toLocaleDateString() %></span><% } %>
+                      <% if (lead.cqi.recordedAt) { %><br><span class="opacity-70"><%= wsDate(lead.cqi.recordedAt) %></span><% } %>
                     <% } else { %>
                       —
                     <% } %>

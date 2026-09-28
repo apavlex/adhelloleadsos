@@ -31,7 +31,7 @@
             <li>
               <button type="button" class="cadence-lead-open group w-full flex flex-wrap justify-between gap-2 p-4 rounded-2xl bg-brand-cream/40 dark:bg-white/5 border border-brand-border/50 text-left cursor-pointer transition-colors hover:border-brand-yellow/50 hover:bg-brand-yellow/10 dark:hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow" data-lead-key="<%= String(l.key || '').replace(/"/g, '&quot;') %>" title="Open lead details">
                 <span class="font-bold text-brand-dark dark:text-white group-hover:text-brand-dark dark:group-hover:text-brand-yellow"><%= l.title %></span>
-                <span class="text-xs text-brand-muted"><%= (l.sequenceState && l.sequenceState.templateId) || '—' %> · next <%= (l.sequenceState && l.sequenceState.nextDueAt) ? new Date(l.sequenceState.nextDueAt).toLocaleString() : '—' %></span>
+                <span class="text-xs text-brand-muted"><%= (l.sequenceState && l.sequenceState.templateId) || '—' %> · next <%= (l.sequenceState && l.sequenceState.nextDueAt) ? wsDateTime(l.sequenceState.nextDueAt) : '—' %></span>
               </button>
             </li>
           <% }) %>
@@ -91,7 +91,7 @@
           <li>
             <button type="button" class="cadence-lead-open group w-full flex flex-wrap justify-between gap-2 p-4 rounded-2xl bg-brand-cream/40 dark:bg-white/5 border border-brand-border/50 text-left cursor-pointer transition-colors hover:border-brand-yellow/50 hover:bg-brand-yellow/10 dark:hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow" data-lead-key="<%= String(l.key || '').replace(/"/g, '&quot;') %>" title="Open lead details">
               <span class="font-bold text-brand-dark dark:text-white group-hover:text-brand-dark dark:group-hover:text-brand-yellow"><%= l.title %></span>
-              <span class="text-xs text-brand-muted">Runs in GHL · enrolled <%= l.enrolledAt ? new Date(l.enrolledAt).toLocaleDateString() : '—' %></span>
+              <span class="text-xs text-brand-muted">Runs in GHL · enrolled <%= l.enrolledAt ? wsDate(l.enrolledAt) : '—' %></span>
             </button>
           </li>
           <% }) %>

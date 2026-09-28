@@ -427,7 +427,7 @@
                 <% if (item.overdue) { %><span class="text-[9px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">Overdue</span><% } %>
               </div>
               <p class="text-sm font-bold text-brand-dark dark:text-white"><%= item.title %></p>
-              <p class="text-[11px] text-brand-muted mt-0.5"><%= item.scheduledAt ? new Date(item.scheduledAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '' %></p>
+              <p class="text-[11px] text-brand-muted mt-0.5"><%= item.scheduledAt ? wsDateTime(item.scheduledAt, { dateStyle: 'medium', timeStyle: 'short' }) : '' %></p>
             </div>
             <div class="flex flex-col sm:items-end gap-1 shrink-0">
               <% if (item.leadTitle) { %>
@@ -468,7 +468,7 @@
               <span class="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-emerald-500/40 text-emerald-800 dark:text-emerald-200"><%= row.signalLabel || 'Engaged' %></span>
             </div>
             <p class="text-sm font-bold text-brand-dark dark:text-white"><%= row.leadTitle %></p>
-            <p class="text-[11px] text-brand-muted mt-0.5"><%= row.signalAt ? new Date(row.signalAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '' %></p>
+            <p class="text-[11px] text-brand-muted mt-0.5"><%= row.signalAt ? wsDateTime(row.signalAt, { dateStyle: 'medium', timeStyle: 'short' }) : '' %></p>
           </div>
           <a href="<%= row.href %>" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline shrink-0">Call in Focus</a>
         </li>
@@ -492,7 +492,7 @@
           <li class="py-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
             <div class="min-w-0 flex-1">
               <p class="text-sm font-bold text-brand-dark dark:text-white"><%= t.title %></p>
-              <p class="text-[11px] text-amber-800 dark:text-amber-200/90 mt-0.5"><%= t.scheduledAt ? new Date(t.scheduledAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '' %></p>
+              <p class="text-[11px] text-amber-800 dark:text-amber-200/90 mt-0.5"><%= t.scheduledAt ? wsDateTime(t.scheduledAt, { dateStyle: 'medium', timeStyle: 'short' }) : '' %></p>
             </div>
             <% if (t.leadKey) { %>
               <a href="/pipeline?focusLead=<%= encodeURIComponent(t.leadKey) %>" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline shrink-0"><%= t.leadTitle || 'Open lead' %></a>
@@ -520,7 +520,7 @@
         <% _reportsOpened.forEach(function (row) { %>
         <li class="py-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
           <a href="/focus?lead=<%= encodeURIComponent(row.focusLeadParam) %>" class="text-sm font-bold text-brand-dark dark:text-white hover:text-brand-yellow truncate min-w-0"><%= row.leadTitle %></a>
-          <span class="text-[11px] text-brand-muted whitespace-nowrap sm:ml-auto tabular-nums"><%= row.lastViewedAt ? new Date(row.lastViewedAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) : '' %><% if (row.durationSeconds) { %> · <%= row.durationSeconds %>s<% } %></span>
+          <span class="text-[11px] text-brand-muted whitespace-nowrap sm:ml-auto tabular-nums"><%= row.lastViewedAt ? wsDateTime(row.lastViewedAt, { dateStyle: 'short', timeStyle: 'short' }) : '' %><% if (row.durationSeconds) { %> · <%= row.durationSeconds %>s<% } %></span>
         </li>
         <% }); %>
       </ul>

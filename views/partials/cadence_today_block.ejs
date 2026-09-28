@@ -58,7 +58,7 @@
             <p class="text-[10px] font-bold text-brand-dark dark:text-slate-200 mt-1 leading-snug"><%= it.stepTitle %></p>
             <p class="text-[9px] text-brand-muted mt-1 leading-relaxed line-clamp-4"><%= it.stepHint %></p>
             <p class="text-[9px] mt-1 <%= it.overdue ? 'text-amber-700 dark:text-amber-300 font-bold' : 'text-brand-muted' %>">
-              <%= it.overdue ? 'Overdue · ' : '' %>Due <%= it.nextDueAt ? new Date(it.nextDueAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) : '' %>
+              <%= it.overdue ? 'Overdue · ' : '' %>Due <%= it.nextDueAt ? wsDateTime(it.nextDueAt, { dateStyle: 'short', timeStyle: 'short' }) : '' %>
             </p>
             <% if (it.phone && (it.channel === 'sms' || it.channel === 'text') && it.stepHint) { %>
             <button

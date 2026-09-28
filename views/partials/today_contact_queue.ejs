@@ -56,7 +56,7 @@
                 <span class="text-[9px] font-bold uppercase tracking-wider text-brand-muted"><%= row.prospectConfidence %> confidence</span>
                 <% } %>
                 <% if (row.cadence && row.cadence.dueAt && !(row.cadence && row.cadence.overdue)) { %>
-                <span class="text-[10px] text-brand-muted">Next step · <%= new Date(row.cadence.dueAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) %></span>
+                <span class="text-[10px] text-brand-muted">Next step · <%= wsDateTime(row.cadence.dueAt, { dateStyle: 'short', timeStyle: 'short' }) %></span>
                 <% } %>
               </div>
               <% if (row.prospectWhy) { %>

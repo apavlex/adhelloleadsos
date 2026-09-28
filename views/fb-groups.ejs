@@ -209,10 +209,10 @@
           const _title = String(g.title || '').replace(/^\(\d+\)\s*/, '').replace(/\s*[|·•]\s*Groups\s*[|·•]\s*Facebook\s*$/i, '').replace(/\s*[|·•]\s*Facebook\s*$/i, '').trim() || g.title;
           const _members = g.memberCountLabel || (g.memberCount != null ? Number(g.memberCount).toLocaleString() + ' members' : '');
           const _privacy = g.privacy === 'public' ? 'Public' : g.privacy === 'private' ? 'Private' : '';
-          const _added = g.createdAt ? new Date(g.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+          const _added = g.createdAt ? wsDate(g.createdAt, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
           const _visitedTs = g.lastVisited ? Date.parse(g.lastVisited) : NaN;
           const _visited = Number.isFinite(_visitedTs)
-            ? new Date(_visitedTs).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+            ? wsDate(_visitedTs, { month: 'short', day: 'numeric', year: 'numeric' })
             : String(g.lastVisited || '').trim();
           const _lastPosted = String(g.lastPosted || '').trim();
           const _admin = String(g.adminContact || '').trim();

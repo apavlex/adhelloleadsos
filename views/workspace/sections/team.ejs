@@ -8,20 +8,11 @@
 <% const _wsId = workspace && workspace.id ? String(workspace.id) : ''; %>
 <% const _wsName = workspace && workspace.name ? String(workspace.name) : ''; %>
 <%
-  const _wsTz = (function () {
-    const raw = workspace && workspace.timezone ? String(workspace.timezone).trim() : '';
-    try { if (raw) { new Intl.DateTimeFormat('en-US', { timeZone: raw }); return raw; } } catch (e) {}
-    return 'America/Los_Angeles';
-  })();
   function _wsDateTime(iso) {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return '—';
-    return d.toLocaleString('en-US', { timeZone: _wsTz, month: 'numeric', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+    return wsDateTime(iso, { month: 'numeric', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }) || '—';
   }
   function _wsDate(iso) {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return '—';
-    return d.toLocaleDateString('en-US', { timeZone: _wsTz, year: 'numeric', month: 'short', day: 'numeric' });
+    return wsDate(iso, { year: 'numeric', month: 'short', day: 'numeric' }) || '—';
   }
 %>
 <% const _wsMetaDesc = typeof workspaceSectionDescription !== 'undefined' ? String(workspaceSectionDescription) : 'Who belongs to this workspace and what they can do.'; %>

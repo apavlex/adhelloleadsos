@@ -39,7 +39,7 @@
 
   <div id="acqBlueprintResults" class="<%= _hasDraft ? '' : 'hidden' %> space-y-5">
     <% if (_bp.generatedAt) { %>
-    <p class="text-[11px] text-brand-muted" id="acqBlueprintMeta">Generated <%= new Date(_bp.generatedAt).toLocaleString() %><% if (_bp.appliedAt) { %> · Applied <%= new Date(_bp.appliedAt).toLocaleString() %><% } %><% if (_bp.provider) { %> · <%= _bp.provider %><% } %></p>
+    <p class="text-[11px] text-brand-muted" id="acqBlueprintMeta">Generated <%= wsDateTime(_bp.generatedAt) %><% if (_bp.appliedAt) { %> · Applied <%= wsDateTime(_bp.appliedAt) %><% } %><% if (_bp.provider) { %> · <%= _bp.provider %><% } %></p>
     <% } else { %>
     <p class="text-[11px] text-brand-muted hidden" id="acqBlueprintMeta"></p>
     <% } %>

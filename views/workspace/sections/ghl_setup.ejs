@@ -83,7 +83,7 @@
     </div>
     <p id="autoPoolStatus" class="mt-3 text-xs text-brand-muted hidden" role="status"></p>
     <% if (_autoPool.lastRunAt) { %>
-    <p class="mt-2 text-[11px] text-brand-muted">Last run: <%= new Date(_autoPool.lastRunAt).toLocaleString() %> · enrolled <%= _autoPool.lastEnrolled != null ? _autoPool.lastEnrolled : 0 %><% if (_autoPool.lastIcpRejected) { %> · ICP rejected <%= _autoPool.lastIcpRejected %><% } %></p>
+    <p class="mt-2 text-[11px] text-brand-muted">Last run: <%= wsDateTime(_autoPool.lastRunAt) %> · enrolled <%= _autoPool.lastEnrolled != null ? _autoPool.lastEnrolled : 0 %><% if (_autoPool.lastIcpRejected) { %> · ICP rejected <%= _autoPool.lastIcpRejected %><% } %></p>
     <% } %>
   </div>
 

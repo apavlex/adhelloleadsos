@@ -101,7 +101,7 @@
                       </div>
                       <div>
                         <div class="font-bold text-brand-dark group-hover:text-black transition-colors text-base"><%= lead.title %></div>
-                        <div class="text-[10px] font-bold text-brand-muted uppercase tracking-wider mt-0.5"><%= new Date(lead.createdAt).toLocaleDateString() %></div>
+                        <div class="text-[10px] font-bold text-brand-muted uppercase tracking-wider mt-0.5"><%= wsDate(lead.createdAt) %></div>
                       </div>
                     </div>
                   </td>
