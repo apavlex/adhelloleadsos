@@ -1411,6 +1411,42 @@ document.addEventListener('DOMContentLoaded', () => {
         case 'status':
           c = cmpStr((a.status || '').trim(), (b.status || '').trim());
           break;
+        case 'findcontact': {
+          const score = (row) => {
+            const cell = window.AdhelloContactFinderCell;
+            if (!cell) return 0;
+            const m = cell.buildModel(row.dataset);
+            return m.people.length * 100 + m.otherEmails.length * 10 + (m.finder ? 1 : 0);
+          };
+          c = score(ra) - score(rb);
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        }
+        case 'zip':
+          c = cmpStr((a.zip || '').trim(), (b.zip || '').trim());
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        case 'dealvalue':
+        case 'aiaudit': {
+          const field = columnKey === 'dealvalue' ? 'estimatedValue' : 'aiScore';
+          const va = parseFloat(a[field]);
+          const vb = parseFloat(b[field]);
+          c = (Number.isFinite(va) ? va : -1) - (Number.isFinite(vb) ? vb : -1);
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        }
+        case 'linetype':
+          c = cmpStr((a.phoneLineType || '').trim(), (b.phoneLineType || '').trim());
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        case 'webplatform':
+          c = cmpStr((a.cmsPlatform || '').trim(), (b.cmsPlatform || '').trim());
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        case 'lastenriched':
+          c = (parseInt(a.lastEnrichedMs, 10) || 0) - (parseInt(b.lastEnrichedMs, 10) || 0);
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
         case 'actions':
           c = getUnifiedClientScore(a) - getUnifiedClientScore(b);
           if (c === 0) c = cmpStr(a.title || '', b.title || '');
@@ -1734,24 +1770,32 @@ document.addEventListener('DOMContentLoaded', () => {
         { id: 'city', label: 'City', defaultHidden: true },
         { id: 'state', label: 'State', defaultHidden: true },
         { id: 'listingSource', label: 'Source', defaultHidden: true },
+        { id: 'findContact', label: 'Find a contact' },
+        { id: 'category', label: 'Category' },
+        { id: 'reviews', label: 'Reviews' },
+        { id: 'phone', label: 'Contacts — phone' },
+        { id: 'email', label: 'Contacts — email' },
+        { id: 'domain', label: 'Contacts — website' },
+        { id: 'opportunity', label: 'Opportunity score' },
         { id: 'lastTouch', label: 'Last touch' },
         { id: 'engagementSignal', label: 'Signal' },
         { id: 'cadence', label: 'Cadence' },
-        { id: 'category', label: 'Category' },
-        { id: 'reviews', label: 'Reviews' },
         { id: 'reviewSnippet', label: 'Review snippet' },
         { id: 'sponsored', label: 'Sponsored' },
         { id: 'website', label: 'Website (Yes / No)', defaultHidden: true },
         { id: 'claimStatus', label: 'Claim status', defaultHidden: true },
         { id: 'optimizationScore', label: 'GBP optimization score', defaultHidden: true },
-        { id: 'phone', label: 'Phone' },
-        { id: 'email', label: 'Email' },
-        { id: 'domain', label: 'Domain' },
         { id: 'socials', label: 'Socials' },
         { id: 'added', label: 'Added' },
         { id: 'pipeline', label: 'Pipeline' },
-        { id: 'opportunity', label: 'Opportunity' },
         { id: 'methods', label: 'Methods (Call / Email)' },
+        { id: 'zip', label: 'ZIP', defaultHidden: true },
+        { id: 'outreachStatus', label: 'Outreach status', defaultHidden: true },
+        { id: 'dealValue', label: 'Deal value', defaultHidden: true },
+        { id: 'phoneLineType', label: 'Phone line type', defaultHidden: true },
+        { id: 'webPlatform', label: 'Website platform', defaultHidden: true },
+        { id: 'aiAudit', label: 'AI audit score', defaultHidden: true },
+        { id: 'lastEnriched', label: 'Last enriched', defaultHidden: true },
         { id: 'actions', label: 'Actions' },
       ];
       const REAL_ESTATE_IMPORT_COLUMNS = [
@@ -1781,6 +1825,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'state',
       ];
       const PLC_MIN_WIDTH = {
+        findContact: 176,
         socials: 120,
         contactGroup: 168,
         phone: 88,

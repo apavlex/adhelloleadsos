@@ -193,6 +193,7 @@ app.use((req, res, next) => {
 });
 
 app.locals.renderSocialBrandLinks = (links) => socialBrandIcons.renderLinks(links);
+app.locals.renderFindContactCell = require('./public/js/contact-finder-cell').renderCell;
 
 const { ghlCrmBaseUrl, ghlWebsitesBuilderUrl } = require('./services/websiteBuildLinks');
 const { getQuickLogClientPayload, resolveActiveQuickLogFromLead } = require('./services/quickLogConfig');

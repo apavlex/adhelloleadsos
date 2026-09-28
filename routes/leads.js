@@ -22,6 +22,7 @@ const mapsEnrichFallback = require('../services/mapsEnrichFallback');
 const reviewHunt = require('../services/reviewHunt');
 const outscraperGmbEnrich = require('../services/outscraperGmbEnrich');
 const outscraperLeadEnrich = require('../services/outscraperLeadEnrich');
+const contactFinder = require('../services/contactFinder');
 const leadPanelEnrich = require('../services/leadPanelEnrich');
 const rapidapiWebsiteEnrich = require('../services/rapidapiWebsiteEnrich');
 const localPageExtract = require('../services/localPageExtract');
@@ -4947,6 +4948,15 @@ async function runLeadEnhancement(lead, workspaceId) {
           await autosaveEnhancement(contactsPack.patch, 'Outscraper contacts');
           Object.assign(workingLead, contactsPack.patch);
         }
+        const peoplePatch = contactFinder.contactsPatchFromOutscraperRow(
+          workingLead,
+          contactsPack.row,
+          ghlClient.isValidEmailForGhl,
+        );
+        if (peoplePatch.contacts) {
+          await autosaveEnhancement(peoplePatch, 'Outscraper decision makers');
+          workingLead.contacts = peoplePatch.contacts;
+        }
         console.log(
           `[ENHANCE] Outscraper contacts for ${workingLead.title}: ${Object.keys(contactsPack.patch || {}).join(', ') || 'extract only'}`,
         );
@@ -5516,6 +5526,56 @@ router.post('/:key/enrich-rapidapi-website', async (req, res, next) => {
       success: false,
       error: err.message || 'RapidAPI website enrich failed.',
     });
+  }
+});
+
+// POST /leads/:key/find-contacts — "Find a contact" column: decision makers, emails, socials (sync)
+router.post('/:key/find-contacts', async (req, res) => {
+  try {
+    const key = req.params.key;
+    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found.' });
+    if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
+
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
+    let result;
+    try {
+      result = await contactFinder.findContactsForLead(lead, integrationEnv);
+    } catch (e) {
+      if (e.code === 'no_website' || e.code === 'not_configured') {
+        return res.status(422).json({ success: false, code: e.code, error: e.message });
+      }
+      throw e;
+    }
+
+    const { patch, filled } = contactFinder.buildLeadPatchFromFinder(lead, result, ghlClient.isValidEmailForGhl);
+    const updated = (await dbService.updateLead(fullKey, patch, req.workspaceId)) || { ...lead, ...patch };
+    const f = patch.contactFinder;
+    const parts = [];
+    if (f.people) parts.push(`${f.people} ${f.people === 1 ? 'person' : 'people'}`);
+    if (f.emails) parts.push(`${f.emails} email${f.emails === 1 ? '' : 's'}`);
+    if (f.phones) parts.push(`${f.phones} phone${f.phones === 1 ? '' : 's'}`);
+    if (f.socials.length) parts.push(`${f.socials.length} social${f.socials.length === 1 ? '' : 's'}`);
+    return res.json({
+      success: f.status !== 'error',
+      lead: updated,
+      filled,
+      sources: result.sources,
+      found: { people: result.people, emails: result.emails, phones: result.phones, socials: result.socials },
+      error: f.status === 'error' ? f.error || 'Contact search failed.' : undefined,
+      message:
+        f.status === 'found'
+          ? `Found ${parts.join(', ')} via ${result.sources.join(' + ')}.`
+          : f.status === 'none'
+            ? `No contacts found for ${result.domain}.`
+            : f.error || 'Contact search failed.',
+    });
+  } catch (err) {
+    console.error('[find-contacts]', err.message);
+    return res.status(502).json({ success: false, error: err.message || 'Contact search failed.' });
   }
 });
 

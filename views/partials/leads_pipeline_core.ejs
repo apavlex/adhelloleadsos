@@ -55,6 +55,10 @@
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.091 3.091L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
           <span>Enrich leads</span>
         </button>
+        <button type="button" class="js-find-contacts-bulk inline-flex items-center gap-2 rounded-full border border-brand-border/50 dark:border-white/15 bg-white/70 dark:bg-slate-900/40 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 hover:bg-brand-yellow/10 transition-colors" title="Find decision makers, emails &amp; socials for selected leads (or visible leads not searched yet)">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.1a7.5 7.5 0 0115 0A17.9 17.9 0 0112 21.75c-2.68 0-5.22-.58-7.5-1.65z"/></svg>
+          <span class="js-find-contacts-bulk-label">Find contacts</span>
+        </button>
         <% } %>
       </div>
       <div class="inline-flex rounded-full border border-brand-border/40 dark:border-white/10 p-0.5 bg-brand-cream/30 dark:bg-slate-800/80" role="group" aria-label="Table row density">
@@ -170,6 +174,39 @@
               <button type="button" class="prospect-sort-btn" data-prospect-sort="listingsource" title="Sort by listing source">Source <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
               <span class="plc-col-resize" data-plc-resize="listingSource" title="Resize column" aria-hidden="true"></span>
             </th>
+            <th data-plc="findContact" class="plc-th-wrap px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap lead-col-find-contact min-w-[12rem]" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="findcontact" title="Sort by contacts found">Find a contact <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+              <span class="plc-col-resize" data-plc-resize="findContact" title="Resize column" aria-hidden="true"></span>
+            </th>
+            <th data-plc="category" class="plc-th-wrap relative px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle min-w-[6.5rem] max-w-[9rem]" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="category" title="Sort by category">Category <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+              <span class="plc-col-resize" data-plc-resize="category" title="Resize column" aria-hidden="true"></span>
+            </th>
+            <th data-plc="reviews" class="plc-th-wrap px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="reviews" title="Sort by number of reviews">Reviews <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+              <span class="plc-col-resize" data-plc-resize="reviews" title="Resize column" aria-hidden="true"></span>
+            </th>
+            <th data-plc="contactGroup" class="plc-th-wrap lead-col-contact-comfortable px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle min-w-[12rem]" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="contact" title="Sort by contact fields filled (phone, email, website)">Contacts <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+              <span class="plc-col-resize" data-plc-resize="contactGroup" title="Resize column" aria-hidden="true"></span>
+            </th>
+            <th data-plc="phone" class="plc-th-wrap lead-col-contact-split px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap max-w-[10rem]" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="phone" title="Sort by phone number">Phone <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+              <span class="plc-col-resize" data-plc-resize="phone" title="Resize column" aria-hidden="true"></span>
+            </th>
+            <th data-plc="email" class="plc-th-wrap lead-col-contact-split px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle min-w-[8rem] max-w-[12rem]" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="email" title="Sort by email">Email <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+              <span class="plc-col-resize" data-plc-resize="email" title="Resize column" aria-hidden="true"></span>
+            </th>
+            <th data-plc="domain" class="plc-th-wrap lead-col-contact-split px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle min-w-[8rem] max-w-[14rem]" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="domain" title="Sort by website domain">Domain <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+              <span class="plc-col-resize" data-plc-resize="domain" title="Resize column" aria-hidden="true"></span>
+            </th>
+            <th data-plc="opportunity" class="plc-th-wrap lead-col-opportunity lead-col-tail-tight px-1.5 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle min-w-[9rem] max-w-[18rem]" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="actions" title="Sort by opportunity score and AI audit gap">Opportunity score <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+              <span class="sr-only"> and primary signal</span>
+              <span class="plc-col-resize" data-plc-resize="opportunity" title="Resize column" aria-hidden="true"></span>
+            </th>
             <th data-plc="lastTouch" class="plc-th-wrap lead-col-last-touch lead-col-tail-tight px-1.5 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap" scope="col">
               <button type="button" class="prospect-sort-btn" data-prospect-sort="lasttouch" title="Sort by last activity date">Last touch <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
               <span class="plc-col-resize" data-plc-resize="lastTouch" title="Resize column" aria-hidden="true"></span>
@@ -181,14 +218,6 @@
             <th data-plc="cadence" class="plc-th-wrap lead-col-cadence lead-col-tail-tight px-1.5 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle min-w-[7.5rem] max-w-[9rem]" scope="col">
               <button type="button" class="prospect-sort-btn" data-prospect-sort="cadence" title="Sort by last outreach channel">Cadence <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
               <span class="plc-col-resize" data-plc-resize="cadence" title="Resize column" aria-hidden="true"></span>
-            </th>
-            <th data-plc="category" class="plc-th-wrap relative px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle min-w-[6.5rem] max-w-[9rem]" scope="col">
-              <button type="button" class="prospect-sort-btn" data-prospect-sort="category" title="Sort by category">Category <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
-              <span class="plc-col-resize" data-plc-resize="category" title="Resize column" aria-hidden="true"></span>
-            </th>
-            <th data-plc="reviews" class="plc-th-wrap px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap" scope="col">
-              <button type="button" class="prospect-sort-btn" data-prospect-sort="reviews" title="Sort by number of reviews">Reviews <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
-              <span class="plc-col-resize" data-plc-resize="reviews" title="Resize column" aria-hidden="true"></span>
             </th>
             <th data-plc="reviewSnippet" class="plc-th-wrap px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle min-w-[8rem] max-w-[14rem]" scope="col">
               Review snippet
@@ -210,22 +239,6 @@
               <button type="button" class="prospect-sort-btn" data-prospect-sort="gbpscore" title="Sort by GBP optimization score">GBP score <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
               <span class="plc-col-resize" data-plc-resize="optimizationScore" title="Resize column" aria-hidden="true"></span>
             </th>
-            <th data-plc="contactGroup" class="plc-th-wrap lead-col-contact-comfortable px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle min-w-[12rem]" scope="col">
-              <button type="button" class="prospect-sort-btn" data-prospect-sort="contact" title="Sort by contact fields filled (phone, email, website)">Contact <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
-              <span class="plc-col-resize" data-plc-resize="contactGroup" title="Resize column" aria-hidden="true"></span>
-            </th>
-            <th data-plc="phone" class="plc-th-wrap lead-col-contact-split px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap max-w-[10rem]" scope="col">
-              <button type="button" class="prospect-sort-btn" data-prospect-sort="phone" title="Sort by phone number">Phone <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
-              <span class="plc-col-resize" data-plc-resize="phone" title="Resize column" aria-hidden="true"></span>
-            </th>
-            <th data-plc="email" class="plc-th-wrap lead-col-contact-split px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle min-w-[8rem] max-w-[12rem]" scope="col">
-              <button type="button" class="prospect-sort-btn" data-prospect-sort="email" title="Sort by email">Email <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
-              <span class="plc-col-resize" data-plc-resize="email" title="Resize column" aria-hidden="true"></span>
-            </th>
-            <th data-plc="domain" class="plc-th-wrap lead-col-contact-split px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle min-w-[8rem] max-w-[14rem]" scope="col">
-              <button type="button" class="prospect-sort-btn" data-prospect-sort="domain" title="Sort by website domain">Domain <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
-              <span class="plc-col-resize" data-plc-resize="domain" title="Resize column" aria-hidden="true"></span>
-            </th>
             <th data-plc="socials" class="plc-th-wrap px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap" scope="col">
               <button type="button" class="prospect-sort-btn" data-prospect-sort="socials" title="Sort by social profiles linked">Socials <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
               <span class="plc-col-resize" data-plc-resize="socials" title="Resize column" aria-hidden="true"></span>
@@ -238,14 +251,37 @@
               <button type="button" class="prospect-sort-btn" data-prospect-sort="pipeline" title="Sort by pipeline stage">Pipeline <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
               <span class="plc-col-resize" data-plc-resize="pipeline" title="Resize column" aria-hidden="true"></span>
             </th>
-            <th data-plc="opportunity" class="plc-th-wrap lead-col-opportunity lead-col-tail-tight px-1.5 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle min-w-[9rem] max-w-[18rem]" scope="col">
-              <button type="button" class="prospect-sort-btn" data-prospect-sort="actions" title="Sort by opportunity score and AI audit gap">Opportunity <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
-              <span class="sr-only"> and primary signal</span>
-              <span class="plc-col-resize" data-plc-resize="opportunity" title="Resize column" aria-hidden="true"></span>
-            </th>
             <th data-plc="methods" class="plc-th-wrap px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap min-w-[7rem]" scope="col">
               <button type="button" class="prospect-sort-btn" data-prospect-sort="phone" title="Sort by callable phone">Methods <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
               <span class="plc-col-resize" data-plc-resize="methods" title="Resize column" aria-hidden="true"></span>
+            </th>
+            <th data-plc="zip" class="plc-th-wrap px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="zip" title="Sort by ZIP code">ZIP <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+              <span class="plc-col-resize" data-plc-resize="zip" title="Resize column" aria-hidden="true"></span>
+            </th>
+            <th data-plc="outreachStatus" class="plc-th-wrap px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="status" title="Sort by outreach status">Status <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+              <span class="plc-col-resize" data-plc-resize="outreachStatus" title="Resize column" aria-hidden="true"></span>
+            </th>
+            <th data-plc="dealValue" class="plc-th-wrap px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="dealvalue" title="Sort by estimated deal value">Deal value <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+              <span class="plc-col-resize" data-plc-resize="dealValue" title="Resize column" aria-hidden="true"></span>
+            </th>
+            <th data-plc="phoneLineType" class="plc-th-wrap px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="linetype" title="Sort by phone line type (cell / landline / VoIP)">Line type <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+              <span class="plc-col-resize" data-plc-resize="phoneLineType" title="Resize column" aria-hidden="true"></span>
+            </th>
+            <th data-plc="webPlatform" class="plc-th-wrap px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="webplatform" title="Sort by website platform / CMS">Web platform <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+              <span class="plc-col-resize" data-plc-resize="webPlatform" title="Resize column" aria-hidden="true"></span>
+            </th>
+            <th data-plc="aiAudit" class="plc-th-wrap px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="aiaudit" title="Sort by AI website audit score">AI audit <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+              <span class="plc-col-resize" data-plc-resize="aiAudit" title="Resize column" aria-hidden="true"></span>
+            </th>
+            <th data-plc="lastEnriched" class="plc-th-wrap px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="lastenriched" title="Sort by last contact search / enrichment">Last enriched <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+              <span class="plc-col-resize" data-plc-resize="lastEnriched" title="Resize column" aria-hidden="true"></span>
             </th>
             <th data-plc="actions" class="plc-th-wrap lead-col-actions lead-col-tail-tight px-1.5 py-3.5 pr-4 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 text-right align-middle w-[1%]" scope="col">
               <span class="sr-only">Row actions</span>
