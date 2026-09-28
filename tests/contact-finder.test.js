@@ -161,6 +161,40 @@ test('column registries list Find a contact first and match the table header ord
   assert.deepEqual(primeIds, thIds.filter((id) => id !== 'check' && id !== 'contactGroup'));
 });
 
+test('server-rendered rows keep saved contacts readable after a page reload', async () => {
+  const ejs = require('ejs');
+  const { viewDateFormatters } = require('../services/workspaceTimezone');
+  const contacts = [
+    { role: 'Email', name: '', phone: '', email: 'darrellpetty62@gmail.com', primary: false },
+    { role: 'Email', name: '', phone: '', email: 'micah@micahrich.com', primary: false },
+  ];
+  const html = await ejs.renderFile(
+    path.join(ROOT, 'views/partials/leads_pipeline_core.ejs'),
+    {
+      leads: [{ key: 'lead:ac', workspaceId: 'w', title: 'AC & "Sons" Electric', website: 'https://acelectric.com', email: 'eben@eyebytes.com', phone: 'N/A', contacts, contactFinder: { status: 'found', emails: 3 } }],
+      pipelineStages: [],
+      canManageWorkspace: true,
+      ...viewDateFormatters(null),
+      renderFindContactCell: cell.renderCell,
+    },
+    { root: path.join(ROOT, 'views') },
+  );
+  const dom = new JSDOM(`<body>${html}</body>`, { url: 'https://leads.example/prospecting', runScripts: 'outside-only' });
+  const w = dom.window;
+  w.eval(fs.readFileSync(path.join(ROOT, 'public/js/contact-finder-cell.js'), 'utf8'));
+  w.eval(fs.readFileSync(path.join(ROOT, 'public/js/contact-finder.js'), 'utf8'));
+  const row = w.document.querySelector('tr.result-row');
+  assert.equal(row.dataset.title, 'AC & "Sons" Electric');
+  assert.deepEqual(JSON.parse(row.dataset.contacts).map((c) => c.email), ['darrellpetty62@gmail.com', 'micah@micahrich.com']);
+  assert.equal(JSON.parse(row.dataset.contactFinder).status, 'found');
+
+  row.querySelector('td[data-plc="findContact"] .js-find-contact-open').click();
+  const pop = w.document.querySelector('.lead-find-contact-popover');
+  assert.match(pop.textContent, /Company emails \(3\)/);
+  assert.match(pop.textContent, /micah@micahrich\.com/);
+  assert.ok(pop.classList.contains('portaled-popover-surface'), 'popover gets the solid portaled surface');
+});
+
 test('clicking Find a contact searches, fills the row and lists everyone in the popover', async () => {
   const ejs = require('ejs');
   const { viewDateFormatters } = require('../services/workspaceTimezone');

@@ -31,11 +31,9 @@
       }
       return '';
     }
+    /* Callers print these with EJS escaped output, which already HTML-escapes — escaping here too corrupts attribute values. */
     function plcEscAttr(v) {
-      return String(v == null ? '' : v)
-        .replace(/&/g, '&amp;')
-        .replace(/"/g, '&quot;')
-        .replace(/</g, '&lt;');
+      return String(v == null ? '' : v);
     }
     function plcCategoryInputValue(v) {
       if (v == null || v === 'N/A') return '';
@@ -60,10 +58,7 @@
       return false;
     }
     function plcEscJson(obj) {
-      return JSON.stringify(obj === undefined ? null : obj)
-        .replace(/&/g, '&amp;')
-        .replace(/"/g, '&quot;')
-        .replace(/</g, '&lt;');
+      return JSON.stringify(obj === undefined ? null : obj);
     }
     var _plcWorkspaceTags = typeof tags !== 'undefined' && tags ? tags : [];
     var _plcTagByKey = {};

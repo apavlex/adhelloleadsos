@@ -216,7 +216,8 @@
 
     popover = document.createElement('div');
     popover.className =
-      'lead-find-contact-popover fixed z-[80] w-80 max-h-[26rem] overflow-y-auto rounded-2xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 shadow-2xl p-3';
+      'lead-find-contact-popover portaled-popover-surface fixed w-80 max-h-[26rem] overflow-y-auto rounded-2xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 shadow-2xl p-3';
+    popover.style.setProperty('z-index', '10060', 'important');
     popover.dataset.leadKey = row.dataset.leadKey || '';
     popover.setAttribute('role', 'dialog');
     popover.setAttribute('aria-label', `Contacts at ${title}`);
@@ -232,6 +233,7 @@
       '<button type="button" class="js-find-contact-again shrink-0 rounded-full border border-brand-border/50 dark:border-white/15 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 hover:bg-brand-yellow/10">Search again</button>' +
       '</div>';
     document.body.appendChild(popover);
+    if (typeof window.applyPortaledPopoverSurface === 'function') window.applyPortaledPopoverSurface(popover);
 
     const rect = anchor.getBoundingClientRect();
     const w = popover.offsetWidth;
