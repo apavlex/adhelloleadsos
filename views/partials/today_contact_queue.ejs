@@ -70,6 +70,7 @@
               <p class="text-[10px] text-brand-muted mt-2 font-mono tabular-nums">
                 <% if (row.phone) { %><span class="mr-3"><%= row.phone %></span><% } %>
                 <% if (row.email) { %><span class="break-all"><%= row.email %></span><% } %>
+                <% if (row.otherEmails && row.otherEmails.length) { %><span class="ml-1 font-sans font-black text-brand-dark dark:text-slate-200" title="<%= row.otherEmails.join('\n') %>">+<%= row.otherEmails.length %> more</span><% } %>
               </p>
               <% } %>
             </div>

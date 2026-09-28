@@ -2923,6 +2923,17 @@ document.addEventListener('DOMContentLoaded', () => {
       ds.category = String(lead.categoryName).trim();
     }
     assignRowDatasetScoreIfBetter(ds, lead.totalScore, lead.reviewsCount);
+    if (Array.isArray(lead.contacts) && lead.contacts.length && parseRowContacts(row).length < lead.contacts.length) {
+      try {
+        ds.contacts = JSON.stringify(lead.contacts);
+      } catch (_) {
+        /* ignore */
+      }
+    }
+    if (lead.decisionMakerName && !String(ds.decisionMakerName || '').trim()) {
+      ds.decisionMakerName = String(lead.decisionMakerName).trim();
+      ds.decisionMakerTitle = String(lead.decisionMakerTitle || '').trim();
+    }
     const snippets = reviewSnippetsFromLeadObj(lead);
     if (snippets.length) {
       try {
@@ -8044,6 +8055,15 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       coalesceRowDatasetFromContacts(row);
     }
+    if (L.decisionMakerName != null) ds.decisionMakerName = String(L.decisionMakerName || '').trim();
+    if (L.decisionMakerTitle != null) ds.decisionMakerTitle = String(L.decisionMakerTitle || '').trim();
+    if ((L.contacts != null || L.decisionMakerName != null) && typeof window.__adhelloSyncRowContacts === 'function') {
+      try {
+        window.__adhelloSyncRowContacts(row);
+      } catch (_) {
+        /* ignore */
+      }
+    }
     if (L.logs != null) {
       try {
         const snippet = (L.logs || []).slice(-14);
@@ -10409,10 +10429,25 @@ document.addEventListener('DOMContentLoaded', () => {
     if (emailRow) emailRow.classList.toggle('hidden', !email && !others);
   }
 
-  /** Extra emails saved as contacts (e.g. every address found by the Chrome extension). */
+  /** Named contacts + extra emails (Chrome extension, Find a contact, Enrich) under the main email. */
   function syncHeaderOtherEmails(row, mainEmail) {
     const box = document.getElementById('headerOtherEmails');
     if (!box) return 0;
+    const listApi = window.AdhelloContactFinderCell;
+    if (listApi && typeof listApi.renderContactsList === 'function') {
+      const lead = {
+        email: mainEmail,
+        contacts: parseRowContacts(row),
+        decisionMakerName: row.dataset.decisionMakerName,
+        decisionMakerTitle: row.dataset.decisionMakerTitle,
+      };
+      const html = listApi.renderContactsList(lead);
+      box.innerHTML = html;
+      box.classList.toggle('hidden', !html);
+      if (!html) return 0;
+      const m = listApi.buildModel(lead);
+      return m.people.length + m.otherEmails.length;
+    }
     const main = String(mainEmail || '').trim().toLowerCase();
     const seen = new Set(main ? [main] : []);
     const extra = [];

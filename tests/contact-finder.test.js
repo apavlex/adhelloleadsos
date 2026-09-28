@@ -235,7 +235,7 @@ test('clicking Find a contact searches, fills the row and lists everyone in the 
   await flush();
   await flush();
   const update = calls.find((c) => c.url.endsWith('/update'));
-  assert.deepEqual(JSON.parse(update.body), { email: 'dana@kipshardwoodflooring.com' });
+  assert.deepEqual(JSON.parse(update.body), { email: 'dana@kipshardwoodflooring.com', keepPreviousEmail: true });
   assert.equal(row.dataset.email, 'dana@kipshardwoodflooring.com');
 
   d.body.click();

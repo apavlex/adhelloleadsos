@@ -23,6 +23,7 @@ const reviewHunt = require('../services/reviewHunt');
 const outscraperGmbEnrich = require('../services/outscraperGmbEnrich');
 const outscraperLeadEnrich = require('../services/outscraperLeadEnrich');
 const contactFinder = require('../services/contactFinder');
+const { addEmailContacts } = require('../services/leadEmailContacts');
 const leadPanelEnrich = require('../services/leadPanelEnrich');
 const rapidapiWebsiteEnrich = require('../services/rapidapiWebsiteEnrich');
 const localPageExtract = require('../services/localPageExtract');
@@ -1468,6 +1469,18 @@ router.post('/:key/update', async (req, res, next) => {
       String(existing.email || '').trim() !== String(updateData.email || '').trim();
     if (emailChanging && ghlClient.isValidEmailForGhl(updateData.email)) {
       updateData.emailValidationStatus = 'manual_fixed';
+    }
+    const keepPreviousEmail = updateData.keepPreviousEmail === true;
+    delete updateData.keepPreviousEmail;
+    if (emailChanging && keepPreviousEmail && ghlClient.isValidEmailForGhl(existing.email)) {
+      const baseContacts = Array.isArray(updateData.contacts) ? updateData.contacts : existing.contacts;
+      const { contacts, added } = addEmailContacts(
+        baseContacts,
+        updateData.email,
+        [existing.email],
+        ghlClient.isValidEmailForGhl,
+      );
+      if (added) updateData.contacts = contacts;
     }
 
     const previousEmailForRerun = existing ? existing.email : '';

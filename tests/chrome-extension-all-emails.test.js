@@ -118,3 +118,57 @@ test('saving the same business again appends newly found emails to its contacts'
   const lead = await dbService.getLead(first.key);
   assert.deepEqual(lead.contacts.map((c) => c.email), ['sales@markupandprofit.com', 'michael@markupandprofit.com']);
 });
+
+test('re-saving with a different main email keeps the new one as a contact instead of dropping it', async () => {
+  const dbService = require('../services/database');
+  const base = { title: 'Rocky Floors', website: 'https://rockyfloors.com', workspaceId: 'ws_emails_main' };
+  const first = await dbService.saveLeadWithMeta({ ...base, email: 'info@rockyfloors.com' });
+  await dbService.saveLeadWithMeta({ ...base, email: 'owner@rockyfloors.com' });
+  const lead = await dbService.getLead(first.key);
+  assert.equal(lead.email, 'info@rockyfloors.com');
+  assert.deepEqual(lead.contacts.map((c) => c.email), ['owner@rockyfloors.com']);
+});
+
+test('contacts list shows every person and extra email; allEmails puts the main one first', () => {
+  const api = require('../public/js/contact-finder-cell');
+  const lead = {
+    email: 'info@acme.com',
+    decisionMakerName: 'Kip Walker',
+    decisionMakerTitle: 'Owner',
+    contacts: [
+      { role: 'Office Manager', name: 'Dana Lee', email: 'dana@acme.com', phone: '555-0100', primary: false },
+      { role: 'Email', name: '', email: 'sales@acme.com', primary: false },
+      { role: 'Email', name: '', email: 'INFO@acme.com', primary: false },
+    ],
+  };
+  assert.deepEqual(api.allEmails(lead), ['info@acme.com', 'dana@acme.com', 'sales@acme.com']);
+  const html = api.renderContactsList(lead);
+  assert.match(html, /Contacts \(2\)/);
+  assert.match(html, /Kip Walker/);
+  assert.match(html, /Dana Lee/);
+  assert.match(html, /mailto:dana@acme\.com/);
+  assert.match(html, /tel:555-0100/);
+  assert.match(html, /Other emails \(1\)/);
+  assert.match(html, /mailto:sales@acme\.com/);
+  assert.doesNotMatch(html, /mailto:info@acme\.com/);
+  assert.equal(api.renderContactsList({ email: 'solo@acme.com', contacts: [] }), '');
+});
+
+test('Money mode payload carries contacts and decision maker for the full contacts list', () => {
+  const { leadToFocusPayload } = require('../routes/focus')._test;
+  const payload = leadToFocusPayload(
+    {
+      key: 'lead:abc',
+      title: 'Acme',
+      email: 'info@acme.com',
+      decisionMakerName: 'Kip Walker',
+      contacts: [{ role: 'Email', name: '', email: 'sales@acme.com', primary: false }, null],
+    },
+    [],
+    {},
+    [],
+    {},
+  );
+  assert.equal(payload.decisionMakerName, 'Kip Walker');
+  assert.deepEqual(payload.contacts.map((c) => c.email), ['sales@acme.com']);
+});

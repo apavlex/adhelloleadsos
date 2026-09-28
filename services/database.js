@@ -198,6 +198,20 @@ function mergePreferExisting(existing, incoming) {
 
   if (!existing) return out;
 
+  const incEmail = String(incoming?.email || '').trim();
+  if (
+    !isBlankValue(incEmail) &&
+    incEmail.includes('@') &&
+    !isBlankValue(existing.email) &&
+    incEmail.toLowerCase() !== String(existing.email).trim().toLowerCase()
+  ) {
+    const base = out.contacts || (Array.isArray(existing.contacts) ? existing.contacts : []);
+    const withEmail = mergeContactLists(base, [
+      { role: 'Email', name: '', phone: '', email: incEmail.toLowerCase(), primary: false },
+    ]);
+    if (withEmail.length !== base.length) out.contacts = withEmail;
+  }
+
   if (!isBlankValue(incoming?.status) && isBlankValue(existing.status)) out.status = incoming.status;
   if (incoming?.pipelineStage !== undefined && existing.pipelineStage == null) out.pipelineStage = incoming.pipelineStage;
 

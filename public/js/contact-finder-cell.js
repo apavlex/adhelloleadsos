@@ -1,5 +1,6 @@
 /**
- * "Find a contact" pipeline cell — shared by the EJS row template (server) and contact-finder.js (browser).
+ * "Find a contact" pipeline cell and the lead's full contacts list — shared by EJS templates (server),
+ * contact-finder.js, the Company Details panel and Money mode (browser).
  */
 (function (root, factory) {
   const api = factory();
@@ -178,5 +179,53 @@
     );
   }
 
-  return { buildModel, renderCell, initials, esc };
+  /** Every email on the lead (main first), lowercased and de-duplicated. */
+  function allEmails(lead) {
+    const m = buildModel(lead);
+    const out = [];
+    [m.mainEmail, ...m.people.map((p) => p.email.toLowerCase()), ...m.otherEmails].forEach((e) => {
+      if (e && !out.includes(e)) out.push(e);
+    });
+    return out;
+  }
+
+  const LIST_LINK = 'text-[12px] font-semibold text-brand-dark dark:text-slate-200 hover:text-brand-yellow truncate no-underline';
+  const LIST_LABEL = 'text-[9px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-500';
+
+  /**
+   * Named contacts + every extra email (not the main one), for the Company Details panel and Money mode.
+   * Returns '' when the lead has nothing beyond its main email.
+   */
+  function renderContactsList(lead) {
+    const m = buildModel(lead);
+    const mailto = (e) => `<a href="mailto:${esc(e)}" class="${LIST_LINK} block" title="${esc(e)}">${esc(e)}</a>`;
+    const peopleHtml = m.people
+      .map((p) => {
+        const bits = [];
+        if (p.email) bits.push(mailto(p.email));
+        if (p.phone) {
+          bits.push(`<a href="tel:${esc(p.phone)}" class="${LIST_LINK} block tabular-nums">${esc(p.phone)}</a>`);
+        }
+        if (p.linkedin) {
+          bits.push(`<a href="${esc(p.linkedin)}" target="_blank" rel="noopener noreferrer" class="text-[11px] font-semibold text-sky-700 dark:text-sky-300 hover:underline">LinkedIn</a>`);
+        }
+        return (
+          '<li class="lead-contacts-person flex gap-2 min-w-0">' +
+          `<span class="shrink-0 w-6 h-6 rounded-full bg-brand-yellow/25 border border-brand-yellow/40 flex items-center justify-center text-[9px] font-black text-brand-dark dark:text-brand-yellow">${esc(initials(p.name))}</span>` +
+          '<div class="min-w-0 flex-1">' +
+          `<p class="text-[12px] font-bold text-brand-dark dark:text-white truncate">${esc(p.name)}${p.title ? `<span class="font-semibold text-brand-muted dark:text-slate-400"> · ${esc(p.title)}</span>` : ''}</p>` +
+          bits.join('') +
+          '</div></li>'
+        );
+      })
+      .join('');
+    const emailsHtml = m.otherEmails.map((e) => `<li class="lead-contacts-email min-w-0">${mailto(e)}</li>`).join('');
+    if (!peopleHtml && !emailsHtml) return '';
+    return (
+      (peopleHtml ? `<p class="${LIST_LABEL}">Contacts (${m.people.length})</p><ul class="space-y-1.5 mb-1.5">${peopleHtml}</ul>` : '') +
+      (emailsHtml ? `<p class="${LIST_LABEL}">Other emails (${m.otherEmails.length})</p><ul class="space-y-0.5">${emailsHtml}</ul>` : '')
+    );
+  }
+
+  return { buildModel, renderCell, renderContactsList, allEmails, initials, esc };
 });

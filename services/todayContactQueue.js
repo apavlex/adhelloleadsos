@@ -8,6 +8,7 @@ const { buildFocusQueue, shortLeadKey } = require('./focusQueue');
 const { getTemplate } = require('./sequenceTemplates');
 const { expandCadenceText } = require('./cadenceTokens');
 const { scoreLeadRecord } = require('./opportunityScore');
+const { allEmails } = require('../public/js/contact-finder-cell');
 const {
   contactQueueSortBlurb,
   resolveRoiProfileFromOptions,
@@ -113,6 +114,7 @@ function buildTodayContactQueue(leads, baseUrl, max = 20, queueOpts = {}) {
       state: lead.state || '',
       phone: lead.phone && lead.phone !== 'N/A' ? lead.phone : '',
       email: lead.email && lead.email !== 'N/A' ? lead.email : '',
+      otherEmails: allEmails(lead).slice(lead.email && lead.email !== 'N/A' ? 1 : 0),
       opportunityTier: tier,
       opportunityScore: score,
       prospectTier: localProspect.prospectTier,

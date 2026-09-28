@@ -69,15 +69,14 @@
         if (placeholder) placeholder.replaceWith(a);
         else emailRow.appendChild(a);
       }
-      const chip = emailRow.querySelector('.lead-contact-more-emails');
-      if (chip) {
-        const extra = [...model.people.map((p) => p.email.toLowerCase()), ...model.otherEmails].filter(
-          (e, i, all) => e && e !== model.mainEmail && all.indexOf(e) === i,
-        );
+    }
+    if (model) {
+      const extra = cellApi().allEmails(row.dataset).filter((e) => e !== model.mainEmail);
+      row.querySelectorAll('.lead-contact-more-emails').forEach((chip) => {
         chip.textContent = `+${extra.length}`;
         chip.title = extra.join('\n');
         chip.classList.toggle('hidden', !extra.length);
-      }
+      });
     }
     const slot = row.querySelector('.lead-cell-socials-content');
     const sb = window.AdhelloSocialBrand;
@@ -253,18 +252,24 @@
         makeMain.textContent = 'Saving…';
         try {
           const email = makeMain.dataset.email;
+          const body = { email, keepPreviousEmail: true };
+          let saved = null;
           if (typeof window.__postLeadJsonUpdate === 'function') {
-            await window.__postLeadJsonUpdate(row, { email });
+            saved = await window.__postLeadJsonUpdate(row, body);
           } else {
             const res = await fetch(`/leads/${encodeURIComponent(row.dataset.leadKey)}/update`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
               credentials: 'same-origin',
-              body: JSON.stringify({ email }),
+              body: JSON.stringify(body),
             });
             if (!res.ok) throw new Error('Save failed');
+            saved = await res.json().catch(() => null);
           }
           row.dataset.email = email;
+          if (saved && saved.lead && Array.isArray(saved.lead.contacts)) {
+            setJsonDataset(row, 'contacts', saved.lead.contacts);
+          }
           const link = row.querySelector('.lead-contact-row-email a[href^="mailto:"]');
           if (link) {
             link.href = `mailto:${email}`;
@@ -378,4 +383,9 @@
   window.addEventListener('resize', () => closePopover());
 
   window.__adhelloFindContactsForRow = searchRow;
+  window.__adhelloSyncRowContacts = function syncRowContacts(row) {
+    if (!row || !row.dataset) return;
+    renderRowCell(row);
+    syncContactsCell(row);
+  };
 })();

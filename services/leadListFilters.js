@@ -678,6 +678,8 @@ function mapLeadPipelineBootstrap(l) {
     reviewsCount: l.reviewsCount ?? 0,
     totalScore: l.totalScore ?? 0,
     contacts: Array.isArray(l.contacts) ? l.contacts : [],
+    decisionMakerName: l.decisionMakerName || '',
+    decisionMakerTitle: l.decisionMakerTitle || '',
     buyingSignals: Array.isArray(l.buyingSignals) ? l.buyingSignals : [],
     aiWebsiteAnalysisScore: l.aiWebsiteAnalysisScore,
     ownerSignal: l.ownerSignal,
