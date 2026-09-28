@@ -31,11 +31,28 @@
         z-index: auto !important;
         background: transparent !important;
       }
+      #tableView thead th.lead-sticky-check,
+      #tableView thead th.lead-sticky-company {
+        position: sticky !important;
+        top: 0;
+        z-index: 40 !important;
+        background: var(--brand-card-bg) !important;
+      }
       #tableView #prospectLeadsTable {
         min-width: 1180px;
       }
       #tableView .overflow-x-auto {
         -webkit-overflow-scrolling: touch;
+      }
+      /* Own scroll box on phones: rows scroll both ways under the sticky header
+         while the page stays put. Vertical overscroll still hands off to the page. */
+      #tableView #prospectPipelineTableScroll {
+        max-height: calc(100vh - 8rem);
+        max-height: calc(100dvh - 8rem);
+        overflow: auto;
+        overscroll-behavior-x: contain;
+        overscroll-behavior-y: auto;
+        touch-action: pan-x pan-y;
       }
       #kanbanView .kanban-column {
         width: min(86vw, 19rem) !important;

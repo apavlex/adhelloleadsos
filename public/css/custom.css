@@ -8406,6 +8406,30 @@ body {
     overscroll-behavior-x: contain;
   }
 
+  /* Hidden (i) panels still count toward scroll width; iOS Safari then widens the
+     page and lets it pan sideways. Drop them from layout until opened, and pin
+     open ones inside the viewport. */
+  .app-info-tip:not(:hover):not(:focus-within) .app-info-tip__panel {
+    display: none;
+  }
+  .app-info-tip .app-info-tip__panel,
+  .app-info-tip--wide .app-info-tip__panel {
+    position: fixed;
+    left: 1rem !important;
+    right: 1rem !important;
+    top: auto !important;
+    bottom: auto !important;
+    width: auto;
+    max-width: none;
+    margin-top: 1.75rem;
+    margin-bottom: 0;
+    transform: none !important;
+  }
+  .app-info-tip--top .app-info-tip__panel {
+    margin-top: 0;
+    transform: translateY(calc(-100% - 0.4rem)) !important;
+  }
+
   /* Forms & inputs: 16px+ avoids iOS focus zoom */
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
   select,
