@@ -1,5 +1,6 @@
 const dbService = require('../services/database');
 const workspaceService = require('../services/workspaceService');
+const teamActivity = require('../services/teamActivity');
 const workspaceBootstrap = require('../services/workspaceBootstrap');
 const workspaceScriptBootstrap = require('../services/workspaceScriptBootstrap');
 const { wantsJsonResponse } = require('../lib/httpRequest');
@@ -162,6 +163,9 @@ async function withWorkspace(req, res, next) {
     req.workspaceId = ws.id;
     req.workspaceRole = workspaceService.roleForEmail(ws, email);
     req.canManageWorkspace = workspaceService.canManageTeam(req.workspaceRole);
+    if (!telephonyFastPath) {
+      teamActivity.rememberMemberProfile(req).catch(() => {});
+    }
 
     if (req.session) {
       req.session.activeWorkspaceId = ws.id;

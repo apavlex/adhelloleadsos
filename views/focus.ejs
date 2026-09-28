@@ -152,6 +152,7 @@
         <div class="min-w-0">
           <h2 id="focus-company" class="font-display font-black text-2xl text-brand-dark dark:text-white truncate">—</h2>
           <p id="focus-contact" class="text-sm font-semibold text-brand-muted dark:text-slate-400 mt-1">—</p>
+          <div id="focus-team-badges" class="hidden flex flex-wrap items-center gap-1.5 mt-2" aria-label="Team attribution"></div>
         </div>
         <div class="flex items-center gap-2 shrink-0">
           <button type="button" id="focus-btn-back" disabled class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-brand-border/50 dark:border-white/10 bg-white/60 dark:bg-slate-800/60 text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white hover:border-brand-yellow/50 transition-colors disabled:opacity-40 disabled:pointer-events-none shrink-0" title="Previous lead in this session" aria-label="Go back to previous lead">
@@ -4725,6 +4726,11 @@
       elSection.classList.remove('hidden');
       elCompany.textContent = lead.title || '—';
       elContact.textContent = lead.contactName || '—';
+      var focusTeamBadges = document.getElementById('focus-team-badges');
+      if (focusTeamBadges) {
+        focusTeamBadges.setAttribute('data-team-badges-key', lead.key || '');
+        if (window.AdhelloTeamBadges) window.AdhelloTeamBadges.render(focusTeamBadges, lead.key || '');
+      }
       elStage.textContent = lead.pipelineLabel || ('Stage ' + lead.pipelineStage);
       elLast.textContent = lead.lastTouchLabel || '—';
       renderTouchPoints(lead);

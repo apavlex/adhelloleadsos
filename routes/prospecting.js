@@ -19,6 +19,7 @@ const {
   buildPipelineCategoryOptions,
 } = require('../services/leadListFilters');
 const { normalizeProspectingSettings } = require('../services/prospectGapLabels');
+const teamActivity = require('../services/teamActivity');
 const { listAutomationsForWorkspace } = require('../services/automationsRegistry');
 const { ensurePipelineFolders, migrateLegacyFolders } = require('../services/pipelineFolders');
 const { TRADE_FOLDERS } = require('../services/tradeFoldersCatalog');
@@ -105,12 +106,15 @@ router.get('/', async (req, res, next) => {
 
     const leadListFilters = normalizeLeadListFilters(req.query);
     const hasGlobalSearch = !!String(leadListFilters.q || '').trim();
+    const hasWorkedBy = !!String(leadListFilters.workedBy || '').trim();
+    teamActivity.attachWorkedByKeys(leadListFilters, wid);
     // Apply default Businesses folder in-process — avoid a second full page load via redirect.
     if (
       safeTab === 'pipeline' &&
       !String(leadListFilters.folderKey || '').trim() &&
       !String(leadListFilters.origin || '').trim() &&
       !hasGlobalSearch &&
+      !hasWorkedBy &&
       req.query.includeFoldered !== '1' &&
       req.query.includeFoldered !== 'true'
     ) {
@@ -125,6 +129,7 @@ router.get('/', async (req, res, next) => {
       req.query.includeFoldered === '1' ||
       req.query.includeFoldered === 'true' ||
       hasGlobalSearch ||
+      hasWorkedBy ||
       String(leadListFilters.origin || '').trim().toLowerCase() === 'csv';
     const activeFolderKey = String(leadListFilters.folderKey || '').trim();
     const folderKeys = activeFolderKey
@@ -370,6 +375,10 @@ router.get('/', async (req, res, next) => {
       leadSourceCounts,
       leadListFilters,
       leadsFilterSuffix,
+      teamMembers: teamActivity.memberDirectory(req.workspace, []).map((m) => ({
+        email: m.email,
+        label: m.email === String(email || '').toLowerCase() ? 'Me' : teamActivity.displayName(m),
+      })),
       pipelineStatusOptions,
       pipelineCategoryOptions,
       importNotice,
@@ -433,10 +442,13 @@ router.get('/table-rows', async (req, res, next) => {
 
     const leadListFilters = normalizeLeadListFilters(req.query);
     const hasGlobalSearch = !!String(leadListFilters.q || '').trim();
+    const hasWorkedBy = !!String(leadListFilters.workedBy || '').trim();
+    teamActivity.attachWorkedByKeys(leadListFilters, wid);
     if (
       !String(leadListFilters.folderKey || '').trim() &&
       !String(leadListFilters.origin || '').trim() &&
       !hasGlobalSearch &&
+      !hasWorkedBy &&
       req.query.includeFoldered !== '1' &&
       req.query.includeFoldered !== 'true'
     ) {
@@ -451,6 +463,7 @@ router.get('/table-rows', async (req, res, next) => {
       req.query.includeFoldered === '1' ||
       req.query.includeFoldered === 'true' ||
       hasGlobalSearch ||
+      hasWorkedBy ||
       String(leadListFilters.origin || '').trim().toLowerCase() === 'csv';
     const activeFolderKey = String(leadListFilters.folderKey || '').trim();
     const folderKeys = activeFolderKey

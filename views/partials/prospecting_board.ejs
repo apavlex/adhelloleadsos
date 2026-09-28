@@ -19,8 +19,11 @@
 <% const _src = typeof sourceFilter !== 'undefined' ? sourceFilter : 'all'; %>
 <% const _hasActiveFilters = _lf && typeof _lf === 'object' && Object.keys(_lf).length > 0; %>
 <% const _bookmarkedOnly = _lf.bookmarked === '1' || _lf.bookmarked === 'true' || _lf.bookmarked === 'yes'; %>
-<% const _advOpen = !!(_lf.addedFrom || _lf.addedTo || _lf.stage || _lf.status || _lf.tagKey || _activeCategory || (_lf.minRating != null && String(_lf.minRating) !== '') || (_lf.minReviews != null && String(_lf.minReviews) !== '') || (_lf.maxReviews != null && String(_lf.maxReviews) !== '') || _bookmarkedOnly); %>
+<% const _advOpen = !!(_lf.addedFrom || _lf.addedTo || _lf.stage || _lf.status || _lf.tagKey || _lf.workedBy || _activeCategory || (_lf.minRating != null && String(_lf.minRating) !== '') || (_lf.minReviews != null && String(_lf.minReviews) !== '') || (_lf.maxReviews != null && String(_lf.maxReviews) !== '') || _bookmarkedOnly); %>
 <% const _reach = _lf.reach ? String(_lf.reach) : ''; %>
+<% const _workedBy = _lf.workedBy ? String(_lf.workedBy).toLowerCase() : ''; %>
+<% const _teamMembers = typeof teamMembers !== 'undefined' && Array.isArray(teamMembers) ? teamMembers : []; %>
+<% const _workedByMember = _workedBy ? _teamMembers.find(function (m) { return m.email === _workedBy; }) : null; %>
 <% const _reachLabels = { email: 'Has email', phone: 'Has phone', call: 'Has phone', double_tap: 'Double tap ready', doubletap: 'Double tap ready' }; %>
 <% function _pipelineQs(omit) {
   var o = omit || '';
@@ -28,6 +31,7 @@
   if (o !== 'folderKey' && _fk) p.push('folderKey=' + encodeURIComponent(_fk));
   if (o !== 'tagKey' && _tagKey) p.push('tagKey=' + encodeURIComponent(_tagKey));
   if (o !== 'reach' && _reach) p.push('reach=' + encodeURIComponent(_reach));
+  if (o !== 'workedBy' && _workedBy) p.push('workedBy=' + encodeURIComponent(_workedBy));
   if (o !== 'q' && _lf.q) p.push('q=' + encodeURIComponent(String(_lf.q)));
   if (o !== 'origin' && _lf.origin) p.push('origin=' + encodeURIComponent(String(_lf.origin)));
   if (o !== 'addedFrom' && _lf.addedFrom) p.push('addedFrom=' + encodeURIComponent(String(_lf.addedFrom)));
@@ -329,6 +333,17 @@
         <% }); %>
       </datalist>
     </div>
+    <% if (_teamMembers.length > 1) { %>
+    <div class="lg:col-span-3">
+      <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mb-1.5 block" for="pipelineWorkedByFilter">Worked by</label>
+      <select id="pipelineWorkedByFilter" name="workedBy" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-2 text-sm font-bold text-brand-dark dark:text-white" title="Leads a teammate added or last worked on">
+        <option value=""<%= !_workedBy ? ' selected' : '' %>>Anyone</option>
+        <% _teamMembers.forEach(function (m) { %>
+        <option value="<%= m.email %>"<%= _workedBy === m.email ? ' selected' : '' %>><%= m.label %></option>
+        <% }); %>
+      </select>
+    </div>
+    <% } %>
     <div class="lg:col-span-2">
       <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mb-1.5 block">Min rating</label>
       <input type="number" name="minRating" min="0" max="5" step="0.1" value="<%= _lf.minRating || '' %>" placeholder="0" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white" />
@@ -406,6 +421,9 @@
   <% } %>
   <% if (_reach) { %>
   <a href="<%= _pipelineQs('reach') %>" class="inline-flex items-center gap-1.5 rounded-full border border-brand-border/60 dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800/80 pl-3 pr-2 py-1 text-[10px] font-bold text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors" title="Remove reach filter"><%= _reachLabels[_reach.toLowerCase()] || ('Reach: ' + _reach) %><span class="text-brand-muted" aria-hidden="true">×</span></a>
+  <% } %>
+  <% if (_workedBy) { %>
+  <a href="<%= _pipelineQs('workedBy') %>" class="inline-flex items-center gap-1.5 rounded-full border border-brand-border/60 dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800/80 pl-3 pr-2 py-1 text-[10px] font-bold text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors" title="Remove teammate filter">Worked by: <%= _workedByMember ? _workedByMember.label : _workedBy %><span class="text-brand-muted" aria-hidden="true">×</span></a>
   <% } %>
   <a href="/prospecting?tab=pipeline&amp;source=<%= _src %>" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline ml-1">Clear all</a>
 </div>

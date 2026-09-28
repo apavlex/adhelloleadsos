@@ -17,6 +17,17 @@ const {
 } = require('../services/folderOutreachAutomation');
 const { optimizeFolderGhlWorkflowPrompt } = require('../services/ghlWorkflowCoach');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
+const teamActivity = require('../services/teamActivity');
+
+async function folderLabel(workspaceId, folderKey) {
+  if (!folderKey) return 'Unfiled';
+  try {
+    const folder = await dbService.getFolder(workspaceId, folderKey);
+    return (folder && folder.name) || 'folder';
+  } catch (_) {
+    return 'folder';
+  }
+}
 
 router.get('/', async (req, res, next) => {
   try {
@@ -39,6 +50,7 @@ router.post('/', async (req, res, next) => {
       meta.parentFolderKey = String(req.body.parentFolderKey).trim();
     }
     const folder = await dbService.createFolder(wid, name, meta);
+    teamActivity.record(req, { category: 'leads', action: 'folder_create', summary: `Created folder "${name}"` });
     res.json({ success: true, folder });
   } catch (e) {
     next(e);
@@ -52,10 +64,12 @@ router.post('/delete', async (req, res, next) => {
     if (!folderKey) {
       return res.status(400).json({ success: false, error: 'folderKey is required.' });
     }
+    const deletedName = await folderLabel(req.workspaceId, folderKey);
     const result = await deleteFolderComplete(req.workspaceId, folderKey);
     if (!result.deleted) {
       return res.status(404).json({ success: false, error: result.error || 'Folder not found.' });
     }
+    teamActivity.record(req, { category: 'leads', action: 'folder_delete', summary: `Deleted folder "${deletedName}"` });
     res.json({ success: true, ...result });
   } catch (e) {
     next(e);
@@ -277,6 +291,12 @@ router.post('/outreach/run', async (req, res, next) => {
       folderKey,
       settings: runSettings,
     });
+    teamActivity.record(req, {
+      category: 'outreach',
+      action: 'folder_outreach_run',
+      summary: `Started outreach drip for folder "${folder.name || 'folder'}"`,
+      meta: { folderKey },
+    });
     res.json({
       success: true,
       runStarted: true,
@@ -302,6 +322,13 @@ router.post('/run-search', async (req, res, next) => {
         busy: !!result.busy,
       });
     }
+    const where = [result.city, result.state].filter(Boolean).join(', ');
+    teamActivity.record(req, {
+      category: 'search',
+      action: 'folder_search',
+      summary: `Ran folder search for "${result.folderName || 'folder'}"${result.keyword ? ` · "${result.keyword}"` : ''}${where ? ` in ${where}` : ''}`,
+      meta: { folderKey: result.folderKey },
+    });
     return res.json({
       success: true,
       started: true,
@@ -374,6 +401,15 @@ router.post('/assign', async (req, res, next) => {
     if (!lead) return res.status(404).json({ success: false, error: 'Lead not found.' });
 
     const updated = await dbService.updateLead(lead.key, { folderKey: folderKey || '' });
+    if ((lead.folderKey || '') !== (folderKey || '')) {
+      teamActivity.record(req, {
+        category: 'pipeline',
+        action: 'folder_assign',
+        summary: `Moved to folder "${await folderLabel(req.workspaceId, folderKey)}"`,
+        leadKey: lead.key,
+        leadTitle: lead.title || '',
+      });
+    }
     res.json({ success: true, lead: updated });
   } catch (e) {
     next(e);
@@ -430,6 +466,14 @@ router.post('/assign-bulk', async (req, res, next) => {
       if (lead) updated.push(lead.key);
     }
 
+    if (updated.length) {
+      teamActivity.record(req, {
+        category: 'pipeline',
+        action: 'folder_assign_bulk',
+        summary: `Moved ${updated.length} lead${updated.length === 1 ? '' : 's'} to folder "${await folderLabel(req.workspaceId, folderKey)}"`,
+        leadKeys: updated,
+      });
+    }
     res.json({ success: true, updatedKeys: updated });
   } catch (e) {
     next(e);
@@ -443,8 +487,10 @@ router.post('/rename', async (req, res, next) => {
     const name = String(req.body?.name || '').trim();
     if (!folderKey) return res.status(400).json({ success: false, error: 'folderKey is required.' });
     if (!name) return res.status(400).json({ success: false, error: 'Folder name is required.' });
+    const oldName = await folderLabel(wid, folderKey);
     const folder = await dbService.renameFolder(wid, folderKey, name);
     if (!folder) return res.status(404).json({ success: false, error: 'Folder not found.' });
+    teamActivity.record(req, { category: 'leads', action: 'folder_rename', summary: `Renamed folder "${oldName}" → "${name}"` });
     res.json({ success: true, folder });
   } catch (e) {
     next(e);
@@ -463,6 +509,14 @@ router.post('/move', async (req, res, next) => {
     if (!result.ok) {
       return res.status(400).json({ success: false, error: result.error || 'Could not move folder.' });
     }
+    const movedName = (result.folder && result.folder.name) || 'folder';
+    teamActivity.record(req, {
+      category: 'leads',
+      action: 'folder_move',
+      summary: parentFolderKey
+        ? `Moved folder "${movedName}" into "${await folderLabel(req.workspaceId, parentFolderKey)}"`
+        : `Moved folder "${movedName}" to top level`,
+    });
     res.json({ success: true, folder: result.folder });
   } catch (e) {
     next(e);

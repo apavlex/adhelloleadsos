@@ -13368,6 +13368,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const panelTitle = document.getElementById('mobilePanelTitle');
     if (panelTitle) panelTitle.textContent = title;
+    const teamBadges = document.getElementById('leadPanelTeamBadges');
+    if (teamBadges) {
+      teamBadges.setAttribute('data-team-badges-key', row.dataset.leadKey || '');
+      if (window.AdhelloTeamBadges) window.AdhelloTeamBadges.render(teamBadges, row.dataset.leadKey || '');
+    }
 
     const tasksDeep = document.getElementById('leadTasksDeepLink');
     if (tasksDeep) {

@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
+  <%- include('partials/navbar') %>
+
+  <%
+    const _members = members || [];
+    const _sel = selectedMember || null;
+    const _catLabels = (categories || []).reduce(function (m, c) { m[c.key] = c.label; return m; }, {});
+    const _catColors = { search: '#0ea5e9', tags: '#a855f7', pipeline: '#f59e0b', notes: '#10b981', leads: '#6366f1', outreach: '#ef4444' };
+    function _q(extra) {
+      const p = Object.assign({ member: memberParam, view: view, cat: category }, extra || {});
+      return '/team-history?' + Object.keys(p).filter(function (k) { return p[k]; }).map(function (k) { return k + '=' + encodeURIComponent(p[k]); }).join('&');
+    }
+    function _initials(label) {
+      const parts = String(label || '?').replace(/\(you\)/, '').trim().split(/[\s@._-]+/).filter(Boolean);
+      return ((parts[0] || '?')[0] + (parts[1] ? parts[1][0] : '')).toUpperCase();
+    }
+  %>
+
+  <main class="max-wide px-6 py-10 md:py-12">
+    <div class="mb-8">
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Workspace</p>
+      <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Team history</h1>
+      <p class="text-sm text-brand-muted dark:text-slate-400 mt-2 max-w-2xl leading-relaxed">
+        What each teammate searched, tagged, moved, noted and sent — so you can review their work and pick up where they left off instead of repeating it.
+      </p>
+    </div>
+
+    <div class="flex flex-col lg:flex-row gap-6">
+      <aside class="lg:w-72 shrink-0" aria-label="Teammates">
+        <div class="brand-card p-2 dark:bg-slate-900 dark:border-white/10">
+          <a href="/team-history?member=all" class="team-history-member flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors <%= !_sel ? 'bg-brand-yellow/15 ring-1 ring-brand-yellow/40' : 'hover:bg-brand-cream/60 dark:hover:bg-slate-800' %>">
+            <span class="w-9 h-9 rounded-full bg-brand-dark text-white dark:bg-white dark:text-brand-dark flex items-center justify-center text-[11px] font-black shrink-0" aria-hidden="true">ALL</span>
+            <span class="min-w-0 flex-1">
+              <span class="block text-sm font-bold text-brand-dark dark:text-white truncate">Everyone</span>
+              <span class="block text-[10px] font-semibold text-brand-muted">Whole workspace</span>
+            </span>
+            <% const _allUnseen = _members.reduce(function (s, m) { return s + (m.unseen || 0); }, 0); %>
+            <% if (_allUnseen) { %><span class="rounded-full bg-brand-yellow text-brand-dark text-[10px] font-black px-2 py-0.5 tabular-nums"><%= _allUnseen > 999 ? '999+' : _allUnseen %></span><% } %>
+          </a>
+          <% _members.forEach(function (m) { %>
+          <a href="/team-history?member=<%= encodeURIComponent(m.email) %>" class="team-history-member flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors <%= _sel && _sel.email === m.email ? 'bg-brand-yellow/15 ring-1 ring-brand-yellow/40' : 'hover:bg-brand-cream/60 dark:hover:bg-slate-800' %>" title="<%= m.email %>">
+            <% if (m.avatar) { %>
+            <img src="<%= m.avatar %>" alt="" class="w-9 h-9 rounded-full object-cover shrink-0" referrerpolicy="no-referrer">
+            <% } else { %>
+            <span class="w-9 h-9 rounded-full bg-brand-cream dark:bg-slate-800 text-brand-dark dark:text-slate-200 border border-brand-border/50 dark:border-white/10 flex items-center justify-center text-[11px] font-black shrink-0" aria-hidden="true"><%= _initials(m.label) %></span>
+            <% } %>
+            <span class="min-w-0 flex-1">
+              <span class="block text-sm font-bold text-brand-dark dark:text-white truncate"><%= m.label %></span>
+              <span class="block text-[10px] font-semibold text-brand-muted truncate">
+                <% if (m.lastAt) { %>Active <time data-ts="<%= m.lastAt %>" data-format="relative"></time><% } else { %>No activity yet<% } %>
+              </span>
+            </span>
+            <% if (m.unseen) { %><span class="rounded-full bg-brand-yellow text-brand-dark text-[10px] font-black px-2 py-0.5 tabular-nums" title="New since your last review"><%= m.unseen > 999 ? '999+' : m.unseen %></span><% } %>
+          </a>
+          <% }); %>
+        </div>
+        <p class="text-[10px] text-brand-muted dark:text-slate-500 mt-3 px-1 leading-relaxed">History started when this feature went live. GHL syncs aren't tracked here.</p>
+      </aside>
+
+      <section class="min-w-0 flex-1" aria-label="Activity timeline">
+        <div class="brand-card p-4 md:p-5 mb-4 dark:bg-slate-900 dark:border-white/10">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="min-w-0">
+              <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white truncate"><%= _sel ? _sel.label : 'Everyone' %></h2>
+              <p class="text-xs text-brand-muted dark:text-slate-400 mt-1">
+                <% if (!canReview) { %>
+                  Your own activity.
+                <% } else if (unseenTotal) { %>
+                  <strong class="text-brand-dark dark:text-white"><%= unseenTotal %></strong> new since your last review<% if (reviewedAt) { %> (<time data-ts="<%= reviewedAt %>" data-format="relative"></time>)<% } %>.
+                <% } else { %>
+                  You're caught up<% if (reviewedAt) { %> — last reviewed <time data-ts="<%= reviewedAt %>" data-format="relative"></time><% } %>.
+                <% } %>
+              </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2 shrink-0">
+              <% if (workedLeadsUrl) { %>
+              <a href="<%= workedLeadsUrl %>" class="btn-pill border border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest px-3 py-2 text-brand-dark dark:text-white hover:border-brand-yellow/50">Leads they worked</a>
+              <% } %>
+              <% if (canReview && unseenTotal) { %>
+              <form method="post" action="/team-history/review">
+                <input type="hidden" name="member" value="<%= memberParam %>">
+                <input type="hidden" name="at" value="<%= view === 'new' && newestAt && !hasMore ? newestAt : '' %>">
+                <button type="submit" class="btn-pill bg-brand-yellow text-brand-dark text-[10px] font-black uppercase tracking-widest px-4 py-2 shadow-sm hover:brightness-95">Mark reviewed</button>
+              </form>
+              <% } %>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2 mt-4">
+            <% if (canReview) { %>
+            <div class="inline-flex rounded-xl border border-brand-border/60 dark:border-white/10 p-0.5 mr-2" role="tablist" aria-label="Show">
+              <a href="<%= _q({ view: 'new', before: '' }) %>" class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest <%= view === 'new' ? 'bg-brand-dark text-white dark:bg-white dark:text-brand-dark' : 'text-brand-muted' %>" role="tab" aria-selected="<%= view === 'new' %>">New</a>
+              <a href="<%= _q({ view: 'all', before: '' }) %>" class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest <%= view === 'all' ? 'bg-brand-dark text-white dark:bg-white dark:text-brand-dark' : 'text-brand-muted' %>" role="tab" aria-selected="<%= view === 'all' %>">All</a>
+            </div>
+            <% } %>
+            <a href="<%= _q({ cat: '', before: '' }) %>" class="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border <%= !category ? 'bg-brand-yellow text-brand-dark border-brand-yellow' : 'bg-white dark:bg-slate-900 text-brand-muted border-brand-border/50 dark:border-white/10 hover:border-brand-yellow/40' %>">All types</a>
+            <% (categories || []).forEach(function (c) { %>
+            <a href="<%= _q({ cat: c.key, before: '' }) %>" class="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border <%= category === c.key ? 'bg-brand-yellow text-brand-dark border-brand-yellow' : 'bg-white dark:bg-slate-900 text-brand-muted border-brand-border/50 dark:border-white/10 hover:border-brand-yellow/40' %>"><%= c.label %></a>
+            <% }); %>
+          </div>
+        </div>
+
+        <% const _items = items || []; %>
+        <% if (!_items.length) { %>
+        <div class="brand-card p-12 text-center dark:bg-slate-900 dark:border-white/10">
+          <% if (view === 'new') { %>
+          <p class="text-brand-dark dark:text-white font-bold">All caught up.</p>
+          <p class="text-xs text-brand-muted mt-2">Nothing new since your last review. <a href="<%= _q({ view: 'all', before: '' }) %>" class="underline font-semibold">See full history</a></p>
+          <% } else { %>
+          <p class="text-brand-muted dark:text-slate-400 font-medium">No activity recorded yet.</p>
+          <p class="text-xs text-brand-muted mt-2">Searches, tags, pipeline moves, notes, lead changes and outreach show up here as teammates work.</p>
+          <% } %>
+        </div>
+        <% } else { %>
+        <ol id="teamHistoryTimeline" class="brand-card p-4 md:p-5 dark:bg-slate-900 dark:border-white/10 space-y-0">
+          <% _items.forEach(function (it) { %>
+          <li class="team-history-item relative pl-6 py-3 border-b last:border-b-0 border-brand-border/30 dark:border-white/5" data-ts="<%= it.createdAt %>">
+            <span class="absolute left-0 top-[1.15rem] w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-slate-900" style="background:<%= _catColors[it.category] || '#94a3b8' %>" aria-hidden="true"></span>
+            <div class="flex flex-wrap items-center gap-2 mb-1">
+              <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-widest border" style="color:<%= _catColors[it.category] || '#64748b' %>;border-color:<%= _catColors[it.category] || '#94a3b8' %>55;background:<%= _catColors[it.category] || '#94a3b8' %>14"><%= _catLabels[it.category] || it.category %></span>
+              <% if (!_sel) { %><span class="text-[11px] font-bold text-brand-dark dark:text-slate-200"><%= it.actorLabel %></span><% } %>
+              <time class="text-[10px] font-bold text-brand-muted tabular-nums" data-ts="<%= it.createdAt %>"></time>
+              <% if (it.isNew && canReview) { %><span class="rounded-full bg-brand-yellow/25 text-brand-dark dark:text-brand-yellow text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5">New</span><% } %>
+            </div>
+            <p class="text-sm text-brand-dark/90 dark:text-slate-300 leading-relaxed break-words"><%= it.summary %></p>
+            <% if (it.leads.length) { %>
+            <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
+              <% it.leads.forEach(function (l) { %>
+                <% if (l.url) { %>
+                <a href="<%= l.url %>" class="inline-flex items-center max-w-[16rem] truncate rounded-lg border border-brand-border/50 dark:border-white/10 bg-brand-cream/50 dark:bg-slate-800 px-2 py-0.5 text-[11px] font-semibold text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60" title="Open <%= l.title %>"><%= l.title %></a>
+                <% } else { %>
+                <span class="inline-flex items-center max-w-[16rem] truncate rounded-lg border border-dashed border-brand-border/50 dark:border-white/10 px-2 py-0.5 text-[11px] text-brand-muted line-through" title="Lead no longer exists"><%= l.title %></span>
+                <% } %>
+              <% }); %>
+              <% if (it.moreLeads) { %><span class="text-[11px] font-semibold text-brand-muted">+<%= it.moreLeads %> more</span><% } %>
+              <% if (it.openAllUrl) { %><a href="<%= it.openAllUrl %>" class="text-[11px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow underline underline-offset-2 ml-1">Open in Money mode</a><% } %>
+            </div>
+            <% } %>
+          </li>
+          <% }); %>
+        </ol>
+        <% if (hasMore && nextBefore) { %>
+        <div class="mt-4 text-center">
+          <a href="<%= _q({ before: String(nextBefore) }) %>" class="btn-pill border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-6 py-3 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 inline-block">Older activity</a>
+        </div>
+        <% } %>
+        <% } %>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      var now = Date.now();
+      function relative(ts) {
+        var diff = Math.max(0, now - ts);
+        var min = Math.round(diff / 60000);
+        if (min < 1) return 'just now';
+        if (min < 60) return min + 'm ago';
+        var hrs = Math.round(min / 60);
+        if (hrs < 24) return hrs + 'h ago';
+        var days = Math.round(hrs / 24);
+        if (days < 7) return days + 'd ago';
+        return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      }
+      function stamp(ts) {
+        var d = new Date(ts);
+        var today = new Date();
+        var sameDay = d.toDateString() === today.toDateString();
+        var time = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+        if (sameDay) return 'Today ' + time;
+        var y = new Date(today);
+        y.setDate(today.getDate() - 1);
+        if (d.toDateString() === y.toDateString()) return 'Yesterday ' + time;
+        return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + time;
+      }
+      document.querySelectorAll('time[data-ts]').forEach(function (el) {
+        var ts = parseInt(el.getAttribute('data-ts'), 10);
+        if (!ts) return;
+        el.setAttribute('datetime', new Date(ts).toISOString());
+        el.textContent = el.getAttribute('data-format') === 'relative' ? relative(ts) : stamp(ts);
+        el.title = new Date(ts).toLocaleString();
+      });
+    })();
+  </script>
+  <%- include('partials/footer') %>
+</body>
+</html>

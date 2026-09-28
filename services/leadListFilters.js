@@ -536,6 +536,13 @@ function applyLeadListFilters(leads, filters) {
   } else if (filters.excludeFolderAssigned) {
     out = excludeOutreachFolderLeads(out);
   }
+  if (String(filters.workedBy || '').trim() && filters.workedByKeys instanceof Set) {
+    const worked = filters.workedByKeys;
+    out = out.filter((l) => {
+      const k = String(l.key || '');
+      return worked.has(k) || worked.has(k.startsWith('lead:') ? k : `lead:${k}`);
+    });
+  }
 
   const statusRaw = String(filters.status || '').trim();
   if (statusRaw && statusRaw.toLowerCase() !== 'all') {
@@ -704,6 +711,7 @@ const LEAD_LIST_FILTER_KEYS = [
   'folderKey',
   'tagKey',
   'reach',
+  'workedBy',
 ];
 
 function normalizeLeadListFilters(query) {

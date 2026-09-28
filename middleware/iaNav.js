@@ -41,6 +41,8 @@ function iaNav(req, res, next) {
     navPrimary = 'tasks';
   } else if (p === '/activity' || p.startsWith('/activity/')) {
     navPrimary = 'activity';
+  } else if (p === '/team-history' || p.startsWith('/team-history/')) {
+    navPrimary = 'team-history';
   } else if (p === '/resources' || p.startsWith('/resources/')) {
     navPrimary = 'resources';
   } else if (p === '/fb-groups' || p.startsWith('/fb-groups/')) {

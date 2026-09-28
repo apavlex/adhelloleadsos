@@ -3,6 +3,13 @@ const router = express.Router();
 const dbService = require('../services/database');
 const { userEmail, filterLeadsForRequest } = require('../services/workspaceService');
 const { dedupeOpenLeadTasks, upsertOpenTaskForLead, filterManualUserTasks, TASK_SOURCE_MANUAL } = require('../services/userTasks');
+const teamActivity = require('../services/teamActivity');
+
+function taskDueLabel(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return Number.isFinite(d.getTime()) ? ` · due ${d.toISOString().slice(0, 10)}` : '';
+}
 
 const COLUMNS = [
   { id: 'backlog', label: 'Backlog' },
@@ -123,6 +130,15 @@ router.post('/api', express.json(), async (req, res, next) => {
       source: TASK_SOURCE_MANUAL,
     });
     const [enriched] = enrichTasksWithLeads([saved], leads);
+    if (leadKey) {
+      teamActivity.record(req, {
+        category: 'notes',
+        action: 'task_create',
+        summary: `Task: ${title.slice(0, 160)}${taskDueLabel(scheduledAt)}`,
+        leadKey,
+        leadTitle: (enriched && enriched.leadTitle) || '',
+      });
+    }
     res.json({ success: true, task: enriched });
   } catch (e) {
     next(e);
@@ -154,6 +170,15 @@ router.patch('/api/:taskId', express.json(), async (req, res, next) => {
     };
     const saved = await dbService.saveUserTask(req.workspaceId, email, nextTask);
     const [enriched] = enrichTasksWithLeads([saved], leads);
+    if (nextTask.leadKey && nextTask.column === 'done' && cur.column !== 'done') {
+      teamActivity.record(req, {
+        category: 'notes',
+        action: 'task_done',
+        summary: `Completed task: ${String(nextTask.title || '').slice(0, 160)}`,
+        leadKey: nextTask.leadKey,
+        leadTitle: (enriched && enriched.leadTitle) || '',
+      });
+    }
     res.json({ success: true, task: enriched });
   } catch (e) {
     next(e);

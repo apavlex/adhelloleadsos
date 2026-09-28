@@ -71,6 +71,7 @@ const {
   buildLeadSearchContext,
 } = require('../services/leadListFilters');
 const activationService = require('../services/activationService');
+const teamActivity = require('../services/teamActivity');
 const sequenceEngine = require('../services/sequenceEngine');
 const { autoAttachCadenceIfNeeded } = require('../services/leadCadence');
 const {
@@ -149,6 +150,61 @@ function leadContactFieldsChanged(body, existing) {
   });
 }
 
+const ACTIVITY_EDIT_FIELDS = {
+  title: 'name',
+  email: 'email',
+  phone: 'phone',
+  website: 'website',
+  address: 'address',
+  city: 'city',
+  state: 'state',
+  zip: 'zip',
+  categoryName: 'category',
+  contactName: 'contact name',
+  ownerName: 'owner',
+};
+
+function activityFieldValue(v) {
+  const s = String(v == null ? '' : v).trim();
+  return s === 'N/A' ? '' : s;
+}
+
+/** Team-activity entry describing a /leads/:key/update patch, or null when nothing worth logging changed. */
+function leadUpdateActivity(existing, updateData, stages) {
+  if (!existing || !updateData) return null;
+  const parts = [];
+  let category = 'leads';
+  let action = 'lead_edit';
+  const prevStage = parseInt(existing.pipelineStage, 10) || 0;
+  const nextStage = parseInt(updateData.pipelineStage, 10);
+  if (updateData.pipelineStage != null && !Number.isNaN(nextStage) && nextStage !== prevStage) {
+    const row = Array.isArray(stages) ? stages[nextStage - 1] : null;
+    parts.push(`Stage → ${(row && row.name) || `#${nextStage}`}`);
+    category = 'pipeline';
+    action = 'stage_change';
+  }
+  if (updateData.status && String(updateData.status) !== String(existing.status || '')) {
+    parts.push(`Status → ${updateData.status}`);
+    category = 'pipeline';
+    if (action === 'lead_edit') action = 'status_change';
+  }
+  if (updateData.onPipelineBoard === true && !existing.onPipelineBoard) {
+    parts.push('Added to pipeline board');
+    category = 'pipeline';
+    if (action === 'lead_edit') action = 'pipeline_add';
+  }
+  const edited = Object.keys(ACTIVITY_EDIT_FIELDS).filter(
+    (f) =>
+      updateData[f] !== undefined && activityFieldValue(existing[f]) !== activityFieldValue(updateData[f]),
+  );
+  if (edited.length) parts.push(`Edited ${edited.map((f) => ACTIVITY_EDIT_FIELDS[f]).join(', ')}`);
+  if (updateData.bookmarked !== undefined && !!existing.bookmarked !== !!updateData.bookmarked) {
+    parts.push(updateData.bookmarked ? 'Bookmarked' : 'Removed bookmark');
+  }
+  if (!parts.length) return null;
+  return { category, action, summary: parts.join(' · ') };
+}
+
 async function importLeadRecordsFromBuffer(buffer, originalFilename, req, importOptions = {}) {
   const parseOpts =
     typeof importOptions.leadSource === 'string' && importOptions.leadSource.trim()
@@ -163,6 +219,8 @@ async function importLeadRecordsFromBuffer(buffer, originalFilename, req, import
   let skipped = 0;
   let failed = 0;
   const workspaceLeads = await dbService.getAllLeads(wid);
+  const createdKeys = [];
+  const updatedKeys = [];
 
   for (const rec of records) {
     if (!rec.title) {
@@ -179,8 +237,13 @@ async function importLeadRecordsFromBuffer(buffer, originalFilename, req, import
         /* non-fatal */
       }
       if (result.lead) upsertLeadInMemoryList(workspaceLeads, result.lead);
-      if (existing || result.merged) updated += 1;
-      else created += 1;
+      if (existing || result.merged) {
+        updated += 1;
+        updatedKeys.push(result.key);
+      } else {
+        created += 1;
+        createdKeys.push(result.key);
+      }
     } catch (e) {
       console.error('[CSV import] row error:', rec.title, e.message);
       failed += 1;
@@ -194,6 +257,24 @@ async function importLeadRecordsFromBuffer(buffer, originalFilename, req, import
         ? importOptions.activationEvent.trim()
         : 'csv_import';
     await activationService.recordEvent(userEmail(req), ev);
+    const sourceLabel = importOptions.leadSource === 'google_drive' ? 'Google Drive' : 'CSV';
+    if (createdKeys.length) {
+      teamActivity.record(req, {
+        category: 'leads',
+        action: 'lead_import',
+        summary: `Imported ${created} new lead${created === 1 ? '' : 's'} from ${sourceLabel}${originalFilename ? ` (${originalFilename})` : ''}${updated ? ` · ${updated} updated` : ''}`,
+        leadKeys: createdKeys,
+        created: true,
+      });
+    }
+    if (updatedKeys.length && !createdKeys.length) {
+      teamActivity.record(req, {
+        category: 'leads',
+        action: 'lead_import',
+        summary: `Re-imported ${updated} existing lead${updated === 1 ? '' : 's'} from ${sourceLabel}${originalFilename ? ` (${originalFilename})` : ''}`,
+        leadKeys: updatedKeys,
+      });
+    }
   }
 
   const rejected = Math.max(0, rawRowCount - records.length);
@@ -393,6 +474,7 @@ router.get('/list.json', async (req, res, next) => {
       ]);
       filters.searchContext = buildLeadSearchContext(tags, folders);
     }
+    teamActivity.attachWorkedByKeys(filters, req.workspaceId);
     const out = applyLeadListFilters(visible, filters);
 
     res.json({
@@ -604,6 +686,14 @@ router.post('/save', async (req, res, next) => {
     } catch (_) {
       /* non-fatal */
     }
+    teamActivity.record(req, {
+      category: 'leads',
+      action: isManual ? 'lead_add_manual' : 'lead_save',
+      summary: `${isManual ? 'Added' : 'Saved'} lead ${title}`,
+      leadKey: key,
+      leadTitle: title,
+      created: true,
+    });
     if (isManual) {
       try {
         await activationService.recordEvent(userEmail(req), 'manual_lead_added');
@@ -1188,6 +1278,16 @@ router.post('/:key/disposition', async (req, res, next) => {
       deferGhlSync: !!(req.body && req.body.deferGhlSync),
       source: 'api',
     });
+    teamActivity.record(req, {
+      category: 'notes',
+      action: 'disposition',
+      summary: `Logged ${quickLogLabelForDisposition(code) || code}${notes ? `: ${notes.slice(0, 140)}` : ''}${
+        result.scheduledAt && !result.skipFollowUp ? ' · follow-up set' : ''
+      }`,
+      leadKey: fullKey,
+      leadTitle: lead.title || '',
+      meta: { code },
+    });
 
     return res.json({
       success: true,
@@ -1224,6 +1324,12 @@ router.post('/:key/assign', async (req, res, next) => {
         },
       ],
     });
+    teamActivity.record(req, {
+      category: 'leads',
+      action: 'lead_assign',
+      summary: `Assigned to ${assignee}`,
+      leadKey: fullKey,
+    });
     res.json({ success: true, assignedTo: assignee });
   } catch (err) {
     next(err);
@@ -1248,6 +1354,12 @@ router.post('/:key/assign-round-robin', async (req, res, next) => {
           timestamp: new Date().toISOString(),
         },
       ],
+    });
+    teamActivity.record(req, {
+      category: 'leads',
+      action: 'lead_assign',
+      summary: `Round-robin assigned to ${assignee}`,
+      leadKey: fullKey,
     });
     res.json({ success: true, assignedTo: assignee });
   } catch (err) {
@@ -1361,6 +1473,14 @@ router.post('/:key/update', async (req, res, next) => {
     if (!updated) {
       return res.status(404).json({ success: false, error: 'Lead not found' });
     }
+    const updateActivity = leadUpdateActivity(existing, updateData, stages);
+    if (updateActivity) {
+      teamActivity.record(req, {
+        ...updateActivity,
+        leadKey: fullKey,
+        leadTitle: updated.title || (existing && existing.title) || '',
+      });
+    }
 
     let autoOutreachRerun = null;
     if (emailChanging) {
@@ -1451,6 +1571,13 @@ router.post('/:key/notes/delete', express.json(), async (req, res, next) => {
     if (!updated) {
       return res.status(404).json({ success: false, error: 'Lead not found.' });
     }
+    teamActivity.record(req, {
+      category: 'notes',
+      action: 'note_delete',
+      summary: `Deleted note${target.value ? `: ${String(target.value).slice(0, 160)}` : ''}`,
+      leadKey: fullKey,
+      leadTitle: lead.title || '',
+    });
     res.json({ success: true, updates: updated.updates || updates, lead: updated });
   } catch (err) {
     next(err);
@@ -1490,6 +1617,13 @@ router.post('/:key/mark-sms-reply', express.json(), async (req, res, next) => {
     triggerGhlProspectSync(fullKey, req.workspaceId, {
       trigger: 'sms_reply_manual',
       note: body || 'SMS reply noted',
+    });
+    teamActivity.record(req, {
+      category: 'notes',
+      action: 'sms_reply_marked',
+      summary: `Marked SMS reply${body ? `: ${body.slice(0, 160)}` : ''}`,
+      leadKey: fullKey,
+      leadTitle: lead.title || '',
     });
     return res.json({
       success: true,
@@ -1563,6 +1697,13 @@ router.post('/:key/notes', express.json(), async (req, res, next) => {
         note: content,
       });
     }
+    teamActivity.record(req, {
+      category: 'notes',
+      action: entryType === 'quick_log' ? 'quick_log' : 'note_add',
+      summary: `${entryType === 'quick_log' ? 'Quick log' : 'Note'}: ${content.slice(0, 200)}`,
+      leadKey: fullKey,
+      leadTitle: lead.title || '',
+    });
     res.json({ success: true, updates: updated.updates || updates, lead: updated });
   } catch (err) {
     next(err);
@@ -1591,6 +1732,13 @@ router.post('/:key/call', async (req, res, next) => {
         error: 'Lead has no valid phone number for outbound calling.',
       });
     }
+    teamActivity.recordOnSuccess(req, res, {
+      category: 'outreach',
+      action: 'call',
+      summary: `Called ${normalizedTo}`,
+      leadKey: fullKey,
+      leadTitle: lead.title || '',
+    });
     if (callMode === 'browser_device') {
       const deviceFrom = resolveAgentFirstNumber(ws);
       const updates = appendLeadUpdate(lead, {
@@ -2305,6 +2453,15 @@ router.post('/telephony/dial', async (req, res, next) => {
       fullLeadKey = leadKeyFromParam(stripped);
       leadForDial = await dbService.getLead(fullLeadKey);
       if (!leadForDial) fullLeadKey = '';
+    }
+    if (fullLeadKey) {
+      teamActivity.recordOnSuccess(req, res, {
+        category: 'outreach',
+        action: action === 'voicemail_drop' ? 'voicemail_drop' : 'call',
+        summary: action === 'voicemail_drop' ? `Voicemail drop to ${to}` : `Called ${to}`,
+        leadKey: fullLeadKey,
+        leadTitle: (leadForDial && leadForDial.title) || '',
+      });
     }
 
     if (callMode === 'browser_device' && !(action === 'voicemail_drop' && forceCloudVoicemail)) {
@@ -3076,6 +3233,13 @@ router.post('/:key/sms', async (req, res, next) => {
 
     const toOverride = String((req.body && req.body.to) || '').trim();
     const saveToLead = !!(req.body && req.body.saveToLead);
+    teamActivity.recordOnSuccess(req, res, {
+      category: 'outreach',
+      action: 'sms',
+      summary: `Sent SMS: ${body.slice(0, 160)}`,
+      leadKey: fullKey,
+      leadTitle: lead.title || '',
+    });
 
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
     const contactedPatch = await buildContactedStagePatch(lead, req.workspaceId, 'SMS');
@@ -3175,6 +3339,13 @@ router.post('/:key/email', async (req, res, next) => {
 
     const toOverride = String((req.body && req.body.to) || '').trim();
     const saveToLead = !!(req.body && req.body.saveToLead);
+    teamActivity.recordOnSuccess(req, res, {
+      category: 'outreach',
+      action: 'email',
+      summary: `Sent email${subject ? `: ${subject.slice(0, 160)}` : ''}`,
+      leadKey: fullKey,
+      leadTitle: lead.title || '',
+    });
 
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
     if (!ghlClient.isConfigured(integrationEnv)) {
@@ -3283,6 +3454,13 @@ router.post('/:key/send-info-pack', express.json(), async (req, res, next) => {
       return res.status(403).json({ success: false, error: 'Forbidden' });
     }
 
+    teamActivity.recordOnSuccess(req, res, {
+      category: 'outreach',
+      action: 'info_pack',
+      summary: 'Sent info pack',
+      leadKey: fullKey,
+      leadTitle: lead.title || '',
+    });
     const ws = await dbService.getWorkspace(req.workspaceId);
     let folder = null;
     if (lead.folderKey) {
@@ -3743,6 +3921,13 @@ router.post('/:key/sms-ai-send', async (req, res, next) => {
       return res.status(400).json({ success: false, error: messageValidated.error });
     }
     const message = messageValidated.text;
+    teamActivity.recordOnSuccess(req, res, {
+      category: 'outreach',
+      action: 'sms',
+      summary: `Sent AI SMS: ${message.slice(0, 160)}`,
+      leadKey: fullKey,
+      leadTitle: lead.title || '',
+    });
 
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
     const contactedPatch = await buildContactedStagePatch(lead, req.workspaceId, 'SMS');
@@ -4147,6 +4332,15 @@ router.post('/bulk-stage-assign', express.json(), async (req, res, next) => {
       }
     }
 
+    if (updatedKeys.length) {
+      const stageRow = stageRows.find((s) => s.id === stageId);
+      teamActivity.record(req, {
+        category: 'pipeline',
+        action: 'bulk_stage',
+        summary: `Moved ${updatedKeys.length} lead${updatedKeys.length === 1 ? '' : 's'} to ${(stageRow && stageRow.name) || 'stage'}`,
+        leadKeys: updatedKeys,
+      });
+    }
     res.json({ success: updatedKeys.length > 0, updatedKeys, stageId, leads: updatedLeads });
   } catch (err) {
     next(err);
@@ -4196,6 +4390,14 @@ router.post('/bulk-category', express.json(), async (req, res, next) => {
       }
     }
 
+    if (updatedKeys.length) {
+      teamActivity.record(req, {
+        category: 'leads',
+        action: 'bulk_category',
+        summary: `Set category "${categoryName}" on ${updatedKeys.length} lead${updatedKeys.length === 1 ? '' : 's'}`,
+        leadKeys: updatedKeys,
+      });
+    }
     res.json({ success: updatedKeys.length > 0, updatedKeys, categoryName, leads: updatedLeads });
   } catch (err) {
     next(err);
@@ -4216,6 +4418,14 @@ router.post('/bulk-merge', express.json(), async (req, res, next) => {
     if (!result.success) {
       return res.status(400).json(result);
     }
+    teamActivity.record(req, {
+      category: 'leads',
+      action: 'lead_merge',
+      summary: `Merged ${keys.length} leads into one`,
+      leadKey: result.primaryKey || primaryKey || undefined,
+      leadTitle: (result.lead && result.lead.title) || '',
+      meta: { mergedKeys: keys.slice(0, 50) },
+    });
     return res.json(result);
   } catch (err) {
     next(err);
@@ -4233,6 +4443,7 @@ router.post('/bulk-delete', express.json(), async (req, res, next) => {
     let deleted = 0;
     const errors = [];
     const deletedKeys = [];
+    const deletedTitles = [];
     for (const raw of normKeys) {
       const storageKey = await dbService.resolveLeadStorageKey(raw, req.workspaceId);
       if (!storageKey) {
@@ -4251,6 +4462,17 @@ router.post('/bulk-delete', express.json(), async (req, res, next) => {
       await dbService.deleteLead(storageKey);
       deleted += 1;
       deletedKeys.push(raw);
+      if (existing && existing.title) deletedTitles.push(existing.title);
+    }
+    if (deleted) {
+      const preview = deletedTitles.slice(0, 3).join(', ');
+      teamActivity.record(req, {
+        category: 'leads',
+        action: 'bulk_delete',
+        summary: `Deleted ${deleted} lead${deleted === 1 ? '' : 's'}${preview ? `: ${preview}${deletedTitles.length > 3 ? '…' : ''}` : ''}`,
+        leadKeys: deletedKeys,
+        attribute: false,
+      });
     }
     return res.json({
       success: deleted > 0,
@@ -4287,6 +4509,14 @@ router.post('/:key/delete', async (req, res, next) => {
       return res.redirect('/prospecting?tab=pipeline');
     }
     await dbService.deleteLead(storageKey);
+    teamActivity.record(req, {
+      category: 'leads',
+      action: 'lead_delete',
+      summary: 'Deleted lead',
+      leadKey: storageKey,
+      leadTitle: (existing && existing.title) || '',
+      attribute: false,
+    });
 
     // If request is from fetch (JSON), return JSON; otherwise redirect
     if (req.headers.accept && req.headers.accept.includes('application/json')) {

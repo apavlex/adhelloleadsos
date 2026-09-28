@@ -16,6 +16,7 @@ const {
   resolvePlacement,
   listPipelineTemplates,
 } = require('../services/opportunityBoards');
+const teamActivity = require('../services/teamActivity');
 
 async function loadContext(req, pipelineId) {
   const workspace = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
@@ -232,6 +233,12 @@ router.post('/bulk-move', express.json({ limit: '64kb' }), async (req, res, next
       workspace.opportunityBoards = remembered.boards;
       await dbService.saveWorkspace(req.workspaceId, workspace);
     }
+    teamActivity.record(req, {
+      category: 'pipeline',
+      action: 'opportunity_bulk_move',
+      summary: `Moved ${updatedKeys.length} opportunit${updatedKeys.length === 1 ? 'y' : 'ies'} to ${placement.pipelineName} → ${placement.stageName}`,
+      leadKeys: updatedKeys,
+    });
     res.json({
       success: true,
       updatedKeys,
@@ -267,6 +274,13 @@ router.post('/move', express.json({ limit: '16kb' }), async (req, res, next) => 
       req.workspaceId,
     );
     if (!updated) return jsonError(res, 404, 'Lead not found.');
+    teamActivity.record(req, {
+      category: 'pipeline',
+      action: 'opportunity_move',
+      summary: `Opportunity → ${placement.pipelineName} → ${placement.stageName}`,
+      leadKey: updated.key || leadKey,
+      leadTitle: updated.title || '',
+    });
 
     // Reply as soon as the lead is placed; remember last pipeline off the critical path.
     res.json({
@@ -301,6 +315,13 @@ router.post('/remove', express.json({ limit: '16kb' }), async (req, res, next) =
       req.workspaceId,
     );
     if (!updated) return jsonError(res, 404, 'Lead not found.');
+    teamActivity.record(req, {
+      category: 'pipeline',
+      action: 'opportunity_remove',
+      summary: 'Removed from opportunities',
+      leadKey: updated.key || leadKey,
+      leadTitle: updated.title || '',
+    });
     res.json({ success: true, key: updated.key });
   } catch (e) {
     next(e);
@@ -337,6 +358,14 @@ router.post('/cards', express.json({ limit: '32kb' }), async (req, res, next) =>
       opportunityValue: Number.isFinite(value) && value > 0 ? value : 0,
       workspaceId: req.workspaceId,
       savedAt: new Date().toISOString(),
+    });
+    teamActivity.record(req, {
+      category: 'leads',
+      action: 'opportunity_card_add',
+      summary: `Added opportunity card in ${pipeline.name || 'pipeline'} → ${stage.name || 'stage'}`,
+      leadKey: key,
+      leadTitle: title,
+      created: true,
     });
     res.json({ success: true, key, pipelineId: pipeline.id });
   } catch (e) {

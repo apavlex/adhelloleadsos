@@ -105,9 +105,49 @@ sqlite.exec(`
   );
 
   CREATE INDEX IF NOT EXISTS idx_chat_session ON chat_messages(session_id, created_at);
+
+  CREATE TABLE IF NOT EXISTS team_activity (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id TEXT NOT NULL,
+    actor_email TEXT NOT NULL,
+    actor_name TEXT NOT NULL DEFAULT '',
+    category TEXT NOT NULL,
+    action TEXT NOT NULL,
+    summary TEXT NOT NULL DEFAULT '',
+    lead_key TEXT,
+    lead_title TEXT,
+    lead_count INTEGER NOT NULL DEFAULT 0,
+    meta TEXT,
+    created_at INTEGER NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_team_activity_ws_time ON team_activity(workspace_id, created_at);
+  CREATE INDEX IF NOT EXISTS idx_team_activity_ws_actor_time ON team_activity(workspace_id, actor_email, created_at);
+  CREATE INDEX IF NOT EXISTS idx_team_activity_lead ON team_activity(workspace_id, lead_key, created_at);
+
+  CREATE TABLE IF NOT EXISTS lead_attribution (
+    workspace_id TEXT NOT NULL,
+    lead_key TEXT NOT NULL,
+    created_by TEXT,
+    created_at INTEGER,
+    last_by TEXT,
+    last_at INTEGER,
+    PRIMARY KEY (workspace_id, lead_key)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_lead_attr_last_by ON lead_attribution(workspace_id, last_by);
+  CREATE INDEX IF NOT EXISTS idx_lead_attr_created_by ON lead_attribution(workspace_id, created_by);
 `);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+function safeParseJson(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
 function isBlankValue(v) {
   if (v == null) return true;
   if (typeof v === 'string') {
@@ -2257,6 +2297,141 @@ module.exports = {
     const sid = sessionId || 'ceo';
     sqlite.prepare('DELETE FROM chat_messages WHERE session_id = ?').run(sid);
     return true;
+  },
+
+  // ── Team activity (who did what, per workspace) ─────────────────────────────
+
+  insertTeamActivity(row) {
+    const result = sqlite
+      .prepare(
+        `INSERT INTO team_activity
+          (workspace_id, actor_email, actor_name, category, action, summary, lead_key, lead_title, lead_count, meta, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(
+        row.workspaceId,
+        row.actorEmail,
+        row.actorName || '',
+        row.category,
+        row.action,
+        row.summary || '',
+        row.leadKey || null,
+        row.leadTitle || null,
+        row.leadCount || 0,
+        row.meta ? JSON.stringify(row.meta) : null,
+        row.createdAt || Date.now()
+      );
+    return result.lastInsertRowid;
+  },
+
+  listTeamActivity({ workspaceId, actorEmail, category, leadKey, since, before, limit } = {}) {
+    const where = ['workspace_id = ?'];
+    const args = [workspaceId];
+    if (actorEmail) {
+      where.push('actor_email = ?');
+      args.push(actorEmail);
+    }
+    if (category) {
+      where.push('category = ?');
+      args.push(category);
+    }
+    if (leadKey) {
+      where.push('lead_key = ?');
+      args.push(leadKey);
+    }
+    if (since) {
+      where.push('created_at > ?');
+      args.push(since);
+    }
+    if (before) {
+      where.push('created_at < ?');
+      args.push(before);
+    }
+    const lim = Math.min(Math.max(parseInt(limit, 10) || 100, 1), 500);
+    args.push(lim);
+    return sqlite
+      .prepare(`SELECT * FROM team_activity WHERE ${where.join(' AND ')} ORDER BY created_at DESC, id DESC LIMIT ?`)
+      .all(...args)
+      .map((r) => ({ ...r, meta: r.meta ? safeParseJson(r.meta) : null }));
+  },
+
+  teamActivityActorStats(workspaceId, sinceByActor) {
+    const rows = sqlite
+      .prepare(
+        `SELECT actor_email, MAX(actor_name) AS actor_name, COUNT(*) AS total, MAX(created_at) AS last_at
+         FROM team_activity WHERE workspace_id = ? GROUP BY actor_email`
+      )
+      .all(workspaceId);
+    const countSince = sqlite.prepare(
+      'SELECT COUNT(*) AS c FROM team_activity WHERE workspace_id = ? AND actor_email = ? AND created_at > ?'
+    );
+    return rows.map((r) => {
+      const since = (sinceByActor && sinceByActor[r.actor_email]) || 0;
+      const unseen = since ? countSince.get(workspaceId, r.actor_email, since).c : r.total;
+      return { ...r, unseen };
+    });
+  },
+
+  touchLeadAttribution(workspaceId, leadKeys, actorEmail, { created = false, at } = {}) {
+    const keys = (Array.isArray(leadKeys) ? leadKeys : [leadKeys]).map((k) => String(k || '').trim()).filter(Boolean);
+    if (!keys.length || !actorEmail) return 0;
+    const ts = at || Date.now();
+    const stmt = created
+      ? sqlite.prepare(
+          `INSERT INTO lead_attribution (workspace_id, lead_key, created_by, created_at, last_by, last_at)
+           VALUES (?, ?, ?, ?, ?, ?)
+           ON CONFLICT(workspace_id, lead_key) DO UPDATE SET
+             created_by = COALESCE(lead_attribution.created_by, excluded.created_by),
+             created_at = COALESCE(lead_attribution.created_at, excluded.created_at),
+             last_by = excluded.last_by, last_at = excluded.last_at`
+        )
+      : sqlite.prepare(
+          `INSERT INTO lead_attribution (workspace_id, lead_key, created_by, created_at, last_by, last_at)
+           VALUES (?, ?, NULL, NULL, ?, ?)
+           ON CONFLICT(workspace_id, lead_key) DO UPDATE SET last_by = excluded.last_by, last_at = excluded.last_at`
+        );
+    const run = sqlite.transaction((list) => {
+      for (const k of list) {
+        if (created) stmt.run(workspaceId, k, actorEmail, ts, actorEmail, ts);
+        else stmt.run(workspaceId, k, actorEmail, ts);
+      }
+    });
+    run(keys);
+    return keys.length;
+  },
+
+  getLeadAttributions(workspaceId, leadKeys) {
+    const keys = (Array.isArray(leadKeys) ? leadKeys : [leadKeys]).map((k) => String(k || '').trim()).filter(Boolean);
+    if (!keys.length) return {};
+    const out = {};
+    const chunk = 400;
+    for (let i = 0; i < keys.length; i += chunk) {
+      const part = keys.slice(i, i + chunk);
+      const rows = sqlite
+        .prepare(
+          `SELECT lead_key, created_by, created_at, last_by, last_at FROM lead_attribution
+           WHERE workspace_id = ? AND lead_key IN (${part.map(() => '?').join(',')})`
+        )
+        .all(workspaceId, ...part);
+      rows.forEach((r) => {
+        out[r.lead_key] = r;
+      });
+    }
+    return out;
+  },
+
+  listLeadKeysByActor(workspaceId, actorEmail, mode) {
+    const col = mode === 'created' ? 'created_by' : 'last_by';
+    if (mode === 'any') {
+      return sqlite
+        .prepare('SELECT lead_key FROM lead_attribution WHERE workspace_id = ? AND (created_by = ? OR last_by = ?)')
+        .all(workspaceId, actorEmail, actorEmail)
+        .map((r) => r.lead_key);
+    }
+    return sqlite
+      .prepare(`SELECT lead_key FROM lead_attribution WHERE workspace_id = ? AND ${col} = ?`)
+      .all(workspaceId, actorEmail)
+      .map((r) => r.lead_key);
   },
 
   // ── Social Posts ────────────────────────────────────────────────────────────

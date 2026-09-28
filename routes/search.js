@@ -6,6 +6,7 @@ const dbService = require('../services/database');
 const enricher = require('../services/enricher');
 const activationService = require('../services/activationService');
 const { userEmail, filterLeadsForRequest } = require('../services/workspaceService');
+const teamActivity = require('../services/teamActivity');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const { persistWorkspaceIcp } = require('../services/workspaceIcp');
 const { parseSchedulePayload } = require('../services/scheduleHelpers');
@@ -42,6 +43,8 @@ router.post('/', async (req, res, next) => {
     } = req.body;
     const activationUserEmail = userEmail(req);
     const activationWorkspaceId = wid;
+    const activityCtx = teamActivity.captureContext(req);
+    const searchLabel = `"${keyword}" in ${[city, state].filter(Boolean).join(', ')}`;
 
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
 
@@ -178,11 +181,13 @@ router.post('/', async (req, res, next) => {
             results,
             timestamp: new Date().toISOString(),
             workspaceId: activationWorkspaceId,
+            createdBy: activityCtx.actor ? activityCtx.actor.email : '',
           };
           const searchKey = await dbService.saveSearch(searchRecord);
           console.log(`[SEARCH-BG] Saved results to DB with key: ${searchKey}`);
 
           let savedCount = 0;
+          const newLeadKeys = [];
           if (userPickedFolder && targetFolderKey && results.length) {
             const tagKeys = parseAutoTags(autoTags).length
               ? await resolveAutoTagKeys(activationWorkspaceId, parseAutoTags(autoTags))
@@ -202,7 +207,10 @@ router.post('/', async (req, res, next) => {
               if (tagKeys.length) payload.tags = tagKeys;
               // eslint-disable-next-line no-await-in-loop
               const saved = await dbService.saveLeadWithMeta(payload);
-              if (!saved.merged) savedCount += 1;
+              if (!saved.merged) {
+                savedCount += 1;
+                if (saved.key) newLeadKeys.push(saved.key);
+              }
             }
             console.log(
               `[SEARCH-BG] Auto-saved ${savedCount} lead(s) into folder ${targetFolderKey}`
@@ -215,6 +223,16 @@ router.post('/', async (req, res, next) => {
           }
 
           if (activationUserEmail) await activationService.recordEvent(activationUserEmail, 'search_saved');
+          teamActivity.record(activityCtx, {
+            category: 'search',
+            action: 'maps_search',
+            summary:
+              `Maps search ${searchLabel} · ${results.length} found` +
+              (userPickedFolder && targetFolderName ? ` · ${savedCount} new saved to ${targetFolderName}` : ''),
+            leadKeys: newLeadKeys,
+            created: true,
+            meta: { searchKey, folderKey: targetFolderKey || null, resultCount: results.length },
+          });
           await dbService.clearActiveJob({ resultCount: results.length, searchKey, savedCount });
           cleared = true;
         } catch (err) {
@@ -278,6 +296,11 @@ router.post('/', async (req, res, next) => {
         workspaceId: req.workspaceId,
       });
       await activationService.recordEvent(userEmail(req), 'autopilot_scheduled');
+      teamActivity.record(req, {
+        category: 'search',
+        action: 'search_schedule',
+        summary: `Scheduled Maps search ${searchLabel}${targetFolderName ? ` → ${targetFolderName}` : ''}`,
+      });
       await persistWorkspaceIcp(wid, {
         keyword,
         city,

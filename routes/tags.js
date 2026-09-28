@@ -9,6 +9,19 @@ const {
   AUTO_OUTREACH_TAG_NAME,
 } = require('../services/prospectingEnroll');
 const { buildPipelineAdvancePatch } = require('../services/pipelineAdvance');
+const teamActivity = require('../services/teamActivity');
+
+async function tagNameMap(workspaceId) {
+  const tags = await dbService.listTags(workspaceId);
+  return new Map(tags.map((t) => [t.key, t.name || 'tag']));
+}
+
+function tagChangeSummary(names, added, removed) {
+  const parts = [];
+  if (added.length) parts.push(`Added ${added.map((k) => names.get(k) || 'tag').join(', ')}`);
+  if (removed.length) parts.push(`Removed ${removed.map((k) => names.get(k) || 'tag').join(', ')}`);
+  return parts.join(' · ');
+}
 
 async function maybeAdvanceOnTagAdd(workspaceId, lead) {
   if (!lead || !lead.key || !workspaceId) return lead;
@@ -110,6 +123,7 @@ router.post('/', async (req, res, next) => {
     if (!name) return res.status(400).json({ success: false, error: 'Tag name is required.' });
     const color = req.body?.color;
     const tag = await dbService.createTag(req.workspaceId, name, color);
+    teamActivity.record(req, { category: 'tags', action: 'tag_create', summary: `Created tag "${name}"` });
     res.json({ success: true, tag });
   } catch (e) {
     next(e);
@@ -156,6 +170,17 @@ router.post('/assign', async (req, res, next) => {
       if (refreshed) lead = refreshed;
     }
     triggerGhlProspectSync(fullKey, req.workspaceId, { trigger: 'tag_assign' });
+    const removedTags = prev.filter((t) => !nextTags.includes(t));
+    if (added.length || removedTags.length) {
+      const names = await tagNameMap(req.workspaceId);
+      teamActivity.record(req, {
+        category: 'tags',
+        action: 'lead_tags',
+        summary: tagChangeSummary(names, added, removedTags),
+        leadKey: fullKey,
+        leadTitle: existing.title,
+      });
+    }
     res.json({ success: true, lead });
   } catch (e) {
     next(e);
@@ -255,6 +280,20 @@ router.post('/assign-bulk', async (req, res, next) => {
       });
     }
 
+    {
+      const names = await tagNameMap(req.workspaceId);
+      const label = tagKeys.map((k) => names.get(k) || 'tag').join(', ');
+      const verb = mode === 'remove' ? 'Removed' : mode === 'add' ? 'Added' : 'Set tags';
+      const count = updated.length;
+      teamActivity.record(req, {
+        category: 'tags',
+        action: 'bulk_tags',
+        summary: `${verb} ${label || 'tags'} ${mode === 'remove' ? 'from' : 'on'} ${count} lead${count === 1 ? '' : 's'}`,
+        leadKeys: updated.map((l) => l.key),
+        leadTitle: count === 1 ? updated[0].title : null,
+      });
+    }
+
     res.json({
       success: true,
       updatedKeys: updated.map((l) => l.key),
@@ -297,8 +336,14 @@ router.post('/:tagKey/rename', async (req, res, next) => {
     const tagKey = req.params.tagKey;
     const name = String(req.body?.name || '').trim();
     if (!name) return res.status(400).json({ success: false, error: 'Tag name is required.' });
+    const oldName = (await tagNameMap(req.workspaceId)).get(tagKey);
     const tag = await dbService.renameTag(req.workspaceId, tagKey, name);
     if (!tag) return res.status(404).json({ success: false, error: 'Tag not found.' });
+    teamActivity.record(req, {
+      category: 'tags',
+      action: 'tag_rename',
+      summary: oldName ? `Renamed tag "${oldName}" → "${name}"` : `Renamed tag to "${name}"`,
+    });
     res.json({ success: true, tag });
   } catch (e) {
     next(e);
@@ -307,7 +352,13 @@ router.post('/:tagKey/rename', async (req, res, next) => {
 
 router.post('/:tagKey/delete', async (req, res, next) => {
   try {
+    const oldName = (await tagNameMap(req.workspaceId)).get(req.params.tagKey);
     await dbService.deleteTag(req.workspaceId, req.params.tagKey);
+    teamActivity.record(req, {
+      category: 'tags',
+      action: 'tag_delete',
+      summary: `Deleted tag "${oldName || 'tag'}"`,
+    });
     res.json({ success: true });
   } catch (e) {
     next(e);

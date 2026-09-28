@@ -14,6 +14,24 @@ const {
   loadAutoPoolFromWorkspace,
   normalizeAutoPoolSettings,
 } = require('../services/prospectingAutoPool');
+const teamActivity = require('../services/teamActivity');
+
+function recordEnrollActivity(req, result, scopeLabel) {
+  const enrolled = Number(result && result.enrolled) || 0;
+  if (!enrolled) return;
+  const keys = (Array.isArray(result.results) ? result.results : [])
+    .filter((r) => r && r.enrolled && r.leadKey)
+    .map((r) => r.leadKey);
+  teamActivity.record(req, {
+    category: 'outreach',
+    action: 'prospecting_enroll',
+    summary: `Enrolled ${enrolled} lead${enrolled === 1 ? '' : 's'} in auto-outreach${scopeLabel ? ` (${scopeLabel})` : ''}${
+      result.skipped ? ` · ${result.skipped} skipped` : ''
+    }`,
+    leadKeys: keys,
+    leadCount: enrolled,
+  });
+}
 
 async function visibleBusinessLeads(req) {
   const all = await dbService.getAllLeads(req.workspaceId);
@@ -38,6 +56,7 @@ router.post('/enroll', express.json(), async (req, res, next) => {
         reEnroll,
         tag: body.tag !== false,
       });
+      recordEnrollActivity(req, result, body.folderKey ? 'folder' : 'tag');
       return res.json({ success: true, ...result });
     }
 
@@ -59,6 +78,7 @@ router.post('/enroll', express.json(), async (req, res, next) => {
         reEnroll,
         tag: body.tag !== false,
       });
+      recordEnrollActivity(req, result, 'filtered list');
       return res.json({ success: true, ...result });
     }
 
@@ -73,6 +93,7 @@ router.post('/enroll', express.json(), async (req, res, next) => {
       tag: body.tag !== false,
       findContacts: body.findContacts !== false,
     });
+    recordEnrollActivity(req, result, '');
     return res.json({ success: true, ...result });
   } catch (e) {
     next(e);
