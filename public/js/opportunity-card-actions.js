@@ -3,7 +3,8 @@
  * advance and remove. Shared by the Opportunities board and the pipeline "Board & stages" view.
  *
  *   window.__adhelloBindOppCardActions(rootEl, options)
- *   window.__adhelloOppCardToolsHtml({ key, title, phone, email, tagKeys, isLastStage, canMove, canRemove })
+ *   window.__adhelloOppCardToolsHtml({ key, title, phone, email, tagKeys, isLastStage, canMove })
+ *   window.__adhelloOppCardRemoveHtml({ key, title })
  */
 (function () {
   'use strict';
@@ -58,13 +59,22 @@
       (o.canMove === false ? '' : btn('move', 'Move to another pipeline', '', ICONS.move)) +
       btn('ghl', 'Sync GHL', '', ICONS.ghl) +
       btn('advance', 'Move to next stage', o.isLastStage ? ' hidden' : '', ICONS.advance) +
-      (o.canRemove === false ? '' : btn('remove', 'Remove from opportunities', '', ICONS.remove)) +
       '</div>'
+    );
+  }
+
+  /** Trash button for the card's top-right corner (inside `.opp-card-head`). */
+  function removeButtonHtml(o) {
+    return (
+      '<button type="button" class="opp-card-remove" data-opp-action="remove" data-lead-key="' + escapeHtml(o.key) +
+      '" data-title="' + escapeHtml(o.title) + '" title="Remove from opportunities" aria-label="Remove from opportunities">' +
+      ICONS.remove + '</button>'
     );
   }
 
   window.__adhelloOppCardIcons = ICONS;
   window.__adhelloOppCardToolsHtml = toolsHtml;
+  window.__adhelloOppCardRemoveHtml = removeButtonHtml;
 
   function post(url, body) {
     return fetch(url, {

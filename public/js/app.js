@@ -17871,6 +17871,19 @@ document.addEventListener('DOMContentLoaded', () => {
               if (!currentRow) return;
               const leadKey = currentRow.dataset.leadKey;
               if (!leadKey) return;
+              const leadName = String(currentRow.dataset.title || '').trim() || 'this lead';
+              const message = `Delete ${leadName}? This cannot be undone.`;
+              const ok =
+                typeof window.adhelloConfirm === 'function'
+                  ? await window.adhelloConfirm({
+                      title: 'Discard this lead?',
+                      message,
+                      confirmLabel: 'Delete',
+                      cancelLabel: 'Cancel',
+                      danger: true,
+                    })
+                  : window.confirm(message);
+              if (!ok) return;
 
               try {
                   const res = await fetch(`/leads/${leadKey}/delete`, {

@@ -1,6 +1,8 @@
 (function () {
   'use strict';
 
+  if (window.adhelloConfirm) return;
+
   var STYLE_ID = 'adhello-dialog-style';
   var ROOT_ID = 'adhelloDialogRoot';
   var active = null;
@@ -89,6 +91,7 @@
       root.hidden = true;
       root.setAttribute('aria-hidden', 'true');
       root.innerHTML = '';
+      root.onclick = null;
     }
     document.removeEventListener('keydown', current.onKey, true);
     current.resolve(result);
@@ -158,8 +161,11 @@
       root.hidden = false;
       root.setAttribute('aria-hidden', 'false');
       document.addEventListener('keydown', onKey, true);
+      // The tap that opened the dialog can still deliver its click here on phones.
+      var openedAt = Date.now();
 
-      root.addEventListener('click', function (ev) {
+      root.onclick = function (ev) {
+        if (Date.now() - openedAt < 400) return;
         var action = ev.target.closest('[data-adhello-dialog]');
         if (!action || !root.contains(action)) return;
         var kind = action.getAttribute('data-adhello-dialog');
@@ -173,7 +179,7 @@
           return;
         }
         closeActive(true);
-      });
+      };
 
       requestAnimationFrame(function () {
         if (input) {
@@ -345,7 +351,7 @@
       root.setAttribute('aria-hidden', 'false');
       document.addEventListener('keydown', onKey, true);
 
-      root.addEventListener('click', function (ev) {
+      root.onclick = function (ev) {
         var action = ev.target.closest('[data-adhello-dialog]');
         if (!action || !root.contains(action)) return;
         var kind = action.getAttribute('data-adhello-dialog');
@@ -369,7 +375,7 @@
           return;
         }
         closeActive({ templateId: selectedId, name: name });
-      });
+      };
 
       requestAnimationFrame(function () {
         input.focus();
@@ -444,7 +450,7 @@
       root.setAttribute('aria-hidden', 'false');
       document.addEventListener('keydown', onKey, true);
 
-      root.addEventListener('click', function (ev) {
+      root.onclick = function (ev) {
         var action = ev.target.closest('[data-adhello-dialog]');
         if (!action || !root.contains(action)) return;
         var kind = action.getAttribute('data-adhello-dialog');
@@ -466,7 +472,7 @@
           name: nextName,
           width: Math.round(Number(range.value) || width),
         });
-      });
+      };
 
       requestAnimationFrame(function () {
         input.focus();
@@ -585,7 +591,7 @@
       root.setAttribute('aria-hidden', 'false');
       document.addEventListener('keydown', onKey, true);
 
-      root.addEventListener('click', function (ev) {
+      root.onclick = function (ev) {
         var action = ev.target.closest('[data-adhello-dialog]');
         if (!action || !root.contains(action)) return;
         var kind = action.getAttribute('data-adhello-dialog');
@@ -637,7 +643,7 @@
           stages: nextStages,
           removedStageIds: removedStageIds.slice(),
         });
-      });
+      };
 
       requestAnimationFrame(function () {
         pipelineInput.focus();

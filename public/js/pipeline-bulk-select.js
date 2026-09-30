@@ -996,7 +996,17 @@
     if (!targets.length) return;
     const n = targets.length;
     const msg = 'Delete ' + n + ' selected lead' + (n === 1 ? '' : 's') + '? This cannot be undone.';
-    if (!window.confirm(msg)) return;
+    const ok =
+      typeof window.adhelloConfirm === 'function'
+        ? await window.adhelloConfirm({
+            title: n === 1 ? 'Delete this lead?' : 'Delete ' + n + ' leads?',
+            message: msg,
+            confirmLabel: 'Delete',
+            cancelLabel: 'Cancel',
+            danger: true,
+          })
+        : window.confirm(msg);
+    if (!ok) return;
 
     bulkDeleteInFlight = true;
     const deleteBtn = document.getElementById('bulkDeleteBtn');
