@@ -316,6 +316,68 @@
       </div>
     </section>
 
+    <% const _bm = typeof bookmarkSessions !== 'undefined' && bookmarkSessions ? bookmarkSessions : { total: 0, callable: 0, href: '/focus', folders: [] }; %>
+    <% const _rw2 = typeof recentlyWorked !== 'undefined' && recentlyWorked ? recentlyWorked : { total: 0, items: [], href: '/focus', sinceDays: 14 }; %>
+    <section class="today-viz today-viz-reveal today-viz-reveal-delay-1 mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-6 md:p-8 shadow-sm" aria-labelledby="today-resume-heading">
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Or pick up where you left off</p>
+      <h2 id="today-resume-heading" class="font-display font-extrabold text-xl md:text-2xl text-brand-dark dark:text-white mb-6 leading-tight">Start with your bookmarks or reopen recent leads</h2>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="min-w-0 rounded-[1.5rem] border border-brand-border/70 dark:border-white/10 p-5">
+          <div class="flex items-start justify-between gap-3 mb-4">
+            <div class="min-w-0">
+              <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Bookmarked</p>
+              <p class="text-sm font-extrabold text-brand-dark dark:text-white tabular-nums"><%= _bm.total %> lead<%= _bm.total === 1 ? '' : 's' %> · <%= _bm.callable %> with phone</p>
+            </div>
+            <% if (_bm.total) { %>
+            <a href="<%= _bm.href %>" data-nav-prefetch="/focus" class="btn-pill btn-primary px-5 py-2.5 text-[10px] font-black uppercase tracking-widest whitespace-nowrap shrink-0">Start with bookmarks</a>
+            <% } %>
+          </div>
+          <% if (_bm.folders.length) { %>
+          <ul class="divide-y divide-brand-border/40 dark:divide-white/10">
+            <% _bm.folders.slice(0, 8).forEach(function (f) { %>
+            <li class="py-2.5 flex items-center gap-3">
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-bold text-brand-dark dark:text-white truncate"><%= f.name %></p>
+                <p class="text-[10px] font-bold text-brand-muted tabular-nums"><%= f.count %> bookmarked · <%= f.callable %> with phone</p>
+              </div>
+              <a href="<%= f.href %>" class="btn-pill border border-brand-border dark:border-white/20 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white whitespace-nowrap shrink-0 hover:border-brand-yellow">Start</a>
+            </li>
+            <% }) %>
+          </ul>
+          <% } else { %>
+          <p class="text-sm text-brand-muted">No bookmarked leads yet. Click the bookmark ribbon on a lead row in Pipeline or Folders and it will show up here, grouped by folder.</p>
+          <% } %>
+        </div>
+
+        <div class="min-w-0 rounded-[1.5rem] border border-brand-border/70 dark:border-white/10 p-5">
+          <div class="flex items-start justify-between gap-3 mb-4">
+            <div class="min-w-0">
+              <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Recently worked</p>
+              <p class="text-sm font-extrabold text-brand-dark dark:text-white tabular-nums"><%= _rw2.total %> lead<%= _rw2.total === 1 ? '' : 's' %> in the last <%= _rw2.sinceDays %> days</p>
+            </div>
+            <% if (_rw2.total) { %>
+            <a href="<%= _rw2.href %>" data-nav-prefetch="/focus" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white whitespace-nowrap shrink-0 hover:border-brand-yellow">Reopen recent</a>
+            <% } %>
+          </div>
+          <% if (_rw2.items.length) { %>
+          <ul class="divide-y divide-brand-border/40 dark:divide-white/10">
+            <% _rw2.items.forEach(function (it) { %>
+            <li class="py-2.5">
+              <div class="flex items-center gap-3">
+                <a href="<%= it.href %>" class="text-sm font-bold text-brand-dark dark:text-white hover:text-brand-yellow truncate min-w-0 flex-1"><%= it.title %></a>
+                <span class="text-[10px] font-bold text-brand-muted whitespace-nowrap tabular-nums"><%= it.when %></span>
+              </div>
+              <p class="text-[11px] text-brand-muted truncate"><%= [it.typeLabel, it.folderName].filter(Boolean).join(' · ') %><% if (it.text) { %> — <%= it.text %><% } %></p>
+            </li>
+            <% }) %>
+          </ul>
+          <% } else { %>
+          <p class="text-sm text-brand-muted">Nothing worked in the last <%= _rw2.sinceDays %> days. Calls, texts, emails, and notes you log on a lead will show up here.</p>
+          <% } %>
+        </div>
+      </div>
+    </section>
+
     <section aria-labelledby="actions-heading" class="mb-8 md:mb-10">
       <h2 id="actions-heading" class="sr-only">Quick actions</h2>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">

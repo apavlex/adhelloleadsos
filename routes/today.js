@@ -26,6 +26,7 @@ const { dedupeOpenLeadTasks, clearOpenAutomationTasks, filterManualUserTasks } =
 const { pauseActiveSequencesForWorkspace } = require('../services/sequenceEngine');
 const actionPlanTracker = require('../services/actionPlanTracker');
 const { buildOpportunityBoard, selectPipeline } = require('../services/opportunityBoards');
+const { buildBookmarkSessions, buildRecentlyWorked } = require('../services/todayResumeQueue');
 function firstNameFromUser(user) {
   const raw =
     (user && user.displayName) ||
@@ -178,6 +179,13 @@ router.get('/', async (req, res, next) => {
       ...roiOpts,
     });
     const contactQueueBlurb = contactQueueSortBlurb(roiOpts.roiProfile);
+    const workspaceFolders = await dbService.listFolders(req.workspaceId).catch(() => []);
+    // continue_list so retry-deferred bookmarks still show up in the session.
+    const bookmarkSessions = buildBookmarkSessions(businessLeads, workspaceFolders, {
+      queueMode: 'continue_list',
+      ...roiOpts,
+    });
+    const recentlyWorked = buildRecentlyWorked(businessLeads, workspaceFolders, { limit: 8, sinceDays: 14 });
     const since24 = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const reportViewsRaw = await dbService.listReportViewsForWorkspaceSince(req.workspaceId, since24, 600);
     const byLead = new Map();
@@ -284,6 +292,8 @@ router.get('/', async (req, res, next) => {
       cadenceQueue,
       contactQueue,
       contactQueueBlurb,
+      bookmarkSessions,
+      recentlyWorked,
       reportsOpened24h,
       actionPlan,
       actionPlanMonthNav,
