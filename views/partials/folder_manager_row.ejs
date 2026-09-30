@@ -11,7 +11,7 @@
 <% const _oa = _f.outreachAutomation && typeof _f.outreachAutomation === 'object' ? _f.outreachAutomation : {}; %>
 <% const _oaEnabled = _oa.enabled === true; %>
 <% const _openHref = '/prospecting?tab=pipeline&folderKey=' + encodeURIComponent(_f.key || ''); %>
-<% const _TAGS_ON_PHONE = 2; %>
+<% const _TAGS_ON_PHONE = 1; %>
 <% const _visibleTagCount = _folderTags.filter(function (t) { return t && t.name; }).length; %>
 <div class="folder-row flex flex-wrap items-center gap-3 sm:gap-4 px-3 sm:px-6 py-3 sm:py-4 <%= _depth > 0 && !_inTree ? _padClass + ' bg-brand-cream/10 dark:bg-slate-950/20' : '' %>"
   data-folder-row="<%= _f.key %>"
