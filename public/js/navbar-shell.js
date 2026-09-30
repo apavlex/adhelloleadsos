@@ -1,3 +1,27 @@
+/**
+ * Parse a fetch Response as JSON without surfacing raw parser errors. Render's restart page,
+ * a login redirect, or any HTML reply otherwise shows up in Safari as
+ * "The string did not match the expected pattern."
+ * Resolves to { ok, j } where j.error explains what happened when the body was not JSON.
+ */
+function readJsonReply(r) {
+  return r.text().then(function (txt) {
+    try {
+      return { ok: r.ok, j: txt ? JSON.parse(txt) : {} };
+    } catch (_) {
+      var msg;
+      if (r.status >= 502 && r.status <= 504) {
+        msg = 'AdHello is restarting after an update. Wait a minute, then try again.';
+      } else if (r.status === 401 || r.status === 403 || (r.redirected && /\/login/.test(r.url || ''))) {
+        msg = 'Your session expired. Refresh the page and sign in again.';
+      } else {
+        msg = 'The server sent an unexpected reply (' + r.status + '). Refresh the page and try again.';
+      }
+      return { ok: false, j: { success: false, error: msg } };
+    }
+  });
+}
+
 (function () {
   var mobileMenu = document.getElementById('mobileMenu');
   var mobileMenuPanel = mobileMenu ? mobileMenu.querySelector('div.absolute.inset-y-0.left-0') : null;
@@ -1834,9 +1858,7 @@
 
     fetch('/focus/queue.json', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
       .then(function (r) {
-        return r.json().then(function (j) {
-          return { ok: r.ok, j: j };
-        });
+        return readJsonReply(r);
       })
       .then(function (res) {
         if (!res.ok || !res.j || !res.j.success || !Array.isArray(res.j.queue)) return;
@@ -3223,7 +3245,7 @@
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify(body),
     })
-      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (r) { return readJsonReply(r); })
       .then(function (res) {
         if (!res.ok || !res.j || !res.j.success) {
           throw new Error((res.j && res.j.error) || 'Could not save caller ID.');
@@ -3715,9 +3737,7 @@
         body: JSON.stringify({ action: 'record_stop', recordingSid: recSid }),
       })
         .then(function (r) {
-          return r.json().then(function (j) {
-            return { ok: r.ok, j: j };
-          });
+          return readJsonReply(r);
         })
         .then(function (res) {
           if (!res.ok || !res.j || !res.j.success) {
@@ -3743,9 +3763,7 @@
       body: JSON.stringify({ action: 'record_start', callSid: softphoneSession.callSid }),
     })
       .then(function (r) {
-        return r.json().then(function (j) {
-          return { ok: r.ok, j: j };
-        });
+        return readJsonReply(r);
       })
       .then(function (res) {
         if (!res.ok || !res.j || !res.j.success) {
@@ -4040,9 +4058,7 @@
       body: JSON.stringify({ action: 'hangup', callSid: sid }),
     })
       .then(function (r) {
-        return r.json().then(function (j) {
-          return { ok: r.ok, j: j };
-        });
+        return readJsonReply(r);
       })
       .then(function (res) {
         if (!res.ok || !res.j || !res.j.success) {
@@ -4187,7 +4203,7 @@
       method: 'GET',
       headers: { Accept: 'application/json' },
     })
-      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (r) { return readJsonReply(r); })
       .then(function (res) {
         if (!res.ok || !res.j || !res.j.success) return;
         var st = String(res.j.status || '').trim().toLowerCase();
@@ -4262,9 +4278,7 @@
   function softphoneDialInPollOnce() {
     fetch('/leads/telephony/session/status', { headers: { Accept: 'application/json' } })
       .then(function (r) {
-        return r.json().then(function (j) {
-          return { ok: r.ok, j: j };
-        });
+        return readJsonReply(r);
       })
       .then(function (res) {
         if (!res.ok || !res.j || !res.j.success) return;
@@ -4510,7 +4524,7 @@
     opts = opts || {};
     var q = opts.repair ? '?repair=1' : '';
     return fetch('/leads/telephony/call-options' + q, { headers: { Accept: 'application/json' } })
-      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (r) { return readJsonReply(r); })
       .then(function (res) {
         if (!res.ok || !res.j || !res.j.success) return;
         applySoftphoneCallOptionsPayload(res.j);
@@ -4818,9 +4832,7 @@
       signal: controller ? controller.signal : undefined,
     })
       .then(function (r) {
-        return r.json().then(function (j) {
-          return { ok: r.ok, j: j };
-        });
+        return readJsonReply(r);
       })
       .catch(function (err) {
         if (err && (err.name === 'AbortError' || /aborted/i.test(String(err.message || '')))) {
@@ -4984,7 +4996,7 @@
       })
       .then(function () {
         return fetch(q, { headers: { Accept: 'application/json' } })
-          .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); });
+          .then(function (r) { return readJsonReply(r); });
       })
       .then(function (res) {
         if (!res.ok || !res.j || !res.j.success) {
@@ -6539,9 +6551,7 @@
       body: JSON.stringify({ agentPhone: normalized }),
     })
       .then(function (r) {
-        return r.json().then(function (j) {
-          return { ok: r.ok, j: j };
-        });
+        return readJsonReply(r);
       })
       .then(function (res) {
         if (!res.ok || !res.j || !res.j.success) {
@@ -6837,7 +6847,7 @@
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ callMode: nextMode }),
       })
-        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (r) { return readJsonReply(r); })
         .then(function (res) {
           if (!res.ok || !res.j || !res.j.success) {
             throw new Error((res.j && res.j.error) || 'Could not save call routing mode.');
@@ -6900,7 +6910,7 @@
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ agentPhone: spAgentPhone.value || '' }),
       })
-        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (r) { return readJsonReply(r); })
         .then(function (res) {
           if (!res.ok || !res.j || !res.j.success) {
             throw new Error((res.j && res.j.error) || 'Could not save agent phone.');
@@ -6944,9 +6954,7 @@
         body: JSON.stringify(softphoneAgentPhoneBody()),
       })
         .then(function (r) {
-          return r.json().then(function (j) {
-            return { ok: r.ok, j: j };
-          });
+          return readJsonReply(r);
         })
         .then(function (res) {
           var text =
@@ -6998,9 +7006,7 @@
         body: JSON.stringify(softphoneAgentPhoneBody()),
       })
         .then(function (r) {
-          return r.json().then(function (j) {
-            return { ok: r.ok, j: j };
-          });
+          return readJsonReply(r);
         })
         .then(function (res) {
           var text =
@@ -7462,7 +7468,7 @@
           number: softphoneSession.activeNumber || (spTo ? spTo.value : ''),
         }),
       })
-        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (r) { return readJsonReply(r); })
         .then(function (res) {
           if (!res.ok || !res.j || !res.j.success) throw new Error((res.j && res.j.error) || 'AI summary failed.');
           if (spNotes && res.j.summary) spNotes.value = res.j.summary;
@@ -7561,7 +7567,7 @@
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify(payload),
       })
-        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (r) { return readJsonReply(r); })
         .then(function (_ref) {
           var ok = _ref.ok;
           var data = _ref.j;
@@ -7692,7 +7698,7 @@
         headers: { Accept: 'application/json' },
         body: fd,
       })
-        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (r) { return readJsonReply(r); })
         .then(function (_ref) {
           var ok = _ref.ok;
           var data = _ref.j;
