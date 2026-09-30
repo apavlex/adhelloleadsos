@@ -398,8 +398,68 @@
 
   window.__adhelloBuildKanbanContactHtml = buildKanbanContactHtml;
 
+  /** Load this card's stage column into the softphone, starting at the card that was tapped. */
+  function callKanbanStageFromCard(card) {
+    const column = card.closest('.kanban-column') || card.parentElement;
+    const items = Array.prototype.map.call(
+      (column || card).querySelectorAll('.kanban-card[data-lead-key]'),
+      function (c) {
+        return {
+          key: c.dataset.leadKey || '',
+          title: c.dataset.title || 'Lead',
+          phone: c.dataset.phone || '',
+        };
+      },
+    );
+    const toast = function (msg, variant) {
+      if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: variant });
+    };
+    if (typeof window.__adhelloCallQueueInSoftphone !== 'function') {
+      toast('The dialer is still loading. Try again in a moment.', 'error');
+      return;
+    }
+    const n = window.__adhelloCallQueueInSoftphone(items, card.dataset.leadKey || '');
+    if (!n) {
+      toast('No one in this stage has a phone number.', 'error');
+      return;
+    }
+    toast(
+      'Softphone loaded with ' + n + ' lead' + (n === 1 ? '' : 's') + ' from this stage. Press the green button to dial, then › for the next one.',
+      'success',
+    );
+  }
+
+  /** Stamps title/phone on the card for the stage queue and returns the call button markup. */
+  function kanbanCallButtonHtml(card, row) {
+    const ds = (row && row.dataset) || {};
+    const rawPhone = String(ds.phone || '').trim();
+    const hasPhone = !isBlankContact(rawPhone);
+    card.dataset.title = String(ds.title || '').trim() || 'Lead';
+    card.dataset.phone = hasPhone ? rawPhone : '';
+    return (
+      '<button type="button" class="kanban-card-call"' +
+      (hasPhone ? '' : ' disabled') +
+      ' title="' +
+      (hasPhone ? 'Call in the softphone (loads this stage)' : 'No phone number on this lead') +
+      '" aria-label="Call in the softphone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg></button>'
+    );
+  }
+
+  function wireKanbanCallButton(card) {
+    card.querySelectorAll('.kanban-card-call').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        callKanbanStageFromCard(card);
+      });
+    });
+  }
+
+  window.__adhelloKanbanCallButtonHtml = kanbanCallButtonHtml;
+  window.__adhelloWireKanbanCallButton = wireKanbanCallButton;
+
   function wireKanbanCardInteractions(card, row) {
     if (!card) return;
+    wireKanbanCallButton(card);
     card.querySelectorAll('.kanban-card-phone').forEach(function (btn) {
       btn.addEventListener('click', function (e) {
         e.stopPropagation();
@@ -426,7 +486,6 @@
       'kanban-card kanban-card--lift p-4 bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-brand-border/10 cursor-grab active:cursor-grabbing hover:border-brand-yellow/50 transition-all duration-150 group';
     const leadKey = String((row && row.dataset && row.dataset.leadKey) || '').trim();
     card.dataset.leadKey = leadKey;
-
     const title = escapeHtml((row && row.dataset && row.dataset.title) || 'Untitled');
     const websiteRaw = String((row && row.dataset && row.dataset.website) || '').trim();
     const category = escapeHtml((row && row.dataset && row.dataset.category) || '');
@@ -447,11 +506,15 @@
         '</a>';
     }
 
+    const callBtnHtml = kanbanCallButtonHtml(card, row);
+
     card.innerHTML =
-      '<div class="flex items-center justify-between mb-3">' +
-      '<span class="text-[9px] font-black uppercase tracking-widest text-brand-muted">' +
+      '<div class="flex items-center justify-between gap-2 mb-3">' +
+      '<span class="text-[9px] font-black uppercase tracking-widest text-brand-muted truncate min-w-0">' +
       category +
-      '</span></div>' +
+      '</span>' +
+      callBtnHtml +
+      '</div>' +
       '<h4 class="text-sm font-black text-brand-dark dark:text-white mb-1 truncate">' +
       title +
       '</h4>' +
@@ -472,6 +535,8 @@
       group: 'leads',
       animation: 150,
       ghostClass: 'opacity-50',
+      filter: '.kanban-card-call',
+      preventOnFilter: false,
       onEnd: function (evt) {
         const item = evt.item;
         const toCol =

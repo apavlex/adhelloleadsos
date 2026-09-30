@@ -2114,6 +2114,28 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   box-shadow: 0 14px 32px -8px rgba(0, 0, 0, 0.55);
 }
 
+.kanban-card-call {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 0;
+  border-radius: 999px;
+  background: #059669;
+  color: #fff;
+  cursor: pointer;
+}
+.kanban-card-call:hover { background: #047857; }
+.kanban-card-call:focus-visible { outline: 2px solid #facc15; outline-offset: 2px; }
+.kanban-card-call:disabled { background: rgba(100, 116, 139, 0.18); color: #94a3b8; cursor: not-allowed; }
+.kanban-card-call svg { width: 0.9rem; height: 0.9rem; }
+@media (pointer: coarse) {
+  .kanban-card-call { width: 2.2rem; height: 2.2rem; }
+  .kanban-card-call svg { width: 1.05rem; height: 1.05rem; }
+}
+
 /* Task board cards — wrap long URLs/text inside the card */
 .ceo-task-card,
 .task-card {
