@@ -254,6 +254,12 @@
         }
         .today-viz-spark path { stroke-dashoffset: 0; }
       }
+      .today-resume > summary { list-style: none; cursor: pointer; }
+      .today-resume > summary::-webkit-details-marker { display: none; }
+      .today-resume-chevron { transition: transform 0.2s ease; }
+      .today-resume[open] .today-resume-chevron { transform: rotate(180deg); }
+      .today-resume:not([open]) .today-resume-when-open,
+      .today-resume[open] .today-resume-when-closed { display: none; }
     </style>
 
     <% if (!empty) { %>
@@ -318,10 +324,22 @@
 
     <% const _bm = typeof bookmarkSessions !== 'undefined' && bookmarkSessions ? bookmarkSessions : { total: 0, callable: 0, href: '/focus', folders: [] }; %>
     <% const _rw2 = typeof recentlyWorked !== 'undefined' && recentlyWorked ? recentlyWorked : { total: 0, items: [], href: '/focus', sinceDays: 14 }; %>
-    <section class="today-viz today-viz-reveal today-viz-reveal-delay-1 mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-6 md:p-8 shadow-sm" aria-labelledby="today-resume-heading">
-      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Or pick up where you left off</p>
-      <h2 id="today-resume-heading" class="font-display font-extrabold text-xl md:text-2xl text-brand-dark dark:text-white mb-6 leading-tight">Start with your bookmarks or reopen recent leads</h2>
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <details class="today-resume today-viz today-viz-reveal today-viz-reveal-delay-1 mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm">
+      <summary class="flex items-center gap-4 p-6 md:p-8 rounded-[2rem] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow">
+        <div class="min-w-0 flex-1">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Or pick up where you left off</p>
+          <h2 class="font-display font-extrabold text-xl md:text-2xl text-brand-dark dark:text-white leading-tight">Start with your bookmarks or reopen recent leads</h2>
+          <p class="text-[11px] font-bold text-brand-muted mt-2 tabular-nums"><%= _bm.total %> bookmarked · <%= _rw2.total %> worked in the last <%= _rw2.sinceDays %> days</p>
+        </div>
+        <span class="shrink-0 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-brand-muted">
+          <span class="today-resume-when-closed hidden sm:inline">Show</span>
+          <span class="today-resume-when-open hidden sm:inline">Hide</span>
+          <span class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-brand-border dark:border-white/20 text-brand-dark dark:text-white">
+            <svg class="today-resume-chevron h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </span>
+        </span>
+      </summary>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 px-6 pb-6 md:px-8 md:pb-8">
         <div class="min-w-0 rounded-[1.5rem] border border-brand-border/70 dark:border-white/10 p-5">
           <div class="flex items-start justify-between gap-3 mb-4">
             <div class="min-w-0">
@@ -376,7 +394,7 @@
           <% } %>
         </div>
       </div>
-    </section>
+    </details>
 
     <section aria-labelledby="actions-heading" class="mb-8 md:mb-10">
       <h2 id="actions-heading" class="sr-only">Quick actions</h2>
