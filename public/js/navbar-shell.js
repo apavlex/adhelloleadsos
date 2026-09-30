@@ -1802,7 +1802,7 @@
         .map(normalizeFocusQueueContact)
         .filter(Boolean);
       if (normalized.length) writeFocusCallQueueCache(normalized);
-      setSoftphoneFocusDialQueue(normalized);
+      if (!softphoneQueueFromSelection) setSoftphoneFocusDialQueue(normalized);
       if (spContactsMeta) {
         if (!normalized.length) {
           spContactsMeta.textContent =
@@ -4550,7 +4550,7 @@
     softphoneSetCallState('idle');
     softphoneSetWrapRequired(false);
     updateSoftphoneWrapLeadHint();
-    if (!softphoneSession.focusDialQueue.length) {
+    if (!syncSoftphoneQueueFromSelection() && !softphoneSession.focusDialQueue.length) {
       var cachedQueue = readFocusCallQueueCache();
       if (cachedQueue.length) setSoftphoneFocusDialQueue(cachedQueue);
     }
@@ -5364,6 +5364,65 @@
         };
       });
   }
+
+  /** True while the keypad lead navigator is driven by checked pipeline rows instead of the focus queue. */
+  var softphoneQueueFromSelection = false;
+
+  function selectedLeadsDialQueue() {
+    if (typeof window.__getSelectedLeadRowsForBulk !== 'function') return [];
+    var seen = {};
+    return (window.__getSelectedLeadRowsForBulk() || [])
+      .map(function (row) {
+        return normalizeFocusQueueContact({
+          key: softphoneQueueRowKey(row),
+          title: softphoneQueueRowTitle(row),
+          phone: softphoneQueueReadPhone(row),
+        });
+      })
+      .filter(function (item) {
+        if (!item) return false;
+        var id = item.key || item.phone;
+        if (seen[id]) return false;
+        seen[id] = true;
+        return true;
+      });
+  }
+
+  /** Point the keypad lead navigator at the checked leads; falls back to the focus queue when cleared. */
+  function syncSoftphoneQueueFromSelection() {
+    if (softphoneSession.state === 'dialing' || softphoneSession.state === 'in_call') {
+      return softphoneQueueFromSelection;
+    }
+    var selected = selectedLeadsDialQueue();
+    var prevQ = softphoneSession.focusDialQueue || [];
+    var prevItem = prevQ[softphoneSession.focusDialIndex || 0];
+    var prevKey = prevItem ? prevItem.key : '';
+    if (!selected.length) {
+      if (softphoneQueueFromSelection) {
+        softphoneQueueFromSelection = false;
+        softphoneSession.focusDialIndex = 0;
+        setSoftphoneFocusDialQueue(readFocusCallQueueCache());
+      }
+      return false;
+    }
+    softphoneQueueFromSelection = true;
+    var nextIdx = 0;
+    for (var i = 0; i < selected.length; i++) {
+      if (prevKey && selected[i].key === prevKey) {
+        nextIdx = i;
+        break;
+      }
+    }
+    softphoneSession.focusDialIndex = nextIdx;
+    setSoftphoneFocusDialQueue(selected);
+    var modalOpen = spModal && !spModal.classList.contains('hidden');
+    var dialEmpty = !spTo || !String(spTo.value || '').trim();
+    if (modalOpen && dialEmpty && !softphoneSession.wrapRequired) {
+      loadSoftphoneFocusLeadAtIndex(nextIdx);
+    }
+    return true;
+  }
+  window.__adhelloSyncSoftphoneQueueFromSelection = syncSoftphoneQueueFromSelection;
 
   function collectSoftphoneQueueEntries() {
     var entries = [];

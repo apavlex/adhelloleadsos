@@ -18589,6 +18589,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
+    if (typeof window.__adhelloSyncSoftphoneQueueFromSelection === 'function') {
+      window.__adhelloSyncSoftphoneQueueFromSelection();
+    }
+
     if (bulkMoveFolderBtn) {
       bulkMoveFolderBtn.disabled = count === 0;
     }
