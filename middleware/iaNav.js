@@ -39,10 +39,13 @@ function iaNav(req, res, next) {
     navPrimary = 'reports';
   } else if (p === '/tasks' || p.startsWith('/tasks/')) {
     navPrimary = 'tasks';
-  } else if (p === '/activity' || p.startsWith('/activity/')) {
+  } else if (
+    p === '/activity' ||
+    p.startsWith('/activity/') ||
+    p === '/team-history' ||
+    p.startsWith('/team-history/')
+  ) {
     navPrimary = 'activity';
-  } else if (p === '/team-history' || p.startsWith('/team-history/')) {
-    navPrimary = 'team-history';
   } else if (p === '/resources' || p.startsWith('/resources/')) {
     navPrimary = 'resources';
   } else if (p === '/fb-groups' || p.startsWith('/fb-groups/')) {
