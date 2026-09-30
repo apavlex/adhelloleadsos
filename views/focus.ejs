@@ -3621,6 +3621,13 @@
       return '';
     }
 
+    /** Missing coords arrive as null — Number(null) is 0, which would pin the map in the Atlantic. */
+    function focusLeadCoord(raw, limit) {
+      if (raw == null || String(raw).trim() === '') return NaN;
+      var n = Number(raw);
+      return Number.isFinite(n) && Math.abs(n) <= limit ? n : NaN;
+    }
+
     function renderFocusMap(lead) {
       var wrap = document.getElementById('focus-map-wrap');
       var leafletHost = document.getElementById('focus-map-leaflet');
@@ -3681,8 +3688,12 @@
         fallback.classList.remove('flex');
       }
 
-      var lat = Number(lead && lead.latitude);
-      var lng = Number(lead && lead.longitude);
+      var lat = focusLeadCoord(lead && lead.latitude, 90);
+      var lng = focusLeadCoord(lead && lead.longitude, 180);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng) || (lat === 0 && lng === 0)) {
+        lat = NaN;
+        lng = NaN;
+      }
 
       var loadGen = (window.__focusMapLoadGen = (window.__focusMapLoadGen || 0) + 1);
       var isCurrent = function () { return loadGen === window.__focusMapLoadGen; };
