@@ -37,6 +37,7 @@ async function buildPavlexContext(req, auth, { platform = 'global', message = ''
   const pagePath = String(page || '').trim();
 
   const toolsList = (mcpConfig.availableTools || []).join(', ');
+  const workspaceName = String((req.workspace && req.workspace.name) || '').trim();
 
   const instructions = `You are Pavlex, the AI Chief of Staff. You have access to this user's CRM via MCP tools.
 
@@ -54,13 +55,14 @@ SESSION:
 - Platform: ${platformLabel}
 - Current page: ${pagePath || 'unknown'}
 - User: ${auth.email}
-- Workspace: ${auth.workspaceId}
+- Workspace: ${workspaceName ? `${workspaceName} (${auth.workspaceId})` : auth.workspaceId}
 - MCP server: ${mcpConfig.serverUrl || 'inline CRM execution'}
 - Permissions: read=${auth.permissions.canReadCrm} write=${auth.permissions.canWriteCrm}
 
 ${CRM_COMMAND_HINTS}
 
 RULES:
+- Every tool call reads and writes only the workspace above${workspaceName ? ` ("${workspaceName}")` : ''}. Memory or earlier messages about other workspaces or niches do not change that.
 - Be extremely concise. Use CRM tools — never invent lead counts or folder data.
 - Immediate action over analysis.
 - Keep responses under 300 words unless asked for detail.

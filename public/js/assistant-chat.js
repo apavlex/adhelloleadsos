@@ -382,6 +382,7 @@
           body: JSON.stringify({
             message: text,
             history: prior,
+            workspaceId: String(window.__ADHELLO_WORKSPACE_ID__ || '').trim() || undefined,
             platform: 'assistant',
             page: (window.location.pathname || '') + (window.location.search || ''),
             pageTitle: document.title || '',

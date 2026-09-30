@@ -5,10 +5,12 @@ const express = require('express');
 const router = express.Router();
 const { runPavlexChat } = require('../services/pavlex/pavlexAgent');
 const { assertPavlexAuth } = require('../services/pavlex/pavlexAuth');
+const { pinPavlexWorkspace } = require('../services/pavlex/pavlexWorkspaceScope');
 
 router.post('/chat', express.json({ limit: '120kb' }), async (req, res, next) => {
   try {
     assertPavlexAuth(req);
+    await pinPavlexWorkspace(req, req.body.workspaceId);
 
     const message = String(req.body.message || '').trim();
     let history = Array.isArray(req.body.history) ? req.body.history : [];

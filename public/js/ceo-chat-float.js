@@ -38,6 +38,12 @@
     return (window.location.pathname || '') + (window.location.search || '');
   }
 
+  function pageWorkspaceId() {
+    var root = document.getElementById('ceoChatFloat');
+    var fromDom = root && root.getAttribute('data-workspace-id');
+    return String(fromDom || window.__ADHELLO_WORKSPACE_ID__ || '').trim();
+  }
+
   function initCeoChatFloat() {
     var chatFormFloat = document.getElementById('ceoChatFormFloat');
     var chatInputFloat = document.getElementById('ceoChatInputFloat');
@@ -76,7 +82,10 @@
     }
 
     function loadChatHistory() {
-      fetch('/ceo/chat/history?limit=50', { credentials: 'same-origin' })
+      var wid = pageWorkspaceId();
+      fetch('/ceo/chat/history?limit=50' + (wid ? '&workspaceId=' + encodeURIComponent(wid) : ''), {
+        credentials: 'same-origin',
+      })
         .then(function (r) {
           return r.json();
         })
@@ -131,6 +140,7 @@
         body: JSON.stringify({
           message: msg,
           history: chatHistory.slice(-10),
+          workspaceId: pageWorkspaceId() || undefined,
           platform: detectPavlexPlatform(),
           page: currentPageContext(),
           pageTitle: document.title || '',

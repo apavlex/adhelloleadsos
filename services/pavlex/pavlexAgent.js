@@ -8,6 +8,7 @@ const { assertPavlexAuth, resolvePavlexAuth } = require('./pavlexAuth');
 const { buildPavlexContext } = require('./pavlexContext');
 const { loadWorkspaceMcpConfig, loadMcpIntegrationRecord } = require('./pavlexMcpConfig');
 const pavlexLogger = require('./pavlexLogger');
+const { pavlexChatChannel } = require('./pavlexWorkspaceScope');
 const { CRM_COMMAND_HINTS } = require('./pavlexConstants');
 
 /**
@@ -88,7 +89,7 @@ async function runPavlexChat(req, opts) {
   }
 
   if (persistHistory) {
-    const channel = conversationId || 'ceo';
+    const channel = pavlexChatChannel(auth.workspaceId, auth.email, conversationId);
     dbService.saveChatMessage(channel, 'user', message, 'web');
     dbService.saveChatMessage(channel, 'assistant', chatOut.content, 'web');
   }

@@ -1,7 +1,8 @@
 <%# Pavlex CEO chat — dark bubble FAB + panel (same as Automate /ceo page). locals.ceoChatFloatIncluded prevents duplicates. %>
 <% if (typeof user !== 'undefined' && user) { %>
 <% if (!locals.ceoChatFloatIncluded) { locals.ceoChatFloatIncluded = true; %>
-<div id="ceoChatFloat" class="app-floating-layer app-body-portal flex flex-col items-end gap-3">
+<% const _pavlexWs = locals.workspace || null; const _pavlexWsName = (_pavlexWs && _pavlexWs.name) || ''; %>
+<div id="ceoChatFloat" class="app-floating-layer app-body-portal flex flex-col items-end gap-3" data-workspace-id="<%= locals.workspaceId || (_pavlexWs && _pavlexWs.id) || '' %>">
   <div id="chatWindow" class="w-[min(calc(100vw-2rem),380px)] bg-white dark:bg-slate-900 rounded-[1.5rem] border border-brand-border/40 dark:border-white/10 shadow-2xl shadow-brand-dark/20 flex flex-col hidden overflow-hidden" style="height: min(520px, calc(100dvh - 8rem));">
     <div class="px-5 py-3.5 border-b border-brand-border/20 dark:border-white/10 flex items-center justify-between gap-3 bg-brand-yellow rounded-t-[1.5rem]">
       <div class="flex items-center gap-2.5">
@@ -21,6 +22,7 @@
         <div>
           <div class="text-sm font-black leading-tight">Pavlex</div>
           <div class="text-[10px] font-bold text-emerald-300 flex items-center gap-1"><span class="w-1.5 h-1.5 bg-emerald-400 rounded-full"></span> Online</div>
+          <% if (_pavlexWsName) { %><div class="text-[10px] font-bold text-brand-dark/70 truncate max-w-[200px]" title="Pavlex works in this workspace"><%= _pavlexWsName %></div><% } %>
         </div>
       </div>
       <button id="chatWindowClose" type="button" aria-label="Close chat" class="w-7 h-7 rounded-full bg-black/10 hover:bg-black/20 flex items-center justify-center transition-colors opacity-80 hover:opacity-100">
@@ -68,6 +70,6 @@
     <span id="chatBubbleDot" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white hidden"></span>
   </button>
 </div>
-<script src="/js/ceo-chat-float.js?v=3" defer></script>
+<script src="/js/ceo-chat-float.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '4' %>" defer></script>
 <% } %>
 <% } %>

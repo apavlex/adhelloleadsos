@@ -3,6 +3,7 @@ const router = express.Router();
 const dbService = require('../services/database');
 const { userEmail } = require('../services/workspaceService');
 const { runPavlexChat, runPavlexMcpDebug } = require('../services/pavlex/pavlexAgent');
+const { pinPavlexWorkspace, pavlexChatChannel } = require('../services/pavlex/pavlexWorkspaceScope');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const ghlClient = require('../services/ghlClient');
 const { listAutomationsForWorkspace } = require('../services/automationsRegistry');
@@ -218,6 +219,7 @@ router.post('/chat', express.json(), async (req, res, next) => {
     if (!message) {
       return res.status(400).json({ error: 'Message is required.' });
     }
+    await pinPavlexWorkspace(req, req.body.workspaceId);
 
     const result = await runPavlexChat(req, {
       message,
@@ -274,10 +276,12 @@ router.get('/mcp-diagnostics', async (req, res, next) => {
 // GET /ceo/chat/history — return persisted chat messages for the dashboard
 router.get('/chat/history', async (req, res) => {
   try {
+    await pinPavlexWorkspace(req, req.query.workspaceId);
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
-    const history = dbService.getChatHistory('ceo', limit);
-    res.json({ success: true, messages: history });
+    const history = dbService.getChatHistory(pavlexChatChannel(req.workspaceId, userEmail(req)), limit);
+    res.json({ success: true, workspaceId: req.workspaceId, messages: history });
   } catch (err) {
+    if (err.status) return res.status(err.status).json({ success: false, error: err.message });
     console.error('[CEO CHAT HISTORY] Error:', err.message);
     res.status(500).json({ error: 'Failed to load history.' });
   }
@@ -286,9 +290,11 @@ router.get('/chat/history', async (req, res) => {
 // DELETE /ceo/chat/history — clear chat history
 router.delete('/chat/history', async (req, res) => {
   try {
-    dbService.deleteChatHistory('ceo');
+    await pinPavlexWorkspace(req, req.query.workspaceId);
+    dbService.deleteChatHistory(pavlexChatChannel(req.workspaceId, userEmail(req)));
     res.json({ success: true });
   } catch (err) {
+    if (err.status) return res.status(err.status).json({ success: false, error: err.message });
     console.error('[CEO CHAT CLEAR] Error:', err.message);
     res.status(500).json({ error: 'Failed to clear history.' });
   }
