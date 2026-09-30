@@ -583,6 +583,18 @@
     }
   }
 
+  /** Puts the "text everyone in this stage" button beside the column count. */
+  function ensureKanbanStageSmsButton(columnWrap) {
+    if (!columnWrap || columnWrap.querySelector('.opp-stage-sms')) return;
+    const badge = columnWrap.querySelector('.column-count');
+    if (!badge || !badge.parentNode || typeof window.__adhelloOppStageSmsButtonHtml !== 'function') return;
+    const tools = document.createElement('span');
+    tools.className = 'kanban-column-tools';
+    badge.parentNode.insertBefore(tools, badge);
+    tools.insertAdjacentHTML('beforeend', window.__adhelloOppStageSmsButtonHtml());
+    tools.appendChild(badge);
+  }
+
   let kanbanActions = null;
 
   function bindKanbanCardActions(kanbanRoot) {
@@ -696,6 +708,7 @@
     if (!columnEls.length) return 0;
     oppCardLinesIndex = null;
     bindKanbanCardActions(kanbanRoot);
+    columnEls.forEach(ensureKanbanStageSmsButton);
 
     const stageIds = columnEls.map(function (el, idx) {
       return readColumnStageId(el, idx);

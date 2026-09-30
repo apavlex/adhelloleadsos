@@ -8590,6 +8590,19 @@ html.dark .opp-card-head .opp-card-remove:hover { color: #fb7185; background: rg
   .opp-card-head .opp-card-remove { width: 2rem; height: 2rem; margin: -0.45rem -0.5rem -0.45rem 0; }
   .opp-card-head .opp-card-remove svg { width: 1rem; height: 1rem; }
 }
+.opp-stage-head-tools,
+.kanban-column-tools { display: inline-flex; align-items: center; gap: 0.35rem; flex: none; }
+button.opp-stage-sms { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 1.6rem; height: 1.6rem; padding: 0; border: 0; border-radius: 999px; background: rgba(15, 39, 71, 0.07); color: #0f2747; cursor: pointer; }
+button.opp-stage-sms svg { width: 0.85rem; height: 0.85rem; display: block; }
+button.opp-stage-sms:hover:not(:disabled),
+button.opp-stage-sms:focus-visible { background: rgba(250, 204, 21, 0.35); color: #854d0e; }
+button.opp-stage-sms:disabled { opacity: 0.35; cursor: not-allowed; }
+html.dark button.opp-stage-sms { background: rgba(255, 255, 255, 0.08); color: #f8fafc; }
+#oppBoard.is-editing .opp-stage-sms { display: none; }
+@media (pointer: coarse) {
+  button.opp-stage-sms { width: 2rem; height: 2rem; }
+  button.opp-stage-sms svg { width: 1rem; height: 1rem; }
+}
 @media (pointer: coarse) {
   .opp-card-tools button[data-opp-action="advance"] {
     width: 1.85rem;

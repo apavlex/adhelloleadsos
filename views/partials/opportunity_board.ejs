@@ -311,14 +311,17 @@
     <div class="opp-board" id="oppStageRow">
       <% _board.stages.forEach(function (stage, stageIdx) { %>
       <% var _isLastStage = stageIdx === _board.stages.length - 1; %>
-      <section class="opp-stage" data-stage-id="<%= stage.id %>">
+      <section class="opp-stage" data-stage-id="<%= stage.id %>" data-hidden-count="<%= stage.hiddenCount || 0 %>">
         <div class="opp-stage-head">
           <div class="min-w-0 flex-1">
             <h3 class="opp-stage-title text-sm font-extrabold text-brand-dark dark:text-white truncate"><%= stage.name %></h3>
             <input type="text" class="opp-stage-name-input" maxlength="40" value="<%= stage.name %>" aria-label="Stage name" data-stage-id="<%= stage.id %>" />
             <p class="opp-stage-meta text-[11px] text-brand-muted mt-0.5"><% if (stage.valueLabel) { %><%= stage.valueLabel %><% } else { %><%= stage.count === 1 ? '1 opportunity' : stage.count + ' opportunities' %><% } %></p>
           </div>
-          <span class="opp-stage-count"><%= stage.count %></span>
+          <div class="opp-stage-head-tools">
+            <button type="button" class="opp-stage-sms" data-opp-action="stage-sms" title="Text everyone in this stage" aria-label="Text everyone in this stage" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-8 8H7l-4 3V12a8 8 0 1 1 18 0z"/></svg></button>
+            <span class="opp-stage-count"><%= stage.count %></span>
+          </div>
         </div>        <div class="opp-actions mb-2">
           <button type="button" class="opp-remove" data-stage-id="<%= stage.id %>">Remove</button>
         </div>

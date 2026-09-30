@@ -5,6 +5,7 @@
  *   window.__adhelloBindOppCardActions(rootEl, options)
  *   window.__adhelloOppCardToolsHtml({ key, title, phone, email, tagKeys, isLastStage, canMove })
  *   window.__adhelloOppCardRemoveHtml({ key, title })
+ *   window.__adhelloOppStageSmsButtonHtml()
  */
 (function () {
   'use strict';
@@ -72,9 +73,18 @@
     );
   }
 
+  /** Stage-header button that opens group SMS for every lead in the column. */
+  function stageSmsButtonHtml() {
+    return (
+      '<button type="button" class="opp-stage-sms" data-opp-action="stage-sms" title="Text everyone in this stage" aria-label="Text everyone in this stage" disabled>' +
+      ICONS.sms + '</button>'
+    );
+  }
+
   window.__adhelloOppCardIcons = ICONS;
   window.__adhelloOppCardToolsHtml = toolsHtml;
   window.__adhelloOppCardRemoveHtml = removeButtonHtml;
+  window.__adhelloOppStageSmsButtonHtml = stageSmsButtonHtml;
 
   function post(url, body) {
     return fetch(url, {
@@ -728,6 +738,60 @@
       );
     }
 
+    function stageSmsKeys(column) {
+      var keys = [];
+      var noPhone = 0;
+      if (column) {
+        Array.prototype.forEach.call(column.querySelectorAll('.opp-card[data-lead-key]'), function (c) {
+          var k = c.getAttribute('data-lead-key') || '';
+          if (!k || keys.indexOf(k) >= 0) return;
+          if (usablePhone(c.getAttribute('data-phone'))) keys.push(k);
+          else noPhone += 1;
+        });
+      }
+      return { keys: keys, noPhone: noPhone };
+    }
+
+    function syncStageSmsButton(column) {
+      var btn = column && column.querySelector('.opp-stage-sms');
+      if (!btn) return;
+      var n = stageSmsKeys(column).keys.length;
+      btn.disabled = !n;
+      btn.title = n
+        ? 'Text everyone in this stage (' + n + ' lead' + (n === 1 ? '' : 's') + ')'
+        : 'No one in this stage has a phone number';
+    }
+
+    function syncAllStageSmsButtons() {
+      Array.prototype.forEach.call(board.querySelectorAll(cfg.column), syncStageSmsButton);
+    }
+
+    /** Group SMS for the stage — the bulk modal runs the Do Not Contact / GHL precheck itself. */
+    function smsStage(column) {
+      closePop();
+      var picked = stageSmsKeys(column);
+      var n = picked.keys.length;
+      if (!n) {
+        status('No one in this stage has a phone number.', false);
+        return;
+      }
+      var opener = window.__openBulkSmsModalImpl || window.__openBulkSmsModal || window.__openBulkSmsModalImplFull;
+      if (typeof opener !== 'function') {
+        status('SMS templates are still loading. Try again.', false);
+        return;
+      }
+      var hidden = parseInt((column && column.getAttribute('data-hidden-count')) || '0', 10) || 0;
+      var parts = [hidden ? 'Texting the ' + n + ' lead' + (n === 1 ? '' : 's') + ' shown' : 'Opening group SMS for ' + n + ' lead' + (n === 1 ? '' : 's')];
+      if (hidden) parts.push('open the full board to include the other ' + hidden);
+      if (picked.noPhone) parts.push(picked.noPhone + ' without a phone number left out');
+      status(parts.join(' · ') + '.', true);
+      Promise.resolve(opener(picked.keys)).then(function (result) {
+        if (result && result.ok === false) status(result.message || 'Could not open group SMS.', false);
+      }).catch(function () {
+        status('Could not open group SMS.', false);
+      });
+    }
+
     function removeOpportunity(action) {
       var key = leadKey(action);
       var card = action.closest('.opp-card');
@@ -770,6 +834,10 @@
 
     function run(action) {
       var kind = action.getAttribute('data-opp-action');
+      if (kind === 'stage-sms') {
+        if (!action.disabled) smsStage(action.closest(cfg.column));
+        return;
+      }
       if (kind === 'call') {
         var callCard = action.closest('.opp-card');
         if (!callCard || !callCard.getAttribute('data-phone')) {
@@ -839,7 +907,21 @@
       if (ev.key === 'Escape') closePop();
     });
 
-    return { refreshStage: refreshStage, closePop: closePop };
+    // Cards arrive and leave through drags, advances and board rebuilds; keep stage SMS buttons in step.
+    var smsSyncQueued = false;
+    if (typeof MutationObserver === 'function') {
+      new MutationObserver(function () {
+        if (smsSyncQueued) return;
+        smsSyncQueued = true;
+        requestAnimationFrame(function () {
+          smsSyncQueued = false;
+          syncAllStageSmsButtons();
+        });
+      }).observe(board, { childList: true, subtree: true });
+    }
+    syncAllStageSmsButtons();
+
+    return { refreshStage: refreshStage, closePop: closePop, syncStageSms: syncAllStageSmsButtons };
   }
 
   window.__adhelloBindOppCardActions = bind;
