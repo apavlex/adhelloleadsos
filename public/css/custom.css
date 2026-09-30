@@ -2718,6 +2718,8 @@ html[data-prospect-density="comfortable"] #prospectLeadsTable .lead-contact-phon
 
 .lead-actions-cell .quick-outreach-btn,
 .lead-actions-cell .ai-analysis-btn,
+.lead-actions-cell .pipeline-row-call-btn,
+.lead-actions-cell .pipeline-row-sms-btn,
 .lead-actions-cell .view-detail-btn {
   flex-shrink: 0;
 }
