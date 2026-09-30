@@ -411,6 +411,44 @@
         </div>
 
         <style>
+          .dm-artboard-notice {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.4rem;
+            max-width: 22rem;
+            margin: 0 auto;
+          }
+          .dm-artboard-notice__title {
+            font-size: 0.8125rem;
+            font-weight: 800;
+            color: var(--brand-dark, #111827);
+          }
+          .dm-artboard-notice__sub { font-size: 0.75rem; }
+          .dm-artboard-notice__cta {
+            margin-top: 0.35rem;
+            display: inline-flex;
+            align-items: center;
+            padding: 0.55rem 1rem;
+            border-radius: 999px;
+            background: var(--brand-yellow, #FFD644);
+            color: #111827;
+            font-size: 0.75rem;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+          }
+          .dm-artboard-notice__cta:hover { filter: brightness(0.95); }
+          .dm-artboard-notice[data-notice="broken"] .dm-artboard-notice__title { color: #e11d48; }
+          .dm-artboard-notice__spinner {
+            width: 1.5rem;
+            height: 1.5rem;
+            border-radius: 999px;
+            border: 2px solid rgba(100, 116, 139, 0.3);
+            border-top-color: var(--brand-yellow, #FFD644);
+            animation: dm-notice-spin 0.9s linear infinite;
+          }
+          @keyframes dm-notice-spin { to { transform: rotate(360deg); } }
           #dmDesignStatus.dm-status-tip--ok { --dm-status-color: #059669; }
           #dmDesignStatus.dm-status-tip--error { --dm-status-color: #e11d48; }
           #dmDesignStatus.dm-status-tip--thinking .dm-status-tip__dot {
@@ -740,8 +778,8 @@
   <script>
     window.__DM_QUEUE = {
       isQueueSession: <%= typeof dmIsQueueSession !== 'undefined' && dmIsQueueSession ? 'true' : 'false' %>,
-      tagKey: <%= JSON.stringify(typeof dmQueueTagKey !== 'undefined' ? dmQueueTagKey : '') %>,
-      folderKey: <%= JSON.stringify(typeof dmQueueFolderKey !== 'undefined' ? dmQueueFolderKey : '') %>,
+      tagKey: <%- JSON.stringify(typeof dmQueueTagKey !== 'undefined' ? dmQueueTagKey : '').replace(/</g, '\\u003c') %>,
+      folderKey: <%- JSON.stringify(typeof dmQueueFolderKey !== 'undefined' ? dmQueueFolderKey : '').replace(/</g, '\\u003c') %>,
     };
   </script>
   <% if (typeof driveImport !== 'undefined' && driveImport && driveImport.pickerReady) { %>

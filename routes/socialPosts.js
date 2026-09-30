@@ -248,6 +248,36 @@ router.get('/api/idea-artwork', async (req, res, next) => {
   }
 });
 
+// ── GET /api/social-posts/artwork — current artwork for one post or idea ──────
+// Marketing Studio uses this when opened from a post link without the in-tab handoff.
+router.get('/api/artwork', async (req, res, next) => {
+  try {
+    const wid = String(req.query.workspaceId || req.workspaceId || 'default');
+    const postId = String(req.query.postId || '').trim();
+    const ideaId = String(req.query.ideaId || '').trim();
+    if (!postId && !ideaId) {
+      return res.status(400).json({ success: false, error: 'postId or ideaId is required.' });
+    }
+    const posts = await dbService.getSocialPosts(wid).catch(() => []);
+    const post =
+      (postId && posts.find((p) => p && p.id === postId)) ||
+      (ideaId && posts.find((p) => p && String(p.ideaId || '') === ideaId)) ||
+      null;
+    let artworkUrl = String((post && post.artworkUrl) || '').trim();
+    let artworkPrompt = String((post && post.artworkPrompt) || '').trim();
+    if (!artworkUrl && ideaId) {
+      const ideaArt = await dbService.getSocialIdeaArtwork(ideaId, wid).catch(() => null);
+      if (ideaArt && ideaArt.artworkUrl) {
+        artworkUrl = String(ideaArt.artworkUrl).trim();
+        artworkPrompt = String(ideaArt.artworkPrompt || artworkPrompt).trim();
+      }
+    }
+    res.json({ success: true, artworkUrl, artworkPrompt });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ── POST /api/social-posts/export-drive — sync post text to Google Drive ─────
 router.post('/api/export-drive', express.json(), async (req, res, next) => {
   try {

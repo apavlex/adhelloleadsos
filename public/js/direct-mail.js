@@ -38,6 +38,8 @@
   var dmActivePlaybookId = '';
   var dmPostCopyManualEdit = false;
   var linkedSocialPost = { postId: '', ideaId: '', platform: '' };
+  /** Per-slot canvas notice shown instead of the generic empty label: 'post-missing' | 'post-generating' | 'broken'. */
+  var artboardNotice = { front: null, back: null };
 
   var DM_PLATFORMS = {
     postcard: { label: '4×6 Postcard', aspectRatio: '3:2', dualSided: true, hint: 'Lob 4×6 postcard: landscape 3:2 full-bleed. Keep text 0.3″ from edges.' },
@@ -218,7 +220,7 @@
     var plat = DM_PLATFORMS[currentPlatformKey()] || DM_PLATFORMS.custom;
     var formatLabel = plat.label || 'Design';
     ['front', 'back'].forEach(function (slot) {
-      if (designs[slot]) return;
+      if (designs[slot] || artboardNotice[slot]) return;
       var el = document.getElementById(slot === 'back' ? 'dmPreviewBack' : 'dmPreviewFront');
       if (!el) return;
       var empty = el.querySelector('.dm-artboard-empty');
@@ -777,6 +779,13 @@
     if (!viewport || viewport.dataset.dmZoomBound === '1') return;
     viewport.dataset.dmZoomBound = '1';
     viewport.addEventListener('click', function (e) {
+      var cta = e.target && e.target.closest ? e.target.closest('[data-dm-artboard-action]') : null;
+      if (cta) {
+        e.preventDefault();
+        e.stopPropagation();
+        void generateFromArtboardNotice(cta.getAttribute('data-slot'));
+        return;
+      }
       var btn = e.target && e.target.closest ? e.target.closest('.dm-preview-btn') : null;
       if (!btn) return;
       e.preventDefault();
@@ -2499,7 +2508,7 @@
       }
       setDesignStatus('Refine copy in Chat (or Post copy) — say “draft the image prompt” when ready.', true);
       var chatInput = document.getElementById('dmChatInput');
-      if (chatInput) {
+      if (chatInput && !isPhoneStudioLayout()) {
         try {
           chatInput.focus({ preventScroll: false });
         } catch (_) {
@@ -2532,11 +2541,12 @@
     }
   }
 
-  function syncArtworkToLinkedSocialPost(imageUrl, prompt) {
+  function syncArtworkToLinkedSocialPost(imageUrl, prompt, ref) {
     var url = String(imageUrl || '').trim();
     if (!url) return;
-    var postId = String(linkedSocialPost.postId || '').trim();
-    var ideaId = String(linkedSocialPost.ideaId || '').trim();
+    var target = ref && (ref.postId || ref.ideaId) ? ref : linkedSocialPost;
+    var postId = String(target.postId || '').trim();
+    var ideaId = String(target.ideaId || '').trim();
     if (!postId && !ideaId) return;
     fetch('/social-posts/api/sync-artwork', {
       method: 'POST',
@@ -2563,6 +2573,180 @@
         }
       })
       .catch(function () {});
+  }
+
+  function socialPostRefFor(slot, platformKey) {
+    if (slot === 'back' || !isSocialPlatform(platformKey || currentPlatformKey())) return { postId: '', ideaId: '' };
+    return {
+      postId: String(linkedSocialPost.postId || '').trim(),
+      ideaId: String(linkedSocialPost.ideaId || '').trim(),
+    };
+  }
+
+  function findLocalArtworkForPost(ref) {
+    if (!ref || (!ref.postId && !ref.ideaId)) return null;
+    var items = getDesignHistory().concat(getSavedDesigns());
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i];
+      if (!item || !item.imageUrl || item.slot === 'back') continue;
+      if ((ref.postId && item.postId === ref.postId) || (ref.ideaId && item.ideaId === ref.ideaId)) {
+        return { url: item.imageUrl, prompt: String(item.prompt || '').trim() };
+      }
+    }
+    return null;
+  }
+
+  /** Handoff first, then ID-matched studio history, then the server copy on the social post. */
+  async function resolveSocialPostArtwork(handoff, ref) {
+    var handoffUrl = String((handoff && handoff.artworkUrl) || '').trim();
+    if (handoffUrl) return { url: handoffUrl, prompt: String((handoff && handoff.artworkPrompt) || '').trim() };
+    var local = findLocalArtworkForPost(ref);
+    if (local) return local;
+    if (!ref.postId && !ref.ideaId) return null;
+    try {
+      var qs = new URLSearchParams();
+      if (ref.postId) qs.set('postId', ref.postId);
+      if (ref.ideaId) qs.set('ideaId', ref.ideaId);
+      var res = await fetch('/social-posts/api/artwork?' + qs.toString(), {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      });
+      var data = await res.json().catch(function () {
+        return {};
+      });
+      if (data && data.success && data.artworkUrl) {
+        return { url: String(data.artworkUrl).trim(), prompt: String(data.artworkPrompt || '').trim() };
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  function probeImageUrl(url, timeoutMs) {
+    return new Promise(function (resolve) {
+      var img = new Image();
+      var done = false;
+      function finish(ok) {
+        if (done) return;
+        done = true;
+        resolve(ok);
+      }
+      img.onload = function () {
+        finish(img.naturalWidth > 0);
+      };
+      img.onerror = function () {
+        finish(false);
+      };
+      setTimeout(function () {
+        finish(true);
+      }, timeoutMs || 8000);
+      img.src = url;
+    });
+  }
+
+  async function artworkUrlLoads(url) {
+    var preview = normalizeStudioPreviewUrl(url);
+    if (preview && preview !== url && (await probeImageUrl(preview))) return true;
+    return probeImageUrl(url);
+  }
+
+  async function isArtworkGeneratingForPost(ref) {
+    if (!ref.postId && !ref.ideaId) return false;
+    if (!(await ensureArtworkGenBridge(2000))) return false;
+    if (typeof window.agencyOsArtworkGen.readJob !== 'function') return false;
+    var job = window.agencyOsArtworkGen.readJob();
+    if (!job || !job.running) return false;
+    return (!!ref.postId && job.postId === ref.postId) || (!!ref.ideaId && job.ideaId === ref.ideaId);
+  }
+
+  function focusCanvasOnPhone() {
+    if (!isPhoneStudioLayout()) return;
+    setPhoneDrawerOpen(false);
+    scrollStudioIntoView();
+  }
+
+  function setArtboardNotice(slot, kind) {
+    artboardNotice[slot] = kind || null;
+    if (!designs[slot]) setPreview(slot, null);
+  }
+
+  function socialPostDesignBrief() {
+    var headline = String((document.getElementById('dmHeadline') || {}).value || '').trim();
+    var copy =
+      String((document.getElementById('dmPostCopy') || {}).value || '').trim() ||
+      String((document.getElementById('dmBody') || {}).value || '').trim();
+    var parts = [];
+    if (headline) parts.push('Headline: ' + headline);
+    if (copy && copy !== headline) parts.push('Post copy: ' + copy.slice(0, 900));
+    if (linkedSocialPost.imageNote) parts.push('Art direction: ' + linkedSocialPost.imageNote);
+    return parts.join('\n');
+  }
+
+  async function generateFromArtboardNotice(slot) {
+    slot = slot === 'back' ? 'back' : 'front';
+    var prompt = String((designMeta[slot] && designMeta[slot].prompt) || '').trim();
+    if (!prompt) {
+      var brief = socialPostDesignBrief();
+      if (!brief) {
+        setDesignStatus('Add post copy or describe the design in Chat first.', false);
+        return;
+      }
+      var ctx = designRequestContext();
+      ctx.slot = slot;
+      prompt = buildQuickImagePrompt(brief, ctx);
+    }
+    setActiveDesignSlot(slot);
+    lastImagePrompt = prompt;
+    showPromptEditor(slot, prompt);
+    await generateImageForSlot(slot, { skipPromptRead: true, prompt: prompt });
+  }
+
+  function buildArtboardNoticeEl(slot, kind) {
+    var plat = DM_PLATFORMS[currentPlatformKey()] || DM_PLATFORMS.custom;
+    var hasPrompt = !!(designMeta[slot] && String(designMeta[slot].prompt || '').trim());
+    var title = '';
+    var sub = '';
+    var action = '';
+    if (kind === 'post-generating') {
+      title = 'Image still generating';
+      sub = 'This post’s image will appear here as soon as it’s ready.';
+    } else if (kind === 'broken') {
+      title = 'Couldn’t load this image';
+      sub =
+        'The saved file is missing or expired. Generate a fresh ' +
+        (plat.label || 'design') +
+        (hasPrompt ? ' from the same prompt.' : ' from the post copy.');
+      action = 'Generate again';
+    } else {
+      title = 'No image for this post yet';
+      sub = 'Generate one from the post copy, or describe the look in Chat first.';
+      action = 'Generate from post copy';
+    }
+    var wrap = document.createElement('span');
+    wrap.className = 'dm-artboard-empty dm-artboard-notice';
+    wrap.setAttribute('data-notice', kind);
+    var titleEl = document.createElement('strong');
+    titleEl.className = 'dm-artboard-notice__title';
+    titleEl.textContent = title;
+    var subEl = document.createElement('span');
+    subEl.className = 'dm-artboard-notice__sub';
+    subEl.textContent = sub;
+    wrap.appendChild(titleEl);
+    wrap.appendChild(subEl);
+    if (action) {
+      var cta = document.createElement('span');
+      cta.className = 'dm-artboard-notice__cta';
+      cta.setAttribute('role', 'button');
+      cta.setAttribute('data-dm-artboard-action', 'generate');
+      cta.setAttribute('data-slot', slot);
+      cta.textContent = action;
+      wrap.appendChild(cta);
+    } else {
+      var spin = document.createElement('span');
+      spin.className = 'dm-artboard-notice__spinner';
+      spin.setAttribute('aria-hidden', 'true');
+      wrap.insertBefore(spin, titleEl);
+    }
+    return wrap;
   }
 
   async function loadFromSocialPostParams() {
@@ -2595,6 +2779,7 @@
           params.get('platform') ||
           '',
       ).trim(),
+      imageNote: imageNote,
     };
 
     var platformEl = document.getElementById('dmPlatform');
@@ -2625,6 +2810,52 @@
 
     switchDmDrawerTab('formats');
     syncPostCopySection();
+
+    var postRef = socialPostRefFor('front', platform);
+    var artwork = await resolveSocialPostArtwork(handoff, postRef);
+    var brokenArtwork = false;
+    if (artwork && artwork.url && !(await artworkUrlLoads(artwork.url))) {
+      designMeta.front.prompt = artwork.prompt || designMeta.front.prompt;
+      if (artwork.prompt) showPromptEditor('front', artwork.prompt);
+      setArtboardNotice('front', 'broken');
+      setDesignStatus('This post’s saved image couldn’t load — generate a fresh one from the canvas.', false);
+      artwork = null;
+      brokenArtwork = true;
+    }
+    if (artwork && artwork.url) {
+      artboardNotice.front = null;
+      setPreview('front', artwork.url, {
+        prompt: artwork.prompt,
+        aspectRatio: platPreset.aspectRatio || designMeta.front.aspectRatio,
+      });
+      if (artwork.prompt) {
+        lastImagePrompt = artwork.prompt;
+        showPromptEditor('front', artwork.prompt);
+      }
+      syncStudioPageView();
+      syncDownloadActions();
+      if (copy || headline) {
+        socialPostChatSeeded = true;
+        appendChatPostContextCard(copy, headline, body, platform);
+        var loadedContextMsg = buildSocialPostDesignChatMessage(copy, headline, body, imageNote, tags, platform);
+        chatHistory.push({ role: 'user', content: loadedContextMsg });
+        var loadedReply =
+          'This post’s design is on the canvas. Tell me what to change (e.g. “brighter background”, “bigger headline”) and click Update — or refine the caption first.';
+        appendChatBubble('assistant', loadedReply);
+        chatHistory.push({ role: 'assistant', content: loadedReply });
+      }
+      setDesignStatus('Loaded this post’s design onto the canvas.', true);
+      focusCanvasOnPhone();
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Post design loaded onto the canvas.', { variant: 'success' });
+      }
+      return;
+    }
+
+    if (!brokenArtwork) {
+      setArtboardNotice('front', (await isArtworkGeneratingForPost(postRef)) ? 'post-generating' : 'post-missing');
+    }
+    focusCanvasOnPhone();
 
     if (!autoPrompt) {
       var chatInput = document.getElementById('dmChatInput');
@@ -2998,6 +3229,8 @@
       resolution: String(item.resolution || ''),
       platform: String(item.platform || ''),
       label: String(item.label || 'Artwork'),
+      postId: String(item.postId || ''),
+      ideaId: String(item.ideaId || ''),
       savedAt: item.savedAt || new Date().toISOString(),
     };
     var list = getDesignHistory().filter(function (x) {
@@ -3015,6 +3248,8 @@
     opts = opts || {};
     var imageUrl = opts.imageUrl || designs[slot];
     if (!imageUrl) return false;
+    var platformKey = String(opts.platform || currentPlatformKey());
+    var ref = opts.postId || opts.ideaId ? { postId: opts.postId, ideaId: opts.ideaId } : socialPostRefFor(slot, platformKey);
     var item = {
       id: 'dm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
       slot: slot === 'back' ? 'back' : 'front',
@@ -3022,8 +3257,10 @@
       prompt: String(opts.prompt || designMeta[slot].prompt || lastImagePrompt || '').trim(),
       aspectRatio: String(opts.aspectRatio || designMeta[slot].aspectRatio || currentAspectRatio()),
       resolution: String(opts.resolution || designMeta[slot].resolution || '2K'),
-      platform: String(opts.platform || currentPlatformKey()),
+      platform: platformKey,
       taskId: String(opts.taskId || ''),
+      postId: String(ref.postId || ''),
+      ideaId: String(ref.ideaId || ''),
       savedAt: new Date().toISOString(),
     };
     var list = getSavedDesigns().filter(function (x) {
@@ -3074,6 +3311,7 @@
     var preset = DM_PLATFORMS[currentPlatformKey()] || DM_PLATFORMS.custom;
     var sideLabel = preset.dualSided ? slot : 'canvas';
     setDesignStatus('Loaded saved design onto the ' + sideLabel + '.', true);
+    focusCanvasOnPhone();
   }
 
   function savedDesignLoadLabel() {
@@ -3564,6 +3802,7 @@
       front: { prompt: '', aspectRatio: ratio, resolution: '2K' },
       back: { prompt: '', aspectRatio: ratio, resolution: '2K' },
     };
+    artboardNotice = { front: null, back: null };
     setPreview('front', null);
     setPreview('back', null);
     resetChatLog();
@@ -3620,15 +3859,21 @@
     }
     var previewUrl = normalizeStudioPreviewUrl(imageUrl);
     designs[slot] = previewUrl || imageUrl || null;
+    if (designs[slot]) artboardNotice[slot] = null;
     el.innerHTML = '';
     if (!previewUrl && !imageUrl) {
-      var span = document.createElement('span');
-      span.className = 'dm-artboard-empty';
-      if (plat.dualSided) {
-        span.textContent =
-          slot === 'back' ? 'No back yet — generate or switch to Front' : 'No front yet — describe your design and generate';
+      var span;
+      if (artboardNotice[slot]) {
+        span = buildArtboardNoticeEl(slot, artboardNotice[slot]);
       } else {
-        span.textContent = 'No ' + formatLabel + ' yet — describe your design and generate';
+        span = document.createElement('span');
+        span.className = 'dm-artboard-empty';
+        if (plat.dualSided) {
+          span.textContent =
+            slot === 'back' ? 'No back yet — generate or switch to Front' : 'No front yet — describe your design and generate';
+        } else {
+          span.textContent = 'No ' + formatLabel + ' yet — describe your design and generate';
+        }
       }
       el.appendChild(span);
       appendLobSafeZones(el, slot);
@@ -3658,10 +3903,11 @@
       }
       if (img.dataset.broken === '1') return;
       img.dataset.broken = '1';
-      setDesignStatus(
-        formatLabel + ' image could not load. Try Generate again, or upload a new image.',
-        false,
-      );
+      if (!img.isConnected || designs[slot] !== (previewUrl || imageUrl)) return;
+      designs[slot] = null;
+      setArtboardNotice(slot, 'broken');
+      syncDownloadActions();
+      setDesignStatus(formatLabel + ' image could not load — generate a fresh one from the canvas.', false);
     });
     el.appendChild(img);
     var artboardBtn = document.getElementById(slot === 'back' ? 'dmPreviewBackBtn' : 'dmPreviewFrontBtn');
@@ -4186,6 +4432,7 @@
       lastImagePrompt = prompt;
       showPromptEditor(slot, prompt);
     }
+    var detailRef = { postId: String(detail.postId || ''), ideaId: String(detail.ideaId || '') };
     saveDesignToLibrary(slot, {
       imageUrl: detail.imageUrl,
       prompt: prompt,
@@ -4193,6 +4440,8 @@
       resolution: resolution,
       platform: platform,
       taskId: detail.taskId || '',
+      postId: detailRef.postId,
+      ideaId: detailRef.ideaId,
       silent: true,
       recordHistory: true,
     });
@@ -4207,7 +4456,7 @@
     dmPostCopyManualEdit = false;
     refreshPostCopyFromFields(true);
     if (slot === 'front' && isSocialPlatform(platform)) {
-      syncArtworkToLinkedSocialPost(detail.imageUrl, prompt);
+      syncArtworkToLinkedSocialPost(detail.imageUrl, prompt, detailRef);
     }
     return true;
   }
@@ -4234,6 +4483,7 @@
     if (pending && pending.imageUrl) {
       applyArtworkGenerationResult(pending, { forcePlatform: true });
       switchDmDrawerTab('history');
+      focusCanvasOnPhone();
       return;
     }
     if (wantsReady) switchDmDrawerTab('history');
@@ -4408,6 +4658,8 @@
           aspectRatio: aspectRatio,
           resolution: resolution,
           modelKey: modelKey,
+          postId: socialPostRefFor(slot, ctx.platform).postId,
+          ideaId: socialPostRefFor(slot, ctx.platform).ideaId,
         });
       }
       if (
@@ -5014,6 +5266,8 @@
     if (detail && detail.success && detail.imageUrl) {
       applyArtworkGenerationResult(detail, { fromBackground: true });
       switchDmDrawerTab('history');
+    } else if (artboardNotice.front === 'post-generating') {
+      setArtboardNotice('front', 'post-missing');
     }
   });
   loadMailPlaybooksFromUrl();

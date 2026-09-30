@@ -1840,6 +1840,8 @@
       resolution: String((job && job.resolution) || '').trim(),
       platform: String((job && job.platform) || '').trim(),
       label: String((job && job.label) || 'Artwork').trim() || 'Artwork',
+      postId: String((job && job.postId) || '').trim(),
+      ideaId: String((job && job.ideaId) || '').trim(),
       savedAt: new Date().toISOString(),
     };
     pushGeneratedDesignRecord(
@@ -1870,10 +1872,31 @@
           logoOverlayApplied: result.logoOverlayApplied,
           logoSkipReason: result.logoSkipReason || null,
           label: job.label || 'Artwork',
+          postId: job.postId || '',
+          ideaId: job.ideaId || '',
           at: Date.now(),
         }),
       );
     } catch (_) {}
+  }
+
+  /** Link finished artwork to its social post even when the studio page is no longer open. */
+  function syncArtworkToSocialPost(job, result) {
+    const postId = String((job && job.postId) || '').trim();
+    const ideaId = String((job && job.ideaId) || '').trim();
+    const artworkUrl = String((result && result.imageUrl) || '').trim();
+    if (!artworkUrl || (!postId && !ideaId)) return;
+    fetch('/social-posts/api/sync-artwork', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        postId: postId || undefined,
+        ideaId: ideaId || undefined,
+        artworkUrl,
+        artworkPrompt: String((job && job.prompt) || '').trim(),
+      }),
+    }).catch(() => {});
   }
 
   function readArtworkReadyResult() {
@@ -1988,6 +2011,7 @@
         if (result.success) {
           storeArtworkReadyResult(job, result);
           rememberGeneratedArtwork(job, result);
+          syncArtworkToSocialPost(job, result);
           pushClientBellNotification({
             headline: 'Artwork ready',
             body: label + ' finished generating — open History in Marketing Studio to review.',
@@ -2040,6 +2064,9 @@
     isRunning() {
       return isArtworkGenJobRunning();
     },
+    readJob() {
+      return readArtworkGenJob();
+    },
     readReadyResult() {
       return readArtworkReadyResult();
     },
@@ -2063,6 +2090,8 @@
         prompt: String(opts.prompt || '').trim(),
         aspectRatio: String(opts.aspectRatio || '').trim(),
         resolution: String(opts.resolution || '').trim(),
+        postId: String(opts.postId || '').trim(),
+        ideaId: String(opts.ideaId || '').trim(),
         running: true,
         startedAt: Date.now(),
       };

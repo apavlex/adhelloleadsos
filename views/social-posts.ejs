@@ -68,6 +68,18 @@
     .post-card-thumb.has-artwork { background: #0f172a; }
     .post-card-thumb .thumb-artwork { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
     .post-card-thumb.has-artwork .thumb-overlay { background: rgba(0,0,0,.25); }
+    .post-card-thumb .thumb-empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 0 44px; text-align: center; color: var(--brand-muted); pointer-events: none; }
+    .post-card-thumb .thumb-empty svg { width: 28px; height: 28px; margin-bottom: 2px; opacity: .7; }
+    .post-card-thumb .thumb-empty-title { font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--brand-dark); }
+    .dark .post-card-thumb .thumb-empty-title { color: #e2e8f0; }
+    .post-card-thumb .thumb-empty-sub { font-size: 11px; line-height: 1.3; }
+    .post-card-thumb .thumb-empty [data-empty="broken"],
+    .post-card-thumb.is-broken .thumb-empty [data-empty="none"] { display: none; }
+    .post-card-thumb.is-broken .thumb-empty [data-empty="broken"] { display: inline; }
+    .post-card-thumb.has-artwork:not(.is-broken) .thumb-empty { display: none; }
+    .post-card-thumb.has-artwork.is-broken { background: var(--brand-cream, #f1f5f9); }
+    .dark .post-card-thumb.has-artwork.is-broken { background: #1e293b; }
+    .post-card-thumb.is-broken .thumb-artwork { display: none; }
     .post-card-action-btn.has-artwork { color: var(--brand-yellow); }
     .post-card-thumb .thumb-note-editor { position: absolute; inset: 0; z-index: 3; background: rgba(15,23,42,.92); padding: 12px; display: flex; flex-direction: column; gap: 8px; }
     .post-card-thumb .thumb-note-editor.hidden { display: none; }
@@ -192,6 +204,18 @@
     }
     body.sp-posts-view--list .js-sp-posts-layout.sp-layout--list .post-card-thumb:hover {
       transform: none;
+    }
+    body.sp-posts-view--list .js-sp-posts-layout.sp-layout--list .post-card-thumb .thumb-empty {
+      flex-direction: row;
+      gap: 8px;
+    }
+    body.sp-posts-view--list .js-sp-posts-layout.sp-layout--list .post-card-thumb .thumb-empty svg {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+    }
+    body.sp-posts-view--list .js-sp-posts-layout.sp-layout--list .post-card-thumb .thumb-empty-sub {
+      display: none;
     }
     body.sp-posts-view--list .js-sp-posts-layout.sp-layout--list .post-card-thumb .thumb-note-display {
       padding: 4px 8px;
@@ -640,6 +664,58 @@
       } catch { /* ignore */ }
     }
 
+    window.markThumbBroken = function (img) {
+      const thumb = img && img.closest ? img.closest('.post-card-thumb') : null;
+      if (thumb) thumb.classList.add('is-broken');
+    };
+
+    function readStudioArtworkHistory() {
+      const out = [];
+      ['adhello_dm_design_history', 'adhello_dm_saved_designs'].forEach(function (key) {
+        try {
+          const list = JSON.parse(localStorage.getItem(key) || '[]');
+          if (Array.isArray(list)) list.forEach(function (item) { if (item && item.imageUrl) out.push(item); });
+        } catch { /* ignore */ }
+      });
+      return out;
+    }
+
+    function syncArtworkToServer(ref, item) {
+      const body = { workspaceId: WORKSPACE_ID, artworkUrl: item.imageUrl, artworkPrompt: item.prompt || '' };
+      if (ref.postId) body.postId = ref.postId;
+      else body.ideaId = ref.ideaId;
+      fetch('/social-posts/api/sync-artwork', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }).catch(function () { /* ignore */ });
+    }
+
+    /** Link artwork generated in the studio (e.g. finished in the background) back to posts that never received it. */
+    function backfillArtworkFromStudioHistory() {
+      const history = readStudioArtworkHistory().filter(function (item) { return item.postId || item.ideaId; });
+      if (!history.length) return false;
+      let changed = false;
+      savedPosts.forEach(function (post) {
+        if (!post || post.artworkUrl) return;
+        const match = history.find(function (item) {
+          return (item.postId && item.postId === post.id) || (post.ideaId && item.ideaId && item.ideaId === post.ideaId);
+        });
+        if (!match) return;
+        post.artworkUrl = match.imageUrl;
+        post.artworkPrompt = match.prompt || '';
+        syncArtworkToServer({ postId: post.id }, match);
+        changed = true;
+      });
+      history.forEach(function (item) {
+        if (!item.ideaId || (ideaArtworks[item.ideaId] && ideaArtworks[item.ideaId].artworkUrl)) return;
+        ideaArtworks[item.ideaId] = { artworkUrl: item.imageUrl, artworkPrompt: item.prompt || '' };
+        if (!item.postId) syncArtworkToServer({ ideaId: item.ideaId }, item);
+        changed = true;
+      });
+      return changed;
+    }
+
     function getArtworkForCard(mode, platform, ideaId, postId, savedArtworkUrl) {
       if (savedArtworkUrl) return savedArtworkUrl;
       if (mode === 'saved' && postId) {
@@ -760,6 +836,7 @@
       heart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>',
       heartFilled: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>',
       note: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+      imagePlaceholder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2.5"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>',
       schedule: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><circle cx="12" cy="16" r="1.5" fill="currentColor" stroke="none"/></svg>',
       download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
     };
@@ -1389,10 +1466,25 @@
             tags: Array.isArray(extras.tags) ? extras.tags.join(', ') : String(extras.tags || ''),
             postId: extras.postId || '',
             ideaId: extras.ideaId || '',
+            artworkUrl: extras.artworkUrl || '',
+            artworkPrompt: extras.artworkPrompt || '',
           }),
         );
       } catch (_) {}
       return '/direct-mail?' + params.toString();
+    }
+
+    function getArtworkPromptForCard(mode, platform, ideaId, postId) {
+      if (mode === 'saved' && postId) {
+        const post = savedPosts.find(function (p) { return p.id === postId; });
+        if (post && post.artworkPrompt) return post.artworkPrompt;
+      }
+      if (ideaId) {
+        if (ideaArtworks[ideaId] && ideaArtworks[ideaId].artworkPrompt) return ideaArtworks[ideaId].artworkPrompt;
+        const saved = savedPosts.find(function (sp) { return sp.ideaId === ideaId && sp.platform === platform; });
+        if (saved && saved.artworkPrompt) return saved.artworkPrompt;
+      }
+      return '';
     }
 
     function launchMarketingStudioFromCard(mode, ideaId, postId, platform) {
@@ -1423,12 +1515,17 @@
         qaStatus('Add post copy before creating artwork');
         return;
       }
+      const linkedIdeaId = mode === 'idea'
+        ? ideaId
+        : ((savedPosts.find(function (p) { return p.id === postId; }) || {}).ideaId || '');
       window.location.href = marketingStudioUrl(platform, hook, cta, {
         imageNote: imageNote,
         tags: tags,
         postId: mode === 'saved' ? postId : '',
         ideaId: mode === 'idea' ? ideaId : '',
         socialPlatform: platform,
+        artworkUrl: getArtworkForCard(mode, platform, linkedIdeaId, mode === 'saved' ? postId : '', ''),
+        artworkPrompt: getArtworkPromptForCard(mode, platform, linkedIdeaId, mode === 'saved' ? postId : ''),
       });
     }
 
@@ -1457,8 +1554,14 @@
         ? '<div class="thumb-note-display"><span>' + escapeHtml(imageNote) + '</span></div>'
         : '';
       const artworkImg = hasArtwork
-        ? '<img class="thumb-artwork" src="' + escapeHtml(resolvedArtwork) + '" alt="Generated artwork" loading="lazy" />'
+        ? '<img class="thumb-artwork" src="' + escapeHtml(resolvedArtwork) + '" alt="Generated artwork" loading="lazy" onerror="markThumbBroken(this)" />'
         : '';
+      const thumbEmpty = noteDisplay
+        ? ''
+        : '<div class="thumb-empty" aria-hidden="true">' + ICONS.imagePlaceholder +
+          '<span class="thumb-empty-title" data-empty="none">No image yet</span>' +
+          '<span class="thumb-empty-title" data-empty="broken">Image unavailable</span>' +
+          '<span class="thumb-empty-sub">Tap to design it in Marketing Studio</span></div>';
       const thumbClass = 'post-card-thumb cursor-pointer' + (hasArtwork ? ' has-artwork' : '');
       const overlayLabel = hasArtwork ? 'Open studio →' : 'Open studio →';
       const tagPills = tags.length
@@ -1503,6 +1606,7 @@
         : '';
       return '<div class="' + thumbClass + '" onclick="event.stopPropagation();' + studioLaunch + '">' +
         artworkImg +
+        thumbEmpty +
         noteDisplay +
         bookmarkBadge +
         '<button type="button" class="thumb-note-btn" onclick="event.stopPropagation();' + noteHandler + '" title="Art direction note (optional)">' + ICONS.note + '</button>' +
@@ -2106,7 +2210,13 @@
       try {
         const res = await fetch('/social-posts/api/saved?' + wsQuery());
         const data = await res.json();
-        if (data.success && data.posts) { savedPosts = data.posts; renderSavedPosts(); renderTagFilters(); }
+        if (data.success && data.posts) {
+          savedPosts = data.posts;
+          const backfilled = backfillArtworkFromStudioHistory();
+          renderSavedPosts();
+          renderTagFilters();
+          if (backfilled && Object.keys(allIdeas).length) renderIdeas();
+        }
       } catch (err) { /* ignore */ }
     }
 
