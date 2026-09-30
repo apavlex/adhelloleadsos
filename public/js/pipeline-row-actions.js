@@ -1,5 +1,6 @@
 /**
- * Pipeline table row actions — Call (softphone) and SMS (GoHighLevel composer).
+ * Pipeline table row actions — row click opens Money mode, Call (softphone), SMS (GoHighLevel composer).
+ * The » button still opens the company profile.
  * Delegated from document so rows re-rendered by filters / paging keep working.
  */
 (function () {
@@ -87,17 +88,68 @@
       });
   }
 
+  var MONEY_MODE_KEY_CAP = 80;
+  var ROW_CLICK_IGNORE =
+    'input, button, a, select, textarea, label, form, [contenteditable="true"], .bookmark-btn, .view-detail-btn, ' +
+    '.lead-category-input, .plc-col-resize, .js-pipeline-columns-wrap';
+
+  /** Money mode queue = visible rows, starting at the clicked lead, so Next walks down the table. */
+  function moneyModeUrlForRow(row) {
+    var key = rowKey(row);
+    var table = row.closest('table');
+    var keys = [];
+    var rows = table ? table.querySelectorAll('tbody tr.result-row') : [];
+    Array.prototype.forEach.call(rows, function (r) {
+      if (r.classList.contains('pipeline-row-page-hidden') || !r.getClientRects().length) return;
+      var k = rowKey(r);
+      if (k && keys.indexOf(k) === -1) keys.push(k);
+    });
+    var start = keys.indexOf(key);
+    if (start > 0) keys = keys.slice(start).concat(keys.slice(0, start));
+    if (start === -1) keys.unshift(key);
+    keys = keys.slice(0, MONEY_MODE_KEY_CAP);
+    var params = new URLSearchParams();
+    params.set('lead', key);
+    if (keys.length > 1) params.set('keys', keys.join(','));
+    params.set('from', 'pipeline');
+    params.set('back', window.location.pathname + window.location.search);
+    return '/focus?' + params.toString();
+  }
+
+  function isMoneyModeRowClick(e, row) {
+    if (!row || !row.closest('#prospectLeadsTable')) return false;
+    if (row.classList.contains('result-row--panel-source')) return false;
+    if (e.shiftKey || e.altKey || e.button > 0) return false;
+    if (e.target.closest(ROW_CLICK_IGNORE)) return false;
+    var sel = window.getSelection && window.getSelection();
+    if (sel && String(sel.toString() || '').trim()) return false;
+    return !!rowKey(row);
+  }
+
   document.addEventListener(
     'click',
     function (e) {
-      var btn = e.target && e.target.closest && e.target.closest('.pipeline-row-call-btn, .pipeline-row-sms-btn');
-      if (!btn) return;
-      var row = btn.closest('tr.result-row');
-      if (!row) return;
+      if (!e.target || !e.target.closest) return;
+      var btn = e.target.closest('.pipeline-row-call-btn, .pipeline-row-sms-btn');
+      if (btn) {
+        var btnRow = btn.closest('tr.result-row');
+        if (!btnRow) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (btn.classList.contains('pipeline-row-call-btn')) callRow(btnRow);
+        else smsRow(btnRow);
+        return;
+      }
+      var row = e.target.closest('tr.result-row');
+      if (!isMoneyModeRowClick(e, row)) return;
       e.preventDefault();
       e.stopPropagation();
-      if (btn.classList.contains('pipeline-row-call-btn')) callRow(row);
-      else smsRow(row);
+      var url = moneyModeUrlForRow(row);
+      if (e.metaKey || e.ctrlKey) {
+        window.open(url, '_blank', 'noopener');
+        return;
+      }
+      window.location.href = url;
     },
     true,
   );

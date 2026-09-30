@@ -398,6 +398,14 @@ router.get('/', async (req, res, next) => {
         ? `/opportunities?pipeline=${encodeURIComponent(pipelineParam)}`
         : '/opportunities';
       focusBackLabel = 'Opportunities';
+    } else if (String(req.query.from || '').trim().toLowerCase() === 'pipeline') {
+      const backParam = String(req.query.back || '').trim();
+      // Same-origin paths only — never an absolute or protocol-relative URL.
+      focusBackHref =
+        backParam.startsWith('/') && !backParam.startsWith('//') && !backParam.includes('\\') && backParam.length <= 2000
+          ? backParam
+          : '/prospecting?tab=pipeline';
+      focusBackLabel = 'Pipeline';
     }
 
     res.render('focus', {
