@@ -567,6 +567,30 @@ module.exports = {
     });
   },
 
+  /**
+   * Title + workspace for many lead keys in one query (no full-lead parse).
+   * @returns {Map<string, {title: string, workspaceId: string}>}
+   */
+  getLeadTitlesByKeys(keys) {
+    const unique = [...new Set((keys || []).map((k) => String(k || '').trim()).filter(Boolean))];
+    const out = new Map();
+    for (let i = 0; i < unique.length; i += 400) {
+      const chunk = unique.slice(i, i + 400);
+      const rows = sqlite
+        .prepare(
+          `SELECT key,
+             CASE WHEN json_valid(value) THEN json_extract(value, '$.title') END AS title,
+             CASE WHEN json_valid(value) THEN json_extract(value, '$.workspaceId') END AS workspaceId
+           FROM kv WHERE key IN (${chunk.map(() => '?').join(',')})`,
+        )
+        .all(...chunk);
+      rows.forEach((r) => {
+        out.set(r.key, { title: r.title == null ? '' : String(r.title), workspaceId: r.workspaceId == null ? '' : String(r.workspaceId) });
+      });
+    }
+    return out;
+  },
+
   async listLeads(workspaceId) {
     return this.getAllLeads(workspaceId);
   },
@@ -877,27 +901,22 @@ module.exports = {
       : null;
     if (!wid) return null;
     const norm = k.replace(/^lead:/i, '');
-    const keys = kvList('lead:');
-    for (const storageKey of keys) {
-      const raw = kvGet(storageKey);
-      if (!raw) continue;
-      let parsed;
-      try {
-        parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-      } catch {
-        continue;
-      }
-      if (!parsed || typeof parsed !== 'object') continue;
-      if (this._normalizeLeadWorkspaceId(parsed.workspaceId) !== wid) continue;
-      const pk = String(parsed.key || '').trim();
-      const sk = String(storageKey || '').trim();
-      if (
-        sk === k ||
-        sk.replace(/^lead:/i, '') === norm ||
-        (pk && (pk === k || pk.replace(/^lead:/i, '') === norm))
-      ) {
-        return storageKey;
-      }
+    // Storage-key variants were checked above; what's left is a lead whose stored `key` field
+    // differs from its row key. Match that in SQLite instead of parsing every lead in JS.
+    const rows = sqlite
+      .prepare(
+        `SELECT key, workspaceId FROM (
+           SELECT key,
+             CASE WHEN json_valid(value) THEN TRIM(json_extract(value, '$.key')) END AS pk,
+             CASE WHEN json_valid(value) THEN json_extract(value, '$.workspaceId') END AS workspaceId
+           FROM kv WHERE key LIKE 'lead:%'
+         )
+         WHERE pk IN (?, ?) OR (lower(substr(pk, 1, 5)) = 'lead:' AND substr(pk, 6) = ?)
+         ORDER BY key`,
+      )
+      .all(k, norm, norm);
+    for (const row of rows) {
+      if (this._normalizeLeadWorkspaceId(row.workspaceId) === wid) return row.key;
     }
     return null;
   },

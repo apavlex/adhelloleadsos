@@ -327,6 +327,32 @@ function mergeLeadActivityEntries(lead, opts) {
   return out;
 }
 
+const FEED_MAX_PER_SOURCE = 24;
+
+/**
+ * True when none of the entries mergeLeadActivityEntries would read fall inside the window —
+ * lets the feed skip the (costly) merge/format for the long tail of untouched leads.
+ * Undated entries always pass the window, so their presence keeps the lead.
+ */
+function leadActivityOlderThan(lead, sinceMs) {
+  if (!sinceMs) return false;
+  const sources = [
+    [lead.updates, (u) => u.timestamp || u.ts || u.createdAt || ''],
+    [lead.logs, (e) => e.timestamp || ''],
+  ];
+  for (const [list, tsOf] of sources) {
+    if (!Array.isArray(list)) continue;
+    const start = Math.max(0, list.length - FEED_MAX_PER_SOURCE);
+    for (let i = list.length - 1; i >= start; i -= 1) {
+      const entry = list[i];
+      if (!entry) continue;
+      const ms = Date.parse(tsOf(entry)) || 0;
+      if (!ms || ms >= sinceMs) return false;
+    }
+  }
+  return true;
+}
+
 function buildWorkspaceActivityFeed(leads, options) {
   const opts = options && typeof options === 'object' ? options : {};
   const filter = String(opts.filter || 'all').toLowerCase();
@@ -343,7 +369,8 @@ function buildWorkspaceActivityFeed(leads, options) {
 
   for (const lead of leads || []) {
     if (!lead || !lead.key) continue;
-    const merged = mergeLeadActivityEntries(lead);
+    if (leadActivityOlderThan(lead, sinceMs)) continue;
+    const merged = mergeLeadActivityEntries(lead, { maxPerSource: FEED_MAX_PER_SOURCE });
     const filtered = merged.filter((e) => activityEntryMatchesFilter(e, filter));
     const primary =
       filter === 'notes'

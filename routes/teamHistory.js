@@ -25,16 +25,14 @@ function focusUrl(keys) {
 async function loadLeadTitles(workspaceId, keys) {
   const unique = [...new Set(keys.filter(Boolean))];
   const out = {};
-  await Promise.all(
-    unique.map(async (key) => {
-      try {
-        const lead = await dbService.getLead(key, workspaceId);
-        if (lead && (lead.workspaceId || 'default') === workspaceId) out[key] = lead.title || 'Lead';
-      } catch (_) {
-        /* deleted or unreadable lead */
-      }
-    }),
-  );
+  // Try each key with and without the "lead:" prefix. Deliberately no getLead() fallback: for a
+  // deleted lead it scans and parses every lead in the database, once per missing key.
+  const storageKeyFor = (key) => (/^lead:/i.test(key) ? key : `lead:${key}`);
+  const found = dbService.getLeadTitlesByKeys(unique.flatMap((key) => [key, storageKeyFor(key)]));
+  unique.forEach((key) => {
+    const hit = found.get(key) || found.get(storageKeyFor(key));
+    if (hit && (hit.workspaceId || 'default') === workspaceId) out[key] = hit.title || 'Lead';
+  });
   return out;
 }
 
