@@ -6,9 +6,11 @@
   'use strict';
 
   const BULK_MAX = 25;
+  const BULK_SELECTED_MAX = 100;
   const BULK_CONCURRENCY = 2;
   const running = new Set();
   let popover = null;
+  let bulkRunning = false;
 
   function cellApi() {
     return window.AdhelloContactFinderCell;
@@ -120,7 +122,7 @@
     }
   }
 
-  async function searchRow(row, { quiet } = {}) {
+  async function searchRow(row, { quiet, quietSuccess } = {}) {
     const key = row && row.dataset.leadKey;
     if (!key || running.has(key)) return { ok: false, skipped: true };
     running.add(key);
@@ -140,7 +142,7 @@
         if (!quiet) showCellMessage(row, data.error || `Search failed (${res.status})`, 'error');
         return { ok: false, error: data.error, code: data.code };
       }
-      if (!quiet) showCellMessage(row, data.message, 'ok');
+      if (!quiet && !quietSuccess) showCellMessage(row, data.message, 'ok');
       return { ok: true, found: data.lead && data.lead.contactFinder && data.lead.contactFinder.status === 'found' };
     } catch (err) {
       renderRowCell(row);
@@ -304,43 +306,87 @@
     return { rows: visible, selected: false };
   }
 
-  async function runBulk(btn) {
-    if (btn.dataset.running === '1') return;
+  /** Toolbar and bulk-bar buttons share one run; every copy shows the same progress. */
+  function setBulkLabels(text, busy) {
+    document.querySelectorAll('.js-find-contacts-bulk').forEach((b) => {
+      const label = b.querySelector('.js-find-contacts-bulk-label') || b;
+      if (!label.dataset.original) label.dataset.original = label.textContent;
+      label.textContent = text == null ? label.dataset.original : text;
+      b.disabled = !!busy;
+      b.classList.toggle('loading', !!busy);
+    });
+  }
+
+  function flashBulkLabels(text, ms) {
+    setBulkLabels(text, false);
+    setTimeout(() => {
+      if (!bulkRunning) setBulkLabels(null, false);
+    }, ms);
+  }
+
+  function toast(text, variant) {
+    if (typeof window.showAppToast === 'function') window.showAppToast(text, { variant: variant || 'info' });
+  }
+
+  async function confirmBulk(message) {
+    if (typeof window.adhelloConfirm === 'function') {
+      return window.adhelloConfirm({ title: 'Find contacts?', message, confirmLabel: 'Find contacts', cancelLabel: 'Cancel' });
+    }
+    return window.confirm(message);
+  }
+
+  async function runBulk() {
+    if (bulkRunning) return;
     const { rows, selected } = bulkCandidateRows();
-    const label = btn.querySelector('.js-find-contacts-bulk-label') || btn;
-    const original = label.dataset.original || label.textContent;
-    label.dataset.original = original;
     if (!rows.length) {
-      label.textContent = selected ? 'Nothing selected' : 'All visible searched';
-      setTimeout(() => (label.textContent = original), 2500);
+      flashBulkLabels(selected ? 'Nothing selected' : 'All visible searched', 2500);
       return;
     }
-    const batch = rows.slice(0, BULK_MAX);
+    const cap = selected ? BULK_SELECTED_MAX : BULK_MAX;
+    const batch = rows.slice(0, cap);
     const scope = selected ? 'selected' : 'visible, not yet searched';
-    const extra = rows.length > BULK_MAX ? ` (first ${BULK_MAX} of ${rows.length})` : '';
-    if (!window.confirm(`Find contacts for ${batch.length} ${scope} lead${batch.length === 1 ? '' : 's'}${extra}?\n\nEach search uses Outscraper / Apify credits.`)) return;
+    const extra = rows.length > cap ? ` (first ${cap} of ${rows.length})` : '';
+    const ok = await confirmBulk(
+      `Find contacts for ${batch.length} ${scope} lead${batch.length === 1 ? '' : 's'}${extra}? Each search uses Outscraper / Apify credits.`,
+    );
+    if (!ok) return;
 
-    btn.dataset.running = '1';
-    btn.disabled = true;
+    bulkRunning = true;
     let done = 0;
     let found = 0;
+    let noWebsite = 0;
+    let failed = 0;
+    let stopReason = '';
     const queue = batch.slice();
-    const tick = () => (label.textContent = `Finding… ${done}/${batch.length}`);
+    const tick = () => setBulkLabels(`Finding… ${done}/${batch.length}`, true);
     tick();
     const worker = async () => {
-      while (queue.length) {
+      while (queue.length && !stopReason) {
         const row = queue.shift();
-        const r = await searchRow(row, { quiet: true });
+        const r = await searchRow(row, { quietSuccess: true });
         done += 1;
         if (r.found) found += 1;
+        else if (r.code === 'no_website') noWebsite += 1;
+        else if (r.code === 'not_configured') stopReason = r.error || 'Contact search is not set up for this workspace.';
+        else if (!r.ok && !r.skipped) failed += 1;
         tick();
       }
     };
-    await Promise.all(Array.from({ length: Math.min(BULK_CONCURRENCY, batch.length) }, worker));
-    label.textContent = `Found for ${found}/${batch.length}`;
-    btn.dataset.running = '';
-    btn.disabled = false;
-    setTimeout(() => (label.textContent = original), 5000);
+    try {
+      await Promise.all(Array.from({ length: Math.min(BULK_CONCURRENCY, batch.length) }, worker));
+    } finally {
+      bulkRunning = false;
+    }
+    if (stopReason) {
+      flashBulkLabels('Stopped', 4000);
+      toast(stopReason, 'error');
+      return;
+    }
+    const parts = [`Found contacts for ${found} of ${batch.length}`];
+    if (noWebsite) parts.push(`${noWebsite} without a website skipped`);
+    if (failed) parts.push(`${failed} failed`);
+    flashBulkLabels(`Found for ${found}/${batch.length}`, 5000);
+    toast(parts.join(' · ') + '.', failed && !found ? 'error' : 'success');
   }
 
   document.addEventListener(
@@ -367,7 +413,8 @@
       const bulk = target.closest('.js-find-contacts-bulk');
       if (bulk) {
         e.preventDefault();
-        runBulk(bulk);
+        e.stopPropagation();
+        runBulk();
         return;
       }
       if (popover && !popover.contains(target)) closePopover();
