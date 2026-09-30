@@ -443,8 +443,12 @@
 
   function updatePreviewAspectRatio() {
     var css = aspectRatioToCss(currentAspectRatio());
+    var parts = css.split('/');
+    var numeric = parseFloat(parts[0]) / parseFloat(parts[1]);
     document.querySelectorAll('.dm-artboard, .dm-preview-btn').forEach(function (btn) {
-      if (btn) btn.style.aspectRatio = css;
+      if (!btn) return;
+      btn.style.aspectRatio = css;
+      if (numeric > 0) btn.style.setProperty('--dm-ar', numeric.toFixed(4));
     });
   }
 
@@ -638,7 +642,134 @@
     bindStudioFullscreen();
     bindPromptPanelResizer();
     bindPreviewZoomHandlers();
+    bindPhoneStudioLayout();
     refreshStudioAiStatus();
+  }
+
+  var DM_PHONE_MQ = '(max-width: 767px), (max-width: 1023px) and (max-height: 500px)';
+  var DM_PHONE_LANDSCAPE_MQ = '(max-width: 1023px) and (max-height: 500px)';
+
+  function mediaMatches(query) {
+    return !!(window.matchMedia && window.matchMedia(query).matches);
+  }
+
+  function isPhoneStudioLayout() {
+    return mediaMatches(DM_PHONE_MQ);
+  }
+
+  function setPhoneDrawerOpen(open) {
+    var studio = document.getElementById('dmStudio');
+    if (!studio) return;
+    studio.classList.toggle('is-drawer-collapsed', !open);
+    var toggle = document.getElementById('dmRailToggle');
+    if (toggle) {
+      var label = open ? 'Hide panel' : 'Show panel';
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      toggle.setAttribute('aria-label', label);
+      toggle.title = label;
+    }
+  }
+
+  function openPhoneStudioTab(tab) {
+    if (!isPhoneStudioLayout()) return;
+    switchDmDrawerTab(tab);
+    setPhoneDrawerOpen(true);
+  }
+
+  /** Landscape phones: collapse the app sidebar for this page without overwriting the saved preference. */
+  function syncPhoneLandscapeSidebar(isLandscapePhone) {
+    var body = document.body;
+    if (!document.getElementById('appSidebar')) return;
+    var savedState =
+      typeof window.__adhelloGetSidebarState === 'function' ? window.__adhelloGetSidebarState() : 'expanded';
+    if (isLandscapePhone) {
+      if (savedState === 'expanded' && !body.classList.contains('sidebar-collapsed')) {
+        body.classList.add('sidebar-collapsed', 'dm-sidebar-auto-collapsed');
+      }
+    } else if (body.classList.contains('dm-sidebar-auto-collapsed')) {
+      body.classList.remove('dm-sidebar-auto-collapsed');
+      if (savedState === 'expanded') body.classList.remove('sidebar-collapsed');
+    }
+  }
+
+  function scrollStudioIntoView() {
+    var shell = document.getElementById('dmStudioShell');
+    if (!shell) return;
+    var top = shell.getBoundingClientRect().top + window.scrollY;
+    if (window.scrollY < top - 4) window.scrollTo(0, top);
+  }
+
+  function bindPhoneStudioLayout() {
+    var studio = document.getElementById('dmStudio');
+    var rail = studio && studio.querySelector('.dm-studio-rail');
+    if (!studio || !rail || studio.dataset.dmPhoneBound === '1') return;
+    studio.dataset.dmPhoneBound = '1';
+
+    // Capture phase: read the pre-click state before the tab handler marks the button active.
+    rail.addEventListener(
+      'click',
+      function (e) {
+        var btn = e.target && e.target.closest ? e.target.closest('.dm-rail-btn') : null;
+        if (!btn || !rail.contains(btn)) return;
+        var tab = btn.getAttribute('data-dm-tab') || '';
+        var wasOpenOnTab = btn.classList.contains('is-active') && !studio.classList.contains('is-drawer-collapsed');
+        studio.setAttribute('data-dm-active-tab', tab);
+        if (isPhoneStudioLayout()) setPhoneDrawerOpen(!wasOpenOnTab);
+      },
+      true,
+    );
+
+    var toggle = document.getElementById('dmRailToggle');
+    if (toggle) {
+      toggle.addEventListener('click', function () {
+        setPhoneDrawerOpen(studio.classList.contains('is-drawer-collapsed'));
+      });
+    }
+
+    var formatGrid = document.querySelector('.dm-format-grid');
+    if (formatGrid) {
+      formatGrid.addEventListener('click', function (e) {
+        if (!isPhoneStudioLayout()) return;
+        if (!(e.target && e.target.closest && e.target.closest('.dm-format-card'))) return;
+        window.setTimeout(function () {
+          setPhoneDrawerOpen(false);
+        }, 200);
+      });
+    }
+
+    // Taps on the collapse button while auto-collapsed mean "expand".
+    document.addEventListener(
+      'click',
+      function (e) {
+        if (!document.body.classList.contains('dm-sidebar-auto-collapsed')) return;
+        if (!(e.target && e.target.closest && e.target.closest('#sidebarCollapseBtn'))) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        document.body.classList.remove('dm-sidebar-auto-collapsed', 'sidebar-collapsed');
+      },
+      true,
+    );
+
+    function onLayoutChange() {
+      var landscape = mediaMatches(DM_PHONE_LANDSCAPE_MQ);
+      if (!isPhoneStudioLayout() && studio.getAttribute('data-dm-active-tab') === 'prompt') {
+        var formatsBtn = rail.querySelector('.dm-rail-btn[data-dm-tab="formats"]');
+        if (formatsBtn) formatsBtn.click();
+      }
+      syncPhoneLandscapeSidebar(landscape);
+      if (landscape) window.requestAnimationFrame(scrollStudioIntoView);
+    }
+
+    if (window.matchMedia) {
+      [DM_PHONE_MQ, DM_PHONE_LANDSCAPE_MQ].forEach(function (query) {
+        var mq = window.matchMedia(query);
+        if (typeof mq.addEventListener === 'function') mq.addEventListener('change', onLayoutChange);
+        else if (typeof mq.addListener === 'function') mq.addListener(onLayoutChange);
+      });
+    }
+    // sidebarShell.js is deferred and re-applies the saved sidebar state, so wait for it.
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', onLayoutChange);
+    else onLayoutChange();
   }
 
   function bindPreviewZoomHandlers() {
@@ -2091,6 +2222,8 @@
   });
 
   function switchDmDrawerTab(tab) {
+    var studio = document.getElementById('dmStudio');
+    if (studio) studio.setAttribute('data-dm-active-tab', tab);
     document.querySelectorAll('.dm-rail-btn').forEach(function (b) {
       b.classList.toggle('is-active', b.getAttribute('data-dm-tab') === tab);
     });
@@ -2617,6 +2750,7 @@
   function focusPromptEditor() {
     var editor = document.getElementById('dmPromptEditor');
     if (!editor) return;
+    openPhoneStudioTab('prompt');
     try {
       editor.focus({ preventScroll: false });
       editor.scrollIntoView({ behavior: 'smooth', block: 'nearest' });

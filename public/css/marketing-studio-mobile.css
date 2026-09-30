@@ -1,0 +1,660 @@
+/*
+ * Marketing Studio — phone layout.
+ * Portrait phones (< 768px) and landscape phones (< 1024px wide, ≤ 500px tall).
+ * Tablet/desktop studio styles live in custom.css; nothing here applies at ≥ 1024px.
+ */
+
+.dm-rail-toggle,
+.dm-rail-btn--phone {
+  display: none;
+}
+
+@media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) {
+  /* overflow-x: hidden turns body into a scroll container, which breaks position: sticky. */
+  body.dm-studio-page {
+    overflow-x: clip;
+    overflow-y: visible;
+  }
+
+  body.dm-studio-page #appTopbar {
+    position: relative;
+  }
+
+  /* Header: one title row + one scrollable tool row */
+  body.dm-studio-page .dm-studio-topbar {
+    position: relative;
+    top: auto;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 0.45rem;
+    padding: 0.35rem 0.75rem 0.6rem;
+    border-bottom: none;
+    background: transparent;
+    backdrop-filter: none;
+  }
+
+  body.dm-studio-page .dm-studio-eyebrow {
+    display: none;
+  }
+
+  body.dm-studio-page .dm-studio-topbar-start {
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  body.dm-studio-page .dm-studio-topbar-start > div {
+    min-width: 0;
+  }
+
+  body.dm-studio-page .dm-studio-topbar .page-heading-with-tip {
+    flex-wrap: nowrap;
+    min-width: 0;
+  }
+
+  body.dm-studio-page .dm-studio-title {
+    min-width: 0;
+    font-size: 1.125rem;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  body.dm-studio-page .dm-studio-format-pill {
+    flex-shrink: 0;
+    max-width: 48%;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.625rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  body.dm-studio-page .dm-studio-topbar-end {
+    flex-wrap: nowrap;
+    gap: 0.4rem;
+    margin: 0 -0.75rem;
+    padding: 0 0.75rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 0.75rem, #000 calc(100% - 1.75rem), transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 0.75rem, #000 calc(100% - 1.75rem), transparent 100%);
+  }
+
+  body.dm-studio-page .dm-studio-topbar-end::-webkit-scrollbar {
+    display: none;
+  }
+
+  body.dm-studio-page .dm-studio-topbar-end > * {
+    flex-shrink: 0;
+  }
+
+  body.dm-studio-page .dm-studio-topbar-end .dm-studio-topbtn,
+  body.dm-studio-page .dm-studio-topbar-end .dm-studio-badge,
+  body.dm-studio-page .dm-studio-topbar-end .dm-studio-model-select {
+    min-height: 2.5rem;
+    white-space: nowrap;
+  }
+
+  body.dm-studio-page .dm-studio-topbar-end .dm-studio-badge {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  /* The canvas toolbar keeps its own full-screen button. */
+  body.dm-studio-page #dmFullscreenBtn {
+    display: none;
+  }
+
+  /* Hover card can't open on touch and would be clipped by the scroll row. */
+  body.dm-studio-page .dm-studio-topbar-end .dm-lob-hover:hover #dmLobHoverDetails {
+    display: none !important;
+  }
+
+  /* Studio: tab bar → collapsible panel → canvas → prompt dock */
+  body.dm-studio-page .dm-studio {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    min-height: 0;
+    margin: 0 0.5rem;
+    border-radius: 0.9rem;
+    overflow: clip;
+  }
+
+  body.dm-studio-page .dm-studio-rail {
+    order: 0;
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 0.15rem;
+    padding: 0.3rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    border-right: none;
+    border-bottom: 1px solid rgba(17, 24, 39, 0.08);
+  }
+
+  .dark body.dm-studio-page .dm-studio-rail {
+    border-bottom-color: rgba(255, 255, 255, 0.06);
+  }
+
+  body.dm-studio-page .dm-studio-rail::-webkit-scrollbar {
+    display: none;
+  }
+
+  body.dm-studio-page .dm-rail-btn {
+    flex: 1 0 3.1rem;
+    min-width: 3.1rem;
+    min-height: 2.85rem;
+    justify-content: center;
+    gap: 0.15rem;
+    padding: 0.35rem 0.15rem;
+  }
+
+  body.dm-studio-page .dm-rail-btn svg {
+    width: 1.15rem;
+    height: 1.15rem;
+  }
+
+  body.dm-studio-page .dm-rail-btn--phone {
+    display: flex;
+  }
+
+  body.dm-studio-page .dm-rail-toggle {
+    display: flex;
+    flex: 0 0 2.75rem;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.85rem;
+    margin-left: 0.1rem;
+    border: none;
+    border-radius: 0.65rem;
+    background: rgba(17, 24, 39, 0.06);
+    color: var(--brand-dark, #111827);
+    cursor: pointer;
+  }
+
+  .dark body.dm-studio-page .dm-rail-toggle {
+    background: rgba(255, 255, 255, 0.08);
+    color: #f8fafc;
+  }
+
+  body.dm-studio-page .dm-rail-toggle svg {
+    width: 1.1rem;
+    height: 1.1rem;
+    transform: rotate(180deg);
+    transition: transform 0.18s ease;
+  }
+
+  body.dm-studio-page .dm-studio.is-drawer-collapsed .dm-rail-toggle svg {
+    transform: none;
+  }
+
+  body.dm-studio-page .dm-studio.is-drawer-collapsed .dm-rail-btn.is-active {
+    background: transparent;
+    color: var(--brand-muted, #6b7280);
+  }
+
+  body.dm-studio-page .dm-studio.is-drawer-collapsed .dm-rail-btn.is-active svg {
+    opacity: 0.72;
+  }
+
+  body.dm-studio-page .dm-studio-drawer,
+  body.dm-studio-page .dm-studio-inspector {
+    order: 1;
+    max-height: min(52svh, 26rem);
+    padding: 0.75rem 0.75rem 1rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-left: none;
+    border-right: none;
+    border-bottom: 1px solid rgba(17, 24, 39, 0.08);
+  }
+
+  .dark body.dm-studio-page .dm-studio-drawer,
+  .dark body.dm-studio-page .dm-studio-inspector {
+    border-bottom-color: rgba(255, 255, 255, 0.06);
+  }
+
+  body.dm-studio-page .dm-studio-inspector {
+    display: none;
+  }
+
+  body.dm-studio-page .dm-studio[data-dm-active-tab="prompt"] .dm-studio-drawer {
+    display: none;
+  }
+
+  body.dm-studio-page .dm-studio[data-dm-active-tab="prompt"] .dm-studio-inspector {
+    display: block;
+  }
+
+  body.dm-studio-page .dm-studio.is-drawer-collapsed .dm-studio-drawer,
+  body.dm-studio-page .dm-studio.is-drawer-collapsed .dm-studio-inspector {
+    display: none;
+  }
+
+  body.dm-studio-page .dm-studio-drawer .dm-studio-topbtn,
+  body.dm-studio-page .dm-studio-inspector .dm-studio-topbtn {
+    min-height: 2.5rem;
+  }
+
+  body.dm-studio-page .dm-drawer-panel[data-dm-panel="formats"] > .dm-drawer-desc {
+    display: none;
+  }
+
+  /* Compact 2-up format tiles: icon beside label */
+  body.dm-studio-page .dm-format-grid {
+    gap: 0.4rem;
+    margin-bottom: 0.75rem;
+  }
+
+  body.dm-studio-page .dm-format-card {
+    display: grid;
+    grid-template-columns: 1.6rem minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    column-gap: 0.45rem;
+    align-items: center;
+    min-height: 3rem;
+    padding: 0.4rem 0.5rem;
+  }
+
+  body.dm-studio-page .dm-format-card .dm-format-icon {
+    grid-row: 1 / span 2;
+    width: 1.6rem;
+    height: 1.6rem;
+    margin: 0;
+  }
+
+  body.dm-studio-page .dm-format-label,
+  body.dm-studio-page .dm-format-sub {
+    min-width: 0;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  body.dm-studio-page .dm-format-label {
+    align-self: end;
+  }
+
+  body.dm-studio-page .dm-format-sub {
+    align-self: start;
+  }
+
+  /* iOS zooms the page when focusing fields under 16px. */
+  body.dm-studio-page .dm-studio .dm-input,
+  body.dm-studio-page .dm-studio .dm-select,
+  body.dm-studio-page .dm-studio .dm-prompt-input {
+    font-size: 16px;
+  }
+
+  /* Canvas */
+  body.dm-studio-page .dm-studio-stage {
+    order: 2;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  body.dm-studio-page .dm-stage-toolbar {
+    flex-wrap: nowrap;
+    gap: 0.4rem;
+    padding: 0.35rem 0.5rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+
+  body.dm-studio-page .dm-stage-toolbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  body.dm-studio-page .dm-stage-toolbar > * {
+    flex-shrink: 0;
+  }
+
+  body.dm-studio-page .dm-stage-toolbar-end {
+    gap: 0.35rem;
+  }
+
+  body.dm-studio-page .dm-page-tab {
+    min-height: 2.35rem;
+    padding: 0.35rem 0.8rem;
+  }
+
+  body.dm-studio-page .dm-new-design-btn {
+    min-height: 2.5rem;
+    white-space: nowrap;
+  }
+
+  body.dm-studio-page .dm-fullscreen-btn-canvas,
+  body.dm-studio-page #dmZoomFit {
+    width: auto;
+    min-width: 2.5rem;
+    height: 2.5rem;
+    margin-right: 0;
+  }
+
+  /* Tap the artboard to zoom; Fit resets. */
+  body.dm-studio-page #dmZoomIn,
+  body.dm-studio-page #dmZoomOut,
+  body.dm-studio-page .dm-zoom-label {
+    display: none;
+  }
+
+  body.dm-studio-page .dm-canvas-viewport {
+    flex: none;
+    min-height: 0;
+    padding: 0.85rem 0.75rem;
+  }
+
+  body.dm-studio-page .dm-artboard {
+    width: min(calc(100vw - 2.5rem), calc(46svh * var(--dm-ar, 1.5)));
+    max-height: none;
+  }
+
+  body.dm-studio-page .dm-artboard-actions {
+    gap: 0 0.85rem;
+    padding: 0.1rem 0.5rem;
+  }
+
+  body.dm-studio-page .dm-artboard-actions .dm-text-btn:not(.hidden),
+  body.dm-studio-page .dm-artboard-actions .dm-check-row {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.5rem;
+  }
+
+  body.dm-studio-page .dm-artboard-actions .dm-page-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+  }
+
+  body.dm-studio-page .dm-artboard-actions .dm-page-actions[hidden] {
+    display: none;
+  }
+
+  /* Prompt dock: natural height, no drag handle */
+  body.dm-studio-page .dm-prompt-resizer {
+    display: none;
+  }
+
+  body.dm-studio-page .dm-prompt-dock {
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    padding: 0.6rem 0.6rem 0.7rem;
+    overflow: visible;
+  }
+
+  body.dm-studio-page .dm-chat-log {
+    max-height: 22svh;
+  }
+
+  body.dm-studio-page .dm-chat-log:empty {
+    display: none;
+  }
+
+  body.dm-studio-page .dm-prompt-actions {
+    flex-wrap: nowrap;
+    gap: 0.35rem;
+  }
+
+  body.dm-studio-page .dm-prompt-actions__secondary,
+  body.dm-studio-page .dm-prompt-actions__primary {
+    flex-wrap: nowrap;
+    gap: 0.35rem;
+  }
+
+  body.dm-studio-page .dm-prompt-actions__primary {
+    flex: 1 1 auto;
+    justify-content: flex-end;
+  }
+
+  body.dm-studio-page .dm-prompt-btn:not(.hidden):not([hidden]) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    min-height: 2.75rem;
+    padding: 0.5rem 0.6rem;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+
+  body.dm-studio-page .dm-prompt-btn--generate {
+    flex: 1 1 auto;
+  }
+
+  /* Full screen keeps the stacked flow, scrolling inside the studio. */
+  body.dm-studio-page.dm-studio-fullscreen-active .dm-studio {
+    margin: 0 0.35rem 0.35rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body.dm-studio-page.dm-studio-fullscreen-active .dm-studio-rail,
+  body.dm-studio-page.dm-studio-fullscreen-active .dm-studio-stage {
+    flex-shrink: 0;
+    overflow: visible;
+  }
+
+  body.dm-studio-page.dm-studio-fullscreen-active .dm-studio-drawer,
+  body.dm-studio-page.dm-studio-fullscreen-active .dm-studio-inspector {
+    flex-shrink: 0;
+    max-height: min(52svh, 26rem);
+  }
+
+  body.dm-studio-page.dm-studio-fullscreen-active .dm-canvas-viewport {
+    flex: none;
+    overflow: auto;
+  }
+
+  body.dm-studio-page.dm-studio-fullscreen-active .dm-prompt-dock {
+    max-height: none;
+    min-height: 0;
+    overflow: visible;
+  }
+}
+
+/* Landscape phones: the studio fills the screen — side rail, canvas left, chat right */
+@media (max-width: 1023px) and (max-height: 500px) {
+  body.dm-studio-page .dm-studio-shell {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    min-height: 0;
+  }
+
+  body.dm-studio-page .dm-studio-topbar {
+    flex: 0 0 auto;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.35rem 0.75rem;
+  }
+
+  body.dm-studio-page .dm-studio-topbar-start {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+
+  body.dm-studio-page .dm-studio-topbar-end {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+    padding: 0 0 0 0.75rem;
+  }
+
+  body.dm-studio-page .dm-studio,
+  body.dm-studio-page.dm-studio-fullscreen-active .dm-studio {
+    display: grid;
+    grid-template-columns: 3.5rem minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
+    margin: 0 0.5rem 0.5rem;
+    overflow: hidden;
+  }
+
+  body.dm-studio-page .dm-studio-rail {
+    grid-column: 1;
+    grid-row: 1;
+    position: relative;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.3rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+    border-bottom: none;
+    border-right: 1px solid rgba(17, 24, 39, 0.08);
+  }
+
+  .dark body.dm-studio-page .dm-studio-rail {
+    border-right-color: rgba(255, 255, 255, 0.06);
+  }
+
+  body.dm-studio-page .dm-rail-btn {
+    flex: 0 0 auto;
+    min-width: 0;
+    min-height: 2.6rem;
+    padding: 0.3rem 0.1rem;
+  }
+
+  body.dm-studio-page .dm-rail-btn span {
+    font-size: 0.5rem;
+  }
+
+  body.dm-studio-page .dm-rail-toggle {
+    flex: 0 0 2.5rem;
+    min-height: 2.5rem;
+    margin: auto 0 0;
+  }
+
+  body.dm-studio-page .dm-rail-toggle svg {
+    transform: rotate(90deg);
+  }
+
+  body.dm-studio-page .dm-studio.is-drawer-collapsed .dm-rail-toggle svg {
+    transform: rotate(-90deg);
+  }
+
+  /* Panels slide over the canvas instead of pushing it down */
+  body.dm-studio-page .dm-studio-drawer,
+  body.dm-studio-page .dm-studio-inspector,
+  body.dm-studio-page.dm-studio-fullscreen-active .dm-studio-drawer,
+  body.dm-studio-page.dm-studio-fullscreen-active .dm-studio-inspector {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 3.5rem;
+    z-index: 25;
+    width: min(21rem, calc(100% - 5rem));
+    max-height: none;
+    border-bottom: none;
+    border-right: 1px solid rgba(17, 24, 39, 0.1);
+    box-shadow: 12px 0 28px -16px rgba(15, 23, 42, 0.35);
+  }
+
+  body.dm-studio-page .dm-studio-stage,
+  body.dm-studio-page.dm-studio-fullscreen-active .dm-studio-stage {
+    grid-column: 2;
+    grid-row: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(15rem, 42%);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  body.dm-studio-page .dm-stage-toolbar {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+  }
+
+  body.dm-studio-page .dm-canvas-viewport,
+  body.dm-studio-page.dm-studio-fullscreen-active .dm-canvas-viewport {
+    grid-column: 1;
+    grid-row: 2;
+    min-height: 0;
+    padding: 0.6rem;
+    overflow: auto;
+  }
+
+  body.dm-studio-page .dm-artboard {
+    width: min(calc(100vw - 30rem), calc((100dvh - 9.5rem) * var(--dm-ar, 1.5)));
+  }
+
+  @supports (width: 1cqh) {
+    body.dm-studio-page .dm-canvas-viewport {
+      container-type: size;
+    }
+
+    body.dm-studio-page .dm-artboard {
+      width: min(100cqw, calc(100cqh * var(--dm-ar, 1.5)));
+    }
+  }
+
+  body.dm-studio-page .dm-artboard-actions {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  body.dm-studio-page .dm-prompt-dock,
+  body.dm-studio-page.dm-studio-fullscreen-active .dm-prompt-dock {
+    grid-column: 2;
+    grid-row: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    max-height: none;
+    overflow-x: hidden;
+    overflow-y: auto;
+    border-top: none;
+    border-left: 1px solid rgba(17, 24, 39, 0.08);
+  }
+
+  .dark body.dm-studio-page .dm-prompt-dock {
+    border-left-color: rgba(255, 255, 255, 0.06);
+  }
+
+  body.dm-studio-page .dm-chat-log {
+    display: block;
+    flex: 1 1 auto;
+    min-height: 2.5rem;
+    max-height: none;
+  }
+
+  body.dm-studio-page .dm-prompt-compose {
+    margin-top: auto;
+  }
+
+  body.dm-studio-page .dm-prompt-input--stacked {
+    min-height: 2.75rem;
+  }
+
+  body.dm-studio-page .dm-prompt-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.35rem;
+  }
+
+  body.dm-studio-page .dm-prompt-actions__secondary,
+  body.dm-studio-page .dm-prompt-actions__primary {
+    display: contents;
+  }
+}

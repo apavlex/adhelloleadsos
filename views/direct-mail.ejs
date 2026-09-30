@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <%- include('partials/head') %>
+  <link rel="stylesheet" href="/css/marketing-studio-mobile.css?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>">
 </head>
 <body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden dm-studio-page">
   <%- include('partials/navbar') %>
@@ -109,7 +110,7 @@
     <% } %>
 
     <!-- Canva-style workspace -->
-    <section class="dm-studio" id="dmStudio" aria-label="Design studio">
+    <section class="dm-studio is-drawer-collapsed" id="dmStudio" data-dm-active-tab="formats" aria-label="Design studio">
       <nav class="dm-studio-rail" aria-label="Studio tools">
         <button type="button" class="dm-rail-btn is-active" data-dm-tab="formats" title="Formats">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
@@ -130,6 +131,13 @@
         <button type="button" class="dm-rail-btn" data-dm-tab="library" title="Saved designs">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
           <span>Saved</span>
+        </button>
+        <button type="button" class="dm-rail-btn dm-rail-btn--phone" data-dm-tab="prompt" title="Prompt &amp; refine">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z"/></svg>
+          <span>Prompt</span>
+        </button>
+        <button type="button" id="dmRailToggle" class="dm-rail-toggle" aria-controls="dmStudio" aria-expanded="false" aria-label="Show panel" title="Show panel">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>
         </button>
       </nav>
 
