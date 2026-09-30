@@ -226,20 +226,22 @@ function extractOpenAIStyleMessageContent(data) {
   const msg = ch.message;
   if (!msg) return null;
   if (typeof msg.refusal === 'string' && msg.refusal.trim()) return msg.refusal;
-  if (typeof msg.reasoning === 'string' && msg.reasoning.trim()) return msg.reasoning;
   const c = msg.content;
-  if (typeof c === 'string') return c;
-  if (Array.isArray(c)) {
-    return c
+  let text = null;
+  if (typeof c === 'string') text = c;
+  else if (Array.isArray(c)) {
+    text = c
       .map((part) => {
         if (typeof part === 'string') return part;
         if (part && typeof part === 'object' && typeof part.text === 'string') return part.text;
         return '';
       })
       .join('');
-  }
-  if (c && typeof c === 'object' && typeof c.text === 'string') return c.text;
-  return null;
+  } else if (c && typeof c === 'object' && typeof c.text === 'string') text = c.text;
+  if (text && text.trim()) return text;
+  // Some reasoning models leave content empty and put the answer in `reasoning`.
+  if (typeof msg.reasoning === 'string' && msg.reasoning.trim()) return msg.reasoning;
+  return text;
 }
 
 /** Parse JSON from LLM output (raw JSON, ``` fences, or embedded object). */
@@ -284,7 +286,15 @@ function parseLlmJson(text) {
   return null;
 }
 
-async function runGemini(prov, { messages, jsonObject, max_tokens, temperature }) {
+function timeoutSignal(timeoutMs) {
+  const ms = Number(timeoutMs);
+  if (!Number.isFinite(ms) || ms <= 0 || typeof AbortSignal === 'undefined' || !AbortSignal.timeout) {
+    return undefined;
+  }
+  return AbortSignal.timeout(ms);
+}
+
+async function runGemini(prov, { messages, jsonObject, max_tokens, temperature, timeoutMs }) {
   const geminiBody = buildGeminiBody(messages, { jsonObject, max_tokens, temperature });
   if (!geminiBody.contents || geminiBody.contents.length === 0) {
     console.warn('[llmClient] Gemini: no user/model messages after mapping');
@@ -297,6 +307,7 @@ async function runGemini(prov, { messages, jsonObject, max_tokens, temperature }
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(geminiBody),
+    signal: timeoutSignal(timeoutMs),
   });
   const rawText = await res.text();
   let data;
@@ -331,7 +342,7 @@ async function runGemini(prov, { messages, jsonObject, max_tokens, temperature }
   };
 }
 
-async function runOpenAICompatible(prov, url, body, integrationEnv) {
+async function runOpenAICompatible(prov, url, body, integrationEnv, timeoutMs) {
   const headers = {
     Authorization: `Bearer ${prov.apiKey}`,
     'Content-Type': 'application/json',
@@ -343,6 +354,7 @@ async function runOpenAICompatible(prov, url, body, integrationEnv) {
     method: 'POST',
     headers,
     body: JSON.stringify(body),
+    signal: timeoutSignal(timeoutMs),
   });
   const rawText = await res.text();
   const ct = (res.headers.get('content-type') || '').toLowerCase();
@@ -391,6 +403,7 @@ async function runOpenAICompatible(prov, url, body, integrationEnv) {
  * @param {number} [opts.temperature]
  * @param {'openrouter'|'legacy'} [opts.providerChain] — legacy for CEO + Pavlex chatbot
  * @param {Record<string, string>|null|undefined} [opts.integrationEnv] — workspace integration overrides
+ * @param {number} [opts.timeoutMs] — per-provider request timeout; unset = no timeout
  * @returns {Promise<{ content: string|null, provider: string, error?: boolean }>}
  */
 async function chatCompletion({
@@ -401,6 +414,7 @@ async function chatCompletion({
   providerChain = 'openrouter',
   providersOverride = null,
   integrationEnv = null,
+  timeoutMs = 0,
 }) {
   const chain =
     Array.isArray(providersOverride) && providersOverride.length
@@ -427,7 +441,7 @@ async function chatCompletion({
     for (let attempt = 0; attempt < retries; attempt++) {
     try {
       if (prov.name === 'gemini') {
-        const out = await runGemini(prov, { messages, jsonObject, max_tokens, temperature });
+        const out = await runGemini(prov, { messages, jsonObject, max_tokens, temperature, timeoutMs });
         last = { ...out, model: prov.model || null };
         if (out.content && !out.error) return last;
         break; // gemini doesn't retry
@@ -441,7 +455,7 @@ async function chatCompletion({
         url = prov.url;
       }
 
-      const out = await runOpenAICompatible(prov, url, body, integrationEnv);
+      const out = await runOpenAICompatible(prov, url, body, integrationEnv, timeoutMs);
       last = { ...out, model: prov.model || null };
       if (out.content && !out.error) return last;
       if (attempt < retries - 1) {

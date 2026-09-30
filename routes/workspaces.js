@@ -10,7 +10,8 @@ const { suggestPipelineStages } = require('../services/suggestPipelineStages');
 const pipelineStagesService = require('../services/pipelineStagesService');
 const { normalizeWorkspaceAccentHex } = require('../lib/workspaceAccent');
 const workspaceScriptBootstrap = require('../services/workspaceScriptBootstrap');
-const { chatCompletion, parseLlmJson } = require('../services/llmClient');
+const { chatCompletion, parseLlmJson, providersForChain } = require('../services/llmClient');
+const workspaceIntegrations = require('../services/workspaceIntegrations');
 
 const router = express.Router();
 
@@ -168,9 +169,68 @@ function parseStagesJsonField(raw, fallback) {
   return fallback;
 }
 
-async function generateWizardOpeningScript(intake) {
+const WIZARD_SCRIPT_PROVIDER_TIMEOUT_MS = 15000;
+const WIZARD_SCRIPT_MAX_PROVIDERS = 3;
+
+function lowerFirst(s) {
+  const t = String(s || '').trim();
+  return t ? t.charAt(0).toLowerCase() + t.slice(1) : '';
+}
+
+function stripEndPunct(s) {
+  return String(s || '').trim().replace(/[.!?]+$/, '');
+}
+
+/** Used when every AI provider is down or slow so the wizard still gets an editable script. */
+function starterOpeningScript(intake) {
   const i = intake && typeof intake === 'object' ? intake : {};
+  const biz = stripEndPunct(i.businessName) || 'our team';
+  const audience = stripEndPunct(i.targetAudience) || 'businesses like yours';
+  const pain = stripEndPunct(i.mainPainPoint);
+  const diff = stripEndPunct(i.differentiator);
+  const offer = stripEndPunct(i.offerName);
+  const cta = stripEndPunct(i.desiredCta);
+
+  const paras = [
+    `Hi {{name}}, this is ${biz}. I'm reaching out to {{company}} because we work with ${lowerFirst(audience)} around {{city}}${pain ? ` on ${lowerFirst(pain)}` : ''}.`,
+  ];
+  if (diff || offer) {
+    paras.push(
+      [offer ? `We offer ${offer}.` : '', diff ? `What sets us apart: ${lowerFirst(diff)}.` : '']
+        .filter(Boolean)
+        .join(' '),
+    );
+  }
+  paras.push(
+    cta
+      ? `The next step is easy: ${lowerFirst(cta)}. Would that work for you this week?`
+      : 'Would you be open to a quick call this week?',
+  );
+  return paras.join('\n\n');
+}
+
+function wizardScriptProviders(integrationEnv) {
+  const seen = new Set();
+  const list = [];
+  for (const p of [...providersForChain('openrouter', integrationEnv), ...providersForChain('legacy')]) {
+    const id = `${p.name}:${p.model || ''}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    list.push(p);
+  }
+  return list.slice(0, WIZARD_SCRIPT_MAX_PROVIDERS);
+}
+
+async function generateWizardOpeningScript(intake, integrationEnv) {
+  const i = intake && typeof intake === 'object' ? intake : {};
+  const providers = wizardScriptProviders(integrationEnv);
+  if (!providers.length) {
+    return { success: true, openingScript: starterOpeningScript(i), provider: 'template', fallback: true };
+  }
   const ai = await chatCompletion({
+    providersOverride: providers,
+    integrationEnv,
+    timeoutMs: WIZARD_SCRIPT_PROVIDER_TIMEOUT_MS,
     messages: [
       {
         role: 'system',
@@ -203,14 +263,12 @@ Rules:
     max_tokens: 700,
     temperature: 0.55,
   });
-  if (!ai.content || ai.error) {
-    return { success: false, error: 'No AI provider configured or request failed.' };
-  }
-  const parsed = parseLlmJson(ai.content);
+  const parsed = ai.content && !ai.error ? parseLlmJson(ai.content) : null;
   const openingScript =
     parsed && typeof parsed.openingScript === 'string' ? parsed.openingScript.trim() : '';
   if (!openingScript) {
-    return { success: false, error: 'Invalid AI response.' };
+    console.warn('[workspaces:generate-script] AI unavailable, using starter script:', ai.provider, ai.errorMessage || '');
+    return { success: true, openingScript: starterOpeningScript(i), provider: 'template', fallback: true };
   }
   return { success: true, openingScript, provider: ai.provider || 'unknown' };
 }
@@ -227,7 +285,15 @@ router.post('/new/generate-script', express.json({ limit: '64kb' }), async (req,
     }
     if (w) w.salesIntake = intake;
 
-    const result = await generateWizardOpeningScript(intake);
+    let integrationEnv = null;
+    if (req.workspaceId) {
+      try {
+        integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
+      } catch (_) {
+        integrationEnv = null;
+      }
+    }
+    const result = await generateWizardOpeningScript(intake, integrationEnv);
     if (!result.success) {
       return res.status(400).json(result);
     }
@@ -699,3 +765,4 @@ router.post('/switch', express.urlencoded({ extended: true }), async (req, res, 
 });
 
 module.exports = router;
+module.exports.starterOpeningScript = starterOpeningScript;

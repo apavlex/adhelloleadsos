@@ -406,25 +406,40 @@
           differentiator: fd.get('differentiator') || '',
           desiredCta: fd.get('desiredCta') || '',
         };
+        var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, 60000);
         fetch('/workspaces/new/generate-script', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
           body: JSON.stringify(payload),
+          signal: ctrl ? ctrl.signal : undefined,
         })
-          .then(function (r) { return r.json(); })
+          .then(function (r) {
+            return r.json().catch(function () {
+              throw new Error(r.status === 401 ? 'Session expired — sign in again.' : 'Server error (' + r.status + '). Try again.');
+            });
+          })
           .then(function (data) {
+            clearTimeout(timer);
             btn.disabled = false;
             if (!data || !data.success) throw new Error((data && data.error) || 'Generation failed');
             if (scriptTa) scriptTa.value = data.openingScript || '';
             if (statusEl) {
-              statusEl.textContent = 'Script generated — edit before creating if needed.';
+              statusEl.textContent = data.fallback
+                ? 'AI is busy right now, so here is a starter script from your answers — edit it or try again.'
+                : 'Script generated — edit before creating if needed.';
               statusEl.classList.remove('hidden');
             }
           })
           .catch(function (err) {
+            clearTimeout(timer);
             btn.disabled = false;
             if (statusEl) {
-              statusEl.textContent = err.message || 'Could not generate script';
+              statusEl.textContent =
+                err && err.name === 'AbortError'
+                  ? 'Generation timed out. Try again or write your own.'
+                  : (err && err.message) || 'Could not generate script';
               statusEl.classList.remove('hidden', 'text-brand-muted');
               statusEl.classList.add('text-red-600');
             }
