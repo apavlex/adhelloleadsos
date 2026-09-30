@@ -1,9 +1,12 @@
 /**
- * Per-user task helpers — dedupe open tasks by leadKey (keep latest only).
+ * Per-user task helpers — dedupe open follow-up tasks by leadKey (keep latest only).
+ * Rep-created checklist tasks (TASK_SOURCE_LEAD_TASK) are never merged or deduped.
  */
 const dbService = require('./database');
 
 const TASK_SOURCE_MANUAL = 'manual';
+/** "Add task" from Tasks, Money mode, the lead panel or MCP — a lead can have many open at once. */
+const TASK_SOURCE_LEAD_TASK = 'lead_task';
 const TASK_SOURCE_CADENCE = 'cadence';
 const TASK_SOURCE_ENGAGEMENT = 'engagement';
 const TASK_SOURCE_DISPOSITION = 'disposition';
@@ -33,7 +36,7 @@ function normalizeTaskSource(raw) {
 function isManualUserTask(task) {
   if (!task || typeof task !== 'object') return false;
   const source = normalizeTaskSource(task.source);
-  if (source === TASK_SOURCE_MANUAL || source === TASK_SOURCE_NETWORK) return true;
+  if (source === TASK_SOURCE_MANUAL || source === TASK_SOURCE_LEAD_TASK || source === TASK_SOURCE_NETWORK) return true;
   if (source && AUTOMATION_TASK_SOURCES.has(source)) return false;
   return !isAutomationTaskTitle(task.title);
 }
@@ -44,6 +47,10 @@ function filterManualUserTasks(tasks) {
 
 function newTaskId() {
   return `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function isLeadChecklistTask(task) {
+  return !!task && normalizeTaskSource(task.source) === TASK_SOURCE_LEAD_TASK;
 }
 
 function taskRecencyScore(task) {
@@ -68,7 +75,7 @@ async function dedupeOpenLeadTasks(workspaceId, email) {
   const tasks = await dbService.listUserTasks(workspaceId, email);
   const groups = new Map();
   for (const t of tasks) {
-    if (!t || !t.leadKey || t.column === 'done') continue;
+    if (!t || !t.leadKey || t.column === 'done' || isLeadChecklistTask(t)) continue;
     const lk = String(t.leadKey);
     if (!groups.has(lk)) groups.set(lk, []);
     groups.get(lk).push(t);
@@ -99,7 +106,7 @@ async function upsertOpenTaskForLead(workspaceId, email, fields) {
     : null;
   const source = normalizeTaskSource(fields.source) || TASK_SOURCE_MANUAL;
 
-  if (!leadKey) {
+  if (!leadKey || source === TASK_SOURCE_LEAD_TASK) {
     return dbService.saveUserTask(workspaceId, email, {
       id: newTaskId(),
       title,
@@ -107,7 +114,7 @@ async function upsertOpenTaskForLead(workspaceId, email, fields) {
       sort: Date.now(),
       createdAt: new Date().toISOString(),
       scheduledAt,
-      leadKey: null,
+      leadKey,
       remindMinutesBefore,
       source,
     });
@@ -115,7 +122,9 @@ async function upsertOpenTaskForLead(workspaceId, email, fields) {
 
   await dedupeOpenLeadTasks(workspaceId, email);
   const tasks = await dbService.listUserTasks(workspaceId, email);
-  const openForLead = tasks.filter((t) => t.leadKey === leadKey && t.column !== 'done');
+  const openForLead = tasks.filter(
+    (t) => t.leadKey === leadKey && t.column !== 'done' && !isLeadChecklistTask(t),
+  );
 
   let keep = null;
   if (preferredTaskId) {
@@ -148,7 +157,7 @@ async function upsertOpenTaskForLead(workspaceId, email, fields) {
 
   const refreshed = await dbService.listUserTasks(workspaceId, email);
   for (const t of refreshed) {
-    if (t.leadKey === leadKey && t.column !== 'done' && t.id !== saved.id) {
+    if (t.leadKey === leadKey && t.column !== 'done' && t.id !== saved.id && !isLeadChecklistTask(t)) {
       await dbService.deleteUserTask(workspaceId, email, t.id);
     }
   }
@@ -175,6 +184,7 @@ async function clearOpenAutomationTasks(workspaceId, email) {
 
 module.exports = {
   TASK_SOURCE_MANUAL,
+  TASK_SOURCE_LEAD_TASK,
   TASK_SOURCE_CADENCE,
   TASK_SOURCE_ENGAGEMENT,
   TASK_SOURCE_DISPOSITION,

@@ -2,7 +2,13 @@ const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
 const { userEmail, filterLeadsForRequest } = require('../services/workspaceService');
-const { dedupeOpenLeadTasks, upsertOpenTaskForLead, filterManualUserTasks, TASK_SOURCE_MANUAL } = require('../services/userTasks');
+const {
+  dedupeOpenLeadTasks,
+  upsertOpenTaskForLead,
+  filterManualUserTasks,
+  TASK_SOURCE_MANUAL,
+  TASK_SOURCE_LEAD_TASK,
+} = require('../services/userTasks');
 const teamActivity = require('../services/teamActivity');
 
 function taskDueLabel(iso) {
@@ -127,7 +133,7 @@ router.post('/api', express.json(), async (req, res, next) => {
       scheduledAt,
       leadKey,
       remindMinutesBefore,
-      source: TASK_SOURCE_MANUAL,
+      source: TASK_SOURCE_LEAD_TASK,
     });
     const [enriched] = enrichTasksWithLeads([saved], leads);
     if (leadKey) {

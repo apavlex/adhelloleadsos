@@ -16,7 +16,7 @@ const { ensureLeadEmail, hasUsableEmail } = require('../ensureLeadEmail');
 const {
   upsertOpenTaskForLead,
   filterManualUserTasks,
-  TASK_SOURCE_MANUAL,
+  TASK_SOURCE_LEAD_TASK,
 } = require('../userTasks');
 const { getLead } = require('./mcpCrmService');
 
@@ -301,7 +301,7 @@ async function createTask(ctx, input = {}) {
     scheduledAt: normScheduledAt(input.scheduled_at || input.scheduledAt),
     remindMinutesBefore: input.remind_minutes_before ?? input.remindMinutesBefore ?? null,
     leadKey,
-    source: TASK_SOURCE_MANUAL,
+    source: TASK_SOURCE_LEAD_TASK,
   });
   return { task: mapTask(saved) };
 }

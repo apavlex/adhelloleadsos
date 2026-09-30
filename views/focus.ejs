@@ -5212,11 +5212,19 @@
           return;
         }
         list.innerHTML = '';
-        open.slice(0, 5).forEach(function (t) {
+        open.forEach(function (t) {
           var li = document.createElement('li');
-          li.className = 'flex items-start justify-between gap-2 rounded-lg border border-brand-border/40 dark:border-white/10 bg-white/70 dark:bg-slate-900/50 px-2.5 py-1.5';
+          li.className = 'flex items-center gap-2 rounded-lg border border-brand-border/40 dark:border-white/10 bg-white/70 dark:bg-slate-900/50 px-2 py-1.5';
+          var check = document.createElement('button');
+          check.type = 'button';
+          check.className = 'focus-task-done-btn shrink-0 w-7 h-7 rounded-full border-2 border-emerald-500/60 text-emerald-600 dark:text-emerald-300 flex items-center justify-center hover:bg-emerald-500/15 transition-colors disabled:opacity-50';
+          check.setAttribute('data-task-id', String(t.id || ''));
+          check.setAttribute('aria-label', 'Mark "' + String(t.title || 'Task') + '" done');
+          check.title = 'Mark done';
+          check.innerHTML = '<svg class="w-3.5 h-3.5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>';
+          li.appendChild(check);
           var title = document.createElement('span');
-          title.className = 'text-[12px] font-semibold text-brand-dark dark:text-slate-100 leading-snug min-w-0 break-words';
+          title.className = 'flex-1 text-[12px] font-semibold text-brand-dark dark:text-slate-100 leading-snug min-w-0 break-words';
           title.textContent = String(t.title || 'Task');
           li.appendChild(title);
           var due = t.scheduledAt ? new Date(t.scheduledAt) : null;
@@ -5228,12 +5236,42 @@
           }
           list.appendChild(li);
         });
-        if (open.length > 5) {
-          var more = document.createElement('li');
-          more.className = 'text-[10px] font-semibold text-brand-muted';
-          more.textContent = '+' + (open.length - 5) + ' more in Tasks';
-          list.appendChild(more);
-        }
+      });
+    }
+
+    var focusLeadTasksList = document.getElementById('focus-lead-tasks');
+    if (focusLeadTasksList) {
+      focusLeadTasksList.addEventListener('click', function (e) {
+        var btn = e.target.closest('.focus-task-done-btn');
+        if (!btn || btn.disabled) return;
+        var taskId = btn.getAttribute('data-task-id');
+        if (!taskId) return;
+        btn.disabled = true;
+        var li = btn.closest('li');
+        if (li) li.classList.add('opacity-60');
+        fetch('/tasks/api/' + encodeURIComponent(taskId), {
+          method: 'PATCH',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ column: 'done' }),
+        })
+          .then(function (res) {
+            return res.json().catch(function () { return {}; }).then(function (data) {
+              if (!res.ok || !data.success) throw new Error((data && data.error) || 'Could not complete task.');
+            });
+          })
+          .then(function () {
+            setOutcomeFeedback('Task done.', false);
+            if (window.AgencyTaskReminders && window.AgencyTaskReminders.refresh) {
+              try { window.AgencyTaskReminders.refresh(); } catch (_) {}
+            }
+            renderFocusLeadTasks(currentLead(), true);
+          })
+          .catch(function (err) {
+            btn.disabled = false;
+            if (li) li.classList.remove('opacity-60');
+            setOutcomeFeedback((err && err.message) || 'Could not complete task.', true);
+          });
       });
     }
 
