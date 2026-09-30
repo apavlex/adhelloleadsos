@@ -128,7 +128,7 @@
         if (el) el.disabled = false;
       });
       if (bar.dataset.bulkMode !== 'search') {
-        ['bulkFocusModeBtn', 'bulkSmsBtn', 'bulkDirectMailBtn', 'bulkEmailBtn', 'bulkAutoOutreachBtn'].forEach((id) => {
+        ['bulkFocusModeBtn', 'bulkSoftphoneBtn', 'bulkSmsBtn', 'bulkDirectMailBtn', 'bulkEmailBtn', 'bulkAutoOutreachBtn'].forEach((id) => {
           const el = document.getElementById(id);
           if (!el) return;
           el.classList.remove('hidden', 'opacity-40', 'cursor-not-allowed');
@@ -155,6 +155,11 @@
       bar.style.removeProperty('visibility');
       bar.style.removeProperty('transform');
       bar.style.pointerEvents = 'none';
+      bar.querySelectorAll('button, a, select, input, textarea, label').forEach((el) => {
+        el.style.removeProperty('pointer-events');
+      });
+      const active = document.activeElement;
+      if (active && bar.contains(active) && typeof active.blur === 'function') active.blur();
     }
     _bulkBarVisibleForFolderRefresh = visible;
   }
@@ -590,6 +595,27 @@
     }
   }
 
+  /** Whole checkbox cell toggles the row — the bare 16px box is too small to hit on phones. */
+  function bindCheckCellTapToggle() {
+    if (window.__BULK_CHECK_CELL_TAP_BOUND === '1') return;
+    window.__BULK_CHECK_CELL_TAP_BOUND = '1';
+    document.addEventListener(
+      'click',
+      (e) => {
+        if (e.shiftKey || !e.target || !e.target.closest) return;
+        const cell = e.target.closest('tbody td[data-plc="check"]');
+        if (!cell) return;
+        if (e.target.closest('input, button, a, label, select')) return;
+        const cb = cell.querySelector('input.lead-checkbox, input.row-checkbox');
+        if (!cb || cb.disabled) return;
+        e.preventDefault();
+        e.stopPropagation();
+        cb.click();
+      },
+      true,
+    );
+  }
+
   function bindShiftClickRangeSelection() {
     if (window.__BULK_SHIFT_SELECT_BOUND === '1') return;
     window.__BULK_SHIFT_SELECT_BOUND = '1';
@@ -778,6 +804,7 @@
     bindBulkBarCaptureActions();
     bindBulkBoardButtonDirect();
     bindShiftClickRangeSelection();
+    bindCheckCellTapToggle();
     document.querySelectorAll('table').forEach((table) => {
       if (table.querySelector('thead input[data-select-all-leads]')) {
         bindTable(table);
@@ -3926,6 +3953,30 @@
           window.setTimeout(function () {
             window.location.href = href;
           }, 120);
+          return;
+        }
+        if (e.target.closest('#bulkSoftphoneBtn')) {
+          e.preventDefault();
+          e.stopPropagation();
+          const loaded =
+            typeof window.__adhelloCallSelectedInSoftphone === 'function'
+              ? window.__adhelloCallSelectedInSoftphone()
+              : 0;
+          if (typeof window.showBulkActionConfirmation === 'function') {
+            window.showBulkActionConfirmation(
+              loaded
+                ? `Softphone loaded with ${loaded} selected lead${loaded === 1 ? '' : 's'} — press the green button to dial.`
+                : 'None of the selected leads has a phone number.',
+              loaded ? 'info' : 'error',
+            );
+          }
+          if (loaded && window.matchMedia && window.matchMedia('(max-width: 639px)').matches) {
+            const bar = document.getElementById('bulkActionBar');
+            if (bar && bar.dataset.minimized !== 'true') {
+              const minBtn = document.getElementById('bulkBarMinimizeBtn');
+              if (minBtn) minBtn.click();
+            }
+          }
           return;
         }
         if (e.target.closest('#bulkPushGhlBtn')) {

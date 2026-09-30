@@ -18661,6 +18661,13 @@ document.addEventListener('DOMContentLoaded', () => {
           : 'Select leads with phone numbers to call',
         'Selected leads have no phone number',
       );
+      syncPrimaryBtn(
+        document.getElementById('bulkSoftphoneBtn'),
+        null,
+        hasSelection && anyPhone,
+        'Load selected leads into the softphone and dial them from this page',
+        'Selected leads have no phone number',
+      );
       const outreachCount = keys.length > 0 ? keys.length : count;
       syncPrimaryBtn(
         directMailBtn,

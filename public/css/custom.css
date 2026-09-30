@@ -1338,6 +1338,19 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   pointer-events: auto;
 }
 
+/* Hidden bar only slides 4rem down, so on phones most of it still covers the bottom of
+   the table. Keep it inert or taps on rows open its invisible folder / stage selects. */
+#bulkActionBar:not(.bulk-action-bar--visible):not([data-visible='true']),
+#dmBulkActionBar:not(.bulk-action-bar--visible):not([data-visible='true']) {
+  visibility: hidden;
+  pointer-events: none !important;
+}
+
+#bulkActionBar:not(.bulk-action-bar--visible):not([data-visible='true']) *,
+#dmBulkActionBar:not(.bulk-action-bar--visible):not([data-visible='true']) * {
+  pointer-events: none !important;
+}
+
 #bulkFolderNewRow:not(.hidden),
 #bulkTagsRow:not(.hidden),
 #dmBulkTagsRow:not(.hidden) {
@@ -1550,6 +1563,16 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
 #bulkActionBar .bulk-bar-btn--focus.bulk-bar-btn--primary-lg:hover:not(:disabled) {
   background: color-mix(in srgb, var(--brand-yellow, #ffd644) 88%, #000);
   filter: none;
+}
+
+#bulkActionBar .bulk-bar-btn--softphone.bulk-bar-btn--primary-lg {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--brand-yellow, #ffd644);
+  color: #fff;
+}
+
+#bulkActionBar .bulk-bar-btn--softphone.bulk-bar-btn--primary-lg:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.16);
 }
 
 #bulkActionBar .bulk-bar-btn--accent.bulk-bar-btn--primary-lg {
@@ -1819,7 +1842,7 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
     gap: 0.45rem;
   }
 
-  /* Call / SMS / Email share the first line; Direct Mail + Auto outreach take the second. */
+  /* Call / Softphone / SMS on the first line; Email / Direct Mail / Auto outreach on the second. */
   #bulkActionBar .bulk-bar-primary-split {
     flex: 1 1 28%;
     width: auto;
@@ -1827,17 +1850,22 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
     padding: 0.7rem 0.5rem;
     font-size: 0.6875rem;
     letter-spacing: 0.06em;
-    white-space: nowrap;
-  }
-
-  #bulkActionBar #bulkDirectMailBtn,
-  #bulkActionBar #bulkAutoOutreachBtn {
-    flex-basis: 40%;
+    line-height: 1.1;
+    white-space: normal;
   }
 
   #bulkActionBar .bulk-bar-tools-row {
     flex-wrap: wrap;
     overflow-x: visible;
+  }
+
+  /* Room to scroll the last rows above the open bar */
+  body:has(#bulkActionBar[data-visible='true']) #tableView {
+    margin-bottom: 16rem;
+  }
+
+  body:has(#bulkActionBar[data-visible='true'][data-minimized='true']) #tableView {
+    margin-bottom: 4.5rem;
   }
 
   /* Minimized: a small pill showing only the selection count */
@@ -2729,6 +2757,16 @@ html[data-prospect-density="comfortable"] #tableView .lead-density-btn[data-dens
 .dark html[data-prospect-density="compact"] #tableView .lead-density-btn[data-density="comfortable"],
 .dark html[data-prospect-density="comfortable"] #tableView .lead-density-btn[data-density="compact"] {
   color: rgb(148 163 184);
+}
+
+/* Containing block for absolutely positioned bits in cells (.sr-only labels, resize
+   handles). Without it they position against the page, escape this box's clipping and
+   stretch the page to the table's full width — phones then zoom out / pan sideways. */
+#prospectPipelineTableScroll,
+#kanbanView {
+  position: relative;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 html.pipeline-prefs-pending #prospectPipelineTableScroll {
@@ -8381,13 +8419,6 @@ body {
 }
 
 @media (max-width: 767px) {
-  /* Prevent accidental horizontal scroll from wide tables / boards */
-  .app-shell-content,
-  .app-shell-content > main {
-    max-width: 100vw;
-    overflow-x: clip;
-  }
-
   /* Touch-friendly tap targets in chrome */
   #mobileMenuBtn,
   #closeMobileMenu,
@@ -8400,34 +8431,9 @@ body {
   .pipeline-board,
   .opp-board,
   .kanban-board,
-  [data-pipeline-board],
-  .overflow-x-auto {
+  [data-pipeline-board] {
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-x: contain;
-  }
-
-  /* Hidden (i) panels still count toward scroll width; iOS Safari then widens the
-     page and lets it pan sideways. Drop them from layout until opened, and pin
-     open ones inside the viewport. */
-  .app-info-tip:not(:hover):not(:focus-within) .app-info-tip__panel {
-    display: none;
-  }
-  .app-info-tip .app-info-tip__panel,
-  .app-info-tip--wide .app-info-tip__panel {
-    position: fixed;
-    left: 1rem !important;
-    right: 1rem !important;
-    top: auto !important;
-    bottom: auto !important;
-    width: auto;
-    max-width: none;
-    margin-top: 1.75rem;
-    margin-bottom: 0;
-    transform: none !important;
-  }
-  .app-info-tip--top .app-info-tip__panel {
-    margin-top: 0;
-    transform: translateY(calc(-100% - 0.4rem)) !important;
   }
 
   /* Forms & inputs: 16px+ avoids iOS focus zoom */
@@ -8461,6 +8467,43 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+}
+
+/* Phones in any orientation (landscape is wider than 767px) and tablets.
+   iOS Safari ignores body overflow-x:hidden for touch panning, so anything past
+   the right edge — even visibility:hidden — lets the whole page slide sideways. */
+@media (max-width: 767px), (hover: none) and (pointer: coarse) {
+  .app-shell-content,
+  .app-shell-content > main {
+    max-width: 100vw;
+    overflow-x: clip;
+  }
+
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+
+  /* (i) panels: out of layout until opened, then pinned inside the viewport */
+  .app-info-tip:not(:hover):not(:focus-within) .app-info-tip__panel {
+    display: none;
+  }
+  .app-info-tip .app-info-tip__panel,
+  .app-info-tip--wide .app-info-tip__panel {
+    position: fixed;
+    left: 1rem !important;
+    right: 1rem !important;
+    top: auto !important;
+    bottom: auto !important;
+    width: auto;
+    max-width: 34rem;
+    margin: 1.75rem auto 0;
+    transform: none !important;
+  }
+  .app-info-tip--top .app-info-tip__panel {
+    margin-top: 0;
+    transform: translateY(calc(-100% - 0.4rem)) !important;
   }
 }
 

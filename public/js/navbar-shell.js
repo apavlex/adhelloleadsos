@@ -1802,7 +1802,7 @@
         .map(normalizeFocusQueueContact)
         .filter(Boolean);
       if (normalized.length) writeFocusCallQueueCache(normalized);
-      if (!softphoneQueueFromSelection) setSoftphoneFocusDialQueue(normalized);
+      if (!softphoneQueueSource) setSoftphoneFocusDialQueue(normalized);
       if (spContactsMeta) {
         if (!normalized.length) {
           spContactsMeta.textContent =
@@ -5365,13 +5365,27 @@
       });
   }
 
-  /** True while the keypad lead navigator is driven by checked pipeline rows instead of the focus queue. */
-  var softphoneQueueFromSelection = false;
+  /**
+   * Who owns the keypad lead navigator: '' = focus queue, 'selection' = checked table rows,
+   * 'custom' = a list handed over by a page (e.g. an Opportunities stage).
+   */
+  var softphoneQueueSource = '';
 
   function selectedLeadsDialQueue() {
-    if (typeof window.__getSelectedLeadRowsForBulk !== 'function') return [];
+    var rows =
+      typeof window.__getSelectedLeadRowsForBulk === 'function'
+        ? window.__getSelectedLeadRowsForBulk() || []
+        : [];
+    if (!rows.length) {
+      rows = Array.prototype.slice
+        .call(document.querySelectorAll('input.lead-checkbox:checked'))
+        .map(function (cb) {
+          return cb.closest('tr.result-row');
+        })
+        .filter(Boolean);
+    }
     var seen = {};
-    return (window.__getSelectedLeadRowsForBulk() || [])
+    return rows
       .map(function (row) {
         return normalizeFocusQueueContact({
           key: softphoneQueueRowKey(row),
@@ -5391,21 +5405,22 @@
   /** Point the keypad lead navigator at the checked leads; falls back to the focus queue when cleared. */
   function syncSoftphoneQueueFromSelection() {
     if (softphoneSession.state === 'dialing' || softphoneSession.state === 'in_call') {
-      return softphoneQueueFromSelection;
+      return !!softphoneQueueSource;
     }
     var selected = selectedLeadsDialQueue();
     var prevQ = softphoneSession.focusDialQueue || [];
     var prevItem = prevQ[softphoneSession.focusDialIndex || 0];
     var prevKey = prevItem ? prevItem.key : '';
     if (!selected.length) {
-      if (softphoneQueueFromSelection) {
-        softphoneQueueFromSelection = false;
+      if (softphoneQueueSource === 'custom') return true;
+      if (softphoneQueueSource === 'selection') {
+        softphoneQueueSource = '';
         softphoneSession.focusDialIndex = 0;
         setSoftphoneFocusDialQueue(readFocusCallQueueCache());
       }
       return false;
     }
-    softphoneQueueFromSelection = true;
+    softphoneQueueSource = 'selection';
     var nextIdx = 0;
     for (var i = 0; i < selected.length; i++) {
       if (prevKey && selected[i].key === prevKey) {
@@ -5423,6 +5438,45 @@
     return true;
   }
   window.__adhelloSyncSoftphoneQueueFromSelection = syncSoftphoneQueueFromSelection;
+
+  /**
+   * Open the dialer with a list of { key, title, phone } and load `startKey` (or the first
+   * callable lead) on the keypad. Returns how many leads in the list have a usable phone.
+   */
+  function callQueueInSoftphone(items, startKey, source) {
+    var queue = (items || []).map(normalizeFocusQueueContact).filter(Boolean);
+    if (!queue.length) return 0;
+    var wantKey = normalizeFocusQueueKey(startKey);
+    var start = 0;
+    for (var i = 0; wantKey && i < queue.length; i++) {
+      if (normalizeFocusQueueKey(queue[i].key) === wantKey) {
+        start = i;
+        break;
+      }
+    }
+    var inCall = softphoneSession.state === 'dialing' || softphoneSession.state === 'in_call';
+    if (!spModal || spModal.classList.contains('hidden')) openSoftphone();
+    if (inCall) {
+      softphoneSetStatus('End the current call, then try again to load the next leads.', true);
+      return queue.length;
+    }
+    softphoneClearWrapForLeadAdvance();
+    softphoneQueueSource = source || 'custom';
+    softphoneSession.focusDialIndex = start;
+    setSoftphoneFocusDialQueue(queue);
+    loadSoftphoneFocusLeadAtIndex(start);
+    setSoftphoneTab('keypad');
+    syncSoftphoneStacking();
+    return queue.length;
+  }
+  window.__adhelloCallQueueInSoftphone = function (items, startKey) {
+    return callQueueInSoftphone(items, startKey, 'custom');
+  };
+
+  /** Bulk bar "Softphone": open the in-page dialer on the first checked lead. Returns callable count. */
+  window.__adhelloCallSelectedInSoftphone = function () {
+    return callQueueInSoftphone(selectedLeadsDialQueue(), '', 'selection');
+  };
 
   function collectSoftphoneQueueEntries() {
     var entries = [];
