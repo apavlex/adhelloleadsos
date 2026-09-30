@@ -2114,6 +2114,21 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   box-shadow: 0 14px 32px -8px rgba(0, 0, 0, 0.55);
 }
 
+/* Folders page: phones get two tags + "+N", one primary button, and the rest behind More */
+@media (max-width: 639px) {
+  .folder-row .folder-tag-extra { display: none; }
+  .folder-row .folder-row-more { display: none; }
+  .folder-row.is-more-open .folder-row-more {
+    display: flex;
+    padding-top: 0.5rem;
+  }
+  .folder-row.is-more-open .folder-row-more > [role='group'] { justify-content: flex-start; }
+  .folder-row.is-more-open .folder-more-chevron { transform: rotate(180deg); }
+}
+@media (min-width: 640px) {
+  .folder-row .folder-tag-more { display: none; }
+}
+
 .kanban-card-call {
   display: inline-flex;
   flex: none;

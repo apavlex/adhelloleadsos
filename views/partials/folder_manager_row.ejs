@@ -11,7 +11,9 @@
 <% const _oa = _f.outreachAutomation && typeof _f.outreachAutomation === 'object' ? _f.outreachAutomation : {}; %>
 <% const _oaEnabled = _oa.enabled === true; %>
 <% const _openHref = '/prospecting?tab=pipeline&folderKey=' + encodeURIComponent(_f.key || ''); %>
-<div class="folder-row flex flex-wrap items-center gap-4 px-4 sm:px-6 py-4 <%= _depth > 0 && !_inTree ? _padClass + ' bg-brand-cream/10 dark:bg-slate-950/20' : '' %>"
+<% const _TAGS_ON_PHONE = 2; %>
+<% const _visibleTagCount = _folderTags.filter(function (t) { return t && t.name; }).length; %>
+<div class="folder-row flex flex-wrap items-center gap-3 sm:gap-4 px-3 sm:px-6 py-3 sm:py-4 <%= _depth > 0 && !_inTree ? _padClass + ' bg-brand-cream/10 dark:bg-slate-950/20' : '' %>"
   data-folder-row="<%= _f.key %>"
   data-folder-name="<%= _f.name %>"
   data-folder-job-type="<%= _f.jobType || '' %>"
@@ -25,19 +27,29 @@
       <% if (_depth > 0 && !_inTree) { %><span class="text-brand-muted/60" aria-hidden="true">↳</span><% } %>
       <span class="hover:text-brand-yellow dark:hover:text-brand-yellow hover:underline underline-offset-2"><%= _f.name %></span>
       <% if (_f.isPipelineDefault) { %><span class="text-[9px] font-black uppercase tracking-widest text-brand-muted border border-brand-border/50 rounded-full px-2 py-0.5">System</span><% } %>
-      <% _folderTags.forEach(function (tag) {
+      <% var _tagIdx = 0; _folderTags.forEach(function (tag) {
         var _tColor = (tag && tag.color) ? String(tag.color) : '#94a3b8';
         var _tLabel = (tag && tag.name) ? String(tag.name) : '';
         if (!_tLabel) return;
-      %><span class="lead-tag-chip inline-flex items-center px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wide border border-black/5 dark:border-white/10" style="background:<%= _tColor %>22;color:<%= _tColor %>" title="<%= _tLabel.replace(/"/g, '&quot;') %>"><%= _tLabel %></span><% }); %>
+        var _extra = _tagIdx >= _TAGS_ON_PHONE; _tagIdx += 1;
+      %><span class="lead-tag-chip<%= _extra ? ' folder-tag-extra' : '' %> inline-flex items-center px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wide border border-black/5 dark:border-white/10" style="background:<%= _tColor %>22;color:<%= _tColor %>" title="<%= _tLabel.replace(/"/g, '&quot;') %>"><%= _tLabel %></span><% }); %>
+      <% if (_visibleTagCount > _TAGS_ON_PHONE) { %><span class="folder-tag-more inline-flex items-center px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wide text-brand-muted border border-brand-border/60 dark:border-white/15" title="<%= _visibleTagCount - _TAGS_ON_PHONE %> more tags">+<%= _visibleTagCount - _TAGS_ON_PHONE %></span><% } %>
     </p>
     <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mt-1"><%= _fc %> lead<%= _fc === 1 ? '' : 's' %> in this folder<% if (_oaEnabled) { %> · <span class="text-emerald-700 dark:text-emerald-300">Auto outreach on</span><% if (_oa.lastEnrolled != null && _oa.lastRunAt) { %> · last enrolled <%= _oa.lastEnrolled %><% } %><% } %></p>
   </a>
   <div class="folder-row-actions flex flex-col items-stretch sm:items-end gap-1.5 shrink-0 w-full sm:w-auto">
+    <div class="folder-row-phonebar flex sm:hidden items-center gap-2">
+      <a href="<%= _openHref %>" class="flex-1 text-center px-3 py-2.5 rounded-xl bg-brand-yellow text-brand-dark border border-brand-yellow text-[11px] font-black uppercase tracking-widest shadow-sm">Open leads</a>
+      <button type="button" class="folder-more-toggle inline-flex items-center gap-1 px-3 py-2.5 rounded-xl border border-brand-border dark:border-white/20 text-[11px] font-black uppercase tracking-widest text-brand-dark dark:text-white" aria-expanded="false" aria-label="More actions for <%= _f.name.replace(/"/g, '&quot;') %>">
+        More
+        <svg class="folder-more-chevron w-3.5 h-3.5 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+    </div>
+    <div class="folder-row-more flex flex-col items-stretch sm:items-end gap-1.5">
     <div class="flex flex-wrap items-center justify-end gap-1.5" role="group" aria-label="Primary folder actions">
       <button type="button" class="folder-outreach-setup px-3 py-2 rounded-xl bg-emerald-600/10 dark:bg-emerald-950/40 border border-emerald-600/30 text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-200 hover:border-emerald-500/50 transition-colors" data-folder-key="<%= _f.key %>" title="Folder outreach settings — enrolls leads into your GHL auto-outreach workflow">Outreach</button>
       <button type="button" class="folder-run-search px-3 py-2 rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark border border-brand-dark dark:border-brand-yellow text-[10px] font-black uppercase tracking-widest hover:brightness-110 transition-colors shadow-sm" data-folder-key="<%= _f.key %>" title="Replay this folder’s saved search and merge new leads">Run search</button>
-      <a href="<%= _openHref %>" class="px-3 py-2 rounded-xl bg-brand-yellow text-brand-dark border border-brand-yellow text-[10px] font-black uppercase tracking-widest hover:brightness-105 transition-colors shadow-sm">Open leads</a>
+      <a href="<%= _openHref %>" class="hidden sm:inline-flex px-3 py-2 rounded-xl bg-brand-yellow text-brand-dark border border-brand-yellow text-[10px] font-black uppercase tracking-widest hover:brightness-105 transition-colors shadow-sm">Open leads</a>
     </div>
     <div class="flex flex-wrap items-center justify-end gap-1 pt-1 border-t border-brand-border/30 dark:border-white/10" role="group" aria-label="Folder setup">
       <label class="folder-outreach-toggle inline-flex items-center gap-1.5 px-2 py-1 rounded-lg cursor-pointer text-brand-muted hover:text-brand-dark dark:hover:text-white transition-colors" title="Starts enrolling now, then daily via GHL auto-outreach tag">
@@ -52,6 +64,7 @@
       <button type="button" class="folder-rename px-2 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white hover:bg-brand-cream/70 dark:hover:bg-white/10 transition-colors" data-folder-key="<%= _f.key %>">Rename</button>
       <% } %>
       <button type="button" class="folder-delete px-2 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest text-red-600/80 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors" data-folder-key="<%= _f.key %>">Remove</button>
+    </div>
     </div>
   </div>
 </div>

@@ -590,6 +590,17 @@
     function $(id) { return document.getElementById(id); }
     var jsonHeaders = { Accept: 'application/json', 'Content-Type': 'application/json' };
 
+    document.addEventListener('click', function (e) {
+      var toggle = e.target.closest && e.target.closest('.folder-more-toggle');
+      if (!toggle) return;
+      e.preventDefault();
+      var row = toggle.closest('.folder-row');
+      if (!row) return;
+      var open = !row.classList.contains('is-more-open');
+      row.classList.toggle('is-more-open', open);
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+
     function bindFolderManager() {
       document.querySelectorAll('.folder-rename').forEach(function (btn) {
         btn.addEventListener('click', function (e) {
