@@ -274,7 +274,7 @@
                 <span id="focusNotesIndicator" class="hidden text-[10px] font-semibold text-brand-yellow truncate">Has notes</span>
               </div>
               <div id="focusNotesDrawer" role="region" aria-label="Call notes">
-                <textarea id="focus-outcome-notes" rows="3" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-base sm:text-sm text-brand-dark dark:text-white focus:outline-none focus:ring-1 focus:ring-brand-yellow" placeholder="Owner response, objection, timing, next step… saved with your quick log"></textarea>
+                <textarea id="focus-outcome-notes" rows="3" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-base sm:text-sm text-brand-dark dark:text-white focus:outline-none focus:ring-1 focus:ring-brand-yellow" placeholder="Owner response, objection, timing, next step… saves automatically"></textarea>
               </div>
             </div>
             <div id="focus-builtwith-wrap" class="lead-panel-agency-only hidden mt-3 pt-3 border-t border-brand-border/50 dark:border-white/10">
@@ -4561,6 +4561,7 @@
       }
       elOutcome.value = value;
       syncQuickOutcomeButtons();
+      if (typeof flushFocusNotesSave === 'function') flushFocusNotesSave();
       if (elOutcomeNotes) {
         elOutcomeNotes.value = lead && lead.lastDispositionNotes ? String(lead.lastDispositionNotes) : '';
       }
@@ -5116,15 +5117,61 @@
         setFocusNotesOpen(!open);
       });
     }
+    var focusNotesPending = null;
+    var focusNotesTimer = null;
+    /** Persist the Notes box to the lead it was typed on (not whichever lead is showing now). */
+    function flushFocusNotesSave() {
+      if (focusNotesTimer) {
+        clearTimeout(focusNotesTimer);
+        focusNotesTimer = null;
+      }
+      var p = focusNotesPending;
+      focusNotesPending = null;
+      if (!p || !p.lead || !p.lead.key) return;
+      var prev = String(p.lead.lastDispositionNotes || '');
+      if (prev === p.text) return;
+      p.lead.lastDispositionNotes = p.text;
+      fetch('/leads/' + encodeURIComponent(p.lead.key) + '/update', {
+        method: 'POST',
+        credentials: 'same-origin',
+        keepalive: true,
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ lastDispositionNotes: p.text }),
+      })
+        .then(function (r) {
+          if (!r.ok) throw new Error('save failed');
+        })
+        .catch(function () {
+          if (p.lead.lastDispositionNotes === p.text) p.lead.lastDispositionNotes = prev;
+          setOutcomeFeedback('Could not save notes — check your connection and try again.', true);
+        });
+    }
+    function queueFocusNotesSave() {
+      var lead = currentLead();
+      if (!lead || !lead.key || !elOutcomeNotes) return;
+      focusNotesPending = { lead: lead, text: String(elOutcomeNotes.value || '').trim().slice(0, 2000) };
+      if (focusNotesTimer) clearTimeout(focusNotesTimer);
+      focusNotesTimer = setTimeout(flushFocusNotesSave, 800);
+    }
     if (elOutcomeNotes) {
-      elOutcomeNotes.addEventListener('input', syncFocusNotesIndicator);
+      elOutcomeNotes.addEventListener('input', function () {
+        syncFocusNotesIndicator();
+        queueFocusNotesSave();
+      });
+      elOutcomeNotes.addEventListener('blur', flushFocusNotesSave);
     }
     if (elOutcomeNotesLog && elOutcomeNotes) {
       elOutcomeNotesLog.addEventListener('input', function () {
         elOutcomeNotes.value = elOutcomeNotesLog.value;
         syncFocusNotesIndicator();
+        queueFocusNotesSave();
       });
+      elOutcomeNotesLog.addEventListener('blur', flushFocusNotesSave);
     }
+    window.addEventListener('pagehide', flushFocusNotesSave);
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden') flushFocusNotesSave();
+    });
     window.__setFocusNotesOpen = setFocusNotesOpen;
     setFocusNotesOpen(false);
     syncFocusNotesIndicator();
