@@ -1007,28 +1007,47 @@
     const closePanel = document.getElementById('closeMobilePanel');
 
     try {
-      const res = await fetch('/leads/bulk-delete', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ keys: targets.map((t) => t.key) }),
-      });
+      // 502/503/504 come from Render while a deploy restarts the app; retry instead of failing.
+      let res = null;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        if (attempt) await new Promise((r) => setTimeout(r, 2500 * attempt));
+        try {
+          res = await fetch('/leads/bulk-delete', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+              Accept: 'application/json',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ keys: targets.map((t) => t.key) }),
+          });
+        } catch (netErr) {
+          res = null;
+          if (attempt === 3) throw netErr;
+          continue;
+        }
+        if (res.status < 502 || res.status > 504) break;
+      }
       const data = await res.json().catch(function () {
         return {};
       });
-      if (!res.ok || !data.success) {
+      // A retry after a gateway error can find leads the first attempt already removed.
+      const goneKeys = (Array.isArray(data.errors) ? data.errors : [])
+        .filter((e) => e && /not found/i.test(String(e.error || '')))
+        .map((e) => String(e.key || '').trim());
+      const removedKeys = (Array.isArray(data.deletedKeys) ? data.deletedKeys : []).concat(goneKeys);
+      if (res.status >= 502 && res.status <= 504) {
+        errorMsg = 'AdHello is restarting after an update. Wait a minute and try Delete again.';
+      } else if (!res.ok || (!data.success && !goneKeys.length)) {
         errorMsg =
           (data && data.error) ||
           (data && data.errors && data.errors[0] && data.errors[0].error) ||
           'Delete failed (' + res.status + ').';
       } else {
-        deleted = Number(data.deleted) || 0;
+        deleted = removedKeys.length || Number(data.deleted) || 0;
         if (deleted > 0) {
           const deletedSet = new Set(
-            (Array.isArray(data.deletedKeys) ? data.deletedKeys : targets.map((t) => t.key)).map(
+            (removedKeys.length ? removedKeys : targets.map((t) => t.key)).map(
               function (k) {
                 return String(k || '').trim();
               },
@@ -1062,14 +1081,14 @@
     showBulkActionBar(0);
     if (typeof window.__updateBulkActionBar === 'function') window.__updateBulkActionBar();
     if (typeof window.__pipelineTablePagingApply === 'function') window.__pipelineTablePagingApply();
-    if (typeof window.showProspectToast === 'function') {
-      window.showProspectToast(
-        deleted
-          ? 'Deleted ' + deleted + ' lead' + (deleted === 1 ? '' : 's')
-          : errorMsg || 'Could not delete selected leads',
-      );
-    } else if (errorMsg && !deleted) {
-      window.alert(errorMsg);
+    if (deleted) {
+      const doneMsg = 'Deleted ' + deleted + ' lead' + (deleted === 1 ? '' : 's');
+      if (typeof window.showProspectToast === 'function') window.showProspectToast(doneMsg);
+      else if (typeof window.showAppToast === 'function') window.showAppToast(doneMsg, { variant: 'success' });
+    } else {
+      const failMsg = errorMsg || 'Could not delete selected leads.';
+      if (typeof window.showAppToast === 'function') window.showAppToast(failMsg, { variant: 'error' });
+      else window.alert(failMsg);
     }
     const remaining = document.querySelectorAll('#prospectLeadsTable tbody tr.result-row').length;
     if (remaining === 0) window.location.reload();

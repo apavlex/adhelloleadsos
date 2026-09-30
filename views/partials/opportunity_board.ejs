@@ -192,16 +192,9 @@
   .opp-card-tools button.opp-card-call { width: 1.6rem; height: 1.6rem; color: #fff; background: #059669; border-radius: 999px; margin-right: 0.2rem; }
   .opp-card-tools button.opp-card-call:hover { color: #fff; background: #047857; }
   .opp-card-tools button.opp-card-call:disabled { background: rgba(100, 116, 139, 0.18); color: #94a3b8; cursor: not-allowed; }
-  .opp-stage-call { display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; width: 100%; margin: -0.2rem 0 0.55rem; padding: 0.4rem 0.6rem; border: 1px solid rgba(5, 150, 105, 0.35); border-radius: 999px; background: rgba(5, 150, 105, 0.08); color: #047857; font-size: 0.625rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; }
-  .opp-stage-call:hover { background: rgba(5, 150, 105, 0.16); }
-  .opp-stage-call svg { width: 0.8rem; height: 0.8rem; flex: none; }
-  .opp-stage-call[hidden] { display: none !important; }
-  html.dark .opp-stage-call { color: #6ee7b7; border-color: rgba(110, 231, 183, 0.35); background: rgba(16, 185, 129, 0.1); }
-  #oppBoard.is-editing .opp-stage-call { display: none !important; }
   @media (pointer: coarse) {
     .opp-card-tools button.opp-card-call { width: 2.1rem; height: 2.1rem; }
     .opp-card-tools button.opp-card-call svg { width: 1.05rem; height: 1.05rem; }
-    .opp-stage-call { padding: 0.6rem 0.75rem; font-size: 0.6875rem; }
   }
   .opp-card-tools button[data-opp-action="remove"] { margin-left: 0; }
   .opp-card-tools button[data-opp-action="remove"]:hover { color: #e11d48; background: rgba(244, 63, 94, 0.12); }
@@ -483,13 +476,7 @@
             <p class="opp-stage-meta text-[11px] text-brand-muted mt-0.5"><% if (stage.valueLabel) { %><%= stage.valueLabel %><% } else { %><%= stage.count === 1 ? '1 opportunity' : stage.count + ' opportunities' %><% } %></p>
           </div>
           <span class="opp-stage-count"><%= stage.count %></span>
-        </div>
-        <% var _stageCallable = stage.cards.filter(function (c) { var p = String(c.phone || '').trim(); return p && p !== 'N/A' && p !== '—'; }).length; %>
-        <button type="button" class="opp-stage-call" data-opp-action="call-stage" data-stage-id="<%= stage.id %>"<%= _stageCallable ? '' : ' hidden' %> title="Load every lead in this stage with a phone into the softphone">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-          <span>Call stage <span class="opp-stage-call-count">(<%= _stageCallable %>)</span></span>
-        </button>
-        <div class="opp-actions mb-2">
+        </div>        <div class="opp-actions mb-2">
           <button type="button" class="opp-remove" data-stage-id="<%= stage.id %>">Remove</button>
         </div>
         <div class="opp-stage-cards<%= stage.cards.length ? '' : ' is-empty' %>" data-stage-id="<%= stage.id %>">
@@ -1146,16 +1133,6 @@
     );
   }
 
-  function syncStageCallButton(column) {
-    if (!column) return;
-    var btn = column.querySelector('.opp-stage-call');
-    if (!btn) return;
-    var n = column.querySelectorAll('.opp-card[data-phone]:not([data-phone=""])').length;
-    btn.hidden = !n;
-    var countEl = btn.querySelector('.opp-stage-call-count');
-    if (countEl) countEl.textContent = '(' + n + ')';
-  }
-
   function run(action) {
     var kind = action.getAttribute('data-opp-action');
     if (kind === 'call') {
@@ -1165,10 +1142,6 @@
         return;
       }
       callStageInSoftphone(callCard.closest('.opp-stage'), leadKey(action));
-      return;
-    }
-    if (kind === 'call-stage') {
-      callStageInSoftphone(action.closest('.opp-stage'), '');
       return;
     }
     if (kind === 'profile') {
@@ -1234,7 +1207,6 @@
     if (count && drop) drop.remove();
     list.classList.toggle('is-empty', !count);
     syncAdvanceButtons(column);
-    syncStageCallButton(column);
   }
 
   function removeOpportunity(action) {

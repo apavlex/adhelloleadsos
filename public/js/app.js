@@ -12069,8 +12069,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  let cadencePlaybookSelectPopulated = false;
-  let cadencePlaybookFetchPromise = null;
+  // `var` on purpose: initLeadDetailPanelChrome() runs above this line during boot, and a `let`
+  // here throws (temporal dead zone) and aborts the rest of app.js setup.
+  var cadencePlaybookSelectPopulated = false;
+  var cadencePlaybookFetchPromise = null;
 
   function cadencePlaybookSelectNeedsOptions(sel) {
     if (!sel || !sel.options || !sel.options.length) return true;
@@ -19182,6 +19184,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  const isSearchResultsPage = !!document.getElementById('searchResultsLeadsTable');
   if (bulkMoveFolderBtn && bulkFolderSelect && !isSearchResultsPage) {
     bulkMoveFolderBtn.addEventListener('click', () => bulkMoveFolderFromBar());
   }
@@ -19877,7 +19880,6 @@ document.addEventListener('DOMContentLoaded', () => {
   window.__bulkSaveSelectedLeadsImpl = bulkSaveSelectedLeads;
   window.__bulkSaveSelectedLeads = bulkSaveSelectedLeads;
 
-  const isSearchResultsPage = !!document.getElementById('searchResultsLeadsTable');
   if (bulkSaveBtn && !isSearchResultsPage) {
     bulkSaveBtn.addEventListener('click', () => bulkSaveSelectedLeads(bulkSaveBtn));
   }

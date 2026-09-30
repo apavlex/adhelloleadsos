@@ -83,6 +83,23 @@
     }
   };
 
+  /**
+   * Routine "done" messages that older code paths still send through window.alert become toasts,
+   * so only problems interrupt with a blocking popup. window.confirm (deletes, sends) is untouched.
+   */
+  (function routeInfoAlertsToToasts() {
+    if (window.__adhelloAlertRouted) return;
+    window.__adhelloAlertRouted = true;
+    const nativeAlert = window.alert.bind(window);
+    const PROBLEM_RE =
+      /fail|error|could ?n[o'’]t|can[o'’]?t |cannot|unable|denied|invalid|not allowed|expired|missing|required|limit|\(\d{3}\)/i;
+    window.alert = function (message) {
+      const text = String(message == null ? '' : message).trim();
+      if (!text || PROBLEM_RE.test(text)) return nativeAlert(message);
+      window.showAppToast(text, { variant: 'info', duration: 4200 });
+    };
+  })();
+
   const BULK_ENHANCE_STORAGE_KEY = 'agencyOsBulkEnhanceJob';
   const BULK_ENHANCE_LEAD_TIMEOUT_MS = 120000;
   const BULK_ENHANCE_FETCH_TIMEOUT_MS = 45000;
