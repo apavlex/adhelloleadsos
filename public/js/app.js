@@ -21799,6 +21799,9 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   function createKanbanCard(row) {
+    if (typeof window.__adhelloCreateKanbanCard === 'function') {
+      return window.__adhelloCreateKanbanCard(row);
+    }
     if (typeof window.__adhelloBuildKanbanContactHtml === 'function') {
       const card = document.createElement('div');
       card.className =
@@ -21820,17 +21823,10 @@ document.addEventListener('DOMContentLoaded', () => {
         websiteHtml = `<a href="${escapeHtmlAttr(href)}" target="_blank" rel="noopener noreferrer" class="text-[10px] text-brand-muted font-bold truncate block mb-2 hover:text-brand-yellow">${label}</a>`;
       }
 
-      const callBtnHtml =
-        typeof window.__adhelloKanbanCallButtonHtml === 'function'
-          ? window.__adhelloKanbanCallButtonHtml(card, row)
-          : '';
       card.innerHTML = `
-        <div class="flex items-center justify-between gap-2 mb-3">
-            <span class="text-[9px] font-black uppercase tracking-widest text-brand-muted truncate min-w-0">${category}</span>
-            <div class="flex items-center gap-2 shrink-0">
-                <div class="flex items-center gap-1 kanban-stars-${row.dataset.leadKey}"></div>
-                ${callBtnHtml}
-            </div>
+        <div class="flex items-center justify-between mb-3">
+            <span class="text-[9px] font-black uppercase tracking-widest text-brand-muted">${category}</span>
+            <div class="flex items-center gap-1 kanban-stars-${row.dataset.leadKey}"></div>
         </div>
         <h4 class="text-sm font-black text-brand-dark dark:text-white mb-1 truncate">${title}</h4>
         ${websiteHtml}
@@ -21838,9 +21834,6 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="row-opportunity-label-${row.dataset.leadKey}"></div>
     `;
 
-      if (typeof window.__adhelloWireKanbanCallButton === 'function') {
-        window.__adhelloWireKanbanCallButton(card);
-      }
       card.querySelectorAll('.kanban-card-phone').forEach((btn) => {
         btn.addEventListener('click', (e) => {
           e.stopPropagation();

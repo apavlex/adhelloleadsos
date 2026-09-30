@@ -398,131 +398,216 @@
 
   window.__adhelloBuildKanbanContactHtml = buildKanbanContactHtml;
 
-  /** Load this card's stage column into the softphone, starting at the card that was tapped. */
-  function callKanbanStageFromCard(card) {
-    const column = card.closest('.kanban-column') || card.parentElement;
-    const items = Array.prototype.map.call(
-      (column || card).querySelectorAll('.kanban-card[data-lead-key]'),
-      function (c) {
-        return {
-          key: c.dataset.leadKey || '',
-          title: c.dataset.title || 'Lead',
-          phone: c.dataset.phone || '',
-        };
-      },
-    );
-    const toast = function (msg, variant) {
-      if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: variant });
-    };
-    if (typeof window.__adhelloCallQueueInSoftphone !== 'function') {
-      toast('The dialer is still loading. Try again in a moment.', 'error');
-      return;
-    }
-    const n = window.__adhelloCallQueueInSoftphone(items, card.dataset.leadKey || '');
-    if (!n) {
-      toast('No one in this stage has a phone number.', 'error');
-      return;
-    }
-    toast(
-      'Softphone loaded with ' + n + ' lead' + (n === 1 ? '' : 's') + ' from this stage. Press the green button to dial, then › for the next one.',
-      'success',
-    );
-  }
+  let oppCardLinesIndex = null;
 
-  /** Stamps title/phone on the card for the stage queue and returns the call button markup. */
-  function kanbanCallButtonHtml(card, row) {
-    const ds = (row && row.dataset) || {};
-    const rawPhone = String(ds.phone || '').trim();
-    const hasPhone = !isBlankContact(rawPhone);
-    card.dataset.title = String(ds.title || '').trim() || 'Lead';
-    card.dataset.phone = hasPhone ? rawPhone : '';
-    return (
-      '<button type="button" class="kanban-card-call"' +
-      (hasPhone ? '' : ' disabled') +
-      ' title="' +
-      (hasPhone ? 'Call in the softphone (loads this stage)' : 'No phone number on this lead') +
-      '" aria-label="Call in the softphone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg></button>'
-    );
-  }
-
-  function wireKanbanCallButton(card) {
-    card.querySelectorAll('.kanban-card-call').forEach(function (btn) {
-      btn.addEventListener('click', function (e) {
-        e.stopPropagation();
-        callKanbanStageFromCard(card);
-      });
-    });
-  }
-
-  window.__adhelloKanbanCallButtonHtml = kanbanCallButtonHtml;
-  window.__adhelloWireKanbanCallButton = wireKanbanCallButton;
-
-  function wireKanbanCardInteractions(card, row) {
-    if (!card) return;
-    wireKanbanCallButton(card);
-    card.querySelectorAll('.kanban-card-phone').forEach(function (btn) {
-      btn.addEventListener('click', function (e) {
-        e.stopPropagation();
-        if (typeof window.__adhelloPipelinePhoneClick === 'function') {
-          window.__adhelloPipelinePhoneClick(btn, e);
+  /** Server-built status / note / reviews / city lines (same as the Opportunities card). */
+  function oppCardLinesForKey(key) {
+    if (!oppCardLinesIndex) {
+      oppCardLinesIndex = new Map();
+      (Array.isArray(window.OPPORTUNITY_BOARD_LEADS) ? window.OPPORTUNITY_BOARD_LEADS : []).forEach(function (lead) {
+        if (lead && lead.key && lead.oppCard) {
+          oppCardLinesIndex.set(String(lead.key).replace(/^lead:/i, ''), lead.oppCard);
         }
       });
-    });
-    card.querySelectorAll('a, button').forEach(function (el) {
-      if (el.classList.contains('kanban-card-phone')) return;
-      el.addEventListener('click', function (e) {
-        e.stopPropagation();
-      });
-    });
-    card.addEventListener('click', function (e) {
-      if (e.target.closest('a, button')) return;
-      activateKanbanRow(row);
+    }
+    return oppCardLinesIndex.get(String(key || '').replace(/^lead:/i, '')) || null;
+  }
+
+  function reviewsLineFromDataset(ds) {
+    const rating = parseFloat(ds.rating);
+    const count = parseInt(String(ds.reviews || '').replace(/,/g, ''), 10);
+    const parts = [];
+    if (Number.isFinite(rating) && rating > 0) parts.push(rating.toFixed(1));
+    if (Number.isFinite(count) && count > 0) parts.push(count + ' review' + (count === 1 ? '' : 's'));
+    return parts.join(' · ');
+  }
+
+  function tagKeysFromDataset(ds) {
+    try {
+      const parsed = JSON.parse(ds.tags || '[]');
+      return Array.isArray(parsed) ? parsed.map(String).filter(Boolean) : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function textOrBlank(value) {
+    const s = String(value || '').trim();
+    return isBlankContact(s) ? '' : s;
+  }
+
+  /** Opportunities-style card: title, category, status, rating, and the full action row. */
+  function createKanbanCard(row) {
+    const ds = (row && row.dataset) || {};
+    const leadKey = String(ds.leadKey || '').trim();
+    const serverLines = oppCardLinesForKey(leadKey);
+    const lines = serverLines || {};
+    const title = String(ds.title || '').trim() || 'Untitled';
+    const phone = textOrBlank(ds.phone);
+    const category = textOrBlank(ds.category);
+    const city = String(lines.city || textOrBlank(ds.city)).trim();
+    const statusRaw = textOrBlank(ds.status);
+    const status = serverLines
+      ? lines.status || ''
+      : statusRaw && statusRaw !== 'Not Contacted'
+        ? statusRaw
+        : '';
+    const note = lines.note || '';
+    const reviews = lines.reviews || reviewsLineFromDataset(ds);
+    const oppMode = !!selectedOpportunityBoard();
+
+    const card = document.createElement('article');
+    card.className = 'opp-card kanban-card';
+    card.dataset.leadKey = leadKey;
+    card.dataset.title = title;
+    card.dataset.phone = phone;
+    card.__adhelloRow = row;
+
+    const icons = window.__adhelloOppCardIcons || {};
+    const toolsHtml =
+      typeof window.__adhelloOppCardToolsHtml === 'function'
+        ? window.__adhelloOppCardToolsHtml({
+            key: leadKey,
+            title: title,
+            phone: phone,
+            email: textOrBlank(ds.email),
+            tagKeys: tagKeysFromDataset(ds),
+            canMove: oppMode,
+            canRemove: oppMode,
+          })
+        : '';
+
+    card.innerHTML =
+      '<div class="opp-card-head">' +
+      '<button type="button" class="opp-card-title" data-opp-action="profile" data-lead-key="' +
+      escapeHtml(leadKey) +
+      '" data-title="' +
+      escapeHtml(title) +
+      '" title="' +
+      escapeHtml(title) +
+      '">' +
+      escapeHtml(title) +
+      '</button>' +
+      (city
+        ? '<span class="opp-card-pin" title="' + escapeHtml(city) + '" aria-label="' + escapeHtml(city) + '">' + (icons.pin || '') + '</span>'
+        : '') +
+      '</div>' +
+      (category ? '<p class="opp-card-category" title="' + escapeHtml(category) + '">' + escapeHtml(category) + '</p>' : '') +
+      (status ? '<p class="opp-card-status" title="' + escapeHtml(status) + '">' + escapeHtml(status) + '</p>' : '') +
+      (note ? '<p class="opp-card-note" title="' + escapeHtml(note) + '">' + escapeHtml(note) + '</p>' : '') +
+      (reviews
+        ? '<p class="opp-card-reviews"><span aria-hidden="true">★</span> ' + escapeHtml(reviews) + '</p>'
+        : city && !status
+          ? '<p class="opp-card-status">' + escapeHtml(city) + '</p>'
+          : '') +
+      toolsHtml;
+    return card;
+  }
+
+  window.__adhelloCreateKanbanCard = createKanbanCard;
+
+  function refreshKanbanColumnCount(columnWrap) {
+    const badge = columnWrap && columnWrap.querySelector('.column-count');
+    if (badge) badge.textContent = String(columnWrap.querySelectorAll('.kanban-list .kanban-card').length);
+  }
+
+  /** Save a lead's stage for this column; resolves `{ ok, data }`. */
+  function persistKanbanStage(key, toCol) {
+    const stageId = String((toCol && toCol.dataset.pipelineStage) || '').trim();
+    const oppPipelineId = String((toCol && toCol.dataset.opportunityPipeline) || '').trim();
+    const isOpp = !!(oppPipelineId && stageId.indexOf('ops_') === 0);
+    const url = isOpp ? '/opportunities/move' : '/leads/' + encodeURIComponent(key) + '/update';
+    const body = isOpp
+      ? { leadKey: key, pipelineId: oppPipelineId, stageId: stageId }
+      : { stageId: stageId, pipelineStageUpdatedAt: new Date().toISOString(), onPipelineBoard: true };
+    return fetch(url, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(body),
+    }).then(function (res) {
+      return res.json().then(
+        function (data) { return { ok: res.ok, data: data }; },
+        function () { return { ok: false, data: null }; },
+      );
     });
   }
 
-  function createKanbanCard(row) {
-    const card = document.createElement('div');
-    card.className =
-      'kanban-card kanban-card--lift p-4 bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-brand-border/10 cursor-grab active:cursor-grabbing hover:border-brand-yellow/50 transition-all duration-150 group';
-    const leadKey = String((row && row.dataset && row.dataset.leadKey) || '').trim();
-    card.dataset.leadKey = leadKey;
-    const title = escapeHtml((row && row.dataset && row.dataset.title) || 'Untitled');
-    const websiteRaw = String((row && row.dataset && row.dataset.website) || '').trim();
-    const category = escapeHtml((row && row.dataset && row.dataset.category) || '');
+  function sameLeadKey(a, b) {
+    return String(a || '').replace(/^lead:/i, '') === String(b || '').replace(/^lead:/i, '');
+  }
 
-    let websiteHtml = '';
-    if (!isBlankContact(websiteRaw)) {
-      const href = /^https?:\/\//i.test(websiteRaw)
-        ? websiteRaw
-        : 'https://' + websiteRaw.replace(/^\/+/, '');
-      const label = escapeHtml(
-        websiteRaw.replace(/^https?:\/\//i, '').split('?')[0].replace(/\/$/, ''),
-      );
-      websiteHtml =
-        '<a href="' +
-        escapeHtml(href) +
-        '" target="_blank" rel="noopener noreferrer" class="text-[10px] text-brand-muted font-bold truncate block mb-2 hover:text-brand-yellow">' +
-        label +
-        '</a>';
+  function applyKanbanPlacement(key, pipelineId, stageId, data) {
+    const row = findResultRowForLeadKey(key);
+    if (pipelineId && String(stageId || '').indexOf('ops_') === 0) {
+      if (row) {
+        row.dataset.opportunityPipelineId = pipelineId;
+        row.dataset.opportunityStageId = stageId;
+        markRowOnPipelineBoard(row);
+      }
+      (Array.isArray(window.OPPORTUNITY_BOARD_LEADS) ? window.OPPORTUNITY_BOARD_LEADS : []).forEach(function (lead) {
+        if (!lead || !sameLeadKey(lead.key, key)) return;
+        lead.opportunityPipelineId = pipelineId;
+        lead.opportunityStageId = stageId;
+      });
+      return;
     }
+    if (!row) return;
+    row.dataset.stageId = stageId;
+    if (data && data.lead && data.lead.pipelineStage != null) {
+      row.dataset.pipelineStage = String(data.lead.pipelineStage);
+    }
+    markRowOnPipelineBoard(row);
+  }
 
-    const callBtnHtml = kanbanCallButtonHtml(card, row);
+  function clearKanbanOpportunity(key) {
+    const row = findResultRowForLeadKey(key);
+    if (row) {
+      row.dataset.opportunityPipelineId = '';
+      row.dataset.opportunityStageId = '';
+    }
+    (Array.isArray(window.OPPORTUNITY_BOARD_LEADS) ? window.OPPORTUNITY_BOARD_LEADS : []).forEach(function (lead) {
+      if (!lead || !sameLeadKey(lead.key, key)) return;
+      lead.opportunityPipelineId = '';
+      lead.opportunityStageId = '';
+    });
+  }
 
-    card.innerHTML =
-      '<div class="flex items-center justify-between gap-2 mb-3">' +
-      '<span class="text-[9px] font-black uppercase tracking-widest text-brand-muted truncate min-w-0">' +
-      category +
-      '</span>' +
-      callBtnHtml +
-      '</div>' +
-      '<h4 class="text-sm font-black text-brand-dark dark:text-white mb-1 truncate">' +
-      title +
-      '</h4>' +
-      websiteHtml +
-      buildKanbanContactHtml(row, leadKey);
+  function kanbanToast(text, ok) {
+    if (typeof window.showAppToast === 'function') {
+      window.showAppToast(text, { variant: ok ? 'success' : 'error' });
+    }
+  }
 
-    wireKanbanCardInteractions(card, row);
-    return card;
+  let kanbanActions = null;
+
+  function bindKanbanCardActions(kanbanRoot) {
+    if (kanbanActions || typeof window.__adhelloBindOppCardActions !== 'function') return kanbanActions;
+    kanbanActions =
+      window.__adhelloBindOppCardActions(kanbanRoot, {
+        column: '.kanban-column',
+        list: '.kanban-list',
+        stageId: function (col) { return String((col && col.dataset.pipelineStage) || '').trim(); },
+        stageName: function (col) {
+          const h = col && col.querySelector('h3');
+          return h ? String(h.textContent || '').trim() : '';
+        },
+        pipelineId: function (col) { return String((col && col.dataset.opportunityPipeline) || '').trim(); },
+        status: kanbanToast,
+        refreshStage: refreshKanbanColumnCount,
+        openProfile: function (key, card) {
+          const row = (card && card.__adhelloRow) || findResultRowForLeadKey(key);
+          if (row) activateKanbanRow(row);
+        },
+        pipelines: function () {
+          const boards = window.OPPORTUNITY_BOARDS;
+          return boards && Array.isArray(boards.pipelines) ? boards.pipelines : [];
+        },
+        persistStage: persistKanbanStage,
+        onPlaced: applyKanbanPlacement,
+        onRemoved: clearKanbanOpportunity,
+      }) || null;
+    return kanbanActions;
   }
 
   function bindSortable(col, columnWrap) {
@@ -531,69 +616,54 @@
       const existing = Sortable.get(col);
       if (existing && typeof existing.destroy === 'function') existing.destroy();
     }
+    const kanbanRoot = col.closest('#kanbanView');
+    const coarse =
+      (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) ||
+      (navigator.maxTouchPoints || 0) > 0;
     Sortable.create(col, {
       group: 'leads',
       animation: 150,
+      draggable: '.kanban-card',
+      // Touch: long-press to drag so the columns still scroll on iPhone.
+      delay: coarse ? 220 : 0,
+      delayOnTouchOnly: true,
+      touchStartThreshold: coarse ? 12 : 5,
       ghostClass: 'opacity-50',
-      filter: '.kanban-card-call',
+      filter: '.opp-card-tools, .opp-card-tools *, .opp-card-title',
       preventOnFilter: false,
+      onStart: function () {
+        if (kanbanRoot) kanbanRoot.setAttribute('data-opp-sorting', '1');
+      },
       onEnd: function (evt) {
+        window.setTimeout(function () {
+          if (kanbanRoot) kanbanRoot.removeAttribute('data-opp-sorting');
+        }, 100);
         const item = evt.item;
+        const fromCol = evt.from && evt.from.closest ? evt.from.closest('.kanban-column') : null;
         const toCol =
           (evt.to && evt.to.closest && evt.to.closest('.kanban-column')) ||
           (evt.to && evt.to.parentElement) ||
           null;
+        [fromCol, toCol].forEach(function (c) {
+          if (!c) return;
+          if (kanbanActions) kanbanActions.refreshStage(c);
+          else refreshKanbanColumnCount(c);
+        });
         const key = item && item.dataset ? item.dataset.leadKey : '';
-        if (!key || !toCol) return;
+        if (!key || !toCol || evt.from === evt.to) return;
         const newStageId = String(toCol.dataset.pipelineStage || '').trim();
-        const opportunityPipelineId = String(toCol.dataset.opportunityPipeline || '').trim();
         if (!newStageId) return;
-        if (opportunityPipelineId && newStageId.indexOf('ops_') === 0) {
-          fetch('/opportunities/move', {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-            body: JSON.stringify({
-              leadKey: key,
-              pipelineId: opportunityPipelineId,
-              stageId: newStageId,
-            }),
-          })
-            .then(function (res) { return res.json(); })
-            .then(function (data) {
-              if (!data || !data.success) return;
-              const originalRow = document.querySelector('.result-row[data-lead-key="' + CSS.escape(key) + '"]');
-              if (!originalRow) return;
-              originalRow.dataset.opportunityPipelineId = opportunityPipelineId;
-              originalRow.dataset.opportunityStageId = newStageId;
-              markRowOnPipelineBoard(originalRow);
-            })
-            .catch(function () {});
-          return;
-        }
-        fetch('/leads/' + encodeURIComponent(key) + '/update', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({
-            stageId: newStageId,
-            pipelineStageUpdatedAt: new Date().toISOString(),
-            onPipelineBoard: true,
-          }),
-        })
-          .then(function (res) {
-            return res.json();
-          })
-          .then(function (data) {
-            if (!data || !data.success) return;
-            const originalRow = document.querySelector('.result-row[data-lead-key="' + CSS.escape(key) + '"]');
-            if (!originalRow) return;
-            originalRow.dataset.stageId = newStageId;
-            if (data.lead && data.lead.pipelineStage != null) {
-              originalRow.dataset.pipelineStage = String(data.lead.pipelineStage);
+        persistKanbanStage(key, toCol)
+          .then(function (result) {
+            if (!result.ok || !result.data || !result.data.success) {
+              kanbanToast((result.data && result.data.error) || 'Could not save that stage change.', false);
+              return;
             }
-            markRowOnPipelineBoard(originalRow);
+            applyKanbanPlacement(key, String(toCol.dataset.opportunityPipeline || '').trim(), newStageId, result.data);
           })
-          .catch(function () {});
+          .catch(function () {
+            kanbanToast('Could not save that stage change.', false);
+          });
       },
     });
   }
@@ -620,6 +690,8 @@
 
     const columnEls = Array.from(kanbanRoot.querySelectorAll('.kanban-column'));
     if (!columnEls.length) return 0;
+    oppCardLinesIndex = null;
+    bindKanbanCardActions(kanbanRoot);
 
     const stageIds = columnEls.map(function (el, idx) {
       return readColumnStageId(el, idx);
@@ -644,8 +716,8 @@
       (buckets[idx] || []).forEach(function (row) {
         col.appendChild(createKanbanCard(row));
       });
-      const countBadge = columnWrap.querySelector('.column-count');
-      if (countBadge) countBadge.textContent = String((buckets[idx] || []).length);
+      if (kanbanActions) kanbanActions.refreshStage(columnWrap);
+      else refreshKanbanColumnCount(columnWrap);
     });
 
     if (typeof Sortable !== 'undefined') {

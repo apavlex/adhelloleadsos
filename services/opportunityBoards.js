@@ -296,6 +296,18 @@ function statusLabel(lead) {
   return withWhen(events[0].text, events[0].at);
 }
 
+/** Status / note / reviews / city lines for a board card (Opportunities and the pipeline kanban). */
+function cardSummaryLines(lead) {
+  const status = statusLabel(lead);
+  const note = latestNote(lead);
+  return {
+    status,
+    note: noteEchoesStatus(note, status) ? '' : cardNotePreview(note),
+    reviews: reviewsLabel(lead),
+    city: cityLabel(lead),
+  };
+}
+
 function latestNote(lead) {
   const rows = []
     .concat(Array.isArray(lead && lead.updates) ? lead.updates : [])
@@ -593,6 +605,7 @@ module.exports = {
   selectPipeline,
   buildOpportunityBoard,
   cardNotePreview,
+  cardSummaryLines,
   addPipeline,
   addStage,
   renameStage,

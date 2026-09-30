@@ -36,7 +36,7 @@ const { buildOutreachLibrary } = require('../services/outreachChannelScripts');
 const { resolveScriptSignOffProfile, applySenderPlaceholdersDeep } = require('../services/scriptPlaceholders');
 const { normalizeLeadForPanel } = require('../services/leadPanelNormalize');
 const { LMV_PROSPECTING_METHODS } = require('../config/lmvProspectingMethods');
-const { normalizeBoards } = require('../services/opportunityBoards');
+const { normalizeBoards, cardSummaryLines } = require('../services/opportunityBoards');
 
 /** First-paint HTML rows — remaining rows load via /prospecting/table-rows. */
 const PIPELINE_SSR_ROW_CAP = Math.min(
@@ -280,7 +280,7 @@ router.get('/', async (req, res, next) => {
       safeTab === 'pipeline'
         ? visible
             .filter((lead) => lead && String(lead.opportunityPipelineId || '').trim())
-            .map(mapLeadPipelineBootstrap)
+            .map((lead) => ({ ...mapLeadPipelineBootstrap(lead), oppCard: cardSummaryLines(lead) }))
         : [];
 
     const directFolderCounts = {};
