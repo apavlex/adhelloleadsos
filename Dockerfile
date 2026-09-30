@@ -28,6 +28,9 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY package*.json ./
 COPY . .
 
+# Compile Tailwind from current views/JS (replaces the in-browser Play CDN). Fails the build if it breaks.
+RUN npm run build:css && test -s public/css/tailwind.css
+
 RUN mkdir -p /app/data
 
 ENV PORT=8080

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <%- include('partials/head') %>
+  <%- include('partials/head', { tailwindInPage: true }) %>
   <style>
     body.app-with-sidebar .app-shell-content > main.custom-menu-page {
       flex: 1 1 auto;
@@ -28,6 +28,7 @@
       box-shadow: 0 1px 0 rgba(17, 24, 39, 0.06);
     }
   </style>
+  <%- include('partials/tailwind_css') %>
 </head>
 <body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
   <%- include('partials/navbar') %>

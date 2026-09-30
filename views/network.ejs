@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <%- include('partials/head') %>
+  <%- include('partials/head', { tailwindInPage: true }) %>
   <style>
     .net-stat { border: 1px solid rgba(15, 23, 42, 0.08); background: rgba(255, 255, 255, 0.86); border-radius: 1.15rem; padding: 0.9rem 1rem; }
     html.dark .net-stat { background: rgba(15, 23, 42, 0.72); border-color: rgba(255, 255, 255, 0.08); }
@@ -48,6 +48,7 @@
     details.net-more > summary { list-style: none; cursor: pointer; }
     details.net-more > summary::-webkit-details-marker { display: none; }
   </style>
+  <%- include('partials/tailwind_css') %>
 </head>
 <body class="bg-brand-bg min-h-screen text-brand-dark dark:text-white overflow-x-hidden">
   <%- include('partials/navbar') %>

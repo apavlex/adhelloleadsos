@@ -1,0 +1,70 @@
+<%#
+  Compiled Tailwind (npm run build:css). Must be the LAST stylesheet in <head>: the Play CDN it replaced
+  appended its <style> at the end of <head>, and custom.css / page <style> blocks rely on utilities
+  (including preflight) winning equal-specificity ties.
+  TAILWIND_CDN=1 renders the old Play CDN instead (emergency fallback).
+  twVariant: 'app' (default, tailwind.config.js) | 'home' (tailwind.home.config.js) |
+             'standalone' (stock Tailwind theme — login, omnichannel).
+%>
+<%
+  const _twVariant = typeof twVariant !== 'undefined' && twVariant ? String(twVariant) : 'app';
+  const _twAv = typeof assetVersion !== 'undefined' ? assetVersion : '1';
+  const _twCdn = String(process.env.TAILWIND_CDN || '').trim() === '1';
+%>
+<% if (!_twCdn) { %>
+<link rel="stylesheet" href="/css/<%= _twVariant === 'home' ? 'tailwind-home' : (_twVariant === 'standalone' ? 'tailwind-standalone' : 'tailwind') %>.css?v=<%= _twAv %>">
+<% } else if (_twVariant === 'standalone') { %>
+<script src="https://cdn.tailwindcss.com"></script>
+<% } else if (_twVariant === 'home') { %>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui'], display: ['Manrope', 'sans-serif'] },
+        colors: {
+          brand: {
+            bg: '#FAF7ED', cream: '#FAF7ED', yellow: '#FFD644', dark: '#111827',
+            muted: 'rgba(17,24,39,0.7)', border: 'rgba(17,24,39,0.1)',
+          }
+        }
+      }
+    }
+  };
+</script>
+<% } else { %>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['Inter', 'ui-sans-serif', 'system-ui'],
+          display: ['Manrope', 'sans-serif'],
+        },
+        colors: {
+          brand: {
+            bg: 'var(--brand-bg)',
+            cream: 'var(--brand-cream)',
+            yellow: 'var(--brand-yellow)',
+            yellowHover: '#FACC15',
+            dark: 'var(--brand-dark)',
+            muted: 'var(--brand-muted)',
+            border: 'var(--brand-border)',
+          }
+        },
+        borderRadius: {
+          '4xl': '2rem',
+          '5xl': '3rem',
+        },
+        boxShadow: {
+          'brutal': '4px 4px 0px rgba(0,0,0,0.1)',
+          'brutal-hover': '0 0 15px rgba(253, 224, 71, 0.6)',
+        }
+      },
+    },
+  };
+</script>
+<% } %>

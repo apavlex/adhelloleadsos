@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <%- include('partials/head') %>
+  <%- include('partials/head', { tailwindInPage: true }) %>
   <title><%= invalid ? 'Link unavailable' : (referral.trade + ' referral · ' + network.name) %></title>
   <style>
     .nr-btn { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; padding: 0.8rem 1.1rem; font-size: 0.85rem; font-weight: 800; border: 1px solid transparent; cursor: pointer; width: 100%; }
@@ -16,6 +16,7 @@
     .nr-fact span:first-child { color: #64748b; font-weight: 600; }
     .nr-fact span:last-child { text-align: right; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
   </style>
+  <%- include('partials/tailwind_css') %>
 </head>
 <body class="bg-brand-bg min-h-screen text-brand-dark dark:text-white">
   <main class="max-w-md mx-auto px-5 py-8">

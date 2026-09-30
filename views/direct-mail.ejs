@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <%- include('partials/head') %>
+  <%- include('partials/head', { tailwindInPage: true }) %>
   <link rel="stylesheet" href="/css/marketing-studio-mobile.css?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>">
+  <%- include('partials/tailwind_css') %>
 </head>
 <body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden dm-studio-page">
   <%- include('partials/navbar') %>

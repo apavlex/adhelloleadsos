@@ -13,9 +13,9 @@
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="icon" href="/images/adhello-app-icon.png" type="image/png">
     <link rel="apple-touch-icon" href="/images/adhello-app-icon-192.png" sizes="192x192">
-    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/css/custom.css?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>">
     <script src="/js/pwa-register.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
+    <%- include('partials/tailwind_css', { twVariant: 'standalone' }) %>
 </head>
 <!-- Leads Background Color: decor stays out of flex flow so the card centers reliably -->
 <body class="bg-[#FDFBF7] min-h-screen w-full relative overflow-x-hidden font-sans [padding:env(safe-area-inset-top)_env(safe-area-inset-right)_env(safe-area-inset-bottom)_env(safe-area-inset-left)]">

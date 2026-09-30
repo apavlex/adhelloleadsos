@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <%- include('partials/head') %>
+  <%- include('partials/head', { tailwindInPage: true }) %>
   <style>
     .fb-view-toggle {
       display: flex;
@@ -83,6 +83,7 @@
       box-shadow: 0 0 0 1px rgba(255,214,68,.18);
     }
   </style>
+  <%- include('partials/tailwind_css') %>
 </head>
 <body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
   <%- include('partials/navbar') %>

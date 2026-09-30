@@ -31,7 +31,7 @@
 <% } %>
 <script>window.__ADHELLO_SCRIPT_PROFILE__ = <%- safeJsonForScript(typeof scriptSignOffProfile !== 'undefined' && scriptSignOffProfile ? scriptSignOffProfile : { name: '', company: '', phone: '', email: '' }) %>;</script>
 <style>
-  /* First-paint background before Tailwind Play CDN injects utilities (avoids cream→dark snap). */
+  /* First-paint background before stylesheets apply (avoids cream→dark snap; also html canvas color). */
   html:not(.dark) { background-color: #FAF7ED; }
   html.dark { background-color: #020617; }
 </style>
@@ -39,39 +39,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Manrope:wght@700;800&display=swap" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Manrope:wght@700;800&display=swap" rel="stylesheet"></noscript>
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-  tailwind.config = {
-    darkMode: 'class',
-    theme: {
-      extend: {
-        fontFamily: {
-          sans: ['Inter', 'ui-sans-serif', 'system-ui'],
-          display: ['Manrope', 'sans-serif'],
-        },
-        colors: {
-          brand: {
-            bg: 'var(--brand-bg)',
-            cream: 'var(--brand-cream)',
-            yellow: 'var(--brand-yellow)',
-            yellowHover: '#FACC15',
-            dark: 'var(--brand-dark)',
-            muted: 'var(--brand-muted)',
-            border: 'var(--brand-border)',
-          }
-        },
-        borderRadius: {
-          '4xl': '2rem',
-          '5xl': '3rem',
-        },
-        boxShadow: {
-            'brutal': '4px 4px 0px rgba(0,0,0,0.1)',
-            'brutal-hover': '0 0 15px rgba(253, 224, 71, 0.6)',
-        }
-      },
-    },
-  };
-</script>
 <style id="portaledPopoverSurfaces">
   .portaled-popover-surface,
   .adhello-mini-calendar,
@@ -179,3 +146,7 @@
 <script src="/js/keyboard-nav-shortcuts.js?v=<%= _av %>" defer></script>
 <script src="/js/nav-prefetch.js?v=<%= _av %>" defer></script>
 <script src="/js/pwa-register.js?v=<%= _av %>" defer></script>
+<%# Pages with their own <head> styles after this partial pass { tailwindInPage: true } and include tailwind_css last. %>
+<% if (typeof tailwindInPage === 'undefined' || !tailwindInPage) { %>
+<%- include('/partials/tailwind_css') %>
+<% } %>
