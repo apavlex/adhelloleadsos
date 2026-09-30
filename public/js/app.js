@@ -369,14 +369,14 @@ document.addEventListener('DOMContentLoaded', () => {
           n > 0
             ? emailMode
               ? 'Each lead gets a personalized follow-up (name, company, city). Leads without email are skipped.'
-              : 'Each lead gets an AI-personalized message (company, city, category, reviews).'
+              : 'Each lead gets an AI-personalized message (company, city, category, reviews). Do Not Contact leads are skipped.'
             : '';
         bulkLabel.classList.toggle('hidden', n === 0);
       }
       if (helpText) {
         helpText.textContent = emailMode
           ? 'Choose a base script. On send, AdHello personalizes it for each business, then sends via Go High Level.'
-          : 'Choose a base script below. On send, AdHello personalizes it for each business, then sends through your configured SMS provider.';
+          : 'Choose a base script below. On send, AdHello personalizes it for each business, then sends via Go High Level.';
       }
       if (personalizeBtn) personalizeBtn.classList.add('hidden');
       if (sendBtn) {
@@ -396,6 +396,103 @@ document.addEventListener('DOMContentLoaded', () => {
       const body = document.getElementById('smsBodyInput');
       if (body) body.setAttribute('maxlength', emailMode ? '8000' : '1600');
     }
+
+    function bulkSmsSkippedText(counts) {
+      const c = counts || {};
+      const parts = [];
+      if (c.dnc) parts.push(`${c.dnc} skipped: marked Do Not Contact`);
+      if (c.opted_out) parts.push(`${c.opted_out} skipped: opted out of SMS`);
+      if (c.not_found) parts.push(`${c.not_found} skipped: not found in this workspace`);
+      return parts.join(' · ');
+    }
+
+    /** Returns null when the check itself fails — the send route still enforces DNC + GHL. */
+    async function runBulkSmsPrecheck(keys) {
+      const list = (Array.isArray(keys) ? keys : []).map((k) => String(k || '').trim()).filter(Boolean);
+      try {
+        const res = await fetch('/leads/bulk-sms-precheck', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ leadKeys: list }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) return null;
+        return {
+          ghl: data.ghl && typeof data.ghl === 'object' ? data.ghl : { ready: true },
+          eligibleKeys: Array.isArray(data.eligibleKeys)
+            ? data.eligibleKeys.map((k) => String(k || '').trim()).filter(Boolean)
+            : list,
+          skippedCount: Array.isArray(data.skipped) ? data.skipped.length : 0,
+          skippedCounts: data.skippedCounts && typeof data.skippedCounts === 'object' ? data.skippedCounts : {},
+        };
+      } catch (_) {
+        return null;
+      }
+    }
+
+    const PRECHECK_TONES = {
+      neutral: 'border-brand-border/25 bg-brand-cream/40 text-brand-muted dark:border-white/10 dark:bg-slate-800/60 dark:text-slate-300',
+      warn: 'border-amber-400/50 bg-amber-50 text-amber-900 dark:border-amber-400/30 dark:bg-amber-950/30 dark:text-amber-200',
+      block: 'border-rose-400/50 bg-rose-50 text-rose-800 dark:border-rose-400/30 dark:bg-rose-950/30 dark:text-rose-200',
+    };
+
+    /** state: null (clear), { pending: true }, or a runBulkSmsPrecheck result. */
+    function paintBulkSmsPrecheck(state) {
+      const notice = document.getElementById('smsBulkPrecheckNotice');
+      const sendBtn = document.getElementById('smsScriptSendBtn');
+      if (!notice) return;
+      Object.values(PRECHECK_TONES).forEach((cls) => notice.classList.remove(...cls.split(' ')));
+      notice.textContent = '';
+      if (!state) {
+        notice.classList.add('hidden');
+        if (sendBtn) sendBtn.disabled = false;
+        return;
+      }
+      const addLine = (text) => {
+        const p = document.createElement('p');
+        p.textContent = text;
+        notice.appendChild(p);
+        return p;
+      };
+      let tone = 'warn';
+      let canSend = true;
+      if (state.pending) {
+        tone = 'neutral';
+        canSend = false;
+        addLine('Checking Do Not Contact and Go High Level…');
+      } else {
+        const ghl = state.ghl || {};
+        const skippedText = bulkSmsSkippedText(state.skippedCounts);
+        if (ghl.ready === false) {
+          tone = 'block';
+          canSend = false;
+          addLine(ghl.message || 'Group SMS sends through Go High Level. Connect GHL in Workspace → Integrations.');
+          const link = document.createElement('a');
+          link.href = ghl.settingsUrl || '/workspace/integrations';
+          link.className = 'inline-block font-black underline underline-offset-2';
+          link.textContent = 'Open Workspace → Integrations →';
+          notice.appendChild(link);
+        }
+        if (skippedText) addLine(skippedText);
+        if (ghl.ready !== false && !(state.eligibleKeys || []).length) {
+          tone = 'block';
+          canSend = false;
+          addLine('No leads left to text.');
+        }
+      }
+      if (!notice.childNodes.length) {
+        notice.classList.add('hidden');
+      } else {
+        notice.classList.add(...PRECHECK_TONES[tone].split(' '));
+        notice.classList.remove('hidden');
+      }
+      if (sendBtn) sendBtn.disabled = !canSend;
+    }
+
+    window.__adhelloBulkSmsPrecheck = runBulkSmsPrecheck;
+    window.__adhelloPaintBulkSmsPrecheck = paintBulkSmsPrecheck;
+    window.__adhelloBulkSmsSkippedText = bulkSmsSkippedText;
 
     async function loadScriptsIntoModal(leadKey, emailMode) {
       const select = document.getElementById('smsScriptSelect');
@@ -531,6 +628,19 @@ document.addEventListener('DOMContentLoaded', () => {
       modal.setAttribute('aria-hidden', 'false');
       modal.style.removeProperty('display');
       paintBulkModalChrome('bulk', keys.length);
+      const precheckSeq = (window.__adhelloBulkSmsPrecheckSeq || 0) + 1;
+      window.__adhelloBulkSmsPrecheckSeq = precheckSeq;
+      window.__adhelloBulkSmsPrecheckState = null;
+      paintBulkSmsPrecheck({ pending: true });
+      void runBulkSmsPrecheck(keys).then((pre) => {
+        if (window.__adhelloBulkSmsPrecheckSeq !== precheckSeq || window.__adhelloSmsModalMode !== 'bulk') return;
+        window.__adhelloBulkSmsPrecheckState = pre;
+        if (pre) {
+          window.__adhelloBulkSmsLeadKeys = pre.eligibleKeys.slice();
+          paintBulkModalChrome('bulk', pre.eligibleKeys.length);
+        }
+        paintBulkSmsPrecheck(pre);
+      });
       try {
         await loadScriptsIntoModal(keys[0], false);
         const body = document.getElementById('smsBodyInput');
@@ -600,6 +710,9 @@ document.addEventListener('DOMContentLoaded', () => {
       modal.style.setProperty('display', 'none', 'important');
       window.__adhelloSmsModalMode = 'single';
       window.__adhelloBulkSmsLeadKeys = [];
+      window.__adhelloBulkSmsPrecheckSeq = (window.__adhelloBulkSmsPrecheckSeq || 0) + 1;
+      window.__adhelloBulkSmsPrecheckState = null;
+      paintBulkSmsPrecheck(null);
       const bulkLabel = document.getElementById('smsScriptBulkLabel');
       if (bulkLabel) {
         bulkLabel.textContent = '';
@@ -635,12 +748,35 @@ document.addEventListener('DOMContentLoaded', () => {
         await window.__handleSmsScriptSend();
         return true;
       }
-      const n = keys.length;
+      let sendKeys = keys;
+      let preSkipped = 0;
+      let skippedNote = '';
+      if (!emailMode) {
+        const openState = window.__adhelloBulkSmsPrecheckState;
+        const pre = await runBulkSmsPrecheck(keys);
+        if (pre && pre.ghl && pre.ghl.ready === false) {
+          paintBulkSmsPrecheck(pre);
+          window.alert(pre.ghl.message || 'Group SMS sends through Go High Level. Connect GHL in Workspace → Integrations.');
+          return true;
+        }
+        if (pre) sendKeys = pre.eligibleKeys;
+        const counts = Object.assign({}, (openState && openState.skippedCounts) || {});
+        Object.keys((pre && pre.skippedCounts) || {}).forEach((k) => {
+          counts[k] = (counts[k] || 0) + pre.skippedCounts[k];
+        });
+        preSkipped = ((openState && openState.skippedCount) || 0) + ((pre && pre.skippedCount) || 0);
+        skippedNote = bulkSmsSkippedText(counts);
+        if (!sendKeys.length) {
+          window.alert(`No leads left to text.${skippedNote ? ` ${skippedNote}.` : ''}`);
+          return true;
+        }
+      }
+      const n = sendKeys.length;
       if (
         !window.confirm(
           emailMode
             ? `Personalize and send this follow-up email to ${n} lead${n === 1 ? '' : 's'}?`
-            : `Personalize and send this script to ${n} lead${n === 1 ? '' : 's'}? Each message will be unique.`,
+            : `Personalize and send this script to ${n} lead${n === 1 ? '' : 's'}? Each message will be unique.${skippedNote ? `\n\n${skippedNote}.` : ''}`,
         )
       ) {
         return true;
@@ -654,7 +790,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return true;
       }
-      const leadKeys = keys.slice();
+      const leadKeys = sendKeys.slice();
       const subject =
         emailMode
           ? String(((document.getElementById('smsEmailSubjectInput') || {}).value) || '').trim()
@@ -671,7 +807,7 @@ document.addEventListener('DOMContentLoaded', () => {
       void (async function runEarlyBulkInBackground() {
         let ok = 0;
         let failed = 0;
-        let skipped = 0;
+        let skipped = preSkipped;
         let lastError = '';
         try {
           for (let i = 0; i < leadKeys.length; i += 1) {
@@ -738,15 +874,26 @@ document.addEventListener('DOMContentLoaded', () => {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
                   credentials: 'same-origin',
-                  body: JSON.stringify({ body: msg, provider: 'ghl' }),
+                  body: JSON.stringify({ body: msg, provider: 'ghl', requireProvider: 'ghl' }),
                 });
                 const sData = await sRes.json().catch(() => ({}));
-                if (!sRes.ok || !sData.success) throw new Error((sData && sData.error) || 'Send failed');
+                if (!sRes.ok || !sData.success) {
+                  const sendErr = new Error((sData && sData.error) || 'Send failed');
+                  sendErr.code = (sData && sData.code) || '';
+                  throw sendErr;
+                }
               }
               ok += 1;
             } catch (err) {
               const msg = String((err && err.message) || 'Send failed');
-              if (/no email|recipient email|on file in Agency OS/i.test(msg)) skipped += 1;
+              const code = String((err && err.code) || '');
+              if (code === 'ghl_not_ready') {
+                failed += leadKeys.length - i;
+                lastError = msg;
+                break;
+              }
+              if (code === 'lead_dnc' || code === 'lead_sms_opt_out') skipped += 1;
+              else if (/no email|recipient email|on file in Agency OS/i.test(msg)) skipped += 1;
               else {
                 failed += 1;
                 lastError = msg;
@@ -14424,6 +14571,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (subjectWrap) subjectWrap.classList.add('hidden');
     const resetBody = getSmsBodyInputEl();
     if (resetBody) resetBody.setAttribute('maxlength', '1600');
+    window.__adhelloBulkSmsPrecheckSeq = (window.__adhelloBulkSmsPrecheckSeq || 0) + 1;
+    window.__adhelloBulkSmsPrecheckState = null;
+    if (typeof window.__adhelloPaintBulkSmsPrecheck === 'function') window.__adhelloPaintBulkSmsPrecheck(null);
   }
 
   /** Prefer live bulk state; fall back to early-open window globals if locals were never set. */
@@ -14462,14 +14612,14 @@ document.addEventListener('DOMContentLoaded', () => {
         n > 0
           ? emailMode
             ? `Each lead gets a personalized follow-up (name, company, city). Leads without email are skipped.`
-            : `Each lead gets an AI-personalized message (company, city, category, reviews).`
+            : `Each lead gets an AI-personalized message (company, city, category, reviews). Do Not Contact leads are skipped.`
           : '';
       smsScriptBulkLabel.classList.toggle('hidden', n === 0);
     }
     if (smsScriptHelpText) {
       smsScriptHelpText.textContent = emailMode
         ? 'Choose a base script. On send, AdHello personalizes it for each business, then sends via Go High Level.'
-        : 'Choose a base script below. On send, AdHello personalizes it for each business, then sends through your configured SMS provider.';
+        : 'Choose a base script below. On send, AdHello personalizes it for each business, then sends via Go High Level.';
     }
     if (smsPersonalizeBtn) {
       smsPersonalizeBtn.classList.add('hidden');
@@ -14542,6 +14692,23 @@ document.addEventListener('DOMContentLoaded', () => {
       const wsNameEl = document.querySelector('#wsSwitcherBtn .font-display');
       const wsName = wsNameEl ? String(wsNameEl.textContent || '').trim() : '';
       smsScriptWorkspaceLabel.textContent = `Workspace: ${wsName || 'Current workspace'}`;
+    }
+    const precheckSeq = (window.__adhelloBulkSmsPrecheckSeq || 0) + 1;
+    window.__adhelloBulkSmsPrecheckSeq = precheckSeq;
+    window.__adhelloBulkSmsPrecheckState = null;
+    const paintPrecheck = window.__adhelloPaintBulkSmsPrecheck;
+    if (typeof window.__adhelloBulkSmsPrecheck === 'function' && typeof paintPrecheck === 'function') {
+      paintPrecheck({ pending: true });
+      void window.__adhelloBulkSmsPrecheck(keys).then((pre) => {
+        if (window.__adhelloBulkSmsPrecheckSeq !== precheckSeq || smsModalMode !== 'bulk') return;
+        window.__adhelloBulkSmsPrecheckState = pre;
+        if (pre) {
+          bulkSmsLeadKeys = pre.eligibleKeys.slice();
+          window.__adhelloBulkSmsLeadKeys = pre.eligibleKeys.slice();
+          updateSmsModalBulkUi();
+        }
+        paintPrecheck(pre);
+      });
     }
     try {
       await loadSmsScriptOptions(keys[0]);
@@ -15095,18 +15262,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  async function sendSmsToLeadKey(leadKey, body) {
+  /** opts.requireProvider 'ghl' = no fallback provider (group SMS); one-off sends keep provider fallback. */
+  async function sendSmsToLeadKey(leadKey, body, opts) {
     const validated = validateOutreachComposerBodyClient(body, 'sms');
     if (!validated.ok) throw new Error(validated.error || 'SMS body is empty.');
+    const payload = { body: validated.text, provider: 'ghl' };
+    if (opts && opts.requireProvider) payload.requireProvider = opts.requireProvider;
     const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/sms`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       credentials: 'same-origin',
-      body: JSON.stringify({ body: validated.text, provider: 'ghl' }),
+      body: JSON.stringify(payload),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.success) {
-      throw new Error((data && data.error) || `HTTP ${res.status}`);
+      const err = new Error((data && data.error) || `HTTP ${res.status}`);
+      err.code = (data && data.code) || '';
+      err.settingsUrl = (data && data.settingsUrl) || '';
+      throw err;
     }
     if (data.lead && typeof window.__applyLeadPipelineStageFromApi === 'function') {
       window.__applyLeadPipelineStageFromApi(data.lead);
@@ -15166,27 +15339,40 @@ document.addEventListener('DOMContentLoaded', () => {
     const baseScript = baseValidated.text;
     let ok = 0;
     let failed = 0;
+    let skipped = 0;
+    let aborted = false;
     const errors = [];
     for (let i = 0; i < phoneKeys.length; i += 1) {
       const leadKey = phoneKeys[i];
       if (typeof onProgress === 'function') {
-        onProgress(i + 1, phoneKeys.length, leadKey);
+        onProgress(i + 1, phoneKeys.length, leadKey, { ok, failed, skipped });
       }
       try {
         const personalized = await personalizeSmsForLead(leadKey, baseScript);
         const outValidated = validateOutreachComposerBodyClient(personalized, 'sms');
         const toSend = outValidated.ok ? outValidated.text : baseScript;
         // eslint-disable-next-line no-await-in-loop
-        await sendSmsToLeadKey(leadKey, toSend);
+        await sendSmsToLeadKey(leadKey, toSend, { requireProvider: 'ghl' });
         ok += 1;
       } catch (err) {
-        failed += 1;
         const msg = String((err && err.message) || 'Send failed');
+        const code = String((err && err.code) || '');
+        if (code === 'lead_dnc' || code === 'lead_sms_opt_out') {
+          skipped += 1;
+          continue;
+        }
+        if (code === 'ghl_not_ready') {
+          aborted = true;
+          failed += phoneKeys.length - i;
+          errors.push({ leadKey, error: msg });
+          break;
+        }
+        failed += 1;
         errors.push({ leadKey, error: msg });
         console.warn('Bulk personalized SMS failed for', leadKey, msg);
       }
     }
-    return { ok, failed, errors, lastError: errors.length ? errors[errors.length - 1].error : '' };
+    return { ok, failed, skipped, aborted, errors, lastError: errors.length ? errors[errors.length - 1].error : '' };
   }
 
   async function sendEmailToLeadKey(leadKey, subject, body, opts) {
@@ -15641,10 +15827,34 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (activeMode === 'bulk' && activeKeys.length) {
-        const n = activeKeys.length;
+        const openState = window.__adhelloBulkSmsPrecheckState;
+        const pre =
+          typeof window.__adhelloBulkSmsPrecheck === 'function'
+            ? await window.__adhelloBulkSmsPrecheck(activeKeys)
+            : null;
+        if (pre && pre.ghl && pre.ghl.ready === false) {
+          if (typeof window.__adhelloPaintBulkSmsPrecheck === 'function') window.__adhelloPaintBulkSmsPrecheck(pre);
+          window.alert(pre.ghl.message || 'Group SMS sends through Go High Level. Connect GHL in Workspace → Integrations.');
+          return;
+        }
+        const eligibleKeys = pre ? pre.eligibleKeys : activeKeys;
+        const skippedCounts = Object.assign({}, (openState && openState.skippedCounts) || {});
+        Object.keys((pre && pre.skippedCounts) || {}).forEach((k) => {
+          skippedCounts[k] = (skippedCounts[k] || 0) + pre.skippedCounts[k];
+        });
+        const preSkipped = ((openState && openState.skippedCount) || 0) + ((pre && pre.skippedCount) || 0);
+        const skippedNote =
+          typeof window.__adhelloBulkSmsSkippedText === 'function'
+            ? window.__adhelloBulkSmsSkippedText(skippedCounts)
+            : '';
+        if (!eligibleKeys.length) {
+          window.alert(`No leads left to text.${skippedNote ? ` ${skippedNote}.` : ''}`);
+          return;
+        }
+        const n = eligibleKeys.length;
         if (
           !window.confirm(
-            `Personalize and send this script to ${n} lead${n === 1 ? '' : 's'}? Each message will be unique.`,
+            `Personalize and send this script to ${n} lead${n === 1 ? '' : 's'}? Each message will be unique.${skippedNote ? `\n\n${skippedNote}.` : ''}`,
           )
         ) {
           return;
@@ -15653,7 +15863,7 @@ document.addEventListener('DOMContentLoaded', () => {
           notifyBulkOutreachProgress('A bulk send is already running — check the notification bell.', 'error');
           return;
         }
-        const keys = activeKeys.slice();
+        const keys = eligibleKeys.slice();
         const script = scriptText;
         if (smsScriptSendBtn) {
           smsScriptSendBtn.disabled = true;
@@ -15667,19 +15877,32 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         void (async function runBulkSmsInBackground() {
           try {
-            const result = await sendBulkPersonalizedSms(keys, script, (done, total) => {
+            const result = await sendBulkPersonalizedSms(keys, script, (done, total, _leadKey, counts) => {
               notifyBulkOutreachProgress(`Personalizing & sending SMS ${done}/${total}…`, 'loading');
               if (window.agencyOsBulkOutreach && typeof window.agencyOsBulkOutreach.progress === 'function') {
-                window.agencyOsBulkOutreach.progress({ done, total });
+                window.agencyOsBulkOutreach.progress({
+                  done,
+                  total,
+                  ok: counts && counts.ok,
+                  failed: counts && counts.failed,
+                  skipped: preSkipped + ((counts && counts.skipped) || 0),
+                });
               }
               if (typeof window.__flashBulkBarBtn === 'function') {
                 window.__flashBulkBarBtn(document.getElementById('bulkSmsBtn'), `${done}/${total}`, 1400);
               }
             });
+            result.skipped = preSkipped + (result.skipped || 0);
             const finished = finishBulkOutreachBell(result, 'sms');
             const msg =
               (finished && finished.summary) ||
-              `SMS: ${result.ok} sent${result.failed ? ` · ${result.failed} failed` : ''}`;
+              [
+                `SMS: ${result.ok} sent`,
+                result.skipped ? `${result.skipped} skipped` : '',
+                result.failed ? `${result.failed} failed` : '',
+              ]
+                .filter(Boolean)
+                .join(' · ') + (result.aborted && result.lastError ? ` — ${result.lastError}` : '');
             notifyBulkOutreachProgress(msg, result.failed === 0 ? 'success' : 'error');
             if (typeof window.__flashBulkBarBtn === 'function') {
               window.__flashBulkBarBtn(document.getElementById('bulkSmsBtn'), result.failed === 0 ? '✓ Sent' : 'Failed');

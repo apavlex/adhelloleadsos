@@ -65,6 +65,37 @@ function leadHasPhone(lead) {
   return !!(p && String(p).trim() && String(p).trim() !== 'N/A');
 }
 
+const GHL_INTEGRATIONS_URL = '/workspace/integrations';
+const GHL_REQUIRED_FOR_GROUP_SMS_MESSAGE =
+  'Group SMS sends through Go High Level. Connect GHL and set an SMS from number in Workspace → Integrations.';
+
+/**
+ * Compliance block for outbound SMS. `doNotCall` is the lead-panel DNC toggle; it covers texts too.
+ * @returns {{ code: 'lead_dnc'|'lead_sms_opt_out', reason: 'dnc'|'opted_out', message: string } | null}
+ */
+function leadSmsBlock(lead) {
+  if (!lead || typeof lead !== 'object') return null;
+  if (lead.doNotCall || lead.doNotContact) {
+    return { code: 'lead_dnc', reason: 'dnc', message: 'This lead is marked Do Not Contact.' };
+  }
+  if (lead.smsOptOut) {
+    return { code: 'lead_sms_opt_out', reason: 'opted_out', message: 'This lead opted out of SMS.' };
+  }
+  return null;
+}
+
+/** Group SMS is GHL-only: API key + Location ID + a valid SMS from number. */
+function ghlGroupSmsReadiness(integrationEnv) {
+  const ready = ghlMessaging.messagingReady(integrationEnv || {});
+  if (ready.smsReady) return { ready: true, message: '', settingsUrl: GHL_INTEGRATIONS_URL };
+  return {
+    ready: false,
+    reason: ready.configured ? 'missing_sms_from' : 'not_connected',
+    message: GHL_REQUIRED_FOR_GROUP_SMS_MESSAGE,
+    settingsUrl: GHL_INTEGRATIONS_URL,
+  };
+}
+
 function extractCommsMessageId(data) {
   if (!data || typeof data !== 'object') return '';
   const msg = data.message || data.data || data;
@@ -79,7 +110,8 @@ function extractCommsChannel(data) {
 
 /**
  * Send SMS/iMessage to a lead via the resolved provider.
- * @param {{ lead: object, message: string, integrationEnv: Record<string, string>, workspaceId?: string, fromNumber?: string, provider?: string, to?: string }} opts
+ * `provider` is a preference (falls back to other configured providers); `requireProvider: 'ghl'` never falls back.
+ * @param {{ lead: object, message: string, integrationEnv: Record<string, string>, workspaceId?: string, fromNumber?: string, provider?: string, requireProvider?: string, to?: string }} opts
  */
 async function sendSmsToLead(opts) {
   const lead = opts.lead;
@@ -88,6 +120,25 @@ async function sendSmsToLead(opts) {
   const toRaw = String(opts.to || (lead && lead.phone) || '').trim();
   if (!toRaw || toRaw === 'N/A') throw new Error('Recipient phone number is required.');
   if (!message) throw new Error('Message body is required.');
+
+  const requireProvider = String(opts.requireProvider || '').trim().toLowerCase();
+  if (requireProvider === 'ghl') {
+    const readiness = ghlGroupSmsReadiness(integrationEnv);
+    if (!readiness.ready) {
+      const err = new Error(readiness.message);
+      err.code = 'ghl_not_ready';
+      err.status = 412;
+      throw err;
+    }
+    const sent = await ghlMessaging.sendSmsToLead({ lead, message, integrationEnv, toPhone: toRaw });
+    return {
+      provider: 'ghl',
+      messageId: sent.messageId || '',
+      contactId: sent.contactId || '',
+      channel: 'sms',
+      raw: sent.raw,
+    };
+  }
 
   const provider = resolveSmsProvider(integrationEnv, { force: opts.provider });
   if (!provider) {
@@ -178,4 +229,8 @@ module.exports = {
   sendSmsToLead,
   messagingStatus,
   leadHasPhone,
+  leadSmsBlock,
+  ghlGroupSmsReadiness,
+  GHL_REQUIRED_FOR_GROUP_SMS_MESSAGE,
+  GHL_INTEGRATIONS_URL,
 };

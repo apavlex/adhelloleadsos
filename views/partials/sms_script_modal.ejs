@@ -16,6 +16,7 @@
         </button>
       </div>
       <div class="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-4">
+        <div id="smsBulkPrecheckNotice" class="hidden rounded-xl border px-3 py-2.5 text-xs font-semibold leading-relaxed space-y-1" role="status" aria-live="polite"></div>
         <p id="smsScriptHelpText" class="text-xs text-brand-muted dark:text-slate-400 leading-relaxed">Pick a script, personalize with AI, edit, then send.</p>
         <label class="block" for="smsScriptSelect">
           <span class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-500 mb-2 block">Base script</span>
@@ -37,7 +38,7 @@
       </div>
       <div class="p-6 pt-0 flex flex-col sm:flex-row gap-2">
         <button type="button" id="smsPersonalizeBtn" class="flex-1 btn-pill border border-brand-border dark:border-white/15 bg-brand-cream dark:bg-slate-800 py-3.5 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white hover:bg-brand-cream/80 dark:hover:bg-slate-700 transition-colors">Personalize with AI</button>
-        <button type="button" id="smsScriptSendBtn" class="flex-1 btn-pill bg-emerald-500 text-white py-3.5 text-xs font-black uppercase tracking-widest hover:bg-emerald-600 transition-colors">AI write &amp; send</button>
+        <button type="button" id="smsScriptSendBtn" class="flex-1 btn-pill bg-emerald-500 text-white py-3.5 text-xs font-black uppercase tracking-widest hover:bg-emerald-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-emerald-500">AI write &amp; send</button>
         <button type="button" id="smsScriptCancelBtn" class="sm:hidden btn-pill border border-brand-border dark:border-white/15 py-3.5 text-xs font-black uppercase tracking-widest text-brand-muted" data-sms-modal-close>Cancel</button>
       </div>
     </div>

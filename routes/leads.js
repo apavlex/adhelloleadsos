@@ -3236,12 +3236,62 @@ router.post('/:key/sms-thread/sync', async (req, res, next) => {
   }
 });
 
+function smsBlockedResponse(res, block) {
+  return res.status(422).json({ success: false, code: block.code, reason: block.reason, error: block.message });
+}
+
+function ghlNotReadyResponse(res, readiness) {
+  return res.status(412).json({
+    success: false,
+    code: 'ghl_not_ready',
+    reason: readiness.reason,
+    error: readiness.message,
+    settingsUrl: readiness.settingsUrl,
+  });
+}
+
+// POST /leads/bulk-sms-precheck — group SMS eligibility (DNC / opt-out skips + GHL readiness) before send
+router.post('/bulk-sms-precheck', express.json(), async (req, res, next) => {
+  try {
+    const leadKeysRaw = Array.isArray(req.body?.leadKeys) ? req.body.leadKeys : [];
+    const leadKeys = [...new Set(leadKeysRaw.map((k) => String(k || '').trim()).filter(Boolean))].slice(0, 1000);
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
+    const ghl = smsOutbound.ghlGroupSmsReadiness(integrationEnv);
+
+    const eligibleKeys = [];
+    const skipped = [];
+    for (const key of leadKeys) {
+      const lead = await dbService.getLead(leadKeyFromParam(key));
+      if (!lead || !(await leadInRequestWorkspace(lead, req))) {
+        skipped.push({ key, reason: 'not_found' });
+        continue;
+      }
+      const block = smsOutbound.leadSmsBlock(lead);
+      if (block) {
+        skipped.push({ key, reason: block.reason });
+        continue;
+      }
+      eligibleKeys.push(key);
+    }
+    const skippedCounts = skipped.reduce((acc, s) => {
+      acc[s.reason] = (acc[s.reason] || 0) + 1;
+      return acc;
+    }, {});
+
+    return res.json({ success: true, ghl, eligibleKeys, skipped, skippedCounts });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /leads/:key/sms — send outbound SMS/iMessage (Comms, GHL, or SignalWire)
 router.post('/:key/sms', async (req, res, next) => {
   try {
     const fullKey = leadKeyFromParam(req.params.key);
     const lead = await dbService.getLead(fullKey);
     if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
+    const smsBlock = smsOutbound.leadSmsBlock(lead);
+    if (smsBlock) return smsBlockedResponse(res, smsBlock);
     const rawBody = String((req.body && req.body.body) || '').trim();
     const validated = validateOutreachComposerBody(rawBody, 'sms');
     if (!validated.ok) {
@@ -3251,6 +3301,14 @@ router.post('/:key/sms', async (req, res, next) => {
 
     const toOverride = String((req.body && req.body.to) || '').trim();
     const saveToLead = !!(req.body && req.body.saveToLead);
+    const requireProvider = String((req.body && req.body.requireProvider) || '').trim().toLowerCase();
+
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
+    if (requireProvider === 'ghl') {
+      const readiness = smsOutbound.ghlGroupSmsReadiness(integrationEnv);
+      if (!readiness.ready) return ghlNotReadyResponse(res, readiness);
+    }
+
     teamActivity.recordOnSuccess(req, res, {
       category: 'outreach',
       action: 'sms',
@@ -3259,7 +3317,6 @@ router.post('/:key/sms', async (req, res, next) => {
       leadTitle: lead.title || '',
     });
 
-    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
     const contactedPatch = await buildContactedStagePatch(lead, req.workspaceId, 'SMS');
     const preferredProvider = String((req.body && req.body.provider) || '').trim().toLowerCase();
     const forceProvider =
@@ -3273,6 +3330,7 @@ router.post('/:key/sms', async (req, res, next) => {
       workspaceId: req.workspaceId,
       fromNumber: resolveWorkspaceCallerNumber(await dbService.getWorkspace(req.workspaceId)),
       provider: forceProvider,
+      requireProvider: requireProvider === 'ghl' ? 'ghl' : undefined,
       to: toOverride || undefined,
     });
 
@@ -3915,6 +3973,8 @@ router.post('/:key/sms-ai-send', async (req, res, next) => {
     const fullKey = leadKeyFromParam(req.params.key);
     const lead = await dbService.getLead(fullKey);
     if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
+    const smsBlock = smsOutbound.leadSmsBlock(lead);
+    if (smsBlock) return smsBlockedResponse(res, smsBlock);
 
     const scriptTextRaw = String(
       (req.body && (req.body.scriptText || req.body.cadenceHint)) || '',
