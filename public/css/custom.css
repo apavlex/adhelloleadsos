@@ -3359,15 +3359,11 @@ body.find-leads-page #findTypeTabs .find-type-tab {
     pointer-events: none;
 }
 #leadPanelNotepadBody.lead-panel-notepad-body.lead-panel-notepad-body--open {
-    max-height: min(78vh, 44rem);
+    max-height: none;
     opacity: 1;
     pointer-events: auto;
-    overflow-y: auto;
-    overscroll-behavior: contain;
+    overflow: visible;
     padding-bottom: 0.5rem;
-}
-#leadPanelNotepadBody.lead-panel-notepad-body--open.lead-panel-notepad-body--send-expanded {
-    max-height: min(92vh, 62rem);
 }
 #leadPanelSendInfoCard.lead-panel-send-info-card--open {
     overflow: visible;
@@ -3381,10 +3377,6 @@ body.find-leads-page #findTypeTabs .find-type-tab {
 #leadPanelNotepadChevron {
     transform-origin: center;
     transition: transform 0.28s cubic-bezier(0.33, 1, 0.68, 1);
-}
-#leadPanelNotepad.lead-panel-notepad--collapsed {
-    padding-top: 0.35rem;
-    box-shadow: 0 -6px 24px -12px rgba(15, 23, 42, 0.12);
 }
 /* Action dock shared by Money mode and the company profile (Call · SMS · third action · More) */
 .focus-mobile-dock-sheet {
@@ -3557,26 +3549,6 @@ html.dark .focus-dock-btn--more[aria-expanded="true"] {
 }
 
 @media (max-width: 767px) {
-    /* Expanded dock on phones: tab content + quick log / SMS / email share one scroller. A capped
-       nested dock squeezed #leadPanelTabScroll to zero height and trapped touch scrolling. */
-    #leadPanelMiddle.lead-panel-middle--dock-open {
-        overflow-y: auto;
-        overflow-x: hidden;
-        overscroll-behavior-y: contain;
-        -webkit-overflow-scrolling: touch;
-        margin-inline: -0.5rem;
-        padding-inline: 0.5rem;
-    }
-    #leadPanelMiddle.lead-panel-middle--dock-open > #leadPanelTabScroll {
-        flex: 0 0 auto;
-        min-height: auto;
-        overflow: visible;
-    }
-    #leadPanelMiddle.lead-panel-middle--dock-open #leadPanelNotepadBody.lead-panel-notepad-body--open {
-        max-height: none;
-        overflow: visible;
-    }
-
     #leadSmsThreadSection.lead-panel-composer,
     #leadPanelGhlEmailSection.lead-panel-composer {
         padding: 0.9rem;

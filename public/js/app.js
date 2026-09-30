@@ -4554,16 +4554,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function syncLeadPanelSendInfoExpanded() {
     const drawer = document.getElementById('leadPanelOutreachDrawer');
-    const notepad = document.getElementById('leadPanelNotepadBody');
     const card = document.getElementById('leadPanelSendInfoCard');
-    const sendRoot = document.getElementById('leadPanelSendInfo');
-    const customizeOpen = !!(
-      sendRoot &&
-      sendRoot.querySelector('.lead-send-info-pack-details[open]')
-    );
     const drawerOpen = !!(drawer && drawer.classList.contains('lead-panel-outreach-drawer--open'));
-    const expanded = drawerOpen || customizeOpen;
-    if (notepad) notepad.classList.toggle('lead-panel-notepad-body--send-expanded', expanded);
     if (card) card.classList.toggle('lead-panel-send-info-card--open', drawerOpen);
   }
 
@@ -4730,8 +4722,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const btn = document.getElementById('leadPanelNotepadToggle');
     const ch = document.getElementById('leadPanelNotepadChevron');
     const shell = document.getElementById('leadPanelNotepad');
-    const middle = document.getElementById('leadPanelMiddle');
-    const wasDockOpen = !!(middle && middle.classList.contains('lead-panel-middle--dock-open'));
     if (body) body.classList.add('lead-panel-notepad-body--open');
     if (btn) btn.setAttribute('aria-expanded', 'true');
     if (ch) {
@@ -4739,21 +4729,12 @@ document.addEventListener('DOMContentLoaded', () => {
       ch.style.transform = '';
     }
     if (shell) shell.classList.remove('lead-panel-notepad--collapsed');
-    if (middle) middle.classList.add('lead-panel-middle--dock-open');
-    // Phones: the middle column becomes the scroller, so bring the dock into view instead of the tab top.
-    if (!wasDockOpen && middle && shell && isLeadPanelPhoneViewport()) {
-      middle.scrollTop += shell.getBoundingClientRect().top - middle.getBoundingClientRect().top;
-    }
     try {
       sessionStorage.setItem(LEAD_PANEL_NOTEPAD_COLLAPSED_KEY, '0');
     } catch (_) { /* ignore */ }
   }
 
   function getLeadPanelScrollHost() {
-    const middle = document.getElementById('leadPanelMiddle');
-    if (middle && middle.classList.contains('lead-panel-middle--dock-open') && isLeadPanelPhoneViewport()) {
-      return middle;
-    }
     return document.getElementById('leadPanelTabScroll');
   }
 
@@ -4767,9 +4748,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const btn = document.getElementById('leadPanelNotepadToggle');
     const ch = document.getElementById('leadPanelNotepadChevron');
     const shell = document.getElementById('leadPanelNotepad');
-    const middle = document.getElementById('leadPanelMiddle');
-    const tabScroll = document.getElementById('leadPanelTabScroll');
-    const middleScrollTop = middle ? middle.scrollTop : 0;
     if (body) body.classList.remove('lead-panel-notepad-body--open');
     if (btn) btn.setAttribute('aria-expanded', 'false');
     if (ch) {
@@ -4777,11 +4755,6 @@ document.addEventListener('DOMContentLoaded', () => {
       ch.style.transform = '';
     }
     if (shell) shell.classList.add('lead-panel-notepad--collapsed');
-    if (middle && middle.classList.contains('lead-panel-middle--dock-open')) {
-      middle.classList.remove('lead-panel-middle--dock-open');
-      middle.scrollTop = 0;
-      if (tabScroll && middleScrollTop > 0) tabScroll.scrollTop = middleScrollTop;
-    }
     if (!persist) return;
     try {
       sessionStorage.setItem(LEAD_PANEL_NOTEPAD_COLLAPSED_KEY, '1');
@@ -7591,10 +7564,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       };
       panelScroll.addEventListener('scroll', () => syncStickyTitle(panelScroll), { passive: true });
-      const panelMiddle = document.getElementById('leadPanelMiddle');
-      if (panelMiddle) {
-        panelMiddle.addEventListener('scroll', () => syncStickyTitle(panelMiddle), { passive: true });
-      }
     }
   }
 
@@ -8795,48 +8764,63 @@ document.addEventListener('DOMContentLoaded', () => {
     return fromWindow || 'https://my.adhello.io/';
   }
 
-  function websiteBuildSlugFromTitle(title) {
-    const s = String(title || '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '')
-      .slice(0, 48);
-    return s || 'site';
-  }
+  const leadPanelAuditLinkCache = new Map();
 
-  function websiteBuildPublicUrlForRow(row) {
-    const stored = row && row.dataset ? String(row.dataset.websiteBuildUrl || '').trim() : '';
-    if (/^https?:\/\//i.test(stored)) return stored;
-    const title = row && row.dataset ? String(row.dataset.title || '').trim() : '';
-    return 'https://' + websiteBuildSlugFromTitle(title) + '.my.adhello.io';
-  }
-
-  function syncHeaderWebsiteBuildRow(row) {
-    const link = document.getElementById('leadPanelWebsiteBuildLink');
-    if (!link) return;
-    const url = websiteBuildPublicUrlForRow(row);
-    link.href = url;
-    try {
-      link.textContent = new URL(url).hostname.replace(/^www\./i, '');
-    } catch (_) {
-      link.textContent = url.replace(/^https?:\/\//i, '');
+  function paintHeaderAuditLinkRow(url) {
+    const rowEl = document.getElementById('headerAuditLinkRow');
+    const link = document.getElementById('leadPanelAuditLink');
+    if (!rowEl || !link) return;
+    if (!url) {
+      rowEl.classList.add('hidden');
+      link.setAttribute('href', '#');
+      link.textContent = '';
+      return;
     }
-    if (row && row.dataset) row.dataset.websiteBuildUrl = url;
+    link.href = url;
+    link.textContent = url.replace(/^https?:\/\//i, '').replace(/\/$/, '');
+    rowEl.classList.remove('hidden');
+  }
+
+  /** Workspace info pack "Audit / form link URL", resolved per lead on the server; row hidden when unset. */
+  function syncHeaderAuditLinkRow(row) {
+    const key = row && row.dataset ? String(row.dataset.leadKey || '').trim().replace(/^lead:/i, '') : '';
+    const rowEl = document.getElementById('headerAuditLinkRow');
+    if (rowEl) rowEl.dataset.leadKey = key;
+    if (!key) {
+      paintHeaderAuditLinkRow('');
+      return;
+    }
+    if (leadPanelAuditLinkCache.has(key)) {
+      paintHeaderAuditLinkRow(leadPanelAuditLinkCache.get(key));
+      return;
+    }
+    paintHeaderAuditLinkRow('');
+    fetch('/leads/' + encodeURIComponent(key) + '/audit-link', {
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        const url = data && data.success && typeof data.url === 'string' ? data.url : '';
+        leadPanelAuditLinkCache.set(key, url);
+        const current = document.getElementById('headerAuditLinkRow');
+        if (current && current.dataset.leadKey === key) paintHeaderAuditLinkRow(url);
+      })
+      .catch(() => {});
   }
 
   document.addEventListener('click', (e) => {
-    const btn = e.target && e.target.closest && e.target.closest('#leadPanelWebsiteBuildCopyBtn');
+    const btn = e.target && e.target.closest && e.target.closest('#leadPanelAuditLinkCopyBtn');
     if (!btn) return;
     e.preventDefault();
     e.stopPropagation();
-    const link = document.getElementById('leadPanelWebsiteBuildLink');
-    const url = (link && link.href) || websiteBuildPublicUrlForRow(resolvePanelActionRow());
-    if (!url || url === '#' || url.endsWith('/#')) return;
+    const link = document.getElementById('leadPanelAuditLink');
+    const url = link ? String(link.getAttribute('href') || '').trim() : '';
+    if (!/^https?:\/\//i.test(url)) return;
     if (typeof copyTextToClipboard === 'function') {
       copyTextToClipboard(url).then(() => {
         if (typeof window.showProspectToast === 'function') {
-          window.showProspectToast('Website build link copied');
+          window.showProspectToast('Audit link copied');
         }
       });
     }
@@ -9859,7 +9843,7 @@ document.addEventListener('DOMContentLoaded', () => {
     syncGoogleReviewsLink(tableRow);
     syncHeaderPhoneRow(tableRow, phone);
     syncHeaderWebsiteRow(tableRow);
-    syncHeaderWebsiteBuildRow(tableRow);
+    syncHeaderAuditLinkRow(tableRow);
     syncHeaderEmailRow(tableRow);
     syncLeadPanelContactLinks(tableRow);
     if (typeof window.__syncLeadPanelSocialsSummary === 'function') {

@@ -106,6 +106,7 @@ const {
   mergePackOverrides,
   parseInfoPackFromBody,
   resolveAuditUrlForInfoPack,
+  resolveConfiguredAuditLinkForLead,
 } = require('../services/infoPack');
 const { triggerGhlProspectSync } = require('../services/ghlProspectSync');
 const { maybeRerunAutoOutreachAfterEmailFix } = require('../services/prospectingEnroll');
@@ -3515,6 +3516,27 @@ router.get('/:key/info-pack-preview', async (req, res, next) => {
       folderKey: lead.folderKey || '',
       folderName: folder && folder.name ? folder.name : '',
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /leads/:key/audit-link — custom info pack audit URL for the lead panel ('' when unset)
+router.get('/:key/audit-link', async (req, res, next) => {
+  try {
+    const fullKey = leadKeyFromParam(req.params.key);
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found.' });
+    if (!(await leadInRequestWorkspace(lead, req))) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
+    const ws = await dbService.getWorkspace(req.workspaceId);
+    const url = await resolveConfiguredAuditLinkForLead({
+      workspace: ws || { id: req.workspaceId },
+      folder: null,
+      lead: { ...lead, key: fullKey },
+    });
+    res.json({ success: true, url });
   } catch (err) {
     next(err);
   }

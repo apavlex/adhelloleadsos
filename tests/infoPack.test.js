@@ -120,3 +120,59 @@ test('resolveInfoPackForLead prefers folder pack over workspace default', async 
     dbService.getFolder = origGetFolder;
   }
 });
+
+test('buildConfiguredAuditUrl fills URL-encoded per-lead tokens', () => {
+  const { buildConfiguredAuditUrl } = require('../services/infoPack');
+  const lead = {
+    key: 'lead:abc123',
+    title: 'Acme HVAC & Plumbing',
+    city: 'San Antonio',
+    state: 'TX',
+    website: 'https://www.acmehvac.com/contact',
+  };
+  assert.equal(
+    buildConfiguredAuditUrl('https://audit.example.com/{slug}?id={leadKey}&c={city}&d={domain}', lead),
+    'https://audit.example.com/acme-hvac-plumbing?id=abc123&c=San%20Antonio&d=acmehvac.com',
+  );
+  assert.equal(
+    buildConfiguredAuditUrl('https://a.example.com/?b={business}&co={company}', lead),
+    'https://a.example.com/?b=Acme%20HVAC%20%26%20Plumbing&co=Acme%20HVAC%20%26%20Plumbing',
+  );
+  assert.equal(buildConfiguredAuditUrl('https://a.example.com/static', lead), 'https://a.example.com/static');
+  assert.equal(buildConfiguredAuditUrl('', lead), '');
+});
+
+test('createConfiguredAuditLinkResolver: folder pack wins, blank setting hides the link', () => {
+  const { createConfiguredAuditLinkResolver } = require('../services/infoPack');
+  const resolve = createConfiguredAuditLinkResolver({
+    workspace: { id: 'ws1', infoPackDefault: { auditUrl: 'https://ws.example.com/audit/{slug}' } },
+    folders: [
+      { key: 'folder:ws1:1', infoPack: { auditUrl: 'https://folder.example.com/{leadKey}' } },
+      { key: 'folder:ws1:2', infoPack: { auditUrl: '' } },
+      { key: 'folder:ws1:3', name: 'No pack' },
+    ],
+  });
+  assert.equal(resolve({ key: 'lead:k1', title: 'Bob Co' }), 'https://ws.example.com/audit/bob-co');
+  assert.equal(resolve({ key: 'lead:k1', title: 'Bob Co', folderKey: 'folder:ws1:1' }), 'https://folder.example.com/k1');
+  assert.equal(resolve({ key: 'lead:k1', title: 'Bob Co', folderKey: 'folder:ws1:2' }), '');
+  assert.equal(resolve({ key: 'lead:k1', title: 'Bob Co', folderKey: 'folder:ws1:3' }), 'https://ws.example.com/audit/bob-co');
+  assert.equal(createConfiguredAuditLinkResolver({ workspace: { id: 'ws1' }, folders: [] })({ title: 'X' }), '');
+  const notUrl = createConfiguredAuditLinkResolver({ workspace: { id: 'ws1', infoPackDefault: { auditUrl: 'audit page' } } });
+  assert.equal(notUrl({ title: 'X' }), '');
+});
+
+test('resolveConfiguredAuditLinkForLead ignores the auto-generated audit page when unset', async () => {
+  const { resolveConfiguredAuditLinkForLead } = require('../services/infoPack');
+  const url = await resolveConfiguredAuditLinkForLead({
+    workspace: { id: 'ws1', infoPackDefault: { sms: { enabled: true, body: 'See {audit_url}' } } },
+    folder: null,
+    lead: { key: 'lead:k1', title: 'Acme' },
+  });
+  assert.equal(url, '');
+  const configured = await resolveConfiguredAuditLinkForLead({
+    workspace: { id: 'ws1', infoPackDefault: { auditUrl: 'https://forms.example.com/a?b={business}' } },
+    folder: null,
+    lead: { key: 'lead:k1', title: 'Acme Co' },
+  });
+  assert.equal(configured, 'https://forms.example.com/a?b=Acme%20Co');
+});

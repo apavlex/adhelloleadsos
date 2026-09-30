@@ -27,6 +27,7 @@ const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConsta
 const salesScriptsStorage = require('../services/salesScriptsStorage');
 const { isAgencySalesWorkspace } = require('../services/leadPanelWorkspace');
 const { roiScoreOptionsFromWorkspace } = require('../services/workspaceRoiProfile');
+const { createConfiguredAuditLinkResolver } = require('../services/infoPack');
 
 /** First N leads in HTML so Focus paints before the full early-stage queue hydrates. */
 const FOCUS_SSR_CHUNK = 20;
@@ -153,6 +154,7 @@ function leadToFocusPayload(l, sortedStages, scriptLibrary, allowedKeys, opts) {
     lastDispositionNotes: String(l.lastDispositionNotes || '').trim(),
     doNotCall: !!l.doNotCall,
     website: l.website && l.website !== 'N/A' ? l.website : '',
+    auditLinkUrl: opts && typeof opts.auditLinkFor === 'function' ? opts.auditLinkFor(l) : '',
     phone: l.phone && l.phone !== 'N/A' ? l.phone : '',
     email: hasEmail ? email : '',
     contacts: Array.isArray(l.contacts) ? l.contacts.filter((c) => c && typeof c === 'object') : [],
@@ -207,10 +209,11 @@ router.get('/queue.json', async (req, res, next) => {
   try {
     const scope = String(req.query.scope || '').trim().toLowerCase();
     const sessionScope = scope === 'session' || scope === 'focus' || scope === 'all';
-    const [wsRaw, all, stageRows] = await Promise.all([
+    const [wsRaw, all, stageRows, folders] = await Promise.all([
       dbService.getWorkspace(req.workspaceId),
       dbService.getAllLeads(req.workspaceId),
       pipelineStagesService.ensureWorkspaceStagesSeeded(req.workspaceId),
+      dbService.listFolders(req.workspaceId),
     ]);
     const ws = wsRaw || { id: req.workspaceId };
     const offerBundle = require('../services/workspaceSalesScripts').buildWorkspaceOfferLibrary(
@@ -223,13 +226,14 @@ router.get('/queue.json', async (req, res, next) => {
     const dialRetry = resolveDialRetryPrefs(ws.telephony);
     const isAgency = isAgencySalesWorkspace(ws);
     const scoreOpts = roiScoreOptionsFromWorkspace(ws);
+    const auditLinkFor = createConfiguredAuditLinkResolver({ workspace: ws, folders });
     const ordered = buildFocusQueue(pipelineLeads, FOCUS_QUEUE_HARD_CAP, {
       queueMode: dialRetry.queueMode,
       earlyStagesOnly: true,
       ...scoreOpts,
     });
     let queue = ordered.map((l) =>
-      leadToFocusPayload(l, sortedStages, offerBundle.library, offerBundle.keys, { isAgency, scoreOpts }),
+      leadToFocusPayload(l, sortedStages, offerBundle.library, offerBundle.keys, { isAgency, scoreOpts, auditLinkFor }),
     );
     if (!sessionScope) {
       queue = queue.filter((item) => {
@@ -281,6 +285,7 @@ async function ensureExplicitFocusLead({
   workspaceId,
   isAgency,
   scoreOpts,
+  auditLinkFor,
 }) {
   const key = String(explicitOpenKey || '').trim().replace(/^lead:/i, '');
   if (!key) return;
@@ -302,19 +307,20 @@ async function ensureExplicitFocusLead({
 
   promoteFocusLead(
     queue,
-    leadToFocusPayload(leadRow, sortedStages, scriptLibrary, allowedKeys, { isAgency, scoreOpts }),
+    leadToFocusPayload(leadRow, sortedStages, scriptLibrary, allowedKeys, { isAgency, scoreOpts, auditLinkFor }),
   );
 }
 
 router.get('/', async (req, res, next) => {
   try {
     const today = new Date().toISOString().slice(0, 10);
-    const [wsRaw, all, stageRows, workspaceTags, touchGoal] = await Promise.all([
+    const [wsRaw, all, stageRows, workspaceTags, touchGoal, folders] = await Promise.all([
       dbService.getWorkspace(req.workspaceId),
       dbService.getAllLeads(req.workspaceId),
       pipelineStagesService.ensureWorkspaceStagesSeeded(req.workspaceId),
       dbService.listTags(req.workspaceId),
       loadDailyTouchGoal(req),
+      dbService.listFolders(req.workspaceId),
     ]);
     const ws = wsRaw || { id: req.workspaceId };
     const offerBundle = require('../services/workspaceSalesScripts').buildWorkspaceOfferLibrary(
@@ -354,11 +360,12 @@ router.get('/', async (req, res, next) => {
     }
     const isAgency = isAgencySalesWorkspace(ws);
     const scoreOpts = roiScoreOptionsFromWorkspace(ws);
+    const auditLinkFor = createConfiguredAuditLinkResolver({ workspace: ws, folders });
     const focusQueueTotal = ordered.length;
     const hydrateFullQueue = !bulkSelection && !selectedKeyOrder.length && focusQueueTotal > FOCUS_SSR_CHUNK;
     const ssrLeads = hydrateFullQueue ? ordered.slice(0, FOCUS_SSR_CHUNK) : ordered;
     const queue = ssrLeads.map((l) =>
-      leadToFocusPayload(l, sortedStages, offerBundle.library, offerBundle.keys, { isAgency, scoreOpts }),
+      leadToFocusPayload(l, sortedStages, offerBundle.library, offerBundle.keys, { isAgency, scoreOpts, auditLinkFor }),
     );
 
     await ensureExplicitFocusLead({
@@ -372,6 +379,7 @@ router.get('/', async (req, res, next) => {
       workspaceId: req.workspaceId,
       isAgency,
       scoreOpts,
+      auditLinkFor,
     });
 
     const touchesToday = 0; // hydrated immediately via /focus/metrics.json — skip scanning all lead logs on SSR

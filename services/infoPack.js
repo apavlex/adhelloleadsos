@@ -219,11 +219,81 @@ function mergePackOverrides(basePack, overrides) {
   });
 }
 
+function auditUrlSlug(title) {
+  return String(title || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 48);
+}
+
+function auditUrlDomain(website) {
+  const raw = String(website || '').trim();
+  if (!raw || raw === 'N/A') return '';
+  try {
+    return new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`).hostname.replace(/^www\./i, '');
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Per-lead URL from the info pack "Audit / form link URL" setting.
+ * Tokens are URL-encoded: {business} {company} {slug} {city} {state} {domain} {leadKey}.
+ */
+function buildConfiguredAuditUrl(template, lead) {
+  const tpl = String(template || '').trim();
+  if (!tpl) return '';
+  const l = lead && typeof lead === 'object' ? lead : {};
+  const business = String(l.title || '').trim();
+  const leadKey = String(l.key || l.leadKey || '').trim().replace(/^lead:/i, '');
+  const ctx = {
+    business,
+    company: business,
+    slug: auditUrlSlug(business),
+    city: String(l.city || '').trim(),
+    state: String(l.state || '').trim(),
+    domain: auditUrlDomain(l.website),
+    leadkey: leadKey,
+    lead_key: leadKey,
+  };
+  return tpl.replace(/\{(business|company|slug|city|state|domain|leadKey|lead_key)\}/gi, (_, key) =>
+    encodeURIComponent(ctx[String(key).toLowerCase()] || ''),
+  );
+}
+
+function folderPackFromList(folders, lead, wid) {
+  const fk = String(lead?.folderKey || '').trim();
+  if (!fk || !Array.isArray(folders)) return null;
+  const fullKey = fk.startsWith('folder:') ? fk : `folder:${wid}:${fk}`;
+  const folder = folders.find((f) => f && f.key === fullKey);
+  return folder && folder.infoPack ? folder.infoPack : null;
+}
+
+/** Sync resolver (folder pack → workspace default) for list payloads; '' when nothing is configured. */
+function createConfiguredAuditLinkResolver({ workspace, folders } = {}) {
+  const wid = String(workspace?.id || 'default');
+  const defaultPack = workspace && workspace.infoPackDefault ? workspace.infoPackDefault : null;
+  return (lead) => {
+    const pack = folderPackFromList(folders, lead, wid) || defaultPack;
+    if (!pack) return '';
+    const url = buildConfiguredAuditUrl(normalizeInfoPack(pack).auditUrl, lead);
+    return /^https?:\/\/\S+$/i.test(url) ? url : '';
+  };
+}
+
+async function resolveConfiguredAuditLinkForLead({ workspace, folder, lead }) {
+  const pack = await resolveInfoPackForLead({ workspace, folder, lead });
+  const url = buildConfiguredAuditUrl(pack.auditUrl, lead);
+  return /^https?:\/\/\S+$/i.test(url) ? url : '';
+}
+
 async function resolveAuditUrlForInfoPack({ pack, lead, workspaceId, workspace, req }) {
   const normalized = normalizeInfoPack(pack);
   const configured = String(normalized.auditUrl || '').trim();
   if (configured) {
-    return { ok: true, reportUrl: applyMergeFields(configured, lead), source: 'configured' };
+    return { ok: true, reportUrl: buildConfiguredAuditUrl(configured, lead), source: 'configured' };
   }
   if (!packNeedsAuditUrl(normalized)) {
     return { ok: true, reportUrl: '', source: 'none' };
@@ -490,4 +560,7 @@ module.exports = {
   buildAuditReportUrl,
   mergePackOverrides,
   resolveAuditUrlForInfoPack,
+  buildConfiguredAuditUrl,
+  createConfiguredAuditLinkResolver,
+  resolveConfiguredAuditLinkForLead,
 };
