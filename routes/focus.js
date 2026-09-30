@@ -156,6 +156,8 @@ function leadToFocusPayload(l, sortedStages, scriptLibrary, allowedKeys, opts) {
     phone: l.phone && l.phone !== 'N/A' ? l.phone : '',
     email: hasEmail ? email : '',
     contacts: Array.isArray(l.contacts) ? l.contacts.filter((c) => c && typeof c === 'object') : [],
+    additionalEmails:
+      l.aiWebsiteAnalysis && Array.isArray(l.aiWebsiteAnalysis.emails) ? l.aiWebsiteAnalysis.emails.slice(0, 25) : [],
     decisionMakerName: String(l.decisionMakerName || '').trim(),
     decisionMakerTitle: String(l.decisionMakerTitle || '').trim(),
     facebook: l.facebook && l.facebook !== 'N/A' ? l.facebook : '',

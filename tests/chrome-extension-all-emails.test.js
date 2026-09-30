@@ -148,10 +148,24 @@ test('contacts list shows every person and extra email; allEmails puts the main 
   assert.match(html, /Dana Lee/);
   assert.match(html, /mailto:dana@acme\.com/);
   assert.match(html, /tel:555-0100/);
-  assert.match(html, /Other emails \(1\)/);
+  assert.doesNotMatch(html, /Other emails/);
   assert.match(html, /mailto:sales@acme\.com/);
   assert.doesNotMatch(html, /mailto:info@acme\.com/);
+  assert.ok(html.indexOf('mailto:sales@acme.com') < html.indexOf('Contacts (2)'), 'emails are listed before people');
+  assert.equal((html.match(/dana@acme\.com<\/a>/g) || []).length, 1, 'a person email is listed once');
+  assert.doesNotMatch(html, /truncate/);
   assert.equal(api.renderContactsList({ email: 'solo@acme.com', contacts: [] }), '');
+});
+
+test('allEmails also picks up emails[] / website-scan emails, deduped case-insensitively', () => {
+  const api = require('../public/js/contact-finder-cell');
+  const lead = {
+    email: 'Info@Acme.com',
+    contacts: JSON.stringify([{ role: 'Email', name: '', email: 'sales@acme.com' }]),
+    emails: ['SALES@acme.com', 'jobs@acme.com'],
+    aiAnalysis: JSON.stringify({ emails: ['info@acme.com', 'owner@acme.com'] }),
+  };
+  assert.deepEqual(api.allEmails(lead), ['info@acme.com', 'sales@acme.com', 'jobs@acme.com', 'owner@acme.com']);
 });
 
 test('Money mode payload carries contacts and decision maker for the full contacts list', () => {

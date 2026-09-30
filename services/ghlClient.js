@@ -10,6 +10,7 @@ const GHL_CONVERSATIONS_API_VERSION = '2021-04-15';
 const GHL_FETCH_TIMEOUT_MS = 20000;
 
 const { mergeTagLists, tagsToAdd, tagKey, parseGhlNotesResponse } = require('./ghlSyncHelpers');
+const { allEmails: allLeadEmails } = require('../public/js/contact-finder-cell');
 
 function ghlAbortSignal(ms) {
   const timeoutMs = typeof ms === 'number' && ms > 0 ? ms : GHL_FETCH_TIMEOUT_MS;
@@ -342,18 +343,50 @@ function isValidEmailForGhl(email) {
   return true;
 }
 
+/** Every GHL-valid email on the lead (main, contacts[], extension/enrich lists, website scan), main first, lowercased. */
+function collectLeadEmailsForGhl(lead) {
+  if (!lead || typeof lead !== 'object') return [];
+  return allLeadEmails(lead).filter(isValidEmailForGhl);
+}
+
+/** Main phone (as before) then every contacts[] phone, E.164, de-duplicated. */
+function collectLeadPhonesForGhl(lead) {
+  if (!lead || typeof lead !== 'object') return [];
+  const out = [];
+  const seen = new Set();
+  const add = (raw, requireFull) => {
+    const s = String(raw || '').trim();
+    if (!s || s === 'N/A') return;
+    const e164 = normalizePhoneE164(s);
+    const digits = e164.replace(/\D/g, '');
+    if (!digits || seen.has(digits) || (requireFull && digits.length < 10)) return;
+    seen.add(digits);
+    out.push(e164);
+  };
+  add(lead.phone, false);
+  let contacts = lead.contacts;
+  if (typeof contacts === 'string') {
+    try {
+      contacts = JSON.parse(contacts);
+    } catch (_) {
+      contacts = [];
+    }
+  }
+  (Array.isArray(contacts) ? contacts : []).forEach((c) => add(c && c.phone, true));
+  return out;
+}
+
 function leadToGhlContactPayload(lead, locationId, { includeTags = true } = {}) {
   const title = String(lead.title || '').trim();
   const { firstName, lastName, companyName } = splitName(title);
-  const rawEmail = lead.email && lead.email !== 'N/A' ? String(lead.email).trim() : '';
-  const email = isValidEmailForGhl(rawEmail) ? rawEmail : '';
-  const phone = normalizePhoneE164(lead.phone && lead.phone !== 'N/A' ? lead.phone : '');
+  const email = collectLeadEmailsForGhl(lead)[0] || '';
+  const phone = collectLeadPhonesForGhl(lead)[0] || '';
   const website = lead.website && lead.website !== 'N/A' ? String(lead.website).trim() : '';
   const address = lead.address && lead.address !== 'N/A' ? String(lead.address).trim() : '';
   const tags = Array.isArray(lead.ghlTagNamesForPush)
     ? lead.ghlTagNamesForPush.map((t) => String(t).trim()).filter(Boolean)
     : Array.isArray(lead.tags)
-      ? lead.tags.map((t) => String(t).trim()).filter(Boolean)
+      ? lead.tags.map((t) => String(t).trim()).filter((t) => t && !t.startsWith('tag:'))
       : [];
 
   const payload = {
@@ -469,6 +502,20 @@ async function updateContact(contactId, lead, integrationEnv) {
   return data.contact || data;
 }
 
+/**
+ * Set a contact's secondary emails / phones. GHL returns these as `[{ email }]` / `[{ phone }]` and accepts the
+ * same shape on PUT /contacts/:id, but the fields are undocumented for writes (upsert rejects them) and each
+ * address must not belong to another contact — callers treat failures as non-fatal.
+ */
+async function updateContactChannels(contactId, { additionalEmails, additionalPhones } = {}, integrationEnv) {
+  const body = {};
+  if (Array.isArray(additionalEmails)) body.additionalEmails = additionalEmails.map((email) => ({ email }));
+  if (Array.isArray(additionalPhones)) body.additionalPhones = additionalPhones.map((phone) => ({ phone }));
+  if (!Object.keys(body).length) return null;
+  const data = await ghlRequest('PUT', `/contacts/${encodeURIComponent(contactId)}`, { integrationEnv, body });
+  return data.contact || data;
+}
+
 async function addTagsToContact(contactId, tags, integrationEnv) {
   const list = (Array.isArray(tags) ? tags : [])
     .map((t) => String(t || '').trim())
@@ -577,8 +624,8 @@ async function getContact(contactId, integrationEnv) {
 
 async function searchContactByEmailOrPhone(lead, integrationEnv) {
   const { locationId } = resolveConfig(integrationEnv);
-  const email = lead.email && lead.email !== 'N/A' ? String(lead.email).trim().toLowerCase() : '';
-  const phone = normalizePhoneE164(lead.phone && lead.phone !== 'N/A' ? lead.phone : '');
+  const email = collectLeadEmailsForGhl(lead)[0] || '';
+  const phone = collectLeadPhonesForGhl(lead)[0] || '';
   const query = email || phone.replace(/^\+/, '');
   if (!query) return null;
 
@@ -714,10 +761,13 @@ module.exports = {
   testConnection,
   isGhlLocationAccessError,
   isValidEmailForGhl,
+  collectLeadEmailsForGhl,
+  collectLeadPhonesForGhl,
   leadToGhlContactPayload,
   ghlContactToLeadPatch,
   createContact,
   updateContact,
+  updateContactChannels,
   patchContactCustomFields,
   listLocationContactCustomFields,
   createLocationContactCustomField,

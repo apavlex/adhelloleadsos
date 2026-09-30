@@ -27,6 +27,7 @@ const { pushReviewFields } = require('./ghlReviewFields');
 const { pushPhoneLineFields } = require('./ghlPhoneLineFields');
 const { pushOutreachProfileFields } = require('./ghlOutreachProfileFields');
 const { pushWebsiteBuildField } = require('./ghlWebsiteBuildField');
+const { pushLeadContactDetails } = require('./ghlContactDetails');
 const { normalizeGhlSyncDirection } = require('./ghlSyncDirection');
 
 /**
@@ -331,7 +332,7 @@ async function pushLeadToGhlInner(lead, integrationEnv, opts) {
 
   if (!contactId) throw new Error('GHL did not return a contact id');
 
-  let tagsForPush = lead.ghlTagNamesForPush || mergeTagLists(lead.tags);
+  let tagsForPush = lead.ghlTagNamesForPush || (await resolveTagNamesForPush(lead));
   tagsForPush = mergeTagLists(tagsForPush, [GHL_TAG_PROSPECTED, ghlClient.syncedDateTagFor()]);
   if (Array.isArray(lead.ghlExtraTagNames) && lead.ghlExtraTagNames.length) {
     tagsForPush = mergeTagLists(tagsForPush, lead.ghlExtraTagNames);
@@ -358,6 +359,14 @@ async function pushLeadToGhlInner(lead, integrationEnv, opts) {
     } else {
       throw tagErr;
     }
+  }
+
+  // Every email / phone / named person rides on every push path, fast list sync included.
+  let contactDetails = null;
+  try {
+    contactDetails = await pushLeadContactDetails(contactId, lead, integrationEnv);
+  } catch (detailsErr) {
+    contactDetails = { ok: false, error: (detailsErr && detailsErr.message) || 'contact_details_failed' };
   }
 
   let syncActivityNote = { pushed: false };
@@ -452,7 +461,8 @@ async function pushLeadToGhlInner(lead, integrationEnv, opts) {
   }
   if (!lead.ghlTagNamesForPush) {
     // Derived signal tags are recomputed on every push — keep them out of the lead's own tags.
-    patch.tags = stripSignalTags(mergedTags);
+    // mergedTags holds GHL tag *names*; map them back to workspace tag keys.
+    patch.tags = await resolveTagKeysFromGhl(lead, stripSignalTags(mergedTags));
   }
   if (notePull.newLogs.length) patch.logs = notePull.newLogs;
 
@@ -467,8 +477,35 @@ async function pushLeadToGhlInner(lead, integrationEnv, opts) {
     followUpTask,
     syncActivityNote,
     lastProspected,
+    contactDetails,
     listSyncFast,
   };
+}
+
+/** Workspace tag keys → catalog names (+ AO action tags) for callers that skipped prepareLeadForGhlPush. */
+async function resolveTagNamesForPush(lead) {
+  try {
+    // Lazy require: ghlProspectSync ↔ ghlSync is circular at load time.
+    const ghlProspectSync = require('./ghlProspectSync');
+    return await ghlProspectSync.resolveLeadTagNamesForGhl(lead.workspaceId || 'default', lead);
+  } catch (e) {
+    console.warn('[ghlSync] tag name lookup failed:', e && e.message);
+    return mergeTagLists(lead.tags).filter((t) => !String(t).startsWith('tag:'));
+  }
+}
+
+async function resolveTagKeysFromGhl(lead, ghlTagNames) {
+  try {
+    const ghlProspectSync = require('./ghlProspectSync');
+    return await ghlProspectSync.resolveGhlTagNamesToLeadKeys(
+      lead.workspaceId || 'default',
+      ghlTagNames,
+      Array.isArray(lead.tags) ? lead.tags : [],
+    );
+  } catch (e) {
+    console.warn('[ghlSync] tag key lookup failed:', e && e.message);
+    return Array.isArray(lead.tags) ? lead.tags : [];
+  }
 }
 
 async function pullContactToLead(contact, workspaceId, localLeads, integrationEnv) {
@@ -590,6 +627,7 @@ async function pushLeads(opts) {
         ghlContactId: r.ghlContactId,
         actionTags: leadForPush.ghlActionTags || computeActionTagsFromLead(leadForPush),
         lastProspected: r.lastProspected,
+        contactDetails: r.contactDetails,
         notesPushed: r.notesPushed,
         notesPulled: r.notesPulled,
       });

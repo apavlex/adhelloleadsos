@@ -35,11 +35,21 @@
     }
   }
 
+  /** Emails from a list field: array of strings / {email|address|value} objects, JSON, or a delimited string. */
+  function emailValues(v) {
+    const parsed = parseJson(v, v);
+    const arr = Array.isArray(parsed) ? parsed : typeof parsed === 'string' ? parsed.split(/[\s,;]+/) : [];
+    return arr
+      .map((e) => str(e && typeof e === 'object' ? e.email || e.address || e.value : e).toLowerCase())
+      .filter((e) => e.includes('@'));
+  }
+
   /** Normalise a saved lead (server) or a row dataset (browser) into the cell model. */
   function buildModel(lead) {
     const L = lead || {};
     const contacts = parseJson(L.contacts, []);
     const list = Array.isArray(contacts) ? contacts : [];
+    const analysis = parseJson(L.aiWebsiteAnalysis || L.aiAnalysis, null);
     const people = list
       .filter((c) => c && str(c.name) && !c.primary)
       .map((c) => ({
@@ -56,11 +66,13 @@
     const mainEmail = str(L.email).toLowerCase();
     const peopleEmails = people.map((p) => p.email.toLowerCase()).filter(Boolean);
     const otherEmails = [];
-    list.forEach((c) => {
-      const e = c && str(c.email).toLowerCase();
+    const addOther = (e) => {
       if (!e || e === mainEmail || peopleEmails.includes(e) || otherEmails.includes(e)) return;
       otherEmails.push(e);
-    });
+    };
+    list.forEach((c) => addOther(c && str(c.email).toLowerCase()));
+    [L.emails, L.otherEmails, L.additionalEmails, analysis && typeof analysis === 'object' ? analysis.emails : null]
+      .forEach((field) => emailValues(field).forEach(addOther));
     return {
       people,
       otherEmails,
@@ -189,20 +201,35 @@
     return out;
   }
 
-  const LIST_LINK = 'text-[12px] font-semibold text-brand-dark dark:text-slate-200 hover:text-brand-yellow truncate no-underline';
+  const LIST_LINK = 'text-[12px] font-semibold text-brand-dark dark:text-slate-200 hover:text-brand-yellow break-all no-underline';
+  const EMAIL_LINK = 'text-[13px] font-semibold text-brand-dark dark:text-white hover:text-brand-yellow break-all no-underline';
   const LIST_LABEL = 'text-[9px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-500';
 
   /**
-   * Named contacts + every extra email (not the main one), for the Company Details panel and Money mode.
+   * Every email except the main one (listed straight under the caller's Email header, each tagged with
+   * its person when known), then the named contacts — for the Company Details panel and Money mode.
    * Returns '' when the lead has nothing beyond its main email.
    */
   function renderContactsList(lead) {
     const m = buildModel(lead);
-    const mailto = (e) => `<a href="mailto:${esc(e)}" class="${LIST_LINK} block" title="${esc(e)}">${esc(e)}</a>`;
+    const owners = {};
+    m.people.forEach((p) => {
+      const e = p.email.toLowerCase();
+      if (e && !owners[e]) owners[e] = p.name;
+    });
+    const extraEmails = allEmails(lead).filter((e) => e !== m.mainEmail);
+    const emailsHtml = extraEmails
+      .map(
+        (e) =>
+          '<li class="lead-contacts-email min-w-0">' +
+          `<a href="mailto:${esc(e)}" class="${EMAIL_LINK} block" title="${esc(e)}">${esc(e)}</a>` +
+          (owners[e] ? `<span class="block text-[10px] font-semibold text-brand-muted dark:text-slate-400">${esc(owners[e])}</span>` : '') +
+          '</li>',
+      )
+      .join('');
     const peopleHtml = m.people
       .map((p) => {
         const bits = [];
-        if (p.email) bits.push(mailto(p.email));
         if (p.phone) {
           bits.push(`<a href="tel:${esc(p.phone)}" class="${LIST_LINK} block tabular-nums">${esc(p.phone)}</a>`);
         }
@@ -213,17 +240,16 @@
           '<li class="lead-contacts-person flex gap-2 min-w-0">' +
           `<span class="shrink-0 w-6 h-6 rounded-full bg-brand-yellow/25 border border-brand-yellow/40 flex items-center justify-center text-[9px] font-black text-brand-dark dark:text-brand-yellow">${esc(initials(p.name))}</span>` +
           '<div class="min-w-0 flex-1">' +
-          `<p class="text-[12px] font-bold text-brand-dark dark:text-white truncate">${esc(p.name)}${p.title ? `<span class="font-semibold text-brand-muted dark:text-slate-400"> · ${esc(p.title)}</span>` : ''}</p>` +
+          `<p class="text-[12px] font-bold text-brand-dark dark:text-white break-words">${esc(p.name)}${p.title ? `<span class="font-semibold text-brand-muted dark:text-slate-400"> · ${esc(p.title)}</span>` : ''}</p>` +
           bits.join('') +
           '</div></li>'
         );
       })
       .join('');
-    const emailsHtml = m.otherEmails.map((e) => `<li class="lead-contacts-email min-w-0">${mailto(e)}</li>`).join('');
     if (!peopleHtml && !emailsHtml) return '';
     return (
-      (peopleHtml ? `<p class="${LIST_LABEL}">Contacts (${m.people.length})</p><ul class="space-y-1.5 mb-1.5">${peopleHtml}</ul>` : '') +
-      (emailsHtml ? `<p class="${LIST_LABEL}">Other emails (${m.otherEmails.length})</p><ul class="space-y-0.5">${emailsHtml}</ul>` : '')
+      (emailsHtml ? `<ul class="lead-contacts-emails space-y-1">${emailsHtml}</ul>` : '') +
+      (peopleHtml ? `<p class="${LIST_LABEL} ${emailsHtml ? 'mt-2.5' : 'mt-1'}">Contacts (${m.people.length})</p><ul class="space-y-1.5 mt-1">${peopleHtml}</ul>` : '')
     );
   }
 
