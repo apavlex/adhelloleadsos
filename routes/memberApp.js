@@ -479,13 +479,11 @@ async function renderCustomers(req, res, ctx, flash, status) {
     active: 'customers',
     view,
     today,
-    overview: work.overview(jobs, { today, pendingReferrals: pendingRefs.length }),
     pendingRefs,
     flash: flash || flashFromQuery(req),
     hrefFor: (params) => customersHref(ctx.base, params),
     customerCount: customers.length,
   };
-  extra.overview.pendingValueLabel = money(extra.overview.pendingValue);
 
   if (view === 'list') {
     const q = String(req.query.q || '').trim().slice(0, 80);
@@ -512,18 +510,11 @@ async function renderCustomers(req, res, ctx, flash, status) {
     const picked = work.cleanDate(req.query.d);
     const selected = picked || (month === today.slice(0, 7) ? today : `${month}-01`);
     const grid = work.monthGrid(month, jobs, { today, selected });
-    const agenda = [];
-    work.upcoming(jobs, today, 20).forEach((j) => {
-      const last = agenda[agenda.length - 1];
-      if (last && last.date === j.date) last.jobs.push(present(j));
-      else agenda.push({ date: j.date, label: dayLabel(j.date, today), jobs: [present(j)] });
-    });
     Object.assign(extra, {
       grid,
       selected,
       selectedLabel: dayLabel(selected, today),
       dayJobs: jobs.filter((j) => j.date === selected).map(present),
-      agenda,
     });
   } else {
     const groups = ['in_progress', 'scheduled', 'estimate', 'lead', 'on_hold'].map((key) => ({

@@ -173,16 +173,6 @@ h1, h2, h3, .ma-display { font-family: var(--font-display); letter-spacing: -0.0
 /* Customers tab */
 .ma-titlebar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 16px 0 4px; }
 .ma-titlebar .ma-page-title { margin: 0; min-width: 0; overflow-wrap: anywhere; }
-.ma-sum { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
-.ma-sum__card {
-  display: flex; flex-direction: column; text-decoration: none; background: var(--card); border: 1px solid var(--line);
-  border-radius: 18px; padding: 12px; min-height: 92px; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-  -webkit-user-select: none; user-select: none; transition: transform 0.15s ease;
-}
-.ma-sum__card:active { transform: scale(0.97); }
-.ma-sum__value { font-family: var(--font-display); font-size: 26px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; color: var(--acc); }
-.ma-sum__label { margin-top: 8px; font-size: 13px; font-weight: 700; }
-.ma-sum__meta { font-size: 11px; color: var(--muted); font-weight: 600; }
 .ma-search { position: relative; margin-bottom: 12px; }
 .ma-search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; color: var(--muted); pointer-events: none; }
 .ma-search .ma-input { padding: 10px 12px 10px 38px; border-radius: 12px; background: color-mix(in srgb, var(--muted) 12%, var(--card)); border-color: transparent; }
@@ -236,7 +226,7 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
   .ma-pill--job-on_hold { color: #94a3b8; }
   .ma-pill--job-cancelled { color: #fda4af; }
   .ma-row__date.is-late, .ma-row__date.is-late small { color: #fda4af; }
-  .ma-list, .ma-sum__card { border-color: transparent; box-shadow: none; }
+  .ma-list { border-color: transparent; box-shadow: none; }
 }
 
 /* Month calendar */
@@ -322,6 +312,7 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
 /* iOS tab bar: translucent material, hairline top edge, 10pt labels */
 .ma-tabbar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+  -webkit-transform: translateZ(0); transform: translateZ(0);
   background: color-mix(in srgb, var(--card) 82%, transparent);
   backdrop-filter: saturate(1.8) blur(20px); -webkit-backdrop-filter: saturate(1.8) blur(20px);
   box-shadow: 0 -0.5px 0 rgba(0, 0, 0, 0.18);

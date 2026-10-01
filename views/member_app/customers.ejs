@@ -12,24 +12,6 @@
     </div>
     <p class="ma-page-sub">Your customers, jobs and schedule in one place.</p>
 
-    <section class="ma-sum" aria-label="Pending work">
-      <a class="ma-sum__card" href="<%= hrefFor({ view: 'pending' }) %>">
-        <span class="ma-sum__value"><%= overview.pendingJobs %></span>
-        <span class="ma-sum__label">Open jobs</span>
-        <% if (overview.pendingValueLabel) { %><span class="ma-sum__meta"><%= overview.pendingValueLabel %></span><% } %>
-      </a>
-      <a class="ma-sum__card" href="<%= hrefFor({ view: 'calendar' }) %>">
-        <span class="ma-sum__value"><%= overview.thisWeek %></span>
-        <span class="ma-sum__label">This week</span>
-        <span class="ma-sum__meta">scheduled</span>
-      </a>
-      <a class="ma-sum__card" href="<%= base %>/referrals">
-        <span class="ma-sum__value"><%= overview.pendingReferrals %></span>
-        <span class="ma-sum__label">Referrals</span>
-        <span class="ma-sum__meta">pending</span>
-      </a>
-    </section>
-
     <nav class="ma-seg ma-seg--3" aria-label="Customer views">
       <a href="<%= hrefFor({}) %>" class="<%= view === 'list' ? 'is-on' : '' %>" <%= view === 'list' ? 'aria-current=page' : '' %>>List</a>
       <a href="<%= hrefFor({ view: 'calendar' }) %>" class="<%= view === 'calendar' ? 'is-on' : '' %>" <%= view === 'calendar' ? 'aria-current=page' : '' %>>Calendar</a>
@@ -105,19 +87,6 @@
         <% } else { %>
         <a class="ma-card ma-empty ma-empty--tap" href="<%= base %>/customers/jobs/new?date=<%= selected %>"><%- icons.calendar %><p>Nothing scheduled. Tap to schedule work on this day.</p></a>
         <% } %>
-      </section>
-
-      <section class="ma-section">
-        <div class="ma-section__head"><h2>Upcoming</h2></div>
-        <% if (!agenda.length) { %>
-        <div class="ma-card ma-empty"><p>No upcoming work on the calendar.</p></div>
-        <% } %>
-        <% agenda.forEach(function (g) { %>
-        <p class="ma-list__label"><%= g.label %></p>
-        <div class="ma-list">
-          <% g.jobs.forEach(function (j) { %><%- include('_job_row', { j: j, hideWhen: true }) %><% }); %>
-        </div>
-        <% }); %>
       </section>
 
     <% } else { %>
