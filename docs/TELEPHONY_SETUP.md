@@ -10,7 +10,7 @@ This app now supports:
 
 ## Required environment variables
 
-- `BASE_URL` (public app URL, example: `https://leads.adhello.ai`)
+- `BASE_URL` (public app URL, example: `https://leads.adhello.io`)
 - `SIGNALWIRE_ENABLED=1`
 - `SIGNALWIRE_SPACE_URL` (example: `example.signalwire.com`)
 - `SIGNALWIRE_PROJECT_ID`
@@ -32,16 +32,16 @@ Recommended:
 Use URLs below (replace domain) and include `?token=YOUR_TELEPHONY_WEBHOOK_TOKEN` when token auth is enabled.
 
 - Inbound SMS webhook:
-  - `POST https://leads.adhello.ai/api/telephony/sms/inbound`
+  - `POST https://leads.adhello.io/api/telephony/sms/inbound`
 - SMS status callback:
-  - `POST https://leads.adhello.ai/api/telephony/sms/status`
+  - `POST https://leads.adhello.io/api/telephony/sms/status`
 - Voice status callback (outbound **and** inbound — same URL):
-  - `POST https://leads.adhello.ai/api/telephony/voice/status`
+  - `POST https://leads.adhello.io/api/telephony/voice/status`
   - Set this as **Status Callback** on each purchased number so Workspace → Phone **inbound analytics** (connected / missed / voicemail) can increment. The app resolves the workspace by matching the called DID to your phone bank.
 - AMD callback (voicemail attempts):
-  - `POST https://leads.adhello.ai/api/telephony/voice/amd`
+  - `POST https://leads.adhello.io/api/telephony/voice/amd`
 - TwiML call control endpoint:
-  - `POST https://leads.adhello.ai/api/telephony/voice/twiml`
+  - `POST https://leads.adhello.io/api/telephony/voice/twiml`
 
 ## Notes
 

@@ -46,7 +46,7 @@ function resolveOpenRouterEnv(integrationEnv) {
     apiKey: pick('OPENROUTER_API_KEY'),
     model: pick('OPENROUTER_MODEL'),
     auditModel: pick('OPENROUTER_AUDIT_MODEL'),
-    httpReferer: pick('OPENROUTER_HTTP_REFERER') || pick('BASE_URL') || 'https://leads.adhello.ai',
+    httpReferer: pick('OPENROUTER_HTTP_REFERER') || pick('BASE_URL') || 'https://leads.adhello.io',
     appName: pick('OPENROUTER_APP_NAME') || 'AdHello Leads OS',
   };
 }
