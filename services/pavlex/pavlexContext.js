@@ -48,6 +48,27 @@ function nowInTimezone(tz) {
   }
 }
 
+function clip(value, max) {
+  return String(value == null ? '' : value).replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
+/** One line from the workspace setup answers, e.g. "Camas Flooring · Flooring · sells to Interior Designers · area: Camas, WA". */
+function describeBusinessProfile(workspace) {
+  const ws = workspace && typeof workspace === 'object' ? workspace : {};
+  const si = ws.salesIntake && typeof ws.salesIntake === 'object' ? ws.salesIntake : {};
+  const icp = ws.icp && typeof ws.icp === 'object' ? ws.icp : {};
+  const area = [clip(icp.city, 60), clip(icp.state, 30)].filter(Boolean).join(', ');
+  const bits = [
+    clip(si.businessName, 80),
+    clip(si.vertical, 60) || clip(icp.keyword, 60),
+    si.offerName ? `offer: ${clip(si.offerName, 80)}` : '',
+    si.targetAudience ? `sells to ${clip(si.targetAudience, 100)}` : '',
+    si.differentiator ? `differentiator: ${clip(si.differentiator, 100)}` : '',
+    area ? `area: ${area}` : '',
+  ].filter(Boolean);
+  return bits.join(' · ');
+}
+
 /**
  * @param {import('express').Request} req
  * @param {object} auth — from resolvePavlexAuth
@@ -69,6 +90,7 @@ async function buildPavlexContext(req, auth, { platform = 'global', message = ''
 
   const toolsList = (mcpConfig.availableTools || []).join(', ');
   const workspaceName = String((req.workspace && req.workspace.name) || '').trim();
+  const businessProfile = describeBusinessProfile(req.workspace);
 
   const instructions = `You are Alex, the AI receptionist and sales assistant. You have access to this user's CRM via MCP tools. Your name is Alex; if memory or earlier messages call you Pavlex, that was your old name — always introduce yourself as Alex.
 
@@ -88,6 +110,7 @@ SESSION:
 - User: ${auth.email}
 - Now: ${nowInTimezone(req.workspace && req.workspace.timezone)}
 - Workspace: ${workspaceName ? `${workspaceName} (${auth.workspaceId})` : auth.workspaceId}
+- Business profile: ${businessProfile || 'not set up — ask what they sell and where if it matters'}
 - MCP server: ${mcpConfig.serverUrl || 'inline CRM execution'}
 - Permissions: read=${auth.permissions.canReadCrm} write=${auth.permissions.canWriteCrm}
 
@@ -112,4 +135,5 @@ ${platform === 'assistant' || platform === 'global' ? '- Plain text only. No mar
 
 module.exports = {
   buildPavlexContext,
+  describeBusinessProfile,
 };
