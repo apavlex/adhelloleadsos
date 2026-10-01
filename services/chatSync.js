@@ -101,7 +101,7 @@ const chatSync = {
 
   // Push a message from AdHello to Telegram notification
   async adhelloToTelegram(userMessage, aiReply) {
-    const msg = `💬 *AdHello CEO Chat*\n\n👤 You: ${userMessage.substring(0, 200)}\n\n😊 Pavlex: ${aiReply.substring(0, 300)}${aiReply.length > 300 ? '...' : ''}`;
+    const msg = `💬 *AdHello CEO Chat*\n\n👤 You: ${userMessage.substring(0, 200)}\n\n😊 Alex: ${aiReply.substring(0, 300)}${aiReply.length > 300 ? '...' : ''}`;
     return telegramSend(msg);
   },
 

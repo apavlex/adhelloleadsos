@@ -232,7 +232,7 @@ router.post('/chat', express.json(), async (req, res, next) => {
       const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
       const telegramChatId = process.env.TELEGRAM_CHAT_ID || '7325499142';
       if (telegramToken) {
-        const telegramMsg = `💬 *AdHello CEO Chat*\n\n👤 You: ${message.substring(0, 200)}\n\n😊 Pavlex: ${result.reply.substring(0, 300)}${result.reply.length > 300 ? '...' : ''}`;
+        const telegramMsg = `💬 *AdHello CEO Chat*\n\n👤 You: ${message.substring(0, 200)}\n\n😊 Alex: ${result.reply.substring(0, 300)}${result.reply.length > 300 ? '...' : ''}`;
         fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

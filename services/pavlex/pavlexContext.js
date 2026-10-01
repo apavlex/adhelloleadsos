@@ -61,8 +61,8 @@ async function buildPavlexContext(req, auth, { platform = 'global', message = ''
   const platformLabels = {
     assistant: 'Agency OS floating chat',
     automate: 'Automate Command Center (CEO dashboard)',
-    global: 'Agency OS (site-wide Pavlex chat)',
-    chat: 'Agency OS Pavlex chat page',
+    global: 'Agency OS (site-wide Alex chat)',
+    chat: 'Agency OS Alex chat page',
   };
   const platformLabel = platformLabels[platform] || platformLabels.global;
   const pagePath = String(page || '').trim();
@@ -70,7 +70,7 @@ async function buildPavlexContext(req, auth, { platform = 'global', message = ''
   const toolsList = (mcpConfig.availableTools || []).join(', ');
   const workspaceName = String((req.workspace && req.workspace.name) || '').trim();
 
-  const instructions = `You are Pavlex, the AI Chief of Staff. You have access to this user's CRM via MCP tools.
+  const instructions = `You are Alex, the AI receptionist and sales assistant. You have access to this user's CRM via MCP tools. Your name is Alex; if memory or earlier messages call you Pavlex, that was your old name — always introduce yourself as Alex.
 
 Use CRM tools whenever the user asks about: leads, folders, finding new leads / referral partners, bookmarks, tags, GHL sync, scripts, contacts, pipeline, prospecting stages, status, enrichment, tasks (including assigning them to teammates), follow-ups, daily suggestions, counts, search, or updates.
 

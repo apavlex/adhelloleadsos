@@ -24,7 +24,7 @@ function setupUnavailableMessage(detail) {
   const d = String(detail || '').toLowerCase();
   if (!hasPavlexToolLlm()) {
     return (
-      'Pavlex needs an AI key on the server. Add OPENAI_API_KEY or OPENROUTER_API_KEY in Render → Environment, ' +
+      'Alex needs an AI key on the server. Add OPENAI_API_KEY or OPENROUTER_API_KEY in Render → Environment, ' +
       'then redeploy. CRM shortcuts work now: "List my folders", "How many leads do I have?", "Find Acme Roofing".'
     );
   }
