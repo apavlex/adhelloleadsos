@@ -165,7 +165,7 @@
       <% tabs.forEach(function (t) { %>
       <a href="/network?tab=<%= t.id %>" class="net-tab <%= tab === t.id ? 'is-on' : '' %>" <%= tab === t.id ? 'aria-current=page' : '' %>><%= t.label %></a>
       <% }); %>
-      <a href="/network?tab=send" class="net-tab-cta <%= tab === 'send' ? 'is-on' : '' %>" <%= tab === 'send' ? 'aria-current=page' : '' %>>
+      <a href="/network?tab=send" class="net-tab-cta <%= tab === 'send' ? 'is-on' : '' %>" data-open-send-referral <%= tab === 'send' ? 'aria-current=page' : '' %>>
         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.27 3.13a59.77 59.77 0 0118.22 8.87 59.77 59.77 0 01-18.22 8.88L6 12zm0 0h7.5" /></svg>
         Send referral
       </a>
@@ -398,7 +398,7 @@
       <% if (!referrals.length) { %>
       <div class="net-card text-center py-10">
         <p class="text-sm text-brand-muted">No referrals<%= statusFilter ? ' with that status' : ' yet' %>.</p>
-        <a href="/network?tab=send" class="net-btn net-btn-yellow mt-4">Send a referral</a>
+        <a href="/network?tab=send" class="net-btn net-btn-yellow mt-4" data-open-send-referral>Send a referral</a>
       </div>
       <% } else { %>
       <div class="space-y-3">

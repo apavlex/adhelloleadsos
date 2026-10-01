@@ -1,0 +1,90 @@
+<%
+  const _srField = 'w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/80 px-4 py-3 text-sm text-brand-dark dark:text-white placeholder:text-brand-muted/50';
+  const _srLabel = 'block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5';
+%>
+<div id="sendReferralModal" class="fixed inset-0 z-[210] hidden items-center justify-center p-4" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="sendReferralTitle">
+  <div class="absolute inset-0 bg-brand-dark/60 backdrop-blur-sm" data-send-referral-close></div>
+  <div class="relative max-w-lg w-full rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-2xl z-10 max-h-[90vh] overflow-y-auto">
+    <div class="flex items-start justify-between gap-3 mb-5">
+      <div>
+        <h2 id="sendReferralTitle" class="font-display font-black text-xl text-brand-dark dark:text-white">Send Referral</h2>
+        <p class="text-sm text-brand-muted mt-1">Goes to the member holding that trade in the homeowner's zone. They get a text to accept.</p>
+      </div>
+      <button type="button" class="w-10 h-10 rounded-xl bg-brand-cream dark:bg-slate-800 text-brand-muted hover:text-brand-dark dark:hover:text-white flex items-center justify-center shrink-0" aria-label="Close" data-send-referral-close>
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+      </button>
+    </div>
+
+    <p id="sendReferralLoading" class="text-sm text-brand-muted py-6 text-center">Loading your network…</p>
+
+    <div id="sendReferralSetup" class="hidden py-2">
+      <p class="text-sm text-brand-dark dark:text-white">Your referral network needs at least one zone and one active member before you can send referrals.</p>
+      <div class="flex flex-col sm:flex-row gap-3 pt-5">
+        <a href="/network?tab=setup" class="flex-1 btn-pill btn-primary py-4 text-xs font-black uppercase tracking-widest text-center">Set up network</a>
+        <button type="button" class="flex-1 btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 py-4 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white" data-send-referral-close>Cancel</button>
+      </div>
+    </div>
+
+    <div id="sendReferralDone" class="hidden py-2">
+      <p id="sendReferralDoneText" class="text-sm font-semibold text-brand-dark dark:text-white"></p>
+      <div class="flex flex-col sm:flex-row gap-3 pt-5">
+        <a href="/network?tab=referrals" class="flex-1 btn-pill btn-primary py-4 text-xs font-black uppercase tracking-widest text-center">View referrals</a>
+        <button type="button" id="sendReferralAnother" class="flex-1 btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 py-4 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white">Send another</button>
+      </div>
+    </div>
+
+    <form id="sendReferralForm" class="space-y-4 hidden" novalidate>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label for="sendReferralTrade" class="<%= _srLabel %>">Trade needed <span class="text-red-500">*</span></label>
+          <select id="sendReferralTrade" name="tradeSlug" required class="<%= _srField %> font-semibold"><option value="">Pick a trade…</option></select>
+        </div>
+        <div>
+          <label for="sendReferralZone" class="<%= _srLabel %>">Zone</label>
+          <select id="sendReferralZone" name="zoneId" class="<%= _srField %>"><option value="">Auto from city / ZIP</option></select>
+        </div>
+      </div>
+      <div>
+        <label for="sendReferralName" class="<%= _srLabel %>">Homeowner name <span class="text-red-500">*</span></label>
+        <input type="text" id="sendReferralName" name="name" required maxlength="200" autocomplete="off" class="<%= _srField %> font-semibold" placeholder="e.g. Maria Lopez" />
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label for="sendReferralPhone" class="<%= _srLabel %>">Phone</label>
+          <input type="tel" id="sendReferralPhone" name="phone" autocomplete="off" class="<%= _srField %>" placeholder="Optional" />
+        </div>
+        <div>
+          <label for="sendReferralEmail" class="<%= _srLabel %>">Email</label>
+          <input type="email" id="sendReferralEmail" name="email" autocomplete="off" class="<%= _srField %>" placeholder="Optional" />
+        </div>
+      </div>
+      <div>
+        <label for="sendReferralAddress" class="<%= _srLabel %>">Street address</label>
+        <input type="text" id="sendReferralAddress" name="address" autocomplete="off" class="<%= _srField %>" placeholder="Optional" />
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+        <div class="col-span-2 sm:col-span-2">
+          <label for="sendReferralCity" class="<%= _srLabel %>">City</label>
+          <input type="text" id="sendReferralCity" name="city" autocomplete="off" class="<%= _srField %>" />
+        </div>
+        <div class="col-span-2 sm:col-span-1">
+          <label for="sendReferralZip" class="<%= _srLabel %>">ZIP</label>
+          <input type="text" id="sendReferralZip" name="zip" inputmode="numeric" maxlength="10" autocomplete="off" class="<%= _srField %>" />
+        </div>
+      </div>
+      <div>
+        <label for="sendReferralNote" class="<%= _srLabel %>">What they need</label>
+        <textarea id="sendReferralNote" name="note" rows="3" maxlength="1000" class="<%= _srField %> resize-y" placeholder="e.g. AC not cooling, wants a quote this week"></textarea>
+      </div>
+      <label class="flex items-start gap-2.5 text-sm font-semibold text-brand-dark dark:text-white">
+        <input type="checkbox" name="consent" value="on" required class="mt-0.5 h-4 w-4 shrink-0" />
+        The homeowner agreed to be contacted by a network member.
+      </label>
+      <p id="sendReferralError" class="text-sm text-red-600 dark:text-red-400 hidden" role="alert"></p>
+      <div class="flex flex-col sm:flex-row gap-3 pt-2">
+        <button type="submit" id="sendReferralSubmit" class="flex-1 btn-pill btn-primary py-4 text-xs font-black uppercase tracking-widest">Send referral</button>
+        <button type="button" class="flex-1 btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 py-4 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white" data-send-referral-close>Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
