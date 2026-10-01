@@ -121,7 +121,15 @@ async function saveCadence(workspaceId, input) {
 
   let cadence;
   if (existing) {
-    cadence = { ...existing, name: draft.name, goal: draft.goal, steps: draft.steps, updatedAt: now };
+    const stepsChanged = JSON.stringify(existing.steps) !== JSON.stringify(draft.steps);
+    cadence = {
+      ...existing,
+      name: draft.name,
+      goal: draft.goal,
+      steps: draft.steps,
+      ghlSetupAt: stepsChanged ? '' : existing.ghlSetupAt,
+      updatedAt: now,
+    };
   } else {
     if (list.length >= MAX_CADENCES) return { ok: false, error: `You can keep up to ${MAX_CADENCES} cadences.` };
     const base = slugify(draft.name) || 'cadence';

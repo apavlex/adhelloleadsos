@@ -25,7 +25,10 @@
           <p class="text-sm text-brand-muted leading-relaxed mt-1">Build your own steps, then launch from <a href="/pipeline" class="font-semibold text-brand-dark dark:text-white underline">Pipeline</a>: select leads and choose <strong class="text-brand-dark dark:text-white">Launch cadence</strong>. Each lead gets that cadence's tag in GHL, and the GHL workflow you set up from the prompt sends the messages.</p>
         </div>
         <% if (_ccManage) { %>
-        <button type="button" id="ccNewBtn" class="shrink-0 btn-pill btn-primary px-5 py-2.5 text-[10px] font-black uppercase tracking-widest">New cadence</button>
+        <div class="flex flex-wrap items-center gap-2 shrink-0">
+          <a href="/chat?new=1&q=<%= encodeURIComponent('Help me build a new custom cadence for GHL. Ask me a few quick questions, draft the steps, and save it when I approve.') %>" class="px-4 py-2.5 rounded-full border border-brand-border dark:border-white/15 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/70">Build with AI</a>
+          <button type="button" id="ccNewBtn" class="btn-pill btn-primary px-5 py-2.5 text-[10px] font-black uppercase tracking-widest">New cadence</button>
+        </div>
         <% } %>
       </header>
 
@@ -64,7 +67,7 @@
       <% } %>
 
       <% if (!_cc.length) { %>
-      <p class="text-sm text-brand-muted italic">No cadences yet.<% if (_ccManage) { %> Click <strong class="not-italic text-brand-dark dark:text-white">New cadence</strong> to build your first one.<% } %></p>
+      <p class="text-sm text-brand-muted italic">No cadences yet.<% if (_ccManage) { %> Click <strong class="not-italic text-brand-dark dark:text-white">New cadence</strong> to build your first one, or <strong class="not-italic text-brand-dark dark:text-white">Build with AI</strong> to have Ask AI draft it with you.<% } %></p>
       <% } %>
       <div class="space-y-3">
         <% _cc.forEach(function (c) { %>
@@ -84,6 +87,7 @@
               <% } %>
               <% if (_ccManage) { %>
               <button type="button" class="cc-edit text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white">Edit</button>
+              <a href="/chat?new=1&q=<%= encodeURIComponent('Help me improve my cadence "' + c.name + '". Show me the current steps, suggest changes, and save them when I approve.') %>" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white">Improve with AI</a>
               <button type="button" class="cc-delete text-[10px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-600">Delete</button>
               <% } %>
             </div>

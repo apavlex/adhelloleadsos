@@ -11,6 +11,7 @@ const {
   getCrmActionToolSchemas,
 } = require('./mcpToolExecutor');
 const networkTools = require('./mcpNetwork');
+const cadenceTools = require('./mcpCadences');
 const mcpLogger = require('./mcpLogger');
 
 function jsonToolResult(payload) {
@@ -70,6 +71,7 @@ const READ_ONLY_TOOLS = new Set([
   'list_followups',
   'suggest_daily_leads',
   ...networkTools.READ_ONLY_NETWORK_TOOLS,
+  ...cadenceTools.READ_ONLY_CADENCE_TOOLS,
 ]);
 
 // Overwrites or removes data, or pushes it somewhere it can't be pulled back from.
@@ -522,7 +524,7 @@ function createCrmMcpServer(ctx) {
     async (args) => runTool(ctx, 'suggest_daily_leads', args),
   );
 
-  for (const tool of networkTools.NETWORK_TOOLS) {
+  for (const tool of [...networkTools.NETWORK_TOOLS, ...cadenceTools.CADENCE_TOOLS]) {
     register(tool.name, { description: tool.description, inputSchema: tool.schema }, async (args) => runTool(ctx, tool.name, args));
   }
 
@@ -789,7 +791,7 @@ function getOpenAiToolManifest() {
           additionalProperties: false,
         },
       },
-      ...networkTools.openAiFunctionTools().map(({ function: fn }) => ({
+      ...[...networkTools.openAiFunctionTools(), ...cadenceTools.openAiFunctionTools()].map(({ function: fn }) => ({
         name: fn.name,
         description: fn.description,
         input_schema: fn.parameters,
