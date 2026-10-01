@@ -802,8 +802,12 @@ document.addEventListener('DOMContentLoaded', () => {
       closeSmsModalEarly();
       window.__adhelloBulkOutreachInflight = true;
       if (window.agencyOsBulkOutreach && typeof window.agencyOsBulkOutreach.start === 'function') {
-        window.agencyOsBulkOutreach.start({ channel: emailMode ? 'email' : 'sms', total: n });
+        window.agencyOsBulkOutreach.start({ channel: emailMode ? 'email' : 'sms', total: n, template: scriptText, subject });
       }
+      const campaignId =
+        window.agencyOsBulkOutreach && typeof window.agencyOsBulkOutreach.campaignId === 'function'
+          ? window.agencyOsBulkOutreach.campaignId()
+          : '';
       void (async function runEarlyBulkInBackground() {
         let ok = 0;
         let failed = 0;
@@ -846,6 +850,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const sBody = {
                   subject: String(pData.subject || subject || '').trim(),
                   body: String(pData.body || pData.personalized || scriptText).trim(),
+                  campaignId,
                 };
                 if (rowEmail) {
                   sBody.to = rowEmail;
@@ -874,7 +879,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
                   credentials: 'same-origin',
-                  body: JSON.stringify({ body: msg, provider: 'ghl', requireProvider: 'ghl' }),
+                  body: JSON.stringify({ body: msg, provider: 'ghl', requireProvider: 'ghl', campaignId }),
                 });
                 const sData = await sRes.json().catch(() => ({}));
                 if (!sRes.ok || !sData.success) {
@@ -15260,6 +15265,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!validated.ok) throw new Error(validated.error || 'SMS body is empty.');
     const payload = { body: validated.text, provider: 'ghl' };
     if (opts && opts.requireProvider) payload.requireProvider = opts.requireProvider;
+    if (opts && opts.campaignId) payload.campaignId = opts.campaignId;
     const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/sms`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -15323,6 +15329,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  function currentBulkCampaignId() {
+    const bulk = window.agencyOsBulkOutreach;
+    return bulk && typeof bulk.campaignId === 'function' ? bulk.campaignId() : '';
+  }
+
   async function sendBulkPersonalizedSms(phoneKeys, scriptText, onProgress) {
     const baseValidated = validateOutreachComposerBodyClient(scriptText, 'sms');
     if (!baseValidated.ok) {
@@ -15334,6 +15345,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let skipped = 0;
     let aborted = false;
     const errors = [];
+    const campaignId = currentBulkCampaignId();
     for (let i = 0; i < phoneKeys.length; i += 1) {
       const leadKey = phoneKeys[i];
       if (typeof onProgress === 'function') {
@@ -15344,7 +15356,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const outValidated = validateOutreachComposerBodyClient(personalized, 'sms');
         const toSend = outValidated.ok ? outValidated.text : baseScript;
         // eslint-disable-next-line no-await-in-loop
-        await sendSmsToLeadKey(leadKey, toSend, { requireProvider: 'ghl' });
+        await sendSmsToLeadKey(leadKey, toSend, { requireProvider: 'ghl', campaignId });
         ok += 1;
       } catch (err) {
         const msg = String((err && err.message) || 'Send failed');
@@ -15372,6 +15384,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const validated = validateOutreachComposerBodyClient(body, 'email');
     if (!validated.ok) throw new Error(validated.error || 'Email body is empty.');
     const payload = { subject: subject || '', body: validated.text };
+    if (opts.campaignId) payload.campaignId = opts.campaignId;
     const toEmail = String(opts.to || '').trim();
     if (toEmail && toEmail.includes('@')) {
       payload.to = toEmail;
@@ -15472,6 +15485,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let failed = 0;
     let skipped = 0;
     const errors = [];
+    const campaignId = currentBulkCampaignId();
     for (let i = 0; i < emailKeys.length; i += 1) {
       const leadKey = emailKeys[i];
       if (typeof onProgress === 'function') {
@@ -15485,6 +15499,7 @@ document.addEventListener('DOMContentLoaded', () => {
         await sendEmailToLeadKey(leadKey, personalized.subject, personalized.body, {
           to: toFromRow,
           saveToLead: true,
+          campaignId,
         });
         ok += 1;
       } catch (err) {
@@ -15770,7 +15785,7 @@ document.addEventListener('DOMContentLoaded', () => {
         closeSmsModal();
         window.__adhelloBulkOutreachInflight = true;
         if (window.agencyOsBulkOutreach && typeof window.agencyOsBulkOutreach.start === 'function') {
-          window.agencyOsBulkOutreach.start({ channel: 'email', total: n });
+          window.agencyOsBulkOutreach.start({ channel: 'email', total: n, template: script, subject });
         }
         void (async function runBulkEmailInBackground() {
           try {
@@ -15865,7 +15880,7 @@ document.addEventListener('DOMContentLoaded', () => {
         closeSmsModal();
         window.__adhelloBulkOutreachInflight = true;
         if (window.agencyOsBulkOutreach && typeof window.agencyOsBulkOutreach.start === 'function') {
-          window.agencyOsBulkOutreach.start({ channel: 'sms', total: n });
+          window.agencyOsBulkOutreach.start({ channel: 'sms', total: n, template: script });
         }
         void (async function runBulkSmsInBackground() {
           try {

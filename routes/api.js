@@ -19,6 +19,7 @@ const { applyWarmInboundRules, isWarmInboundSource } = require('../services/lead
 const dialerPacing = require('../services/dialerPacing');
 const inboundForwardStats = require('../services/inboundForwardStats');
 const ghlSync = require('../services/ghlSync');
+const messageLog = require('../services/messageLog');
 const commsClient = require('../services/commsClient');
 const commsSync = require('../services/commsSync');
 const lobWebhook = require('../services/lobWebhook');
@@ -639,6 +640,14 @@ router.post('/telephony/sms/status', async (req, res) => {
     const to = req.body.To || '';
     const status = String(req.body.MessageStatus || req.body.SmsStatus || '').trim();
     const sid = String(req.body.MessageSid || req.body.SmsSid || '').trim();
+    if (sid && status) {
+      messageLog.updateStatus({
+        workspaceId: workspaceId || undefined,
+        providerMessageId: sid,
+        status,
+        error: req.body.ErrorMessage || (req.body.ErrorCode ? `Error ${req.body.ErrorCode}` : ''),
+      });
+    }
     const match = await findLeadForTelephonyEvent({ leadKey, workspaceId, from, to });
     if (match && status) {
       await appendTelephonyUpdate(match, {

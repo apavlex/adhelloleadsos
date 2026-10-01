@@ -2146,6 +2146,23 @@
     return !!readBulkOutreachJob();
   }
 
+  function newBulkCampaignId() {
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
+    return 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
+  }
+
+  /** Sent history bookkeeping; a failed call must never interrupt the send itself. */
+  function postBulkCampaign(url, payload) {
+    try {
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(payload || {}),
+      }).catch(function () {});
+    } catch (_) {}
+  }
+
   function updateBulkOutreachBellBadge(job) {
     const el = document.getElementById('bulkEnhanceBellBadge');
     if (!el || !job) return;
@@ -2205,6 +2222,10 @@
     getJob() {
       return readBulkOutreachJob();
     },
+    campaignId() {
+      const job = readBulkOutreachJob();
+      return (job && job.campaignId) || '';
+    },
     start(opts) {
       opts = opts || {};
       const total = Math.max(1, Number(opts.total) || 1);
@@ -2217,8 +2238,16 @@
         skipped: 0,
         running: true,
         startedAt: Date.now(),
+        campaignId: newBulkCampaignId(),
       };
       writeBulkOutreachJob(job);
+      postBulkCampaign('/messages/campaigns', {
+        id: job.campaignId,
+        channel: job.channel,
+        planned: total,
+        template: String(opts.template || ''),
+        subject: job.channel === 'email' ? String(opts.subject || '') : '',
+      });
       if (typeof window.updateProcessingStatus === 'function') {
         window.updateProcessingStatus(true);
       }
@@ -2255,6 +2284,10 @@
       if (failed) parts.push(failed + ' failed');
       const summary = parts.join(' · ');
       const detail = String(opts.lastError || '').trim();
+      const campaignUrl = job.campaignId ? '/messages/campaigns/' + encodeURIComponent(job.campaignId) : '';
+      if (job.campaignId) {
+        postBulkCampaign(campaignUrl + '/finish', { skipped });
+      }
       writeBulkOutreachJob(null);
       if (typeof window.updateProcessingStatus === 'function') {
         window.updateProcessingStatus(false);
@@ -2268,8 +2301,8 @@
       pushClientBellNotification({
         headline: failed ? channel + ' send finished with errors' : channel + ' send complete',
         body: detail ? summary + ' — ' + detail.slice(0, 180) : summary,
-        href: opts.href || '/prospecting?tab=pipeline',
-        linkLabel: 'Open pipeline →',
+        href: opts.href || campaignUrl || '/prospecting?tab=pipeline',
+        linkLabel: campaignUrl && !opts.href ? 'View campaign →' : 'Open pipeline →',
         desktop: true,
         desktopTag: 'agency-os-bulk-' + String(job.channel || 'email'),
       });

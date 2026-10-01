@@ -7,6 +7,8 @@ function iaNav(req, res, next) {
   let navPrimary = '';
   if (p === '/engagement' || p.startsWith('/engagement/')) {
     navPrimary = 'engagement';
+  } else if (p === '/messages' || p.startsWith('/messages/')) {
+    navPrimary = 'messages';
   } else if (p === '/today' || p.startsWith('/today/') || p === '/focus' || p.startsWith('/focus/')) {
     navPrimary = 'today';
   } else if (

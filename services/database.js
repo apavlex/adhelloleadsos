@@ -196,6 +196,50 @@ sqlite.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_lead_attr_last_by ON lead_attribution(workspace_id, last_by);
   CREATE INDEX IF NOT EXISTS idx_lead_attr_created_by ON lead_attribution(workspace_id, created_by);
+
+  CREATE TABLE IF NOT EXISTS outbound_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id TEXT NOT NULL,
+    channel TEXT NOT NULL,
+    source TEXT NOT NULL DEFAULT 'manual',
+    campaign_id TEXT,
+    lead_key TEXT,
+    lead_title TEXT,
+    recipient TEXT,
+    subject TEXT,
+    body TEXT,
+    provider TEXT,
+    provider_message_id TEXT,
+    status TEXT NOT NULL DEFAULT 'sent',
+    error TEXT,
+    actor_email TEXT,
+    actor_name TEXT,
+    dedupe_key TEXT,
+    created_at INTEGER NOT NULL,
+    status_at INTEGER
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_outmsg_ws_time ON outbound_messages(workspace_id, created_at);
+  CREATE INDEX IF NOT EXISTS idx_outmsg_campaign ON outbound_messages(campaign_id, created_at);
+  CREATE INDEX IF NOT EXISTS idx_outmsg_provider_id ON outbound_messages(provider_message_id);
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_outmsg_dedupe ON outbound_messages(workspace_id, dedupe_key);
+
+  CREATE TABLE IF NOT EXISTS outbound_campaigns (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL,
+    channel TEXT NOT NULL,
+    name TEXT,
+    subject TEXT,
+    template TEXT,
+    planned INTEGER NOT NULL DEFAULT 0,
+    skipped INTEGER NOT NULL DEFAULT 0,
+    actor_email TEXT,
+    actor_name TEXT,
+    created_at INTEGER NOT NULL,
+    finished_at INTEGER
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_outcamp_ws_time ON outbound_campaigns(workspace_id, created_at);
 `);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -2465,6 +2509,218 @@ module.exports = {
       const unseen = since ? countSince.get(workspaceId, r.actor_email, since).c : r.total;
       return { ...r, unseen };
     });
+  },
+
+  // ── Outbound message log (sent SMS / email + bulk campaigns) ────────────────
+
+  /** Returns the new row id, or null when dedupe_key already exists. */
+  insertOutboundMessage(row) {
+    const result = sqlite
+      .prepare(
+        `INSERT OR IGNORE INTO outbound_messages
+          (workspace_id, channel, source, campaign_id, lead_key, lead_title, recipient, subject, body,
+           provider, provider_message_id, status, error, actor_email, actor_name, dedupe_key, created_at, status_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(
+        row.workspaceId,
+        row.channel,
+        row.source || 'manual',
+        row.campaignId || null,
+        row.leadKey || null,
+        row.leadTitle || null,
+        row.recipient || null,
+        row.subject || null,
+        row.body || null,
+        row.provider || null,
+        row.providerMessageId || null,
+        row.status || 'sent',
+        row.error || null,
+        row.actorEmail || null,
+        row.actorName || null,
+        row.dedupeKey || null,
+        row.createdAt || Date.now(),
+        row.statusAt || null
+      );
+    return result.changes ? result.lastInsertRowid : null;
+  },
+
+  insertOutboundMessages(rows) {
+    const list = Array.isArray(rows) ? rows : [];
+    const run = sqlite.transaction((items) => {
+      let n = 0;
+      for (const r of items) if (this.insertOutboundMessage(r)) n += 1;
+      return n;
+    });
+    return run(list);
+  },
+
+  /**
+   * Status update by provider message id; workspaceId narrows it when the caller knows it.
+   * fromStatuses limits which current statuses may be overwritten (so "opened" never drops back to "sent").
+   */
+  updateOutboundMessageStatus({ workspaceId, providerMessageId, status, error, at, fromStatuses } = {}) {
+    const pmid = String(providerMessageId || '').trim();
+    if (!pmid || !status) return 0;
+    const where = ['provider_message_id = ?'];
+    const args = [status, error || null, at || Date.now(), pmid];
+    if (workspaceId) {
+      where.push('workspace_id = ?');
+      args.push(workspaceId);
+    }
+    if (Array.isArray(fromStatuses) && fromStatuses.length) {
+      where.push(`status IN (${fromStatuses.map(() => '?').join(', ')})`);
+      args.push(...fromStatuses);
+    }
+    return sqlite
+      .prepare(`UPDATE outbound_messages SET status = ?, error = COALESCE(?, error), status_at = ? WHERE ${where.join(' AND ')}`)
+      .run(...args).changes;
+  },
+
+  earliestLiveOutboundMessageAt(workspaceId) {
+    const row = sqlite
+      .prepare(
+        `SELECT MIN(created_at) AS t FROM outbound_messages
+         WHERE workspace_id = ? AND (dedupe_key IS NULL OR dedupe_key NOT LIKE 'bf:%')`
+      )
+      .get(workspaceId);
+    return row && row.t ? row.t : null;
+  },
+
+  /** Creates the campaign row if missing; returns it only when it belongs to workspaceId. */
+  ensureOutboundCampaign({ id, workspaceId, channel, name, subject, template, planned, actorEmail, actorName, createdAt }) {
+    sqlite
+      .prepare(
+        `INSERT INTO outbound_campaigns
+          (id, workspace_id, channel, name, subject, template, planned, actor_email, actor_name, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           name = COALESCE(excluded.name, outbound_campaigns.name),
+           subject = COALESCE(excluded.subject, outbound_campaigns.subject),
+           template = COALESCE(excluded.template, outbound_campaigns.template),
+           planned = MAX(outbound_campaigns.planned, excluded.planned)
+         WHERE outbound_campaigns.workspace_id = excluded.workspace_id`
+      )
+      .run(
+        id,
+        workspaceId,
+        channel,
+        name || null,
+        subject || null,
+        template || null,
+        planned || 0,
+        actorEmail || null,
+        actorName || null,
+        createdAt || Date.now()
+      );
+    return this.getOutboundCampaign(workspaceId, id);
+  },
+
+  finishOutboundCampaign(workspaceId, id, { skipped, at } = {}) {
+    return sqlite
+      .prepare('UPDATE outbound_campaigns SET skipped = ?, finished_at = ? WHERE workspace_id = ? AND id = ?')
+      .run(Math.max(0, parseInt(skipped, 10) || 0), at || Date.now(), workspaceId, id).changes;
+  },
+
+  getOutboundCampaign(workspaceId, id) {
+    return (
+      sqlite
+        .prepare(
+          `SELECT c.*,
+             (SELECT COUNT(*) FROM outbound_messages m WHERE m.campaign_id = c.id AND m.workspace_id = c.workspace_id) AS total,
+             (SELECT COUNT(*) FROM outbound_messages m WHERE m.campaign_id = c.id AND m.workspace_id = c.workspace_id AND m.status = 'failed') AS failed,
+             (SELECT COUNT(*) FROM outbound_messages m WHERE m.campaign_id = c.id AND m.workspace_id = c.workspace_id AND m.status IN ('delivered','opened','clicked')) AS delivered,
+             (SELECT COUNT(*) FROM outbound_messages m WHERE m.campaign_id = c.id AND m.workspace_id = c.workspace_id AND m.status IN ('opened','clicked')) AS opened
+           FROM outbound_campaigns c WHERE c.workspace_id = ? AND c.id = ?`
+        )
+        .get(workspaceId, id) || null
+    );
+  },
+
+  listOutboundCampaigns({ workspaceId, channel, actorEmail, limit, offset } = {}) {
+    const where = ['c.workspace_id = ?'];
+    const args = [workspaceId];
+    if (channel) {
+      where.push('c.channel = ?');
+      args.push(channel);
+    }
+    if (actorEmail) {
+      where.push('c.actor_email = ?');
+      args.push(actorEmail);
+    }
+    const lim = Math.min(Math.max(parseInt(limit, 10) || 25, 1), 200);
+    const off = Math.max(parseInt(offset, 10) || 0, 0);
+    const total = sqlite.prepare(`SELECT COUNT(*) AS c FROM outbound_campaigns c WHERE ${where.join(' AND ')}`).get(...args).c;
+    const rows = sqlite
+      .prepare(
+        `SELECT c.*,
+           COUNT(m.id) AS total,
+           COALESCE(SUM(CASE WHEN m.status = 'failed' THEN 1 ELSE 0 END), 0) AS failed,
+           COALESCE(SUM(CASE WHEN m.status IN ('delivered','opened','clicked') THEN 1 ELSE 0 END), 0) AS delivered,
+           COALESCE(SUM(CASE WHEN m.status IN ('opened','clicked') THEN 1 ELSE 0 END), 0) AS opened
+         FROM outbound_campaigns c
+         LEFT JOIN outbound_messages m ON m.campaign_id = c.id AND m.workspace_id = c.workspace_id
+         WHERE ${where.join(' AND ')}
+         GROUP BY c.id ORDER BY c.created_at DESC LIMIT ? OFFSET ?`
+      )
+      .all(...args, lim, off);
+    return { rows, total };
+  },
+
+  /** opts.visibleTo = { actorEmail, leadKeys } limits rows for SDR seats. */
+  listOutboundMessages({ workspaceId, channel, status, source, campaignId, q, since, visibleTo, limit, offset } = {}) {
+    const where = ['workspace_id = ?'];
+    const args = [workspaceId];
+    if (channel) {
+      where.push('channel = ?');
+      args.push(channel);
+    }
+    if (status === 'failed') {
+      where.push("status = 'failed'");
+    } else if (status === 'delivered') {
+      where.push("status IN ('delivered','opened','clicked')");
+    } else if (status) {
+      where.push('status = ?');
+      args.push(status);
+    }
+    if (source) {
+      where.push('source = ?');
+      args.push(source);
+    }
+    if (campaignId) {
+      where.push('campaign_id = ?');
+      args.push(campaignId);
+    }
+    if (since) {
+      where.push('created_at >= ?');
+      args.push(since);
+    }
+    if (q) {
+      const like = `%${String(q).replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
+      where.push("(lead_title LIKE ? ESCAPE '\\' OR recipient LIKE ? ESCAPE '\\' OR subject LIKE ? ESCAPE '\\' OR body LIKE ? ESCAPE '\\')");
+      args.push(like, like, like, like);
+    }
+    if (visibleTo) {
+      where.push('(actor_email = ? OR lead_key IN (SELECT value FROM json_each(?)))');
+      args.push(visibleTo.actorEmail || '', JSON.stringify(visibleTo.leadKeys || []));
+    }
+    const lim = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 500);
+    const off = Math.max(parseInt(offset, 10) || 0, 0);
+    const clause = where.join(' AND ');
+    const total = sqlite.prepare(`SELECT COUNT(*) AS c FROM outbound_messages WHERE ${clause}`).get(...args).c;
+    const rows = sqlite
+      .prepare(`SELECT * FROM outbound_messages WHERE ${clause} ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`)
+      .all(...args, lim, off);
+    return { rows, total };
+  },
+
+  outboundMessageCounts(workspaceId, since) {
+    return sqlite
+      .prepare(
+        `SELECT channel, status, COUNT(*) AS c FROM outbound_messages
+         WHERE workspace_id = ? AND created_at >= ? GROUP BY channel, status`
+      )
+      .all(workspaceId, since || 0);
   },
 
   touchLeadAttribution(workspaceId, leadKeys, actorEmail, { created = false, at } = {}) {

@@ -77,6 +77,7 @@ const {
 } = require('../services/leadListFilters');
 const activationService = require('../services/activationService');
 const teamActivity = require('../services/teamActivity');
+const messageLog = require('../services/messageLog');
 const sequenceEngine = require('../services/sequenceEngine');
 const { autoAttachCadenceIfNeeded } = require('../services/leadCadence');
 const {
@@ -3162,7 +3163,9 @@ router.get('/:key/sms-thread', async (req, res, next) => {
   try {
     const fullKey = leadKeyFromParam(req.params.key);
     const lead = await dbService.getLead(fullKey);
-    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
+    if (!lead || !(await leadInRequestWorkspace(lead, req))) {
+      return res.status(404).json({ success: false, error: 'Lead not found' });
+    }
 
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
     const sync = ['1', 'true', 'yes'].includes(String(req.query.sync || '').toLowerCase());
@@ -3293,7 +3296,9 @@ router.post('/:key/sms', async (req, res, next) => {
   try {
     const fullKey = leadKeyFromParam(req.params.key);
     const lead = await dbService.getLead(fullKey);
-    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
+    if (!lead || !(await leadInRequestWorkspace(lead, req))) {
+      return res.status(404).json({ success: false, error: 'Lead not found' });
+    }
     const smsBlock = smsOutbound.leadSmsBlock(lead);
     if (smsBlock) return smsBlockedResponse(res, smsBlock);
     const rawBody = String((req.body && req.body.body) || '').trim();
@@ -3327,16 +3332,32 @@ router.post('/:key/sms', async (req, res, next) => {
       preferredProvider ||
       (ghlClient.isConfigured(integrationEnv) ? 'ghl' : undefined);
 
-    const sent = await smsOutbound.sendSmsToLead({
-      lead,
-      message: body,
-      integrationEnv,
-      workspaceId: req.workspaceId,
-      fromNumber: resolveWorkspaceCallerNumber(await dbService.getWorkspace(req.workspaceId)),
-      provider: forceProvider,
-      requireProvider: requireProvider === 'ghl' ? 'ghl' : undefined,
-      to: toOverride || undefined,
-    });
+    const campaignId = String((req.body && req.body.campaignId) || '').trim();
+    const logBase = {
+      channel: 'sms',
+      source: campaignId ? 'bulk' : 'manual',
+      campaignId,
+      lead: { ...lead, key: fullKey },
+      recipient: toOverride || lead.phone,
+      body,
+    };
+    let sent;
+    try {
+      sent = await smsOutbound.sendSmsToLead({
+        lead,
+        message: body,
+        integrationEnv,
+        workspaceId: req.workspaceId,
+        fromNumber: resolveWorkspaceCallerNumber(await dbService.getWorkspace(req.workspaceId)),
+        provider: forceProvider,
+        requireProvider: requireProvider === 'ghl' ? 'ghl' : undefined,
+        to: toOverride || undefined,
+      });
+    } catch (sendErr) {
+      messageLog.record(req, { ...logBase, error: (sendErr && sendErr.message) || 'Send failed' });
+      throw sendErr;
+    }
+    messageLog.record(req, { ...logBase, provider: sent.provider, providerMessageId: sent.messageId });
 
     const providerLabel = smsOutbound.providerDisplayName(sent.provider);
     const channelNote =
@@ -3405,7 +3426,9 @@ router.post('/:key/email', async (req, res, next) => {
   try {
     const fullKey = leadKeyFromParam(req.params.key);
     const lead = await dbService.getLead(fullKey);
-    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
+    if (!lead || !(await leadInRequestWorkspace(lead, req))) {
+      return res.status(404).json({ success: false, error: 'Lead not found' });
+    }
 
     const subject = String((req.body && req.body.subject) || '').trim();
     const rawBody = String((req.body && req.body.body) || '').trim();
@@ -3435,13 +3458,35 @@ router.post('/:key/email', async (req, res, next) => {
       });
     }
 
-    const sent = await ghlMessaging.sendEmailToLead({
-      lead,
+    const campaignId = String((req.body && req.body.campaignId) || '').trim();
+    const logBase = {
+      channel: 'email',
+      source: campaignId ? 'bulk' : 'manual',
+      campaignId,
+      lead: { ...lead, key: fullKey },
+      recipient: toOverride || lead.email,
       subject,
       body,
-      html,
-      integrationEnv,
-      toEmail: toOverride || undefined,
+    };
+    let sent;
+    try {
+      sent = await ghlMessaging.sendEmailToLead({
+        lead,
+        subject,
+        body,
+        html,
+        integrationEnv,
+        toEmail: toOverride || undefined,
+      });
+    } catch (sendErr) {
+      messageLog.record(req, { ...logBase, error: (sendErr && sendErr.message) || 'Send failed' });
+      throw sendErr;
+    }
+    messageLog.record(req, {
+      ...logBase,
+      recipient: (sent && sent.emailTo) || logBase.recipient,
+      provider: 'ghl',
+      providerMessageId: sent.messageId,
     });
     const contactedPatch = await buildContactedStagePatch(lead, req.workspaceId);
     const updates = appendLeadUpdate(lead, {
@@ -3997,7 +4042,9 @@ router.post('/:key/sms-ai-send', async (req, res, next) => {
   try {
     const fullKey = leadKeyFromParam(req.params.key);
     const lead = await dbService.getLead(fullKey);
-    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
+    if (!lead || !(await leadInRequestWorkspace(lead, req))) {
+      return res.status(404).json({ success: false, error: 'Lead not found' });
+    }
     const smsBlock = smsOutbound.leadSmsBlock(lead);
     if (smsBlock) return smsBlockedResponse(res, smsBlock);
 
@@ -4039,14 +4086,27 @@ router.post('/:key/sms-ai-send', async (req, res, next) => {
       preferredProvider ||
       (ghlClient.isConfigured(integrationEnv) ? 'ghl' : undefined);
 
-    const sent = await smsOutbound.sendSmsToLead({
-      lead,
-      message,
-      integrationEnv,
-      workspaceId: req.workspaceId,
-      fromNumber: resolveWorkspaceCallerNumber(await dbService.getWorkspace(req.workspaceId)),
-      provider: forceProvider,
-    });
+    const logBase = {
+      channel: 'sms',
+      source: 'ai',
+      lead: { ...lead, key: fullKey },
+      body: message,
+    };
+    let sent;
+    try {
+      sent = await smsOutbound.sendSmsToLead({
+        lead,
+        message,
+        integrationEnv,
+        workspaceId: req.workspaceId,
+        fromNumber: resolveWorkspaceCallerNumber(await dbService.getWorkspace(req.workspaceId)),
+        provider: forceProvider,
+      });
+    } catch (sendErr) {
+      messageLog.record(req, { ...logBase, error: (sendErr && sendErr.message) || 'Send failed' });
+      throw sendErr;
+    }
+    messageLog.record(req, { ...logBase, provider: sent.provider, providerMessageId: sent.messageId });
 
     const providerLabel = smsOutbound.providerDisplayName(sent.provider);
     const channelNote =

@@ -8,6 +8,7 @@ const phoneLineType = require('./phoneLineType');
 const workspaceIntegrations = require('./workspaceIntegrations');
 const { handleInboundReply } = require('./inboundReplyRules');
 const { applyEngagementSignal } = require('./engagementSignals');
+const messageLog = require('./messageLog');
 const {
   mergeTagLists,
   normalizeGhlLogSync,
@@ -1004,6 +1005,17 @@ async function processMessageWebhook(payload, opts = {}) {
       pausedSequence: !!replyResult.pausedSequence,
     };
   }
+
+  messageLog.syncProviderMessage({
+    workspaceId: wid,
+    channel: parsed.channel === 'email' ? 'email' : 'sms',
+    providerMessageId: parsed.messageId,
+    status: parsed.status,
+    lead,
+    body: parsed.body,
+    subject: parsed.subject,
+    createdAt: parsed.dateAdded,
+  });
 
   const updates = Array.isArray(lead.updates) ? lead.updates : [];
   if (

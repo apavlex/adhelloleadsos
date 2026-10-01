@@ -2,6 +2,7 @@
  * Normalize and record lead engagement signals (SMS/email reply, opens, clicks, audit views).
  */
 const dbService = require('./database');
+const messageLog = require('./messageLog');
 const { upsertOpenTaskForLead } = require('./userTasks');
 const { resolveTaskOwnerEmail } = require('./dispositionFollowUp');
 
@@ -163,6 +164,13 @@ async function applyEngagementSignal(ctx) {
   }
 
   const updated = await dbService.updateLead(lead.key, patch, workspaceId);
+  if (ctx.messageId && (signalType === 'email_open' || signalType === 'link_click')) {
+    messageLog.updateStatus({
+      workspaceId,
+      providerMessageId: ctx.messageId,
+      status: signalType === 'link_click' ? 'clicked' : 'opened',
+    });
+  }
   return { applied: true, lead: updated, taskId: task && task.id, engagementSignals };
 }
 

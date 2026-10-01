@@ -4,6 +4,7 @@
 const workspaceIntegrations = require('./workspaceIntegrations');
 const ghlMessaging = require('./ghlMessaging');
 const smsOutbound = require('./smsOutbound');
+const messageLog = require('./messageLog');
 const phoneLineType = require('./phoneLineType');
 const { expandCadenceText } = require('./cadenceTokens');
 
@@ -42,6 +43,7 @@ async function executeSequenceStep({ lead, step, workspaceId }) {
   const baseUrl = String(process.env.PUBLIC_BASE_URL || '').replace(/\/$/, '');
   const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
 
+  let logBase = null;
   try {
     if (channel === 'email') {
       if (!ghlMessaging.leadHasEmail(lead)) {
@@ -53,12 +55,18 @@ async function executeSequenceStep({ lead, step, workspaceId }) {
       }
       const title = expandCadenceText(step.title || '', lead, { baseUrl });
       const body = bodyFromStep(step, lead, baseUrl);
+      const subject = subjectFromStepTitle(title);
+      logBase = { workspaceId: wid, channel: 'email', source: 'cadence', lead, subject, body };
       const sent = await ghlMessaging.sendEmailToLead({
         lead,
-        subject: subjectFromStep(title),
+        subject,
         body,
         integrationEnv,
       });
+      messageLog.record(
+        { workspaceId: wid, actor: null },
+        { ...logBase, recipient: sent.emailTo, provider: sent.provider || 'ghl', providerMessageId: sent.messageId },
+      );
       return {
         executed: true,
         channel: 'email',
@@ -77,6 +85,7 @@ async function executeSequenceStep({ lead, step, workspaceId }) {
       }
       const message = bodyFromStep(step, lead, baseUrl).slice(0, 1600);
       if (!message) return { executed: false, reason: 'empty_body', channel };
+      logBase = { workspaceId: wid, channel: 'sms', source: 'cadence', lead, body: message };
       const sent = await smsOutbound.sendSmsToLead({
         lead,
         message,
@@ -84,6 +93,10 @@ async function executeSequenceStep({ lead, step, workspaceId }) {
         workspaceId: wid,
         provider: 'ghl',
       });
+      messageLog.record(
+        { workspaceId: wid, actor: null },
+        { ...logBase, provider: sent.provider || 'ghl', providerMessageId: sent.messageId },
+      );
       return {
         executed: true,
         channel: 'sms',
@@ -93,11 +106,13 @@ async function executeSequenceStep({ lead, step, workspaceId }) {
       };
     }
   } catch (err) {
+    const error = err && err.message ? err.message : String(err);
+    if (logBase) messageLog.record({ workspaceId: wid, actor: null }, { ...logBase, error });
     return {
       executed: false,
       channel,
       reason: 'send_failed',
-      error: err && err.message ? err.message : String(err),
+      error,
     };
   }
 

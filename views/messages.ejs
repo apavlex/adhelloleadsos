@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark dark:text-white overflow-x-hidden">
+  <%- include('partials/navbar') %>
+<%
+  const _f = filters || {};
+  const _labels = sourceLabels || {};
+  const _rows = Array.isArray(messages) ? messages : [];
+  const _camp = campaign;
+
+  function qs(overrides) {
+    const base = { tab: tab === 'campaign' ? '' : tab, channel: _f.channel, status: _f.status, source: _f.source, q: _f.q, days: String(_f.days) };
+    const merged = Object.assign({}, base, overrides || {});
+    const parts = [];
+    Object.keys(merged).forEach(function (k) {
+      const v = merged[k];
+      if (v === '' || v == null || (k === 'tab' && v === 'messages') || (k === 'days' && v === '30') || (k === 'page' && String(v) === '1')) return;
+      parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(v));
+    });
+    const path = _camp ? '/messages/campaigns/' + encodeURIComponent(_camp.id) : '/messages';
+    return path + (parts.length ? '?' + parts.join('&') : '');
+  }
+
+  const STATUS_STYLE = {
+    sent: 'border-brand-border/60 dark:border-white/15 text-brand-muted',
+    delivered: 'border-emerald-500/40 text-emerald-700 dark:text-emerald-300',
+    opened: 'border-sky-500/40 text-sky-700 dark:text-sky-300',
+    clicked: 'border-violet-500/40 text-violet-700 dark:text-violet-300',
+    failed: 'border-rose-500/50 bg-rose-500/10 text-rose-700 dark:text-rose-300',
+  };
+  const STATUS_LABEL = { sent: 'Sent', delivered: 'Delivered', opened: 'Opened', clicked: 'Clicked', failed: 'Failed' };
+  const chip = 'px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-colors';
+  const chipOn = 'border-brand-yellow/50 bg-brand-yellow/15 text-brand-dark dark:text-brand-yellow';
+  const chipOff = 'border-brand-border/50 dark:border-white/15 text-brand-muted hover:border-brand-yellow/40';
+  const card = 'rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 p-4';
+  function leadHref(key) { return '/pipeline?focusLead=' + encodeURIComponent(key || ''); }
+  function who(m) { return m.actor_name || m.actor_email || ''; }
+%>
+  <main class="max-wide px-6 py-8 md:py-12">
+    <% if (_camp) { %>
+    <a href="/messages?tab=campaigns" class="inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white mb-4">
+      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
+      All campaigns
+    </a>
+    <header class="mb-6">
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2"><%= _camp.channel === 'email' ? 'Email campaign' : 'SMS campaign' %></p>
+      <h1 class="font-display font-extrabold text-2xl md:text-3xl text-brand-dark dark:text-white tracking-tight break-words"><%= _camp.displayName %></h1>
+      <p class="text-sm text-brand-muted dark:text-slate-400 mt-2">
+        Sent <%= wsDateTime(_camp.created_at, { dateStyle: 'medium', timeStyle: 'short' }) %><% if (_camp.actor_name || _camp.actor_email) { %> by <strong class="text-brand-dark dark:text-slate-200"><%= _camp.actor_name || _camp.actor_email %></strong><% } %><% if (!_camp.finished_at) { %> · <span class="text-amber-700 dark:text-amber-300 font-semibold">may still be sending</span><% } %>
+      </p>
+    </header>
+    <div class="grid grid-cols-2 sm:grid-cols-<%= _camp.channel === 'email' ? '5' : '4' %> gap-3 mb-6">
+      <div class="<%= card %>"><p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Sent</p><p class="font-display font-black text-2xl"><%= _camp.total - _camp.failed %></p></div>
+      <div class="<%= card %>"><p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Delivered</p><p class="font-display font-black text-2xl text-emerald-700 dark:text-emerald-300"><%= _camp.delivered %></p></div>
+      <% if (_camp.channel === 'email') { %>
+      <div class="<%= card %>"><p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Opened</p><p class="font-display font-black text-2xl text-sky-700 dark:text-sky-300"><%= _camp.opened %></p></div>
+      <% } %>
+      <div class="<%= card %>"><p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Failed</p><p class="font-display font-black text-2xl <%= _camp.failed ? 'text-rose-600 dark:text-rose-300' : '' %>"><%= _camp.failed %></p></div>
+      <div class="<%= card %>"><p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Skipped</p><p class="font-display font-black text-2xl"><%= _camp.skipped %></p></div>
+    </div>
+    <% if (_camp.template || _camp.subject) { %>
+    <section class="<%= card %> mb-6">
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Script used <span class="normal-case tracking-normal font-semibold">· each message was personalized from this</span></p>
+      <% if (_camp.subject) { %><p class="text-sm font-bold mb-1"><%= _camp.subject %></p><% } %>
+      <% if (_camp.template) { %><p class="text-sm text-brand-dark/80 dark:text-slate-300 whitespace-pre-wrap break-words"><%= _camp.template %></p><% } %>
+    </section>
+    <% } %>
+    <div class="flex flex-wrap gap-2 mb-4">
+      <a href="<%= qs({ status: '' }) %>" class="<%= chip %> <%= !_f.status ? chipOn : chipOff %>">All · <%= _camp.total %></a>
+      <a href="<%= qs({ status: 'delivered' }) %>" class="<%= chip %> <%= _f.status === 'delivered' ? chipOn : chipOff %>">Delivered</a>
+      <a href="<%= qs({ status: 'failed' }) %>" class="<%= chip %> <%= _f.status === 'failed' ? chipOn : chipOff %>">Failed</a>
+    </div>
+    <% } else { %>
+    <header class="mb-6 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+      <div>
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Outreach</p>
+        <h1 class="font-display font-extrabold text-3xl md:text-4xl text-brand-dark dark:text-white tracking-tight">Sent history</h1>
+        <p class="text-sm text-brand-muted dark:text-slate-400 mt-2 max-w-2xl">Every text and email sent to your leads — one-offs, bulk campaigns, cadences, info packs and messages sent from Go High Level. Replies live in <a href="/engagement" class="underline font-semibold text-brand-dark dark:text-white">Engagement</a>.</p>
+      </div>
+      <div class="flex flex-wrap gap-2 shrink-0" aria-label="Time range">
+        <% (dayOptions || []).forEach(function (d) { %>
+        <a href="<%= qs({ days: String(d), page: '' }) %>" class="<%= chip %> <%= _f.days === d ? chipOn : chipOff %>"><%= d ? d + ' days' : 'All time' %></a>
+        <% }); %>
+      </div>
+    </header>
+
+    <% const _s = summary || { sms: 0, email: 0, failed: 0, delivered: 0, opened: 0 }; %>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+      <div class="<%= card %>"><p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Texts sent</p><p class="font-display font-black text-2xl"><%= _s.sms %></p></div>
+      <div class="<%= card %>"><p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Emails sent</p><p class="font-display font-black text-2xl"><%= _s.email %></p></div>
+      <div class="<%= card %>"><p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Delivered<% if (_s.opened) { %> · opened<% } %></p><p class="font-display font-black text-2xl text-emerald-700 dark:text-emerald-300"><%= _s.delivered %><% if (_s.opened) { %><span class="text-sky-700 dark:text-sky-300"> · <%= _s.opened %></span><% } %></p></div>
+      <div class="<%= card %>"><p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Failed</p><p class="font-display font-black text-2xl <%= _s.failed ? 'text-rose-600 dark:text-rose-300' : '' %>"><%= _s.failed %></p></div>
+    </div>
+
+    <nav class="flex gap-1 mb-5 border-b border-brand-border/50 dark:border-white/10" aria-label="Sent history views">
+      <a href="<%= qs({ tab: 'messages', page: '' }) %>" class="px-4 py-2.5 -mb-px border-b-2 text-xs font-black uppercase tracking-widest <%= tab === 'messages' ? 'border-brand-yellow text-brand-dark dark:text-white' : 'border-transparent text-brand-muted hover:text-brand-dark dark:hover:text-white' %>">All messages</a>
+      <a href="<%= qs({ tab: 'campaigns', page: '', status: '', source: '', q: '' }) %>" class="px-4 py-2.5 -mb-px border-b-2 text-xs font-black uppercase tracking-widest <%= tab === 'campaigns' ? 'border-brand-yellow text-brand-dark dark:text-white' : 'border-transparent text-brand-muted hover:text-brand-dark dark:hover:text-white' %>">Campaigns<% if (campaignCount) { %> · <%= campaignCount %><% } %></a>
+    </nav>
+
+    <% if (tab === 'messages') { %>
+    <form method="get" action="/messages" class="flex flex-wrap items-center gap-2 mb-5" id="messagesFilterForm">
+      <% if (_f.days !== 30) { %><input type="hidden" name="days" value="<%= _f.days %>"><% } %>
+      <div class="flex gap-1" role="group" aria-label="Channel">
+        <a href="<%= qs({ channel: '', page: '' }) %>" class="<%= chip %> <%= !_f.channel ? chipOn : chipOff %>">All</a>
+        <a href="<%= qs({ channel: 'sms', page: '' }) %>" class="<%= chip %> <%= _f.channel === 'sms' ? chipOn : chipOff %>">SMS</a>
+        <a href="<%= qs({ channel: 'email', page: '' }) %>" class="<%= chip %> <%= _f.channel === 'email' ? chipOn : chipOff %>">Email</a>
+      </div>
+      <% if (_f.channel) { %><input type="hidden" name="channel" value="<%= _f.channel %>"><% } %>
+      <select name="status" class="js-autosubmit rounded-full border border-brand-border/60 dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-1.5 text-xs font-semibold text-brand-dark dark:text-white" aria-label="Status">
+        <option value="">Any status</option>
+        <% ['delivered', 'opened', 'clicked', 'sent', 'failed'].forEach(function (s) { %>
+        <option value="<%= s %>" <%= _f.status === s ? 'selected' : '' %>><%= STATUS_LABEL[s] %></option>
+        <% }); %>
+      </select>
+      <select name="source" class="js-autosubmit rounded-full border border-brand-border/60 dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-1.5 text-xs font-semibold text-brand-dark dark:text-white" aria-label="Sent from">
+        <option value="">Sent from anywhere</option>
+        <% Object.keys(_labels).forEach(function (k) { %>
+        <option value="<%= k %>" <%= _f.source === k ? 'selected' : '' %>><%= _labels[k] %></option>
+        <% }); %>
+      </select>
+      <input type="search" name="q" value="<%= _f.q %>" placeholder="Search lead, number, email or text" class="flex-1 min-w-[200px] rounded-full border border-brand-border/60 dark:border-white/15 bg-white dark:bg-slate-900 px-4 py-1.5 text-sm text-brand-dark dark:text-white placeholder:text-brand-muted">
+    </form>
+    <% } %>
+    <% } %>
+
+    <% if (tab === 'campaigns') { %>
+      <% const _camps = Array.isArray(campaigns) ? campaigns : []; %>
+      <% if (!_camps.length) { %>
+      <div class="rounded-[2rem] border-2 border-dashed border-brand-border dark:border-white/15 bg-white/60 dark:bg-slate-900/50 px-8 py-14 text-center">
+        <h2 class="font-display font-bold text-xl mb-2">No campaigns yet</h2>
+        <p class="text-sm text-brand-muted max-w-md mx-auto mb-6">Select leads in the pipeline and use <strong class="text-brand-dark dark:text-slate-200">Bulk SMS</strong> or <strong class="text-brand-dark dark:text-slate-200">Bulk email</strong>. Each bulk send shows up here with who got it and what happened.</p>
+        <a href="/pipeline" class="btn-pill btn-primary inline-flex px-8 py-3 text-xs font-black uppercase tracking-widest">Open pipeline</a>
+      </div>
+      <% } else { %>
+      <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm overflow-hidden">
+        <ul class="divide-y divide-brand-border/40 dark:divide-white/10">
+          <% _camps.forEach(function (c) {
+            const sent = c.total - c.failed;
+            const denom = Math.max(1, c.total);
+          %>
+          <li>
+            <a href="/messages/campaigns/<%= encodeURIComponent(c.id) %>" class="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6 px-4 sm:px-6 py-4 hover:bg-brand-cream/20 dark:hover:bg-slate-800/40 transition-colors">
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-2 mb-1">
+                  <span class="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-brand-border/60 dark:border-white/15 text-brand-muted"><%= c.channel === 'email' ? 'Email' : 'SMS' %></span>
+                  <span class="text-[10px] text-brand-muted tabular-nums"><%= wsDateTime(c.created_at, { dateStyle: 'medium', timeStyle: 'short' }) %></span>
+                  <% if (c.actor_name || c.actor_email) { %><span class="text-[10px] text-brand-muted">· <%= c.actor_name || c.actor_email %></span><% } %>
+                </div>
+                <p class="text-sm font-bold text-brand-dark dark:text-white truncate"><%= c.displayName %></p>
+                <div class="mt-2 h-1.5 rounded-full bg-brand-border/40 dark:bg-white/10 overflow-hidden flex max-w-md" aria-hidden="true">
+                  <span class="bg-emerald-500" style="width: <%= (c.delivered / denom) * 100 %>%"></span>
+                  <span class="bg-slate-400/70" style="width: <%= ((sent - c.delivered) / denom) * 100 %>%"></span>
+                  <span class="bg-rose-500" style="width: <%= (c.failed / denom) * 100 %>%"></span>
+                </div>
+              </div>
+              <dl class="grid grid-cols-4 gap-4 text-center shrink-0">
+                <div><dt class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Sent</dt><dd class="font-display font-black text-lg tabular-nums"><%= sent %></dd></div>
+                <div><dt class="text-[9px] font-black uppercase tracking-widest text-brand-muted"><%= c.channel === 'email' ? 'Opened' : 'Delivered' %></dt><dd class="font-display font-black text-lg tabular-nums <%= c.channel === 'email' ? 'text-sky-700 dark:text-sky-300' : 'text-emerald-700 dark:text-emerald-300' %>"><%= c.channel === 'email' ? c.opened : c.delivered %></dd></div>
+                <div><dt class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Failed</dt><dd class="font-display font-black text-lg tabular-nums <%= c.failed ? 'text-rose-600 dark:text-rose-300' : '' %>"><%= c.failed %></dd></div>
+                <div><dt class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Skipped</dt><dd class="font-display font-black text-lg tabular-nums"><%= c.skipped %></dd></div>
+              </dl>
+            </a>
+          </li>
+          <% }); %>
+        </ul>
+      </section>
+      <% } %>
+    <% } else { %>
+      <% if (!_rows.length) { %>
+      <div class="rounded-[2rem] border-2 border-dashed border-brand-border dark:border-white/15 bg-white/60 dark:bg-slate-900/50 px-8 py-14 text-center">
+        <h2 class="font-display font-bold text-xl mb-2"><%= (_f.q || _f.status || _f.source || _f.channel) ? 'Nothing matches those filters' : 'Nothing sent yet' %></h2>
+        <p class="text-sm text-brand-muted max-w-md mx-auto">Texts and emails you send from a lead, a bulk send, a cadence or an info pack are listed here.</p>
+      </div>
+      <% } else { %>
+      <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm overflow-hidden" aria-label="Sent messages">
+        <ul class="divide-y divide-brand-border/40 dark:divide-white/10">
+          <% _rows.forEach(function (m) {
+            const preview = String((m.channel === 'email' && m.subject) ? m.subject : (m.body || m.subject || '')).replace(/\s+/g, ' ').trim();
+          %>
+          <li>
+            <details class="group">
+              <summary class="list-none cursor-pointer [&::-webkit-details-marker]:hidden flex items-start gap-3 px-4 sm:px-6 py-3.5 hover:bg-brand-cream/20 dark:hover:bg-slate-800/40 transition-colors">
+                <span class="mt-0.5 shrink-0 w-8 h-8 rounded-full flex items-center justify-center <%= m.channel === 'email' ? 'bg-sky-500/10 text-sky-700 dark:text-sky-300' : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' %>" aria-label="<%= m.channel === 'email' ? 'Email' : 'SMS' %>">
+                  <% if (m.channel === 'email') { %>
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>
+                  <% } else { %>
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" /></svg>
+                  <% } %>
+                </span>
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-wrap items-baseline gap-x-2">
+                    <p class="text-sm font-bold text-brand-dark dark:text-white truncate max-w-full"><%= m.lead_title || m.recipient || 'Unknown lead' %></p>
+                    <% if (m.recipient && m.lead_title) { %><p class="text-[11px] text-brand-muted truncate"><%= m.recipient %></p><% } %>
+                  </div>
+                  <p class="text-[12px] text-brand-dark/75 dark:text-slate-300 mt-0.5 line-clamp-1 group-open:hidden"><%= preview || '(no text saved)' %></p>
+                  <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
+                    <span class="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border <%= STATUS_STYLE[m.status] || STATUS_STYLE.sent %>"><%= STATUS_LABEL[m.status] || m.status %></span>
+                    <span class="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-brand-border/60 dark:border-white/15 text-brand-muted"><%= _labels[m.source] || m.source %></span>
+                    <% if (who(m)) { %><span class="text-[10px] text-brand-muted">by <%= who(m) %></span><% } %>
+                  </div>
+                </div>
+                <time class="shrink-0 text-[10px] text-brand-muted tabular-nums text-right pt-1" datetime="<%= new Date(m.created_at).toISOString() %>"><%= wsDateTime(m.created_at, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) %></time>
+              </summary>
+              <div class="px-4 sm:px-6 pb-4 pl-[3.75rem] sm:pl-[4.25rem]">
+                <% if (m.channel === 'email' && m.subject) { %><p class="text-sm font-bold mb-1"><%= m.subject %></p><% } %>
+                <% if (m.body) { %>
+                <p class="text-sm text-brand-dark/85 dark:text-slate-200 whitespace-pre-wrap break-words rounded-2xl <%= m.channel === 'sms' ? 'bg-emerald-500/10 dark:bg-emerald-400/10 inline-block px-4 py-2.5 max-w-xl' : 'bg-brand-cream/40 dark:bg-slate-800/60 px-4 py-3' %>"><%= m.body %></p>
+                <% } else if (m.channel === 'email') { %>
+                <p class="text-xs text-brand-muted italic">The email body wasn&apos;t saved for this earlier send.</p>
+                <% } %>
+                <% if (m.error) { %><p class="mt-2 text-xs font-semibold text-rose-700 dark:text-rose-300">Why it failed: <%= m.error %></p><% } %>
+                <div class="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-brand-muted">
+                  <span><%= wsDateTime(m.created_at, { dateStyle: 'medium', timeStyle: 'short' }) %></span>
+                  <% if (m.provider) { %><span>· via <%= m.provider === 'ghl' ? 'Go High Level' : m.provider === 'signalwire' ? 'SignalWire' : m.provider === 'comms' ? 'Comms' : m.provider %></span><% } %>
+                  <% if (m.campaign_id && !_camp) { %><a href="/messages/campaigns/<%= encodeURIComponent(m.campaign_id) %>" class="font-bold underline text-brand-dark dark:text-white">View campaign</a><% } %>
+                  <% if (m.lead_key) { %><a href="<%= leadHref(m.lead_key) %>" class="font-bold underline text-brand-dark dark:text-white">Open lead</a><% } %>
+                </div>
+              </div>
+            </details>
+          </li>
+          <% }); %>
+        </ul>
+      </section>
+      <% } %>
+    <% } %>
+
+    <% if (!_camp && total > pageSize) {
+      const pages = Math.ceil(total / pageSize);
+    %>
+    <nav class="flex items-center justify-between mt-5 text-xs" aria-label="Pages">
+      <p class="text-brand-muted tabular-nums">Page <%= _f.page %> of <%= pages %> · <%= total %> total</p>
+      <div class="flex gap-2">
+        <% if (_f.page > 1) { %><a href="<%= qs({ page: String(_f.page - 1) }) %>" class="<%= chip %> <%= chipOff %>">Newer</a><% } %>
+        <% if (_f.page < pages) { %><a href="<%= qs({ page: String(_f.page + 1) }) %>" class="<%= chip %> <%= chipOff %>">Older</a><% } %>
+      </div>
+    </nav>
+    <% } %>
+  </main>
+  <script>
+    document.querySelectorAll('#messagesFilterForm .js-autosubmit').forEach(function (el) {
+      el.addEventListener('change', function () { el.form.submit(); });
+    });
+  </script>
+  <%- include('partials/footer') %>
+</body>
+</html>

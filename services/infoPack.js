@@ -8,6 +8,7 @@ const { getPlaybookById } = require('./directMailPlaybooks');
 const { resolveAuditLinksForLead } = require('./auditLandingPage');
 const smsOutbound = require('./smsOutbound');
 const ghlMessaging = require('./ghlMessaging');
+const messageLog = require('./messageLog');
 const ghlClient = require('./ghlClient');
 const phoneLineType = require('./phoneLineType');
 const lobClient = require('./lobClient');
@@ -355,6 +356,7 @@ async function sendInfoPackToLead({
     } else if (!String(materialized.sms.body || '').trim()) {
       results.sms = { ok: false, error: 'SMS body is empty.', skipped: true };
     } else {
+      let smsSent = false;
       try {
         const sent = await smsOutbound.sendSmsToLead({
           lead: latestLead,
@@ -363,6 +365,17 @@ async function sendInfoPackToLead({
           workspaceId: wid,
           fromNumber: typeof resolveCallerNumber === 'function' ? resolveCallerNumber() : '',
           to,
+        });
+        smsSent = true;
+        messageLog.record(req || { workspaceId: wid }, {
+          workspaceId: wid,
+          channel: 'sms',
+          source: 'info_pack',
+          lead: latestLead,
+          recipient: to,
+          body: materialized.sms.body,
+          provider: sent.provider,
+          providerMessageId: sent.messageId,
         });
         results.sms = {
           ok: true,
@@ -397,6 +410,17 @@ async function sendInfoPackToLead({
         }
       } catch (err) {
         results.sms = { ok: false, error: err && err.message ? err.message : 'SMS send failed.' };
+        if (!smsSent) {
+          messageLog.record(req || { workspaceId: wid }, {
+            workspaceId: wid,
+            channel: 'sms',
+            source: 'info_pack',
+            lead: latestLead,
+            recipient: to,
+            body: materialized.sms.body,
+            error: results.sms.error,
+          });
+        }
       }
     }
   } else {
@@ -416,6 +440,7 @@ async function sendInfoPackToLead({
     } else if (!String(materialized.email.body || '').trim()) {
       results.email = { ok: false, error: 'Email body is empty.', skipped: true };
     } else {
+      let emailSent = false;
       try {
         const sent = await ghlMessaging.sendEmailToLead({
           lead: latestLead,
@@ -423,6 +448,18 @@ async function sendInfoPackToLead({
           body: materialized.email.body,
           integrationEnv,
           toEmail: to,
+        });
+        emailSent = true;
+        messageLog.record(req || { workspaceId: wid }, {
+          workspaceId: wid,
+          channel: 'email',
+          source: 'info_pack',
+          lead: latestLead,
+          recipient: to,
+          subject: materialized.email.subject || 'Message from Agency OS',
+          body: materialized.email.body,
+          provider: sent.provider || 'ghl',
+          providerMessageId: sent.messageId,
         });
         results.email = {
           ok: true,
@@ -457,6 +494,18 @@ async function sendInfoPackToLead({
         }
       } catch (err) {
         results.email = { ok: false, error: err && err.message ? err.message : 'Email send failed.' };
+        if (!emailSent) {
+          messageLog.record(req || { workspaceId: wid }, {
+            workspaceId: wid,
+            channel: 'email',
+            source: 'info_pack',
+            lead: latestLead,
+            recipient: to,
+            subject: materialized.email.subject || 'Message from Agency OS',
+            body: materialized.email.body,
+            error: results.email.error,
+          });
+        }
       }
     }
   } else {
