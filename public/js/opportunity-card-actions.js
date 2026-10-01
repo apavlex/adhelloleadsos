@@ -73,9 +73,11 @@
     );
   }
 
-  /** Stage-header button that opens group SMS for every lead in the column. */
+  /** Stage-header buttons: call queue in the softphone, then group SMS, for every lead in the column. */
   function stageSmsButtonHtml() {
     return (
+      '<button type="button" class="opp-stage-call" data-opp-action="stage-call" title="Call everyone in this stage" aria-label="Call everyone in this stage" disabled>' +
+      ICONS.call + '</button>' +
       '<button type="button" class="opp-stage-sms" data-opp-action="stage-sms" title="Text everyone in this stage" aria-label="Text everyone in this stage" disabled>' +
       ICONS.sms + '</button>'
     );
@@ -753,13 +755,19 @@
     }
 
     function syncStageSmsButton(column) {
-      var btn = column && column.querySelector('.opp-stage-sms');
-      if (!btn) return;
+      if (!column) return;
       var n = stageSmsKeys(column).keys.length;
-      btn.disabled = !n;
-      btn.title = n
-        ? 'Text everyone in this stage (' + n + ' lead' + (n === 1 ? '' : 's') + ')'
-        : 'No one in this stage has a phone number';
+      var leads = n + ' lead' + (n === 1 ? '' : 's');
+      var sms = column.querySelector('.opp-stage-sms');
+      if (sms) {
+        sms.disabled = !n;
+        sms.title = n ? 'Text everyone in this stage (' + leads + ')' : 'No one in this stage has a phone number';
+      }
+      var call = column.querySelector('.opp-stage-call');
+      if (call) {
+        call.disabled = !n;
+        call.title = n ? 'Call everyone in this stage (' + leads + ') in the softphone' : 'No one in this stage has a phone number';
+      }
     }
 
     function syncAllStageSmsButtons() {
@@ -836,6 +844,10 @@
       var kind = action.getAttribute('data-opp-action');
       if (kind === 'stage-sms') {
         if (!action.disabled) smsStage(action.closest(cfg.column));
+        return;
+      }
+      if (kind === 'stage-call') {
+        if (!action.disabled) callStageInSoftphone(action.closest(cfg.column), '');
         return;
       }
       if (kind === 'call') {
