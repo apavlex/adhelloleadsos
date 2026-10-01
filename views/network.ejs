@@ -54,6 +54,13 @@
     .net-seat-holder.is-waiting { display: flex; align-items: center; gap: 0.3rem; font-weight: 500; color: #64748b; }
     .net-seat-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
     .net-seat-wait { flex-shrink: 0; padding: 0 0.3rem; border-radius: 999px; font-size: 9px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; background: rgba(148, 163, 184, 0.2); vertical-align: 1px; }
+    .net-seat-row { display: flex; align-items: center; gap: 0.15rem; min-width: 0; }
+    .net-seat-row .net-seat-holder { flex: 1 1 auto; min-width: 0; }
+    .net-seat-remove { margin: 0.1rem 0 0; flex-shrink: 0; }
+    .net-seat-remove button { width: 1.25rem; height: 1.25rem; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 999px; background: transparent; color: #94a3b8; font-size: 15px; line-height: 1; cursor: pointer; opacity: 0; transition: opacity 120ms ease; }
+    .net-seat-row:hover .net-seat-remove button, .net-seat-remove button:focus-visible { opacity: 1; }
+    .net-seat-remove button:hover { background: rgba(225, 29, 72, 0.12); color: #e11d48; }
+    @media (hover: none) { .net-seat-remove button { opacity: 0.7; } }
     .net-seat-allow { margin: 0.3rem 0 0; }
     .net-seat-allow button { padding: 0.25rem 0.65rem; border-radius: 999px; border: 0; font-size: 11px; font-weight: 800; background: var(--brand-yellow, #FFD644); color: var(--brand-on-accent, #111827); cursor: pointer; }
     .net-seat-allow button:hover { background: color-mix(in srgb, var(--brand-yellow, #FFD644) 88%, #000); }
@@ -200,11 +207,20 @@
             <% if (seat.holders.length || seat.waiting.length) { var partnerCount = seat.holders.length + seat.waiting.length; %>
             <div class="net-seat is-held">
               <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted truncate"><%= seat.trade.name %><%= partnerCount > 1 ? ' · ' + partnerCount : '' %></p>
-              <% seat.holders.forEach(function (h) { %>
-              <a href="<%= h.href %>" class="net-seat-holder <%= h.paused ? 'is-paused' : '' %>" title="Open <%= h.name %> in Referral Partners"><%= h.name %><%= h.paused ? ' (paused)' : '' %></a>
-              <% }); %>
-              <% seat.waiting.forEach(function (w) { %>
-              <a href="<%= w.href %>" class="net-seat-holder is-waiting" title="<%= w.name %> picked this trade but the seat is full, so they don't get referrals yet. Open in Referral Partners."><span class="net-seat-name"><%= w.name %></span><span class="net-seat-wait">waiting</span></a>
+              <% seat.holders.map(function (h) { return Object.assign({ waiting: false }, h); }).concat(seat.waiting.map(function (w) { return Object.assign({ waiting: true }, w); })).forEach(function (p) { %>
+              <div class="net-seat-row">
+                <% if (p.waiting) { %>
+                <a href="<%= p.href %>" class="net-seat-holder is-waiting" title="<%= p.name %> picked this trade but the seat is full, so they don't get referrals yet. Open in Referral Partners."><span class="net-seat-name"><%= p.name %></span><span class="net-seat-wait">waiting</span></a>
+                <% } else { %>
+                <a href="<%= p.href %>" class="net-seat-holder <%= p.paused ? 'is-paused' : '' %>" title="Open <%= p.name %> in Referral Partners"><%= p.name %><%= p.paused ? ' (paused)' : '' %></a>
+                <% } %>
+                <% if (canManage) { %>
+                <form method="post" action="/network/members/<%= p.id %>/trades/<%= seat.trade.slug %>/remove" class="net-seat-remove" onsubmit="return confirm(<%= JSON.stringify('Remove ' + p.name + ' from ' + seat.trade.name + (zones.length > 1 ? ' in every zone' : '') + '? They stay a network member.') %>);">
+                  <input type="hidden" name="back" value="seats" />
+                  <button type="submit" title="Remove <%= p.name %> from <%= seat.trade.name %>" aria-label="Remove <%= p.name %> from <%= seat.trade.name %>">×</button>
+                </form>
+                <% } %>
+              </div>
               <% }); %>
               <% if (seat.waiting.length && canManage) { %>
               <form method="post" action="/network/setup" class="net-seat-allow">
@@ -324,6 +340,9 @@
             <form method="post" action="/network/members/<%= m.id %>/status">
               <input type="hidden" name="status" value="<%= m.status === 'active' ? 'paused' : 'active' %>" />
               <button type="submit" class="net-btn net-btn-ghost"><%= m.status === 'active' ? 'Pause' : 'Activate' %></button>
+            </form>
+            <form method="post" action="/network/members/<%= m.id %>/remove" onsubmit="return confirm(<%= JSON.stringify('Remove ' + m.companyName + ' from the network? Their seats open up, their app link stops working, and past referrals stay in your history.') %>);">
+              <button type="submit" class="net-btn net-btn-danger">Remove from network</button>
             </form>
             <% } %>
           </div>

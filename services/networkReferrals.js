@@ -121,7 +121,29 @@ async function saveMemberWithSeats(network, member, { trades, zoneIds }) {
   return { member: saved, conflicts: plan.conflicts };
 }
 
+/** Take a member out of one trade (in every zone) and give the freed spot to whoever is waiting. */
+async function removeMemberFromTrade(network, member, tradeSlug) {
+  const { member: saved } = await saveMemberWithSeats(network, member, {
+    trades: member.trades.filter((slug) => slug !== tradeSlug),
+    zoneIds: member.zoneIds,
+  });
+  const seated = await reseatWaitingMembers(network);
+  return { member: saved, seated };
+}
+
+/** Delete a member and their seats. Past referrals keep their history under "Removed member". */
+async function removeMember(network, member) {
+  const zones = await store.listZones(network.id);
+  const plan = ex.planMemberSeats(zones, member.id, { trades: [], zoneIds: [] }, undefined, network.seatLimit);
+  for (const zone of plan.changed) await store.saveZone(network.id, zone);
+  await store.deleteMember(network.id, member);
+  const seated = await reseatWaitingMembers(network);
+  return { seated };
+}
+
 module.exports = {
+  removeMemberFromTrade,
+  removeMember,
   sendReferral,
   actOnReferral,
   saveMemberWithSeats,

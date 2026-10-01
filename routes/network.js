@@ -72,8 +72,8 @@ function formatWhen(iso) {
 
 function presentReferral(ref, membersById, zonesById, network) {
   const h = ref.homeowner || {};
-  const from = ref.fromMemberId === 'operator' ? 'You' : (membersById[ref.fromMemberId] || {}).companyName || 'Member';
-  const to = ref.toMemberId ? (membersById[ref.toMemberId] || {}).companyName || 'Member' : '';
+  const from = ref.fromMemberId === 'operator' ? 'You' : (membersById[ref.fromMemberId] || {}).companyName || 'Removed member';
+  const to = ref.toMemberId ? (membersById[ref.toMemberId] || {}).companyName || 'Removed member' : '';
   return {
     id: ref.id,
     status: ref.status,
@@ -467,6 +467,39 @@ router.post('/members/:id/seats', async (req, res) => {
   } catch (err) {
     console.error('[network] seats failed:', err.message);
     return reply(req, res, { ok: false, tab: 'members', notice: 'Could not save those seats.', status: 500 });
+  }
+});
+
+router.post('/members/:id/trades/:slug/remove', async (req, res) => {
+  const tab = req.body.back === 'seats' ? 'seats' : 'members';
+  if (!canManage(req)) return reply(req, res, { ok: false, tab, notice: 'Only owners and admins can change seats.', status: 403 });
+  try {
+    const network = await loadNetwork(req);
+    const member = await store.getMember(network.id, req.params.id);
+    if (!member) return reply(req, res, { ok: false, tab, notice: 'Member not found.', status: 404 });
+    const tradeName = trades.tradeLabel(req.params.slug, network);
+    if (!member.trades.includes(req.params.slug)) return reply(req, res, { ok: true, tab, notice: `${member.companyName} is not in ${tradeName}.` });
+    const { seated } = await networkReferrals.removeMemberFromTrade(network, member, req.params.slug);
+    const notice = `Removed ${member.companyName} from ${tradeName}.${seated.length ? ` Seated ${seated.join(', ')}.` : ''}`;
+    return reply(req, res, { ok: true, tab, notice });
+  } catch (err) {
+    console.error('[network] remove from trade failed:', err.message);
+    return reply(req, res, { ok: false, tab, notice: 'Could not remove that member from the trade.', status: 500 });
+  }
+});
+
+router.post('/members/:id/remove', async (req, res) => {
+  if (!canManage(req)) return reply(req, res, { ok: false, tab: 'members', notice: 'Only owners and admins can remove members.', status: 403 });
+  try {
+    const network = await loadNetwork(req);
+    const member = await store.getMember(network.id, req.params.id);
+    if (!member) return reply(req, res, { ok: false, tab: 'members', notice: 'Member not found.', status: 404 });
+    const { seated } = await networkReferrals.removeMember(network, member);
+    const notice = `Removed ${member.companyName} from the network.${seated.length ? ` Seated ${seated.join(', ')}.` : ''}`;
+    return reply(req, res, { ok: true, tab: 'members', notice });
+  } catch (err) {
+    console.error('[network] remove member failed:', err.message);
+    return reply(req, res, { ok: false, tab: 'members', notice: 'Could not remove that member.', status: 500 });
   }
 });
 

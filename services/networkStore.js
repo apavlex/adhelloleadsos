@@ -234,6 +234,17 @@ async function saveMember(networkId, member) {
   return next;
 }
 
+async function deleteMember(networkId, member) {
+  if (!member || !member.id) return;
+  await dbService.deleteStorageKey(`netmember:${networkId}:${member.id}`);
+  if (member.reviewSlug) {
+    const slug = await resolveReviewSlug(member.reviewSlug);
+    if (slug && slug.networkId === networkId && slug.memberId === member.id) {
+      await dbService.deleteStorageKey(`netreviewslug:${member.reviewSlug}`);
+    }
+  }
+}
+
 // ── Referrals ────────────────────────────────────────────────────────────────
 
 async function listReferrals(networkId) {
@@ -432,6 +443,7 @@ module.exports = {
   getMember,
   findMemberByLeadKey,
   saveMember,
+  deleteMember,
   listReferrals,
   getReferral,
   saveReferral,

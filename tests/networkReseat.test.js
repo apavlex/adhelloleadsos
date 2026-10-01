@@ -32,3 +32,27 @@ test('raising the partner limit seats members who were waiting for a full trade'
 
   assert.deepEqual(await networkReferrals.reseatWaitingMembers(raised), []);
 });
+
+test('removing a member from a trade or the network frees the spot for whoever is waiting', async () => {
+  const network = await store.getOrCreateNetworkForWorkspace('ws_remove', { name: 'Remove network' });
+  const zone = await store.saveZone(network.id, { name: 'Camas', cities: ['Camas'], zips: ['98607'] });
+  const [trade, other] = network.trades;
+  const add = (name, trades) => networkReferrals.saveMemberWithSeats(network, { companyName: name, status: 'active' }, { trades, zoneIds: [zone.id] });
+
+  const first = (await add('Copeland & Co.', [trade, other])).member;
+  const second = (await add('BAM Office Interiors', [trade])).member;
+  const third = (await add('Haven Staging', [trade])).member;
+
+  const removed = await networkReferrals.removeMemberFromTrade(network, first, trade);
+  assert.deepEqual(removed.member.trades, [other]);
+  assert.deepEqual(removed.seated, ['BAM Office Interiors']);
+  let zones = await store.listZones(network.id);
+  assert.deepEqual(ex.seatHolders(zones[0], trade), [second.id]);
+  assert.deepEqual(ex.seatHolders(zones[0], other), [first.id]);
+
+  const gone = await networkReferrals.removeMember(network, await store.getMember(network.id, second.id));
+  assert.deepEqual(gone.seated, ['Haven Staging']);
+  assert.equal(await store.getMember(network.id, second.id), null);
+  zones = await store.listZones(network.id);
+  assert.deepEqual(ex.seatHolders(zones[0], trade), [third.id]);
+});
