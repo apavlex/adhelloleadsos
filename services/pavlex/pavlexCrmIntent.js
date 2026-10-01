@@ -81,6 +81,9 @@ function chatUnavailableMessage(detail, { toolsRan = false } = {}) {
   if (/timed out|timeout/i.test(d)) {
     return `The AI model took too long to answer. Please try again.${suffix}`;
   }
+  if (/without calling CRM tools/i.test(d)) {
+    return `Alex couldn't find a way to do that with its CRM tools. Try asking more specifically, or make the change on the page directly.${suffix}`;
+  }
   return `Alex couldn't get an answer from the AI model just now. Please try again in a moment.${suffix}`;
 }
 

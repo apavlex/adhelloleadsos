@@ -201,6 +201,29 @@ test('network tools route referrals, move them along, and guard approvals', asyn
   assert.equal(rejected.success, true);
 });
 
+test('manage_network_trades lists, adds built-in and custom trades, and hides them', async () => {
+  const { wid } = await setupWorkspace();
+  const ctx = { workspaceId: wid, userEmail: OWNER };
+
+  const listed = await executeCrmTool(ctx, 'manage_network_trades', { action: 'list' });
+  assert.equal(listed.success, true, listed.error);
+  assert.ok(listed.hidden_trades.includes('Interior design'));
+
+  const added = await executeCrmTool(ctx, 'manage_network_trades', { action: 'add', trades: ['Interior designers', 'Property managers', 'Flooring'] });
+  assert.equal(added.success, true, added.error);
+  assert.ok(added.active_trades.includes('Interior design'));
+  assert.ok(added.active_trades.includes('Property managers'));
+  assert.match(added.skipped.join(' '), /Flooring: already on the list/);
+
+  const hidden = await executeCrmTool(ctx, 'manage_network_trades', { action: 'hide', trades: ['plumbing', 'Property managers'] });
+  assert.match(hidden.skipped.join(' '), /Plumbing: a member holds its seat in Camas/);
+  assert.ok(hidden.hidden_trades.includes('Property managers'));
+
+  const denied = await executeCrmTool({ ...ctx, userEmail: VIEWER }, 'manage_network_trades', { action: 'add', trades: ['Solar'] });
+  assert.equal(denied.code, 'FORBIDDEN');
+  assert.ok(getOpenAiFunctionTools().some((t) => t.function.name === 'manage_network_trades'));
+});
+
 test('redirect URI rules for dynamic registration', () => {
   assert.equal(mcpOAuth.validRedirectUri('https://claude.ai/api/mcp/auth_callback'), true);
   assert.equal(mcpOAuth.validRedirectUri('http://localhost:6274/oauth/callback'), true);

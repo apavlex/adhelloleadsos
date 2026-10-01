@@ -367,6 +367,83 @@ async function getReviewStats(ctx, input) {
   return { members: rows };
 }
 
+/** A catalog trade by slug, name, or search keyword; plural/singular differences are tolerated. */
+function findCatalogTrade(catalog, value) {
+  const wanted = normWords(value);
+  if (!wanted) return null;
+  const names = (t) => [normWords(t.slug), normWords(t.name), normWords(t.keyword)];
+  const exact = catalog.find((t) => names(t).includes(wanted));
+  if (exact) return exact;
+  const close = catalog.filter((t) => names(t).some((n) => n.length >= 4 && commonPrefix(n, wanted) >= Math.min(n.length, wanted.length) - 2 && commonPrefix(n, wanted) >= 4));
+  return close.length === 1 ? close[0] : null;
+}
+
+function tradeLists(network) {
+  const active = trades.tradesForNetwork(network);
+  const activeSlugs = new Set(active.map((t) => t.slug));
+  return {
+    active_trades: active.map((t) => t.name),
+    hidden_trades: trades.catalogFor(network).filter((t) => !activeSlugs.has(t.slug)).map((t) => t.name),
+  };
+}
+
+async function manageNetworkTrades(ctx, input) {
+  const network = await requireNetwork(ctx);
+  if (input.action === 'list') return tradeLists(network);
+  await requireManager(ctx);
+  const names = (input.trades || []).map((t) => String(t || '').replace(/\s+/g, ' ').trim().slice(0, 40)).filter(Boolean);
+  if (!names.length) throw toolError('Say which trades, e.g. ["Interior design", "Cabinets"].', 'TRADE_REQUIRED');
+
+  let active = trades.tradesForNetwork(network).map((t) => t.slug);
+  let custom = trades.normalizeCustomTrades(network.customTrades);
+  const zones = input.action === 'hide' ? await store.listZones(network.id) : [];
+  const done = [];
+  const skipped = [];
+
+  for (const name of names) {
+    const catalog = trades.DEFAULT_TRADES.concat(custom);
+    const trade = findCatalogTrade(catalog, name);
+    if (input.action === 'hide') {
+      if (!trade || !active.includes(trade.slug)) { skipped.push(`${name}: not on the list`); continue; }
+      const held = zones.filter((z) => ex.seatHolder(z, trade.slug));
+      if (held.length) { skipped.push(`${trade.name}: a member holds its seat in ${held.map((z) => z.name).join(', ')}`); continue; }
+      if (active.length === 1) { skipped.push(`${trade.name}: it's the last trade`); continue; }
+      active = active.filter((s) => s !== trade.slug);
+      done.push(trade.name);
+      continue;
+    }
+    if (trade) {
+      if (active.includes(trade.slug)) { skipped.push(`${trade.name}: already on the list`); continue; }
+      active = active.concat(trade.slug);
+      done.push(trade.name);
+      continue;
+    }
+    if (input.action === 'show') { skipped.push(`${name}: not a trade yet (use action "add")`); continue; }
+    const slug = trades.customSlug(name);
+    if (!slug) { skipped.push(`${name}: needs letters or numbers`); continue; }
+    if (custom.length >= trades.MAX_CUSTOM_TRADES) { skipped.push(`${name}: custom trade limit (${trades.MAX_CUSTOM_TRADES}) reached`); continue; }
+    custom = custom.concat({ slug, name, keyword: name.toLowerCase(), custom: true });
+    active = active.concat(slug);
+    done.push(`${name} (custom)`);
+  }
+
+  const saved = done.length
+    ? await store.saveNetwork({
+        ...network,
+        customTrades: custom.map(({ slug, name, keyword }) => ({ slug, name, keyword })),
+        trades: active,
+      })
+    : network;
+  const verb = input.action === 'hide' ? 'Hidden' : input.action === 'show' ? 'Back on the list' : 'Added';
+  return {
+    message: done.length
+      ? `${verb}: ${done.join(', ')}.${input.action === 'hide' ? '' : ' Each has an open seat in every zone.'}`
+      : 'Nothing changed.',
+    skipped,
+    ...tradeLists(saved),
+  };
+}
+
 // ── Registry ─────────────────────────────────────────────────────────────────
 
 const STATUS_ENUM = z.enum(['unrouted', 'sent', 'accepted', 'declined', 'booked', 'won', 'lost']);
@@ -465,6 +542,18 @@ const NETWORK_TOOLS = [
       'Review page results per member: page views, star ratings, average, clicks per review site (Google, Yelp, Thumbtack, Angi, etc.), and recent private feedback.',
     schema: z.object({ member: z.string().optional().describe('Member id or name; omit for all members.') }),
     run: getReviewStats,
+  },
+  {
+    name: 'manage_network_trades',
+    description:
+      'See or change which trades have seats in the referral network. list: active and hidden trades. ' +
+      'add: turn on built-in trades or create custom ones (e.g. partners that send a flooring business work: Interior design, Real estate, Cabinets, Countertops, Remodeling). ' +
+      'hide / show: take trades off the seat list or bring them back. Changes are owners/admins only.',
+    schema: z.object({
+      action: z.enum(['list', 'add', 'hide', 'show']),
+      trades: z.array(z.string()).optional().describe('Trade names for add/hide/show, e.g. ["Interior design", "Property managers"].'),
+    }),
+    run: manageNetworkTrades,
   },
 ];
 
