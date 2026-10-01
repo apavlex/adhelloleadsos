@@ -28,6 +28,7 @@ const salesScriptsStorage = require('../services/salesScriptsStorage');
 const { isAgencySalesWorkspace } = require('../services/leadPanelWorkspace');
 const { roiScoreOptionsFromWorkspace } = require('../services/workspaceRoiProfile');
 const { createConfiguredAuditLinkResolver } = require('../services/infoPack');
+const { partnerRecord } = require('../services/referralNetwork');
 
 /** First N leads in HTML so Focus paints before the full early-stage queue hydrates. */
 const FOCUS_SSR_CHUNK = 20;
@@ -177,6 +178,7 @@ function leadToFocusPayload(l, sortedStages, scriptLibrary, allowedKeys, opts) {
     url: l.url && l.url !== 'N/A' ? l.url : '',
     reviewsCount: Number.isFinite(parseInt(l.reviewsCount, 10)) ? parseInt(l.reviewsCount, 10) : 0,
     totalScore: Number.isFinite(parseFloat(l.totalScore)) ? parseFloat(l.totalScore) : 0,
+    referralPartner: partnerRecord(l).highlighted,
     ownerSignal: isAgency ? String(l.ownerSignal || '').trim() : '',
     businessNeeds: buildBusinessNeedsPayload(l, scriptLibrary, allowedKeys, { isAgency }),
     hasAiWebsiteAnalysis: isAgency && !!(l.aiWebsiteAnalysis && typeof l.aiWebsiteAnalysis === 'object'),
