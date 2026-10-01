@@ -117,7 +117,14 @@ router.get('/', async (req, res, next) => {
         const holder = holderId ? membersById[holderId] : null;
         return {
           trade,
-          holder: holder ? { id: holder.id, name: holder.companyName, paused: holder.status !== 'active' } : null,
+          holder: holder
+            ? {
+                id: holder.id,
+                name: holder.companyName,
+                paused: holder.status !== 'active',
+                href: holder.leadKey ? `/referrals?focus=${encodeURIComponent(holder.leadKey)}` : '/network?tab=members',
+              }
+            : null,
           recruitUrl: holder ? '' : trades.recruitSearchUrl(trade.slug, zone, network),
         };
       }),

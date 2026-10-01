@@ -41,11 +41,17 @@ async function findLead(req, key) {
 router.get('/', async (req, res, next) => {
   try {
     const q = String(req.query.q || '').trim();
+    const focus = String(req.query.focus || '').trim();
     const leads = await workspaceLeads(req);
     const network = await networkStore.getNetworkForWorkspace(req.workspaceId);
     const [zones, members] = network
       ? await Promise.all([networkStore.listZones(network.id), networkStore.listMembers(network.id)])
       : [[], []];
+    const partners = referralNetwork.listPartners(leads, q);
+    if (focus && !partners.some((p) => p.key === focus)) {
+      const lead = leads.find((l) => l && l.key === focus);
+      if (lead) partners.unshift(referralNetwork.presentPartner(lead));
+    }
     res.render('referrals', {
       networkSetup: {
         trades: network ? tradesForNetwork(network).map((t) => ({ slug: t.slug, name: t.name })) : [],
@@ -55,7 +61,8 @@ router.get('/', async (req, res, next) => {
       title: 'Referral partners',
       activePage: 'referrals',
       query: q,
-      partners: referralNetwork.listPartners(leads, q),
+      focus,
+      partners,
       totals: referralNetwork.networkTotals(leads),
       savedCount: leads.length,
       notice: String(req.query.notice || '').trim(),
