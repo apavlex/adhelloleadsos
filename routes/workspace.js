@@ -36,6 +36,7 @@ const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConsta
 const salesScriptsStorage = require('../services/salesScriptsStorage');
 const workspaceSalesScripts = require('../services/workspaceSalesScripts');
 const workspaceScriptBootstrap = require('../services/workspaceScriptBootstrap');
+const scriptPush = require('../services/scriptPush');
 const { buildOutreachLibrary } = require('../services/outreachChannelScripts');
 const {
   ARMS_REACH_FACEBOOK_SEEDS,
@@ -1887,6 +1888,45 @@ router.delete('/scripts/offers/:key', async (req, res, next) => {
     await dbService.saveWorkspace(wid, ws);
     const nextBundle = workspaceOfferBundle(ws);
     res.json({ success: true, catalog: nextBundle.catalog, library: nextBundle.library });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** GET JSON: workspaces this user can push offer scripts into, plus recent pushes. */
+router.get('/scripts/push-targets.json', async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Manage permission required.' });
+    }
+    const email = workspaceService.userEmail(req);
+    const targets = await scriptPush.listPushTargets(email, req.workspaceId);
+    const ws = await dbService.getWorkspace(req.workspaceId);
+    res.json({
+      success: true,
+      targets,
+      recent: (Array.isArray(ws && ws.scriptPushLog) ? ws.scriptPushLog : []).slice(0, 5),
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** POST JSON: copy selected offer scripts into other workspaces this user manages. */
+router.post('/scripts/push', express.json({ limit: '32kb' }), async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Manage permission required.' });
+    }
+    const result = await scriptPush.pushOffers({
+      email: workspaceService.userEmail(req),
+      sourceWid: req.workspaceId,
+      offerKeys: req.body && req.body.offerKeys,
+      targetIds: req.body && req.body.targetIds,
+      includeSender: !!(req.body && req.body.includeSender),
+    });
+    if (!result.ok) return res.status(400).json({ success: false, error: result.error });
+    res.json({ success: true, offers: result.offers, results: result.results });
   } catch (e) {
     next(e);
   }

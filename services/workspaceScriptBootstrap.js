@@ -196,7 +196,8 @@ function workspaceScriptsAlreadySeeded(ws) {
 
 function workspaceCatalogHasAgencyOffers(ws) {
   const catalog = Array.isArray(ws && ws.salesScriptOfferCatalog) ? ws.salesScriptOfferCatalog : [];
-  return catalog.some((row) => row && AGENCY_OFFER_KEYS.has(String(row.key || '').trim()));
+  // Offers pushed in from another workspace are intentional, not a leaked fallback.
+  return catalog.some((row) => row && !row.pushedFrom && AGENCY_OFFER_KEYS.has(String(row.key || '').trim()));
 }
 
 function resolveWorkspaceScriptPresetKey(ws) {

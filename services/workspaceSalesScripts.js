@@ -37,6 +37,7 @@ function normalizeOfferCatalogEntry(raw, existingKeys) {
   if (!/^[a-z][a-z0-9_]*$/i.test(key)) return null;
   existingKeys.add(key);
   const tabLabel = String(raw.tabLabel || raw.label || label).trim().slice(0, MAX_LABEL_LEN) || label;
+  const pushedFrom = normalizePushedFrom(raw.pushedFrom);
   return {
     key,
     label,
@@ -46,6 +47,21 @@ function normalizeOfferCatalogEntry(raw, existingKeys) {
     auditLink: String(raw.auditLink || '').trim().slice(0, 500),
     serviceCities: String(raw.serviceCities || '').trim().slice(0, 400),
     serviceStates: String(raw.serviceStates || '').trim().slice(0, 80),
+    ...(pushedFrom ? { pushedFrom } : {}),
+  };
+}
+
+/** Link from an offer copied in by "Push to workspaces" back to its source offer. */
+function normalizePushedFrom(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const workspaceId = String(raw.workspaceId || '').trim().slice(0, 80);
+  const key = String(raw.key || '').trim().slice(0, MAX_OFFER_KEY_LEN);
+  if (!workspaceId || !key) return null;
+  return {
+    workspaceId,
+    workspaceName: String(raw.workspaceName || '').trim().slice(0, MAX_LABEL_LEN),
+    key,
+    at: String(raw.at || '').slice(0, 40),
   };
 }
 
