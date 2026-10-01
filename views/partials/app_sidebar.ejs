@@ -23,6 +23,12 @@
     border-color: var(--brand-yellow, #ca8a04);
     background: rgba(255, 214, 68, 0.16);
   }
+  .sidebar-new-chevron { width: 0.85rem; height: 0.85rem; margin-left: auto; opacity: 0.6; transition: transform 150ms ease; }
+  .sidebar-new.is-open .sidebar-new-chevron { transform: rotate(180deg); }
+  .sidebar-new-menu { margin: -0.2rem 0.15rem 0.45rem; padding: 0.2rem; border-radius: 0.7rem; background: color-mix(in srgb, var(--brand-yellow, #ca8a04) 9%, transparent); }
+  .sidebar-new-menu[hidden] { display: none; }
+  .sidebar-new-item { font-weight: 600; }
+  body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-new-chevron { display: none; }
   .sidebar-nav-letter {
     display: inline-flex;
     align-items: center;

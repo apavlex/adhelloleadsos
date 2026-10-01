@@ -70,6 +70,7 @@ function readJsonReply(r) {
       if (el.id === 'closeMobileMenu' || el.id === 'mobileMenuBtn') return;
       if (el.id === 'wsSwitcherBtn' || el.closest('#wsSwitcherMenu')) return;
       if (el.classList && el.classList.contains('theme-toggle-btn')) return;
+      if (el.hasAttribute('data-sidebar-new-toggle')) return;
       el.addEventListener('click', function () { closeMobileMenu(); });
     });
   }
@@ -7466,6 +7467,26 @@ function readJsonReply(r) {
         });
     });
   }
+
+  function setSidebarNewOpen(wrap, open) {
+    var toggle = wrap.querySelector('[data-sidebar-new-toggle]');
+    var menu = wrap.querySelector('.sidebar-new-menu');
+    if (!toggle || !menu) return;
+    menu.hidden = !open;
+    wrap.classList.toggle('is-open', open);
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+  document.addEventListener('click', function (e) {
+    var toggle = e.target.closest('[data-sidebar-new-toggle]');
+    document.querySelectorAll('[data-sidebar-new]').forEach(function (wrap) {
+      if (toggle && wrap.contains(toggle)) setSidebarNewOpen(wrap, !wrap.classList.contains('is-open'));
+      else setSidebarNewOpen(wrap, false);
+    });
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    document.querySelectorAll('[data-sidebar-new].is-open').forEach(function (wrap) { setSidebarNewOpen(wrap, false); });
+  });
 
   var mlModal = document.getElementById('manualLeadModal');
   var mlOpen = document.getElementById('manualLeadOpen');
