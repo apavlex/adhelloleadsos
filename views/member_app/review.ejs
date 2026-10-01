@@ -7,7 +7,7 @@
   <main class="ma-shell">
     <%- include('_top', { topTitle: 'Review' }) %>
     <h1 class="ma-page-title">Get more reviews</h1>
-    <p class="ma-page-sub">Have happy customers scan your code or send them your link. They pick a star rating, then go to Google, Facebook or Yelp. Unhappy customers can message you privately first.</p>
+    <p class="ma-page-sub">Have happy customers scan your code or send them your link. They pick a star rating, then go to Google, Yelp, Thumbtack or any review site you add below. Unhappy customers can message you privately first.</p>
 
     <%- include('_flash') %>
 
@@ -22,7 +22,7 @@
         <a class="ma-btn ma-btn--sm ma-btn--ghost" href="<%= reviewPath %>/qr.png?download=1" download><%- icons.download %> Download QR</a>
         <a class="ma-btn ma-btn--sm ma-btn--ghost" href="<%= reviewPath %>" target="_blank" rel="noopener">Preview</a>
       </div>
-      <% if (!member.reviewLinks.google && !member.reviewLinks.facebook && !member.reviewLinks.yelp && !member.reviewLinks.other.length) { %>
+      <% if (!linkCount) { %>
       <p class="ma-flash ma-flash--err" style="width:100%">Add at least one review link below so customers have somewhere to post.</p>
       <% } %>
     </section>
@@ -32,7 +32,7 @@
       <div class="ma-card">
         <div class="ma-kpis">
           <div class="ma-kpi"><strong><%= stats.views %></strong><span>Page visits</span></div>
-          <div class="ma-kpi"><strong><%= stats.clicks.google + stats.clicks.facebook + stats.clicks.yelp + stats.clicks.other %></strong><span>Went to review</span></div>
+          <div class="ma-kpi"><strong><%= totalClicks %></strong><span>Went to review</span></div>
           <div class="ma-kpi"><strong><%= feedback.length %></strong><span>Private notes</span></div>
         </div>
         <div class="ma-bars">
@@ -67,25 +67,20 @@
     <section class="ma-section">
       <div class="ma-section__head"><h2>Your review links</h2></div>
       <form method="post" action="<%= base %>/review" class="ma-card" autocomplete="off">
+        <p class="ma-hint" style="margin-top:0">Fill in the sites you're on. Leave the rest blank.</p>
+        <% platforms.forEach(function (p) { %>
         <div class="ma-field">
-          <label class="ma-label" for="rvGoogle">Google review link</label>
-          <input id="rvGoogle" name="google" type="url" inputmode="url" class="ma-input" value="<%= member.reviewLinks.google %>" placeholder="https://g.page/r/…/review">
-          <p class="ma-hint">In Google Business Profile, tap "Ask for reviews" and copy the link.</p>
+          <label class="ma-label rv-field-label" for="rv-<%= p.key %>"><span class="rv-field-badge" style="background: <%= p.color %>" aria-hidden="true"><%= p.letter %></span><%= p.field %></label>
+          <input id="rv-<%= p.key %>" name="<%= p.key %>" type="url" inputmode="url" class="ma-input" value="<%= member.reviewLinks[p.key] || '' %>" placeholder="<%= p.placeholder %>">
+          <% if (p.hint) { %><p class="ma-hint"><%= p.hint %></p><% } %>
         </div>
-        <div class="ma-field">
-          <label class="ma-label" for="rvFacebook">Facebook page</label>
-          <input id="rvFacebook" name="facebook" type="url" inputmode="url" class="ma-input" value="<%= member.reviewLinks.facebook %>" placeholder="https://facebook.com/yourpage/reviews">
-        </div>
-        <div class="ma-field">
-          <label class="ma-label" for="rvYelp">Yelp page</label>
-          <input id="rvYelp" name="yelp" type="url" inputmode="url" class="ma-input" value="<%= member.reviewLinks.yelp %>" placeholder="https://yelp.com/biz/your-business">
-        </div>
-        <% const others = member.reviewLinks.other.concat([{ label: '', url: '' }]).slice(0, 3); %>
-        <% others.forEach(function (o, i) { %>
+        <% }); %>
+        <div class="ma-section__head" style="margin-top:8px"><h2 style="font-size:15px">Other review sites</h2></div>
+        <% otherRows.forEach(function (o, i) { %>
         <div class="ma-grid2">
           <div class="ma-field">
-            <label class="ma-label" for="rvOtherLabel<%= i %>">Other site</label>
-            <input id="rvOtherLabel<%= i %>" name="otherLabel" class="ma-input" value="<%= o.label %>" placeholder="e.g. Angi" maxlength="40">
+            <label class="ma-label" for="rvOtherLabel<%= i %>">Site name</label>
+            <input id="rvOtherLabel<%= i %>" name="otherLabel" class="ma-input" value="<%= o.label %>" placeholder="e.g. HomeAdvisor" maxlength="40">
           </div>
           <div class="ma-field">
             <label class="ma-label" for="rvOtherUrl<%= i %>">Link</label>

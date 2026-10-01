@@ -462,7 +462,7 @@ const NETWORK_TOOLS = [
   {
     name: 'get_review_stats',
     description:
-      'Review page results per member: page views, star ratings, average, clicks to Google/Facebook/Yelp, and recent private feedback.',
+      'Review page results per member: page views, star ratings, average, clicks per review site (Google, Yelp, Thumbtack, Angi, etc.), and recent private feedback.',
     schema: z.object({ member: z.string().optional().describe('Member id or name; omit for all members.') }),
     run: getReviewStats,
   },

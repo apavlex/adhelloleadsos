@@ -88,15 +88,44 @@ test('review click-throughs only go to links the member saved', () => {
   const links = store.normalizeReviewLinks({
     google: 'https://g.page/r/abc/review',
     yelp: 'javascript:alert(1)',
-    other: [{ label: 'Angi', url: 'angi.com/companylist/us/wa/acme.htm' }],
+    other: [{ label: 'Porch', url: 'porch.com/pro/acme' }],
   });
   assert.equal(links.yelp, '');
   assert.equal(reviewPage.destinationFor(links, 'google'), 'https://g.page/r/abc/review');
   assert.equal(reviewPage.destinationFor(links, 'yelp'), '');
   assert.equal(reviewPage.destinationFor(links, 'evil'), '');
-  assert.equal(reviewPage.destinationFor(links, 'other', 0), 'https://angi.com/companylist/us/wa/acme.htm');
+  assert.equal(reviewPage.destinationFor(links, 'other', 0), 'https://porch.com/pro/acme');
   const dests = reviewPage.reviewDestinations(links, 'acme');
   assert.deepEqual(dests.map((d) => d.href), ['/rv/acme/go/google', '/rv/acme/go/other/0']);
+});
+
+test('built-in review sites, legacy custom rows and the custom-link cap', () => {
+  const links = store.normalizeReviewLinks({
+    thumbtack: 'thumbtack.com/wa/camas/flooring/acme/service/123',
+    bbb: 'not a url',
+    other: [
+      { label: 'angi', url: 'https://angi.com/companylist/us/wa/acme.htm' },
+      { label: 'Thumbtack', url: 'https://thumbtack.com/dupe' },
+      ...Array.from({ length: 12 }, (_, i) => ({ label: `Site ${i}`, url: `https://site${i}.example` })),
+    ],
+  });
+  assert.equal(links.thumbtack, 'https://thumbtack.com/wa/camas/flooring/acme/service/123');
+  assert.equal(links.angi, 'https://angi.com/companylist/us/wa/acme.htm');
+  assert.equal(links.bbb, '');
+  assert.equal(links.other.length, reviewPage.MAX_OTHER_LINKS);
+  assert.equal(links.other[0].label, 'Thumbtack');
+  assert.equal(reviewPage.countLinks(links), 2 + reviewPage.MAX_OTHER_LINKS);
+  assert.equal(reviewPage.otherFormRows(links).length, reviewPage.MAX_OTHER_LINKS);
+  assert.equal(reviewPage.otherFormRows({ other: [] }).length, 2);
+
+  const dests = reviewPage.reviewDestinations(links, 'acme');
+  assert.deepEqual(dests.slice(0, 2).map((d) => d.label), ['Thumbtack', 'Angi']);
+  assert.equal(reviewPage.destinationFor(links, 'thumbtack'), links.thumbtack);
+
+  const body = { yelp: 'nope', thumbtack: 'https://thumbtack.com/x', otherLabel: ['Porch', ''], otherUrl: ['porch.com/pro/acme', ''] };
+  const cleaned = store.normalizeReviewLinks(reviewPage.linksFromForm(body));
+  assert.equal(reviewPage.firstRejectedLink(body, cleaned), 'Yelp');
+  assert.deepEqual(cleaned.other, [{ label: 'Porch', url: 'https://porch.com/pro/acme' }]);
 });
 
 test('google review link is built from a Maps place id', () => {
@@ -248,6 +277,23 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     const withSlug = await store.getMember(network.id, sender.id);
     assert.equal(withSlug.reviewSlug, 'camas-flooring');
     assert.match(withSlug.reviewLinks.google, /writereview\?placeid=ChIJabcdefghijk123/);
+    assert.match(await reviewTab.text(), /Thumbtack profile/);
+
+    const savedLinks = await fetch(`${base}/m/${token}/review`, {
+      method: 'POST',
+      redirect: 'manual',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams([
+        ['google', withSlug.reviewLinks.google],
+        ['thumbtack', 'https://thumbtack.com/wa/camas/camas-flooring/service/1'],
+        ['otherLabel', 'Porch'], ['otherUrl', 'https://porch.com/pro/camas-flooring'],
+        ['otherLabel', ''], ['otherUrl', ''],
+      ]),
+    });
+    assert.equal(savedLinks.status, 303);
+    const afterSave = await store.getMember(network.id, sender.id);
+    assert.equal(afterSave.reviewLinks.thumbtack, 'https://thumbtack.com/wa/camas/camas-flooring/service/1');
+    assert.deepEqual(afterSave.reviewLinks.other, [{ label: 'Porch', url: 'https://porch.com/pro/camas-flooring' }]);
 
     const unhappy = await (await fetch(`${base}/rv/camas-flooring?r=2`)).text();
     assert.match(unhappy, /What went wrong\?/);
@@ -255,6 +301,8 @@ test('member app pages, manifest, send, enroll and the review page work end to e
 
     const happy = await (await fetch(`${base}/rv/camas-flooring?r=5`)).text();
     assert.match(happy, /Review us on Google/);
+    assert.match(happy, /Review us on Thumbtack/);
+    assert.match(happy, /Review us on Porch/);
 
     const go = await fetch(`${base}/rv/camas-flooring/go/google`, { redirect: 'manual' });
     assert.equal(go.status, 302);

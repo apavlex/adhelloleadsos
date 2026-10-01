@@ -20,6 +20,7 @@ const notify = require('../services/networkNotify');
 const networkReferrals = require('../services/networkReferrals');
 const networkBrand = require('../services/networkBrand');
 const work = require('../services/memberWork');
+const reviewPage = require('../services/reviewPage');
 const { verifyNetworkToken } = require('../services/networkLinkSign');
 const { ICONS } = require('../services/memberAppIcons');
 
@@ -791,6 +792,10 @@ async function renderReview(req, res, ctx, flash, status) {
     reviewPath: `/rv/${member.reviewSlug}`,
     stats,
     totalStars,
+    totalClicks: Object.values(stats.clicks).reduce((a, b) => a + b, 0),
+    platforms: reviewPage.PLATFORMS,
+    otherRows: reviewPage.otherFormRows(member.reviewLinks),
+    linkCount: reviewPage.countLinks(member.reviewLinks),
     feedback: feedback.slice(0, 10).map((f) => ({ ...f, when: when(f.createdAt) })),
     flash: flash || flashFromQuery(req),
   }, status);
@@ -800,17 +805,10 @@ router.get('/m/:token/review', withMember((req, res, ctx) => renderReview(req, r
 
 router.post('/m/:token/review', form, withMember(async (req, res, ctx) => {
   const body = req.body || {};
-  const labels = [].concat(body.otherLabel || []);
-  const urls = [].concat(body.otherUrl || []);
-  const links = store.normalizeReviewLinks({
-    google: body.google,
-    facebook: body.facebook,
-    yelp: body.yelp,
-    other: labels.map((label, i) => ({ label, url: urls[i] })),
-  });
-  const typed = ['google', 'facebook', 'yelp'].filter((k) => String(body[k] || '').trim() && !links[k]);
-  if (typed.length) {
-    return renderReview(req, res, ctx, { error: `That ${typed[0]} link doesn't look like a web address.` }, 400);
+  const links = store.normalizeReviewLinks(reviewPage.linksFromForm(body));
+  const rejected = reviewPage.firstRejectedLink(body, links);
+  if (rejected) {
+    return renderReview(req, res, ctx, { error: `That ${rejected} link doesn't look like a web address.` }, 400);
   }
   await store.saveMember(ctx.network.id, { ...ctx.member, reviewLinks: links });
   return res.redirect(303, `${ctx.base}/review?ok=saved`);

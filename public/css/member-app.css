@@ -369,6 +369,8 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
 .rv-panel[hidden] { display: none; }
 .rv-links { display: grid; gap: 10px; margin-top: 12px; }
 .rv-link { display: flex; align-items: center; gap: 12px; text-decoration: none; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; font-weight: 800; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
+.rv-field-label { display: flex; align-items: center; gap: 8px; }
+.rv-field-badge { width: 20px; height: 20px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; color: #fff; font-weight: 900; font-size: 11px; flex-shrink: 0; }
 .rv-link__icon { width: 34px; height: 34px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; color: #fff; font-weight: 900; font-size: 16px; flex-shrink: 0; }
 .rv-link__go { margin-left: auto; color: var(--muted); }
 .rv-links--quiet .rv-link { box-shadow: none; padding: 11px 14px; font-weight: 700; font-size: 14px; }

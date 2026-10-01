@@ -18,6 +18,7 @@ const dbService = require('./database');
 const { normalizeTradeSlugs, DEFAULT_TRADES } = require('./networkTrades');
 const { normalizeZone } = require('./referralExchange');
 const { normalizeBrand } = require('./networkBrand');
+const { PLATFORMS: REVIEW_LINK_PLATFORMS, MAX_OTHER_LINKS: MAX_OTHER_REVIEW_LINKS } = require('./reviewPage');
 
 // Hex/base36 only: kv listing uses SQL LIKE, where "_" is a wildcard.
 function newId() {
@@ -187,16 +188,20 @@ function cleanReviewUrl(value) {
 
 function normalizeReviewLinks(raw) {
   const r = raw && typeof raw === 'object' ? raw : {};
-  const other = (Array.isArray(r.other) ? r.other : [])
-    .map((row) => ({ label: cleanText(row && row.label, 40), url: cleanReviewUrl(row && row.url) }))
-    .filter((row) => row.label && row.url)
-    .slice(0, 3);
-  return {
-    google: cleanReviewUrl(r.google),
-    facebook: cleanReviewUrl(r.facebook),
-    yelp: cleanReviewUrl(r.yelp),
-    other,
-  };
+  const out = {};
+  REVIEW_LINK_PLATFORMS.forEach((p) => { out[p.key] = cleanReviewUrl(r[p.key]); });
+  const other = [];
+  (Array.isArray(r.other) ? r.other : []).forEach((row) => {
+    const label = cleanText(row && row.label, 40);
+    const url = cleanReviewUrl(row && row.url);
+    if (!label || !url) return;
+    // A custom row named after a built-in site fills that site's slot instead.
+    const builtIn = REVIEW_LINK_PLATFORMS.find((p) => p.label.toLowerCase() === label.toLowerCase());
+    if (builtIn && !out[builtIn.key]) out[builtIn.key] = url;
+    else other.push({ label, url });
+  });
+  out.other = other.slice(0, MAX_OTHER_REVIEW_LINKS);
+  return out;
 }
 
 async function listMembers(networkId) {
@@ -367,7 +372,7 @@ async function listFeedback(networkId, memberId) {
     .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
 }
 
-const REVIEW_PLATFORMS = ['google', 'facebook', 'yelp', 'other'];
+const REVIEW_PLATFORMS = [...REVIEW_LINK_PLATFORMS.map((p) => p.key), 'other'];
 
 function normalizeReviewStats(raw) {
   const r = raw && typeof raw === 'object' ? raw : {};

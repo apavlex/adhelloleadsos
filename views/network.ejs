@@ -47,6 +47,8 @@
     html.dark .net-metric { background: rgba(255, 255, 255, 0.04); }
     .net-metric span { display: block; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #64748b; }
     .net-metric strong { display: block; font-size: 1.05rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .net-review-other { display: grid; gap: 0.5rem; }
+    @media (min-width: 640px) { .net-review-other { grid-template-columns: 12rem minmax(0, 1fr); } }
     details.net-more > summary { list-style: none; cursor: pointer; }
     details.net-more > summary::-webkit-details-marker { display: none; }
   </style>
@@ -236,6 +238,32 @@
               <div><span class="net-label">Trades</span><div class="net-checks"><%- tradeChecks('trades', m.trades) %></div></div>
               <div><span class="net-label">Zones</span><div class="net-checks"><%- zoneChecks('zoneIds', m.zoneIds) %></div></div>
               <button type="submit" class="net-btn net-btn-yellow">Save seats</button>
+            </form>
+          </details>
+          <details class="net-more mt-2">
+            <summary class="text-[12px] font-bold text-brand-muted hover:underline">Review links (<%= m.reviewLinkCount ? m.reviewLinkCount + ' set' : 'none yet' %>)</summary>
+            <form method="post" action="/network/members/<%= m.id %>/review-links" class="mt-2 space-y-3" autocomplete="off">
+              <p class="text-[12px] text-brand-muted">Where <%= m.companyName %>'s customers can leave a review. These show as buttons on their review page<% if (m.reviewSlug) { %> (<a class="underline" href="/rv/<%= m.reviewSlug %>" target="_blank" rel="noopener">open it</a>)<% } %>. The member can also edit them in their app.</p>
+              <div class="grid gap-3 sm:grid-cols-2">
+                <% reviewPlatforms.forEach(function (p) { %>
+                <div>
+                  <label class="net-label flex items-center gap-1.5" for="rl-<%= m.id %>-<%= p.key %>"><span class="inline-flex h-4 w-4 items-center justify-center rounded text-[9px] font-black text-white" style="background: <%= p.color %>" aria-hidden="true"><%= p.letter %></span><%= p.label %></label>
+                  <input id="rl-<%= m.id %>-<%= p.key %>" name="<%= p.key %>" type="url" inputmode="url" class="net-input" value="<%= (m.reviewLinks && m.reviewLinks[p.key]) || '' %>" placeholder="<%= p.placeholder %>" />
+                </div>
+                <% }); %>
+              </div>
+              <div>
+                <span class="net-label">Other review sites</span>
+                <div class="space-y-2">
+                  <% m.reviewOtherRows.forEach(function (o, i) { %>
+                  <div class="net-review-other">
+                    <input name="otherLabel" class="net-input" value="<%= o.label %>" placeholder="Site name" maxlength="40" aria-label="Other site <%= i + 1 %> name" />
+                    <input name="otherUrl" type="url" inputmode="url" class="net-input" value="<%= o.url %>" placeholder="https://" aria-label="Other site <%= i + 1 %> link" />
+                  </div>
+                  <% }); %>
+                </div>
+              </div>
+              <button type="submit" class="net-btn net-btn-yellow">Save review links</button>
             </form>
           </details>
           <% } %>

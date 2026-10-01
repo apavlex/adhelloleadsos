@@ -11,6 +11,7 @@ const networkReferrals = require('../services/networkReferrals');
 const referralNetwork = require('../services/referralNetwork');
 const networkBrand = require('../services/networkBrand');
 const networkMembers = require('../services/networkMembers');
+const reviewPage = require('../services/reviewPage');
 const { ICONS: MEMBER_APP_ICONS } = require('../services/memberAppIcons');
 const multer = require('multer');
 
@@ -128,6 +129,8 @@ router.get('/', async (req, res, next) => {
       zoneNames: member.zoneIds.map((id) => (zonesById[id] ? zonesById[id].name : '')).filter(Boolean),
       seats: ex.seatsForMember(zones, member.id).map((s) => `${trades.tradeLabel(s.tradeSlug)} · ${s.zoneName}`),
       stats: ex.memberStats(referrals, member.id),
+      reviewLinkCount: reviewPage.countLinks(member.reviewLinks),
+      reviewOtherRows: reviewPage.otherFormRows(member.reviewLinks),
     }));
 
     const statusFilter = ex.STATUSES.includes(String(req.query.status || '')) ? String(req.query.status) : '';
@@ -165,6 +168,7 @@ router.get('/', async (req, res, next) => {
       zones,
       seatRows,
       members: memberRows,
+      reviewPlatforms: reviewPage.PLATFORMS,
       activeMembers: members.filter((m) => m.status === 'active'),
       referrals: referralRows,
       statusFilter,
@@ -358,6 +362,25 @@ router.post('/members/:id/status', async (req, res) => {
   } catch (err) {
     console.error('[network] member status failed:', err.message);
     return reply(req, res, { ok: false, tab: 'members', notice: 'Could not update that member.', status: 500 });
+  }
+});
+
+router.post('/members/:id/review-links', async (req, res) => {
+  if (!canManage(req)) return reply(req, res, { ok: false, tab: 'members', notice: 'Only owners and admins can edit review links.', status: 403 });
+  try {
+    const network = await loadNetwork(req);
+    const member = await store.getMember(network.id, req.params.id);
+    if (!member) return reply(req, res, { ok: false, tab: 'members', notice: 'Member not found.', status: 404 });
+    const body = req.body || {};
+    const links = store.normalizeReviewLinks(reviewPage.linksFromForm(body));
+    const rejected = reviewPage.firstRejectedLink(body, links);
+    if (rejected) return reply(req, res, { ok: false, tab: 'members', notice: `That ${rejected} link for ${member.companyName} doesn't look like a web address.` });
+    const withSlug = await store.ensureReviewSlug(network.id, member);
+    const saved = await store.saveMember(network.id, { ...withSlug, reviewLinks: links });
+    return reply(req, res, { ok: true, tab: 'members', notice: `Review links saved for ${saved.companyName}.`, data: { reviewLinks: saved.reviewLinks } });
+  } catch (err) {
+    console.error('[network] review links failed:', err.message);
+    return reply(req, res, { ok: false, tab: 'members', notice: 'Could not save those review links.', status: 500 });
   }
 });
 
