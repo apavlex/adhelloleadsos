@@ -14,6 +14,10 @@ const {
   rememberFolderSearchFromRun,
   resolveAutoTagKeys,
 } = require('./folderSearchPreset');
+const { STALE_MS, withTimeout } = require('./leadRunProgress');
+
+/** Finish (or fail) before getActiveJob reaps the run as stale. */
+const SEARCH_BUDGET_MS = STALE_MS - 60 * 1000;
 
 function locationFromLeads(leads) {
   const counts = new Map();
@@ -149,9 +153,22 @@ async function kickoffFolderSearchInBackground({ workspaceId, folder, preset }) 
         return;
       }
 
-      const results = await scrapeJobRunner.executeScrapeJob(schedule, integrationEnv, {
-        directorySupplement: schedule.directorySupplement === true,
-      });
+      let results;
+      try {
+        results = await withTimeout(
+          scrapeJobRunner.executeScrapeJob(schedule, integrationEnv, {
+            directorySupplement: schedule.directorySupplement === true,
+          }),
+          SEARCH_BUDGET_MS,
+          'search',
+        );
+      } catch (err) {
+        if (!/timed out/i.test(String(err && err.message))) throw err;
+        throw new Error(
+          `The search provider didn't finish within ${Math.round(SEARCH_BUDGET_MS / 60000)} minutes. ` +
+            'Try fewer results, or check Workspace → API integrations → Test connection.',
+        );
+      }
       const persist = await persistResultsIntoFolder(wid, folder, schedule, results);
       const searchRecord = scrapeJobRunner.buildSearchRecord(
         schedule,

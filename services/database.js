@@ -1483,6 +1483,18 @@ module.exports = {
     return job;
   },
 
+  /** Searches run in-process, so one still marked running at boot died with the previous process. */
+  async failOrphanedActiveJob() {
+    const job = this._readActiveJobRaw();
+    if (!job) return null;
+    console.warn('[active_job] Failing search orphaned by restart:', job.keyword || job.query || job.type || '');
+    await this.clearActiveJob({
+      failed: true,
+      error: 'Search stopped because the app restarted for an update. Run it again — leads found before the restart may already be saved.',
+    });
+    return job;
+  },
+
   async clearActiveJob(meta = {}) {
     const active = this._readActiveJobRaw();
     let snapshot = active;

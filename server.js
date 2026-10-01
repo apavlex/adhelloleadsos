@@ -679,6 +679,7 @@ function startServer() {
 
 async function runStartupTasks() {
   logStartupPersistenceStatus();
+  await dbService.failOrphanedActiveJob();
   await migrateLegacyPipelineStages();
   runGlobalPipelineSeedOnce();
 }
