@@ -123,6 +123,9 @@ router.get('/', async (req, res, next) => {
       }),
     }));
 
+    const activeSlugs = new Set(networkTrades.map((t) => t.slug));
+    const hiddenTrades = trades.catalogFor(network).filter((t) => !activeSlugs.has(t.slug));
+
     const memberRows = members.map((member) => ({
       ...member,
       tradeLabels: member.trades.map((slug) => trades.tradeLabel(slug, network)),
@@ -165,6 +168,7 @@ router.get('/', async (req, res, next) => {
       network,
       networkTrades,
       allTrades: trades.catalogFor(network),
+      hiddenTrades,
       customTrades: trades.normalizeCustomTrades(network.customTrades).map((t) => ({
         ...t,
         seatsHeld: zones.filter((z) => ex.seatHolder(z, t.slug)).length,
@@ -250,6 +254,34 @@ router.post('/trades', async (req, res) => {
   } catch (err) {
     console.error('[network] add trade failed:', err.message);
     return reply(req, res, { ok: false, tab: 'setup', notice: 'Could not add that trade.', status: 500 });
+  }
+});
+
+router.post('/trades/:slug/toggle', async (req, res) => {
+  if (!canManage(req)) return reply(req, res, { ok: false, tab: 'seats', notice: 'Only owners and admins can change trades.', status: 403 });
+  try {
+    const network = await loadNetwork(req);
+    const slug = String(req.params.slug || '');
+    const trade = trades.catalogFor(network).find((t) => t.slug === slug);
+    if (!trade) return reply(req, res, { ok: false, tab: 'seats', notice: 'That trade was not found.', status: 404 });
+    const turnOn = req.body.on === '1';
+    const active = trades.tradesForNetwork(network).map((t) => t.slug);
+    if (turnOn) {
+      if (!active.includes(slug)) await store.saveNetwork({ ...network, trades: active.concat(slug) });
+      return reply(req, res, { ok: true, tab: 'seats', notice: `${trade.name} is back on the list.` });
+    }
+    const zones = await store.listZones(network.id);
+    const held = zones.filter((z) => ex.seatHolder(z, slug));
+    if (held.length) {
+      return reply(req, res, { ok: false, tab: 'seats', notice: `Can't hide ${trade.name} while a member holds its seat in ${held.map((z) => z.name).join(', ')}.` });
+    }
+    const remaining = active.filter((s) => s !== slug);
+    if (!remaining.length) return reply(req, res, { ok: false, tab: 'seats', notice: "Can't hide the last trade in the network." });
+    await store.saveNetwork({ ...network, trades: remaining });
+    return reply(req, res, { ok: true, tab: 'seats', notice: `${trade.name} hidden. Bring it back from "Show hidden trades".` });
+  } catch (err) {
+    console.error('[network] toggle trade failed:', err.message);
+    return reply(req, res, { ok: false, tab: 'seats', notice: 'Could not update that trade.', status: 500 });
   }
 });
 
