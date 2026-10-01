@@ -1,0 +1,25 @@
+<% const fv = formValues || {}; %>
+<% if (error) { %><p class="ma-flash ma-flash--err" role="alert"><%= error %></p><% } %>
+<form method="post" action="/rv/<%= slug %>/feedback" class="ma-card" style="margin-top:10px">
+  <input type="hidden" name="rating" value="<%= gate.rating %>">
+  <div style="position:absolute;left:-9999px" aria-hidden="true"><input name="website" tabindex="-1" autocomplete="off"></div>
+  <div class="ma-field">
+    <label class="ma-label" for="fbMessage">What went wrong?</label>
+    <textarea id="fbMessage" name="message" class="ma-textarea" maxlength="1500" required><%= fv.message || '' %></textarea>
+  </div>
+  <div class="ma-field">
+    <label class="ma-label" for="fbName">Your name</label>
+    <input id="fbName" name="name" class="ma-input" value="<%= fv.name || '' %>" autocomplete="name">
+  </div>
+  <div class="ma-grid2">
+    <div class="ma-field">
+      <label class="ma-label" for="fbPhone">Phone</label>
+      <input id="fbPhone" name="phone" type="tel" inputmode="tel" class="ma-input" value="<%= fv.phone || '' %>" autocomplete="tel">
+    </div>
+    <div class="ma-field">
+      <label class="ma-label" for="fbEmail">Email</label>
+      <input id="fbEmail" name="email" type="email" inputmode="email" class="ma-input" value="<%= fv.email || '' %>" autocomplete="email">
+    </div>
+  </div>
+  <button type="submit" class="ma-btn ma-btn--block">Send to the owner</button>
+</form>

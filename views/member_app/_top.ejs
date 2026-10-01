@@ -1,0 +1,10 @@
+<header class="ma-top">
+  <div class="ma-top__brand">
+    <% if (brand.logoUrl) { %><img class="ma-top__logo" src="<%= brand.logoUrl %>" alt=""><% } %>
+    <p class="ma-top__title"><%= typeof topTitle !== 'undefined' && topTitle ? topTitle : brand.appName %></p>
+  </div>
+  <span class="ma-avatar" title="<%= member.companyName %>" aria-label="<%= member.companyName %>"><%= (greetingName || member.companyName || '?').trim().charAt(0).toUpperCase() %></span>
+</header>
+<% if (member.status !== 'active') { %>
+<p class="ma-flash ma-flash--err">Your membership is paused. You can still see referrals; contact the network to reactivate.</p>
+<% } %>

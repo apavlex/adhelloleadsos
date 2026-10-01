@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('_head', { pageTitle: 'Reviews' }) %>
+</head>
+<body>
+  <main class="ma-shell">
+    <%- include('_top', { topTitle: 'Review' }) %>
+    <h1 class="ma-page-title">Get more reviews</h1>
+    <p class="ma-page-sub">Have happy customers scan your code or send them your link. They pick a star rating, then go to Google, Facebook or Yelp. Unhappy customers can message you privately first.</p>
+
+    <%- include('_flash') %>
+
+    <section class="ma-card ma-qr">
+      <img src="<%= reviewPath %>/qr.png" alt="QR code for your review page" width="220" height="220">
+      <div class="ma-link-box">
+        <code id="rvLink"><%= reviewUrl %></code>
+        <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-ma-copy="<%= reviewUrl %>"><%- icons.copy %> Copy</button>
+      </div>
+      <div class="ma-actions" style="justify-content:center;width:100%">
+        <button type="button" class="ma-btn ma-btn--sm" data-ma-share="<%= reviewUrl %>" data-ma-share-title="Leave <%= member.companyName %> a review"><%- icons.share %> Share link</button>
+        <a class="ma-btn ma-btn--sm ma-btn--ghost" href="<%= reviewPath %>/qr.png?download=1" download><%- icons.download %> Download QR</a>
+        <a class="ma-btn ma-btn--sm ma-btn--ghost" href="<%= reviewPath %>" target="_blank" rel="noopener">Preview</a>
+      </div>
+      <% if (!member.reviewLinks.google && !member.reviewLinks.facebook && !member.reviewLinks.yelp && !member.reviewLinks.other.length) { %>
+      <p class="ma-flash ma-flash--err" style="width:100%">Add at least one review link below so customers have somewhere to post.</p>
+      <% } %>
+    </section>
+
+    <section class="ma-section">
+      <div class="ma-section__head"><h2>Results</h2></div>
+      <div class="ma-card">
+        <div class="ma-kpis">
+          <div class="ma-kpi"><strong><%= stats.views %></strong><span>Page visits</span></div>
+          <div class="ma-kpi"><strong><%= stats.clicks.google + stats.clicks.facebook + stats.clicks.yelp + stats.clicks.other %></strong><span>Went to review</span></div>
+          <div class="ma-kpi"><strong><%= feedback.length %></strong><span>Private notes</span></div>
+        </div>
+        <div class="ma-bars">
+          <% [5, 4, 3, 2, 1].forEach(function (s) { const n = stats.stars[s] || 0; %>
+          <div class="ma-bar">
+            <span><%= s %> ★</span>
+            <span class="ma-bar__track"><span class="ma-bar__fill" style="width: <%= totalStars ? Math.round((n / totalStars) * 100) : 0 %>%"></span></span>
+            <span style="text-align:right"><%= n %></span>
+          </div>
+          <% }); %>
+        </div>
+      </div>
+    </section>
+
+    <% if (feedback.length) { %>
+    <section class="ma-section">
+      <div class="ma-section__head"><h2>Private feedback</h2></div>
+      <% feedback.forEach(function (f) { %>
+      <div class="ma-card">
+        <div class="ma-card__row">
+          <div style="min-width:0">
+            <p class="ma-card__title"><%= f.name || 'Customer' %> · <%= '★'.repeat(f.rating || 0) %></p>
+            <p class="ma-card__meta"><% if (f.phone) { %><a href="tel:<%= String(f.phone).replace(/[^0-9+]/g, '') %>" style="color:var(--acc);font-weight:700;text-decoration:none"><%= f.phone %></a> · <% } %><%= f.email ? f.email + ' · ' : '' %><%= f.when %></p>
+          </div>
+        </div>
+        <p class="ma-card__note"><%= f.message %></p>
+      </div>
+      <% }); %>
+    </section>
+    <% } %>
+
+    <section class="ma-section">
+      <div class="ma-section__head"><h2>Your review links</h2></div>
+      <form method="post" action="<%= base %>/review" class="ma-card" autocomplete="off">
+        <div class="ma-field">
+          <label class="ma-label" for="rvGoogle">Google review link</label>
+          <input id="rvGoogle" name="google" type="url" inputmode="url" class="ma-input" value="<%= member.reviewLinks.google %>" placeholder="https://g.page/r/…/review">
+          <p class="ma-hint">In Google Business Profile, tap "Ask for reviews" and copy the link.</p>
+        </div>
+        <div class="ma-field">
+          <label class="ma-label" for="rvFacebook">Facebook page</label>
+          <input id="rvFacebook" name="facebook" type="url" inputmode="url" class="ma-input" value="<%= member.reviewLinks.facebook %>" placeholder="https://facebook.com/yourpage/reviews">
+        </div>
+        <div class="ma-field">
+          <label class="ma-label" for="rvYelp">Yelp page</label>
+          <input id="rvYelp" name="yelp" type="url" inputmode="url" class="ma-input" value="<%= member.reviewLinks.yelp %>" placeholder="https://yelp.com/biz/your-business">
+        </div>
+        <% const others = member.reviewLinks.other.concat([{ label: '', url: '' }]).slice(0, 3); %>
+        <% others.forEach(function (o, i) { %>
+        <div class="ma-grid2">
+          <div class="ma-field">
+            <label class="ma-label" for="rvOtherLabel<%= i %>">Other site</label>
+            <input id="rvOtherLabel<%= i %>" name="otherLabel" class="ma-input" value="<%= o.label %>" placeholder="e.g. Angi" maxlength="40">
+          </div>
+          <div class="ma-field">
+            <label class="ma-label" for="rvOtherUrl<%= i %>">Link</label>
+            <input id="rvOtherUrl<%= i %>" name="otherUrl" type="url" inputmode="url" class="ma-input" value="<%= o.url %>" placeholder="https://">
+          </div>
+        </div>
+        <% }); %>
+        <button type="submit" class="ma-btn ma-btn--block">Save links</button>
+      </form>
+    </section>
+  </main>
+  <%- include('_tabbar') %>
+</body>
+</html>

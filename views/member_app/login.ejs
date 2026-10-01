@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('_head', { pageTitle: 'Get your app link' }) %>
+</head>
+<body>
+  <main class="ma-shell ma-shell--plain">
+    <div style="margin-top:12vh">
+      <h1 class="ma-page-title">Get your referral app link</h1>
+      <% if (sent) { %>
+      <p class="ma-flash ma-flash--ok" role="status">If that number or email belongs to a network member, a new link is on its way. It can take a minute.</p>
+      <% } else { %>
+      <p class="ma-page-sub">Enter the mobile number or email your network has on file. We'll text or email you a fresh link.</p>
+      <% if (error) { %><p class="ma-flash ma-flash--err" role="alert"><%= error %></p><% } %>
+      <form method="post" action="/m/login" class="ma-card">
+        <div class="ma-field">
+          <label class="ma-label" for="lgContact">Mobile number or email</label>
+          <input id="lgContact" name="contact" class="ma-input" required autocomplete="tel" inputmode="email">
+        </div>
+        <button type="submit" class="ma-btn ma-btn--block">Send my link</button>
+      </form>
+      <% } %>
+    </div>
+  </main>
+</body>
+</html>

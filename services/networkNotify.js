@@ -13,6 +13,7 @@ const referralNetwork = require('./referralNetwork');
 const { tradeLabel } = require('./networkTrades');
 const { createReferralLinkToken, createMemberPortalToken } = require('./networkLinkSign');
 const { UNROUTED_REASONS } = require('./referralExchange');
+const { brandView } = require('./networkBrand');
 
 function baseUrlFromReq(req) {
   const env = String(process.env.BASE_URL || '').trim();
@@ -30,7 +31,7 @@ function referralLink(baseUrl, network, referral, memberId) {
 
 function memberPortalLink(baseUrl, network, member) {
   const token = createMemberPortalToken({ networkId: network.id, memberId: member.id });
-  return `${baseUrl}/r/m/${encodeURIComponent(token)}`;
+  return `${baseUrl}/m/${encodeURIComponent(token)}`;
 }
 
 async function memberLead(network, member) {
@@ -123,14 +124,62 @@ async function notifyReferralRecipient({ network, referral, member, baseUrl }) {
   return messageMember(network, member, { sms, subject: `New referral: ${summary}`, email });
 }
 
-async function sendMemberPortalLink({ network, member, baseUrl }) {
+async function sendMemberPortalLink({ network, member, baseUrl, welcome }) {
   const link = memberPortalLink(baseUrl, network, member);
-  const sms = `${network.name}: your member page — see referrals sent to you and send one to another member: ${link}`;
+  const app = brandView(network).appName;
+  const sms = welcome
+    ? `Welcome to ${app}! Your referral app: ${link} — open it on your phone and tap Share > Add to Home Screen.`
+    : `${app}: your referral app — send and receive referrals: ${link} (tip: Share > Add to Home Screen)`;
   return messageMember(network, member, {
     sms,
-    subject: `Your ${network.name} member page`,
-    email: `Here is your ${network.name} member page. Bookmark it to see referrals sent to you and send referrals to other members:\n\n${link}`,
+    subject: welcome ? `Welcome to ${app}` : `Your ${app} referral app`,
+    email: `${welcome ? `Welcome to ${app}!\n\n` : ''}Here is your ${app} referral app. Open it on your phone to send referrals, see referrals sent to you, and share your review link:\n\n${link}\n\nTip: on iPhone tap Share, then "Add to Home Screen" so it opens like an app.`,
   });
+}
+
+/** Operator task + text/email when a member invites a business to join. */
+async function notifyApplication({ network, application, invitedBy }) {
+  const email = await operatorEmail(network);
+  const who = invitedBy ? invitedBy.companyName : 'A member';
+  const title = `Approve network applicant: ${application.companyName}${application.city ? ` (${application.city})` : ''} — invited by ${who}`;
+  if (!email) return null;
+  try {
+    return await upsertOpenTaskForLead(network.ownerWorkspaceId, email, {
+      title: title.slice(0, 240),
+      leadKey: null,
+      scheduledAt: new Date().toISOString(),
+      source: TASK_SOURCE_NETWORK,
+    });
+  } catch (err) {
+    console.warn('[network] application task failed:', err.message);
+    return null;
+  }
+}
+
+/** Private (low-star) feedback from a review page: tell the member and open an operator task. */
+async function notifyFeedback({ network, member, feedback }) {
+  const stars = '★'.repeat(feedback.rating || 0) || 'No rating';
+  const who = [feedback.name, feedback.phone || feedback.email].filter(Boolean).join(', ') || 'A customer';
+  const body = `${stars} private feedback from ${who}: "${String(feedback.message || '').slice(0, 300)}"`;
+  const memberResult = await messageMember(network, member, {
+    sms: `${brandView(network).appName}: ${body} — reach out to make it right.`,
+    subject: `Private feedback (${feedback.rating || '?'}★) from ${feedback.name || 'a customer'}`,
+    email: `${body}\n\nReach out to make it right.`,
+  }).catch((err) => ({ ok: false, error: err.message }));
+  const email = await operatorEmail(network);
+  if (email) {
+    try {
+      await upsertOpenTaskForLead(network.ownerWorkspaceId, email, {
+        title: `Review feedback for ${member.companyName}: ${feedback.rating || '?'}★ from ${feedback.name || 'customer'}`.slice(0, 240),
+        leadKey: member.leadKey || null,
+        scheduledAt: new Date().toISOString(),
+        source: TASK_SOURCE_NETWORK,
+      });
+    } catch (err) {
+      console.warn('[network] feedback task failed:', err.message);
+    }
+  }
+  return memberResult;
 }
 
 /** Operator task for referrals nobody is working (unrouted or declined). */
@@ -173,6 +222,9 @@ module.exports = {
   memberPortalLink,
   notifyReferralRecipient,
   sendMemberPortalLink,
+  notifyApplication,
+  notifyFeedback,
+  messageMember,
   createOperatorTask,
   syncPartnerCounter,
   homeownerSummary,

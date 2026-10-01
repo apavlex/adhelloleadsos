@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('_head', { pageTitle: 'Send a referral' }) %>
+</head>
+<body>
+  <main class="ma-shell">
+    <%- include('_top', { topTitle: 'Send' }) %>
+    <h1 class="ma-page-title">Send a referral</h1>
+    <p class="ma-page-sub">It goes to the network member for that trade in the customer's area, and they get a text right away.</p>
+
+    <%- include('_flash') %>
+
+    <% const fv = formValues || {}; %>
+    <form method="post" action="<%= base %>/send" class="ma-card" autocomplete="off">
+      <div class="ma-field">
+        <label class="ma-label" for="sdTrade">What do they need?</label>
+        <select id="sdTrade" name="tradeSlug" class="ma-select" required>
+          <option value="">Pick a trade…</option>
+          <% directory.forEach(function (t) { %>
+          <option value="<%= t.slug %>" <%= fv.tradeSlug === t.slug ? 'selected' : '' %>><%= t.name %><%= t.holders.length ? ' · ' + t.holders.slice(0, 2).join(', ') : '' %></option>
+          <% }); %>
+        </select>
+      </div>
+      <div class="ma-field">
+        <label class="ma-label" for="sdName">Customer name</label>
+        <input id="sdName" name="name" class="ma-input" value="<%= fv.name || '' %>" required autocomplete="off" autocapitalize="words">
+      </div>
+      <div class="ma-grid2">
+        <div class="ma-field">
+          <label class="ma-label" for="sdPhone">Phone</label>
+          <input id="sdPhone" name="phone" type="tel" inputmode="tel" class="ma-input" value="<%= fv.phone || '' %>" autocomplete="off">
+        </div>
+        <div class="ma-field">
+          <label class="ma-label" for="sdZip">ZIP</label>
+          <input id="sdZip" name="zip" inputmode="numeric" maxlength="10" class="ma-input" value="<%= fv.zip || '' %>" autocomplete="off">
+        </div>
+      </div>
+      <div class="ma-field">
+        <label class="ma-label" for="sdAddress">Street address</label>
+        <input id="sdAddress" name="address" class="ma-input" value="<%= fv.address || '' %>" autocomplete="off">
+      </div>
+      <div class="ma-grid2">
+        <div class="ma-field">
+          <label class="ma-label" for="sdCity">City</label>
+          <input id="sdCity" name="city" class="ma-input" value="<%= fv.city || '' %>" autocomplete="off">
+        </div>
+        <div class="ma-field">
+          <label class="ma-label" for="sdEmail">Email</label>
+          <input id="sdEmail" name="email" type="email" inputmode="email" class="ma-input" value="<%= fv.email || '' %>" autocomplete="off">
+        </div>
+      </div>
+      <div class="ma-field">
+        <label class="ma-label" for="sdNote">Notes</label>
+        <textarea id="sdNote" name="note" class="ma-textarea" maxlength="1000" placeholder="e.g. Water heater leaking, wants a quote this week"><%= fv.note || '' %></textarea>
+      </div>
+      <label class="ma-check">
+        <input type="checkbox" name="consent" value="on" required <%= fv.consent ? 'checked' : '' %>>
+        <span>The customer agreed to be contacted by a network member.</span>
+      </label>
+      <button type="submit" class="ma-btn ma-btn--block" <%= member.status !== 'active' ? 'disabled' : '' %>><%- icons.send %> Send referral</button>
+    </form>
+  </main>
+  <%- include('_tabbar') %>
+</body>
+</html>

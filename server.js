@@ -59,6 +59,8 @@ const referralRoutes = require('./routes/referrals');
 const networkRoutes = require('./routes/network');
 const networkPublicRoutes = require('./routes/networkPublic');
 const pipelineRoutes = require('./routes/pipeline');
+const memberAppRoutes = require('./routes/memberApp');
+const reviewPublicRoutes = require('./routes/reviewPublic');
 const auditReportPublicRoutes = require('./routes/auditReportPublic');
 const auditLandingPublicRoutes = require('./routes/auditLandingPublic');
 const aiToolsReportPublicRoutes = require('./routes/aiToolsReportPublic');
@@ -455,6 +457,9 @@ app.use('/', aiToolsReportPublicRoutes);
 // Referral network member links (signed token; no session)
 app.use('/', networkPublicRoutes);
 
+// Member referral app (/m/:token, signed token in path) and public review pages (/rv/:slug)
+app.use('/', memberAppRoutes);
+app.use('/', reviewPublicRoutes);
 // Autonomous prospecting API (API key auth, no session required)
 app.use('/autonomous', autonomousRoutes);
 

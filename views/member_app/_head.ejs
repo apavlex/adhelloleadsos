@@ -1,0 +1,25 @@
+<%
+  const _v = typeof assetVersion !== 'undefined' ? assetVersion : '1';
+  const _base = typeof base !== 'undefined' && base ? base : '';
+  const _title = typeof pageTitle !== 'undefined' && pageTitle ? pageTitle + ' · ' + brand.appName : brand.appName;
+%>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b1220" media="(prefers-color-scheme: dark)">
+<title><%= _title %></title>
+<% if (_base) { %>
+<link rel="manifest" href="<%= _base %>/manifest.webmanifest">
+<link rel="apple-touch-icon" href="<%= _base %>/icon-180.png">
+<link rel="icon" type="image/png" href="<%= _base %>/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="<%= brand.shortName %>">
+<% } %>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Manrope:wght@700;800&display=swap">
+<link rel="stylesheet" href="/css/member-app.css?v=<%= _v %>">
+<style>:root { --acc: <%= brand.accent %>; --on: <%= brand.onAccent %>; }</style>

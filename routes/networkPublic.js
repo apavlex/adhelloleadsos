@@ -80,19 +80,13 @@ async function renderReferral(req, res, token, flash) {
     network: ctx.network,
     member: ctx.member,
     referral: referralView(referral, membersById),
-    portalHref: `/r/m/${encodeURIComponent(portalToken)}`,
+    portalHref: `/m/${encodeURIComponent(portalToken)}`,
     flash: flash || null,
   });
 }
 
-router.get('/r/m/:token', async (req, res) => {
-  try {
-    return await renderPortal(req, res, req.params.token, null);
-  } catch (err) {
-    console.error('[network-public] portal failed:', err.message);
-    return unavailable(res);
-  }
-});
+// Old member page links now open the member app.
+router.get('/r/m/:token', (req, res) => res.redirect(302, `/m/${encodeURIComponent(req.params.token)}`));
 
 router.post('/r/m/:token/referrals', form, async (req, res) => {
   const token = req.params.token;

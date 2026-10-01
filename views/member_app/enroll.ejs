@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('_head', { pageTitle: 'Enroll a business' }) %>
+</head>
+<body>
+  <main class="ma-shell">
+    <%- include('_top', { topTitle: 'Enroll' }) %>
+    <h1 class="ma-page-title">Invite a business</h1>
+    <p class="ma-page-sub">Know a great business you'd trade referrals with? Invite them to <%= brand.appName %>. The network reviews each one and texts them their app link.</p>
+
+    <%- include('_flash') %>
+
+    <% const fv = formValues || {}; %>
+    <form method="post" action="<%= base %>/enroll" class="ma-card" autocomplete="off">
+      <div class="ma-field">
+        <label class="ma-label" for="enCompany">Business name</label>
+        <input id="enCompany" name="companyName" class="ma-input" value="<%= fv.companyName || '' %>" required autocapitalize="words">
+      </div>
+      <div class="ma-field">
+        <label class="ma-label" for="enContact">Owner or contact name</label>
+        <input id="enContact" name="contactName" class="ma-input" value="<%= fv.contactName || '' %>" autocapitalize="words">
+      </div>
+      <div class="ma-grid2">
+        <div class="ma-field">
+          <label class="ma-label" for="enPhone">Mobile</label>
+          <input id="enPhone" name="phone" type="tel" inputmode="tel" class="ma-input" value="<%= fv.phone || '' %>">
+        </div>
+        <div class="ma-field">
+          <label class="ma-label" for="enCity">City</label>
+          <input id="enCity" name="city" class="ma-input" value="<%= fv.city || '' %>">
+        </div>
+      </div>
+      <div class="ma-field">
+        <label class="ma-label" for="enEmail">Email</label>
+        <input id="enEmail" name="email" type="email" inputmode="email" class="ma-input" value="<%= fv.email || '' %>">
+      </div>
+      <div class="ma-field">
+        <label class="ma-label" for="enTrade">Their trade</label>
+        <select id="enTrade" name="tradeSlug" class="ma-select">
+          <option value="">Not sure / other</option>
+          <% trades.forEach(function (t) { %><option value="<%= t.slug %>" <%= fv.tradeSlug === t.slug ? 'selected' : '' %>><%= t.name %></option><% }); %>
+        </select>
+      </div>
+      <div class="ma-field">
+        <label class="ma-label" for="enNote">Why they'd be a good fit (optional)</label>
+        <textarea id="enNote" name="note" class="ma-textarea" maxlength="500"><%= fv.note || '' %></textarea>
+      </div>
+      <button type="submit" class="ma-btn ma-btn--block" <%= member.status !== 'active' ? 'disabled' : '' %>><%- icons.enroll %> Send invite</button>
+    </form>
+
+    <% if (invites.length) { %>
+    <section class="ma-section">
+      <div class="ma-section__head"><h2>Your invites</h2></div>
+      <% invites.forEach(function (a) { %>
+      <div class="ma-card">
+        <div class="ma-card__row">
+          <div style="min-width:0">
+            <p class="ma-card__title"><%= a.companyName %></p>
+            <p class="ma-card__meta"><%= [a.tradeLabel, a.city, a.when].filter(Boolean).join(' · ') %></p>
+          </div>
+          <span class="ma-pill ma-pill--<%= a.status %>"><%= a.statusLabel %></span>
+        </div>
+      </div>
+      <% }); %>
+    </section>
+    <% } %>
+  </main>
+  <%- include('_tabbar') %>
+</body>
+</html>

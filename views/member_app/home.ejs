@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('_head', { pageTitle: '' }) %>
+</head>
+<body>
+  <main class="ma-shell">
+    <%- include('_top', { topTitle: 'Dashboard' }) %>
+
+    <section class="ma-hello">
+      <h1>Hi, <%= greetingName %></h1>
+      <p><%
+        const words = brand.tagline.split(' ');
+        const accentCount = words.length >= 5 ? 3 : (words.length > 2 ? 2 : 0);
+        const tail = accentCount ? words.slice(-accentCount).join(' ') : '';
+        const head = tail ? words.slice(0, -accentCount).join(' ') : brand.tagline;
+      %><%= head %><% if (tail) { %> <em><%= tail %></em><% } %></p>
+    </section>
+
+    <%- include('_flash') %>
+
+    <section class="ma-hero" aria-label="<%= brand.appName %>">
+      <% if (brand.heroUrl) { %><img class="ma-hero__img" src="<%= brand.heroUrl %>" alt=""><% } %>
+      <div class="ma-hero__card">
+        <div class="ma-hero__row">
+          <span class="ma-hero__badge"><% if (brand.logoUrl) { %><img src="<%= brand.logoUrl %>" alt=""><% } else { %><%- icons.building %><% } %></span>
+          <div>
+            <p class="ma-hero__name"><%= brand.appName %></p>
+            <p class="ma-hero__sub"><%= brand.subtitle %></p>
+          </div>
+        </div>
+        <% if (brand.statValueLabel) { %>
+        <p class="ma-hero__stat"><%= brand.statValueLabel %><% if (brand.statSuffix) { %><small><%= brand.statSuffix %></small><% } %></p>
+        <% if (brand.statLabel) { %><p class="ma-hero__label"><%= brand.statLabel %></p><% } %>
+        <% } else { %>
+        <p class="ma-hero__stat"><%= tiles[3].value %><small>jobs completed</small></p>
+        <% if (wonValue) { %><p class="ma-hero__label"><%= wonValue %> won from referrals</p><% } %>
+        <% } %>
+      </div>
+    </section>
+
+    <section class="ma-tiles" aria-label="Your referrals">
+      <% tiles.forEach(function (t) { %>
+      <a class="ma-tile" href="<%= t.href %>">
+        <span class="ma-tile__icon"><%- icons[t.key === 'sent' ? 'send' : t.key] %></span>
+        <p class="ma-tile__value"><%= t.value %></p>
+        <p class="ma-tile__label"><%= t.label %></p>
+      </a>
+      <% }); %>
+    </section>
+
+    <% if (waiting.length) { %>
+    <section class="ma-section">
+      <div class="ma-section__head">
+        <h2>Needs your answer</h2>
+        <a href="<%= base %>/referrals">See all</a>
+      </div>
+      <% waiting.forEach(function (r) { %>
+      <a class="ma-card" style="display:block;text-decoration:none" href="<%= base %>/referrals#ref-<%= r.id %>">
+        <div class="ma-card__row">
+          <div style="min-width:0">
+            <p class="ma-card__title"><%= r.customer.name || 'Customer' %></p>
+            <p class="ma-card__meta"><%= r.trade %><%= r.customer.city ? ' · ' + r.customer.city : '' %> · from <%= r.from %></p>
+          </div>
+          <span class="ma-pill ma-pill--sent">New</span>
+        </div>
+      </a>
+      <% }); %>
+    </section>
+    <% } else { %>
+    <section class="ma-section">
+      <a class="ma-btn ma-btn--block" href="<%= base %>/send"><%- icons.send %> Send a referral</a>
+    </section>
+    <% } %>
+  </main>
+  <%- include('_tabbar') %>
+</body>
+</html>

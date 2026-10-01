@@ -6,12 +6,18 @@
  *   netzone:<networkId>:<zoneId>   zone with its seat map
  *   netmember:<networkId>:<id>     member company, linked to an operator lead
  *   netref:<networkId>:<id>        referral record
+ *   netbrandimg:<networkId>:<kind> uploaded logo / hero image (base64)
+ *   netapp:<networkId>:<id>        business a member invited, waiting for approval
+ *   netfeedback:<networkId>:<id>   private feedback left on a member's review page
+ *   netreviewstats:<networkId>:<memberId>  star taps + review link clicks
+ *   netreviewslug:<slug>           { networkId, memberId } for /rv/:slug
  */
 
 const crypto = require('crypto');
 const dbService = require('./database');
 const { normalizeTradeSlugs, DEFAULT_TRADES } = require('./networkTrades');
 const { normalizeZone } = require('./referralExchange');
+const { normalizeBrand } = require('./networkBrand');
 
 // Hex/base36 only: kv listing uses SQL LIKE, where "_" is a wildcard.
 function newId() {
@@ -54,6 +60,8 @@ function normalizeNetwork(raw) {
     ownerWorkspaceId: String(net.ownerWorkspaceId || ''),
     ownerEmail: cleanText(net.ownerEmail, 200).toLowerCase(),
     trades: trades.length ? trades : DEFAULT_TRADES.map((trade) => trade.slug),
+    brand: normalizeBrand(net.brand),
+    autoGhlSubaccount: net.autoGhlSubaccount !== false,
     createdAt: net.createdAt || new Date().toISOString(),
     updatedAt: net.updatedAt || net.createdAt || new Date().toISOString(),
   };
@@ -141,8 +149,53 @@ function normalizeMember(raw) {
     trades: normalizeTradeSlugs(m.trades),
     zoneIds: [...new Set((Array.isArray(m.zoneIds) ? m.zoneIds : []).map((id) => String(id || '').trim()).filter(Boolean))],
     status: m.status === 'paused' ? 'paused' : 'active',
+    ghlLocationId: cleanText(m.ghlLocationId, 80),
+    ghlSubaccountUrl: cleanText(m.ghlSubaccountUrl, 400),
+    ghlError: cleanText(m.ghlError, 300),
+    ghlAttemptedAt: m.ghlAttemptedAt || '',
+    reviewSlug: cleanSlug(m.reviewSlug),
+    reviewLinks: normalizeReviewLinks(m.reviewLinks),
+    invitedByMemberId: cleanText(m.invitedByMemberId, 40),
     joinedAt: m.joinedAt || new Date().toISOString(),
     updatedAt: m.updatedAt || m.joinedAt || new Date().toISOString(),
+  };
+}
+
+function cleanSlug(value) {
+  return String(value == null ? '' : value)
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48)
+    .replace(/-+$/g, '');
+}
+
+function cleanReviewUrl(value) {
+  const raw = String(value == null ? '' : value).trim().slice(0, 500);
+  if (!raw) return '';
+  const withScheme = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  try {
+    const url = new URL(withScheme);
+    if (!/^https?:$/.test(url.protocol) || !url.hostname.includes('.')) return '';
+    return url.toString();
+  } catch {
+    return '';
+  }
+}
+
+function normalizeReviewLinks(raw) {
+  const r = raw && typeof raw === 'object' ? raw : {};
+  const other = (Array.isArray(r.other) ? r.other : [])
+    .map((row) => ({ label: cleanText(row && row.label, 40), url: cleanReviewUrl(row && row.url) }))
+    .filter((row) => row.label && row.url)
+    .slice(0, 3);
+  return {
+    google: cleanReviewUrl(r.google),
+    facebook: cleanReviewUrl(r.facebook),
+    yelp: cleanReviewUrl(r.yelp),
+    other,
   };
 }
 
@@ -190,10 +243,175 @@ async function saveReferral(networkId, referral) {
   return next;
 }
 
+/** Every member in every network as { networkId, member }, for the lost-link lookup. */
+async function listAllMembers() {
+  const keys = await dbService.listStorageKeysWithPrefix('netmember:');
+  const out = [];
+  for (const key of keys) {
+    const networkId = String(key).split(':')[1] || '';
+    const raw = await readJson(key);
+    if (networkId && raw) out.push({ networkId, member: normalizeMember(raw) });
+  }
+  return out;
+}
+
+// ── Brand images ─────────────────────────────────────────────────────────────
+
+async function getBrandImage(networkId, kind) {
+  const row = await readJson(`netbrandimg:${networkId}:${kind}`);
+  if (!row || !row.data) return null;
+  return { contentType: String(row.contentType || 'image/png'), buffer: Buffer.from(String(row.data), 'base64'), updatedAt: row.updatedAt || '' };
+}
+
+async function saveBrandImage(networkId, kind, { contentType, buffer }) {
+  const updatedAt = new Date().toISOString();
+  await dbService.putStorageKey(`netbrandimg:${networkId}:${kind}`, {
+    contentType,
+    data: Buffer.from(buffer).toString('base64'),
+    updatedAt,
+  });
+  return updatedAt;
+}
+
+async function deleteBrandImage(networkId, kind) {
+  await dbService.deleteStorageKey(`netbrandimg:${networkId}:${kind}`);
+}
+
+// ── Applications (member invites) ────────────────────────────────────────────
+
+const APPLICATION_STATUSES = new Set(['pending', 'approved', 'rejected']);
+
+function normalizeApplication(raw) {
+  const a = raw && typeof raw === 'object' ? raw : {};
+  return {
+    id: String(a.id || ''),
+    companyName: cleanText(a.companyName, 160),
+    contactName: cleanText(a.contactName, 120),
+    phone: cleanText(a.phone, 40),
+    email: cleanText(a.email, 200).toLowerCase(),
+    tradeSlug: cleanText(a.tradeSlug, 60),
+    city: cleanText(a.city, 80),
+    note: cleanText(a.note, 500),
+    invitedByMemberId: cleanText(a.invitedByMemberId, 40),
+    status: APPLICATION_STATUSES.has(a.status) ? a.status : 'pending',
+    memberId: cleanText(a.memberId, 40),
+    createdAt: a.createdAt || new Date().toISOString(),
+    decidedAt: a.decidedAt || '',
+  };
+}
+
+async function listApplications(networkId) {
+  const rows = await readAll(`netapp:${networkId}:`);
+  return rows.map(normalizeApplication).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+}
+
+async function getApplication(networkId, id) {
+  const raw = await readJson(`netapp:${networkId}:${id}`);
+  return raw ? normalizeApplication(raw) : null;
+}
+
+async function saveApplication(networkId, application) {
+  const next = normalizeApplication({ ...application, id: application.id || newId() });
+  await dbService.putStorageKey(`netapp:${networkId}:${next.id}`, next);
+  return next;
+}
+
+// ── Review page: slugs, feedback, stats ──────────────────────────────────────
+
+async function resolveReviewSlug(slug) {
+  const clean = cleanSlug(slug);
+  if (!clean) return null;
+  const row = await readJson(`netreviewslug:${clean}`);
+  return row && row.networkId && row.memberId ? { networkId: String(row.networkId), memberId: String(row.memberId), slug: clean } : null;
+}
+
+/**
+ * Give the member a review slug (globally unique, since /rv/:slug has no
+ * network in it). Keeps an existing slug unless `wanted` asks for a new one.
+ */
+async function ensureReviewSlug(networkId, member, wanted) {
+  const desired = cleanSlug(wanted) || member.reviewSlug || cleanSlug(member.companyName) || 'reviews';
+  if (member.reviewSlug && member.reviewSlug === desired) return member;
+  let slug = desired;
+  for (let i = 2; i < 200; i += 1) {
+    const taken = await resolveReviewSlug(slug);
+    if (!taken || (taken.networkId === networkId && taken.memberId === member.id)) break;
+    slug = `${desired.slice(0, 44)}-${i}`;
+  }
+  await dbService.putStorageKey(`netreviewslug:${slug}`, { networkId, memberId: member.id });
+  if (member.reviewSlug && member.reviewSlug !== slug) {
+    await dbService.deleteStorageKey(`netreviewslug:${member.reviewSlug}`);
+  }
+  return saveMember(networkId, { ...member, reviewSlug: slug });
+}
+
+async function saveFeedback(networkId, feedback) {
+  const next = {
+    id: feedback.id || newId(),
+    memberId: String(feedback.memberId || ''),
+    rating: Math.max(1, Math.min(5, parseInt(feedback.rating, 10) || 0)) || 0,
+    name: cleanText(feedback.name, 120),
+    phone: cleanText(feedback.phone, 40),
+    email: cleanText(feedback.email, 200),
+    message: cleanText(feedback.message, 1500),
+    createdAt: feedback.createdAt || new Date().toISOString(),
+  };
+  await dbService.putStorageKey(`netfeedback:${networkId}:${next.id}`, next);
+  return next;
+}
+
+async function listFeedback(networkId, memberId) {
+  const rows = await readAll(`netfeedback:${networkId}:`);
+  return rows
+    .filter((row) => !memberId || row.memberId === memberId)
+    .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+}
+
+const REVIEW_PLATFORMS = ['google', 'facebook', 'yelp', 'other'];
+
+function normalizeReviewStats(raw) {
+  const r = raw && typeof raw === 'object' ? raw : {};
+  const stars = {};
+  for (let i = 1; i <= 5; i += 1) stars[i] = Math.max(0, parseInt(r.stars && r.stars[i], 10) || 0);
+  const clicks = {};
+  REVIEW_PLATFORMS.forEach((p) => { clicks[p] = Math.max(0, parseInt(r.clicks && r.clicks[p], 10) || 0); });
+  return { stars, clicks, views: Math.max(0, parseInt(r.views, 10) || 0) };
+}
+
+async function getReviewStats(networkId, memberId) {
+  return normalizeReviewStats(await readJson(`netreviewstats:${networkId}:${memberId}`));
+}
+
+async function bumpReviewStats(networkId, memberId, { star, click, view } = {}) {
+  const stats = await getReviewStats(networkId, memberId);
+  const s = parseInt(star, 10);
+  if (s >= 1 && s <= 5) stats.stars[s] += 1;
+  if (click && REVIEW_PLATFORMS.includes(click)) stats.clicks[click] += 1;
+  if (view) stats.views += 1;
+  await dbService.putStorageKey(`netreviewstats:${networkId}:${memberId}`, stats);
+  return stats;
+}
+
 module.exports = {
   newId,
   normalizeNetwork,
   normalizeMember,
+  normalizeApplication,
+  normalizeReviewLinks,
+  cleanSlug,
+  listAllMembers,
+  getBrandImage,
+  saveBrandImage,
+  deleteBrandImage,
+  listApplications,
+  getApplication,
+  saveApplication,
+  resolveReviewSlug,
+  ensureReviewSlug,
+  saveFeedback,
+  listFeedback,
+  getReviewStats,
+  bumpReviewStats,
   getNetwork,
   saveNetwork,
   getNetworkForWorkspace,

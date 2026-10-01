@@ -9,8 +9,20 @@ const trades = require('../services/networkTrades');
 const notify = require('../services/networkNotify');
 const networkReferrals = require('../services/networkReferrals');
 const referralNetwork = require('../services/referralNetwork');
+const networkBrand = require('../services/networkBrand');
+const networkMembers = require('../services/networkMembers');
+const multer = require('multer');
 
-const TABS = new Set(['seats', 'members', 'referrals', 'send', 'setup']);
+const TABS = new Set(['seats', 'members', 'applications', 'referrals', 'send', 'brand', 'setup']);
+
+const brandUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024, files: 2 },
+  fileFilter: (_req, file, cb) => {
+    const ok = /^image\/(jpeg|jpg|png|webp|gif)$/i.test(String(file.mimetype || ''));
+    cb(ok ? null : new Error('Upload a JPEG, PNG, WebP, or GIF image.'), ok);
+  },
+});
 
 function wantsJson(req) {
   return /application\/json/i.test(String(req.get('accept') || ''));
@@ -86,10 +98,11 @@ router.get('/', async (req, res, next) => {
   try {
     const network = await loadNetwork(req);
     const tab = TABS.has(String(req.query.tab || '')) ? String(req.query.tab) : 'seats';
-    const [zones, members, referrals] = await Promise.all([
+    const [zones, members, referrals, applications] = await Promise.all([
       store.listZones(network.id),
       store.listMembers(network.id),
       store.listReferrals(network.id),
+      store.listApplications(network.id),
     ]);
     const membersById = Object.fromEntries(members.map((m) => [m.id, m]));
     const zonesById = Object.fromEntries(zones.map((z) => [z.id, z]));
@@ -161,6 +174,16 @@ router.get('/', async (req, res, next) => {
       editZoneId: String(req.query.zone || '').trim(),
       prefillLeadKey: String(req.query.leadKey || '').trim(),
       candidates,
+      brand: networkBrand.brandView(network),
+      applications: applications.map((app) => ({
+        ...app,
+        tradeLabel: app.tradeSlug ? trades.tradeLabel(app.tradeSlug) : '',
+        invitedBy: app.invitedByMemberId && membersById[app.invitedByMemberId] ? membersById[app.invitedByMemberId].companyName : '',
+        suggestedZoneId: (ex.resolveZone(zones, { city: app.city }) || {}).id || '',
+        memberName: app.memberId && membersById[app.memberId] ? membersById[app.memberId].companyName : '',
+        when: formatWhen(app.createdAt),
+      })),
+      pendingApplications: applications.filter((app) => app.status === 'pending').length,
     });
   } catch (err) {
     next(err);
@@ -176,11 +199,51 @@ router.post('/setup', async (req, res) => {
       ...network,
       name: String(req.body.name || '').trim() || network.name,
       trades: chosen.length ? chosen : network.trades,
+      autoGhlSubaccount: req.body.ghlToggle ? req.body.autoGhlSubaccount === 'on' : network.autoGhlSubaccount,
     });
     return reply(req, res, { ok: true, tab: 'setup', notice: 'Network saved.' });
   } catch (err) {
     console.error('[network] setup failed:', err.message);
     return reply(req, res, { ok: false, tab: 'setup', notice: 'Could not save the network.', status: 500 });
+  }
+});
+
+router.post('/brand', (req, res, next) => {
+  brandUpload.fields([{ name: 'logo', maxCount: 1 }, { name: 'hero', maxCount: 1 }])(req, res, (err) => {
+    if (err) return reply(req, res, { ok: false, tab: 'brand', notice: `Could not upload that image: ${err.message}` });
+    return next();
+  });
+}, async (req, res) => {
+  if (!canManage(req)) return reply(req, res, { ok: false, tab: 'brand', notice: 'Only owners and admins can change branding.', status: 403 });
+  try {
+    const network = await loadNetwork(req);
+    const body = req.body || {};
+    const brand = { ...network.brand };
+    ['appName', 'tagline', 'subtitle', 'accent', 'statValue', 'statLabel', 'statSuffix'].forEach((field) => {
+      if (body[field] !== undefined) brand[field] = body[field];
+    });
+    const files = req.files || {};
+    for (const kind of ['logo', 'hero']) {
+      const file = files[kind] && files[kind][0];
+      if (file && file.buffer) {
+        const prepared = await networkBrand.prepareImage(kind, file.buffer);
+        const stamp = await store.saveBrandImage(network.id, kind, prepared);
+        brand[`${kind}Url`] = `/m/brand/${network.id}/${kind}?v=${Date.parse(stamp) || Date.now()}`;
+      } else if (body[`remove_${kind}`] === 'on') {
+        await store.deleteBrandImage(network.id, kind);
+        brand[`${kind}Url`] = '';
+      } else if (body[`${kind}Url`] !== undefined) {
+        const typed = String(body[`${kind}Url`] || '').trim();
+        const uploaded = String(brand[`${kind}Url`] || '').startsWith(`/m/brand/${network.id}/`);
+        if (typed && typed !== brand[`${kind}Url`]) brand[`${kind}Url`] = typed;
+        else if (!typed && !uploaded) brand[`${kind}Url`] = '';
+      }
+    }
+    await store.saveNetwork({ ...network, brand });
+    return reply(req, res, { ok: true, tab: 'brand', notice: 'Branding saved. Members see it the next time they open the app.' });
+  } catch (err) {
+    console.error('[network] brand save failed:', err.message);
+    return reply(req, res, { ok: false, tab: 'brand', notice: 'Could not save branding.', status: 500 });
   }
 });
 
@@ -252,8 +315,13 @@ router.post('/members', async (req, res) => {
     const applied = referralNetwork.applyPartnerAction(lead, 'connect');
     if (applied.ok) await dbService.updateLead(lead.key, { referralPartner: applied.referralPartner }, req.workspaceId);
 
-    const notice = seatNotice(existing ? `Updated ${member.companyName}.` : `${member.companyName} joined the network.`, conflicts);
-    return reply(req, res, { ok: true, tab: 'members', notice, data: { member, conflicts } });
+    let ghl = null;
+    if (!existing && network.autoGhlSubaccount && !member.ghlLocationId) {
+      ghl = await networkMembers.provisionGhlSubaccount(network, member);
+    }
+    const notice = seatNotice(existing ? `Updated ${member.companyName}.` : `${member.companyName} joined the network.`, conflicts)
+      + networkMembers.ghlNotice(ghl);
+    return reply(req, res, { ok: true, tab: 'members', notice, data: { member: ghl && ghl.member ? ghl.member : member, conflicts, ghl } });
   } catch (err) {
     console.error('[network] add member failed:', err.message);
     return reply(req, res, { ok: false, tab: 'members', notice: 'Could not add that member.', status: 500 });
@@ -292,6 +360,57 @@ router.post('/members/:id/status', async (req, res) => {
   }
 });
 
+router.post('/members/:id/ghl', async (req, res) => {
+  if (!canManage(req)) return reply(req, res, { ok: false, tab: 'members', notice: 'Only owners and admins can create GHL sub-accounts.', status: 403 });
+  try {
+    const network = await loadNetwork(req);
+    const member = await store.getMember(network.id, req.params.id);
+    if (!member) return reply(req, res, { ok: false, tab: 'members', notice: 'Member not found.', status: 404 });
+    const ghl = await networkMembers.provisionGhlSubaccount(network, member);
+    return reply(req, res, { ok: !!ghl.ok, tab: 'members', notice: `${member.companyName}:${networkMembers.ghlNotice(ghl)}`, data: { ghl } });
+  } catch (err) {
+    console.error('[network] ghl provision failed:', err.message);
+    return reply(req, res, { ok: false, tab: 'members', notice: 'Could not create the GHL sub-account.', status: 500 });
+  }
+});
+
+router.post('/applications/:id/approve', async (req, res) => {
+  if (!canManage(req)) return reply(req, res, { ok: false, tab: 'applications', notice: 'Only owners and admins can approve applicants.', status: 403 });
+  try {
+    const network = await loadNetwork(req);
+    const result = await networkMembers.approveApplication({
+      network,
+      applicationId: req.params.id,
+      zoneIds: listFrom(req.body.zoneIds),
+      tradeSlugs: listFrom(req.body.trades),
+      baseUrl: notify.baseUrlFromReq(req),
+    });
+    if (!result.ok) return reply(req, res, { ok: false, tab: 'applications', notice: result.error });
+    let notice = seatNotice(`${result.member.companyName} joined the network.`, result.conflicts || []);
+    notice += networkMembers.ghlNotice(result.ghl);
+    notice += result.notified && result.notified.ok
+      ? ` App link sent by ${result.notified.channel === 'sms' ? 'text' : 'email'}.`
+      : ' App link not sent — use "Text app link" on the member.';
+    return reply(req, res, { ok: true, tab: 'applications', notice, data: { member: result.member } });
+  } catch (err) {
+    console.error('[network] approve failed:', err.message);
+    return reply(req, res, { ok: false, tab: 'applications', notice: 'Could not approve that applicant.', status: 500 });
+  }
+});
+
+router.post('/applications/:id/reject', async (req, res) => {
+  if (!canManage(req)) return reply(req, res, { ok: false, tab: 'applications', notice: 'Only owners and admins can reject applicants.', status: 403 });
+  try {
+    const network = await loadNetwork(req);
+    const result = await networkMembers.rejectApplication({ network, applicationId: req.params.id });
+    if (!result.ok) return reply(req, res, { ok: false, tab: 'applications', notice: result.error });
+    return reply(req, res, { ok: true, tab: 'applications', notice: `Rejected ${result.application.companyName}.` });
+  } catch (err) {
+    console.error('[network] reject failed:', err.message);
+    return reply(req, res, { ok: false, tab: 'applications', notice: 'Could not reject that applicant.', status: 500 });
+  }
+});
+
 router.get('/members/:id/portal-link', async (req, res) => {
   try {
     const network = await loadNetwork(req);
@@ -310,7 +429,7 @@ router.post('/members/:id/send-portal-link', async (req, res) => {
     if (!member) return reply(req, res, { ok: false, tab: 'members', notice: 'Member not found.', status: 404 });
     const sent = await notify.sendMemberPortalLink({ network, member, baseUrl: notify.baseUrlFromReq(req) });
     const notice = sent.ok
-      ? `Member page link sent to ${member.companyName} by ${sent.channel === 'sms' ? 'text' : 'email'}.`
+      ? `App link sent to ${member.companyName} by ${sent.channel === 'sms' ? 'text' : 'email'}.`
       : `Could not send the link: ${sent.error}`;
     return reply(req, res, { ok: sent.ok, tab: 'members', notice });
   } catch (err) {

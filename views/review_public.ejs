@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('member_app/_head', { pageTitle: 'Review ' + member.companyName }) %>
+</head>
+<body>
+  <main class="rv-wrap">
+    <% if (brand.logoUrl) { %>
+    <img class="rv-logo" src="<%= brand.logoUrl %>" alt="">
+    <% } else { %>
+    <div class="rv-initials" aria-hidden="true"><%= member.companyName.trim().charAt(0).toUpperCase() %></div>
+    <% } %>
+    <h1><%= member.companyName %></h1>
+
+    <% if (thanks) { %>
+      <p class="rv-sub">Thank you. Your message went straight to the owner, and they'll reach out to make it right.</p>
+      <% if (destinations.length) { %>
+      <div class="rv-panel">
+        <p class="ma-hint" style="text-align:center">You can also post a public review:</p>
+        <div class="rv-links rv-links--quiet">
+          <% destinations.forEach(function (d) { %>
+          <a class="rv-link" href="<%= d.href %>" rel="noopener"><span class="rv-link__icon" style="background: <%= d.color %>"><%= d.letter %></span><%= d.label %><span class="rv-link__go">›</span></a>
+          <% }); %>
+        </div>
+      </div>
+      <% } %>
+    <% } else { %>
+      <p class="rv-sub"><%= gate.stage === 'ask' ? 'How was your experience?' : (gate.stage === 'happy' ? 'Thank you! Would you share that in a quick review?' : "We're sorry it wasn't great.") %></p>
+
+      <div class="rv-stars" role="group" aria-label="Rate your experience">
+        <% [1, 2, 3, 4, 5].forEach(function (s) { %>
+        <a class="rv-star <%= gate.rating >= s ? 'is-on' : '' %>" href="/rv/<%= slug %>?r=<%= s %>" aria-label="<%= s %> star<%= s > 1 ? 's' : '' %>" rel="nofollow"><%- icons.starSolid %></a>
+        <% }); %>
+      </div>
+
+      <% if (gate.stage === 'happy') { %>
+      <div class="rv-panel">
+        <% if (destinations.length) { %>
+        <div class="rv-links">
+          <% destinations.forEach(function (d) { %>
+          <a class="rv-link" href="<%= d.href %>" rel="noopener"><span class="rv-link__icon" style="background: <%= d.color %>"><%= d.letter %></span>Review us on <%= d.label %><span class="rv-link__go">›</span></a>
+          <% }); %>
+        </div>
+        <% } else { %>
+        <p class="ma-hint" style="text-align:center">Thanks for the stars!</p>
+        <% } %>
+        <details style="margin-top:16px">
+          <summary class="ma-hint" style="cursor:pointer;text-align:center">Something we could do better? Tell us privately</summary>
+          <%- include('member_app/_review_feedback_form') %>
+        </details>
+      </div>
+      <% } else if (gate.stage === 'unhappy') { %>
+      <div class="rv-panel">
+        <p class="ma-hint" style="text-align:center;margin-bottom:10px">Tell the owner what happened. It goes straight to them.</p>
+        <%- include('member_app/_review_feedback_form') %>
+        <% if (destinations.length) { %>
+        <p class="ma-hint" style="text-align:center;margin-top:18px">Prefer to post a public review?</p>
+        <div class="rv-links rv-links--quiet">
+          <% destinations.forEach(function (d) { %>
+          <a class="rv-link" href="<%= d.href %>" rel="noopener"><span class="rv-link__icon" style="background: <%= d.color %>"><%= d.letter %></span><%= d.label %><span class="rv-link__go">›</span></a>
+          <% }); %>
+        </div>
+        <% } %>
+      </div>
+      <% } else if (destinations.length) { %>
+      <div class="rv-panel">
+        <p class="ma-hint" style="text-align:center">Or go straight to a review site:</p>
+        <div class="rv-links rv-links--quiet">
+          <% destinations.forEach(function (d) { %>
+          <a class="rv-link" href="<%= d.href %>" rel="noopener"><span class="rv-link__icon" style="background: <%= d.color %>"><%= d.letter %></span><%= d.label %><span class="rv-link__go">›</span></a>
+          <% }); %>
+        </div>
+      </div>
+      <% } %>
+    <% } %>
+
+    <p class="rv-foot"><%= brand.appName %> member</p>
+  </main>
+</body>
+</html>

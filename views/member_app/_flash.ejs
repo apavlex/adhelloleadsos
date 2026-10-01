@@ -1,0 +1,5 @@
+<% if (flash && flash.ok) { %>
+<p class="ma-flash ma-flash--ok" role="status"><%= flash.ok %></p>
+<% } else if (flash && flash.error) { %>
+<p class="ma-flash ma-flash--err" role="alert"><%= flash.error %></p>
+<% } %>

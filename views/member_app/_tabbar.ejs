@@ -1,0 +1,24 @@
+<%
+  const _tabs = [
+    { id: 'home', label: 'Home', href: base, icon: icons.home },
+    { id: 'referrals', label: 'Referrals', href: base + '/referrals', icon: icons.referrals },
+    { id: 'send', label: 'Send', href: base + '/send', icon: icons.send, fab: true },
+    { id: 'enroll', label: 'Enroll', href: base + '/enroll', icon: icons.enroll },
+    { id: 'review', label: 'Review', href: base + '/review', icon: icons.review },
+  ];
+%>
+<nav class="ma-tabbar" aria-label="App sections">
+  <div class="ma-tabbar__inner">
+    <% _tabs.forEach(function (t) { %>
+    <a href="<%= t.href %>" class="ma-tab <%= t.fab ? 'ma-tab--send' : '' %> <%= active === t.id ? 'is-on' : '' %>" <%= active === t.id ? 'aria-current=page' : '' %>>
+      <% if (t.fab) { %><span class="ma-tab__fab"><%- t.icon %></span><% } else { %><%- t.icon %><% } %>
+      <span><%= t.label %></span>
+    </a>
+    <% }); %>
+  </div>
+</nav>
+<div class="ma-install" id="maInstall" hidden>
+  Add <b><%= brand.appName %></b> to your Home Screen: tap <b>Share</b>, then <b>Add to Home Screen</b>.
+  <button type="button" aria-label="Dismiss" data-ma-install-close>&times;</button>
+</div>
+<script src="/js/member-app.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
