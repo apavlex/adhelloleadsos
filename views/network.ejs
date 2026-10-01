@@ -47,6 +47,22 @@
     html.dark .net-metric { background: rgba(255, 255, 255, 0.04); }
     .net-metric span { display: block; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #64748b; }
     .net-metric strong { display: block; font-size: 1.05rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .net-file { display: block; width: 100%; font-size: 0.8rem; color: #64748b; cursor: pointer; }
+    .net-file::file-selector-button {
+      margin-right: 0.65rem; border-radius: 999px; padding: 0.5rem 0.95rem; font: inherit; font-size: 0.74rem; font-weight: 700;
+      background: transparent; color: #0f172a; border: 1px solid rgba(15, 23, 42, 0.14); cursor: pointer; transition: border-color 0.15s ease;
+    }
+    .net-file:hover::file-selector-button { border-color: var(--brand-yellow, #FFD644); }
+    html.dark .net-file::file-selector-button { color: #f8fafc; border-color: rgba(255, 255, 255, 0.16); }
+    .net-swatch {
+      -webkit-appearance: none; appearance: none; flex-shrink: 0; width: 2.5rem; height: 2.5rem; padding: 0; border-radius: 999px;
+      border: 1px solid rgba(15, 23, 42, 0.14); background: transparent; cursor: pointer; overflow: hidden;
+    }
+    html.dark .net-swatch { border-color: rgba(255, 255, 255, 0.16); }
+    .net-swatch::-webkit-color-swatch-wrapper { padding: 3px; }
+    .net-swatch::-webkit-color-swatch { border: none; border-radius: 999px; }
+    .net-swatch::-moz-color-swatch { border: none; border-radius: 999px; }
+    .net-swatch:focus-visible { outline: 2px solid var(--brand-yellow, #FFD644); outline-offset: 2px; }
     .net-review-other { display: grid; gap: 0.5rem; }
     @media (min-width: 640px) { .net-review-other { grid-template-columns: 12rem minmax(0, 1fr); } }
     details.net-more > summary { list-style: none; cursor: pointer; }
@@ -454,7 +470,7 @@
             <div>
               <label class="net-label" for="brAccent">Accent color</label>
               <div class="flex items-center gap-2">
-                <input type="color" id="brAccentPick" value="<%= brand.accent %>" class="h-10 w-12 rounded-lg border-0 bg-transparent p-0 cursor-pointer" aria-label="Pick accent color" />
+                <input type="color" id="brAccentPick" value="<%= brand.accent %>" class="net-swatch" aria-label="Pick accent color" />
                 <input id="brAccent" name="accent" value="<%= brand.accent %>" maxlength="7" class="net-input" data-br="accent" />
               </div>
             </div>
@@ -478,7 +494,7 @@
               <% if (cur) { %><img src="<%= cur %>" alt="" class="h-10 <%= k === 'hero' ? 'w-16 object-cover' : 'w-10 object-contain' %> rounded-lg bg-slate-100" /><% } %>
             </div>
             <p class="text-[12px] text-brand-muted"><%= img[2] %></p>
-            <input type="file" name="<%= k %>" accept="image/png,image/jpeg,image/webp,image/gif" class="text-sm" />
+            <input type="file" name="<%= k %>" accept="image/png,image/jpeg,image/webp,image/gif" class="net-file" />
             <input name="<%= k %>Url" value="<%= uploaded ? '' : (cur || '') %>" placeholder="…or paste an https:// image URL" class="net-input" />
             <% if (cur) { %><label class="flex items-center gap-2 text-[12px] font-semibold"><input type="checkbox" name="remove_<%= k %>" value="on" /> Remove <%= img[1].toLowerCase() %></label><% } %>
           </div>
