@@ -152,6 +152,7 @@ async function getNetworkOverview(ctx) {
       app_name: network.brand && network.brand.appName ? network.brand.appName : network.name,
       trades: networkTrades.map((t) => t.name),
       auto_ghl_subaccount: network.autoGhlSubaccount,
+      partners_per_trade: network.seatLimit || 'no limit',
     },
     zones: zones.map((zone) => ({
       id: zone.id,
@@ -160,7 +161,7 @@ async function getNetworkOverview(ctx) {
       zips: zone.zips,
       seats_held: networkTrades
         .filter((t) => ex.seatHolder(zone, t.slug))
-        .map((t) => `${t.name}: ${memberName(membersById, ex.seatHolder(zone, t.slug)) || 'member'}`),
+        .map((t) => `${t.name}: ${ex.seatHolders(zone, t.slug).map((id) => memberName(membersById, id) || 'member').join(', ')}`),
       open_seats: networkTrades.filter((t) => !ex.seatHolder(zone, t.slug)).map((t) => t.name),
     })),
     members: {

@@ -147,8 +147,7 @@ async function renderPortal(req, res, token, flash, formValues) {
     .filter((t) => !ctx.member.trades.includes(t.slug))
     .map((t) => {
       const holders = zones
-        .map((z) => ex.seatHolder(z, t.slug))
-        .filter(Boolean)
+        .flatMap((z) => ex.seatHolders(z, t.slug))
         .map((id) => membersById[id])
         .filter((m) => m && m.status === 'active' && m.id !== ctx.member.id);
       return { ...t, holders: [...new Set(holders.map((m) => m.companyName))] };

@@ -63,8 +63,13 @@ function resolveConfig(integrationEnv) {
   const smsFromNumber = String(env.GHL_SMS_FROM_NUMBER || process.env.GHL_SMS_FROM_NUMBER || '').trim();
   const companyId = String(env.GHL_COMPANY_ID || process.env.GHL_COMPANY_ID || '').trim();
   const snapshotId = String(env.GHL_SNAPSHOT_ID || process.env.GHL_SNAPSHOT_ID || '').trim();
-  return { apiKey, locationId, emailFrom, smsFromNumber, companyId, snapshotId };
+  const agencyApiKey = String(env.GHL_AGENCY_API_KEY || process.env.GHL_AGENCY_API_KEY || '').trim();
+  return { apiKey, locationId, emailFrom, smsFromNumber, companyId, snapshotId, agencyApiKey };
 }
+
+const AGENCY_SCOPE_HELP =
+  'Creating GHL sub-accounts needs an agency-level token. In GHL switch to Agency view → Settings → Private Integrations, ' +
+  'create one with the locations.write and locations.readonly scopes, then paste it as "Agency API key" in Workspace → Integrations → Go High Level.';
 
 function isConfigured(integrationEnv) {
   const { apiKey, locationId } = resolveConfig(integrationEnv);
@@ -96,8 +101,10 @@ function isDailyRateLimitExhausted(res) {
   return daily != null && String(daily).trim() === '0';
 }
 
-async function ghlRequest(method, path, { integrationEnv, body, query, apiVersion } = {}) {
-  const { apiKey, locationId } = resolveConfig(integrationEnv);
+async function ghlRequest(method, path, { integrationEnv, body, query, apiVersion, agency = false } = {}) {
+  const cfg = resolveConfig(integrationEnv);
+  const { locationId } = cfg;
+  const apiKey = agency ? cfg.agencyApiKey || cfg.apiKey : cfg.apiKey;
   if (!apiKey) throw new Error('GHL API key is not configured.');
   if (!locationId && !String(path || '').includes('/locations/')) {
     throw new Error('GHL location ID is not configured.');
@@ -157,7 +164,9 @@ async function ghlRequest(method, path, { integrationEnv, body, query, apiVersio
       (data && data.msg) ||
       `GHL API error (${res.status})`;
     let errText = typeof msg === 'string' ? msg : JSON.stringify(msg);
-    if (/does not have access to this location/i.test(errText)) {
+    if (agency && (/not authorized for this scope/i.test(errText) || res.status === 401 || res.status === 403)) {
+      errText = AGENCY_SCOPE_HELP;
+    } else if (/does not have access to this location/i.test(errText)) {
       errText =
         'GHL token does not have access to this Location ID. Create the Private Integration token inside the same sub-account as the Location ID (Settings → Integrations → Private Integrations), copy that location’s ID from the URL (/location/XXXX/), then Test & save under Workspace → Integrations.';
     } else if (res.status === 429) {
@@ -747,12 +756,12 @@ async function searchLocations({ companyId, limit = 50, skip = 0, email } = {}, 
   const cid = String(companyId || '').trim();
   if (cid) query.companyId = cid;
   if (email) query.email = String(email).trim();
-  return ghlRequest('GET', '/locations/search', { integrationEnv, query });
+  return ghlRequest('GET', '/locations/search', { integrationEnv, query, agency: true });
 }
 
 async function createLocation(body, integrationEnv) {
   if (!body || typeof body !== 'object') throw new Error('Location payload is required.');
-  return ghlRequest('POST', '/locations/', { integrationEnv, body });
+  return ghlRequest('POST', '/locations/', { integrationEnv, body, agency: true });
 }
 
 module.exports = {

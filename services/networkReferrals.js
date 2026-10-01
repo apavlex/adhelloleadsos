@@ -13,11 +13,19 @@ async function sendReferral({ network, input, fromMemberId, by, baseUrl }) {
   if (!built.ok) return built;
   if (!network.trades.includes(built.referral.tradeSlug)) return { ok: false, error: 'That trade is not in this network.' };
 
-  const [zones, members] = await Promise.all([store.listZones(network.id), store.listMembers(network.id)]);
+  const [zones, members, referrals] = await Promise.all([
+    store.listZones(network.id),
+    store.listMembers(network.id),
+    store.listReferrals(network.id),
+  ]);
   const zone = built.referral.zoneId
     ? zones.find((z) => z.id === built.referral.zoneId) || null
     : ex.resolveZone(zones, { city: built.referral.homeowner.city, zip: built.referral.homeowner.zip });
-  const route = ex.routeReferral(zone, built.referral.tradeSlug, { members, fromMemberId: built.referral.fromMemberId });
+  const route = ex.routeReferral(zone, built.referral.tradeSlug, {
+    members,
+    fromMemberId: built.referral.fromMemberId,
+    referrals,
+  });
   const routed = ex.applyRouting({ ...built.referral, zoneId: zone ? zone.id : '' }, route);
   const referral = await store.saveReferral(network.id, { ...routed, id: store.newId() });
 
@@ -83,7 +91,7 @@ async function saveMemberWithSeats(network, member, { trades, zoneIds }) {
     trades: (trades || []).filter((slug) => network.trades.includes(slug)),
     zoneIds: validZoneIds,
   });
-  const plan = ex.planMemberSeats(zones, saved.id, { trades: saved.trades, zoneIds: saved.zoneIds });
+  const plan = ex.planMemberSeats(zones, saved.id, { trades: saved.trades, zoneIds: saved.zoneIds }, undefined, network.seatLimit);
   for (const zone of plan.changed) await store.saveZone(network.id, zone);
   return { member: saved, conflicts: plan.conflicts };
 }

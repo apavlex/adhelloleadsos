@@ -89,15 +89,28 @@ function parseZipList(input) {
   return [...new Set(zips)].slice(0, 500);
 }
 
+/** zone.seats[slug] is a list of holders; older records stored one `{ memberId, since }`. */
 function normalizeSeats(raw) {
   const out = {};
   if (!raw || typeof raw !== 'object') return out;
-  for (const [slug, seat] of Object.entries(raw)) {
-    const memberId = seat && typeof seat === 'object' ? String(seat.memberId || '').trim() : '';
-    if (!slug || !memberId) continue;
-    out[slug] = { memberId, since: seat.since || '' };
+  for (const [slug, value] of Object.entries(raw)) {
+    const seen = new Set();
+    const holders = (Array.isArray(value) ? value : [value])
+      .map((seat) => ({
+        memberId: seat && typeof seat === 'object' ? String(seat.memberId || '').trim() : '',
+        since: (seat && seat.since) || '',
+      }))
+      .filter((seat) => seat.memberId && !seen.has(seat.memberId) && seen.add(seat.memberId));
+    if (slug && holders.length) out[slug] = holders;
   }
   return out;
+}
+
+/** Partners allowed per trade in each zone: 1 = exclusive seat, 0 = no limit. */
+function normalizeSeatLimit(value) {
+  const n = parseInt(value, 10);
+  if (!Number.isFinite(n) || n < 0) return 1;
+  return Math.min(n, 50);
 }
 
 function normalizeZone(raw) {
@@ -131,48 +144,64 @@ function resolveZone(zones, { city, zip } = {}) {
 
 // ── Seats ────────────────────────────────────────────────────────────────────
 
+function seatList(zone, tradeSlug) {
+  const value = zone && zone.seats ? zone.seats[tradeSlug] : null;
+  if (!value) return [];
+  return (Array.isArray(value) ? value : [value]).filter((seat) => seat && seat.memberId);
+}
+
+/** Member ids holding a trade in a zone, in the order they joined. */
+function seatHolders(zone, tradeSlug) {
+  return seatList(zone, tradeSlug).map((seat) => seat.memberId);
+}
+
+/** First holder of a trade in a zone (the only one when seats are exclusive). */
 function seatHolder(zone, tradeSlug) {
-  const seat = zone && zone.seats ? zone.seats[tradeSlug] : null;
-  return seat && seat.memberId ? seat.memberId : null;
+  return seatHolders(zone, tradeSlug)[0] || null;
 }
 
 /**
- * Give a member the seat for a trade in a zone. Rejects when another member
- * already holds it. Passing a null memberId releases the seat.
+ * Give a member a seat for a trade in a zone. Rejects when the trade already
+ * has `limit` holders (0 = no limit). Passing a null memberId clears the trade.
  */
-function assignSeat(zone, tradeSlug, memberId, now) {
+function assignSeat(zone, tradeSlug, memberId, now, limit = 1) {
   const slug = String(tradeSlug || '').trim();
   if (!zone || !slug) return { ok: false, error: 'Pick a zone and trade.' };
   const seats = { ...(zone.seats || {}) };
-  const holder = seatHolder(zone, slug);
+  const current = seatList(zone, slug);
   const id = memberId ? String(memberId).trim() : '';
   if (!id) {
     delete seats[slug];
     return { ok: true, zone: { ...zone, seats } };
   }
-  if (holder && holder !== id) {
-    return { ok: false, error: 'That seat is already held by another member.', holder };
+  if (current.some((seat) => seat.memberId === id)) return { ok: true, zone };
+  const max = normalizeSeatLimit(limit);
+  if (max && current.length >= max) {
+    return {
+      ok: false,
+      error: max === 1 ? 'That seat is already held by another member.' : `That trade already has ${max} partners in this zone.`,
+      holder: current[0].memberId,
+    };
   }
-  if (holder === id) return { ok: true, zone };
-  seats[slug] = { memberId: id, since: now || new Date().toISOString() };
+  seats[slug] = current.concat({ memberId: id, since: now || new Date().toISOString() });
   return { ok: true, zone: { ...zone, seats } };
 }
 
 function releaseMemberSeats(zone, memberId, keepTrades) {
   const keep = new Set(keepTrades || []);
   const seats = {};
-  for (const [slug, seat] of Object.entries((zone && zone.seats) || {})) {
-    if (seat.memberId === memberId && !keep.has(slug)) continue;
-    seats[slug] = seat;
+  for (const slug of Object.keys((zone && zone.seats) || {})) {
+    const holders = seatList(zone, slug).filter((seat) => seat.memberId !== memberId || keep.has(slug));
+    if (holders.length) seats[slug] = holders;
   }
   return { ...zone, seats };
 }
 
 /**
  * Rebuild a member's seats across zones for the chosen trades x zones.
- * Seats held by someone else are reported as conflicts, never taken.
+ * Full trades are reported as conflicts; nobody else's seat is taken.
  */
-function planMemberSeats(zones, memberId, { trades, zoneIds }, now) {
+function planMemberSeats(zones, memberId, { trades, zoneIds }, now, limit = 1) {
   const wantedZones = new Set(zoneIds || []);
   const wantedTrades = trades || [];
   const conflicts = [];
@@ -181,11 +210,11 @@ function planMemberSeats(zones, memberId, { trades, zoneIds }, now) {
     const keep = wantedZones.has(zone.id) ? wantedTrades : [];
     let next = releaseMemberSeats(zone, memberId, keep);
     for (const slug of keep) {
-      const result = assignSeat(next, slug, memberId, now);
+      const result = assignSeat(next, slug, memberId, now, limit);
       if (result.ok) next = result.zone;
       else conflicts.push({ zoneId: zone.id, zoneName: zone.name, tradeSlug: slug, holder: result.holder });
     }
-    if (JSON.stringify(next.seats) !== JSON.stringify(zone.seats || {})) changed.push(next);
+    if (JSON.stringify(normalizeSeats(next.seats)) !== JSON.stringify(normalizeSeats(zone.seats))) changed.push(next);
   }
   return { changed, conflicts };
 }
@@ -193,8 +222,8 @@ function planMemberSeats(zones, memberId, { trades, zoneIds }, now) {
 function seatsForMember(zones, memberId) {
   const out = [];
   for (const zone of zones || []) {
-    for (const [slug, seat] of Object.entries(zone.seats || {})) {
-      if (seat.memberId === memberId) out.push({ zoneId: zone.id, zoneName: zone.name, tradeSlug: slug });
+    for (const slug of Object.keys(zone.seats || {})) {
+      if (seatHolders(zone, slug).includes(memberId)) out.push({ zoneId: zone.id, zoneName: zone.name, tradeSlug: slug });
     }
   }
   return out;
@@ -203,28 +232,38 @@ function seatsForMember(zones, memberId) {
 // ── Routing ──────────────────────────────────────────────────────────────────
 
 /**
- * Pick the member who receives a referral: the active seat holder for the
- * trade in the zone. Anything else leaves it unrouted for the operator.
+ * Pick the member who receives a referral: an active holder of the trade in
+ * the zone other than the sender. With several holders it rotates to whoever
+ * was sent a referral least recently. Anything else leaves it unrouted.
  */
-function routeReferral(zone, tradeSlug, { members, fromMemberId } = {}) {
+function routeReferral(zone, tradeSlug, { members, fromMemberId, referrals } = {}) {
   if (!zone) return { toMemberId: null, status: 'unrouted', reason: 'no_zone' };
-  const holder = seatHolder(zone, tradeSlug);
-  if (!holder) return { toMemberId: null, status: 'unrouted', reason: 'open_seat' };
-  if (fromMemberId && holder === fromMemberId) {
-    return { toMemberId: null, status: 'unrouted', reason: 'sender_holds_seat' };
+  const holders = seatHolders(zone, tradeSlug);
+  if (!holders.length) return { toMemberId: null, status: 'unrouted', reason: 'open_seat' };
+  const others = holders.filter((id) => !fromMemberId || id !== fromMemberId);
+  if (!others.length) return { toMemberId: null, status: 'unrouted', reason: 'sender_holds_seat' };
+  const active = members
+    ? others.filter((id) => {
+        const member = members.find((row) => row.id === id);
+        return member && member.status === 'active';
+      })
+    : others;
+  if (!active.length) return { toMemberId: null, status: 'unrouted', reason: 'member_paused' };
+  const lastSent = {};
+  for (const ref of referrals || []) {
+    if (!ref || !active.includes(ref.toMemberId)) continue;
+    const at = String(ref.createdAt || '');
+    if (at > (lastSent[ref.toMemberId] || '')) lastSent[ref.toMemberId] = at;
   }
-  const member = (members || []).find((row) => row.id === holder);
-  if (members && (!member || member.status !== 'active')) {
-    return { toMemberId: null, status: 'unrouted', reason: 'member_paused' };
-  }
-  return { toMemberId: holder, status: 'sent', reason: '' };
+  const pick = active.reduce((best, id) => ((lastSent[id] || '') < (lastSent[best] || '') ? id : best), active[0]);
+  return { toMemberId: pick, status: 'sent', reason: '' };
 }
 
 const UNROUTED_REASONS = {
   no_zone: 'No zone covers that city or ZIP.',
   open_seat: 'Nobody holds that trade seat in this zone yet.',
-  sender_holds_seat: 'The sender holds that seat themselves.',
-  member_paused: 'The seat holder is paused.',
+  sender_holds_seat: 'The sender is the only partner for that trade here.',
+  member_paused: 'Every partner for that trade here is paused.',
 };
 
 // ── Referral record ──────────────────────────────────────────────────────────
@@ -396,7 +435,9 @@ module.exports = {
   parseZipList,
   normalizeZone,
   resolveZone,
+  normalizeSeatLimit,
   seatHolder,
+  seatHolders,
   assignSeat,
   planMemberSeats,
   seatsForMember,

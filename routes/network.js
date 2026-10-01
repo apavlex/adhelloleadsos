@@ -113,19 +113,21 @@ router.get('/', async (req, res, next) => {
     const seatRows = zones.map((zone) => ({
       zone,
       seats: networkTrades.map((trade) => {
-        const holderId = ex.seatHolder(zone, trade.slug);
-        const holder = holderId ? membersById[holderId] : null;
+        const holders = ex.seatHolders(zone, trade.slug)
+          .map((id) => membersById[id])
+          .filter(Boolean)
+          .map((holder) => ({
+            id: holder.id,
+            name: holder.companyName,
+            paused: holder.status !== 'active',
+            href: holder.leadKey ? `/referrals?focus=${encodeURIComponent(holder.leadKey)}` : '/network?tab=members',
+          }));
+        const full = network.seatLimit > 0 && holders.length >= network.seatLimit;
         return {
           trade,
-          holder: holder
-            ? {
-                id: holder.id,
-                name: holder.companyName,
-                paused: holder.status !== 'active',
-                href: holder.leadKey ? `/referrals?focus=${encodeURIComponent(holder.leadKey)}` : '/network?tab=members',
-              }
-            : null,
-          recruitUrl: holder ? '' : trades.recruitSearchUrl(trade.slug, zone, network),
+          holders,
+          full,
+          recruitUrl: full ? '' : trades.recruitSearchUrl(trade.slug, zone, network),
         };
       }),
     }));
@@ -164,8 +166,8 @@ router.get('/', async (req, res, next) => {
     }
 
     const totals = ex.networkTotals(referrals);
-    const openSeats = seatRows.reduce((n, row) => n + row.seats.filter((s) => !s.holder).length, 0);
-    const heldSeats = seatRows.reduce((n, row) => n + row.seats.filter((s) => s.holder).length, 0);
+    const openSeats = seatRows.reduce((n, row) => n + row.seats.filter((s) => !s.holders.length).length, 0);
+    const heldSeats = seatRows.reduce((n, row) => n + row.seats.filter((s) => s.holders.length).length, 0);
 
     res.render('network', {
       title: 'Referral network',
@@ -178,7 +180,7 @@ router.get('/', async (req, res, next) => {
       hiddenTrades,
       customTrades: trades.normalizeCustomTrades(network.customTrades).map((t) => ({
         ...t,
-        seatsHeld: zones.filter((z) => ex.seatHolder(z, t.slug)).length,
+        seatsHeld: zones.filter((z) => ex.seatHolders(z, t.slug).length).length,
       })),
       maxCustomTrades: trades.MAX_CUSTOM_TRADES,
       zones,
@@ -194,6 +196,7 @@ router.get('/', async (req, res, next) => {
       notice: String(req.query.notice || '').trim(),
       editZoneId: String(req.query.zone || '').trim(),
       prefillLeadKey: String(req.query.leadKey || '').trim(),
+      prefillTrade: networkTrades.some((t) => t.slug === req.query.trade) ? String(req.query.trade) : '',
       candidates,
       brand: networkBrand.brandView(network),
       applications: applications.map((app) => ({
@@ -221,6 +224,7 @@ router.post('/setup', async (req, res) => {
       name: String(req.body.name || '').trim() || network.name,
       trades: chosen.length ? chosen : network.trades,
       autoGhlSubaccount: req.body.ghlToggle ? req.body.autoGhlSubaccount === 'on' : network.autoGhlSubaccount,
+      seatLimit: req.body.seatLimit != null ? req.body.seatLimit : network.seatLimit,
     });
     return reply(req, res, { ok: true, tab: 'setup', notice: 'Network saved.' });
   } catch (err) {
@@ -396,7 +400,8 @@ router.post('/zones/:id/delete', async (req, res) => {
 function seatNotice(prefix, conflicts, network) {
   if (!conflicts.length) return prefix;
   const list = conflicts.map((c) => `${trades.tradeLabel(c.tradeSlug, network)} in ${c.zoneName}`).join(', ');
-  return `${prefix} Already taken by another member: ${list}.`;
+  if (network.seatLimit === 1) return `${prefix} Already taken by another member: ${list}.`;
+  return `${prefix} Already full (${network.seatLimit || 'no limit'} per trade): ${list}. Raise "Partners per trade" in Setup to add more.`;
 }
 
 router.post('/members', async (req, res) => {

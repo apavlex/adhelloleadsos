@@ -520,6 +520,13 @@
             <% if (masks.ghlCompanyId) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="ghlCompanyId_clear" value="1" /> Remove</label><% } %>
           </div>
           <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Agency API key</label>
+            <% if (masks.ghlAgencyApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.ghlAgencyApiKey %></p><% } %>
+            <input type="password" name="ghlAgencyApiKey" autocomplete="off" placeholder="Agency private integration token (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Only used to create client sub-accounts. In GHL Agency view → Settings → Private Integrations, create a token with <strong>locations.write</strong> and <strong>locations.readonly</strong>. The sub-account token above can't create sub-accounts.</p>
+            <% if (masks.ghlAgencyApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="ghlAgencyApiKey_clear" value="1" /> Remove</label><% } %>
+          </div>
+          <div>
             <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Snapshot ID (optional)</label>
             <% if (masks.ghlSnapshotId) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.ghlSnapshotId %></p><% } %>
             <input type="text" name="ghlSnapshotId" autocomplete="off" placeholder="Snapshot applied to new sub-accounts" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />

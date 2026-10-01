@@ -156,7 +156,7 @@ async function createSubaccountForLead(lead, integrationEnv) {
   }
 
   const cfg = ghlClient.resolveConfig(integrationEnv);
-  if (!cfg.apiKey) {
+  if (!cfg.apiKey && !cfg.agencyApiKey) {
     return { ok: false, error: 'GHL API key is not configured.', key: lead.key, title: lead.title || '' };
   }
 

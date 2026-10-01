@@ -221,8 +221,7 @@ async function directoryFor(network, member) {
     .filter((t) => !member.trades.includes(t.slug))
     .map((t) => {
       const holders = zones
-        .map((z) => ex.seatHolder(z, t.slug))
-        .filter(Boolean)
+        .flatMap((z) => ex.seatHolders(z, t.slug))
         .map((id) => membersById[id])
         .filter((m) => m && m.status === 'active' && m.id !== member.id);
       return { slug: t.slug, name: t.name, holders: [...new Set(holders.map((m) => m.companyName))] };

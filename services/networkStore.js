@@ -16,7 +16,7 @@
 const crypto = require('crypto');
 const dbService = require('./database');
 const { normalizeTradeSlugs, normalizeCustomTrades, catalogFor, ORIGINAL_TRADE_SLUGS } = require('./networkTrades');
-const { normalizeZone } = require('./referralExchange');
+const { normalizeZone, normalizeSeatLimit } = require('./referralExchange');
 const { normalizeBrand } = require('./networkBrand');
 const { PLATFORMS: REVIEW_LINK_PLATFORMS, MAX_OTHER_LINKS: MAX_OTHER_REVIEW_LINKS } = require('./reviewPage');
 
@@ -65,6 +65,7 @@ function normalizeNetwork(raw) {
     customTrades: customTrades.map(({ slug, name, keyword }) => ({ slug, name, keyword })),
     brand: normalizeBrand(net.brand),
     autoGhlSubaccount: net.autoGhlSubaccount !== false,
+    seatLimit: normalizeSeatLimit(net.seatLimit),
     createdAt: net.createdAt || new Date().toISOString(),
     updatedAt: net.updatedAt || net.createdAt || new Date().toISOString(),
   };

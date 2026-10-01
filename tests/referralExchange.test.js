@@ -39,6 +39,43 @@ test('seat exclusivity: one member per trade per zone', () => {
   assert.equal(ex.seatHolder(released.zone, 'hvac'), null);
 });
 
+test('a trade can hold several partners up to the network limit', () => {
+  let zone = zones()[0];
+  zone = ex.assignSeat(zone, 'interior_design', 'm1', NOW, 2).zone;
+  zone = ex.assignSeat(zone, 'interior_design', 'm2', NOW, 2).zone;
+  assert.deepEqual(ex.seatHolders(zone, 'interior_design'), ['m1', 'm2']);
+  const full = ex.assignSeat(zone, 'interior_design', 'm3', NOW, 2);
+  assert.equal(full.ok, false);
+  assert.match(full.error, /already has 2 partners/);
+  assert.equal(ex.assignSeat(zone, 'interior_design', 'm3', NOW, 0).ok, true);
+
+  const plan = ex.planMemberSeats([zone], 'm1', { trades: [], zoneIds: [] }, NOW, 2);
+  assert.deepEqual(ex.seatHolders(plan.changed[0], 'interior_design'), ['m2']);
+});
+
+test('legacy single-holder seats still read as one holder', () => {
+  const zone = ex.normalizeZone({ id: 'z', name: 'Z', seats: { hvac: { memberId: 'm1', since: NOW } } });
+  assert.deepEqual(ex.seatHolders(zone, 'hvac'), ['m1']);
+  assert.equal(ex.seatsForMember([zone], 'm1').length, 1);
+  assert.equal(ex.normalizeSeatLimit(undefined), 1);
+  assert.equal(ex.normalizeSeatLimit('0'), 0);
+});
+
+test('referrals rotate to the partner sent one least recently, skipping sender and paused', () => {
+  let zone = zones()[0];
+  for (const id of ['m1', 'm2', 'm3']) zone = ex.assignSeat(zone, 'tile', id, NOW, 0).zone;
+  const members = [{ id: 'm1', status: 'active' }, { id: 'm2', status: 'active' }, { id: 'm3', status: 'paused' }];
+  const referrals = [
+    { toMemberId: 'm1', createdAt: '2026-09-25T10:00:00.000Z' },
+    { toMemberId: 'm2', createdAt: '2026-09-20T10:00:00.000Z' },
+  ];
+  assert.equal(ex.routeReferral(zone, 'tile', { members, referrals }).toMemberId, 'm2');
+  assert.equal(ex.routeReferral(zone, 'tile', { members, referrals: [] }).toMemberId, 'm1');
+  assert.equal(ex.routeReferral(zone, 'tile', { members, referrals, fromMemberId: 'm2' }).toMemberId, 'm1');
+  const onlyPaused = ex.routeReferral(zone, 'tile', { members, fromMemberId: 'm1', referrals: [{ toMemberId: 'm2', createdAt: NOW }] });
+  assert.equal(onlyPaused.toMemberId, 'm2');
+});
+
 test('planMemberSeats assigns wanted seats, releases dropped ones, reports conflicts', () => {
   const list = zones();
   list[1] = ex.assignSeat(list[1], 'plumbing', 'other', NOW).zone;

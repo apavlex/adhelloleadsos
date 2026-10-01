@@ -48,9 +48,11 @@
     .net-seat { border-radius: 0.9rem; padding: 0.55rem 0.7rem; border: 1px dashed rgba(148, 163, 184, 0.55); min-width: 0; }
     .net-seat.is-held { border-style: solid; border-color: color-mix(in srgb, var(--brand-yellow, #FFD644) 60%, transparent); background: color-mix(in srgb, var(--brand-yellow, #FFD644) 12%, transparent); }
     .net-seat.is-paused { opacity: 0.6; }
-    a.net-seat-link { display: block; color: inherit; text-decoration: none; transition: border-color 120ms ease, box-shadow 120ms ease, transform 80ms ease; }
-    a.net-seat-link:hover, a.net-seat-link:focus-visible { border-color: var(--brand-yellow, #FFD644); box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand-yellow, #FFD644) 45%, transparent); }
-    a.net-seat-link:active { transform: scale(0.98); }
+    .net-seat-holder { display: block; margin: 0.1rem -0.35rem 0; padding: 0.12rem 0.35rem; border-radius: 0.5rem; font-size: 13px; font-weight: 600; color: inherit; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .net-seat-holder:hover, .net-seat-holder:focus-visible { background: color-mix(in srgb, var(--brand-yellow, #FFD644) 22%, transparent); text-decoration: underline; }
+    .net-seat-holder.is-paused { opacity: 0.6; }
+    .net-seat-add { display: inline-block; margin-top: 0.2rem; font-size: 11px; font-weight: 700; color: #64748b; text-decoration: none; }
+    .net-seat-add:hover { text-decoration: underline; }
     .net-seat p { margin: 0; }
     .net-seat { position: relative; }
     .net-seat.is-off { opacity: 0.45; border-style: dotted; }
@@ -123,7 +125,7 @@
       <div>
         <p class="text-[11px] font-black uppercase tracking-[0.22em] text-brand-muted mb-2">Referral network</p>
         <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight"><%= network.name %></h1>
-        <p class="mt-2 max-w-2xl text-sm leading-relaxed text-brand-muted dark:text-slate-400">One company per trade in each zone. Referrals go to the seat holder, who accepts and reports the outcome from a text link — no login needed.</p>
+        <p class="mt-2 max-w-2xl text-sm leading-relaxed text-brand-muted dark:text-slate-400"><% if (network.seatLimit === 1) { %>One company per trade in each zone. Referrals go to the seat holder<% } else { %><%= network.seatLimit ? 'Up to ' + network.seatLimit : 'Any number of' %> companies per trade in each zone. Referrals rotate between them<% } %>, who accept and report the outcome from a text link — no login needed.</p>
       </div>
     </header>
 
@@ -171,14 +173,14 @@
       <% } else { %>
       <% if (canManage) { %>
       <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <p class="text-[12px] text-brand-muted">Tap × on an open seat to hide a trade you don't need. Missing one? <a href="/network?tab=setup#net-add-trade" class="font-semibold underline">Add a trade</a>.</p>
+        <p class="text-[12px] text-brand-muted">Tap × on an open seat to hide a trade you don't need. Missing one? <a href="/network?tab=setup#net-add-trade" class="font-semibold underline">Add a trade</a>. Partners per trade: <a href="/network?tab=setup#netSeatLimit" class="font-semibold underline"><%= network.seatLimit || 'no limit' %></a>.</p>
         <% if (hiddenTrades.length) { %>
         <button type="button" id="netShowHidden" class="net-btn net-btn-ghost" aria-pressed="false" data-count="<%= hiddenTrades.length %>">Show hidden trades (<%= hiddenTrades.length %>)</button>
         <% } %>
       </div>
       <% } %>
       <div class="space-y-4">
-        <% seatRows.forEach(function (row) { const held = row.seats.filter(function (s) { return s.holder; }).length; %>
+        <% seatRows.forEach(function (row) { const held = row.seats.filter(function (s) { return s.holders.length; }).length; %>
         <section class="net-card">
           <div class="flex flex-wrap items-baseline justify-between gap-2">
             <h2 class="font-display font-bold text-lg"><%= row.zone.name %></h2>
@@ -189,11 +191,16 @@
           <% } %>
           <div class="net-seats">
             <% row.seats.forEach(function (seat) { %>
-            <% if (seat.holder) { %>
-            <a href="<%= seat.holder.href %>" class="net-seat is-held net-seat-link <%= seat.holder.paused ? 'is-paused' : '' %>" title="Open <%= seat.holder.name %> in Referral Partners">
-              <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted truncate"><%= seat.trade.name %></p>
-              <p class="text-[13px] font-semibold truncate"><%= seat.holder.name %><%= seat.holder.paused ? ' (paused)' : '' %></p>
-            </a>
+            <% if (seat.holders.length) { %>
+            <div class="net-seat is-held">
+              <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted truncate"><%= seat.trade.name %><%= seat.holders.length > 1 ? ' · ' + seat.holders.length : '' %></p>
+              <% seat.holders.forEach(function (h) { %>
+              <a href="<%= h.href %>" class="net-seat-holder <%= h.paused ? 'is-paused' : '' %>" title="Open <%= h.name %> in Referral Partners"><%= h.name %><%= h.paused ? ' (paused)' : '' %></a>
+              <% }); %>
+              <% if (!seat.full && canManage) { %>
+              <a href="/network?tab=members&trade=<%= encodeURIComponent(seat.trade.slug) %>#net-add-member" class="net-seat-add">+ Add partner</a>
+              <% } %>
+            </div>
             <% } else { %>
             <div class="net-seat">
               <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted truncate <%= canManage ? 'pr-5' : '' %>"><%= seat.trade.name %></p>
@@ -225,7 +232,7 @@
 
     <% if (tab === 'members') { %>
       <% if (canManage) { %>
-      <details class="net-card net-more mb-4" <%= prefillLeadKey || !members.length ? 'open' : '' %>>
+      <details class="net-card net-more mb-4" id="net-add-member" <%= prefillLeadKey || prefillTrade || !members.length ? 'open' : '' %>>
         <summary class="flex items-center justify-between gap-2">
           <span class="font-display font-bold">Add a member</span>
           <span class="net-btn net-btn-ghost">From referral partners</span>
@@ -247,7 +254,7 @@
           </div>
           <div>
             <span class="net-label">Trades</span>
-            <div class="net-checks"><%- tradeChecks('trades', []) %></div>
+            <div class="net-checks"><%- tradeChecks('trades', prefillTrade ? [prefillTrade] : []) %></div>
           </div>
           <div>
             <span class="net-label">Zones</span>
@@ -279,7 +286,11 @@
               <span class="net-pill <%= m.status === 'active' ? 'net-pill-won' : '' %>"><%= m.status === 'active' ? 'Active' : 'Paused' %></span>
             </span>
           </div>
-          <% if (!m.ghlLocationId && m.ghlError) { %><p class="mt-1 text-[12px] text-rose-700 dark:text-rose-300">GHL: <%= m.ghlError %></p><% } %>
+          <% if (!m.ghlLocationId && m.ghlError) { const needsAgencyKey = /not authorized for this scope|agency-level token/i.test(m.ghlError); %>
+          <p class="mt-1 text-[12px] text-rose-700 dark:text-rose-300">
+            <% if (needsAgencyKey) { %>GHL: your GHL key can't create sub-accounts — it needs an agency key. <a href="/workspace/integrations#ghl-integration" class="font-semibold underline">Add Agency API key</a>, then Retry.<% } else { %>GHL: <%= m.ghlError %><% } %>
+          </p>
+          <% } %>
           <p class="mt-2 text-[12px]"><span class="font-bold">Seats:</span> <%= m.seats.length ? m.seats.join(', ') : 'None — edit seats below' %></p>
           <div class="net-metrics">
             <div class="net-metric"><span>Received</span><strong><%= m.stats.received %></strong></div>
@@ -626,6 +637,15 @@
               <% }); %>
             </div>
           </details>
+          <div>
+            <label class="net-label" for="netSeatLimit">Partners per trade in each zone</label>
+            <select id="netSeatLimit" name="seatLimit" class="net-input" style="max-width: 20rem;">
+              <% [[1, '1 — exclusive seat'], [2, '2'], [3, '3'], [4, '4'], [5, '5'], [10, '10'], [0, 'No limit']].forEach(function (o) { %>
+              <option value="<%= o[0] %>" <%= network.seatLimit === o[0] ? 'selected' : '' %>><%= o[1] %></option>
+              <% }); %>
+            </select>
+            <p class="text-[12px] text-brand-muted mt-1">With more than one, referrals rotate to the partner who was sent one least recently. Lowering it keeps current partners.</p>
+          </div>
           <input type="hidden" name="ghlToggle" value="1" />
           <label class="flex items-start gap-2 text-sm font-semibold">
             <input type="checkbox" name="autoGhlSubaccount" value="on" class="mt-0.5" <%= network.autoGhlSubaccount ? 'checked' : '' %> />
