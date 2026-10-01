@@ -235,7 +235,7 @@ router.post('/setup', async (req, res) => {
       autoGhlSubaccount: req.body.ghlToggle ? req.body.autoGhlSubaccount === 'on' : network.autoGhlSubaccount,
       seatLimit: req.body.seatLimit != null ? req.body.seatLimit : network.seatLimit,
     });
-    const seated = saved.seatLimit !== network.seatLimit ? await networkReferrals.reseatWaitingMembers(saved) : [];
+    const seated = req.body.seatLimit != null ? await networkReferrals.reseatWaitingMembers(saved) : [];
     const notice = seated.length ? `Network saved. Seated ${seated.join(', ')}.` : 'Network saved.';
     return reply(req, res, { ok: true, tab: req.body.back === 'seats' ? 'seats' : 'setup', notice });
   } catch (err) {
