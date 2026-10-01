@@ -2,7 +2,7 @@
  * Extended Pavlex MCP ops — opportunities, enrichment, tasks, follow-ups, daily suggestions.
  */
 const dbService = require('../database');
-const { filterLeadsForRequest } = require('../workspaceService');
+const { filterLeadsForRequest, roleForEmail, emailAliases } = require('../workspaceService');
 const { filterBusinessPipelineLeads } = require('../leadListFilters');
 const {
   normalizeBoards,
@@ -357,8 +357,113 @@ async function enrichLead(ctx, input = {}) {
   };
 }
 
-function mapTask(task, leadTitle) {
+// ── Team members (task assignees) ────────────────────────────────────────────
+
+/** Workspace members as the Team page lists them, plus the owner if not in members. */
+function workspaceMembers(ws) {
+  const teamActivity = require('../teamActivity');
+  const members = teamActivity.memberDirectory(ws, []).map((m) => ({
+    email: m.email,
+    name: m.name || '',
+    role: m.role || roleForEmail(ws, m.email),
+  }));
+  const owner = String((ws && ws.ownerUserId) || '').trim().toLowerCase();
+  if (owner && owner.includes('@') && !members.some((m) => m.email === owner)) {
+    members.push({ email: owner, name: '', role: 'owner' });
+  }
+  return members.sort((a, b) => a.email.localeCompare(b.email));
+}
+
+function memberLabel(m) {
+  return m.name ? `${m.name} (${m.email})` : m.email;
+}
+
+async function loadMembers(ctx) {
+  const ws = await dbService.getWorkspace(ctx.workspaceId);
+  if (!ws) {
+    const err = new Error('Workspace not found.');
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+  return workspaceMembers(ws);
+}
+
+async function listTeamMembers(ctx) {
+  const me = String((ctx && ctx.userEmail) || '').trim().toLowerCase();
+  const mine = new Set(emailAliases(me));
+  const members = await loadMembers(ctx);
   return {
+    members: members.map((m) => ({
+      email: m.email,
+      name: m.name || m.email.split('@')[0],
+      role: m.role,
+      you: mine.has(m.email),
+    })),
+  };
+}
+
+/**
+ * Match an assignee (email or name) to exactly one workspace member.
+ * Throws NOT_A_MEMBER / AMBIGUOUS_ASSIGNEE so the model can ask instead of guessing.
+ */
+function matchMember(members, raw) {
+  const want = String(raw || '').trim().toLowerCase();
+  if (!want) return null;
+  let hits;
+  if (want.includes('@')) {
+    const aliases = new Set(emailAliases(want));
+    hits = members.filter((m) => aliases.has(m.email));
+  } else {
+    const local = (m) => m.email.split('@')[0];
+    const nameOf = (m) => String(m.name || '').trim().toLowerCase();
+    hits = members.filter((m) => nameOf(m) === want || local(m) === want);
+    if (!hits.length) {
+      hits = members.filter((m) => nameOf(m).split(/\s+/)[0] === want || local(m).split(/[._-]/)[0] === want);
+    }
+    if (!hits.length) hits = members.filter((m) => nameOf(m).includes(want) || local(m).includes(want));
+  }
+  const roster = members.map(memberLabel).join(', ') || 'none';
+  if (!hits.length) {
+    const err = new Error(`"${raw}" is not a member of this workspace. Members: ${roster}.`);
+    err.code = 'NOT_A_MEMBER';
+    throw err;
+  }
+  if (hits.length > 1) {
+    const err = new Error(`"${raw}" matches several members: ${hits.map(memberLabel).join(', ')}. Use their email.`);
+    err.code = 'AMBIGUOUS_ASSIGNEE';
+    throw err;
+  }
+  return hits[0];
+}
+
+async function resolveAssignee(ctx, raw) {
+  return matchMember(await loadMembers(ctx), raw);
+}
+
+/** Tasks live in per-member lists; find which member's list holds taskId (the caller's first). */
+async function findTaskOwner(ctx, taskId, callerEmail) {
+  const own = await dbService.listUserTasks(ctx.workspaceId, callerEmail);
+  const hit = own.find((t) => t && t.id === taskId);
+  if (hit) return { ownerEmail: callerEmail, task: hit };
+  const members = await loadMembers(ctx);
+  for (const m of members) {
+    if (m.email === callerEmail) continue;
+    // eslint-disable-next-line no-await-in-loop
+    const list = await dbService.listUserTasks(ctx.workspaceId, m.email);
+    const found = list.find((t) => t && t.id === taskId);
+    if (found) return { ownerEmail: m.email, task: found, member: m };
+  }
+  return null;
+}
+
+function taskDueLabel(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return Number.isFinite(d.getTime()) ? ` · due ${d.toISOString().slice(0, 10)}` : '';
+}
+
+function mapTask(task, leadTitle, assignee) {
+  const out = {
     id: task.id,
     title: task.title,
     column: task.column,
@@ -369,10 +474,17 @@ function mapTask(task, leadTitle) {
     source: task.source || 'manual',
     updatedAt: task.updatedAt || null,
   };
+  if (assignee) out.assignedTo = { email: assignee.email, name: assignee.name || '' };
+  return out;
 }
 
 async function listTasks(ctx, input = {}) {
-  const email = requireEmail(ctx);
+  let email = requireEmail(ctx);
+  let assignee = null;
+  if (input.assignee) {
+    assignee = await resolveAssignee(ctx, input.assignee);
+    email = assignee.email;
+  }
   const raw = await dbService.listUserTasks(ctx.workspaceId, email);
   let tasks = filterManualUserTasks(raw);
   const column = String(input.column || '').trim().toLowerCase();
@@ -385,13 +497,15 @@ async function listTasks(ctx, input = {}) {
   const leads = await loadVisibleLeads(ctx);
   const leadMap = Object.fromEntries(leads.map((l) => [l.key, l]));
   return {
+    assignee: assignee ? { email: assignee.email, name: assignee.name || '' } : undefined,
     tasks: tasks.slice(0, limit).map((t) => {
       const L = t.leadKey && leadMap[t.leadKey];
-      return mapTask(t, L ? String(L.title || L.company || L.email || '').slice(0, 120) : null);
+      return mapTask(t, L ? String(L.title || L.company || L.email || '').slice(0, 120) : null, assignee);
     }),
   };
 }
 
+/** Same write as POST /tasks/api, saved into the assignee's own task list when one is given. */
 async function createTask(ctx, input = {}) {
   const email = requireEmail(ctx);
   const title = String(input.title || '').trim();
@@ -400,26 +514,43 @@ async function createTask(ctx, input = {}) {
     err.code = 'INVALID_ARGUMENT';
     throw err;
   }
+  const assignee = input.assignee ? await resolveAssignee(ctx, input.assignee) : null;
+  const ownerEmail = assignee ? assignee.email : email;
+  const forOther = !!assignee && !emailAliases(email).includes(assignee.email);
   let leadKey = leadKeyNorm(input.lead_id || input.leadKey);
+  let leadTitle = null;
   if (leadKey) {
     const leads = await loadVisibleLeads(ctx);
-    if (!leads.some((l) => l.key === leadKey)) {
+    const lead = leads.find((l) => l.key === leadKey);
+    if (!lead) {
       const err = new Error('Lead not found in this workspace.');
       err.code = 'NOT_FOUND';
       throw err;
     }
+    leadTitle = String(lead.title || lead.company || lead.email || '').slice(0, 120);
   } else {
     leadKey = null;
   }
-  const saved = await upsertOpenTaskForLead(ctx.workspaceId, email, {
+  const scheduledAt = normScheduledAt(input.scheduled_at || input.scheduledAt || input.due_at);
+  const saved = await upsertOpenTaskForLead(ctx.workspaceId, ownerEmail, {
     title,
     column: normColumn(input.column),
-    scheduledAt: normScheduledAt(input.scheduled_at || input.scheduledAt),
+    scheduledAt,
     remindMinutesBefore: input.remind_minutes_before ?? input.remindMinutesBefore ?? null,
     leadKey,
     source: TASK_SOURCE_LEAD_TASK,
   });
-  return { task: mapTask(saved) };
+  if (leadKey || forOther) {
+    recordActivity(ctx, {
+      category: 'notes',
+      action: 'task_create',
+      summary: `Task${forOther ? ` for ${assignee.name || assignee.email}` : ''}: ${title.slice(0, 160)}${taskDueLabel(scheduledAt)}`,
+      leadKey: leadKey || undefined,
+      leadTitle: leadTitle || '',
+      meta: forOther ? { assignee: assignee.email } : undefined,
+    });
+  }
+  return { task: mapTask(saved, leadTitle, assignee) };
 }
 
 async function updateTask(ctx, input = {}) {
@@ -430,20 +561,21 @@ async function updateTask(ctx, input = {}) {
     err.code = 'INVALID_ARGUMENT';
     throw err;
   }
-  const tasks = await dbService.listUserTasks(ctx.workspaceId, email);
-  const existing = tasks.find((t) => t && t.id === taskId);
-  if (!existing) {
+  const found = await findTaskOwner(ctx, taskId, email);
+  if (!found) {
     const err = new Error('Task not found.');
     err.code = 'NOT_FOUND';
     throw err;
   }
+  const existing = found.task;
+  const reassignTo = input.assignee ? await resolveAssignee(ctx, input.assignee) : null;
   const next = {
     ...existing,
     title: input.title != null ? String(input.title).trim() || existing.title : existing.title,
     column: input.column != null ? normColumn(input.column) : existing.column,
     scheduledAt:
-      input.scheduled_at !== undefined || input.scheduledAt !== undefined
-        ? normScheduledAt(input.scheduled_at ?? input.scheduledAt)
+      input.scheduled_at !== undefined || input.scheduledAt !== undefined || input.due_at !== undefined
+        ? normScheduledAt(input.scheduled_at ?? input.scheduledAt ?? input.due_at)
         : existing.scheduledAt,
     remindMinutesBefore:
       input.remind_minutes_before !== undefined || input.remindMinutesBefore !== undefined
@@ -452,10 +584,32 @@ async function updateTask(ctx, input = {}) {
   };
   if (input.lead_id !== undefined || input.leadKey !== undefined) {
     const lk = leadKeyNorm(input.lead_id ?? input.leadKey);
+    if (lk) {
+      const leads = await loadVisibleLeads(ctx);
+      if (!leads.some((l) => l.key === lk)) {
+        const err = new Error('Lead not found in this workspace.');
+        err.code = 'NOT_FOUND';
+        throw err;
+      }
+    }
     next.leadKey = lk || null;
   }
-  const saved = await dbService.saveUserTask(ctx.workspaceId, email, next);
-  return { task: mapTask(saved) };
+  let ownerEmail = found.ownerEmail;
+  let owner = found.member || null;
+  if (reassignTo && reassignTo.email !== ownerEmail) {
+    await dbService.deleteUserTask(ctx.workspaceId, ownerEmail, existing.id);
+    ownerEmail = reassignTo.email;
+    owner = reassignTo;
+    recordActivity(ctx, {
+      category: 'notes',
+      action: 'task_reassign',
+      summary: `Task reassigned to ${reassignTo.name || reassignTo.email}: ${String(next.title || '').slice(0, 160)}`,
+      leadKey: next.leadKey || undefined,
+      meta: { assignee: reassignTo.email },
+    });
+  }
+  const saved = await dbService.saveUserTask(ctx.workspaceId, ownerEmail, next);
+  return { task: mapTask(saved, null, owner) };
 }
 
 async function listFollowups(ctx, input = {}) {
@@ -552,6 +706,8 @@ module.exports = {
   moveOpportunities,
   recordActivity,
   enrichLead,
+  listTeamMembers,
+  matchMember,
   listTasks,
   createTask,
   updateTask,

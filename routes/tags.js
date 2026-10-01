@@ -1,99 +1,18 @@
 const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
-const { filterLeadsForRequest } = require('../services/workspaceService');
 const { triggerGhlProspectSync } = require('../services/ghlProspectSync');
-const { resolveLeadsBySelectedKeys } = require('../services/bulkSelectionKeys');
 const {
-  enrollLeadInAutoOutreach,
-  AUTO_OUTREACH_TAG_NAME,
-} = require('../services/prospectingEnroll');
-const { buildPipelineAdvancePatch } = require('../services/pipelineAdvance');
+  tagNameMap,
+  tagChangeSummary,
+  nextTagKeysForMode,
+  saveLeadTagChange,
+  tagsWithLeadCounts,
+  resolveLeadsForTagAssign,
+  findMatchedLead,
+  storageKeyForLead,
+} = require('../services/leadTagAssign');
 const teamActivity = require('../services/teamActivity');
-
-async function tagNameMap(workspaceId) {
-  const tags = await dbService.listTags(workspaceId);
-  return new Map(tags.map((t) => [t.key, t.name || 'tag']));
-}
-
-function tagChangeSummary(names, added, removed) {
-  const parts = [];
-  if (added.length) parts.push(`Added ${added.map((k) => names.get(k) || 'tag').join(', ')}`);
-  if (removed.length) parts.push(`Removed ${removed.map((k) => names.get(k) || 'tag').join(', ')}`);
-  return parts.join(' · ');
-}
-
-async function maybeAdvanceOnTagAdd(workspaceId, lead) {
-  if (!lead || !lead.key || !workspaceId) return lead;
-  const patch = await buildPipelineAdvancePatch(lead, 'ADD_TAG', workspaceId);
-  if (!patch || !Object.keys(patch).length) return lead;
-  const updated = await dbService.updateLead(lead.key, patch, workspaceId);
-  return updated || { ...lead, ...patch };
-}
-
-async function maybeEnrollAutoOutreachOnTagAdd(workspaceId, lead, addedTagKeys) {
-  if (!lead || !lead.key || !Array.isArray(addedTagKeys) || !addedTagKeys.length) return null;
-  const tags = await dbService.listTags(workspaceId);
-  const autoTag = tags.find(
-    (t) => String(t.name || '').trim().toLowerCase() === AUTO_OUTREACH_TAG_NAME,
-  );
-  if (!autoTag || !addedTagKeys.includes(autoTag.key)) return null;
-  try {
-    return await enrollLeadInAutoOutreach({
-      leadKey: lead.key,
-      workspaceId,
-      reEnroll: false,
-      tagLead: false,
-    });
-  } catch (e) {
-    console.warn('[tags] auto-outreach enroll failed:', e && e.message);
-    return null;
-  }
-}
-
-function addedTagKeys(prev, next) {
-  const before = new Set(dbService.normalizeTagKeys(prev));
-  return dbService.normalizeTagKeys(next).filter((k) => !before.has(k));
-}
-
-async function tagsWithLeadCounts(req) {
-  const tags = await dbService.listTags(req.workspaceId);
-  const all = await dbService.getAllLeads(req.workspaceId);
-  const visible = filterLeadsForRequest(req, all);
-  const counts = new Map();
-  visible.forEach((lead) => {
-    dbService.normalizeTagKeys(lead && lead.tags).forEach((key) => {
-      counts.set(key, (counts.get(key) || 0) + 1);
-    });
-  });
-  return tags.map((tag) => ({
-    ...tag,
-    leadCount: counts.get(tag.key) || 0,
-  }));
-}
-
-async function resolveLeadsForTagAssign(req, leadKeysRaw) {
-  const leadKeys = (Array.isArray(leadKeysRaw) ? leadKeysRaw : [])
-    .map((k) => String(k || '').trim())
-    .filter(Boolean);
-  if (!leadKeys.length) return { leadKeys, matched: [] };
-
-  const all = await dbService.getAllLeads(req.workspaceId);
-  const visible = filterLeadsForRequest(req, all);
-  const matched = await resolveLeadsBySelectedKeys({
-    dbService,
-    workspaceId: req.workspaceId,
-    visibleLeads: visible,
-    keyOrder: leadKeys,
-  });
-  return { leadKeys, matched };
-}
-
-async function storageKeyForLead(lead, workspaceId) {
-  const raw = String((lead && lead.key) || '').trim();
-  if (!raw) return '';
-  return (await dbService.resolveLeadStorageKey(raw, workspaceId)) || raw;
-}
 
 router.get('/manage', async (req, res, next) => {
   try {
@@ -148,40 +67,21 @@ router.post('/assign', async (req, res, next) => {
     if (!existing) return res.status(404).json({ success: false, error: 'Lead not found.' });
 
     const prev = dbService.normalizeTagKeys(existing.tags);
-    let nextTags = prev;
-    if (mode === 'add') {
-      nextTags = dbService.normalizeTagKeys([...prev, ...tagKeys]);
-    } else if (mode === 'remove') {
-      const remove = new Set(tagKeys);
-      nextTags = prev.filter((t) => !remove.has(t));
-    } else {
-      nextTags = tagKeys;
-    }
-
-    let lead = await dbService.setLeadTags(fullKey, nextTags, req.workspaceId);
-    if (!lead) return res.status(404).json({ success: false, error: 'Could not save tags on lead.' });
-    const added = addedTagKeys(prev, nextTags);
-    if (added.length) {
-      lead = await maybeAdvanceOnTagAdd(req.workspaceId, lead);
-    }
-    if (mode === 'add' || added.length) {
-      await maybeEnrollAutoOutreachOnTagAdd(req.workspaceId, lead, added);
-      const refreshed = await dbService.getLead(fullKey, req.workspaceId);
-      if (refreshed) lead = refreshed;
-    }
+    const nextTags = nextTagKeysForMode(prev, mode, tagKeys);
+    const change = await saveLeadTagChange({ workspaceId: req.workspaceId, fullKey, prev, nextTags, mode });
+    if (!change) return res.status(404).json({ success: false, error: 'Could not save tags on lead.' });
     triggerGhlProspectSync(fullKey, req.workspaceId, { trigger: 'tag_assign' });
-    const removedTags = prev.filter((t) => !nextTags.includes(t));
-    if (added.length || removedTags.length) {
+    if (change.added.length || change.removed.length) {
       const names = await tagNameMap(req.workspaceId);
       teamActivity.record(req, {
         category: 'tags',
         action: 'lead_tags',
-        summary: tagChangeSummary(names, added, removedTags),
+        summary: tagChangeSummary(names, change.added, change.removed),
         leadKey: fullKey,
         leadTitle: existing.title,
       });
     }
-    res.json({ success: true, lead });
+    res.json({ success: true, lead: change.lead });
   } catch (e) {
     next(e);
   }
@@ -222,19 +122,15 @@ router.post('/assign-bulk', async (req, res, next) => {
     const missedKeys = [];
 
     for (const rawKey of leadKeys) {
-      const target =
-        matched.find((l) => {
-          const k = String(l.key || '').trim();
-          const norm = k.replace(/^lead:/i, '');
-          const rawNorm = rawKey.replace(/^lead:/i, '');
-          return k === rawKey || norm === rawNorm || `lead:${norm}` === rawKey || k === `lead:${rawNorm}`;
-        }) || null;
+      const target = findMatchedLead(matched, rawKey);
       if (!target) {
         missedKeys.push(rawKey);
         continue;
       }
 
+      // eslint-disable-next-line no-await-in-loop
       const fullKey = await storageKeyForLead(target, req.workspaceId);
+      // eslint-disable-next-line no-await-in-loop
       const existing = await dbService.getLead(fullKey, req.workspaceId);
       if (!existing) {
         missedKeys.push(rawKey);
@@ -242,33 +138,11 @@ router.post('/assign-bulk', async (req, res, next) => {
       }
 
       const prev = dbService.normalizeTagKeys(existing.tags);
-      let nextTags = prev;
-      if (mode === 'add') {
-        nextTags = dbService.normalizeTagKeys([...prev, ...tagKeys]);
-      } else if (mode === 'remove') {
-        const remove = new Set(tagKeys);
-        nextTags = prev.filter((t) => !remove.has(t));
-      } else {
-        nextTags = tagKeys;
-      }
-
+      const nextTags = nextTagKeysForMode(prev, mode, tagKeys);
       // eslint-disable-next-line no-await-in-loop
-      let lead = await dbService.setLeadTags(fullKey, nextTags, req.workspaceId);
-      if (lead) {
-        const added = addedTagKeys(prev, nextTags);
-        if (added.length) {
-          // eslint-disable-next-line no-await-in-loop
-          lead = await maybeAdvanceOnTagAdd(req.workspaceId, lead);
-        }
-        if (mode === 'add' || added.length) {
-          // eslint-disable-next-line no-await-in-loop
-          await maybeEnrollAutoOutreachOnTagAdd(req.workspaceId, lead, added);
-          // eslint-disable-next-line no-await-in-loop
-          const refreshed = await dbService.getLead(fullKey, req.workspaceId);
-          if (refreshed) lead = refreshed;
-        }
-        updated.push(lead);
-      } else missedKeys.push(rawKey);
+      const change = await saveLeadTagChange({ workspaceId: req.workspaceId, fullKey, prev, nextTags, mode });
+      if (change) updated.push(change.lead);
+      else missedKeys.push(rawKey);
     }
 
     if (!updated.length) {

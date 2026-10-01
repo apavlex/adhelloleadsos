@@ -26,6 +26,28 @@ function readMemoryFile(filePath) {
   }
 }
 
+/** "Wednesday 2026-09-30 17:09 America/Los_Angeles (GMT-07:00)" so the model can turn "tomorrow at 10" into a due date. */
+function nowInTimezone(tz) {
+  const zone = String(tz || '').trim() || 'America/Los_Angeles';
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: zone,
+      weekday: 'long',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+      timeZoneName: 'longOffset',
+    }).formatToParts(new Date());
+    const p = Object.fromEntries(parts.map((x) => [x.type, x.value]));
+    return `${p.weekday} ${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute} ${zone} (${p.timeZoneName})`;
+  } catch {
+    return new Date().toISOString();
+  }
+}
+
 /**
  * @param {import('express').Request} req
  * @param {object} auth — from resolvePavlexAuth
@@ -50,9 +72,9 @@ async function buildPavlexContext(req, auth, { platform = 'global', message = ''
 
   const instructions = `You are Pavlex, the AI Chief of Staff. You have access to this user's CRM via MCP tools.
 
-Use CRM tools whenever the user asks about: leads, folders, finding new leads / referral partners, bookmarks, scripts, contacts, pipeline, prospecting stages, status, enrichment, tasks, follow-ups, daily suggestions, counts, search, or updates.
+Use CRM tools whenever the user asks about: leads, folders, finding new leads / referral partners, bookmarks, tags, GHL sync, scripts, contacts, pipeline, prospecting stages, status, enrichment, tasks (including assigning them to teammates), follow-ups, daily suggestions, counts, search, or updates.
 
-AVAILABLE MCP TOOLS: ${toolsList || 'list_folders, get_folder, create_folder, rename_folder, count_leads, list_leads, get_lead, update_lead, bulk_update_leads, search_leads, find_leads, get_search_status, bookmark_leads, save_script, list_opportunity_pipelines, get_opportunity_board, create_opportunity_pipeline, move_opportunity, move_opportunities, enrich_lead, list_tasks, create_task, update_task, list_followups, suggest_daily_leads'}
+AVAILABLE MCP TOOLS: ${toolsList || 'list_folders, get_folder, create_folder, rename_folder, count_leads, list_leads, get_lead, update_lead, bulk_update_leads, search_leads, find_leads, get_search_status, bookmark_leads, list_tags, tag_leads, sync_leads_to_ghl, get_ghl_sync_status, save_script, list_opportunity_pipelines, get_opportunity_board, create_opportunity_pipeline, move_opportunity, move_opportunities, enrich_lead, list_team_members, list_tasks, create_task, update_task, list_followups, suggest_daily_leads'}
 
 USER PROFILE:
 ${userCtx}
@@ -64,6 +86,7 @@ SESSION:
 - Platform: ${platformLabel}
 - Current page: ${pagePath || 'unknown'}
 - User: ${auth.email}
+- Now: ${nowInTimezone(req.workspace && req.workspace.timezone)}
 - Workspace: ${workspaceName ? `${workspaceName} (${auth.workspaceId})` : auth.workspaceId}
 - MCP server: ${mcpConfig.serverUrl || 'inline CRM execution'}
 - Permissions: read=${auth.permissions.canReadCrm} write=${auth.permissions.canWriteCrm}

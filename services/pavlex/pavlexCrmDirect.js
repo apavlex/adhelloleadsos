@@ -59,6 +59,11 @@ function looksLikeLeadGenRequest(text) {
   );
 }
 
+/** Tasks, tags, GHL and teammates need their own tools, not a lead text search. */
+function mentionsCrmAction(text) {
+  return /\b(tasks?|tag(s|ged)?|ghl|gohighlevel|assign\w*|team\w*)\b/i.test(String(text || ''));
+}
+
 /**
  * Map natural-language CRM questions to tool calls.
  * @returns {{ tool: string, args: object, formatter: Function } | null}
@@ -124,7 +129,7 @@ function matchDirectCrmQuery(message) {
   const search =
     raw.match(/^find\s+(.+?)(?:\s+lead)?\??$/i) ||
     raw.match(/^search(?:\s+for)?\s+(.+?)(?:\s+lead)?\??$/i);
-  if (search && search[1] && !looksLikeLeadGenRequest(search[1])) {
+  if (search && search[1] && !looksLikeLeadGenRequest(search[1]) && !mentionsCrmAction(search[1])) {
     return {
       tool: 'search_leads',
       args: { query: search[1].trim(), limit: 10 },

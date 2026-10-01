@@ -4,6 +4,7 @@
 const crm = require('./mcpCrmService');
 const ops = require('./mcpPavlexOps');
 const leadGen = require('./mcpLeadGen');
+const leadActions = require('./mcpLeadActions');
 const mcpLogger = require('./mcpLogger');
 const pavlexLogger = require('../pavlex/pavlexLogger');
 
@@ -21,6 +22,10 @@ const TOOL_NAMES = [
   'find_leads',
   'get_search_status',
   'bookmark_leads',
+  'list_tags',
+  'tag_leads',
+  'sync_leads_to_ghl',
+  'get_ghl_sync_status',
   'save_script',
   'list_opportunity_pipelines',
   'get_opportunity_board',
@@ -28,6 +33,7 @@ const TOOL_NAMES = [
   'move_opportunity',
   'move_opportunities',
   'enrich_lead',
+  'list_team_members',
   'list_tasks',
   'create_task',
   'update_task',
@@ -72,6 +78,21 @@ async function executeCrmTool(ctx, toolName, args) {
         break;
       case 'save_script':
         result = await leadGen.saveScript(ctx, input);
+        break;
+      case 'list_tags':
+        result = await leadActions.listTags(ctx);
+        break;
+      case 'tag_leads':
+        result = await leadActions.tagLeads(ctx, input);
+        break;
+      case 'sync_leads_to_ghl':
+        result = await leadActions.syncLeadsToGhl(ctx, input);
+        break;
+      case 'get_ghl_sync_status':
+        result = await leadActions.getGhlSyncStatus(ctx, input);
+        break;
+      case 'list_team_members':
+        result = await ops.listTeamMembers(ctx);
         break;
       case 'move_opportunities':
         result = await ops.moveOpportunities(ctx, input);
@@ -218,8 +239,81 @@ function summarizeToolResult(toolName, payload) {
   if (toolName === 'save_script' && payload.script) {
     return payload.duplicate ? 'duplicate script' : 'script saved';
   }
+  if (toolName === 'list_tags' && Array.isArray(payload.tags)) {
+    return `${payload.tags.length} tags`;
+  }
+  if (toolName === 'tag_leads') {
+    return `${payload.changed} changed, ${payload.failed} failed`;
+  }
+  if (toolName === 'sync_leads_to_ghl' || (toolName === 'get_ghl_sync_status' && payload.job)) {
+    const j = payload.job || payload;
+    return `ghl ${j.status} ${j.processed}/${j.total}`;
+  }
+  if (toolName === 'list_team_members' && Array.isArray(payload.members)) {
+    return `${payload.members.length} members`;
+  }
   return 'ok';
 }
+
+const CRM_ACTION_TOOL_SCHEMAS = [
+  {
+    name: 'list_tags',
+    description: 'List the workspace lead tags with how many leads carry each.',
+    parameters: { type: 'object', properties: {}, additionalProperties: false },
+  },
+  {
+    name: 'tag_leads',
+    description:
+      `Add and/or remove tags (by tag NAME) on up to ${leadActions.MAX_TAG_LEADS} leads in one call — same as the Tags menu in the app. ` +
+      'Tags in add that do not exist yet are created. For "top N in <folder>", call list_leads with sort and limit first, then pass those lead ids.',
+    parameters: {
+      type: 'object',
+      properties: {
+        lead_ids: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: leadActions.MAX_TAG_LEADS },
+        add: { type: 'array', items: { type: 'string' }, description: 'Tag names to add, e.g. ["Hot"]' },
+        remove: { type: 'array', items: { type: 'string' }, description: 'Tag names to remove' },
+      },
+      required: ['lead_ids'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'sync_leads_to_ghl',
+    description:
+      `Push up to ${leadActions.MAX_GHL_SYNC_LEADS} leads to GoHighLevel (same as the "Sync GHL" button). Returns per-lead created / updated / skipped / error. ` +
+      'Large batches keep running in the background after ~30s and return a job_id for get_ghl_sync_status. ' +
+      'Fails with GHL_NOT_CONNECTED when the workspace has no GHL connection.',
+    parameters: {
+      type: 'object',
+      properties: {
+        lead_ids: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: leadActions.MAX_GHL_SYNC_LEADS },
+      },
+      required: ['lead_ids'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'get_ghl_sync_status',
+    description: 'Progress and per-lead results of a background GHL sync (omit job_id for recent syncs).',
+    parameters: {
+      type: 'object',
+      properties: { job_id: { type: 'string' } },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'list_team_members',
+    description: 'List workspace members (name, email, role) — use it to resolve "Maria" before assigning a task.',
+    parameters: { type: 'object', properties: {}, additionalProperties: false },
+  },
+];
+
+function getCrmActionToolSchemas() {
+  return CRM_ACTION_TOOL_SCHEMAS.map((t) => ({ ...t }));
+}
+
+const ASSIGNEE_DESCRIPTION =
+  'Teammate email or name (from list_team_members). The task goes into their own Tasks list. Omit for yourself.';
 
 const LEAD_GEN_TOOL_SCHEMAS = [
   {
@@ -366,6 +460,7 @@ function getLeadGenToolSchemas() {
 function getOpenAiFunctionTools() {
   return [
     ...LEAD_GEN_TOOL_SCHEMAS.map((t) => ({ type: 'function', function: { ...t } })),
+    ...CRM_ACTION_TOOL_SCHEMAS.map((t) => ({ type: 'function', function: { ...t } })),
     {
       type: 'function',
       function: {
@@ -588,12 +683,14 @@ function getOpenAiFunctionTools() {
       type: 'function',
       function: {
         name: 'list_tasks',
-        description: 'List the signed-in user manual tasks (optional column or lead filter).',
+        description:
+          'List manual tasks for the signed-in user, or for a teammate with assignee (optional column or lead filter).',
         parameters: {
           type: 'object',
           properties: {
             column: { type: 'string', description: 'backlog | todo | doing | done' },
             lead_id: { type: 'string' },
+            assignee: { type: 'string', description: 'Teammate email or name; omit for your own tasks' },
             limit: { type: 'integer', minimum: 1, maximum: 100 },
           },
           additionalProperties: false,
@@ -604,14 +701,20 @@ function getOpenAiFunctionTools() {
       type: 'function',
       function: {
         name: 'create_task',
-        description: 'Create or upsert an open task for the signed-in user (optionally linked to a lead).',
+        description:
+          'Create a task for the signed-in user or assign it to a teammate (assignee), optionally linked to a lead and due at a date/time. ' +
+          'A lead can have several open tasks.',
         parameters: {
           type: 'object',
           properties: {
             title: { type: 'string' },
             column: { type: 'string' },
             lead_id: { type: 'string' },
-            scheduled_at: { type: 'string', description: 'ISO datetime for follow-up reminder' },
+            assignee: { type: 'string', description: ASSIGNEE_DESCRIPTION },
+            scheduled_at: {
+              type: 'string',
+              description: 'Due date/time as ISO 8601 with the user timezone offset, e.g. 2026-10-01T10:00:00-07:00',
+            },
             remind_minutes_before: { type: 'integer' },
           },
           required: ['title'],
@@ -623,7 +726,8 @@ function getOpenAiFunctionTools() {
       type: 'function',
       function: {
         name: 'update_task',
-        description: 'Update an existing task (title, column, schedule, lead link).',
+        description:
+          "Update a task (title, column, due date, lead link) — yours or one in a teammate's list. assignee reassigns it to that teammate.",
         parameters: {
           type: 'object',
           properties: {
@@ -631,7 +735,8 @@ function getOpenAiFunctionTools() {
             title: { type: 'string' },
             column: { type: 'string' },
             lead_id: { type: 'string' },
-            scheduled_at: { type: 'string' },
+            assignee: { type: 'string', description: 'Reassign to this teammate (email or name)' },
+            scheduled_at: { type: 'string', description: 'Due date/time, ISO 8601' },
             remind_minutes_before: { type: 'integer' },
           },
           required: ['task_id'],
@@ -683,4 +788,5 @@ module.exports = {
   executeCrmTool,
   getOpenAiFunctionTools,
   getLeadGenToolSchemas,
+  getCrmActionToolSchemas,
 };

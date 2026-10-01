@@ -3,7 +3,12 @@
  */
 const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
 const { z } = require('zod');
-const { executeCrmTool, TOOL_NAMES, getLeadGenToolSchemas } = require('./mcpToolExecutor');
+const {
+  executeCrmTool,
+  TOOL_NAMES,
+  getLeadGenToolSchemas,
+  getCrmActionToolSchemas,
+} = require('./mcpToolExecutor');
 const mcpLogger = require('./mcpLogger');
 
 function jsonToolResult(payload) {
@@ -211,6 +216,58 @@ function createCrmMcpServer(ctx) {
   );
 
   server.registerTool(
+    'list_tags',
+    {
+      description: 'List workspace lead tags with lead counts.',
+      inputSchema: z.object({}),
+    },
+    async () => runTool(ctx, 'list_tags', {}),
+  );
+
+  server.registerTool(
+    'tag_leads',
+    {
+      description: 'Add and/or remove tags (by name) on up to 100 leads; missing tags in add are created.',
+      inputSchema: z.object({
+        lead_ids: z.array(z.string().min(1)).min(1).max(100),
+        add: z.array(z.string().min(1)).optional(),
+        remove: z.array(z.string().min(1)).optional(),
+      }),
+    },
+    async (args) => runTool(ctx, 'tag_leads', args),
+  );
+
+  server.registerTool(
+    'sync_leads_to_ghl',
+    {
+      description:
+        'Push up to 50 leads to GoHighLevel (same as Sync GHL). Per-lead created/updated/skipped/error; long batches continue in the background (job_id).',
+      inputSchema: z.object({
+        lead_ids: z.array(z.string().min(1)).min(1).max(50),
+      }),
+    },
+    async (args) => runTool(ctx, 'sync_leads_to_ghl', args),
+  );
+
+  server.registerTool(
+    'get_ghl_sync_status',
+    {
+      description: 'Progress of a background GHL sync started by sync_leads_to_ghl.',
+      inputSchema: z.object({ job_id: z.string().min(1).optional() }),
+    },
+    async (args) => runTool(ctx, 'get_ghl_sync_status', args),
+  );
+
+  server.registerTool(
+    'list_team_members',
+    {
+      description: 'List workspace members (name, email, role) for assigning tasks.',
+      inputSchema: z.object({}),
+    },
+    async () => runTool(ctx, 'list_team_members', {}),
+  );
+
+  server.registerTool(
     'get_lead',
     {
       description: 'Fetch the full lead record by lead id/key (status, stage, contact fields).',
@@ -331,10 +388,11 @@ function createCrmMcpServer(ctx) {
   server.registerTool(
     'list_tasks',
     {
-      description: 'List signed-in user manual tasks.',
+      description: "List manual tasks for the signed-in user or a teammate's list (assignee).",
       inputSchema: z.object({
         column: z.string().optional(),
         lead_id: z.string().optional(),
+        assignee: z.string().optional(),
         limit: z.number().int().min(1).max(100).optional(),
       }),
     },
@@ -344,11 +402,13 @@ function createCrmMcpServer(ctx) {
   server.registerTool(
     'create_task',
     {
-      description: 'Create or upsert an open task (optionally linked to a lead / scheduled).',
+      description:
+        'Create a task for yourself or assign it to a teammate (assignee email/name), optionally lead-linked and due at scheduled_at.',
       inputSchema: z.object({
         title: z.string().min(1),
         column: z.string().optional(),
         lead_id: z.string().optional(),
+        assignee: z.string().optional(),
         scheduled_at: z.string().optional(),
         remind_minutes_before: z.number().int().optional(),
       }),
@@ -359,12 +419,13 @@ function createCrmMcpServer(ctx) {
   server.registerTool(
     'update_task',
     {
-      description: 'Update an existing task.',
+      description: "Update a task (yours or a teammate's); assignee reassigns it.",
       inputSchema: z.object({
         task_id: z.string().min(1),
         title: z.string().optional(),
         column: z.string().optional(),
         lead_id: z.string().optional(),
+        assignee: z.string().optional(),
         scheduled_at: z.string().optional(),
         remind_minutes_before: z.number().int().optional(),
       }),
@@ -411,7 +472,7 @@ function getOpenAiToolManifest() {
     name: 'adhello-ceo-crm',
     version: '1.3.0',
     description:
-      'AdHello CEO Command Center CRM — lead folders, lead searches, leads, bookmarks, scripts, opportunities, enrichment, tasks, and follow-ups.',
+      'AdHello CEO Command Center CRM — lead folders, lead searches, leads, tags, bookmarks, scripts, opportunities, GHL sync, enrichment, team tasks, and follow-ups.',
     authentication: {
       type: 'bearer',
       header: 'Authorization',
@@ -458,6 +519,11 @@ function getOpenAiToolManifest() {
         },
       },
       ...getLeadGenToolSchemas().map((t) => ({
+        name: t.name,
+        description: t.description,
+        input_schema: t.parameters,
+      })),
+      ...getCrmActionToolSchemas().map((t) => ({
         name: t.name,
         description: t.description,
         input_schema: t.parameters,
@@ -583,12 +649,13 @@ function getOpenAiToolManifest() {
       },
       {
         name: 'list_tasks',
-        description: 'List user tasks.',
+        description: "List user tasks (or a teammate's with assignee).",
         input_schema: {
           type: 'object',
           properties: {
             column: { type: 'string' },
             lead_id: { type: 'string' },
+            assignee: { type: 'string' },
             limit: { type: 'integer', minimum: 1, maximum: 100 },
           },
           additionalProperties: false,
@@ -596,13 +663,14 @@ function getOpenAiToolManifest() {
       },
       {
         name: 'create_task',
-        description: 'Create or upsert a task.',
+        description: 'Create a task for yourself or assign it to a teammate.',
         input_schema: {
           type: 'object',
           properties: {
             title: { type: 'string' },
             column: { type: 'string' },
             lead_id: { type: 'string' },
+            assignee: { type: 'string' },
             scheduled_at: { type: 'string' },
             remind_minutes_before: { type: 'integer' },
           },
@@ -612,7 +680,7 @@ function getOpenAiToolManifest() {
       },
       {
         name: 'update_task',
-        description: 'Update a task.',
+        description: 'Update or reassign a task.',
         input_schema: {
           type: 'object',
           properties: {
@@ -620,6 +688,7 @@ function getOpenAiToolManifest() {
             title: { type: 'string' },
             column: { type: 'string' },
             lead_id: { type: 'string' },
+            assignee: { type: 'string' },
             scheduled_at: { type: 'string' },
             remind_minutes_before: { type: 'integer' },
           },

@@ -24,6 +24,11 @@ const CRM_PATTERNS = [
   /\bopportunit(y|ies)\b/i,
   /\bsave\b.+\bscript\b/i,
   /\bscript\b.+\bsave\b/i,
+  /\btasks?\b/i,
+  /\bassign(ed)?\b/i,
+  /\bghl\b/i,
+  /\bgo\s?high\s?level\b/i,
+  /\bteam\s?mates?\b|\bteam members?\b|\bmy team\b/i,
   /\bfind\s+\d+\s+\w+/i,
   /\b(find|search for|pull|get)\b.+\bin\s+[a-z .'-]+,?\s+[a-z]{2}\b/i,
 ];
