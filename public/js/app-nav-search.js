@@ -6,6 +6,23 @@
   var FETCH_LIMIT = 10;
 
   var instances = [];
+  var AI_PLACEHOLDER = 'Ask Alex anything…';
+  var aiMode = false;
+
+  function buildChatUrl(q) {
+    var params = new URLSearchParams();
+    params.set('q', q);
+    params.set('new', '1');
+    return '/chat?' + params.toString();
+  }
+
+  function setAiMode(on, opts) {
+    aiMode = !!on;
+    instances.forEach(function (inst) {
+      inst.applyAiMode();
+    });
+    if (opts && opts.focus && opts.focus.input) opts.focus.input.focus();
+  }
 
   function escapeHtml(s) {
     return String(s || '')
@@ -58,8 +75,12 @@
     var dropdown = document.getElementById(cfg.dropdownId);
     var clearBtn = document.getElementById(cfg.clearId);
     var form = document.getElementById(cfg.formId);
+    var aiToggle = cfg.aiToggleId ? document.getElementById(cfg.aiToggleId) : null;
     if (!input || !dropdown || !form) return null;
 
+    var searchPlaceholder = input.getAttribute('placeholder') || '';
+    var searchAriaLabel = input.getAttribute('aria-label') || '';
+    var self = null;
     var timer = null;
     var reqId = 0;
     var activeIdx = -1;
@@ -185,6 +206,25 @@
         });
     }
 
+    function applyAiMode() {
+      form.classList.toggle('nav-lead-search-form--ai', aiMode);
+      input.setAttribute('placeholder', aiMode ? AI_PLACEHOLDER : searchPlaceholder);
+      input.setAttribute('aria-label', aiMode ? 'Ask Alex, your AI assistant' : searchAriaLabel);
+      input.setAttribute('enterkeyhint', aiMode ? 'send' : 'search');
+      input.setAttribute('aria-autocomplete', aiMode ? 'none' : 'list');
+      if (aiToggle) {
+        var toggleLabel = aiMode ? 'Back to lead search' : 'Ask Alex (AI)';
+        aiToggle.setAttribute('aria-pressed', aiMode ? 'true' : 'false');
+        aiToggle.setAttribute('title', toggleLabel);
+        aiToggle.setAttribute('aria-label', toggleLabel);
+      }
+      if (aiMode) {
+        if (timer) clearTimeout(timer);
+        reqId++;
+        closeDropdown();
+      }
+    }
+
     function scheduleFetch() {
       if (timer) clearTimeout(timer);
       var q = String(input.value || '').trim();
@@ -195,6 +235,7 @@
           inst.syncClearBtn();
         }
       });
+      if (aiMode) return;
       if (q.length < MIN_Q) {
         closeDropdown();
         return;
@@ -216,6 +257,19 @@
       e.preventDefault();
       var q = String(input.value || '').trim();
       if (!q) return;
+      if (aiMode) {
+        var chatPage = window.__pavlexChatPage;
+        if (chatPage && typeof chatPage.startNewChatWith === 'function' && chatPage.startNewChatWith(q)) {
+          instances.forEach(function (inst) {
+            inst.setValue('');
+          });
+          setAiMode(false);
+          input.blur();
+          return;
+        }
+        window.location.href = buildChatUrl(q);
+        return;
+      }
       if (activeIdx >= 0 && lastResults[activeIdx] && lastResults[activeIdx].key) {
         navigateToFocus(lastResults[activeIdx].key);
         return;
@@ -233,6 +287,11 @@
     input.addEventListener('keydown', function (e) {
       var items = dropdown.querySelectorAll('[data-nav-search-item]');
       if (e.key === 'Escape') {
+        if (aiMode) {
+          e.preventDefault();
+          setAiMode(false);
+          return;
+        }
         closeDropdown();
         input.blur();
         return;
@@ -250,7 +309,7 @@
         return;
       }
       if (e.key === 'Enter') {
-        if (activeIdx >= 0 && lastResults[activeIdx]) {
+        if (!aiMode && activeIdx >= 0 && lastResults[activeIdx]) {
           e.preventDefault();
           navigateToFocus(lastResults[activeIdx].key);
         }
@@ -275,6 +334,16 @@
 
     form.addEventListener('submit', onSubmit);
 
+    if (aiToggle) {
+      aiToggle.addEventListener('mousedown', function (e) {
+        e.preventDefault();
+      });
+      aiToggle.addEventListener('click', function () {
+        setAiMode(!aiMode, { focus: self });
+        if (!aiMode && String(input.value || '').trim().length >= MIN_Q) scheduleFetch();
+      });
+    }
+
     if (clearBtn) {
       clearBtn.addEventListener('click', function () {
         input.value = '';
@@ -295,15 +364,17 @@
       if (!form.contains(e.target)) closeDropdown();
     });
 
-    return {
+    self = {
       input: input,
       syncClearBtn: syncClearBtn,
       closeDropdown: closeDropdown,
+      applyAiMode: applyAiMode,
       setValue: function (v) {
         input.value = v;
         syncClearBtn();
       },
     };
+    return self;
   }
 
   var desktop = bindSearchInstance({
@@ -311,12 +382,14 @@
     dropdownId: 'navLeadSearchDropdown',
     clearId: 'navLeadSearchClear',
     formId: 'navLeadSearchForm',
+    aiToggleId: 'navLeadSearchAiToggle',
   });
   var mobile = bindSearchInstance({
     inputId: 'navLeadSearchInputMobile',
     dropdownId: 'navLeadSearchDropdownMobile',
     clearId: 'navLeadSearchClearMobile',
     formId: 'navLeadSearchFormMobile',
+    aiToggleId: 'navLeadSearchAiToggleMobile',
   });
 
   if (desktop) instances.push(desktop);

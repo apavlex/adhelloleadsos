@@ -4,13 +4,7 @@
 (function () {
   var PAVLEX_AVATAR =
     '<span class="shrink-0 w-6 h-6 rounded-full overflow-hidden border border-slate-200/60 bg-white shadow-sm ring-1 ring-slate-200/60 flex items-center justify-center" aria-hidden="true">' +
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" class="w-full h-full" role="img" aria-label="Pavlex">' +
-    '<circle cx="24" cy="24" r="22" fill="#FFD644"/><circle cx="24" cy="24" r="20" fill="#FFC107"/>' +
-    '<ellipse cx="17" cy="20" rx="2.5" ry="3" fill="#5C4033"/><ellipse cx="31" cy="20" rx="2.5" ry="3" fill="#5C4033"/>' +
-    '<circle cx="17.8" cy="19" r="1" fill="#fff" opacity="0.9"/><circle cx="31.8" cy="19" r="1" fill="#fff" opacity="0.9"/>' +
-    '<path d="M15 28 Q24 38 33 28" stroke="#5C4033" stroke-width="2.2" stroke-linecap="round" fill="none"/>' +
-    '<ellipse cx="12" cy="26" rx="3" ry="2" fill="#FF9800" opacity="0.35"/>' +
-    '<ellipse cx="36" cy="26" rx="3" ry="2" fill="#FF9800" opacity="0.35"/></svg></span>';
+    '<img src="/img/alex-avatar-96.jpg" alt="" class="w-full h-full rounded-full object-cover" width="24" height="24" loading="lazy" decoding="async" /></span>';
 
   function renderMd(text) {
     if (!text) return '';

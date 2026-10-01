@@ -3,7 +3,6 @@
  * Optional: Web Speech API dictation (mic) + speechSynthesis “Listen” on coach replies.
  */
 (function () {
-  var _assistantAvatarId = 0;
   var _speechRec = null;
   var _listening = false;
 
@@ -15,27 +14,13 @@
       .replace(/"/g, '&quot;');
   }
 
-  /** Coach portrait: warm, light-canvas female-presenting; matches dock SVG. Unique gradient ids per bubble. */
   function assistantAvatarNode() {
-    var n = ++_assistantAvatarId;
-    var gh = 'asstCoachHair' + n;
-    var gs = 'asstCoachSkin' + n;
     const span = document.createElement('span');
     span.className =
       'shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden border border-slate-200/90 dark:border-white/20 bg-white dark:bg-slate-800 shadow-sm ring-2 ring-slate-200/80 dark:ring-white/10';
     span.setAttribute('aria-hidden', 'true');
     span.innerHTML =
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" class="w-full h-full" role="img" aria-label="Pavlex">' +
-      '<circle cx="24" cy="24" r="22" fill="#FFD644"/>' +
-      '<circle cx="24" cy="24" r="20" fill="#FFC107"/>' +
-      '<ellipse cx="17" cy="20" rx="2.5" ry="3" fill="#5C4033"/>' +
-      '<ellipse cx="31" cy="20" rx="2.5" ry="3" fill="#5C4033"/>' +
-      '<circle cx="17.8" cy="19" r="1" fill="#fff" opacity="0.9"/>' +
-      '<circle cx="31.8" cy="19" r="1" fill="#fff" opacity="0.9"/>' +
-      '<path d="M15 28 Q24 38 33 28" stroke="#5C4033" stroke-width="2.2" stroke-linecap="round" fill="none"/>' +
-      '<ellipse cx="12" cy="26" rx="3" ry="2" fill="#FF9800" opacity="0.35"/>' +
-      '<ellipse cx="36" cy="26" rx="3" ry="2" fill="#FF9800" opacity="0.35"/>' +
-      '</svg>';
+      '<img src="/img/alex-avatar-96.jpg" alt="" class="w-full h-full rounded-full object-cover" width="40" height="40" loading="lazy" decoding="async" />';
     return span;
   }
 
@@ -157,7 +142,7 @@
     const textCol = document.createElement('div');
     textCol.className = 'min-w-0 pt-0.5';
     textCol.innerHTML =
-      '<p class="text-xs font-black uppercase tracking-wide text-brand-dark dark:text-white">Pavlex is thinking</p>' +
+      '<p class="text-xs font-black uppercase tracking-wide text-brand-dark dark:text-white">Alex is thinking</p>' +
       '<p class="text-[11px] text-brand-muted dark:text-slate-400 mt-1 leading-snug">Checking your workspace and crafting a reply…</p>';
 
     inner.appendChild(spinWrap);

@@ -12,7 +12,7 @@ const apiRouter = express.Router();
 pageRouter.get('/', (req, res) => {
   const initialConversationId = conversations.isValidConversationId(req.query.c) ? String(req.query.c) : '';
   res.render('chat', {
-    title: 'Pavlex | Agency OS',
+    title: 'Alex | Agency OS',
     activePage: 'chat',
     initialConversationId,
   });

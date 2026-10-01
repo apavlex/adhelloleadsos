@@ -369,7 +369,7 @@
     if (!items.length) {
       els.list.innerHTML =
         '<p class="px-3 py-6 text-xs text-brand-muted text-center">' +
-        (q ? 'No chats match “' + escapeHtml(state.filter.trim()) + '”.' : 'No chats yet. Ask Pavlex anything to start one.') +
+        (q ? 'No chats match “' + escapeHtml(state.filter.trim()) + '”.' : 'No chats yet. Ask Alex anything to start one.') +
         '</p>';
       return;
     }
@@ -438,7 +438,15 @@
   function loadConversations() {
     return api('GET', '/api/pavlex/conversations').then(function (d) {
       if (d.success && Array.isArray(d.conversations)) {
-        state.conversations = d.conversations;
+        var loadedIds = {};
+        d.conversations.forEach(function (c) {
+          loadedIds[c.id] = true;
+        });
+        // A chat created while this list was in flight (auto-sent ?q=) must not vanish.
+        var fresh = state.conversations.filter(function (c) {
+          return c && c.id && !loadedIds[c.id];
+        });
+        state.conversations = fresh.concat(d.conversations);
         renderList();
       } else if (els.list) {
         els.list.innerHTML =
@@ -468,9 +476,9 @@
   // ── Thread ──────────────────────────────────────────────────────────────────
 
   function setTitle(title) {
-    var t = title || 'Pavlex';
+    var t = title || 'Alex';
     if (els.title) els.title.textContent = t;
-    document.title = (title ? title + ' · ' : '') + 'Pavlex | Agency OS';
+    document.title = (title ? title + ' · ' : '') + 'Alex | Agency OS';
   }
 
   function showEmpty(show) {
@@ -532,7 +540,7 @@
     });
     if (!labels.length) return '';
     return (
-      '<div class="flex flex-wrap gap-1.5 mt-2" aria-label="Tools Pavlex used">' +
+      '<div class="flex flex-wrap gap-1.5 mt-2" aria-label="Tools Alex used">' +
       labels
         .map(function (l) {
           return (
@@ -650,7 +658,7 @@
       if (seq !== state.epoch) return;
       if (d.success) {
         if (d.conversation) upsertConversation(d.conversation);
-        setTitle(d.conversation ? d.conversation.title : 'Pavlex');
+        setTitle(d.conversation ? d.conversation.title : 'Alex');
         renderMessages(d.messages || []);
         if (!opts.keepFocus && isDesktop()) els.input.focus();
       } else if (d.__status === 404) {
@@ -790,13 +798,13 @@
           loadConversations();
           return;
         }
-        fail(d.error || 'Pavlex could not answer just now. Try again.');
+        fail(d.error || 'Alex could not answer just now. Try again.');
       })
       .catch(function () {
         clearTimeout(timer);
         fail(
           timedOut
-            ? 'Pavlex took longer than 90 seconds. Big jobs (like lead searches) may still finish in the background — check the chat list in a minute, or retry.'
+            ? 'Alex took longer than 90 seconds. Big jobs (like lead searches) may still finish in the background — check the chat list in a minute, or retry.'
             : 'Connection error. Check your internet and try again.',
         );
       });
@@ -941,8 +949,25 @@
 
   // ── Boot ────────────────────────────────────────────────────────────────────
 
+  /** Starts a fresh chat and sends `text` as its first message. Returns false when a reply is still pending. */
+  function startNewChatWith(text) {
+    var msg = String(text || '').trim();
+    if (!msg || state.busy) return false;
+    startNewChat();
+    sendMessage(msg);
+    return true;
+  }
+
   autosize();
   var initial = String(CFG.initialConversationId || '').trim();
+  var bootParams = new URLSearchParams(window.location.search);
+  var autoPrompt = bootParams.get('new') === '1' ? String(bootParams.get('q') || '').trim().slice(0, 6000) : '';
+  if (autoPrompt) {
+    // Drop ?q= from history before sending so a refresh or Back never re-sends it.
+    initial = '';
+    updateUrl('');
+    startNewChatWith(autoPrompt);
+  }
   loadConversations()
     .catch(function () {
       if (els.list) {
@@ -950,6 +975,7 @@
       }
     })
     .then(function () {
+      if (autoPrompt) return;
       if (initial) openConversation(initial, { keepFocus: true });
       else startNewChat();
     });
@@ -958,5 +984,6 @@
     showEmpty(false);
   }
 
+  window.__pavlexChatPage = { startNewChatWith: startNewChatWith };
   window.__pavlexChatTest = { renderMarkdown: renderMarkdown, friendlyToolName: friendlyToolName };
 })();

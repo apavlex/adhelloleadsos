@@ -7972,6 +7972,73 @@ body.dm-prompt-resize-active {
   color: rgb(226 232 240);
 }
 
+/* Pavlex AI mode toggle — sits at the far right; clear + ⌘K shift left to make room. */
+.nav-lead-search-input {
+  padding-right: 6.25rem;
+}
+
+.nav-lead-search-input::-webkit-search-cancel-button,
+.nav-lead-search-input::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+
+.nav-lead-search--mobile .nav-lead-search-input {
+  padding-right: 4.5rem;
+  font-size: 16px;
+}
+
+.nav-lead-search-clear {
+  right: 2.3rem;
+}
+
+.nav-lead-search-kbd {
+  right: 4.1rem;
+}
+
+.nav-lead-search-ai-toggle {
+  position: absolute;
+  right: 0.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 9999px;
+  color: rgb(100 116 139);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.nav-lead-search-ai-toggle:hover {
+  background: rgb(241 245 249);
+  color: var(--brand-dark, rgb(15 23 42));
+}
+
+.dark .nav-lead-search-ai-toggle {
+  color: rgb(148 163 184);
+}
+
+.dark .nav-lead-search-ai-toggle:hover {
+  background: rgb(51 65 85);
+  color: rgb(226 232 240);
+}
+
+.nav-lead-search-form--ai .nav-lead-search-ai-toggle,
+.nav-lead-search-form--ai .nav-lead-search-ai-toggle:hover {
+  background: var(--brand-yellow, #facc15);
+  color: var(--brand-dark, rgb(15 23 42));
+}
+
+.nav-lead-search-form--ai .nav-lead-search-input-wrap {
+  border-radius: 9999px;
+  box-shadow: 0 0 0 2px var(--brand-yellow, #facc15);
+}
+
+.nav-lead-search-form--ai .nav-lead-search-kbd {
+  display: none;
+}
+
 .nav-lead-search-dropdown {
   position: absolute;
   top: calc(100% + 0.35rem);
