@@ -8039,6 +8039,194 @@ body.dm-prompt-resize-active {
   display: none;
 }
 
+/* Alex voice input — mic shared by /chat, the floating chat, and the AI search bar (AI mode only). */
+.alex-voice-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.alex-voice-btn[hidden] {
+  display: none !important;
+}
+
+.alex-voice-btn::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100%, 44px);
+  height: max(100%, 44px);
+  transform: translate(-50%, -50%);
+}
+
+.alex-voice-btn:focus-visible {
+  outline: 2px solid var(--brand-yellow, #facc15);
+  outline-offset: 2px;
+}
+
+.alex-voice-btn:disabled {
+  cursor: progress;
+}
+
+.alex-voice-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+}
+
+.alex-voice-icon--stop,
+.alex-voice-icon--spin {
+  display: none;
+}
+
+.alex-voice-btn[data-state='listening'] .alex-voice-icon--mic,
+.alex-voice-btn[data-state='transcribing'] .alex-voice-icon--mic {
+  display: none;
+}
+
+.alex-voice-btn[data-state='listening'] .alex-voice-icon--stop {
+  display: block;
+  width: 1rem;
+  height: 1rem;
+}
+
+.alex-voice-btn[data-state='transcribing'] .alex-voice-icon--spin {
+  display: block;
+  width: 1.05rem;
+  height: 1.05rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 9999px;
+  animation: alexVoiceSpin 0.75s linear infinite;
+}
+
+.alex-voice-btn[data-state='listening'] {
+  background: #ef4444 !important;
+  border-color: #ef4444 !important;
+  color: #fff !important;
+  animation: alexVoicePulse 1.4s ease-out infinite;
+}
+
+.alex-voice-btn[data-state='transcribing'] {
+  color: var(--brand-muted, rgb(100 116 139)) !important;
+}
+
+@keyframes alexVoicePulse {
+  0% { box-shadow: 0 0 0 0 rgb(239 68 68 / 0.55); }
+  70% { box-shadow: 0 0 0 10px rgb(239 68 68 / 0); }
+  100% { box-shadow: 0 0 0 0 rgb(239 68 68 / 0); }
+}
+
+@keyframes alexVoiceSpin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alex-voice-btn[data-state='listening'] {
+    animation: none;
+    box-shadow: 0 0 0 3px rgb(239 68 68 / 0.35);
+  }
+  .alex-voice-btn[data-state='transcribing'] .alex-voice-icon--spin {
+    animation-duration: 1.6s;
+  }
+}
+
+/* Search-bar mic: only in Ask Alex mode, between clear and the AI toggle. */
+.nav-lead-search-mic {
+  position: absolute;
+  right: 2.45rem;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  color: rgb(100 116 139);
+}
+
+.nav-lead-search-mic::after {
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+.nav-lead-search-mic .alex-voice-icon {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.nav-lead-search-mic:hover {
+  background: rgb(241 245 249);
+  color: var(--brand-dark, rgb(15 23 42));
+}
+
+.dark .nav-lead-search-mic {
+  color: rgb(148 163 184);
+}
+
+.dark .nav-lead-search-mic:hover {
+  background: rgb(51 65 85);
+  color: rgb(226 232 240);
+}
+
+.nav-lead-search-form:not(.nav-lead-search-form--ai) .nav-lead-search-mic {
+  display: none !important;
+}
+
+.nav-lead-search-form--ai .nav-lead-search-input-wrap:has(.nav-lead-search-mic:not([hidden])) .nav-lead-search-clear {
+  right: 4.75rem;
+}
+
+.nav-lead-search-form--ai .nav-lead-search-input-wrap:has(.nav-lead-search-mic:not([hidden])) .nav-lead-search-input {
+  padding-right: 6.85rem;
+}
+
+/* Box props are !important: desktop `body.app-with-sidebar > :not(#appSidebar)…` crushes body children to height 0. */
+.alex-voice-status {
+  position: fixed;
+  z-index: 2147483000;
+  max-width: min(22rem, calc(100vw - 1rem));
+  height: auto !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0.45rem 0.75rem !important;
+  border-radius: 0.75rem;
+  background: rgb(15 23 42);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 10px 28px rgb(15 23 42 / 0.25);
+  pointer-events: none;
+}
+
+.alex-voice-status[hidden] {
+  display: none;
+}
+
+.alex-voice-status[data-kind='live']::before {
+  content: '';
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-right: 0.4rem;
+  border-radius: 9999px;
+  background: #ef4444;
+  vertical-align: 0.05rem;
+}
+
+.alex-voice-status[data-kind='error'] {
+  background: #b91c1c;
+  color: #fff;
+}
+
+.dark .alex-voice-status:not([data-kind='error']) {
+  background: rgb(248 250 252);
+  color: rgb(15 23 42);
+}
+
 .nav-lead-search-dropdown {
   position: absolute;
   top: calc(100% + 0.35rem);

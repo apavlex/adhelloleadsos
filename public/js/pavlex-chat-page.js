@@ -641,8 +641,13 @@
     }
   }
 
+  function cancelVoice() {
+    if (state.voice) state.voice.cancel();
+  }
+
   function openConversation(id, opts) {
     opts = opts || {};
+    if (id !== state.activeId) cancelVoice();
     var seq = ++state.epoch;
     state.activeId = id;
     updateUrl(id);
@@ -674,6 +679,7 @@
   }
 
   function startNewChat() {
+    cancelVoice();
     state.epoch++;
     state.activeId = '';
     updateUrl('');
@@ -821,6 +827,7 @@
   function submitComposer() {
     var text = els.input.value;
     if (!text.trim() || state.busy) return;
+    cancelVoice();
     els.input.value = '';
     autosize();
     sendMessage(text);
@@ -838,6 +845,13 @@
     }
   });
   els.input.addEventListener('input', autosize);
+
+  var micBtn = document.getElementById('pcMic');
+  function attachVoice() {
+    if (micBtn && window.AlexVoice) state.voice = window.AlexVoice.attach({ button: micBtn, input: els.input });
+  }
+  if (window.AlexVoice) attachVoice();
+  else document.addEventListener('alexvoice:ready', attachVoice, { once: true });
 
   document.querySelectorAll('.pc-suggest').forEach(function (btn) {
     btn.addEventListener('click', function () {

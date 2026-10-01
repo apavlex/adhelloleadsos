@@ -6,11 +6,50 @@
     '<span class="shrink-0 w-6 h-6 rounded-full overflow-hidden border border-slate-200/60 bg-white shadow-sm ring-1 ring-slate-200/60 flex items-center justify-center" aria-hidden="true">' +
     '<img src="/img/alex-avatar-96.jpg" alt="" class="w-full h-full rounded-full object-cover" width="24" height="24" loading="lazy" decoding="async" /></span>';
 
+  /** http(s) URLs and same-origin paths only; returns null for anything else (javascript:, //host, data:, …). */
+  function safeLinkHref(raw) {
+    var url = String(raw || '')
+      .replace(/&amp;/g, '&')
+      .trim();
+    if (!url) return null;
+    if (url.charAt(0) === '/' && url.charAt(1) !== '/' && url.charAt(1) !== '\\') return { href: url, external: false };
+    if (/^https?:\/\//i.test(url)) {
+      try {
+        var parsed = new URL(url);
+        return { href: parsed.href, external: parsed.origin !== window.location.origin };
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  function escapeAttr(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
   function renderMd(text) {
     if (!text) return '';
     var s = String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    s = s.replace(/```([\s\S]*?)```/g, '<pre class="bg-black/10 rounded-lg p-3 my-2 text-xs font-mono overflow-x-auto whitespace-pre-wrap"><code>$1</code></pre>');
-    s = s.replace(/`([^`]+)`/g, '<code class="bg-black/10 rounded px-1 py-0.5 text-xs font-mono">$1</code>');
+    var stash = [];
+    function hold(html) {
+      stash.push(html);
+      return '\u0001' + (stash.length - 1) + '\u0001';
+    }
+    s = s.replace(/```([\s\S]*?)```/g, function (_, code) {
+      return hold('<pre class="bg-black/10 rounded-lg p-3 my-2 text-xs font-mono overflow-x-auto whitespace-pre-wrap"><code>' + code + '</code></pre>');
+    });
+    s = s.replace(/`([^`]+)`/g, function (_, code) {
+      return hold('<code class="bg-black/10 rounded px-1 py-0.5 text-xs font-mono">' + code + '</code>');
+    });
+    s = s.replace(/\[([^\]\n]+)\]\(([^)\s]+)\)/g, function (m, label, url) {
+      var link = safeLinkHref(url);
+      if (!link) return m;
+      var attrs = link.external ? ' target="_blank" rel="noopener noreferrer"' : '';
+      return hold(
+        '<a href="' + escapeAttr(link.href) + '"' + attrs + ' class="underline underline-offset-2 font-semibold break-words">' + label + '</a>',
+      );
+    });
     s = s.replace(/\*\*([^*]+)\*\*/g, '<strong class="font-bold">$1</strong>');
     s = s.replace(/\*([^*]+)\*/g, '<em>$1</em>');
     s = s.replace(/^### (.+)$/gm, '<h4 class="font-black text-sm mt-3 mb-1">$1</h4>');
@@ -19,6 +58,9 @@
     s = s.replace(/((?:<li[^>]*>.*<\/li>\n?)+)/g, '<ul class="space-y-1 my-2">$1</ul>');
     s = s.replace(/\n\n/g, '</p><p class="mt-2">');
     s = s.replace(/\n/g, '<br>');
+    s = s.replace(/\u0001(\d+)\u0001/g, function (_, i) {
+      return stash[Number(i)];
+    });
     return '<p>' + s + '</p>';
   }
 
@@ -55,6 +97,16 @@
     var chatHistory = [];
     var chatBusy = false;
     var chatOpen = false;
+    var voice = null;
+    var micBtn = document.getElementById('ceoChatMicFloat');
+
+    function attachVoice() {
+      if (micBtn && chatInputFloat && window.AlexVoice) {
+        voice = window.AlexVoice.attach({ button: micBtn, input: chatInputFloat });
+      }
+    }
+    if (window.AlexVoice) attachVoice();
+    else document.addEventListener('alexvoice:ready', attachVoice, { once: true });
 
     function renderMsgTo(container, role, text) {
       var div = document.createElement('div');
@@ -104,6 +156,7 @@
       if (chatBusy) return;
       msg = (msg || '').trim();
       if (!msg) return;
+      if (voice) voice.cancel();
       chatBusy = true;
       if (chatInputFloat) {
         chatInputFloat.disabled = true;
@@ -195,6 +248,7 @@
           if (chatInputFloat) chatInputFloat.focus();
         }, 100);
       } else {
+        if (voice) voice.cancel();
         chatWindow.classList.add('hidden');
         if (chatBubbleIcon) chatBubbleIcon.classList.remove('hidden');
         if (chatBubbleClose) chatBubbleClose.classList.add('hidden');

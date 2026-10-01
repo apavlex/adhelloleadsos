@@ -16,6 +16,17 @@
     return '/chat?' + params.toString();
   }
 
+  function withVoice(fn) {
+    if (window.AlexVoice) return fn(window.AlexVoice);
+    document.addEventListener(
+      'alexvoice:ready',
+      function () {
+        fn(window.AlexVoice);
+      },
+      { once: true },
+    );
+  }
+
   function setAiMode(on, opts) {
     aiMode = !!on;
     instances.forEach(function (inst) {
@@ -76,6 +87,8 @@
     var clearBtn = document.getElementById(cfg.clearId);
     var form = document.getElementById(cfg.formId);
     var aiToggle = cfg.aiToggleId ? document.getElementById(cfg.aiToggleId) : null;
+    var micBtn = form ? form.querySelector('[data-nav-search-mic]') : null;
+    var voice = null;
     if (!input || !dropdown || !form) return null;
 
     var searchPlaceholder = input.getAttribute('placeholder') || '';
@@ -222,6 +235,8 @@
         if (timer) clearTimeout(timer);
         reqId++;
         closeDropdown();
+      } else if (voice) {
+        voice.cancel();
       }
     }
 
@@ -258,6 +273,7 @@
       var q = String(input.value || '').trim();
       if (!q) return;
       if (aiMode) {
+        if (voice) voice.cancel();
         var chatPage = window.__pavlexChatPage;
         if (chatPage && typeof chatPage.startNewChatWith === 'function' && chatPage.startNewChatWith(q)) {
           instances.forEach(function (inst) {
@@ -364,11 +380,20 @@
       if (!form.contains(e.target)) closeDropdown();
     });
 
+    if (micBtn) {
+      withVoice(function (AlexVoice) {
+        voice = AlexVoice.attach({ button: micBtn, input: input });
+      });
+    }
+
     self = {
       input: input,
       syncClearBtn: syncClearBtn,
       closeDropdown: closeDropdown,
       applyAiMode: applyAiMode,
+      cancelVoice: function () {
+        if (voice) voice.cancel();
+      },
       setValue: function (v) {
         input.value = v;
         syncClearBtn();
@@ -410,6 +435,7 @@
     mobileRow.classList.add('hidden');
     if (mobileBtn) mobileBtn.setAttribute('aria-expanded', 'false');
     if (mobile) {
+      mobile.cancelVoice();
       mobile.closeDropdown();
       mobile.input.blur();
     }
