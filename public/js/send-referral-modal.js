@@ -17,10 +17,26 @@
     });
   }
 
-  function setError(text) {
+  function setError(text, retry) {
     if (!errorBox) return;
     errorBox.textContent = text || '';
     errorBox.classList.toggle('hidden', !text);
+    if (text && retry) {
+      var again = document.createElement('button');
+      again.type = 'button';
+      again.className = 'ml-1 font-semibold underline';
+      again.textContent = 'Try again';
+      again.addEventListener('click', retry);
+      errorBox.appendChild(again);
+    }
+  }
+
+  /** Render shows an HTML page while the app restarts for a deploy, and an expired session redirects to login. */
+  function readJson(res) {
+    var type = String(res.headers.get('content-type') || '');
+    if (type.indexOf('application/json') !== -1) return res.json();
+    if (res.redirected && /\/auth\//.test(res.url)) throw new Error('Your session expired. Refresh the page and sign in again.');
+    throw new Error('The app is restarting after an update. Wait a few seconds and try again.');
   }
 
   function fillSelect(select, rows, valueKey) {
@@ -41,8 +57,9 @@
 
   function loadOptions() {
     show(loading);
+    setError('');
     return fetch('/network/send-options', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
-      .then(function (res) { return res.json(); })
+      .then(readJson)
       .then(function (data) {
         if (!data || !data.success) throw new Error((data && data.error) || 'Could not load the referral form.');
         var keepTrade = tradeSelect.value;
@@ -59,7 +76,7 @@
       })
       .catch(function (err) {
         show(form);
-        setError(err.message || 'Could not load the referral form.');
+        setError(err.message || 'Could not load the referral form.', loadOptions);
       });
   }
 
@@ -129,7 +146,7 @@
       headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
       body: new URLSearchParams(new FormData(form)).toString(),
     })
-      .then(function (res) { return res.json().catch(function () { return {}; }); })
+      .then(readJson)
       .then(function (data) {
         if (!data || !data.success) {
           setError((data && (data.error || data.notice)) || 'Could not send that referral.');
@@ -139,7 +156,10 @@
         if (doneText) doneText.textContent = data.notice || 'Referral sent.';
         show(done);
       })
-      .catch(function () { setError('Could not send that referral. Check your connection and try again.'); })
+      .catch(function (err) {
+        var offline = err instanceof TypeError;
+        setError(offline ? 'Could not reach the app. Check your connection and try again.' : err.message);
+      })
       .finally(function () {
         submit.disabled = false;
         submit.textContent = label;
