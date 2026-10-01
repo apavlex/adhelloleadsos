@@ -6,8 +6,10 @@ const {
   dedupeOpenLeadTasks,
   upsertOpenTaskForLead,
   filterManualUserTasks,
-  TASK_SOURCE_MANUAL,
   TASK_SOURCE_LEAD_TASK,
+  TASK_TITLE_MAX_LENGTH,
+  validateTaskTitle,
+  applyTaskEdits,
 } = require('../services/userTasks');
 const teamActivity = require('../services/teamActivity');
 
@@ -95,6 +97,7 @@ router.get('/', async (req, res, next) => {
       activePage: 'tasks',
       tasks,
       taskColumns: COLUMNS,
+      taskTitleMaxLength: TASK_TITLE_MAX_LENGTH,
       leadChoices,
       initialLeadKey,
     });
@@ -118,8 +121,9 @@ router.get('/api', async (req, res, next) => {
 
 router.post('/api', express.json(), async (req, res, next) => {
   try {
-    const title = String(req.body.title || '').trim();
-    if (!title) return res.status(400).json({ success: false, error: 'Title is required.' });
+    const titleCheck = validateTaskTitle(req.body.title);
+    if (!titleCheck.ok) return res.status(400).json({ success: false, error: titleCheck.error });
+    const { title } = titleCheck;
     const email = userEmail(req);
     const allLeads = await dbService.getAllLeads(req.workspaceId);
     const leads = filterLeadsForRequest(req, allLeads);
@@ -165,18 +169,11 @@ router.patch('/api/:taskId', express.json(), async (req, res, next) => {
     const existing = await listTasksForRequest(req);
     const cur = existing.find((t) => t.id === taskId);
     if (!cur) return res.status(404).json({ success: false, error: 'Task not found.' });
-    const nextLeadKey =
-      req.body.leadKey !== undefined ? sanitizeLeadKey(req.body.leadKey, allowedLeadKeys) : cur.leadKey;
-    const nextTask = {
-      ...cur,
-      title: req.body.title != null ? String(req.body.title).trim() || cur.title : cur.title,
-      column: req.body.column != null ? normColumn(req.body.column) : cur.column,
-      sort: req.body.sort != null ? Number(req.body.sort) || cur.sort : cur.sort,
-      scheduledAt:
-        req.body.scheduledAt !== undefined ? normScheduledAt(req.body.scheduledAt) : cur.scheduledAt,
-      leadKey: req.body.leadKey !== undefined ? nextLeadKey : cur.leadKey,
-      source: cur.source || TASK_SOURCE_MANUAL,
-    };
+    const patch = { ...req.body };
+    if (patch.leadKey !== undefined) patch.leadKey = sanitizeLeadKey(patch.leadKey, allowedLeadKeys);
+    const edit = applyTaskEdits(cur, patch, { normColumn, normScheduledAt });
+    if (!edit.ok) return res.status(400).json({ success: false, error: edit.error });
+    const nextTask = edit.task;
     const saved = await dbService.saveUserTask(req.workspaceId, email, nextTask);
     const [enriched] = enrichTasksWithLeads([saved], leads);
     if (nextTask.leadKey && nextTask.column === 'done' && cur.column !== 'done') {

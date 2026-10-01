@@ -11,6 +11,10 @@ const {
   TASK_SOURCE_MANUAL,
   TASK_SOURCE_LEAD_TASK,
   TASK_SOURCE_DISPOSITION,
+  TASK_SOURCE_NETWORK,
+  TASK_TITLE_MAX_LENGTH,
+  validateTaskTitle,
+  applyTaskEdits,
 } = require('../services/userTasks');
 
 describe('userTasks lead checklist tasks', () => {
@@ -89,5 +93,58 @@ describe('userTasks manual filter', () => {
     ];
     const manual = filterManualUserTasks(tasks);
     assert.deepEqual(manual.map((t) => t.id), ['1', '4']);
+  });
+});
+
+describe('userTasks editing', () => {
+  const norms = {
+    normColumn: (c) => (['backlog', 'todo', 'doing', 'done'].includes(c) ? c : 'todo'),
+    normScheduledAt: (v) => (v ? new Date(v).toISOString() : null),
+  };
+  const base = {
+    id: 't1',
+    title: 'Call back',
+    column: 'todo',
+    sort: 1,
+    scheduledAt: '2026-10-02T15:00:00.000Z',
+    leadKey: null,
+    source: TASK_SOURCE_LEAD_TASK,
+  };
+
+  test('validateTaskTitle trims, collapses whitespace and rejects empty or overlong titles', () => {
+    assert.deepEqual(validateTaskTitle('  Send   deck \n'), { ok: true, title: 'Send deck' });
+    assert.equal(validateTaskTitle('   ').ok, false);
+    assert.equal(validateTaskTitle(null).ok, false);
+    assert.equal(validateTaskTitle('x'.repeat(TASK_TITLE_MAX_LENGTH)).ok, true);
+    assert.equal(validateTaskTitle('x'.repeat(TASK_TITLE_MAX_LENGTH + 1)).ok, false);
+  });
+
+  test('applyTaskEdits updates only the fields sent', () => {
+    const r = applyTaskEdits(base, { title: ' Call back Friday ' }, norms);
+    assert.equal(r.ok, true);
+    assert.deepEqual(r.task, { ...base, title: 'Call back Friday' });
+  });
+
+  test('applyTaskEdits rejects an empty or overlong title instead of keeping the old one', () => {
+    assert.equal(applyTaskEdits(base, { title: '  ' }, norms).ok, false);
+    assert.equal(applyTaskEdits(base, { title: 'x'.repeat(TASK_TITLE_MAX_LENGTH + 1) }, norms).ok, false);
+  });
+
+  test('applyTaskEdits changes status, clears the reminder and links a lead', () => {
+    const r = applyTaskEdits(base, { column: 'doing', scheduledAt: null, leadKey: 'lead:abc' }, norms);
+    assert.equal(r.task.column, 'doing');
+    assert.equal(r.task.scheduledAt, null);
+    assert.equal(r.task.leadKey, 'lead:abc');
+    assert.equal(r.task.source, TASK_SOURCE_LEAD_TASK);
+    assert.equal(applyTaskEdits({ ...base, leadKey: 'lead:abc' }, { leadKey: null }, norms).task.leadKey, null);
+  });
+
+  test('linking a follow-up task to a new lead promotes it to a checklist task', () => {
+    const followUp = { ...base, source: TASK_SOURCE_MANUAL };
+    assert.equal(applyTaskEdits(followUp, { leadKey: 'lead:abc' }, norms).task.source, TASK_SOURCE_LEAD_TASK);
+    assert.equal(applyTaskEdits({ ...base, source: undefined }, { leadKey: 'lead:abc' }, norms).task.source, TASK_SOURCE_LEAD_TASK);
+    assert.equal(applyTaskEdits(followUp, { title: 'Renamed' }, norms).task.source, TASK_SOURCE_MANUAL);
+    const network = { ...base, source: TASK_SOURCE_NETWORK };
+    assert.equal(applyTaskEdits(network, { leadKey: 'lead:abc' }, norms).task.source, TASK_SOURCE_NETWORK);
   });
 });

@@ -45,6 +45,18 @@ function filterManualUserTasks(tasks) {
   return (Array.isArray(tasks) ? tasks : []).filter(isManualUserTask);
 }
 
+const TASK_TITLE_MAX_LENGTH = 500;
+
+/** Trimmed title, or an error message when empty / too long. */
+function validateTaskTitle(raw) {
+  const title = String(raw == null ? '' : raw).replace(/\s+/g, ' ').trim();
+  if (!title) return { ok: false, error: 'Title is required.' };
+  if (title.length > TASK_TITLE_MAX_LENGTH) {
+    return { ok: false, error: `Title must be ${TASK_TITLE_MAX_LENGTH} characters or fewer.` };
+  }
+  return { ok: true, title };
+}
+
 function newTaskId() {
   return `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
@@ -166,6 +178,33 @@ async function upsertOpenTaskForLead(workspaceId, email, fields) {
 }
 
 /**
+ * Merge a PATCH body into an existing task. Only keys present in `patch` change.
+ * `patch.leadKey` must already be sanitized/authorized by the caller (null unlinks).
+ * Linking a follow-up task to a new lead promotes it to a checklist task so
+ * dedupeOpenLeadTasks never deletes it or the lead's existing follow-up.
+ */
+function applyTaskEdits(cur, patch, { normColumn, normScheduledAt }) {
+  const body = patch || {};
+  const next = { ...cur, source: cur.source || TASK_SOURCE_MANUAL };
+  if (body.title !== undefined) {
+    const v = validateTaskTitle(body.title);
+    if (!v.ok) return { ok: false, error: v.error };
+    next.title = v.title;
+  }
+  if (body.column != null) next.column = normColumn(body.column);
+  if (body.sort != null) next.sort = Number(body.sort) || cur.sort;
+  if (body.scheduledAt !== undefined) next.scheduledAt = normScheduledAt(body.scheduledAt);
+  if (body.leadKey !== undefined) {
+    next.leadKey = body.leadKey || null;
+    const src = normalizeTaskSource(cur.source);
+    if (next.leadKey && next.leadKey !== cur.leadKey && (!src || src === TASK_SOURCE_MANUAL)) {
+      next.source = TASK_SOURCE_LEAD_TASK;
+    }
+  }
+  return { ok: true, task: next };
+}
+
+/**
  * Remove open automation/cadence tasks so Today "Due & overdue" can reset to empty.
  * Manual tasks are kept. Returns how many were deleted.
  */
@@ -198,4 +237,7 @@ module.exports = {
   upsertOpenTaskForLead,
   clearOpenAutomationTasks,
   normRemindMinutesBefore,
+  TASK_TITLE_MAX_LENGTH,
+  validateTaskTitle,
+  applyTaskEdits,
 };

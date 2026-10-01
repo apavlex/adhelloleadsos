@@ -137,11 +137,14 @@
   <script>
   window.__TASKS__ = <%- JSON.stringify(tasks || []) %>;
   window.__TASK_COLUMNS__ = <%- JSON.stringify(taskColumns || []) %>;
+  window.__TASK_TITLE_MAX__ = <%- JSON.stringify(typeof taskTitleMaxLength !== 'undefined' ? taskTitleMaxLength : 500) %>;
   </script>
   <script>
   (function () {
     var tasks = Array.isArray(window.__TASKS__) ? window.__TASKS__.slice() : [];
     var cols = window.__TASK_COLUMNS__ || [];
+    var titleMax = Number(window.__TASK_TITLE_MAX__) || 500;
+    var editingTaskId = null;
 
     function syncReminderTasks() {
       if (window.AgencyTaskReminders && window.AgencyTaskReminders.setTasks) {
@@ -271,6 +274,10 @@
 
     function escapeHtml(s) {
       return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function escapeAttr(s) {
+      return escapeHtml(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
     function isoToDatetimeLocal(iso) {
@@ -426,6 +433,153 @@
       }
     }
 
+    var editFieldClass =
+      'w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-2 text-xs font-bold text-brand-dark dark:text-white min-h-[38px]';
+    var editLabelClass = 'block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1';
+
+    function editFormHtml(t, compact) {
+      var id = escapeAttr(t.id);
+      var colOptions = cols.map(function (c) {
+        return '<option value="' + escapeAttr(c.id) + '"' + (c.id === t.column ? ' selected' : '') + '>' + escapeHtml(c.label) + '</option>';
+      }).join('');
+      var leadLabel = t.leadKey ? String(t.leadTitle || '') : '';
+      return (
+        '<form class="task-edit-form w-full min-w-0 space-y-2" data-task-id="' + id + '" novalidate>' +
+          '<div>' +
+            '<label class="' + editLabelClass + '" for="taskEditTitle_' + id + '">Task</label>' +
+            '<input id="taskEditTitle_' + id + '" name="title" type="text" autocomplete="off" required maxlength="' + titleMax + '" value="' + escapeAttr(t.title) + '" class="' + editFieldClass + ' text-sm font-semibold" />' +
+          '</div>' +
+          '<div class="grid grid-cols-1 ' + (compact ? '' : 'sm:grid-cols-3 ') + 'gap-2">' +
+            '<div>' +
+              '<label class="' + editLabelClass + '" for="taskEditColumn_' + id + '">Status</label>' +
+              '<select id="taskEditColumn_' + id + '" name="column" class="' + editFieldClass + '">' + colOptions + '</select>' +
+            '</div>' +
+            '<div class="min-w-0">' +
+              '<label class="' + editLabelClass + '" for="taskEditLead_' + id + '">Lead</label>' +
+              '<input id="taskEditLead_' + id + '" name="lead" type="text" list="taskLeadList" autocomplete="off" placeholder="No lead" value="' + escapeAttr(leadLabel) + '" data-initial="' + escapeAttr(leadLabel) + '" class="' + editFieldClass + '" />' +
+            '</div>' +
+            '<div>' +
+              '<label class="' + editLabelClass + '" for="taskEditSched_' + id + '">Reminder</label>' +
+              '<input id="taskEditSched_' + id + '" name="scheduledAt" type="datetime-local" value="' + escapeAttr(isoToDatetimeLocal(t.scheduledAt)) + '" class="' + editFieldClass + '" />' +
+            '</div>' +
+          '</div>' +
+          '<p class="task-edit-error hidden text-[11px] font-semibold text-rose-600 dark:text-rose-400" role="alert"></p>' +
+          '<div class="flex items-center justify-end gap-3 pt-1">' +
+            '<button type="button" class="task-edit-cancel text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white">Cancel</button>' +
+            '<button type="submit" class="task-edit-save btn-pill btn-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest">Save</button>' +
+          '</div>' +
+        '</form>'
+      );
+    }
+
+    function rerenderCurrentView() {
+      if (boardSection.classList.contains('hidden')) renderChecklist();
+      else { renderBoard(); initSortable(); }
+    }
+
+    function startEdit(id) {
+      editingTaskId = id;
+      rerenderCurrentView();
+      var formEl = document.querySelector('.task-edit-form[data-task-id="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]');
+      var titleEl = formEl && formEl.querySelector('input[name="title"]');
+      if (titleEl) {
+        titleEl.focus();
+        var len = titleEl.value.length;
+        try { titleEl.setSelectionRange(len, len); } catch (e) { /* ignore */ }
+      }
+    }
+
+    function cancelEdit() {
+      editingTaskId = null;
+      rerenderCurrentView();
+    }
+
+    function resolveLeadKeyForLabel(label) {
+      var q = String(label || '').trim().toLowerCase();
+      if (!q) return null;
+      var hit = leadChoicesCache.find(function (c) { return c.label.toLowerCase() === q; });
+      return hit ? hit.key : undefined;
+    }
+
+    function submitEdit(formEl) {
+      var id = formEl.getAttribute('data-task-id');
+      var t = tasks.find(function (x) { return x.id === id; });
+      if (!t) return cancelEdit();
+      var errEl = formEl.querySelector('.task-edit-error');
+      function showError(msg) {
+        if (!errEl) return;
+        errEl.textContent = msg;
+        errEl.classList.remove('hidden');
+      }
+      var title = String(formEl.elements.title.value || '').replace(/\s+/g, ' ').trim();
+      if (!title) { formEl.elements.title.focus(); return showError('Title is required.'); }
+      if (title.length > titleMax) return showError('Title must be ' + titleMax + ' characters or fewer.');
+
+      var body = {};
+      if (title !== t.title) body.title = title;
+      var column = formEl.elements.column.value;
+      if (column && column !== t.column) body.column = column;
+      var leadEl = formEl.elements.lead;
+      if (String(leadEl.value || '').trim() !== String(leadEl.getAttribute('data-initial') || '').trim()) {
+        var lk = resolveLeadKeyForLabel(leadEl.value);
+        if (lk === undefined) { leadEl.focus(); return showError('Pick a lead from the list, or clear the field.'); }
+        if (lk !== (t.leadKey || null)) body.leadKey = lk;
+      }
+      var schedVal = formEl.elements.scheduledAt.value;
+      if (schedVal !== isoToDatetimeLocal(t.scheduledAt)) body.scheduledAt = datetimeLocalToIso(schedVal);
+
+      if (!Object.keys(body).length) return cancelEdit();
+
+      var saveBtn = formEl.querySelector('.task-edit-save');
+      if (saveBtn) saveBtn.disabled = true;
+      function run() {
+        sendPatch(id, body)
+          .then(function () {
+            editingTaskId = null;
+            rerenderCurrentView();
+            if (body.scheduledAt && 'Notification' in window && Notification.permission === 'denied') showNotifyDeniedInline();
+            if (window.AgencyTaskReminders && window.AgencyTaskReminders.tick) window.AgencyTaskReminders.tick();
+          })
+          .catch(function (err) {
+            if (saveBtn) saveBtn.disabled = false;
+            showError((err && err.message) || 'Could not update task.');
+          });
+      }
+      if (body.scheduledAt && 'Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission().then(function () {
+          clearNotifyInlineIfGranted();
+          run();
+        });
+      } else {
+        run();
+      }
+    }
+
+    document.body.addEventListener('click', function (e) {
+      var editBtn = e.target.closest('.task-edit');
+      if (editBtn) {
+        e.stopPropagation();
+        var tid = editBtn.getAttribute('data-task-id');
+        if (tid) startEdit(tid);
+        return;
+      }
+      if (e.target.closest('.task-edit-cancel')) {
+        e.preventDefault();
+        cancelEdit();
+      }
+    });
+    document.body.addEventListener('submit', function (e) {
+      var formEl = e.target.closest('.task-edit-form');
+      if (!formEl) return;
+      e.preventDefault();
+      submitEdit(formEl);
+    });
+    document.body.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape' || !e.target.closest('.task-edit-form')) return;
+      e.preventDefault();
+      cancelEdit();
+    });
+
     function renderChecklist() {
       if (!checklistEl) return;
       if (!tasks.length) {
@@ -443,6 +597,13 @@
       function row(t, isDone) {
         var id = escapeHtml(t.id);
         var rawId = String(t.id || '');
+        if (editingTaskId && rawId === editingTaskId) {
+          return (
+            '<div class="flex items-start gap-3 p-3 rounded-xl border border-brand-yellow bg-white/80 dark:bg-slate-950/50" data-task-id="' + id + '" data-lead-href="">' +
+              editFormHtml(t, false) +
+            '</div>'
+          );
+        }
         var leadHref = leadHrefForTask(t);
         var rowClickable = !!leadHref;
         var schedHtml = t.scheduledAt
@@ -460,6 +621,7 @@
               schedHtml +
             '</div>' +
             '<div class="flex flex-col items-end gap-2 shrink-0">' +
+              '<button type="button" class="task-edit text-[10px] font-black uppercase text-brand-dark dark:text-white hover:underline" data-task-id="' + escapeAttr(rawId) + '">Edit</button>' +
               '<button type="button" class="task-open-schedule text-[10px] font-black uppercase text-brand-yellow hover:underline" data-task-id="' + escapeHtml(rawId) + '">' +
                 (t.scheduledAt ? 'Edit reminder' : 'Set reminder') +
               '</button>' +
@@ -516,6 +678,8 @@
           group: 'tasks',
           animation: 150,
           ghostClass: 'opacity-50',
+          filter: '.task-edit-form',
+          preventOnFilter: false,
           onEnd: function (evt) {
             var card = evt.item;
             var id = card.getAttribute('data-task-id');
@@ -533,6 +697,13 @@
     function cardHtml(t) {
       var id = escapeHtml(t.id);
       var rawId = String(t.id || '');
+      if (editingTaskId && rawId === editingTaskId) {
+        return (
+          '<li class="task-card min-w-0 overflow-hidden p-3 bg-white dark:bg-slate-900 rounded-xl border border-brand-yellow shadow-sm" data-task-id="' + id + '" data-lead-href="">' +
+            editFormHtml(t, true) +
+          '</li>'
+        );
+      }
       var leadHref = leadHrefForTask(t);
       var sched =
         t.scheduledAt
@@ -544,6 +715,7 @@
           leadCellHtml(t) +
           sched +
           '<div class="flex flex-wrap gap-2 mt-2">' +
+            '<button type="button" class="task-edit text-[9px] font-black uppercase text-brand-dark dark:text-white hover:underline" data-task-id="' + escapeAttr(rawId) + '">Edit</button>' +
             '<button type="button" class="task-open-schedule text-[9px] font-black uppercase text-brand-yellow hover:underline" data-task-id="' + escapeHtml(rawId) + '">' +
               (t.scheduledAt ? 'Edit reminder' : 'Reminder') +
             '</button>' +
@@ -584,21 +756,27 @@
       });
     }
 
-    function patchTask(id, body) {
+    function sendPatch(id, body) {
       return fetch('/tasks/api/' + encodeURIComponent(id), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify(body)
       })
-        .then(function (r) { return r.json(); })
+        .then(function (r) { return r.json().catch(function () { return {}; }); })
         .then(function (data) {
-          if (!data.success) throw new Error(data.error || 'Failed');
+          if (!data.success) throw new Error(data.error || 'Could not update task.');
           var ix = tasks.findIndex(function (t) { return t.id === id; });
           if (ix >= 0) tasks[ix] = data.task;
           syncReminderTasks();
-          if (boardSection.classList.contains('hidden')) renderChecklist();
-          else { renderBoard(); initSortable(); }
           return data.task;
+        });
+    }
+
+    function patchTask(id, body) {
+      return sendPatch(id, body)
+        .then(function (task) {
+          rerenderCurrentView();
+          return task;
         })
         .catch(function (err) {
           window.alert('Could not update task.');
