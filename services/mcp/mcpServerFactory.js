@@ -248,7 +248,8 @@ function createCrmMcpServer(ctx) {
     'save_script',
     {
       description:
-        'Save an outreach/opening script to the workspace Scripts library (merge tags {{name}} {{company}} {{city}}).',
+        'Save a call script, SMS or email template to the workspace Scripts library (merge tags {{name}} {{company}} {{city}}). ' +
+        'Use section "sms" for text messages, "email" for emails.',
       inputSchema: z.object({
         name: z.string().min(1),
         body: z.string().min(1),

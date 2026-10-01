@@ -419,7 +419,8 @@ const LEAD_GEN_TOOL_SCHEMAS = [
   {
     name: 'save_script',
     description:
-      'Save an outreach / opening script to the workspace Scripts library. You write the body yourself; use merge tags {{name}}, {{company}}, {{city}}. ' +
+      'Save a call script, SMS or email template to the workspace Scripts library (Scripts → Saved library). You write the body yourself; use merge tags {{name}}, {{company}}, {{city}}. ' +
+      'Set section "sms" for text messages and "email" for emails. ' +
       'Optional folder_id/folder_name tags the script with that folder (the app has no per-folder scripts; the folder name goes in the title).',
     parameters: {
       type: 'object',

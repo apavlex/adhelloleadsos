@@ -24,6 +24,7 @@ LEAD-GEN FLOW (worked examples):
 - "Find referral partners for flooring in Camas" → see REFERRAL PARTNER PLAYBOOK below.
 - "Bookmark the top 10 by rating in Plumbers" → list_leads {folder_name:"Plumbers", sort:"rating", limit:10} then bookmark_leads with those lead ids.
 - "Write a script for designers and save it" → write the script yourself (2-4 short paragraphs, merge tags {{name}}, {{company}}, {{city}}), then save_script {name, body, folder_name if a folder was mentioned}. Show the script text in your reply.
+- "Make a referral request SMS and save it in scripts" → write the text yourself (under 320 characters, friendly, merge tags {{name}} / {{company}}), then save_script {name:"Referral request SMS", body, section:"sms"}. Show the text and say it is in Scripts → Saved library.
 - "Send the bookmarked ones to opportunities for review" → list_leads {bookmarked_only:true, folder_name if given} then move_opportunities with those lead ids (stage defaults to Review / first stage).
 
 REFERRAL PARTNER PLAYBOOK — "find referral partners", "who could send me work", "help me get referrals":

@@ -10,6 +10,7 @@ const { loadWorkspaceMcpConfig, loadMcpIntegrationRecord } = require('./pavlexMc
 const pavlexLogger = require('./pavlexLogger');
 const { pavlexChatChannel } = require('./pavlexWorkspaceScope');
 const { CRM_COMMAND_HINTS } = require('./pavlexConstants');
+const { chatUnavailableMessage } = require('./pavlexCrmIntent');
 
 /**
  * @param {import('express').Request} req
@@ -53,9 +54,8 @@ async function runPavlexChat(req, opts) {
     page,
   });
 
+  // Chat runs CRM tools in-process; no HTTP round-trip to our own /ceo/mcp endpoint.
   const connection = await connectMCP({
-    serverUrl: mcpConfig.serverUrl,
-    token: mcpConfig.sessionToken,
     userId: auth.userId,
     workspaceId: auth.workspaceId,
     userEmail: auth.email,
@@ -67,7 +67,7 @@ async function runPavlexChat(req, opts) {
     conversationId,
     question: message,
     mcpConnected: connection.connected,
-    mcpMode: mcpConfig.responsesMcpReady ? 'responses_remote' : 'inline_tools',
+    mcpMode: 'inline_tools',
   });
 
   const chatOut = await pavlexChatWithCrmTools({
@@ -86,10 +86,7 @@ async function runPavlexChat(req, opts) {
       question: message,
       detail: chatOut.detail || chatOut.mcpMode || 'unavailable',
     });
-    const err = new Error(
-      chatOut.userMessage ||
-        'CRM connection unavailable. MCP connection failed.',
-    );
+    const err = new Error(chatOut.userMessage || chatUnavailableMessage(chatOut.detail));
     err.status = 502;
     err.detail = chatOut.detail || chatOut.mcpMode || 'unavailable';
     throw err;

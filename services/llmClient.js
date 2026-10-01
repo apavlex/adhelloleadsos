@@ -206,20 +206,47 @@ function buildGeminiBody(messages, { jsonObject, max_tokens, temperature }) {
   return body;
 }
 
+/** OpenRouter wraps upstream failures as "Provider returned error"; the real reason is in error.metadata. */
+function upstreamErrorDetail(err) {
+  const meta = err && err.metadata && typeof err.metadata === 'object' ? err.metadata : null;
+  if (!meta) return '';
+  let raw = meta.raw;
+  if (raw && typeof raw === 'object') raw = JSON.stringify(raw);
+  raw = String(raw || '').trim();
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      const inner = parsed && (parsed.error || parsed);
+      const innerMsg = inner && (inner.message || inner.error);
+      if (typeof innerMsg === 'string' && innerMsg.trim()) raw = innerMsg.trim();
+    } catch {
+      /* raw is plain text */
+    }
+  }
+  const provider = String(meta.provider_name || '').trim();
+  const parts = [provider, raw.slice(0, 240)].filter(Boolean);
+  return parts.join(': ');
+}
+
 function extractOpenRouterApiError(data, status) {
   const err = data && data.error;
   const msg =
     (err && typeof err.message === 'string' && err.message.trim()) ||
     (typeof data === 'string' && data.trim()) ||
     '';
-  if (msg) return msg;
+  if (msg) {
+    const upstream = upstreamErrorDetail(err);
+    const code = err && err.code != null ? err.code : status;
+    const withCode = code && !String(msg).includes(String(code)) ? `${msg} (HTTP ${code})` : msg;
+    return upstream ? `${withCode} — ${upstream}` : withCode;
+  }
   if (status === 401) return 'Invalid API key (401). Paste a fresh key from openrouter.ai/keys.';
   if (status === 402) return 'Insufficient OpenRouter credits for this model (402). Add credits or leave Model blank for free models.';
   if (status === 429) return 'OpenRouter rate limit (429). Wait a minute or use a free model.';
   return status ? `OpenRouter HTTP ${status}` : 'OpenRouter request failed';
 }
 
-function extractOpenAIStyleMessageContent(data) {
+function extractOpenAIStyleMessageContent(data, { allowReasoningFallback = true } = {}) {
   const ch = data && data.choices && data.choices[0];
   if (!ch) return null;
   if (typeof ch.text === 'string' && ch.text.trim()) return ch.text;
@@ -240,7 +267,7 @@ function extractOpenAIStyleMessageContent(data) {
   } else if (c && typeof c === 'object' && typeof c.text === 'string') text = c.text;
   if (text && text.trim()) return text;
   // Some reasoning models leave content empty and put the answer in `reasoning`.
-  if (typeof msg.reasoning === 'string' && msg.reasoning.trim()) return msg.reasoning;
+  if (allowReasoningFallback && typeof msg.reasoning === 'string' && msg.reasoning.trim()) return msg.reasoning;
   return text;
 }
 
@@ -342,7 +369,7 @@ async function runGemini(prov, { messages, jsonObject, max_tokens, temperature, 
   };
 }
 
-async function runOpenAICompatible(prov, url, body, integrationEnv, timeoutMs) {
+async function runOpenAICompatible(prov, url, body, integrationEnv, timeoutMs, { allowReasoningFallback = true } = {}) {
   const headers = {
     Authorization: `Bearer ${prov.apiKey}`,
     'Content-Type': 'application/json',
@@ -385,7 +412,7 @@ async function runOpenAICompatible(prov, url, body, integrationEnv, timeoutMs) {
       errorMessage,
     };
   }
-  const content = extractOpenAIStyleMessageContent(data);
+  const content = extractOpenAIStyleMessageContent(data, { allowReasoningFallback });
   return {
     content: typeof content === 'string' && content.trim() ? content : null,
     provider: normalizeProviderName(prov.name),
@@ -404,6 +431,7 @@ async function runOpenAICompatible(prov, url, body, integrationEnv, timeoutMs) {
  * @param {'openrouter'|'legacy'} [opts.providerChain] — legacy for CEO + Pavlex chatbot
  * @param {Record<string, string>|null|undefined} [opts.integrationEnv] — workspace integration overrides
  * @param {number} [opts.timeoutMs] — per-provider request timeout; unset = no timeout
+ * @param {boolean} [opts.allowReasoningFallback] — false: never return a reasoning model's `reasoning` field as the answer
  * @returns {Promise<{ content: string|null, provider: string, error?: boolean }>}
  */
 async function chatCompletion({
@@ -415,6 +443,7 @@ async function chatCompletion({
   providersOverride = null,
   integrationEnv = null,
   timeoutMs = 0,
+  allowReasoningFallback = true,
 }) {
   const chain =
     Array.isArray(providersOverride) && providersOverride.length
@@ -455,7 +484,7 @@ async function chatCompletion({
         url = prov.url;
       }
 
-      const out = await runOpenAICompatible(prov, url, body, integrationEnv, timeoutMs);
+      const out = await runOpenAICompatible(prov, url, body, integrationEnv, timeoutMs, { allowReasoningFallback });
       last = { ...out, model: prov.model || null };
       if (out.content && !out.error) return last;
       if (attempt < retries - 1) {
@@ -572,6 +601,7 @@ module.exports = {
   openRouterProviders,
   legacyProviders,
   parseLlmJson,
+  extractOpenRouterApiError,
   resolveOpenRouterEnv,
   isOpenRouterConfigured,
   describeOpenRouterModelStack,

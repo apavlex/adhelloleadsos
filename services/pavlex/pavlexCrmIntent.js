@@ -25,8 +25,8 @@ const CRM_PATTERNS = [
   /\b(partners?|partnerships?)\b.+\b(find|get|need|who|which)\b|\b(find|get|need|who|which)\b.+\b(partners?|partnerships?)\b/i,
   /\bsend\s+me\s+(work|jobs|business|customers|clients)\b/i,
   /\bopportunit(y|ies)\b/i,
-  /\bsave\b.+\bscript\b/i,
-  /\bscript\b.+\bsave\b/i,
+  /\bsave\b.+\bscripts?\b/i,
+  /\bscripts?\b.+\bsave\b/i,
   /\btasks?\b/i,
   /\bassign(ed)?\b/i,
   /\bghl\b/i,
@@ -56,7 +56,36 @@ function crmUnavailableMessage(detail) {
   return base;
 }
 
+/**
+ * What the user sees when no model produced an answer. The raw provider detail is logged
+ * server-side; this only names the kind of problem and what to do about it.
+ */
+function chatUnavailableMessage(detail, { toolsRan = false } = {}) {
+  const d = String(detail || '');
+  const suffix = toolsRan ? ' Some CRM actions may already have run — check before retrying.' : '';
+  if (/No LLM key|No LLM configured|No LLM providers configured/i.test(d)) {
+    return (
+      'Alex needs an AI key on the server. Add OPENROUTER_API_KEY (or OPENAI_API_KEY) in Render → Environment, ' +
+      'then redeploy. CRM shortcuts work now: "List my folders", "How many leads do I have?", "Find Acme Roofing".'
+    );
+  }
+  if (/\b401\b|invalid api key|unauthori[sz]ed|no auth credentials|incorrect api key/i.test(d)) {
+    return `The AI key Alex uses was rejected. Update OPENROUTER_API_KEY or OPENAI_API_KEY in Render → Environment.${suffix}`;
+  }
+  if (/\b402\b|insufficient|credits|quota|billing/i.test(d)) {
+    return `The AI account Alex uses is out of credits. Add credits at openrouter.ai (or your AI provider) and try again.${suffix}`;
+  }
+  if (/\b429\b|rate.?limit|overloaded|capacity|too many requests/i.test(d)) {
+    return `The AI model is busy right now. Please try again in a minute.${suffix}`;
+  }
+  if (/timed out|timeout/i.test(d)) {
+    return `The AI model took too long to answer. Please try again.${suffix}`;
+  }
+  return `Alex couldn't get an answer from the AI model just now. Please try again in a moment.${suffix}`;
+}
+
 module.exports = {
   isCrmIntent,
   crmUnavailableMessage,
+  chatUnavailableMessage,
 };
