@@ -8027,7 +8027,7 @@ body.dm-prompt-resize-active {
 .nav-lead-search-form--ai .nav-lead-search-ai-toggle,
 .nav-lead-search-form--ai .nav-lead-search-ai-toggle:hover {
   background: var(--brand-yellow, #facc15);
-  color: var(--brand-dark, rgb(15 23 42));
+  color: #fff;
 }
 
 .nav-lead-search-form--ai .nav-lead-search-input-wrap {
