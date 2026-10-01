@@ -233,6 +233,7 @@ const WORKSPACE_SECTION_SLUGS = new Set([
   'team',
   'onboarding',
   'integrations',
+  'ai-apps',
   'phones',
   'voicemail',
   'routing',
@@ -265,6 +266,10 @@ const WORKSPACE_SECTION_META = {
     title: 'Integrations',
     description:
       'API keys and provider preferences for this workspace, the Chrome Lead Saver extension, and a cost-aware guide to how Find Leads and Enhance use each provider.',
+  },
+  'ai-apps': {
+    title: 'ChatGPT, Claude & Gemini',
+    description: 'Connect AdHello to your AI assistant and work your leads, tasks and referral network from chat.',
   },
   phones: {
     title: 'Phone number bank',
@@ -719,6 +724,7 @@ router.post('/integrations/mcp/apps/:grantId/revoke', async (req, res, next) => 
     }
     await mcpOAuth.revokeGrantForWorkspace(req.workspaceId, grant.id);
     if (/application\/json/i.test(String(req.get('accept') || ''))) return res.json({ success: true });
+    if (req.query.return === 'ai-apps') return res.redirect('/workspace/ai-apps?disconnected=1');
     return res.redirect('/workspace/integrations?integrations=ai_app_disconnected#mcp-integration');
   } catch (err) {
     next(err);
@@ -2190,6 +2196,10 @@ router.get('/:section', async (req, res, next) => {
       );
       renderLocals.preselectFolderKey = String((req.query && req.query.folder) || '').trim();
       renderLocals.kieImageReady = kieImageClient.isConfigured();
+    }
+    if (section === 'ai-apps') {
+      renderLocals.currentUserEmail = workspaceService.userEmail(req);
+      renderLocals.aiAppDisconnected = String((req.query && req.query.disconnected) || '') === '1';
     }
     if (section === 'audit-page') {
       renderLocals.auditLandingPage = normalizeAuditLanding(

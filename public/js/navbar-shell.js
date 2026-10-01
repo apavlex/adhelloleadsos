@@ -98,24 +98,6 @@ function readJsonReply(r) {
     });
     panel.addEventListener('click', function (e) { e.stopPropagation(); });
   }
-  function openConnectModal() {
-    var m = document.getElementById('connectAiModal');
-    if (m) { m.classList.remove('hidden'); m.classList.add('flex'); m.setAttribute('aria-hidden', 'false'); }
-    closeMenu();
-  }
-  function closeConnectModal() {
-    var m = document.getElementById('connectAiModal');
-    if (m) { m.classList.add('hidden'); m.classList.remove('flex'); m.setAttribute('aria-hidden', 'true'); }
-  }
-  var o = document.getElementById('connectAiOpen');
-  var om = document.getElementById('connectAiOpenMobile');
-  var c = document.getElementById('connectAiClose');
-  var bd = document.getElementById('connectAiBackdrop');
-  if (o) o.addEventListener('click', openConnectModal);
-  if (om) om.addEventListener('click', openConnectModal);
-  if (c) c.addEventListener('click', closeConnectModal);
-  if (bd) bd.addEventListener('click', closeConnectModal);
-
   var spModal = document.getElementById('softphoneModal');
   (function mountSoftphoneAboveLeadPanel() {
     if (!spModal) return;
