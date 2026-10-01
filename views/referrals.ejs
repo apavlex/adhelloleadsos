@@ -153,7 +153,7 @@
       <% rows.forEach(function (partner) {
         const where = [partner.category, [partner.city, partner.state].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
       %>
-      <article class="ref-card<%= focusKey && partner.key === focusKey ? ' is-focus' : '' %>" data-lead-key="<%= partner.key %>" data-ref-status="<%= partner.status %>" data-ref-sent-count="<%= partner.sent %>" data-ref-received-count="<%= partner.received %>">
+      <article class="ref-card<%= focusKey && partner.key === focusKey ? ' is-focus' : '' %>" data-lead-key="<%= partner.key %>" data-ref-network="<%= netMembers.has(partner.key) ? '1' : '' %>" data-ref-partner="<%= partner.highlighted ? '1' : '0' %>" data-ref-status="<%= partner.status %>" data-ref-sent-count="<%= partner.sent %>" data-ref-received-count="<%= partner.received %>">
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
             <button type="button" class="truncate text-left text-base font-semibold hover:underline" data-referral-profile data-lead-key="<%= partner.key %>"><%= partner.title %></button>
@@ -177,6 +177,10 @@
         <% if (!partner.highlighted) { %>
         <div class="mt-3">
           <button type="button" class="ref-btn ref-btn-yellow" data-ref-track="highlight" data-lead-key="<%= partner.key %>" data-default-label="Add as partner">Add as partner</button>
+          <% if (netMembers.has(partner.key)) { %>
+          <p class="mt-3 text-[12px] text-brand-muted">Not a referral partner, but still in your referral network with a seat.</p>
+          <button type="button" class="ref-btn ref-btn-ghost mt-2" style="color:#e11d48;border-color:rgba(225,29,72,0.3);" data-ref-track="clear" data-lead-key="<%= partner.key %>" data-default-label="Remove from network">Remove from network</button>
+          <% } %>
         </div>
         <% } else { %>
         <div class="ref-metrics">
@@ -655,6 +659,8 @@
             note.hidden = false;
           }
           flashButton(button, 'Saved');
+        } else if (action === 'clear' && article && article.getAttribute('data-ref-partner') === '0') {
+          article.remove();
         } else if (action === 'clear' && article) {
           bumpTotal('partners', -1);
           if (article.getAttribute('data-ref-status') === 'connected') bumpTotal('connected', -1);
@@ -683,6 +689,7 @@
             say((result.data && result.data.error) || 'Could not update that partner. Refresh and try again.', false);
             return;
           }
+          if (action === 'clear' && result.data.notice) say(result.data.notice, true);
           if (article && article.isConnected && result.data.card) paintCard(article, result.data.card);
           if (action === 'sent' && article && article.isConnected) showFollowup(article);
         }).catch(function () {
@@ -709,6 +716,11 @@
       document.addEventListener('click', function (event) {
         var tracked = event.target.closest('[data-ref-track]');
         if (tracked) {
+          var trackedCard = tracked.closest('article');
+          if (tracked.getAttribute('data-ref-track') === 'clear' && trackedCard && trackedCard.getAttribute('data-ref-network') === '1') {
+            var partnerName = (trackedCard.querySelector('[data-referral-profile]') || {}).textContent || 'This partner';
+            if (!window.confirm(partnerName.trim() + ' is also in your referral network. Removing them here takes them out of the network too: their seats open up and their app link stops working. Continue?')) return;
+          }
           trackPartner(tracked, tracked.getAttribute('data-ref-track'));
           return;
         }

@@ -5,6 +5,7 @@ const { filterLeadsForRequest } = require('../services/workspaceService');
 const { filterBusinessPipelineLeads } = require('../services/leadListFilters');
 const referralNetwork = require('../services/referralNetwork');
 const networkStore = require('../services/networkStore');
+const networkReferrals = require('../services/networkReferrals');
 const { tradesForNetwork } = require('../services/networkTrades');
 
 const ACTION_NOTICE = {
@@ -17,6 +18,19 @@ const ACTION_NOTICE = {
   note: 'Note saved on the lead.',
   ghl: 'Synced to Go High Level.',
 };
+
+/** A business removed from Referral Partners also gives up its network seats. Returns a notice, or '' if it wasn't a member. */
+async function leaveNetwork(req, lead) {
+  const network = await networkStore.getNetworkForWorkspace(req.workspaceId);
+  const member = network ? await networkStore.findMemberByLeadKey(network.id, lead.key) : null;
+  if (!member) return '';
+  if (req.canManageWorkspace === false) {
+    return `Removed from referral partners. ${member.companyName} is still in the network; an owner or admin can remove them from Network → Members.`;
+  }
+  const wasPartner = !!(lead.referralPartner && lead.referralPartner.highlighted);
+  const { seated } = await networkReferrals.removeMember(network, member);
+  return `Removed ${member.companyName} from ${wasPartner ? 'referral partners and ' : ''}the network.${seated.length ? ` Seated ${seated.join(', ')}.` : ''}`;
+}
 
 function backUrl(query, notice) {
   const params = new URLSearchParams();
@@ -131,14 +145,16 @@ router.post('/partner', express.urlencoded({ extended: false }), async (req, res
       patch.logs = [{ type: 'note', message: note, timestamp: ts }];
     }
     const saved = await dbService.updateLead(lead.key, patch, req.workspaceId);
+    let notice = ACTION_NOTICE[action] || 'Updated.';
+    if (action === 'clear') notice = await leaveNetwork(req, lead) || notice;
     if (wantsJson) {
       return res.json({
         success: true,
-        notice: ACTION_NOTICE[action] || 'Updated.',
+        notice,
         card: referralNetwork.presentPartner(saved || Object.assign({}, lead, patch)),
       });
     }
-    res.redirect(backUrl(q, ACTION_NOTICE[action] || 'Updated.'));
+    res.redirect(backUrl(q, notice));
   } catch (err) {
     console.error('[referrals] partner update failed:', err.message);
     res.redirect(backUrl(q, 'Could not update that partner.'));
