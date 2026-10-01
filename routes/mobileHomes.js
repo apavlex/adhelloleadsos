@@ -60,6 +60,7 @@ router.post('/', async (req, res, next) => {
 
     async function startBackgroundRun() {
       await dbService.setActiveJob({
+        workspaceId: wid,
         type: 'mobile_home_search',
         city,
         state,

@@ -2666,7 +2666,7 @@
 
     function syncDesktopAlertsUi() {
       if (!desktopRow || !navNotifyEnable) return;
-      if (!('Notification' in window)) {
+      if (!('Notification' in window) || window.__adhelloPushReplacesDesktopAlerts) {
         desktopRow.classList.add('hidden');
         return;
       }

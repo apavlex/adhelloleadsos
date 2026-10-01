@@ -10,6 +10,7 @@ const { maybeWarmAllMorningBriefs } = require('./morningBriefWarm');
 const signalwire = require('./signalwire');
 const { maybeRunDailyOutreachForEnabledWorkspaces } = require('./dailyOutreachScheduler');
 const { runOnboardingDrips } = require('./onboardingDrip');
+const { runTaskPushReminders } = require('./taskPushReminders');
 
 function normalizeVoicemailLibrary(raw) {
   if (!Array.isArray(raw)) return [];
@@ -359,6 +360,13 @@ module.exports = {
       );
       runOnboardingDrips().catch((e) =>
         console.error('[SCHEDULER] Teammate onboarding emails failed:', e.message)
+      );
+    });
+
+    // Task reminders pushed to phones / closed browsers (every minute)
+    cron.schedule('* * * * *', () => {
+      runTaskPushReminders().catch((e) =>
+        console.error('[SCHEDULER] Task push reminders failed:', e.message)
       );
     });
 

@@ -82,6 +82,25 @@ router.post('/', async (req, res, next) => {
         maxResults: parseInt(maxResults, 10) || 20,
         targetFolderKey,
         targetFolderName,
+        workspaceId: activationWorkspaceId,
+        createdBy: activityCtx.actor ? activityCtx.actor.email : '',
+        resume: {
+          jobType: JOB_TYPES.MAPS_BUSINESS,
+          keyword,
+          city,
+          state,
+          maxResults: parseInt(maxResults, 10) || 20,
+          mapsProvider: String(mapsProvider || '').trim() || undefined,
+          minRating: minRating != null && minRating !== '' ? parseFloat(minRating) : null,
+          minReviews: minReviews != null && minReviews !== '' ? parseInt(minReviews, 10) : null,
+          autoTags: parseAutoTags(autoTags),
+          searchNotes: String(searchNotes || '').trim(),
+          directorySupplement: wantDirectorySupplement,
+          targetFolderKey,
+          targetFolderName,
+          autoSave: userPickedFolder,
+          workspaceId: activationWorkspaceId,
+        },
       });
       setImmediate(async () => {
         let cleared = false;

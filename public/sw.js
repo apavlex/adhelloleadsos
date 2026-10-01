@@ -1,5 +1,5 @@
 /* AdHello PWA — cache shell assets; network-first for app pages. */
-const CACHE_VERSION = 'adhello-pwa-v1.0.209';
+const CACHE_VERSION = 'adhello-pwa-v1.0.387';
 const SHELL = [
   '/offline.html',
   '/manifest.webmanifest',
@@ -20,6 +20,39 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) =>
       Promise.all(keys.filter((k) => k !== CACHE_VERSION).map((k) => caches.delete(k)))
     ).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (e) {
+    data = { body: event.data ? event.data.text() : '' };
+  }
+  // iOS revokes the subscription if a push arrives without a visible notification.
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'AdHello', {
+      body: data.body || '',
+      tag: data.tag || undefined,
+      icon: '/images/adhello-app-icon-192.png',
+      badge: '/images/adhello-app-icon-192.png',
+      data: { url: data.url || '/today' },
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = new URL((event.notification.data && event.notification.data.url) || '/today', self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
+      const win = wins.find((w) => new URL(w.url).origin === self.location.origin);
+      if (win) {
+        return win.focus().then((w) => (w && 'navigate' in w ? w.navigate(target) : null));
+      }
+      return self.clients.openWindow(target);
+    })
   );
 });
 

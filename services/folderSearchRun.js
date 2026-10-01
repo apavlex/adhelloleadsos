@@ -52,7 +52,7 @@ async function findLastSearchForFolder(workspaceId, folderKey) {
   for (const key of keys.slice(0, 120)) {
     // eslint-disable-next-line no-await-in-loop
     const data = await dbService.getSearch(key);
-    if (!data) continue;
+    if (!data || data.status === 'failed') continue;
     if ((data.workspaceId || 'default') !== wid) continue;
     if (String(data.targetFolderKey || '').trim() !== fk) continue;
     return { key, ...data };
@@ -137,6 +137,8 @@ async function kickoffFolderSearchInBackground({ workspaceId, folder, preset }) 
     targetFolderKey: folder.key,
     targetFolderName: folder.name,
     source: 'folder_run',
+    workspaceId: wid,
+    resume: { ...schedule, autoSave: true },
   });
 
   setImmediate(async () => {

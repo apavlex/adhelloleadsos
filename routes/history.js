@@ -2,6 +2,19 @@ const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
 const { resolveSearchRecordFolderContext } = require('../services/pipelineFolders');
+const { findTabForJobType } = require('../services/searchTypeConfig');
+
+function runAgainHref(search) {
+  const params = new URLSearchParams();
+  const type = findTabForJobType(search.jobType);
+  if (type && type !== 'maps') params.set('type', type);
+  for (const field of ['keyword', 'city', 'state']) {
+    if (search[field]) params.set(field, String(search[field]));
+  }
+  if (search.maxResults) params.set('maxResults', String(search.maxResults));
+  const qs = params.toString();
+  return `/leads/find${qs ? `?${qs}` : ''}`;
+}
 
 router.get('/', async (req, res, next) => {
   try {
@@ -15,6 +28,7 @@ router.get('/', async (req, res, next) => {
           ...search,
           targetFolderKey: folderCtx.targetFolderKey || search.targetFolderKey || '',
           targetFolderName: folderCtx.targetFolderName || search.targetFolderName || '',
+          runAgainHref: runAgainHref(search),
         };
       }),
     );

@@ -81,6 +81,7 @@ router.post('/search', async (req, res, next) => {
 
     async function startBackgroundPermitRun() {
       await dbService.setActiveJob({
+        workspaceId: wid,
         type: 'permits_search',
         jobType: JOB_TYPES.PERMITS,
         city: resolvedCity,

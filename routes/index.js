@@ -112,6 +112,7 @@ async function renderFindLeads(req, res, next) {
       const value = String(req.query[field] || '').trim().slice(0, 120);
       if (value) searchPrefill = { ...searchPrefill, [field]: value };
     }
+    if (Number.isFinite(mrQ) && mrQ > 0) searchPrefill = { ...searchPrefill, qty: Math.min(100, mrQ) };
 
     return res.render('index', {
       title: 'Agency OS | Daily Leads',

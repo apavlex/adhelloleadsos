@@ -5,6 +5,8 @@ const pipelineStagesService = require('../services/pipelineStagesService');
 const { filterLeadsForRequest } = require('../services/workspaceService');
 const { buildWorkspaceActivityFeed } = require('../services/leadActivityFeed');
 
+router.use('/push', require('./push'));
+
 const FILTERS = [
   { id: 'all', label: 'All activity' },
   { id: 'notes', label: 'Notes' },

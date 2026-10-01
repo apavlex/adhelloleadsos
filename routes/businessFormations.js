@@ -73,6 +73,7 @@ router.post('/search', async (req, res, next) => {
       }
 
       await dbService.setActiveJob({
+        workspaceId: wid,
         type: 'business_formations_search',
         jobType: JOB_TYPES.BUSINESS_FORMATIONS,
         state: jobParams.state,

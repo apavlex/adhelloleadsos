@@ -74,6 +74,7 @@ router.post('/', async (req, res, next) => {
 
     async function startBackgroundRun() {
       await dbService.setActiveJob({
+        workspaceId: wid,
         type: `${jobType}_search`,
         city: resolvedCity,
         state: resolvedState,

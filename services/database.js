@@ -1487,6 +1487,12 @@ module.exports = {
   async failOrphanedActiveJob() {
     const job = this._readActiveJobRaw();
     if (!job) return null;
+    if (job.resume && !(job.resumeCount >= 1)) {
+      console.warn('[active_job] Resuming search interrupted by restart:', job.keyword || job.query || job.type || '');
+      // Lazy require: searchResume depends on this module.
+      await require('./searchResume').resumeInterruptedSearch(job);
+      return job;
+    }
     console.warn('[active_job] Failing search orphaned by restart:', job.keyword || job.query || job.type || '');
     await this.clearActiveJob({
       failed: true,
@@ -1514,21 +1520,36 @@ module.exports = {
       Object.keys(snapshot).length > 0;
     if (hasCompletion) {
       if (meta.failed) {
-        kvSet(
-          'latest_finished_job',
-          JSON.stringify({
+        if (active && active.workspaceId) {
+          await this.saveSearch({
+            status: 'failed',
+            error: String(meta.error || 'Search failed'),
+            jobType: active.jobType,
+            keyword: active.keyword || active.query || active.label || '',
+            city: active.city || '',
+            state: active.state || '',
+            maxResults: active.maxResults,
+            targetFolderKey: active.targetFolderKey || '',
+            targetFolderName: active.targetFolderName || '',
+            source: active.source || 'run',
+            resultCount: 0,
+            results: [],
+            timestamp: finishedAt,
+            workspaceId: active.workspaceId,
+            createdBy: active.createdBy || '',
+          });
+        }
+      }
+      const finished = meta.failed
+        ? {
             ...snapshot,
             status: 'failed',
             error: String(meta.error || 'Search failed'),
             finishedAt,
             isRead: false,
             source: snapshot.source || 'run',
-          })
-        );
-      } else {
-        kvSet(
-          'latest_finished_job',
-          JSON.stringify({
+          }
+        : {
             ...snapshot,
             status: 'completed',
             error: undefined,
@@ -1538,8 +1559,11 @@ module.exports = {
             resultCount: meta.resultCount != null ? meta.resultCount : snapshot.resultCount,
             searchKey: meta.searchKey != null ? meta.searchKey : snapshot.searchKey,
             savedCount: meta.savedCount != null ? meta.savedCount : snapshot.savedCount,
-          })
-        );
+          };
+      kvSet('latest_finished_job', JSON.stringify(finished));
+      if (active) {
+        // Lazy require: pushNotifications depends on this module.
+        require('./pushNotifications').notifyJobFinished(finished);
       }
     }
     kvDelete('active_job');

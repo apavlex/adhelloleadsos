@@ -41,6 +41,7 @@ router.post('/', async (req, res, next) => {
 
     async function startBackgroundRealEstateRun() {
       await dbService.setActiveJob({
+        workspaceId: wid,
         type: 'real_estate_search',
         city,
         state,

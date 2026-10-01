@@ -36,7 +36,7 @@
 </div>
 <script>
 (function () {
-  var prefix = <%= JSON.stringify(_schedulePrefix) %>;
+  var prefix = <%- JSON.stringify(String(_schedulePrefix)).replace(/</g, '\\u003c') %>;
   var kind = document.getElementById(prefix + 'KindSelect');
   var onceWrap = document.getElementById(prefix + 'OnceDateWrap');
   var freqWrap = document.getElementById(prefix + 'FrequencyWrap');

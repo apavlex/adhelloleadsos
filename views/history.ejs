@@ -70,33 +70,51 @@
             </thead>
             <tbody class="divide-y divide-brand-border/50">
               <% searches.forEach((search) => { %>
+                <% const _failed = search.status === 'failed'; %>
                 <tr class="group hover:bg-brand-cream/50 dark:hover:bg-white/5 transition-colors">
                   <td class="px-8 py-6">
-                    <a href="/search/<%= encodeURIComponent(search.key) %>"
+                    <a href="<%= _failed ? search.runAgainHref : '/search/' + encodeURIComponent(search.key) %>"
                        class="font-display font-bold text-brand-dark hover:text-black transition-colors">
                       <%= formatSearchKeywordDisplay(search.keyword) %>
                     </a>
+                    <% if (_failed && search.error) { %>
+                      <p class="text-xs font-medium text-red-600 mt-1 max-w-md leading-snug"><%= search.error %></p>
+                    <% } else if (search.resumed) { %>
+                      <p class="text-xs font-medium text-brand-muted mt-1">Finished after the app restarted</p>
+                    <% } %>
                   </td>
                   <td class="px-6 py-6 text-sm font-medium text-brand-muted">
-                    <%= search.city %>, <%= search.state %>
+                    <%= [search.city, search.state].filter(Boolean).join(', ') %>
                   </td>
                   <td class="px-6 py-6">
+                    <% if (_failed) { %>
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-50 text-red-600 border border-red-100">
+                      Failed
+                    </span>
+                    <% } else { %>
                     <% const _found = search.resultCount != null ? search.resultCount : 0; %>
                     <% const _asked = search.maxResults != null ? search.maxResults : _found; %>
                     <span class="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-brand-yellow/10 text-brand-dark border border-brand-yellow/20"
                           title="<%= _found < _asked ? 'Requested up to ' + _asked + '; Google Maps had ' + _found + ' matching businesses in this area.' : '' %>">
                       <%= _found %> lead<%= _found === 1 ? '' : 's' %><% if (_found < _asked) { %> <span class="font-semibold normal-case text-brand-muted">/ <%= _asked %></span><% } %>
                     </span>
+                    <% } %>
                   </td>
                   <td class="px-6 py-6 text-sm font-medium text-brand-muted">
                     <%= wsDate(search.timestamp) %>
                   </td>
                   <td class="px-8 py-6 text-right">
                     <div class="flex items-center justify-end gap-3">
+                      <% if (_failed) { %>
+                      <a href="<%= search.runAgainHref %>" class="btn-pill btn-primary px-4 py-2 text-[10px]">
+                        Run again
+                      </a>
+                      <% } else { %>
                       <a href="/search/<%= encodeURIComponent(search.key) %>"
                          class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 px-4 py-2 text-[10px] dark:text-slate-100">
                         View
                       </a>
+                      <% } %>
                       <form action="/history/<%= encodeURIComponent(search.key) %>/delete"
                             method="POST"
                             onsubmit="return confirm('Delete this search?')">
