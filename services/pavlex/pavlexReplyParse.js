@@ -4,8 +4,13 @@
  */
 
 const THINK_BLOCK_RE = /<(think|thinking|reasoning|reflection)>[\s\S]*?<\/\1>/gi;
-const TOOL_BLOCK_RE =
-  /<(tool_call|tool_calls|function_call|toolcall)>\s*([\s\S]*?)\s*(?:<\/\1>|$)|<function=([a-zA-Z0-9_.-]+)>\s*([\s\S]*?)\s*(?:<\/function>|$)/gi;
+/** tool_call, function_calls, and vendor-prefixed variants like dots_function_call. */
+const TOOL_TAG = '(?:[a-z0-9]+_)?(?:tool_calls?|function_calls?|toolcall)';
+const TOOL_BLOCK_RE = new RegExp(
+  `<(${TOOL_TAG})>\\s*([\\s\\S]*?)\\s*(?:<\\/\\1>|$)|<function=([a-zA-Z0-9_.-]+)>\\s*([\\s\\S]*?)\\s*(?:<\\/function>|$)`,
+  'gi',
+);
+const TOOL_TAG_RE = new RegExp(`<\\/?${TOOL_TAG}>`, 'gi');
 
 const REASONING_OPENERS = [
   /^(?:ok(?:ay)?|alright|so|hmm+|well)?[,.\s]*(?:the\s+)?user(?:'s)?\s+(?:is\s+)?(?:asking|asks|asked|wants|wanted|said|says|just\s+said|is\s+requesting|requests|request(?:ed)?|has\s+asked|seems|typed|replied|responded|message)\b/i,
@@ -136,7 +141,7 @@ function sanitizeAssistantText(text, knownToolNames) {
   const { cleaned } = extractTextToolCalls(noThink, knownToolNames);
   return cleaned
     .replace(TOOL_BLOCK_RE, '')
-    .replace(/<\/?(tool_call|tool_calls|function_call|toolcall)>/gi, '')
+    .replace(TOOL_TAG_RE, '')
     .replace(/<\|[a-z_]+\|>/gi, '')
     .trim();
 }

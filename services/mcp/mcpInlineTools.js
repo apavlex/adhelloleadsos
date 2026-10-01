@@ -123,8 +123,12 @@ async function runToolLoop({ llm, messages, tools, toolNames, ctx, requireTools,
       });
 
     if (!toolCalls.length) {
-      const source = content || stripThinking(contentText(msg.reasoning || msg.reasoning_content));
-      const parsed = extractTextToolCalls(source, toolNames);
+      const reasoning = stripThinking(contentText(msg.reasoning || msg.reasoning_content));
+      let parsed = extractTextToolCalls(content || reasoning, toolNames);
+      if (!parsed.calls.length && content && reasoning) {
+        const fromReasoning = extractTextToolCalls(reasoning, toolNames);
+        if (fromReasoning.calls.length) parsed = { calls: fromReasoning.calls, cleaned: parsed.cleaned };
+      }
       if (parsed.calls.length) {
         mcpLogger.chatRuntime({
           phase: 'text_tool_calls',

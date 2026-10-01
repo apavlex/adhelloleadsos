@@ -75,6 +75,24 @@ describe('extractTextToolCalls', () => {
   });
 });
 
+describe('vendor-prefixed tool markup', () => {
+  const known = ['manage_network_trades'];
+  it('runs calls inside <dots_function_call> blocks', () => {
+    const out = extractTextToolCalls(
+      '<dots_function_call>{"name":"manage_network_trades","arguments":{"action":"add","trades":["Interior design"]}}</dots_function_call>',
+      known,
+    );
+    assert.equal(out.calls[0].name, 'manage_network_trades');
+    assert.deepEqual(out.calls[0].arguments.trades, ['Interior design']);
+    assert.equal(out.cleaned, '');
+  });
+
+  it('never shows a bare vendor tag to the user', () => {
+    assert.equal(sanitizeAssistantText('<dots_function_call>', known), '');
+    assert.equal(sanitizeAssistantText('Done.</dots_function_call>', known), 'Done.');
+  });
+});
+
 describe('parseToolArgumentList', () => {
   it('keeps normal arguments as one call', () => {
     assert.deepEqual(parseToolArgumentList('{"query":"Interior Designers","location":"Camas, WA"}'), [
