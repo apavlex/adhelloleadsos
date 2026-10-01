@@ -49,6 +49,16 @@ function formatSearchLeads(result) {
   return `Found ${leads.length} match${leads.length === 1 ? '' : 'es'}:\n${lines.join('\n')}`;
 }
 
+/** "find 20 interior designers in Camas WA…" is a new lead search (find_leads), not a CRM lookup. */
+function looksLikeLeadGenRequest(text) {
+  const s = String(text || '').trim();
+  return (
+    /^\d+\s/.test(s) ||
+    /\b(in|near|around)\s+[a-z]/i.test(s) ||
+    /\b(referral|partners?|folders?|put|save|bookmark|opportunit\w*|and)\b/i.test(s)
+  );
+}
+
 /**
  * Map natural-language CRM questions to tool calls.
  * @returns {{ tool: string, args: object, formatter: Function } | null}
@@ -114,7 +124,7 @@ function matchDirectCrmQuery(message) {
   const search =
     raw.match(/^find\s+(.+?)(?:\s+lead)?\??$/i) ||
     raw.match(/^search(?:\s+for)?\s+(.+?)(?:\s+lead)?\??$/i);
-  if (search && search[1]) {
+  if (search && search[1] && !looksLikeLeadGenRequest(search[1])) {
     return {
       tool: 'search_leads',
       args: { query: search[1].trim(), limit: 10 },
@@ -177,6 +187,7 @@ async function tryDirectCrmChat(ctx, message) {
 }
 
 module.exports = {
+  looksLikeLeadGenRequest,
   matchDirectCrmQuery,
   tryDirectCrmChat,
 };

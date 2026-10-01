@@ -131,7 +131,7 @@
           chatInputFloat.disabled = false;
           chatInputFloat.focus();
         }
-      }, 30000);
+      }, 60000);
 
       fetch('/api/pavlex/chat', {
         method: 'POST',

@@ -3,7 +3,7 @@
  */
 const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
 const { z } = require('zod');
-const { executeCrmTool, TOOL_NAMES } = require('./mcpToolExecutor');
+const { executeCrmTool, TOOL_NAMES, getLeadGenToolSchemas } = require('./mcpToolExecutor');
 const mcpLogger = require('./mcpLogger');
 
 function jsonToolResult(payload) {
@@ -52,7 +52,7 @@ const folderRefSchema = z
 function createCrmMcpServer(ctx) {
   const server = new McpServer({
     name: 'adhello-ceo-crm',
-    version: '1.2.0',
+    version: '1.3.0',
   });
 
   mcpLogger.toolsDiscovered({
@@ -91,13 +91,123 @@ function createCrmMcpServer(ctx) {
   server.registerTool(
     'list_leads',
     {
-      description: 'List leads in a folder with pagination.',
-      inputSchema: folderRefSchema.extend({
+      description:
+        'List leads in a folder with pagination and sort (name, rating, reviews, score, newest). bookmarked_only=true lists bookmarked leads (folder optional).',
+      inputSchema: z.object({
+        folder_id: z.string().min(1).optional().describe('Folder key/id.'),
+        folder_name: z.string().min(1).optional().describe('Folder display name.'),
         limit: z.number().int().min(1).max(100).optional().describe('Page size (default 25, max 100).'),
         offset: z.number().int().min(0).optional().describe('Pagination offset (default 0).'),
+        sort: z.enum(['name', 'rating', 'reviews', 'score', 'newest']).optional(),
+        bookmarked_only: z.boolean().optional(),
       }),
     },
     async (args) => runTool(ctx, 'list_leads', args),
+  );
+
+  server.registerTool(
+    'create_folder',
+    {
+      description:
+        'Create lead folder(s) in Folder manager (not Opportunity pipelines). Idempotent by name; names[] creates several.',
+      inputSchema: z.object({
+        name: z.string().min(1).optional(),
+        names: z.array(z.string().min(1)).max(25).optional(),
+        parent_folder_id: z.string().min(1).optional(),
+        parent_folder_name: z.string().min(1).optional(),
+        description: z.string().optional(),
+      }),
+    },
+    async (args) => runTool(ctx, 'create_folder', args),
+  );
+
+  server.registerTool(
+    'rename_folder',
+    {
+      description: 'Rename a lead folder.',
+      inputSchema: z.object({
+        folder_id: z.string().min(1).optional(),
+        folder_name: z.string().min(1).optional(),
+        new_name: z.string().min(1),
+      }),
+    },
+    async (args) => runTool(ctx, 'rename_folder', args),
+  );
+
+  server.registerTool(
+    'find_leads',
+    {
+      description:
+        'Run a new Google Maps lead search in the background and save results into a lead folder (created if missing). Returns a search_id immediately.',
+      inputSchema: z.object({
+        query: z.string().min(1).describe('Trade / business type, e.g. "Interior Designers".'),
+        location: z.string().optional().describe('City and state, e.g. "Camas, WA".'),
+        city: z.string().optional(),
+        state: z.string().optional(),
+        max_results: z.number().int().min(1).max(60).optional(),
+        folder_id: z.string().min(1).optional(),
+        folder_name: z.string().min(1).optional(),
+        parent_folder_name: z.string().min(1).optional(),
+        min_rating: z.number().min(0).max(5).optional(),
+        min_reviews: z.number().int().min(0).optional(),
+      }),
+    },
+    async (args) => runTool(ctx, 'find_leads', args),
+  );
+
+  server.registerTool(
+    'get_search_status',
+    {
+      description: 'Status of background lead searches started by find_leads.',
+      inputSchema: z.object({ search_id: z.string().min(1).optional() }),
+    },
+    async (args) => runTool(ctx, 'get_search_status', args),
+  );
+
+  server.registerTool(
+    'bookmark_leads',
+    {
+      description: 'Bookmark or unbookmark up to 100 leads.',
+      inputSchema: z.object({
+        lead_ids: z.array(z.string().min(1)).min(1).max(100),
+        bookmarked: z.boolean().optional(),
+      }),
+    },
+    async (args) => runTool(ctx, 'bookmark_leads', args),
+  );
+
+  server.registerTool(
+    'save_script',
+    {
+      description:
+        'Save an outreach/opening script to the workspace Scripts library (merge tags {{name}} {{company}} {{city}}).',
+      inputSchema: z.object({
+        name: z.string().min(1),
+        body: z.string().min(1),
+        section: z
+          .enum(['opening', 'discovery', 'valueProp', 'objectionHandling', 'close', 'sms', 'email'])
+          .optional(),
+        folder_id: z.string().min(1).optional(),
+        folder_name: z.string().min(1).optional(),
+        offer_key: z.string().optional(),
+      }),
+    },
+    async (args) => runTool(ctx, 'save_script', args),
+  );
+
+  server.registerTool(
+    'move_opportunities',
+    {
+      description: 'Move up to 100 leads onto an Opportunity pipeline stage (default Review/first stage).',
+      inputSchema: z.object({
+        lead_ids: z.array(z.string().min(1)).min(1).max(100),
+        pipeline_id: z.string().min(1).optional(),
+        pipeline_name: z.string().min(1).optional(),
+        stage_id: z.string().min(1).optional(),
+        stage_name: z.string().min(1).optional(),
+      }),
+    },
+    async (args) => runTool(ctx, 'move_opportunities', args),
   );
 
   server.registerTool(
@@ -194,10 +304,11 @@ function createCrmMcpServer(ctx) {
   server.registerTool(
     'move_opportunity',
     {
-      description: 'Move a lead onto a pipeline stage (stage_id or stage_name).',
+      description: 'Move a lead onto a pipeline stage (stage_id or stage_name; default Review/first stage).',
       inputSchema: z.object({
         lead_id: z.string().min(1),
         pipeline_id: z.string().min(1).optional(),
+        pipeline_name: z.string().min(1).optional(),
         stage_id: z.string().min(1).optional(),
         stage_name: z.string().min(1).optional(),
       }),
@@ -298,9 +409,9 @@ function getOpenAiToolManifest() {
 
   return {
     name: 'adhello-ceo-crm',
-    version: '1.2.0',
+    version: '1.3.0',
     description:
-      'AdHello CEO Command Center CRM — folders, leads, opportunities, enrichment, tasks, and follow-ups.',
+      'AdHello CEO Command Center CRM — lead folders, lead searches, leads, bookmarks, scripts, opportunities, enrichment, tasks, and follow-ups.',
     authentication: {
       type: 'bearer',
       header: 'Authorization',
@@ -333,17 +444,24 @@ function getOpenAiToolManifest() {
       },
       {
         name: 'list_leads',
-        description: 'List leads in a folder.',
+        description: 'List leads in a folder (sort: name, rating, reviews, score, newest; bookmarked_only).',
         input_schema: {
           type: 'object',
           properties: {
             ...folderRefProps,
             limit: { type: 'integer', minimum: 1, maximum: 100 },
             offset: { type: 'integer', minimum: 0 },
+            sort: { type: 'string', enum: ['name', 'rating', 'reviews', 'score', 'newest'] },
+            bookmarked_only: { type: 'boolean' },
           },
           additionalProperties: false,
         },
       },
+      ...getLeadGenToolSchemas().map((t) => ({
+        name: t.name,
+        description: t.description,
+        input_schema: t.parameters,
+      })),
       {
         name: 'get_lead',
         description: 'Get full lead record.',
@@ -442,6 +560,7 @@ function getOpenAiToolManifest() {
           properties: {
             lead_id: { type: 'string' },
             pipeline_id: { type: 'string' },
+            pipeline_name: { type: 'string' },
             stage_id: { type: 'string' },
             stage_name: { type: 'string' },
           },

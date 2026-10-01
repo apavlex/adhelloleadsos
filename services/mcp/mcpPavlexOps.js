@@ -66,11 +66,15 @@ async function loadVisibleLeads(ctx) {
 }
 
 async function loadWorkspaceBoards(workspaceId) {
-  const workspace = (await dbService.getWorkspace(workspaceId)) || { id: workspaceId };
-  return {
-    workspace,
-    boards: normalizeBoards(workspace.opportunityBoards).boards,
-  };
+  const stored = await dbService.getWorkspace(workspaceId);
+  const workspace = stored || { id: workspaceId };
+  const boards = normalizeBoards(workspace.opportunityBoards).boards;
+  if (stored && !workspace.opportunityBoards) {
+    // Default boards get fresh ids on every normalize; persist so ids returned to the model stay valid.
+    workspace.opportunityBoards = boards;
+    await dbService.saveWorkspace(workspaceId, workspace);
+  }
+  return { workspace, boards };
 }
 
 async function listOpportunityPipelines(ctx) {
@@ -149,6 +153,34 @@ async function createOpportunityPipeline(ctx, input = {}) {
   };
 }
 
+/**
+ * Pipeline by id or name (default: active); stage by id or name (default: a "review" stage, else the first).
+ */
+function resolveOpportunityPlacement(boards, input = {}) {
+  let pipelineId = String(input.pipeline_id || input.pipelineId || '').trim();
+  const pipelineName = String(input.pipeline_name || input.pipelineName || '').trim().toLowerCase();
+  if (!pipelineId && pipelineName) {
+    const hit =
+      boards.pipelines.find((p) => String(p.name || '').toLowerCase() === pipelineName) ||
+      boards.pipelines.find((p) => String(p.name || '').toLowerCase().includes(pipelineName));
+    if (!hit) {
+      return { ok: false, error: `Opportunity pipeline not found: ${input.pipeline_name || input.pipelineName}` };
+    }
+    pipelineId = hit.id;
+  }
+  if (!pipelineId) pipelineId = boards.activePipelineId;
+  let stageId = input.stage_id || input.stageId;
+  const stageName = input.stage_name || input.stageName;
+  if (!stageId && !stageName) {
+    const pipeline = boards.pipelines.find((p) => p.id === pipelineId);
+    const stages = (pipeline && pipeline.stages) || [];
+    const review = stages.find((s) => /review/i.test(String(s.name || '')));
+    const fallback = review || stages[0];
+    if (fallback) stageId = fallback.id;
+  }
+  return resolvePlacement(boards, pipelineId, stageId, stageName);
+}
+
 async function moveOpportunity(ctx, input = {}) {
   const leadId = leadKeyNorm(input.lead_id || input.leadKey);
   if (!leadId) {
@@ -157,14 +189,7 @@ async function moveOpportunity(ctx, input = {}) {
     throw err;
   }
   const { workspace, boards } = await loadWorkspaceBoards(ctx.workspaceId);
-  const pipelineId =
-    String(input.pipeline_id || input.pipelineId || '').trim() || boards.activePipelineId;
-  const placement = resolvePlacement(
-    boards,
-    pipelineId,
-    input.stage_id || input.stageId,
-    input.stage_name || input.stageName,
-  );
+  const placement = resolveOpportunityPlacement(boards, input);
   if (!placement.ok) {
     const err = new Error(placement.error || 'Could not place opportunity.');
     err.code = 'INVALID_ARGUMENT';
@@ -196,6 +221,97 @@ async function moveOpportunity(ctx, input = {}) {
     pipelineName: placement.pipelineName,
     stageName: placement.stageName,
   };
+}
+
+const MAX_BULK_MOVE = 100;
+
+/** Bulk variant of moveOpportunity — mirrors POST /opportunities/bulk-move (one placement, per-lead results). */
+async function moveOpportunities(ctx, input = {}) {
+  const raw = Array.isArray(input.lead_ids) ? input.lead_ids : Array.isArray(input.leadKeys) ? input.leadKeys : [];
+  const leadIds = [...new Set(raw.map((k) => String(k || '').trim()).filter(Boolean))];
+  if (!leadIds.length) {
+    const err = new Error('lead_ids must be a non-empty array.');
+    err.code = 'INVALID_ARGUMENT';
+    throw err;
+  }
+  if (leadIds.length > MAX_BULK_MOVE) {
+    const err = new Error(`Maximum ${MAX_BULK_MOVE} leads per move_opportunities call.`);
+    err.code = 'INVALID_ARGUMENT';
+    throw err;
+  }
+  const { workspace, boards } = await loadWorkspaceBoards(ctx.workspaceId);
+  const placement = resolveOpportunityPlacement(boards, input);
+  if (!placement.ok) {
+    const err = new Error(placement.error || 'Could not place opportunities.');
+    err.code = 'INVALID_ARGUMENT';
+    throw err;
+  }
+  const visible = await loadVisibleLeads(ctx);
+  const byKey = new Map(visible.map((l) => [l.key, l]));
+  const results = [];
+  const movedKeys = [];
+  for (const rawId of leadIds) {
+    const key = leadKeyNorm(rawId);
+    let lead = byKey.get(key) || byKey.get(String(rawId));
+    if (!lead) {
+      // eslint-disable-next-line no-await-in-loop
+      const resolved = await dbService.resolveLeadStorageKey(String(rawId), ctx.workspaceId);
+      if (resolved && byKey.has(resolved)) lead = byKey.get(resolved);
+    }
+    if (!lead) {
+      results.push({ lead_id: rawId, success: false, error: 'Lead not found in this workspace.', code: 'NOT_FOUND' });
+      continue;
+    }
+    // eslint-disable-next-line no-await-in-loop
+    const updated = await dbService.updateLead(
+      lead.key,
+      {
+        opportunityPipelineId: placement.pipelineId,
+        opportunityStageId: placement.stageId,
+        opportunityDismissed: false,
+        onPipelineBoard: true,
+      },
+      ctx.workspaceId,
+    );
+    if (!updated) {
+      results.push({ lead_id: lead.key, success: false, error: 'Lead not found.', code: 'NOT_FOUND' });
+      continue;
+    }
+    movedKeys.push(lead.key);
+    results.push({ lead_id: lead.key, title: lead.title || '', success: true });
+  }
+  if (movedKeys.length) {
+    const remembered = selectPipeline(boards, placement.pipelineId);
+    if (remembered.changed) {
+      workspace.opportunityBoards = remembered.boards;
+      await dbService.saveWorkspace(ctx.workspaceId, workspace);
+    }
+    recordActivity(ctx, {
+      category: 'pipeline',
+      action: 'opportunity_bulk_move',
+      summary: `Moved ${movedKeys.length} opportunit${movedKeys.length === 1 ? 'y' : 'ies'} to ${placement.pipelineName} → ${placement.stageName}`,
+      leadKeys: movedKeys,
+    });
+  }
+  return {
+    moved: movedKeys.length,
+    failed: results.length - movedKeys.length,
+    pipelineId: placement.pipelineId,
+    pipelineName: placement.pipelineName,
+    stageId: placement.stageId,
+    stageName: placement.stageName,
+    results,
+  };
+}
+
+function recordActivity(ctx, entry) {
+  const email = String((ctx && ctx.userEmail) || '').trim().toLowerCase();
+  if (!email || !ctx.workspaceId) return null;
+  const teamActivity = require('../teamActivity');
+  return teamActivity.record(
+    { workspaceId: ctx.workspaceId, actor: { email, name: '', avatar: '' } },
+    { ...entry, meta: { ...(entry.meta || {}), via: 'pavlex' } },
+  );
 }
 
 async function enrichLead(ctx, input = {}) {
@@ -431,7 +547,10 @@ module.exports = {
   listOpportunityPipelines,
   getOpportunityBoard,
   createOpportunityPipeline,
+  resolveOpportunityPlacement,
   moveOpportunity,
+  moveOpportunities,
+  recordActivity,
   enrichLead,
   listTasks,
   createTask,

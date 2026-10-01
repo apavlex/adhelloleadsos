@@ -19,6 +19,13 @@ const CRM_PATTERNS = [
   /\btags?\b/i,
   /\blandscaping\b/i,
   /\bacme\b/i,
+  /\bbookmark/i,
+  /\breferral partners?\b/i,
+  /\bopportunit(y|ies)\b/i,
+  /\bsave\b.+\bscript\b/i,
+  /\bscript\b.+\bsave\b/i,
+  /\bfind\s+\d+\s+\w+/i,
+  /\b(find|search for|pull|get)\b.+\bin\s+[a-z .'-]+,?\s+[a-z]{2}\b/i,
 ];
 
 function isCrmIntent(message) {

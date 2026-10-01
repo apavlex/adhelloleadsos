@@ -247,23 +247,69 @@ async function countLeads(ctx, ref = {}) {
   };
 }
 
-async function listLeads(ctx, ref) {
+const LIST_SORTS = new Set(['name', 'rating', 'reviews', 'score', 'newest']);
+
+function truthyFlag(v) {
+  return v === true || v === 'true' || v === 1 || v === '1';
+}
+
+function leadCreatedMs(lead) {
+  const ts = Date.parse(lead.createdAt || lead.savedAt || '');
+  if (Number.isFinite(ts)) return ts;
+  const fromKey = parseInt(String(lead.key || '').replace(/^lead:/, ''), 10);
+  return Number.isFinite(fromKey) ? fromKey : 0;
+}
+
+function byTitle(a, b) {
+  return String(a.title || '').localeCompare(String(b.title || ''), undefined, { sensitivity: 'base' });
+}
+
+async function listLeads(ctx, ref = {}) {
   const { workspaceId, userEmail } = ctx;
-  const folder = await resolveFolderRef(workspaceId, ref);
+  const bookmarkedOnly = truthyFlag(ref.bookmarked_only);
+  const hasFolderRef = Boolean(
+    String(ref.folder_id || ref.folder_key || '').trim() || String(ref.folder_name || '').trim(),
+  );
+  const folder = hasFolderRef || !bookmarkedOnly ? await resolveFolderRef(workspaceId, ref) : null;
   const reqLike = buildReqLike(workspaceId, userEmail);
   const lim = clampLimit(ref.limit);
   const off = clampOffset(ref.offset);
+  const sortRaw = String(ref.sort || '').trim().toLowerCase();
+  const sort = LIST_SORTS.has(sortRaw) ? sortRaw : 'name';
 
   const all = await dbService.getAllLeads(workspaceId);
   const visible = filterLeadsForRequest(reqLike, all);
-  const filtered = applyLeadListFilters(visible, { folderKey: folder.key });
-  filtered.sort((a, b) =>
-    String(a.title || '').localeCompare(String(b.title || ''), undefined, { sensitivity: 'base' }),
-  );
+  let filtered = folder ? applyLeadListFilters(visible, { folderKey: folder.key }) : visible;
+  if (bookmarkedOnly) filtered = filtered.filter((l) => !!l.bookmarked);
 
-  const page = filtered.slice(off, off + lim).map(mapLeadListJson);
+  let scoreByKey = null;
+  if (sort === 'score') {
+    const { scoreLeadRecord } = require('../opportunityScore');
+    const workspace = (await dbService.getWorkspace(workspaceId)) || { id: workspaceId };
+    scoreByKey = new Map(
+      filtered.map((l) => [l.key, Number(scoreLeadRecord(l, { workspace }).score) || 0]),
+    );
+  }
+  const num = (v) => Number(v) || 0;
+  filtered.sort((a, b) => {
+    let d = 0;
+    if (sort === 'rating') d = num(b.totalScore) - num(a.totalScore) || num(b.reviewsCount) - num(a.reviewsCount);
+    else if (sort === 'reviews') d = num(b.reviewsCount) - num(a.reviewsCount) || num(b.totalScore) - num(a.totalScore);
+    else if (sort === 'score') d = scoreByKey.get(b.key) - scoreByKey.get(a.key);
+    else if (sort === 'newest') d = leadCreatedMs(b) - leadCreatedMs(a);
+    return d || byTitle(a, b);
+  });
+
+  const page = filtered.slice(off, off + lim).map((l) => {
+    const row = { ...mapLeadListJson(l), bookmarked: !!l.bookmarked };
+    if (scoreByKey) row.score = Math.round(scoreByKey.get(l.key) * 10) / 10;
+    return row;
+  });
   return {
-    folder: { key: folder.key, name: folder.name },
+    folder: folder ? { key: folder.key, name: folder.name } : null,
+    scope: folder ? 'folder' : 'workspace',
+    sort,
+    bookmarkedOnly,
     leads: page,
     pagination: {
       limit: lim,
@@ -379,6 +425,11 @@ async function searchLeads(ctx, { query, limit, offset }) {
 
 module.exports = {
   MCP_UPDATABLE_LEAD_FIELDS,
+  LIST_SORTS,
+  buildReqLike,
+  resolveFolderRef,
+  resolveLeadKey,
+  mapFolderSummary,
   listFolders,
   getFolder,
   countLeads,

@@ -3,22 +3,30 @@
  */
 const crm = require('./mcpCrmService');
 const ops = require('./mcpPavlexOps');
+const leadGen = require('./mcpLeadGen');
 const mcpLogger = require('./mcpLogger');
 const pavlexLogger = require('../pavlex/pavlexLogger');
 
 const TOOL_NAMES = [
   'list_folders',
   'get_folder',
+  'create_folder',
+  'rename_folder',
   'count_leads',
   'list_leads',
   'get_lead',
   'update_lead',
   'bulk_update_leads',
   'search_leads',
+  'find_leads',
+  'get_search_status',
+  'bookmark_leads',
+  'save_script',
   'list_opportunity_pipelines',
   'get_opportunity_board',
   'create_opportunity_pipeline',
   'move_opportunity',
+  'move_opportunities',
   'enrich_lead',
   'list_tasks',
   'create_task',
@@ -46,6 +54,27 @@ async function executeCrmTool(ctx, toolName, args) {
         break;
       case 'get_folder':
         result = await crm.getFolder(ctx, input);
+        break;
+      case 'create_folder':
+        result = await leadGen.createFolder(ctx, input);
+        break;
+      case 'rename_folder':
+        result = await leadGen.renameFolder(ctx, input);
+        break;
+      case 'find_leads':
+        result = await leadGen.findLeads(ctx, input);
+        break;
+      case 'get_search_status':
+        result = await leadGen.getSearchStatus(ctx, input);
+        break;
+      case 'bookmark_leads':
+        result = await leadGen.bookmarkLeads(ctx, input);
+        break;
+      case 'save_script':
+        result = await leadGen.saveScript(ctx, input);
+        break;
+      case 'move_opportunities':
+        result = await ops.moveOpportunities(ctx, input);
         break;
       case 'count_leads':
         result = await crm.countLeads(ctx, input);
@@ -173,16 +202,176 @@ function summarizeToolResult(toolName, payload) {
   if (toolName === 'enrich_lead') {
     return payload.found ? 'email found' : 'no email';
   }
+  if (toolName === 'create_folder' && Array.isArray(payload.folders)) {
+    return `${payload.created} created, ${payload.alreadyExisted} existed`;
+  }
+  if (toolName === 'find_leads' || toolName === 'get_search_status') {
+    const s = payload.search || payload;
+    return s && s.status ? `search ${s.status}` : 'ok';
+  }
+  if (toolName === 'bookmark_leads') {
+    return `${payload.changed} changed, ${payload.failed} failed`;
+  }
+  if (toolName === 'move_opportunities') {
+    return `${payload.moved} moved, ${payload.failed} failed`;
+  }
+  if (toolName === 'save_script' && payload.script) {
+    return payload.duplicate ? 'duplicate script' : 'script saved';
+  }
   return 'ok';
+}
+
+const LEAD_GEN_TOOL_SCHEMAS = [
+  {
+    name: 'create_folder',
+    description:
+      'Create real LEAD FOLDER(S) in Folder manager (where leads live). Use this whenever the user says "folder(s)". ' +
+      'NOT an Opportunity pipeline. Idempotent: an existing folder with the same name (case-insensitive) is returned with existed=true. ' +
+      'Pass names[] to create several at once (max 25), e.g. one folder per trade.',
+    parameters: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Folder name (single folder)' },
+        names: {
+          type: 'array',
+          items: { type: 'string' },
+          maxItems: 25,
+          description: 'Several folder names to create in one call',
+        },
+        parent_folder_id: { type: 'string', description: 'Optional parent folder key (nest inside)' },
+        parent_folder_name: { type: 'string', description: 'Optional parent folder name (nest inside)' },
+        description: { type: 'string', description: 'Optional note stored on a single new folder' },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'rename_folder',
+    description: 'Rename a lead folder (by folder_id or folder_name).',
+    parameters: {
+      type: 'object',
+      properties: {
+        folder_id: { type: 'string' },
+        folder_name: { type: 'string' },
+        new_name: { type: 'string' },
+      },
+      required: ['new_name'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'find_leads',
+    description:
+      'Run a NEW Google Maps lead search (same as Find leads / folder Run search) and save results as leads into a lead folder. ' +
+      'Use for "find N <trade> in <city>", prospecting, and referral partners (search each partner trade). ' +
+      'Runs in the background and returns immediately with a search_id (status running or queued); leads appear in a few minutes, duplicates merge. ' +
+      'Target folder: folder_id, or folder_name (created if missing), default = a folder named after the query. ' +
+      `max_results default ${leadGen.DEFAULT_MAX_RESULTS}, hard cap ${leadGen.MAX_RESULTS_CAP}. ` +
+      'Do NOT use search_leads for this — search_leads only searches leads already in the CRM.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Trade / business type, e.g. "Interior Designers"' },
+        location: { type: 'string', description: 'City and US state, e.g. "Camas, WA"' },
+        city: { type: 'string' },
+        state: { type: 'string', description: '2-letter US state, e.g. WA' },
+        max_results: {
+          type: 'integer',
+          minimum: 1,
+          maximum: leadGen.MAX_RESULTS_CAP,
+          description: `Default ${leadGen.DEFAULT_MAX_RESULTS}`,
+        },
+        folder_id: { type: 'string', description: 'Existing lead folder key to save into' },
+        folder_name: { type: 'string', description: 'Lead folder name to save into (created if missing)' },
+        parent_folder_name: { type: 'string', description: 'Parent for a newly created folder' },
+        min_rating: { type: 'number', minimum: 0, maximum: 5 },
+        min_reviews: { type: 'integer', minimum: 0 },
+      },
+      required: ['query'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'get_search_status',
+    description:
+      'Check background lead searches started by find_leads (running / queued / completed / failed, new leads saved). Omit search_id for recent searches.',
+    parameters: {
+      type: 'object',
+      properties: { search_id: { type: 'string' } },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'bookmark_leads',
+    description:
+      'Bookmark (or unbookmark with bookmarked=false) up to 100 leads by lead_id. For "top N in <folder> by rating/reviews/score", ' +
+      'first call list_leads with sort and limit, then pass those lead ids.',
+    parameters: {
+      type: 'object',
+      properties: {
+        lead_ids: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 100 },
+        bookmarked: { type: 'boolean', description: 'Default true; false removes the bookmark' },
+      },
+      required: ['lead_ids'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'save_script',
+    description:
+      'Save an outreach / opening script to the workspace Scripts library. You write the body yourself; use merge tags {{name}}, {{company}}, {{city}}. ' +
+      'Optional folder_id/folder_name tags the script with that folder (the app has no per-folder scripts; the folder name goes in the title).',
+    parameters: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Script title' },
+        body: { type: 'string', description: 'Full script text' },
+        section: {
+          type: 'string',
+          enum: ['opening', 'discovery', 'valueProp', 'objectionHandling', 'close', 'sms', 'email'],
+          description: 'Default opening',
+        },
+        folder_id: { type: 'string' },
+        folder_name: { type: 'string' },
+        offer_key: { type: 'string', description: 'Optional offer key from the Scripts page' },
+      },
+      required: ['name', 'body'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'move_opportunities',
+    description:
+      'Send many leads (max 100) to an Opportunity pipeline stage in one call. Pipeline by pipeline_id or pipeline_name (default active); ' +
+      'stage by stage_id or stage_name (default: a "Review" stage if present, else the first stage). Returns per-lead results.',
+    parameters: {
+      type: 'object',
+      properties: {
+        lead_ids: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 100 },
+        pipeline_id: { type: 'string' },
+        pipeline_name: { type: 'string' },
+        stage_id: { type: 'string' },
+        stage_name: { type: 'string' },
+      },
+      required: ['lead_ids'],
+      additionalProperties: false,
+    },
+  },
+];
+
+function getLeadGenToolSchemas() {
+  return LEAD_GEN_TOOL_SCHEMAS.map((t) => ({ ...t }));
 }
 
 function getOpenAiFunctionTools() {
   return [
+    ...LEAD_GEN_TOOL_SCHEMAS.map((t) => ({ type: 'function', function: { ...t } })),
     {
       type: 'function',
       function: {
         name: 'list_folders',
-        description: 'List all lead folders in the workspace with lead counts.',
+        description:
+          'List all lead folders (Folder manager) in the workspace with lead counts. Lead folders are not Opportunity pipelines.',
         parameters: { type: 'object', properties: {}, additionalProperties: false },
       },
     },
@@ -221,7 +410,9 @@ function getOpenAiFunctionTools() {
       type: 'function',
       function: {
         name: 'list_leads',
-        description: 'List leads in a folder with pagination.',
+        description:
+          'List leads in a folder with pagination and sorting (rating = Google stars, reviews = review count, score = opportunity score, newest). ' +
+          'Set bookmarked_only=true for bookmarked leads (folder optional then = whole workspace).',
         parameters: {
           type: 'object',
           properties: {
@@ -229,6 +420,8 @@ function getOpenAiFunctionTools() {
             folder_name: { type: 'string' },
             limit: { type: 'integer', minimum: 1, maximum: 100 },
             offset: { type: 'integer', minimum: 0 },
+            sort: { type: 'string', enum: ['name', 'rating', 'reviews', 'score', 'newest'] },
+            bookmarked_only: { type: 'boolean' },
           },
           additionalProperties: false,
         },
@@ -293,7 +486,8 @@ function getOpenAiFunctionTools() {
       type: 'function',
       function: {
         name: 'search_leads',
-        description: 'Find leads across folders by company, email, phone, website, or tags.',
+        description:
+          'Search leads ALREADY in the CRM by company, email, phone, website, or tags. To discover new businesses use find_leads.',
         parameters: {
           type: 'object',
           properties: {
@@ -335,7 +529,8 @@ function getOpenAiFunctionTools() {
       type: 'function',
       function: {
         name: 'create_opportunity_pipeline',
-        description: 'Create a new opportunity pipeline from a template.',
+        description:
+          'Create a new Opportunity pipeline (deal board with stages) from a template. Only when the user explicitly asks for a pipeline/board — never as a substitute for lead folders.',
         parameters: {
           type: 'object',
           properties: {
@@ -354,12 +549,14 @@ function getOpenAiFunctionTools() {
       type: 'function',
       function: {
         name: 'move_opportunity',
-        description: 'Move a lead to a pipeline stage (by stage_id or stage_name).',
+        description:
+          'Move one lead to an Opportunity pipeline stage (stage_id or stage_name; default Review/first stage). For many leads use move_opportunities.',
         parameters: {
           type: 'object',
           properties: {
             lead_id: { type: 'string' },
             pipeline_id: { type: 'string' },
+            pipeline_name: { type: 'string' },
             stage_id: { type: 'string' },
             stage_name: { type: 'string' },
           },
@@ -485,4 +682,5 @@ module.exports = {
   TOOL_NAMES,
   executeCrmTool,
   getOpenAiFunctionTools,
+  getLeadGenToolSchemas,
 };

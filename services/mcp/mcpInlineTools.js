@@ -6,7 +6,7 @@ const { resolvePavlexToolLlm } = require('../pavlex/pavlexLlmConfig');
 const mcpLogger = require('./mcpLogger');
 const { defaultResponsesModel } = require('./mcpResponsesClient');
 
-const MAX_TOOL_ROUNDS = 6;
+const MAX_TOOL_ROUNDS = 8;
 
 function parseToolArguments(raw) {
   if (!raw) return {};
