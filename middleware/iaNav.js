@@ -52,6 +52,8 @@ function iaNav(req, res, next) {
     navPrimary = 'fb-groups';
   } else if (p === '/sops' || p.startsWith('/sops/')) {
     navPrimary = 'sops';
+  } else if (p === '/chat' || p.startsWith('/chat/')) {
+    navPrimary = 'chat';
   } else if (p === '/ceo' || p.startsWith('/ceo/')) {
     navPrimary = 'ceo';
   } else if (p === '/direct-mail' || p.startsWith('/direct-mail/')) {

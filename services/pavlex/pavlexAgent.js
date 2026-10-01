@@ -17,7 +17,7 @@ const { CRM_COMMAND_HINTS } = require('./pavlexConstants');
  * @param {string} opts.message
  * @param {Array<{role:string,content:string}>} [opts.history]
  * @param {string} [opts.conversationId]
- * @param {'automate'|'assistant'|'global'} [opts.platform]
+ * @param {'automate'|'assistant'|'global'|'chat'} [opts.platform]
  * @param {string} [opts.page]
  * @param {boolean} [opts.persistHistory]
  */
@@ -29,10 +29,17 @@ async function runPavlexChat(req, opts) {
   const conversationId = String(opts.conversationId || '').trim() || null;
   const platformRaw = String(opts.platform || 'global').toLowerCase();
   const platform =
-    platformRaw === 'assistant' ? 'assistant' : platformRaw === 'automate' ? 'automate' : 'global';
+    platformRaw === 'assistant'
+      ? 'assistant'
+      : platformRaw === 'automate'
+        ? 'automate'
+        : platformRaw === 'chat'
+          ? 'chat'
+          : 'global';
   const page = String(opts.page || '').trim().slice(0, 500);
   const persistHistory =
-    opts.persistHistory !== false && (platform === 'automate' || platform === 'global');
+    opts.persistHistory !== false &&
+    (platform === 'automate' || platform === 'global' || platform === 'chat');
 
   if (!message) {
     const err = new Error('Message is required.');
@@ -69,7 +76,7 @@ async function runPavlexChat(req, opts) {
     message,
     history: history.slice(-10),
     mcpConfig,
-    maxTokens: platform === 'assistant' ? 1000 : 1200,
+    maxTokens: platform === 'assistant' ? 1000 : platform === 'chat' ? 1600 : 1200,
     temperature: platform === 'assistant' ? 0.52 : 0.7,
   });
 

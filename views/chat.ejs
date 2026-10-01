@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en" class="pavlex-chat-html">
+<head>
+  <%- include('partials/head') %>
+  <style>
+    html.pavlex-chat-html, body.pavlex-chat-body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+    body.pavlex-chat-body .app-shell-content {
+      display: flex;
+      flex-direction: column;
+      height: var(--pc-vh, 100dvh);
+      min-height: 0 !important;
+      overflow: hidden;
+    }
+    body.pavlex-chat-body .app-shell-content > main#pavlexChatApp { flex: 1 1 auto; min-height: 0; }
+    @media (max-width: 767px) {
+      body.pavlex-chat-body #appTopbar { padding: 0 !important; border-top-width: 0 !important; }
+      body.pavlex-chat-body #appTopbar > .app-topbar-inner { display: none; }
+    }
+    .pc-composer-input { font-size: 16px; line-height: 1.45; }
+    .pc-md > :first-child { margin-top: 0; }
+    .pc-md > :last-child { margin-bottom: 0; }
+    .pc-md p { margin: 0.5rem 0; }
+    .pc-md h2, .pc-md h3, .pc-md h4, .pc-md h5 { margin: 0.9rem 0 0.35rem; font-weight: 800; line-height: 1.3; }
+    .pc-md h2 { font-size: 1.15rem; }
+    .pc-md h3 { font-size: 1.05rem; }
+    .pc-md h4, .pc-md h5 { font-size: 0.95rem; }
+    .pc-md ul, .pc-md ol { margin: 0.5rem 0; padding-left: 1.35rem; }
+    .pc-md ul { list-style: disc; }
+    .pc-md ol { list-style: decimal; }
+    .pc-md li { margin: 0.2rem 0; }
+    .pc-md li.pc-li-nested { margin-left: 1.1rem; list-style: circle; }
+    .pc-md a { color: #2563eb; text-decoration: underline; text-underline-offset: 2px; font-weight: 600; word-break: break-word; }
+    .dark .pc-md a { color: #93c5fd; }
+    .pc-md code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85em; background: rgba(15, 23, 42, 0.07); border-radius: 0.35rem; padding: 0.08rem 0.32rem; }
+    .dark .pc-md code { background: rgba(255, 255, 255, 0.1); }
+    .pc-md pre { margin: 0.6rem 0; background: #0f172a; color: #e2e8f0; border-radius: 0.75rem; padding: 0.75rem 0.9rem; overflow-x: auto; font-size: 0.8rem; line-height: 1.5; }
+    .pc-md pre code { background: none; padding: 0; color: inherit; font-size: inherit; white-space: pre; }
+    .pc-md blockquote { margin: 0.6rem 0; padding-left: 0.8rem; border-left: 3px solid var(--brand-yellow); color: var(--brand-muted); }
+    .pc-md hr { margin: 0.9rem 0; border: 0; border-top: 1px solid var(--brand-border); }
+    .pc-md .pc-table-wrap { margin: 0.6rem 0; overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--brand-border); border-radius: 0.75rem; }
+    .pc-md table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    .pc-md th, .pc-md td { padding: 0.45rem 0.65rem; text-align: left; border-bottom: 1px solid var(--brand-border); white-space: nowrap; }
+    .pc-md th { font-weight: 800; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; background: rgba(15, 23, 42, 0.03); }
+    .dark .pc-md th { background: rgba(255, 255, 255, 0.04); }
+    .pc-md tr:last-child td { border-bottom: 0; }
+    #pcThread { -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+    #pcSidebar { -webkit-overflow-scrolling: touch; }
+  </style>
+</head>
+<body class="pavlex-chat-body bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
+  <%- include('partials/navbar') %>
+  <% const _pcWs = typeof workspace !== 'undefined' && workspace ? workspace : null; %>
+  <% const _pcWsName = (_pcWs && _pcWs.name) || 'Workspace'; %>
+  <% const _pcAvatar = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" class="w-full h-full" role="img" aria-label="Pavlex"><circle cx="24" cy="24" r="22" fill="#FFD644"/><circle cx="24" cy="24" r="20" fill="#FFC107"/><ellipse cx="17" cy="20" rx="2.5" ry="3" fill="#5C4033"/><ellipse cx="31" cy="20" rx="2.5" ry="3" fill="#5C4033"/><circle cx="17.8" cy="19" r="1" fill="#fff" opacity="0.9"/><circle cx="31.8" cy="19" r="1" fill="#fff" opacity="0.9"/><path d="M15 28 Q24 38 33 28" stroke="#5C4033" stroke-width="2.2" stroke-linecap="round" fill="none"/><ellipse cx="12" cy="26" rx="3" ry="2" fill="#FF9800" opacity="0.35"/><ellipse cx="36" cy="26" rx="3" ry="2" fill="#FF9800" opacity="0.35"/></svg>'; %>
+
+  <main id="pavlexChatApp" class="relative flex w-full min-w-0 overflow-hidden md:px-6 md:pb-4">
+    <div id="pcDrawerBackdrop" class="fixed inset-0 z-[120] bg-brand-dark/40 dark:bg-black/60 backdrop-blur-sm hidden md:hidden" aria-hidden="true"></div>
+
+    <aside id="pcSidebar" class="fixed inset-y-0 left-0 z-[130] w-[min(86vw,20rem)] -translate-x-full transition-transform duration-300 bg-white dark:bg-slate-900 border-r border-brand-border dark:border-white/10 flex flex-col shadow-2xl [padding-top:max(0.75rem,env(safe-area-inset-top))] [padding-bottom:max(0.75rem,env(safe-area-inset-bottom))] md:static md:z-auto md:translate-x-0 md:w-72 md:shrink-0 md:shadow-sm md:rounded-[1.5rem] md:border md:mr-4 md:pt-3 md:pb-3" aria-label="Chat history">
+      <div class="px-3 pb-3 flex items-center gap-2">
+        <button type="button" id="pcNewChat" class="btn-primary flex-1 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[11px] font-black uppercase tracking-widest shadow-sm hover:brightness-95 transition">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+          New chat
+        </button>
+        <button type="button" id="pcDrawerClose" class="md:hidden w-10 h-10 shrink-0 flex items-center justify-center rounded-xl border border-brand-border dark:border-white/10 text-brand-muted hover:text-brand-dark dark:hover:text-white" aria-label="Close chat history">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+      </div>
+      <div class="px-3 pb-2">
+        <label class="sr-only" for="pcSearch">Search chats</label>
+        <div class="relative">
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
+          <input id="pcSearch" type="search" autocomplete="off" placeholder="Search chats" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/40 dark:bg-slate-800 pl-9 pr-3 py-2 text-[16px] md:text-sm font-semibold text-brand-dark dark:text-white placeholder:text-brand-muted/60 focus:outline-none focus:border-brand-yellow" />
+        </div>
+      </div>
+      <div id="pcConvList" class="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-2 pb-2" role="list" aria-live="polite">
+        <p class="px-3 py-6 text-xs text-brand-muted text-center">Loading chats…</p>
+      </div>
+      <p class="px-4 pt-2 text-[10px] font-bold text-brand-muted/80 dark:text-slate-500 truncate border-t border-brand-border/60 dark:border-white/5" title="Chats are private to you in this workspace">
+        Private to you · <%= _pcWsName %>
+      </p>
+    </aside>
+
+    <section class="flex-1 min-w-0 min-h-0 flex flex-col bg-white/70 dark:bg-slate-900/60 md:rounded-[1.5rem] md:border md:border-brand-border md:dark:border-white/10 md:shadow-sm overflow-hidden" aria-label="Pavlex chat">
+      <header class="shrink-0 flex items-center gap-2 px-3 md:px-5 py-2.5 border-b border-brand-border/70 dark:border-white/10 bg-white/90 dark:bg-slate-900/90 backdrop-blur [padding-top:max(0.6rem,env(safe-area-inset-top))] md:pt-2.5">
+        <button type="button" id="pcAppMenu" class="md:hidden relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[22%] border border-brand-border/70 dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800/80" aria-label="Open app menu" title="Menu">
+          <img src="/images/adhello-app-icon.png" alt="" width="40" height="40" class="h-full w-full object-contain" decoding="async" />
+        </button>
+        <button type="button" id="pcDrawerOpen" class="md:hidden w-10 h-10 shrink-0 flex items-center justify-center rounded-xl border border-brand-border dark:border-white/10 text-brand-dark dark:text-white bg-white dark:bg-slate-800" aria-label="Open chat history" aria-controls="pcSidebar" aria-expanded="false" title="Chat history">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        </button>
+        <span class="hidden md:flex w-9 h-9 shrink-0 rounded-full overflow-hidden border border-brand-border/60 bg-white shadow-sm" aria-hidden="true"><%- _pcAvatar %></span>
+        <div class="min-w-0 flex-1">
+          <h1 id="pcTitle" class="font-display font-extrabold text-sm md:text-base leading-tight truncate text-brand-dark dark:text-white">Pavlex</h1>
+          <p class="text-[10px] md:text-[11px] font-bold text-brand-muted dark:text-slate-400 truncate flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" aria-hidden="true"></span>
+            <span id="pcWorkspaceName" title="Pavlex works in this workspace"><%= _pcWsName %></span>
+          </p>
+        </div>
+        <button type="button" id="pcNewChatHeader" class="w-10 h-10 shrink-0 flex items-center justify-center rounded-xl border border-brand-border dark:border-white/10 text-brand-dark dark:text-white bg-white dark:bg-slate-800 hover:border-brand-yellow/60 transition-colors md:hidden" aria-label="New chat" title="New chat">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>
+        </button>
+      </header>
+
+      <div id="pcThread" class="flex-1 min-h-0 overflow-y-auto custom-scrollbar" aria-live="polite">
+        <div id="pcEmpty" class="max-w-2xl mx-auto px-4 pt-8 md:pt-14 pb-6 text-center">
+          <span class="inline-flex w-16 h-16 rounded-full overflow-hidden border border-brand-border/60 bg-white shadow-md ring-4 ring-brand-yellow/20" aria-hidden="true"><%- _pcAvatar %></span>
+          <h2 class="font-display font-extrabold text-2xl md:text-3xl mt-4 text-brand-dark dark:text-white">Hey, I'm Pavlex.</h2>
+          <p class="text-sm text-brand-muted dark:text-slate-400 mt-2 max-w-md mx-auto leading-relaxed">Find leads, update your pipeline, add tasks, and write scripts in <strong class="text-brand-dark dark:text-white"><%= _pcWsName %></strong>. Your chats are saved here.</p>
+          <div id="pcSuggestions" class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-2 text-left">
+            <button type="button" class="pc-suggest rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-slate-100 hover:border-brand-yellow/60 hover:shadow-sm transition" data-prompt="Find 20 interior designers in Camas, WA and save them to a Referral Partners folder">Find 20 interior designers in Camas, WA and save them to a Referral Partners folder</button>
+            <button type="button" class="pc-suggest rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-slate-100 hover:border-brand-yellow/60 hover:shadow-sm transition" data-prompt="Show my bookmarked leads">Show my bookmarked leads</button>
+            <button type="button" class="pc-suggest rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-slate-100 hover:border-brand-yellow/60 hover:shadow-sm transition" data-prompt="What should I work on today?">What should I work on today?</button>
+            <button type="button" class="pc-suggest rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-slate-100 hover:border-brand-yellow/60 hover:shadow-sm transition" data-prefill="Create a task to call back  tomorrow" data-caret="29">Create a task to call back … tomorrow</button>
+            <button type="button" class="pc-suggest rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-slate-100 hover:border-brand-yellow/60 hover:shadow-sm transition" data-prompt="Tag the top 10 plumbers as Hot">Tag the top 10 plumbers as Hot</button>
+            <button type="button" class="pc-suggest rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-slate-100 hover:border-brand-yellow/60 hover:shadow-sm transition" data-prompt="Sync my bookmarked leads to GHL">Sync my bookmarked leads to GHL</button>
+            <button type="button" class="pc-suggest rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-slate-100 hover:border-brand-yellow/60 hover:shadow-sm transition sm:col-span-2" data-prompt="Write an opening script for property managers">Write an opening script for property managers</button>
+          </div>
+        </div>
+        <div id="pcMessages" class="max-w-3xl mx-auto px-3 md:px-6 py-4 space-y-5 hidden"></div>
+        <div id="pcTyping" class="max-w-3xl mx-auto px-3 md:px-6 pb-4 hidden" aria-label="Pavlex is typing">
+          <div class="flex gap-2.5 items-start">
+            <span class="shrink-0 w-8 h-8 rounded-full overflow-hidden border border-brand-border/60 bg-white shadow-sm" aria-hidden="true"><%- _pcAvatar %></span>
+            <div class="rounded-2xl rounded-tl-sm bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 px-4 py-3.5">
+              <div class="flex items-center gap-1.5">
+                <span class="inline-block w-1.5 h-1.5 bg-brand-muted rounded-full animate-bounce"></span>
+                <span class="inline-block w-1.5 h-1.5 bg-brand-muted rounded-full animate-bounce" style="animation-delay:0.15s"></span>
+                <span class="inline-block w-1.5 h-1.5 bg-brand-muted rounded-full animate-bounce" style="animation-delay:0.3s"></span>
+                <span id="pcTypingLabel" class="ml-2 text-[11px] font-bold text-brand-muted">Working on it…</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="shrink-0 border-t border-brand-border/70 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 px-3 md:px-6 pt-2.5 [padding-bottom:max(0.75rem,env(safe-area-inset-bottom))]">
+        <form id="pcForm" class="max-w-3xl mx-auto flex items-end gap-2" novalidate>
+          <label for="pcInput" class="sr-only">Message Pavlex</label>
+          <textarea id="pcInput" rows="1" maxlength="6000" enterkeyhint="send" placeholder="Message Pavlex…" class="pc-composer-input flex-1 min-w-0 resize-none max-h-48 rounded-2xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-4 py-3 font-medium text-brand-dark dark:text-white placeholder:text-brand-muted/60 focus:outline-none focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/20"></textarea>
+          <button type="submit" id="pcSend" class="btn-primary shrink-0 w-12 h-12 rounded-2xl inline-flex items-center justify-center shadow-sm hover:brightness-95 transition disabled:opacity-40 disabled:cursor-not-allowed" aria-label="Send message">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" /></svg>
+          </button>
+        </form>
+        <p class="max-w-3xl mx-auto mt-1.5 text-[10px] font-semibold text-brand-muted/70 dark:text-slate-500 text-center hidden md:block">Enter to send · Shift+Enter for a new line · Pavlex can make mistakes — check important changes.</p>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    window.__PAVLEX_CHAT__ = <%- safeJsonForScript({
+      initialConversationId: typeof initialConversationId !== 'undefined' ? initialConversationId : '',
+      workspaceId: (typeof workspaceId !== 'undefined' && workspaceId) || (_pcWs && _pcWs.id) || '',
+      workspaceName: _pcWsName,
+      avatarSvg: _pcAvatar,
+    }) %>;
+  </script>
+  <script src="/js/pavlex-chat-page.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
+  <% locals.ceoChatFloatIncluded = true; %>
+  <%- include('partials/app_shell_close') %>
+</body>
+</html>

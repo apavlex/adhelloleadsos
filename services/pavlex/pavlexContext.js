@@ -6,6 +6,14 @@ const fs = require('fs');
 const { loadWorkspaceMcpConfig } = require('./pavlexMcpConfig');
 const { CRM_COMMAND_HINTS } = require('./pavlexConstants');
 
+const CHAT_PAGE_FORMAT = `
+CHAT PAGE FORMATTING (markdown is rendered):
+- Use **bold**, short headings, bullet or numbered lists, and tables (e.g. Name | City | Phone | Status) when listing several leads.
+- Link each lead you name as [Business Name](/focus?lead=KEY) — KEY is the lead key from a tool result without the "lead:" prefix.
+- Link folders as [Folder Name](/prospecting?tab=pipeline&folderKey=FOLDER_KEY) using the folder key from a tool result.
+- Only link keys a tool returned; never invent keys or URLs.
+- Up to ~400 words when a list or script needs it; otherwise stay brief.`;
+
 const MEMORY_FILE = '/opt/data/memories/MEMORY.md';
 const USER_FILE = '/opt/data/memories/USER.md';
 
@@ -32,6 +40,7 @@ async function buildPavlexContext(req, auth, { platform = 'global', message = ''
     assistant: 'Agency OS floating chat',
     automate: 'Automate Command Center (CEO dashboard)',
     global: 'Agency OS (site-wide Pavlex chat)',
+    chat: 'Agency OS Pavlex chat page',
   };
   const platformLabel = platformLabels[platform] || platformLabels.global;
   const pagePath = String(page || '').trim();
@@ -69,7 +78,7 @@ RULES:
 - Immediate action over analysis.
 - Keep responses under 300 words unless asked for detail.
 - Direct, pragmatic tone.
-${platform === 'assistant' || platform === 'global' ? '- Plain text only. No markdown asterisks or backticks.' : ''}`;
+${platform === 'assistant' || platform === 'global' ? '- Plain text only. No markdown asterisks or backticks.' : ''}${platform === 'chat' ? CHAT_PAGE_FORMAT : ''}`;
 
   return {
     instructions,
