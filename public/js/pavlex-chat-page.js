@@ -386,23 +386,22 @@
     var html = '';
     groups.forEach(function (label) {
       html +=
-        '<p class="px-3 pt-3 pb-1 text-[10px] font-black uppercase tracking-widest text-brand-muted/80 dark:text-slate-500">' +
+        '<p class="px-3 pt-4 pb-1.5 text-[10px] font-black uppercase tracking-widest text-brand-muted opacity-70 dark:text-slate-500">' +
         escapeHtml(label) +
         '</p>';
       byLabel[label].forEach(function (c) {
         var active = c.id === state.activeId;
         html +=
-          '<div role="listitem" class="pc-conv group relative flex items-center gap-1 rounded-xl ' +
-          (active ? 'bg-brand-yellow/20 dark:bg-brand-yellow/15 ring-1 ring-brand-yellow/40' : 'hover:bg-brand-cream/70 dark:hover:bg-white/5') +
+          '<div role="listitem" class="pc-conv flex items-center rounded-2xl mb-0.5' + (active ? ' pc-conv--active' : '') +
           '" data-id="' + escapeHtml(c.id) + '">' +
-          '<a href="/chat?c=' + encodeURIComponent(c.id) + '" class="pc-conv-open flex-1 min-w-0 px-3 py-2.5" data-id="' + escapeHtml(c.id) + '"' + (active ? ' aria-current="page"' : '') + '>' +
-          '<span class="block text-[13px] font-bold text-brand-dark dark:text-white truncate">' + escapeHtml(c.title || 'New chat') + '</span>' +
+          '<a href="/chat?c=' + encodeURIComponent(c.id) + '" class="pc-conv-open flex-1 min-w-0 pl-4 pr-3 py-2.5" data-id="' + escapeHtml(c.id) + '"' + (active ? ' aria-current="page"' : '') + '>' +
+          '<span class="block text-[13px] ' + (active ? 'font-bold' : 'font-semibold') + ' text-brand-dark dark:text-white truncate">' + escapeHtml(c.title || 'New chat') + '</span>' +
           (c.lastPreview ? '<span class="block text-[11px] text-brand-muted dark:text-slate-400 truncate mt-0.5">' + escapeHtml(c.lastPreview) + '</span>' : '') +
           '</a>' +
-          '<div class="flex items-center gap-0.5 pr-1.5 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100 transition-opacity' + (active ? ' md:opacity-100' : '') + '">' +
-          '<button type="button" class="pc-conv-pin w-7 h-7 rounded-lg flex items-center justify-center ' + (c.pinned ? 'text-brand-dark dark:text-brand-yellow' : 'text-brand-muted') + ' hover:bg-black/5 dark:hover:bg-white/10" data-id="' + escapeHtml(c.id) + '" aria-label="' + (c.pinned ? 'Unpin chat' : 'Pin chat') + '" title="' + (c.pinned ? 'Unpin' : 'Pin') + '">' + (c.pinned ? ICON_PIN_FILLED : ICON_PIN) + '</button>' +
-          '<button type="button" class="pc-conv-rename w-7 h-7 rounded-lg flex items-center justify-center text-brand-muted hover:text-brand-dark dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10" data-id="' + escapeHtml(c.id) + '" aria-label="Rename chat" title="Rename">' + ICON_EDIT + '</button>' +
-          '<button type="button" class="pc-conv-delete w-7 h-7 rounded-lg flex items-center justify-center text-brand-muted hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40" data-id="' + escapeHtml(c.id) + '" aria-label="Delete chat" title="Delete">' + ICON_TRASH + '</button>' +
+          '<div class="pc-conv-actions flex items-center pr-1">' +
+          '<button type="button" class="pc-conv-pin pc-conv-act ' + (c.pinned ? 'text-brand-dark dark:text-brand-yellow' : 'text-brand-muted') + ' hover:bg-black/5 dark:hover:bg-white/10" data-id="' + escapeHtml(c.id) + '" aria-label="' + (c.pinned ? 'Unpin chat' : 'Pin chat') + '" title="' + (c.pinned ? 'Unpin' : 'Pin') + '">' + (c.pinned ? ICON_PIN_FILLED : ICON_PIN) + '</button>' +
+          '<button type="button" class="pc-conv-rename pc-conv-act text-brand-muted hover:text-brand-dark dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10" data-id="' + escapeHtml(c.id) + '" aria-label="Rename chat" title="Rename">' + ICON_EDIT + '</button>' +
+          '<button type="button" class="pc-conv-delete pc-conv-act text-brand-muted hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40" data-id="' + escapeHtml(c.id) + '" aria-label="Delete chat" title="Delete">' + ICON_TRASH + '</button>' +
           '</div></div>';
       });
     });
@@ -522,7 +521,7 @@
 
   function avatar() {
     return (
-      '<span class="shrink-0 w-8 h-8 rounded-full overflow-hidden border border-brand-border/60 bg-white shadow-sm" aria-hidden="true">' +
+      '<span class="pc-avatar shrink-0 w-8 h-8 rounded-full overflow-hidden bg-white" aria-hidden="true">' +
       AVATAR_SVG +
       '</span>'
     );
@@ -540,11 +539,11 @@
     });
     if (!labels.length) return '';
     return (
-      '<div class="flex flex-wrap gap-1.5 mt-2" aria-label="Tools Alex used">' +
+      '<div class="flex flex-wrap gap-1.5 mt-3" aria-label="Tools Alex used">' +
       labels
         .map(function (l) {
           return (
-            '<span class="inline-flex items-center gap-1 rounded-full border border-brand-border dark:border-white/10 bg-brand-cream/60 dark:bg-slate-800 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-brand-muted dark:text-slate-300">' +
+            '<span class="inline-flex items-center gap-1.5 rounded-full border border-brand-border dark:border-white/10 bg-brand-cream dark:bg-slate-800 pl-2 pr-2.5 py-1 text-[11px] font-semibold text-brand-muted dark:text-slate-300">' +
             '<svg class="w-3 h-3 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>' +
             escapeHtml(l) +
             '</span>'
@@ -559,7 +558,7 @@
     var row = document.createElement('div');
     row.className = 'pc-msg pc-msg-user flex justify-end';
     row.innerHTML =
-      '<div class="max-w-[85%] md:max-w-[75%] rounded-2xl rounded-tr-sm bg-slate-900 dark:bg-slate-700 text-white px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap break-words"></div>';
+      '<div class="pc-bubble-user max-w-[85%] md:max-w-[75%] px-4 py-2.5 text-[15px] font-medium leading-relaxed whitespace-pre-wrap break-words"></div>';
     row.firstChild.textContent = text;
     els.messages.appendChild(row);
     return row;
@@ -567,16 +566,16 @@
 
   function appendAssistant(text, tools) {
     var row = document.createElement('div');
-    row.className = 'pc-msg pc-msg-assistant flex gap-2.5 items-start';
+    row.className = 'pc-msg pc-msg-assistant flex gap-3 items-start';
     row.innerHTML =
       avatar() +
-      '<div class="min-w-0 flex-1 max-w-full">' +
-      '<div class="pc-md rounded-2xl rounded-tl-sm bg-white dark:bg-slate-800/80 border border-brand-border dark:border-white/10 px-4 py-3 text-[15px] leading-relaxed text-brand-dark dark:text-slate-100 break-words overflow-hidden">' +
+      '<div class="min-w-0 flex-1 max-w-full pt-1">' +
+      '<div class="pc-md text-[15px] leading-relaxed text-brand-dark dark:text-slate-100 break-words">' +
       renderMarkdown(text) +
       '</div>' +
       toolChips(tools) +
-      '<div class="mt-1.5 flex items-center gap-2">' +
-      '<button type="button" class="pc-copy inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10" aria-label="Copy reply">' +
+      '<div class="mt-2 -ml-2 flex items-center gap-2">' +
+      '<button type="button" class="pc-copy inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px] font-semibold text-brand-muted hover:text-brand-dark dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors" aria-label="Copy reply">' +
       '<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5a3.375 3.375 0 00-3.375-3.375H9.75"/></svg>' +
       '<span>Copy</span></button>' +
       '</div></div>';
@@ -601,12 +600,12 @@
 
   function appendError(message, onRetry) {
     var row = document.createElement('div');
-    row.className = 'pc-msg pc-msg-error flex gap-2.5 items-start';
+    row.className = 'pc-msg pc-msg-error flex gap-3 items-start';
     row.innerHTML =
       avatar() +
       '<div class="min-w-0 flex-1">' +
-      '<div class="pc-error-text rounded-2xl rounded-tl-sm border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-950/30 px-4 py-3 text-sm text-red-700 dark:text-red-300 leading-relaxed"></div>' +
-      '<button type="button" class="pc-retry mt-1.5 inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[10px] font-black uppercase tracking-widest bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 text-brand-dark dark:text-white hover:border-brand-yellow/60">' +
+      '<div class="pc-error-text rounded-3xl border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-950/30 px-4 py-3 text-sm text-red-700 dark:text-red-300 leading-relaxed"></div>' +
+      '<button type="button" class="pc-retry mt-2 inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[10px] font-black uppercase tracking-widest bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 text-brand-dark dark:text-white hover:border-brand-yellow transition-colors">' +
       '<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>' +
       'Retry</button></div>';
     row.querySelector('.pc-error-text').textContent = message;

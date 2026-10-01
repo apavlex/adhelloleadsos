@@ -16,33 +16,161 @@
       body.pavlex-chat-body #appTopbar { padding: 0 !important; border-top-width: 0 !important; }
       body.pavlex-chat-body #appTopbar > .app-topbar-inner { display: none; }
     }
+
+    /* Accent tints use color-mix: Tailwind opacity modifiers (bg-brand-yellow/20) don't compile for CSS-var colors. */
+    #pavlexChatApp {
+      --pc-accent-soft: color-mix(in srgb, var(--brand-yellow) 14%, transparent);
+      --pc-accent-ring: color-mix(in srgb, var(--brand-yellow) 24%, transparent);
+      --pc-accent-line: color-mix(in srgb, var(--brand-yellow) 60%, transparent);
+      --pc-accent-ink: color-mix(in srgb, var(--brand-yellow) 48%, #111827);
+      --pc-surface: #ffffff;
+      --pc-shadow-soft: 0 1px 2px rgba(17, 24, 39, 0.04), 0 10px 30px -18px rgba(17, 24, 39, 0.25);
+    }
+    .dark #pavlexChatApp {
+      --pc-accent-soft: color-mix(in srgb, var(--brand-yellow) 16%, transparent);
+      --pc-accent-ink: color-mix(in srgb, var(--brand-yellow) 78%, #ffffff);
+      --pc-surface: #0f172a;
+      --pc-shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 30px -18px rgba(0, 0, 0, 0.6);
+    }
+
+    /* Inputs */
+    .pc-search { transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease; }
+    .pc-search:focus { outline: none; border-color: var(--pc-accent-line); background: var(--pc-surface); box-shadow: 0 0 0 4px var(--pc-accent-ring); }
+    .pc-search::-webkit-search-cancel-button { cursor: pointer; }
+    .pc-composer { box-shadow: var(--pc-shadow-soft); transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+    .pc-composer:focus-within { border-color: var(--pc-accent-line); box-shadow: 0 0 0 4px var(--pc-accent-ring), var(--pc-shadow-soft); }
     .pc-composer-input { font-size: 16px; line-height: 1.45; }
+    .pc-composer-input:focus { outline: none; box-shadow: none; }
+
+    /* History */
+    .pc-conv { position: relative; transition: background-color 0.15s ease; }
+    .pc-conv:hover { background: var(--brand-cream); }
+    .dark .pc-conv:hover { background: rgba(255, 255, 255, 0.05); }
+    .pc-conv--active, .pc-conv--active:hover, .dark .pc-conv--active, .dark .pc-conv--active:hover { background: var(--pc-accent-soft); }
+    .pc-conv--active::before {
+      content: '';
+      position: absolute;
+      left: 0.3rem;
+      top: 0.8rem;
+      bottom: 0.8rem;
+      width: 3px;
+      border-radius: 9999px;
+      background: var(--brand-yellow);
+    }
+    .pc-conv-act { width: 2.5rem; height: 2.75rem; border-radius: 9999px; display: flex; align-items: center; justify-content: center; transition: background-color 0.15s ease, color 0.15s ease; }
+    @media (hover: hover) and (pointer: fine) {
+      .pc-conv-act { width: 2rem; height: 2rem; }
+      .pc-conv-actions {
+        position: absolute;
+        right: 0.375rem;
+        top: 50%;
+        transform: translateY(-50%);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.15s ease;
+      }
+      .pc-conv:hover .pc-conv-actions, .pc-conv:focus-within .pc-conv-actions { opacity: 1; pointer-events: auto; }
+      .pc-conv:hover .pc-conv-open, .pc-conv:focus-within .pc-conv-open { padding-right: 6.75rem; }
+    }
+
+    /* Empty state */
+    .pc-empty-glow {
+      position: absolute;
+      left: 50%;
+      top: -4rem;
+      width: min(40rem, 120%);
+      height: 22rem;
+      transform: translateX(-50%);
+      background: radial-gradient(closest-side, color-mix(in srgb, var(--brand-yellow) 22%, transparent), transparent);
+      pointer-events: none;
+    }
+    .pc-hero-avatar {
+      box-shadow: 0 0 0 4px var(--pc-surface), 0 0 0 10px var(--pc-accent-ring), 0 20px 50px -12px color-mix(in srgb, var(--brand-yellow) 60%, transparent);
+    }
+    .pc-suggest { box-shadow: 0 1px 2px rgba(17, 24, 39, 0.04); transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease; }
+    .pc-suggest:hover:not(:disabled) { transform: translateY(-2px); border-color: var(--pc-accent-line); box-shadow: 0 14px 28px -16px rgba(17, 24, 39, 0.3); }
+    .pc-suggest:focus-visible { outline: none; border-color: var(--pc-accent-line); box-shadow: 0 0 0 4px var(--pc-accent-ring); }
+    .pc-suggest:disabled { opacity: 0.55; cursor: not-allowed; }
+    .pc-suggest-icon { background: var(--pc-accent-soft); color: var(--pc-accent-ink); }
+
+    /* Messages */
+    .pc-avatar { box-shadow: 0 0 0 2px var(--pc-surface), 0 0 0 4px var(--pc-accent-ring); }
+    .pc-bubble-user {
+      background: var(--brand-yellow);
+      color: var(--brand-on-accent, #111827);
+      border-radius: 1.5rem;
+      box-shadow: 0 1px 2px rgba(17, 24, 39, 0.08);
+    }
+    .pc-dot { width: 6px; height: 6px; border-radius: 9999px; background: currentColor; animation: pcDot 1.2s ease-in-out infinite; }
+    .pc-dot:nth-child(2) { animation-delay: 0.15s; }
+    .pc-dot:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes pcDot {
+      0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+      40% { opacity: 1; transform: translateY(-3px); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .pc-dot { animation-duration: 2.4s; }
+      .pc-suggest:hover:not(:disabled) { transform: none; }
+    }
+
     .pc-md > :first-child { margin-top: 0; }
     .pc-md > :last-child { margin-bottom: 0; }
-    .pc-md p { margin: 0.5rem 0; }
-    .pc-md h2, .pc-md h3, .pc-md h4, .pc-md h5 { margin: 0.9rem 0 0.35rem; font-weight: 800; line-height: 1.3; }
+    .pc-md p { margin: 0.55rem 0; }
+    .pc-md h2, .pc-md h3, .pc-md h4, .pc-md h5 { margin: 1rem 0 0.4rem; font-family: Manrope, sans-serif; font-weight: 800; line-height: 1.3; letter-spacing: -0.01em; }
     .pc-md h2 { font-size: 1.15rem; }
     .pc-md h3 { font-size: 1.05rem; }
     .pc-md h4, .pc-md h5 { font-size: 0.95rem; }
-    .pc-md ul, .pc-md ol { margin: 0.5rem 0; padding-left: 1.35rem; }
+    .pc-md ul, .pc-md ol { margin: 0.55rem 0; padding-left: 1.35rem; }
     .pc-md ul { list-style: disc; }
     .pc-md ol { list-style: decimal; }
-    .pc-md li { margin: 0.2rem 0; }
+    .pc-md li { margin: 0.25rem 0; }
+    .pc-md li::marker { color: var(--brand-muted); }
     .pc-md li.pc-li-nested { margin-left: 1.1rem; list-style: circle; }
-    .pc-md a { color: #2563eb; text-decoration: underline; text-underline-offset: 2px; font-weight: 600; word-break: break-word; }
-    .dark .pc-md a { color: #93c5fd; }
-    .pc-md code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85em; background: rgba(15, 23, 42, 0.07); border-radius: 0.35rem; padding: 0.08rem 0.32rem; }
+    .pc-md a {
+      color: var(--pc-accent-ink);
+      font-weight: 600;
+      text-decoration: underline;
+      text-decoration-color: var(--pc-accent-line);
+      text-decoration-thickness: 2px;
+      text-underline-offset: 3px;
+      word-break: break-word;
+      transition: text-decoration-color 0.15s ease;
+    }
+    .pc-md a:hover { text-decoration-color: var(--brand-yellow); }
+    .pc-md code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85em; background: rgba(15, 23, 42, 0.06); border-radius: 0.45rem; padding: 0.1rem 0.38rem; }
     .dark .pc-md code { background: rgba(255, 255, 255, 0.1); }
-    .pc-md pre { margin: 0.6rem 0; background: #0f172a; color: #e2e8f0; border-radius: 0.75rem; padding: 0.75rem 0.9rem; overflow-x: auto; font-size: 0.8rem; line-height: 1.5; }
+    .pc-md pre { margin: 0.7rem 0; background: #0f172a; color: #e2e8f0; border-radius: 1rem; padding: 0.85rem 1rem; overflow-x: auto; font-size: 0.8rem; line-height: 1.55; }
     .pc-md pre code { background: none; padding: 0; color: inherit; font-size: inherit; white-space: pre; }
-    .pc-md blockquote { margin: 0.6rem 0; padding-left: 0.8rem; border-left: 3px solid var(--brand-yellow); color: var(--brand-muted); }
-    .pc-md hr { margin: 0.9rem 0; border: 0; border-top: 1px solid var(--brand-border); }
-    .pc-md .pc-table-wrap { margin: 0.6rem 0; overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--brand-border); border-radius: 0.75rem; }
-    .pc-md table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-    .pc-md th, .pc-md td { padding: 0.45rem 0.65rem; text-align: left; border-bottom: 1px solid var(--brand-border); white-space: nowrap; }
-    .pc-md th { font-weight: 800; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; background: rgba(15, 23, 42, 0.03); }
-    .dark .pc-md th { background: rgba(255, 255, 255, 0.04); }
-    .pc-md tr:last-child td { border-bottom: 0; }
+    .pc-md blockquote { margin: 0.7rem 0; padding: 0.55rem 0.9rem; border-left: 3px solid var(--brand-yellow); border-radius: 0 0.85rem 0.85rem 0; background: var(--pc-accent-soft); color: var(--brand-dark); }
+    .pc-md hr { margin: 1rem 0; border: 0; border-top: 1px solid var(--brand-border); }
+    .pc-md .pc-table-wrap {
+      margin: 0.75rem 0;
+      max-height: 26rem;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+      border: 1px solid var(--brand-border);
+      border-radius: 1rem;
+      background: var(--pc-surface);
+      box-shadow: 0 1px 2px rgba(17, 24, 39, 0.04);
+    }
+    .pc-md table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.85rem; }
+    .pc-md th, .pc-md td { padding: 0.6rem 0.85rem; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--brand-border); }
+    .pc-md th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: var(--brand-cream);
+      color: var(--brand-muted);
+      font-weight: 800;
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .pc-md tbody tr:nth-child(even) td { background: rgba(17, 24, 39, 0.02); }
+    .dark .pc-md tbody tr:nth-child(even) td { background: rgba(255, 255, 255, 0.025); }
+    .pc-md tbody tr:hover td { background: var(--pc-accent-soft); }
+    .pc-md tbody tr:last-child td { border-bottom: 0; }
+
     #pcThread { -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
     #pcSidebar { -webkit-overflow-scrolling: touch; }
   </style>
@@ -52,98 +180,135 @@
   <% const _pcWs = typeof workspace !== 'undefined' && workspace ? workspace : null; %>
   <% const _pcWsName = (_pcWs && _pcWs.name) || 'Workspace'; %>
   <% const _pcAvatar = '<img src="/img/alex-avatar-96.jpg" alt="" class="w-full h-full rounded-full object-cover" width="32" height="32" loading="lazy" decoding="async" />'; %>
-  <% const _pcAvatarLarge = '<img src="/img/alex-avatar.jpg" alt="Alex" class="w-full h-full rounded-full object-cover" width="64" height="64" decoding="async" />'; %>
+  <% const _pcAvatarLarge = '<img src="/img/alex-avatar.jpg" alt="Alex" class="w-full h-full rounded-full object-cover" width="96" height="96" decoding="async" />'; %>
+  <%
+    const _pcIcons = {
+      search: 'M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z',
+      bookmark: 'M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z',
+      today: 'M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5',
+      task: 'M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+      tag: 'M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3zM6 6h.008v.008H6V6z',
+      sync: 'M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99',
+      script: 'M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z',
+    };
+    const _pcSuggestions = [
+      { icon: 'search', label: 'Find 20 interior designers in Camas, WA and save them to a Referral Partners folder', prompt: 'Find 20 interior designers in Camas, WA and save them to a Referral Partners folder' },
+      { icon: 'bookmark', label: 'Show my bookmarked leads', prompt: 'Show my bookmarked leads' },
+      { icon: 'today', label: 'What should I work on today?', prompt: 'What should I work on today?' },
+      { icon: 'task', label: 'Create a task to call back … tomorrow', prefill: 'Create a task to call back  tomorrow', caret: 29 },
+      { icon: 'tag', label: 'Tag the top 10 plumbers as Hot', prompt: 'Tag the top 10 plumbers as Hot' },
+      { icon: 'sync', label: 'Sync my bookmarked leads to GHL', prompt: 'Sync my bookmarked leads to GHL' },
+      { icon: 'script', label: 'Write an opening script for property managers', prompt: 'Write an opening script for property managers', wide: true },
+    ];
+  %>
 
-  <main id="pavlexChatApp" class="relative flex w-full min-w-0 overflow-hidden md:px-6 md:pb-4">
-    <div id="pcDrawerBackdrop" class="fixed inset-0 z-[120] bg-brand-dark/40 dark:bg-black/60 backdrop-blur-sm hidden md:hidden" aria-hidden="true"></div>
+  <main id="pavlexChatApp" class="relative flex w-full min-w-0 overflow-hidden md:gap-4 md:px-6 md:pb-5">
+    <div id="pcDrawerBackdrop" class="fixed inset-0 z-[120] bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm hidden md:hidden" aria-hidden="true"></div>
 
-    <aside id="pcSidebar" class="fixed inset-y-0 left-0 z-[130] w-[min(86vw,20rem)] -translate-x-full transition-transform duration-300 bg-white dark:bg-slate-900 border-r border-brand-border dark:border-white/10 flex flex-col shadow-2xl [padding-top:max(0.75rem,env(safe-area-inset-top))] [padding-bottom:max(0.75rem,env(safe-area-inset-bottom))] md:static md:z-auto md:translate-x-0 md:w-72 md:shrink-0 md:shadow-sm md:rounded-[1.5rem] md:border md:mr-4 md:pt-3 md:pb-3" aria-label="Chat history">
-      <div class="px-3 pb-3 flex items-center gap-2">
-        <button type="button" id="pcNewChat" class="btn-primary flex-1 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[11px] font-black uppercase tracking-widest shadow-sm hover:brightness-95 transition">
+    <aside id="pcSidebar" class="fixed inset-y-0 left-0 z-[130] w-[min(86vw,20rem)] -translate-x-full transition-transform duration-300 bg-white dark:bg-slate-900 rounded-r-[2rem] flex flex-col shadow-2xl [padding-top:max(1rem,env(safe-area-inset-top))] [padding-bottom:max(0.75rem,env(safe-area-inset-bottom))] md:static md:z-auto md:translate-x-0 md:w-72 md:shrink-0 md:rounded-[2rem] md:border md:border-brand-border md:dark:border-white/10 md:bg-white md:dark:bg-slate-900/80 md:shadow-sm md:pt-4 md:pb-3" aria-label="Chat history">
+      <div class="px-4 pb-3 flex items-center gap-2">
+        <h2 class="flex-1 min-w-0 font-display font-extrabold text-base tracking-tight text-brand-dark dark:text-white">Chats</h2>
+        <button type="button" id="pcDrawerClose" class="md:hidden w-11 h-11 -mr-1 shrink-0 flex items-center justify-center rounded-full text-brand-muted hover:text-brand-dark hover:bg-brand-cream dark:hover:text-white dark:hover:bg-white/5 transition-colors" aria-label="Close chat history">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.25" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+      </div>
+      <div class="px-3 pb-3">
+        <button type="button" id="pcNewChat" class="btn-primary w-full h-11 inline-flex items-center justify-center gap-2 rounded-full px-5 text-[11px] font-black uppercase tracking-widest shadow-sm transition">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
           New chat
         </button>
-        <button type="button" id="pcDrawerClose" class="md:hidden w-10 h-10 shrink-0 flex items-center justify-center rounded-xl border border-brand-border dark:border-white/10 text-brand-muted hover:text-brand-dark dark:hover:text-white" aria-label="Close chat history">
-          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-        </button>
       </div>
-      <div class="px-3 pb-2">
+      <div class="px-3 pb-1">
         <label class="sr-only" for="pcSearch">Search chats</label>
         <div class="relative">
-          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
-          <input id="pcSearch" type="search" autocomplete="off" placeholder="Search chats" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/40 dark:bg-slate-800 pl-9 pr-3 py-2 text-[16px] md:text-sm font-semibold text-brand-dark dark:text-white placeholder:text-brand-muted/60 focus:outline-none focus:border-brand-yellow" />
+          <svg class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
+          <input id="pcSearch" type="search" autocomplete="off" placeholder="Search chats" class="pc-search w-full h-11 rounded-full border border-transparent bg-brand-cream dark:bg-slate-800/80 pl-10 pr-4 text-[16px] md:text-sm font-medium text-brand-dark dark:text-white placeholder:text-brand-muted placeholder:font-normal" />
         </div>
       </div>
       <div id="pcConvList" class="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-2 pb-2" role="list" aria-live="polite">
         <p class="px-3 py-6 text-xs text-brand-muted text-center">Loading chats…</p>
       </div>
-      <p class="px-4 pt-2 text-[10px] font-bold text-brand-muted/80 dark:text-slate-500 truncate border-t border-brand-border/60 dark:border-white/5" title="Chats are private to you in this workspace">
-        Private to you · <%= _pcWsName %>
+      <p class="mx-3 pt-3 px-1 flex items-center gap-1.5 text-[10px] font-semibold text-brand-muted dark:text-slate-500 truncate border-t border-brand-border dark:border-white/5" title="Chats are private to you in this workspace">
+        <svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.25" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
+        <span class="truncate">Private to you · <%= _pcWsName %></span>
       </p>
     </aside>
 
-    <section class="flex-1 min-w-0 min-h-0 flex flex-col bg-white/70 dark:bg-slate-900/60 md:rounded-[1.5rem] md:border md:border-brand-border md:dark:border-white/10 md:shadow-sm overflow-hidden" aria-label="Chat with Alex">
-      <header class="shrink-0 flex items-center gap-2 px-3 md:px-5 py-2.5 border-b border-brand-border/70 dark:border-white/10 bg-white/90 dark:bg-slate-900/90 backdrop-blur [padding-top:max(0.6rem,env(safe-area-inset-top))] md:pt-2.5">
-        <button type="button" id="pcAppMenu" class="md:hidden relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[22%] border border-brand-border/70 dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800/80" aria-label="Open app menu" title="Menu">
-          <img src="/images/adhello-app-icon.png" alt="" width="40" height="40" class="h-full w-full object-contain" decoding="async" />
+    <section class="flex-1 min-w-0 min-h-0 flex flex-col bg-white/80 dark:bg-slate-900/70 md:rounded-[2rem] md:border md:border-brand-border md:dark:border-white/10 md:shadow-sm overflow-hidden" aria-label="Chat with Alex">
+      <header class="shrink-0 flex items-center gap-2 md:gap-3 px-3 md:px-6 py-2.5 md:py-3.5 border-b border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-900/80 backdrop-blur [padding-top:max(0.6rem,env(safe-area-inset-top))] md:pt-3.5">
+        <button type="button" id="pcAppMenu" class="md:hidden relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-[22%] border border-brand-border dark:border-white/15 bg-white dark:bg-slate-800/80" aria-label="Open app menu" title="Menu">
+          <img src="/images/adhello-app-icon.png" alt="" width="44" height="44" class="h-full w-full object-contain" decoding="async" />
         </button>
-        <button type="button" id="pcDrawerOpen" class="md:hidden w-10 h-10 shrink-0 flex items-center justify-center rounded-xl border border-brand-border dark:border-white/10 text-brand-dark dark:text-white bg-white dark:bg-slate-800" aria-label="Open chat history" aria-controls="pcSidebar" aria-expanded="false" title="Chat history">
+        <button type="button" id="pcDrawerOpen" class="md:hidden w-11 h-11 shrink-0 flex items-center justify-center rounded-full border border-brand-border dark:border-white/10 text-brand-dark dark:text-white bg-white dark:bg-slate-800 transition-colors" aria-label="Open chat history" aria-controls="pcSidebar" aria-expanded="false" title="Chat history">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
         </button>
-        <span class="hidden md:flex w-9 h-9 shrink-0 rounded-full overflow-hidden border border-brand-border/60 bg-white shadow-sm" aria-hidden="true"><%- _pcAvatar %></span>
+        <span class="hidden md:block relative w-10 h-10 shrink-0" aria-hidden="true">
+          <span class="pc-avatar block w-10 h-10 rounded-full overflow-hidden bg-white"><%- _pcAvatar %></span>
+          <span class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-white dark:border-slate-900"></span>
+        </span>
         <div class="min-w-0 flex-1">
-          <h1 id="pcTitle" class="font-display font-extrabold text-sm md:text-base leading-tight truncate text-brand-dark dark:text-white">Alex</h1>
-          <p class="text-[10px] md:text-[11px] font-bold text-brand-muted dark:text-slate-400 truncate flex items-center gap-1.5">
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" aria-hidden="true"></span>
-            <span id="pcWorkspaceName" title="Alex works in this workspace"><%= _pcWsName %></span>
+          <h1 id="pcTitle" class="font-display font-extrabold text-[15px] md:text-base leading-tight tracking-tight truncate text-brand-dark dark:text-white">Alex</h1>
+          <p class="mt-0.5 text-[11px] font-semibold text-brand-muted dark:text-slate-400 truncate flex items-center gap-1.5">
+            <span class="md:hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" aria-hidden="true"></span>
+            <span>Online</span>
+            <span aria-hidden="true">·</span>
+            <span id="pcWorkspaceName" class="truncate" title="Alex works in this workspace"><%= _pcWsName %></span>
           </p>
         </div>
-        <button type="button" id="pcNewChatHeader" class="w-10 h-10 shrink-0 flex items-center justify-center rounded-xl border border-brand-border dark:border-white/10 text-brand-dark dark:text-white bg-white dark:bg-slate-800 hover:border-brand-yellow/60 transition-colors md:hidden" aria-label="New chat" title="New chat">
+        <button type="button" id="pcNewChatHeader" class="w-11 h-11 shrink-0 flex items-center justify-center rounded-full border border-brand-border dark:border-white/10 text-brand-dark dark:text-white bg-white dark:bg-slate-800 transition-colors md:hidden" aria-label="New chat" title="New chat">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>
         </button>
       </header>
 
       <div id="pcThread" class="flex-1 min-h-0 overflow-y-auto custom-scrollbar" aria-live="polite">
-        <div id="pcEmpty" class="max-w-2xl mx-auto px-4 pt-8 md:pt-14 pb-6 text-center">
-          <span class="inline-flex w-16 h-16 rounded-full overflow-hidden border border-brand-border/60 bg-white shadow-md ring-4 ring-brand-yellow/20" aria-hidden="true"><%- _pcAvatarLarge %></span>
-          <h2 class="font-display font-extrabold text-2xl md:text-3xl mt-4 text-brand-dark dark:text-white">Hey, I'm Alex.</h2>
-          <p class="text-sm text-brand-muted dark:text-slate-400 mt-2 max-w-md mx-auto leading-relaxed">Find leads, update your pipeline, add tasks, and write scripts in <strong class="text-brand-dark dark:text-white"><%= _pcWsName %></strong>. Your chats are saved here.</p>
-          <div id="pcSuggestions" class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-2 text-left">
-            <button type="button" class="pc-suggest rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-slate-100 hover:border-brand-yellow/60 hover:shadow-sm transition" data-prompt="Find 20 interior designers in Camas, WA and save them to a Referral Partners folder">Find 20 interior designers in Camas, WA and save them to a Referral Partners folder</button>
-            <button type="button" class="pc-suggest rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-slate-100 hover:border-brand-yellow/60 hover:shadow-sm transition" data-prompt="Show my bookmarked leads">Show my bookmarked leads</button>
-            <button type="button" class="pc-suggest rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-slate-100 hover:border-brand-yellow/60 hover:shadow-sm transition" data-prompt="What should I work on today?">What should I work on today?</button>
-            <button type="button" class="pc-suggest rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-slate-100 hover:border-brand-yellow/60 hover:shadow-sm transition" data-prefill="Create a task to call back  tomorrow" data-caret="29">Create a task to call back … tomorrow</button>
-            <button type="button" class="pc-suggest rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-slate-100 hover:border-brand-yellow/60 hover:shadow-sm transition" data-prompt="Tag the top 10 plumbers as Hot">Tag the top 10 plumbers as Hot</button>
-            <button type="button" class="pc-suggest rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-slate-100 hover:border-brand-yellow/60 hover:shadow-sm transition" data-prompt="Sync my bookmarked leads to GHL">Sync my bookmarked leads to GHL</button>
-            <button type="button" class="pc-suggest rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-slate-100 hover:border-brand-yellow/60 hover:shadow-sm transition sm:col-span-2" data-prompt="Write an opening script for property managers">Write an opening script for property managers</button>
+        <div id="pcEmpty" class="relative max-w-2xl mx-auto px-4 pt-10 md:pt-16 pb-8 text-center">
+          <div class="pc-empty-glow" aria-hidden="true"></div>
+          <div class="relative">
+            <span class="relative inline-block" aria-hidden="true">
+              <span class="pc-hero-avatar block w-20 h-20 md:w-24 md:h-24 rounded-full overflow-hidden bg-white"><%- _pcAvatarLarge %></span>
+              <span class="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-emerald-400 border-[3px] border-white dark:border-slate-900"></span>
+            </span>
+            <h2 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight mt-6 text-brand-dark dark:text-white">Hey, I'm Alex.</h2>
+            <p class="text-[15px] text-brand-muted dark:text-slate-400 mt-2.5 max-w-md mx-auto leading-relaxed">Find leads, update your pipeline, add tasks, and write scripts in <strong class="font-semibold text-brand-dark dark:text-white"><%= _pcWsName %></strong>. Your chats are saved here.</p>
+            <p class="mt-8 mb-3 text-[10px] font-black uppercase tracking-widest text-brand-muted text-left sm:text-center">Try asking</p>
+            <div id="pcSuggestions" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-left">
+              <% _pcSuggestions.forEach(function (s) { %>
+              <button type="button" class="pc-suggest group flex items-center gap-3 rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3.5 py-3 min-h-[3.5rem] text-left text-sm font-semibold leading-snug text-brand-dark dark:text-slate-100<%= s.wide ? ' sm:col-span-2' : '' %>"<% if (s.prompt) { %> data-prompt="<%= s.prompt %>"<% } else { %> data-prefill="<%= s.prefill %>" data-caret="<%= s.caret %>"<% } %>>
+                <span class="pc-suggest-icon w-9 h-9 shrink-0 rounded-xl flex items-center justify-center" aria-hidden="true">
+                  <svg class="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="<%= _pcIcons[s.icon] %>" /></svg>
+                </span>
+                <span class="min-w-0 flex-1"><%= s.label %></span>
+              </button>
+              <% }); %>
+            </div>
           </div>
         </div>
-        <div id="pcMessages" class="max-w-3xl mx-auto px-3 md:px-6 py-4 space-y-5 hidden"></div>
-        <div id="pcTyping" class="max-w-3xl mx-auto px-3 md:px-6 pb-4 hidden" aria-label="Alex is typing">
-          <div class="flex gap-2.5 items-start">
-            <span class="shrink-0 w-8 h-8 rounded-full overflow-hidden border border-brand-border/60 bg-white shadow-sm" aria-hidden="true"><%- _pcAvatar %></span>
-            <div class="rounded-2xl rounded-tl-sm bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 px-4 py-3.5">
-              <div class="flex items-center gap-1.5">
-                <span class="inline-block w-1.5 h-1.5 bg-brand-muted rounded-full animate-bounce"></span>
-                <span class="inline-block w-1.5 h-1.5 bg-brand-muted rounded-full animate-bounce" style="animation-delay:0.15s"></span>
-                <span class="inline-block w-1.5 h-1.5 bg-brand-muted rounded-full animate-bounce" style="animation-delay:0.3s"></span>
-                <span id="pcTypingLabel" class="ml-2 text-[11px] font-bold text-brand-muted">Working on it…</span>
-              </div>
+        <div id="pcMessages" class="max-w-3xl mx-auto px-4 md:px-6 py-5 md:py-6 space-y-6 hidden"></div>
+        <div id="pcTyping" class="max-w-3xl mx-auto px-4 md:px-6 pb-5 hidden" aria-label="Alex is typing">
+          <div class="flex gap-3 items-center">
+            <span class="pc-avatar shrink-0 w-8 h-8 rounded-full overflow-hidden bg-white" aria-hidden="true"><%- _pcAvatar %></span>
+            <div class="inline-flex items-center gap-2.5 rounded-full bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 pl-4 pr-4 py-2.5 shadow-sm">
+              <span class="flex items-center gap-1 text-brand-muted dark:text-slate-400" aria-hidden="true">
+                <span class="pc-dot"></span>
+                <span class="pc-dot"></span>
+                <span class="pc-dot"></span>
+              </span>
+              <span id="pcTypingLabel" class="text-xs font-semibold text-brand-muted dark:text-slate-400">Working on it…</span>
             </div>
           </div>
         </div>
       </div>
 
-      <div class="shrink-0 border-t border-brand-border/70 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 px-3 md:px-6 pt-2.5 [padding-bottom:max(0.75rem,env(safe-area-inset-bottom))]">
-        <form id="pcForm" class="max-w-3xl mx-auto flex items-end gap-2" novalidate>
+      <div class="shrink-0 px-3 md:px-6 pt-2 md:pt-3 [padding-bottom:max(0.75rem,env(safe-area-inset-bottom))] md:pb-4">
+        <form id="pcForm" class="pc-composer max-w-3xl mx-auto flex items-end gap-1 rounded-[1.75rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800/90 p-1.5 pl-5" novalidate>
           <label for="pcInput" class="sr-only">Message Alex</label>
-          <textarea id="pcInput" rows="1" maxlength="6000" enterkeyhint="send" placeholder="Message Alex…" class="pc-composer-input flex-1 min-w-0 resize-none max-h-48 rounded-2xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-4 py-3 font-medium text-brand-dark dark:text-white placeholder:text-brand-muted/60 focus:outline-none focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/20"></textarea>
-          <button type="button" id="pcMic" class="alex-voice-btn shrink-0 w-12 h-12 rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 text-brand-dark dark:text-white hover:border-brand-yellow/60" aria-label="Dictate a message" title="Dictate" hidden></button>
-          <button type="submit" id="pcSend" class="btn-primary shrink-0 w-12 h-12 rounded-2xl inline-flex items-center justify-center shadow-sm hover:brightness-95 transition disabled:opacity-40 disabled:cursor-not-allowed" aria-label="Send message">
+          <textarea id="pcInput" rows="1" maxlength="6000" enterkeyhint="send" placeholder="Message Alex…" class="pc-composer-input flex-1 min-w-0 self-center resize-none max-h-48 border-0 bg-transparent px-0 py-[0.6rem] font-medium text-brand-dark dark:text-white placeholder:text-brand-muted placeholder:font-normal"></textarea>
+          <button type="button" id="pcMic" class="alex-voice-btn shrink-0 w-11 h-11 md:w-10 md:h-10 rounded-full text-brand-muted hover:text-brand-dark hover:bg-brand-cream dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/10" aria-label="Dictate a message" title="Dictate" hidden></button>
+          <button type="submit" id="pcSend" class="btn-primary shrink-0 w-11 h-11 md:w-10 md:h-10 rounded-full inline-flex items-center justify-center shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none" aria-label="Send message">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" /></svg>
           </button>
         </form>
-        <p class="max-w-3xl mx-auto mt-1.5 text-[10px] font-semibold text-brand-muted/70 dark:text-slate-500 text-center hidden md:block">Enter to send · Shift+Enter for a new line · Alex can make mistakes — check important changes.</p>
+        <p class="max-w-3xl mx-auto mt-2 text-[10px] font-medium text-brand-muted opacity-70 dark:text-slate-500 text-center hidden md:block">Enter to send · Shift+Enter for a new line · Alex can make mistakes — check important changes.</p>
       </div>
     </section>
   </main>
