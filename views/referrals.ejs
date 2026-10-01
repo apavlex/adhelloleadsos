@@ -39,10 +39,10 @@
     .ref-btn-quiet { background: transparent; color: #94a3b8; border: 0; padding-left: 0.35rem; padding-right: 0.35rem; }
     .ref-btn-quiet:hover { color: #e11d48; }
     .ref-btn-lg { padding: 0.62rem 1.05rem; font-size: 0.8rem; font-weight: 800; }
-    .ref-btn-dark { background: #0F172A; color: #fff; }
-    .ref-btn-dark:hover { background: #1e293b; }
-    html.dark .ref-btn-dark { background: #f8fafc; color: #0F172A; }
-    html.dark .ref-btn-dark:hover { background: #e2e8f0; }
+    .ref-btn-outline { background: #fff; color: var(--brand-yellow, #CA8A04); border-color: var(--brand-yellow, #CA8A04); }
+    .ref-btn-outline:hover { background: color-mix(in srgb, var(--brand-yellow, #FFD644) 10%, #fff); }
+    html.dark .ref-btn-outline { background: transparent; color: #f8fafc; }
+    html.dark .ref-btn-outline:hover { background: color-mix(in srgb, var(--brand-yellow, #FFD644) 18%, transparent); }
     .ref-primary-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; margin-top: 0.9rem; }
     .ref-btn-group { display: flex; flex-wrap: wrap; gap: 0.5rem; }
     @media (max-width: 639px) {
@@ -210,16 +210,16 @@
             <button type="button" class="ref-btn ref-btn-lg ref-btn-yellow" data-ref-track="received" data-lead-key="<%= partner.key %>" data-default-label="Lead received">Lead received</button>
           </div>
           <div class="ref-btn-group">
-            <button type="button" class="ref-btn ref-btn-lg ref-btn-dark" data-referral-action="sms" data-lead-key="<%= partner.key %>" data-title="<%= partner.title %>">SMS</button>
-            <button type="button" class="ref-btn ref-btn-lg ref-btn-dark" data-referral-action="email" data-lead-key="<%= partner.key %>" data-title="<%= partner.title %>">Email</button>
-            <a class="ref-btn ref-btn-lg ref-btn-dark" href="/direct-mail?keys=<%= encodeURIComponent(partner.key) %>">Direct Mail</a>
+            <button type="button" class="ref-btn ref-btn-lg ref-btn-outline" data-referral-action="sms" data-lead-key="<%= partner.key %>" data-title="<%= partner.title %>">SMS</button>
+            <button type="button" class="ref-btn ref-btn-lg ref-btn-outline" data-referral-action="email" data-lead-key="<%= partner.key %>" data-title="<%= partner.title %>">Email</button>
+            <a class="ref-btn ref-btn-lg ref-btn-outline" href="/direct-mail?keys=<%= encodeURIComponent(partner.key) %>">Direct Mail</a>
           </div>
         </div>
 
         <div class="ref-followup" data-ref-followup hidden>
           <span>Lead logged. Let <strong><%= partner.title %></strong> know:</span>
-          <button type="button" class="ref-btn ref-btn-dark" data-ref-followup-send="sms" data-lead-key="<%= partner.key %>">Text them</button>
-          <button type="button" class="ref-btn ref-btn-dark" data-ref-followup-send="email" data-lead-key="<%= partner.key %>">Email them</button>
+          <button type="button" class="ref-btn ref-btn-outline" data-ref-followup-send="sms" data-lead-key="<%= partner.key %>">Text them</button>
+          <button type="button" class="ref-btn ref-btn-outline" data-ref-followup-send="email" data-lead-key="<%= partner.key %>">Email them</button>
           <button type="button" class="ref-btn ref-btn-quiet" data-ref-followup-close>Not now</button>
         </div>
 
