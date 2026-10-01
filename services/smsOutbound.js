@@ -117,6 +117,9 @@ async function sendSmsToLead(opts) {
   const lead = opts.lead;
   const message = String(opts.message || '').trim();
   const integrationEnv = opts.integrationEnv || {};
+  if ((lead && lead.isDemo) || integrationEnv.DEMO_WORKSPACE === '1') {
+    throw new Error('This is a demo workspace, so texts are not actually sent.');
+  }
   const toRaw = String(opts.to || (lead && lead.phone) || '').trim();
   if (!toRaw || toRaw === 'N/A') throw new Error('Recipient phone number is required.');
   if (!message) throw new Error('Message body is required.');

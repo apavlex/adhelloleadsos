@@ -190,7 +190,7 @@ function patchFromLookup(phone, result) {
  * @returns {Promise<object|null>} patch fields or null when no phone / no refresh needed
  */
 async function refreshIfNeeded(lead, priorLead, opts) {
-  if (!lead || !hasUsablePhone(lead.phone)) return null;
+  if (!lead || lead.isDemo || !hasUsablePhone(lead.phone)) return null;
   if (!(opts && opts.force) && !needsRefresh(lead, priorLead)) return null;
 
   try {

@@ -107,6 +107,9 @@ async function ensureGhlContactId(lead, integrationEnv) {
 }
 
 async function sendSmsToLead({ lead, message, integrationEnv, toPhone }) {
+  if ((lead && lead.isDemo) || (integrationEnv && integrationEnv.DEMO_WORKSPACE === '1')) {
+    throw new Error('This is a demo workspace, so texts are not actually sent.');
+  }
   const phoneRaw = String(toPhone || (lead && lead.phone) || '').trim();
   if (!phoneRaw || phoneRaw === 'N/A') {
     throw new Error('Recipient phone number is required.');
@@ -426,6 +429,9 @@ async function syncGhlSmsToLead({ lead, integrationEnv }) {
 }
 
 async function sendEmailToLead({ lead, subject, body, html, integrationEnv, toEmail }) {
+  if ((lead && lead.isDemo) || (integrationEnv && integrationEnv.DEMO_WORKSPACE === '1')) {
+    throw new Error('This is a demo workspace, so emails are not actually sent.');
+  }
   const emailRaw = String(toEmail || resolveLeadRecipientEmail(lead) || '').trim();
   if (!emailRaw || emailRaw === 'N/A' || !emailRaw.includes('@')) {
     throw new Error(

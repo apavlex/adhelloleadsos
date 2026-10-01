@@ -191,6 +191,7 @@ async function withWorkspace(req, res, next) {
             name: w.name || 'Workspace',
             slug: w.slug || '',
             accentColor: w.accentColor || '#CA8A04',
+            isDemo: !!w.isDemo,
           });
         }
         if (sk) _switcherCache.set(sk, { at: Date.now(), summaries });
@@ -217,5 +218,9 @@ async function withWorkspace(req, res, next) {
     next(err);
   }
 }
+
+withWorkspace.clearSwitcherCache = (email) => {
+  _switcherCache.delete(switcherCacheKey(email));
+};
 
 module.exports = withWorkspace;

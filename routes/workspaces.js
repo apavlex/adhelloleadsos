@@ -12,6 +12,8 @@ const { normalizeWorkspaceAccentHex } = require('../lib/workspaceAccent');
 const workspaceScriptBootstrap = require('../services/workspaceScriptBootstrap');
 const { chatCompletion, parseLlmJson, providersForChain } = require('../services/llmClient');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
+const demoWorkspace = require('../services/demoWorkspace');
+const withWorkspace = require('../middleware/withWorkspace');
 
 const router = express.Router();
 
@@ -712,6 +714,25 @@ router.post('/:workspaceId/settings/pipeline/replace-mapped', express.json(), as
   } catch (e) {
     console.warn('[pipeline/replace-mapped]', e.message);
     return res.json({ success: false, error: e.message || 'Replace failed.' });
+  }
+});
+
+/** Build (or rebuild) the fake client-call demo workspace and switch to it. */
+router.post('/demo', express.urlencoded({ extended: true }), async (req, res, next) => {
+  try {
+    const email = userEmail(req);
+    if (!email) return res.redirect('/auth/login');
+    const em = workspaceBootstrap.normEmail(email);
+    const { workspaceId } = await demoWorkspace.createDemoWorkspace(em, { allocateSlug: allocateUniqueSlug });
+    await dbService.saveUserPrefs(em, { activeWorkspaceId: workspaceId });
+    withWorkspace.clearSwitcherCache(email);
+    if (req.session) {
+      req.session.activeWorkspaceId = workspaceId;
+      req.session.workspaceId = workspaceId;
+    }
+    res.redirect('/today');
+  } catch (e) {
+    next(e);
   }
 });
 

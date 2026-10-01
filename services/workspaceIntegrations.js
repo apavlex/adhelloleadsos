@@ -156,8 +156,26 @@ async function getResolvedIntegrationEnv(workspaceId) {
       out[envName] = typeof ev === 'string' ? ev : ev != null ? String(ev) : '';
     }
   }
+  if (ws && ws.isDemo) {
+    // Non-empty so ghlClient doesn't fall back to the server's real keys; providers reject it.
+    for (const envName of DEMO_BLOCKED_ENV) out[envName] = 'demo-disabled';
+    out.DEMO_WORKSPACE = '1';
+  }
   return out;
 }
+
+/** Messaging / CRM credentials a demo workspace must never use (fake leads, client-facing demos). */
+const DEMO_BLOCKED_ENV = [
+  'GHL_API_KEY',
+  'GHL_LOCATION_ID',
+  'GHL_AGENCY_API_KEY',
+  'GHL_COMPANY_ID',
+  'GHL_SMS_FROM_NUMBER',
+  'GHL_EMAIL_FROM',
+  'COMMS_API_KEY',
+  'SAPERLY_API_KEY',
+  'LOB_API_KEY',
+];
 
 /**
  * Build next encrypted payload from POST body + existing secrets (empty field = keep previous).

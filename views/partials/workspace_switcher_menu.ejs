@@ -15,6 +15,7 @@
   <button type="submit" class="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2.5 transition-colors <%= isActive ? 'bg-brand-yellow/15 text-brand-dark dark:text-white font-bold' : 'text-brand-dark dark:text-white hover:bg-brand-cream/60 dark:hover:bg-white/10' %>" role="menuitem"<%= isActive ? ' aria-current="true"' : '' %>>
     <span class="w-2.5 h-2.5 rounded-full shrink-0 ring-2 ring-white dark:ring-slate-900" style="background-color: <%= w.accentColor || '#CA8A04' %>" aria-hidden="true"></span>
     <span class="truncate flex-1 min-w-0"><%= w.name %></span>
+    <% if (w.isDemo) { %><span class="shrink-0 rounded-full bg-sky-100 dark:bg-sky-900/40 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-sky-700 dark:text-sky-300">Demo</span><% } %>
     <% if (isActive) { %>
     <svg class="w-4 h-4 shrink-0 text-brand-yellow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
     <% } %>
@@ -23,5 +24,9 @@
 <% }) %>
 <div class="border-t border-brand-border dark:border-white/10 mt-1 pt-1 px-1">
   <a href="/workspaces/new" class="block px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white hover:bg-brand-cream/60 dark:hover:bg-white/10 rounded-xl">+ Create workspace</a>
+  <% const _hasDemo = _menuList.some(function (w) { return w.isDemo; }); %>
+  <form method="post" action="/workspaces/demo" class="block"<% if (_hasDemo) { %> onsubmit="return confirm('Rebuild the demo workspace with fresh sample data? Changes you made in the current demo are cleared.');"<% } %>>
+    <button type="submit" class="w-full text-left px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white hover:bg-brand-cream/60 dark:hover:bg-white/10 rounded-xl" title="Fake contractors, territories, referrals and cadences to show on client calls. Nothing is ever sent from it."><%= _hasDemo ? '↻ Reset demo workspace' : '+ Build demo workspace' %></button>
+  </form>
 </div>
 <p class="px-4 pt-2 pb-1 text-[10px] text-brand-muted leading-relaxed">Each workspace keeps its own leads, tasks, reports, and settings.</p>

@@ -163,7 +163,7 @@
 
   <script>
     window.__ACTIVITY_PAGE = {
-      filter: <%= JSON.stringify(_active) %>,
+      filter: <%- JSON.stringify(String(_active).replace(/[^a-z_-]/gi, '')) %>,
       offset: <%= _shown %>,
       total: <%= _total %>,
       totalEvents: <%= _totalEvents %>,

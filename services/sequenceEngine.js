@@ -309,7 +309,7 @@ async function runDueSequenceSteps() {
   let n = 0;
   for (const lead of leads) {
     const st = lead.sequenceState;
-    if (!st || st.status !== 'active') continue;
+    if (!st || st.status !== 'active' || lead.isDemo) continue;
     if (!st.nextDueAt || Date.parse(st.nextDueAt) > Date.now()) continue;
     const ran = await processLeadSequence(lead);
     if (ran) n += 1;
