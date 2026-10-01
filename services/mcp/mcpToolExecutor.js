@@ -5,6 +5,7 @@ const crm = require('./mcpCrmService');
 const ops = require('./mcpPavlexOps');
 const leadGen = require('./mcpLeadGen');
 const leadActions = require('./mcpLeadActions');
+const networkTools = require('./mcpNetwork');
 const mcpLogger = require('./mcpLogger');
 const pavlexLogger = require('../pavlex/pavlexLogger');
 
@@ -39,6 +40,7 @@ const TOOL_NAMES = [
   'update_task',
   'list_followups',
   'suggest_daily_leads',
+  ...networkTools.NETWORK_TOOL_NAMES,
 ];
 
 async function executeCrmTool(ctx, toolName, args) {
@@ -146,6 +148,10 @@ async function executeCrmTool(ctx, toolName, args) {
         result = await ops.suggestDailyLeads(ctx, input);
         break;
       default: {
+        if (networkTools.NETWORK_TOOL_NAMES.includes(name)) {
+          result = await networkTools.executeNetworkTool(ctx, name, input);
+          break;
+        }
         const err = new Error(`Unknown tool: ${name}`);
         err.code = 'UNKNOWN_TOOL';
         throw err;
@@ -461,6 +467,7 @@ function getOpenAiFunctionTools() {
   return [
     ...LEAD_GEN_TOOL_SCHEMAS.map((t) => ({ type: 'function', function: { ...t } })),
     ...CRM_ACTION_TOOL_SCHEMAS.map((t) => ({ type: 'function', function: { ...t } })),
+    ...networkTools.openAiFunctionTools(),
     {
       type: 'function',
       function: {

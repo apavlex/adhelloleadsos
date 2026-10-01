@@ -2,13 +2,15 @@
  * Builds an MCP server instance with CEO CRM tools registered.
  */
 const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
-const { z } = require('zod');
+// The MCP SDK validates with zod v3; schemas built with the app's zod v4 can't be parsed by it.
+const { z } = require('zod/v3');
 const {
   executeCrmTool,
   TOOL_NAMES,
   getLeadGenToolSchemas,
   getCrmActionToolSchemas,
 } = require('./mcpToolExecutor');
+const networkTools = require('./mcpNetwork');
 const mcpLogger = require('./mcpLogger');
 
 function jsonToolResult(payload) {
@@ -51,14 +53,75 @@ const folderRefSchema = z
     message: 'folder_id or folder_name is required.',
   });
 
+const READ_ONLY_TOOLS = new Set([
+  'list_folders',
+  'get_folder',
+  'count_leads',
+  'list_leads',
+  'get_lead',
+  'search_leads',
+  'get_search_status',
+  'list_tags',
+  'get_ghl_sync_status',
+  'list_team_members',
+  'list_opportunity_pipelines',
+  'get_opportunity_board',
+  'list_tasks',
+  'list_followups',
+  'suggest_daily_leads',
+  ...networkTools.READ_ONLY_NETWORK_TOOLS,
+]);
+
+// Overwrites or removes data, or pushes it somewhere it can't be pulled back from.
+const DESTRUCTIVE_TOOLS = new Set([
+  'update_lead',
+  'bulk_update_leads',
+  'sync_leads_to_ghl',
+  'update_task',
+  ...networkTools.DESTRUCTIVE_NETWORK_TOOLS,
+]);
+
+// Reaches outside this app: paid lead searches, enrichment, GHL, texting businesses.
+const OPEN_WORLD_TOOLS = new Set([
+  'find_leads',
+  'enrich_lead',
+  'sync_leads_to_ghl',
+  ...networkTools.OPEN_WORLD_NETWORK_TOOLS,
+]);
+
+function toolAnnotations(name) {
+  if (READ_ONLY_TOOLS.has(name)) return { readOnlyHint: true, openWorldHint: false };
+  return {
+    readOnlyHint: false,
+    destructiveHint: DESTRUCTIVE_TOOLS.has(name),
+    idempotentHint: name === 'create_folder',
+    openWorldHint: OPEN_WORLD_TOOLS.has(name),
+  };
+}
+
+/** The SDK (1.12) wants a raw zod shape, not a z.object(); a full schema publishes `{}`. */
+function inputShape(schema) {
+  let current = schema;
+  while (current && current._def && current._def.typeName === 'ZodEffects') current = current._def.schema;
+  if (current && current.shape && typeof current.shape === 'object') return current.shape;
+  return current && !current._def ? current : {};
+}
+
 /**
- * @param {{ workspaceId: string, userEmail?: string }} ctx
+ * @param {{ workspaceId: string, userEmail?: string, baseUrl?: string }} ctx
  */
 function createCrmMcpServer(ctx) {
   const server = new McpServer({
     name: 'adhello-ceo-crm',
-    version: '1.3.0',
+    version: '1.4.0',
   });
+
+  const register = (name, config, handler) =>
+    server.registerTool(
+      name,
+      { ...config, inputSchema: inputShape(config.inputSchema), annotations: toolAnnotations(name) },
+      handler,
+    );
 
   mcpLogger.toolsDiscovered({
     workspaceId: ctx.workspaceId,
@@ -66,7 +129,7 @@ function createCrmMcpServer(ctx) {
     source: 'mcp_server',
   });
 
-  server.registerTool(
+  register(
     'list_folders',
     {
       description: 'List all lead folders in the active workspace with lead counts.',
@@ -75,7 +138,7 @@ function createCrmMcpServer(ctx) {
     async () => runTool(ctx, 'list_folders', {}),
   );
 
-  server.registerTool(
+  register(
     'get_folder',
     {
       description: 'Get folder metadata and lead count by folder_id or folder name.',
@@ -84,7 +147,7 @@ function createCrmMcpServer(ctx) {
     async (args) => runTool(ctx, 'get_folder', args),
   );
 
-  server.registerTool(
+  register(
     'count_leads',
     {
       description: 'Count leads in a folder by folder_id or folder name.',
@@ -93,7 +156,7 @@ function createCrmMcpServer(ctx) {
     async (args) => runTool(ctx, 'count_leads', args),
   );
 
-  server.registerTool(
+  register(
     'list_leads',
     {
       description:
@@ -110,7 +173,7 @@ function createCrmMcpServer(ctx) {
     async (args) => runTool(ctx, 'list_leads', args),
   );
 
-  server.registerTool(
+  register(
     'create_folder',
     {
       description:
@@ -126,7 +189,7 @@ function createCrmMcpServer(ctx) {
     async (args) => runTool(ctx, 'create_folder', args),
   );
 
-  server.registerTool(
+  register(
     'rename_folder',
     {
       description: 'Rename a lead folder.',
@@ -139,7 +202,7 @@ function createCrmMcpServer(ctx) {
     async (args) => runTool(ctx, 'rename_folder', args),
   );
 
-  server.registerTool(
+  register(
     'find_leads',
     {
       description:
@@ -160,7 +223,7 @@ function createCrmMcpServer(ctx) {
     async (args) => runTool(ctx, 'find_leads', args),
   );
 
-  server.registerTool(
+  register(
     'get_search_status',
     {
       description: 'Status of background lead searches started by find_leads.',
@@ -169,7 +232,7 @@ function createCrmMcpServer(ctx) {
     async (args) => runTool(ctx, 'get_search_status', args),
   );
 
-  server.registerTool(
+  register(
     'bookmark_leads',
     {
       description: 'Bookmark or unbookmark up to 100 leads.',
@@ -181,7 +244,7 @@ function createCrmMcpServer(ctx) {
     async (args) => runTool(ctx, 'bookmark_leads', args),
   );
 
-  server.registerTool(
+  register(
     'save_script',
     {
       description:
@@ -200,7 +263,7 @@ function createCrmMcpServer(ctx) {
     async (args) => runTool(ctx, 'save_script', args),
   );
 
-  server.registerTool(
+  register(
     'move_opportunities',
     {
       description: 'Move up to 100 leads onto an Opportunity pipeline stage (default Review/first stage).',
@@ -215,7 +278,7 @@ function createCrmMcpServer(ctx) {
     async (args) => runTool(ctx, 'move_opportunities', args),
   );
 
-  server.registerTool(
+  register(
     'list_tags',
     {
       description: 'List workspace lead tags with lead counts.',
@@ -224,7 +287,7 @@ function createCrmMcpServer(ctx) {
     async () => runTool(ctx, 'list_tags', {}),
   );
 
-  server.registerTool(
+  register(
     'tag_leads',
     {
       description: 'Add and/or remove tags (by name) on up to 100 leads; missing tags in add are created.',
@@ -237,7 +300,7 @@ function createCrmMcpServer(ctx) {
     async (args) => runTool(ctx, 'tag_leads', args),
   );
 
-  server.registerTool(
+  register(
     'sync_leads_to_ghl',
     {
       description:
@@ -249,7 +312,7 @@ function createCrmMcpServer(ctx) {
     async (args) => runTool(ctx, 'sync_leads_to_ghl', args),
   );
 
-  server.registerTool(
+  register(
     'get_ghl_sync_status',
     {
       description: 'Progress of a background GHL sync started by sync_leads_to_ghl.',
@@ -258,7 +321,7 @@ function createCrmMcpServer(ctx) {
     async (args) => runTool(ctx, 'get_ghl_sync_status', args),
   );
 
-  server.registerTool(
+  register(
     'list_team_members',
     {
       description: 'List workspace members (name, email, role) for assigning tasks.',
@@ -267,7 +330,7 @@ function createCrmMcpServer(ctx) {
     async () => runTool(ctx, 'list_team_members', {}),
   );
 
-  server.registerTool(
+  register(
     'get_lead',
     {
       description: 'Fetch the full lead record by lead id/key (status, stage, contact fields).',
@@ -278,7 +341,7 @@ function createCrmMcpServer(ctx) {
     async ({ lead_id }) => runTool(ctx, 'get_lead', { lead_id }),
   );
 
-  server.registerTool(
+  register(
     'update_lead',
     {
       description:
@@ -293,7 +356,7 @@ function createCrmMcpServer(ctx) {
     async ({ lead_id, fields }) => runTool(ctx, 'update_lead', { lead_id, fields }),
   );
 
-  server.registerTool(
+  register(
     'bulk_update_leads',
     {
       description: 'Batch update up to 50 leads. Each item needs lead_id and fields.',
@@ -312,7 +375,7 @@ function createCrmMcpServer(ctx) {
     async ({ updates }) => runTool(ctx, 'bulk_update_leads', { updates }),
   );
 
-  server.registerTool(
+  register(
     'search_leads',
     {
       description: 'Search leads across all folders by company, email, phone, website, or tags.',
@@ -325,7 +388,7 @@ function createCrmMcpServer(ctx) {
     async ({ query, limit, offset }) => runTool(ctx, 'search_leads', { query, limit, offset }),
   );
 
-  server.registerTool(
+  register(
     'list_opportunity_pipelines',
     {
       description: 'List opportunity pipelines, stages, active pipeline, and templates.',
@@ -334,7 +397,7 @@ function createCrmMcpServer(ctx) {
     async () => runTool(ctx, 'list_opportunity_pipelines', {}),
   );
 
-  server.registerTool(
+  register(
     'get_opportunity_board',
     {
       description: 'Get prospecting stages and sample leads on an opportunity pipeline.',
@@ -346,7 +409,7 @@ function createCrmMcpServer(ctx) {
     async (args) => runTool(ctx, 'get_opportunity_board', args),
   );
 
-  server.registerTool(
+  register(
     'create_opportunity_pipeline',
     {
       description: 'Create a new opportunity pipeline from a template.',
@@ -358,7 +421,7 @@ function createCrmMcpServer(ctx) {
     async (args) => runTool(ctx, 'create_opportunity_pipeline', args),
   );
 
-  server.registerTool(
+  register(
     'move_opportunity',
     {
       description: 'Move a lead onto a pipeline stage (stage_id or stage_name; default Review/first stage).',
@@ -373,7 +436,7 @@ function createCrmMcpServer(ctx) {
     async (args) => runTool(ctx, 'move_opportunity', args),
   );
 
-  server.registerTool(
+  register(
     'enrich_lead',
     {
       description: 'Hunt for email/phone enrichment on a lead.',
@@ -385,7 +448,7 @@ function createCrmMcpServer(ctx) {
     async (args) => runTool(ctx, 'enrich_lead', args),
   );
 
-  server.registerTool(
+  register(
     'list_tasks',
     {
       description: "List manual tasks for the signed-in user or a teammate's list (assignee).",
@@ -399,7 +462,7 @@ function createCrmMcpServer(ctx) {
     async (args) => runTool(ctx, 'list_tasks', args),
   );
 
-  server.registerTool(
+  register(
     'create_task',
     {
       description:
@@ -416,7 +479,7 @@ function createCrmMcpServer(ctx) {
     async (args) => runTool(ctx, 'create_task', args),
   );
 
-  server.registerTool(
+  register(
     'update_task',
     {
       description: "Update a task (yours or a teammate's); assignee reassigns it.",
@@ -433,7 +496,7 @@ function createCrmMcpServer(ctx) {
     async (args) => runTool(ctx, 'update_task', args),
   );
 
-  server.registerTool(
+  register(
     'list_followups',
     {
       description: 'List upcoming or overdue scheduled follow-up tasks.',
@@ -445,7 +508,7 @@ function createCrmMcpServer(ctx) {
     async (args) => runTool(ctx, 'list_followups', args),
   );
 
-  server.registerTool(
+  register(
     'suggest_daily_leads',
     {
       description:
@@ -457,6 +520,10 @@ function createCrmMcpServer(ctx) {
     },
     async (args) => runTool(ctx, 'suggest_daily_leads', args),
   );
+
+  for (const tool of networkTools.NETWORK_TOOLS) {
+    register(tool.name, { description: tool.description, inputSchema: tool.schema }, async (args) => runTool(ctx, tool.name, args));
+  }
 
   return server;
 }
@@ -470,14 +537,15 @@ function getOpenAiToolManifest() {
 
   return {
     name: 'adhello-ceo-crm',
-    version: '1.3.0',
+    version: '1.4.0',
     description:
-      'AdHello CEO Command Center CRM — lead folders, lead searches, leads, tags, bookmarks, scripts, opportunities, GHL sync, enrichment, team tasks, and follow-ups.',
+      'AdHello CEO Command Center CRM — lead folders, lead searches, leads, tags, bookmarks, scripts, opportunities, GHL sync, enrichment, team tasks, follow-ups, and the referral network (members, referrals, applications, review stats).',
     authentication: {
-      type: 'bearer',
+      type: 'oauth2',
       header: 'Authorization',
+      discovery: '/.well-known/oauth-protected-resource',
       description:
-        'Use Authorization: Bearer <token>. Chat sessions use short-lived session tokens; long-lived tokens can be generated in Workspace → Integrations.',
+        'ChatGPT and Claude connectors sign in with OAuth (discovered automatically). Other clients can send Authorization: Bearer <token> with a token from Workspace → Integrations.',
     },
     tools: [
       {
@@ -720,6 +788,11 @@ function getOpenAiToolManifest() {
           additionalProperties: false,
         },
       },
+      ...networkTools.openAiFunctionTools().map(({ function: fn }) => ({
+        name: fn.name,
+        description: fn.description,
+        input_schema: fn.parameters,
+      })),
     ],
   };
 }

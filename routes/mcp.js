@@ -7,6 +7,7 @@ const { StreamableHTTPServerTransport } = require('@modelcontextprotocol/sdk/ser
 const { mcpAuthContext } = require('../services/mcp/mcpAuth');
 const { mcpRateLimit } = require('../services/mcp/mcpRateLimit');
 const { createCrmMcpServer, getOpenAiToolManifest } = require('../services/mcp/mcpServerFactory');
+const { getPublicBaseUrl } = require('../lib/publicBaseUrl');
 
 const router = express.Router();
 
@@ -26,6 +27,7 @@ async function handleMcpRequest(req, res) {
   const ctx = {
     workspaceId: req.workspaceId,
     userEmail: req.mcpUserEmail || '',
+    baseUrl: getPublicBaseUrl(req),
   };
 
   const transport = new StreamableHTTPServerTransport({
@@ -34,12 +36,13 @@ async function handleMcpRequest(req, res) {
   });
 
   const server = createCrmMcpServer(ctx);
+  // handleRequest returns before tool handlers reply; closing earlier ends the response empty.
+  res.on('close', () => {
+    transport.close().catch(() => {});
+    server.close().catch(() => {});
+  });
   await server.connect(transport);
-  try {
-    await transport.handleRequest(req, res, req.body);
-  } finally {
-    await server.close().catch(() => {});
-  }
+  await transport.handleRequest(req, res, req.body);
 }
 
 router.post('/', mcpAuthContext, mcpRateLimit, async (req, res, next) => {

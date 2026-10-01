@@ -52,6 +52,7 @@ const {
   revokeWorkspaceMcpToken,
   getWorkspaceMcpTokenStatus,
 } = require('../services/mcp/mcpAuth');
+const mcpOAuth = require('../services/mcp/mcpOAuth');
 const { CARS_REACH_SPECIALTIES } = require('../config/carsReachScripts');
 const { UPWORK_PROPOSAL_SERVICES } = require('../config/upworkProposalServices');
 const signalwire = require('../services/signalwire');
@@ -320,6 +321,9 @@ async function loadWorkspacePageLocals(req) {
       text: 'Saved. These keys apply to every member of this workspace (including admins) for Maps search, Enhance, and ingest auto-enrich.',
     };
   }
+  if (q === 'ai_app_disconnected') {
+    integrationsMessage = { type: 'ok', text: 'Disconnected. That AI app can no longer reach this workspace.' };
+  }
   if (q === 'need_secret') {
     integrationsMessage = {
       type: 'err',
@@ -384,6 +388,7 @@ async function loadWorkspacePageLocals(req) {
     .trim()
     .toLowerCase();
   const mcpTokenStatus = getWorkspaceMcpTokenStatus(ws);
+  const mcpConnectedApps = await mcpOAuth.listGrantsForWorkspace(req.workspaceId).catch(() => []);
   const mcpEndpoint = base ? `${base}/ceo/mcp` : '';
   const mcpManifestUrl = base ? `${base}/ceo/mcp/manifest.json` : '';
   const openrouterConfigured = isOpenRouterConfigured(resolvedEnv);
@@ -406,6 +411,7 @@ async function loadWorkspacePageLocals(req) {
     ghlStatus,
     ghlSyncDirection,
     mcpTokenStatus,
+    mcpConnectedApps,
     mcpEndpoint,
     mcpManifestUrl,
     openrouterConfigured,
@@ -698,6 +704,22 @@ router.delete('/integrations/mcp/token', async (req, res, next) => {
     }
     const result = await revokeWorkspaceMcpToken(req.workspaceId);
     res.json({ success: true, ...result });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/integrations/mcp/apps/:grantId/revoke', async (req, res, next) => {
+  try {
+    const grants = await mcpOAuth.listGrantsForWorkspace(req.workspaceId);
+    const grant = grants.find((g) => g.id === req.params.grantId);
+    const own = grant && grant.userEmail === workspaceService.userEmail(req).toLowerCase();
+    if (!grant || !(req.canManageWorkspace || own)) {
+      return res.status(403).json({ success: false, error: 'Only workspace admins or the person who connected it can disconnect this app.' });
+    }
+    await mcpOAuth.revokeGrantForWorkspace(req.workspaceId, grant.id);
+    if (/application\/json/i.test(String(req.get('accept') || ''))) return res.json({ success: true });
+    return res.redirect('/workspace/integrations?integrations=ai_app_disconnected#mcp-integration');
   } catch (err) {
     next(err);
   }

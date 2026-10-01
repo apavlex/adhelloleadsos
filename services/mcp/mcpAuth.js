@@ -6,6 +6,8 @@ const dbService = require('../database');
 const attachWorkspace = require('../../middleware/withWorkspace');
 const { userEmail } = require('../workspaceService');
 const { verifyMcpSessionToken } = require('./mcpSessionToken');
+const mcpOAuth = require('./mcpOAuth');
+const { getPublicBaseUrl } = require('../../lib/publicBaseUrl');
 const mcpLogger = require('./mcpLogger');
 
 function sha256(value) {
@@ -29,6 +31,17 @@ function readBearerToken(req) {
 async function validateMcpBearerToken(token) {
   const raw = String(token || '').trim();
   if (!raw) return null;
+
+  if (raw.startsWith(mcpOAuth.ACCESS_PREFIX)) {
+    const oauthAuth = await mcpOAuth.validateAccessToken(raw);
+    if (!oauthAuth) return null;
+    return {
+      workspaceId: oauthAuth.workspaceId,
+      workspace: oauthAuth.workspace,
+      authMethod: 'oauth',
+      userEmail: oauthAuth.userEmail,
+    };
+  }
 
   const sessionAuth = verifyMcpSessionToken(raw);
   if (sessionAuth) {
@@ -130,8 +143,10 @@ async function mcpAuthContext(req, res, next) {
       });
     }
 
+    const resourceMetadata = `${getPublicBaseUrl(req)}/.well-known/oauth-protected-resource`;
     const bearer = readBearerToken(req);
     if (!bearer) {
+      res.set('WWW-Authenticate', `Bearer resource_metadata="${resourceMetadata}"`);
       return res.status(401).json({
         jsonrpc: '2.0',
         error: { code: -32001, message: 'Sign in or provide Authorization: Bearer <MCP token>.' },
@@ -141,6 +156,7 @@ async function mcpAuthContext(req, res, next) {
     const auth = await validateMcpBearerToken(bearer);
     if (!auth) {
       mcpLogger.authError({ reason: 'invalid_bearer', path: req.path });
+      res.set('WWW-Authenticate', `Bearer error="invalid_token", resource_metadata="${resourceMetadata}"`);
       return res.status(401).json({
         jsonrpc: '2.0',
         error: { code: -32001, message: 'Invalid MCP access token.' },

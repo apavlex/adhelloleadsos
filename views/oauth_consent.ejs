@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <title><%= connector ? 'Connect ' + connector.name : 'Connection problem' %> - AdHello.ai | Leads</title>
+  <link rel="icon" href="/images/adhello-app-icon.png" type="image/png">
+  <link rel="stylesheet" href="/css/custom.css?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>">
+  <%- include('partials/tailwind_css', { twVariant: 'standalone' }) %>
+</head>
+<body class="bg-[#FDFBF7] min-h-screen w-full font-sans">
+  <main class="min-h-screen w-full flex flex-col items-center justify-center px-5 py-10">
+    <div class="max-w-md w-full bg-white rounded-[2rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.08)] p-8 sm:p-10">
+      <div class="flex items-center gap-3 mb-8">
+        <img src="/images/adhello-app-icon.png" alt="AdHello" width="40" height="40" class="w-10 h-10 rounded-xl border border-slate-100" />
+        <span class="text-[11px] font-black uppercase tracking-[0.15em] text-slate-500">AdHello Leads</span>
+      </div>
+
+      <% if (error) { %>
+        <h1 class="font-display font-extrabold text-2xl text-[#0F172A] mb-3">Couldn't connect</h1>
+        <p class="text-sm text-slate-600 leading-relaxed"><%= error %></p>
+        <a href="/today" class="mt-8 inline-flex h-11 items-center justify-center rounded-full border border-slate-200 px-6 text-sm font-bold text-[#0F172A] hover:bg-slate-50">Open AdHello</a>
+      <% } else { %>
+        <h1 class="font-display font-extrabold text-2xl text-[#0F172A] leading-tight">Connect <%= connector.name %> to your workspace</h1>
+        <p class="mt-2 text-sm text-slate-500">Signed in as <strong class="text-[#0F172A]"><%= email %></strong></p>
+
+        <form method="post" action="/oauth/authorize" class="mt-7 space-y-6">
+          <input type="hidden" name="txn" value="<%= txn %>">
+
+          <div>
+            <label for="workspaceId" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Workspace</label>
+            <% if (workspaces.length > 1) { %>
+              <select id="workspaceId" name="workspaceId" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-[#0F172A] focus:border-[#FFDB3A] focus:ring-[#FFDB3A]">
+                <% workspaces.forEach(function (ws) { %>
+                  <option value="<%= ws.id %>" <%= ws.id === selected ? 'selected' : '' %>><%= ws.name %></option>
+                <% }); %>
+              </select>
+            <% } else { %>
+              <input type="hidden" name="workspaceId" value="<%= workspaces[0].id %>">
+              <p class="rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-[#0F172A]"><%= workspaces[0].name %></p>
+            <% } %>
+          </div>
+
+          <div>
+            <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2"><%= connector.name %> will be able to</p>
+            <ul class="space-y-2 text-sm text-slate-700">
+              <li class="flex gap-2"><span class="text-emerald-600 font-black">&check;</span> See and update your leads, folders, tags, opportunities, and tasks</li>
+              <li class="flex gap-2"><span class="text-emerald-600 font-black">&check;</span> Run new lead searches and contact lookups (these use your search credits)</li>
+              <li class="flex gap-2"><span class="text-emerald-600 font-black">&check;</span> Send referrals, approve network applicants, and text members their app link</li>
+              <li class="flex gap-2"><span class="text-emerald-600 font-black">&check;</span> Sync leads to GoHighLevel</li>
+            </ul>
+            <p class="mt-3 text-xs text-slate-500 leading-relaxed">It acts as you, with your role in this workspace. Disconnect it anytime in Settings &rarr; Integrations.</p>
+          </div>
+
+          <div class="flex flex-col-reverse sm:flex-row gap-3 pt-1">
+            <button type="submit" name="decision" value="deny" class="h-12 flex-1 rounded-full border border-slate-200 text-sm font-bold text-[#0F172A] hover:bg-slate-50">Cancel</button>
+            <button type="submit" name="decision" value="allow" class="h-12 flex-1 rounded-full bg-[#FFDB3A] hover:bg-[#FFD600] text-sm font-bold text-[#111827] shadow-lg shadow-yellow-400/20">Allow</button>
+          </div>
+          <% if (connector.redirectHost) { %>
+            <p class="text-center text-[11px] text-slate-400">You'll go back to <%= connector.redirectHost %></p>
+          <% } %>
+        </form>
+      <% } %>
+    </div>
+  </main>
+</body>
+</html>

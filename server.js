@@ -69,6 +69,7 @@ const dbService = require('./services/database');
 const ceoRoutes = require('./routes/ceo');
 const mcpRoutes = require('./routes/mcp');
 const pavlexRoutes = require('./routes/pavlex');
+const oauthRoutes = require('./routes/oauth');
 const pavlexChatPageRoutes = require('./routes/pavlexChatPage');
 const voiceTranscribeRoutes = require('./routes/voiceTranscribe');
 const debugRoutes = require('./routes/debug');
@@ -586,6 +587,8 @@ app.post('/api/leads/import-real-estate', express.json({ limit: '5mb' }), async 
 // MCP server — authenticated via session or Bearer token (must be reachable by OpenAI)
 app.use('/ceo/mcp', mcpRoutes);
 
+// "Sign in with AdHello" for ChatGPT / Claude MCP connectors (discovery, registration, consent, tokens)
+app.use('/', oauthRoutes);
 // Protected routes (IA Phase 1: iaNav + canonical redirects + /today)
 app.use(ensureAuthenticated);
 app.use(attachWorkspace);

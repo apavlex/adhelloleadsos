@@ -695,10 +695,11 @@
       <section id="mcp-integration" class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-24">
         <header class="flex flex-wrap items-start justify-between gap-3">
           <div class="min-w-0">
-            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">ChatGPT / MCP</h3>
+            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">ChatGPT, Claude &amp; Gemini (MCP)</h3>
             <p class="text-xs text-brand-muted mt-1 leading-relaxed max-w-2xl">
-              Connect ChatGPT or other MCP clients to this workspace’s CRM — list folders and leads, search, read details, and update pipeline fields.
-              Generate a workspace access token below, then add the MCP URL in your client with <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">Authorization: Bearer &lt;token&gt;</code>.
+              Work this workspace from ChatGPT, Claude, or any MCP client — leads, folders, lead searches, opportunities, tasks, GHL sync, and your referral network.
+              In ChatGPT or Claude, add a custom connector with the MCP endpoint below; it asks you to sign in to AdHello and pick a workspace — no token needed.
+              Clients that only take a header (Gemini CLI, scripts) can use an access token with <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">Authorization: Bearer &lt;token&gt;</code>.
             </p>
           </div>
         </header>
@@ -728,8 +729,26 @@
           </div>
         </div>
 
+        <% const _mcpApps = (typeof mcpConnectedApps !== 'undefined' && Array.isArray(mcpConnectedApps)) ? mcpConnectedApps : []; %>
         <div class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 px-4 py-3 space-y-3">
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Access token</p>
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Connected AI apps</p>
+          <% if (!_mcpApps.length) { %>
+          <p class="text-xs text-brand-muted leading-relaxed">None yet. When someone connects ChatGPT or Claude to this workspace, it shows up here.</p>
+          <% } %>
+          <% _mcpApps.forEach(function (app) { %>
+          <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white/80 dark:bg-slate-900 px-3 py-2">
+            <div class="min-w-0">
+              <p class="text-sm font-semibold text-brand-dark dark:text-white truncate"><%= app.clientName %></p>
+              <p class="text-[11px] text-brand-muted">Connected by <%= app.userEmail %> · <%= wsDateTime(app.createdAt) %><% if (app.lastUsedAt) { %> · last used <%= wsDateTime(app.lastUsedAt) %><% } %></p>
+            </div>
+            <%# Inside the integrations <form>: a type=submit here would become the Enter-key default, so post a detached form. %>
+            <button type="button" data-action="/workspace/integrations/mcp/apps/<%= encodeURIComponent(app.id) %>/revoke" onclick="if (confirm('Disconnect this AI app from the workspace?')) { var f = document.createElement('form'); f.method = 'post'; f.action = this.dataset.action; document.body.appendChild(f); f.submit(); }" class="rounded-xl border border-rose-400/50 bg-rose-500/10 text-rose-900 dark:text-rose-200 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/20 transition-colors">Disconnect</button>
+          </div>
+          <% }); %>
+        </div>
+
+        <div class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 px-4 py-3 space-y-3">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Access token (header-only clients)</p>
           <p id="mcpTokenStatusLine" class="text-xs text-brand-muted leading-relaxed">
             <% if (_mcpStatus.configured) { %>
             Active token ending in <strong class="text-brand-dark dark:text-white"><%= _mcpStatus.hint || '••••' %></strong><% if (_mcpStatus.createdAt) { %> · created <%= wsDateTime(_mcpStatus.createdAt) %><% } %><% if (_mcpStatus.createdBy) { %> by <%= _mcpStatus.createdBy %><% } %>
@@ -754,7 +773,9 @@
 
         <div class="text-xs text-brand-muted leading-relaxed space-y-2">
           <p class="font-semibold text-brand-dark dark:text-white">Available tools</p>
-          <p><code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">list_folders</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">get_folder</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">count_leads</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">list_leads</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">get_lead</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">update_lead</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">bulk_update_leads</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">search_leads</code></p>
+          <p><strong class="text-brand-dark dark:text-white">Leads:</strong> find new leads, search, folders, tags, bookmarks, contact lookup, scripts, GHL sync.
+            <strong class="text-brand-dark dark:text-white">Pipeline:</strong> opportunities, tasks, follow-ups, daily picks.
+            <strong class="text-brand-dark dark:text-white">Referral network:</strong> overview, members, send and update referrals, approve applicants, review stats.</p>
           <p>Alex (in-app chat) automatically registers this MCP server on every message using your logged-in session — no manual token required for in-app chat.</p>
           <% if (!(typeof openrouterConfigured !== 'undefined' && openrouterConfigured) && !process.env.OPENAI_API_KEY) { %>
           <div class="rounded-lg border border-amber-400/50 bg-amber-50 dark:bg-amber-950/30 px-3 py-2.5 text-xs text-amber-950 dark:text-amber-100 leading-relaxed">
@@ -765,7 +786,9 @@
             CRM shortcuts work without AI: “List my folders”, “How many leads do I have?”, “Find Acme Roofing”.
           </div>
           <% } %>
-          <p>In ChatGPT: <strong>Settings → Connectors → Add MCP server</strong> — use the MCP endpoint URL and Bearer token above.</p>
+          <p><strong>ChatGPT:</strong> Settings → Apps &amp; Connectors → add a custom connector (developer mode) → paste the MCP endpoint, choose OAuth, then sign in to AdHello when asked.</p>
+          <p><strong>Claude:</strong> Settings → Connectors → Add custom connector → paste the MCP endpoint, then click Connect and sign in to AdHello.</p>
+          <p><strong>Gemini CLI / scripts:</strong> use the MCP endpoint with the access token above as a Bearer header.</p>
         </div>
 
         <div class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 px-4 py-3 space-y-2">
