@@ -1,10 +1,10 @@
 /**
- * Global Pavlex chat — POST /api/pavlex/chat on any authenticated app page.
+ * Alex chat widget — POST /api/pavlex/chat from any authenticated app page.
  */
 (function () {
   var PAVLEX_AVATAR =
-    '<span class="shrink-0 w-6 h-6 rounded-full overflow-hidden border border-slate-200/60 bg-white shadow-sm ring-1 ring-slate-200/60 flex items-center justify-center" aria-hidden="true">' +
-    '<img src="/img/alex-avatar-96.jpg" alt="" class="w-full h-full rounded-full object-cover" width="24" height="24" loading="lazy" decoding="async" /></span>';
+    '<span class="acw-avatar shrink-0 w-7 h-7 rounded-full overflow-hidden bg-white" aria-hidden="true">' +
+    '<img src="/img/alex-avatar-96.jpg" alt="" class="w-full h-full rounded-full object-cover" width="28" height="28" loading="lazy" decoding="async" /></span>';
 
   /** http(s) URLs and same-origin paths only; returns null for anything else (javascript:, //host, data:, …). */
   function safeLinkHref(raw) {
@@ -81,14 +81,18 @@
   }
 
   function initCeoChatFloat() {
+    var root = document.getElementById('ceoChatFloat');
     var chatFormFloat = document.getElementById('ceoChatFormFloat');
     var chatInputFloat = document.getElementById('ceoChatInputFloat');
     var chatMessagesFloat = document.getElementById('ceoChatMessagesFloat');
+    var chatList = document.getElementById('ceoChatListFloat');
+    var chatEmpty = document.getElementById('ceoChatEmptyFloat');
+    var chatSend = document.getElementById('ceoChatSendFloat');
     var chatBubble = document.getElementById('chatBubble');
     var chatWindow = document.getElementById('chatWindow');
     var chatWindowClose = document.getElementById('chatWindowClose');
-    var chatBubbleIcon = document.getElementById('chatBubbleIcon');
-    var chatBubbleClose = document.getElementById('chatBubbleClose');
+    var chatWindowClear = document.getElementById('chatWindowClear');
+    var chatBackdrop = document.getElementById('chatWindowBackdrop');
     var chatBubbleDot = document.getElementById('chatBubbleDot');
     var typingFloat = document.getElementById('ceoTypingFloat');
 
@@ -97,8 +101,14 @@
     var chatHistory = [];
     var chatBusy = false;
     var chatOpen = false;
+    var closeTimer = null;
     var voice = null;
     var micBtn = document.getElementById('ceoChatMicFloat');
+    var phoneMq = window.matchMedia ? window.matchMedia('(max-width: 640px)') : null;
+
+    function isPhone() {
+      return !!(phoneMq && phoneMq.matches);
+    }
 
     function attachVoice() {
       if (micBtn && chatInputFloat && window.AlexVoice) {
@@ -108,23 +118,53 @@
     if (window.AlexVoice) attachVoice();
     else document.addEventListener('alexvoice:ready', attachVoice, { once: true });
 
-    function renderMsgTo(container, role, text) {
+    function scrollToBottom() {
+      if (chatMessagesFloat) chatMessagesFloat.scrollTop = chatMessagesFloat.scrollHeight;
+    }
+
+    function showEmpty(show) {
+      if (chatEmpty) chatEmpty.hidden = !show;
+      if (chatList) chatList.hidden = show;
+      if (chatWindowClear) chatWindowClear.hidden = show;
+    }
+
+    function renderMsg(role, text, opts) {
+      if (!chatList) return;
       var div = document.createElement('div');
-      div.className = 'flex gap-2' + (role === 'user' ? ' flex-row-reverse' : '');
-      if (role === 'assistant') {
+      if (role === 'user') {
+        div.className = 'acw-msg acw-msg-user';
+        div.innerHTML = '<div class="acw-bubble-user"></div>';
+        div.firstChild.textContent = text;
+      } else {
+        div.className = 'acw-msg acw-msg-assistant';
         div.innerHTML =
           PAVLEX_AVATAR +
-          '<div class="bg-brand-cream/60 dark:bg-slate-800/80 rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-brand-dark dark:text-slate-100 max-w-[85%]">' +
-          renderMd(text) +
-          '</div>';
-      } else {
-        div.innerHTML =
-          '<div class="bg-brand-dark rounded-2xl rounded-tr-sm px-4 py-3 text-sm text-white max-w-[85%]">' +
-          renderMd(text) +
-          '</div>';
+          (opts && opts.error
+            ? '<div class="acw-error"></div>'
+            : '<div class="acw-md">' + renderMd(text) + '</div>');
+        if (opts && opts.error) div.querySelector('.acw-error').textContent = text;
       }
-      container.appendChild(div);
-      container.scrollTop = container.scrollHeight;
+      chatList.appendChild(div);
+      showEmpty(false);
+      scrollToBottom();
+    }
+
+    function autosize() {
+      if (!chatInputFloat) return;
+      chatInputFloat.style.height = 'auto';
+      chatInputFloat.style.height = Math.min(chatInputFloat.scrollHeight, 128) + 'px';
+      if (chatSend) chatSend.disabled = chatBusy || !chatInputFloat.value.trim();
+    }
+
+    function setBusy(busy) {
+      chatBusy = busy;
+      if (typingFloat) typingFloat.classList.toggle('hidden', !busy);
+      if (chatWindowClear) chatWindowClear.disabled = busy;
+      chatWindow.querySelectorAll('.acw-chip').forEach(function (b) {
+        b.disabled = busy;
+      });
+      autosize();
+      if (busy) scrollToBottom();
     }
 
     function loadChatHistory() {
@@ -136,12 +176,13 @@
           return r.json();
         })
         .then(function (d) {
-          if (d.success && d.messages && d.messages.length > 0 && chatMessagesFloat) {
-            chatMessagesFloat.innerHTML = '';
+          if (chatBusy || chatHistory.length) return;
+          if (d.success && d.messages && d.messages.length > 0 && chatList) {
+            chatList.innerHTML = '';
             chatHistory = [];
             d.messages.forEach(function (m) {
               if (m.role === 'user' || m.role === 'assistant') {
-                renderMsgTo(chatMessagesFloat, m.role, m.content);
+                renderMsg(m.role, m.content);
                 chatHistory.push({ role: m.role, content: m.content });
               }
             });
@@ -152,32 +193,49 @@
         });
     }
 
+    function clearChat() {
+      if (chatBusy) return;
+      if (!window.confirm('Start a new chat? This clears your current conversation with Alex in this workspace.')) return;
+      if (voice) voice.cancel();
+      var wid = pageWorkspaceId();
+      fetch('/ceo/chat/history' + (wid ? '?workspaceId=' + encodeURIComponent(wid) : ''), {
+        method: 'DELETE',
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      })
+        .then(function (r) {
+          return r.json();
+        })
+        .then(function (d) {
+          if (!d.success) throw new Error(d.error || 'clear failed');
+          chatHistory = [];
+          if (chatList) chatList.innerHTML = '';
+          showEmpty(true);
+          if (chatInputFloat && !isPhone()) chatInputFloat.focus();
+        })
+        .catch(function () {
+          renderMsg('assistant', 'Could not clear the chat. Try again.', { error: true });
+        });
+    }
+
     function sendChatMessage(msg) {
       if (chatBusy) return;
       msg = (msg || '').trim();
       if (!msg) return;
       if (voice) voice.cancel();
-      chatBusy = true;
       if (chatInputFloat) {
-        chatInputFloat.disabled = true;
         chatInputFloat.value = '';
       }
-      if (chatMessagesFloat) renderMsgTo(chatMessagesFloat, 'user', msg);
+      renderMsg('user', msg);
       chatHistory.push({ role: 'user', content: msg });
-      if (typingFloat) typingFloat.classList.remove('hidden');
+      setBusy(true);
 
       var timedOut = false;
       var timeoutId = setTimeout(function () {
         timedOut = true;
-        if (typingFloat) typingFloat.classList.add('hidden');
-        if (chatMessagesFloat) {
-          renderMsgTo(chatMessagesFloat, 'assistant', 'Request timed out. Try again in a moment.');
-        }
-        chatBusy = false;
-        if (chatInputFloat) {
-          chatInputFloat.disabled = false;
-          chatInputFloat.focus();
-        }
+        renderMsg('assistant', 'Request timed out. Try again in a moment.', { error: true });
+        setBusy(false);
+        if (chatInputFloat && !isPhone()) chatInputFloat.focus();
       }, 60000);
 
       fetch('/api/pavlex/chat', {
@@ -199,12 +257,12 @@
         .then(function (d) {
           if (timedOut) return;
           clearTimeout(timeoutId);
-          if (typingFloat) typingFloat.classList.add('hidden');
+          setBusy(false);
           if (d.success && d.reply) {
-            if (chatMessagesFloat) renderMsgTo(chatMessagesFloat, 'assistant', d.reply);
+            renderMsg('assistant', d.reply);
             chatHistory.push({ role: 'assistant', content: d.reply });
             if (!chatOpen && chatBubbleDot) chatBubbleDot.classList.remove('hidden');
-          } else if (chatMessagesFloat) {
+          } else {
             var errMsg =
               d.error ||
               (d.detail && String(d.detail).indexOf('crm') >= 0
@@ -212,67 +270,137 @@
                 : null) ||
               d.reply ||
               'Something went wrong. Try again.';
-            renderMsgTo(chatMessagesFloat, 'assistant', errMsg);
+            renderMsg('assistant', errMsg, { error: true });
           }
-          chatBusy = false;
-          if (chatInputFloat) {
-            chatInputFloat.disabled = false;
-            chatInputFloat.focus();
-          }
+          if (chatInputFloat && chatOpen && !isPhone()) chatInputFloat.focus();
         })
         .catch(function () {
           if (timedOut) return;
           clearTimeout(timeoutId);
-          if (typingFloat) typingFloat.classList.add('hidden');
-          if (chatMessagesFloat) {
-            renderMsgTo(chatMessagesFloat, 'assistant', 'Connection error. Check your internet and try again.');
-          }
-          chatBusy = false;
-          if (chatInputFloat) {
-            chatInputFloat.disabled = false;
-            chatInputFloat.focus();
-          }
+          setBusy(false);
+          renderMsg('assistant', 'Connection error. Check your internet and try again.', { error: true });
+          if (chatInputFloat && chatOpen && !isPhone()) chatInputFloat.focus();
         });
     }
 
+    function submitComposer() {
+      if (!chatInputFloat || chatBusy || !chatInputFloat.value.trim()) return;
+      var text = chatInputFloat.value;
+      sendChatMessage(text);
+      autosize();
+    }
+
+    // iOS keyboard: keep the phone-size panel inside the visible viewport.
+    var vv = window.visualViewport || null;
+    function syncViewport() {
+      if (!root || !vv || !chatOpen) return;
+      root.style.setProperty('--acw-vvh', Math.round(vv.height) + 'px');
+      root.style.setProperty('--acw-vv-top', Math.round(vv.offsetTop) + 'px');
+      if (document.activeElement === chatInputFloat) scrollToBottom();
+    }
+    if (vv) {
+      vv.addEventListener('resize', syncViewport);
+      vv.addEventListener('scroll', syncViewport);
+    }
+
     function setChatOpen(open) {
+      if (open === chatOpen) return;
       chatOpen = open;
-      if (chatBubble) chatBubble.setAttribute('aria-expanded', open ? 'true' : 'false');
+      chatBubble.setAttribute('aria-expanded', open ? 'true' : 'false');
+      chatBubble.setAttribute('aria-label', open ? 'Minimize chat with Alex' : 'Open chat with Alex');
+      if (closeTimer) clearTimeout(closeTimer);
+      closeTimer = null;
       if (open) {
         chatWindow.classList.remove('hidden');
-        if (chatBubbleIcon) chatBubbleIcon.classList.add('hidden');
-        if (chatBubbleClose) chatBubbleClose.classList.remove('hidden');
+        void chatWindow.offsetWidth;
+        chatWindow.classList.add('acw-panel--open');
+        if (root) root.classList.add('acw--open');
+        document.documentElement.classList.add('acw-open');
+        if (chatBackdrop) chatBackdrop.hidden = false;
         if (chatBubbleDot) chatBubbleDot.classList.add('hidden');
+        syncViewport();
         setTimeout(function () {
-          if (chatMessagesFloat) chatMessagesFloat.scrollTop = chatMessagesFloat.scrollHeight;
-          if (chatInputFloat) chatInputFloat.focus();
+          scrollToBottom();
+          if (chatInputFloat && !isPhone()) chatInputFloat.focus();
         }, 100);
       } else {
         if (voice) voice.cancel();
-        chatWindow.classList.add('hidden');
-        if (chatBubbleIcon) chatBubbleIcon.classList.remove('hidden');
-        if (chatBubbleClose) chatBubbleClose.classList.add('hidden');
+        var hadFocus = chatWindow.contains(document.activeElement);
+        chatWindow.classList.remove('acw-panel--open');
+        if (root) root.classList.remove('acw--open');
+        document.documentElement.classList.remove('acw-open');
+        if (chatBackdrop) chatBackdrop.hidden = true;
+        closeTimer = setTimeout(function () {
+          if (!chatOpen) chatWindow.classList.add('hidden');
+        }, 220);
+        if (hadFocus) chatBubble.focus();
       }
     }
 
     if (chatFormFloat) {
       chatFormFloat.addEventListener('submit', function (e) {
         e.preventDefault();
-        sendChatMessage(chatInputFloat && chatInputFloat.value);
+        submitComposer();
       });
     }
 
-    if (chatBubble) {
-      chatBubble.addEventListener('click', function () {
-        setChatOpen(!chatOpen);
+    if (chatInputFloat) {
+      chatInputFloat.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+          e.preventDefault();
+          submitComposer();
+        }
       });
+      chatInputFloat.addEventListener('input', autosize);
     }
+
+    chatWindow.querySelectorAll('.acw-chip').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var prompt = btn.getAttribute('data-acw-prompt');
+        var prefill = btn.getAttribute('data-acw-prefill');
+        if (prompt) {
+          sendChatMessage(prompt);
+          return;
+        }
+        if (prefill && chatInputFloat) {
+          chatInputFloat.value = prefill;
+          autosize();
+          chatInputFloat.focus();
+          var caret = parseInt(btn.getAttribute('data-acw-caret'), 10);
+          if (Number.isFinite(caret)) {
+            try {
+              chatInputFloat.setSelectionRange(caret, caret);
+            } catch (_) {
+              /* ignore */
+            }
+          }
+        }
+      });
+    });
+
+    chatBubble.addEventListener('click', function () {
+      setChatOpen(!chatOpen);
+    });
 
     if (chatWindowClose) {
       chatWindowClose.addEventListener('click', function () {
         setChatOpen(false);
       });
     }
+
+    if (chatBackdrop) {
+      chatBackdrop.addEventListener('click', function () {
+        setChatOpen(false);
+      });
+    }
+
+    if (chatWindowClear) chatWindowClear.addEventListener('click', clearChat);
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && chatOpen && chatWindow.contains(document.activeElement)) {
+        setChatOpen(false);
+      }
+    });
 
     loadChatHistory();
   }
