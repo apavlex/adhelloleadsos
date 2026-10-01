@@ -13,6 +13,8 @@ const workspaceScriptBootstrap = require('../services/workspaceScriptBootstrap')
 const { chatCompletion, parseLlmJson, providersForChain } = require('../services/llmClient');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const demoWorkspace = require('../services/demoWorkspace');
+const publicDemo = require('../services/publicDemo');
+const { getPublicBaseUrl } = require('../lib/publicBaseUrl');
 const withWorkspace = require('../middleware/withWorkspace');
 
 const router = express.Router();
@@ -731,6 +733,53 @@ router.post('/demo', express.urlencoded({ extended: true }), async (req, res, ne
       req.session.workspaceId = workspaceId;
     }
     res.redirect('/today');
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Public live-demo link (sales page / form confirmation): show, copy, regenerate, turn off. */
+router.get('/live-demo', async (req, res, next) => {
+  try {
+    const canManage = await publicDemo.canManage(userEmail(req));
+    const cfg = publicDemo.getConfig();
+    res.render('live_demo_settings', {
+      title: 'Public demo link',
+      activePage: '',
+      canManage,
+      cfg,
+      link: cfg.enabled ? `${getPublicBaseUrl(req)}/live-demo/${cfg.key}` : '',
+      stats: canManage ? publicDemo.stats() : null,
+      recent: canManage ? publicDemo.recentLaunches(10) : [],
+      notice: String(req.query.saved || ''),
+      error: String(req.query.error || ''),
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/live-demo', express.urlencoded({ extended: true }), async (req, res, next) => {
+  try {
+    const email = userEmail(req);
+    if (!(await publicDemo.canManage(email))) {
+      return res.status(403).render('error', { message: 'Only AdHello workspace owners can change the public demo link.', activePage: '' });
+    }
+    const action = String(req.body.action || 'save');
+    const patch = {};
+    if (action === 'enable') patch.enabled = true;
+    else if (action === 'disable') patch.enabled = false;
+    else if (action === 'regenerate') patch.regenerate = true;
+    else {
+      patch.ctaUrl = req.body.ctaUrl;
+      patch.ctaLabel = req.body.ctaLabel;
+    }
+    try {
+      publicDemo.saveConfig(patch, email);
+    } catch (err) {
+      return res.redirect(`/workspaces/live-demo?error=${encodeURIComponent(err.message)}`);
+    }
+    return res.redirect(`/workspaces/live-demo?saved=${encodeURIComponent(action)}`);
   } catch (e) {
     next(e);
   }

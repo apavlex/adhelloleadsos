@@ -1,0 +1,20 @@
+<% const _ld = typeof liveDemo !== 'undefined' && liveDemo ? liveDemo : null; %>
+<% if (_ld) { %>
+<div id="liveDemoBanner" class="w-full bg-sky-600 text-white text-xs sm:text-sm px-4 py-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-center">
+  <span><strong class="font-black uppercase tracking-wider text-[11px]">Live demo</strong> &middot; Sample data, nothing is ever sent. Resets <span id="liveDemoExpires" data-expires="<%= _ld.expiresAt %>">within 24 hours</span>.</span>
+  <% if (_ld.ctaUrl) { %>
+  <a href="<%= _ld.ctaUrl %>" target="_blank" rel="noopener" class="rounded-full bg-white px-3 py-1 text-xs font-bold text-sky-700 hover:bg-sky-50"><%= _ld.ctaLabel || 'Book a call' %></a>
+  <% } %>
+  <a href="/logout" class="text-xs font-semibold underline underline-offset-2 opacity-90 hover:opacity-100">End demo</a>
+</div>
+<script>
+(function () {
+  var el = document.getElementById('liveDemoExpires');
+  if (!el) return;
+  var ms = Date.parse(el.getAttribute('data-expires')) - Date.now();
+  if (!(ms > 0)) return;
+  var h = Math.floor(ms / 3600000);
+  el.textContent = h >= 1 ? 'in ' + h + (h === 1 ? ' hour' : ' hours') : 'in ' + Math.max(1, Math.round(ms / 60000)) + ' min';
+})();
+</script>
+<% } %>

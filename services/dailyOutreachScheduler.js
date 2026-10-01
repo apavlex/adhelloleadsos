@@ -35,6 +35,7 @@ async function maybeRunDailyOutreachForEnabledWorkspaces(fromDate = new Date()) 
     try {
       // eslint-disable-next-line no-await-in-loop
       const ws = await db.getWorkspace(wid);
+      if (ws && ws.publicDemoSandbox) continue;
       const tz = resolveWorkspaceTimezone(ws);
       if (!isDailyOutreachWindow(tz, fromDate)) continue;
       const day = localDayKey(tz, fromDate);

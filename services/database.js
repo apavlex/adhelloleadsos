@@ -779,6 +779,48 @@ module.exports = {
     kvSet(key, payload);
   },
 
+  /**
+   * Hard-delete everything a throwaway workspace wrote: KV rows keyed by the workspace,
+   * its network or its owner, leads/searches/schedules tagged with it, and its SQL rows.
+   * Only for disposable sandboxes — there is no undo.
+   */
+  purgeWorkspaceStorage(workspaceId, { networkId, ownerEmail } = {}) {
+    const wid = String(workspaceId || '').trim();
+    if (wid.length < 16) throw new Error('purgeWorkspaceStorage requires a full workspace id');
+    const keys = new Set();
+    const addRows = (rows) => rows.forEach((r) => keys.add(r.key));
+
+    addRows(sqlite.prepare('SELECT key FROM kv WHERE instr(key, ?) > 0').all(wid));
+    addRows(
+      sqlite
+        .prepare(
+          "SELECT key FROM kv WHERE (key LIKE 'lead:%' OR key LIKE 'search:%' OR key LIKE 'schedule:%') AND instr(value, ?) > 0",
+        )
+        .all(`"workspaceId":"${wid}"`),
+    );
+    addRows(sqlite.prepare("SELECT key FROM kv WHERE key LIKE 'wslug:%' AND value = ?").all(wid));
+
+    const nid = String(networkId || '').trim();
+    if (nid.length >= 8) {
+      addRows(sqlite.prepare('SELECT key FROM kv WHERE instr(key, ?) > 0').all(`:${nid}`));
+      addRows(sqlite.prepare("SELECT key FROM kv WHERE key LIKE 'netreviewslug:%' AND instr(value, ?) > 0").all(nid));
+    }
+
+    const em = String(ownerEmail || '').trim();
+    if (em) {
+      const frag = this._emailKeyFragment(em);
+      if (frag.length >= 12) addRows(sqlite.prepare('SELECT key FROM kv WHERE instr(key, ?) > 0').all(frag));
+    }
+
+    for (const key of keys) kvDelete(key);
+
+    let sqlRows = 0;
+    for (const table of ['team_activity', 'lead_attribution', 'outbound_messages', 'outbound_campaigns']) {
+      sqlRows += sqlite.prepare(`DELETE FROM ${table} WHERE workspace_id = ?`).run(wid).changes;
+    }
+    return { kvKeys: keys.size, sqlRows };
+  },
+
   async getUserPrefs(email) {
     const fragment = this._emailKeyFragment(email);
     const storageKey = `userprefs:${fragment}`;

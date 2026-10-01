@@ -199,6 +199,12 @@ app.use((req, res, next) => {
   return passportSess(req, res, next);
 });
 
+// Public live demo: throwaway sandboxes for visitors without an account.
+require('./lib/guestEgress').install();
+app.use(require('./middleware/demoGuest'));
+app.use('/live-demo', require('./routes/liveDemo'));
+require('./services/publicDemo').startCleanup();
+
 app.locals.renderSocialBrandLinks = (links) => socialBrandIcons.renderLinks(links);
 app.locals.renderFindContactCell = require('./public/js/contact-finder-cell').renderCell;
 

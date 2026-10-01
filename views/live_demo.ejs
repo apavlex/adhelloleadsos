@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <title>Live demo - AdHello.ai | Leads</title>
+  <link rel="icon" href="/images/adhello-app-icon.png" type="image/png">
+  <link rel="stylesheet" href="/css/custom.css?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>">
+  <%- include('partials/tailwind_css', { twVariant: 'standalone' }) %>
+</head>
+<body class="bg-[#FDFBF7] min-h-screen w-full font-sans">
+  <% const _cta = typeof cta !== 'undefined' && cta ? cta : {}; %>
+  <% const _v = typeof visitor !== 'undefined' && visitor ? visitor : {}; %>
+  <main class="min-h-screen w-full flex flex-col items-center justify-center px-5 py-10">
+    <div class="max-w-md w-full bg-white rounded-[2rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.08)] p-8 sm:p-10">
+      <div class="flex items-center gap-3 mb-8">
+        <img src="/images/adhello-app-icon.png" alt="AdHello" width="40" height="40" class="w-10 h-10 rounded-xl border border-slate-100" />
+        <span class="text-[11px] font-black uppercase tracking-[0.15em] text-slate-500">AdHello Leads &middot; Live demo</span>
+      </div>
+
+      <% if (state === 'launch') { %>
+        <h1 class="font-display font-extrabold text-2xl text-[#0F172A] leading-tight"><%= _v.name ? ('Welcome, ' + String(_v.name).split(' ')[0] + '!') : 'Take the app for a spin' %></h1>
+        <p class="mt-3 text-sm text-slate-600 leading-relaxed">You get your own private copy of a sample home-services agency: leads, pipeline, referral network, territories and active cadences. Click around, move deals, try Ask AI. Nothing you do sends real messages, and it resets after 24 hours.</p>
+        <% if (signedInAs) { %>
+          <p class="mt-4 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2.5 text-xs text-amber-800 leading-relaxed">You're signed in as <strong><%= signedInAs %></strong>. Opening the demo signs you out of that account in this browser.</p>
+        <% } %>
+        <form id="liveDemoForm" method="post" action="/live-demo/<%= encodeURIComponent(key) %>" class="mt-7">
+          <input type="hidden" name="name" value="<%= _v.name || '' %>">
+          <input type="hidden" name="email" value="<%= _v.email || '' %>">
+          <input type="hidden" name="source" value="<%= _v.source || '' %>">
+          <button id="liveDemoGo" type="submit" class="h-12 w-full rounded-full bg-[#FFDB3A] hover:bg-[#FFD600] text-sm font-bold text-[#111827] shadow-lg shadow-yellow-400/20 disabled:opacity-70">Open the live demo</button>
+        </form>
+        <p id="liveDemoStatus" class="mt-3 text-center text-xs text-slate-400" aria-live="polite"></p>
+        <% if (!signedInAs) { %>
+        <script>
+          (function () {
+            var form = document.getElementById('liveDemoForm');
+            var btn = document.getElementById('liveDemoGo');
+            var status = document.getElementById('liveDemoStatus');
+            function go() {
+              btn.disabled = true;
+              btn.textContent = 'Setting up your demo…';
+              status.textContent = 'This takes a few seconds.';
+              form.submit();
+            }
+            form.addEventListener('submit', function () {
+              btn.disabled = true;
+              btn.textContent = 'Setting up your demo…';
+            });
+            setTimeout(go, 600);
+          })();
+        </script>
+        <% } %>
+      <% } else if (state === 'ended') { %>
+        <h1 class="font-display font-extrabold text-2xl text-[#0F172A] leading-tight"><%= typeof endedByVisitor !== 'undefined' && endedByVisitor ? 'Thanks for trying the demo' : 'This demo has ended' %></h1>
+        <p class="mt-3 text-sm text-slate-600 leading-relaxed">Demo copies reset after 24 hours. Want to see it running on your own leads?</p>
+      <% } else if (state === 'inactive') { %>
+        <h1 class="font-display font-extrabold text-2xl text-[#0F172A] leading-tight">This demo link isn't active</h1>
+        <p class="mt-3 text-sm text-slate-600 leading-relaxed">The link may have been replaced. Reach out and we'll send you a fresh one.</p>
+      <% } else if (state === 'blocked') { %>
+        <h1 class="font-display font-extrabold text-2xl text-[#0F172A] leading-tight">Not available in the demo</h1>
+        <p class="mt-3 text-sm text-slate-600 leading-relaxed"><%= message %> Account settings, integrations and invites only work in a real workspace.</p>
+        <a href="/today" class="mt-7 inline-flex h-11 items-center justify-center rounded-full border border-slate-200 px-6 text-sm font-bold text-[#0F172A] hover:bg-slate-50">Back to the demo</a>
+      <% } else { %>
+        <h1 class="font-display font-extrabold text-2xl text-[#0F172A] leading-tight">Couldn't open the demo</h1>
+        <p class="mt-3 text-sm text-slate-600 leading-relaxed"><%= message %></p>
+      <% } %>
+
+      <% if (state !== 'launch' && state !== 'blocked' && _cta.ctaUrl) { %>
+        <a href="<%= _cta.ctaUrl %>" class="mt-7 inline-flex h-12 w-full items-center justify-center rounded-full bg-[#FFDB3A] hover:bg-[#FFD600] text-sm font-bold text-[#111827] shadow-lg shadow-yellow-400/20"><%= _cta.ctaLabel || 'Book a call' %></a>
+      <% } %>
+    </div>
+  </main>
+</body>
+</html>

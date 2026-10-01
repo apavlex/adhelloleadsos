@@ -4,17 +4,24 @@
 (function () {
   var warmed = Object.create(null);
 
+  // GETs with side effects: warming them would sign the user out on hover.
+  var NEVER_WARM = /^\/(logout|live-demo)(\/|\?|$)/;
+
   function resolveHref(el) {
-    if (!el) return '';
+    if (!el || el.hasAttribute('data-no-prefetch')) return '';
     var custom = el.getAttribute('data-nav-prefetch');
     if (custom) return custom;
     var href = el.getAttribute('href') || '';
     if (!href || href.charAt(0) === '#' || href.indexOf('javascript:') === 0) return '';
+    var url;
     try {
-      return new URL(href, window.location.origin).pathname + new URL(href, window.location.origin).search;
+      var u = new URL(href, window.location.origin);
+      if (u.origin !== window.location.origin) return '';
+      url = u.pathname + u.search;
     } catch (e) {
-      return href;
+      url = href;
     }
+    return NEVER_WARM.test(url) ? '' : url;
   }
 
   function warm(url) {

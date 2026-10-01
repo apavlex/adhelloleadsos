@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/head', { title: 'Public demo link' }) %>
+<body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
+  <%- include('partials/navbar') %>
+
+  <main class="max-wide px-6 py-10 md:py-14">
+    <h1 class="font-display font-black text-2xl md:text-3xl text-brand-dark dark:text-white mb-2">Public demo link</h1>
+    <p class="text-sm text-brand-muted max-w-2xl mb-8">Anyone who opens this link gets their own private copy of the demo workspace, with no Google sign-in. Each copy has the sample contractors, territories, referrals and cadences, never sends anything, can use Ask AI a little, and deletes itself after 24 hours.</p>
+
+    <% if (!canManage) { %>
+      <div class="max-w-2xl brand-card p-6 dark:bg-slate-900 dark:border-white/10">
+        <p class="text-sm text-brand-dark dark:text-white">Only owners and admins of the main AdHello workspace can manage the public demo link.</p>
+        <% if (link) { %>
+          <p class="mt-4 text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Current link</p>
+          <code class="block break-all rounded-xl bg-brand-cream/60 dark:bg-slate-800 px-4 py-3 text-sm"><%= link %></code>
+        <% } %>
+      </div>
+    <% } else { %>
+      <% if (notice) { %>
+        <p class="max-w-2xl mb-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-4 py-2.5 text-sm text-emerald-800 dark:text-emerald-200"><%= notice === 'regenerate' ? 'New link created. The old link no longer works.' : notice === 'disable' ? 'Public demo link turned off.' : notice === 'enable' ? 'Public demo link is live.' : 'Saved.' %></p>
+      <% } %>
+      <% if (error) { %>
+        <p class="max-w-2xl mb-4 rounded-xl bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 px-4 py-2.5 text-sm text-red-700 dark:text-red-200"><%= error %></p>
+      <% } %>
+
+      <section class="max-w-2xl brand-card p-6 md:p-8 dark:bg-slate-900 dark:border-white/10 space-y-5">
+        <% if (cfg.enabled) { %>
+          <div>
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Your link</p>
+            <div class="flex flex-col sm:flex-row gap-2">
+              <input id="liveDemoLink" readonly value="<%= link %>" class="flex-1 min-w-0 rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/40 dark:bg-slate-800 px-4 py-3 text-sm font-semibold" onclick="this.select()" />
+              <button type="button" id="liveDemoCopy" class="btn-pill btn-primary px-6 py-3 text-xs font-black uppercase tracking-widest">Copy</button>
+              <a href="<%= link %>" target="_blank" rel="noopener" class="btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 px-6 py-3 text-xs font-black uppercase tracking-widest text-center text-brand-dark dark:text-white">Try it</a>
+            </div>
+            <p class="mt-2 text-xs text-brand-muted">"Try it" opens in a new tab and signs that browser out of your account, so use a private window.</p>
+          </div>
+
+          <div class="rounded-xl bg-brand-cream/50 dark:bg-slate-800/60 px-4 py-3 text-xs text-brand-muted leading-relaxed">
+            <p class="font-bold text-brand-dark dark:text-white mb-1">On your sales page form</p>
+            Show the link on the thank-you message, or redirect there after submit. To greet the visitor by name, add their details to the link:
+            <code class="block mt-2 break-all text-[11px] text-brand-dark dark:text-white"><%= link %>?name={{contact.first_name}}&amp;email={{contact.email}}&amp;source=sales-page</code>
+            <span class="block mt-1">The <code>{{...}}</code> parts are GoHighLevel merge fields; other form tools use their own. Names and emails show up under Recent launches below.</span>
+          </div>
+
+          <div class="flex flex-wrap gap-2 pt-1">
+            <form method="post" action="/workspaces/live-demo" onsubmit="return confirm('Create a new link? The current link stops working right away.');">
+              <input type="hidden" name="action" value="regenerate" />
+              <button type="submit" class="btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 px-5 py-2.5 text-[11px] font-black uppercase tracking-widest text-brand-dark dark:text-white">New link</button>
+            </form>
+            <form method="post" action="/workspaces/live-demo" onsubmit="return confirm('Turn off the public demo link? Anyone opening it will see that it is inactive.');">
+              <input type="hidden" name="action" value="disable" />
+              <button type="submit" class="btn-pill bg-white dark:bg-slate-900 border border-red-200 dark:border-red-800 px-5 py-2.5 text-[11px] font-black uppercase tracking-widest text-red-600 dark:text-red-300">Turn off</button>
+            </form>
+          </div>
+        <% } else { %>
+          <p class="text-sm text-brand-dark dark:text-white">The public demo link is off.</p>
+          <form method="post" action="/workspaces/live-demo">
+            <input type="hidden" name="action" value="enable" />
+            <button type="submit" class="btn-pill btn-primary px-8 py-3.5 text-xs font-black uppercase tracking-widest">Create public demo link</button>
+          </form>
+        <% } %>
+      </section>
+
+      <section class="max-w-2xl brand-card p-6 md:p-8 mt-6 dark:bg-slate-900 dark:border-white/10">
+        <h2 class="font-display font-black text-lg text-brand-dark dark:text-white mb-1">Call-to-action button</h2>
+        <p class="text-xs text-brand-muted mb-4">Shown in the demo banner and when a demo ends. Leave the link empty to hide the button.</p>
+        <form method="post" action="/workspaces/live-demo" class="grid sm:grid-cols-3 gap-3 items-end">
+          <input type="hidden" name="action" value="save" />
+          <div class="sm:col-span-2">
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Button link</label>
+            <input name="ctaUrl" type="url" value="<%= cfg.ctaUrl %>" placeholder="https://adhello.ai/book" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm" />
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Button text</label>
+            <input name="ctaLabel" maxlength="40" value="<%= cfg.ctaLabel %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm" />
+          </div>
+          <div class="sm:col-span-3">
+            <button type="submit" class="btn-pill btn-primary px-6 py-3 text-xs font-black uppercase tracking-widest">Save button</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="max-w-2xl brand-card p-6 md:p-8 mt-6 dark:bg-slate-900 dark:border-white/10">
+        <h2 class="font-display font-black text-lg text-brand-dark dark:text-white mb-3">Usage</h2>
+        <div class="grid grid-cols-3 gap-3 text-center">
+          <div class="rounded-xl bg-brand-cream/50 dark:bg-slate-800/60 px-3 py-3"><p class="text-xl font-black"><%= stats.active %></p><p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Active copies</p></div>
+          <div class="rounded-xl bg-brand-cream/50 dark:bg-slate-800/60 px-3 py-3"><p class="text-xl font-black"><%= stats.launchesToday %><span class="text-xs text-brand-muted font-bold"> / <%= stats.limits.perDay %></span></p><p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Launches today</p></div>
+          <div class="rounded-xl bg-brand-cream/50 dark:bg-slate-800/60 px-3 py-3"><p class="text-xl font-black"><%= stats.aiCallsToday %><span class="text-xs text-brand-muted font-bold"> / <%= stats.limits.aiPerDay %></span></p><p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">AI calls today</p></div>
+        </div>
+        <p class="mt-3 text-xs text-brand-muted">Each copy gets <%= stats.limits.aiPerSandbox %> AI calls. One visitor can open <%= stats.limits.perIpPerHour %> copies an hour.</p>
+
+        <h3 class="mt-6 text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Recent launches</h3>
+        <% if (!recent.length) { %>
+          <p class="text-sm text-brand-muted">Nobody has opened the demo yet.</p>
+        <% } else { %>
+          <ul class="divide-y divide-brand-border dark:divide-white/10 text-sm">
+            <% recent.forEach(function (r) { %>
+              <li class="py-2 flex items-center justify-between gap-3">
+                <span class="min-w-0 truncate"><strong><%= r.name || 'Anonymous visitor' %></strong><% if (r.email) { %> <span class="text-brand-muted">&middot; <%= r.email %></span><% } %><% if (r.source) { %> <span class="text-brand-muted">&middot; <%= r.source %></span><% } %></span>
+                <time class="shrink-0 text-xs text-brand-muted" datetime="<%= r.at %>"><%= new Date(r.at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) %></time>
+              </li>
+            <% }) %>
+          </ul>
+        <% } %>
+      </section>
+    <% } %>
+  </main>
+  <script>
+  (function () {
+    var btn = document.getElementById('liveDemoCopy');
+    var input = document.getElementById('liveDemoLink');
+    if (!btn || !input) return;
+    btn.addEventListener('click', function () {
+      var done = function () { btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = 'Copy'; }, 1600); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(input.value).then(done, function () { input.select(); document.execCommand('copy'); done(); });
+      else { input.select(); document.execCommand('copy'); done(); }
+    });
+  })();
+  </script>
+  <%- include('partials/footer') %>
+</body>
+</html>

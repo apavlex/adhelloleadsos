@@ -187,7 +187,7 @@ async function listEnabledNightlyPrepWorkspaceIds() {
   const out = [];
   for (const id of ids) {
     const ws = await dbService.getWorkspace(id);
-    if (ws && ws.nightlyPrep && ws.nightlyPrep.enabled) out.push(id);
+    if (ws && !ws.isDemo && ws.nightlyPrep && ws.nightlyPrep.enabled) out.push(id);
   }
   return out;
 }

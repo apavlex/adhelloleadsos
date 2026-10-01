@@ -86,6 +86,8 @@ async function runDueSchedules() {
       }
 
       if (due) {
+        const scheduleWs = schedule.workspaceId ? await db.getWorkspace(schedule.workspaceId) : null;
+        if (scheduleWs && scheduleWs.isDemo) continue;
         const jobLabel = scheduleDisplayTitle(schedule);
         console.log(
           `[SCHEDULER] Running due schedule for: "${jobLabel}" at ${schedule.scheduledTime || '?'} (${timezone})`
@@ -178,7 +180,7 @@ async function runReferralAskReminders() {
   const hook = process.env.REFERRAL_REMINDER_WEBHOOK_URL;
 
   for (const lead of leads) {
-    if (lead.referralAskReminderLogged) continue;
+    if (lead.referralAskReminderLogged || lead.isDemo) continue;
     const entered = lead.enteredStage8At;
     if (!entered) continue;
     if (Date.now() < Date.parse(entered) + windowMs) continue;
@@ -227,6 +229,7 @@ async function runWeeklyVoicemailDrops() {
   for (const wid of workspaceIds) {
     try {
       const ws = await db.getWorkspace(wid);
+      if (ws && ws.isDemo) continue;
       const telephony = ws && ws.telephony ? ws.telephony : {};
       const entries = Array.isArray(telephony.numberBankEntries) ? telephony.numberBankEntries : [];
       const fromEntries = entries.map((e) => signalwire.normalizePhone(e && e.number)).filter(Boolean);

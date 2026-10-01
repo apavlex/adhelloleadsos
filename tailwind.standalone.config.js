@@ -6,6 +6,8 @@ module.exports = {
   content: [
     './views/login.ejs',
     './views/omnichannel.ejs',
+    './views/live_demo.ejs',
+    './views/oauth_consent.ejs',
     './views/partials/email_intel_modal.ejs',
     './public/js/app.js',
     './public/js/review-stars.js',

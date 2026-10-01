@@ -14,6 +14,8 @@ const SEARCH_BUDGET_MS = STALE_MS - 60 * 1000;
 
 async function runResumedSearch(schedule) {
   const wid = schedule.workspaceId || 'default';
+  const ws = await dbService.getWorkspace(wid);
+  if (ws && ws.isDemo) throw new Error('Searches do not run in demo workspaces.');
   const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
   if (!scrapeJobRunner.isJobConfigured(schedule, integrationEnv)) {
     throw new Error('Search is not configured. Add provider keys under Workspace → API integrations.');

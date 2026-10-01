@@ -15,6 +15,7 @@ async function maybeWarmAllMorningBriefs() {
   for (const wid of ids) {
     try {
       const ws = await dbService.getWorkspace(wid);
+      if (ws && ws.publicDemoSandbox) continue;
       const tz =
         (ws && ws.timezone) || process.env.WORKSPACE_DEFAULT_TZ || 'America/New_York';
       let dt;

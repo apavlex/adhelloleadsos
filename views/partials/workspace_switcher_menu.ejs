@@ -22,11 +22,16 @@
   </button>
 </form>
 <% }) %>
+<% if (typeof liveDemo === 'undefined' || !liveDemo) { %>
 <div class="border-t border-brand-border dark:border-white/10 mt-1 pt-1 px-1">
   <a href="/workspaces/new" class="block px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white hover:bg-brand-cream/60 dark:hover:bg-white/10 rounded-xl">+ Create workspace</a>
   <% const _hasDemo = _menuList.some(function (w) { return w.isDemo; }); %>
   <form method="post" action="/workspaces/demo" class="block"<% if (_hasDemo) { %> onsubmit="return confirm('Rebuild the demo workspace with fresh sample data? Changes you made in the current demo are cleared.');"<% } %>>
     <button type="submit" class="w-full text-left px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white hover:bg-brand-cream/60 dark:hover:bg-white/10 rounded-xl" title="Fake contractors, territories, referrals and cadences to show on client calls. Nothing is ever sent from it."><%= _hasDemo ? '↻ Reset demo workspace' : '+ Build demo workspace' %></button>
   </form>
+  <% if (_hasDemo) { %>
+  <a href="/workspaces/live-demo" class="block px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white hover:bg-brand-cream/60 dark:hover:bg-white/10 rounded-xl" title="A link anyone can open to try their own copy of the demo — no sign-up.">Share public demo link</a>
+  <% } %>
 </div>
+<% } %>
 <p class="px-4 pt-2 pb-1 text-[10px] text-brand-muted leading-relaxed">Each workspace keeps its own leads, tasks, reports, and settings.</p>
