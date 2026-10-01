@@ -7,8 +7,62 @@
     ? String(workspaceAccentText).toLowerCase()
     : (_textSaved || '#111827');
 %>
+<%
+  const _wlCan = typeof canManageWorkspace !== 'undefined' && canManageWorkspace;
+  const _wlBrand = typeof whiteLabel !== 'undefined' && whiteLabel ? whiteLabel : { appName: 'AdHello', hasLogo: false, logoUrl: '/images/adhello-app-icon.png', iconUrl: function () { return '/images/adhello-app-icon-512.png'; } };
+  const _wlSet = typeof whiteLabelSettings !== 'undefined' && whiteLabelSettings ? whiteLabelSettings : { appName: '' };
+  const _wlOpenUrl = typeof appOpenUrl !== 'undefined' ? appOpenUrl : '/today';
+%>
+<div class="space-y-6">
+<section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6">
+  <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-1">Logo &amp; app name</h2>
+  <p class="text-sm text-brand-muted mb-5">Shown in the sidebar, the browser tab, and as the app icon when someone saves the app to their phone.</p>
+  <div class="grid gap-6 md:grid-cols-[minmax(0,1fr)_220px] items-start">
+    <% if (_wlCan) { %>
+    <form id="wlForm" class="space-y-4" enctype="multipart/form-data" novalidate>
+      <div>
+        <label for="wlAppName" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">App name</label>
+        <input id="wlAppName" name="appName" type="text" maxlength="30" value="<%= _wlSet.appName %>" placeholder="AdHello" class="w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white" />
+        <p class="mt-1 text-[11px] text-brand-muted">Under the icon on a phone, only the first 12 or so characters fit.</p>
+      </div>
+      <div>
+        <p class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Logo</p>
+        <label for="wlLogo" class="flex flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-brand-border/70 dark:border-white/15 bg-brand-cream/20 dark:bg-slate-950/40 px-4 py-6 text-center cursor-pointer hover:border-brand-yellow/60 transition-colors">
+          <svg class="w-6 h-6 text-brand-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12m0-12l-4 4m4-4l4 4"/></svg>
+          <span id="wlLogoLabel" class="text-sm font-semibold text-brand-dark dark:text-white">Choose a logo</span>
+          <span class="text-[11px] text-brand-muted">Square PNG works best, 512 × 512 or larger. JPEG, WebP or GIF also work, up to 8 MB.</span>
+        </label>
+        <input id="wlLogo" name="logo" type="file" accept="image/png,image/jpeg,image/webp,image/gif" class="sr-only" />
+        <% if (_wlBrand.hasLogo) { %>
+        <label class="mt-2 inline-flex items-center gap-2 text-[12px] font-semibold text-brand-muted"><input type="checkbox" id="wlRemoveLogo" name="remove_logo" value="on" /> Remove logo and go back to the AdHello icon</label>
+        <% } %>
+      </div>
+      <div class="flex flex-wrap items-center gap-3">
+        <button type="submit" id="wlSave" class="rounded-xl bg-brand-yellow px-6 py-3 text-xs font-black uppercase tracking-widest disabled:opacity-50">Save logo &amp; name</button>
+        <p id="wlMsg" class="text-sm" role="status"></p>
+      </div>
+    </form>
+    <% } else { %>
+    <p class="text-sm text-brand-muted">Only workspace admins can change the logo and name.</p>
+    <% } %>
+    <div class="flex flex-col items-center">
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2 self-start md:self-center">On a phone</p>
+      <div class="w-[200px] rounded-[28px] p-5 flex flex-col items-center gap-2 shadow-inner" style="background: linear-gradient(160deg, #3b5998 0%, #8e5aa8 55%, #e0809b 100%);">
+        <div class="grid grid-cols-3 gap-4 opacity-60" aria-hidden="true">
+          <span class="w-12 h-12 rounded-[22%] bg-white/30"></span><span class="w-12 h-12 rounded-[22%] bg-white/30"></span><span class="w-12 h-12 rounded-[22%] bg-white/30"></span>
+        </div>
+        <div class="flex flex-col items-center gap-1 mt-2">
+          <img id="wlIconPreview" src="<%= _wlBrand.iconUrl(512) %>" alt="App icon preview" width="64" height="64" class="w-16 h-16 rounded-[22%] bg-white object-cover shadow-lg" />
+          <span id="wlNamePreview" class="max-w-[90px] truncate text-[11px] font-medium text-white drop-shadow"><%= _wlBrand.appName %></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<% if (_wlCan) { %>
 <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6">
-  <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-1">Brand accent</h2>
+  <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-1">Colors</h2>
   <p class="text-sm text-brand-muted mb-4">Choose a preset or pick any custom color. Primary buttons, nav highlights, chat, and the workspace chip use this color.</p>
   <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Swatches</p>
   <div class="flex flex-wrap items-center gap-4 mb-6" role="radiogroup" aria-label="Accent color">
@@ -65,6 +119,106 @@
     </div>
   </div>
   <p id="wsAccentMsg" class="hidden text-sm mb-3"></p>
-  <button type="button" id="wsAccentSave" class="rounded-xl bg-brand-yellow px-6 py-3 text-xs font-black uppercase tracking-widest">Save accent</button>
+  <button type="button" id="wsAccentSave" class="rounded-xl bg-brand-yellow px-6 py-3 text-xs font-black uppercase tracking-widest">Save colors</button>
 </div>
+<% } %>
+
+<section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6">
+  <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-1">Save it to your phone</h2>
+  <p class="text-sm text-brand-muted mb-5">Add <strong class="text-brand-dark dark:text-white"><%= _wlBrand.appName %></strong> to your Home Screen and it opens full screen with your icon, like a regular app. No app store needed. Share these steps with your team.</p>
+  <div class="grid gap-6 lg:grid-cols-[180px_minmax(0,1fr)] items-start">
+    <div class="flex flex-col items-center text-center gap-2">
+      <img src="/workspace/white-label/qr.png" alt="QR code that opens the app" width="160" height="160" class="w-40 h-40 rounded-2xl border border-brand-border/50 dark:border-white/10 bg-white p-1" loading="lazy" />
+      <p class="text-[11px] text-brand-muted">Scan with your phone camera to open the app, then follow the steps.</p>
+      <p class="text-[11px] font-semibold text-brand-dark dark:text-white break-all"><%= _wlOpenUrl.replace(/^https?:\/\//, '') %></p>
+    </div>
+    <div class="grid gap-4 md:grid-cols-2">
+      <div class="rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 p-4">
+        <p class="font-bold text-brand-dark dark:text-white mb-2">iPhone &amp; iPad</p>
+        <ol class="list-decimal pl-5 space-y-1.5 text-sm text-brand-dark dark:text-slate-200">
+          <li>Open the app in <strong>Safari</strong> and sign in.</li>
+          <li>Tap the <strong>Share</strong> button (the square with an arrow, at the bottom of the screen or next to the address bar).</li>
+          <li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>
+          <li>Keep the name, make sure <strong>Open as Web App</strong> is on if you see it, and tap <strong>Add</strong>.</li>
+        </ol>
+        <p class="mt-2 text-[11px] text-brand-muted">In Chrome on iPhone, tap the Share button in the address bar, then Add to Home Screen.</p>
+      </div>
+      <div class="rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 p-4">
+        <p class="font-bold text-brand-dark dark:text-white mb-2">Android</p>
+        <ol class="list-decimal pl-5 space-y-1.5 text-sm text-brand-dark dark:text-slate-200">
+          <li>Open the app in <strong>Chrome</strong> and sign in.</li>
+          <li>Tap the <strong>⋮</strong> menu in the top-right corner.</li>
+          <li>Tap <strong>Add to Home screen</strong> (or <strong>Install app</strong>).</li>
+          <li>Tap <strong>Install</strong> or <strong>Add</strong>. The icon appears with your other apps.</li>
+        </ol>
+        <p class="mt-2 text-[11px] text-brand-muted">Samsung Internet: tap the menu, then Add page to, then Home screen.</p>
+      </div>
+      <div class="rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 p-4 md:col-span-2">
+        <p class="font-bold text-brand-dark dark:text-white mb-2">Computer</p>
+        <p class="text-sm text-brand-dark dark:text-slate-200">In Chrome or Edge, click the <strong>install</strong> icon at the right end of the address bar (a screen with a down arrow) and choose <strong>Install</strong>. On a Mac with Safari, choose <strong>File → Add to Dock</strong>.</p>
+      </div>
+      <p class="md:col-span-2 text-[11px] text-brand-muted">Changed the logo after saving the app? Remove the old icon and add it again so your phone picks up the new one.</p>
+    </div>
+  </div>
+</section>
+</div>
+<% if (_wlCan) { %>
 <%- include('../partials/scripts_accent') %>
+<script>
+  (function () {
+    var form = document.getElementById('wlForm');
+    if (!form) return;
+    var fileInput = document.getElementById('wlLogo');
+    var fileLabel = document.getElementById('wlLogoLabel');
+    var nameInput = document.getElementById('wlAppName');
+    var remove = document.getElementById('wlRemoveLogo');
+    var icon = document.getElementById('wlIconPreview');
+    var namePreview = document.getElementById('wlNamePreview');
+    var msg = document.getElementById('wlMsg');
+    var save = document.getElementById('wlSave');
+    var savedIcon = icon.getAttribute('src');
+    var blobUrl = '';
+    function say(text, ok) {
+      msg.textContent = text;
+      msg.className = 'text-sm font-semibold ' + (ok ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-600');
+    }
+    nameInput.addEventListener('input', function () {
+      namePreview.textContent = nameInput.value.trim() || 'AdHello';
+    });
+    fileInput.addEventListener('change', function () {
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+      var file = fileInput.files && fileInput.files[0];
+      blobUrl = file ? URL.createObjectURL(file) : '';
+      fileLabel.textContent = file ? file.name : 'Choose a logo';
+      icon.src = blobUrl || savedIcon;
+      icon.classList.toggle('object-contain', !!blobUrl);
+      icon.classList.toggle('p-2', !!blobUrl);
+      if (file && remove) remove.checked = false;
+    });
+    if (remove) {
+      remove.addEventListener('change', function () {
+        icon.src = remove.checked ? '/images/adhello-app-icon-512.png' : (blobUrl || savedIcon);
+      });
+    }
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      save.disabled = true;
+      say('Saving…', true);
+      fetch('/workspace/white-label', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+        body: new FormData(form),
+      })
+        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+          save.disabled = false;
+          if (!res.ok || !res.d.success) { say(res.d.error || 'Could not save.', false); return; }
+          say('Saved. Reloading to apply…', true);
+          setTimeout(function () { window.location.reload(); }, 700);
+        })
+        .catch(function () { save.disabled = false; say('Could not save. Check your connection.', false); });
+    });
+  })();
+</script>
+<% } %>

@@ -11,6 +11,7 @@ const { resolveScriptSignOffProfile } = require('../services/scriptPlaceholders'
 const { resolveAccentTextColor } = require('../lib/workspaceAccent');
 const { normalizeCustomMenuLinks } = require('../services/customMenuLinks');
 const { viewDateFormatters } = require('../services/workspaceTimezone');
+const whiteLabel = require('../services/whiteLabel');
 
 function attachWorkspaceQuickLog(res, ws) {
   const agencySales = isAgencySalesWorkspace(ws);
@@ -56,6 +57,7 @@ async function withWorkspace(req, res, next) {
       res.locals.workspaceId = ws.id;
       res.locals.workspaceAccent = ws.accentColor || '#CA8A04';
       res.locals.workspaceAccentText = resolveAccentTextColor(ws.accentColor, ws.accentTextColor);
+      res.locals.whiteLabel = whiteLabel.brandForWorkspace(ws);
       attachWorkspaceQuickLog(res, ws);
       res.locals.scriptSignOffProfile = resolveScriptSignOffProfile({ user: req.user, workspace: ws });
       res.locals.customMenuLinks = normalizeCustomMenuLinks(ws.customMenuLinks);
@@ -203,6 +205,7 @@ async function withWorkspace(req, res, next) {
     res.locals.workspaceSwitcherList = summaries;
     res.locals.workspaceAccent = ws.accentColor || '#CA8A04';
     res.locals.workspaceAccentText = resolveAccentTextColor(ws.accentColor, ws.accentTextColor);
+    res.locals.whiteLabel = whiteLabel.brandForWorkspace(ws);
     res.locals.workspaceReturnPath = req.originalUrl || '/today';
     res.locals.googleMapsStaticKey = getGoogleMapsApiKey();
     attachWorkspaceQuickLog(res, ws);

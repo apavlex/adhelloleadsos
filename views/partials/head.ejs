@@ -5,14 +5,25 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="AdHello">
-<meta name="application-name" content="AdHello">
+<% const _wl = typeof whiteLabel !== 'undefined' && whiteLabel ? whiteLabel : null; %>
+<meta name="apple-mobile-web-app-title" content="<%= _wl ? _wl.appName : 'AdHello' %>">
+<meta name="application-name" content="<%= _wl ? _wl.appName : 'AdHello' %>">
 <meta name="format-detection" content="telephone=no">
-<title><%= typeof title !== 'undefined' ? title : 'AdHello.ai | Leads' %></title>
+<%
+  let _pageTitle = typeof title !== 'undefined' ? String(title) : 'AdHello.ai | Leads';
+  if (_wl && _wl.customName) _pageTitle = _pageTitle.replace(/Agency OS|AdHello(\.ai)?/g, _wl.customName);
+%>
+<title><%= _pageTitle %></title>
+<% if (_wl && _wl.custom) { %>
+<link rel="manifest" href="<%= _wl.manifestUrl %>">
+<link rel="icon" href="<%= _wl.iconUrl(192) %>" type="image/png">
+<link rel="apple-touch-icon" href="<%= _wl.iconUrl(180) %>" sizes="180x180">
+<% } else { %>
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/images/adhello-app-icon.png" type="image/png">
 <link rel="apple-touch-icon" href="/images/adhello-app-icon-192.png" sizes="192x192">
 <link rel="apple-touch-icon" href="/images/adhello-app-icon-512.png" sizes="512x512">
+<% } %>
 <script>
   /* Before CSS: set dark/light on <html> so custom.css variables match on first paint. */
   (function () {

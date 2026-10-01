@@ -61,6 +61,7 @@ const networkPublicRoutes = require('./routes/networkPublic');
 const pipelineRoutes = require('./routes/pipeline');
 const memberAppRoutes = require('./routes/memberApp');
 const reviewPublicRoutes = require('./routes/reviewPublic');
+const whiteLabelRoutes = require('./routes/whiteLabel');
 const auditReportPublicRoutes = require('./routes/auditReportPublic');
 const auditLandingPublicRoutes = require('./routes/auditLandingPublic');
 const aiToolsReportPublicRoutes = require('./routes/aiToolsReportPublic');
@@ -461,6 +462,9 @@ app.use('/', networkPublicRoutes);
 // Member referral app (/m/:token, signed token in path) and public review pages (/rv/:slug)
 app.use('/', memberAppRoutes);
 app.use('/', reviewPublicRoutes);
+// White-label logo, Home Screen icons and manifest (no session)
+app.use('/', whiteLabelRoutes);
+
 // Autonomous prospecting API (API key auth, no session required)
 app.use('/autonomous', autonomousRoutes);
 

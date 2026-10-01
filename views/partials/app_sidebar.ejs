@@ -33,8 +33,9 @@
   }
 </style>
   <div class="sidebar-logo-row flex items-center justify-center pt-4 pb-2 px-3">
-    <a href="/today" class="sidebar-logo-link flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden shadow-sm ring-1 ring-black/5 dark:ring-white/10" title="AdHello — Today" aria-label="AdHello home">
-      <img src="/images/adhello-app-icon.png" alt="" width="40" height="40" class="h-full w-full object-contain" loading="eager" decoding="async" />
+<% const _sbWl = typeof whiteLabel !== 'undefined' && whiteLabel ? whiteLabel : null; %>
+    <a href="/today" class="sidebar-logo-link flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden shadow-sm ring-1 ring-black/5 dark:ring-white/10<%= _sbWl && _sbWl.hasLogo ? ' bg-white' : '' %>" title="<%= _sbWl ? _sbWl.appName : 'AdHello' %> — Today" aria-label="<%= _sbWl ? _sbWl.appName : 'AdHello' %> home">
+      <img src="<%= _sbWl ? _sbWl.logoUrl : '/images/adhello-app-icon.png' %>" alt="" width="40" height="40" class="h-full w-full object-contain" loading="eager" decoding="async" />
     </a>
   </div>
 

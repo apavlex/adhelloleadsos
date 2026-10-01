@@ -27,8 +27,9 @@
   <span id="adhelloAppMeta" class="sr-only" data-can-manage-workspace="<%= (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) ? '1' : '0' %>" aria-hidden="true"></span>
   <div class="app-topbar-inner w-full mx-auto flex items-center gap-2 sm:gap-3 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md px-3 sm:px-6 py-2.5 sm:py-3 rounded-2xl sm:rounded-full border border-brand-border dark:border-white/10 shadow-sm">
     <div class="flex items-center shrink-0 md:hidden">
+      <% const _navLogo = typeof whiteLabel !== 'undefined' && whiteLabel ? whiteLabel.logoUrl : '/images/adhello-app-icon.png'; %>
       <button id="mobileMenuBtn" type="button" class="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-[22%] border border-brand-border/70 dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800/80 hover:bg-brand-cream dark:hover:bg-slate-700 transition-colors shrink-0" aria-label="Open menu" title="Menu">
-        <img src="/images/adhello-app-icon.png" alt="" width="40" height="40" class="h-full w-full object-contain" loading="eager" decoding="async" />
+        <img src="<%= _navLogo %>" alt="" width="40" height="40" class="h-full w-full object-contain" loading="eager" decoding="async" />
         <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-slate-900" style="background-color: <%= _wsAccent %>" aria-hidden="true"></span>
       </button>
     </div>
@@ -175,8 +176,8 @@
   <div id="mobileMenu" class="fixed inset-0 z-[100] bg-brand-dark/40 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300 pointer-events-none md:hidden">
     <div id="mobileMenuPanel" class="ghl-sidebar absolute inset-y-0 left-0 w-72 max-w-[min(88vw,18rem)] shadow-2xl px-2 pb-4 -translate-x-full transition-transform duration-300 pointer-events-auto overflow-y-auto overscroll-contain custom-scrollbar flex flex-col [padding-top:max(0.75rem,env(safe-area-inset-top))] [padding-bottom:max(1rem,env(safe-area-inset-bottom))] [padding-left:max(0.5rem,env(safe-area-inset-left))]">
       <div class="flex items-center justify-between px-2 pb-3">
-        <a href="/today" class="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden shadow-sm ring-1 ring-black/5 dark:ring-white/10" aria-label="AdHello home">
-          <img src="/images/adhello-app-icon.png" alt="" width="40" height="40" class="h-full w-full object-contain" loading="eager" decoding="async" />
+        <a href="/today" class="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden shadow-sm ring-1 ring-black/5 dark:ring-white/10" aria-label="<%= typeof whiteLabel !== 'undefined' && whiteLabel ? whiteLabel.appName : 'AdHello' %> home">
+          <img src="<%= typeof whiteLabel !== 'undefined' && whiteLabel ? whiteLabel.logoUrl : '/images/adhello-app-icon.png' %>" alt="" width="40" height="40" class="h-full w-full object-contain" loading="eager" decoding="async" />
         </a>
         <button id="closeMobileMenu" type="button" class="w-10 h-10 flex items-center justify-center text-brand-muted hover:text-brand-dark dark:hover:text-white rounded-full transition-colors border border-brand-border dark:border-white/10" aria-label="Close menu">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>

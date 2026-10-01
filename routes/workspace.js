@@ -53,6 +53,9 @@ const {
   getWorkspaceMcpTokenStatus,
 } = require('../services/mcp/mcpAuth');
 const mcpOAuth = require('../services/mcp/mcpOAuth');
+const whiteLabel = require('../services/whiteLabel');
+const QRCode = require('qrcode');
+const { getPublicBaseUrl } = require('../lib/publicBaseUrl');
 const { CARS_REACH_SPECIALTIES } = require('../config/carsReachScripts');
 const { UPWORK_PROPOSAL_SERVICES } = require('../config/upworkProposalServices');
 const signalwire = require('../services/signalwire');
@@ -229,7 +232,7 @@ async function emailInviteQuery(req, ws, email, inviteLink) {
 
 const WORKSPACE_SECTION_SLUGS = new Set([
   'pipeline',
-  'branding',
+  'white-label',
   'team',
   'onboarding',
   'integrations',
@@ -249,9 +252,9 @@ const WORKSPACE_SECTION_META = {
     title: 'Pipeline stages',
     description: 'Reorder stages, apply presets, or redesign with AI. Leads stay mapped when you change the board.',
   },
-  branding: {
-    title: 'Brand accent',
-    description: 'Primary buttons, nav highlights, and the workspace chip use this color.',
+  'white-label': {
+    title: 'White label',
+    description: 'Put your own logo, name and colors on the app, and save it to your phone like a native app.',
   },
   team: {
     title: 'Members & roles',
@@ -2154,6 +2157,61 @@ router.post('/menu-links', express.json({ limit: '64kb' }), async (req, res, nex
   }
 });
 
+router.get('/branding', (req, res) => res.redirect(301, '/workspace/white-label'));
+
+const whiteLabelUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, cb) => {
+    const ok = /^image\/(jpeg|jpg|png|webp|gif)$/i.test(String(file.mimetype || ''));
+    cb(ok ? null : new Error('Upload a JPEG, PNG, WebP, or GIF image.'), ok);
+  },
+});
+
+/** POST multipart: app name + logo (or remove_logo). */
+router.post('/white-label', (req, res) => {
+  if (!req.canManageWorkspace) {
+    return res.status(403).json({ success: false, error: 'Only workspace admins can change white label settings.' });
+  }
+  whiteLabelUpload.single('logo')(req, res, async (uploadErr) => {
+    if (uploadErr) {
+      const msg = uploadErr.code === 'LIMIT_FILE_SIZE' ? 'That image is over 8 MB.' : uploadErr.message;
+      return res.status(400).json({ success: false, error: msg || 'Could not read that image.' });
+    }
+    try {
+      const wid = req.workspaceId;
+      const ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+      const next = whiteLabel.settings(ws);
+      const body = req.body || {};
+      if (Object.prototype.hasOwnProperty.call(body, 'appName')) next.appName = whiteLabel.cleanAppName(body.appName);
+      if (req.file && req.file.buffer) {
+        next.logoVersion = await whiteLabel.saveLogo(wid, req.file.buffer);
+      } else if (body.remove_logo === 'on' || body.remove_logo === '1') {
+        await whiteLabel.deleteLogo(wid);
+        next.logoVersion = '';
+      }
+      ws.whiteLabel = next;
+      await dbService.saveWorkspace(wid, ws);
+      const brand = whiteLabel.brandForWorkspace({ ...ws, id: wid });
+      return res.json({ success: true, appName: brand.appName, hasLogo: brand.hasLogo, logoUrl: brand.logoUrl, iconUrl: brand.iconUrl(512) });
+    } catch (err) {
+      console.error('[white-label] save failed:', err.message);
+      return res.status(500).json({ success: false, error: 'Could not save. Try a different image.' });
+    }
+  });
+});
+
+router.get('/white-label/qr.png', async (req, res) => {
+  try {
+    const png = await QRCode.toBuffer(`${getPublicBaseUrl(req)}/today`, { type: 'png', width: 480, margin: 2, errorCorrectionLevel: 'M', color: { dark: '#0f172a', light: '#ffffff' } });
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'private, max-age=86400');
+    return res.end(png);
+  } catch (err) {
+    return res.status(500).end();
+  }
+});
+
 router.get('/:section', async (req, res, next) => {
   try {
     const section = String(req.params.section || '').toLowerCase();
@@ -2166,10 +2224,10 @@ router.get('/:section', async (req, res, next) => {
     if (managerSections.has(section) && !req.canManageWorkspace) {
       return res.redirect(302, '/workspace/team');
     }
-    if (
-      (section === 'pipeline' || section === 'branding') &&
-      (!req.canManageWorkspace || !ws || !ws.id)
-    ) {
+    if (section === 'pipeline' && (!req.canManageWorkspace || !ws || !ws.id)) {
+      return res.redirect(302, '/workspace/team');
+    }
+    if (section === 'white-label' && (!ws || !ws.id)) {
       return res.redirect(302, '/workspace/team');
     }
     const meta = WORKSPACE_SECTION_META[section] || { title: 'Workspace', description: '' };
@@ -2196,6 +2254,10 @@ router.get('/:section', async (req, res, next) => {
       );
       renderLocals.preselectFolderKey = String((req.query && req.query.folder) || '').trim();
       renderLocals.kieImageReady = kieImageClient.isConfigured();
+    }
+    if (section === 'white-label') {
+      renderLocals.whiteLabelSettings = whiteLabel.settings(ws);
+      renderLocals.appOpenUrl = `${getPublicBaseUrl(req)}/today`;
     }
     if (section === 'ai-apps') {
       renderLocals.currentUserEmail = workspaceService.userEmail(req);
