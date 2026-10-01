@@ -6,6 +6,7 @@ const {
   extractTextToolCalls,
   sanitizeAssistantText,
   sanitizeHistory,
+  parseToolArgumentList,
 } = require('../services/pavlex/pavlexReplyParse');
 const { extractOpenRouterApiError } = require('../services/llmClient');
 const { chatUnavailableMessage } = require('../services/pavlex/pavlexCrmIntent');
@@ -71,6 +72,25 @@ describe('extractTextToolCalls', () => {
   it('ignores unknown tool names and plain prose', () => {
     assert.equal(extractTextToolCalls('<tool_call>delete_everything</tool_call>', KNOWN).calls.length, 0);
     assert.equal(extractTextToolCalls('Call Acme today, then save the script.', KNOWN).calls.length, 0);
+  });
+});
+
+describe('parseToolArgumentList', () => {
+  it('keeps normal arguments as one call', () => {
+    assert.deepEqual(parseToolArgumentList('{"query":"Interior Designers","location":"Camas, WA"}'), [
+      { query: 'Interior Designers', location: 'Camas, WA' },
+    ]);
+    assert.deepEqual(parseToolArgumentList({ query: 'Tile' }), [{ query: 'Tile' }]);
+    assert.deepEqual(parseToolArgumentList(''), [{}]);
+  });
+
+  it('splits parallel calls glued into one arguments string', () => {
+    const glued = '{"query":"Interior Designers","location":"Camas, WA"}{"query":"Property Managers {PM}","location":"Camas, WA"}';
+    assert.deepEqual(parseToolArgumentList(glued).map((a) => a.query), ['Interior Designers', 'Property Managers {PM}']);
+  });
+
+  it('unwraps double-encoded arguments', () => {
+    assert.deepEqual(parseToolArgumentList(JSON.stringify('{"query":"Realtors"}')), [{ query: 'Realtors' }]);
   });
 });
 

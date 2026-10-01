@@ -367,7 +367,8 @@ const LEAD_GEN_TOOL_SCHEMAS = [
       'Runs in the background and returns immediately with a search_id (status running or queued); leads appear in a few minutes, duplicates merge. ' +
       'Target folder: folder_id, or folder_name (created if missing), default = a folder named after the query. ' +
       `max_results default ${leadGen.DEFAULT_MAX_RESULTS}, hard cap ${leadGen.MAX_RESULTS_CAP}. ` +
-      'Do NOT use search_leads for this — search_leads only searches leads already in the CRM.',
+      'Do NOT use search_leads for this — search_leads only searches leads already in the CRM. ' +
+      'To add trades (seats) to the referral network itself, use manage_network_trades instead.',
     parameters: {
       type: 'object',
       properties: {

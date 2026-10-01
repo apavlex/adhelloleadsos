@@ -160,7 +160,54 @@ function sanitizeHistory(history, knownToolNames) {
   return out;
 }
 
+/** Top-level JSON objects in a string, e.g. `{"query":"A"}{"query":"B"}`. */
+function splitJsonObjects(raw) {
+  const s = String(raw || '');
+  const out = [];
+  let depth = 0;
+  let start = -1;
+  let inStr = false;
+  let esc = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === '\\') esc = true;
+      else if (c === '"') inStr = false;
+    } else if (c === '"') {
+      inStr = true;
+    } else if (c === '{') {
+      if (depth === 0) start = i;
+      depth += 1;
+    } else if (c === '}' && depth > 0) {
+      depth -= 1;
+      if (depth === 0) {
+        const obj = tryJson(s.slice(start, i + 1));
+        if (obj && typeof obj === 'object' && !Array.isArray(obj)) out.push(obj);
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Native tool-call arguments as one or more argument objects. Some providers glue
+ * parallel calls into one arguments string or double-encode it; plain JSON.parse
+ * turns those into {} and the tool fails with "query is required".
+ */
+function parseToolArgumentList(raw) {
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) return [raw];
+  const s = String(raw || '').trim();
+  if (!s) return [{}];
+  const whole = tryJson(s);
+  if (whole && typeof whole === 'object' && !Array.isArray(whole)) return [whole];
+  if (typeof whole === 'string' && whole.trim().startsWith('{')) return parseToolArgumentList(whole);
+  const parts = splitJsonObjects(s);
+  return parts.length ? parts : [{}];
+}
+
 module.exports = {
+  parseToolArgumentList,
   stripThinking,
   looksLikeLeakedReasoning,
   extractTextToolCalls,

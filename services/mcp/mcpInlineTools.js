@@ -12,6 +12,7 @@ const {
   extractTextToolCalls,
   sanitizeAssistantText,
   sanitizeHistory,
+  parseToolArgumentList,
 } = require('../pavlex/pavlexReplyParse');
 const { extractOpenRouterApiError } = require('../llmClient');
 const mcpLogger = require('./mcpLogger');
@@ -111,15 +112,15 @@ async function runToolLoop({ llm, messages, tools, toolNames, ctx, requireTools,
     let content = stripThinking(contentText(msg.content));
     let toolCalls = (Array.isArray(msg.tool_calls) ? msg.tool_calls : [])
       .filter((c) => c && c.function && c.function.name)
-      .map((c, i) => ({
-        id: c.id || `call_${state.callSeq}_${i}`,
-        type: 'function',
-        function: {
-          name: String(c.function.name),
-          arguments:
-            typeof c.function.arguments === 'string' ? c.function.arguments : JSON.stringify(c.function.arguments || {}),
-        },
-      }));
+      .flatMap((c, i) => {
+        const id = c.id || `call_${state.callSeq}_${i}`;
+        const argList = parseToolArgumentList(c.function.arguments);
+        return argList.map((args, j) => ({
+          id: argList.length > 1 ? `${id}_${j}` : id,
+          type: 'function',
+          function: { name: String(c.function.name), arguments: JSON.stringify(args) },
+        }));
+      });
 
     if (!toolCalls.length) {
       const source = content || stripThinking(contentText(msg.reasoning || msg.reasoning_content));
