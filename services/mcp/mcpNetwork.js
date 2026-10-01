@@ -146,12 +146,13 @@ async function getNetworkOverview(ctx) {
   const { zones, members, referrals, membersById } = await loadAll(network);
   const applications = await store.listApplications(network.id);
   const networkTrades = trades.tradesForNetwork(network);
+  const ghlAllowed = await networkMembers.ghlSubaccountsAllowed(network);
   return {
     network: {
       name: network.name,
       app_name: network.brand && network.brand.appName ? network.brand.appName : network.name,
       trades: networkTrades.map((t) => t.name),
-      auto_ghl_subaccount: network.autoGhlSubaccount,
+      ...(ghlAllowed ? { auto_ghl_subaccount: network.autoGhlSubaccount } : {}),
       partners_per_trade: network.seatLimit || 'no limit',
     },
     zones: zones.map((zone) => ({
@@ -178,6 +179,7 @@ async function listNetworkMembers(ctx, input) {
   const { zones, members, referrals, zonesById } = await loadAll(network);
   const tradeSlug = input.trade ? resolveTrade(network, input.trade) : '';
   const q = normWords(input.query);
+  const ghlAllowed = await networkMembers.ghlSubaccountsAllowed(network);
   const rows = members
     .filter((m) => !input.status || m.status === input.status)
     .filter((m) => !tradeSlug || m.trades.includes(tradeSlug))
@@ -193,7 +195,7 @@ async function listNetworkMembers(ctx, input) {
       zones: m.zoneIds.map((id) => (zonesById[id] ? zonesById[id].name : '')).filter(Boolean),
       seats: ex.seatsForMember(zones, m.id).map((s) => `${trades.tradeLabel(s.tradeSlug)} · ${s.zoneName}`),
       stats: ex.memberStats(referrals, m.id),
-      ghl_subaccount: m.ghlLocationId ? 'created' : m.ghlError ? `failed: ${m.ghlError}` : 'none',
+      ...(ghlAllowed ? { ghl_subaccount: m.ghlLocationId ? 'created' : m.ghlError ? `failed: ${m.ghlError}` : 'none' } : {}),
       review_page: m.reviewSlug ? `${baseUrl(ctx)}/rv/${m.reviewSlug}` : '',
     }));
   return { count: rows.length, members: rows };

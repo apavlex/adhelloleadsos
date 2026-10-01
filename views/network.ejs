@@ -293,7 +293,8 @@
               <p class="text-[12px] text-brand-muted truncate"><%= [m.contactName, m.phone, m.email].filter(Boolean).join(' · ') || 'No contact on file' %></p>
             </div>
             <span class="flex shrink-0 items-center gap-1.5">
-              <% if (m.ghlLocationId) { %>
+              <% if (!ghlSubaccounts) { %>
+              <% } else if (m.ghlLocationId) { %>
               <a class="net-pill net-pill-sent no-underline" href="<%= m.ghlSubaccountUrl || '#' %>" target="_blank" rel="noopener" title="GHL sub-account <%= m.ghlLocationId %>">GHL ✓</a>
               <% } else if (m.ghlError) { %>
               <span class="net-pill net-pill-declined" title="<%= m.ghlError %>">GHL failed</span>
@@ -301,7 +302,7 @@
               <span class="net-pill <%= m.status === 'active' ? 'net-pill-won' : '' %>"><%= m.status === 'active' ? 'Active' : 'Paused' %></span>
             </span>
           </div>
-          <% if (!m.ghlLocationId && m.ghlError) { const needsAgencyKey = /not authorized for this scope|agency-level token/i.test(m.ghlError); %>
+          <% if (ghlSubaccounts && !m.ghlLocationId && m.ghlError) { const needsAgencyKey = /not authorized for this scope|agency-level token/i.test(m.ghlError); %>
           <p class="mt-1 text-[12px] text-rose-700 dark:text-rose-300">
             <% if (needsAgencyKey) { %>GHL: your GHL key can't create sub-accounts — it needs an agency key. <a href="/workspace/integrations#ghl-integration" class="font-semibold underline">Add Agency API key</a>, then Retry.<% } else { %>GHL: <%= m.ghlError %><% } %>
           </p>
@@ -316,7 +317,7 @@
           <div class="mt-3 flex flex-wrap items-center gap-2">
             <button type="button" class="net-btn net-btn-ghost" data-net-copy-portal="<%= m.id %>">Copy app link</button>
             <form method="post" action="/network/members/<%= m.id %>/send-portal-link"><button type="submit" class="net-btn net-btn-ghost">Text app link</button></form>
-            <% if (canManage && !m.ghlLocationId) { %>
+            <% if (canManage && ghlSubaccounts && !m.ghlLocationId) { %>
             <form method="post" action="/network/members/<%= m.id %>/ghl"><button type="submit" class="net-btn net-btn-ghost"><%= m.ghlError ? 'Retry GHL sub-account' : 'Create GHL sub-account' %></button></form>
             <% } %>
             <% if (canManage) { %>
@@ -490,7 +491,7 @@
     <% } %>
 
     <% if (tab === 'applications') { %>
-      <p class="mb-3 text-[13px] text-brand-muted max-w-2xl">Businesses your members invited from the Enroll tab in their app. Approving adds them as a member, <%= network.autoGhlSubaccount ? 'creates their GHL sub-account, ' : '' %>and texts them their app link.</p>
+      <p class="mb-3 text-[13px] text-brand-muted max-w-2xl">Businesses your members invited from the Enroll tab in their app. Approving adds them as a member, <%= ghlSubaccounts && network.autoGhlSubaccount ? 'creates their GHL sub-account, ' : '' %>and texts them their app link.</p>
       <% if (!applications.length) { %>
       <div class="net-card text-center py-10"><p class="text-sm text-brand-muted">No applications yet. Members can invite businesses from the Enroll tab in their app.</p></div>
       <% } else { %>
@@ -661,11 +662,13 @@
             </select>
             <p class="text-[12px] text-brand-muted mt-1">With more than one, referrals rotate to the partner who was sent one least recently. Lowering it keeps current partners.</p>
           </div>
+          <% if (ghlSubaccounts) { %>
           <input type="hidden" name="ghlToggle" value="1" />
           <label class="flex items-start gap-2 text-sm font-semibold">
             <input type="checkbox" name="autoGhlSubaccount" value="on" class="mt-0.5" <%= network.autoGhlSubaccount ? 'checked' : '' %> />
             <span>Create a GHL sub-account for each new member <span class="block text-[12px] font-normal text-brand-muted">Uses the agency key, company ID and snapshot from Workspace → Integrations.</span></span>
           </label>
+          <% } %>
           <button type="submit" class="net-btn net-btn-yellow">Save</button>
         </form>
 

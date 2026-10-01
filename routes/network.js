@@ -202,6 +202,7 @@ router.get('/', async (req, res, next) => {
       statuses: ex.STATUSES.map((s) => ({ id: s, label: ex.STATUS_LABELS[s], count: referrals.filter((r) => r.status === s).length })),
       totals: { ...totals, wonValueLabel: money(totals.wonValue), openSeats, heldSeats, members: members.length },
       canManage: canManage(req),
+      ghlSubaccounts: networkMembers.ghlSubaccountsAllowedFor(req.workspace),
       notice: String(req.query.notice || '').trim(),
       editZoneId: String(req.query.zone || '').trim(),
       prefillLeadKey: String(req.query.leadKey || '').trim(),
@@ -440,7 +441,7 @@ router.post('/members', async (req, res) => {
     if (applied.ok) await dbService.updateLead(lead.key, { referralPartner: applied.referralPartner }, req.workspaceId);
 
     let ghl = null;
-    if (!existing && network.autoGhlSubaccount && !member.ghlLocationId) {
+    if (!existing && network.autoGhlSubaccount && !member.ghlLocationId && networkMembers.ghlSubaccountsAllowedFor(req.workspace)) {
       ghl = await networkMembers.provisionGhlSubaccount(network, member);
     }
     const notice = seatNotice(existing ? `Updated ${member.companyName}.` : `${member.companyName} joined the network.`, conflicts, network)
@@ -505,6 +506,7 @@ router.post('/members/:id/review-links', async (req, res) => {
 
 router.post('/members/:id/ghl', async (req, res) => {
   if (!canManage(req)) return reply(req, res, { ok: false, tab: 'members', notice: 'Only owners and admins can create GHL sub-accounts.', status: 403 });
+  if (!networkMembers.ghlSubaccountsAllowedFor(req.workspace)) return reply(req, res, { ok: false, tab: 'members', notice: 'This workspace does not create GHL sub-accounts.', status: 403 });
   try {
     const network = await loadNetwork(req);
     const member = await store.getMember(network.id, req.params.id);

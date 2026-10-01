@@ -151,6 +151,7 @@ test('review slugs are unique across members with the same name', async () => {
 
 test('approving an application adds the member and records the GHL sub-account', async () => {
   const { network, zone } = await setupNetwork();
+  await dbService.saveWorkspace(network.ownerWorkspaceId, { name: 'AdHello Agency', slug: 'adhello-agency', salesScriptsPresetKey: 'agency' });
   const application = await store.saveApplication(network.id, {
     companyName: 'Summit Roofing',
     contactName: 'Dana',
@@ -181,6 +182,24 @@ test('approving an application adds the member and records the GHL sub-account',
   assert.equal(after.memberId, result.member.id);
   const again = await networkMembers.approveApplication({ network, applicationId: application.id, baseUrl: '' });
   assert.equal(again.ok, false);
+});
+
+test('non-agency workspaces like Flooring never create GHL sub-accounts on approval', async () => {
+  const { network, zone } = await setupNetwork();
+  await dbService.saveWorkspace(network.ownerWorkspaceId, { name: 'AdHello Flooring', slug: 'adhello-flooring' });
+  assert.equal(await networkMembers.ghlSubaccountsAllowed(network), false);
+  const application = await store.saveApplication(network.id, { companyName: 'Rose City Tile', tradeSlug: 'roofing', city: 'Camas' });
+  let provisioned = false;
+  const result = await networkMembers.approveApplication({
+    network,
+    applicationId: application.id,
+    zoneIds: [zone.id],
+    baseUrl: 'http://localhost',
+    provision: async () => { provisioned = true; return { ok: true }; },
+  });
+  assert.equal(result.ok, true);
+  assert.equal(provisioned, false);
+  assert.equal(result.ghl, null);
 });
 
 test('a failed GHL sub-account is recorded on the member without throwing', async () => {

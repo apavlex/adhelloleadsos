@@ -11,8 +11,19 @@ const networkReferrals = require('./networkReferrals');
 const referralNetwork = require('./referralNetwork');
 const workspaceIntegrations = require('./workspaceIntegrations');
 const ghlSubaccounts = require('./ghlSubaccounts');
+const { isAgencySalesWorkspace } = require('./leadPanelWorkspace');
 
 const GHL_TIMEOUT_MS = 30000;
+
+/** GHL sub-accounts are an agency feature; vertical workspaces (e.g. Flooring) never create them. */
+function ghlSubaccountsAllowedFor(workspace) {
+  return isAgencySalesWorkspace(workspace);
+}
+
+async function ghlSubaccountsAllowed(network) {
+  const ws = network && network.ownerWorkspaceId ? await dbService.getWorkspace(network.ownerWorkspaceId) : null;
+  return ghlSubaccountsAllowedFor(ws);
+}
 
 function withTimeout(promise, ms, message) {
   let timer;
@@ -97,7 +108,7 @@ async function approveApplication({ network, applicationId, zoneIds, tradeSlugs,
 
   let ghl = null;
   let current = member;
-  if (network.autoGhlSubaccount) {
+  if (network.autoGhlSubaccount && await ghlSubaccountsAllowed(network)) {
     ghl = await provision(network, member);
     if (ghl && ghl.member) current = ghl.member;
   }
@@ -122,6 +133,8 @@ async function rejectApplication({ network, applicationId }) {
 }
 
 module.exports = {
+  ghlSubaccountsAllowedFor,
+  ghlSubaccountsAllowed,
   provisionGhlSubaccount,
   ghlNotice,
   approveApplication,
