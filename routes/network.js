@@ -11,6 +11,7 @@ const networkReferrals = require('../services/networkReferrals');
 const referralNetwork = require('../services/referralNetwork');
 const networkBrand = require('../services/networkBrand');
 const networkMembers = require('../services/networkMembers');
+const { ICONS: MEMBER_APP_ICONS } = require('../services/memberAppIcons');
 const multer = require('multer');
 
 const TABS = new Set(['seats', 'members', 'applications', 'referrals', 'send', 'brand', 'setup']);
@@ -408,6 +409,39 @@ router.post('/applications/:id/reject', async (req, res) => {
   } catch (err) {
     console.error('[network] reject failed:', err.message);
     return reply(req, res, { ok: false, tab: 'applications', notice: 'Could not reject that applicant.', status: 500 });
+  }
+});
+
+// The real member Home screen with demo numbers, framed as an iPhone on the App branding tab.
+router.get('/brand/preview', async (req, res, next) => {
+  try {
+    const network = await loadNetwork(req);
+    const base = '/network/brand/preview';
+    res.set('Cache-Control', 'no-store');
+    return res.render('member_app/home', {
+      preview: true,
+      network,
+      brand: networkBrand.brandView(network),
+      member: { companyName: 'Patrick Plumbing', status: 'active' },
+      greetingName: 'Patrick',
+      base,
+      active: 'home',
+      icons: MEMBER_APP_ICONS,
+      flash: null,
+      tiles: [
+        { key: 'sent', label: 'Sent', value: 7, href: base },
+        { key: 'received', label: 'Received', value: 6, href: base },
+        { key: 'pending', label: 'Pending', value: 3, href: base },
+        { key: 'completed', label: 'Completed', value: 8, href: base },
+      ],
+      wonValue: '$12,400',
+      waiting: [
+        { id: 'demo1', customer: { name: 'Avery Moss', city: 'Camas' }, trade: 'Roofing', from: 'Camas Electric' },
+        { id: 'demo2', customer: { name: 'Jordan Reyes', city: 'Washougal' }, trade: 'HVAC', from: 'Evergreen Landscaping' },
+      ],
+    });
+  } catch (err) {
+    return next(err);
   }
 });
 

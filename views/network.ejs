@@ -458,29 +458,54 @@
 
         <aside class="lg:sticky lg:top-24">
           <p class="net-label">Preview</p>
-          <div id="brPreview" class="rounded-[2rem] border-[6px] border-slate-900 bg-white text-slate-900 overflow-hidden shadow-xl" style="--acc: <%= brand.accent %>; --on: <%= brand.onAccent %>;">
-            <div class="px-4 pt-4 pb-2">
-              <p class="text-[11px] font-bold text-slate-500">Dashboard</p>
-              <p class="font-display font-extrabold text-xl mt-1" style="color: #0f172a">Hi, Patrick</p>
-              <p class="text-[12px] font-semibold" data-brp="tagline"><%= brand.tagline %></p>
-            </div>
-            <div class="mx-3 rounded-2xl overflow-hidden relative" style="height: 150px; background: <%= brand.heroUrl ? 'url(' + brand.heroUrl + ') center/cover' : 'linear-gradient(135deg, var(--acc), #0f172a)' %>;">
-              <div class="absolute left-2 right-2 bottom-2 rounded-xl bg-slate-900/90 text-white p-2.5">
-                <p class="text-[12px] font-bold" data-brp="appName"><%= brand.appName %></p>
-                <p class="text-[10px] text-slate-300" data-brp="subtitle"><%= brand.subtitle %></p>
-                <p class="mt-1 font-display font-black text-lg leading-none"><span data-brp="statValue"><%= brand.statValueLabel || '—' %></span> <span class="text-[10px] font-semibold" style="color: var(--acc)" data-brp="statSuffix"><%= brand.statSuffix %></span></p>
-                <p class="text-[9px] font-bold uppercase tracking-widest" data-brp="statLabel"><%= brand.statLabel %></p>
+          <style>
+            /* iPhone 15-style frame. The screen is the real member Home page at 390×844, scaled to fit. */
+            .br-phone { --s: 0.759; position: relative; width: 320px; margin: 0 auto; padding: 12px; border-radius: 56px;
+              background: linear-gradient(145deg, #3a3a3d, #1b1b1d 45%, #2c2c2f); box-shadow: inset 0 0 0 1.5px #4a4a4e, inset 0 0 0 4px #121214, 0 30px 60px -20px rgba(15, 23, 42, 0.45), 0 12px 24px -12px rgba(15, 23, 42, 0.3); }
+            .br-phone__btn { position: absolute; width: 4px; border-radius: 2px; background: linear-gradient(90deg, #2a2a2d, #4a4a4e); }
+            .br-phone__btn--action { left: -3px; top: 104px; height: 28px; }
+            .br-phone__btn--up { left: -3px; top: 150px; height: 52px; }
+            .br-phone__btn--down { left: -3px; top: 212px; height: 52px; }
+            .br-phone__btn--side { right: -3px; top: 172px; height: 84px; background: linear-gradient(270deg, #2a2a2d, #4a4a4e); }
+            .br-phone__screen { position: relative; width: 296px; height: 641px; border-radius: 44px; overflow: hidden; background: #f2f2f7; isolation: isolate; clip-path: inset(0 round 44px); }
+            .br-phone__viewport { position: absolute; top: 0; left: 0; width: 390px; height: 844px; transform: scale(var(--s)); transform-origin: 0 0; border-radius: 58px; overflow: hidden; }
+            .br-phone__viewport iframe { display: block; width: 390px; height: 844px; border: 0; border-radius: 58px; background: transparent; }
+            .br-phone__status { position: absolute; top: 0; left: 0; right: 0; height: 54px; display: flex; align-items: center; justify-content: space-between; padding: 6px 30px 0 52px; pointer-events: none; color: #000;
+              font: 600 17px/1 -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, sans-serif; letter-spacing: -0.02em; }
+            .br-phone__status svg { display: block; fill: currentColor; }
+            .br-phone__icons { display: flex; align-items: center; gap: 6px; }
+            .br-phone__island { position: absolute; top: 11px; left: 50%; width: 125px; height: 37px; margin-left: -62.5px; border-radius: 20px; background: #000; pointer-events: none; }
+            .br-phone__home { position: absolute; bottom: 8px; left: 50%; width: 139px; height: 5px; margin-left: -69.5px; border-radius: 3px; background: #000; pointer-events: none; }
+            .br-phone__loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font: 600 13px/1 -apple-system, Inter, sans-serif; color: #8e8e93; }
+            @media (prefers-color-scheme: dark) {
+              .br-phone__screen { background: #000; }
+              .br-phone__status { color: #fff; }
+              .br-phone__home { background: #fff; }
+            }
+          </style>
+          <div class="br-phone" id="brPhone" style="--acc: <%= brand.accent %>;">
+            <span class="br-phone__btn br-phone__btn--action" aria-hidden="true"></span>
+            <span class="br-phone__btn br-phone__btn--up" aria-hidden="true"></span>
+            <span class="br-phone__btn br-phone__btn--down" aria-hidden="true"></span>
+            <span class="br-phone__btn br-phone__btn--side" aria-hidden="true"></span>
+            <div class="br-phone__screen">
+              <div class="br-phone__loading">Loading preview…</div>
+              <div class="br-phone__viewport">
+                <iframe id="brPreviewFrame" src="/network/brand/preview" title="Member app preview" loading="lazy" tabindex="-1"></iframe>
+                <div class="br-phone__status" aria-hidden="true">
+                  <span>9:41</span>
+                  <span class="br-phone__icons">
+                    <svg width="19" height="12" viewBox="0 0 19 12"><rect x="0" y="7.5" width="3.2" height="4.5" rx="1"/><rect x="5" y="5" width="3.2" height="7" rx="1"/><rect x="10" y="2.5" width="3.2" height="9.5" rx="1"/><rect x="15" y="0" width="3.2" height="12" rx="1"/></svg>
+                    <svg width="17" height="12" viewBox="0 0 17 12"><path d="M8.5 2.4c2.3 0 4.4.9 6 2.4l1.2-1.2A10.2 10.2 0 0 0 8.5.7 10.2 10.2 0 0 0 1.3 3.6l1.2 1.2a8.5 8.5 0 0 1 6-2.4Zm0 3.4c1.4 0 2.6.5 3.6 1.4l1.2-1.2a6.8 6.8 0 0 0-9.6 0l1.2 1.2c1-.9 2.2-1.4 3.6-1.4Zm0 3.4c.5 0 1 .2 1.3.5L8.5 11 7.2 9.7c.3-.3.8-.5 1.3-.5Z"/></svg>
+                    <svg width="27" height="13" viewBox="0 0 27 13"><rect x="0.5" y="0.5" width="23" height="12" rx="3.8" fill="none" stroke="currentColor" stroke-opacity="0.38"/><rect x="2" y="2" width="20" height="9" rx="2.5"/><path d="M25 4.5v4c.8-.3 1.4-1.1 1.4-2s-.6-1.7-1.4-2Z" fill-opacity="0.4"/></svg>
+                  </span>
+                </div>
+                <div class="br-phone__island" aria-hidden="true"></div>
+                <div class="br-phone__home" aria-hidden="true"></div>
               </div>
             </div>
-            <div class="grid grid-cols-2 gap-2 p-3">
-              <% ['Sent', 'Received', 'Pending', 'Completed'].forEach(function (s, i) { %>
-              <div class="rounded-xl border border-slate-100 p-2"><span class="inline-block h-5 w-5 rounded-md" style="background: color-mix(in srgb, var(--acc) 18%, white)"></span><p class="font-black text-lg leading-tight"><%= [7, 6, 3, 8][i] %></p><p class="text-[9px] font-bold uppercase tracking-widest text-slate-400"><%= s %></p></div>
-              <% }); %>
-            </div>
-            <div class="flex items-end justify-between border-t border-slate-100 px-4 pb-2 pt-1 text-[9px] font-bold text-slate-400">
-              <span style="color: var(--acc)">Home</span><span>Referrals</span><span class="-mt-4 inline-flex h-9 w-9 items-center justify-center rounded-full" style="background: var(--acc); color: var(--on)">➤</span><span>Enroll</span><span>Review</span>
-            </div>
           </div>
+          <p class="mt-3 text-center text-[11px] text-brand-muted">The real member app with sample numbers. Changes show here before you save.</p>
         </aside>
       </div>
     <% } %>
@@ -580,11 +605,14 @@
       });
 
       var brandForm = document.getElementById('netBrandForm');
-      var preview = document.getElementById('brPreview');
-      if (brandForm && preview) {
+      var frame = document.getElementById('brPreviewFrame');
+      if (brandForm && frame) {
         var pick = document.getElementById('brAccentPick');
         var accentInput = document.getElementById('brAccent');
         var fallbacks = { appName: <%- JSON.stringify(network.name).replace(/</g, '\\u003c') %>, tagline: 'Every referral makes a difference.', subtitle: 'Referral partner network' };
+        var saved = <%- JSON.stringify({ logo: brand.logoUrl || '', hero: brand.heroUrl || '' }).replace(/</g, '\\u003c') %>;
+        var blobs = { logo: '', hero: '' };
+        var badgeIcon = '';
         function onAccent(hex) {
           var m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
           if (!m) return '#ffffff';
@@ -595,32 +623,145 @@
           var l = 0.2126 * lum[0] + 0.7152 * lum[1] + 0.0722 * lum[2];
           return 1.05 / (l + 0.05) >= 2.9 ? '#ffffff' : '#0f172a';
         }
-        function sync() {
-          brandForm.querySelectorAll('[data-br]').forEach(function (input) {
-            var key = input.getAttribute('data-br');
-            var target = preview.querySelector('[data-brp="' + key + '"]');
-            var value = input.value.trim();
-            if (key === 'accent') {
-              if (/^#[0-9a-f]{6}$/i.test(value)) {
-                preview.style.setProperty('--acc', value);
-                preview.style.setProperty('--on', onAccent(value));
-              }
-              return;
-            }
-            if (!target) return;
-            if (key === 'statValue') {
-              var n = Number(value.replace(/[^0-9.]/g, ''));
-              target.textContent = value && isFinite(n) ? Math.round(n).toLocaleString('en-US') : '—';
-              return;
-            }
-            target.textContent = value || fallbacks[key] || '';
-          });
+        function field(name) {
+          var el = brandForm.elements[name];
+          return el && typeof el.value === 'string' ? el.value.trim() : '';
         }
+        function imageFor(kind) {
+          var remove = brandForm.elements['remove_' + kind];
+          if (remove && remove.checked) return '';
+          if (blobs[kind]) return blobs[kind];
+          var url = field(kind + 'Url');
+          if (/^https:\/\/\S+$/i.test(url)) return url;
+          return url ? '' : saved[kind];
+        }
+        function setText(doc, sel, text) {
+          var el = doc.querySelector(sel);
+          if (el) el.textContent = text;
+        }
+        function sync() {
+          var doc;
+          try { doc = frame.contentDocument; } catch (e) { return; }
+          if (!doc || !doc.querySelector('.ma-hero')) return;
+          var root = doc.documentElement;
+
+          var accent = field('accent');
+          if (/^#[0-9a-f]{6}$/i.test(accent)) {
+            root.style.setProperty('--acc', accent);
+            root.style.setProperty('--on', onAccent(accent));
+            document.getElementById('brPhone').style.setProperty('--acc', accent);
+          }
+
+          var tagline = doc.querySelector('.ma-hello p');
+          if (tagline) {
+            var words = (field('tagline') || fallbacks.tagline).split(/\s+/);
+            var count = words.length >= 5 ? 3 : (words.length > 2 ? 2 : 0);
+            tagline.textContent = count ? words.slice(0, -count).join(' ') + ' ' : words.join(' ');
+            if (count) {
+              var em = doc.createElement('em');
+              em.textContent = words.slice(-count).join(' ');
+              tagline.appendChild(em);
+            }
+          }
+
+          var appName = field('appName') || fallbacks.appName;
+          setText(doc, '.ma-hero__name', appName);
+          setText(doc, '.ma-hero__sub', field('subtitle') || fallbacks.subtitle);
+          doc.title = appName;
+
+          var card = doc.querySelector('.ma-hero__card');
+          if (card) {
+            card.querySelectorAll('.ma-hero__stat, .ma-hero__label').forEach(function (el) { el.remove(); });
+            var raw = field('statValue');
+            var n = Number(raw.replace(/[^0-9.]/g, ''));
+            var stat = doc.createElement('p');
+            stat.className = 'ma-hero__stat';
+            var small = doc.createElement('small');
+            var label = doc.createElement('p');
+            label.className = 'ma-hero__label';
+            if (raw && isFinite(n)) {
+              stat.textContent = Math.round(n).toLocaleString('en-US');
+              small.textContent = field('statSuffix');
+              label.textContent = field('statLabel');
+            } else {
+              stat.textContent = '8';
+              small.textContent = 'jobs completed';
+              label.textContent = '$12,400 won from referrals';
+            }
+            if (small.textContent) stat.appendChild(small);
+            card.appendChild(stat);
+            if (label.textContent) card.appendChild(label);
+          }
+
+          var hero = doc.querySelector('.ma-hero');
+          var heroImg = hero.querySelector('.ma-hero__img');
+          var heroUrl = imageFor('hero');
+          if (heroUrl) {
+            if (!heroImg) {
+              heroImg = doc.createElement('img');
+              heroImg.className = 'ma-hero__img';
+              heroImg.alt = '';
+              hero.insertBefore(heroImg, hero.firstChild);
+            }
+            if (heroImg.getAttribute('src') !== heroUrl) heroImg.src = heroUrl;
+          } else if (heroImg) {
+            heroImg.remove();
+          }
+
+          var logoUrl = imageFor('logo');
+          var badge = doc.querySelector('.ma-hero__badge');
+          if (badge) {
+            if (logoUrl) {
+              var bImg = badge.querySelector('img');
+              if (!bImg) { badge.textContent = ''; bImg = doc.createElement('img'); bImg.alt = ''; badge.appendChild(bImg); }
+              if (bImg.getAttribute('src') !== logoUrl) bImg.src = logoUrl;
+            } else if (badge.querySelector('img')) {
+              badge.innerHTML = badgeIcon;
+            }
+          }
+          var brandBox = doc.querySelector('.ma-top__brand');
+          var topLogo = doc.querySelector('.ma-top__logo');
+          if (logoUrl && brandBox) {
+            if (!topLogo) {
+              topLogo = doc.createElement('img');
+              topLogo.className = 'ma-top__logo';
+              topLogo.alt = '';
+              brandBox.insertBefore(topLogo, brandBox.firstChild);
+            }
+            if (topLogo.getAttribute('src') !== logoUrl) topLogo.src = logoUrl;
+          } else if (topLogo) {
+            topLogo.remove();
+          }
+        }
+        frame.addEventListener('load', function () {
+          var doc;
+          try { doc = frame.contentDocument; } catch (e) { return; }
+          if (!doc) return;
+          // Preview only: links and buttons inside the phone do nothing.
+          doc.addEventListener('click', function (e) { e.preventDefault(); }, true);
+          doc.addEventListener('submit', function (e) { e.preventDefault(); }, true);
+          var iconTpl = doc.getElementById('maBadgeIcon');
+          badgeIcon = iconTpl ? iconTpl.innerHTML : '';
+          var loading = frame.closest('.br-phone__screen').querySelector('.br-phone__loading');
+          if (loading) loading.remove();
+          sync();
+        });
+        ['logo', 'hero'].forEach(function (kind) {
+          var input = brandForm.elements[kind];
+          if (!input || input.type !== 'file') return;
+          input.addEventListener('change', function () {
+            if (blobs[kind]) URL.revokeObjectURL(blobs[kind]);
+            var file = input.files && input.files[0];
+            blobs[kind] = file && /^image\//.test(file.type) ? URL.createObjectURL(file) : '';
+            sync();
+          });
+        });
         if (pick && accentInput) {
           pick.addEventListener('input', function () { accentInput.value = pick.value; sync(); });
           accentInput.addEventListener('input', function () { if (/^#[0-9a-f]{6}$/i.test(accentInput.value.trim())) pick.value = accentInput.value.trim(); });
         }
         brandForm.addEventListener('input', sync);
+        brandForm.addEventListener('change', sync);
       }
     })();
   </script>

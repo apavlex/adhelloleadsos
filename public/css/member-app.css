@@ -3,48 +3,62 @@
 :root {
   --acc: #f26b1d;
   --on: #ffffff;
-  --bg: #f4f5f7;
+  /* iOS system grouped background + label colors */
+  --bg: #f2f2f7;
   --card: #ffffff;
-  --ink: #0f172a;
-  --muted: #64748b;
-  --line: rgba(15, 23, 42, 0.07);
+  --ink: #000000;
+  --muted: #6e6e73;
+  --tab-muted: #8e8e93;
+  --line: rgba(60, 60, 67, 0.12);
   --navy: #13213a;
   --acc-soft: color-mix(in srgb, var(--acc) 14%, white);
   --acc-ink: color-mix(in srgb, var(--acc) 80%, black);
   --radius: 20px;
-  --tabbar-h: 64px;
+  --tabbar-h: 56px;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
+  /* SF Pro on Apple devices; Inter/Manrope elsewhere */
+  --font-text: -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", Manrope, Inter, ui-sans-serif, system-ui, sans-serif;
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0b1220;
-    --card: #131c2e;
-    --ink: #f1f5f9;
-    --muted: #94a3b8;
-    --line: rgba(255, 255, 255, 0.08);
-    --acc-soft: color-mix(in srgb, var(--acc) 22%, #131c2e);
+    --bg: #000000;
+    --card: #1c1c1e;
+    --ink: #ffffff;
+    --muted: #98989d;
+    --tab-muted: #8e8e93;
+    --line: rgba(84, 84, 88, 0.45);
+    --acc-soft: color-mix(in srgb, var(--acc) 24%, #1c1c1e);
     --acc-ink: color-mix(in srgb, var(--acc) 70%, white);
     color-scheme: dark;
   }
 }
 
+/* Branding preview iframe: lay out as on an iPhone with a Dynamic Island and home indicator. */
+html.ma-preview { --safe-t: 54px; --safe-b: 34px; scrollbar-width: none; }
+html.ma-preview::-webkit-scrollbar { display: none; }
+
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 body {
   background: var(--bg);
   color: var(--ink);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-text);
   font-size: 15px;
-  line-height: 1.45;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
   min-height: 100dvh;
 }
 a { color: inherit; }
-h1, h2, h3, .ma-display { font-family: Manrope, Inter, ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.02em; }
+h1, h2, h3, .ma-display { font-family: var(--font-display); letter-spacing: -0.02em; }
+/* Controls behave like native ones: no text selection or long-press callouts. */
+.ma-tabbar, .ma-tile, .ma-btn, .ma-seg, .ma-hero, .ma-top { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 
 .ma-shell {
   max-width: 480px;
@@ -55,7 +69,7 @@ h1, h2, h3, .ma-display { font-family: Manrope, Inter, ui-sans-serif, system-ui,
 
 /* Top bar */
 .ma-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 40px; }
-.ma-top__title { font-size: 13px; font-weight: 800; color: var(--ink); margin: 0; }
+.ma-top__title { font-size: 15px; font-weight: 600; color: var(--muted); margin: 0; }
 .ma-top__brand { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .ma-top__logo { width: 28px; height: 28px; border-radius: 8px; object-fit: contain; background: #fff; }
 .ma-avatar {
@@ -63,9 +77,10 @@ h1, h2, h3, .ma-display { font-family: Manrope, Inter, ui-sans-serif, system-ui,
   background: var(--acc); color: var(--on); font-weight: 800; font-size: 13px; flex-shrink: 0;
 }
 
-.ma-hello { margin: 18px 0 14px; }
-.ma-hello h1 { font-size: 28px; font-weight: 800; margin: 0; line-height: 1.1; }
-.ma-hello p { margin: 4px 0 0; font-weight: 700; font-size: 14px; }
+.ma-hello { margin: 10px 0 16px; }
+/* iOS large title */
+.ma-hello h1 { font-size: 34px; font-weight: 700; margin: 0; line-height: 1.12; letter-spacing: -0.025em; }
+.ma-hello p { margin: 4px 0 0; font-weight: 600; font-size: 15px; }
 .ma-hello p em { font-style: normal; color: var(--acc); }
 
 .ma-page-title { font-size: 24px; font-weight: 800; margin: 16px 0 4px; }
@@ -85,8 +100,8 @@ h1, h2, h3, .ma-display { font-family: Manrope, Inter, ui-sans-serif, system-ui,
 .ma-hero__badge svg { width: 18px; height: 18px; color: var(--acc); }
 .ma-hero__name { font-weight: 800; font-size: 15px; margin: 0; line-height: 1.2; }
 .ma-hero__sub { font-size: 11px; color: #cbd5e1; margin: 1px 0 0; }
-.ma-hero__stat { margin: 10px 0 0; font-family: Manrope, Inter, sans-serif; font-weight: 900; font-size: 34px; line-height: 1; letter-spacing: -0.02em; }
-.ma-hero__stat small { font-family: Inter, sans-serif; font-size: 11px; font-weight: 700; color: var(--acc); letter-spacing: 0; margin-left: 6px; }
+.ma-hero__stat { margin: 10px 0 0; font-family: var(--font-display); font-weight: 900; font-size: 34px; line-height: 1; letter-spacing: -0.02em; }
+.ma-hero__stat small { font-family: var(--font-text); font-size: 11px; font-weight: 700; color: var(--acc); letter-spacing: 0; margin-left: 6px; }
 .ma-hero__label { margin: 6px 0 0; font-size: 11px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; }
 
 /* Stat tiles */
@@ -99,8 +114,8 @@ h1, h2, h3, .ma-display { font-family: Manrope, Inter, ui-sans-serif, system-ui,
 .ma-tile:active { transform: scale(0.98); }
 .ma-tile__icon { width: 36px; height: 36px; border-radius: 11px; background: var(--acc-soft); color: var(--acc); display: inline-flex; align-items: center; justify-content: center; }
 .ma-tile__icon svg { width: 18px; height: 18px; }
-.ma-tile__value { font-family: Manrope, Inter, sans-serif; font-size: 30px; font-weight: 800; margin: 12px 0 0; line-height: 1; font-variant-numeric: tabular-nums; }
-.ma-tile__label { margin: 6px 0 0; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.ma-tile__value { font-family: var(--font-display); font-size: 30px; font-weight: 800; margin: 12px 0 0; line-height: 1; font-variant-numeric: tabular-nums; }
+.ma-tile__label { margin: 6px 0 0; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 
 /* Cards, lists */
 .ma-section { margin-top: 22px; }
@@ -109,6 +124,10 @@ h1, h2, h3, .ma-display { font-family: Manrope, Inter, ui-sans-serif, system-ui,
 .ma-section__head a { font-size: 13px; font-weight: 700; color: var(--acc); text-decoration: none; }
 .ma-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
 .ma-card + .ma-card { margin-top: 10px; }
+/* iOS dark mode separates surfaces by color, not outlines. */
+@media (prefers-color-scheme: dark) {
+  .ma-tile, .ma-card, .ma-seg, .rv-link { border-color: transparent; box-shadow: none; }
+}
 .ma-card__row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .ma-card__title { font-weight: 800; font-size: 15px; margin: 0; }
 .ma-card__meta { color: var(--muted); font-size: 13px; margin: 2px 0 0; }
@@ -174,16 +193,20 @@ h1, h2, h3, .ma-display { font-family: Manrope, Inter, ui-sans-serif, system-ui,
 }
 
 /* Bottom tab bar */
+/* iOS tab bar: translucent material, hairline top edge, 10pt labels */
 .ma-tabbar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
-  background: color-mix(in srgb, var(--card) 94%, transparent);
-  backdrop-filter: saturate(1.4) blur(14px); -webkit-backdrop-filter: saturate(1.4) blur(14px);
-  border-top: 1px solid var(--line);
+  background: color-mix(in srgb, var(--card) 82%, transparent);
+  backdrop-filter: saturate(1.8) blur(20px); -webkit-backdrop-filter: saturate(1.8) blur(20px);
+  box-shadow: 0 -0.5px 0 rgba(0, 0, 0, 0.18);
   padding-bottom: var(--safe-b);
 }
+@media (prefers-color-scheme: dark) {
+  .ma-tabbar { background: rgba(22, 22, 24, 0.82); box-shadow: 0 -0.5px 0 rgba(255, 255, 255, 0.14); }
+}
 .ma-tabbar__inner { max-width: 480px; margin: 0 auto; height: var(--tabbar-h); display: grid; grid-template-columns: repeat(5, 1fr); align-items: end; }
-.ma-tab { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px; padding-bottom: 9px; text-decoration: none; color: var(--muted); font-size: 11px; font-weight: 700; }
-.ma-tab svg { width: 22px; height: 22px; }
+.ma-tab { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 2px; padding-bottom: 6px; text-decoration: none; color: var(--tab-muted); font-size: 10px; font-weight: 600; letter-spacing: 0.01em; }
+.ma-tab svg { width: 26px; height: 26px; }
 .ma-tab.is-on { color: var(--acc); }
 .ma-tab--send { position: relative; }
 .ma-tab--send .ma-tab__fab {
@@ -211,13 +234,13 @@ h1, h2, h3, .ma-display { font-family: Manrope, Inter, ui-sans-serif, system-ui,
 .ma-bar__fill { height: 100%; background: var(--acc); border-radius: 999px; }
 .ma-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
 .ma-kpi { background: var(--bg); border-radius: 14px; padding: 10px; text-align: center; }
-.ma-kpi strong { display: block; font-family: Manrope, Inter, sans-serif; font-size: 20px; font-weight: 800; }
+.ma-kpi strong { display: block; font-family: var(--font-display); font-size: 20px; font-weight: 800; }
 .ma-kpi span { font-size: 11px; color: var(--muted); font-weight: 700; }
 
 /* Public review page */
 .rv-wrap { max-width: 440px; margin: 0 auto; padding: calc(var(--safe-t) + 28px) 20px calc(var(--safe-b) + 32px); text-align: center; }
 .rv-logo { width: 84px; height: 84px; border-radius: 22px; object-fit: contain; background: #fff; box-shadow: 0 6px 20px rgba(15, 23, 42, 0.1); margin: 0 auto 14px; display: block; }
-.rv-initials { width: 84px; height: 84px; border-radius: 22px; margin: 0 auto 14px; display: flex; align-items: center; justify-content: center; background: var(--acc); color: var(--on); font-family: Manrope, Inter, sans-serif; font-weight: 900; font-size: 30px; }
+.rv-initials { width: 84px; height: 84px; border-radius: 22px; margin: 0 auto 14px; display: flex; align-items: center; justify-content: center; background: var(--acc); color: var(--on); font-family: var(--font-display); font-weight: 900; font-size: 30px; }
 .rv-wrap h1 { font-size: 24px; font-weight: 800; margin: 0; }
 .rv-sub { color: var(--muted); margin: 6px 0 22px; font-size: 15px; }
 .rv-stars { display: flex; justify-content: center; gap: 6px; margin: 4px 0 8px; }

@@ -1,13 +1,13 @@
 <%
   const _v = typeof assetVersion !== 'undefined' ? assetVersion : '1';
-  const _base = typeof base !== 'undefined' && base ? base : '';
+  const _base = typeof base !== 'undefined' && base && !(typeof preview !== 'undefined' && preview) ? base : '';
   const _title = typeof pageTitle !== 'undefined' && pageTitle ? pageTitle + ' · ' + brand.appName : brand.appName;
 %>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
-<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0b1220" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
 <title><%= _title %></title>
 <% if (_base) { %>
 <link rel="manifest" href="<%= _base %>/manifest.webmanifest">

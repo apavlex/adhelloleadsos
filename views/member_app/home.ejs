@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en"<%- typeof preview !== 'undefined' && preview ? ' class="ma-preview"' : '' %>>
 <head>
   <%- include('_head', { pageTitle: '' }) %>
 </head>
@@ -74,5 +74,6 @@
     <% } %>
   </main>
   <%- include('_tabbar') %>
+  <% if (typeof preview !== 'undefined' && preview) { %><template id="maBadgeIcon"><%- icons.building %></template><% } %>
 </body>
 </html>
