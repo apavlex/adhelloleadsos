@@ -5,7 +5,8 @@
  *   /m/:token            Home
  *   /m/:token/referrals  received + sent referrals, accept / booked / won / lost
  *   /m/:token/send       send a referral to another member
- *   /m/:token/enroll     invite a business to join (operator approves)
+ *   /m/:token/customers  the member's own customers, jobs and schedule
+ *   /m/:token/enroll     invite a business to join (operator approves; top-bar icon)
  *   /m/:token/review     review link-in-bio page settings + QR
  *   /m/login             text me a new link
  */
@@ -18,6 +19,7 @@ const trades = require('../services/networkTrades');
 const notify = require('../services/networkNotify');
 const networkReferrals = require('../services/networkReferrals');
 const networkBrand = require('../services/networkBrand');
+const work = require('../services/memberWork');
 const { verifyNetworkToken } = require('../services/networkLinkSign');
 const { ICONS } = require('../services/memberAppIcons');
 
@@ -35,6 +37,13 @@ const OK_MESSAGES = {
   note: 'Note saved.',
   invited: 'Thanks! The network will review them and send their app link.',
   saved: 'Review links saved.',
+  customer: 'Customer saved.',
+  customer_deleted: 'Customer deleted.',
+  job: 'Job saved.',
+  job_deleted: 'Job deleted.',
+  moved: 'Job updated.',
+  converted: 'Added to your customers.',
+  already: 'That referral is already in your customers.',
 };
 
 const MEMBER_ACTIONS = new Set(['accept', 'decline', 'book', 'win', 'lose', 'note']);
@@ -144,6 +153,63 @@ function presentSent(ref, membersById) {
     to: ref.toMemberId ? ((membersById[ref.toMemberId] || {}).companyName || 'Member') : 'Being matched',
     value: money(ref.value),
     when: when(ref.createdAt),
+  };
+}
+
+/** IANA zone the app stored in the ma_tz cookie, so "today" matches the member's phone. */
+function memberTimeZone(req) {
+  const match = String(req.headers.cookie || '').match(/(?:^|;\s*)ma_tz=([^;]+)/);
+  let tz = '';
+  try { tz = match ? decodeURIComponent(match[1]) : ''; } catch { tz = ''; }
+  if (!/^[A-Za-z_]+(?:\/[A-Za-z0-9_+-]+){0,2}$/.test(tz)) return 'UTC';
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: tz });
+    return tz;
+  } catch {
+    return 'UTC';
+  }
+}
+
+function dayLabel(date, today) {
+  if (!date) return '';
+  if (date === today) return 'Today';
+  if (date === work.addDays(today, 1)) return 'Tomorrow';
+  const d = new Date(`${date}T00:00:00Z`);
+  const sameYear = date.slice(0, 4) === String(today || '').slice(0, 4);
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: sameYear ? undefined : 'numeric', timeZone: 'UTC' });
+}
+
+function timeLabel(time) {
+  if (!time) return '';
+  const [h, m] = time.split(':').map(Number);
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
+}
+
+function durationLabel(mins) {
+  if (!mins) return '';
+  if (mins % 1440 === 0) return `${mins / 1440} day${mins === 1440 ? '' : 's'}`;
+  if (mins < 60) return `${mins} min`;
+  const hours = Math.round((mins / 60) * 10) / 10;
+  return `${hours} hr`;
+}
+
+function presentJob(job, customersById, base, today) {
+  const customer = customersById[job.customerId] || {};
+  const next = work.nextStatus(job.status);
+  return {
+    ...job,
+    statusLabel: work.JOB_STATUS_LABELS[job.status],
+    valueLabel: money(job.value),
+    customerName: customer.name || 'Customer',
+    customerPhone: customer.phone || '',
+    dayLabel: dayLabel(job.date, today),
+    timeLabel: timeLabel(job.time),
+    durationLabel: durationLabel(job.durationMins),
+    whenLabel: [dayLabel(job.date, today), timeLabel(job.time)].filter(Boolean).join(' · '),
+    overdue: !!(job.date && today && job.date < today && work.isOpen(job) && job.status !== 'on_hold'),
+    href: `${base}/customers/jobs/${job.id}`,
+    next,
+    nextLabel: next ? work.JOB_STATUS_LABELS[next] : '',
   };
 }
 
@@ -278,14 +344,22 @@ router.get('/m/:token/icon-:size.png', withMember(async (req, res, ctx) => {
 // ── Home ─────────────────────────────────────────────────────────────────────
 
 router.get('/m/:token', withMember(async (req, res, ctx) => {
-  const [referrals, members] = await Promise.all([store.listReferrals(ctx.network.id), store.listMembers(ctx.network.id)]);
+  const [referrals, members, jobs, customers] = await Promise.all([
+    store.listReferrals(ctx.network.id),
+    store.listMembers(ctx.network.id),
+    work.listJobs(ctx.network.id, ctx.member.id),
+    work.listCustomers(ctx.network.id, ctx.member.id),
+  ]);
   const membersById = Object.fromEntries(members.map((m) => [m.id, m]));
+  const customersById = Object.fromEntries(customers.map((c) => [c.id, c]));
   const stats = ex.memberStats(referrals, ctx.member.id);
   const waiting = referrals
     .filter((r) => r.toMemberId === ctx.member.id && r.status === 'sent')
     .slice(0, 3)
     .map((r) => presentReceived(r, membersById));
+  const today = work.todayIn(memberTimeZone(req));
   return render(res, 'home', ctx, {
+    upcoming: work.upcoming(jobs, today, 2).map((j) => presentJob(j, customersById, ctx.base, today)),
     tiles: [
       { key: 'sent', label: 'Sent', value: stats.given, href: `${ctx.base}/referrals?view=sent` },
       { key: 'received', label: 'Received', value: stats.received, href: `${ctx.base}/referrals` },
@@ -302,9 +376,18 @@ router.get('/m/:token', withMember(async (req, res, ctx) => {
 
 async function renderReferrals(req, res, ctx, flash, status) {
   const view = req.query.view === 'sent' ? 'sent' : 'received';
-  const [referrals, members] = await Promise.all([store.listReferrals(ctx.network.id), store.listMembers(ctx.network.id)]);
+  const [referrals, members, jobs] = await Promise.all([
+    store.listReferrals(ctx.network.id),
+    store.listMembers(ctx.network.id),
+    work.listJobs(ctx.network.id, ctx.member.id),
+  ]);
   const membersById = Object.fromEntries(members.map((m) => [m.id, m]));
-  const received = referrals.filter((r) => r.toMemberId === ctx.member.id).slice(0, 60).map((r) => presentReceived(r, membersById));
+  const jobByRef = Object.fromEntries(jobs.filter((j) => j.referralId).map((j) => [j.referralId, j]));
+  const received = referrals.filter((r) => r.toMemberId === ctx.member.id).slice(0, 60).map((r) => ({
+    ...presentReceived(r, membersById),
+    jobHref: jobByRef[r.id] ? `${ctx.base}/customers/jobs/${jobByRef[r.id].id}` : '',
+    convertible: ['accepted', 'booked', 'won'].includes(r.status),
+  }));
   const sent = referrals.filter((r) => r.fromMemberId === ctx.member.id).slice(0, 60).map((r) => presentSent(r, membersById));
   return render(res, 'referrals', ctx, { view, received, sent, flash: flash || flashFromQuery(req) }, status);
 }
@@ -352,6 +435,281 @@ router.post('/m/:token/send', form, withMember(async (req, res, ctx) => {
   });
   if (!result.ok) return renderSend(req, res, ctx, { error: result.error }, body, 400);
   return res.redirect(303, `${ctx.base}?ok=${result.referral.status === 'sent' ? 'sent' : 'matched'}`);
+}));
+
+// ── Customers (the member's own jobs and schedule) ───────────────────────────
+
+const CUSTOMER_VIEWS = new Set(['list', 'calendar', 'pending']);
+const OPEN_REFERRAL = new Set(['sent', 'accepted', 'booked']);
+const DURATIONS = [30, 60, 90, 120, 180, 240, 360, 480, 1440, 2880];
+
+async function loadWork(ctx) {
+  const [customers, jobs] = await Promise.all([
+    work.listCustomers(ctx.network.id, ctx.member.id),
+    work.listJobs(ctx.network.id, ctx.member.id),
+  ]);
+  return { customers, jobs, customersById: Object.fromEntries(customers.map((c) => [c.id, c])) };
+}
+
+async function pendingReferralsFor(ctx, jobs) {
+  const [referrals, members] = await Promise.all([store.listReferrals(ctx.network.id), store.listMembers(ctx.network.id)]);
+  const membersById = Object.fromEntries(members.map((m) => [m.id, m]));
+  const jobByRef = Object.fromEntries(jobs.filter((j) => j.referralId).map((j) => [j.referralId, j]));
+  return referrals
+    .filter((r) => r.toMemberId === ctx.member.id && OPEN_REFERRAL.has(r.status))
+    .slice(0, 30)
+    .map((r) => {
+      const job = jobByRef[r.id];
+      return { ...presentReceived(r, membersById), jobHref: job ? `${ctx.base}/customers/jobs/${job.id}` : '' };
+    });
+}
+
+function customersHref(base, params) {
+  const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v)).toString();
+  return `${base}/customers${qs ? `?${qs}` : ''}`;
+}
+
+async function renderCustomers(req, res, ctx, flash, status) {
+  const view = CUSTOMER_VIEWS.has(req.query.view) ? req.query.view : 'list';
+  const today = work.todayIn(memberTimeZone(req));
+  const { customers, jobs, customersById } = await loadWork(ctx);
+  const pendingRefs = await pendingReferralsFor(ctx, jobs);
+  const present = (j) => presentJob(j, customersById, ctx.base, today);
+  const extra = {
+    active: 'customers',
+    view,
+    today,
+    overview: work.overview(jobs, { today, pendingReferrals: pendingRefs.length }),
+    pendingRefs,
+    flash: flash || flashFromQuery(req),
+    hrefFor: (params) => customersHref(ctx.base, params),
+    customerCount: customers.length,
+  };
+  extra.overview.pendingValueLabel = money(extra.overview.pendingValue);
+
+  if (view === 'list') {
+    const q = String(req.query.q || '').trim().slice(0, 80);
+    const needle = q.toLowerCase();
+    const rows = customers
+      .filter((c) => !needle || [c.name, c.phone, c.email, c.address].join(' ').toLowerCase().includes(needle))
+      .map((c) => {
+        const mine = jobs.filter((j) => j.customerId === c.id);
+        const open = mine.filter(work.isOpen);
+        const lead = open[0] || mine[mine.length - 1];
+        return {
+          ...c,
+          href: `${ctx.base}/customers/c/${c.id}`,
+          jobCount: mine.length,
+          openCount: open.length,
+          top: lead ? present(lead) : null,
+          sortKey: lead ? lead.updatedAt : c.updatedAt,
+        };
+      })
+      .sort((a, b) => (b.openCount > 0) - (a.openCount > 0) || String(b.sortKey).localeCompare(String(a.sortKey)));
+    Object.assign(extra, { q, rows });
+  } else if (view === 'calendar') {
+    const month = /^\d{4}-\d{2}$/.test(String(req.query.m || '')) ? req.query.m : today.slice(0, 7);
+    const picked = work.cleanDate(req.query.d);
+    const selected = picked || (month === today.slice(0, 7) ? today : `${month}-01`);
+    const grid = work.monthGrid(month, jobs, { today, selected });
+    const agenda = [];
+    work.upcoming(jobs, today, 20).forEach((j) => {
+      const last = agenda[agenda.length - 1];
+      if (last && last.date === j.date) last.jobs.push(present(j));
+      else agenda.push({ date: j.date, label: dayLabel(j.date, today), jobs: [present(j)] });
+    });
+    Object.assign(extra, {
+      grid,
+      selected,
+      selectedLabel: dayLabel(selected, today),
+      dayJobs: jobs.filter((j) => j.date === selected).map(present),
+      agenda,
+    });
+  } else {
+    const groups = ['in_progress', 'scheduled', 'estimate', 'lead', 'on_hold'].map((key) => ({
+      key,
+      label: work.JOB_STATUS_LABELS[key],
+      jobs: jobs.filter((j) => j.status === key).map(present),
+    })).filter((g) => g.jobs.length);
+    Object.assign(extra, { groups });
+  }
+  return render(res, 'customers', ctx, extra, status);
+}
+
+router.get('/m/:token/customers', withMember((req, res, ctx) => renderCustomers(req, res, ctx)));
+
+function renderCustomerPage(res, ctx, { customer, jobs, today, formValues, flash, status }) {
+  return render(res, 'customer', ctx, {
+    active: 'customers',
+    customer,
+    jobs: jobs || [],
+    formValues: formValues || customer || {},
+    flash: flash || null,
+    today,
+  }, status);
+}
+
+router.get('/m/:token/customers/new', withMember((req, res, ctx) => renderCustomerPage(res, ctx, {
+  customer: null,
+  today: work.todayIn(memberTimeZone(req)),
+})));
+
+router.post('/m/:token/customers/new', form, withMember(async (req, res, ctx) => {
+  const result = await work.saveCustomer(ctx.network.id, ctx.member.id, req.body || {});
+  if (!result.ok) {
+    return renderCustomerPage(res, ctx, { customer: null, formValues: req.body, flash: { error: result.error }, status: 400 });
+  }
+  return res.redirect(303, `${ctx.base}/customers/c/${result.customer.id}?ok=customer`);
+}));
+
+async function customerPageData(req, ctx, id) {
+  const customer = await work.getCustomer(ctx.network.id, ctx.member.id, id);
+  if (!customer) return null;
+  const today = work.todayIn(memberTimeZone(req));
+  const { jobs, customersById } = await loadWork(ctx);
+  const mine = jobs
+    .filter((j) => j.customerId === customer.id)
+    .sort((a, b) => work.isOpen(b) - work.isOpen(a))
+    .map((j) => presentJob(j, customersById, ctx.base, today));
+  return { customer, jobs: mine, today };
+}
+
+router.get('/m/:token/customers/c/:id', withMember(async (req, res, ctx) => {
+  const data = await customerPageData(req, ctx, req.params.id);
+  if (!data) return res.redirect(303, `${ctx.base}/customers`);
+  return renderCustomerPage(res, ctx, { ...data, flash: flashFromQuery(req) });
+}));
+
+router.post('/m/:token/customers/c/:id', form, withMember(async (req, res, ctx) => {
+  const result = await work.saveCustomer(ctx.network.id, ctx.member.id, req.body || {}, { id: req.params.id });
+  if (!result.ok) {
+    const data = await customerPageData(req, ctx, req.params.id);
+    if (!data) return res.redirect(303, `${ctx.base}/customers`);
+    return renderCustomerPage(res, ctx, { ...data, formValues: req.body, flash: { error: result.error }, status: 400 });
+  }
+  return res.redirect(303, `${ctx.base}/customers/c/${result.customer.id}?ok=customer`);
+}));
+
+router.post('/m/:token/customers/c/:id/delete', form, withMember(async (req, res, ctx) => {
+  await work.deleteCustomer(ctx.network.id, ctx.member.id, req.params.id);
+  return res.redirect(303, `${ctx.base}/customers?ok=customer_deleted`);
+}));
+
+async function renderJobPage(req, res, ctx, { job, formValues, flash, status }) {
+  const today = work.todayIn(memberTimeZone(req));
+  const { customers, customersById } = await loadWork(ctx);
+  return render(res, 'job', ctx, {
+    active: 'customers',
+    job: job ? presentJob(job, customersById, ctx.base, today) : null,
+    customer: job ? customersById[job.customerId] || null : null,
+    customers,
+    statuses: work.JOB_STATUSES.map((s) => ({ value: s, label: work.JOB_STATUS_LABELS[s] })),
+    durations: DURATIONS.map((m) => ({ value: m, label: durationLabel(m) })),
+    formValues: formValues || job || {},
+    flash: flash || null,
+    today,
+  }, status);
+}
+
+router.get('/m/:token/customers/jobs/new', withMember((req, res, ctx) => {
+  const date = work.cleanDate(req.query.date);
+  return renderJobPage(req, res, ctx, {
+    job: null,
+    formValues: {
+      customerId: work.isRecordId(req.query.customer) ? req.query.customer : '',
+      date,
+      status: date ? 'scheduled' : 'lead',
+      durationMins: 120,
+    },
+  });
+}));
+
+router.post('/m/:token/customers/jobs/new', form, withMember(async (req, res, ctx) => {
+  const body = { ...(req.body || {}) };
+  const fail = (error) => renderJobPage(req, res, ctx, { job: null, formValues: body, flash: { error }, status: 400 });
+  const checked = work.validateJob(body);
+  if (!checked.ok) return fail(checked.error);
+  if (body.customerId === 'new') {
+    const created = await work.saveCustomer(ctx.network.id, ctx.member.id, { name: body.newCustomerName, phone: body.newCustomerPhone });
+    if (!created.ok) return fail(created.error);
+    body.customerId = created.customer.id;
+  }
+  const result = await work.saveJob(ctx.network.id, ctx.member.id, body);
+  if (!result.ok) return fail(result.error);
+  return res.redirect(303, `${ctx.base}/customers/c/${result.customer.id}?ok=job`);
+}));
+
+router.get('/m/:token/customers/jobs/:id', withMember(async (req, res, ctx) => {
+  const job = await work.getJob(ctx.network.id, ctx.member.id, req.params.id);
+  if (!job) return res.redirect(303, `${ctx.base}/customers?view=pending`);
+  return renderJobPage(req, res, ctx, { job, flash: flashFromQuery(req) });
+}));
+
+router.post('/m/:token/customers/jobs/:id', form, withMember(async (req, res, ctx) => {
+  const job = await work.getJob(ctx.network.id, ctx.member.id, req.params.id);
+  if (!job) return res.redirect(303, `${ctx.base}/customers?view=pending`);
+  const result = await work.saveJob(ctx.network.id, ctx.member.id, req.body || {}, { id: job.id });
+  if (!result.ok) return renderJobPage(req, res, ctx, { job, formValues: req.body, flash: { error: result.error }, status: 400 });
+  return res.redirect(303, `${ctx.base}/customers/jobs/${job.id}?ok=job`);
+}));
+
+function safeReturn(ctx, value, fallback) {
+  const to = String(value || '');
+  const ok = [`${ctx.base}/customers`, `${ctx.base}/referrals`].some((p) => to === p || to.startsWith(`${p}?`) || to.startsWith(`${p}/`));
+  return ok && !/[\r\n]/.test(to) ? to : fallback;
+}
+
+router.post('/m/:token/customers/jobs/:id/status', form, withMember(async (req, res, ctx) => {
+  const back = safeReturn(ctx, req.body && req.body.back, `${ctx.base}/customers/jobs/${encodeURIComponent(req.params.id)}`);
+  const result = await work.setJobStatus(ctx.network.id, ctx.member.id, req.params.id, String((req.body && req.body.status) || ''));
+  if (!result.ok) {
+    const job = await work.getJob(ctx.network.id, ctx.member.id, req.params.id);
+    if (!job) return res.redirect(303, `${ctx.base}/customers?view=pending`);
+    return renderJobPage(req, res, ctx, { job, flash: { error: result.error }, status: 400 });
+  }
+  return res.redirect(303, `${back}${back.includes('?') ? '&' : '?'}ok=moved`);
+}));
+
+router.post('/m/:token/customers/jobs/:id/delete', form, withMember(async (req, res, ctx) => {
+  const result = await work.deleteJob(ctx.network.id, ctx.member.id, req.params.id);
+  const to = result.ok ? `${ctx.base}/customers/c/${result.job.customerId}` : `${ctx.base}/customers`;
+  return res.redirect(303, `${to}?ok=job_deleted`);
+}));
+
+router.get('/m/:token/customers/jobs/:id/calendar.ics', withMember(async (req, res, ctx) => {
+  const job = await work.getJob(ctx.network.id, ctx.member.id, req.params.id);
+  if (!job || !job.date) return res.redirect(303, `${ctx.base}/customers`);
+  const customer = await work.getCustomer(ctx.network.id, ctx.member.id, job.customerId);
+  noStore(res);
+  res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="job-${job.date}.ics"`);
+  return res.send(work.buildIcs(job, customer, { appName: ctx.brand.appName, host: req.hostname }));
+}));
+
+router.post('/m/:token/customers/from-referral/:id', form, withMember(async (req, res, ctx) => {
+  const back = safeReturn(ctx, req.body && req.body.back, `${ctx.base}/customers?view=pending`);
+  const fail = (error) => renderCustomers({ headers: req.headers, query: { view: 'pending' } }, res, ctx, { error }, 400);
+  let referral = await store.getReferral(ctx.network.id, String(req.params.id || ''));
+  if (!referral || referral.toMemberId !== ctx.member.id) return fail('Referral not found.');
+  if (referral.status === 'sent') {
+    const accepted = await networkReferrals.actOnReferral({
+      network: ctx.network,
+      referralId: referral.id,
+      action: 'accept',
+      opts: { by: ctx.member.companyName },
+      actorMemberId: ctx.member.id,
+      baseUrl: notify.baseUrlFromReq(req),
+    });
+    if (!accepted.ok) return fail(accepted.error);
+    referral = accepted.referral;
+  }
+  const result = await work.convertReferral(ctx.network.id, ctx.member.id, referral, {
+    tradeLabel: trades.tradeLabel(referral.tradeSlug),
+    today: work.todayIn(memberTimeZone(req)),
+  });
+  if (!result.ok) return fail(result.error);
+  if (result.existing) return res.redirect(303, `${back}${back.includes('?') ? '&' : '?'}ok=already`);
+  return res.redirect(303, `${ctx.base}/customers/jobs/${result.job.id}?ok=converted`);
 }));
 
 // ── Enroll ───────────────────────────────────────────────────────────────────

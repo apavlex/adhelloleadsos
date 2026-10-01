@@ -1,9 +1,16 @@
 <header class="ma-top">
   <div class="ma-top__brand">
+    <% if (typeof topBack !== 'undefined' && topBack) { %>
+    <a class="ma-top__back" href="<%= topBack.href %>"><%- icons.chevronLeft %><span><%= topBack.label %></span></a>
+    <% } else { %>
     <% if (brand.logoUrl) { %><img class="ma-top__logo" src="<%= brand.logoUrl %>" alt=""><% } %>
     <p class="ma-top__title"><%= typeof topTitle !== 'undefined' && topTitle ? topTitle : brand.appName %></p>
+    <% } %>
   </div>
-  <span class="ma-avatar" title="<%= member.companyName %>" aria-label="<%= member.companyName %>"><%= (greetingName || member.companyName || '?').trim().charAt(0).toUpperCase() %></span>
+  <div class="ma-top__actions">
+    <a class="ma-iconbtn <%= active === 'enroll' ? 'is-on' : '' %>" href="<%= base %>/enroll" aria-label="Invite a business to <%= brand.appName %>" title="Invite a business" <%= active === 'enroll' ? 'aria-current=page' : '' %>><%- icons.enroll %></a>
+    <span class="ma-avatar" title="<%= member.companyName %>" aria-label="<%= member.companyName %>"><%= (greetingName || member.companyName || '?').trim().charAt(0).toUpperCase() %></span>
+  </div>
 </header>
 <% if (member.status !== 'active') { %>
 <p class="ma-flash ma-flash--err">Your membership is paused. You can still see referrals; contact the network to reactivate.</p>

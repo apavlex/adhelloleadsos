@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('_head', { pageTitle: 'Customers' }) %>
+</head>
+<body>
+  <main class="ma-shell">
+    <%- include('_top', { topTitle: 'Customers' }) %>
+    <div class="ma-titlebar">
+      <h1 class="ma-page-title">Customers</h1>
+      <a class="ma-iconbtn ma-iconbtn--fill" href="<%= base %>/customers/<%= view === 'calendar' ? 'jobs/new?date=' + selected : (view === 'pending' ? 'jobs/new' : 'new') %>" aria-label="<%= view === 'list' ? 'Add a customer' : 'Add a job' %>"><%- icons.plus %></a>
+    </div>
+    <p class="ma-page-sub">Your customers, jobs and schedule in one place.</p>
+
+    <section class="ma-sum" aria-label="Pending work">
+      <a class="ma-sum__card" href="<%= hrefFor({ view: 'pending' }) %>">
+        <span class="ma-sum__value"><%= overview.pendingJobs %></span>
+        <span class="ma-sum__label">Open jobs</span>
+        <% if (overview.pendingValueLabel) { %><span class="ma-sum__meta"><%= overview.pendingValueLabel %></span><% } %>
+      </a>
+      <a class="ma-sum__card" href="<%= hrefFor({ view: 'calendar' }) %>">
+        <span class="ma-sum__value"><%= overview.thisWeek %></span>
+        <span class="ma-sum__label">This week</span>
+        <span class="ma-sum__meta">scheduled</span>
+      </a>
+      <a class="ma-sum__card" href="<%= base %>/referrals">
+        <span class="ma-sum__value"><%= overview.pendingReferrals %></span>
+        <span class="ma-sum__label">Referrals</span>
+        <span class="ma-sum__meta">pending</span>
+      </a>
+    </section>
+
+    <nav class="ma-seg ma-seg--3" aria-label="Customer views">
+      <a href="<%= hrefFor({}) %>" class="<%= view === 'list' ? 'is-on' : '' %>" <%= view === 'list' ? 'aria-current=page' : '' %>>List</a>
+      <a href="<%= hrefFor({ view: 'calendar' }) %>" class="<%= view === 'calendar' ? 'is-on' : '' %>" <%= view === 'calendar' ? 'aria-current=page' : '' %>>Calendar</a>
+      <a href="<%= hrefFor({ view: 'pending' }) %>" class="<%= view === 'pending' ? 'is-on' : '' %>" <%= view === 'pending' ? 'aria-current=page' : '' %>>Pending</a>
+    </nav>
+
+    <%- include('_flash') %>
+
+    <% if (view === 'list') { %>
+      <% if (customerCount) { %>
+      <form class="ma-search" method="get" action="<%= base %>/customers" role="search">
+        <%- icons.search %>
+        <input class="ma-input" type="search" name="q" value="<%= q %>" placeholder="Search customers" aria-label="Search customers" autocomplete="off">
+      </form>
+      <% } %>
+      <% if (!rows.length) { %>
+      <div class="ma-card ma-empty">
+        <%- icons.people %>
+        <% if (q) { %>
+        <p>No customers match “<%= q %>”.</p>
+        <% } else { %>
+        <p>No customers yet. Add your first one, or turn a referral into a customer from the Pending tab.</p>
+        <% } %>
+        <a class="ma-btn ma-btn--sm" href="<%= base %>/customers/new" style="margin-top:8px"><%- icons.plus %> Add customer</a>
+      </div>
+      <% } else { %>
+      <div class="ma-list">
+        <% rows.forEach(function (c) { %>
+        <a class="ma-row" href="<%= c.href %>">
+          <span class="ma-row__avatar"><%= c.name.charAt(0).toUpperCase() %></span>
+          <span class="ma-row__body">
+            <span class="ma-row__title"><%= c.name %></span>
+            <span class="ma-row__meta"><%= c.top ? [c.top.title, c.top.whenLabel].filter(Boolean).join(' · ') : (c.phone || c.email || c.address || 'No jobs yet') %></span>
+          </span>
+          <span class="ma-row__end">
+            <% if (c.top) { %><span class="ma-pill ma-pill--job-<%= c.top.status %>"><%= c.top.statusLabel %></span><% } %>
+            <% if (c.openCount > 1) { %><small><%= c.openCount %> open</small><% } %>
+          </span>
+        </a>
+        <% }); %>
+      </div>
+      <% } %>
+
+    <% } else if (view === 'calendar') { %>
+      <section class="ma-card ma-cal" aria-label="<%= grid.label %>">
+        <div class="ma-cal__head">
+          <a class="ma-iconbtn" href="<%= hrefFor({ view: 'calendar', m: grid.prev }) %>" aria-label="Previous month"><%- icons.chevronLeft %></a>
+          <h2><%= grid.label %></h2>
+          <a class="ma-iconbtn" href="<%= hrefFor({ view: 'calendar', m: grid.next }) %>" aria-label="Next month"><%- icons.chevronRight %></a>
+        </div>
+        <div class="ma-cal__grid" role="grid">
+          <% ['S', 'M', 'T', 'W', 'T', 'F', 'S'].forEach(function (d) { %><span class="ma-cal__dow" aria-hidden="true"><%= d %></span><% }); %>
+          <% grid.weeks.forEach(function (week) { week.forEach(function (d) { %>
+          <a class="ma-cal__day<%= d.inMonth ? '' : ' is-out' %><%= d.isToday ? ' is-today' : '' %><%= d.isSelected ? ' is-sel' : '' %>"
+             href="<%= hrefFor({ view: 'calendar', m: d.date.slice(0, 7), d: d.date }) %>"
+             aria-label="<%= d.date %><%= d.count ? ', ' + d.count + ' job' + (d.count === 1 ? '' : 's') : '' %>" <%= d.isSelected ? 'aria-current=date' : '' %>>
+            <span><%= d.day %></span>
+            <% if (d.count) { %><i class="ma-cal__dots<%= d.open ? '' : ' is-done' %>"><% for (var k = 0; k < Math.min(d.count, 3); k++) { %><b></b><% } %></i><% } %>
+          </a>
+          <% }); }); %>
+        </div>
+      </section>
+
+      <section class="ma-section">
+        <div class="ma-section__head">
+          <h2><%= selectedLabel %></h2>
+          <a href="<%= base %>/customers/jobs/new?date=<%= selected %>">+ Schedule</a>
+        </div>
+        <% if (dayJobs.length) { %>
+        <div class="ma-list">
+          <% dayJobs.forEach(function (j) { %><%- include('_job_row', { j: j, hideWhen: true }) %><% }); %>
+        </div>
+        <% } else { %>
+        <a class="ma-card ma-empty ma-empty--tap" href="<%= base %>/customers/jobs/new?date=<%= selected %>"><%- icons.calendar %><p>Nothing scheduled. Tap to schedule work on this day.</p></a>
+        <% } %>
+      </section>
+
+      <section class="ma-section">
+        <div class="ma-section__head"><h2>Upcoming</h2></div>
+        <% if (!agenda.length) { %>
+        <div class="ma-card ma-empty"><p>No upcoming work on the calendar.</p></div>
+        <% } %>
+        <% agenda.forEach(function (g) { %>
+        <p class="ma-list__label"><%= g.label %></p>
+        <div class="ma-list">
+          <% g.jobs.forEach(function (j) { %><%- include('_job_row', { j: j, hideWhen: true }) %><% }); %>
+        </div>
+        <% }); %>
+      </section>
+
+    <% } else { %>
+      <% if (pendingRefs.length) { %>
+      <section class="ma-section ma-section--first" id="referrals">
+        <div class="ma-section__head">
+          <h2>Referrals to work</h2>
+          <a href="<%= base %>/referrals">Referrals</a>
+        </div>
+        <div class="ma-list">
+          <% pendingRefs.forEach(function (r) { %>
+          <div class="ma-row ma-row--static">
+            <span class="ma-row__avatar ma-row__avatar--soft"><%- icons.referrals %></span>
+            <span class="ma-row__body">
+              <span class="ma-row__title"><%= (r.customer && r.customer.name) || 'Customer' %></span>
+              <span class="ma-row__meta"><%= r.trade %> · from <%= r.from %> · <%= r.statusLabel %></span>
+            </span>
+            <span class="ma-row__end">
+              <% if (r.jobHref) { %>
+              <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= r.jobHref %>">View job</a>
+              <% } else { %>
+              <form method="post" action="<%= base %>/customers/from-referral/<%= r.id %>">
+                <input type="hidden" name="back" value="<%= base %>/customers?view=pending">
+                <button type="submit" class="ma-btn ma-btn--sm"><%= r.status === 'sent' ? 'Accept + add' : 'Add job' %></button>
+              </form>
+              <% } %>
+            </span>
+          </div>
+          <% }); %>
+        </div>
+      </section>
+      <% } %>
+
+      <% if (!groups.length) { %>
+      <div class="ma-card ma-empty" style="margin-top:<%= pendingRefs.length ? '22px' : '0' %>">
+        <%- icons.completed %>
+        <p>No open jobs. Everything's wrapped up.</p>
+        <a class="ma-btn ma-btn--sm" href="<%= base %>/customers/jobs/new" style="margin-top:8px"><%- icons.plus %> Add a job</a>
+      </div>
+      <% } %>
+      <% groups.forEach(function (g, gi) { %>
+      <section class="ma-section<%= gi === 0 && !pendingRefs.length ? ' ma-section--first' : '' %>">
+        <div class="ma-section__head"><h2><%= g.label %> <span class="ma-count"><%= g.jobs.length %></span></h2></div>
+        <div class="ma-list">
+          <% g.jobs.forEach(function (j) { %>
+          <div class="ma-row ma-row--split">
+            <%- include('_job_row', { j: j }) %>
+            <% if (j.next) { %>
+            <form method="post" action="<%= base %>/customers/jobs/<%= j.id %>/status" class="ma-row__quick">
+              <input type="hidden" name="status" value="<%= j.next %>">
+              <input type="hidden" name="back" value="<%= base %>/customers?view=pending">
+              <button type="submit" class="ma-btn ma-btn--sm ma-btn--soft" aria-label="Move <%= j.customerName %> to <%= j.nextLabel %>"><%= j.nextLabel %> <%- icons.chevronRight %></button>
+            </form>
+            <% } %>
+          </div>
+          <% }); %>
+        </div>
+      </section>
+      <% }); %>
+    <% } %>
+  </main>
+  <%- include('_tabbar') %>
+</body>
+</html>

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('_head', { pageTitle: customer ? customer.name : 'New customer' }) %>
+</head>
+<body>
+  <main class="ma-shell">
+    <%- include('_top', { topBack: { href: base + '/customers', label: 'Customers' } }) %>
+    <% const fv = formValues || {}; %>
+    <% if (customer) { %>
+    <div class="ma-titlebar">
+      <h1 class="ma-page-title"><%= customer.name %></h1>
+      <% if (customer.referralId) { %><span class="ma-pill ma-pill--sent">From referral</span><% } %>
+    </div>
+    <% const tel = String(customer.phone || '').replace(/[^0-9+]/g, ''); %>
+    <div class="ma-quick">
+      <a class="ma-quick__btn<%= tel ? '' : ' is-off' %>" <%- tel ? 'href="tel:' + tel + '"' : 'aria-disabled="true"' %>><%- icons.phone %><span>Call</span></a>
+      <a class="ma-quick__btn<%= tel ? '' : ' is-off' %>" <%- tel ? 'href="sms:' + tel + '"' : 'aria-disabled="true"' %>><%- icons.send %><span>Text</span></a>
+      <a class="ma-quick__btn<%= customer.email ? '' : ' is-off' %>" <%- customer.email ? 'href="mailto:' + encodeURIComponent(customer.email).replace(/%40/g, '@') + '"' : 'aria-disabled="true"' %>><%- icons.mail %><span>Email</span></a>
+      <a class="ma-quick__btn<%= customer.address ? '' : ' is-off' %>" <%- customer.address ? 'href="https://maps.apple.com/?q=' + encodeURIComponent(customer.address) + '" target="_blank" rel="noopener"' : 'aria-disabled="true"' %>><%- icons.mapPin %><span>Map</span></a>
+    </div>
+    <% } else { %>
+    <h1 class="ma-page-title">New customer</h1>
+    <p class="ma-page-sub">Add their details, then schedule a job for them.</p>
+    <% } %>
+
+    <%- include('_flash') %>
+
+    <% if (customer) { %>
+    <section class="ma-section">
+      <div class="ma-section__head">
+        <h2>Jobs</h2>
+        <a href="<%= base %>/customers/jobs/new?customer=<%= customer.id %>">+ Add job</a>
+      </div>
+      <% if (jobs.length) { %>
+      <div class="ma-list">
+        <% jobs.forEach(function (j) { %><%- include('_job_row', { j: j, titleIsJob: true }) %><% }); %>
+      </div>
+      <% } else { %>
+      <a class="ma-card ma-empty ma-empty--tap" href="<%= base %>/customers/jobs/new?customer=<%= customer.id %>"><%- icons.customers %><p>No jobs yet. Tap to add an estimate or schedule work.</p></a>
+      <% } %>
+    </section>
+    <% } %>
+
+    <section class="ma-section">
+      <% if (customer) { %><div class="ma-section__head"><h2>Details</h2></div><% } %>
+      <form method="post" action="<%= base %>/customers/<%= customer ? 'c/' + customer.id : 'new' %>" class="ma-card" autocomplete="off">
+        <div class="ma-field">
+          <label class="ma-label" for="cuName">Name</label>
+          <input id="cuName" name="name" class="ma-input" maxlength="120" value="<%= fv.name || '' %>" required autocapitalize="words" <%= customer ? '' : 'autofocus' %>>
+        </div>
+        <div class="ma-grid2">
+          <div class="ma-field">
+            <label class="ma-label" for="cuPhone">Phone</label>
+            <input id="cuPhone" name="phone" type="tel" inputmode="tel" maxlength="40" class="ma-input" value="<%= fv.phone || '' %>">
+          </div>
+          <div class="ma-field">
+            <label class="ma-label" for="cuEmail">Email</label>
+            <input id="cuEmail" name="email" type="email" inputmode="email" maxlength="200" class="ma-input" value="<%= fv.email || '' %>">
+          </div>
+        </div>
+        <div class="ma-field">
+          <label class="ma-label" for="cuAddress">Address</label>
+          <input id="cuAddress" name="address" maxlength="200" class="ma-input" value="<%= fv.address || '' %>" autocomplete="street-address">
+        </div>
+        <div class="ma-field">
+          <label class="ma-label" for="cuNotes">Notes</label>
+          <textarea id="cuNotes" name="notes" class="ma-textarea" maxlength="2000" placeholder="Gate code, preferences, history…"><%= fv.notes || '' %></textarea>
+        </div>
+        <button type="submit" class="ma-btn ma-btn--block"><%= customer ? 'Save changes' : 'Add customer' %></button>
+      </form>
+    </section>
+
+    <% if (customer) { %>
+    <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/delete" class="ma-section" data-ma-confirm="Delete <%= customer.name %><%= jobs.length ? ' and their ' + jobs.length + ' job' + (jobs.length === 1 ? '' : 's') : '' %>?">
+      <button type="submit" class="ma-btn ma-btn--danger ma-btn--block">Delete customer</button>
+    </form>
+    <% } %>
+  </main>
+  <%- include('_tabbar') %>
+</body>
+</html>

@@ -412,6 +412,10 @@ router.post('/applications/:id/reject', async (req, res) => {
   }
 });
 
+function previewDate(daysAhead) {
+  return new Date(Date.now() + daysAhead * 86400000).toISOString().slice(0, 10);
+}
+
 // The real member Home screen with demo numbers, framed as an iPhone on the App branding tab.
 router.get('/brand/preview', async (req, res, next) => {
   try {
@@ -435,6 +439,10 @@ router.get('/brand/preview', async (req, res, next) => {
         { key: 'completed', label: 'Completed', value: 8, href: base },
       ],
       wonValue: '$12,400',
+      upcoming: [
+        { href: base, date: previewDate(1), customerName: 'Avery Moss', title: 'Kitchen floor install', whenLabel: 'Tomorrow · 9:00 AM', durationLabel: '1 day', status: 'scheduled', statusLabel: 'Scheduled', valueLabel: '$4,800' },
+        { href: base, date: previewDate(3), customerName: 'Jordan Reyes', title: 'Hallway LVP estimate', whenLabel: 'In 3 days · 2:30 PM', durationLabel: '1 hr', status: 'estimate', statusLabel: 'Estimate', valueLabel: '$1,250' },
+      ],
       waiting: [
         { id: 'demo1', customer: { name: 'Avery Moss', city: 'Camas' }, trade: 'Roofing', from: 'Camas Electric' },
         { id: 'demo2', customer: { name: 'Jordan Reyes', city: 'Washougal' }, trade: 'HVAC', from: 'Evergreen Landscaping' },

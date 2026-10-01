@@ -12,6 +12,38 @@
   if (hint && isIOS && !standalone && !dismissed()) {
     hint.hidden = false;
   }
+
+  // The server reads this so "today" and "this week" match the phone's clock.
+  try {
+    var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (tz && document.cookie.indexOf('ma_tz=' + encodeURIComponent(tz)) === -1) {
+      document.cookie = 'ma_tz=' + encodeURIComponent(tz) + '; path=/m; max-age=31536000; samesite=lax';
+    }
+  } catch (e) { /* old browser */ }
+
+  var customerSelect = document.querySelector('[data-ma-newcust]');
+  var newCustomer = document.getElementById('maNewCustomer');
+  if (customerSelect && newCustomer) {
+    var syncNewCustomer = function () {
+      var isNew = customerSelect.value === 'new';
+      newCustomer.hidden = !isNew;
+      var name = newCustomer.querySelector('input[name="newCustomerName"]');
+      if (name) name.required = isNew;
+    };
+    customerSelect.addEventListener('change', function () {
+      syncNewCustomer();
+      if (customerSelect.value === 'new') {
+        var name = newCustomer.querySelector('input');
+        if (name) name.focus();
+      }
+    });
+    syncNewCustomer();
+  }
+
+  document.addEventListener('submit', function (event) {
+    var form = event.target.closest('[data-ma-confirm]');
+    if (form && !window.confirm(form.getAttribute('data-ma-confirm'))) event.preventDefault();
+  });
   document.addEventListener('click', function (event) {
     var close = event.target.closest('[data-ma-install-close]');
     if (close && hint) {

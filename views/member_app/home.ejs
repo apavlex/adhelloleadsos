@@ -49,6 +49,21 @@
       <% }); %>
     </section>
 
+    <% const _upcoming = typeof upcoming !== 'undefined' ? upcoming : []; %>
+    <% if (_upcoming.length) { %>
+    <section class="ma-section">
+      <div class="ma-section__head">
+        <h2>Up next</h2>
+        <a href="<%= base %>/customers?view=calendar">Schedule</a>
+      </div>
+      <div class="ma-list">
+        <% _upcoming.forEach(function (j) { %>
+        <%- include('_job_row', { j: j }) %>
+        <% }); %>
+      </div>
+    </section>
+    <% } %>
+
     <% if (waiting.length) { %>
     <section class="ma-section">
       <div class="ma-section__head">

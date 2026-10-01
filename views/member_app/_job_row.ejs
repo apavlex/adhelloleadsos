@@ -1,0 +1,14 @@
+<a class="ma-row" href="<%= j.href %>">
+  <span class="ma-row__date<%= j.overdue ? ' is-late' : '' %>">
+    <% if (j.date) { %><b><%= Number(j.date.slice(8)) %></b><small><%= new Date(j.date + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }) %></small><% } else { %><%- icons.customers %><% } %>
+  </span>
+  <% const _byJob = typeof titleIsJob !== 'undefined' && titleIsJob; %>
+  <span class="ma-row__body">
+    <span class="ma-row__title"><%= _byJob ? j.title : j.customerName %></span>
+    <span class="ma-row__meta"><%= [_byJob ? '' : j.title, (typeof hideWhen !== 'undefined' && hideWhen) ? j.timeLabel : j.whenLabel, j.durationLabel].filter(Boolean).join(' · ') || 'Not scheduled' %></span>
+  </span>
+  <span class="ma-row__end">
+    <span class="ma-pill ma-pill--job-<%= j.status %>"><%= j.statusLabel %></span>
+    <% if (j.valueLabel) { %><small><%= j.valueLabel %></small><% } %>
+  </span>
+</a>

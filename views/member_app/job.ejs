@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('_head', { pageTitle: job ? job.title : 'New job' }) %>
+</head>
+<body>
+  <main class="ma-shell">
+    <%
+      const fv = formValues || {};
+      const back = job && customer
+        ? { href: base + '/customers/c/' + customer.id, label: customer.name }
+        : (fv.date ? { href: base + '/customers?view=calendar&m=' + fv.date.slice(0, 7) + '&d=' + fv.date, label: 'Calendar' } : { href: base + '/customers', label: 'Customers' });
+      const selectedCustomer = String(fv.customerId || (customers.length ? '' : 'new'));
+    %>
+    <%- include('_top', { topBack: back }) %>
+
+    <% if (job) { %>
+    <div class="ma-titlebar">
+      <h1 class="ma-page-title"><%= job.title %></h1>
+      <span class="ma-pill ma-pill--job-<%= job.status %>"><%= job.statusLabel %></span>
+    </div>
+    <p class="ma-page-sub"><%= [job.customerName, job.whenLabel, job.durationLabel, job.valueLabel].filter(Boolean).join(' · ') %></p>
+    <% } else { %>
+    <h1 class="ma-page-title"><%= fv.date ? 'Schedule work' : 'New job' %></h1>
+    <p class="ma-page-sub">Track it from estimate to done. Add a date to put it on your calendar.</p>
+    <% } %>
+
+    <%- include('_flash') %>
+
+    <% if (job) { %>
+    <form method="post" action="<%= base %>/customers/jobs/<%= job.id %>/status" class="ma-steps" aria-label="Job status">
+      <% statuses.forEach(function (s) { %>
+      <button type="submit" name="status" value="<%= s.value %>" class="ma-step<%= s.value === job.status ? ' is-on' : '' %> ma-step--<%= s.value %>" <%= s.value === job.status ? 'aria-pressed=true' : '' %>><%= s.label %></button>
+      <% }); %>
+    </form>
+    <div class="ma-actions" style="margin-top:0">
+      <% if (job.date) { %><a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= base %>/customers/jobs/<%= job.id %>/calendar.ics"><%- icons.calendar %> Add to calendar</a><% } %>
+      <% if (customer && customer.phone) { %><a class="ma-btn ma-btn--sm ma-btn--ghost" href="tel:<%= String(customer.phone).replace(/[^0-9+]/g, '') %>"><%- icons.phone %> Call</a><% } %>
+      <% if (customer && customer.address) { %><a class="ma-btn ma-btn--sm ma-btn--ghost" href="https://maps.apple.com/?q=<%= encodeURIComponent(customer.address) %>" target="_blank" rel="noopener"><%- icons.mapPin %> Directions</a><% } %>
+    </div>
+    <% } %>
+
+    <section class="ma-section">
+      <form method="post" action="<%= base %>/customers/jobs/<%= job ? job.id : 'new' %>" class="ma-card" autocomplete="off">
+        <div class="ma-field">
+          <label class="ma-label" for="jbCustomer">Customer</label>
+          <select id="jbCustomer" name="customerId" class="ma-select" required data-ma-newcust>
+            <% if (!job) { %><option value="" <%= selectedCustomer ? '' : 'selected' %> disabled>Pick a customer</option><% } %>
+            <% customers.forEach(function (c) { %><option value="<%= c.id %>" <%= selectedCustomer === c.id ? 'selected' : '' %>><%= c.name %></option><% }); %>
+            <% if (!job) { %><option value="new" <%= selectedCustomer === 'new' ? 'selected' : '' %>>+ New customer</option><% } %>
+          </select>
+        </div>
+        <% if (!job) { %>
+        <div class="ma-grid2 ma-newcust" id="maNewCustomer" <%= selectedCustomer === 'new' ? '' : 'hidden' %>>
+          <div class="ma-field">
+            <label class="ma-label" for="jbNewName">Customer name</label>
+            <input id="jbNewName" name="newCustomerName" class="ma-input" maxlength="120" value="<%= fv.newCustomerName || '' %>" autocapitalize="words">
+          </div>
+          <div class="ma-field">
+            <label class="ma-label" for="jbNewPhone">Phone</label>
+            <input id="jbNewPhone" name="newCustomerPhone" type="tel" inputmode="tel" maxlength="40" class="ma-input" value="<%= fv.newCustomerPhone || '' %>">
+          </div>
+        </div>
+        <% } %>
+        <div class="ma-field">
+          <label class="ma-label" for="jbTitle">Job</label>
+          <input id="jbTitle" name="title" class="ma-input" maxlength="120" value="<%= fv.title || '' %>" placeholder="e.g. Kitchen floor install" required>
+        </div>
+        <div class="ma-grid2">
+          <div class="ma-field">
+            <label class="ma-label" for="jbStatus">Status</label>
+            <select id="jbStatus" name="status" class="ma-select">
+              <% statuses.forEach(function (s) { %><option value="<%= s.value %>" <%= (fv.status || 'lead') === s.value ? 'selected' : '' %>><%= s.label %></option><% }); %>
+            </select>
+          </div>
+          <div class="ma-field">
+            <label class="ma-label" for="jbValue">Value $</label>
+            <input id="jbValue" name="value" class="ma-input" inputmode="decimal" maxlength="14" value="<%= fv.value ? fv.value : '' %>" placeholder="0">
+          </div>
+        </div>
+        <div class="ma-grid2">
+          <div class="ma-field">
+            <label class="ma-label" for="jbDate">Date</label>
+            <input id="jbDate" name="date" type="date" class="ma-input" value="<%= fv.date || '' %>" min="2000-01-01" max="2100-12-31">
+          </div>
+          <div class="ma-field">
+            <label class="ma-label" for="jbTime">Start time</label>
+            <input id="jbTime" name="time" type="time" class="ma-input" value="<%= fv.time || '' %>" step="900">
+          </div>
+        </div>
+        <div class="ma-field">
+          <label class="ma-label" for="jbDuration">Duration</label>
+          <select id="jbDuration" name="durationMins" class="ma-select">
+            <option value="">Not set</option>
+            <% durations.forEach(function (d) { %><option value="<%= d.value %>" <%= Number(fv.durationMins) === d.value ? 'selected' : '' %>><%= d.label %></option><% }); %>
+          </select>
+        </div>
+        <div class="ma-field">
+          <label class="ma-label" for="jbNotes">Notes</label>
+          <textarea id="jbNotes" name="notes" class="ma-textarea" maxlength="2000" placeholder="Scope, materials, access…"><%= fv.notes || '' %></textarea>
+        </div>
+        <button type="submit" class="ma-btn ma-btn--block"><%= job ? 'Save job' : (fv.date ? 'Schedule job' : 'Add job') %></button>
+      </form>
+    </section>
+
+    <% if (job) { %>
+    <form method="post" action="<%= base %>/customers/jobs/<%= job.id %>/delete" class="ma-section" data-ma-confirm="Delete this job?">
+      <button type="submit" class="ma-btn ma-btn--danger ma-btn--block">Delete job</button>
+    </form>
+    <% } %>
+  </main>
+  <%- include('_tabbar') %>
+</body>
+</html>

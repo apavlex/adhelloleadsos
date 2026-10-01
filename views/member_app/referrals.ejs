@@ -39,6 +39,14 @@
         <% r.notes.forEach(function (n) { %><p class="ma-card__meta" style="margin-top:6px">Note: <%= n.text %></p><% }); %>
 
         <div class="ma-actions">
+          <% if (r.jobHref) { %>
+          <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= r.jobHref %>"><%- icons.customers %> View job</a>
+          <% } else if (r.convertible) { %>
+          <form method="post" action="<%= base %>/customers/from-referral/<%= r.id %>">
+            <input type="hidden" name="back" value="<%= base %>/referrals">
+            <button type="submit" class="ma-btn ma-btn--sm ma-btn--soft"><%- icons.customers %> Add to Customers</button>
+          </form>
+          <% } %>
           <% r.actions.forEach(function (a) { if (a === 'win') return; %>
           <form method="post" action="<%= base %>/referrals/<%= r.id %>">
             <input type="hidden" name="action" value="<%= a %>">
