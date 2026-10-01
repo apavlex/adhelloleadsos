@@ -10,12 +10,14 @@
     .net-tabs { display: flex; gap: 0.35rem; overflow-x: auto; padding-bottom: 0.25rem; margin-bottom: 1rem; }
     .net-tab { flex-shrink: 0; border-radius: 999px; padding: 0.5rem 0.95rem; font-size: 0.78rem; font-weight: 700; border: 1px solid rgba(15, 23, 42, 0.12); color: inherit; text-decoration: none; }
     html.dark .net-tab { border-color: rgba(255, 255, 255, 0.14); }
-    .net-tab.is-on { background: #FFDB3A; color: #0F172A; border-color: transparent; }
+    .net-tab:hover { border-color: var(--brand-yellow, #FFD644); }
+    .net-tab.is-on { background: var(--brand-yellow, #FFD644); color: var(--brand-on-accent, #111827); border-color: transparent; }
     .net-btn { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; padding: 0.45rem 0.85rem; font-size: 0.74rem; font-weight: 700; line-height: 1; white-space: nowrap; border: 1px solid transparent; cursor: pointer; text-decoration: none; }
-    .net-btn-yellow { background: #FFDB3A; color: #0F172A; }
+    .net-btn-yellow { background: var(--brand-yellow, #FFD644); color: var(--brand-on-accent, #111827); }
+    .net-btn-yellow:hover { background: color-mix(in srgb, var(--brand-yellow, #FFD644) 88%, #000); }
     .net-btn-ghost { background: transparent; border-color: rgba(15, 23, 42, 0.14); color: inherit; }
     html.dark .net-btn-ghost { border-color: rgba(255, 255, 255, 0.16); }
-    .net-btn-ghost:hover { border-color: #FFDB3A; }
+    .net-btn-ghost:hover { border-color: var(--brand-yellow, #FFD644); }
     .net-btn-danger { background: transparent; color: #e11d48; border-color: rgba(225, 29, 72, 0.3); }
     .net-label { display: block; font-size: 10px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: #64748b; margin-bottom: 0.3rem; }
     .net-input { width: 100%; border-radius: 0.85rem; border: 1px solid rgba(148, 163, 184, 0.4); background: rgba(248, 250, 252, 0.9); padding: 0.6rem 0.75rem; font-size: 0.875rem; color: inherit; }
@@ -23,8 +25,8 @@
     .net-checks { display: flex; flex-wrap: wrap; gap: 0.35rem; }
     .net-check { display: inline-flex; align-items: center; gap: 0.35rem; border-radius: 999px; border: 1px solid rgba(15, 23, 42, 0.12); padding: 0.3rem 0.65rem; font-size: 12px; font-weight: 600; cursor: pointer; }
     html.dark .net-check { border-color: rgba(255, 255, 255, 0.14); }
-    .net-check:has(input:checked) { background: #FFDB3A; color: #0F172A; border-color: transparent; }
-    .net-check input { accent-color: #0F172A; }
+    .net-check:has(input:checked) { background: var(--brand-yellow, #FFD644); color: var(--brand-on-accent, #111827); border-color: transparent; }
+    .net-check input { accent-color: var(--brand-on-accent, #111827); }
     .net-pill { display: inline-flex; align-items: center; border-radius: 999px; padding: 0.25rem 0.6rem; font-size: 0.66rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; background: rgba(148, 163, 184, 0.16); color: #64748b; }
     .net-pill-sent { background: rgba(59, 130, 246, 0.14); color: #1d4ed8; }
     .net-pill-accepted, .net-pill-booked { background: rgba(245, 158, 11, 0.16); color: #b45309; }
@@ -36,7 +38,7 @@
     html.dark .net-pill-unrouted, html.dark .net-pill-declined { color: #fda4af; }
     .net-seats { display: grid; grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr)); gap: 0.45rem; margin-top: 0.75rem; }
     .net-seat { border-radius: 0.9rem; padding: 0.55rem 0.7rem; border: 1px dashed rgba(148, 163, 184, 0.55); min-width: 0; }
-    .net-seat.is-held { border-style: solid; border-color: rgba(250, 204, 21, 0.6); background: rgba(255, 219, 58, 0.12); }
+    .net-seat.is-held { border-style: solid; border-color: color-mix(in srgb, var(--brand-yellow, #FFD644) 60%, transparent); background: color-mix(in srgb, var(--brand-yellow, #FFD644) 12%, transparent); }
     .net-seat.is-paused { opacity: 0.6; }
     .net-seat p { margin: 0; }
     .net-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.45rem; margin-top: 0.75rem; }
