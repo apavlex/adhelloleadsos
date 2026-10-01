@@ -660,7 +660,8 @@
       <button type="button" id="focus-mobile-log" class="focus-dock-btn border border-brand-dark/25 dark:border-white/20 bg-white dark:bg-slate-900 text-brand-dark dark:text-white" role="menuitem">Log &amp; next</button>
       <button type="button" id="focus-mobile-skip" class="focus-dock-btn border border-brand-border/60 dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800 text-brand-muted dark:text-slate-300" role="menuitem">Skip</button>
       <button type="button" id="focus-mobile-email" class="focus-dock-btn border border-sky-500/50 bg-sky-500/15 text-sky-900 dark:text-sky-200" role="menuitem" title="Open email composer">eMail</button>
-      <button type="button" id="focus-mobile-sync-ghl" class="focus-dock-btn col-span-2 border border-orange-600 bg-orange-500 text-white" role="menuitem" title="Save quick log and notes, then sync this lead to Go High Level">Sync GHL</button>
+      <button type="button" id="focus-mobile-referral" class="focus-dock-btn border border-yellow-600/40 bg-brand-yellow text-brand-dark" role="menuitem" aria-pressed="false" title="Add this business to your referral partners">Referral</button>
+      <button type="button" id="focus-mobile-sync-ghl" class="focus-dock-btn border border-orange-600 bg-orange-500 text-white" role="menuitem" title="Save quick log and notes, then sync this lead to Go High Level">Sync GHL</button>
     </div>
     <div class="focus-mobile-dock-bar">
       <button type="button" id="focus-mobile-call" class="focus-dock-btn focus-dock-btn--call" title="Call this lead now">
@@ -862,6 +863,7 @@
     var btnMobileSms = document.getElementById('focus-mobile-sms');
     var btnMobileEmail = document.getElementById('focus-mobile-email');
     var btnMobileSyncGhl = document.getElementById('focus-mobile-sync-ghl');
+    var btnMobileReferral = document.getElementById('focus-mobile-referral');
     var btnImproveText = document.getElementById('focus-improve-text');
     var elSmsComposeSection = document.getElementById('focus-sms-compose-section');
     var elSmsComposeInput = document.getElementById('focus-sms-compose-input');
@@ -1690,6 +1692,7 @@
     function renderLinks(lead) {
       elLinks.innerHTML = '';
       referralPartnerStatus('');
+      paintMobileReferral(false);
       if (lead.website) elLinks.appendChild(iconLink(hrefUrl(lead.website), 'Website', '<path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>'));
       if (lead.phone) {
         var phoneBtn = iconLink('#', 'Phone', '<path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>');
@@ -1720,6 +1723,17 @@
           ? '<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>'
           : '<path stroke-linecap="round" stroke-linejoin="round" d="M18 9v6m3-3h-6M13 7a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>') +
         '</svg><span>Referral partner</span>';
+      paintMobileReferral(on);
+    }
+
+    function paintMobileReferral(on) {
+      if (!btnMobileReferral) return;
+      btnMobileReferral.setAttribute('aria-pressed', on ? 'true' : 'false');
+      btnMobileReferral.textContent = on ? 'Referral ✓' : 'Referral';
+      btnMobileReferral.title = on ? 'In your referral partners. Tap to remove.' : 'Add this business to your referral partners';
+      btnMobileReferral.className = 'focus-dock-btn ' + (on
+        ? 'border border-emerald-500/50 bg-emerald-500/15 text-emerald-800 dark:text-emerald-200'
+        : 'border border-yellow-600/40 bg-brand-yellow text-brand-dark');
     }
 
     function isReferralPartner(value) {
@@ -1732,36 +1746,50 @@
       var btn = document.createElement('button');
       btn.type = 'button';
       btn.id = 'focus-referral-partner-btn';
+      btn.__lead = lead;
       lead.referralPartner = isReferralPartner(lead.referralPartner);
       paintReferralPartnerButton(btn, lead.referralPartner);
       btn.addEventListener('click', function () {
-        var adding = !isReferralPartner(lead.referralPartner);
-        var body = new URLSearchParams();
-        body.set('leadKey', lead.key);
-        body.set('action', adding ? 'highlight' : 'clear');
-        btn.disabled = true;
-        fetch('/referrals/partner', {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
-          body: body.toString(),
-        })
-          .then(function (r) {
-            return r.json().catch(function () { return {}; }).then(function (data) {
-              if (!r.ok || !data.success) throw new Error((data && data.error) || 'Could not update referral partners.');
-            });
-          })
-          .then(function () {
-            lead.referralPartner = adding;
-            paintReferralPartnerButton(btn, adding);
-            referralPartnerStatus(adding ? 'Added to Referral Partners.' : 'Removed from Referral Partners.', false, adding);
-          })
-          .catch(function (err) {
-            referralPartnerStatus(err.message || 'Could not update referral partners.', true, false);
-          })
-          .finally(function () { btn.disabled = false; });
+        toggleReferralPartner(lead, btn).catch(function () {});
       });
       return btn;
+    }
+
+    /** Resolves with the user-facing message; rejects with an Error carrying one. */
+    function toggleReferralPartner(lead, btn) {
+      var adding = !isReferralPartner(lead.referralPartner);
+      var body = new URLSearchParams();
+      body.set('leadKey', lead.key);
+      body.set('action', adding ? 'highlight' : 'clear');
+      btn.disabled = true;
+      if (btnMobileReferral) btnMobileReferral.disabled = true;
+      return fetch('/referrals/partner', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+        body: body.toString(),
+      })
+        .then(function (r) {
+          return r.json().catch(function () { return {}; }).then(function (data) {
+            if (!r.ok || !data.success) throw new Error((data && data.error) || 'Could not update referral partners.');
+          });
+        })
+        .then(function () {
+          var msg = adding ? 'Added to Referral Partners.' : 'Removed from Referral Partners.';
+          lead.referralPartner = adding;
+          paintReferralPartnerButton(btn, adding);
+          referralPartnerStatus(msg, false, adding);
+          return msg;
+        })
+        .catch(function (err) {
+          var msg = (err && err.message) || 'Could not update referral partners.';
+          referralPartnerStatus(msg, true, false);
+          throw new Error(msg);
+        })
+        .finally(function () {
+          btn.disabled = false;
+          if (btnMobileReferral) btnMobileReferral.disabled = false;
+        });
     }
 
     function referralPartnerStatus(msg, isError, withLink) {
@@ -5493,6 +5521,20 @@
       btnMobileSkip.addEventListener('click', function () {
         closeMobileFabActions();
         onSkip();
+      });
+    }
+    if (btnMobileReferral) {
+      btnMobileReferral.addEventListener('click', function () {
+        closeMobileFabActions();
+        var toast = typeof window.showAppToast === 'function' ? window.showAppToast : null;
+        var inline = document.getElementById('focus-referral-partner-btn');
+        if (!inline || !inline.__lead) {
+          if (toast) toast('Open a saved lead to add it as a referral partner.', { variant: 'info' });
+          return;
+        }
+        toggleReferralPartner(inline.__lead, inline)
+          .then(function (msg) { if (toast) toast(msg, { variant: 'success' }); })
+          .catch(function (err) { if (toast) toast(err.message, { variant: 'error' }); });
       });
     }
     if (btnMobileSyncGhl) {
