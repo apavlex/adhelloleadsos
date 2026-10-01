@@ -246,7 +246,7 @@ test('deleteFolderComplete hides default pipeline folder from auto-recreate', as
   assert.equal(result.wasPipelineDefault, true);
 
   const folders = await ensureFresh('ws1');
-  assert.equal(folders.length, 5);
+  assert.equal(folders.length, 6);
   assert.ok(!folders.some((f) => f.jobType === 'real_estate'));
 
   require.cache[require.resolve('../services/database')].exports = orig;
@@ -270,7 +270,7 @@ test('ensurePipelineFolders skips hidden default job types', async () => {
 
   const folders = await ensureFresh('ws1');
   const names = folders.map((f) => f.name).sort();
-  assert.deepEqual(names, ['Businesses', 'Home owners', 'Permits', 'Products', 'Wholesale']);
+  assert.deepEqual(names, ['Businesses', 'Home owners', 'New formations', 'Permits', 'Products', 'Wholesale']);
 
   require.cache[require.resolve('../services/database')].exports = orig;
   delete require.cache[require.resolve('../services/pipelineFolders')];

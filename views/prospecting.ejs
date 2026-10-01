@@ -639,7 +639,9 @@
           var isDefault = row && row.getAttribute('data-folder-is-default') === '1';
           var msg = 'Delete ' + currentName + '? Leads will be unassigned from this folder.';
           if (isDefault) msg += ' This is a system folder — it will not be recreated automatically.';
-          if (!window.confirm(msg)) return;
+          if (btn.disabled || !window.confirm(msg)) return;
+          btn.disabled = true;
+          btn.textContent = 'Removing…';
           fetch('/folders/delete', {
             method: 'POST',
             credentials: 'same-origin',
@@ -656,6 +658,8 @@
               window.location.reload();
             })
             .catch(function (err) {
+              btn.disabled = false;
+              btn.textContent = 'Remove';
               window.alert(err && err.message ? err.message : 'Could not delete folder.');
             });
         });

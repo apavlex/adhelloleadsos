@@ -97,8 +97,27 @@ async function ensurePipelineFolders(workspaceId) {
   return out.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
 }
 
+function hiddenTradeSlugs(ws) {
+  const list = ws && ws.pipelineSettings && ws.pipelineSettings.hiddenTradeFolders;
+  return (Array.isArray(list) ? list : []).map((s) => String(s || '').trim()).filter(Boolean);
+}
+
+async function hideTradeFolder(workspaceId, tradeSlug) {
+  const slug = String(tradeSlug || '').trim();
+  if (!slug) return;
+  const wid = workspaceId || 'default';
+  const ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+  const prev = ws.pipelineSettings || {};
+  ws.pipelineSettings = {
+    ...prev,
+    hiddenTradeFolders: [...new Set([...hiddenTradeSlugs(ws), slug])],
+  };
+  await dbService.saveWorkspace(wid, ws);
+}
+
 /**
  * Seed ServiceTitan trade subfolders under the Businesses system folder.
+ * Trades the workspace deleted (pipelineSettings.hiddenTradeFolders) are not recreated.
  * @returns {Promise<object[]>} updated folder list
  */
 async function ensureTradeSubfolders(workspaceId, folders) {
@@ -107,11 +126,11 @@ async function ensureTradeSubfolders(workspaceId, folders) {
   if (!businessRoot || !businessRoot.key) return folders;
 
   const parentKey = String(businessRoot.key);
-  const existingSlugs = new Set(
-    (folders || [])
-      .filter((f) => f && f.tradeSlug)
-      .map((f) => String(f.tradeSlug))
-  );
+  const ws = (await dbService.getWorkspace(wid)) || {};
+  const existingSlugs = new Set([
+    ...(folders || []).filter((f) => f && f.tradeSlug).map((f) => String(f.tradeSlug)),
+    ...hiddenTradeSlugs(ws),
+  ]);
   const existingNames = new Set(
     (folders || [])
       .filter((f) => f && (f.isTradeFolder || f.tradeSlug || String(f.jobType || '') === JOB_TYPES.MAPS_BUSINESS))
@@ -423,10 +442,20 @@ async function deleteFolderComplete(workspaceId, folderKey) {
   }
 
   const unassigned = await dbService.unassignLeadsFromFolder(wid, folder.key);
+  const children = (await dbService.listFolders(wid)).filter(
+    (f) => f && String(f.parentFolderKey || '') === String(folder.key)
+  );
+  for (const child of children) {
+    // eslint-disable-next-line no-await-in-loop
+    await dbService.updateFolder(wid, child.key, { parentFolderKey: folder.parentFolderKey || '' });
+  }
   await dbService.deleteFolder(wid, folder.key);
 
   if (folder.isPipelineDefault && folder.jobType) {
     await hideDefaultPipelineFolder(wid, folder.jobType);
+  }
+  if (folder.tradeSlug) {
+    await hideTradeFolder(wid, folder.tradeSlug);
   }
 
   return {
