@@ -672,12 +672,14 @@ router.get('/send-options', async (req, res) => {
   try {
     const network = await loadNetwork(req);
     const [zones, members] = await Promise.all([store.listZones(network.id), store.listMembers(network.id)]);
+    const networkTrades = trades.tradesForNetwork(network);
     return res.json({
       success: true,
       networkName: network.name,
-      trades: trades.tradesForNetwork(network).map((t) => ({ slug: t.slug, name: t.name })),
+      trades: networkTrades.map((t) => ({ slug: t.slug, name: t.name })),
       zones: zones.map((z) => ({ id: z.id, name: z.name })),
-      ready: zones.length > 0 && members.some((m) => m.status === 'active'),
+      ready: zones.length > 0 && networkTrades.length > 0,
+      hasActiveMembers: members.some((m) => m.status === 'active'),
     });
   } catch (err) {
     console.error('[network] send options failed:', err.message);

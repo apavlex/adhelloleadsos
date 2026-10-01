@@ -18,7 +18,7 @@
     <p id="sendReferralLoading" class="text-sm text-brand-muted py-6 text-center">Loading your network…</p>
 
     <div id="sendReferralSetup" class="hidden py-2">
-      <p class="text-sm text-brand-dark dark:text-white">Your referral network needs at least one zone and one active member before you can send referrals.</p>
+      <p class="text-sm text-brand-dark dark:text-white">Add a zone to your referral network before sending referrals.</p>
       <div class="flex flex-col sm:flex-row gap-3 pt-5">
         <a href="/network?tab=setup" class="flex-1 btn-pill btn-primary py-4 text-xs font-black uppercase tracking-widest text-center">Set up network</a>
         <button type="button" class="flex-1 btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 py-4 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white" data-send-referral-close>Cancel</button>
@@ -34,6 +34,7 @@
     </div>
 
     <form id="sendReferralForm" class="space-y-4 hidden" novalidate>
+      <p id="sendReferralNoMembers" class="hidden rounded-xl bg-amber-50 dark:bg-amber-950/50 px-4 py-3 text-sm text-amber-950 dark:text-amber-100">No active members yet, so this referral will be saved unassigned and you'll get a task to assign it. <a href="/network?tab=members" class="font-semibold underline">Add members</a></p>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label for="sendReferralTrade" class="<%= _srLabel %>">Trade needed <span class="text-red-500">*</span></label>
@@ -51,11 +52,11 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label for="sendReferralPhone" class="<%= _srLabel %>">Phone</label>
-          <input type="tel" id="sendReferralPhone" name="phone" autocomplete="off" class="<%= _srField %>" placeholder="Optional" />
+          <input type="tel" id="sendReferralPhone" name="phone" autocomplete="off" class="<%= _srField %>" placeholder="Phone or email needed" />
         </div>
         <div>
           <label for="sendReferralEmail" class="<%= _srLabel %>">Email</label>
-          <input type="email" id="sendReferralEmail" name="email" autocomplete="off" class="<%= _srField %>" placeholder="Optional" />
+          <input type="email" id="sendReferralEmail" name="email" autocomplete="off" class="<%= _srField %>" placeholder="Phone or email needed" />
         </div>
       </div>
       <div>

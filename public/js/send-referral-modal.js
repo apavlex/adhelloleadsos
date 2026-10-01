@@ -52,6 +52,8 @@
         tradeSelect.value = keepTrade;
         zoneSelect.value = keepZone;
         if (!data.ready) { show(setup); return; }
+        var noMembers = document.getElementById('sendReferralNoMembers');
+        if (noMembers) noMembers.classList.toggle('hidden', !!data.hasActiveMembers);
         show(form);
         focusFirst();
       })
@@ -112,6 +114,9 @@
     if (!tradeSelect.value) { setError('Pick the trade the homeowner needs.'); tradeSelect.focus(); return; }
     var name = form.querySelector('[name="name"]');
     if (!name.value.trim()) { setError('Add the homeowner\u2019s name.'); name.focus(); return; }
+    var phone = form.querySelector('[name="phone"]');
+    var email = form.querySelector('[name="email"]');
+    if (!phone.value.trim() && !email.value.trim()) { setError('Add a phone or email for the homeowner.'); phone.focus(); return; }
     var consent = form.querySelector('[name="consent"]');
     if (!consent.checked) { setError('Confirm the homeowner agreed to be contacted.'); return; }
 
