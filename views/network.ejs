@@ -51,6 +51,12 @@
     .net-seat-holder { display: block; margin: 0.1rem -0.35rem 0; padding: 0.12rem 0.35rem; border-radius: 0.5rem; font-size: 13px; font-weight: 600; color: inherit; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .net-seat-holder:hover, .net-seat-holder:focus-visible { background: color-mix(in srgb, var(--brand-yellow, #FFD644) 22%, transparent); text-decoration: underline; }
     .net-seat-holder.is-paused { opacity: 0.6; }
+    .net-seat-holder.is-waiting { display: flex; align-items: center; gap: 0.3rem; font-weight: 500; color: #64748b; }
+    .net-seat-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    .net-seat-wait { flex-shrink: 0; padding: 0 0.3rem; border-radius: 999px; font-size: 9px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; background: rgba(148, 163, 184, 0.2); vertical-align: 1px; }
+    .net-seat-allow { margin: 0.3rem 0 0; }
+    .net-seat-allow button { padding: 0.15rem 0.5rem; border-radius: 999px; border: 0; font-size: 11px; font-weight: 800; background: var(--brand-yellow, #FFD644); color: #111; cursor: pointer; }
+    .net-seat-allow button:hover { filter: brightness(0.95); }
     .net-seat-add { display: inline-block; margin-top: 0.2rem; font-size: 11px; font-weight: 700; color: #64748b; text-decoration: none; }
     .net-seat-add:hover { text-decoration: underline; }
     .net-seat p { margin: 0; }
@@ -191,13 +197,22 @@
           <% } %>
           <div class="net-seats">
             <% row.seats.forEach(function (seat) { %>
-            <% if (seat.holders.length) { %>
+            <% if (seat.holders.length || seat.waiting.length) { var partnerCount = seat.holders.length + seat.waiting.length; %>
             <div class="net-seat is-held">
-              <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted truncate"><%= seat.trade.name %><%= seat.holders.length > 1 ? ' · ' + seat.holders.length : '' %></p>
+              <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted truncate"><%= seat.trade.name %><%= partnerCount > 1 ? ' · ' + partnerCount : '' %></p>
               <% seat.holders.forEach(function (h) { %>
               <a href="<%= h.href %>" class="net-seat-holder <%= h.paused ? 'is-paused' : '' %>" title="Open <%= h.name %> in Referral Partners"><%= h.name %><%= h.paused ? ' (paused)' : '' %></a>
               <% }); %>
-              <% if (!seat.full && canManage) { %>
+              <% seat.waiting.forEach(function (w) { %>
+              <a href="<%= w.href %>" class="net-seat-holder is-waiting" title="<%= w.name %> picked this trade but the seat is full, so they don't get referrals yet. Open in Referral Partners."><span class="net-seat-name"><%= w.name %></span><span class="net-seat-wait">waiting</span></a>
+              <% }); %>
+              <% if (seat.waiting.length && canManage) { %>
+              <form method="post" action="/network/setup" class="net-seat-allow">
+                <input type="hidden" name="seatLimit" value="<%= partnerCount %>" />
+                <input type="hidden" name="back" value="seats" />
+                <button type="submit" title="Let up to <%= partnerCount %> partners share each trade so waiting members start getting referrals">Allow <%= partnerCount %> per trade</button>
+              </form>
+              <% } else if (!seat.full && canManage) { %>
               <a href="/network?tab=members&trade=<%= encodeURIComponent(seat.trade.slug) %>#net-add-member" class="net-seat-add">+ Add partner</a>
               <% } %>
             </div>

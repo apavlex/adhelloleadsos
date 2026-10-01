@@ -123,9 +123,18 @@ router.get('/', async (req, res, next) => {
             href: holder.leadKey ? `/referrals?focus=${encodeURIComponent(holder.leadKey)}` : '/network?tab=members',
           }));
         const full = network.seatLimit > 0 && holders.length >= network.seatLimit;
+        const holderIds = new Set(holders.map((h) => h.id));
+        const waiting = members
+          .filter((m) => !holderIds.has(m.id) && m.trades.includes(trade.slug) && m.zoneIds.includes(zone.id))
+          .map((m) => ({
+            id: m.id,
+            name: m.companyName,
+            href: m.leadKey ? `/referrals?focus=${encodeURIComponent(m.leadKey)}` : '/network?tab=members',
+          }));
         return {
           trade,
           holders,
+          waiting,
           full,
           recruitUrl: full ? '' : trades.recruitSearchUrl(trade.slug, zone, network),
         };
@@ -219,14 +228,16 @@ router.post('/setup', async (req, res) => {
   try {
     const network = await loadNetwork(req);
     const chosen = trades.normalizeTradeSlugs(listFrom(req.body.trades), trades.catalogFor(network));
-    await store.saveNetwork({
+    const saved = await store.saveNetwork({
       ...network,
       name: String(req.body.name || '').trim() || network.name,
       trades: chosen.length ? chosen : network.trades,
       autoGhlSubaccount: req.body.ghlToggle ? req.body.autoGhlSubaccount === 'on' : network.autoGhlSubaccount,
       seatLimit: req.body.seatLimit != null ? req.body.seatLimit : network.seatLimit,
     });
-    return reply(req, res, { ok: true, tab: 'setup', notice: 'Network saved.' });
+    const seated = saved.seatLimit !== network.seatLimit ? await networkReferrals.reseatWaitingMembers(saved) : [];
+    const notice = seated.length ? `Network saved. Seated ${seated.join(', ')}.` : 'Network saved.';
+    return reply(req, res, { ok: true, tab: req.body.back === 'seats' ? 'seats' : 'setup', notice });
   } catch (err) {
     console.error('[network] setup failed:', err.message);
     return reply(req, res, { ok: false, tab: 'setup', notice: 'Could not save the network.', status: 500 });

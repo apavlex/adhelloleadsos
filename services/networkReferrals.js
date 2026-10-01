@@ -82,6 +82,31 @@ async function actOnReferral({ network, referralId, action, opts = {}, actorMemb
   return out;
 }
 
+/**
+ * Members keep the trades and zones they asked for even when a seat was full.
+ * After the partner limit changes, seat whoever is waiting, earliest member first.
+ * @returns {Promise<string[]>} names of members who gained a seat
+ */
+async function reseatWaitingMembers(network) {
+  let zones = await store.listZones(network.id);
+  const members = (await store.listMembers(network.id))
+    .slice()
+    .sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
+  const before = new Set(members.flatMap((m) => ex.seatsForMember(zones, m.id).map((s) => `${m.id}|${s.zoneId}|${s.tradeSlug}`)));
+  const changedIds = new Set();
+  for (const member of members) {
+    const plan = ex.planMemberSeats(zones, member.id, { trades: member.trades, zoneIds: member.zoneIds }, undefined, network.seatLimit);
+    if (!plan.changed.length) continue;
+    const byId = Object.fromEntries(plan.changed.map((z) => [z.id, z]));
+    zones = zones.map((z) => byId[z.id] || z);
+    plan.changed.forEach((z) => changedIds.add(z.id));
+  }
+  for (const zone of zones) if (changedIds.has(zone.id)) await store.saveZone(network.id, zone);
+  return members
+    .filter((m) => ex.seatsForMember(zones, m.id).some((s) => !before.has(`${m.id}|${s.zoneId}|${s.tradeSlug}`)))
+    .map((m) => m.companyName);
+}
+
 /** Save a member and rebuild their seats. Conflicting seats are skipped and reported. */
 async function saveMemberWithSeats(network, member, { trades, zoneIds }) {
   const zones = await store.listZones(network.id);
@@ -100,4 +125,5 @@ module.exports = {
   sendReferral,
   actOnReferral,
   saveMemberWithSeats,
+  reseatWaitingMembers,
 };

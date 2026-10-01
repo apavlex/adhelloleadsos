@@ -38,6 +38,20 @@
     .ref-btn-ghost:hover { border-color: var(--brand-yellow, #FFD644); }
     .ref-btn-quiet { background: transparent; color: #94a3b8; border: 0; padding-left: 0.35rem; padding-right: 0.35rem; }
     .ref-btn-quiet:hover { color: #e11d48; }
+    .ref-btn-lg { padding: 0.62rem 1.05rem; font-size: 0.8rem; font-weight: 800; }
+    .ref-btn-dark { background: #0F172A; color: #fff; }
+    .ref-btn-dark:hover { background: #1e293b; }
+    html.dark .ref-btn-dark { background: #f8fafc; color: #0F172A; }
+    html.dark .ref-btn-dark:hover { background: #e2e8f0; }
+    .ref-primary-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; margin-top: 0.9rem; }
+    .ref-btn-group { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    @media (max-width: 639px) {
+      .ref-btn-group { width: 100%; }
+      .ref-btn-group .ref-btn-lg { flex: 1 1 0; }
+    }
+    .ref-followup { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.6rem; padding: 0.55rem 0.75rem; border-radius: 0.9rem; font-size: 0.82rem; background: color-mix(in srgb, var(--brand-yellow, #FFD644) 18%, transparent); border: 1px solid color-mix(in srgb, var(--brand-yellow, #FFD644) 55%, transparent); }
+    .ref-followup[hidden] { display: none; }
+    .ref-followup > span { margin-right: 0.25rem; }
     .ref-pill { display: inline-flex; align-items: center; border-radius: 999px; padding: 0.28rem 0.65rem; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
     .ref-pill-connected { background: rgba(16, 185, 129, 0.14); color: #047857; }
     html.dark .ref-pill-connected { color: #6ee7b7; }
@@ -190,9 +204,26 @@
 
         <p class="ref-latest text-brand-dark dark:text-slate-200" data-ref-note <%= partner.note ? '' : 'hidden' %>><span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Note · </span><span data-ref-note-text><%= partner.note %></span></p>
 
-        <div class="mt-3 flex flex-wrap items-center gap-2">
-          <button type="button" class="ref-btn ref-btn-yellow" data-ref-track="sent" data-lead-key="<%= partner.key %>" data-default-label="Lead sent">Lead sent</button>
-          <button type="button" class="ref-btn ref-btn-ghost" data-ref-track="received" data-lead-key="<%= partner.key %>" data-default-label="Lead received">Lead received</button>
+        <div class="ref-primary-row">
+          <div class="ref-btn-group">
+            <button type="button" class="ref-btn ref-btn-lg ref-btn-yellow" data-ref-track="sent" data-lead-key="<%= partner.key %>" data-default-label="Lead sent">Lead sent</button>
+            <button type="button" class="ref-btn ref-btn-lg ref-btn-yellow" data-ref-track="received" data-lead-key="<%= partner.key %>" data-default-label="Lead received">Lead received</button>
+          </div>
+          <div class="ref-btn-group">
+            <button type="button" class="ref-btn ref-btn-lg ref-btn-dark" data-referral-action="sms" data-lead-key="<%= partner.key %>" data-title="<%= partner.title %>">SMS</button>
+            <button type="button" class="ref-btn ref-btn-lg ref-btn-dark" data-referral-action="email" data-lead-key="<%= partner.key %>" data-title="<%= partner.title %>">Email</button>
+            <a class="ref-btn ref-btn-lg ref-btn-dark" href="/direct-mail?keys=<%= encodeURIComponent(partner.key) %>">Direct Mail</a>
+          </div>
+        </div>
+
+        <div class="ref-followup" data-ref-followup hidden>
+          <span>Lead logged. Let <strong><%= partner.title %></strong> know:</span>
+          <button type="button" class="ref-btn ref-btn-dark" data-ref-followup-send="sms" data-lead-key="<%= partner.key %>">Text them</button>
+          <button type="button" class="ref-btn ref-btn-dark" data-ref-followup-send="email" data-lead-key="<%= partner.key %>">Email them</button>
+          <button type="button" class="ref-btn ref-btn-quiet" data-ref-followup-close>Not now</button>
+        </div>
+
+        <div class="mt-2.5 flex flex-wrap items-center gap-2">
           <% if (partner.status !== 'connected') { %>
           <button type="button" class="ref-btn ref-btn-ghost" data-ref-track="connect" data-lead-key="<%= partner.key %>" data-default-label="Mark connected">Mark connected</button>
           <% } %>
@@ -200,9 +231,6 @@
           <button type="button" class="ref-btn ref-btn-ghost" data-ref-track="intro" data-lead-key="<%= partner.key %>" data-default-label="Mark intro sent">Mark intro sent</button>
           <% } %>
           <button type="button" class="ref-btn ref-btn-ghost" data-referral-action="tags" data-lead-key="<%= partner.key %>" data-title="<%= partner.title %>" data-tags="<%= (partner.tagKeys || []).join(',') %>">Tags</button>
-          <button type="button" class="ref-btn ref-btn-ghost" data-referral-action="sms" data-lead-key="<%= partner.key %>" data-title="<%= partner.title %>">SMS</button>
-          <button type="button" class="ref-btn ref-btn-ghost" data-referral-action="email" data-lead-key="<%= partner.key %>" data-title="<%= partner.title %>">Email</button>
-          <a class="ref-btn ref-btn-ghost" href="/direct-mail?keys=<%= encodeURIComponent(partner.key) %>">Direct Mail</a>
           <button type="button" class="ref-btn ref-btn-ghost" data-referral-ghl data-lead-key="<%= partner.key %>" data-default-label="Sync GHL">Sync GHL</button>
           <% if (netMembers.has(partner.key)) { %>
           <a class="ref-btn ref-btn-ghost" href="/network?tab=members">Network member</a>
@@ -571,6 +599,17 @@
         }, 700);
       }
 
+      function showFollowup(article) {
+        document.querySelectorAll('[data-ref-followup]').forEach(function (el) {
+          if (!article.contains(el)) el.hidden = true;
+        });
+        var box = article.querySelector('[data-ref-followup]');
+        if (!box) return;
+        box.hidden = false;
+        var first = box.querySelector('[data-ref-followup-send]');
+        if (first) first.focus({ preventScroll: true });
+      }
+
       function trackPartner(button, action, noteText) {
         var article = button.closest('article');
         var leadKey = button.getAttribute('data-lead-key') || (article && article.getAttribute('data-lead-key'));
@@ -645,6 +684,7 @@
             return;
           }
           if (article && article.isConnected && result.data.card) paintCard(article, result.data.card);
+          if (action === 'sent' && article && article.isConnected) showFollowup(article);
         }).catch(function () {
           if (button.isConnected) button.dataset.busy = '';
           say('Could not update that partner. Refresh and try again.', false);
@@ -670,6 +710,19 @@
         var tracked = event.target.closest('[data-ref-track]');
         if (tracked) {
           trackPartner(tracked, tracked.getAttribute('data-ref-track'));
+          return;
+        }
+        var followupSend = event.target.closest('[data-ref-followup-send]');
+        if (followupSend) {
+          var followupBox = followupSend.closest('[data-ref-followup]');
+          if (followupBox) followupBox.hidden = true;
+          openComposer(followupSend.getAttribute('data-ref-followup-send'), followupSend.getAttribute('data-lead-key'));
+          return;
+        }
+        var followupClose = event.target.closest('[data-ref-followup-close]');
+        if (followupClose) {
+          var closeBox = followupClose.closest('[data-ref-followup]');
+          if (closeBox) closeBox.hidden = true;
           return;
         }
         if (event.target.closest('[data-referral-pop-close]') || event.target === pop) {
