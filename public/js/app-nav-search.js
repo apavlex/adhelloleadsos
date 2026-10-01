@@ -197,20 +197,37 @@
         '&limit=' +
         FETCH_LIMIT;
 
-      fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
-        .then(function (res) {
-          if (!res.ok) throw new Error('Search failed');
+      function attempt() {
+        return fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' } }).then(function (res) {
+          var type = res.headers.get('content-type') || '';
+          if (res.status === 401 || res.redirected || (res.ok && type.indexOf('application/json') < 0)) {
+            var expired = new Error('signed out');
+            expired.signedOut = true;
+            throw expired;
+          }
+          if (!res.ok) throw new Error('HTTP ' + res.status);
           return res.json();
+        });
+      }
+
+      attempt()
+        .catch(function (err) {
+          if (err && err.signedOut) throw err;
+          return new Promise(function (resolve) { setTimeout(resolve, 600); }).then(attempt);
         })
         .then(function (data) {
           if (myReq !== reqId) return;
           renderDropdown(data, q);
         })
-        .catch(function () {
+        .catch(function (err) {
           if (myReq !== reqId) return;
+          if (window.console) console.warn('[nav-search]', err && err.message);
           var qSafe = escapeHtml(q);
+          var msg = err && err.signedOut
+            ? 'You were signed out. Reload the page to search.'
+            : 'Search is taking too long. Open it in the pipeline instead.';
           dropdown.innerHTML =
-            '<div class="nav-lead-search-empty">Could not search. Try again.</div>' +
+            '<div class="nav-lead-search-empty">' + msg + '</div>' +
             '<button type="button" class="nav-lead-search-footer" data-nav-search-all data-q="' +
             qSafe +
             '">Search “' +

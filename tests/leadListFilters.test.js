@@ -103,6 +103,36 @@ describe('leadListFilters search', () => {
     assert.ok(scoreLeadSearchMatch(titleLead, 'test', ctx) < scoreLeadSearchMatch(noteLead, 'test', ctx));
   });
 
+  it('matches any run of phone digits regardless of formatting', () => {
+    const lead = { title: 'Camas Roofing', phone: '(360) 555-2962', city: 'Camas', zip: '98607' };
+    for (const q of ['2962', '360', '55', '5552962', '360 555 2962', '(360) 555-2962', '360-555', '+1 360 555 2962', '13605552962']) {
+      assert.equal(leadMatchesSearchQuery(lead, q, ctx), true, q);
+    }
+    assert.equal(leadMatchesSearchQuery(lead, '4444', ctx), false);
+    assert.equal(leadMatchesSearchQuery(lead, 'camas 2962', ctx), true);
+    assert.equal(leadMatchesSearchQuery(lead, '98607', ctx), true);
+  });
+
+  it('matches mobile, contact phones, contact name and emails', () => {
+    const lead = {
+      title: 'Blue Sky HVAC',
+      mobile: '503.222.8181',
+      contacts: [{ name: 'Dana Ruiz', phone: '+1 (971) 404-1234' }],
+      contactName: 'Pat Owner',
+      emails: ['office@bluesky.test'],
+    };
+    assert.equal(leadMatchesSearchQuery(lead, '8181', ctx), true);
+    assert.equal(leadMatchesSearchQuery(lead, '4041', ctx), true);
+    assert.equal(leadMatchesSearchQuery(lead, 'pat owner', ctx), true);
+    assert.equal(leadMatchesSearchQuery(lead, 'office@bluesky', ctx), true);
+  });
+
+  it('ranks phone hits above weaker matches', () => {
+    const phoneLead = { title: 'Alpha', phone: '360-555-2962' };
+    const noteLead = { title: 'Beta', updates: [{ type: 'note', value: 'ticket 2962' }] };
+    assert.ok(scoreLeadSearchMatch(phoneLead, '2962', ctx) < scoreLeadSearchMatch(noteLead, '2962', ctx));
+  });
+
   it('buildLeadSearchHaystack includes status and logs', () => {
     const hay = buildLeadSearchHaystack(
       {

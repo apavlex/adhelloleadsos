@@ -399,13 +399,20 @@ function buildLeadSearchHaystack(l, ctx) {
   const parts = [
     l.key,
     l.title,
+    l.contactName,
+    l.ownerName,
+    l.firstName,
+    l.lastName,
     l.email,
     l.phone,
+    l.mobile,
     l.website,
     l.address,
+    l.fullAddress,
     l.city,
     l.state,
     l.zip,
+    l.zipCode,
     l.postalCode,
     l.categoryName,
     l.category,
@@ -449,6 +456,7 @@ function buildLeadSearchHaystack(l, ctx) {
     ...leadActivitySearchParts(l),
     ...leadKeywordSearchParts(l),
   ];
+  appendSearchText(parts, l.emails);
   appendSearchText(parts, l.importFields);
   appendSearchText(parts, l.cqi);
   appendSearchText(parts, l.buyingSignals);
@@ -469,11 +477,57 @@ function normalizeSearchTokens(q) {
     .filter(Boolean);
 }
 
+const PHONE_TOKEN_RE = /^[+()\d.\-]+$/;
+
+/** Digits of a phone-looking search token ("(360)", "555-29", "0141"), else ''. */
+function phoneTokenDigits(token) {
+  return PHONE_TOKEN_RE.test(token) ? token.replace(/\D/g, '') : '';
+}
+
+/** Every phone number on the lead as bare digits, so any run of digits can match. */
+function leadPhoneDigits(l) {
+  const out = [];
+  const add = (value) => {
+    const digits = String(value == null ? '' : value).replace(/\D/g, '');
+    if (digits.length >= 4 && !out.includes(digits)) out.push(digits);
+  };
+  if (!l || typeof l !== 'object') return out;
+  add(l.phone);
+  add(l.mobile);
+  add(l.internationalPhone);
+  add(l.formattedPhone);
+  (Array.isArray(l.phones) ? l.phones : []).forEach((p) => add(p && typeof p === 'object' ? p.number || p.phone : p));
+  (Array.isArray(l.contacts) ? l.contacts : []).forEach((c) => { if (c && typeof c === 'object') add(c.phone); });
+  return out;
+}
+
+/**
+ * Phone queries match any digit run regardless of formatting: "2962",
+ * "360", "5552962" and "(360) 555-2962" all find (360) 555-2962.
+ */
+function phoneQueryDigits(tokens) {
+  if (!tokens.length || !tokens.every((t) => phoneTokenDigits(t))) return '';
+  const digits = tokens.map(phoneTokenDigits).join('');
+  return digits.length === 11 && digits[0] === '1' ? digits.slice(1) : digits;
+}
+
 function leadMatchesSearchQuery(l, q, ctx) {
   const tokens = normalizeSearchTokens(q);
   if (!tokens.length) return true;
+  let phones = null;
+  const allDigits = phoneQueryDigits(tokens);
+  if (allDigits.length >= 2) {
+    phones = leadPhoneDigits(l);
+    if (phones.some((d) => d.includes(allDigits))) return true;
+  }
   const haystack = buildLeadSearchHaystack(l, ctx);
-  return tokens.every((token) => haystack.includes(token));
+  return tokens.every((token) => {
+    if (haystack.includes(token)) return true;
+    const digits = phoneTokenDigits(token);
+    if (digits.length < 2) return false;
+    if (!phones) phones = leadPhoneDigits(l);
+    return phones.some((d) => d.includes(digits));
+  });
 }
 
 function scoreLeadSearchMatch(l, q, ctx) {
@@ -483,9 +537,13 @@ function scoreLeadSearchMatch(l, q, ctx) {
   const title = String((l && l.title) || '').trim().toLowerCase();
   if (title.startsWith(needle)) return 0;
   if (title.includes(needle)) return 1;
-  const phone = String((l && l.phone) || '').replace(/\D/g, '');
-  const needleDigits = needle.replace(/\D/g, '');
-  if (needleDigits.length >= 7 && phone.includes(needleDigits)) return 2;
+  const needleDigits = phoneQueryDigits(tokens);
+  if (needleDigits.length >= 3) {
+    const phones = leadPhoneDigits(l);
+    if (phones.some((d) => d.includes(needleDigits))) return 1;
+    const zip = String((l && (l.zip || l.postalCode || l.zipCode)) || '').trim();
+    if (zip && zip.startsWith(needleDigits)) return 2;
+  }
   const keywordHay = leadKeywordSearchParts(l)
     .concat([l && l.categoryName, l && l.category, l && l.industry])
     .map((v) => String(v || '').trim().toLowerCase())
