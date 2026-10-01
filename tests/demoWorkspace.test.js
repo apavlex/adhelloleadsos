@@ -27,6 +27,8 @@ test('demo workspace seeds leads, territories, referrals, cadences and blocks re
   assert.ok(leads.every((l) => l.isDemo && /^\(\d{3}\) 555-01\d\d$/.test(l.phone) && l.email.endsWith('@example.com')));
   assert.equal(new Set(leads.map((l) => l.phone)).size, leads.length);
   assert.ok(leads.filter((l) => l.sequenceState && l.sequenceState.status === 'active').length >= 6);
+  assert.equal(ws.customCadences.length, 1);
+  assert.equal(leads.filter((l) => l.ghlCadence && l.ghlCadence.status === 'active').length, 4);
   assert.ok(leads.filter((l) => l.opportunityPipelineId).length >= 20);
 
   const network = await store.getNetworkForWorkspace(first.workspaceId);

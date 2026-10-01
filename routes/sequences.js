@@ -4,7 +4,9 @@ const dbService = require('../services/database');
 const sequenceEngine = require('../services/sequenceEngine');
 const sequenceTemplates = require('../services/sequenceTemplates');
 const pipelineStagesService = require('../services/pipelineStagesService');
-const { filterLeadsForRequest } = require('../services/workspaceService');
+const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
+const customCadences = require('../services/customCadences');
+const teamActivity = require('../services/teamActivity');
 const { filterTemplatesForWorkspace } = require('../services/auditCadenceGuard');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const ghlSync = require('../services/ghlSync');
@@ -116,6 +118,102 @@ router.get('/templates.json', async (req, res, next) => {
   }
 });
 
+function requireManager(req, res) {
+  if (req.canManageWorkspace) return true;
+  res.status(403).json({ success: false, error: 'Only workspace owners and admins can edit cadences.' });
+  return false;
+}
+
+/** Custom GHL cadences for the Pipeline launch picker. */
+router.get('/custom.json', async (req, res, next) => {
+  try {
+    const ws = await dbService.getWorkspace(req.workspaceId);
+    const cadences = customCadences.listCadences(ws).map((c) => ({
+      id: c.id,
+      name: c.name,
+      goal: c.goal,
+      tagName: customCadences.tagNameFor(c),
+      summary: customCadences.stepSummary(c),
+      ghlSetupAt: c.ghlSetupAt,
+    }));
+    res.json({ success: true, cadences });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/custom', express.json(), async (req, res, next) => {
+  try {
+    if (!requireManager(req, res)) return;
+    const result = await customCadences.saveCadence(req.workspaceId, req.body || {});
+    if (!result.ok) return res.status(400).json({ success: false, error: result.error });
+    res.json({ success: true, cadence: result.cadence, prompt: customCadences.buildGhlPrompt(result.cadence) });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/custom/:id/delete', async (req, res, next) => {
+  try {
+    if (!requireManager(req, res)) return;
+    const result = await customCadences.deleteCadence(req.workspaceId, req.params.id);
+    if (!result.ok) return res.status(404).json({ success: false, error: result.error });
+    res.json({ success: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/custom/:id/ghl-ready', async (req, res, next) => {
+  try {
+    const result = await customCadences.markGhlSetup(req.workspaceId, req.params.id);
+    if (!result.ok) return res.status(404).json({ success: false, error: result.error });
+    res.json({ success: true, cadence: result.cadence });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/custom/:id/launch', express.json(), async (req, res, next) => {
+  try {
+    const body = req.body || {};
+    const all = await dbService.getAllLeads(req.workspaceId);
+    const visible = new Set(filterLeadsForRequest(req, all).map((l) => l.key));
+    const leadKeys = (Array.isArray(body.leadKeys) ? body.leadKeys : [])
+      .map((k) => (String(k).startsWith('lead:') ? String(k) : `lead:${k}`))
+      .filter((k) => visible.has(k));
+    const result = await customCadences.launchCadence({
+      workspaceId: req.workspaceId,
+      cadenceId: req.params.id,
+      leadKeys,
+      actorEmail: userEmail(req),
+    });
+    if (!result.ok) return res.status(400).json({ success: false, error: result.error });
+    if (result.launched) {
+      teamActivity.record(req, {
+        category: 'outreach',
+        action: 'ghl_cadence_launch',
+        summary: `Launched "${result.cadence.name}" on ${result.launched} lead${result.launched === 1 ? '' : 's'}`,
+        leadKeys: leadKeys,
+        leadCount: result.launched,
+      });
+    }
+    res.json({ success: true, ...result });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/custom/stop', express.json(), async (req, res, next) => {
+  try {
+    const result = await customCadences.stopCadenceForLead({ workspaceId: req.workspaceId, leadKey: (req.body || {}).leadKey });
+    if (!result.ok) return res.status(400).json({ success: false, error: result.error });
+    res.json({ success: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.get('/', async (req, res, next) => {
   try {
     const ws = await dbService.getWorkspace(req.workspaceId);
@@ -141,6 +239,9 @@ router.get('/', async (req, res, next) => {
       activeSequences: active,
       activeCount: active.length,
       pipelineStages,
+      customCadences: customCadences.cadencesWithLeads(ws, leads),
+      cadenceChannels: customCadences.CHANNELS,
+      cadenceMergeTokens: Object.keys(customCadences.MERGE_TOKENS),
       ...ghlLocals,
     });
   } catch (e) {

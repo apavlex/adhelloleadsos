@@ -19,6 +19,7 @@ const ex = require('./referralExchange');
 const { saveMemberWithSeats } = require('./networkReferrals');
 const messageLog = require('./messageLog');
 const { getTemplate } = require('./sequenceTemplates');
+const customCadences = require('./customCadences');
 const { PRESETS } = require('../lib/pipeline/presets');
 const { normalizeStages } = require('../lib/pipeline/normalize');
 
@@ -568,6 +569,26 @@ async function seedNetwork(ctx) {
   return { network, referrals, memberByTitle };
 }
 
+/** One custom GHL cadence with a few leads on it (demo workspaces never sync to GHL). */
+async function seedGhlCadence(ctx) {
+  const { wid, email, leads } = ctx;
+  const saved = await customCadences.saveCadence(wid, {
+    name: 'Territory seat invite',
+    goal: 'Book a 15-minute call about the open seat',
+    steps: [
+      { dayOffset: 0, channel: 'sms', message: "Hi {{first_name}}, it's {{my_name}} with {{sender_business}}. We send homeowner jobs to one pro per trade in {{city}} and that seat is open. Want the details?" },
+      { dayOffset: 1, channel: 'call', message: "Mention yesterday's text. Ask how they get most of their jobs and whether they could take 3–5 more a month in {{city}}." },
+      { dayOffset: 3, channel: 'email', subject: '{{first_name}}, the {{city}} seat for {{company}}', message: 'Hi {{first_name}},\n\n{{sender_pitch}}\n\nOne seat per trade per area, first come first served. Worth a 15-minute call this week?\n\n{{my_name}}\n{{sender_business}}' },
+      { dayOffset: 6, channel: 'sms', message: 'Last note from me, {{first_name}}. Should I hold the {{city}} seat for {{company}} or offer it to the next pro on the list?' },
+    ],
+  });
+  if (!saved.ok) return;
+  await customCadences.markGhlSetup(wid, saved.cadence.id);
+  const titles = ['Gresham Pipe Works', 'Gateway Garage Door Co.', 'Pure Well Water Treatment', 'Clear Flow Gutters'];
+  const keys = leads.filter((l) => titles.includes(l.def.title)).map((l) => l.key);
+  await customCadences.launchCadence({ workspaceId: wid, cadenceId: saved.cadence.id, leadKeys: keys, actorEmail: email });
+}
+
 async function seedTasks(ctx) {
   const { wid, email, leads, now } = ctx;
   const leadKey = (title) => (leads.find((l) => l.def.title === title) || {}).key || null;
@@ -797,6 +818,7 @@ async function createDemoWorkspace(ownerEmail, { allocateSlug } = {}) {
   await removeEmptyTradeFolders(wid, folders.folders, usedFolderKeys);
 
   const { network, referrals } = await seedNetwork(ctx);
+  await seedGhlCadence(ctx);
   await seedTasks(ctx);
   await seedActivity(ctx);
   await seedMessages(ctx);

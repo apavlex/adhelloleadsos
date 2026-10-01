@@ -111,6 +111,9 @@ async function autoAttachCadenceIfNeeded({ leadKey, workspaceId }) {
   if (lead.sequenceState && lead.sequenceState.status && lead.sequenceState.status !== 'completed') {
     return { attached: false, reason: 'already_active' };
   }
+  if (lead.ghlCadence && lead.ghlCadence.status === 'active') {
+    return { attached: false, reason: 'on_ghl_cadence' };
+  }
   const wid = String(workspaceId || lead.workspaceId || '').trim();
   const ws = wid ? await dbService.getWorkspace(wid) : null;
   const all = await dbService.getAllLeads(wid || workspaceId);

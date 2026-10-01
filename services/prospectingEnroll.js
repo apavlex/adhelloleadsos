@@ -144,6 +144,9 @@ async function enrollLeadInAutoOutreach(opts) {
   if (isActiveOtherCadence(lead) && !reEnroll) {
     return { enrolled: false, reason: 'active_other_cadence', leadKey: key };
   }
+  if (lead.ghlCadence && lead.ghlCadence.status === 'active') {
+    return { enrolled: false, reason: 'on_ghl_cadence', leadKey: key };
+  }
 
   const today = utcDayKey(new Date());
   // Re-enrolling the same lead again today does not consume another GHL send budget slot.

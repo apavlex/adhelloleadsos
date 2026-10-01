@@ -1186,6 +1186,12 @@ router.post('/:key/sequence/start', express.json(), async (req, res, next) => {
     if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
       return res.status(403).json({ success: false, error: 'Forbidden' });
     }
+    if (lead.ghlCadence && lead.ghlCadence.status === 'active') {
+      return res.status(409).json({
+        success: false,
+        error: `This lead is on the GHL cadence "${lead.ghlCadence.name}". Stop it on the Cadences page first.`,
+      });
+    }
     const templateId = (req.body && req.body.templateId) || 'audit_local_14';
     if (isAuditCadenceTemplate(templateId)) {
       const ws = await dbService.getWorkspace(req.workspaceId);

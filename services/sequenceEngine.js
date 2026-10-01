@@ -26,6 +26,9 @@ async function startSequence(leadKey, templateId, options = {}) {
   const key = fullLeadKey(leadKey);
   const lead = await dbService.getLead(key);
   if (!lead) throw new Error('Lead not found');
+  if (lead.ghlCadence && lead.ghlCadence.status === 'active') {
+    throw new Error(`This lead is on the GHL cadence "${lead.ghlCadence.name}". Stop it on the Cadences page first.`);
+  }
 
   if (isAuditCadenceTemplate(templateId) && lead.workspaceId) {
     const ws = await dbService.getWorkspace(lead.workspaceId);
