@@ -63,6 +63,8 @@
     .net-swatch::-webkit-color-swatch { border: none; border-radius: 999px; }
     .net-swatch::-moz-color-swatch { border: none; border-radius: 999px; }
     .net-swatch:focus-visible { outline: 2px solid var(--brand-yellow, #FFD644); outline-offset: 2px; }
+    .net-trade-form { display: grid; gap: 0.5rem; }
+    @media (min-width: 640px) { .net-trade-form { grid-template-columns: 1fr 1fr auto; align-items: end; } .net-trade-form .net-btn { height: 2.6rem; } }
     .net-review-other { display: grid; gap: 0.5rem; }
     @media (min-width: 640px) { .net-review-other { grid-template-columns: 12rem minmax(0, 1fr); } }
     details.net-more > summary { list-style: none; cursor: pointer; }
@@ -142,6 +144,7 @@
         <a href="/network?tab=setup" class="net-btn net-btn-yellow mt-4">Add a zone</a>
       </div>
       <% } else { %>
+      <% if (canManage) { %><p class="mb-3 text-[12px] text-brand-muted">Missing a trade? <a href="/network?tab=setup#net-add-trade" class="font-semibold underline">Add one in Setup</a> or turn on built-ins like Interior design, Tile or Solar.</p><% } %>
       <div class="space-y-4">
         <% seatRows.forEach(function (row) { const held = row.seats.filter(function (s) { return s.holder; }).length; %>
         <section class="net-card">
@@ -566,7 +569,7 @@
             <input id="netName" name="name" value="<%= network.name %>" class="net-input" maxlength="120" required />
           </div>
           <details class="net-more">
-            <summary class="text-[12px] font-bold text-brand-muted hover:underline">Trades in this network (<%= network.trades.length %>)</summary>
+            <summary class="text-[12px] font-bold text-brand-muted hover:underline">Trades in this network (<%= network.trades.length %> of <%= allTrades.length %> on)</summary>
             <div class="net-checks mt-2">
               <% allTrades.forEach(function (t) { %>
               <label class="net-check"><input type="checkbox" name="trades" value="<%= t.slug %>" <%= network.trades.indexOf(t.slug) >= 0 ? 'checked' : '' %> /><%= t.name %></label>
@@ -580,6 +583,42 @@
           </label>
           <button type="submit" class="net-btn net-btn-yellow">Save</button>
         </form>
+
+        <section class="net-card space-y-3" id="net-add-trade">
+          <div>
+            <h2 class="font-display font-bold text-lg">Add a trade</h2>
+            <p class="text-[12px] text-brand-muted">Missing a category? Add it and it gets one seat in every zone. The search words are what "Recruit" looks up in Find leads.</p>
+          </div>
+          <form method="post" action="/network/trades" class="net-trade-form">
+            <div>
+              <label class="net-label" for="netTradeName">Trade name</label>
+              <input id="netTradeName" name="name" class="net-input" maxlength="40" placeholder="e.g. Interior designers" required />
+            </div>
+            <div>
+              <label class="net-label" for="netTradeKeyword">Search words <span class="normal-case tracking-normal font-semibold">(optional)</span></label>
+              <input id="netTradeKeyword" name="keyword" class="net-input" maxlength="80" placeholder="e.g. interior designer" />
+            </div>
+            <button type="submit" class="net-btn net-btn-yellow">Add trade</button>
+          </form>
+          <% if (customTrades.length) { %>
+          <div>
+            <span class="net-label">Your custom trades (<%= customTrades.length %> of <%= maxCustomTrades %>)</span>
+            <ul class="rounded-xl border border-brand-border/60 dark:border-white/10">
+              <% customTrades.forEach(function (t, i) { %>
+              <li class="flex items-center justify-between gap-3 px-3 py-2 <%= i ? 'border-t border-brand-border/40 dark:border-white/10' : '' %>">
+                <div class="min-w-0">
+                  <p class="text-sm font-semibold truncate"><%= t.name %><% if (network.trades.indexOf(t.slug) < 0) { %> <span class="net-pill">Off</span><% } %></p>
+                  <p class="text-[11px] text-brand-muted truncate">Searches “<%= t.keyword %>”<%= t.seatsHeld ? ' · ' + t.seatsHeld + ' seat' + (t.seatsHeld === 1 ? '' : 's') + ' held' : '' %></p>
+                </div>
+                <form method="post" action="/network/trades/<%= t.slug %>/delete" onsubmit="return confirm('Remove <%= t.name.replace(/'/g, '') %> from the network?');">
+                  <button type="submit" class="net-btn net-btn-ghost" <%= t.seatsHeld ? 'disabled title="A member holds this seat. Edit their trades first."' : '' %>>Remove</button>
+                </form>
+              </li>
+              <% }); %>
+            </ul>
+          </div>
+          <% } %>
+        </section>
         <% } %>
 
         <section class="net-card space-y-3">

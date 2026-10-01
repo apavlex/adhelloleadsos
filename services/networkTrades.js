@@ -33,42 +33,114 @@ const DEFAULT_TRADES = [
   { slug: 'cleaning', name: 'House cleaning', folder: '', keyword: 'house cleaning service' },
   { slug: 'real_estate', name: 'Real estate', folder: '', keyword: 'real estate agent' },
   { slug: 'insurance', name: 'Insurance', folder: '', keyword: 'home insurance agent' },
+  { slug: 'interior_design', name: 'Interior design', folder: '', keyword: 'interior designer' },
+  { slug: 'cabinets', name: 'Cabinets', folder: '', keyword: 'cabinet maker' },
+  { slug: 'countertops', name: 'Countertops', folder: '', keyword: 'countertop installer' },
+  { slug: 'tile', name: 'Tile', folder: '', keyword: 'tile contractor' },
+  { slug: 'carpet_cleaning', name: 'Carpet cleaning', folder: '', keyword: 'carpet cleaning' },
+  { slug: 'pressure_washing', name: 'Pressure washing', folder: '', keyword: 'pressure washing' },
+  { slug: 'fencing', name: 'Fencing', folder: '', keyword: 'fence contractor' },
+  { slug: 'concrete', name: 'Concrete', folder: '', keyword: 'concrete contractor' },
+  { slug: 'junk_removal', name: 'Junk removal', folder: '', keyword: 'junk removal' },
+  { slug: 'moving', name: 'Moving', folder: '', keyword: 'moving company' },
+  { slug: 'solar', name: 'Solar', folder: '', keyword: 'solar installer' },
+  { slug: 'home_inspection', name: 'Home inspection', folder: '', keyword: 'home inspector' },
+  { slug: 'mortgage', name: 'Mortgage', folder: '', keyword: 'mortgage broker' },
 ];
+
+/** Trades a network had before the catalog grew; new built-ins stay opt-in for those networks. */
+const ORIGINAL_TRADE_SLUGS = DEFAULT_TRADES.slice(0, 26).map((trade) => trade.slug);
 
 const TRADE_BY_SLUG = DEFAULT_TRADES.reduce((acc, trade) => {
   acc[trade.slug] = trade;
   return acc;
 }, {});
 
-function tradeBySlug(slug) {
-  return TRADE_BY_SLUG[String(slug || '').trim()] || null;
+const CUSTOM_PREFIX = 'x_';
+const CUSTOM_SLUG_RE = /^x_[a-z0-9_]{1,40}$/;
+const MAX_CUSTOM_TRADES = 30;
+
+function isCustomSlug(slug) {
+  return CUSTOM_SLUG_RE.test(String(slug || ''));
 }
 
-function tradeLabel(slug) {
-  const trade = tradeBySlug(slug);
-  return trade ? trade.name : String(slug || '').replace(/_/g, ' ');
+function customSlug(name) {
+  const base = String(name || '')
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 40)
+    .replace(/_+$/g, '');
+  return base ? CUSTOM_PREFIX + base : '';
 }
 
-/** Keep known slugs only, in catalog order, without duplicates. */
-function normalizeTradeSlugs(list) {
-  const wanted = new Set(
-    (Array.isArray(list) ? list : [list])
-      .map((slug) => String(slug || '').trim())
-      .filter(Boolean),
-  );
-  return DEFAULT_TRADES.filter((trade) => wanted.has(trade.slug)).map((trade) => trade.slug);
+function cleanName(value, max) {
+  return String(value == null ? '' : value).replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
+/** A network's own trades: [{ slug: 'x_…', name, keyword }], no clashes with built-ins. */
+function normalizeCustomTrades(raw) {
+  const builtInNames = new Set(DEFAULT_TRADES.map((t) => t.name.toLowerCase()));
+  const seen = new Set();
+  const out = [];
+  (Array.isArray(raw) ? raw : []).forEach((row) => {
+    const name = cleanName(row && row.name, 40);
+    const slug = isCustomSlug(row && row.slug) ? row.slug : customSlug(name);
+    if (!name || !slug || seen.has(slug) || builtInNames.has(name.toLowerCase())) return;
+    seen.add(slug);
+    out.push({ slug, name, folder: '', keyword: cleanName(row.keyword, 80) || name.toLowerCase(), custom: true });
+  });
+  return out.slice(0, MAX_CUSTOM_TRADES);
+}
+
+/** Built-in trades plus the network's custom ones. */
+function catalogFor(network) {
+  return DEFAULT_TRADES.concat(normalizeCustomTrades(network && network.customTrades));
+}
+
+function tradeBySlug(slug, network) {
+  const key = String(slug || '').trim();
+  if (TRADE_BY_SLUG[key]) return TRADE_BY_SLUG[key];
+  if (!isCustomSlug(key) || !network) return null;
+  return normalizeCustomTrades(network.customTrades).find((t) => t.slug === key) || null;
+}
+
+function tradeLabel(slug, network) {
+  const trade = tradeBySlug(slug, network);
+  if (trade) return trade.name;
+  const words = String(slug || '').replace(/^x_/, '').replace(/_/g, ' ').trim();
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : '';
+}
+
+/**
+ * Dedupe and order trade slugs. With a catalog, only its slugs survive (in
+ * catalog order). Without one, built-ins come first and well-formed custom
+ * slugs are kept, since members and referrals don't carry the network.
+ */
+function normalizeTradeSlugs(list, catalog) {
+  const given = (Array.isArray(list) ? list : [list])
+    .map((slug) => String(slug || '').trim())
+    .filter(Boolean);
+  const wanted = new Set(given);
+  if (Array.isArray(catalog)) return catalog.filter((trade) => wanted.has(trade.slug)).map((trade) => trade.slug);
+  const builtIn = DEFAULT_TRADES.filter((trade) => wanted.has(trade.slug)).map((trade) => trade.slug);
+  return builtIn.concat([...new Set(given.filter(isCustomSlug))]);
 }
 
 function tradesForNetwork(network) {
+  const catalog = catalogFor(network);
   const slugs = network && Array.isArray(network.trades) && network.trades.length
-    ? normalizeTradeSlugs(network.trades)
-    : DEFAULT_TRADES.map((trade) => trade.slug);
-  return slugs.map((slug) => TRADE_BY_SLUG[slug]);
+    ? normalizeTradeSlugs(network.trades, catalog)
+    : ORIGINAL_TRADE_SLUGS;
+  const bySlug = Object.fromEntries(catalog.map((t) => [t.slug, t]));
+  return slugs.map((slug) => bySlug[slug]).filter(Boolean);
 }
 
 /** Find leads search prefilled for recruiting an open seat. */
-function recruitSearchUrl(slug, zone) {
-  const trade = tradeBySlug(slug);
+function recruitSearchUrl(slug, zone, network) {
+  const trade = tradeBySlug(slug, network);
   if (!trade) return '/leads/find';
   const folder = trade.folder ? TRADE_FOLDER_BY_SLUG[trade.folder] : null;
   const params = new URLSearchParams();
@@ -85,6 +157,12 @@ function recruitSearchUrl(slug, zone) {
 
 module.exports = {
   DEFAULT_TRADES,
+  ORIGINAL_TRADE_SLUGS,
+  MAX_CUSTOM_TRADES,
+  isCustomSlug,
+  customSlug,
+  normalizeCustomTrades,
+  catalogFor,
   tradeBySlug,
   tradeLabel,
   normalizeTradeSlugs,

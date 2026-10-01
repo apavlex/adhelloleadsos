@@ -137,7 +137,7 @@ async function renderPortal(req, res, token, flash, formValues) {
     .filter((r) => r.fromMemberId === ctx.member.id)
     .slice(0, 20)
     .map((r) => ({
-      trade: trades.tradeLabel(r.tradeSlug),
+      trade: trades.tradeLabel(r.tradeSlug, ctx.network),
       homeowner: (r.homeowner || {}).name || '',
       to: r.toMemberId ? ((membersById[r.toMemberId] || {}).companyName || 'Member') : 'Being matched',
       statusLabel: ex.STATUS_LABELS[r.status] || r.status,

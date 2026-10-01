@@ -70,7 +70,7 @@ function formatWhen(iso) {
   return new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function presentReferral(ref, membersById, zonesById) {
+function presentReferral(ref, membersById, zonesById, network) {
   const h = ref.homeowner || {};
   const from = ref.fromMemberId === 'operator' ? 'You' : (membersById[ref.fromMemberId] || {}).companyName || 'Member';
   const to = ref.toMemberId ? (membersById[ref.toMemberId] || {}).companyName || 'Member' : '';
@@ -78,7 +78,7 @@ function presentReferral(ref, membersById, zonesById) {
     id: ref.id,
     status: ref.status,
     statusLabel: ex.STATUS_LABELS[ref.status] || ref.status,
-    trade: trades.tradeLabel(ref.tradeSlug),
+    trade: trades.tradeLabel(ref.tradeSlug, network),
     tradeSlug: ref.tradeSlug,
     zone: ref.zoneId && zonesById[ref.zoneId] ? zonesById[ref.zoneId].name : '',
     from,
@@ -118,16 +118,16 @@ router.get('/', async (req, res, next) => {
         return {
           trade,
           holder: holder ? { id: holder.id, name: holder.companyName, paused: holder.status !== 'active' } : null,
-          recruitUrl: holder ? '' : trades.recruitSearchUrl(trade.slug, zone),
+          recruitUrl: holder ? '' : trades.recruitSearchUrl(trade.slug, zone, network),
         };
       }),
     }));
 
     const memberRows = members.map((member) => ({
       ...member,
-      tradeLabels: member.trades.map(trades.tradeLabel),
+      tradeLabels: member.trades.map((slug) => trades.tradeLabel(slug, network)),
       zoneNames: member.zoneIds.map((id) => (zonesById[id] ? zonesById[id].name : '')).filter(Boolean),
-      seats: ex.seatsForMember(zones, member.id).map((s) => `${trades.tradeLabel(s.tradeSlug)} · ${s.zoneName}`),
+      seats: ex.seatsForMember(zones, member.id).map((s) => `${trades.tradeLabel(s.tradeSlug, network)} · ${s.zoneName}`),
       stats: ex.memberStats(referrals, member.id),
       reviewLinkCount: reviewPage.countLinks(member.reviewLinks),
       reviewOtherRows: reviewPage.otherFormRows(member.reviewLinks),
@@ -137,7 +137,7 @@ router.get('/', async (req, res, next) => {
     const referralRows = referrals
       .filter((ref) => !statusFilter || ref.status === statusFilter)
       .slice(0, 200)
-      .map((ref) => presentReferral(ref, membersById, zonesById));
+      .map((ref) => presentReferral(ref, membersById, zonesById, network));
 
     let candidates = [];
     if (tab === 'members') {
@@ -164,7 +164,12 @@ router.get('/', async (req, res, next) => {
       tab,
       network,
       networkTrades,
-      allTrades: trades.DEFAULT_TRADES,
+      allTrades: trades.catalogFor(network),
+      customTrades: trades.normalizeCustomTrades(network.customTrades).map((t) => ({
+        ...t,
+        seatsHeld: zones.filter((z) => ex.seatHolder(z, t.slug)).length,
+      })),
+      maxCustomTrades: trades.MAX_CUSTOM_TRADES,
       zones,
       seatRows,
       members: memberRows,
@@ -182,7 +187,7 @@ router.get('/', async (req, res, next) => {
       brand: networkBrand.brandView(network),
       applications: applications.map((app) => ({
         ...app,
-        tradeLabel: app.tradeSlug ? trades.tradeLabel(app.tradeSlug) : '',
+        tradeLabel: app.tradeSlug ? trades.tradeLabel(app.tradeSlug, network) : '',
         invitedBy: app.invitedByMemberId && membersById[app.invitedByMemberId] ? membersById[app.invitedByMemberId].companyName : '',
         suggestedZoneId: (ex.resolveZone(zones, { city: app.city }) || {}).id || '',
         memberName: app.memberId && membersById[app.memberId] ? membersById[app.memberId].companyName : '',
@@ -199,7 +204,7 @@ router.post('/setup', async (req, res) => {
   if (!canManage(req)) return reply(req, res, { ok: false, tab: 'setup', notice: 'Only owners and admins can change the network.', status: 403 });
   try {
     const network = await loadNetwork(req);
-    const chosen = trades.normalizeTradeSlugs(listFrom(req.body.trades));
+    const chosen = trades.normalizeTradeSlugs(listFrom(req.body.trades), trades.catalogFor(network));
     await store.saveNetwork({
       ...network,
       name: String(req.body.name || '').trim() || network.name,
@@ -210,6 +215,65 @@ router.post('/setup', async (req, res) => {
   } catch (err) {
     console.error('[network] setup failed:', err.message);
     return reply(req, res, { ok: false, tab: 'setup', notice: 'Could not save the network.', status: 500 });
+  }
+});
+
+router.post('/trades', async (req, res) => {
+  if (!canManage(req)) return reply(req, res, { ok: false, tab: 'setup', notice: 'Only owners and admins can add trades.', status: 403 });
+  try {
+    const network = await loadNetwork(req);
+    const name = String(req.body.name || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+    if (!name) return reply(req, res, { ok: false, tab: 'setup', notice: 'Name the trade, e.g. Interior designers.' });
+    const builtIn = trades.DEFAULT_TRADES.find((t) => t.name.toLowerCase() === name.toLowerCase());
+    if (builtIn) {
+      const enabled = network.trades.includes(builtIn.slug);
+      if (!enabled) await store.saveNetwork({ ...network, trades: network.trades.concat(builtIn.slug) });
+      return reply(req, res, { ok: true, tab: 'setup', notice: enabled ? `${builtIn.name} is already in your network.` : `${builtIn.name} is a built-in trade — turned it on.` });
+    }
+    const slug = trades.customSlug(name);
+    const current = trades.normalizeCustomTrades(network.customTrades);
+    if (!slug) return reply(req, res, { ok: false, tab: 'setup', notice: 'Name the trade with letters or numbers.' });
+    if (current.some((t) => t.slug === slug)) {
+      if (!network.trades.includes(slug)) await store.saveNetwork({ ...network, trades: network.trades.concat(slug) });
+      return reply(req, res, { ok: true, tab: 'setup', notice: `${name} is already in your network.` });
+    }
+    if (current.length >= trades.MAX_CUSTOM_TRADES) {
+      return reply(req, res, { ok: false, tab: 'setup', notice: `Can't add more than ${trades.MAX_CUSTOM_TRADES} custom trades.` });
+    }
+    const keyword = String(req.body.keyword || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+    await store.saveNetwork({
+      ...network,
+      customTrades: current.concat({ slug, name, keyword }),
+      trades: network.trades.concat(slug),
+    });
+    return reply(req, res, { ok: true, tab: 'setup', notice: `${name} added. It now has an open seat in every zone.` });
+  } catch (err) {
+    console.error('[network] add trade failed:', err.message);
+    return reply(req, res, { ok: false, tab: 'setup', notice: 'Could not add that trade.', status: 500 });
+  }
+});
+
+router.post('/trades/:slug/delete', async (req, res) => {
+  if (!canManage(req)) return reply(req, res, { ok: false, tab: 'setup', notice: 'Only owners and admins can remove trades.', status: 403 });
+  try {
+    const network = await loadNetwork(req);
+    const slug = String(req.params.slug || '');
+    const trade = trades.normalizeCustomTrades(network.customTrades).find((t) => t.slug === slug);
+    if (!trade) return reply(req, res, { ok: false, tab: 'setup', notice: 'That trade was not found.', status: 404 });
+    const zones = await store.listZones(network.id);
+    const held = zones.filter((z) => ex.seatHolder(z, slug));
+    if (held.length) {
+      return reply(req, res, { ok: false, tab: 'setup', notice: `Can't remove ${trade.name} while a member holds its seat in ${held.map((z) => z.name).join(', ')}. Edit that member's trades first.` });
+    }
+    await store.saveNetwork({
+      ...network,
+      customTrades: network.customTrades.filter((t) => t.slug !== slug),
+      trades: network.trades.filter((s) => s !== slug),
+    });
+    return reply(req, res, { ok: true, tab: 'setup', notice: `Removed ${trade.name}.` });
+  } catch (err) {
+    console.error('[network] remove trade failed:', err.message);
+    return reply(req, res, { ok: false, tab: 'setup', notice: 'Could not remove that trade.', status: 500 });
   }
 });
 
@@ -290,9 +354,9 @@ router.post('/zones/:id/delete', async (req, res) => {
   }
 });
 
-function seatNotice(prefix, conflicts) {
+function seatNotice(prefix, conflicts, network) {
   if (!conflicts.length) return prefix;
-  const list = conflicts.map((c) => `${trades.tradeLabel(c.tradeSlug)} in ${c.zoneName}`).join(', ');
+  const list = conflicts.map((c) => `${trades.tradeLabel(c.tradeSlug, network)} in ${c.zoneName}`).join(', ');
   return `${prefix} Already taken by another member: ${list}.`;
 }
 
@@ -303,7 +367,7 @@ router.post('/members', async (req, res) => {
     const leadKey = String(req.body.leadKey || '').trim();
     const lead = leadKey ? await dbService.getLead(leadKey, req.workspaceId) : null;
     if (!lead || !lead.key) return reply(req, res, { ok: false, tab: 'members', notice: 'Pick a saved partner lead first.', status: 404 });
-    const tradeSlugs = trades.normalizeTradeSlugs(listFrom(req.body.trades));
+    const tradeSlugs = trades.normalizeTradeSlugs(listFrom(req.body.trades), trades.catalogFor(network));
     if (!tradeSlugs.length) return reply(req, res, { ok: false, tab: 'members', notice: 'Pick at least one trade.' });
     const existing = await store.findMemberByLeadKey(network.id, lead.key);
     const clean = (v) => (v && v !== 'N/A' ? String(v).trim() : '');
@@ -324,7 +388,7 @@ router.post('/members', async (req, res) => {
     if (!existing && network.autoGhlSubaccount && !member.ghlLocationId) {
       ghl = await networkMembers.provisionGhlSubaccount(network, member);
     }
-    const notice = seatNotice(existing ? `Updated ${member.companyName}.` : `${member.companyName} joined the network.`, conflicts)
+    const notice = seatNotice(existing ? `Updated ${member.companyName}.` : `${member.companyName} joined the network.`, conflicts, network)
       + networkMembers.ghlNotice(ghl);
     return reply(req, res, { ok: true, tab: 'members', notice, data: { member: ghl && ghl.member ? ghl.member : member, conflicts, ghl } });
   } catch (err) {
@@ -340,10 +404,10 @@ router.post('/members/:id/seats', async (req, res) => {
     const member = await store.getMember(network.id, req.params.id);
     if (!member) return reply(req, res, { ok: false, tab: 'members', notice: 'Member not found.', status: 404 });
     const { member: saved, conflicts } = await networkReferrals.saveMemberWithSeats(network, member, {
-      trades: trades.normalizeTradeSlugs(listFrom(req.body.trades)),
+      trades: trades.normalizeTradeSlugs(listFrom(req.body.trades), trades.catalogFor(network)),
       zoneIds: listFrom(req.body.zoneIds),
     });
-    return reply(req, res, { ok: true, tab: 'members', notice: seatNotice(`Seats saved for ${saved.companyName}.`, conflicts), data: { member: saved, conflicts } });
+    return reply(req, res, { ok: true, tab: 'members', notice: seatNotice(`Seats saved for ${saved.companyName}.`, conflicts, network), data: { member: saved, conflicts } });
   } catch (err) {
     console.error('[network] seats failed:', err.message);
     return reply(req, res, { ok: false, tab: 'members', notice: 'Could not save those seats.', status: 500 });
@@ -410,7 +474,7 @@ router.post('/applications/:id/approve', async (req, res) => {
       baseUrl: notify.baseUrlFromReq(req),
     });
     if (!result.ok) return reply(req, res, { ok: false, tab: 'applications', notice: result.error });
-    let notice = seatNotice(`${result.member.companyName} joined the network.`, result.conflicts || []);
+    let notice = seatNotice(`${result.member.companyName} joined the network.`, result.conflicts || [], network);
     notice += networkMembers.ghlNotice(result.ghl);
     notice += result.notified && result.notified.ok
       ? ` App link sent by ${result.notified.channel === 'sms' ? 'text' : 'email'}.`

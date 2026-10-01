@@ -109,16 +109,16 @@ async function messageMember(network, member, { sms, subject, email }) {
   return sent ? { ok: true, ...sent } : { ok: false, error };
 }
 
-function homeownerSummary(referral) {
+function homeownerSummary(referral, network) {
   const h = referral.homeowner || {};
   const where = [h.city, h.zip].filter(Boolean).join(' ');
-  return `${tradeLabel(referral.tradeSlug)} job for ${h.name || 'a homeowner'}${where ? ` in ${where}` : ''}`;
+  return `${tradeLabel(referral.tradeSlug, network)} job for ${h.name || 'a homeowner'}${where ? ` in ${where}` : ''}`;
 }
 
 async function notifyReferralRecipient({ network, referral, member, baseUrl }) {
   if (!member || !referral.toMemberId) return { ok: false, error: 'No member to notify.' };
   const link = referralLink(baseUrl, network, referral, member.id);
-  const summary = homeownerSummary(referral);
+  const summary = homeownerSummary(referral, network);
   const sms = `${network.name}: new referral — ${summary}. Accept or decline: ${link}`;
   const email = `You have a new referral from ${network.name}.\n\n${summary}.\n\nOpen it to accept, decline, and report the outcome:\n${link}`;
   return messageMember(network, member, { sms, subject: `New referral: ${summary}`, email });
@@ -190,7 +190,7 @@ async function createOperatorTask({ network, referral, reason, member }) {
   const why = reason === 'declined'
     ? `declined by ${member ? member.companyName : 'the member'}`
     : (UNROUTED_REASONS[referral.unroutedReason] || 'Needs a member.').replace(/\.$/, '');
-  const title = `Assign referral: ${tradeLabel(referral.tradeSlug)} for ${h.name || 'homeowner'}${h.city ? ` (${h.city})` : ''} — ${why}`;
+  const title = `Assign referral: ${tradeLabel(referral.tradeSlug, network)} for ${h.name || 'homeowner'}${h.city ? ` (${h.city})` : ''} — ${why}`;
   try {
     return await upsertOpenTaskForLead(network.ownerWorkspaceId, email, {
       title: title.slice(0, 240),

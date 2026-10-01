@@ -74,7 +74,7 @@ async function approveApplication({ network, applicationId, zoneIds, tradeSlugs,
     phone: application.phone || 'N/A',
     email: application.email || 'N/A',
     city: application.city || '',
-    categoryName: trades.tradeLabel(chosenTrades[0]),
+    categoryName: trades.tradeLabel(chosenTrades[0], network),
     source: 'network_application',
     message: application.note || `Invited to ${network.name}`,
   });

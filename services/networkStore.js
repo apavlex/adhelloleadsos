@@ -15,7 +15,7 @@
 
 const crypto = require('crypto');
 const dbService = require('./database');
-const { normalizeTradeSlugs, DEFAULT_TRADES } = require('./networkTrades');
+const { normalizeTradeSlugs, normalizeCustomTrades, catalogFor, ORIGINAL_TRADE_SLUGS } = require('./networkTrades');
 const { normalizeZone } = require('./referralExchange');
 const { normalizeBrand } = require('./networkBrand');
 const { PLATFORMS: REVIEW_LINK_PLATFORMS, MAX_OTHER_LINKS: MAX_OTHER_REVIEW_LINKS } = require('./reviewPage');
@@ -54,13 +54,15 @@ function cleanText(value, max) {
 
 function normalizeNetwork(raw) {
   const net = raw && typeof raw === 'object' ? raw : {};
-  const trades = normalizeTradeSlugs(net.trades);
+  const customTrades = normalizeCustomTrades(net.customTrades);
+  const trades = normalizeTradeSlugs(net.trades, catalogFor({ customTrades }));
   return {
     id: String(net.id || ''),
     name: cleanText(net.name, 120) || 'Referral network',
     ownerWorkspaceId: String(net.ownerWorkspaceId || ''),
     ownerEmail: cleanText(net.ownerEmail, 200).toLowerCase(),
-    trades: trades.length ? trades : DEFAULT_TRADES.map((trade) => trade.slug),
+    trades: trades.length ? trades : ORIGINAL_TRADE_SLUGS.slice(),
+    customTrades: customTrades.map(({ slug, name, keyword }) => ({ slug, name, keyword })),
     brand: normalizeBrand(net.brand),
     autoGhlSubaccount: net.autoGhlSubaccount !== false,
     createdAt: net.createdAt || new Date().toISOString(),

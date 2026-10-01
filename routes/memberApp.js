@@ -126,7 +126,7 @@ function when(iso) {
   return new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function presentReceived(ref, membersById) {
+function presentReceived(ref, membersById, network) {
   const from = ref.fromMemberId === 'operator'
     ? 'the network'
     : ((membersById[ref.fromMemberId] || {}).companyName || 'a member');
@@ -134,7 +134,7 @@ function presentReceived(ref, membersById) {
     id: ref.id,
     status: ref.status,
     statusLabel: ex.STATUS_LABELS[ref.status] || ref.status,
-    trade: trades.tradeLabel(ref.tradeSlug),
+    trade: trades.tradeLabel(ref.tradeSlug, network),
     customer: ref.homeowner || {},
     from,
     value: money(ref.value),
@@ -144,12 +144,12 @@ function presentReceived(ref, membersById) {
   };
 }
 
-function presentSent(ref, membersById) {
+function presentSent(ref, membersById, network) {
   return {
     id: ref.id,
     status: ref.status,
     statusLabel: ref.status === 'unrouted' ? 'Being matched' : (ex.STATUS_LABELS[ref.status] || ref.status),
-    trade: trades.tradeLabel(ref.tradeSlug),
+    trade: trades.tradeLabel(ref.tradeSlug, network),
     customer: ref.homeowner || {},
     to: ref.toMemberId ? ((membersById[ref.toMemberId] || {}).companyName || 'Member') : 'Being matched',
     value: money(ref.value),
@@ -357,7 +357,7 @@ router.get('/m/:token', withMember(async (req, res, ctx) => {
   const waiting = referrals
     .filter((r) => r.toMemberId === ctx.member.id && r.status === 'sent')
     .slice(0, 3)
-    .map((r) => presentReceived(r, membersById));
+    .map((r) => presentReceived(r, membersById, ctx.network));
   const today = work.todayIn(memberTimeZone(req));
   return render(res, 'home', ctx, {
     upcoming: work.upcoming(jobs, today, 2).map((j) => presentJob(j, customersById, ctx.base, today)),
@@ -385,11 +385,11 @@ async function renderReferrals(req, res, ctx, flash, status) {
   const membersById = Object.fromEntries(members.map((m) => [m.id, m]));
   const jobByRef = Object.fromEntries(jobs.filter((j) => j.referralId).map((j) => [j.referralId, j]));
   const received = referrals.filter((r) => r.toMemberId === ctx.member.id).slice(0, 60).map((r) => ({
-    ...presentReceived(r, membersById),
+    ...presentReceived(r, membersById, ctx.network),
     jobHref: jobByRef[r.id] ? `${ctx.base}/customers/jobs/${jobByRef[r.id].id}` : '',
     convertible: ['accepted', 'booked', 'won'].includes(r.status),
   }));
-  const sent = referrals.filter((r) => r.fromMemberId === ctx.member.id).slice(0, 60).map((r) => presentSent(r, membersById));
+  const sent = referrals.filter((r) => r.fromMemberId === ctx.member.id).slice(0, 60).map((r) => presentSent(r, membersById, ctx.network));
   return render(res, 'referrals', ctx, { view, received, sent, flash: flash || flashFromQuery(req) }, status);
 }
 
@@ -461,7 +461,7 @@ async function pendingReferralsFor(ctx, jobs) {
     .slice(0, 30)
     .map((r) => {
       const job = jobByRef[r.id];
-      return { ...presentReceived(r, membersById), jobHref: job ? `${ctx.base}/customers/jobs/${job.id}` : '' };
+      return { ...presentReceived(r, membersById, ctx.network), jobHref: job ? `${ctx.base}/customers/jobs/${job.id}` : '' };
     });
 }
 
@@ -696,7 +696,7 @@ router.post('/m/:token/customers/from-referral/:id', form, withMember(async (req
     referral = accepted.referral;
   }
   const result = await work.convertReferral(ctx.network.id, ctx.member.id, referral, {
-    tradeLabel: trades.tradeLabel(referral.tradeSlug),
+    tradeLabel: trades.tradeLabel(referral.tradeSlug, ctx.network),
     today: work.todayIn(memberTimeZone(req)),
   });
   if (!result.ok) return fail(result.error);
@@ -713,7 +713,7 @@ async function renderEnroll(req, res, ctx, flash, formValues, status) {
     .slice(0, 30)
     .map((a) => ({
       ...a,
-      tradeLabel: a.tradeSlug ? trades.tradeLabel(a.tradeSlug) : '',
+      tradeLabel: a.tradeSlug ? trades.tradeLabel(a.tradeSlug, ctx.network) : '',
       statusLabel: a.status === 'approved' ? 'Joined' : (a.status === 'rejected' ? 'Not accepted' : 'Pending'),
       when: when(a.createdAt),
     }));
