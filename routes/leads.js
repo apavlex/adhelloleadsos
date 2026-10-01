@@ -3,6 +3,9 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs/promises');
 const router = express.Router();
+
+/** Same ordering as localeCompare(b, undefined, { sensitivity: 'base' }) without a new collator per compare. */
+const SEARCH_TITLE_COLLATOR = new Intl.Collator(undefined, { sensitivity: 'base' });
 const dbService = require('../services/database');
 const { folderKeyForJobType, leadMetadataForJobType } = require('../services/pipelineFolders');
 const { selectPipeline } = require('../services/opportunityBoards');
@@ -517,21 +520,21 @@ router.get('/search.json', async (req, res, next) => {
         return false;
       }
     });
+    const matchScore = new Map();
+    for (const l of matched) {
+      let s = 99;
+      try {
+        s = scoreLeadSearchMatch(l, q, searchContext);
+      } catch (err) {
+        console.warn('[search.json] score lead', l && l.key, err && err.message);
+      }
+      matchScore.set(l, s);
+    }
     matched.sort((a, b) => {
-      let sa = 99;
-      let sb = 99;
-      try {
-        sa = scoreLeadSearchMatch(a, q, searchContext);
-      } catch (err) {
-        console.warn('[search.json] score lead', a && a.key, err && err.message);
-      }
-      try {
-        sb = scoreLeadSearchMatch(b, q, searchContext);
-      } catch (err) {
-        console.warn('[search.json] score lead', b && b.key, err && err.message);
-      }
+      const sa = matchScore.get(a);
+      const sb = matchScore.get(b);
       if (sa !== sb) return sa - sb;
-      return String(a.title || '').localeCompare(String(b.title || ''), undefined, { sensitivity: 'base' });
+      return SEARCH_TITLE_COLLATOR.compare(String(a.title || ''), String(b.title || ''));
     });
 
     const leads = matched.slice(0, limit).map((l) => {

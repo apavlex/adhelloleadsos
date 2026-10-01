@@ -3,6 +3,7 @@
  */
 
 const { getTemplate } = require('./sequenceTemplates');
+const { leadHasActivitySince } = require('./leadActivityWindow');
 
 function weekBoundsMs() {
   const end = Date.now();
@@ -17,6 +18,7 @@ function eventTimestampMs(iso) {
 
 function engagementCount(lead, start, end) {
   let n = 0;
+  if (!leadHasActivitySince(lead, start)) return n;
   for (const u of lead.updates || []) {
     const t = eventTimestampMs(u.timestamp);
     if (t >= start && t <= end) n += 1;
@@ -31,6 +33,7 @@ function engagementCount(lead, start, end) {
 function bestCadenceLabel(leads, start, end) {
   const counts = new Map();
   for (const lead of leads || []) {
+    if (!leadHasActivitySince(lead, start)) continue;
     for (const log of lead.logs || []) {
       const t = eventTimestampMs(log.timestamp);
       if (t < start || t > end) continue;

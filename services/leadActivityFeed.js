@@ -1,5 +1,7 @@
 /** Workspace-wide lead activity feed (notes, calls, SMS, status changes). */
 
+const { leadActivityMemo } = require('./leadActivityWindow');
+
 const QUICK_LOG_PILL_LABELS =
   'Gatekeeper|No pickup|Left VM|Connected|Not interested|Callback requested|DM connected|Send info|Site audit';
 
@@ -336,21 +338,50 @@ const FEED_MAX_PER_SOURCE = 24;
  */
 function leadActivityOlderThan(lead, sinceMs) {
   if (!sinceMs) return false;
-  const sources = [
-    [lead.updates, (u) => u.timestamp || u.ts || u.createdAt || ''],
-    [lead.logs, (e) => e.timestamp || ''],
-  ];
-  for (const [list, tsOf] of sources) {
-    if (!Array.isArray(list)) continue;
-    const start = Math.max(0, list.length - FEED_MAX_PER_SOURCE);
-    for (let i = list.length - 1; i >= start; i -= 1) {
-      const entry = list[i];
-      if (!entry) continue;
-      const ms = Date.parse(tsOf(entry)) || 0;
-      if (!ms || ms >= sinceMs) return false;
+  const m = leadActivityMemo(lead);
+  if (!m.feedTail) {
+    let maxMs = -Infinity;
+    let undated = false;
+    const sources = [
+      [lead.updates, (u) => u.timestamp || u.ts || u.createdAt || ''],
+      [lead.logs, (e) => e.timestamp || ''],
+    ];
+    for (const [list, tsOf] of sources) {
+      if (!Array.isArray(list)) continue;
+      const start = Math.max(0, list.length - FEED_MAX_PER_SOURCE);
+      for (let i = list.length - 1; i >= start; i -= 1) {
+        const entry = list[i];
+        if (!entry) continue;
+        const ms = Date.parse(tsOf(entry)) || 0;
+        if (!ms) undated = true;
+        else if (ms > maxMs) maxMs = ms;
+      }
     }
+    m.feedTail = { maxMs, undated };
   }
-  return true;
+  return !m.feedTail.undated && m.feedTail.maxMs < sinceMs;
+}
+
+/** Window-independent feed events for one lead, newest first (memoized per lead + filter). */
+function leadFeedEvents(lead, filter) {
+  const m = leadActivityMemo(lead);
+  if (!m.feedEvents) m.feedEvents = new Map();
+  let events = m.feedEvents.get(filter);
+  if (!events) {
+    const merged = mergeLeadActivityEntries(lead, { maxPerSource: FEED_MAX_PER_SOURCE });
+    const filtered = merged.filter((e) => activityEntryMatchesFilter(e, filter));
+    const primary = filter === 'notes' ? filtered : collapsePrimaryActivities(filtered);
+    events = primary.map((e) => ({
+      ts: e.ts || '',
+      tsMs: Date.parse(e.ts) || 0,
+      type: e.typ,
+      typeLabel: formatActivityTypeLabel(e.typ, e.raw),
+      text: formatActivityEntryText(e).slice(0, 500),
+    }));
+    events.sort((a, b) => b.tsMs - a.tsMs);
+    m.feedEvents.set(filter, events);
+  }
+  return events;
 }
 
 function buildWorkspaceActivityFeed(leads, options) {
@@ -370,26 +401,12 @@ function buildWorkspaceActivityFeed(leads, options) {
   for (const lead of leads || []) {
     if (!lead || !lead.key) continue;
     if (leadActivityOlderThan(lead, sinceMs)) continue;
-    const merged = mergeLeadActivityEntries(lead, { maxPerSource: FEED_MAX_PER_SOURCE });
-    const filtered = merged.filter((e) => activityEntryMatchesFilter(e, filter));
-    const primary =
-      filter === 'notes'
-        ? filtered
-        : collapsePrimaryActivities(filtered);
     const events = [];
-    for (const e of primary) {
-      const tsMs = Date.parse(e.ts) || 0;
-      if (sinceMs && tsMs && tsMs < sinceMs) continue;
-      events.push({
-        ts: e.ts || '',
-        tsMs,
-        type: e.typ,
-        typeLabel: formatActivityTypeLabel(e.typ, e.raw),
-        text: formatActivityEntryText(e).slice(0, 500),
-      });
+    for (const e of leadFeedEvents(lead, filter)) {
+      if (sinceMs && e.tsMs && e.tsMs < sinceMs) continue;
+      events.push({ ...e });
     }
     if (!events.length) continue;
-    events.sort((a, b) => b.tsMs - a.tsMs);
     totalEvents += events.length;
     groups.push({
       leadKey: lead.key,

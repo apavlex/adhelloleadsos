@@ -39,19 +39,77 @@ if (!fs.existsSync(DB_DIR)) {
 }
 const DB_PATH = path.join(DB_DIR, 'app.db');
 
-/** Workspace lead list cache — warms after Today / first nav so sidebar hops stay fast. */
+/**
+ * Workspace lead list cache — warms after Today / first nav so sidebar hops stay fast.
+ * Every lead row write/delete goes through kvSet/kvDelete, which patch the cached lists in place,
+ * so the TTL only bounds how long an accidental in-place mutation of a cached lead can linger.
+ */
 const LEADS_LIST_CACHE_TTL_MS = Math.max(
   1000,
-  parseInt(process.env.LEADS_LIST_CACHE_TTL_MS || '90000', 10) || 90000,
+  parseInt(process.env.LEADS_LIST_CACHE_TTL_MS || '600000', 10) || 600000,
 );
 const _leadsListCache = new Map();
+const LEGACY_DEFAULT_WORKSPACE_KEY = 'sys:legacy_default_workspace_id';
 
-function invalidateLeadsListCache(workspaceId) {
-  if (workspaceId == null || workspaceId === '') {
+function isLeadStorageKey(key) {
+  return typeof key === 'string' && /^lead:/i.test(key);
+}
+
+function leadKeySortTs(key) {
+  const ts = parseInt(String(String(key || '').split(':')[1] || ''), 10);
+  return Number.isFinite(ts) ? ts : 0;
+}
+
+/** Legacy `default`/empty lead workspace → alias id (same rule as getAllLeads filtering). */
+function normalizeLeadWorkspaceWithAlias(leadWorkspaceId, aliasStr) {
+  const x = leadWorkspaceId || 'default';
+  if ((x === 'default' || x === '') && aliasStr) return aliasStr;
+  return x;
+}
+
+function readLegacyDefaultAlias() {
+  const aliasVal = kvGet(LEGACY_DEFAULT_WORKSPACE_KEY);
+  return typeof aliasVal === 'string' ? aliasVal.trim() : '';
+}
+
+/** Keep cached workspace lead lists in sync with a lead row write (value = stored JSON) or delete (null). */
+function patchLeadsListCacheForRow(key, value) {
+  if (_leadsListCache.size === 0) return;
+  let parsed = null;
+  if (value != null) {
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      parsed = null;
+    }
+    if (!parsed || typeof parsed !== 'object') parsed = null;
+  }
+  const targetWid = parsed ? normalizeLeadWorkspaceWithAlias(parsed.workspaceId, readLegacyDefaultAlias()) : null;
+  for (const [wid, entry] of _leadsListCache) {
+    const leads = entry.leads;
+    const idx = leads.findIndex((l) => l.key === key);
+    if (wid === targetWid) {
+      const row = { ...parsed, key, workspaceId: wid };
+      if (idx >= 0) {
+        leads[idx] = row;
+      } else {
+        const ts = leadKeySortTs(key);
+        let at = leads.findIndex((l) => leadKeySortTs(l.key) < ts);
+        if (at < 0) at = leads.length;
+        leads.splice(at, 0, row);
+      }
+    } else if (idx >= 0) {
+      leads.splice(idx, 1);
+    }
+  }
+}
+
+function onKvWrite(key, value) {
+  if (key === LEGACY_DEFAULT_WORKSPACE_KEY) {
     _leadsListCache.clear();
     return;
   }
-  _leadsListCache.delete(String(workspaceId));
+  if (isLeadStorageKey(key)) patchLeadsListCacheForRow(key, value);
 }
 
 function getPersistenceStats() {
@@ -305,6 +363,7 @@ function kvGet(key) {
 
 function kvSet(key, value) {
   sqlite.prepare('INSERT OR REPLACE INTO kv (key, value, updated_at) VALUES (?, ?, datetime(\'now\'))').run(key, value);
+  onKvWrite(key, value);
 }
 
 function kvList(prefix = '') {
@@ -329,6 +388,7 @@ function kvGetMany(keys) {
 
 function kvDelete(key) {
   sqlite.prepare('DELETE FROM kv WHERE key = ?').run(key);
+  onKvWrite(key, null);
 }
 
 // ── Workspace helper ──────────────────────────────────────────────────────────
@@ -400,11 +460,7 @@ module.exports = {
 
   /** Match getAllLeads workspace filter — legacy `default`/empty → alias id. */
   _normalizeLeadWorkspaceId(leadWorkspaceId) {
-    const aliasVal = kvGet('sys:legacy_default_workspace_id');
-    const aliasStr = typeof aliasVal === 'string' ? aliasVal.trim() : '';
-    const x = leadWorkspaceId || 'default';
-    if ((x === 'default' || x === '') && aliasStr) return aliasStr;
-    return x;
+    return normalizeLeadWorkspaceWithAlias(leadWorkspaceId, readLegacyDefaultAlias());
   },
 
   async leadBelongsToWorkspace(lead, workspaceId) {
@@ -513,7 +569,6 @@ module.exports = {
     }
 
     kvSet(key, JSON.stringify(newLead));
-    invalidateLeadsListCache(wid || newLead.workspaceId);
     return { key, merged: false, lead: { key, ...newLead } };
   },
 
@@ -602,7 +657,8 @@ module.exports = {
     if (cached && Date.now() - cached.at < LEADS_LIST_CACHE_TTL_MS) {
       return cached.leads.slice();
     }
-    const normLeadW = (lw) => this._normalizeLeadWorkspaceId(lw);
+    const aliasStr = readLegacyDefaultAlias();
+    const normLeadW = (lw) => normalizeLeadWorkspaceWithAlias(lw, aliasStr);
     // Single LIKE scan for key+value (avoids list-keys then chunked IN fetches).
     const rows = sqlite.prepare("SELECT key, value FROM kv WHERE key LIKE 'lead:%'").all();
     const leads = [];
@@ -620,28 +676,29 @@ module.exports = {
       if (normLeadW(parsed.workspaceId) !== wid) continue;
       leads.push({ ...parsed, key, workspaceId: wid });
     }
-    leads.sort((a, b) => {
-      const tsA = parseInt(String(String(a.key || '').split(':')[1] || ''), 10);
-      const tsB = parseInt(String(String(b.key || '').split(':')[1] || ''), 10);
-      return (Number.isFinite(tsB) ? tsB : 0) - (Number.isFinite(tsA) ? tsA : 0);
-    });
+    leads.sort((a, b) => leadKeySortTs(b.key) - leadKeySortTs(a.key));
     _leadsListCache.set(wid, { at: Date.now(), leads });
     return leads.slice();
   },
 
   async getAllLeadsUnscoped() {
-    const keys = kvList('lead:');
-    const sorted = keys.sort((a, b) => {
-      const tsA = parseInt(a.split(':')[1]);
-      const tsB = parseInt(b.split(':')[1]);
+    // One scan instead of kvList + getLead per key (each getLead re-resolved and re-read its row).
+    const rows = sqlite.prepare("SELECT key, value FROM kv WHERE key LIKE 'lead:%' ORDER BY key").all();
+    rows.sort((a, b) => {
+      const tsA = parseInt(a.key.split(':')[1]);
+      const tsB = parseInt(b.key.split(':')[1]);
       return tsB - tsA;
     });
     const leads = [];
-    for (const key of sorted) {
-      const data = await this.getLead(key);
-      if (data) {
-        leads.push({ key, ...data });
+    for (const row of rows) {
+      let parsed;
+      try {
+        parsed = JSON.parse(row.value);
+      } catch {
+        continue;
       }
+      if (!parsed || typeof parsed !== 'object') continue;
+      leads.push({ key: row.key, ...normalizeLeadForPanel({ ...parsed, key: parsed.key || row.key }) });
     }
     return leads;
   },
@@ -870,7 +927,6 @@ module.exports = {
     }
 
     kvSet(storageKey, JSON.stringify(updated));
-    invalidateLeadsListCache(expectWorkspaceId || updated.workspaceId);
     return {
       ...updated,
       key: updated.key || storageKey,
@@ -879,7 +935,6 @@ module.exports = {
 
   async deleteLead(key) {
     kvDelete(key);
-    invalidateLeadsListCache();
     return true;
   },
 

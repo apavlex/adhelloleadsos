@@ -11,6 +11,9 @@ const {
 } = require('../services/userTasks');
 const teamActivity = require('../services/teamActivity');
 
+/** Same ordering as localeCompare(b, undefined, { sensitivity: 'base' }) without a new collator per compare. */
+const LABEL_COLLATOR = new Intl.Collator(undefined, { sensitivity: 'base' });
+
 function taskDueLabel(iso) {
   if (!iso) return '';
   const d = new Date(iso);
@@ -81,7 +84,7 @@ router.get('/', async (req, res, next) => {
         key: l.key,
         label: String(l.title || l.company || l.email || l.key).slice(0, 100),
       }))
-      .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
+      .sort((a, b) => LABEL_COLLATOR.compare(a.label, b.label));
     let initialLeadKey = String(req.query.leadKey || '').trim();
     if (initialLeadKey && !initialLeadKey.startsWith('lead:')) {
       initialLeadKey = `lead:${initialLeadKey.replace(/^lead:/i, '')}`;

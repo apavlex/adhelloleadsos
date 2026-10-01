@@ -27,6 +27,7 @@ const { pauseActiveSequencesForWorkspace } = require('../services/sequenceEngine
 const actionPlanTracker = require('../services/actionPlanTracker');
 const { buildOpportunityBoard, selectPipeline } = require('../services/opportunityBoards');
 const { buildBookmarkSessions, buildRecentlyWorked } = require('../services/todayResumeQueue');
+const { leadLogsMentionReply } = require('../services/leadActivityWindow');
 function firstNameFromUser(user) {
   const raw =
     (user && user.displayName) ||
@@ -43,17 +44,7 @@ function greetingWord() {
 }
 
 function countReplySignals(leads) {
-  return leads.filter((l) => {
-    const logs = l.logs || [];
-    return logs.some((log) => {
-      const blob = `${log.type || ''} ${log.message || ''}`.toLowerCase();
-      return (
-        blob.includes('reply') ||
-        blob.includes('inbound') ||
-        blob.includes('replied')
-      );
-    });
-  }).length;
+  return leads.filter(leadLogsMentionReply).length;
 }
 
 function countQueueNeedingAction(leads) {

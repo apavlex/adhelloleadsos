@@ -12,6 +12,7 @@ const pipelineStagesService = require('./pipelineStagesService');
 const { scoreLeadRecord } = require('./opportunityScore');
 const { filterLeadsForRequest, userEmail } = require('./workspaceService');
 const { filterBusinessPipelineLeads } = require('./leadListFilters');
+const { leadLogsMentionReply } = require('./leadActivityWindow');
 
 const ENTREPRENEUR_QUOTES = [
   { text: 'The way to get started is to quit talking and begin doing.', author: 'Walt Disney' },
@@ -58,13 +59,7 @@ function firstNameFromUser(user) {
 }
 
 function countReplySignals(leads) {
-  return leads.filter((l) => {
-    const logs = l.logs || [];
-    return logs.some((log) => {
-      const blob = `${log.type || ''} ${log.message || ''}`.toLowerCase();
-      return blob.includes('reply') || blob.includes('inbound') || blob.includes('replied');
-    });
-  }).length;
+  return leads.filter(leadLogsMentionReply).length;
 }
 
 function countOverdueSequences(leads) {

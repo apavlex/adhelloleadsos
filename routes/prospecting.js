@@ -38,6 +38,9 @@ const { normalizeLeadForPanel } = require('../services/leadPanelNormalize');
 const { LMV_PROSPECTING_METHODS } = require('../config/lmvProspectingMethods');
 const { normalizeBoards, cardSummaryLines } = require('../services/opportunityBoards');
 
+/** Same ordering as localeCompare(b, undefined, { sensitivity: 'base' }) without a new collator per compare. */
+const TITLE_COLLATOR = new Intl.Collator(undefined, { sensitivity: 'base' });
+
 /** First-paint HTML rows — remaining rows load via /prospecting/table-rows. */
 const PIPELINE_SSR_ROW_CAP = Math.min(
   200,
@@ -176,9 +179,7 @@ router.get('/', async (req, res, next) => {
         const ha = hasUsableWebsite(a) ? 1 : 0;
         const hb = hasUsableWebsite(b) ? 1 : 0;
         if (ha !== hb) return ha - hb;
-        return String(a.title || '').localeCompare(String(b.title || ''), undefined, {
-          sensitivity: 'base',
-        });
+        return TITLE_COLLATOR.compare(String(a.title || ''), String(b.title || ''));
       });
     }
 
@@ -505,9 +506,7 @@ router.get('/table-rows', async (req, res, next) => {
         const ha = hasUsableWebsite(a) ? 1 : 0;
         const hb = hasUsableWebsite(b) ? 1 : 0;
         if (ha !== hb) return ha - hb;
-        return String(a.title || '').localeCompare(String(b.title || ''), undefined, {
-          sensitivity: 'base',
-        });
+        return TITLE_COLLATOR.compare(String(a.title || ''), String(b.title || ''));
       });
     }
 

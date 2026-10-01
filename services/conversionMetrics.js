@@ -3,6 +3,7 @@
  */
 
 const { PERSONALIZED_TOUCH_STATUSES } = require('./trackerStats');
+const { leadHasActivitySince } = require('./leadActivityWindow');
 
 function inTimeWindow(iso, startMs, endMs) {
   const t = Date.parse(iso || '');
@@ -56,6 +57,7 @@ function isTouchLogInWindow(log, startMs, endMs) {
 function countTouchEvents(leads, startMs, endMs) {
   let n = 0;
   for (const lead of leads || []) {
+    if (!leadHasActivitySince(lead, startMs)) continue;
     for (const u of lead.updates || []) {
       if (isTouchUpdateInWindow(u, startMs, endMs)) n += 1;
     }
@@ -69,6 +71,7 @@ function countTouchEvents(leads, startMs, endMs) {
 function countReplyEvents(leads, startMs, endMs) {
   let n = 0;
   for (const lead of leads || []) {
+    if (!leadHasActivitySince(lead, startMs)) continue;
     for (const u of lead.updates || []) {
       if (!inTimeWindow(u.timestamp, startMs, endMs)) continue;
       const b = blobFromUpdate(u);
@@ -86,6 +89,7 @@ function countReplyEvents(leads, startMs, endMs) {
 function countMeetingEvents(leads, startMs, endMs) {
   let n = 0;
   for (const lead of leads || []) {
+    if (!leadHasActivitySince(lead, startMs)) continue;
     for (const u of lead.updates || []) {
       if (!inTimeWindow(u.timestamp, startMs, endMs)) continue;
       if (isMeetingBlob(blobFromUpdate(u))) n += 1;

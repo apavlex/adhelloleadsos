@@ -7,6 +7,7 @@ const { scoreLeadRecord } = require('./opportunityScore');
 const { scoreLocalProspect, prospectTierSortRank } = require('./localProspectScore');
 const { isLeadDeferredForRetry } = require('./dialRetryPrefs');
 const { resolveRoiProfileFromOptions } = require('./workspaceRoiProfile');
+const { latestActivityTimestampMs } = require('./leadActivityWindow');
 
 function isOverdueCadence(l) {
   const st = l.sequenceState;
@@ -15,15 +16,19 @@ function isOverdueCadence(l) {
 }
 
 function lastActivityMs(l) {
-  let max = 0;
-  (l.updates || []).forEach((u) => {
-    const t = Date.parse(u.timestamp || '');
-    if (!Number.isNaN(t) && t > max) max = t;
-  });
-  (l.logs || []).forEach((log) => {
-    const t = Date.parse(log.timestamp || '');
-    if (!Number.isNaN(t) && t > max) max = t;
-  });
+  const latest = latestActivityTimestampMs(l);
+  let max = latest > 0 ? latest : 0;
+  if (latest === Infinity) {
+    max = 0;
+    (l.updates || []).forEach((u) => {
+      const t = Date.parse(u.timestamp || '');
+      if (!Number.isNaN(t) && t > max) max = t;
+    });
+    (l.logs || []).forEach((log) => {
+      const t = Date.parse(log.timestamp || '');
+      if (!Number.isNaN(t) && t > max) max = t;
+    });
+  }
   const fallback = Date.parse(l.savedAt || l.createdAt || '') || 0;
   return Math.max(max, fallback);
 }

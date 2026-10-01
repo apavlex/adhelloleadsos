@@ -22,6 +22,9 @@ function leadCategoryLabel(lead) {
   return cat;
 }
 
+/** Same ordering as localeCompare(b, undefined, { sensitivity: 'base' }) without a new collator per compare. */
+const BASE_COLLATOR = new Intl.Collator(undefined, { sensitivity: 'base' });
+
 function buildPipelineCategoryOptions(leads) {
   const map = new Map();
   for (const l of leads || []) {
@@ -30,9 +33,7 @@ function buildPipelineCategoryOptions(leads) {
     const key = cat.toLowerCase();
     if (!map.has(key)) map.set(key, cat);
   }
-  return Array.from(map.values()).sort((a, b) =>
-    a.localeCompare(b, undefined, { sensitivity: 'base' }),
-  );
+  return Array.from(map.values()).sort(BASE_COLLATOR.compare);
 }
 
 function leadMatchesCategoryFilter(lead, categoryRaw) {
