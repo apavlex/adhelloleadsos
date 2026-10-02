@@ -165,6 +165,7 @@ function applyScriptSeedToWorkspace(doc, seed) {
       : {};
   doc.salesScriptsPresetKey = seed.presetKey || inferScriptPresetKey(doc);
   doc.salesScriptsSeededAt = new Date().toISOString();
+  doc.salesScriptsUpdatedAt = doc.salesScriptsSeededAt;
   return doc;
 }
 

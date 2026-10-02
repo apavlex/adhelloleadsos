@@ -308,7 +308,8 @@ async function runWeeklyVoicemailDrops() {
         }
       }
 
-      const wsNext = ws && typeof ws === 'object' ? { ...ws } : { id: wid };
+      const fresh = await db.getWorkspace(wid);
+      const wsNext = fresh && typeof fresh === 'object' ? { ...fresh } : { id: wid };
       const telephonyNext =
         wsNext.telephony && typeof wsNext.telephony === 'object' ? { ...wsNext.telephony } : {};
       const weeklyNext =

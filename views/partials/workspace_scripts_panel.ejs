@@ -1014,18 +1014,27 @@
       return blocks;
     }
 
+    function openOfferEntries() {
+      var entry = offerCatalog.find(function (c) { return c.key === coachFocus.pitch; });
+      return entry ? [entry] : [];
+    }
+
     function persistBlocksNow() {
       setAutosaveTextForAll('Saving…');
       return fetch('/workspace/scripts/blocks', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ blocks: collectBlocksPayload() }),
+        body: JSON.stringify({ blocks: collectBlocksPayload(), offers: openOfferEntries() }),
       })
         .then(function (r) { return r.json(); })
         .then(function (d) {
           if (!d || !d.success) {
             console.warn('[scripts] block save failed', d && d.error);
-            setAutosaveTextForAll('Save failed — retry by editing');
+            setAutosaveTextForAll((d && d.error) || 'Save failed — retry by editing');
+            return false;
+          }
+          if (d.dropped && d.dropped.indexOf(coachFocus.pitch) !== -1) {
+            setAutosaveTextForAll('Save failed — reload the page');
             return false;
           }
           lastServerSaveAt = Date.now();
@@ -1089,15 +1098,16 @@
         var profile = collectOutreachProfileFromPanel(offerKey);
         if (!profile) return;
         setOutreachStatus(offerKey, 'Saving…');
+        var entry = offerCatalog.find(function (c) { return c.key === offerKey; });
         fetch('/workspace/scripts/offers', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ key: offerKey, outreachProfile: profile }),
+          body: JSON.stringify({ key: offerKey, outreachProfile: profile, offer: entry || null }),
         })
           .then(function (r) { return r.json(); })
           .then(function (data) {
             if (!data || !data.success) {
-              setOutreachStatus(offerKey, 'Save failed');
+              setOutreachStatus(offerKey, (data && data.error) ? 'Save failed — ' + data.error : 'Save failed');
               return;
             }
             if (Array.isArray(data.catalog)) offerCatalog = data.catalog;

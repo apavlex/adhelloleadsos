@@ -125,6 +125,28 @@ function materializeOfferCatalog(ws, baseLib) {
   return [];
 }
 
+/**
+ * Re-add offers the open page still shows but the stored catalog lost, so typing into
+ * them saves instead of vanishing. Only keys being saved are restored. Returns restored keys.
+ */
+function restoreMissingOffers(ws, wantedKeys, clientOffers) {
+  if (!ws || !Array.isArray(clientOffers) || !clientOffers.length) return [];
+  const catalog = Array.isArray(ws.salesScriptOfferCatalog) ? ws.salesScriptOfferCatalog.slice() : [];
+  const have = new Set(catalog.map((row) => row && row.key));
+  const wanted = new Set((wantedKeys || []).map((k) => String(k || '').trim()));
+  const restored = [];
+  for (const raw of clientOffers.slice(0, 50)) {
+    const key = raw && String(raw.key || '').trim();
+    if (!key || have.has(key) || !wanted.has(key)) continue;
+    const entry = normalizeOfferCatalogEntry({ ...raw, key }, have);
+    if (!entry) continue;
+    catalog.push(entry);
+    restored.push(key);
+  }
+  if (restored.length) ws.salesScriptOfferCatalog = catalog;
+  return restored;
+}
+
 function patchOfferOutreachFields(row, profile) {
   const base = row && typeof row === 'object' ? row : {};
   const p = profile && typeof profile === 'object' ? profile : {};
@@ -363,5 +385,6 @@ module.exports = {
   slugifyOfferKey,
   normalizeOfferCatalogEntry,
   materializeOfferCatalog,
+  restoreMissingOffers,
   patchOfferOutreachFields,
 };

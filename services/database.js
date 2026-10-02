@@ -436,6 +436,40 @@ function kvDelete(key) {
 }
 
 // ── Workspace helper ──────────────────────────────────────────────────────────
+const WORKSPACE_SCRIPT_FIELDS = [
+  'salesScriptOfferCatalog',
+  'salesScriptBlockOverrides',
+  'salesScriptLibraryItems',
+  'reachScripts',
+  'salesScriptsPresetKey',
+  'salesScriptsSeededAt',
+  'salesScriptsUpdatedAt',
+];
+
+/**
+ * Background jobs and slow requests save whole workspace docs they loaded minutes ago.
+ * Script edits stamp salesScriptsUpdatedAt, so an older stamp means the caller's script
+ * fields are stale — keep the stored ones instead of rolling the user's edits back.
+ */
+function keepNewerScriptFields(next, storedRaw) {
+  if (!storedRaw) return next;
+  let stored;
+  try {
+    stored = typeof storedRaw === 'string' ? JSON.parse(storedRaw) : storedRaw;
+  } catch {
+    return next;
+  }
+  const storedAt = String((stored && stored.salesScriptsUpdatedAt) || '');
+  if (!storedAt) return next;
+  const nextAt = String(next.salesScriptsUpdatedAt || '');
+  if (nextAt && nextAt >= storedAt) return next;
+  for (const field of WORKSPACE_SCRIPT_FIELDS) {
+    if (Object.prototype.hasOwnProperty.call(stored, field)) next[field] = stored[field];
+    else delete next[field];
+  }
+  return next;
+}
+
 function assertLeadScopedWorkspaceId(workspaceId, methodName) {
   const ok = workspaceId != null && String(workspaceId).trim() !== '';
   if (ok) return;
@@ -2296,7 +2330,9 @@ module.exports = {
   async saveWorkspace(workspaceId, doc) {
     const id = workspaceId != null ? String(workspaceId).trim() : '';
     if (!id) throw new Error('saveWorkspace requires workspaceId');
-    kvSet(`workspace:${id}`, JSON.stringify({ ...doc, id }));
+    const next = { ...doc, id };
+    keepNewerScriptFields(next, kvGet(`workspace:${id}`));
+    kvSet(`workspace:${id}`, JSON.stringify(next));
   },
 
   // --- 7-day activation ---

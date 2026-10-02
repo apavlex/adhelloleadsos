@@ -136,7 +136,10 @@ async function rememberMemberProfile(req) {
   if (!member) return;
   if (member.name === actor.name && member.avatar === actor.avatar) return;
   ws.members[actor.email] = { ...member, name: actor.name, avatar: actor.avatar };
-  await dbService.saveWorkspace(ws.id, ws);
+  const fresh = await dbService.getWorkspace(ws.id);
+  if (!fresh || !fresh.members || !fresh.members[actor.email]) return;
+  fresh.members[actor.email] = { ...fresh.members[actor.email], name: actor.name, avatar: actor.avatar };
+  await dbService.saveWorkspace(ws.id, fresh);
 }
 
 function memberDirectory(ws, stats) {

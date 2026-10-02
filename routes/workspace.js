@@ -1685,6 +1685,12 @@ function workspaceOfferBundle(ws) {
   return workspaceSalesScripts.buildWorkspaceOfferLibrary(ws, SCRIPT_LIBRARY);
 }
 
+function restoreMissingOffers(ws, wantedKeys, clientOffers) {
+  const restored = workspaceSalesScripts.restoreMissingOffers(ws, wantedKeys, clientOffers);
+  if (restored.length) console.warn(`[scripts] restored missing offers for ${ws.id}: ${restored.join(', ')}`);
+  return restored;
+}
+
 /** GET JSON: merged script library (defaults + workspace overrides). */
 router.get('/scripts/merged.json', async (req, res, next) => {
   try {
@@ -1833,6 +1839,7 @@ router.patch('/scripts/offers', express.json({ limit: '128kb' }), async (req, re
       ws.salesScriptOfferCatalog = workspaceSalesScripts.sanitizeOfferCatalogInput(req.body.catalog);
     } else if (req.body?.key && req.body?.outreachProfile && typeof req.body.outreachProfile === 'object') {
       const key = String(req.body.key).trim();
+      restoreMissingOffers(ws, [key], req.body.offer ? [req.body.offer] : []);
       const catalog = workspaceSalesScripts.materializeOfferCatalog(ws, SCRIPT_LIBRARY);
       const idx = catalog.findIndex((row) => row.key === key);
       if (idx < 0) {
@@ -2085,8 +2092,13 @@ router.patch('/scripts/blocks', express.json({ limit: '500kb' }), async (req, re
     const wid = req.workspaceId;
     let ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
     const blocks = req.body && req.body.blocks;
+    const restored = restoreMissingOffers(ws, blocks && typeof blocks === 'object' ? Object.keys(blocks) : [], req.body?.offers);
     const { keys } = workspaceOfferBundle(ws);
     const patch = workspaceSalesScripts.sanitizeBlockOverridesForCatalog(blocks, keys);
+    const dropped = Object.keys(blocks && typeof blocks === 'object' ? blocks : {}).filter((k) => !keys.includes(k));
+    if (dropped.length && !Object.keys(patch).length) {
+      return res.status(409).json({ success: false, error: 'This offer no longer exists — reload the page.', dropped });
+    }
     const prev =
       ws.salesScriptBlockOverrides && typeof ws.salesScriptBlockOverrides === 'object'
         ? ws.salesScriptBlockOverrides
@@ -2098,7 +2110,7 @@ router.patch('/scripts/blocks', express.json({ limit: '500kb' }), async (req, re
     ws.salesScriptBlockOverrides = merged;
     ws.salesScriptsUpdatedAt = new Date().toISOString();
     await dbService.saveWorkspace(wid, ws);
-    res.json({ success: true });
+    res.json({ success: true, ...(restored.length ? { restored } : {}), ...(dropped.length ? { dropped } : {}) });
   } catch (e) {
     next(e);
   }

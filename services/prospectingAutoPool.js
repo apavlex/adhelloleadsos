@@ -93,6 +93,18 @@ function rankLeadForPool(lead) {
   return tierRank * 100 + scored.score;
 }
 
+/** A run can take minutes; re-read so edits made meanwhile are not rolled back. */
+async function saveAutoPoolState(workspaceId, autoPoolNext) {
+  const fresh = (await dbService.getWorkspace(workspaceId)) || { id: workspaceId };
+  await dbService.saveWorkspace(workspaceId, {
+    ...fresh,
+    prospecting: {
+      ...(fresh.prospecting && typeof fresh.prospecting === 'object' ? fresh.prospecting : {}),
+      autoPool: autoPoolNext,
+    },
+  });
+}
+
 /**
  * @param {{ workspaceId: string, settings?: object, maxLeads?: number }} opts
  */
@@ -114,13 +126,7 @@ async function runAutoPool(opts) {
       lastCandidateCount: 0,
       lastSkippedReason: 'daily_cap_reached',
     };
-    await dbService.saveWorkspace(workspaceId, {
-      ...ws,
-      prospecting: {
-        ...(ws.prospecting && typeof ws.prospecting === 'object' ? ws.prospecting : {}),
-        autoPool: autoPoolNext,
-      },
-    });
+    await saveAutoPoolState(workspaceId, autoPoolNext);
     return {
       enrolled: 0,
       candidates: 0,
@@ -262,13 +268,7 @@ async function runAutoPool(opts) {
     lastEmailsFound: emailsFound,
     lastEmailSkipped: emailSkipped,
   };
-  await dbService.saveWorkspace(workspaceId, {
-    ...ws,
-    prospecting: {
-      ...(ws.prospecting && typeof ws.prospecting === 'object' ? ws.prospecting : {}),
-      autoPool: autoPoolNext,
-    },
-  });
+  await saveAutoPoolState(workspaceId, autoPoolNext);
 
   return {
     enrolled,
