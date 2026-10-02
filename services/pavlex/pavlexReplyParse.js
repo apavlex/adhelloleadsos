@@ -49,14 +49,111 @@ function looksLikeLeakedReasoning(text) {
   return REASONING_OPENERS.some((re) => re.test(s));
 }
 
+/** Models often put real line breaks inside JSON strings (multi-line scripts); escape them. */
+function escapeControlCharsInStrings(s) {
+  let out = '';
+  let inStr = false;
+  let esc = false;
+  for (const c of s) {
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === '\\') esc = true;
+      else if (c === '"') inStr = false;
+      else if (c === '\n') {
+        out += '\\n';
+        continue;
+      } else if (c === '\r') {
+        out += '\\r';
+        continue;
+      } else if (c === '\t') {
+        out += '\\t';
+        continue;
+      }
+    } else if (c === '"') {
+      inStr = true;
+    }
+    out += c;
+  }
+  return out;
+}
+
 function tryJson(raw) {
   const s = String(raw || '').trim();
   if (!s) return null;
   try {
     return JSON.parse(s);
   } catch {
-    return null;
+    try {
+      return JSON.parse(escapeControlCharsInStrings(s));
+    } catch {
+      return null;
+    }
   }
+}
+
+/** End index (exclusive) of the balanced {...} starting at s[start], or -1. */
+function balancedObjectEnd(s, start) {
+  if (s[start] !== '{') return -1;
+  let depth = 0;
+  let inStr = false;
+  let esc = false;
+  for (let i = start; i < s.length; i++) {
+    const c = s[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === '\\') esc = true;
+      else if (c === '"') inStr = false;
+    } else if (c === '"') {
+      inStr = true;
+    } else if (c === '{') {
+      depth += 1;
+    } else if (c === '}') {
+      depth -= 1;
+      if (depth === 0) return i + 1;
+    }
+  }
+  return -1;
+}
+
+const LOOSE_CALL_RE =
+  /[{[]?\s*"?(?:name|tool|tool_name)"?\s*:\s*"([a-zA-Z0-9_.-]+)"\s*,\s*"?(?:arguments|parameters|args|input)"?\s*:\s*/g;
+
+/**
+ * Tool calls printed as broken JSON: missing opening brace, prose around it, stray
+ * closing braces. Only fires for known tool names so normal answers are untouched.
+ */
+function extractLooseCalls(text, known) {
+  const calls = [];
+  const spans = [];
+  LOOSE_CALL_RE.lastIndex = 0;
+  let m;
+  while ((m = LOOSE_CALL_RE.exec(text))) {
+    if (!known.has(m[1])) continue;
+    const argStart = LOOSE_CALL_RE.lastIndex;
+    let argEnd = -1;
+    let args = null;
+    if (text[argStart] === '{') {
+      argEnd = balancedObjectEnd(text, argStart);
+      if (argEnd > 0) args = tryJson(text.slice(argStart, argEnd));
+    } else if (text[argStart] === '"') {
+      const strMatch = text.slice(argStart).match(/^"((?:[^"\\]|\\.)*)"/);
+      if (strMatch) {
+        argEnd = argStart + strMatch[0].length;
+        args = coerceArgs(tryJson(strMatch[0]));
+      }
+    }
+    if (!args || typeof args !== 'object' || Array.isArray(args)) continue;
+    let end = argEnd;
+    while (end < text.length && /[\s}\]]/.test(text[end])) end += 1;
+    calls.push({ name: m[1], arguments: args });
+    spans.push([m.index, end]);
+    LOOSE_CALL_RE.lastIndex = end;
+  }
+  let cleaned = text;
+  for (let i = spans.length - 1; i >= 0; i--) {
+    cleaned = cleaned.slice(0, spans[i][0]) + cleaned.slice(spans[i][1]);
+  }
+  return { calls, cleaned };
 }
 
 function coerceArgs(value) {
@@ -113,7 +210,8 @@ function extractTextToolCalls(text, knownToolNames) {
   const calls = [];
 
   let cleaned = source.replace(TOOL_BLOCK_RE, (match, _tag, body, fnName, fnBody) => {
-    const found = fnName ? [{ name: fnName, arguments: coerceArgs(fnBody) }] : callsFromBlockBody(body);
+    let found = fnName ? [{ name: fnName, arguments: coerceArgs(fnBody) }] : callsFromBlockBody(body);
+    if (!found.length && known && body) found = extractLooseCalls(body, known).calls;
     const usable = found.filter((c) => isKnown(c.name));
     if (!usable.length) return match;
     calls.push(...usable);
@@ -129,6 +227,14 @@ function extractTextToolCalls(text, knownToolNames) {
     if (objCalls.length && objCalls.length === list.length && known) {
       calls.push(...objCalls);
       cleaned = '';
+    }
+  }
+
+  if (!calls.length && known) {
+    const loose = extractLooseCalls(cleaned, known);
+    if (loose.calls.length) {
+      calls.push(...loose.calls);
+      cleaned = loose.cleaned.replace(/```(?:json)?\s*```/gi, '');
     }
   }
 

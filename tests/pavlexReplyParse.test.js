@@ -225,3 +225,37 @@ describe('tool model chain', () => {
     assert.equal(isUnreliableToolModel('deepseek/deepseek-v4-flash'), false);
   });
 });
+
+describe('broken tool-call JSON printed as text', () => {
+  const SCRIPT = { name: 'The Overflow – Siding to Builders', body: 'Hey, this is {{name}} with {{company}}.', section: 'sms' };
+
+  it('recovers a call whose opening {" was clipped (reply shown to the user as raw JSON)', () => {
+    const leaked =
+      'name":"save_script","arguments":{"name":"The Overflow – Siding to Builders","body":"Hey, this is {{name}} with {{company}}.","section":"sms"}}';
+    const out = extractTextToolCalls(leaked, KNOWN);
+    assert.deepEqual(out.calls, [{ name: 'save_script', arguments: SCRIPT }]);
+    assert.equal(out.cleaned, '');
+    assert.equal(sanitizeAssistantText(leaked, KNOWN), '');
+  });
+
+  it('recovers calls with prose around them, stray braces, and real line breaks in strings', () => {
+    const out = extractTextToolCalls(
+      'Adding it now.\n{"name": "save_script", "arguments": {"name": "Overflow", "body": "Line one\nLine two", "section": "sms"}}}\nDone!',
+      KNOWN,
+    );
+    assert.deepEqual(out.calls, [
+      { name: 'save_script', arguments: { name: 'Overflow', body: 'Line one\nLine two', section: 'sms' } },
+    ]);
+    assert.equal(out.cleaned, 'Adding it now.\nDone!');
+
+    const tagged = extractTextToolCalls('<tool_call>{"name":"save_script","arguments":{"name":"A","body":"x\ny"}}</tool_call>', KNOWN);
+    assert.deepEqual(tagged.calls[0].arguments, { name: 'A', body: 'x\ny' });
+  });
+
+  it('leaves normal answers and unknown tool names alone', () => {
+    const answer = 'Saved! The script "name": "save_script" is not a thing you need to worry about.';
+    assert.equal(extractTextToolCalls(answer, KNOWN).calls.length, 0);
+    const unknown = '{"name":"delete_everything","arguments":{}}';
+    assert.equal(extractTextToolCalls(unknown, KNOWN).calls.length, 0);
+  });
+});
