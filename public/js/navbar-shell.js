@@ -81,8 +81,21 @@ function readJsonReply(r) {
     var phoneMq = window.matchMedia('(max-width: 767px)');
     var NO_SWIPE = 'input, textarea, select, [contenteditable="true"], canvas, video, [role="dialog"], [role="slider"], ' +
       '.leaflet-container, .gm-style, [data-no-swipe-nav]';
-    var EDGE_PX = 28;
+    // iOS Safari / Chrome use a swipe from the left edge for "back". Claiming touches that start in this
+    // strip (preventDefault on touchstart) keeps that swipe for the menu; taps and vertical drags in the
+    // strip are replayed by hand below.
+    var EDGE_PX = 30;
     var drag = null;
+
+    function scrollParent(el) {
+      for (var n = el; n && n !== document.body && n !== document.documentElement; n = n.parentElement) {
+        if (n.scrollHeight > n.clientHeight + 1) {
+          var oy = window.getComputedStyle(n).overflowY;
+          if (oy === 'auto' || oy === 'scroll') return n;
+        }
+      }
+      return document.scrollingElement || document.documentElement;
+    }
 
     function isOpen() {
       return !mobileMenu.classList.contains('hidden') && !mobileMenu.classList.contains('opacity-0');
@@ -118,25 +131,37 @@ function readJsonReply(r) {
       var t = e.touches[0];
       var open = isOpen();
       var target = e.target;
+      var edge = false;
       if (!open) {
         if (document.body.classList.contains('overflow-hidden')) return;
         if (target.closest && target.closest(NO_SWIPE)) return;
-        if (t.clientX > EDGE_PX && inHorizontalScroller(target)) return;
+        edge = t.clientX <= EDGE_PX;
+        if (!edge && inHorizontalScroller(target)) return;
       }
-      drag = { x0: t.clientX, y0: t.clientY, t0: Date.now(), open: open, active: false, dead: false, width: mobileMenuPanel.offsetWidth || 288 };
-    }, { passive: true });
+      drag = { x0: t.clientX, y0: t.clientY, t0: Date.now(), open: open, active: false, dead: false, edge: edge, target: target, width: mobileMenuPanel.offsetWidth || 288 };
+      if (edge && e.cancelable) {
+        e.preventDefault();
+        drag.scroller = scrollParent(target);
+        drag.scrollTop0 = drag.scroller.scrollTop;
+      }
+    }, { passive: false });
 
     document.addEventListener('touchmove', function (e) {
-      if (!drag || drag.dead) return;
+      if (!drag) return;
       var t = e.touches[0];
       var dx = t.clientX - drag.x0;
       var dy = t.clientY - drag.y0;
+      if (drag.dead) {
+        if (drag.scroller) drag.scroller.scrollTop = drag.scrollTop0 - dy;
+        return;
+      }
       if (!drag.active) {
-        if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
         var wantsOpen = !drag.open && dx > 0;
         var wantsClose = drag.open && dx < 0;
-        if (Math.abs(dx) < Math.abs(dy) * 1.4 || !(wantsOpen || wantsClose)) {
+        if (Math.abs(dx) < Math.abs(dy) * 1.2 || !(wantsOpen || wantsClose)) {
           drag.dead = true;
+          drag.moved = true;
           return;
         }
         drag.active = true;
@@ -157,8 +182,16 @@ function readJsonReply(r) {
       setDragPosition(drag.open ? dx : dx - drag.width);
     }, { passive: false });
 
-    function endDrag() {
+    function endDrag(e) {
       if (!drag || !drag.active) {
+        // A tap in the claimed edge strip lost its native click; replay it.
+        if (drag && drag.edge && !drag.moved && e && e.type === 'touchend' && drag.target) {
+          var tapTarget = drag.target.nodeType === 1 ? drag.target : drag.target.parentElement;
+          if (tapTarget) {
+            if (typeof tapTarget.focus === 'function') tapTarget.focus();
+            tapTarget.click();
+          }
+        }
         drag = null;
         return;
       }
