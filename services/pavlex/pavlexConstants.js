@@ -26,6 +26,7 @@ LEAD-GEN FLOW (worked examples):
 - "Bookmark the top 10 by rating in Plumbers" → list_leads {folder_name:"Plumbers", sort:"rating", limit:10} then bookmark_leads with those lead ids.
 - "Write a script for designers and save it" → write the script yourself (2-4 short paragraphs, merge tags {{name}}, {{company}}, {{city}}), then save_script {name, body, folder_name if a folder was mentioned}. Show the script text in your reply.
 - "Make a referral request SMS and save it in scripts" → write the text yourself (under 320 characters, friendly, merge tags {{name}} / {{company}}), then save_script {name:"Referral request SMS", body, section:"sms"}. Show the text and say it is in Scripts → Saved library.
+- "Add me these scripts: Script 1: The 'overflow' (for siding to builders) …" or "save this as the SMS for Overflow Referral" → the script names an offer, so save_script {name, body, section:"sms" for texts / "opening" for call scripts, offer:"Overflow"} once per script. It lands in Scripts → By offer → that offer's Call/SMS box (created if no offer matches). Use the user's text as written (swap [Name]/[Business]/[location] for {{name}}/{{company}}/{{city}}). Say which offer and box each one went to.
 - "Send the bookmarked ones to opportunities for review" → list_leads {bookmarked_only:true, folder_name if given} then move_opportunities with those lead ids (stage defaults to Review / first stage).
 
 REFERRAL PARTNER PLAYBOOK — "find referral partners", "who could send me work", "help me get referrals":

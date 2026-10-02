@@ -15,6 +15,8 @@ const {
   normalizeLibraryItem,
   dedupeLibraryItems,
   appendLibraryItemIdempotent,
+  splitOfferScriptForSave,
+  clampSectionText,
 } = require('../salesScriptsStorage');
 const { filterLeadsForRequest } = require('../workspaceService');
 const { buildReqLike, resolveFolderRef, mapFolderSummary } = require('./mcpCrmService');
@@ -566,7 +568,9 @@ async function saveScript(ctx, input = {}) {
 
   const ws = await dbService.getWorkspace(wid);
   if (!ws) throw invalid('Workspace not found.', 'NOT_FOUND');
-  const { keys } = workspaceSalesScripts.buildWorkspaceOfferLibrary(ws, SCRIPT_LIBRARY);
+  const offerRef = String(input.offer || input.offer_key || '').trim();
+  if (offerRef) return saveScriptToOffer(ws, offerRef, { body, section, title });
+  const { keys, catalog } = workspaceSalesScripts.buildWorkspaceOfferLibrary(ws, SCRIPT_LIBRARY);
   const item = normalizeLibraryItem(
     { title: title || 'Opening script', text: body, section, serviceKey: input.offer_key || '' },
     keys,
@@ -591,9 +595,47 @@ async function saveScript(ctx, input = {}) {
     folder: folder ? { key: folder.key, name: folder.name } : null,
     folderScriptsSupported: false,
     location: 'Scripts → Saved library',
-    message: folder
-      ? `Saved to the workspace script library as "${saved.title}" (the app has no per-folder scripts, so the folder name is in the title).`
-      : `Saved to the workspace script library as "${saved.title}".`,
+    offers: catalog.map((c) => c.label),
+    message:
+      (folder
+        ? `Saved to the workspace script library as "${saved.title}" (the app has no per-folder scripts, so the folder name is in the title).`
+        : `Saved to the workspace script library as "${saved.title}".`) +
+      ' To put it in an offer\'s call/SMS/email box on Scripts → By offer, call save_script again with offer set.',
+  };
+}
+
+/** Write the script into an offer's call / SMS / email box (Scripts → By offer); creates the offer if missing. */
+async function saveScriptToOffer(ws, offerRef, { body, section, title }) {
+  const wid = ws.id;
+  const catalog = workspaceSalesScripts.resolveWorkspaceOfferCatalog(ws, SCRIPT_LIBRARY);
+  let entry = workspaceSalesScripts.findOfferByName(catalog, offerRef);
+  let created = false;
+  if (!entry) {
+    entry = workspaceSalesScripts.normalizeOfferCatalogEntry(
+      { label: offerRef.slice(0, 120) },
+      new Set(catalog.map((c) => c.key)),
+    );
+    if (!entry) throw invalid(`Could not create an offer named "${offerRef}".`);
+    catalog.push(entry);
+    created = true;
+  }
+  const prevAll =
+    ws.salesScriptBlockOverrides && typeof ws.salesScriptBlockOverrides === 'object' ? ws.salesScriptBlockOverrides : {};
+  const prev = prevAll[entry.key] && typeof prevAll[entry.key] === 'object' ? prevAll[entry.key] : {};
+  const next =
+    section === 'opening'
+      ? { ...prev, ...splitOfferScriptForSave(clampSectionText('opening', body)), sms: prev.sms || '', email: prev.email || '' }
+      : { ...prev, [section]: clampSectionText(section, body) };
+  ws.salesScriptOfferCatalog = catalog;
+  ws.salesScriptBlockOverrides = { ...prevAll, [entry.key]: next };
+  ws.salesScriptsUpdatedAt = new Date().toISOString();
+  await dbService.saveWorkspace(wid, ws);
+  const box = section === 'sms' ? 'SMS script' : section === 'email' ? 'Email script' : 'Call script';
+  return {
+    script: { title: title || entry.label, section, offerKey: entry.key, length: body.length },
+    offer: { key: entry.key, label: entry.label, created },
+    location: `Scripts → By offer → ${entry.label} → ${box}`,
+    message: `${created ? `Created the "${entry.label}" offer and saved` : 'Saved'} the ${box.toLowerCase()} in Scripts → By offer → ${entry.label}.`,
   };
 }
 

@@ -125,6 +125,48 @@ function materializeOfferCatalog(ws, baseLib) {
   return [];
 }
 
+const OFFER_NAME_STOPWORDS = new Set([
+  'the', 'for', 'and', 'with', 'to', 'of', 'a', 'an', 'my', 'our',
+  'script', 'scripts', 'offer', 'offers', 'sms', 'text', 'email', 'call', 'template',
+]);
+
+function offerNameTokens(s) {
+  return String(s || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .split(' ')
+    .filter((t) => t.length >= 3 && !OFFER_NAME_STOPWORDS.has(t));
+}
+
+/** Match "overflow" or "The Overflow (siding)" to the "Overflow Referral" offer. Null when unclear. */
+function findOfferByName(catalog, ref) {
+  const rows = Array.isArray(catalog) ? catalog : [];
+  const raw = String(ref || '').trim();
+  if (!raw) return null;
+  const lower = raw.toLowerCase();
+  const exact = rows.find(
+    (r) => r.key === raw || String(r.label || '').toLowerCase() === lower || String(r.tabLabel || '').toLowerCase() === lower,
+  );
+  if (exact) return exact;
+  const want = offerNameTokens(raw);
+  if (!want.length) return null;
+  let best = null;
+  let bestScore = 0;
+  let tie = false;
+  for (const r of rows) {
+    const have = new Set([...offerNameTokens(r.label), ...offerNameTokens(r.tabLabel), ...offerNameTokens(r.key)]);
+    const score = want.filter((t) => have.has(t)).length;
+    if (score > bestScore) {
+      best = r;
+      bestScore = score;
+      tie = false;
+    } else if (score && score === bestScore) {
+      tie = true;
+    }
+  }
+  return bestScore && !tie ? best : null;
+}
+
 /**
  * Re-add offers the open page still shows but the stored catalog lost, so typing into
  * them saves instead of vanishing. Only keys being saved are restored. Returns restored keys.
@@ -386,5 +428,6 @@ module.exports = {
   normalizeOfferCatalogEntry,
   materializeOfferCatalog,
   restoreMissingOffers,
+  findOfferByName,
   patchOfferOutreachFields,
 };

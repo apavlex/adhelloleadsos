@@ -426,8 +426,10 @@ const LEAD_GEN_TOOL_SCHEMAS = [
   {
     name: 'save_script',
     description:
-      'Save a call script, SMS or email template to the workspace Scripts library (Scripts → Saved library). You write the body yourself; use merge tags {{name}}, {{company}}, {{city}}. ' +
+      'Save a call script, SMS or email template. You write the body yourself; use merge tags {{name}}, {{company}}, {{city}}. ' +
       'Set section "sms" for text messages and "email" for emails. ' +
+      'When the script belongs to an offer/service (e.g. "the Overflow script", "for Overflow Referral"), set offer to its name: the text goes into that offer\'s Call/SMS/Email box on Scripts → By offer (a new offer is created if none matches). ' +
+      'Without offer it goes to Scripts → Saved library. ' +
       'Optional folder_id/folder_name tags the script with that folder (the app has no per-folder scripts; the folder name goes in the title).',
     parameters: {
       type: 'object',
@@ -441,7 +443,8 @@ const LEAD_GEN_TOOL_SCHEMAS = [
         },
         folder_id: { type: 'string' },
         folder_name: { type: 'string' },
-        offer_key: { type: 'string', description: 'Optional offer key from the Scripts page' },
+        offer: { type: 'string', description: 'Offer name (or key) on Scripts → By offer to save into, e.g. "Overflow Referral"' },
+        offer_key: { type: 'string', description: 'Same as offer, by key' },
       },
       required: ['name', 'body'],
       additionalProperties: false,

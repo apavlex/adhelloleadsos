@@ -542,6 +542,7 @@
       hydrateScriptEditors();
       refreshAllSmsFieldStates();
       updateCoachLabel();
+      resetBlocksBaseline();
     }
 
     function initOfferPanelDelegation() {
@@ -770,6 +771,7 @@
     var coachHistories = {};
     var pendingRefined = null;
     var blockSaveTimer = null;
+    var blocksBaseline = null;
     var outreachSaveTimers = {};
     var lastFocusedSnippetId = 'snippet-' + coachFocus.pitch + '-' + coachFocus.section;
     var lastServerSaveAt = null;
@@ -1019,12 +1021,34 @@
       return entry ? [entry] : [];
     }
 
+    // Last text known to match the server, per offer. Autosave only sends offers that differ,
+    // so an open page can't blank out scripts saved elsewhere (Ask AI, another tab).
+    function resetBlocksBaseline() {
+      var all = collectBlocksPayload();
+      blocksBaseline = {};
+      Object.keys(all).forEach(function (k) { blocksBaseline[k] = JSON.stringify(all[k]); });
+    }
+
+    function changedBlocks() {
+      var all = collectBlocksPayload();
+      var out = {};
+      Object.keys(all).forEach(function (k) {
+        if (!blocksBaseline || blocksBaseline[k] !== JSON.stringify(all[k])) out[k] = all[k];
+      });
+      return out;
+    }
+
     function persistBlocksNow() {
+      var blocks = changedBlocks();
+      if (!Object.keys(blocks).length) {
+        if (lastServerSaveAt) setAutosaveTextForAll(formatSavedAgo());
+        return Promise.resolve(true);
+      }
       setAutosaveTextForAll('Saving…');
       return fetch('/workspace/scripts/blocks', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ blocks: collectBlocksPayload(), offers: openOfferEntries() }),
+        body: JSON.stringify({ blocks: blocks, offers: openOfferEntries() }),
       })
         .then(function (r) { return r.json(); })
         .then(function (d) {
@@ -1037,6 +1061,8 @@
             setAutosaveTextForAll('Save failed — reload the page');
             return false;
           }
+          if (!blocksBaseline) blocksBaseline = {};
+          Object.keys(blocks).forEach(function (k) { blocksBaseline[k] = JSON.stringify(blocks[k]); });
           lastServerSaveAt = Date.now();
           setAutosaveTextForAll(formatSavedAgo());
           scheduleSaveStatusTick();
@@ -1145,6 +1171,7 @@
           if (emailHint) emailHint.classList.toggle('hidden', !!String(emailTa.value || '').trim());
         }
       });
+      resetBlocksBaseline();
     }
 
     function syncScriptsFromServer() {
@@ -1506,6 +1533,10 @@
     syncScriptsFromServer();
     document.addEventListener('visibilitychange', function () {
       if (!document.hidden) syncScriptsFromServer();
+    });
+    window.addEventListener('adhello:scripts-changed', function () {
+      clearTimeout(blockSaveTimer);
+      persistBlocksNow().then(syncScriptsFromServer);
     });
   })();
 </script>

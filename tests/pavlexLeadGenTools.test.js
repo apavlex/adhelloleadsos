@@ -281,6 +281,44 @@ describe('save_script', () => {
     const missing = await executeCrmTool(ctxA, 'save_script', { name: 'x', body: '' });
     assert.equal(missing.success, false);
   });
+
+  it('saves into the named offer box on Scripts → By offer (loose name match, keeps other boxes)', async () => {
+    const ws = await dbService.getWorkspace(WS_B);
+    ws.salesScriptOfferCatalog = [
+      { key: 'reputation', label: 'Reputation Management', tabLabel: 'Reputation' },
+      { key: 'overflow_referral', label: 'Overflow Referral', tabLabel: 'Overflow Referral' },
+    ];
+    ws.salesScriptBlockOverrides = { overflow_referral: { opening: 'Existing call script', sms: '' } };
+    await dbService.saveWorkspace(WS_B, ws);
+
+    const sms = 'Hey, this is {{name}} with {{company}}. Do you guys ever use a team for overflow?';
+    const out = await executeCrmTool(ctxB, 'save_script', {
+      name: 'The Overflow – Siding to Builders',
+      body: sms,
+      section: 'sms',
+      offer: 'The overflow (for siding to builders)',
+    });
+    assert.equal(out.success, true, out.error);
+    assert.equal(out.offer.key, 'overflow_referral');
+    assert.equal(out.offer.created, false);
+    assert.match(out.location, /By offer → Overflow Referral → SMS script/);
+    let after = await dbService.getWorkspace(WS_B);
+    assert.equal(after.salesScriptBlockOverrides.overflow_referral.sms, sms);
+    assert.equal(after.salesScriptBlockOverrides.overflow_referral.opening, 'Existing call script');
+    assert.ok(!(after.salesScriptLibraryItems || []).length, 'offer saves do not clutter the library');
+
+    const call = await executeCrmTool(ctxB, 'save_script', { name: 'Call', body: 'New call script', offer: 'Overflow Referral' });
+    assert.equal(call.success, true, call.error);
+    after = await dbService.getWorkspace(WS_B);
+    assert.equal(after.salesScriptBlockOverrides.overflow_referral.opening, 'New call script');
+    assert.equal(after.salesScriptBlockOverrides.overflow_referral.sms, sms, 'call save keeps the SMS');
+
+    const fresh = await executeCrmTool(ctxB, 'save_script', { name: 'x', body: 'Hi {{name}}', section: 'sms', offer: 'Gutter Cleaning' });
+    assert.equal(fresh.offer.created, true);
+    after = await dbService.getWorkspace(WS_B);
+    assert.ok(after.salesScriptOfferCatalog.some((c) => c.key === 'gutter_cleaning'));
+    assert.equal(after.salesScriptBlockOverrides.gutter_cleaning.sms, 'Hi {{name}}');
+  });
 });
 
 describe('find_leads', () => {

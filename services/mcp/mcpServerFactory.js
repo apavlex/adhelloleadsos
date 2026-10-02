@@ -250,8 +250,9 @@ function createCrmMcpServer(ctx) {
     'save_script',
     {
       description:
-        'Save a call script, SMS or email template to the workspace Scripts library (merge tags {{name}} {{company}} {{city}}). ' +
-        'Use section "sms" for text messages, "email" for emails.',
+        'Save a call script, SMS or email template (merge tags {{name}} {{company}} {{city}}). ' +
+        'Use section "sms" for text messages, "email" for emails. ' +
+        'Set offer to an offer name to save into that offer\'s Call/SMS/Email box on Scripts → By offer (created if missing); otherwise it goes to the Saved library.',
       inputSchema: z.object({
         name: z.string().min(1),
         body: z.string().min(1),
@@ -260,6 +261,7 @@ function createCrmMcpServer(ctx) {
           .optional(),
         folder_id: z.string().min(1).optional(),
         folder_name: z.string().min(1).optional(),
+        offer: z.string().optional(),
         offer_key: z.string().optional(),
       }),
     },

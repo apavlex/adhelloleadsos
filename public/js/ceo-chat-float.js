@@ -258,6 +258,9 @@
           if (timedOut) return;
           clearTimeout(timeoutId);
           setBusy(false);
+          if (d.success && Array.isArray(d.toolsUsed) && d.toolsUsed.indexOf('save_script') !== -1) {
+            try { window.dispatchEvent(new CustomEvent('adhello:scripts-changed')); } catch (e) {}
+          }
           if (d.success && d.reply) {
             renderMsg('assistant', d.reply);
             chatHistory.push({ role: 'assistant', content: d.reply });

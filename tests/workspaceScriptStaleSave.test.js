@@ -7,7 +7,7 @@ process.env.APP_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'script-stale-s
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const dbService = require('../services/database');
-const { restoreMissingOffers } = require('../services/workspaceSalesScripts');
+const { restoreMissingOffers, findOfferByName } = require('../services/workspaceSalesScripts');
 const { rememberMemberProfile } = require('../services/teamActivity');
 
 const OFFER = { key: 'overflow_referral', label: 'Overflow Referral', tabLabel: 'Overflow Referral' };
@@ -79,6 +79,22 @@ test('member profile refresh does not overwrite scripts saved after the request 
   assert.equal(after.members['alex@example.com'].name, 'Alex');
   assert.equal(after.accentColor, '#123456');
   assert.ok(after.salesScriptOfferCatalog.some((r) => r.key === 'overflow_referral'));
+});
+
+test('findOfferByName matches loose offer names and refuses ambiguous ones', () => {
+  const catalog = [
+    { key: 'reputation', label: 'Reputation Management', tabLabel: 'Reputation' },
+    { key: 'overflow_referral', label: 'Overflow Referral', tabLabel: 'Overflow Referral' },
+    { key: 'speed_to_lead', label: 'Speed to Lead', tabLabel: 'Speed to lead' },
+    { key: 'seo_local', label: 'Local SEO' },
+    { key: 'ads_local', label: 'Local Ads' },
+  ];
+  assert.equal(findOfferByName(catalog, 'overflow').key, 'overflow_referral');
+  assert.equal(findOfferByName(catalog, 'The "overflow" (For Siding to Builders)').key, 'overflow_referral');
+  assert.equal(findOfferByName(catalog, 'speed_to_lead').key, 'speed_to_lead');
+  assert.equal(findOfferByName(catalog, 'reputation sms').key, 'reputation');
+  assert.equal(findOfferByName(catalog, 'local'), null, 'tie between two offers');
+  assert.equal(findOfferByName(catalog, 'Gutter cleaning'), null);
 });
 
 test('restoreMissingOffers re-adds only the offers being saved', () => {
