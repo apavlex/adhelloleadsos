@@ -14,6 +14,7 @@ const { chatCompletion, parseLlmJson, providersForChain } = require('../services
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const demoWorkspace = require('../services/demoWorkspace');
 const publicDemo = require('../services/publicDemo');
+const storageMaintenance = require('../services/storageMaintenance');
 const { getPublicBaseUrl } = require('../lib/publicBaseUrl');
 const withWorkspace = require('../middleware/withWorkspace');
 
@@ -784,6 +785,19 @@ router.post('/live-demo', express.urlencoded({ extended: true }), async (req, re
       return res.redirect(`/workspaces/live-demo?error=${encodeURIComponent(err.message)}`);
     }
     return res.redirect(`/workspaces/live-demo?saved=${encodeURIComponent(action)}`);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** AdHello admins: what is using the data disk (files, backups, biggest key prefixes). ?run=1 runs cleanup first. */
+router.get('/storage.json', async (req, res, next) => {
+  try {
+    if (!(await publicDemo.canManage(userEmail(req)))) {
+      return res.status(404).json({ success: false, error: 'Not found.' });
+    }
+    const maintenance = req.query.run === '1' ? await storageMaintenance.runMaintenance({ reason: 'manual' }) : null;
+    return res.json({ success: true, ...(maintenance ? { maintenance } : {}), report: storageMaintenance.storageReport() });
   } catch (e) {
     next(e);
   }

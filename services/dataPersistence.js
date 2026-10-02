@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const dbService = require('./database');
 const workspaceIntegrations = require('./workspaceIntegrations');
+const storageMaintenance = require('./storageMaintenance');
 
 /** Render persistent disk mount paths by runtime (see Render docs). */
 const RENDER_DISK_PATHS = {
@@ -59,6 +60,15 @@ function isCustomDataDir() {
  * Log DB location and warn when production looks like a fresh ephemeral instance.
  */
 function logStartupPersistenceStatus() {
+  try {
+    const pruned = storageMaintenance.pruneBackups({ keep: 1 });
+    if (pruned.removed) {
+      console.log(`[persist] Removed ${pruned.removed} old DB backup(s), freed ~${Math.round(pruned.freedBytes / 1048576)} MB`);
+    }
+  } catch (e) {
+    console.warn('[persist] Backup prune failed:', e.message);
+  }
+  storageMaintenance.startStorageMaintenance();
   const stats = dbService.getPersistenceStats();
   const sizeKb = Math.round((stats.dbSizeBytes || 0) / 1024);
   console.log(
@@ -181,20 +191,14 @@ function deploymentPersistenceHint() {
 }
 
 /**
- * Copy app.db (+ WAL) to a timestamped backup alongside the DB (same volume).
- * @returns {string|null} backup path
+ * Rolling backup alongside the DB (same volume): at most one per day, only when the disk has room,
+ * replacing the previous one. Full copies on every integrations save filled the 2 GB disk.
  */
 function backupSqliteSnapshot() {
-  const stats = dbService.getPersistenceStats();
-  if (!stats.dbExists) return null;
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const dest = `${stats.dbPath}.backup-${stamp}`;
-  fs.copyFileSync(stats.dbPath, dest);
-  for (const suffix of ['-wal', '-shm']) {
-    const side = stats.dbPath + suffix;
-    if (fs.existsSync(side)) fs.copyFileSync(side, dest + suffix);
-  }
-  return dest;
+  if (!dbService.getPersistenceStats().dbExists) return;
+  storageMaintenance
+    .rollingBackup()
+    .catch((e) => console.warn('[persist] Backup skipped:', e && e.message ? e.message : e));
 }
 
 module.exports = {

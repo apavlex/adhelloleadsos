@@ -143,6 +143,8 @@ function getPersistenceStats() {
 const sqlite = new Database(DB_PATH);
 sqlite.pragma('journal_mode = WAL');
 sqlite.pragma('foreign_keys = ON');
+// Shrink the WAL back down after checkpoints instead of leaving it at its high-water mark on the small disk.
+sqlite.pragma('journal_size_limit = 67108864');
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 sqlite.exec(`
@@ -484,6 +486,10 @@ module.exports = {
   getPersistenceStats,
   getDbPath() {
     return DB_PATH;
+  },
+  /** Raw handle for storage maintenance (checkpoints, backups, retention). */
+  getSqlite() {
+    return sqlite;
   },
 
   async saveSearch(searchData) {
