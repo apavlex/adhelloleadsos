@@ -74,6 +74,110 @@ function readJsonReply(r) {
       el.addEventListener('click', function () { closeMobileMenu(); });
     });
   }
+
+  // Swipe right anywhere to pull the menu open, swipe left to push it closed (like the X app).
+  // The panel follows the finger; release past ~35% or with a flick to finish.
+  if (mobileMenu && mobileMenuPanel && window.matchMedia) {
+    var phoneMq = window.matchMedia('(max-width: 767px)');
+    var NO_SWIPE = 'input, textarea, select, [contenteditable="true"], canvas, video, [role="dialog"], [role="slider"], ' +
+      '.leaflet-container, .gm-style, [data-no-swipe-nav]';
+    var EDGE_PX = 28;
+    var drag = null;
+
+    function isOpen() {
+      return !mobileMenu.classList.contains('hidden') && !mobileMenu.classList.contains('opacity-0');
+    }
+
+    function inHorizontalScroller(el) {
+      for (var n = el; n && n !== document.body; n = n.parentElement) {
+        if (n.scrollWidth > n.clientWidth + 1) {
+          var ox = window.getComputedStyle(n).overflowX;
+          if (ox === 'auto' || ox === 'scroll') return true;
+        }
+      }
+      return false;
+    }
+
+    function setDragPosition(offset) {
+      var w = drag.width;
+      var x = Math.max(-w, Math.min(0, offset));
+      mobileMenuPanel.style.transform = 'translateX(' + x + 'px)';
+      mobileMenu.style.opacity = String(1 + x / w);
+    }
+
+    function clearDragStyles() {
+      mobileMenuPanel.style.transition = '';
+      mobileMenuPanel.style.transform = '';
+      mobileMenu.style.transition = '';
+      mobileMenu.style.opacity = '';
+    }
+
+    document.addEventListener('touchstart', function (e) {
+      drag = null;
+      if (!phoneMq.matches || e.touches.length !== 1) return;
+      var t = e.touches[0];
+      var open = isOpen();
+      var target = e.target;
+      if (!open) {
+        if (document.body.classList.contains('overflow-hidden')) return;
+        if (target.closest && target.closest(NO_SWIPE)) return;
+        if (t.clientX > EDGE_PX && inHorizontalScroller(target)) return;
+      }
+      drag = { x0: t.clientX, y0: t.clientY, t0: Date.now(), open: open, active: false, dead: false, width: mobileMenuPanel.offsetWidth || 288 };
+    }, { passive: true });
+
+    document.addEventListener('touchmove', function (e) {
+      if (!drag || drag.dead) return;
+      var t = e.touches[0];
+      var dx = t.clientX - drag.x0;
+      var dy = t.clientY - drag.y0;
+      if (!drag.active) {
+        if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+        var wantsOpen = !drag.open && dx > 0;
+        var wantsClose = drag.open && dx < 0;
+        if (Math.abs(dx) < Math.abs(dy) * 1.4 || !(wantsOpen || wantsClose)) {
+          drag.dead = true;
+          return;
+        }
+        drag.active = true;
+        drag.x0 = t.clientX;
+        mobileMenuPanel.style.transition = 'none';
+        mobileMenu.style.transition = 'none';
+        if (!drag.open) {
+          document.dispatchEvent(new CustomEvent('adhello:nav-popover', { detail: { id: 'mobile-menu' } }));
+          mobileMenu.style.opacity = '0';
+          mobileMenu.classList.remove('hidden', 'pointer-events-none');
+          document.body.classList.add('overflow-hidden');
+        }
+        dx = 0;
+      }
+      e.preventDefault();
+      drag.lastDx = dx;
+      drag.lastT = Date.now();
+      setDragPosition(drag.open ? dx : dx - drag.width);
+    }, { passive: false });
+
+    function endDrag() {
+      if (!drag || !drag.active) {
+        drag = null;
+        return;
+      }
+      var dx = drag.lastDx || 0;
+      var velocity = dx / Math.max(1, (drag.lastT || Date.now()) - drag.t0);
+      var travelled = Math.abs(dx) / drag.width;
+      var finish = travelled > 0.35 || Math.abs(velocity) > 0.5;
+      var shouldOpen = drag.open ? !finish : finish;
+      // Let the transition run from the dragged position to the final one.
+      void mobileMenuPanel.offsetWidth;
+      clearDragStyles();
+      if (shouldOpen) openMobileMenu();
+      else closeMobileMenu();
+      drag = null;
+    }
+
+    document.addEventListener('touchend', endDrag, { passive: true });
+    document.addEventListener('touchcancel', endDrag, { passive: true });
+  }
 })();
 (function () {
   var btn = document.getElementById('userMenuBtn');
