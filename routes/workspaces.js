@@ -724,6 +724,9 @@ router.post('/demo', express.urlencoded({ extended: true }), async (req, res, ne
   try {
     const email = userEmail(req);
     if (!email) return res.redirect('/auth/login');
+    if (!(await publicDemo.canManage(email))) {
+      return res.status(403).render('error', { message: 'Demo workspaces are only available to the AdHello team.', activePage: '' });
+    }
     const em = workspaceBootstrap.normEmail(email);
     const { workspaceId } = await demoWorkspace.createDemoWorkspace(em, { allocateSlug: allocateUniqueSlug });
     await dbService.saveUserPrefs(em, { activeWorkspaceId: workspaceId });
@@ -741,16 +744,17 @@ router.post('/demo', express.urlencoded({ extended: true }), async (req, res, ne
 /** Public live-demo link (sales page / form confirmation): show, copy, regenerate, turn off. */
 router.get('/live-demo', async (req, res, next) => {
   try {
-    const canManage = await publicDemo.canManage(userEmail(req));
+    if (!(await publicDemo.canManage(userEmail(req)))) {
+      return res.status(404).render('error', { message: 'Page not found.', activePage: '' });
+    }
     const cfg = publicDemo.getConfig();
-    res.render('live_demo_settings', {
+    return res.render('live_demo_settings', {
       title: 'Public demo link',
       activePage: '',
-      canManage,
       cfg,
       link: cfg.enabled ? `${getPublicBaseUrl(req)}/live-demo/${cfg.key}` : '',
-      stats: canManage ? publicDemo.stats() : null,
-      recent: canManage ? publicDemo.recentLaunches(10) : [],
+      stats: publicDemo.stats(),
+      recent: publicDemo.recentLaunches(10),
       notice: String(req.query.saved || ''),
       error: String(req.query.error || ''),
     });

@@ -12,6 +12,7 @@ const { resolveAccentTextColor } = require('../lib/workspaceAccent');
 const { normalizeCustomMenuLinks } = require('../services/customMenuLinks');
 const { viewDateFormatters } = require('../services/workspaceTimezone');
 const whiteLabel = require('../services/whiteLabel');
+const publicDemo = require('../services/publicDemo');
 
 function attachWorkspaceQuickLog(res, ws) {
   const agencySales = isAgencySalesWorkspace(ws);
@@ -176,12 +177,15 @@ async function withWorkspace(req, res, next) {
     }
 
     let summaries = [];
+    let canManageDemo = false;
     if (!telephonyFastPath) {
       const sk = switcherCacheKey(email);
       const hit = sk && _switcherCache.get(sk);
       if (hit && Date.now() - hit.at < SWITCHER_TTL_MS) {
         summaries = hit.summaries;
+        canManageDemo = hit.canManageDemo;
       } else {
+        canManageDemo = await publicDemo.canManage(email);
         const allIds = await workspaceBootstrap.collectWorkspaceIdsForEmail(email);
         const docs = await Promise.all(allIds.map((id) => dbService.getWorkspace(id)));
         for (const w of docs) {
@@ -194,7 +198,10 @@ async function withWorkspace(req, res, next) {
             isDemo: !!w.isDemo,
           });
         }
-        if (sk) _switcherCache.set(sk, { at: Date.now(), summaries });
+        if (sk) _switcherCache.set(sk, { at: Date.now(), summaries, canManageDemo });
+      }
+      if (!canManageDemo && !res.locals.liveDemo) {
+        summaries = summaries.filter((w) => !w.isDemo || w.id === ws.id);
       }
     }
 
@@ -204,6 +211,7 @@ async function withWorkspace(req, res, next) {
     res.locals.canManageWorkspace = req.canManageWorkspace;
     Object.assign(res.locals, viewDateFormatters(ws));
     res.locals.workspaceSwitcherList = summaries;
+    res.locals.canManageDemo = canManageDemo;
     res.locals.workspaceAccent = ws.accentColor || '#CA8A04';
     res.locals.workspaceAccentText = resolveAccentTextColor(ws.accentColor, ws.accentTextColor);
     res.locals.whiteLabel = whiteLabel.brandForWorkspace(ws);
