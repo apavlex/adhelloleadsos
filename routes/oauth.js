@@ -139,13 +139,17 @@ router.get('/oauth/authorize', async (req, res, next) => {
     }
 
     const email = userEmail(req);
-    const workspaces = await accessibleWorkspaces(email);
+    const lockedWs = check.client.manual ? check.client.workspaceId : '';
+    const workspaces = (await accessibleWorkspaces(email)).filter((w) => !lockedWs || w.id === lockedWs);
     if (!workspaces.length) {
-      return renderPage(res, 403, { error: `${email} is not on an AdHello workspace yet. Sign in with the Google account you use for AdHello.` });
+      const why = lockedWs
+        ? `This app was set up for a workspace ${email} is not on.`
+        : `${email} is not on an AdHello workspace yet.`;
+      return renderPage(res, 403, { error: `${why} Sign in with the Google account you use for AdHello.` });
     }
 
     const txn = crypto.randomBytes(16).toString('hex');
-    rememberTxn(req.session, txn, { params: check.params, clientName: check.client.name, at: Date.now() });
+    rememberTxn(req.session, txn, { params: check.params, clientName: check.client.name, lockedWs, at: Date.now() });
     const active = req.session.activeWorkspaceId;
     return renderPage(res, 200, {
       connector: { name: check.client.name, redirectHost: redirectHost(check.params.redirectUri) },
@@ -180,7 +184,7 @@ router.post('/oauth/authorize', async (req, res, next) => {
     const email = userEmail(req);
     const workspaces = await accessibleWorkspaces(email);
     const workspaceId = String(req.body.workspaceId || '');
-    if (!workspaces.some((w) => w.id === workspaceId)) {
+    if (!workspaces.some((w) => w.id === workspaceId) || (pending.lockedWs && pending.lockedWs !== workspaceId)) {
       return renderPage(res, 403, { error: 'You do not have access to that workspace.' });
     }
 

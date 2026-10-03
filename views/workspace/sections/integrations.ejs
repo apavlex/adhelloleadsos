@@ -753,6 +753,44 @@
           <% }); %>
         </div>
 
+        <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
+        <% const _mcpClients = (typeof mcpOAuthClients !== 'undefined' && Array.isArray(mcpOAuthClients)) ? mcpOAuthClients : []; %>
+        <div id="mcpOAuthClients" class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 px-4 py-3 space-y-3">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Apps that ask for a Client ID (Meta AI / Muse, Grok, agent builders)</p>
+          <p class="text-xs text-brand-muted leading-relaxed">
+            Some apps can't register themselves and ask for an <strong class="text-brand-dark dark:text-white">OAuth Client ID</strong>. Create one here, then paste the Client ID, Client secret, and URLs into the app.
+            If the app shows a <strong class="text-brand-dark dark:text-white">callback / redirect URL</strong>, paste it below; if not, leave it blank and the first sign-in locks it in. Each Client ID only connects to this workspace.
+          </p>
+          <div class="flex flex-wrap gap-2 items-end">
+            <div style="flex:1 1 10rem;max-width:14rem">
+              <label for="mcpClientName" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">App name</label>
+              <input id="mcpClientName" type="text" maxlength="120" placeholder="Meta AI (Muse)" autocomplete="off" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" />
+            </div>
+            <div style="flex:3 1 14rem">
+              <label for="mcpClientRedirect" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Callback URL <span class="font-normal normal-case tracking-normal">(optional)</span></label>
+              <input id="mcpClientRedirect" type="url" placeholder="https://… (from the app's connector screen)" autocomplete="off" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" />
+            </div>
+            <button type="button" id="mcpCreateClientBtn" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-opacity disabled:opacity-50">Create Client ID</button>
+          </div>
+          <p id="mcpClientMsg" class="text-xs text-brand-muted min-h-[1.25rem]" aria-live="polite"></p>
+          <div id="mcpNewClientBox" class="hidden rounded-lg border border-emerald-400/40 bg-emerald-50 dark:bg-emerald-950/30 px-3 py-3 space-y-2">
+            <p class="text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-200">Paste these into the app — the secret is shown only once</p>
+            <div id="mcpNewClientFields" class="space-y-2"></div>
+          </div>
+          <div id="mcpClientList" class="space-y-2">
+            <% _mcpClients.forEach(function (c) { %>
+            <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white/80 dark:bg-slate-900 px-3 py-2" data-mcp-client="<%= c.id %>">
+              <div class="min-w-0">
+                <p class="text-sm font-semibold text-brand-dark dark:text-white truncate"><%= c.name %></p>
+                <p class="text-[11px] text-brand-muted break-all">Client ID <code><%= c.id %></code> · <%= c.redirectUris.length ? c.redirectUris[0] : 'callback not locked in yet' %><% if (c.createdBy) { %> · by <%= c.createdBy %><% } %></p>
+              </div>
+              <button type="button" data-mcp-client-delete="<%= c.id %>" class="rounded-xl border border-rose-400/50 bg-rose-500/10 text-rose-900 dark:text-rose-200 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/20 transition-colors">Delete</button>
+            </div>
+            <% }); %>
+          </div>
+        </div>
+        <% } %>
+
         <div class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 px-4 py-3 space-y-3">
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Access token (header-only clients)</p>
           <p id="mcpTokenStatusLine" class="text-xs text-brand-muted leading-relaxed">
@@ -1279,6 +1317,94 @@
   if (copyMcpManifestBtn) {
     copyMcpManifestBtn.addEventListener('click', function () {
       copyTextFromEl(document.getElementById('mcpManifestUrl'), copyMcpManifestBtn, 'Copy URL');
+    });
+  }
+
+  var mcpClientsBox = document.getElementById('mcpOAuthClients');
+  if (mcpClientsBox) {
+    var mcpClientMsg = document.getElementById('mcpClientMsg');
+    var mcpCreateClientBtn = document.getElementById('mcpCreateClientBtn');
+    var mcpNewClientBox = document.getElementById('mcpNewClientBox');
+    var mcpNewClientFields = document.getElementById('mcpNewClientFields');
+    var setClientMsg = function (text, ok) {
+      mcpClientMsg.textContent = text;
+      mcpClientMsg.className = 'text-xs min-h-[1.25rem] ' + (ok === false ? 'text-red-700 dark:text-red-300' : ok ? 'text-emerald-700 dark:text-emerald-300' : 'text-brand-muted');
+    };
+    mcpClientsBox.querySelectorAll('input').forEach(function (input) {
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); mcpCreateClientBtn.click(); }
+      });
+    });
+    var addClientField = function (label, value) {
+      var row = document.createElement('div');
+      var lab = document.createElement('p');
+      lab.className = 'text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-200 mb-1';
+      lab.textContent = label;
+      var line = document.createElement('div');
+      line.className = 'flex flex-wrap items-center gap-2';
+      var code = document.createElement('code');
+      code.className = 'text-[11px] break-all rounded-lg bg-white/90 dark:bg-slate-900 px-3 py-2 flex-1 min-w-[12rem] font-mono';
+      code.textContent = value;
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'shrink-0 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-emerald-900 dark:text-emerald-200 hover:bg-emerald-500/20 transition-colors';
+      btn.textContent = 'Copy';
+      btn.addEventListener('click', function () { copyTextFromEl(code, btn, 'Copy'); });
+      line.appendChild(code);
+      line.appendChild(btn);
+      row.appendChild(lab);
+      row.appendChild(line);
+      mcpNewClientFields.appendChild(row);
+    };
+    mcpCreateClientBtn.addEventListener('click', async function () {
+      setClientMsg('');
+      mcpNewClientBox.classList.add('hidden');
+      mcpCreateClientBtn.disabled = true;
+      try {
+        var res = await fetch('/workspace/integrations/mcp/clients', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: document.getElementById('mcpClientName').value,
+            redirectUri: document.getElementById('mcpClientRedirect').value,
+          }),
+        });
+        var data = await res.json().catch(function () { return {}; });
+        if (!res.ok || !data.success) throw new Error((data && data.error) || 'Could not create the Client ID');
+        mcpNewClientFields.innerHTML = '';
+        addClientField('Client ID', data.clientId);
+        addClientField('Client secret', data.clientSecret);
+        addClientField('MCP server URL', data.mcpUrl);
+        addClientField('Authorization URL', data.authorizationUrl);
+        addClientField('Token URL', data.tokenUrl);
+        addClientField('Scope', data.scope);
+        mcpNewClientBox.classList.remove('hidden');
+        setClientMsg('Client ID created. Copy the secret now; refresh the page to see it in the list.', true);
+      } catch (e) {
+        setClientMsg(e && e.message ? e.message : 'Could not create the Client ID', false);
+      } finally {
+        mcpCreateClientBtn.disabled = false;
+      }
+    });
+    mcpClientsBox.addEventListener('click', async function (e) {
+      var btn = e.target.closest('[data-mcp-client-delete]');
+      if (!btn) return;
+      if (!window.confirm('Delete this Client ID? The app will be disconnected and stop working.')) return;
+      btn.disabled = true;
+      try {
+        var res = await fetch('/workspace/integrations/mcp/clients/' + encodeURIComponent(btn.dataset.mcpClientDelete), {
+          method: 'DELETE',
+          credentials: 'same-origin',
+        });
+        if (!res.ok) throw new Error('Could not delete');
+        var row = btn.closest('[data-mcp-client]');
+        if (row) row.remove();
+        setClientMsg('Client ID deleted.', true);
+      } catch (err) {
+        btn.disabled = false;
+        setClientMsg('Could not delete the Client ID.', false);
+      }
     });
   }
 

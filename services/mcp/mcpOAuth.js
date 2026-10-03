@@ -128,6 +128,56 @@ async function getClient(clientId) {
   return readJson(`oauthclient:${id}`);
 }
 
+/**
+ * Client created by a workspace admin for apps that ask for a Client ID instead of
+ * registering themselves (Meta AI, some Grok/agent builders). Always confidential.
+ * With no redirect URI, the first one used at /authorize is locked in.
+ */
+async function createManualClient({ workspaceId, name, redirectUri, createdBy }) {
+  const uri = String(redirectUri || '').trim();
+  if (uri && !validRedirectUri(uri)) throw new OAuthError('invalid_redirect_uri', `Redirect URI not allowed: ${uri}`);
+  const clientId = `mcp_${crypto.randomBytes(12).toString('hex')}`;
+  const clientSecret = randomToken();
+  const client = {
+    id: clientId,
+    name: cleanText(name, 120) || 'AI assistant',
+    clientUri: '',
+    redirectUris: uri ? [uri] : [],
+    grantTypes: ['authorization_code', 'refresh_token'],
+    tokenEndpointAuthMethod: 'client_secret_post',
+    secretHash: sha256(clientSecret),
+    manual: true,
+    workspaceId: String(workspaceId),
+    createdBy: String(createdBy || '').toLowerCase(),
+    createdAt: new Date().toISOString(),
+  };
+  await dbService.putStorageKey(`oauthclient:${clientId}`, client);
+  return { client, clientSecret };
+}
+
+async function listManualClients(workspaceId) {
+  const keys = await dbService.listStorageKeysWithPrefix('oauthclient:');
+  const rows = [];
+  for (const key of keys) {
+    const c = await readJson(key);
+    if (c && c.manual && c.workspaceId === workspaceId) {
+      rows.push({ id: c.id, name: c.name, redirectUris: c.redirectUris || [], createdBy: c.createdBy || '', createdAt: c.createdAt || '' });
+    }
+  }
+  return rows.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+}
+
+async function deleteManualClient(workspaceId, clientId) {
+  const client = await getClient(clientId);
+  if (!client || !client.manual || client.workspaceId !== workspaceId) return false;
+  for (const key of await dbService.listStorageKeysWithPrefix('oauthgrant:')) {
+    const grant = await readJson(key);
+    if (grant && grant.clientId === client.id && !grant.revokedAt) await revokeGrantById(grant.id);
+  }
+  await dbService.deleteStorageKey(`oauthclient:${client.id}`);
+  return true;
+}
+
 function authenticateClient(client, secret) {
   if (!client) throw new OAuthError('invalid_client', 'Unknown client.', 401);
   if (client.tokenEndpointAuthMethod === 'none') return;
@@ -146,21 +196,29 @@ async function checkAuthorizeRequest(query) {
   if (!client) return { ok: false, redirect: false, error: 'This app is not registered. Remove the connector and add it again.' };
   let redirectUri = String(q.redirect_uri || '').trim();
   if (!redirectUri && client.redirectUris.length === 1) redirectUri = client.redirectUris[0];
+  if (client.manual && !client.redirectUris.length && validRedirectUri(redirectUri)) {
+    client.redirectUris = [redirectUri];
+    await dbService.putStorageKey(`oauthclient:${client.id}`, client);
+  }
   if (!client.redirectUris.includes(redirectUri)) {
     return { ok: false, redirect: false, error: 'The redirect address does not match what this app registered.' };
   }
   const fail = (error, description) => ({ ok: false, redirect: true, redirectUri, state: q.state, error, description });
   if (q.response_type !== 'code') return fail('unsupported_response_type', 'Only response_type=code is supported.');
-  if (!q.code_challenge) return fail('invalid_request', 'PKCE code_challenge is required.');
-  if ((q.code_challenge_method || 'plain') !== 'S256') return fail('invalid_request', 'code_challenge_method must be S256.');
-  if (!/^[A-Za-z0-9_-]{43,128}$/.test(String(q.code_challenge))) return fail('invalid_request', 'Malformed code_challenge.');
+  // Public clients must use PKCE; confidential clients prove themselves with the secret at /token.
+  const confidential = client.tokenEndpointAuthMethod !== 'none';
+  if (!q.code_challenge && !confidential) return fail('invalid_request', 'PKCE code_challenge is required.');
+  if (q.code_challenge) {
+    if ((q.code_challenge_method || 'plain') !== 'S256') return fail('invalid_request', 'code_challenge_method must be S256.');
+    if (!/^[A-Za-z0-9_-]{43,128}$/.test(String(q.code_challenge))) return fail('invalid_request', 'Malformed code_challenge.');
+  }
   return {
     ok: true,
     client,
     params: {
       clientId: client.id,
       redirectUri,
-      codeChallenge: String(q.code_challenge),
+      codeChallenge: q.code_challenge ? String(q.code_challenge) : '',
       state: q.state == null ? '' : String(q.state).slice(0, 500),
       resource: cleanText(q.resource, 400),
     },
@@ -219,10 +277,12 @@ async function exchangeAuthorizationCode({ code, clientId, clientSecret, redirec
   if (!record || record.expiresAt < Date.now()) throw new OAuthError('invalid_grant', 'Authorization code is invalid or expired.');
   if (record.clientId !== client.id) throw new OAuthError('invalid_grant', 'Code was issued to another client.');
   if (redirectUri && redirectUri !== record.redirectUri) throw new OAuthError('invalid_grant', 'redirect_uri does not match.');
-  const verifier = String(codeVerifier || '');
-  if (!/^[A-Za-z0-9._~-]{43,128}$/.test(verifier)) throw new OAuthError('invalid_grant', 'code_verifier is missing or malformed.');
-  const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
-  if (!safeEqual(challenge, record.codeChallenge)) throw new OAuthError('invalid_grant', 'PKCE verification failed.');
+  if (record.codeChallenge || client.tokenEndpointAuthMethod === 'none') {
+    const verifier = String(codeVerifier || '');
+    if (!/^[A-Za-z0-9._~-]{43,128}$/.test(verifier)) throw new OAuthError('invalid_grant', 'code_verifier is missing or malformed.');
+    const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
+    if (!safeEqual(challenge, record.codeChallenge || '')) throw new OAuthError('invalid_grant', 'PKCE verification failed.');
+  }
 
   const grant = {
     id: `g_${crypto.randomBytes(10).toString('hex')}`,
@@ -356,6 +416,9 @@ module.exports = {
   validRedirectUri,
   registerClient,
   getClient,
+  createManualClient,
+  listManualClients,
+  deleteManualClient,
   checkAuthorizeRequest,
   redirectWith,
   issueAuthorizationCode,

@@ -399,6 +399,7 @@ async function loadWorkspacePageLocals(req) {
     .toLowerCase();
   const mcpTokenStatus = getWorkspaceMcpTokenStatus(ws);
   const mcpConnectedApps = await mcpOAuth.listGrantsForWorkspace(req.workspaceId).catch(() => []);
+  const mcpOAuthClients = req.canManageWorkspace ? await mcpOAuth.listManualClients(req.workspaceId).catch(() => []) : [];
   const mcpEndpoint = base ? `${base}/ceo/mcp` : '';
   const mcpManifestUrl = base ? `${base}/ceo/mcp/manifest.json` : '';
   const openrouterConfigured = isOpenRouterConfigured(resolvedEnv);
@@ -422,6 +423,7 @@ async function loadWorkspacePageLocals(req) {
     ghlSyncDirection,
     mcpTokenStatus,
     mcpConnectedApps,
+    mcpOAuthClients,
     mcpEndpoint,
     mcpManifestUrl,
     openrouterConfigured,
@@ -714,6 +716,53 @@ router.delete('/integrations/mcp/token', async (req, res, next) => {
     }
     const result = await revokeWorkspaceMcpToken(req.workspaceId);
     res.json({ success: true, ...result });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/integrations/mcp/clients', async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) return res.status(403).json({ success: false, error: 'Workspace admin required.' });
+    res.json({ success: true, clients: await mcpOAuth.listManualClients(req.workspaceId) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/integrations/mcp/clients', express.json(), async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) return res.status(403).json({ success: false, error: 'Workspace admin required.' });
+    const body = req.body || {};
+    const { client, clientSecret } = await mcpOAuth.createManualClient({
+      workspaceId: req.workspaceId,
+      name: body.name,
+      redirectUri: body.redirectUri,
+      createdBy: workspaceService.userEmail(req),
+    });
+    const base = getPublicBaseUrl(req);
+    res.json({
+      success: true,
+      client: { id: client.id, name: client.name, redirectUris: client.redirectUris, createdAt: client.createdAt },
+      clientId: client.id,
+      clientSecret,
+      mcpUrl: `${base}/ceo/mcp`,
+      authorizationUrl: `${base}/oauth/authorize`,
+      tokenUrl: `${base}/oauth/token`,
+      scope: mcpOAuth.SCOPE,
+    });
+  } catch (err) {
+    if (err instanceof mcpOAuth.OAuthError) return res.status(400).json({ success: false, error: err.message });
+    next(err);
+  }
+});
+
+router.delete('/integrations/mcp/clients/:clientId', async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) return res.status(403).json({ success: false, error: 'Workspace admin required.' });
+    const ok = await mcpOAuth.deleteManualClient(req.workspaceId, req.params.clientId);
+    if (!ok) return res.status(404).json({ success: false, error: 'App not found.' });
+    res.json({ success: true });
   } catch (err) {
     next(err);
   }
