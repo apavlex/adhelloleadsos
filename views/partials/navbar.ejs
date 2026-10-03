@@ -151,7 +151,7 @@
           </div>
           <a href="/workspace/team" class="block px-4 py-2.5 text-sm text-brand-dark dark:text-white hover:bg-brand-cream/60 dark:hover:bg-white/5">Team &amp; workspace</a>
           <a href="/activation" class="block px-4 py-2.5 text-sm text-brand-dark dark:text-white hover:bg-brand-cream/60 dark:hover:bg-white/5">7-day activation</a>
-          <a href="/workspace/ai-apps" class="block px-4 py-2.5 text-sm text-brand-dark dark:text-white hover:bg-brand-cream/60 dark:hover:bg-white/5">Connect ChatGPT, Claude &amp; Gemini</a>
+          <a href="/workspace/ai-apps" class="block px-4 py-2.5 text-sm text-brand-dark dark:text-white hover:bg-brand-cream/60 dark:hover:bg-white/5">AI Connector</a>
           <a href="/logout" class="block px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30">Log out</a>
         </div>
       </div>
@@ -243,7 +243,7 @@
             <% } %>
             <a href="/workspace/team" class="sidebar-nav-link sidebar-nav-sub <%= _mrp.startsWith('/workspace') && !_mrp.startsWith('/workspace/voicemail') && !_mrp.startsWith('/workspace/phones') && !_mrp.startsWith('/workspace/ai-apps') ? 'active' : '' %>">Workspace settings</a>
             <a href="/activation" class="sidebar-nav-link sidebar-nav-sub <%= _mrp.startsWith('/activation') ? 'active' : '' %>">7-day activation</a>
-            <a href="/workspace/ai-apps" class="sidebar-nav-link sidebar-nav-sub <%= _mrp.startsWith('/workspace/ai-apps') ? 'active' : '' %>">ChatGPT, Claude &amp; Gemini</a>
+            <a href="/workspace/ai-apps" class="sidebar-nav-link sidebar-nav-sub <%= _mrp.startsWith('/workspace/ai-apps') ? 'active' : '' %>">AI Connector</a>
           </nav>
         </details>
         <% if (user) { %>

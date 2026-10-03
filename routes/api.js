@@ -1,5 +1,8 @@
 const express = require('express');
 const router = express.Router();
+
+// Agents often guess /api/mcp; serve the same MCP endpoint as /ceo/mcp.
+router.use('/mcp', require('./mcp'));
 const dbService = require('../services/database');
 const webEnrichment = require('../services/webEnrichment');
 const workspaceIntegrations = require('../services/workspaceIntegrations');

@@ -13,6 +13,9 @@ const oauth = require('../services/mcp/mcpOAuth');
 
 const router = express.Router();
 
+// Agents often guess /mcp; serve the same MCP endpoint as /ceo/mcp.
+router.use('/mcp', require('./mcp'));
+
 const ALL_WORKSPACES = '__all__';
 const TXN_TTL_MS = 15 * 60 * 1000;
 const MAX_TXNS = 5;

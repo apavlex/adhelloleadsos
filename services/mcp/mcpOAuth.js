@@ -472,7 +472,7 @@ function protectedResourceMetadata(base) {
     bearer_methods_supported: ['header'],
     scopes_supported: [SCOPE],
     resource_name: 'AdHello Leads',
-    resource_documentation: `${base}/workspace/integrations#mcp-integration`,
+    resource_documentation: `${base}/workspace/ai-apps`,
   };
 }
 

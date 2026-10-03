@@ -53,6 +53,9 @@ const {
   generateWorkspaceMcpToken,
   revokeWorkspaceMcpToken,
   getWorkspaceMcpTokenStatus,
+  createAgentMcpToken,
+  listAgentMcpTokens,
+  revokeAgentMcpToken,
 } = require('../services/mcp/mcpAuth');
 const mcpOAuth = require('../services/mcp/mcpOAuth');
 const whiteLabel = require('../services/whiteLabel');
@@ -273,8 +276,8 @@ const WORKSPACE_SECTION_META = {
       'API keys and provider preferences for this workspace, the Chrome Lead Saver extension, and a cost-aware guide to how Find Leads and Enhance use each provider.',
   },
   'ai-apps': {
-    title: 'ChatGPT, Claude & Gemini',
-    description: 'Connect AdHello to your AI assistant and work your leads, tasks and referral network from chat.',
+    title: 'AI Connector',
+    description: 'Connect ChatGPT, Claude, Gemini, Meta AI (Muse), Grok or any AI agent and let it run your leads, pipeline, tasks and referral network.',
   },
   phones: {
     title: 'Phone number bank',
@@ -400,6 +403,7 @@ async function loadWorkspacePageLocals(req) {
   const mcpTokenStatus = getWorkspaceMcpTokenStatus(ws);
   const mcpConnectedApps = await mcpOAuth.listGrantsForWorkspace(req.workspaceId).catch(() => []);
   const mcpOAuthClients = req.canManageWorkspace ? await mcpOAuth.listManualClients(req.workspaceId).catch(() => []) : [];
+  const mcpAgentTokens = listAgentMcpTokens(ws, { email: workspaceService.userEmail(req), canManage: req.canManageWorkspace });
   const mcpEndpoint = base ? `${base}/ceo/mcp` : '';
   const mcpManifestUrl = base ? `${base}/ceo/mcp/manifest.json` : '';
   const openrouterConfigured = isOpenRouterConfigured(resolvedEnv);
@@ -422,6 +426,7 @@ async function loadWorkspacePageLocals(req) {
     ghlStatus,
     ghlSyncDirection,
     mcpTokenStatus,
+    mcpAgentTokens,
     mcpConnectedApps,
     mcpOAuthClients,
     mcpViewerEmail: workspaceService.userEmail(req).toLowerCase(),
@@ -717,6 +722,37 @@ router.delete('/integrations/mcp/token', async (req, res, next) => {
     }
     const result = await revokeWorkspaceMcpToken(req.workspaceId);
     res.json({ success: true, ...result });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/integrations/mcp/agent-tokens', express.json(), async (req, res, next) => {
+  try {
+    if (req.workspaceRole === 'viewer') {
+      return res.status(403).json({ success: false, error: 'Viewers can\'t connect AI agents. Ask an owner or admin for member access.' });
+    }
+    const issued = await createAgentMcpToken(req.workspaceId, {
+      label: req.body && req.body.label,
+      createdBy: workspaceService.userEmail(req),
+    });
+    res.json({ success: true, ...issued, ...mcpConnectionUrls(req) });
+  } catch (err) {
+    if (err.status === 400) return res.status(400).json({ success: false, error: err.message });
+    next(err);
+  }
+});
+
+router.delete('/integrations/mcp/agent-tokens/:tokenId', async (req, res, next) => {
+  try {
+    const result = await revokeAgentMcpToken(req.workspaceId, req.params.tokenId, {
+      email: workspaceService.userEmail(req),
+      canManage: req.canManageWorkspace,
+    });
+    if (!result.revoked) {
+      return res.status(result.status || 404).json({ success: false, error: result.status === 403 ? 'Only admins or the person who created it can revoke this token.' : 'Token not found.' });
+    }
+    res.json({ success: true });
   } catch (err) {
     next(err);
   }

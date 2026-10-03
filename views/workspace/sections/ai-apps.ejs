@@ -9,6 +9,13 @@
   const _aiCode = 'text-[11px] px-1.5 py-0.5 rounded bg-brand-cream/80 dark:bg-slate-800 font-mono';
   const _aiStep = 'flex gap-3';
   const _aiNum = 'shrink-0 w-6 h-6 rounded-full bg-brand-yellow text-brand-dark text-[11px] font-black flex items-center justify-center';
+  const _aiTokens = typeof mcpAgentTokens !== 'undefined' && Array.isArray(mcpAgentTokens) ? mcpAgentTokens : [];
+  const _aiClients = typeof mcpOAuthClients !== 'undefined' && Array.isArray(mcpOAuthClients) ? mcpOAuthClients : [];
+  const _aiViewer = typeof workspaceRole !== 'undefined' && workspaceRole === 'viewer';
+  const _aiBaseUrl = _aiUrl ? _aiUrl.replace(/\/ceo\/mcp$/, '') : '';
+  const _aiBtn = 'rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-opacity disabled:opacity-50';
+  const _aiInput = 'w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm';
+  const _aiBox = 'rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 px-4 py-3';
 %>
 <div class="space-y-6">
   <% if (_aiDisconnected) { %>
@@ -19,7 +26,8 @@
     <div>
       <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Your connector URL</h3>
       <p class="text-sm text-brand-muted mt-1 leading-relaxed max-w-2xl">
-        Paste this into ChatGPT, Claude or Gemini. Each person signs in with their own AdHello login and picks this workspace, so there is nothing to install and no password or key to share.
+        Paste this into ChatGPT, Claude, Gemini, Meta AI (Muse), Grok or any AI agent that supports MCP. Apps with a sign-in screen use your own AdHello login, so there is no password to share.
+        Agents you chat with that ask for a token (like Muse) get an <a href="#agent-tokens" class="underline font-semibold">agent token</a> instead. Never paste the workspace ID; it is not a token.
       </p>
     </div>
     <div class="flex flex-wrap items-center gap-2">
@@ -27,13 +35,13 @@
       <button type="button" id="aiAppsCopy" class="shrink-0 rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-4 py-3 text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-opacity disabled:opacity-50" <%= _aiUrl ? '' : 'disabled' %>>Copy URL</button>
     </div>
     <p class="text-xs text-brand-muted leading-relaxed">
-      Once connected you can ask about leads, folders, opportunities, tasks and follow-ups, find new leads, sync to Go High Level, and run your referral network. ChatGPT and Claude ask you to confirm before anything is changed.
+      Once connected it can run the workspace: leads, folders, tags, opportunities and stages, tasks and follow-ups, replies, texting and email through Go High Level, finding new leads, and your referral network. Everything it does shows in Team history under its name.
     </p>
   </section>
 
   <section class="<%= _aiCard %> space-y-5">
     <div class="flex flex-wrap gap-2" role="tablist" aria-label="Choose your AI app">
-      <% [['chatgpt', 'ChatGPT'], ['claude', 'Claude'], ['gemini', 'Gemini']].forEach(function (t, i) { %>
+      <% [['chatgpt', 'ChatGPT'], ['claude', 'Claude'], ['gemini', 'Gemini'], ['muse', 'Muse (Meta AI)'], ['grok', 'Grok'], ['agents', 'Other agents']].forEach(function (t, i) { %>
       <button type="button" role="tab" id="aiTab-<%= t[0] %>" aria-controls="aiPanel-<%= t[0] %>" aria-selected="<%= i === 0 ? 'true' : 'false' %>" data-ai-tab="<%= t[0] %>" class="ai-tab rounded-xl border px-4 py-2 text-[11px] font-black uppercase tracking-widest transition-colors <%= i === 0 ? 'bg-brand-yellow border-brand-yellow text-brand-dark' : 'border-brand-border/50 dark:border-white/10 text-brand-muted hover:text-brand-dark dark:hover:text-white' %>"><%= t[1] %></button>
       <% }); %>
     </div>
@@ -74,10 +82,143 @@
         <li class="<%= _aiStep %>"><span class="<%= _aiNum %>">3</span><span>Run <code class="<%= _aiCode %>">gemini</code>, then type <code class="<%= _aiCode %>">/mcp auth adhello</code>. Your browser opens; sign in, pick this workspace and click <strong>Allow</strong>.</span></li>
         <li class="<%= _aiStep %>"><span class="<%= _aiNum %>">4</span><span>Type <code class="<%= _aiCode %>">/mcp</code> to check AdHello shows as connected, then ask your question.</span></li>
       </ol>
-      <% if (_aiCan) { %>
-      <p class="text-xs text-brand-muted">Using a script or a tool without a sign-in screen? Generate an access token under <a class="underline" href="/workspace/integrations#mcp-integration">Integrations</a> and send it as <code class="<%= _aiCode %>">Authorization: Bearer &lt;token&gt;</code>.</p>
-      <% } %>
+      <p class="text-xs text-brand-muted">Using a script or a tool without a sign-in screen? Create an <a class="underline" href="#agent-tokens">agent token</a> below and send it as <code class="<%= _aiCode %>">Authorization: Bearer &lt;token&gt;</code>.</p>
     </div>
+
+    <div id="aiPanel-muse" role="tabpanel" aria-labelledby="aiTab-muse" data-ai-panel="muse" class="space-y-5 hidden">
+      <p class="text-xs text-brand-muted">Muse connects one of two ways. Pick the one that matches what you see.</p>
+      <div class="space-y-3">
+        <p class="text-sm font-bold text-brand-dark dark:text-white">A. You're chatting with Muse and it asks for a token or URL</p>
+        <ol class="space-y-3 text-sm text-brand-dark dark:text-slate-100">
+          <li class="<%= _aiStep %>"><span class="<%= _aiNum %>">1</span><span>Under <a class="underline" href="#agent-tokens">Agent tokens</a> below, type <strong>Muse</strong> and click <strong>Create token</strong>.</span></li>
+          <li class="<%= _aiStep %>"><span class="<%= _aiNum %>">2</span><span>Click <strong>Copy setup message</strong> and paste it into your Muse chat. It has the server URL, the token and how to call it.</span></li>
+          <li class="<%= _aiStep %>"><span class="<%= _aiNum %>">3</span><span>Ask Muse to list its AdHello tools to check it's in, e.g. <em>"How many leads are in each folder?"</em></span></li>
+        </ol>
+        <p class="text-xs text-brand-muted">The token acts as you, and Muse's actions show in Team history as Muse. Revoke it any time below.</p>
+      </div>
+      <div class="space-y-3 pt-3 border-t border-brand-border/30 dark:border-white/10">
+        <p class="text-sm font-bold text-brand-dark dark:text-white">B. Muse shows an "Add MCP server" screen asking for an OAuth Client ID</p>
+        <ol class="space-y-3 text-sm text-brand-dark dark:text-slate-100">
+          <li class="<%= _aiStep %>"><span class="<%= _aiNum %>">1</span><span>Under <a class="underline" href="#client-ids">Client IDs</a> below, name it <strong>Meta AI (Muse)</strong>. If Muse shows a callback or redirect URL, paste it too. Click <strong>Create Client ID</strong>.</span></li>
+          <li class="<%= _aiStep %>"><span class="<%= _aiNum %>">2</span><span>In Muse, paste the connector URL as the <strong>server URL</strong>, then the <strong>Client ID</strong> and <strong>Client secret</strong>. If it asks, the authorization URL is <code class="<%= _aiCode %>"><%= _aiBaseUrl %>/oauth/authorize</code>, the token URL is <code class="<%= _aiCode %>"><%= _aiBaseUrl %>/oauth/token</code> and the scope is <code class="<%= _aiCode %>">crm</code>.</span></li>
+          <li class="<%= _aiStep %>"><span class="<%= _aiNum %>">3</span><span>An AdHello window opens. Sign in, pick this workspace (or <strong>All my workspaces</strong>) and click <strong>Allow</strong>.</span></li>
+        </ol>
+      </div>
+    </div>
+
+    <div id="aiPanel-grok" role="tabpanel" aria-labelledby="aiTab-grok" data-ai-panel="grok" class="space-y-5 hidden">
+      <div class="space-y-3">
+        <p class="text-sm font-bold text-brand-dark dark:text-white">In the Grok app</p>
+        <ol class="space-y-3 text-sm text-brand-dark dark:text-slate-100">
+          <li class="<%= _aiStep %>"><span class="<%= _aiNum %>">1</span><span>Open Grok's connectors or MCP settings and add a custom server with the connector URL above.</span></li>
+          <li class="<%= _aiStep %>"><span class="<%= _aiNum %>">2</span><span>If it offers OAuth sign-in, sign in to AdHello and click <strong>Allow</strong>. If it asks for a Client ID, create one under <a class="underline" href="#client-ids">Client IDs</a>. If it only takes a header or token, create an <a class="underline" href="#agent-tokens">agent token</a> named <strong>Grok</strong>.</span></li>
+          <li class="<%= _aiStep %>"><span class="<%= _aiNum %>">3</span><span>No MCP settings yet? Create an agent token named <strong>Grok</strong>, click <strong>Copy setup message</strong> and paste it into the chat.</span></li>
+        </ol>
+      </div>
+      <div class="space-y-2 pt-3 border-t border-brand-border/30 dark:border-white/10">
+        <p class="text-sm font-bold text-brand-dark dark:text-white">With the xAI API</p>
+        <p class="text-sm text-brand-dark dark:text-slate-100">Add a remote MCP tool with the server URL set to the connector URL and the authorization set to an agent token.</p>
+      </div>
+    </div>
+
+    <div id="aiPanel-agents" role="tabpanel" aria-labelledby="aiTab-agents" data-ai-panel="agents" class="space-y-4 hidden">
+      <p class="text-xs text-brand-muted">For n8n, Make, Zapier, the OpenAI or xAI APIs, custom GPT actions and your own scripts.</p>
+      <ol class="space-y-3 text-sm text-brand-dark dark:text-slate-100">
+        <li class="<%= _aiStep %>"><span class="<%= _aiNum %>">1</span><span>Create an <a class="underline" href="#agent-tokens">agent token</a> named after the tool, e.g. <strong>n8n</strong>.</span></li>
+        <li class="<%= _aiStep %>"><span class="<%= _aiNum %>">2</span><span class="min-w-0">Point the tool's MCP client at the connector URL (Streamable HTTP) with the header <code class="<%= _aiCode %>">Authorization: Bearer &lt;token&gt;</code>. Headers like <code class="<%= _aiCode %>">X-API-Key</code> also work.</span></li>
+        <li class="<%= _aiStep %>"><span class="<%= _aiNum %>">3</span><span class="min-w-0">Test it from a terminal:
+          <code class="<%= _aiCode %> block mt-1.5 whitespace-pre-wrap break-all">curl -s -X POST <%= _aiUrl || '<connector URL>' %> -H "Authorization: Bearer &lt;token&gt;" -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'</code>
+        </span></li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="agent-tokens" class="<%= _aiCard %> space-y-4 scroll-mt-24">
+    <div>
+      <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Agent tokens</h3>
+      <p class="text-sm text-brand-muted mt-1 leading-relaxed max-w-2xl">
+        For AI agents without a sign-in screen, like Muse or Grok in chat, automations and scripts. Make one per agent so each shows under its own name in Team history and can be revoked on its own. A token acts as you.
+      </p>
+    </div>
+    <% if (_aiViewer) { %>
+    <p class="text-sm text-brand-muted">Viewers can't connect agents. Ask an owner or admin for member access.</p>
+    <% } else { %>
+    <div class="flex flex-wrap gap-2 items-end">
+      <div style="flex:1 1 12rem;max-width:18rem">
+        <label for="aiTokenLabel" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Agent name</label>
+        <input id="aiTokenLabel" type="text" maxlength="60" placeholder="Muse" autocomplete="off" class="<%= _aiInput %>" />
+      </div>
+      <button type="button" id="aiTokenCreate" class="<%= _aiBtn %>">Create token</button>
+    </div>
+    <p id="aiTokenMsg" class="text-xs text-brand-muted min-h-[1.25rem]" aria-live="polite"></p>
+    <div id="aiTokenNew" class="hidden rounded-lg border border-emerald-400/40 bg-emerald-50 dark:bg-emerald-950/30 px-3 py-3 space-y-3">
+      <p class="text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-200">Copy it now. The token is shown only once</p>
+      <div class="flex flex-wrap items-center gap-2">
+        <code id="aiTokenValue" class="text-[11px] break-all rounded-lg bg-white/90 dark:bg-slate-900 px-3 py-2 flex-1 min-w-[12rem] font-mono"></code>
+        <button type="button" id="aiTokenCopy" class="shrink-0 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-emerald-900 dark:text-emerald-200 hover:bg-emerald-500/20 transition-colors">Copy token</button>
+      </div>
+      <div class="space-y-2">
+        <p class="text-xs text-emerald-950 dark:text-emerald-100">Paste this into the agent's chat:</p>
+        <pre id="aiSetupMessage" class="text-[11px] whitespace-pre-wrap break-all rounded-lg bg-white/90 dark:bg-slate-900 px-3 py-2 font-mono"></pre>
+        <button type="button" id="aiSetupCopy" class="<%= _aiBtn %>">Copy setup message</button>
+      </div>
+    </div>
+    <% } %>
+    <div id="aiTokenList" class="space-y-2">
+      <% _aiTokens.forEach(function (t) { %>
+      <div class="flex flex-wrap items-center justify-between gap-2 <%= _aiBox %>" data-ai-token="<%= t.id %>">
+        <div class="min-w-0">
+          <p class="text-sm font-semibold text-brand-dark dark:text-white truncate"><%= t.label %></p>
+          <p class="text-[11px] text-brand-muted">Ends in <%= t.hint %> · by <%= t.createdBy === _aiMe ? 'you' : t.createdBy %> · <%= wsDateTime(t.createdAt) %><% if (t.lastUsedAt) { %> · last used <%= wsDateTime(t.lastUsedAt) %><% } else { %> · not used yet<% } %></p>
+        </div>
+        <button type="button" data-ai-token-revoke="<%= t.id %>" class="rounded-xl border border-rose-400/50 bg-rose-500/10 text-rose-900 dark:text-rose-200 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/20 transition-colors">Revoke</button>
+      </div>
+      <% }); %>
+    </div>
+  </section>
+
+  <section id="client-ids" class="<%= _aiCard %> space-y-4 scroll-mt-24">
+    <div>
+      <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Client IDs</h3>
+      <p class="text-sm text-brand-muted mt-1 leading-relaxed max-w-2xl">
+        For apps whose connector screen asks for an <strong class="text-brand-dark dark:text-white">OAuth Client ID</strong> (Meta AI / Muse, Grok, agent builders). People still sign in with their own AdHello login.
+      </p>
+    </div>
+    <% if (!_aiCan) { %>
+    <p class="text-sm text-brand-muted">Ask a workspace owner or admin to create a Client ID.</p>
+    <% } else { %>
+    <label class="inline-flex items-start gap-2 text-xs text-brand-muted leading-relaxed">
+      <input id="aiClientAll" type="checkbox" checked class="mt-0.5 rounded border-brand-border" />
+      <span><strong class="text-brand-dark dark:text-white">Let it reach all my workspaces</strong>: one connection for every workspace you're on. Unchecked, it only connects to this workspace.</span>
+    </label>
+    <div class="flex flex-wrap gap-2 items-end">
+      <div style="flex:1 1 10rem;max-width:14rem">
+        <label for="aiClientName" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">App name</label>
+        <input id="aiClientName" type="text" maxlength="120" placeholder="Meta AI (Muse)" autocomplete="off" class="<%= _aiInput %>" />
+      </div>
+      <div style="flex:3 1 14rem">
+        <label for="aiClientRedirect" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Callback URL <span class="font-normal normal-case tracking-normal">(optional)</span></label>
+        <input id="aiClientRedirect" type="url" placeholder="https://… (from the app's connector screen)" autocomplete="off" class="<%= _aiInput %>" />
+      </div>
+      <button type="button" id="aiClientCreate" class="<%= _aiBtn %>">Create Client ID</button>
+    </div>
+    <p id="aiClientMsg" class="text-xs text-brand-muted min-h-[1.25rem]" aria-live="polite"></p>
+    <div id="aiClientNew" class="hidden rounded-lg border border-emerald-400/40 bg-emerald-50 dark:bg-emerald-950/30 px-3 py-3 space-y-2">
+      <p class="text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-200">Paste these into the app. The secret is shown only once</p>
+      <div id="aiClientFields" class="space-y-2"></div>
+    </div>
+    <div id="aiClientList" class="space-y-2">
+      <% _aiClients.forEach(function (c) { %>
+      <div class="flex flex-wrap items-center justify-between gap-2 <%= _aiBox %>" data-ai-client="<%= c.id %>">
+        <div class="min-w-0">
+          <p class="text-sm font-semibold text-brand-dark dark:text-white truncate"><%= c.name %></p>
+          <p class="text-[11px] text-brand-muted break-all">Client ID <code><%= c.id %></code> · <%= c.allWorkspaces ? 'all workspaces' : 'this workspace only' %> · <%= c.redirectUris.length ? c.redirectUris[0] : 'callback not locked in yet' %></p>
+        </div>
+        <button type="button" data-ai-client-delete="<%= c.id %>" class="rounded-xl border border-rose-400/50 bg-rose-500/10 text-rose-900 dark:text-rose-200 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/20 transition-colors">Delete</button>
+      </div>
+      <% }); %>
+    </div>
+    <% } %>
   </section>
 
   <section class="<%= _aiCard %> space-y-3">
@@ -89,7 +230,9 @@
         'What referrals came in this week, and which members haven\u2019t accepted theirs yet?',
         'Send a referral to our HVAC member for Jane Smith in Camas. She agreed to be contacted.',
         'Add a task to call Acme Plumbing tomorrow at 10am.',
-        'Show me pending network applications and which seats they would fill.'
+        'Show me pending network applications and which seats they would fill.',
+        'Move every lead tagged \u201chot\u201d to the Proposal stage and text them through Go High Level.',
+        'How many leads are in each folder, including subfolders?'
       ].forEach(function (q) { %>
       <li class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 px-3 py-2.5">&ldquo;<%= q %>&rdquo;</li>
       <% }); %>
@@ -99,7 +242,7 @@
   <section class="<%= _aiCard %> space-y-3">
     <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Connected apps</h3>
     <% if (!_aiApps.length) { %>
-    <p class="text-sm text-brand-muted">None yet. Apps show up here after someone signs in from ChatGPT, Claude or Gemini.</p>
+    <p class="text-sm text-brand-muted">None yet. Apps show up here after someone signs in from ChatGPT, Claude, Gemini, Muse or another app. Agents using a token are listed under Agent tokens.</p>
     <% } %>
     <% _aiApps.forEach(function (app) { const _mine = _aiMe && String(app.userEmail || '').toLowerCase() === _aiMe; %>
     <form method="post" action="/workspace/integrations/mcp/apps/<%= encodeURIComponent(app.id) %>/revoke?return=ai-apps" onsubmit="return confirm('Disconnect this app from the workspace?');" class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 px-4 py-3">
@@ -153,5 +296,173 @@
     });
     var start = String(location.hash || '').replace('#', '');
     if (start && document.querySelector('[data-ai-tab="' + start + '"]')) show(start);
+
+    function copyText(btn, text, label) {
+      var done = function () {
+        btn.textContent = 'Copied';
+        setTimeout(function () { btn.textContent = label; }, 1800);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done).catch(function () { window.prompt('Copy:', text); });
+      else window.prompt('Copy:', text);
+    }
+    function setMsg(el, text, ok) {
+      if (!el) return;
+      el.textContent = text;
+      el.className = 'text-xs min-h-[1.25rem] ' + (ok === false ? 'text-red-700 dark:text-red-300' : ok ? 'text-emerald-700 dark:text-emerald-300' : 'text-brand-muted');
+    }
+    async function send(method, path, body) {
+      var res = await fetch(path, {
+        method: method,
+        credentials: 'same-origin',
+        headers: body ? { 'Content-Type': 'application/json' } : {},
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      var data = await res.json().catch(function () { return {}; });
+      if (!res.ok || data.success === false) throw new Error((data && data.error) || 'Something went wrong. Try again.');
+      return data;
+    }
+    function setupMessage(endpoint, token) {
+      return [
+        'Connect to my AdHello CRM workspace. It is an MCP server (Streamable HTTP, JSON-RPC 2.0).',
+        '',
+        'Server URL: ' + endpoint,
+        'Access token: ' + token,
+        '',
+        'Send every request as an HTTP POST to the server URL with these headers:',
+        'Authorization: Bearer ' + token,
+        'Content-Type: application/json',
+        'Accept: application/json, text/event-stream',
+        '',
+        'First call {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"agent","version":"1.0"}}},',
+        'then {"jsonrpc":"2.0","id":2,"method":"tools/list"} to see the tools,',
+        'then {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"<tool>","arguments":{}}} to use one.',
+        '',
+        'Use this access token, not the workspace ID. Keep it private.'
+      ].join('\n');
+    }
+
+    var tokenBtn = document.getElementById('aiTokenCreate');
+    var tokenLabel = document.getElementById('aiTokenLabel');
+    var tokenMsg = document.getElementById('aiTokenMsg');
+    var tokenList = document.getElementById('aiTokenList');
+    if (tokenBtn && tokenLabel) {
+      tokenLabel.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); tokenBtn.click(); }
+      });
+      tokenBtn.addEventListener('click', async function () {
+        tokenBtn.disabled = true;
+        setMsg(tokenMsg, 'Creating…');
+        try {
+          var data = await send('POST', '/workspace/integrations/mcp/agent-tokens', { label: tokenLabel.value.trim() || tokenLabel.placeholder });
+          var endpoint = data.endpoint || (url ? url.textContent.trim() : '');
+          document.getElementById('aiTokenValue').textContent = data.token;
+          document.getElementById('aiSetupMessage').textContent = setupMessage(endpoint, data.token);
+          document.getElementById('aiTokenNew').classList.remove('hidden');
+          setMsg(tokenMsg, 'Token for ' + data.label + ' created. Copy it now.', true);
+          tokenLabel.value = '';
+          var row = document.createElement('div');
+          row.className = 'flex flex-wrap items-center justify-between gap-2 <%= _aiBox %>';
+          row.setAttribute('data-ai-token', data.id);
+          row.innerHTML = '<div class="min-w-0"><p class="text-sm font-semibold text-brand-dark dark:text-white truncate"></p><p class="text-[11px] text-brand-muted"></p></div>'
+            + '<button type="button" class="rounded-xl border border-rose-400/50 bg-rose-500/10 text-rose-900 dark:text-rose-200 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/20 transition-colors">Revoke</button>';
+          row.querySelector('p').textContent = data.label;
+          row.querySelectorAll('p')[1].textContent = 'Ends in ' + data.hint + ' · by you · just now · not used yet';
+          row.querySelector('button').setAttribute('data-ai-token-revoke', data.id);
+          tokenList.insertBefore(row, tokenList.firstChild);
+        } catch (err) {
+          setMsg(tokenMsg, err.message, false);
+        } finally {
+          tokenBtn.disabled = false;
+        }
+      });
+      document.getElementById('aiTokenCopy').addEventListener('click', function () {
+        copyText(this, document.getElementById('aiTokenValue').textContent, 'Copy token');
+      });
+      document.getElementById('aiSetupCopy').addEventListener('click', function () {
+        copyText(this, document.getElementById('aiSetupMessage').textContent, 'Copy setup message');
+      });
+    }
+    if (tokenList) {
+      tokenList.addEventListener('click', async function (e) {
+        var btn = e.target.closest('[data-ai-token-revoke]');
+        if (!btn || !confirm('Revoke this token? Any agent using it loses access right away.')) return;
+        btn.disabled = true;
+        try {
+          await send('DELETE', '/workspace/integrations/mcp/agent-tokens/' + encodeURIComponent(btn.getAttribute('data-ai-token-revoke')));
+          var row = btn.closest('[data-ai-token]');
+          if (row) row.remove();
+          setMsg(tokenMsg, 'Token revoked.', true);
+        } catch (err) {
+          btn.disabled = false;
+          setMsg(tokenMsg, err.message, false);
+        }
+      });
+    }
+
+    var clientBtn = document.getElementById('aiClientCreate');
+    var clientMsg = document.getElementById('aiClientMsg');
+    var clientList = document.getElementById('aiClientList');
+    function addClientField(label, value) {
+      var row = document.createElement('div');
+      row.innerHTML = '<p class="text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-200 mb-1"></p>'
+        + '<div class="flex flex-wrap items-center gap-2"><code class="text-[11px] break-all rounded-lg bg-white/90 dark:bg-slate-900 px-3 py-2 flex-1 min-w-[12rem] font-mono"></code>'
+        + '<button type="button" class="shrink-0 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-emerald-900 dark:text-emerald-200 hover:bg-emerald-500/20 transition-colors">Copy</button></div>';
+      row.querySelector('p').textContent = label;
+      row.querySelector('code').textContent = value;
+      row.querySelector('button').addEventListener('click', function () { copyText(this, value, 'Copy'); });
+      document.getElementById('aiClientFields').appendChild(row);
+    }
+    if (clientBtn) {
+      clientBtn.addEventListener('click', async function () {
+        clientBtn.disabled = true;
+        setMsg(clientMsg, 'Creating…');
+        try {
+          var nameEl = document.getElementById('aiClientName');
+          var data = await send('POST', '/workspace/integrations/mcp/clients', {
+            name: nameEl.value.trim() || nameEl.placeholder,
+            redirectUri: document.getElementById('aiClientRedirect').value.trim(),
+            allWorkspaces: document.getElementById('aiClientAll').checked,
+          });
+          document.getElementById('aiClientFields').innerHTML = '';
+          addClientField('Server / MCP URL', data.mcpUrl);
+          addClientField('Client ID', data.clientId);
+          addClientField('Client secret', data.clientSecret);
+          addClientField('Authorization URL', data.authorizationUrl);
+          addClientField('Token URL', data.tokenUrl);
+          addClientField('Scope', data.scope);
+          document.getElementById('aiClientNew').classList.remove('hidden');
+          setMsg(clientMsg, 'Client ID created. Copy the secret now.', true);
+          var row = document.createElement('div');
+          row.className = 'flex flex-wrap items-center justify-between gap-2 <%= _aiBox %>';
+          row.setAttribute('data-ai-client', data.clientId);
+          row.innerHTML = '<div class="min-w-0"><p class="text-sm font-semibold text-brand-dark dark:text-white truncate"></p><p class="text-[11px] text-brand-muted break-all"></p></div>'
+            + '<button type="button" class="rounded-xl border border-rose-400/50 bg-rose-500/10 text-rose-900 dark:text-rose-200 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/20 transition-colors">Delete</button>';
+          row.querySelector('p').textContent = data.client.name;
+          row.querySelectorAll('p')[1].textContent = 'Client ID ' + data.clientId + ' · ' + (data.client.allWorkspaces ? 'all workspaces' : 'this workspace only');
+          row.querySelector('button').setAttribute('data-ai-client-delete', data.clientId);
+          clientList.insertBefore(row, clientList.firstChild);
+        } catch (err) {
+          setMsg(clientMsg, err.message, false);
+        } finally {
+          clientBtn.disabled = false;
+        }
+      });
+    }
+    if (clientList) {
+      clientList.addEventListener('click', async function (e) {
+        var btn = e.target.closest('[data-ai-client-delete]');
+        if (!btn || !confirm('Delete this Client ID? Apps using it are disconnected.')) return;
+        btn.disabled = true;
+        try {
+          await send('DELETE', '/workspace/integrations/mcp/clients/' + encodeURIComponent(btn.getAttribute('data-ai-client-delete')));
+          var row = btn.closest('[data-ai-client]');
+          if (row) row.remove();
+          setMsg(clientMsg, 'Client ID deleted.', true);
+        } catch (err) {
+          btn.disabled = false;
+          setMsg(clientMsg, err.message, false);
+        }
+      });
+    }
   })();
 </script>

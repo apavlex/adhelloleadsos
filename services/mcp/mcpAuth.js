@@ -4,7 +4,9 @@
 const crypto = require('crypto');
 const dbService = require('../database');
 const attachWorkspace = require('../../middleware/withWorkspace');
-const { userEmail } = require('../workspaceService');
+const workspaceService = require('../workspaceService');
+
+const { userEmail } = workspaceService;
 const { verifyMcpSessionToken } = require('./mcpSessionToken');
 const mcpOAuth = require('./mcpOAuth');
 const { getPublicBaseUrl } = require('../../lib/publicBaseUrl');
@@ -25,7 +27,8 @@ function readBearerToken(req) {
   if (match) return match[1].trim();
   // OpenAI Responses API forwards the MCP tool `authorization` field as-is (often without Bearer).
   if (auth) return auth;
-  return '';
+  // Agents that can only set a custom header.
+  return String(req.headers['x-api-key'] || req.headers['x-mcp-token'] || '').trim();
 }
 
 async function validateMcpBearerToken(token) {
@@ -73,8 +76,21 @@ async function validateMcpBearerToken(token) {
   const workspaceIds = await dbService.listWorkspaceIds();
   for (const wid of workspaceIds) {
     const ws = await dbService.getWorkspace(wid);
-    if (!ws || !ws.mcpAccessTokenHash) continue;
-    if (ws.mcpAccessTokenHash !== hash) continue;
+    if (!ws) continue;
+    const named = (Array.isArray(ws.mcpAccessTokens) ? ws.mcpAccessTokens : []).find((t) => t && t.hash === hash);
+    if (named) {
+      if (!isMember(ws, named.createdBy)) return null;
+      touchNamedToken(wid, named.id);
+      return {
+        workspaceId: wid,
+        workspace: ws,
+        authMethod: 'agent_token',
+        userEmail: named.createdBy || '',
+        clientName: named.label || '',
+        tokenId: named.id,
+      };
+    }
+    if (!ws.mcpAccessTokenHash || ws.mcpAccessTokenHash !== hash) continue;
     return {
       workspaceId: wid,
       workspace: ws,
@@ -83,6 +99,98 @@ async function validateMcpBearerToken(token) {
     };
   }
   return null;
+}
+
+const AGENT_TOKEN_PREFIX = 'ahmcp_';
+const MAX_AGENT_TOKENS = 25;
+const TOUCH_EVERY_MS = 10 * 60 * 1000;
+
+function isMember(ws, email) {
+  const em = String(email || '').trim().toLowerCase();
+  if (!em || !ws) return false;
+  if (String(ws.ownerUserId || '').trim().toLowerCase() === em) return true;
+  return workspaceService.roleForEmail(ws, em) !== 'viewer' || Boolean(ws.members && ws.members[em]);
+}
+
+function touchNamedToken(workspaceId, tokenId) {
+  setImmediate(async () => {
+    try {
+      const ws = await dbService.getWorkspace(workspaceId);
+      const list = Array.isArray(ws && ws.mcpAccessTokens) ? ws.mcpAccessTokens : [];
+      const t = list.find((x) => x && x.id === tokenId);
+      if (!t || (t.lastUsedAt && Date.now() - Date.parse(t.lastUsedAt) < TOUCH_EVERY_MS)) return;
+      t.lastUsedAt = new Date().toISOString();
+      await dbService.saveWorkspace(workspaceId, { ...ws, mcpAccessTokens: list });
+    } catch (_) {
+      /* last-used is informational */
+    }
+  });
+}
+
+function presentAgentToken(t) {
+  return {
+    id: t.id,
+    label: t.label,
+    hint: t.hint,
+    createdAt: t.createdAt || null,
+    createdBy: t.createdBy || '',
+    lastUsedAt: t.lastUsedAt || null,
+  };
+}
+
+/** Named token for one AI agent (Muse, Grok, a script). Acts as the person who created it; activity shows under the label. */
+async function createAgentMcpToken(workspaceId, { label, createdBy }) {
+  const ws = await dbService.getWorkspace(workspaceId);
+  if (!ws) {
+    const err = new Error('Workspace not found.');
+    err.status = 404;
+    throw err;
+  }
+  const name = String(label || '').trim().slice(0, 60) || 'AI agent';
+  const list = Array.isArray(ws.mcpAccessTokens) ? ws.mcpAccessTokens.filter(Boolean) : [];
+  if (list.length >= MAX_AGENT_TOKENS) {
+    const err = new Error(`You can keep up to ${MAX_AGENT_TOKENS} agent tokens. Revoke one you no longer use.`);
+    err.status = 400;
+    throw err;
+  }
+  const token = `${AGENT_TOKEN_PREFIX}${crypto.randomBytes(30).toString('base64url')}`;
+  const row = {
+    id: `tok_${crypto.randomBytes(8).toString('hex')}`,
+    label: name,
+    hash: sha256(token),
+    hint: tokenHint(token),
+    createdAt: new Date().toISOString(),
+    createdBy: String(createdBy || '').trim().toLowerCase(),
+  };
+  await dbService.saveWorkspace(workspaceId, { ...ws, mcpAccessTokens: [...list, row] });
+  return { token, ...presentAgentToken(row) };
+}
+
+function listAgentMcpTokens(ws, { email, canManage } = {}) {
+  const me = String(email || '').trim().toLowerCase();
+  return (Array.isArray(ws && ws.mcpAccessTokens) ? ws.mcpAccessTokens : [])
+    .filter((t) => t && (canManage || t.createdBy === me))
+    .map(presentAgentToken);
+}
+
+async function revokeAgentMcpToken(workspaceId, tokenId, { email, canManage } = {}) {
+  const ws = await dbService.getWorkspace(workspaceId);
+  const list = Array.isArray(ws && ws.mcpAccessTokens) ? ws.mcpAccessTokens : [];
+  const t = list.find((x) => x && x.id === tokenId);
+  if (!t) return { revoked: false, status: 404 };
+  if (!canManage && t.createdBy !== String(email || '').trim().toLowerCase()) return { revoked: false, status: 403 };
+  await dbService.saveWorkspace(workspaceId, { ...ws, mcpAccessTokens: list.filter((x) => x !== t) });
+  return { revoked: true };
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function invalidTokenMessage(raw, base) {
+  const where = `${base}/workspace/ai-apps`;
+  if (UUID_RE.test(String(raw || '').trim())) {
+    return `That is a workspace ID, not an MCP access token. In AdHello open Settings → AI Connector (${where}), create an agent token and send it as Authorization: Bearer <token>.`;
+  }
+  return `Invalid MCP access token. Create a new one in AdHello under Settings → AI Connector (${where}) and send it as Authorization: Bearer <token>.`;
 }
 
 async function generateWorkspaceMcpToken(workspaceId, createdByEmail) {
@@ -146,13 +254,17 @@ async function mcpAuthContext(req, res, next) {
       });
     }
 
-    const resourceMetadata = `${getPublicBaseUrl(req)}/.well-known/oauth-protected-resource`;
+    const base = getPublicBaseUrl(req);
+    const resourceMetadata = `${base}/.well-known/oauth-protected-resource`;
     const bearer = readBearerToken(req);
     if (!bearer) {
       res.set('WWW-Authenticate', `Bearer resource_metadata="${resourceMetadata}"`);
       return res.status(401).json({
         jsonrpc: '2.0',
-        error: { code: -32001, message: 'Sign in or provide Authorization: Bearer <MCP token>.' },
+        error: {
+          code: -32001,
+          message: `Sign in with OAuth, or send Authorization: Bearer <MCP token>. Agents can create a token in AdHello under Settings → AI Connector (${base}/workspace/ai-apps).`,
+        },
       });
     }
 
@@ -162,7 +274,7 @@ async function mcpAuthContext(req, res, next) {
       res.set('WWW-Authenticate', `Bearer error="invalid_token", resource_metadata="${resourceMetadata}"`);
       return res.status(401).json({
         jsonrpc: '2.0',
-        error: { code: -32001, message: 'Invalid MCP access token.' },
+        error: { code: -32001, message: invalidTokenMessage(bearer, base) },
       });
     }
 
@@ -191,6 +303,10 @@ module.exports = {
   generateWorkspaceMcpToken,
   revokeWorkspaceMcpToken,
   getWorkspaceMcpTokenStatus,
+  createAgentMcpToken,
+  listAgentMcpTokens,
+  revokeAgentMcpToken,
+  AGENT_TOKEN_PREFIX,
   readBearerToken,
   validateMcpBearerToken,
 };
