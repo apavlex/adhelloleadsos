@@ -13,6 +13,7 @@ const {
 const networkTools = require('./mcpNetwork');
 const cadenceTools = require('./mcpCadences');
 const leadScriptTools = require('./mcpLeadScripts');
+const messagingTools = require('./mcpMessaging');
 const mcpOAuth = require('./mcpOAuth');
 const mcpLogger = require('./mcpLogger');
 
@@ -142,6 +143,7 @@ const READ_ONLY_TOOLS = new Set([
   ...networkTools.READ_ONLY_NETWORK_TOOLS,
   ...cadenceTools.READ_ONLY_CADENCE_TOOLS,
   ...leadScriptTools.READ_ONLY_LEAD_SCRIPT_TOOLS,
+  ...messagingTools.READ_ONLY_MESSAGING_TOOLS,
 ]);
 
 // Overwrites or removes data, or pushes it somewhere it can't be pulled back from.
@@ -151,6 +153,7 @@ const DESTRUCTIVE_TOOLS = new Set([
   'sync_leads_to_ghl',
   'update_task',
   ...networkTools.DESTRUCTIVE_NETWORK_TOOLS,
+  ...messagingTools.SEND_MESSAGING_TOOLS,
 ]);
 
 // Reaches outside this app: paid lead searches, enrichment, GHL, texting businesses.
@@ -159,6 +162,7 @@ const OPEN_WORLD_TOOLS = new Set([
   'enrich_lead',
   'sync_leads_to_ghl',
   ...networkTools.OPEN_WORLD_NETWORK_TOOLS,
+  ...messagingTools.SEND_MESSAGING_TOOLS,
 ]);
 
 function toolAnnotations(name) {
@@ -621,7 +625,12 @@ function createCrmMcpServer(ctx) {
     async (args) => runTool(ctx, 'suggest_daily_leads', args),
   );
 
-  for (const tool of [...networkTools.NETWORK_TOOLS, ...cadenceTools.CADENCE_TOOLS, ...leadScriptTools.LEAD_SCRIPT_TOOLS]) {
+  for (const tool of [
+    ...networkTools.NETWORK_TOOLS,
+    ...cadenceTools.CADENCE_TOOLS,
+    ...leadScriptTools.LEAD_SCRIPT_TOOLS,
+    ...messagingTools.MESSAGING_TOOLS,
+  ]) {
     register(tool.name, { description: tool.description, inputSchema: tool.schema }, async (args) => runTool(ctx, tool.name, args));
   }
 
@@ -892,6 +901,7 @@ function getOpenAiToolManifest() {
         ...networkTools.openAiFunctionTools(),
         ...cadenceTools.openAiFunctionTools(),
         ...leadScriptTools.openAiFunctionTools(),
+        ...messagingTools.openAiFunctionTools(),
       ].map(({ function: fn }) => ({
         name: fn.name,
         description: fn.description,

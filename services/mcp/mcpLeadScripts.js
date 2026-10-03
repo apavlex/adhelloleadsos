@@ -71,6 +71,19 @@ function leadSummary(lead, fullKey) {
   };
 }
 
+/** Fill merge tags ({{name}}, {{company}}, {{city}}, sender tags) in free text for one lead; lists anything left unfilled. */
+async function fillMessageForLead(ctx, ws, lead, text) {
+  const folderKey = clean(lead.folderKey);
+  const folder = folderKey ? await dbService.getFolder(ctx.workspaceId, folderKey) : null;
+  const { offerKey } = resolveOutreachSenderProfile(ws, lead, folder);
+  const summary = leadSummary(lead, '');
+  const message = fillScriptPlain(String(text || ''), {
+    sender: senderFor(ctx, ws, offerKey),
+    prospect: { name: summary.contact_first_name || summary.business, company: summary.business, city: summary.city },
+  }).trim();
+  return { message, unfilled: [...new Set(message.match(LEFTOVER_TAG) || [])] };
+}
+
 async function scriptForLead(ctx, ws, catalog, library, leadId, channel, offerRef) {
   const { lead, fullKey } = await resolveLeadKey(ctx.workspaceId, leadId);
   const summary = leadSummary(lead, fullKey);
@@ -239,4 +252,5 @@ module.exports = {
   READ_ONLY_LEAD_SCRIPT_TOOLS: ['get_lead_script'],
   executeLeadScriptTool,
   openAiFunctionTools,
+  fillMessageForLead,
 };

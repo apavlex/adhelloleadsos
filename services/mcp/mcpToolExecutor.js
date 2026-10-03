@@ -8,6 +8,7 @@ const leadActions = require('./mcpLeadActions');
 const networkTools = require('./mcpNetwork');
 const cadenceTools = require('./mcpCadences');
 const leadScriptTools = require('./mcpLeadScripts');
+const messagingTools = require('./mcpMessaging');
 const mcpLogger = require('./mcpLogger');
 const pavlexLogger = require('../pavlex/pavlexLogger');
 
@@ -45,6 +46,7 @@ const TOOL_NAMES = [
   ...networkTools.NETWORK_TOOL_NAMES,
   ...cadenceTools.CADENCE_TOOL_NAMES,
   ...leadScriptTools.LEAD_SCRIPT_TOOL_NAMES,
+  ...messagingTools.MESSAGING_TOOL_NAMES,
 ];
 
 async function executeCrmTool(ctx, toolName, args) {
@@ -162,6 +164,10 @@ async function executeCrmTool(ctx, toolName, args) {
         }
         if (leadScriptTools.LEAD_SCRIPT_TOOL_NAMES.includes(name)) {
           result = await leadScriptTools.executeLeadScriptTool(ctx, name, input);
+          break;
+        }
+        if (messagingTools.MESSAGING_TOOL_NAMES.includes(name)) {
+          result = await messagingTools.executeMessagingTool(ctx, name, input);
           break;
         }
         const err = new Error(`Unknown tool: ${name}`);
@@ -487,6 +493,7 @@ function getOpenAiFunctionTools() {
     ...networkTools.openAiFunctionTools(),
     ...cadenceTools.openAiFunctionTools(),
     ...leadScriptTools.openAiFunctionTools(),
+    ...messagingTools.openAiFunctionTools(),
     {
       type: 'function',
       function: {
