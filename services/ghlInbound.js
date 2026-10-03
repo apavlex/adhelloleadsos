@@ -220,9 +220,9 @@ function parseGhlWorkflowPayload(body) {
   };
 }
 
-async function resolveWorkspaceId(locationId, fallback) {
+async function resolveWorkspaceId(locationId, fallback, locked) {
   let wid = str(fallback);
-  if (locationId) {
+  if (locationId && !(locked && wid)) {
     const match = await workspaceIntegrations.findWorkspaceIdByGhlLocationId(locationId);
     if (match) wid = match;
   }
@@ -376,7 +376,7 @@ function formLogMessage(parsed) {
 async function processWorkflowWebhook(body, opts = {}) {
   const parsed = parseGhlWorkflowPayload(body);
   if (!parsed) return { ok: true, ignored: true, reason: 'not_workflow_payload' };
-  const wid = await resolveWorkspaceId(parsed.locationId, opts.workspaceId);
+  const wid = await resolveWorkspaceId(parsed.locationId, opts.workspaceId, opts.lockWorkspace);
   const sourceByKind = {
     form: 'inbound_ghl_form',
     missed_call: 'inbound_ghl_call',

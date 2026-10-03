@@ -297,8 +297,22 @@ async function findWorkspaceIdByGhlLocationId(locationId) {
   return null;
 }
 
+async function findWorkspaceIdByGhlWebhookSecret(token) {
+  const t = String(token || '').trim();
+  if (t.length < 8) return null;
+  const ids = await dbService.listWorkspaceIds();
+  for (const wid of ids) {
+    // eslint-disable-next-line no-await-in-loop
+    const ws = await dbService.getWorkspace(wid);
+    const secret = String(decryptedFromWorkspace(ws).ghlWebhookSecret || '').trim();
+    if (secret && secret === t) return wid;
+  }
+  return null;
+}
+
 module.exports = {
   INTEGRATION_FIELDS,
+  findWorkspaceIdByGhlWebhookSecret,
   FIELD_TO_ENV,
   decryptedFromWorkspace,
   getResolvedIntegrationEnv,

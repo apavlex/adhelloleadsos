@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const dbService = require('../services/database');
 const workspaceService = require('../services/workspaceService');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
+const ghlWebhookLog = require('../services/ghlWebhookLog');
 const dataPersistence = require('../services/dataPersistence');
 const scrapeCostAdvisor = require('../services/scrapeCostAdvisor');
 const mapsSearch = require('../services/mapsSearch');
@@ -774,6 +775,36 @@ async function saveIntegrationsFromRequest(req) {
   plain = workspaceIntegrations.mergeIntegrationUpdates(plain, req.body);
   await workspaceIntegrations.saveWorkspaceIntegrations(wid, plain);
 }
+
+/** Full GHL webhook URL for pasting into GHL; creates a workspace token when none is saved. */
+router.post('/integrations/ghl-webhook-url', async (req, res) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Only admins can copy the webhook URL.' });
+    }
+    if (!workspaceIntegrations.isEncryptionAvailable()) {
+      return res.status(400).json({ success: false, error: 'The workspace integrations secret is not configured on the server.' });
+    }
+    const wid = req.workspaceId;
+    const ws = await dbService.getWorkspace(wid);
+    const plain = workspaceIntegrations.decryptedFromWorkspace(ws);
+    let token = String(plain.ghlWebhookSecret || '').trim();
+    if (!token) {
+      token = crypto.randomBytes(24).toString('hex');
+      await workspaceIntegrations.saveWorkspaceIntegrations(wid, { ...plain, ghlWebhookSecret: token });
+    }
+    const base = String(process.env.BASE_URL || '').trim().replace(/\/$/, '') || `${req.protocol}://${req.get('host')}`;
+    return res.json({ success: true, url: `${base}/api/webhooks/ghl?token=${encodeURIComponent(token)}` });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e && e.message ? e.message : 'Could not build the webhook URL.' });
+  }
+});
+
+/** Last GHL webhook events received for this workspace. */
+router.get('/integrations/ghl-webhook-log', (req, res) => {
+  if (!req.canManageWorkspace) return res.status(403).json({ success: false });
+  return res.json({ success: true, entries: ghlWebhookLog.list(req.workspaceId) });
+});
 
 router.get('/integrations/test', async (req, res) => {
   try {

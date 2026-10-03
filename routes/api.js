@@ -20,6 +20,7 @@ const dialerPacing = require('../services/dialerPacing');
 const inboundForwardStats = require('../services/inboundForwardStats');
 const ghlSync = require('../services/ghlSync');
 const ghlInbound = require('../services/ghlInbound');
+const ghlWebhookLog = require('../services/ghlWebhookLog');
 const messageLog = require('../services/messageLog');
 const commsClient = require('../services/commsClient');
 const commsSync = require('../services/commsSync');
@@ -102,7 +103,17 @@ async function ghlWebhookAuthorized(req) {
   const ws = await dbService.getWorkspace(wid);
   const plain = workspaceIntegrations.decryptedFromWorkspace(ws);
   const wsSecret = String(plain.ghlWebhookSecret || '').trim();
-  return !!(wsSecret && token === wsSecret);
+  if (wsSecret && token === wsSecret) {
+    req.ghlTokenWorkspaceId = wid;
+    return true;
+  }
+  // GHL workflow webhooks can't send x-workspace-id, so a workspace token identifies its workspace.
+  const owner = await workspaceIntegrations.findWorkspaceIdByGhlWebhookSecret(token);
+  if (owner) {
+    req.ghlTokenWorkspaceId = owner;
+    return true;
+  }
+  return false;
 }
 
 async function commsWebhookAuthorized(req) {
@@ -369,26 +380,33 @@ router.post('/webhooks/form', validateApiKey, async (req, res, next) => {
 router.post('/webhooks/ghl', express.json(), async (req, res, next) => {
   try {
     if (!(await ghlWebhookAuthorized(req))) {
+      console.warn('[ghl:webhook] rejected: invalid or missing token (%s)', ghlWebhookLog.describePayload(req.body));
       return res.status(401).json({ error: 'Unauthorized: invalid webhook token' });
     }
     const headerWid = req.headers['x-workspace-id'];
+    const lockWorkspace = !!req.ghlTokenWorkspaceId;
     const workspaceId =
-      typeof headerWid === 'string' && headerWid.trim() ? headerWid.trim() : undefined;
+      req.ghlTokenWorkspaceId ||
+      (typeof headerWid === 'string' && headerWid.trim() ? headerWid.trim() : undefined);
+    const opts = { workspaceId, lockWorkspace };
     const body = req.body || {};
-    const workflowResult = await ghlInbound.processWorkflowWebhook(body, { workspaceId });
+    const reply = (result) => {
+      ghlWebhookLog.record(result.workspaceId || workspaceId, body, result);
+      return res.json({ success: true, ...result });
+    };
+    const workflowResult = await ghlInbound.processWorkflowWebhook(body, opts);
     if (!workflowResult.ignored || workflowResult.reason !== 'not_workflow_payload') {
-      return res.json({ success: true, ...workflowResult });
+      return reply(workflowResult);
     }
-    const engagementResult = await ghlSync.processEngagementWebhook(body, { workspaceId });
+    const engagementResult = await ghlSync.processEngagementWebhook(body, opts);
     if (!engagementResult.ignored || engagementResult.reason !== 'not_engagement_event') {
-      return res.json({ success: true, ...engagementResult });
+      return reply(engagementResult);
     }
-    const msgResult = await ghlSync.processMessageWebhook(body, { workspaceId });
+    const msgResult = await ghlSync.processMessageWebhook(body, opts);
     if (!msgResult.ignored || msgResult.reason !== 'not_sms_message') {
-      return res.json({ success: true, ...msgResult });
+      return reply(msgResult);
     }
-    const result = await ghlSync.processWebhook(body, { workspaceId });
-    return res.json({ success: true, ...result });
+    return reply(await ghlSync.processWebhook(body, opts));
   } catch (err) {
     next(err);
   }

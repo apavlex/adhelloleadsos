@@ -931,7 +931,7 @@ async function processEngagementWebhook(payload, opts = {}) {
   if (!parsed) return { ok: true, ignored: true, reason: 'not_engagement_event' };
 
   let wid = String(opts.workspaceId || '').trim();
-  if (parsed.locationId) {
+  if (parsed.locationId && !opts.lockWorkspace) {
     const match = await workspaceIntegrations.findWorkspaceIdByGhlLocationId(parsed.locationId);
     if (match) wid = match;
   }
@@ -982,7 +982,7 @@ async function processMessageWebhook(payload, opts = {}) {
   if (!parsed) return { ok: true, ignored: true, reason: 'not_sms_message' };
 
   let wid = String(opts.workspaceId || '').trim();
-  if (parsed.locationId) {
+  if (parsed.locationId && !opts.lockWorkspace) {
     const match = await workspaceIntegrations.findWorkspaceIdByGhlLocationId(parsed.locationId);
     if (match) wid = match;
   }
@@ -1187,7 +1187,7 @@ async function processWebhook(payload, opts = {}) {
   if (parsed.delete) return { ok: true, ignored: true, reason: 'contact_delete_skipped' };
 
   let wid = String(opts.workspaceId || '').trim();
-  if (parsed.locationId) {
+  if (parsed.locationId && !opts.lockWorkspace) {
     const match = await workspaceIntegrations.findWorkspaceIdByGhlLocationId(parsed.locationId);
     if (match) wid = match;
   }

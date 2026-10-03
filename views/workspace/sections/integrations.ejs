@@ -549,17 +549,16 @@
         <%- include('../../partials/integration_test_row', { provider: 'ghl' }) %>
         <div class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 px-4 py-3 space-y-2">
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Inbound webhook (GHL → Agency OS)</p>
-          <p class="text-xs text-brand-muted leading-relaxed">In GHL, subscribe to <strong>InboundMessage</strong>, <strong>OutboundMessage</strong>, <strong>ContactCreate</strong>, and <strong>ContactUpdate</strong> (plus <strong>EmailOpened</strong> / <strong>LinkClicked</strong> if available) and point the webhook URL below at this workspace. SMS/email replies sync into the Engagement inbox and lead activity when the location ID matches.</p>
+          <p class="text-xs text-brand-muted leading-relaxed">Paste this URL into a GHL <strong>Workflow → Webhook</strong> action (triggers like Form Submitted, Call Status, Customer Replied; Custom Data <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">event</code> = form, missed_call, voicemail, or sms). It also accepts GHL app webhooks (InboundMessage, OutboundMessage, ContactCreate, ContactUpdate). <a href="/workspace/integrations/ghl-setup" class="underline">Setup guide</a></p>
           <% const _ghlHookBase = (typeof publicAppBaseUrl !== 'undefined' && publicAppBaseUrl) ? publicAppBaseUrl : ''; %>
-          <% const _ghlHasSavedToken = !!masks.ghlWebhookSecret; %>
-          <% const _ghlHasServerToken = (typeof ghlWebhookTokenHint !== 'undefined' && ghlWebhookTokenHint); %>
           <div class="flex flex-wrap items-center gap-2">
-            <% if (_ghlHasSavedToken || _ghlHasServerToken) { %>
-            <code id="ghlWebhookUrl" class="text-[11px] break-all rounded-lg bg-white/80 dark:bg-slate-900 px-3 py-2 flex-1 min-w-[12rem]"><%= _ghlHookBase %>/api/webhooks/ghl?token=<% if (_ghlHasSavedToken) { %>••••••••<% } else { %>configured-on-server<% } %></code>
+            <code id="ghlWebhookUrl" class="text-[11px] break-all rounded-lg bg-white/80 dark:bg-slate-900 px-3 py-2 flex-1 min-w-[12rem]"><%= _ghlHookBase %>/api/webhooks/ghl?token=••••••••</code>
             <button type="button" id="copyGhlWebhookUrl" class="shrink-0 rounded-xl border border-brand-border/70 dark:border-white/15 bg-white dark:bg-slate-800 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors">Copy URL</button>
-            <% } else { %>
-            <p class="text-xs text-brand-muted">Save a webhook token below (or set <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">GHL_WEBHOOK_SECRET</code> on the server) to reveal the full URL.</p>
-            <% } %>
+          </div>
+          <p id="ghlWebhookUrlMsg" class="hidden text-xs text-rose-600"></p>
+          <div class="pt-1">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Recent GHL events</p>
+            <ul id="ghlWebhookLog" class="text-[11px] text-brand-muted space-y-1"><li>Loading…</li></ul>
           </div>
           <div class="pt-1">
             <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Webhook token (optional per-workspace)</label>
@@ -1187,15 +1186,60 @@
   if (copyGhlBtn) {
     copyGhlBtn.addEventListener('click', function () {
       var el = document.getElementById('ghlWebhookUrl');
-      var text = el ? el.textContent : '';
-      if (!text) return;
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(function () {
-          copyGhlBtn.textContent = 'Copied';
-          setTimeout(function () { copyGhlBtn.textContent = 'Copy URL'; }, 2000);
-        });
-      }
+      var msg = document.getElementById('ghlWebhookUrlMsg');
+      if (msg) msg.classList.add('hidden');
+      copyGhlBtn.disabled = true;
+      fetch('/workspace/integrations/ghl-webhook-url', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (!d || !d.success || !d.url) throw new Error((d && d.error) || 'Could not get the webhook URL.');
+          if (el) el.textContent = d.url;
+          var done = function () {
+            copyGhlBtn.textContent = 'Copied';
+            setTimeout(function () { copyGhlBtn.textContent = 'Copy URL'; }, 2000);
+          };
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            return navigator.clipboard.writeText(d.url).then(done, function () { copyGhlBtn.textContent = 'Select & copy'; });
+          }
+          copyGhlBtn.textContent = 'Select & copy';
+        })
+        .catch(function (err) {
+          if (msg) {
+            msg.textContent = err.message;
+            msg.classList.remove('hidden');
+          }
+        })
+        .then(function () { copyGhlBtn.disabled = false; });
     });
+  }
+
+  var ghlLogEl = document.getElementById('ghlWebhookLog');
+  if (ghlLogEl) {
+    fetch('/workspace/integrations/ghl-webhook-log', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var entries = (d && d.entries) || [];
+        ghlLogEl.innerHTML = '';
+        if (!entries.length) {
+          var empty = document.createElement('li');
+          empty.textContent = 'Nothing received from GHL yet. After you set up the workflow, trigger it once and refresh this page.';
+          ghlLogEl.appendChild(empty);
+          return;
+        }
+        entries.slice(0, 8).forEach(function (e) {
+          var li = document.createElement('li');
+          var when = new Date(e.at);
+          var outcome = e.ignored ? 'ignored (' + (e.reason || 'unknown') + ')' : (e.action || 'ok');
+          li.textContent = when.toLocaleString() + ' · ' + e.event + ' → ' + outcome;
+          if (e.ignored) li.className = 'text-amber-700 dark:text-amber-300';
+          ghlLogEl.appendChild(li);
+        });
+      })
+      .catch(function () { ghlLogEl.innerHTML = ''; });
   }
 
   var copyCommsBtn = document.getElementById('copyCommsWebhookUrl');

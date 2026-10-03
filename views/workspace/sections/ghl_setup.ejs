@@ -161,15 +161,14 @@
           <% } %>
           <div class="rounded-xl border border-brand-border dark:border-white/10 px-4 py-3 space-y-2">
             <p class="text-sm font-bold text-brand-dark dark:text-white">Form leads, ad leads, and calls → Today&apos;s Inbound list</p>
-            <p class="text-sm text-brand-muted leading-relaxed">With <strong>InboundMessage</strong> subscribed, missed calls, voicemails, and texts already show up on Today. For form and ad leads, add a GHL workflow:</p>
+            <p class="text-sm text-brand-muted leading-relaxed">GHL workflows work on every plan. Copy the webhook URL from the <a href="/workspace/integrations#ghl-integration" class="underline">GHL card</a> (Copy URL), then in GHL open <strong>Automation → Workflows → Create workflow</strong> for each of these:</p>
             <ol class="text-sm text-brand-muted space-y-1.5 list-decimal list-inside leading-relaxed">
-              <li>In GHL, open <strong>Automation → Workflows → Create workflow</strong>.</li>
-              <li>Add triggers: <strong>Form Submitted</strong>, <strong>Facebook Lead Form Submitted</strong>, and any survey or funnel form you use.</li>
-              <li>Add the action <strong>Webhook</strong> (POST) with the URL above.</li>
-              <li>Under Custom Data, add <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">event</code> = <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">form</code>. Optional: <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">form_name</code> = the form&apos;s name.</li>
-              <li>Publish. New leads get a 5-minute call task, the hot cadence, and a row in <a href="/today" class="underline">Today → Inbound</a> labelled with the form and ad source (Facebook Ads, Google Ads, or UTM source).</li>
+              <li><strong>Missed calls:</strong> trigger <strong>Call Status</strong> (direction Inbound, status No answer / Busy / Canceled / Failed) → action <strong>Webhook</strong> (POST, the URL) with Custom Data <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">event</code> = <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">missed_call</code>. Duplicate it with status Voicemail and <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">event</code> = <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">voicemail</code>.</li>
+              <li><strong>Form and ad leads:</strong> triggers <strong>Form Submitted</strong> and <strong>Facebook Lead Form Submitted</strong> → Webhook with <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">event</code> = <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">form</code> (optional <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">form_name</code>).</li>
+              <li><strong>Texts:</strong> trigger <strong>Customer Replied</strong> (channel SMS) → Webhook with <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">event</code> = <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">sms</code>. Skip this if a GHL app already sends InboundMessage webhooks.</li>
+              <li>Publish, trigger each one once, and check <strong>Recent GHL events</strong> on the GHL card.</li>
             </ol>
-            <p class="text-xs text-brand-muted leading-relaxed">Using a GHL workflow for calls instead? Add a <strong>Call Status</strong> trigger and send <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">event</code> = <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">missed_call</code> or <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">voicemail</code>. A row leaves Inbound once you call, text, or email the lead, or click Done.</p>
+            <p class="text-xs text-brand-muted leading-relaxed">Each event lands in <a href="/today" class="underline">Today → Inbound</a> with a call-back task and a phone alert. A row leaves Inbound once you call, text, or email the lead, or click Done.</p>
           </div>
         </div>
       </li>
