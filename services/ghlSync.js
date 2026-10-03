@@ -6,7 +6,7 @@ const dbService = require('./database');
 const ghlClient = require('./ghlClient');
 const phoneLineType = require('./phoneLineType');
 const workspaceIntegrations = require('./workspaceIntegrations');
-const { handleInboundReply } = require('./inboundReplyRules');
+const { handleInboundReply, isWarmReplyBody } = require('./inboundReplyRules');
 const { applyEngagementSignal } = require('./engagementSignals');
 const messageLog = require('./messageLog');
 const {
@@ -799,12 +799,14 @@ function parseGhlMessageWebhook(body) {
   let channel = 'sms';
   if (messageTypeRaw.includes('EMAIL')) {
     channel = 'email';
+  } else if (messageTypeRaw.includes('CALL') || messageTypeRaw.includes('VOICEMAIL')) {
+    channel = 'call';
   } else if (
     messageTypeRaw &&
     !messageTypeRaw.includes('SMS') &&
     !messageTypeRaw.includes('PHONE')
   ) {
-    // Ignore CALL / FB / IG / Live Chat / etc. — not engagement reply channels.
+    // Ignore FB / IG / Live Chat / etc. — not engagement reply channels.
     return null;
   }
 
@@ -828,10 +830,22 @@ function parseGhlMessageWebhook(body) {
   const messageId = String(
     body.messageId || body.emailMessageId || body.threadId || body.id || '',
   ).trim();
-  if (!contactId || !content) return null;
+  if (!contactId || (!content && channel !== 'call')) return null;
 
   let direction = String(body.direction || '').trim().toLowerCase();
   if (!direction) direction = /inbound/i.test(type) ? 'inbound' : 'outbound';
+
+  const call =
+    channel === 'call'
+      ? {
+          status: String(body.callStatus || body.status || '').trim(),
+          durationSec: body.callDuration ?? body.duration ?? null,
+          recordingUrl: String(
+            (Array.isArray(body.attachments) && body.attachments[0]) || body.recordingUrl || '',
+          ).trim(),
+          voicemail: messageTypeRaw.includes('VOICEMAIL'),
+        }
+      : null;
 
   const fromRaw = body.from || body.fromEmail || (body.contact && body.contact.email) || '';
   const fromEmail = extractEmailAddress(fromRaw);
@@ -853,6 +867,8 @@ function parseGhlMessageWebhook(body) {
     subject,
     fromEmail,
     fromPhone: fromPhoneDigits || '',
+    rawPhone: String(body.from || body.phone || (body.contact && body.contact.phone) || '').trim(),
+    call,
   };
 }
 
@@ -973,9 +989,31 @@ async function processMessageWebhook(payload, opts = {}) {
   if (!wid) wid = 'default';
 
   const localLeads = await dbService.getAllLeads(wid);
-  const lead = findLeadForGhlMessage(localLeads, parsed);
+  let lead = findLeadForGhlMessage(localLeads, parsed);
+  let createdLead = false;
+  if (
+    (!lead || !lead.key) &&
+    parsed.direction === 'inbound' &&
+    (parsed.channel === 'call' || isWarmReplyBody(parsed.body))
+  ) {
+    const ghlInbound = require('./ghlInbound');
+    const ensured = await ghlInbound.ensureLeadForContact({
+      workspaceId: wid,
+      contactId: parsed.contactId,
+      contact: payload.contact && typeof payload.contact === 'object' ? payload.contact : null,
+      phone: parsed.channel !== 'email' && parsed.fromPhone ? parsed.rawPhone : '',
+      email: parsed.fromEmail,
+      source: `inbound_ghl_${parsed.channel}`,
+    });
+    lead = ensured.lead;
+    createdLead = ensured.created;
+  }
   if (!lead || !lead.key) {
     return { ok: true, workspaceId: wid, ignored: true, reason: 'lead_not_found' };
+  }
+
+  if (parsed.channel === 'call') {
+    return processCallMessage(parsed, lead, wid, createdLead);
   }
 
   if (parsed.direction === 'inbound') {
@@ -988,6 +1026,7 @@ async function processMessageWebhook(payload, opts = {}) {
       ghlContactId: parsed.contactId,
       conversationId: parsed.conversationId,
       timestamp: parsed.dateAdded || new Date().toISOString(),
+      newContact: createdLead,
     });
     if (replyResult.reason === 'duplicate') {
       return { ok: true, workspaceId: wid, key: lead.key, ignored: true, reason: 'duplicate' };
@@ -1069,6 +1108,73 @@ async function processMessageWebhook(payload, opts = {}) {
   };
 }
 
+/** GHL CALL messages: inbound → missed/voicemail/answered; outbound (dialed from GHL) → call touch. */
+async function processCallMessage(parsed, lead, wid, createdLead) {
+  const ghlInbound = require('./ghlInbound');
+  const call = parsed.call || {};
+  if (parsed.direction === 'inbound') {
+    const outcome = call.voicemail
+      ? 'voicemail'
+      : ghlInbound.classifyCallOutcome({
+          status: call.status,
+          durationSec: call.durationSec,
+          hasRecording: !!call.recordingUrl,
+        });
+    const r = await ghlInbound.handleInboundCall({
+      lead,
+      workspaceId: wid,
+      outcome,
+      at: parsed.dateAdded,
+      eventId: parsed.messageId,
+      durationSec: call.durationSec,
+      recordingUrl: call.recordingUrl,
+      label: createdLead ? 'New caller' : '',
+      source: 'ghl',
+    });
+    return {
+      ok: true,
+      workspaceId: wid,
+      key: lead.key,
+      action: outcome,
+      created: createdLead,
+      ...(r.applied ? { taskId: r.taskId || null } : { ignored: true, reason: r.reason }),
+    };
+  }
+
+  const updates = Array.isArray(lead.updates) ? lead.updates : [];
+  if (
+    parsed.messageId &&
+    updates.some((u) => String((u && u.ghlMessageId) || '').trim() === parsed.messageId)
+  ) {
+    return { ok: true, workspaceId: wid, key: lead.key, ignored: true, reason: 'duplicate' };
+  }
+  const dur = Number(call.durationSec);
+  const value = [
+    'GHL call',
+    call.status,
+    Number.isFinite(dur) && dur > 0 ? `${Math.round(dur)}s` : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  const at = parsed.dateAdded || new Date().toISOString();
+  await dbService.updateLead(lead.key, {
+    updates: [
+      ...updates,
+      {
+        timestamp: at,
+        type: 'call_outbound',
+        value,
+        ghlMessageId: parsed.messageId,
+        provider: 'ghl',
+        ghlContactId: parsed.contactId,
+      },
+    ],
+    lastTouchChannel: 'call',
+    logs: [{ type: 'call_outbound', message: value, timestamp: new Date().toISOString() }],
+  });
+  return { ok: true, workspaceId: wid, key: lead.key, action: 'call_outbound', messageId: parsed.messageId || null };
+}
+
 /**
  * Handle inbound GHL contact webhook (ContactCreate / ContactUpdate).
  * @param {object} payload
@@ -1112,6 +1218,7 @@ module.exports = {
   runDirectionalSync,
   statusFromEnv,
   findLocalLeadMatch,
+  pullContactToLead,
   findLeadForGhlMessage,
   extractEmailAddress,
   processWebhook,

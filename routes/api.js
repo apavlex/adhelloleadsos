@@ -19,6 +19,7 @@ const { applyWarmInboundRules, isWarmInboundSource } = require('../services/lead
 const dialerPacing = require('../services/dialerPacing');
 const inboundForwardStats = require('../services/inboundForwardStats');
 const ghlSync = require('../services/ghlSync');
+const ghlInbound = require('../services/ghlInbound');
 const messageLog = require('../services/messageLog');
 const commsClient = require('../services/commsClient');
 const commsSync = require('../services/commsSync');
@@ -359,8 +360,9 @@ router.post('/webhooks/form', validateApiKey, async (req, res, next) => {
 
 /**
  * POST /api/webhooks/ghl
- * Go High Level ContactCreate / ContactUpdate + InboundMessage / OutboundMessage (SMS & Email)
- * + EmailOpened / LinkClicked engagement events.
+ * Go High Level ContactCreate / ContactUpdate + InboundMessage / OutboundMessage (SMS, Email, Call)
+ * + EmailOpened / LinkClicked engagement events
+ * + Workflow "Webhook" actions (form / FB lead form / call status / customer replied; customData.event).
  * Auth: ?token=GHL_WEBHOOK_SECRET or x-ghl-webhook-token (or x-api-key / workspace ghlWebhookSecret).
  * Workspace is resolved from payload locationId when x-workspace-id is not set.
  */
@@ -373,6 +375,10 @@ router.post('/webhooks/ghl', express.json(), async (req, res, next) => {
     const workspaceId =
       typeof headerWid === 'string' && headerWid.trim() ? headerWid.trim() : undefined;
     const body = req.body || {};
+    const workflowResult = await ghlInbound.processWorkflowWebhook(body, { workspaceId });
+    if (!workflowResult.ignored || workflowResult.reason !== 'not_workflow_payload') {
+      return res.json({ success: true, ...workflowResult });
+    }
     const engagementResult = await ghlSync.processEngagementWebhook(body, { workspaceId });
     if (!engagementResult.ignored || engagementResult.reason !== 'not_engagement_event') {
       return res.json({ success: true, ...engagementResult });

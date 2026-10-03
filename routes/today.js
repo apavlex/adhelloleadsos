@@ -28,6 +28,7 @@ const actionPlanTracker = require('../services/actionPlanTracker');
 const { buildOpportunityBoard, selectPipeline } = require('../services/opportunityBoards');
 const { buildBookmarkSessions, buildRecentlyWorked } = require('../services/todayResumeQueue');
 const { leadLogsMentionReply } = require('../services/leadActivityWindow');
+const { pendingInboundItems } = require('../services/inboundEvents');
 function firstNameFromUser(user) {
   const raw =
     (user && user.displayName) ||
@@ -125,6 +126,7 @@ router.get('/', async (req, res, next) => {
     const touchesToday = countUniqueLeadsTouchedOnUtcDate(workspaceLeads, today);
     const touchGoal = await loadDailyTouchGoal(req);
     const repliesWaiting = countReplySignals(businessLeads);
+    const inboundItems = pendingInboundItems(workspaceLeads);
     const queueNeedingAction = countQueueNeedingAction(businessLeads);
 
     const activation = await activationService.getState(email, req.workspace || req.workspaceId);
@@ -260,6 +262,7 @@ router.get('/', async (req, res, next) => {
       touchGoal,
       streak,
       repliesWaiting,
+      inboundItems,
       queueNeedingAction,
       totalLeads: businessLeads.length,
       outreachCoach,
@@ -313,6 +316,23 @@ router.post('/clear-automation-queue', express.json(), async (req, res, next) =>
       pausedSequences: pauseResult.paused || 0,
       message: `Cleared ${taskResult.deleted || 0} automation task(s) and paused ${pauseResult.paused || 0} active cadence(s).`,
     });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Mark a lead's inbound activity (form lead, missed call, text) as handled on Today. */
+router.post('/inbound/done', express.json(), async (req, res, next) => {
+  try {
+    const raw = String((req.body && req.body.leadKey) || '').trim();
+    if (!raw) return res.status(400).json({ success: false, error: 'leadKey is required.' });
+    const storageKey = await dbService.resolveLeadStorageKey(raw, req.workspaceId);
+    const lead = storageKey ? await dbService.getLead(storageKey, req.workspaceId) : null;
+    if (!lead || !filterLeadsForRequest(req, [lead]).length) {
+      return res.status(404).json({ success: false, error: 'Lead not found.' });
+    }
+    await dbService.updateLead(lead.key, { inboundHandledAt: new Date().toISOString() }, req.workspaceId);
+    return res.json({ success: true, leadKey: lead.key });
   } catch (e) {
     next(e);
   }

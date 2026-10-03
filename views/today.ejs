@@ -262,6 +262,8 @@
       .today-resume[open] .today-resume-when-closed { display: none; }
     </style>
 
+    <%- include('/partials/today_inbound') %>
+
     <% if (!empty) { %>
     <section class="today-viz today-viz-hero today-viz-reveal mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 p-6 md:p-8 shadow-sm" aria-label="Next 30 minutes">
       <div class="today-viz-grid" aria-hidden="true"></div>

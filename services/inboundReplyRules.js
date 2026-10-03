@@ -10,6 +10,7 @@ const {
 } = require('./engagementSignals');
 const { resolveTaskOwnerEmail } = require('./dispositionFollowUp');
 const { triggerGhlProspectSync } = require('./ghlProspectSync');
+const { appendInboundEvent } = require('./inboundEvents');
 
 function isWarmReplyBody(text) {
   const t = String(text || '').trim().toLowerCase();
@@ -109,6 +110,14 @@ async function handleInboundReply(ctx) {
     nextActionAt: respondBy,
     ghlContactId: lead.ghlContactId || ctx.ghlContactId || undefined,
     engagementSignals: recordEngagementSignals(lead.engagementSignals, signalType, atIso),
+    inboundEvents: appendInboundEvent(lead.inboundEvents, {
+      id: messageId ? `${channel}:${messageId}` : '',
+      type: channel,
+      at: atIso,
+      label: ctx.newContact ? 'New contact' : '',
+      preview: body,
+      source: provider,
+    }),
     updates,
     logs: [
       {

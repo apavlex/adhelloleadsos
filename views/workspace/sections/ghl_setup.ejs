@@ -153,12 +153,24 @@
             <li>On the GHL integrations card, set a <strong>webhook token</strong> (or ask your operator to set <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">GHL_WEBHOOK_SECRET</code> on the server).</li>
             <li>Copy the webhook URL shown on that card.</li>
             <li>In GHL, go to <strong>Settings → Webhooks</strong> (or your marketplace app) and subscribe to <strong>InboundMessage</strong>, <strong>OutboundMessage</strong>, <strong>ContactCreate</strong>, <strong>ContactUpdate</strong>, and (for opens/clicks) <strong>EmailOpened</strong> / <strong>LinkClicked</strong> if your plan exposes them.</li>
-            <li>Paste the Agency OS webhook URL. The <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">locationId</code> in each event must match the Location ID you saved. Contacts must match a pipeline lead by GHL contact id, email, or phone.</li>
+            <li>Paste the Agency OS webhook URL. The <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">locationId</code> in each event must match the Location ID you saved. Contacts are matched to a lead by GHL contact id, email, or phone; inbound calls and texts from new numbers create a lead.</li>
           </ol>
           <% if (_hookReady && _base) { %>
           <p class="text-xs text-brand-muted">Webhook endpoint pattern:</p>
           <code class="block text-[11px] break-all rounded-lg bg-brand-cream/50 dark:bg-slate-950 px-3 py-2"><%= _base %>/api/webhooks/ghl?token=YOUR_TOKEN</code>
           <% } %>
+          <div class="rounded-xl border border-brand-border dark:border-white/10 px-4 py-3 space-y-2">
+            <p class="text-sm font-bold text-brand-dark dark:text-white">Form leads, ad leads, and calls → Today&apos;s Inbound list</p>
+            <p class="text-sm text-brand-muted leading-relaxed">With <strong>InboundMessage</strong> subscribed, missed calls, voicemails, and texts already show up on Today. For form and ad leads, add a GHL workflow:</p>
+            <ol class="text-sm text-brand-muted space-y-1.5 list-decimal list-inside leading-relaxed">
+              <li>In GHL, open <strong>Automation → Workflows → Create workflow</strong>.</li>
+              <li>Add triggers: <strong>Form Submitted</strong>, <strong>Facebook Lead Form Submitted</strong>, and any survey or funnel form you use.</li>
+              <li>Add the action <strong>Webhook</strong> (POST) with the URL above.</li>
+              <li>Under Custom Data, add <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">event</code> = <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">form</code>. Optional: <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">form_name</code> = the form&apos;s name.</li>
+              <li>Publish. New leads get a 5-minute call task, the hot cadence, and a row in <a href="/today" class="underline">Today → Inbound</a> labelled with the form and ad source (Facebook Ads, Google Ads, or UTM source).</li>
+            </ol>
+            <p class="text-xs text-brand-muted leading-relaxed">Using a GHL workflow for calls instead? Add a <strong>Call Status</strong> trigger and send <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">event</code> = <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">missed_call</code> or <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">voicemail</code>. A row leaves Inbound once you call, text, or email the lead, or click Done.</p>
+          </div>
         </div>
       </li>
 
