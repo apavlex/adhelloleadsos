@@ -39,34 +39,45 @@
   <% const _mapsProviders = Array.isArray(mapsProviderStatus) ? mapsProviderStatus : []; %>
   <% const _mapsProviderById = {}; _mapsProviders.forEach(function (p) { if (p && p.id) _mapsProviderById[p.id] = p; }); %>
   <form method="post" action="/workspace/integrations" class="space-y-8">
-    <div id="integration-find-leads">
-      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Find Leads — maps search</p>
-      <p class="text-sm text-brand-muted mb-4 max-w-2xl leading-relaxed">Connect one or more providers below. In <strong>Auto</strong> mode the app tries them in order until results are returned.</p>
+    <nav aria-label="Integration types" class="flex flex-wrap items-center gap-2">
+      <a href="#" data-int-filter="all" aria-current="true" class="rounded-xl border border-brand-border/50 dark:border-white/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest hover:border-brand-yellow transition-colors bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark">All</a>
+      <a href="#integration-find-leads" data-int-filter="integration-find-leads" class="rounded-xl border border-brand-border/50 dark:border-white/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest hover:border-brand-yellow transition-colors bg-white dark:bg-slate-900 text-brand-dark dark:text-white">Lead scrapers</a>
+      <a href="#integration-enhance" data-int-filter="integration-enhance" class="rounded-xl border border-brand-border/50 dark:border-white/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest hover:border-brand-yellow transition-colors bg-white dark:bg-slate-900 text-brand-dark dark:text-white">Data enhance</a>
+      <a href="#integration-crm" data-int-filter="integration-crm" class="rounded-xl border border-brand-border/50 dark:border-white/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest hover:border-brand-yellow transition-colors bg-white dark:bg-slate-900 text-brand-dark dark:text-white">CRM</a>
+      <a href="#integration-phone" data-int-filter="integration-phone" class="rounded-xl border border-brand-border/50 dark:border-white/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest hover:border-brand-yellow transition-colors bg-white dark:bg-slate-900 text-brand-dark dark:text-white">Phone &amp; SMS</a>
+      <a href="#integration-email" data-int-filter="integration-email" class="rounded-xl border border-brand-border/50 dark:border-white/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest hover:border-brand-yellow transition-colors bg-white dark:bg-slate-900 text-brand-dark dark:text-white">Email</a>
+      <a href="#integration-direct-mail" data-int-filter="integration-direct-mail" class="rounded-xl border border-brand-border/50 dark:border-white/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest hover:border-brand-yellow transition-colors bg-white dark:bg-slate-900 text-brand-dark dark:text-white">Direct mail</a>
+      <a href="#integration-ai" data-int-filter="integration-ai" class="rounded-xl border border-brand-border/50 dark:border-white/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest hover:border-brand-yellow transition-colors bg-white dark:bg-slate-900 text-brand-dark dark:text-white">AI</a>
+      <a href="#chrome-extension" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white underline ml-1">Chrome extension ↑</a>
+    </nav>
 
-      <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-950/50 p-5 sm:p-6 mb-4">
-        <h3 class="font-display font-bold text-base text-brand-dark dark:text-white">Maps provider preference</h3>
-        <p class="text-xs text-brand-muted mt-1 mb-3">Which service to use for Find Leads (or Auto to run the chain).</p>
-        <div class="flex flex-wrap items-center gap-2 mb-4" role="list" aria-label="Maps search providers">
-          <% _mapsProviders.forEach(function (p) { %>
-          <span role="listitem">
-            <%- include('../../partials/integration_provider_status_pill', { label: p.label, connected: p.configured }) %>
-          </span>
-          <% }); %>
-        </div>
-        <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Preference</label>
-        <select name="mapsSearchPrimary" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm">
-          <option value="auto" <%= _mapsPrimary === 'auto' || _mapsPrimary === '' ? 'selected' : '' %>>Auto (RapidAPI → SearchAPI.io → SerpAPI → Oxylabs → Outscraper → Monid → Apify)</option>
-          <option value="rapidapi" <%= _mapsPrimary === 'rapidapi' ? 'selected' : '' %>>RapidAPI only</option>
-          <option value="searchapi" <%= _mapsPrimary === 'searchapi' ? 'selected' : '' %>>SearchAPI.io only</option>
-          <option value="serpapi" <%= _mapsPrimary === 'serpapi' ? 'selected' : '' %>>SerpAPI only</option>
-          <option value="oxylabs" <%= _mapsPrimary === 'oxylabs' ? 'selected' : '' %>>Oxylabs only</option>
-          <option value="outscraper" <%= _mapsPrimary === 'outscraper' ? 'selected' : '' %>>Outscraper only</option>
-          <option value="monid" <%= _mapsPrimary === 'monid' ? 'selected' : '' %>>Monid (Google Maps) only</option>
-          <option value="apify" <%= _mapsPrimary === 'apify' ? 'selected' : '' %>>Apify only</option>
-        </select>
-      </section>
-
+    <div id="integration-find-leads" class="scroll-mt-28" data-int-group>
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Lead scrapers</p>
+      <p class="text-sm text-brand-muted mb-4 max-w-2xl leading-relaxed">Where new leads come from. <strong>Find Leads</strong> searches Google Maps, permits and listings with these. In <strong>Auto</strong> mode it tries them in order until one returns results.</p>
       <div class="space-y-4">
+        <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-950/50 p-5 sm:p-6 mb-4">
+          <h3 class="font-display font-bold text-base text-brand-dark dark:text-white">Maps provider preference</h3>
+          <p class="text-xs text-brand-muted mt-1 mb-3">Which service to use for Find Leads (or Auto to run the chain).</p>
+          <div class="flex flex-wrap items-center gap-2 mb-4" role="list" aria-label="Maps search providers">
+            <% _mapsProviders.forEach(function (p) { %>
+            <span role="listitem">
+              <%- include('../../partials/integration_provider_status_pill', { label: p.label, connected: p.configured }) %>
+            </span>
+            <% }); %>
+          </div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Preference</label>
+          <select name="mapsSearchPrimary" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm">
+            <option value="auto" <%= _mapsPrimary === 'auto' || _mapsPrimary === '' ? 'selected' : '' %>>Auto (RapidAPI → SearchAPI.io → SerpAPI → Oxylabs → Outscraper → Monid → Apify)</option>
+            <option value="rapidapi" <%= _mapsPrimary === 'rapidapi' ? 'selected' : '' %>>RapidAPI only</option>
+            <option value="searchapi" <%= _mapsPrimary === 'searchapi' ? 'selected' : '' %>>SearchAPI.io only</option>
+            <option value="serpapi" <%= _mapsPrimary === 'serpapi' ? 'selected' : '' %>>SerpAPI only</option>
+            <option value="oxylabs" <%= _mapsPrimary === 'oxylabs' ? 'selected' : '' %>>Oxylabs only</option>
+            <option value="outscraper" <%= _mapsPrimary === 'outscraper' ? 'selected' : '' %>>Outscraper only</option>
+            <option value="monid" <%= _mapsPrimary === 'monid' ? 'selected' : '' %>>Monid (Google Maps) only</option>
+            <option value="apify" <%= _mapsPrimary === 'apify' ? 'selected' : '' %>>Apify only</option>
+          </select>
+        </section>
+
         <section id="integration-rapidapi" class="rounded-2xl border-2 border-brand-yellow/25 dark:border-brand-yellow/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
           <header class="flex flex-wrap items-start justify-between gap-3">
             <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">RapidAPI — Google Maps</h3>
@@ -114,6 +125,161 @@
           <%- include('../../partials/integration_test_row', { provider: 'rapidapi' }) %>
         </section>
 
+        <section id="integration-searchapi" class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
+          <header class="flex flex-wrap items-start justify-between gap-3">
+            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">SearchAPI.io</h3>
+            <% if (_mapsProviderById.searchapi) { %><%- include('../../partials/integration_provider_status_pill', { label: _mapsProviderById.searchapi.label, connected: _mapsProviderById.searchapi.configured }) %><% } %>
+            <p class="text-xs text-brand-muted mt-1 leading-relaxed"><a href="https://www.searchapi.io/docs/google-local-api" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">Google Local API</a> — optional; runs after RapidAPI in Auto mode.</p>
+          </header>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
+            <% if (masks.searchapiApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.searchapiApiKey %></p><% } %>
+            <input type="password" name="searchapiApiKey" autocomplete="off" placeholder="Paste SearchAPI.io key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <% if (masks.searchapiApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="searchapiApiKey_clear" value="1" /> Remove</label><% } %>
+          </div>
+          <%- include('../../partials/integration_test_row', { provider: 'searchapi' }) %>
+        </section>
+
+        <section id="integration-serpapi" class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
+            <% if (_mapsProviderById.serpapi) { %><%- include('../../partials/integration_provider_status_pill', { label: _mapsProviderById.serpapi.label, connected: _mapsProviderById.serpapi.configured }) %><% } %>
+            <p class="text-xs text-brand-muted mt-1 leading-relaxed"><a href="https://serpapi.com/google-local-api" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">Google Local</a> — optional; runs after SearchAPI.io in Auto mode.</p>
+          </header>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
+            <% if (masks.serpapiApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.serpapiApiKey %></p><% } %>
+            <input type="password" name="serpapiApiKey" autocomplete="off" placeholder="Paste SerpAPI key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <% if (masks.serpapiApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="serpapiApiKey_clear" value="1" /> Remove</label><% } %>
+          </div>
+          <%- include('../../partials/integration_test_row', { provider: 'serpapi' }) %>
+        </section>
+
+        <section id="integration-oxylabs" class="scroll-mt-28 rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4">
+          <header class="flex flex-wrap items-start justify-between gap-3">
+            <div class="min-w-0 flex-1">
+              <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Oxylabs</h3>
+              <p class="text-xs text-brand-muted mt-1 leading-relaxed"><a href="https://oxylabs.io/" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">Web Scraper API</a> — Google Maps leads, mobile home listing search, and real estate URLs. Create an <strong>API User</strong> under Web Scraper API → Users.</p>
+            </div>
+            <% if (_mapsProviderById.oxylabs) { %><%- include('../../partials/integration_provider_status_pill', { label: _mapsProviderById.oxylabs.label, connected: _mapsProviderById.oxylabs.configured }) %><% } %>
+          </header>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API username</label>
+              <% if (masks.oxylabsUsername) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.oxylabsUsername %></p><% } %>
+              <input type="text" name="oxylabsUsername" autocomplete="off" placeholder="customer-USERNAME" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+              <% if (masks.oxylabsUsername) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="oxylabsUsername_clear" value="1" /> Remove</label><% } %>
+            </div>
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API password</label>
+              <% if (masks.oxylabsPassword) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.oxylabsPassword %></p><% } %>
+              <input type="password" name="oxylabsPassword" autocomplete="off" placeholder="Paste API user password (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+              <% if (masks.oxylabsPassword) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="oxylabsPassword_clear" value="1" /> Remove</label><% } %>
+            </div>
+          </div>
+          <p class="text-[11px] text-brand-muted leading-relaxed">Also powers the <strong>Oxylabs (Google)</strong> mobile homes source and real estate fallback. Set <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-800 px-1 rounded">REAL_ESTATE_PRIMARY=oxylabs</code> to prefer Oxylabs on the Zillow-only page.</p>
+          <%- include('../../partials/integration_test_row', { provider: 'oxylabs' }) %>
+        </section>
+
+        <section id="integration-outscraper" class="rounded-2xl border-2 border-brand-yellow/25 dark:border-brand-yellow/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
+          <header class="flex flex-wrap items-start justify-between gap-3">
+            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Outscraper</h3>
+            <% if (_mapsProviderById.outscraper) { %><%- include('../../partials/integration_provider_status_pill', { label: _mapsProviderById.outscraper.label, connected: _mapsProviderById.outscraper.configured }) %><% } %>
+            <p class="text-xs text-brand-muted mt-1 leading-relaxed">Google Maps listings and <strong>review quotes</strong> for Hunt contacts &amp; reviews — also optional fallback in Find Leads Auto mode.</p>
+          </header>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
+            <% if (masks.outscraperApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.outscraperApiKey %></p><% } %>
+            <input type="password" name="outscraperApiKey" autocomplete="off" placeholder="Paste Outscraper key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <% if (masks.outscraperApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="outscraperApiKey_clear" value="1" /> Remove</label><% } %>
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API base URL <span class="font-normal normal-case tracking-normal">(optional)</span></label>
+            <% if (masks.outscraperApiBase) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.outscraperApiBase %></p><% } %>
+            <input type="text" name="outscraperApiBase" autocomplete="off" placeholder="https://api.app.outscraper.com" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <% if (masks.outscraperApiBase) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="outscraperApiBase_clear" value="1" /> Remove</label><% } %>
+          </div>
+          <%- include('../../partials/integration_test_row', { provider: 'outscraper' }) %>
+        </section>
+
+        <section id="integration-apify" class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
+          <header class="flex flex-wrap items-start justify-between gap-3">
+            <div class="min-w-0 flex-1">
+              <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Apify</h3>
+              <p class="text-xs text-brand-muted mt-1 leading-relaxed">Google Maps actor — last fallback in Auto mode when other providers fail or return no rows.</p>
+            </div>
+            <% if (_mapsProviderById.apify) { %><%- include('../../partials/integration_provider_status_pill', { label: _mapsProviderById.apify.label, connected: _mapsProviderById.apify.configured }) %><% } %>
+          </header>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API token</label>
+            <% if (masks.apifyApiToken) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.apifyApiToken %></p><% } %>
+            <input type="password" name="apifyApiToken" autocomplete="off" placeholder="Paste Apify token (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <% if (masks.apifyApiToken) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="apifyApiToken_clear" value="1" /> Remove saved token</label><% } %>
+          </div>
+          <%- include('../../partials/integration_test_row', { provider: 'apify' }) %>
+        </section>
+
+        <section id="integration-permitstack" class="rounded-2xl border-2 border-brand-yellow/25 dark:border-brand-yellow/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
+          <header>
+            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Permit Stack</h3>
+            <p class="text-xs text-brand-muted mt-1 leading-relaxed"><a href="https://permit-stack.com/" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">Permit Stack</a> — building permit search for <strong>Find leads → Permits</strong>. Import recent roofing, HVAC, solar, and other permits by city.</p>
+          </header>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
+            <% if (masks.permitStackApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.permitStackApiKey %></p><% } %>
+            <input type="password" name="permitStackApiKey" autocomplete="off" placeholder="Paste Permit Stack key (pk_…, leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <% if (masks.permitStackApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="permitStackApiKey_clear" value="1" /> Remove</label><% } %>
+          </div>
+          <%- include('../../partials/integration_test_row', { provider: 'permitstack' }) %>
+        </section>
+      </div>
+      <p class="text-xs text-brand-muted mt-3 leading-relaxed">The interactive map on Find Leads uses <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">GOOGLE_MAPS_API_KEY</code> on the server (Render env), not this form.</p>
+    </div>
+
+    <div id="integration-enhance" class="scroll-mt-28" data-int-group>
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Data enhance</p>
+      <p class="text-sm text-brand-muted mb-4 max-w-2xl leading-relaxed">Fill in emails, mobile numbers, socials and website details for leads you already have. Used by <strong>Enhance</strong>, <strong>Get More Contacts</strong> and background enrichment.</p>
+      <div class="space-y-4">
+        <section id="integration-monid" class="rounded-2xl border-2 border-violet-400/25 dark:border-violet-400/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
+          <header class="flex flex-wrap items-start justify-between gap-3">
+            <div class="min-w-0">
+              <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Monid</h3>
+              <p class="text-xs text-brand-muted mt-1 leading-relaxed max-w-2xl">
+                Gateway for <strong>Find leads → Business</strong> (Google Maps search) and
+                <strong>Enrich leads</strong> / bulk <strong>Enhance</strong> —
+                phone, website, LinkedIn, Facebook, and X via Apollo and People Data Labs (~$0.05–0.10 per match).
+                Maps search uses Monid’s Apify Google Maps scraper (~$0.0045/result) when selected or in Auto.
+                For leads without a domain, Apollo company search finds the best name + city match first, then enriches.
+                Create an API key at
+                <a href="https://app.monid.ai/access/api-keys" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">app.monid.ai</a>.
+                Usage draws from your Monid balance.
+              </p>
+            </div>
+            <a href="https://docs.monid.ai/api/overview.html" class="shrink-0 rounded-xl border border-violet-400/40 bg-violet-400/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-violet-300 hover:bg-violet-400/20 transition-colors" target="_blank" rel="noopener noreferrer">
+              API docs →
+            </a>
+          </header>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
+            <% if (masks.monidApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.monidApiKey %></p><% } %>
+            <input type="password" name="monidApiKey" autocomplete="off" placeholder="monid_live_… (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <% if (masks.monidApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="monidApiKey_clear" value="1" /> Remove</label><% } %>
+          </div>
+          <%- include('../../partials/integration_test_row', { provider: 'monid' }) %>
+        </section>
+
+        <section id="integration-bettercontact" class="rounded-2xl border-2 border-brand-yellow/25 dark:border-brand-yellow/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
+          <header>
+            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">BetterContact</h3>
+            <p class="text-xs text-brand-muted mt-1 leading-relaxed"><a href="https://bettercontact.rocks/" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">BetterContact</a> — verified email/mobile for <strong>Hunt contacts &amp; reviews</strong>. Pair with <a href="#integration-outscraper" class="js-integration-connect underline hover:text-brand-dark dark:hover:text-white">Outscraper</a> for Google review quotes.</p>
+          </header>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
+            <% if (masks.bettercontactApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.bettercontactApiKey %></p><% } %>
+            <input type="password" name="bettercontactApiKey" autocomplete="off" placeholder="Paste BetterContact key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <% if (masks.bettercontactApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="bettercontactApiKey_clear" value="1" /> Remove</label><% } %>
+          </div>
+          <%- include('../../partials/integration_test_row', { provider: 'bettercontact' }) %>
+        </section>
+
         <section id="integration-rapidapi-website" class="rounded-2xl border-2 border-brand-yellow/25 dark:border-brand-yellow/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
           <header class="flex flex-wrap items-start justify-between gap-3">
             <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow w-full">Second RapidAPI — lead enrichment</p>
@@ -159,145 +325,6 @@
           <%- include('../../partials/integration_test_row', { provider: 'rapidapiWebsite' }) %>
         </section>
 
-        <section id="integration-searchapi" class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
-          <header class="flex flex-wrap items-start justify-between gap-3">
-            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">SearchAPI.io</h3>
-            <% if (_mapsProviderById.searchapi) { %><%- include('../../partials/integration_provider_status_pill', { label: _mapsProviderById.searchapi.label, connected: _mapsProviderById.searchapi.configured }) %><% } %>
-            <p class="text-xs text-brand-muted mt-1 leading-relaxed"><a href="https://www.searchapi.io/docs/google-local-api" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">Google Local API</a> — optional; runs after RapidAPI in Auto mode.</p>
-          </header>
-          <div>
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
-            <% if (masks.searchapiApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.searchapiApiKey %></p><% } %>
-            <input type="password" name="searchapiApiKey" autocomplete="off" placeholder="Paste SearchAPI.io key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-            <% if (masks.searchapiApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="searchapiApiKey_clear" value="1" /> Remove</label><% } %>
-          </div>
-          <%- include('../../partials/integration_test_row', { provider: 'searchapi' }) %>
-        </section>
-
-        <section id="integration-serpapi" class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
-            <% if (_mapsProviderById.serpapi) { %><%- include('../../partials/integration_provider_status_pill', { label: _mapsProviderById.serpapi.label, connected: _mapsProviderById.serpapi.configured }) %><% } %>
-            <p class="text-xs text-brand-muted mt-1 leading-relaxed"><a href="https://serpapi.com/google-local-api" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">Google Local</a> — optional; runs after SearchAPI.io in Auto mode.</p>
-          </header>
-          <div>
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
-            <% if (masks.serpapiApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.serpapiApiKey %></p><% } %>
-            <input type="password" name="serpapiApiKey" autocomplete="off" placeholder="Paste SerpAPI key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-            <% if (masks.serpapiApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="serpapiApiKey_clear" value="1" /> Remove</label><% } %>
-          </div>
-          <%- include('../../partials/integration_test_row', { provider: 'serpapi' }) %>
-        </section>
-
-        <section id="integration-outscraper" class="rounded-2xl border-2 border-brand-yellow/25 dark:border-brand-yellow/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
-          <header class="flex flex-wrap items-start justify-between gap-3">
-            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Outscraper</h3>
-            <% if (_mapsProviderById.outscraper) { %><%- include('../../partials/integration_provider_status_pill', { label: _mapsProviderById.outscraper.label, connected: _mapsProviderById.outscraper.configured }) %><% } %>
-            <p class="text-xs text-brand-muted mt-1 leading-relaxed">Google Maps listings and <strong>review quotes</strong> for Hunt contacts &amp; reviews — also optional fallback in Find Leads Auto mode.</p>
-          </header>
-          <div>
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
-            <% if (masks.outscraperApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.outscraperApiKey %></p><% } %>
-            <input type="password" name="outscraperApiKey" autocomplete="off" placeholder="Paste Outscraper key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-            <% if (masks.outscraperApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="outscraperApiKey_clear" value="1" /> Remove</label><% } %>
-          </div>
-          <div>
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API base URL <span class="font-normal normal-case tracking-normal">(optional)</span></label>
-            <% if (masks.outscraperApiBase) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.outscraperApiBase %></p><% } %>
-            <input type="text" name="outscraperApiBase" autocomplete="off" placeholder="https://api.app.outscraper.com" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-            <% if (masks.outscraperApiBase) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="outscraperApiBase_clear" value="1" /> Remove</label><% } %>
-          </div>
-          <%- include('../../partials/integration_test_row', { provider: 'outscraper' }) %>
-        </section>
-
-        <section id="integration-apify" class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
-          <header class="flex flex-wrap items-start justify-between gap-3">
-            <div class="min-w-0 flex-1">
-              <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Apify</h3>
-              <p class="text-xs text-brand-muted mt-1 leading-relaxed">Google Maps actor — last fallback in Auto mode when other providers fail or return no rows.</p>
-            </div>
-            <% if (_mapsProviderById.apify) { %><%- include('../../partials/integration_provider_status_pill', { label: _mapsProviderById.apify.label, connected: _mapsProviderById.apify.configured }) %><% } %>
-          </header>
-          <div>
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API token</label>
-            <% if (masks.apifyApiToken) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.apifyApiToken %></p><% } %>
-            <input type="password" name="apifyApiToken" autocomplete="off" placeholder="Paste Apify token (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-            <% if (masks.apifyApiToken) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="apifyApiToken_clear" value="1" /> Remove saved token</label><% } %>
-          </div>
-          <%- include('../../partials/integration_test_row', { provider: 'apify' }) %>
-        </section>
-
-        <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4">
-          <header class="flex flex-wrap items-start justify-between gap-3">
-            <div class="min-w-0 flex-1">
-              <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Oxylabs</h3>
-              <p class="text-xs text-brand-muted mt-1 leading-relaxed"><a href="https://oxylabs.io/" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">Web Scraper API</a> — Google Maps leads, mobile home listing search, and real estate URLs. Create an <strong>API User</strong> under Web Scraper API → Users.</p>
-            </div>
-            <% if (_mapsProviderById.oxylabs) { %><%- include('../../partials/integration_provider_status_pill', { label: _mapsProviderById.oxylabs.label, connected: _mapsProviderById.oxylabs.configured }) %><% } %>
-          </header>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API username</label>
-              <% if (masks.oxylabsUsername) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.oxylabsUsername %></p><% } %>
-              <input type="text" name="oxylabsUsername" autocomplete="off" placeholder="customer-USERNAME" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-              <% if (masks.oxylabsUsername) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="oxylabsUsername_clear" value="1" /> Remove</label><% } %>
-            </div>
-            <div>
-              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API password</label>
-              <% if (masks.oxylabsPassword) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.oxylabsPassword %></p><% } %>
-              <input type="password" name="oxylabsPassword" autocomplete="off" placeholder="Paste API user password (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-              <% if (masks.oxylabsPassword) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="oxylabsPassword_clear" value="1" /> Remove</label><% } %>
-            </div>
-          </div>
-          <p class="text-[11px] text-brand-muted leading-relaxed">Also powers the <strong>Oxylabs (Google)</strong> mobile homes source and real estate fallback. Set <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-800 px-1 rounded">REAL_ESTATE_PRIMARY=oxylabs</code> to prefer Oxylabs on the Zillow-only page.</p>
-          <%- include('../../partials/integration_test_row', { provider: 'oxylabs' }) %>
-        </section>
-      </div>
-    </div>
-
-    <div>
-      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Enrich &amp; contact data</p>
-      <div class="space-y-4">
-        <section id="integration-bettercontact" class="rounded-2xl border-2 border-brand-yellow/25 dark:border-brand-yellow/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
-          <header>
-            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">BetterContact</h3>
-            <p class="text-xs text-brand-muted mt-1 leading-relaxed"><a href="https://bettercontact.rocks/" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">BetterContact</a> — verified email/mobile for <strong>Hunt contacts &amp; reviews</strong>. Pair with <a href="#integration-outscraper" class="js-integration-connect underline hover:text-brand-dark dark:hover:text-white">Outscraper</a> for Google review quotes.</p>
-          </header>
-          <div>
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
-            <% if (masks.bettercontactApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.bettercontactApiKey %></p><% } %>
-            <input type="password" name="bettercontactApiKey" autocomplete="off" placeholder="Paste BetterContact key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-            <% if (masks.bettercontactApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="bettercontactApiKey_clear" value="1" /> Remove</label><% } %>
-          </div>
-          <%- include('../../partials/integration_test_row', { provider: 'bettercontact' }) %>
-        </section>
-
-        <section id="integration-monid" class="rounded-2xl border-2 border-violet-400/25 dark:border-violet-400/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
-          <header class="flex flex-wrap items-start justify-between gap-3">
-            <div class="min-w-0">
-              <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Monid</h3>
-              <p class="text-xs text-brand-muted mt-1 leading-relaxed max-w-2xl">
-                Gateway for <strong>Find leads → Business</strong> (Google Maps search) and
-                <strong>Enrich leads</strong> / bulk <strong>Enhance</strong> —
-                phone, website, LinkedIn, Facebook, and X via Apollo and People Data Labs (~$0.05–0.10 per match).
-                Maps search uses Monid’s Apify Google Maps scraper (~$0.0045/result) when selected or in Auto.
-                For leads without a domain, Apollo company search finds the best name + city match first, then enriches.
-                Create an API key at
-                <a href="https://app.monid.ai/access/api-keys" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">app.monid.ai</a>.
-                Usage draws from your Monid balance.
-              </p>
-            </div>
-            <a href="https://docs.monid.ai/api/overview.html" class="shrink-0 rounded-xl border border-violet-400/40 bg-violet-400/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-violet-300 hover:bg-violet-400/20 transition-colors" target="_blank" rel="noopener noreferrer">
-              API docs →
-            </a>
-          </header>
-          <div>
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
-            <% if (masks.monidApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.monidApiKey %></p><% } %>
-            <input type="password" name="monidApiKey" autocomplete="off" placeholder="monid_live_… (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-            <% if (masks.monidApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="monidApiKey_clear" value="1" /> Remove</label><% } %>
-          </div>
-          <%- include('../../partials/integration_test_row', { provider: 'monid' }) %>
-        </section>
-
         <section id="integration-tikhub" class="rounded-2xl border-2 border-pink-400/25 dark:border-pink-400/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
           <header class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0">
@@ -321,20 +348,6 @@
             <% if (masks.tikhubApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="tikhubApiKey_clear" value="1" /> Remove</label><% } %>
           </div>
           <%- include('../../partials/integration_test_row', { provider: 'tikhub' }) %>
-        </section>
-
-        <section id="integration-permitstack" class="rounded-2xl border-2 border-brand-yellow/25 dark:border-brand-yellow/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
-          <header>
-            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Permit Stack</h3>
-            <p class="text-xs text-brand-muted mt-1 leading-relaxed"><a href="https://permit-stack.com/" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">Permit Stack</a> — building permit search for <strong>Find leads → Permits</strong>. Import recent roofing, HVAC, solar, and other permits by city.</p>
-          </header>
-          <div>
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
-            <% if (masks.permitStackApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.permitStackApiKey %></p><% } %>
-            <input type="password" name="permitStackApiKey" autocomplete="off" placeholder="Paste Permit Stack key (pk_…, leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-            <% if (masks.permitStackApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="permitStackApiKey_clear" value="1" /> Remove</label><% } %>
-          </div>
-          <%- include('../../partials/integration_test_row', { provider: 'permitstack' }) %>
         </section>
 
         <section id="integration-website-enhance" class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-950/50 p-5 sm:p-6 space-y-4 scroll-mt-28">
@@ -377,553 +390,567 @@
             <%- include('../../partials/integration_test_row', { provider: 'crawl4ai' }) %>
           </div>
         </section>
+
+        <section id="integration-pagespeed" class="scroll-mt-28 rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4">
+          <header>
+            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Google PageSpeed Insights</h3>
+            <p class="text-xs text-brand-muted mt-1 leading-relaxed"><a href="https://developers.google.com/speed/docs/insights/v5/get-started" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">PageSpeed Insights API</a> — powers <strong>Run Lighthouse audit</strong> on the lead Insights tab. Often the same Google Cloud key as Maps.</p>
+          </header>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
+            <% if (masks.pagespeedApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.pagespeedApiKey %></p><% } %>
+            <input type="password" name="pagespeedApiKey" autocomplete="off" placeholder="Google Cloud API key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <% if (masks.pagespeedApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="pagespeedApiKey_clear" value="1" /> Remove</label><% } %>
+          </div>
+          <%- include('../../partials/integration_test_row', { provider: 'pagespeed' }) %>
+        </section>
       </div>
     </div>
 
-    <div>
-      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">AI — OpenRouter</p>
-      <section id="openrouter-integration" class="rounded-2xl border-2 border-brand-yellow/25 dark:border-brand-yellow/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-24 mb-4">
-        <header class="flex flex-wrap items-start justify-between gap-3">
-          <div class="min-w-0">
-            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">OpenRouter</h3>
-            <p class="text-xs text-brand-muted mt-1 leading-relaxed max-w-2xl">
-              Powers flow coach, outreach AI, GHL prompt optimizer, flip scoring, pipeline insights, and more.
-              Get a <strong>free API key</strong> at
-              <a href="https://openrouter.ai/keys" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">openrouter.ai/keys</a>
-              — no credit card required. Free models use the <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">:free</code> suffix or
-              <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">openrouter/free</code> auto-router (~20 req/min; daily cap depends on account credits).
-            </p>
-          </div>
-          <% if (typeof openrouterConfigured !== 'undefined' && openrouterConfigured) { %>
-          <%- include('../../partials/integration_provider_status_pill', { label: 'OpenRouter', connected: true }) %>
-          <% } else { %>
-          <%- include('../../partials/integration_provider_status_pill', { label: 'OpenRouter', connected: false }) %>
-          <% } %>
-        </header>
-        <div class="rounded-xl border border-brand-yellow/30 bg-brand-yellow/5 px-3 py-2.5 text-xs text-brand-muted leading-relaxed space-y-2">
-          <p>
-            <strong class="text-brand-dark dark:text-white">Active model chain:</strong>
-            <% const _orStack = typeof openrouterModelStack !== 'undefined' && openrouterModelStack ? openrouterModelStack : { configured: false, summary: 'Not configured', steps: [] }; %>
-            <% if (_orStack.configured) { %>
-            <code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900"><%= _orStack.summary %></code>
-            <% } else { %>
-            <span>Add an API key below.</span>
-            <% } %>
-          </p>
-          <p>
-            <strong class="text-brand-dark dark:text-white">Cheapest (default):</strong>
-            leave Model blank — uses <code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900">openrouter/free</code> then <code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900">qwen/qwen3-coder:free</code> ($0).
-          </p>
-          <p>
-            <strong class="text-brand-dark dark:text-white">Paid tier:</strong>
-            <code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900">deepseek/deepseek-v4-flash</code>
-            — enter in Model below to always use Flash, or set <code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900">OPENROUTER_ALLOW_PAID_FALLBACK=1</code> on the server to try free first, then Flash.
-          </p>
-        </div>
-        <div class="grid gap-4 sm:grid-cols-2">
-          <div class="sm:col-span-2">
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
-            <% if (masks.openrouterApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.openrouterApiKey %></p><% } %>
-            <input type="password" name="openrouterApiKey" autocomplete="off" placeholder="sk-or-… (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-            <% if (masks.openrouterApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="openrouterApiKey_clear" value="1" /> Remove saved key</label><% } %>
-          </div>
-          <div class="sm:col-span-2">
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Model <span class="font-normal normal-case tracking-normal">(optional)</span></label>
-            <% if (masks.openrouterModel) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.openrouterModel %></p><% } %>
-            <input type="text" name="openrouterModel" autocomplete="off" list="openrouterModelPresets" placeholder="Blank = free auto-router · or deepseek/deepseek-v4-flash" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm font-mono text-[13px]" />
-            <datalist id="openrouterModelPresets">
-              <option value="openrouter/free">Free auto-router (cheapest that day)</option>
-              <option value="qwen/qwen3-coder:free">Qwen3 Coder (free)</option>
-              <option value="deepseek/deepseek-v4-flash">DeepSeek V4 Flash (paid)</option>
-              <option value="deepseek/deepseek-v4-flash:floor">DeepSeek V4 Flash :floor (cheapest provider)</option>
-            </datalist>
-            <% if (masks.openrouterModel) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="openrouterModel_clear" value="1" /> Remove</label><% } %>
-            <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Overrides the server default model chain for this workspace only. Paid models (e.g. Flash) need OpenRouter credits — leave blank to stay on free models.</p>
-          </div>
-        </div>
-        <%- include('../../partials/integration_test_row', { provider: 'openrouter' }) %>
-      </section>
-    </div>
-
-    <div>
-      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Audits</p>
-      <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4">
-        <header>
-          <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Google PageSpeed Insights</h3>
-          <p class="text-xs text-brand-muted mt-1 leading-relaxed"><a href="https://developers.google.com/speed/docs/insights/v5/get-started" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">PageSpeed Insights API</a> — powers <strong>Run Lighthouse audit</strong> on the lead Insights tab. Often the same Google Cloud key as Maps.</p>
-        </header>
-        <div>
-          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
-          <% if (masks.pagespeedApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.pagespeedApiKey %></p><% } %>
-          <input type="password" name="pagespeedApiKey" autocomplete="off" placeholder="Google Cloud API key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-          <% if (masks.pagespeedApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="pagespeedApiKey_clear" value="1" /> Remove</label><% } %>
-        </div>
-        <%- include('../../partials/integration_test_row', { provider: 'pagespeed' }) %>
-      </section>
-      <p class="text-xs text-brand-muted mt-3 leading-relaxed">The interactive map on Find Leads uses <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">GOOGLE_MAPS_API_KEY</code> on the server (Render env), not this form.</p>
-    </div>
-
-    <div>
-      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">CRM &amp; messaging</p>
-      <p class="text-xs text-brand-muted mb-4 leading-relaxed">
-        Jump to:
-        <a href="#openrouter-integration" class="js-integration-connect underline hover:text-brand-dark dark:hover:text-white">OpenRouter (AI)</a>
-        ·
-        <a href="#ghl-integration" class="js-integration-connect underline hover:text-brand-dark dark:hover:text-white">Go High Level</a>
-        ·
-        <a href="#comms-integration" class="js-integration-connect underline hover:text-brand-yellow font-semibold">Comms (iMessage / SMS)</a>
-        ·
-        <a href="#saperly-integration" class="js-integration-connect underline hover:text-brand-dark dark:hover:text-white">Saperly</a>
-        ·
-        <a href="#mcp-integration" class="js-integration-connect underline hover:text-brand-dark dark:hover:text-white">ChatGPT / MCP</a>
-      </p>
-      <section id="ghl-integration" class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-24 mb-4">
-        <%- include('../../partials/ghl_connection_banner', { ghlStatus: typeof ghlStatus !== 'undefined' ? ghlStatus : {} }) %>
-        <header class="flex flex-wrap items-start justify-between gap-3">
-          <div class="min-w-0">
-            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Go High Level</h3>
-            <p class="text-xs text-brand-muted mt-1 leading-relaxed">
-              GHL is your system of record for contacts, tags, SMS, and email. Sync contacts from the pipeline or lead panel; tag and note changes sync automatically when GHL is connected.
-              Dispositions and cadence channels also sync <strong>AO:</strong> action tags to GHL (e.g. <em>AO: Call back</em>, <em>AO: Text</em>) so you can filter follow-up in GHL.
-              Requires <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">contacts</code> (read + write) and
-              <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">conversations/message.write</code> on your private integration token.
-              <strong class="text-brand-dark dark:text-white">Token and Location ID must be from the same sub-account</strong> — otherwise sync fails with “token does not have access to this location.” Enable <strong>contacts write</strong> (and locations/custom fields) on the Private Integration — read-only tokens can pass Test but fail when syncing from Opportunities.
-            </p>
-          </div>
-          <div class="flex flex-wrap gap-2 shrink-0">
-          <a href="/workspace/integrations/ghl-setup" class="shrink-0 rounded-xl border border-brand-yellow/40 bg-brand-yellow/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors">
-            Setup guide →
-          </a>
-          <a href="/workspace/integrations/ghl-setup#acquisition-blueprint" class="shrink-0 rounded-xl border border-brand-border/60 dark:border-white/15 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors">
-            Acquisition Blueprint
-          </a>
-          </div>
-        </header>
-        <div class="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Private integration token</label>
-            <% if (masks.ghlApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.ghlApiKey %></p><% } %>
-            <input type="password" name="ghlApiKey" autocomplete="off" placeholder="GHL API key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-            <% if (masks.ghlApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="ghlApiKey_clear" value="1" /> Remove</label><% } %>
-          </div>
-          <div>
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Location ID</label>
-            <% if (masks.ghlLocationId) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.ghlLocationId %></p><% } %>
-            <input type="text" name="ghlLocationId" autocomplete="off" placeholder="Sub-account location ID" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-            <% if (masks.ghlLocationId) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="ghlLocationId_clear" value="1" /> Remove</label><% } %>
-          </div>
-          <div>
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Agency company ID</label>
-            <% if (masks.ghlCompanyId) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.ghlCompanyId %></p><% } %>
-            <input type="text" name="ghlCompanyId" autocomplete="off" placeholder="GHL agency company ID" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-            <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Required to create client sub-accounts from the pipeline floater. Ask GHL support for your agency ID if it is not in Agency Settings.</p>
-            <% if (masks.ghlCompanyId) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="ghlCompanyId_clear" value="1" /> Remove</label><% } %>
-          </div>
-          <div>
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Agency API key</label>
-            <% if (masks.ghlAgencyApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.ghlAgencyApiKey %></p><% } %>
-            <input type="password" name="ghlAgencyApiKey" autocomplete="off" placeholder="Agency private integration token (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-            <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Only used to create client sub-accounts. In GHL Agency view → Settings → Private Integrations, create a token with <strong>locations.write</strong> and <strong>locations.readonly</strong>. The sub-account token above can't create sub-accounts.</p>
-            <% if (masks.ghlAgencyApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="ghlAgencyApiKey_clear" value="1" /> Remove</label><% } %>
-          </div>
-          <div>
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Snapshot ID (optional)</label>
-            <% if (masks.ghlSnapshotId) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.ghlSnapshotId %></p><% } %>
-            <input type="text" name="ghlSnapshotId" autocomplete="off" placeholder="Snapshot applied to new sub-accounts" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-            <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Leave blank for an empty sub-account. Use a snapshot ID to clone your client template.</p>
-            <% if (masks.ghlSnapshotId) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="ghlSnapshotId_clear" value="1" /> Remove</label><% } %>
-          </div>
-          <div>
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Outbound email from</label>
-            <% if (masks.ghlEmailFrom) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.ghlEmailFrom %></p><% } %>
-            <input type="email" name="ghlEmailFrom" autocomplete="off" placeholder="hello@yourdomain.com (verified in GHL)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-            <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Required to send email from Agency OS. Use a verified sender in your GHL sub-account.</p>
-          </div>
-          <div>
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">SMS from number</label>
-            <% if (masks.ghlSmsFromNumber) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.ghlSmsFromNumber %></p><% } %>
-            <input type="text" name="ghlSmsFromNumber" autocomplete="off" placeholder="+15551234567" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-            <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Required to send SMS from Agency OS via GHL. Use an SMS-capable number from this GHL location (E.164, e.g. +15551234567).</p>
-          </div>
-        </div>
-        <%- include('../../partials/integration_test_row', { provider: 'ghl' }) %>
-        <div class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 px-4 py-3 space-y-2">
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Inbound webhook (GHL → Agency OS)</p>
-          <p class="text-xs text-brand-muted leading-relaxed">Paste this URL into a GHL <strong>Workflow → Webhook</strong> action (triggers like Form Submitted, Call Status, Customer Replied; Custom Data <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">event</code> = form, missed_call, voicemail, or sms). It also accepts GHL app webhooks (InboundMessage, OutboundMessage, ContactCreate, ContactUpdate). <a href="/workspace/integrations/ghl-setup" class="underline">Setup guide</a></p>
-          <% const _ghlHookBase = (typeof publicAppBaseUrl !== 'undefined' && publicAppBaseUrl) ? publicAppBaseUrl : ''; %>
-          <div class="flex flex-wrap items-center gap-2">
-            <code id="ghlWebhookUrl" class="text-[11px] break-all rounded-lg bg-white/80 dark:bg-slate-900 px-3 py-2 flex-1 min-w-[12rem]"><%= _ghlHookBase %>/api/webhooks/ghl?token=••••••••</code>
-            <button type="button" id="copyGhlWebhookUrl" class="shrink-0 rounded-xl border border-brand-border/70 dark:border-white/15 bg-white dark:bg-slate-800 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors">Copy URL</button>
-          </div>
-          <p id="ghlWebhookUrlMsg" class="hidden text-xs text-rose-600"></p>
-          <div class="pt-1">
-            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Recent GHL events</p>
-            <ul id="ghlWebhookLog" class="text-[11px] text-brand-muted space-y-1"><li>Loading…</li></ul>
-          </div>
-          <div class="pt-1">
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Webhook token (optional per-workspace)</label>
-            <% if (masks.ghlWebhookSecret) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.ghlWebhookSecret %></p><% } %>
-            <input type="password" name="ghlWebhookSecret" autocomplete="off" placeholder="Leave blank to use server GHL_WEBHOOK_SECRET" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-            <% if (masks.ghlWebhookSecret) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="ghlWebhookSecret_clear" value="1" /> Remove</label><% } %>
-          </div>
-        </div>
-        <div class="pt-2 border-t border-brand-border/30 dark:border-white/10 space-y-3">
-          <div>
-            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Default sync direction</p>
-            <p class="text-xs text-brand-muted leading-relaxed mb-2">Saved for this workspace. Manual <strong class="text-brand-dark dark:text-white">Sync GHL</strong> on a lead still pushes when you click it; this controls bulk sync and automatic tag/SMS/email sync.</p>
-            <input type="hidden" name="ghlSyncDirection" id="ghlSyncDirectionInput" value="<%= typeof ghlSyncDirection !== 'undefined' ? ghlSyncDirection : 'both' %>" />
-            <div class="flex flex-wrap gap-2" role="radiogroup" aria-label="GHL sync direction" id="ghlSyncDirectionGroup">
-              <% const _ghlDir = typeof ghlSyncDirection !== 'undefined' ? ghlSyncDirection : 'both'; %>
-              <button type="button" class="js-ghl-direction rounded-xl border-2 px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors disabled:opacity-50 <%= _ghlDir === 'pull' ? 'border-emerald-600 bg-emerald-500 text-white shadow-sm' : 'border-brand-border/70 dark:border-white/15 bg-white dark:bg-slate-800 text-brand-dark dark:text-white hover:border-emerald-500/50' %>" data-direction="pull" aria-pressed="<%= _ghlDir === 'pull' ? 'true' : 'false' %>">Pull from GHL</button>
-              <button type="button" class="js-ghl-direction rounded-xl border-2 px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors disabled:opacity-50 <%= _ghlDir === 'push' ? 'border-orange-600 bg-orange-500 text-white shadow-sm' : 'border-brand-border/70 dark:border-white/15 bg-white dark:bg-slate-800 text-brand-dark dark:text-white hover:border-orange-500/50' %>" data-direction="push" aria-pressed="<%= _ghlDir === 'push' ? 'true' : 'false' %>">Sync to GHL</button>
-              <button type="button" class="js-ghl-direction rounded-xl border-2 px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors disabled:opacity-50 <%= _ghlDir === 'both' ? 'border-brand-dark bg-brand-dark text-white shadow-sm dark:border-brand-yellow dark:bg-brand-yellow dark:text-brand-dark' : 'border-brand-border/70 dark:border-white/15 bg-white dark:bg-slate-800 text-brand-dark dark:text-white hover:border-brand-yellow/50' %>" data-direction="both" aria-pressed="<%= _ghlDir === 'both' ? 'true' : 'false' %>">Sync both ways</button>
-            </div>
-            <p id="ghlDirectionSaveMsg" class="text-[11px] text-brand-muted mt-2 min-h-[1rem]" aria-live="polite"></p>
-          </div>
-          <div class="flex flex-wrap gap-2 items-center">
-            <button type="button" id="ghlSyncNowBtn" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-opacity disabled:opacity-50">Sync now</button>
-            <p id="ghlSyncMsg" class="text-xs text-brand-muted min-h-[1.25rem] flex-1" aria-live="polite"></p>
-          </div>
-        </div>
-      </section>
-
-      <section id="comms-integration" class="rounded-2xl border-2 border-brand-yellow/30 dark:border-brand-yellow/25 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-24 mb-4">
-        <header class="flex flex-wrap items-start justify-between gap-3">
-          <div class="min-w-0">
-            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Comms by Osis</h3>
-            <p class="text-xs text-brand-muted mt-1 leading-relaxed max-w-2xl">
-              Send and receive <strong>iMessage</strong> and <strong>SMS</strong> through your dedicated line via
-              <a href="https://comms.osis.co/" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">Comms</a>.
-              Create a Messages API key at
-              <a href="https://comms.osis.co/dashboard/settings/api-keys" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">comms.osis.co → Settings → API keys</a>
-              with <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">comms_send</code> and
-              <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">comms_read</code> scopes.
-            </p>
-          </div>
-          <a href="https://docs.osis.co/messages-api/overview" class="shrink-0 rounded-xl border border-brand-yellow/40 bg-brand-yellow/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors" target="_blank" rel="noopener noreferrer">
-            API docs →
-          </a>
-        </header>
-        <div class="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Messages API key</label>
-            <% if (masks.commsApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.commsApiKey %></p><% } %>
-            <input type="password" name="commsApiKey" autocomplete="off" placeholder="osis_… (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-            <% if (masks.commsApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="commsApiKey_clear" value="1" /> Remove</label><% } %>
-          </div>
-          <div>
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Default channel</label>
-            <% const _commsChannel = (typeof commsDefaultChannel !== 'undefined' && commsDefaultChannel) ? commsDefaultChannel : ''; %>
-            <select name="commsDefaultChannel" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm">
-              <option value="" <%= !_commsChannel ? 'selected' : '' %>>Auto (Comms picks best channel)</option>
-              <option value="imessage" <%= _commsChannel === 'imessage' ? 'selected' : '' %>>iMessage</option>
-              <option value="sms" <%= _commsChannel === 'sms' ? 'selected' : '' %>>SMS</option>
-            </select>
-            <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Used when sending without an explicit channel. iMessage is tried first when the recipient supports it.</p>
-          </div>
-          <div class="sm:col-span-2">
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">SMS send preference</label>
-            <% const _smsPrimary = (typeof smsPrimary !== 'undefined' && smsPrimary) ? smsPrimary : 'auto'; %>
-            <select name="smsPrimary" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm">
-              <option value="auto" <%= _smsPrimary === 'auto' || !_smsPrimary ? 'selected' : '' %>>Auto — GHL → Saperly → Comms → SignalWire</option>
-              <option value="saperly" <%= _smsPrimary === 'saperly' ? 'selected' : '' %>>Prefer Saperly</option>
-              <option value="comms" <%= _smsPrimary === 'comms' ? 'selected' : '' %>>Prefer Comms (iMessage / SMS)</option>
-              <option value="ghl" <%= _smsPrimary === 'ghl' ? 'selected' : '' %>>Prefer Go High Level</option>
-            </select>
-            <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Controls outreach, cadence text sends, Money mode, and bulk SMS from the lead panel.</p>
-          </div>
-        </div>
-        <%- include('../../partials/integration_test_row', { provider: 'comms' }) %>
-        <div class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 px-4 py-3 space-y-2">
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Inbound webhook (Comms → Agency OS)</p>
-          <p class="text-xs text-brand-muted leading-relaxed">In Comms, add a webhook for <strong>message.received</strong> and point it at the URL below. Use the same token here and in Comms webhook settings.</p>
-          <% const _commsHookBase = (typeof publicAppBaseUrl !== 'undefined' && publicAppBaseUrl) ? publicAppBaseUrl : ''; %>
-          <% const _commsHasSavedToken = !!masks.commsWebhookSecret; %>
-          <% const _commsHasServerToken = (typeof commsWebhookTokenHint !== 'undefined' && commsWebhookTokenHint); %>
-          <div class="flex flex-wrap items-center gap-2">
-            <% if (_commsHasSavedToken || _commsHasServerToken) { %>
-            <code id="commsWebhookUrl" class="text-[11px] break-all rounded-lg bg-white/80 dark:bg-slate-900 px-3 py-2 flex-1 min-w-[12rem]"><%= _commsHookBase %>/api/webhooks/comms?token=<% if (_commsHasSavedToken) { %>••••••••<% } else { %>configured-on-server<% } %></code>
-            <button type="button" id="copyCommsWebhookUrl" class="shrink-0 rounded-xl border border-brand-border/70 dark:border-white/15 bg-white dark:bg-slate-800 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors">Copy URL</button>
-            <% } else { %>
-            <p class="text-xs text-brand-muted">Save a webhook token below (or set <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">COMMS_WEBHOOK_SECRET</code> on the server) to reveal the full URL.</p>
-            <% } %>
-          </div>
-          <div class="pt-1">
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Webhook token (optional per-workspace)</label>
-            <% if (masks.commsWebhookSecret) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.commsWebhookSecret %></p><% } %>
-            <input type="password" name="commsWebhookSecret" autocomplete="off" placeholder="Leave blank to use server COMMS_WEBHOOK_SECRET" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-            <% if (masks.commsWebhookSecret) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="commsWebhookSecret_clear" value="1" /> Remove</label><% } %>
-          </div>
-        </div>
-      </section>
-
-      <section id="saperly-integration" class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-24 mb-4">
-        <header class="flex flex-wrap items-start justify-between gap-3">
-          <div class="min-w-0">
-            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Saperly</h3>
-            <p class="text-xs text-brand-muted mt-1 leading-relaxed max-w-2xl">
-              Send SMS from the pipeline, bulk bar, Money mode, and cadence through
-              <a href="https://saperly.com/" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">Saperly</a>
-              — AI-agent phone carrier with compliance built in.
-              Create an API key at
-              <a href="https://app.saperly.ai/access/api-keys" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">app.saperly.ai → API keys</a>
-              with SMS send scope, provision a number, then paste the number ID below.
-            </p>
-          </div>
-          <a href="https://saperly.com/docs/sdks/node" class="shrink-0 rounded-xl border border-brand-yellow/40 bg-brand-yellow/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors" target="_blank" rel="noopener noreferrer">
-            API docs →
-          </a>
-        </header>
-        <div class="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
-            <% if (masks.saperlyApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.saperlyApiKey %></p><% } %>
-            <input type="password" name="saperlyApiKey" autocomplete="off" placeholder="sap_sk_live_… (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-            <% if (masks.saperlyApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="saperlyApiKey_clear" value="1" /> Remove</label><% } %>
-          </div>
-          <div>
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">From number ID</label>
-            <% if (masks.saperlyFromNumberId) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.saperlyFromNumberId %></p><% } %>
-            <input type="text" name="saperlyFromNumberId" autocomplete="off" placeholder="Saperly number id (from GET /numbers)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-            <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Required to send SMS. Find it in the Saperly dashboard or via <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">GET /numbers</code> after provisioning a line.</p>
-            <% if (masks.saperlyFromNumberId) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="saperlyFromNumberId_clear" value="1" /> Remove</label><% } %>
-          </div>
-        </div>
-        <p class="text-[11px] text-brand-muted leading-relaxed rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 px-4 py-3">
-          Outbound SMS requires either a reply from the recipient within 24 hours, or an
-          <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">explicit_outbound</code>
-          consent record in Saperly. See
-          <a href="https://saperly.com/docs" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">Saperly compliance docs</a>.
-        </p>
-        <%- include('../../partials/integration_test_row', { provider: 'saperly' }) %>
-      </section>
-
-      <section id="mcp-integration" class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-24">
-        <header class="flex flex-wrap items-start justify-between gap-3">
-          <div class="min-w-0">
-            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">AI Connector (MCP)</h3>
-            <p class="text-xs text-brand-muted mt-1 leading-relaxed max-w-2xl">
-              Work this workspace from ChatGPT, Claude, or any MCP client — leads, folders, lead searches, opportunities, tasks, GHL sync, and your referral network.
-              In ChatGPT or Claude, add a custom connector with the MCP endpoint below; it asks you to sign in to AdHello and pick a workspace — no token needed.
-              Clients that only take a header (Gemini CLI, scripts) can use an access token with <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">Authorization: Bearer &lt;token&gt;</code>.
-            </p>
-          </div>
-        </header>
-
-        <% const _mcpBase = (typeof publicAppBaseUrl !== 'undefined' && publicAppBaseUrl) ? publicAppBaseUrl : ''; %>
-        <% const _mcpEndpoint = (typeof mcpEndpoint !== 'undefined' && mcpEndpoint) ? mcpEndpoint : (_mcpBase ? _mcpBase + '/ceo/mcp' : ''); %>
-        <% const _mcpManifest = (typeof mcpManifestUrl !== 'undefined' && mcpManifestUrl) ? mcpManifestUrl : (_mcpBase ? _mcpBase + '/ceo/mcp/manifest.json' : ''); %>
-        <% const _mcpStatus = (typeof mcpTokenStatus !== 'undefined' && mcpTokenStatus) ? mcpTokenStatus : { configured: false }; %>
-
-        <div class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 px-4 py-3 space-y-3">
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Connection URLs</p>
-          <div class="space-y-2">
-            <div>
-              <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">MCP endpoint</p>
-              <div class="flex flex-wrap items-center gap-2">
-                <code id="mcpEndpointUrl" class="text-[11px] break-all rounded-lg bg-white/80 dark:bg-slate-900 px-3 py-2 flex-1 min-w-[12rem]"><%= _mcpEndpoint || 'Set BASE_URL on the server to show the full URL' %></code>
-                <button type="button" id="copyMcpEndpointUrl" class="shrink-0 rounded-xl border border-brand-border/70 dark:border-white/15 bg-white dark:bg-slate-800 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors" <%= _mcpEndpoint ? '' : 'disabled' %>>Copy URL</button>
-              </div>
-            </div>
-            <div>
-              <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">OpenAI manifest</p>
-              <div class="flex flex-wrap items-center gap-2">
-                <code id="mcpManifestUrl" class="text-[11px] break-all rounded-lg bg-white/80 dark:bg-slate-900 px-3 py-2 flex-1 min-w-[12rem]"><%= _mcpManifest || 'Set BASE_URL on the server to show the full URL' %></code>
-                <button type="button" id="copyMcpManifestUrl" class="shrink-0 rounded-xl border border-brand-border/70 dark:border-white/15 bg-white dark:bg-slate-800 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors" <%= _mcpManifest ? '' : 'disabled' %>>Copy URL</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <% const _mcpApps = (typeof mcpConnectedApps !== 'undefined' && Array.isArray(mcpConnectedApps)) ? mcpConnectedApps : []; %>
-        <div class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 px-4 py-3 space-y-3">
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Connected AI apps</p>
-          <% if (!_mcpApps.length) { %>
-          <p class="text-xs text-brand-muted leading-relaxed">None yet. When someone connects ChatGPT or Claude to this workspace, it shows up here.</p>
-          <% } %>
-          <% _mcpApps.forEach(function (app) { %>
-          <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white/80 dark:bg-slate-900 px-3 py-2">
+    <div id="integration-crm" class="scroll-mt-28" data-int-group>
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">CRM</p>
+      <p class="text-sm text-brand-muted mb-4 max-w-2xl leading-relaxed">Sync leads, opportunities and pipeline stages with Go High Level. GHL email and texting also go out through this connection.</p>
+      <div class="space-y-4">
+        <section id="ghl-integration" class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-24 mb-4">
+          <%- include('../../partials/ghl_connection_banner', { ghlStatus: typeof ghlStatus !== 'undefined' ? ghlStatus : {} }) %>
+          <header class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0">
-              <p class="text-sm font-semibold text-brand-dark dark:text-white truncate"><%= app.clientName %><% if (app.allWorkspaces) { %> <span class="ml-1 text-[10px] font-black uppercase tracking-widest text-brand-muted">All workspaces</span><% } %></p>
-              <p class="text-[11px] text-brand-muted">Connected by <%= app.userEmail %> · <%= wsDateTime(app.createdAt) %><% if (app.lastUsedAt) { %> · last used <%= wsDateTime(app.lastUsedAt) %><% } %></p>
+              <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Go High Level</h3>
+              <p class="text-xs text-brand-muted mt-1 leading-relaxed">
+                GHL is your system of record for contacts, tags, SMS, and email. Sync contacts from the pipeline or lead panel; tag and note changes sync automatically when GHL is connected.
+                Dispositions and cadence channels also sync <strong>AO:</strong> action tags to GHL (e.g. <em>AO: Call back</em>, <em>AO: Text</em>) so you can filter follow-up in GHL.
+                Requires <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">contacts</code> (read + write) and
+                <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">conversations/message.write</code> on your private integration token.
+                <strong class="text-brand-dark dark:text-white">Token and Location ID must be from the same sub-account</strong> — otherwise sync fails with “token does not have access to this location.” Enable <strong>contacts write</strong> (and locations/custom fields) on the Private Integration — read-only tokens can pass Test but fail when syncing from Opportunities.
+              </p>
             </div>
-            <%# Inside the integrations <form>: a type=submit here would become the Enter-key default, so post a detached form. %>
-            <% const _appConfirm = !app.allWorkspaces ? 'Disconnect this AI app from the workspace?' : (typeof mcpViewerEmail !== 'undefined' && app.userEmail === mcpViewerEmail) ? 'Disconnect this AI app from all your workspaces?' : 'Block this AI app from this workspace? It keeps working in the person\'s other workspaces.'; %>
-            <button type="button" data-action="/workspace/integrations/mcp/apps/<%= encodeURIComponent(app.id) %>/revoke" data-confirm="<%= _appConfirm %>" onclick="if (confirm(this.dataset.confirm)) { var f = document.createElement('form'); f.method = 'post'; f.action = this.dataset.action; document.body.appendChild(f); f.submit(); }" class="rounded-xl border border-rose-400/50 bg-rose-500/10 text-rose-900 dark:text-rose-200 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/20 transition-colors">Disconnect</button>
-          </div>
-          <% }); %>
-        </div>
-
-        <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
-        <% const _mcpClients = (typeof mcpOAuthClients !== 'undefined' && Array.isArray(mcpOAuthClients)) ? mcpOAuthClients : []; %>
-        <div id="mcpOAuthClients" class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 px-4 py-3 space-y-3">
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Apps that ask for a Client ID (Meta AI / Muse, Grok, agent builders)</p>
-          <p class="text-xs text-brand-muted leading-relaxed">
-            Some apps can't register themselves and ask for an <strong class="text-brand-dark dark:text-white">OAuth Client ID</strong>. Create one here, then paste the Client ID, Client secret, and URLs into the app.
-            If the app shows a <strong class="text-brand-dark dark:text-white">callback / redirect URL</strong>, paste it below; if not, leave it blank and the first sign-in locks it in.
-          </p>
-          <label class="inline-flex items-start gap-2 text-xs text-brand-muted leading-relaxed">
-            <input id="mcpClientAllWorkspaces" type="checkbox" checked class="mt-0.5 rounded border-brand-border" />
-            <span><strong class="text-brand-dark dark:text-white">Let it reach all my workspaces</strong> — one connection for every workspace you're on (you pick "All my workspaces" when signing in). Unchecked, the Client ID only connects to this workspace.</span>
-          </label>
-          <div class="flex flex-wrap gap-2 items-end">
-            <div style="flex:1 1 10rem;max-width:14rem">
-              <label for="mcpClientName" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">App name</label>
-              <input id="mcpClientName" type="text" maxlength="120" placeholder="Meta AI (Muse)" autocomplete="off" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" />
+            <div class="flex flex-wrap gap-2 shrink-0">
+            <a href="/workspace/integrations/ghl-setup" class="shrink-0 rounded-xl border border-brand-yellow/40 bg-brand-yellow/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors">
+              Setup guide →
+            </a>
+            <a href="/workspace/integrations/ghl-setup#acquisition-blueprint" class="shrink-0 rounded-xl border border-brand-border/60 dark:border-white/15 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors">
+              Acquisition Blueprint
+            </a>
             </div>
-            <div style="flex:3 1 14rem">
-              <label for="mcpClientRedirect" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Callback URL <span class="font-normal normal-case tracking-normal">(optional)</span></label>
-              <input id="mcpClientRedirect" type="url" placeholder="https://… (from the app's connector screen)" autocomplete="off" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" />
+          </header>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Private integration token</label>
+              <% if (masks.ghlApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.ghlApiKey %></p><% } %>
+              <input type="password" name="ghlApiKey" autocomplete="off" placeholder="GHL API key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+              <% if (masks.ghlApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="ghlApiKey_clear" value="1" /> Remove</label><% } %>
             </div>
-            <button type="button" id="mcpCreateClientBtn" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-opacity disabled:opacity-50">Create Client ID</button>
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Location ID</label>
+              <% if (masks.ghlLocationId) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.ghlLocationId %></p><% } %>
+              <input type="text" name="ghlLocationId" autocomplete="off" placeholder="Sub-account location ID" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+              <% if (masks.ghlLocationId) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="ghlLocationId_clear" value="1" /> Remove</label><% } %>
+            </div>
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Agency company ID</label>
+              <% if (masks.ghlCompanyId) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.ghlCompanyId %></p><% } %>
+              <input type="text" name="ghlCompanyId" autocomplete="off" placeholder="GHL agency company ID" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+              <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Required to create client sub-accounts from the pipeline floater. Ask GHL support for your agency ID if it is not in Agency Settings.</p>
+              <% if (masks.ghlCompanyId) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="ghlCompanyId_clear" value="1" /> Remove</label><% } %>
+            </div>
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Agency API key</label>
+              <% if (masks.ghlAgencyApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.ghlAgencyApiKey %></p><% } %>
+              <input type="password" name="ghlAgencyApiKey" autocomplete="off" placeholder="Agency private integration token (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+              <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Only used to create client sub-accounts. In GHL Agency view → Settings → Private Integrations, create a token with <strong>locations.write</strong> and <strong>locations.readonly</strong>. The sub-account token above can't create sub-accounts.</p>
+              <% if (masks.ghlAgencyApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="ghlAgencyApiKey_clear" value="1" /> Remove</label><% } %>
+            </div>
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Snapshot ID (optional)</label>
+              <% if (masks.ghlSnapshotId) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.ghlSnapshotId %></p><% } %>
+              <input type="text" name="ghlSnapshotId" autocomplete="off" placeholder="Snapshot applied to new sub-accounts" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+              <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Leave blank for an empty sub-account. Use a snapshot ID to clone your client template.</p>
+              <% if (masks.ghlSnapshotId) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="ghlSnapshotId_clear" value="1" /> Remove</label><% } %>
+            </div>
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Outbound email from</label>
+              <% if (masks.ghlEmailFrom) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.ghlEmailFrom %></p><% } %>
+              <input type="email" name="ghlEmailFrom" autocomplete="off" placeholder="hello@yourdomain.com (verified in GHL)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+              <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Required to send email from Agency OS. Use a verified sender in your GHL sub-account.</p>
+            </div>
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">SMS from number</label>
+              <% if (masks.ghlSmsFromNumber) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.ghlSmsFromNumber %></p><% } %>
+              <input type="text" name="ghlSmsFromNumber" autocomplete="off" placeholder="+15551234567" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+              <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Required to send SMS from Agency OS via GHL. Use an SMS-capable number from this GHL location (E.164, e.g. +15551234567).</p>
+            </div>
           </div>
-          <p id="mcpClientMsg" class="text-xs text-brand-muted min-h-[1.25rem]" aria-live="polite"></p>
-          <div id="mcpNewClientBox" class="hidden rounded-lg border border-emerald-400/40 bg-emerald-50 dark:bg-emerald-950/30 px-3 py-3 space-y-2">
-            <p class="text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-200">Paste these into the app — the secret is shown only once</p>
-            <div id="mcpNewClientFields" class="space-y-2"></div>
+          <%- include('../../partials/integration_test_row', { provider: 'ghl' }) %>
+          <div class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 px-4 py-3 space-y-2">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Inbound webhook (GHL → Agency OS)</p>
+            <p class="text-xs text-brand-muted leading-relaxed">Paste this URL into a GHL <strong>Workflow → Webhook</strong> action (triggers like Form Submitted, Call Status, Customer Replied; Custom Data <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">event</code> = form, missed_call, voicemail, or sms). It also accepts GHL app webhooks (InboundMessage, OutboundMessage, ContactCreate, ContactUpdate). <a href="/workspace/integrations/ghl-setup" class="underline">Setup guide</a></p>
+            <% const _ghlHookBase = (typeof publicAppBaseUrl !== 'undefined' && publicAppBaseUrl) ? publicAppBaseUrl : ''; %>
+            <div class="flex flex-wrap items-center gap-2">
+              <code id="ghlWebhookUrl" class="text-[11px] break-all rounded-lg bg-white/80 dark:bg-slate-900 px-3 py-2 flex-1 min-w-[12rem]"><%= _ghlHookBase %>/api/webhooks/ghl?token=••••••••</code>
+              <button type="button" id="copyGhlWebhookUrl" class="shrink-0 rounded-xl border border-brand-border/70 dark:border-white/15 bg-white dark:bg-slate-800 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors">Copy URL</button>
+            </div>
+            <p id="ghlWebhookUrlMsg" class="hidden text-xs text-rose-600"></p>
+            <div class="pt-1">
+              <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Recent GHL events</p>
+              <ul id="ghlWebhookLog" class="text-[11px] text-brand-muted space-y-1"><li>Loading…</li></ul>
+            </div>
+            <div class="pt-1">
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Webhook token (optional per-workspace)</label>
+              <% if (masks.ghlWebhookSecret) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.ghlWebhookSecret %></p><% } %>
+              <input type="password" name="ghlWebhookSecret" autocomplete="off" placeholder="Leave blank to use server GHL_WEBHOOK_SECRET" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+              <% if (masks.ghlWebhookSecret) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="ghlWebhookSecret_clear" value="1" /> Remove</label><% } %>
+            </div>
           </div>
-          <div id="mcpClientList" class="space-y-2">
-            <% _mcpClients.forEach(function (c) { %>
-            <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white/80 dark:bg-slate-900 px-3 py-2" data-mcp-client="<%= c.id %>">
-              <div class="min-w-0">
-                <p class="text-sm font-semibold text-brand-dark dark:text-white truncate"><%= c.name %></p>
-                <p class="text-[11px] text-brand-muted break-all">Client ID <code><%= c.id %></code> · <%= c.allWorkspaces ? 'all workspaces' : 'this workspace only' %> · <%= c.redirectUris.length ? c.redirectUris[0] : 'callback not locked in yet' %><% if (c.createdBy) { %> · by <%= c.createdBy %><% } %></p>
+          <div class="pt-2 border-t border-brand-border/30 dark:border-white/10 space-y-3">
+            <div>
+              <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Default sync direction</p>
+              <p class="text-xs text-brand-muted leading-relaxed mb-2">Saved for this workspace. Manual <strong class="text-brand-dark dark:text-white">Sync GHL</strong> on a lead still pushes when you click it; this controls bulk sync and automatic tag/SMS/email sync.</p>
+              <input type="hidden" name="ghlSyncDirection" id="ghlSyncDirectionInput" value="<%= typeof ghlSyncDirection !== 'undefined' ? ghlSyncDirection : 'both' %>" />
+              <div class="flex flex-wrap gap-2" role="radiogroup" aria-label="GHL sync direction" id="ghlSyncDirectionGroup">
+                <% const _ghlDir = typeof ghlSyncDirection !== 'undefined' ? ghlSyncDirection : 'both'; %>
+                <button type="button" class="js-ghl-direction rounded-xl border-2 px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors disabled:opacity-50 <%= _ghlDir === 'pull' ? 'border-emerald-600 bg-emerald-500 text-white shadow-sm' : 'border-brand-border/70 dark:border-white/15 bg-white dark:bg-slate-800 text-brand-dark dark:text-white hover:border-emerald-500/50' %>" data-direction="pull" aria-pressed="<%= _ghlDir === 'pull' ? 'true' : 'false' %>">Pull from GHL</button>
+                <button type="button" class="js-ghl-direction rounded-xl border-2 px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors disabled:opacity-50 <%= _ghlDir === 'push' ? 'border-orange-600 bg-orange-500 text-white shadow-sm' : 'border-brand-border/70 dark:border-white/15 bg-white dark:bg-slate-800 text-brand-dark dark:text-white hover:border-orange-500/50' %>" data-direction="push" aria-pressed="<%= _ghlDir === 'push' ? 'true' : 'false' %>">Sync to GHL</button>
+                <button type="button" class="js-ghl-direction rounded-xl border-2 px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors disabled:opacity-50 <%= _ghlDir === 'both' ? 'border-brand-dark bg-brand-dark text-white shadow-sm dark:border-brand-yellow dark:bg-brand-yellow dark:text-brand-dark' : 'border-brand-border/70 dark:border-white/15 bg-white dark:bg-slate-800 text-brand-dark dark:text-white hover:border-brand-yellow/50' %>" data-direction="both" aria-pressed="<%= _ghlDir === 'both' ? 'true' : 'false' %>">Sync both ways</button>
               </div>
-              <button type="button" data-mcp-client-delete="<%= c.id %>" class="rounded-xl border border-rose-400/50 bg-rose-500/10 text-rose-900 dark:text-rose-200 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/20 transition-colors">Delete</button>
+              <p id="ghlDirectionSaveMsg" class="text-[11px] text-brand-muted mt-2 min-h-[1rem]" aria-live="polite"></p>
+            </div>
+            <div class="flex flex-wrap gap-2 items-center">
+              <button type="button" id="ghlSyncNowBtn" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-opacity disabled:opacity-50">Sync now</button>
+              <p id="ghlSyncMsg" class="text-xs text-brand-muted min-h-[1.25rem] flex-1" aria-live="polite"></p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div id="integration-phone" class="scroll-mt-28" data-int-group>
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Phone &amp; SMS</p>
+      <p class="text-sm text-brand-muted mb-4 max-w-2xl leading-relaxed">Texting and iMessage lines for the pipeline, bulk bar and cadences. Calling numbers, caller ID and voicemail drops live in <a href="/workspace/phones" class="underline">Phone settings</a> and <a href="/workspace/voicemail" class="underline">Voicemail</a>.</p>
+      <div class="space-y-4">
+        <section id="comms-integration" class="rounded-2xl border-2 border-brand-yellow/30 dark:border-brand-yellow/25 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-24 mb-4">
+          <header class="flex flex-wrap items-start justify-between gap-3">
+            <div class="min-w-0">
+              <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Comms by Osis</h3>
+              <p class="text-xs text-brand-muted mt-1 leading-relaxed max-w-2xl">
+                Send and receive <strong>iMessage</strong> and <strong>SMS</strong> through your dedicated line via
+                <a href="https://comms.osis.co/" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">Comms</a>.
+                Create a Messages API key at
+                <a href="https://comms.osis.co/dashboard/settings/api-keys" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">comms.osis.co → Settings → API keys</a>
+                with <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">comms_send</code> and
+                <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">comms_read</code> scopes.
+              </p>
+            </div>
+            <a href="https://docs.osis.co/messages-api/overview" class="shrink-0 rounded-xl border border-brand-yellow/40 bg-brand-yellow/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors" target="_blank" rel="noopener noreferrer">
+              API docs →
+            </a>
+          </header>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Messages API key</label>
+              <% if (masks.commsApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.commsApiKey %></p><% } %>
+              <input type="password" name="commsApiKey" autocomplete="off" placeholder="osis_… (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+              <% if (masks.commsApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="commsApiKey_clear" value="1" /> Remove</label><% } %>
+            </div>
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Default channel</label>
+              <% const _commsChannel = (typeof commsDefaultChannel !== 'undefined' && commsDefaultChannel) ? commsDefaultChannel : ''; %>
+              <select name="commsDefaultChannel" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm">
+                <option value="" <%= !_commsChannel ? 'selected' : '' %>>Auto (Comms picks best channel)</option>
+                <option value="imessage" <%= _commsChannel === 'imessage' ? 'selected' : '' %>>iMessage</option>
+                <option value="sms" <%= _commsChannel === 'sms' ? 'selected' : '' %>>SMS</option>
+              </select>
+              <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Used when sending without an explicit channel. iMessage is tried first when the recipient supports it.</p>
+            </div>
+            <div class="sm:col-span-2">
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">SMS send preference</label>
+              <% const _smsPrimary = (typeof smsPrimary !== 'undefined' && smsPrimary) ? smsPrimary : 'auto'; %>
+              <select name="smsPrimary" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm">
+                <option value="auto" <%= _smsPrimary === 'auto' || !_smsPrimary ? 'selected' : '' %>>Auto — GHL → Saperly → Comms → SignalWire</option>
+                <option value="saperly" <%= _smsPrimary === 'saperly' ? 'selected' : '' %>>Prefer Saperly</option>
+                <option value="comms" <%= _smsPrimary === 'comms' ? 'selected' : '' %>>Prefer Comms (iMessage / SMS)</option>
+                <option value="ghl" <%= _smsPrimary === 'ghl' ? 'selected' : '' %>>Prefer Go High Level</option>
+              </select>
+              <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Controls outreach, cadence text sends, Money mode, and bulk SMS from the lead panel.</p>
+            </div>
+          </div>
+          <%- include('../../partials/integration_test_row', { provider: 'comms' }) %>
+          <div class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 px-4 py-3 space-y-2">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Inbound webhook (Comms → Agency OS)</p>
+            <p class="text-xs text-brand-muted leading-relaxed">In Comms, add a webhook for <strong>message.received</strong> and point it at the URL below. Use the same token here and in Comms webhook settings.</p>
+            <% const _commsHookBase = (typeof publicAppBaseUrl !== 'undefined' && publicAppBaseUrl) ? publicAppBaseUrl : ''; %>
+            <% const _commsHasSavedToken = !!masks.commsWebhookSecret; %>
+            <% const _commsHasServerToken = (typeof commsWebhookTokenHint !== 'undefined' && commsWebhookTokenHint); %>
+            <div class="flex flex-wrap items-center gap-2">
+              <% if (_commsHasSavedToken || _commsHasServerToken) { %>
+              <code id="commsWebhookUrl" class="text-[11px] break-all rounded-lg bg-white/80 dark:bg-slate-900 px-3 py-2 flex-1 min-w-[12rem]"><%= _commsHookBase %>/api/webhooks/comms?token=<% if (_commsHasSavedToken) { %>••••••••<% } else { %>configured-on-server<% } %></code>
+              <button type="button" id="copyCommsWebhookUrl" class="shrink-0 rounded-xl border border-brand-border/70 dark:border-white/15 bg-white dark:bg-slate-800 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors">Copy URL</button>
+              <% } else { %>
+              <p class="text-xs text-brand-muted">Save a webhook token below (or set <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">COMMS_WEBHOOK_SECRET</code> on the server) to reveal the full URL.</p>
+              <% } %>
+            </div>
+            <div class="pt-1">
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Webhook token (optional per-workspace)</label>
+              <% if (masks.commsWebhookSecret) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.commsWebhookSecret %></p><% } %>
+              <input type="password" name="commsWebhookSecret" autocomplete="off" placeholder="Leave blank to use server COMMS_WEBHOOK_SECRET" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+              <% if (masks.commsWebhookSecret) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="commsWebhookSecret_clear" value="1" /> Remove</label><% } %>
+            </div>
+          </div>
+        </section>
+
+        <section id="saperly-integration" class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-24 mb-4">
+          <header class="flex flex-wrap items-start justify-between gap-3">
+            <div class="min-w-0">
+              <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Saperly</h3>
+              <p class="text-xs text-brand-muted mt-1 leading-relaxed max-w-2xl">
+                Send SMS from the pipeline, bulk bar, Money mode, and cadence through
+                <a href="https://saperly.com/" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">Saperly</a>
+                — AI-agent phone carrier with compliance built in.
+                Create an API key at
+                <a href="https://app.saperly.ai/access/api-keys" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">app.saperly.ai → API keys</a>
+                with SMS send scope, provision a number, then paste the number ID below.
+              </p>
+            </div>
+            <a href="https://saperly.com/docs/sdks/node" class="shrink-0 rounded-xl border border-brand-yellow/40 bg-brand-yellow/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors" target="_blank" rel="noopener noreferrer">
+              API docs →
+            </a>
+          </header>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
+              <% if (masks.saperlyApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.saperlyApiKey %></p><% } %>
+              <input type="password" name="saperlyApiKey" autocomplete="off" placeholder="sap_sk_live_… (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+              <% if (masks.saperlyApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="saperlyApiKey_clear" value="1" /> Remove</label><% } %>
+            </div>
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">From number ID</label>
+              <% if (masks.saperlyFromNumberId) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.saperlyFromNumberId %></p><% } %>
+              <input type="text" name="saperlyFromNumberId" autocomplete="off" placeholder="Saperly number id (from GET /numbers)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+              <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Required to send SMS. Find it in the Saperly dashboard or via <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">GET /numbers</code> after provisioning a line.</p>
+              <% if (masks.saperlyFromNumberId) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="saperlyFromNumberId_clear" value="1" /> Remove</label><% } %>
+            </div>
+          </div>
+          <p class="text-[11px] text-brand-muted leading-relaxed rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 px-4 py-3">
+            Outbound SMS requires either a reply from the recipient within 24 hours, or an
+            <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">explicit_outbound</code>
+            consent record in Saperly. See
+            <a href="https://saperly.com/docs" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">Saperly compliance docs</a>.
+          </p>
+          <%- include('../../partials/integration_test_row', { provider: 'saperly' }) %>
+        </section>
+      </div>
+    </div>
+
+    <div id="integration-email" class="scroll-mt-28" data-int-group>
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Email</p>
+      <p class="text-sm text-brand-muted mb-4 max-w-2xl leading-relaxed">Sending email to leads and finding their addresses.</p>
+      <div class="space-y-4">
+        <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-3">
+          <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Email sending</h3>
+          <p class="text-sm text-brand-muted leading-relaxed">Email to leads goes out through your <a href="#ghl-integration" class="js-integration-connect underline font-semibold text-brand-dark dark:text-white">Go High Level</a> connection, from the pipeline, cadences and AI agents. Connect GHL under CRM and there is nothing else to set up here.</p>
+          <p class="text-sm text-brand-muted leading-relaxed">To find email addresses for leads, connect <a href="#integration-bettercontact" class="js-integration-connect underline">BetterContact</a>, <a href="#integration-monid" class="js-integration-connect underline">Monid</a> or <a href="#integration-rapidapi-website" class="js-integration-connect underline">RapidAPI website contacts</a> under Data enhance.</p>
+        </section>
+      </div>
+    </div>
+
+    <div id="integration-direct-mail" class="scroll-mt-28" data-int-group>
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Direct mail</p>
+      <p class="text-sm text-brand-muted mb-4 max-w-2xl leading-relaxed">Printed postcards sent to leads from Marketing Studio.</p>
+      <div class="space-y-4">
+        <section id="lob-integration" class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-24">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Lob — Direct Mail</h3>
+              <p class="text-sm text-brand-muted mt-1 max-w-2xl">Postcards via <a href="https://www.lob.com/" target="_blank" rel="noopener noreferrer" class="text-brand-yellow hover:underline">Lob.com</a>. Use a <code class="text-xs bg-brand-cream dark:bg-slate-800 px-1 rounded">test_</code> key for test mode (no postage). Live keys require a payment method on your Lob account.</p>
+              <% if (!process.env.KIE_AI_API_KEY && !process.env.KIE_API_KEY) { %>
+              <p class="text-xs text-amber-900 dark:text-amber-200 mt-2 leading-relaxed">Marketing Studio image generation needs <code class="text-[11px] px-1 rounded bg-amber-100 dark:bg-amber-900/40">KIE_AI_API_KEY</code> in Render → Environment (from <a href="https://kie.ai/" target="_blank" rel="noopener noreferrer" class="underline font-semibold">kie.ai</a>), then redeploy.</p>
+              <% } %>
+            </div>
+            <div class="flex flex-wrap gap-2 shrink-0">
+              <a href="/workspace/integrations/lob-setup" class="rounded-xl border border-brand-border/60 dark:border-white/15 bg-white dark:bg-slate-900 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors">Design guide</a>
+              <a href="/direct-mail" class="rounded-xl border border-brand-yellow/40 bg-brand-yellow/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors">Open Direct Mail</a>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="md:col-span-2">
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Secret API key</label>
+              <% if (masks.lobApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.lobApiKey %></p><% } %>
+              <input type="password" name="lobApiKey" autocomplete="off" placeholder="test_… or live_… (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+              <% if (masks.lobApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="lobApiKey_clear" value="1" /> Remove</label><% } %>
+            </div>
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Return name</label>
+              <% if (masks.lobFromName) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.lobFromName %></p><% } %>
+              <input type="text" name="lobFromName" autocomplete="off" placeholder="Your agency name" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            </div>
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Return street</label>
+              <% if (masks.lobFromAddressLine1) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.lobFromAddressLine1 %></p><% } %>
+              <input type="text" name="lobFromAddressLine1" autocomplete="off" placeholder="123 Main St" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            </div>
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">City</label>
+              <input type="text" name="lobFromCity" autocomplete="off" placeholder="Portland" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            </div>
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">State</label>
+              <input type="text" name="lobFromState" autocomplete="off" placeholder="OR" maxlength="2" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm uppercase" />
+            </div>
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">ZIP</label>
+              <input type="text" name="lobFromZip" autocomplete="off" placeholder="97201" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            </div>
+          </div>
+
+          <div class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 p-4 space-y-4">
+            <div>
+              <p class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white mb-1">Mail designs (PDF)</p>
+              <p class="text-xs text-brand-muted leading-relaxed">Upload print-ready PDFs — Agency OS sends them to Lob’s hosting. Postcards need <strong>both</strong> front and back. See the <a href="/workspace/integrations/lob-setup" class="text-brand-yellow hover:underline">design guide</a> for sizes.</p>
+            </div>
+            <% const _lobDesignSlots = [
+              { slot: 'postcard_front', field: 'lobPostcardFrontUrl', label: 'Postcard front (4×6 PDF)' },
+              { slot: 'postcard_back', field: 'lobPostcardBackUrl', label: 'Postcard back (4×6 PDF)' },
+              { slot: 'letter', field: 'lobLetterPdfUrl', label: 'Letter (8.5×11 PDF)' },
+            ]; %>
+            <% _lobDesignSlots.forEach(function (d) { %>
+            <div class="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 items-end border-t border-brand-border/25 dark:border-white/10 pt-3 first:border-0 first:pt-0">
+              <div>
+                <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5"><%= d.label %></label>
+                <% if (masks[d.field]) { %><p class="text-xs text-brand-muted mb-1 truncate" title="<%= masks[d.field] %>">Saved: <%= masks[d.field] %></p><% } %>
+                <input type="url" name="<%= d.field %>" autocomplete="off" placeholder="https://… or upload PDF below" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="js-lob-design-upload cursor-pointer inline-flex items-center justify-center rounded-xl border border-brand-yellow/50 bg-brand-yellow/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors" data-lob-slot="<%= d.slot %>">
+                  Upload PDF
+                  <input type="file" accept="application/pdf,.pdf" class="sr-only js-lob-design-file" data-lob-slot="<%= d.slot %>" />
+                </label>
+                <p class="js-lob-design-upload-msg text-[10px] text-brand-muted min-h-[1rem]" data-lob-slot="<%= d.slot %>" aria-live="polite"></p>
+              </div>
+            </div>
+            <% }) %>
+          </div>
+
+          <%- include('../../partials/integration_test_row', { provider: 'lob' }) %>
+        </section>
+      </div>
+    </div>
+
+    <div id="integration-ai" class="scroll-mt-28" data-int-group>
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">AI</p>
+      <p class="text-sm text-brand-muted mb-4 max-w-2xl leading-relaxed">The model behind AI drafting and research, and the connector that lets ChatGPT, Claude, Muse, Grok and other agents run this workspace.</p>
+      <div class="space-y-4">
+        <section id="openrouter-integration" class="rounded-2xl border-2 border-brand-yellow/25 dark:border-brand-yellow/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-24 mb-4">
+          <header class="flex flex-wrap items-start justify-between gap-3">
+            <div class="min-w-0">
+              <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">OpenRouter</h3>
+              <p class="text-xs text-brand-muted mt-1 leading-relaxed max-w-2xl">
+                Powers flow coach, outreach AI, GHL prompt optimizer, flip scoring, pipeline insights, and more.
+                Get a <strong>free API key</strong> at
+                <a href="https://openrouter.ai/keys" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">openrouter.ai/keys</a>
+                — no credit card required. Free models use the <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">:free</code> suffix or
+                <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">openrouter/free</code> auto-router (~20 req/min; daily cap depends on account credits).
+              </p>
+            </div>
+            <% if (typeof openrouterConfigured !== 'undefined' && openrouterConfigured) { %>
+            <%- include('../../partials/integration_provider_status_pill', { label: 'OpenRouter', connected: true }) %>
+            <% } else { %>
+            <%- include('../../partials/integration_provider_status_pill', { label: 'OpenRouter', connected: false }) %>
+            <% } %>
+          </header>
+          <div class="rounded-xl border border-brand-yellow/30 bg-brand-yellow/5 px-3 py-2.5 text-xs text-brand-muted leading-relaxed space-y-2">
+            <p>
+              <strong class="text-brand-dark dark:text-white">Active model chain:</strong>
+              <% const _orStack = typeof openrouterModelStack !== 'undefined' && openrouterModelStack ? openrouterModelStack : { configured: false, summary: 'Not configured', steps: [] }; %>
+              <% if (_orStack.configured) { %>
+              <code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900"><%= _orStack.summary %></code>
+              <% } else { %>
+              <span>Add an API key below.</span>
+              <% } %>
+            </p>
+            <p>
+              <strong class="text-brand-dark dark:text-white">Cheapest (default):</strong>
+              leave Model blank — uses <code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900">openrouter/free</code> then <code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900">qwen/qwen3-coder:free</code> ($0).
+            </p>
+            <p>
+              <strong class="text-brand-dark dark:text-white">Paid tier:</strong>
+              <code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900">deepseek/deepseek-v4-flash</code>
+              — enter in Model below to always use Flash, or set <code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900">OPENROUTER_ALLOW_PAID_FALLBACK=1</code> on the server to try free first, then Flash.
+            </p>
+          </div>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div class="sm:col-span-2">
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
+              <% if (masks.openrouterApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.openrouterApiKey %></p><% } %>
+              <input type="password" name="openrouterApiKey" autocomplete="off" placeholder="sk-or-… (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+              <% if (masks.openrouterApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="openrouterApiKey_clear" value="1" /> Remove saved key</label><% } %>
+            </div>
+            <div class="sm:col-span-2">
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Model <span class="font-normal normal-case tracking-normal">(optional)</span></label>
+              <% if (masks.openrouterModel) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.openrouterModel %></p><% } %>
+              <input type="text" name="openrouterModel" autocomplete="off" list="openrouterModelPresets" placeholder="Blank = free auto-router · or deepseek/deepseek-v4-flash" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm font-mono text-[13px]" />
+              <datalist id="openrouterModelPresets">
+                <option value="openrouter/free">Free auto-router (cheapest that day)</option>
+                <option value="qwen/qwen3-coder:free">Qwen3 Coder (free)</option>
+                <option value="deepseek/deepseek-v4-flash">DeepSeek V4 Flash (paid)</option>
+                <option value="deepseek/deepseek-v4-flash:floor">DeepSeek V4 Flash :floor (cheapest provider)</option>
+              </datalist>
+              <% if (masks.openrouterModel) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="openrouterModel_clear" value="1" /> Remove</label><% } %>
+              <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Overrides the server default model chain for this workspace only. Paid models (e.g. Flash) need OpenRouter credits — leave blank to stay on free models.</p>
+            </div>
+          </div>
+          <%- include('../../partials/integration_test_row', { provider: 'openrouter' }) %>
+        </section>
+
+        <section id="mcp-integration" class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-24">
+          <header class="flex flex-wrap items-start justify-between gap-3">
+            <div class="min-w-0">
+              <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">AI Connector (MCP)</h3>
+              <p class="text-xs text-brand-muted mt-1 leading-relaxed max-w-2xl">
+                Work this workspace from ChatGPT, Claude, or any MCP client — leads, folders, lead searches, opportunities, tasks, GHL sync, and your referral network.
+                In ChatGPT or Claude, add a custom connector with the MCP endpoint below; it asks you to sign in to AdHello and pick a workspace — no token needed.
+                Clients that only take a header (Gemini CLI, scripts) can use an access token with <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">Authorization: Bearer &lt;token&gt;</code>.
+              </p>
+            </div>
+          </header>
+
+          <% const _mcpBase = (typeof publicAppBaseUrl !== 'undefined' && publicAppBaseUrl) ? publicAppBaseUrl : ''; %>
+          <% const _mcpEndpoint = (typeof mcpEndpoint !== 'undefined' && mcpEndpoint) ? mcpEndpoint : (_mcpBase ? _mcpBase + '/ceo/mcp' : ''); %>
+          <% const _mcpManifest = (typeof mcpManifestUrl !== 'undefined' && mcpManifestUrl) ? mcpManifestUrl : (_mcpBase ? _mcpBase + '/ceo/mcp/manifest.json' : ''); %>
+          <% const _mcpStatus = (typeof mcpTokenStatus !== 'undefined' && mcpTokenStatus) ? mcpTokenStatus : { configured: false }; %>
+
+          <div class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 px-4 py-3 space-y-3">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Connection URLs</p>
+            <div class="space-y-2">
+              <div>
+                <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">MCP endpoint</p>
+                <div class="flex flex-wrap items-center gap-2">
+                  <code id="mcpEndpointUrl" class="text-[11px] break-all rounded-lg bg-white/80 dark:bg-slate-900 px-3 py-2 flex-1 min-w-[12rem]"><%= _mcpEndpoint || 'Set BASE_URL on the server to show the full URL' %></code>
+                  <button type="button" id="copyMcpEndpointUrl" class="shrink-0 rounded-xl border border-brand-border/70 dark:border-white/15 bg-white dark:bg-slate-800 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors" <%= _mcpEndpoint ? '' : 'disabled' %>>Copy URL</button>
+                </div>
+              </div>
+              <div>
+                <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">OpenAI manifest</p>
+                <div class="flex flex-wrap items-center gap-2">
+                  <code id="mcpManifestUrl" class="text-[11px] break-all rounded-lg bg-white/80 dark:bg-slate-900 px-3 py-2 flex-1 min-w-[12rem]"><%= _mcpManifest || 'Set BASE_URL on the server to show the full URL' %></code>
+                  <button type="button" id="copyMcpManifestUrl" class="shrink-0 rounded-xl border border-brand-border/70 dark:border-white/15 bg-white dark:bg-slate-800 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors" <%= _mcpManifest ? '' : 'disabled' %>>Copy URL</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <% const _mcpApps = (typeof mcpConnectedApps !== 'undefined' && Array.isArray(mcpConnectedApps)) ? mcpConnectedApps : []; %>
+          <div class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 px-4 py-3 space-y-3">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Connected AI apps</p>
+            <% if (!_mcpApps.length) { %>
+            <p class="text-xs text-brand-muted leading-relaxed">None yet. When someone connects ChatGPT or Claude to this workspace, it shows up here.</p>
+            <% } %>
+            <% _mcpApps.forEach(function (app) { %>
+            <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white/80 dark:bg-slate-900 px-3 py-2">
+              <div class="min-w-0">
+                <p class="text-sm font-semibold text-brand-dark dark:text-white truncate"><%= app.clientName %><% if (app.allWorkspaces) { %> <span class="ml-1 text-[10px] font-black uppercase tracking-widest text-brand-muted">All workspaces</span><% } %></p>
+                <p class="text-[11px] text-brand-muted">Connected by <%= app.userEmail %> · <%= wsDateTime(app.createdAt) %><% if (app.lastUsedAt) { %> · last used <%= wsDateTime(app.lastUsedAt) %><% } %></p>
+              </div>
+              <%# Inside the integrations <form>: a type=submit here would become the Enter-key default, so post a detached form. %>
+              <% const _appConfirm = !app.allWorkspaces ? 'Disconnect this AI app from the workspace?' : (typeof mcpViewerEmail !== 'undefined' && app.userEmail === mcpViewerEmail) ? 'Disconnect this AI app from all your workspaces?' : 'Block this AI app from this workspace? It keeps working in the person\'s other workspaces.'; %>
+              <button type="button" data-action="/workspace/integrations/mcp/apps/<%= encodeURIComponent(app.id) %>/revoke" data-confirm="<%= _appConfirm %>" onclick="if (confirm(this.dataset.confirm)) { var f = document.createElement('form'); f.method = 'post'; f.action = this.dataset.action; document.body.appendChild(f); f.submit(); }" class="rounded-xl border border-rose-400/50 bg-rose-500/10 text-rose-900 dark:text-rose-200 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/20 transition-colors">Disconnect</button>
             </div>
             <% }); %>
           </div>
-        </div>
-        <% } %>
 
-        <div class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 px-4 py-3 space-y-3">
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Access token (header-only clients)</p>
-          <p id="mcpTokenStatusLine" class="text-xs text-brand-muted leading-relaxed">
-            <% if (_mcpStatus.configured) { %>
-            Active token ending in <strong class="text-brand-dark dark:text-white"><%= _mcpStatus.hint || '••••' %></strong><% if (_mcpStatus.createdAt) { %> · created <%= wsDateTime(_mcpStatus.createdAt) %><% } %><% if (_mcpStatus.createdBy) { %> by <%= _mcpStatus.createdBy %><% } %>
-            <% } else { %>
-            No workspace token yet. Generate one to connect ChatGPT or other MCP clients outside the browser.
-            <% } %>
-          </p>
-          <div id="mcpNewTokenBox" class="hidden rounded-lg border border-emerald-400/40 bg-emerald-50 dark:bg-emerald-950/30 px-3 py-3 space-y-2">
-            <p class="text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-200">Copy this token now</p>
-            <p class="text-xs text-emerald-950 dark:text-emerald-100 leading-relaxed">It will not be shown again. Paste it as the Bearer token in your MCP client settings.</p>
-            <div class="flex flex-wrap items-center gap-2">
-              <code id="mcpNewTokenValue" class="text-[11px] break-all rounded-lg bg-white/90 dark:bg-slate-900 px-3 py-2 flex-1 min-w-[12rem] font-mono"></code>
-              <button type="button" id="copyMcpNewToken" class="shrink-0 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-emerald-900 dark:text-emerald-200 hover:bg-emerald-500/20 transition-colors">Copy token</button>
+          <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
+          <% const _mcpClients = (typeof mcpOAuthClients !== 'undefined' && Array.isArray(mcpOAuthClients)) ? mcpOAuthClients : []; %>
+          <div id="mcpOAuthClients" class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 px-4 py-3 space-y-3">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Apps that ask for a Client ID (Meta AI / Muse, Grok, agent builders)</p>
+            <p class="text-xs text-brand-muted leading-relaxed">
+              Some apps can't register themselves and ask for an <strong class="text-brand-dark dark:text-white">OAuth Client ID</strong>. Create one here, then paste the Client ID, Client secret, and URLs into the app.
+              If the app shows a <strong class="text-brand-dark dark:text-white">callback / redirect URL</strong>, paste it below; if not, leave it blank and the first sign-in locks it in.
+            </p>
+            <label class="inline-flex items-start gap-2 text-xs text-brand-muted leading-relaxed">
+              <input id="mcpClientAllWorkspaces" type="checkbox" checked class="mt-0.5 rounded border-brand-border" />
+              <span><strong class="text-brand-dark dark:text-white">Let it reach all my workspaces</strong> — one connection for every workspace you're on (you pick "All my workspaces" when signing in). Unchecked, the Client ID only connects to this workspace.</span>
+            </label>
+            <div class="flex flex-wrap gap-2 items-end">
+              <div style="flex:1 1 10rem;max-width:14rem">
+                <label for="mcpClientName" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">App name</label>
+                <input id="mcpClientName" type="text" maxlength="120" placeholder="Meta AI (Muse)" autocomplete="off" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" />
+              </div>
+              <div style="flex:3 1 14rem">
+                <label for="mcpClientRedirect" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Callback URL <span class="font-normal normal-case tracking-normal">(optional)</span></label>
+                <input id="mcpClientRedirect" type="url" placeholder="https://… (from the app's connector screen)" autocomplete="off" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" />
+              </div>
+              <button type="button" id="mcpCreateClientBtn" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-opacity disabled:opacity-50">Create Client ID</button>
             </div>
-          </div>
-          <div class="flex flex-wrap gap-2 items-center">
-            <button type="button" id="mcpGenerateTokenBtn" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-opacity disabled:opacity-50"><%= _mcpStatus.configured ? 'Rotate token' : 'Generate token' %></button>
-            <button type="button" id="mcpRevokeTokenBtn" class="rounded-xl border border-rose-400/50 bg-rose-500/10 text-rose-900 dark:text-rose-200 px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/20 transition-colors disabled:opacity-50" <%= _mcpStatus.configured ? '' : 'disabled' %>>Revoke token</button>
-            <p id="mcpTokenMsg" class="text-xs text-brand-muted min-h-[1.25rem] flex-1" aria-live="polite"></p>
-          </div>
-        </div>
-
-        <div class="text-xs text-brand-muted leading-relaxed space-y-2">
-          <p class="font-semibold text-brand-dark dark:text-white">Available tools</p>
-          <p><strong class="text-brand-dark dark:text-white">Leads:</strong> find new leads, search, folders, tags, bookmarks, contact lookup, scripts, GHL sync.
-            <strong class="text-brand-dark dark:text-white">Pipeline:</strong> opportunities, tasks, follow-ups, daily picks.
-            <strong class="text-brand-dark dark:text-white">Referral network:</strong> overview, members, send and update referrals, approve applicants, review stats.</p>
-          <p>Alex (in-app chat) automatically registers this MCP server on every message using your logged-in session — no manual token required for in-app chat.</p>
-          <% if (!(typeof openrouterConfigured !== 'undefined' && openrouterConfigured) && !process.env.OPENAI_API_KEY) { %>
-          <div class="rounded-lg border border-amber-400/50 bg-amber-50 dark:bg-amber-950/30 px-3 py-2.5 text-xs text-amber-950 dark:text-amber-100 leading-relaxed">
-            <strong class="font-bold">No AI key configured.</strong>
-            Add an <a href="#openrouter-integration" class="underline font-semibold">OpenRouter key</a> in this form (free at
-            <a href="https://openrouter.ai/keys" class="underline" target="_blank" rel="noopener noreferrer">openrouter.ai/keys</a>),
-            or set <code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900">OPENAI_API_KEY</code> on the server.
-            CRM shortcuts work without AI: “List my folders”, “How many leads do I have?”, “Find Acme Roofing”.
+            <p id="mcpClientMsg" class="text-xs text-brand-muted min-h-[1.25rem]" aria-live="polite"></p>
+            <div id="mcpNewClientBox" class="hidden rounded-lg border border-emerald-400/40 bg-emerald-50 dark:bg-emerald-950/30 px-3 py-3 space-y-2">
+              <p class="text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-200">Paste these into the app — the secret is shown only once</p>
+              <div id="mcpNewClientFields" class="space-y-2"></div>
+            </div>
+            <div id="mcpClientList" class="space-y-2">
+              <% _mcpClients.forEach(function (c) { %>
+              <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white/80 dark:bg-slate-900 px-3 py-2" data-mcp-client="<%= c.id %>">
+                <div class="min-w-0">
+                  <p class="text-sm font-semibold text-brand-dark dark:text-white truncate"><%= c.name %></p>
+                  <p class="text-[11px] text-brand-muted break-all">Client ID <code><%= c.id %></code> · <%= c.allWorkspaces ? 'all workspaces' : 'this workspace only' %> · <%= c.redirectUris.length ? c.redirectUris[0] : 'callback not locked in yet' %><% if (c.createdBy) { %> · by <%= c.createdBy %><% } %></p>
+                </div>
+                <button type="button" data-mcp-client-delete="<%= c.id %>" class="rounded-xl border border-rose-400/50 bg-rose-500/10 text-rose-900 dark:text-rose-200 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/20 transition-colors">Delete</button>
+              </div>
+              <% }); %>
+            </div>
           </div>
           <% } %>
-          <p>Step-by-step setup for ChatGPT, Claude, Gemini, Muse, Grok and agent tokens is under <a href="/workspace/ai-apps" class="underline font-semibold text-brand-dark dark:text-white">Settings → AI Connector</a>.</p>
-        </div>
 
-        <div class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 px-4 py-3 space-y-2">
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Alex MCP diagnostics</p>
-          <p class="text-xs text-brand-muted leading-relaxed">Verify Alex can reach the CRM MCP server, authenticate as you, and call <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">list_folders</code>.</p>
-          <div class="flex flex-wrap gap-2 items-center">
-            <button type="button" id="mcpRunDiagnosticsBtn" class="rounded-xl border border-brand-yellow/50 bg-brand-yellow/10 text-brand-dark dark:text-brand-yellow px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-brand-yellow/20 transition-colors">Run diagnostics</button>
-            <a href="/api/debug/mcp" target="_blank" rel="noopener noreferrer" class="rounded-xl border border-brand-border/70 dark:border-white/15 bg-white dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors">Open JSON</a>
+          <div class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 px-4 py-3 space-y-3">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Access token (header-only clients)</p>
+            <p id="mcpTokenStatusLine" class="text-xs text-brand-muted leading-relaxed">
+              <% if (_mcpStatus.configured) { %>
+              Active token ending in <strong class="text-brand-dark dark:text-white"><%= _mcpStatus.hint || '••••' %></strong><% if (_mcpStatus.createdAt) { %> · created <%= wsDateTime(_mcpStatus.createdAt) %><% } %><% if (_mcpStatus.createdBy) { %> by <%= _mcpStatus.createdBy %><% } %>
+              <% } else { %>
+              No workspace token yet. Generate one to connect ChatGPT or other MCP clients outside the browser.
+              <% } %>
+            </p>
+            <div id="mcpNewTokenBox" class="hidden rounded-lg border border-emerald-400/40 bg-emerald-50 dark:bg-emerald-950/30 px-3 py-3 space-y-2">
+              <p class="text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-200">Copy this token now</p>
+              <p class="text-xs text-emerald-950 dark:text-emerald-100 leading-relaxed">It will not be shown again. Paste it as the Bearer token in your MCP client settings.</p>
+              <div class="flex flex-wrap items-center gap-2">
+                <code id="mcpNewTokenValue" class="text-[11px] break-all rounded-lg bg-white/90 dark:bg-slate-900 px-3 py-2 flex-1 min-w-[12rem] font-mono"></code>
+                <button type="button" id="copyMcpNewToken" class="shrink-0 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-emerald-900 dark:text-emerald-200 hover:bg-emerald-500/20 transition-colors">Copy token</button>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-2 items-center">
+              <button type="button" id="mcpGenerateTokenBtn" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-opacity disabled:opacity-50"><%= _mcpStatus.configured ? 'Rotate token' : 'Generate token' %></button>
+              <button type="button" id="mcpRevokeTokenBtn" class="rounded-xl border border-rose-400/50 bg-rose-500/10 text-rose-900 dark:text-rose-200 px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/20 transition-colors disabled:opacity-50" <%= _mcpStatus.configured ? '' : 'disabled' %>>Revoke token</button>
+              <p id="mcpTokenMsg" class="text-xs text-brand-muted min-h-[1.25rem] flex-1" aria-live="polite"></p>
+            </div>
           </div>
-          <pre id="mcpDiagnosticsOutput" class="hidden text-[11px] whitespace-pre-wrap break-all rounded-lg bg-white/80 dark:bg-slate-900 px-3 py-2 max-h-64 overflow-auto"></pre>
-        </div>
-      </section>
 
-      <section id="lob-integration" class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-24">
-        <div class="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Lob — Direct Mail</h3>
-            <p class="text-sm text-brand-muted mt-1 max-w-2xl">Postcards via <a href="https://www.lob.com/" target="_blank" rel="noopener noreferrer" class="text-brand-yellow hover:underline">Lob.com</a>. Use a <code class="text-xs bg-brand-cream dark:bg-slate-800 px-1 rounded">test_</code> key for test mode (no postage). Live keys require a payment method on your Lob account.</p>
-            <% if (!process.env.KIE_AI_API_KEY && !process.env.KIE_API_KEY) { %>
-            <p class="text-xs text-amber-900 dark:text-amber-200 mt-2 leading-relaxed">Marketing Studio image generation needs <code class="text-[11px] px-1 rounded bg-amber-100 dark:bg-amber-900/40">KIE_AI_API_KEY</code> in Render → Environment (from <a href="https://kie.ai/" target="_blank" rel="noopener noreferrer" class="underline font-semibold">kie.ai</a>), then redeploy.</p>
+          <div class="text-xs text-brand-muted leading-relaxed space-y-2">
+            <p class="font-semibold text-brand-dark dark:text-white">Available tools</p>
+            <p><strong class="text-brand-dark dark:text-white">Leads:</strong> find new leads, search, folders, tags, bookmarks, contact lookup, scripts, GHL sync.
+              <strong class="text-brand-dark dark:text-white">Pipeline:</strong> opportunities, tasks, follow-ups, daily picks.
+              <strong class="text-brand-dark dark:text-white">Referral network:</strong> overview, members, send and update referrals, approve applicants, review stats.</p>
+            <p>Alex (in-app chat) automatically registers this MCP server on every message using your logged-in session — no manual token required for in-app chat.</p>
+            <% if (!(typeof openrouterConfigured !== 'undefined' && openrouterConfigured) && !process.env.OPENAI_API_KEY) { %>
+            <div class="rounded-lg border border-amber-400/50 bg-amber-50 dark:bg-amber-950/30 px-3 py-2.5 text-xs text-amber-950 dark:text-amber-100 leading-relaxed">
+              <strong class="font-bold">No AI key configured.</strong>
+              Add an <a href="#openrouter-integration" class="underline font-semibold">OpenRouter key</a> in this form (free at
+              <a href="https://openrouter.ai/keys" class="underline" target="_blank" rel="noopener noreferrer">openrouter.ai/keys</a>),
+              or set <code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900">OPENAI_API_KEY</code> on the server.
+              CRM shortcuts work without AI: “List my folders”, “How many leads do I have?”, “Find Acme Roofing”.
+            </div>
             <% } %>
+            <p>Step-by-step setup for ChatGPT, Claude, Gemini, Muse, Grok and agent tokens is under <a href="/workspace/ai-apps" class="underline font-semibold text-brand-dark dark:text-white">Settings → AI Connector</a>.</p>
           </div>
-          <div class="flex flex-wrap gap-2 shrink-0">
-            <a href="/workspace/integrations/lob-setup" class="rounded-xl border border-brand-border/60 dark:border-white/15 bg-white dark:bg-slate-900 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors">Design guide</a>
-            <a href="/direct-mail" class="rounded-xl border border-brand-yellow/40 bg-brand-yellow/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors">Open Direct Mail</a>
-          </div>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="md:col-span-2">
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Secret API key</label>
-            <% if (masks.lobApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.lobApiKey %></p><% } %>
-            <input type="password" name="lobApiKey" autocomplete="off" placeholder="test_… or live_… (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-            <% if (masks.lobApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="lobApiKey_clear" value="1" /> Remove</label><% } %>
-          </div>
-          <div>
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Return name</label>
-            <% if (masks.lobFromName) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.lobFromName %></p><% } %>
-            <input type="text" name="lobFromName" autocomplete="off" placeholder="Your agency name" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-          </div>
-          <div>
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Return street</label>
-            <% if (masks.lobFromAddressLine1) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.lobFromAddressLine1 %></p><% } %>
-            <input type="text" name="lobFromAddressLine1" autocomplete="off" placeholder="123 Main St" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-          </div>
-          <div>
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">City</label>
-            <input type="text" name="lobFromCity" autocomplete="off" placeholder="Portland" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-          </div>
-          <div>
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">State</label>
-            <input type="text" name="lobFromState" autocomplete="off" placeholder="OR" maxlength="2" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm uppercase" />
-          </div>
-          <div>
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">ZIP</label>
-            <input type="text" name="lobFromZip" autocomplete="off" placeholder="97201" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-          </div>
-        </div>
 
-        <div class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 p-4 space-y-4">
-          <div>
-            <p class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white mb-1">Mail designs (PDF)</p>
-            <p class="text-xs text-brand-muted leading-relaxed">Upload print-ready PDFs — Agency OS sends them to Lob’s hosting. Postcards need <strong>both</strong> front and back. See the <a href="/workspace/integrations/lob-setup" class="text-brand-yellow hover:underline">design guide</a> for sizes.</p>
-          </div>
-          <% const _lobDesignSlots = [
-            { slot: 'postcard_front', field: 'lobPostcardFrontUrl', label: 'Postcard front (4×6 PDF)' },
-            { slot: 'postcard_back', field: 'lobPostcardBackUrl', label: 'Postcard back (4×6 PDF)' },
-            { slot: 'letter', field: 'lobLetterPdfUrl', label: 'Letter (8.5×11 PDF)' },
-          ]; %>
-          <% _lobDesignSlots.forEach(function (d) { %>
-          <div class="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 items-end border-t border-brand-border/25 dark:border-white/10 pt-3 first:border-0 first:pt-0">
-            <div>
-              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5"><%= d.label %></label>
-              <% if (masks[d.field]) { %><p class="text-xs text-brand-muted mb-1 truncate" title="<%= masks[d.field] %>">Saved: <%= masks[d.field] %></p><% } %>
-              <input type="url" name="<%= d.field %>" autocomplete="off" placeholder="https://… or upload PDF below" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+          <div class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 px-4 py-3 space-y-2">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Alex MCP diagnostics</p>
+            <p class="text-xs text-brand-muted leading-relaxed">Verify Alex can reach the CRM MCP server, authenticate as you, and call <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">list_folders</code>.</p>
+            <div class="flex flex-wrap gap-2 items-center">
+              <button type="button" id="mcpRunDiagnosticsBtn" class="rounded-xl border border-brand-yellow/50 bg-brand-yellow/10 text-brand-dark dark:text-brand-yellow px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-brand-yellow/20 transition-colors">Run diagnostics</button>
+              <a href="/api/debug/mcp" target="_blank" rel="noopener noreferrer" class="rounded-xl border border-brand-border/70 dark:border-white/15 bg-white dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors">Open JSON</a>
             </div>
-            <div class="flex flex-col gap-1">
-              <label class="js-lob-design-upload cursor-pointer inline-flex items-center justify-center rounded-xl border border-brand-yellow/50 bg-brand-yellow/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors" data-lob-slot="<%= d.slot %>">
-                Upload PDF
-                <input type="file" accept="application/pdf,.pdf" class="sr-only js-lob-design-file" data-lob-slot="<%= d.slot %>" />
-              </label>
-              <p class="js-lob-design-upload-msg text-[10px] text-brand-muted min-h-[1rem]" data-lob-slot="<%= d.slot %>" aria-live="polite"></p>
-            </div>
+            <pre id="mcpDiagnosticsOutput" class="hidden text-[11px] whitespace-pre-wrap break-all rounded-lg bg-white/80 dark:bg-slate-900 px-3 py-2 max-h-64 overflow-auto"></pre>
           </div>
-          <% }) %>
-        </div>
-
-        <%- include('../../partials/integration_test_row', { provider: 'lob' }) %>
-      </section>
+        </section>
+      </div>
     </div>
 
     <div class="flex flex-wrap items-center gap-3 pt-2 border-t border-brand-border/40 dark:border-white/10">
@@ -935,6 +962,46 @@
   <% } %>
 </div>
 <script>
+(function () {
+  var groups = document.querySelectorAll('[data-int-group]');
+  var chips = document.querySelectorAll('[data-int-filter]');
+  if (!groups.length) return;
+  var onCls = ['bg-brand-dark', 'dark:bg-brand-yellow', 'text-white', 'dark:text-brand-dark'];
+  var offCls = ['bg-white', 'dark:bg-slate-900', 'text-brand-dark', 'dark:text-white'];
+  function filterTo(name) {
+    groups.forEach(function (g) { g.classList.toggle('hidden', name !== 'all' && g.id !== name); });
+    chips.forEach(function (c) {
+      var active = c.getAttribute('data-int-filter') === name;
+      if (active) c.setAttribute('aria-current', 'true'); else c.removeAttribute('aria-current');
+      onCls.forEach(function (k) { c.classList.toggle(k, active); });
+      offCls.forEach(function (k) { c.classList.toggle(k, !active); });
+    });
+  }
+  chips.forEach(function (chip) {
+    chip.addEventListener('click', function (e) {
+      e.preventDefault();
+      var name = chip.getAttribute('data-int-filter');
+      filterTo(name);
+      history.replaceState(null, '', name === 'all' ? location.pathname + location.search : '#' + name);
+    });
+  });
+  function reveal(hash) {
+    if (!hash || hash.length < 2) return;
+    var target = null;
+    try { target = document.querySelector(hash); } catch (_) { return; }
+    if (!target) return;
+    if (target.hasAttribute('data-int-group')) return filterTo(target.id);
+    var group = target.closest('[data-int-group]');
+    if (group && group.classList.contains('hidden')) filterTo(group.id);
+  }
+  // Capture phase: unhide a card's group before other handlers scroll to it.
+  document.addEventListener('click', function (e) {
+    var link = e.target.closest && e.target.closest('a[href^="#"]');
+    if (link && !link.hasAttribute('data-int-filter')) reveal(link.getAttribute('href'));
+  }, true);
+  window.addEventListener('hashchange', function () { reveal(location.hash); });
+  reveal(location.hash);
+})();
 (function () {
   document.querySelectorAll('.js-integration-connect').forEach(function (link) {
     link.addEventListener('click', function (e) {
