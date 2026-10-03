@@ -351,7 +351,7 @@ router.get('/personas/:tab', (req, res) => {
   res.redirect(302, '/sales/personas/arms-reach');
 });
 
-const SCRIPT_SECTIONS = ['opening', 'discovery', 'valueProp', 'objectionHandling', 'close', 'sms', 'email'];
+const SCRIPT_SECTIONS = ['opening', 'discovery', 'valueProp', 'objectionHandling', 'close', 'sms', 'email', 'dm'];
 const SECTION_LABELS = {
   opening: 'Opening',
   discovery: 'Discovery',
@@ -360,6 +360,7 @@ const SECTION_LABELS = {
   close: 'Close',
   sms: 'SMS',
   email: 'Email',
+  dm: 'Social DM',
 };
 
 /** POST JSON: refine script via LLM (multi-turn optional). */
@@ -393,7 +394,9 @@ router.post('/scripts/refine', async (req, res, next) => {
         ? '\n- This is an SMS: keep refinedScript under 320 characters, one paragraph, no subject line and no signature.'
         : section === 'email'
           ? '\n- This is an email body: plain prose with short paragraphs, no HTML, include a clear ask. Do not invent a Subject line inside refinedScript.'
-          : '';
+          : section === 'dm'
+            ? '\n- This is a social DM (Instagram / Facebook / LinkedIn): casual and short, under 500 characters, no subject line, no formal signature, one easy question to reply to.'
+            : '';
 
     const trimmedHistory = history
       .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')

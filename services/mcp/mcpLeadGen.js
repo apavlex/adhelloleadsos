@@ -37,6 +37,7 @@ const SCRIPT_SECTIONS = new Set([
   'close',
   'sms',
   'email',
+  'dm',
 ]);
 
 const US_STATES = {
@@ -630,7 +631,8 @@ async function saveScriptToOffer(ws, offerRef, { body, section, title }) {
   ws.salesScriptBlockOverrides = { ...prevAll, [entry.key]: next };
   ws.salesScriptsUpdatedAt = new Date().toISOString();
   await dbService.saveWorkspace(wid, ws);
-  const box = section === 'sms' ? 'SMS script' : section === 'email' ? 'Email script' : 'Call script';
+  const box =
+    section === 'sms' ? 'SMS script' : section === 'email' ? 'Email script' : section === 'dm' ? 'DM script' : 'Call script';
   return {
     script: { title: title || entry.label, section, offerKey: entry.key, length: body.length },
     offer: { key: entry.key, label: entry.label, created },

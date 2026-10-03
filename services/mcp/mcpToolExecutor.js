@@ -7,6 +7,7 @@ const leadGen = require('./mcpLeadGen');
 const leadActions = require('./mcpLeadActions');
 const networkTools = require('./mcpNetwork');
 const cadenceTools = require('./mcpCadences');
+const leadScriptTools = require('./mcpLeadScripts');
 const mcpLogger = require('./mcpLogger');
 const pavlexLogger = require('../pavlex/pavlexLogger');
 
@@ -43,6 +44,7 @@ const TOOL_NAMES = [
   'suggest_daily_leads',
   ...networkTools.NETWORK_TOOL_NAMES,
   ...cadenceTools.CADENCE_TOOL_NAMES,
+  ...leadScriptTools.LEAD_SCRIPT_TOOL_NAMES,
 ];
 
 async function executeCrmTool(ctx, toolName, args) {
@@ -156,6 +158,10 @@ async function executeCrmTool(ctx, toolName, args) {
         }
         if (cadenceTools.CADENCE_TOOL_NAMES.includes(name)) {
           result = await cadenceTools.executeCadenceTool(ctx, name, input);
+          break;
+        }
+        if (leadScriptTools.LEAD_SCRIPT_TOOL_NAMES.includes(name)) {
+          result = await leadScriptTools.executeLeadScriptTool(ctx, name, input);
           break;
         }
         const err = new Error(`Unknown tool: ${name}`);
@@ -427,7 +433,7 @@ const LEAD_GEN_TOOL_SCHEMAS = [
     name: 'save_script',
     description:
       'Save a call script, SMS or email template. You write the body yourself; use merge tags {{name}}, {{company}}, {{city}}. ' +
-      'Set section "sms" for text messages and "email" for emails. ' +
+      'Set section "sms" for text messages, "email" for emails and "dm" for Instagram/Facebook/LinkedIn DMs (for one lead only, use save_lead_script). ' +
       'When the script belongs to an offer/service (e.g. "the Overflow script", "for Overflow Referral"), set offer to its name: the text goes into that offer\'s Call/SMS/Email box on Scripts → By offer (a new offer is created if none matches). ' +
       'Without offer it goes to Scripts → Saved library. ' +
       'Optional folder_id/folder_name tags the script with that folder (the app has no per-folder scripts; the folder name goes in the title).',
@@ -438,7 +444,7 @@ const LEAD_GEN_TOOL_SCHEMAS = [
         body: { type: 'string', description: 'Full script text' },
         section: {
           type: 'string',
-          enum: ['opening', 'discovery', 'valueProp', 'objectionHandling', 'close', 'sms', 'email'],
+          enum: ['opening', 'discovery', 'valueProp', 'objectionHandling', 'close', 'sms', 'email', 'dm'],
           description: 'Default opening',
         },
         folder_id: { type: 'string' },
@@ -480,6 +486,7 @@ function getOpenAiFunctionTools() {
     ...CRM_ACTION_TOOL_SCHEMAS.map((t) => ({ type: 'function', function: { ...t } })),
     ...networkTools.openAiFunctionTools(),
     ...cadenceTools.openAiFunctionTools(),
+    ...leadScriptTools.openAiFunctionTools(),
     {
       type: 'function',
       function: {

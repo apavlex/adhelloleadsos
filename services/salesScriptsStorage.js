@@ -8,13 +8,16 @@ const MAX_SMS_LEN = 1600;
 
 const SCRIPT_SECTIONS = ['opening', 'discovery', 'valueProp', 'objectionHandling', 'close'];
 /** Channel sections edited on their own, never folded into the composed call script. */
-const CHANNEL_SECTIONS = ['sms', 'email'];
+const CHANNEL_SECTIONS = ['sms', 'email', 'dm'];
 const ALL_SCRIPT_SECTIONS = [...SCRIPT_SECTIONS, ...CHANNEL_SECTIONS];
 const MAX_EMAIL_LEN = 8000;
+/** Instagram caps a DM at 1000 characters; leave room for merge-tag expansion. */
+const MAX_DM_LEN = 2000;
 
 function clampSectionText(section, raw) {
   const s = raw == null ? '' : String(raw);
-  const max = section === 'sms' ? MAX_SMS_LEN : section === 'email' ? MAX_EMAIL_LEN : MAX_SECTION_LEN;
+  const max =
+    section === 'sms' ? MAX_SMS_LEN : section === 'email' ? MAX_EMAIL_LEN : section === 'dm' ? MAX_DM_LEN : MAX_SECTION_LEN;
   return s.length > max ? s.slice(0, max) : s;
 }
 

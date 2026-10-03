@@ -12,6 +12,7 @@ const {
 } = require('./mcpToolExecutor');
 const networkTools = require('./mcpNetwork');
 const cadenceTools = require('./mcpCadences');
+const leadScriptTools = require('./mcpLeadScripts');
 const mcpLogger = require('./mcpLogger');
 
 function jsonToolResult(payload) {
@@ -72,6 +73,7 @@ const READ_ONLY_TOOLS = new Set([
   'suggest_daily_leads',
   ...networkTools.READ_ONLY_NETWORK_TOOLS,
   ...cadenceTools.READ_ONLY_CADENCE_TOOLS,
+  ...leadScriptTools.READ_ONLY_LEAD_SCRIPT_TOOLS,
 ]);
 
 // Overwrites or removes data, or pushes it somewhere it can't be pulled back from.
@@ -250,14 +252,15 @@ function createCrmMcpServer(ctx) {
     'save_script',
     {
       description:
-        'Save a call script, SMS or email template (merge tags {{name}} {{company}} {{city}}). ' +
-        'Use section "sms" for text messages, "email" for emails. ' +
-        'Set offer to an offer name to save into that offer\'s Call/SMS/Email box on Scripts → By offer (created if missing); otherwise it goes to the Saved library.',
+        'Save a call script, SMS, email or social DM template (merge tags {{name}} {{company}} {{city}}). ' +
+        'Use section "sms" for text messages, "email" for emails, "dm" for Instagram/Facebook/LinkedIn DMs. ' +
+        'Set offer to an offer name to save into that offer\'s Call/SMS/Email/DM box on Scripts → By offer (created if missing); otherwise it goes to the Saved library. ' +
+        'For a DM meant for one lead only, use save_lead_script instead.',
       inputSchema: z.object({
         name: z.string().min(1),
         body: z.string().min(1),
         section: z
-          .enum(['opening', 'discovery', 'valueProp', 'objectionHandling', 'close', 'sms', 'email'])
+          .enum(['opening', 'discovery', 'valueProp', 'objectionHandling', 'close', 'sms', 'email', 'dm'])
           .optional(),
         folder_id: z.string().min(1).optional(),
         folder_name: z.string().min(1).optional(),
@@ -526,7 +529,7 @@ function createCrmMcpServer(ctx) {
     async (args) => runTool(ctx, 'suggest_daily_leads', args),
   );
 
-  for (const tool of [...networkTools.NETWORK_TOOLS, ...cadenceTools.CADENCE_TOOLS]) {
+  for (const tool of [...networkTools.NETWORK_TOOLS, ...cadenceTools.CADENCE_TOOLS, ...leadScriptTools.LEAD_SCRIPT_TOOLS]) {
     register(tool.name, { description: tool.description, inputSchema: tool.schema }, async (args) => runTool(ctx, tool.name, args));
   }
 
@@ -793,7 +796,11 @@ function getOpenAiToolManifest() {
           additionalProperties: false,
         },
       },
-      ...[...networkTools.openAiFunctionTools(), ...cadenceTools.openAiFunctionTools()].map(({ function: fn }) => ({
+      ...[
+        ...networkTools.openAiFunctionTools(),
+        ...cadenceTools.openAiFunctionTools(),
+        ...leadScriptTools.openAiFunctionTools(),
+      ].map(({ function: fn }) => ({
         name: fn.name,
         description: fn.description,
         input_schema: fn.parameters,

@@ -140,8 +140,17 @@
       close: 'Close',
       sms: 'SMS',
       email: 'Email',
+      dm: 'DM',
     };
     var SMS_SEGMENT_LEN = 160;
+    function isPlainChannelInput(ta) {
+      return !!ta && (ta.classList.contains('script-sms-input') || ta.classList.contains('script-email-input') || ta.classList.contains('script-dm-input'));
+    }
+    function updateChannelHint(ta) {
+      if (!ta) return;
+      var hint = document.querySelector('.email-empty-hint[data-snippet-id="' + ta.id + '"], .dm-empty-hint[data-snippet-id="' + ta.id + '"]');
+      if (hint) hint.classList.toggle('hidden', !!String(ta.value || '').trim());
+    }
     var serviceLabels = <%- JSON.stringify(typeof scriptServiceLabels !== 'undefined' ? scriptServiceLabels : {}) %>;
     var libraryItems = <%- JSON.stringify(typeof initialScriptLibraryItems !== 'undefined' && initialScriptLibraryItems ? initialScriptLibraryItems : []) %>;
     var offerCatalog = <%- JSON.stringify(typeof offerCatalog !== 'undefined' && offerCatalog ? offerCatalog : []) %>;
@@ -194,7 +203,7 @@
       var rich = richForSnippet(ta);
       if (rich) syncTextareaFromRich(rich);
       var raw = String(ta.value || '');
-      if (ta.classList.contains('script-sms-input') || ta.classList.contains('script-email-input')) {
+      if (isPlainChannelInput(ta)) {
         return Scripts.htmlToPlain ? Scripts.htmlToPlain(raw) : raw;
       }
       return Scripts.htmlToPlain ? Scripts.htmlToPlain(raw) : raw;
@@ -202,8 +211,8 @@
     function hydrateScriptEditors() {
       document.querySelectorAll('.script-snippet').forEach(function (ta) {
         var raw = String(ta.value || '');
-        if (ta.classList.contains('script-sms-input') || ta.classList.contains('script-email-input')) {
-          // SMS / email must stay plain text (strip any pasted HTML/CSS)
+        if (isPlainChannelInput(ta)) {
+          // SMS / email / DM must stay plain text (strip any pasted HTML/CSS)
           var plain = Scripts.htmlToPlain ? Scripts.htmlToPlain(raw) : raw;
           if (plain !== raw) ta.value = plain;
           return;
@@ -375,6 +384,28 @@
       );
     }
 
+    function dmScriptBlockHtml(entry, text) {
+      var k = escapeHtml(entry.key);
+      var sid = 'snippet-' + k + '-dm';
+      return (
+        '<div class="script-block mt-4 rounded-2xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-black/10" data-service="' +
+        k +
+        '" data-section="dm"><div class="flex flex-wrap items-center justify-between gap-2 py-3 px-4 border-b border-brand-border/40 dark:border-white/10"><span class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">DM script · Instagram / Facebook / LinkedIn</span><span class="script-autosave-status text-[10px] font-bold text-brand-muted tabular-nums shrink-0" data-snippet-id="' +
+        sid +
+        '">Saved</span></div><div class="px-4 pb-4 pt-3"><div class="flex flex-wrap gap-2 items-center justify-end mb-3">' +
+        scriptActionButtonsHtml(entry.key, 'dm') +
+        '</div><textarea id="' +
+        sid +
+        '" rows="4" maxlength="2000" placeholder="Hey {{name}}! Saw {{company}} in {{city}}…" class="script-snippet script-dm-input w-full text-sm leading-relaxed text-brand-dark dark:text-slate-200 bg-white dark:bg-slate-800/80 rounded-2xl p-4 border border-brand-border/50 dark:border-white/10 font-sans resize-y min-h-[6rem] focus:ring-2 focus:ring-brand-yellow focus:border-transparent outline-none" aria-label="DM script">' +
+        escapeHtml(text) +
+        '</textarea><p class="dm-empty-hint mt-2 text-[10px] font-bold text-brand-yellow leading-relaxed' +
+        (String(text || '').trim() ? ' hidden' : '') +
+        '" data-snippet-id="' +
+        sid +
+        '">No DM script yet — write a short, casual opener for social DMs.</p><p class="mt-2 text-[10px] text-brand-muted leading-relaxed">Plain text with {{name}}, {{company}}, {{city}}. Muse, Grok, ChatGPT and Claude load this per lead (filled in) through the MCP connector. Keep it under 1000 characters for Instagram.</p></div></div>'
+      );
+    }
+
     function callScriptBlockHtml(entry, text) {
       var k = escapeHtml(entry.key);
       var sid = 'snippet-' + k + '-opening';
@@ -508,6 +539,7 @@
           var text = composeBlockScriptFromObj(block);
           var smsText = String(block.sms || '');
           var emailText = String(block.email || '');
+          var dmText = String(block.dm || '');
           var hidden = entry.key !== firstKey ? ' hidden' : '';
           return (
             '<div class="pitch-panel' +
@@ -530,6 +562,7 @@
             callScriptBlockHtml(entry, text) +
             smsScriptBlockHtml(entry, smsText) +
             emailScriptBlockHtml(entry, emailText) +
+            dmScriptBlockHtml(entry, dmText) +
             '</div></div>'
           );
         })
@@ -711,19 +744,13 @@
           }
           if (!e.target.classList.contains('script-snippet')) return;
           lastFocusedSnippetId = e.target.id;
-          // Keep SMS / email plain — strip accidental HTML/CSS paste
-          if (
-            (e.target.classList.contains('script-sms-input') || e.target.classList.contains('script-email-input')) &&
-            Scripts.htmlToPlain
-          ) {
+          // Keep SMS / email / DM plain — strip accidental HTML/CSS paste
+          if (isPlainChannelInput(e.target) && Scripts.htmlToPlain) {
             var plainSms = Scripts.htmlToPlain(e.target.value);
             if (plainSms !== e.target.value) e.target.value = plainSms;
           }
           updateSmsFieldState(e.target);
-          if (e.target.classList.contains('script-email-input')) {
-            var emailHint = document.querySelector('.email-empty-hint[data-snippet-id="' + e.target.id + '"]');
-            if (emailHint) emailHint.classList.toggle('hidden', !!String(e.target.value || '').trim());
-          }
+          updateChannelHint(e.target);
           var st = statusElForSnippetId(e.target.id);
           if (st) st.textContent = 'Unsaved';
           scheduleBlocksPersist();
@@ -937,10 +964,10 @@
       var ta = document.getElementById(lastFocusedSnippetId);
       if (!ta) ta = snippetEl();
       if (ctx && ta && ta.id) {
-        var m = /^snippet-(.+)-(opening|sms|email)$/.exec(ta.id);
+        var m = /^snippet-(.+)-(opening|sms|email|dm)$/.exec(ta.id);
         if (m) {
           var sLab = serviceLabels[m[1]] || m[1];
-          var chLab = m[2] === 'sms' ? ' · SMS' : m[2] === 'email' ? ' · Email' : '';
+          var chLab = m[2] === 'sms' ? ' · SMS' : m[2] === 'email' ? ' · Email' : m[2] === 'dm' ? ' · DM' : '';
           ctx.textContent = '— ' + sLab + chLab;
         }
       }
@@ -998,15 +1025,16 @@
             close: '',
             sms: '',
             email: '',
+            dm: '',
           };
         }
         return blocks[key];
       }
       document.querySelectorAll('.script-snippet').forEach(function (ta) {
-        var m = /^snippet-(.+)-(opening|sms|email)$/.exec(ta.id || '');
+        var m = /^snippet-(.+)-(opening|sms|email|dm)$/.exec(ta.id || '');
         if (!m) return;
         var val = ta.value;
-        if (m[2] === 'sms' || m[2] === 'email') {
+        if (m[2] === 'sms' || m[2] === 'email' || m[2] === 'dm') {
           val = Scripts.htmlToPlain ? Scripts.htmlToPlain(val) : val;
         } else {
           val = sanitizeHtml(val);
@@ -1169,6 +1197,11 @@
           emailTa.value = String(sections.email || '');
           var emailHint = document.querySelector('.email-empty-hint[data-snippet-id="' + emailTa.id + '"]');
           if (emailHint) emailHint.classList.toggle('hidden', !!String(emailTa.value || '').trim());
+        }
+        var dmTa = document.getElementById('snippet-' + serviceKey + '-dm');
+        if (dmTa && Object.prototype.hasOwnProperty.call(sections, 'dm')) {
+          dmTa.value = String(sections.dm || '');
+          updateChannelHint(dmTa);
         }
       });
       resetBlocksBaseline();
@@ -1354,12 +1387,9 @@
       var ta = snippetEl();
       if (ta) {
         var next = String(pendingRefined || '').trim();
-        if (ta.classList.contains('script-sms-input') || ta.classList.contains('script-email-input')) {
+        if (isPlainChannelInput(ta)) {
           ta.value = Scripts.htmlToPlain ? Scripts.htmlToPlain(next) : next;
-          if (ta.classList.contains('script-email-input')) {
-            var emailHintApply = document.querySelector('.email-empty-hint[data-snippet-id="' + ta.id + '"]');
-            if (emailHintApply) emailHintApply.classList.toggle('hidden', !!String(ta.value || '').trim());
-          }
+          updateChannelHint(ta);
         } else {
           ta.value = sanitizeHtml(Scripts.scriptTextToEditorHtml ? Scripts.scriptTextToEditorHtml(next) : next);
           syncRichFromTextarea(ta);
