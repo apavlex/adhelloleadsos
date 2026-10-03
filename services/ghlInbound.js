@@ -8,6 +8,7 @@ const workspaceIntegrations = require('./workspaceIntegrations');
 const { appendInboundEvent, TYPE_LABELS } = require('./inboundEvents');
 const userTasks = require('./userTasks');
 const { resolveTaskOwnerEmail } = require('./dispositionFollowUp');
+const { notifyInboundEvent } = require('./inboundPush');
 
 const CALL_BACK_MINUTES = 15;
 
@@ -355,6 +356,9 @@ async function handleInboundCall({ lead, workspaceId, outcome, at, eventId, dura
   }
 
   const updated = await dbService.updateLead(lead.key, patch, workspaceId);
+  if (kind !== 'call') {
+    notifyInboundEvent({ workspaceId, lead: updated || lead, event: { type: kind, label: label || '' } });
+  }
   return { applied: true, outcome: kind, taskId, lead: updated };
 }
 
@@ -393,17 +397,18 @@ async function processWorkflowWebhook(body, opts = {}) {
   if (parsed.kind === 'form') {
     const attr = parsed.attribution;
     const eventLabel = [parsed.label, attr.adSource].filter(Boolean).join(' · ');
+    const formEvent = {
+      id: parsed.eventId ? `form:${parsed.eventId}` : '',
+      type: 'form',
+      at: parsed.at,
+      label: eventLabel,
+      preview: parsed.answers.slice(0, 3).map((x) => `${x.q}: ${x.a}`).join(' · '),
+      source: 'ghl',
+    };
     const patch = {
       inboundSource: source,
       inboundAt: parsed.at,
-      inboundEvents: appendInboundEvent(lead.inboundEvents, {
-        id: parsed.eventId ? `form:${parsed.eventId}` : '',
-        type: 'form',
-        at: parsed.at,
-        label: eventLabel,
-        preview: parsed.answers.slice(0, 3).map((x) => `${x.q}: ${x.a}`).join(' · '),
-        source: 'ghl',
-      }),
+      inboundEvents: appendInboundEvent(lead.inboundEvents, formEvent),
       logs: [{ type: 'inbound_form', message: formLogMessage(parsed), timestamp: parsed.at }],
     };
     if (parsed.label) patch.inboundFormName = parsed.label;
@@ -418,6 +423,7 @@ async function processWorkflowWebhook(body, opts = {}) {
     } catch (e) {
       console.warn('[ghlInbound] warm inbound routing failed:', e && e.message);
     }
+    notifyInboundEvent({ workspaceId: wid, lead, event: formEvent });
     return { ok: true, workspaceId: wid, key: lead.key, action: 'form_lead', created, adSource: attr.adSource || null };
   }
 

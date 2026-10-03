@@ -27,7 +27,7 @@ router.post('/unsubscribe', express.json(), (req, res) => {
 router.post('/test', express.json(), async (req, res) => {
   const { sent } = await push.sendPush(
     { userEmail: userEmail(req) },
-    { title: 'Push alerts are on', body: 'You will get lead runs and task reminders here, even with the app closed.', url: '/today', tag: 'push-test' }
+    { title: 'Push alerts are on', body: 'You will get new leads, missed calls, texts, lead runs, and task reminders here, even with the app closed.', url: '/today', tag: 'push-test' }
   );
   res.json({ success: true, sent });
 });

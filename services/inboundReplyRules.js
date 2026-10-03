@@ -11,6 +11,7 @@ const {
 const { resolveTaskOwnerEmail } = require('./dispositionFollowUp');
 const { triggerGhlProspectSync } = require('./ghlProspectSync');
 const { appendInboundEvent } = require('./inboundEvents');
+const { notifyInboundEvent } = require('./inboundPush');
 
 function isWarmReplyBody(text) {
   const t = String(text || '').trim().toLowerCase();
@@ -147,6 +148,11 @@ async function handleInboundReply(ctx) {
   }
 
   const updated = await dbService.updateLead(lead.key, patch, workspaceId);
+  notifyInboundEvent({
+    workspaceId,
+    lead: updated || lead,
+    event: { type: channel, label: ctx.newContact ? 'New contact' : '', preview: body },
+  });
 
   if (provider === 'ghl') {
     try {

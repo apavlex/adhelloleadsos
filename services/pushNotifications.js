@@ -110,12 +110,13 @@ function listSubscriptions() {
     .filter(Boolean);
 }
 
-function matchingSubscriptions({ userEmail, workspaceId } = {}) {
+function matchingSubscriptions({ userEmail, workspaceId, allowEmail } = {}) {
   const email = normEmail(userEmail);
   const wid = workspaceId ? String(workspaceId) : '';
   return listSubscriptions().filter((sub) => {
     if (email && sub.userEmail !== email) return false;
     if (wid && !(sub.workspaceIds || []).includes(wid)) return false;
+    if (typeof allowEmail === 'function' && !allowEmail(sub.userEmail)) return false;
     return !!(email || wid);
   });
 }

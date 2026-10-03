@@ -106,14 +106,14 @@
       btn.textContent = (isMobile ? 'Phone' : 'Push') + ' alerts on · Send test';
       btn.classList.remove('border-sky-500/45');
       btn.classList.add('border-emerald-500/45');
-      status.textContent = 'Lead runs and task reminders arrive on this device, even when the app is closed.';
+      status.textContent = 'New leads, missed calls, texts, lead runs, and task reminders arrive on this device, even when the app is closed.';
       if (off) off.classList.remove('hidden');
     } else if (state === 'working') {
       btn.disabled = true;
       btn.textContent = 'Turning on…';
     } else {
       btn.textContent = 'Turn on ' + label;
-      status.textContent = 'Get lead runs and task reminders on this device, even when the app is closed.';
+      status.textContent = 'Get new leads, missed calls, texts, lead runs, and task reminders on this device, even when the app is closed.';
     }
   }
 

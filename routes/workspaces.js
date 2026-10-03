@@ -852,5 +852,33 @@ router.post('/switch', express.urlencoded({ extended: true }), async (req, res, 
   }
 });
 
+/** Link form of /switch for push notifications: open `next` inside the given workspace. */
+router.get('/open', async (req, res, next) => {
+  try {
+    const email = userEmail(req);
+    if (!email) return res.redirect('/auth/login');
+    const nextRaw = String(req.query.next || '').trim();
+    const target =
+      nextRaw.startsWith('/') &&
+      !nextRaw.startsWith('//') &&
+      !nextRaw.includes('\\') &&
+      !/^\/(auth|logout)/.test(nextRaw)
+        ? nextRaw
+        : '/today';
+    const raw = String(req.query.workspaceId || '').trim();
+    if (!raw || raw === req.workspaceId) return res.redirect(target);
+    const ws = await dbService.getWorkspace(raw);
+    if (!ws || !workspaceBootstrap.userCanAccessWorkspace(ws, email)) return res.redirect('/today');
+    await dbService.saveUserPrefs(email, { activeWorkspaceId: raw });
+    if (req.session) {
+      req.session.activeWorkspaceId = raw;
+      req.session.workspaceId = raw;
+    }
+    return res.redirect(target);
+  } catch (e) {
+    next(e);
+  }
+});
+
 module.exports = router;
 module.exports.starterOpeningScript = starterOpeningScript;
