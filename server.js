@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const session = require('express-session');
+const { SqliteSessionStore } = require('./lib/sqliteSessionStore');
 const {
   passport,
   ensureAuthenticated,
@@ -175,6 +176,7 @@ app.use(
 );
 const sessionMiddleware = session({
   secret: process.env.SESSION_SECRET || 'adhello-secret-key',
+  store: new SqliteSessionStore({ db: dbService.getSqlite() }),
   resave: false,
   saveUninitialized: false,
   cookie: {

@@ -6,7 +6,7 @@
   const _aiCan = typeof canManageWorkspace !== 'undefined' && canManageWorkspace;
   const _aiDisconnected = typeof aiAppDisconnected !== 'undefined' && aiAppDisconnected;
   const _aiCard = 'rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6';
-  const _aiCode = 'text-[11px] px-1.5 py-0.5 rounded bg-brand-cream/80 dark:bg-slate-800 font-mono';
+  const _aiCode = 'text-[11px] px-1.5 py-0.5 rounded bg-brand-cream/80 dark:bg-slate-800 font-mono break-all';
   const _aiStep = 'flex gap-3';
   const _aiNum = 'shrink-0 w-6 h-6 rounded-full bg-brand-yellow text-brand-dark text-[11px] font-black flex items-center justify-center';
   const _aiTokens = typeof mcpAgentTokens !== 'undefined' && Array.isArray(mcpAgentTokens) ? mcpAgentTokens : [];
@@ -77,7 +77,7 @@
         <li class="<%= _aiStep %>"><span class="<%= _aiNum %>">2</span><span class="min-w-0">Add AdHello:
           <code class="<%= _aiCode %> block mt-1.5 whitespace-pre-wrap break-all">gemini mcp add --transport http adhello <%= _aiUrl || '<connector URL>' %></code>
           <span class="block mt-1.5 text-xs text-brand-muted">Or add it to <code class="<%= _aiCode %>">~/.gemini/settings.json</code> yourself:</span>
-          <code class="<%= _aiCode %> block mt-1.5 whitespace-pre"><%= JSON.stringify({ mcpServers: { adhello: { httpUrl: _aiUrl || '<connector URL>' } } }, null, 2) %></code>
+          <code class="<%= _aiCode %> block mt-1.5 whitespace-pre overflow-x-auto max-w-full"><%= JSON.stringify({ mcpServers: { adhello: { httpUrl: _aiUrl || '<connector URL>' } } }, null, 2) %></code>
         </span></li>
         <li class="<%= _aiStep %>"><span class="<%= _aiNum %>">3</span><span>Run <code class="<%= _aiCode %>">gemini</code>, then type <code class="<%= _aiCode %>">/mcp auth adhello</code>. Your browser opens; sign in, pick this workspace and click <strong>Allow</strong>.</span></li>
         <li class="<%= _aiStep %>"><span class="<%= _aiNum %>">4</span><span>Type <code class="<%= _aiCode %>">/mcp</code> to check AdHello shows as connected, then ask your question.</span></li>
@@ -317,6 +317,7 @@
         headers: body ? { 'Content-Type': 'application/json' } : {},
         body: body ? JSON.stringify(body) : undefined,
       });
+      if (res.status === 401) throw new Error('Your sign-in expired. Reload the page and sign in again.');
       var data = await res.json().catch(function () { return {}; });
       if (!res.ok || data.success === false) throw new Error((data && data.error) || 'Something went wrong. Try again.');
       return data;
