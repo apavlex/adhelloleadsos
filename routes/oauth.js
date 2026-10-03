@@ -13,6 +13,7 @@ const oauth = require('../services/mcp/mcpOAuth');
 
 const router = express.Router();
 
+const ALL_WORKSPACES = '__all__';
 const TXN_TTL_MS = 15 * 60 * 1000;
 const MAX_TXNS = 5;
 
@@ -55,6 +56,7 @@ function renderPage(res, status, locals) {
     error: '',
     connector: null,
     workspaces: [],
+    allowAll: false,
     selected: '',
     txn: '',
     email: '',
@@ -139,7 +141,7 @@ router.get('/oauth/authorize', async (req, res, next) => {
     }
 
     const email = userEmail(req);
-    const lockedWs = check.client.manual ? check.client.workspaceId : '';
+    const lockedWs = check.client.manual && !check.client.allWorkspaces ? check.client.workspaceId : '';
     const workspaces = (await accessibleWorkspaces(email)).filter((w) => !lockedWs || w.id === lockedWs);
     if (!workspaces.length) {
       const why = lockedWs
@@ -154,7 +156,8 @@ router.get('/oauth/authorize', async (req, res, next) => {
     return renderPage(res, 200, {
       connector: { name: check.client.name, redirectHost: redirectHost(check.params.redirectUri) },
       workspaces,
-      selected: workspaces.some((w) => w.id === active) ? active : workspaces[0].id,
+      allowAll: !lockedWs && workspaces.length > 1,
+      selected: workspaces.length > 1 && !lockedWs ? ALL_WORKSPACES : workspaces.some((w) => w.id === active) ? active : workspaces[0].id,
       txn,
       email,
     });
@@ -183,12 +186,17 @@ router.post('/oauth/authorize', async (req, res, next) => {
 
     const email = userEmail(req);
     const workspaces = await accessibleWorkspaces(email);
-    const workspaceId = String(req.body.workspaceId || '');
+    const picked = String(req.body.workspaceId || '');
+    const allWorkspaces = picked === ALL_WORKSPACES && !pending.lockedWs && workspaces.length > 0;
+    const active = req.session.activeWorkspaceId;
+    const workspaceId = allWorkspaces
+      ? (workspaces.find((w) => w.id === active) || workspaces[0]).id
+      : picked;
     if (!workspaces.some((w) => w.id === workspaceId) || (pending.lockedWs && pending.lockedWs !== workspaceId)) {
       return renderPage(res, 403, { error: 'You do not have access to that workspace.' });
     }
 
-    const code = await oauth.issueAuthorizationCode({ params, workspaceId, userEmail: email });
+    const code = await oauth.issueAuthorizationCode({ params, workspaceId, userEmail: email, allWorkspaces });
     return res.redirect(oauth.redirectWith(params.redirectUri, {
       code,
       state: params.state,

@@ -424,6 +424,7 @@ async function loadWorkspacePageLocals(req) {
     mcpTokenStatus,
     mcpConnectedApps,
     mcpOAuthClients,
+    mcpViewerEmail: workspaceService.userEmail(req).toLowerCase(),
     mcpEndpoint,
     mcpManifestUrl,
     openrouterConfigured,
@@ -739,11 +740,12 @@ router.post('/integrations/mcp/clients', express.json(), async (req, res, next) 
       name: body.name,
       redirectUri: body.redirectUri,
       createdBy: workspaceService.userEmail(req),
+      allWorkspaces: body.allWorkspaces !== false,
     });
     const base = getPublicBaseUrl(req);
     res.json({
       success: true,
-      client: { id: client.id, name: client.name, redirectUris: client.redirectUris, createdAt: client.createdAt },
+      client: { id: client.id, name: client.name, redirectUris: client.redirectUris, allWorkspaces: client.allWorkspaces, createdAt: client.createdAt },
       clientId: client.id,
       clientSecret,
       mcpUrl: `${base}/ceo/mcp`,
@@ -776,7 +778,7 @@ router.post('/integrations/mcp/apps/:grantId/revoke', async (req, res, next) => 
     if (!grant || !(req.canManageWorkspace || own)) {
       return res.status(403).json({ success: false, error: 'Only workspace admins or the person who connected it can disconnect this app.' });
     }
-    await mcpOAuth.revokeGrantForWorkspace(req.workspaceId, grant.id);
+    await mcpOAuth.revokeGrantForWorkspace(req.workspaceId, grant.id, { byOwner: own });
     if (/application\/json/i.test(String(req.get('accept') || ''))) return res.json({ success: true });
     if (req.query.return === 'ai-apps') return res.redirect('/workspace/ai-apps?disconnected=1');
     return res.redirect('/workspace/integrations?integrations=ai_app_disconnected#mcp-integration');

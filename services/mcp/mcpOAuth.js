@@ -133,7 +133,7 @@ async function getClient(clientId) {
  * registering themselves (Meta AI, some Grok/agent builders). Always confidential.
  * With no redirect URI, the first one used at /authorize is locked in.
  */
-async function createManualClient({ workspaceId, name, redirectUri, createdBy }) {
+async function createManualClient({ workspaceId, name, redirectUri, createdBy, allWorkspaces = false }) {
   const uri = String(redirectUri || '').trim();
   if (uri && !validRedirectUri(uri)) throw new OAuthError('invalid_redirect_uri', `Redirect URI not allowed: ${uri}`);
   const clientId = `mcp_${crypto.randomBytes(12).toString('hex')}`;
@@ -148,6 +148,7 @@ async function createManualClient({ workspaceId, name, redirectUri, createdBy })
     secretHash: sha256(clientSecret),
     manual: true,
     workspaceId: String(workspaceId),
+    allWorkspaces: !!allWorkspaces,
     createdBy: String(createdBy || '').toLowerCase(),
     createdAt: new Date().toISOString(),
   };
@@ -161,7 +162,14 @@ async function listManualClients(workspaceId) {
   for (const key of keys) {
     const c = await readJson(key);
     if (c && c.manual && c.workspaceId === workspaceId) {
-      rows.push({ id: c.id, name: c.name, redirectUris: c.redirectUris || [], createdBy: c.createdBy || '', createdAt: c.createdAt || '' });
+      rows.push({
+        id: c.id,
+        name: c.name,
+        redirectUris: c.redirectUris || [],
+        allWorkspaces: !!c.allWorkspaces,
+        createdBy: c.createdBy || '',
+        createdAt: c.createdAt || '',
+      });
     }
   }
   return rows.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
@@ -233,11 +241,12 @@ function redirectWith(redirectUri, params) {
   return url.toString();
 }
 
-async function issueAuthorizationCode({ params, workspaceId, userEmail }) {
+async function issueAuthorizationCode({ params, workspaceId, userEmail, allWorkspaces = false }) {
   const code = randomToken();
   await dbService.putStorageKey(`oauthcode:${sha256(code)}`, {
     ...params,
     workspaceId: String(workspaceId),
+    allWorkspaces: !!allWorkspaces,
     userEmail: String(userEmail || '').toLowerCase(),
     expiresAt: Date.now() + CODE_TTL_MS,
   });
@@ -289,6 +298,7 @@ async function exchangeAuthorizationCode({ code, clientId, clientSecret, redirec
     clientId: client.id,
     clientName: client.name,
     workspaceId: record.workspaceId,
+    allWorkspaces: !!record.allWorkspaces,
     userEmail: record.userEmail,
     scope: SCOPE,
     resource: record.resource || '',
@@ -300,12 +310,57 @@ async function exchangeAuthorizationCode({ code, clientId, clientSecret, redirec
   return issueTokens(grant);
 }
 
+function grantReachesWorkspace(grant, ws) {
+  if (!ws || !workspaceBootstrap.userCanAccessWorkspace(ws, grant.userEmail)) return false;
+  if (!grant.allWorkspaces) return ws.id === grant.workspaceId;
+  return !(grant.blockedWorkspaceIds || []).includes(ws.id);
+}
+
+/** Workspaces an OAuth grant can act in: its own, or every workspace the user is on for "all workspaces" grants. */
+async function grantWorkspaces(grant) {
+  if (!grant.allWorkspaces) {
+    const ws = await dbService.getWorkspace(grant.workspaceId);
+    return grantReachesWorkspace(grant, ws) ? [ws] : [];
+  }
+  const ids = await workspaceBootstrap.collectWorkspaceIdsForEmail(grant.userEmail);
+  const docs = await Promise.all([...new Set(ids)].map((id) => dbService.getWorkspace(id)));
+  return docs.filter((ws) => grantReachesWorkspace(grant, ws));
+}
+
 async function liveGrant(grantId) {
   const grant = grantId ? await readJson(`oauthgrant:${grantId}`) : null;
   if (!grant || grant.revokedAt) return null;
-  const ws = await dbService.getWorkspace(grant.workspaceId);
-  if (!ws || !workspaceBootstrap.userCanAccessWorkspace(ws, grant.userEmail)) return null;
-  return { grant, workspace: ws };
+  const workspaces = await grantWorkspaces(grant);
+  if (!workspaces.length) return null;
+  const workspace =
+    workspaces.find((ws) => ws.id === grant.activeWorkspaceId) ||
+    workspaces.find((ws) => ws.id === grant.workspaceId) ||
+    workspaces[0];
+  return { grant, workspace, workspaces };
+}
+
+async function listGrantWorkspaces(grantId) {
+  const live = await liveGrant(grantId);
+  if (!live) return null;
+  const { roleForEmail } = require('../workspaceService');
+  return {
+    activeWorkspaceId: live.workspace.id,
+    workspaces: live.workspaces.map((ws) => ({
+      id: ws.id,
+      name: ws.name || 'Workspace',
+      slug: ws.slug || '',
+      role: roleForEmail(ws, live.grant.userEmail),
+    })),
+  };
+}
+
+/** Make a workspace the default for an "all workspaces" grant (MCP calls are stateless, so it lives on the grant). */
+async function setGrantActiveWorkspace(grantId, workspaceId) {
+  const live = await liveGrant(grantId);
+  if (!live || !live.grant.allWorkspaces) return false;
+  if (!live.workspaces.some((ws) => ws.id === workspaceId)) return false;
+  await dbService.putStorageKey(`oauthgrant:${live.grant.id}`, { ...live.grant, activeWorkspaceId: workspaceId });
+  return true;
 }
 
 async function refreshAccessToken({ refreshToken, clientId, clientSecret }) {
@@ -340,8 +395,9 @@ async function validateAccessToken(token) {
     await dbService.putStorageKey(`oauthgrant:${grant.id}`, { ...grant, lastUsedAt: new Date().toISOString() });
   }
   return {
-    workspaceId: grant.workspaceId,
+    workspaceId: live.workspace.id,
     workspace: live.workspace,
+    allWorkspaces: !!grant.allWorkspaces,
     userEmail: grant.userEmail,
     grantId: grant.id,
     clientName: grant.clientName,
@@ -364,19 +420,30 @@ async function revokeGrantById(grantId) {
 }
 
 async function listGrantsForWorkspace(workspaceId) {
+  const ws = await dbService.getWorkspace(workspaceId);
   const keys = await dbService.listStorageKeysWithPrefix('oauthgrant:');
   const rows = [];
   for (const key of keys) {
     const grant = await readJson(key);
-    if (grant && grant.workspaceId === workspaceId && !grant.revokedAt) rows.push(grant);
+    if (!grant || grant.revokedAt) continue;
+    if (grant.allWorkspaces ? grantReachesWorkspace(grant, ws) : grant.workspaceId === workspaceId) rows.push(grant);
   }
   return rows.sort((a, b) => String(b.lastUsedAt || '').localeCompare(String(a.lastUsedAt || '')));
 }
 
-async function revokeGrantForWorkspace(workspaceId, grantId) {
+/**
+ * Disconnect an app from a workspace. A single-workspace grant is revoked. An "all workspaces"
+ * grant is revoked when its owner disconnects it; a workspace admin only blocks it from their workspace.
+ */
+async function revokeGrantForWorkspace(workspaceId, grantId, { byOwner = false } = {}) {
   const grant = await readJson(`oauthgrant:${String(grantId || '')}`);
-  if (!grant || grant.workspaceId !== workspaceId) return false;
-  return revokeGrantById(grant.id);
+  if (!grant || grant.revokedAt) return false;
+  if (!grant.allWorkspaces) return grant.workspaceId === workspaceId ? revokeGrantById(grant.id) : false;
+  if (byOwner) return revokeGrantById(grant.id);
+  const blocked = new Set(grant.blockedWorkspaceIds || []);
+  blocked.add(workspaceId);
+  await dbService.putStorageKey(`oauthgrant:${grant.id}`, { ...grant, blockedWorkspaceIds: [...blocked] });
+  return true;
 }
 
 // ── Discovery (RFC 8414 / RFC 9728) ──────────────────────────────────────────
@@ -425,6 +492,8 @@ module.exports = {
   exchangeAuthorizationCode,
   refreshAccessToken,
   validateAccessToken,
+  listGrantWorkspaces,
+  setGrantActiveWorkspace,
   revokeToken,
   listGrantsForWorkspace,
   revokeGrantForWorkspace,

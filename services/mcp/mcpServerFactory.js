@@ -13,6 +13,7 @@ const {
 const networkTools = require('./mcpNetwork');
 const cadenceTools = require('./mcpCadences');
 const leadScriptTools = require('./mcpLeadScripts');
+const mcpOAuth = require('./mcpOAuth');
 const mcpLogger = require('./mcpLogger');
 
 function jsonToolResult(payload) {
@@ -43,7 +44,74 @@ async function runTool(ctx, toolName, args) {
   if (!payload.success) {
     return jsonToolError({ message: payload.error, code: payload.code });
   }
+  if (ctx.allWorkspaces) payload.workspace = { id: ctx.workspaceId, name: ctx.workspaceName || '' };
   return jsonToolResult(payload);
+}
+
+const WORKSPACE_ARG = z
+  .string()
+  .min(1)
+  .optional()
+  .describe('Workspace name or id to run this in (see list_workspaces). Omit for the current workspace.');
+
+/** Match a workspace on an "all workspaces" connection by id, slug, or name. */
+async function resolveGrantWorkspace(ctx, ref) {
+  const info = await mcpOAuth.listGrantWorkspaces(ctx.grantId);
+  if (!info) return { error: 'This connection no longer has access. Reconnect AdHello.' };
+  const want = String(ref || '').trim().toLowerCase();
+  const list = info.workspaces;
+  const exact = list.find((w) => w.id.toLowerCase() === want || w.slug.toLowerCase() === want || w.name.toLowerCase() === want);
+  if (exact) return { workspace: exact };
+  const partial = list.filter((w) => w.name.toLowerCase().includes(want));
+  if (partial.length === 1) return { workspace: partial[0] };
+  const names = list.map((w) => w.name).join(', ');
+  return {
+    error: partial.length
+      ? `"${ref}" matches several workspaces: ${partial.map((w) => w.name).join(', ')}. Use the exact name.`
+      : `No workspace matches "${ref}". Workspaces on this connection: ${names}.`,
+  };
+}
+
+function registerWorkspaceTools(server, ctx) {
+  server.registerTool(
+    'list_workspaces',
+    {
+      description: 'List every AdHello workspace this connection can work in, your role in each, and which one is current.',
+      inputSchema: {},
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async () => {
+      const info = await mcpOAuth.listGrantWorkspaces(ctx.grantId);
+      if (!info) return jsonToolError({ message: 'This connection no longer has access. Reconnect AdHello.', code: 'FORBIDDEN' });
+      return jsonToolResult({
+        success: true,
+        count: info.workspaces.length,
+        current: info.workspaces.find((w) => w.id === info.activeWorkspaceId) || null,
+        workspaces: info.workspaces.map((w) => ({ ...w, current: w.id === info.activeWorkspaceId })),
+        how_to_use: 'Pass workspace on any tool to run it there once, or call switch_workspace to change the default.',
+      });
+    },
+  );
+
+  server.registerTool(
+    'switch_workspace',
+    {
+      description:
+        'Change which workspace tools use by default on this connection (by name or id). It sticks for later requests until switched again.',
+      inputSchema: { workspace: z.string().min(1).describe('Workspace name or id.') },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ workspace }) => {
+      const hit = await resolveGrantWorkspace(ctx, workspace);
+      if (hit.error) return jsonToolError({ message: hit.error, code: 'NOT_FOUND' });
+      await mcpOAuth.setGrantActiveWorkspace(ctx.grantId, hit.workspace.id);
+      return jsonToolResult({
+        success: true,
+        workspace: hit.workspace,
+        message: `Now working in "${hit.workspace.name}". Tools use it until you switch again.`,
+      });
+    },
+  );
 }
 
 const folderRefSchema = z
@@ -115,17 +183,41 @@ function inputShape(schema) {
  * @param {{ workspaceId: string, userEmail?: string, baseUrl?: string }} ctx
  */
 function createCrmMcpServer(ctx) {
-  const server = new McpServer({
-    name: 'adhello-ceo-crm',
-    version: '1.4.0',
-  });
+  const multi = !!(ctx.allWorkspaces && ctx.grantId);
+  const server = new McpServer(
+    {
+      name: 'adhello-ceo-crm',
+      version: '1.4.0',
+    },
+    multi
+      ? {
+          instructions:
+            `This AdHello connection covers all of the user's workspaces. Tools run in the current workspace ("${ctx.workspaceName || ctx.workspaceId}") ` +
+            'unless you pass workspace (name or id). Use list_workspaces to see them and switch_workspace to change the default. ' +
+            'Every result names the workspace it came from; tell the user which workspace you are working in.',
+        }
+      : undefined,
+  );
 
-  const register = (name, config, handler) =>
-    server.registerTool(
+  // On an "all workspaces" connection every tool also takes an optional workspace to run in.
+  const register = (name, config, handler) => {
+    const shape = inputShape(config.inputSchema);
+    if (!multi) {
+      return server.registerTool(name, { ...config, inputSchema: shape, annotations: toolAnnotations(name) }, handler);
+    }
+    return server.registerTool(
       name,
-      { ...config, inputSchema: inputShape(config.inputSchema), annotations: toolAnnotations(name) },
-      handler,
+      { ...config, inputSchema: { ...shape, workspace: WORKSPACE_ARG }, annotations: toolAnnotations(name) },
+      async (args) => {
+        const { workspace, ...rest } = args || {};
+        if (!workspace) return runTool(ctx, name, rest);
+        const hit = await resolveGrantWorkspace(ctx, workspace);
+        if (hit.error) return jsonToolError({ message: hit.error, code: 'NOT_FOUND' });
+        return runTool({ ...ctx, workspaceId: hit.workspace.id, workspaceName: hit.workspace.name }, name, rest);
+      },
     );
+  };
+  if (multi) registerWorkspaceTools(server, ctx);
 
   mcpLogger.toolsDiscovered({
     workspaceId: ctx.workspaceId,

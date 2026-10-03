@@ -40,6 +40,8 @@ async function validateMcpBearerToken(token) {
       workspace: oauthAuth.workspace,
       authMethod: 'oauth',
       userEmail: oauthAuth.userEmail,
+      grantId: oauthAuth.grantId,
+      allWorkspaces: oauthAuth.allWorkspaces,
     };
   }
 
@@ -174,6 +176,8 @@ async function mcpAuthContext(req, res, next) {
     req.workspace = auth.workspace;
     req.mcpAuthMethod = auth.authMethod;
     req.mcpUserEmail = auth.userEmail || '';
+    req.mcpGrantId = auth.grantId || '';
+    req.mcpAllWorkspaces = !!auth.allWorkspaces;
     return next();
   } catch (err) {
     next(err);

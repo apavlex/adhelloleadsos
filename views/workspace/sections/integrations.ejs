@@ -744,11 +744,12 @@
           <% _mcpApps.forEach(function (app) { %>
           <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white/80 dark:bg-slate-900 px-3 py-2">
             <div class="min-w-0">
-              <p class="text-sm font-semibold text-brand-dark dark:text-white truncate"><%= app.clientName %></p>
+              <p class="text-sm font-semibold text-brand-dark dark:text-white truncate"><%= app.clientName %><% if (app.allWorkspaces) { %> <span class="ml-1 text-[10px] font-black uppercase tracking-widest text-brand-muted">All workspaces</span><% } %></p>
               <p class="text-[11px] text-brand-muted">Connected by <%= app.userEmail %> · <%= wsDateTime(app.createdAt) %><% if (app.lastUsedAt) { %> · last used <%= wsDateTime(app.lastUsedAt) %><% } %></p>
             </div>
             <%# Inside the integrations <form>: a type=submit here would become the Enter-key default, so post a detached form. %>
-            <button type="button" data-action="/workspace/integrations/mcp/apps/<%= encodeURIComponent(app.id) %>/revoke" onclick="if (confirm('Disconnect this AI app from the workspace?')) { var f = document.createElement('form'); f.method = 'post'; f.action = this.dataset.action; document.body.appendChild(f); f.submit(); }" class="rounded-xl border border-rose-400/50 bg-rose-500/10 text-rose-900 dark:text-rose-200 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/20 transition-colors">Disconnect</button>
+            <% const _appConfirm = !app.allWorkspaces ? 'Disconnect this AI app from the workspace?' : (typeof mcpViewerEmail !== 'undefined' && app.userEmail === mcpViewerEmail) ? 'Disconnect this AI app from all your workspaces?' : 'Block this AI app from this workspace? It keeps working in the person\'s other workspaces.'; %>
+            <button type="button" data-action="/workspace/integrations/mcp/apps/<%= encodeURIComponent(app.id) %>/revoke" data-confirm="<%= _appConfirm %>" onclick="if (confirm(this.dataset.confirm)) { var f = document.createElement('form'); f.method = 'post'; f.action = this.dataset.action; document.body.appendChild(f); f.submit(); }" class="rounded-xl border border-rose-400/50 bg-rose-500/10 text-rose-900 dark:text-rose-200 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/20 transition-colors">Disconnect</button>
           </div>
           <% }); %>
         </div>
@@ -759,8 +760,12 @@
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Apps that ask for a Client ID (Meta AI / Muse, Grok, agent builders)</p>
           <p class="text-xs text-brand-muted leading-relaxed">
             Some apps can't register themselves and ask for an <strong class="text-brand-dark dark:text-white">OAuth Client ID</strong>. Create one here, then paste the Client ID, Client secret, and URLs into the app.
-            If the app shows a <strong class="text-brand-dark dark:text-white">callback / redirect URL</strong>, paste it below; if not, leave it blank and the first sign-in locks it in. Each Client ID only connects to this workspace.
+            If the app shows a <strong class="text-brand-dark dark:text-white">callback / redirect URL</strong>, paste it below; if not, leave it blank and the first sign-in locks it in.
           </p>
+          <label class="inline-flex items-start gap-2 text-xs text-brand-muted leading-relaxed">
+            <input id="mcpClientAllWorkspaces" type="checkbox" checked class="mt-0.5 rounded border-brand-border" />
+            <span><strong class="text-brand-dark dark:text-white">Let it reach all my workspaces</strong> — one connection for every workspace you're on (you pick "All my workspaces" when signing in). Unchecked, the Client ID only connects to this workspace.</span>
+          </label>
           <div class="flex flex-wrap gap-2 items-end">
             <div style="flex:1 1 10rem;max-width:14rem">
               <label for="mcpClientName" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">App name</label>
@@ -782,7 +787,7 @@
             <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white/80 dark:bg-slate-900 px-3 py-2" data-mcp-client="<%= c.id %>">
               <div class="min-w-0">
                 <p class="text-sm font-semibold text-brand-dark dark:text-white truncate"><%= c.name %></p>
-                <p class="text-[11px] text-brand-muted break-all">Client ID <code><%= c.id %></code> · <%= c.redirectUris.length ? c.redirectUris[0] : 'callback not locked in yet' %><% if (c.createdBy) { %> · by <%= c.createdBy %><% } %></p>
+                <p class="text-[11px] text-brand-muted break-all">Client ID <code><%= c.id %></code> · <%= c.allWorkspaces ? 'all workspaces' : 'this workspace only' %> · <%= c.redirectUris.length ? c.redirectUris[0] : 'callback not locked in yet' %><% if (c.createdBy) { %> · by <%= c.createdBy %><% } %></p>
               </div>
               <button type="button" data-mcp-client-delete="<%= c.id %>" class="rounded-xl border border-rose-400/50 bg-rose-500/10 text-rose-900 dark:text-rose-200 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/20 transition-colors">Delete</button>
             </div>
@@ -1368,6 +1373,7 @@
           body: JSON.stringify({
             name: document.getElementById('mcpClientName').value,
             redirectUri: document.getElementById('mcpClientRedirect').value,
+            allWorkspaces: document.getElementById('mcpClientAllWorkspaces').checked,
           }),
         });
         var data = await res.json().catch(function () { return {}; });

@@ -28,6 +28,7 @@ async function handleMcpRequest(req, res) {
     workspaceId: req.workspaceId,
     userEmail: req.mcpUserEmail || '',
     baseUrl: getPublicBaseUrl(req),
+    ...(req.mcpAllWorkspaces ? { allWorkspaces: true, grantId: req.mcpGrantId, workspaceName: (req.workspace && req.workspace.name) || '' } : {}),
   };
 
   const transport = new StreamableHTTPServerTransport({
