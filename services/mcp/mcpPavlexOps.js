@@ -305,13 +305,8 @@ async function moveOpportunities(ctx, input = {}) {
 }
 
 function recordActivity(ctx, entry) {
-  const email = String((ctx && ctx.userEmail) || '').trim().toLowerCase();
-  if (!email || !ctx.workspaceId) return null;
   const teamActivity = require('../teamActivity');
-  return teamActivity.record(
-    { workspaceId: ctx.workspaceId, actor: { email, name: '', avatar: '' } },
-    { ...entry, meta: { ...(entry.meta || {}), via: 'pavlex' } },
-  );
+  return teamActivity.record(teamActivity.toolActivityContext(ctx), { ...entry, meta: { ...(entry.meta || {}), via: 'pavlex' } });
 }
 
 async function enrichLead(ctx, input = {}) {
@@ -362,7 +357,7 @@ async function enrichLead(ctx, input = {}) {
 /** Workspace members as the Team page lists them, plus the owner if not in members. */
 function workspaceMembers(ws) {
   const teamActivity = require('../teamActivity');
-  const members = teamActivity.memberDirectory(ws, []).map((m) => ({
+  const members = teamActivity.memberDirectory(ws, []).filter((m) => !m.isBot).map((m) => ({
     email: m.email,
     name: m.name || '',
     role: m.role || roleForEmail(ws, m.email),

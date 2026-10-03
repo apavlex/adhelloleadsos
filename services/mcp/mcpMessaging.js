@@ -7,6 +7,7 @@ const { z } = require('zod/v3');
 const { zodToJsonSchema } = require('zod-to-json-schema');
 const dbService = require('../database');
 const workspaceService = require('../workspaceService');
+const teamActivity = require('../teamActivity');
 const workspaceIntegrations = require('../workspaceIntegrations');
 const ghlMessaging = require('../ghlMessaging');
 const { sendLeadSms, sendLeadEmail, SMS_WINDOW } = require('../leadOutreachSend');
@@ -103,7 +104,15 @@ async function forEachLead(ctx, input, prepare, send) {
         row = { ...base, status: 'preview', ...prepared.show };
       } else {
         // eslint-disable-next-line no-await-in-loop
-        const sent = await send({ workspaceId: ctx.workspaceId, actor, lead, fullKey, via: viaLabel(ctx), ...prepared.args });
+        const sent = await send({
+          workspaceId: ctx.workspaceId,
+          actor,
+          lead,
+          fullKey,
+          via: viaLabel(ctx),
+          activity: teamActivity.toolActivityContext(ctx),
+          ...prepared.args,
+        });
         row = { ...base, status: 'sent', ...prepared.show, to: sent.to, message_id: sent.messageId };
       }
     } catch (e) {

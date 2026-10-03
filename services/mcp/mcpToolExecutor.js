@@ -9,6 +9,7 @@ const networkTools = require('./mcpNetwork');
 const cadenceTools = require('./mcpCadences');
 const leadScriptTools = require('./mcpLeadScripts');
 const messagingTools = require('./mcpMessaging');
+const botActivity = require('./mcpBotActivity');
 const mcpLogger = require('./mcpLogger');
 const pavlexLogger = require('../pavlex/pavlexLogger');
 
@@ -49,7 +50,8 @@ const TOOL_NAMES = [
   ...messagingTools.MESSAGING_TOOL_NAMES,
 ];
 
-async function executeCrmTool(ctx, toolName, args) {
+async function executeCrmTool(rawCtx, toolName, args) {
+  const ctx = botActivity.withBotActivity(rawCtx);
   const name = String(toolName || '').trim();
   const input = args && typeof args === 'object' ? args : {};
 
@@ -176,6 +178,7 @@ async function executeCrmTool(ctx, toolName, args) {
       }
     }
 
+    botActivity.recordToolActivity(ctx, name, input, result);
     const payload = { success: true, ...result };
     mcpLogger.toolResponse({
       tool: name,

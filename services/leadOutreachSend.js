@@ -60,15 +60,21 @@ function validateBody(raw, channel) {
   throw sendError(validated.error, 'INVALID_MESSAGE');
 }
 
+/** " via Muse" when the row is credited to the user; nothing when the bot is the actor. */
+function activityVia(activity, via) {
+  return activity && activity.actor && activity.actor.bot ? '' : ` via ${via}`;
+}
+
 function context(workspaceId, actor) {
   return { workspaceId, actor: actor && actor.email ? actor : null };
 }
 
 /**
+ * `activity` is the Team history context (the bot, from teamActivity.toolActivityContext); defaults to the user.
  * @param {{ workspaceId: string, actor: { email: string, name?: string }, lead: object, fullKey: string,
- *           body: string, to?: string, via?: string, now?: Date }} opts
+ *           body: string, to?: string, via?: string, activity?: object, now?: Date }} opts
  */
-async function sendLeadSms({ workspaceId, actor, lead, fullKey, body, to, via = 'AI assistant', now }) {
+async function sendLeadSms({ workspaceId, actor, lead, fullKey, body, to, via = 'AI assistant', activity, now }) {
   const block = smsOutbound.leadSmsBlock(lead);
   if (block) throw sendError(block.message, block.code);
   const text = validateBody(body, 'sms');
@@ -110,10 +116,10 @@ async function sendLeadSms({ workspaceId, actor, lead, fullKey, body, to, via = 
     },
     workspaceId,
   );
-  teamActivity.record(ctx, {
+  teamActivity.record(activity || ctx, {
     category: 'outreach',
     action: 'sms',
-    summary: `Sent SMS via ${via}: ${text.slice(0, 160)}`,
+    summary: `Sent SMS${activityVia(activity, via)}: ${text.slice(0, 160)}`,
     leadKey: fullKey,
     leadTitle: lead.title || '',
   });
@@ -123,9 +129,9 @@ async function sendLeadSms({ workspaceId, actor, lead, fullKey, body, to, via = 
 
 /**
  * @param {{ workspaceId: string, actor: { email: string, name?: string }, lead: object, fullKey: string,
- *           subject: string, body: string, to?: string, via?: string }} opts
+ *           subject: string, body: string, to?: string, via?: string, activity?: object }} opts
  */
-async function sendLeadEmail({ workspaceId, actor, lead, fullKey, subject, body, to, via = 'AI assistant' }) {
+async function sendLeadEmail({ workspaceId, actor, lead, fullKey, subject, body, to, via = 'AI assistant', activity }) {
   if (lead.doNotContact) throw sendError('This lead is marked Do Not Contact.', 'lead_dnc');
   const text = validateBody(body, 'email');
   const subj = String(subject || '').trim();
@@ -172,10 +178,10 @@ async function sendLeadEmail({ workspaceId, actor, lead, fullKey, subject, body,
     },
     workspaceId,
   );
-  teamActivity.record(ctx, {
+  teamActivity.record(activity || ctx, {
     category: 'outreach',
     action: 'email',
-    summary: `Sent email via ${via}: ${subj.slice(0, 160)}`,
+    summary: `Sent email${activityVia(activity, via)}: ${subj.slice(0, 160)}`,
     leadKey: fullKey,
     leadTitle: lead.title || '',
   });

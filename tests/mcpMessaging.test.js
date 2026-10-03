@@ -88,6 +88,11 @@ test('send_sms fills merge tags, texts through GHL, and records it on the lead l
   assert.equal(log.entry.source, 'ai');
   assert.equal(log.entry.provider, 'ghl');
   assert.equal(log.ctx.actor.email, OWNER);
+
+  const activity = dbService.listTeamActivity({ workspaceId: wid });
+  assert.equal(activity.length, 1, 'one row: the send, not a second generic one');
+  assert.equal(activity[0].actor_email, 'bot:muse');
+  assert.equal(activity[0].summary, 'Sent SMS: Hi Pat, quick one about Patrick Plumbing?');
 });
 
 test('send_sms refuses Do Not Contact, opted-out, late-night and unfilled messages without texting', async (t) => {

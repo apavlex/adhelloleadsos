@@ -55,6 +55,7 @@ async function hydrateRows(workspaceId, rows) {
       id: r.id,
       actorEmail: r.actor_email,
       actorName: r.actor_name || '',
+      onBehalfOf: (r.meta && r.meta.onBehalfOf) || '',
       category: r.category,
       action: r.action,
       summary: r.summary || '',
@@ -122,10 +123,13 @@ router.get('/', async (req, res, next) => {
     }
     const hasMore = rows.length > PAGE_SIZE;
     rows = rows.slice(0, PAGE_SIZE);
+    const labelFor = (email) => (members.find((m) => m.email === email) || {}).label || '';
     const items = (await hydrateRows(wid, rows)).map((it) => ({
       ...it,
       isNew: it.actorEmail !== me && it.createdAt > (checkpoints[it.actorEmail] || 0),
-      actorLabel: (members.find((m) => m.email === it.actorEmail) || {}).label || it.actorName || it.actorEmail,
+      isBot: teamActivity.isBotEmail(it.actorEmail),
+      actorLabel: labelFor(it.actorEmail) || it.actorName || it.actorEmail,
+      onBehalfLabel: it.onBehalfOf ? (it.onBehalfOf === me ? 'you' : labelFor(it.onBehalfOf) || it.onBehalfOf.split('@')[0]) : '',
     }));
 
     const unseenTotal = selected ? selected.unseen : others.reduce((s, m) => s + (m.unseen || 0), 0);
@@ -195,7 +199,12 @@ router.get('/api/lead/:key', async (req, res, next) => {
     const person = (email) => {
       if (!email) return null;
       const m = members.find((x) => x.email === email) || { email };
-      return { email, name: email === me ? 'You' : teamActivity.displayName(m), avatar: m.avatar || '' };
+      return {
+        email,
+        name: email === me ? 'You' : teamActivity.displayName(m),
+        avatar: m.avatar || '',
+        ...(teamActivity.isBotEmail(email) ? { bot: true } : {}),
+      };
     };
     const recent = dbService.listTeamActivity({ workspaceId: wid, leadKey: key, limit: 8 }).map((r) => ({
       actor: person(r.actor_email),

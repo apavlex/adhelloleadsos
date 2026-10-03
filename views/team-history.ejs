@@ -27,7 +27,7 @@
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Workspace</p>
       <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Team history</h1>
       <p class="text-sm text-brand-muted dark:text-slate-400 mt-2 max-w-2xl leading-relaxed">
-        What each teammate searched, tagged, moved, noted and sent — so you can review their work and pick up where they left off instead of repeating it.
+        What each teammate and AI assistant searched, tagged, moved, noted and sent — so you can review their work and pick up where they left off instead of repeating it.
       </p>
     </div>
 
@@ -45,7 +45,9 @@
           </a>
           <% _members.forEach(function (m) { %>
           <a href="/team-history?member=<%= encodeURIComponent(m.email) %>" class="team-history-member flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors <%= _sel && _sel.email === m.email ? 'bg-brand-yellow/15 ring-1 ring-brand-yellow/40' : 'hover:bg-brand-cream/60 dark:hover:bg-slate-800' %>" title="<%= m.email %>">
-            <% if (m.avatar) { %>
+            <% if (m.isBot) { %>
+            <span class="team-history-bot-avatar w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-black shrink-0" style="background:#ede9fe;color:#6d28d9;border:1px solid #c4b5fd" aria-hidden="true">AI</span>
+            <% } else if (m.avatar) { %>
             <img src="<%= m.avatar %>" alt="" class="w-9 h-9 rounded-full object-cover shrink-0" referrerpolicy="no-referrer">
             <% } else { %>
             <span class="w-9 h-9 rounded-full bg-brand-cream dark:bg-slate-800 text-brand-dark dark:text-slate-200 border border-brand-border/50 dark:border-white/10 flex items-center justify-center text-[11px] font-black shrink-0" aria-hidden="true"><%= _initials(m.label) %></span>
@@ -53,21 +55,21 @@
             <span class="min-w-0 flex-1">
               <span class="block text-sm font-bold text-brand-dark dark:text-white truncate"><%= m.label %></span>
               <span class="block text-[10px] font-semibold text-brand-muted truncate">
-                <% if (m.lastAt) { %>Active <time data-ts="<%= m.lastAt %>" data-format="relative"></time><% } else { %>No activity yet<% } %>
+                <% if (m.isBot) { %>AI assistant · <% } %><% if (m.lastAt) { %>Active <time data-ts="<%= m.lastAt %>" data-format="relative"></time><% } else { %>No activity yet<% } %>
               </span>
             </span>
             <% if (m.unseen) { %><span class="rounded-full bg-brand-yellow text-brand-dark text-[10px] font-black px-2 py-0.5 tabular-nums" title="New since your last review"><%= m.unseen > 999 ? '999+' : m.unseen %></span><% } %>
           </a>
           <% }); %>
         </div>
-        <p class="text-[10px] text-brand-muted dark:text-slate-500 mt-3 px-1 leading-relaxed">History started when this feature went live. GHL syncs aren't tracked here.</p>
+        <p class="text-[10px] text-brand-muted dark:text-slate-500 mt-3 px-1 leading-relaxed">History started when this feature went live. GHL syncs aren't tracked here. AI assistants (Ask AI and bots connected over MCP) show up once they change something.</p>
       </aside>
 
       <section class="min-w-0 flex-1" aria-label="Activity timeline">
         <div class="brand-card p-4 md:p-5 mb-4 dark:bg-slate-900 dark:border-white/10">
           <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div class="min-w-0">
-              <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white truncate"><%= _sel ? _sel.label : 'Everyone' %></h2>
+              <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white truncate"><%= _sel ? _sel.label : 'Everyone' %><% if (_sel && _sel.isBot) { %> <span class="align-middle rounded-full text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5" style="background:#ede9fe;color:#6d28d9">AI assistant</span><% } %></h2>
               <p class="text-xs text-brand-muted dark:text-slate-400 mt-1">
                 <% if (!canReview) { %>
                   Your own activity.
@@ -124,7 +126,8 @@
             <span class="absolute left-0 top-[1.15rem] w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-slate-900" style="background:<%= _catColors[it.category] || '#94a3b8' %>" aria-hidden="true"></span>
             <div class="flex flex-wrap items-center gap-2 mb-1">
               <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-widest border" style="color:<%= _catColors[it.category] || '#64748b' %>;border-color:<%= _catColors[it.category] || '#94a3b8' %>55;background:<%= _catColors[it.category] || '#94a3b8' %>14"><%= _catLabels[it.category] || it.category %></span>
-              <% if (!_sel) { %><span class="text-[11px] font-bold text-brand-dark dark:text-slate-200"><%= it.actorLabel %></span><% } %>
+              <% if (!_sel) { %><span class="text-[11px] font-bold text-brand-dark dark:text-slate-200"><% if (it.isBot) { %><span class="rounded px-1 mr-1 text-[9px] font-black" style="background:#ede9fe;color:#6d28d9">AI</span><% } %><%= it.actorLabel %></span><% } %>
+              <% if (it.onBehalfLabel) { %><span class="team-history-on-behalf text-[10px] font-semibold text-brand-muted">for <%= it.onBehalfLabel %></span><% } %>
               <time class="text-[10px] font-bold text-brand-muted tabular-nums" data-ts="<%= it.createdAt %>"></time>
               <% if (it.isNew && canReview) { %><span class="rounded-full bg-brand-yellow/25 text-brand-dark dark:text-brand-yellow text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5">New</span><% } %>
             </div>

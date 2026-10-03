@@ -18,6 +18,56 @@ const CATEGORY_KEYS = new Set(CATEGORIES.map((c) => c.key));
 /* Bulk actions store at most this many lead keys in meta; attribution still covers all. */
 const META_LEAD_KEYS_CAP = 50;
 
+/* AI assistants are recorded as actors "bot:<slug>" so they get their own history like a teammate. */
+const BOT_PREFIX = 'bot:';
+const DEFAULT_BOT_NAME = 'AI assistant';
+
+function isBotEmail(email) {
+  return String(email || '').startsWith(BOT_PREFIX);
+}
+
+/** Actor for an AI assistant (e.g. "Muse", "ChatGPT", "Ask AI") acting for a signed-in user. */
+function botActor(name, onBehalfOf) {
+  const label = String(name || '').trim().slice(0, 60) || DEFAULT_BOT_NAME;
+  const slug = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'ai-assistant';
+  return {
+    email: `${BOT_PREFIX}${slug}`,
+    name: label,
+    avatar: '',
+    bot: true,
+    onBehalfOf: String(onBehalfOf || '').trim().toLowerCase(),
+  };
+}
+
+function botRegistryKey(workspaceId) {
+  return `team_bots:${workspaceId}`;
+}
+
+/** { [botEmail]: { name, firstAt } } — bots that have worked in this workspace. */
+function listWorkspaceBots(workspaceId) {
+  if (!workspaceId) return {};
+  try {
+    const raw = dbService.getKvSync(botRegistryKey(workspaceId));
+    const parsed = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : null;
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+const knownBots = new Set();
+function rememberBot(workspaceId, actor) {
+  const seen = `${workspaceId}|${actor.email}|${actor.name}`;
+  if (knownBots.has(seen)) return;
+  const bots = listWorkspaceBots(workspaceId);
+  const cur = bots[actor.email];
+  if (!cur || cur.name !== actor.name) {
+    bots[actor.email] = { name: actor.name, firstAt: (cur && cur.firstAt) || Date.now() };
+    dbService.setKvSync(botRegistryKey(workspaceId), bots);
+  }
+  knownBots.add(seen);
+}
+
 function normalizeLeadKey(raw) {
   const s = String(raw || '').trim();
   if (!s) return '';
@@ -45,6 +95,17 @@ function captureContext(req) {
   return { workspaceId: req && req.workspaceId, actor: actorFromReq(req) };
 }
 
+/**
+ * Activity context for an AI tool call: the bot when ctx.bot is set (see mcpToolExecutor), else the user.
+ * `call` lets the executor see whether the tool already recorded its own row.
+ */
+function toolActivityContext(ctx) {
+  if (!ctx || !ctx.workspaceId) return { workspaceId: '', actor: null };
+  const email = String(ctx.userEmail || '').trim().toLowerCase();
+  const actor = ctx.bot || (email ? { email, name: '', avatar: '' } : null);
+  return { workspaceId: ctx.workspaceId, actor, call: ctx.activityCall || null };
+}
+
 function resolveContext(reqOrCtx) {
   if (!reqOrCtx) return { workspaceId: '', actor: null };
   if (reqOrCtx.actor !== undefined && !reqOrCtx.headers) return reqOrCtx;
@@ -57,7 +118,7 @@ function resolveContext(reqOrCtx) {
  */
 function record(reqOrCtx, entry) {
   try {
-    const { workspaceId, actor } = resolveContext(reqOrCtx);
+    const { workspaceId, actor, call } = resolveContext(reqOrCtx);
     if (!workspaceId || !actor || !entry || !CATEGORY_KEYS.has(entry.category)) return null;
     const keys = []
       .concat(entry.leadKeys || [])
@@ -67,6 +128,10 @@ function record(reqOrCtx, entry) {
     const unique = [...new Set(keys)];
     const meta = { ...(entry.meta || {}) };
     if (unique.length > 1) meta.leadKeys = unique.slice(0, META_LEAD_KEYS_CAP);
+    if (actor.bot) {
+      if (actor.onBehalfOf) meta.onBehalfOf = actor.onBehalfOf;
+      rememberBot(workspaceId, actor);
+    }
     const now = Date.now();
     const id = dbService.insertTeamActivity({
       workspaceId,
@@ -84,6 +149,7 @@ function record(reqOrCtx, entry) {
     if (unique.length && entry.attribute !== false) {
       dbService.touchLeadAttribution(workspaceId, unique, actor.email, { created: !!entry.created, at: now });
     }
+    if (call) call.recorded = true;
     return id;
   } catch (err) {
     console.warn('[teamActivity] record failed:', err && err.message);
@@ -157,9 +223,13 @@ function memberDirectory(ws, stats) {
       lastAt: null,
     });
   });
+  Object.entries(listWorkspaceBots(ws && ws.id)).forEach(([email, b]) => {
+    out.set(email, { email, name: (b && b.name) || '', avatar: '', role: 'bot', isBot: true, total: 0, unseen: 0, lastAt: null });
+  });
   (stats || []).forEach((s) => {
     const em = String(s.actor_email || '').toLowerCase();
-    const cur = out.get(em) || { email: em, name: '', avatar: '', role: 'former', total: 0, unseen: 0, lastAt: null };
+    const bot = isBotEmail(em);
+    const cur = out.get(em) || { email: em, name: '', avatar: '', role: bot ? 'bot' : 'former', isBot: bot, total: 0, unseen: 0, lastAt: null };
     out.set(em, {
       ...cur,
       name: cur.name || s.actor_name || '',
@@ -191,6 +261,7 @@ function attachWorkedByKeys(filters, workspaceId) {
 function displayName(entry) {
   if (!entry) return '';
   if (entry.name) return entry.name;
+  if (isBotEmail(entry.email)) return DEFAULT_BOT_NAME;
   return String(entry.email || '').split('@')[0];
 }
 
@@ -199,6 +270,10 @@ module.exports = {
   actorFromReq,
   authorLabel,
   captureContext,
+  isBotEmail,
+  botActor,
+  listWorkspaceBots,
+  toolActivityContext,
   record,
   recordOnSuccess,
   getReviewCheckpoints,

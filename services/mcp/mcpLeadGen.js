@@ -428,7 +428,7 @@ async function findLeads(ctx, input = {}) {
     preset,
     status: 'queued',
     queuedAt: new Date().toISOString(),
-    activityCtx: { workspaceId: wid, userEmail: email },
+    activityCtx: { workspaceId: wid, userEmail: email, ...(ctx.bot ? { bot: ctx.bot } : {}) },
   };
   searchJobs.set(job.id, job);
   searchQueue.push(job.id);
