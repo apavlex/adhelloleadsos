@@ -100,6 +100,7 @@ router.get('/', async (req, res, next) => {
       taskTitleMaxLength: TASK_TITLE_MAX_LENGTH,
       leadChoices,
       initialLeadKey,
+      taskOwnerEmail: String(email || '').trim().toLowerCase(),
     });
   } catch (e) {
     next(e);

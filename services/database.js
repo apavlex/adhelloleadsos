@@ -1848,28 +1848,55 @@ module.exports = {
 
   // --- Personal tasks (checklist + kanban) ---
 
+  /**
+   * Key fragments one person's tasks may live under: the email as signed in, lowercased, and its
+   * adhello.io ↔ adhello.ai alias (same user on either host / device).
+   */
+  _userTaskEmailFragments(email) {
+    const { emailAliases } = require('./workspaceService');
+    const frags = new Set();
+    for (const em of emailAliases(email)) frags.add(this._emailKeyFragment(em));
+    if (!frags.size) frags.add(this._emailKeyFragment('').toLowerCase());
+    return frags;
+  },
+
   _userTaskKey(workspaceId, email, taskId) {
     const wid = workspaceId || 'default';
-    const frag = this._emailKeyFragment(email);
+    const frag = this._emailKeyFragment(String(email || '').trim().toLowerCase());
     return `user_task:${wid}:${frag}:${taskId}`;
   },
 
-  async listUserTasks(workspaceId, email) {
+  /** Every stored task key for this user (any casing, either AdHello domain). */
+  _userTaskKeysFor(workspaceId, email) {
     const wid = workspaceId || 'default';
-    const frag = this._emailKeyFragment(email);
-    const prefix = `user_task:${wid}:${frag}:`;
-    const keys = kvList(prefix);
-    const tasks = [];
-    for (const key of keys) {
+    const prefix = `user_task:${wid}:`;
+    const mine = this._userTaskEmailFragments(email);
+    const out = [];
+    for (const key of kvList(prefix)) {
+      const rest = key.slice(prefix.length);
+      const cut = rest.indexOf(':');
+      if (cut <= 0) continue;
+      if (!mine.has(rest.slice(0, cut).toLowerCase())) continue;
+      out.push({ key, taskId: rest.slice(cut + 1) });
+    }
+    return out;
+  },
+
+  async listUserTasks(workspaceId, email) {
+    const byId = new Map();
+    for (const { key } of this._userTaskKeysFor(workspaceId, email)) {
       const raw = kvGet(key);
       if (!raw) continue;
       try {
         const t = typeof raw === 'string' ? JSON.parse(raw) : raw;
-        if (t && t.id) tasks.push(t);
+        if (!t || !t.id) continue;
+        const prev = byId.get(t.id);
+        if (!prev || String(t.updatedAt || '') > String(prev.updatedAt || '')) byId.set(t.id, t);
       } catch {
         /* skip */
       }
     }
+    const tasks = [...byId.values()];
     const colOrder = { backlog: 0, todo: 1, doing: 2, done: 3 };
     tasks.sort((a, b) => {
       const ca = colOrder[a.column] ?? 9;
@@ -1912,14 +1939,18 @@ module.exports = {
     };
     const source = task.source != null ? String(task.source).trim().toLowerCase() : '';
     if (source) payload.source = source;
-    const key = this._userTaskKey(workspaceId, email, id);
+    const copies = this._userTaskKeysFor(workspaceId, email).filter((k) => k.taskId === id);
+    const key = copies.length ? copies[0].key : this._userTaskKey(workspaceId, email, id);
     kvSet(key, JSON.stringify(payload));
+    for (const extra of copies.slice(1)) kvDelete(extra.key);
     return payload;
   },
 
   async deleteUserTask(workspaceId, email, taskId) {
-    const key = this._userTaskKey(workspaceId, email, taskId);
-    kvDelete(key);
+    const id = String(taskId || '');
+    for (const { key, taskId: tid } of this._userTaskKeysFor(workspaceId, email)) {
+      if (tid === id) kvDelete(key);
+    }
   },
 
   // --- Saved resources (per workspace + user) ---

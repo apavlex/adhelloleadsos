@@ -71,8 +71,10 @@ async function runTaskPushReminders(now = Date.now()) {
 
   let sent = 0;
   for (const { wid, email, frag } of owners.values()) {
-    for (const key of dbService.listKvKeysSync(`user_task:${wid}:${frag}:`)) {
-      const task = readJson(key);
+    // eslint-disable-next-line no-await-in-loop
+    const tasks = await dbService.listUserTasks(wid, email);
+    for (const task of tasks) {
+      const key = `user_task:${wid}:${frag}:${task.id}`;
       for (const kind of dueReminders(task, now)) {
         const firedKey = `${key}|${task.scheduledAt}|${kind}`;
         if (fired[firedKey]) continue;
