@@ -10,6 +10,8 @@ const {
   scoreLeadSearchMatch,
   mapLeadListJson,
 } = require('../leadListFilters');
+const { normalizeLeadKey: normalizeActivityKey } = require('../teamActivity');
+const leadPeople = require('./mcpLeadPeople');
 
 const DEFAULT_LIMIT = 25;
 const MAX_LIMIT = 100;
@@ -247,7 +249,43 @@ async function countLeads(ctx, ref = {}) {
   };
 }
 
-const LIST_SORTS = new Set(['name', 'rating', 'reviews', 'score', 'newest']);
+const LIST_SORTS = new Set(['name', 'rating', 'reviews', 'score', 'newest', 'recent']);
+const PERSON_FILTERS = [
+  ['worked_by', 'worked'],
+  ['bookmarked_by', 'bookmarked'],
+  ['tagged_by', 'tagged'],
+];
+
+function filterError(message, code = 'INVALID_ARGUMENT') {
+  const err = new Error(message);
+  err.code = code;
+  return err;
+}
+
+function optionalNumber(v) {
+  if (v === undefined || v === null || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Tag names → tag keys (exact name, else a unique partial match). */
+async function resolveTagKeys(workspaceId, names) {
+  const tags = (await dbService.listTags(workspaceId)).filter((t) => t && t.isActive !== false);
+  const keys = new Set();
+  for (const raw of names) {
+    const want = String(raw).trim().toLowerCase();
+    let hit = tags.find((t) => t.key === raw || String(t.name || '').toLowerCase() === want);
+    if (!hit) {
+      const partial = tags.filter((t) => String(t.name || '').toLowerCase().includes(want));
+      if (partial.length === 1) [hit] = partial;
+    }
+    if (!hit) {
+      throw filterError(`No tag named "${raw}". Tags: ${tags.map((t) => t.name).filter(Boolean).join(', ') || 'none yet'}.`, 'NOT_FOUND');
+    }
+    keys.add(hit.key);
+  }
+  return { keys, nameByKey: new Map(tags.map((t) => [t.key, t.name || ''])) };
+}
 
 function truthyFlag(v) {
   return v === true || v === 'true' || v === 1 || v === '1';
@@ -267,20 +305,62 @@ function byTitle(a, b) {
 async function listLeads(ctx, ref = {}) {
   const { workspaceId, userEmail } = ctx;
   const bookmarkedOnly = truthyFlag(ref.bookmarked_only);
+  const tagNames = [...(Array.isArray(ref.tags) ? ref.tags : []), ref.tag].map((t) => String(t || '').trim()).filter(Boolean);
+  const status = String(ref.status || '').trim().toLowerCase();
+  const minRating = optionalNumber(ref.min_rating);
+  const minReviews = optionalNumber(ref.min_reviews);
+  const maxReviews = optionalNumber(ref.max_reviews);
+  const personRefs = PERSON_FILTERS.filter(([arg]) => String(ref[arg] || '').trim());
+  const hasFilters =
+    bookmarkedOnly || tagNames.length || status || minRating != null || minReviews != null || maxReviews != null || personRefs.length;
   const hasFolderRef = Boolean(
     String(ref.folder_id || ref.folder_key || '').trim() || String(ref.folder_name || '').trim(),
   );
-  const folder = hasFolderRef || !bookmarkedOnly ? await resolveFolderRef(workspaceId, ref) : null;
+  if (!hasFolderRef && !hasFilters) {
+    throw filterError('Pass a folder (folder_id / folder_name) or at least one filter, e.g. bookmarked_by: "me", tag, worked_by.');
+  }
+  const folder = hasFolderRef ? await resolveFolderRef(workspaceId, ref) : null;
   const reqLike = buildReqLike(workspaceId, userEmail);
   const lim = clampLimit(ref.limit);
   const off = clampOffset(ref.offset);
   const sortRaw = String(ref.sort || '').trim().toLowerCase();
-  const sort = LIST_SORTS.has(sortRaw) ? sortRaw : 'name';
+  const sort = LIST_SORTS.has(sortRaw) ? sortRaw : personRefs.length ? 'recent' : 'name';
 
   const all = await dbService.getAllLeads(workspaceId);
   const visible = filterLeadsForRequest(reqLike, all);
   let filtered = folder ? applyLeadListFilters(visible, { folderKey: folder.key }) : visible;
   if (bookmarkedOnly) filtered = filtered.filter((l) => !!l.bookmarked);
+
+  const tagInfo = await resolveTagKeys(workspaceId, tagNames);
+  if (tagNames.length) filtered = filtered.filter((l) => (Array.isArray(l.tags) ? l.tags : []).some((k) => tagInfo.keys.has(k)));
+  if (status) {
+    filtered = filtered.filter(
+      (l) => String(l.status || '').toLowerCase() === status || String(l.pipelineStage || '').toLowerCase() === status,
+    );
+  }
+  const rating = (l) => Number(l.totalScore) || 0;
+  const reviews = (l) => Number(l.reviewsCount) || 0;
+  if (minRating != null) filtered = filtered.filter((l) => rating(l) >= minRating);
+  if (minReviews != null) filtered = filtered.filter((l) => reviews(l) >= minReviews);
+  if (maxReviews != null) filtered = filtered.filter((l) => reviews(l) <= maxReviews);
+
+  const lastAction = new Map();
+  const people = {};
+  for (const [arg, kind] of personRefs) {
+    // eslint-disable-next-line no-await-in-loop
+    const person = await leadPeople.resolvePerson(ctx, ref[arg]);
+    const index = leadPeople.personalLeadIndex(workspaceId, person.emails)[kind];
+    people[arg] = person.label;
+    filtered = filtered.filter((l) => {
+      const hit = index.get(normalizeActivityKey(l.key));
+      if (!hit) return false;
+      if (kind === 'bookmarked' && !l.bookmarked) return false;
+      if (kind === 'tagged' && !(Array.isArray(l.tags) && l.tags.length)) return false;
+      const prev = lastAction.get(l.key);
+      if (!prev || hit.at > prev.at) lastAction.set(l.key, { ...hit, by: person.label });
+      return true;
+    });
+  }
 
   let scoreByKey = null;
   if (sort === 'score') {
@@ -297,19 +377,37 @@ async function listLeads(ctx, ref = {}) {
     else if (sort === 'reviews') d = num(b.reviewsCount) - num(a.reviewsCount) || num(b.totalScore) - num(a.totalScore);
     else if (sort === 'score') d = scoreByKey.get(b.key) - scoreByKey.get(a.key);
     else if (sort === 'newest') d = leadCreatedMs(b) - leadCreatedMs(a);
+    else if (sort === 'recent') {
+      const at = (l) => (lastAction.get(l.key) || {}).at || Date.parse(l.updatedAt || '') || leadCreatedMs(l);
+      d = at(b) - at(a);
+    }
     return d || byTitle(a, b);
   });
 
   const page = filtered.slice(off, off + lim).map((l) => {
     const row = { ...mapLeadListJson(l), bookmarked: !!l.bookmarked };
+    row.tag_names = row.tags.map((k) => tagInfo.nameByKey.get(k)).filter(Boolean);
     if (scoreByKey) row.score = Math.round(scoreByKey.get(l.key) * 10) / 10;
+    const act = lastAction.get(l.key);
+    if (act) {
+      row.last_action = { by: act.by, summary: act.summary, ...(act.at ? { at: new Date(act.at).toISOString() } : {}) };
+    }
     return row;
   });
+  const filters = {
+    ...(tagNames.length ? { tags: tagNames } : {}),
+    ...(status ? { status: ref.status } : {}),
+    ...(minRating != null ? { min_rating: minRating } : {}),
+    ...(minReviews != null ? { min_reviews: minReviews } : {}),
+    ...(maxReviews != null ? { max_reviews: maxReviews } : {}),
+    ...people,
+  };
   return {
     folder: folder ? { key: folder.key, name: folder.name } : null,
     scope: folder ? 'folder' : 'workspace',
     sort,
     bookmarkedOnly,
+    ...(Object.keys(filters).length ? { filters } : {}),
     leads: page,
     pagination: {
       limit: lim,

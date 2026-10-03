@@ -2645,6 +2645,27 @@ module.exports = {
       .map((r) => ({ ...r, meta: r.meta ? safeParseJson(r.meta) : null }));
   },
 
+  /**
+   * Oldest-first rows that touch leads, by these actors or by AI assistants acting for them
+   * (meta.onBehalfOf). For "leads I bookmarked / tagged / worked" filters.
+   */
+  listTeamActivityLeadRows(workspaceId, actorEmails) {
+    const emails = [...new Set((actorEmails || []).map((e) => String(e || '').trim().toLowerCase()).filter(Boolean))];
+    if (!workspaceId || !emails.length) return [];
+    const inList = emails.map(() => '?').join(', ');
+    const behalf = emails.map(() => 'meta LIKE ?').join(' OR ');
+    return sqlite
+      .prepare(
+        `SELECT actor_email, category, action, summary, lead_key, meta, created_at FROM team_activity
+         WHERE workspace_id = ?
+           AND (actor_email IN (${inList}) OR (actor_email LIKE 'bot:%' AND (${behalf})))
+           AND (lead_key IS NOT NULL OR meta LIKE '%"leadKeys"%')
+         ORDER BY created_at ASC, id ASC`
+      )
+      .all(workspaceId, ...emails, ...emails.map((e) => `%"onBehalfOf":${JSON.stringify(e)}%`))
+      .map((r) => ({ ...r, meta: r.meta ? safeParseJson(r.meta) : null }));
+  },
+
   teamActivityActorStats(workspaceId, sinceByActor) {
     const rows = sqlite
       .prepare(

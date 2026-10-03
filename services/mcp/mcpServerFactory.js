@@ -9,6 +9,8 @@ const {
   TOOL_NAMES,
   getLeadGenToolSchemas,
   getCrmActionToolSchemas,
+  LIST_LEADS_DESCRIPTION,
+  LIST_LEADS_FILTER_JSON,
 } = require('./mcpToolExecutor');
 const networkTools = require('./mcpNetwork');
 const cadenceTools = require('./mcpCadences');
@@ -114,6 +116,19 @@ function registerWorkspaceTools(server, ctx) {
     },
   );
 }
+
+const describeFilter = (key) => LIST_LEADS_FILTER_JSON[key].description;
+const LIST_LEADS_FILTER_SHAPE = {
+  tag: z.string().min(1).optional().describe(describeFilter('tag')),
+  tags: z.array(z.string().min(1)).max(20).optional().describe(describeFilter('tags')),
+  status: z.string().min(1).optional().describe(describeFilter('status')),
+  min_rating: z.number().min(0).max(5).optional().describe(describeFilter('min_rating')),
+  min_reviews: z.number().int().min(0).optional().describe(describeFilter('min_reviews')),
+  max_reviews: z.number().int().min(0).optional().describe(describeFilter('max_reviews')),
+  bookmarked_by: z.string().min(1).optional().describe(describeFilter('bookmarked_by')),
+  tagged_by: z.string().min(1).optional().describe(describeFilter('tagged_by')),
+  worked_by: z.string().min(1).optional().describe(describeFilter('worked_by')),
+};
 
 const folderRefSchema = z
   .object({
@@ -259,15 +274,15 @@ function createCrmMcpServer(ctx) {
   register(
     'list_leads',
     {
-      description:
-        'List leads in a folder with pagination and sort (name, rating, reviews, score, newest). bookmarked_only=true lists bookmarked leads (folder optional).',
+      description: LIST_LEADS_DESCRIPTION,
       inputSchema: z.object({
         folder_id: z.string().min(1).optional().describe('Folder key/id.'),
         folder_name: z.string().min(1).optional().describe('Folder display name.'),
         limit: z.number().int().min(1).max(100).optional().describe('Page size (default 25, max 100).'),
         offset: z.number().int().min(0).optional().describe('Pagination offset (default 0).'),
-        sort: z.enum(['name', 'rating', 'reviews', 'score', 'newest']).optional(),
-        bookmarked_only: z.boolean().optional(),
+        sort: z.enum(['name', 'rating', 'reviews', 'score', 'newest', 'recent']).optional(),
+        bookmarked_only: z.boolean().optional().describe('Only bookmarked leads (anyone\'s bookmark).'),
+        ...LIST_LEADS_FILTER_SHAPE,
       }),
     },
     async (args) => runTool(ctx, 'list_leads', args),
@@ -682,15 +697,16 @@ function getOpenAiToolManifest() {
       },
       {
         name: 'list_leads',
-        description: 'List leads in a folder (sort: name, rating, reviews, score, newest; bookmarked_only).',
+        description: LIST_LEADS_DESCRIPTION,
         input_schema: {
           type: 'object',
           properties: {
             ...folderRefProps,
             limit: { type: 'integer', minimum: 1, maximum: 100 },
             offset: { type: 'integer', minimum: 0 },
-            sort: { type: 'string', enum: ['name', 'rating', 'reviews', 'score', 'newest'] },
+            sort: { type: 'string', enum: ['name', 'rating', 'reviews', 'score', 'newest', 'recent'] },
             bookmarked_only: { type: 'boolean' },
+            ...LIST_LEADS_FILTER_JSON,
           },
           additionalProperties: false,
         },

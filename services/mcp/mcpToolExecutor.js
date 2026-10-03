@@ -50,6 +50,28 @@ const TOOL_NAMES = [
   ...messagingTools.MESSAGING_TOOL_NAMES,
 ];
 
+const LIST_LEADS_DESCRIPTION =
+  'List leads in a folder or across the workspace, with filters and sorting (rating = Google stars, reviews = Google review count, ' +
+  'score = opportunity score, newest, recent = most recent activity). Folder is optional when any filter is set. ' +
+  'Personal filters use Team history: bookmarked_by / tagged_by / worked_by take "me" (the signed-in user), a teammate name or email, ' +
+  'or an assistant name, and include what AI assistants did at that person\'s request. ' +
+  '"Leads I reviewed / worked on / touched" = worked_by "me" (notes, edits, calls, texts, stage moves, tags, bookmarks, leads they added). ' +
+  'Bookmarks and tags themselves are shared by the workspace; bookmarked_only / tag ignore who set them.';
+
+const PERSON_DESCRIPTION = '"me", a teammate name/email, or an assistant name like "Muse".';
+
+const LIST_LEADS_FILTER_JSON = {
+  tag: { type: 'string', description: 'Only leads with this tag (name).' },
+  tags: { type: 'array', items: { type: 'string' }, description: 'Only leads with any of these tags (names).' },
+  status: { type: 'string', description: 'Lead status or prospecting stage, e.g. "Follow-up", "Email Sent".' },
+  min_rating: { type: 'number', minimum: 0, maximum: 5, description: 'Minimum Google star rating.' },
+  min_reviews: { type: 'integer', minimum: 0, description: 'Minimum Google review count.' },
+  max_reviews: { type: 'integer', minimum: 0, description: 'Maximum Google review count.' },
+  bookmarked_by: { type: 'string', description: `Leads this person bookmarked (still bookmarked): ${PERSON_DESCRIPTION}` },
+  tagged_by: { type: 'string', description: `Leads this person added tags to (still tagged): ${PERSON_DESCRIPTION}` },
+  worked_by: { type: 'string', description: `Leads this person worked on / reviewed: ${PERSON_DESCRIPTION}` },
+};
+
 async function executeCrmTool(rawCtx, toolName, args) {
   const ctx = botActivity.withBotActivity(rawCtx);
   const name = String(toolName || '').trim();
@@ -541,9 +563,7 @@ function getOpenAiFunctionTools() {
       type: 'function',
       function: {
         name: 'list_leads',
-        description:
-          'List leads in a folder with pagination and sorting (rating = Google stars, reviews = review count, score = opportunity score, newest). ' +
-          'Set bookmarked_only=true for bookmarked leads (folder optional then = whole workspace).',
+        description: LIST_LEADS_DESCRIPTION,
         parameters: {
           type: 'object',
           properties: {
@@ -551,8 +571,9 @@ function getOpenAiFunctionTools() {
             folder_name: { type: 'string' },
             limit: { type: 'integer', minimum: 1, maximum: 100 },
             offset: { type: 'integer', minimum: 0 },
-            sort: { type: 'string', enum: ['name', 'rating', 'reviews', 'score', 'newest'] },
+            sort: { type: 'string', enum: ['name', 'rating', 'reviews', 'score', 'newest', 'recent'] },
             bookmarked_only: { type: 'boolean' },
+            ...LIST_LEADS_FILTER_JSON,
           },
           additionalProperties: false,
         },
@@ -825,4 +846,6 @@ module.exports = {
   getOpenAiFunctionTools,
   getLeadGenToolSchemas,
   getCrmActionToolSchemas,
+  LIST_LEADS_DESCRIPTION,
+  LIST_LEADS_FILTER_JSON,
 };
