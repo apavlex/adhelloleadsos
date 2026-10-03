@@ -9,6 +9,7 @@ const networkTools = require('./mcpNetwork');
 const cadenceTools = require('./mcpCadences');
 const leadScriptTools = require('./mcpLeadScripts');
 const messagingTools = require('./mcpMessaging');
+const workspaceTools = require('./mcpWorkspaceOps');
 const botActivity = require('./mcpBotActivity');
 const mcpLogger = require('./mcpLogger');
 const pavlexLogger = require('../pavlex/pavlexLogger');
@@ -48,6 +49,7 @@ const TOOL_NAMES = [
   ...cadenceTools.CADENCE_TOOL_NAMES,
   ...leadScriptTools.LEAD_SCRIPT_TOOL_NAMES,
   ...messagingTools.MESSAGING_TOOL_NAMES,
+  ...workspaceTools.WORKSPACE_TOOL_NAMES,
 ];
 
 const LIST_LEADS_DESCRIPTION =
@@ -192,6 +194,10 @@ async function executeCrmTool(rawCtx, toolName, args) {
         }
         if (messagingTools.MESSAGING_TOOL_NAMES.includes(name)) {
           result = await messagingTools.executeMessagingTool(ctx, name, input);
+          break;
+        }
+        if (workspaceTools.WORKSPACE_TOOL_NAMES.includes(name)) {
+          result = await workspaceTools.executeWorkspaceTool(ctx, name, input);
           break;
         }
         const err = new Error(`Unknown tool: ${name}`);
@@ -519,6 +525,7 @@ function getOpenAiFunctionTools() {
     ...cadenceTools.openAiFunctionTools(),
     ...leadScriptTools.openAiFunctionTools(),
     ...messagingTools.openAiFunctionTools(),
+    ...workspaceTools.openAiFunctionTools(),
     {
       type: 'function',
       function: {
@@ -596,7 +603,8 @@ function getOpenAiFunctionTools() {
       type: 'function',
       function: {
         name: 'update_lead',
-        description: 'Update CRM/enrichment fields on a lead (status, phone, email, tags, etc.).',
+        description:
+          'Update CRM/enrichment fields on a lead (status, phone, email, tags, folderKey, opportunityValue deal value, etc.). Use add_lead_note for notes and assign_leads for owners.',
         parameters: {
           type: 'object',
           properties: {

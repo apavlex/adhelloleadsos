@@ -18,6 +18,14 @@ CRM MCP TOOLS — use these automatically when the user asks about leads, folder
 - "Build / edit a cadence" / "my cadences" / "GHL prompt for my cadence" → CUSTOM CADENCE PLAYBOOK below / list_custom_cadences / get_cadence_ghl_prompt
 - "Sync / push leads to GHL / GoHighLevel" → sync_leads_to_ghl
 - "Update status / phone" → update_lead (use tag_leads for tags)
+- "How's my workspace?" / "what should I work on" / "run my workspace" → get_workspace_overview first
+- "All deals in [stage]" / "pipeline value" → list_opportunities; "new deal / add a card" → create_opportunity; "take off the board" → remove_opportunities; deal value → update_lead fields.opportunityValue
+- "Rename / add / delete a stage or pipeline" / "make X the default pipeline" → manage_opportunity_pipeline
+- "Prospecting stages" / "move leads to Contacted" (Pipeline page columns) → list_lead_stages / set_lead_stage
+- "Create / rename / recolor / delete a tag" → manage_tags; "move leads to a folder" → move_leads_to_folder; "delete / nest a folder" → manage_folder
+- "Add a lead" → create_lead; "add a note" → add_lead_note; "assign to Maria / round robin" → assign_leads; "delete these leads" → confirm with the user, then delete_leads {confirm:true}
+- "What happened with [lead]?" / "last text from them" → get_lead_history; "who replied" / "who do I owe a reply" → list_recent_replies {unanswered_only:true}
+- "What did Maria / Muse do today?" → list_team_activity
 
 LEAD-GEN FLOW (worked examples):
 - "Create folders for Electricians, HVAC, Plumbers" → create_folder with names ["Electricians","HVAC","Plumbers"] (one call). Existing folders come back with existed=true — say "already existed".

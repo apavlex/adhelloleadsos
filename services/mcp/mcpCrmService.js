@@ -36,6 +36,8 @@ const MCP_UPDATABLE_LEAD_FIELDS = new Set([
   'opportunityPipelineId',
   'opportunityStageId',
   'opportunityDismissed',
+  'opportunityValue',
+  'opportunitySource',
   'folderKey',
   'tags',
   'url',
