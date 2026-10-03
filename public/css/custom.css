@@ -87,11 +87,12 @@ h1, h2, h3, h4, .font-display {
 
 /* Solid accent fills: on-accent color for labels AND icons (stroke/currentColor).
    Exact class tokens so hover:bg-brand-yellow / bg-brand-yellow/20 do not match.
-   !important beats Tailwind text-brand-dark / text-slate-900 / .ws-nav-item-active. */
+   !important beats Tailwind text-brand-dark / text-slate-900 / .ws-nav-item-active.
+   dark:bg-brand-yellow only fills with the accent in dark mode, so it is scoped under .dark below;
+   in light mode those elements keep their own fill and text color (e.g. white on bg-brand-dark). */
 .btn-primary,
 .btn-brand-yellow,
 [class~="bg-brand-yellow"],
-[class~="dark:bg-brand-yellow"],
 .ws-nav-item-active.bg-brand-yellow,
 a[class~="bg-brand-yellow"],
 button[class~="bg-brand-yellow"],
@@ -109,7 +110,7 @@ button[class~="bg-brand-yellow"],
 .btn-primary *,
 .btn-brand-yellow *,
 [class~="bg-brand-yellow"] *,
-[class~="dark:bg-brand-yellow"] *,
+.dark [class~="dark:bg-brand-yellow"] *,
 .ws-nav-item-active[class~="bg-brand-yellow"] *,
 .dm-prompt-btn--primary *,
 .dm-prompt-btn--generate *,
@@ -122,11 +123,9 @@ button[class~="bg-brand-yellow"],
 .btn-primary svg,
 .btn-brand-yellow svg,
 [class~="bg-brand-yellow"] svg,
-[class~="dark:bg-brand-yellow"] svg,
 .btn-primary i,
 .btn-brand-yellow i,
 [class~="bg-brand-yellow"] i,
-[class~="dark:bg-brand-yellow"] i,
 .dm-prompt-btn--primary svg,
 .dm-prompt-btn--generate svg,
 .dm-studio-topbtn--primary svg,
@@ -139,7 +138,6 @@ button[class~="bg-brand-yellow"],
 .btn-primary svg[fill]:not([fill="none"]),
 .btn-brand-yellow svg[fill]:not([fill="none"]),
 [class~="bg-brand-yellow"] svg[fill]:not([fill="none"]),
-[class~="dark:bg-brand-yellow"] svg[fill]:not([fill="none"]),
 .dm-prompt-btn--primary svg[fill]:not([fill="none"]),
 .dm-prompt-btn--generate svg[fill]:not([fill="none"]) {
     fill: var(--brand-on-accent, #111827) !important;
@@ -194,6 +192,11 @@ button[class~="bg-brand-yellow"],
 /* Solid brand-dark fills with no explicit text color: white lettering, not dark-on-dark. */
 [class~="bg-brand-dark"]:not([class*="text-"]) {
     color: #ffffff;
+}
+
+/* Black buttons contrast with their own fill, never with the brand's accent text color. */
+html:not(.dark) [class~="bg-brand-dark"][class~="text-white"] {
+    color: #ffffff !important;
 }
 
 /* Navigation Styles */

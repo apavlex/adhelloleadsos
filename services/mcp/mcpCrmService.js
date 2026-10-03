@@ -10,6 +10,7 @@ const {
   scoreLeadSearchMatch,
   mapLeadListJson,
 } = require('../leadListFilters');
+const { buildFolderTree, folderKeysIncludingDescendants } = require('../folderTree');
 const { normalizeLeadKey: normalizeActivityKey } = require('../teamActivity');
 const leadPeople = require('./mcpLeadPeople');
 
@@ -126,11 +127,79 @@ async function resolveFolder(workspaceId, folderName) {
   return folder;
 }
 
-async function countLeadsInFolder(workspaceId, folderKey, reqLike) {
+function wantsSubfolders(ref) {
+  const v = ref && ref.include_subfolders;
+  return !(v === false || v === 'false' || v === 0 || v === '0');
+}
+
+/**
+ * Parent links as the Folder manager shows them: system folders (e.g. Businesses) adopt trade
+ * folders by job type, so the tree is the source of truth; explicit parentFolderKey fills the rest.
+ */
+function folderHierarchy(folders) {
+  const list = (folders || []).filter((f) => f && f.key);
+  const parentOf = new Map();
+  const walk = (parentKey, nodes) => {
+    for (const node of nodes || []) {
+      if (!node || !node.key) continue;
+      if (parentKey) parentOf.set(String(node.key), String(parentKey));
+      walk(node.key, node.children);
+    }
+  };
+  for (const group of buildFolderTree(list).groups || []) {
+    walk(group.folder ? group.folder.key : '', group.children);
+  }
+  const keys = new Set(list.map((f) => String(f.key)));
+  for (const f of list) {
+    const pk = String(f.parentFolderKey || '').trim();
+    if (pk && keys.has(pk) && !parentOf.has(String(f.key))) parentOf.set(String(f.key), pk);
+  }
+  const childrenOf = new Map();
+  for (const [child, parent] of parentOf) {
+    if (!childrenOf.has(parent)) childrenOf.set(parent, []);
+    childrenOf.get(parent).push(child);
+  }
+  const descendants = (rootKey) => {
+    const root = String(rootKey || '').trim();
+    const out = new Set([root]);
+    const stack = [root];
+    while (stack.length) {
+      for (const child of childrenOf.get(stack.pop()) || []) {
+        if (out.has(child)) continue;
+        out.add(child);
+        stack.push(child);
+      }
+    }
+    return out;
+  };
+  return { parentOf, childrenOf, descendants };
+}
+
+/** The folder plus every nested subfolder, the same set the Folder manager counts and "Open leads" shows. */
+function folderKeySet(folders, folderKey, includeSubfolders = true) {
+  const root = String(folderKey || '').trim();
+  if (!includeSubfolders) return new Set([root]);
+  const keys = folderHierarchy(folders).descendants(root);
+  for (const k of folderKeysIncludingDescendants(buildFolderTree(folders), root) || []) keys.add(String(k));
+  return keys;
+}
+
+function countByFolderKey(leads) {
+  const counts = new Map();
+  for (const l of leads) {
+    const fk = String(l.folderKey || '').trim();
+    if (fk) counts.set(fk, (counts.get(fk) || 0) + 1);
+  }
+  return counts;
+}
+
+async function folderCounts(workspaceId, folder, reqLike, folders) {
   const all = await dbService.getAllLeads(workspaceId);
-  const visible = reqLike ? filterLeadsForRequest(reqLike, all) : all;
-  return visible.filter((l) => String(l.folderKey || '').trim() === String(folderKey || '').trim())
-    .length;
+  const counts = countByFolderKey(reqLike ? filterLeadsForRequest(reqLike, all) : all);
+  const keys = folderKeySet(folders, folder.key);
+  let total = 0;
+  for (const k of keys) total += counts.get(k) || 0;
+  return { total, direct: counts.get(String(folder.key)) || 0, subfolders: keys.size - 1 };
 }
 
 function buildReqLike(workspaceId, userEmail) {
@@ -184,15 +253,32 @@ async function resolveLeadKey(workspaceId, leadId) {
   return { fullKey: lead.key || resolved, lead };
 }
 
-function mapFolderSummary(folder, leadCount) {
+function folderPath(folder, byKey, parentOf) {
+  const names = [];
+  const seen = new Set();
+  let cur = folder;
+  while (cur && !seen.has(cur.key)) {
+    seen.add(cur.key);
+    names.unshift(cur.name || cur.key);
+    const pk = parentOf.get(String(cur.key));
+    cur = pk ? byKey.get(pk) : null;
+  }
+  return names.join(' / ');
+}
+
+/** leadCount includes nested subfolders (matches the Folder manager); directLeadCount is this folder only. */
+function mapFolderSummary(folder, leadCount, extra = {}) {
   return {
     key: folder.key,
     name: folder.name,
+    ...(extra.path ? { path: extra.path } : {}),
     jobType: folder.jobType || '',
-    parentFolderKey: folder.parentFolderKey || '',
+    parentFolderKey: extra.parentKey != null ? extra.parentKey : folder.parentFolderKey || '',
     isPipelineDefault: !!folder.isPipelineDefault,
     isTradeFolder: !!folder.isTradeFolder,
     leadCount,
+    ...(extra.directLeadCount != null ? { directLeadCount: extra.directLeadCount } : {}),
+    ...(extra.subfolderCount != null ? { subfolderCount: extra.subfolderCount } : {}),
     createdAt: folder.createdAt || null,
     updatedAt: folder.updatedAt || null,
   };
@@ -208,23 +294,48 @@ function mapLeadDetail(lead) {
 async function listFolders(ctx) {
   const { workspaceId, userEmail } = ctx;
   const reqLike = buildReqLike(workspaceId, userEmail);
-  const folders = await dbService.listFolders(workspaceId);
-  const summaries = [];
-  for (const folder of folders) {
-    if (!folder || !folder.key) continue;
-    const leadCount = await countLeadsInFolder(workspaceId, folder.key, reqLike);
-    summaries.push(mapFolderSummary(folder, leadCount));
-  }
-  summaries.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+  const folders = (await dbService.listFolders(workspaceId)).filter((f) => f && f.key);
+  const all = await dbService.getAllLeads(workspaceId);
+  const counts = countByFolderKey(filterLeadsForRequest(reqLike, all));
+  const { parentOf, descendants } = folderHierarchy(folders);
+  const byKey = new Map(folders.map((f) => [String(f.key), f]));
+  const summaries = folders.map((folder) => {
+    const keys = descendants(folder.key);
+    let total = 0;
+    for (const k of keys) total += counts.get(k) || 0;
+    return mapFolderSummary(folder, total, {
+      path: folderPath(folder, byKey, parentOf),
+      parentKey: parentOf.get(String(folder.key)) || '',
+      directLeadCount: counts.get(String(folder.key)) || 0,
+      subfolderCount: keys.size - 1,
+    });
+  });
+  summaries.sort((a, b) => String(a.path || a.name || '').localeCompare(String(b.path || b.name || '')));
   return { folders: summaries, total: summaries.length };
 }
 
 async function getFolder(ctx, ref) {
   const { workspaceId, userEmail } = ctx;
   const folder = await resolveFolderRef(workspaceId, ref);
-  const reqLike = buildReqLike(workspaceId, userEmail);
-  const leadCount = await countLeadsInFolder(workspaceId, folder.key, reqLike);
-  return { folder: mapFolderSummary(folder, leadCount) };
+  const folders = await dbService.listFolders(workspaceId);
+  const c = await folderCounts(workspaceId, folder, buildReqLike(workspaceId, userEmail), folders);
+  const byKey = new Map(folders.filter(Boolean).map((f) => [String(f.key), f]));
+  const { parentOf, childrenOf } = folderHierarchy(folders);
+  const subfolders = (childrenOf.get(String(folder.key)) || [])
+    .map((k) => byKey.get(k))
+    .filter(Boolean)
+    .map((f) => ({ key: f.key, name: f.name }));
+  return {
+    folder: {
+      ...mapFolderSummary(folder, c.total, {
+        path: folderPath(folder, byKey, parentOf),
+        parentKey: parentOf.get(String(folder.key)) || '',
+        directLeadCount: c.direct,
+        subfolderCount: c.subfolders,
+      }),
+      subfolders,
+    },
+  };
 }
 
 async function countLeads(ctx, ref = {}) {
@@ -243,11 +354,15 @@ async function countLeads(ctx, ref = {}) {
   }
 
   const folder = await resolveFolderRef(workspaceId, ref);
-  const count = await countLeadsInFolder(workspaceId, folder.key, reqLike);
+  const c = await folderCounts(workspaceId, folder, reqLike, await dbService.listFolders(workspaceId));
+  const withSubs = wantsSubfolders(ref);
   return {
     scope: 'folder',
     folder: { key: folder.key, name: folder.name, folder_id: folder.key },
-    count,
+    count: withSubs ? c.total : c.direct,
+    direct_count: c.direct,
+    includes_subfolders: withSubs && c.subfolders > 0,
+    subfolder_count: c.subfolders,
   };
 }
 
@@ -330,7 +445,8 @@ async function listLeads(ctx, ref = {}) {
 
   const all = await dbService.getAllLeads(workspaceId);
   const visible = filterLeadsForRequest(reqLike, all);
-  let filtered = folder ? applyLeadListFilters(visible, { folderKey: folder.key }) : visible;
+  const folderKeys = folder ? folderKeySet(await dbService.listFolders(workspaceId), folder.key, wantsSubfolders(ref)) : null;
+  let filtered = folder ? applyLeadListFilters(visible, { folderKey: folder.key, folderKeys }) : visible;
   if (bookmarkedOnly) filtered = filtered.filter((l) => !!l.bookmarked);
 
   const tagInfo = await resolveTagKeys(workspaceId, tagNames);
@@ -405,7 +521,9 @@ async function listLeads(ctx, ref = {}) {
     ...people,
   };
   return {
-    folder: folder ? { key: folder.key, name: folder.name } : null,
+    folder: folder
+      ? { key: folder.key, name: folder.name, includes_subfolders: folderKeys.size > 1, subfolder_count: folderKeys.size - 1 }
+      : null,
     scope: folder ? 'folder' : 'workspace',
     sort,
     bookmarkedOnly,

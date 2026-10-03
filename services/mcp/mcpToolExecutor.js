@@ -72,6 +72,10 @@ const LIST_LEADS_FILTER_JSON = {
   bookmarked_by: { type: 'string', description: `Leads this person bookmarked (still bookmarked): ${PERSON_DESCRIPTION}` },
   tagged_by: { type: 'string', description: `Leads this person added tags to (still tagged): ${PERSON_DESCRIPTION}` },
   worked_by: { type: 'string', description: `Leads this person worked on / reviewed: ${PERSON_DESCRIPTION}` },
+  include_subfolders: {
+    type: 'boolean',
+    description: 'With a folder: include leads in its nested subfolders (default true, same as the Folder manager). false = only leads filed directly in that folder.',
+  },
 };
 
 async function executeCrmTool(rawCtx, toolName, args) {
@@ -531,7 +535,7 @@ function getOpenAiFunctionTools() {
       function: {
         name: 'list_folders',
         description:
-          'List all lead folders (Folder manager) in the workspace with lead counts. Lead folders are not Opportunity pipelines.',
+          'List all lead folders (Folder manager) with their full path (e.g. "Businesses / Coffee Shop Bend, OR"), parent, subfolder count and lead counts. leadCount includes nested subfolders like the Folder manager; directLeadCount is leads filed in that folder itself. Lead folders are not Opportunity pipelines.',
         parameters: { type: 'object', properties: {}, additionalProperties: false },
       },
     },
@@ -539,7 +543,7 @@ function getOpenAiFunctionTools() {
       type: 'function',
       function: {
         name: 'get_folder',
-        description: 'Get folder metadata and lead count by folder_id or folder name.',
+        description: 'Get a folder by folder_id or name: path, lead count (including subfolders), direct lead count and its immediate subfolders.',
         parameters: {
           type: 'object',
           properties: {
@@ -555,12 +559,13 @@ function getOpenAiFunctionTools() {
       function: {
         name: 'count_leads',
         description:
-          'Count leads in the workspace (all folders) or in a specific folder by folder_id or folder_name.',
+          'Count leads in the workspace (all folders) or in a specific folder by folder_id or folder_name. Folder counts include nested subfolders unless include_subfolders is false.',
         parameters: {
           type: 'object',
           properties: {
             folder_id: { type: 'string', description: 'Optional folder key/id' },
             folder_name: { type: 'string', description: 'Optional folder display name' },
+            include_subfolders: LIST_LEADS_FILTER_JSON.include_subfolders,
           },
           additionalProperties: false,
         },

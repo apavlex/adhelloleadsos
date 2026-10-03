@@ -129,12 +129,14 @@ const LIST_LEADS_FILTER_SHAPE = {
   bookmarked_by: z.string().min(1).optional().describe(describeFilter('bookmarked_by')),
   tagged_by: z.string().min(1).optional().describe(describeFilter('tagged_by')),
   worked_by: z.string().min(1).optional().describe(describeFilter('worked_by')),
+  include_subfolders: z.boolean().optional().describe(describeFilter('include_subfolders')),
 };
 
 const folderRefSchema = z
   .object({
     folder_id: z.string().min(1).optional().describe('Folder key/id.'),
     folder_name: z.string().min(1).optional().describe('Folder display name.'),
+    include_subfolders: z.boolean().optional().describe(describeFilter('include_subfolders')),
   })
   .refine((v) => Boolean(v.folder_id || v.folder_name), {
     message: 'folder_id or folder_name is required.',
@@ -251,7 +253,8 @@ function createCrmMcpServer(ctx) {
   register(
     'list_folders',
     {
-      description: 'List all lead folders in the active workspace with lead counts.',
+      description:
+        'List all lead folders with full path (e.g. "Businesses / Coffee Shop Bend, OR"), parent, subfolder count and lead counts. leadCount includes nested subfolders like the Folder manager; directLeadCount is leads filed in that folder itself.',
       inputSchema: z.object({}),
     },
     async () => runTool(ctx, 'list_folders', {}),
@@ -260,7 +263,7 @@ function createCrmMcpServer(ctx) {
   register(
     'get_folder',
     {
-      description: 'Get folder metadata and lead count by folder_id or folder name.',
+      description: 'Get a folder by folder_id or name: path, lead count (including subfolders), direct lead count and its immediate subfolders.',
       inputSchema: folderRefSchema,
     },
     async (args) => runTool(ctx, 'get_folder', args),
@@ -269,7 +272,7 @@ function createCrmMcpServer(ctx) {
   register(
     'count_leads',
     {
-      description: 'Count leads in a folder by folder_id or folder name.',
+      description: 'Count leads in a folder by folder_id or folder name, including nested subfolders unless include_subfolders is false.',
       inputSchema: folderRefSchema,
     },
     async (args) => runTool(ctx, 'count_leads', args),
