@@ -25,6 +25,7 @@ const pipelineStagesService = require('../services/pipelineStagesService');
 const websiteAiAnalysis = require('../services/websiteAiAnalysis');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
+const { publicCustomScripts } = require('../services/leadCustomScripts');
 const { isAgencySalesWorkspace } = require('../services/leadPanelWorkspace');
 const { roiScoreOptionsFromWorkspace } = require('../services/workspaceRoiProfile');
 const { createConfiguredAuditLinkResolver } = require('../services/infoPack');
@@ -186,6 +187,7 @@ function leadToFocusPayload(l, sortedStages, scriptLibrary, allowedKeys, opts) {
     defaultChannel,
     whyReasons,
     whyTier,
+    customScripts: publicCustomScripts(l),
   };
 }
 

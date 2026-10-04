@@ -419,6 +419,11 @@
         <div class="script-block rounded-2xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-black/10">
           <div class="flex flex-wrap items-center justify-between gap-2 py-3 px-4 border-b border-brand-border/40 dark:border-white/10">
             <label for="focus-body-rich" id="focus-body-label" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">Call script</label>
+            <span id="focus-lead-script-badge" class="hidden inline-flex flex-wrap items-center gap-2 text-[10px] font-bold text-brand-muted dark:text-slate-400">
+              <span id="focus-lead-script-badge-text"></span>
+              <button type="button" id="focus-lead-script-toggle" class="underline underline-offset-2 hover:text-brand-dark dark:hover:text-white"></button>
+              <button type="button" id="focus-lead-script-remove" class="underline underline-offset-2 hover:text-red-600" title="Delete the script saved for this lead">Remove</button>
+            </span>
             <span id="focus-script-save-status" class="text-[10px] font-bold text-brand-muted dark:text-slate-400 tabular-nums" aria-live="polite"></span>
           </div>
           <div class="px-4 pb-4 pt-3">
@@ -439,11 +444,19 @@
                 </button>
                 <button
                   type="button"
+                  id="focus-save-lead-script"
+                  class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-brand-muted hover:text-brand-dark dark:hover:text-white border border-brand-border/60 dark:border-white/10 hover:border-brand-yellow/50 transition-colors disabled:opacity-40 disabled:pointer-events-none"
+                  title="Save this script for this lead only — it loads every time you open them here or in their profile"
+                >
+                  Save for lead
+                </button>
+                <button
+                  type="button"
                   id="focus-save-script"
                   class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-brand-muted hover:text-brand-dark dark:hover:text-white border border-brand-border/60 dark:border-white/10 hover:border-brand-yellow/50 transition-colors disabled:opacity-40 disabled:pointer-events-none"
-                  title="Save script to workspace library for this product"
+                  title="Save as the script for every lead on this product (workspace script library)"
                 >
-                  Save script
+                  Save for product
                 </button>
                 <button
                   type="button"
@@ -853,9 +866,15 @@
     var focusLinkMailListToday = document.getElementById('focus-link-mail-list-today');
     var elBodyLabel = document.getElementById('focus-body-label');
     var btnSaveScript = document.getElementById('focus-save-script');
+    var btnSaveLeadScript = document.getElementById('focus-save-lead-script');
+    var elLeadScriptBadge = document.getElementById('focus-lead-script-badge');
+    var elLeadScriptBadgeText = document.getElementById('focus-lead-script-badge-text');
+    var btnLeadScriptToggle = document.getElementById('focus-lead-script-toggle');
+    var btnLeadScriptRemove = document.getElementById('focus-lead-script-remove');
     var elScriptSaveStatus = document.getElementById('focus-script-save-status');
     var focusScriptDirty = false;
     var focusScriptSaving = false;
+    var focusShowingLeadScript = false;
     var elMobileFabWrap = document.getElementById('focus-mobile-fab-wrap');
     var elMobileFabActions = document.getElementById('focus-mobile-fab-actions');
     var btnMobileFabToggle = document.getElementById('focus-mobile-fab-toggle');
@@ -1451,9 +1470,10 @@
     }
 
     function updateFocusScriptSaveUi() {
+      var hasBody = !!getFocusBodyPlain();
+      if (btnSaveLeadScript) btnSaveLeadScript.disabled = focusScriptSaving || !currentLead() || !hasBody;
       if (!btnSaveScript) return;
       var hasProduct = !!(elServiceSelect && elServiceSelect.value);
-      var hasBody = !!getFocusBodyPlain();
       btnSaveScript.disabled = focusScriptSaving || !hasProduct || !hasBody;
       if (focusScriptDirty && !focusScriptSaving && elScriptSaveStatus && !elScriptSaveStatus.textContent) {
         setFocusScriptSaveStatus('Unsaved edits');
@@ -1530,7 +1550,34 @@
         });
     }
 
-    function updateDraftFromSelection() {
+    function leadCallScript(lead) {
+      var row = lead && lead.customScripts && lead.customScripts.call;
+      return row && (row.html || row.text) ? row : null;
+    }
+
+    function fillLeadScript(raw, lead) {
+      var company = String(lead.title || 'your team').trim() || 'your team';
+      var contact = String(lead.contactName || '').trim();
+      if (!contact || contact === '—') contact = 'there';
+      return applyScriptPlaceholders(raw, contact, company, [lead.city, lead.state].filter(Boolean).join(', '));
+    }
+
+    function syncLeadScriptBadge() {
+      var lead = currentLead();
+      var saved = leadCallScript(lead);
+      if (btnSaveLeadScript) btnSaveLeadScript.disabled = focusScriptSaving || !lead || !getFocusBodyPlain();
+      if (!elLeadScriptBadge) return;
+      elLeadScriptBadge.classList.toggle('hidden', !saved);
+      if (!saved) return;
+      if (elLeadScriptBadgeText) {
+        elLeadScriptBadgeText.textContent = focusShowingLeadScript ? 'Saved for this lead' : 'This lead has a saved script';
+        elLeadScriptBadgeText.classList.toggle('text-emerald-700', focusShowingLeadScript);
+      }
+      if (btnLeadScriptToggle) btnLeadScriptToggle.textContent = focusShowingLeadScript ? 'Use product script' : 'Use lead script';
+    }
+
+    /** opts.preferProduct: the user picked a product / style / tone, so show that script even if the lead has its own. */
+    function updateDraftFromSelection(opts) {
       var lead = currentLead();
       if (!lead) return;
       if (elServiceSelect && elServiceSelect.value) {
@@ -1538,8 +1585,72 @@
       }
       var draft = buildLocalFocusDraft(lead);
       if (elSubject) elSubject.value = draft.subject || '';
-      setFocusBodyHtml(draft.body || '');
+      var saved = !(opts && opts.preferProduct) ? leadCallScript(lead) : null;
+      focusShowingLeadScript = !!saved;
+      setFocusBodyHtml(saved ? fillLeadScript(saved.html || saved.text, lead) : draft.body || '');
       markFocusScriptClean('');
+      syncLeadScriptBadge();
+    }
+
+    function putLeadCallScript(lead, body) {
+      return fetch('/leads/' + encodeURIComponent(focusLeadKeyParam(lead)) + '/custom-script', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ channel: 'call', body: body }),
+      }).then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (j) {
+          if (!r.ok || !j || !j.success) throw new Error((j && j.error) || 'Could not save the script for this lead.');
+          lead.customScripts = j.customScripts || {};
+          return j;
+        });
+      });
+    }
+
+    function saveFocusScriptForLead() {
+      var lead = currentLead();
+      if (!lead || focusScriptSaving) return Promise.resolve();
+      var body = getFocusBodyHtml();
+      if (!getFocusBodyPlain()) {
+        setFocusScriptSaveStatus('Nothing to save', true);
+        return Promise.resolve();
+      }
+      focusScriptSaving = true;
+      setFocusScriptSaveStatus('Saving…');
+      updateFocusScriptSaveUi();
+      syncLeadScriptBadge();
+      return putLeadCallScript(lead, body)
+        .then(function () {
+          focusShowingLeadScript = true;
+          markFocusScriptClean('Saved for ' + (String(lead.title || '').trim() || 'this lead'));
+        })
+        .catch(function (err) {
+          setFocusScriptSaveStatus((err && err.message) || 'Save failed', true);
+        })
+        .finally(function () {
+          focusScriptSaving = false;
+          updateFocusScriptSaveUi();
+          syncLeadScriptBadge();
+        });
+    }
+
+    function removeFocusLeadScript() {
+      var lead = currentLead();
+      if (!lead || focusScriptSaving || !leadCallScript(lead)) return;
+      if (!window.confirm('Delete the script saved for ' + (String(lead.title || '').trim() || 'this lead') + '? The product script loads instead.')) return;
+      focusScriptSaving = true;
+      setFocusScriptSaveStatus('Removing…');
+      putLeadCallScript(lead, '')
+        .then(function () {
+          focusScriptSaving = false;
+          updateDraftFromSelection();
+          setFocusScriptSaveStatus('Lead script removed');
+        })
+        .catch(function (err) {
+          focusScriptSaving = false;
+          setFocusScriptSaveStatus((err && err.message) || 'Could not remove it', true);
+          syncLeadScriptBadge();
+        });
     }
 
     function hrefUrl(u) {
@@ -5131,18 +5242,18 @@
     });
     if (elScriptVariant) {
       elScriptVariant.addEventListener('change', function () {
-        updateDraftFromSelection();
+        updateDraftFromSelection({ preferProduct: true });
       });
     }
     if (elTone) {
       elTone.addEventListener('change', function () {
-        updateDraftFromSelection();
+        updateDraftFromSelection({ preferProduct: true });
       });
     }
     if (elServiceSelect) {
       elServiceSelect.addEventListener('change', function () {
         refreshFocusScriptLibrary().finally(function () {
-          updateDraftFromSelection();
+          updateDraftFromSelection({ preferProduct: true });
           var lead = currentLead();
           if (!lead) return;
           if (isFocusSmsComposeOpen()) populateFocusSmsScriptSelect(lead);
@@ -5202,6 +5313,20 @@
       btnSaveScript.addEventListener('click', function () {
         saveFocusScriptToLibrary();
       });
+    }
+    if (btnSaveLeadScript) {
+      btnSaveLeadScript.addEventListener('click', function () {
+        saveFocusScriptForLead();
+      });
+    }
+    if (btnLeadScriptToggle) {
+      btnLeadScriptToggle.addEventListener('click', function () {
+        if (focusScriptDirty && !window.confirm('Discard your unsaved edits to this script?')) return;
+        updateDraftFromSelection({ preferProduct: focusShowingLeadScript });
+      });
+    }
+    if (btnLeadScriptRemove) {
+      btnLeadScriptRemove.addEventListener('click', removeFocusLeadScript);
     }
     if (btnOutcomeCollapse) {
       btnOutcomeCollapse.addEventListener('click', function () {

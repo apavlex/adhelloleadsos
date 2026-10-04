@@ -7,12 +7,13 @@ const { z } = require('zod/v3');
 const { zodToJsonSchema } = require('zod-to-json-schema');
 const dbService = require('../database');
 const { SCRIPT_LIBRARY } = require('../salesConstants');
-const { buildMergedScriptLibrary, clampSectionText, SCRIPT_SECTIONS } = require('../salesScriptsStorage');
+const { buildMergedScriptLibrary, SCRIPT_SECTIONS } = require('../salesScriptsStorage');
 const workspaceSalesScripts = require('../workspaceSalesScripts');
 const { resolveOutreachSenderProfile } = require('../outreachSenderProfile');
 const { resolveScriptSignOffProfile, fillScriptPlain } = require('../scriptPlaceholders');
 const { htmlToPlain } = require('../scriptMarkup');
 const { resolveLeadKey } = require('./mcpCrmService');
+const { withCustomScript } = require('../leadCustomScripts');
 
 const CHANNELS = ['dm', 'sms', 'email', 'call'];
 const CHANNEL_LABELS = { dm: 'DM script', sms: 'SMS script', email: 'Email script', call: 'Call script' };
@@ -169,15 +170,10 @@ async function getLeadScript(ctx, input) {
 async function saveLeadScript(ctx, input) {
   const channel = input.channel || 'dm';
   const { lead, fullKey } = await resolveLeadKey(ctx.workspaceId, input.lead_id);
-  const text = clampSectionText(channel === 'call' ? 'opening' : channel, htmlToPlain(String(input.body || '')).trim());
-  const prev = lead.customScripts && typeof lead.customScripts === 'object' ? lead.customScripts : {};
-  const next = { ...prev };
-  if (text) {
-    next[channel] = { text, updatedAt: new Date().toISOString(), updatedBy: String(ctx.userEmail || '').toLowerCase() };
-  } else {
-    delete next[channel];
-  }
-  await dbService.updateLead(fullKey, { customScripts: next }, ctx.workspaceId);
+  const saved = withCustomScript(lead, channel, input.body, ctx.userEmail);
+  if (!saved.ok) throw toolError(saved.error, 'INVALID_ARGUMENTS');
+  const text = saved.script ? saved.script.text : '';
+  await dbService.updateLead(fullKey, { customScripts: saved.customScripts }, ctx.workspaceId);
   const name = clean(lead.title) || 'this lead';
   return {
     lead: { id: fullKey, business: clean(lead.title) },

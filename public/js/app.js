@@ -4287,6 +4287,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const svc = serviceKey && library ? library[serviceKey] : null;
     const auditSell = document.getElementById('mobilePanelAuditSell');
     if (auditSell && svc && svc.label) auditSell.textContent = svc.label;
+    const leadScript = window.__adhelloLeadPanelCustomScript;
+    if (leadScript && leadScript.render(scriptEl, { row, data, channel, fill: (raw) => formatSellingScriptForChannel(raw, channel, row) })) return;
     const raw =
       svc && svc.channels && svc.channels[channel] ? String(svc.channels[channel]) : '';
     if (!raw) {

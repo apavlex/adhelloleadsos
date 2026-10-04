@@ -117,6 +117,7 @@ const { maybeRerunAutoOutreachAfterEmailFix } = require('../services/prospecting
 const agentSessionStore = require('../services/agentSessionStore');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
 const { htmlToPlain, looksLikeScriptHtml } = require('../services/scriptMarkup');
+const { publicCustomScripts, withCustomScript } = require('../services/leadCustomScripts');
 const {
   validateOutreachComposerBody,
   sanitizeOutreachComposerText,
@@ -3712,8 +3713,50 @@ router.get('/:key/outreach-scripts', async (req, res, next) => {
     payload.defaultServiceKey = payload.offerKeys.includes(leadServiceKey)
       ? leadServiceKey
       : payload.defaultServiceKey;
+    payload.customScripts =
+      String(lead.workspaceId || '') === String(req.workspaceId || '') ? publicCustomScripts(lead) : {};
 
     return res.json(payload);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /leads/:key/custom-scripts — scripts saved on this lead only (call / sms / email / dm / voicemail)
+router.get('/:key/custom-scripts', async (req, res, next) => {
+  try {
+    const key = req.params.key;
+    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found.' });
+    if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
+    return res.json({ success: true, customScripts: publicCustomScripts(lead) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PUT /leads/:key/custom-script — save (or clear with an empty body) the script for one channel on this lead only
+router.put('/:key/custom-script', express.json({ limit: '64kb' }), async (req, res, next) => {
+  try {
+    const key = req.params.key;
+    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found.' });
+    if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
+    const saved = withCustomScript(lead, req.body && req.body.channel, req.body && req.body.body, userEmail(req));
+    if (!saved.ok) return res.status(400).json({ success: false, error: saved.error });
+    await dbService.updateLead(fullKey, { customScripts: saved.customScripts }, req.workspaceId);
+    return res.json({
+      success: true,
+      channel: saved.channel,
+      script: saved.script,
+      customScripts: publicCustomScripts({ customScripts: saved.customScripts }),
+    });
   } catch (err) {
     next(err);
   }
