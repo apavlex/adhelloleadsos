@@ -8769,6 +8769,11 @@ html.dark .opp-card { background: #0f172a; border-color: rgba(255, 255, 255, 0.1
 .opp-card.sortable-fallback,
 .opp-card.sortable-drag,
 .opp-card.sortable-chosen { cursor: grabbing; touch-action: none; }
+/* Sortable's drag copy is a direct body child. The desktop shell rule `body.app-with-sidebar > :not(#appSidebar)… *`
+   turns pointer events back on for its children, so hit-testing finds the copy instead of the column under it. */
+body > .sortable-fallback,
+body > .sortable-fallback * { pointer-events: none !important; }
+body.app-with-sidebar > .opp-card.sortable-fallback { padding: 0.65rem 0.7rem !important; }
 body.opp-sorting { cursor: grabbing; }
 body.opp-sorting .opp-stage-cards { overflow-y: hidden; }
 .opp-card-head { display: flex; align-items: flex-start; gap: 0.35rem; min-width: 0; }

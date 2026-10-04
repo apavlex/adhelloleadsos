@@ -645,7 +645,7 @@
       delayOnTouchOnly: true,
       touchStartThreshold: coarse ? 12 : 5,
       ghostClass: 'opacity-50',
-      filter: '.opp-card-tools, .opp-card-tools *, .opp-card-title, .opp-card-remove, .opp-card-remove *',
+      filter: '.opp-card-tools, .opp-card-tools *, .opp-card-remove, .opp-card-remove *',
       preventOnFilter: false,
       onStart: function () {
         if (kanbanRoot) kanbanRoot.setAttribute('data-opp-sorting', '1');

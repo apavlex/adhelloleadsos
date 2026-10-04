@@ -117,7 +117,7 @@
         fallbackTolerance: 4,
         scroll: true,
         bubbleScroll: true,
-        filter: '.opp-card-tools, .opp-card-tools *, .opp-card-title, .opp-card-remove, .opp-card-remove *, .opp-pop, .opp-pop *',
+        filter: '.opp-card-tools, .opp-card-tools *, .opp-card-remove, .opp-card-remove *, .opp-pop, .opp-pop *',
         preventOnFilter: false,
         ghostClass: 'sortable-ghost',
         chosenClass: 'sortable-chosen',
