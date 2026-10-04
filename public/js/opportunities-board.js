@@ -356,13 +356,68 @@
     }
     if (cancelEdit) cancelEdit.hidden = !on;
     if (on) {
+      closeStageZoom();
       Array.prototype.forEach.call(board.querySelectorAll('.opp-stage'), function (stageEl) {
         var title = stageEl.querySelector('.opp-stage-title');
         var input = stageEl.querySelector('.opp-stage-name-input');
         if (title && input) input.value = String(title.textContent || '').trim();
       });
-      showStatus('Edit mode — rename columns, drag edges to resize, then Save.', true);
+      syncStageMoveButtons();
+      showStatus('Edit mode — rename columns, use the arrows to reorder, drag edges to resize, then Save.', true);
     }
+  }
+
+  function stageColumns() {
+    return Array.prototype.slice.call(board.querySelectorAll('.opp-stage'));
+  }
+
+  function syncStageMoveButtons() {
+    var stages = stageColumns();
+    stages.forEach(function (stageEl, i) {
+      var left = stageEl.querySelector('[data-stage-move="-1"]');
+      var right = stageEl.querySelector('[data-stage-move="1"]');
+      if (left) left.disabled = i === 0;
+      if (right) right.disabled = i === stages.length - 1;
+      syncAdvanceButtons(stageEl);
+    });
+  }
+
+  function moveStage(stageEl, dir) {
+    var stages = stageColumns();
+    var from = stages.indexOf(stageEl);
+    var to = from + dir;
+    if (from < 0 || to < 0 || to >= stages.length) return;
+    var row = stageEl.parentNode;
+    row.insertBefore(stageEl, dir < 0 ? stages[to] : stages[to].nextSibling);
+    syncStageMoveButtons();
+    if (stageEl.scrollIntoView) stageEl.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+    var btn = stageEl.querySelector('[data-stage-move="' + dir + '"]');
+    if (btn && !btn.disabled) btn.focus();
+    showStatus('Stage moved — click Save to keep the new order.', true);
+  }
+
+  function restoreStageOrder(ids) {
+    var row = document.getElementById('oppStageRow');
+    if (!row) return;
+    ids.forEach(function (id) {
+      var stageEl = row.querySelector('.opp-stage[data-stage-id="' + id + '"]');
+      if (stageEl) row.appendChild(stageEl);
+    });
+    syncStageMoveButtons();
+  }
+
+  function rememberStageOrder(ids) {
+    if (ids[0]) board.setAttribute('data-first-stage-id', ids[0]);
+    var node = document.getElementById('oppBoardPipelinesJson');
+    var pipelines = readJsonScript('oppBoardPipelinesJson');
+    if (!node || !Array.isArray(pipelines)) return;
+    pipelines.forEach(function (pipeline) {
+      if (!pipeline || pipeline.id !== pipelineId || !Array.isArray(pipeline.stages)) return;
+      var byId = {};
+      pipeline.stages.forEach(function (stage) { byId[stage.id] = stage; });
+      pipeline.stages = ids.map(function (id) { return byId[id]; }).filter(Boolean);
+    });
+    node.textContent = JSON.stringify(pipelines).replace(/</g, '\\u003c');
   }
 
   function exitEditing(opts) {
@@ -395,6 +450,7 @@
       if (title) title.textContent = stage.name;
       if (input) input.value = stage.name;
     });
+    restoreStageOrder(editSnapshot.stages.map(function (stage) { return stage.id; }));
     exitEditing({ message: 'Edits discarded.' });
   }
 
@@ -460,6 +516,17 @@
       });
     }
 
+    var orderIds = current.map(function (stage) { return stage.id; });
+    var originalOrder = (editSnapshot && editSnapshot.stages ? editSnapshot.stages : [])
+      .map(function (stage) { return stage.id; })
+      .filter(function (id) { return removedIds.indexOf(id) === -1; });
+    var orderChanged = orderIds.join('|') !== originalOrder.join('|');
+
+    function runReorder() {
+      if (!orderChanged) return Promise.resolve({ ok: true, data: { success: true } });
+      return post('/opportunities/pipelines/' + encodeURIComponent(pipelineId) + '/stage-order', { stageIds: orderIds });
+    }
+
     runDeletes()
       .then(function (deleteResult) {
         if (!deleteResult.ok || !deleteResult.data || !deleteResult.data.success) {
@@ -475,8 +542,17 @@
         });
         if (failed) {
           showError((failed.data && failed.data.error) || 'Could not save all board changes.');
+          return null;
+        }
+        return runReorder();
+      })
+      .then(function (orderResult) {
+        if (!orderResult) return;
+        if (!orderResult.ok || !orderResult.data || !orderResult.data.success) {
+          showError((orderResult.data && orderResult.data.error) || 'Could not save the new stage order.');
           return;
         }
+        if (orderChanged) rememberStageOrder(orderIds);
         current.forEach(function (stage) {
           persistStageWidth(stage.id, stage.width);
           var stageEl = board.querySelector('.opp-stage[data-stage-id="' + stage.id + '"]');
@@ -578,6 +654,25 @@
 
   board.addEventListener('click', function (ev) {
     if (ev.target.closest('[data-opp-action]')) return;
+    var zoomBtn = ev.target.closest('[data-stage-zoom]');
+    if (zoomBtn) {
+      openStageZoom(zoomBtn.closest('.opp-stage'));
+      return;
+    }
+    var zoomNav = ev.target.closest('[data-zoom-nav]');
+    if (zoomNav) {
+      var nav = zoomNav.getAttribute('data-zoom-nav');
+      if (nav === 'close') closeStageZoom();
+      else stepStageZoom(nav === 'next' ? 1 : -1);
+      return;
+    }
+    var moveBtn = ev.target.closest('[data-stage-move]');
+    if (moveBtn) {
+      if (isEditing() && !moveBtn.disabled) {
+        moveStage(moveBtn.closest('.opp-stage'), Number(moveBtn.getAttribute('data-stage-move')) < 0 ? -1 : 1);
+      }
+      return;
+    }
     var remove = ev.target.closest('.opp-remove');
     if (!remove) return;
     if (!isEditing()) return;
@@ -595,9 +690,74 @@
       if (!ok) return;
       if (stageId) pendingRemoveIds.push(stageId);
       if (stageEl) stageEl.remove();
+      syncStageMoveButtons();
       showStatus('Stage removed — click Save to keep this change.', true);
     });
   });
+
+  var zoomedStage = null;
+  var ZOOM_ICONS = {
+    prev: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>',
+    next: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>',
+    close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
+  };
+
+  function openStageZoom(stageEl) {
+    if (!stageEl || isEditing()) return;
+    if (zoomedStage && zoomedStage !== stageEl) closeStageZoom(true);
+    var stages = stageColumns();
+    var index = stages.indexOf(stageEl);
+    var bar = document.createElement('div');
+    bar.className = 'opp-zoom-bar';
+    bar.innerHTML =
+      '<button type="button" data-zoom-nav="prev" title="Previous stage" aria-label="Previous stage"' + (index <= 0 ? ' disabled' : '') + '>' + ZOOM_ICONS.prev + '</button>' +
+      '<span class="opp-zoom-pos">Stage ' + (index + 1) + ' of ' + stages.length + '</span>' +
+      '<button type="button" data-zoom-nav="next" title="Next stage" aria-label="Next stage"' + (index >= stages.length - 1 ? ' disabled' : '') + '>' + ZOOM_ICONS.next + '</button>' +
+      '<button type="button" class="opp-zoom-close" data-zoom-nav="close" title="Back to all stages" aria-label="Back to all stages">' + ZOOM_ICONS.close + '</button>';
+    stageEl.insertBefore(bar, stageEl.firstChild);
+    stageEl.classList.add('is-zoomed');
+    stageEl.setAttribute('role', 'dialog');
+    stageEl.setAttribute('aria-modal', 'true');
+    document.body.classList.add('opp-stage-zoom-open');
+    zoomedStage = stageEl;
+    var list = stageEl.querySelector('.opp-stage-cards');
+    if (list) list.scrollTop = 0;
+  }
+
+  function closeStageZoom(keepBodyLock) {
+    if (!zoomedStage) return;
+    var stageEl = zoomedStage;
+    zoomedStage = null;
+    var bar = stageEl.querySelector('.opp-zoom-bar');
+    if (bar) bar.remove();
+    stageEl.classList.remove('is-zoomed');
+    stageEl.removeAttribute('role');
+    stageEl.removeAttribute('aria-modal');
+    if (!keepBodyLock) {
+      document.body.classList.remove('opp-stage-zoom-open');
+      if (stageEl.scrollIntoView) stageEl.scrollIntoView({ block: 'nearest', inline: 'center' });
+    }
+  }
+
+  function stepStageZoom(dir) {
+    if (!zoomedStage) return;
+    var stages = stageColumns();
+    var target = stages[stages.indexOf(zoomedStage) + dir];
+    if (target) openStageZoom(target);
+  }
+
+  document.addEventListener('keydown', function (ev) {
+    if (!zoomedStage || ev.defaultPrevented) return;
+    if (ev.target && ev.target.closest && ev.target.closest('input, textarea, select, [contenteditable="true"]')) return;
+    if (ev.key === 'Escape') {
+      if (document.querySelector('.opp-pop')) return;
+      closeStageZoom();
+    } else if (ev.key === 'ArrowLeft') {
+      stepStageZoom(-1);
+    } else if (ev.key === 'ArrowRight') {
+      stepStageZoom(1);
+    }
+  }, true);
   function widthStorageKey() {
     return 'adhello.oppStageWidths.' + (pipelineId || 'default');
   }

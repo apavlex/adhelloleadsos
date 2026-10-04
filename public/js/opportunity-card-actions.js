@@ -17,6 +17,7 @@
     call: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
     sms: SVG_OPEN + '<path d="M21 12a8 8 0 0 1-8 8H7l-4 3V12a8 8 0 1 1 18 0z"/></svg>',
     email: SVG_OPEN + '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>',
+    contacts: SVG_OPEN + '<circle cx="9" cy="8" r="3.5"/><path d="M3 20a6 6 0 0 1 9.4-4.9"/><circle cx="17" cy="16" r="3"/><path d="m21.5 20.5-2.3-2.3"/></svg>',
     schedule: SVG_OPEN + '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg>',
     task: SVG_OPEN + '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="m8 12 3 3 5-6"/></svg>',
     tags: SVG_OPEN + '<path d="M20.59 13.41 13.42 20.6a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1.25"/></svg>',
@@ -54,6 +55,7 @@
       ' title="' + (phone ? 'Call ' + escapeHtml(phone) + ' in the softphone' : 'No phone number on this lead') + '" aria-label="Call">' + ICONS.call + '</button>' +
       btn('sms', 'SMS', ' data-phone="' + escapeHtml(phone) + '"', ICONS.sms) +
       btn('email', 'Email', ' data-email="' + escapeHtml(o.email || '') + '"', ICONS.email) +
+      btn('contacts', 'Find contacts', '', ICONS.contacts) +
       btn('schedule', 'Schedule', '', ICONS.schedule) +
       btn('task', 'Task', '', ICONS.task) +
       btn('tags', 'Tags', ' data-tags="' + escapeHtml(JSON.stringify(o.tagKeys || [])) + '"', ICONS.tags) +
@@ -582,6 +584,51 @@
       });
     }
 
+    function applyFoundContacts(card, lead) {
+      if (!card || !lead) return;
+      var phone = usablePhone(lead.phone);
+      if (phone && !card.getAttribute('data-phone')) {
+        card.setAttribute('data-phone', phone);
+        var callBtn = card.querySelector('.opp-card-call');
+        if (callBtn) {
+          callBtn.disabled = false;
+          callBtn.title = 'Call ' + phone + ' in the softphone';
+        }
+        var smsBtn = card.querySelector('[data-opp-action="sms"]');
+        if (smsBtn) smsBtn.setAttribute('data-phone', phone);
+      }
+      var email = usablePhone(lead.email);
+      var emailBtn = card.querySelector('[data-opp-action="email"]');
+      if (email && emailBtn && !emailBtn.getAttribute('data-email')) emailBtn.setAttribute('data-email', email);
+    }
+
+    function findContacts(action) {
+      var key = leadKey(action);
+      if (!key || action.classList.contains('is-finding')) return;
+      var card = action.closest('.opp-card');
+      var name = leadTitle(action) || 'this lead';
+      action.classList.add('is-finding');
+      action.setAttribute('aria-label', 'Finding contacts');
+      status('Finding contacts for ' + name + ' — this can take up to a minute…', true);
+      function done() {
+        action.classList.remove('is-finding');
+        action.setAttribute('aria-label', 'Find contacts');
+      }
+      post('/leads/' + encodeURIComponent(key) + '/find-contacts', {}).then(function (result) {
+        done();
+        var data = result.data || {};
+        if (data.lead) applyFoundContacts(card, data.lead);
+        if (!result.ok || !data.success) {
+          status(name + ': ' + (data.error || 'Could not find contacts.'), false);
+          return;
+        }
+        status(name + ': ' + (data.message || 'Contacts updated.'), true);
+      }).catch(function () {
+        done();
+        status('Could not find contacts. Check your connection and try again.', false);
+      });
+    }
+
     function nextStageColumn(column) {
       if (!column) return null;
       var next = column.nextElementSibling;
@@ -879,6 +926,7 @@
       if (kind === 'move') return openMove(action);
       if (kind === 'advance') return advanceOpportunity(action);
       if (kind === 'ghl') return syncGhl(action);
+      if (kind === 'contacts') return findContacts(action);
       if (kind === 'remove') return removeOpportunity(action);
     }
 

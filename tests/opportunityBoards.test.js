@@ -8,10 +8,29 @@ const {
   addPipeline,
   addStage,
   renameStage,
+  reorderStages,
   removeStage,
   removePipeline,
   resolvePlacement,
 } = require('../services/opportunityBoards');
+
+test('reorderStages saves a new stage order and rejects stale lists', () => {
+  const { boards } = normalizeBoards(null);
+  const pipeline = boards.pipelines[0];
+  const ids = pipeline.stages.map((stage) => stage.id);
+  const swapped = [ids[1], ids[0], ...ids.slice(2)];
+
+  const result = reorderStages(boards, pipeline.id, swapped);
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.boards.pipelines[0].stages.map((stage) => stage.id), swapped);
+  assert.equal(result.boards.pipelines[0].stages[0].name, 'Contacted');
+  assert.deepEqual(boards.pipelines[0].stages.map((stage) => stage.id), ids, 'input boards are not mutated');
+
+  assert.equal(reorderStages(boards, pipeline.id, ids.slice(1)).ok, false, 'missing a stage');
+  assert.equal(reorderStages(boards, pipeline.id, [ids[0], ...ids.slice(0, -1)]).ok, false, 'duplicate stage');
+  assert.equal(reorderStages(boards, pipeline.id, [...ids.slice(0, -1), 'ops_nope']).ok, false, 'unknown stage');
+  assert.equal(reorderStages(boards, 'opl_missing', ids).ok, false, 'unknown pipeline');
+});
 
 test('normalizeBoards creates a marketing pipeline with default stages', () => {
   const { boards, created } = normalizeBoards(null);

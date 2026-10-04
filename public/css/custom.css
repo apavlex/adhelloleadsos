@@ -8800,12 +8800,14 @@ html.dark .opp-card-note { color: #94a3b8; }
 .opp-card-reviews span { color: #d97706; }
 .opp-card-value { margin: 0.2rem 0 0; min-width: 0; max-width: 100%; font-size: 0.75rem; font-weight: 800; color: #111827; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 html.dark .opp-card-value { color: #f8fafc; }
-.opp-card-tools { position: relative; z-index: 2; display: flex; align-items: center; justify-content: flex-start; flex-wrap: nowrap; gap: 0.12rem; margin-top: 0.45rem; padding-top: 0.4rem; border-top: 1px solid rgba(17, 24, 39, 0.06); min-width: 0; max-width: 100%; }
+.opp-card-tools { position: relative; z-index: 2; display: flex; align-items: center; justify-content: flex-start; flex-wrap: wrap; gap: 0.2rem 0.12rem; margin-top: 0.45rem; padding-top: 0.4rem; border-top: 1px solid rgba(17, 24, 39, 0.06); min-width: 0; max-width: 100%; }
 html.dark .opp-card-tools { border-top-color: rgba(255, 255, 255, 0.08); }
 .opp-card-tools a, .opp-card-tools button { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 1.35rem; height: 1.35rem; border: 0; background: transparent; color: #64748b; border-radius: 0.3rem; padding: 0; cursor: pointer; text-decoration: none; }
 .opp-card-tools a:hover, .opp-card-tools button:hover { color: #a16207; background: rgba(250, 204, 21, 0.22); }
 .opp-card-tools svg { width: 0.88rem; height: 0.88rem; display: block; }
 .opp-card-tools button.is-syncing svg { animation: opp-sync-spin 0.7s linear infinite; }
+.opp-card-tools button.is-finding { color: #a16207; background: rgba(250, 204, 21, 0.22); cursor: progress; }
+.opp-card-tools button.is-finding svg { animation: opp-find-pulse 0.9s ease-in-out infinite; }
 .opp-card-tools button[data-opp-action="advance"] { margin-left: auto; color: #a16207; }
 .opp-card-tools button[data-opp-action="advance"]:hover { color: #854d0e; background: rgba(250, 204, 21, 0.35); }
 .opp-card-tools button[data-opp-action="advance"][hidden] { display: none !important; }
@@ -8868,6 +8870,7 @@ html.dark .opp-move-stage { background: #0f172a; border-color: rgba(255, 255, 25
 .opp-move-stage:hover { background: rgba(250, 204, 21, 0.35); border-color: rgba(202, 138, 4, 0.45); }
 .opp-move-empty { margin: 0; font-size: 0.72rem; font-weight: 600; color: #64748b; }
 @keyframes opp-sync-spin { to { transform: rotate(360deg); } }
+@keyframes opp-find-pulse { 50% { transform: scale(0.78); opacity: 0.55; } }
 .opp-pop {
   position: fixed;
   z-index: 10060;

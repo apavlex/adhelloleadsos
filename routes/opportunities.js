@@ -10,6 +10,7 @@ const {
   addPipeline,
   addStage,
   renameStage,
+  reorderStages,
   renamePipeline,
   removePipeline,
   removeStage,
@@ -138,6 +139,18 @@ router.post('/pipelines/:pipelineId/stages', express.json({ limit: '32kb' }), as
     if (!result.ok) return jsonError(res, 400, result.error);
     await saveBoards(req, result.boards);
     res.json({ success: true, stageId: result.stageId });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/pipelines/:pipelineId/stage-order', express.json({ limit: '8kb' }), async (req, res, next) => {
+  try {
+    const { workspace } = await loadContext(req);
+    const result = reorderStages(workspace.opportunityBoards, req.params.pipelineId, req.body && req.body.stageIds);
+    if (!result.ok) return jsonError(res, 400, result.error);
+    await saveBoards(req, result.boards);
+    res.json({ success: true });
   } catch (e) {
     next(e);
   }

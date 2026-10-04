@@ -500,6 +500,22 @@ function renameStage(boards, stageId, name) {
   return { ok: true, boards: next };
 }
 
+/** Reorder a pipeline's stages. `stageIds` must list every stage in the pipeline exactly once. */
+function reorderStages(boards, pipelineId, stageIds) {
+  const next = cloneBoards(normalizeBoards(boards).boards);
+  const pipeline = next.pipelines.find((item) => item.id === pipelineId);
+  if (!pipeline) return { ok: false, error: 'Pipeline not found.' };
+  const ids = (Array.isArray(stageIds) ? stageIds : []).map((id) => String(id || '').trim());
+  const byId = new Map(pipeline.stages.map((stage) => [stage.id, stage]));
+  const unique = new Set(ids);
+  if (ids.length !== pipeline.stages.length || unique.size !== ids.length || !ids.every((id) => byId.has(id))) {
+    return { ok: false, error: 'Stage list is out of date. Reload and try again.' };
+  }
+  pipeline.stages = ids.map((id) => byId.get(id));
+  next.activePipelineId = pipeline.id;
+  return { ok: true, boards: next };
+}
+
 function renamePipeline(boards, pipelineId, name) {
   const next = cloneBoards(normalizeBoards(boards).boards);
   const pipeline = next.pipelines.find((item) => item.id === pipelineId);
@@ -609,6 +625,7 @@ module.exports = {
   addPipeline,
   addStage,
   renameStage,
+  reorderStages,
   renamePipeline,
   removePipeline,
   removeStage,
