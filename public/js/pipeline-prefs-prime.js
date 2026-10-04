@@ -11,6 +11,114 @@
   var VIEW_KEY = 'adhello_pipeline_view';
   var PAGE_SIZE_KEY = 'pipelineTablePageSize';
   var PAGE_SIZE_OPTIONS = [25, 50, 100, 200];
+  var SYNC_TS_KEY = 'pipelineTablePrefsUpdatedAt';
+  var SYNC_URL = '/pipeline-table-prefs';
+
+  function readJsonKey(key) {
+    try {
+      var v = JSON.parse(localStorage.getItem(key) || '{}');
+      return v && typeof v === 'object' ? v : {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  function localSyncTs() {
+    try {
+      return Number(localStorage.getItem(SYNC_TS_KEY) || 0) || 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  function readLocalTablePrefs() {
+    var density = 'compact';
+    try {
+      density = localStorage.getItem(DENSITY_KEY) === 'comfortable' ? 'comfortable' : 'compact';
+    } catch (_) {
+      /* ignore */
+    }
+    return { vis: readJsonKey(VIS_KEY), widths: readJsonKey(WIDTH_KEY), density: density };
+  }
+
+  function hasLegacyLocalTablePrefs() {
+    try {
+      return Boolean(
+        localStorage.getItem(VIS_KEY) || localStorage.getItem(WIDTH_KEY) || localStorage.getItem(DENSITY_KEY),
+      );
+    } catch (_) {
+      return false;
+    }
+  }
+
+  var pushTimer = null;
+  function pushTablePrefs(updatedAt) {
+    if (pushTimer) clearTimeout(pushTimer);
+    pushTimer = setTimeout(function () {
+      pushTimer = null;
+      var body = readLocalTablePrefs();
+      body.updatedAt = updatedAt || localSyncTs() || Date.now();
+      try {
+        fetch(SYNC_URL, {
+          method: 'POST',
+          credentials: 'same-origin',
+          keepalive: true,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        }).catch(function () {});
+      } catch (_) {
+        /* ignore */
+      }
+    }, 500);
+  }
+
+  /** Call after the user changes columns, widths or density on this device. */
+  window.__pipelineTablePrefsChanged = function () {
+    var ts = Date.now();
+    try {
+      localStorage.setItem(SYNC_TS_KEY, String(ts));
+    } catch (_) {
+      /* ignore */
+    }
+    pushTablePrefs(ts);
+  };
+
+  /**
+   * Account copy wins when newer than this device's last change, so a phone shows the
+   * columns set up on desktop. Setups saved before syncing existed are uploaded from
+   * wide screens only, so a phone's untouched defaults can't overwrite the desktop setup.
+   */
+  function syncTablePrefsFromServer() {
+    var server = window.__SERVER_PIPELINE_TABLE_PREFS;
+    var localTs = localSyncTs();
+    var serverTs = server && Number(server.updatedAt) > 0 ? Number(server.updatedAt) : 0;
+    if (server && serverTs > localTs) {
+      try {
+        localStorage.setItem(VIS_KEY, JSON.stringify(server.vis || {}));
+        localStorage.setItem(WIDTH_KEY, JSON.stringify(server.widths || {}));
+        localStorage.setItem(DENSITY_KEY, server.density === 'comfortable' ? 'comfortable' : 'compact');
+        localStorage.setItem(SYNC_TS_KEY, String(serverTs));
+      } catch (_) {
+        /* ignore */
+      }
+      return;
+    }
+    if (localTs > serverTs) {
+      pushTablePrefs(localTs);
+      return;
+    }
+    if (!server && !localTs && hasLegacyLocalTablePrefs()) {
+      var wide = false;
+      try {
+        wide = window.matchMedia('(min-width: 1024px) and (hover: hover)').matches;
+      } catch (_) {
+        wide = false;
+      }
+      if (wide) window.__pipelineTablePrefsChanged();
+    }
+  }
+
+  syncTablePrefsFromServer();
 
   function resolveInitialPipelineView() {
     try {

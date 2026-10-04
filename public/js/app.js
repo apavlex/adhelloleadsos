@@ -1862,6 +1862,7 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         e.stopPropagation();
         applyTableDensity(btn.dataset.density || 'compact');
+        if (typeof window.__pipelineTablePrefsChanged === 'function') window.__pipelineTablePrefsChanged();
       });
     })();
 
@@ -2230,6 +2231,7 @@ document.addEventListener('DOMContentLoaded', () => {
           cb.addEventListener('change', () => {
             vis[id] = cb.checked;
             saveVis(vis);
+            if (typeof window.__pipelineTablePrefsChanged === 'function') window.__pipelineTablePrefsChanged();
             applyVisibility(vis);
             scheduleSyncPipelineStickyOffsets();
           });
@@ -2333,6 +2335,7 @@ document.addEventListener('DOMContentLoaded', () => {
           } catch (_) {
             /* ignore */
           }
+          if (typeof window.__pipelineTablePrefsChanged === 'function') window.__pipelineTablePrefsChanged();
           clearAllWidths();
           scheduleSyncPipelineStickyOffsets();
         });
@@ -2392,6 +2395,7 @@ document.addEventListener('DOMContentLoaded', () => {
           } catch (_) {
             /* ignore */
           }
+          if (typeof window.__pipelineTablePrefsChanged === 'function') window.__pipelineTablePrefsChanged();
           applyWidths(dragWidths);
         }
         dragPlc = null;

@@ -139,6 +139,9 @@
 <script src="/js/direct-mail-queue.js?v=<%= _av %>" defer></script>
 <% } %>
 <% if (_needPipeline) { %>
+<% if (typeof pipelineTablePrefs !== 'undefined' && pipelineTablePrefs) { %>
+<script>window.__SERVER_PIPELINE_TABLE_PREFS = <%- JSON.stringify(pipelineTablePrefs).replace(/</g, '\\u003c') %>;</script>
+<% } %>
 <script src="/js/pipeline-prefs-prime.js?v=<%= _av %>" defer></script>
 <script src="/js/pipeline-import-export-menus.js?v=<%= _av %>" defer></script>
 <% } %>

@@ -55,15 +55,16 @@ const leadRunBanner = require('./middleware/leadRunBanner');
 const iaRedirects = require('./routes/iaRedirects');
 const todayRoutes = require('./routes/today');
 const focusRoutes = require('./routes/focus');
+const pipelineTablePrefsRoutes = require('./routes/pipelineTablePrefs');
 const engagementRoutes = require('./routes/engagement');
-const referralRoutes = require('./routes/referrals');
 const messagesRoutes = require('./routes/messages');
+const referralRoutes = require('./routes/referrals');
 const networkRoutes = require('./routes/network');
 const networkPublicRoutes = require('./routes/networkPublic');
-const pipelineRoutes = require('./routes/pipeline');
 const memberAppRoutes = require('./routes/memberApp');
 const reviewPublicRoutes = require('./routes/reviewPublic');
 const whiteLabelRoutes = require('./routes/whiteLabel');
+const pipelineRoutes = require('./routes/pipeline');
 const auditReportPublicRoutes = require('./routes/auditReportPublic');
 const auditLandingPublicRoutes = require('./routes/auditLandingPublic');
 const aiToolsReportPublicRoutes = require('./routes/aiToolsReportPublic');
@@ -71,8 +72,8 @@ const sharePhoneAnalyticsRoutes = require('./routes/sharePhoneAnalytics');
 const dbService = require('./services/database');
 const ceoRoutes = require('./routes/ceo');
 const mcpRoutes = require('./routes/mcp');
-const pavlexRoutes = require('./routes/pavlex');
 const oauthRoutes = require('./routes/oauth');
+const pavlexRoutes = require('./routes/pavlex');
 const pavlexChatPageRoutes = require('./routes/pavlexChatPage');
 const voiceTranscribeRoutes = require('./routes/voiceTranscribe');
 const debugRoutes = require('./routes/debug');
@@ -467,7 +468,6 @@ app.use('/', auditLandingPublicRoutes);
 app.use('/', aiToolsReportPublicRoutes);
 // Referral network member links (signed token; no session)
 app.use('/', networkPublicRoutes);
-
 // Member referral app (/m/:token, signed token in path) and public review pages (/rv/:slug)
 app.use('/', memberAppRoutes);
 app.use('/', reviewPublicRoutes);
@@ -599,22 +599,24 @@ app.post('/api/leads/import-real-estate', express.json({ limit: '5mb' }), async 
 
 // MCP server — authenticated via session or Bearer token (must be reachable by OpenAI)
 app.use('/ceo/mcp', mcpRoutes);
-
 // "Sign in with AdHello" for ChatGPT / Claude MCP connectors (discovery, registration, consent, tokens)
 app.use('/', oauthRoutes);
+
 // Protected routes (IA Phase 1: iaNav + canonical redirects + /today)
 app.use(ensureAuthenticated);
 app.use(attachWorkspace);
 app.use(teamActivityCapture);
+app.use(pipelineTablePrefsRoutes.attachPipelineTablePrefs);
+app.use('/pipeline-table-prefs', pipelineTablePrefsRoutes);
 app.use(iaNav);
 app.use(leadRunBanner);
 app.use(iaRedirects);
 app.use('/today', todayRoutes);
 app.use('/focus', focusRoutes);
 app.use('/engagement', engagementRoutes);
+app.use('/messages', messagesRoutes);
 app.use('/referrals', referralRoutes);
 app.use('/network', networkRoutes);
-app.use('/messages', messagesRoutes);
 app.use('/', indexRoutes);
 app.use('/search', searchRoutes);
 app.use('/permits', permitsRoutes);
