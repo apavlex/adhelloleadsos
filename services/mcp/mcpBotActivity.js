@@ -155,6 +155,32 @@ const DESCRIBE = {
   review_icp_fit(i, r) {
     return { category: 'leads', action: 'icp_review', summary: `ICP review: ${r && r.decision === 'approve' ? 'fits' : 'does not fit'}${r && r.grade ? ` (${r.grade})` : ''}`, leadKey: i.lead_id };
   },
+  save_folder_search(i, r) {
+    const name = (r && r.folder && r.folder.name) || i.folder_name || i.folder_id;
+    return { category: 'search', action: 'folder_search_preset', summary: `Saved the search for "${text(name, 60)}": "${text(i.query, 60)}"` };
+  },
+  schedule_search(i, r) {
+    const s = r && r.schedule;
+    if (!s) return null;
+    return { category: 'search', action: 'search_schedule', summary: `Scheduled ${text(s.title, 80)} (${s.frequency_label})${s.folder ? ` → ${text(s.folder.name, 60)}` : ''}` };
+  },
+  delete_search_schedule(i, r) {
+    const s = r && r.deleted;
+    return { category: 'search', action: 'search_schedule_delete', summary: `Deleted scheduled search ${text((s && s.title) || i.schedule_id, 80)}` };
+  },
+  import_leads_csv(i, r) {
+    if (!r) return null;
+    const folder = r.folder && r.folder.name ? ` into "${text(r.folder.name, 60)}"` : '';
+    return { category: 'leads', action: 'csv_import', summary: `Imported a CSV${folder}: ${r.created || 0} new, ${r.updated || 0} updated`, leadCount: (r.created || 0) + (r.updated || 0) };
+  },
+  merge_leads(i, r) {
+    if (!r || !r.primary_lead_id) return null;
+    return { category: 'leads', action: 'lead_merge', summary: `Merged ${count(list(i.lead_ids).length, 'lead')} into one`, leadKey: r.primary_lead_id, leadTitle: r.business || '', meta: { mergedKeys: list(i.lead_ids).slice(0, 50) } };
+  },
+  deep_enrich_lead(i) {
+    const what = { reviews: 'Google reviews', socials: 'social profiles', phone_line_type: 'phone line type' };
+    return { category: 'leads', action: 'deep_enrich', summary: `Refreshed ${list(i.steps).map((s) => what[s] || s).join(', ')}`, leadKey: i.lead_id };
+  },
   save_lead_script(i) {
     const label = SCRIPT_LABELS[i.channel || 'dm'];
     return {

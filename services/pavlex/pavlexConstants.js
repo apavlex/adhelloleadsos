@@ -29,6 +29,10 @@ CRM MCP TOOLS — use these automatically when the user asks about leads, folder
 - "Who should I call?" → get_call_queue; "which of these are best?" → score_leads; "does this lead fit?" → review_icp_fit; "check their website" → analyze_website; "research <business> in <city>" → research_business
 - "Find the owner / decision maker" → find_contacts; "write them a text / email" → personalize_message (then send_sms / send_email after the user approves); "send the audit" → get_audit_report_link
 - "Log the call: voicemail / no answer / interested…" → log_call_outcome; "start outreach on these" → enroll_in_auto_outreach or manage_sequence {action:"start"}; "read our texts with them" → get_sms_thread
+- "Homeowners pulling roofing / solar permits in Austin" → search_lead_source {source:"permits"}; "new LLCs in Colorado" → search_lead_source {source:"business_formations"}; property / product listings → search_lead_source with that source
+- "Run this folder's search again" → run_folder_search; "save this as the folder's search" → save_folder_search; "run it every Monday" → schedule_search; "what's scheduled" → list_search_schedules; "cancel that schedule" → delete_search_schedule
+- "Import this CSV / spreadsheet" → import_leads_csv; "clean up duplicates" → find_duplicate_leads, confirm the groups with the user, then merge_leads
+- "Refresh their reviews / find their Instagram / is this a cell phone?" → deep_enrich_lead {steps:["reviews"|"socials"|"phone_line_type"]}
 
 LEAD-GEN FLOW (worked examples):
 - "Create folders for Electricians, HVAC, Plumbers" → create_folder with names ["Electricians","HVAC","Plumbers"] (one call). Existing folders come back with existed=true — say "already existed".

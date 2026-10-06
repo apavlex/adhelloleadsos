@@ -11,6 +11,7 @@ const leadScriptTools = require('./mcpLeadScripts');
 const messagingTools = require('./mcpMessaging');
 const workspaceTools = require('./mcpWorkspaceOps');
 const prospectingTools = require('./mcpProspecting');
+const leadSourceTools = require('./mcpLeadSources');
 const botActivity = require('./mcpBotActivity');
 const mcpLogger = require('./mcpLogger');
 const pavlexLogger = require('../pavlex/pavlexLogger');
@@ -52,6 +53,7 @@ const TOOL_NAMES = [
   ...messagingTools.MESSAGING_TOOL_NAMES,
   ...workspaceTools.WORKSPACE_TOOL_NAMES,
   ...prospectingTools.PROSPECTING_TOOL_NAMES,
+  ...leadSourceTools.LEAD_SOURCE_TOOL_NAMES,
 ];
 
 const LIST_LEADS_DESCRIPTION =
@@ -208,6 +210,10 @@ async function executeCrmTool(rawCtx, toolName, args) {
         }
         if (prospectingTools.PROSPECTING_TOOL_NAMES.includes(name)) {
           result = await prospectingTools.executeProspectingTool(ctx, name, input);
+          break;
+        }
+        if (leadSourceTools.LEAD_SOURCE_TOOL_NAMES.includes(name)) {
+          result = await leadSourceTools.executeLeadSourceTool(ctx, name, input);
           break;
         }
         const err = new Error(`Unknown tool: ${name}`);
@@ -537,6 +543,7 @@ function getOpenAiFunctionTools() {
     ...messagingTools.openAiFunctionTools(),
     ...workspaceTools.openAiFunctionTools(),
     ...prospectingTools.openAiFunctionTools(),
+    ...leadSourceTools.openAiFunctionTools(),
     {
       type: 'function',
       function: {

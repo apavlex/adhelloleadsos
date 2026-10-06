@@ -43,6 +43,7 @@ const {
 const betterContact = require('../services/betterContactClient');
 const monidLeadEnrich = require('../services/monidLeadEnrich');
 const tikHub = require('../services/tikHubClient');
+const { runReviewsRefresh, runSocialEnrichment, verifyPhoneLine } = require('../services/leadDeepEnrich');
 const websiteAiAnalysis = require('../services/websiteAiAnalysis');
 const pageSpeedInsights = require('../services/pageSpeedInsights');
 const { createAuditReportToken } = require('../services/auditReportSign');
@@ -5453,140 +5454,6 @@ async function runLeadEnhancement(lead, workspaceId) {
   return fail;
 }
 
-/**
- * Reviews-only refresh: Outscraper GMB listing + review rows → rating, count, freshness.
- * Skips contacts, Firecrawl, BetterContact, and AI review summary.
- */
-async function runReviewsRefresh(lead, workspaceId) {
-  if (!lead || !lead.key) return { success: false, error: 'Lead not found.' };
-  const fullKey = lead.key.startsWith('lead:') ? lead.key : `lead:${lead.key}`;
-  const leadWorkspaceId = (lead && lead.workspaceId) || workspaceId;
-  const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(leadWorkspaceId);
-
-  if (!outscraper.isConfigured(integrationEnv)) {
-    return {
-      success: false,
-      error: 'Outscraper is not configured. Add Outscraper under Workspace → Integrations.',
-    };
-  }
-
-  let gmbPack;
-  try {
-    gmbPack = await outscraperGmbEnrich.enrichLeadFromOutscraperGmb(lead, integrationEnv);
-  } catch (e) {
-    return { success: false, error: e.message || 'Reviews refresh failed.' };
-  }
-
-  if (!gmbPack || !gmbPack.used) {
-    return {
-      success: false,
-      error:
-        (gmbPack && gmbPack.reviewError) ||
-        'No Google Business listing or reviews found for this lead.',
-      lead,
-      reviewsFetched: false,
-      reviewError: (gmbPack && gmbPack.reviewError) || null,
-      reviewQuery: (gmbPack && gmbPack.reviewQuery) || null,
-    };
-  }
-
-  const patch = { ...(gmbPack.patch || {}) };
-  const updates = [...(lead.updates || [])];
-  updates.push({
-    type: 'review_refresh',
-    value: gmbPack.reviewsFetched
-      ? 'Google reviews & freshness refreshed via Outscraper.'
-      : 'Google Business listing refreshed via Outscraper (reviews sample limited).',
-    timestamp: new Date().toISOString(),
-  });
-  patch.updates = updates;
-  patch.lastReviewRefreshAt = new Date().toISOString();
-
-  const updated = await dbService.updateLead(fullKey, patch, leadWorkspaceId);
-  return {
-    success: true,
-    lead: updated || { ...lead, ...patch },
-    reviewsFetched: !!gmbPack.reviewsFetched,
-    reviewError: gmbPack.reviewError || null,
-    reviewQuery: gmbPack.reviewQuery || null,
-  };
-}
-
-/**
- * TikHub-only social profile discovery (Instagram, TikTok, X).
- */
-async function runSocialEnrichment(lead, workspaceId) {
-  if (!lead || !lead.key) return { success: false, error: 'Lead not found.' };
-  const fullKey = lead.key.startsWith('lead:') ? lead.key : `lead:${lead.key}`;
-  const leadWorkspaceId = (lead && lead.workspaceId) || workspaceId;
-  const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(leadWorkspaceId);
-  const rejectedSocialCleanup = buildRejectedSocialCleanupPatch(lead);
-  if (Object.keys(rejectedSocialCleanup).length) {
-    lead =
-      (await dbService.updateLead(fullKey, rejectedSocialCleanup, leadWorkspaceId)) ||
-      { ...lead, ...rejectedSocialCleanup };
-  }
-
-  if (!tikHub.isConfigured(integrationEnv)) {
-    return {
-      success: false,
-      error: 'TikHub is not configured. Add your API key under Workspace → Integrations → TikHub.',
-    };
-  }
-
-  let pack;
-  try {
-    pack = await tikHub.enrichLeadSocialProfiles(lead, integrationEnv);
-  } catch (e) {
-    return { success: false, error: e.message || 'Social search failed.' };
-  }
-
-  if (pack.skipped) {
-    return {
-      success: true,
-      skipped: true,
-      message: pack.message,
-      lead,
-      socialsFound: [],
-    };
-  }
-
-  const extract = sanitizeExtractSocialsForLead(pack.extract || {}, lead);
-  if (!tikHub.extractHasSignal(extract)) {
-    return {
-      success: false,
-      error: pack.message || 'No matching social profiles found for this business.',
-      lead,
-      socialsFound: [],
-      errors: pack.errors || [],
-    };
-  }
-
-  const patch = firecrawlExtractToLeadUpdates(extract);
-  if ((!lead.instagram || lead.instagram === 'N/A') && extract.instagram) patch.instagram = extract.instagram;
-  if ((!lead.tiktok || lead.tiktok === 'N/A') && extract.tiktok) patch.tiktok = extract.tiktok;
-  if ((!lead.twitter || lead.twitter === 'N/A') && extract.twitter) patch.twitter = extract.twitter;
-  if ((!lead.facebook || lead.facebook === 'N/A') && extract.facebook) patch.facebook = extract.facebook;
-  if (!lead.linkedin && extract.linkedin) patch.linkedin = extract.linkedin;
-
-  const updates = [...(lead.updates || [])];
-  updates.push({
-    type: 'social_enrichment',
-    value: `Social profiles found via TikHub (${(pack.platforms || []).join(', ') || 'updated'}).`,
-    timestamp: new Date().toISOString(),
-  });
-  patch.updates = updates;
-  patch.lastSocialEnrichAt = new Date().toISOString();
-
-  const updatedLead = (await dbService.updateLead(fullKey, patch, leadWorkspaceId)) || { ...lead, ...patch };
-  return {
-    success: true,
-    lead: updatedLead,
-    socialsFound: pack.platforms || [],
-    message: pack.message,
-  };
-}
-
 // POST /leads/enhance-missing-contacts — admin backfill for leads missing phone/email
 router.post('/enhance-missing-contacts', async (req, res, next) => {
   try {
@@ -5835,7 +5702,6 @@ router.post('/:key/refresh-reviews', async (req, res, next) => {
 // POST /leads/:key/verify-phone-line — SignalWire Lookup carrier / mobile vs landline (sync)
 router.post('/:key/verify-phone-line', async (req, res, next) => {
   try {
-    const phoneLineType = require('../services/phoneLineType');
     const key = req.params.key;
     const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
     const lead = await dbService.getLead(fullKey);
@@ -5845,53 +5711,12 @@ router.post('/:key/verify-phone-line', async (req, res, next) => {
     if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
       return res.status(403).json({ success: false, error: 'Forbidden' });
     }
-    if (!phoneLineType.hasUsablePhone(lead.phone)) {
-      return res.status(422).json({
-        success: false,
-        error: 'Lead has no usable phone number to verify.',
-        code: 'no_phone',
-      });
+    const result = await verifyPhoneLine(lead, req.workspaceId);
+    if (!result.success) {
+      const { status, ...body } = result;
+      return res.status(status).json(body);
     }
-    const blocked = phoneLineType.lookupBlockedReason();
-    if (blocked) {
-      return res.status(503).json({
-        success: false,
-        error: blocked,
-        code: 'lookup_unavailable',
-      });
-    }
-
-    const patch = await phoneLineType.forceRefresh(lead);
-    if (!patch) {
-      return res.status(422).json({
-        success: false,
-        error: 'Could not verify phone line type.',
-        code: 'lookup_empty',
-      });
-    }
-    if (
-      patch.phoneLineTypeSource === 'signalwire_not_configured' ||
-      patch.phoneLineTypeSource === 'missing_space_url' ||
-      patch.phoneLineTypeSource === 'lookup_disabled'
-    ) {
-      return res.status(503).json({
-        success: false,
-        error:
-          phoneLineType.lookupBlockedReason() ||
-          'Phone line-type lookup is unavailable. Configure SignalWire under Workspace → Phone bank / Integrations.',
-        code: patch.phoneLineTypeSource,
-      });
-    }
-
-    const updated = await dbService.updateLead(fullKey, patch, req.workspaceId);
-    const leadOut = updated || { ...lead, ...patch };
-    return res.json({
-      success: true,
-      lead: leadOut,
-      lineType: leadOut.phoneLineType || patch.phoneLineType,
-      carrier: leadOut.phoneCarrier || patch.phoneCarrier || '',
-      source: leadOut.phoneLineTypeSource || patch.phoneLineTypeSource || '',
-    });
+    return res.json(result);
   } catch (err) {
     console.error('Phone line verify error:', err.message);
     next(err);

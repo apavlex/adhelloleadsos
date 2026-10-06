@@ -301,12 +301,24 @@ async function startQueuedSearch(job) {
   job.status = 'running';
   job.startedAt = new Date().toISOString();
   runningSearchId = job.id;
-  await kickoffFolderSearchInBackground({ workspaceId: job.workspaceId, folder, preset: job.preset });
+  if (job.start) {
+    try {
+      await job.start(folder);
+    } catch (e) {
+      runningSearchId = null;
+      job.status = 'failed';
+      job.error = (e && e.message) || 'Search could not start.';
+      job.finishedAt = new Date().toISOString();
+      return false;
+    }
+  } else {
+    await kickoffFolderSearchInBackground({ workspaceId: job.workspaceId, folder, preset: job.preset });
+  }
   const where = [job.city, job.state].filter(Boolean).join(', ');
   recordActivity(job.activityCtx, {
     category: 'search',
     action: 'folder_search',
-    summary: `Ran folder search for "${folder.name || 'folder'}" · "${job.keyword}"${where ? ` in ${where}` : ''}`,
+    summary: `Ran ${job.sourceLabel || 'folder'} search for "${folder.name || 'folder'}" · "${job.keyword}"${where ? ` in ${where}` : ''}`,
     meta: { folderKey: folder.key, searchId: job.id },
   });
   return true;
@@ -346,6 +358,7 @@ function publicSearchJob(job) {
   const out = {
     search_id: job.id,
     status: job.status,
+    source: job.source || 'maps',
     keyword: job.keyword,
     city: job.city,
     state: job.state,
@@ -376,6 +389,38 @@ async function resolveSearchTargetFolder(ctx, input, keyword) {
     jobType: JOB_TYPES.MAPS_BUSINESS,
   });
   return { folder, created: !existed };
+}
+
+/**
+ * Queue a background search into `folder`. Runs `preset` as a folder search unless `start(folder)` is given
+ * (permits / formations have their own runners). Returns the tracked job.
+ */
+async function enqueueSearch(ctx, { folder, keyword, city = '', state = '', maxResults, preset = null, start = null, source = '', sourceLabel = '' }) {
+  const wid = requireWorkspace(ctx);
+  const email = String(ctx.userEmail || '').trim().toLowerCase();
+  const job = {
+    id: `pavlex_search_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    workspaceId: wid,
+    folderKey: folder.key,
+    folderName: folder.name,
+    keyword,
+    city,
+    state,
+    maxResults,
+    preset,
+    start,
+    source,
+    sourceLabel,
+    status: 'queued',
+    queuedAt: new Date().toISOString(),
+    activityCtx: { workspaceId: wid, userEmail: email, ...(ctx.bot ? { bot: ctx.bot } : {}) },
+  };
+  searchJobs.set(job.id, job);
+  searchQueue.push(job.id);
+  trimTrackedSearches();
+  await pumpSearchQueue();
+  if (job.status === 'queued') schedulePump();
+  return job;
 }
 
 async function findLeads(ctx, input = {}) {
@@ -415,26 +460,14 @@ async function findLeads(ctx, input = {}) {
     { defaultKeyword: '' },
   );
 
-  const email = String(ctx.userEmail || '').trim().toLowerCase();
-  const job = {
-    id: `pavlex_search_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-    workspaceId: wid,
-    folderKey: folder.key,
-    folderName: folder.name,
+  const job = await enqueueSearch(ctx, {
+    folder,
     keyword,
     city: preset.city || city,
     state: preset.state || state,
     maxResults: preset.maxResults,
     preset,
-    status: 'queued',
-    queuedAt: new Date().toISOString(),
-    activityCtx: { workspaceId: wid, userEmail: email, ...(ctx.bot ? { bot: ctx.bot } : {}) },
-  };
-  searchJobs.set(job.id, job);
-  searchQueue.push(job.id);
-  trimTrackedSearches();
-  await pumpSearchQueue();
-  if (job.status === 'queued') schedulePump();
+  });
 
   const where = `${job.city}, ${job.state}`;
   let message;
@@ -659,6 +692,7 @@ module.exports = {
   renameFolder,
   ensureFolder,
   findLeads,
+  enqueueSearch,
   getSearchStatus,
   bookmarkLeads,
   saveScript,

@@ -34,8 +34,7 @@ const { addEmailContacts } = require('../services/leadEmailContacts');
 const { getValidAccessToken } = require('../services/googleDriveAccess');
 const { autoAttachCadenceIfNeeded } = require('../services/leadCadence');
 const { clampPipelineStage } = require('../services/pipelineConstants');
-const { parseImportFile } = require('../services/csvLeadImport');
-const { findExistingLead, upsertLeadInMemoryList } = require('../services/leadDedupe');
+const { importLeadsFromCsv } = require('../services/leadImportRun');
 const { recommendCadenceTemplate } = require('../services/leadCadence');
 const sequenceEngine = require('../services/sequenceEngine');
 const pipelineStagesService = require('../services/pipelineStagesService');
@@ -884,57 +883,25 @@ router.post('/import-csv', apiKeyAuth, express.json({ limit: '15mb' }), async (r
       return res.status(400).json({ success: false, error: 'csvContent is required.' });
     }
 
-    const buffer = Buffer.from(csvContent, 'utf8');
-    const parsed = parseImportFile(buffer, fileName, { leadSource: req.body.leadSource || 'autonomous' });
-    const records = parsed.leads;
-
-    const folderName = String(req.body.folderName || req.body.newFolderName || '').trim();
-    let folderKey = String(req.body.folderKey || '').trim();
-    let resolvedFolderName = '';
-    if (folderName) {
-      const folder = await ensureFolderByName(wid, folderName);
-      if (folder && folder.key) {
-        folderKey = String(folder.key);
-        resolvedFolderName = String(folder.name || folderName).trim();
-      }
-    }
-
-    let created = 0;
-    let updated = 0;
-    let failed = 0;
-    const savedKeys = [];
-    const workspaceLeads = await dbService.getAllLeads(wid);
-
-    for (const rec of records) {
-      if (!rec.title) { continue; }
-      try {
-        const payload = { ...rec, workspaceId: wid };
-        if (folderKey) payload.folderKey = folderKey;
-        if (String(req.body.source || '').trim() === 'chrome_extension') {
-          payload.source = 'chrome_extension';
-          payload.sourceType = payload.sourceType || 'chrome_extension';
-        }
-        const existing = findExistingLead(workspaceLeads, payload, wid);
-        const result = await dbService.saveLeadWithMeta(payload);
-        savedKeys.push(result.key);
-        if (result.lead) upsertLeadInMemoryList(workspaceLeads, result.lead);
-        if (existing || result.merged) updated++;
-        else created++;
-        try { await autoAttachCadenceIfNeeded({ leadKey: result.key, workspaceId: wid }); } catch (_) { /* non-fatal */ }
-      } catch (e) {
-        failed++;
-      }
-    }
+    const result = await importLeadsFromCsv({
+      workspaceId: wid,
+      csvContent,
+      fileName,
+      leadSource: req.body.leadSource,
+      folderKey: req.body.folderKey,
+      folderName: req.body.folderName || req.body.newFolderName,
+      source: String(req.body.source || '').trim(),
+    });
 
     res.json({
       success: true,
-      created,
-      updated,
-      failed,
-      keys: savedKeys,
-      folderKey,
-      folderName: resolvedFolderName,
-      folderUrl: folderKey ? chromeExtensionFolderUrl(folderKey) : '',
+      created: result.created,
+      updated: result.updated,
+      failed: result.failed,
+      keys: result.keys,
+      folderKey: result.folderKey,
+      folderName: result.folderName,
+      folderUrl: result.folderKey ? chromeExtensionFolderUrl(result.folderKey) : '',
     });
   } catch (err) {
     next(err);
