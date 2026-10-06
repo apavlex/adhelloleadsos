@@ -5130,6 +5130,24 @@
       updateFocusBulkGhlCount();
     }
 
+    var GOAL_CELEBRATED_KEY = 'focus-goal-celebrated-day';
+    function localDayKey() {
+      var d = new Date();
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+    function goalCelebratedToday() {
+      try {
+        return localStorage.getItem(GOAL_CELEBRATED_KEY) === localDayKey();
+      } catch (e) {
+        return false;
+      }
+    }
+    function markGoalCelebratedToday() {
+      try {
+        localStorage.setItem(GOAL_CELEBRATED_KEY, localDayKey());
+      } catch (e) {}
+    }
+
     function refreshMetrics() {
       if (isSelectionSession) {
         updateSelectionProgress();
@@ -5147,8 +5165,9 @@
           fill.style.width = pct + '%';
           barWrap.setAttribute('aria-valuenow', String(n));
           barWrap.setAttribute('aria-valuemax', String(touchGoal));
-          if (!celebrateDismissed && n >= touchGoal) {
+          if (!celebrateDismissed && n >= touchGoal && !goalCelebratedToday()) {
             modalCelebrate.classList.remove('hidden');
+            markGoalCelebratedToday();
           }
         })
         .catch(function () {});

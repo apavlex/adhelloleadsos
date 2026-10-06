@@ -5,7 +5,7 @@ const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
 const {
-  countUniqueLeadsTouchedOnUtcDate,
+  countUniqueLeadsTouchedToday,
 } = require('../services/trackerStats');
 const { loadDailyTouchGoal } = require('../services/touchGoalPrefs');
 const { computeOutreachStreakWithLeads } = require('../services/trackerAutoFill');
@@ -122,7 +122,7 @@ router.get('/', async (req, res, next) => {
     const today = new Date().toISOString().slice(0, 10);
     const history = await dbService.listDailyTrackers(req.workspaceId, email, 60);
     const streak = computeOutreachStreakWithLeads(history, today, workspaceLeads);
-    const touchesToday = countUniqueLeadsTouchedOnUtcDate(workspaceLeads, today);
+    const touchesToday = countUniqueLeadsTouchedToday(workspaceLeads, await dbService.getWorkspace(req.workspaceId));
     const touchGoal = await loadDailyTouchGoal(req);
     const repliesWaiting = countReplySignals(businessLeads);
     const queueNeedingAction = countQueueNeedingAction(businessLeads);

@@ -1,5 +1,5 @@
 const dbService = require('./database');
-const { computeOutreachStreak, countUniqueLeadsTouchedOnUtcDate } = require('./trackerStats');
+const { computeOutreachStreak, countUniqueLeadsTouchedToday } = require('./trackerStats');
 const { chatCompletion } = require('./llmClient');
 const { filterLeadsForRequest } = require('./workspaceService');
 
@@ -45,7 +45,7 @@ async function buildCoachContext(req) {
   }
 
   const today = new Date().toISOString().slice(0, 10);
-  const touchesToday = countUniqueLeadsTouchedOnUtcDate(workspace, today);
+  const touchesToday = countUniqueLeadsTouchedToday(workspace, await dbService.getWorkspace(wid));
   const history60 = await dbService.listDailyTrackers(wid, email, 60);
   const streak = computeOutreachStreak(history60, today);
 

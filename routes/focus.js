@@ -7,7 +7,7 @@ const dbService = require('../services/database');
 const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
 const { filterBusinessPipelineLeads } = require('../services/leadListFilters');
 const {
-  countUniqueLeadsTouchedOnUtcDate,
+  countUniqueLeadsTouchedToday,
 } = require('../services/trackerStats');
 const { loadDailyTouchGoal, saveDailyTouchGoal } = require('../services/touchGoalPrefs');
 const {
@@ -196,7 +196,7 @@ router.get('/metrics.json', async (req, res, next) => {
     const today = new Date().toISOString().slice(0, 10);
     const all = await dbService.getAllLeads(req.workspaceId);
     const workspaceLeads = filterLeadsForRequest(req, all);
-    const touchesToday = countUniqueLeadsTouchedOnUtcDate(workspaceLeads, today);
+    const touchesToday = countUniqueLeadsTouchedToday(workspaceLeads, await dbService.getWorkspace(req.workspaceId));
     const touchGoal = await loadDailyTouchGoal(req);
     res.json({ success: true, touchesToday, touchGoal });
   } catch (e) {

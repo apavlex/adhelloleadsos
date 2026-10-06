@@ -1,3 +1,6 @@
+const { DateTime } = require('luxon');
+const { resolveWorkspaceTimezone } = require('./workspaceTimezone');
+
 /** Delivery milestones that imply a personalized outreach touch was made */
 const PERSONALIZED_TOUCH_STATUSES = new Set([
   'Email Sent',
@@ -21,9 +24,13 @@ function utcCalendarDayPrefix(iso) {
  * Each lead counts at most once per day (multiple notes / status changes same day still = 1).
  */
 function leadHasPersonalizedTouchOnUtcDate(lead, dateStr) {
+  return leadHasPersonalizedTouchWhen(lead, (ts) => utcCalendarDayPrefix(ts) === dateStr);
+}
+
+function leadHasPersonalizedTouchWhen(lead, isOnDay) {
   const updates = Array.isArray(lead.updates) ? lead.updates : [];
   for (const u of updates) {
-    if (utcCalendarDayPrefix(u.timestamp) !== dateStr) continue;
+    if (!isOnDay(u.timestamp)) continue;
     if (u.type === 'note' && String(u.value || '').trim()) return true;
     if (OUTBOUND_DIAL_UPDATE_TYPES.has(String(u.type || '')) && String(u.value || '').trim()) {
       return true;
@@ -47,6 +54,28 @@ function countUniqueLeadsTouchedOnUtcDate(leads, dateStr) {
   let n = 0;
   for (const lead of leads || []) {
     if (leadHasPersonalizedTouchOnUtcDate(lead, dateStr)) n += 1;
+  }
+  return n;
+}
+
+/**
+ * Unique leads touched on today's calendar day in the workspace timezone (the daily touch goal resets at local midnight).
+ * @param {object|string} workspaceOrTz workspace (uses .timezone) or IANA zone
+ */
+function countUniqueLeadsTouchedToday(leads, workspaceOrTz, now = new Date()) {
+  const zone = resolveWorkspaceTimezone(workspaceOrTz);
+  const start = DateTime.fromJSDate(now, { zone: 'utc' }).setZone(zone).startOf('day');
+  const startMs = start.toMillis();
+  const endMs = start.plus({ days: 1 }).toMillis();
+  const utcPrefixes = new Set([start.toUTC().toISODate(), start.plus({ days: 1 }).toUTC().toISODate()]);
+  const isOnDay = (ts) => {
+    if (!ts || typeof ts !== 'string' || !utcPrefixes.has(ts.slice(0, 10))) return false;
+    const ms = Date.parse(ts);
+    return ms >= startMs && ms < endMs;
+  };
+  let n = 0;
+  for (const lead of leads || []) {
+    if (leadHasPersonalizedTouchWhen(lead, isOnDay)) n += 1;
   }
   return n;
 }
@@ -186,6 +215,7 @@ module.exports = {
   buildDailyChartSeries,
   buildDayRollup,
   countUniqueLeadsTouchedOnUtcDate,
+  countUniqueLeadsTouchedToday,
   DEFAULT_DAILY_TOUCH_GOAL,
   clampDailyTouchGoal,
   resolveDailyTouchGoal,

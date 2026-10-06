@@ -5,7 +5,7 @@
 const dbService = require('./database');
 const {
   computeOutreachStreak,
-  countUniqueLeadsTouchedOnUtcDate,
+  countUniqueLeadsTouchedToday,
 } = require('./trackerStats');
 const { loadDailyTouchGoal } = require('./touchGoalPrefs');
 const pipelineStagesService = require('./pipelineStagesService');
@@ -220,7 +220,7 @@ async function buildOutreachCoachSnapshot(req, opts = {}) {
   const allSchedules = await dbService.listSchedules();
   const scheduledSearchesCount = allSchedules.filter((s) => (s.workspaceId || 'default') === wid).length;
 
-  const touchesToday = countUniqueLeadsTouchedOnUtcDate(leads, today);
+  const touchesToday = countUniqueLeadsTouchedToday(leads, await dbService.getWorkspace(wid));
 
   const history60 = await dbService.listDailyTrackers(wid, email, 62);
   const streak = computeOutreachStreak(history60, today);

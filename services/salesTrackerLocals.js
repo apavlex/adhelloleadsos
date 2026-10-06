@@ -5,7 +5,7 @@ const dbService = require('./database');
 const { filterLeadsForRequest, userEmail } = require('./workspaceService');
 const {
   buildDayRollup,
-  countUniqueLeadsTouchedOnUtcDate,
+  countUniqueLeadsTouchedToday,
 } = require('./trackerStats');
 const { loadDailyTouchGoal } = require('./touchGoalPrefs');
 const {
@@ -74,9 +74,9 @@ async function loadSalesTrackerLocals(req) {
   const checklistWeek = enrichRollupWithLeadInference(buildDayRollup(today, history60, 7), leadsScoped);
   const checklistMonth = enrichRollupWithLeadInference(buildDayRollup(today, history60, 30), leadsScoped);
   const outreachCoach = await buildOutreachCoachSnapshot(req);
-  const touchesToday = countUniqueLeadsTouchedOnUtcDate(leadsScoped, today);
-  const touchGoal = await loadDailyTouchGoal(req);
   const workspaceDoc = await dbService.getWorkspace(wid);
+  const touchesToday = countUniqueLeadsTouchedToday(leadsScoped, workspaceDoc);
+  const touchGoal = await loadDailyTouchGoal(req);
   const conversionSnapshot = buildConversionSnapshot(leadsScoped, workspaceDoc);
   const businessLeads = filterBusinessPipelineLeads(leadsScoped);
   const overdueFollowUps = countOverdueSequences(businessLeads);
