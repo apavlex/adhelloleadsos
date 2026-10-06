@@ -28,7 +28,6 @@ const actionPlanTracker = require('../services/actionPlanTracker');
 const { buildOpportunityBoard, selectPipeline } = require('../services/opportunityBoards');
 const { buildBookmarkSessions, buildRecentlyWorked } = require('../services/todayResumeQueue');
 const { leadLogsMentionReply } = require('../services/leadActivityWindow');
-const { pendingInboundItems } = require('../services/inboundEvents');
 function firstNameFromUser(user) {
   const raw =
     (user && user.displayName) ||
@@ -126,7 +125,6 @@ router.get('/', async (req, res, next) => {
     const touchesToday = countUniqueLeadsTouchedOnUtcDate(workspaceLeads, today);
     const touchGoal = await loadDailyTouchGoal(req);
     const repliesWaiting = countReplySignals(businessLeads);
-    const inboundItems = pendingInboundItems(workspaceLeads);
     const queueNeedingAction = countQueueNeedingAction(businessLeads);
 
     const activation = await activationService.getState(email, req.workspace || req.workspaceId);
@@ -262,7 +260,6 @@ router.get('/', async (req, res, next) => {
       touchGoal,
       streak,
       repliesWaiting,
-      inboundItems,
       queueNeedingAction,
       totalLeads: businessLeads.length,
       outreachCoach,
@@ -321,7 +318,7 @@ router.post('/clear-automation-queue', express.json(), async (req, res, next) =>
   }
 });
 
-/** Mark a lead's inbound activity (form lead, missed call, text) as handled on Today. */
+/** Mark a lead's inbound activity (form lead, missed call, text) as handled (bell → Inbound → Done). */
 router.post('/inbound/done', express.json(), async (req, res, next) => {
   try {
     const raw = String((req.body && req.body.leadKey) || '').trim();

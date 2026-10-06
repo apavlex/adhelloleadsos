@@ -699,6 +699,21 @@ async function searchConversations({ contactId, limit = 5 } = {}, integrationEnv
   });
 }
 
+/** Location conversations with the most recent message first. */
+async function listRecentConversations({ limit = 50 } = {}, integrationEnv) {
+  const { locationId } = resolveConfig(integrationEnv);
+  return ghlRequest('GET', '/conversations/search', {
+    integrationEnv,
+    query: {
+      locationId,
+      limit: Math.min(Math.max(limit, 1), 100),
+      sort: 'desc',
+      sortBy: 'last_message_date',
+    },
+    apiVersion: GHL_CONVERSATIONS_API_VERSION,
+  });
+}
+
 /** Fetch messages for a conversation (paginated by lastMessageId). */
 async function getConversationMessages(
   conversationId,
@@ -796,6 +811,7 @@ module.exports = {
   normalizePhoneE164,
   sendConversationMessage,
   searchConversations,
+  listRecentConversations,
   getConversationMessages,
   getLocation,
   searchLocations,

@@ -1521,6 +1521,22 @@
       });
       sessionStorage.setItem(CLIENT_BELL_NOTIFS_KEY, JSON.stringify(list.slice(0, 12)));
     } catch (_) {}
+    if (item && item.headline) {
+      try {
+        fetch('/notifications/log', {
+          method: 'POST',
+          credentials: 'same-origin',
+          keepalive: true,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            headline: item.headline,
+            body: item.body || '',
+            href: item.href || '',
+            linkLabel: item.linkLabel || '',
+          }),
+        }).catch(function () {});
+      } catch (_) {}
+    }
     if (item && item.desktop) {
       notifyDesktopJobComplete(
         item.headline || 'Agency OS',

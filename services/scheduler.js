@@ -367,6 +367,13 @@ module.exports = {
       );
     });
 
+    // New GHL texts / emails / calls even when GHL webhooks are not delivered (every 2 min)
+    cron.schedule('*/2 * * * *', () => {
+      require('./ghlInboundPoll').pollAllWorkspaces().catch((e) =>
+        console.error('[SCHEDULER] GHL inbound poll failed:', e.message)
+      );
+    });
+
     // Task reminders pushed to phones / closed browsers (every minute)
     cron.schedule('* * * * *', () => {
       runTaskPushReminders().catch((e) =>
@@ -391,5 +398,10 @@ module.exports = {
         console.error('[SCHEDULER] Weekly voicemail drops (startup) failed:', e.message)
       );
     }, 13000);
+    setTimeout(() => {
+      require('./ghlInboundPoll').pollAllWorkspaces().catch((e) =>
+        console.error('[SCHEDULER] GHL inbound poll (startup) failed:', e.message)
+      );
+    }, 20000);
   }
 };

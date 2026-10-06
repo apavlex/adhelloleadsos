@@ -86,12 +86,21 @@
         <div class="processing-ring"></div>
         <span id="bulkEnhanceBellBadge" class="nav-bell-badge hidden" aria-hidden="true"></span>
         <div id="notificationPing" class="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full hidden"></div>
+        <span id="navInboundBadge" class="nav-inbound-badge hidden" aria-hidden="true"></span>
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
         </svg>
         <div id="notificationDropdown" class="absolute top-full mt-3 right-0 w-80 bg-white dark:bg-slate-900 shadow-2xl rounded-2xl hidden p-0 border border-brand-border dark:border-white/10 z-[100] animate-slide-up overflow-hidden">
           <div class="p-4 border-b border-brand-border dark:border-white/5 bg-brand-cream/30 dark:bg-white/5">
             <h3 class="text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white">Notifications</h3>
+          </div>
+          <div id="navInboundSection" class="hidden border-b border-brand-border dark:border-white/5">
+            <div class="px-4 pt-3 pb-1 flex items-center gap-2">
+              <span class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">Inbound</span>
+              <span id="navInboundCount" class="inline-flex items-center justify-center h-5 px-1.5 rounded-full bg-brand-yellow text-brand-dark text-[10px] font-black tabular-nums"></span>
+              <span class="ml-auto text-[10px] text-brand-muted">Waiting on a reply</span>
+            </div>
+            <ul id="navInboundList" class="max-h-[320px] overflow-y-auto"></ul>
           </div>
           <div id="notificationList" class="max-h-[320px] overflow-y-auto">
             <div class="p-8 text-center text-brand-muted dark:text-slate-500 italic text-[11px]">
@@ -112,7 +121,7 @@
             <button type="button" id="navPushOff" class="hidden mt-1 w-full text-[10px] font-bold text-brand-muted dark:text-slate-400 hover:underline">Turn off on this device</button>
           </div>
           <div class="p-3 border-t border-brand-border dark:border-white/5 text-center">
-            <a href="/history" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline">View history</a>
+            <a href="/notifications" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline">All notifications</a>
           </div>
         </div>
       </div>
