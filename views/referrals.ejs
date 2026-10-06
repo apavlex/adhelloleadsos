@@ -74,6 +74,19 @@
     .ref-pop-tag.is-on { background: var(--brand-yellow, #FFD644); color: var(--brand-on-accent, #111827); border-color: transparent; }
     .ref-pop-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
     .ref-pop-close { margin-left: auto; }
+    .ref-niches > summary { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; cursor: pointer; list-style: none; }
+    .ref-niches > summary::-webkit-details-marker { display: none; }
+    .ref-niches-toggle { transition: transform 120ms ease; color: #94a3b8; }
+    .ref-niches:not([open]) .ref-niches-toggle { transform: rotate(-90deg); }
+    .ref-niche-list { display: grid; grid-template-columns: 1fr; gap: 0.45rem; margin: 0.85rem 0 0; padding: 0; list-style: none; }
+    @media (min-width: 768px) { .ref-niche-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    .ref-niche-list li { display: flex; align-items: center; gap: 0.6rem; min-width: 0; border-radius: 0.9rem; padding: 0.5rem 0.6rem; background: rgba(15, 23, 42, 0.03); }
+    html.dark .ref-niche-list li { background: rgba(255, 255, 255, 0.04); }
+    .ref-niche-num { flex: none; width: 1.5rem; height: 1.5rem; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 800; background: var(--brand-yellow, #FFD644); color: var(--brand-on-accent, #111827); }
+    .ref-niche-body { flex: 1 1 auto; min-width: 0; font-size: 0.85rem; }
+    .ref-niche-body strong { display: block; font-weight: 700; }
+    .ref-niche-body em { display: block; font-style: normal; font-size: 0.74rem; line-height: 1.3; color: #64748b; margin-top: 0.1rem; }
+    .ref-niche-form { margin-top: 0.9rem; }
   </style>
   <%- include('partials/tailwind_css') %>
 </head>
@@ -85,7 +98,7 @@
       : '';
     const rows = Array.isArray(partners) ? partners : [];
     const counts = totals || { partners: 0, connected: 0, intros: 0, sent: 0, received: 0 };
-    const noticeBad = notice && /^(Could not|That partner|Unknown|Write a note)/.test(notice);
+    const noticeBad = notice && /^(Could not|That partner|Unknown|Write a note|Only an owner|Describe your business|AI was busy)/.test(notice);
     const net = (typeof networkSetup !== 'undefined' && networkSetup) ? networkSetup : { trades: [], zones: [], memberLeadKeys: [] };
     const netMembers = new Set(net.memberLeadKeys || []);
     const netReady = net.zones.length > 0 && net.trades.length > 0;
@@ -121,6 +134,45 @@
         <p class="font-display font-black text-2xl" data-ref-total="received"><%= counts.received %></p>
       </div>
     </div>
+
+    <%
+      const nicheData = (typeof referralNiches !== 'undefined' && referralNiches) ? referralNiches : { items: [] };
+      const niches = Array.isArray(nicheData.items) ? nicheData.items : [];
+      const canNiches = typeof canManageNiches === 'undefined' ? true : !!canManageNiches;
+      const nicheDesc = typeof nicheDescription !== 'undefined' ? String(nicheDescription || '') : '';
+    %>
+    <% if (niches.length || canNiches) { %>
+    <details id="partnerNiches" class="ref-card ref-niches mb-6" <%= (!rows.length || !niches.length || (typeof openNiches !== 'undefined' && openNiches)) ? 'open' : '' %>>
+      <summary>
+        <span>
+          <span class="block text-[10px] font-black uppercase tracking-widest text-brand-muted">Who to partner with</span>
+          <span class="block font-display font-extrabold text-lg"><%= niches.length ? `Your ${niches.length} referral partner niches` : 'Find your 26 referral partner niches' %></span>
+        </span>
+        <span class="ref-niches-toggle" aria-hidden="true">▾</span>
+      </summary>
+      <% if (niches.length) { %>
+      <p class="text-sm text-brand-muted mt-1">Start at the top: search a niche, save the best local businesses, then add them here as partners.<%= nicheData.fallback ? ' These are common home-service partners because the AI was busy; regenerate below for ones tailored to you.' : '' %></p>
+      <ol class="ref-niche-list">
+        <% niches.forEach(function (n, i) { %>
+        <li>
+          <span class="ref-niche-num"><%= i + 1 %></span>
+          <span class="ref-niche-body"><strong><%= n.name %></strong><% if (n.why) { %><em><%= n.why %></em><% } %></span>
+          <a href="<%= n.searchUrl %>" class="ref-btn ref-btn-ghost">Find</a>
+        </li>
+        <% }); %>
+      </ol>
+      <% } else { %>
+      <p class="text-sm text-brand-muted mt-1">AI picks the 26 kinds of local businesses most likely to send you work, so you know exactly who to start calling.</p>
+      <% } %>
+      <% if (canNiches) { %>
+      <form method="post" action="/referrals/niches" class="ref-niche-form" data-niche-form>
+        <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="nicheBusinessDescription">Your business</label>
+        <textarea id="nicheBusinessDescription" name="businessDescription" rows="2" maxlength="1500" class="ref-note" placeholder="e.g. Electrical remodels, new builds and smart panel upgrades"><%= nicheDesc %></textarea>
+        <button type="submit" class="ref-btn <%= niches.length ? 'ref-btn-ghost' : 'ref-btn-yellow ref-btn-lg' %> mt-2"><%= niches.length ? 'Regenerate with AI' : 'Find niches with AI' %></button>
+      </form>
+      <% } %>
+    </details>
+    <% } %>
 
     <form method="get" action="/referrals" class="mb-4 flex items-center gap-2" role="search">
       <label class="relative flex-1">
@@ -765,6 +817,27 @@
 
       document.addEventListener('keydown', function (event) {
         if (event.key === 'Escape') closePop();
+      });
+    })();
+  </script>
+  <script>
+    (function () {
+      var form = document.querySelector('[data-niche-form]');
+      if (!form) return;
+      form.addEventListener('submit', function (event) {
+        if (form.dataset.busy === '1') { event.preventDefault(); return; }
+        form.dataset.busy = '1';
+        var btn = form.querySelector('button[type="submit"]');
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = 'Finding your niches… (up to a minute)';
+        }
+      });
+      window.addEventListener('pageshow', function (event) {
+        if (!event.persisted) return;
+        form.dataset.busy = '';
+        var btn = form.querySelector('button[type="submit"]');
+        if (btn) btn.disabled = false;
       });
     })();
   </script>

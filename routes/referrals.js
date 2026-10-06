@@ -1,12 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
-const { filterLeadsForRequest } = require('../services/workspaceService');
+const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
 const { filterBusinessPipelineLeads } = require('../services/leadListFilters');
 const referralNetwork = require('../services/referralNetwork');
 const networkStore = require('../services/networkStore');
 const networkReferrals = require('../services/networkReferrals');
 const { tradesForNetwork } = require('../services/networkTrades');
+const workspaceIntegrations = require('../services/workspaceIntegrations');
+const { suggestReferralNiches, applyNichesToNetwork, nicheSearchUrl } = require('../services/suggestReferralNiches');
 
 const ACTION_NOTICE = {
   connect: 'Marked connected.',
@@ -45,6 +47,29 @@ async function workspaceLeads(req) {
   return filterBusinessPipelineLeads(filterLeadsForRequest(req, all));
 }
 
+/** Best description of the business we have on file, for the niche finder. */
+function describeBusiness(ws) {
+  const w = ws || {};
+  if (w.referralNiches && w.referralNiches.description) return String(w.referralNiches.description).trim();
+  const pi = w.pipelineIntake || {};
+  if (pi.businessDescription) return String(pi.businessDescription).trim();
+  const si = w.salesIntake || {};
+  return [si.businessName || w.name, si.vertical, si.offerName, si.targetAudience && `serving ${si.targetAudience}`]
+    .filter(Boolean)
+    .join(', ')
+    .trim();
+}
+
+function presentNiches(ws) {
+  const saved = ws && ws.referralNiches;
+  const items = saved && Array.isArray(saved.items) ? saved.items : [];
+  return {
+    items: items.map((n) => ({ name: n.name, why: n.why || '', searchUrl: nicheSearchUrl(n, ws.icp) })),
+    fallback: !!(saved && saved.fallback),
+    generatedAt: (saved && saved.generatedAt) || null,
+  };
+}
+
 async function findLead(req, key) {
   const id = String(key || '').trim();
   if (!id) return null;
@@ -61,6 +86,7 @@ router.get('/', async (req, res, next) => {
     const [zones, members] = network
       ? await Promise.all([networkStore.listZones(network.id), networkStore.listMembers(network.id)])
       : [[], []];
+    const ws = (await dbService.getWorkspace(req.workspaceId)) || {};
     const partners = referralNetwork.listPartners(leads, q);
     if (focus && !partners.some((p) => p.key === focus)) {
       const lead = leads.find((l) => l && l.key === focus);
@@ -80,9 +106,53 @@ router.get('/', async (req, res, next) => {
       totals: referralNetwork.networkTotals(leads),
       savedCount: leads.length,
       notice: String(req.query.notice || '').trim(),
+      referralNiches: presentNiches(ws),
+      nicheDescription: describeBusiness(ws),
+      canManageNiches: req.canManageWorkspace !== false,
+      openNiches: req.query.niches === '1',
     });
   } catch (err) {
     next(err);
+  }
+});
+
+router.post('/niches', express.urlencoded({ extended: false }), async (req, res) => {
+  if (req.canManageWorkspace === false) {
+    return res.redirect(backUrl('', 'Only an owner or admin can change partner niches.'));
+  }
+  try {
+    const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
+    const description = String(req.body.businessDescription || '').trim().slice(0, 1500) || describeBusiness(ws);
+    if (description.length < 3) return res.redirect(backUrl('', 'Describe your business first.'));
+    let integrationEnv = null;
+    try {
+      integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
+    } catch (_) {
+      integrationEnv = null;
+    }
+    const { niches, fallback } = await suggestReferralNiches(
+      { businessDescription: description, businessName: ws.name },
+      { integrationEnv }
+    );
+    const fresh = (await dbService.getWorkspace(req.workspaceId)) || ws;
+    fresh.referralNiches = { items: niches, fallback, description, generatedAt: new Date().toISOString() };
+    await dbService.saveWorkspace(req.workspaceId, fresh);
+    let notice = fallback
+      ? `AI was busy, so we picked ${niches.length} common partner niches. Try again later for ones tailored to you.`
+      : `Found ${niches.length} referral partner niches for your business.`;
+    try {
+      const { applied } = await applyNichesToNetwork(req.workspaceId, niches, {
+        name: ws.name ? `${ws.name} network` : 'Referral network',
+        ownerEmail: userEmail(req) || '',
+      });
+      if (!applied) notice += ' Your network already has members, so its trades were left as they are.';
+    } catch (e) {
+      console.warn('[referrals] niche network update failed:', e.message);
+    }
+    res.redirect(backUrl('', notice) + '&niches=1#partnerNiches');
+  } catch (err) {
+    console.error('[referrals] niche suggestion failed:', err.message);
+    res.redirect(backUrl('', 'Could not find partner niches. Please try again.'));
   }
 });
 
