@@ -147,7 +147,7 @@
     <% } %>
 
     <% if (step === '2b') { %>
-    <form method="post" action="/workspaces/new" class="max-w-xl space-y-5 brand-card p-8 dark:bg-slate-900 dark:border-white/10">
+    <form method="post" action="/workspaces/new" class="max-w-xl space-y-5 brand-card p-8 dark:bg-slate-900 dark:border-white/10" data-ai-busy="Designing your pipeline…" data-ai-hint="AI is designing your stages and picking your 26 referral partner niches. This can take up to a minute.">
       <input type="hidden" name="action" value="ai_intake" />
       <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white">AI pipeline intake</h2>
       <div>
@@ -201,17 +201,17 @@
     <% if (w.setupPath === 'ai') { %>
     <div class="max-w-2xl mb-4 flex flex-wrap gap-2 items-center">
       <span class="text-[10px] font-black uppercase text-brand-muted">Regenerate:</span>
-      <form method="post" action="/workspaces/new" class="inline">
+      <form method="post" action="/workspaces/new" class="inline" data-ai-busy="Regenerating…">
         <input type="hidden" name="action" value="regenerate_ai" />
         <input type="hidden" name="modifier" value="simpler" />
         <button type="submit" class="px-3 py-1.5 rounded-lg border border-brand-border dark:border-white/10 text-xs font-bold bg-white dark:bg-slate-900">Simpler</button>
       </form>
-      <form method="post" action="/workspaces/new" class="inline">
+      <form method="post" action="/workspaces/new" class="inline" data-ai-busy="Regenerating…">
         <input type="hidden" name="action" value="regenerate_ai" />
         <input type="hidden" name="modifier" value="more_detailed" />
         <button type="submit" class="px-3 py-1.5 rounded-lg border border-brand-border dark:border-white/10 text-xs font-bold bg-white dark:bg-slate-900">More detail</button>
       </form>
-      <form method="post" action="/workspaces/new" class="inline">
+      <form method="post" action="/workspaces/new" class="inline" data-ai-busy="Regenerating…">
         <input type="hidden" name="action" value="regenerate_ai" />
         <input type="hidden" name="modifier" value="try_again" />
         <button type="submit" class="px-3 py-1.5 rounded-lg border border-brand-border dark:border-white/10 text-xs font-bold bg-white dark:bg-slate-900">Try again</button>
@@ -222,7 +222,9 @@
       <input type="hidden" name="action" value="step3_continue" />
       <input type="hidden" name="stagesJson" id="stagesJsonField" value="" />
       <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white">Review pipeline</h2>
-      <% if (w.cwRationale) { %>
+      <% if (w.cwRationale && w.cwFallback) { %>
+      <p class="text-sm rounded-xl border border-amber-200 dark:border-white/10 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 px-4 py-3"><%= w.cwRationale %></p>
+      <% } else if (w.cwRationale) { %>
       <blockquote class="text-sm text-brand-muted border-l-4 border-brand-yellow pl-4 italic">&ldquo;<%= w.cwRationale %>&rdquo;</blockquote>
       <% } %>
       <ul id="wizardStageList" class="space-y-3">
@@ -240,6 +242,29 @@
         <% }); %>
       </ul>
       <button type="button" id="wizardAddStage" class="text-sm font-bold text-brand-yellow">+ Add stage</button>
+
+      <% const _niches = w.setupPath === 'ai' && Array.isArray(w.cwReferralNiches) ? w.cwReferralNiches : []; %>
+      <% if (_niches.length) { %>
+      <section class="pt-4 border-t border-brand-border dark:border-white/10">
+        <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white"><%= _niches.length %> referral partner niches to start with</h3>
+        <p class="text-sm text-brand-muted mt-1"><%= w.cwNichesFallback ? 'The AI was busy, so these are common partners for home-service businesses.' : 'Picked by AI for your business, strongest referral sources first.' %> They become your referral network trades, and each one links to a ready-made lead search on the Referral Partners page.</p>
+        <ol class="wiz-niche-list">
+          <% _niches.forEach(function (n, i) { %>
+          <li title="<%= n.why || '' %>"><span class="wiz-niche-num"><%= i + 1 %></span><span class="wiz-niche-body"><strong><%= n.name %></strong><% if (n.why) { %><em><%= n.why %></em><% } %></span></li>
+          <% }); %>
+        </ol>
+      </section>
+      <style>
+        .wiz-niche-list { display: grid; grid-template-columns: 1fr; gap: 0.4rem; margin-top: 0.85rem; padding: 0; list-style: none; }
+        @media (min-width: 640px) { .wiz-niche-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        .wiz-niche-list li { display: flex; gap: 0.55rem; align-items: flex-start; border-radius: 0.85rem; padding: 0.5rem 0.65rem; background: rgba(15, 23, 42, 0.03); font-size: 0.82rem; min-width: 0; }
+        html.dark .wiz-niche-list li { background: rgba(255, 255, 255, 0.04); }
+        .wiz-niche-num { flex: none; width: 1.4rem; height: 1.4rem; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.68rem; font-weight: 800; background: var(--brand-yellow, #FFD644); color: var(--brand-on-accent, #111827); }
+        .wiz-niche-body { min-width: 0; }
+        .wiz-niche-body strong { display: block; font-weight: 700; }
+        .wiz-niche-body em { display: block; font-style: normal; font-size: 0.72rem; color: #64748b; line-height: 1.3; margin-top: 0.1rem; }
+      </style>
+      <% } %>
 
       <div class="flex flex-col sm:flex-row gap-3 pt-4">
         <button type="submit" class="btn-pill btn-primary px-8 py-3.5 text-xs font-black uppercase tracking-widest">Continue to scripts</button>
@@ -449,6 +474,54 @@
     </script>
     <% } %>
   </main>
+  <style>
+    .wiz-ai-spin { display: inline-block; width: 0.9em; height: 0.9em; margin-right: 0.5em; vertical-align: -0.1em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 9999px; animation: wiz-ai-spin 0.7s linear infinite; }
+    @keyframes wiz-ai-spin { to { transform: rotate(360deg); } }
+    button.wiz-ai-busy { opacity: 0.75; cursor: wait; }
+  </style>
+  <script>
+    (function () {
+      document.querySelectorAll('form[data-ai-busy]').forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+          if (form.dataset.aiSubmitting === '1') {
+            e.preventDefault();
+            return;
+          }
+          form.dataset.aiSubmitting = '1';
+          var btn = (e.submitter && e.submitter.form === form && e.submitter) || form.querySelector('button[type="submit"]');
+          document.querySelectorAll('form[data-ai-busy] button[type="submit"]').forEach(function (b) {
+            b.disabled = true;
+          });
+          if (btn) {
+            btn.dataset.idleLabel = btn.textContent;
+            btn.classList.add('wiz-ai-busy');
+            btn.innerHTML = '<span class="wiz-ai-spin" aria-hidden="true"></span>' + form.dataset.aiBusy;
+            var hint = document.createElement('p');
+            hint.className = 'text-xs text-brand-muted mt-2';
+            hint.setAttribute('role', 'status');
+            hint.textContent = form.dataset.aiHint || 'AI is designing your stages. This can take up to a minute.';
+            (btn.parentElement || form).appendChild(hint);
+          }
+        });
+      });
+      window.addEventListener('pageshow', function (e) {
+        if (!e.persisted) return;
+        document.querySelectorAll('form[data-ai-busy]').forEach(function (form) {
+          form.dataset.aiSubmitting = '';
+        });
+        document.querySelectorAll('form[data-ai-busy] button[type="submit"]').forEach(function (b) {
+          b.disabled = false;
+          if (b.dataset.idleLabel) {
+            b.textContent = b.dataset.idleLabel;
+            b.classList.remove('wiz-ai-busy');
+          }
+        });
+        document.querySelectorAll('form[data-ai-busy] [role="status"]').forEach(function (el) {
+          el.remove();
+        });
+      });
+    })();
+  </script>
   <%- include('partials/footer') %>
 </body>
 </html>

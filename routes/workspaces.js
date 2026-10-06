@@ -7,6 +7,7 @@ const workspaceBootstrap = require('../services/workspaceBootstrap');
 const { PRESETS, PALETTE } = require('../lib/pipeline/presets');
 const { normalizeStages } = require('../lib/pipeline/normalize');
 const { suggestPipelineStages } = require('../services/suggestPipelineStages');
+const { suggestReferralNiches, applyNichesToNetwork } = require('../services/suggestReferralNiches');
 const pipelineStagesService = require('../services/pipelineStagesService');
 const { normalizeWorkspaceAccentHex } = require('../lib/workspaceAccent');
 const workspaceScriptBootstrap = require('../services/workspaceScriptBootstrap');
@@ -64,9 +65,18 @@ const PRESET_LIST = Object.keys(PRESETS).map((key) => ({
   stages: PRESETS[key].stages,
 }));
 
+async function wizardIntegrationEnv(req) {
+  if (!req.workspaceId) return null;
+  try {
+    return await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
+  } catch (_) {
+    return null;
+  }
+}
+
 router.post('/suggest-stages', express.json(), async (req, res) => {
   try {
-    const result = await suggestPipelineStages(req.body || {});
+    const result = await suggestPipelineStages(req.body || {}, { integrationEnv: await wizardIntegrationEnv(req) });
     if (!result.success) {
       return res.status(400).json(result);
     }
@@ -389,18 +399,31 @@ router.post('/new', express.urlencoded({ extended: true }), async (req, res, nex
         saleIncludes,
         wonDefinition,
       };
-      const result = await suggestPipelineStages({
-        businessDescription,
-        cycleLength,
-        saleIncludes,
-        wonDefinition,
-        modifier: null,
-      });
+      const integrationEnv = await wizardIntegrationEnv(req);
+      const [result, nicheResult] = await Promise.all([
+        suggestPipelineStages(
+          {
+            businessDescription,
+            cycleLength,
+            saleIncludes,
+            wonDefinition,
+            modifier: null,
+          },
+          { integrationEnv }
+        ),
+        suggestReferralNiches({ businessDescription, businessName: w.name }, { integrationEnv }).catch((e) => {
+          console.warn('[workspaces] referral niches failed:', e.message);
+          return null;
+        }),
+      ]);
       if (!result.success) {
         return res.redirect('/workspaces/new?error=' + encodeURIComponent(result.error || 'AI failed'));
       }
       w.cwStages = result.stages;
       w.cwRationale = result.rationale || '';
+      w.cwFallback = !!result.fallback;
+      w.cwReferralNiches = nicheResult ? nicheResult.niches : null;
+      w.cwNichesFallback = nicheResult ? !!nicheResult.fallback : false;
       w.step = 3;
       w.setupPath = 'ai';
       return res.redirect('/workspaces/new');
@@ -412,18 +435,22 @@ router.post('/new', express.urlencoded({ extended: true }), async (req, res, nex
         return res.redirect('/workspaces/new');
       }
       const modifier = String(req.body.modifier || '').trim() || null;
-      const result = await suggestPipelineStages({
-        businessDescription: intake.businessDescription,
-        cycleLength: intake.cycleLength,
-        saleIncludes: intake.saleIncludes || [],
-        wonDefinition: intake.wonDefinition,
-        modifier: modifier === 'try_again' ? null : modifier,
-      });
+      const result = await suggestPipelineStages(
+        {
+          businessDescription: intake.businessDescription,
+          cycleLength: intake.cycleLength,
+          saleIncludes: intake.saleIncludes || [],
+          wonDefinition: intake.wonDefinition,
+          modifier: modifier === 'try_again' ? null : modifier,
+        },
+        { integrationEnv: await wizardIntegrationEnv(req) }
+      );
       if (!result.success) {
         return res.redirect('/workspaces/new?error=' + encodeURIComponent(result.error || 'AI failed'));
       }
       w.cwStages = result.stages;
       w.cwRationale = result.rationale || '';
+      w.cwFallback = !!result.fallback;
       return res.redirect('/workspaces/new');
     }
 
@@ -513,6 +540,16 @@ router.post('/new', express.urlencoded({ extended: true }), async (req, res, nex
         archivedAt: null,
       };
       if (Number.isFinite(avgDealValue) && avgDealValue > 0) doc.avgDealValue = avgDealValue;
+      const referralNiches =
+        w.setupPath === 'ai' && Array.isArray(w.cwReferralNiches) && w.cwReferralNiches.length ? w.cwReferralNiches : null;
+      if (referralNiches) {
+        doc.referralNiches = {
+          items: referralNiches,
+          fallback: !!w.cwNichesFallback,
+          description: pipelineIntake.businessDescription || '',
+          generatedAt: new Date().toISOString(),
+        };
+      }
 
       const scriptPresetKey = workspaceScriptBootstrap.resolveScriptPresetKeyForCreate(w, doc);
       workspaceScriptBootstrap.seedWorkspaceScriptsOnCreate(doc, { presetKey: scriptPresetKey });
@@ -530,6 +567,13 @@ router.post('/new', express.urlencoded({ extended: true }), async (req, res, nex
 
       await pipelineStagesService.deleteAllStages(newId);
       await pipelineStagesService.persistNormalizedStages(newId, stages);
+      if (referralNiches) {
+        try {
+          await applyNichesToNetwork(newId, referralNiches, { name: `${name} network`, ownerEmail: em });
+        } catch (e) {
+          console.warn('[workspaces] could not set network trades from niches:', e.message);
+        }
+      }
       res.redirect('/today');
       return;
     }
