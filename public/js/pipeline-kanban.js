@@ -698,6 +698,11 @@
     const kanbanRoot = document.querySelector('#kanbanView[data-kanban-mode="pipeline"]');
     if (!kanbanRoot) return 0;
 
+    const zoomedStageId = zoomedColumn ? readColumnStageId(zoomedColumn) : '';
+    const zoomedList = zoomedColumn && zoomedColumn.querySelector('.kanban-list');
+    const zoomedScrollTop = zoomedList ? zoomedList.scrollTop : 0;
+    closeStageZoom(true);
+
     const opportunityPipeline = selectedOpportunityBoard();
     if (opportunityPipeline) {
       fillOpportunityStageSelect(opportunityPipeline);
@@ -709,6 +714,7 @@
     oppCardLinesIndex = null;
     bindKanbanCardActions(kanbanRoot);
     columnEls.forEach(ensureKanbanStageSmsButton);
+    columnEls.forEach(ensureKanbanColumnZoom);
 
     const stageIds = columnEls.map(function (el, idx) {
       return readColumnStageId(el, idx);
@@ -749,6 +755,17 @@
       window.__adhelloEnhanceKanbanCards();
     }
 
+    const rezoom = zoomedStageId
+      ? columnEls.find(function (el, idx) { return readColumnStageId(el, idx) === zoomedStageId; })
+      : null;
+    if (rezoom) {
+      openStageZoom(rezoom);
+      const list = rezoom.querySelector('.kanban-list');
+      if (list) list.scrollTop = zoomedScrollTop;
+    } else if (zoomedStageId) {
+      document.body.classList.remove('pk-stage-zoom-open');
+    }
+
     return rows.length;
   }
 
@@ -758,6 +775,128 @@
     if (document.documentElement.classList.contains('adhello-pipeline-view-kanban')) return true;
     return !kanbanViewEl.classList.contains('hidden');
   }
+
+  const ZOOM_ICONS = {
+    zoom: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="m21 3-7 7"/><path d="m3 21 7-7"/></svg>',
+    prev: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>',
+    next: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>',
+    close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
+  };
+  let zoomedColumn = null;
+
+  function kanbanColumnEls() {
+    return Array.from(document.querySelectorAll('#kanbanColumns .kanban-column'));
+  }
+
+  function ensureKanbanColumnZoom(columnWrap) {
+    const title = columnWrap && columnWrap.querySelector('h3');
+    const head = title && title.parentNode;
+    if (!head || head.querySelector('.pk-stage-zoom')) return;
+    head.classList.add('kanban-column-head');
+    head.insertAdjacentHTML(
+      'afterbegin',
+      '<button type="button" class="pk-stage-zoom" data-pk-zoom title="Show only this stage" aria-label="Show only this stage">' +
+        ZOOM_ICONS.zoom +
+        '</button>',
+    );
+  }
+
+  function openStageZoom(columnWrap) {
+    if (!columnWrap) return;
+    if (zoomedColumn && zoomedColumn !== columnWrap) closeStageZoom(true);
+    const columns = kanbanColumnEls();
+    const index = columns.indexOf(columnWrap);
+    const bar = document.createElement('div');
+    bar.className = 'pk-zoom-bar';
+    bar.innerHTML =
+      '<button type="button" data-pk-zoom-nav="prev" title="Previous stage" aria-label="Previous stage"' + (index <= 0 ? ' disabled' : '') + '>' + ZOOM_ICONS.prev + '</button>' +
+      '<span class="pk-zoom-pos">Stage ' + (index + 1) + ' of ' + columns.length + '</span>' +
+      '<button type="button" data-pk-zoom-nav="next" title="Next stage" aria-label="Next stage"' + (index >= columns.length - 1 ? ' disabled' : '') + '>' + ZOOM_ICONS.next + '</button>' +
+      '<button type="button" class="pk-zoom-close" data-pk-zoom-nav="close" title="Back to all stages" aria-label="Back to all stages">' + ZOOM_ICONS.close + '</button>';
+    columnWrap.insertBefore(bar, columnWrap.firstChild);
+    columnWrap.classList.add('is-zoomed');
+    columnWrap.setAttribute('role', 'dialog');
+    columnWrap.setAttribute('aria-modal', 'true');
+    document.body.classList.add('pk-stage-zoom-open');
+    zoomedColumn = columnWrap;
+    const list = columnWrap.querySelector('.kanban-list');
+    if (list) list.scrollTop = 0;
+  }
+
+  function closeStageZoom(keepBodyLock) {
+    if (!zoomedColumn) return;
+    const columnWrap = zoomedColumn;
+    zoomedColumn = null;
+    const bar = columnWrap.querySelector('.pk-zoom-bar');
+    if (bar) bar.remove();
+    columnWrap.classList.remove('is-zoomed');
+    columnWrap.removeAttribute('role');
+    columnWrap.removeAttribute('aria-modal');
+    if (!keepBodyLock) {
+      document.body.classList.remove('pk-stage-zoom-open');
+      if (columnWrap.isConnected && columnWrap.scrollIntoView) {
+        columnWrap.scrollIntoView({ block: 'nearest', inline: 'center' });
+      }
+    }
+  }
+
+  function stepStageZoom(dir) {
+    if (!zoomedColumn) return;
+    const columns = kanbanColumnEls();
+    const target = columns[columns.indexOf(zoomedColumn) + dir];
+    if (target) openStageZoom(target);
+  }
+
+  function setBoardFullscreen(on) {
+    document.body.classList.toggle('pk-fullscreen', !!on);
+    const btn = document.getElementById('pkFullscreenBtn');
+    if (btn) btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    if (!on) closeStageZoom();
+  }
+
+  document.addEventListener('click', function (ev) {
+    const zoomBtn = ev.target.closest('[data-pk-zoom]');
+    if (zoomBtn) {
+      ev.preventDefault();
+      openStageZoom(zoomBtn.closest('.kanban-column'));
+      return;
+    }
+    const nav = ev.target.closest('[data-pk-zoom-nav]');
+    if (nav) {
+      ev.preventDefault();
+      const dir = nav.getAttribute('data-pk-zoom-nav');
+      if (dir === 'close') closeStageZoom();
+      else stepStageZoom(dir === 'next' ? 1 : -1);
+      return;
+    }
+    if (ev.target.closest('#pkFullscreenBtn')) {
+      ev.preventDefault();
+      setBoardFullscreen(!document.body.classList.contains('pk-fullscreen'));
+    } else if (ev.target.closest('#pkFullscreenExit')) {
+      ev.preventDefault();
+      setBoardFullscreen(false);
+    }
+  });
+
+  document.addEventListener('keydown', function (ev) {
+    if (ev.defaultPrevented) return;
+    if (!zoomedColumn && !document.body.classList.contains('pk-fullscreen')) return;
+    if (ev.target && ev.target.closest && ev.target.closest('input, textarea, select, [contenteditable="true"]')) return;
+    if (ev.key === 'Escape') {
+      if (document.querySelector('.opp-pop')) return;
+      ev.preventDefault();
+      if (zoomedColumn) closeStageZoom();
+      else setBoardFullscreen(false);
+    } else if (zoomedColumn && ev.key === 'ArrowLeft') {
+      stepStageZoom(-1);
+    } else if (zoomedColumn && ev.key === 'ArrowRight') {
+      stepStageZoom(1);
+    }
+  }, true);
+
+  document.addEventListener('adhello-pipeline-view-change', function (e) {
+    if (e && e.detail && e.detail.mode !== 'kanban') setBoardFullscreen(false);
+  });
 
   function initKanban() {
     if (!document.querySelector('#kanbanView[data-kanban-mode="pipeline"]')) return 0;

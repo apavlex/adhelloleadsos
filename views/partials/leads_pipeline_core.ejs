@@ -75,6 +75,111 @@
         cursor: pointer;
       }
     }
+    /* Pipeline board: one-stage zoom and full screen, like the Opportunities board. Below the lead panel (z 400). */
+    .pk-board-head { display: flex; align-items: flex-start; gap: 0.75rem; }
+    .pk-board-head-text { flex: 1 1 auto; min-width: 0; }
+    #pkFullscreenBtn { flex: none; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.55rem 0.9rem; border: 1px solid rgba(17, 24, 39, 0.12); border-radius: 999px; background: #fff; color: #0f2747; font-size: 0.625rem; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; }
+    #pkFullscreenBtn svg { width: 0.85rem; height: 0.85rem; display: block; }
+    html.dark #pkFullscreenBtn { background: #0f172a; border-color: rgba(255, 255, 255, 0.2); color: #f8fafc; }
+    #kanbanView .kanban-column-head { gap: 0.4rem; }
+    #kanbanView .kanban-column-head > h3 { flex: 1 1 auto; min-width: 0; }
+    button.pk-stage-zoom { display: none; align-items: center; justify-content: center; flex: none; width: 2rem; height: 2rem; padding: 0; border: 0; border-radius: 999px; background: rgba(15, 39, 71, 0.07); color: #0f2747; cursor: pointer; }
+    button.pk-stage-zoom svg { width: 1rem; height: 1rem; display: block; }
+    html.dark button.pk-stage-zoom { background: rgba(255, 255, 255, 0.08); color: #f8fafc; }
+    @media (max-width: 1023px), (pointer: coarse) {
+      button.pk-stage-zoom { display: inline-flex; }
+    }
+    .kanban-column.is-zoomed button.pk-stage-zoom { display: none; }
+    .pk-zoom-bar { display: none; }
+    #kanbanView .kanban-column.is-zoomed {
+      position: fixed;
+      inset: 0;
+      z-index: 300;
+      width: auto !important;
+      max-width: none;
+      gap: 0.5rem;
+      padding: calc(0.5rem + env(safe-area-inset-top)) 0.4rem 0;
+      background: var(--brand-cream);
+    }
+    html.dark #kanbanView .kanban-column.is-zoomed { background: #020617; }
+    .kanban-column.is-zoomed .pk-zoom-bar { display: flex; align-items: center; gap: 0.5rem; }
+    .pk-zoom-bar button { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 2.5rem; height: 2.5rem; padding: 0; border: 1px solid rgba(17, 24, 39, 0.12); border-radius: 999px; background: #fff; color: #0f2747; cursor: pointer; }
+    .pk-zoom-bar button svg { width: 1.1rem; height: 1.1rem; display: block; }
+    .pk-zoom-bar button:disabled { opacity: 0.3; cursor: not-allowed; }
+    .pk-zoom-bar .pk-zoom-pos { flex: 1 1 auto; text-align: center; font-size: 0.6875rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #64748b; }
+    .pk-zoom-bar .pk-zoom-close { background: #0f2747; border-color: #0f2747; color: #fff; }
+    html.dark .pk-zoom-bar button { background: #0f172a; border-color: rgba(255, 255, 255, 0.14); color: #f8fafc; }
+    html.dark .pk-zoom-bar .pk-zoom-close { background: #FFDB3A; border-color: #FFDB3A; color: #111827; }
+    #kanbanView .kanban-column.is-zoomed .kanban-list,
+    body.pk-fullscreen #kanbanView .kanban-list {
+      flex: 1 1 auto;
+      min-height: 0 !important;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      border-bottom: 0;
+      border-radius: 1.5rem 1.5rem 0 0;
+    }
+    #kanbanView .kanban-column.is-zoomed .kanban-list { padding-bottom: calc(0.75rem + env(safe-area-inset-bottom)); }
+    body.pk-stage-zoom-open,
+    body.pk-fullscreen { overflow: hidden; }
+    body.pk-stage-zoom-open #kanbanView .kanban-column:not(.is-zoomed) { visibility: hidden; }
+    body.pk-fullscreen #kanbanView:not(.hidden) {
+      position: fixed;
+      inset: 0;
+      z-index: 290;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: calc(0.5rem + env(safe-area-inset-top)) 0.4rem 0;
+      background: var(--brand-cream);
+    }
+    html.dark body.pk-fullscreen #kanbanView:not(.hidden) { background: #020617; }
+    body.pk-fullscreen #kanbanView > .pk-board-head { display: none; }
+    body.pk-fullscreen #kanbanColumns {
+      flex: 1 1 auto;
+      min-height: 0;
+      min-width: 0 !important;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding-bottom: 0;
+    }
+    body.pk-fullscreen #kanbanView .kanban-list { padding-bottom: calc(4.5rem + env(safe-area-inset-bottom)); }
+    #pkFullscreenExit { display: none; }
+    body.pk-fullscreen:not(.pk-stage-zoom-open) #pkFullscreenExit {
+      position: fixed;
+      left: 50%;
+      bottom: calc(1rem + env(safe-area-inset-bottom));
+      z-index: 295;
+      transform: translateX(-50%);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.7rem 1.1rem;
+      border: 0;
+      border-radius: 999px;
+      background: #0f2747;
+      color: #fff;
+      font-size: 0.625rem;
+      font-weight: 900;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.28);
+      cursor: pointer;
+    }
+    #pkFullscreenExit svg { width: 0.9rem; height: 0.9rem; display: block; }
+    html.dark #pkFullscreenExit { background: #FFDB3A; color: #111827; }
+    /* Phones: one stage nearly fills the width and snaps into place when swiping. */
+    @media (max-width: 767px) {
+      #kanbanView { scroll-snap-type: x proximity; scrollbar-width: none; }
+      #kanbanView::-webkit-scrollbar { display: none; }
+      #kanbanView #kanbanColumns { gap: 0.5rem; }
+      #kanbanView .kanban-column { width: calc(100vw - 3rem) !important; scroll-snap-align: center; }
+      body.pk-fullscreen #kanbanColumns { gap: 0.4rem; scroll-snap-type: x proximity; scrollbar-width: none; }
+      body.pk-fullscreen #kanbanColumns::-webkit-scrollbar { display: none; }
+      body.pk-fullscreen #kanbanView .kanban-column { width: calc(100vw - 2.5rem) !important; scroll-snap-align: start; }
+      #kanbanView .kanban-column.is-zoomed { width: auto !important; }
+    }
   </style>
   <script>document.documentElement.classList.add('pipeline-prefs-pending');</script>
   <!-- Table View Section -->
@@ -349,10 +454,14 @@
 
   <!-- Pipeline board: workspace stages (drag cards to update stage) -->
   <div id="kanbanView" class="hidden w-full overflow-x-auto pb-12 custom-scrollbar" data-kanban-mode="pipeline">
-          <div class="mb-4">
-            <%- include('/partials/help/kanban_drag_info') %>
-            <p id="kanbanOpportunityCaption" class="mt-2 text-[11px] font-semibold text-brand-muted dark:text-slate-400"></p>
+          <div class="mb-4 pk-board-head">
+            <div class="pk-board-head-text">
+              <%- include('/partials/help/kanban_drag_info') %>
+              <p id="kanbanOpportunityCaption" class="mt-2 text-[11px] font-semibold text-brand-muted dark:text-slate-400"></p>
+            </div>
+            <button type="button" id="pkFullscreenBtn" title="Fullscreen — show only the stages" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>Fullscreen</button>
           </div>
+          <button type="button" id="pkFullscreenExit" title="Exit full screen (Esc)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>Exit full screen</button>
       <div id="kanbanColumns" class="flex gap-4 min-w-max pb-2">
           <% if (typeof pipelineStages !== 'undefined' && pipelineStages) { pipelineStages.forEach((col) => { %>
           <div class="kanban-column w-[min(100vw-2rem,17rem)] shrink-0 flex flex-col gap-3" data-pipeline-stage="<%= col.id %>">
