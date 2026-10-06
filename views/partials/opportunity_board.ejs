@@ -248,9 +248,41 @@
   body.opp-page #oppBoard.opp-page-board .opp-drop {
     min-height: 8rem;
   }
-  body.opp-page.opp-fullscreen .app-shell-top {
-    /* keep top bar; icons-only sidebar is enough for “fullscreen” board mode */
+  /* Fullscreen board and one-stage zoom: nothing above the stages (app top bar, title, buttons). */
+  body.opp-page.opp-fullscreen .app-shell-top,
+  body.opp-page.opp-fullscreen #appTopbar,
+  body.opp-page.opp-fullscreen #oppBoard > .opp-page-toolbar > :first-child,
+  body.opp-stage-zoom-open .app-shell-top,
+  body.opp-stage-zoom-open #appTopbar,
+  body.opp-stage-zoom-open #oppBoard > .opp-page-toolbar,
+  body.opp-stage-zoom-open .opp-stage:not(.is-zoomed) { display: none !important; }
+  body.opp-page.opp-fullscreen #oppBoard > .opp-page-toolbar { padding: 0 0.85rem; border-bottom: 0; }
+  body.opp-page.opp-fullscreen #oppBoard > .opp-page-toolbar #oppBoardMsg { margin: 0.5rem 0; }
+  body.opp-page.opp-fullscreen #oppBoard > .opp-page-board-body { padding-top: calc(0.75rem + env(safe-area-inset-top)); padding-bottom: calc(4rem + env(safe-area-inset-bottom)); }
+  #oppFullscreenExit { display: none; }
+  body.opp-page.opp-fullscreen:not(.opp-stage-zoom-open) #oppFullscreenExit {
+    position: fixed;
+    left: 50%;
+    bottom: calc(1rem + env(safe-area-inset-bottom));
+    z-index: 250;
+    transform: translateX(-50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.7rem 1.1rem;
+    border: 0;
+    border-radius: 999px;
+    background: #0f2747;
+    color: #fff;
+    font-size: 0.625rem;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.28);
+    cursor: pointer;
   }
+  #oppFullscreenExit svg { width: 0.9rem; height: 0.9rem; display: block; }
+  html.dark #oppFullscreenExit { background: #FFDB3A; color: #111827; }
   #oppFullscreenBtn .opp-fs-exit { display: none; }
   body.opp-page.opp-fullscreen #oppFullscreenBtn .opp-fs-enter { display: none; }
   body.opp-page.opp-fullscreen #oppFullscreenBtn .opp-fs-exit { display: inline; }
@@ -340,7 +372,7 @@
         <button type="button" id="oppAddFromMenu" class="btn-pill btn-primary px-6 py-3 text-[10px] font-black uppercase tracking-widest">Add opportunity</button>
         <% } else { %>
         <button type="button" id="oppAddStage" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Add stage</button>
-        <button type="button" id="oppFullscreenBtn" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white" title="Fullscreen — collapse menu to icons" aria-pressed="false">
+        <button type="button" id="oppFullscreenBtn" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white" title="Fullscreen — show only the stages" aria-pressed="false">
           <span class="opp-fs-enter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>Fullscreen</span>
           <span class="opp-fs-exit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>Exit</span>
         </button>
@@ -350,6 +382,9 @@
     </div>
     <p id="oppBoardMsg" class="hidden mt-3 text-sm font-semibold text-red-700" role="status"></p>
   </div>
+  <% if (!_compact) { %>
+  <button type="button" id="oppFullscreenExit" title="Exit full screen (Esc)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>Exit full screen</button>
+  <% } %>
   <div class="opp-page-board-body px-3 sm:px-4 md:px-5 py-3 md:py-4">
     <div class="opp-board" id="oppStageRow">
       <% _board.stages.forEach(function (stage, stageIdx) { %>

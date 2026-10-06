@@ -751,6 +751,7 @@
     if (ev.target && ev.target.closest && ev.target.closest('input, textarea, select, [contenteditable="true"]')) return;
     if (ev.key === 'Escape') {
       if (document.querySelector('.opp-pop')) return;
+      ev.preventDefault();
       closeStageZoom();
     } else if (ev.key === 'ArrowLeft') {
       stepStageZoom(-1);
@@ -917,9 +918,16 @@
       e.preventDefault();
       setFullscreen(!document.body.classList.contains('opp-fullscreen'));
     });
+    var exitBtn = document.getElementById('oppFullscreenExit');
+    if (exitBtn) {
+      exitBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        setFullscreen(false);
+      });
+    }
 
     document.addEventListener('keydown', function (e) {
-      if (e.key !== 'Escape') return;
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
       if (!document.body.classList.contains('opp-fullscreen')) return;
       if (e.target && (e.target.closest('input, textarea, select, [contenteditable="true"]') || e.target.closest('.opp-pop'))) return;
       setFullscreen(false);
