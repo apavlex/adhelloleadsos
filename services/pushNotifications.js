@@ -13,8 +13,8 @@ const VAPID_KV_KEY = 'sys:vapid_keys';
 let configured = null;
 
 function vapidKeys() {
-  const envPublic = String(process.env.VAPID_PUBLIC_KEY || '').trim();
-  const envPrivate = String(process.env.VAPID_PRIVATE_KEY || '').trim();
+  const envPublic = String(process.env.VAPID_PUBLIC_KEY || '').replace(/["'\s]/g, '');
+  const envPrivate = String(process.env.VAPID_PRIVATE_KEY || '').replace(/["'\s]/g, '');
   if (envPublic && envPrivate) return { publicKey: envPublic, privateKey: envPrivate };
   const raw = dbService.getKvSync(VAPID_KV_KEY);
   if (raw) {

@@ -26,11 +26,20 @@
   }
 
   function keyToBytes(base64) {
-    var padded = (base64 + '===='.slice((base64.length + 3) % 4)).replace(/-/g, '+').replace(/_/g, '/');
-    var raw = atob(padded);
+    var clean = String(base64 || '').replace(/[\s"'=]/g, '').replace(/-/g, '+').replace(/_/g, '/');
+    var raw = atob(clean + '==='.slice(0, (4 - (clean.length % 4)) % 4));
     var out = new Uint8Array(raw.length);
     for (var i = 0; i < raw.length; i += 1) out[i] = raw.charCodeAt(i);
     return out;
+  }
+
+  function sameKey(sub, key) {
+    var current = sub && sub.options && sub.options.applicationServerKey;
+    if (!current) return true;
+    var a = new Uint8Array(current);
+    if (a.length !== key.length) return false;
+    for (var i = 0; i < a.length; i += 1) if (a[i] !== key[i]) return false;
+    return true;
   }
 
   function fetchPublicKey() {
@@ -151,8 +160,14 @@
       })
       .then(function (parts) {
         var reg = parts[0];
+        var key = keyToBytes(parts[1]);
+        var fresh = function () {
+          return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+        };
         return reg.pushManager.getSubscription().then(function (existing) {
-          return existing || reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyToBytes(parts[1]) });
+          if (!existing) return fresh();
+          if (sameKey(existing, key)) return existing;
+          return existing.unsubscribe().catch(function () {}).then(fresh);
         });
       })
       .then(function (sub) {
