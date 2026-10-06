@@ -1,6 +1,6 @@
 /**
  * Custom GHL cadence tools for MCP clients and the in-app chat: list, draft-and-save, and the
- * GHL workflow setup prompt. Launching stays in the app (Pipeline → Launch cadence).
+ * GHL workflow setup prompt. Launching and stopping are launch_cadence / stop_cadence in mcpProspecting.
  */
 const { z } = require('zod/v3');
 const { zodToJsonSchema } = require('zod-to-json-schema');
@@ -96,7 +96,7 @@ async function saveCustomCadence(ctx, input) {
     message: `${existing ? 'Updated' : 'Saved'} "${c.name}" (${cc.stepSummary(c)}).`,
     cadence: present(c),
     next_steps: needsGhl
-      ? `Open the Cadences page, copy the GHL workflow prompt for "${c.name}" and build that workflow in GHL (trigger: tag ${cc.tagNameFor(c)} added), then mark it ready. Launch it on leads from Pipeline: select leads → Launch cadence.`
+      ? `Open the Cadences page, copy the GHL workflow prompt for "${c.name}" and build that workflow in GHL (trigger: tag ${cc.tagNameFor(c)} added), then mark it ready. Then put leads on it with launch_cadence (or Pipeline: select leads → Launch cadence).`
       : 'GHL workflow is still marked ready because the steps did not change.',
     ...(existing && needsGhl && existing.ghlSetupAt ? { ghl_workflow_outdated: true } : {}),
     cadences_page: pageUrl(ctx),
@@ -168,6 +168,7 @@ function openAiFunctionTools() {
 }
 
 module.exports = {
+  resolveCadence,
   CADENCE_TOOLS,
   CADENCE_TOOL_NAMES,
   READ_ONLY_CADENCE_TOOLS: ['list_custom_cadences', 'get_cadence_ghl_prompt'],

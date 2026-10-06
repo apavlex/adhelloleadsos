@@ -2,7 +2,7 @@
  * Lightweight in-memory rate limiter for MCP endpoints.
  */
 const WINDOW_MS = 60 * 1000;
-const MAX_REQUESTS = 60;
+const MAX_REQUESTS = 120;
 
 /** @type {Map<string, { count: number, resetAt: number }>} */
 const buckets = new Map();

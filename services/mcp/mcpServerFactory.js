@@ -17,6 +17,7 @@ const cadenceTools = require('./mcpCadences');
 const leadScriptTools = require('./mcpLeadScripts');
 const messagingTools = require('./mcpMessaging');
 const workspaceTools = require('./mcpWorkspaceOps');
+const prospectingTools = require('./mcpProspecting');
 const mcpOAuth = require('./mcpOAuth');
 const mcpLogger = require('./mcpLogger');
 
@@ -163,6 +164,7 @@ const READ_ONLY_TOOLS = new Set([
   ...leadScriptTools.READ_ONLY_LEAD_SCRIPT_TOOLS,
   ...messagingTools.READ_ONLY_MESSAGING_TOOLS,
   ...workspaceTools.READ_ONLY_WORKSPACE_TOOLS,
+  ...prospectingTools.READ_ONLY_PROSPECTING_TOOLS,
 ]);
 
 // Overwrites or removes data, or pushes it somewhere it can't be pulled back from.
@@ -174,6 +176,7 @@ const DESTRUCTIVE_TOOLS = new Set([
   ...networkTools.DESTRUCTIVE_NETWORK_TOOLS,
   ...messagingTools.SEND_MESSAGING_TOOLS,
   ...workspaceTools.DESTRUCTIVE_WORKSPACE_TOOLS,
+  ...prospectingTools.DESTRUCTIVE_PROSPECTING_TOOLS,
 ]);
 
 // Reaches outside this app: paid lead searches, enrichment, GHL, texting businesses.
@@ -184,6 +187,7 @@ const OPEN_WORLD_TOOLS = new Set([
   ...networkTools.OPEN_WORLD_NETWORK_TOOLS,
   ...messagingTools.SEND_MESSAGING_TOOLS,
   ...workspaceTools.OPEN_WORLD_WORKSPACE_TOOLS,
+  ...prospectingTools.OPEN_WORLD_PROSPECTING_TOOLS,
 ]);
 
 function toolAnnotations(name) {
@@ -212,7 +216,7 @@ function createCrmMcpServer(ctx) {
   const server = new McpServer(
     {
       name: 'adhello-ceo-crm',
-      version: '1.4.0',
+      version: '1.5.0',
     },
     multi
       ? {
@@ -334,7 +338,7 @@ function createCrmMcpServer(ctx) {
         location: z.string().optional().describe('City and state, e.g. "Camas, WA".'),
         city: z.string().optional(),
         state: z.string().optional(),
-        max_results: z.number().int().min(1).max(60).optional(),
+        max_results: z.number().int().min(1).max(100).optional(),
         folder_id: z.string().min(1).optional(),
         folder_name: z.string().min(1).optional(),
         parent_folder_name: z.string().min(1).optional(),
@@ -653,6 +657,7 @@ function createCrmMcpServer(ctx) {
     ...leadScriptTools.LEAD_SCRIPT_TOOLS,
     ...messagingTools.MESSAGING_TOOLS,
     ...workspaceTools.WORKSPACE_TOOLS,
+    ...prospectingTools.PROSPECTING_TOOLS,
   ]) {
     register(tool.name, { description: tool.description, inputSchema: tool.schema }, async (args) => runTool(ctx, tool.name, args));
   }
@@ -669,9 +674,9 @@ function getOpenAiToolManifest() {
 
   return {
     name: 'adhello-ceo-crm',
-    version: '1.4.0',
+    version: '1.5.0',
     description:
-      'AdHello CEO Command Center CRM — workspace overview, lead folders, lead searches, leads (create, assign, notes, history, delete), tags, bookmarks, scripts, opportunity pipelines and stages, prospecting stages, replies inbox, team activity, GHL sync and messaging, enrichment, team tasks, follow-ups, and the referral network (members, referrals, applications, review stats).',
+      'AdHello CEO Command Center CRM — workspace overview, lead folders, lead searches, leads (create, assign, notes, history, delete), tags, bookmarks, scripts, opportunity pipelines and stages, prospecting stages, replies inbox, team activity, GHL sync and messaging, enrichment, prospecting (lead scoring, ICP fit, website audits, business research, decision-maker lookup, AI-personalized outreach, audit links, auto-outreach / cadence / sequence enrollment, call outcomes, call queue, text threads), team tasks, follow-ups, and the referral network (members, referrals, applications, review stats).',
     authentication: {
       type: 'oauth2',
       header: 'Authorization',
@@ -927,6 +932,7 @@ function getOpenAiToolManifest() {
         ...leadScriptTools.openAiFunctionTools(),
         ...messagingTools.openAiFunctionTools(),
         ...workspaceTools.openAiFunctionTools(),
+        ...prospectingTools.openAiFunctionTools(),
       ].map(({ function: fn }) => ({
         name: fn.name,
         description: fn.description,

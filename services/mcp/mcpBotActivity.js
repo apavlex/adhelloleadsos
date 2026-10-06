@@ -118,6 +118,43 @@ const DESCRIBE = {
     const steps = list(i.steps).length;
     return { category: 'outreach', action: 'cadence_save', summary: `Saved cadence "${text(i.name || i.cadence, 60)}"${steps ? ` (${count(steps, 'step')})` : ''}` };
   },
+  log_call_outcome(i, r) {
+    const label = (r && r.outcome) || text(i.outcome, 30);
+    const notes = i.notes ? `: ${text(i.notes, 140)}` : '';
+    return { category: 'notes', action: 'disposition', summary: `Logged ${label}${notes}${r && r.follow_up ? ' · follow-up set' : ''}`, leadKey: i.lead_id, meta: { code: i.outcome } };
+  },
+  enroll_in_auto_outreach(i, r) {
+    const n = (r && r.enrolled) || 0;
+    if (!n) return null;
+    return { category: 'outreach', action: 'prospecting_enroll', summary: `Enrolled ${count(n, 'lead')} in auto-outreach`, leadKeys: list(i.lead_ids), leadCount: n };
+  },
+  launch_cadence(i, r) {
+    const n = (r && r.launched) || 0;
+    if (!n) return null;
+    return { category: 'outreach', action: 'ghl_cadence_launch', summary: `Launched "${text((r.cadence && r.cadence.name) || i.cadence, 60)}" on ${count(n, 'lead')}`, leadKeys: list(i.lead_ids), leadCount: n };
+  },
+  stop_cadence(i, r) {
+    const n = (r && r.stopped) || 0;
+    if (!n) return null;
+    return { category: 'outreach', action: 'ghl_cadence_stop', summary: `Stopped the cadence on ${count(n, 'lead')}`, leadKeys: list(i.lead_ids) };
+  },
+  manage_sequence(i, r) {
+    const n = (r && r.done) || 0;
+    if (i.action === 'list_templates' || !n) return null;
+    const what = { start: `Started sequence ${text(r.template_id, 40)} on`, pause: 'Paused the sequence on', snooze: `Snoozed the sequence ${r.days}d on` }[i.action];
+    return { category: 'outreach', action: `sequence_${i.action}`, summary: `${what} ${count(n, 'lead')}`, leadKeys: list(i.lead_ids) };
+  },
+  find_contacts(i) {
+    const keys = list(i.lead_ids).length ? list(i.lead_ids) : list([i.lead_id]);
+    return { category: 'leads', action: 'find_contacts', summary: `Looked up decision makers on ${count(keys.length, 'lead')}`, leadKeys: keys };
+  },
+  analyze_website(i, r) {
+    const score = r && r.gap_score != null ? ` (gap score ${r.gap_score}/10)` : '';
+    return { category: 'leads', action: 'website_analysis', summary: `Analyzed the website${score}`, leadKey: i.lead_id };
+  },
+  review_icp_fit(i, r) {
+    return { category: 'leads', action: 'icp_review', summary: `ICP review: ${r && r.decision === 'approve' ? 'fits' : 'does not fit'}${r && r.grade ? ` (${r.grade})` : ''}`, leadKey: i.lead_id };
+  },
   save_lead_script(i) {
     const label = SCRIPT_LABELS[i.channel || 'dm'];
     return {
