@@ -474,8 +474,8 @@ const LEAD_SOURCE_TOOLS = [
     name: 'schedule_search',
     description:
       'Schedule a lead search to run once later or repeat daily / weekly / monthly. Sources: "maps" (local businesses by trade + city), ' +
-      '"business_formations" (new registrations — monitor mode, saved straight into the folder), or listing types. ' +
-      'Maps and listing runs are saved to Search history for review; to merge into a folder now use find_leads / run_folder_search.',
+      '"business_formations" (new registrations, monitor mode), or listing types. Each run merges new leads into the folder ' +
+      '(duplicates merge). To search right now use find_leads / search_lead_source instead.',
     schema: z.object({
       source: z.enum(SCHEDULE_SOURCES),
       query: z.string().optional().describe('Maps: the trade (required). Formations: name keyword. Listings: search terms.'),

@@ -5,6 +5,7 @@ const workspaceIntegrations = require('./workspaceIntegrations');
 const scrapeJobRunner = require('./scrapeJobRunner');
 const { scheduleDisplayTitle, normalizeJobType, JOB_TYPES } = require('./scrapeJobTypes');
 const { persistFormationSearchResults } = require('./businessFormationPersist');
+const { persistResultsIntoFolder } = require('./folderSearchRun');
 const { runDueSequenceSteps } = require('./sequenceEngine');
 const { maybeWarmAllMorningBriefs } = require('./morningBriefWarm');
 const signalwire = require('./signalwire');
@@ -38,6 +39,19 @@ function resolveActiveVoicemailAudioUrl(telephony) {
  * Autopilot Scheduler: 
  * Periodically wakes up to run scheduled searches and discover new leads.
  */
+/** Save a scheduled run's results as leads: formations via their own merger, everything else into the schedule's folder. */
+async function persistScheduledResults(wid, schedule, results) {
+  if (normalizeJobType(schedule.jobType) === JOB_TYPES.BUSINESS_FORMATIONS) {
+    const persisted = await persistFormationSearchResults(wid, schedule, results);
+    return { savedCount: persisted.savedCount || 0, mergedCount: 0 };
+  }
+  const folderKey = String(schedule.targetFolderKey || '').trim();
+  const folder = folderKey ? await db.getFolder(wid, folderKey) : null;
+  if (!folder) return { savedCount: 0, mergedCount: 0 };
+  const persist = await persistResultsIntoFolder(wid, folder, schedule, results);
+  return { savedCount: persist.added, mergedCount: persist.merged };
+}
+
 async function runDueSchedules() {
   console.log('[SCHEDULER] Checking for due scheduled jobs...');
   const schedules = await db.listSchedules();
@@ -105,13 +119,10 @@ async function runDueSchedules() {
           }
 
           const results = await scrapeJobRunner.executeScrapeJob(schedule, integrationEnv);
-          let savedCount = 0;
-          if (normalizeJobType(schedule.jobType) === JOB_TYPES.BUSINESS_FORMATIONS) {
-            const persisted = await persistFormationSearchResults(wid, schedule, results);
-            savedCount = persisted.savedCount || 0;
-          }
+          const { savedCount, mergedCount } = await persistScheduledResults(wid, schedule, results);
           const searchRecord = scrapeJobRunner.buildSearchRecord(schedule, results, nowLocal.toISO());
           if (savedCount) searchRecord.savedCount = savedCount;
+          if (mergedCount) searchRecord.mergedCount = mergedCount;
           await db.saveSearch(searchRecord);
 
           try {
@@ -330,6 +341,7 @@ async function runWeeklyVoicemailDrops() {
 
 module.exports = {
   runDueSchedules,
+  persistScheduledResults,
   runReferralAskReminders,
   runWeeklyVoicemailDrops,
   init() {

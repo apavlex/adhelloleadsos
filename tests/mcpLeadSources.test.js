@@ -84,6 +84,29 @@ test('schedule_search saves a weekly Maps search, lists only this workspace, and
   assert.equal(past.code, 'INVALID_ARGUMENTS');
 });
 
+test('scheduled Maps runs merge their results into the schedule folder', async () => {
+  const { persistScheduledResults } = require('../services/scheduler');
+  const { wid } = await setup();
+  const folder = await dbService.createFolder(wid, 'Scheduled Plumbers');
+  const schedule = { jobType: 'maps_business', keyword: 'Plumbers', city: 'Camas', state: 'WA', targetFolderKey: folder.key };
+  const rows = [
+    { title: 'Alpha Plumbing', phone: '3605550201', city: 'Camas', state: 'WA' },
+    { title: 'Bravo Drains', phone: '3605550202', city: 'Camas', state: 'WA' },
+  ];
+
+  const first = await persistScheduledResults(wid, schedule, rows);
+  assert.deepEqual(first, { savedCount: 2, mergedCount: 0 });
+  const leads = await dbService.getAllLeads(wid);
+  assert.equal(leads.length, 2);
+  assert.ok(leads.every((l) => l.folderKey === folder.key));
+
+  const again = await persistScheduledResults(wid, schedule, rows);
+  assert.deepEqual(again, { savedCount: 0, mergedCount: 2 });
+
+  const gone = await persistScheduledResults(wid, { ...schedule, targetFolderKey: 'folder:missing' }, rows);
+  assert.deepEqual(gone, { savedCount: 0, mergedCount: 0 });
+});
+
 test('search_lead_source validates input before starting anything', async () => {
   const { ctx } = await setup();
   const formations = await executeCrmTool(ctx, 'search_lead_source', { source: 'business_formations', states: ['TX'] });
