@@ -779,8 +779,11 @@
     } catch (e) { /* ignore quota */ }
   }
 
+  /* --opp-stage-min (18rem): narrower columns can't fit the card's action icons on one row. */
+  var STAGE_MIN_PX = 288;
+
   function clampStageWidth(px) {
-    var min = 220;
+    var min = STAGE_MIN_PX;
     var max = 448;
     var n = Number(px) || min;
     if (n < min) return min;
@@ -793,7 +796,7 @@
     var width = clampStageWidth(px);
     stage.style.width = width + 'px';
     stage.style.flex = '0 0 auto';
-    stage.style.minWidth = Math.min(width, 220) + 'px';
+    stage.style.minWidth = STAGE_MIN_PX + 'px';
   }
 
   function bindColumnResize() {

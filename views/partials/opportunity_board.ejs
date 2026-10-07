@@ -1,5 +1,7 @@
 <% const _board = typeof opportunityBoard !== 'undefined' && opportunityBoard ? opportunityBoard : null; %>
 <% const _compact = typeof opportunityCompact !== 'undefined' && opportunityCompact; %>
+<% const _oppTags = Array.isArray(typeof opportunityTags !== 'undefined' ? opportunityTags : null) ? opportunityTags : []; %>
+<% const _oppTagMap = {}; _oppTags.forEach(function (t) { if (t && t.key) _oppTagMap[String(t.key)] = { name: t.name || t.key, color: t.color || '#94a3b8' }; }); %>
 <% if (_board && _board.pipeline) { %>
 <style>
   .opp-board {
@@ -18,11 +20,13 @@
     border-radius: 999px;
   }
   html.dark .opp-board::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.22); }
+  /* Narrowest column where a card's action icons still fit on one row (kept in sync with STAGE_MIN_PX in opportunities-board.js). */
+  #oppBoard { --opp-stage-min: 18rem; }
   .opp-stage {
     position: relative;
     flex: 0 0 auto;
-    width: 15.75rem;
-    min-width: 13.75rem;
+    width: var(--opp-stage-min);
+    min-width: var(--opp-stage-min);
     max-width: 28rem;
     display: flex;
     flex-direction: column;
@@ -148,7 +152,20 @@
   html.dark .opp-stage-cards::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.22); }
   .opp-drop { flex: 1 1 auto; min-height: 6.5rem; display: flex; align-items: center; justify-content: center; border: 1px dashed rgba(17, 24, 39, 0.14); border-radius: 0.7rem; color: #9ca3af; font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; text-align: center; }
   html.dark .opp-drop { border-color: rgba(255, 255, 255, 0.14); }
-  .opp-compact .opp-stage { width: 15.25rem; min-width: 13.75rem; padding: 0.7rem 0.7rem 0.55rem; max-height: none; }
+  .opp-compact .opp-stage { width: var(--opp-stage-min); min-width: var(--opp-stage-min); padding: 0.7rem 0.7rem 0.55rem; max-height: none; }
+  #oppBoard .opp-card-tools { flex-wrap: nowrap; gap: 0.06rem; }
+  #oppBoard .opp-card-tools a, #oppBoard .opp-card-tools button { width: 1.25rem; height: 1.3rem; }
+  #oppBoard .opp-card-tools button.opp-card-call { width: 1.6rem; height: 1.6rem; margin-right: 0.15rem; }
+  @media (pointer: coarse) {
+    #oppBoard .opp-card-tools button.opp-card-call { width: 2.1rem; height: 2.1rem; }
+  }
+  .opp-card-tags { display: flex; flex-wrap: wrap; gap: 0.2rem; margin-top: 0.35rem; min-width: 0; }
+  .opp-card-tag { display: inline-flex; align-items: center; max-width: 100%; padding: 0.08rem 0.4rem; border-radius: 0.35rem; border: 1px solid rgba(17, 24, 39, 0.06); font-size: 0.56rem; font-weight: 900; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .opp-card-tag-more { font-size: 0.56rem; font-weight: 800; color: #94a3b8; align-self: center; }
+  .opp-card-tags[hidden],
+  #oppBoard.opp-hide-tags .opp-card-tags { display: none; }
+  #oppTagsToggle[aria-pressed="true"] { background: #0f2747; color: #fff; border-color: #0f2747; }
+  html.dark #oppTagsToggle[aria-pressed="true"] { background: #FFDB3A; color: #111827; border-color: #FFDB3A; }
   .opp-compact .opp-card { padding: 0.55rem 0.6rem; flex: 0 0 auto; }
   .opp-compact .opp-stage-cards {
     /* Room for ~2 full cards (title + meta + action icons); scroll for the rest */
@@ -232,9 +249,9 @@
     padding-bottom: 0.15rem;
   }
   body.opp-page #oppBoard.opp-page-board .opp-stage {
-    flex: 1 1 16rem;
+    flex: 1 1 var(--opp-stage-min);
     width: auto;
-    min-width: 15rem;
+    min-width: var(--opp-stage-min);
     max-width: none;
     max-height: none;
     height: auto;
@@ -309,8 +326,23 @@
   button.opp-stage-zoom { display: none; align-items: center; justify-content: center; flex: none; width: 2rem; height: 2rem; padding: 0; border: 0; border-radius: 999px; background: rgba(15, 39, 71, 0.07); color: #0f2747; cursor: pointer; }
   button.opp-stage-zoom svg { width: 1rem; height: 1rem; display: block; }
   html.dark button.opp-stage-zoom { background: rgba(255, 255, 255, 0.08); color: #f8fafc; }
-  @media (max-width: 1023px), (pointer: coarse) {
-    button.opp-stage-zoom { display: inline-flex; }
+  button.opp-stage-zoom { display: inline-flex; }
+  @media (min-width: 1024px) and (pointer: fine) {
+    button.opp-stage-zoom { width: 1.6rem; height: 1.6rem; }
+    button.opp-stage-zoom svg { width: 0.85rem; height: 0.85rem; }
+    button.opp-stage-zoom:hover { background: rgba(250, 204, 21, 0.28); color: #111827; }
+  }
+  /* Desktop stage zoom: the whole stage as a card grid so every lead is visible at once. */
+  @media (min-width: 1024px) {
+    .opp-stage.is-zoomed { padding: 1.25rem 1.5rem; }
+    .opp-stage.is-zoomed .opp-stage-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(var(--opp-stage-min), 1fr));
+      align-content: start;
+      gap: 0.6rem;
+      padding: 0.6rem;
+    }
+    .opp-stage.is-zoomed .opp-zoom-bar { max-width: 32rem; }
   }
   #oppBoard.is-editing button.opp-stage-zoom,
   .opp-stage.is-zoomed button.opp-stage-zoom { display: none; }
@@ -399,6 +431,7 @@
           <option value="<%= pipeline.id %>" <%= pipeline.id === _board.pipeline.id ? 'selected' : '' %>><%= pipeline.name %></option>
           <% }); %>
         </select>
+        <button type="button" id="oppTagsToggle" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white" aria-pressed="true" title="Show or hide tags on cards">Tags: On</button>
         <button type="button" id="oppNewPipeline" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">New pipeline</button>
         <button type="button" id="oppEditBoard" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Edit</button>
         <button type="button" id="oppDeletePipeline" class="btn-pill border border-rose-400/50 dark:border-rose-400/40 bg-white dark:bg-slate-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-rose-700 dark:text-rose-300" title="Delete this opportunity pipeline" <%= (_board.pipelines || []).length <= 1 ? 'disabled' : '' %>>Delete pipeline</button>
@@ -463,6 +496,11 @@
             <% if (card.note) { %><p class="opp-card-note" title="<%= card.note %>"><%= card.note %></p><% } %>
             <% if (card.reviews) { %><p class="opp-card-reviews"><span aria-hidden="true">★</span> <%= card.reviews %></p><% } else if (card.city && !card.status) { %><p class="opp-card-status"><%= card.city %></p><% } %>
             <% if (card.valueLabel) { %><p class="opp-card-value"><%= card.valueLabel %></p><% } %>
+            <% var _cardTags = (card.tagKeys || []).map(function (k) { return { key: k, tag: _oppTagMap[k] || { name: k, color: '#94a3b8' } }; }); %>
+            <div class="opp-card-tags"<%= _cardTags.length ? '' : ' hidden' %>>
+              <% _cardTags.slice(0, 4).forEach(function (t) { %><span class="opp-card-tag" style="background:<%= t.tag.color %>22;color:<%= t.tag.color %>" title="<%= t.tag.name %>"><%= t.tag.name %></span><% }); %>
+              <% if (_cardTags.length > 4) { %><span class="opp-card-tag-more">+<%= _cardTags.length - 4 %></span><% } %>
+            </div>
             <div class="opp-card-tools">
               <button type="button" class="opp-card-call" data-opp-action="call" data-lead-key="<%= card.key %>" data-title="<%= card.title %>"<%= _hasPhone ? '' : ' disabled' %> title="<%= _hasPhone ? 'Call ' + _cardPhone + ' in the softphone' : 'No phone number on this lead' %>" aria-label="Call"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg></button>
               <button type="button" data-opp-action="sms" data-phone="<%= card.phone %>" data-lead-key="<%= card.key %>" data-title="<%= card.title %>" title="SMS" aria-label="SMS"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-8 8H7l-4 3V12a8 8 0 1 1 18 0z"/></svg></button>
@@ -492,5 +530,24 @@
   if (typeof window.__adhelloBindOppCardActions === 'function') {
     window.__adhelloBindOppCardActions(document.getElementById('oppBoard'));
   }
+  (function () {
+    var board = document.getElementById('oppBoard');
+    var btn = document.getElementById('oppTagsToggle');
+    if (!board || !btn) return;
+    var STORE = 'adhello.oppShowTags';
+    var on = true;
+    try { on = window.localStorage.getItem(STORE) !== '0'; } catch (e) { /* private mode */ }
+    function apply() {
+      board.classList.toggle('opp-hide-tags', !on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      btn.textContent = on ? 'Tags: On' : 'Tags: Off';
+    }
+    apply();
+    btn.addEventListener('click', function () {
+      on = !on;
+      apply();
+      try { window.localStorage.setItem(STORE, on ? '1' : '0'); } catch (e) { /* private mode */ }
+    });
+  })();
 </script>
 <% } %>

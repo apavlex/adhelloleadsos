@@ -55,12 +55,13 @@ function jsonError(res, status, error) {
 
 router.get('/', async (req, res, next) => {
   try {
-    const { board } = await loadContext(req);
+    const [{ board }, tags] = await Promise.all([loadContext(req), dbService.listTags(req.workspaceId)]);
     res.render('opportunities', {
       title: 'Opportunities | Agency OS',
       activePage: 'opportunities',
       opportunityBoard: board,
       opportunityCompact: false,
+      opportunityTags: tags || [],
     });
   } catch (e) {
     next(e);

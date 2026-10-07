@@ -277,6 +277,7 @@ router.get('/', async (req, res, next) => {
       followUpTasksToday,
       opportunityBoard,
       opportunityCompact: true,
+      opportunityTags: await dbService.listTags(req.workspaceId).catch(() => []),
       nextActions,
       todayTasks,
       callWarmQueue,

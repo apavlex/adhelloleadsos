@@ -390,6 +390,33 @@
         .then(function (data) { return (data && data.tags) || []; });
     }
 
+    function paintCardTags(action, applied, tags) {
+      var card = action.closest ? action.closest('.opp-card') : null;
+      var wrap = card && card.querySelector('.opp-card-tags');
+      if (!wrap) return;
+      var byKey = {};
+      (tags || []).forEach(function (t) { if (t && t.key) byKey[t.key] = t; });
+      wrap.textContent = '';
+      applied.slice(0, 4).forEach(function (k) {
+        var t = byKey[k] || { name: k };
+        var color = t.color || '#94a3b8';
+        var chip = document.createElement('span');
+        chip.className = 'opp-card-tag';
+        chip.style.background = color + '22';
+        chip.style.color = color;
+        chip.title = t.name || k;
+        chip.textContent = t.name || k;
+        wrap.appendChild(chip);
+      });
+      if (applied.length > 4) {
+        var more = document.createElement('span');
+        more.className = 'opp-card-tag-more';
+        more.textContent = '+' + (applied.length - 4);
+        wrap.appendChild(more);
+      }
+      wrap.hidden = !applied.length;
+    }
+
     function openTags(action) {
       var key = leadKey(action);
       if (!key) return;
@@ -426,6 +453,7 @@
               if (on) applied = applied.filter(function (item) { return item !== tag.key; });
               else applied.push(tag.key);
               action.setAttribute('data-tags', JSON.stringify(applied));
+              paintCardTags(action, applied, tags);
               status(on ? 'Tag removed.' : 'Tag added.', true);
               paint(tags);
             }).catch(function () {
@@ -459,7 +487,10 @@
             applied.push(created.data.tag.key);
             action.setAttribute('data-tags', JSON.stringify(applied));
             status('Tag added.', true);
-            return fetchTags().then(paint);
+            return fetchTags().then(function (fresh) {
+              paint(fresh);
+              paintCardTags(action, applied, fresh);
+            });
           });
         }).catch(function () {
           input.disabled = false;
