@@ -5093,7 +5093,7 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
   display: flex;
   flex-direction: column;
   /* + the scroller's bottom padding so the quick log starts fully below the fold */
-  min-height: calc(100% + max(0.75rem, env(safe-area-inset-bottom, 0px)));
+  min-height: calc(100% + 0.75rem);
 }
 
 .softphone-main-screen .softphone-keypad-dock {
@@ -5299,6 +5299,11 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
   gap: 0.35rem;
   padding: 0.4rem 0.6rem 0.2rem;
   flex-shrink: 0;
+}
+
+/* Home-indicator clearance only: iOS can report a much larger bottom inset (toolbar area), which left a blank band under the tabs. */
+#softphonePanel .softphone-bottom-nav {
+  padding-bottom: max(0.35rem, min(env(safe-area-inset-bottom, 0px), 1.25rem));
 }
 
 .softphone-bottom-nav > .softphone-nav-btn {
