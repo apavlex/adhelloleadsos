@@ -41,6 +41,24 @@ test('buildLeadTouchPoints returns recent touches newest first', () => {
   assert.ok(tp.totalCount >= 2);
 });
 
+test('business replies are pinned first and surfaced as latestReply', () => {
+  const lead = {
+    key: 'lead:grass',
+    updates: [
+      { type: 'sms_inbound', timestamp: '2026-08-04T17:03:00.000Z', value: 'This number does not reply to text messages.' },
+      { type: 'sms_outbound', timestamp: '2026-08-04T17:04:00.000Z', value: 'Outbound SMS: Thank you for the update!' },
+      { type: 'note', timestamp: '2026-08-04T18:00:00.000Z', value: 'Call back Friday' },
+    ],
+  };
+  const tp = buildLeadTouchPoints(lead, { now: NOW, limit: 5 });
+  assert.equal(tp.replyCount, 1);
+  assert.equal(tp.recentTouches[0].isReply, true);
+  assert.match(tp.recentTouches[0].text, /does not reply/);
+  assert.ok(tp.latestReply);
+  assert.match(tp.latestReply.summary, /reply/i);
+  assert.notEqual(tp.lastTouch.at, tp.latestReply.at, 'last touch stays the newest touch overall');
+});
+
 test('buildLeadTouchPoints handles empty lead', () => {
   const tp = buildLeadTouchPoints({ key: 'lead:new', updates: [] }, { now: NOW });
   assert.equal(tp.recentTouches.length, 0);

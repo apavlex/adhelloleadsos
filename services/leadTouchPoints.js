@@ -45,6 +45,15 @@ function formatTouchWhen(ts) {
   }
 }
 
+/** A message the business sent us (SMS/email reply), as opposed to our own outreach or opens/clicks. */
+function isBusinessReply(entry) {
+  const typ = String((entry && entry.typ) || '').toLowerCase();
+  if (typ === 'sms_inbound' || typ === 'email_inbound') return true;
+  if (typ !== 'engagement_signal') return false;
+  const raw = (entry && entry.raw) || {};
+  return /reply/i.test(String(raw.signalType || raw.signal || ''));
+}
+
 function mapTouchEntry(entry) {
   const at = entry.ts || '';
   const typeLabel = formatActivityTypeLabel(entry.typ, entry.raw);
@@ -56,6 +65,7 @@ function mapTouchEntry(entry) {
     typeLabel,
     text,
     isEngagement: typ === 'engagement_signal' || typ === 'sms_inbound' || typ === 'email_inbound',
+    isReply: isBusinessReply(entry),
   };
 }
 
@@ -70,13 +80,18 @@ function buildLeadTouchPoints(lead, opts = {}) {
 
   const merged = mergeLeadActivityEntries(lead, { maxPerSource: 40 });
   const primary = collapsePrimaryActivities(merged);
-  const recentTouches = primary.slice(0, limit).map(mapTouchEntry);
+  const all = primary.map(mapTouchEntry);
+  const replies = all.filter((t) => t.isReply);
+  const recentTouches = replies.slice(0, limit).concat(all.filter((t) => !t.isReply).slice(0, limit));
+  const latestReply = replies[0]
+    ? { ...replies[0], summary: [`${replies[0].typeLabel} reply`, replies[0].atLabel].filter(Boolean).join(' · ') }
+    : null;
 
   const channel = String(lead?.lastTouchChannel || '').trim();
   const channelLabel = formatTouchChannelLabel(channel);
   const badge = engagementBadgeForLead(lead, windowDays, now.getTime());
 
-  const latest = recentTouches[0] || null;
+  const latest = all[0] || null;
   const fallbackMs = lastActivityMs(lead);
   const lastTouch = latest
     ? {
@@ -108,11 +123,14 @@ function buildLeadTouchPoints(lead, opts = {}) {
       ? { label: badge.label, signalType: badge.signalType || '', at: badge.at || '' }
       : null,
     recentTouches,
+    latestReply,
+    replyCount: replies.length,
     totalCount: primary.length,
   };
 }
 
 module.exports = {
+  isBusinessReply,
   TOUCH_CHANNEL_LABELS,
   formatTouchChannelLabel,
   formatTouchWhen,
