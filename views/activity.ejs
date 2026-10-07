@@ -50,11 +50,24 @@
         <p class="text-xs text-brand-muted mt-2">Post notes, log calls, or update pipeline status from the lead panel.</p>
       </div>
       <% } else { %>
+      <% const _fmtWhen = function (ts) { return ts ? wsDateTime(ts, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—'; }; %>
+      <% const _eventRow = function (ev) { %>
+              <li class="relative min-w-0">
+                <span class="absolute -left-[1.35rem] top-1.5 w-2 h-2 rounded-full bg-brand-yellow ring-2 ring-white dark:ring-slate-900" aria-hidden="true"></span>
+                <div class="flex flex-wrap items-center gap-2 mb-0.5">
+                  <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-widest bg-brand-cream dark:bg-slate-800 text-brand-dark dark:text-slate-200 border border-brand-border/40 dark:border-white/10"><%= ev.typeLabel %></span>
+                  <time class="text-[10px] font-bold text-brand-muted tabular-nums" datetime="<%= ev.ts %>"><%= _fmtWhen(ev.ts) %></time>
+                  <% if (ev.by) { %><span class="activity-by text-[10px] font-bold text-sky-700 dark:text-sky-300">by <%= ev.by %></span><% } %>
+                </div>
+                <p class="text-sm text-brand-dark/90 dark:text-slate-300 leading-relaxed break-words"><%= ev.text %></p>
+              </li>
+      <% }; %>
       <% _groups.forEach(function (group) { %>
       <% const _events = Array.isArray(group.events) ? group.events : []; %>
       <% const _latestText = _events.length ? _events[0].text : ''; %>
+      <% const _moreEvents = _events.slice(2); %>
       <article
-        class="activity-group activity-group--openable brand-card p-4 md:p-5 dark:bg-slate-900 dark:border-white/10 cursor-pointer transition-colors hover:border-brand-yellow/40"
+        class="activity-group activity-group--openable brand-card p-4 md:p-5 dark:bg-slate-900 dark:border-white/10 cursor-pointer transition-colors hover:border-brand-yellow/40 overflow-hidden"
         data-lead-key="<%= group.leadKey %>"
         data-lead-title="<%= group.leadTitle %>"
         title="Click to open lead details"
@@ -76,7 +89,7 @@
             </div>
             <% } %>
             <% if (group.city || group.status || group.folderName) { %>
-            <p class="text-[10px] font-semibold text-brand-muted mb-3">
+            <p class="text-[10px] font-semibold text-brand-muted <%= group.lastBy ? 'mb-1' : 'mb-3' %>">
               <% const bits = []; %>
               <% if (group.city) bits.push(group.city); %>
               <% if (group.status) bits.push(group.status); %>
@@ -84,27 +97,27 @@
               <%= bits.join(' · ') %>
             </p>
             <% } %>
+            <% if (group.lastBy) { %>
+            <p class="activity-last-by text-[10px] font-bold text-brand-muted mb-3">Last worked by <span class="text-sky-700 dark:text-sky-300"><%= group.lastBy %></span><% if (group.lastByAt) { %> · <%= _fmtWhen(group.lastByAt) %><% } %></p>
+            <% } %>
             <ul class="activity-timeline space-y-3 border-l-2 border-brand-border/40 dark:border-white/10 ml-1 pl-4">
-              <% _events.forEach(function (ev) { %>
-              <li class="relative">
-                <span class="absolute -left-[1.35rem] top-1.5 w-2 h-2 rounded-full bg-brand-yellow ring-2 ring-white dark:ring-slate-900" aria-hidden="true"></span>
-                <div class="flex flex-wrap items-center gap-2 mb-0.5">
-                  <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-widest bg-brand-cream dark:bg-slate-800 text-brand-dark dark:text-slate-200 border border-brand-border/40 dark:border-white/10"><%= ev.typeLabel %></span>
-                  <time class="text-[10px] font-bold text-brand-muted tabular-nums" datetime="<%= ev.ts %>"><%= ev.ts ? wsDateTime(ev.ts, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—' %></time>
-                </div>
-                <p class="text-sm text-brand-dark/90 dark:text-slate-300 leading-relaxed"><%= ev.text %></p>
-              </li>
-              <% }); %>
+              <% _events.slice(0, 2).forEach(_eventRow); %>
             </ul>
+            <% if (_moreEvents.length) { %>
+            <ul class="activity-timeline activity-timeline-more hidden space-y-3 border-l-2 border-brand-border/40 dark:border-white/10 ml-1 pl-4 pt-3">
+              <% _moreEvents.forEach(_eventRow); %>
+            </ul>
+            <button type="button" class="activity-more-btn mt-2 ml-1 text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white" aria-expanded="false" data-more-count="<%= _moreEvents.length %>">Show <%= _moreEvents.length %> more</button>
+            <% } %>
           </div>
-          <div class="flex flex-wrap md:flex-col gap-2 shrink-0 md:w-44 md:pt-1" onclick="event.stopPropagation()">
+          <div class="flex flex-wrap md:flex-col gap-2 shrink-0 min-w-0 w-full md:w-44 md:pt-1" onclick="event.stopPropagation()">
             <button
               type="button"
-              class="activity-open-lead-btn activity-action-btn btn-pill border border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest px-3 py-2 text-center"
+              class="activity-open-lead-btn activity-action-btn btn-pill border border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest px-3 py-2 text-center max-w-full"
               data-lead-key="<%= group.leadKey %>"
             >Open lead</button>
             <select
-              class="activity-folder-select rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/40 dark:bg-slate-800/80 px-2 py-2 text-[10px] font-bold text-brand-dark dark:text-white"
+              class="activity-folder-select min-w-0 max-w-full truncate rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/40 dark:bg-slate-800/80 px-2 py-2 text-[10px] font-bold text-brand-dark dark:text-white"
               data-lead-key="<%= group.leadKey %>"
               aria-label="Move <%= group.leadTitle %> to folder"
             >
@@ -119,7 +132,7 @@
             </select>
             <button
               type="button"
-              class="activity-add-task-btn btn-pill bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest px-3 py-2"
+              class="activity-add-task-btn btn-pill bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest px-3 py-2 max-w-full"
               data-lead-key="<%= group.leadKey %>"
               data-lead-title="<%= group.leadTitle %>"
               data-activity-text="<%= encodeURIComponent(String(_latestText || '').slice(0, 300)) %>"

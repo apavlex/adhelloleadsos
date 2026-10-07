@@ -120,7 +120,7 @@
 
   function renderEventRow(ev) {
     return (
-      '<li class="relative">' +
+      '<li class="relative min-w-0">' +
       '<span class="absolute -left-[1.35rem] top-1.5 w-2 h-2 rounded-full bg-brand-yellow ring-2 ring-white dark:ring-slate-900" aria-hidden="true"></span>' +
       '<div class="flex flex-wrap items-center gap-2 mb-0.5">' +
       '<span class="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-widest bg-brand-cream dark:bg-slate-800 text-brand-dark dark:text-slate-200 border border-brand-border/40 dark:border-white/10">' +
@@ -130,8 +130,12 @@
       escapeHtml(ev.ts) +
       '">' +
       formatWhen(ev.ts) +
-      '</time></div>' +
-      '<p class="text-sm text-brand-dark/90 dark:text-slate-300 leading-relaxed">' +
+      '</time>' +
+      (ev.by
+        ? '<span class="activity-by text-[10px] font-bold text-sky-700 dark:text-sky-300">by ' + escapeHtml(ev.by) + '</span>'
+        : '') +
+      '</div>' +
+      '<p class="text-sm text-brand-dark/90 dark:text-slate-300 leading-relaxed break-words">' +
       escapeHtml(ev.text) +
       '</p></li>'
     );
@@ -146,11 +150,32 @@
     if (group.status) meta.push(escapeHtml(group.status));
     if (group.folderName) meta.push('Folder: ' + escapeHtml(group.folderName));
     var metaLine = meta.length
-      ? '<p class="text-[10px] font-semibold text-brand-muted mb-3">' + meta.join(' · ') + '</p>'
+      ? '<p class="text-[10px] font-semibold text-brand-muted ' + (group.lastBy ? 'mb-1' : 'mb-3') + '">' + meta.join(' · ') + '</p>'
       : '';
-    var timeline = events.map(renderEventRow).join('');
+    if (group.lastBy) {
+      metaLine +=
+        '<p class="activity-last-by text-[10px] font-bold text-brand-muted mb-3">Last worked by <span class="text-sky-700 dark:text-sky-300">' +
+        escapeHtml(group.lastBy) +
+        '</span>' +
+        (group.lastByAt ? ' · ' + formatWhen(group.lastByAt) : '') +
+        '</p>';
+    }
+    var moreEvents = events.slice(2);
+    var timelineCls = 'activity-timeline space-y-3 border-l-2 border-brand-border/40 dark:border-white/10 ml-1 pl-4';
+    var timeline =
+      '<ul class="' + timelineCls + '">' + events.slice(0, 2).map(renderEventRow).join('') + '</ul>' +
+      (moreEvents.length
+        ? '<ul class="' + timelineCls + ' activity-timeline-more hidden pt-3">' +
+          moreEvents.map(renderEventRow).join('') +
+          '</ul>' +
+          '<button type="button" class="activity-more-btn mt-2 ml-1 text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white" aria-expanded="false" data-more-count="' +
+          moreEvents.length +
+          '">Show ' +
+          moreEvents.length +
+          ' more</button>'
+        : '');
     return (
-      '<article class="activity-group activity-group--openable brand-card p-4 md:p-5 dark:bg-slate-900 dark:border-white/10 cursor-pointer transition-colors hover:border-brand-yellow/40" data-lead-key="' +
+      '<article class="activity-group activity-group--openable brand-card p-4 md:p-5 dark:bg-slate-900 dark:border-white/10 cursor-pointer transition-colors hover:border-brand-yellow/40 overflow-hidden" data-lead-key="' +
       escapeHtml(group.leadKey) +
       '" data-lead-title="' +
       escapeHtml(group.leadTitle) +
@@ -168,21 +193,20 @@
       '</span></div>' +
       renderTagChipsHtml(group) +
       metaLine +
-      '<ul class="activity-timeline space-y-3 border-l-2 border-brand-border/40 dark:border-white/10 ml-1 pl-4">' +
       timeline +
-      '</ul></div>' +
-      '<div class="flex flex-wrap md:flex-col gap-2 shrink-0 md:w-44 md:pt-1" onclick="event.stopPropagation()">' +
-      '<button type="button" class="activity-open-lead-btn activity-action-btn btn-pill border border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest px-3 py-2 text-center" data-lead-key="' +
+      '</div>' +
+      '<div class="flex flex-wrap md:flex-col gap-2 shrink-0 min-w-0 w-full md:w-44 md:pt-1" onclick="event.stopPropagation()">' +
+      '<button type="button" class="activity-open-lead-btn activity-action-btn btn-pill border border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest px-3 py-2 text-center max-w-full" data-lead-key="' +
       escapeHtml(group.leadKey) +
       '">Open lead</button>' +
-      '<select class="activity-folder-select rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/40 dark:bg-slate-800/80 px-2 py-2 text-[10px] font-bold text-brand-dark dark:text-white" data-lead-key="' +
+      '<select class="activity-folder-select min-w-0 max-w-full truncate rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/40 dark:bg-slate-800/80 px-2 py-2 text-[10px] font-bold text-brand-dark dark:text-white" data-lead-key="' +
       escapeHtml(group.leadKey) +
       '" aria-label="Move ' +
       escapeHtml(group.leadTitle) +
       ' to folder">' +
       folderOptionsHtml(folders, group.folderKey) +
       '</select>' +
-      '<button type="button" class="activity-add-task-btn btn-pill bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest px-3 py-2" data-lead-key="' +
+      '<button type="button" class="activity-add-task-btn btn-pill bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest px-3 py-2 max-w-full" data-lead-key="' +
       escapeHtml(group.leadKey) +
       '" data-lead-title="' +
       escapeHtml(group.leadTitle) +
@@ -304,6 +328,18 @@
   });
 
   document.addEventListener('click', function (e) {
+    const moreBtn = e.target && e.target.closest ? e.target.closest('.activity-more-btn') : null;
+    if (moreBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const list = moreBtn.parentElement && moreBtn.parentElement.querySelector('.activity-timeline-more');
+      const open = moreBtn.getAttribute('aria-expanded') !== 'true';
+      if (list) list.classList.toggle('hidden', !open);
+      moreBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      moreBtn.textContent = open ? 'Show less' : 'Show ' + (moreBtn.getAttribute('data-more-count') || '') + ' more';
+      return;
+    }
+
     const openBtn = e.target && e.target.closest ? e.target.closest('.activity-open-lead-btn') : null;
     if (openBtn) {
       e.preventDefault();

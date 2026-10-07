@@ -37,6 +37,7 @@ function referenceFeed(leads, { filter = 'all', sinceMs }) {
         type: e.typ,
         typeLabel: formatActivityTypeLabel(e.typ, e.raw),
         text: formatActivityEntryText(e).slice(0, 500),
+        byLabel: String((e.raw && e.raw.by) || '').trim().slice(0, 160),
       });
     }
     if (!events.length) continue;

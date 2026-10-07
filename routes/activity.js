@@ -2,8 +2,13 @@ const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
 const pipelineStagesService = require('../services/pipelineStagesService');
-const { filterLeadsForRequest } = require('../services/workspaceService');
+const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
 const { buildWorkspaceActivityFeed } = require('../services/leadActivityFeed');
+const teamActivity = require('../services/teamActivity');
+
+/* A team-activity row this close to a lead timeline entry is the teammate who made it. */
+const BY_MATCH_WINDOW_MS = 3 * 60 * 1000;
+const INBOUND_TYPES = new Set(['sms_inbound', 'email_inbound', 'engagement_signal']);
 
 router.use('/push', require('./push'));
 
@@ -42,6 +47,70 @@ function enrichActivityGroup(group, folderMap, tagMap) {
   };
 }
 
+/** Stamp each event with the teammate who made it, and each card with who last worked the lead. */
+function attachTeammates(req, groups) {
+  const wid = req.workspaceId;
+  if (!wid || !groups.length) return groups;
+  const members = teamActivity.memberDirectory(req.workspace, []);
+  const me = String(userEmail(req) || '').trim().toLowerCase();
+  const nameOf = (email, fallbackName) => {
+    const em = String(email || '').trim().toLowerCase();
+    if (!em) return '';
+    if (em === me) return 'You';
+    const m = members.find((x) => x.email === em) || { email: em, name: fallbackName || '' };
+    return teamActivity.displayName(m);
+  };
+  let attrs = {};
+  try {
+    attrs = dbService.getLeadAttributions(
+      wid,
+      groups.map((g) => teamActivity.normalizeLeadKey(g.leadKey)),
+    );
+  } catch (err) {
+    console.warn('[activity] attribution lookup failed:', err && err.message);
+  }
+  return groups.map((group) => {
+    const key = teamActivity.normalizeLeadKey(group.leadKey);
+    const events = Array.isArray(group.events) ? group.events : [];
+    const times = events.map((e) => e.tsMs).filter((ms) => ms > 0);
+    let rows = [];
+    try {
+      rows = dbService.listTeamActivity({
+        workspaceId: wid,
+        leadKey: key,
+        since: times.length ? Math.min(...times) - BY_MATCH_WINDOW_MS : undefined,
+        limit: 200,
+      });
+    } catch (err) {
+      console.warn('[activity] team activity lookup failed:', err && err.message);
+    }
+    const stamped = events.map((ev) => {
+      if (INBOUND_TYPES.has(ev.type)) return ev;
+      if (ev.byLabel) {
+        /* Notes stamp "Name (email)" or a bare email. */
+        const m = /\(([^()\s]+@[^()\s]+)\)\s*$/.exec(ev.byLabel);
+        const email = m ? m[1] : /@/.test(ev.byLabel) ? ev.byLabel : '';
+        return { ...ev, by: email ? nameOf(email, ev.byLabel.replace(/\s*\([^()]*\)\s*$/, '')) : ev.byLabel };
+      }
+      if (!ev.tsMs) return ev;
+      let best = null;
+      rows.forEach((r) => {
+        const d = Math.abs(Number(r.created_at) - ev.tsMs);
+        if (d <= BY_MATCH_WINDOW_MS && (!best || d < best.d)) best = { d, r };
+      });
+      return best ? { ...ev, by: nameOf(best.r.actor_email, best.r.actor_name) } : ev;
+    });
+    const attr = attrs[key];
+    const withBy = stamped.find((e) => e.by);
+    return {
+      ...group,
+      events: stamped,
+      lastBy: attr && attr.last_by ? nameOf(attr.last_by) : withBy ? withBy.by : '',
+      lastByAt: attr && attr.last_at ? new Date(Number(attr.last_at)).toISOString() : '',
+    };
+  });
+}
+
 async function loadActivityContext(req) {
   const allLeads = await dbService.getAllLeads(req.workspaceId);
   const leads = filterLeadsForRequest(req, allLeads);
@@ -68,7 +137,7 @@ router.get('/', async (req, res, next) => {
       limit: 50,
       offset: 0,
     });
-    const groups = feed.groups.map((group) => enrichActivityGroup(group, folderMap, tagMap));
+    const groups = attachTeammates(req, feed.groups).map((group) => enrichActivityGroup(group, folderMap, tagMap));
     const shownEvents = groups.reduce(function (sum, g) {
       return sum + (g.eventCount || (g.events && g.events.length) || 0);
     }, 0);
@@ -105,7 +174,7 @@ router.get('/api', async (req, res, next) => {
     });
     res.json({
       success: true,
-      groups: feed.groups.map((group) => enrichActivityGroup(group, folderMap, tagMap)),
+      groups: attachTeammates(req, feed.groups).map((group) => enrichActivityGroup(group, folderMap, tagMap)),
       total: feed.total,
       totalEvents: feed.totalEvents,
       filter: safeFilter,

@@ -377,6 +377,7 @@ function leadFeedEvents(lead, filter) {
       type: e.typ,
       typeLabel: formatActivityTypeLabel(e.typ, e.raw),
       text: formatActivityEntryText(e).slice(0, 500),
+      byLabel: String((e.raw && e.raw.by) || '').trim().slice(0, 160),
     }));
     events.sort((a, b) => b.tsMs - a.tsMs);
     m.feedEvents.set(filter, events);
