@@ -20,6 +20,21 @@ function isWarmReplyBody(text) {
   return true;
 }
 
+const AUTO_RESPONDER_PATTERNS = [
+  /\b(does not|doesn'?t|do not|don'?t|cannot|can'?t|unable to|is not able to)\s+(reply|respond|receive|accept|support)\b[^.!?]{0,40}\b(texts?|text messages?|sms)\b/i,
+  /\b(texts?|text messages?|sms)\b[^.!?]{0,30}\b(are|is)\s+not\s+(monitored|supported|received|accepted)\b/i,
+  /\bthis is an? (automated|automatic) (message|reply|response)\b/i,
+  /\b(auto-?reply|auto-?response|autoresponder)\b/i,
+  /\bdo not reply to this (message|text|number)\b/i,
+];
+
+/** Canned "this number can't text" / automated replies — the business didn't actually engage. */
+function isAutoResponderBody(text) {
+  const t = String(text || '').trim();
+  if (!t) return false;
+  return AUTO_RESPONDER_PATTERNS.some((re) => re.test(t));
+}
+
 function messageIdSeen(updates, messageId) {
   const id = String(messageId || '').trim();
   if (!id) return false;
@@ -57,6 +72,7 @@ async function handleInboundReply(ctx) {
   const entryType = channel === 'email' ? 'email_inbound' : 'sms_inbound';
   const signalType = channel === 'email' ? 'email_reply' : 'sms_reply';
   const commsChannel = String(ctx.commsChannel || '').trim().toLowerCase();
+  const autoResponder = isAutoResponderBody(body);
 
   updates.push({
     timestamp: atIso,
@@ -70,13 +86,16 @@ async function handleInboundReply(ctx) {
     ghlContactId: ctx.ghlContactId || lead.ghlContactId || '',
     conversationId: ctx.conversationId || '',
     reply: true,
+    autoResponder: autoResponder || undefined,
   });
-  updates.push(
-    buildEngagementUpdateEntry(signalType, atIso, {
-      provider,
-      messageId,
-    }),
-  );
+  if (!autoResponder) {
+    updates.push(
+      buildEngagementUpdateEntry(signalType, atIso, {
+        provider,
+        messageId,
+      }),
+    );
+  }
 
   const hadActive =
     lead.sequenceState &&
@@ -104,30 +123,34 @@ async function handleInboundReply(ctx) {
         : channel;
 
   const patch = {
-    status: 'Connected - Follow Up',
-    lastDisposition: 'connected',
-    lastDispositionAt: now.toISOString(),
     lastTouchChannel: channel,
     nextActionAt: respondBy,
     ghlContactId: lead.ghlContactId || ctx.ghlContactId || undefined,
-    engagementSignals: recordEngagementSignals(lead.engagementSignals, signalType, atIso),
     inboundEvents: appendInboundEvent(lead.inboundEvents, {
       id: messageId ? `${channel}:${messageId}` : '',
       type: channel,
       at: atIso,
-      label: ctx.newContact ? 'New contact' : '',
+      label: autoResponder ? 'Auto-reply' : ctx.newContact ? 'New contact' : '',
       preview: body,
       source: provider,
     }),
     updates,
     logs: [
       {
-        type: 'inbound_reply',
-        message: `Inbound ${channelLabel} reply — cadence paused, follow-up scheduled.`,
+        type: autoResponder ? 'inbound_auto_reply' : 'inbound_reply',
+        message: autoResponder
+          ? `Automated ${channelLabel} reply (not a real conversation) — cadence paused; call instead of texting.`
+          : `Inbound ${channelLabel} reply — cadence paused, follow-up scheduled.`,
         timestamp: now.toISOString(),
       },
     ],
   };
+  if (!autoResponder) {
+    patch.status = 'Connected - Follow Up';
+    patch.lastDisposition = 'connected';
+    patch.lastDispositionAt = now.toISOString();
+    patch.engagementSignals = recordEngagementSignals(lead.engagementSignals, signalType, atIso);
+  }
 
   if (lead.sequenceState && lead.sequenceState.status === 'active') {
     patch.sequenceState = {
@@ -176,5 +199,6 @@ async function handleInboundReply(ctx) {
 module.exports = {
   handleInboundReply,
   isWarmReplyBody,
+  isAutoResponderBody,
   messageIdSeen,
 };
