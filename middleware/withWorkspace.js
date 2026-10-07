@@ -144,11 +144,7 @@ async function withWorkspace(req, res, next) {
           error: 'This account is not on a workspace yet. Open your invite link first.',
         });
       }
-      return res.status(403).render('error', {
-        message:
-          'This account is not on a workspace yet. Open the invite link, then sign in with that same Google account.',
-        activePage: '',
-      });
+      return res.redirect('/signup');
     }
 
     ws = (await workspaceService.ensureWorkspaceAndMember(ws.id, email)) || ws;

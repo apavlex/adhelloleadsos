@@ -71,6 +71,7 @@ const auditLandingPublicRoutes = require('./routes/auditLandingPublic');
 const aiToolsReportPublicRoutes = require('./routes/aiToolsReportPublic');
 const sharePhoneAnalyticsRoutes = require('./routes/sharePhoneAnalytics');
 const dbService = require('./services/database');
+const trials = require('./services/trials');
 const ceoRoutes = require('./routes/ceo');
 const mcpRoutes = require('./routes/mcp');
 const oauthRoutes = require('./routes/oauth');
@@ -207,6 +208,7 @@ app.use((req, res, next) => {
 require('./lib/guestEgress').install();
 app.use(require('./middleware/demoGuest'));
 app.use('/live-demo', require('./routes/liveDemo'));
+app.use('/', require('./routes/signup'));
 require('./services/publicDemo').startCleanup();
 
 app.locals.renderSocialBrandLinks = (links) => socialBrandIcons.renderLinks(links);
@@ -260,6 +262,8 @@ app.get(
     passport.authenticate('google', {
       failureRedirect: '/auth/login?error=unauthorized',
       callbackURL: `${getPublicBaseUrl(req)}/auth/google/callback`,
+      // Keep returnTo / pendingSignup across passport's session regeneration.
+      keepSessionInfo: true,
     })(req, res, next);
   },
   function (req, res) {
@@ -357,7 +361,11 @@ app.get('/api/cron/nightly-prep', async (req, res) => {
       (async () => {
         for (const wid of ids) {
           try {
-            await nightlyPrepService.runNightlyPrep(wid, { skipEnabledCheck });
+            const ws = await dbService.getWorkspace(wid);
+            if (ws && trials.isRestricted(ws) && trials.status(ws).state === 'expired') continue;
+            await (ws
+              ? trials.runMetered(ws, () => nightlyPrepService.runNightlyPrep(wid, { skipEnabledCheck }))
+              : nightlyPrepService.runNightlyPrep(wid, { skipEnabledCheck }));
           } catch (e) {
             console.error('[API-CRON] nightly-prep failed for', wid, e && e.message);
           }
@@ -606,6 +614,7 @@ app.use('/', oauthRoutes);
 // Protected routes (IA Phase 1: iaNav + canonical redirects + /today)
 app.use(ensureAuthenticated);
 app.use(attachWorkspace);
+app.use(require('./middleware/trialGate'));
 app.use(teamActivityCapture);
 app.use(pipelineTablePrefsRoutes.attachPipelineTablePrefs);
 app.use('/pipeline-table-prefs', pipelineTablePrefsRoutes);
@@ -662,6 +671,7 @@ app.use('/social-posts', socialPostsRoutes);
 app.use('/direct-mail', directMailRoutes);
 app.use('/menu', require('./routes/menuLinks'));
 app.use('/opportunities', require('./routes/opportunities'));
+app.use('/admin', require('./routes/admin'));
 
 // Error handler
 app.use((err, req, res, next) => {

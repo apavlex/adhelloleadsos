@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <title><%= title %></title>
+  <link rel="icon" href="/images/adhello-app-icon.png" type="image/png">
+  <link rel="stylesheet" href="/css/custom.css?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>">
+  <%- include('partials/tailwind_css', { twVariant: 'standalone' }) %>
+</head>
+<body class="bg-[#FDFBF7] min-h-screen w-full font-sans">
+  <main class="min-h-screen w-full flex flex-col items-center justify-center px-5 py-10">
+    <div class="max-w-md w-full bg-white rounded-[2rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.08)] p-8 sm:p-10">
+      <div class="flex items-center gap-3 mb-8">
+        <img src="/images/adhello-app-icon.png" alt="AdHello" width="40" height="40" class="w-10 h-10 rounded-xl border border-slate-100" />
+        <span class="text-[11px] font-black uppercase tracking-[0.15em] text-slate-500">AdHello Leads &middot; Agency OS</span>
+      </div>
+      <h1 class="font-display font-extrabold text-2xl text-[#0F172A] leading-tight">Your free trial has ended</h1>
+      <p class="mt-3 text-sm text-slate-600 leading-relaxed"><strong><%= workspaceName %></strong> is paused. Your leads, notes and pipeline are saved. Get in touch and we'll switch it back on.</p>
+      <div class="mt-7 flex flex-col gap-2.5">
+        <% if (contact.url) { %>
+          <a href="<%= contact.url %>" target="_blank" rel="noopener" class="h-12 w-full rounded-full bg-[#FFDB3A] hover:bg-[#FFD600] text-sm font-bold text-[#111827] shadow-lg shadow-yellow-400/20 flex items-center justify-center"><%= contact.label %></a>
+        <% } %>
+        <a href="mailto:<%= contact.email %>?subject=<%= encodeURIComponent('Continue Agency OS: ' + workspaceName) %>" class="h-12 w-full rounded-full border border-slate-200 text-sm font-bold text-slate-800 hover:bg-slate-50 flex items-center justify-center">Email <%= contact.email %></a>
+      </div>
+      <% const _others = (switcher || []).filter(function (w) { return w.id !== currentId; }); %>
+      <% if (_others.length) { %>
+        <p class="mt-8 text-[11px] font-black uppercase tracking-widest text-slate-400">Your other workspaces</p>
+        <div class="mt-2 flex flex-col gap-1.5">
+          <% _others.forEach(function (w) { %>
+            <form method="post" action="/workspaces/switch">
+              <input type="hidden" name="workspaceId" value="<%= w.id %>">
+              <input type="hidden" name="returnTo" value="/today">
+              <button type="submit" class="w-full text-left rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"><%= w.name %></button>
+            </form>
+          <% }) %>
+        </div>
+      <% } %>
+      <p class="mt-8 text-center text-xs text-slate-400"><a href="/logout" class="underline underline-offset-2">Sign out</a></p>
+    </div>
+  </main>
+</body>
+</html>

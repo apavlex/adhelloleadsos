@@ -9,6 +9,7 @@ const { persistResultsIntoFolder } = require('./folderSearchRun');
 const { runDueSequenceSteps } = require('./sequenceEngine');
 const { maybeWarmAllMorningBriefs } = require('./morningBriefWarm');
 const signalwire = require('./signalwire');
+const trials = require('./trials');
 const { maybeRunDailyOutreachForEnabledWorkspaces } = require('./dailyOutreachScheduler');
 const { runOnboardingDrips } = require('./onboardingDrip');
 const { runTaskPushReminders } = require('./taskPushReminders');
@@ -102,6 +103,7 @@ async function runDueSchedules() {
       if (due) {
         const scheduleWs = schedule.workspaceId ? await db.getWorkspace(schedule.workspaceId) : null;
         if (scheduleWs && scheduleWs.isDemo) continue;
+        if (scheduleWs && trials.status(scheduleWs) && trials.status(scheduleWs).state === 'expired') continue;
         const jobLabel = scheduleDisplayTitle(schedule);
         console.log(
           `[SCHEDULER] Running due schedule for: "${jobLabel}" at ${schedule.scheduledTime || '?'} (${timezone})`
@@ -118,7 +120,9 @@ async function runDueSchedules() {
             throw new Error('Scrape provider not configured for this job type.');
           }
 
-          const results = await scrapeJobRunner.executeScrapeJob(schedule, integrationEnv);
+          const results = scheduleWs
+            ? await trials.runMetered(scheduleWs, () => scrapeJobRunner.executeScrapeJob(schedule, integrationEnv))
+            : await scrapeJobRunner.executeScrapeJob(schedule, integrationEnv);
           const { savedCount, mergedCount } = await persistScheduledResults(wid, schedule, results);
           const searchRecord = scrapeJobRunner.buildSearchRecord(schedule, results, nowLocal.toISO());
           if (savedCount) searchRecord.savedCount = savedCount;
@@ -240,7 +244,7 @@ async function runWeeklyVoicemailDrops() {
   for (const wid of workspaceIds) {
     try {
       const ws = await db.getWorkspace(wid);
-      if (ws && ws.isDemo) continue;
+      if (ws && (ws.isDemo || trials.isRestricted(ws))) continue;
       const telephony = ws && ws.telephony ? ws.telephony : {};
       const entries = Array.isArray(telephony.numberBankEntries) ? telephony.numberBankEntries : [];
       const fromEntries = entries.map((e) => signalwire.normalizePhone(e && e.number)).filter(Boolean);

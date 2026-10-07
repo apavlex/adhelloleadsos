@@ -160,9 +160,19 @@ async function getResolvedIntegrationEnv(workspaceId) {
     // Non-empty so ghlClient doesn't fall back to the server's real keys; providers reject it.
     for (const envName of DEMO_BLOCKED_ENV) out[envName] = 'demo-disabled';
     out.DEMO_WORKSPACE = '1';
+  } else if (ws && ws.trial && !ws.trial.activatedAt) {
+    // Trials may text/email/mail with their own accounts, never with the agency's.
+    for (const field of INTEGRATION_FIELDS) {
+      const envName = FIELD_TO_ENV[field];
+      if (!DEMO_BLOCKED_ENV.includes(envName)) continue;
+      const v = fromWs[field];
+      if (!(typeof v === 'string' && v.trim())) out[envName] = TRIAL_DISABLED;
+    }
   }
   return out;
 }
+
+const TRIAL_DISABLED = 'trial-disabled';
 
 /** Messaging / CRM credentials a demo workspace must never use (fake leads, client-facing demos). */
 const DEMO_BLOCKED_ENV = [

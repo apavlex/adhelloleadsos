@@ -1,0 +1,22 @@
+<% const _tr = typeof trial !== 'undefined' && trial && trial.state === 'trial' ? trial : null; %>
+<% if (_tr) { %>
+<style>
+  #trialBanner { width: 100%; background: #FFF4C2; color: #5b4500; border-bottom: 1px solid #F5D96B; font-size: 12.5px; padding: 0.45rem 1rem; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.35rem 0.85rem; text-align: center; }
+  #trialBanner strong { font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em; font-size: 11px; }
+  #trialBanner a { border-radius: 9999px; background: #111827; color: #fff; font-weight: 800; font-size: 11.5px; padding: 0.25rem 0.8rem; }
+  #trialBanner a:hover { background: #1f2937; }
+  #trialBanner.is-last-day { background: #FEE2E2; color: #7f1d1d; border-bottom-color: #FCA5A5; }
+  .dark #trialBanner { background: #3b2f06; color: #fde68a; border-bottom-color: #5b4500; }
+  .dark #trialBanner.is-last-day { background: #450a0a; color: #fecaca; border-bottom-color: #7f1d1d; }
+  .dark #trialBanner a { background: #fde68a; color: #111827; }
+</style>
+<div id="trialBanner" class="<%= _tr.daysLeft <= 1 ? 'is-last-day' : '' %>" role="status">
+  <span><strong>Free trial</strong> &middot; <%= _tr.daysLeft <= 1 ? 'Last day' : (_tr.daysLeft + ' days left') %></span>
+  <% const _tc = _tr.contact || {}; %>
+  <% if (_tc.url) { %>
+    <a href="<%= _tc.url %>" target="_blank" rel="noopener"><%= _tc.label || 'Book a call' %></a>
+  <% } else if (_tc.email) { %>
+    <a href="mailto:<%= _tc.email %>?subject=<%= encodeURIComponent('Upgrade Agency OS') %>">Upgrade</a>
+  <% } %>
+</div>
+<% } %>

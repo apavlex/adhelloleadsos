@@ -73,7 +73,7 @@ const AGENCY_SCOPE_HELP =
 
 function isConfigured(integrationEnv) {
   const { apiKey, locationId } = resolveConfig(integrationEnv);
-  return !!(apiKey && locationId);
+  return !!(apiKey && locationId && apiKey !== 'trial-disabled');
 }
 
 function sleep(ms) {
@@ -106,6 +106,11 @@ async function ghlRequest(method, path, { integrationEnv, body, query, apiVersio
   const { locationId } = cfg;
   const apiKey = agency ? cfg.agencyApiKey || cfg.apiKey : cfg.apiKey;
   if (!apiKey) throw new Error('GHL API key is not configured.');
+  if (apiKey === 'trial-disabled') {
+    throw new Error(
+      'Texting and email during the free trial need your own Go High Level account. Connect it under Workspace → Integrations.',
+    );
+  }
   if (!locationId && !String(path || '').includes('/locations/')) {
     throw new Error('GHL location ID is not configured.');
   }
