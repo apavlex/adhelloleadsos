@@ -396,20 +396,40 @@ router.get('/', async (req, res, next) => {
 
     let focusBackHref = '/today';
     let focusBackLabel = 'Today';
-    if (String(req.query.from || '').trim().toLowerCase() === 'opportunities') {
+    const fromParam = String(req.query.from || '').trim().toLowerCase();
+    const backParam = String(req.query.back || '').trim();
+    // Same-origin paths only — never an absolute or protocol-relative URL.
+    const safeBack =
+      backParam.startsWith('/') &&
+      !backParam.startsWith('//') &&
+      !backParam.includes('\\') &&
+      !/^\/focus(\/|\?|$)/.test(backParam) &&
+      backParam.length <= 2000
+        ? backParam
+        : '';
+    if (fromParam === 'opportunities') {
       const pipelineParam = String(req.query.pipeline || '').trim();
-      focusBackHref = pipelineParam
+      focusBackHref = safeBack || (pipelineParam
         ? `/opportunities?pipeline=${encodeURIComponent(pipelineParam)}`
-        : '/opportunities';
+        : '/opportunities');
       focusBackLabel = 'Opportunities';
-    } else if (String(req.query.from || '').trim().toLowerCase() === 'pipeline') {
-      const backParam = String(req.query.back || '').trim();
-      // Same-origin paths only — never an absolute or protocol-relative URL.
-      focusBackHref =
-        backParam.startsWith('/') && !backParam.startsWith('//') && !backParam.includes('\\') && backParam.length <= 2000
-          ? backParam
-          : '/prospecting?tab=pipeline';
+    } else if (fromParam === 'pipeline') {
+      focusBackHref = safeBack || '/prospecting?tab=pipeline';
       focusBackLabel = 'Pipeline';
+    } else if (safeBack) {
+      const backLabels = {
+        today: 'Today',
+        activity: 'Activity',
+        referrals: 'Referral partners',
+        sequences: 'Sequences',
+        omnichannel: 'Inbox',
+        engagement: 'Inbox',
+        inbox: 'Inbox',
+        dashboard: 'Dashboard',
+        reviews: 'Reviews',
+      };
+      focusBackHref = safeBack;
+      focusBackLabel = backLabels[fromParam] || 'Back';
     }
 
     res.render('focus', {

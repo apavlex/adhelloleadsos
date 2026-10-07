@@ -120,6 +120,11 @@
       return { ok: false };
     }
 
+    if (typeof global.__adhelloMoneyModeLeadUrl === 'function') {
+      global.location.assign(global.__adhelloMoneyModeLeadUrl(k));
+      return { ok: true, moneyMode: true };
+    }
+
     var host = document.getElementById('leadPanelDatasetHost');
     var panel = document.getElementById('mobilePanel');
     if (!host || !panel) {

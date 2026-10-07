@@ -6422,10 +6422,36 @@ document.addEventListener('DOMContentLoaded', () => {
       .catch((err) => console.error('Failed to fetch saved leads:', err));
   }
 
+  /** Keys of the list a lead was opened from, starting at that lead, for the Money Mode queue. */
+  function moneyModeQueueKeys(tableRow, key) {
+    let keys = [];
+    const kanban = document.getElementById('kanbanView');
+    const card =
+      kanban && !kanban.classList.contains('hidden') && window.CSS && CSS.escape
+        ? kanban.querySelector(`[data-lead-key="${CSS.escape(key)}"]`)
+        : null;
+    const list = card && card.closest('.kanban-list');
+    if (list) {
+      keys = Array.from(list.querySelectorAll('[data-lead-key]')).map((el) => el.getAttribute('data-lead-key'));
+    } else {
+      keys = navigableRows().map((r) => r.dataset.leadKey);
+    }
+    keys = [...new Set(keys.map((k) => String(k || '').trim()).filter(Boolean))];
+    const start = keys.indexOf(key);
+    if (start > 0) keys = keys.slice(start).concat(keys.slice(0, start));
+    if (start === -1) keys.unshift(key);
+    return keys;
+  }
+
   // --- Centralized Row Selection Logic ---
   const selectRow = async (row) => {
     if (!row) return;
     const tableRow = resolvePipelineTableRowForPanel(row) || row;
+    const openKey = String(tableRow.dataset.leadKey || '').trim();
+    if (openKey && typeof window.__adhelloMoneyModeLeadUrl === 'function') {
+      window.location.assign(window.__adhelloMoneyModeLeadUrl(openKey, moneyModeQueueKeys(tableRow, openKey)));
+      return;
+    }
 
     // Remove existing selection
     rows.forEach((r) => r.classList.remove('selected'));
@@ -12754,15 +12780,71 @@ document.addEventListener('DOMContentLoaded', () => {
       'voicemail_status',
       'sequence_step',
     ]);
-    const entries = mergeActivityEntries(row)
-      .filter((e) => {
-        const typ = String(e.typ || '').toLowerCase();
-        if (noiseTypes.has(typ)) return false;
-        return String(e.text || '').trim().length > 0;
-      })
-      .slice(0, 8);
+    const isReplyEntry = (e) => {
+      const typ = String(e.typ || '').toLowerCase();
+      if (typ === 'sms_inbound' || typ === 'email_inbound') return true;
+      if (typ !== 'engagement_signal') return false;
+      const raw = e.raw || {};
+      return /reply/i.test(String(raw.signalType || raw.signal || ''));
+    };
+    const allEntries = mergeActivityEntries(row).filter((e) => {
+      const typ = String(e.typ || '').toLowerCase();
+      if (noiseTypes.has(typ)) return false;
+      return String(e.text || '').trim().length > 0;
+    });
+    const replyEntries = allEntries.filter(isReplyEntry);
+    const entries = replyEntries.slice(0, 8).concat(allEntries.filter((e) => !isReplyEntry(e)).slice(0, 8));
 
-    const latest = entries[0] || null;
+    const latest = allEntries[0] || null;
+    const latestReply = replyEntries[0] || null;
+    const fmtWhen = (ts) =>
+      ts
+        ? new Date(ts).toLocaleString(undefined, {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+          })
+        : '';
+    const replyCard = document.getElementById('leadPanelLatestReply');
+    if (replyCard) {
+      replyCard.classList.toggle('hidden', !latestReply);
+      const replyWhenEl = document.getElementById('leadPanelLatestReplyWhen');
+      const replyTextEl = document.getElementById('leadPanelLatestReplyText');
+      if (replyWhenEl) {
+        replyWhenEl.textContent = latestReply
+          ? [`${formatActivityTypeLabel(latestReply.typ, latestReply.raw)} reply`, fmtWhen(latestReply.ts)]
+              .filter(Boolean)
+              .join(' · ')
+          : '';
+      }
+      if (replyTextEl) replyTextEl.textContent = latestReply ? formatActivityEntryText(latestReply) : '';
+    }
+    const lastCard = document.getElementById('leadPanelLastTouchCard');
+    if (lastCard) lastCard.classList.toggle('hidden', !!latestReply && latestReply === latest);
+    const touchToggle = document.getElementById('leadPanelTouchPointsToggle');
+    if (touchToggle) {
+      touchToggle.classList.toggle('hidden', allEntries.length < 2);
+      const toggleLabel = document.getElementById('leadPanelTouchPointsToggleLabel');
+      if (toggleLabel) {
+        toggleLabel.textContent =
+          `All ${allEntries.length} touch${allEntries.length === 1 ? '' : 'es'}` +
+          (replyEntries.length
+            ? ` · ${replyEntries.length} business repl${replyEntries.length === 1 ? 'y' : 'ies'} first`
+            : '');
+      }
+      if (!touchToggle.dataset.bound) {
+        touchToggle.dataset.bound = '1';
+        touchToggle.addEventListener('click', () => {
+          const open = touchToggle.getAttribute('aria-expanded') !== 'true';
+          touchToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+          listEl.classList.toggle('hidden', !open);
+          const chevron = touchToggle.querySelector('svg');
+          if (chevron) chevron.classList.toggle('rotate-180', !open);
+        });
+      }
+    }
     const summaryParts = [];
     if (channelLabel) summaryParts.push(channelLabel);
     if (latest) {
@@ -12840,7 +12922,8 @@ document.addEventListener('DOMContentLoaded', () => {
               minute: '2-digit',
             })
           : '—';
-        const typeLabel = formatActivityTypeLabel(item.typ, item.raw);
+        const baseLabel = formatActivityTypeLabel(item.typ, item.raw);
+        const typeLabel = isReplyEntry(item) ? `Business reply · ${baseLabel}` : baseLabel;
         const body = formatActivityEntryText(item);
         const warmClass = warm
           ? ' border-emerald-500/30 bg-emerald-500/5 dark:bg-emerald-950/20'
@@ -23407,6 +23490,10 @@ document.addEventListener('DOMContentLoaded', () => {
   window.openLeadDetailFromKey = async (rawKey) => {
     const k = String(rawKey || '').replace(/^lead:/, '').trim();
     if (!k) return { ok: false };
+    if (typeof window.__adhelloMoneyModeLeadUrl === 'function') {
+      window.location.assign(window.__adhelloMoneyModeLeadUrl(k));
+      return { ok: true, moneyMode: true };
+    }
     const host = document.getElementById('leadPanelDatasetHost');
     if (!host) {
       if (typeof window.__adhelloOpenLeadDetailFromKeyLite === 'function') {
