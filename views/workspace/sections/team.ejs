@@ -83,7 +83,7 @@
 <% } else if (_inviteStatus === 'invalid_email') { %>
   <div class="mb-8 rounded-2xl border border-rose-200 bg-rose-50 dark:bg-rose-950/30 dark:border-rose-800 px-6 py-4 text-sm text-rose-900 dark:text-rose-100">Enter a valid email address.</div>
 <% } else if (_inviteStatus === 'domain_restricted') { %>
-  <div class="mb-8 rounded-2xl border border-rose-200 bg-rose-50 dark:bg-rose-950/30 dark:border-rose-800 px-6 py-4 text-sm text-rose-900 dark:text-rose-100">Invites are currently restricted to <strong>@adhello.ai</strong> and <strong>@adhello.io</strong> emails.</div>
+  <div class="mb-8 rounded-2xl border border-rose-200 bg-rose-50 dark:bg-rose-950/30 dark:border-rose-800 px-6 py-4 text-sm text-rose-900 dark:text-rose-100">That email address can't be invited. Check it and try again.</div>
 <% } else if (_inviteStatus === 'error') { %>
   <div class="mb-8 rounded-2xl border border-rose-200 bg-rose-50 dark:bg-rose-950/30 dark:border-rose-800 px-6 py-4 text-sm text-rose-900 dark:text-rose-100">Could not add member. Please try again.</div>
 <% } else if (_inviteStatus === 'wrong_account') { %>
