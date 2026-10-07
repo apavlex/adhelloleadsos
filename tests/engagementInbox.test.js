@@ -164,3 +164,34 @@ test('inferSignalTypeFromUpdate parses legacy value strings', () => {
   );
   assert.equal(inferSignalTypeFromUpdate({ signalType: 'email_reply' }), 'email_reply');
 });
+
+test('buildEngagementInbox groups a business into one row with reply count and reply texts', () => {
+  const auto = 'This number does not reply to text messages.';
+  const updates = [];
+  ['10:00', '10:01', '10:02'].forEach((t) => {
+    const ts = `2026-08-04T${t}:00.000Z`;
+    updates.push({ type: 'sms_inbound', timestamp: ts, value: auto });
+    updates.push({ type: 'engagement_signal', signalType: 'sms_reply', timestamp: ts, value: 'SMS reply · via ghl' });
+  });
+  updates.push({ type: 'sms_inbound', timestamp: '2026-08-04T11:00:00.000Z', value: 'Call me at 3' });
+  updates.push({ type: 'engagement_signal', signalType: 'sms_reply', timestamp: '2026-08-04T11:00:00.000Z', value: 'SMS reply · via ghl' });
+  const leads = [
+    leadWithSignals('lead:kvn', updates),
+    leadWithSignals('lead:other', [
+      { type: 'engagement_signal', signalType: 'link_click', timestamp: '2026-08-04T09:00:00.000Z', value: 'Link click' },
+    ]),
+  ];
+  const inbox = buildEngagementInbox(leads, { now: NOW, windowDays: 7 });
+  assert.equal(inbox.events.length, 5);
+  assert.equal(inbox.rows.length, 2);
+  const kvn = inbox.rows[0];
+  assert.equal(kvn.leadKey, 'lead:kvn');
+  assert.equal(kvn.count, 4);
+  assert.equal(kvn.countLabel, '4 replies');
+  assert.deepEqual(
+    kvn.replies.map((r) => [r.text, r.repeat]),
+    [['Call me at 3', 1], [auto, 3]],
+  );
+  assert.equal(inbox.rows[1].countLabel, '');
+  assert.deepEqual(inbox.rows[1].replies, []);
+});

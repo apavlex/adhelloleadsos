@@ -72,9 +72,11 @@
     <% } else { %>
     <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm overflow-hidden" aria-label="Engagement events">
       <ul class="divide-y divide-brand-border/40 dark:divide-white/10" id="engagementInboxList">
-        <% _events.forEach(function (ev) {
-          var _when = ev.at ? wsDateTime(ev.at, { dateStyle: 'medium', timeStyle: 'short' }) : '';
+        <% var _rows = Array.isArray(typeof rows !== 'undefined' ? rows : null) ? rows : _events; %>
+        <% _rows.forEach(function (ev) {
+          var _when = (ev.latestAt || ev.at) ? wsDateTime(ev.latestAt || ev.at, { dateStyle: 'medium', timeStyle: 'short' }) : '';
           var _warm = ev.priority <= 2;
+          var _replies = Array.isArray(ev.replies) ? ev.replies : [];
         %>
         <li class="engagement-inbox-row px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 hover:bg-brand-cream/20 dark:hover:bg-slate-800/40 transition-colors">
           <div class="min-w-0 flex-1">
@@ -82,8 +84,25 @@
               <span class="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-brand-border/60 dark:border-white/15 text-brand-muted"><%= ev.signalLabel %></span>
               <% if (_warm) { %><span class="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-emerald-500/40 text-emerald-800 dark:text-emerald-200">Call now</span><% } %>
             </div>
-            <p class="text-sm font-bold text-brand-dark dark:text-white truncate"><%= ev.leadTitle %></p>
+            <div class="flex items-center gap-2 min-w-0">
+              <p class="text-sm font-bold text-brand-dark dark:text-white truncate"><%= ev.leadTitle %></p>
+              <% if (ev.countLabel) { %><span class="engagement-count shrink-0 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-brand-yellow/15 text-brand-dark dark:text-brand-yellow border border-brand-yellow/30"><%= ev.countLabel %></span><% } %>
+            </div>
+            <% if (_replies.length) { %>
+            <ul class="engagement-replies mt-2 space-y-1.5">
+              <% _replies.slice(0, 3).forEach(function (r) { %>
+              <li class="rounded-lg border border-emerald-500/30 bg-emerald-500/10 dark:bg-emerald-950/30 px-3 py-2">
+                <p class="text-[9px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-200"><%= r.channel === 'email' ? 'Email reply' : 'SMS reply' %> · <%= wsDateTime(r.at, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) %><% if (r.repeat > 1) { %> · ×<%= r.repeat %><% } %></p>
+                <p class="text-xs text-brand-dark dark:text-slate-200 mt-0.5 line-clamp-3 break-words"><%= r.text %></p>
+              </li>
+              <% }); %>
+              <% if (_replies.length > 3) { %>
+              <li class="text-[10px] font-bold text-brand-muted">+<%= _replies.length - 3 %> more replies</li>
+              <% } %>
+            </ul>
+            <% } else { %>
             <p class="text-[11px] text-brand-muted mt-0.5 line-clamp-2"><%= ev.detail %></p>
+            <% } %>
             <p class="text-[10px] text-brand-muted/80 mt-1 tabular-nums"><%= _when %></p>
           </div>
           <div class="flex flex-wrap gap-2 shrink-0">

@@ -109,6 +109,62 @@ function mergeEvents(primary, fallback) {
   return merged;
 }
 
+const REPLY_SIGNALS = new Set(['sms_reply', 'email_reply']);
+
+/** What the business actually wrote back, newest first; identical texts collapse into one with a repeat count. */
+function inboundRepliesFor(lead, cutoffMs) {
+  const list = [];
+  for (const u of Array.isArray(lead?.updates) ? lead.updates : []) {
+    if (!u || (u.type !== 'sms_inbound' && u.type !== 'email_inbound')) continue;
+    const atMs = Date.parse(u.timestamp || '');
+    if (!Number.isFinite(atMs) || atMs < cutoffMs) continue;
+    const text = String(u.value || '').trim();
+    if (!text) continue;
+    list.push({
+      at: u.timestamp,
+      atMs,
+      channel: u.type === 'email_inbound' ? 'email' : 'sms',
+      text: text.slice(0, 400),
+    });
+  }
+  list.sort((a, b) => b.atMs - a.atMs);
+  const byText = new Map();
+  for (const r of list) {
+    const k = `${r.channel}|${r.text.toLowerCase()}`;
+    const cur = byText.get(k);
+    if (cur) cur.repeat += 1;
+    else byText.set(k, { ...r, repeat: 1 });
+  }
+  return [...byText.values()];
+}
+
+/** One row per business (at its highest-priority signal) with a signal count and the reply texts. */
+function groupEventsByLead(events, leadsByKey, cutoffMs) {
+  const rows = [];
+  const byLead = new Map();
+  for (const ev of events) {
+    let row = byLead.get(ev.leadKey);
+    if (!row) {
+      row = { ...ev, count: 0, replyCount: 0, latestAt: ev.at, latestAtMs: ev.atMs };
+      byLead.set(ev.leadKey, row);
+      rows.push(row);
+    }
+    row.count += 1;
+    if (REPLY_SIGNALS.has(ev.signalType)) row.replyCount += 1;
+    if (ev.atMs > row.latestAtMs) {
+      row.latestAt = ev.at;
+      row.latestAtMs = ev.atMs;
+    }
+  }
+  for (const row of rows) {
+    const lead = leadsByKey.get(row.leadKey);
+    row.replies = lead && row.replyCount ? inboundRepliesFor(lead, cutoffMs) : [];
+    row.countLabel =
+      row.count < 2 ? '' : row.replyCount === row.count ? `${row.count} replies` : `${row.count} signals`;
+  }
+  return rows;
+}
+
 function summarizeEvents(events) {
   const byType = Object.fromEntries(SIGNAL_TYPES.map((t) => [t, 0]));
   for (const e of events) {
@@ -135,8 +191,10 @@ function buildEngagementInbox(leads, opts = {}) {
   const limit = typeof opts.limit === 'number' ? opts.limit : 200;
 
   let events = [];
+  const leadsByKey = new Map();
   for (const lead of Array.isArray(leads) ? leads : []) {
     if (!lead || !lead.key) continue;
+    leadsByKey.set(lead.key, lead);
     const fromUpdates = eventsFromUpdates(lead, cutoffMs);
     const fromFields = eventsFromSignalFields(lead, cutoffMs);
     events = events.concat(mergeEvents(fromUpdates, fromFields));
@@ -155,6 +213,7 @@ function buildEngagementInbox(leads, opts = {}) {
   return {
     windowDays,
     events: events.slice(0, limit),
+    rows: groupEventsByLead(events, leadsByKey, cutoffMs).slice(0, limit),
     summary,
   };
 }

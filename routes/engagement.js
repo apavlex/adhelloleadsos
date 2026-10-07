@@ -60,6 +60,7 @@ router.get('/', async (req, res, next) => {
     res.render('engagement', {
       title: 'Engagement inbox',
       events: inbox.events,
+      rows: inbox.rows,
       summary: inbox.summary,
       windowDays: inbox.windowDays,
       activeType: signalType,
