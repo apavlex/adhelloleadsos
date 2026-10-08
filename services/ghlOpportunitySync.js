@@ -226,9 +226,11 @@ async function addMissingStagesToGhl(env, boards, ghlPipelines, report) {
       names.forEach((name) => added.push(`${pipeline.name} → ${name}`));
     } catch (e) {
       const why = /not authorized for this scope/i.test(String(e && e.message)) || [401, 403].includes(Number(e && e.status))
-        ? 'your GHL token can’t edit pipelines'
+        ? 'your GHL token needs the pipelines edit permission, pipelines.write'
         : friendlyError(e);
-      errors.push(`Couldn’t add ${names.join(', ')} to GHL “${pipeline.name}” (${why}). Add those stages in GHL, then sync again.`);
+      errors.push(
+        `Couldn’t add ${names.join(', ')} to GHL “${pipeline.name}” (${why}). Turn that permission on for the token in GHL → Settings → Private Integrations, or add those stages in GHL yourself, then sync again.`,
+      );
     }
   }
   return { added, errors };
