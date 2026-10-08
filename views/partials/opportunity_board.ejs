@@ -602,7 +602,7 @@
     }
     function changes(last) {
       return (last.pulled || 0) + (last.created || 0) + (last.pushed || 0) + (last.closed || 0) +
-        (last.addedStages || 0) + ((last.createdBoards || []).length);
+        (last.addedStages || 0) + ((last.createdBoards || []).length) + ((last.stagesAddedToGhl || []).length);
     }
     function render() {
       var last = state.last;
@@ -631,6 +631,7 @@
       parts.push((last.pushed || 0) + ' sent to GHL');
       if (last.created) parts.push(last.created + ' new lead' + (last.created === 1 ? '' : 's'));
       if (last.createdBoards && last.createdBoards.length) parts.push('new boards: ' + last.createdBoards.join(', '));
+      if (last.stagesAddedToGhl && last.stagesAddedToGhl.length) parts.push('stages added to GHL: ' + last.stagesAddedToGhl.join(', '));
       if (last.failed) parts.push(last.failed + ' failed' + (last.errors && last.errors[0] ? ' (' + last.errors[0] + ')' : ''));
       line.textContent = parts.join(' · ');
     }
