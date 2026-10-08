@@ -2,7 +2,7 @@
 <% const _compact = typeof opportunityCompact !== 'undefined' && opportunityCompact; %>
 <% const _ghl = !_compact && typeof ghlOpportunitySync !== 'undefined' && ghlOpportunitySync ? ghlOpportunitySync : null; %>
 <% const _ghlLast = _ghl && _ghl.last; %>
-<% const _ghlStatusText = !_ghl ? '' : _ghl.running ? 'Syncing with GHL…' : !_ghlLast ? 'Not synced with GHL yet. Sync links each board to the GHL pipeline with the same name.' : _ghlLast.ok ? 'Last synced with GHL.' : 'GHL sync failed: ' + (_ghlLast.error || 'unknown error'); %>
+<% const _ghlStatusText = !_ghl ? '' : _ghl.running ? 'Syncing with GHL… ' + (_ghl.progress ? _ghl.progress.percent : 0) + '%' : !_ghlLast ? 'Not synced with GHL yet. Sync links each board to the GHL pipeline with the same name.' : _ghlLast.ok ? 'Last synced with GHL.' : 'GHL sync failed: ' + (_ghlLast.error || 'unknown error'); %>
 <% const _oppTags = Array.isArray(typeof opportunityTags !== 'undefined' ? opportunityTags : null) ? opportunityTags : []; %>
 <% const _oppTagMap = {}; _oppTags.forEach(function (t) { if (t && t.key) _oppTagMap[String(t.key)] = { name: t.name || t.key, color: t.color || '#94a3b8' }; }); %>
 <% if (_board && _board.pipeline) { %>
@@ -420,6 +420,10 @@
   #oppBoard .opp-ghl-status.is-error { color: #b91c1c; }
   html.dark #oppBoard .opp-ghl-status { color: #94a3b8; }
   html.dark #oppBoard .opp-ghl-status.is-error { color: #fca5a5; }
+  #oppBoard .opp-ghl-progress { margin-top: 0.45rem; max-width: 28rem; height: 0.4rem; border-radius: 999px; background: rgba(17, 24, 39, 0.08); overflow: hidden; }
+  #oppBoard .opp-ghl-progress[hidden] { display: none; }
+  #oppBoard .opp-ghl-progress > span { display: block; height: 100%; border-radius: inherit; background: #f5c518; transition: width 0.4s ease; }
+  html.dark #oppBoard .opp-ghl-progress { background: rgba(255, 255, 255, 0.12); }
   #oppBoard .opp-ghl-note { margin-top: 0.6rem; border-radius: 0.75rem; border: 1px dashed rgba(107, 114, 128, 0.45); padding: 0.55rem 0.85rem; font-size: 0.78rem; font-weight: 600; color: #4b5563; }
   html.dark #oppBoard .opp-ghl-note { border-color: rgba(148, 163, 184, 0.4); color: #cbd5e1; }
 </style>
@@ -473,6 +477,7 @@
     <% if (_ghl && _ghl.configured) { %>
     <script type="application/json" id="oppGhlSyncJson"><%- JSON.stringify(_ghl).replace(/</g, '\\u003c') %></script>
     <p id="oppGhlStatus" class="opp-ghl-status<%= _ghlLast && !_ghlLast.ok && !_ghl.running ? ' is-error' : '' %>" role="status"><%= _ghlStatusText %></p>
+    <div id="oppGhlProgress" class="opp-ghl-progress" role="progressbar" aria-label="GHL sync progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<%= _ghl.progress ? _ghl.progress.percent : 0 %>"<%= _ghl.running ? '' : ' hidden' %>><span style="width: <%= _ghl.progress ? _ghl.progress.percent : 0 %>%"></span></div>
     <% if ((_ghl.linked || _ghl.last) && !_board.pipeline.ghlLinked) { %>
     <p class="opp-ghl-note">Not in GHL: this board stays in AdHello only. To sync it, create a pipeline named “<%= _board.pipeline.name %>” in GHL, then click Sync with GHL.</p>
     <% } %>
@@ -580,6 +585,7 @@
     var btn = document.getElementById('oppGhlSync');
     var line = document.getElementById('oppGhlStatus');
     var dataEl = document.getElementById('oppGhlSyncJson');
+    var bar = document.getElementById('oppGhlProgress');
     if (!btn || !line) return;
     var state = {};
     try { state = JSON.parse((dataEl && dataEl.textContent) || '{}') || {}; } catch (e) { state = {}; }
@@ -602,8 +608,18 @@
       var last = state.last;
       line.classList.remove('is-error');
       btn.disabled = !!state.running;
-      btn.textContent = state.running ? 'Syncing…' : 'Sync with GHL';
-      if (state.running) { line.textContent = 'Syncing with GHL…'; return; }
+      var pct = state.running && state.progress ? state.progress.percent || 0 : 0;
+      btn.textContent = state.running ? 'Syncing… ' + pct + '%' : 'Sync with GHL';
+      if (bar) {
+        bar.hidden = !state.running;
+        bar.setAttribute('aria-valuenow', String(pct));
+        if (bar.firstElementChild) bar.firstElementChild.style.width = pct + '%';
+      }
+      if (state.running) {
+        var label = state.progress && state.progress.label;
+        line.textContent = 'Syncing with GHL… ' + pct + '%' + (label ? ' · ' + label : '');
+        return;
+      }
       if (!last) { line.textContent = 'Not synced with GHL yet. Sync links each board to the GHL pipeline with the same name.'; return; }
       if (!last.ok) {
         line.classList.add('is-error');
@@ -624,7 +640,7 @@
           .then(function (r) { return r.json(); })
           .then(function (data) { done(data); })
           .catch(function () { poll(); });
-      }, 4000);
+      }, 1500);
     }
     function done(data) {
       state = data || {};

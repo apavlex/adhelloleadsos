@@ -22,7 +22,7 @@ const ghlClient = require('../services/ghlClient');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const ghlOpportunitySync = require('../services/ghlOpportunitySync');
 
-const SYNC_WAIT_MS = 20000;
+const SYNC_WAIT_MS = 1500;
 
 async function ghlSyncView(req, workspace) {
   let configured = false;
@@ -96,12 +96,12 @@ router.get('/ghl-sync', async (req, res, next) => {
 
 router.post('/ghl-sync', express.json({ limit: '8kb' }), async (req, res, next) => {
   try {
+    const before = await dbService.getWorkspace(req.workspaceId);
+    if (ghlOpportunitySync.statusFor({ ...(before || {}), id: req.workspaceId }).running) {
+      return res.json({ success: true, ...(await ghlSyncView(req, before)) });
+    }
     const run = ghlOpportunitySync.syncWorkspace(req.workspaceId, { trigger: 'button' });
-    const finished = await Promise.race([
-      run,
-      new Promise((resolve) => setTimeout(() => resolve(null), SYNC_WAIT_MS)),
-    ]);
-    if (finished) {
+    run.then((finished) => {
       teamActivity.record(req, {
         category: 'pipeline',
         action: 'opportunity_ghl_sync',
@@ -109,7 +109,11 @@ router.post('/ghl-sync', express.json({ limit: '8kb' }), async (req, res, next) 
           ? `Synced opportunities with GHL (${finished.pulled + finished.created} from GHL, ${finished.pushed} to GHL)`
           : 'GHL opportunity sync failed',
       });
-    }
+    });
+    const finished = await Promise.race([
+      run,
+      new Promise((resolve) => setTimeout(() => resolve(null), SYNC_WAIT_MS)),
+    ]);
     const workspace = await dbService.getWorkspace(req.workspaceId);
     res.json({ success: true, ...(await ghlSyncView(req, workspace)), running: !finished });
   } catch (e) {
