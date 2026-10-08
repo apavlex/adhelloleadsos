@@ -13,6 +13,26 @@ const { getPublicBaseUrl } = require('../lib/publicBaseUrl');
 
 const router = express.Router();
 
+const CONNECT_TTL_MS = 30 * 60 * 1000;
+
+/** An AI app (ChatGPT, Claude, …) sent this person here mid-connect; see routes/oauth.js. */
+function pendingConnect(req) {
+  const c = req.session && req.session.connectSignup;
+  if (!c || !String(c.url || '').startsWith('/oauth/authorize?') || Date.now() - c.at > CONNECT_TTL_MS) return null;
+  return c;
+}
+
+function afterSignupUrl(req) {
+  const c = pendingConnect(req);
+  const next = req.session && req.session.signupNext;
+  if (req.session) {
+    delete req.session.connectSignup;
+    delete req.session.signupNext;
+  }
+  if (c) return c.url;
+  return next === 'ai-apps' ? '/workspace/ai-apps' : '/today?welcome=trial';
+}
+
 function signedInEmail(req) {
   if (!(req.isAuthenticated && req.isAuthenticated())) return '';
   if (req.user && req.user.demoGuest) return '';
@@ -25,8 +45,12 @@ function clientIp(req) {
     .trim();
 }
 
-function render(res, { form = {}, errors = [], signedInAs = '', status = 200 } = {}) {
+function render(req, res, { form = {}, errors = [], signedInAs = '', status = 200 } = {}) {
+  const connect = pendingConnect(req);
+  const forAi = !connect && req.session && req.session.signupNext === 'ai-apps';
   return res.status(status).render('signup', {
+    connectClient: connect ? connect.clientName : '',
+    aiSetup: !!forAi,
     form,
     errors,
     signedInAs,
@@ -44,11 +68,13 @@ async function hasWorkspace(email) {
 
 router.get('/signup', async (req, res, next) => {
   try {
+    // /signup?next=ai-apps: land on Settings → AI Connector to hook up Muse, Grok, agents, …
+    if (req.session && req.query.next === 'ai-apps') req.session.signupNext = 'ai-apps';
     const email = signedInEmail(req);
-    if (email && (await hasWorkspace(email))) return res.redirect('/today');
+    if (email && (await hasWorkspace(email))) return res.redirect(afterSignupUrl(req).replace('?welcome=trial', ''));
     const pending = (req.session && req.session.pendingSignup) || {};
     const googleName = (req.user && req.user.displayName) || '';
-    return render(res, { form: { name: googleName, ...pending }, signedInAs: email });
+    return render(req, res, { form: { name: googleName, ...pending }, signedInAs: email });
   } catch (e) {
     return next(e);
   }
@@ -57,7 +83,7 @@ router.get('/signup', async (req, res, next) => {
 router.post('/signup', express.urlencoded({ extended: false, limit: '16kb' }), (req, res, next) => {
   const { form, errors } = trials.readSignupForm(req.body || {});
   const email = signedInEmail(req);
-  if (errors.length) return render(res, { form, errors, signedInAs: email, status: 400 });
+  if (errors.length) return render(req, res, { form, errors, signedInAs: email, status: 400 });
 
   const proceed = () => {
     req.session.pendingSignup = form;
@@ -76,16 +102,16 @@ router.get('/signup/complete', async (req, res, next) => {
     if (!email) return res.redirect('/signup');
     if (await hasWorkspace(email)) {
       if (req.session) delete req.session.pendingSignup;
-      return res.redirect('/today');
+      return res.redirect(afterSignupUrl(req).replace('?welcome=trial', ''));
     }
     const pending = req.session && req.session.pendingSignup;
     if (!pending) return res.redirect('/signup');
     const { form, errors } = trials.readSignupForm(pending);
-    if (errors.length) return render(res, { form, errors, signedInAs: email, status: 400 });
+    if (errors.length) return render(req, res, { form, errors, signedInAs: email, status: 400 });
 
     const ip = clientIp(req);
     if (!trials.takeIpSlot(ip)) {
-      return render(res, {
+      return render(req, res, {
         form,
         errors: ['Too many trials were started from this network today. Try again tomorrow or contact us.'],
         signedInAs: email,
@@ -114,7 +140,8 @@ router.get('/signup/complete', async (req, res, next) => {
         })
         .catch((e) => console.warn('[signup] notify failed:', e.message));
     });
-    return req.session.save(() => res.redirect('/today?welcome=trial'));
+    const dest = afterSignupUrl(req);
+    return req.session.save(() => res.redirect(dest));
   } catch (e) {
     return next(e);
   }

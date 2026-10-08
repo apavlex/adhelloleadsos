@@ -119,7 +119,7 @@ async function authorize(base, state, { wid, cookie: jar = {} } = {}) {
   const loggedOut = await fetch(`${base}/oauth/authorize?${qs}`, withCookie({ redirect: 'manual' }));
   keepCookie(loggedOut);
   assert.equal(loggedOut.status, 302);
-  assert.equal(loggedOut.headers.get('location'), '/auth/login');
+  assert.equal(loggedOut.headers.get('location'), '/auth/login?connect=1');
 
   state.email = OWNER;
   const consent = await fetch(`${base}/oauth/authorize?${qs}`, withCookie({ redirect: 'manual' }));

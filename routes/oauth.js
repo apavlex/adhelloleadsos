@@ -84,6 +84,11 @@ async function accessibleWorkspaces(email) {
     .map((ws) => ({ id: ws.id, name: ws.name || 'Workspace' }));
 }
 
+/** Where /signup/complete sends a brand-new user: back to this authorize request. */
+function rememberConnectSignup(session, url, clientName) {
+  session.connectSignup = { url, clientName: String(clientName || 'your AI app').slice(0, 80), at: Date.now() };
+}
+
 function rememberTxn(session, txn, value) {
   const now = Date.now();
   const kept = Object.entries(session.oauthTxns || {})
@@ -138,19 +143,26 @@ router.get('/oauth/authorize', async (req, res, next) => {
       }));
     }
 
+    const lockedWs = check.client.manual && !check.client.allWorkspaces ? check.client.workspaceId : '';
     if (!(req.isAuthenticated && req.isAuthenticated())) {
-      if (req.session) req.session.returnTo = req.originalUrl;
-      return res.redirect('/auth/login');
+      if (req.session) {
+        req.session.returnTo = req.originalUrl;
+        // New users can start a free trial and come straight back to this consent screen.
+        if (!lockedWs) rememberConnectSignup(req.session, req.originalUrl, check.client.name);
+      }
+      return res.redirect('/auth/login?connect=1');
     }
 
     const email = userEmail(req);
-    const lockedWs = check.client.manual && !check.client.allWorkspaces ? check.client.workspaceId : '';
     const workspaces = (await accessibleWorkspaces(email)).filter((w) => !lockedWs || w.id === lockedWs);
     if (!workspaces.length) {
-      const why = lockedWs
-        ? `This app was set up for a workspace ${email} is not on.`
-        : `${email} is not on an AdHello workspace yet.`;
-      return renderPage(res, 403, { error: `${why} Sign in with the Google account you use for AdHello.` });
+      if (!lockedWs && !(req.user && req.user.demoGuest)) {
+        rememberConnectSignup(req.session, req.originalUrl, check.client.name);
+        return res.redirect('/signup?connect=1');
+      }
+      return renderPage(res, 403, {
+        error: `This app was set up for a workspace ${email} is not on. Sign in with the Google account you use for AdHello.`,
+      });
     }
 
     const txn = crypto.randomBytes(16).toString('hex');

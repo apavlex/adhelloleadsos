@@ -19,6 +19,7 @@
     .su-actions select, .su-actions input { border-radius: 0.75rem; border: 1px solid var(--brand-border); background: #fff; padding: 0.45rem 0.6rem; font-size: 13px; }
     .dark .su-actions select, .dark .su-actions input { background: #0f172a; border-color: rgba(255,255,255,0.1); color: #fff; }
     .su-card:target { box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.6); }
+    @media (min-width: 640px) { .su-lbl { width: 8rem; } }
   </style>
 
   <main class="max-wide px-6 py-10 md:py-14">
@@ -42,6 +43,12 @@
         <button type="button" id="signupCopy" class="btn-pill btn-primary px-6 py-3 text-xs font-black uppercase tracking-widest">Copy</button>
       </div>
       <p class="mt-2 text-xs text-brand-muted">Put this on your site or send it to anyone. To add someone to one of your own workspaces instead, use Workspace → Team → Invite.</p>
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mt-5 mb-1.5">For AI assistants (ChatGPT, Claude, Grok, Muse, any MCP agent)</p>
+      <div class="flex flex-col gap-2 text-sm">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3"><span class="text-xs font-bold text-brand-muted su-lbl shrink-0">Connector URL</span><code class="break-all rounded-lg bg-brand-cream/40 dark:bg-slate-800 px-3 py-2 text-xs"><%= mcpUrl %></code></div>
+        <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3"><span class="text-xs font-bold text-brand-muted su-lbl shrink-0">Sign up + connect</span><code class="break-all rounded-lg bg-brand-cream/40 dark:bg-slate-800 px-3 py-2 text-xs"><%= signupUrl %>?next=ai-apps</code></div>
+      </div>
+      <p class="mt-2 text-xs text-brand-muted">Adding the connector URL in ChatGPT or Claude opens "Sign in with AdHello". New people get the trial signup there and go straight back to Allow. For token-only agents, share the sign-up + connect link: it lands them on AI Connector to create a token.</p>
     </section>
 
     <% if (flash) { %>

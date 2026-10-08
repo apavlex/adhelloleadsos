@@ -59,6 +59,7 @@ router.get('/signups', async (req, res, next) => {
       counts,
       defaults: trials.defaults(),
       signupUrl: `${getPublicBaseUrl(req)}/signup`,
+      mcpUrl: `${getPublicBaseUrl(req)}/ceo/mcp`,
       flash: String(req.query.ok || req.query.error || '').slice(0, 200),
       flashError: !!req.query.error,
     });

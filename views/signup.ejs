@@ -35,6 +35,11 @@
         <span class="text-[11px] font-black uppercase tracking-[0.15em] text-slate-500">AdHello Leads &middot; Agency OS</span>
       </div>
 
+      <% if (typeof connectClient !== 'undefined' && connectClient) { %>
+        <p class="mb-5 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2.5 text-xs text-amber-800 leading-relaxed"><strong><%= connectClient %></strong> wants to connect to AdHello. Create your free workspace and you'll go right back to finish connecting.</p>
+      <% } else if (typeof aiSetup !== 'undefined' && aiSetup) { %>
+        <p class="mb-5 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2.5 text-xs text-amber-800 leading-relaxed">After you sign up you'll land on <strong>AI Connector</strong> with your connector URL and a one-click token for ChatGPT, Claude, Grok, Muse or any MCP agent.</p>
+      <% } %>
       <h1 class="font-display font-extrabold text-2xl text-[#0F172A] leading-tight">Start your <%= trialDays %>-day free trial</h1>
       <p class="mt-2 text-sm text-slate-600 leading-relaxed">Find local businesses, see who needs reviews or a website, and work every lead from one pipeline.</p>
       <div class="su-perks mt-4"><span>No credit card</span><span>Your own private workspace</span><span>Nothing is charged when it ends</span></div>

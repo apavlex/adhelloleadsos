@@ -242,9 +242,11 @@ app.get('/health', (req, res) => {
 
 // Auth Routes
 app.get('/auth/login', (req, res) => {
+  const connect = req.query.connect && req.session && req.session.connectSignup;
   res.render('login', {
     error: req.query.error,
     googleAuthConfigured: isGoogleAuthConfigured,
+    connectClient: connect && Date.now() - connect.at < 30 * 60 * 1000 ? connect.clientName : '',
   });
 });
 

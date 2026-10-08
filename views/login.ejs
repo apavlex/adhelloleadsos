@@ -37,6 +37,11 @@
         <h1 class="font-display font-extrabold text-[2.75rem] text-[#0F172A] mb-4 tracking-tight leading-tight">Welcome Back</h1>
         <p class="text-[11px] font-bold tracking-[0.15em] uppercase text-slate-500 mb-14 px-4 leading-relaxed line-height-1">Sign in with your Google account.</p>
 
+        <% if (typeof connectClient !== 'undefined' && connectClient) { %>
+            <div class="bg-amber-50 text-amber-800 p-5 rounded-2xl text-sm mb-10 border border-amber-200 leading-relaxed normal-case tracking-normal">
+                <strong><%= connectClient %></strong> wants to connect to AdHello. Sign in, or <a href="/signup" class="font-bold underline underline-offset-2">start a free trial</a> and you'll come right back to finish connecting.
+            </div>
+        <% } %>
         <% if (error === 'auth_not_configured' || !googleAuthConfigured) { %>
             <div class="bg-amber-50 text-amber-800 p-5 rounded-2xl text-[11px] font-bold mb-10 border border-amber-100/50 leading-relaxed normal-case tracking-normal">
                 Google sign-in is not configured on this server. Add GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and BASE_URL in Render environment settings.
