@@ -11,6 +11,8 @@
 <% const _inviteEmailError = typeof inviteEmailError !== 'undefined' ? String(inviteEmailError) : ''; %>
 <% const _obCfg = workspace && workspace.onboarding ? workspace.onboarding : {}; %>
 <% const _obInviteOn = _obCfg.enabled !== false && _obCfg.sendInviteEmail !== false; %>
+<% const _canManage = typeof canManageWorkspace !== 'undefined' && !!canManageWorkspace; %>
+<% const _ra = typeof roleAccess !== 'undefined' && roleAccess ? roleAccess : { matrix: {}, pages: [], roles: ['admin', 'sdr', 'viewer'], labels: { owner: 'Owner', admin: 'Admin', sdr: 'SDR', viewer: 'Viewer' }, hints: {}, myEmail: '', myRole: '' }; %>
 <%
   function _wsDateTime(iso) {
     return wsDateTime(iso, { month: 'numeric', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }) || '—';
@@ -106,6 +108,18 @@
   <div class="mb-8 rounded-2xl border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-6 py-4 text-sm text-amber-900 dark:text-amber-100">That invite was already accepted.</div>
 <% } else if (_inviteStatus === 'regen_error') { %>
   <div class="mb-8 rounded-2xl border border-rose-200 bg-rose-50 dark:bg-rose-950/30 dark:border-rose-800 px-6 py-4 text-sm text-rose-900 dark:text-rose-100">Could not generate a new link.</div>
+<% } else if (_inviteStatus === 'role_saved') { %>
+  <div class="mb-8 rounded-2xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800 px-6 py-4 text-sm text-emerald-900 dark:text-emerald-100">Role updated<% if (_inviteEmail) { %> for <strong><%= _inviteEmail %></strong><% } %>. It applies the next time they load a page.</div>
+<% } else if (_inviteStatus === 'member_removed') { %>
+  <div class="mb-8 rounded-2xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800 px-6 py-4 text-sm text-emerald-900 dark:text-emerald-100"><strong><%= _inviteEmail || 'Member' %></strong> was removed from this workspace. Their leads and history stay.</div>
+<% } else if (_inviteStatus === 'access_saved') { %>
+  <div class="mb-8 rounded-2xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800 px-6 py-4 text-sm text-emerald-900 dark:text-emerald-100">Roles &amp; access saved.</div>
+<% } else if (_inviteStatus === 'owner_locked') { %>
+  <div class="mb-8 rounded-2xl border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-6 py-4 text-sm text-amber-900 dark:text-amber-100">Owners can't be changed or removed here.</div>
+<% } else if (_inviteStatus === 'self_locked') { %>
+  <div class="mb-8 rounded-2xl border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-6 py-4 text-sm text-amber-900 dark:text-amber-100">You can't change or remove your own seat. Ask another owner or admin.</div>
+<% } else if (_inviteStatus === 'member_not_found' || _inviteStatus === 'role_error') { %>
+  <div class="mb-8 rounded-2xl border border-rose-200 bg-rose-50 dark:bg-rose-950/30 dark:border-rose-800 px-6 py-4 text-sm text-rose-900 dark:text-rose-100">Could not update that member. Reload the page and try again.</div>
 <% } %>
 
 <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
@@ -178,7 +192,16 @@
             <span class="font-semibold text-brand-dark dark:text-white"><%= inv.email %></span>
           </td>
           <td class="px-3 align-middle whitespace-nowrap">
+            <% if (_canManage && inv.id) { %>
+            <form action="/workspace/team/invite/role" method="post" class="inline">
+              <input type="hidden" name="inviteId" value="<%= inv.id %>" />
+              <select name="role" class="ta-role-select" aria-label="Role for <%= inv.email %>" onchange="this.form.submit()">
+                <% _ra.roles.forEach(function (r) { %><option value="<%= r %>" <%= (inv.role || 'viewer') === r ? 'selected' : '' %>><%= _ra.labels[r] %></option><% }) %>
+              </select>
+            </form>
+            <% } else { %>
             <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted"><%= inv.role || 'viewer' %></span>
+            <% } %>
           </td>
           <td class="px-3 align-middle text-sm text-brand-muted whitespace-nowrap"><%= inv.invitedAt ? _wsDateTime(inv.invitedAt) : '—' %></td>
           <td class="px-3 align-middle text-sm text-brand-muted whitespace-nowrap"><%= inv.expiresAt ? _wsDateTime(inv.expiresAt) : '—' %></td>
@@ -225,19 +248,47 @@
         <tr class="border-b border-brand-border/40 dark:border-white/10">
           <th class="pl-5 pr-3 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle" scope="col">Member</th>
           <th class="px-3 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap w-[1%]" scope="col">Role</th>
-          <th class="pr-5 pl-3 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap text-right" scope="col">Joined</th>
+          <th class="px-3 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap text-right" scope="col">Joined</th>
+          <% if (_canManage) { %>
+          <th class="pr-5 pl-3 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle text-right" scope="col">Actions</th>
+          <% } %>
         </tr>
       </thead>
       <tbody>
         <% _memberEntries.forEach(([email, meta]) => { %>
+        <% const _isOwner = meta.role === 'owner'; %>
+        <% const _isMe = String(email).toLowerCase() === _ra.myEmail; %>
+        <% const _editable = _canManage && !_isOwner && !_isMe && _ra.roles.indexOf(meta.role) !== -1; %>
         <tr class="border-b border-brand-border/25 dark:border-white/5 last:border-0">
           <td class="pl-5 pr-3 align-middle">
             <span class="font-semibold text-brand-dark dark:text-white"><%= email %></span>
+            <% if (_isMe) { %><span class="ml-1 text-[10px] font-bold uppercase tracking-widest text-brand-muted">(you)</span><% } %>
           </td>
           <td class="px-3 align-middle whitespace-nowrap">
+            <% if (_editable) { %>
+            <form action="/workspace/team/member/role" method="post" class="inline">
+              <input type="hidden" name="email" value="<%= email %>" />
+              <select name="role" class="ta-role-select" aria-label="Role for <%= email %>" onchange="this.form.submit()">
+                <% _ra.roles.forEach(function (r) { %><option value="<%= r %>" <%= meta.role === r ? 'selected' : '' %>><%= _ra.labels[r] %></option><% }) %>
+              </select>
+            </form>
+            <% } else { %>
             <span class="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg bg-brand-yellow/15 text-amber-900 dark:text-amber-200"><%= meta.role %></span>
+            <% } %>
           </td>
-          <td class="pr-5 pl-3 align-middle text-right text-sm text-brand-muted whitespace-nowrap"><%= meta.joinedAt ? _wsDate(meta.joinedAt) : '—' %></td>
+          <td class="px-3 align-middle text-right text-sm text-brand-muted whitespace-nowrap"><%= meta.joinedAt ? _wsDate(meta.joinedAt) : '—' %></td>
+          <% if (_canManage) { %>
+          <td class="pr-5 pl-3 align-middle text-right">
+            <% if (_editable) { %>
+            <form action="/workspace/team/member/remove" method="post" class="inline" onsubmit="return confirm('Remove this member from the workspace? They lose access right away. Their leads and history stay.');">
+              <input type="hidden" name="email" value="<%= email %>" />
+              <button type="submit" class="btn-pill border border-rose-300/70 dark:border-rose-500/40 bg-white dark:bg-slate-900 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-rose-600 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/40">Remove</button>
+            </form>
+            <% } else { %>
+            <span class="text-sm text-brand-muted">—</span>
+            <% } %>
+          </td>
+          <% } %>
         </tr>
         <% }) %>
       </tbody>
@@ -249,6 +300,95 @@
   </div>
   <% } %>
 </div>
+
+<% if (_canManage && _ra.pages.length) { %>
+<form id="team-access" action="/workspace/team/access" method="post" class="brand-card overflow-hidden w-full dark:bg-slate-900 dark:border-white/10 mb-8 scroll-mt-28">
+  <div class="flex flex-wrap items-center justify-between gap-3 px-5 pt-4 pb-3 border-b border-brand-border/25 dark:border-white/10">
+    <div class="min-w-0">
+      <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Roles &amp; access</span>
+      <p class="text-[11px] text-brand-muted mt-1">Choose which pages each role can open and which leads they see. Owners always have full access. Unchecked pages are hidden from their menu.</p>
+    </div>
+    <button type="submit" class="btn-pill btn-primary px-5 py-2.5 text-[10px] font-black uppercase tracking-widest">Save access</button>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="ta-grid w-full text-left border-collapse">
+      <thead>
+        <tr>
+          <th scope="col" class="ta-page-col">Page</th>
+          <th scope="col" class="ta-role-col">
+            <span class="ta-role-name"><%= _ra.labels.owner %></span>
+            <span class="ta-role-hint"><%= _ra.hints.owner %></span>
+          </th>
+          <% _ra.roles.forEach(function (r) { %>
+          <th scope="col" class="ta-role-col">
+            <span class="ta-role-name"><%= _ra.labels[r] %></span>
+            <span class="ta-role-hint"><%= _ra.hints[r] %></span>
+          </th>
+          <% }) %>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="ta-leads-row">
+          <th scope="row" class="ta-page-col">
+            <span class="ta-page-name">Leads they see</span>
+            <span class="ta-role-hint">Applies to Opportunities, Leads, Call mode and folders.</span>
+          </th>
+          <td class="ta-role-col"><span class="ta-fixed">All leads</span></td>
+          <% _ra.roles.forEach(function (r) { %>
+          <td class="ta-role-col">
+            <select name="leads.<%= r %>" class="ta-role-select" aria-label="Leads <%= _ra.labels[r] %> can see">
+              <option value="all" <%= _ra.matrix[r].leads === 'all' ? 'selected' : '' %>>All leads</option>
+              <option value="assigned" <%= _ra.matrix[r].leads === 'assigned' ? 'selected' : '' %>>Only assigned to them</option>
+            </select>
+          </td>
+          <% }) %>
+        </tr>
+        <% let _lastGroup = ''; %>
+        <% _ra.pages.forEach(function (p) { %>
+        <% if (p.group !== _lastGroup) { _lastGroup = p.group; %>
+        <tr class="ta-group-row"><th scope="rowgroup" colspan="<%= _ra.roles.length + 2 %>"><%= p.group %></th></tr>
+        <% } %>
+        <tr>
+          <th scope="row" class="ta-page-col"><span class="ta-page-name"><%= p.label %></span></th>
+          <td class="ta-role-col"><input type="checkbox" checked disabled aria-label="<%= p.label %> for owners" /></td>
+          <% _ra.roles.forEach(function (r) { %>
+          <% const _lockAdminSettings = r === 'admin' && p.id === 'settings' && _ra.myRole !== 'owner'; %>
+          <td class="ta-role-col">
+            <input type="checkbox" name="page.<%= r %>.<%= p.id %>" <%= _ra.matrix[r].pages[p.id] ? 'checked' : '' %> <%= _lockAdminSettings ? 'disabled' : '' %> aria-label="<%= p.label %> for <%= _ra.labels[r] %>" />
+            <% if (_lockAdminSettings) { %><input type="hidden" name="page.<%= r %>.<%= p.id %>" value="on" /><% } %>
+          </td>
+          <% }) %>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+  <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-t border-brand-border/25 dark:border-white/10">
+    <p class="text-[11px] text-brand-muted">Changes apply the next time a member loads a page. Workspace settings includes this Team page.</p>
+    <button type="submit" class="btn-pill btn-primary px-5 py-2.5 text-[10px] font-black uppercase tracking-widest">Save access</button>
+  </div>
+</form>
+<% } %>
+
+<style>
+  .ta-role-select { border-radius: 0.75rem; border: 1px solid rgba(17, 24, 39, 0.14); background: #fff; padding: 0.35rem 1.9rem 0.35rem 0.65rem; font-size: 0.75rem; font-weight: 700; color: #111827; max-width: 12rem; }
+  html.dark .ta-role-select { background: #1e293b; border-color: rgba(255, 255, 255, 0.12); color: #f8fafc; }
+  .ta-grid th, .ta-grid td { padding: 0.6rem 0.75rem; border-bottom: 1px solid rgba(17, 24, 39, 0.06); vertical-align: middle; }
+  html.dark .ta-grid th, html.dark .ta-grid td { border-color: rgba(255, 255, 255, 0.06); }
+  .ta-grid thead th { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.12em; color: #6b7280; }
+  .ta-page-col { padding-left: 1.25rem !important; min-width: 12rem; font-weight: 600; }
+  .ta-role-col { text-align: center; min-width: 7rem; }
+  .ta-grid .ta-role-select { width: 100%; max-width: 10rem; font-size: 0.7rem; }
+  .ta-role-name { display: block; color: #111827; }
+  html.dark .ta-role-name, html.dark .ta-page-name { color: #f8fafc; }
+  .ta-role-hint { display: block; margin-top: 0.15rem; font-size: 10px; font-weight: 500; letter-spacing: 0; text-transform: none; color: #6b7280; }
+  .ta-page-name { font-size: 0.875rem; color: #111827; }
+  .ta-group-row th { padding-top: 1rem; padding-left: 1.25rem; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.14em; color: #b45309; background: rgba(250, 204, 21, 0.06); }
+  .ta-leads-row th, .ta-leads-row td { background: rgba(250, 204, 21, 0.05); }
+  .ta-fixed { font-size: 0.75rem; font-weight: 700; color: #6b7280; }
+  .ta-grid input[type="checkbox"] { width: 1.05rem; height: 1.05rem; accent-color: #ca8a04; cursor: pointer; }
+  .ta-grid input[type="checkbox"]:disabled { cursor: not-allowed; opacity: 0.55; }
+</style>
 
 <p class="text-sm text-brand-muted mb-6">Manage invites and roles here. Links from <strong>New link</strong> replace the previous URL until accepted.</p>
 

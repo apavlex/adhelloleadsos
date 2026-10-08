@@ -6,6 +6,7 @@ const express = require('express');
 const trials = require('../services/trials');
 const signupNotify = require('../services/signupNotify');
 const workspaceBootstrap = require('../services/workspaceBootstrap');
+const dbService = require('../services/database');
 const workspaceService = require('../services/workspaceService');
 const withWorkspace = require('../middleware/withWorkspace');
 const { isGoogleAuthConfigured } = require('../services/auth');
@@ -61,9 +62,14 @@ function render(req, res, { form = {}, errors = [], signedInAs = '', status = 20
   });
 }
 
+/** Only workspaces they can still open count; a removed member keeps the id in their list. */
 async function hasWorkspace(email) {
   const ids = await workspaceBootstrap.collectWorkspaceIdsForEmail(email);
-  return ids.length > 0;
+  for (const id of ids) {
+    const ws = await dbService.getWorkspace(id);
+    if (ws && workspaceBootstrap.userCanAccessWorkspace(ws, email)) return true;
+  }
+  return false;
 }
 
 router.get('/signup', async (req, res, next) => {

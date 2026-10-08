@@ -3,6 +3,7 @@ const router = express.Router();
 const crypto = require('crypto');
 const dbService = require('../services/database');
 const workspaceService = require('../services/workspaceService');
+const rolePermissions = require('../services/rolePermissions');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const ghlWebhookLog = require('../services/ghlWebhookLog');
 const dataPersistence = require('../services/dataPersistence');
@@ -1187,6 +1188,106 @@ router.post('/team/invite/regenerate', express.urlencoded({ extended: true }), a
     );
   } catch (e) {
     return res.redirect('/workspace/team?invite=regen_error');
+  }
+});
+
+function teamManagerOnly(req, res) {
+  if (req.canManageWorkspace) return true;
+  res.status(403).render('error', {
+    message: 'Only workspace owners and admins can manage roles and access.',
+    activePage: 'workspace',
+  });
+  return false;
+}
+
+/** Owners can't be changed or removed from here, and nobody edits their own seat. */
+function memberEditBlock(ws, req, email) {
+  const meta = ws.members && ws.members[email];
+  if (!meta) return 'member_not_found';
+  if (meta.role === 'owner' || workspaceService.roleForEmail(ws, email) === 'owner') return 'owner_locked';
+  if (email === workspaceService.userEmail(req).toLowerCase()) return 'self_locked';
+  return '';
+}
+
+/** Change a member's role (Admin / SDR / Viewer). */
+router.post('/team/member/role', express.urlencoded({ extended: true }), async (req, res, next) => {
+  try {
+    if (!teamManagerOnly(req, res)) return;
+    const wid = req.workspaceId;
+    const ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    const email = String((req.body && req.body.email) || '').trim().toLowerCase();
+    const role = String((req.body && req.body.role) || '').trim().toLowerCase();
+    if (!rolePermissions.EDITABLE_ROLES.includes(role)) return res.redirect('/workspace/team?invite=role_error');
+    const blocked = memberEditBlock(ws, req, email);
+    if (blocked) return res.redirect(`/workspace/team?invite=${blocked}`);
+    ws.members = { ...ws.members, [email]: { ...ws.members[email], role } };
+    if (Array.isArray(ws.roundRobinOrder) && (role === 'sdr' || role === 'admin')) {
+      const has = ws.roundRobinOrder.some((x) => String(x || '').toLowerCase() === email);
+      if (!has) ws.roundRobinOrder = [...ws.roundRobinOrder, email];
+    }
+    await dbService.saveWorkspace(wid, ws);
+    return res.redirect(`/workspace/team?invite=role_saved&email=${encodeURIComponent(email)}`);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Remove a member from this workspace. Their leads and history stay. */
+router.post('/team/member/remove', express.urlencoded({ extended: true }), async (req, res, next) => {
+  try {
+    if (!teamManagerOnly(req, res)) return;
+    const wid = req.workspaceId;
+    const ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    const email = String((req.body && req.body.email) || '').trim().toLowerCase();
+    const blocked = memberEditBlock(ws, req, email);
+    if (blocked) return res.redirect(`/workspace/team?invite=${blocked}`);
+    const members = { ...ws.members };
+    delete members[email];
+    ws.members = members;
+    if (Array.isArray(ws.roundRobinOrder)) {
+      ws.roundRobinOrder = ws.roundRobinOrder.filter((x) => String(x || '').toLowerCase() !== email);
+    }
+    await dbService.saveWorkspace(wid, ws);
+    return res.redirect(`/workspace/team?invite=member_removed&email=${encodeURIComponent(email)}`);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Change the role a pending invite will join with. */
+router.post('/team/invite/role', express.urlencoded({ extended: true }), async (req, res, next) => {
+  try {
+    if (!teamManagerOnly(req, res)) return;
+    const wid = req.workspaceId;
+    const ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    const inviteId = String((req.body && req.body.inviteId) || '').trim();
+    const role = String((req.body && req.body.role) || '').trim().toLowerCase();
+    if (!rolePermissions.EDITABLE_ROLES.includes(role)) return res.redirect('/workspace/team?invite=role_error');
+    const pending = Array.isArray(ws.pendingInvites) ? [...ws.pendingInvites] : [];
+    const idx = pending.findIndex((x) => x && String(x.id || '') === inviteId && !x.acceptedAt);
+    if (idx === -1) return res.redirect('/workspace/team?invite=regen_not_found');
+    pending[idx] = { ...pending[idx], role };
+    ws.pendingInvites = pending;
+    await dbService.saveWorkspace(wid, ws);
+    return res.redirect(`/workspace/team?invite=role_saved&email=${encodeURIComponent(pending[idx].email || '')}`);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Save which pages each role can open and which leads they see. */
+router.post('/team/access', express.urlencoded({ extended: true }), async (req, res, next) => {
+  try {
+    if (!teamManagerOnly(req, res)) return;
+    const wid = req.workspaceId;
+    const ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    const perms = rolePermissions.fromForm(req.body);
+    if (req.workspaceRole !== 'owner') perms.admin.pages.settings = true;
+    ws.rolePermissions = perms;
+    await dbService.saveWorkspace(wid, ws);
+    return res.redirect('/workspace/team?invite=access_saved#team-access');
+  } catch (e) {
+    next(e);
   }
 });
 
@@ -2416,6 +2517,17 @@ router.get('/:section', async (req, res, next) => {
       inviteEmailed: section === 'team' && String((req.query && req.query.emailed) || '') === '1',
       inviteEmailError: section === 'team' ? String((req.query && req.query.email_error) || '').slice(0, 300) : '',
     };
+    if (section === 'team') {
+      renderLocals.roleAccess = {
+        matrix: rolePermissions.resolve(ws),
+        pages: rolePermissions.PAGES,
+        roles: rolePermissions.EDITABLE_ROLES,
+        labels: rolePermissions.ROLE_LABELS,
+        hints: rolePermissions.ROLE_HINTS,
+        myEmail: workspaceService.userEmail(req).toLowerCase(),
+        myRole: req.workspaceRole || '',
+      };
+    }
     if (section === 'info-packs') {
       renderLocals.folders = await dbService.listFolders(req.workspaceId);
       renderLocals.mailPlaybooks = listPlaybooks();
