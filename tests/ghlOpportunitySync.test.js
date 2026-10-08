@@ -235,6 +235,22 @@ test('moving a synced card to an AdHello-only board closes it in GHL', async () 
   assert.equal(opps.get(pushed.ghlOpportunityId).status, 'abandoned');
 });
 
+test('a running sync reports percent complete, then clears it', async () => {
+  const ghl = fakeGhl(new Map());
+  try {
+    const run = sync.syncWorkspace(WID, { integrationEnv: env });
+    const during = sync.statusFor({ id: WID });
+    assert.equal(during.running, true);
+    assert.equal(typeof during.progress.percent, 'number');
+    await run;
+  } finally {
+    ghl.restore();
+  }
+  const after = sync.statusFor({ id: WID });
+  assert.equal(after.running, false);
+  assert.equal(after.progress, null);
+});
+
 test('missing opportunity scopes give a clear fix', async () => {
   const ghl = fakeGhl(new Map(), { denyScope: true });
   let status;

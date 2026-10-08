@@ -699,6 +699,7 @@ async function searchOpportunities(integrationEnv, { pipelineId, limit = 100, st
   const hasMore = !!meta.nextPageUrl && !!meta.startAfterId && opportunities.length >= query.limit;
   return {
     opportunities,
+    total: Number(meta.total) || 0,
     next: hasMore ? { startAfter: meta.startAfter, startAfterId: meta.startAfterId } : null,
   };
 }

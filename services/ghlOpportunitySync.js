@@ -24,6 +24,16 @@ const SCOPE_HELP =
 
 const locks = new Map();
 const running = new Map();
+const progress = new Map();
+
+const PULL_START = 5;
+const PUSH_START = 40;
+
+function reporter(wid) {
+  return (percent, label) => {
+    progress.set(wid, { percent: Math.max(0, Math.min(99, Math.round(percent))), label: label || '' });
+  };
+}
 
 function withLock(wid, fn) {
   const prev = locks.get(wid) || Promise.resolve();
@@ -239,6 +249,7 @@ function createContext(wid, env, boards, leads, deps) {
     leads,
     index: linkIndex(boards),
     deps: deps || {},
+    report: () => {},
     pulledKeys: new Set(),
     stats: { pulled: 0, created: 0, pushed: 0, closed: 0, failed: 0, errors: [] },
     byOpp: new Map(),
@@ -373,11 +384,19 @@ async function applyRemoteOpportunity(ctx, opp, link) {
 }
 
 async function pullOpportunities(ctx) {
-  for (const [ghlPipelineId, link] of ctx.index.byGhlPipeline) {
+  const links = [...ctx.index.byGhlPipeline];
+  const share = (PUSH_START - PULL_START) / Math.max(1, links.length);
+  for (let i = 0; i < links.length; i += 1) {
+    const [ghlPipelineId, link] = links[i];
+    const base = PULL_START + share * i;
+    const label = `Checking GHL “${link.pipeline.name}”`;
+    ctx.report(base, label);
     let cursor = null;
+    let seen = 0;
     for (let page = 0; page < MAX_PAGES; page += 1) {
       // eslint-disable-next-line no-await-in-loop
       const result = await ghlClient.searchOpportunities(ctx.env, { pipelineId: ghlPipelineId, ...(cursor || {}) });
+      const total = Math.max(result.total || 0, seen + result.opportunities.length);
       for (const opp of result.opportunities) {
         try {
           // eslint-disable-next-line no-await-in-loop
@@ -385,6 +404,8 @@ async function pullOpportunities(ctx) {
         } catch (e) {
           recordError(ctx, (opp && opp.name) || 'Opportunity', e);
         }
+        seen += 1;
+        ctx.report(base + share * (seen / Math.max(1, total)), `${label}: ${seen} of ${total} deals`);
       }
       if (!result.next) break;
       cursor = result.next;
@@ -507,12 +528,14 @@ async function pushOpportunities(ctx, onlyKeys) {
     if (ctx.pulledKeys.has(lead.key)) return false;
     return desired.has(String(lead.key)) || !!(lead.ghlOpportunitySync && lead.ghlOpportunitySync.id);
   });
-  let attempts = 0;
-  for (const lead of candidates) {
-    if (attempts >= MAX_PUSH_PER_RUN) break;
-    const want = desired.get(String(lead.key)) || null;
-    if (want && inSync(lead, want)) continue;
-    attempts += 1;
+  const work = candidates
+    .map((lead) => ({ lead, want: desired.get(String(lead.key)) || null }))
+    .filter(({ lead, want }) => !(want && inSync(lead, want)))
+    .slice(0, MAX_PUSH_PER_RUN);
+  ctx.report(PUSH_START, work.length ? `Sending to GHL: 0 of ${work.length} cards` : 'Finishing up');
+  for (let i = 0; i < work.length; i += 1) {
+    const { lead, want } = work[i];
+    ctx.report(PUSH_START + (100 - PUSH_START) * (i / work.length), `Sending to GHL: ${i + 1} of ${work.length} cards`);
     try {
       // eslint-disable-next-line no-await-in-loop
       await pushOne(ctx, lead, want);
@@ -537,6 +560,8 @@ async function saveStatus(wid, status) {
 function syncWorkspace(workspaceId, opts = {}) {
   const wid = workspaceId || 'default';
   running.set(wid, (running.get(wid) || 0) + 1);
+  const report = reporter(wid);
+  report(0, 'Waiting to start');
   return withLock(wid, async () => {
     const startedAt = new Date().toISOString();
     let status;
@@ -545,6 +570,7 @@ function syncWorkspace(workspaceId, opts = {}) {
       if (env.DEMO_WORKSPACE || !ghlClient.isConfigured(env)) {
         throw new Error('Connect Go High Level under Workspace → Integrations first.');
       }
+      report(1, 'Reading GHL pipelines');
       const ghlPipelines = await ghlClient.listOpportunityPipelines(env);
       const ws = (await dbService.getWorkspace(wid)) || { id: wid };
       const linked = linkBoards(ws.opportunityBoards, ghlPipelines);
@@ -555,6 +581,7 @@ function syncWorkspace(workspaceId, opts = {}) {
       }
       const leads = [...(await dbService.getAllLeads(wid))];
       const ctx = createContext(wid, env, boards, leads, opts.deps);
+      ctx.report = report;
       await pullOpportunities(ctx);
       await pushOpportunities(ctx);
       status = {
@@ -587,7 +614,10 @@ function syncWorkspace(workspaceId, opts = {}) {
   }).finally(() => {
     const left = (running.get(wid) || 1) - 1;
     if (left > 0) running.set(wid, left);
-    else running.delete(wid);
+    else {
+      running.delete(wid);
+      progress.delete(wid);
+    }
   });
 }
 
@@ -646,8 +676,10 @@ async function runScheduledSyncs() {
 
 function statusFor(ws) {
   const wid = (ws && ws.id) || '';
+  const isRunning = (running.get(wid) || 0) > 0;
   return {
-    running: (running.get(wid) || 0) > 0,
+    running: isRunning,
+    progress: isRunning ? progress.get(wid) || { percent: 0, label: '' } : null,
     linked: hasLinkedBoards(ws),
     last: (ws && ws.ghlOpportunitySync) || null,
   };
