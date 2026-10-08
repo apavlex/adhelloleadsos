@@ -408,13 +408,18 @@
   }
   .opp-pipeline-select { height: 2.5rem; border-radius: 999px; border: 1px solid rgba(17, 24, 39, 0.12); background: #fff; padding: 0 0.85rem; font-size: 0.75rem; font-weight: 700; color: #111827; }
   html.dark .opp-pipeline-select { background: #0f172a; border-color: rgba(255, 255, 255, 0.12); color: #f8fafc; }
+  #oppBoard .opp-head-row { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+  #oppBoard .opp-head-title { flex: 1 1 18rem; min-width: 0; }
+  #oppBoard .opp-head-actions { flex: 0 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+  #oppBoard .opp-scope-note { margin-top: 0.75rem; border-radius: 0.75rem; border: 1px solid rgba(217, 119, 6, 0.3); background: rgba(254, 243, 199, 0.6); padding: 0.6rem 0.85rem; font-size: 0.8rem; font-weight: 600; color: #92400e; }
+  html.dark #oppBoard .opp-scope-note { background: rgba(120, 53, 15, 0.25); color: #fde68a; }
 </style>
 <section class="<%= _compact ? 'mb-8 md:mb-10 rounded-[2rem] border-2 border-brand-yellow/50 dark:border-brand-yellow/35 bg-white dark:bg-slate-900/90 shadow-lg shadow-brand-yellow/10 overflow-hidden opp-compact' : 'opp-page-board overflow-hidden' %>" id="oppBoard" data-pipeline-id="<%= _board.pipeline.id %>" data-first-stage-id="<%= _board.stages[0] ? _board.stages[0].id : '' %>" aria-label="Opportunities">
   <script type="application/json" id="oppBoardPipelinesJson"><%- JSON.stringify(_board.pipelines || []).replace(/</g, '\\u003c') %></script>
   <script type="application/json" id="oppBoardTemplatesJson"><%- JSON.stringify(_board.templates || []).replace(/</g, '\\u003c') %></script>
   <div class="opp-page-toolbar px-4 sm:px-5 md:px-6 pt-4 sm:pt-5 pb-3 md:pb-4 border-b border-brand-border/40 dark:border-white/10">
-    <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-      <div class="min-w-0">
+    <div class="opp-head-row">
+      <div class="opp-head-title">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Opportunities</p>
         <% if (_compact) { %>
         <h2 class="font-display font-extrabold text-2xl md:text-3xl text-brand-dark dark:text-white leading-tight"><%= _board.pipeline.name %></h2>
@@ -424,7 +429,7 @@
         <p class="text-xs font-semibold text-brand-muted mt-2">Drag cards between stages, or move a lead to another pipeline from the card.</p>
         <% } %>
       </div>
-      <div class="flex flex-wrap items-center gap-2 shrink-0">
+      <div class="opp-head-actions">
         <label class="sr-only" for="oppPipelineSelect">Pipeline</label>
         <select id="oppPipelineSelect" class="opp-pipeline-select" title="Switch pipeline">
           <% _board.pipelines.forEach(function (pipeline) { %>
@@ -450,6 +455,9 @@
       </div>
     </div>
     <p id="oppBoardMsg" class="hidden mt-3 text-sm font-semibold text-red-700" role="status"></p>
+    <% if (typeof onlyAssignedLeads !== 'undefined' && onlyAssignedLeads) { %>
+    <p class="opp-scope-note">You only see opportunities assigned to you. Ask a workspace owner to assign leads to you or change what your role can see on the Team page.</p>
+    <% } %>
   </div>
   <% if (!_compact) { %>
   <button type="button" id="oppFullscreenExit" title="Exit full screen (Esc)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>Exit full screen</button>
