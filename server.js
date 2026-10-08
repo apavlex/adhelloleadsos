@@ -617,6 +617,7 @@ app.use('/', oauthRoutes);
 app.use(ensureAuthenticated);
 app.use(attachWorkspace);
 app.use(require('./middleware/trialGate'));
+app.use(require('./middleware/rolePageGate'));
 app.use(teamActivityCapture);
 app.use(pipelineTablePrefsRoutes.attachPipelineTablePrefs);
 app.use('/pipeline-table-prefs', pipelineTablePrefsRoutes);

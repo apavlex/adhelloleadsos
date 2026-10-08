@@ -39,13 +39,20 @@ function filterLeadsForRequest(req, leads) {
   if (!Array.isArray(leads)) return [];
   const wid = req && req.workspaceId;
   if (!wid) return [];
-  const role = (req && req.workspaceRole) || 'admin';
   let list = leads.filter((l) => (l.workspaceId || 'default') === wid);
-  if (role === 'sdr') {
+  if (seesOnlyAssignedLeads(req)) {
     const email = userEmail(req).toLowerCase();
     list = list.filter((l) => (l.assignedTo || '').toLowerCase() === email);
   }
   return list;
+}
+
+/** True when this member's role is set to "only leads assigned to them" (Team → Roles & access). */
+function seesOnlyAssignedLeads(req) {
+  const role = (req && req.workspaceRole) || 'admin';
+  const ws = req && req.workspace && req.workspace.id === req.workspaceId ? req.workspace : null;
+  if (!ws) return role === 'sdr';
+  return require('./rolePermissions').leadScope(ws, role) === 'assigned';
 }
 
 async function ensureWorkspaceAndMember(workspaceId, userEmailRaw) {
@@ -175,6 +182,7 @@ async function pickRoundRobinAssignee(workspaceId) {
 
 module.exports = {
   filterLeadsForRequest,
+  seesOnlyAssignedLeads,
   ensureWorkspaceAndMember,
   roleForEmail,
   canManageTeam,

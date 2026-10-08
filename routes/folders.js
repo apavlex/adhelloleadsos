@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
-const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
+const { filterLeadsForRequest, seesOnlyAssignedLeads, userEmail } = require('../services/workspaceService');
 const { wantsJsonResponse } = require('../lib/httpRequest');
 const { migrateUnfiledLeadsToPipelineFolders, deleteFolderComplete } = require('../services/pipelineFolders');
 const { moveFolder } = require('../services/folderMove');
@@ -431,8 +431,8 @@ router.post('/assign-bulk', async (req, res, next) => {
     const all = await dbService.getAllLeads(req.workspaceId);
     const visible = filterLeadsForRequest(req, all);
     const visibleKeys = new Set(visible.map((l) => l.key));
-    const role = (req && req.workspaceRole) || 'admin';
-    const sdrEmail = role === 'sdr' ? userEmail(req).toLowerCase() : '';
+    const assignedOnly = seesOnlyAssignedLeads(req);
+    const sdrEmail = assignedOnly ? userEmail(req).toLowerCase() : '';
 
     const resolveAssignableLeadKey = async (rawKey) => {
       const k = String(rawKey || '').trim();
@@ -452,7 +452,7 @@ router.post('/assign-bulk', async (req, res, next) => {
       const lead = await dbService.getLead(resolved, req.workspaceId);
       if (!lead) return null;
       if ((lead.workspaceId || 'default') !== req.workspaceId) return null;
-      if (role === 'sdr' && (lead.assignedTo || '').toLowerCase() !== sdrEmail) return null;
+      if (assignedOnly && (lead.assignedTo || '').toLowerCase() !== sdrEmail) return null;
       return resolved;
     };
 
