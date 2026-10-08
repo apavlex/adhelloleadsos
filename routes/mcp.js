@@ -6,6 +6,7 @@ const express = require('express');
 const { StreamableHTTPServerTransport } = require('@modelcontextprotocol/sdk/server/streamableHttp.js');
 const { mcpAuthContext } = require('../services/mcp/mcpAuth');
 const { mcpRateLimit } = require('../services/mcp/mcpRateLimit');
+const { mcpTrialGate } = require('../services/mcp/mcpTrialGate');
 const { createCrmMcpServer, getOpenAiToolManifest } = require('../services/mcp/mcpServerFactory');
 const { getPublicBaseUrl } = require('../lib/publicBaseUrl');
 
@@ -48,7 +49,7 @@ async function handleMcpRequest(req, res) {
   await transport.handleRequest(req, res, req.body);
 }
 
-router.post('/', mcpAuthContext, mcpRateLimit, async (req, res, next) => {
+router.post('/', mcpAuthContext, mcpTrialGate, mcpRateLimit, async (req, res, next) => {
   try {
     await handleMcpRequest(req, res);
   } catch (err) {
@@ -56,7 +57,7 @@ router.post('/', mcpAuthContext, mcpRateLimit, async (req, res, next) => {
   }
 });
 
-router.get('/', mcpAuthContext, mcpRateLimit, async (req, res, next) => {
+router.get('/', mcpAuthContext, mcpTrialGate, mcpRateLimit, async (req, res, next) => {
   try {
     await handleMcpRequest(req, res);
   } catch (err) {
@@ -64,7 +65,7 @@ router.get('/', mcpAuthContext, mcpRateLimit, async (req, res, next) => {
   }
 });
 
-router.delete('/', mcpAuthContext, mcpRateLimit, async (req, res, next) => {
+router.delete('/', mcpAuthContext, mcpTrialGate, mcpRateLimit, async (req, res, next) => {
   try {
     await handleMcpRequest(req, res);
   } catch (err) {

@@ -261,6 +261,14 @@ function runMetered(ws, fn) {
   return guestEgress.run({ trial: true, workspaceId: ws.id, check: egressCheck(ws) }, fn);
 }
 
+/** Where an ended trial should get in touch (TRIAL_CONTACT_URL, else the public demo's CTA button). */
+function contactInfo() {
+  const cfg = require('./publicDemo').getConfig();
+  const url = String(process.env.TRIAL_CONTACT_URL || '').trim() || cfg.ctaUrl;
+  const email = String(process.env.TRIAL_CONTACT_EMAIL || 'hello@adhello.ai').trim();
+  return { url, email, label: url ? cfg.ctaLabel || 'Book a call' : 'Email us' };
+}
+
 // ── Workspace ────────────────────────────────────────────────────────────────
 
 function slugify(name) {
@@ -407,6 +415,7 @@ module.exports = {
   classifyHost,
   egressCheck,
   runMetered,
+  contactInfo,
   createTrialWorkspace,
   adminUpdate,
   grantAdminAccess,

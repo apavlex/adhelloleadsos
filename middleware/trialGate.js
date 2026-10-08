@@ -4,23 +4,16 @@
  */
 const guestEgress = require('../lib/guestEgress');
 const trials = require('../services/trials');
-const publicDemo = require('../services/publicDemo');
 const { wantsJsonResponse } = require('../lib/httpRequest');
 
 const OPEN_WHEN_LOCKED = [/^\/workspaces\/(switch|open)(\/|$)/, /^\/logout$/];
-
-function contactInfo() {
-  const url = String(process.env.TRIAL_CONTACT_URL || '').trim() || publicDemo.getConfig().ctaUrl;
-  const email = String(process.env.TRIAL_CONTACT_EMAIL || 'hello@adhello.ai').trim();
-  return { url, email, label: url ? publicDemo.getConfig().ctaLabel || 'Book a call' : 'Email us' };
-}
 
 function trialGate(req, res, next) {
   const ws = req.workspace;
   const st = ws && trials.status(ws);
   if (!st || st.state === 'active') return next();
 
-  const contact = contactInfo();
+  const contact = trials.contactInfo();
   res.locals.trial = { ...st, contact };
   const path = String(req.path || '');
 
@@ -48,4 +41,3 @@ function trialGate(req, res, next) {
 }
 
 module.exports = trialGate;
-module.exports.contactInfo = contactInfo;

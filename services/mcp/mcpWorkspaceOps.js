@@ -791,6 +791,25 @@ async function getWorkspaceOverview(ctx) {
     tags: tags.map((t) => ({ name: t.name, lead_count: tagCounts[t.key] || 0 })).sort((a, b) => b.lead_count - a.lead_count),
     folders: (await dbService.listFolders(ctx.workspaceId)).length,
     members: Object.keys(ws.members || {}).length,
+    ...trialSummary(ws),
+  };
+}
+
+/** Free-trial workspaces: days left and today's capped usage, so an agent can pace paid tools. */
+function trialSummary(ws) {
+  const trials = require('../trials');
+  const st = trials.status(ws);
+  if (!st || st.state === 'active') return {};
+  const used = trials.usageFor(ws.id);
+  return {
+    free_trial: {
+      state: st.state,
+      ends_at: st.endsAt,
+      days_left: st.daysLeft,
+      lead_search_calls_today: { used: used.paid, limit: st.limits.paidCallsPerDay },
+      ai_calls_today: { used: used.ai, limit: st.limits.aiCallsPerDay },
+      note: 'Texting, email and calling need the workspace to connect its own Go High Level account.',
+    },
   };
 }
 
