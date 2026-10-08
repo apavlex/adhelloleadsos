@@ -686,6 +686,36 @@ async function listOpportunityPipelines(integrationEnv) {
   return Array.isArray(data.pipelines) ? data.pipelines : [];
 }
 
+/**
+ * Add stages to a GHL pipeline. GHL replaces the whole stage list, so every existing stage is sent back
+ * with its id (dropping one would move its deals); new stages go last.
+ */
+async function addPipelineStages(pipeline, stageNames, integrationEnv) {
+  const keep = ['id', 'name', 'showInFunnel', 'showInPieChart', 'stageWinProbability'];
+  const existing = (Array.isArray(pipeline && pipeline.stages) ? pipeline.stages : [])
+    .filter((s) => s && s.id)
+    .map((s, i) => ({ s, i }))
+    .sort((a, b) => (Number(a.s.position) || 0) - (Number(b.s.position) || 0) || a.i - b.i)
+    .map(({ s }) => {
+      const out = {};
+      keep.forEach((k) => {
+        if (s[k] !== undefined) out[k] = s[k];
+      });
+      return out;
+    });
+  if (!existing.length) throw new Error('GHL pipeline has no stages to keep.');
+  const stages = [...existing, ...stageNames.map((name) => ({ name }))].map((s, position) => ({ ...s, position }));
+  const path = `/opportunities/pipelines/${encodeURIComponent(pipeline.id)}`;
+  const body = { name: pipeline.name, stages };
+  try {
+    return await ghlRequest('PUT', path, { integrationEnv, body, apiVersion: 'v3' });
+  } catch (e) {
+    const status = Number(e && e.status) || 0;
+    if (status === 401 || status === 403 || status === 429) throw e;
+    return ghlRequest('PUT', path, { integrationEnv, body });
+  }
+}
+
 /** One page of opportunities in a pipeline; pass the returned cursor back to continue. */
 async function searchOpportunities(integrationEnv, { pipelineId, limit = 100, startAfter, startAfterId } = {}) {
   const { locationId } = resolveConfig(integrationEnv);
@@ -852,6 +882,7 @@ module.exports = {
   searchContactByEmailOrPhone,
   listContacts,
   listOpportunityPipelines,
+  addPipelineStages,
   searchOpportunities,
   upsertOpportunity,
   updateOpportunity,

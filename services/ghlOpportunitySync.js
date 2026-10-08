@@ -202,6 +202,38 @@ function linkBoards(rawBoards, ghlPipelines) {
   return { boards, changed, summary };
 }
 
+/** Create AdHello-only stages of linked boards in the matching GHL pipeline so every column syncs. */
+async function addMissingStagesToGhl(env, boards, ghlPipelines, report) {
+  const added = [];
+  const errors = [];
+  const byId = new Map((ghlPipelines || []).map((p) => [String(p.id), p]));
+  for (const pipeline of boards.pipelines) {
+    const gp = pipeline.ghlPipelineId && byId.get(pipeline.ghlPipelineId);
+    if (!gp) continue;
+    const taken = new Set((gp.stages || []).map((s) => nameKey(s.name)));
+    const names = [];
+    pipeline.stages.forEach((stage) => {
+      const key = nameKey(stage.name);
+      if (stage.ghlStageId || taken.has(key)) return;
+      taken.add(key);
+      names.push(stage.name);
+    });
+    if (!names.length) continue;
+    report(3, `Adding ${names.length} stage${names.length === 1 ? '' : 's'} to GHL “${pipeline.name}”`);
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      await ghlClient.addPipelineStages(gp, names, env);
+      names.forEach((name) => added.push(`${pipeline.name} → ${name}`));
+    } catch (e) {
+      const why = /not authorized for this scope/i.test(String(e && e.message)) || [401, 403].includes(Number(e && e.status))
+        ? 'your GHL token can’t edit pipelines'
+        : friendlyError(e);
+      errors.push(`Couldn’t add ${names.join(', ')} to GHL “${pipeline.name}” (${why}). Add those stages in GHL, then sync again.`);
+    }
+  }
+  return { added, errors };
+}
+
 function linkIndex(boards) {
   const byGhlPipeline = new Map();
   boards.pipelines.forEach((pipeline) => {
@@ -571,9 +603,15 @@ function syncWorkspace(workspaceId, opts = {}) {
         throw new Error('Connect Go High Level under Workspace → Integrations first.');
       }
       report(1, 'Reading GHL pipelines');
-      const ghlPipelines = await ghlClient.listOpportunityPipelines(env);
+      let ghlPipelines = await ghlClient.listOpportunityPipelines(env);
       const ws = (await dbService.getWorkspace(wid)) || { id: wid };
-      const linked = linkBoards(ws.opportunityBoards, ghlPipelines);
+      let linked = linkBoards(ws.opportunityBoards, ghlPipelines);
+      const stageResult = await addMissingStagesToGhl(env, linked.boards, ghlPipelines, report);
+      if (stageResult.added.length) {
+        ghlPipelines = await ghlClient.listOpportunityPipelines(env);
+        const relinked = linkBoards(linked.boards, ghlPipelines);
+        linked = { boards: relinked.boards, changed: linked.changed || relinked.changed, summary: linked.summary };
+      }
       const boards = normalizeBoards(linked.boards).boards;
       if (linked.changed) {
         ws.opportunityBoards = boards;
@@ -594,8 +632,13 @@ function syncWorkspace(workspaceId, opts = {}) {
         createdBoards: linked.summary.createdBoards,
         addedStages: linked.summary.addedStages,
         skippedPipelines: linked.summary.skippedPipelines,
+        stagesAddedToGhl: stageResult.added,
         ...ctx.stats,
       };
+      if (stageResult.errors.length) {
+        status.errors = [...stageResult.errors, ...status.errors].slice(0, 5);
+        status.failed += stageResult.errors.length;
+      }
     } catch (e) {
       status = {
         ok: false,

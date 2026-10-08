@@ -34,6 +34,7 @@ function json(status, body) {
 function fakeGhl(opps, { denyScope = false } = {}) {
   const calls = [];
   let n = 0;
+  const pipelines = JSON.parse(JSON.stringify(GHL_PIPELINES));
   const original = global.fetch;
   global.fetch = async (url, init) => {
     const u = new URL(String(url));
@@ -41,7 +42,13 @@ function fakeGhl(opps, { denyScope = false } = {}) {
     const body = init && init.body ? JSON.parse(init.body) : null;
     calls.push({ method, path: u.pathname, query: Object.fromEntries(u.searchParams), body });
     if (denyScope) return json(401, { message: 'The token is not authorized for this scope.' });
-    if (u.pathname === '/opportunities/pipelines') return json(200, { pipelines: GHL_PIPELINES });
+    if (u.pathname === '/opportunities/pipelines') return json(200, { pipelines });
+    const pipelinePut = u.pathname.match(/^\/opportunities\/pipelines\/([^/]+)$/);
+    if (pipelinePut && method === 'PUT') {
+      const p = pipelines.find((x) => x.id === pipelinePut[1]);
+      p.stages = body.stages.map((s, i) => ({ ...s, id: s.id || `gs_added${i}` }));
+      return json(200, p);
+    }
     if (u.pathname === '/opportunities/search') {
       const list = [...opps.values()].filter((o) => o.pipelineId === u.searchParams.get('pipeline_id'));
       return json(200, { opportunities: list, meta: { total: list.length } });
@@ -233,6 +240,59 @@ test('moving a synced card to an AdHello-only board closes it in GHL', async () 
     ghl.restore();
   }
   assert.equal(opps.get(pushed.ghlOpportunityId).status, 'abandoned');
+});
+
+test('AdHello-only stages on a linked board are added to GHL and their cards land there', async () => {
+  const W2 = 'ws_opp_stages';
+  await dbService.saveWorkspace(W2, {
+    id: W2,
+    name: 'Stage Match',
+    opportunityBoards: {
+      activePipelineId: SALES,
+      pipelines: [
+        {
+          id: SALES,
+          name: 'Sales Pipeline',
+          stages: [{ id: NEW, name: 'New opportunity' }, { id: 'ops_email1', name: 'Email sent' }, { id: QUAL, name: 'Qualified' }],
+        },
+      ],
+    },
+  });
+  await dbService.saveLead({
+    title: 'Emailed Co',
+    phone: 'N/A',
+    email: 'N/A',
+    website: 'N/A',
+    ghlContactId: 'c_email',
+    opportunityPipelineId: SALES,
+    opportunityStageId: 'ops_email1',
+    workspaceId: W2,
+    savedAt: at(0),
+  });
+  const opps = new Map();
+  const ghl = fakeGhl(opps);
+  let status;
+  try {
+    status = await sync.syncWorkspace(W2, { integrationEnv: env });
+  } finally {
+    ghl.restore();
+  }
+  assert.equal(status.ok, true, status.error);
+  assert.deepEqual(status.stagesAddedToGhl, ['Sales Pipeline → Email sent']);
+
+  const put = ghl.calls.find((c) => c.method === 'PUT' && c.path === '/opportunities/pipelines/gp1');
+  assert.deepEqual(put.body.stages.map((s) => [s.id || '', s.name]), [
+    ['gs1', 'New Lead'],
+    ['gs2', 'Qualified'],
+    ['gs3', 'Won'],
+    ['', 'Email sent'],
+  ]);
+
+  const ws = await dbService.getWorkspace(W2);
+  const email = ws.opportunityBoards.pipelines[0].stages.find((s) => s.id === 'ops_email1');
+  assert.equal(email.ghlStageId, 'gs_added3');
+  const opp = [...opps.values()].find((o) => o.contactId === 'c_email');
+  assert.equal(opp && opp.pipelineStageId, 'gs_added3');
 });
 
 test('a running sync reports percent complete, then clears it', async () => {
