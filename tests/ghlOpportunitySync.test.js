@@ -129,6 +129,40 @@ test('linkBoards links by name, creates missing boards, keeps AdHello-only board
   assert.deepEqual(summary.createdBoards, ['Referrals']);
 });
 
+test('stage names match ignoring spacing, case and punctuation', () => {
+  const boards = {
+    activePipelineId: SALES,
+    pipelines: [
+      {
+        id: SALES,
+        name: 'Sales Pipeline',
+        stages: [
+          { id: NEW, name: 'New opportunity' },
+          { id: 'ops_rep1', name: 'Replied / Interested' },
+          { id: 'ops_call1', name: 'Called (no answer / follow-up)' },
+        ],
+      },
+    ],
+  };
+  const ghl = [
+    {
+      id: 'gp1',
+      name: 'Sales Pipeline',
+      stages: [
+        { id: 'gs1', name: 'New Lead', position: 0 },
+        { id: 'gs_call', name: 'Called (No Answer / Follow-up)', position: 1 },
+        { id: 'gs_rep', name: 'Replied/Interested', position: 2 },
+      ],
+    },
+  ];
+  const { boards: out, summary } = sync.linkBoards(boards, ghl);
+  const stages = out.pipelines[0].stages;
+  assert.equal(stages.find((s) => s.id === 'ops_rep1').ghlStageId, 'gs_rep');
+  assert.equal(stages.find((s) => s.id === 'ops_call1').ghlStageId, 'gs_call');
+  assert.equal(stages.length, 3);
+  assert.equal(summary.addedStages, 0);
+});
+
 test('full sync pulls GHL changes, pushes AdHello cards, latest change wins', async () => {
   await dbService.saveWorkspace(WID, {
     id: WID,

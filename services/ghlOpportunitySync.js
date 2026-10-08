@@ -50,9 +50,10 @@ function newId(prefix) {
   return `${prefix}_${crypto.randomBytes(6).toString('hex')}`;
 }
 
+/** Stage/board names match ignoring case, spacing and punctuation ("Replied/Interested" = "Replied / Interested"). */
 function nameKey(value) {
-  const key = String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
-  return key === 'new lead' ? 'new opportunity' : key;
+  const key = String(value || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+  return key === 'newlead' ? 'newopportunity' : key;
 }
 
 function cleanName(value, fallback) {
