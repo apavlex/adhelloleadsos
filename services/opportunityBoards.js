@@ -7,7 +7,7 @@ const { quickLogLabelForDisposition, quickLogItemForLabel, quickLogItemForStatus
 
 const DEFAULT_STAGE_NAMES = ['New opportunity', 'Contacted', 'Qualified', 'Proposal sent', 'Won'];
 const MAX_PIPELINES = 12;
-const MAX_STAGES = 12;
+const MAX_STAGES = 20;
 const MAX_NAME = 40;
 
 const PIPELINE_TEMPLATES = [
@@ -108,7 +108,8 @@ function normalizeStage(raw) {
   const id = String(raw.id || '').trim();
   const name = cleanName(raw.name, '');
   if (!/^ops_[a-z0-9]+$/i.test(id) || !name) return null;
-  return { id, name };
+  const ghlStageId = String(raw.ghlStageId || '').trim();
+  return ghlStageId ? { id, name, ghlStageId } : { id, name };
 }
 
 function normalizePipeline(raw) {
@@ -120,7 +121,10 @@ function normalizePipeline(raw) {
     .filter(Boolean)
     .slice(0, MAX_STAGES);
   if (!stages.length) return null;
-  return { id, name: cleanName(raw.name, 'Pipeline'), stages };
+  const pipeline = { id, name: cleanName(raw.name, 'Pipeline'), stages };
+  const ghlPipelineId = String(raw.ghlPipelineId || '').trim();
+  if (ghlPipelineId) pipeline.ghlPipelineId = ghlPipelineId;
+  return pipeline;
 }
 
 function normalizeBoards(raw) {
@@ -141,7 +145,7 @@ function normalizeBoards(raw) {
   }
   pipelines.forEach((pipeline) => {
     pipeline.stages.forEach((stage) => {
-      if (stage.name.toLowerCase() === 'new lead') {
+      if (stage.name.toLowerCase() === 'new lead' && !stage.ghlStageId) {
         stage.name = 'New opportunity';
         created = true;
       }
@@ -444,10 +448,11 @@ function buildOpportunityBoard(input) {
   return {
     boards,
     created: normalized.created,
-    pipeline: { id: pipeline.id, name: pipeline.name },
+    pipeline: { id: pipeline.id, name: pipeline.name, ghlLinked: !!pipeline.ghlPipelineId },
     pipelines: boards.pipelines.map((item) => ({
       id: item.id,
       name: item.name,
+      ghlLinked: !!item.ghlPipelineId,
       stages: item.stages.map((stage) => ({ id: stage.id, name: stage.name })),
     })),
     templates: listPipelineTemplates(),

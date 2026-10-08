@@ -680,6 +680,47 @@ async function listContacts(integrationEnv, { limit = 100, startAfterId } = {}) 
   };
 }
 
+async function listOpportunityPipelines(integrationEnv) {
+  const { locationId } = resolveConfig(integrationEnv);
+  const data = await ghlRequest('GET', '/opportunities/pipelines', { integrationEnv, query: { locationId } });
+  return Array.isArray(data.pipelines) ? data.pipelines : [];
+}
+
+/** One page of opportunities in a pipeline; pass the returned cursor back to continue. */
+async function searchOpportunities(integrationEnv, { pipelineId, limit = 100, startAfter, startAfterId } = {}) {
+  const { locationId } = resolveConfig(integrationEnv);
+  const query = { location_id: locationId, limit: Math.min(Math.max(limit, 1), 100) };
+  if (pipelineId) query.pipeline_id = String(pipelineId);
+  if (startAfter) query.startAfter = String(startAfter);
+  if (startAfterId) query.startAfterId = String(startAfterId);
+  const data = await ghlRequest('GET', '/opportunities/search', { integrationEnv, query });
+  const opportunities = Array.isArray(data.opportunities) ? data.opportunities : [];
+  const meta = data.meta || {};
+  const hasMore = !!meta.nextPageUrl && !!meta.startAfterId && opportunities.length >= query.limit;
+  return {
+    opportunities,
+    next: hasMore ? { startAfter: meta.startAfter, startAfterId: meta.startAfterId } : null,
+  };
+}
+
+/** Create, or update the contact's opportunity in that pipeline. */
+async function upsertOpportunity(payload, integrationEnv) {
+  const { locationId } = resolveConfig(integrationEnv);
+  const data = await ghlRequest('POST', '/opportunities/upsert', {
+    integrationEnv,
+    body: { ...(payload || {}), locationId },
+  });
+  return data.opportunity || data;
+}
+
+async function updateOpportunity(opportunityId, payload, integrationEnv) {
+  const data = await ghlRequest('PUT', `/opportunities/${encodeURIComponent(opportunityId)}`, {
+    integrationEnv,
+    body: payload || {},
+  });
+  return data.opportunity || data;
+}
+
 /** Send SMS or Email via GHL Conversations API. */
 async function sendConversationMessage(payload, integrationEnv) {
   const { locationId } = resolveConfig(integrationEnv);
@@ -809,6 +850,10 @@ module.exports = {
   getContact,
   searchContactByEmailOrPhone,
   listContacts,
+  listOpportunityPipelines,
+  searchOpportunities,
+  upsertOpportunity,
+  updateOpportunity,
   listContactNotes,
   createContactNote,
   createContactTask,
