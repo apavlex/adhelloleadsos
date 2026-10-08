@@ -1,5 +1,8 @@
 <% const _board = typeof opportunityBoard !== 'undefined' && opportunityBoard ? opportunityBoard : null; %>
 <% const _compact = typeof opportunityCompact !== 'undefined' && opportunityCompact; %>
+<% const _ghl = !_compact && typeof ghlOpportunitySync !== 'undefined' && ghlOpportunitySync ? ghlOpportunitySync : null; %>
+<% const _ghlLast = _ghl && _ghl.last; %>
+<% const _ghlStatusText = !_ghl ? '' : _ghl.running ? 'Syncing with GHL…' : !_ghlLast ? 'Not synced with GHL yet. Sync links each board to the GHL pipeline with the same name.' : _ghlLast.ok ? 'Last synced with GHL.' : 'GHL sync failed: ' + (_ghlLast.error || 'unknown error'); %>
 <% const _oppTags = Array.isArray(typeof opportunityTags !== 'undefined' ? opportunityTags : null) ? opportunityTags : []; %>
 <% const _oppTagMap = {}; _oppTags.forEach(function (t) { if (t && t.key) _oppTagMap[String(t.key)] = { name: t.name || t.key, color: t.color || '#94a3b8' }; }); %>
 <% if (_board && _board.pipeline) { %>
@@ -413,6 +416,12 @@
   #oppBoard .opp-head-actions { flex: 0 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
   #oppBoard .opp-scope-note { margin-top: 0.75rem; border-radius: 0.75rem; border: 1px solid rgba(217, 119, 6, 0.3); background: rgba(254, 243, 199, 0.6); padding: 0.6rem 0.85rem; font-size: 0.8rem; font-weight: 600; color: #92400e; }
   html.dark #oppBoard .opp-scope-note { background: rgba(120, 53, 15, 0.25); color: #fde68a; }
+  #oppBoard .opp-ghl-status { margin-top: 0.6rem; font-size: 0.75rem; font-weight: 600; color: #6b7280; }
+  #oppBoard .opp-ghl-status.is-error { color: #b91c1c; }
+  html.dark #oppBoard .opp-ghl-status { color: #94a3b8; }
+  html.dark #oppBoard .opp-ghl-status.is-error { color: #fca5a5; }
+  #oppBoard .opp-ghl-note { margin-top: 0.6rem; border-radius: 0.75rem; border: 1px dashed rgba(107, 114, 128, 0.45); padding: 0.55rem 0.85rem; font-size: 0.78rem; font-weight: 600; color: #4b5563; }
+  html.dark #oppBoard .opp-ghl-note { border-color: rgba(148, 163, 184, 0.4); color: #cbd5e1; }
 </style>
 <section class="<%= _compact ? 'mb-8 md:mb-10 rounded-[2rem] border-2 border-brand-yellow/50 dark:border-brand-yellow/35 bg-white dark:bg-slate-900/90 shadow-lg shadow-brand-yellow/10 overflow-hidden opp-compact' : 'opp-page-board overflow-hidden' %>" id="oppBoard" data-pipeline-id="<%= _board.pipeline.id %>" data-first-stage-id="<%= _board.stages[0] ? _board.stages[0].id : '' %>" aria-label="Opportunities">
   <script type="application/json" id="oppBoardPipelinesJson"><%- JSON.stringify(_board.pipelines || []).replace(/</g, '\\u003c') %></script>
@@ -445,6 +454,9 @@
         <a href="/opportunities?pipeline=<%= encodeURIComponent(_board.pipeline.id) %>" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Open full board</a>
         <button type="button" id="oppAddFromMenu" class="btn-pill btn-primary px-6 py-3 text-[10px] font-black uppercase tracking-widest">Add opportunity</button>
         <% } else { %>
+        <% if (_ghl && _ghl.configured) { %>
+        <button type="button" id="oppGhlSync" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white" title="Match boards, stages and opportunities with Go High Level">Sync with GHL</button>
+        <% } %>
         <button type="button" id="oppAddStage" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Add stage</button>
         <button type="button" id="oppFullscreenBtn" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white" title="Fullscreen — show only the stages" aria-pressed="false">
           <span class="opp-fs-enter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>Fullscreen</span>
@@ -457,6 +469,13 @@
     <p id="oppBoardMsg" class="hidden mt-3 text-sm font-semibold text-red-700" role="status"></p>
     <% if (typeof onlyAssignedLeads !== 'undefined' && onlyAssignedLeads) { %>
     <p class="opp-scope-note">You only see opportunities assigned to you. Ask a workspace owner to assign leads to you or change what your role can see on the Team page.</p>
+    <% } %>
+    <% if (_ghl && _ghl.configured) { %>
+    <script type="application/json" id="oppGhlSyncJson"><%- JSON.stringify(_ghl).replace(/</g, '\\u003c') %></script>
+    <p id="oppGhlStatus" class="opp-ghl-status<%= _ghlLast && !_ghlLast.ok && !_ghl.running ? ' is-error' : '' %>" role="status"><%= _ghlStatusText %></p>
+    <% if ((_ghl.linked || _ghl.last) && !_board.pipeline.ghlLinked) { %>
+    <p class="opp-ghl-note">Not in GHL: this board stays in AdHello only. To sync it, create a pipeline named “<%= _board.pipeline.name %>” in GHL, then click Sync with GHL.</p>
+    <% } %>
     <% } %>
   </div>
   <% if (!_compact) { %>
@@ -556,6 +575,84 @@
       apply();
       try { window.localStorage.setItem(STORE, on ? '1' : '0'); } catch (e) { /* private mode */ }
     });
+  })();
+  (function () {
+    var btn = document.getElementById('oppGhlSync');
+    var line = document.getElementById('oppGhlStatus');
+    var dataEl = document.getElementById('oppGhlSyncJson');
+    if (!btn || !line) return;
+    var state = {};
+    try { state = JSON.parse((dataEl && dataEl.textContent) || '{}') || {}; } catch (e) { state = {}; }
+
+    function ago(iso) {
+      var t = Date.parse(iso || '');
+      if (!t) return '';
+      var mins = Math.round((Date.now() - t) / 60000);
+      if (mins < 1) return 'just now';
+      if (mins < 60) return mins + ' min ago';
+      var hrs = Math.round(mins / 60);
+      if (hrs < 24) return hrs + ' hr ago';
+      return new Date(t).toLocaleDateString();
+    }
+    function changes(last) {
+      return (last.pulled || 0) + (last.created || 0) + (last.pushed || 0) + (last.closed || 0) +
+        (last.addedStages || 0) + ((last.createdBoards || []).length);
+    }
+    function render() {
+      var last = state.last;
+      line.classList.remove('is-error');
+      btn.disabled = !!state.running;
+      btn.textContent = state.running ? 'Syncing…' : 'Sync with GHL';
+      if (state.running) { line.textContent = 'Syncing with GHL…'; return; }
+      if (!last) { line.textContent = 'Not synced with GHL yet. Sync links each board to the GHL pipeline with the same name.'; return; }
+      if (!last.ok) {
+        line.classList.add('is-error');
+        line.textContent = 'GHL sync failed ' + ago(last.at) + ': ' + (last.error || 'unknown error');
+        return;
+      }
+      var parts = ['Synced with GHL ' + ago(last.at) + (last.trigger === 'auto' ? ' (auto, every 15 min)' : '')];
+      parts.push(((last.pulled || 0) + (last.created || 0)) + ' updated from GHL');
+      parts.push((last.pushed || 0) + ' sent to GHL');
+      if (last.created) parts.push(last.created + ' new lead' + (last.created === 1 ? '' : 's'));
+      if (last.createdBoards && last.createdBoards.length) parts.push('new boards: ' + last.createdBoards.join(', '));
+      if (last.failed) parts.push(last.failed + ' failed' + (last.errors && last.errors[0] ? ' (' + last.errors[0] + ')' : ''));
+      line.textContent = parts.join(' · ');
+    }
+    function poll() {
+      setTimeout(function () {
+        fetch('/opportunities/ghl-sync', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+          .then(function (r) { return r.json(); })
+          .then(function (data) { done(data); })
+          .catch(function () { poll(); });
+      }, 4000);
+    }
+    function done(data) {
+      state = data || {};
+      render();
+      if (state.running) { poll(); return; }
+      if (state.last && state.last.ok && changes(state.last) > 0) {
+        setTimeout(function () { window.location.reload(); }, 1200);
+      }
+    }
+    btn.addEventListener('click', function () {
+      state.running = true;
+      render();
+      fetch('/opportunities/ghl-sync', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: '{}',
+      })
+        .then(function (r) { return r.json(); })
+        .then(done)
+        .catch(function () {
+          state.running = false;
+          state.last = { ok: false, at: new Date().toISOString(), error: 'Could not reach the server. Try again.' };
+          render();
+        });
+    });
+    render();
+    if (state.running) poll();
   })();
 </script>
 <% } %>

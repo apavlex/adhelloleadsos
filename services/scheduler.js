@@ -381,6 +381,9 @@ module.exports = {
       runOnboardingDrips().catch((e) =>
         console.error('[SCHEDULER] Teammate onboarding emails failed:', e.message)
       );
+      require('./ghlOpportunitySync').runScheduledSyncs().catch((e) =>
+        console.error('[SCHEDULER] GHL opportunity sync failed:', e.message)
+      );
     });
 
     // New GHL texts / emails / calls even when GHL webhooks are not delivered (every 2 min)

@@ -18,6 +18,22 @@ const {
   listPipelineTemplates,
 } = require('../services/opportunityBoards');
 const teamActivity = require('../services/teamActivity');
+const ghlClient = require('../services/ghlClient');
+const workspaceIntegrations = require('../services/workspaceIntegrations');
+const ghlOpportunitySync = require('../services/ghlOpportunitySync');
+
+const SYNC_WAIT_MS = 20000;
+
+async function ghlSyncView(req, workspace) {
+  let configured = false;
+  try {
+    const env = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
+    configured = !env.DEMO_WORKSPACE && ghlClient.isConfigured(env);
+  } catch (_) {
+    configured = false;
+  }
+  return { configured, ...ghlOpportunitySync.statusFor({ ...(workspace || {}), id: req.workspaceId }) };
+}
 
 async function loadContext(req, pipelineId) {
   const workspace = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
@@ -55,14 +71,47 @@ function jsonError(res, status, error) {
 
 router.get('/', async (req, res, next) => {
   try {
-    const [{ board }, tags] = await Promise.all([loadContext(req), dbService.listTags(req.workspaceId)]);
+    const [{ board, workspace }, tags] = await Promise.all([loadContext(req), dbService.listTags(req.workspaceId)]);
     res.render('opportunities', {
       title: 'Opportunities | Agency OS',
       activePage: 'opportunities',
       opportunityBoard: board,
       opportunityCompact: false,
       opportunityTags: tags || [],
+      ghlOpportunitySync: await ghlSyncView(req, workspace),
     });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/ghl-sync', async (req, res, next) => {
+  try {
+    const workspace = await dbService.getWorkspace(req.workspaceId);
+    res.json({ success: true, ...(await ghlSyncView(req, workspace)) });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/ghl-sync', express.json({ limit: '8kb' }), async (req, res, next) => {
+  try {
+    const run = ghlOpportunitySync.syncWorkspace(req.workspaceId, { trigger: 'button' });
+    const finished = await Promise.race([
+      run,
+      new Promise((resolve) => setTimeout(() => resolve(null), SYNC_WAIT_MS)),
+    ]);
+    if (finished) {
+      teamActivity.record(req, {
+        category: 'pipeline',
+        action: 'opportunity_ghl_sync',
+        summary: finished.ok
+          ? `Synced opportunities with GHL (${finished.pulled + finished.created} from GHL, ${finished.pushed} to GHL)`
+          : 'GHL opportunity sync failed',
+      });
+    }
+    const workspace = await dbService.getWorkspace(req.workspaceId);
+    res.json({ success: true, ...(await ghlSyncView(req, workspace)), running: !finished });
   } catch (e) {
     next(e);
   }
@@ -235,6 +284,7 @@ router.post('/bulk-move', express.json({ limit: '64kb' }), async (req, res, next
         opportunityPipelineId: placement.pipelineId,
         opportunityStageId: placement.stageId,
         opportunityDismissed: false,
+        opportunityChangedAt: new Date().toISOString(),
         onPipelineBoard: true,
       };
       if (folderKey) patch.folderKey = folderKey;
@@ -253,6 +303,7 @@ router.post('/bulk-move', express.json({ limit: '64kb' }), async (req, res, next
       summary: `Moved ${updatedKeys.length} opportunit${updatedKeys.length === 1 ? 'y' : 'ies'} to ${placement.pipelineName} → ${placement.stageName}`,
       leadKeys: updatedKeys,
     });
+    ghlOpportunitySync.pushLeadsNow(req.workspaceId, updatedKeys);
     res.json({
       success: true,
       updatedKeys,
@@ -284,10 +335,12 @@ router.post('/move', express.json({ limit: '16kb' }), async (req, res, next) => 
         opportunityPipelineId: placement.pipelineId,
         opportunityStageId: placement.stageId,
         opportunityDismissed: false,
+        opportunityChangedAt: new Date().toISOString(),
       },
       req.workspaceId,
     );
     if (!updated) return jsonError(res, 404, 'Lead not found.');
+    ghlOpportunitySync.pushLeadsNow(req.workspaceId, [updated.key || leadKey]);
     teamActivity.record(req, {
       category: 'pipeline',
       action: 'opportunity_move',
@@ -325,10 +378,16 @@ router.post('/remove', express.json({ limit: '16kb' }), async (req, res, next) =
     if (!leadKey) return jsonError(res, 400, 'Choose an opportunity to remove.');
     const updated = await dbService.updateLead(
       leadKey,
-      { opportunityPipelineId: '', opportunityStageId: '', opportunityDismissed: true },
+      {
+        opportunityPipelineId: '',
+        opportunityStageId: '',
+        opportunityDismissed: true,
+        opportunityChangedAt: new Date().toISOString(),
+      },
       req.workspaceId,
     );
     if (!updated) return jsonError(res, 404, 'Lead not found.');
+    ghlOpportunitySync.pushLeadsNow(req.workspaceId, [updated.key || leadKey]);
     teamActivity.record(req, {
       category: 'pipeline',
       action: 'opportunity_remove',
@@ -381,6 +440,7 @@ router.post('/cards', express.json({ limit: '32kb' }), async (req, res, next) =>
       leadTitle: title,
       created: true,
     });
+    ghlOpportunitySync.pushLeadsNow(req.workspaceId, [key]);
     res.json({ success: true, key, pipelineId: pipeline.id });
   } catch (e) {
     next(e);
