@@ -129,7 +129,8 @@
   const _av = typeof assetVersion !== 'undefined' ? assetVersion : '1';
 %>
 <%# Shared helpers — deferred so first paint isn't blocked by page-specific JS %>
-<script src="/js/script-placeholders.js?v=<%= _av %>" defer></script>
+<%# Not deferred: inline scripts on Scripts and Focus read window.AdHelloScripts while the page parses %>
+<script src="/js/script-placeholders.js?v=<%= _av %>"></script>
 <script src="/js/portaled-popover-surface.js?v=<%= _av %>" defer></script>
 <script src="/js/lead-team-badges.js?v=<%= _av %>" defer></script>
 <% if (_needGcal) { %>
