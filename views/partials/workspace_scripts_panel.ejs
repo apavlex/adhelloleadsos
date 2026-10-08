@@ -1285,7 +1285,8 @@
         sub.textContent = (item.savedAt || '').slice(0, 16).replace('T', ' ');
         var body = document.createElement('pre');
         body.className = 'mt-2 text-xs text-brand-muted dark:text-slate-300 whitespace-pre-wrap font-sans max-h-24 overflow-y-auto';
-        body.textContent = fillForCopy(item.text || '') || '';
+        var filledBody = fillForCopy(item.text || '') || '';
+        body.textContent = Scripts.htmlToPlain ? Scripts.htmlToPlain(filledBody) : filledBody;
         meta.appendChild(title);
         meta.appendChild(sub);
         meta.appendChild(body);

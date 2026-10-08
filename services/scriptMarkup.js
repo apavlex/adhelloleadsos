@@ -12,12 +12,20 @@ function escapeHtml(text) {
     .replace(/"/g, '&quot;');
 }
 
+/** Scripts that went through a plain-text box hold `&lt;div&gt;` instead of `<div>`; turn those back into tags. */
+const ESCAPED_TAG = /&(?:amp;)*lt;(\/?)(b|strong|i|em|u|br|p|div|span)\b([^<>]*?)(\/?)&(?:amp;)*gt;/gi;
+
+function decodeEscapedScriptTags(raw) {
+  const s = String(raw || '');
+  return s.indexOf('lt;') === -1 ? s : s.replace(ESCAPED_TAG, '<$1$2$3$4>');
+}
+
 function looksLikeScriptHtml(raw) {
-  return /<(?:b|strong|i|em|u|br|p|div|span)\b/i.test(String(raw || ''));
+  return /<(?:b|strong|i|em|u|br|p|div|span)\b/i.test(decodeEscapedScriptTags(raw));
 }
 
 function sanitizeScriptHtml(raw) {
-  let s = String(raw || '');
+  let s = decodeEscapedScriptTags(raw);
   if (!s) return '';
   s = s.replace(/<script[\s\S]*?<\/script>/gi, '');
   s = s.replace(/<style[\s\S]*?<\/style>/gi, '');
@@ -41,7 +49,7 @@ function scriptTextToEditorHtml(text) {
 }
 
 function htmlToPlain(raw) {
-  let s = String(raw || '');
+  let s = decodeEscapedScriptTags(raw);
   if (!s) return '';
   s = s.replace(/<br\s*\/?>/gi, '\n');
   s = s.replace(/<\/(?:p|div)>/gi, '\n');
@@ -70,6 +78,7 @@ function htmlToMarkdown(raw) {
 
 module.exports = {
   escapeHtml,
+  decodeEscapedScriptTags,
   looksLikeScriptHtml,
   sanitizeScriptHtml,
   scriptTextToEditorHtml,

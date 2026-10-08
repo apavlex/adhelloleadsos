@@ -6,7 +6,7 @@ const {
   replaceProspectPlaceholders,
   fillScriptPlaceholders,
 } = require('../services/scriptPlaceholders');
-const { htmlToMarkdown, sanitizeScriptHtml, scriptTextToEditorHtml } = require('../services/scriptMarkup');
+const { htmlToMarkdown, htmlToPlain, sanitizeScriptHtml, scriptTextToEditorHtml } = require('../services/scriptMarkup');
 
 describe('scriptPlaceholders', () => {
   it('fills sender sign-off lines from profile and omits missing phone/email lines', () => {
@@ -95,6 +95,17 @@ describe('scriptMarkup', () => {
 
   it('keeps formatting tags and turns remaining newlines into br', () => {
     assert.equal(scriptTextToEditorHtml('<b>Hi</b>\nthere'), '<b>Hi</b><br>there');
+  });
+
+  it('turns escaped formatting tags back into real tags', () => {
+    const escaped = '&lt;div&gt;Script 1&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;Opener: "Hi [Name]" &amp; more&lt;/div&gt;';
+    assert.equal(
+      scriptTextToEditorHtml(escaped),
+      '<div>Script 1</div><div><br></div><div>Opener: "Hi [Name]" &amp; more</div>',
+    );
+    assert.equal(htmlToPlain(escaped), 'Script 1\n\nOpener: "Hi [Name]" & more');
+    assert.equal(htmlToPlain('<div>&amp;lt;div&amp;gt;Voicemail&amp;lt;/div&amp;gt;</div>'), 'Voicemail');
+    assert.equal(htmlToPlain('Use a &lt;table&gt; here'), 'Use a <table> here');
   });
 });
 
