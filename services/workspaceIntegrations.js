@@ -1,6 +1,7 @@
 /**
  * Per-workspace API keys and URLs. Same resolved values apply to every member (owner, admin, SDR, viewer).
- * Resolution: non-empty workspace value wins; otherwise process.env (deployment default).
+ * Resolution: non-empty workspace value wins; then the agency workspace's shared data/AI keys
+ * (SHARED_GROUPS); otherwise process.env (deployment default).
  */
 
 const dbService = require('./database');
@@ -144,7 +145,8 @@ function decryptedFromWorkspace(workspace) {
 async function getResolvedIntegrationEnv(workspaceId) {
   const wid = workspaceId || 'default';
   const ws = await dbService.getWorkspace(wid);
-  const fromWs = decryptedFromWorkspace(ws);
+  const own = decryptedFromWorkspace(ws);
+  const fromWs = ws && !ws.isDemo ? withSharedKeys(own, await sharedSource(wid)) : own;
   const out = {};
   for (const field of INTEGRATION_FIELDS) {
     const envName = FIELD_TO_ENV[field];
@@ -173,6 +175,100 @@ async function getResolvedIntegrationEnv(workspaceId) {
 }
 
 const TRIAL_DISABLED = 'trial-disabled';
+
+/**
+ * Lead search, scraping and AI keys every workspace borrows from the agency workspace when it has none.
+ * Each group is all-or-nothing so a workspace's own key is never paired with the agency's host/endpoint.
+ * CRM, texting, email and direct mail are never shared: those would act as the agency.
+ */
+const SHARED_GROUPS = [
+  ['rapidapiKey', 'rapidapiHost', 'rapidapiLocalBusinessEndpoint', 'rapidapiSearchQueryParam', 'rapidapiSearchLimitParam'],
+  ['rapidapiWebsiteKey', 'rapidapiWebsiteHost', 'rapidapiWebsiteEndpoint', 'rapidapiWebsiteUrlParam', 'rapidapiWebsiteMethod'],
+  ['apifyApiToken'],
+  ['outscraperApiKey', 'outscraperApiBase'],
+  ['searchapiApiKey'],
+  ['serpapiApiKey'],
+  ['firecrawlApiKey'],
+  ['oxylabsUsername', 'oxylabsPassword'],
+  ['crawl4aiBaseUrl', 'crawl4aiApiToken'],
+  ['bettercontactApiKey'],
+  ['permitStackApiKey'],
+  ['pagespeedApiKey'],
+  ['tikhubApiKey', 'tikhubApiBase'],
+  ['monidApiKey', 'monidApiBase'],
+  ['openrouterApiKey', 'openrouterModel'],
+];
+
+const SHARED_SOURCE_SLUG = 'adhello-agency';
+const SHARED_CACHE_MS = 30000;
+let sharedCache = null;
+
+function hasValue(v) {
+  return typeof v === 'string' && v.trim() !== '';
+}
+
+/** Agency workspace id + decrypted keys, or null. Cached briefly; cleared when any workspace saves keys. */
+async function loadSharedSource() {
+  if (sharedCache && Date.now() - sharedCache.at < SHARED_CACHE_MS) return sharedCache.value;
+  let value = null;
+  try {
+    const wid =
+      String(process.env.SHARED_INTEGRATIONS_WORKSPACE_ID || '').trim() ||
+      (await dbService.getWorkspaceIdForSlug(SHARED_SOURCE_SLUG));
+    const ws = wid ? await dbService.getWorkspace(wid) : null;
+    if (ws && !ws.archivedAt) value = { workspaceId: wid, fields: decryptedFromWorkspace(ws) };
+  } catch (e) {
+    console.warn('[workspaceIntegrations] shared keys unavailable:', e && e.message);
+  }
+  sharedCache = { at: Date.now(), value };
+  return value;
+}
+
+async function sharedSource(workspaceId) {
+  const src = await loadSharedSource();
+  return src && src.workspaceId !== workspaceId ? src.fields : null;
+}
+
+function withSharedKeys(own, shared) {
+  if (!shared) return own;
+  const out = { ...own };
+  SHARED_GROUPS.forEach((group) => {
+    if (group.some((f) => hasValue(own[f]))) return;
+    group.forEach((f) => {
+      if (hasValue(shared[f])) out[f] = shared[f];
+    });
+  });
+  return out;
+}
+
+/** Labels of providers this workspace is borrowing from the agency workspace (for the Integrations page). */
+async function sharedProvidersFor(workspaceId) {
+  const ws = await dbService.getWorkspace(workspaceId);
+  if (!ws || ws.isDemo) return [];
+  const shared = await sharedSource(workspaceId);
+  if (!shared) return [];
+  const own = decryptedFromWorkspace(ws);
+  const labels = {
+    rapidapiKey: 'RapidAPI (Maps)',
+    rapidapiWebsiteKey: 'RapidAPI (website)',
+    apifyApiToken: 'Apify',
+    outscraperApiKey: 'Outscraper',
+    searchapiApiKey: 'SearchAPI.io',
+    serpapiApiKey: 'SerpAPI',
+    firecrawlApiKey: 'Firecrawl',
+    oxylabsUsername: 'Oxylabs',
+    crawl4aiBaseUrl: 'Crawl4AI',
+    bettercontactApiKey: 'BetterContact',
+    permitStackApiKey: 'PermitStack',
+    pagespeedApiKey: 'PageSpeed',
+    tikhubApiKey: 'TikHub',
+    monidApiKey: 'Monid',
+    openrouterApiKey: 'OpenRouter AI',
+  };
+  return SHARED_GROUPS.filter((group) => !group.some((f) => hasValue(own[f])) && hasValue(shared[group[0]])).map(
+    (group) => labels[group[0]] || group[0],
+  );
+}
 
 /** Messaging / CRM credentials a demo workspace must never use (fake leads, client-facing demos). */
 const DEMO_BLOCKED_ENV = [
@@ -232,6 +328,7 @@ async function saveWorkspaceIntegrations(workspaceId, plain) {
     integrationsCipher: cipher,
     integrationsUpdatedAt: new Date().toISOString(),
   });
+  sharedCache = null;
 }
 
 /**
@@ -326,6 +423,8 @@ module.exports = {
   FIELD_TO_ENV,
   decryptedFromWorkspace,
   getResolvedIntegrationEnv,
+  sharedProvidersFor,
+  SHARED_GROUPS,
   mergeIntegrationUpdates,
   applyClears,
   saveWorkspaceIntegrations,
