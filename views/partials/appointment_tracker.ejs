@@ -155,16 +155,17 @@
     </div>
 
     <div class="appt-tracker-steps" id="apptOverallSteps" aria-label="Overall appointment progress">
+      <%
+        var _overallCurrent = 'sold';
+        if (_tot.purchased > 0 && _tot.closed >= _tot.purchased) _overallCurrent = 'closed';
+        else if (_tot.booked > 0 || _tot.closed > 0) _overallCurrent = 'booked';
+        else if (_tot.remaining > 0 || _tot.open > 0) _overallCurrent = 'open';
+        var _overallOrder = { sold: 0, open: 1, booked: 2, closed: 3 };
+        var _overallIdx = _overallOrder[_overallCurrent] || 0;
+      %>
       <% (_at.steps || []).forEach(function (step, idx) { %>
       <%
-        var state = 'todo';
-        if (_tot.purchased <= 0) state = idx === 0 ? 'current' : 'todo';
-        else if (idx === 0) state = 'done';
-        else if (step.id === 'open' && _tot.remaining > 0) state = _tot.booked + _tot.closed > 0 ? 'done' : 'current';
-        else if (step.id === 'open') state = 'done';
-        else if (step.id === 'booked' && (_tot.booked > 0 || _tot.closed > 0)) state = _tot.closed >= _tot.purchased ? 'done' : (_tot.booked > 0 ? 'current' : 'done');
-        else if (step.id === 'closed' && _tot.closed >= _tot.purchased && _tot.purchased > 0) state = 'current';
-        else if (step.id === 'closed' && _tot.closed > 0) state = 'done';
+        var state = idx < _overallIdx ? 'done' : (idx === _overallIdx ? 'current' : 'todo');
       %>
       <div class="appt-step<%= state === 'done' ? ' is-done' : '' %><%= state === 'current' ? ' is-current' : '' %>" data-step="<%= step.id %>">
         <div class="appt-step-dot"><%= idx + 1 %></div>
