@@ -203,6 +203,7 @@
 
   const LEAD_RUN_SESSION_KEY = 'agencyOsLeadRunProgress';
   const LEAD_RUN_FOLDER_RELOAD_KEY = 'agencyOsLeadRunFolderReloadAt';
+  const IS_SEARCHING_KEY = 'is_searching';
   /** Must match services/leadRunProgress.js STALE_MS (10 minutes). */
   const LEAD_RUN_STALE_MS = 10 * 60 * 1000;
   let leadRunDisplayPct = 0;
@@ -210,10 +211,66 @@
   let leadRunWasProcessing = false;
   let leadRunStaleDismissedAt = '';
 
+  function currentWorkspaceId() {
+    return String(window.__ADHELLO_WORKSPACE_ID__ || '').trim();
+  }
+
+  /** Per-workspace keys so a search banner in workspace A does not bleed into B. */
+  function leadRunSessionStorageKey() {
+    var wid = currentWorkspaceId();
+    return wid ? LEAD_RUN_SESSION_KEY + ':' + wid : LEAD_RUN_SESSION_KEY;
+  }
+
+  function isSearchingStorageKey() {
+    var wid = currentWorkspaceId();
+    return wid ? IS_SEARCHING_KEY + ':' + wid : IS_SEARCHING_KEY;
+  }
+
+  function getIsSearching() {
+    try {
+      if (localStorage.getItem(isSearchingStorageKey()) === 'true') return true;
+      // Migrate legacy unscoped flag only when this workspace still has a lead-run session.
+      if (localStorage.getItem(IS_SEARCHING_KEY) === 'true') {
+        if (readLeadRunSession()) {
+          setIsSearching(true);
+          return true;
+        }
+        localStorage.removeItem(IS_SEARCHING_KEY);
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function setIsSearching(on) {
+    try {
+      var key = isSearchingStorageKey();
+      if (on) localStorage.setItem(key, 'true');
+      else localStorage.removeItem(key);
+      // Drop legacy global flag so switching workspaces cannot resurrect it.
+      localStorage.removeItem(IS_SEARCHING_KEY);
+    } catch (_) {}
+  }
+
   function readLeadRunSession() {
     try {
-      var raw = sessionStorage.getItem(LEAD_RUN_SESSION_KEY);
-      if (!raw) return null;
+      var key = leadRunSessionStorageKey();
+      var raw = sessionStorage.getItem(key);
+      if (!raw) {
+        // Adopt legacy unscoped session only when it is already tagged for this workspace.
+        raw = sessionStorage.getItem(LEAD_RUN_SESSION_KEY);
+        if (!raw) return null;
+        var legacy = JSON.parse(raw);
+        if (!legacy || !legacy.startedAt) return null;
+        var wid = currentWorkspaceId();
+        if (wid && String(legacy.workspaceId || '') !== wid) return null;
+        writeLeadRunSession(legacy);
+        try {
+          sessionStorage.removeItem(LEAD_RUN_SESSION_KEY);
+        } catch (_) {}
+        return legacy;
+      }
       var o = JSON.parse(raw);
       return o && o.startedAt ? o : null;
     } catch (_) {
@@ -225,7 +282,7 @@
     if (!job || !job.startedAt) return;
     try {
       sessionStorage.setItem(
-        LEAD_RUN_SESSION_KEY,
+        leadRunSessionStorageKey(),
         JSON.stringify({
           keyword: job.keyword || '',
           city: job.city || '',
@@ -233,13 +290,18 @@
           targetFolderKey: job.targetFolderKey || '',
           targetFolderName: job.targetFolderName || '',
           startedAt: job.startedAt,
+          workspaceId: currentWorkspaceId() || job.workspaceId || '',
         })
       );
+      try {
+        sessionStorage.removeItem(LEAD_RUN_SESSION_KEY);
+      } catch (_) {}
     } catch (_) {}
   }
 
   function clearLeadRunSession() {
     try {
+      sessionStorage.removeItem(leadRunSessionStorageKey());
       sessionStorage.removeItem(LEAD_RUN_SESSION_KEY);
     } catch (_) {}
   }
@@ -334,7 +396,7 @@
   function startLeadRunTicker() {
     if (leadRunTickerId) return;
     function tick() {
-      var searching = localStorage.getItem('is_searching') === 'true';
+      var searching = getIsSearching();
       var session = readLeadRunSession();
       if (session && isLeadRunJobStale(session.startedAt)) {
         recoverStaleLeadRun('ticker');
@@ -383,7 +445,7 @@
     }
     if (startedKey) leadRunStaleDismissedAt = startedKey;
     try {
-      localStorage.removeItem('is_searching');
+      setIsSearching(false);
     } catch (_) {}
     if (typeof console !== 'undefined' && console.warn) {
       console.warn('[lead-run] Stale search progress recovered (' + (reason || 'watchdog') + ').');
@@ -413,7 +475,7 @@
     var wouldShow =
       opts.forceShow === true ||
       (data && data.isProcessing) ||
-      localStorage.getItem('is_searching') === 'true';
+      getIsSearching();
     if (
       wouldShow &&
       !opts.forceShow &&
@@ -426,7 +488,7 @@
     }
     var show = wouldShow;
     if (!show) {
-      if (leadRunDisplayPct > 0 && localStorage.getItem('is_searching') !== 'true') {
+      if (leadRunDisplayPct > 0 && !getIsSearching()) {
         finishLeadRunProgress(function () {
           banner.classList.add('hidden');
           banner.setAttribute('aria-busy', 'false');
@@ -598,7 +660,7 @@
     const el = document.getElementById('bulkEnhanceBellBadge');
     if (!el) return;
     if (isBulkEnhanceJobRunning() || isGhlSyncJobRunning() || syncEnhanceSessionActive()) return;
-    if (localStorage.getItem('is_searching') === 'true') return;
+    if (getIsSearching()) return;
     if (summary && summary.active) {
       el.textContent = 'LIVE';
       el.classList.remove('hidden');
@@ -647,7 +709,7 @@
     const outreach = typeof isBulkOutreachJobRunning === 'function' && isBulkOutreachJobRunning();
     if (
       activeProcessingCount > 0 ||
-      localStorage.getItem('is_searching') === 'true' ||
+      getIsSearching() ||
       bulk ||
       ghl ||
       isArtworkGenJobRunning() ||
@@ -2336,12 +2398,12 @@
     if (!processingIndicator) return;
     if (isActive) {
       activeProcessingCount++;
-      localStorage.setItem('is_searching', 'true');
+      setIsSearching(true);
       updateLeadRunProgressBanner({ isProcessing: true, activeJob: readLeadRunSession() });
     } else {
       activeProcessingCount = Math.max(0, activeProcessingCount - 1);
       if (activeProcessingCount === 0) {
-        localStorage.removeItem('is_searching');
+        setIsSearching(false);
         updateLeadRunProgressBanner({ isProcessing: false });
       }
     }
@@ -2359,7 +2421,7 @@
     window.__navNotificationsBellBound = true;
 
     applyProcessingRing();
-    if (readLeadRunSession() && localStorage.getItem('is_searching') === 'true') {
+    if (readLeadRunSession() && getIsSearching()) {
       leadRunDisplayPct = Math.max(leadRunDisplayPct, computeLeadRunTargetPct(readLeadRunSession().startedAt));
       updateLeadRunProgressBanner({ isProcessing: true, activeJob: readLeadRunSession() });
     } else {
@@ -2511,7 +2573,7 @@
         const res = await fetch('/api/status');
         const data = await res.json();
         var wasProcessing =
-          leadRunWasProcessing || localStorage.getItem('is_searching') === 'true';
+          leadRunWasProcessing || getIsSearching();
 
         if (data.isProcessing) {
           var staleJob = data.activeJob || readLeadRunSession();
@@ -2524,12 +2586,12 @@
             }
           } else {
             processingIndicator.classList.add('processing-active');
-            localStorage.setItem('is_searching', 'true');
+            setIsSearching(true);
             updateLeadRunProgressBanner(data);
           }
         } else {
           // Search job finished — complete the banner even if bulk enhance / hunt is still running.
-          localStorage.removeItem('is_searching');
+          setIsSearching(false);
           updateLeadRunProgressBanner(data);
           if (!clientNavbarWorkActive()) {
             processingIndicator.classList.remove('processing-active');
@@ -2651,7 +2713,7 @@
           // Status card only — no urgent red ping for always-on campaigns
         } else {
           const keepPingForClientWork =
-            localStorage.getItem('is_searching') === 'true' ||
+            getIsSearching() ||
             isBulkEnhanceJobRunning() ||
             syncEnhanceSessionActive() ||
             isContactHuntJobRunning() ||
