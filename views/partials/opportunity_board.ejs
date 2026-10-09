@@ -468,9 +468,6 @@
   #oppBoard .opp-ghl-popover .opp-ghl-note { margin-top: 0.55rem; }
   #oppBoard .opp-ghl-popover .opp-ghl-progress { max-width: none; }
   #oppBoard .opp-ghl-info-wrap.is-open .opp-ghl-popover { display: block; }
-  @media (hover: hover) and (pointer: fine) {
-    #oppBoard .opp-ghl-info-wrap:hover .opp-ghl-popover { display: block; }
-  }
   @media (max-width: 767px) {
     #oppBoard .opp-ghl-info-wrap { display: block; }
     #oppBoard .opp-ghl-inline { display: none !important; }
@@ -757,10 +754,19 @@
         });
     });
     if (infoBtn && infoWrap) {
+      function fineHover() {
+        return window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+      }
       infoBtn.addEventListener('click', function (e) {
         e.preventDefault();
         e.stopPropagation();
         setInfoOpen(!infoWrap.classList.contains('is-open'));
+      });
+      infoWrap.addEventListener('mouseenter', function () {
+        if (fineHover()) setInfoOpen(true);
+      });
+      infoWrap.addEventListener('mouseleave', function () {
+        if (fineHover()) setInfoOpen(false);
       });
       document.addEventListener('click', function (e) {
         if (!infoWrap.contains(e.target)) setInfoOpen(false);
