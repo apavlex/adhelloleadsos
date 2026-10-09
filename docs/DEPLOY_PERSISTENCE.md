@@ -125,6 +125,6 @@ Download periodically from a one-off shell (Render → Shell) or automate off-si
 
 ## Other hosts
 
-The repo also has a Cloud Run GitHub Action (`.github/workflows/deploy.yml`). For GCP, use a GCS bucket volume and `APP_DATA_DIR=/data` — not used if production is Render-only.
+Production deploys from `main` via **Render’s GitHub auto-deploy**. The GitHub Action (`.github/workflows/deploy.yml`) verifies `leads.adhello.io` is serving the new `package.json` version. Optional secrets: `RENDER_DEPLOY_HOOK` (explicit Render redeploy), `GCP_SA_KEY` (secondary Cloud Run deploy — not used for production traffic).
 
 Long term: migrate from SQLite to **Render Postgres** or external DB for multi-instance scaling.

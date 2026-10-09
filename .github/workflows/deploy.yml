@@ -1,7 +1,10 @@
-# Deploys to Cloud Run on push to main.
-# Configure persistent storage once or SQLite data is lost every deploy — docs/DEPLOY_PERSISTENCE.md
+# Production is Render (leads.adhello.io / adhelloleadsos.onrender.com).
+# Render auto-deploys from `main` via the GitHub integration.
+# Optional secrets:
+#   RENDER_DEPLOY_HOOK — trigger a Render deploy explicitly
+#   GCP_SA_KEY         — also deploy to Cloud Run (secondary / unused in prod)
 
-name: Deploy to Cloud Run
+name: Deploy
 
 on:
   push:
@@ -14,15 +17,56 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Trigger Render deploy hook
+        id: render_hook
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          if [ -z "${RENDER_DEPLOY_HOOK}" ]; then
+            echo "hook=skipped" >> "$GITHUB_OUTPUT"
+            echo "No RENDER_DEPLOY_HOOK secret — relying on Render GitHub auto-deploy."
+            exit 0
+          fi
+          curl -fsS -X POST "$RENDER_DEPLOY_HOOK"
+          echo "hook=triggered" >> "$GITHUB_OUTPUT"
+
       - name: Authenticate to Google Cloud
+        id: gcp_auth
+        if: ${{ secrets.GCP_SA_KEY != '' }}
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       - name: Deploy to Cloud Run
+        if: ${{ steps.gcp_auth.outcome == 'success' }}
         uses: google-github-actions/deploy-cloudrun@v2
         with:
           service: adhello-leadsos
           region: us-west1
           source: .
           env_vars: ASSET_VERSION=${{ github.sha }}
+
+      - name: Verify production (Render)
+        env:
+          EXPECTED_VERSION: ${{ github.event.head_commit.id && 'pending' || 'pending' }}
+        run: |
+          set -euo pipefail
+          EXPECTED="$(node -p "require('./package.json').version")"
+          echo "Expecting package version ${EXPECTED} on production"
+          ok=0
+          for i in $(seq 1 36); do
+            html="$(curl -fsS https://leads.adhello.io/auth/login || true)"
+            if printf '%s' "$html" | grep -q "v=${EXPECTED}"; then
+              echo "Production is live at v=${EXPECTED}"
+              ok=1
+              break
+            fi
+            echo "Attempt ${i}: production not on v=${EXPECTED} yet; waiting 10s"
+            sleep 10
+          done
+          if [ "$ok" != 1 ]; then
+            echo "Timed out waiting for leads.adhello.io to serve v=${EXPECTED}"
+            exit 1
+          fi
+          curl -fsS https://leads.adhello.io/health
+          echo
