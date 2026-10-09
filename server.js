@@ -237,6 +237,7 @@ app.get('/health', (req, res) => {
   res.status(200).json({
     ok: true,
     service: process.env.K_SERVICE || 'adhelloleadsos',
+    version: app.locals.assetVersion || require('./package.json').version,
   });
 });
 
