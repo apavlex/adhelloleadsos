@@ -779,7 +779,7 @@ router.post('/integrations/mcp/clients', express.json(), async (req, res, next) 
       name: body.name,
       redirectUri: body.redirectUri,
       createdBy: workspaceService.userEmail(req),
-      allWorkspaces: body.allWorkspaces !== false,
+      allWorkspaces: body.allWorkspaces === true,
     });
     const base = getPublicBaseUrl(req);
     res.json({

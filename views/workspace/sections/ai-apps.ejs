@@ -188,8 +188,8 @@
     <p class="text-sm text-brand-muted">Ask a workspace owner or admin to create a Client ID.</p>
     <% } else { %>
     <label class="inline-flex items-start gap-2 text-xs text-brand-muted leading-relaxed">
-      <input id="aiClientAll" type="checkbox" checked class="mt-0.5 rounded border-brand-border" />
-      <span><strong class="text-brand-dark dark:text-white">Let it reach all my workspaces</strong>: one connection for every workspace you're on. Unchecked, it only connects to this workspace.</span>
+      <input id="aiClientAll" type="checkbox" class="mt-0.5 rounded border-brand-border" />
+      <span><strong class="text-brand-dark dark:text-white">Let it reach all my workspaces</strong>: optional. Leave unchecked so this Client ID stays locked to <em>this</em> workspace (recommended when each bot has its own connection). Checked, tools can pass another workspace per call — the default never flips.</span>
     </label>
     <div class="flex flex-wrap gap-2 items-end">
       <div style="flex:1 1 10rem;max-width:14rem">

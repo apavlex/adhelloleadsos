@@ -82,7 +82,7 @@ function registerWorkspaceTools(server, ctx) {
   server.registerTool(
     'list_workspaces',
     {
-      description: 'List every AdHello workspace this connection can work in, your role in each, and which one is current.',
+      description: 'List every AdHello workspace this connection can work in, your role in each, and which one is locked as the default.',
       inputSchema: {},
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
@@ -94,7 +94,8 @@ function registerWorkspaceTools(server, ctx) {
         count: info.workspaces.length,
         current: info.workspaces.find((w) => w.id === info.activeWorkspaceId) || null,
         workspaces: info.workspaces.map((w) => ({ ...w, current: w.id === info.activeWorkspaceId })),
-        how_to_use: 'Pass workspace on any tool to run it there once, or call switch_workspace to change the default.',
+        how_to_use:
+          'This connection is locked to the current workspace. Pass workspace (name or id) on a tool to run that call elsewhere — the default never changes.',
       });
     },
   );
@@ -103,18 +104,20 @@ function registerWorkspaceTools(server, ctx) {
     'switch_workspace',
     {
       description:
-        'Change which workspace tools use by default on this connection (by name or id). It sticks for later requests until switched again.',
+        'Deprecated. Connections are locked to the workspace chosen at connect time. Pass workspace on individual tools instead; this never changes the default.',
       inputSchema: { workspace: z.string().min(1).describe('Workspace name or id.') },
-      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
     async ({ workspace }) => {
       const hit = await resolveGrantWorkspace(ctx, workspace);
       if (hit.error) return jsonToolError({ message: hit.error, code: 'NOT_FOUND' });
-      await mcpOAuth.setGrantActiveWorkspace(ctx.grantId, hit.workspace.id);
-      return jsonToolResult({
-        success: true,
-        workspace: hit.workspace,
-        message: `Now working in "${hit.workspace.name}". Tools use it until you switch again.`,
+      const locked = await mcpOAuth.listGrantWorkspaces(ctx.grantId);
+      const current = locked && locked.workspaces.find((w) => w.id === locked.activeWorkspaceId);
+      return jsonToolError({
+        message:
+          `This connection is locked to "${(current && current.name) || ctx.workspaceName || ctx.workspaceId}". ` +
+          `Pass workspace: "${hit.workspace.name}" on the tool you want to run there — the default cannot be switched (prevents bots from flipping each other).`,
+        code: 'WORKSPACE_LOCKED',
       });
     },
   );
@@ -225,8 +228,8 @@ function createCrmMcpServer(ctx) {
     multi
       ? {
           instructions:
-            `This AdHello connection covers all of the user's workspaces. Tools run in the current workspace ("${ctx.workspaceName || ctx.workspaceId}") ` +
-            'unless you pass workspace (name or id). Use list_workspaces to see them and switch_workspace to change the default. ' +
+            `This AdHello connection covers all of the user's workspaces, but the default is locked to "${ctx.workspaceName || ctx.workspaceId}" ` +
+            '(the workspace chosen when connecting). Pass workspace (name or id) on a tool to run that call elsewhere — the default never changes. ' +
             'Every result names the workspace it came from; tell the user which workspace you are working in.',
         }
       : undefined,

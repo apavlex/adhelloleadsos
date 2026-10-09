@@ -168,11 +168,13 @@ router.get('/oauth/authorize', async (req, res, next) => {
     const txn = crypto.randomBytes(16).toString('hex');
     rememberTxn(req.session, txn, { params: check.params, clientName: check.client.name, lockedWs, at: Date.now() });
     const active = req.session.activeWorkspaceId;
+    // Default to one workspace (session/home). "All my workspaces" is opt-in — a shared
+    // roaming default previously let bots flip each other between businesses.
     return renderPage(res, 200, {
       connector: { name: check.client.name, redirectHost: redirectHost(check.params.redirectUri) },
       workspaces,
       allowAll: !lockedWs && workspaces.length > 1,
-      selected: workspaces.length > 1 && !lockedWs ? ALL_WORKSPACES : workspaces.some((w) => w.id === active) ? active : workspaces[0].id,
+      selected: workspaces.some((w) => w.id === active) ? active : workspaces[0].id,
       txn,
       email,
     });
