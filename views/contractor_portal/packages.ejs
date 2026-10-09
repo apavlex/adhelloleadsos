@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('_head') %>
+</head>
+<body>
+  <div class="cp-shell">
+    <header class="cp-top">
+      <div class="cp-brand">
+        <img src="<%= brand.logoUrl || '/images/adhello-app-icon.png' %>" alt="" />
+        <div class="min-w-0">
+          <strong>Packages</strong>
+          <span>Request or purchase more</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="cp-main">
+      <% if (flash && flash.ok) { %><div class="cp-flash cp-flash--ok"><%= flash.ok %></div><% } %>
+      <% if (flash && flash.error) { %><div class="cp-flash cp-flash--err"><%= flash.error %></div><% } %>
+
+      <section class="cp-hero">
+        <p class="cp-kicker">Inventory</p>
+        <h1>Stock up when you’re running low</h1>
+        <p>Request more website leads or appointment slots. Your agency gets a task and can fulfill the package.</p>
+        <div class="cp-stats">
+          <div class="cp-stat"><b><%= leadCredits.remaining %></b><span>Lead credits</span></div>
+          <div class="cp-stat"><b><%= tracker.counts.remaining %></b><span>Appts left</span></div>
+          <div class="cp-stat"><b><%= pendingRequests.length %></b><span>Pending</span></div>
+        </div>
+      </section>
+
+      <section class="cp-card">
+        <h2>Purchase lead package</h2>
+        <p class="cp-meta">Buy a block of website/form lead credits. Delivered leads show up on your Leads tab.</p>
+        <form method="post" action="<%= base %>/request" style="margin-top:0.9rem">
+          <input type="hidden" name="type" value="leads" />
+          <input type="hidden" name="intent" value="purchase" />
+          <label class="cp-field">
+            <span>Package size</span>
+            <select name="quantity">
+              <option value="10">10 leads</option>
+              <option value="25" selected>25 leads</option>
+              <option value="50">50 leads</option>
+              <option value="100">100 leads</option>
+            </select>
+          </label>
+          <label class="cp-field">
+            <span>Note (optional)</span>
+            <textarea name="note" rows="2" placeholder="Need more HVAC leads in Austin this month"></textarea>
+          </label>
+          <button type="submit" class="cp-btn cp-btn--primary cp-btn--full">Request purchase</button>
+        </form>
+      </section>
+
+      <section class="cp-card">
+        <h2>Request more appointments</h2>
+        <p class="cp-meta">Add appointment slots to your tracker when the calendar is filling up.</p>
+        <form method="post" action="<%= base %>/request" style="margin-top:0.9rem">
+          <input type="hidden" name="type" value="appointments" />
+          <label class="cp-field">
+            <span>How many appointments?</span>
+            <input type="number" name="quantity" min="1" max="500" value="10" required />
+          </label>
+          <label class="cp-field">
+            <span>Note (optional)</span>
+            <textarea name="note" rows="2" placeholder="Sold a 10-pack upsell — please add slots"></textarea>
+          </label>
+          <button type="submit" class="cp-btn cp-btn--dark cp-btn--full">Request appointments</button>
+        </form>
+      </section>
+
+      <% if ((package.requests || []).length) { %>
+      <section class="cp-card">
+        <h2>Request history</h2>
+        <% package.requests.slice(0, 12).forEach(function (req) { %>
+        <div class="cp-row" style="margin-top:0.7rem">
+          <div>
+            <p style="margin:0;font-weight:800"><%= req.quantity %> <%= req.type %></p>
+            <p class="cp-meta"><%= new Date(req.createdAt).toLocaleString() %><% if (req.note) { %> · <%= req.note %><% } %></p>
+          </div>
+          <span class="cp-pill<%= req.status === 'pending' ? ' cp-pill--open' : (req.status === 'fulfilled' ? '' : ' cp-pill--closed') %>"><%= req.status %></span>
+        </div>
+        <% }); %>
+      </section>
+      <% } %>
+    </main>
+
+    <%- include('_tabbar') %>
+  </div>
+</body>
+</html>

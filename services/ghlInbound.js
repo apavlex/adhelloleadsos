@@ -423,8 +423,40 @@ async function processWorkflowWebhook(body, opts = {}) {
     } catch (e) {
       console.warn('[ghlInbound] warm inbound routing failed:', e && e.message);
     }
+    let contractorPackageId = null;
+    try {
+      const appointmentPackages = require('./appointmentPackages');
+      const contact = parsed.contact || {};
+      const attached = await appointmentPackages.attachFormLead(wid, {
+        leadKey: lead.key,
+        name: contact.name || contact.full_name || lead.title || 'Lead',
+        phone: contact.phone || lead.phone || null,
+        email: contact.email || lead.email || null,
+        formName: parsed.label || 'Website form',
+        preview: formEvent.preview,
+        source: 'ghl',
+        at: parsed.at,
+        status: 'open',
+        id: formEvent.id || undefined,
+      }, {
+        lead: { ...lead, ...patch },
+        formName: parsed.label,
+        contactEmail: contact.email || lead.email,
+      });
+      if (attached.matched) contractorPackageId = attached.packageId;
+    } catch (e) {
+      console.warn('[ghlInbound] contractor portal form attach failed:', e && e.message);
+    }
     notifyInboundEvent({ workspaceId: wid, lead, event: formEvent });
-    return { ok: true, workspaceId: wid, key: lead.key, action: 'form_lead', created, adSource: attr.adSource || null };
+    return {
+      ok: true,
+      workspaceId: wid,
+      key: lead.key,
+      action: 'form_lead',
+      created,
+      adSource: attr.adSource || null,
+      contractorPackageId,
+    };
   }
 
   if (parsed.kind === 'sms' || parsed.kind === 'email') {

@@ -8,6 +8,8 @@ const {
   statusFromGhlAppointment,
   buildTodayView,
   normalizeStore,
+  findPackageForFormLead,
+  normalizeLeadCredits,
 } = require('../services/appointmentPackages');
 
 describe('appointmentPackages', () => {
@@ -109,5 +111,54 @@ describe('appointmentPackages', () => {
     assert.equal(view.totals.remaining, 13);
     assert.equal(view.ghlConfigured, true);
     assert.ok(view.steps.length === 4);
+  });
+
+  it('matches form leads to packages by tag or email', () => {
+    const store = normalizeStore({
+      packages: [
+        {
+          id: 'pkg_handymen',
+          businessName: 'Handymen LLC',
+          contactEmail: 'owner@handymen.test',
+          formMatchTag: 'handymen-website',
+          purchased: 5,
+          leadCredits: { purchased: 25, delivered: 0 },
+        },
+      ],
+    });
+    const byTag = findPackageForFormLead(store, {
+      lead: { tags: ['handymen-website'] },
+      formName: 'Contact',
+    });
+    assert.equal(byTag.id, 'pkg_handymen');
+    const byEmail = findPackageForFormLead(store, {
+      contactEmail: 'owner@handymen.test',
+      lead: {},
+    });
+    assert.equal(byEmail.id, 'pkg_handymen');
+  });
+
+  it('tracks lead credit remaining', () => {
+    const credits = normalizeLeadCredits({ purchased: 25, delivered: 7 });
+    assert.equal(credits.remaining, 18);
+  });
+});
+
+const {
+  createContractorPortalToken,
+  verifyContractorPortalToken,
+} = require('../services/contractorPortalSign');
+
+describe('contractorPortalSign', () => {
+  it('round-trips a portal token', () => {
+    const token = createContractorPortalToken({ workspaceId: 'ws1', packageId: 'pkg_1' });
+    const payload = verifyContractorPortalToken(token);
+    assert.equal(payload.workspaceId, 'ws1');
+    assert.equal(payload.packageId, 'pkg_1');
+  });
+
+  it('rejects tampered tokens', () => {
+    const token = createContractorPortalToken({ workspaceId: 'ws1', packageId: 'pkg_1' });
+    assert.equal(verifyContractorPortalToken(token + 'x'), null);
   });
 });

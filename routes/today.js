@@ -26,6 +26,7 @@ const { dedupeOpenLeadTasks, clearOpenAutomationTasks, filterManualUserTasks } =
 const { pauseActiveSequencesForWorkspace } = require('../services/sequenceEngine');
 const actionPlanTracker = require('../services/actionPlanTracker');
 const appointmentPackages = require('../services/appointmentPackages');
+const contractorPortal = require('../services/contractorPortal');
 const { buildOpportunityBoard, selectPipeline } = require('../services/opportunityBoards');
 const { buildBookmarkSessions, buildRecentlyWorked } = require('../services/todayResumeQueue');
 const { leadLogsMentionReply } = require('../services/leadActivityWindow');
@@ -446,6 +447,38 @@ router.delete('/appointment-packages/:id', async (req, res, next) => {
     if (!ok) return res.status(404).json({ success: false, error: 'Package not found.' });
     const view = await appointmentPackages.loadTodayView(req.workspaceId);
     return res.json({ success: true, appointmentTracker: view });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Create / return the public contractor portal URL for a package. */
+router.post('/appointment-packages/:id/portal-link', express.json(), async (req, res, next) => {
+  try {
+    const pkg = await appointmentPackages.getPackage(req.workspaceId, req.params.id);
+    if (!pkg) return res.status(404).json({ success: false, error: 'Package not found.' });
+    const token = await contractorPortal.ensurePortalToken(req.workspaceId, pkg.id);
+    const url = contractorPortal.portalUrl(req, token);
+    return res.json({ success: true, url, token, packageId: pkg.id });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Fulfill or decline a contractor portal package request. */
+router.post('/appointment-packages/:id/requests/:requestId/resolve', express.json(), async (req, res, next) => {
+  try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const status = body.status === 'declined' ? 'declined' : 'fulfilled';
+    const result = await appointmentPackages.resolvePortalRequest(
+      req.workspaceId,
+      req.params.id,
+      req.params.requestId,
+      { status, fulfill: status === 'fulfilled' },
+    );
+    if (!result) return res.status(404).json({ success: false, error: 'Request not found.' });
+    const view = await appointmentPackages.loadTodayView(req.workspaceId);
+    return res.json({ success: true, ...result, appointmentTracker: view });
   } catch (e) {
     next(e);
   }

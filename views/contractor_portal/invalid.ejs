@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('_head', { title: 'Portal unavailable', brand: brand || { appName: 'AdHello', logoUrl: '/images/adhello-app-icon.png' } }) %>
+</head>
+<body>
+  <div class="cp-shell">
+    <main class="cp-main" style="padding-top:3rem">
+      <section class="cp-card" style="text-align:center">
+        <h2>Portal link unavailable</h2>
+        <p class="cp-meta" style="margin-top:0.5rem"><%= message || 'This link has expired or was replaced. Ask your agency for a new portal link.' %></p>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

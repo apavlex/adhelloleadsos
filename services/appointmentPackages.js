@@ -76,23 +76,82 @@ function normalizeAppointment(raw) {
   };
 }
 
+function normalizeFormLead(raw) {
+  const f = raw && typeof raw === 'object' ? raw : {};
+  return {
+    id: str(f.id) || newId('fl'),
+    leadKey: str(f.leadKey) || null,
+    name: str(f.name).slice(0, 120) || 'Lead',
+    phone: str(f.phone).slice(0, 40) || null,
+    email: str(f.email).slice(0, 160) || null,
+    formName: str(f.formName).slice(0, 140) || 'Website form',
+    preview: str(f.preview).slice(0, 240) || null,
+    source: str(f.source).slice(0, 60) || 'ghl',
+    status: str(f.status).toLowerCase() === 'closed' ? 'closed' : 'open',
+    at: str(f.at) || nowIso(),
+  };
+}
+
+function normalizeRequest(raw) {
+  const r = raw && typeof raw === 'object' ? raw : {};
+  const type = str(r.type).toLowerCase() === 'appointments' ? 'appointments' : 'leads';
+  const status = ['pending', 'fulfilled', 'declined'].includes(str(r.status).toLowerCase())
+    ? str(r.status).toLowerCase()
+    : 'pending';
+  const qty = Math.min(500, Math.max(1, Math.round(Number(r.quantity) || 1)));
+  return {
+    id: str(r.id) || newId('req'),
+    type,
+    quantity: qty,
+    note: str(r.note).slice(0, 500) || null,
+    status,
+    createdAt: str(r.createdAt) || nowIso(),
+    resolvedAt: str(r.resolvedAt) || null,
+  };
+}
+
+function normalizeLeadCredits(raw) {
+  const c = raw && typeof raw === 'object' ? raw : {};
+  const purchased = Math.min(5000, Math.max(0, Math.round(Number(c.purchased) || 0)));
+  const delivered = Math.min(purchased, Math.max(0, Math.round(Number(c.delivered) || 0)));
+  return {
+    purchased,
+    delivered,
+    remaining: Math.max(0, purchased - delivered),
+  };
+}
+
 function normalizePackage(raw) {
   const p = raw && typeof raw === 'object' ? raw : {};
   const purchased = clampPurchased(p.purchased);
   const appointments = Array.isArray(p.appointments)
     ? p.appointments.map(normalizeAppointment).slice(0, purchased + 50)
     : [];
+  const formLeads = Array.isArray(p.formLeads)
+    ? p.formLeads.map(normalizeFormLead).slice(-200)
+    : [];
+  const requests = Array.isArray(p.requests)
+    ? p.requests.map(normalizeRequest).slice(-100)
+    : [];
+  const leadCredits = normalizeLeadCredits(p.leadCredits || { purchased: p.leadsPurchased || 0 });
   return {
     id: str(p.id) || newId('pkg'),
     businessName: str(p.businessName).slice(0, 120) || 'Business',
     leadKey: str(p.leadKey) || null,
     contactEmail: str(p.contactEmail).slice(0, 160) || null,
+    contactPhone: str(p.contactPhone).slice(0, 40) || null,
     ghlCalendarId: str(p.ghlCalendarId) || null,
     ghlCalendarName: str(p.ghlCalendarName).slice(0, 120) || null,
     bookingUrl: str(p.bookingUrl).slice(0, 500) || null,
+    websiteUrl: str(p.websiteUrl).slice(0, 500) || null,
+    formMatchTag: str(p.formMatchTag).slice(0, 80) || null,
     purchased,
+    leadCredits,
     notes: str(p.notes).slice(0, 500) || null,
     appointments,
+    formLeads,
+    requests,
+    portalEnabled: p.portalEnabled !== false,
     createdAt: str(p.createdAt) || nowIso(),
     updatedAt: str(p.updatedAt) || nowIso(),
   };
@@ -178,17 +237,25 @@ async function getPackage(workspaceId, packageId) {
 
 async function createPackage(workspaceId, input = {}) {
   const store = await loadStore(workspaceId);
+  const leadCreditsPurchased = Math.max(0, Math.round(Number(input.leadsPurchased || input.leadCredits?.purchased) || 0));
   const pkg = normalizePackage({
     id: newId('pkg'),
     businessName: input.businessName,
     leadKey: input.leadKey,
     contactEmail: input.contactEmail,
+    contactPhone: input.contactPhone,
     ghlCalendarId: input.ghlCalendarId,
     ghlCalendarName: input.ghlCalendarName,
     bookingUrl: input.bookingUrl,
+    websiteUrl: input.websiteUrl,
+    formMatchTag: input.formMatchTag,
     purchased: input.purchased,
+    leadCredits: { purchased: leadCreditsPurchased, delivered: 0 },
     notes: input.notes,
     appointments: [],
+    formLeads: [],
+    requests: [],
+    portalEnabled: true,
     createdAt: nowIso(),
     updatedAt: nowIso(),
   });
@@ -389,10 +456,15 @@ async function listGhlCalendars(workspaceId) {
 function buildTodayView(store, { ghlConfigured = false } = {}) {
   const packages = (store.packages || []).map((pkg) => {
     const tracker = trackerFor(pkg);
+    const pendingRequests = (pkg.requests || []).filter((r) => r.status === 'pending');
+    const openFormLeads = (pkg.formLeads || []).filter((f) => f.status !== 'closed').length;
     return {
       ...pkg,
       ...tracker,
       bookingHref: pkg.bookingUrl || null,
+      pendingRequests,
+      openFormLeads,
+      leadCredits: normalizeLeadCredits(pkg.leadCredits),
     };
   });
   const totals = packages.reduce(
@@ -402,9 +474,21 @@ function buildTodayView(store, { ghlConfigured = false } = {}) {
       acc.open += p.counts.open;
       acc.booked += p.counts.booked;
       acc.closed += p.counts.closed;
+      acc.formLeads += (p.formLeads || []).length;
+      acc.leadCreditsLeft += p.leadCredits.remaining;
+      acc.pendingRequests += (p.pendingRequests || []).length;
       return acc;
     },
-    { purchased: 0, remaining: 0, open: 0, booked: 0, closed: 0 },
+    {
+      purchased: 0,
+      remaining: 0,
+      open: 0,
+      booked: 0,
+      closed: 0,
+      formLeads: 0,
+      leadCreditsLeft: 0,
+      pendingRequests: 0,
+    },
   );
   const overallPct = totals.purchased
     ? Math.max(0, Math.min(100, Math.round((totals.closed / totals.purchased) * 100)))
@@ -462,11 +546,128 @@ async function processAppointmentWebhook(body, { workspaceId } = {}) {
   };
 }
 
+function tagsFromLead(lead) {
+  const tags = [];
+  const raw = lead && (lead.tags || lead.ghlTags || lead.tagKeys);
+  if (Array.isArray(raw)) {
+    raw.forEach((t) => {
+      if (typeof t === 'string') tags.push(t.toLowerCase());
+      else if (t && t.name) tags.push(String(t.name).toLowerCase());
+      else if (t && t.key) tags.push(String(t.key).toLowerCase());
+    });
+  }
+  return tags;
+}
+
+/** Match a form/inbound lead to a contractor package by tag, email, or business name. */
+function findPackageForFormLead(store, { lead, formName, contactEmail, packageId } = {}) {
+  const packages = store.packages || [];
+  if (packageId) {
+    const byId = packages.find((p) => p.id === packageId);
+    if (byId) return byId;
+  }
+  const email = str(contactEmail || (lead && lead.email)).toLowerCase();
+  const title = str(lead && (lead.title || lead.company || lead.name)).toLowerCase();
+  const tags = tagsFromLead(lead);
+  const form = str(formName).toLowerCase();
+
+  for (const pkg of packages) {
+    const matchTag = str(pkg.formMatchTag).toLowerCase();
+    if (matchTag && (tags.includes(matchTag) || form.includes(matchTag) || tags.some((t) => t.includes(pkg.id.toLowerCase())))) {
+      return pkg;
+    }
+    if (tags.includes(`pkg:${pkg.id.toLowerCase()}`) || tags.includes(pkg.id.toLowerCase())) return pkg;
+    if (pkg.contactEmail && email && pkg.contactEmail.toLowerCase() === email) return pkg;
+    if (title && pkg.businessName && title.includes(pkg.businessName.toLowerCase())) return pkg;
+  }
+  return null;
+}
+
+async function attachFormLead(workspaceId, formLead, match = {}) {
+  const store = await loadStore(workspaceId);
+  const pkg = findPackageForFormLead(store, { ...match, lead: match.lead });
+  if (!pkg) return { matched: false, changed: false };
+
+  const entry = normalizeFormLead({
+    ...formLead,
+    id: formLead.id || `fl:${formLead.leadKey || ''}:${formLead.at || nowIso()}`,
+  });
+  const existingIdx = pkg.formLeads.findIndex(
+    (f) => f.id === entry.id || (entry.leadKey && f.leadKey === entry.leadKey),
+  );
+  let changed = false;
+  if (existingIdx >= 0) {
+    const prev = pkg.formLeads[existingIdx];
+    pkg.formLeads[existingIdx] = { ...prev, ...entry, id: prev.id };
+    changed = true;
+  } else {
+    pkg.formLeads.push(entry);
+    // Delivering a website form lead consumes one lead credit when credits remain.
+    const credits = normalizeLeadCredits(pkg.leadCredits);
+    if (credits.remaining > 0) {
+      pkg.leadCredits = normalizeLeadCredits({
+        purchased: credits.purchased,
+        delivered: credits.delivered + 1,
+      });
+    }
+    changed = true;
+  }
+  pkg.updatedAt = nowIso();
+  if (changed) await saveStore(workspaceId, store);
+  return { matched: true, changed, packageId: pkg.id, formLead: entry };
+}
+
+async function createPortalRequest(workspaceId, packageId, input = {}) {
+  const store = await loadStore(workspaceId);
+  const pkg = store.packages.find((p) => p.id === packageId);
+  if (!pkg) return null;
+  const req = normalizeRequest({
+    id: newId('req'),
+    type: input.type,
+    quantity: input.quantity,
+    note: input.note,
+    status: 'pending',
+    createdAt: nowIso(),
+  });
+  pkg.requests.unshift(req);
+  pkg.updatedAt = nowIso();
+  await saveStore(workspaceId, store);
+  return { package: pkg, request: req };
+}
+
+async function resolvePortalRequest(workspaceId, packageId, requestId, { status, fulfill = true } = {}) {
+  const store = await loadStore(workspaceId);
+  const pkg = store.packages.find((p) => p.id === packageId);
+  if (!pkg) return null;
+  const req = pkg.requests.find((r) => r.id === requestId);
+  if (!req) return null;
+  const nextStatus = status === 'declined' ? 'declined' : 'fulfilled';
+  req.status = nextStatus;
+  req.resolvedAt = nowIso();
+  if (nextStatus === 'fulfilled' && fulfill) {
+    if (req.type === 'appointments') {
+      pkg.purchased = clampPurchased(Number(pkg.purchased) + Number(req.quantity));
+    } else {
+      const credits = normalizeLeadCredits(pkg.leadCredits);
+      pkg.leadCredits = normalizeLeadCredits({
+        purchased: credits.purchased + Number(req.quantity),
+        delivered: credits.delivered,
+      });
+    }
+  }
+  pkg.updatedAt = nowIso();
+  await saveStore(workspaceId, store);
+  return { package: pkg, request: req };
+}
+
 module.exports = {
   TRACKER_STEPS,
   STATUSES,
   normalizeStore,
   normalizePackage,
+  normalizeFormLead,
+  normalizeRequest,
+  normalizeLeadCredits,
   countsFor,
   trackerFor,
   loadStore,
@@ -483,4 +684,8 @@ module.exports = {
   applyGhlEventToStore,
   processAppointmentWebhook,
   statusFromGhlAppointment,
+  findPackageForFormLead,
+  attachFormLead,
+  createPortalRequest,
+  resolvePortalRequest,
 };

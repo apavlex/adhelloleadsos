@@ -1,0 +1,14 @@
+<nav class="cp-tabbar" aria-label="Portal">
+  <a class="cp-tab<%= active === 'home' ? ' is-active' : '' %>" href="<%= base %>">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5z"/></svg>
+    Home
+  </a>
+  <a class="cp-tab<%= active === 'leads' ? ' is-active' : '' %>" href="<%= base %>/leads">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="3.5"/><path stroke-linecap="round" d="M19 8v6M22 11h-6"/></svg>
+    Leads
+  </a>
+  <a class="cp-tab<%= active === 'packages' ? ' is-active' : '' %>" href="<%= base %>/packages">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M21 8.5 12 3 3 8.5v7L12 21l9-5.5v-7z"/><path stroke-linecap="round" d="M12 12v9M3 8.5l9 5.5 9-5.5"/></svg>
+    Packages
+  </a>
+</nav>
