@@ -23,16 +23,13 @@ const networkReferrals = require('../services/networkReferrals');
 const networkBrand = require('../services/networkBrand');
 const work = require('../services/memberWork');
 const reviewPage = require('../services/reviewPage');
-const appointmentPackages = require('../services/appointmentPackages');
 const contractorPortal = require('../services/contractorPortal');
 const memberAppointmentLink = require('../services/memberAppointmentLink');
-const push = require('../services/pushNotifications');
 const { verifyNetworkToken } = require('../services/networkLinkSign');
 const { ICONS } = require('../services/memberAppIcons');
 
 const router = express.Router();
 const form = express.urlencoded({ extended: true, limit: '64kb' });
-const json = express.json({ limit: '32kb' });
 
 const OK_MESSAGES = {
   sent: 'Referral sent. They were notified.',
@@ -52,9 +49,6 @@ const OK_MESSAGES = {
   moved: 'Job updated.',
   converted: 'Added to your customers.',
   already: 'That referral is already in your customers.',
-  request: 'Request sent. Your agency will follow up shortly.',
-  purchase: 'Purchase request sent. You will get more credits once approved.',
-  closed: 'Lead marked closed.',
 };
 
 const MEMBER_ACTIONS = new Set(['accept', 'decline', 'book', 'win', 'lose', 'note']);
@@ -91,6 +85,8 @@ async function attachAppointment(ctx) {
   }
 
   const home = contractorPortal.buildPortalHome(pkg);
+  const portalToken = await contractorPortal.ensurePortalToken(workspaceId, pkg.id);
+  const portalPath = contractorPortal.portalPath(portalToken);
   return {
     ...ctx,
     appointment: {
@@ -98,7 +94,11 @@ async function attachAppointment(ctx) {
       package: pkg,
       packageId: pkg.id,
       ...home,
-      portalToken: await contractorPortal.ensurePortalToken(workspaceId, pkg.id),
+      portalToken,
+      /** Standalone contractor app — this is where lead push notifications live. */
+      portalPath,
+      portalLeadsPath: `${portalPath}/leads`,
+      portalPackagesPath: `${portalPath}/packages`,
     },
   };
 }
@@ -144,11 +144,7 @@ function render(res, view, ctx, extra, status) {
 
 function flashFromQuery(req) {
   const ok = OK_MESSAGES[String(req.query.ok || '')];
-  if (ok) return { ok };
-  const err = String(req.query.err || '');
-  if (err === 'quantity') return { error: 'Enter a quantity of at least 1.' };
-  if (err) return { error: 'Could not submit that request. Try again.' };
-  return null;
+  return ok ? { ok } : null;
 }
 
 function withMember(handler) {
@@ -861,100 +857,28 @@ router.post('/m/:token/review', form, withMember(async (req, res, ctx) => {
   return res.redirect(303, `${ctx.base}/review?ok=saved`);
 }));
 
-// ── Appointment package (contractor portal inside the referral app) ──────────
+// ── Contractor app deep-links (notifications live on /p/:token, not here) ────
 
-function requireAppointment(handler) {
-  return withMember(async (req, res, ctx) => {
-    if (!ctx.appointment) {
-      return renderInvalid(res, 404, 'No appointment package is linked to your account yet. Ask your agency to sell you appointments or match your business.');
-    }
-    return handler(req, res, ctx);
-  });
-}
-
-router.get('/m/:token/leads', requireAppointment(async (req, res, ctx) => {
-  return render(res, 'leads', ctx, {
-    active: 'leads',
-    ...ctx.appointment,
-    flash: flashFromQuery(req),
-  });
-}));
-
-router.get('/m/:token/packages', requireAppointment(async (req, res, ctx) => {
-  return render(res, 'packages', ctx, {
-    active: 'packages',
-    ...ctx.appointment,
-    flash: flashFromQuery(req),
-  });
-}));
-
-router.post('/m/:token/packages/request', form, requireAppointment(async (req, res, ctx) => {
-  const quantity = Math.round(Number(req.body && req.body.quantity) || 0);
-  const type = String((req.body && req.body.type) || 'leads').toLowerCase() === 'appointments'
-    ? 'appointments'
-    : 'leads';
-  const note = String((req.body && req.body.note) || '').trim();
-  if (!Number.isFinite(quantity) || quantity < 1) {
-    return res.redirect(303, `${ctx.base}/packages?err=quantity`);
+/** Send members straight into the standalone contractor app for leads / packages. */
+router.get('/m/:token/leads', withMember(async (req, res, ctx) => {
+  if (!ctx.appointment) {
+    return renderInvalid(res, 404, 'No contractor app is linked yet. Ask your agency to sell you appointments.');
   }
-  await contractorPortal.submitRequest(ctx.appointment.workspaceId, ctx.appointment.packageId, {
-    type,
-    quantity,
-    note: note || null,
-  });
-  const ok = type === 'leads' && String((req.body && req.body.intent) || '') === 'purchase'
-    ? 'purchase'
-    : 'request';
-  return res.redirect(303, `${ctx.base}/packages?ok=${ok}`);
+  return res.redirect(303, ctx.appointment.portalLeadsPath);
 }));
 
-router.post('/m/:token/leads/:leadId/close', form, requireAppointment(async (req, res, ctx) => {
-  const leadId = String(req.params.leadId || '').trim();
-  const pkg = ctx.appointment.package;
-  const formLeads = (pkg.formLeads || []).map((f) =>
-    (f.id === leadId ? { ...f, status: 'closed' } : f),
-  );
-  await appointmentPackages.updatePackage(ctx.appointment.workspaceId, ctx.appointment.packageId, { formLeads });
-  return res.redirect(303, `${ctx.base}/leads?ok=closed`);
+router.get('/m/:token/packages', withMember(async (req, res, ctx) => {
+  if (!ctx.appointment) {
+    return renderInvalid(res, 404, 'No contractor app is linked yet. Ask your agency to sell you appointments.');
+  }
+  return res.redirect(303, ctx.appointment.portalPackagesPath);
 }));
 
-/** Push for form leads — same stack as the standalone contractor portal. */
-router.get('/m/:token/push/key', requireAppointment(async (req, res) => {
-  noStore(res);
-  return res.json({ success: true, publicKey: push.publicKey() });
-}));
-
-router.post('/m/:token/push/subscribe', json, requireAppointment(async (req, res, ctx) => {
-  noStore(res);
-  const result = push.savePortalSubscription({
-    subscription: req.body && req.body.subscription,
-    workspaceId: ctx.appointment.workspaceId,
-    packageId: ctx.appointment.packageId,
-    userAgent: req.get('user-agent'),
-  });
-  if (!result.ok) return res.status(400).json({ success: false, error: result.error });
-  return res.json({ success: true });
-}));
-
-router.post('/m/:token/push/unsubscribe', json, requireAppointment(async (req, res, ctx) => {
-  noStore(res);
-  const endpoint = req.body && req.body.endpoint;
-  if (endpoint) push.removePortalSubscription(endpoint, ctx.appointment.packageId);
-  return res.json({ success: true });
-}));
-
-router.post('/m/:token/push/test', json, requireAppointment(async (req, res, ctx) => {
-  noStore(res);
-  const { sent } = await push.sendPortalPush(
-    { packageId: ctx.appointment.packageId, workspaceId: ctx.appointment.workspaceId },
-    {
-      title: 'Alerts are on',
-      body: `You’ll get new leads for ${ctx.appointment.package.businessName} here, even when the app is closed.`,
-      url: `${ctx.base}/leads`,
-      tag: 'member-portal-push-test',
-    },
-  );
-  return res.json({ success: true, sent });
+router.get('/m/:token/contractor-app', withMember(async (req, res, ctx) => {
+  if (!ctx.appointment) {
+    return renderInvalid(res, 404, 'No contractor app is linked yet. Ask your agency to sell you appointments.');
+  }
+  return res.redirect(303, ctx.appointment.portalPath);
 }));
 
 module.exports = router;

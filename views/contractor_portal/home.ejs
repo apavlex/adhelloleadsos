@@ -58,7 +58,7 @@
         <div class="cp-row">
           <div>
             <h2>Lead alerts</h2>
-            <p class="cp-meta" data-cp-push-status>Get new leads on this phone or computer — same style as your agency’s notifications.</p>
+            <p class="cp-meta" data-cp-push-status>This is the contractor app — turn on phone or desktop alerts so new leads wake you up even when it’s closed.</p>
           </div>
         </div>
         <div class="cp-actions">
@@ -108,7 +108,29 @@
     </main>
 
     <%- include('_tabbar') %>
+    <div class="cp-install" id="cpInstall" hidden>
+      Add <b><%= package.businessName %></b> to your Home Screen for lead alerts: tap <b>Share</b>, then <b>Add to Home Screen</b>.
+      <button type="button" aria-label="Dismiss" data-cp-install-close>&times;</button>
+    </div>
   </div>
   <script src="/js/contractor-portal-push.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
+  <script>
+  (function () {
+    var hint = document.getElementById('cpInstall');
+    if (!hint) return;
+    var ua = navigator.userAgent || '';
+    var isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    var standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+    var KEY = 'cp-install-hint';
+    var dismissed = false;
+    try { dismissed = localStorage.getItem(KEY) === '1'; } catch (e) {}
+    if (isIOS && !standalone && !dismissed) hint.hidden = false;
+    var closeBtn = hint.querySelector('[data-cp-install-close]');
+    if (closeBtn) closeBtn.addEventListener('click', function () {
+      hint.hidden = true;
+      try { localStorage.setItem(KEY, '1'); } catch (e) {}
+    });
+  })();
+  </script>
 </body>
 </html>

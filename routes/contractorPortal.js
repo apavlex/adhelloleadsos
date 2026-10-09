@@ -49,6 +49,34 @@ function flashFromQuery(req) {
   return null;
 }
 
+/** Installable PWA so contractors can Add to Home Screen and receive lead push. */
+router.get(
+  '/p/:token/manifest.webmanifest',
+  withPortal(async (req, res, ctx) => {
+    noStore(res);
+    const icon = ctx.brand.logoUrl || '/images/adhello-app-icon.png';
+    const name = `${ctx.package.businessName} · Contractor`.slice(0, 60);
+    const shortName = String(ctx.package.businessName || 'Leads').slice(0, 12);
+    res.type('application/manifest+json');
+    return res.json({
+      id: ctx.base,
+      name,
+      short_name: shortName,
+      description: 'Appointment tracker, website form leads, and lead alerts.',
+      start_url: ctx.base,
+      scope: ctx.base,
+      display: 'standalone',
+      orientation: 'portrait',
+      background_color: '#0f2747',
+      theme_color: '#0f2747',
+      icons: [
+        { src: icon, sizes: '192x192', type: 'image/png', purpose: 'any' },
+        { src: icon, sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+      ],
+    });
+  }),
+);
+
 router.get(
   '/p/:token',
   withPortal(async (req, res, ctx) => {
@@ -59,7 +87,7 @@ router.get(
       ...home,
       active: 'home',
       flash: flashFromQuery(req),
-      title: `${ctx.package.businessName} · Portal`,
+      title: `${ctx.package.businessName} · Contractor app`,
     });
   }),
 );
