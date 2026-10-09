@@ -51,6 +51,14 @@
       <a href="#chrome-extension" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white underline ml-1">Chrome extension ↑</a>
     </nav>
 
+    <% const _shared = typeof sharedIntegrationProviders !== 'undefined' && Array.isArray(sharedIntegrationProviders) ? sharedIntegrationProviders : []; %>
+    <% if (_shared.length) { %>
+    <style>
+      .int-shared-note { border-radius: 0.9rem; border: 1px solid rgba(22, 163, 74, 0.3); background: rgba(220, 252, 231, 0.55); padding: 0.75rem 1rem; font-size: 0.82rem; font-weight: 600; color: #166534; }
+      html.dark .int-shared-note { background: rgba(20, 83, 45, 0.3); color: #bbf7d0; }
+    </style>
+    <p class="int-shared-note">Using AdHello’s shared keys for <strong><%= _shared.join(', ') %></strong>. Leave those fields blank to keep using them, or paste this workspace’s own key to replace one.</p>
+    <% } %>
     <div id="integration-find-leads" class="scroll-mt-28" data-int-group>
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Lead scrapers</p>
       <p class="text-sm text-brand-muted mb-4 max-w-2xl leading-relaxed">Where new leads come from. <strong>Find Leads</strong> searches Google Maps, permits and listings with these. In <strong>Auto</strong> mode it tries them in order until one returns results.</p>

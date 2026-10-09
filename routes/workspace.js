@@ -357,6 +357,7 @@ async function loadWorkspacePageLocals(req) {
   }
   const scrapeAdvisor = scrapeCostAdvisor.getDashboardPayload(scrapeLive, resolvedEnv);
   const mapsProviderStatus = mapsSearch.getMapsProviderStatusList(resolvedEnv);
+  const sharedIntegrationProviders = await workspaceIntegrations.sharedProvidersFor(wid);
   const mapsSearchPrimary = String(
     (resolvedEnv && resolvedEnv.SEARCH_MAPS_PRIMARY) || process.env.SEARCH_MAPS_PRIMARY || 'auto',
   )
@@ -445,6 +446,7 @@ async function loadWorkspacePageLocals(req) {
     persistenceIntegrationsHint,
     mapsSearchPrimary,
     mapsProviderStatus,
+    sharedIntegrationProviders,
     enrichPrimary,
     scrapeAdvisor,
     scrapeSourcesLivePing: process.env.SCRAPE_SOURCES_LIVE_PING === '1',
