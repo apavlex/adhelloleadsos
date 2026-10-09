@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('_head', { pageTitle: 'Leads' }) %>
+</head>
+<body>
+  <main class="ma-shell">
+    <%- include('_top', { topTitle: 'Form leads' }) %>
+    <%- include('_flash') %>
+
+    <section class="ma-card" id="cpPushRoot" data-base="<%= base %>">
+      <div class="ma-card__row">
+        <div style="min-width:0">
+          <p class="ma-card__title">Lead alerts</p>
+          <p class="ma-card__meta" data-cp-push-status>Get new website leads on this phone or computer.</p>
+        </div>
+      </div>
+      <div class="ma-appt__actions" style="margin-top:12px">
+        <button type="button" class="ma-btn" data-cp-push-enable>Turn on alerts</button>
+        <button type="button" class="ma-btn ma-btn--ghost" data-cp-push-off hidden>Turn off</button>
+      </div>
+    </section>
+
+    <section class="ma-appt" style="margin-top:12px">
+      <p class="ma-appt__kicker">Website + GHL forms</p>
+      <h2 class="ma-appt__title">All leads in one place</h2>
+      <p class="ma-appt__sub">Form submissions sync here so you can call them without hunting in GHL.</p>
+      <div class="ma-appt__stats">
+        <div><b><%= openLeadCount %></b><span>Open</span></div>
+        <div><b><%= formLeads.length - openLeadCount %></b><span>Closed</span></div>
+        <div><b><%= leadCredits.remaining %></b><span>Credits left</span></div>
+      </div>
+    </section>
+
+    <% if (!formLeads.length) { %>
+    <section class="ma-section">
+      <div class="ma-card ma-empty">
+        <p>No form leads yet. Ask your agency to tag form submissions to your package so they land here.</p>
+      </div>
+    </section>
+    <% } else { %>
+    <section class="ma-section">
+      <div class="ma-section__head">
+        <h2>Leads</h2>
+        <a href="<%= base %>/packages">Buy credits</a>
+      </div>
+      <% formLeads.forEach(function (lead) { %>
+      <article class="ma-card">
+        <div class="ma-card__row">
+          <div style="min-width:0">
+            <p class="ma-card__title"><%= lead.name %></p>
+            <p class="ma-card__meta">
+              <%= lead.formName || 'Form' %>
+              <% if (lead.at) { %> · <%= new Date(lead.at).toLocaleString() %><% } %>
+            </p>
+            <% if (lead.phone || lead.email) { %>
+            <p class="ma-card__meta" style="margin-top:4px">
+              <% if (lead.phone) { %><a href="tel:<%= lead.phone %>" style="color:inherit"><%= lead.phone %></a><% } %>
+              <% if (lead.phone && lead.email) { %> · <% } %>
+              <% if (lead.email) { %><a href="mailto:<%= lead.email %>" style="color:inherit"><%= lead.email %></a><% } %>
+            </p>
+            <% } %>
+            <% if (lead.preview) { %><p class="ma-card__note"><%= lead.preview %></p><% } %>
+          </div>
+          <span class="ma-pill <%= lead.status === 'closed' ? '' : 'ma-pill--sent' %>"><%= lead.status === 'closed' ? 'Closed' : 'Open' %></span>
+        </div>
+        <% if (lead.status !== 'closed') { %>
+        <form method="post" action="<%= base %>/leads/<%= encodeURIComponent(lead.id) %>/close" style="margin-top:10px">
+          <button type="submit" class="ma-btn ma-btn--sm ma-btn--soft">Mark closed</button>
+        </form>
+        <% } %>
+      </article>
+      <% }); %>
+    </section>
+    <% } %>
+
+    <section class="ma-section">
+      <a class="ma-btn ma-btn--block ma-btn--soft" href="<%= base %>/packages"><%- icons.packages %> Request more leads or appointments</a>
+      <a class="ma-btn ma-btn--block ma-btn--ghost" href="<%= base %>/customers" style="margin-top:8px"><%- icons.customers %> Your customers</a>
+    </section>
+  </main>
+  <%- include('_tabbar') %>
+  <script src="/js/contractor-portal-push.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
+</body>
+</html>

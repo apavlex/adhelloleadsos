@@ -146,6 +146,8 @@ function normalizeMember(raw) {
   return {
     id: String(m.id || ''),
     leadKey: String(m.leadKey || ''),
+    /** Optional link to an agency appointment package (contractor portal in the member app). */
+    appointmentPackageId: cleanText(m.appointmentPackageId, 80),
     companyName: cleanText(m.companyName, 160) || 'Member',
     contactName: cleanText(m.contactName, 120),
     phone: cleanText(m.phone, 40),

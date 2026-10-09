@@ -375,3 +375,144 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
 .rv-link__go { margin-left: auto; color: var(--muted); }
 .rv-links--quiet .rv-link { box-shadow: none; padding: 11px 14px; font-weight: 700; font-size: 14px; }
 .rv-foot { margin-top: 28px; font-size: 12px; color: var(--muted); }
+
+/* Appointment tracker (contractor portal inside member referral app) */
+.ma-appt {
+  position: relative;
+  border-radius: 24px;
+  overflow: hidden;
+  margin: 0 0 16px;
+  padding: 18px 16px 16px;
+  color: #fff;
+  background:
+    radial-gradient(90% 80% at 100% 0%, color-mix(in srgb, var(--acc) 45%, transparent), transparent 55%),
+    linear-gradient(135deg, var(--navy) 0%, #163a63 55%, var(--navy) 100%);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.14);
+}
+.ma-appt__kicker {
+  margin: 0 0 6px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--acc);
+}
+.ma-appt__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+.ma-appt__sub {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.72);
+  line-height: 1.35;
+}
+.ma-appt__stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 14px;
+}
+.ma-appt__stats > div {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 10px 8px;
+  text-align: center;
+}
+.ma-appt__stats b {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.ma-appt__stats span {
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+.ma-appt__track {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  position: relative;
+  margin-top: 16px;
+}
+.ma-appt__track::before {
+  content: '';
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  top: 0.95rem;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.18);
+  z-index: 0;
+}
+.ma-appt__step { position: relative; z-index: 1; text-align: center; }
+.ma-appt__dot {
+  width: 1.9rem;
+  height: 1.9rem;
+  margin: 0 auto 0.3rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 0.7rem;
+  font-weight: 900;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  background: rgba(15, 39, 71, 0.45);
+  color: rgba(255, 255, 255, 0.7);
+}
+.ma-appt__step.is-done .ma-appt__dot {
+  background: var(--acc);
+  border-color: var(--acc);
+  color: var(--on);
+}
+.ma-appt__step.is-current .ma-appt__dot {
+  background: #fff;
+  border-color: var(--acc);
+  color: var(--navy);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--acc) 35%, transparent);
+}
+.ma-appt__step small {
+  display: block;
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+.ma-appt__step.is-done small,
+.ma-appt__step.is-current small { color: #fff; }
+.ma-appt__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+.ma-appt__actions .ma-btn { min-height: 40px; }
+.ma-appt .ma-btn--ghost {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+.ma-appt .ma-btn--soft {
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--navy);
+}
+@media (prefers-color-scheme: dark) {
+  .ma-appt {
+    background:
+      radial-gradient(90% 80% at 100% 0%, color-mix(in srgb, var(--acc) 28%, transparent), transparent 55%),
+      linear-gradient(135deg, #020617 0%, #0f172a 60%, #020617 100%);
+  }
+}

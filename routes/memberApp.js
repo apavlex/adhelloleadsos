@@ -6,6 +6,8 @@
  *   /m/:token/referrals  received + sent referrals, accept / booked / won / lost
  *   /m/:token/send       send a referral to another member
  *   /m/:token/customers  the member's own customers, jobs and schedule
+ *   /m/:token/leads      website/GHL form leads (when linked to an appointment package)
+ *   /m/:token/packages   request / buy more appointments & lead credits
  *   /m/:token/enroll     invite a business to join (operator approves; top-bar icon)
  *   /m/:token/review     review link-in-bio page settings + QR
  *   /m/login             text me a new link
@@ -21,11 +23,16 @@ const networkReferrals = require('../services/networkReferrals');
 const networkBrand = require('../services/networkBrand');
 const work = require('../services/memberWork');
 const reviewPage = require('../services/reviewPage');
+const appointmentPackages = require('../services/appointmentPackages');
+const contractorPortal = require('../services/contractorPortal');
+const memberAppointmentLink = require('../services/memberAppointmentLink');
+const push = require('../services/pushNotifications');
 const { verifyNetworkToken } = require('../services/networkLinkSign');
 const { ICONS } = require('../services/memberAppIcons');
 
 const router = express.Router();
 const form = express.urlencoded({ extended: true, limit: '64kb' });
+const json = express.json({ limit: '32kb' });
 
 const OK_MESSAGES = {
   sent: 'Referral sent. They were notified.',
@@ -45,6 +52,9 @@ const OK_MESSAGES = {
   moved: 'Job updated.',
   converted: 'Added to your customers.',
   already: 'That referral is already in your customers.',
+  request: 'Request sent. Your agency will follow up shortly.',
+  purchase: 'Purchase request sent. You will get more credits once approved.',
+  closed: 'Lead marked closed.',
 };
 
 const MEMBER_ACTIONS = new Set(['accept', 'decline', 'book', 'win', 'lose', 'note']);
@@ -61,6 +71,38 @@ function firstName(member) {
   return contact || member.companyName;
 }
 
+async function attachAppointment(ctx) {
+  const workspaceId = ctx.network && ctx.network.ownerWorkspaceId;
+  if (!workspaceId) return { ...ctx, appointment: null };
+  const pkg = await memberAppointmentLink.findPackageForMember(workspaceId, ctx.member);
+  if (!pkg || pkg.portalEnabled === false) return { ...ctx, appointment: null };
+
+  // Persist an explicit link once we auto-match so future lookups are stable.
+  if (!ctx.member.appointmentPackageId || ctx.member.appointmentPackageId !== pkg.id) {
+    try {
+      const saved = await store.saveMember(ctx.network.id, {
+        ...ctx.member,
+        appointmentPackageId: pkg.id,
+      });
+      ctx.member = saved;
+    } catch (e) {
+      console.warn('[member-app] could not persist appointmentPackageId:', e && e.message);
+    }
+  }
+
+  const home = contractorPortal.buildPortalHome(pkg);
+  return {
+    ...ctx,
+    appointment: {
+      workspaceId,
+      package: pkg,
+      packageId: pkg.id,
+      ...home,
+      portalToken: await contractorPortal.ensurePortalToken(workspaceId, pkg.id),
+    },
+  };
+}
+
 async function loadContext(token) {
   const payload = verifyNetworkToken(token, 'mem');
   if (!payload) return null;
@@ -68,14 +110,16 @@ async function loadContext(token) {
   if (!network) return null;
   const member = await store.getMember(network.id, payload.memberId);
   if (!member) return null;
-  return {
+  const base = {
     network,
     member,
     token,
     base: `/m/${encodeURIComponent(token)}`,
     brand: networkBrand.brandView(network),
     greetingName: firstName(member),
+    appointment: null,
   };
+  return attachAppointment(base);
 }
 
 function renderInvalid(res, status, message) {
@@ -100,7 +144,11 @@ function render(res, view, ctx, extra, status) {
 
 function flashFromQuery(req) {
   const ok = OK_MESSAGES[String(req.query.ok || '')];
-  return ok ? { ok } : null;
+  if (ok) return { ok };
+  const err = String(req.query.err || '');
+  if (err === 'quantity') return { error: 'Enter a quantity of at least 1.' };
+  if (err) return { error: 'Could not submit that request. Try again.' };
+  return null;
 }
 
 function withMember(handler) {
@@ -811,6 +859,102 @@ router.post('/m/:token/review', form, withMember(async (req, res, ctx) => {
   }
   await store.saveMember(ctx.network.id, { ...ctx.member, reviewLinks: links });
   return res.redirect(303, `${ctx.base}/review?ok=saved`);
+}));
+
+// ── Appointment package (contractor portal inside the referral app) ──────────
+
+function requireAppointment(handler) {
+  return withMember(async (req, res, ctx) => {
+    if (!ctx.appointment) {
+      return renderInvalid(res, 404, 'No appointment package is linked to your account yet. Ask your agency to sell you appointments or match your business.');
+    }
+    return handler(req, res, ctx);
+  });
+}
+
+router.get('/m/:token/leads', requireAppointment(async (req, res, ctx) => {
+  return render(res, 'leads', ctx, {
+    active: 'leads',
+    ...ctx.appointment,
+    flash: flashFromQuery(req),
+  });
+}));
+
+router.get('/m/:token/packages', requireAppointment(async (req, res, ctx) => {
+  return render(res, 'packages', ctx, {
+    active: 'packages',
+    ...ctx.appointment,
+    flash: flashFromQuery(req),
+  });
+}));
+
+router.post('/m/:token/packages/request', form, requireAppointment(async (req, res, ctx) => {
+  const quantity = Math.round(Number(req.body && req.body.quantity) || 0);
+  const type = String((req.body && req.body.type) || 'leads').toLowerCase() === 'appointments'
+    ? 'appointments'
+    : 'leads';
+  const note = String((req.body && req.body.note) || '').trim();
+  if (!Number.isFinite(quantity) || quantity < 1) {
+    return res.redirect(303, `${ctx.base}/packages?err=quantity`);
+  }
+  await contractorPortal.submitRequest(ctx.appointment.workspaceId, ctx.appointment.packageId, {
+    type,
+    quantity,
+    note: note || null,
+  });
+  const ok = type === 'leads' && String((req.body && req.body.intent) || '') === 'purchase'
+    ? 'purchase'
+    : 'request';
+  return res.redirect(303, `${ctx.base}/packages?ok=${ok}`);
+}));
+
+router.post('/m/:token/leads/:leadId/close', form, requireAppointment(async (req, res, ctx) => {
+  const leadId = String(req.params.leadId || '').trim();
+  const pkg = ctx.appointment.package;
+  const formLeads = (pkg.formLeads || []).map((f) =>
+    (f.id === leadId ? { ...f, status: 'closed' } : f),
+  );
+  await appointmentPackages.updatePackage(ctx.appointment.workspaceId, ctx.appointment.packageId, { formLeads });
+  return res.redirect(303, `${ctx.base}/leads?ok=closed`);
+}));
+
+/** Push for form leads — same stack as the standalone contractor portal. */
+router.get('/m/:token/push/key', requireAppointment(async (req, res) => {
+  noStore(res);
+  return res.json({ success: true, publicKey: push.publicKey() });
+}));
+
+router.post('/m/:token/push/subscribe', json, requireAppointment(async (req, res, ctx) => {
+  noStore(res);
+  const result = push.savePortalSubscription({
+    subscription: req.body && req.body.subscription,
+    workspaceId: ctx.appointment.workspaceId,
+    packageId: ctx.appointment.packageId,
+    userAgent: req.get('user-agent'),
+  });
+  if (!result.ok) return res.status(400).json({ success: false, error: result.error });
+  return res.json({ success: true });
+}));
+
+router.post('/m/:token/push/unsubscribe', json, requireAppointment(async (req, res, ctx) => {
+  noStore(res);
+  const endpoint = req.body && req.body.endpoint;
+  if (endpoint) push.removePortalSubscription(endpoint, ctx.appointment.packageId);
+  return res.json({ success: true });
+}));
+
+router.post('/m/:token/push/test', json, requireAppointment(async (req, res, ctx) => {
+  noStore(res);
+  const { sent } = await push.sendPortalPush(
+    { packageId: ctx.appointment.packageId, workspaceId: ctx.appointment.workspaceId },
+    {
+      title: 'Alerts are on',
+      body: `You’ll get new leads for ${ctx.appointment.package.businessName} here, even when the app is closed.`,
+      url: `${ctx.base}/leads`,
+      tag: 'member-portal-push-test',
+    },
+  );
+  return res.json({ success: true, sent });
 }));
 
 module.exports = router;

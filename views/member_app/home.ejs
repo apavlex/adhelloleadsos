@@ -19,6 +19,55 @@
 
     <%- include('_flash') %>
 
+    <% const _appt = typeof appointment !== 'undefined' && appointment ? appointment : null; %>
+    <% if (_appt) { %>
+    <section class="ma-appt" aria-label="Appointment tracker">
+      <p class="ma-appt__kicker">Appointment tracker</p>
+      <h2 class="ma-appt__title">Sold → booked → closed</h2>
+      <p class="ma-appt__sub">Appointments you bought, website form leads, and credits — same place as your referrals.</p>
+      <div class="ma-appt__stats">
+        <div><b><%= _appt.tracker.counts.remaining %></b><span>Appts left</span></div>
+        <div><b><%= _appt.openLeadCount %></b><span>Open leads</span></div>
+        <div><b><%= _appt.leadCredits.remaining %></b><span>Lead credits</span></div>
+      </div>
+      <div class="ma-appt__track" aria-label="Progress">
+        <% (_appt.tracker.steps || []).forEach(function (step, idx) { %>
+        <div class="ma-appt__step<%= step.state === 'done' ? ' is-done' : '' %><%= step.state === 'current' ? ' is-current' : '' %>">
+          <span class="ma-appt__dot"><%= idx + 1 %></span>
+          <small><%= step.label %></small>
+        </div>
+        <% }); %>
+      </div>
+      <div class="ma-appt__actions">
+        <% if (_appt.bookingUrl) { %>
+        <a class="ma-btn" href="<%= _appt.bookingUrl %>" target="_blank" rel="noopener noreferrer">Schedule on calendar</a>
+        <% } %>
+        <a class="ma-btn ma-btn--soft" href="<%= base %>/leads">Form leads</a>
+        <a class="ma-btn ma-btn--ghost" href="<%= base %>/packages">Buy more</a>
+      </div>
+    </section>
+
+    <% if (_appt.recentLeads && _appt.recentLeads.length) { %>
+    <section class="ma-section">
+      <div class="ma-section__head">
+        <h2>Website form leads</h2>
+        <a href="<%= base %>/leads">See all</a>
+      </div>
+      <% _appt.recentLeads.slice(0, 3).forEach(function (lead) { %>
+      <a class="ma-card" style="display:block;text-decoration:none" href="<%= base %>/leads">
+        <div class="ma-card__row">
+          <div style="min-width:0">
+            <p class="ma-card__title"><%= lead.name %></p>
+            <p class="ma-card__meta"><%= lead.formName || 'Form' %><% if (lead.phone) { %> · <%= lead.phone %><% } %></p>
+          </div>
+          <span class="ma-pill ma-pill--sent"><%= lead.status === 'closed' ? 'Closed' : 'Open' %></span>
+        </div>
+      </a>
+      <% }); %>
+    </section>
+    <% } %>
+    <% } %>
+
     <section class="ma-hero" aria-label="<%= brand.appName %>">
       <% if (brand.heroUrl) { %><img class="ma-hero__img" src="<%= brand.heroUrl %>" alt=""><% } %>
       <div class="ma-hero__card">
@@ -48,6 +97,15 @@
       </a>
       <% }); %>
     </section>
+
+    <% if (_appt) { %>
+    <section class="ma-section" style="margin-top:4px">
+      <div class="ma-appt__actions" style="margin:0">
+        <a class="ma-btn ma-btn--soft" href="<%= base %>/customers"><%- icons.customers %> Customers</a>
+        <a class="ma-btn ma-btn--ghost" href="<%= base %>/review"><%- icons.review %> Reviews</a>
+      </div>
+    </section>
+    <% } %>
 
     <% const _upcoming = typeof upcoming !== 'undefined' ? upcoming : []; %>
     <% if (_upcoming.length) { %>
