@@ -586,7 +586,7 @@ function findPackageForFormLead(store, { lead, formName, contactEmail, packageId
 async function attachFormLead(workspaceId, formLead, match = {}) {
   const store = await loadStore(workspaceId);
   const pkg = findPackageForFormLead(store, { ...match, lead: match.lead });
-  if (!pkg) return { matched: false, changed: false };
+  if (!pkg) return { matched: false, changed: false, isNew: false };
 
   const entry = normalizeFormLead({
     ...formLead,
@@ -596,12 +596,14 @@ async function attachFormLead(workspaceId, formLead, match = {}) {
     (f) => f.id === entry.id || (entry.leadKey && f.leadKey === entry.leadKey),
   );
   let changed = false;
+  let isNew = false;
   if (existingIdx >= 0) {
     const prev = pkg.formLeads[existingIdx];
     pkg.formLeads[existingIdx] = { ...prev, ...entry, id: prev.id };
     changed = true;
   } else {
     pkg.formLeads.push(entry);
+    isNew = true;
     // Delivering a website form lead consumes one lead credit when credits remain.
     const credits = normalizeLeadCredits(pkg.leadCredits);
     if (credits.remaining > 0) {
@@ -614,7 +616,39 @@ async function attachFormLead(workspaceId, formLead, match = {}) {
   }
   pkg.updatedAt = nowIso();
   if (changed) await saveStore(workspaceId, store);
-  return { matched: true, changed, packageId: pkg.id, formLead: entry };
+  if (isNew) {
+    try {
+      const push = require('./pushNotifications');
+      const { createContractorPortalToken } = require('./contractorPortalSign');
+      const token = createContractorPortalToken({ workspaceId, packageId: pkg.id });
+      push.notifyContractorNewLead({
+        workspaceId,
+        packageId: pkg.id,
+        businessName: pkg.businessName,
+        leadName: entry.name,
+        formName: entry.formName,
+        preview: entry.preview,
+        url: `/p/${encodeURIComponent(token)}/leads`,
+      });
+    } catch (e) {
+      console.warn('[appointmentPackages] contractor push failed:', e && e.message);
+    }
+  }
+  return { matched: true, changed, isNew, packageId: pkg.id, formLead: entry };
+}
+
+/** Agency manually delivers a lead into a contractor package (also pushes to their devices). */
+async function deliverLeadToPackage(workspaceId, packageId, leadInput = {}) {
+  const store = await loadStore(workspaceId);
+  const pkg = store.packages.find((p) => p.id === packageId);
+  if (!pkg) return null;
+  return attachFormLead(workspaceId, {
+    ...leadInput,
+    source: leadInput.source || 'agency',
+    formName: leadInput.formName || 'Delivered by agency',
+    at: leadInput.at || nowIso(),
+    status: 'open',
+  }, { packageId, lead: leadInput });
 }
 
 async function createPortalRequest(workspaceId, packageId, input = {}) {
@@ -686,6 +720,7 @@ module.exports = {
   statusFromGhlAppointment,
   findPackageForFormLead,
   attachFormLead,
+  deliverLeadToPackage,
   createPortalRequest,
   resolvePortalRequest,
 };

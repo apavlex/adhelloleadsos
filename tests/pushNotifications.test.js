@@ -33,6 +33,38 @@ test('subscriptions are stored per user and remember each workspace they were us
   assert.equal(push.matchingSubscriptions({}).length, 0);
 });
 
+test('contractor portal subscriptions are scoped by package and get new-lead pushes', async (t) => {
+  assert.equal(
+    push.savePortalSubscription({ subscription: subscription(9), workspaceId: 'ws_a' }).ok,
+    false,
+  );
+  push.savePortalSubscription({
+    subscription: subscription(9),
+    workspaceId: 'ws_a',
+    packageId: 'pkg_electrician',
+  });
+  assert.equal(push.matchingPortalSubscriptions({ packageId: 'pkg_electrician' }).length, 1);
+  assert.equal(push.matchingPortalSubscriptions({ packageId: 'pkg_other' }).length, 0);
+
+  const sent = [];
+  t.mock.method(webpush, 'sendNotification', async (sub, body) => {
+    sent.push({ endpoint: sub.endpoint, body: JSON.parse(body) });
+  });
+  const result = await push.notifyContractorNewLead({
+    workspaceId: 'ws_a',
+    packageId: 'pkg_electrician',
+    businessName: 'Spark Electric',
+    leadName: 'Jane Homeowner',
+    formName: 'Website quote',
+    preview: 'Needs panel upgrade',
+    url: '/p/token/leads',
+  });
+  assert.equal(result.sent, 1);
+  assert.match(sent[0].body.title, /Spark Electric/);
+  assert.match(sent[0].body.body, /Website quote/);
+  assert.equal(sent[0].body.url, '/p/token/leads');
+});
+
 test('a finished search pushes to its owner and drops subscriptions the push service says are gone', async (t) => {
   push.saveSubscription({ subscription: subscription(2), userEmail: 'gone@example.com', workspaceId: 'ws_a' });
   const sent = [];

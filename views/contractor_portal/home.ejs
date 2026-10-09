@@ -54,6 +54,19 @@
         </div>
       </section>
 
+      <section class="cp-card" id="cpPushRoot" data-base="<%= base %>">
+        <div class="cp-row">
+          <div>
+            <h2>Lead alerts</h2>
+            <p class="cp-meta" data-cp-push-status>Get new leads on this phone or computer — same style as your agency’s notifications.</p>
+          </div>
+        </div>
+        <div class="cp-actions">
+          <button type="button" class="cp-btn cp-btn--primary" data-cp-push-enable>Turn on alerts</button>
+          <button type="button" class="cp-btn cp-btn--ghost" data-cp-push-off hidden>Turn off</button>
+        </div>
+      </section>
+
       <section class="cp-card">
         <div class="cp-row">
           <div>
@@ -96,5 +109,6 @@
 
     <%- include('_tabbar') %>
   </div>
+  <script src="/js/contractor-portal-push.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
 </body>
 </html>

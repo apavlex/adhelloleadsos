@@ -465,6 +465,32 @@ router.post('/appointment-packages/:id/portal-link', express.json(), async (req,
   }
 });
 
+/** Deliver a lead into a contractor package (consumes a credit + pushes to their devices). */
+router.post('/appointment-packages/:id/deliver-lead', express.json(), async (req, res, next) => {
+  try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    if (!String(body.name || body.title || '').trim()) {
+      return res.status(400).json({ success: false, error: 'Lead name is required.' });
+    }
+    const result = await appointmentPackages.deliverLeadToPackage(req.workspaceId, req.params.id, {
+      name: body.name || body.title,
+      phone: body.phone || null,
+      email: body.email || null,
+      preview: body.preview || body.note || null,
+      leadKey: body.leadKey || null,
+      formName: body.formName || 'Added by agency',
+      source: 'agency',
+    });
+    if (!result || !result.matched) {
+      return res.status(404).json({ success: false, error: 'Package not found.' });
+    }
+    const view = await appointmentPackages.loadTodayView(req.workspaceId);
+    return res.json({ success: true, ...result, appointmentTracker: view });
+  } catch (e) {
+    next(e);
+  }
+});
+
 /** Fulfill or decline a contractor portal package request. */
 router.post('/appointment-packages/:id/requests/:requestId/resolve', express.json(), async (req, res, next) => {
   try {

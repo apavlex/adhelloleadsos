@@ -8,6 +8,8 @@ const webpush = require('web-push');
 const dbService = require('./database');
 
 const SUB_PREFIX = 'pushsub:';
+/** Contractor portal devices (no AdHello login) — scoped by packageId. */
+const PORTAL_SUB_PREFIX = 'portalpush:';
 const VAPID_KV_KEY = 'sys:vapid_keys';
 
 let configured = null;
@@ -121,9 +123,58 @@ function matchingSubscriptions({ userEmail, workspaceId, allowEmail } = {}) {
   });
 }
 
-/** Never throws; drops subscriptions the push service reports as gone. */
-async function sendPush(target, payload) {
-  const subs = matchingSubscriptions(target);
+function portalSubKey(endpoint) {
+  return PORTAL_SUB_PREFIX + crypto.createHash('sha256').update(String(endpoint)).digest('hex').slice(0, 32);
+}
+
+function savePortalSubscription({ subscription, workspaceId, packageId, userAgent }) {
+  if (!validSubscription(subscription)) return { ok: false, error: 'Invalid push subscription.' };
+  const wid = String(workspaceId || '').trim();
+  const pkgId = String(packageId || '').trim();
+  if (!wid || !pkgId) return { ok: false, error: 'Portal package is required.' };
+  const key = portalSubKey(subscription.endpoint);
+  const existing = readSub(key);
+  const now = new Date().toISOString();
+  dbService.setKvSync(key, {
+    kind: 'contractor_portal',
+    endpoint: subscription.endpoint,
+    keys: { p256dh: subscription.keys.p256dh, auth: subscription.keys.auth },
+    workspaceId: wid,
+    packageId: pkgId,
+    userAgent: String(userAgent || '').slice(0, 200),
+    createdAt: (existing && existing.createdAt) || now,
+    updatedAt: now,
+  });
+  return { ok: true };
+}
+
+function removePortalSubscription(endpoint, packageId) {
+  const key = portalSubKey(endpoint);
+  const existing = readSub(key);
+  if (!existing) return;
+  if (packageId && existing.packageId && existing.packageId !== String(packageId)) return;
+  dbService.deleteKvSync(key);
+}
+
+function matchingPortalSubscriptions({ packageId, workspaceId } = {}) {
+  const pkgId = String(packageId || '').trim();
+  const wid = String(workspaceId || '').trim();
+  if (!pkgId && !wid) return [];
+  return dbService
+    .listKvKeysSync(PORTAL_SUB_PREFIX)
+    .map((key) => {
+      const sub = readSub(key);
+      return sub ? { key, ...sub } : null;
+    })
+    .filter(Boolean)
+    .filter((sub) => {
+      if (pkgId && sub.packageId !== pkgId) return false;
+      if (wid && sub.workspaceId !== wid) return false;
+      return true;
+    });
+}
+
+async function deliverPush(subs, payload) {
   if (!subs.length) return { sent: 0 };
   ensureConfigured();
   const body = JSON.stringify({
@@ -143,9 +194,49 @@ async function sendPush(target, payload) {
         if (code === 404 || code === 410) dbService.deleteKvSync(sub.key);
         else console.warn('[PUSH] Send failed:', code || '', (err && err.message) || err);
       }
-    })
+    }),
   );
   return { sent };
+}
+
+/** Never throws; drops subscriptions the push service reports as gone. */
+async function sendPush(target, payload) {
+  return deliverPush(matchingSubscriptions(target), payload);
+}
+
+/** Push to contractor portal devices subscribed for a package. */
+async function sendPortalPush({ packageId, workspaceId } = {}, payload) {
+  return deliverPush(matchingPortalSubscriptions({ packageId, workspaceId }), payload);
+}
+
+/**
+ * Fire-and-forget alert when a new lead is delivered to a contractor package.
+ * url should be the contractor portal leads page (/p/:token/leads).
+ */
+function notifyContractorNewLead({
+  workspaceId,
+  packageId,
+  businessName,
+  leadName,
+  formName,
+  preview,
+  url,
+} = {}) {
+  const pkgId = String(packageId || '').trim();
+  if (!pkgId) return Promise.resolve({ sent: 0 });
+  const who = String(leadName || 'New lead').trim().slice(0, 80);
+  const biz = String(businessName || 'your business').trim().slice(0, 80);
+  const detail = [formName, preview].filter(Boolean).join(' — ').slice(0, 200);
+  const payload = {
+    title: `New lead for ${biz}`,
+    body: detail || `${who} just came in. Open your portal to call them.`,
+    url: String(url || '/today'),
+    tag: `portal-lead-${pkgId}-${Date.now()}`,
+  };
+  return sendPortalPush({ packageId: pkgId, workspaceId }, payload).catch((e) => {
+    console.warn('[PUSH] contractor lead notify failed:', e && e.message);
+    return { sent: 0 };
+  });
 }
 
 function searchLabel(job) {
@@ -176,6 +267,11 @@ module.exports = {
   removeSubscription,
   listSubscriptions,
   matchingSubscriptions,
+  savePortalSubscription,
+  removePortalSubscription,
+  matchingPortalSubscriptions,
   sendPush,
+  sendPortalPush,
+  notifyContractorNewLead,
   notifyJobFinished,
 };

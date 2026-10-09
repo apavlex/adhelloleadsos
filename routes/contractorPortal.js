@@ -5,9 +5,11 @@
 const express = require('express');
 const contractorPortal = require('../services/contractorPortal');
 const appointmentPackages = require('../services/appointmentPackages');
+const push = require('../services/pushNotifications');
 
 const router = express.Router();
 const form = express.urlencoded({ extended: true, limit: '64kb' });
+const json = express.json({ limit: '32kb' });
 
 function noStore(res) {
   res.setHeader('Cache-Control', 'private, no-store');
@@ -127,6 +129,60 @@ router.post(
     );
     await appointmentPackages.updatePackage(ctx.workspaceId, ctx.packageId, { formLeads });
     return res.redirect(`${ctx.base}/leads?ok=closed`);
+  }),
+);
+
+/** Same Web Push stack as agency alerts — scoped to this contractor package. */
+router.get(
+  '/p/:token/push/key',
+  withPortal(async (req, res) => {
+    noStore(res);
+    return res.json({ success: true, publicKey: push.publicKey() });
+  }),
+);
+
+router.post(
+  '/p/:token/push/subscribe',
+  json,
+  withPortal(async (req, res, ctx) => {
+    noStore(res);
+    const result = push.savePortalSubscription({
+      subscription: req.body && req.body.subscription,
+      workspaceId: ctx.workspaceId,
+      packageId: ctx.packageId,
+      userAgent: req.get('user-agent'),
+    });
+    if (!result.ok) return res.status(400).json({ success: false, error: result.error });
+    return res.json({ success: true });
+  }),
+);
+
+router.post(
+  '/p/:token/push/unsubscribe',
+  json,
+  withPortal(async (req, res, ctx) => {
+    noStore(res);
+    const endpoint = req.body && req.body.endpoint;
+    if (endpoint) push.removePortalSubscription(endpoint, ctx.packageId);
+    return res.json({ success: true });
+  }),
+);
+
+router.post(
+  '/p/:token/push/test',
+  json,
+  withPortal(async (req, res, ctx) => {
+    noStore(res);
+    const { sent } = await push.sendPortalPush(
+      { packageId: ctx.packageId, workspaceId: ctx.workspaceId },
+      {
+        title: 'Alerts are on',
+        body: `You’ll get new leads for ${ctx.package.businessName} here on this phone or computer, even when the portal is closed.`,
+        url: `${ctx.base}/leads`,
+        tag: 'portal-push-test',
+      },
+    );
+    return res.json({ success: true, sent });
   }),
 );
 
