@@ -517,14 +517,19 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
   }
 }
 
-/* Compact entry to the contractor app — not a second dashboard */
-.ma-appt-link {
-  background:
-    radial-gradient(90% 80% at 100% 0%, color-mix(in srgb, var(--acc) 22%, transparent), transparent 55%),
-    linear-gradient(135deg, var(--navy) 0%, #163a63 100%);
-  color: #fff;
-  border: 0;
+/* Combined leads + referrals home */
+.ma-hero--dash { min-height: 220px; }
+.ma-hero__split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 12px;
 }
-.ma-appt-link .ma-card__title { color: #fff; }
-.ma-appt-link .ma-card__meta { color: rgba(255, 255, 255, 0.72); }
-.ma-appt-link .ma-pill--sent { background: var(--acc); color: var(--on); }
+.ma-hero__split .ma-hero__stat { margin-top: 0; font-size: 28px; }
+.ma-tiles--6 { grid-template-columns: 1fr 1fr; }
+.ma-dash-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.ma-dash-actions .ma-btn { width: 100%; justify-content: center; }
