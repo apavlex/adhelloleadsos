@@ -401,6 +401,11 @@ router.post('/webhooks/ghl', express.json(), async (req, res, next) => {
     if (!workflowResult.ignored || workflowResult.reason !== 'not_workflow_payload') {
       return reply(workflowResult);
     }
+    const appointmentPackages = require('../services/appointmentPackages');
+    const apptResult = await appointmentPackages.processAppointmentWebhook(body, opts);
+    if (!apptResult.ignored) {
+      return reply(apptResult);
+    }
     const engagementResult = await ghlSync.processEngagementWebhook(body, opts);
     if (!engagementResult.ignored || engagementResult.reason !== 'not_engagement_event') {
       return reply(engagementResult);

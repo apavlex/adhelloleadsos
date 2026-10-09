@@ -25,6 +25,7 @@ const { filterBusinessPipelineLeads } = require('../services/leadListFilters');
 const { dedupeOpenLeadTasks, clearOpenAutomationTasks, filterManualUserTasks } = require('../services/userTasks');
 const { pauseActiveSequencesForWorkspace } = require('../services/sequenceEngine');
 const actionPlanTracker = require('../services/actionPlanTracker');
+const appointmentPackages = require('../services/appointmentPackages');
 const { buildOpportunityBoard, selectPipeline } = require('../services/opportunityBoards');
 const { buildBookmarkSessions, buildRecentlyWorked } = require('../services/todayResumeQueue');
 const { leadLogsMentionReply } = require('../services/leadActivityWindow');
@@ -244,6 +245,7 @@ router.get('/', async (req, res, next) => {
       year: navYear,
       active: navYear === actionPlan.year && i + 1 === actionPlan.month,
     }));
+    const appointmentTracker = await appointmentPackages.loadTodayView(req.workspaceId);
 
     res.render('today', {
       title: 'Today | Agency OS',
@@ -289,6 +291,7 @@ router.get('/', async (req, res, next) => {
       reportsOpened24h,
       actionPlan,
       actionPlanMonthNav,
+      appointmentTracker,
     });
   } catch (e) {
     next(e);
@@ -373,6 +376,78 @@ router.put('/action-plan/catalog', express.json(), async (req, res, next) => {
     return res.json({ success: true, catalog });
   } catch (e) {
     return res.status(400).json({ success: false, error: e && e.message ? e.message : 'catalog_save_failed' });
+  }
+});
+
+/** List GHL calendars for appointment package linking. */
+router.get('/appointment-packages/calendars', async (req, res, next) => {
+  try {
+    const result = await appointmentPackages.listGhlCalendars(req.workspaceId);
+    return res.json({ success: !result.error || !!result.calendars.length, ...result });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Create a sold appointment package for a business. */
+router.post('/appointment-packages', express.json(), async (req, res, next) => {
+  try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    if (!String(body.businessName || '').trim()) {
+      return res.status(400).json({ success: false, error: 'Business name is required.' });
+    }
+    const purchased = Number(body.purchased);
+    if (!Number.isFinite(purchased) || purchased < 1) {
+      return res.status(400).json({ success: false, error: 'Purchased appointment count must be at least 1.' });
+    }
+    const pkg = await appointmentPackages.createPackage(req.workspaceId, body);
+    const view = await appointmentPackages.loadTodayView(req.workspaceId);
+    return res.json({ success: true, package: pkg, appointmentTracker: view });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Sync one or all packages from GHL calendars. */
+router.post('/appointment-packages/sync', express.json(), async (req, res, next) => {
+  try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const result = await appointmentPackages.syncFromGhl(req.workspaceId, {
+      packageId: body.packageId || null,
+    });
+    const view = await appointmentPackages.loadTodayView(req.workspaceId);
+    return res.json({
+      success: !!result.ok,
+      ...result,
+      appointmentTracker: view,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Update a package (calendar link, purchased count, notes). */
+router.patch('/appointment-packages/:id', express.json(), async (req, res, next) => {
+  try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const pkg = await appointmentPackages.updatePackage(req.workspaceId, req.params.id, body);
+    if (!pkg) return res.status(404).json({ success: false, error: 'Package not found.' });
+    const view = await appointmentPackages.loadTodayView(req.workspaceId);
+    return res.json({ success: true, package: pkg, appointmentTracker: view });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Delete a package. */
+router.delete('/appointment-packages/:id', async (req, res, next) => {
+  try {
+    const ok = await appointmentPackages.deletePackage(req.workspaceId, req.params.id);
+    if (!ok) return res.status(404).json({ success: false, error: 'Package not found.' });
+    const view = await appointmentPackages.loadTodayView(req.workspaceId);
+    return res.json({ success: true, appointmentTracker: view });
+  } catch (e) {
+    next(e);
   }
 });
 
