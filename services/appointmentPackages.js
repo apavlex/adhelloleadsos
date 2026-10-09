@@ -137,6 +137,7 @@ function normalizePackage(raw) {
   return {
     id: str(p.id) || newId('pkg'),
     businessName: str(p.businessName).slice(0, 120) || 'Business',
+    trade: str(p.trade).slice(0, 60) || null,
     leadKey: str(p.leadKey) || null,
     contactEmail: str(p.contactEmail).slice(0, 160) || null,
     contactPhone: str(p.contactPhone).slice(0, 40) || null,
@@ -155,6 +156,22 @@ function normalizePackage(raw) {
     createdAt: str(p.createdAt) || nowIso(),
     updatedAt: str(p.updatedAt) || nowIso(),
   };
+}
+
+const COMMON_TRADES = [
+  'Electrician',
+  'Flooring',
+  'Plumbing',
+  'HVAC',
+  'Roofing',
+  'Handyman',
+  'Landscaping',
+  'Painting',
+  'General contractor',
+];
+
+function normalizeTradeKey(trade) {
+  return str(trade).toLowerCase();
 }
 
 function normalizeStore(raw) {
@@ -241,6 +258,7 @@ async function createPackage(workspaceId, input = {}) {
   const pkg = normalizePackage({
     id: newId('pkg'),
     businessName: input.businessName,
+    trade: input.trade,
     leadKey: input.leadKey,
     contactEmail: input.contactEmail,
     contactPhone: input.contactPhone,
@@ -467,6 +485,7 @@ function buildTodayView(store, { ghlConfigured = false } = {}) {
       leadCredits: normalizeLeadCredits(pkg.leadCredits),
     };
   });
+  const trades = listTrades(store);
   const totals = packages.reduce(
     (acc, p) => {
       acc.purchased += p.counts.purchased;
@@ -495,6 +514,7 @@ function buildTodayView(store, { ghlConfigured = false } = {}) {
     : 0;
   return {
     packages,
+    trades,
     totals,
     overallPct,
     lastSyncAt: store.lastSyncAt || null,
@@ -651,6 +671,79 @@ async function deliverLeadToPackage(workspaceId, packageId, leadInput = {}) {
   }, { packageId, lead: leadInput });
 }
 
+/** Pick contractor packages by explicit ids and/or trade (case-insensitive). */
+function selectBulkTargets(packages, { packageIds, trade } = {}) {
+  const list = Array.isArray(packages) ? packages : [];
+  const wantIds = new Set(
+    (Array.isArray(packageIds) ? packageIds : [])
+      .map((id) => str(id))
+      .filter(Boolean),
+  );
+  const tradeKey = normalizeTradeKey(trade);
+  if (!wantIds.size && !tradeKey) return [];
+  return list.filter((pkg) => {
+    if (wantIds.size && wantIds.has(pkg.id)) return true;
+    if (tradeKey && normalizeTradeKey(pkg.trade) === tradeKey) return true;
+    return false;
+  });
+}
+
+/**
+ * Send one lead to many contractors (by package ids and/or trade).
+ * Each matching package gets a copy + push notification (and credit consume).
+ */
+async function deliverLeadBulk(workspaceId, { packageIds, trade, leadInput } = {}) {
+  const store = await loadStore(workspaceId);
+  const targets = selectBulkTargets(store.packages, { packageIds, trade });
+  if (!targets.length) {
+    return { ok: false, error: 'No matching contractors found.', delivered: [], skipped: [] };
+  }
+
+  const baseLead = {
+    ...(leadInput || {}),
+    source: (leadInput && leadInput.source) || 'agency',
+    formName: (leadInput && leadInput.formName) || 'Sent by agency',
+    at: (leadInput && leadInput.at) || nowIso(),
+    status: 'open',
+  };
+
+  const delivered = [];
+  const skipped = [];
+  for (const pkg of targets) {
+    // eslint-disable-next-line no-await-in-loop
+    const result = await attachFormLead(workspaceId, {
+      ...baseLead,
+      // Unique id per package so the same homeowner can go to multiple trades.
+      id: baseLead.id
+        ? `${baseLead.id}:${pkg.id}`
+        : `bulk:${baseLead.leadKey || baseLead.email || baseLead.phone || baseLead.name || 'lead'}:${pkg.id}:${Date.now()}`,
+    }, { packageId: pkg.id, lead: baseLead });
+    if (result && result.matched && result.isNew) {
+      delivered.push({ packageId: pkg.id, businessName: pkg.businessName, trade: pkg.trade });
+    } else if (result && result.matched) {
+      skipped.push({ packageId: pkg.id, businessName: pkg.businessName, reason: 'already_had_lead' });
+    } else {
+      skipped.push({ packageId: pkg.id, businessName: pkg.businessName, reason: 'failed' });
+    }
+  }
+
+  return {
+    ok: true,
+    delivered,
+    skipped,
+    count: delivered.length,
+    store: await loadStore(workspaceId),
+  };
+}
+
+function listTrades(store) {
+  const fromPackages = (store.packages || [])
+    .map((p) => str(p.trade))
+    .filter(Boolean);
+  const set = new Set([...COMMON_TRADES, ...fromPackages].map((t) => t));
+  return [...set].sort((a, b) => a.localeCompare(b));
+}
+
 async function createPortalRequest(workspaceId, packageId, input = {}) {
   const store = await loadStore(workspaceId);
   const pkg = store.packages.find((p) => p.id === packageId);
@@ -721,6 +814,10 @@ module.exports = {
   findPackageForFormLead,
   attachFormLead,
   deliverLeadToPackage,
+  deliverLeadBulk,
+  selectBulkTargets,
+  listTrades,
+  COMMON_TRADES,
   createPortalRequest,
   resolvePortalRequest,
 };

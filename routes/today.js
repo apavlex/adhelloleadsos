@@ -491,6 +491,55 @@ router.post('/appointment-packages/:id/deliver-lead', express.json(), async (req
   }
 });
 
+/**
+ * Send one lead to many contractors: pick package ids and/or a trade
+ * (e.g. all Electricians, all Flooring stores). Each gets a copy + push.
+ */
+router.post('/appointment-packages/deliver-lead-bulk', express.json(), async (req, res, next) => {
+  try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    if (!String(body.name || body.title || '').trim()) {
+      return res.status(400).json({ success: false, error: 'Lead name is required.' });
+    }
+    const packageIds = Array.isArray(body.packageIds)
+      ? body.packageIds
+      : (body.packageId ? [body.packageId] : []);
+    const trade = String(body.trade || '').trim() || null;
+    if (!packageIds.length && !trade) {
+      return res.status(400).json({
+        success: false,
+        error: 'Pick at least one contractor or a trade (e.g. Electrician, Flooring).',
+      });
+    }
+    const result = await appointmentPackages.deliverLeadBulk(req.workspaceId, {
+      packageIds,
+      trade,
+      leadInput: {
+        name: body.name || body.title,
+        phone: body.phone || null,
+        email: body.email || null,
+        preview: body.preview || body.note || null,
+        leadKey: body.leadKey || null,
+        formName: body.formName || 'Sent by agency',
+        source: 'agency',
+      },
+    });
+    if (!result.ok) {
+      return res.status(404).json({ success: false, error: result.error || 'No matching contractors.', delivered: [], skipped: [] });
+    }
+    const view = await appointmentPackages.loadTodayView(req.workspaceId);
+    return res.json({
+      success: true,
+      count: result.count,
+      delivered: result.delivered,
+      skipped: result.skipped,
+      appointmentTracker: view,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
 /** Fulfill or decline a contractor portal package request. */
 router.post('/appointment-packages/:id/requests/:requestId/resolve', express.json(), async (req, res, next) => {
   try {

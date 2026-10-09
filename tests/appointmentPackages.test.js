@@ -10,6 +10,9 @@ const {
   normalizeStore,
   findPackageForFormLead,
   normalizeLeadCredits,
+  selectBulkTargets,
+  listTrades,
+  COMMON_TRADES,
 } = require('../services/appointmentPackages');
 
 describe('appointmentPackages', () => {
@@ -141,6 +144,56 @@ describe('appointmentPackages', () => {
   it('tracks lead credit remaining', () => {
     const credits = normalizeLeadCredits({ purchased: 25, delivered: 7 });
     assert.equal(credits.remaining, 18);
+  });
+
+  it('stores trade on packages and lists trades for bulk send', () => {
+    const pkg = normalizePackage({
+      businessName: 'Spark Electric',
+      trade: 'Electrician',
+      purchased: 5,
+    });
+    assert.equal(pkg.trade, 'Electrician');
+    const store = normalizeStore({
+      packages: [
+        pkg,
+        { businessName: 'Floor Co', trade: 'Flooring', purchased: 3 },
+        { businessName: 'No Trade', purchased: 2 },
+      ],
+    });
+    const trades = listTrades(store);
+    assert.ok(trades.includes('Electrician'));
+    assert.ok(trades.includes('Flooring'));
+    assert.ok(COMMON_TRADES.includes('Electrician'));
+    const view = buildTodayView(store);
+    assert.ok(view.trades.includes('Electrician'));
+    assert.equal(view.packages.find((p) => p.businessName === 'Spark Electric').trade, 'Electrician');
+  });
+
+  it('selects bulk send targets by package id and/or trade', () => {
+    const packages = [
+      normalizePackage({ id: 'pkg_e1', businessName: 'Spark', trade: 'Electrician', purchased: 5 }),
+      normalizePackage({ id: 'pkg_e2', businessName: 'Volt', trade: 'electrician', purchased: 5 }),
+      normalizePackage({ id: 'pkg_f1', businessName: 'Floor Co', trade: 'Flooring', purchased: 5 }),
+      normalizePackage({ id: 'pkg_h1', businessName: 'Handy', trade: 'Handyman', purchased: 5 }),
+    ];
+    const byTrade = selectBulkTargets(packages, { trade: 'Electrician' });
+    assert.equal(byTrade.length, 2);
+    assert.deepEqual(byTrade.map((p) => p.id).sort(), ['pkg_e1', 'pkg_e2']);
+
+    const byIds = selectBulkTargets(packages, { packageIds: ['pkg_f1', 'pkg_h1'] });
+    assert.equal(byIds.length, 2);
+
+    const one = selectBulkTargets(packages, { packageIds: ['pkg_e1'] });
+    assert.equal(one.length, 1);
+    assert.equal(one[0].businessName, 'Spark');
+
+    const empty = selectBulkTargets(packages, {});
+    assert.equal(empty.length, 0);
+
+    const mixed = selectBulkTargets(packages, { packageIds: ['pkg_h1'], trade: 'Flooring' });
+    assert.equal(mixed.length, 2);
+    assert.ok(mixed.some((p) => p.id === 'pkg_h1'));
+    assert.ok(mixed.some((p) => p.id === 'pkg_f1'));
   });
 });
 

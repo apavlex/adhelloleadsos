@@ -131,6 +131,7 @@
       </div>
       <div class="flex flex-wrap items-center gap-2">
         <button type="button" id="apptSellBtn" class="btn-pill bg-brand-yellow text-brand-dark px-5 py-2.5 text-[10px] font-black uppercase tracking-widest">Sell appointments</button>
+        <button type="button" id="apptSendLeadBtn" class="btn-pill border border-white/25 bg-white/10 text-white px-5 py-2.5 text-[10px] font-black uppercase tracking-widest" <%= (_at.packages && _at.packages.length) ? '' : 'disabled title="Add a contractor package first"' %>>Send lead</button>
         <button type="button" id="apptSyncBtn" class="btn-pill border border-white/25 bg-white/10 text-white px-5 py-2.5 text-[10px] font-black uppercase tracking-widest" <%= _at.ghlConfigured ? '' : 'disabled title="Connect GHL in Workspace → Integrations"' %>>Sync GHL calendar</button>
       </div>
     </div>
@@ -197,6 +198,15 @@
         <input name="businessName" required maxlength="120" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white" placeholder="Handymen LLC" />
       </label>
       <label class="block">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Trade</span>
+        <input name="trade" list="apptTradeList" maxlength="60" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white" placeholder="Electrician, Flooring…" />
+        <datalist id="apptTradeList">
+          <% (_at.trades || []).forEach(function (t) { %>
+          <option value="<%= t %>"></option>
+          <% }); %>
+        </datalist>
+      </label>
+      <label class="block">
         <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Appointments sold</span>
         <input name="purchased" type="number" min="1" max="500" value="10" required class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white" />
       </label>
@@ -233,6 +243,81 @@
     </form>
   </div>
 
+  <div class="px-5 sm:px-6 md:px-8 py-5 border-b border-brand-border/40 dark:border-white/10 appt-form" id="apptSendLeadForm" hidden>
+    <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Send lead</p>
+    <p class="text-sm text-brand-muted mb-4 max-w-xl">Send one homeowner to a single contractor, everyone in a trade (e.g. all Electricians), or a custom multi-select. Each recipient gets the lead in their portal and a phone/desktop alert.</p>
+    <form id="apptSendLeadFormEl" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <label class="block">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Lead name</span>
+        <input name="name" required maxlength="120" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white" placeholder="Sam Homeowner" />
+      </label>
+      <label class="block">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Phone</span>
+        <input name="phone" maxlength="40" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white" placeholder="555-0100" />
+      </label>
+      <label class="block">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Email</span>
+        <input name="email" type="email" maxlength="160" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white" placeholder="sam@example.com" />
+      </label>
+      <label class="block sm:col-span-2 lg:col-span-3">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Note / preview</span>
+        <input name="preview" maxlength="280" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white" placeholder="Needs panel upgrade · 3-bed ranch" />
+      </label>
+      <fieldset class="sm:col-span-2 lg:col-span-3 rounded-2xl border border-brand-border/60 dark:border-white/10 px-4 py-3">
+        <legend class="text-[10px] font-black uppercase tracking-widest text-brand-muted px-1">Send to</legend>
+        <div class="flex flex-wrap gap-4 mb-3">
+          <label class="inline-flex items-center gap-2 text-sm font-semibold text-brand-dark dark:text-white cursor-pointer">
+            <input type="radio" name="sendMode" value="one" checked class="accent-brand-yellow" /> One contractor
+          </label>
+          <label class="inline-flex items-center gap-2 text-sm font-semibold text-brand-dark dark:text-white cursor-pointer">
+            <input type="radio" name="sendMode" value="trade" class="accent-brand-yellow" /> All in a trade
+          </label>
+          <label class="inline-flex items-center gap-2 text-sm font-semibold text-brand-dark dark:text-white cursor-pointer">
+            <input type="radio" name="sendMode" value="multi" class="accent-brand-yellow" /> Multi-select
+          </label>
+        </div>
+        <div id="apptSendModeOne">
+          <label class="block max-w-md">
+            <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Contractor</span>
+            <select name="packageId" id="apptSendOneSelect" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white">
+              <option value="">Select…</option>
+              <% (_at.packages || []).forEach(function (pkg) { %>
+              <option value="<%= pkg.id %>"><%= pkg.businessName %><% if (pkg.trade) { %> · <%= pkg.trade %><% } %></option>
+              <% }); %>
+            </select>
+          </label>
+        </div>
+        <div id="apptSendModeTrade" hidden>
+          <label class="block max-w-md">
+            <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Trade</span>
+            <select name="trade" id="apptSendTradeSelect" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white">
+              <option value="">Select trade…</option>
+              <% (_at.trades || []).forEach(function (t) { %>
+              <option value="<%= t %>"><%= t %></option>
+              <% }); %>
+            </select>
+          </label>
+          <p class="text-[11px] font-semibold text-brand-muted mt-2">Sends to every package tagged with that trade (e.g. all Flooring stores).</p>
+        </div>
+        <div id="apptSendModeMulti" hidden>
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Contractors</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+            <% (_at.packages || []).forEach(function (pkg) { %>
+            <label class="inline-flex items-start gap-2 text-sm font-semibold text-brand-dark dark:text-white cursor-pointer">
+              <input type="checkbox" name="packageIds" value="<%= pkg.id %>" class="mt-1 accent-brand-yellow" />
+              <span><%= pkg.businessName %><% if (pkg.trade) { %> <span class="text-brand-muted">· <%= pkg.trade %></span><% } %></span>
+            </label>
+            <% }); %>
+          </div>
+        </div>
+      </fieldset>
+      <div class="sm:col-span-2 lg:col-span-3 flex flex-wrap gap-2">
+        <button type="submit" class="btn-pill btn-primary px-6 py-2.5 text-[10px] font-black uppercase tracking-widest">Send + notify</button>
+        <button type="button" id="apptSendLeadCancel" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Cancel</button>
+      </div>
+    </form>
+  </div>
+
   <div class="px-5 sm:px-6 md:px-8 py-5" id="apptPackageList">
     <% if (!_at.packages || !_at.packages.length) { %>
     <div class="rounded-2xl border border-dashed border-brand-border dark:border-white/15 px-5 py-8 text-center" id="apptEmptyState">
@@ -246,6 +331,9 @@
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
             <h3 class="font-display font-extrabold text-lg text-brand-dark dark:text-white truncate"><%= pkg.businessName %></h3>
+            <% if (pkg.trade) { %>
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mt-1"><%= pkg.trade %></p>
+            <% } %>
             <p class="text-[11px] font-bold text-brand-muted mt-1 tabular-nums">
               <%= pkg.counts.remaining %> appts left · <%= pkg.openFormLeads || 0 %> open form leads · <%= (pkg.leadCredits && pkg.leadCredits.remaining) || 0 %> lead credits
             </p>
@@ -301,10 +389,14 @@
   var root = document.getElementById('appointmentTracker');
   if (!root) return;
   var sellBtn = document.getElementById('apptSellBtn');
+  var sendLeadBtn = document.getElementById('apptSendLeadBtn');
   var syncBtn = document.getElementById('apptSyncBtn');
   var formWrap = document.getElementById('apptSellForm');
   var formEl = document.getElementById('apptSellFormEl');
   var cancelBtn = document.getElementById('apptSellCancel');
+  var sendFormWrap = document.getElementById('apptSendLeadForm');
+  var sendFormEl = document.getElementById('apptSendLeadFormEl');
+  var sendCancelBtn = document.getElementById('apptSendLeadCancel');
   var msg = document.getElementById('apptTrackerMsg');
   var calSelect = document.getElementById('apptCalendarSelect');
   var calendarsLoaded = false;
@@ -320,6 +412,26 @@
   function showForm(open) {
     if (!formWrap) return;
     formWrap.hidden = !open;
+    if (open && sendFormWrap) sendFormWrap.hidden = true;
+  }
+
+  function showSendForm(open) {
+    if (!sendFormWrap) return;
+    sendFormWrap.hidden = !open;
+    if (open && formWrap) formWrap.hidden = true;
+  }
+
+  function syncSendMode() {
+    if (!sendFormEl) return;
+    var mode = 'one';
+    var checked = sendFormEl.querySelector('input[name="sendMode"]:checked');
+    if (checked) mode = checked.value;
+    var one = document.getElementById('apptSendModeOne');
+    var trade = document.getElementById('apptSendModeTrade');
+    var multi = document.getElementById('apptSendModeMulti');
+    if (one) one.hidden = mode !== 'one';
+    if (trade) trade.hidden = mode !== 'trade';
+    if (multi) multi.hidden = mode !== 'multi';
   }
 
   async function loadCalendars() {
@@ -351,6 +463,84 @@
   }
   if (cancelBtn) cancelBtn.addEventListener('click', function () { showForm(false); setMsg(''); });
 
+  if (sendLeadBtn) {
+    sendLeadBtn.addEventListener('click', function () {
+      showSendForm(true);
+      syncSendMode();
+    });
+  }
+  if (sendCancelBtn) sendCancelBtn.addEventListener('click', function () { showSendForm(false); setMsg(''); });
+  if (sendFormEl) {
+    sendFormEl.querySelectorAll('input[name="sendMode"]').forEach(function (radio) {
+      radio.addEventListener('change', syncSendMode);
+    });
+    sendFormEl.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var fd = new FormData(sendFormEl);
+      var mode = String(fd.get('sendMode') || 'one');
+      var body = {
+        name: String(fd.get('name') || '').trim(),
+        phone: String(fd.get('phone') || '').trim() || null,
+        email: String(fd.get('email') || '').trim() || null,
+        preview: String(fd.get('preview') || '').trim() || null,
+      };
+      if (!body.name) {
+        setMsg('Lead name is required.', true);
+        return;
+      }
+      if (mode === 'one') {
+        var oneId = String(fd.get('packageId') || '').trim();
+        if (!oneId) {
+          setMsg('Pick a contractor.', true);
+          return;
+        }
+        body.packageIds = [oneId];
+      } else if (mode === 'trade') {
+        var trade = String(fd.get('trade') || '').trim();
+        if (!trade) {
+          setMsg('Pick a trade (e.g. Electrician or Flooring).', true);
+          return;
+        }
+        body.trade = trade;
+      } else {
+        var ids = [];
+        sendFormEl.querySelectorAll('input[name="packageIds"]:checked').forEach(function (cb) {
+          ids.push(cb.value);
+        });
+        if (!ids.length) {
+          setMsg('Select at least one contractor.', true);
+          return;
+        }
+        body.packageIds = ids;
+      }
+      var submitBtn = sendFormEl.querySelector('[type=submit]');
+      if (submitBtn) submitBtn.disabled = true;
+      fetch('/today/appointment-packages/deliver-lead-bulk', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(body),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data.success) throw new Error(data.error || 'Could not send lead');
+          var n = data.count || (data.delivered && data.delivered.length) || 0;
+          var names = (data.delivered || []).map(function (d) { return d.businessName; }).filter(Boolean);
+          setMsg(
+            'Sent to ' + n + ' contractor' + (n === 1 ? '' : 's')
+              + (names.length ? ' (' + names.slice(0, 4).join(', ') + (names.length > 4 ? '…' : '') + ')' : '')
+              + ' — devices notified.',
+            false,
+          );
+          setTimeout(function () { window.location.reload(); }, 900);
+        })
+        .catch(function (err) {
+          setMsg(err.message || 'Send lead failed', true);
+          if (submitBtn) submitBtn.disabled = false;
+        });
+    });
+  }
+
   if (formEl) {
     formEl.addEventListener('submit', function (e) {
       e.preventDefault();
@@ -358,6 +548,7 @@
       var calOpt = calSelect && calSelect.selectedOptions && calSelect.selectedOptions[0];
       var body = {
         businessName: String(fd.get('businessName') || '').trim(),
+        trade: String(fd.get('trade') || '').trim() || null,
         purchased: Number(fd.get('purchased') || 0),
         leadsPurchased: Number(fd.get('leadsPurchased') || 0),
         ghlCalendarId: String(fd.get('ghlCalendarId') || '').trim() || null,
