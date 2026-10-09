@@ -426,6 +426,55 @@
   html.dark #oppBoard .opp-ghl-progress { background: rgba(255, 255, 255, 0.12); }
   #oppBoard .opp-ghl-note { margin-top: 0.6rem; border-radius: 0.75rem; border: 1px dashed rgba(107, 114, 128, 0.45); padding: 0.55rem 0.85rem; font-size: 0.78rem; font-weight: 600; color: #4b5563; }
   html.dark #oppBoard .opp-ghl-note { border-color: rgba(148, 163, 184, 0.4); color: #cbd5e1; }
+  #oppBoard .opp-ghl-info-wrap { position: relative; display: none; flex: 0 0 auto; }
+  #oppBoard .opp-ghl-info-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0;
+    border-radius: 999px;
+    border: 1px solid rgba(17, 24, 39, 0.12);
+    background: #fff;
+    color: #111827;
+  }
+  #oppBoard .opp-ghl-info-btn svg { width: 1.1rem; height: 1.1rem; }
+  #oppBoard .opp-ghl-info-btn.is-error { color: #b91c1c; border-color: rgba(185, 28, 28, 0.35); }
+  #oppBoard .opp-ghl-info-btn.is-running svg { animation: opp-ghl-spin 1s linear infinite; }
+  html.dark #oppBoard .opp-ghl-info-btn { background: #0f172a; border-color: rgba(255, 255, 255, 0.2); color: #f8fafc; }
+  html.dark #oppBoard .opp-ghl-info-btn.is-error { color: #fca5a5; border-color: rgba(252, 165, 165, 0.4); }
+  @keyframes opp-ghl-spin { to { transform: rotate(360deg); } }
+  #oppBoard .opp-ghl-popover {
+    display: none;
+    position: absolute;
+    z-index: 50;
+    top: calc(100% + 0.4rem);
+    right: 0;
+    width: min(22rem, calc(100vw - 1.5rem));
+    padding: 0.75rem 0.85rem;
+    border-radius: 0.9rem;
+    border: 1px solid rgba(17, 24, 39, 0.12);
+    background: #fff;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16);
+    text-align: left;
+  }
+  html.dark #oppBoard .opp-ghl-popover {
+    background: #0f172a;
+    border-color: rgba(255, 255, 255, 0.14);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+  }
+  #oppBoard .opp-ghl-popover .opp-ghl-status { margin-top: 0; }
+  #oppBoard .opp-ghl-popover .opp-ghl-note { margin-top: 0.55rem; }
+  #oppBoard .opp-ghl-popover .opp-ghl-progress { max-width: none; }
+  #oppBoard .opp-ghl-info-wrap.is-open .opp-ghl-popover { display: block; }
+  @media (hover: hover) and (pointer: fine) {
+    #oppBoard .opp-ghl-info-wrap:hover .opp-ghl-popover { display: block; }
+  }
+  @media (max-width: 767px) {
+    #oppBoard .opp-ghl-info-wrap { display: block; }
+    #oppBoard .opp-ghl-inline { display: none !important; }
+  }
 </style>
 <section class="<%= _compact ? 'mb-8 md:mb-10 rounded-[2rem] border-2 border-brand-yellow/50 dark:border-brand-yellow/35 bg-white dark:bg-slate-900/90 shadow-lg shadow-brand-yellow/10 overflow-hidden opp-compact' : 'opp-page-board overflow-hidden' %>" id="oppBoard" data-pipeline-id="<%= _board.pipeline.id %>" data-first-stage-id="<%= _board.stages[0] ? _board.stages[0].id : '' %>" aria-label="Opportunities">
   <script type="application/json" id="oppBoardPipelinesJson"><%- JSON.stringify(_board.pipelines || []).replace(/</g, '\\u003c') %></script>
@@ -460,6 +509,18 @@
         <% } else { %>
         <% if (_ghl && _ghl.configured) { %>
         <button type="button" id="oppGhlSync" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white" title="Match boards, stages and opportunities with Go High Level">Sync with GHL</button>
+        <div class="opp-ghl-info-wrap" id="oppGhlInfoWrap">
+          <button type="button" id="oppGhlSyncInfo" class="opp-ghl-info-btn<%= _ghlLast && !_ghlLast.ok && !_ghl.running ? ' is-error' : '' %><%= _ghl.running ? ' is-running' : '' %>" aria-expanded="false" aria-controls="oppGhlPopover" title="GHL sync status" aria-label="GHL sync status">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M21 21v-5h-5"/></svg>
+          </button>
+          <div id="oppGhlPopover" class="opp-ghl-popover" role="tooltip">
+            <p id="oppGhlStatusMobile" class="opp-ghl-status<%= _ghlLast && !_ghlLast.ok && !_ghl.running ? ' is-error' : '' %>"><%= _ghlStatusText %></p>
+            <div id="oppGhlProgressMobile" class="opp-ghl-progress" role="progressbar" aria-label="GHL sync progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<%= _ghl.progress ? _ghl.progress.percent : 0 %>"<%= _ghl.running ? '' : ' hidden' %>><span style="width: <%= _ghl.progress ? _ghl.progress.percent : 0 %>%"></span></div>
+            <% if ((_ghl.linked || _ghl.last) && !_board.pipeline.ghlLinked) { %>
+            <p class="opp-ghl-note" id="oppGhlNoteMobile">Not in GHL: this board stays in AdHello only. To sync it, create a pipeline named “<%= _board.pipeline.name %>” in GHL, then click Sync with GHL.</p>
+            <% } %>
+          </div>
+        </div>
         <% } %>
         <button type="button" id="oppAddStage" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Add stage</button>
         <button type="button" id="oppFullscreenBtn" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white" title="Fullscreen — show only the stages" aria-pressed="false">
@@ -476,11 +537,13 @@
     <% } %>
     <% if (_ghl && _ghl.configured) { %>
     <script type="application/json" id="oppGhlSyncJson"><%- JSON.stringify(_ghl).replace(/</g, '\\u003c') %></script>
-    <p id="oppGhlStatus" class="opp-ghl-status<%= _ghlLast && !_ghlLast.ok && !_ghl.running ? ' is-error' : '' %>" role="status"><%= _ghlStatusText %></p>
-    <div id="oppGhlProgress" class="opp-ghl-progress" role="progressbar" aria-label="GHL sync progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<%= _ghl.progress ? _ghl.progress.percent : 0 %>"<%= _ghl.running ? '' : ' hidden' %>><span style="width: <%= _ghl.progress ? _ghl.progress.percent : 0 %>%"></span></div>
-    <% if ((_ghl.linked || _ghl.last) && !_board.pipeline.ghlLinked) { %>
-    <p class="opp-ghl-note">Not in GHL: this board stays in AdHello only. To sync it, create a pipeline named “<%= _board.pipeline.name %>” in GHL, then click Sync with GHL.</p>
-    <% } %>
+    <div class="opp-ghl-inline" id="oppGhlInline">
+      <p id="oppGhlStatus" class="opp-ghl-status<%= _ghlLast && !_ghlLast.ok && !_ghl.running ? ' is-error' : '' %>" role="status"><%= _ghlStatusText %></p>
+      <div id="oppGhlProgress" class="opp-ghl-progress" role="progressbar" aria-label="GHL sync progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<%= _ghl.progress ? _ghl.progress.percent : 0 %>"<%= _ghl.running ? '' : ' hidden' %>><span style="width: <%= _ghl.progress ? _ghl.progress.percent : 0 %>%"></span></div>
+      <% if ((_ghl.linked || _ghl.last) && !_board.pipeline.ghlLinked) { %>
+      <p class="opp-ghl-note" id="oppGhlNote">Not in GHL: this board stays in AdHello only. To sync it, create a pipeline named “<%= _board.pipeline.name %>” in GHL, then click Sync with GHL.</p>
+      <% } %>
+    </div>
     <% } %>
   </div>
   <% if (!_compact) { %>
@@ -584,8 +647,12 @@
   (function () {
     var btn = document.getElementById('oppGhlSync');
     var line = document.getElementById('oppGhlStatus');
+    var lineMobile = document.getElementById('oppGhlStatusMobile');
     var dataEl = document.getElementById('oppGhlSyncJson');
     var bar = document.getElementById('oppGhlProgress');
+    var barMobile = document.getElementById('oppGhlProgressMobile');
+    var infoBtn = document.getElementById('oppGhlSyncInfo');
+    var infoWrap = document.getElementById('oppGhlInfoWrap');
     if (!btn || !line) return;
     var state = {};
     try { state = JSON.parse((dataEl && dataEl.textContent) || '{}') || {}; } catch (e) { state = {}; }
@@ -604,26 +671,47 @@
       return (last.pulled || 0) + (last.created || 0) + (last.pushed || 0) + (last.closed || 0) +
         (last.addedStages || 0) + ((last.createdBoards || []).length) + ((last.stagesAddedToGhl || []).length);
     }
+    function setProgress(el, pct, running) {
+      if (!el) return;
+      el.hidden = !running;
+      el.setAttribute('aria-valuenow', String(pct));
+      if (el.firstElementChild) el.firstElementChild.style.width = pct + '%';
+    }
+    function setStatusText(text, isError) {
+      [line, lineMobile].forEach(function (el) {
+        if (!el) return;
+        el.classList.toggle('is-error', !!isError);
+        el.textContent = text;
+      });
+      if (infoBtn) {
+        infoBtn.classList.toggle('is-error', !!isError);
+        infoBtn.classList.toggle('is-running', !!state.running);
+        infoBtn.title = text ? String(text).slice(0, 180) : 'GHL sync status';
+      }
+    }
+    function setInfoOpen(open) {
+      if (!infoWrap || !infoBtn) return;
+      infoWrap.classList.toggle('is-open', !!open);
+      infoBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
     function render() {
       var last = state.last;
-      line.classList.remove('is-error');
       btn.disabled = !!state.running;
       var pct = state.running && state.progress ? state.progress.percent || 0 : 0;
       btn.textContent = state.running ? 'Syncing… ' + pct + '%' : 'Sync with GHL';
-      if (bar) {
-        bar.hidden = !state.running;
-        bar.setAttribute('aria-valuenow', String(pct));
-        if (bar.firstElementChild) bar.firstElementChild.style.width = pct + '%';
-      }
+      setProgress(bar, pct, !!state.running);
+      setProgress(barMobile, pct, !!state.running);
       if (state.running) {
         var label = state.progress && state.progress.label;
-        line.textContent = 'Syncing with GHL… ' + pct + '%' + (label ? ' · ' + label : '');
+        setStatusText('Syncing with GHL… ' + pct + '%' + (label ? ' · ' + label : ''), false);
         return;
       }
-      if (!last) { line.textContent = 'Not synced with GHL yet. Sync links each board to the GHL pipeline with the same name.'; return; }
+      if (!last) {
+        setStatusText('Not synced with GHL yet. Sync links each board to the GHL pipeline with the same name.', false);
+        return;
+      }
       if (!last.ok) {
-        line.classList.add('is-error');
-        line.textContent = 'GHL sync failed ' + ago(last.at) + ': ' + (last.error || 'unknown error');
+        setStatusText('GHL sync failed ' + ago(last.at) + ': ' + (last.error || 'unknown error'), true);
         return;
       }
       var parts = ['Synced with GHL ' + ago(last.at) + (last.trigger === 'auto' ? ' (auto, every 15 min)' : '')];
@@ -633,7 +721,7 @@
       if (last.createdBoards && last.createdBoards.length) parts.push('new boards: ' + last.createdBoards.join(', '));
       if (last.stagesAddedToGhl && last.stagesAddedToGhl.length) parts.push('stages added to GHL: ' + last.stagesAddedToGhl.join(', '));
       if (last.failed) parts.push(last.failed + ' failed' + (last.errors && last.errors[0] ? ' (' + last.errors[0] + ')' : ''));
-      line.textContent = parts.join(' · ');
+      setStatusText(parts.join(' · '), false);
     }
     function poll() {
       setTimeout(function () {
@@ -668,6 +756,19 @@
           render();
         });
     });
+    if (infoBtn && infoWrap) {
+      infoBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        setInfoOpen(!infoWrap.classList.contains('is-open'));
+      });
+      document.addEventListener('click', function (e) {
+        if (!infoWrap.contains(e.target)) setInfoOpen(false);
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') setInfoOpen(false);
+      });
+    }
     render();
     if (state.running) poll();
   })();
