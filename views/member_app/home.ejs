@@ -20,30 +20,6 @@
     <%- include('_flash') %>
 
     <% const _appt = typeof appointment !== 'undefined' && appointment ? appointment : null; %>
-    <% if (_appt) { %>
-    <section class="ma-appt" aria-label="Contractor app">
-      <p class="ma-appt__kicker">Contractor app</p>
-      <h2 class="ma-appt__title">Leads &amp; appointments</h2>
-      <p class="ma-appt__sub">Open your contractor app for form leads, the appointment tracker, and <strong>phone/desktop lead alerts</strong>.</p>
-      <div class="ma-appt__stats">
-        <div><b><%= _appt.tracker.counts.remaining %></b><span>Appts left</span></div>
-        <div><b><%= _appt.openLeadCount %></b><span>Open leads</span></div>
-        <div><b><%= _appt.leadCredits.remaining %></b><span>Lead credits</span></div>
-      </div>
-      <div class="ma-appt__track" aria-label="Progress">
-        <% (_appt.tracker.steps || []).forEach(function (step, idx) { %>
-        <div class="ma-appt__step<%= step.state === 'done' ? ' is-done' : '' %><%= step.state === 'current' ? ' is-current' : '' %>">
-          <span class="ma-appt__dot"><%= idx + 1 %></span>
-          <small><%= step.label %></small>
-        </div>
-        <% }); %>
-      </div>
-      <div class="ma-appt__actions">
-        <a class="ma-btn" href="<%= _appt.portalPath %>">Open contractor app</a>
-        <a class="ma-btn ma-btn--soft" href="<%= _appt.portalLeadsPath %>">Leads + turn on alerts</a>
-      </div>
-    </section>
-    <% } %>
 
     <section class="ma-hero" aria-label="<%= brand.appName %>">
       <% if (brand.heroUrl) { %><img class="ma-hero__img" src="<%= brand.heroUrl %>" alt=""><% } %>
@@ -76,11 +52,22 @@
     </section>
 
     <% if (_appt) { %>
-    <section class="ma-section" style="margin-top:4px">
-      <div class="ma-appt__actions" style="margin:0">
+    <section class="ma-section" style="margin-top:14px">
+      <a class="ma-card ma-appt-link" href="<%= _appt.portalPath %>" style="display:block;text-decoration:none">
+        <div class="ma-card__row">
+          <div style="min-width:0">
+            <p class="ma-card__title">Contractor app</p>
+            <p class="ma-card__meta">
+              Form leads, appointment tracker, and phone alerts
+              <% if (_appt.openLeadCount) { %> · <%= _appt.openLeadCount %> open<% } %>
+            </p>
+          </div>
+          <span class="ma-pill ma-pill--sent">Open</span>
+        </div>
+      </a>
+      <div class="ma-appt__actions" style="margin-top:10px">
         <a class="ma-btn ma-btn--soft" href="<%= base %>/customers"><%- icons.customers %> Customers</a>
-        <a class="ma-btn ma-btn--ghost" href="<%= base %>/review"><%- icons.review %> Reviews</a>
-        <a class="ma-btn ma-btn--ghost" href="<%= _appt.portalPath %>"><%- icons.leads %> Contractor app</a>
+        <a class="ma-btn ma-btn--ghost" href="<%= _appt.portalLeadsPath %>"><%- icons.leads %> Turn on lead alerts</a>
       </div>
     </section>
     <% } %>
