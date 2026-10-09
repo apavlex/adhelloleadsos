@@ -261,7 +261,12 @@ async function issueTokens(grant, { previousAccessHash } = {}) {
   const accessHash = sha256(accessToken);
   const now = Date.now();
   if (previousAccessHash) await dbService.deleteStorageKey(`oauthtoken:${previousAccessHash}`);
-  await dbService.putStorageKey(`oauthtoken:${accessHash}`, { grantId: grant.id, expiresAt: now + ACCESS_TTL_MS });
+  // Stamp workspaceId on the token so every request stays on the workspace chosen at connect time.
+  await dbService.putStorageKey(`oauthtoken:${accessHash}`, {
+    grantId: grant.id,
+    workspaceId: String(grant.workspaceId || ''),
+    expiresAt: now + ACCESS_TTL_MS,
+  });
   await dbService.putStorageKey(`oauthrefresh:${sha256(refreshToken)}`, {
     grantId: grant.id,
     clientId: grant.clientId,
@@ -332,8 +337,9 @@ async function liveGrant(grantId) {
   if (!grant || grant.revokedAt) return null;
   const workspaces = await grantWorkspaces(grant);
   if (!workspaces.length) return null;
+  // Locked to the workspace chosen when the connection was created. Do not follow
+  // grant.activeWorkspaceId — that shared mutable default let bots flip each other.
   const workspace =
-    workspaces.find((ws) => ws.id === grant.activeWorkspaceId) ||
     workspaces.find((ws) => ws.id === grant.workspaceId) ||
     workspaces[0];
   return { grant, workspace, workspaces };
@@ -354,13 +360,12 @@ async function listGrantWorkspaces(grantId) {
   };
 }
 
-/** Make a workspace the default for an "all workspaces" grant (MCP calls are stateless, so it lives on the grant). */
-async function setGrantActiveWorkspace(grantId, workspaceId) {
-  const live = await liveGrant(grantId);
-  if (!live || !live.grant.allWorkspaces) return false;
-  if (!live.workspaces.some((ws) => ws.id === workspaceId)) return false;
-  await dbService.putStorageKey(`oauthgrant:${live.grant.id}`, { ...live.grant, activeWorkspaceId: workspaceId });
-  return true;
+/**
+ * Deprecated: access tokens are locked to grant.workspaceId. Per-call `workspace` on tools
+ * still works for all-workspaces grants; a sticky shared default does not.
+ */
+async function setGrantActiveWorkspace() {
+  return false;
 }
 
 async function refreshAccessToken({ refreshToken, clientId, clientSecret }) {
@@ -391,12 +396,18 @@ async function validateAccessToken(token) {
   const live = await liveGrant(record.grantId);
   if (!live) return null;
   const { grant } = live;
+  // Prefer the workspace stamped on the token; fall back to the grant's locked home.
+  const lockedId = String(record.workspaceId || grant.workspaceId || '');
+  const workspace =
+    (lockedId && live.workspaces.find((ws) => ws.id === lockedId)) ||
+    live.workspace;
+  if (!workspace) return null;
   if (Date.now() - Date.parse(grant.lastUsedAt || 0) > GRANT_TOUCH_MS) {
     await dbService.putStorageKey(`oauthgrant:${grant.id}`, { ...grant, lastUsedAt: new Date().toISOString() });
   }
   return {
-    workspaceId: live.workspace.id,
-    workspace: live.workspace,
+    workspaceId: workspace.id,
+    workspace,
     allWorkspaces: !!grant.allWorkspaces,
     userEmail: grant.userEmail,
     grantId: grant.id,

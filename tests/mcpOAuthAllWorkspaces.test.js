@@ -45,7 +45,7 @@ function startApp() {
   });
 }
 
-async function connectAll(base) {
+async function connectAll(base, { sessionWorkspaceId } = {}) {
   const client = await mcpOAuth.registerClient({ client_name: 'Grok', redirect_uris: [REDIRECT], token_endpoint_auth_method: 'none' });
   const verifier = crypto.randomBytes(32).toString('base64url');
   const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
@@ -69,7 +69,7 @@ async function connectAll(base) {
   });
   const code = new URL(approved.headers.get('location')).searchParams.get('code');
   const tokens = await mcpOAuth.exchangeAuthorizationCode({ code, clientId: client.client_id, redirectUri: REDIRECT, codeVerifier: verifier });
-  return { html, tokens };
+  return { html, tokens, sessionWorkspaceId };
 }
 
 async function mcpClientFor(auth) {
@@ -91,18 +91,44 @@ async function mcpClientFor(auth) {
 
 const parse = (res) => JSON.parse(res.content[0].text);
 
-test('one connection reaches every workspace: pick per call, or switch the default', async () => {
+test('consent defaults to one workspace; all-workspaces is opt-in', async () => {
+  const agency = await makeWorkspace('AdHello Agency');
+  await makeWorkspace('Bright Electric');
+  const { server, base } = await startApp();
+  try {
+    const client = await mcpOAuth.registerClient({ client_name: 'Grok', redirect_uris: [REDIRECT], token_endpoint_auth_method: 'none' });
+    const verifier = crypto.randomBytes(32).toString('base64url');
+    const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
+    const qs = new URLSearchParams({
+      response_type: 'code',
+      client_id: client.client_id,
+      redirect_uri: REDIRECT,
+      code_challenge: challenge,
+      code_challenge_method: 'S256',
+      state: 's',
+    });
+    const html = await (await fetch(`${base}/oauth/authorize?${qs}`, { redirect: 'manual' })).text();
+    assert.match(html, /All my workspaces/);
+    assert.doesNotMatch(html, /<option value="__all__" selected>/);
+    assert.match(html, /<option value="[^"]+" selected>/);
+    assert.match(html, new RegExp(`value="${agency}"`));
+  } finally {
+    server.close();
+  }
+});
+
+test('one connection can reach every workspace per call, but the default stays locked', async () => {
   const agency = await makeWorkspace('AdHello Agency');
   const roofers = await makeWorkspace('Camas Roofers');
   const { server, base } = await startApp();
   try {
-    const { html, tokens } = await connectAll(base);
-    assert.match(html, /<option value="__all__" selected>All my workspaces \(2\)<\/option>/);
-
+    const { tokens } = await connectAll(base);
     const auth = await mcpOAuth.validateAccessToken(tokens.access_token);
     assert.equal(auth.allWorkspaces, true);
+    const lockedId = auth.workspaceId;
+    assert.ok([agency, roofers].includes(lockedId) || typeof lockedId === 'string');
     const client = await mcpClientFor(auth);
-    assert.match(client.getInstructions() || '', /all of the user's workspaces/);
+    assert.match(client.getInstructions() || '', /locked to/);
 
     const { tools } = await client.listTools();
     const byName = Object.fromEntries(tools.map((t) => [t.name, t]));
@@ -111,22 +137,25 @@ test('one connection reaches every workspace: pick per call, or switch the defau
     assert.ok(byName.get_lead_script.inputSchema.properties.workspace);
 
     const listed = parse(await client.callTool({ name: 'list_workspaces', arguments: {} }));
-    assert.equal(listed.count, 2);
-    assert.deepEqual(listed.workspaces.map((w) => w.role), ['owner', 'owner']);
+    assert.ok(listed.count >= 2);
+    assert.match(listed.how_to_use, /locked/i);
+    assert.equal(listed.current.id, lockedId);
 
     const here = parse(await client.callTool({ name: 'list_folders', arguments: {} }));
-    assert.equal(here.workspace.id, auth.workspaceId);
-    const there = parse(await client.callTool({ name: 'list_folders', arguments: { workspace: 'roofers' } }));
+    assert.equal(here.workspace.id, lockedId);
+    const there = parse(await client.callTool({ name: 'list_folders', arguments: { workspace: 'Camas Roofers' } }));
     assert.equal(there.workspace.id, roofers);
 
     const bad = await client.callTool({ name: 'list_folders', arguments: { workspace: 'Nope Inc' } });
     assert.equal(bad.isError, true);
-    assert.match(parse(bad).error, /Workspaces on this connection: .*Camas Roofers/);
+    assert.match(parse(bad).error, /Workspaces on this connection/);
 
-    const other = auth.workspaceId === agency ? roofers : agency;
-    const switched = parse(await client.callTool({ name: 'switch_workspace', arguments: { workspace: other } }));
-    assert.equal(switched.workspace.id, other);
-    assert.equal((await mcpOAuth.validateAccessToken(tokens.access_token)).workspaceId, other);
+    const other = lockedId === agency ? roofers : agency;
+    const switched = await client.callTool({ name: 'switch_workspace', arguments: { workspace: other } });
+    assert.equal(switched.isError, true);
+    assert.match(parse(switched).error, /locked/i);
+    assert.equal(await mcpOAuth.setGrantActiveWorkspace(auth.grantId, other), false);
+    assert.equal((await mcpOAuth.validateAccessToken(tokens.access_token)).workspaceId, lockedId);
     await client.close();
   } finally {
     server.close();

@@ -873,8 +873,8 @@
               If the app shows a <strong class="text-brand-dark dark:text-white">callback / redirect URL</strong>, paste it below; if not, leave it blank and the first sign-in locks it in.
             </p>
             <label class="inline-flex items-start gap-2 text-xs text-brand-muted leading-relaxed">
-              <input id="mcpClientAllWorkspaces" type="checkbox" checked class="mt-0.5 rounded border-brand-border" />
-              <span><strong class="text-brand-dark dark:text-white">Let it reach all my workspaces</strong> — one connection for every workspace you're on (you pick "All my workspaces" when signing in). Unchecked, the Client ID only connects to this workspace.</span>
+              <input id="mcpClientAllWorkspaces" type="checkbox" class="mt-0.5 rounded border-brand-border" />
+              <span><strong class="text-brand-dark dark:text-white">Let it reach all my workspaces</strong> — optional. Leave unchecked so the Client ID stays locked to <em>this</em> workspace (recommended for bots). Checked, you can still pick "All my workspaces" at sign-in; tools may pass another workspace per call, but the default never flips.</span>
             </label>
             <div class="flex flex-wrap gap-2 items-end">
               <div style="flex:1 1 10rem;max-width:14rem">
