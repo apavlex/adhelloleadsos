@@ -532,22 +532,28 @@ router.post('/leads/signal-ingest', validateApiKey, async (req, res, next) => {
 
 const { getActiveAutoOutreachSummary } = require('../services/folderOutreachAutomation');
 
+/** Active workspace from session (this router mounts before withWorkspace). */
+function sessionWorkspaceId(req) {
+  if (req.workspaceId && String(req.workspaceId).trim()) return String(req.workspaceId).trim();
+  const fromSession =
+    req.session &&
+    (req.session.activeWorkspaceId || req.session.workspaceId) &&
+    String(req.session.activeWorkspaceId || req.session.workspaceId).trim();
+  return fromSession || '';
+}
+
 /**
  * GET /api/status
- * Returns current background job status and latest notification
+ * Returns current background job status and latest notification for the active workspace.
  */
 router.get('/status', async (req, res) => {
   try {
-    const activeJob = await dbService.getActiveJob();
-    const latestFinished = await dbService.getLatestFinishedJob();
+    const wid = sessionWorkspaceId(req);
+    const activeJob = await dbService.getActiveJob(wid || undefined);
+    const latestFinished = await dbService.getLatestFinishedJob(wid || undefined);
 
     let autoOutreach = null;
     try {
-      const wid =
-        (req.session &&
-          (req.session.activeWorkspaceId || req.session.workspaceId) &&
-          String(req.session.activeWorkspaceId || req.session.workspaceId).trim()) ||
-        '';
       if (wid && req.user) {
         autoOutreach = await getActiveAutoOutreachSummary(wid);
       }
@@ -560,6 +566,7 @@ router.get('/status', async (req, res) => {
       activeJob: activeJob || null,
       notification: latestFinished || null,
       autoOutreach,
+      workspaceId: wid || null,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -568,11 +575,11 @@ router.get('/status', async (req, res) => {
 
 /**
  * POST /api/notifications/read
- * Marks the latest notification as read
+ * Marks the latest notification as read (active workspace only).
  */
 router.post('/notifications/read', async (req, res) => {
   try {
-    await dbService.markNotificationRead();
+    await dbService.markNotificationRead(sessionWorkspaceId(req) || undefined);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

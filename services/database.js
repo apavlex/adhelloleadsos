@@ -1546,7 +1546,21 @@ module.exports = {
     }
   },
 
-  async getActiveJob() {
+  /** True when job has no workspace (legacy) or matches the given workspace id. */
+  jobMatchesWorkspace(job, workspaceId) {
+    if (!job) return false;
+    const filterWid = workspaceId != null ? String(workspaceId).trim() : '';
+    if (!filterWid) return true;
+    const jobWid = String(job.workspaceId || '').trim();
+    if (!jobWid) return true;
+    return jobWid === filterWid;
+  },
+
+  /**
+   * @param {string} [workspaceId] When set, hide active jobs that belong to another workspace
+   *   (global queue coordination should omit this so busy checks stay process-wide).
+   */
+  async getActiveJob(workspaceId) {
     const job = this._readActiveJobRaw();
     if (!job) return null;
     if (isLeadRunJobStale(job.startedAt)) {
@@ -1562,6 +1576,7 @@ module.exports = {
       });
       return null;
     }
+    if (!this.jobMatchesWorkspace(job, workspaceId)) return null;
     return job;
   },
 
@@ -1651,17 +1666,26 @@ module.exports = {
     kvDelete('active_job');
   },
 
-  async getLatestFinishedJob() {
+  /**
+   * @param {string} [workspaceId] When set, ignore finished jobs from another workspace
+   *   so the bell / status poll only surfaces the active workspace's search.
+   */
+  async getLatestFinishedJob(workspaceId) {
     const raw = kvGet('latest_finished_job');
     if (!raw) return null;
-    return typeof raw === 'string' ? JSON.parse(raw) : raw;
+    const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!this.jobMatchesWorkspace(data, workspaceId)) return null;
+    return data;
   },
 
-  async markNotificationRead() {
-    const data = await this.getLatestFinishedJob();
-    if (data) {
-      kvSet('latest_finished_job', JSON.stringify({ ...data, isRead: true }));
-    }
+  async markNotificationRead(workspaceId) {
+    const filterWid = workspaceId != null ? String(workspaceId).trim() : '';
+    const raw = kvGet('latest_finished_job');
+    if (!raw) return;
+    const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!data) return;
+    if (filterWid && !this.jobMatchesWorkspace(data, filterWid)) return;
+    kvSet('latest_finished_job', JSON.stringify({ ...data, isRead: true }));
   },
 
   async recordCompletedSearchNotification({

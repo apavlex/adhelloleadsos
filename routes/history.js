@@ -32,7 +32,7 @@ router.get('/', async (req, res, next) => {
         };
       }),
     );
-    const activeJob = await dbService.getActiveJob();
+    const activeJob = await dbService.getActiveJob(wid);
     const searchingParam = String(req.query.status || '').toLowerCase() === 'searching';
     const jobIsSearch =
       activeJob &&

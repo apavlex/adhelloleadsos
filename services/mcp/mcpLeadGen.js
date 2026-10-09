@@ -491,17 +491,16 @@ async function getSearchStatus(ctx, input = {}) {
   await pumpSearchQueue();
   const id = String(input.search_id || '').trim();
   const mine = [...searchJobs.values()].filter((j) => j.workspaceId === wid);
-  const active = await dbService.getActiveJob();
-  const activeInWorkspace =
-    active && String(active.targetFolderKey || '').startsWith(`folder:${wid}:`)
-      ? {
-          keyword: active.keyword || '',
-          city: active.city || '',
-          state: active.state || '',
-          folder: { key: active.targetFolderKey, name: active.targetFolderName || '' },
-          startedAt: active.startedAt || null,
-        }
-      : null;
+  const active = await dbService.getActiveJob(wid);
+  const activeInWorkspace = active
+    ? {
+        keyword: active.keyword || '',
+        city: active.city || '',
+        state: active.state || '',
+        folder: { key: active.targetFolderKey || '', name: active.targetFolderName || '' },
+        startedAt: active.startedAt || null,
+      }
+    : null;
   const base = {
     anySearchRunning: !!active,
     activeSearch: activeInWorkspace,

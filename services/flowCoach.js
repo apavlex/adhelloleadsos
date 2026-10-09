@@ -49,8 +49,8 @@ async function buildCoachContext(req) {
   const history60 = await dbService.listDailyTrackers(wid, email, 60);
   const streak = computeOutreachStreak(history60, today);
 
-  const activeJob = await dbService.getActiveJob();
-  const latestJob = await dbService.getLatestFinishedJob();
+  const activeJob = await dbService.getActiveJob(wid);
+  const latestJob = await dbService.getLatestFinishedJob(wid);
 
   return {
     firstName,
