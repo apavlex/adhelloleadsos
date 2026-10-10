@@ -54,6 +54,21 @@
         </div>
       </section>
 
+      <% if (typeof reviewApp !== 'undefined' && reviewApp && reviewApp.reviewUrl) { %>
+      <section class="cp-card">
+        <div class="cp-row">
+          <div>
+            <h2>Request reviews</h2>
+            <p class="cp-meta">Open your partner app to text customers a review request — same app you use for referrals.</p>
+          </div>
+        </div>
+        <div class="cp-actions">
+          <a class="cp-btn cp-btn--primary" href="<%= reviewApp.reviewUrl %>">Request a review</a>
+          <a class="cp-btn cp-btn--ghost" href="<%= reviewApp.url %>">Open partner app</a>
+        </div>
+      </section>
+      <% } %>
+
       <section class="cp-card" id="cpPushRoot" data-base="<%= base %>">
         <div class="cp-row">
           <div>

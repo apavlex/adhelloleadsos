@@ -5,6 +5,8 @@
 const express = require('express');
 const contractorPortal = require('../services/contractorPortal');
 const appointmentPackages = require('../services/appointmentPackages');
+const memberAppointmentLink = require('../services/memberAppointmentLink');
+const networkNotify = require('../services/networkNotify');
 const push = require('../services/pushNotifications');
 
 const router = express.Router();
@@ -77,14 +79,32 @@ router.get(
   }),
 );
 
+async function reviewAppForPortal(req, ctx) {
+  try {
+    const linked = await memberAppointmentLink.findMemberForPackage(ctx.workspaceId, ctx.package);
+    if (!linked) return null;
+    const baseUrl = networkNotify.baseUrlFromReq(req);
+    const url = networkNotify.memberPortalLink(baseUrl, linked.network, linked.member);
+    return {
+      url,
+      reviewUrl: `${url}/review?ask=1`,
+      companyName: linked.member.companyName,
+    };
+  } catch {
+    return null;
+  }
+}
+
 router.get(
   '/p/:token',
   withPortal(async (req, res, ctx) => {
     const home = contractorPortal.buildPortalHome(ctx.package);
+    const reviewApp = await reviewAppForPortal(req, ctx);
     noStore(res);
     return res.render('contractor_portal/home', {
       ...ctx,
       ...home,
+      reviewApp,
       active: 'home',
       flash: flashFromQuery(req),
       title: `${ctx.package.businessName} · Contractor app`,

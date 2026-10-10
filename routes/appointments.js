@@ -6,6 +6,8 @@ const express = require('express');
 const router = express.Router();
 const appointmentPackages = require('../services/appointmentPackages');
 const contractorPortal = require('../services/contractorPortal');
+const memberAppointmentLink = require('../services/memberAppointmentLink');
+const networkNotify = require('../services/networkNotify');
 
 router.get('/', async (req, res, next) => {
   try {
@@ -166,6 +168,67 @@ router.post('/appointment-packages/:id/send-portal-link', express.json(), async 
       channel: result.channel,
       url: result.url,
       businessName: result.businessName,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * Partner review app (/m) for a package — request reviews, not only referrals.
+ * Resolves the linked network member from the appointment package.
+ */
+router.get('/appointment-packages/:id/review-app-link', async (req, res, next) => {
+  try {
+    const pkg = await appointmentPackages.getPackage(req.workspaceId, req.params.id);
+    if (!pkg) return res.status(404).json({ success: false, error: 'Package not found.' });
+    const linked = await memberAppointmentLink.findMemberForPackage(req.workspaceId, pkg);
+    if (!linked) {
+      return res.status(404).json({
+        success: false,
+        error: 'No network partner matched this package. Add them on Get the app or Network → Members, then try again.',
+      });
+    }
+    const baseUrl = networkNotify.baseUrlFromReq(req);
+    const url = networkNotify.memberPortalLink(baseUrl, linked.network, linked.member);
+    return res.json({
+      success: true,
+      url,
+      reviewUrl: `${url}/review?ask=1`,
+      memberId: linked.member.id,
+      companyName: linked.member.companyName,
+      packageId: pkg.id,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Text/email the partner review app (member app) for this package. */
+router.post('/appointment-packages/:id/send-review-app-link', express.json(), async (req, res, next) => {
+  try {
+    const pkg = await appointmentPackages.getPackage(req.workspaceId, req.params.id);
+    if (!pkg) return res.status(404).json({ success: false, error: 'Package not found.' });
+    const linked = await memberAppointmentLink.findMemberForPackage(req.workspaceId, pkg);
+    if (!linked) {
+      return res.status(404).json({
+        success: false,
+        error: 'No network partner matched this package. Add them on Get the app or Network → Members first.',
+      });
+    }
+    const sent = await networkNotify.sendMemberPortalLink({
+      network: linked.network,
+      member: linked.member,
+      baseUrl: networkNotify.baseUrlFromReq(req),
+    });
+    if (!sent.ok) {
+      return res.status(400).json({ success: false, error: sent.error || 'Could not send the review app link.' });
+    }
+    return res.json({
+      success: true,
+      channel: sent.channel,
+      companyName: linked.member.companyName,
+      packageId: pkg.id,
     });
   } catch (e) {
     next(e);

@@ -344,14 +344,15 @@ async function notifyReferralRecipient({ network, referral, member, baseUrl }) {
 
 async function sendMemberPortalLink({ network, member, baseUrl, welcome }) {
   const link = memberPortalLink(baseUrl, network, member);
+  const reviewLink = `${link}/review?ask=1`;
   const app = brandView(network).appName;
   const sms = welcome
-    ? `Welcome to ${app}! Your referral app: ${link} — open it on your phone and tap Share > Add to Home Screen.`
-    : `${app}: your referral app — send and receive referrals: ${link} (tip: Share > Add to Home Screen)`;
+    ? `Welcome to ${app}! Request reviews + referrals: ${link} — open on your phone, tap Share > Add to Home Screen. Jump to Request a review: ${reviewLink}`
+    : `${app}: your app for review requests + referrals — ${link} (Request a review: ${reviewLink}). Tip: Share > Add to Home Screen`;
   return messageMember(network, member, {
     sms,
-    subject: welcome ? `Welcome to ${app}` : `Your ${app} referral app`,
-    email: `${welcome ? `Welcome to ${app}!\n\n` : ''}Here is your ${app} referral app. Open it on your phone to send referrals, see referrals sent to you, and share your review link:\n\n${link}\n\nTip: on iPhone tap Share, then "Add to Home Screen" so it opens like an app.`,
+    subject: welcome ? `Welcome to ${app}` : `Your ${app} app — reviews & referrals`,
+    email: `${welcome ? `Welcome to ${app}!\n\n` : ''}Here is your ${app} app. Open it on your phone to:\n• Request Google reviews from customers\n• Send and receive referrals\n• See leads when linked to your appointment package\n\nApp home:\n${link}\n\nRequest a review:\n${reviewLink}\n\nTip: on iPhone tap Share, then "Add to Home Screen" so it opens like an app.`,
   });
 }
 
