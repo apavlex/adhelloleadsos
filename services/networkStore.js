@@ -7,6 +7,7 @@
  *   netmember:<networkId>:<id>     member company, linked to an operator lead
  *   netref:<networkId>:<id>        referral record
  *   netbrandimg:<networkId>:<kind> uploaded logo / hero image (base64)
+ *   netreviewshare:<networkId>:<memberId>:<imageId> OG/link-preview JPEG (default or per-request)
  *   netapp:<networkId>:<id>        business a member invited, waiting for approval
  *   netfeedback:<networkId>:<id>   private feedback left on a member's review page
  *   netreviewstats:<networkId>:<memberId>  star taps + review link clicks
@@ -161,6 +162,12 @@ function normalizeMember(raw) {
     ghlAttemptedAt: m.ghlAttemptedAt || '',
     reviewSlug: cleanSlug(m.reviewSlug),
     reviewLinks: normalizeReviewLinks(m.reviewLinks),
+    /** Member-editable AI/GHL review-request SMS script ({{name}}, {{company}}, {{review_link}}). */
+    reviewSmsScript: cleanText(m.reviewSmsScript, 800),
+    reviewEmailSubject: cleanText(m.reviewEmailSubject, 180),
+    reviewEmailScript: cleanText(m.reviewEmailScript, 4000),
+    /** ISO stamp when a custom default OG/share image was saved (empty = use generated default). */
+    reviewShareImageUpdatedAt: cleanText(m.reviewShareImageUpdatedAt, 40),
     invitedByMemberId: cleanText(m.invitedByMemberId, 40),
     joinedAt: m.joinedAt || new Date().toISOString(),
     updatedAt: m.updatedAt || m.joinedAt || new Date().toISOString(),
@@ -298,6 +305,37 @@ async function deleteBrandImage(networkId, kind) {
   await dbService.deleteStorageKey(`netbrandimg:${networkId}:${kind}`);
 }
 
+// ── Review share / OG images ─────────────────────────────────────────────────
+
+function reviewShareKey(networkId, memberId, imageId) {
+  const id = String(imageId || 'default').trim() || 'default';
+  return `netreviewshare:${networkId}:${memberId}:${id}`;
+}
+
+async function getReviewShareImage(networkId, memberId, imageId) {
+  const row = await readJson(reviewShareKey(networkId, memberId, imageId));
+  if (!row || !row.data) return null;
+  return {
+    contentType: String(row.contentType || 'image/jpeg'),
+    buffer: Buffer.from(String(row.data), 'base64'),
+    updatedAt: row.updatedAt || '',
+  };
+}
+
+async function saveReviewShareImage(networkId, memberId, imageId, { contentType, buffer }) {
+  const updatedAt = new Date().toISOString();
+  await dbService.putStorageKey(reviewShareKey(networkId, memberId, imageId), {
+    contentType: contentType || 'image/jpeg',
+    data: Buffer.from(buffer).toString('base64'),
+    updatedAt,
+  });
+  return updatedAt;
+}
+
+async function deleteReviewShareImage(networkId, memberId, imageId) {
+  await dbService.deleteStorageKey(reviewShareKey(networkId, memberId, imageId));
+}
+
 // ── Applications (member invites) ────────────────────────────────────────────
 
 const APPLICATION_STATUSES = new Set(['pending', 'approved', 'rejected']);
@@ -424,6 +462,9 @@ module.exports = {
   getBrandImage,
   saveBrandImage,
   deleteBrandImage,
+  getReviewShareImage,
+  saveReviewShareImage,
+  deleteReviewShareImage,
   listApplications,
   getApplication,
   saveApplication,

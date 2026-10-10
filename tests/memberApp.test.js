@@ -296,7 +296,44 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     const withSlug = await store.getMember(network.id, sender.id);
     assert.equal(withSlug.reviewSlug, 'camas-flooring');
     assert.match(withSlug.reviewLinks.google, /writereview\?placeid=ChIJabcdefghijk123/);
-    assert.match(await reviewTab.text(), /Thumbtack profile/);
+    const reviewHtml = await reviewTab.text();
+    assert.match(reviewHtml, /Thumbtack profile/);
+    assert.match(reviewHtml, /review\/send/);
+    assert.match(reviewHtml, /Send review request/);
+    assert.match(reviewHtml, /Go High Level/);
+    assert.match(reviewHtml, /\{\{review_link\}\}/);
+    assert.match(reviewHtml, /SMS script/);
+    assert.match(reviewHtml, /Use AI/);
+    assert.match(reviewHtml, /Copy for GHL/);
+    assert.match(reviewHtml, /https:\/\/leads\.adhello\.io\/rv\/camas-flooring/);
+    assert.match(reviewHtml, /AdHello\.io/);
+    assert.match(reviewHtml, /Link preview image/);
+    assert.match(reviewHtml, /ma-fold/);
+    assert.match(reviewHtml, /shareImage/);
+    assert.match(reviewHtml, /\/rv\/camas-flooring\/og\.jpg/);
+    assert.match(reviewHtml, /<details class="ma-fold"/);
+
+    const ogPage = await fetch(`${base}/rv/camas-flooring`);
+    assert.equal(ogPage.status, 200);
+    const ogHtml = await ogPage.text();
+    assert.match(ogHtml, /property="og:image"/);
+    assert.match(ogHtml, /\/rv\/camas-flooring\/og\.jpg/);
+    assert.match(ogHtml, /og:site_name" content="AdHello\.io"/);
+
+    const ogImg = await fetch(`${base}/rv/camas-flooring/og.jpg`);
+    assert.equal(ogImg.status, 200);
+    assert.match(ogImg.headers.get('content-type') || '', /image\/jpeg/);
+    const ogBuf = Buffer.from(await ogImg.arrayBuffer());
+    assert.ok(ogBuf.length > 1000);
+
+    const reviewSend = await fetch(`${base}/m/${token}/review/send`, {
+      method: 'POST',
+      redirect: 'manual',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ phone: '3605550199', name: 'Jamie', channel: 'sms' }),
+    });
+    assert.equal(reviewSend.status, 400);
+    assert.match(await reviewSend.text(), /Go High Level|Integrations|SMS from number/i);
 
     const savedLinks = await fetch(`${base}/m/${token}/review`, {
       method: 'POST',

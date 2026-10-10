@@ -7,100 +7,217 @@
   <main class="ma-shell">
     <%- include('_top', { topTitle: 'Review' }) %>
     <h1 class="ma-page-title">Request a review</h1>
-    <p class="ma-page-sub">Text or share your link with a happy customer. They pick stars, then go to Google, Yelp, or any site you add below.</p>
+    <p class="ma-page-sub">Text or email a happy customer through Go High Level. Your AdHello.io review link is included.</p>
 
     <%- include('_flash') %>
 
-    <section class="ma-card ma-qr">
-      <button type="button" class="ma-btn ma-btn--block" id="maAskReview" data-ma-share="<%= reviewUrl %>" data-ma-share-title="Leave <%= member.companyName %> a review" <%= linkCount ? '' : 'disabled' %>>
-        <%- icons.review %> Request a review
-      </button>
-      <p class="ma-hint" style="text-align:center;margin:10px 0 0">Opens your phone’s share sheet so you can text or message the customer.</p>
-      <img src="<%= reviewPath %>/qr.png" alt="QR code for your review page" width="220" height="220" style="margin-top:18px">
-      <div class="ma-link-box">
-        <code id="rvLink"><%= reviewUrl %></code>
-        <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-ma-copy="<%= reviewUrl %>"><%- icons.copy %> Copy</button>
-      </div>
-      <div class="ma-actions" style="justify-content:center;width:100%">
-        <a class="ma-btn ma-btn--sm ma-btn--ghost" href="<%= reviewPath %>/qr.png?download=1" download><%- icons.download %> Download QR</a>
-        <a class="ma-btn ma-btn--sm ma-btn--ghost" href="<%= reviewPath %>" target="_blank" rel="noopener">Preview</a>
-      </div>
-      <% if (!linkCount) { %>
-      <p class="ma-flash ma-flash--err" style="width:100%">Add at least one review link below so customers have somewhere to post.</p>
-      <% } %>
-    </section>
+    <% const _msg = typeof messaging !== 'undefined' && messaging ? messaging : { configured: false, smsReady: false, emailReady: false }; %>
+    <% const _fv = typeof formValues !== 'undefined' && formValues ? formValues : { phone: '', email: '', name: '', channel: 'auto', useAi: true }; %>
+    <% const _script = typeof smsScript !== 'undefined' ? smsScript : ''; %>
+    <% const _needLinks = !linkCount; %>
 
-    <section class="ma-section">
-      <div class="ma-section__head"><h2>Results</h2></div>
-      <div class="ma-card">
-        <div class="ma-kpis">
-          <div class="ma-kpi"><strong><%= stats.views %></strong><span>Page visits</span></div>
-          <div class="ma-kpi"><strong><%= totalClicks %></strong><span>Went to review</span></div>
-          <div class="ma-kpi"><strong><%= feedback.length %></strong><span>Private notes</span></div>
-        </div>
-        <div class="ma-bars">
-          <% [5, 4, 3, 2, 1].forEach(function (s) { const n = stats.stars[s] || 0; %>
-          <div class="ma-bar">
-            <span><%= s %> ★</span>
-            <span class="ma-bar__track"><span class="ma-bar__fill" style="width: <%= totalStars ? Math.round((n / totalStars) * 100) : 0 %>%"></span></span>
-            <span style="text-align:right"><%= n %></span>
-          </div>
-          <% }); %>
-        </div>
-      </div>
-    </section>
-
-    <% if (feedback.length) { %>
-    <section class="ma-section">
-      <div class="ma-section__head"><h2>Private feedback</h2></div>
-      <% feedback.forEach(function (f) { %>
-      <div class="ma-card">
-        <div class="ma-card__row">
-          <div style="min-width:0">
-            <p class="ma-card__title"><%= f.name || 'Customer' %> · <%= '★'.repeat(f.rating || 0) %></p>
-            <p class="ma-card__meta"><% if (f.phone) { %><a href="tel:<%= String(f.phone).replace(/[^0-9+]/g, '') %>" style="color:var(--acc);font-weight:700;text-decoration:none"><%= f.phone %></a> · <% } %><%= f.email ? f.email + ' · ' : '' %><%= f.when %></p>
-          </div>
-        </div>
-        <p class="ma-card__note"><%= f.message %></p>
-      </div>
-      <% }); %>
-    </section>
-    <% } %>
-
-    <section class="ma-section">
-      <div class="ma-section__head"><h2>Your review links</h2></div>
-      <form method="post" action="<%= base %>/review" class="ma-card" autocomplete="off">
-        <p class="ma-hint" style="margin-top:0">Fill in the sites you're on. Leave the rest blank.</p>
-        <% platforms.forEach(function (p) { %>
+    <section class="ma-card" id="maAskForm">
+      <form method="post" action="<%= base %>/review/send" enctype="multipart/form-data" autocomplete="off">
+        <% if (!_msg.configured) { %>
+        <p class="ma-flash ma-flash--err">Go High Level isn’t connected yet. Ask your agency to connect GHL in Workspace → Integrations.</p>
+        <% } else if (!_msg.smsReady && !_msg.emailReady) { %>
+        <p class="ma-flash ma-flash--err">GHL is connected, but SMS from number and outbound email still need to be set in Integrations.</p>
+        <% } %>
+        <% if (_needLinks) { %>
+        <p class="ma-flash ma-flash--err">Add at least one review link below before sending.</p>
+        <% } %>
         <div class="ma-field">
-          <label class="ma-label rv-field-label" for="rv-<%= p.key %>"><span class="rv-field-badge" style="background: <%= p.color %>" aria-hidden="true"><%= p.letter %></span><%= p.field %></label>
-          <input id="rv-<%= p.key %>" name="<%= p.key %>" type="url" inputmode="url" class="ma-input" value="<%= member.reviewLinks[p.key] || '' %>" placeholder="<%= p.placeholder %>">
-          <% if (p.hint) { %><p class="ma-hint"><%= p.hint %></p><% } %>
+          <label class="ma-label" for="rvAskName">Customer name</label>
+          <input id="rvAskName" name="name" class="ma-input" maxlength="120" value="<%= _fv.name || '' %>" autocapitalize="words" <%= !_needLinks && (_msg.smsReady || _msg.emailReady) ? 'autofocus' : '' %>>
         </div>
-        <% }); %>
-        <div class="ma-section__head" style="margin-top:8px"><h2 style="font-size:15px">Other review sites</h2></div>
-        <% otherRows.forEach(function (o, i) { %>
         <div class="ma-grid2">
           <div class="ma-field">
-            <label class="ma-label" for="rvOtherLabel<%= i %>">Site name</label>
-            <input id="rvOtherLabel<%= i %>" name="otherLabel" class="ma-input" value="<%= o.label %>" placeholder="e.g. HomeAdvisor" maxlength="40">
+            <label class="ma-label" for="rvAskPhone">Mobile</label>
+            <input id="rvAskPhone" name="phone" type="tel" inputmode="tel" maxlength="40" class="ma-input" value="<%= _fv.phone || '' %>" <%= _msg.smsReady ? '' : 'disabled' %>>
           </div>
           <div class="ma-field">
-            <label class="ma-label" for="rvOtherUrl<%= i %>">Link</label>
-            <input id="rvOtherUrl<%= i %>" name="otherUrl" type="url" inputmode="url" class="ma-input" value="<%= o.url %>" placeholder="https://">
+            <label class="ma-label" for="rvAskEmail">Email</label>
+            <input id="rvAskEmail" name="email" type="email" inputmode="email" maxlength="200" class="ma-input" value="<%= _fv.email || '' %>" <%= _msg.emailReady ? '' : 'disabled' %>>
           </div>
         </div>
-        <% }); %>
-        <button type="submit" class="ma-btn ma-btn--block">Save links</button>
+        <div class="ma-field">
+          <label class="ma-label" for="rvAskChannel">Send by</label>
+          <select id="rvAskChannel" name="channel" class="ma-input">
+            <option value="auto" <%= _fv.channel === 'auto' ? 'selected' : '' %>>Text first, then email</option>
+            <option value="sms" <%= _fv.channel === 'sms' ? 'selected' : '' %> <%= _msg.smsReady ? '' : 'disabled' %>>Text (GHL SMS)</option>
+            <option value="email" <%= _fv.channel === 'email' ? 'selected' : '' %> <%= _msg.emailReady ? '' : 'disabled' %>>Email (GHL)</option>
+          </select>
+        </div>
+
+        <details class="ma-fold ma-fold--inset">
+          <summary>Options <span class="ma-fold__hint">AI · preview photo</span></summary>
+          <div class="ma-fold__body">
+            <div class="ma-field">
+              <label class="ma-label" for="rvAskShareImage">Preview image for this text</label>
+              <input id="rvAskShareImage" name="shareImage" type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="ma-input">
+              <p class="ma-hint">Optional. Leave blank to use your default (or AdHello’s).</p>
+            </div>
+            <label class="ma-check" style="display:flex;gap:10px;align-items:flex-start;margin:4px 0 10px">
+              <input type="checkbox" name="keepShareImage" value="1" style="margin-top:3px">
+              <span>Also save this photo as my default preview</span>
+            </label>
+            <label class="ma-check" style="display:flex;gap:10px;align-items:flex-start;margin:4px 0 4px">
+              <input type="hidden" name="useAi" value="0">
+              <input type="checkbox" name="useAi" value="1" <%= _fv.useAi === false ? '' : 'checked' %> style="margin-top:3px">
+              <span><strong>Use AI</strong> to personalize the script (keeps your review link)</span>
+            </label>
+          </div>
+        </details>
+
+        <button type="submit" class="ma-btn ma-btn--block" id="maAskReviewGhl" style="margin-top:14px" <%= !_needLinks && (_msg.smsReady || _msg.emailReady) && member.status === 'active' ? '' : 'disabled' %>>
+          <%- icons.review %> Send review request
+        </button>
       </form>
     </section>
+
+    <details class="ma-fold" <%= _needLinks ? 'open' : '' %>>
+      <summary>Your review links <span class="ma-fold__hint"><%= linkCount ? linkCount + ' set' : 'required' %></span></summary>
+      <div class="ma-fold__body">
+        <form method="post" action="<%= base %>/review" class="ma-card ma-card--flush" autocomplete="off">
+          <p class="ma-hint" style="margin-top:0">Fill in the sites you're on. Leave the rest blank.</p>
+          <% platforms.forEach(function (p) { %>
+          <div class="ma-field">
+            <label class="ma-label rv-field-label" for="rv-<%= p.key %>"><span class="rv-field-badge" style="background: <%= p.color %>" aria-hidden="true"><%= p.letter %></span><%= p.field %></label>
+            <input id="rv-<%= p.key %>" name="<%= p.key %>" type="url" inputmode="url" class="ma-input" value="<%= member.reviewLinks[p.key] || '' %>" placeholder="<%= p.placeholder %>">
+            <% if (p.hint) { %><p class="ma-hint"><%= p.hint %></p><% } %>
+          </div>
+          <% }); %>
+          <div class="ma-section__head" style="margin-top:8px"><h2 style="font-size:15px">Other review sites</h2></div>
+          <% otherRows.forEach(function (o, i) { %>
+          <div class="ma-grid2">
+            <div class="ma-field">
+              <label class="ma-label" for="rvOtherLabel<%= i %>">Site name</label>
+              <input id="rvOtherLabel<%= i %>" name="otherLabel" class="ma-input" value="<%= o.label %>" placeholder="e.g. HomeAdvisor" maxlength="40">
+            </div>
+            <div class="ma-field">
+              <label class="ma-label" for="rvOtherUrl<%= i %>">Link</label>
+              <input id="rvOtherUrl<%= i %>" name="otherUrl" type="url" inputmode="url" class="ma-input" value="<%= o.url %>" placeholder="https://">
+            </div>
+          </div>
+          <% }); %>
+          <button type="submit" class="ma-btn ma-btn--block">Save links</button>
+        </form>
+      </div>
+    </details>
+
+    <details class="ma-fold">
+      <summary>Link preview image <span class="ma-fold__hint"><%= typeof hasCustomShareImage !== 'undefined' && hasCustomShareImage ? 'custom' : 'AdHello default' %></span></summary>
+      <div class="ma-fold__body">
+        <div class="ma-card ma-card--flush">
+          <p class="ma-hint" style="margin-top:0">Shown when your review link is shared in Messages.</p>
+          <img class="ma-share-preview" src="<%= typeof shareImagePath !== 'undefined' ? shareImagePath : (reviewPath + '/og.jpg') %>" alt="Link preview" width="600" height="315" style="width:100%;max-width:100%;height:auto;border-radius:14px;display:block;background:#0f172a">
+          <form method="post" action="<%= base %>/review/share-image" enctype="multipart/form-data" autocomplete="off" style="margin-top:12px">
+            <div class="ma-field">
+              <label class="ma-label" for="rvDefaultShareImage">Upload default photo</label>
+              <input id="rvDefaultShareImage" name="shareImage" type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="ma-input" required>
+            </div>
+            <button type="submit" class="ma-btn ma-btn--soft ma-btn--block">Save as default preview</button>
+          </form>
+          <% if (typeof hasCustomShareImage !== 'undefined' && hasCustomShareImage) { %>
+          <form method="post" action="<%= base %>/review/share-image" style="margin-top:8px" data-ma-confirm="Remove your custom preview image and use the AdHello default?">
+            <input type="hidden" name="remove" value="1">
+            <button type="submit" class="ma-btn ma-btn--ghost ma-btn--block">Use AdHello default instead</button>
+          </form>
+          <% } %>
+        </div>
+      </div>
+    </details>
+
+    <details class="ma-fold">
+      <summary>SMS script <span class="ma-fold__hint">AI starting text</span></summary>
+      <div class="ma-fold__body">
+        <form method="post" action="<%= base %>/review/script" class="ma-card ma-card--flush" autocomplete="off">
+          <p class="ma-hint" style="margin-top:0">Use <code>{{name}}</code>, <code>{{company}}</code>, and <code>{{review_link}}</code>.</p>
+          <div class="ma-field">
+            <label class="ma-label" for="rvSmsScript">Review request text</label>
+            <textarea id="rvSmsScript" name="smsScript" class="ma-textarea" rows="4" maxlength="800" required><%= _script %></textarea>
+          </div>
+          <p class="ma-hint">Your AdHello.io review link: <code><%= typeof reviewUrl !== 'undefined' ? reviewUrl : '' %></code></p>
+          <button type="submit" class="ma-btn ma-btn--soft ma-btn--block">Save script</button>
+        </form>
+        <% if (typeof ghlWorkflowPrompt !== 'undefined' && ghlWorkflowPrompt) { %>
+        <div class="ma-card ma-card--flush" style="margin-top:10px">
+          <p class="ma-hint" style="margin-top:0">Paste into GHL Workflow AI to automate post-job review texts.</p>
+          <div class="ma-link-box">
+            <code id="rvGhlPrompt" style="white-space:pre-wrap;font-size:12px;max-height:140px;overflow:auto"><%= ghlWorkflowPrompt %></code>
+            <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-ma-copy-from="rvGhlPrompt"><%- icons.copy %> Copy for GHL</button>
+          </div>
+        </div>
+        <% } %>
+      </div>
+    </details>
+
+    <details class="ma-fold">
+      <summary>Share &amp; QR <span class="ma-fold__hint">phone share sheet</span></summary>
+      <div class="ma-fold__body">
+        <div class="ma-card ma-card--flush ma-qr" style="margin:0">
+          <button type="button" class="ma-btn ma-btn--soft ma-btn--block" id="maAskReview" data-ma-share="<%= reviewUrl %>" data-ma-share-title="Leave <%= member.companyName %> a review" <%= linkCount ? '' : 'disabled' %>>
+            <%- icons.share %> Share from this phone
+          </button>
+          <img src="<%= reviewPath %>/qr.png" alt="QR code for your review page" width="220" height="220" style="margin-top:18px">
+          <div class="ma-link-box">
+            <code id="rvLink"><%= reviewUrl %></code>
+            <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-ma-copy="<%= reviewUrl %>"><%- icons.copy %> Copy</button>
+          </div>
+          <div class="ma-actions" style="justify-content:center;width:100%">
+            <a class="ma-btn ma-btn--sm ma-btn--ghost" href="<%= reviewPath %>/qr.png?download=1" download><%- icons.download %> Download QR</a>
+            <a class="ma-btn ma-btn--sm ma-btn--ghost" href="<%= reviewPath %>" target="_blank" rel="noopener">Preview</a>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <details class="ma-fold">
+      <summary>Results <span class="ma-fold__hint"><%= stats.views %> visits · <%= totalClicks %> clicks</span></summary>
+      <div class="ma-fold__body">
+        <div class="ma-card ma-card--flush">
+          <div class="ma-kpis">
+            <div class="ma-kpi"><strong><%= stats.views %></strong><span>Page visits</span></div>
+            <div class="ma-kpi"><strong><%= totalClicks %></strong><span>Went to review</span></div>
+            <div class="ma-kpi"><strong><%= feedback.length %></strong><span>Private notes</span></div>
+          </div>
+          <div class="ma-bars">
+            <% [5, 4, 3, 2, 1].forEach(function (s) { const n = stats.stars[s] || 0; %>
+            <div class="ma-bar">
+              <span><%= s %> ★</span>
+              <span class="ma-bar__track"><span class="ma-bar__fill" style="width: <%= totalStars ? Math.round((n / totalStars) * 100) : 0 %>%"></span></span>
+              <span style="text-align:right"><%= n %></span>
+            </div>
+            <% }); %>
+          </div>
+        </div>
+        <% if (feedback.length) { %>
+        <div class="ma-section__head" style="margin-top:14px"><h2 style="font-size:15px">Private feedback</h2></div>
+        <% feedback.forEach(function (f) { %>
+        <div class="ma-card ma-card--flush" style="margin-bottom:8px">
+          <div class="ma-card__row">
+            <div style="min-width:0">
+              <p class="ma-card__title"><%= f.name || 'Customer' %> · <%= '★'.repeat(f.rating || 0) %></p>
+              <p class="ma-card__meta"><% if (f.phone) { %><a href="tel:<%= String(f.phone).replace(/[^0-9+]/g, '') %>" style="color:var(--acc);font-weight:700;text-decoration:none"><%= f.phone %></a> · <% } %><%= f.email ? f.email + ' · ' : '' %><%= f.when %></p>
+            </div>
+          </div>
+          <p class="ma-card__note"><%= f.message %></p>
+        </div>
+        <% }); %>
+        <% } %>
+      </div>
+    </details>
   </main>
   <%- include('_tabbar') %>
-  <% if (typeof askShare !== 'undefined' && askShare && linkCount) { %>
+  <% if (typeof askShare !== 'undefined' && askShare) { %>
   <script>
   document.addEventListener('DOMContentLoaded', function () {
-    var btn = document.getElementById('maAskReview');
-    if (btn) setTimeout(function () { btn.click(); }, 350);
+    var form = document.getElementById('maAskForm');
+    if (form) form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    var name = document.getElementById('rvAskName');
+    var phone = document.getElementById('rvAskPhone');
+    var focusEl = (phone && !phone.disabled && !phone.value) ? phone : name;
+    if (focusEl && !focusEl.disabled) setTimeout(function () { focusEl.focus(); }, 200);
   });
   </script>
   <% } %>

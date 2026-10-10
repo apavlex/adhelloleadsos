@@ -106,6 +106,68 @@ async function ensureGhlContactId(lead, integrationEnv) {
   return contactId;
 }
 
+/**
+ * Find or create a GHL contact for a person who may not be an Agency OS lead
+ * (e.g. member-app customers getting a review request).
+ */
+async function ensureGhlContactForPerson({ name, phone, email, companyName }, integrationEnv) {
+  if (!ghlClient.isConfigured(integrationEnv)) {
+    throw new Error('GHL is not configured. Set API key and location ID in Workspace → Integrations.');
+  }
+  const title = String(name || companyName || 'Customer').trim() || 'Customer';
+  const lead = {
+    key: `ghl-person:${String(phone || email || title).trim()}`,
+    title,
+    phone: String(phone || '').trim(),
+    email: String(email || '').trim(),
+    companyName: String(companyName || '').trim(),
+  };
+  if ((!lead.phone || lead.phone === 'N/A') && !looksLikeEmail(lead.email)) {
+    throw new Error('A phone number or email is required to create a GHL contact.');
+  }
+
+  const found = await ghlClient.searchContactByEmailOrPhone(lead, integrationEnv);
+  if (found && found.id) {
+    try {
+      await ghlClient.updateContact(String(found.id), lead, integrationEnv);
+    } catch (e) {
+      if (e.status !== 404 && !ghlClient.isGhlLocationAccessError(e)) throw e;
+    }
+    return { contactId: String(found.id), lead: { ...lead, ghlContactId: String(found.id) } };
+  }
+
+  try {
+    const created = await ghlClient.createContact(lead, integrationEnv);
+    const contactId = String((created && created.id) || '').trim();
+    if (!contactId) throw new Error('GHL did not return a contact id.');
+    return { contactId, lead: { ...lead, ghlContactId: contactId } };
+  } catch (createErr) {
+    const meta = createErr && createErr.body && createErr.body.meta;
+    const dupId = String((meta && (meta.contactId || meta.contact_id || meta.id)) || '').trim();
+    const looksDup = !!(dupId || /duplicat|already exists/i.test(String(createErr.message || '')));
+    if (!looksDup) throw createErr;
+    if (dupId) {
+      return { contactId: dupId, lead: { ...lead, ghlContactId: dupId } };
+    }
+    const again = await ghlClient.searchContactByEmailOrPhone(lead, integrationEnv);
+    const contactId = String((again && again.id) || '').trim();
+    if (!contactId) throw createErr;
+    return { contactId, lead: { ...lead, ghlContactId: contactId } };
+  }
+}
+
+/** SMS via GHL Conversations for a non-lead recipient (creates/finds the contact). */
+async function sendSmsToPerson({ name, phone, message, companyName, integrationEnv }) {
+  const { lead } = await ensureGhlContactForPerson({ name, phone, email: '', companyName }, integrationEnv);
+  return sendSmsToLead({ lead, message, integrationEnv, toPhone: phone });
+}
+
+/** Email via GHL Conversations for a non-lead recipient (creates/finds the contact). */
+async function sendEmailToPerson({ name, email, subject, body, html, companyName, integrationEnv }) {
+  const { lead } = await ensureGhlContactForPerson({ name, phone: '', email, companyName }, integrationEnv);
+  return sendEmailToLead({ lead, subject, body, html, integrationEnv, toEmail: email });
+}
+
 async function sendSmsToLead({ lead, message, integrationEnv, toPhone }) {
   if ((lead && lead.isDemo) || (integrationEnv && integrationEnv.DEMO_WORKSPACE === '1')) {
     throw new Error('This is a demo workspace, so texts are not actually sent.');
@@ -485,8 +547,11 @@ module.exports = {
   resolveLeadRecipientEmail,
   messagingReady,
   ensureGhlContactId,
+  ensureGhlContactForPerson,
   sendSmsToLead,
+  sendSmsToPerson,
   sendEmailToLead,
+  sendEmailToPerson,
   textToHtml,
   isSmsUpdate,
   buildSmsThreadForLead,
