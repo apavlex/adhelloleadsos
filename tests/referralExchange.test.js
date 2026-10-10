@@ -162,3 +162,24 @@ test('member stats and network totals', () => {
   assert.equal(totals.unrouted, 1);
   assert.equal(totals.wonValue, 1000);
 });
+
+test('partner card counters mirror operator sent/received from network referrals', () => {
+  const refs = [
+    { fromMemberId: 'operator', toMemberId: 'm-plum', status: 'sent', sentAt: '2026-10-10T14:24:00.000Z', createdAt: '2026-10-10T14:24:00.000Z' },
+    { fromMemberId: 'm-plum', toMemberId: 'm-hvac', status: 'accepted', createdAt: '2026-10-09T10:00:00.000Z' },
+    { fromMemberId: 'm-hvac', toMemberId: 'm-plum', status: 'booked', sentAt: '2026-10-08T09:00:00.000Z', createdAt: '2026-10-08T09:00:00.000Z' },
+  ];
+  // Operator view for plumber: sent = to them, received = from them
+  assert.deepEqual(ex.partnerCountersFromReferrals(refs, 'm-plum'), {
+    sent: 2,
+    received: 1,
+    lastSentAt: '2026-10-10T14:24:00.000Z',
+    lastReceivedAt: '2026-10-09T10:00:00.000Z',
+  });
+  assert.deepEqual(ex.partnerCountersFromReferrals(refs, 'nobody'), {
+    sent: 0,
+    received: 0,
+    lastSentAt: '',
+    lastReceivedAt: '',
+  });
+});

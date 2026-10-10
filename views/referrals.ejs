@@ -109,7 +109,7 @@
       <div>
         <p class="text-[11px] font-black uppercase tracking-[0.22em] text-brand-muted mb-2">Referral partners</p>
         <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Partners you trade leads with</h1>
-        <p class="mt-2 max-w-2xl text-sm leading-relaxed text-brand-muted dark:text-slate-400">Track each partner you work with. Log leads you send them and leads they send you, record when you last connected, add notes on the lead, and keep the partner in Go High Level.</p>
+        <p class="mt-2 max-w-2xl text-sm leading-relaxed text-brand-muted dark:text-slate-400">Track each partner you work with. Network members get Sent / Received counts from Network referrals automatically. Add notes, mark when you connected, and keep the partner in Go High Level.</p>
       </div>
       <% if (placeLabel) { %>
       <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-brand-muted"><%= placeLabel %></p>
@@ -205,7 +205,8 @@
       <% rows.forEach(function (partner) {
         const where = [partner.category, [partner.city, partner.state].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
       %>
-      <article class="ref-card<%= focusKey && partner.key === focusKey ? ' is-focus' : '' %>" data-lead-key="<%= partner.key %>" data-ref-network="<%= netMembers.has(partner.key) ? '1' : '' %>" data-ref-partner="<%= partner.highlighted ? '1' : '0' %>" data-ref-status="<%= partner.status %>" data-ref-sent-count="<%= partner.sent %>" data-ref-received-count="<%= partner.received %>">
+      <% const isNetMember = netMembers.has(partner.key); %>
+      <article class="ref-card<%= focusKey && partner.key === focusKey ? ' is-focus' : '' %>" data-lead-key="<%= partner.key %>" data-ref-network="<%= isNetMember ? '1' : '' %>" data-ref-partner="<%= partner.highlighted ? '1' : '0' %>" data-ref-status="<%= partner.status %>" data-ref-sent-count="<%= partner.sent %>" data-ref-received-count="<%= partner.received %>" data-ref-counts-network="<%= (partner.countsFromNetwork || isNetMember) ? '1' : '0' %>">
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
             <button type="button" class="truncate text-left text-base font-semibold hover:underline" data-referral-profile data-lead-key="<%= partner.key %>"><%= partner.title %></button>
@@ -229,7 +230,7 @@
         <% if (!partner.highlighted) { %>
         <div class="mt-3">
           <button type="button" class="ref-btn ref-btn-yellow" data-ref-track="highlight" data-lead-key="<%= partner.key %>" data-default-label="Add as partner">Add as partner</button>
-          <% if (netMembers.has(partner.key)) { %>
+          <% if (isNetMember) { %>
           <p class="mt-3 text-[12px] text-brand-muted">Not a referral partner, but still in your referral network with a seat.</p>
           <button type="button" class="ref-btn ref-btn-ghost mt-2" style="color:#e11d48;border-color:rgba(225,29,72,0.3);" data-ref-track="clear" data-lead-key="<%= partner.key %>" data-default-label="Remove from network">Remove from network</button>
           <% } %>
@@ -247,12 +248,12 @@
             <em data-ref-intro-when><%= partner.introWhen || 'Not yet' %></em>
           </div>
           <div class="ref-metric" data-ref-metric="sent">
-            <span>Sent</span>
+            <span>Sent<%= (partner.countsFromNetwork || isNetMember) ? ' · Network' : '' %></span>
             <strong data-ref-sent><%= partner.sent %></strong>
             <em data-ref-sent-when><%= partner.sentWhen || 'None yet' %></em>
           </div>
           <div class="ref-metric" data-ref-metric="received">
-            <span>Received</span>
+            <span>Received<%= (partner.countsFromNetwork || isNetMember) ? ' · Network' : '' %></span>
             <strong data-ref-received><%= partner.received %></strong>
             <em data-ref-received-when><%= partner.receivedWhen || 'None yet' %></em>
           </div>
@@ -261,10 +262,17 @@
         <p class="ref-latest text-brand-dark dark:text-slate-200" data-ref-note <%= partner.note ? '' : 'hidden' %>><span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Note · </span><span data-ref-note-text><%= partner.note %></span></p>
 
         <div class="ref-primary-row">
+          <% if (isNetMember || partner.countsFromNetwork) { %>
+          <div class="ref-btn-group">
+            <button type="button" class="ref-btn ref-btn-lg ref-btn-yellow" data-open-send-referral title="Send a referral through your network — counts update here automatically">Send referral</button>
+            <a class="ref-btn ref-btn-lg ref-btn-outline" href="/network?tab=referrals">View network</a>
+          </div>
+          <% } else { %>
           <div class="ref-btn-group">
             <button type="button" class="ref-btn ref-btn-lg ref-btn-yellow" data-ref-track="sent" data-lead-key="<%= partner.key %>" data-default-label="Lead sent">Lead sent</button>
             <button type="button" class="ref-btn ref-btn-lg ref-btn-yellow" data-ref-track="received" data-lead-key="<%= partner.key %>" data-default-label="Lead received">Lead received</button>
           </div>
+          <% } %>
           <div class="ref-btn-group">
             <button type="button" class="ref-btn ref-btn-lg ref-btn-outline" data-referral-action="sms" data-lead-key="<%= partner.key %>" data-title="<%= partner.title %>">SMS</button>
             <button type="button" class="ref-btn ref-btn-lg ref-btn-outline" data-referral-action="email" data-lead-key="<%= partner.key %>" data-title="<%= partner.title %>">Email</button>
@@ -272,12 +280,14 @@
           </div>
         </div>
 
+        <% if (!isNetMember && !partner.countsFromNetwork) { %>
         <div class="ref-followup" data-ref-followup hidden>
           <span>Lead logged. Let <strong><%= partner.title %></strong> know:</span>
           <button type="button" class="ref-btn ref-btn-outline" data-ref-followup-send="sms" data-lead-key="<%= partner.key %>">Text them</button>
           <button type="button" class="ref-btn ref-btn-outline" data-ref-followup-send="email" data-lead-key="<%= partner.key %>">Email them</button>
           <button type="button" class="ref-btn ref-btn-quiet" data-ref-followup-close>Not now</button>
         </div>
+        <% } %>
 
         <div class="mt-2.5 flex flex-wrap items-center gap-2">
           <% if (partner.status !== 'connected') { %>
@@ -670,6 +680,10 @@
         var article = button.closest('article');
         var leadKey = button.getAttribute('data-lead-key') || (article && article.getAttribute('data-lead-key'));
         if (!leadKey || button.dataset.busy === '1') return;
+        if ((action === 'sent' || action === 'received') && article && article.getAttribute('data-ref-counts-network') === '1') {
+          say('Sent and received update from Network referrals. Use Send referral.', false);
+          return;
+        }
         button.dataset.busy = '1';
         var when = stampNow();
         if (action === 'sent' && article) {

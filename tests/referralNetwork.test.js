@@ -88,3 +88,21 @@ test('network totals count highlighted partners and tracked referrals', () => {
   assert.equal(totals.intros, 1);
   assert.equal(totals.sent, 1);
 });
+
+test('withNetworkCounts overlays live network tallies on a partner card', () => {
+  const card = referral.presentPartner(leads[1]);
+  assert.equal(card.sent, 1);
+  const next = referral.withNetworkCounts(card, {
+    sent: 3,
+    received: 2,
+    lastSentAt: '2026-10-10T14:24:00.000Z',
+    lastReceivedAt: '2026-10-09T10:00:00.000Z',
+  });
+  assert.equal(next.sent, 3);
+  assert.equal(next.received, 2);
+  assert.equal(next.countsFromNetwork, true);
+  assert.match(next.sentWhen, /Oct 10/);
+  const patched = referral.applyNetworkCountsToLead(leads[1], { sent: 4, received: 0, lastSentAt: '', lastReceivedAt: '' });
+  assert.equal(patched.referralPartner.sent, 4);
+  assert.equal(referral.networkTotals([patched]).sent, 4);
+});
