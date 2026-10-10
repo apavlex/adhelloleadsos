@@ -82,35 +82,46 @@
     font-weight: 600;
   }
   html.dark .sidebar-nav-link.active { color: #f8fafc; background: rgba(255, 255, 255, 0.08); }
+  /* Explicit ink — never inherit (mobile menu sits under bg-brand-dark/40; on-accent can be white). */
   .sidebar-nav-link.sidebar-nav-cta {
     margin: 0.25rem 0;
     border: 1.5px solid rgba(17, 24, 39, 0.38);
     background: transparent;
-    color: inherit;
+    color: #111827 !important;
     font-weight: 700;
     font-size: 0.8125rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
+  .sidebar-nav-link.sidebar-nav-cta .sidebar-nav-icon,
+  .sidebar-nav-link.sidebar-nav-cta svg {
+    color: #111827 !important;
+    stroke: currentColor;
+  }
   html.dark .sidebar-nav-link.sidebar-nav-cta {
     border-color: rgba(255, 255, 255, 0.4);
+    color: #f8fafc !important;
+  }
+  html.dark .sidebar-nav-link.sidebar-nav-cta .sidebar-nav-icon,
+  html.dark .sidebar-nav-link.sidebar-nav-cta svg {
+    color: #f8fafc !important;
   }
   .sidebar-nav-link.sidebar-nav-cta:hover {
     border-color: var(--brand-yellow, #ca8a04);
     background: rgba(255, 214, 68, 0.16);
-    color: inherit;
+    color: #111827 !important;
   }
   html.dark .sidebar-nav-link.sidebar-nav-cta:hover {
-    color: #f8fafc;
+    color: #f8fafc !important;
   }
   .sidebar-nav-link.sidebar-nav-cta.active {
     border-color: var(--brand-yellow, #ca8a04);
     background: rgba(255, 214, 68, 0.16);
-    color: inherit;
+    color: #111827 !important;
     font-weight: 700;
   }
   html.dark .sidebar-nav-link.sidebar-nav-cta.active {
-    color: #f8fafc;
+    color: #f8fafc !important;
   }
   .sidebar-nav-link.sidebar-nav-sub { font-size: 0.8125rem; padding-left: 2rem; }
   @media (max-width: 767px) {
