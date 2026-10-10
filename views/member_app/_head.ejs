@@ -23,3 +23,16 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Manrope:wght@700;800&display=swap">
 <link rel="stylesheet" href="/css/member-app.css?v=<%= _v %>">
 <style>:root { --acc: <%= brand.accent %>; --on: <%= brand.onAccent %>; }</style>
+<% /* Critical layout — ships with HTML (network-first) so a stale SW-cached stylesheet can't blow up settings icons or leave a gap under the tab bar. */ %>
+<style id="ma-critical">
+a.ma-settings-row,button.ma-settings-row{display:flex!important;flex-direction:row!important;align-items:center;gap:10px;width:100%;max-width:100%;min-height:44px;padding:10px 2px;margin:0;border:0;background:transparent;font:inherit;color:inherit;text-align:left;text-decoration:none;-webkit-appearance:none;appearance:none;box-sizing:border-box}
+.ma-settings-row__icon{flex:0 0 28px;width:28px!important;height:28px!important;max-width:28px;max-height:28px;border-radius:8px;display:inline-flex!important;align-items:center;justify-content:center;overflow:hidden}
+.ma-settings-row__icon svg{width:14px!important;height:14px!important;max-width:14px;max-height:14px;display:block}
+.ma-settings-row__text{flex:1 1 auto;min-width:0}
+.ma-settings-row__text strong{font-size:14px;font-weight:700;display:block}
+.ma-settings-row__text span{font-size:12px;font-weight:600;display:block;line-height:1.3}
+.ma-settings-row__chev{flex:0 0 16px;width:16px;height:16px;display:inline-flex!important}
+.ma-settings-row__chev svg{width:16px!important;height:16px!important;display:block}
+.ma-tabbar{position:fixed!important;left:0;right:0;bottom:0!important;width:100%;margin:0;z-index:40;box-sizing:border-box;padding:0;padding-bottom:env(safe-area-inset-bottom,0px);background:var(--card,#fff)}
+.ma-tabbar__inner{height:50px}
+</style>
