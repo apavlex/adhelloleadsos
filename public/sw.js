@@ -1,5 +1,5 @@
 /* AdHello PWA — cache shell assets; network-first for app pages. */
-const CACHE_VERSION = 'adhello-pwa-v1.0.387';
+const CACHE_VERSION = 'adhello-pwa-v1.0.388';
 const SHELL = [
   '/offline.html',
   '/manifest.webmanifest',
@@ -7,6 +7,7 @@ const SHELL = [
   '/images/adhello-app-icon-512.png',
   '/images/adhello-app-icon.png',
   '/css/custom.css',
+  '/css/tailwind.css',
 ];
 
 self.addEventListener('install', (event) => {

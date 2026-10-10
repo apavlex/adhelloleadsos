@@ -1,3 +1,5 @@
+<%# Dialer HTML after main content so mobile paints the page before ~41KB of softphone markup. %>
+<%- include('/partials/softphone_modal') %>
 <%# Softphone + nav chrome — externalized so HTML isn't ~236KB of inline JS every hop. %>
 <script src="/js/navbar-shell.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
 <script src="/js/theme-toggle.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
