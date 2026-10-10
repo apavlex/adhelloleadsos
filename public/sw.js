@@ -1,5 +1,5 @@
 /* AdHello PWA — cache shell assets; network-first for app pages. */
-const CACHE_VERSION = 'adhello-pwa-v1.0.389';
+const CACHE_VERSION = 'adhello-pwa-v1.0.440';
 const SHELL = [
   '/offline.html',
   '/manifest.webmanifest',
@@ -92,19 +92,32 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (isStaticAsset(url)) {
+    // Versioned assets (?v=): network-first so CSS/JS deploys aren't stuck on an old SW cache.
+    // Unversioned: cache-first for offline shell.
+    const versioned = url.searchParams.has('v');
     event.respondWith(
-      caches.match(req).then((cached) => {
-        const fetchPromise = fetch(req)
-          .then((res) => {
-            if (res && res.ok) {
-              const copy = res.clone();
-              caches.open(CACHE_VERSION).then((cache) => cache.put(req, copy));
-            }
-            return res;
-          })
-          .catch(() => cached);
-        return cached || fetchPromise;
-      })
+      (versioned
+        ? fetch(req)
+            .then((res) => {
+              if (res && res.ok) {
+                const copy = res.clone();
+                caches.open(CACHE_VERSION).then((cache) => cache.put(req, copy));
+              }
+              return res;
+            })
+            .catch(() => caches.match(req))
+        : caches.match(req).then((cached) => {
+            const fetchPromise = fetch(req)
+              .then((res) => {
+                if (res && res.ok) {
+                  const copy = res.clone();
+                  caches.open(CACHE_VERSION).then((cache) => cache.put(req, copy));
+                }
+                return res;
+              })
+              .catch(() => cached);
+            return cached || fetchPromise;
+          }))
     );
     return;
   }

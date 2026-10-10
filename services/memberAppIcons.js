@@ -1,6 +1,8 @@
-/** Heroicons (outline, 24px) used by the member app and review page. */
+/** Heroicons (outline, 24px) used by the member app and review page.
+ * Explicit width/height so SVGs never blow up to the browser default (300×150)
+ * when a cached stylesheet hasn't loaded the sizing rules yet. */
 function icon(path) {
-  return `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true">${path}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="24" height="24" stroke-width="1.8" stroke="currentColor" aria-hidden="true">${path}</svg>`;
 }
 
 const ICONS = {
