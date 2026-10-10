@@ -305,6 +305,8 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     assert.match(reviewHtml, /SMS script/);
     assert.match(reviewHtml, /Use AI/);
     assert.match(reviewHtml, /Copy for GHL/);
+    assert.match(reviewHtml, /https:\/\/leads\.adhello\.io\/rv\/camas-flooring/);
+    assert.match(reviewHtml, /AdHello\.io/);
 
     const reviewSend = await fetch(`${base}/m/${token}/review/send`, {
       method: 'POST',

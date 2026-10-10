@@ -89,9 +89,10 @@ test('sendReviewRequest texts the customer through GHL first', async () => {
   assert.equal(result.provider, 'ghl');
   assert.equal(calls.sms.length, 1);
   assert.equal(calls.email.length, 0);
-  assert.match(calls.sms[0].message, /https:\/\/app\.example\/rv\/brightline-electric/);
+  assert.match(calls.sms[0].message, /https:\/\/leads\.adhello\.io\/rv\/brightline-electric/);
   assert.match(calls.sms[0].message, /Brightline Electric/);
-  assert.match(result.message, /rv\/brightline-electric/);
+  assert.match(result.message, /leads\.adhello\.io\/rv\/brightline-electric/);
+  assert.equal(result.reviewUrl, 'https://leads.adhello.io/rv/brightline-electric');
 });
 
 test('sendReviewRequest falls back to GHL email when SMS is not ready', async () => {
@@ -114,7 +115,7 @@ test('sendReviewRequest falls back to GHL email when SMS is not ready', async ()
   assert.equal(result.channel, 'email');
   assert.equal(calls.sms.length, 0);
   assert.equal(calls.email.length, 1);
-  assert.match(calls.email[0].body, /rv\/brightline-electric/);
+  assert.match(calls.email[0].body, /https:\/\/leads\.adhello\.io\/rv\/brightline-electric/);
 });
 
 test('sendReviewRequest requires GHL to be connected', async () => {

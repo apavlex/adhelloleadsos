@@ -870,7 +870,6 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
     store.listFeedback(ctx.network.id, member.id),
     notify.messagingReadyForNetwork(ctx.network),
   ]);
-  const baseUrl = notify.baseUrlFromReq(req);
   const totalStars = Object.values(stats.stars).reduce((a, b) => a + b, 0);
   const q = req.query || {};
   const defaults = {
@@ -882,14 +881,15 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
       ? !!formValues.useAi
       : String(q.useAi || '1') !== '0',
   };
+  const reviewUrl = notify.reviewPageLink(member);
   const smsScript = reviewRequestScript.memberSmsScript(member);
   const ghlWorkflowPrompt = reviewRequestScript.buildGhlReviewWorkflowPrompt({
     companyName: member.companyName,
-    reviewLink: `${baseUrl}/rv/${member.reviewSlug}`,
+    reviewLink: reviewUrl,
     smsScript,
   });
   return render(res, 'review', { ...ctx, member }, {
-    reviewUrl: `${baseUrl}/rv/${member.reviewSlug}`,
+    reviewUrl,
     reviewPath: `/rv/${member.reviewSlug}`,
     stats,
     totalStars,

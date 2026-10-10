@@ -66,7 +66,7 @@ router.get('/rv/:slug/qr.png', async (req, res) => {
   try {
     const page = await loadPage(req.params.slug);
     if (!page) return res.status(404).end();
-    const url = `${notify.baseUrlFromReq(req)}/rv/${page.slug}`;
+    const url = notify.reviewPageLink(page.slug);
     const png = await QRCode.toBuffer(url, { type: 'png', width: 720, margin: 2, errorCorrectionLevel: 'M', color: { dark: '#0f172a', light: '#ffffff' } });
     res.setHeader('Content-Type', 'image/png');
     res.setHeader('Cache-Control', 'public, max-age=86400');

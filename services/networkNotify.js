@@ -15,14 +15,18 @@ const { createReferralLinkToken, createMemberPortalToken } = require('./networkL
 const { UNROUTED_REASONS } = require('./referralExchange');
 const { brandView } = require('./networkBrand');
 const reviewRequestScript = require('./reviewRequestScript');
+const { getReviewPageUrl, getReviewPublicBaseUrl, getPublicBaseUrl } = require('../lib/publicBaseUrl');
 
 function baseUrlFromReq(req) {
-  const env = String(process.env.BASE_URL || '').trim();
-  if (env) return env.replace(/\/+$/, '');
-  if (!req) return '';
-  const proto = req.get('x-forwarded-proto') || req.protocol || 'http';
-  const host = req.get('x-forwarded-host') || req.get('host') || 'localhost';
-  return `${proto}://${host}`.replace(/\/+$/, '');
+  return getPublicBaseUrl(req);
+}
+
+/** Customer-facing review URL branded to AdHello.io (leads.adhello.io/rv/…). */
+function reviewPageLink(memberOrSlug) {
+  const slug = typeof memberOrSlug === 'string'
+    ? memberOrSlug
+    : (memberOrSlug && memberOrSlug.reviewSlug) || '';
+  return getReviewPageUrl(slug);
 }
 
 function referralLink(baseUrl, network, referral, memberId) {
@@ -178,8 +182,9 @@ async function sendReviewRequest({
   if (!member || !member.reviewSlug) {
     return { ok: false, error: 'Add at least one review link first, then try again.' };
   }
-  const link = `${String(baseUrl || '').replace(/\/+$/, '')}/rv/${encodeURIComponent(member.reviewSlug)}`;
-  if (!link || link.endsWith('/rv/')) {
+  // Always brand customer SMS/email links to AdHello.io — ignore request/localhost baseUrl.
+  const link = reviewPageLink(member);
+  if (!link) {
     return { ok: false, error: 'Could not build the review link.' };
   }
   if ((!phone || phone === 'N/A') && (!email || email === 'N/A' || !email.includes('@'))) {
@@ -427,6 +432,8 @@ async function syncPartnerCounter(network, member, action) {
 
 module.exports = {
   baseUrlFromReq,
+  reviewPageLink,
+  getReviewPublicBaseUrl,
   referralLink,
   memberPortalLink,
   notifyReferralRecipient,
