@@ -187,8 +187,10 @@ button[class~="bg-brand-yellow"],
     background-color: #0b1220;
 }
 
-/* Solid brand-dark fills with no explicit text color: white lettering, not dark-on-dark. */
-[class~="bg-brand-dark"]:not([class*="text-"]) {
+/* Solid brand-dark fills with no explicit text color: white lettering, not dark-on-dark.
+   Match only the exact token bg-brand-dark — not opacity variants like bg-brand-dark/40
+   (those are translucent overlays and must not force white descendants). */
+[class~="bg-brand-dark"]:not([class*="text-"]):not([class*="bg-brand-dark/"]) {
     color: #ffffff;
 }
 
