@@ -59,11 +59,12 @@ function otherFormRows(reviewLinks, blanks = 2) {
 }
 
 /** Ordered list of review destinations the member has set up. */
-function reviewDestinations(reviewLinks, slug) {
+function reviewDestinations(reviewLinks, slug, { askId } = {}) {
   const links = reviewLinks && typeof reviewLinks === 'object' ? reviewLinks : {};
+  const askQ = askId ? `?a=${encodeURIComponent(String(askId).trim())}` : '';
   const out = PLATFORMS
     .filter((p) => links[p.key])
-    .map((p) => ({ ...p, url: links[p.key], href: `/rv/${slug}/go/${p.key}` }));
+    .map((p) => ({ ...p, url: links[p.key], href: `/rv/${slug}/go/${p.key}${askQ}` }));
   (Array.isArray(links.other) ? links.other : []).forEach((row, i) => {
     if (!row || !row.url || !row.label) return;
     out.push({
@@ -74,7 +75,7 @@ function reviewDestinations(reviewLinks, slug) {
       icon: '',
       tile: tileFor('other'),
       url: row.url,
-      href: `/rv/${slug}/go/other/${i}`,
+      href: `/rv/${slug}/go/other/${i}${askQ}`,
     });
   });
   return out;

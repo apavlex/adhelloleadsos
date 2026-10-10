@@ -16,6 +16,7 @@ const { UNROUTED_REASONS, canClaimPoolReferral } = require('./referralExchange')
 const store = require('./networkStore');
 const { brandView } = require('./networkBrand');
 const reviewRequestScript = require('./reviewRequestScript');
+const reviewAsk = require('./reviewAsk');
 const { getReviewPageUrl, getReviewPublicBaseUrl, getPublicBaseUrl } = require('../lib/publicBaseUrl');
 
 function baseUrlFromReq(req) {
@@ -173,6 +174,7 @@ async function sendReviewRequest({
   toPhone,
   toEmail,
   customerName,
+  customerId,
   channel,
   useAi = true,
   scriptOverride,
@@ -183,12 +185,6 @@ async function sendReviewRequest({
   const name = String(customerName || 'there').trim() || 'there';
   if (!member || !member.reviewSlug) {
     return { ok: false, error: 'Add at least one review link first, then try again.' };
-  }
-  // Always brand customer SMS/email links to AdHello.io — ignore request/localhost baseUrl.
-  const shareImageId = String(imageId || '').trim();
-  const link = reviewPageLink(member, shareImageId ? { imageId: shareImageId } : undefined);
-  if (!link) {
-    return { ok: false, error: 'Could not build the review link.' };
   }
   if ((!phone || phone === 'N/A') && (!email || email === 'N/A' || !email.includes('@'))) {
     return { ok: false, error: 'Enter a mobile number or email for the customer.' };
@@ -206,14 +202,33 @@ async function sendReviewRequest({
   const prefer = String(channel || 'auto').trim().toLowerCase();
   const company = member.companyName || brandView(network).appName;
   const wantAi = useAi !== false && String(useAi).toLowerCase() !== '0' && String(useAi).toLowerCase() !== 'false';
+  const shareImageId = String(imageId || '').trim();
+
+  // Prefer SMS when both are available so the 48h click reminder can run.
+  const trySms = prefer !== 'email' && phone && phone !== 'N/A';
+  const tryEmail = prefer !== 'sms' && email && email !== 'N/A' && email.includes('@');
+  const plannedChannel = trySms ? 'sms' : 'email';
+
+  const ask = await reviewAsk.createAsk({
+    networkId: network.id,
+    memberId: member.id,
+    customerId: customerId || '',
+    name,
+    phone,
+    email,
+    channel: plannedChannel,
+    reviewSlug: member.reviewSlug,
+    imageId: shareImageId,
+  });
+  const link = ask.reviewUrl;
+  if (!link) {
+    return { ok: false, error: 'Could not build the review link.' };
+  }
 
   let smsBody = '';
   let subject = '';
   let emailBody = '';
   let copyProvider = 'script';
-
-  const trySms = prefer !== 'email' && phone && phone !== 'N/A';
-  const tryEmail = prefer !== 'sms' && email && email !== 'N/A' && email.includes('@');
 
   if (trySms) {
     const built = await reviewRequestScript.buildReviewSms({
@@ -264,6 +279,7 @@ async function sendReviewRequest({
           imageId: shareImageId || '',
           copyProvider,
           message: smsBody,
+          askId: ask.id,
         };
       } catch (err) {
         error = err.message || 'SMS failed.';
@@ -293,7 +309,9 @@ async function sendReviewRequest({
           copyProvider,
           message: emailBody,
           subject,
+          askId: ask.id,
         };
+        await reviewAsk.saveAsk({ ...ask, channel: 'email' });
       } catch (err) {
         error = error || err.message || 'Email failed.';
       }
@@ -320,6 +338,7 @@ async function sendReviewRequest({
           customerName: name,
           customerPhone: phone || undefined,
           customerEmail: email || undefined,
+          askId: ask.id,
         }),
       }, network.ownerWorkspaceId);
     }
