@@ -76,7 +76,7 @@ function readJsonReply(r) {
     });
   }
 
-  // Get the app → native share sheet (Add to Home Screen) when available; else /get-app.
+  // Get the app / Share → native share sheet (Add to Home Screen) when available.
   document.addEventListener('click', function (e) {
     var btn = e.target.closest('[data-get-app-share]');
     if (!btn) return;
@@ -87,7 +87,12 @@ function readJsonReply(r) {
     var title = btn.getAttribute('data-get-app-share-title')
       || (document.querySelector('.sidebar-ws-text .truncate') || {}).textContent
       || 'AdHello';
-    var shareUrl = window.location.origin + '/today';
+    var shareUrl = btn.getAttribute('data-get-app-share-url') || '';
+    if (!shareUrl) {
+      var href = btn.getAttribute('href') || '';
+      shareUrl = href && href.charAt(0) === '/' ? (window.location.origin + href) : href;
+    }
+    if (!shareUrl) shareUrl = window.location.origin + '/today';
     navigator.share({
       title: String(title).trim() || 'AdHello',
       text: 'Add to your Home Screen',
