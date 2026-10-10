@@ -335,6 +335,8 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     assert.match(settingsHtml, /Your review links/);
     assert.match(settingsHtml, /Thumbtack profile/);
     assert.match(settingsHtml, /Default preview image/);
+    assert.match(settingsHtml, /Request page logo/);
+    assert.match(settingsHtml, /review\/logo/);
     assert.match(settingsHtml, /\/rv\/camas-flooring\/og\.jpg/);
     assert.match(settingsHtml, /name="next" value="settings"/);
 
@@ -344,6 +346,42 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     assert.match(ogHtml, /property="og:image"/);
     assert.match(ogHtml, /\/rv\/camas-flooring\/og\.jpg/);
     assert.match(ogHtml, /og:site_name" content="AdHello\.io"/);
+    assert.match(ogHtml, /rv-initials/);
+    assert.ok(!/\/rv\/camas-flooring\/logo\.png/.test(ogHtml));
+
+    // Tiny 1×1 PNG for logo upload
+    const tinyPng = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      'base64',
+    );
+    const logoBoundary = '----maLogoBoundary7MA4YWxk';
+    const logoBody = Buffer.concat([
+      Buffer.from(
+        `--${logoBoundary}\r\n`
+        + 'Content-Disposition: form-data; name="logo"; filename="logo.png"\r\n'
+        + 'Content-Type: image/png\r\n\r\n',
+      ),
+      tinyPng,
+      Buffer.from(`\r\n--${logoBoundary}--\r\n`),
+    ]);
+    const logoUpload = await fetch(`${base}/m/${token}/review/logo`, {
+      method: 'POST',
+      redirect: 'manual',
+      headers: { 'Content-Type': `multipart/form-data; boundary=${logoBoundary}` },
+      body: logoBody,
+    });
+    assert.equal(logoUpload.status, 303);
+    assert.match(logoUpload.headers.get('location') || '', /review\/settings\?ok=logo_saved/);
+    const withLogo = await store.getMember(network.id, sender.id);
+    assert.ok(withLogo.reviewLogoUpdatedAt);
+
+    const logoImg = await fetch(`${base}/rv/camas-flooring/logo.png`);
+    assert.equal(logoImg.status, 200);
+    assert.match(logoImg.headers.get('content-type') || '', /image\/png/);
+
+    const brandedPage = await (await fetch(`${base}/rv/camas-flooring`)).text();
+    assert.match(brandedPage, /\/rv\/camas-flooring\/logo\.png/);
+    assert.ok(!/rv-initials/.test(brandedPage));
 
     const ogImg = await fetch(`${base}/rv/camas-flooring/og.jpg`);
     assert.equal(ogImg.status, 200);

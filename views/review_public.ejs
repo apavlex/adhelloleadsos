@@ -6,8 +6,8 @@
 </head>
 <body>
   <main class="rv-wrap">
-    <% if (brand.logoUrl) { %>
-    <img class="rv-logo" src="<%= brand.logoUrl %>" alt="">
+    <% if (typeof logoUrl !== 'undefined' && logoUrl) { %>
+    <img class="rv-logo" src="<%= logoUrl %>" alt="<%= member.companyName %>">
     <% } else { %>
     <div class="rv-initials" aria-hidden="true"><%= member.companyName.trim().charAt(0).toUpperCase() %></div>
     <% } %>

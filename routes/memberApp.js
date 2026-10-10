@@ -70,6 +70,8 @@ const OK_MESSAGES = {
   script_saved: 'Review SMS script saved. AI will use it when you send via GHL.',
   share_image_saved: 'Link preview image saved. Messages will show this photo.',
   share_image_cleared: 'Custom preview image removed. The AdHello default will be used.',
+  logo_saved: 'Review page logo saved. Customers will see it on your request page.',
+  logo_cleared: 'Custom logo removed. Your review page will use the network logo or initials.',
   hero_saved: 'Home banner image updated.',
   hero_cleared: 'Home banner image removed.',
   review_sms: 'Review request sent by text via Go High Level.',
@@ -948,6 +950,7 @@ async function ensureReviewSetup(ctx) {
 function reviewPageLocals(member, extras) {
   const reviewUrl = notify.reviewPageLink(member);
   const shareImagePath = reviewShareImage.shareImagePath(member.reviewSlug, 'default');
+  const hasCustomLogo = reviewShareImage.hasCustomLogo(member);
   return {
     reviewUrl,
     reviewPath: `/rv/${member.reviewSlug}`,
@@ -957,6 +960,10 @@ function reviewPageLocals(member, extras) {
     shareImagePath: `${shareImagePath}?v=${encodeURIComponent(member.reviewShareImageUpdatedAt || 'default')}`,
     shareImageUrl: reviewShareImage.shareImageAbsoluteUrl(member.reviewSlug, 'default'),
     hasCustomShareImage: !!member.reviewShareImageUpdatedAt,
+    hasCustomLogo,
+    reviewLogoPath: hasCustomLogo
+      ? reviewShareImage.reviewLogoPath(member.reviewSlug, member.reviewLogoUpdatedAt)
+      : '',
     ...(extras || {}),
   };
 }
@@ -1074,6 +1081,37 @@ router.post('/m/:token/review/share-image', (req, res, next) => {
     return toSettings
       ? renderReviewSettings(req, res, { ...ctx, member }, errFlash, 400)
       : renderReview(req, res, { ...ctx, member }, errFlash, 400);
+  }
+}));
+
+/** Save or clear the logo shown on the public review request page (/rv/:slug). */
+router.post('/m/:token/review/logo', (req, res, next) => {
+  const ct = String(req.headers['content-type'] || '');
+  if (ct.includes('multipart/form-data')) return withReviewUpload('logo')(req, res, next);
+  return form(req, res, next);
+}, withMember(async (req, res, ctx) => {
+  const member = await ensureReviewSetup(ctx);
+  const body = req.body || {};
+  const settingsPath = `${ctx.base}/review/settings`;
+  if (body.remove === '1' || body.remove === 'on') {
+    await reviewShareImage.deleteReviewLogo(ctx.network.id, member.id);
+    await store.saveMember(ctx.network.id, { ...member, reviewLogoUpdatedAt: '' });
+    return res.redirect(303, `${settingsPath}?ok=logo_cleared`);
+  }
+  if (!req.file || !req.file.buffer) {
+    return renderReviewSettings(req, res, { ...ctx, member }, {
+      error: 'Choose a logo image for your review request page.',
+    }, 400);
+  }
+  try {
+    const prepared = await reviewShareImage.prepareReviewLogo(req.file.buffer);
+    const stamp = await reviewShareImage.saveReviewLogo(ctx.network.id, member.id, prepared);
+    await store.saveMember(ctx.network.id, { ...member, reviewLogoUpdatedAt: stamp });
+    return res.redirect(303, `${settingsPath}?ok=logo_saved`);
+  } catch (err) {
+    return renderReviewSettings(req, res, { ...ctx, member }, {
+      error: err.message || 'Could not save that logo.',
+    }, 400);
   }
 }));
 
