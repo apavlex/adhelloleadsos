@@ -10,9 +10,6 @@ const router = express.Router();
 
 router.get('/', async (req, res, next) => {
   try {
-    if (req.canManageWorkspace === false) {
-      return res.redirect(302, '/today');
-    }
     const ws = req.workspace || {};
     const brand = whiteLabel.brandForWorkspace(ws);
     const openUrl = `${getPublicBaseUrl(req)}/today`;
@@ -30,9 +27,6 @@ router.get('/', async (req, res, next) => {
 
 router.get('/qr.png', async (req, res) => {
   try {
-    if (req.canManageWorkspace === false) {
-      return res.status(403).end();
-    }
     const png = await QRCode.toBuffer(`${getPublicBaseUrl(req)}/today`, {
       type: 'png',
       width: 480,
