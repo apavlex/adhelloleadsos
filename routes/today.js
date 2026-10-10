@@ -28,6 +28,7 @@ const actionPlanTracker = require('../services/actionPlanTracker');
 const { buildOpportunityBoard, selectPipeline } = require('../services/opportunityBoards');
 const { buildBookmarkSessions, buildRecentlyWorked } = require('../services/todayResumeQueue');
 const { leadLogsMentionReply } = require('../services/leadActivityWindow');
+const agentOps = require('../services/agentOps');
 function firstNameFromUser(user) {
   const raw =
     (user && user.displayName) ||
@@ -253,6 +254,12 @@ router.get('/', async (req, res, next) => {
       year: navYear,
       active: navYear === actionPlan.year && i + 1 === actionPlan.month,
     }));
+    let agentOpsDash = null;
+    try {
+      agentOpsDash = agentOps.dashboardForWorkspace(wid);
+    } catch (_) {
+      agentOpsDash = null;
+    }
     res.render('today', {
       title: 'Today | Agency OS',
       activePage: 'today',
@@ -297,6 +304,7 @@ router.get('/', async (req, res, next) => {
       reportsOpened24h,
       actionPlan,
       actionPlanMonthNav,
+      agentOpsDash,
     });
   } catch (e) {
     next(e);
