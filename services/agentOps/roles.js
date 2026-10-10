@@ -8,7 +8,7 @@ const ROLES = [
     id: 'prospect',
     name: 'Prospect',
     title: 'Prospect SDR',
-    blurb: 'Preps early-stage prospects for your call queue and next touch.',
+    blurb: 'Preps early-stage home-service prospects in Portland–Vancouver for your call queue.',
     color: '#2563eb',
     defaultJob: 'prospect.prepare',
     jobs: ['prospect.prepare', 'sdr.prepare_focus'],
