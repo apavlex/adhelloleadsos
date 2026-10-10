@@ -531,6 +531,21 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
 .ma-btn--danger { background: transparent; color: #e11d48; border: 1px solid rgba(225, 29, 72, 0.3); }
 .ma-btn--sm { min-height: 38px; padding: 8px 14px; font-size: 13px; }
 .ma-btn svg { width: 18px; height: 18px; }
+.ma-btn[disabled], .ma-btn[aria-busy='true'] {
+  opacity: 0.72;
+  cursor: wait;
+  pointer-events: none;
+}
+.ma-btn[aria-busy='true']::after {
+  content: "";
+  width: 14px; height: 14px; margin-left: 2px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 999px;
+  animation: ma-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes ma-spin { to { transform: rotate(360deg); } }
 .ma-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .ma-actions form { margin: 0; }
 .ma-inline { display: flex; gap: 8px; align-items: center; }

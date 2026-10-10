@@ -57,7 +57,7 @@ describe('member app install modal and tab bar', () => {
 
   it('service worker network-firsts versioned CSS so deploys are not stuck', () => {
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.441/);
+    assert.match(sw, /adhello-pwa-v1\.0\.445/);
     assert.match(sw, /searchParams\.has\('v'\)/);
     assert.match(sw, /versioned/);
   });
@@ -71,5 +71,16 @@ describe('member app install modal and tab bar', () => {
     assert.match(js, /showPanel\('workspace'\)/);
     // Must not skip the modal solely because display-mode is standalone.
     assert.doesNotMatch(js, /isIOS && !standalone && !dismissed/);
+  });
+
+  it('multipart forms show a Saving loading state on submit', () => {
+    const js = fs.readFileSync(path.join(root, 'public/js/member-app.js'), 'utf8');
+    assert.match(js, /data-ma-loading/);
+    assert.match(js, /multipart\/form-data/);
+    assert.match(js, /aria-busy/);
+    const profile = fs.readFileSync(path.join(root, 'views/member_app/profile.ejs'), 'utf8');
+    assert.match(profile, /data-ma-loading="Saving photo/);
+    const css = fs.readFileSync(path.join(root, 'public/css/member-app.css'), 'utf8');
+    assert.match(css, /\.ma-btn\[aria-busy='true'\]/);
   });
 });

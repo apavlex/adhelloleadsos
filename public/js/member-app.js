@@ -112,8 +112,32 @@
   }
 
   document.addEventListener('submit', function (event) {
-    var form = event.target.closest('[data-ma-confirm]');
-    if (form && !window.confirm(form.getAttribute('data-ma-confirm'))) event.preventDefault();
+    var form = event.target;
+    if (!(form instanceof HTMLFormElement)) return;
+
+    if (form.hasAttribute('data-ma-confirm') && !window.confirm(form.getAttribute('data-ma-confirm'))) {
+      event.preventDefault();
+      return;
+    }
+
+    // Multipart uploads (profile photo, logos, etc.) can take a few seconds — show Saving…
+    var wantsLoading =
+      form.hasAttribute('data-ma-loading') ||
+      String(form.getAttribute('enctype') || '').toLowerCase() === 'multipart/form-data';
+    if (!wantsLoading) return;
+    if (form.getAttribute('data-ma-busy') === '1') {
+      event.preventDefault();
+      return;
+    }
+    form.setAttribute('data-ma-busy', '1');
+    var btn = form.querySelector('button[type="submit"], input[type="submit"]');
+    if (!btn) return;
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    if (btn.tagName === 'BUTTON') {
+      if (!btn.getAttribute('data-ma-label')) btn.setAttribute('data-ma-label', btn.textContent || '');
+      btn.textContent = form.getAttribute('data-ma-loading') || 'Saving…';
+    }
   });
 
   document.addEventListener('click', function (event) {
