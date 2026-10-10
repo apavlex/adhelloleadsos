@@ -50,7 +50,10 @@ function reply(req, res, { ok, tab, notice, data, status }) {
 }
 
 function canManage(req) {
-  return req.canManageWorkspace !== false;
+  if (req.canManageWorkspace === true) return true;
+  if (req.canManageWorkspace === false) return false;
+  // Middleware unset: allow (legacy) unless we can prove the role is not a manager.
+  return req.workspaceRole !== 'sdr' && req.workspaceRole !== 'viewer';
 }
 
 async function loadNetwork(req) {

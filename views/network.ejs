@@ -161,7 +161,7 @@
       </div>
     </div>
 
-    <nav class="net-tabs" aria-label="Network sections">
+    <nav class="net-tabs" id="netTabs" aria-label="Network sections">
       <% tabs.forEach(function (t) { %>
       <a href="/network?tab=<%= t.id %>" class="net-tab <%= tab === t.id ? 'is-on' : '' %>" <%= tab === t.id ? 'aria-current=page' : '' %>><%= t.label %></a>
       <% }); %>
@@ -170,6 +170,16 @@
         Send referral
       </a>
     </nav>
+    <script>
+      (function () {
+        var nav = document.getElementById('netTabs');
+        var on = nav && nav.querySelector('.is-on');
+        if (on && typeof on.scrollIntoView === 'function') {
+          try { on.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'instant' }); }
+          catch (_) { on.scrollIntoView(false); }
+        }
+      })();
+    </script>
 
     <% if (notice) { %>
     <p id="networkStatus" class="mb-4 rounded-xl px-3 py-2 text-sm font-medium <%= noticeBad ? 'bg-amber-50 text-amber-950 dark:bg-amber-950/50 dark:text-amber-100' : 'bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100' %>" role="status"><%= notice %></p>
@@ -179,9 +189,21 @@
 
     <% if (tab === 'seats') { %>
       <% if (!zones.length) { %>
-      <div class="net-card text-center py-10">
-        <p class="text-sm text-brand-muted max-w-md mx-auto">Add your first zone (the cities and ZIP codes it covers) to see one seat per trade.</p>
-        <a href="/network?tab=setup" class="net-btn net-btn-yellow mt-4">Add a zone</a>
+      <div class="net-card space-y-3 max-w-xl mx-auto">
+        <div class="text-center">
+          <h2 class="font-display font-bold text-lg">Add your first zone</h2>
+          <p class="text-sm text-brand-muted mt-1">A zone is a service area (cities and ZIP codes). Each trade gets one seat per zone.</p>
+        </div>
+        <% if (canManage) { %>
+        <form method="post" action="/network/zones" class="space-y-2 text-left">
+          <input name="name" placeholder="Zone name, e.g. Austin North" class="net-input" required autofocus />
+          <textarea name="cities" rows="3" class="net-input" placeholder="One city per line, e.g. Austin, TX"></textarea>
+          <textarea name="zips" rows="2" class="net-input" placeholder="ZIP codes, separated by spaces or commas"></textarea>
+          <button type="submit" class="net-btn net-btn-yellow w-full sm:w-auto">Add zone</button>
+        </form>
+        <% } else { %>
+        <p class="text-sm text-center text-brand-muted">Ask a workspace owner or admin to add the first zone.</p>
+        <% } %>
       </div>
       <% } else { %>
       <% if (canManage) { %>
@@ -658,6 +680,21 @@
 
     <% if (tab === 'setup') { %>
       <div class="space-y-4 max-w-3xl">
+        <% if (canManage && !zones.length) { %>
+        <section class="net-card space-y-3" id="net-add-zone">
+          <div>
+            <h2 class="font-display font-bold text-lg">Add your first zone</h2>
+            <p class="text-[12px] text-brand-muted">A zone is a service area. Each trade has one seat per zone. Referrals match a zone by ZIP first, then city.</p>
+          </div>
+          <form method="post" action="/network/zones" class="space-y-2">
+            <input name="name" placeholder="Zone name, e.g. Austin North" class="net-input" required autofocus />
+            <textarea name="cities" rows="3" class="net-input" placeholder="One city per line, e.g. Austin, TX"></textarea>
+            <textarea name="zips" rows="2" class="net-input" placeholder="ZIP codes, separated by spaces or commas"></textarea>
+            <button type="submit" class="net-btn net-btn-yellow">Add zone</button>
+          </form>
+        </section>
+        <% } %>
+
         <% if (canManage) { %>
         <form method="post" action="/network/setup" class="net-card space-y-3">
           <h2 class="font-display font-bold text-lg">Network</h2>
@@ -729,9 +766,12 @@
         </section>
         <% } %>
 
-        <section class="net-card space-y-3">
+        <section class="net-card space-y-3" id="net-zones">
           <h2 class="font-display font-bold text-lg">Zones</h2>
           <p class="text-[12px] text-brand-muted -mt-2">A zone is a service area. Each trade has one seat per zone. Referrals match a zone by ZIP first, then city.</p>
+          <% if (!zones.length && !canManage) { %>
+          <p class="text-sm text-brand-muted rounded-xl border border-dashed border-brand-border dark:border-white/15 p-3">No zones yet. Ask a workspace owner or admin to add one.</p>
+          <% } %>
           <% zones.forEach(function (z) { %>
           <details class="net-more rounded-xl border border-brand-border dark:border-white/10 p-3" <%= editZoneId === z.id ? 'open' : '' %>>
             <summary class="flex items-center justify-between gap-2">
@@ -754,7 +794,7 @@
             <% } %>
           </details>
           <% }); %>
-          <% if (canManage) { %>
+          <% if (canManage && zones.length) { %>
           <form method="post" action="/network/zones" class="rounded-xl border border-dashed border-brand-border dark:border-white/15 p-3 space-y-2">
             <p class="font-semibold text-sm">Add a zone</p>
             <input name="name" placeholder="Zone name, e.g. Austin North" class="net-input" required />
@@ -762,6 +802,8 @@
             <textarea name="zips" rows="2" class="net-input" placeholder="ZIP codes, separated by spaces or commas"></textarea>
             <button type="submit" class="net-btn net-btn-yellow">Add zone</button>
           </form>
+          <% } else if (canManage && !zones.length) { %>
+          <p class="text-[12px] text-brand-muted">Use the form at the top of this page to add your first zone.</p>
           <% } %>
         </section>
       </div>
