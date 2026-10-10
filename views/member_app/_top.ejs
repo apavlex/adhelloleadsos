@@ -8,6 +8,9 @@
     <% } %>
   </div>
   <div class="ma-top__actions">
+    <% if (typeof topSettings !== 'undefined' && topSettings && topSettings.href) { %>
+    <a class="ma-iconbtn <%= topSettings.on ? 'is-on' : '' %>" href="<%= topSettings.href %>" aria-label="<%= topSettings.label || 'Settings' %>" title="<%= topSettings.label || 'Settings' %>" <%= topSettings.on ? 'aria-current=page' : '' %>><%- icons.settings %></a>
+    <% } %>
     <a class="ma-iconbtn <%= active === 'enroll' ? 'is-on' : '' %>" href="<%= base %>/enroll" aria-label="Invite a business to <%= brand.appName %>" title="Invite a business" <%= active === 'enroll' ? 'aria-current=page' : '' %>><%- icons.enroll %></a>
     <span class="ma-avatar" title="<%= member.companyName %>" aria-label="<%= member.companyName %>"><%= (greetingName || member.companyName || '?').trim().charAt(0).toUpperCase() %></span>
   </div>

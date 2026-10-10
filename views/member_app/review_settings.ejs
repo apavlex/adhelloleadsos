@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('_head', { pageTitle: 'Review settings' }) %>
+</head>
+<body>
+  <main class="ma-shell">
+    <%- include('_top', {
+      topBack: { href: base + '/review', label: 'Review' },
+      topSettings: { href: base + '/review/settings', label: 'Review settings', on: true }
+    }) %>
+    <h1 class="ma-page-title">Review settings</h1>
+    <p class="ma-page-sub">Your public review links and the photo shown when the link is shared.</p>
+
+    <%- include('_flash') %>
+
+    <% const _needLinks = !linkCount; %>
+
+    <section class="ma-card" id="maReviewLinks">
+      <h2 style="font-size:16px;margin:0 0 6px">Your review links</h2>
+      <form method="post" action="<%= base %>/review" autocomplete="off">
+        <input type="hidden" name="next" value="settings">
+        <p class="ma-hint" style="margin-top:0">Fill in the sites you're on. Leave the rest blank.</p>
+        <% if (_needLinks) { %>
+        <p class="ma-flash ma-flash--err">Add at least one link so customers can leave a review after scanning your QR.</p>
+        <% } %>
+        <% platforms.forEach(function (p) { %>
+        <div class="ma-field">
+          <label class="ma-label rv-field-label" for="rv-<%= p.key %>"><span class="rv-field-badge" style="background: <%= p.color %>" aria-hidden="true"><%= p.letter %></span><%= p.field %></label>
+          <input id="rv-<%= p.key %>" name="<%= p.key %>" type="url" inputmode="url" class="ma-input" value="<%= member.reviewLinks[p.key] || '' %>" placeholder="<%= p.placeholder %>">
+          <% if (p.hint) { %><p class="ma-hint"><%= p.hint %></p><% } %>
+        </div>
+        <% }); %>
+        <div class="ma-section__head" style="margin-top:8px"><h2 style="font-size:15px">Other review sites</h2></div>
+        <% otherRows.forEach(function (o, i) { %>
+        <div class="ma-grid2">
+          <div class="ma-field">
+            <label class="ma-label" for="rvOtherLabel<%= i %>">Site name</label>
+            <input id="rvOtherLabel<%= i %>" name="otherLabel" class="ma-input" value="<%= o.label %>" placeholder="e.g. HomeAdvisor" maxlength="40">
+          </div>
+          <div class="ma-field">
+            <label class="ma-label" for="rvOtherUrl<%= i %>">Link</label>
+            <input id="rvOtherUrl<%= i %>" name="otherUrl" type="url" inputmode="url" class="ma-input" value="<%= o.url %>" placeholder="https://">
+          </div>
+        </div>
+        <% }); %>
+        <button type="submit" class="ma-btn ma-btn--block">Save links</button>
+      </form>
+    </section>
+
+    <section class="ma-card" id="maPreviewImage">
+      <h2 style="font-size:16px;margin:0 0 6px">Default preview image</h2>
+      <p class="ma-hint" style="margin-top:0">Shown when your review link is shared in Messages. <span class="ma-fold__hint" style="display:inline;margin:0"><%= typeof hasCustomShareImage !== 'undefined' && hasCustomShareImage ? 'custom' : 'AdHello default' %></span></p>
+      <img class="ma-share-preview" src="<%= typeof shareImagePath !== 'undefined' ? shareImagePath : (reviewPath + '/og.jpg') %>" alt="Link preview" width="600" height="315" style="width:100%;max-width:100%;height:auto;border-radius:14px;display:block;background:#0f172a">
+      <form method="post" action="<%= base %>/review/share-image" enctype="multipart/form-data" autocomplete="off" style="margin-top:12px">
+        <input type="hidden" name="next" value="settings">
+        <div class="ma-field">
+          <label class="ma-label" for="rvDefaultShareImage">Upload default photo</label>
+          <input id="rvDefaultShareImage" name="shareImage" type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="ma-input" required>
+        </div>
+        <button type="submit" class="ma-btn ma-btn--soft ma-btn--block">Save as default preview</button>
+      </form>
+      <% if (typeof hasCustomShareImage !== 'undefined' && hasCustomShareImage) { %>
+      <form method="post" action="<%= base %>/review/share-image" style="margin-top:8px" data-ma-confirm="Remove your custom preview image and use the AdHello default?">
+        <input type="hidden" name="next" value="settings">
+        <input type="hidden" name="remove" value="1">
+        <button type="submit" class="ma-btn ma-btn--ghost ma-btn--block">Use AdHello default instead</button>
+      </form>
+      <% } %>
+    </section>
+  </main>
+  <%- include('_tabbar') %>
+</body>
+</html>

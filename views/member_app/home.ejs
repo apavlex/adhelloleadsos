@@ -32,6 +32,14 @@
 
     <section class="ma-hero<%= _appt ? ' ma-hero--dash' : '' %>" aria-label="<%= brand.appName %>">
       <% if (brand.heroUrl) { %><img class="ma-hero__img" src="<%= brand.heroUrl %>" alt=""><% } %>
+      <% if (!(typeof preview !== 'undefined' && preview)) { %>
+      <form class="ma-hero__upload" method="post" action="<%= base %>/brand/hero" enctype="multipart/form-data" autocomplete="off">
+        <label class="ma-hero__upload-btn" title="Upload banner image" aria-label="Upload banner image">
+          <input type="file" name="hero" accept="image/jpeg,image/png,image/webp,image/gif" required onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()">
+          <%- icons.camera %>
+        </label>
+      </form>
+      <% } %>
       <div class="ma-hero__card">
         <div class="ma-hero__row">
           <span class="ma-hero__badge"><% if (brand.logoUrl) { %><img src="<%= brand.logoUrl %>" alt=""><% } else { %><%- icons.building %><% } %></span>
