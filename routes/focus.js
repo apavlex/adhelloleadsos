@@ -421,6 +421,7 @@ router.get('/', async (req, res, next) => {
         today: 'Today',
         activity: 'Activity',
         referrals: 'Referral partners',
+        appointments: 'Appointments',
         sequences: 'Sequences',
         omnichannel: 'Inbox',
         engagement: 'Inbox',
