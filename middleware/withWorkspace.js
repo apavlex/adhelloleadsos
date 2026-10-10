@@ -54,8 +54,12 @@ async function withWorkspace(req, res, next) {
       let ws = (await dbService.getWorkspace(wid)) || { id: wid, name: 'Default', slug: 'default' };
       req.workspace = ws;
       req.workspaceId = ws.id;
+      req.workspaceRole = 'owner';
+      req.canManageWorkspace = true;
       res.locals.workspace = ws;
       res.locals.workspaceId = ws.id;
+      res.locals.workspaceRole = 'owner';
+      res.locals.canManageWorkspace = true;
       res.locals.workspaceAccent = ws.accentColor || '#CA8A04';
       res.locals.workspaceAccentText = resolveAccentTextColor(ws.accentColor, ws.accentTextColor);
       res.locals.whiteLabel = whiteLabel.brandForWorkspace(ws);
