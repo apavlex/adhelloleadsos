@@ -26,6 +26,7 @@ const PAGES = [
   { id: 'scripts', label: 'Scripts', group: 'Sales', paths: ['/scripts', '/sales/personas'] },
   { id: 'network', label: 'Network', group: 'Referrals', paths: ['/network'] },
   { id: 'referrals', label: 'Referral Partners', group: 'Referrals', paths: ['/referrals'] },
+  { id: 'appointments', label: 'Appointments', group: 'Referrals', paths: ['/appointments'] },
   { id: 'direct-mail', label: 'Marketing Studio', group: 'Marketing', paths: ['/direct-mail'] },
   { id: 'social-posts', label: 'Social Posts', group: 'Marketing', paths: ['/social-posts'] },
   { id: 'fb-groups', label: 'FB Groups', group: 'Marketing', paths: ['/fb-groups'] },

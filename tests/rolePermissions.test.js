@@ -20,6 +20,8 @@ describe('rolePermissions', () => {
     assert.equal(rolePermissions.pageForPath('/leads/find'), 'leads');
     assert.equal(rolePermissions.pageForPath('/workspace/team'), 'settings');
     assert.equal(rolePermissions.pageForPath('/sales/personas/offers'), 'scripts');
+    assert.equal(rolePermissions.pageForPath('/appointments'), 'appointments');
+    assert.equal(rolePermissions.pageForPath('/appointments/appointment-packages/calendars'), 'appointments');
     assert.equal(rolePermissions.pageForPath('/todayish'), '');
     assert.ok(rolePermissions.isAlwaysOpen('/workspace/invite/abc'));
   });

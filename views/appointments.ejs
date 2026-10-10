@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head', { tailwindInPage: true }) %>
+  <%- include('partials/tailwind_css') %>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark dark:text-white overflow-x-hidden">
+  <%- include('partials/navbar') %>
+  <%
+    const placeLabel = (typeof workspace !== 'undefined' && workspace && workspace.name)
+      ? String(workspace.name).trim()
+      : '';
+  %>
+  <main class="max-wide px-6 py-8 md:py-12">
+    <header class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <p class="text-[11px] font-black uppercase tracking-[0.22em] text-brand-muted mb-2">Referrals</p>
+        <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Appointments</h1>
+        <p class="mt-2 max-w-2xl text-sm leading-relaxed text-brand-muted dark:text-slate-400">Sell appointment packages by trade, send homeowners to contractors, and sync booked and closed slots from Go High Level.</p>
+      </div>
+      <% if (placeLabel) { %>
+      <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-brand-muted"><%= placeLabel %></p>
+      <% } %>
+    </header>
+
+    <%- include('partials/appointment_tracker') %>
+  </main>
+
+  <%- include('partials/footer') %>
+</body>
+</html>
