@@ -11,7 +11,6 @@
     <% if (typeof topSettings !== 'undefined' && topSettings && topSettings.href) { %>
     <a class="ma-iconbtn <%= topSettings.on ? 'is-on' : '' %>" href="<%= topSettings.href %>" aria-label="<%= topSettings.label || 'Settings' %>" title="<%= topSettings.label || 'Settings' %>" <%= topSettings.on ? 'aria-current=page' : '' %>><%- icons.settings %></a>
     <% } %>
-    <button type="button" class="ma-iconbtn" data-ma-install-open aria-label="Save as phone app" title="Save as phone app"><%- icons.download %></button>
     <a class="ma-iconbtn <%= active === 'enroll' ? 'is-on' : '' %>" href="<%= base %>/enroll" aria-label="Invite a business to <%= brand.appName %>" title="Invite a business" <%= active === 'enroll' ? 'aria-current=page' : '' %>><%- icons.enroll %></a>
     <%
       const _avatarInitial = (greetingName || member.companyName || '?').trim().charAt(0).toUpperCase();
