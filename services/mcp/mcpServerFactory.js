@@ -19,6 +19,7 @@ const messagingTools = require('./mcpMessaging');
 const workspaceTools = require('./mcpWorkspaceOps');
 const prospectingTools = require('./mcpProspecting');
 const leadSourceTools = require('./mcpLeadSources');
+const agentOpsTools = require('./mcpAgentOps');
 const mcpOAuth = require('./mcpOAuth');
 const mcpLogger = require('./mcpLogger');
 
@@ -223,7 +224,7 @@ function createCrmMcpServer(ctx) {
   const server = new McpServer(
     {
       name: 'adhello-ceo-crm',
-      version: '1.6.0',
+      version: '1.7.0',
     },
     multi
       ? {
@@ -666,6 +667,7 @@ function createCrmMcpServer(ctx) {
     ...workspaceTools.WORKSPACE_TOOLS,
     ...prospectingTools.PROSPECTING_TOOLS,
     ...leadSourceTools.LEAD_SOURCE_TOOLS,
+    ...agentOpsTools.AGENT_OPS_TOOLS,
   ]) {
     register(tool.name, { description: tool.description, inputSchema: tool.schema }, async (args) => runTool(ctx, tool.name, args));
   }
@@ -682,9 +684,9 @@ function getOpenAiToolManifest() {
 
   return {
     name: 'adhello-ceo-crm',
-    version: '1.6.0',
+    version: '1.7.0',
     description:
-      'AdHello CEO Command Center CRM — workspace overview, lead folders, lead searches (Google Maps, building permits, new business registrations, property / product listings, saved folder searches, recurring schedules), CSV import, duplicate merging, leads (create, assign, notes, history, delete), tags, bookmarks, scripts, opportunity pipelines and stages, prospecting stages, replies inbox, team activity, GHL sync and messaging, enrichment (contacts, Google reviews, social profiles, phone line type), prospecting (lead scoring, ICP fit, website audits, business research, decision-maker lookup, AI-personalized outreach, audit links, auto-outreach / cadence / sequence enrollment, call outcomes, call queue, text threads), team tasks, follow-ups, and the referral network (members, referrals, applications, review stats).',
+      'AdHello CEO Command Center CRM — workspace overview, lead folders, lead searches (Google Maps, building permits, new business registrations, property / product listings, saved folder searches, recurring schedules), CSV import, duplicate merging, leads (create, assign, notes, history, delete), tags, bookmarks, scripts, opportunity pipelines and stages, prospecting stages, replies inbox, team activity, GHL sync and messaging, enrichment (contacts, Google reviews, social profiles, phone line type), prospecting (lead scoring, ICP fit, website audits, business research, decision-maker lookup, AI-personalized outreach, audit links, auto-outreach / cadence / sequence enrollment, call outcomes, call queue, text threads), team tasks, follow-ups, the referral network (members, referrals, applications, review stats), and Ops agents (list, inspect, run, and configure Prospect SDR, Opportunity SDR, Dispatcher, Ops bot).',
     authentication: {
       type: 'oauth2',
       header: 'Authorization',
@@ -942,6 +944,7 @@ function getOpenAiToolManifest() {
         ...workspaceTools.openAiFunctionTools(),
         ...prospectingTools.openAiFunctionTools(),
         ...leadSourceTools.openAiFunctionTools(),
+        ...agentOpsTools.openAiFunctionTools(),
       ].map(({ function: fn }) => ({
         name: fn.name,
         description: fn.description,

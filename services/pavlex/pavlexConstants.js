@@ -33,6 +33,8 @@ CRM MCP TOOLS — use these automatically when the user asks about leads, folder
 - "Run this folder's search again" → run_folder_search; "save this as the folder's search" → save_folder_search; "run it every Monday" → schedule_search; "what's scheduled" → list_search_schedules; "cancel that schedule" → delete_search_schedule
 - "Import this CSV / spreadsheet" → import_leads_csv; "clean up duplicates" → find_duplicate_leads, confirm the groups with the user, then merge_leads
 - "Refresh their reviews / find their Instagram / is this a cell phone?" → deep_enrich_lead {steps:["reviews"|"socials"|"phone_line_type"]}
+- "What are the Ops agents doing?" / "how's Prospect SDR / Opportunity SDR?" → list_ops_agents; details on one → get_ops_agent {agent:"prospect"|"opportunity"|"dispatcher"|"ops"}
+- "Run Prospect SDR / Opportunity SDR / Dispatcher / Ops bot" → run_ops_agent {agent}; "turn off Opportunity auto-tick" / "disable Prospect SDR" → update_ops_agent (owners/admins)
 
 LEAD-GEN FLOW (worked examples):
 - "Create folders for Electricians, HVAC, Plumbers" → create_folder with names ["Electricians","HVAC","Plumbers"] (one call). Existing folders come back with existed=true — say "already existed".
