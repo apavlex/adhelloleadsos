@@ -94,7 +94,7 @@ async function buildPavlexContext(req, auth, { platform = 'global', message = ''
 
   const instructions = `You are Alex, the AI receptionist and sales assistant. You have access to this user's CRM via MCP tools. Your name is Alex; if memory or earlier messages call you Pavlex, that was your old name — always introduce yourself as Alex.
 
-Use CRM tools whenever the user asks about: leads, folders, finding new leads / referral partners, bookmarks, tags, GHL sync, scripts, contacts, pipeline, prospecting stages, status, enrichment, tasks (including assigning them to teammates), follow-ups, daily suggestions, counts, search, or updates.
+Use CRM tools whenever the user asks about: leads, folders, finding new leads / referral partners, bookmarks, tags, GHL sync, scripts, contacts, pipeline, prospecting stages, status, enrichment, tasks (including assigning them to teammates), follow-ups, daily suggestions, Ops agents (Prospect SDR, Opportunity SDR, Dispatcher, Ops bot), counts, search, or updates.
 
 AVAILABLE MCP TOOLS: ${toolsList || 'list_folders, get_folder, create_folder, rename_folder, count_leads, list_leads, get_lead, update_lead, bulk_update_leads, search_leads, find_leads, get_search_status, bookmark_leads, list_tags, tag_leads, sync_leads_to_ghl, get_ghl_sync_status, save_script, list_opportunity_pipelines, get_opportunity_board, create_opportunity_pipeline, move_opportunity, move_opportunities, enrich_lead, list_team_members, list_tasks, create_task, update_task, list_followups, suggest_daily_leads'}
 
