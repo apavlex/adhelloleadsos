@@ -1,15 +1,17 @@
 /**
- * Member referral app (installable PWA), white-labeled per network. No login:
+ * Partner app (installable PWA), white-labeled per network. No login:
  * the signed member token lives in the path so a Home Screen bookmark keeps working.
  *
+ * Hierarchy: reviews → customers/work → referrals & leads.
+ *
  *   /m/:token            Home
- *   /m/:token/referrals  received + sent referrals, accept / booked / won / lost
- *   /m/:token/send       send a referral to another member
- *   /m/:token/customers  the member's own customers, jobs and schedule
+ *   /m/:token/review     request reviews + link-in-bio / QR
+ *   /m/:token/customers  customers, jobs and schedule
+ *   /m/:token/referrals  received + sent referrals
+ *   /m/:token/send       send a referral
  *   /m/:token/leads      website/GHL form leads (when linked to an appointment package)
  *   /m/:token/packages   request / buy more appointments & lead credits
- *   /m/:token/enroll     invite a business to join (operator approves; top-bar icon)
- *   /m/:token/review     review link-in-bio page settings + QR
+ *   /m/:token/enroll     invite a business to join
  *   /m/login             text me a new link
  */
 
@@ -383,7 +385,7 @@ router.get('/m/:token/manifest.webmanifest', withMember(async (req, res, ctx) =>
   res.send(JSON.stringify({
     name: brand.appName,
     short_name: brand.shortName,
-    description: `${brand.appName} referral app`,
+    description: `${brand.appName} — reviews, customers, and referrals`,
     id: base,
     start_url: `${base}?source=pwa`,
     scope: `${base}`,
@@ -413,11 +415,12 @@ router.get('/m/:token/icon-:size.png', withMember(async (req, res, ctx) => {
 // ── Home ─────────────────────────────────────────────────────────────────────
 
 router.get('/m/:token', withMember(async (req, res, ctx) => {
-  const [referrals, members, jobs, customers] = await Promise.all([
+  const [referrals, members, jobs, customers, reviewStats] = await Promise.all([
     store.listReferrals(ctx.network.id),
     store.listMembers(ctx.network.id),
     work.listJobs(ctx.network.id, ctx.member.id),
     work.listCustomers(ctx.network.id, ctx.member.id),
+    store.getReviewStats(ctx.network.id, ctx.member.id),
   ]);
   const membersById = Object.fromEntries(members.map((m) => [m.id, m]));
   const customersById = Object.fromEntries(customers.map((c) => [c.id, c]));
@@ -427,14 +430,19 @@ router.get('/m/:token', withMember(async (req, res, ctx) => {
     .slice(0, 3)
     .map((r) => presentReceived(r, membersById, ctx.network));
   const today = work.todayIn(memberTimeZone(req));
+  const openJobCount = jobs.filter((j) => j && ['lead', 'estimate', 'scheduled', 'in_progress', 'on_hold'].includes(String(j.status || '').toLowerCase())).length;
   return render(res, 'home', ctx, {
     upcoming: work.upcoming(jobs, today, 2).map((j) => presentJob(j, customersById, ctx.base, today)),
+    // Reviews → customers/work → referrals (network is tertiary).
     tiles: [
-      { key: 'sent', label: 'Sent', value: stats.given, href: `${ctx.base}/referrals?view=sent` },
-      { key: 'received', label: 'Received', value: stats.received, href: `${ctx.base}/referrals` },
-      { key: 'pending', label: 'Pending', value: stats.open, href: `${ctx.base}/referrals` },
-      { key: 'completed', label: 'Completed', value: stats.won, href: `${ctx.base}/referrals` },
+      { key: 'reviews', label: 'Review visits', value: reviewStats.views || 0, href: `${ctx.base}/review?ask=1`, icon: 'review' },
+      { key: 'customers', label: 'Customers', value: customers.length, href: `${ctx.base}/customers`, icon: 'customers' },
+      { key: 'pending', label: 'Pending refs', value: stats.open, href: `${ctx.base}/referrals`, icon: 'pending' },
+      { key: 'sent', label: 'Sent', value: stats.given, href: `${ctx.base}/referrals?view=sent`, icon: 'send' },
     ],
+    reviewViews: reviewStats.views || 0,
+    customerCount: customers.length,
+    openJobCount,
     wonValue: money(stats.wonValue),
     waiting,
     flash: flashFromQuery(req),

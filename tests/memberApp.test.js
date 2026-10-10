@@ -67,6 +67,10 @@ test('brand normalization keeps safe values and readable accent text', () => {
   const view = networkBrand.brandView({ name: 'Acme network', brand: { statValue: 1200 } });
   assert.equal(view.appName, 'Acme network');
   assert.equal(view.statValueLabel, '1,200');
+  const defaults = networkBrand.brandView({});
+  assert.equal(defaults.appName, 'Partner network');
+  assert.match(defaults.tagline, /review/i);
+  assert.match(defaults.subtitle, /Reviews/);
 });
 
 test('review gate always keeps public review links visible', () => {

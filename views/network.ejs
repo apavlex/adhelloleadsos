@@ -353,9 +353,9 @@
             <div class="net-metric"><span>Won</span><strong>$<%= Math.round(m.stats.wonValue).toLocaleString('en-US') %></strong></div>
           </div>
           <div class="mt-3 flex flex-wrap items-center gap-2">
-            <button type="button" class="net-btn net-btn-ghost" data-net-copy-portal="<%= m.id %>" data-net-copy-kind="referral">Copy referral app</button>
+            <button type="button" class="net-btn net-btn-ghost" data-net-copy-portal="<%= m.id %>" data-net-copy-kind="referral">Copy partner app</button>
             <button type="button" class="net-btn net-btn-ghost" data-net-copy-portal="<%= m.id %>" data-net-copy-kind="contractor">Copy contractor app</button>
-            <form method="post" action="/network/members/<%= m.id %>/send-portal-link"><button type="submit" class="net-btn net-btn-ghost">Text referral app</button></form>
+            <form method="post" action="/network/members/<%= m.id %>/send-portal-link"><button type="submit" class="net-btn net-btn-ghost">Text partner app</button></form>
             <% if (canManage && ghlSubaccounts && !m.ghlLocationId) { %>
             <form method="post" action="/network/members/<%= m.id %>/ghl"><button type="submit" class="net-btn net-btn-ghost"><%= m.ghlError ? 'Retry GHL sub-account' : 'Create GHL sub-account' %></button></form>
             <% } %>
@@ -574,7 +574,7 @@
         <form method="post" action="/network/brand" enctype="multipart/form-data" class="net-card space-y-4" id="netBrandForm">
           <div>
             <h2 class="font-display font-bold text-lg">Member app branding</h2>
-            <p class="text-[12px] text-brand-muted">Members see this in their referral app, on their review page, and as the Home Screen icon.</p>
+            <p class="text-[12px] text-brand-muted">Members see this in their partner app (reviews, customers, referrals), on their review page, and as the Home Screen icon.</p>
           </div>
           <div class="grid sm:grid-cols-2 gap-3">
             <div>
@@ -583,11 +583,11 @@
             </div>
             <div>
               <label class="net-label" for="brSubtitle">Subtitle</label>
-              <input id="brSubtitle" name="subtitle" value="<%= network.brand.subtitle %>" placeholder="Authorized Nationwide Network" maxlength="80" class="net-input" data-br="subtitle" />
+              <input id="brSubtitle" name="subtitle" value="<%= network.brand.subtitle %>" placeholder="Reviews, customers & network" maxlength="80" class="net-input" data-br="subtitle" />
             </div>
             <div class="sm:col-span-2">
               <label class="net-label" for="brTagline">Greeting line</label>
-              <input id="brTagline" name="tagline" value="<%= network.brand.tagline %>" placeholder="Every referral makes a difference." maxlength="120" class="net-input" data-br="tagline" />
+              <input id="brTagline" name="tagline" value="<%= network.brand.tagline %>" placeholder="Every review builds your reputation." maxlength="120" class="net-input" data-br="tagline" />
             </div>
             <div>
               <label class="net-label" for="brAccent">Accent color</label>
@@ -855,7 +855,7 @@
       if (brandForm && frame) {
         var pick = document.getElementById('brAccentPick');
         var accentInput = document.getElementById('brAccent');
-        var fallbacks = { appName: <%- JSON.stringify(network.name).replace(/</g, '\\u003c') %>, tagline: 'Every referral makes a difference.', subtitle: 'Referral partner network' };
+        var fallbacks = { appName: <%- JSON.stringify(network.name).replace(/</g, '\\u003c') %>, tagline: 'Every review builds your reputation.', subtitle: 'Reviews, customers & network' };
         var saved = <%- JSON.stringify({ logo: brand.logoUrl || '', hero: brand.heroUrl || '' }).replace(/</g, '\\u003c') %>;
         var blobs = { logo: '', hero: '' };
         var badgeIcon = '';

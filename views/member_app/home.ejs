@@ -5,16 +5,19 @@
 </head>
 <body>
   <main class="ma-shell">
-    <%- include('_top', { topTitle: 'Dashboard' }) %>
+    <%- include('_top', { topTitle: 'Home' }) %>
 
     <% const _appt = typeof appointment !== 'undefined' && appointment ? appointment : null; %>
     <% const _upcoming = typeof upcoming !== 'undefined' ? upcoming : []; %>
     <% const _recentLeads = _appt && _appt.recentLeads ? _appt.recentLeads.slice(0, 3) : []; %>
+    <% const _reviewViews = typeof reviewViews !== 'undefined' ? reviewViews : 0; %>
+    <% const _customerCount = typeof customerCount !== 'undefined' ? customerCount : 0; %>
+    <% const _openJobs = typeof openJobCount !== 'undefined' ? openJobCount : 0; %>
 
     <section class="ma-hello">
       <h1>Hi, <%= greetingName %></h1>
       <% if (_appt) { %>
-      <p>Your <em>leads</em> and <em>referrals</em> in one place.</p>
+      <p>Ask for <em>reviews</em>, manage jobs, then work your leads.</p>
       <% } else { %>
       <p><%
         const words = brand.tagline.split(' ');
@@ -34,46 +37,46 @@
           <span class="ma-hero__badge"><% if (brand.logoUrl) { %><img src="<%= brand.logoUrl %>" alt=""><% } else { %><%- icons.building %><% } %></span>
           <div>
             <p class="ma-hero__name"><%= brand.appName %></p>
-            <p class="ma-hero__sub"><%= _appt ? 'Leads + referrals' : brand.subtitle %></p>
+            <p class="ma-hero__sub"><%= _appt ? 'Reviews · jobs · leads' : brand.subtitle %></p>
           </div>
         </div>
         <% if (_appt) { %>
-        <p class="ma-hero__stat"><%= (_appt.openLeadCount || 0) + (tiles[2].value || 0) %><small>need you</small></p>
+        <p class="ma-hero__stat"><%= (_appt.openLeadCount || 0) + (tiles.find(function (t) { return t.key === 'pending'; }) || {}).value || 0 %><small>need you</small></p>
         <p class="ma-hero__label">
-          <%= _appt.openLeadCount || 0 %> leads · <%= tiles[2].value || 0 %> pending referrals
+          <%= _appt.openLeadCount || 0 %> leads · <%= (tiles.find(function (t) { return t.key === 'pending'; }) || {}).value || 0 %> pending referrals
           <% if (wonValue) { %> · <%= wonValue %> won<% } %>
         </p>
         <% } else if (brand.statValueLabel) { %>
         <p class="ma-hero__stat"><%= brand.statValueLabel %><% if (brand.statSuffix) { %><small><%= brand.statSuffix %></small><% } %></p>
         <% if (brand.statLabel) { %><p class="ma-hero__label"><%= brand.statLabel %></p><% } %>
         <% } else { %>
-        <p class="ma-hero__stat"><%= tiles[3].value %><small>jobs completed</small></p>
-        <% if (wonValue) { %><p class="ma-hero__label"><%= wonValue %> won from referrals</p><% } %>
+        <p class="ma-hero__stat"><%= _reviewViews %><small>review page visits</small></p>
+        <% if (_customerCount || _openJobs) { %><p class="ma-hero__label"><%= _customerCount %> customers · <%= _openJobs %> open jobs</p><% } %>
         <% } %>
       </div>
     </section>
 
-    <section class="ma-tiles<%= _appt ? ' ma-tiles--6' : '' %>" aria-label="<%= _appt ? 'Leads and referrals' : 'Your referrals' %>">
+    <section class="ma-tiles<%= _appt ? ' ma-tiles--6' : '' %>" aria-label="Reviews, customers, and network">
       <% if (_appt) { %>
+      <a class="ma-tile" href="<%= base %>/review?ask=1">
+        <span class="ma-tile__icon"><%- icons.review %></span>
+        <p class="ma-tile__value"><%= _reviewViews %></p>
+        <p class="ma-tile__label">Review visits</p>
+      </a>
+      <a class="ma-tile" href="<%= base %>/customers">
+        <span class="ma-tile__icon"><%- icons.customers %></span>
+        <p class="ma-tile__value"><%= _customerCount %></p>
+        <p class="ma-tile__label">Customers</p>
+      </a>
       <a class="ma-tile" href="<%= _appt.portalLeadsPath %>">
         <span class="ma-tile__icon"><%- icons.leads %></span>
         <p class="ma-tile__value"><%= _appt.openLeadCount %></p>
         <p class="ma-tile__label">Open leads</p>
       </a>
-      <a class="ma-tile" href="<%= tiles[2].href %>">
+      <a class="ma-tile" href="<%= base %>/referrals">
         <span class="ma-tile__icon"><%- icons.pending %></span>
-        <p class="ma-tile__value"><%= tiles[2].value %></p>
+        <p class="ma-tile__value"><%= (tiles.find(function (t) { return t.key === 'pending'; }) || {}).value || 0 %></p>
         <p class="ma-tile__label">Pending refs</p>
-      </a>
-      <a class="ma-tile" href="<%= tiles[0].href %>">
-        <span class="ma-tile__icon"><%- icons.send %></span>
-        <p class="ma-tile__value"><%= tiles[0].value %></p>
-        <p class="ma-tile__label">Sent</p>
-      </a>
-      <a class="ma-tile" href="<%= tiles[1].href %>">
-        <span class="ma-tile__icon"><%- icons.received %></span>
-        <p class="ma-tile__value"><%= tiles[1].value %></p>
-        <p class="ma-tile__label">Received</p>
       </a>
       <a class="ma-tile" href="<%= _appt.portalPath %>">
         <span class="ma-tile__icon"><%- icons.calendar %></span>
@@ -88,7 +91,7 @@
       <% } else { %>
       <% tiles.forEach(function (t) { %>
       <a class="ma-tile" href="<%= t.href %>">
-        <span class="ma-tile__icon"><%- icons[t.key === 'sent' ? 'send' : t.key] %></span>
+        <span class="ma-tile__icon"><%- icons[t.icon || (t.key === 'sent' ? 'send' : t.key)] || icons.review %></span>
         <p class="ma-tile__value"><%= t.value %></p>
         <p class="ma-tile__label"><%= t.label %></p>
       </a>
@@ -99,11 +102,7 @@
     <section class="ma-section" style="margin-top:14px">
       <div class="ma-dash-actions">
         <a class="ma-btn" href="<%= base %>/review?ask=1"><%- icons.review %> Request review</a>
-        <% if (_appt) { %>
-        <a class="ma-btn ma-btn--soft" href="<%= _appt.portalLeadsPath %>"><%- icons.leads %> Leads + alerts</a>
-        <% } else { %>
-        <a class="ma-btn ma-btn--soft" href="<%= base %>/send"><%- icons.send %> Send referral</a>
-        <% } %>
+        <a class="ma-btn ma-btn--soft" href="<%= base %>/customers/new"><%- icons.customers %> Add customer</a>
       </div>
     </section>
 
@@ -111,7 +110,7 @@
     <section class="ma-section">
       <div class="ma-section__head">
         <h2>Needs attention</h2>
-        <% if (waiting.length) { %><a href="<%= base %>/referrals">Referrals</a><% } else { %><a href="<%= _appt.portalLeadsPath %>">Leads</a><% } %>
+        <% if (waiting.length) { %><a href="<%= base %>/referrals">Referrals</a><% } else if (_appt) { %><a href="<%= _appt.portalLeadsPath %>">Leads</a><% } else { %><a href="<%= base %>/customers">Customers</a><% } %>
       </div>
       <% waiting.forEach(function (r) { %>
       <a class="ma-card" style="display:block;text-decoration:none" href="<%= base %>/referrals#ref-<%= r.id %>">
@@ -136,13 +135,9 @@
       </a>
       <% }); %>
     </section>
-    <% } else if (!_appt) { %>
-    <section class="ma-section">
-      <a class="ma-btn ma-btn--block" href="<%= base %>/send"><%- icons.send %> Send a referral</a>
-    </section>
     <% } else { %>
     <section class="ma-section">
-      <a class="ma-btn ma-btn--block" href="<%= base %>/send"><%- icons.send %> Send a referral</a>
+      <a class="ma-btn ma-btn--block" href="<%= base %>/review?ask=1"><%- icons.review %> Request a review</a>
     </section>
     <% } %>
 
@@ -159,6 +154,21 @@
       </div>
     </section>
     <% } %>
+
+    <section class="ma-section">
+      <div class="ma-section__head">
+        <h2>Network</h2>
+        <a href="<%= base %>/referrals">Referrals</a>
+      </div>
+      <div class="ma-dash-actions">
+        <a class="ma-btn ma-btn--soft" href="<%= base %>/send"><%- icons.send %> Send referral</a>
+        <% if (_appt) { %>
+        <a class="ma-btn ma-btn--soft" href="<%= _appt.portalLeadsPath %>"><%- icons.leads %> Open leads</a>
+        <% } else { %>
+        <a class="ma-btn ma-btn--soft" href="<%= base %>/referrals"><%- icons.received %> Received</a>
+        <% } %>
+      </div>
+    </section>
   </main>
   <%- include('_tabbar') %>
   <% if (typeof preview !== 'undefined' && preview) { %><template id="maBadgeIcon"><%- icons.building %></template><% } %>

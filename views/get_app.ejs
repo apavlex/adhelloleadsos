@@ -69,8 +69,8 @@
       <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div class="min-w-0">
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Contractors &amp; partners</p>
-          <h2 class="font-display font-extrabold text-xl md:text-2xl text-brand-dark dark:text-white mt-1">Review request app</h2>
-          <p class="text-sm text-brand-muted mt-1 max-w-2xl">Each partner gets a personal app link with <strong class="font-semibold text-brand-dark dark:text-white">Request a review</strong> front and center — plus referrals and leads. Copy or text it from this workspace page.</p>
+          <h2 class="font-display font-extrabold text-xl md:text-2xl text-brand-dark dark:text-white mt-1">Partner app</h2>
+          <p class="text-sm text-brand-muted mt-1 max-w-2xl">Each partner gets an app built around <strong class="font-semibold text-brand-dark dark:text-white">reviews</strong>, then customers &amp; jobs, then referrals and leads. Copy or text it from this workspace page.</p>
         </div>
         <a href="/network?tab=members" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline">Manage partners</a>
       </div>
@@ -90,7 +90,7 @@
           <div class="min-w-0">
             <p class="font-bold text-brand-dark dark:text-white truncate"><%= p.companyName %></p>
             <p class="text-[12px] text-brand-muted mt-0.5">
-              <% if (p.packageName) { %>Linked to appointments · <%= p.packageName %><% } else { %>Review requests + referrals<% } %>
+              <% if (p.packageName) { %>Reviews · customers · leads · <%= p.packageName %><% } else { %>Reviews · customers · referrals<% } %>
               <% if (p.phone || p.email) { %> · <%= p.phone || p.email %><% } %>
             </p>
           </div>
