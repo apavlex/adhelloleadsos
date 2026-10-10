@@ -5,6 +5,8 @@
  * just put the private feedback form first.
  */
 
+const { iconFor, tileFor } = require('./reviewPlatformIcons');
+
 const PLATFORMS = [
   {
     key: 'google', label: 'Google', field: 'Google review link', color: '#4285F4', letter: 'G',
@@ -18,7 +20,11 @@ const PLATFORMS = [
   { key: 'nextdoor', label: 'Nextdoor', field: 'Nextdoor business page', color: '#0A8A3C', letter: 'n', placeholder: 'https://nextdoor.com/pages/…' },
   { key: 'bbb', label: 'BBB', field: 'BBB profile', color: '#005A78', letter: 'B', placeholder: 'https://bbb.org/us/…' },
   { key: 'houzz', label: 'Houzz', field: 'Houzz profile', color: '#3A9A0F', letter: 'h', placeholder: 'https://houzz.com/professionals/…' },
-];
+].map((p) => ({
+  ...p,
+  icon: iconFor(p.key),
+  tile: tileFor(p.key),
+}));
 
 const PLATFORM_KEYS = PLATFORMS.map((p) => p.key);
 const MAX_OTHER_LINKS = 10;
@@ -65,6 +71,8 @@ function reviewDestinations(reviewLinks, slug) {
       label: row.label,
       color: '#475569',
       letter: String(row.label).trim().charAt(0).toUpperCase() || '★',
+      icon: '',
+      tile: tileFor('other'),
       url: row.url,
       href: `/rv/${slug}/go/other/${i}`,
     });

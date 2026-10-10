@@ -385,7 +385,7 @@
               <div class="grid gap-3 sm:grid-cols-2">
                 <% reviewPlatforms.forEach(function (p) { %>
                 <div>
-                  <label class="net-label flex items-center gap-1.5" for="rl-<%= m.id %>-<%= p.key %>"><span class="inline-flex h-4 w-4 items-center justify-center rounded text-[9px] font-black text-white" style="background: <%= p.color %>" aria-hidden="true"><%= p.letter %></span><%= p.label %></label>
+                  <label class="net-label flex items-center gap-1.5" for="rl-<%= m.id %>-<%= p.key %>"><span class="inline-flex h-5 w-5 items-center justify-center rounded border border-slate-200 bg-white overflow-hidden shrink-0" style="background: <%= p.tile || '#fff' %>" aria-hidden="true"><% if (p.icon) { %><span class="inline-flex h-3.5 w-3.5 [&_svg]:h-full [&_svg]:w-full"><%- p.icon %></span><% } else { %><span class="text-[9px] font-black text-slate-600"><%= p.letter %></span><% } %></span><%= p.label %></label>
                   <input id="rl-<%= m.id %>-<%= p.key %>" name="<%= p.key %>" type="url" inputmode="url" class="net-input" value="<%= (m.reviewLinks && m.reviewLinks[p.key]) || '' %>" placeholder="<%= p.placeholder %>" />
                 </div>
                 <% }); %>
