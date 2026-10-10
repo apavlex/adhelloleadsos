@@ -76,28 +76,78 @@ function readJsonReply(r) {
     });
   }
 
-  // Get the app / Share → native share sheet (Add to Home Screen) when available.
+  // Get the app / Share → native share or copy. Never navigate to /today as a fallback.
   document.addEventListener('click', function (e) {
     var btn = e.target.closest('[data-get-app-share]');
     if (!btn) return;
-    if (typeof navigator.share !== 'function') return;
+
+    var standalone =
+      (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+      window.navigator.standalone === true;
+    var shareOnly = btn.getAttribute('data-get-app-share') === 'only' ||
+      !!btn.getAttribute('data-get-app-share-url');
+
+    // Installed PWA + sidebar "Get the app" → open the install page (already on device).
+    if (standalone && !shareOnly) return;
+
     e.preventDefault();
     e.stopPropagation();
     closeMobileMenu();
+
     var title = btn.getAttribute('data-get-app-share-title')
       || (document.querySelector('.sidebar-ws-text .truncate') || {}).textContent
       || 'AdHello';
     var shareUrl = btn.getAttribute('data-get-app-share-url') || '';
     if (!shareUrl) {
       var href = btn.getAttribute('href') || '';
-      shareUrl = href && href.charAt(0) === '/' ? (window.location.origin + href) : href;
+      if (href && href.charAt(0) === '/' && href.indexOf('/get-app') !== 0) {
+        shareUrl = window.location.origin + href;
+      } else if (href && /^https?:\/\//i.test(href)) {
+        shareUrl = href;
+      }
     }
     if (!shareUrl) shareUrl = window.location.origin + '/today';
-    navigator.share({
+
+    var payload = {
       title: String(title).trim() || 'AdHello',
-      text: 'Add to your Home Screen',
+      text: 'Open your AdHello Referral app — Add to Home Screen from the browser menu if needed.',
       url: shareUrl,
-    }).catch(function () { /* cancelled */ });
+    };
+
+    function copiedFlash() {
+      var prev = btn.getAttribute('data-share-label') || btn.textContent;
+      if (!btn.getAttribute('data-share-label')) btn.setAttribute('data-share-label', prev);
+      var label = btn.querySelector('[data-get-app-share-label]') || btn;
+      if (label !== btn && label.textContent) label.textContent = 'Link copied';
+      else if (btn.tagName === 'BUTTON' || btn.getAttribute('role') === 'button') btn.textContent = 'Link copied';
+      setTimeout(function () {
+        var original = btn.getAttribute('data-share-label');
+        if (!original) return;
+        if (label !== btn && label.tagName) label.textContent = original;
+        else if (btn.tagName === 'BUTTON' || btn.getAttribute('role') === 'button') btn.textContent = original;
+      }, 2000);
+    }
+
+    function copyFallback() {
+      var done = function () { copiedFlash(); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(shareUrl).then(done).catch(function () {
+          window.prompt('Copy link', shareUrl);
+        });
+      }
+      window.prompt('Copy link', shareUrl);
+      return Promise.resolve();
+    }
+
+    if (typeof navigator.share === 'function') {
+      navigator.share(payload).catch(function (err) {
+        // AbortError = user cancelled; other failures → copy so we never dump them on Today.
+        if (err && err.name === 'AbortError') return;
+        copyFallback();
+      });
+      return;
+    }
+    copyFallback();
   });
 
   // Swipe right anywhere to pull the menu open, swipe left to push it closed (like the X app).
