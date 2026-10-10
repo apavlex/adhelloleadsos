@@ -88,7 +88,7 @@ async function prepareProspects(workspaceId, { role, onBehalfOf, limit = 20 } = 
       title,
       phone,
       stage,
-      href: `/focus?lead=${encodeURIComponent(short)}`,
+      href: `/focus?lead=${encodeURIComponent(short)}&from=today`,
     };
   });
   const items = top.map((t) =>
@@ -120,7 +120,7 @@ async function prepareProspects(workspaceId, { role, onBehalfOf, limit = 20 } = 
     type: 'prospect.prepare',
     title: queue.length ? `${queue.length} prospects ready` : 'Prospect queue empty',
     body: summary,
-    href: '/focus',
+    href: '/focus?from=today',
     severity: queue.length ? 'action' : 'info',
     counts: { queue: queue.length, withPhone, items: items.length },
     meta: { top, items },
@@ -169,10 +169,11 @@ async function scanOpportunityBoard(workspaceId, { role, onBehalfOf, limit = 8 }
   for (const stage of openStages) {
     const progress = stageIndex.get(stage.id) || 0;
     for (const card of stage.cards || []) {
+      const shortKey = String(card.key || '').replace(/^lead:/i, '');
       candidates.push({
         key: card.key,
         title: card.title,
-        href: card.href || `/pipeline?focusLead=${encodeURIComponent(String(card.key || '').replace(/^lead:/i, ''))}`,
+        href: `/focus?lead=${encodeURIComponent(shortKey)}&from=today`,
         stageId: stage.id,
         stageName: stage.name,
         value: Number(card.value) || 0,
@@ -229,7 +230,7 @@ async function scanOpportunityBoard(workspaceId, { role, onBehalfOf, limit = 8 }
     type: 'opportunity.scan_board',
     title: top.length ? `Top ${Math.min(3, top.length)} to move` : 'Opportunity board clear',
     body: summary,
-    href: '/prospecting?tab=pipeline',
+    href: '/focus?from=today',
     severity: top.length ? 'action' : 'info',
     counts: { open: openCount, top: top.length, items: items.length },
     meta: {
@@ -350,7 +351,7 @@ async function scanPool(workspaceId, { role, onBehalfOf } = {}) {
     type: 'dispatcher.scan_pool',
     title: actionBits.length ? actionBits[0] : 'Pool clear',
     body: summary,
-    href: unrouted ? '/referrals' : '/appointments',
+    href: '/focus?from=today',
     severity: actionBits.length ? 'action' : 'info',
     counts: {
       unrouted,
