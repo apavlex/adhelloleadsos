@@ -7,7 +7,10 @@ const store = require('./store');
 const tools = require('./tools');
 const memory = require('./memory');
 
-const TICK_COOLDOWN_MS = 45 * 60 * 1000; // avoid hammering every 15m cron
+/** ~hourly auto-run; cron checks every 15m so due roles pick up within a quarter hour. */
+const TICK_COOLDOWN_MS = 55 * 60 * 1000;
+/** In-process lock so overlapping cron/startup ticks don't double-run a workspace. */
+const workspaceTickLocks = new Set();
 
 const HANDLERS = {
   'prospect.prepare': (wid, job, ctx) =>
@@ -81,13 +84,8 @@ async function runJob(workspaceId, jobId, opts = {}) {
       error: ok ? null : (result && result.error) || null,
     });
     if (role) {
-      const settings = store.getSettings(wid);
-      store.saveSettings(wid, {
-        lastTickByRole: {
-          ...settings.lastTickByRole,
-          [role.id]: store.nowIso(),
-        },
-      });
+      const fromScheduler = String(job.triggeredBy || '') === 'scheduler';
+      store.recordRoleTick(wid, role.id, { auto: fromScheduler });
     }
     return { ok, job: store.getJob(wid, jobId), result };
   } catch (err) {
@@ -101,6 +99,10 @@ async function runJob(workspaceId, jobId, opts = {}) {
       summary: error,
       error,
     });
+    // Still advance auto cadence on hard failures so one bad run doesn't pin a role forever.
+    if (role && String(job.triggeredBy || '') === 'scheduler') {
+      store.recordRoleTick(wid, role.id, { auto: true });
+    }
     return { ok: false, error };
   }
 }
@@ -117,11 +119,20 @@ async function enqueueAndRun(workspaceId, type, opts = {}) {
   const roleCfg = settings.roles[role.id] || { enabled: true };
   if (roleCfg.enabled === false) return { ok: false, error: `${role.title} is disabled.` };
 
+  store.failStaleRunningJobs(wid);
+  const already = store.listRunningJobs(wid).find((j) => {
+    const r = roleForJob(j.type) || (j.roleId ? ROLE_BY_ID[j.roleId] : null);
+    return (r && r.id) === role.id || j.roleId === role.id;
+  });
+  if (already) {
+    return { ok: false, error: `${role.title} is already running.`, job: already };
+  }
+
   const job = store.createJob(wid, {
     type,
     roleId: role.id,
     payload: opts.payload || {},
-    triggeredBy: opts.onBehalfOf || opts.triggeredBy || 'user',
+    triggeredBy: opts.triggeredBy || opts.onBehalfOf || 'user',
   });
   return runJob(wid, job.id, { onBehalfOf: opts.onBehalfOf || '' });
 }
@@ -129,7 +140,8 @@ async function enqueueAndRun(workspaceId, type, opts = {}) {
 function roleDueForTick(settings, roleId, nowMs) {
   const cfg = settings.roles[roleId] || {};
   if (cfg.enabled === false || cfg.autoTick === false) return false;
-  const last = settings.lastTickByRole && settings.lastTickByRole[roleId];
+  // Auto cadence only — manual Run / Run all must not delay the next hourly auto-tick.
+  const last = settings.lastAutoTickByRole && settings.lastAutoTickByRole[roleId];
   if (!last) return true;
   const t = Date.parse(last);
   if (!Number.isFinite(t)) return true;
@@ -142,37 +154,63 @@ function roleDueForTick(settings, roleId, nowMs) {
 async function tickWorkspace(workspaceId, opts = {}) {
   const wid = String(workspaceId || '').trim();
   if (!wid) return { ok: false, skipped: true, reason: 'no_workspace' };
-  const settings = store.getSettings(wid);
-  if (!settings.enabled) return { ok: true, skipped: true, reason: 'disabled' };
-
-  const force = !!opts.force;
-  const nowMs = Date.now();
-  const results = [];
-
-  for (const role of ROLES) {
-    if (!force && !roleDueForTick(settings, role.id, nowMs)) {
-      results.push({ roleId: role.id, skipped: true, reason: 'cooldown' });
-      continue;
-    }
-    const cfg = settings.roles[role.id] || {};
-    if (cfg.enabled === false) {
-      results.push({ roleId: role.id, skipped: true, reason: 'role_disabled' });
-      continue;
-    }
-    if (!force && cfg.autoTick === false) {
-      results.push({ roleId: role.id, skipped: true, reason: 'auto_off' });
-      continue;
-    }
-    // eslint-disable-next-line no-await-in-loop
-    const out = await enqueueAndRun(wid, role.defaultJob, {
-      triggeredBy: 'scheduler',
-      onBehalfOf: opts.onBehalfOf || '',
-    });
-    results.push({ roleId: role.id, ok: out.ok, summary: out.result && out.result.summary, error: out.error });
+  if (workspaceTickLocks.has(wid)) {
+    return { ok: true, skipped: true, reason: 'tick_in_progress', workspaceId: wid };
   }
+  workspaceTickLocks.add(wid);
+  try {
+    store.failStaleRunningJobs(wid);
+    const settings = store.getSettings(wid);
+    if (!settings.enabled) return { ok: true, skipped: true, reason: 'disabled' };
 
-  store.saveSettings(wid, { lastTickAt: store.nowIso() });
-  return { ok: true, workspaceId: wid, results };
+    const force = !!opts.force;
+    const nowMs = Date.now();
+    const results = [];
+
+    for (const role of ROLES) {
+      const cfg = settings.roles[role.id] || {};
+      if (cfg.enabled === false) {
+        results.push({ roleId: role.id, skipped: true, reason: 'role_disabled' });
+        continue;
+      }
+      if (!force && cfg.autoTick === false) {
+        results.push({ roleId: role.id, skipped: true, reason: 'auto_off' });
+        continue;
+      }
+      // Re-read settings each role so prior ticks in this loop don't use a stale auto map.
+      const live = store.getSettings(wid);
+      if (!force && !roleDueForTick(live, role.id, nowMs)) {
+        results.push({ roleId: role.id, skipped: true, reason: 'cooldown' });
+        continue;
+      }
+      const running = store.listRunningJobs(wid).some((j) => {
+        const r = roleForJob(j.type) || (j.roleId ? ROLE_BY_ID[j.roleId] : null);
+        return (r && r.id) === role.id || j.roleId === role.id;
+      });
+      if (running) {
+        results.push({ roleId: role.id, skipped: true, reason: 'already_running' });
+        continue;
+      }
+      // eslint-disable-next-line no-await-in-loop
+      const out = await enqueueAndRun(wid, role.defaultJob, {
+        // force (Run all) is a user action; scheduler ticks keep the hourly auto cadence.
+        triggeredBy: force ? (opts.triggeredBy || 'user') : 'scheduler',
+        onBehalfOf: opts.onBehalfOf || '',
+      });
+      results.push({
+        roleId: role.id,
+        ok: out.ok,
+        skipped: !out.ok && /already running/i.test(out.error || ''),
+        summary: out.result && out.result.summary,
+        error: out.error,
+      });
+    }
+
+    store.saveSettings(wid, { lastTickAt: store.nowIso() });
+    return { ok: true, workspaceId: wid, results };
+  } finally {
+    workspaceTickLocks.delete(wid);
+  }
 }
 
 /**
