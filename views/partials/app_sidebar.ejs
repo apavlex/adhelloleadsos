@@ -69,6 +69,14 @@
   <%- include('/partials/app_nav_items', { navVariant: 'sidebar' }) %>
 
   <div class="sidebar-footer mt-auto border-t border-[#E5E7EB] dark:border-white/10">
+    <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
+    <div class="px-2 pt-2">
+      <a href="/get-app" class="sidebar-nav-link sidebar-nav-cta w-full <%= np === 'get-app' ? 'active' : '' %>" title="Add AdHello to your phone Home Screen">
+        <svg class="sidebar-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+        <span>Get the app</span>
+      </a>
+    </div>
+    <% } %>
     <div class="sidebar-settings-block relative px-2 py-2" data-start-open="<%= (typeof sidebarSettingsOpen !== 'undefined' && sidebarSettingsOpen) ? '1' : '0' %>">
       <nav id="sidebarSettingsMenu" class="sidebar-settings-menu hidden space-y-0.5 mb-1 px-1" aria-label="Settings">
         <% const _rp = typeof requestPath !== 'undefined' ? requestPath : ''; %>
