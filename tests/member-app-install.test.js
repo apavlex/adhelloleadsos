@@ -57,9 +57,19 @@ describe('member app install modal and tab bar', () => {
 
   it('service worker network-firsts versioned CSS so deploys are not stuck', () => {
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.441/);
+    assert.match(sw, /adhello-pwa-v1\.0\.446/);
     assert.match(sw, /searchParams\.has\('v'\)/);
     assert.match(sw, /versioned/);
+  });
+
+  it('Customers view tabs include icons for List, Calendar, and Pending', () => {
+    const html = fs.readFileSync(path.join(root, 'views/member_app/customers.ejs'), 'utf8');
+    assert.match(html, /icons\.list/);
+    assert.match(html, /icons\.calendar/);
+    assert.match(html, /icons\.pending/);
+    const icons = fs.readFileSync(path.join(root, 'services/memberAppIcons.js'), 'utf8');
+    assert.match(icons, /list:\s*icon\(/);
+    assert.match(icons, /pending:\s*icon\(/);
   });
 
   it('member-app.js shows install guidance inside workspace standalone shells', () => {

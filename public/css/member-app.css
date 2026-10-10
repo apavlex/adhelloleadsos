@@ -399,7 +399,12 @@ button.ma-settings-row:active {
 
 /* Segmented control */
 .ma-seg { display: grid; grid-template-columns: 1fr 1fr; background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 4px; margin-bottom: 14px; }
-.ma-seg a { text-align: center; text-decoration: none; font-weight: 800; font-size: 14px; padding: 9px 0; border-radius: 999px; color: var(--muted); }
+.ma-seg a {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  text-align: center; text-decoration: none; font-weight: 800; font-size: 13px;
+  padding: 9px 6px; border-radius: 999px; color: var(--muted);
+}
+.ma-seg a svg { width: 15px; height: 15px; flex-shrink: 0; }
 .ma-seg a.is-on { background: var(--acc); color: var(--on); }
 .ma-seg--3 { grid-template-columns: repeat(3, 1fr); }
 
