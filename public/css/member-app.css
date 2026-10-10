@@ -47,6 +47,8 @@ html {
   -webkit-text-size-adjust: 100%; text-size-adjust: 100%;
   height: 100%;
   height: -webkit-fill-available;
+  /* Match tab bar so any home-indicator / overscroll bleed is white, not gray */
+  background: var(--card);
 }
 body {
   background: var(--bg);
@@ -111,6 +113,7 @@ body:has(> .ma-tabbar) .ma-shell {
 .ma-iconbtn {
   position: relative; width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center;
   color: var(--acc); text-decoration: none; border-radius: 999px; flex-shrink: 0;
+  border: 0; padding: 0; margin: 0; background: transparent; font: inherit; cursor: pointer;
   -webkit-user-select: none; user-select: none;
 }
 .ma-iconbtn::before { content: ""; position: absolute; inset: 4px; border-radius: 999px; background: var(--acc-soft); transition: transform 0.12s ease; }
@@ -404,7 +407,7 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
   .ma-flash--err { color: #fcd34d; }
 }
 
-/* Bottom tab bar — flush to the physical bottom; safe-area is painted as part of the bar */
+/* Bottom tab bar — flush to the physical bottom; safe-area is opaque bar paint, not a gap */
 .ma-tabbar {
   position: fixed;
   left: 0;
@@ -413,28 +416,32 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
   width: 100%;
   margin: 0;
   z-index: 40;
-  -webkit-transform: translateZ(0); transform: translateZ(0);
-  /* Solid fill so home-indicator padding never reads as empty page gap */
+  -webkit-transform: translate3d(0, 0, 0); transform: translate3d(0, 0, 0);
+  /* Solid only — translucent blur made the home-indicator strip look like empty page */
   background: var(--card);
   box-shadow: 0 -0.5px 0 rgba(0, 0, 0, 0.18);
+  padding-bottom: 0;
   padding-bottom: constant(safe-area-inset-bottom);
-  padding-bottom: var(--safe-b);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  min-height: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
 }
-@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-  .ma-tabbar {
-    background: color-mix(in srgb, var(--card) 92%, transparent);
-    backdrop-filter: saturate(1.8) blur(20px);
-    -webkit-backdrop-filter: saturate(1.8) blur(20px);
-  }
+.ma-tabbar::after {
+  /* Paint past the bar so any phantom gap under fixed bars stays tab-bar color */
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 120px;
+  background: var(--card);
+  pointer-events: none;
 }
 @media (prefers-color-scheme: dark) {
   .ma-tabbar {
     background: #1c1c1e;
     box-shadow: 0 -0.5px 0 rgba(255, 255, 255, 0.14);
   }
-  @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-    .ma-tabbar { background: rgba(28, 28, 30, 0.94); }
-  }
+  .ma-tabbar::after { background: #1c1c1e; }
 }
 .ma-tabbar__inner {
   max-width: 480px;
@@ -443,6 +450,7 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   align-items: end;
+  background: inherit;
 }
 .ma-tab {
   display: flex;
@@ -468,11 +476,97 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
 .ma-tab--send .ma-tab__fab svg { width: 24px; height: 24px; }
 .ma-tab--send.is-on { color: var(--acc); }
 
-/* Install hint */
-.ma-install { position: fixed; left: 12px; right: 12px; bottom: calc(var(--tabbar-h) + var(--safe-b) + 12px); z-index: 50; max-width: 456px; margin: 0 auto; background: var(--navy); color: #fff; border-radius: 18px; padding: 14px 44px 14px 16px; font-size: 14px; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25); }
-.ma-install b { color: var(--acc); }
-.ma-install button { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; border-radius: 999px; border: 0; background: rgba(255, 255, 255, 0.1); color: #fff; font-size: 18px; cursor: pointer; }
-.ma-install[hidden] { display: none; }
+/* Install app modal */
+.ma-install-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  background: rgba(15, 23, 42, 0.55);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+.ma-install-modal[hidden] { display: none !important; }
+.ma-install-sheet {
+  width: 100%;
+  max-width: 420px;
+  background: var(--card);
+  color: var(--ink);
+  border-radius: 24px;
+  padding: 20px 18px 16px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  max-height: min(85vh, 640px);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.ma-install-sheet h2 {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.ma-install-sheet .ma-install-lead {
+  margin: 0 0 14px;
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+.ma-install-sheet .ma-install-lead b { color: var(--acc); }
+.ma-install-steps {
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+.ma-install-steps li {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 10px;
+  align-items: start;
+  font-size: 14px;
+  line-height: 1.4;
+}
+.ma-install-steps .ma-install-n {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--acc-soft);
+  color: var(--acc);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+}
+.ma-install-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+.ma-install-actions .ma-btn { width: 100%; justify-content: center; }
+.ma-install-close-x {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+.ma-install-sheet { position: relative; }
+@media (prefers-color-scheme: dark) {
+  .ma-install-modal { background: rgba(0, 0, 0, 0.65); }
+}
 
 /* Review tab */
 .ma-qr { display: flex; flex-direction: column; align-items: center; text-align: center; }
