@@ -22,12 +22,14 @@ const HANDLERS = {
       role: ROLE_BY_ID.opportunity,
       onBehalfOf: ctx.onBehalfOf,
       limit: 8,
+      force: !!ctx.force,
     }),
   'review.scan': (wid, job, ctx) =>
     tools.scanOpportunityBoard(wid, {
       role: ROLE_BY_ID.opportunity,
       onBehalfOf: ctx.onBehalfOf,
       limit: 8,
+      force: !!ctx.force,
     }),
   'dispatcher.scan_pool': (wid, job, ctx) =>
     tools.scanPool(wid, { role: ROLE_BY_ID.dispatcher, onBehalfOf: ctx.onBehalfOf }),
@@ -48,7 +50,10 @@ async function runJob(workspaceId, jobId, opts = {}) {
     roleId: (role && role.id) || job.roleId,
   });
 
-  const ctx = { onBehalfOf: opts.onBehalfOf || job.triggeredBy || '' };
+  const ctx = {
+    onBehalfOf: opts.onBehalfOf || job.triggeredBy || '',
+    force: !!(opts.force || (job.payload && job.payload.force)),
+  };
   const handler = HANDLERS[job.type];
   if (!handler) {
     const error = `Unknown job type: ${job.type}`;
@@ -67,6 +72,7 @@ async function runJob(workspaceId, jobId, opts = {}) {
   try {
     const result = await handler(wid, job, ctx);
     const ok = !result || result.ok !== false;
+    const skippedFresh = !!(result && result.skipped && result.reason === 'fresh');
     const summary = (result && result.summary) || JOB_LABELS[job.type] || job.type;
     store.updateJob(wid, jobId, {
       status: ok ? 'done' : 'failed',
@@ -74,15 +80,18 @@ async function runJob(workspaceId, jobId, opts = {}) {
       error: ok ? null : (result && result.error) || 'Job failed',
       finishedAt: store.nowIso(),
     });
-    store.appendRun(wid, {
-      jobId,
-      roleId: (role && role.id) || job.roleId,
-      type: job.type,
-      status: ok ? 'ok' : 'failed',
-      summary,
-      counts: (result && result.counts) || {},
-      error: ok ? null : (result && result.error) || null,
-    });
+    // Fresh skips still advance auto cadence, but don't spam run history / activity.
+    if (!skippedFresh) {
+      store.appendRun(wid, {
+        jobId,
+        roleId: (role && role.id) || job.roleId,
+        type: job.type,
+        status: ok ? 'ok' : 'failed',
+        summary,
+        counts: (result && result.counts) || {},
+        error: ok ? null : (result && result.error) || null,
+      });
+    }
     if (role) {
       const fromScheduler = String(job.triggeredBy || '') === 'scheduler';
       store.recordRoleTick(wid, role.id, { auto: fromScheduler });
@@ -128,13 +137,15 @@ async function enqueueAndRun(workspaceId, type, opts = {}) {
     return { ok: false, error: `${role.title} is already running.`, job: already };
   }
 
+  const payload = { ...(opts.payload && typeof opts.payload === 'object' ? opts.payload : {}) };
+  if (opts.force) payload.force = true;
   const job = store.createJob(wid, {
     type,
     roleId: role.id,
-    payload: opts.payload || {},
+    payload,
     triggeredBy: opts.triggeredBy || opts.onBehalfOf || 'user',
   });
-  return runJob(wid, job.id, { onBehalfOf: opts.onBehalfOf || '' });
+  return runJob(wid, job.id, { onBehalfOf: opts.onBehalfOf || '', force: !!opts.force });
 }
 
 function roleDueForTick(settings, roleId, nowMs) {
@@ -196,6 +207,7 @@ async function tickWorkspace(workspaceId, opts = {}) {
         // force (Run all) is a user action; scheduler ticks keep the hourly auto cadence.
         triggeredBy: force ? (opts.triggeredBy || 'user') : 'scheduler',
         onBehalfOf: opts.onBehalfOf || '',
+        force,
       });
       results.push({
         roleId: role.id,

@@ -17,6 +17,14 @@ const networkStore = require('../networkStore');
 const { poolReferralsForMember } = require('../referralExchange');
 const store = require('./store');
 const memory = require('./memory');
+const {
+  filterProspectPool,
+  filterOpportunityPool,
+  leadBlocksOutreach,
+} = require('./leadFilters');
+
+/** Don't rewrite Opportunity insights / activity more than once per cooldown window. */
+const OPPORTUNITY_FRESH_MS = 50 * 60 * 1000;
 
 function actorFor(role, onBehalfOf) {
   const name = (role && (role.title || role.name)) || 'Ops bot';
@@ -69,9 +77,11 @@ async function prepareProspects(workspaceId, { role, onBehalfOf, limit = 20 } = 
   const ws = (await db.getWorkspace(wid)) || { id: wid };
   const all = await db.getAllLeads(wid);
   const business = filterBusinessPipelineLeads(all);
+  // Home-service trades in Portland–Vancouver only; never queue DNC / SMS STOP.
+  const pool = filterProspectPool(business);
   const dialRetry = resolveDialRetryPrefs(ws && ws.telephony);
   const roiOpts = roiScoreOptionsFromWorkspace(ws);
-  const queue = buildFocusQueue(business, Math.min(500, Math.max(5, limit)), {
+  const queue = buildFocusQueue(pool, Math.min(500, Math.max(5, limit)), {
     earlyStagesOnly: true,
     queueMode: dialRetry.queueMode || 'continue_list',
     workspace: ws,
@@ -82,12 +92,14 @@ async function prepareProspects(workspaceId, { role, onBehalfOf, limit = 20 } = 
     const title = String(l.title || l.company || l.email || 'Lead').slice(0, 120);
     const phone = leadPhone(l) || null;
     const stage = parseInt(l.pipelineStage, 10) || 1;
+    const city = String(l.city || '').trim();
     return {
       key: l.key,
       shortKey: short,
       title,
       phone,
       stage,
+      city,
       href: `/focus?lead=${encodeURIComponent(short)}&from=today`,
     };
   });
@@ -96,7 +108,11 @@ async function prepareProspects(workspaceId, { role, onBehalfOf, limit = 20 } = 
       kind: 'lead',
       id: t.key,
       title: t.title,
-      subtitle: [t.phone ? `Phone ${t.phone}` : null, `Stage ${t.stage}`].filter(Boolean).join(' · '),
+      subtitle: [
+        t.city || null,
+        t.phone ? `Phone ${t.phone}` : null,
+        `Stage ${t.stage}`,
+      ].filter(Boolean).join(' · '),
       href: t.href,
       badge: 'Prospect',
     }),
@@ -104,8 +120,8 @@ async function prepareProspects(workspaceId, { role, onBehalfOf, limit = 20 } = 
   const withPhone = queue.filter((l) => leadPhone(l)).length;
   const summary =
     queue.length === 0
-      ? 'No early-stage prospects ready yet.'
-      : `${queue.length} early-stage prospect${queue.length === 1 ? '' : 's'} ready (${withPhone} with phone). Top: ${top
+      ? 'No early-stage home-service prospects in Portland–Vancouver ready yet (restaurants, SMS STOP, and DNC are excluded).'
+      : `${queue.length} home-service prospect${queue.length === 1 ? '' : 's'} in Portland–Vancouver ready (${withPhone} with phone). Top: ${top
           .slice(0, 3)
           .map((t) => t.title)
           .join(', ') || '—'}.`;
@@ -113,7 +129,7 @@ async function prepareProspects(workspaceId, { role, onBehalfOf, limit = 20 } = 
   memory.remember(wid, 'prospect', {
     kind: 'prospect_prep',
     text: summary,
-    meta: { count: queue.length, withPhone },
+    meta: { count: queue.length, withPhone, pool: pool.length },
   });
   store.upsertInsight(wid, {
     roleId: 'prospect',
@@ -122,7 +138,7 @@ async function prepareProspects(workspaceId, { role, onBehalfOf, limit = 20 } = 
     body: summary,
     href: '/focus?from=today',
     severity: queue.length ? 'action' : 'info',
-    counts: { queue: queue.length, withPhone, items: items.length },
+    counts: { queue: queue.length, withPhone, items: items.length, pool: pool.length },
     meta: { top, items },
   });
   recordBot(wid, role, onBehalfOf, {
@@ -130,7 +146,7 @@ async function prepareProspects(workspaceId, { role, onBehalfOf, limit = 20 } = 
     action: 'prospect_prepare',
     summary: summary.slice(0, 200),
   });
-  return { ok: true, summary, counts: { queue: queue.length, withPhone }, top, items };
+  return { ok: true, summary, counts: { queue: queue.length, withPhone, pool: pool.length }, top, items };
 }
 
 /** @deprecated alias — Focus SDR renamed to Prospect SDR */
@@ -141,11 +157,34 @@ async function prepareFocus(workspaceId, opts) {
 /**
  * Opportunity SDR — review opportunity boards; rank top open deals to move.
  */
-async function scanOpportunityBoard(workspaceId, { role, onBehalfOf, limit = 8 } = {}) {
+async function scanOpportunityBoard(workspaceId, { role, onBehalfOf, limit = 8, force = false } = {}) {
   const wid = String(workspaceId || '').trim();
   const ws = (await db.getWorkspace(wid)) || { id: wid };
+
+  // Avoid scanning the same board over and over within the hourly window.
+  if (!force) {
+    const prev = store.listInsights(wid, 12).find(
+      (i) => i.roleId === 'opportunity' && (i.type === 'opportunity.scan_board' || i.type === 'review.scan'),
+    );
+    const age = prev && prev.at ? Date.now() - Date.parse(prev.at) : Infinity;
+    if (Number.isFinite(age) && age >= 0 && age < OPPORTUNITY_FRESH_MS) {
+      const items = (prev.meta && Array.isArray(prev.meta.items)) ? prev.meta.items : [];
+      return {
+        ok: true,
+        skipped: true,
+        reason: 'fresh',
+        summary: prev.body || 'Opportunity board already scanned recently.',
+        counts: prev.counts || { top: items.length },
+        top: (prev.meta && prev.meta.top) || [],
+        items,
+        pipeline: (prev.meta && prev.meta.pipeline) || 'Opportunity board',
+      };
+    }
+  }
+
   const all = await db.getAllLeads(wid);
-  const business = filterBusinessPipelineLeads(all);
+  const business = filterOpportunityPool(filterBusinessPipelineLeads(all));
+  const byKey = new Map(business.map((l) => [l.key, l]));
   let tasks = [];
   try {
     if (onBehalfOf) tasks = await db.listUserTasks(wid, onBehalfOf);
@@ -169,6 +208,10 @@ async function scanOpportunityBoard(workspaceId, { role, onBehalfOf, limit = 8 }
   for (const stage of openStages) {
     const progress = stageIndex.get(stage.id) || 0;
     for (const card of stage.cards || []) {
+      const full = byKey.get(card.key) || byKey.get(`lead:${String(card.key || '').replace(/^lead:/i, '')}`);
+      if (full ? leadBlocksOutreach(full) : false) continue;
+      // Cards without a resolvable lead still get a light tag check from card fields if present.
+      if (!full && leadBlocksOutreach(card)) continue;
       const shortKey = String(card.key || '').replace(/^lead:/i, '');
       candidates.push({
         key: card.key,
@@ -514,4 +557,5 @@ module.exports = {
   nextMoveForStage,
   isClosedStageName,
   itemRow,
+  OPPORTUNITY_FRESH_MS,
 };

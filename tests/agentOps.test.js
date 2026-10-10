@@ -28,6 +28,8 @@ describe('agentOps role bots', () => {
       company: 'Early Plumbing Co',
       phone: '5035550100',
       pipelineStage: 1,
+      categoryName: 'Plumber',
+      city: 'Vancouver',
       workspaceId: 'ws_ops',
       source: 'manual',
     });
@@ -37,6 +39,8 @@ describe('agentOps role bots', () => {
       phone: '5035550188',
       email: 'ops@bigdeal.test',
       pipelineStage: 4,
+      categoryName: 'HVAC contractor',
+      city: 'Portland',
       opportunityValue: 12000,
       opportunityPipelineId: pipeline.id,
       opportunityStageId: stageProposal.id,
@@ -48,9 +52,35 @@ describe('agentOps role bots', () => {
       company: 'Small Warm Lead',
       phone: '5035550177',
       pipelineStage: 3,
+      categoryName: 'Landscaping',
+      city: 'Camas',
       opportunityValue: 1500,
       opportunityPipelineId: pipeline.id,
       opportunityStageId: stageNew.id,
+      workspaceId: 'ws_ops',
+      source: 'manual',
+    });
+    const stopKey = await dbService.saveLead({
+      title: '1st Call Plumbing',
+      company: '1st Call Plumbing',
+      phone: '3605550199',
+      pipelineStage: 4,
+      categoryName: 'Plumber',
+      city: 'Vancouver',
+      tags: ['SMS STOP'],
+      opportunityValue: 9000,
+      opportunityPipelineId: pipeline.id,
+      opportunityStageId: stageProposal.id,
+      workspaceId: 'ws_ops',
+      source: 'manual',
+    });
+    await dbService.saveLead({
+      title: 'KO Sisters Seoul Food',
+      company: 'KO Sisters Seoul Food',
+      phone: '5035550111',
+      pipelineStage: 1,
+      categoryName: 'Korean restaurant',
+      city: 'Portland',
       workspaceId: 'ws_ops',
       source: 'manual',
     });
@@ -61,6 +91,8 @@ describe('agentOps role bots', () => {
         opportunityValue: 12000,
         opportunityPipelineId: pipeline.id,
         opportunityStageId: stageProposal.id,
+        categoryName: 'HVAC contractor',
+        city: 'Portland',
       },
       'ws_ops',
     );
@@ -70,6 +102,20 @@ describe('agentOps role bots', () => {
         opportunityValue: 1500,
         opportunityPipelineId: pipeline.id,
         opportunityStageId: stageNew.id,
+        categoryName: 'Landscaping',
+        city: 'Camas',
+      },
+      'ws_ops',
+    );
+    await dbService.updateLead(
+      stopKey,
+      {
+        opportunityValue: 9000,
+        opportunityPipelineId: pipeline.id,
+        opportunityStageId: stageProposal.id,
+        tags: ['SMS STOP'],
+        categoryName: 'Plumber',
+        city: 'Vancouver',
       },
       'ws_ops',
     );
@@ -98,6 +144,7 @@ describe('agentOps role bots', () => {
   it('Prospect SDR prepare builds a prospect insight', async () => {
     const out = await agentOps.enqueueAndRun('ws_ops', 'prospect.prepare', {
       onBehalfOf: 'owner@ops.test',
+      force: true,
     });
     assert.equal(out.ok, true);
     assert.ok(out.result.counts.queue >= 1);
@@ -105,10 +152,12 @@ describe('agentOps role bots', () => {
     assert.ok(out.result.items.length >= 1);
     assert.equal(out.result.items[0].kind, 'lead');
     assert.match(out.result.items[0].href || '', /\/focus\?lead=/);
+    // Restaurant must not be the top prospect.
+    assert.doesNotMatch(out.result.summary || '', /KO Sisters/i);
     const dash = agentOps.dashboardForWorkspace('ws_ops');
     const sdr = dash.roles.find((r) => r.id === 'prospect');
     assert.ok(sdr.insight);
-    assert.match(sdr.insight.body, /prospect/i);
+    assert.match(sdr.insight.body, /prospect|Portland|Vancouver/i);
     assert.equal(sdr.insight.href, '/focus?from=today');
     assert.equal(sdr.title, 'Prospect SDR');
     assert.ok(sdr.items.length >= 1);
@@ -117,6 +166,7 @@ describe('agentOps role bots', () => {
   it('Opportunity SDR ranks open board deals', async () => {
     const out = await agentOps.enqueueAndRun('ws_ops', 'opportunity.scan_board', {
       onBehalfOf: 'owner@ops.test',
+      force: true,
     });
     assert.equal(out.ok, true);
     assert.ok(out.result.counts.open >= 1);
@@ -124,6 +174,8 @@ describe('agentOps role bots', () => {
     assert.ok(Array.isArray(out.result.items));
     assert.ok(out.result.items.length >= 1);
     assert.match(out.result.items[0].href || '', /\/focus\?lead=/);
+    // SMS STOP lead must not be recommended.
+    assert.ok(!out.result.top.some((t) => /1st Call Plumbing/i.test(t.title || '')));
     const insight = agentOps.listInsights('ws_ops').find((i) => i.roleId === 'opportunity');
     assert.ok(insight);
     assert.equal(insight.severity, 'action');
@@ -136,6 +188,15 @@ describe('agentOps role bots', () => {
     if (out.result.top.length >= 2) {
       assert.ok(out.result.top[0].value >= out.result.top[1].value);
     }
+
+    // Immediate re-scan without force should be treated as fresh (no duplicate activity).
+    const again = await agentOps.enqueueAndRun('ws_ops', 'opportunity.scan_board', {
+      onBehalfOf: 'owner@ops.test',
+      triggeredBy: 'scheduler',
+    });
+    assert.equal(again.ok, true);
+    assert.equal(again.result.skipped, true);
+    assert.equal(again.result.reason, 'fresh');
   });
 
   it('Dispatcher and Ops jobs write insights', async () => {
