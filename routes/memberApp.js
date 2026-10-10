@@ -27,6 +27,8 @@ const notify = require('../services/networkNotify');
 const networkReferrals = require('../services/networkReferrals');
 const networkBrand = require('../services/networkBrand');
 const work = require('../services/memberWork');
+const memberCustomerCsv = require('../services/memberCustomerCsv');
+const memberCustomerGhl = require('../services/memberCustomerGhl');
 const reviewPage = require('../services/reviewPage');
 const reviewRequestScript = require('../services/reviewRequestScript');
 const reviewShareImage = require('../services/reviewShareImage');
@@ -44,6 +46,18 @@ const reviewUpload = multer({
   fileFilter(req, file, cb) {
     const ok = /^image\/(jpeg|jpg|png|webp|gif)$/i.test(String(file.mimetype || ''));
     cb(ok ? null : new Error('Upload a JPG, PNG, WebP, or GIF image.'), ok);
+  },
+});
+const customerImportUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 6 * 1024 * 1024, files: 1 },
+  fileFilter(req, file, cb) {
+    const name = String(file.originalname || '');
+    const mime = String(file.mimetype || '');
+    const ok =
+      /\.(csv|xlsx|xls|txt)$/i.test(name) ||
+      /csv|excel|spreadsheet|text\/plain|octet-stream/i.test(mime);
+    cb(ok ? null : new Error('Upload a CSV or Excel (.xlsx) customer list.'), ok);
   },
 });
 
@@ -87,6 +101,8 @@ const OK_MESSAGES = {
   moved: 'Job updated.',
   converted: 'Added to your customers.',
   already: 'That referral is already in your customers.',
+  customers_imported: 'Customer list imported.',
+  customers_synced: 'Customers synced with Go High Level.',
 };
 
 const MEMBER_ACTIONS = new Set(['accept', 'decline', 'book', 'win', 'lose', 'note', 'claim']);
@@ -200,9 +216,14 @@ const ERR_MESSAGES = {
 
 function flashFromQuery(req) {
   const ok = OK_MESSAGES[String(req.query.ok || '')];
-  if (ok) return { ok };
+  if (ok) {
+    const detail = String(req.query.detail || '').trim().slice(0, 180);
+    return { ok: detail ? `${ok} ${detail}` : ok };
+  }
   const error = ERR_MESSAGES[String(req.query.err || '')];
-  return error ? { error } : null;
+  if (error) return { error };
+  const errMsg = String(req.query.errmsg || '').trim().slice(0, 200);
+  return errMsg ? { error: errMsg } : null;
 }
 
 function withMember(handler) {
@@ -773,11 +794,45 @@ router.get('/m/:token/customers/new', withMember((req, res, ctx) => renderCustom
 })));
 
 router.post('/m/:token/customers/new', form, withMember(async (req, res, ctx) => {
-  const result = await work.saveCustomer(ctx.network.id, ctx.member.id, req.body || {});
+  const result = await work.saveCustomer(ctx.network.id, ctx.member.id, req.body || {}, { source: 'manual' });
   if (!result.ok) {
     return renderCustomerPage(res, ctx, { customer: null, formValues: req.body, flash: { error: result.error }, status: 400 });
   }
+  // Best-effort: new customers land in GHL so review requests reuse the same contact.
+  await memberCustomerGhl.pushCustomerToGhl(ctx.network, ctx.member.id, result.customer).catch(() => null);
   return res.redirect(303, `${ctx.base}/customers/c/${result.customer.id}?ok=customer`);
+}));
+
+router.post('/m/:token/customers/import', (req, res, next) => {
+  customerImportUpload.single('file')(req, res, (err) => {
+    if (!err) return next();
+    req.customerImportError = err.message || 'Upload failed.';
+    return next();
+  });
+}, withMember(async (req, res, ctx) => {
+  if (req.customerImportError) {
+    return res.redirect(303, `${ctx.base}/customers?errmsg=${encodeURIComponent(req.customerImportError)}`);
+  }
+  const parsed = memberCustomerCsv.parseCustomerImportFile(
+    req.file && req.file.buffer,
+    req.file && req.file.originalname,
+  );
+  if (!parsed.ok) {
+    return res.redirect(303, `${ctx.base}/customers?errmsg=${encodeURIComponent(parsed.error)}`);
+  }
+  const out = await memberCustomerCsv.importCustomers(ctx.network.id, ctx.member.id, parsed.rows, {
+    pushToGhl: async (saved) => memberCustomerGhl.pushCustomersMissingGhl(ctx.network, ctx.member.id, saved, { limit: 100 }),
+  });
+  const detail = `(${out.created} new, ${out.updated} updated${out.ghl && out.ghl.pushed ? `, ${out.ghl.pushed} synced to GHL` : ''})`;
+  return res.redirect(303, `${ctx.base}/customers?ok=customers_imported&detail=${encodeURIComponent(detail)}`);
+}));
+
+router.post('/m/:token/customers/sync-ghl', form, withMember(async (req, res, ctx) => {
+  const out = await memberCustomerGhl.syncCustomersWithGhl(ctx.network, ctx.member.id, { maxPages: 5, pushLimit: 100 });
+  if (!out.ok) {
+    return res.redirect(303, `${ctx.base}/customers?errmsg=${encodeURIComponent(out.error || 'GHL sync failed.')}`);
+  }
+  return res.redirect(303, `${ctx.base}/customers?ok=customers_synced&detail=${encodeURIComponent(`(${out.summary})`)}`);
 }));
 
 async function customerPageData(req, ctx, id) {
@@ -804,6 +859,9 @@ router.post('/m/:token/customers/c/:id', form, withMember(async (req, res, ctx) 
     const data = await customerPageData(req, ctx, req.params.id);
     if (!data) return res.redirect(303, `${ctx.base}/customers`);
     return renderCustomerPage(res, ctx, { ...data, formValues: req.body, flash: { error: result.error }, status: 400 });
+  }
+  if (!result.customer.ghlContactId) {
+    await memberCustomerGhl.pushCustomerToGhl(ctx.network, ctx.member.id, result.customer).catch(() => null);
   }
   return res.redirect(303, `${ctx.base}/customers/c/${result.customer.id}?ok=customer`);
 }));
@@ -1065,10 +1123,11 @@ function reviewPageLocals(member, extras) {
 
 async function renderReview(req, res, ctx, flash, status, formValues) {
   const member = await ensureReviewSetup(ctx);
-  const [stats, feedback, messaging] = await Promise.all([
+  const [stats, feedback, messaging, customers] = await Promise.all([
     store.getReviewStats(ctx.network.id, member.id),
     store.listFeedback(ctx.network.id, member.id),
     notify.messagingReadyForNetwork(ctx.network),
+    work.listCustomers(ctx.network.id, member.id),
   ]);
   const totalStars = Object.values(stats.stars).reduce((a, b) => a + b, 0);
   const q = req.query || {};
@@ -1076,6 +1135,7 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
     phone: String((formValues && formValues.phone) || q.phone || '').trim(),
     email: String((formValues && formValues.email) || q.email || '').trim(),
     name: String((formValues && formValues.name) || q.name || '').trim(),
+    customerId: String((formValues && formValues.customerId) || q.customer || '').trim(),
     channel: String((formValues && formValues.channel) || q.channel || 'auto').trim() || 'auto',
     useAi: formValues && Object.prototype.hasOwnProperty.call(formValues, 'useAi')
       ? !!formValues.useAi
@@ -1095,6 +1155,13 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
     feedback: feedback.slice(0, 10).map((f) => ({ ...f, when: when(f.createdAt) })),
     askShare: String(q.ask || '') === '1',
     messaging,
+    customers: customers.map((c) => ({
+      id: c.id,
+      name: c.name,
+      phone: c.phone || '',
+      email: c.email || '',
+      ghl: !!c.ghlContactId,
+    })),
     formValues: defaults,
     smsScript,
     defaultSmsScript: reviewRequestScript.DEFAULT_SMS_SCRIPT,
@@ -1266,10 +1333,26 @@ router.post('/m/:token/review/send', withReviewUpload('shareImage'), withMember(
   const member = await ensureReviewSetup(ctx);
   const body = req.body || {};
   const rawAi = Array.isArray(body.useAi) ? body.useAi[body.useAi.length - 1] : body.useAi;
+  let phone = String(body.phone || '').trim();
+  let email = String(body.email || '').trim();
+  let name = String(body.name || '').trim();
+  const customerId = String(body.customerId || '').trim();
+  if (customerId && work.isRecordId(customerId)) {
+    const picked = await work.getCustomer(ctx.network.id, ctx.member.id, customerId);
+    if (picked) {
+      name = name || picked.name;
+      phone = phone || picked.phone || '';
+      email = email || picked.email || '';
+      if (!picked.ghlContactId) {
+        await memberCustomerGhl.pushCustomerToGhl(ctx.network, ctx.member.id, picked).catch(() => null);
+      }
+    }
+  }
   const formValues = {
-    phone: String(body.phone || '').trim(),
-    email: String(body.email || '').trim(),
-    name: String(body.name || '').trim(),
+    phone,
+    email,
+    name,
+    customerId,
     channel: String(body.channel || 'auto').trim() || 'auto',
     useAi: rawAi === undefined || rawAi === ''
       ? true
