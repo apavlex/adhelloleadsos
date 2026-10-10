@@ -13,9 +13,9 @@
     <p class="ma-page-sub">Your customers, jobs and schedule in one place.</p>
 
     <nav class="ma-seg ma-seg--3" aria-label="Customer views">
-      <a href="<%= hrefFor({}) %>" class="<%= view === 'list' ? 'is-on' : '' %>" <%= view === 'list' ? 'aria-current=page' : '' %>>List</a>
-      <a href="<%= hrefFor({ view: 'calendar' }) %>" class="<%= view === 'calendar' ? 'is-on' : '' %>" <%= view === 'calendar' ? 'aria-current=page' : '' %>>Calendar</a>
-      <a href="<%= hrefFor({ view: 'pending' }) %>" class="<%= view === 'pending' ? 'is-on' : '' %>" <%= view === 'pending' ? 'aria-current=page' : '' %>>Pending</a>
+      <a href="<%= hrefFor({}) %>" class="<%= view === 'list' ? 'is-on' : '' %>" <%= view === 'list' ? 'aria-current=page' : '' %>><%- icons.list %><span>List</span></a>
+      <a href="<%= hrefFor({ view: 'calendar' }) %>" class="<%= view === 'calendar' ? 'is-on' : '' %>" <%= view === 'calendar' ? 'aria-current=page' : '' %>><%- icons.calendar %><span>Calendar</span></a>
+      <a href="<%= hrefFor({ view: 'pending' }) %>" class="<%= view === 'pending' ? 'is-on' : '' %>" <%= view === 'pending' ? 'aria-current=page' : '' %>><%- icons.pending %><span>Pending</span></a>
     </nav>
 
     <%- include('_flash') %>

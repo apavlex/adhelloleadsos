@@ -44,8 +44,8 @@ const reviewUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: reviewShareImage.MAX_UPLOAD_BYTES, files: 1 },
   fileFilter(req, file, cb) {
-    const ok = /^image\/(jpeg|jpg|png|webp|gif)$/i.test(String(file.mimetype || ''));
-    cb(ok ? null : new Error('Upload a JPG, PNG, WebP, or GIF image.'), ok);
+    const ok = /^image\/(jpeg|jpg|png|webp|gif|heic|heif)$/i.test(String(file.mimetype || ''));
+    cb(ok ? null : new Error('Upload a JPG, PNG, WebP, GIF, or HEIC image.'), ok);
   },
 });
 const customerImportUpload = multer({
@@ -555,9 +555,21 @@ router.post('/m/:token/profile', form, withMember(async (req, res, ctx) => {
 
 router.post('/m/:token/profile/photo', (req, res, next) => {
   const ct = String(req.headers['content-type'] || '');
-  if (ct.includes('multipart/form-data')) return withReviewUpload('photo')(req, res, next);
-  return form(req, res, next);
+  if (!ct.includes('multipart/form-data')) return form(req, res, next);
+  // Keep errors on the profile page (withMember needs to run) instead of a dead invalid screen.
+  return reviewUpload.single('photo')(req, res, (err) => {
+    if (err) {
+      const tooBig = err.code === 'LIMIT_FILE_SIZE';
+      req.maUploadError = tooBig
+        ? 'That photo is too large (max 6 MB). Try a smaller image.'
+        : (err.message || 'Could not upload that image.');
+    }
+    return next();
+  });
 }, withMember(async (req, res, ctx) => {
+  if (req.maUploadError) {
+    return renderProfile(req, res, ctx, { error: req.maUploadError }, null, 400);
+  }
   const body = req.body || {};
   if (body.remove === '1' || body.remove === 'on') {
     await store.deleteProfilePhoto(ctx.network.id, ctx.member.id);
