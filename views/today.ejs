@@ -399,10 +399,10 @@
                       <% }) %>
                     </ul>
                   </details>
-                  <% if (insight && insight.href) { %>
-                    <a href="<%= insight.href %>" class="agent-ops-href text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline w-fit">Open board</a>
+                  <% if (insight && (insight.href || (insight.meta && insight.meta.items && insight.meta.items.length))) { %>
+                    <a href="/focus?from=today" class="agent-ops-href text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline w-fit">Contact leads</a>
                   <% } else { %>
-                    <a href="#" class="agent-ops-href text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline w-fit hidden" hidden>Open board</a>
+                    <a href="/focus?from=today" class="agent-ops-href text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline w-fit hidden" hidden>Contact leads</a>
                   <% } %>
                 </article>
               <% }) %>
@@ -534,11 +534,16 @@
                 }
               }
               if (hrefEl) {
-                if (insight && insight.href) {
-                  hrefEl.href = insight.href;
+                var hasLeads = insight && (
+                  insight.href
+                  || (insight.meta && insight.meta.items && insight.meta.items.length)
+                  || (role.items && role.items.length)
+                );
+                if (hasLeads) {
+                  hrefEl.href = '/focus?from=today';
                   hrefEl.classList.remove('hidden');
                   hrefEl.removeAttribute('hidden');
-                  hrefEl.textContent = 'Open board';
+                  hrefEl.textContent = 'Contact leads';
                 } else {
                   hrefEl.classList.add('hidden');
                   hrefEl.setAttribute('hidden', '');

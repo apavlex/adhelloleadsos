@@ -109,6 +109,7 @@ describe('agentOps role bots', () => {
     const sdr = dash.roles.find((r) => r.id === 'prospect');
     assert.ok(sdr.insight);
     assert.match(sdr.insight.body, /prospect/i);
+    assert.equal(sdr.insight.href, '/focus?from=today');
     assert.equal(sdr.title, 'Prospect SDR');
     assert.ok(sdr.items.length >= 1);
   });
@@ -122,9 +123,11 @@ describe('agentOps role bots', () => {
     assert.ok(out.result.top.length >= 1);
     assert.ok(Array.isArray(out.result.items));
     assert.ok(out.result.items.length >= 1);
+    assert.match(out.result.items[0].href || '', /\/focus\?lead=/);
     const insight = agentOps.listInsights('ws_ops').find((i) => i.roleId === 'opportunity');
     assert.ok(insight);
     assert.equal(insight.severity, 'action');
+    assert.equal(insight.href, '/focus?from=today');
     assert.match(insight.body, /open|focus next/i);
     const dash = agentOps.dashboardForWorkspace('ws_ops');
     const opp = dash.roles.find((r) => r.id === 'opportunity');
