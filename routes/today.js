@@ -115,28 +115,36 @@ function manualTasksDueToday(tasksEnriched) {
 
 router.get('/', async (req, res, next) => {
   try {
-    const all = await dbService.getAllLeads(req.workspaceId);
-    const workspaceLeads = filterLeadsForRequest(req, all);
-    const businessLeads = filterBusinessPipelineLeads(workspaceLeads);
     const email = userEmail(req);
     const today = new Date().toISOString().slice(0, 10);
-    const history = await dbService.listDailyTrackers(req.workspaceId, email, 60);
-    const streak = computeOutreachStreakWithLeads(history, today, workspaceLeads);
-    const touchesToday = countUniqueLeadsTouchedToday(workspaceLeads, await dbService.getWorkspace(req.workspaceId));
-    const touchGoal = await loadDailyTouchGoal(req);
-    const repliesWaiting = countReplySignals(businessLeads);
-    const queueNeedingAction = countQueueNeedingAction(businessLeads);
-
-    const activation = await activationService.getState(email, req.workspace || req.workspaceId);
+    const wid = req.workspaceId;
+    const workspaceDoc = req.workspace || null;
+    const since24 = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const apYear = parseInt(req.query.actionPlanYear, 10) || new Date().getFullYear();
+    const apMonth = parseInt(req.query.actionPlanMonth, 10) || new Date().getMonth() + 1;
     const seededNotice = req.query.demo === '1' || req.query.seeded === '1';
     const searchInProgressNotice = req.query.searchInProgress === '1';
     const scheduleSavedNotice = req.query.scheduleSaved === '1';
-    const outreachCoach = await buildOutreachCoachSnapshot(req, {
-      businessesOnly: true,
-      leads: all,
-    });
 
-    const workspaceDoc = await dbService.getWorkspace(req.workspaceId);
+    // Parallelize independent reads — sequential awaits were the main mobile white-screen TTFB.
+    const [all, history, touchGoal, activation, workspaceFolders, reportViewsRaw, opportunityTags] =
+      await Promise.all([
+        dbService.getAllLeads(wid),
+        dbService.listDailyTrackers(wid, email, 62),
+        loadDailyTouchGoal(req),
+        activationService.getState(email, workspaceDoc || wid),
+        dbService.listFolders(wid).catch(() => []),
+        dbService.listReportViewsForWorkspaceSince(wid, since24, 600),
+        dbService.listTags(wid).catch(() => []),
+      ]);
+
+    const workspaceLeads = filterLeadsForRequest(req, all);
+    const businessLeads = filterBusinessPipelineLeads(workspaceLeads);
+    const streak = computeOutreachStreakWithLeads(history, today, workspaceLeads);
+    const touchesToday = countUniqueLeadsTouchedToday(workspaceLeads, workspaceDoc);
+    const repliesWaiting = countReplySignals(businessLeads);
+    const queueNeedingAction = countQueueNeedingAction(businessLeads);
+
     const conversionSnapshot = buildConversionSnapshot(workspaceLeads, workspaceDoc);
     const weekReview = buildWeekReview(workspaceLeads, conversionSnapshot);
     const icp = getWorkspaceIcp(workspaceDoc);
@@ -155,12 +163,6 @@ router.get('/', async (req, res, next) => {
       activation.progress >= 5;
     const showActivationRibbon = !activationComplete && !activationAutoHide;
 
-    await dedupeOpenLeadTasks(req.workspaceId, email);
-    const rawTasks = await dbService.listUserTasks(req.workspaceId, email);
-    const followUpTasksToday = followUpTasksNeedingAttention(
-      enrichTasksWithLeadsForToday(rawTasks, workspaceLeads),
-    );
-
     const baseUrl = `${req.protocol}://${req.get('host')}`.replace(/\/$/, '');
     const cadenceQueue = buildCadenceQueue(businessLeads, baseUrl);
     const dialRetry = resolveDialRetryPrefs(workspaceDoc && workspaceDoc.telephony);
@@ -170,15 +172,12 @@ router.get('/', async (req, res, next) => {
       ...roiOpts,
     });
     const contactQueueBlurb = contactQueueSortBlurb(roiOpts.roiProfile);
-    const workspaceFolders = await dbService.listFolders(req.workspaceId).catch(() => []);
     // continue_list so retry-deferred bookmarks still show up in the session.
     const bookmarkSessions = buildBookmarkSessions(businessLeads, workspaceFolders, {
       queueMode: 'continue_list',
       ...roiOpts,
     });
     const recentlyWorked = buildRecentlyWorked(businessLeads, workspaceFolders, { limit: 8, sinceDays: 14 });
-    const since24 = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const reportViewsRaw = await dbService.listReportViewsForWorkspaceSince(req.workspaceId, since24, 600);
     const byLead = new Map();
     for (const v of reportViewsRaw) {
       const prev = byLead.get(v.lead_id);
@@ -202,12 +201,31 @@ router.get('/', async (req, res, next) => {
       };
     });
 
+    const [outreachCoach, actionPlan, rawTasks] = await Promise.all([
+      buildOutreachCoachSnapshot(req, {
+        businessesOnly: true,
+        leads: all,
+        workspace: workspaceDoc,
+        touchGoal,
+        history,
+      }),
+      actionPlanTracker.loadMonthView({
+        workspaceId: wid,
+        email,
+        year: apYear,
+        month: apMonth,
+        leads: workspaceLeads,
+      }),
+      dedupeOpenLeadTasks(wid, email).then(() => dbService.listUserTasks(wid, email)),
+    ]);
+
     const tasksEnriched = enrichTasksWithLeadsForToday(rawTasks, workspaceLeads);
+    const followUpTasksToday = followUpTasksNeedingAttention(tasksEnriched);
     const todayTasks = manualTasksDueToday(tasksEnriched);
     const selectedBoards = selectPipeline(workspaceDoc && workspaceDoc.opportunityBoards, req.query && req.query.pipeline);
     if (selectedBoards.changed && workspaceDoc) {
       workspaceDoc.opportunityBoards = selectedBoards.boards;
-      await dbService.saveWorkspace(req.workspaceId, workspaceDoc);
+      await dbService.saveWorkspace(wid, workspaceDoc);
     }
     const opportunityBoard = buildOpportunityBoard({
       boards: (workspaceDoc && workspaceDoc.opportunityBoards) || selectedBoards.boards,
@@ -228,15 +246,6 @@ router.get('/', async (req, res, next) => {
       limit: 30,
     });
 
-    const apYear = parseInt(req.query.actionPlanYear, 10) || new Date().getFullYear();
-    const apMonth = parseInt(req.query.actionPlanMonth, 10) || new Date().getMonth() + 1;
-    const actionPlan = await actionPlanTracker.loadMonthView({
-      workspaceId: req.workspaceId,
-      email,
-      year: apYear,
-      month: apMonth,
-      leads: workspaceLeads,
-    });
     const navYear = new Date().getFullYear();
     const actionPlanMonthNav = actionPlanTracker.MONTH_SHORT.map((short, i) => ({
       short,
@@ -276,7 +285,7 @@ router.get('/', async (req, res, next) => {
       followUpTasksToday,
       opportunityBoard,
       opportunityCompact: true,
-      opportunityTags: await dbService.listTags(req.workspaceId).catch(() => []),
+      opportunityTags,
       nextActions,
       todayTasks,
       callWarmQueue,

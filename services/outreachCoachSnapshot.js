@@ -205,27 +205,37 @@ function pickQuoteForDate(isoDate) {
 async function buildOutreachCoachSnapshot(req, opts = {}) {
   const email = userEmail(req);
   const today = new Date().toISOString().slice(0, 10);
-  const touchGoal = await loadDailyTouchGoal(req);
   const wid = req.workspaceId;
   if (!wid) {
     throw new Error('buildOutreachCoachSnapshot requires req.workspaceId');
   }
 
-  const all = Array.isArray(opts.leads) ? opts.leads : await dbService.getAllLeads(wid);
-  let leads = filterLeadsForRequest(req, all);
+  const all = Array.isArray(opts.leads) ? opts.leads : null;
+  const needLeads = !Array.isArray(all);
+  const needTouchGoal = opts.touchGoal == null;
+  const needHistory = !Array.isArray(opts.history);
+  const workspaceHint = opts.workspace || req.workspace || null;
+
+  const [touchGoalResolved, leadsRaw, allSchedules, workspaceDoc, history60, stageRows] =
+    await Promise.all([
+      needTouchGoal ? loadDailyTouchGoal(req) : Promise.resolve(opts.touchGoal),
+      needLeads ? dbService.getAllLeads(wid) : Promise.resolve(all),
+      dbService.listSchedules(),
+      workspaceHint ? Promise.resolve(workspaceHint) : dbService.getWorkspace(wid),
+      needHistory ? dbService.listDailyTrackers(wid, email, 62) : Promise.resolve(opts.history),
+      pipelineStagesService.ensureWorkspaceStagesSeeded(wid),
+    ]);
+
+  const touchGoal = touchGoalResolved;
+  let leads = filterLeadsForRequest(req, leadsRaw);
   if (opts.businessesOnly !== false) {
     leads = filterBusinessPipelineLeads(leads);
   }
 
-  const allSchedules = await dbService.listSchedules();
   const scheduledSearchesCount = allSchedules.filter((s) => (s.workspaceId || 'default') === wid).length;
-
-  const touchesToday = countUniqueLeadsTouchedToday(leads, await dbService.getWorkspace(wid));
-
-  const history60 = await dbService.listDailyTrackers(wid, email, 62);
+  const touchesToday = countUniqueLeadsTouchedToday(leads, workspaceDoc);
   const streak = computeOutreachStreak(history60, today);
 
-  const stageRows = await pipelineStagesService.ensureWorkspaceStagesSeeded(wid);
   const sortedStages = [...stageRows].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
   const openStages = sortedStages.filter((s) => !s.isWon && !s.isLost);
 

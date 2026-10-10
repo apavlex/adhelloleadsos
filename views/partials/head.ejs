@@ -42,10 +42,16 @@
 <% } %>
 <script>window.__ADHELLO_SCRIPT_PROFILE__ = <%- safeJsonForScript(typeof scriptSignOffProfile !== 'undefined' && scriptSignOffProfile ? scriptSignOffProfile : { name: '', company: '', phone: '', email: '' }) %>;</script>
 <style>
-  /* First-paint background before stylesheets apply (avoids cream→dark snap; also html canvas color). */
-  html:not(.dark) { background-color: #FAF7ED; }
-  html.dark { background-color: #020617; }
+  /* First-paint canvas before stylesheets — prevent mobile white blank while CSS/JS load. */
+  html:not(.dark), html:not(.dark) body { background-color: #FAF7ED; }
+  html.dark, html.dark body { background-color: #020617; }
+  body { margin: 0; min-height: 100dvh; }
 </style>
+<%
+  const _avEarly = typeof assetVersion !== 'undefined' ? assetVersion : '1';
+%>
+<link rel="preload" href="/css/custom.css?v=<%= _avEarly %>" as="style">
+<link rel="preload" href="/css/tailwind.css?v=<%= _avEarly %>" as="style">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Manrope:wght@700;800&display=swap" onload="this.onload=null;this.rel='stylesheet'">
@@ -128,9 +134,16 @@
   const _needReviews = true; /* softphone keypad shows stars on every page */
   const _av = typeof assetVersion !== 'undefined' ? assetVersion : '1';
 %>
-<%# Shared helpers — deferred so first paint isn't blocked by page-specific JS %>
-<%# Not deferred: inline scripts on Scripts and Focus read window.AdHelloScripts while the page parses %>
-<script src="/js/script-placeholders.js?v=<%= _av %>"></script>
+<%# Shared helpers — defer unless Focus/Scripts inline code needs AdHelloScripts during parse %>
+<%
+  const _needScriptPlaceholdersSync =
+    _np === 'focus' ||
+    _np === 'scripts' ||
+    _rp.startsWith('/focus') ||
+    _rp.startsWith('/scripts') ||
+    _rp.startsWith('/outreach');
+%>
+<script src="/js/script-placeholders.js?v=<%= _av %>"<%= _needScriptPlaceholdersSync ? '' : ' defer' %>></script>
 <script src="/js/portaled-popover-surface.js?v=<%= _av %>" defer></script>
 <script src="/js/lead-team-badges.js?v=<%= _av %>" defer></script>
 <% if (_needGcal) { %>
@@ -147,8 +160,8 @@
 <script src="/js/pipeline-import-export-menus.js?v=<%= _av %>" defer></script>
 <% } %>
 <% if (_np === 'today' || _rp.startsWith('/opportunities')) { %>
-<script src="/js/adhello-dialog.js?v=<%= _av %>"></script>
-<script src="/js/sortable-loader.js?v=<%= _av %>"></script>
+<script src="/js/adhello-dialog.js?v=<%= _av %>" defer></script>
+<script src="/js/sortable-loader.js?v=<%= _av %>" defer></script>
 <script src="/js/opportunities-board.js?v=<%= _av %>" defer></script>
 <% } %>
 <% if (_needReviews) { %>
@@ -158,7 +171,7 @@
 <script>window.__ADHELLO_GOOGLE_MAPS_STATIC_KEY__ = <%- JSON.stringify(typeof googleMapsStaticKey === 'string' ? googleMapsStaticKey : '') %>; window.__ADHELLO_LEAD_PANEL_JS_MAP__ = false;</script>
 <script src="/js/googleMapsLoader.js?v=<%= _av %>" defer></script>
 <script src="/js/osmLeafletMap.js?v=<%= _av %>" defer></script>
-<script src="/js/money-mode-link.js?v=<%= _av %>"></script>
+<script src="/js/money-mode-link.js?v=<%= _av %>" defer></script>
 <script src="/js/keyboard-nav-shortcuts.js?v=<%= _av %>" defer></script>
 <script src="/js/nav-prefetch.js?v=<%= _av %>" defer></script>
 <script src="/js/pwa-register.js?v=<%= _av %>" defer></script>
