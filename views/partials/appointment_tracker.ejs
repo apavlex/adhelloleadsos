@@ -144,7 +144,7 @@
       </div>
       <div class="flex flex-wrap items-center gap-2">
         <button type="button" id="apptSellBtn" class="btn-pill bg-brand-yellow text-brand-dark px-5 py-2.5 text-[10px] font-black uppercase tracking-widest">Sell appointments</button>
-        <button type="button" id="apptSendLeadBtn" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 text-brand-dark dark:text-white px-5 py-2.5 text-[10px] font-black uppercase tracking-widest" <%= (_at.packages && _at.packages.length) ? '' : 'disabled title="Add a contractor package first"' %>>Send lead</button>
+        <button type="button" id="apptSendLeadBtn" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 text-brand-dark dark:text-white px-5 py-2.5 text-[10px] font-black uppercase tracking-widest" data-has-packages="<%= (_at.packages && _at.packages.length) ? '1' : '0' %>" title="<%= (_at.packages && _at.packages.length) ? 'Send a homeowner to one or more contractors' : 'Add a contractor package first (Sell appointments)' %>">Send lead</button>
         <button type="button" id="apptSyncBtn" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 text-brand-dark dark:text-white px-5 py-2.5 text-[10px] font-black uppercase tracking-widest" <%= _at.ghlConfigured ? '' : 'disabled title="Connect GHL in Workspace → Integrations"' %>>Sync GHL calendar</button>
       </div>
     </div>
@@ -258,7 +258,8 @@
 
   <div class="px-5 sm:px-6 md:px-8 py-5 border-b border-brand-border/40 dark:border-white/10 appt-form" id="apptSendLeadForm" hidden>
     <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Send lead</p>
-    <p class="text-sm text-brand-muted mb-4 max-w-xl">Send one homeowner to a single contractor, everyone in a trade (e.g. all Electricians), or a custom multi-select. Each recipient gets the lead in their portal and a phone/desktop alert.</p>
+    <p class="text-sm text-brand-muted mb-2 max-w-xl">Send one homeowner to a single contractor, everyone in a trade (e.g. all Electricians), or a custom multi-select. Each recipient gets the lead in their portal and a phone/desktop alert.</p>
+    <p class="text-sm font-semibold text-rose-600 dark:text-rose-300 mb-4 hidden" id="apptSendLeadMsg" role="status"></p>
     <form id="apptSendLeadFormEl" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
       <label class="block">
         <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Lead name</span>
@@ -413,29 +414,74 @@
   var sendFormEl = document.getElementById('apptSendLeadFormEl');
   var sendCancelBtn = document.getElementById('apptSendLeadCancel');
   var msg = document.getElementById('apptTrackerMsg');
+  var sendMsg = document.getElementById('apptSendLeadMsg');
   var calSelect = document.getElementById('apptCalendarSelect');
   var calendarsLoaded = false;
+  var hasPackages = !!(sendLeadBtn && sendLeadBtn.getAttribute('data-has-packages') === '1');
+
+  function apiUrl(path) {
+    try {
+      var q = new URLSearchParams(window.location.search || '');
+      var key = q.get('api_key');
+      if (!key) return path;
+      return path + (path.indexOf('?') >= 0 ? '&' : '?') + 'api_key=' + encodeURIComponent(key);
+    } catch (e) {
+      return path;
+    }
+  }
+
+  function paintMsg(el, text, isError) {
+    if (!el) return;
+    el.textContent = text || '';
+    el.classList.toggle('hidden', !text);
+    el.classList.toggle('text-rose-600', !!isError);
+    el.classList.toggle('dark:text-rose-300', !!isError);
+    el.classList.toggle('text-emerald-700', !isError && !!text);
+    el.classList.toggle('dark:text-emerald-300', !isError && !!text);
+  }
 
   function setMsg(text, isError) {
-    if (!msg) return;
-    msg.textContent = text || '';
-    msg.classList.toggle('hidden', !text);
-    msg.classList.toggle('text-rose-600', !!isError);
-    msg.classList.toggle('dark:text-rose-300', !!isError);
-    msg.classList.toggle('text-emerald-700', !isError && !!text);
-    msg.classList.toggle('dark:text-emerald-300', !isError && !!text);
+    paintMsg(msg, text, isError);
+    if (sendFormWrap && !sendFormWrap.hidden) paintMsg(sendMsg, text, isError);
+    else paintMsg(sendMsg, '', false);
+  }
+
+  function readJson(res) {
+    return res.json().then(
+      function (data) {
+        if (!res.ok && data && data.error) {
+          var err = new Error(data.error);
+          err.status = res.status;
+          throw err;
+        }
+        return data;
+      },
+      function () {
+        throw new Error(
+          res.status === 401 || res.status === 403
+            ? 'Sign in required to send leads.'
+            : 'Could not reach the server (' + res.status + ').',
+        );
+      },
+    );
   }
 
   function showForm(open) {
     if (!formWrap) return;
     formWrap.hidden = !open;
     if (open && sendFormWrap) sendFormWrap.hidden = true;
+    if (open) {
+      try { formWrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) {}
+    }
   }
 
   function showSendForm(open) {
     if (!sendFormWrap) return;
     sendFormWrap.hidden = !open;
     if (open && formWrap) formWrap.hidden = true;
+    if (open) {
+      try { sendFormWrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) {}
+    }
   }
 
   function syncSendMode() {
@@ -455,7 +501,7 @@
     if (!calSelect || calendarsLoaded) return;
     calSelect.innerHTML = '<option value="">Loading calendars…</option>';
     try {
-      var res = await fetch('/appointments/appointment-packages/calendars', {
+      var res = await fetch(apiUrl('/appointments/appointment-packages/calendars'), {
         credentials: 'same-origin',
         headers: { Accept: 'application/json' },
       });
@@ -482,6 +528,13 @@
 
   if (sendLeadBtn) {
     sendLeadBtn.addEventListener('click', function () {
+      if (!hasPackages) {
+        setMsg('Add a contractor package first — tap Sell appointments, save one, then Send lead.', true);
+        showForm(true);
+        loadCalendars();
+        return;
+      }
+      setMsg('');
       showSendForm(true);
       syncSendMode();
     });
@@ -513,7 +566,8 @@
         }
         body.packageIds = [oneId];
       } else if (mode === 'trade') {
-        var trade = String(fd.get('trade') || '').trim();
+        var tradeSelect = document.getElementById('apptSendTradeSelect');
+        var trade = String((tradeSelect && tradeSelect.value) || fd.get('trade') || '').trim();
         if (!trade) {
           setMsg('Pick a trade (e.g. Electrician or Flooring).', true);
           return;
@@ -532,16 +586,25 @@
       }
       var submitBtn = sendFormEl.querySelector('[type=submit]');
       if (submitBtn) submitBtn.disabled = true;
-      fetch('/appointments/appointment-packages/deliver-lead-bulk', {
+      setMsg('Sending lead…', false);
+      fetch(apiUrl('/appointments/appointment-packages/deliver-lead-bulk'), {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify(body),
       })
-        .then(function (r) { return r.json(); })
+        .then(readJson)
         .then(function (data) {
           if (!data.success) throw new Error(data.error || 'Could not send lead');
           var n = data.count || (data.delivered && data.delivered.length) || 0;
+          if (!n) {
+            var skip = (data.skipped && data.skipped[0] && data.skipped[0].reason) || '';
+            throw new Error(
+              skip === 'already_had_lead'
+                ? 'That contractor already has this lead.'
+                : (data.error || 'No contractors received the lead. Check the package still has lead credits.'),
+            );
+          }
           var names = (data.delivered || []).map(function (d) { return d.businessName; }).filter(Boolean);
           setMsg(
             'Sent to ' + n + ' contractor' + (n === 1 ? '' : 's')
@@ -576,13 +639,13 @@
         contactEmail: String(fd.get('contactEmail') || '').trim() || null,
       };
       formEl.querySelector('[type=submit]').disabled = true;
-      fetch('/appointments/appointment-packages', {
+      fetch(apiUrl('/appointments/appointment-packages'), {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify(body),
       })
-        .then(function (r) { return r.json(); })
+        .then(readJson)
         .then(function (data) {
           if (!data.success) throw new Error(data.error || 'Could not save package');
           window.location.reload();
@@ -598,13 +661,13 @@
     syncBtn.addEventListener('click', function () {
       syncBtn.disabled = true;
       setMsg('Syncing calendars…', false);
-      fetch('/appointments/appointment-packages/sync', {
+      fetch(apiUrl('/appointments/appointment-packages/sync'), {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: '{}',
       })
-        .then(function (r) { return r.json(); })
+        .then(readJson)
         .then(function (data) {
           if (!data.success && data.error) throw new Error(data.error);
           window.location.reload();
@@ -621,7 +684,7 @@
     if (del) {
       var id = del.getAttribute('data-appt-delete');
       if (!id || !window.confirm('Remove this appointment package?')) return;
-      fetch('/appointments/appointment-packages/' + encodeURIComponent(id), {
+      fetch(apiUrl('/appointments/appointment-packages/' + encodeURIComponent(id)), {
         method: 'DELETE',
         credentials: 'same-origin',
         headers: { Accept: 'application/json' },
@@ -641,7 +704,7 @@
       var portalAction = portalBtn.getAttribute('data-appt-portal-action') || 'copy';
       if (portalAction === 'send') {
         portalBtn.disabled = true;
-        fetch('/appointments/appointment-packages/' + encodeURIComponent(pkgId) + '/send-portal-link', {
+        fetch(apiUrl('/appointments/appointment-packages/' + encodeURIComponent(pkgId) + '/send-portal-link'), {
           method: 'POST',
           credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -663,7 +726,7 @@
           });
         return;
       }
-      fetch('/appointments/appointment-packages/' + encodeURIComponent(pkgId) + '/portal-link', {
+      fetch(apiUrl('/appointments/appointment-packages/' + encodeURIComponent(pkgId) + '/portal-link'), {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -696,7 +759,7 @@
       if (!name || !String(name).trim()) return;
       var phone = window.prompt('Phone (optional)') || '';
       var email = window.prompt('Email (optional)') || '';
-      fetch('/appointments/appointment-packages/' + encodeURIComponent(leadPkg) + '/deliver-lead', {
+      fetch(apiUrl('/appointments/appointment-packages/' + encodeURIComponent(leadPkg) + '/deliver-lead'), {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -721,7 +784,7 @@
       var fPkg = fulfill.getAttribute('data-appt-fulfill') || fulfill.getAttribute('data-appt-decline');
       var reqId = fulfill.getAttribute('data-request-id');
       var status = fulfill.hasAttribute('data-appt-fulfill') ? 'fulfilled' : 'declined';
-      fetch('/appointments/appointment-packages/' + encodeURIComponent(fPkg) + '/requests/' + encodeURIComponent(reqId) + '/resolve', {
+      fetch(apiUrl('/appointments/appointment-packages/' + encodeURIComponent(fPkg) + '/requests/' + encodeURIComponent(reqId) + '/resolve'), {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
