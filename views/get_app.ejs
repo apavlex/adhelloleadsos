@@ -6,14 +6,25 @@
 </head>
 <body class="bg-brand-bg min-h-screen text-brand-dark dark:text-white overflow-x-hidden">
   <%- include('partials/navbar') %>
+  <%
+    const _partners = Array.isArray(partners) ? partners : [];
+    const _netName = (typeof partnerNetwork !== 'undefined' && partnerNetwork && partnerNetwork.name)
+      ? partnerNetwork.name
+      : 'your network';
+  %>
   <main class="max-wide px-6 py-8 md:py-12">
     <header class="mb-6 max-w-2xl">
       <p class="text-[11px] font-black uppercase tracking-[0.22em] text-brand-muted mb-2">Install</p>
       <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Get the app on your phone</h1>
-      <p class="mt-2 text-sm leading-relaxed text-brand-muted dark:text-slate-400">Add <strong class="text-brand-dark dark:text-white"><%= appName %></strong> to your Home Screen. It opens full screen with your icon — no app store.</p>
+      <p class="mt-2 text-sm leading-relaxed text-brand-muted dark:text-slate-400">Your team installs <strong class="text-brand-dark dark:text-white"><%= appName %></strong> for the workspace. Contractors and partners get their own app for <strong class="text-brand-dark dark:text-white">review requests</strong>, referrals, and leads — send it from here, not only from Referrals.</p>
     </header>
 
-    <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 md:p-8">
+    <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 md:p-8 mb-6">
+      <div class="mb-5">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Your workspace team</p>
+        <h2 class="font-display font-extrabold text-xl md:text-2xl text-brand-dark dark:text-white mt-1">Add <%= appName %> to Home Screen</h2>
+        <p class="text-sm text-brand-muted mt-1">Opens Today full screen with your icon — no app store.</p>
+      </div>
       <div class="grid gap-6 lg:grid-cols-[180px_minmax(0,1fr)] items-start">
         <div class="flex flex-col items-center text-center gap-2">
           <img src="/get-app/qr.png" alt="QR code that opens the app" width="160" height="160" class="w-40 h-40 rounded-2xl border border-brand-border/50 dark:border-white/10 bg-white p-1" loading="lazy" />
@@ -50,14 +61,129 @@
               <li>Tap <strong>Install</strong> or <strong>Add</strong>.</li>
             </ol>
           </div>
-          <div class="rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 p-4 md:col-span-2">
-            <p class="font-bold text-brand-dark dark:text-white mb-2">Partner referral app</p>
-            <p class="text-sm text-brand-dark dark:text-slate-200">That phone preview under Network → App branding is the partner app. Send each partner their link from <a class="underline font-semibold" href="/network?tab=members">Network → Members</a>. They open it on their phone and use Share → Add to Home Screen.</p>
-          </div>
         </div>
       </div>
     </section>
+
+    <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 md:p-8" id="partnerApps" aria-label="Partner review apps">
+      <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
+        <div class="min-w-0">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Contractors &amp; partners</p>
+          <h2 class="font-display font-extrabold text-xl md:text-2xl text-brand-dark dark:text-white mt-1">Partner app</h2>
+          <p class="text-sm text-brand-muted mt-1 max-w-2xl">Each partner gets an app built around <strong class="font-semibold text-brand-dark dark:text-white">reviews</strong>, then customers &amp; jobs, then referrals and leads. Copy or text it from this workspace page.</p>
+        </div>
+        <a href="/network?tab=members" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline">Manage partners</a>
+      </div>
+
+      <p class="text-sm font-semibold text-rose-600 dark:text-rose-300 mb-3 hidden" id="partnerAppMsg" role="status"></p>
+
+      <% if (!_partners.length) { %>
+      <div class="rounded-2xl border border-dashed border-brand-border dark:border-white/15 px-5 py-8 text-center">
+        <p class="font-display font-extrabold text-lg text-brand-dark dark:text-white">No partners on <%= _netName %> yet</p>
+        <p class="text-sm text-brand-muted mt-2 max-w-md mx-auto">Add a contractor or partner on Network → Members, then come back here to send their review app in one tap.</p>
+        <a href="/network?tab=members" class="mt-4 inline-flex items-center justify-center rounded-full bg-brand-yellow text-brand-dark px-5 py-2.5 text-[10px] font-black uppercase tracking-widest no-underline">Add partners</a>
+      </div>
+      <% } else { %>
+      <ul class="space-y-3" id="partnerAppList">
+        <% _partners.forEach(function (p) { %>
+        <li class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 px-4 py-4 flex flex-wrap items-center gap-3 justify-between" data-partner-id="<%= p.memberId %>">
+          <div class="min-w-0">
+            <p class="font-bold text-brand-dark dark:text-white truncate"><%= p.companyName %></p>
+            <p class="text-[12px] text-brand-muted mt-0.5">
+              <% if (p.packageName) { %>Reviews · customers · leads · <%= p.packageName %><% } else { %>Reviews · customers · referrals<% } %>
+              <% if (p.phone || p.email) { %> · <%= p.phone || p.email %><% } %>
+            </p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2 shrink-0">
+            <button type="button" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 text-brand-dark dark:text-white px-4 py-2 text-[10px] font-black uppercase tracking-widest" data-partner-copy="<%= p.memberId %>" data-partner-kind="review">Copy review app</button>
+            <button type="button" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 text-brand-dark dark:text-white px-4 py-2 text-[10px] font-black uppercase tracking-widest" data-partner-copy="<%= p.memberId %>" data-partner-kind="home">Copy app home</button>
+            <button type="button" class="btn-pill bg-brand-yellow text-brand-dark px-4 py-2 text-[10px] font-black uppercase tracking-widest" data-partner-send="<%= p.memberId %>" title="<%= (p.phone || p.email) ? 'Text or email their review app link' : 'Add phone or email on the partner first' %>">Text / email app</button>
+          </div>
+        </li>
+        <% }); %>
+      </ul>
+      <% } %>
+    </section>
   </main>
   <%- include('partials/footer') %>
+  <script>
+  (function () {
+    var msg = document.getElementById('partnerAppMsg');
+    function setMsg(text, isError) {
+      if (!msg) return;
+      msg.textContent = text || '';
+      msg.classList.toggle('hidden', !text);
+      msg.classList.toggle('text-rose-600', !!isError);
+      msg.classList.toggle('dark:text-rose-300', !!isError);
+      msg.classList.toggle('text-emerald-700', !isError && !!text);
+      msg.classList.toggle('dark:text-emerald-300', !isError && !!text);
+    }
+    function copyText(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text);
+      }
+      window.prompt('Copy link', text);
+      return Promise.resolve();
+    }
+    document.addEventListener('click', function (e) {
+      var copyBtn = e.target && e.target.closest ? e.target.closest('[data-partner-copy]') : null;
+      if (copyBtn) {
+        var id = copyBtn.getAttribute('data-partner-copy');
+        var kind = copyBtn.getAttribute('data-partner-kind') || 'review';
+        copyBtn.disabled = true;
+        fetch('/get-app/partners/' + encodeURIComponent(id) + '/link', {
+          credentials: 'same-origin',
+          headers: { Accept: 'application/json' },
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            copyBtn.disabled = false;
+            if (!data.success) throw new Error(data.error || 'Could not build link');
+            var url = kind === 'home' ? data.url : (data.reviewUrl || data.url);
+            return copyText(url).then(function () {
+              setMsg(
+                kind === 'home'
+                  ? 'Partner app link copied — they can Request a review from the center button.'
+                  : 'Review app link copied — opens straight to Request a review.',
+                false,
+              );
+            });
+          })
+          .catch(function (err) {
+            copyBtn.disabled = false;
+            setMsg(err.message || 'Copy failed', true);
+          });
+        return;
+      }
+      var sendBtn = e.target && e.target.closest ? e.target.closest('[data-partner-send]') : null;
+      if (sendBtn) {
+        var mid = sendBtn.getAttribute('data-partner-send');
+        sendBtn.disabled = true;
+        setMsg('Sending app link…', false);
+        fetch('/get-app/partners/' + encodeURIComponent(mid) + '/send', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: '{}',
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            sendBtn.disabled = false;
+            if (!data.success) throw new Error(data.error || 'Could not send');
+            setMsg(
+              'App link sent by ' + (data.channel === 'sms' ? 'text' : 'email')
+                + (data.companyName ? ' to ' + data.companyName : '')
+                + ' — includes review requests.',
+              false,
+            );
+          })
+          .catch(function (err) {
+            sendBtn.disabled = false;
+            setMsg(err.message || 'Send failed', true);
+          });
+      }
+    });
+  })();
+  </script>
 </body>
 </html>

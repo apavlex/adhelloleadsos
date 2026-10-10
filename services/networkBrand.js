@@ -82,12 +82,12 @@ function formatStat(value) {
 function brandView(network) {
   const net = network && typeof network === 'object' ? network : {};
   const brand = normalizeBrand(net.brand);
-  const appName = brand.appName || cleanText(net.name, 60) || 'Referral network';
+  const appName = brand.appName || cleanText(net.name, 60) || 'Partner network';
   return {
     appName,
     shortName: appName.length <= 12 ? appName : appName.split(/\s+/)[0].slice(0, 12),
-    tagline: brand.tagline || 'Every referral makes a difference.',
-    subtitle: brand.subtitle || 'Referral partner network',
+    tagline: brand.tagline || 'Every review builds your reputation.',
+    subtitle: brand.subtitle || 'Reviews, customers & network',
     accent: brand.accent,
     onAccent: onAccentColor(brand.accent),
     logoUrl: brand.logoUrl,

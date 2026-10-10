@@ -25,6 +25,8 @@ const TRANSITIONS = {
   win: { from: ['accepted', 'booked'], to: 'won' },
   lose: { from: ['accepted', 'booked'], to: 'lost' },
   assign: { from: ['unrouted', 'declined', 'sent'], to: 'sent' },
+  /** Member claims an unassigned pool referral (unrouted → accepted). */
+  claim: { from: ['unrouted'], to: 'accepted' },
 };
 
 const ACTION_LABELS = {
@@ -34,6 +36,7 @@ const ACTION_LABELS = {
   win: 'Won',
   lose: 'Lost',
   assign: 'Assign',
+  claim: 'Claim',
   note: 'Note',
 };
 
@@ -44,6 +47,7 @@ const ACTION_ERROR_VERBS = {
   win: 'Marking won',
   lose: 'Marking lost',
   assign: 'Assigning',
+  claim: 'Claiming',
   note: 'Adding a note',
 };
 
@@ -318,7 +322,32 @@ function parseMoney(value) {
 
 function allowedActions(referral) {
   const status = referral && referral.status;
-  return Object.keys(TRANSITIONS).filter((action) => action !== 'assign' && TRANSITIONS[action].from.includes(status));
+  return Object.keys(TRANSITIONS).filter(
+    (action) => action !== 'assign' && action !== 'claim' && TRANSITIONS[action].from.includes(status),
+  );
+}
+
+/**
+ * Can this active member claim an unrouted pool referral?
+ * Must share the trade; zone must match when the member has zone preferences.
+ */
+function canClaimPoolReferral(referral, member) {
+  if (!referral || referral.status !== 'unrouted') return false;
+  const m = member && typeof member === 'object' ? member : {};
+  if (m.status === 'paused') return false;
+  if (!m.id || referral.fromMemberId === m.id) return false;
+  const trades = Array.isArray(m.trades) ? m.trades : [];
+  if (!trades.includes(referral.tradeSlug)) return false;
+  const zones = Array.isArray(m.zoneIds) ? m.zoneIds : [];
+  if (referral.zoneId && zones.length && !zones.includes(referral.zoneId)) return false;
+  return true;
+}
+
+/** Unrouted referrals this member can claim from the pool. */
+function poolReferralsForMember(referrals, member) {
+  return (Array.isArray(referrals) ? referrals : [])
+    .filter((r) => canClaimPoolReferral(r, member))
+    .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
 }
 
 /**
@@ -362,6 +391,16 @@ function applyReferralAction(referral, action, opts = {}) {
     next.toMemberId = toMemberId;
     next.sentAt = stamp;
     delete next.acceptedAt;
+  }
+  if (name === 'claim') {
+    const toMemberId = String(opts.toMemberId || '').trim();
+    if (!toMemberId) return { ok: false, error: 'Sign in as a member to claim this referral.' };
+    if (toMemberId === referral.fromMemberId) return { ok: false, error: 'You cannot claim your own referral.' };
+    if (referral.toMemberId) return { ok: false, error: 'Someone already claimed this referral.' };
+    next.toMemberId = toMemberId;
+    next.sentAt = stamp;
+    next.acceptedAt = stamp;
+    delete next.unroutedReason;
   }
   if (name === 'accept') next.acceptedAt = stamp;
   if (name === 'book') next.bookedAt = stamp;
@@ -445,6 +484,8 @@ module.exports = {
   buildReferral,
   applyRouting,
   allowedActions,
+  canClaimPoolReferral,
+  poolReferralsForMember,
   applyReferralAction,
   parseMoney,
   memberStats,

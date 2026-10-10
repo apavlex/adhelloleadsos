@@ -1,15 +1,17 @@
 /**
- * Member referral app (installable PWA), white-labeled per network. No login:
+ * Partner app (installable PWA), white-labeled per network. No login:
  * the signed member token lives in the path so a Home Screen bookmark keeps working.
  *
+ * Hierarchy: reviews → customers/work → referrals & leads.
+ *
  *   /m/:token            Home
- *   /m/:token/referrals  received + sent referrals, accept / booked / won / lost
- *   /m/:token/send       send a referral to another member
- *   /m/:token/customers  the member's own customers, jobs and schedule
+ *   /m/:token/review     request reviews + link-in-bio / QR
+ *   /m/:token/customers  customers, jobs and schedule
+ *   /m/:token/referrals  received + sent referrals
+ *   /m/:token/send       send a referral
  *   /m/:token/leads      website/GHL form leads (when linked to an appointment package)
  *   /m/:token/packages   request / buy more appointments & lead credits
- *   /m/:token/enroll     invite a business to join (operator approves; top-bar icon)
- *   /m/:token/review     review link-in-bio page settings + QR
+ *   /m/:token/enroll     invite a business to join
  *   /m/login             text me a new link
  */
 
@@ -28,6 +30,7 @@ const reviewRequestScript = require('../services/reviewRequestScript');
 const reviewShareImage = require('../services/reviewShareImage');
 const contractorPortal = require('../services/contractorPortal');
 const memberAppointmentLink = require('../services/memberAppointmentLink');
+const appointmentPackages = require('../services/appointmentPackages');
 const { verifyNetworkToken } = require('../services/networkLinkSign');
 const { ICONS } = require('../services/memberAppIcons');
 
@@ -55,6 +58,7 @@ const OK_MESSAGES = {
   sent: 'Referral sent. They were notified.',
   matched: 'Referral received. The network will match it with a member.',
   accept: 'Accepted. Reach out to the customer.',
+  claim: 'Claimed. This referral is yours — reach out to the customer.',
   decline: 'Declined. The network will reassign it.',
   book: 'Marked booked.',
   win: 'Marked won. Thanks for reporting the job value.',
@@ -76,7 +80,7 @@ const OK_MESSAGES = {
   already: 'That referral is already in your customers.',
 };
 
-const MEMBER_ACTIONS = new Set(['accept', 'decline', 'book', 'win', 'lose', 'note']);
+const MEMBER_ACTIONS = new Set(['accept', 'decline', 'book', 'win', 'lose', 'note', 'claim']);
 const MAX_PENDING_INVITES = 25;
 
 function noStore(res) {
@@ -120,9 +124,9 @@ async function attachAppointment(ctx) {
       packageId: pkg.id,
       ...home,
       portalToken,
-      /** Standalone contractor app — this is where lead push notifications live. */
+      /** Standalone contractor portal (appointments packages). Leads show in /m. */
       portalPath,
-      portalLeadsPath: `${portalPath}/leads`,
+      portalLeadsPath: `${ctx.base}/leads`,
       portalPackagesPath: `${portalPath}/packages`,
     },
   };
@@ -383,7 +387,7 @@ router.get('/m/:token/manifest.webmanifest', withMember(async (req, res, ctx) =>
   res.send(JSON.stringify({
     name: brand.appName,
     short_name: brand.shortName,
-    description: `${brand.appName} referral app`,
+    description: `${brand.appName} — reviews, customers, and referrals`,
     id: base,
     start_url: `${base}?source=pwa`,
     scope: `${base}`,
@@ -413,11 +417,12 @@ router.get('/m/:token/icon-:size.png', withMember(async (req, res, ctx) => {
 // ── Home ─────────────────────────────────────────────────────────────────────
 
 router.get('/m/:token', withMember(async (req, res, ctx) => {
-  const [referrals, members, jobs, customers] = await Promise.all([
+  const [referrals, members, jobs, customers, reviewStats] = await Promise.all([
     store.listReferrals(ctx.network.id),
     store.listMembers(ctx.network.id),
     work.listJobs(ctx.network.id, ctx.member.id),
     work.listCustomers(ctx.network.id, ctx.member.id),
+    store.getReviewStats(ctx.network.id, ctx.member.id),
   ]);
   const membersById = Object.fromEntries(members.map((m) => [m.id, m]));
   const customersById = Object.fromEntries(customers.map((c) => [c.id, c]));
@@ -427,14 +432,19 @@ router.get('/m/:token', withMember(async (req, res, ctx) => {
     .slice(0, 3)
     .map((r) => presentReceived(r, membersById, ctx.network));
   const today = work.todayIn(memberTimeZone(req));
+  const openJobCount = jobs.filter((j) => j && ['lead', 'estimate', 'scheduled', 'in_progress', 'on_hold'].includes(String(j.status || '').toLowerCase())).length;
   return render(res, 'home', ctx, {
     upcoming: work.upcoming(jobs, today, 2).map((j) => presentJob(j, customersById, ctx.base, today)),
+    // Reviews → customers/work → referrals (network is tertiary).
     tiles: [
-      { key: 'sent', label: 'Sent', value: stats.given, href: `${ctx.base}/referrals?view=sent` },
-      { key: 'received', label: 'Received', value: stats.received, href: `${ctx.base}/referrals` },
-      { key: 'pending', label: 'Pending', value: stats.open, href: `${ctx.base}/referrals` },
-      { key: 'completed', label: 'Completed', value: stats.won, href: `${ctx.base}/referrals` },
+      { key: 'reviews', label: 'Review visits', value: reviewStats.views || 0, href: `${ctx.base}/review?ask=1`, icon: 'review' },
+      { key: 'customers', label: 'Customers', value: customers.length, href: `${ctx.base}/customers`, icon: 'customers' },
+      { key: 'pending', label: 'Pending refs', value: stats.open, href: `${ctx.base}/referrals`, icon: 'pending' },
+      { key: 'sent', label: 'Sent', value: stats.given, href: `${ctx.base}/referrals?view=sent`, icon: 'send' },
     ],
+    reviewViews: reviewStats.views || 0,
+    customerCount: customers.length,
+    openJobCount,
     wonValue: money(stats.wonValue),
     waiting,
     flash: flashFromQuery(req),
@@ -444,7 +454,7 @@ router.get('/m/:token', withMember(async (req, res, ctx) => {
 // ── Referrals ────────────────────────────────────────────────────────────────
 
 async function renderReferrals(req, res, ctx, flash, status) {
-  const view = req.query.view === 'sent' ? 'sent' : 'received';
+  const view = ['sent', 'pool'].includes(req.query.view) ? req.query.view : 'received';
   const [referrals, members, jobs] = await Promise.all([
     store.listReferrals(ctx.network.id),
     store.listMembers(ctx.network.id),
@@ -458,7 +468,19 @@ async function renderReferrals(req, res, ctx, flash, status) {
     convertible: ['accepted', 'booked', 'won'].includes(r.status),
   }));
   const sent = referrals.filter((r) => r.fromMemberId === ctx.member.id).slice(0, 60).map((r) => presentSent(r, membersById, ctx.network));
-  return render(res, 'referrals', ctx, { view, received, sent, flash: flash || flashFromQuery(req) }, status);
+  const pool = ex.poolReferralsForMember(referrals, ctx.member).slice(0, 40).map((r) => ({
+    ...presentReceived(r, membersById, ctx.network),
+    statusLabel: 'Open · Claim',
+    actions: ['claim'],
+    convertible: false,
+  }));
+  return render(res, 'referrals', ctx, {
+    view,
+    received,
+    sent,
+    pool,
+    flash: flash || flashFromQuery(req),
+  }, status);
 }
 
 router.get('/m/:token/referrals', withMember((req, res, ctx) => renderReferrals(req, res, ctx)));
@@ -475,7 +497,8 @@ router.post('/m/:token/referrals/:id', form, withMember(async (req, res, ctx) =>
     baseUrl: notify.baseUrlFromReq(req),
   });
   if (!result.ok) return renderReferrals(req, res, ctx, { error: result.error }, 400);
-  return res.redirect(303, `${ctx.base}/referrals?ok=${action}#ref-${encodeURIComponent(req.params.id)}`);
+  const back = action === 'claim' ? `${ctx.base}/referrals?ok=claim` : `${ctx.base}/referrals?ok=${action}#ref-${encodeURIComponent(req.params.id)}`;
+  return res.redirect(303, back);
 }));
 
 // ── Send ─────────────────────────────────────────────────────────────────────
@@ -1053,14 +1076,83 @@ router.post('/m/:token/review/send', withReviewUpload('shareImage'), withMember(
   return res.redirect(303, `${ctx.base}/review?ok=${ok}`);
 }));
 
-// ── Contractor app deep-links (notifications live on /p/:token, not here) ────
+// ── Leads (website forms + agency push) live in the partner app ─────────────
 
-/** Send members straight into the standalone contractor app for leads / packages. */
+function flashLeads(req) {
+  const ok = String(req.query.ok || '');
+  if (ok === 'closed') return { ok: 'Lead marked closed.' };
+  if (ok === 'push') return { ok: 'Lead alerts are on for this phone.' };
+  return flashFromQuery(req);
+}
+
 router.get('/m/:token/leads', withMember(async (req, res, ctx) => {
+  const appt = ctx.appointment;
+  return render(res, 'leads', ctx, {
+    formLeads: appt ? (appt.formLeads || []) : [],
+    openLeadCount: appt ? (appt.openLeadCount || 0) : 0,
+    leadCredits: appt ? (appt.leadCredits || { remaining: 0 }) : { remaining: 0 },
+    flash: flashLeads(req),
+  });
+}));
+
+router.post('/m/:token/leads/:leadId/close', form, withMember(async (req, res, ctx) => {
   if (!ctx.appointment) {
-    return renderInvalid(res, 404, 'No contractor app is linked yet. Ask your agency to sell you appointments.');
+    return res.redirect(303, `${ctx.base}/leads`);
   }
-  return res.redirect(303, ctx.appointment.portalLeadsPath);
+  const leadId = String(req.params.leadId || '').trim();
+  const pkg = ctx.appointment.package;
+  const formLeads = (pkg.formLeads || []).map((f) =>
+    (f.id === leadId ? { ...f, status: 'closed' } : f),
+  );
+  await appointmentPackages.updatePackage(ctx.appointment.workspaceId, ctx.appointment.packageId, { formLeads });
+  return res.redirect(303, `${ctx.base}/leads?ok=closed`);
+}));
+
+/** Web Push for lead alerts — scoped to the linked appointment package. */
+router.get('/m/:token/push/key', withMember(async (req, res) => {
+  const push = require('../services/pushNotifications');
+  return res.json({ success: true, publicKey: push.publicKey() });
+}));
+
+router.post('/m/:token/push/subscribe', express.json(), withMember(async (req, res, ctx) => {
+  if (!ctx.appointment) {
+    return res.status(400).json({ success: false, error: 'Link an appointment package to get lead alerts.' });
+  }
+  const push = require('../services/pushNotifications');
+  const result = push.savePortalSubscription({
+    subscription: req.body && req.body.subscription,
+    workspaceId: ctx.appointment.workspaceId,
+    packageId: ctx.appointment.packageId,
+    userAgent: req.get('user-agent'),
+  });
+  if (!result.ok) return res.status(400).json({ success: false, error: result.error });
+  return res.json({ success: true });
+}));
+
+router.post('/m/:token/push/unsubscribe', express.json(), withMember(async (req, res, ctx) => {
+  const push = require('../services/pushNotifications');
+  const endpoint = req.body && req.body.endpoint;
+  if (endpoint && ctx.appointment) {
+    push.removePortalSubscription(endpoint, ctx.appointment.packageId);
+  }
+  return res.json({ success: true });
+}));
+
+router.post('/m/:token/push/test', express.json(), withMember(async (req, res, ctx) => {
+  if (!ctx.appointment) {
+    return res.status(400).json({ success: false, error: 'No package linked.' });
+  }
+  const push = require('../services/pushNotifications');
+  const { sent } = await push.sendPortalPush(
+    { packageId: ctx.appointment.packageId, workspaceId: ctx.appointment.workspaceId },
+    {
+      title: 'Lead alerts are on',
+      body: `You’ll get website and agency leads for ${ctx.appointment.package.businessName} here.`,
+      url: `${ctx.base}/leads`,
+      tag: 'member-push-test',
+    },
+  );
+  return res.json({ success: true, sent });
 }));
 
 router.get('/m/:token/packages', withMember(async (req, res, ctx) => {

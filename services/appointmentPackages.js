@@ -640,7 +640,37 @@ async function attachFormLead(workspaceId, formLead, match = {}) {
     try {
       const push = require('./pushNotifications');
       const { createContractorPortalToken } = require('./contractorPortalSign');
-      const token = createContractorPortalToken({ workspaceId, packageId: pkg.id });
+      const portalToken = createContractorPortalToken({ workspaceId, packageId: pkg.id });
+      let notifyUrl = `/p/${encodeURIComponent(portalToken)}/leads`;
+
+      // Prefer the partner app (/m) when a network member is linked to this package.
+      let linkedMember = null;
+      let linkedNetwork = null;
+      try {
+        const memberAppointmentLink = require('./memberAppointmentLink');
+        const linked = await memberAppointmentLink.findMemberForPackage(workspaceId, pkg);
+        if (linked && linked.member && linked.network) {
+          linkedMember = linked.member;
+          linkedNetwork = linked.network;
+          const networkNotify = require('./networkNotify');
+          const { getPublicBaseUrl } = require('../lib/publicBaseUrl');
+          const baseUrl = getPublicBaseUrl();
+          const memberUrl = networkNotify.memberPortalLink(baseUrl, linkedNetwork, linkedMember);
+          notifyUrl = `${memberUrl}/leads`;
+          networkNotify.notifyMemberFormLead({
+            network: linkedNetwork,
+            member: linkedMember,
+            baseUrl,
+            leadName: entry.name,
+            formName: entry.formName,
+            source: entry.source,
+            preview: entry.preview,
+          }).catch((err) => console.warn('[appointmentPackages] member SMS failed:', err && err.message));
+        }
+      } catch (linkErr) {
+        console.warn('[appointmentPackages] member link lookup failed:', linkErr && linkErr.message);
+      }
+
       push.notifyContractorNewLead({
         workspaceId,
         packageId: pkg.id,
@@ -648,7 +678,7 @@ async function attachFormLead(workspaceId, formLead, match = {}) {
         leadName: entry.name,
         formName: entry.formName,
         preview: entry.preview,
-        url: `/p/${encodeURIComponent(token)}/leads`,
+        url: notifyUrl,
       });
     } catch (e) {
       console.warn('[appointmentPackages] contractor push failed:', e && e.message);

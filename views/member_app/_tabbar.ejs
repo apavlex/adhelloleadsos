@@ -1,19 +1,19 @@
 <%
   const _hasAppt = typeof appointment !== 'undefined' && appointment;
-  // Center FAB = Request a review (share review link). Send referral stays a regular tab.
+  // Hierarchy: reviews (center FAB) → customers/work → referrals & leads.
   const _tabs = _hasAppt
     ? [
         { id: 'home', label: 'Home', href: base, icon: icons.home },
+        { id: 'customers', label: 'Customers', href: base + '/customers', icon: icons.customers },
+        { id: 'review', label: 'Review', href: base + '/review?ask=1', icon: icons.review, fab: true },
+        { id: 'leads', label: 'Leads', href: base + '/leads', icon: icons.leads },
         { id: 'referrals', label: 'Referrals', href: base + '/referrals', icon: icons.referrals },
-        { id: 'review', label: 'Request', href: base + '/review?ask=1', icon: icons.review, fab: true },
-        { id: 'leads', label: 'Leads', href: appointment.portalLeadsPath || (base + '/leads'), icon: icons.leads },
-        { id: 'send', label: 'Send', href: base + '/send', icon: icons.send },
       ]
     : [
         { id: 'home', label: 'Home', href: base, icon: icons.home },
-        { id: 'referrals', label: 'Referrals', href: base + '/referrals', icon: icons.referrals },
-        { id: 'review', label: 'Request', href: base + '/review?ask=1', icon: icons.review, fab: true },
         { id: 'customers', label: 'Customers', href: base + '/customers', icon: icons.customers },
+        { id: 'review', label: 'Review', href: base + '/review?ask=1', icon: icons.review, fab: true },
+        { id: 'referrals', label: 'Referrals', href: base + '/referrals', icon: icons.referrals },
         { id: 'send', label: 'Send', href: base + '/send', icon: icons.send },
       ];
 %>
@@ -28,7 +28,7 @@
   </div>
 </nav>
 <div class="ma-install" id="maInstall" hidden>
-  Add <b><%= brand.appName %></b> to your Home Screen: tap <b>Share</b>, then <b>Add to Home Screen</b>.
+  Add <b><%= brand.appName %></b> to your Home Screen to request reviews faster: tap <b>Share</b>, then <b>Add to Home Screen</b>.
   <button type="button" aria-label="Dismiss" data-ma-install-close>&times;</button>
 </div>
 <script src="/js/member-app.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>

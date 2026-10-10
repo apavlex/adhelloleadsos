@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('_head', { pageTitle: 'Leads' }) %>
+</head>
+<body>
+  <main class="ma-shell">
+    <%- include('_top', { topTitle: 'Leads' }) %>
+    <h1 class="ma-page-title">Leads</h1>
+    <p class="ma-page-sub">Website forms, leads your agency sends, and anything you claim from the referral pool — all in one place.</p>
+
+    <%- include('_flash') %>
+
+    <% if (!appointment) { %>
+    <div class="ma-card ma-empty">
+      <%- icons.leads %>
+      <p>No appointment package is linked yet. Ask your agency to connect your business so website and admin leads show up here.</p>
+      <a class="ma-btn ma-btn--sm" href="<%= base %>/referrals?view=pool" style="margin-top:8px">Open referral pool</a>
+    </div>
+    <% } else { %>
+    <section class="ma-card" id="maPushRoot" data-base="<%= base %>" style="margin-bottom:12px">
+      <div class="ma-card__row">
+        <div style="min-width:0">
+          <p class="ma-card__title">Lead alerts</p>
+          <p class="ma-card__meta" data-ma-push-status>Turn on phone or desktop alerts so new website and agency leads wake you up.</p>
+        </div>
+      </div>
+      <div class="ma-actions" style="margin-top:10px">
+        <button type="button" class="ma-btn ma-btn--sm" data-ma-push-enable>Turn on alerts</button>
+        <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-ma-push-off hidden>Turn off</button>
+      </div>
+    </section>
+
+    <div class="ma-hero ma-hero--dash" style="margin-bottom:12px">
+      <div class="ma-hero__card">
+        <p class="ma-hero__stat"><%= openLeadCount %><small>open</small></p>
+        <p class="ma-hero__label"><%= formLeads.length %> total · <%= leadCredits.remaining %> credits left</p>
+      </div>
+    </div>
+
+    <% if (!formLeads.length) { %>
+    <div class="ma-card ma-empty">
+      <%- icons.leads %>
+      <p>No leads yet. Website form submissions and leads your agency pushes will show here with an alert.</p>
+    </div>
+    <% } else { %>
+      <% formLeads.forEach(function (lead) { %>
+      <article class="ma-card" id="lead-<%= lead.id %>">
+        <div class="ma-card__row">
+          <div style="min-width:0">
+            <p class="ma-card__title"><%= lead.name %></p>
+            <p class="ma-card__meta">
+              <% if (lead.source === 'agency') { %>Sent by agency<% } else { %><%= lead.formName || 'Website form' %><% } %>
+              <% if (lead.at) { %> · <%= new Date(lead.at).toLocaleString() %><% } %>
+            </p>
+            <% if (lead.phone || lead.email) { %>
+            <p class="ma-card__meta" style="margin-top:6px">
+              <% if (lead.phone) { %><a href="tel:<%= String(lead.phone).replace(/[^0-9+]/g, '') %>" style="font-weight:700;color:var(--acc);text-decoration:none"><%= lead.phone %></a><% } %>
+              <% if (lead.phone && lead.email) { %> · <% } %>
+              <% if (lead.email) { %><a href="mailto:<%= lead.email %>" style="color:inherit"><%= lead.email %></a><% } %>
+            </p>
+            <% } %>
+            <% if (lead.preview) { %><p class="ma-card__note"><%= lead.preview %></p><% } %>
+          </div>
+          <span class="ma-pill <%= lead.status === 'closed' ? 'ma-pill--lost' : 'ma-pill--accepted' %>"><%= lead.status === 'closed' ? 'Closed' : (lead.source === 'agency' ? 'Agency' : 'Open') %></span>
+        </div>
+        <% if (lead.status !== 'closed') { %>
+        <div class="ma-actions">
+          <% if (lead.phone) { %><a class="ma-btn ma-btn--sm" href="tel:<%= String(lead.phone).replace(/[^0-9+]/g, '') %>">Call</a><% } %>
+          <form method="post" action="<%= base %>/leads/<%= encodeURIComponent(lead.id) %>/close">
+            <button type="submit" class="ma-btn ma-btn--sm ma-btn--soft">Mark closed</button>
+          </form>
+          <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= base %>/review?ask=1">Request review</a>
+        </div>
+        <% } %>
+      </article>
+      <% }); %>
+    <% } %>
+    <% } %>
+
+    <section class="ma-section">
+      <div class="ma-section__head">
+        <h2>Referral pool</h2>
+        <a href="<%= base %>/referrals?view=pool">Open pool</a>
+      </div>
+      <p class="ma-page-sub" style="margin:0">Unassigned network referrals you can claim also live under Referrals → Pool.</p>
+    </section>
+  </main>
+  <%- include('_tabbar') %>
+  <script src="/js/member-app-push.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
+</body>
+</html>

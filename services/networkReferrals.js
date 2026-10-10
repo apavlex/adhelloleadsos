@@ -36,7 +36,7 @@ async function sendReferral({ network, input, fromMemberId, by, baseUrl }) {
 }
 
 async function afterRouting({ network, referral, recipient, sender, baseUrl }) {
-  const out = { notified: null };
+  const out = { notified: null, poolNotified: 0 };
   if (sender) await notify.syncPartnerCounter(network, sender, 'received').catch(() => {});
   if (recipient && referral.status === 'sent') {
     await notify.syncPartnerCounter(network, recipient, 'sent').catch(() => {});
@@ -44,6 +44,9 @@ async function afterRouting({ network, referral, recipient, sender, baseUrl }) {
       .catch((err) => ({ ok: false, error: err.message }));
   } else if (referral.status === 'unrouted') {
     await notify.createOperatorTask({ network, referral, reason: 'unrouted' });
+    // Alert eligible partners so they can claim from the pool in the app.
+    out.poolNotified = await notify.notifyReferralPool({ network, referral, baseUrl })
+      .catch(() => 0);
   }
   return out;
 }
@@ -55,11 +58,35 @@ async function afterRouting({ network, referral, recipient, sender, baseUrl }) {
 async function actOnReferral({ network, referralId, action, opts = {}, actorMemberId, baseUrl }) {
   const current = await store.getReferral(network.id, referralId);
   if (!current) return { ok: false, error: 'Referral not found.' };
+  const members = await store.listMembers(network.id);
+
+  if (action === 'claim') {
+    if (!actorMemberId) return { ok: false, error: 'Sign in as a member to claim this referral.' };
+    const actor = members.find((m) => m.id === actorMemberId);
+    if (!actor) return { ok: false, error: 'Member not found.' };
+    if (!ex.canClaimPoolReferral(current, actor)) {
+      return { ok: false, error: 'This referral is not available for you to claim (wrong trade/area, or already claimed).' };
+    }
+    // Re-read for first-claim-wins under concurrent taps.
+    const fresh = await store.getReferral(network.id, referralId);
+    if (!fresh || fresh.status !== 'unrouted' || fresh.toMemberId) {
+      return { ok: false, error: 'Someone already claimed this referral.' };
+    }
+    const applied = ex.applyReferralAction(fresh, 'claim', {
+      ...opts,
+      toMemberId: actorMemberId,
+      by: actor.companyName || opts.by,
+    });
+    if (!applied.ok) return applied;
+    const referral = await store.saveReferral(network.id, applied.referral);
+    await notify.syncPartnerCounter(network, actor, 'sent').catch(() => {});
+    return { ok: true, referral, notified: null };
+  }
+
   if (actorMemberId) {
     if (current.toMemberId !== actorMemberId) return { ok: false, error: 'This referral was moved to another member.' };
     if (action === 'assign') return { ok: false, error: 'Only the network operator can reassign referrals.' };
   }
-  const members = await store.listMembers(network.id);
   if (action === 'assign') {
     const target = members.find((m) => m.id === opts.toMemberId);
     if (!target) return { ok: false, error: 'Pick a member to assign.' };

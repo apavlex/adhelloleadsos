@@ -499,9 +499,11 @@
         </div>
         <% } %>
         <div class="mt-3 flex flex-wrap items-center gap-2">
-          <button type="button" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline" data-appt-portal="<%= pkg.id %>" data-appt-portal-action="copy">Copy app link</button>
-          <button type="button" class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:underline" data-appt-portal="<%= pkg.id %>" data-appt-portal-action="open">Open app</button>
-          <button type="button" class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:underline" data-appt-portal="<%= pkg.id %>" data-appt-portal-action="send" title="<%= (pkg.contactPhone || pkg.contactEmail) ? 'Text or email the contractor app link' : 'Add contact phone/email on this package first' %>">Text/email app</button>
+          <button type="button" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline" data-appt-portal="<%= pkg.id %>" data-appt-portal-action="copy" title="Contractor portal — appointments & lead alerts">Copy contractor app</button>
+          <button type="button" class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:underline" data-appt-portal="<%= pkg.id %>" data-appt-portal-action="open">Open contractor app</button>
+          <button type="button" class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:underline" data-appt-portal="<%= pkg.id %>" data-appt-portal-action="send" title="<%= (pkg.contactPhone || pkg.contactEmail) ? 'Text or email the contractor app link' : 'Add contact phone/email on this package first' %>">Text contractor app</button>
+          <button type="button" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline" data-appt-review-app="<%= pkg.id %>" data-appt-review-action="copy" title="Partner app — Request a review + referrals">Copy review app</button>
+          <button type="button" class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:underline" data-appt-review-app="<%= pkg.id %>" data-appt-review-action="send" title="Text or email the review-request app (needs a matching Network partner)">Text review app</button>
           <% if (_canSell) { %>
           <button type="button" class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:underline" data-appt-add-lead="<%= pkg.id %>">Add lead + notify</button>
           <% } %>
@@ -953,6 +955,55 @@
           window.location.reload();
         })
         .catch(function (err) { setMsg(err.message || 'Remove failed', true); });
+      return;
+    }
+
+    var reviewAppBtn = e.target && e.target.closest ? e.target.closest('[data-appt-review-app]') : null;
+    if (reviewAppBtn) {
+      var reviewPkgId = reviewAppBtn.getAttribute('data-appt-review-app');
+      var reviewAction = reviewAppBtn.getAttribute('data-appt-review-action') || 'copy';
+      if (reviewAction === 'send') {
+        reviewAppBtn.disabled = true;
+        fetch(apiUrl('/appointments/appointment-packages/' + encodeURIComponent(reviewPkgId) + '/send-review-app-link'), {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: '{}',
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            reviewAppBtn.disabled = false;
+            if (!data.success) throw new Error(data.error || 'Could not send review app');
+            setMsg(
+              'Review app sent by ' + (data.channel === 'sms' ? 'text' : 'email')
+                + (data.companyName ? ' to ' + data.companyName : '') + '.',
+              false,
+            );
+          })
+          .catch(function (err) {
+            reviewAppBtn.disabled = false;
+            setMsg(err.message || 'Could not send review app', true);
+          });
+        return;
+      }
+      fetch(apiUrl('/appointments/appointment-packages/' + encodeURIComponent(reviewPkgId) + '/review-app-link'), {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data.success || !data.reviewUrl) throw new Error(data.error || 'Could not create review app link');
+          var link = data.reviewUrl;
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            return navigator.clipboard.writeText(link).then(function () {
+              setMsg('Review app link copied — opens Request a review for this contractor.', false);
+            });
+          }
+          window.prompt('Copy review app link', link);
+          setMsg('Review app link ready.', false);
+        })
+        .catch(function (err) { setMsg(err.message || 'Review app link failed', true); });
       return;
     }
 

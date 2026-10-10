@@ -9,7 +9,13 @@ process.env.APP_DATA_DIR = tmpDir;
 
 const dbService = require('../services/database');
 const appointmentPackages = require('../services/appointmentPackages');
-const { findPackageForMember, normName } = require('../services/memberAppointmentLink');
+const networkStore = require('../services/networkStore');
+const {
+  findPackageForMember,
+  findMemberForPackage,
+  listPartnerAppsForWorkspace,
+  normName,
+} = require('../services/memberAppointmentLink');
 
 describe('memberAppointmentLink', () => {
   before(async () => {
@@ -56,5 +62,35 @@ describe('memberAppointmentLink', () => {
 
     const miss = await findPackageForMember('ws_link', { companyName: 'Nobody LLC' });
     assert.equal(miss, null);
+  });
+
+  it('finds network member for a package and lists partner apps for Get the app', async () => {
+    const network = await networkStore.getOrCreateNetworkForWorkspace('ws_link', {
+      name: 'Bright Electric network',
+      ownerEmail: 'owner@example.com',
+    });
+    const pkg = await appointmentPackages.createPackage('ws_link', {
+      businessName: 'A Apple Plumbing',
+      trade: 'Plumbing',
+      purchased: 4,
+      contactEmail: 'apple@plumbing.test',
+      leadsPurchased: 8,
+    });
+    const member = await networkStore.saveMember(network.id, {
+      companyName: 'A Apple Plumbing',
+      email: 'apple@plumbing.test',
+      phone: '5550100',
+      appointmentPackageId: pkg.id,
+      status: 'active',
+    });
+
+    const linked = await findMemberForPackage('ws_link', pkg);
+    assert.ok(linked);
+    assert.equal(linked.member.id, member.id);
+    assert.equal(linked.network.id, network.id);
+
+    const listed = await listPartnerAppsForWorkspace('ws_link');
+    assert.ok(listed.network);
+    assert.ok(listed.partners.some((p) => p.memberId === member.id && p.packageId === pkg.id));
   });
 });
