@@ -426,7 +426,7 @@
   html.dark #oppBoard .opp-ghl-progress { background: rgba(255, 255, 255, 0.12); }
   #oppBoard .opp-ghl-note { margin-top: 0.6rem; border-radius: 0.75rem; border: 1px dashed rgba(107, 114, 128, 0.45); padding: 0.55rem 0.85rem; font-size: 0.78rem; font-weight: 600; color: #4b5563; }
   html.dark #oppBoard .opp-ghl-note { border-color: rgba(148, 163, 184, 0.4); color: #cbd5e1; }
-  #oppBoard .opp-ghl-info-wrap { position: relative; display: none; flex: 0 0 auto; }
+  #oppBoard .opp-ghl-info-wrap { position: relative; display: block; flex: 0 0 auto; }
   #oppBoard .opp-ghl-info-btn {
     display: inline-flex;
     align-items: center;
@@ -468,10 +468,8 @@
   #oppBoard .opp-ghl-popover .opp-ghl-note { margin-top: 0.55rem; }
   #oppBoard .opp-ghl-popover .opp-ghl-progress { max-width: none; }
   #oppBoard .opp-ghl-info-wrap.is-open .opp-ghl-popover { display: block; }
-  @media (max-width: 767px) {
-    #oppBoard .opp-ghl-info-wrap { display: block; }
-    #oppBoard .opp-ghl-inline { display: none !important; }
-  }
+  /* Status lives in the sync-icon popover so the long GHL line never crowds the board. */
+  #oppBoard .opp-ghl-inline { display: none !important; }
 </style>
 <section class="<%= _compact ? 'mb-8 md:mb-10 rounded-[2rem] border-2 border-brand-yellow/50 dark:border-brand-yellow/35 bg-white dark:bg-slate-900/90 shadow-lg shadow-brand-yellow/10 overflow-hidden opp-compact' : 'opp-page-board overflow-hidden' %>" id="oppBoard" data-pipeline-id="<%= _board.pipeline.id %>" data-first-stage-id="<%= _board.stages[0] ? _board.stages[0].id : '' %>" aria-label="Opportunities">
   <script type="application/json" id="oppBoardPipelinesJson"><%- JSON.stringify(_board.pipelines || []).replace(/</g, '\\u003c') %></script>
