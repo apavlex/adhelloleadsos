@@ -1,11 +1,21 @@
 <%
-  const _tabs = [
-    { id: 'home', label: 'Home', href: base, icon: icons.home },
-    { id: 'referrals', label: 'Referrals', href: base + '/referrals', icon: icons.referrals },
-    { id: 'send', label: 'Send', href: base + '/send', icon: icons.send, fab: true },
-    { id: 'customers', label: 'Customers', href: base + '/customers', icon: icons.customers },
-    { id: 'review', label: 'Review', href: base + '/review', icon: icons.review },
-  ];
+  const _hasAppt = typeof appointment !== 'undefined' && appointment;
+  // Center FAB = Request a review (share review link). Send referral stays a regular tab.
+  const _tabs = _hasAppt
+    ? [
+        { id: 'home', label: 'Home', href: base, icon: icons.home },
+        { id: 'referrals', label: 'Referrals', href: base + '/referrals', icon: icons.referrals },
+        { id: 'review', label: 'Request', href: base + '/review?ask=1', icon: icons.review, fab: true },
+        { id: 'leads', label: 'Leads', href: appointment.portalLeadsPath || (base + '/leads'), icon: icons.leads },
+        { id: 'send', label: 'Send', href: base + '/send', icon: icons.send },
+      ]
+    : [
+        { id: 'home', label: 'Home', href: base, icon: icons.home },
+        { id: 'referrals', label: 'Referrals', href: base + '/referrals', icon: icons.referrals },
+        { id: 'review', label: 'Request', href: base + '/review?ask=1', icon: icons.review, fab: true },
+        { id: 'customers', label: 'Customers', href: base + '/customers', icon: icons.customers },
+        { id: 'send', label: 'Send', href: base + '/send', icon: icons.send },
+      ];
 %>
 <nav class="ma-tabbar" aria-label="App sections">
   <div class="ma-tabbar__inner">

@@ -109,6 +109,79 @@ async function submitRequest(workspaceId, packageId, input) {
   return { ...created, notices };
 }
 
+/**
+ * Text or email the business their contractor app link (leads + alerts).
+ * Uses package contact phone/email, or the linked CRM lead when leadKey is set.
+ */
+async function sendPortalLinkToBusiness(workspaceId, packageId, { req } = {}) {
+  const pkg = await appointmentPackages.getPackage(workspaceId, packageId);
+  if (!pkg) return { ok: false, error: 'Package not found.' };
+
+  const token = await ensurePortalToken(workspaceId, packageId);
+  const url = req ? portalUrl(req, token) : portalPath(token);
+  const sms = `Your ${pkg.businessName} contractor app (form leads, appointments, phone alerts):\n${url}\n\nTip: Add to Home Screen, open it, then tap Turn on alerts.`;
+  const subject = `${pkg.businessName} — your contractor app link`;
+  const emailBody = `${sms}\n\nOpen that link anytime from this workspace’s Today page too.`;
+
+  let lead = null;
+  if (pkg.leadKey) {
+    try {
+      lead = await dbService.getLead(pkg.leadKey, workspaceId);
+    } catch (e) {
+      lead = null;
+    }
+  }
+  const phone = String(pkg.contactPhone || (lead && lead.phone) || '').trim();
+  const email = String(pkg.contactEmail || (lead && lead.email) || '').trim();
+  if (!phone && !email) {
+    return { ok: false, error: 'Add a contact phone or email on this package first.', url };
+  }
+
+  const workspaceIntegrations = require('./workspaceIntegrations');
+  const smsOutbound = require('./smsOutbound');
+  const ghlMessaging = require('./ghlMessaging');
+  const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(workspaceId);
+  const target = lead || {
+    key: pkg.leadKey || '',
+    title: pkg.businessName,
+    phone,
+    email,
+  };
+
+  let sent = null;
+  let error = '';
+  if (phone && phone !== 'N/A') {
+    try {
+      const result = await smsOutbound.sendSmsToLead({
+        lead: target,
+        message: sms,
+        integrationEnv,
+        workspaceId,
+        to: phone,
+      });
+      sent = { channel: 'sms', provider: result.provider, messageId: result.messageId || '' };
+    } catch (err) {
+      error = (err && err.message) || 'SMS failed.';
+    }
+  }
+  if (!sent && email && email !== 'N/A') {
+    try {
+      const result = await ghlMessaging.sendEmailToLead({
+        lead: target.key ? target : { ...target, key: 'contractor-portal' },
+        subject,
+        body: emailBody,
+        integrationEnv,
+        toEmail: email,
+      });
+      sent = { channel: 'email', provider: 'ghl', messageId: (result && result.messageId) || '' };
+    } catch (err) {
+      error = error || (err && err.message) || 'Email failed.';
+    }
+  }
+  if (!sent) return { ok: false, error: error || 'Could not send the app link.', url };
+  return { ok: true, ...sent, url, businessName: pkg.businessName };
+}
+
 module.exports = {
   portalPath,
   portalUrl,
@@ -118,4 +191,5 @@ module.exports = {
   submitRequest,
   notifyAgencyOfRequest,
   agencyOwnerEmails,
+  sendPortalLinkToBusiness,
 };

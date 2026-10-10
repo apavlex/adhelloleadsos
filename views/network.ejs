@@ -331,8 +331,9 @@
             <div class="net-metric"><span>Won</span><strong>$<%= Math.round(m.stats.wonValue).toLocaleString('en-US') %></strong></div>
           </div>
           <div class="mt-3 flex flex-wrap items-center gap-2">
-            <button type="button" class="net-btn net-btn-ghost" data-net-copy-portal="<%= m.id %>">Copy app link</button>
-            <form method="post" action="/network/members/<%= m.id %>/send-portal-link"><button type="submit" class="net-btn net-btn-ghost">Text app link</button></form>
+            <button type="button" class="net-btn net-btn-ghost" data-net-copy-portal="<%= m.id %>" data-net-copy-kind="referral">Copy referral app</button>
+            <button type="button" class="net-btn net-btn-ghost" data-net-copy-portal="<%= m.id %>" data-net-copy-kind="contractor">Copy contractor app</button>
+            <form method="post" action="/network/members/<%= m.id %>/send-portal-link"><button type="submit" class="net-btn net-btn-ghost">Text referral app</button></form>
             <% if (canManage && ghlSubaccounts && !m.ghlLocationId) { %>
             <form method="post" action="/network/members/<%= m.id %>/ghl"><button type="submit" class="net-btn net-btn-ghost"><%= m.ghlError ? 'Retry GHL sub-account' : 'Create GHL sub-account' %></button></form>
             <% } %>
@@ -781,16 +782,27 @@
         if (!btn) return;
         var id = btn.getAttribute('data-net-copy-portal');
         btn.disabled = true;
+        var kind = btn.getAttribute('data-net-copy-kind') || 'referral';
         fetch('/network/members/' + encodeURIComponent(id) + '/portal-link', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
           .then(function (res) { return res.json(); })
           .then(function (data) {
             btn.disabled = false;
-            if (!data || !data.url) { say((data && data.error) || 'Could not build that link.', false); return; }
-            var done = function () { say('App link copied.', true); };
+            var url = kind === 'contractor' ? (data && data.contractorUrl) : (data && (data.referralUrl || data.url));
+            if (!url) {
+              say(
+                kind === 'contractor'
+                  ? 'No contractor app yet — sell them an appointment package on Today (tag trade e.g. Electrician) first.'
+                  : ((data && data.error) || 'Could not build that link.'),
+                false,
+              );
+              return;
+            }
+            var label = kind === 'contractor' ? 'Contractor app link copied.' : 'Referral app link copied.';
+            var done = function () { say(label, true); };
             if (navigator.clipboard && navigator.clipboard.writeText) {
-              navigator.clipboard.writeText(data.url).then(done).catch(function () { window.prompt('Copy the app link:', data.url); });
+              navigator.clipboard.writeText(url).then(done).catch(function () { window.prompt('Copy the app link:', url); });
             } else {
-              window.prompt('Copy the app link:', data.url);
+              window.prompt('Copy the app link:', url);
             }
           })
           .catch(function () { btn.disabled = false; say('Could not build that link.', false); });

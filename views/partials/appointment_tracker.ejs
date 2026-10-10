@@ -127,7 +127,7 @@
       <div class="min-w-0">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Appointment tracker</p>
         <h2 class="font-display font-extrabold text-2xl md:text-3xl leading-tight">Sold slots → booked → closed</h2>
-        <p class="text-sm text-white/70 mt-2 max-w-xl">Like a delivery tracker: sell appointments to a business, let them book on your GHL calendar, and watch remaining inventory drop as slots fill.</p>
+        <p class="text-sm text-white/70 mt-2 max-w-xl">Sell appointments by trade (e.g. Electrician). Copy, open, or text/email their contractor app from this workspace — they turn on lead alerts there.</p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
         <button type="button" id="apptSellBtn" class="btn-pill bg-brand-yellow text-brand-dark px-5 py-2.5 text-[10px] font-black uppercase tracking-widest">Sell appointments</button>
@@ -368,7 +368,9 @@
         </div>
         <% } %>
         <div class="mt-3 flex flex-wrap items-center gap-2">
-          <button type="button" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline" data-appt-portal="<%= pkg.id %>">Copy portal link</button>
+          <button type="button" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline" data-appt-portal="<%= pkg.id %>" data-appt-portal-action="copy">Copy app link</button>
+          <button type="button" class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:underline" data-appt-portal="<%= pkg.id %>" data-appt-portal-action="open">Open app</button>
+          <button type="button" class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:underline" data-appt-portal="<%= pkg.id %>" data-appt-portal-action="send" title="<%= (pkg.contactPhone || pkg.contactEmail) ? 'Text or email the contractor app link' : 'Add contact phone/email on this package first' %>">Text/email app</button>
           <button type="button" class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:underline" data-appt-add-lead="<%= pkg.id %>">Add lead + notify</button>
           <% if (pkg.bookingHref) { %>
           <a href="<%= pkg.bookingHref %>" target="_blank" rel="noopener noreferrer" class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:underline">Booking link</a>
@@ -621,6 +623,31 @@
     var portalBtn = e.target && e.target.closest ? e.target.closest('[data-appt-portal]') : null;
     if (portalBtn) {
       var pkgId = portalBtn.getAttribute('data-appt-portal');
+      var portalAction = portalBtn.getAttribute('data-appt-portal-action') || 'copy';
+      if (portalAction === 'send') {
+        portalBtn.disabled = true;
+        fetch('/today/appointment-packages/' + encodeURIComponent(pkgId) + '/send-portal-link', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: '{}',
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            portalBtn.disabled = false;
+            if (!data.success) throw new Error(data.error || 'Could not send app link');
+            setMsg(
+              'Contractor app link sent by ' + (data.channel === 'sms' ? 'text' : 'email')
+                + (data.businessName ? ' to ' + data.businessName : '') + '.',
+              false,
+            );
+          })
+          .catch(function (err) {
+            portalBtn.disabled = false;
+            setMsg(err.message || 'Could not send app link', true);
+          });
+        return;
+      }
       fetch('/today/appointment-packages/' + encodeURIComponent(pkgId) + '/portal-link', {
         method: 'POST',
         credentials: 'same-origin',
@@ -629,16 +656,21 @@
       })
         .then(function (r) { return r.json(); })
         .then(function (data) {
-          if (!data.success || !data.url) throw new Error(data.error || 'Could not create portal link');
+          if (!data.success || !data.url) throw new Error(data.error || 'Could not create contractor app link');
+          if (portalAction === 'open') {
+            window.open(data.url, '_blank', 'noopener');
+            setMsg('Contractor app opened — they turn on lead alerts there.', false);
+            return;
+          }
           if (navigator.clipboard && navigator.clipboard.writeText) {
             return navigator.clipboard.writeText(data.url).then(function () {
-              setMsg('Portal link copied — send it to the business.', false);
+              setMsg('Contractor app link copied — send it to the business (or use Text/email app).', false);
             });
           }
-          window.prompt('Copy portal link', data.url);
-          setMsg('Portal link ready.', false);
+          window.prompt('Copy contractor app link', data.url);
+          setMsg('Contractor app link ready.', false);
         })
-        .catch(function (err) { setMsg(err.message || 'Portal link failed', true); });
+        .catch(function (err) { setMsg(err.message || 'Contractor app link failed', true); });
       return;
     }
 

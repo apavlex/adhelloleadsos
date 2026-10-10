@@ -1,8 +1,14 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title><%= typeof title !== 'undefined' ? title : (brand.appName || 'Portal') %></title>
+<title><%= typeof title !== 'undefined' ? title : (brand.appName || 'Contractor app') %></title>
 <meta name="robots" content="noindex,nofollow" />
 <meta name="theme-color" content="#0f2747" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="<%= String((typeof package !== 'undefined' && package && package.businessName) || brand.appName || 'Leads').slice(0, 12) %>" />
+<link rel="manifest" href="<%= typeof base !== 'undefined' ? base : '' %>/manifest.webmanifest" />
+<link rel="apple-touch-icon" href="<%= brand.logoUrl || '/images/adhello-app-icon.png' %>" />
 <link rel="icon" href="<%= brand.logoUrl || '/images/adhello-app-icon.png' %>" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -116,4 +122,17 @@
   }
   .cp-empty { text-align: center; padding: 1.5rem 1rem; color: var(--cp-muted); font-weight: 700; font-size: 0.9rem; }
   .cp-list-item + .cp-list-item { margin-top: 0.65rem; }
+  .cp-install {
+    position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(4.6rem + env(safe-area-inset-bottom));
+    width: min(26rem, calc(100% - 1.5rem)); z-index: 30;
+    background: var(--cp-ink); color: #fff; border-radius: 1rem; padding: 0.85rem 2.5rem 0.85rem 1rem;
+    font-size: 0.82rem; font-weight: 700; line-height: 1.35;
+    box-shadow: 0 12px 28px rgba(15, 39, 71, 0.28);
+  }
+  .cp-install b { color: var(--cp-gold); }
+  .cp-install button {
+    position: absolute; top: 0.45rem; right: 0.45rem; width: 2rem; height: 2rem; border: 0; border-radius: 999px;
+    background: rgba(255,255,255,0.12); color: #fff; font-size: 1.1rem; cursor: pointer;
+  }
+  .cp-install[hidden] { display: none !important; }
 </style>

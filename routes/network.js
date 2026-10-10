@@ -635,7 +635,28 @@ router.get('/members/:id/portal-link', async (req, res) => {
     const network = await loadNetwork(req);
     const member = await store.getMember(network.id, req.params.id);
     if (!member) return res.status(404).json({ success: false, error: 'Member not found.' });
-    return res.json({ success: true, url: notify.memberPortalLink(notify.baseUrlFromReq(req), network, member) });
+    const referralUrl = notify.memberPortalLink(notify.baseUrlFromReq(req), network, member);
+    let contractorUrl = null;
+    if (network.ownerWorkspaceId) {
+      try {
+        const memberAppointmentLink = require('../services/memberAppointmentLink');
+        const contractorPortal = require('../services/contractorPortal');
+        const pkg = await memberAppointmentLink.findPackageForMember(network.ownerWorkspaceId, member);
+        if (pkg) {
+          const token = await contractorPortal.ensurePortalToken(network.ownerWorkspaceId, pkg.id);
+          contractorUrl = contractorPortal.portalUrl(req, token);
+        }
+      } catch (e) {
+        contractorUrl = null;
+      }
+    }
+    return res.json({
+      success: true,
+      url: referralUrl,
+      referralUrl,
+      contractorUrl,
+      packageId: member.appointmentPackageId || null,
+    });
   } catch (err) {
     return res.status(500).json({ success: false, error: 'Could not build that link.' });
   }
