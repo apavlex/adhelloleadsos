@@ -5,9 +5,9 @@
 </head>
 <body>
   <main class="ma-shell">
-    <%- include('_top', { topTitle: 'Review' }) %>
-    <h1 class="ma-page-title">Request a review</h1>
-    <p class="ma-page-sub">Text or email a happy customer through Go High Level. Your AdHello.io review link is included.</p>
+    <%- include('_top', { topTitle: 'Review', topSettings: { href: base + '/review/settings', label: 'Review settings' } }) %>
+    <h1 class="ma-page-title">Show your QR</h1>
+    <p class="ma-page-sub">Let the customer scan to leave a review — or text them a link below.</p>
 
     <%- include('_flash') %>
 
@@ -15,116 +15,85 @@
     <% const _fv = typeof formValues !== 'undefined' && formValues ? formValues : { phone: '', email: '', name: '', channel: 'auto', useAi: true }; %>
     <% const _script = typeof smsScript !== 'undefined' ? smsScript : ''; %>
     <% const _needLinks = !linkCount; %>
+    <% const _askOpen = typeof askShare !== 'undefined' && askShare; %>
 
-    <section class="ma-card" id="maAskForm">
-      <form method="post" action="<%= base %>/review/send" enctype="multipart/form-data" autocomplete="off">
-        <% if (!_msg.configured) { %>
-        <p class="ma-flash ma-flash--err">Go High Level isn’t connected yet. Ask your agency to connect GHL in Workspace → Integrations.</p>
-        <% } else if (!_msg.smsReady && !_msg.emailReady) { %>
-        <p class="ma-flash ma-flash--err">GHL is connected, but SMS from number and outbound email still need to be set in Integrations.</p>
-        <% } %>
-        <% if (_needLinks) { %>
-        <p class="ma-flash ma-flash--err">Add at least one review link below before sending.</p>
-        <% } %>
-        <div class="ma-field">
-          <label class="ma-label" for="rvAskName">Customer name</label>
-          <input id="rvAskName" name="name" class="ma-input" maxlength="120" value="<%= _fv.name || '' %>" autocapitalize="words" <%= !_needLinks && (_msg.smsReady || _msg.emailReady) ? 'autofocus' : '' %>>
-        </div>
-        <div class="ma-grid2">
-          <div class="ma-field">
-            <label class="ma-label" for="rvAskPhone">Mobile</label>
-            <input id="rvAskPhone" name="phone" type="tel" inputmode="tel" maxlength="40" class="ma-input" value="<%= _fv.phone || '' %>" <%= _msg.smsReady ? '' : 'disabled' %>>
-          </div>
-          <div class="ma-field">
-            <label class="ma-label" for="rvAskEmail">Email</label>
-            <input id="rvAskEmail" name="email" type="email" inputmode="email" maxlength="200" class="ma-input" value="<%= _fv.email || '' %>" <%= _msg.emailReady ? '' : 'disabled' %>>
-          </div>
-        </div>
-        <div class="ma-field">
-          <label class="ma-label" for="rvAskChannel">Send by</label>
-          <select id="rvAskChannel" name="channel" class="ma-input">
-            <option value="auto" <%= _fv.channel === 'auto' ? 'selected' : '' %>>Text first, then email</option>
-            <option value="sms" <%= _fv.channel === 'sms' ? 'selected' : '' %> <%= _msg.smsReady ? '' : 'disabled' %>>Text (GHL SMS)</option>
-            <option value="email" <%= _fv.channel === 'email' ? 'selected' : '' %> <%= _msg.emailReady ? '' : 'disabled' %>>Email (GHL)</option>
-          </select>
-        </div>
-
-        <details class="ma-fold ma-fold--inset">
-          <summary>Options <span class="ma-fold__hint">AI · preview photo</span></summary>
-          <div class="ma-fold__body">
-            <div class="ma-field">
-              <label class="ma-label" for="rvAskShareImage">Preview image for this text</label>
-              <input id="rvAskShareImage" name="shareImage" type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="ma-input">
-              <p class="ma-hint">Optional. Leave blank to use your default (or AdHello’s).</p>
-            </div>
-            <label class="ma-check" style="display:flex;gap:10px;align-items:flex-start;margin:4px 0 10px">
-              <input type="checkbox" name="keepShareImage" value="1" style="margin-top:3px">
-              <span>Also save this photo as my default preview</span>
-            </label>
-            <label class="ma-check" style="display:flex;gap:10px;align-items:flex-start;margin:4px 0 4px">
-              <input type="hidden" name="useAi" value="0">
-              <input type="checkbox" name="useAi" value="1" <%= _fv.useAi === false ? '' : 'checked' %> style="margin-top:3px">
-              <span><strong>Use AI</strong> to personalize the script (keeps your review link)</span>
-            </label>
-          </div>
-        </details>
-
-        <button type="submit" class="ma-btn ma-btn--block" id="maAskReviewGhl" style="margin-top:14px" <%= !_needLinks && (_msg.smsReady || _msg.emailReady) && member.status === 'active' ? '' : 'disabled' %>>
-          <%- icons.review %> Send review request
-        </button>
-      </form>
+    <section class="ma-card ma-qr" style="margin-top:4px" aria-label="Share and QR code">
+      <% if (_needLinks) { %>
+      <p class="ma-flash ma-flash--err" style="margin:0 0 12px;width:100%;text-align:left">Add your review links in <a href="<%= base %>/review/settings" style="color:inherit;font-weight:800">Settings</a> so the QR can send customers to the right places.</p>
+      <% } %>
+      <button type="button" class="ma-btn ma-btn--soft ma-btn--block" id="maAskReview" data-ma-share="<%= reviewUrl %>" data-ma-share-title="Leave <%= member.companyName %> a review" <%= linkCount ? '' : 'disabled' %>>
+        <%- icons.share %> Share from this phone
+      </button>
+      <img src="<%= reviewPath %>/qr.png" alt="QR code for your review page" width="220" height="220" style="margin-top:18px">
+      <div class="ma-link-box">
+        <code id="rvLink"><%= reviewUrl %></code>
+        <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-ma-copy="<%= reviewUrl %>"><%- icons.copy %> Copy</button>
+      </div>
+      <div class="ma-actions" style="justify-content:center;width:100%">
+        <a class="ma-btn ma-btn--sm ma-btn--ghost" href="<%= reviewPath %>/qr.png?download=1" download><%- icons.download %> Download QR</a>
+        <a class="ma-btn ma-btn--sm ma-btn--ghost" href="<%= reviewPath %>" target="_blank" rel="noopener">Preview</a>
+      </div>
     </section>
 
-    <details class="ma-fold" <%= _needLinks ? 'open' : '' %>>
-      <summary>Your review links <span class="ma-fold__hint"><%= linkCount ? linkCount + ' set' : 'required' %></span></summary>
+    <details class="ma-fold" id="maAskForm" <%= _askOpen || _needLinks ? 'open' : '' %>>
+      <summary>Send review request <span class="ma-fold__hint">text or email</span></summary>
       <div class="ma-fold__body">
-        <form method="post" action="<%= base %>/review" class="ma-card ma-card--flush" autocomplete="off">
-          <p class="ma-hint" style="margin-top:0">Fill in the sites you're on. Leave the rest blank.</p>
-          <% platforms.forEach(function (p) { %>
+        <form method="post" action="<%= base %>/review/send" enctype="multipart/form-data" class="ma-card ma-card--flush" autocomplete="off">
+          <% if (!_msg.configured) { %>
+          <p class="ma-flash ma-flash--err">Go High Level isn’t connected yet. Ask your agency to connect GHL in Workspace → Integrations.</p>
+          <% } else if (!_msg.smsReady && !_msg.emailReady) { %>
+          <p class="ma-flash ma-flash--err">GHL is connected, but SMS from number and outbound email still need to be set in Integrations.</p>
+          <% } %>
+          <% if (_needLinks) { %>
+          <p class="ma-flash ma-flash--err">Add at least one review link in Settings before sending.</p>
+          <% } %>
           <div class="ma-field">
-            <label class="ma-label rv-field-label" for="rv-<%= p.key %>"><span class="rv-field-badge" style="background: <%= p.color %>" aria-hidden="true"><%= p.letter %></span><%= p.field %></label>
-            <input id="rv-<%= p.key %>" name="<%= p.key %>" type="url" inputmode="url" class="ma-input" value="<%= member.reviewLinks[p.key] || '' %>" placeholder="<%= p.placeholder %>">
-            <% if (p.hint) { %><p class="ma-hint"><%= p.hint %></p><% } %>
+            <label class="ma-label" for="rvAskName">Customer name</label>
+            <input id="rvAskName" name="name" class="ma-input" maxlength="120" value="<%= _fv.name || '' %>" autocapitalize="words" <%= !_needLinks && (_msg.smsReady || _msg.emailReady) ? 'autofocus' : '' %>>
           </div>
-          <% }); %>
-          <div class="ma-section__head" style="margin-top:8px"><h2 style="font-size:15px">Other review sites</h2></div>
-          <% otherRows.forEach(function (o, i) { %>
           <div class="ma-grid2">
             <div class="ma-field">
-              <label class="ma-label" for="rvOtherLabel<%= i %>">Site name</label>
-              <input id="rvOtherLabel<%= i %>" name="otherLabel" class="ma-input" value="<%= o.label %>" placeholder="e.g. HomeAdvisor" maxlength="40">
+              <label class="ma-label" for="rvAskPhone">Mobile</label>
+              <input id="rvAskPhone" name="phone" type="tel" inputmode="tel" maxlength="40" class="ma-input" value="<%= _fv.phone || '' %>" <%= _msg.smsReady ? '' : 'disabled' %>>
             </div>
             <div class="ma-field">
-              <label class="ma-label" for="rvOtherUrl<%= i %>">Link</label>
-              <input id="rvOtherUrl<%= i %>" name="otherUrl" type="url" inputmode="url" class="ma-input" value="<%= o.url %>" placeholder="https://">
+              <label class="ma-label" for="rvAskEmail">Email</label>
+              <input id="rvAskEmail" name="email" type="email" inputmode="email" maxlength="200" class="ma-input" value="<%= _fv.email || '' %>" <%= _msg.emailReady ? '' : 'disabled' %>>
             </div>
           </div>
-          <% }); %>
-          <button type="submit" class="ma-btn ma-btn--block">Save links</button>
-        </form>
-      </div>
-    </details>
+          <div class="ma-field">
+            <label class="ma-label" for="rvAskChannel">Send by</label>
+            <select id="rvAskChannel" name="channel" class="ma-input">
+              <option value="auto" <%= _fv.channel === 'auto' ? 'selected' : '' %>>Text first, then email</option>
+              <option value="sms" <%= _fv.channel === 'sms' ? 'selected' : '' %> <%= _msg.smsReady ? '' : 'disabled' %>>Text (GHL SMS)</option>
+              <option value="email" <%= _fv.channel === 'email' ? 'selected' : '' %> <%= _msg.emailReady ? '' : 'disabled' %>>Email (GHL)</option>
+            </select>
+          </div>
 
-    <details class="ma-fold">
-      <summary>Link preview image <span class="ma-fold__hint"><%= typeof hasCustomShareImage !== 'undefined' && hasCustomShareImage ? 'custom' : 'AdHello default' %></span></summary>
-      <div class="ma-fold__body">
-        <div class="ma-card ma-card--flush">
-          <p class="ma-hint" style="margin-top:0">Shown when your review link is shared in Messages.</p>
-          <img class="ma-share-preview" src="<%= typeof shareImagePath !== 'undefined' ? shareImagePath : (reviewPath + '/og.jpg') %>" alt="Link preview" width="600" height="315" style="width:100%;max-width:100%;height:auto;border-radius:14px;display:block;background:#0f172a">
-          <form method="post" action="<%= base %>/review/share-image" enctype="multipart/form-data" autocomplete="off" style="margin-top:12px">
-            <div class="ma-field">
-              <label class="ma-label" for="rvDefaultShareImage">Upload default photo</label>
-              <input id="rvDefaultShareImage" name="shareImage" type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="ma-input" required>
+          <details class="ma-fold ma-fold--inset">
+            <summary>Options <span class="ma-fold__hint">AI · preview photo</span></summary>
+            <div class="ma-fold__body">
+              <div class="ma-field">
+                <label class="ma-label" for="rvAskShareImage">Preview image for this text</label>
+                <input id="rvAskShareImage" name="shareImage" type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="ma-input">
+                <p class="ma-hint">Optional. Leave blank to use your default (or AdHello’s).</p>
+              </div>
+              <label class="ma-check" style="display:flex;gap:10px;align-items:flex-start;margin:4px 0 10px">
+                <input type="checkbox" name="keepShareImage" value="1" style="margin-top:3px">
+                <span>Also save this photo as my default preview</span>
+              </label>
+              <label class="ma-check" style="display:flex;gap:10px;align-items:flex-start;margin:4px 0 4px">
+                <input type="hidden" name="useAi" value="0">
+                <input type="checkbox" name="useAi" value="1" <%= _fv.useAi === false ? '' : 'checked' %> style="margin-top:3px">
+                <span><strong>Use AI</strong> to personalize the script (keeps your review link)</span>
+              </label>
             </div>
-            <button type="submit" class="ma-btn ma-btn--soft ma-btn--block">Save as default preview</button>
-          </form>
-          <% if (typeof hasCustomShareImage !== 'undefined' && hasCustomShareImage) { %>
-          <form method="post" action="<%= base %>/review/share-image" style="margin-top:8px" data-ma-confirm="Remove your custom preview image and use the AdHello default?">
-            <input type="hidden" name="remove" value="1">
-            <button type="submit" class="ma-btn ma-btn--ghost ma-btn--block">Use AdHello default instead</button>
-          </form>
-          <% } %>
-        </div>
+          </details>
+
+          <button type="submit" class="ma-btn ma-btn--block" id="maAskReviewGhl" style="margin-top:14px" <%= !_needLinks && (_msg.smsReady || _msg.emailReady) && member.status === 'active' ? '' : 'disabled' %>>
+            <%- icons.review %> Send review request
+          </button>
+        </form>
       </div>
     </details>
 
@@ -149,26 +118,6 @@
           </div>
         </div>
         <% } %>
-      </div>
-    </details>
-
-    <details class="ma-fold">
-      <summary>Share &amp; QR <span class="ma-fold__hint">phone share sheet</span></summary>
-      <div class="ma-fold__body">
-        <div class="ma-card ma-card--flush ma-qr" style="margin:0">
-          <button type="button" class="ma-btn ma-btn--soft ma-btn--block" id="maAskReview" data-ma-share="<%= reviewUrl %>" data-ma-share-title="Leave <%= member.companyName %> a review" <%= linkCount ? '' : 'disabled' %>>
-            <%- icons.share %> Share from this phone
-          </button>
-          <img src="<%= reviewPath %>/qr.png" alt="QR code for your review page" width="220" height="220" style="margin-top:18px">
-          <div class="ma-link-box">
-            <code id="rvLink"><%= reviewUrl %></code>
-            <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-ma-copy="<%= reviewUrl %>"><%- icons.copy %> Copy</button>
-          </div>
-          <div class="ma-actions" style="justify-content:center;width:100%">
-            <a class="ma-btn ma-btn--sm ma-btn--ghost" href="<%= reviewPath %>/qr.png?download=1" download><%- icons.download %> Download QR</a>
-            <a class="ma-btn ma-btn--sm ma-btn--ghost" href="<%= reviewPath %>" target="_blank" rel="noopener">Preview</a>
-          </div>
-        </div>
       </div>
     </details>
 
@@ -209,7 +158,7 @@
     </details>
   </main>
   <%- include('_tabbar') %>
-  <% if (typeof askShare !== 'undefined' && askShare) { %>
+  <% if (_askOpen) { %>
   <script>
   document.addEventListener('DOMContentLoaded', function () {
     var form = document.getElementById('maAskForm');

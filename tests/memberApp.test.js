@@ -243,6 +243,9 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     // One Request review button in dash actions — not a second full-width duplicate.
     const requestReviewButtons = homeHtml.match(/>\s*Request a? ?review\s*</gi) || [];
     assert.equal(requestReviewButtons.length, 1);
+    assert.match(homeHtml, /ma-hero__upload/);
+    assert.match(homeHtml, /brand\/hero/);
+    assert.match(homeHtml, /Upload banner image/);
 
     const manifest = await (await fetch(`${base}/m/${token}/manifest.webmanifest`)).json();
     assert.equal(manifest.name, 'Discount Home Services');
@@ -304,7 +307,6 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     assert.equal(withSlug.reviewSlug, 'camas-flooring');
     assert.match(withSlug.reviewLinks.google, /writereview\?placeid=ChIJabcdefghijk123/);
     const reviewHtml = await reviewTab.text();
-    assert.match(reviewHtml, /Thumbtack profile/);
     assert.match(reviewHtml, /review\/send/);
     assert.match(reviewHtml, /Send review request/);
     assert.match(reviewHtml, /Go High Level/);
@@ -314,11 +316,27 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     assert.match(reviewHtml, /Copy for GHL/);
     assert.match(reviewHtml, /https:\/\/leads\.adhello\.io\/rv\/camas-flooring/);
     assert.match(reviewHtml, /AdHello\.io/);
-    assert.match(reviewHtml, /Link preview image/);
+    assert.match(reviewHtml, /Share from this phone/);
+    assert.match(reviewHtml, /ma-qr/);
+    assert.match(reviewHtml, /review\/settings/);
+    assert.match(reviewHtml, /aria-label="Review settings"/);
+    assert.match(reviewHtml, /Show your QR/);
     assert.match(reviewHtml, /ma-fold/);
     assert.match(reviewHtml, /shareImage/);
-    assert.match(reviewHtml, /\/rv\/camas-flooring\/og\.jpg/);
     assert.match(reviewHtml, /<details class="ma-fold"/);
+    // QR / share is pinned at the top — before the send-request fold.
+    assert.ok(reviewHtml.indexOf('ma-qr') < reviewHtml.indexOf('id="maAskForm"'));
+    assert.ok(!/Your review links/.test(reviewHtml));
+    assert.ok(!/Link preview image/.test(reviewHtml));
+
+    const settingsTab = await fetch(`${base}/m/${token}/review/settings`);
+    assert.equal(settingsTab.status, 200);
+    const settingsHtml = await settingsTab.text();
+    assert.match(settingsHtml, /Your review links/);
+    assert.match(settingsHtml, /Thumbtack profile/);
+    assert.match(settingsHtml, /Default preview image/);
+    assert.match(settingsHtml, /\/rv\/camas-flooring\/og\.jpg/);
+    assert.match(settingsHtml, /name="next" value="settings"/);
 
     const ogPage = await fetch(`${base}/rv/camas-flooring`);
     assert.equal(ogPage.status, 200);
