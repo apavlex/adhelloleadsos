@@ -357,26 +357,53 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
               <% _agentOps.roles.forEach((role) => { %>
                 <% const insight = role.insight; %>
-                <article class="rounded-2xl border border-brand-border/70 dark:border-white/10 bg-white/80 dark:bg-slate-900/70 p-4 md:p-5 flex flex-col gap-3" data-agent-role="<%= role.id %>" style="border-left: 3px solid <%= role.color || '#94a3b8' %>;">
+                <% const items = Array.isArray(role.items) ? role.items : []; %>
+                <article class="agent-ops-card rounded-2xl border border-brand-border/70 dark:border-white/10 bg-white/80 dark:bg-slate-900/70 p-4 md:p-5 flex flex-col gap-3" data-agent-role="<%= role.id %>" data-job="<%= role.defaultJob %>" style="border-left: 3px solid <%= role.color || '#94a3b8' %>;">
                   <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">
-                      <p class="text-[10px] font-black uppercase tracking-widest" style="color: <%= role.color || '#64748b' %>"><%= role.name %></p>
+                      <div class="flex flex-wrap items-center gap-2">
+                        <p class="text-[10px] font-black uppercase tracking-widest" style="color: <%= role.color || '#64748b' %>"><%= role.name %></p>
+                        <span class="agent-ops-state text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-brand-border/60 dark:border-white/15 text-brand-muted" data-state="idle">Idle</span>
+                      </div>
                       <h3 class="font-display font-extrabold text-base text-brand-dark dark:text-white mt-0.5"><%= role.title %></h3>
                       <p class="text-xs text-brand-muted dark:text-slate-400 mt-1"><%= role.blurb %></p>
                     </div>
                     <button type="button" class="agent-ops-run btn-pill btn-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest whitespace-nowrap shrink-0" data-job="<%= role.defaultJob %>">Run</button>
                   </div>
-                  <div class="agent-ops-insight text-sm text-brand-dark dark:text-slate-200 min-h-[2.5rem]">
+                  <div class="agent-ops-insight text-sm text-brand-dark dark:text-slate-200">
                     <% if (insight && insight.body) { %>
-                      <p class="font-semibold"><%= insight.title %></p>
-                      <p class="text-xs text-brand-muted dark:text-slate-400 mt-1"><%= insight.body %></p>
-                      <% if (insight.href) { %>
-                        <a href="<%= insight.href %>" class="inline-block mt-2 text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline">Open</a>
-                      <% } %>
+                      <p class="font-semibold agent-ops-title"><%= insight.title %></p>
+                      <p class="text-xs text-brand-muted dark:text-slate-400 mt-1 agent-ops-body"><%= insight.body %></p>
                     <% } else { %>
-                      <p class="text-xs text-brand-muted">Not run yet — hit Run to scan.</p>
+                      <p class="text-xs text-brand-muted agent-ops-empty">Not run yet — hit Run to scan.</p>
                     <% } %>
                   </div>
+                  <details class="agent-ops-details group rounded-xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/30 <%= items.length ? '' : 'hidden' %>" <%= items.length ? '' : 'hidden' %>>
+                    <summary class="cursor-pointer list-none flex items-center justify-between gap-2 px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">
+                      <span class="agent-ops-details-label"><%= items.length %> <%= items.some((i) => i.kind === 'task') && !items.some((i) => i.kind === 'lead') ? (items.length === 1 ? 'task' : 'tasks') : (items.length === 1 ? 'item' : 'items') %></span>
+                      <span class="text-brand-muted group-open:hidden">Open</span>
+                      <span class="text-brand-muted hidden group-open:inline">Close</span>
+                    </summary>
+                    <ul class="agent-ops-items divide-y divide-brand-border/40 dark:divide-white/10 px-3 pb-2">
+                      <% items.forEach((item) => { %>
+                        <li class="py-2.5 flex items-start gap-3">
+                          <div class="min-w-0 flex-1">
+                            <% if (item.badge) { %><span class="text-[9px] font-black uppercase tracking-widest text-brand-muted"><%= item.badge %></span><% } %>
+                            <p class="text-sm font-bold text-brand-dark dark:text-white"><%= item.title %></p>
+                            <% if (item.subtitle) { %><p class="text-[11px] text-brand-muted mt-0.5"><%= item.subtitle %></p><% } %>
+                          </div>
+                          <% if (item.href) { %>
+                            <a href="<%= item.href %>" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline shrink-0 mt-1">Open</a>
+                          <% } %>
+                        </li>
+                      <% }) %>
+                    </ul>
+                  </details>
+                  <% if (insight && insight.href) { %>
+                    <a href="<%= insight.href %>" class="agent-ops-href text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline w-fit">Open board</a>
+                  <% } else { %>
+                    <a href="#" class="agent-ops-href text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline w-fit hidden" hidden>Open board</a>
+                  <% } %>
                 </article>
               <% }) %>
             </div>
@@ -425,23 +452,100 @@
             if (!panel) return;
             var statusEl = document.getElementById('agentOpsStatus');
             function setStatus(msg) { if (statusEl) statusEl.textContent = msg || ''; }
+            function esc(s) {
+              return String(s == null ? '' : s)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+            }
+            function setCardState(card, state) {
+              if (!card) return;
+              var badge = card.querySelector('.agent-ops-state');
+              var btn = card.querySelector('.agent-ops-run');
+              var label = state === 'running' ? 'Running' : (state === 'ready' ? 'Ready' : 'Idle');
+              if (badge) {
+                badge.textContent = label;
+                badge.setAttribute('data-state', state || 'idle');
+                badge.classList.toggle('border-amber-500/50', state === 'running');
+                badge.classList.toggle('text-amber-700', state === 'running');
+                badge.classList.toggle('dark:text-amber-300', state === 'running');
+                badge.classList.toggle('border-emerald-500/40', state === 'ready');
+                badge.classList.toggle('text-emerald-700', state === 'ready');
+                badge.classList.toggle('dark:text-emerald-300', state === 'ready');
+              }
+              if (btn) {
+                btn.disabled = state === 'running';
+                btn.textContent = state === 'running' ? 'Running…' : 'Run';
+              }
+              card.classList.toggle('opacity-80', state === 'running');
+            }
+            function itemsLabel(items) {
+              var list = Array.isArray(items) ? items : [];
+              var onlyTasks = list.length && list.every(function (i) { return i.kind === 'task' || i.kind === 'issue'; });
+              var noun = onlyTasks ? (list.length === 1 ? 'task' : 'tasks') : (list.length === 1 ? 'item' : 'items');
+              return list.length + ' ' + noun;
+            }
+            function paintItems(card, items) {
+              var details = card.querySelector('.agent-ops-details');
+              var listEl = card.querySelector('.agent-ops-items');
+              var label = card.querySelector('.agent-ops-details-label');
+              if (!details || !listEl) return;
+              var rows = Array.isArray(items) ? items : [];
+              if (!rows.length) {
+                details.classList.add('hidden');
+                details.setAttribute('hidden', '');
+                details.open = false;
+                listEl.innerHTML = '';
+                return;
+              }
+              details.classList.remove('hidden');
+              details.removeAttribute('hidden');
+              if (label) label.textContent = itemsLabel(rows);
+              listEl.innerHTML = rows.map(function (item) {
+                var badge = item.badge
+                  ? '<span class="text-[9px] font-black uppercase tracking-widest text-brand-muted">' + esc(item.badge) + '</span>'
+                  : '';
+                var sub = item.subtitle
+                  ? '<p class="text-[11px] text-brand-muted mt-0.5">' + esc(item.subtitle) + '</p>'
+                  : '';
+                var link = item.href
+                  ? '<a href="' + esc(item.href) + '" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline shrink-0 mt-1">Open</a>'
+                  : '';
+                return '<li class="py-2.5 flex items-start gap-3"><div class="min-w-0 flex-1">' + badge +
+                  '<p class="text-sm font-bold text-brand-dark dark:text-white">' + esc(item.title || 'Item') + '</p>' +
+                  sub + '</div>' + link + '</li>';
+              }).join('');
+            }
             function paintRole(role) {
               if (!role) return;
               var card = panel.querySelector('[data-agent-role="' + role.id + '"]');
               if (!card) return;
               var box = card.querySelector('.agent-ops-insight');
-              if (!box) return;
+              var hrefEl = card.querySelector('.agent-ops-href');
               var insight = role.insight;
-              if (insight && insight.body) {
-                var href = insight.href
-                  ? '<a href="' + insight.href + '" class="inline-block mt-2 text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline">Open</a>'
-                  : '';
-                box.innerHTML = '<p class="font-semibold"></p><p class="text-xs text-brand-muted dark:text-slate-400 mt-1"></p>' + href;
-                box.querySelector('p.font-semibold').textContent = insight.title || '';
-                box.querySelector('p.text-xs').textContent = insight.body || '';
-              } else {
-                box.innerHTML = '<p class="text-xs text-brand-muted">Not run yet — hit Run to scan.</p>';
+              if (box) {
+                if (insight && insight.body) {
+                  box.innerHTML = '<p class="font-semibold agent-ops-title"></p><p class="text-xs text-brand-muted dark:text-slate-400 mt-1 agent-ops-body"></p>';
+                  box.querySelector('.agent-ops-title').textContent = insight.title || '';
+                  box.querySelector('.agent-ops-body').textContent = insight.body || '';
+                } else {
+                  box.innerHTML = '<p class="text-xs text-brand-muted agent-ops-empty">Not run yet — hit Run to scan.</p>';
+                }
               }
+              if (hrefEl) {
+                if (insight && insight.href) {
+                  hrefEl.href = insight.href;
+                  hrefEl.classList.remove('hidden');
+                  hrefEl.removeAttribute('hidden');
+                  hrefEl.textContent = 'Open board';
+                } else {
+                  hrefEl.classList.add('hidden');
+                  hrefEl.setAttribute('hidden', '');
+                }
+              }
+              paintItems(card, role.items || (insight && insight.meta && insight.meta.items) || []);
+              setCardState(card, (role.items && role.items.length) || (insight && insight.body) ? 'ready' : 'idle');
             }
             async function postJson(url, body) {
               var res = await fetch(url, {
@@ -459,18 +563,23 @@
             panel.querySelectorAll('.agent-ops-run').forEach(function (btn) {
               btn.addEventListener('click', async function () {
                 var job = btn.getAttribute('data-job');
+                var card = btn.closest('.agent-ops-card');
                 if (!job) return;
-                btn.disabled = true;
-                setStatus('Running ' + job + '…');
+                setCardState(card, 'running');
+                setStatus('Running ' + (card && card.querySelector('h3') ? card.querySelector('h3').textContent : job) + '…');
                 try {
                   var data = await postJson('/agent-ops/run', { type: job });
                   var dash = data.dashboard;
                   if (dash && Array.isArray(dash.roles)) dash.roles.forEach(paintRole);
+                  else setCardState(card, 'ready');
                   setStatus((data.result && data.result.summary) || 'Done.');
+                  if (card) {
+                    var details = card.querySelector('.agent-ops-details');
+                    if (details && !details.hasAttribute('hidden')) details.open = true;
+                  }
                 } catch (err) {
+                  setCardState(card, 'idle');
                   setStatus(err.message || 'Failed.');
-                } finally {
-                  btn.disabled = false;
                 }
               });
             });
@@ -478,6 +587,8 @@
             if (tickAll) {
               tickAll.addEventListener('click', async function () {
                 tickAll.disabled = true;
+                tickAll.textContent = 'Running…';
+                panel.querySelectorAll('.agent-ops-card').forEach(function (card) { setCardState(card, 'running'); });
                 setStatus('Running all agents…');
                 try {
                   var data = await postJson('/agent-ops/tick', { force: true });
@@ -485,12 +596,20 @@
                   if (dash && Array.isArray(dash.roles)) dash.roles.forEach(paintRole);
                   setStatus('All agents finished.');
                 } catch (err) {
+                  panel.querySelectorAll('.agent-ops-card').forEach(function (card) { setCardState(card, 'idle'); });
                   setStatus(err.message || 'Failed.');
                 } finally {
                   tickAll.disabled = false;
+                  tickAll.textContent = 'Run all';
                 }
               });
             }
+            // Initial state badges from server-rendered insights.
+            panel.querySelectorAll('.agent-ops-card').forEach(function (card) {
+              var hasItems = card.querySelector('.agent-ops-details') && !card.querySelector('.agent-ops-details').hasAttribute('hidden');
+              var hasInsight = !!card.querySelector('.agent-ops-title');
+              setCardState(card, hasItems || hasInsight ? 'ready' : 'idle');
+            });
           })();
         </script>
         <% } %>

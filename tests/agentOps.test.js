@@ -101,11 +101,16 @@ describe('agentOps role bots', () => {
     });
     assert.equal(out.ok, true);
     assert.ok(out.result.counts.queue >= 1);
+    assert.ok(Array.isArray(out.result.items));
+    assert.ok(out.result.items.length >= 1);
+    assert.equal(out.result.items[0].kind, 'lead');
+    assert.match(out.result.items[0].href || '', /\/focus\?lead=/);
     const dash = agentOps.dashboardForWorkspace('ws_ops');
     const sdr = dash.roles.find((r) => r.id === 'prospect');
     assert.ok(sdr.insight);
     assert.match(sdr.insight.body, /prospect/i);
     assert.equal(sdr.title, 'Prospect SDR');
+    assert.ok(sdr.items.length >= 1);
   });
 
   it('Opportunity SDR ranks open board deals', async () => {
@@ -115,10 +120,15 @@ describe('agentOps role bots', () => {
     assert.equal(out.ok, true);
     assert.ok(out.result.counts.open >= 1);
     assert.ok(out.result.top.length >= 1);
+    assert.ok(Array.isArray(out.result.items));
+    assert.ok(out.result.items.length >= 1);
     const insight = agentOps.listInsights('ws_ops').find((i) => i.roleId === 'opportunity');
     assert.ok(insight);
     assert.equal(insight.severity, 'action');
     assert.match(insight.body, /open|focus next/i);
+    const dash = agentOps.dashboardForWorkspace('ws_ops');
+    const opp = dash.roles.find((r) => r.id === 'opportunity');
+    assert.ok(opp.items.length >= 1);
     // Highest value should surface first when both are on the board
     if (out.result.top.length >= 2) {
       assert.ok(out.result.top[0].value >= out.result.top[1].value);

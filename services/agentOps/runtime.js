@@ -215,12 +215,26 @@ function dashboardForWorkspace(workspaceId) {
     const insight = insights.find((i) => i.roleId === r.id) || null;
     const lastRun = runs.find((x) => x.roleId === r.id) || null;
     const note = memory.latestNote(wid, r.id);
+    const meta = (insight && insight.meta) || {};
+    const items = Array.isArray(meta.items)
+      ? meta.items
+      : Array.isArray(meta.top)
+        ? meta.top.map((t) => ({
+            kind: 'lead',
+            id: t.key || t.id || null,
+            title: t.title || 'Lead',
+            subtitle: t.nextMove || t.stageName || t.phone || '',
+            href: t.href || null,
+            badge: t.badge || t.stageName || null,
+          }))
+        : [];
     return {
       ...r,
       enabled: cfg.enabled !== false,
       autoTick: cfg.autoTick !== false,
       lastTickAt: (settings.lastTickByRole && settings.lastTickByRole[r.id]) || null,
       insight,
+      items,
       lastRun,
       memory: note,
     };
