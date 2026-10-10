@@ -22,24 +22,38 @@
 
     <% if (view === 'list') { %>
       <section class="ma-card ma-cust-tools" aria-label="Import and sync customers">
-        <div class="ma-cust-tools__row">
-          <form method="post" action="<%= base %>/customers/sync-ghl" style="flex:1;margin:0">
-            <button type="submit" class="ma-btn ma-btn--soft ma-btn--block"><%- icons.download %> Sync GHL customers</button>
+        <h2 class="ma-cust-tools__title">Bring in customers</h2>
+        <p class="ma-hint ma-cust-tools__lead">Sync from Go High Level or upload a list — then request reviews from anyone in your Customers tab.</p>
+        <div class="ma-settings-list">
+          <form method="post" action="<%= base %>/customers/sync-ghl" class="ma-cust-tools__form">
+            <button type="submit" class="ma-settings-row">
+              <span class="ma-settings-row__icon"><%- icons.download %></span>
+              <span class="ma-settings-row__text">
+                <strong>Sync from Go High Level</strong>
+                <span>Pull contacts and push new customers</span>
+              </span>
+              <span class="ma-settings-row__chev" aria-hidden="true"><%- icons.chevronRight %></span>
+            </button>
           </form>
-          <a class="ma-btn ma-btn--ghost" href="<%= base %>/customers/new"><%- icons.plus %> Add</a>
+          <details class="ma-cust-tools__import">
+            <summary class="ma-settings-row">
+              <span class="ma-settings-row__icon"><%- icons.people %></span>
+              <span class="ma-settings-row__text">
+                <strong>Upload a customer list</strong>
+                <span>CSV or Excel with name, phone, email</span>
+              </span>
+              <span class="ma-settings-row__chev" aria-hidden="true"><%- icons.chevronRight %></span>
+            </summary>
+            <form class="ma-cust-tools__body" method="post" action="<%= base %>/customers/import" enctype="multipart/form-data">
+              <div class="ma-field" style="margin:0">
+                <label class="ma-label" for="maCustImport">Choose file</label>
+                <input id="maCustImport" name="file" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="ma-input" required>
+              </div>
+              <p class="ma-hint" style="margin:0">Columns: Name (or First / Last), Phone, Email, Address, Notes. Imports sync to GHL when connected.</p>
+              <button type="submit" class="ma-btn ma-btn--block">Import list</button>
+            </form>
+          </details>
         </div>
-        <p class="ma-hint" style="margin:0">Pull contacts from Go High Level and push new customers so you can request reviews for anyone in your list.</p>
-        <details>
-          <summary>Upload a customer list (CSV / Excel)</summary>
-          <form class="ma-cust-tools__body" method="post" action="<%= base %>/customers/import" enctype="multipart/form-data">
-            <div class="ma-field" style="margin:0">
-              <label class="ma-label" for="maCustImport">File</label>
-              <input id="maCustImport" name="file" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="ma-input" required>
-            </div>
-            <p class="ma-hint" style="margin:0">Columns: Name (or First/Last), Phone, Email, Address, Notes. Imported rows also sync to GHL when connected.</p>
-            <button type="submit" class="ma-btn ma-btn--block">Import list</button>
-          </form>
-        </details>
       </section>
 
       <% if (customerCount) { %>
@@ -54,9 +68,9 @@
         <% if (q) { %>
         <p>No customers match “<%= q %>”.</p>
         <% } else { %>
-        <p>No customers yet. Sync from GHL, import a CSV, or add one to request reviews and schedule work.</p>
+        <p>No customers yet. Sync from GHL above, upload a list, or add one with the + button.</p>
         <% } %>
-        <a class="ma-btn ma-btn--sm" href="<%= base %>/customers/new" style="margin-top:8px"><%- icons.plus %> Add customer</a>
+        <a class="ma-btn ma-btn--block" href="<%= base %>/customers/new" style="margin-top:12px;max-width:220px"><%- icons.plus %> Add customer</a>
       </div>
       <% } else { %>
       <div class="ma-list">

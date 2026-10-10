@@ -243,9 +243,12 @@ test('customers tab routes: top-bar enroll, CRUD, calendar, pending and referral
     assert.equal(empty.status, 200);
     const emptyHtml = await empty.text();
     assert.match(emptyHtml, /No customers yet/);
-    assert.match(emptyHtml, /Sync GHL customers/);
+    assert.match(emptyHtml, /Sync from Go High Level/);
+    assert.match(emptyHtml, /customers\/sync-ghl/);
     assert.match(emptyHtml, /customers\/import/);
     assert.match(emptyHtml, /Upload a customer list/);
+    assert.match(emptyHtml, /ma-settings-row/);
+    assert.doesNotMatch(emptyHtml, /ma-btn--ghost[^>]*>[\s\S]*Add<\/a>/);
 
     const bad = await post(`${A}/customers/new`, { name: '' });
     assert.equal(bad.status, 400);

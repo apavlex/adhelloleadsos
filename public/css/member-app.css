@@ -349,16 +349,41 @@ button.ma-settings-row:active {
 .ma-card__note { font-size: 14px; margin: 10px 0 0; padding: 10px 12px; border-radius: 12px; background: var(--bg); }
 .ma-empty { text-align: center; color: var(--muted); padding: 28px 16px; font-size: 14px; }
 .ma-empty svg { width: 24px; height: 24px; color: var(--acc); margin-bottom: 6px; }
-.ma-cust-tools { display: grid; gap: 8px; margin: 0 0 14px; }
-.ma-cust-tools__row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.ma-cust-tools .ma-btn { flex: 1 1 auto; min-width: 0; }
-.ma-cust-tools details { margin: 0; }
-.ma-cust-tools summary {
-  list-style: none; cursor: pointer; font-size: 13px; font-weight: 700; color: var(--acc);
-  padding: 4px 0;
+.ma-cust-tools { display: grid; gap: 4px; margin: 0 0 14px; padding: 14px 14px 10px; }
+.ma-cust-tools__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
 }
-.ma-cust-tools summary::-webkit-details-marker { display: none; }
-.ma-cust-tools__body { margin-top: 8px; display: grid; gap: 8px; }
+.ma-cust-tools__lead { margin: 0 0 6px; }
+.ma-cust-tools__form { margin: 0; }
+.ma-cust-tools__import { margin: 0; border: 0; }
+.ma-cust-tools__import > summary {
+  list-style: none;
+  cursor: pointer;
+}
+.ma-cust-tools__import > summary::-webkit-details-marker { display: none; }
+.ma-cust-tools__import[open] > summary .ma-settings-row__chev {
+  transform: rotate(90deg);
+}
+.ma-cust-tools__import .ma-settings-row__chev {
+  transition: transform 0.15s ease;
+}
+.ma-cust-tools__body {
+  margin: 4px 0 8px;
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+  border-radius: 14px;
+  background: var(--bg);
+}
+.ma-empty .ma-btn {
+  margin-left: auto;
+  margin-right: auto;
+}
+.ma-empty .ma-btn svg { width: 16px; height: 16px; }
 
 .ma-pill { display: inline-flex; align-items: center; border-radius: 999px; padding: 4px 10px; font-size: 11px; font-weight: 800; white-space: nowrap; background: rgba(148, 163, 184, 0.16); color: var(--muted); }
 .ma-pill--sent, .ma-pill--pending { background: rgba(59, 130, 246, 0.13); color: #2563eb; }
