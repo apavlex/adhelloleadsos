@@ -71,9 +71,29 @@ function readJsonReply(r) {
       if (el.id === 'wsSwitcherBtn' || el.closest('#wsSwitcherMenu')) return;
       if (el.classList && el.classList.contains('theme-toggle-btn')) return;
       if (el.hasAttribute('data-sidebar-new-toggle')) return;
+      if (el.hasAttribute('data-get-app-share')) return;
       el.addEventListener('click', function () { closeMobileMenu(); });
     });
   }
+
+  // Get the app → native share sheet (Add to Home Screen) when available; else /get-app.
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-get-app-share]');
+    if (!btn) return;
+    if (typeof navigator.share !== 'function') return;
+    e.preventDefault();
+    e.stopPropagation();
+    closeMobileMenu();
+    var title = btn.getAttribute('data-get-app-share-title')
+      || (document.querySelector('.sidebar-ws-text .truncate') || {}).textContent
+      || 'AdHello';
+    var shareUrl = window.location.origin + '/today';
+    navigator.share({
+      title: String(title).trim() || 'AdHello',
+      text: 'Add to your Home Screen',
+      url: shareUrl,
+    }).catch(function () { /* cancelled */ });
+  });
 
   // Swipe right anywhere to pull the menu open, swipe left to push it closed (like the X app).
   // The panel follows the finger; release past ~35% or with a flick to finish.

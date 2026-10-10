@@ -52,10 +52,19 @@ async function withWorkspace(req, res, next) {
     if (isApiKeyAuth && !email) {
       const wid = 'default';
       let ws = (await dbService.getWorkspace(wid)) || { id: wid, name: 'Default', slug: 'default' };
+      // HTML browsed with x-api-key has no Passport session — stub a user so signed-in chrome
+      // (Get the app, etc.) still renders for local/API previews.
+      if (!req.user) {
+        req.user = {
+          displayName: 'API',
+          emails: [{ value: 'api@local.test' }],
+        };
+      }
       req.workspace = ws;
       req.workspaceId = ws.id;
       req.workspaceRole = 'owner';
       req.canManageWorkspace = true;
+      res.locals.user = req.user;
       res.locals.workspace = ws;
       res.locals.workspaceId = ws.id;
       res.locals.workspaceRole = 'owner';

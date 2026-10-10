@@ -101,7 +101,6 @@ button[class~="bg-brand-yellow"],
 .dm-studio-topbtn--primary,
 .bulk-bar-btn--accent,
 .bulk-bar-btn--focus,
-.sidebar-nav-link.sidebar-nav-cta,
 .platform-tab.active,
 .sp-fb-copy-btn {
     color: var(--brand-on-accent, #111827) !important;
@@ -153,7 +152,6 @@ button[class~="bg-brand-yellow"],
 .dark .dm-studio-topbtn--primary,
 .dark .bulk-bar-btn--accent,
 .dark .bulk-bar-btn--focus,
-.dark .sidebar-nav-link.sidebar-nav-cta,
 .dark .platform-tab.active,
 .dark .sp-fb-copy-btn {
     color: var(--brand-on-accent, #111827) !important;
@@ -553,21 +551,32 @@ html:not(.dark) [class~="bg-brand-dark"][class~="text-white"] {
 .sidebar-nav-link.sidebar-nav-cta {
     margin-top: 0.25rem;
     margin-bottom: 0.25rem;
-    background: var(--brand-yellow);
-    color: var(--brand-on-accent, #111827) !important;
-    font-weight: 800;
+    border: 1.5px solid rgba(17, 24, 39, 0.38);
+    background: transparent;
+    color: inherit;
+    font-weight: 700;
     font-size: 0.8125rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
 }
 
+html.dark .sidebar-nav-link.sidebar-nav-cta,
+.dark .sidebar-nav-link.sidebar-nav-cta {
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
 .sidebar-nav-link.sidebar-nav-cta:hover {
-    background: color-mix(in srgb, var(--brand-yellow) 88%, #000);
-    color: var(--brand-on-accent, #111827) !important;
+    border-color: var(--brand-yellow, #ca8a04);
+    background: rgba(255, 214, 68, 0.16);
+    color: inherit;
 }
 
 .sidebar-nav-link.sidebar-nav-cta.active {
-    box-shadow: 0 0 0 2px rgba(253, 224, 71, 0.45);
+    border-color: var(--brand-yellow, #ca8a04);
+    background: rgba(255, 214, 68, 0.16);
+    color: inherit;
+    font-weight: 700;
+    box-shadow: none;
 }
 
 .sidebar-nav-link.sidebar-nav-sub {
