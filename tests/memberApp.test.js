@@ -308,8 +308,10 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     assert.match(reviewHtml, /https:\/\/leads\.adhello\.io\/rv\/camas-flooring/);
     assert.match(reviewHtml, /AdHello\.io/);
     assert.match(reviewHtml, /Link preview image/);
+    assert.match(reviewHtml, /ma-fold/);
     assert.match(reviewHtml, /shareImage/);
     assert.match(reviewHtml, /\/rv\/camas-flooring\/og\.jpg/);
+    assert.match(reviewHtml, /<details class="ma-fold"/);
 
     const ogPage = await fetch(`${base}/rv/camas-flooring`);
     assert.equal(ogPage.status, 200);

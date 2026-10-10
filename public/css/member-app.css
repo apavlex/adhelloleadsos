@@ -139,6 +139,59 @@ h1, h2, h3, .ma-display { font-family: var(--font-display); letter-spacing: -0.0
 .ma-section__head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
 .ma-section__head h2 { font-size: 17px; font-weight: 800; margin: 0; }
 .ma-section__head a { font-size: 13px; font-weight: 700; color: var(--acc); text-decoration: none; }
+
+/* Collapsible setup sections — keep primary send form calm */
+.ma-fold {
+  margin-top: 10px;
+  border-radius: 18px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.ma-fold > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 52px;
+  padding: 14px 16px;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ink);
+  -webkit-user-select: none;
+  user-select: none;
+}
+.ma-fold > summary::-webkit-details-marker { display: none; }
+.ma-fold > summary::after {
+  content: '';
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(45deg);
+  transition: transform 0.15s ease;
+  margin-top: -4px;
+}
+.ma-fold[open] > summary::after { transform: rotate(-135deg); margin-top: 4px; }
+.ma-fold__hint {
+  margin-left: auto;
+  margin-right: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  text-align: right;
+}
+.ma-fold__body { padding: 0 12px 14px; }
+.ma-fold--inset {
+  margin-top: 4px;
+  background: color-mix(in srgb, var(--muted) 8%, transparent);
+  border-style: dashed;
+}
+.ma-fold--inset > summary { min-height: 44px; font-size: 14px; padding: 10px 12px; }
+.ma-card--flush { box-shadow: none; border: 0; background: transparent; padding: 4px 2px 0; margin: 0; }
 .ma-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
 .ma-card + .ma-card { margin-top: 10px; }
 /* iOS dark mode separates surfaces by color, not outlines. */
