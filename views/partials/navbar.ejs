@@ -191,8 +191,8 @@
   </div>
   <% } %>
 
-  <div id="mobileMenu" class="fixed inset-0 z-[100] bg-brand-dark/40 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300 pointer-events-none md:hidden">
-    <div id="mobileMenuPanel" class="ghl-sidebar absolute inset-y-0 left-0 w-72 max-w-[min(88vw,18rem)] shadow-2xl px-2 pb-4 -translate-x-full transition-transform duration-300 pointer-events-auto overflow-y-auto overscroll-contain custom-scrollbar flex flex-col [padding-top:max(0.75rem,env(safe-area-inset-top))] [padding-bottom:max(1rem,env(safe-area-inset-bottom))] [padding-left:max(0.5rem,env(safe-area-inset-left))]">
+  <div id="mobileMenu" class="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300 pointer-events-none md:hidden">
+    <div id="mobileMenuPanel" class="ghl-sidebar absolute inset-y-0 left-0 w-72 max-w-[min(88vw,18rem)] shadow-2xl px-2 pb-4 -translate-x-full transition-transform duration-300 pointer-events-auto overflow-y-auto overscroll-contain custom-scrollbar flex flex-col text-[#111827] dark:text-slate-100 [padding-top:max(0.75rem,env(safe-area-inset-top))] [padding-bottom:max(1rem,env(safe-area-inset-bottom))] [padding-left:max(0.5rem,env(safe-area-inset-left))]">
       <div class="flex items-center justify-between px-2 pb-3">
         <a href="/today" class="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden shadow-sm ring-1 ring-black/5 dark:ring-white/10" aria-label="<%= typeof whiteLabel !== 'undefined' && whiteLabel ? whiteLabel.appName : 'AdHello' %> home">
           <img src="<%= typeof whiteLabel !== 'undefined' && whiteLabel ? whiteLabel.logoUrl : '/images/adhello-app-icon.png' %>" alt="" width="40" height="40" class="h-full w-full object-contain" loading="eager" decoding="async" />
@@ -239,7 +239,7 @@
       <% const _mSettingsActive = _mrp === '/scripts' || _mrp.startsWith('/scripts/') || _mrp.startsWith('/sops') || _mrp.startsWith('/workspace') || _mrp.startsWith('/activation'); %>
       <div class="mt-2 pt-2 px-1 border-t border-[#E5E7EB] dark:border-white/10">
         <% if (user) { %>
-        <a href="/get-app" class="sidebar-nav-link sidebar-nav-cta mb-1 <%= np === 'get-app' ? 'active' : '' %>" data-get-app-share title="Install your workspace Referral app">
+        <a href="/get-app" class="sidebar-nav-link sidebar-nav-cta mb-1 <%= np === 'get-app' ? 'active' : '' %>" title="Install your workspace Referral app">
           <svg class="sidebar-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
           <span>Get the app</span>
         </a>
