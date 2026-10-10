@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('_head') %>
+</head>
+<body>
+  <div class="cp-shell">
+    <header class="cp-top">
+      <div class="cp-brand">
+        <img src="<%= brand.logoUrl || '/images/adhello-app-icon.png' %>" alt="" />
+        <div class="min-w-0">
+          <strong><%= package.businessName %></strong>
+          <span><%= brand.appName || 'Business portal' %></span>
+        </div>
+      </div>
+    </header>
+
+    <main class="cp-main">
+      <% if (flash && flash.ok) { %><div class="cp-flash cp-flash--ok"><%= flash.ok %></div><% } %>
+      <% if (flash && flash.error) { %><div class="cp-flash cp-flash--err"><%= flash.error %></div><% } %>
+
+      <section class="cp-hero" aria-label="Appointment tracker">
+        <p class="cp-kicker">Appointment tracker</p>
+        <h1>Hi, <%= greetingName %></h1>
+        <p>See what’s left, what’s booked, and every website form lead in one place.</p>
+        <div class="cp-stats">
+          <div class="cp-stat"><b><%= tracker.counts.remaining %></b><span>Appts left</span></div>
+          <div class="cp-stat"><b><%= openLeadCount %></b><span>Open leads</span></div>
+          <div class="cp-stat"><b><%= leadCredits.remaining %></b><span>Lead credits</span></div>
+        </div>
+        <div class="cp-track" aria-label="Progress">
+          <% (tracker.steps || []).forEach(function (step, idx) { %>
+          <div class="cp-step<%= step.state === 'done' ? ' is-done' : '' %><%= step.state === 'current' ? ' is-current' : '' %>">
+            <div class="cp-dot"><%= idx + 1 %></div>
+            <small><%= step.label %></small>
+          </div>
+          <% }); %>
+        </div>
+      </section>
+
+      <section class="cp-card">
+        <div class="cp-row">
+          <div>
+            <h2>Appointments</h2>
+            <p class="cp-meta"><%= tracker.counts.booked %> booked · <%= tracker.counts.closed %> closed · <%= tracker.counts.purchased %> sold</p>
+          </div>
+          <span class="cp-pill cp-pill--open"><%= tracker.current %></span>
+        </div>
+        <div class="cp-actions">
+          <% if (bookingUrl) { %>
+          <a class="cp-btn cp-btn--primary" href="<%= bookingUrl %>" target="_blank" rel="noopener noreferrer">Schedule on calendar</a>
+          <% } %>
+          <a class="cp-btn cp-btn--ghost" href="<%= base %>/packages">Buy more appointments</a>
+        </div>
+      </section>
+
+      <section class="cp-card" id="cpPushRoot" data-base="<%= base %>">
+        <div class="cp-row">
+          <div>
+            <h2>Lead alerts</h2>
+            <p class="cp-meta" data-cp-push-status>Get new leads on this phone or computer — same style as your agency’s notifications.</p>
+          </div>
+        </div>
+        <div class="cp-actions">
+          <button type="button" class="cp-btn cp-btn--primary" data-cp-push-enable>Turn on alerts</button>
+          <button type="button" class="cp-btn cp-btn--ghost" data-cp-push-off hidden>Turn off</button>
+        </div>
+      </section>
+
+      <section class="cp-card">
+        <div class="cp-row">
+          <div>
+            <h2>Website form leads</h2>
+            <p class="cp-meta">Synced from your GHL forms · <%= leadCredits.delivered %>/<%= leadCredits.purchased %> credits used</p>
+          </div>
+          <a class="cp-meta" href="<%= base %>/leads" style="color:#0f2747;font-weight:900;text-decoration:none">See all</a>
+        </div>
+        <% if (!recentLeads.length) { %>
+        <p class="cp-empty" style="padding:1rem 0 0.25rem">No form leads yet. When someone submits a form on your site, they’ll show up here.</p>
+        <% } else { %>
+        <div style="margin-top:0.85rem">
+          <% recentLeads.forEach(function (lead) { %>
+          <div class="cp-list-item cp-card" style="padding:0.75rem;margin:0 0 0.55rem;background:#f8fafc">
+            <div class="cp-row">
+              <div class="min-w-0">
+                <p style="margin:0;font-weight:800"><%= lead.name %></p>
+                <p class="cp-meta"><%= lead.formName %><% if (lead.phone) { %> · <%= lead.phone %><% } %></p>
+              </div>
+              <span class="cp-pill cp-pill--open">Open</span>
+            </div>
+          </div>
+          <% }); %>
+        </div>
+        <% } %>
+        <div class="cp-actions">
+          <a class="cp-btn cp-btn--dark cp-btn--full" href="<%= base %>/packages">Request more leads</a>
+        </div>
+      </section>
+
+      <% if (pendingRequests.length) { %>
+      <section class="cp-card">
+        <h2>Pending requests</h2>
+        <% pendingRequests.forEach(function (req) { %>
+        <p class="cp-meta" style="margin-top:0.55rem"><%= req.quantity %> <%= req.type %> · waiting on your agency</p>
+        <% }); %>
+      </section>
+      <% } %>
+    </main>
+
+    <%- include('_tabbar') %>
+  </div>
+  <script src="/js/contractor-portal-push.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
+</body>
+</html>

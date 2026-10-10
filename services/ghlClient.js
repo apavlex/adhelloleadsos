@@ -856,6 +856,44 @@ async function createLocation(body, integrationEnv) {
   return ghlRequest('POST', '/locations/', { integrationEnv, body, agency: true });
 }
 
+/** List calendars for the configured location (calendars.readonly). */
+async function listCalendars(integrationEnv, { showDrafted = false } = {}) {
+  const { locationId } = resolveConfig(integrationEnv);
+  return ghlRequest('GET', '/calendars/', {
+    integrationEnv,
+    apiVersion: '2021-04-15',
+    query: {
+      locationId,
+      showDrafted: showDrafted ? 'true' : 'false',
+    },
+  });
+}
+
+/**
+ * List calendar events/appointments in a time window (calendars/events.readonly).
+ * startTime/endTime are epoch milliseconds (number or numeric string).
+ */
+async function listCalendarEvents(integrationEnv, { calendarId, userId, groupId, startTime, endTime } = {}) {
+  const { locationId } = resolveConfig(integrationEnv);
+  if (!calendarId && !userId && !groupId) {
+    throw new Error('calendarId, userId, or groupId is required to list GHL calendar events.');
+  }
+  const start = startTime != null ? String(startTime) : String(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const end = endTime != null ? String(endTime) : String(Date.now() + 90 * 24 * 60 * 60 * 1000);
+  return ghlRequest('GET', '/calendars/events', {
+    integrationEnv,
+    apiVersion: '2021-04-15',
+    query: {
+      locationId,
+      calendarId: calendarId || undefined,
+      userId: userId || undefined,
+      groupId: groupId || undefined,
+      startTime: start,
+      endTime: end,
+    },
+  });
+}
+
 module.exports = {
   resolveConfig,
   isConfigured,
@@ -898,6 +936,8 @@ module.exports = {
   getLocation,
   searchLocations,
   createLocation,
+  listCalendars,
+  listCalendarEvents,
   extractLocationRecord,
   extractLocationId,
   extractCompanyId,

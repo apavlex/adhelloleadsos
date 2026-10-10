@@ -63,6 +63,7 @@ const referralRoutes = require('./routes/referrals');
 const networkRoutes = require('./routes/network');
 const networkPublicRoutes = require('./routes/networkPublic');
 const memberAppRoutes = require('./routes/memberApp');
+const contractorPortalRoutes = require('./routes/contractorPortal');
 const reviewPublicRoutes = require('./routes/reviewPublic');
 const whiteLabelRoutes = require('./routes/whiteLabel');
 const pipelineRoutes = require('./routes/pipeline');
@@ -482,6 +483,8 @@ app.use('/', aiToolsReportPublicRoutes);
 app.use('/', networkPublicRoutes);
 // Member referral app (/m/:token, signed token in path) and public review pages (/rv/:slug)
 app.use('/', memberAppRoutes);
+// Contractor business portal (/p/:token) — appointments, form leads, package requests
+app.use('/', contractorPortalRoutes);
 app.use('/', reviewPublicRoutes);
 // White-label logo, Home Screen icons and manifest (no session)
 app.use('/', whiteLabelRoutes);

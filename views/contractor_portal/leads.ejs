@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('_head') %>
+</head>
+<body>
+  <div class="cp-shell">
+    <header class="cp-top">
+      <div class="cp-brand">
+        <img src="<%= brand.logoUrl || '/images/adhello-app-icon.png' %>" alt="" />
+        <div class="min-w-0">
+          <strong>Your leads</strong>
+          <span><%= openLeadCount %> open · <%= formLeads.length %> total</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="cp-main">
+      <% if (flash && flash.ok) { %><div class="cp-flash cp-flash--ok"><%= flash.ok %></div><% } %>
+
+      <section class="cp-card" id="cpPushRoot" data-base="<%= base %>" style="margin-bottom:0.85rem">
+        <div class="cp-row">
+          <div>
+            <h2>Lead alerts</h2>
+            <p class="cp-meta" data-cp-push-status>Turn on phone or desktop alerts for new leads.</p>
+          </div>
+        </div>
+        <div class="cp-actions">
+          <button type="button" class="cp-btn cp-btn--primary" data-cp-push-enable>Turn on alerts</button>
+          <button type="button" class="cp-btn cp-btn--ghost" data-cp-push-off hidden>Turn off</button>
+        </div>
+      </section>
+
+      <section class="cp-hero">
+        <p class="cp-kicker">Website + GHL forms</p>
+        <h1>All leads in one place</h1>
+        <p>Form submissions from your website sync here automatically so you can call them without hunting in GHL.</p>
+        <div class="cp-stats">
+          <div class="cp-stat"><b><%= openLeadCount %></b><span>Open</span></div>
+          <div class="cp-stat"><b><%= formLeads.length - openLeadCount %></b><span>Closed</span></div>
+          <div class="cp-stat"><b><%= leadCredits.remaining %></b><span>Credits left</span></div>
+        </div>
+      </section>
+
+      <% if (!formLeads.length) { %>
+      <div class="cp-card cp-empty">No form leads yet. Ask your agency to tag form submissions with <strong>pkg:<%= package.id %></strong> or your match tag so they land here.</div>
+      <% } else { %>
+        <% formLeads.forEach(function (lead) { %>
+        <article class="cp-card">
+          <div class="cp-row">
+            <div class="min-w-0">
+              <h2 style="font-size:1.05rem"><%= lead.name %></h2>
+              <p class="cp-meta">
+                <%= lead.formName %>
+                <% if (lead.at) { %> · <%= new Date(lead.at).toLocaleString() %><% } %>
+              </p>
+              <% if (lead.phone || lead.email) { %>
+              <p class="cp-meta" style="margin-top:0.35rem">
+                <% if (lead.phone) { %><a href="tel:<%= lead.phone %>" style="color:inherit"><%= lead.phone %></a><% } %>
+                <% if (lead.phone && lead.email) { %> · <% } %>
+                <% if (lead.email) { %><a href="mailto:<%= lead.email %>" style="color:inherit"><%= lead.email %></a><% } %>
+              </p>
+              <% } %>
+              <% if (lead.preview) { %><p class="cp-meta" style="margin-top:0.4rem"><%= lead.preview %></p><% } %>
+            </div>
+            <span class="cp-pill<%= lead.status === 'closed' ? ' cp-pill--closed' : ' cp-pill--open' %>"><%= lead.status === 'closed' ? 'Closed' : 'Open' %></span>
+          </div>
+          <% if (lead.status !== 'closed') { %>
+          <form class="cp-actions" method="post" action="<%= base %>/leads/<%= encodeURIComponent(lead.id) %>/close">
+            <button type="submit" class="cp-btn cp-btn--ghost">Mark closed</button>
+            <% if (lead.phone) { %><a class="cp-btn cp-btn--primary" href="tel:<%= lead.phone %>">Call</a><% } %>
+          </form>
+          <% } %>
+        </article>
+        <% }); %>
+      <% } %>
+
+      <div class="cp-actions" style="margin-top:0.5rem">
+        <a class="cp-btn cp-btn--dark cp-btn--full" href="<%= base %>/packages">Need more leads? Request a package</a>
+      </div>
+    </main>
+
+    <%- include('_tabbar') %>
+  </div>
+  <script src="/js/contractor-portal-push.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
+</body>
+</html>

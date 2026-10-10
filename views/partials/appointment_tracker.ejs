@@ -1,0 +1,693 @@
+<% const _at = typeof appointmentTracker !== 'undefined' && appointmentTracker ? appointmentTracker : null; %>
+<% if (_at) { %>
+<% const _tot = _at.totals || { purchased: 0, remaining: 0, open: 0, booked: 0, closed: 0 }; %>
+<section class="appt-tracker mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/85 shadow-sm overflow-hidden" id="appointmentTracker" aria-label="Appointment tracker">
+  <style>
+    .appt-tracker { --appt-ink: #0f2747; --appt-gold: #FFDB3A; --appt-done: #0f766e; --appt-line: rgba(15, 39, 71, 0.14); }
+    html.dark .appt-tracker { --appt-ink: #f8fafc; --appt-line: rgba(255, 255, 255, 0.14); }
+    .appt-tracker-hero {
+      background:
+        radial-gradient(90% 80% at 100% 0%, rgba(255, 219, 58, 0.28), transparent 55%),
+        linear-gradient(135deg, #0f2747 0%, #163a63 55%, #0f2747 100%);
+      color: #fff;
+    }
+    html.dark .appt-tracker-hero {
+      background:
+        radial-gradient(90% 80% at 100% 0%, rgba(255, 219, 58, 0.18), transparent 55%),
+        linear-gradient(135deg, #020617 0%, #0f172a 60%, #020617 100%);
+    }
+    .appt-tracker-steps {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.35rem;
+      position: relative;
+    }
+    .appt-tracker-steps::before {
+      content: '';
+      position: absolute;
+      left: 12%;
+      right: 12%;
+      top: 1.05rem;
+      height: 3px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.18);
+      z-index: 0;
+    }
+    .appt-step { position: relative; z-index: 1; text-align: center; }
+    .appt-step-dot {
+      width: 2.15rem;
+      height: 2.15rem;
+      margin: 0 auto 0.4rem;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      font-size: 0.7rem;
+      font-weight: 900;
+      border: 2px solid rgba(255, 255, 255, 0.35);
+      background: rgba(15, 39, 71, 0.45);
+      color: rgba(255, 255, 255, 0.7);
+      transition: transform 0.25s ease, background 0.25s ease, border-color 0.25s ease;
+    }
+    .appt-step.is-done .appt-step-dot {
+      background: var(--appt-gold);
+      border-color: var(--appt-gold);
+      color: #0f2747;
+    }
+    .appt-step.is-current .appt-step-dot {
+      background: #fff;
+      border-color: var(--appt-gold);
+      color: #0f2747;
+      box-shadow: 0 0 0 4px rgba(255, 219, 58, 0.35);
+      transform: scale(1.08);
+      animation: appt-pulse 1.8s ease-in-out infinite;
+    }
+    .appt-step-label {
+      font-size: 0.62rem;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.55);
+    }
+    .appt-step.is-done .appt-step-label,
+    .appt-step.is-current .appt-step-label { color: #fff; }
+    @keyframes appt-pulse {
+      0%, 100% { box-shadow: 0 0 0 3px rgba(255, 219, 58, 0.28); }
+      50% { box-shadow: 0 0 0 7px rgba(255, 219, 58, 0.12); }
+    }
+    .appt-pkg-track {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.25rem;
+      position: relative;
+      margin-top: 0.75rem;
+    }
+    .appt-pkg-track::before {
+      content: '';
+      position: absolute;
+      left: 10%;
+      right: 10%;
+      top: 0.7rem;
+      height: 2px;
+      background: var(--appt-line);
+      z-index: 0;
+    }
+    .appt-pkg-step { position: relative; z-index: 1; text-align: center; }
+    .appt-pkg-dot {
+      width: 1.35rem;
+      height: 1.35rem;
+      margin: 0 auto 0.3rem;
+      border-radius: 999px;
+      border: 2px solid var(--appt-line);
+      background: #fff;
+    }
+    html.dark .appt-pkg-dot { background: #0f172a; }
+    .appt-pkg-step.is-done .appt-pkg-dot { background: #0f766e; border-color: #0f766e; }
+    .appt-pkg-step.is-current .appt-pkg-dot {
+      background: var(--appt-gold);
+      border-color: var(--appt-gold);
+      box-shadow: 0 0 0 3px rgba(255, 219, 58, 0.28);
+    }
+    .appt-pkg-label {
+      font-size: 0.58rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #64748b;
+    }
+    .appt-pkg-step.is-done .appt-pkg-label,
+    .appt-pkg-step.is-current .appt-pkg-label { color: var(--appt-ink); }
+    .appt-form[hidden] { display: none !important; }
+    @media (prefers-reduced-motion: reduce) {
+      .appt-step.is-current .appt-step-dot { animation: none; }
+    }
+  </style>
+
+  <div class="appt-tracker-hero px-5 sm:px-6 md:px-8 pt-6 pb-5">
+    <div class="flex flex-wrap items-start justify-between gap-4 mb-5">
+      <div class="min-w-0">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Appointment tracker</p>
+        <h2 class="font-display font-extrabold text-2xl md:text-3xl leading-tight">Sold slots → booked → closed</h2>
+        <p class="text-sm text-white/70 mt-2 max-w-xl">Like a delivery tracker: sell appointments to a business, let them book on your GHL calendar, and watch remaining inventory drop as slots fill.</p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <button type="button" id="apptSellBtn" class="btn-pill bg-brand-yellow text-brand-dark px-5 py-2.5 text-[10px] font-black uppercase tracking-widest">Sell appointments</button>
+        <button type="button" id="apptSendLeadBtn" class="btn-pill border border-white/25 bg-white/10 text-white px-5 py-2.5 text-[10px] font-black uppercase tracking-widest" <%= (_at.packages && _at.packages.length) ? '' : 'disabled title="Add a contractor package first"' %>>Send lead</button>
+        <button type="button" id="apptSyncBtn" class="btn-pill border border-white/25 bg-white/10 text-white px-5 py-2.5 text-[10px] font-black uppercase tracking-widest" <%= _at.ghlConfigured ? '' : 'disabled title="Connect GHL in Workspace → Integrations"' %>>Sync GHL calendar</button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+      <div class="rounded-2xl bg-white/10 border border-white/10 px-4 py-3">
+        <p class="text-[9px] font-black uppercase tracking-widest text-white/55">Appts left</p>
+        <p class="font-display font-black text-3xl tabular-nums mt-1" id="apptTotalLeft"><%= _tot.remaining %></p>
+      </div>
+      <div class="rounded-2xl bg-white/10 border border-white/10 px-4 py-3">
+        <p class="text-[9px] font-black uppercase tracking-widest text-white/55">Booked</p>
+        <p class="font-display font-black text-3xl tabular-nums mt-1" id="apptTotalBooked"><%= _tot.booked %></p>
+      </div>
+      <div class="rounded-2xl bg-white/10 border border-white/10 px-4 py-3">
+        <p class="text-[9px] font-black uppercase tracking-widest text-white/55">Closed</p>
+        <p class="font-display font-black text-3xl tabular-nums mt-1" id="apptTotalClosed"><%= _tot.closed %></p>
+      </div>
+      <div class="rounded-2xl bg-white/10 border border-white/10 px-4 py-3">
+        <p class="text-[9px] font-black uppercase tracking-widest text-white/55">Form leads</p>
+        <p class="font-display font-black text-3xl tabular-nums mt-1"><%= _tot.formLeads || 0 %></p>
+      </div>
+      <div class="rounded-2xl bg-white/10 border border-white/10 px-4 py-3">
+        <p class="text-[9px] font-black uppercase tracking-widest text-white/55">Lead credits</p>
+        <p class="font-display font-black text-3xl tabular-nums mt-1"><%= _tot.leadCreditsLeft || 0 %></p>
+      </div>
+      <div class="rounded-2xl bg-white/10 border border-white/10 px-4 py-3">
+        <p class="text-[9px] font-black uppercase tracking-widest text-white/55">Requests</p>
+        <p class="font-display font-black text-3xl tabular-nums mt-1"><%= _tot.pendingRequests || 0 %></p>
+      </div>
+    </div>
+
+    <div class="appt-tracker-steps" id="apptOverallSteps" aria-label="Overall appointment progress">
+      <%
+        var _overallCurrent = 'sold';
+        if (_tot.purchased > 0 && _tot.closed >= _tot.purchased) _overallCurrent = 'closed';
+        else if (_tot.booked > 0 || _tot.closed > 0) _overallCurrent = 'booked';
+        else if (_tot.remaining > 0 || _tot.open > 0) _overallCurrent = 'open';
+        var _overallOrder = { sold: 0, open: 1, booked: 2, closed: 3 };
+        var _overallIdx = _overallOrder[_overallCurrent] || 0;
+      %>
+      <% (_at.steps || []).forEach(function (step, idx) { %>
+      <%
+        var state = idx < _overallIdx ? 'done' : (idx === _overallIdx ? 'current' : 'todo');
+      %>
+      <div class="appt-step<%= state === 'done' ? ' is-done' : '' %><%= state === 'current' ? ' is-current' : '' %>" data-step="<%= step.id %>">
+        <div class="appt-step-dot"><%= idx + 1 %></div>
+        <p class="appt-step-label"><%= step.label %></p>
+      </div>
+      <% }); %>
+    </div>
+    <p class="text-[11px] font-semibold text-white/55 mt-4 tabular-nums" id="apptSyncMeta">
+      <%= _tot.purchased %> sold total · <%= _at.overallPct || 0 %>% closed
+      <% if (_at.lastSyncAt) { %> · last sync <%= new Date(_at.lastSyncAt).toLocaleString() %><% } %>
+      <% if (!_at.ghlConfigured) { %> · connect GHL to auto-decrement when they book<% } %>
+    </p>
+    <p class="text-sm font-semibold text-rose-200 mt-2 hidden" id="apptTrackerMsg" role="status"></p>
+  </div>
+
+  <div class="px-5 sm:px-6 md:px-8 py-5 border-b border-brand-border/40 dark:border-white/10 appt-form" id="apptSellForm" hidden>
+    <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Sell a package</p>
+    <form id="apptSellFormEl" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <label class="block">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Business</span>
+        <input name="businessName" required maxlength="120" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white" placeholder="Handymen LLC" />
+      </label>
+      <label class="block">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Trade</span>
+        <input name="trade" list="apptTradeList" maxlength="60" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white" placeholder="Electrician, Flooring…" />
+        <datalist id="apptTradeList">
+          <% (_at.trades || []).forEach(function (t) { %>
+          <option value="<%= t %>"></option>
+          <% }); %>
+        </datalist>
+      </label>
+      <label class="block">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Appointments sold</span>
+        <input name="purchased" type="number" min="1" max="500" value="10" required class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white" />
+      </label>
+      <label class="block">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">GHL calendar</span>
+        <select name="ghlCalendarId" id="apptCalendarSelect" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white">
+          <option value="">Load calendars…</option>
+        </select>
+      </label>
+      <label class="block sm:col-span-2">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Booking link (GHL calendar URL)</span>
+        <input name="bookingUrl" type="url" maxlength="500" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white" placeholder="https://api.leadconnectorhq.com/widget/booking/…" />
+      </label>
+      <label class="block">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Contact email</span>
+        <input name="contactEmail" type="email" maxlength="160" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white" placeholder="owner@business.com" />
+      </label>
+      <label class="block">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Lead credits sold</span>
+        <input name="leadsPurchased" type="number" min="0" max="5000" value="25" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white" />
+      </label>
+      <label class="block">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Form match tag</span>
+        <input name="formMatchTag" maxlength="80" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white" placeholder="handymen-website" />
+      </label>
+      <label class="block sm:col-span-2">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Website URL</span>
+        <input name="websiteUrl" type="url" maxlength="500" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white" placeholder="https://handymen.example.com" />
+      </label>
+      <div class="sm:col-span-2 lg:col-span-3 flex flex-wrap gap-2">
+        <button type="submit" class="btn-pill btn-primary px-6 py-2.5 text-[10px] font-black uppercase tracking-widest">Save package</button>
+        <button type="button" id="apptSellCancel" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Cancel</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="px-5 sm:px-6 md:px-8 py-5 border-b border-brand-border/40 dark:border-white/10 appt-form" id="apptSendLeadForm" hidden>
+    <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Send lead</p>
+    <p class="text-sm text-brand-muted mb-4 max-w-xl">Send one homeowner to a single contractor, everyone in a trade (e.g. all Electricians), or a custom multi-select. Each recipient gets the lead in their portal and a phone/desktop alert.</p>
+    <form id="apptSendLeadFormEl" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <label class="block">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Lead name</span>
+        <input name="name" required maxlength="120" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white" placeholder="Sam Homeowner" />
+      </label>
+      <label class="block">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Phone</span>
+        <input name="phone" maxlength="40" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white" placeholder="555-0100" />
+      </label>
+      <label class="block">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Email</span>
+        <input name="email" type="email" maxlength="160" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white" placeholder="sam@example.com" />
+      </label>
+      <label class="block sm:col-span-2 lg:col-span-3">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Note / preview</span>
+        <input name="preview" maxlength="280" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white" placeholder="Needs panel upgrade · 3-bed ranch" />
+      </label>
+      <fieldset class="sm:col-span-2 lg:col-span-3 rounded-2xl border border-brand-border/60 dark:border-white/10 px-4 py-3">
+        <legend class="text-[10px] font-black uppercase tracking-widest text-brand-muted px-1">Send to</legend>
+        <div class="flex flex-wrap gap-4 mb-3">
+          <label class="inline-flex items-center gap-2 text-sm font-semibold text-brand-dark dark:text-white cursor-pointer">
+            <input type="radio" name="sendMode" value="one" checked class="accent-brand-yellow" /> One contractor
+          </label>
+          <label class="inline-flex items-center gap-2 text-sm font-semibold text-brand-dark dark:text-white cursor-pointer">
+            <input type="radio" name="sendMode" value="trade" class="accent-brand-yellow" /> All in a trade
+          </label>
+          <label class="inline-flex items-center gap-2 text-sm font-semibold text-brand-dark dark:text-white cursor-pointer">
+            <input type="radio" name="sendMode" value="multi" class="accent-brand-yellow" /> Multi-select
+          </label>
+        </div>
+        <div id="apptSendModeOne">
+          <label class="block max-w-md">
+            <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Contractor</span>
+            <select name="packageId" id="apptSendOneSelect" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white">
+              <option value="">Select…</option>
+              <% (_at.packages || []).forEach(function (pkg) { %>
+              <option value="<%= pkg.id %>"><%= pkg.businessName %><% if (pkg.trade) { %> · <%= pkg.trade %><% } %></option>
+              <% }); %>
+            </select>
+          </label>
+        </div>
+        <div id="apptSendModeTrade" hidden>
+          <label class="block max-w-md">
+            <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Trade</span>
+            <select name="trade" id="apptSendTradeSelect" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white">
+              <option value="">Select trade…</option>
+              <% (_at.trades || []).forEach(function (t) { %>
+              <option value="<%= t %>"><%= t %></option>
+              <% }); %>
+            </select>
+          </label>
+          <p class="text-[11px] font-semibold text-brand-muted mt-2">Sends to every package tagged with that trade (e.g. all Flooring stores).</p>
+        </div>
+        <div id="apptSendModeMulti" hidden>
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Contractors</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+            <% (_at.packages || []).forEach(function (pkg) { %>
+            <label class="inline-flex items-start gap-2 text-sm font-semibold text-brand-dark dark:text-white cursor-pointer">
+              <input type="checkbox" name="packageIds" value="<%= pkg.id %>" class="mt-1 accent-brand-yellow" />
+              <span><%= pkg.businessName %><% if (pkg.trade) { %> <span class="text-brand-muted">· <%= pkg.trade %></span><% } %></span>
+            </label>
+            <% }); %>
+          </div>
+        </div>
+      </fieldset>
+      <div class="sm:col-span-2 lg:col-span-3 flex flex-wrap gap-2">
+        <button type="submit" class="btn-pill btn-primary px-6 py-2.5 text-[10px] font-black uppercase tracking-widest">Send + notify</button>
+        <button type="button" id="apptSendLeadCancel" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Cancel</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="px-5 sm:px-6 md:px-8 py-5" id="apptPackageList">
+    <% if (!_at.packages || !_at.packages.length) { %>
+    <div class="rounded-2xl border border-dashed border-brand-border dark:border-white/15 px-5 py-8 text-center" id="apptEmptyState">
+      <p class="font-display font-extrabold text-lg text-brand-dark dark:text-white">No appointment packages yet</p>
+      <p class="text-sm text-brand-muted mt-2 max-w-md mx-auto">When you sell a block of appointments to a contractor, add them here. Sync with GHL to mark slots booked and closed automatically.</p>
+    </div>
+    <% } else { %>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <% _at.packages.forEach(function (pkg) { %>
+      <article class="rounded-2xl border border-brand-border/70 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-800/40 px-4 py-4" data-package-id="<%= pkg.id %>">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <h3 class="font-display font-extrabold text-lg text-brand-dark dark:text-white truncate"><%= pkg.businessName %></h3>
+            <% if (pkg.trade) { %>
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mt-1"><%= pkg.trade %></p>
+            <% } %>
+            <p class="text-[11px] font-bold text-brand-muted mt-1 tabular-nums">
+              <%= pkg.counts.remaining %> appts left · <%= pkg.openFormLeads || 0 %> open form leads · <%= (pkg.leadCredits && pkg.leadCredits.remaining) || 0 %> lead credits
+            </p>
+          </div>
+          <div class="text-right shrink-0">
+            <p class="font-display font-black text-3xl tabular-nums text-brand-dark dark:text-white leading-none"><%= pkg.counts.remaining %></p>
+            <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mt-1">appts left</p>
+          </div>
+        </div>
+        <div class="appt-pkg-track" aria-label="<%= pkg.businessName %> progress">
+          <% (pkg.steps || []).forEach(function (step) { %>
+          <div class="appt-pkg-step<%= step.state === 'done' ? ' is-done' : '' %><%= step.state === 'current' ? ' is-current' : '' %>">
+            <div class="appt-pkg-dot"></div>
+            <p class="appt-pkg-label"><%= step.label %></p>
+          </div>
+          <% }); %>
+        </div>
+        <div class="mt-3 h-2 rounded-full bg-brand-border/50 dark:bg-white/10 overflow-hidden">
+          <div class="h-full rounded-full bg-brand-yellow transition-[width] duration-500" style="width:<%= pkg.pct %>%"></div>
+        </div>
+        <% if (pkg.pendingRequests && pkg.pendingRequests.length) { %>
+        <div class="mt-3 rounded-xl border border-amber-400/40 bg-amber-50/80 dark:bg-amber-950/30 px-3 py-2 space-y-2">
+          <% pkg.pendingRequests.forEach(function (req) { %>
+          <div class="flex flex-wrap items-center gap-2">
+            <p class="text-[11px] font-bold text-amber-900 dark:text-amber-100 flex-1 min-w-0">
+              Requested <%= req.quantity %> <%= req.type %><% if (req.note) { %> — <%= req.note %><% } %>
+            </p>
+            <button type="button" class="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300 hover:underline" data-appt-fulfill="<%= pkg.id %>" data-request-id="<%= req.id %>">Fulfill</button>
+            <button type="button" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:underline" data-appt-decline="<%= pkg.id %>" data-request-id="<%= req.id %>">Decline</button>
+          </div>
+          <% }); %>
+        </div>
+        <% } %>
+        <div class="mt-3 flex flex-wrap items-center gap-2">
+          <button type="button" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline" data-appt-portal="<%= pkg.id %>">Copy portal link</button>
+          <button type="button" class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:underline" data-appt-add-lead="<%= pkg.id %>">Add lead + notify</button>
+          <% if (pkg.bookingHref) { %>
+          <a href="<%= pkg.bookingHref %>" target="_blank" rel="noopener noreferrer" class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:underline">Booking link</a>
+          <% } %>
+          <% if (pkg.ghlCalendarName) { %>
+          <span class="text-[10px] font-bold text-brand-muted">Calendar: <%= pkg.ghlCalendarName %></span>
+          <% } %>
+          <button type="button" class="ml-auto text-[10px] font-black uppercase tracking-widest text-rose-600 dark:text-rose-300 hover:underline" data-appt-delete="<%= pkg.id %>">Remove</button>
+        </div>
+      </article>
+      <% }); %>
+    </div>
+    <% } %>
+  </div>
+</section>
+<script>
+(function () {
+  var root = document.getElementById('appointmentTracker');
+  if (!root) return;
+  var sellBtn = document.getElementById('apptSellBtn');
+  var sendLeadBtn = document.getElementById('apptSendLeadBtn');
+  var syncBtn = document.getElementById('apptSyncBtn');
+  var formWrap = document.getElementById('apptSellForm');
+  var formEl = document.getElementById('apptSellFormEl');
+  var cancelBtn = document.getElementById('apptSellCancel');
+  var sendFormWrap = document.getElementById('apptSendLeadForm');
+  var sendFormEl = document.getElementById('apptSendLeadFormEl');
+  var sendCancelBtn = document.getElementById('apptSendLeadCancel');
+  var msg = document.getElementById('apptTrackerMsg');
+  var calSelect = document.getElementById('apptCalendarSelect');
+  var calendarsLoaded = false;
+
+  function setMsg(text, isError) {
+    if (!msg) return;
+    msg.textContent = text || '';
+    msg.classList.toggle('hidden', !text);
+    msg.classList.toggle('text-rose-200', !!isError);
+    msg.classList.toggle('text-emerald-200', !isError && !!text);
+  }
+
+  function showForm(open) {
+    if (!formWrap) return;
+    formWrap.hidden = !open;
+    if (open && sendFormWrap) sendFormWrap.hidden = true;
+  }
+
+  function showSendForm(open) {
+    if (!sendFormWrap) return;
+    sendFormWrap.hidden = !open;
+    if (open && formWrap) formWrap.hidden = true;
+  }
+
+  function syncSendMode() {
+    if (!sendFormEl) return;
+    var mode = 'one';
+    var checked = sendFormEl.querySelector('input[name="sendMode"]:checked');
+    if (checked) mode = checked.value;
+    var one = document.getElementById('apptSendModeOne');
+    var trade = document.getElementById('apptSendModeTrade');
+    var multi = document.getElementById('apptSendModeMulti');
+    if (one) one.hidden = mode !== 'one';
+    if (trade) trade.hidden = mode !== 'trade';
+    if (multi) multi.hidden = mode !== 'multi';
+  }
+
+  async function loadCalendars() {
+    if (!calSelect || calendarsLoaded) return;
+    calSelect.innerHTML = '<option value="">Loading calendars…</option>';
+    try {
+      var res = await fetch('/today/appointment-packages/calendars', {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      });
+      var data = await res.json();
+      calendarsLoaded = true;
+      var opts = ['<option value="">No calendar linked</option>'];
+      (data.calendars || []).forEach(function (c) {
+        opts.push('<option value="' + String(c.id).replace(/"/g, '&quot;') + '">' + String(c.name || c.id).replace(/</g, '&lt;') + '</option>');
+      });
+      calSelect.innerHTML = opts.join('');
+      if (data.error && !(data.calendars || []).length) setMsg(data.error, true);
+    } catch (e) {
+      calSelect.innerHTML = '<option value="">Could not load calendars</option>';
+    }
+  }
+
+  if (sellBtn) {
+    sellBtn.addEventListener('click', function () {
+      showForm(true);
+      loadCalendars();
+    });
+  }
+  if (cancelBtn) cancelBtn.addEventListener('click', function () { showForm(false); setMsg(''); });
+
+  if (sendLeadBtn) {
+    sendLeadBtn.addEventListener('click', function () {
+      showSendForm(true);
+      syncSendMode();
+    });
+  }
+  if (sendCancelBtn) sendCancelBtn.addEventListener('click', function () { showSendForm(false); setMsg(''); });
+  if (sendFormEl) {
+    sendFormEl.querySelectorAll('input[name="sendMode"]').forEach(function (radio) {
+      radio.addEventListener('change', syncSendMode);
+    });
+    sendFormEl.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var fd = new FormData(sendFormEl);
+      var mode = String(fd.get('sendMode') || 'one');
+      var body = {
+        name: String(fd.get('name') || '').trim(),
+        phone: String(fd.get('phone') || '').trim() || null,
+        email: String(fd.get('email') || '').trim() || null,
+        preview: String(fd.get('preview') || '').trim() || null,
+      };
+      if (!body.name) {
+        setMsg('Lead name is required.', true);
+        return;
+      }
+      if (mode === 'one') {
+        var oneId = String(fd.get('packageId') || '').trim();
+        if (!oneId) {
+          setMsg('Pick a contractor.', true);
+          return;
+        }
+        body.packageIds = [oneId];
+      } else if (mode === 'trade') {
+        var trade = String(fd.get('trade') || '').trim();
+        if (!trade) {
+          setMsg('Pick a trade (e.g. Electrician or Flooring).', true);
+          return;
+        }
+        body.trade = trade;
+      } else {
+        var ids = [];
+        sendFormEl.querySelectorAll('input[name="packageIds"]:checked').forEach(function (cb) {
+          ids.push(cb.value);
+        });
+        if (!ids.length) {
+          setMsg('Select at least one contractor.', true);
+          return;
+        }
+        body.packageIds = ids;
+      }
+      var submitBtn = sendFormEl.querySelector('[type=submit]');
+      if (submitBtn) submitBtn.disabled = true;
+      fetch('/today/appointment-packages/deliver-lead-bulk', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(body),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data.success) throw new Error(data.error || 'Could not send lead');
+          var n = data.count || (data.delivered && data.delivered.length) || 0;
+          var names = (data.delivered || []).map(function (d) { return d.businessName; }).filter(Boolean);
+          setMsg(
+            'Sent to ' + n + ' contractor' + (n === 1 ? '' : 's')
+              + (names.length ? ' (' + names.slice(0, 4).join(', ') + (names.length > 4 ? '…' : '') + ')' : '')
+              + ' — devices notified.',
+            false,
+          );
+          setTimeout(function () { window.location.reload(); }, 900);
+        })
+        .catch(function (err) {
+          setMsg(err.message || 'Send lead failed', true);
+          if (submitBtn) submitBtn.disabled = false;
+        });
+    });
+  }
+
+  if (formEl) {
+    formEl.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var fd = new FormData(formEl);
+      var calOpt = calSelect && calSelect.selectedOptions && calSelect.selectedOptions[0];
+      var body = {
+        businessName: String(fd.get('businessName') || '').trim(),
+        trade: String(fd.get('trade') || '').trim() || null,
+        purchased: Number(fd.get('purchased') || 0),
+        leadsPurchased: Number(fd.get('leadsPurchased') || 0),
+        ghlCalendarId: String(fd.get('ghlCalendarId') || '').trim() || null,
+        ghlCalendarName: calOpt && calOpt.value ? calOpt.textContent : null,
+        bookingUrl: String(fd.get('bookingUrl') || '').trim() || null,
+        websiteUrl: String(fd.get('websiteUrl') || '').trim() || null,
+        formMatchTag: String(fd.get('formMatchTag') || '').trim() || null,
+        contactEmail: String(fd.get('contactEmail') || '').trim() || null,
+      };
+      formEl.querySelector('[type=submit]').disabled = true;
+      fetch('/today/appointment-packages', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(body),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data.success) throw new Error(data.error || 'Could not save package');
+          window.location.reload();
+        })
+        .catch(function (err) {
+          setMsg(err.message || 'Could not save package', true);
+          formEl.querySelector('[type=submit]').disabled = false;
+        });
+    });
+  }
+
+  if (syncBtn) {
+    syncBtn.addEventListener('click', function () {
+      syncBtn.disabled = true;
+      setMsg('Syncing calendars…', false);
+      fetch('/today/appointment-packages/sync', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: '{}',
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data.success && data.error) throw new Error(data.error);
+          window.location.reload();
+        })
+        .catch(function (err) {
+          setMsg(err.message || 'Sync failed', true);
+          syncBtn.disabled = false;
+        });
+    });
+  }
+
+  root.addEventListener('click', function (e) {
+    var del = e.target && e.target.closest ? e.target.closest('[data-appt-delete]') : null;
+    if (del) {
+      var id = del.getAttribute('data-appt-delete');
+      if (!id || !window.confirm('Remove this appointment package?')) return;
+      fetch('/today/appointment-packages/' + encodeURIComponent(id), {
+        method: 'DELETE',
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data.success) throw new Error(data.error || 'Remove failed');
+          window.location.reload();
+        })
+        .catch(function (err) { setMsg(err.message || 'Remove failed', true); });
+      return;
+    }
+
+    var portalBtn = e.target && e.target.closest ? e.target.closest('[data-appt-portal]') : null;
+    if (portalBtn) {
+      var pkgId = portalBtn.getAttribute('data-appt-portal');
+      fetch('/today/appointment-packages/' + encodeURIComponent(pkgId) + '/portal-link', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: '{}',
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data.success || !data.url) throw new Error(data.error || 'Could not create portal link');
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            return navigator.clipboard.writeText(data.url).then(function () {
+              setMsg('Portal link copied — send it to the business.', false);
+            });
+          }
+          window.prompt('Copy portal link', data.url);
+          setMsg('Portal link ready.', false);
+        })
+        .catch(function (err) { setMsg(err.message || 'Portal link failed', true); });
+      return;
+    }
+
+    var addLead = e.target && e.target.closest ? e.target.closest('[data-appt-add-lead]') : null;
+    if (addLead) {
+      var leadPkg = addLead.getAttribute('data-appt-add-lead');
+      var name = window.prompt('Lead name (they will get a phone/desktop alert)');
+      if (!name || !String(name).trim()) return;
+      var phone = window.prompt('Phone (optional)') || '';
+      var email = window.prompt('Email (optional)') || '';
+      fetch('/today/appointment-packages/' + encodeURIComponent(leadPkg) + '/deliver-lead', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          name: String(name).trim(),
+          phone: String(phone).trim() || null,
+          email: String(email).trim() || null,
+        }),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data.success) throw new Error(data.error || 'Could not add lead');
+          setMsg('Lead added — their portal devices were notified.', false);
+          setTimeout(function () { window.location.reload(); }, 700);
+        })
+        .catch(function (err) { setMsg(err.message || 'Add lead failed', true); });
+      return;
+    }
+
+    var fulfill = e.target && e.target.closest ? e.target.closest('[data-appt-fulfill], [data-appt-decline]') : null;
+    if (fulfill) {
+      var fPkg = fulfill.getAttribute('data-appt-fulfill') || fulfill.getAttribute('data-appt-decline');
+      var reqId = fulfill.getAttribute('data-request-id');
+      var status = fulfill.hasAttribute('data-appt-fulfill') ? 'fulfilled' : 'declined';
+      fetch('/today/appointment-packages/' + encodeURIComponent(fPkg) + '/requests/' + encodeURIComponent(reqId) + '/resolve', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ status: status }),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data.success) throw new Error(data.error || 'Could not update request');
+          window.location.reload();
+        })
+        .catch(function (err) { setMsg(err.message || 'Request update failed', true); });
+    }
+  });
+})();
+</script>
+<% } %>
