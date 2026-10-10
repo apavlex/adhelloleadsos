@@ -5,6 +5,7 @@
  * Hierarchy: reviews → customers/work → referrals & leads.
  *
  *   /m/:token            Home
+ *   /m/:token/profile    profile photo + contact + settings hub
  *   /m/:token/review     QR / share + send review requests
  *   /m/:token/review/settings  review links + default preview image
  *   /m/:token/customers  customers, jobs and schedule
@@ -74,6 +75,9 @@ const OK_MESSAGES = {
   logo_cleared: 'Custom logo removed. Your review page will use the network logo or initials.',
   hero_saved: 'Home banner image updated.',
   hero_cleared: 'Home banner image removed.',
+  profile_saved: 'Profile saved.',
+  photo_saved: 'Profile photo saved.',
+  photo_cleared: 'Profile photo removed.',
   review_sms: 'Review request sent by text via Go High Level.',
   review_email: 'Review request sent by email via Go High Level.',
   customer: 'Customer saved.',
@@ -97,6 +101,16 @@ function noStore(res) {
 function firstName(member) {
   const contact = String(member.contactName || '').trim().split(/\s+/)[0];
   return contact || member.companyName;
+}
+
+function profilePhotoUrl(base, member) {
+  if (!member || !member.profilePhotoUpdatedAt) return '';
+  const v = encodeURIComponent(member.profilePhotoUpdatedAt);
+  return `${base}/avatar.png?v=${v}`;
+}
+
+function hasProfilePhoto(member) {
+  return !!(member && member.profilePhotoUpdatedAt);
 }
 
 async function attachAppointment(ctx) {
@@ -144,13 +158,16 @@ async function loadContext(token) {
   if (!network) return null;
   const member = await store.getMember(network.id, payload.memberId);
   if (!member) return null;
+  const pathBase = `/m/${encodeURIComponent(token)}`;
   const base = {
     network,
     member,
     token,
-    base: `/m/${encodeURIComponent(token)}`,
+    base: pathBase,
     brand: networkBrand.brandView(network),
     greetingName: firstName(member),
+    profilePhotoUrl: profilePhotoUrl(pathBase, member),
+    hasProfilePhoto: hasProfilePhoto(member),
     appointment: null,
   };
   return attachAppointment(base);
@@ -178,6 +195,7 @@ function render(res, view, ctx, extra, status) {
 
 const ERR_MESSAGES = {
   hero: 'Could not update the banner image. Try a JPG, PNG, WebP, or GIF under 6 MB.',
+  photo: 'Could not update the profile photo. Try a JPG, PNG, WebP, or GIF under 6 MB.',
 };
 
 function flashFromQuery(req) {
@@ -423,6 +441,83 @@ router.get('/m/:token/icon-:size.png', withMember(async (req, res, ctx) => {
   res.setHeader('Content-Type', 'image/png');
   res.setHeader('Cache-Control', 'private, max-age=86400');
   return res.end(png);
+}));
+
+router.get('/m/:token/avatar.png', withMember(async (req, res, ctx) => {
+  const img = await store.getProfilePhoto(ctx.network.id, ctx.member.id);
+  if (!img || !img.buffer) return res.status(404).end();
+  res.setHeader('Content-Type', img.contentType || 'image/png');
+  res.setHeader('Cache-Control', 'private, max-age=86400');
+  return res.end(img.buffer);
+}));
+
+// ── Profile / settings ───────────────────────────────────────────────────────
+
+function renderProfile(req, res, ctx, flash, formValues, status) {
+  const member = ctx.member;
+  const fv = formValues || {
+    companyName: member.companyName || '',
+    contactName: member.contactName || '',
+    phone: member.phone || '',
+    email: member.email || '',
+  };
+  return render(res, 'profile', ctx, {
+    active: 'profile',
+    formValues: fv,
+    flash: flash || flashFromQuery(req),
+  }, status);
+}
+
+router.get('/m/:token/profile', withMember((req, res, ctx) => renderProfile(req, res, ctx)));
+
+router.post('/m/:token/profile', form, withMember(async (req, res, ctx) => {
+  const body = req.body || {};
+  const companyName = String(body.companyName || '').trim().slice(0, 160);
+  const contactName = String(body.contactName || '').trim().slice(0, 120);
+  const phone = String(body.phone || '').trim().slice(0, 40);
+  const email = String(body.email || '').trim().slice(0, 200);
+  const formValues = { companyName, contactName, phone, email };
+  if (!companyName) {
+    return renderProfile(req, res, ctx, { error: 'Add your business name.' }, formValues, 400);
+  }
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return renderProfile(req, res, ctx, { error: 'That email doesn’t look right.' }, formValues, 400);
+  }
+  await store.saveMember(ctx.network.id, {
+    ...ctx.member,
+    companyName,
+    contactName,
+    phone,
+    email,
+  });
+  return res.redirect(303, `${ctx.base}/profile?ok=profile_saved`);
+}));
+
+router.post('/m/:token/profile/photo', (req, res, next) => {
+  const ct = String(req.headers['content-type'] || '');
+  if (ct.includes('multipart/form-data')) return withReviewUpload('photo')(req, res, next);
+  return form(req, res, next);
+}, withMember(async (req, res, ctx) => {
+  const body = req.body || {};
+  if (body.remove === '1' || body.remove === 'on') {
+    await store.deleteProfilePhoto(ctx.network.id, ctx.member.id);
+    await store.saveMember(ctx.network.id, { ...ctx.member, profilePhotoUpdatedAt: '' });
+    return res.redirect(303, `${ctx.base}/profile?ok=photo_cleared`);
+  }
+  if (!req.file || !req.file.buffer) {
+    return renderProfile(req, res, ctx, { error: 'Choose a photo for your profile.' }, null, 400);
+  }
+  try {
+    const prepared = await networkBrand.prepareImage('logo', req.file.buffer);
+    const stamp = await store.saveProfilePhoto(ctx.network.id, ctx.member.id, prepared);
+    await store.saveMember(ctx.network.id, { ...ctx.member, profilePhotoUpdatedAt: stamp });
+    return res.redirect(303, `${ctx.base}/profile?ok=photo_saved`);
+  } catch (err) {
+    console.error('[member-app] profile photo upload failed:', err.message);
+    return renderProfile(req, res, ctx, {
+      error: err.message || ERR_MESSAGES.photo,
+    }, null, 400);
+  }
 }));
 
 // ── Home ─────────────────────────────────────────────────────────────────────

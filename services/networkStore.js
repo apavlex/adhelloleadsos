@@ -8,6 +8,7 @@
  *   netref:<networkId>:<id>        referral record
  *   netbrandimg:<networkId>:<kind> uploaded logo / hero image (base64)
  *   netreviewshare:<networkId>:<memberId>:<imageId> OG/link-preview JPEG (default or per-request)
+ *   netmemberphoto:<networkId>:<memberId>  member profile / avatar photo
  *   netapp:<networkId>:<id>        business a member invited, waiting for approval
  *   netfeedback:<networkId>:<id>   private feedback left on a member's review page
  *   netreviewstats:<networkId>:<memberId>  star taps + review link clicks
@@ -170,6 +171,8 @@ function normalizeMember(raw) {
     reviewShareImageUpdatedAt: cleanText(m.reviewShareImageUpdatedAt, 40),
     /** ISO stamp when a custom logo for the public review request page was saved. */
     reviewLogoUpdatedAt: cleanText(m.reviewLogoUpdatedAt, 40),
+    /** ISO stamp when a member profile / avatar photo was saved. */
+    profilePhotoUpdatedAt: cleanText(m.profilePhotoUpdatedAt, 40),
     invitedByMemberId: cleanText(m.invitedByMemberId, 40),
     joinedAt: m.joinedAt || new Date().toISOString(),
     updatedAt: m.updatedAt || m.joinedAt || new Date().toISOString(),
@@ -368,6 +371,36 @@ async function deleteReviewLogo(networkId, memberId) {
   await dbService.deleteStorageKey(reviewLogoKey(networkId, memberId));
 }
 
+// ── Member profile / avatar photo ────────────────────────────────────────────
+
+function profilePhotoKey(networkId, memberId) {
+  return `netmemberphoto:${networkId}:${memberId}`;
+}
+
+async function getProfilePhoto(networkId, memberId) {
+  const row = await readJson(profilePhotoKey(networkId, memberId));
+  if (!row || !row.data) return null;
+  return {
+    contentType: String(row.contentType || 'image/png'),
+    buffer: Buffer.from(String(row.data), 'base64'),
+    updatedAt: row.updatedAt || '',
+  };
+}
+
+async function saveProfilePhoto(networkId, memberId, { contentType, buffer }) {
+  const updatedAt = new Date().toISOString();
+  await dbService.putStorageKey(profilePhotoKey(networkId, memberId), {
+    contentType: contentType || 'image/png',
+    data: Buffer.from(buffer).toString('base64'),
+    updatedAt,
+  });
+  return updatedAt;
+}
+
+async function deleteProfilePhoto(networkId, memberId) {
+  await dbService.deleteStorageKey(profilePhotoKey(networkId, memberId));
+}
+
 // ── Applications (member invites) ────────────────────────────────────────────
 
 const APPLICATION_STATUSES = new Set(['pending', 'approved', 'rejected']);
@@ -500,6 +533,9 @@ module.exports = {
   getReviewLogo,
   saveReviewLogo,
   deleteReviewLogo,
+  getProfilePhoto,
+  saveProfilePhoto,
+  deleteProfilePhoto,
   listApplications,
   getApplication,
   saveApplication,

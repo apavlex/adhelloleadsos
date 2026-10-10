@@ -13,7 +13,19 @@
     <% } %>
     <button type="button" class="ma-iconbtn" data-ma-install-open aria-label="Save as phone app" title="Save as phone app"><%- icons.download %></button>
     <a class="ma-iconbtn <%= active === 'enroll' ? 'is-on' : '' %>" href="<%= base %>/enroll" aria-label="Invite a business to <%= brand.appName %>" title="Invite a business" <%= active === 'enroll' ? 'aria-current=page' : '' %>><%- icons.enroll %></a>
-    <span class="ma-avatar" title="<%= member.companyName %>" aria-label="<%= member.companyName %>"><%= (greetingName || member.companyName || '?').trim().charAt(0).toUpperCase() %></span>
+    <%
+      const _avatarInitial = (greetingName || member.companyName || '?').trim().charAt(0).toUpperCase();
+      const _avatarHref = base + '/profile';
+      const _avatarOn = typeof active !== 'undefined' && active === 'profile';
+      const _avatarPhoto = typeof profilePhotoUrl !== 'undefined' && profilePhotoUrl ? profilePhotoUrl : '';
+    %>
+    <a
+      class="ma-avatar <%= _avatarOn ? 'is-on' : '' %>"
+      href="<%= _avatarHref %>"
+      aria-label="Profile and settings"
+      title="Profile and settings"
+      <%= _avatarOn ? 'aria-current=page' : '' %>
+    ><% if (_avatarPhoto) { %><img src="<%= _avatarPhoto %>" alt=""><% } else { %><%= _avatarInitial %><% } %></a>
   </div>
 </header>
 <% if (member.status !== 'active') { %>
