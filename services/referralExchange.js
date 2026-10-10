@@ -444,6 +444,36 @@ function memberStats(referrals, memberId) {
   };
 }
 
+/**
+ * Operator partner-card counters from live network referrals:
+ *   sent     = referrals routed TO this member (we sent them a lead)
+ *   received = referrals FROM this member (they sent a lead into the network)
+ * Matches syncPartnerCounter in networkNotify.
+ */
+function partnerCountersFromReferrals(referrals, memberId) {
+  const id = String(memberId || '').trim();
+  const list = Array.isArray(referrals) ? referrals : [];
+  if (!id) return { sent: 0, received: 0, lastSentAt: '', lastReceivedAt: '' };
+  let sent = 0;
+  let received = 0;
+  let lastSentAt = '';
+  let lastReceivedAt = '';
+  for (const ref of list) {
+    if (!ref) continue;
+    if (ref.toMemberId === id) {
+      sent += 1;
+      const at = String(ref.sentAt || ref.createdAt || '');
+      if (at && at > lastSentAt) lastSentAt = at;
+    }
+    if (ref.fromMemberId === id) {
+      received += 1;
+      const at = String(ref.createdAt || '');
+      if (at && at > lastReceivedAt) lastReceivedAt = at;
+    }
+  }
+  return { sent, received, lastSentAt, lastReceivedAt };
+}
+
 function networkTotals(referrals) {
   const list = Array.isArray(referrals) ? referrals : [];
   const count = (status) => list.filter((ref) => ref.status === status).length;
@@ -489,5 +519,6 @@ module.exports = {
   applyReferralAction,
   parseMoney,
   memberStats,
+  partnerCountersFromReferrals,
   networkTotals,
 };

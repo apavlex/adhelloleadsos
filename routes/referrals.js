@@ -6,6 +6,7 @@ const { filterBusinessPipelineLeads } = require('../services/leadListFilters');
 const referralNetwork = require('../services/referralNetwork');
 const networkStore = require('../services/networkStore');
 const networkReferrals = require('../services/networkReferrals');
+const referralExchange = require('../services/referralExchange');
 const { tradesForNetwork } = require('../services/networkTrades');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const { suggestReferralNiches, applyNichesToNetwork, nicheSearchUrl } = require('../services/suggestReferralNiches');
@@ -20,6 +21,17 @@ const ACTION_NOTICE = {
   note: 'Note saved on the lead.',
   ghl: 'Synced to Go High Level.',
 };
+
+/** leadKey → { sent, received, lastSentAt, lastReceivedAt } from live network referrals. */
+function networkCountMap(members, referrals) {
+  const map = new Map();
+  (Array.isArray(members) ? members : []).forEach((member) => {
+    const key = String(member && member.leadKey || '').trim();
+    if (!key || !member.id) return;
+    map.set(key, referralExchange.partnerCountersFromReferrals(referrals, member.id));
+  });
+  return map;
+}
 
 /** A business removed from Referral Partners also gives up its network seats. Returns a notice, or '' if it wasn't a member. */
 async function leaveNetwork(req, lead) {
@@ -83,27 +95,40 @@ router.get('/', async (req, res, next) => {
     const focus = String(req.query.focus || '').trim();
     const leads = await workspaceLeads(req);
     const network = await networkStore.getNetworkForWorkspace(req.workspaceId);
-    const [zones, members] = network
-      ? await Promise.all([networkStore.listZones(network.id), networkStore.listMembers(network.id)])
-      : [[], []];
+    const [zones, members, referrals] = network
+      ? await Promise.all([
+        networkStore.listZones(network.id),
+        networkStore.listMembers(network.id),
+        networkStore.listReferrals(network.id),
+      ])
+      : [[], [], []];
+    const countsByLead = networkCountMap(members, referrals);
+    const leadsForBoard = leads.map((lead) => {
+      const counters = lead && lead.key ? countsByLead.get(lead.key) : null;
+      return counters ? referralNetwork.applyNetworkCountsToLead(lead, counters) : lead;
+    });
     const ws = (await dbService.getWorkspace(req.workspaceId)) || {};
-    const partners = referralNetwork.listPartners(leads, q);
+    let partners = referralNetwork.listPartners(leadsForBoard, q);
     if (focus && !partners.some((p) => p.key === focus)) {
-      const lead = leads.find((l) => l && l.key === focus);
+      const lead = leadsForBoard.find((l) => l && l.key === focus);
       if (lead) partners.unshift(referralNetwork.presentPartner(lead));
     }
+    partners = partners.map((card) => {
+      const counters = countsByLead.get(card.key);
+      return counters ? referralNetwork.withNetworkCounts(card, counters) : card;
+    });
     res.render('referrals', {
       networkSetup: {
         trades: network ? tradesForNetwork(network).map((t) => ({ slug: t.slug, name: t.name })) : [],
         zones: zones.map((z) => ({ id: z.id, name: z.name })),
-        memberLeadKeys: members.map((m) => m.leadKey),
+        memberLeadKeys: members.map((m) => m.leadKey).filter(Boolean),
       },
       title: 'Referral partners',
       activePage: 'referrals',
       query: q,
       focus,
       partners,
-      totals: referralNetwork.networkTotals(leads),
+      totals: referralNetwork.networkTotals(leadsForBoard),
       savedCount: leads.length,
       notice: String(req.query.notice || '').trim(),
       referralNiches: presentNiches(ws),
@@ -201,6 +226,15 @@ router.post('/partner', express.urlencoded({ extended: false }), async (req, res
     const action = String(req.body.action || '').trim();
     const note = String(req.body.note || '').trim();
     const wantsJson = /application\/json/i.test(String(req.get('accept') || ''));
+    if (action === 'sent' || action === 'received') {
+      const network = await networkStore.getNetworkForWorkspace(req.workspaceId);
+      const member = network ? await networkStore.findMemberByLeadKey(network.id, lead.key) : null;
+      if (member) {
+        const msg = 'Sent and received update automatically from Network referrals. Use Network → Send referral.';
+        if (wantsJson) return res.status(400).json({ success: false, error: msg });
+        return res.redirect(backUrl(q, msg));
+      }
+    }
     const applied = referralNetwork.applyPartnerAction(lead, action, undefined, note);
     if (!applied.ok) {
       if (wantsJson) return res.status(400).json({ success: false, error: applied.error });

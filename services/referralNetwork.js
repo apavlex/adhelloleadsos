@@ -287,6 +287,33 @@ function networkTotals(leads) {
   };
 }
 
+/**
+ * Overlay live network referral tallies onto a partner card (operator view).
+ * sent/received on the card then match Network activity for that member.
+ */
+function withNetworkCounts(card, counters) {
+  if (!card || !counters) return card;
+  return {
+    ...card,
+    sent: Math.max(0, parseInt(counters.sent, 10) || 0),
+    received: Math.max(0, parseInt(counters.received, 10) || 0),
+    sentWhen: whenOrEmpty(counters.lastSentAt),
+    receivedWhen: whenOrEmpty(counters.lastReceivedAt),
+    countsFromNetwork: true,
+  };
+}
+
+/** Patch lead.referralPartner in memory so listPartners / networkTotals use network tallies. */
+function applyNetworkCountsToLead(lead, counters) {
+  if (!lead || !counters) return lead;
+  const next = partnerRecord(lead);
+  next.sent = Math.max(0, parseInt(counters.sent, 10) || 0);
+  next.received = Math.max(0, parseInt(counters.received, 10) || 0);
+  next.lastSentAt = counters.lastSentAt || '';
+  next.lastReceivedAt = counters.lastReceivedAt || '';
+  return { ...lead, referralPartner: next };
+}
+
 module.exports = {
   partnerRecord,
   partnerScore,
@@ -295,4 +322,6 @@ module.exports = {
   presentPartner: toCard,
   applyPartnerAction,
   networkTotals,
+  withNetworkCounts,
+  applyNetworkCountsToLead,
 };
