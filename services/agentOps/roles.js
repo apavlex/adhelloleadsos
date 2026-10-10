@@ -17,7 +17,7 @@ const ROLES = [
     id: 'opportunity',
     name: 'Opportunity',
     title: 'Opportunity SDR',
-    blurb: 'Reviews opportunity boards and picks the top deals to move next.',
+    blurb: 'Reviews opportunity boards and picks the top deals to move next (skips SMS STOP / DNC).',
     color: '#f26b1d',
     defaultJob: 'opportunity.scan_board',
     jobs: ['opportunity.scan_board', 'review.scan'],
