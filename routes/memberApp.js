@@ -90,7 +90,7 @@ const OK_MESSAGES = {
   hero_saved: 'Home banner image updated.',
   hero_cleared: 'Home banner image removed.',
   profile_saved: 'Profile saved.',
-  photo_saved: 'Profile photo saved.',
+  photo_saved: 'Profile photo saved. Your Home Screen icon updates next time you add the app (iPhone keeps the old icon until then).',
   photo_cleared: 'Profile photo removed.',
   review_sms: 'Review request sent by text via Go High Level.',
   review_email: 'Review request sent by email via Go High Level.',
@@ -175,7 +175,7 @@ async function loadContext(token) {
   const member = await store.getMember(network.id, payload.memberId);
   if (!member) return null;
   const pathBase = `/m/${encodeURIComponent(token)}`;
-  const base = {
+  const draft = {
     network,
     member,
     token,
@@ -186,7 +186,9 @@ async function loadContext(token) {
     hasProfilePhoto: hasProfilePhoto(member),
     appointment: null,
   };
-  return attachAppointment(base);
+  const icon = await resolveAppIconSource(draft);
+  draft.appIconVersion = icon.version;
+  return attachAppointment(draft);
 }
 
 function renderInvalid(res, status, message) {
@@ -430,10 +432,43 @@ router.post('/m/login', form, async (req, res) => {
 
 // ── PWA manifest + icons ─────────────────────────────────────────────────────
 
+/** Prefer member profile photo for Home Screen icons, then network brand logo, else initials. */
+async function resolveAppIconSource(ctx) {
+  const photo = await store.getProfilePhoto(ctx.network.id, ctx.member.id).catch(() => null);
+  if (photo && photo.buffer) {
+    return {
+      logo: photo,
+      mode: 'photo',
+      version: String(ctx.member.profilePhotoUpdatedAt || photo.updatedAt || Date.now()),
+    };
+  }
+  const brandLogo = ctx.brand.logoUrl && ctx.brand.logoUrl.startsWith(`/m/brand/${ctx.network.id}/`)
+    ? await store.getBrandImage(ctx.network.id, 'logo').catch(() => null)
+    : null;
+  if (brandLogo && brandLogo.buffer) {
+    return {
+      logo: brandLogo,
+      mode: 'logo',
+      version: String(brandLogo.updatedAt || ctx.brand.accent || 'brand'),
+    };
+  }
+  return {
+    logo: null,
+    mode: 'initials',
+    version: String((ctx.brand && ctx.brand.accent) || '1'),
+  };
+}
+
+function appIconUrl(base, size, version) {
+  const v = encodeURIComponent(String(version || '1'));
+  return `${base}/icon-${size}.png?v=${v}`;
+}
+
 router.get('/m/:token/manifest.webmanifest', withMember(async (req, res, ctx) => {
   const { brand, base } = ctx;
+  const icon = await resolveAppIconSource(ctx);
   res.setHeader('Content-Type', 'application/manifest+json');
-  res.setHeader('Cache-Control', 'private, max-age=300');
+  res.setHeader('Cache-Control', 'private, max-age=60');
   res.send(JSON.stringify({
     name: brand.appName,
     short_name: brand.shortName,
@@ -446,21 +481,25 @@ router.get('/m/:token/manifest.webmanifest', withMember(async (req, res, ctx) =>
     background_color: '#f4f5f7',
     theme_color: '#ffffff',
     icons: [
-      { src: `${base}/icon-192.png`, sizes: '192x192', type: 'image/png', purpose: 'any' },
-      { src: `${base}/icon-512.png`, sizes: '512x512', type: 'image/png', purpose: 'any' },
-      { src: `${base}/icon-512.png`, sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+      { src: appIconUrl(base, 192, icon.version), sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: appIconUrl(base, 512, icon.version), sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: appIconUrl(base, 512, icon.version), sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ],
   }));
 }));
 
 router.get('/m/:token/icon-:size.png', withMember(async (req, res, ctx) => {
   const size = [180, 192, 512].includes(parseInt(req.params.size, 10)) ? parseInt(req.params.size, 10) : 192;
-  const logo = ctx.brand.logoUrl && ctx.brand.logoUrl.startsWith(`/m/brand/${ctx.network.id}/`)
-    ? await store.getBrandImage(ctx.network.id, 'logo')
-    : null;
-  const png = await networkBrand.renderIcon({ brand: ctx.brand, logo, size });
+  const source = await resolveAppIconSource(ctx);
+  const png = await networkBrand.renderIcon({
+    brand: ctx.brand,
+    logo: source.logo,
+    size,
+    mode: source.mode,
+  });
   res.setHeader('Content-Type', 'image/png');
-  res.setHeader('Cache-Control', 'private, max-age=86400');
+  res.setHeader('Cache-Control', 'private, max-age=3600');
+  if (source.version) res.setHeader('ETag', `"${String(source.version).replace(/"/g, '')}"`);
   return res.end(png);
 }));
 
