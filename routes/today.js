@@ -465,6 +465,24 @@ router.post('/appointment-packages/:id/portal-link', express.json(), async (req,
   }
 });
 
+/** Text or email the contractor app link to the business (phone/email on the package). */
+router.post('/appointment-packages/:id/send-portal-link', express.json(), async (req, res, next) => {
+  try {
+    const result = await contractorPortal.sendPortalLinkToBusiness(req.workspaceId, req.params.id, { req });
+    if (!result.ok) {
+      return res.status(400).json({ success: false, error: result.error, url: result.url || null });
+    }
+    return res.json({
+      success: true,
+      channel: result.channel,
+      url: result.url,
+      businessName: result.businessName,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
 /** Deliver a lead into a contractor package (consumes a credit + pushes to their devices). */
 router.post('/appointment-packages/:id/deliver-lead', express.json(), async (req, res, next) => {
   try {
