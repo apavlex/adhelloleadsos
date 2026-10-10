@@ -426,5 +426,11 @@ module.exports = {
         console.error('[SCHEDULER] GHL inbound poll (startup) failed:', e.message)
       );
     }, 20000);
+    // Ops agents: catch up after deploy/restart so hourly auto-runs don't stay dark until the next :00/:15/:30/:45.
+    setTimeout(() => {
+      tickAgentOpsWorkspaces().catch((e) =>
+        console.error('[SCHEDULER] Agent ops tick (startup) failed:', e.message)
+      );
+    }, 25000);
   }
 };

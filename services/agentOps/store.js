@@ -11,6 +11,8 @@ const INSIGHTS_PREFIX = 'agent_ops_insights:';
 const MAX_RUNS = 40;
 const MAX_INSIGHTS = 24;
 const MAX_JOBS_LISTED = 30;
+/** Running jobs older than this are treated as failed/stale. */
+const STALE_RUNNING_MS = 10 * 60 * 1000;
 
 function getDb() {
   try {
@@ -61,7 +63,10 @@ function defaultSettings() {
       ops: { enabled: true, autoTick: true },
     },
     lastTickAt: null,
+    /** Last finished run per role (manual or auto) — for UI. */
     lastTickByRole: {},
+    /** Last scheduler auto-tick per role — drives hourly cadence (manual Run does not reset). */
+    lastAutoTickByRole: {},
     updatedAt: null,
   };
 }
@@ -91,6 +96,13 @@ function getSettings(workspaceId) {
   const raw = readJson(`${SETTINGS_PREFIX}${wid}`, null);
   if (!raw) return defaultSettings();
   const base = defaultSettings();
+  const lastTickByRole = migrateTickByRole(raw.lastTickByRole);
+  // Backfill auto-tick map from legacy lastTickByRole so existing workspaces keep cadence.
+  const lastAutoTickByRole = migrateTickByRole(
+    raw.lastAutoTickByRole && Object.keys(raw.lastAutoTickByRole).length
+      ? raw.lastAutoTickByRole
+      : lastTickByRole,
+  );
   return {
     ...base,
     ...raw,
@@ -98,7 +110,8 @@ function getSettings(workspaceId) {
       ...base.roles,
       ...migrateRoleSettings(raw.roles),
     },
-    lastTickByRole: migrateTickByRole(raw.lastTickByRole),
+    lastTickByRole,
+    lastAutoTickByRole,
   };
 }
 
@@ -113,10 +126,65 @@ function saveSettings(workspaceId, patch) {
       ...cur.roles,
       ...(patch && patch.roles && typeof patch.roles === 'object' ? patch.roles : {}),
     },
+    lastTickByRole: {
+      ...cur.lastTickByRole,
+      ...(patch && patch.lastTickByRole && typeof patch.lastTickByRole === 'object'
+        ? patch.lastTickByRole
+        : {}),
+    },
+    lastAutoTickByRole: {
+      ...cur.lastAutoTickByRole,
+      ...(patch && patch.lastAutoTickByRole && typeof patch.lastAutoTickByRole === 'object'
+        ? patch.lastAutoTickByRole
+        : {}),
+    },
     updatedAt: nowIso(),
   };
   writeJson(`${SETTINGS_PREFIX}${wid}`, next);
   return next;
+}
+
+/** Atomically record a finished run for a role (avoids lost updates across concurrent roles). */
+function recordRoleTick(workspaceId, roleId, { auto = false } = {}) {
+  const wid = String(workspaceId || '').trim();
+  const rid = String(roleId || '').trim();
+  if (!wid || !rid) return getSettings(wid);
+  const cur = getSettings(wid);
+  const stamp = nowIso();
+  const patch = {
+    lastTickByRole: { ...cur.lastTickByRole, [rid]: stamp },
+  };
+  if (auto) {
+    patch.lastAutoTickByRole = { ...cur.lastAutoTickByRole, [rid]: stamp };
+  }
+  return saveSettings(wid, patch);
+}
+
+/** Mark stale running jobs failed so they stop blocking the UI / next ticks. */
+function failStaleRunningJobs(workspaceId) {
+  const wid = String(workspaceId || '').trim();
+  if (!wid) return [];
+  const now = Date.now();
+  const failed = [];
+  for (const job of listJobs(wid, { status: 'running', limit: MAX_JOBS_LISTED })) {
+    const started = Date.parse(job.startedAt || job.createdAt || '');
+    if (Number.isFinite(started) && now - started < STALE_RUNNING_MS) continue;
+    updateJob(wid, job.id, {
+      status: 'failed',
+      error: 'Timed out (stale running job).',
+      finishedAt: nowIso(),
+    });
+    appendRun(wid, {
+      jobId: job.id,
+      roleId: job.roleId,
+      type: job.type,
+      status: 'failed',
+      summary: 'Timed out (stale running job).',
+      error: 'Timed out (stale running job).',
+    });
+    failed.push(job.id);
+  }
+  return failed;
 }
 
 function createJob(workspaceId, { type, roleId, payload, triggeredBy }) {
@@ -179,8 +247,6 @@ function listJobs(workspaceId, { status = null, limit = MAX_JOBS_LISTED } = {}) 
   jobs.sort((a, b) => String(b.startedAt || b.createdAt || '').localeCompare(String(a.startedAt || a.createdAt || '')));
   return jobs.slice(0, Math.min(MAX_JOBS_LISTED, Math.max(1, limit)));
 }
-
-const STALE_RUNNING_MS = 10 * 60 * 1000;
 
 /** Active (non-stale) running jobs for the workspace. */
 function listRunningJobs(workspaceId) {
@@ -267,6 +333,8 @@ function clearInsightsForRole(workspaceId, roleId) {
 module.exports = {
   getSettings,
   saveSettings,
+  recordRoleTick,
+  failStaleRunningJobs,
   createJob,
   getJob,
   updateJob,

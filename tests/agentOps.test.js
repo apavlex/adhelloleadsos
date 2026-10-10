@@ -163,12 +163,34 @@ describe('agentOps role bots', () => {
   });
 
   it('tickWorkspace respects cooldown unless forced', async () => {
-    await agentOps.tickWorkspace('ws_ops', { force: true });
+    // Seed auto cadence, then a non-forced tick should cool down.
+    await agentOps.tickWorkspace('ws_ops', { force: false });
     const cool = await agentOps.tickWorkspace('ws_ops', { force: false });
     assert.equal(cool.ok, true);
     assert.ok(cool.results.every((r) => r.skipped === true || r.ok === true));
     const skippedCool = cool.results.filter((r) => r.reason === 'cooldown');
     assert.ok(skippedCool.length >= 1);
+    const forced = await agentOps.tickWorkspace('ws_ops', { force: true });
+    assert.ok(forced.results.some((r) => r.ok === true || r.skipped === true));
+  });
+
+  it('manual Run does not delay the next auto-tick', async () => {
+    const store = require('../services/agentOps/store');
+    // Clear auto cadence for prospect (merge overwrites the key).
+    store.saveSettings('ws_ops', { lastAutoTickByRole: { prospect: '' } });
+    const manual = await agentOps.enqueueAndRun('ws_ops', 'prospect.prepare', {
+      triggeredBy: 'user',
+      onBehalfOf: 'owner@ops.test',
+    });
+    assert.equal(manual.ok, true);
+    const settings = store.getSettings('ws_ops');
+    assert.ok(settings.lastTickByRole.prospect);
+    assert.ok(!settings.lastAutoTickByRole.prospect);
+    const auto = await agentOps.tickWorkspace('ws_ops', { force: false });
+    const prospect = auto.results.find((r) => r.roleId === 'prospect');
+    assert.ok(prospect);
+    assert.notEqual(prospect.reason, 'cooldown');
+    assert.equal(prospect.ok, true);
   });
 
   it('dashboard marks a role running while its job is in progress', async () => {
@@ -184,6 +206,11 @@ describe('agentOps role bots', () => {
     assert.equal(prospect.running, true);
     assert.ok(Array.isArray(dash.runningRoles));
     assert.ok(dash.runningRoles.some((r) => r.id === 'prospect'));
+    const blocked = await agentOps.enqueueAndRun('ws_ops', 'prospect.prepare', {
+      triggeredBy: 'user',
+    });
+    assert.equal(blocked.ok, false);
+    assert.match(blocked.error || '', /already running/i);
     store.updateJob('ws_ops', job.id, { status: 'done', finishedAt: store.nowIso() });
     const after = agentOps.dashboardForWorkspace('ws_ops');
     assert.equal(after.roles.find((r) => r.id === 'prospect').running, false);
