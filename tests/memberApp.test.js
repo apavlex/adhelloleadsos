@@ -240,6 +240,9 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     assert.match(homeHtml, /846,429/);
     assert.match(homeHtml, /Hi, Pat/);
     assert.match(homeHtml, /manifest\.webmanifest/);
+    // One Request review button in dash actions — not a second full-width duplicate.
+    const requestReviewButtons = homeHtml.match(/>\s*Request a? ?review\s*</gi) || [];
+    assert.equal(requestReviewButtons.length, 1);
 
     const manifest = await (await fetch(`${base}/m/${token}/manifest.webmanifest`)).json();
     assert.equal(manifest.name, 'Discount Home Services');
