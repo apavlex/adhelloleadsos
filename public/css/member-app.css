@@ -15,6 +15,9 @@
   --acc-ink: color-mix(in srgb, var(--acc) 80%, black);
   --radius: 20px;
   --tabbar-h: 50px;
+  /* Review FAB sits above the bar; keep last page content clear of it. */
+  --tabbar-fab-overhang: 28px;
+  --tabbar-content-gap: 24px;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
   /* SF Pro on Apple devices; Inter/Manrope elsewhere */
@@ -97,7 +100,10 @@ body:has(> .ma-tabbar) .ma-shell {
 .ma-shell {
   max-width: 480px;
   margin: 0 auto;
-  padding: calc(var(--safe-t) + 14px) 18px calc(var(--tabbar-h) + var(--safe-b) + 12px);
+  padding:
+    calc(var(--safe-t) + 14px)
+    18px
+    calc(var(--tabbar-h) + var(--tabbar-fab-overhang) + var(--tabbar-content-gap) + var(--safe-b));
 }
 .ma-shell--plain { padding-bottom: calc(var(--safe-b) + 32px); }
 

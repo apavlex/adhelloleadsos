@@ -57,9 +57,21 @@ describe('member app install modal and tab bar', () => {
 
   it('service worker network-firsts versioned CSS so deploys are not stuck', () => {
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.441/);
+    assert.match(sw, /adhello-pwa-v1\.0\.443/);
     assert.match(sw, /searchParams\.has\('v'\)/);
     assert.match(sw, /versioned/);
+  });
+
+  it('shell bottom padding clears the tab bar and Review FAB', () => {
+    const css = fs.readFileSync(path.join(root, 'public/css/member-app.css'), 'utf8');
+    assert.match(css, /--tabbar-fab-overhang:\s*28px/);
+    assert.match(css, /--tabbar-content-gap:\s*24px/);
+    assert.match(
+      css,
+      /\.ma-shell\s*\{[^}]*padding:[^;]*tabbar-h[^;]*tabbar-fab-overhang[^;]*tabbar-content-gap/s,
+    );
+    const head = fs.readFileSync(path.join(root, 'views/member_app/_head.ejs'), 'utf8');
+    assert.match(head, /\.ma-shell\{padding-bottom:calc\(50px \+ 28px \+ 24px/);
   });
 
   it('member-app.js shows install guidance inside workspace standalone shells', () => {
