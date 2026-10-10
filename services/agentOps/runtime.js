@@ -10,12 +10,22 @@ const memory = require('./memory');
 const TICK_COOLDOWN_MS = 45 * 60 * 1000; // avoid hammering every 15m cron
 
 const HANDLERS = {
+  'prospect.prepare': (wid, job, ctx) =>
+    tools.prepareProspects(wid, { role: ROLE_BY_ID.prospect, onBehalfOf: ctx.onBehalfOf, limit: 20 }),
   'sdr.prepare_focus': (wid, job, ctx) =>
-    tools.prepareFocus(wid, { role: ROLE_BY_ID.sdr, onBehalfOf: ctx.onBehalfOf, limit: 20 }),
+    tools.prepareProspects(wid, { role: ROLE_BY_ID.prospect, onBehalfOf: ctx.onBehalfOf, limit: 20 }),
+  'opportunity.scan_board': (wid, job, ctx) =>
+    tools.scanOpportunityBoard(wid, {
+      role: ROLE_BY_ID.opportunity,
+      onBehalfOf: ctx.onBehalfOf,
+      limit: 8,
+    }),
   'review.scan': (wid, job, ctx) =>
-    tools.scanReviews(wid, { role: ROLE_BY_ID.review, onBehalfOf: ctx.onBehalfOf, limit: 15 }),
-  'review.request': (wid, job, ctx) =>
-    tools.requestReview(wid, job.payload || {}, { role: ROLE_BY_ID.review, onBehalfOf: ctx.onBehalfOf }),
+    tools.scanOpportunityBoard(wid, {
+      role: ROLE_BY_ID.opportunity,
+      onBehalfOf: ctx.onBehalfOf,
+      limit: 8,
+    }),
   'dispatcher.scan_pool': (wid, job, ctx) =>
     tools.scanPool(wid, { role: ROLE_BY_ID.dispatcher, onBehalfOf: ctx.onBehalfOf }),
   'ops.health': (wid, job, ctx) =>

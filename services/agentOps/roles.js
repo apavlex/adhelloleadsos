@@ -5,22 +5,22 @@
 
 const ROLES = [
   {
-    id: 'sdr',
-    name: 'SDR',
-    title: 'Focus SDR',
-    blurb: 'Preps your call queue, scripts, and next-touch tasks.',
+    id: 'prospect',
+    name: 'Prospect',
+    title: 'Prospect SDR',
+    blurb: 'Preps early-stage prospects for your call queue and next touch.',
     color: '#2563eb',
-    defaultJob: 'sdr.prepare_focus',
-    jobs: ['sdr.prepare_focus'],
+    defaultJob: 'prospect.prepare',
+    jobs: ['prospect.prepare', 'sdr.prepare_focus'],
   },
   {
-    id: 'review',
-    name: 'Review',
-    title: 'Review bot',
-    blurb: 'Finds customers ready for a review ask and queues requests.',
+    id: 'opportunity',
+    name: 'Opportunity',
+    title: 'Opportunity SDR',
+    blurb: 'Reviews opportunity boards and picks the top deals to move next.',
     color: '#f26b1d',
-    defaultJob: 'review.scan',
-    jobs: ['review.scan', 'review.request'],
+    defaultJob: 'opportunity.scan_board',
+    jobs: ['opportunity.scan_board', 'review.scan'],
   },
   {
     id: 'dispatcher',
@@ -45,12 +45,24 @@ const ROLES = [
 const ROLE_BY_ID = Object.fromEntries(ROLES.map((r) => [r.id, r]));
 
 const JOB_LABELS = {
-  'sdr.prepare_focus': 'Prepare Focus queue',
-  'review.scan': 'Scan for review asks',
-  'review.request': 'Send review request',
+  'prospect.prepare': 'Prepare prospect queue',
+  'sdr.prepare_focus': 'Prepare prospect queue',
+  'opportunity.scan_board': 'Scan opportunity board',
+  'review.scan': 'Scan opportunity board',
   'dispatcher.scan_pool': 'Scan referral pool',
   'ops.health': 'Ops health check',
 };
+
+/** Legacy role ids → current ids (settings / insights migration). */
+const LEGACY_ROLE_IDS = {
+  sdr: 'prospect',
+  review: 'opportunity',
+};
+
+function normalizeRoleId(roleId) {
+  const id = String(roleId || '').trim();
+  return LEGACY_ROLE_IDS[id] || id;
+}
 
 function roleForJob(jobType) {
   const type = String(jobType || '');
@@ -65,6 +77,8 @@ module.exports = {
   ROLES,
   ROLE_BY_ID,
   JOB_LABELS,
+  LEGACY_ROLE_IDS,
+  normalizeRoleId,
   roleForJob,
   listRoles,
 };
