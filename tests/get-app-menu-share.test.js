@@ -34,9 +34,8 @@ describe('Get the app menu + Share', () => {
 
   it('Share control is a button that never links to /today', () => {
     const page = read('views/get_app.ejs');
-    assert.match(page, /data-get-app-share/);
-    assert.match(page, /<button[\s\S]*data-get-app-share/);
-    assert.doesNotMatch(page, /<a[\s\S]*data-get-app-share/);
+    assert.match(page, /<button[\s\S]*?data-get-app-share/);
+    assert.doesNotMatch(page, /<a\b[^>]*data-get-app-share/);
   });
 
   it('sidebar Get the app links navigate to /get-app without share intercept', () => {
