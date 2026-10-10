@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('_head', { pageTitle: 'Profile' }) %>
+</head>
+<body>
+  <main class="ma-shell">
+    <%- include('_top', { topTitle: 'Profile' }) %>
+    <h1 class="ma-page-title">Profile &amp; settings</h1>
+    <p class="ma-page-sub">Your photo, contact info, and app settings.</p>
+
+    <%- include('_flash') %>
+
+    <% const _fv = typeof formValues !== 'undefined' && formValues ? formValues : member; %>
+    <% const _initial = (greetingName || member.companyName || '?').trim().charAt(0).toUpperCase(); %>
+
+    <section class="ma-profile-hero" aria-label="Profile photo">
+      <div class="ma-avatar ma-avatar--lg" aria-hidden="true">
+        <% if (typeof profilePhotoUrl !== 'undefined' && profilePhotoUrl) { %>
+        <img src="<%= profilePhotoUrl %>" alt="">
+        <% } else { %>
+        <%= _initial %>
+        <% } %>
+      </div>
+      <div class="ma-profile-hero__meta">
+        <p class="ma-profile-hero__name"><%= member.companyName %></p>
+        <p class="ma-profile-hero__sub"><%= member.contactName || 'Add your name' %></p>
+      </div>
+    </section>
+
+    <section class="ma-card">
+      <h2 style="font-size:16px;margin:0 0 6px">Profile photo</h2>
+      <p class="ma-hint" style="margin-top:0">Shown in the top bar on every page.</p>
+      <form method="post" action="<%= base %>/profile/photo" enctype="multipart/form-data" autocomplete="off">
+        <div class="ma-field">
+          <label class="ma-label" for="maProfilePhoto">Upload photo</label>
+          <input id="maProfilePhoto" name="photo" type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="ma-input" required>
+        </div>
+        <button type="submit" class="ma-btn ma-btn--soft ma-btn--block">Save photo</button>
+      </form>
+      <% if (typeof hasProfilePhoto !== 'undefined' && hasProfilePhoto) { %>
+      <form method="post" action="<%= base %>/profile/photo" style="margin-top:8px" data-ma-confirm="Remove your profile photo?">
+        <input type="hidden" name="remove" value="1">
+        <button type="submit" class="ma-btn ma-btn--ghost ma-btn--block">Remove photo</button>
+      </form>
+      <% } %>
+    </section>
+
+    <section class="ma-card">
+      <h2 style="font-size:16px;margin:0 0 6px">Your details</h2>
+      <form method="post" action="<%= base %>/profile" autocomplete="off">
+        <div class="ma-field">
+          <label class="ma-label" for="maCompany">Business name</label>
+          <input id="maCompany" name="companyName" class="ma-input" value="<%= _fv.companyName || '' %>" required maxlength="160" autocapitalize="words">
+        </div>
+        <div class="ma-field">
+          <label class="ma-label" for="maContact">Your name</label>
+          <input id="maContact" name="contactName" class="ma-input" value="<%= _fv.contactName || '' %>" maxlength="120" autocapitalize="words" autocomplete="name">
+        </div>
+        <div class="ma-field">
+          <label class="ma-label" for="maPhone">Phone</label>
+          <input id="maPhone" name="phone" type="tel" inputmode="tel" class="ma-input" value="<%= _fv.phone || '' %>" maxlength="40" autocomplete="tel">
+        </div>
+        <div class="ma-field">
+          <label class="ma-label" for="maEmail">Email</label>
+          <input id="maEmail" name="email" type="email" inputmode="email" class="ma-input" value="<%= _fv.email || '' %>" maxlength="200" autocomplete="email">
+        </div>
+        <button type="submit" class="ma-btn ma-btn--block">Save details</button>
+      </form>
+    </section>
+
+    <section class="ma-card" aria-label="Settings">
+      <h2 style="font-size:16px;margin:0 0 10px">Settings</h2>
+      <div class="ma-settings-list">
+        <a class="ma-settings-row" href="<%= base %>/review/settings">
+          <span class="ma-settings-row__icon"><%- icons.settings %></span>
+          <span class="ma-settings-row__text">
+            <strong>Review settings</strong>
+            <span>Logo, review links, and share preview image</span>
+          </span>
+          <span class="ma-settings-row__chev" aria-hidden="true"><%- icons.chevronRight %></span>
+        </a>
+        <a class="ma-settings-row" href="<%= base %>/enroll">
+          <span class="ma-settings-row__icon"><%- icons.enroll %></span>
+          <span class="ma-settings-row__text">
+            <strong>Invite a business</strong>
+            <span>Recommend someone to join <%= brand.appName %></span>
+          </span>
+          <span class="ma-settings-row__chev" aria-hidden="true"><%- icons.chevronRight %></span>
+        </a>
+        <a class="ma-settings-row" href="<%= base %>/review">
+          <span class="ma-settings-row__icon"><%- icons.review %></span>
+          <span class="ma-settings-row__text">
+            <strong>Request a review</strong>
+            <span>QR code, share link, and send requests</span>
+          </span>
+          <span class="ma-settings-row__chev" aria-hidden="true"><%- icons.chevronRight %></span>
+        </a>
+      </div>
+    </section>
+
+    <section class="ma-card" id="maInstallHelp">
+      <h2 style="font-size:16px;margin:0 0 6px">Save as a phone app</h2>
+      <p class="ma-hint" style="margin-top:0">Add <%= brand.appName %> to your Home Screen for one-tap access.</p>
+      <div class="ma-profile-install">
+        <div>
+          <p class="ma-profile-install__title">iPhone</p>
+          <ol class="ma-profile-steps">
+            <li>Open this page in <b>Safari</b>.</li>
+            <li>Tap <b>Share</b> → <b>Add to Home Screen</b>.</li>
+            <li>Tap <b>Add</b>.</li>
+          </ol>
+        </div>
+        <div>
+          <p class="ma-profile-install__title">Android</p>
+          <ol class="ma-profile-steps">
+            <li>Open in <b>Chrome</b>.</li>
+            <li>Tap <b>⋮</b> → <b>Install app</b>.</li>
+            <li>Tap <b>Install</b>.</li>
+          </ol>
+        </div>
+      </div>
+      <button type="button" class="ma-btn ma-btn--soft ma-btn--block" style="margin-top:12px" data-ma-copy id="maProfileCopyLink">Copy app link</button>
+    </section>
+  </main>
+  <%- include('_tabbar') %>
+  <script>
+    (function () {
+      var btn = document.getElementById('maProfileCopyLink');
+      if (!btn) return;
+      btn.setAttribute('data-ma-copy', window.location.origin + <%= JSON.stringify(base) %>);
+    })();
+  </script>
+</body>
+</html>

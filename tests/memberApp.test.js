@@ -255,6 +255,70 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     assert.match(homeHtml, /Save as a phone app/);
     assert.match(homeHtml, /class="ma-tabbar"/);
     assert.match(homeHtml, /member-app\.css/);
+    // Profile avatar in the top bar links to /profile settings hub.
+    assert.match(homeHtml, /href="\/m\/[^"]+\/profile"/);
+    assert.match(homeHtml, /aria-label="Profile and settings"/);
+
+    const profilePage = await fetch(`${base}/m/${token}/profile`);
+    assert.equal(profilePage.status, 200);
+    const profileHtml = await profilePage.text();
+    assert.match(profileHtml, /Profile &amp; settings|Profile & settings/);
+    assert.match(profileHtml, /profile\/photo/);
+    assert.match(profileHtml, /name="companyName"/);
+    assert.match(profileHtml, /name="contactName"/);
+    assert.match(profileHtml, /Review settings/);
+    assert.match(profileHtml, /review\/settings/);
+    assert.match(profileHtml, /Invite a business/);
+    assert.match(profileHtml, /Save as a phone app/);
+
+    const profileSave = await fetch(`${base}/m/${token}/profile`, {
+      method: 'POST',
+      redirect: 'manual',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        companyName: 'Camas Flooring',
+        contactName: 'Pat Smith',
+        phone: '3605550199',
+        email: 'pat@example.com',
+      }),
+    });
+    assert.equal(profileSave.status, 303);
+    assert.match(String(profileSave.headers.get('location') || ''), /profile\?ok=profile_saved/);
+    const updatedMember = await store.getMember(network.id, sender.id);
+    assert.equal(updatedMember.companyName, 'Camas Flooring');
+    assert.equal(updatedMember.contactName, 'Pat Smith');
+    assert.equal(updatedMember.email, 'pat@example.com');
+    assert.equal(updatedMember.phone, '3605550199');
+
+    const tinyAvatar = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      'base64',
+    );
+    const avatarBoundary = '----maAvatarBoundary7MA4YWxk';
+    const avatarBody = Buffer.concat([
+      Buffer.from(
+        `--${avatarBoundary}\r\n`
+        + 'Content-Disposition: form-data; name="photo"; filename="avatar.png"\r\n'
+        + 'Content-Type: image/png\r\n\r\n',
+      ),
+      tinyAvatar,
+      Buffer.from(`\r\n--${avatarBoundary}--\r\n`),
+    ]);
+    const avatarUpload = await fetch(`${base}/m/${token}/profile/photo`, {
+      method: 'POST',
+      redirect: 'manual',
+      headers: { 'Content-Type': `multipart/form-data; boundary=${avatarBoundary}` },
+      body: avatarBody,
+    });
+    assert.equal(avatarUpload.status, 303);
+    assert.match(String(avatarUpload.headers.get('location') || ''), /profile\?ok=photo_saved/);
+    const withPhoto = await store.getMember(network.id, sender.id);
+    assert.ok(withPhoto.profilePhotoUpdatedAt);
+    const avatarGet = await fetch(`${base}/m/${token}/avatar.png`);
+    assert.equal(avatarGet.status, 200);
+    assert.match(String(avatarGet.headers.get('content-type') || ''), /image\//);
+    const homeWithPhoto = await (await fetch(`${base}/m/${token}`)).text();
+    assert.match(homeWithPhoto, /avatar\.png\?v=/);
 
     const manifest = await (await fetch(`${base}/m/${token}/manifest.webmanifest`)).json();
     assert.equal(manifest.name, 'Discount Home Services');
