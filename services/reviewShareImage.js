@@ -110,6 +110,43 @@ function hasCustomDefault(member) {
   return !!(member && member.reviewShareImageUpdatedAt);
 }
 
+/** Square logo for the public /rv request page (PNG, max 512px). */
+async function prepareReviewLogo(buffer) {
+  if (!buffer || !buffer.length) throw new Error('Image is empty.');
+  if (buffer.length > MAX_UPLOAD_BYTES) throw new Error('Image is too large (max 6 MB).');
+  return networkBrand.prepareImage('logo', buffer);
+}
+
+async function saveReviewLogo(networkId, memberId, prepared) {
+  return store.saveReviewLogo(networkId, memberId, prepared);
+}
+
+async function deleteReviewLogo(networkId, memberId) {
+  await store.deleteReviewLogo(networkId, memberId);
+}
+
+async function getReviewLogoBuffer(networkId, memberId) {
+  return store.getReviewLogo(networkId, memberId);
+}
+
+function reviewLogoPath(slug, updatedAt) {
+  const s = encodeURIComponent(String(slug || '').trim());
+  const v = encodeURIComponent(String(updatedAt || '').trim() || '1');
+  return `/rv/${s}/logo.png?v=${v}`;
+}
+
+function hasCustomLogo(member) {
+  return !!(member && member.reviewLogoUpdatedAt);
+}
+
+/** Prefer member logo, then network brand logo, else empty (caller shows initials). */
+function requestPageLogoUrl(member, brand) {
+  if (hasCustomLogo(member) && member.reviewSlug) {
+    return reviewLogoPath(member.reviewSlug, member.reviewLogoUpdatedAt);
+  }
+  return (brand && brand.logoUrl) || '';
+}
+
 module.exports = {
   OG_WIDTH,
   OG_HEIGHT,
@@ -125,4 +162,11 @@ module.exports = {
   shareImagePath,
   shareImageAbsoluteUrl,
   hasCustomDefault,
+  prepareReviewLogo,
+  saveReviewLogo,
+  deleteReviewLogo,
+  getReviewLogoBuffer,
+  reviewLogoPath,
+  hasCustomLogo,
+  requestPageLogoUrl,
 };

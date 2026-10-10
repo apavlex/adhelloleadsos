@@ -10,11 +10,39 @@
       topSettings: { href: base + '/review/settings', label: 'Review settings', on: true }
     }) %>
     <h1 class="ma-page-title">Review settings</h1>
-    <p class="ma-page-sub">Your public review links and the photo shown when the link is shared.</p>
+    <p class="ma-page-sub">Logo, review links, and the photo shown when your link is shared.</p>
 
     <%- include('_flash') %>
 
     <% const _needLinks = !linkCount; %>
+    <% const _hasLogo = typeof hasCustomLogo !== 'undefined' && hasCustomLogo; %>
+
+    <section class="ma-card" id="maReviewLogo">
+      <h2 style="font-size:16px;margin:0 0 6px">Request page logo</h2>
+      <p class="ma-hint" style="margin-top:0">Shown at the top of your public review page when customers scan your QR or open the link.</p>
+      <% if (_hasLogo && reviewLogoPath) { %>
+      <img class="rv-logo" src="<%= reviewLogoPath %>" alt="<%= member.companyName %> logo" style="margin:8px auto 12px">
+      <% } else if (brand.logoUrl) { %>
+      <img class="rv-logo" src="<%= brand.logoUrl %>" alt="" style="margin:8px auto 12px">
+      <p class="ma-hint" style="text-align:center">Using your network logo until you upload one here.</p>
+      <% } else { %>
+      <div class="rv-initials" aria-hidden="true" style="margin:8px auto 12px"><%= (member.companyName || '?').trim().charAt(0).toUpperCase() %></div>
+      <p class="ma-hint" style="text-align:center">Upload a logo to replace the letter initial.</p>
+      <% } %>
+      <form method="post" action="<%= base %>/review/logo" enctype="multipart/form-data" autocomplete="off">
+        <div class="ma-field">
+          <label class="ma-label" for="rvRequestLogo">Upload logo</label>
+          <input id="rvRequestLogo" name="logo" type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="ma-input" required>
+        </div>
+        <button type="submit" class="ma-btn ma-btn--soft ma-btn--block">Save logo</button>
+      </form>
+      <% if (_hasLogo) { %>
+      <form method="post" action="<%= base %>/review/logo" style="margin-top:8px" data-ma-confirm="Remove your custom logo from the review request page?">
+        <input type="hidden" name="remove" value="1">
+        <button type="submit" class="ma-btn ma-btn--ghost ma-btn--block">Remove logo</button>
+      </form>
+      <% } %>
+    </section>
 
     <section class="ma-card" id="maReviewLinks">
       <h2 style="font-size:16px;margin:0 0 6px">Your review links</h2>

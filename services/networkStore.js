@@ -168,6 +168,8 @@ function normalizeMember(raw) {
     reviewEmailScript: cleanText(m.reviewEmailScript, 4000),
     /** ISO stamp when a custom default OG/share image was saved (empty = use generated default). */
     reviewShareImageUpdatedAt: cleanText(m.reviewShareImageUpdatedAt, 40),
+    /** ISO stamp when a custom logo for the public review request page was saved. */
+    reviewLogoUpdatedAt: cleanText(m.reviewLogoUpdatedAt, 40),
     invitedByMemberId: cleanText(m.invitedByMemberId, 40),
     joinedAt: m.joinedAt || new Date().toISOString(),
     updatedAt: m.updatedAt || m.joinedAt || new Date().toISOString(),
@@ -336,6 +338,36 @@ async function deleteReviewShareImage(networkId, memberId, imageId) {
   await dbService.deleteStorageKey(reviewShareKey(networkId, memberId, imageId));
 }
 
+// ── Review request-page logo (per member) ────────────────────────────────────
+
+function reviewLogoKey(networkId, memberId) {
+  return `netreviewlogo:${networkId}:${memberId}`;
+}
+
+async function getReviewLogo(networkId, memberId) {
+  const row = await readJson(reviewLogoKey(networkId, memberId));
+  if (!row || !row.data) return null;
+  return {
+    contentType: String(row.contentType || 'image/png'),
+    buffer: Buffer.from(String(row.data), 'base64'),
+    updatedAt: row.updatedAt || '',
+  };
+}
+
+async function saveReviewLogo(networkId, memberId, { contentType, buffer }) {
+  const updatedAt = new Date().toISOString();
+  await dbService.putStorageKey(reviewLogoKey(networkId, memberId), {
+    contentType: contentType || 'image/png',
+    data: Buffer.from(buffer).toString('base64'),
+    updatedAt,
+  });
+  return updatedAt;
+}
+
+async function deleteReviewLogo(networkId, memberId) {
+  await dbService.deleteStorageKey(reviewLogoKey(networkId, memberId));
+}
+
 // ── Applications (member invites) ────────────────────────────────────────────
 
 const APPLICATION_STATUSES = new Set(['pending', 'approved', 'rejected']);
@@ -465,6 +497,9 @@ module.exports = {
   getReviewShareImage,
   saveReviewShareImage,
   deleteReviewShareImage,
+  getReviewLogo,
+  saveReviewLogo,
+  deleteReviewLogo,
   listApplications,
   getApplication,
   saveApplication,

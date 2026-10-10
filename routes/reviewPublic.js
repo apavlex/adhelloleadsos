@@ -53,10 +53,12 @@ function renderPage(res, page, { rating, thanks, error, formValues, imageId }, s
   const shareId = reviewShareImage.isImageId(imageId) ? String(imageId).trim() : '';
   const ogUrl = notify.reviewPageLink(page.slug, shareId ? { imageId: shareId } : undefined);
   const ogImageUrl = reviewShareImage.shareImageAbsoluteUrl(page.slug, shareId || 'default');
+  const logoUrl = reviewShareImage.requestPageLogoUrl(page.member, page.brand);
   res.setHeader('Cache-Control', 'private, no-store');
   res.setHeader('X-Robots-Tag', 'noindex');
   return res.status(status || 200).render('review_public', {
     ...page,
+    logoUrl,
     gate: reviewPage.reviewGate(rating),
     destinations: reviewPage.reviewDestinations(page.member.reviewLinks, page.slug),
     thanks: !!thanks,
@@ -94,6 +96,21 @@ router.get('/rv/:slug/og.jpg', (req, res) => serveShareImage(req, res, 'default'
 router.get('/rv/:slug/og.png', (req, res) => serveShareImage(req, res, 'default'));
 router.get('/rv/:slug/og/:imageId.jpg', (req, res) => serveShareImage(req, res, req.params.imageId));
 router.get('/rv/:slug/og/:imageId.png', (req, res) => serveShareImage(req, res, req.params.imageId));
+
+router.get('/rv/:slug/logo.png', async (req, res) => {
+  try {
+    const page = await loadPage(req.params.slug);
+    if (!page) return res.status(404).end();
+    const img = await reviewShareImage.getReviewLogoBuffer(page.network.id, page.member.id);
+    if (!img || !img.buffer) return res.status(404).end();
+    res.setHeader('Content-Type', img.contentType || 'image/png');
+    res.setHeader('Cache-Control', 'public, max-age=604800');
+    return res.end(img.buffer);
+  } catch (err) {
+    console.error('[review-page] logo failed:', err.message);
+    return res.status(404).end();
+  }
+});
 
 router.get('/rv/:slug/qr.png', async (req, res) => {
   try {
