@@ -12,6 +12,7 @@ const messagingTools = require('./mcpMessaging');
 const workspaceTools = require('./mcpWorkspaceOps');
 const prospectingTools = require('./mcpProspecting');
 const leadSourceTools = require('./mcpLeadSources');
+const agentOpsTools = require('./mcpAgentOps');
 const botActivity = require('./mcpBotActivity');
 const mcpLogger = require('./mcpLogger');
 const pavlexLogger = require('../pavlex/pavlexLogger');
@@ -54,6 +55,7 @@ const TOOL_NAMES = [
   ...workspaceTools.WORKSPACE_TOOL_NAMES,
   ...prospectingTools.PROSPECTING_TOOL_NAMES,
   ...leadSourceTools.LEAD_SOURCE_TOOL_NAMES,
+  ...agentOpsTools.AGENT_OPS_TOOL_NAMES,
 ];
 
 const LIST_LEADS_DESCRIPTION =
@@ -216,6 +218,10 @@ async function executeCrmTool(rawCtx, toolName, args) {
           result = await leadSourceTools.executeLeadSourceTool(ctx, name, input);
           break;
         }
+        if (agentOpsTools.AGENT_OPS_TOOL_NAMES.includes(name)) {
+          result = await agentOpsTools.executeAgentOpsTool(ctx, name, input);
+          break;
+        }
         const err = new Error(`Unknown tool: ${name}`);
         err.code = 'UNKNOWN_TOOL';
         throw err;
@@ -322,6 +328,18 @@ function summarizeToolResult(toolName, payload) {
   }
   if (toolName === 'list_team_members' && Array.isArray(payload.members)) {
     return `${payload.members.length} members`;
+  }
+  if (toolName === 'list_ops_agents' && Array.isArray(payload.agents)) {
+    return `${payload.agents.length} ops agents`;
+  }
+  if (toolName === 'get_ops_agent' && payload.agent) {
+    return payload.agent.name || 'ops agent';
+  }
+  if (toolName === 'run_ops_agent') {
+    return payload.skipped ? 'skipped' : 'ran';
+  }
+  if (toolName === 'update_ops_agent' && Array.isArray(payload.agents)) {
+    return 'settings updated';
   }
   return 'ok';
 }
@@ -544,6 +562,7 @@ function getOpenAiFunctionTools() {
     ...workspaceTools.openAiFunctionTools(),
     ...prospectingTools.openAiFunctionTools(),
     ...leadSourceTools.openAiFunctionTools(),
+    ...agentOpsTools.openAiFunctionTools(),
     {
       type: 'function',
       function: {
