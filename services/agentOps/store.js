@@ -55,8 +55,8 @@ function defaultSettings() {
   return {
     enabled: true,
     roles: {
-      sdr: { enabled: true, autoTick: true },
-      review: { enabled: true, autoTick: true },
+      prospect: { enabled: true, autoTick: true },
+      opportunity: { enabled: true, autoTick: true },
       dispatcher: { enabled: true, autoTick: true },
       ops: { enabled: true, autoTick: true },
     },
@@ -64,6 +64,25 @@ function defaultSettings() {
     lastTickByRole: {},
     updatedAt: null,
   };
+}
+
+/** Fold legacy sdr/review settings into prospect/opportunity. */
+function migrateRoleSettings(roles) {
+  const next = roles && typeof roles === 'object' ? { ...roles } : {};
+  if (next.sdr && !next.prospect) next.prospect = next.sdr;
+  if (next.review && !next.opportunity) next.opportunity = next.review;
+  delete next.sdr;
+  delete next.review;
+  return next;
+}
+
+function migrateTickByRole(map) {
+  const next = map && typeof map === 'object' ? { ...map } : {};
+  if (next.sdr && !next.prospect) next.prospect = next.sdr;
+  if (next.review && !next.opportunity) next.opportunity = next.review;
+  delete next.sdr;
+  delete next.review;
+  return next;
 }
 
 function getSettings(workspaceId) {
@@ -77,8 +96,9 @@ function getSettings(workspaceId) {
     ...raw,
     roles: {
       ...base.roles,
-      ...(raw.roles && typeof raw.roles === 'object' ? raw.roles : {}),
+      ...migrateRoleSettings(raw.roles),
     },
+    lastTickByRole: migrateTickByRole(raw.lastTickByRole),
   };
 }
 
