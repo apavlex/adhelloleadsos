@@ -14,6 +14,7 @@ const { tradeLabel } = require('./networkTrades');
 const { createReferralLinkToken, createMemberPortalToken } = require('./networkLinkSign');
 const { UNROUTED_REASONS } = require('./referralExchange');
 const { brandView } = require('./networkBrand');
+const reviewRequestScript = require('./reviewRequestScript');
 
 function baseUrlFromReq(req) {
   const env = String(process.env.BASE_URL || '').trim();
@@ -168,6 +169,8 @@ async function sendReviewRequest({
   toEmail,
   customerName,
   channel,
+  useAi = true,
+  scriptOverride,
 }) {
   const phone = String(toPhone || '').trim();
   const email = String(toEmail || '').trim();
@@ -194,14 +197,44 @@ async function sendReviewRequest({
 
   const prefer = String(channel || 'auto').trim().toLowerCase();
   const company = member.companyName || brandView(network).appName;
-  const smsBody = `Hi ${name.split(/\s+/)[0] || 'there'} — thanks for choosing ${company}! When you have a minute, leave a quick review: ${link}`;
-  const subject = `Thanks for choosing ${company}`;
-  const emailBody = `Hi ${name},\n\nThanks for choosing ${company}. If you have a minute, we'd love a quick review:\n\n${link}\n\nThank you!`;
+  const wantAi = useAi !== false && String(useAi).toLowerCase() !== '0' && String(useAi).toLowerCase() !== 'false';
+
+  let smsBody = '';
+  let subject = '';
+  let emailBody = '';
+  let copyProvider = 'script';
+
+  const trySms = prefer !== 'email' && phone && phone !== 'N/A';
+  const tryEmail = prefer !== 'sms' && email && email !== 'N/A' && email.includes('@');
+
+  if (trySms) {
+    const built = await reviewRequestScript.buildReviewSms({
+      member,
+      customerName: name,
+      companyName: company,
+      reviewLink: link,
+      useAi: wantAi,
+      scriptOverride,
+    });
+    smsBody = built.message;
+    copyProvider = built.provider;
+  }
+  if (tryEmail || (!trySms && prefer !== 'sms')) {
+    const builtEmail = await reviewRequestScript.buildReviewEmail({
+      member,
+      customerName: name,
+      companyName: company,
+      reviewLink: link,
+      useAi: wantAi,
+      scriptOverride: prefer === 'email' ? scriptOverride : undefined,
+    });
+    subject = builtEmail.subject;
+    emailBody = builtEmail.body;
+    if (!smsBody) copyProvider = builtEmail.provider;
+  }
 
   let sent = null;
   let error = '';
-  const trySms = prefer !== 'email' && phone && phone !== 'N/A';
-  const tryEmail = prefer !== 'sms' && email && email !== 'N/A' && email.includes('@');
 
   if (trySms) {
     if (!ready.smsReady) {
@@ -215,7 +248,14 @@ async function sendReviewRequest({
           companyName: company,
           integrationEnv,
         });
-        sent = { channel: 'sms', provider: 'ghl', messageId: result.messageId || '', reviewUrl: link };
+        sent = {
+          channel: 'sms',
+          provider: 'ghl',
+          messageId: result.messageId || '',
+          reviewUrl: link,
+          copyProvider,
+          message: smsBody,
+        };
       } catch (err) {
         error = err.message || 'SMS failed.';
       }
@@ -235,7 +275,15 @@ async function sendReviewRequest({
           companyName: company,
           integrationEnv,
         });
-        sent = { channel: 'email', provider: 'ghl', messageId: result.messageId || '', reviewUrl: link };
+        sent = {
+          channel: 'email',
+          provider: 'ghl',
+          messageId: result.messageId || '',
+          reviewUrl: link,
+          copyProvider,
+          message: emailBody,
+          subject,
+        };
       } catch (err) {
         error = error || err.message || 'Email failed.';
       }
@@ -258,6 +306,7 @@ async function sendReviewRequest({
           provider: 'ghl',
           messageSid: sent.messageId,
           source: 'member_review_request',
+          copyProvider,
           customerName: name,
           customerPhone: phone || undefined,
           customerEmail: email || undefined,

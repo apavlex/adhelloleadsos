@@ -23,6 +23,7 @@ const networkReferrals = require('../services/networkReferrals');
 const networkBrand = require('../services/networkBrand');
 const work = require('../services/memberWork');
 const reviewPage = require('../services/reviewPage');
+const reviewRequestScript = require('../services/reviewRequestScript');
 const contractorPortal = require('../services/contractorPortal');
 const memberAppointmentLink = require('../services/memberAppointmentLink');
 const { verifyNetworkToken } = require('../services/networkLinkSign');
@@ -42,6 +43,7 @@ const OK_MESSAGES = {
   note: 'Note saved.',
   invited: 'Thanks! The network will review them and send their app link.',
   saved: 'Review links saved.',
+  script_saved: 'Review SMS script saved. AI will use it when you send via GHL.',
   review_sms: 'Review request sent by text via Go High Level.',
   review_email: 'Review request sent by email via Go High Level.',
   customer: 'Customer saved.',
@@ -656,6 +658,7 @@ router.post('/m/:token/customers/c/:id/request-review', form, withMember(async (
     toEmail: data.customer.email,
     customerName: data.customer.name,
     channel,
+    useAi: true,
   });
   if (!result.ok) {
     return renderCustomerPage(res, ctx, {
@@ -875,7 +878,16 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
     email: String((formValues && formValues.email) || q.email || '').trim(),
     name: String((formValues && formValues.name) || q.name || '').trim(),
     channel: String((formValues && formValues.channel) || q.channel || 'auto').trim() || 'auto',
+    useAi: formValues && Object.prototype.hasOwnProperty.call(formValues, 'useAi')
+      ? !!formValues.useAi
+      : String(q.useAi || '1') !== '0',
   };
+  const smsScript = reviewRequestScript.memberSmsScript(member);
+  const ghlWorkflowPrompt = reviewRequestScript.buildGhlReviewWorkflowPrompt({
+    companyName: member.companyName,
+    reviewLink: `${baseUrl}/rv/${member.reviewSlug}`,
+    smsScript,
+  });
   return render(res, 'review', { ...ctx, member }, {
     reviewUrl: `${baseUrl}/rv/${member.reviewSlug}`,
     reviewPath: `/rv/${member.reviewSlug}`,
@@ -889,6 +901,9 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
     askShare: String(q.ask || '') === '1',
     messaging,
     formValues: defaults,
+    smsScript,
+    defaultSmsScript: reviewRequestScript.DEFAULT_SMS_SCRIPT,
+    ghlWorkflowPrompt,
     flash: flash || flashFromQuery(req),
   }, status);
 }
@@ -906,15 +921,34 @@ router.post('/m/:token/review', form, withMember(async (req, res, ctx) => {
   return res.redirect(303, `${ctx.base}/review?ok=saved`);
 }));
 
+/** Save the AI/GHL review SMS script (placeholders {{name}}, {{company}}, {{review_link}}). */
+router.post('/m/:token/review/script', form, withMember(async (req, res, ctx) => {
+  const member = await ensureReviewSetup(ctx);
+  const body = req.body || {};
+  const script = reviewRequestScript.cleanScript(body.smsScript);
+  const saved = await store.saveMember(ctx.network.id, {
+    ...member,
+    reviewSmsScript: script || reviewRequestScript.DEFAULT_SMS_SCRIPT,
+  });
+  if (String(body.next || '') === 'stay') {
+    return renderReview(req, res, { ...ctx, member: saved }, { ok: OK_MESSAGES.script_saved });
+  }
+  return res.redirect(303, `${ctx.base}/review?ok=script_saved`);
+}));
+
 /** Send a review request to a customer through the network workspace's GHL SMS/email. */
 router.post('/m/:token/review/send', form, withMember(async (req, res, ctx) => {
   const member = await ensureReviewSetup(ctx);
   const body = req.body || {};
+  const rawAi = Array.isArray(body.useAi) ? body.useAi[body.useAi.length - 1] : body.useAi;
   const formValues = {
     phone: String(body.phone || '').trim(),
     email: String(body.email || '').trim(),
     name: String(body.name || '').trim(),
     channel: String(body.channel || 'auto').trim() || 'auto',
+    useAi: rawAi === undefined || rawAi === ''
+      ? true
+      : !(String(rawAi) === '0' || String(rawAi).toLowerCase() === 'false'),
   };
   if (!reviewPage.countLinks(member.reviewLinks)) {
     return renderReview(req, res, { ...ctx, member }, {
@@ -934,6 +968,7 @@ router.post('/m/:token/review/send', form, withMember(async (req, res, ctx) => {
     toEmail: formValues.email,
     customerName: formValues.name,
     channel: formValues.channel,
+    useAi: formValues.useAi,
   });
   if (!result.ok) {
     return renderReview(req, res, { ...ctx, member }, { error: result.error || 'Could not send.' }, 400, formValues);

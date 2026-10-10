@@ -82,6 +82,7 @@ test('sendReviewRequest texts the customer through GHL first', async () => {
     toEmail: 'jamie@example.com',
     customerName: 'Jamie Lee',
     channel: 'auto',
+    useAi: false,
   });
   assert.equal(result.ok, true);
   assert.equal(result.channel, 'sms');
@@ -90,6 +91,7 @@ test('sendReviewRequest texts the customer through GHL first', async () => {
   assert.equal(calls.email.length, 0);
   assert.match(calls.sms[0].message, /https:\/\/app\.example\/rv\/brightline-electric/);
   assert.match(calls.sms[0].message, /Brightline Electric/);
+  assert.match(result.message, /rv\/brightline-electric/);
 });
 
 test('sendReviewRequest falls back to GHL email when SMS is not ready', async () => {
@@ -106,6 +108,7 @@ test('sendReviewRequest falls back to GHL email when SMS is not ready', async ()
     toPhone: '3605550199',
     toEmail: 'jamie@example.com',
     customerName: 'Jamie Lee',
+    useAi: false,
   });
   assert.equal(result.ok, true);
   assert.equal(result.channel, 'email');

@@ -301,6 +301,10 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     assert.match(reviewHtml, /review\/send/);
     assert.match(reviewHtml, /Send review request/);
     assert.match(reviewHtml, /Go High Level/);
+    assert.match(reviewHtml, /\{\{review_link\}\}/);
+    assert.match(reviewHtml, /SMS script/);
+    assert.match(reviewHtml, /Use AI/);
+    assert.match(reviewHtml, /Copy for GHL/);
 
     const reviewSend = await fetch(`${base}/m/${token}/review/send`, {
       method: 'POST',

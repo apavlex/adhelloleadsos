@@ -161,6 +161,10 @@ function normalizeMember(raw) {
     ghlAttemptedAt: m.ghlAttemptedAt || '',
     reviewSlug: cleanSlug(m.reviewSlug),
     reviewLinks: normalizeReviewLinks(m.reviewLinks),
+    /** Member-editable AI/GHL review-request SMS script ({{name}}, {{company}}, {{review_link}}). */
+    reviewSmsScript: cleanText(m.reviewSmsScript, 800),
+    reviewEmailSubject: cleanText(m.reviewEmailSubject, 180),
+    reviewEmailScript: cleanText(m.reviewEmailScript, 4000),
     invitedByMemberId: cleanText(m.invitedByMemberId, 40),
     joinedAt: m.joinedAt || new Date().toISOString(),
     updatedAt: m.updatedAt || m.joinedAt || new Date().toISOString(),

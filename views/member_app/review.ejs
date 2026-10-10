@@ -7,15 +7,16 @@
   <main class="ma-shell">
     <%- include('_top', { topTitle: 'Review' }) %>
     <h1 class="ma-page-title">Request a review</h1>
-    <p class="ma-page-sub">Send a text or email through Go High Level, or share your link. Customers pick stars, then go to Google, Yelp, or any site you add below.</p>
+    <p class="ma-page-sub">AI writes a short text from your script, includes your review link, and sends it through Go High Level.</p>
 
     <%- include('_flash') %>
 
     <% const _msg = typeof messaging !== 'undefined' && messaging ? messaging : { configured: false, smsReady: false, emailReady: false }; %>
-    <% const _fv = typeof formValues !== 'undefined' && formValues ? formValues : { phone: '', email: '', name: '', channel: 'auto' }; %>
+    <% const _fv = typeof formValues !== 'undefined' && formValues ? formValues : { phone: '', email: '', name: '', channel: 'auto', useAi: true }; %>
+    <% const _script = typeof smsScript !== 'undefined' ? smsScript : ''; %>
     <section class="ma-card" id="maAskForm">
       <form method="post" action="<%= base %>/review/send" autocomplete="off">
-        <p class="ma-hint" style="margin-top:0">Sends from your network’s Go High Level number / email.</p>
+        <p class="ma-hint" style="margin-top:0">Sends from your network’s Go High Level number / email. Your review link is always included.</p>
         <% if (!_msg.configured) { %>
         <p class="ma-flash ma-flash--err">Go High Level isn’t connected yet. Ask your agency to connect GHL (API key, Location ID, SMS from number, and outbound email) in Workspace → Integrations.</p>
         <% } else if (!_msg.smsReady && !_msg.emailReady) { %>
@@ -43,12 +44,39 @@
             <option value="email" <%= _fv.channel === 'email' ? 'selected' : '' %> <%= _msg.emailReady ? '' : 'disabled' %>>Email (GHL)</option>
           </select>
         </div>
+        <label class="ma-check" style="display:flex;gap:10px;align-items:flex-start;margin:4px 0 14px">
+          <input type="hidden" name="useAi" value="0">
+          <input type="checkbox" name="useAi" value="1" <%= _fv.useAi === false ? '' : 'checked' %> style="margin-top:3px">
+          <span><strong>Use AI</strong> to personalize the script for this customer (keeps your review link).</span>
+        </label>
         <button type="submit" class="ma-btn ma-btn--block" id="maAskReviewGhl" <%= linkCount && (_msg.smsReady || _msg.emailReady) && member.status === 'active' ? '' : 'disabled' %>>
           <%- icons.review %> Send review request
         </button>
       </form>
       <% if (!linkCount) { %>
       <p class="ma-flash ma-flash--err" style="width:100%;margin-top:12px">Add at least one review link below so customers have somewhere to post.</p>
+      <% } %>
+    </section>
+
+    <section class="ma-section">
+      <div class="ma-section__head"><h2>SMS script</h2></div>
+      <form method="post" action="<%= base %>/review/script" class="ma-card" autocomplete="off">
+        <p class="ma-hint" style="margin-top:0">AI starts from this script. Use <code>{{name}}</code>, <code>{{company}}</code>, and <code>{{review_link}}</code>.</p>
+        <div class="ma-field">
+          <label class="ma-label" for="rvSmsScript">Review request text</label>
+          <textarea id="rvSmsScript" name="smsScript" class="ma-textarea" rows="4" maxlength="800" required><%= _script %></textarea>
+        </div>
+        <p class="ma-hint">Your live link: <code><%= typeof reviewUrl !== 'undefined' ? reviewUrl : '' %></code></p>
+        <button type="submit" class="ma-btn ma-btn--soft ma-btn--block">Save script</button>
+      </form>
+      <% if (typeof ghlWorkflowPrompt !== 'undefined' && ghlWorkflowPrompt) { %>
+      <div class="ma-card" style="margin-top:10px">
+        <p class="ma-hint" style="margin-top:0">Paste into GHL Workflow AI to automate post-job review texts with the same script + link.</p>
+        <div class="ma-link-box">
+          <code id="rvGhlPrompt" style="white-space:pre-wrap;font-size:12px;max-height:140px;overflow:auto"><%= ghlWorkflowPrompt %></code>
+          <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-ma-copy-from="rvGhlPrompt"><%- icons.copy %> Copy for GHL</button>
+        </div>
+      </div>
       <% } %>
     </section>
 
