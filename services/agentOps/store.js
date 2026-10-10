@@ -155,6 +155,43 @@ function updateJob(workspaceId, jobId, patch) {
   return next;
 }
 
+/** Jobs for a workspace (newest first). Optional status filter: queued | running | done | failed. */
+function listJobs(workspaceId, { status = null, limit = MAX_JOBS_LISTED } = {}) {
+  const wid = String(workspaceId || '').trim();
+  if (!wid) return [];
+  const db = getDb();
+  if (!db || typeof db.listKvKeysSync !== 'function') return [];
+  const prefix = `${JOB_PREFIX}${wid}:`;
+  let keys = [];
+  try {
+    keys = db.listKvKeysSync(prefix) || [];
+  } catch (_) {
+    return [];
+  }
+  const want = status ? String(status) : null;
+  const jobs = [];
+  for (const key of keys) {
+    const job = readJson(key, null);
+    if (!job || !job.id) continue;
+    if (want && job.status !== want) continue;
+    jobs.push(job);
+  }
+  jobs.sort((a, b) => String(b.startedAt || b.createdAt || '').localeCompare(String(a.startedAt || a.createdAt || '')));
+  return jobs.slice(0, Math.min(MAX_JOBS_LISTED, Math.max(1, limit)));
+}
+
+const STALE_RUNNING_MS = 10 * 60 * 1000;
+
+/** Active (non-stale) running jobs for the workspace. */
+function listRunningJobs(workspaceId) {
+  const now = Date.now();
+  return listJobs(workspaceId, { status: 'running', limit: MAX_JOBS_LISTED }).filter((job) => {
+    const started = Date.parse(job.startedAt || job.createdAt || '');
+    if (!Number.isFinite(started)) return true;
+    return now - started < STALE_RUNNING_MS;
+  });
+}
+
 function listRecentRuns(workspaceId, limit = 20) {
   const wid = String(workspaceId || '').trim();
   if (!wid) return [];
@@ -233,6 +270,8 @@ module.exports = {
   createJob,
   getJob,
   updateJob,
+  listJobs,
+  listRunningJobs,
   listRecentRuns,
   appendRun,
   listInsights,
@@ -241,4 +280,5 @@ module.exports = {
   newId,
   nowIso,
   MAX_JOBS_LISTED,
+  STALE_RUNNING_MS,
 };
