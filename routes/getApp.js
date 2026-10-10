@@ -1,11 +1,11 @@
 /**
- * Get the app — workspace Referral app only (PWA → /today).
- * Partner / contractor apps live on Network → Members.
+ * Get the app — workspace owner's Referral app (member PWA at /m/:token).
+ * Partner / contractor apps for other businesses stay on Network → Members.
  */
 const express = require('express');
 const QRCode = require('qrcode');
 const whiteLabel = require('../services/whiteLabel');
-const { getPublicBaseUrl } = require('../lib/publicBaseUrl');
+const { ensureOwnerReferralApp } = require('../services/ownerReferralApp');
 
 const router = express.Router();
 
@@ -13,14 +13,18 @@ router.get('/', async (req, res, next) => {
   try {
     const ws = req.workspace || {};
     const brand = whiteLabel.brandForWorkspace(ws);
-    const openUrl = `${getPublicBaseUrl(req)}/today`;
+    const app = await ensureOwnerReferralApp(req);
     res.render('get_app', {
-      title: `Get ${brand.appName} | Agency OS`,
+      title: `Get Referral app | Agency OS`,
       activePage: 'get-app',
       navPrimary: 'get-app',
       appName: brand.appName,
-      openUrl,
-      openHost: openUrl.replace(/^https?:\/\//, ''),
+      /** Absolute URL for Share + QR (installable member app). */
+      openUrl: app.url,
+      /** In-app path so Open stays in the browser/PWA session. */
+      openPath: app.path,
+      openHost: app.url.replace(/^https?:\/\//, ''),
+      networkName: (app.network && app.network.name) || 'your network',
     });
   } catch (err) {
     next(err);
@@ -29,7 +33,8 @@ router.get('/', async (req, res, next) => {
 
 router.get('/qr.png', async (req, res) => {
   try {
-    const png = await QRCode.toBuffer(`${getPublicBaseUrl(req)}/today`, {
+    const app = await ensureOwnerReferralApp(req);
+    const png = await QRCode.toBuffer(app.url, {
       type: 'png',
       width: 480,
       margin: 2,
@@ -37,7 +42,7 @@ router.get('/qr.png', async (req, res) => {
       color: { dark: '#0f172a', light: '#ffffff' },
     });
     res.setHeader('Content-Type', 'image/png');
-    res.setHeader('Cache-Control', 'private, max-age=86400');
+    res.setHeader('Cache-Control', 'private, max-age=300');
     return res.end(png);
   } catch (err) {
     return res.status(500).end();
