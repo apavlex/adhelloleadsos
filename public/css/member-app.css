@@ -15,6 +15,9 @@
   --acc-ink: color-mix(in srgb, var(--acc) 80%, black);
   --radius: 20px;
   --tabbar-h: 50px;
+  /* Review FAB sits above the bar; keep last page content clear of it. */
+  --tabbar-fab-overhang: 36px;
+  --tabbar-content-gap: 40px;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
   /* SF Pro on Apple devices; Inter/Manrope elsewhere */
@@ -97,7 +100,10 @@ body:has(> .ma-tabbar) .ma-shell {
 .ma-shell {
   max-width: 480px;
   margin: 0 auto;
-  padding: calc(var(--safe-t) + 14px) 18px calc(var(--tabbar-h) + var(--safe-b) + 12px);
+  padding:
+    calc(var(--safe-t) + 14px)
+    18px
+    calc(var(--tabbar-h) + var(--tabbar-fab-overhang) + var(--tabbar-content-gap) + var(--safe-b));
 }
 .ma-shell--plain { padding-bottom: calc(var(--safe-b) + 32px); }
 
@@ -399,7 +405,12 @@ button.ma-settings-row:active {
 
 /* Segmented control */
 .ma-seg { display: grid; grid-template-columns: 1fr 1fr; background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 4px; margin-bottom: 14px; }
-.ma-seg a { text-align: center; text-decoration: none; font-weight: 800; font-size: 14px; padding: 9px 0; border-radius: 999px; color: var(--muted); }
+.ma-seg a {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  text-align: center; text-decoration: none; font-weight: 800; font-size: 13px;
+  padding: 9px 6px; border-radius: 999px; color: var(--muted);
+}
+.ma-seg a svg { width: 15px; height: 15px; flex-shrink: 0; }
 .ma-seg a.is-on { background: var(--acc); color: var(--on); }
 .ma-seg--3 { grid-template-columns: repeat(3, 1fr); }
 
@@ -531,6 +542,21 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
 .ma-btn--danger { background: transparent; color: #e11d48; border: 1px solid rgba(225, 29, 72, 0.3); }
 .ma-btn--sm { min-height: 38px; padding: 8px 14px; font-size: 13px; }
 .ma-btn svg { width: 18px; height: 18px; }
+.ma-btn[disabled], .ma-btn[aria-busy='true'] {
+  opacity: 0.72;
+  cursor: wait;
+  pointer-events: none;
+}
+.ma-btn[aria-busy='true']::after {
+  content: "";
+  width: 14px; height: 14px; margin-left: 2px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 999px;
+  animation: ma-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes ma-spin { to { transform: rotate(360deg); } }
 .ma-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .ma-actions form { margin: 0; }
 .ma-inline { display: flex; gap: 8px; align-items: center; }
@@ -545,8 +571,10 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
 }
 
 /* Bottom tab bar — flush to the screen edge. Safe-area is ONLY padding-bottom
-   (no min-height add-on — that double-counted on some iOS WebKits and left a tall white shelf). */
+   (no min-height add-on — that double-counted on some iOS WebKits and left a tall white shelf).
+   Frosted bar + short fade so the Review FAB is only half-covered and the top edge blends. */
 .ma-tabbar {
+  --tabbar-fill: color-mix(in srgb, var(--card) 78%, transparent);
   position: fixed;
   left: 0;
   right: 0;
@@ -556,8 +584,10 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
   z-index: 40;
   box-sizing: border-box;
   -webkit-transform: translate3d(0, 0, 0); transform: translate3d(0, 0, 0);
-  background: var(--card);
-  box-shadow: 0 -0.5px 0 rgba(0, 0, 0, 0.18);
+  background: var(--tabbar-fill);
+  -webkit-backdrop-filter: saturate(160%) blur(18px);
+  backdrop-filter: saturate(160%) blur(18px);
+  box-shadow: none;
   /* Height = inner tabs + home-indicator pad only */
   height: auto;
   min-height: 0;
@@ -567,29 +597,28 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
 }
 .ma-tabbar::before,
 .ma-tabbar::after {
-  /* Paint past the bar (above FAB bleed + below home indicator) so no page color shows through */
   content: "";
   position: absolute;
   left: 0;
   right: 0;
-  background: var(--card);
   pointer-events: none;
   z-index: -1;
 }
+/* Soft fade only as tall as half the Review FAB — no solid shelf above the bar. */
 .ma-tabbar::before {
-  top: -40px;
-  height: 40px;
+  top: -26px;
+  height: 26px;
+  background: linear-gradient(to top, var(--tabbar-fill), transparent);
 }
 .ma-tabbar::after {
   top: 100%;
   height: 200px;
+  background: var(--card);
 }
 @media (prefers-color-scheme: dark) {
   .ma-tabbar {
-    background: #1c1c1e;
-    box-shadow: 0 -0.5px 0 rgba(255, 255, 255, 0.14);
+    --tabbar-fill: color-mix(in srgb, #1c1c1e 82%, transparent);
   }
-  .ma-tabbar::before,
   .ma-tabbar::after { background: #1c1c1e; }
 }
 .ma-tabbar__inner {
@@ -599,7 +628,7 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   align-items: end;
-  background: inherit;
+  background: transparent;
 }
 .ma-tab {
   display: flex;
@@ -616,11 +645,16 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
 }
 .ma-tab svg { width: 24px; height: 24px; }
 .ma-tab.is-on { color: var(--acc); }
-.ma-tab--send { position: relative; }
+.ma-tab--send { position: relative; z-index: 1; }
 .ma-tab--send .ma-tab__fab {
   width: 52px; height: 52px; border-radius: 999px; background: var(--acc); color: var(--on);
-  display: inline-flex; align-items: center; justify-content: center; margin-top: -22px; margin-bottom: 1px;
-  box-shadow: 0 8px 20px color-mix(in srgb, var(--acc) 45%, transparent); border: 4px solid var(--bg);
+  display: inline-flex; align-items: center; justify-content: center;
+  /* Half the circle sits above the frosted bar */
+  margin-top: -26px; margin-bottom: 1px;
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--acc) 45%, transparent);
+  border: 4px solid color-mix(in srgb, var(--bg) 70%, transparent);
+  position: relative;
+  z-index: 2;
 }
 .ma-tab--send .ma-tab__fab svg { width: 24px; height: 24px; }
 .ma-tab--send.is-on { color: var(--acc); }
