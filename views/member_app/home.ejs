@@ -96,14 +96,16 @@
       <% } %>
     </section>
 
-    <% if (_appt) { %>
     <section class="ma-section" style="margin-top:14px">
       <div class="ma-dash-actions">
-        <a class="ma-btn" href="<%= base %>/send"><%- icons.send %> Send referral</a>
+        <a class="ma-btn" href="<%= base %>/review?ask=1"><%- icons.review %> Request review</a>
+        <% if (_appt) { %>
         <a class="ma-btn ma-btn--soft" href="<%= _appt.portalLeadsPath %>"><%- icons.leads %> Leads + alerts</a>
+        <% } else { %>
+        <a class="ma-btn ma-btn--soft" href="<%= base %>/send"><%- icons.send %> Send referral</a>
+        <% } %>
       </div>
     </section>
-    <% } %>
 
     <% if (waiting.length || _recentLeads.length) { %>
     <section class="ma-section">

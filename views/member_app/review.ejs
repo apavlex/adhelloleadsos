@@ -6,19 +6,22 @@
 <body>
   <main class="ma-shell">
     <%- include('_top', { topTitle: 'Review' }) %>
-    <h1 class="ma-page-title">Get more reviews</h1>
-    <p class="ma-page-sub">Have happy customers scan your code or send them your link. They pick a star rating, then go to Google, Yelp, Thumbtack or any review site you add below. Unhappy customers can message you privately first.</p>
+    <h1 class="ma-page-title">Request a review</h1>
+    <p class="ma-page-sub">Text or share your link with a happy customer. They pick stars, then go to Google, Yelp, or any site you add below.</p>
 
     <%- include('_flash') %>
 
     <section class="ma-card ma-qr">
-      <img src="<%= reviewPath %>/qr.png" alt="QR code for your review page" width="220" height="220">
+      <button type="button" class="ma-btn ma-btn--block" id="maAskReview" data-ma-share="<%= reviewUrl %>" data-ma-share-title="Leave <%= member.companyName %> a review" <%= linkCount ? '' : 'disabled' %>>
+        <%- icons.review %> Request a review
+      </button>
+      <p class="ma-hint" style="text-align:center;margin:10px 0 0">Opens your phone’s share sheet so you can text or message the customer.</p>
+      <img src="<%= reviewPath %>/qr.png" alt="QR code for your review page" width="220" height="220" style="margin-top:18px">
       <div class="ma-link-box">
         <code id="rvLink"><%= reviewUrl %></code>
         <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-ma-copy="<%= reviewUrl %>"><%- icons.copy %> Copy</button>
       </div>
       <div class="ma-actions" style="justify-content:center;width:100%">
-        <button type="button" class="ma-btn ma-btn--sm" data-ma-share="<%= reviewUrl %>" data-ma-share-title="Leave <%= member.companyName %> a review"><%- icons.share %> Share link</button>
         <a class="ma-btn ma-btn--sm ma-btn--ghost" href="<%= reviewPath %>/qr.png?download=1" download><%- icons.download %> Download QR</a>
         <a class="ma-btn ma-btn--sm ma-btn--ghost" href="<%= reviewPath %>" target="_blank" rel="noopener">Preview</a>
       </div>
@@ -93,5 +96,13 @@
     </section>
   </main>
   <%- include('_tabbar') %>
+  <% if (typeof askShare !== 'undefined' && askShare && linkCount) { %>
+  <script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var btn = document.getElementById('maAskReview');
+    if (btn) setTimeout(function () { btn.click(); }, 350);
+  });
+  </script>
+  <% } %>
 </body>
 </html>

@@ -840,6 +840,7 @@ async function renderReview(req, res, ctx, flash, status) {
     otherRows: reviewPage.otherFormRows(member.reviewLinks),
     linkCount: reviewPage.countLinks(member.reviewLinks),
     feedback: feedback.slice(0, 10).map((f) => ({ ...f, when: when(f.createdAt) })),
+    askShare: String(req.query.ask || '') === '1',
     flash: flash || flashFromQuery(req),
   }, status);
 }

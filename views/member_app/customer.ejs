@@ -16,7 +16,7 @@
     <div class="ma-quick">
       <a class="ma-quick__btn<%= tel ? '' : ' is-off' %>" <%- tel ? 'href="tel:' + tel + '"' : 'aria-disabled="true"' %>><%- icons.phone %><span>Call</span></a>
       <a class="ma-quick__btn<%= tel ? '' : ' is-off' %>" <%- tel ? 'href="sms:' + tel + '"' : 'aria-disabled="true"' %>><%- icons.send %><span>Text</span></a>
-      <a class="ma-quick__btn<%= customer.email ? '' : ' is-off' %>" <%- customer.email ? 'href="mailto:' + encodeURIComponent(customer.email).replace(/%40/g, '@') + '"' : 'aria-disabled="true"' %>><%- icons.mail %><span>Email</span></a>
+      <a class="ma-quick__btn" href="<%= base %>/review?ask=1"><%- icons.review %><span>Review</span></a>
       <a class="ma-quick__btn<%= customer.address ? '' : ' is-off' %>" <%- customer.address ? 'href="https://maps.apple.com/?q=' + encodeURIComponent(customer.address) + '" target="_blank" rel="noopener"' : 'aria-disabled="true"' %>><%- icons.mapPin %><span>Map</span></a>
     </div>
     <% } else { %>
