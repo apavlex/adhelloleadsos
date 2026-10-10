@@ -16,6 +16,7 @@
         { id: 'referrals', label: 'Referrals', href: base + '/referrals', icon: icons.referrals },
         { id: 'send', label: 'Send', href: base + '/send', icon: icons.send },
       ];
+  const _appName = (brand && brand.appName) ? brand.appName : 'this app';
 %>
 <nav class="ma-tabbar" aria-label="App sections">
   <div class="ma-tabbar__inner">
@@ -27,8 +28,49 @@
     <% }); %>
   </div>
 </nav>
-<div class="ma-install" id="maInstall" hidden>
-  Add <b><%= brand.appName %></b> to your Home Screen to request reviews faster: tap <b>Share</b>, then <b>Add to Home Screen</b>.
-  <button type="button" aria-label="Dismiss" data-ma-install-close>&times;</button>
+
+<div class="ma-install-modal" id="maInstall" hidden role="dialog" aria-modal="true" aria-labelledby="maInstallTitle">
+  <div class="ma-install-sheet">
+    <button type="button" class="ma-install-close-x" aria-label="Close" data-ma-install-close>&times;</button>
+    <h2 id="maInstallTitle">Save as a phone app</h2>
+    <p class="ma-install-lead" data-ma-install-lead>
+      Add <b><%= _appName %></b> to your Home Screen for one-tap reviews, customers, and referrals.
+    </p>
+
+    <div data-ma-install-panel="browser-ios" hidden>
+      <ol class="ma-install-steps">
+        <li><span class="ma-install-n">1</span><span>Tap the <b>Share</b> button in Safari (square with an arrow).</span></li>
+        <li><span class="ma-install-n">2</span><span>Scroll and tap <b>Add to Home Screen</b>.</span></li>
+        <li><span class="ma-install-n">3</span><span>Tap <b>Add</b> — open it from your Home Screen next time.</span></li>
+      </ol>
+    </div>
+
+    <div data-ma-install-panel="browser-android" hidden>
+      <ol class="ma-install-steps">
+        <li><span class="ma-install-n">1</span><span>Tap the <b>⋮</b> menu in Chrome.</span></li>
+        <li><span class="ma-install-n">2</span><span>Tap <b>Install app</b> or <b>Add to Home screen</b>.</span></li>
+        <li><span class="ma-install-n">3</span><span>Tap <b>Install</b> or <b>Add</b>.</span></li>
+      </ol>
+    </div>
+
+    <div data-ma-install-panel="workspace" hidden>
+      <p class="ma-install-lead">You’re inside the workspace app. To put <b><%= _appName %></b> on your Home Screen as its own icon:</p>
+      <ol class="ma-install-steps">
+        <li><span class="ma-install-n">1</span><span>Tap <b>Copy link</b> below.</span></li>
+        <li><span class="ma-install-n">2</span><span>Open <b>Safari</b> (iPhone) or <b>Chrome</b> (Android) and paste the link.</span></li>
+        <li><span class="ma-install-n">3</span><span>Then use <b>Share → Add to Home Screen</b> (iPhone) or <b>⋮ → Install app</b> (Android).</span></li>
+      </ol>
+    </div>
+
+    <div data-ma-install-panel="installed" hidden>
+      <p class="ma-install-lead">This app is already on your Home Screen. You’re all set.</p>
+    </div>
+
+    <div class="ma-install-actions">
+      <button type="button" class="ma-btn" data-ma-install-copy>Copy link</button>
+      <button type="button" class="ma-btn ma-btn--soft" data-ma-install-share>Share link</button>
+      <button type="button" class="ma-btn ma-btn--ghost" data-ma-install-close>Not now</button>
+    </div>
+  </div>
 </div>
 <script src="/js/member-app.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
