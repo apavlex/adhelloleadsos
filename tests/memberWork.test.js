@@ -241,7 +241,11 @@ test('customers tab routes: top-bar enroll, CRUD, calendar, pending and referral
 
     const empty = await fetch(`${A}/customers`);
     assert.equal(empty.status, 200);
-    assert.match(await empty.text(), /No customers yet/);
+    const emptyHtml = await empty.text();
+    assert.match(emptyHtml, /No customers yet/);
+    assert.match(emptyHtml, /Sync GHL customers/);
+    assert.match(emptyHtml, /customers\/import/);
+    assert.match(emptyHtml, /Upload a customer list/);
 
     const bad = await post(`${A}/customers/new`, { name: '' });
     assert.equal(bad.status, 400);

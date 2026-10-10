@@ -246,10 +246,9 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     assert.match(homeHtml, /ma-hero__upload/);
     assert.match(homeHtml, /brand\/hero/);
     assert.match(homeHtml, /Upload banner image/);
-    // Install-as-app modal + top-bar open control (works from workspace PWA too).
+    // Install-as-app modal lives in the tabbar; the open control is on Profile settings.
     assert.match(homeHtml, /id="maInstall"/);
     assert.match(homeHtml, /ma-install-modal/);
-    assert.match(homeHtml, /data-ma-install-open/);
     assert.match(homeHtml, /data-ma-install-panel="workspace"/);
     assert.match(homeHtml, /data-ma-install-copy/);
     assert.match(homeHtml, /Save as a phone app/);
@@ -270,6 +269,8 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     assert.match(profileHtml, /review\/settings/);
     assert.match(profileHtml, /Invite a business/);
     assert.match(profileHtml, /Save as a phone app/);
+    assert.match(profileHtml, /data-ma-install-open/);
+    assert.match(profileHtml, /Customers &amp; GHL sync|Customers & GHL sync/);
 
     const profileSave = await fetch(`${base}/m/${token}/profile`, {
       method: 'POST',

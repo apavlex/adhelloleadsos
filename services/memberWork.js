@@ -98,8 +98,15 @@ function cleanDuration(value) {
 
 // ── Records ──────────────────────────────────────────────────────────────────
 
+const CUSTOMER_SOURCES = new Set(['manual', 'csv', 'ghl', 'referral']);
+
+function phoneDigits(value) {
+  return String(value || '').replace(/\D/g, '');
+}
+
 function normalizeCustomer(raw) {
   const c = raw && typeof raw === 'object' ? raw : {};
+  const source = String(c.source || '').trim().toLowerCase();
   return {
     id: String(c.id || ''),
     name: cleanLine(c.name, 120),
@@ -108,9 +115,36 @@ function normalizeCustomer(raw) {
     address: cleanLine(c.address, 200),
     notes: cleanBlock(c.notes, 2000),
     referralId: isRecordId(c.referralId) ? c.referralId : '',
+    ghlContactId: cleanLine(c.ghlContactId, 80),
+    ghlSyncedAt: c.ghlSyncedAt ? String(c.ghlSyncedAt) : '',
+    source: CUSTOMER_SOURCES.has(source) ? source : (c.ghlContactId ? 'ghl' : 'manual'),
     createdAt: c.createdAt || new Date().toISOString(),
     updatedAt: c.updatedAt || c.createdAt || new Date().toISOString(),
   };
+}
+
+/** Match an existing customer by GHL id, email, or phone digits. */
+function findCustomerMatch(customers, { ghlContactId, email, phone } = {}) {
+  const list = Array.isArray(customers) ? customers : [];
+  const ghlId = cleanLine(ghlContactId, 80);
+  if (ghlId) {
+    const byId = list.find((c) => c.ghlContactId && c.ghlContactId === ghlId);
+    if (byId) return byId;
+  }
+  const em = cleanEmail(email);
+  if (em) {
+    const byEmail = list.find((c) => c.email && c.email === em);
+    if (byEmail) return byEmail;
+  }
+  const digits = phoneDigits(phone);
+  if (digits.length >= 7) {
+    const byPhone = list.find((c) => {
+      const d = phoneDigits(c.phone);
+      return d && (d === digits || d.endsWith(digits) || digits.endsWith(d));
+    });
+    if (byPhone) return byPhone;
+  }
+  return null;
 }
 
 function normalizeJob(raw) {
@@ -214,7 +248,8 @@ async function getCustomer(networkId, memberId, id) {
 }
 
 /** Create (no id) or update (id of an existing customer in this scope). */
-async function saveCustomer(networkId, memberId, input, { id, referralId } = {}) {
+async function saveCustomer(networkId, memberId, input, opts = {}) {
+  const { id, referralId, ghlContactId, ghlSyncedAt, source } = opts;
   const prefix = custPrefix(networkId, memberId);
   const checked = validateCustomer(input);
   if (!checked.ok) return checked;
@@ -226,16 +261,35 @@ async function saveCustomer(networkId, memberId, input, { id, referralId } = {})
   } else if (await countKeys(prefix) >= MAX_CUSTOMERS) {
     return { ok: false, error: `You can keep up to ${MAX_CUSTOMERS} customers.` };
   }
+  const nextGhlId =
+    ghlContactId !== undefined ? cleanLine(ghlContactId, 80) : (existing && existing.ghlContactId) || '';
+  const nextSynced =
+    ghlSyncedAt !== undefined
+      ? (ghlSyncedAt ? String(ghlSyncedAt) : '')
+      : (existing && existing.ghlSyncedAt) || '';
+  const nextSource =
+    source !== undefined
+      ? String(source || '').trim().toLowerCase()
+      : (existing && existing.source) || (nextGhlId ? 'ghl' : 'manual');
   const customer = normalizeCustomer({
     ...(existing || {}),
     ...checked.fields,
     id: existing ? existing.id : newId(),
     referralId: existing ? existing.referralId : (referralId || ''),
+    ghlContactId: nextGhlId,
+    ghlSyncedAt: nextSynced,
+    source: nextSource,
     createdAt: existing ? existing.createdAt : now,
     updatedAt: now,
   });
   await dbService.putStorageKey(`${prefix}${customer.id}`, customer);
-  return { ok: true, customer };
+  return { ok: true, customer, created: !existing };
+}
+
+/** Remaining slots before MAX_CUSTOMERS. */
+async function remainingCustomerSlots(networkId, memberId) {
+  const used = await countKeys(custPrefix(networkId, memberId));
+  return Math.max(0, MAX_CUSTOMERS - used);
 }
 
 async function listJobs(networkId, memberId) {
@@ -539,16 +593,21 @@ module.exports = {
   PIPELINE,
   MAX_CUSTOMERS,
   MAX_JOBS,
+  CUSTOMER_SOURCES,
   isRecordId,
   isOpen,
   nextStatus,
   cleanDate,
   cleanTime,
+  phoneDigits,
   validateCustomer,
   validateJob,
+  normalizeCustomer,
+  findCustomerMatch,
   listCustomers,
   getCustomer,
   saveCustomer,
+  remainingCustomerSlots,
   deleteCustomer,
   listJobs,
   getJob,

@@ -47,6 +47,27 @@
           <% if (_needLinks) { %>
           <p class="ma-flash ma-flash--err">Add at least one review link in Settings before sending.</p>
           <% } %>
+          <% const _custs = typeof customers !== 'undefined' && Array.isArray(customers) ? customers : []; %>
+          <% if (_custs.length) { %>
+          <div class="ma-field">
+            <label class="ma-label" for="rvAskCustomer">Pick a customer</label>
+            <select id="rvAskCustomer" name="customerId" class="ma-input">
+              <option value="">Type a new person below…</option>
+              <% _custs.forEach(function (c) { %>
+              <option
+                value="<%= c.id %>"
+                data-name="<%= c.name %>"
+                data-phone="<%= c.phone || '' %>"
+                data-email="<%= c.email || '' %>"
+                <%= _fv.customerId === c.id ? 'selected' : '' %>
+              ><%= c.name %><%= c.phone ? ' · ' + c.phone : (c.email ? ' · ' + c.email : '') %></option>
+              <% }); %>
+            </select>
+            <p class="ma-hint">Synced GHL contacts and imports appear here. <a href="<%= base %>/customers">Manage customers</a></p>
+          </div>
+          <% } else { %>
+          <p class="ma-hint" style="margin-top:0">No saved customers yet. <a href="<%= base %>/customers">Sync GHL or import a list</a> to pick from your contacts.</p>
+          <% } %>
           <div class="ma-field">
             <label class="ma-label" for="rvAskName">Customer name</label>
             <input id="rvAskName" name="name" class="ma-input" maxlength="120" value="<%= _fv.name || '' %>" autocapitalize="words" <%= !_needLinks && (_msg.smsReady || _msg.emailReady) ? 'autofocus' : '' %>>
@@ -158,17 +179,28 @@
     </details>
   </main>
   <%- include('_tabbar') %>
-  <% if (_askOpen) { %>
   <script>
   document.addEventListener('DOMContentLoaded', function () {
-    var form = document.getElementById('maAskForm');
-    if (form) form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    var pick = document.getElementById('rvAskCustomer');
     var name = document.getElementById('rvAskName');
     var phone = document.getElementById('rvAskPhone');
+    var email = document.getElementById('rvAskEmail');
+    if (pick) {
+      pick.addEventListener('change', function () {
+        var opt = pick.options[pick.selectedIndex];
+        if (!opt || !opt.value) return;
+        if (name) name.value = opt.getAttribute('data-name') || '';
+        if (phone && !phone.disabled) phone.value = opt.getAttribute('data-phone') || '';
+        if (email && !email.disabled) email.value = opt.getAttribute('data-email') || '';
+      });
+    }
+    <% if (_askOpen) { %>
+    var form = document.getElementById('maAskForm');
+    if (form) form.scrollIntoView({ behavior: 'smooth', block: 'start' });
     var focusEl = (phone && !phone.disabled && !phone.value) ? phone : name;
     if (focusEl && !focusEl.disabled) setTimeout(function () { focusEl.focus(); }, 200);
+    <% } %>
   });
   </script>
-  <% } %>
 </body>
 </html>

@@ -21,6 +21,27 @@
     <%- include('_flash') %>
 
     <% if (view === 'list') { %>
+      <section class="ma-card ma-cust-tools" aria-label="Import and sync customers">
+        <div class="ma-cust-tools__row">
+          <form method="post" action="<%= base %>/customers/sync-ghl" style="flex:1;margin:0">
+            <button type="submit" class="ma-btn ma-btn--soft ma-btn--block"><%- icons.download %> Sync GHL customers</button>
+          </form>
+          <a class="ma-btn ma-btn--ghost" href="<%= base %>/customers/new"><%- icons.plus %> Add</a>
+        </div>
+        <p class="ma-hint" style="margin:0">Pull contacts from Go High Level and push new customers so you can request reviews for anyone in your list.</p>
+        <details>
+          <summary>Upload a customer list (CSV / Excel)</summary>
+          <form class="ma-cust-tools__body" method="post" action="<%= base %>/customers/import" enctype="multipart/form-data">
+            <div class="ma-field" style="margin:0">
+              <label class="ma-label" for="maCustImport">File</label>
+              <input id="maCustImport" name="file" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="ma-input" required>
+            </div>
+            <p class="ma-hint" style="margin:0">Columns: Name (or First/Last), Phone, Email, Address, Notes. Imported rows also sync to GHL when connected.</p>
+            <button type="submit" class="ma-btn ma-btn--block">Import list</button>
+          </form>
+        </details>
+      </section>
+
       <% if (customerCount) { %>
       <form class="ma-search" method="get" action="<%= base %>/customers" role="search">
         <%- icons.search %>
@@ -33,7 +54,7 @@
         <% if (q) { %>
         <p>No customers match “<%= q %>”.</p>
         <% } else { %>
-        <p>No customers yet. Add one to request a review, schedule work, or turn a referral into a job from Pending.</p>
+        <p>No customers yet. Sync from GHL, import a CSV, or add one to request reviews and schedule work.</p>
         <% } %>
         <a class="ma-btn ma-btn--sm" href="<%= base %>/customers/new" style="margin-top:8px"><%- icons.plus %> Add customer</a>
       </div>

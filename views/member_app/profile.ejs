@@ -72,11 +72,27 @@
     <section class="ma-card" aria-label="Settings">
       <h2 style="font-size:16px;margin:0 0 10px">Settings</h2>
       <div class="ma-settings-list">
+        <button type="button" class="ma-settings-row" data-ma-install-open>
+          <span class="ma-settings-row__icon"><%- icons.download %></span>
+          <span class="ma-settings-row__text">
+            <strong>Save as a phone app</strong>
+            <span>Add <%= brand.appName %> to your Home Screen</span>
+          </span>
+          <span class="ma-settings-row__chev" aria-hidden="true"><%- icons.chevronRight %></span>
+        </button>
         <a class="ma-settings-row" href="<%= base %>/review/settings">
           <span class="ma-settings-row__icon"><%- icons.settings %></span>
           <span class="ma-settings-row__text">
             <strong>Review settings</strong>
             <span>Logo, review links, and share preview image</span>
+          </span>
+          <span class="ma-settings-row__chev" aria-hidden="true"><%- icons.chevronRight %></span>
+        </a>
+        <a class="ma-settings-row" href="<%= base %>/customers">
+          <span class="ma-settings-row__icon"><%- icons.people %></span>
+          <span class="ma-settings-row__text">
+            <strong>Customers &amp; GHL sync</strong>
+            <span>Import a list or sync Go High Level contacts</span>
           </span>
           <span class="ma-settings-row__chev" aria-hidden="true"><%- icons.chevronRight %></span>
         </a>
@@ -98,38 +114,7 @@
         </a>
       </div>
     </section>
-
-    <section class="ma-card" id="maInstallHelp">
-      <h2 style="font-size:16px;margin:0 0 6px">Save as a phone app</h2>
-      <p class="ma-hint" style="margin-top:0">Add <%= brand.appName %> to your Home Screen for one-tap access.</p>
-      <div class="ma-profile-install">
-        <div>
-          <p class="ma-profile-install__title">iPhone</p>
-          <ol class="ma-profile-steps">
-            <li>Open this page in <b>Safari</b>.</li>
-            <li>Tap <b>Share</b> → <b>Add to Home Screen</b>.</li>
-            <li>Tap <b>Add</b>.</li>
-          </ol>
-        </div>
-        <div>
-          <p class="ma-profile-install__title">Android</p>
-          <ol class="ma-profile-steps">
-            <li>Open in <b>Chrome</b>.</li>
-            <li>Tap <b>⋮</b> → <b>Install app</b>.</li>
-            <li>Tap <b>Install</b>.</li>
-          </ol>
-        </div>
-      </div>
-      <button type="button" class="ma-btn ma-btn--soft ma-btn--block" style="margin-top:12px" data-ma-copy id="maProfileCopyLink">Copy app link</button>
-    </section>
   </main>
   <%- include('_tabbar') %>
-  <script>
-    (function () {
-      var btn = document.getElementById('maProfileCopyLink');
-      if (!btn) return;
-      btn.setAttribute('data-ma-copy', window.location.origin + <%= JSON.stringify(base) %>);
-    })();
-  </script>
 </body>
 </html>
