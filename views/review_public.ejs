@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <%- include('member_app/_head', { pageTitle: 'Review ' + member.companyName }) %>
+  <%- include('partials/review_og_meta') %>
 </head>
 <body>
   <main class="rv-wrap">
@@ -74,7 +75,7 @@
       <% } %>
     <% } %>
 
-    <p class="rv-foot"><%= brand.appName %> member</p>
+    <p class="rv-foot"><%= brand.appName %> member · <a href="https://adhello.io" rel="noopener">AdHello.io</a></p>
   </main>
 </body>
 </html>

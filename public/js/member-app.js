@@ -52,9 +52,14 @@
       return;
     }
 
-    var copyBtn = event.target.closest('[data-ma-copy]');
+    var copyBtn = event.target.closest('[data-ma-copy], [data-ma-copy-from]');
     if (copyBtn) {
-      var text = copyBtn.getAttribute('data-ma-copy');
+      var fromId = copyBtn.getAttribute('data-ma-copy-from');
+      var fromEl = fromId ? document.getElementById(fromId) : null;
+      var text = fromEl
+        ? String(fromEl.textContent || fromEl.value || '').trim()
+        : copyBtn.getAttribute('data-ma-copy');
+      if (!text) return;
       var done = function () {
         var original = copyBtn.innerHTML;
         copyBtn.textContent = 'Copied';
