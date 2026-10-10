@@ -11,6 +11,7 @@ const notify = require('../services/networkNotify');
 const networkBrand = require('../services/networkBrand');
 const reviewPage = require('../services/reviewPage');
 const reviewShareImage = require('../services/reviewShareImage');
+const reviewAsk = require('../services/reviewAsk');
 const { ICONS } = require('../services/memberAppIcons');
 
 const router = express.Router();
@@ -49,9 +50,45 @@ function notFound(res) {
   });
 }
 
-function renderPage(res, page, { rating, thanks, error, formValues, imageId }, status) {
+function readCookie(req, name) {
+  const raw = String((req.headers && req.headers.cookie) || '');
+  for (const part of raw.split(';')) {
+    const idx = part.indexOf('=');
+    if (idx < 1) continue;
+    const key = part.slice(0, idx).trim();
+    if (key !== name) continue;
+    try {
+      return decodeURIComponent(part.slice(idx + 1).trim());
+    } catch {
+      return part.slice(idx + 1).trim();
+    }
+  }
+  return '';
+}
+
+function resolveAskId(req) {
+  const fromQuery = String((req.query && req.query.a) || '').trim();
+  if (reviewAsk.isAskId(fromQuery)) return fromQuery;
+  const fromCookie = readCookie(req, 'rv_ask');
+  return reviewAsk.isAskId(fromCookie) ? fromCookie : '';
+}
+
+function stampAskCookie(res, slug, askId) {
+  if (!reviewAsk.isAskId(askId)) return;
+  const maxAge = 7 * 24 * 60 * 60;
+  res.setHeader(
+    'Set-Cookie',
+    `rv_ask=${encodeURIComponent(askId)}; Max-Age=${maxAge}; Path=/rv/${slug}; HttpOnly; SameSite=Lax`,
+  );
+}
+
+function renderPage(res, page, { rating, thanks, error, formValues, imageId, askId }, status) {
   const shareId = reviewShareImage.isImageId(imageId) ? String(imageId).trim() : '';
-  const ogUrl = notify.reviewPageLink(page.slug, shareId ? { imageId: shareId } : undefined);
+  const trackedAsk = reviewAsk.isAskId(askId) ? String(askId).trim() : '';
+  const ogUrl = notify.reviewPageLink(page.slug, {
+    ...(shareId ? { imageId: shareId } : {}),
+    ...(trackedAsk ? { askId: trackedAsk } : {}),
+  });
   const ogImageUrl = reviewShareImage.shareImageAbsoluteUrl(page.slug, shareId || 'default');
   const logoUrl = reviewShareImage.requestPageLogoUrl(page.member, page.brand);
   res.setHeader('Cache-Control', 'private, no-store');
@@ -60,7 +97,7 @@ function renderPage(res, page, { rating, thanks, error, formValues, imageId }, s
     ...page,
     logoUrl,
     gate: reviewPage.reviewGate(rating),
-    destinations: reviewPage.reviewDestinations(page.member.reviewLinks, page.slug),
+    destinations: reviewPage.reviewDestinations(page.member.reviewLinks, page.slug, { askId: trackedAsk }),
     thanks: !!thanks,
     error: error || '',
     formValues: formValues || {},
@@ -70,6 +107,7 @@ function renderPage(res, page, { rating, thanks, error, formValues, imageId }, s
     ogUrl,
     ogImageUrl,
     shareImageId: shareId,
+    askId: trackedAsk,
   });
 }
 
@@ -137,6 +175,11 @@ router.get('/rv/:slug/go/:platform/:index?', async (req, res) => {
     const url = reviewPage.destinationFor(page.member.reviewLinks, platform, req.params.index);
     if (!url) return res.redirect(302, `/rv/${page.slug}`);
     await store.bumpReviewStats(page.network.id, page.member.id, { click: platform }).catch(() => {});
+    const askId = resolveAskId(req);
+    if (askId) {
+      stampAskCookie(res, page.slug, askId);
+      await reviewAsk.markClicked(askId, platform).catch(() => {});
+    }
     return res.redirect(302, url);
   } catch (err) {
     console.error('[review-page] go failed:', err.message);
@@ -150,8 +193,13 @@ router.get('/rv/:slug', async (req, res) => {
     if (!page) return notFound(res);
     const rating = reviewPage.parseRating(req.query.r);
     const imageId = String(req.query.i || '').trim();
+    const askId = resolveAskId(req);
+    if (askId) {
+      stampAskCookie(res, page.slug, askId);
+      await reviewAsk.markOpened(askId).catch(() => {});
+    }
     await store.bumpReviewStats(page.network.id, page.member.id, rating ? { star: rating } : { view: true }).catch(() => {});
-    return renderPage(res, page, { rating, imageId });
+    return renderPage(res, page, { rating, imageId, askId });
   } catch (err) {
     console.error('[review-page] view failed:', err.message);
     return notFound(res);

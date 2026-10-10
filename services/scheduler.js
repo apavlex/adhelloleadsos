@@ -13,6 +13,7 @@ const trials = require('./trials');
 const { maybeRunDailyOutreachForEnabledWorkspaces } = require('./dailyOutreachScheduler');
 const { runOnboardingDrips } = require('./onboardingDrip');
 const { runTaskPushReminders } = require('./taskPushReminders');
+const { runReviewAskReminders } = require('./reviewAsk');
 const { tickAllWorkspaces: tickAgentOpsWorkspaces } = require('./agentOps');
 
 function normalizeVoicemailLibrary(raw) {
@@ -349,6 +350,7 @@ module.exports = {
   persistScheduledResults,
   runReferralAskReminders,
   runWeeklyVoicemailDrops,
+  runReviewAskReminders,
   init() {
     console.log('[SCHEDULER] Initializing scheduled lead runs (hourly check)...');
     
@@ -387,6 +389,9 @@ module.exports = {
       );
       tickAgentOpsWorkspaces().catch((e) =>
         console.error('[SCHEDULER] Agent ops tick failed:', e.message)
+      );
+      runReviewAskReminders().catch((e) =>
+        console.error('[SCHEDULER] Review ask reminders failed:', e.message)
       );
     });
 

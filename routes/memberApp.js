@@ -894,6 +894,7 @@ router.post('/m/:token/customers/c/:id/request-review', form, withMember(async (
     toPhone: data.customer.phone,
     toEmail: data.customer.email,
     customerName: data.customer.name,
+    customerId: data.customer.id,
     channel,
     useAi: true,
   });
@@ -1388,6 +1389,26 @@ router.post('/m/:token/review/send', withReviewUpload('shareImage'), withMember(
     }
   }
 
+  let resolvedCustomerId = formValues.customerId && work.isRecordId(formValues.customerId)
+    ? formValues.customerId
+    : '';
+  if (!resolvedCustomerId && (formValues.name || formValues.phone || formValues.email)) {
+    const existing = work.findCustomerMatch(
+      await work.listCustomers(ctx.network.id, ctx.member.id),
+      { phone: formValues.phone, email: formValues.email },
+    );
+    if (existing) {
+      resolvedCustomerId = existing.id;
+    } else if (formValues.name) {
+      const created = await work.saveCustomer(ctx.network.id, ctx.member.id, {
+        name: formValues.name,
+        phone: formValues.phone,
+        email: formValues.email,
+      }, { source: 'manual' });
+      if (created.ok) resolvedCustomerId = created.customer.id;
+    }
+  }
+
   const result = await notify.sendReviewRequest({
     network: ctx.network,
     member: memberForSend,
@@ -1395,6 +1416,7 @@ router.post('/m/:token/review/send', withReviewUpload('shareImage'), withMember(
     toPhone: formValues.phone,
     toEmail: formValues.email,
     customerName: formValues.name,
+    customerId: resolvedCustomerId,
     channel: formValues.channel,
     useAi: formValues.useAi,
     imageId,
