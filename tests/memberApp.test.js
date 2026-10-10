@@ -296,7 +296,20 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     const withSlug = await store.getMember(network.id, sender.id);
     assert.equal(withSlug.reviewSlug, 'camas-flooring');
     assert.match(withSlug.reviewLinks.google, /writereview\?placeid=ChIJabcdefghijk123/);
-    assert.match(await reviewTab.text(), /Thumbtack profile/);
+    const reviewHtml = await reviewTab.text();
+    assert.match(reviewHtml, /Thumbtack profile/);
+    assert.match(reviewHtml, /review\/send/);
+    assert.match(reviewHtml, /Send review request/);
+    assert.match(reviewHtml, /Go High Level/);
+
+    const reviewSend = await fetch(`${base}/m/${token}/review/send`, {
+      method: 'POST',
+      redirect: 'manual',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ phone: '3605550199', name: 'Jamie', channel: 'sms' }),
+    });
+    assert.equal(reviewSend.status, 400);
+    assert.match(await reviewSend.text(), /Go High Level|Integrations|SMS from number/i);
 
     const savedLinks = await fetch(`${base}/m/${token}/review`, {
       method: 'POST',

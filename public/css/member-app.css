@@ -250,6 +250,8 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
 
 /* Customer quick actions + job status stepper */
 .ma-quick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 12px 0 4px; }
+.ma-quick__form { margin: 0; min-width: 0; }
+.ma-quick__form .ma-quick__btn { width: 100%; cursor: pointer; font: inherit; }
 .ma-quick__btn {
   display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0; min-height: 60px; border-radius: 14px;
   background: var(--card); border: 1px solid var(--line); color: var(--acc); text-decoration: none; font-size: 12px; font-weight: 700;
@@ -257,6 +259,7 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
 }
 .ma-quick__btn svg { width: 22px; height: 22px; }
 .ma-quick__btn.is-off { color: var(--muted); opacity: 0.45; pointer-events: none; }
+.ma-quick__btn:disabled { color: var(--muted); opacity: 0.45; cursor: default; }
 .ma-steps { display: flex; gap: 6px; overflow-x: auto; margin: 4px -18px 12px; padding: 4px 18px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
 .ma-steps::-webkit-scrollbar { display: none; }
 .ma-step {

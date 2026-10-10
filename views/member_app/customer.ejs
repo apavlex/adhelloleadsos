@@ -16,9 +16,12 @@
     <div class="ma-quick">
       <a class="ma-quick__btn<%= tel ? '' : ' is-off' %>" <%- tel ? 'href="tel:' + tel + '"' : 'aria-disabled="true"' %>><%- icons.phone %><span>Call</span></a>
       <a class="ma-quick__btn<%= tel ? '' : ' is-off' %>" <%- tel ? 'href="sms:' + tel + '"' : 'aria-disabled="true"' %>><%- icons.send %><span>Text</span></a>
-      <a class="ma-quick__btn" href="<%= base %>/review?ask=1"><%- icons.review %><span>Review</span></a>
+      <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/request-review" class="ma-quick__form">
+        <button type="submit" class="ma-quick__btn<%= (customer.phone || customer.email) ? '' : ' is-off' %>" <%= (customer.phone || customer.email) ? '' : 'disabled' %>><%- icons.review %><span>Review</span></button>
+      </form>
       <a class="ma-quick__btn<%= customer.address ? '' : ' is-off' %>" <%- customer.address ? 'href="https://maps.apple.com/?q=' + encodeURIComponent(customer.address) + '" target="_blank" rel="noopener"' : 'aria-disabled="true"' %>><%- icons.mapPin %><span>Map</span></a>
     </div>
+    <p class="ma-hint" style="margin:8px 0 0">Review sends a text or email through Go High Level with your review link.</p>
     <% } else { %>
     <h1 class="ma-page-title">New customer</h1>
     <p class="ma-page-sub">Add their details, then schedule a job for them.</p>

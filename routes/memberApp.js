@@ -42,6 +42,8 @@ const OK_MESSAGES = {
   note: 'Note saved.',
   invited: 'Thanks! The network will review them and send their app link.',
   saved: 'Review links saved.',
+  review_sms: 'Review request sent by text via Go High Level.',
+  review_email: 'Review request sent by email via Go High Level.',
   customer: 'Customer saved.',
   customer_deleted: 'Customer deleted.',
   job: 'Job saved.',
@@ -630,6 +632,42 @@ router.post('/m/:token/customers/c/:id/delete', form, withMember(async (req, res
   return res.redirect(303, `${ctx.base}/customers?ok=customer_deleted`);
 }));
 
+/** Request a review for this customer via GHL SMS/email. */
+router.post('/m/:token/customers/c/:id/request-review', form, withMember(async (req, res, ctx) => {
+  const data = await customerPageData(req, ctx, req.params.id);
+  if (!data) return res.redirect(303, `${ctx.base}/customers`);
+  const member = await ensureReviewSetup(ctx);
+  if (!reviewPage.countLinks(member.reviewLinks)) {
+    return res.redirect(303, `${ctx.base}/review?ask=1&name=${encodeURIComponent(data.customer.name || '')}&phone=${encodeURIComponent(data.customer.phone || '')}&email=${encodeURIComponent(data.customer.email || '')}`);
+  }
+  if (ctx.member.status !== 'active') {
+    return renderCustomerPage(res, ctx, {
+      ...data,
+      flash: { error: 'Your membership is paused, so review requests can’t be sent.' },
+      status: 403,
+    });
+  }
+  const channel = String((req.body && req.body.channel) || 'auto').trim() || 'auto';
+  const result = await notify.sendReviewRequest({
+    network: ctx.network,
+    member,
+    baseUrl: notify.baseUrlFromReq(req),
+    toPhone: data.customer.phone,
+    toEmail: data.customer.email,
+    customerName: data.customer.name,
+    channel,
+  });
+  if (!result.ok) {
+    return renderCustomerPage(res, ctx, {
+      ...data,
+      flash: { error: result.error || 'Could not send the review request.' },
+      status: 400,
+    });
+  }
+  const ok = result.channel === 'email' ? 'review_email' : 'review_sms';
+  return res.redirect(303, `${ctx.base}/customers/c/${data.customer.id}?ok=${ok}`);
+}));
+
 async function renderJobPage(req, res, ctx, { job, formValues, flash, status }) {
   const today = work.todayIn(memberTimeZone(req));
   const { customers, customersById } = await loadWork(ctx);
@@ -822,14 +860,22 @@ async function ensureReviewSetup(ctx) {
   return member;
 }
 
-async function renderReview(req, res, ctx, flash, status) {
+async function renderReview(req, res, ctx, flash, status, formValues) {
   const member = await ensureReviewSetup(ctx);
-  const [stats, feedback] = await Promise.all([
+  const [stats, feedback, messaging] = await Promise.all([
     store.getReviewStats(ctx.network.id, member.id),
     store.listFeedback(ctx.network.id, member.id),
+    notify.messagingReadyForNetwork(ctx.network),
   ]);
   const baseUrl = notify.baseUrlFromReq(req);
   const totalStars = Object.values(stats.stars).reduce((a, b) => a + b, 0);
+  const q = req.query || {};
+  const defaults = {
+    phone: String((formValues && formValues.phone) || q.phone || '').trim(),
+    email: String((formValues && formValues.email) || q.email || '').trim(),
+    name: String((formValues && formValues.name) || q.name || '').trim(),
+    channel: String((formValues && formValues.channel) || q.channel || 'auto').trim() || 'auto',
+  };
   return render(res, 'review', { ...ctx, member }, {
     reviewUrl: `${baseUrl}/rv/${member.reviewSlug}`,
     reviewPath: `/rv/${member.reviewSlug}`,
@@ -840,7 +886,9 @@ async function renderReview(req, res, ctx, flash, status) {
     otherRows: reviewPage.otherFormRows(member.reviewLinks),
     linkCount: reviewPage.countLinks(member.reviewLinks),
     feedback: feedback.slice(0, 10).map((f) => ({ ...f, when: when(f.createdAt) })),
-    askShare: String(req.query.ask || '') === '1',
+    askShare: String(q.ask || '') === '1',
+    messaging,
+    formValues: defaults,
     flash: flash || flashFromQuery(req),
   }, status);
 }
@@ -856,6 +904,42 @@ router.post('/m/:token/review', form, withMember(async (req, res, ctx) => {
   }
   await store.saveMember(ctx.network.id, { ...ctx.member, reviewLinks: links });
   return res.redirect(303, `${ctx.base}/review?ok=saved`);
+}));
+
+/** Send a review request to a customer through the network workspace's GHL SMS/email. */
+router.post('/m/:token/review/send', form, withMember(async (req, res, ctx) => {
+  const member = await ensureReviewSetup(ctx);
+  const body = req.body || {};
+  const formValues = {
+    phone: String(body.phone || '').trim(),
+    email: String(body.email || '').trim(),
+    name: String(body.name || '').trim(),
+    channel: String(body.channel || 'auto').trim() || 'auto',
+  };
+  if (!reviewPage.countLinks(member.reviewLinks)) {
+    return renderReview(req, res, { ...ctx, member }, {
+      error: 'Add at least one review link below before sending a request.',
+    }, 400, formValues);
+  }
+  if (ctx.member.status !== 'active') {
+    return renderReview(req, res, { ...ctx, member }, {
+      error: 'Your membership is paused, so review requests can’t be sent.',
+    }, 403, formValues);
+  }
+  const result = await notify.sendReviewRequest({
+    network: ctx.network,
+    member,
+    baseUrl: notify.baseUrlFromReq(req),
+    toPhone: formValues.phone,
+    toEmail: formValues.email,
+    customerName: formValues.name,
+    channel: formValues.channel,
+  });
+  if (!result.ok) {
+    return renderReview(req, res, { ...ctx, member }, { error: result.error || 'Could not send.' }, 400, formValues);
+  }
+  const ok = result.channel === 'email' ? 'review_email' : 'review_sms';
+  return res.redirect(303, `${ctx.base}/review?ok=${ok}`);
 }));
 
 // ── Contractor app deep-links (notifications live on /p/:token, not here) ────

@@ -54,44 +54,91 @@ function appendUpdate(lead, entry) {
   return updates;
 }
 
+async function networkIntegrationEnv(network) {
+  return workspaceIntegrations.getResolvedIntegrationEnv(network.ownerWorkspaceId);
+}
+
+/** GHL SMS/email readiness for the network's owner workspace. */
+async function messagingReadyForNetwork(network) {
+  const integrationEnv = await networkIntegrationEnv(network);
+  return ghlMessaging.messagingReady(integrationEnv);
+}
+
 /**
- * Text (or email as a fallback) a member a message from the operator's
- * workspace, logging it on the member's lead.
+ * Text (or email as a fallback) a member a message via the operator workspace's
+ * Go High Level connection, logging it on the member's lead when present.
  */
 async function messageMember(network, member, { sms, subject, email }) {
   const lead = await memberLead(network, member);
-  const target = lead || { key: '', title: member.companyName, phone: member.phone, email: member.email };
-  const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(network.ownerWorkspaceId);
+  const target = lead || {
+    key: `member:${network.id}:${member.id}`,
+    title: member.companyName,
+    phone: member.phone,
+    email: member.email,
+    companyName: member.companyName,
+  };
+  const integrationEnv = await networkIntegrationEnv(network);
+  const ready = ghlMessaging.messagingReady(integrationEnv);
   let sent = null;
   let error = '';
   const phone = member.phone || (lead && lead.phone) || '';
   if (phone && phone !== 'N/A') {
-    try {
-      const result = await smsOutbound.sendSmsToLead({
-        lead: target,
-        message: sms,
-        integrationEnv,
-        workspaceId: network.ownerWorkspaceId,
-        to: phone,
-      });
-      sent = { channel: 'sms', provider: result.provider, messageId: result.messageId || '' };
-    } catch (err) {
-      error = err.message || 'SMS failed.';
+    if (!ready.smsReady) {
+      error = ready.configured
+        ? 'Set a GHL SMS from number in Workspace → Integrations.'
+        : 'Connect Go High Level in Workspace → Integrations to send texts.';
+    } else {
+      try {
+        const result = lead
+          ? await smsOutbound.sendSmsToLead({
+            lead: target,
+            message: sms,
+            integrationEnv,
+            workspaceId: network.ownerWorkspaceId,
+            requireProvider: 'ghl',
+            to: phone,
+          })
+          : await ghlMessaging.sendSmsToPerson({
+            name: member.contactName || member.companyName,
+            phone,
+            message: sms,
+            companyName: member.companyName,
+            integrationEnv,
+          });
+        sent = { channel: 'sms', provider: result.provider || 'ghl', messageId: result.messageId || '' };
+      } catch (err) {
+        error = err.message || 'SMS failed.';
+      }
     }
   }
   const mail = member.email || (lead && lead.email) || '';
-  if (!sent && mail && mail !== 'N/A' && lead) {
-    try {
-      const result = await ghlMessaging.sendEmailToLead({
-        lead,
-        subject,
-        body: email || sms,
-        integrationEnv,
-        toEmail: mail,
-      });
-      sent = { channel: 'email', provider: 'ghl', messageId: (result && result.messageId) || '' };
-    } catch (err) {
-      error = error || err.message || 'Email failed.';
+  if (!sent && mail && mail !== 'N/A') {
+    if (!ready.emailReady) {
+      error = error || (ready.configured
+        ? 'Set the GHL outbound email from address in Workspace → Integrations.'
+        : 'Connect Go High Level in Workspace → Integrations to send email.');
+    } else {
+      try {
+        const result = lead
+          ? await ghlMessaging.sendEmailToLead({
+            lead,
+            subject,
+            body: email || sms,
+            integrationEnv,
+            toEmail: mail,
+          })
+          : await ghlMessaging.sendEmailToPerson({
+            name: member.contactName || member.companyName,
+            email: mail,
+            subject,
+            body: email || sms,
+            companyName: member.companyName,
+            integrationEnv,
+          });
+        sent = { channel: 'email', provider: 'ghl', messageId: (result && result.messageId) || '' };
+      } catch (err) {
+        error = error || err.message || 'Email failed.';
+      }
     }
   }
   if (sent && lead) {
@@ -106,6 +153,119 @@ async function messageMember(network, member, { sms, subject, email }) {
     }, network.ownerWorkspaceId);
   }
   if (!sent && !error) error = 'No phone or email on file for this member.';
+  return sent ? { ok: true, ...sent } : { ok: false, error };
+}
+
+/**
+ * Ask a customer for a review via the network workspace's GHL SMS (preferred)
+ * or email. Creates/finds the GHL contact for the customer.
+ */
+async function sendReviewRequest({
+  network,
+  member,
+  baseUrl,
+  toPhone,
+  toEmail,
+  customerName,
+  channel,
+}) {
+  const phone = String(toPhone || '').trim();
+  const email = String(toEmail || '').trim();
+  const name = String(customerName || 'there').trim() || 'there';
+  if (!member || !member.reviewSlug) {
+    return { ok: false, error: 'Add at least one review link first, then try again.' };
+  }
+  const link = `${String(baseUrl || '').replace(/\/+$/, '')}/rv/${encodeURIComponent(member.reviewSlug)}`;
+  if (!link || link.endsWith('/rv/')) {
+    return { ok: false, error: 'Could not build the review link.' };
+  }
+  if ((!phone || phone === 'N/A') && (!email || email === 'N/A' || !email.includes('@'))) {
+    return { ok: false, error: 'Enter a mobile number or email for the customer.' };
+  }
+
+  const integrationEnv = await networkIntegrationEnv(network);
+  const ready = ghlMessaging.messagingReady(integrationEnv);
+  if (!ready.configured) {
+    return {
+      ok: false,
+      error: 'Go High Level is not connected for this network. Ask your agency to connect GHL in Workspace → Integrations.',
+    };
+  }
+
+  const prefer = String(channel || 'auto').trim().toLowerCase();
+  const company = member.companyName || brandView(network).appName;
+  const smsBody = `Hi ${name.split(/\s+/)[0] || 'there'} — thanks for choosing ${company}! When you have a minute, leave a quick review: ${link}`;
+  const subject = `Thanks for choosing ${company}`;
+  const emailBody = `Hi ${name},\n\nThanks for choosing ${company}. If you have a minute, we'd love a quick review:\n\n${link}\n\nThank you!`;
+
+  let sent = null;
+  let error = '';
+  const trySms = prefer !== 'email' && phone && phone !== 'N/A';
+  const tryEmail = prefer !== 'sms' && email && email !== 'N/A' && email.includes('@');
+
+  if (trySms) {
+    if (!ready.smsReady) {
+      error = 'Set a GHL SMS from number in Workspace → Integrations to send review texts.';
+    } else {
+      try {
+        const result = await ghlMessaging.sendSmsToPerson({
+          name,
+          phone,
+          message: smsBody,
+          companyName: company,
+          integrationEnv,
+        });
+        sent = { channel: 'sms', provider: 'ghl', messageId: result.messageId || '', reviewUrl: link };
+      } catch (err) {
+        error = err.message || 'SMS failed.';
+      }
+    }
+  }
+
+  if (!sent && tryEmail) {
+    if (!ready.emailReady) {
+      error = error || 'Set the GHL outbound email from address in Workspace → Integrations to send review emails.';
+    } else {
+      try {
+        const result = await ghlMessaging.sendEmailToPerson({
+          name,
+          email,
+          subject,
+          body: emailBody,
+          companyName: company,
+          integrationEnv,
+        });
+        sent = { channel: 'email', provider: 'ghl', messageId: result.messageId || '', reviewUrl: link };
+      } catch (err) {
+        error = error || err.message || 'Email failed.';
+      }
+    }
+  }
+
+  if (!sent && !error) {
+    if (prefer === 'sms') error = 'Enter a mobile number to text the review request.';
+    else if (prefer === 'email') error = 'Enter an email to send the review request.';
+    else error = 'Enter a mobile number or email for the customer.';
+  }
+
+  if (sent) {
+    const lead = await memberLead(network, member);
+    if (lead) {
+      await dbService.updateLead(lead.key, {
+        updates: appendUpdate(lead, {
+          type: sent.channel === 'sms' ? 'sms_outbound' : 'email_outbound',
+          value: sent.channel === 'sms' ? smsBody : `${subject}\n\n${emailBody}`,
+          provider: 'ghl',
+          messageSid: sent.messageId,
+          source: 'member_review_request',
+          customerName: name,
+          customerPhone: phone || undefined,
+          customerEmail: email || undefined,
+        }),
+      }, network.ownerWorkspaceId);
+    }
+  }
+
   return sent ? { ok: true, ...sent } : { ok: false, error };
 }
 
@@ -222,6 +382,8 @@ module.exports = {
   memberPortalLink,
   notifyReferralRecipient,
   sendMemberPortalLink,
+  sendReviewRequest,
+  messagingReadyForNetwork,
   notifyApplication,
   notifyFeedback,
   messageMember,

@@ -7,15 +7,56 @@
   <main class="ma-shell">
     <%- include('_top', { topTitle: 'Review' }) %>
     <h1 class="ma-page-title">Request a review</h1>
-    <p class="ma-page-sub">Text or share your link with a happy customer. They pick stars, then go to Google, Yelp, or any site you add below.</p>
+    <p class="ma-page-sub">Send a text or email through Go High Level, or share your link. Customers pick stars, then go to Google, Yelp, or any site you add below.</p>
 
     <%- include('_flash') %>
 
+    <% const _msg = typeof messaging !== 'undefined' && messaging ? messaging : { configured: false, smsReady: false, emailReady: false }; %>
+    <% const _fv = typeof formValues !== 'undefined' && formValues ? formValues : { phone: '', email: '', name: '', channel: 'auto' }; %>
+    <section class="ma-card" id="maAskForm">
+      <form method="post" action="<%= base %>/review/send" autocomplete="off">
+        <p class="ma-hint" style="margin-top:0">Sends from your network’s Go High Level number / email.</p>
+        <% if (!_msg.configured) { %>
+        <p class="ma-flash ma-flash--err">Go High Level isn’t connected yet. Ask your agency to connect GHL (API key, Location ID, SMS from number, and outbound email) in Workspace → Integrations.</p>
+        <% } else if (!_msg.smsReady && !_msg.emailReady) { %>
+        <p class="ma-flash ma-flash--err">GHL is connected, but SMS from number and outbound email still need to be set in Workspace → Integrations.</p>
+        <% } %>
+        <div class="ma-field">
+          <label class="ma-label" for="rvAskName">Customer name</label>
+          <input id="rvAskName" name="name" class="ma-input" maxlength="120" value="<%= _fv.name || '' %>" autocapitalize="words" <%= linkCount && (_msg.smsReady || _msg.emailReady) ? 'autofocus' : '' %>>
+        </div>
+        <div class="ma-grid2">
+          <div class="ma-field">
+            <label class="ma-label" for="rvAskPhone">Mobile</label>
+            <input id="rvAskPhone" name="phone" type="tel" inputmode="tel" maxlength="40" class="ma-input" value="<%= _fv.phone || '' %>" <%= _msg.smsReady ? '' : 'disabled' %>>
+          </div>
+          <div class="ma-field">
+            <label class="ma-label" for="rvAskEmail">Email</label>
+            <input id="rvAskEmail" name="email" type="email" inputmode="email" maxlength="200" class="ma-input" value="<%= _fv.email || '' %>" <%= _msg.emailReady ? '' : 'disabled' %>>
+          </div>
+        </div>
+        <div class="ma-field">
+          <label class="ma-label" for="rvAskChannel">Send by</label>
+          <select id="rvAskChannel" name="channel" class="ma-input">
+            <option value="auto" <%= _fv.channel === 'auto' ? 'selected' : '' %>>Text first, then email</option>
+            <option value="sms" <%= _fv.channel === 'sms' ? 'selected' : '' %> <%= _msg.smsReady ? '' : 'disabled' %>>Text (GHL SMS)</option>
+            <option value="email" <%= _fv.channel === 'email' ? 'selected' : '' %> <%= _msg.emailReady ? '' : 'disabled' %>>Email (GHL)</option>
+          </select>
+        </div>
+        <button type="submit" class="ma-btn ma-btn--block" id="maAskReviewGhl" <%= linkCount && (_msg.smsReady || _msg.emailReady) && member.status === 'active' ? '' : 'disabled' %>>
+          <%- icons.review %> Send review request
+        </button>
+      </form>
+      <% if (!linkCount) { %>
+      <p class="ma-flash ma-flash--err" style="width:100%;margin-top:12px">Add at least one review link below so customers have somewhere to post.</p>
+      <% } %>
+    </section>
+
     <section class="ma-card ma-qr">
-      <button type="button" class="ma-btn ma-btn--block" id="maAskReview" data-ma-share="<%= reviewUrl %>" data-ma-share-title="Leave <%= member.companyName %> a review" <%= linkCount ? '' : 'disabled' %>>
-        <%- icons.review %> Request a review
+      <button type="button" class="ma-btn ma-btn--soft ma-btn--block" id="maAskReview" data-ma-share="<%= reviewUrl %>" data-ma-share-title="Leave <%= member.companyName %> a review" <%= linkCount ? '' : 'disabled' %>>
+        <%- icons.share %> Share from this phone
       </button>
-      <p class="ma-hint" style="text-align:center;margin:10px 0 0">Opens your phone’s share sheet so you can text or message the customer.</p>
+      <p class="ma-hint" style="text-align:center;margin:10px 0 0">Optional: opens your phone’s share sheet instead of GHL.</p>
       <img src="<%= reviewPath %>/qr.png" alt="QR code for your review page" width="220" height="220" style="margin-top:18px">
       <div class="ma-link-box">
         <code id="rvLink"><%= reviewUrl %></code>
@@ -25,9 +66,6 @@
         <a class="ma-btn ma-btn--sm ma-btn--ghost" href="<%= reviewPath %>/qr.png?download=1" download><%- icons.download %> Download QR</a>
         <a class="ma-btn ma-btn--sm ma-btn--ghost" href="<%= reviewPath %>" target="_blank" rel="noopener">Preview</a>
       </div>
-      <% if (!linkCount) { %>
-      <p class="ma-flash ma-flash--err" style="width:100%">Add at least one review link below so customers have somewhere to post.</p>
-      <% } %>
     </section>
 
     <section class="ma-section">
@@ -96,11 +134,15 @@
     </section>
   </main>
   <%- include('_tabbar') %>
-  <% if (typeof askShare !== 'undefined' && askShare && linkCount) { %>
+  <% if (typeof askShare !== 'undefined' && askShare) { %>
   <script>
   document.addEventListener('DOMContentLoaded', function () {
-    var btn = document.getElementById('maAskReview');
-    if (btn) setTimeout(function () { btn.click(); }, 350);
+    var form = document.getElementById('maAskForm');
+    if (form) form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    var name = document.getElementById('rvAskName');
+    var phone = document.getElementById('rvAskPhone');
+    var focusEl = (phone && !phone.disabled && !phone.value) ? phone : name;
+    if (focusEl && !focusEl.disabled) setTimeout(function () { focusEl.focus(); }, 200);
   });
   </script>
   <% } %>
