@@ -1020,6 +1020,57 @@ async function renderReviewSettings(req, res, ctx, flash, status) {
 router.get('/m/:token/review', withMember((req, res, ctx) => renderReview(req, res, ctx)));
 router.get('/m/:token/review/settings', withMember((req, res, ctx) => renderReviewSettings(req, res, ctx)));
 
+/**
+ * Owner preview of the public request page — served under /m/:token so it stays
+ * inside the installed Referral / workspace PWA (scope includes /m/…), not Safari.
+ */
+async function renderReviewPreview(req, res, ctx, { rating, thanks, error, formValues } = {}, status) {
+  const member = await ensureReviewSetup(ctx);
+  const pageBase = `${ctx.base}/review/preview`;
+  const logoUrl = reviewShareImage.requestPageLogoUrl(member, ctx.brand);
+  noStore(res);
+  return res.status(status || 200).render('review_public', {
+    network: ctx.network,
+    member,
+    slug: member.reviewSlug,
+    brand: ctx.brand,
+    logoUrl,
+    pageBase,
+    previewMode: true,
+    previewBack: `${ctx.base}/review`,
+    gate: reviewPage.reviewGate(rating),
+    destinations: reviewPage.reviewDestinations(member.reviewLinks, member.reviewSlug),
+    thanks: !!thanks,
+    error: error || '',
+    formValues: formValues || {},
+    icons: ICONS,
+  });
+}
+
+router.get('/m/:token/review/preview', withMember(async (req, res, ctx) => {
+  const rating = reviewPage.parseRating(req.query.r);
+  return renderReviewPreview(req, res, ctx, { rating });
+}));
+
+router.post('/m/:token/review/preview/feedback', form, withMember(async (req, res, ctx) => {
+  const member = await ensureReviewSetup(ctx);
+  const body = req.body || {};
+  const rating = reviewPage.parseRating(body.rating);
+  // Preview only — do not save real customer feedback from the owner sandbox.
+  if (String(body.website || '').trim()) {
+    return renderReviewPreview(req, res, ctx, { rating, thanks: true });
+  }
+  const message = String(body.message || '').trim();
+  if (!message) {
+    return renderReviewPreview(req, res, ctx, {
+      rating,
+      error: 'Tell us what happened so we can make it right.',
+      formValues: body,
+    }, 400);
+  }
+  return renderReviewPreview(req, res, ctx, { rating, thanks: true });
+}));
+
 router.post('/m/:token/review', form, withMember(async (req, res, ctx) => {
   const body = req.body || {};
   const toSettings = String(body.next || '') === 'settings';

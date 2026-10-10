@@ -425,6 +425,16 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
 .rv-wrap { max-width: 440px; margin: 0 auto; padding: calc(var(--safe-t) + 28px) 20px calc(var(--safe-b) + 32px); text-align: center; }
 .rv-logo { width: 84px; height: 84px; border-radius: 22px; object-fit: contain; background: #fff; box-shadow: 0 6px 20px rgba(15, 23, 42, 0.1); margin: 0 auto 14px; display: block; }
 .rv-initials { width: 84px; height: 84px; border-radius: 22px; margin: 0 auto 14px; display: flex; align-items: center; justify-content: center; background: var(--acc); color: var(--on); font-family: var(--font-display); font-weight: 900; font-size: 30px; }
+/* In-app owner preview (stays inside the installed PWA; no Safari handoff) */
+.rv-preview-bar {
+  position: sticky; top: 0; z-index: 30;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: calc(var(--safe-t) + 10px) 16px 10px;
+  background: var(--navy); color: #fff; font-size: 13px; font-weight: 600;
+}
+.rv-preview-bar a { color: var(--acc); text-decoration: none; font-weight: 800; flex-shrink: 0; }
+.rv-preview-bar span { opacity: 0.75; font-size: 11px; text-align: right; }
+.rv-wrap--preview { padding-top: 18px; }
 .rv-wrap h1 { font-size: 24px; font-weight: 800; margin: 0; }
 .rv-sub { color: var(--muted); margin: 6px 0 22px; font-size: 15px; }
 .rv-stars { display: flex; justify-content: center; gap: 6px; margin: 4px 0 8px; }

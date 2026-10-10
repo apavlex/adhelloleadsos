@@ -321,6 +321,17 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     assert.match(reviewHtml, /review\/settings/);
     assert.match(reviewHtml, /aria-label="Review settings"/);
     assert.match(reviewHtml, /Show your QR/);
+    assert.match(reviewHtml, /review\/preview/);
+    assert.ok(!/target="_blank"[^>]*>Preview/.test(reviewHtml));
+
+    const previewTab = await fetch(`${base}/m/${token}/review/preview`);
+    assert.equal(previewTab.status, 200);
+    const previewHtml = await previewTab.text();
+    assert.match(previewHtml, /rv-preview-bar/);
+    assert.match(previewHtml, /Back to Review/);
+    assert.match(previewHtml, /How was your experience/);
+    assert.match(previewHtml, /review\/preview\?r=5/);
+    assert.match(previewHtml, /review\/preview/);
     assert.match(reviewHtml, /ma-fold/);
     assert.match(reviewHtml, /shareImage/);
     assert.match(reviewHtml, /<details class="ma-fold"/);

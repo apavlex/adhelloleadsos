@@ -1,6 +1,7 @@
 <% const fv = formValues || {}; %>
+<% const _fbAction = typeof feedbackAction !== 'undefined' && feedbackAction ? feedbackAction : ('/rv/' + slug + '/feedback'); %>
 <% if (error) { %><p class="ma-flash ma-flash--err" role="alert"><%= error %></p><% } %>
-<form method="post" action="/rv/<%= slug %>/feedback" class="ma-card" style="margin-top:10px">
+<form method="post" action="<%= _fbAction %>" class="ma-card" style="margin-top:10px">
   <input type="hidden" name="rating" value="<%= gate.rating %>">
   <div style="position:absolute;left:-9999px" aria-hidden="true"><input name="website" tabindex="-1" autocomplete="off"></div>
   <div class="ma-field">
