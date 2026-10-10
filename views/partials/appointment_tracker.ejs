@@ -1,7 +1,10 @@
 <% const _at = typeof appointmentTracker !== 'undefined' && appointmentTracker ? appointmentTracker : null; %>
 <% if (_at) { %>
 <% const _tot = _at.totals || { purchased: 0, remaining: 0, open: 0, booked: 0, closed: 0 }; %>
-<section class="appt-tracker mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/85 shadow-sm overflow-hidden" id="appointmentTracker" aria-label="Appointment tracker">
+<% const _canSell = typeof canSellAppointments !== 'undefined' && !!canSellAppointments; %>
+<% const _pool = typeof appointmentPool !== 'undefined' && appointmentPool ? appointmentPool : { listings: [], summary: {}, myPurchases: [] }; %>
+<% const _poolListings = Array.isArray(_pool.listings) ? _pool.listings : []; %>
+<section class="appt-tracker mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/85 shadow-sm overflow-hidden" id="appointmentTracker" aria-label="Appointment tracker" data-can-sell="<%= _canSell ? '1' : '0' %>">
   <style>
     .appt-tracker { --appt-ink: #0f172a; --appt-gold: #FFD644; --appt-done: #0f766e; --appt-line: rgba(15, 23, 42, 0.12); }
     html.dark .appt-tracker { --appt-ink: #f8fafc; --appt-line: rgba(255, 255, 255, 0.14); }
@@ -139,12 +142,15 @@
     <div class="flex flex-wrap items-start justify-between gap-4 mb-5">
       <div class="min-w-0">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Appointment tracker</p>
-        <h2 class="font-display font-extrabold text-2xl md:text-3xl leading-tight text-brand-dark dark:text-white">Sold slots → booked → closed</h2>
-        <p class="text-sm text-brand-muted dark:text-slate-400 mt-2 max-w-xl">Sell appointments by trade (e.g. Electrician). Copy, open, or text/email their contractor app from this workspace — they turn on lead alerts there.</p>
+        <h2 class="font-display font-extrabold text-2xl md:text-3xl leading-tight text-brand-dark dark:text-white"><%= _canSell ? 'Sold slots → booked → closed' : 'Buy appointments → track booked → closed' %></h2>
+        <p class="text-sm text-brand-muted dark:text-slate-400 mt-2 max-w-xl"><% if (_canSell) { %>App admins sell packages and list leads on the shared pool for commission. Workspaces buy available appointments from that pool.<% } else { %>Buy available appointments from the AdHello pool. Your purchased slots show here as Appts left — you cannot create or sell inventory from this workspace.<% } %></p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
+        <% if (_canSell) { %>
         <button type="button" id="apptSellBtn" class="btn-pill bg-brand-yellow text-brand-dark px-5 py-2.5 text-[10px] font-black uppercase tracking-widest">Sell appointments</button>
+        <button type="button" id="apptPoolListBtn" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 text-brand-dark dark:text-white px-5 py-2.5 text-[10px] font-black uppercase tracking-widest" title="List a lead or slots on the shared pool for workspaces to buy">List for pool</button>
         <button type="button" id="apptSendLeadBtn" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 text-brand-dark dark:text-white px-5 py-2.5 text-[10px] font-black uppercase tracking-widest" data-has-packages="<%= (_at.packages && _at.packages.length) ? '1' : '0' %>" title="<%= (_at.packages && _at.packages.length) ? 'Send a homeowner to one or more contractors' : 'Add a contractor package first (Sell appointments)' %>">Send lead</button>
+        <% } %>
         <button type="button" id="apptSyncBtn" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 text-brand-dark dark:text-white px-5 py-2.5 text-[10px] font-black uppercase tracking-widest" <%= _at.ghlConfigured ? '' : 'disabled title="Connect GHL in Workspace → Integrations"' %>>Sync GHL calendar</button>
       </div>
     </div>
@@ -203,6 +209,88 @@
     <p class="text-sm font-semibold text-rose-600 dark:text-rose-300 mt-2 hidden" id="apptTrackerMsg" role="status"></p>
   </div>
 
+  <div class="px-5 sm:px-6 md:px-8 py-5 border-b border-brand-border/40 dark:border-white/10" id="apptPoolMarket">
+    <div class="flex flex-wrap items-end justify-between gap-3 mb-3">
+      <div>
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Appointments pool</p>
+        <h3 class="font-display font-extrabold text-lg text-brand-dark dark:text-white mt-1"><%= _canSell ? 'Listings workspaces can buy' : 'Available to buy' %></h3>
+        <p class="text-[12px] text-brand-muted mt-1"><%= (_pool.summary && _pool.summary.slotsLeft) || 0 %> slots open across <%= (_pool.summary && _pool.summary.availableCount) || 0 %> listing<%= ((_pool.summary && _pool.summary.availableCount) || 0) === 1 ? '' : 's' %>.</p>
+      </div>
+    </div>
+    <% const _buyable = _poolListings.filter(function (l) { return l.status === 'available' && l.slotsLeft > 0; }); %>
+    <% if (!_buyable.length) { %>
+    <p class="text-sm text-brand-muted rounded-xl border border-dashed border-brand-border dark:border-white/15 px-4 py-5"><%= _canSell ? 'No pool listings yet. Tap List for pool (or check “Also list on pool” when selling) to add inventory workspaces can buy.' : 'No appointments are available to buy right now. Check back after AdHello lists new inventory.' %></p>
+    <% } else { %>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="apptPoolList">
+      <% _buyable.forEach(function (listing) { %>
+      <article class="rounded-2xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-950/40 p-4" data-pool-id="<%= listing.id %>">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted"><%= listing.trade %></p>
+            <p class="font-bold text-brand-dark dark:text-white truncate"><%= listing.title %></p>
+            <% if (listing.commissionNote) { %><p class="text-[12px] text-brand-muted mt-1"><%= listing.commissionNote %></p><% } %>
+            <% if (listing.note) { %><p class="text-[12px] text-brand-muted mt-0.5 line-clamp-2"><%= listing.note %></p><% } %>
+          </div>
+          <div class="text-right shrink-0">
+            <p class="font-display font-black text-2xl tabular-nums text-brand-dark dark:text-white"><%= listing.slotsLeft %></p>
+            <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">left</p>
+            <% if (listing.pricePerSlot > 0) { %><p class="text-[11px] font-semibold text-brand-muted mt-1">$<%= listing.pricePerSlot %>/slot</p><% } %>
+          </div>
+        </div>
+        <div class="mt-3 flex flex-wrap items-center gap-2">
+          <% if (!_canSell) { %>
+          <label class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-brand-muted">
+            Qty
+            <input type="number" min="1" max="<%= listing.slotsLeft %>" value="1" class="w-16 rounded-lg border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-2 py-1.5 text-sm font-bold text-brand-dark dark:text-white" data-pool-qty />
+          </label>
+          <button type="button" class="btn-pill bg-brand-yellow text-brand-dark px-4 py-2 text-[10px] font-black uppercase tracking-widest" data-pool-buy="<%= listing.id %>">Buy appointments</button>
+          <% } else { %>
+          <button type="button" class="btn-pill border border-brand-border dark:border-white/20 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-muted" data-pool-archive="<%= listing.id %>">Archive</button>
+          <% } %>
+        </div>
+      </article>
+      <% }); %>
+    </div>
+    <% } %>
+  </div>
+
+  <% if (_canSell) { %>
+  <div class="px-5 sm:px-6 md:px-8 py-5 border-b border-brand-border/40 dark:border-white/10 appt-form" id="apptPoolListForm" hidden>
+    <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">List lead / slots for workspaces to buy</p>
+    <form id="apptPoolListFormEl" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <label class="block">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Title</span>
+        <input name="title" required maxlength="160" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white" placeholder="Portland plumbing leads" />
+      </label>
+      <label class="block">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Trade</span>
+        <input name="trade" list="apptTradeList" maxlength="60" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white" placeholder="Plumber" />
+      </label>
+      <label class="block">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Slots for sale</span>
+        <input name="slotsTotal" type="number" min="1" max="5000" value="5" required class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white" />
+      </label>
+      <label class="block">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Commission note</span>
+        <input name="commissionNote" maxlength="240" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white" placeholder="20% of closed job" />
+      </label>
+      <label class="block">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Price / slot (optional)</span>
+        <input name="pricePerSlot" type="number" min="0" max="100000" value="0" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white" />
+      </label>
+      <label class="block sm:col-span-2 lg:col-span-3">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Note</span>
+        <input name="note" maxlength="500" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white" placeholder="Lead source, market, or handoff details" />
+      </label>
+      <div class="sm:col-span-2 lg:col-span-3 flex flex-wrap gap-2">
+        <button type="submit" class="btn-pill bg-brand-yellow text-brand-dark px-5 py-2.5 text-[10px] font-black uppercase tracking-widest">Add to pool</button>
+        <button type="button" id="apptPoolListCancel" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Cancel</button>
+      </div>
+    </form>
+  </div>
+  <% } %>
+
+  <% if (_canSell) { %>
   <div class="px-5 sm:px-6 md:px-8 py-5 border-b border-brand-border/40 dark:border-white/10 appt-form" id="apptSellForm" hidden>
     <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Sell a package</p>
     <form id="apptSellFormEl" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -248,6 +336,17 @@
       <label class="block sm:col-span-2">
         <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Website URL</span>
         <input name="websiteUrl" type="url" maxlength="500" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white" placeholder="https://handymen.example.com" />
+      </label>
+      <label class="sm:col-span-2 lg:col-span-3 flex items-start gap-2.5 rounded-xl border border-brand-border/60 dark:border-white/10 px-3 py-3 cursor-pointer">
+        <input type="checkbox" name="listOnPool" value="1" class="mt-0.5 accent-brand-yellow" checked />
+        <span>
+          <span class="block text-[11px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Also list on appointments pool</span>
+          <span class="block text-[12px] text-brand-muted mt-0.5">Workspaces can buy these slots. Set commission below if you want it shown on the listing.</span>
+        </span>
+      </label>
+      <label class="block">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Pool commission note</span>
+        <input name="commissionNote" maxlength="240" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white" placeholder="20% of closed job" />
       </label>
       <div class="sm:col-span-2 lg:col-span-3 flex flex-wrap gap-2">
         <button type="submit" class="btn-pill btn-primary px-6 py-2.5 text-[10px] font-black uppercase tracking-widest">Save package</button>
@@ -325,18 +424,34 @@
           </div>
         </div>
       </fieldset>
+      <label class="sm:col-span-2 lg:col-span-3 flex items-start gap-2.5 rounded-xl border border-brand-border/60 dark:border-white/10 px-3 py-3 cursor-pointer">
+        <input type="checkbox" name="listOnPool" value="1" class="mt-0.5 accent-brand-yellow" checked />
+        <span>
+          <span class="block text-[11px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Also list on appointments pool</span>
+          <span class="block text-[12px] text-brand-muted mt-0.5">Sell this lead to the network for commission — workspaces can buy slots from the pool.</span>
+        </span>
+      </label>
+      <label class="block">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Pool slots</span>
+        <input name="poolSlots" type="number" min="1" max="500" value="1" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white" />
+      </label>
+      <label class="block">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Commission note</span>
+        <input name="commissionNote" maxlength="240" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white" placeholder="20% of closed job" />
+      </label>
       <div class="sm:col-span-2 lg:col-span-3 flex flex-wrap gap-2">
         <button type="submit" class="btn-pill btn-primary px-6 py-2.5 text-[10px] font-black uppercase tracking-widest">Send + notify</button>
         <button type="button" id="apptSendLeadCancel" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Cancel</button>
       </div>
     </form>
   </div>
+  <% } %>
 
   <div class="px-5 sm:px-6 md:px-8 py-5" id="apptPackageList">
     <% if (!_at.packages || !_at.packages.length) { %>
     <div class="rounded-2xl border border-dashed border-brand-border dark:border-white/15 px-5 py-8 text-center" id="apptEmptyState">
-      <p class="font-display font-extrabold text-lg text-brand-dark dark:text-white">No appointment packages yet</p>
-      <p class="text-sm text-brand-muted mt-2 max-w-md mx-auto">When you sell a block of appointments to a contractor, add them here. Sync with GHL to mark slots booked and closed automatically.</p>
+      <p class="font-display font-extrabold text-lg text-brand-dark dark:text-white"><%= _canSell ? 'No appointment packages yet' : 'No purchased appointments yet' %></p>
+      <p class="text-sm text-brand-muted mt-2 max-w-md mx-auto"><% if (_canSell) { %>Sell a package to a contractor, or list leads on the appointments pool for workspaces to buy. Sync with GHL to mark slots booked and closed.<% } else { %>Buy available appointments from the pool above. Purchased slots show here as Appts left — sync GHL to track booked and closed.<% } %></p>
     </div>
     <% } else { %>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -375,8 +490,10 @@
             <p class="text-[11px] font-bold text-amber-900 dark:text-amber-100 flex-1 min-w-0">
               Requested <%= req.quantity %> <%= req.type %><% if (req.note) { %> — <%= req.note %><% } %>
             </p>
+            <% if (_canSell) { %>
             <button type="button" class="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300 hover:underline" data-appt-fulfill="<%= pkg.id %>" data-request-id="<%= req.id %>">Fulfill</button>
             <button type="button" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:underline" data-appt-decline="<%= pkg.id %>" data-request-id="<%= req.id %>">Decline</button>
+            <% } %>
           </div>
           <% }); %>
         </div>
@@ -385,14 +502,18 @@
           <button type="button" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline" data-appt-portal="<%= pkg.id %>" data-appt-portal-action="copy">Copy app link</button>
           <button type="button" class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:underline" data-appt-portal="<%= pkg.id %>" data-appt-portal-action="open">Open app</button>
           <button type="button" class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:underline" data-appt-portal="<%= pkg.id %>" data-appt-portal-action="send" title="<%= (pkg.contactPhone || pkg.contactEmail) ? 'Text or email the contractor app link' : 'Add contact phone/email on this package first' %>">Text/email app</button>
+          <% if (_canSell) { %>
           <button type="button" class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:underline" data-appt-add-lead="<%= pkg.id %>">Add lead + notify</button>
+          <% } %>
           <% if (pkg.bookingHref) { %>
           <a href="<%= pkg.bookingHref %>" target="_blank" rel="noopener noreferrer" class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:underline">Booking link</a>
           <% } %>
           <% if (pkg.ghlCalendarName) { %>
           <span class="text-[10px] font-bold text-brand-muted">Calendar: <%= pkg.ghlCalendarName %></span>
           <% } %>
+          <% if (_canSell) { %>
           <button type="button" class="ml-auto text-[10px] font-black uppercase tracking-widest text-rose-600 dark:text-rose-300 hover:underline" data-appt-delete="<%= pkg.id %>">Remove</button>
+          <% } %>
         </div>
       </article>
       <% }); %>
@@ -405,11 +526,15 @@
   var root = document.getElementById('appointmentTracker');
   if (!root) return;
   var sellBtn = document.getElementById('apptSellBtn');
+  var poolListBtn = document.getElementById('apptPoolListBtn');
   var sendLeadBtn = document.getElementById('apptSendLeadBtn');
   var syncBtn = document.getElementById('apptSyncBtn');
   var formWrap = document.getElementById('apptSellForm');
   var formEl = document.getElementById('apptSellFormEl');
   var cancelBtn = document.getElementById('apptSellCancel');
+  var poolFormWrap = document.getElementById('apptPoolListForm');
+  var poolFormEl = document.getElementById('apptPoolListFormEl');
+  var poolCancelBtn = document.getElementById('apptPoolListCancel');
   var sendFormWrap = document.getElementById('apptSendLeadForm');
   var sendFormEl = document.getElementById('apptSendLeadFormEl');
   var sendCancelBtn = document.getElementById('apptSendLeadCancel');
@@ -418,6 +543,7 @@
   var calSelect = document.getElementById('apptCalendarSelect');
   var calendarsLoaded = false;
   var hasPackages = !!(sendLeadBtn && sendLeadBtn.getAttribute('data-has-packages') === '1');
+  var canSell = root.getAttribute('data-can-sell') === '1';
 
   function apiUrl(path) {
     try {
@@ -466,19 +592,34 @@
     );
   }
 
+  function hideAllForms() {
+    if (formWrap) formWrap.hidden = true;
+    if (poolFormWrap) poolFormWrap.hidden = true;
+    if (sendFormWrap) sendFormWrap.hidden = true;
+  }
+
   function showForm(open) {
     if (!formWrap) return;
+    hideAllForms();
     formWrap.hidden = !open;
-    if (open && sendFormWrap) sendFormWrap.hidden = true;
     if (open) {
       try { formWrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) {}
     }
   }
 
+  function showPoolForm(open) {
+    if (!poolFormWrap) return;
+    hideAllForms();
+    poolFormWrap.hidden = !open;
+    if (open) {
+      try { poolFormWrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) {}
+    }
+  }
+
   function showSendForm(open) {
     if (!sendFormWrap) return;
+    hideAllForms();
     sendFormWrap.hidden = !open;
-    if (open && formWrap) formWrap.hidden = true;
     if (open) {
       try { sendFormWrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) {}
     }
@@ -526,6 +667,64 @@
   }
   if (cancelBtn) cancelBtn.addEventListener('click', function () { showForm(false); setMsg(''); });
 
+  if (poolListBtn) {
+    poolListBtn.addEventListener('click', function () {
+      setMsg('');
+      showPoolForm(true);
+    });
+  }
+  if (poolCancelBtn) {
+    poolCancelBtn.addEventListener('click', function () {
+      showPoolForm(false);
+      setMsg('');
+    });
+  }
+  if (poolFormEl) {
+    poolFormEl.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (!canSell) {
+        setMsg('Only app admins can list on the appointments pool.', true);
+        return;
+      }
+      var fd = new FormData(poolFormEl);
+      var body = {
+        title: String(fd.get('title') || '').trim(),
+        trade: String(fd.get('trade') || '').trim() || null,
+        slotsTotal: Number(fd.get('slotsTotal') || 0),
+        commissionNote: String(fd.get('commissionNote') || '').trim() || null,
+        pricePerSlot: Number(fd.get('pricePerSlot') || 0),
+        note: String(fd.get('note') || '').trim() || null,
+      };
+      if (!body.title) {
+        setMsg('Title is required.', true);
+        return;
+      }
+      if (!Number.isFinite(body.slotsTotal) || body.slotsTotal < 1) {
+        setMsg('Slots to sell must be at least 1.', true);
+        return;
+      }
+      var submitBtn = poolFormEl.querySelector('[type=submit]');
+      if (submitBtn) submitBtn.disabled = true;
+      setMsg('Adding to pool…', false);
+      fetch(apiUrl('/appointments/appointment-pool'), {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(body),
+      })
+        .then(readJson)
+        .then(function (data) {
+          if (!data.success) throw new Error(data.error || 'Could not list on pool');
+          setMsg('Listed on appointments pool — workspaces can buy.', false);
+          setTimeout(function () { window.location.reload(); }, 700);
+        })
+        .catch(function (err) {
+          setMsg(err.message || 'Could not list on pool', true);
+          if (submitBtn) submitBtn.disabled = false;
+        });
+    });
+  }
+
   if (sendLeadBtn) {
     sendLeadBtn.addEventListener('click', function () {
       if (!hasPackages) {
@@ -553,6 +752,9 @@
         phone: String(fd.get('phone') || '').trim() || null,
         email: String(fd.get('email') || '').trim() || null,
         preview: String(fd.get('preview') || '').trim() || null,
+        listOnPool: fd.get('listOnPool') === '1',
+        poolSlots: Number(fd.get('poolSlots') || 1),
+        commissionNote: String(fd.get('commissionNote') || '').trim() || null,
       };
       if (!body.name) {
         setMsg('Lead name is required.', true);
@@ -597,7 +799,7 @@
         .then(function (data) {
           if (!data.success) throw new Error(data.error || 'Could not send lead');
           var n = data.count || (data.delivered && data.delivered.length) || 0;
-          if (!n) {
+          if (!n && !data.poolListing) {
             var skip = (data.skipped && data.skipped[0] && data.skipped[0].reason) || '';
             throw new Error(
               skip === 'already_had_lead'
@@ -606,12 +808,15 @@
             );
           }
           var names = (data.delivered || []).map(function (d) { return d.businessName; }).filter(Boolean);
-          setMsg(
-            'Sent to ' + n + ' contractor' + (n === 1 ? '' : 's')
+          var msgText = n
+            ? ('Sent to ' + n + ' contractor' + (n === 1 ? '' : 's')
               + (names.length ? ' (' + names.slice(0, 4).join(', ') + (names.length > 4 ? '…' : '') + ')' : '')
-              + ' — devices notified.',
-            false,
-          );
+              + ' — devices notified.')
+            : 'Listed on appointments pool.';
+          if (data.poolListing) {
+            msgText += (n ? ' Also listed' : ' Listed') + ' on appointments pool for workspaces to buy.';
+          }
+          setMsg(msgText, false);
           setTimeout(function () { window.location.reload(); }, 900);
         })
         .catch(function (err) {
@@ -637,6 +842,8 @@
         websiteUrl: String(fd.get('websiteUrl') || '').trim() || null,
         formMatchTag: String(fd.get('formMatchTag') || '').trim() || null,
         contactEmail: String(fd.get('contactEmail') || '').trim() || null,
+        listOnPool: fd.get('listOnPool') === '1',
+        commissionNote: String(fd.get('commissionNote') || '').trim() || null,
       };
       formEl.querySelector('[type=submit]').disabled = true;
       fetch(apiUrl('/appointments/appointment-packages'), {
@@ -680,6 +887,57 @@
   }
 
   root.addEventListener('click', function (e) {
+    var buyBtn = e.target && e.target.closest ? e.target.closest('[data-pool-buy]') : null;
+    if (buyBtn) {
+      var listingId = buyBtn.getAttribute('data-pool-buy');
+      var card = buyBtn.closest('[data-pool-id]');
+      var qtyInput = card ? card.querySelector('[data-pool-qty]') : null;
+      var qty = qtyInput ? Number(qtyInput.value || 1) : 1;
+      if (!listingId) return;
+      buyBtn.disabled = true;
+      setMsg('Buying appointments…', false);
+      fetch(apiUrl('/appointments/appointment-pool/' + encodeURIComponent(listingId) + '/buy'), {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ quantity: qty }),
+      })
+        .then(readJson)
+        .then(function (data) {
+          if (!data.success) throw new Error(data.error || 'Could not buy listing');
+          setMsg('Purchased ' + (data.purchase && data.purchase.quantity ? data.purchase.quantity : qty) + ' appointment(s) — added to your tracker.', false);
+          setTimeout(function () { window.location.reload(); }, 700);
+        })
+        .catch(function (err) {
+          setMsg(err.message || 'Buy failed', true);
+          buyBtn.disabled = false;
+        });
+      return;
+    }
+
+    var archiveBtn = e.target && e.target.closest ? e.target.closest('[data-pool-archive]') : null;
+    if (archiveBtn) {
+      var archiveId = archiveBtn.getAttribute('data-pool-archive');
+      if (!archiveId || !window.confirm('Archive this pool listing? Workspaces will no longer see it.')) return;
+      archiveBtn.disabled = true;
+      fetch(apiUrl('/appointments/appointment-pool/' + encodeURIComponent(archiveId) + '/archive'), {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: '{}',
+      })
+        .then(readJson)
+        .then(function (data) {
+          if (!data.success) throw new Error(data.error || 'Could not archive');
+          window.location.reload();
+        })
+        .catch(function (err) {
+          setMsg(err.message || 'Archive failed', true);
+          archiveBtn.disabled = false;
+        });
+      return;
+    }
+
     var del = e.target && e.target.closest ? e.target.closest('[data-appt-delete]') : null;
     if (del) {
       var id = del.getAttribute('data-appt-delete');
