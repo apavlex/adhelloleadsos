@@ -67,28 +67,49 @@ async function ensureWorkspaceAndMember(workspaceId, userEmailRaw) {
   const em = (userEmailRaw || '').toLowerCase().trim();
   if (!em) return w;
 
+  const aliases = emailAliases(em);
   const ownerEm = (w.ownerUserId || '').toLowerCase().trim();
+  const ownerAliases = ownerEm ? emailAliases(ownerEm) : [];
+  const isOwner = Boolean(ownerEm && aliases.some((a) => ownerAliases.includes(a)));
   const sdrSet = parseEmailSet(process.env.WORKSPACE_SDR_EMAILS);
-  if (!w.members[em]) {
-    let role = 'admin';
-    if (ownerEm && em === ownerEm) role = 'owner';
-    else if (sdrSet.has(em)) role = 'sdr';
-    else if (Object.keys(w.members || {}).length === 0) role = 'owner';
-    else role = 'viewer';
-    w.members = { ...(w.members || {}), [em]: { role, joinedAt: new Date().toISOString(), userId: em } };
-    await dbService.saveWorkspace(id, w);
-    return dbService.getWorkspace(id);
+  const members = { ...(w.members || {}) };
+  const existingKey = aliases.find((a) => members[a] && members[a].role);
+
+  if (existingKey) {
+    // Owner login must stay owner even if an alias was previously stored as viewer/sdr.
+    if (isOwner && members[existingKey].role !== 'owner') {
+      members[existingKey] = { ...members[existingKey], role: 'owner' };
+      w.members = members;
+      await dbService.saveWorkspace(id, w);
+      return dbService.getWorkspace(id);
+    }
+    return w;
   }
 
-  return w;
+  let role = 'admin';
+  if (isOwner) role = 'owner';
+  else if (aliases.some((a) => sdrSet.has(a))) role = 'sdr';
+  else if (Object.keys(members).length === 0) role = 'owner';
+  else role = 'viewer';
+  members[em] = { role, joinedAt: new Date().toISOString(), userId: em };
+  w.members = members;
+  await dbService.saveWorkspace(id, w);
+  return dbService.getWorkspace(id);
 }
 
 function roleForEmail(workspace, email) {
-  for (const em of emailAliases(email)) {
+  const aliases = emailAliases(email);
+  if (!aliases.length) return 'viewer';
+  const ownerEm = String((workspace && workspace.ownerUserId) || '')
+    .toLowerCase()
+    .trim();
+  if (ownerEm) {
+    const ownerAliases = emailAliases(ownerEm);
+    if (aliases.some((a) => ownerAliases.includes(a))) return 'owner';
+  }
+  for (const em of aliases) {
     const m = workspace && workspace.members && workspace.members[em];
     if (m && m.role) return m.role;
-    const ownerEm = (workspace && workspace.ownerUserId) || '';
-    if (ownerEm && String(ownerEm).toLowerCase().trim() === em) return 'owner';
   }
   return 'viewer';
 }
