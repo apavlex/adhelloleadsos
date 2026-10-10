@@ -80,16 +80,19 @@ function readJsonReply(r) {
   document.addEventListener('click', function (e) {
     var btn = e.target.closest('[data-get-app-share]');
     if (!btn) return;
-    var title = btn.getAttribute('data-get-app-share-title')
-      || (document.querySelector('.sidebar-ws-text .truncate') || {}).textContent
-      || 'AdHello';
-    var url = btn.getAttribute('href');
-    if (!url || url.charAt(0) === '/') url = window.location.origin + (url || '/get-app');
     if (typeof navigator.share !== 'function') return;
     e.preventDefault();
     e.stopPropagation();
     closeMobileMenu();
-    navigator.share({ title: String(title).trim() || 'AdHello', text: 'Add to your Home Screen', url: url }).catch(function () { /* cancelled */ });
+    var title = btn.getAttribute('data-get-app-share-title')
+      || (document.querySelector('.sidebar-ws-text .truncate') || {}).textContent
+      || 'AdHello';
+    var shareUrl = window.location.origin + '/today';
+    navigator.share({
+      title: String(title).trim() || 'AdHello',
+      text: 'Add to your Home Screen',
+      url: shareUrl,
+    }).catch(function () { /* cancelled */ });
   });
 
   // Swipe right anywhere to pull the menu open, swipe left to push it closed (like the X app).
