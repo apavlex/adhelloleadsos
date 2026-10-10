@@ -320,14 +320,18 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     assert.match(String(avatarGet.headers.get('content-type') || ''), /image\//);
     const homeWithPhoto = await (await fetch(`${base}/m/${token}`)).text();
     assert.match(homeWithPhoto, /avatar\.png\?v=/);
+    assert.match(homeWithPhoto, /icon-180\.png\?v=/);
+    assert.match(homeWithPhoto, /icon-192\.png\?v=/);
 
     const manifest = await (await fetch(`${base}/m/${token}/manifest.webmanifest`)).json();
     assert.equal(manifest.name, 'Discount Home Services');
     assert.equal(manifest.display, 'standalone');
     assert.equal(manifest.start_url, `/m/${token}?source=pwa`);
+    assert.match(String(manifest.icons[0].src), /icon-192\.png\?v=/);
 
     const icon = await fetch(`${base}/m/${token}/icon-192.png`);
     assert.equal(icon.headers.get('content-type'), 'image/png');
+    assert.ok(icon.headers.get('etag'));
 
     const sent = await fetch(`${base}/m/${token}/send`, {
       method: 'POST',

@@ -104,14 +104,27 @@ function escapeXml(value) {
   return String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]));
 }
 
-/** Square app icon: the uploaded logo on the accent color, or initials when there is no logo. */
-async function renderIcon({ brand, logo, size }) {
+/**
+ * Square app / Home Screen icon.
+ * - photo mode: cover-crop the image to fill the icon (profile photos)
+ * - logo mode: contain the logo on white (network brand marks)
+ * - fallback: initials on the accent color
+ */
+async function renderIcon({ brand, logo, size, mode }) {
   const sharp = require('sharp');
   const px = Math.max(48, Math.min(1024, parseInt(size, 10) || 192));
   const accent = brand.accent || DEFAULT_ACCENT;
   if (logo && logo.buffer) {
+    if (mode === 'photo') {
+      return sharp(logo.buffer)
+        .rotate()
+        .resize(px, px, { fit: 'cover', position: 'attention' })
+        .png()
+        .toBuffer();
+    }
     const inner = Math.round(px * 0.72);
     const fitted = await sharp(logo.buffer)
+      .rotate()
       .resize(inner, inner, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
       .png()
       .toBuffer();
