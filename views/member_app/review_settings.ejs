@@ -54,7 +54,11 @@
         <% } %>
         <% platforms.forEach(function (p) { %>
         <div class="ma-field">
-          <label class="ma-label rv-field-label" for="rv-<%= p.key %>"><span class="rv-field-badge" style="background: <%= p.color %>" aria-hidden="true"><%= p.letter %></span><%= p.field %></label>
+          <label class="ma-label rv-field-label" for="rv-<%= p.key %>">
+            <span class="rv-field-badge" style="background: <%= p.tile || '#fff' %>" aria-hidden="true">
+              <% if (p.icon) { %><%- p.icon %><% } else { %><%= p.letter %><% } %>
+            </span><%= p.field %>
+          </label>
           <input id="rv-<%= p.key %>" name="<%= p.key %>" type="url" inputmode="url" class="ma-input" value="<%= member.reviewLinks[p.key] || '' %>" placeholder="<%= p.placeholder %>">
           <% if (p.hint) { %><p class="ma-hint"><%= p.hint %></p><% } %>
         </div>

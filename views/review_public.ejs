@@ -33,7 +33,7 @@
         <p class="ma-hint" style="text-align:center">You can also post a public review:</p>
         <div class="rv-links rv-links--quiet">
           <% destinations.forEach(function (d) { %>
-          <a class="rv-link" href="<%= d.href %>" rel="noopener"><span class="rv-link__icon" style="background: <%= d.color %>"><%= d.letter %></span><%= d.label %><span class="rv-link__go">›</span></a>
+          <a class="rv-link" href="<%= d.href %>" rel="noopener"><span class="rv-link__icon" style="background: <%= d.tile || d.color %>"><% if (d.icon) { %><%- d.icon %><% } else { %><%= d.letter %><% } %></span><%= d.label %><span class="rv-link__go">›</span></a>
           <% }); %>
         </div>
       </div>
@@ -52,7 +52,7 @@
         <% if (destinations.length) { %>
         <div class="rv-links">
           <% destinations.forEach(function (d) { %>
-          <a class="rv-link" href="<%= d.href %>" rel="noopener"><span class="rv-link__icon" style="background: <%= d.color %>"><%= d.letter %></span>Review us on <%= d.label %><span class="rv-link__go">›</span></a>
+          <a class="rv-link" href="<%= d.href %>" rel="noopener"><span class="rv-link__icon" style="background: <%= d.tile || d.color %>"><% if (d.icon) { %><%- d.icon %><% } else { %><%= d.letter %><% } %></span>Review us on <%= d.label %><span class="rv-link__go">›</span></a>
           <% }); %>
         </div>
         <% } else { %>
@@ -71,7 +71,7 @@
         <p class="ma-hint" style="text-align:center;margin-top:18px">Prefer to post a public review?</p>
         <div class="rv-links rv-links--quiet">
           <% destinations.forEach(function (d) { %>
-          <a class="rv-link" href="<%= d.href %>" rel="noopener"><span class="rv-link__icon" style="background: <%= d.color %>"><%= d.letter %></span><%= d.label %><span class="rv-link__go">›</span></a>
+          <a class="rv-link" href="<%= d.href %>" rel="noopener"><span class="rv-link__icon" style="background: <%= d.tile || d.color %>"><% if (d.icon) { %><%- d.icon %><% } else { %><%= d.letter %><% } %></span><%= d.label %><span class="rv-link__go">›</span></a>
           <% }); %>
         </div>
         <% } %>
@@ -81,7 +81,7 @@
         <p class="ma-hint" style="text-align:center">Or go straight to a review site:</p>
         <div class="rv-links rv-links--quiet">
           <% destinations.forEach(function (d) { %>
-          <a class="rv-link" href="<%= d.href %>" rel="noopener"><span class="rv-link__icon" style="background: <%= d.color %>"><%= d.letter %></span><%= d.label %><span class="rv-link__go">›</span></a>
+          <a class="rv-link" href="<%= d.href %>" rel="noopener"><span class="rv-link__icon" style="background: <%= d.tile || d.color %>"><% if (d.icon) { %><%- d.icon %><% } else { %><%= d.letter %><% } %></span><%= d.label %><span class="rv-link__go">›</span></a>
           <% }); %>
         </div>
       </div>
