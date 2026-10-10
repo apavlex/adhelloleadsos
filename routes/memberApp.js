@@ -14,6 +14,7 @@
  */
 
 const express = require('express');
+const multer = require('multer');
 const dbService = require('../services/database');
 const store = require('../services/networkStore');
 const ex = require('../services/referralExchange');
@@ -24,6 +25,7 @@ const networkBrand = require('../services/networkBrand');
 const work = require('../services/memberWork');
 const reviewPage = require('../services/reviewPage');
 const reviewRequestScript = require('../services/reviewRequestScript');
+const reviewShareImage = require('../services/reviewShareImage');
 const contractorPortal = require('../services/contractorPortal');
 const memberAppointmentLink = require('../services/memberAppointmentLink');
 const { verifyNetworkToken } = require('../services/networkLinkSign');
@@ -31,6 +33,23 @@ const { ICONS } = require('../services/memberAppIcons');
 
 const router = express.Router();
 const form = express.urlencoded({ extended: true, limit: '64kb' });
+const reviewUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: reviewShareImage.MAX_UPLOAD_BYTES, files: 1 },
+  fileFilter(req, file, cb) {
+    const ok = /^image\/(jpeg|jpg|png|webp|gif)$/i.test(String(file.mimetype || ''));
+    cb(ok ? null : new Error('Upload a JPG, PNG, WebP, or GIF image.'), ok);
+  },
+});
+
+function withReviewUpload(fieldName) {
+  return (req, res, next) => {
+    reviewUpload.single(fieldName)(req, res, (err) => {
+      if (!err) return next();
+      return renderInvalid(res, 400, err.message || 'Could not upload that image.');
+    });
+  };
+}
 
 const OK_MESSAGES = {
   sent: 'Referral sent. They were notified.',
@@ -44,6 +63,8 @@ const OK_MESSAGES = {
   invited: 'Thanks! The network will review them and send their app link.',
   saved: 'Review links saved.',
   script_saved: 'Review SMS script saved. AI will use it when you send via GHL.',
+  share_image_saved: 'Link preview image saved. Messages will show this photo.',
+  share_image_cleared: 'Custom preview image removed. The AdHello default will be used.',
   review_sms: 'Review request sent by text via Go High Level.',
   review_email: 'Review request sent by email via Go High Level.',
   customer: 'Customer saved.',
@@ -888,6 +909,9 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
     reviewLink: reviewUrl,
     smsScript,
   });
+  const shareImagePath = reviewShareImage.shareImagePath(member.reviewSlug, 'default');
+  const shareImageUrl = reviewShareImage.shareImageAbsoluteUrl(member.reviewSlug, 'default');
+  const hasCustomShareImage = !!member.reviewShareImageUpdatedAt;
   return render(res, 'review', { ...ctx, member }, {
     reviewUrl,
     reviewPath: `/rv/${member.reviewSlug}`,
@@ -904,6 +928,9 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
     smsScript,
     defaultSmsScript: reviewRequestScript.DEFAULT_SMS_SCRIPT,
     ghlWorkflowPrompt,
+    shareImagePath: `${shareImagePath}?v=${encodeURIComponent(member.reviewShareImageUpdatedAt || 'default')}`,
+    shareImageUrl,
+    hasCustomShareImage,
     flash: flash || flashFromQuery(req),
   }, status);
 }
@@ -936,8 +963,36 @@ router.post('/m/:token/review/script', form, withMember(async (req, res, ctx) =>
   return res.redirect(303, `${ctx.base}/review?ok=script_saved`);
 }));
 
+/** Save or clear the default link-preview image shown when the review link is shared. */
+router.post('/m/:token/review/share-image', (req, res, next) => {
+  const ct = String(req.headers['content-type'] || '');
+  if (ct.includes('multipart/form-data')) return withReviewUpload('shareImage')(req, res, next);
+  return form(req, res, next);
+}, withMember(async (req, res, ctx) => {
+  const member = await ensureReviewSetup(ctx);
+  const body = req.body || {};
+  if (body.remove === '1' || body.remove === 'on') {
+    await reviewShareImage.deleteDefaultShareImage(ctx.network.id, member.id);
+    await store.saveMember(ctx.network.id, { ...member, reviewShareImageUpdatedAt: '' });
+    return res.redirect(303, `${ctx.base}/review?ok=share_image_cleared`);
+  }
+  if (!req.file || !req.file.buffer) {
+    return renderReview(req, res, { ...ctx, member }, { error: 'Choose a photo to use as the link preview.' }, 400);
+  }
+  try {
+    const prepared = await reviewShareImage.prepareShareImage(req.file.buffer);
+    const stamp = await reviewShareImage.saveDefaultShareImage(ctx.network.id, member.id, prepared);
+    await store.saveMember(ctx.network.id, { ...member, reviewShareImageUpdatedAt: stamp });
+    return res.redirect(303, `${ctx.base}/review?ok=share_image_saved`);
+  } catch (err) {
+    return renderReview(req, res, { ...ctx, member }, {
+      error: err.message || 'Could not save that image.',
+    }, 400);
+  }
+}));
+
 /** Send a review request to a customer through the network workspace's GHL SMS/email. */
-router.post('/m/:token/review/send', form, withMember(async (req, res, ctx) => {
+router.post('/m/:token/review/send', withReviewUpload('shareImage'), withMember(async (req, res, ctx) => {
   const member = await ensureReviewSetup(ctx);
   const body = req.body || {};
   const rawAi = Array.isArray(body.useAi) ? body.useAi[body.useAi.length - 1] : body.useAi;
@@ -949,6 +1004,7 @@ router.post('/m/:token/review/send', form, withMember(async (req, res, ctx) => {
     useAi: rawAi === undefined || rawAi === ''
       ? true
       : !(String(rawAi) === '0' || String(rawAi).toLowerCase() === 'false'),
+    keepShareImage: body.keepShareImage === '1' || body.keepShareImage === 'on',
   };
   if (!reviewPage.countLinks(member.reviewLinks)) {
     return renderReview(req, res, { ...ctx, member }, {
@@ -960,18 +1016,38 @@ router.post('/m/:token/review/send', form, withMember(async (req, res, ctx) => {
       error: 'Your membership is paused, so review requests can’t be sent.',
     }, 403, formValues);
   }
+
+  let imageId = '';
+  let memberForSend = member;
+  if (req.file && req.file.buffer) {
+    try {
+      const prepared = await reviewShareImage.prepareShareImage(req.file.buffer);
+      if (formValues.keepShareImage) {
+        const stamp = await reviewShareImage.saveDefaultShareImage(ctx.network.id, member.id, prepared);
+        memberForSend = await store.saveMember(ctx.network.id, { ...member, reviewShareImageUpdatedAt: stamp });
+      } else {
+        imageId = await reviewShareImage.saveRequestShareImage(ctx.network.id, member.id, prepared);
+      }
+    } catch (err) {
+      return renderReview(req, res, { ...ctx, member }, {
+        error: err.message || 'Could not use that preview image.',
+      }, 400, formValues);
+    }
+  }
+
   const result = await notify.sendReviewRequest({
     network: ctx.network,
-    member,
+    member: memberForSend,
     baseUrl: notify.baseUrlFromReq(req),
     toPhone: formValues.phone,
     toEmail: formValues.email,
     customerName: formValues.name,
     channel: formValues.channel,
     useAi: formValues.useAi,
+    imageId,
   });
   if (!result.ok) {
-    return renderReview(req, res, { ...ctx, member }, { error: result.error || 'Could not send.' }, 400, formValues);
+    return renderReview(req, res, { ...ctx, member: memberForSend }, { error: result.error || 'Could not send.' }, 400, formValues);
   }
   const ok = result.channel === 'email' ? 'review_email' : 'review_sms';
   return res.redirect(303, `${ctx.base}/review?ok=${ok}`);

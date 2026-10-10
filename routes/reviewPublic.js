@@ -10,6 +10,7 @@ const store = require('../services/networkStore');
 const notify = require('../services/networkNotify');
 const networkBrand = require('../services/networkBrand');
 const reviewPage = require('../services/reviewPage');
+const reviewShareImage = require('../services/reviewShareImage');
 const { ICONS } = require('../services/memberAppIcons');
 
 const router = express.Router();
@@ -48,7 +49,10 @@ function notFound(res) {
   });
 }
 
-function renderPage(res, page, { rating, thanks, error, formValues }, status) {
+function renderPage(res, page, { rating, thanks, error, formValues, imageId }, status) {
+  const shareId = reviewShareImage.isImageId(imageId) ? String(imageId).trim() : '';
+  const ogUrl = notify.reviewPageLink(page.slug, shareId ? { imageId: shareId } : undefined);
+  const ogImageUrl = reviewShareImage.shareImageAbsoluteUrl(page.slug, shareId || 'default');
   res.setHeader('Cache-Control', 'private, no-store');
   res.setHeader('X-Robots-Tag', 'noindex');
   return res.status(status || 200).render('review_public', {
@@ -59,14 +63,44 @@ function renderPage(res, page, { rating, thanks, error, formValues }, status) {
     error: error || '',
     formValues: formValues || {},
     icons: ICONS,
+    ogTitle: `Review ${page.member.companyName}`,
+    ogDescription: `How was your experience with ${page.member.companyName}? Leave a quick review on AdHello.io.`,
+    ogUrl,
+    ogImageUrl,
+    shareImageId: shareId,
   });
 }
+
+async function serveShareImage(req, res, imageId) {
+  try {
+    const page = await loadPage(req.params.slug);
+    if (!page) return res.status(404).end();
+    const img = await reviewShareImage.getShareImageBuffer(
+      page.network.id,
+      page.member.id,
+      imageId,
+      { companyName: page.member.companyName, brand: page.brand },
+    );
+    res.setHeader('Content-Type', img.contentType || 'image/jpeg');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.end(img.buffer);
+  } catch (err) {
+    console.error('[review-page] og image failed:', err.message);
+    return res.status(500).end();
+  }
+}
+
+router.get('/rv/:slug/og.jpg', (req, res) => serveShareImage(req, res, 'default'));
+router.get('/rv/:slug/og.png', (req, res) => serveShareImage(req, res, 'default'));
+router.get('/rv/:slug/og/:imageId.jpg', (req, res) => serveShareImage(req, res, req.params.imageId));
+router.get('/rv/:slug/og/:imageId.png', (req, res) => serveShareImage(req, res, req.params.imageId));
 
 router.get('/rv/:slug/qr.png', async (req, res) => {
   try {
     const page = await loadPage(req.params.slug);
     if (!page) return res.status(404).end();
-    const url = notify.reviewPageLink(page.slug);
+    const shareId = reviewShareImage.isImageId(req.query.i) ? String(req.query.i).trim() : '';
+    const url = notify.reviewPageLink(page.slug, shareId ? { imageId: shareId } : undefined);
     const png = await QRCode.toBuffer(url, { type: 'png', width: 720, margin: 2, errorCorrectionLevel: 'M', color: { dark: '#0f172a', light: '#ffffff' } });
     res.setHeader('Content-Type', 'image/png');
     res.setHeader('Cache-Control', 'public, max-age=86400');
@@ -98,8 +132,9 @@ router.get('/rv/:slug', async (req, res) => {
     const page = await loadPage(req.params.slug);
     if (!page) return notFound(res);
     const rating = reviewPage.parseRating(req.query.r);
+    const imageId = String(req.query.i || '').trim();
     await store.bumpReviewStats(page.network.id, page.member.id, rating ? { star: rating } : { view: true }).catch(() => {});
-    return renderPage(res, page, { rating });
+    return renderPage(res, page, { rating, imageId });
   } catch (err) {
     console.error('[review-page] view failed:', err.message);
     return notFound(res);

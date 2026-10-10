@@ -307,6 +307,22 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     assert.match(reviewHtml, /Copy for GHL/);
     assert.match(reviewHtml, /https:\/\/leads\.adhello\.io\/rv\/camas-flooring/);
     assert.match(reviewHtml, /AdHello\.io/);
+    assert.match(reviewHtml, /Link preview image/);
+    assert.match(reviewHtml, /shareImage/);
+    assert.match(reviewHtml, /\/rv\/camas-flooring\/og\.jpg/);
+
+    const ogPage = await fetch(`${base}/rv/camas-flooring`);
+    assert.equal(ogPage.status, 200);
+    const ogHtml = await ogPage.text();
+    assert.match(ogHtml, /property="og:image"/);
+    assert.match(ogHtml, /\/rv\/camas-flooring\/og\.jpg/);
+    assert.match(ogHtml, /og:site_name" content="AdHello\.io"/);
+
+    const ogImg = await fetch(`${base}/rv/camas-flooring/og.jpg`);
+    assert.equal(ogImg.status, 200);
+    assert.match(ogImg.headers.get('content-type') || '', /image\/jpeg/);
+    const ogBuf = Buffer.from(await ogImg.arrayBuffer());
+    assert.ok(ogBuf.length > 1000);
 
     const reviewSend = await fetch(`${base}/m/${token}/review/send`, {
       method: 'POST',

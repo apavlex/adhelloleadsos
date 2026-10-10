@@ -15,8 +15,8 @@
     <% const _fv = typeof formValues !== 'undefined' && formValues ? formValues : { phone: '', email: '', name: '', channel: 'auto', useAi: true }; %>
     <% const _script = typeof smsScript !== 'undefined' ? smsScript : ''; %>
     <section class="ma-card" id="maAskForm">
-      <form method="post" action="<%= base %>/review/send" autocomplete="off">
-        <p class="ma-hint" style="margin-top:0">Sends from your network’s Go High Level number / email. Your review link is always included.</p>
+      <form method="post" action="<%= base %>/review/send" enctype="multipart/form-data" autocomplete="off">
+        <p class="ma-hint" style="margin-top:0">Sends from your network’s Go High Level number / email. Your AdHello.io review link is always included — messages show a preview image.</p>
         <% if (!_msg.configured) { %>
         <p class="ma-flash ma-flash--err">Go High Level isn’t connected yet. Ask your agency to connect GHL (API key, Location ID, SMS from number, and outbound email) in Workspace → Integrations.</p>
         <% } else if (!_msg.smsReady && !_msg.emailReady) { %>
@@ -44,6 +44,15 @@
             <option value="email" <%= _fv.channel === 'email' ? 'selected' : '' %> <%= _msg.emailReady ? '' : 'disabled' %>>Email (GHL)</option>
           </select>
         </div>
+        <div class="ma-field">
+          <label class="ma-label" for="rvAskShareImage">Preview image for this text (optional)</label>
+          <input id="rvAskShareImage" name="shareImage" type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="ma-input">
+          <p class="ma-hint">Shown when the link is shared in Messages. Leave blank to use your default below (or the AdHello default).</p>
+        </div>
+        <label class="ma-check" style="display:flex;gap:10px;align-items:flex-start;margin:4px 0 10px">
+          <input type="checkbox" name="keepShareImage" value="1" style="margin-top:3px">
+          <span>Also save this photo as my default preview image</span>
+        </label>
         <label class="ma-check" style="display:flex;gap:10px;align-items:flex-start;margin:4px 0 14px">
           <input type="hidden" name="useAi" value="0">
           <input type="checkbox" name="useAi" value="1" <%= _fv.useAi === false ? '' : 'checked' %> style="margin-top:3px">
@@ -56,6 +65,28 @@
       <% if (!linkCount) { %>
       <p class="ma-flash ma-flash--err" style="width:100%;margin-top:12px">Add at least one review link below so customers have somewhere to post.</p>
       <% } %>
+    </section>
+
+    <section class="ma-section">
+      <div class="ma-section__head"><h2>Link preview image</h2></div>
+      <div class="ma-card">
+        <p class="ma-hint" style="margin-top:0">This photo appears when someone gets your review link in iMessage, SMS previews, or social shares.</p>
+        <img class="ma-share-preview" src="<%= typeof shareImagePath !== 'undefined' ? shareImagePath : (reviewPath + '/og.jpg') %>" alt="Link preview" width="600" height="315" style="width:100%;max-width:100%;height:auto;border-radius:14px;display:block;background:#0f172a">
+        <p class="ma-hint" style="margin-top:10px"><%= typeof hasCustomShareImage !== 'undefined' && hasCustomShareImage ? 'Custom photo on file.' : 'Using the AdHello default until you upload one.' %></p>
+        <form method="post" action="<%= base %>/review/share-image" enctype="multipart/form-data" autocomplete="off" style="margin-top:12px">
+          <div class="ma-field">
+            <label class="ma-label" for="rvDefaultShareImage">Upload default photo</label>
+            <input id="rvDefaultShareImage" name="shareImage" type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="ma-input" required>
+          </div>
+          <button type="submit" class="ma-btn ma-btn--soft ma-btn--block">Save as default preview</button>
+        </form>
+        <% if (typeof hasCustomShareImage !== 'undefined' && hasCustomShareImage) { %>
+        <form method="post" action="<%= base %>/review/share-image" style="margin-top:8px" data-ma-confirm="Remove your custom preview image and use the AdHello default?">
+          <input type="hidden" name="remove" value="1">
+          <button type="submit" class="ma-btn ma-btn--ghost ma-btn--block">Use AdHello default instead</button>
+        </form>
+        <% } %>
+      </div>
     </section>
 
     <section class="ma-section">

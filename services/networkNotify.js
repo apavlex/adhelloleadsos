@@ -22,11 +22,11 @@ function baseUrlFromReq(req) {
 }
 
 /** Customer-facing review URL branded to AdHello.io (leads.adhello.io/rv/…). */
-function reviewPageLink(memberOrSlug) {
+function reviewPageLink(memberOrSlug, opts) {
   const slug = typeof memberOrSlug === 'string'
     ? memberOrSlug
     : (memberOrSlug && memberOrSlug.reviewSlug) || '';
-  return getReviewPageUrl(slug);
+  return getReviewPageUrl(slug, opts);
 }
 
 function referralLink(baseUrl, network, referral, memberId) {
@@ -175,6 +175,7 @@ async function sendReviewRequest({
   channel,
   useAi = true,
   scriptOverride,
+  imageId,
 }) {
   const phone = String(toPhone || '').trim();
   const email = String(toEmail || '').trim();
@@ -183,7 +184,8 @@ async function sendReviewRequest({
     return { ok: false, error: 'Add at least one review link first, then try again.' };
   }
   // Always brand customer SMS/email links to AdHello.io — ignore request/localhost baseUrl.
-  const link = reviewPageLink(member);
+  const shareImageId = String(imageId || '').trim();
+  const link = reviewPageLink(member, shareImageId ? { imageId: shareImageId } : undefined);
   if (!link) {
     return { ok: false, error: 'Could not build the review link.' };
   }
@@ -258,6 +260,7 @@ async function sendReviewRequest({
           provider: 'ghl',
           messageId: result.messageId || '',
           reviewUrl: link,
+          imageId: shareImageId || '',
           copyProvider,
           message: smsBody,
         };
@@ -285,6 +288,7 @@ async function sendReviewRequest({
           provider: 'ghl',
           messageId: result.messageId || '',
           reviewUrl: link,
+          imageId: shareImageId || '',
           copyProvider,
           message: emailBody,
           subject,
