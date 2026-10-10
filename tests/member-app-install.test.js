@@ -9,13 +9,15 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 
 describe('member app install modal and tab bar', () => {
-  it('CSS pins a solid tab bar flush to the bottom without translucent blur', () => {
+  it('CSS pins a frosted tab bar flush to the bottom with a soft top fade', () => {
     const css = fs.readFileSync(path.join(root, 'public/css/member-app.css'), 'utf8');
     assert.match(css, /html\s*\{[^}]*background:\s*var\(--card\)/s);
     assert.match(css, /\.ma-tabbar\s*\{[^}]*bottom:\s*0/s);
-    assert.match(css, /\.ma-tabbar\s*\{[^}]*background:\s*var\(--card\)/s);
+    assert.match(css, /\.ma-tabbar\s*\{[^}]*backdrop-filter:\s*saturate\(160%\)\s*blur\(18px\)/s);
+    assert.match(css, /\.ma-tabbar::before\s*\{[^}]*linear-gradient\(to top/s);
+    assert.match(css, /\.ma-tabbar::before\s*\{[^}]*height:\s*26px/s);
+    assert.match(css, /\.ma-tab--send \.ma-tab__fab\s*\{[^}]*margin-top:\s*-26px/s);
     assert.match(css, /\.ma-tabbar::after\s*\{[^}]*height:\s*200px/s);
-    assert.doesNotMatch(css, /\.ma-tabbar\s*\{[^}]*backdrop-filter:\s*saturate/s);
     // Safe-area must be padding only — min-height + padding double-counted into a tall white shelf.
     assert.match(css, /\.ma-tabbar\s*\{[^}]*min-height:\s*0/s);
     assert.doesNotMatch(
@@ -57,7 +59,7 @@ describe('member app install modal and tab bar', () => {
 
   it('service worker network-firsts versioned CSS so deploys are not stuck', () => {
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.441/);
+    assert.match(sw, /adhello-pwa-v1\.0\.444/);
     assert.match(sw, /searchParams\.has\('v'\)/);
     assert.match(sw, /versioned/);
   });
