@@ -49,6 +49,18 @@ function nextMoveForStage(stageName) {
   return 'Move this deal one stage forward';
 }
 
+/** Normalize UI rows for Ops agent cards (leads / tasks / issues). */
+function itemRow({ kind, id, title, subtitle, href, badge }) {
+  return {
+    kind: String(kind || 'lead').slice(0, 24),
+    id: id ? String(id).slice(0, 160) : null,
+    title: String(title || 'Item').slice(0, 140),
+    subtitle: subtitle ? String(subtitle).slice(0, 200) : '',
+    href: href ? String(href).slice(0, 300) : null,
+    badge: badge ? String(badge).slice(0, 40) : null,
+  };
+}
+
 /**
  * Prospect SDR — prepare early-stage prospect queue (Focus under the hood).
  */
@@ -65,13 +77,30 @@ async function prepareProspects(workspaceId, { role, onBehalfOf, limit = 20 } = 
     workspace: ws,
     ...roiOpts,
   });
-  const top = queue.slice(0, Math.min(8, limit)).map((l) => ({
-    key: l.key,
-    shortKey: shortLeadKey(l),
-    title: String(l.title || l.company || l.email || 'Lead').slice(0, 120),
-    phone: leadPhone(l) || null,
-    stage: parseInt(l.pipelineStage, 10) || 1,
-  }));
+  const top = queue.slice(0, Math.min(8, limit)).map((l) => {
+    const short = shortLeadKey(l);
+    const title = String(l.title || l.company || l.email || 'Lead').slice(0, 120);
+    const phone = leadPhone(l) || null;
+    const stage = parseInt(l.pipelineStage, 10) || 1;
+    return {
+      key: l.key,
+      shortKey: short,
+      title,
+      phone,
+      stage,
+      href: `/focus?lead=${encodeURIComponent(short)}`,
+    };
+  });
+  const items = top.map((t) =>
+    itemRow({
+      kind: 'lead',
+      id: t.key,
+      title: t.title,
+      subtitle: [t.phone ? `Phone ${t.phone}` : null, `Stage ${t.stage}`].filter(Boolean).join(' · '),
+      href: t.href,
+      badge: 'Prospect',
+    }),
+  );
   const withPhone = queue.filter((l) => leadPhone(l)).length;
   const summary =
     queue.length === 0
@@ -93,15 +122,15 @@ async function prepareProspects(workspaceId, { role, onBehalfOf, limit = 20 } = 
     body: summary,
     href: '/focus',
     severity: queue.length ? 'action' : 'info',
-    counts: { queue: queue.length, withPhone },
-    meta: { top },
+    counts: { queue: queue.length, withPhone, items: items.length },
+    meta: { top, items },
   });
   recordBot(wid, role, onBehalfOf, {
     category: 'outreach',
     action: 'prospect_prepare',
     summary: summary.slice(0, 200),
   });
-  return { ok: true, summary, counts: { queue: queue.length, withPhone }, top };
+  return { ok: true, summary, counts: { queue: queue.length, withPhone }, top, items };
 }
 
 /** @deprecated alias — Focus SDR renamed to Prospect SDR */
@@ -165,6 +194,16 @@ async function scanOpportunityBoard(workspaceId, { role, onBehalfOf, limit = 8 }
 
   const topN = Math.min(12, Math.max(3, limit));
   const top = candidates.slice(0, topN);
+  const items = top.map((t) =>
+    itemRow({
+      kind: 'lead',
+      id: t.key,
+      title: t.title,
+      subtitle: [t.stageName, t.valueLabel || null, t.nextMove].filter(Boolean).join(' · '),
+      href: t.href,
+      badge: t.stageName || 'Open',
+    }),
+  );
   const pipelineName = (board.pipeline && board.pipeline.name) || 'Opportunity board';
   const topNames = top
     .slice(0, 3)
@@ -192,10 +231,11 @@ async function scanOpportunityBoard(workspaceId, { role, onBehalfOf, limit = 8 }
     body: summary,
     href: '/prospecting?tab=pipeline',
     severity: top.length ? 'action' : 'info',
-    counts: { open: openCount, top: top.length },
+    counts: { open: openCount, top: top.length, items: items.length },
     meta: {
       pipeline: pipelineName,
       top,
+      items,
       stages: openStages.map((s) => ({ id: s.id, name: s.name, count: s.count, value: s.value })),
     },
   });
@@ -209,6 +249,7 @@ async function scanOpportunityBoard(workspaceId, { role, onBehalfOf, limit = 8 }
     summary,
     counts: { open: openCount, top: top.length },
     top,
+    items,
     pipeline: pipelineName,
   };
 }
@@ -221,17 +262,32 @@ async function scanPool(workspaceId, { role, onBehalfOf } = {}) {
   let unrouted = 0;
   let poolForMembers = 0;
   let networkId = null;
+  const items = [];
   try {
     const network = await networkStore.getNetworkForWorkspace(wid);
     if (network) {
       networkId = network.id;
       const refs = await networkStore.listReferrals(network.id);
-      unrouted = refs.filter((r) => r && r.status === 'unrouted').length;
+      const unroutedRefs = refs.filter((r) => r && r.status === 'unrouted');
+      unrouted = unroutedRefs.length;
       const members = await networkStore.listMembers(network.id);
       for (const m of members) {
         if (!m || m.status === 'paused') continue;
         poolForMembers += poolReferralsForMember(refs, m).length;
       }
+      unroutedRefs.slice(0, 8).forEach((r) => {
+        const customer = (r.customer && (r.customer.name || r.customer.phone)) || r.homeownerName || 'Referral';
+        items.push(
+          itemRow({
+            kind: 'referral',
+            id: r.id,
+            title: String(customer).slice(0, 120),
+            subtitle: [r.trade || r.tradeSlug, r.customer && r.customer.city].filter(Boolean).join(' · ') || 'Unrouted pool referral',
+            href: '/referrals',
+            badge: 'Unrouted',
+          }),
+        );
+      });
     }
   } catch (_) {
     /* optional */
@@ -243,6 +299,28 @@ async function scanPool(workspaceId, { role, onBehalfOf } = {}) {
     const view = await appointmentPackages.loadTodayView(wid);
     apptRemaining = (view && view.totals && view.totals.remaining) || 0;
     pendingRequests = (view && view.totals && view.totals.pendingRequests) || 0;
+    (view && view.packages ? view.packages : [])
+      .filter((p) => p && p.counts && (p.counts.remaining > 0 || (p.pendingRequests || []).length))
+      .slice(0, 6)
+      .forEach((p) => {
+        const left = (p.counts && p.counts.remaining) || 0;
+        const pending = (p.pendingRequests || []).length;
+        items.push(
+          itemRow({
+            kind: 'task',
+            id: p.id,
+            title: p.businessName || p.trade || 'Appointment package',
+            subtitle: [
+              left ? `${left} slot${left === 1 ? '' : 's'} left` : null,
+              pending ? `${pending} portal request${pending === 1 ? '' : 's'}` : null,
+            ]
+              .filter(Boolean)
+              .join(' · '),
+            href: '/appointments',
+            badge: pending ? 'Request' : 'Slots',
+          }),
+        );
+      });
   } catch (_) {
     /* optional */
   }
@@ -274,7 +352,15 @@ async function scanPool(workspaceId, { role, onBehalfOf } = {}) {
     body: summary,
     href: unrouted ? '/referrals' : '/appointments',
     severity: actionBits.length ? 'action' : 'info',
-    counts: { unrouted, poolForMembers, apptRemaining, pendingRequests, marketplaceLeft },
+    counts: {
+      unrouted,
+      poolForMembers,
+      apptRemaining,
+      pendingRequests,
+      marketplaceLeft,
+      items: items.length,
+    },
+    meta: { items },
   });
   recordBot(wid, role, onBehalfOf, {
     category: 'leads',
@@ -285,6 +371,7 @@ async function scanPool(workspaceId, { role, onBehalfOf } = {}) {
     ok: true,
     summary,
     counts: { unrouted, poolForMembers, apptRemaining, pendingRequests, marketplaceLeft },
+    items,
   };
 }
 
@@ -308,6 +395,69 @@ async function opsHealth(workspaceId, { role, onBehalfOf } = {}) {
   }
   if (failed.length) issues.push(`${failed.length} recent failed bot run${failed.length === 1 ? '' : 's'}`);
 
+  const items = [];
+  if (!ghlOk) {
+    items.push(
+      itemRow({
+        kind: 'task',
+        id: 'ghl',
+        title: 'Connect Go High Level',
+        subtitle: 'API key + location ID in Workspace → Integrations',
+        href: '/workspace?tab=integrations',
+        badge: 'Setup',
+      }),
+    );
+  } else {
+    if (!messaging.smsReady) {
+      items.push(
+        itemRow({
+          kind: 'task',
+          id: 'sms',
+          title: 'Add SMS from-number',
+          subtitle: 'Needed to text customers and partners',
+          href: '/workspace?tab=integrations',
+          badge: 'SMS',
+        }),
+      );
+    }
+    if (!messaging.emailReady) {
+      items.push(
+        itemRow({
+          kind: 'task',
+          id: 'email',
+          title: 'Add email from-address',
+          subtitle: 'Needed for review asks and outreach',
+          href: '/workspace?tab=integrations',
+          badge: 'Email',
+        }),
+      );
+    }
+  }
+  failed.slice(0, 5).forEach((r) => {
+    items.push(
+      itemRow({
+        kind: 'task',
+        id: r.id || r.jobId || r.type,
+        title: `Failed: ${r.type || 'bot run'}`,
+        subtitle: r.error || r.summary || 'Recent bot run failed',
+        href: null,
+        badge: 'Failed',
+      }),
+    );
+  });
+  if (!items.length) {
+    items.push(
+      itemRow({
+        kind: 'task',
+        id: 'healthy',
+        title: 'All systems healthy',
+        subtitle: 'GHL, messaging, and recent bot runs look good',
+        href: '/workspace?tab=integrations',
+        badge: 'OK',
+      }),
+    );
+  }
+
   const summary = issues.length
     ? `Ops: ${issues.join('; ')}.`
     : 'Ops: GHL, messaging, and recent bot runs look healthy.';
@@ -329,8 +479,9 @@ async function opsHealth(workspaceId, { role, onBehalfOf } = {}) {
       sms: messaging.smsReady ? 1 : 0,
       email: messaging.emailReady ? 1 : 0,
       failed: failed.length,
+      items: items.length,
     },
-    meta: { issues, enabled: settings.enabled },
+    meta: { issues, enabled: settings.enabled, items },
   });
   recordBot(wid, role, onBehalfOf, {
     category: 'notes',
@@ -347,6 +498,7 @@ async function opsHealth(workspaceId, { role, onBehalfOf } = {}) {
       failed: failed.length,
     },
     issues,
+    items,
     messaging,
   };
 }
@@ -360,4 +512,5 @@ module.exports = {
   actorFor,
   nextMoveForStage,
   isClosedStageName,
+  itemRow,
 };
