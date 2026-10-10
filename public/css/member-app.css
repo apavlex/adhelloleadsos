@@ -43,7 +43,11 @@ html.ma-preview::-webkit-scrollbar { display: none; }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; padding: 0; }
-html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+html {
+  -webkit-text-size-adjust: 100%; text-size-adjust: 100%;
+  height: 100%;
+  height: -webkit-fill-available;
+}
 body {
   background: var(--bg);
   color: var(--ink);
@@ -52,13 +56,38 @@ body {
   line-height: 1.4;
   letter-spacing: -0.01em;
   -webkit-font-smoothing: antialiased;
-  min-height: 100vh;
+  min-height: 100%;
+  min-height: 100svh;
   min-height: 100dvh;
+  min-height: -webkit-fill-available;
 }
 a { color: inherit; }
 h1, h2, h3, .ma-display { font-family: var(--font-display); letter-spacing: -0.02em; }
 /* Controls behave like native ones: no text selection or long-press callouts. */
 .ma-tabbar, .ma-tile, .ma-btn, .ma-seg, .ma-hero, .ma-top { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+
+/*
+ * Lock the document to the visible viewport when the tab bar is present.
+ * On iOS PWAs, position:fixed + 100vh can leave a phantom gap under the bar;
+ * scrolling inside .ma-shell keeps bottom:0 glued to the real screen edge.
+ */
+body:has(> .ma-tabbar) {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  height: -webkit-fill-available;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+body:has(> .ma-tabbar) .ma-shell {
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
 
 .ma-shell {
   max-width: 480px;
@@ -375,21 +404,59 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
   .ma-flash--err { color: #fcd34d; }
 }
 
-/* Bottom tab bar */
-/* iOS tab bar: translucent material, hairline top edge, 10pt labels */
+/* Bottom tab bar — flush to the physical bottom; safe-area is painted as part of the bar */
 .ma-tabbar {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  margin: 0;
+  z-index: 40;
   -webkit-transform: translateZ(0); transform: translateZ(0);
-  background: color-mix(in srgb, var(--card) 82%, transparent);
-  backdrop-filter: saturate(1.8) blur(20px); -webkit-backdrop-filter: saturate(1.8) blur(20px);
+  /* Solid fill so home-indicator padding never reads as empty page gap */
+  background: var(--card);
   box-shadow: 0 -0.5px 0 rgba(0, 0, 0, 0.18);
+  padding-bottom: constant(safe-area-inset-bottom);
   padding-bottom: var(--safe-b);
 }
-@media (prefers-color-scheme: dark) {
-  .ma-tabbar { background: rgba(22, 22, 24, 0.82); box-shadow: 0 -0.5px 0 rgba(255, 255, 255, 0.14); }
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .ma-tabbar {
+    background: color-mix(in srgb, var(--card) 92%, transparent);
+    backdrop-filter: saturate(1.8) blur(20px);
+    -webkit-backdrop-filter: saturate(1.8) blur(20px);
+  }
 }
-.ma-tabbar__inner { max-width: 480px; margin: 0 auto; height: var(--tabbar-h); display: grid; grid-template-columns: repeat(5, 1fr); align-items: end; }
-.ma-tab { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 2px; padding-bottom: 6px; text-decoration: none; color: var(--tab-muted); font-size: 10px; font-weight: 600; letter-spacing: 0.01em; }
+@media (prefers-color-scheme: dark) {
+  .ma-tabbar {
+    background: #1c1c1e;
+    box-shadow: 0 -0.5px 0 rgba(255, 255, 255, 0.14);
+  }
+  @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .ma-tabbar { background: rgba(28, 28, 30, 0.94); }
+  }
+}
+.ma-tabbar__inner {
+  max-width: 480px;
+  margin: 0 auto;
+  height: var(--tabbar-h);
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  align-items: end;
+}
+.ma-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  padding-bottom: 6px;
+  text-decoration: none;
+  color: var(--tab-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
 .ma-tab svg { width: 26px; height: 26px; }
 .ma-tab.is-on { color: var(--acc); }
 .ma-tab--send { position: relative; }
