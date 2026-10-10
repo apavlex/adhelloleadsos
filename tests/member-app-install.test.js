@@ -64,14 +64,14 @@ describe('member app install modal and tab bar', () => {
 
   it('shell bottom padding clears the tab bar and Review FAB', () => {
     const css = fs.readFileSync(path.join(root, 'public/css/member-app.css'), 'utf8');
-    assert.match(css, /--tabbar-fab-overhang:\s*28px/);
-    assert.match(css, /--tabbar-content-gap:\s*24px/);
+    assert.match(css, /--tabbar-fab-overhang:\s*36px/);
+    assert.match(css, /--tabbar-content-gap:\s*40px/);
     assert.match(
       css,
       /\.ma-shell\s*\{[^}]*padding:[^;]*tabbar-h[^;]*tabbar-fab-overhang[^;]*tabbar-content-gap/s,
     );
     const head = fs.readFileSync(path.join(root, 'views/member_app/_head.ejs'), 'utf8');
-    assert.match(head, /\.ma-shell\{padding-bottom:calc\(50px \+ 28px \+ 24px/);
+    assert.match(head, /\.ma-shell\{padding-bottom:calc\(50px \+ 36px \+ 40px/);
   });
 
   it('member-app.js shows install guidance inside workspace standalone shells', () => {

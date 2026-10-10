@@ -16,8 +16,8 @@
   --radius: 20px;
   --tabbar-h: 50px;
   /* Review FAB sits above the bar; keep last page content clear of it. */
-  --tabbar-fab-overhang: 28px;
-  --tabbar-content-gap: 24px;
+  --tabbar-fab-overhang: 36px;
+  --tabbar-content-gap: 40px;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
   /* SF Pro on Apple devices; Inter/Manrope elsewhere */
