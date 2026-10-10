@@ -210,11 +210,20 @@ function dashboardForWorkspace(workspaceId) {
   const settings = store.getSettings(wid);
   const insights = store.listInsights(wid, 12);
   const runs = store.listRecentRuns(wid, 10);
+  const runningJobs = store.listRunningJobs(wid);
+  const runningByRole = new Map();
+  for (const job of runningJobs) {
+    const role = roleForJob(job.type) || (job.roleId ? ROLE_BY_ID[job.roleId] : null);
+    const roleId = (role && role.id) || job.roleId;
+    if (!roleId || runningByRole.has(roleId)) continue;
+    runningByRole.set(roleId, job);
+  }
   const roles = listRoles().map((r) => {
     const cfg = settings.roles[r.id] || { enabled: true, autoTick: true };
     const insight = insights.find((i) => i.roleId === r.id) || null;
     const lastRun = runs.find((x) => x.roleId === r.id) || null;
     const note = memory.latestNote(wid, r.id);
+    const runningJob = runningByRole.get(r.id) || null;
     const meta = (insight && insight.meta) || {};
     const items = Array.isArray(meta.items)
       ? meta.items
@@ -233,18 +242,22 @@ function dashboardForWorkspace(workspaceId) {
       enabled: cfg.enabled !== false,
       autoTick: cfg.autoTick !== false,
       lastTickAt: (settings.lastTickByRole && settings.lastTickByRole[r.id]) || null,
+      running: !!runningJob,
+      runningStartedAt: runningJob ? (runningJob.startedAt || runningJob.createdAt || null) : null,
       insight,
       items,
       lastRun,
       memory: note,
     };
   });
+  const runningRoles = roles.filter((r) => r.running).map((r) => ({ id: r.id, title: r.title }));
   return {
     enabled: settings.enabled !== false,
     lastTickAt: settings.lastTickAt,
     roles,
     insights,
     runs,
+    runningRoles,
   };
 }
 

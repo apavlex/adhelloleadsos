@@ -346,11 +346,19 @@
         <% if (_hasAgentOps) { %>
         <div id="todayPanelOpsAgents" role="tabpanel" aria-labelledby="todayTabOpsAgents" data-today-panel="ops" class="today-main-panel hidden" hidden>
           <div id="agentOpsPanel" class="relative z-[1]" aria-label="Ops agents">
+            <% const _runningRoles = Array.isArray(_agentOps.runningRoles) ? _agentOps.runningRoles : (_agentOps.roles || []).filter((r) => r.running); %>
             <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-5">
               <div>
                 <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Ops agents</p>
                 <h2 class="font-display font-extrabold text-xl md:text-2xl text-brand-dark dark:text-white">Your role bots</h2>
                 <p class="text-sm text-brand-muted dark:text-slate-400 mt-1">Prospect SDR, Opportunity SDR, Dispatcher, and Ops scan AdHello and leave the next move here. Auto-runs about hourly when enabled.</p>
+                <p id="agentOpsRunningLine" class="text-sm font-semibold text-amber-700 dark:text-amber-300 mt-2 <%= _runningRoles.length ? '' : 'hidden' %>" <%= _runningRoles.length ? '' : 'hidden' %> aria-live="polite">
+                  <% if (_runningRoles.length === 1) { %>
+                    <span class="inline-flex items-center gap-2"><span class="agent-ops-pulse" aria-hidden="true"></span><%= _runningRoles[0].title %> is running…</span>
+                  <% } else if (_runningRoles.length > 1) { %>
+                    <span class="inline-flex items-center gap-2"><span class="agent-ops-pulse" aria-hidden="true"></span><%= _runningRoles.map((r) => r.title).join(', ') %> are running…</span>
+                  <% } %>
+                </p>
               </div>
               <button type="button" id="agentOpsTickAll" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white whitespace-nowrap shrink-0 self-start">Run all</button>
             </div>
@@ -358,17 +366,21 @@
               <% _agentOps.roles.forEach((role) => { %>
                 <% const insight = role.insight; %>
                 <% const items = Array.isArray(role.items) ? role.items : []; %>
-                <article class="agent-ops-card rounded-2xl border border-brand-border/70 dark:border-white/10 bg-white/80 dark:bg-slate-900/70 p-4 md:p-5 flex flex-col gap-3" data-agent-role="<%= role.id %>" data-job="<%= role.defaultJob %>" style="border-left: 3px solid <%= role.color || '#94a3b8' %>;">
+                <% const _roleState = role.running ? 'running' : ((items.length || (insight && insight.body)) ? 'ready' : 'idle'); %>
+                <article class="agent-ops-card rounded-2xl border border-brand-border/70 dark:border-white/10 bg-white/80 dark:bg-slate-900/70 p-4 md:p-5 flex flex-col gap-3 <%= role.running ? 'opacity-80' : '' %>" data-agent-role="<%= role.id %>" data-job="<%= role.defaultJob %>" data-auto-tick="<%= role.autoTick !== false && role.enabled !== false ? '1' : '0' %>" style="border-left: 3px solid <%= role.color || '#94a3b8' %>;">
                   <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">
                       <div class="flex flex-wrap items-center gap-2">
                         <p class="text-[10px] font-black uppercase tracking-widest" style="color: <%= role.color || '#64748b' %>"><%= role.name %></p>
-                        <span class="agent-ops-state text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-brand-border/60 dark:border-white/15 text-brand-muted" data-state="idle">Idle</span>
+                        <span class="agent-ops-state text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border <%= _roleState === 'running' ? 'border-amber-500/50 text-amber-700 dark:text-amber-300' : (_roleState === 'ready' ? 'border-emerald-500/40 text-emerald-700 dark:text-emerald-300' : 'border-brand-border/60 dark:border-white/15 text-brand-muted') %>" data-state="<%= _roleState %>"><%= _roleState === 'running' ? 'Running' : (_roleState === 'ready' ? 'Ready' : 'Idle') %></span>
+                        <% if (role.autoTick !== false && role.enabled !== false) { %>
+                        <span class="agent-ops-auto text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-brand-border/50 dark:border-white/15 text-brand-muted" title="Auto-runs about hourly">Auto</span>
+                        <% } %>
                       </div>
                       <h3 class="font-display font-extrabold text-base text-brand-dark dark:text-white mt-0.5"><%= role.title %></h3>
                       <p class="text-xs text-brand-muted dark:text-slate-400 mt-1"><%= role.blurb %></p>
                     </div>
-                    <button type="button" class="agent-ops-run btn-pill btn-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest whitespace-nowrap shrink-0" data-job="<%= role.defaultJob %>">Run</button>
+                    <button type="button" class="agent-ops-run btn-pill btn-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest whitespace-nowrap shrink-0" data-job="<%= role.defaultJob %>" <%= role.running ? 'disabled' : '' %>><%= role.running ? 'Running…' : 'Run' %></button>
                   </div>
                   <div class="agent-ops-insight text-sm text-brand-dark dark:text-slate-200">
                     <% if (insight && insight.body) { %>
@@ -416,6 +428,7 @@
             if (!root) return;
             var tabs = Array.prototype.slice.call(root.querySelectorAll('[data-today-tab]'));
             var panels = Array.prototype.slice.call(root.querySelectorAll('[data-today-panel]'));
+            var onOpsTabChange = function () {};
             function setTab(id) {
               var want = id === 'ops' ? 'ops' : 'next30';
               tabs.forEach(function (tab) {
@@ -438,6 +451,7 @@
                 if (want === 'ops') history.replaceState(null, '', '#ops-agents');
                 else if (location.hash === '#ops-agents' || location.hash === '#ops') history.replaceState(null, '', location.pathname + location.search);
               } catch (_) {}
+              onOpsTabChange(want);
             }
             tabs.forEach(function (tab) {
               tab.addEventListener('click', function () { setTab(tab.getAttribute('data-today-tab')); });
@@ -473,12 +487,33 @@
                 badge.classList.toggle('border-emerald-500/40', state === 'ready');
                 badge.classList.toggle('text-emerald-700', state === 'ready');
                 badge.classList.toggle('dark:text-emerald-300', state === 'ready');
+                badge.classList.toggle('border-brand-border/60', state !== 'running' && state !== 'ready');
+                badge.classList.toggle('text-brand-muted', state !== 'running' && state !== 'ready');
               }
               if (btn) {
                 btn.disabled = state === 'running';
                 btn.textContent = state === 'running' ? 'Running…' : 'Run';
               }
               card.classList.toggle('opacity-80', state === 'running');
+              card.setAttribute('data-running', state === 'running' ? '1' : '0');
+            }
+            function paintRunningLine(roles) {
+              var line = document.getElementById('agentOpsRunningLine');
+              if (!line) return;
+              var running = (Array.isArray(roles) ? roles : []).filter(function (r) { return r && r.running; });
+              if (!running.length) {
+                line.classList.add('hidden');
+                line.setAttribute('hidden', '');
+                line.textContent = '';
+                return;
+              }
+              var names = running.map(function (r) { return r.title || r.id; });
+              var text = names.length === 1
+                ? names[0] + ' is running…'
+                : names.join(', ') + ' are running…';
+              line.innerHTML = '<span class="inline-flex items-center gap-2"><span class="agent-ops-pulse" aria-hidden="true"></span>' + esc(text) + '</span>';
+              line.classList.remove('hidden');
+              line.removeAttribute('hidden');
             }
             function itemsLabel(items) {
               var list = Array.isArray(items) ? items : [];
@@ -550,7 +585,32 @@
                 }
               }
               paintItems(card, role.items || (insight && insight.meta && insight.meta.items) || []);
-              setCardState(card, (role.items && role.items.length) || (insight && insight.body) ? 'ready' : 'idle');
+              if (role.running) setCardState(card, 'running');
+              else setCardState(card, (role.items && role.items.length) || (insight && insight.body) ? 'ready' : 'idle');
+            }
+            function paintDashboard(dash) {
+              if (!dash || !Array.isArray(dash.roles)) return;
+              dash.roles.forEach(paintRole);
+              paintRunningLine(dash.runningRoles && dash.runningRoles.length
+                ? dash.runningRoles
+                : dash.roles.filter(function (r) { return r.running; }));
+            }
+            var pollTimer = null;
+            async function refreshStatus() {
+              try {
+                var res = await fetch('/agent-ops/status', { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+                var data = await res.json().catch(function () { return {}; });
+                if (!res.ok || data.success === false) return;
+                paintDashboard(data);
+              } catch (_) { /* ignore */ }
+            }
+            function stopPoll() {
+              if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+            }
+            function startPoll() {
+              stopPoll();
+              refreshStatus();
+              pollTimer = setInterval(refreshStatus, 3000);
             }
             async function postJson(url, body) {
               var res = await fetch(url, {
@@ -570,12 +630,13 @@
                 var job = btn.getAttribute('data-job');
                 var card = btn.closest('.agent-ops-card');
                 if (!job) return;
+                var title = card && card.querySelector('h3') ? card.querySelector('h3').textContent : job;
                 setCardState(card, 'running');
-                setStatus('Running ' + (card && card.querySelector('h3') ? card.querySelector('h3').textContent : job) + '…');
+                paintRunningLine([{ title: title }]);
+                setStatus('Running ' + title + '…');
                 try {
                   var data = await postJson('/agent-ops/run', { type: job });
-                  var dash = data.dashboard;
-                  if (dash && Array.isArray(dash.roles)) dash.roles.forEach(paintRole);
+                  if (data.dashboard) paintDashboard(data.dashboard);
                   else setCardState(card, 'ready');
                   setStatus((data.result && data.result.summary) || 'Done.');
                   if (card) {
@@ -584,6 +645,7 @@
                   }
                 } catch (err) {
                   setCardState(card, 'idle');
+                  paintRunningLine([]);
                   setStatus(err.message || 'Failed.');
                 }
               });
@@ -593,15 +655,22 @@
               tickAll.addEventListener('click', async function () {
                 tickAll.disabled = true;
                 tickAll.textContent = 'Running…';
-                panel.querySelectorAll('.agent-ops-card').forEach(function (card) { setCardState(card, 'running'); });
+                var allCards = panel.querySelectorAll('.agent-ops-card');
+                var titles = [];
+                allCards.forEach(function (card) {
+                  setCardState(card, 'running');
+                  var h = card.querySelector('h3');
+                  if (h) titles.push(h.textContent);
+                });
+                paintRunningLine(titles.map(function (t) { return { title: t }; }));
                 setStatus('Running all agents…');
                 try {
                   var data = await postJson('/agent-ops/tick', { force: true });
-                  var dash = data.dashboard;
-                  if (dash && Array.isArray(dash.roles)) dash.roles.forEach(paintRole);
+                  if (data.dashboard) paintDashboard(data.dashboard);
                   setStatus('All agents finished.');
                 } catch (err) {
-                  panel.querySelectorAll('.agent-ops-card').forEach(function (card) { setCardState(card, 'idle'); });
+                  allCards.forEach(function (card) { setCardState(card, 'idle'); });
+                  paintRunningLine([]);
                   setStatus(err.message || 'Failed.');
                 } finally {
                   tickAll.disabled = false;
@@ -609,14 +678,36 @@
                 }
               });
             }
-            // Initial state badges from server-rendered insights.
-            panel.querySelectorAll('.agent-ops-card').forEach(function (card) {
-              var hasItems = card.querySelector('.agent-ops-details') && !card.querySelector('.agent-ops-details').hasAttribute('hidden');
-              var hasInsight = !!card.querySelector('.agent-ops-title');
-              setCardState(card, hasItems || hasInsight ? 'ready' : 'idle');
+            // Keep Running badges in sync with background auto-ticks while Ops tab is open.
+            onOpsTabChange = function (want) {
+              if (want === 'ops') startPoll();
+              else stopPoll();
+            };
+            var opsTab = document.getElementById('todayTabOpsAgents');
+            if (opsTab && opsTab.getAttribute('aria-selected') === 'true') startPoll();
+            document.addEventListener('visibilitychange', function () {
+              if (document.hidden) stopPoll();
+              else if (opsTab && opsTab.getAttribute('aria-selected') === 'true') startPoll();
             });
           })();
         </script>
+        <style>
+          .agent-ops-pulse {
+            width: 0.55rem; height: 0.55rem; border-radius: 999px;
+            background: #d97706; box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.55);
+            animation: agent-ops-pulse 1.4s ease-out infinite;
+            flex-shrink: 0;
+          }
+          .agent-ops-state[data-state="running"] {
+            position: relative;
+          }
+          .dark .agent-ops-pulse { background: #fbbf24; box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.45); }
+          @keyframes agent-ops-pulse {
+            0% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.5); }
+            70% { box-shadow: 0 0 0 8px rgba(217, 119, 6, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0); }
+          }
+        </style>
         <% } %>
       </div>
     </section>

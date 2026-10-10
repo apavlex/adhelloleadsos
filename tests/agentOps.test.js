@@ -170,4 +170,22 @@ describe('agentOps role bots', () => {
     const skippedCool = cool.results.filter((r) => r.reason === 'cooldown');
     assert.ok(skippedCool.length >= 1);
   });
+
+  it('dashboard marks a role running while its job is in progress', async () => {
+    const store = require('../services/agentOps/store');
+    const job = store.createJob('ws_ops', {
+      type: 'prospect.prepare',
+      roleId: 'prospect',
+      triggeredBy: 'test',
+    });
+    store.updateJob('ws_ops', job.id, { status: 'running', startedAt: store.nowIso() });
+    const dash = agentOps.dashboardForWorkspace('ws_ops');
+    const prospect = dash.roles.find((r) => r.id === 'prospect');
+    assert.equal(prospect.running, true);
+    assert.ok(Array.isArray(dash.runningRoles));
+    assert.ok(dash.runningRoles.some((r) => r.id === 'prospect'));
+    store.updateJob('ws_ops', job.id, { status: 'done', finishedAt: store.nowIso() });
+    const after = agentOps.dashboardForWorkspace('ws_ops');
+    assert.equal(after.roles.find((r) => r.id === 'prospect').running, false);
+  });
 });
