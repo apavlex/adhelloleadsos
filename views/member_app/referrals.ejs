@@ -7,18 +7,45 @@
   <main class="ma-shell">
     <%- include('_top', { topTitle: 'Referrals' }) %>
     <h1 class="ma-page-title">Referrals</h1>
-    <p class="ma-page-sub">Accept new referrals, then mark them booked, won or lost.</p>
+    <p class="ma-page-sub">Claim open jobs from the pool, work referrals sent to you, and track what you’ve sent.</p>
 
-    <nav class="ma-seg" aria-label="Referral lists">
+    <nav class="ma-seg ma-seg--3" aria-label="Referral lists">
+      <a href="<%= base %>/referrals?view=pool" class="<%= view === 'pool' ? 'is-on' : '' %>">Pool (<%= pool.length %>)</a>
       <a href="<%= base %>/referrals" class="<%= view === 'received' ? 'is-on' : '' %>">Received (<%= received.length %>)</a>
       <a href="<%= base %>/referrals?view=sent" class="<%= view === 'sent' ? 'is-on' : '' %>">Sent (<%= sent.length %>)</a>
     </nav>
 
     <%- include('_flash') %>
 
-    <% if (view === 'received') { %>
+    <% if (view === 'pool') { %>
+      <% if (!pool.length) { %>
+      <div class="ma-card ma-empty"><%- icons.referrals %><p>No open referrals in the pool for your trades right now. When one comes in unmatched, you’ll get a text and can claim it here.</p></div>
+      <% } %>
+      <% pool.forEach(function (r) { const c = r.customer || {}; %>
+      <article class="ma-card" id="ref-<%= r.id %>">
+        <div class="ma-card__row">
+          <div style="min-width:0">
+            <p class="ma-card__title"><%= c.name || 'Customer' %></p>
+            <p class="ma-card__meta"><%= r.trade %> · from <%= r.from %> · <%= r.when %></p>
+          </div>
+          <span class="ma-pill ma-pill--pending"><%= r.statusLabel %></span>
+        </div>
+        <p class="ma-card__meta" style="margin-top:8px">
+          <% if (c.phone) { %><a href="tel:<%= String(c.phone).replace(/[^0-9+]/g, '') %>" style="font-weight:700;color:var(--acc);text-decoration:none"><%= c.phone %></a><%= (c.email || c.address || c.city || c.zip) ? ' · ' : '' %><% } %>
+          <%= [c.email, c.address, [c.city, c.zip].filter(Boolean).join(' ')].filter(Boolean).join(' · ') %>
+        </p>
+        <% if (c.note) { %><p class="ma-card__note"><%= c.note %></p><% } %>
+        <div class="ma-actions">
+          <form method="post" action="<%= base %>/referrals/<%= r.id %>">
+            <input type="hidden" name="action" value="claim">
+            <button type="submit" class="ma-btn ma-btn--sm">Claim this lead</button>
+          </form>
+        </div>
+      </article>
+      <% }); %>
+    <% } else if (view === 'received') { %>
       <% if (!received.length) { %>
-      <div class="ma-card ma-empty"><%- icons.referrals %><p>No referrals yet. You'll get a text when one comes in.</p></div>
+      <div class="ma-card ma-empty"><%- icons.referrals %><p>No referrals assigned to you yet. Check the Pool tab for open jobs you can claim, or wait for a text when one is routed to you.</p><a class="ma-btn ma-btn--sm" href="<%= base %>/referrals?view=pool" style="margin-top:8px">Open pool</a></div>
       <% } %>
       <% received.forEach(function (r) { const c = r.customer || {}; %>
       <article class="ma-card" id="ref-<%= r.id %>">

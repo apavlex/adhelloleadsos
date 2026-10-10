@@ -12,7 +12,8 @@ const { upsertOpenTaskForLead, TASK_SOURCE_NETWORK } = require('./userTasks');
 const referralNetwork = require('./referralNetwork');
 const { tradeLabel } = require('./networkTrades');
 const { createReferralLinkToken, createMemberPortalToken } = require('./networkLinkSign');
-const { UNROUTED_REASONS } = require('./referralExchange');
+const { UNROUTED_REASONS, canClaimPoolReferral } = require('./referralExchange');
+const store = require('./networkStore');
 const { brandView } = require('./networkBrand');
 const reviewRequestScript = require('./reviewRequestScript');
 const { getReviewPageUrl, getReviewPublicBaseUrl, getPublicBaseUrl } = require('../lib/publicBaseUrl');
@@ -342,6 +343,48 @@ async function notifyReferralRecipient({ network, referral, member, baseUrl }) {
   return messageMember(network, member, { sms, subject: `New referral: ${summary}`, email });
 }
 
+/**
+ * Text/email eligible partners when a referral lands in the claimable pool (unrouted).
+ * Caps at 8 members to avoid spam; returns how many were messaged.
+ */
+async function notifyReferralPool({ network, referral, baseUrl }) {
+  if (!referral || referral.status !== 'unrouted') return 0;
+  const members = await store.listMembers(network.id);
+  const eligible = members
+    .filter((m) => canClaimPoolReferral(referral, m))
+    .slice(0, 8);
+  if (!eligible.length) return 0;
+  const summary = homeownerSummary(referral, network);
+  let sent = 0;
+  await Promise.all(eligible.map(async (member) => {
+    const app = memberPortalLink(baseUrl, network, member);
+    const poolUrl = `${app}/referrals?view=pool`;
+    const result = await messageMember(network, member, {
+      sms: `${network.name}: open referral in the pool — ${summary}. Claim it: ${poolUrl}`,
+      subject: `Claim pool referral: ${summary}`,
+      email: `A referral is waiting in the pool for ${network.name}.\n\n${summary}.\n\nClaim it in your app:\n${poolUrl}`,
+    }).catch(() => ({ ok: false }));
+    if (result && result.ok) sent += 1;
+  }));
+  return sent;
+}
+
+/** SMS/email a linked network partner when a website or agency lead hits their package. */
+async function notifyMemberFormLead({ network, member, baseUrl, leadName, formName, source, preview }) {
+  if (!network || !member) return { ok: false, error: 'No member.' };
+  const app = memberPortalLink(baseUrl, network, member);
+  const leadsUrl = `${app}/leads`;
+  const who = String(leadName || 'New lead').trim().slice(0, 80);
+  const kind = source === 'agency' ? 'Your agency sent a lead' : 'New website lead';
+  const detail = [formName, preview].filter(Boolean).join(' — ').slice(0, 160);
+  const sms = `${brandView(network).appName}: ${kind} — ${who}${detail ? ` (${detail})` : ''}. Open: ${leadsUrl}`;
+  return messageMember(network, member, {
+    sms,
+    subject: `${kind}: ${who}`,
+    email: `${kind} for ${member.companyName}.\n\n${who}${detail ? `\n${detail}` : ''}\n\nOpen your app:\n${leadsUrl}`,
+  });
+}
+
 async function sendMemberPortalLink({ network, member, baseUrl, welcome }) {
   const link = memberPortalLink(baseUrl, network, member);
   const reviewLink = `${link}/review?ask=1`;
@@ -442,6 +485,8 @@ module.exports = {
   referralLink,
   memberPortalLink,
   notifyReferralRecipient,
+  notifyReferralPool,
+  notifyMemberFormLead,
   sendMemberPortalLink,
   sendReviewRequest,
   messagingReadyForNetwork,

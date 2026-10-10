@@ -158,15 +158,12 @@
     <section class="ma-section">
       <div class="ma-section__head">
         <h2>Network</h2>
-        <a href="<%= base %>/referrals">Referrals</a>
+        <a href="<%= base %>/referrals?view=pool">Pool</a>
       </div>
       <div class="ma-dash-actions">
+        <a class="ma-btn ma-btn--soft" href="<%= base %>/leads"><%- icons.leads %> Leads</a>
+        <a class="ma-btn ma-btn--soft" href="<%= base %>/referrals?view=pool"><%- icons.referrals %> Claim pool</a>
         <a class="ma-btn ma-btn--soft" href="<%= base %>/send"><%- icons.send %> Send referral</a>
-        <% if (_appt) { %>
-        <a class="ma-btn ma-btn--soft" href="<%= _appt.portalLeadsPath %>"><%- icons.leads %> Open leads</a>
-        <% } else { %>
-        <a class="ma-btn ma-btn--soft" href="<%= base %>/referrals"><%- icons.received %> Received</a>
-        <% } %>
       </div>
     </section>
   </main>

@@ -146,6 +146,23 @@ test('assign moves unrouted or declined referrals to a member, not back to the s
   assert.equal(ex.applyReferralAction(declined, 'assign', { toMemberId: 'm3' }).referral.toMemberId, 'm3');
 });
 
+test('members can claim matching unrouted pool referrals', () => {
+  const built = ex.buildReferral({
+    tradeSlug: 'hvac', name: 'Pat', phone: '555', city: 'Austin', consent: true, fromMemberId: 'm9',
+  }, NOW).referral;
+  const unrouted = ex.applyRouting({ ...built, zoneId: 'z1' }, { status: 'unrouted', reason: 'open_seat' }, NOW);
+  const hvacPartner = { id: 'm2', status: 'active', trades: ['hvac'], zoneIds: ['z1'] };
+  const plumber = { id: 'm3', status: 'active', trades: ['plumbing'], zoneIds: ['z1'] };
+  assert.equal(ex.canClaimPoolReferral(unrouted, hvacPartner), true);
+  assert.equal(ex.canClaimPoolReferral(unrouted, plumber), false);
+  assert.equal(ex.canClaimPoolReferral(unrouted, { id: 'm9', status: 'active', trades: ['hvac'], zoneIds: [] }), false);
+  assert.equal(ex.poolReferralsForMember([unrouted], hvacPartner).length, 1);
+  const claimed = ex.applyReferralAction(unrouted, 'claim', { toMemberId: 'm2', by: 'HVAC Co' }).referral;
+  assert.equal(claimed.status, 'accepted');
+  assert.equal(claimed.toMemberId, 'm2');
+  assert.equal(ex.canClaimPoolReferral(claimed, hvacPartner), false);
+});
+
 test('member stats and network totals', () => {
   const refs = [
     { fromMemberId: 'm1', toMemberId: 'm2', status: 'won', value: 1000 },
