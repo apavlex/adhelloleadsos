@@ -13,6 +13,7 @@ const trials = require('./trials');
 const { maybeRunDailyOutreachForEnabledWorkspaces } = require('./dailyOutreachScheduler');
 const { runOnboardingDrips } = require('./onboardingDrip');
 const { runTaskPushReminders } = require('./taskPushReminders');
+const { tickAllWorkspaces: tickAgentOpsWorkspaces } = require('./agentOps');
 
 function normalizeVoicemailLibrary(raw) {
   if (!Array.isArray(raw)) return [];
@@ -383,6 +384,9 @@ module.exports = {
       );
       require('./ghlOpportunitySync').runScheduledSyncs().catch((e) =>
         console.error('[SCHEDULER] GHL opportunity sync failed:', e.message)
+      );
+      tickAgentOpsWorkspaces().catch((e) =>
+        console.error('[SCHEDULER] Agent ops tick failed:', e.message)
       );
     });
 
