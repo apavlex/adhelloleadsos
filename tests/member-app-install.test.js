@@ -14,8 +14,14 @@ describe('member app install modal and tab bar', () => {
     assert.match(css, /html\s*\{[^}]*background:\s*var\(--card\)/s);
     assert.match(css, /\.ma-tabbar\s*\{[^}]*bottom:\s*0/s);
     assert.match(css, /\.ma-tabbar\s*\{[^}]*background:\s*var\(--card\)/s);
-    assert.match(css, /\.ma-tabbar::after\s*\{[^}]*height:\s*120px/s);
+    assert.match(css, /\.ma-tabbar::after\s*\{[^}]*height:\s*200px/s);
     assert.doesNotMatch(css, /\.ma-tabbar\s*\{[^}]*backdrop-filter:\s*saturate/s);
+    // Safe-area must be padding only — min-height + padding double-counted into a tall white shelf.
+    assert.match(css, /\.ma-tabbar\s*\{[^}]*min-height:\s*0/s);
+    assert.doesNotMatch(
+      css,
+      /\.ma-tabbar\s*\{[^}]*min-height:\s*calc\(\s*var\(--tabbar-h\)\s*\+\s*env\(safe-area-inset-bottom/s,
+    );
   });
 
   it('tabbar partial includes install modal with workspace + browser panels', () => {
