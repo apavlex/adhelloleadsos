@@ -11,6 +11,8 @@
 
     <%- include('_flash') %>
 
+    <%- include('_lead_request_callout', { leadRequest: typeof leadRequest !== 'undefined' ? leadRequest : null, back: 'leads' }) %>
+
     <% if (!appointment) { %>
     <div class="ma-card ma-empty">
       <%- icons.leads %>

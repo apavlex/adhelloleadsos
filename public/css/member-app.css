@@ -703,6 +703,36 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
 .ma-flash { border-radius: 14px; padding: 12px 14px; font-size: 14px; font-weight: 600; margin: 12px 0; }
 .ma-flash--ok { background: rgba(16, 185, 129, 0.12); color: #047857; }
 .ma-flash--err { background: rgba(245, 158, 11, 0.15); color: #92400e; }
+
+/* Freemium: request lead packs (Network / Leads) */
+.ma-leadask {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--acc) 35%, var(--line));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--acc) 12%, var(--card)) 0%, var(--card) 70%);
+}
+.ma-leadask__body { flex: 1 1 180px; min-width: 0; }
+.ma-leadask__body strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 800;
+  margin-bottom: 2px;
+}
+.ma-leadask__body p {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1.35;
+}
+.ma-leadask__form { flex: 0 0 auto; margin: 0; }
+.ma-leadask__form .ma-btn svg { width: 16px; height: 16px; }
 @media (prefers-color-scheme: dark) {
   .ma-flash--ok { color: #6ee7b7; }
   .ma-flash--err { color: #fcd34d; }

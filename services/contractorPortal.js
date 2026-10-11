@@ -82,14 +82,17 @@ async function agencyOwnerEmails(workspace) {
 async function notifyAgencyOfRequest(workspaceId, pkg, request) {
   const ws = (await dbService.getWorkspace(workspaceId)) || {};
   const emails = await agencyOwnerEmails(ws);
-  const kind = request.type === 'appointments' ? 'appointments' : 'leads';
-  const title = `${pkg.businessName} requested ${request.quantity} more ${kind}`;
+  const note = String((request && request.note) || '').trim().slice(0, 120);
+  const qty = Number(request && request.quantity) || 0;
+  const title = request.type === 'appointments'
+    ? `${pkg.businessName} requested ${qty} more appointments${note ? ` — ${note}` : ''}`
+    : `${pkg.businessName} requested ${qty} more leads — ready for more work!${note ? ` (${note})` : ''}`;
   const results = [];
   for (const email of emails) {
     try {
       // eslint-disable-next-line no-await-in-loop
       const task = await userTasks.upsertOpenTaskForLead(workspaceId, email, {
-        title,
+        title: title.slice(0, 240),
         column: 'todo',
         leadKey: pkg.leadKey || null,
         source: 'manual',
