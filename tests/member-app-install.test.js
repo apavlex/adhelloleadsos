@@ -137,7 +137,7 @@ describe('member app install modal and tab bar', () => {
 
   it('service worker network-firsts versioned CSS so deploys are not stuck', () => {
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.473/);
+    assert.match(sw, /adhello-pwa-v1\.0\.474/);
     assert.match(sw, /searchParams\.has\('v'\)/);
     assert.match(sw, /versioned/);
   });
@@ -161,6 +161,16 @@ describe('member app install modal and tab bar', () => {
     const icons = fs.readFileSync(path.join(root, 'services/memberAppIcons.js'), 'utf8');
     assert.match(icons, /list:\s*icon\(/);
     assert.match(icons, /pending:\s*icon\(/);
+  });
+
+  it('request-a-review shares text + URL only (no separate image attachment)', () => {
+    const js = fs.readFileSync(path.join(root, 'public/js/member-app.js'), 'utf8');
+    const review = fs.readFileSync(path.join(root, 'views/member_app/review.ejs'), 'utf8');
+    assert.match(js, /function requestReviewFromPhone/);
+    assert.match(js, /navigator\.share\(\{ title: title, text: text, url: payload\.url \}\)/);
+    assert.doesNotMatch(js, /shareWithFile/);
+    assert.doesNotMatch(js, /data\.files\s*=\s*\[file\]/);
+    assert.doesNotMatch(review, /image:\s*_shareImage/);
   });
 
   it('member-app.js shows install guidance inside workspace standalone shells', () => {
