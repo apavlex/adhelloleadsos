@@ -61,6 +61,7 @@ function appendUpdate(lead, entry) {
   return updates;
 }
 
+/** Member-app SMS/email use the network owner's workspace GHL connection. */
 async function networkIntegrationEnv(network) {
   return workspaceIntegrations.getResolvedIntegrationEnv(network.ownerWorkspaceId);
 }

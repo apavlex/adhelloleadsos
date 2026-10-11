@@ -5,11 +5,14 @@ const path = require('path');
 process.env.APP_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'review-ask-'));
 process.env.SESSION_SECRET = 'review-ask-test-secret';
 
-const { describe, it } = require('node:test');
+const { describe, it, mock } = require('node:test');
 const assert = require('node:assert/strict');
 const reviewAsk = require('../services/reviewAsk');
 const { getReviewPageUrl } = require('../lib/publicBaseUrl');
 const reviewPage = require('../services/reviewPage');
+const store = require('../services/networkStore');
+const ghlMessaging = require('../services/ghlMessaging');
+const workspaceIntegrations = require('../services/workspaceIntegrations');
 
 describe('review ask tracking + 48h reminder', () => {
   it('builds tracked review URLs with ask id', () => {
@@ -85,6 +88,45 @@ describe('review ask tracking + 48h reminder', () => {
       remindedAt: '2026-10-03T13:00:00.000Z',
     });
     assert.equal(reviewAsk.dueForReminder(reminded, nowAsk + 50 * 60 * 60 * 1000), false);
+  });
+
+  it('sends reminders through the workspace GHL connection', async () => {
+    const network = await store.getOrCreateNetworkForWorkspace('ws_review_ask_ghl', { name: 'Ask Net' });
+    const member = await store.saveMember(network.id, {
+      companyName: 'Ask Co',
+      contactName: 'Pat',
+      status: 'active',
+      reviewSlug: 'ask-co',
+    });
+    const ask = await reviewAsk.createAsk({
+      networkId: network.id,
+      memberId: member.id,
+      name: 'Casey',
+      phone: '+15550005555',
+      channel: 'sms',
+      reviewSlug: 'ask-co',
+      now: Date.parse('2026-10-01T12:00:00.000Z'),
+    });
+
+    let resolvedWid = '';
+    mock.method(workspaceIntegrations, 'getResolvedIntegrationEnv', async (wid) => {
+      resolvedWid = wid;
+      return { GHL_API_KEY: 'k', GHL_LOCATION_ID: 'loc', GHL_SMS_FROM: '+15550009999' };
+    });
+    mock.method(ghlMessaging, 'messagingReady', () => ({ configured: true, smsReady: true, emailReady: true }));
+    mock.method(ghlMessaging, 'sendSmsToPerson', async (payload) => {
+      assert.equal(payload.integrationEnv.GHL_LOCATION_ID, 'loc');
+      return { messageId: 'msg1', provider: 'ghl' };
+    });
+
+    try {
+      const result = await reviewAsk.sendReminderForAsk(ask);
+      assert.equal(result.ok, true);
+      assert.equal(resolvedWid, network.ownerWorkspaceId);
+      assert.ok(result.ask.remindedAt);
+    } finally {
+      mock.restoreAll();
+    }
   });
 
   it('lists due asks for the reminder tick', async () => {

@@ -36,6 +36,7 @@ function contactToFields(contact) {
   };
 }
 
+/** Customer sync uses the same GHL location as Workspace → Integrations. */
 async function integrationForNetwork(network) {
   return workspaceIntegrations.getResolvedIntegrationEnv(network.ownerWorkspaceId);
 }

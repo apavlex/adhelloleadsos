@@ -244,6 +244,7 @@ test('customers tab routes: top-bar enroll, CRUD, calendar, pending and referral
     const emptyHtml = await empty.text();
     assert.match(emptyHtml, /No customers yet/);
     assert.match(emptyHtml, /Sync from Go High Level/);
+    assert.match(emptyHtml, /Same GHL location as your workspace|workspace/);
     assert.match(emptyHtml, /customers\/sync-ghl/);
     assert.match(emptyHtml, /customers\/import/);
     assert.match(emptyHtml, /Upload a customer list/);
