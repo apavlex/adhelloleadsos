@@ -387,6 +387,24 @@ summary.ma-settings-row:active {
 }
 .ma-cust-tools__lead { margin: 0 0 6px; }
 .ma-cust-tools__form { margin: 0; }
+a.ma-settings-row.is-locked {
+  opacity: 0.55;
+  cursor: pointer;
+  pointer-events: auto;
+}
+a.ma-settings-row.is-locked:active { opacity: 0.45; }
+.ma-settings-row__upgrade {
+  flex: 0 0 auto;
+  margin-left: 8px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
 .ma-cust-tools__import { margin: 0; border: 0; }
 .ma-cust-tools__import > summary.ma-settings-row {
   list-style: none;

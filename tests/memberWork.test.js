@@ -345,11 +345,12 @@ test('customers tab routes: top-bar enroll, CRUD, calendar, pending and referral
     assert.equal(empty.status, 200);
     const emptyHtml = await empty.text();
     assert.match(emptyHtml, /No customers yet/);
-    assert.match(emptyHtml, /Sync from Go High Level/);
+    assert.match(emptyHtml, /Sync from CRM/);
     assert.match(emptyHtml, /customers\/sync-ghl/);
     assert.match(emptyHtml, /customers\/import/);
     assert.match(emptyHtml, /Upload a customer list/);
     assert.match(emptyHtml, /ma-settings-row/);
+    assert.doesNotMatch(emptyHtml, /is-locked/);
     assert.doesNotMatch(emptyHtml, /ma-btn--ghost[^>]*>[\s\S]*Add<\/a>/);
 
     const bad = await post(`${A}/customers/new`, { name: '' });
@@ -472,4 +473,44 @@ test('a member id that prefixes another member id does not leak records', async 
   await dbService.putStorageKey(`netcust:${NET}:${MEM_A}x:abcdef123`, { id: 'abcdef123', name: 'Other scope' });
   const names = (await work.listCustomers(NET, MEM_A)).map((c) => c.name);
   assert.ok(!names.includes('Other scope'));
+});
+
+test('free app_free members see Sync from CRM greyed with upgrade only', async () => {
+  const network = await store.getOrCreateNetworkForWorkspace('ws_member_crm_free', { name: 'Free CRM network' });
+  const member = await store.saveMember(network.id, {
+    companyName: 'Free Reviews Co',
+    contactName: 'Lee',
+    status: 'active',
+    plan: 'app_free',
+  });
+  const token = createMemberPortalToken({ networkId: network.id, memberId: member.id });
+  const app = express();
+  app.set('view engine', 'ejs');
+  app.set('views', path.join(__dirname, '..', 'views'));
+  app.locals.assetVersion = 'test';
+  app.use('/', memberApp);
+  const server = await new Promise((resolve) => {
+    const s = app.listen(0, () => resolve(s));
+  });
+  const base = `http://127.0.0.1:${server.address().port}/m/${token}`;
+  try {
+    const html = await (await fetch(`${base}/customers`)).text();
+    assert.match(html, /Sync from CRM/);
+    assert.match(html, /is-locked/);
+    assert.match(html, /Upgrade to activate/);
+    assert.match(html, /href="\/signup"/);
+    assert.doesNotMatch(html, /customers\/sync-ghl/);
+    assert.match(html, /Upload a customer list/);
+
+    const blocked = await fetch(`${base}/customers/sync-ghl`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: '',
+      redirect: 'manual',
+    });
+    assert.equal(blocked.status, 303);
+    assert.match(blocked.headers.get('location') || '', /ok=crm_sync_upgrade/);
+  } finally {
+    await new Promise((r) => server.close(r));
+  }
 });
