@@ -113,7 +113,8 @@ function brandView(network, member, opts = {}) {
   }
   return {
     appName,
-    heroName,
+    /** Home hero card title — signup company for free app, else appName. */
+    heroName: heroName || appName,
     companyName,
     shortName: appName.length <= 12 ? appName : appName.split(/\s+/)[0].slice(0, 12),
     tagline: brand.tagline || 'Every review builds your reputation.',
