@@ -5,8 +5,8 @@
 <% const _wsNavBase = 'ws-nav-item shrink-0 whitespace-nowrap rounded-xl px-3 py-2 border text-[10px] font-black uppercase tracking-widest transition-colors '; %>
 <% const _wsNavOn = _wsNavBase + 'ws-nav-item-active bg-brand-yellow border-brand-yellow shadow-sm shadow-brand-yellow/30'; %>
 <% const _wsNavOff = _wsNavBase + 'border-brand-border/40 dark:border-white/10 text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-white hover:bg-brand-yellow/15 hover:border-brand-yellow/40'; %>
-<section class="ws-settings-nav mb-8 pb-4 border-b border-brand-border/40 dark:border-white/10" aria-label="Workspace settings">
-  <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+<section class="ws-settings-nav mb-6 md:mb-8 pb-3 md:pb-4 border-b border-brand-border/40 dark:border-white/10" aria-label="Workspace settings">
+  <div class="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
     <div class="min-w-0 flex-1 -mx-1 px-1">
       <nav class="flex flex-nowrap items-center gap-1.5 overflow-x-auto custom-scrollbar pb-0.5" id="wsSettingsNav">
         <% if (_can && _hasId) { %>
@@ -35,7 +35,7 @@
         <a href="/workspace/advanced" data-ws-nav="advanced workspace id" class="<%= _sec === 'advanced' ? _wsNavOn : _wsNavOff %>"<%= _sec === 'advanced' ? ' aria-current="page"' : '' %>>Advanced</a>
       </nav>
     </div>
-    <div class="shrink-0 w-full lg:w-52">
+    <div class="shrink-0 w-full lg:w-52 ws-settings-search-wrap">
       <label for="wsSettingsSearch" class="sr-only">Search settings</label>
       <input id="wsSettingsSearch" type="search" autocomplete="off" placeholder="Search sections…" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs text-brand-dark dark:text-white placeholder:text-brand-muted" />
     </div>
@@ -44,16 +44,52 @@
   (function () {
     var input = document.getElementById('wsSettingsSearch');
     var nav = document.getElementById('wsSettingsNav');
-    if (!input || !nav) return;
-    input.addEventListener('input', function () {
-      var q = String(input.value || '').trim().toLowerCase();
+    if (!nav) return;
+
+    function setActive(link) {
       var links = nav.querySelectorAll('a.ws-nav-item');
       for (var i = 0; i < links.length; i++) {
         var a = links[i];
-        var hay = (a.textContent + ' ' + (a.getAttribute('data-ws-nav') || '')).toLowerCase();
-        a.style.display = !q || hay.indexOf(q) !== -1 ? '' : 'none';
+        var on = a === link;
+        a.classList.toggle('ws-nav-item-active', on);
+        a.classList.toggle('bg-brand-yellow', on);
+        a.classList.toggle('border-brand-yellow', on);
+        a.classList.toggle('shadow-sm', on);
+        a.classList.toggle('shadow-brand-yellow/30', on);
+        a.classList.toggle('border-brand-border/40', !on);
+        a.classList.toggle('dark:border-white/10', !on);
+        a.classList.toggle('text-brand-muted', !on);
+        a.classList.toggle('dark:text-slate-400', !on);
+        if (on) a.setAttribute('aria-current', 'page');
+        else a.removeAttribute('aria-current');
       }
-    });
+      document.documentElement.classList.add('ws-settings-navigating');
+    }
+
+    nav.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a.ws-nav-item') : null;
+      if (!a || !nav.contains(a)) return;
+      if (a.getAttribute('aria-current') === 'page') return;
+      setActive(a);
+    }, true);
+
+    var on = nav.querySelector('.ws-nav-item-active');
+    if (on && typeof on.scrollIntoView === 'function') {
+      try { on.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'instant' }); }
+      catch (_) { try { on.scrollIntoView(false); } catch (e2) {} }
+    }
+
+    if (input) {
+      input.addEventListener('input', function () {
+        var q = String(input.value || '').trim().toLowerCase();
+        var links = nav.querySelectorAll('a.ws-nav-item');
+        for (var i = 0; i < links.length; i++) {
+          var a = links[i];
+          var hay = (a.textContent + ' ' + (a.getAttribute('data-ws-nav') || '')).toLowerCase();
+          a.style.display = !q || hay.indexOf(q) !== -1 ? '' : 'none';
+        }
+      });
+    }
   })();
   </script>
 </section>

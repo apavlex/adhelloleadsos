@@ -322,11 +322,74 @@ function defaultWorkspaceHomePath(req, workspace) {
   return '/workspace/integrations';
 }
 
-async function loadWorkspacePageLocals(req) {
-  const ws = await dbService.getWorkspace(req.workspaceId);
+/** Sections that need decrypted integration env, scrape advisor, MCP grants, etc. */
+const HEAVY_WORKSPACE_SECTIONS = new Set(['integrations', 'ai-apps', 'ghl-setup', 'lob-setup']);
+
+/**
+ * @param {object} req
+ * @param {{ section?: string, heavy?: boolean }} [opts]
+ *   Pass section so Team/White-label/etc skip the integrations stack (faster tab switches).
+ */
+async function loadWorkspacePageLocals(req, opts = {}) {
+  const section = String(opts.section || '').toLowerCase();
+  const heavy = opts.heavy === true || HEAVY_WORKSPACE_SECTIONS.has(section);
+
+  const ws = (req.workspace && req.workspace.id === req.workspaceId)
+    ? req.workspace
+    : await dbService.getWorkspace(req.workspaceId);
   const pool = workspaceService.orderedRoundRobinPool(ws);
+  const base = String(process.env.BASE_URL || '').trim().replace(/\/$/, '');
+
+  const light = {
+    title: 'Workspace & team',
+    activePage: 'workspace',
+    workspace: ws,
+    publicAppBaseUrl: base,
+    telephonyWebhookTokenConfigured: !!String(process.env.TELEPHONY_WEBHOOK_TOKEN || '').trim(),
+    assignPool: pool,
+    envHintSdr: !!process.env.WORKSPACE_SDR_EMAILS,
+    workspaceAccentChoices: WORKSPACE_UI_ACCENTS,
+    workspaceAccentTextChoices: WORKSPACE_UI_ACCENT_TEXT,
+    showWorkspaceSwitchForm: process.env.ADHELLO_WORKSPACE_SWITCH === '1',
+    // Safe defaults so templates never explode when heavy locals are skipped.
+    apiIngestKeyConfigured: false,
+    apiIngestKeyMask: '',
+    apiIngestKeyPlain: '',
+    chromeExtensionRepoUrl: '',
+    chromeExtensionDownloadUrl: '/workspace/integrations/chrome-extension/download',
+    chromeExtensionDownloadReady: false,
+    ghlWebhookTokenHint: '',
+    commsWebhookTokenHint: '',
+    commsDefaultChannel: '',
+    smsPrimary: 'auto',
+    ghlStatus: {},
+    ghlSyncDirection: '',
+    mcpTokenStatus: null,
+    mcpAgentTokens: [],
+    mcpConnectedApps: [],
+    mcpOAuthClients: [],
+    mcpViewerEmail: workspaceService.userEmail(req).toLowerCase(),
+    mcpEndpoint: base ? `${base}/ceo/mcp` : '',
+    mcpManifestUrl: base ? `${base}/ceo/mcp/manifest.json` : '',
+    openrouterConfigured: false,
+    openrouterModelStack: { configured: false, summary: 'Not configured', steps: [] },
+    integrationMasks: {},
+    integrationsReady: workspaceIntegrations.isEncryptionAvailable(),
+    integrationsMessage: null,
+    persistenceDeploymentHint: '',
+    persistenceIntegrationsHint: '',
+    mapsSearchPrimary: 'auto',
+    mapsProviderStatus: [],
+    sharedIntegrationProviders: [],
+    enrichPrimary: 'auto',
+    scrapeAdvisor: null,
+    scrapeSourcesLivePing: false,
+    scrapeCostOnWorkspace: false,
+  };
+
+  if (!heavy) return light;
+
   const integrationMasks = workspaceIntegrations.integrationMasks(ws);
-  const integrationsReady = workspaceIntegrations.isEncryptionAvailable();
   const q = req.query.integrations;
   let integrationsMessage = null;
   if (q === 'saved') {
@@ -372,7 +435,6 @@ async function loadWorkspacePageLocals(req) {
   const persistenceDeploymentHint = dataPersistence.deploymentPersistenceHint();
   const persistenceIntegrationsHint = dataPersistence.workspaceIntegrationsPersistenceHint(ws);
 
-  const base = String(process.env.BASE_URL || '').trim().replace(/\/$/, '');
   const ingestKeyRaw = String(process.env.API_INGEST_KEY || '').trim();
   const apiIngestKeyConfigured = !!ingestKeyRaw;
   const apiIngestKeyMask =
@@ -406,15 +468,10 @@ async function loadWorkspacePageLocals(req) {
   const mcpConnectedApps = await mcpOAuth.listGrantsForWorkspace(req.workspaceId).catch(() => []);
   const mcpOAuthClients = req.canManageWorkspace ? await mcpOAuth.listManualClients(req.workspaceId).catch(() => []) : [];
   const mcpAgentTokens = listAgentMcpTokens(ws, { email: workspaceService.userEmail(req), canManage: req.canManageWorkspace });
-  const mcpEndpoint = base ? `${base}/ceo/mcp` : '';
-  const mcpManifestUrl = base ? `${base}/ceo/mcp/manifest.json` : '';
   const openrouterConfigured = isOpenRouterConfigured(resolvedEnv);
   const openrouterModelStack = describeOpenRouterModelStack(resolvedEnv);
   return {
-    title: 'Workspace & team',
-    activePage: 'workspace',
-    workspace: ws,
-    publicAppBaseUrl: base,
+    ...light,
     apiIngestKeyConfigured,
     apiIngestKeyMask,
     apiIngestKeyPlain,
@@ -431,16 +488,9 @@ async function loadWorkspacePageLocals(req) {
     mcpAgentTokens,
     mcpConnectedApps,
     mcpOAuthClients,
-    mcpViewerEmail: workspaceService.userEmail(req).toLowerCase(),
-    mcpEndpoint,
-    mcpManifestUrl,
     openrouterConfigured,
     openrouterModelStack,
-    telephonyWebhookTokenConfigured: !!String(process.env.TELEPHONY_WEBHOOK_TOKEN || '').trim(),
-    assignPool: pool,
-    envHintSdr: !!process.env.WORKSPACE_SDR_EMAILS,
     integrationMasks,
-    integrationsReady,
     integrationsMessage,
     persistenceDeploymentHint,
     persistenceIntegrationsHint,
@@ -451,9 +501,6 @@ async function loadWorkspacePageLocals(req) {
     scrapeAdvisor,
     scrapeSourcesLivePing: process.env.SCRAPE_SOURCES_LIVE_PING === '1',
     scrapeCostOnWorkspace: true,
-    workspaceAccentChoices: WORKSPACE_UI_ACCENTS,
-    workspaceAccentTextChoices: WORKSPACE_UI_ACCENT_TEXT,
-    showWorkspaceSwitchForm: process.env.ADHELLO_WORKSPACE_SWITCH === '1',
   };
 }
 
@@ -481,7 +528,7 @@ router.get('/integrations/chrome-extension/download', async (req, res, next) => 
 /** Step-by-step GHL connection guide (linked from Integrations CRM card). */
 router.get('/integrations/ghl-setup', async (req, res, next) => {
   try {
-    const locals = await loadWorkspacePageLocals(req);
+    const locals = await loadWorkspacePageLocals(req, { heavy: true });
     const ws = locals.workspace;
     const mergedScriptLibrary = buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
     const offerKeys = salesScriptsStorage.getWorkspaceScriptKeys(ws, SCRIPT_LIBRARY);
@@ -522,7 +569,7 @@ router.get('/integrations/ghl-setup', async (req, res, next) => {
 /** Step-by-step Lob direct mail + design upload guide. */
 router.get('/integrations/lob-setup', async (req, res, next) => {
   try {
-    const locals = await loadWorkspacePageLocals(req);
+    const locals = await loadWorkspacePageLocals(req, { heavy: true });
     const resolvedEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
     const lobStatus = {
       configured: lobClient.isConfigured(resolvedEnv),
@@ -629,8 +676,8 @@ router.get('/', async (req, res, next) => {
         `/workspace/integrations?integrations=${encodeURIComponent(String(iq))}`,
       );
     }
-    const locals = await loadWorkspacePageLocals(req);
-    res.redirect(302, defaultWorkspaceHomePath(req, locals.workspace));
+    // Skip heavy locals — this route only chooses a redirect target.
+    res.redirect(302, defaultWorkspaceHomePath(req, req.workspace));
   } catch (e) {
     next(e);
   }
@@ -2491,7 +2538,7 @@ router.get('/:section', async (req, res, next) => {
     if (!WORKSPACE_SECTION_SLUGS.has(section)) {
       return next();
     }
-    const locals = await loadWorkspacePageLocals(req);
+    const locals = await loadWorkspacePageLocals(req, { section });
     const ws = locals.workspace;
     const managerSections = new Set(['phones', 'voicemail', 'revenue', 'info-packs', 'audit-page', 'menu-links', 'onboarding']);
     if (managerSections.has(section) && !req.canManageWorkspace) {

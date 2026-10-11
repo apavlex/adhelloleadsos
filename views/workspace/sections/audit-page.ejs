@@ -58,7 +58,7 @@
   <p id="auditLandingSaveMsg" class="hidden text-sm" role="status"></p>
   <button type="button" id="auditLandingSave" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-6 py-3 text-xs font-black uppercase tracking-widest">Save audit page</button>
 </div>
-<script src="/js/audit-page-settings.js"></script>
+<script src="/js/audit-page-settings.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
 <% } else { %>
 <p class="text-sm text-brand-muted">Only workspace admins can edit the audit request page.</p>
 <% } %>
