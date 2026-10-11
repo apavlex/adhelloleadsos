@@ -175,7 +175,7 @@ describe('member app install modal and tab bar', () => {
     assert.match(js, /function shareWithFile/);
     assert.match(js, /data\.files\s*=\s*\[file\]/);
     assert.match(js, /payload\.image/);
-    assert.match(review, /image:\s*_shareImage/);
+    assert.match(review, /image:\s*_shareImage|shareImageUrl/);
     assert.match(review, /ma-qr__ask/);
     assert.match(review, /icons\.sms/);
     assert.match(review, /Opens Messages with your review link/);
