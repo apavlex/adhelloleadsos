@@ -86,6 +86,8 @@ describe('freeAppSignup', () => {
 
   it('resends the link for an existing phone without creating a duplicate', async () => {
     const notify = require('../services/networkNotify');
+    // Clear signup send cooldown from the create test so an intentional later resend still works.
+    dbService.deleteKvSync(`${freeAppSignup.SEND_COOLDOWN_PREFIX}${freeAppSignup.contactLockKey({ digits: '5035550100' })}`);
     let calls = 0;
     mock.method(notify, 'sendMemberPortalLink', async () => {
       calls += 1;
@@ -108,6 +110,49 @@ describe('freeAppSignup', () => {
     assert.equal(calls, 1);
     const members = await store.listMembers(network.id);
     assert.equal(members.filter((m) => freeAppSignup.phoneDigits(m.phone) === '5035550100').length, 1);
+    mock.restoreAll();
+  });
+
+  it('does not send a second SMS when signup is double-submitted', async () => {
+    const notify = require('../services/networkNotify');
+    let calls = 0;
+    mock.method(notify, 'sendMemberPortalLink', async () => {
+      calls += 1;
+      await new Promise((r) => setTimeout(r, 80));
+      return { ok: true, channel: 'sms' };
+    });
+
+    const { form, digits, email } = freeAppSignup.readForm({
+      contactName: 'Casey',
+      companyName: 'Casey Roofing',
+      phone: '503-555-0177',
+    });
+    const args = {
+      form,
+      digits,
+      email,
+      baseUrl: 'https://leads.adhello.io',
+      ip: '203.0.113.40',
+    };
+    const [first, second] = await Promise.all([
+      freeAppSignup.signupFreeApp(args),
+      freeAppSignup.signupFreeApp({ ...args, ip: '203.0.113.41' }),
+    ]);
+    assert.equal(first.ok, true);
+    assert.equal(second.ok, true);
+    assert.equal(calls, 1);
+    assert.ok(
+      (first.notified && first.notified.skipped) || (second.notified && second.notified.skipped),
+      'one request should skip send',
+    );
+    const members = await store.listMembers(network.id);
+    assert.equal(members.filter((m) => freeAppSignup.phoneDigits(m.phone) === '5035550177').length, 1);
+
+    // Immediate third click after send still no duplicate SMS (cooldown).
+    const third = await freeAppSignup.signupFreeApp({ ...args, ip: '203.0.113.42' });
+    assert.equal(third.ok, true);
+    assert.equal(third.notified && third.notified.skipped, 'cooldown');
+    assert.equal(calls, 1);
     mock.restoreAll();
   });
 
@@ -147,6 +192,11 @@ describe('freeAppSignup', () => {
       assert.match(html, /Get the reviews app/);
       assert.match(html, /action="\/app"/);
       assert.match(html, /Text me the reviews app/);
+      assert.match(html, /id="fa-form"/);
+      assert.match(html, /id="fa-submit"/);
+      assert.match(html, /Sending…/);
+      assert.match(html, /btn\.disabled = true/);
+      assert.match(html, /\.fa-btn:disabled/);
       assert.match(html, /\.fa-btn[^}]*margin-top:\s*2\.75rem/);
 
       const post = await fetch(`${base}/app`, {
@@ -176,6 +226,9 @@ describe('freeAppSignup', () => {
     assert.match(route, /router\.(get|post)\('\/app'/);
     assert.match(view, /Get the reviews app/);
     assert.match(view, /Text me the reviews app/);
+    assert.match(view, /id="fa-form"/);
+    assert.match(view, /btn\.disabled = true/);
+    assert.match(view, /\.fa-btn:disabled/);
     assert.match(view, /\.fa-btn[^}]*margin-top:\s*2\.75rem/);
     assert.match(view, /\.fa-foot[^}]*margin-top:\s*2\.5rem/);
     assert.match(view, /class="fa-foot"/);

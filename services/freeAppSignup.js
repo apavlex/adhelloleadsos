@@ -16,6 +16,49 @@ const PLAN_APP_FREE = 'app_free';
 const DEFAULT_WORKSPACE_SLUG = 'adhello-agency';
 const IP_DAY_PREFIX = 'freeAppSignupIp:';
 const MAX_PER_IP_PER_DAY = 8;
+/** Per-contact lock while a signup/send is in flight (blocks double-click races). */
+const INFLIGHT_PREFIX = 'freeAppSignupInflight:';
+const INFLIGHT_TTL_MS = 60 * 1000;
+/** Skip a second welcome/resend SMS for the same contact within this window. */
+const SEND_COOLDOWN_PREFIX = 'freeAppSignupSend:';
+const SEND_COOLDOWN_MS = 60 * 1000;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function contactLockKey({ digits, email }) {
+  if (digits) return `p:${digits}`;
+  if (email) return `e:${String(email).trim().toLowerCase()}`;
+  return '';
+}
+
+function wasRecentlySent(key, now = Date.now()) {
+  if (!key) return false;
+  const raw = dbService.getKvSync(`${SEND_COOLDOWN_PREFIX}${key}`);
+  const ts = parseInt(raw || '0', 10) || 0;
+  return ts > 0 && now - ts < SEND_COOLDOWN_MS;
+}
+
+function markSent(key, now = Date.now()) {
+  if (!key) return;
+  dbService.setKvSync(`${SEND_COOLDOWN_PREFIX}${key}`, String(now));
+}
+
+function tryAcquireInflight(key, now = Date.now()) {
+  if (!key) return true;
+  const kv = `${INFLIGHT_PREFIX}${key}`;
+  const raw = dbService.getKvSync(kv);
+  const ts = parseInt(raw || '0', 10) || 0;
+  if (ts > 0 && now - ts < INFLIGHT_TTL_MS) return false;
+  dbService.setKvSync(kv, String(now));
+  return true;
+}
+
+function releaseInflight(key) {
+  if (!key) return;
+  dbService.deleteKvSync(`${INFLIGHT_PREFIX}${key}`);
+}
 
 function envSlug() {
   return String(process.env.FREE_APP_WORKSPACE_SLUG || DEFAULT_WORKSPACE_SLUG)
@@ -137,16 +180,11 @@ async function notifyOperatorNewFreeApp({ network, member }) {
 
 /**
  * Create or reopen a free app member and send their portal link.
+ * Double-submit safe: per-contact inflight lock + short send cooldown.
  * @returns {{ ok: true, member, network, notified, created: boolean } | { ok: false, error: string, code?: string }}
  */
 async function signupFreeApp({ form, digits, email, baseUrl, ip }) {
-  if (!takeIpSlot(ip)) {
-    return {
-      ok: false,
-      code: 'rate_limit',
-      error: 'Too many signups from this network today. Try again tomorrow or text us.',
-    };
-  }
+  const lockKey = contactLockKey({ digits, email });
 
   let network;
   try {
@@ -155,58 +193,113 @@ async function signupFreeApp({ form, digits, email, baseUrl, ip }) {
     return { ok: false, code: 'config', error: err.message || 'Free app signup is not available right now.' };
   }
 
-  const existing = await findExistingMember(network.id, { digits, email });
-  if (existing) {
-    let member = existing;
-    // Returning visitor: reopen if paused; keep partner plans, else mark app_free.
-    const patch = {};
-    if (member.status === 'paused') patch.status = 'active';
-    if (!member.plan) patch.plan = PLAN_APP_FREE;
-    if (Object.keys(patch).length) {
-      member = await store.saveMember(network.id, { ...member, ...patch });
+  // Fast path: same contact just got a link (classic double-click after first send).
+  if (wasRecentlySent(lockKey)) {
+    const existing = await findExistingMember(network.id, { digits, email });
+    return {
+      ok: true,
+      member: existing,
+      network,
+      notified: { ok: true, skipped: 'cooldown' },
+      created: false,
+    };
+  }
+
+  if (!tryAcquireInflight(lockKey)) {
+    // Another request is creating/sending for this contact — wait briefly, then succeed without a second SMS.
+    let existing = null;
+    for (let i = 0; i < 20; i += 1) {
+      await sleep(50);
+      existing = await findExistingMember(network.id, { digits, email });
+      if (existing) break;
     }
-    const notified = await notify.sendMemberPortalLink({ network, member, baseUrl, welcome: false })
+    return {
+      ok: true,
+      member: existing,
+      network,
+      notified: { ok: true, skipped: 'inflight' },
+      created: false,
+    };
+  }
+
+  try {
+    if (!takeIpSlot(ip)) {
+      return {
+        ok: false,
+        code: 'rate_limit',
+        error: 'Too many signups from this network today. Try again tomorrow or text us.',
+      };
+    }
+
+    // Re-check after lock: the winner of a race may have finished.
+    if (wasRecentlySent(lockKey)) {
+      const existing = await findExistingMember(network.id, { digits, email });
+      return {
+        ok: true,
+        member: existing,
+        network,
+        notified: { ok: true, skipped: 'cooldown' },
+        created: false,
+      };
+    }
+
+    const existing = await findExistingMember(network.id, { digits, email });
+    if (existing) {
+      let member = existing;
+      // Returning visitor: reopen if paused; keep partner plans, else mark app_free.
+      const patch = {};
+      if (member.status === 'paused') patch.status = 'active';
+      if (!member.plan) patch.plan = PLAN_APP_FREE;
+      if (Object.keys(patch).length) {
+        member = await store.saveMember(network.id, { ...member, ...patch });
+      }
+      const notified = await notify.sendMemberPortalLink({ network, member, baseUrl, welcome: false })
+        .catch((err) => ({ ok: false, error: err.message }));
+      if (notified && notified.ok) markSent(lockKey);
+      return { ok: true, member, network, notified, created: false };
+    }
+
+    const saved = await dbService.saveLeadWithMeta({
+      workspaceId: network.ownerWorkspaceId,
+      title: form.companyName,
+      contactName: form.contactName || '',
+      phone: form.phone || 'N/A',
+      email: email || form.email || 'N/A',
+      source: 'free_app_signup',
+      message: 'Signed up for the free AdHello member app',
+    });
+    const lead = await dbService.getLead(saved.key, network.ownerWorkspaceId);
+    if (!lead || !lead.key) {
+      return { ok: false, code: 'failed', error: 'Could not create your account. Try again.' };
+    }
+    const connected = referralNetwork.applyPartnerAction(lead, 'connect');
+    if (connected.ok) {
+      await dbService.updateLead(lead.key, { referralPartner: connected.referralPartner }, network.ownerWorkspaceId);
+    }
+
+    const member = await store.saveMember(network.id, {
+      leadKey: lead.key,
+      companyName: form.companyName,
+      contactName: form.contactName,
+      phone: form.phone || '',
+      email: email || '',
+      status: 'active',
+      plan: PLAN_APP_FREE,
+      joinedAt: new Date().toISOString(),
+    });
+
+    const notified = await notify.sendMemberPortalLink({ network, member, baseUrl, welcome: true })
       .catch((err) => ({ ok: false, error: err.message }));
-    return { ok: true, member, network, notified, created: false };
+    if (notified && notified.ok) markSent(lockKey);
+
+    setImmediate(() => {
+      notifyOperatorNewFreeApp({ network, member }).catch(() => {});
+    });
+
+    return { ok: true, member, network, notified, created: true };
+  } finally {
+    releaseInflight(lockKey);
   }
-
-  const saved = await dbService.saveLeadWithMeta({
-    workspaceId: network.ownerWorkspaceId,
-    title: form.companyName,
-    contactName: form.contactName || '',
-    phone: form.phone || 'N/A',
-    email: email || form.email || 'N/A',
-    source: 'free_app_signup',
-    message: 'Signed up for the free AdHello member app',
-  });
-  const lead = await dbService.getLead(saved.key, network.ownerWorkspaceId);
-  if (!lead || !lead.key) {
-    return { ok: false, code: 'failed', error: 'Could not create your account. Try again.' };
-  }
-  const connected = referralNetwork.applyPartnerAction(lead, 'connect');
-  if (connected.ok) {
-    await dbService.updateLead(lead.key, { referralPartner: connected.referralPartner }, network.ownerWorkspaceId);
-  }
-
-  const member = await store.saveMember(network.id, {
-    leadKey: lead.key,
-    companyName: form.companyName,
-    contactName: form.contactName,
-    phone: form.phone || '',
-    email: email || '',
-    status: 'active',
-    plan: PLAN_APP_FREE,
-    joinedAt: new Date().toISOString(),
-  });
-
-  const notified = await notify.sendMemberPortalLink({ network, member, baseUrl, welcome: true })
-    .catch((err) => ({ ok: false, error: err.message }));
-
-  setImmediate(() => {
-    notifyOperatorNewFreeApp({ network, member }).catch(() => {});
-  });
-
-  return { ok: true, member, network, notified, created: true };
 }
 
 function isAppFreeMember(member) {
@@ -216,6 +309,9 @@ function isAppFreeMember(member) {
 module.exports = {
   PLAN_APP_FREE,
   DEFAULT_WORKSPACE_SLUG,
+  SEND_COOLDOWN_PREFIX,
+  INFLIGHT_PREFIX,
+  contactLockKey,
   readForm,
   phoneDigits,
   cleanEmail,
