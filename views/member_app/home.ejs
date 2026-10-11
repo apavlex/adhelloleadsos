@@ -163,12 +163,10 @@
     <section class="ma-section">
       <div class="ma-section__head">
         <h2>Network</h2>
-        <a href="<%= base %>/referrals?view=pool">Pool</a>
       </div>
       <%- include('_lead_request_callout', { leadRequest: typeof leadRequest !== 'undefined' ? leadRequest : null, back: 'home', base: base, icons: icons }) %>
       <div class="ma-dash-actions">
         <a class="ma-btn ma-btn--soft" href="<%= base %>/leads"><%- icons.leads %> Leads</a>
-        <a class="ma-btn ma-btn--soft" href="<%= base %>/referrals?view=pool"><%- icons.referrals %> Claim pool</a>
         <a class="ma-btn ma-btn--soft" href="<%= base %>/send"><%- icons.send %> Send referral</a>
       </div>
     </section>
