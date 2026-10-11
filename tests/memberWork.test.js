@@ -418,8 +418,10 @@ test('customers tab routes: top-bar enroll, CRUD, calendar, pending and referral
     assert.doesNotMatch(customerPage, /maps\.apple\.com/);
     assert.match(customerPage, /ma-tags/);
     assert.match(customerPage, /ma-tags-section/);
+    assert.match(customerPage, /data-ma-tag-pick/);
+    assert.match(customerPage, /name="tagName"/);
     assert.match(customerPage, />Tags</);
-    assert.match(customerPage, /Inactive tags stay hidden/);
+    assert.match(customerPage, /Search tags or create new/);
     assert.ok(customerPage.indexOf('ma-tags-section') < customerPage.indexOf('>Details<'));
 
     const inlineCustomer = await post(`${A}/customers/jobs/new`, {

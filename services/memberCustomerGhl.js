@@ -276,18 +276,72 @@ async function pushCustomerToGhl(network, memberId, customer) {
 }
 
 /**
- * Add/remove a single active tag and sync to GHL when linked.
+ * Resolve a workspace tag by key or name. Creates (or reactivates) when adding by name.
+ * @returns {{ ok: true, tag } | { ok: false, error: string }}
  */
-async function setCustomerTag(network, memberId, customerId, tagKey, { add } = {}) {
+async function resolveWorkspaceTag(workspaceId, { tagKey, tagName, createIfMissing = false } = {}) {
+  const catalog = await dbService.listTags(workspaceId);
   const key = String(tagKey || '').trim();
-  if (!key) return { ok: false, error: 'Pick a tag.' };
-  const active = await listActiveWorkspaceTags(network.ownerWorkspaceId);
-  const allowed = active.find((t) => t.key === key);
-  if (!allowed) {
-    return { ok: false, error: 'That tag is inactive or not available.' };
+  if (key) {
+    const found = catalog.find((t) => t.key === key);
+    if (!found) return { ok: false, error: 'That tag is not available.' };
+    if (found.isActive === false) {
+      if (!createIfMissing) return { ok: false, error: 'That tag is inactive or not available.' };
+      const revived = await dbService.setTagActive(workspaceId, key, true);
+      return { ok: true, tag: revived || { ...found, isActive: true } };
+    }
+    return { ok: true, tag: found };
   }
+
+  const name = String(tagName || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+  if (!name) return { ok: false, error: 'Enter a tag name.' };
+  const existing = catalog.find(
+    (t) => String(t.name || '').trim().toLowerCase() === name.toLowerCase(),
+  );
+  if (existing) {
+    if (existing.isActive === false) {
+      if (!createIfMissing) return { ok: false, error: 'That tag is inactive or not available.' };
+      const revived = await dbService.setTagActive(workspaceId, existing.key, true);
+      return { ok: true, tag: revived || { ...existing, isActive: true } };
+    }
+    return { ok: true, tag: existing };
+  }
+  if (!createIfMissing) return { ok: false, error: 'No matching tag. Create it to continue.' };
+  const created = await dbService.createTag(workspaceId, name);
+  return { ok: true, tag: created };
+}
+
+/**
+ * Add/remove a single active tag and sync to GHL when linked.
+ * For add: pass tagKey and/or tagName (name can create a new workspace tag).
+ */
+async function setCustomerTag(network, memberId, customerId, tagKey, { add, tagName } = {}) {
   const customer = await work.getCustomer(network.id, memberId, customerId);
   if (!customer) return { ok: false, error: 'Customer not found.' };
+
+  let tag;
+  if (add) {
+    const resolved = await resolveWorkspaceTag(network.ownerWorkspaceId, {
+      tagKey,
+      tagName,
+      createIfMissing: true,
+    });
+    if (!resolved.ok) return resolved;
+    tag = resolved.tag;
+  } else {
+    const key = String(tagKey || '').trim();
+    if (!key) return { ok: false, error: 'Pick a tag.' };
+    const resolved = await resolveWorkspaceTag(network.ownerWorkspaceId, {
+      tagKey: key,
+      createIfMissing: false,
+    });
+    // Allow removing a stored key even if the catalog entry was deactivated.
+    tag = resolved.ok ? resolved.tag : { key, name: key };
+  }
+
+  const key = String(tag.key || '').trim();
+  if (!key) return { ok: false, error: 'Pick a tag.' };
+
   const current = new Set(work.normalizeCustomerTags(customer.tags));
   if (add) current.add(key);
   else current.delete(key);
@@ -303,10 +357,10 @@ async function setCustomerTag(network, memberId, customerId, tagKey, { add } = {
   } else if (saved.customer.phone || saved.customer.email) {
     const pushed = await pushCustomerToGhl(network, memberId, saved.customer).catch(() => null);
     if (pushed && pushed.ok) {
-      return { ok: true, customer: pushed.customer, tag: allowed, ghl: { ok: true } };
+      return { ok: true, customer: pushed.customer, tag, ghl: { ok: true } };
     }
   }
-  return { ok: true, customer: saved.customer, tag: allowed, ghl };
+  return { ok: true, customer: saved.customer, tag, ghl };
 }
 
 /**
@@ -356,6 +410,7 @@ module.exports = {
   activeTagKeysFromGhlNames,
   presentCustomerTags,
   availableCustomerTags,
+  resolveWorkspaceTag,
   pushCustomerTagsToGhl,
   pullCustomerTagsFromGhl,
   setCustomerTag,
