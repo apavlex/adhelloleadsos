@@ -113,21 +113,25 @@ router.get('/', async (req, res, next) => {
       const lead = leadsForBoard.find((l) => l && l.key === focus);
       if (lead) partners.unshift(referralNetwork.presentPartner(lead));
     }
-    const freeByLeadKey = new Map();
-    const activeByLeadKey = new Map();
+    const memberMetaByLeadKey = new Map();
     for (const m of members) {
       const key = String(m.leadKey || '').trim();
       if (!key) continue;
-      freeByLeadKey.set(key, String(m.plan || '') === 'app_free');
-      activeByLeadKey.set(key, String(m.status || '') === 'active');
+      memberMetaByLeadKey.set(key, {
+        isAppFree: String(m.plan || '') === 'app_free',
+        memberActive: String(m.status || '') === 'active',
+        joinedWhen: referralNetwork.formatWhen(m.joinedAt),
+      });
     }
     partners = partners.map((card) => {
       const counters = countsByLead.get(card.key);
       const withCounts = counters ? referralNetwork.withNetworkCounts(card, counters) : card;
+      const meta = memberMetaByLeadKey.get(card.key) || {};
       return {
         ...withCounts,
-        isAppFree: !!freeByLeadKey.get(card.key),
-        memberActive: !!activeByLeadKey.get(card.key),
+        isAppFree: !!meta.isAppFree,
+        memberActive: !!meta.memberActive,
+        joinedWhen: meta.joinedWhen || '',
       };
     });
     const hideFree = String(req.query.hideFree || '') === '1';

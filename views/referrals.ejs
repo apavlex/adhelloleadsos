@@ -62,6 +62,15 @@
     html.dark .ref-pill-active { color: #93c5fd; }
     .ref-pill-free { background: rgba(100, 116, 139, 0.14); color: #475569; }
     html.dark .ref-pill-free { color: #cbd5e1; }
+    .ref-joined {
+      margin: 0.35rem 0 0;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: #64748b;
+      white-space: nowrap;
+    }
+    html.dark .ref-joined { color: #94a3b8; }
     .ref-filter-free { display: inline-flex; align-items: center; gap: 0.45rem; font-size: 0.78rem; font-weight: 700; color: var(--brand-muted, #64748b); white-space: nowrap; cursor: pointer; user-select: none; }
     .ref-filter-free input { width: 1rem; height: 1rem; accent-color: #0f172a; }
     .ref-note { width: 100%; border-radius: 0.85rem; border: 1px solid rgba(15, 23, 42, 0.1); background: rgba(247, 244, 238, 0.7); padding: 0.55rem 0.75rem; font-size: 0.8rem; }
@@ -237,19 +246,24 @@
               <% if (partner.phone) { %><% if (partner.rating) { %> · <% } %><%= partner.phone %><% } %>
             </p>
           </div>
-          <div class="shrink-0 ref-pill-wrap" data-ref-pill-wrap>
-            <% if (partner.memberActive) { %>
-            <span class="ref-pill ref-pill-active">Active</span>
-            <% } %>
-            <% if (partner.status === 'connected') { %>
-            <span class="ref-pill ref-pill-connected" data-ref-pill>Connected</span>
-            <% } else if (partner.status === 'intro_sent') { %>
-            <span class="ref-pill ref-pill-intro" data-ref-pill>Intro sent</span>
-            <% } else if (partner.highlighted) { %>
-            <span class="ref-pill" data-ref-pill style="background: rgba(148,163,184,0.16); color: #64748b;">Not connected</span>
-            <% } %>
-            <% if (partner.isAppFree) { %>
-            <span class="ref-pill ref-pill-free" data-ref-free-pill>Free account</span>
+          <div class="shrink-0 text-right">
+            <div class="ref-pill-wrap" data-ref-pill-wrap>
+              <% if (partner.memberActive) { %>
+              <span class="ref-pill ref-pill-active">Active</span>
+              <% } %>
+              <% if (partner.status === 'connected') { %>
+              <span class="ref-pill ref-pill-connected" data-ref-pill>Connected</span>
+              <% } else if (partner.status === 'intro_sent') { %>
+              <span class="ref-pill ref-pill-intro" data-ref-pill>Intro sent</span>
+              <% } else if (partner.highlighted) { %>
+              <span class="ref-pill" data-ref-pill style="background: rgba(148,163,184,0.16); color: #64748b;">Not connected</span>
+              <% } %>
+              <% if (partner.isAppFree) { %>
+              <span class="ref-pill ref-pill-free" data-ref-free-pill>Free account</span>
+              <% } %>
+            </div>
+            <% if (partner.joinedWhen) { %>
+            <p class="ref-joined" data-ref-joined>Joined <%= partner.joinedWhen %></p>
             <% } %>
           </div>
         </div>

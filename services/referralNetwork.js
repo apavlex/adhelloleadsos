@@ -324,4 +324,5 @@ module.exports = {
   networkTotals,
   withNetworkCounts,
   applyNetworkCountsToLead,
+  formatWhen,
 };
