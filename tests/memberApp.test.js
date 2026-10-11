@@ -270,7 +270,7 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     assert.match(profileHtml, /Invite a business/);
     assert.match(profileHtml, /Save as a phone app/);
     assert.match(profileHtml, /data-ma-install-open/);
-    assert.match(profileHtml, /Customers &amp; GHL sync|Customers & GHL sync/);
+    assert.match(profileHtml, /Customers &amp; CRM sync|Customers & CRM sync/);
 
     const profileSave = await fetch(`${base}/m/${token}/profile`, {
       method: 'POST',

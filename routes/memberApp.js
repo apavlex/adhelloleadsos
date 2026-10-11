@@ -34,6 +34,7 @@ const reviewRequestScript = require('../services/reviewRequestScript');
 const reviewShareImage = require('../services/reviewShareImage');
 const reviewAsk = require('../services/reviewAsk');
 const memberLeadRequests = require('../services/memberLeadRequests');
+const freeAppSignup = require('../services/freeAppSignup');
 const jobMedia = require('../services/memberJobMedia');
 const contractorPortal = require('../services/contractorPortal');
 const memberAppointmentLink = require('../services/memberAppointmentLink');
@@ -108,7 +109,8 @@ const OK_MESSAGES = {
   converted: 'Added to your customers.',
   already: 'That referral is already in your customers.',
   customers_imported: 'Customer list imported.',
-  customers_synced: 'Customers synced with Go High Level.',
+  customers_synced: 'Customers synced with your CRM.',
+  crm_sync_upgrade: 'CRM sync is on the monthly plan. Upgrade to activate it.',
   leads_requested: 'Lead request sent — your agency was pinged that you’re ready for more work.',
 };
 
@@ -831,6 +833,8 @@ async function renderCustomers(req, res, ctx, flash, status) {
     flash: flash || flashFromQuery(req),
     hrefFor: (params) => customersHref(ctx.base, params),
     customerCount: customers.length,
+    crmSyncLocked: freeAppSignup.isAppFreeMember(ctx.member),
+    upgradeHref: '/signup',
   };
 
   if (view === 'list') {
@@ -928,9 +932,12 @@ router.post('/m/:token/customers/import', (req, res, next) => {
 }));
 
 router.post('/m/:token/customers/sync-ghl', form, withMember(async (req, res, ctx) => {
+  if (freeAppSignup.isAppFreeMember(ctx.member)) {
+    return res.redirect(303, `${ctx.base}/customers?ok=crm_sync_upgrade`);
+  }
   const out = await memberCustomerGhl.syncCustomersWithGhl(ctx.network, ctx.member.id, { maxPages: 5, pushLimit: 100 });
   if (!out.ok) {
-    return res.redirect(303, `${ctx.base}/customers?errmsg=${encodeURIComponent(out.error || 'GHL sync failed.')}`);
+    return res.redirect(303, `${ctx.base}/customers?errmsg=${encodeURIComponent(out.error || 'CRM sync failed.')}`);
   }
   return res.redirect(303, `${ctx.base}/customers?ok=customers_synced&detail=${encodeURIComponent(`(${out.summary})`)}`);
 }));
