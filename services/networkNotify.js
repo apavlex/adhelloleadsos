@@ -73,7 +73,7 @@ async function messagingReadyForNetwork(network) {
 
 /**
  * Text (or email as a fallback) a member a message via the operator workspace's
- * Go High Level connection, logging it on the member's lead when present.
+ * GHL CRM connection, logging it on the member's lead when present.
  */
 async function messageMember(network, member, { sms, subject, email }) {
   const lead = await memberLead(network, member);
@@ -92,8 +92,8 @@ async function messageMember(network, member, { sms, subject, email }) {
   if (phone && phone !== 'N/A') {
     if (!ready.smsReady) {
       error = ready.configured
-        ? 'Set a GHL SMS from number in Workspace → Integrations.'
-        : 'Connect Go High Level in Workspace → Integrations to send texts.';
+        ? 'Set a GHL CRM SMS from number in Workspace → Integrations.'
+        : 'Connect GHL CRM in Workspace → Integrations to send texts.';
     } else {
       try {
         const result = lead
@@ -123,7 +123,7 @@ async function messageMember(network, member, { sms, subject, email }) {
     if (!ready.emailReady) {
       error = error || (ready.configured
         ? 'Set the GHL outbound email from address in Workspace → Integrations.'
-        : 'Connect Go High Level in Workspace → Integrations to send email.');
+        : 'Connect GHL CRM in Workspace → Integrations to send email.');
     } else {
       try {
         const result = lead
@@ -195,7 +195,7 @@ async function sendReviewRequest({
   if (!ready.configured) {
     return {
       ok: false,
-      error: 'Go High Level is not connected for this network. Ask your agency to connect GHL in Workspace → Integrations.',
+      error: 'GHL CRM is not connected for this network. Ask your agency to connect GHL CRM in Workspace → Integrations.',
     };
   }
 
@@ -261,7 +261,7 @@ async function sendReviewRequest({
 
   if (trySms) {
     if (!ready.smsReady) {
-      error = 'Set a GHL SMS from number in Workspace → Integrations to send review texts.';
+      error = 'Set a GHL CRM SMS from number in Workspace → Integrations to send review texts.';
     } else {
       try {
         const result = await ghlMessaging.sendSmsToPerson({
