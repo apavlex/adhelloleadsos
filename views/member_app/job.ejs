@@ -97,13 +97,63 @@
         </div>
         <div class="ma-field">
           <label class="ma-label" for="jbNotes">Notes</label>
-          <textarea id="jbNotes" name="notes" class="ma-textarea" maxlength="2000" placeholder="Scope, materials, access…"><%= fv.notes || '' %></textarea>
+          <textarea id="jbNotes" name="notes" class="ma-textarea" maxlength="2000" placeholder="Scope, materials, access, what you found on site…"><%= fv.notes || '' %></textarea>
         </div>
-        <button type="submit" class="ma-btn ma-btn--block"><%= job ? 'Save job' : (fv.date ? 'Schedule job' : 'Add job') %></button>
+        <div class="ma-grid2">
+          <div class="ma-field">
+            <label class="ma-label" for="jbRemindOwner">Remind me</label>
+            <select id="jbRemindOwner" name="remindOwnerBeforeMins" class="ma-select">
+              <% (remindOptions || []).forEach(function (o) { %><option value="<%= o.value %>" <%= Number(fv.remindOwnerBeforeMins || 0) === o.value ? 'selected' : '' %>><%= o.label %></option><% }); %>
+            </select>
+          </div>
+          <div class="ma-field">
+            <label class="ma-label" for="jbRemindCustomer">Remind customer</label>
+            <select id="jbRemindCustomer" name="remindCustomerBeforeMins" class="ma-select">
+              <% (remindOptions || []).forEach(function (o) { %><option value="<%= o.value %>" <%= Number(fv.remindCustomerBeforeMins || 0) === o.value ? 'selected' : '' %>><%= o.label %></option><% }); %>
+            </select>
+          </div>
+        </div>
+        <p class="ma-hint">Texts go through Go High Level before the visit. Needs a date<%= fv.time ? '' : ' (and ideally a start time)' %>.</p>
+        <button type="submit" class="ma-btn ma-btn--block"><%- icons.completed %> <%= job ? 'Save job' : (fv.date ? 'Schedule job' : 'Add job') %></button>
       </form>
     </section>
 
     <% if (job) { %>
+    <section class="ma-section" id="maJobPhotos">
+      <div class="ma-section__head">
+        <h2>Job photos</h2>
+        <span class="ma-count"><%= (job.photos || []).length %>/<%= maxJobPhotos || 12 %></span>
+      </div>
+      <% if (job.photos && job.photos.length) { %>
+      <div class="ma-photos">
+        <% job.photos.forEach(function (p) { %>
+        <figure class="ma-photos__item">
+          <a href="<%= p.href %>" target="_blank" rel="noopener"><img src="<%= p.href %>" alt="<%= p.caption || 'Job photo' %>" loading="lazy"></a>
+          <% if (p.caption) { %><figcaption><%= p.caption %></figcaption><% } %>
+          <form method="post" action="<%= base %>/customers/jobs/<%= job.id %>/photos/<%= p.id %>/delete" data-ma-confirm="Remove this photo?">
+            <button type="submit" class="ma-photos__del" aria-label="Remove photo">×</button>
+          </form>
+        </figure>
+        <% }); %>
+      </div>
+      <% } else { %>
+      <p class="ma-hint" style="margin:0 0 12px">Document the job site with pictures — before, during, or after.</p>
+      <% } %>
+      <% if ((job.photos || []).length < (maxJobPhotos || 12)) { %>
+      <form method="post" action="<%= base %>/customers/jobs/<%= job.id %>/photos" enctype="multipart/form-data" class="ma-card" autocomplete="off" data-ma-loading="Saving photo…">
+        <div class="ma-field">
+          <label class="ma-label" for="jbPhoto">Add photo</label>
+          <input id="jbPhoto" name="photo" type="file" accept="image/*,.heic,.heif" class="ma-input" required>
+        </div>
+        <div class="ma-field">
+          <label class="ma-label" for="jbCaption">Caption <span class="ma-optional">(optional)</span></label>
+          <input id="jbCaption" name="caption" class="ma-input" maxlength="120" placeholder="e.g. Before — living room">
+        </div>
+        <button type="submit" class="ma-btn ma-btn--block ma-btn--soft"><%- icons.camera %> Save photo</button>
+      </form>
+      <% } %>
+    </section>
+
     <form method="post" action="<%= base %>/customers/jobs/<%= job.id %>/delete" class="ma-section" data-ma-confirm="Delete this job?">
       <button type="submit" class="ma-btn ma-btn--danger ma-btn--block">Delete job</button>
     </form>

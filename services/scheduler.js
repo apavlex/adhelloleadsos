@@ -14,6 +14,7 @@ const { maybeRunDailyOutreachForEnabledWorkspaces } = require('./dailyOutreachSc
 const { runOnboardingDrips } = require('./onboardingDrip');
 const { runTaskPushReminders } = require('./taskPushReminders');
 const { runReviewAskReminders } = require('./reviewAsk');
+const { runJobVisitReminders } = require('./jobVisitReminders');
 const { tickAllWorkspaces: tickAgentOpsWorkspaces } = require('./agentOps');
 
 function normalizeVoicemailLibrary(raw) {
@@ -351,6 +352,7 @@ module.exports = {
   runReferralAskReminders,
   runWeeklyVoicemailDrops,
   runReviewAskReminders,
+  runJobVisitReminders,
   init() {
     console.log('[SCHEDULER] Initializing scheduled lead runs (hourly check)...');
     
@@ -392,6 +394,9 @@ module.exports = {
       );
       runReviewAskReminders().catch((e) =>
         console.error('[SCHEDULER] Review ask reminders failed:', e.message)
+      );
+      runJobVisitReminders().catch((e) =>
+        console.error('[SCHEDULER] Job visit reminders failed:', e.message)
       );
     });
 

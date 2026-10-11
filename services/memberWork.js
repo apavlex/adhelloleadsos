@@ -9,6 +9,7 @@
 
 const crypto = require('crypto');
 const dbService = require('./database');
+const jobMedia = require('./memberJobMedia');
 
 const JOB_STATUSES = ['lead', 'estimate', 'scheduled', 'in_progress', 'completed', 'on_hold', 'cancelled'];
 const JOB_STATUS_LABELS = {
@@ -25,8 +26,20 @@ const CLOSED = new Set(['completed', 'cancelled']);
 
 const MAX_CUSTOMERS = 1000;
 const MAX_JOBS = 3000;
+const MAX_JOB_PHOTOS = 12;
 const MAX_VALUE = 10000000;
 const MAX_DURATION = 7 * 24 * 60;
+
+/** Minutes before visit start — 0 means reminders off. */
+const REMIND_BEFORE_OPTIONS = [
+  { value: 0, label: 'Off' },
+  { value: 60, label: '1 hour before' },
+  { value: 120, label: '2 hours before' },
+  { value: 180, label: '3 hours before' },
+  { value: 1440, label: '1 day before' },
+  { value: 2880, label: '2 days before' },
+];
+const REMIND_BEFORE_SET = new Set(REMIND_BEFORE_OPTIONS.map((o) => o.value));
 
 // Hex/base36 only: kv listing uses SQL LIKE, where "_" and "%" are wildcards.
 const SCOPE_ID = /^[a-z0-9]{1,64}$/i;
@@ -96,6 +109,40 @@ function cleanDuration(value) {
   return Math.min(MAX_DURATION, n);
 }
 
+function cleanRemindMins(value) {
+  const n = parseInt(value, 10);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return REMIND_BEFORE_SET.has(n) ? n : 0;
+}
+
+function cleanTimeZone(value) {
+  const tz = String(value == null ? '' : value).trim();
+  if (!/^[A-Za-z_]+(?:\/[A-Za-z0-9_+-]+){0,2}$/.test(tz)) return '';
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: tz });
+    return tz;
+  } catch {
+    return '';
+  }
+}
+
+function normalizePhotos(raw) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const id = String(item.id || '');
+    if (!RECORD_ID.test(id)) continue;
+    out.push({
+      id,
+      caption: cleanLine(item.caption, 120),
+      createdAt: item.createdAt || '',
+    });
+    if (out.length >= MAX_JOB_PHOTOS) break;
+  }
+  return out;
+}
+
 // ── Records ──────────────────────────────────────────────────────────────────
 
 const CUSTOMER_SOURCES = new Set(['manual', 'csv', 'ghl', 'referral']);
@@ -159,6 +206,12 @@ function normalizeJob(raw) {
     time: cleanTime(j.time),
     durationMins: cleanDuration(j.durationMins),
     notes: cleanBlock(j.notes, 2000),
+    photos: normalizePhotos(j.photos),
+    remindOwnerBeforeMins: cleanRemindMins(j.remindOwnerBeforeMins),
+    remindCustomerBeforeMins: cleanRemindMins(j.remindCustomerBeforeMins),
+    ownerRemindedAt: j.ownerRemindedAt ? String(j.ownerRemindedAt) : '',
+    customerRemindedAt: j.customerRemindedAt ? String(j.customerRemindedAt) : '',
+    timeZone: cleanTimeZone(j.timeZone) || 'America/Los_Angeles',
     referralId: isRecordId(j.referralId) ? j.referralId : '',
     completedAt: j.completedAt || '',
     createdAt: j.createdAt || new Date().toISOString(),
@@ -195,6 +248,8 @@ function validateJob(input) {
     time: cleanTime(rawTime),
     durationMins: cleanDuration(body.durationMins),
     notes: cleanBlock(body.notes, 2000),
+    remindOwnerBeforeMins: cleanRemindMins(body.remindOwnerBeforeMins),
+    remindCustomerBeforeMins: cleanRemindMins(body.remindCustomerBeforeMins),
   };
   if (!fields.title) return { ok: false, error: 'Add what the job is.' };
   if (!fields.status) return { ok: false, error: 'Pick a status.' };
@@ -202,6 +257,9 @@ function validateJob(input) {
   if (rawTime && !fields.time) return { ok: false, error: 'Pick a valid time.' };
   if (fields.time && !fields.date) return { ok: false, error: 'Pick a date for that time.' };
   if (fields.status === 'scheduled' && !fields.date) return { ok: false, error: 'Pick a date to schedule this job.' };
+  if ((fields.remindOwnerBeforeMins || fields.remindCustomerBeforeMins) && !fields.date) {
+    return { ok: false, error: 'Pick a date before turning on visit reminders.' };
+  }
   return { ok: true, fields };
 }
 
@@ -304,7 +362,7 @@ async function getJob(networkId, memberId, id) {
 }
 
 /** Create (no id) or update a job. The customer must belong to the same member. */
-async function saveJob(networkId, memberId, input, { id, referralId } = {}) {
+async function saveJob(networkId, memberId, input, { id, referralId, timeZone } = {}) {
   const prefix = jobPrefix(networkId, memberId);
   const checked = validateJob(input);
   if (!checked.ok) return checked;
@@ -320,9 +378,28 @@ async function saveJob(networkId, memberId, input, { id, referralId } = {}) {
     return { ok: false, error: `You can keep up to ${MAX_JOBS} jobs.` };
   }
   const status = checked.fields.status;
+  const tz = cleanTimeZone(timeZone) || (existing && existing.timeZone) || 'America/Los_Angeles';
+  let ownerRemindedAt = existing ? existing.ownerRemindedAt : '';
+  let customerRemindedAt = existing ? existing.customerRemindedAt : '';
+  if (existing) {
+    const scheduleChanged =
+      existing.date !== checked.fields.date
+      || existing.time !== checked.fields.time
+      || existing.timeZone !== tz;
+    if (scheduleChanged || existing.remindOwnerBeforeMins !== checked.fields.remindOwnerBeforeMins) {
+      ownerRemindedAt = '';
+    }
+    if (scheduleChanged || existing.remindCustomerBeforeMins !== checked.fields.remindCustomerBeforeMins) {
+      customerRemindedAt = '';
+    }
+  }
   const job = normalizeJob({
     ...(existing || {}),
     ...checked.fields,
+    photos: existing ? existing.photos : [],
+    ownerRemindedAt,
+    customerRemindedAt,
+    timeZone: tz,
     customerId: customer.id,
     id: existing ? existing.id : newId(),
     referralId: existing ? existing.referralId : (referralId || ''),
@@ -334,6 +411,40 @@ async function saveJob(networkId, memberId, input, { id, referralId } = {}) {
   return { ok: true, job, customer };
 }
 
+async function writeJob(networkId, memberId, job) {
+  const next = normalizeJob({ ...job, updatedAt: new Date().toISOString() });
+  await dbService.putStorageKey(`${jobPrefix(networkId, memberId)}${next.id}`, next);
+  return next;
+}
+
+/** Attach a prepared photo to a job (updates the job record + KV blob). */
+async function addJobPhoto(networkId, memberId, jobId, prepared, { caption } = {}) {
+  const job = await getJob(networkId, memberId, jobId);
+  if (!job) return { ok: false, error: 'Job not found.' };
+  if (job.photos.length >= MAX_JOB_PHOTOS) {
+    return { ok: false, error: `You can add up to ${MAX_JOB_PHOTOS} photos per job.` };
+  }
+  const photoId = newId();
+  const now = new Date().toISOString();
+  await jobMedia.saveJobPhoto(networkId, memberId, job.id, photoId, prepared);
+  const photos = normalizePhotos([
+    ...job.photos,
+    { id: photoId, caption: cleanLine(caption, 120), createdAt: now },
+  ]);
+  const saved = await writeJob(networkId, memberId, { ...job, photos });
+  return { ok: true, job: saved, photoId };
+}
+
+async function removeJobPhoto(networkId, memberId, jobId, photoId) {
+  const job = await getJob(networkId, memberId, jobId);
+  if (!job) return { ok: false, error: 'Job not found.' };
+  if (!job.photos.some((p) => p.id === photoId)) return { ok: false, error: 'Photo not found.' };
+  await jobMedia.deleteJobPhoto(networkId, memberId, job.id, photoId);
+  const photos = job.photos.filter((p) => p.id !== photoId);
+  const saved = await writeJob(networkId, memberId, { ...job, photos });
+  return { ok: true, job: saved };
+}
+
 async function setJobStatus(networkId, memberId, id, status) {
   const job = await getJob(networkId, memberId, id);
   if (!job) return { ok: false, error: 'Job not found.' };
@@ -343,6 +454,7 @@ async function setJobStatus(networkId, memberId, id, status) {
 async function deleteJob(networkId, memberId, id) {
   const job = await getJob(networkId, memberId, id);
   if (!job) return { ok: false, error: 'Job not found.' };
+  await jobMedia.deleteAllJobPhotos(networkId, memberId, job.id).catch(() => 0);
   await dbService.deleteStorageKey(`${jobPrefix(networkId, memberId)}${job.id}`);
   return { ok: true, job };
 }
@@ -593,16 +705,21 @@ module.exports = {
   PIPELINE,
   MAX_CUSTOMERS,
   MAX_JOBS,
+  MAX_JOB_PHOTOS,
+  REMIND_BEFORE_OPTIONS,
   CUSTOMER_SOURCES,
   isRecordId,
   isOpen,
   nextStatus,
   cleanDate,
   cleanTime,
+  cleanRemindMins,
+  cleanTimeZone,
   phoneDigits,
   validateCustomer,
   validateJob,
   normalizeCustomer,
+  normalizeJob,
   findCustomerMatch,
   listCustomers,
   getCustomer,
@@ -612,6 +729,9 @@ module.exports = {
   listJobs,
   getJob,
   saveJob,
+  writeJob,
+  addJobPhoto,
+  removeJobPhoto,
   setJobStatus,
   deleteJob,
   convertReferral,

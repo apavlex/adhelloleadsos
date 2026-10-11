@@ -87,6 +87,33 @@ describe('review ask tracking + 48h reminder', () => {
     assert.equal(reviewAsk.dueForReminder(reminded, nowAsk + 50 * 60 * 60 * 1000), false);
   });
 
+  it('returns the latest ask for a customer', async () => {
+    const older = await reviewAsk.createAsk({
+      networkId: 'n4',
+      memberId: 'm4',
+      customerId: 'custabcd01',
+      name: 'Old',
+      phone: '+15550004444',
+      channel: 'sms',
+      reviewSlug: 'latest-co',
+      now: Date.parse('2026-09-01T12:00:00.000Z'),
+    });
+    const newer = await reviewAsk.createAsk({
+      networkId: 'n4',
+      memberId: 'm4',
+      customerId: 'custabcd01',
+      name: 'New',
+      phone: '+15550004444',
+      channel: 'sms',
+      reviewSlug: 'latest-co',
+      now: Date.parse('2026-09-10T12:00:00.000Z'),
+    });
+    const latest = await reviewAsk.latestAskForCustomer('n4', 'm4', 'custabcd01');
+    assert.equal(latest.id, newer.id);
+    assert.notEqual(latest.id, older.id);
+    assert.equal(await reviewAsk.latestAskForCustomer('n4', 'm4', 'missing1'), null);
+  });
+
   it('lists due asks for the reminder tick', async () => {
     const t0 = Date.parse('2026-11-01T10:00:00.000Z');
     const dueAsk = await reviewAsk.createAsk({

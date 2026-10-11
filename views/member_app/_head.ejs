@@ -26,7 +26,8 @@
 <style>:root { --acc: <%= brand.accent %>; --on: <%= brand.onAccent %>; }</style>
 <% /* Critical layout — ships with HTML (network-first) so a stale SW-cached stylesheet can't blow up settings icons or leave a gap under the tab bar. */ %>
 <style id="ma-critical">
-a.ma-settings-row,button.ma-settings-row{display:flex!important;flex-direction:row!important;align-items:center;gap:10px;width:100%;max-width:100%;min-height:44px;padding:10px 2px;margin:0;border:0;background:transparent;font:inherit;color:inherit;text-align:left;text-decoration:none;-webkit-appearance:none;appearance:none;box-sizing:border-box}
+a.ma-settings-row,button.ma-settings-row,summary.ma-settings-row{display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;align-items:center;gap:10px;width:100%;max-width:100%;min-height:44px;padding:10px 2px;margin:0;border:0;background:transparent;font:inherit;color:inherit;text-align:left;text-decoration:none;-webkit-appearance:none;appearance:none;box-sizing:border-box;list-style:none}
+summary.ma-settings-row::-webkit-details-marker,summary.ma-settings-row::marker{display:none;content:""}
 .ma-settings-row__icon{flex:0 0 28px;width:28px!important;height:28px!important;max-width:28px;max-height:28px;border-radius:8px;display:inline-flex!important;align-items:center;justify-content:center;overflow:hidden}
 .ma-settings-row__icon svg{width:14px!important;height:14px!important;max-width:14px;max-height:14px;display:block}
 .ma-settings-row__text{flex:1 1 auto;min-width:0}
@@ -34,8 +35,13 @@ a.ma-settings-row,button.ma-settings-row{display:flex!important;flex-direction:r
 .ma-settings-row__text span{font-size:12px;font-weight:600;display:block;line-height:1.3}
 .ma-settings-row__chev{flex:0 0 16px;width:16px;height:16px;display:inline-flex!important}
 .ma-settings-row__chev svg{width:16px!important;height:16px!important;display:block}
-.ma-tabbar{position:fixed!important;left:0;right:0;bottom:0!important;width:100%;margin:0;z-index:40;box-sizing:border-box;padding:0;padding-bottom:env(safe-area-inset-bottom,0px);background:color-mix(in srgb,var(--card,#fff) 78%,transparent);-webkit-backdrop-filter:saturate(160%) blur(18px);backdrop-filter:saturate(160%) blur(18px);box-shadow:none}
-.ma-tabbar__inner{height:50px;background:transparent}
-.ma-tab--send .ma-tab__fab{margin-top:-26px}
-.ma-shell{padding-bottom:calc(50px + 36px + 40px + env(safe-area-inset-bottom,0px))!important}
+.ma-empty--tap{display:flex!important;flex-direction:row!important;align-items:center;gap:12px;text-align:left;padding:16px;text-decoration:none}
+.ma-empty--tap>svg{width:22px;height:22px;flex:0 0 22px;margin:0;color:var(--acc)}
+.ma-empty--tap>p{margin:0;flex:1 1 auto;min-width:0;line-height:1.35}
+.ma-tabbar{position:fixed!important;left:0;right:0;bottom:0!important;width:100%;margin:0;z-index:40;box-sizing:border-box;padding:0;padding-bottom:env(safe-area-inset-bottom,0px);overflow:visible;border:0;box-shadow:none;background:rgba(255,255,255,.58)!important;-webkit-backdrop-filter:saturate(180%) blur(22px)!important;backdrop-filter:saturate(180%) blur(22px)!important}
+.ma-tabbar::before{content:"";position:absolute;left:0;right:0;bottom:100%;height:28px;pointer-events:none;background:linear-gradient(to top,rgba(255,255,255,.58) 0%,rgba(255,255,255,.32) 45%,rgba(255,255,255,0) 100%)}
+.ma-tabbar__inner{position:relative;z-index:1;height:50px;background:transparent}
+.ma-tab--send .ma-tab__fab{margin-top:-26px;position:relative;z-index:2}
+.ma-shell{padding-bottom:calc(50px + 36px + 72px + env(safe-area-inset-bottom,0px))!important}
+@media (prefers-color-scheme:dark){.ma-tabbar{background:rgba(28,28,30,.62)!important}.ma-tabbar::before{background:linear-gradient(to top,rgba(28,28,30,.62) 0%,rgba(28,28,30,.34) 45%,rgba(28,28,30,0) 100%)}}
 </style>

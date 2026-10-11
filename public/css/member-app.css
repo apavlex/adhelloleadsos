@@ -17,7 +17,8 @@
   --tabbar-h: 50px;
   /* Review FAB sits above the bar; keep last page content clear of it. */
   --tabbar-fab-overhang: 36px;
-  --tabbar-content-gap: 40px;
+  /* Extra air so the last list row / button clears the frosted bar + FAB. */
+  --tabbar-content-gap: 72px;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
   /* SF Pro on Apple devices; Inter/Manrope elsewhere */
@@ -133,9 +134,11 @@ a.ma-avatar.is-on { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--acc); }
 .ma-profile-hero__sub { margin: 2px 0 0; color: var(--muted); font-size: 14px; font-weight: 600; }
 .ma-settings-list { display: flex; flex-direction: column; gap: 0; }
 a.ma-settings-row,
-button.ma-settings-row {
+button.ma-settings-row,
+summary.ma-settings-row {
   display: flex !important;
   flex-direction: row !important;
+  flex-wrap: nowrap !important;
   align-items: center;
   gap: 10px;
   text-decoration: none;
@@ -156,7 +159,8 @@ button.ma-settings-row {
   box-sizing: border-box;
 }
 a.ma-settings-row:active,
-button.ma-settings-row:active {
+button.ma-settings-row:active,
+summary.ma-settings-row:active {
   background: color-mix(in srgb, var(--muted) 10%, transparent);
 }
 .ma-settings-row__icon {
@@ -354,7 +358,25 @@ button.ma-settings-row:active {
 .ma-card__meta { color: var(--muted); font-size: 13px; margin: 2px 0 0; }
 .ma-card__note { font-size: 14px; margin: 10px 0 0; padding: 10px 12px; border-radius: 12px; background: var(--bg); }
 .ma-empty { text-align: center; color: var(--muted); padding: 28px 16px; font-size: 14px; }
-.ma-empty svg { width: 24px; height: 24px; color: var(--acc); margin-bottom: 6px; }
+.ma-empty > svg { width: 24px; height: 24px; color: var(--acc); margin-bottom: 6px; }
+/* Tap empty-states: icon beside the message (not stacked). */
+.ma-empty--tap {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  padding: 16px;
+  text-decoration: none;
+}
+.ma-empty--tap > svg {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  margin: 0;
+  color: var(--acc);
+}
+.ma-empty--tap > p { margin: 0; flex: 1 1 auto; min-width: 0; line-height: 1.35; }
 .ma-cust-tools { display: grid; gap: 4px; margin: 0 0 14px; padding: 14px 14px 10px; }
 .ma-cust-tools__title {
   margin: 0;
@@ -366,11 +388,16 @@ button.ma-settings-row:active {
 .ma-cust-tools__lead { margin: 0 0 6px; }
 .ma-cust-tools__form { margin: 0; }
 .ma-cust-tools__import { margin: 0; border: 0; }
-.ma-cust-tools__import > summary {
+.ma-cust-tools__import > summary.ma-settings-row {
   list-style: none;
   cursor: pointer;
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center;
 }
-.ma-cust-tools__import > summary::-webkit-details-marker { display: none; }
+.ma-cust-tools__import > summary::-webkit-details-marker,
+.ma-cust-tools__import > summary::marker { display: none; content: ""; }
 .ma-cust-tools__import[open] > summary .ma-settings-row__chev {
   transform: rotate(90deg);
 }
@@ -450,8 +477,7 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
 .ma-row__quick .ma-btn svg { width: 14px; height: 14px; }
 .ma-count { display: inline-flex; min-width: 22px; height: 22px; padding: 0 7px; border-radius: 999px; align-items: center; justify-content: center; font-size: 12px; background: var(--acc-soft); color: var(--acc-ink); vertical-align: 2px; margin-left: 4px; }
 .ma-section--first { margin-top: 4px; }
-.ma-empty--tap { display: block; text-decoration: none; }
-.ma-empty p { margin: 4px 0 0; }
+.ma-empty:not(.ma-empty--tap) p { margin: 4px 0 0; }
 .ma-newcust[hidden] { display: none; }
 
 .ma-pill--job-lead { background: rgba(148, 163, 184, 0.18); color: #475569; }
@@ -572,9 +598,11 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
 
 /* Bottom tab bar — flush to the screen edge. Safe-area is ONLY padding-bottom
    (no min-height add-on — that double-counted on some iOS WebKits and left a tall white shelf).
-   Frosted bar + short fade so the Review FAB is only half-covered and the top edge blends. */
+   Translucent frost + top fade so the Review FAB is only half-covered (no hard white shelf). */
 .ma-tabbar {
-  --tabbar-fill: color-mix(in srgb, var(--card) 78%, transparent);
+  /* rgba fallbacks: color-mix + high opacity still read as solid white on iOS. */
+  --tabbar-fill: rgba(255, 255, 255, 0.58);
+  --tabbar-fade-mid: rgba(255, 255, 255, 0.32);
   position: fixed;
   left: 0;
   right: 0;
@@ -585,43 +613,64 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
   box-sizing: border-box;
   -webkit-transform: translate3d(0, 0, 0); transform: translate3d(0, 0, 0);
   background: var(--tabbar-fill);
-  -webkit-backdrop-filter: saturate(160%) blur(18px);
-  backdrop-filter: saturate(160%) blur(18px);
+  -webkit-backdrop-filter: saturate(180%) blur(22px);
+  backdrop-filter: saturate(180%) blur(22px);
   box-shadow: none;
+  border: 0;
+  border-top: 0;
   /* Height = inner tabs + home-indicator pad only */
   height: auto;
   min-height: 0;
   padding: 0;
   padding-bottom: constant(safe-area-inset-bottom);
   padding-bottom: env(safe-area-inset-bottom, 0px);
+  overflow: visible;
 }
-.ma-tabbar::before,
+/* Soft fade above the bar (~half FAB). No negative z-index — that hid the fade on iOS. */
+.ma-tabbar::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 28px;
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    var(--tabbar-fill) 0%,
+    var(--tabbar-fade-mid) 45%,
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+/* Paint under the home indicator so overscroll doesn't flash page gray. */
 .ma-tabbar::after {
   content: "";
   position: absolute;
   left: 0;
   right: 0;
-  pointer-events: none;
-  z-index: -1;
-}
-/* Soft fade only as tall as half the Review FAB — no solid shelf above the bar. */
-.ma-tabbar::before {
-  top: -26px;
-  height: 26px;
-  background: linear-gradient(to top, var(--tabbar-fill), transparent);
-}
-.ma-tabbar::after {
   top: 100%;
   height: 200px;
-  background: var(--card);
+  pointer-events: none;
+  background: #ffffff;
 }
 @media (prefers-color-scheme: dark) {
   .ma-tabbar {
-    --tabbar-fill: color-mix(in srgb, #1c1c1e 82%, transparent);
+    --tabbar-fill: rgba(28, 28, 30, 0.62);
+    --tabbar-fade-mid: rgba(28, 28, 30, 0.34);
   }
   .ma-tabbar::after { background: #1c1c1e; }
+  .ma-tabbar::before {
+    background: linear-gradient(
+      to top,
+      var(--tabbar-fill) 0%,
+      var(--tabbar-fade-mid) 45%,
+      rgba(28, 28, 30, 0) 100%
+    );
+  }
 }
 .ma-tabbar__inner {
+  position: relative;
+  z-index: 1;
   max-width: 480px;
   margin: 0 auto;
   height: var(--tabbar-h);
@@ -968,3 +1017,22 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
   gap: 8px;
 }
 .ma-dash-actions .ma-btn { width: 100%; justify-content: center; }
+
+/* Job photos + review-ask status */
+.ma-photos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0 0 14px}
+.ma-photos__item{position:relative;margin:0;border-radius:14px;overflow:hidden;background:color-mix(in srgb,var(--muted) 12%,transparent)}
+.ma-photos__item a{display:block;aspect-ratio:4/3}
+.ma-photos__item img{width:100%;height:100%;object-fit:cover;display:block}
+.ma-photos__item figcaption{padding:6px 10px 8px;font-size:12px;font-weight:600;color:var(--muted)}
+.ma-photos__del{position:absolute;top:6px;right:6px;width:28px;height:28px;border:0;border-radius:999px;background:rgba(15,23,42,.72);color:#fff;font-size:18px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.ma-askstatus{display:flex;gap:10px;align-items:flex-start;margin:10px 0 0;padding:12px 14px;border-radius:14px;background:var(--acc-soft);color:var(--acc-ink)}
+.ma-askstatus svg{width:20px;height:20px;flex-shrink:0;margin-top:1px}
+.ma-askstatus strong{display:block;font-size:14px;font-weight:800}
+.ma-askstatus span{display:block;font-size:12px;font-weight:600;opacity:.85;margin-top:2px;line-height:1.35}
+.ma-askstatus--opened,.ma-askstatus--clicked{background:rgba(16,185,129,.12);color:#047857}
+.ma-askstatus--reminded{background:rgba(245,158,11,.15);color:#92400e}
+.ma-optional{font-weight:600;opacity:.7}
+@media (prefers-color-scheme:dark){
+.ma-askstatus--opened,.ma-askstatus--clicked{color:#6ee7b7}
+.ma-askstatus--reminded{color:#fcd34d}
+}

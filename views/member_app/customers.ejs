@@ -23,14 +23,14 @@
     <% if (view === 'list') { %>
       <section class="ma-card ma-cust-tools" aria-label="Import and sync customers">
         <h2 class="ma-cust-tools__title">Bring in customers</h2>
-        <p class="ma-hint ma-cust-tools__lead">Sync from Go High Level or upload a list — then request reviews from anyone in your Customers tab.</p>
+        <p class="ma-hint ma-cust-tools__lead">Uses your workspace’s Go High Level connection (Workspace → Integrations). Sync contacts or upload a list — then request reviews from anyone here.</p>
         <div class="ma-settings-list">
           <form method="post" action="<%= base %>/customers/sync-ghl" class="ma-cust-tools__form">
             <button type="submit" class="ma-settings-row">
               <span class="ma-settings-row__icon"><%- icons.download %></span>
               <span class="ma-settings-row__text">
                 <strong>Sync from Go High Level</strong>
-                <span>Pull contacts and push new customers</span>
+                <span>Same GHL location as your workspace</span>
               </span>
               <span class="ma-settings-row__chev" aria-hidden="true"><%- icons.chevronRight %></span>
             </button>

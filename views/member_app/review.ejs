@@ -40,9 +40,9 @@
       <div class="ma-fold__body">
         <form method="post" action="<%= base %>/review/send" enctype="multipart/form-data" class="ma-card ma-card--flush" autocomplete="off">
           <% if (!_msg.configured) { %>
-          <p class="ma-flash ma-flash--err">Go High Level isn’t connected yet. Ask your agency to connect GHL in Workspace → Integrations.</p>
+          <p class="ma-flash ma-flash--err">Go High Level isn’t connected on this workspace yet. Connect it in Workspace → Integrations (this app uses that same connection).</p>
           <% } else if (!_msg.smsReady && !_msg.emailReady) { %>
-          <p class="ma-flash ma-flash--err">GHL is connected, but SMS from number and outbound email still need to be set in Integrations.</p>
+          <p class="ma-flash ma-flash--err">Your workspace GHL is connected, but SMS from number and outbound email still need to be set in Workspace → Integrations.</p>
           <% } %>
           <% if (_needLinks) { %>
           <p class="ma-flash ma-flash--err">Add at least one review link in Settings before sending.</p>
