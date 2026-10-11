@@ -33,6 +33,7 @@ const reviewPage = require('../services/reviewPage');
 const reviewRequestScript = require('../services/reviewRequestScript');
 const reviewShareImage = require('../services/reviewShareImage');
 const reviewAsk = require('../services/reviewAsk');
+const memberLeadRequests = require('../services/memberLeadRequests');
 const jobMedia = require('../services/memberJobMedia');
 const contractorPortal = require('../services/contractorPortal');
 const memberAppointmentLink = require('../services/memberAppointmentLink');
@@ -108,6 +109,7 @@ const OK_MESSAGES = {
   already: 'That referral is already in your customers.',
   customers_imported: 'Customer list imported.',
   customers_synced: 'Customers synced with Go High Level.',
+  leads_requested: 'Lead request sent — your agency was pinged that you’re ready for more work.',
 };
 
 const MEMBER_ACTIONS = new Set(['accept', 'decline', 'book', 'win', 'lose', 'note', 'claim']);
@@ -220,6 +222,9 @@ const ERR_MESSAGES = {
   hero: 'Could not update the banner image. Try a JPG, PNG, WebP, or GIF under 6 MB.',
   photo: 'Could not update the profile photo. Try a JPG, PNG, WebP, or GIF under 6 MB.',
   job_photo: 'Could not save that photo. Try a JPG, PNG, WebP, GIF, or HEIC under 6 MB.',
+  leads_subscribe: 'Requesting leads is on the monthly plan. The app stays free — subscribe to unlock leads, SMS, and email.',
+  leads_cooldown: 'You already requested leads recently. Your agency was pinged — try again tomorrow.',
+  leads_request: 'Could not send that lead request. Try again.',
 };
 
 function flashFromQuery(req) {
@@ -653,6 +658,7 @@ router.get('/m/:token', withMember(async (req, res, ctx) => {
     .map((r) => presentReceived(r, membersById, ctx.network));
   const today = work.todayIn(memberTimeZone(req));
   const openJobCount = jobs.filter((j) => j && ['lead', 'estimate', 'scheduled', 'in_progress', 'on_hold'].includes(String(j.status || '').toLowerCase())).length;
+  const leadRequest = await memberLeadRequests.leadRequestState(ctx);
   return render(res, 'home', ctx, {
     upcoming: work.upcoming(jobs, today, 2).map((j) => presentJob(j, customersById, ctx.base, today)),
     // Reviews → customers/work → referrals (network is tertiary).
@@ -667,6 +673,7 @@ router.get('/m/:token', withMember(async (req, res, ctx) => {
     openJobCount,
     wonValue: money(stats.wonValue),
     waiting,
+    leadRequest,
     flash: flashFromQuery(req),
   });
 }));
@@ -1727,17 +1734,50 @@ function flashLeads(req) {
   const ok = String(req.query.ok || '');
   if (ok === 'closed') return { ok: 'Lead marked closed.' };
   if (ok === 'push') return { ok: 'Lead alerts are on for this phone.' };
+  if (ok === 'leads_requested') return { ok: OK_MESSAGES.leads_requested };
   return flashFromQuery(req);
 }
 
 router.get('/m/:token/leads', withMember(async (req, res, ctx) => {
   const appt = ctx.appointment;
+  const leadRequest = await memberLeadRequests.leadRequestState(ctx);
   return render(res, 'leads', ctx, {
     formLeads: appt ? (appt.formLeads || []) : [],
     openLeadCount: appt ? (appt.openLeadCount || 0) : 0,
     leadCredits: appt ? (appt.leadCredits || { remaining: 0 }) : { remaining: 0 },
+    leadRequest,
     flash: flashLeads(req),
   });
+}));
+
+/** Freemium: request a lead pack — pings agency admins that this business wants more work. */
+router.post('/m/:token/leads/request', form, withMember(async (req, res, ctx) => {
+  const quantity = Math.round(Number((req.body && req.body.quantity) || memberLeadRequests.DEFAULT_QTY));
+  const note = String((req.body && req.body.note) || '').trim();
+  const result = await memberLeadRequests.requestMoreLeads(ctx, { quantity, note });
+  if (!result.ok) {
+    const back = String((req.body && req.body.back) || '').includes('home')
+      ? ctx.base
+      : `${ctx.base}/leads`;
+    const q = result.code === 'subscribe' ? 'err=leads_subscribe'
+      : result.code === 'cooldown' ? 'err=leads_cooldown'
+        : 'err=leads_request';
+    // Surface the real message via flash when landing on leads.
+    if (back.includes('/leads')) {
+      return render(res, 'leads', ctx, {
+        formLeads: ctx.appointment ? (ctx.appointment.formLeads || []) : [],
+        openLeadCount: ctx.appointment ? (ctx.appointment.openLeadCount || 0) : 0,
+        leadCredits: ctx.appointment ? (ctx.appointment.leadCredits || { remaining: 0 }) : { remaining: 0 },
+        leadRequest: await memberLeadRequests.leadRequestState(ctx),
+        flash: { error: result.error },
+      }, 402);
+    }
+    return res.redirect(303, `${back}?${q}`);
+  }
+  const back = String((req.body && req.body.back) || '') === 'home'
+    ? `${ctx.base}?ok=leads_requested`
+    : `${ctx.base}/leads?ok=leads_requested`;
+  return res.redirect(303, back);
 }));
 
 router.post('/m/:token/leads/:leadId/close', form, withMember(async (req, res, ctx) => {

@@ -497,6 +497,31 @@ async function syncPartnerCounter(network, member, action) {
   await dbService.updateLead(lead.key, { referralPartner: applied.referralPartner }, network.ownerWorkspaceId);
 }
 
+/**
+ * Member app “Request leads” — ping agency owners/admins that this business
+ * wants more work. Used when no appointment package is linked yet.
+ */
+async function notifyLeadRequest({ network, member, quantity, note }) {
+  const email = await operatorEmail(network);
+  if (!email) return { ok: false, error: 'No agency owner email.' };
+  const company = String((member && member.companyName) || 'A network member').trim().slice(0, 120);
+  const qty = Math.max(1, Math.min(500, Math.round(Number(quantity) || 25)));
+  const detail = String(note || '').trim().slice(0, 120);
+  const title = `${company} requested ${qty} more leads — ready for more work!${detail ? ` (${detail})` : ''}`;
+  try {
+    const task = await upsertOpenTaskForLead(network.ownerWorkspaceId, email, {
+      title: title.slice(0, 240),
+      leadKey: (member && member.leadKey) || null,
+      scheduledAt: new Date().toISOString(),
+      source: TASK_SOURCE_NETWORK,
+    });
+    return { ok: true, taskId: task && task.id, title };
+  } catch (err) {
+    console.warn('[network] lead request task failed:', err.message);
+    return { ok: false, error: err.message || 'Could not ping agency.' };
+  }
+}
+
 module.exports = {
   baseUrlFromReq,
   reviewPageLink,
@@ -511,6 +536,7 @@ module.exports = {
   messagingReadyForNetwork,
   notifyApplication,
   notifyFeedback,
+  notifyLeadRequest,
   messageMember,
   createOperatorTask,
   syncPartnerCounter,

@@ -173,6 +173,8 @@ function normalizeMember(raw) {
     reviewLogoUpdatedAt: cleanText(m.reviewLogoUpdatedAt, 40),
     /** ISO stamp when a member profile / avatar photo was saved. */
     profilePhotoUpdatedAt: cleanText(m.profilePhotoUpdatedAt, 40),
+    /** Last time this member requested more leads from the agency (cooldown). */
+    leadRequestAt: cleanText(m.leadRequestAt, 40),
     invitedByMemberId: cleanText(m.invitedByMemberId, 40),
     joinedAt: m.joinedAt || new Date().toISOString(),
     updatedAt: m.updatedAt || m.joinedAt || new Date().toISOString(),

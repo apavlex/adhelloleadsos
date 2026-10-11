@@ -1,0 +1,29 @@
+<%
+  const _lr = typeof leadRequest !== 'undefined' && leadRequest ? leadRequest : null;
+  const _lrBack = typeof back === 'string' ? back : 'leads';
+%>
+<% if (_lr) { %>
+<section class="ma-leadask" aria-label="Request leads">
+  <% if (!_lr.planActive) { %>
+  <div class="ma-leadask__body">
+    <strong>Need more leads?</strong>
+    <p>Subscribe to your monthly plan to request leads. The app stays free — SMS, email, and lead packs unlock with the plan.</p>
+  </div>
+  <% } else if (_lr.pending || _lr.cooldown) { %>
+  <div class="ma-leadask__body">
+    <strong>Lead request sent</strong>
+    <p>Your agency was pinged that you’re ready for more work. Hang tight.</p>
+  </div>
+  <% } else { %>
+  <div class="ma-leadask__body">
+    <strong>Need more leads?</strong>
+    <p>Request leads now — we’ll ping your agency that you’re ready for more work.</p>
+  </div>
+  <form method="post" action="<%= base %>/leads/request" class="ma-leadask__form">
+    <input type="hidden" name="back" value="<%= _lrBack %>">
+    <input type="hidden" name="quantity" value="<%= _lr.defaultQuantity || 25 %>">
+    <button type="submit" class="ma-btn ma-btn--sm"><%- icons.leads %> Request leads</button>
+  </form>
+  <% } %>
+</section>
+<% } %>
