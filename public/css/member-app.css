@@ -557,6 +557,56 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
 .ma-check input { width: 20px; height: 20px; accent-color: var(--acc); margin-top: 1px; flex-shrink: 0; }
 .ma-hint { font-size: 12px; color: var(--muted); margin: 4px 0 0; }
 
+/* Customer typeahead (review ask + pickers) */
+.ma-typeahead { position: relative; }
+.ma-typeahead__list {
+  position: absolute;
+  z-index: 40;
+  left: 0; right: 0; top: calc(100% + 4px);
+  margin: 0; padding: 6px;
+  list-style: none;
+  max-height: min(280px, 45vh);
+  overflow: auto;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--muted) 28%, transparent);
+  background: var(--card);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+}
+.ma-typeahead__item {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.35;
+  color: var(--ink);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ma-typeahead__item:hover,
+.ma-typeahead__item.is-active {
+  background: var(--acc-soft);
+  color: var(--acc-ink);
+}
+.ma-typeahead__item--new {
+  font-weight: 800;
+  color: var(--acc-ink);
+  border-bottom: 1px solid color-mix(in srgb, var(--muted) 18%, transparent);
+  border-radius: 10px 10px 0 0;
+  margin-bottom: 4px;
+  white-space: normal;
+}
+.ma-typeahead__empty {
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
 .ma-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; cursor: pointer; text-decoration: none;
   font: inherit; font-weight: 800; font-size: 15px; border-radius: 999px; padding: 13px 18px; min-height: 48px;

@@ -230,4 +230,160 @@
       }
     }
   });
+
+  /** Typeahead: search customers as you type (review ask form). */
+  function initCustomerPick(root) {
+    if (!root || root.getAttribute('data-ma-ready') === '1') return;
+    var searchApi = window.maCustomerSearch;
+    if (!searchApi || !searchApi.searchCustomers) return;
+
+    var input = root.querySelector('input[type="search"], input[role="combobox"]');
+    var hidden = root.querySelector('input[type="hidden"][name="customerId"]');
+    var list = root.querySelector('[role="listbox"]');
+    var dataEl = root.querySelector('script[type="application/json"]');
+    if (!input || !hidden || !list || !dataEl) return;
+
+    var customers = [];
+    try { customers = JSON.parse(dataEl.textContent || '[]'); } catch (e) { customers = []; }
+    if (!Array.isArray(customers) || !customers.length) return;
+
+    var name = document.getElementById('rvAskName');
+    var phone = document.getElementById('rvAskPhone');
+    var email = document.getElementById('rvAskEmail');
+    var active = -1;
+    var shown = [];
+
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function labelFor(c) {
+      var bits = [c.name || 'Customer'];
+      if (c.phone) bits.push(c.phone);
+      else if (c.email) bits.push(c.email);
+      return bits.join(' · ');
+    }
+
+    function fillFields(c) {
+      if (!c) return;
+      if (name) name.value = c.name || '';
+      if (phone && !phone.disabled) phone.value = c.phone || '';
+      if (email && !email.disabled) email.value = c.email || '';
+    }
+
+    function clearPick() {
+      hidden.value = '';
+      active = -1;
+    }
+
+    function closeList() {
+      list.hidden = true;
+      input.setAttribute('aria-expanded', 'false');
+      active = -1;
+    }
+
+    function openList() {
+      list.hidden = false;
+      input.setAttribute('aria-expanded', 'true');
+    }
+
+    function render(query) {
+      var q = String(query || '').trim();
+      shown = searchApi.searchCustomers(customers, q, { limit: 40 });
+      var html = '';
+      html += '<li class="ma-typeahead__item ma-typeahead__item--new" role="option" data-id="" data-idx="-1">' +
+        (q ? 'Use “' + esc(q) + '” as a new person' : 'Type a new person below…') + '</li>';
+      shown.forEach(function (c, i) {
+        html += '<li class="ma-typeahead__item" role="option" data-id="' + esc(c.id) + '" data-idx="' + i + '">' +
+          esc(labelFor(c)) + '</li>';
+      });
+      if (q && !shown.length) {
+        html += '<li class="ma-typeahead__empty" role="presentation">No matches — keep typing a new name below</li>';
+      }
+      list.innerHTML = html;
+      openList();
+      setActive(-1);
+    }
+
+    function setActive(idx) {
+      active = idx;
+      var items = list.querySelectorAll('.ma-typeahead__item');
+      for (var i = 0; i < items.length; i++) {
+        items[i].classList.toggle('is-active', i === active);
+      }
+    }
+
+    function pickByEl(el) {
+      if (!el) return;
+      var id = el.getAttribute('data-id') || '';
+      var idx = parseInt(el.getAttribute('data-idx'), 10);
+      if (!id) {
+        clearPick();
+        var typed = String(input.value || '').trim();
+        if (typed && name && !name.value) name.value = typed;
+        closeList();
+        if (name) name.focus();
+        return;
+      }
+      var c = shown[idx];
+      if (!c) {
+        c = customers.find(function (row) { return row.id === id; });
+      }
+      if (!c) return;
+      hidden.value = c.id;
+      input.value = c.name || '';
+      fillFields(c);
+      closeList();
+    }
+
+    input.addEventListener('focus', function () {
+      render(input.value);
+    });
+    input.addEventListener('input', function () {
+      clearPick();
+      render(input.value);
+    });
+    input.addEventListener('keydown', function (e) {
+      var items = list.querySelectorAll('.ma-typeahead__item');
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (list.hidden) render(input.value);
+        setActive(Math.min(items.length - 1, active + 1));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setActive(Math.max(-1, active - 1));
+      } else if (e.key === 'Enter') {
+        if (!list.hidden && active >= 0 && items[active]) {
+          e.preventDefault();
+          pickByEl(items[active]);
+        }
+      } else if (e.key === 'Escape') {
+        closeList();
+      }
+    });
+    list.addEventListener('mousedown', function (e) {
+      var el = e.target.closest('.ma-typeahead__item');
+      if (!el) return;
+      e.preventDefault();
+      pickByEl(el);
+    });
+    document.addEventListener('click', function (e) {
+      if (!root.contains(e.target)) closeList();
+    });
+
+    root.setAttribute('data-ma-ready', '1');
+  }
+
+  function bootCustomerPicks() {
+    document.querySelectorAll('[data-ma-customer-pick]').forEach(initCustomerPick);
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootCustomerPicks);
+  } else {
+    bootCustomerPicks();
+  }
 })();
