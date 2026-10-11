@@ -403,6 +403,113 @@
 
   document.querySelectorAll('[data-ma-photo-capture]').forEach(initPhotoCapture);
 
+  /** Edit an existing photo's note (caption) from the gallery icon. */
+  function initPhotoNoteSheet() {
+    var sheet = document.querySelector('[data-ma-photo-note-sheet]');
+    if (!sheet || sheet.getAttribute('data-ma-ready') === '1') return;
+    var form = sheet.querySelector('form.ma-photo-note-form');
+    var textarea = sheet.querySelector('[name="caption"]');
+    var returnInput = form && form.querySelector('input[name="returnTo"]');
+    var home = sheet.parentNode;
+    if (!form || !textarea) return;
+
+    function decodeCaption(raw) {
+      var el = document.createElement('textarea');
+      el.innerHTML = String(raw == null ? '' : raw);
+      return el.value.replace(/\u00a0/g, ' ');
+    }
+
+    function openFor(btn) {
+      var action = btn.getAttribute('data-action') || '';
+      var ret = btn.getAttribute('data-return') || '';
+      var caption = decodeCaption(btn.getAttribute('data-caption') || '');
+      if (!action) return;
+      form.action = action;
+      if (returnInput) returnInput.value = ret;
+      textarea.value = caption;
+      if (sheet.parentNode !== document.body) document.body.appendChild(sheet);
+      sheet.hidden = false;
+      document.documentElement.style.overflow = 'hidden';
+      document.body.classList.add('ma-photo-open');
+      setTimeout(function () { textarea.focus(); }, 50);
+    }
+
+    function closeSheet() {
+      sheet.hidden = true;
+      document.documentElement.style.overflow = '';
+      document.body.classList.remove('ma-photo-open');
+      if (home && sheet.parentNode !== home) home.appendChild(sheet);
+    }
+
+    document.addEventListener('click', function (e) {
+      var open = e.target.closest('[data-ma-photo-note-open]');
+      if (open) {
+        e.preventDefault();
+        e.stopPropagation();
+        openFor(open);
+        return;
+      }
+      var close = e.target.closest('[data-ma-photo-note-close]');
+      if (close && sheet.contains(close)) {
+        e.preventDefault();
+        closeSheet();
+        return;
+      }
+      if (e.target === sheet) closeSheet();
+    });
+
+    // Reuse the same stretch grip behavior as the capture sheet.
+    (function bindNoteResize() {
+      var note = form.querySelector('.ma-photo-note__input');
+      var grip = form.querySelector('[data-ma-photo-note-grip]');
+      var box = form.querySelector('.ma-photo-note__box');
+      if (!note || !grip) return;
+      var minH = 112;
+      var dragging = false;
+      var startY = 0;
+      var startH = 0;
+      function maxH() { return Math.max(minH, Math.floor(window.innerHeight * 0.55)); }
+      function onMove(e) {
+        if (!dragging) return;
+        var y = e.clientY != null ? e.clientY : (e.touches && e.touches[0] && e.touches[0].clientY);
+        if (y == null) return;
+        note.style.height = Math.min(maxH(), Math.max(minH, startH + (y - startY))) + 'px';
+        e.preventDefault();
+      }
+      function onEnd() {
+        if (!dragging) return;
+        dragging = false;
+        if (box) box.classList.remove('is-resizing');
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onEnd);
+        window.removeEventListener('pointercancel', onEnd);
+        window.removeEventListener('touchmove', onMove);
+        window.removeEventListener('touchend', onEnd);
+      }
+      function onStart(e) {
+        dragging = true;
+        startY = e.clientY != null ? e.clientY : (e.touches && e.touches[0] && e.touches[0].clientY);
+        startH = note.getBoundingClientRect().height;
+        if (box) box.classList.add('is-resizing');
+        if (e.pointerId != null && grip.setPointerCapture) {
+          try { grip.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+        }
+        window.addEventListener('pointermove', onMove, { passive: false });
+        window.addEventListener('pointerup', onEnd);
+        window.addEventListener('pointercancel', onEnd);
+        window.addEventListener('touchmove', onMove, { passive: false });
+        window.addEventListener('touchend', onEnd);
+        e.preventDefault();
+      }
+      grip.addEventListener('pointerdown', onStart);
+      grip.addEventListener('touchstart', onStart, { passive: false });
+    })();
+
+    sheet.setAttribute('data-ma-ready', '1');
+  }
+
+  initPhotoNoteSheet();
+
   document.addEventListener('click', function (event) {
     var openBtn = event.target.closest('[data-ma-install-open]');
     if (openBtn) {

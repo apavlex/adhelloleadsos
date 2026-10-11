@@ -107,7 +107,7 @@ describe('member app install modal and tab bar', () => {
 
   it('service worker network-firsts versioned CSS so deploys are not stuck', () => {
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.455/);
+    assert.match(sw, /adhello-pwa-v1\.0\.456/);
     assert.match(sw, /searchParams\.has\('v'\)/);
     assert.match(sw, /versioned/);
   });
@@ -157,5 +157,22 @@ describe('member app install modal and tab bar', () => {
     assert.match(customers, /data-ma-status-advance/);
     const css = fs.readFileSync(path.join(root, 'public/css/member-app.css'), 'utf8');
     assert.match(css, /\.ma-steps\.is-saving/);
+  });
+
+  it('photo gallery exposes a note shortcut that edits caption only', () => {
+    const customer = fs.readFileSync(path.join(root, 'views/member_app/customer.ejs'), 'utf8');
+    const job = fs.readFileSync(path.join(root, 'views/member_app/job.ejs'), 'utf8');
+    const sheet = fs.readFileSync(path.join(root, 'views/member_app/_photo_note_sheet.ejs'), 'utf8');
+    const js = fs.readFileSync(path.join(root, 'public/js/member-app.js'), 'utf8');
+    const css = fs.readFileSync(path.join(root, 'public/css/member-app.css'), 'utf8');
+    const icons = fs.readFileSync(path.join(root, 'services/memberAppIcons.js'), 'utf8');
+    assert.match(customer, /data-ma-photo-note-open/);
+    assert.match(customer, /\/photos\/.*\/caption/);
+    assert.match(job, /data-ma-photo-note-open/);
+    assert.match(sheet, /data-ma-photo-note-sheet/);
+    assert.match(sheet, /Save note/);
+    assert.match(js, /function initPhotoNoteSheet/);
+    assert.match(css, /\.ma-photos__note/);
+    assert.match(icons, /note:\s*icon\(/);
   });
 });

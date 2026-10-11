@@ -1,0 +1,32 @@
+<%/* Shared sheet to edit a photo caption. Opened via [data-ma-photo-note-open]. */%>
+<div class="ma-photo-modal" data-ma-photo-note-sheet hidden role="dialog" aria-modal="true" aria-labelledby="maPhotoNoteTitle">
+  <div class="ma-photo-sheet">
+    <button type="button" class="ma-install-close-x" aria-label="Close" data-ma-photo-note-close>&times;</button>
+    <h2 id="maPhotoNoteTitle">Photo note</h2>
+    <p class="ma-photo-lead">Add a short note for this photo — before/after, room, access tip…</p>
+    <form method="post" action="" class="ma-photo-note-form" autocomplete="off" data-ma-loading="Saving note…">
+      <input type="hidden" name="returnTo" value="">
+      <div class="ma-field ma-photo-note">
+        <label class="ma-label" for="maPhotoNoteCaption">Notes <span class="ma-optional">(optional)</span></label>
+        <div class="ma-photo-note__box">
+          <textarea
+            id="maPhotoNoteCaption"
+            name="caption"
+            class="ma-textarea ma-photo-note__input"
+            rows="5"
+            maxlength="500"
+            placeholder="e.g. Before — living room, gate code on left…"
+            autocomplete="off"
+          ></textarea>
+          <button type="button" class="ma-photo-note__grip" data-ma-photo-note-grip aria-label="Drag to resize notes">
+            <span class="ma-photo-note__grip-bar" aria-hidden="true"></span>
+          </button>
+        </div>
+      </div>
+      <div class="ma-photo-actions">
+        <button type="submit" class="ma-btn ma-btn--block"><%- icons.note %> Save note</button>
+        <button type="button" class="ma-btn ma-btn--ghost ma-btn--block" data-ma-photo-note-close>Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>

@@ -127,9 +127,18 @@
       <% if (job.photos && job.photos.length) { %>
       <div class="ma-photos">
         <% job.photos.forEach(function (p) { %>
-        <figure class="ma-photos__item">
+        <figure class="ma-photos__item" data-ma-photo-item>
           <a href="<%= p.href %>" target="_blank" rel="noopener"><img src="<%= p.href %>" alt="<%= p.caption || 'Job photo' %>" loading="lazy"></a>
-          <% if (p.caption) { %><figcaption><%= p.caption %></figcaption><% } %>
+          <figcaption data-ma-photo-caption><%= p.caption || 'Add a note' %></figcaption>
+          <button
+            type="button"
+            class="ma-photos__note<%= p.caption ? ' has-note' : '' %>"
+            data-ma-photo-note-open
+            data-action="<%= base %>/customers/jobs/<%= job.id %>/photos/<%= p.id %>/caption"
+            data-return="<%= base %>/customers/jobs/<%= job.id %>"
+            data-caption="<%= String(p.caption || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/\r?\n/g, '&#10;') %>"
+            aria-label="<%= p.caption ? 'Edit photo note' : 'Add photo note' %>"
+          ><%- icons.note %></button>
           <form method="post" action="<%= base %>/customers/jobs/<%= job.id %>/photos/<%= p.id %>/delete" data-ma-confirm="Remove this photo?">
             <button type="submit" class="ma-photos__del" aria-label="Remove photo">×</button>
           </form>
@@ -148,6 +157,7 @@
         open: false,
       }) %>
       <% } %>
+      <%- include('_photo_note_sheet') %>
     </section>
 
     <form method="post" action="<%= base %>/customers/jobs/<%= job.id %>/delete" class="ma-section" data-ma-confirm="Delete this job?">

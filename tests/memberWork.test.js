@@ -170,6 +170,13 @@ test('jobs: visit reminders and photos', async () => {
   assert.equal(photo.job.photos.length, 1);
   assert.equal(photo.job.photos[0].caption, 'Before');
 
+  const noted = await work.updateJobPhotoCaption(
+    NET, MEM_A, rescheduled.job.id, photo.photoId, 'Before — living room\nGate on left',
+  );
+  assert.equal(noted.ok, true);
+  assert.equal(noted.caption, 'Before — living room\nGate on left');
+  assert.equal(noted.job.photos[0].caption, 'Before — living room\nGate on left');
+
   const media = require('../services/memberJobMedia');
   const blob = await media.getJobPhoto(NET, MEM_A, rescheduled.job.id, photo.photoId);
   assert.ok(blob && blob.buffer.length > 20);

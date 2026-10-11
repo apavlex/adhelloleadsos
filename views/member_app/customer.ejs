@@ -45,10 +45,14 @@
       (jobs || []).forEach(function (j) {
         (j.photos || []).forEach(function (p) {
           sitePhotos.push({
+            id: p.id,
             href: p.href,
-            caption: p.caption || j.title,
+            caption: p.caption || '',
+            displayCaption: p.caption || j.title,
+            jobId: j.id,
             jobHref: j.href,
             jobTitle: j.title,
+            noteAction: base + '/customers/jobs/' + j.id + '/photos/' + p.id + '/caption',
           });
         });
       });
@@ -76,9 +80,18 @@
       <% if (sitePhotos.length) { %>
       <div class="ma-photos">
         <% sitePhotos.slice(0, 8).forEach(function (p) { %>
-        <figure class="ma-photos__item">
-          <a href="<%= p.jobHref %>"><img src="<%= p.href %>" alt="<%= p.caption || 'Job photo' %>" loading="lazy"></a>
-          <% if (p.caption) { %><figcaption><%= p.caption %></figcaption><% } %>
+        <figure class="ma-photos__item" data-ma-photo-item>
+          <a href="<%= p.jobHref %>"><img src="<%= p.href %>" alt="<%= p.displayCaption || 'Job photo' %>" loading="lazy"></a>
+          <figcaption data-ma-photo-caption><%= p.displayCaption || 'Add a note' %></figcaption>
+          <button
+            type="button"
+            class="ma-photos__note<%= p.caption ? ' has-note' : '' %>"
+            data-ma-photo-note-open
+            data-action="<%= p.noteAction %>"
+            data-return="<%= base %>/customers/c/<%= customer.id %>"
+            data-caption="<%= String(p.caption || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/\r?\n/g, '&#10;') %>"
+            aria-label="<%= p.caption ? 'Edit photo note' : 'Add photo note' %>"
+          ><%- icons.note %></button>
         </figure>
         <% }); %>
       </div>
@@ -94,6 +107,7 @@
           : 'No job yet — we’ll start a Site visit when you add the first photo.',
         open: false,
       }) %>
+      <%- include('_photo_note_sheet') %>
     </section>
     <% } %>
 
