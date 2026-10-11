@@ -752,8 +752,92 @@
     root.setAttribute('data-ma-ready', '1');
   }
 
+  /** Live filter for Customers → List (same ranking as review ask typeahead). */
+  function initCustomerListSearch(form) {
+    if (!form || form.getAttribute('data-ma-ready') === '1') return;
+    var searchApi = window.maCustomerSearch;
+    if (!searchApi || !searchApi.scoreCustomer) return;
+
+    var input = form.querySelector('input[type="search"], input[name="q"]');
+    var list = document.querySelector('[data-ma-customer-list]');
+    var empty = document.querySelector('[data-ma-customer-list-empty]');
+    var emptyMsg = empty && empty.querySelector('[data-ma-customer-list-empty-msg]');
+    if (!input || !list) return;
+
+    var rows = Array.prototype.slice.call(list.querySelectorAll('[data-ma-customer-row]'));
+    if (!rows.length) return;
+
+    function customerFromRow(row) {
+      return {
+        id: row.getAttribute('data-id') || '',
+        name: row.getAttribute('data-name') || '',
+        phone: row.getAttribute('data-phone') || '',
+        email: row.getAttribute('data-email') || '',
+        address: row.getAttribute('data-address') || '',
+      };
+    }
+
+    function apply(query) {
+      var q = String(query || '').trim();
+      var scored = rows.map(function (row, index) {
+        return { row: row, index: index, score: searchApi.scoreCustomer(customerFromRow(row), q) };
+      });
+      var visible = 0;
+      if (!q) {
+        scored.sort(function (a, b) { return a.index - b.index; });
+        scored.forEach(function (item) {
+          item.row.hidden = false;
+          list.appendChild(item.row);
+          visible += 1;
+        });
+      } else {
+        scored.sort(function (a, b) { return b.score - a.score || a.index - b.index; });
+        scored.forEach(function (item) {
+          var show = item.score > 0;
+          item.row.hidden = !show;
+          if (show) {
+            list.appendChild(item.row);
+            visible += 1;
+          }
+        });
+      }
+      if (empty) {
+        empty.hidden = visible > 0;
+        if (emptyMsg) {
+          emptyMsg.textContent = q
+            ? 'No customers match “' + q + '”.'
+            : 'No customers match.';
+        }
+      }
+      list.hidden = visible === 0;
+      try {
+        var url = new URL(window.location.href);
+        if (q) url.searchParams.set('q', q);
+        else url.searchParams.delete('q');
+        url.searchParams.delete('view');
+        window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+      } catch (e) { /* ignore */ }
+    }
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      apply(input.value);
+      input.blur();
+    });
+    input.addEventListener('input', function () {
+      apply(input.value);
+    });
+    input.addEventListener('search', function () {
+      apply(input.value);
+    });
+
+    if (String(input.value || '').trim()) apply(input.value);
+    form.setAttribute('data-ma-ready', '1');
+  }
+
   function bootCustomerPicks() {
     document.querySelectorAll('[data-ma-customer-pick]').forEach(initCustomerPick);
+    document.querySelectorAll('[data-ma-customer-list-search]').forEach(initCustomerListSearch);
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', bootCustomerPicks);

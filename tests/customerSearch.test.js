@@ -51,6 +51,14 @@ describe('customerSearch', () => {
     assert.deepEqual(ranked.map((c) => c.id), ['1', '2', '3']);
   });
 
+  it('matches address fragments', () => {
+    const withAddr = customers.concat([
+      { id: '6', name: 'River Bend Co', phone: '', email: '', address: '123 Aspen Way' },
+    ]);
+    const ranked = searchCustomers(withAddr, 'Aspen');
+    assert.equal(ranked[0].id, '6');
+  });
+
   it('wires the review ask form to the typeahead + shared search script', () => {
     const review = fs.readFileSync(path.join(__dirname, '../views/member_app/review.ejs'), 'utf8');
     const tabbar = fs.readFileSync(path.join(__dirname, '../views/member_app/_tabbar.ejs'), 'utf8');
@@ -65,5 +73,20 @@ describe('customerSearch', () => {
     assert.match(app, /searchApi\.searchCustomers/);
     assert.match(css, /\.ma-typeahead__list/);
     assert.match(css, /\.ma-typeahead__item--new/);
+  });
+
+  it('wires Customers list search to live client-side filtering', () => {
+    const customersView = fs.readFileSync(path.join(__dirname, '../views/member_app/customers.ejs'), 'utf8');
+    const app = fs.readFileSync(path.join(__dirname, '../public/js/member-app.js'), 'utf8');
+    const route = fs.readFileSync(path.join(__dirname, '../routes/memberApp.js'), 'utf8');
+
+    assert.match(customersView, /data-ma-customer-list-search/);
+    assert.match(customersView, /data-ma-customer-list/);
+    assert.match(customersView, /data-ma-customer-row/);
+    assert.match(customersView, /Search by name or phone/);
+    assert.match(app, /function initCustomerListSearch/);
+    assert.match(app, /data-ma-customer-list-search/);
+    assert.match(app, /scoreCustomer/);
+    assert.match(route, /live client search/);
   });
 });
