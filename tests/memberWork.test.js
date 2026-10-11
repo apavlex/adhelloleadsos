@@ -365,6 +365,8 @@ test('customers tab routes: top-bar enroll, CRUD, calendar, pending and referral
     assert.match(jobPage, /Remind customer/);
     assert.match(jobPage, /Job photos/);
     assert.match(jobPage, /name="photo"/);
+    assert.match(jobPage, /data-ma-status-steps/);
+    assert.match(jobPage, /data-ma-job-status-pill/);
 
     const ask = await require('../services/reviewAsk').createAsk({
       networkId: network.id,
@@ -398,6 +400,23 @@ test('customers tab routes: top-bar enroll, CRUD, calendar, pending and referral
     const ics = await fetch(`${A}/customers/jobs/${jobs[0].id}/calendar.ics`);
     assert.equal(ics.headers.get('content-type'), 'text/calendar; charset=utf-8');
     assert.match(await ics.text(), /SUMMARY:Kitchen LVP · Morgan Diaz/);
+
+    const statusJsonRes = await fetch(`${A}/customers/jobs/${jobs[0].id}/status`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Accept: 'application/json',
+        'X-Requested-With': 'fetch',
+      },
+      body: 'status=estimate',
+      redirect: 'manual',
+    });
+    assert.equal(statusJsonRes.status, 200);
+    const statusJson = await statusJsonRes.json();
+    assert.equal(statusJson.ok, true);
+    assert.equal(statusJson.status, 'estimate');
+    assert.equal(statusJson.statusLabel, 'Estimate');
+    assert.equal((await work.getJob(network.id, a.id, jobs[0].id)).status, 'estimate');
 
     const moved = await post(`${A}/customers/jobs/${jobs[0].id}/status`, { status: 'in_progress', back: 'https://evil.example/' });
     assert.equal(moved.status, 303);

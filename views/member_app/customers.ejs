@@ -170,7 +170,7 @@
           <div class="ma-row ma-row--split">
             <%- include('_job_row', { j: j }) %>
             <% if (j.next) { %>
-            <form method="post" action="<%= base %>/customers/jobs/<%= j.id %>/status" class="ma-row__quick">
+            <form method="post" action="<%= base %>/customers/jobs/<%= j.id %>/status" class="ma-row__quick" data-ma-status-advance>
               <input type="hidden" name="status" value="<%= j.next %>">
               <input type="hidden" name="back" value="<%= base %>/customers?view=pending">
               <button type="submit" class="ma-btn ma-btn--sm ma-btn--soft" aria-label="Move <%= j.customerName %> to <%= j.nextLabel %>"><%= j.nextLabel %> <%- icons.chevronRight %></button>
