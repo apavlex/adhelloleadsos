@@ -47,53 +47,63 @@
           <% if (_needLinks) { %>
           <p class="ma-flash ma-flash--err">Add at least one review link in Settings before sending.</p>
           <% } %>
-          <% const _custs = typeof customers !== 'undefined' && Array.isArray(customers) ? customers : []; %>
-          <% if (_custs.length) { %>
           <%
+            const _custs = typeof customers !== 'undefined' && Array.isArray(customers) ? customers : [];
             const _pickCust = _custs.find(function (c) { return c.id === _fv.customerId; }) || null;
             const _custPayload = _custs.map(function (c) {
               return { id: c.id, name: c.name || '', phone: c.phone || '', email: c.email || '' };
             });
           %>
-          <div class="ma-field">
-            <label class="ma-label" for="rvAskCustomer">Pick a customer</label>
-            <div class="ma-typeahead" data-ma-customer-pick>
-              <input type="hidden" name="customerId" id="rvAskCustomerId" value="<%= _pickCust ? _pickCust.id : '' %>">
-              <input
-                id="rvAskCustomer"
-                type="text"
-                inputmode="search"
-                class="ma-input<%= _pickCust ? ' is-picked' : '' %>"
-                role="combobox"
-                aria-autocomplete="list"
-                aria-expanded="false"
-                aria-controls="rvAskCustomerList"
-                placeholder="Search by name or phone…"
-                autocomplete="off"
-                autocorrect="off"
-                spellcheck="false"
-                value="<%= _pickCust ? _pickCust.name : '' %>"
-              >
-              <ul id="rvAskCustomerList" class="ma-typeahead__list" role="listbox" hidden></ul>
-              <script type="application/json" id="rvAskCustomerData"><%- JSON.stringify(_custPayload).replace(/</g, '\\u003c') %></script>
+          <% if (_custs.length) { %>
+          <div class="ma-field" data-ma-customer-pick>
+            <input type="hidden" name="customerId" id="rvAskCustomerId" value="<%= _pickCust ? _pickCust.id : '' %>">
+            <div data-ma-ask-search <%= _pickCust ? 'hidden' : '' %>>
+              <label class="ma-label" for="rvAskCustomer">Who should we ask?</label>
+              <div class="ma-typeahead">
+                <input
+                  id="rvAskCustomer"
+                  type="text"
+                  inputmode="search"
+                  class="ma-input"
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-expanded="false"
+                  aria-controls="rvAskCustomerList"
+                  placeholder="Search customers or type a new name…"
+                  autocomplete="off"
+                  autocorrect="off"
+                  spellcheck="false"
+                  value=""
+                >
+                <ul id="rvAskCustomerList" class="ma-typeahead__list" role="listbox" hidden></ul>
+              </div>
+              <p class="ma-hint">Pick a saved customer, or type someone new. <a href="<%= base %>/customers">Manage customers</a></p>
             </div>
-            <p class="ma-hint">Pick someone — their name stays here. Clear the field to choose again or enter a new person below. <a href="<%= base %>/customers">Manage customers</a></p>
+            <div class="ma-ask-selected" data-ma-ask-selected <%= _pickCust ? '' : 'hidden' %>>
+              <span class="ma-ask-selected__avatar" aria-hidden="true" data-ma-ask-selected-avatar><%= _pickCust && _pickCust.name ? String(_pickCust.name).charAt(0).toUpperCase() : '?' %></span>
+              <span class="ma-ask-selected__body">
+                <strong data-ma-ask-selected-name><%= _pickCust ? _pickCust.name : '' %></strong>
+                <span data-ma-ask-selected-meta><%= _pickCust ? (_pickCust.phone || _pickCust.email || 'Saved customer') : '' %></span>
+              </span>
+              <button type="button" class="ma-btn ma-btn--sm ma-btn--ghost" data-ma-ask-clear>Change</button>
+            </div>
+            <script type="application/json" id="rvAskCustomerData"><%- JSON.stringify(_custPayload).replace(/</g, '\\u003c') %></script>
           </div>
           <% } else { %>
           <p class="ma-hint" style="margin-top:0">No saved customers yet. <a href="<%= base %>/customers">Sync GHL or import a list</a> to pick from your contacts.</p>
           <% } %>
-          <div class="ma-field">
-            <label class="ma-label" for="rvAskName">Customer name</label>
-            <input id="rvAskName" name="name" class="ma-input" maxlength="120" value="<%= _fv.name || '' %>" autocapitalize="words" <%= !_needLinks && (_msg.smsReady || _msg.emailReady) ? 'autofocus' : '' %>>
+          <div class="ma-field" data-ma-ask-manual <%= _pickCust ? 'hidden' : '' %>>
+            <label class="ma-label" for="rvAskName">Name <span class="ma-label__hint">(new person)</span></label>
+            <input id="rvAskName" name="name" class="ma-input" maxlength="120" value="<%= _fv.name || (_pickCust && _pickCust.name) || '' %>" autocapitalize="words" <%= !_pickCust && !_needLinks && (_msg.smsReady || _msg.emailReady) ? 'autofocus' : '' %>>
           </div>
           <div class="ma-grid2">
             <div class="ma-field">
               <label class="ma-label" for="rvAskPhone">Mobile</label>
-              <input id="rvAskPhone" name="phone" type="tel" inputmode="tel" maxlength="40" class="ma-input" value="<%= _fv.phone || '' %>" <%= _msg.smsReady ? '' : 'disabled' %>>
+              <input id="rvAskPhone" name="phone" type="tel" inputmode="tel" maxlength="40" class="ma-input" value="<%= _fv.phone || (_pickCust && _pickCust.phone) || '' %>" <%= _msg.smsReady ? '' : 'disabled' %>>
             </div>
             <div class="ma-field">
               <label class="ma-label" for="rvAskEmail">Email</label>
-              <input id="rvAskEmail" name="email" type="email" inputmode="email" maxlength="200" class="ma-input" value="<%= _fv.email || '' %>" <%= _msg.emailReady ? '' : 'disabled' %>>
+              <input id="rvAskEmail" name="email" type="email" inputmode="email" maxlength="200" class="ma-input" value="<%= _fv.email || (_pickCust && _pickCust.email) || '' %>" <%= _msg.emailReady ? '' : 'disabled' %>>
             </div>
           </div>
           <div class="ma-field">

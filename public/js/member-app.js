@@ -616,6 +616,13 @@
     var hidden = root.querySelector('input[type="hidden"][name="customerId"]');
     var list = root.querySelector('[role="listbox"]');
     var dataEl = root.querySelector('script[type="application/json"]');
+    var searchWrap = root.querySelector('[data-ma-ask-search]');
+    var selectedWrap = root.querySelector('[data-ma-ask-selected]');
+    var selectedName = root.querySelector('[data-ma-ask-selected-name]');
+    var selectedMeta = root.querySelector('[data-ma-ask-selected-meta]');
+    var selectedAvatar = root.querySelector('[data-ma-ask-selected-avatar]');
+    var clearBtn = root.querySelector('[data-ma-ask-clear]');
+    var manualWrap = document.querySelector('[data-ma-ask-manual]');
     if (!input || !hidden || !list || !dataEl) return;
 
     var customers = [];
@@ -627,8 +634,6 @@
     var email = document.getElementById('rvAskEmail');
     var active = -1;
     var shown = [];
-    var pickedLabel = String(input.value || '').trim();
-    var suppressInput = false;
 
     function esc(s) {
       return String(s == null ? '' : s)
@@ -648,16 +653,37 @@
     function fillFields(c) {
       if (!c) return;
       if (name) name.value = c.name || '';
-      // Fill even when SMS/email inputs are disabled (GHL not ready) so the pick is visible.
       if (phone) phone.value = c.phone || '';
       if (email) email.value = c.email || '';
     }
 
-    function clearPick() {
+    function syncMode() {
+      var picked = !!String(hidden.value || '').trim();
+      if (searchWrap) searchWrap.hidden = picked;
+      if (selectedWrap) selectedWrap.hidden = !picked;
+      if (manualWrap) manualWrap.hidden = picked;
+    }
+
+    function showSelected(c) {
+      if (!c) return;
+      if (selectedName) selectedName.textContent = c.name || 'Customer';
+      if (selectedMeta) selectedMeta.textContent = c.phone || c.email || 'Saved customer';
+      if (selectedAvatar) {
+        selectedAvatar.textContent = String(c.name || '?').charAt(0).toUpperCase();
+      }
+    }
+
+    function clearPick(opts) {
+      var keepManual = opts && opts.keepManual;
       hidden.value = '';
-      pickedLabel = '';
-      input.classList.remove('is-picked');
       active = -1;
+      input.value = '';
+      if (!keepManual) {
+        if (name) name.value = '';
+        if (phone) phone.value = '';
+        if (email) email.value = '';
+      }
+      syncMode();
     }
 
     function closeList() {
@@ -671,25 +697,18 @@
       input.setAttribute('aria-expanded', 'true');
     }
 
-    function setInputValue(text) {
-      suppressInput = true;
-      input.value = text;
-      // iOS can drop programmatic search-field values on blur; force a paint + unlock next tick.
-      suppressInput = false;
-    }
-
     function render(query) {
       var q = String(query || '').trim();
       shown = searchApi.searchCustomers(customers, q, { limit: 40 });
       var html = '';
       html += '<li class="ma-typeahead__item ma-typeahead__item--new" role="option" data-id="" data-idx="-1">' +
-        (q ? 'Use “' + esc(q) + '” as a new person' : 'Type a new person below…') + '</li>';
+        (q ? 'Use “' + esc(q) + '” as a new person' : 'Or enter a new person below…') + '</li>';
       shown.forEach(function (c, i) {
         html += '<li class="ma-typeahead__item" role="option" data-id="' + esc(c.id) + '" data-idx="' + i + '">' +
           esc(labelFor(c)) + '</li>';
       });
       if (q && !shown.length) {
-        html += '<li class="ma-typeahead__empty" role="presentation">No matches — keep typing a new name below</li>';
+        html += '<li class="ma-typeahead__empty" role="presentation">No saved matches — enter them as new below</li>';
       }
       list.innerHTML = html;
       openList();
@@ -709,10 +728,11 @@
       var id = el.getAttribute('data-id') || '';
       var idx = parseInt(el.getAttribute('data-idx'), 10);
       if (!id) {
-        clearPick();
         var typed = String(input.value || '').trim();
-        if (typed && name && !name.value) name.value = typed;
+        clearPick({ keepManual: true });
+        if (typed && name) name.value = typed;
         closeList();
+        syncMode();
         if (name) name.focus();
         return;
       }
@@ -722,38 +742,29 @@
       }
       if (!c) return;
       hidden.value = c.id;
-      pickedLabel = String(c.name || '').trim();
-      setInputValue(pickedLabel);
-      input.classList.add('is-picked');
       fillFields(c);
+      showSelected(c);
+      input.value = '';
       closeList();
-      // Keep the chosen name visible; dismiss keyboard so iOS doesn’t wipe type=search fields.
+      syncMode();
       try { input.blur(); } catch (err) { /* ignore */ }
     }
 
-    if (hidden.value && pickedLabel) input.classList.add('is-picked');
+    // Hydrate selected card if the page loaded with a customerId.
+    if (hidden.value) {
+      var initial = customers.find(function (row) { return row.id === hidden.value; });
+      if (initial) {
+        fillFields(initial);
+        showSelected(initial);
+      }
+    }
+    syncMode();
 
     input.addEventListener('focus', function () {
-      // If a pick was somehow cleared from the visible field, put it back.
-      if (hidden.value && !String(input.value || '').trim() && pickedLabel) {
-        setInputValue(pickedLabel);
-      }
       render(input.value);
     });
     input.addEventListener('input', function () {
-      if (suppressInput) return;
-      var v = String(input.value || '');
-      // Editing away from the selected label clears the linked customer id.
-      if (hidden.value && v.trim() === pickedLabel) return;
-      clearPick();
-      render(v);
-    });
-    input.addEventListener('blur', function () {
-      // Restore selected name if the field was emptied while a customer is still linked.
-      if (hidden.value && !String(input.value || '').trim() && pickedLabel) {
-        setInputValue(pickedLabel);
-        input.classList.add('is-picked');
-      }
+      render(input.value);
     });
     input.addEventListener('keydown', function (e) {
       var items = list.querySelectorAll('.ma-typeahead__item');
@@ -783,6 +794,14 @@
     list.addEventListener('pointerdown', onPickEvent);
     list.addEventListener('mousedown', onPickEvent);
     list.addEventListener('click', onPickEvent);
+    if (clearBtn) {
+      clearBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        clearPick();
+        syncMode();
+        if (input) input.focus();
+      });
+    }
     document.addEventListener('click', function (e) {
       if (!root.contains(e.target)) closeList();
     });
