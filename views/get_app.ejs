@@ -9,7 +9,9 @@
   <%
     const _openPath = typeof openPath !== 'undefined' && openPath ? openPath : '/today';
     const _openUrl = typeof openUrl !== 'undefined' && openUrl ? openUrl : _openPath;
-    const _net = typeof networkName !== 'undefined' && networkName ? networkName : 'your network';
+    const _net = (typeof businessName !== 'undefined' && businessName)
+      ? businessName
+      : (typeof networkName !== 'undefined' && networkName ? networkName : 'your business');
   %>
   <main class="max-wide px-6 py-8 md:py-12">
     <header class="mb-6 max-w-2xl">
@@ -22,7 +24,7 @@
       <div class="mb-5">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Your Referral app</p>
         <h2 class="font-display font-extrabold text-xl md:text-2xl text-brand-dark dark:text-white mt-1">Open &amp; install</h2>
-        <p class="text-sm text-brand-muted mt-1 max-w-2xl">Same app you brand under Network → App branding. Add it to your Home Screen, then use reviews, customers, and referrals on the go.</p>
+        <p class="text-sm text-brand-muted mt-1 max-w-2xl">Uses your Workspace → White-label name, logo, and colors. Add it to your Home Screen, then use reviews, customers, and referrals on the go.</p>
       </div>
       <div class="grid gap-6 lg:grid-cols-[180px_minmax(0,1fr)] items-start">
         <div class="flex flex-col items-center text-center gap-2">

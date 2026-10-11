@@ -5,6 +5,7 @@
  */
 const networkStore = require('./networkStore');
 const networkNotify = require('./networkNotify');
+const whiteLabel = require('./whiteLabel');
 const { getPublicBaseUrl } = require('../lib/publicBaseUrl');
 
 const OWNER_MEMBER_ID = 'owner';
@@ -15,6 +16,16 @@ function firstNameFromUser(user) {
     (user && user.emails && user.emails[0] && user.emails[0].value) ||
     '';
   return String(raw).trim().split(/\s+/)[0] || '';
+}
+
+function ownerBusinessName(ws, network) {
+  const wl = whiteLabel.brandForWorkspace(ws || {});
+  return (
+    (wl.customName && String(wl.customName).trim()) ||
+    (ws && ws.name && String(ws.name).trim()) ||
+    (network && network.name && String(network.name).trim()) ||
+    'My business'
+  );
 }
 
 /**
@@ -42,10 +53,7 @@ async function ensureOwnerReferralApp(req) {
     member = members.find((m) => String(m.email || '').trim().toLowerCase() === email) || null;
   }
 
-  const companyName =
-    (ws.name && String(ws.name).trim()) ||
-    network.name ||
-    'My business';
+  const companyName = ownerBusinessName(ws, network);
   const contactName = firstNameFromUser(req.user) || '';
 
   if (!member) {
@@ -57,18 +65,25 @@ async function ensureOwnerReferralApp(req) {
       status: 'active',
       joinedAt: new Date().toISOString(),
     });
-  } else if (member.status === 'paused') {
-    member = await networkStore.saveMember(network.id, { ...member, status: 'active' });
+  } else {
+    const patch = {};
+    if (member.status === 'paused') patch.status = 'active';
+    if (companyName && member.companyName !== companyName) patch.companyName = companyName;
+    if (Object.keys(patch).length) {
+      member = await networkStore.saveMember(network.id, { ...member, ...patch });
+    }
   }
 
   const baseUrl = getPublicBaseUrl(req) || networkNotify.baseUrlFromReq(req);
-  const url = networkNotify.memberPortalLink(baseUrl, network, member);
+  // Short /a/:code for Share + QR; signed /m/ path so Open stays in-session.
+  const longUrl = networkNotify.memberPortalLink(baseUrl, network, member);
+  const url = await networkNotify.memberPortalShortLink(baseUrl, network, member);
   let path = '/m/';
   try {
-    path = new URL(url).pathname;
+    path = new URL(longUrl).pathname;
   } catch (_) {
-    const tokenMatch = String(url).match(/\/m\/([^/?#]+)/);
-    path = tokenMatch ? `/m/${tokenMatch[1]}` : url;
+    const tokenMatch = String(longUrl).match(/\/m\/([^/?#]+)/);
+    path = tokenMatch ? `/m/${tokenMatch[1]}` : longUrl;
   }
 
   return { network, member, path, url };

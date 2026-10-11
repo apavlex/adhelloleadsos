@@ -42,7 +42,35 @@ const memberAppointmentLink = require('../services/memberAppointmentLink');
 const appointmentPackages = require('../services/appointmentPackages');
 const { verifyNetworkToken, createMemberPortalToken } = require('../services/networkLinkSign');
 const memberShortLinks = require('../services/memberShortLinks');
+const ownerAppBrand = require('../services/ownerAppBrand');
 const { ICONS } = require('../services/memberAppIcons');
+
+/** Soft GHL pull for owner Home so customer counts match CRM (15 min TTL). */
+const OWNER_GHL_SYNC_MS = 15 * 60 * 1000;
+
+async function maybeSyncOwnerCustomers(ctx) {
+  if (!ctx || !ctx.member || !ctx.network) return;
+  if (freeAppSignup.isAppFreeMember(ctx.member)) return;
+  if (!ownerAppBrand.isOwnerMember(ctx.member, ctx.network)) return;
+  const last = Date.parse(ctx.member.customersGhlSyncedAt || '') || 0;
+  if (last && Date.now() - last < OWNER_GHL_SYNC_MS) return;
+  try {
+    await memberCustomerGhl.syncCustomersWithGhl(ctx.network, ctx.member.id, {
+      maxPages: 3,
+      pushLimit: 50,
+    });
+  } catch (err) {
+    console.warn('[member] owner GHL customer sync skipped:', err && err.message ? err.message : err);
+  }
+  // Stamp even on soft failure so we don't retry every Home load (15 min TTL).
+  try {
+    const saved = await store.saveMember(ctx.network.id, {
+      ...ctx.member,
+      customersGhlSyncedAt: new Date().toISOString(),
+    });
+    ctx.member = saved || ctx.member;
+  } catch (_) { /* ignore */ }
+}
 
 const router = express.Router();
 const form = express.urlencoded({ extended: true, limit: '64kb' });
@@ -193,12 +221,14 @@ async function loadContext(token) {
   const memberHeroUrl = free && member.heroUpdatedAt
     ? `${pathBase}/hero.jpg?v=${encodeURIComponent(member.heroUpdatedAt)}`
     : '';
+  const baseBrand = networkBrand.brandView(network, member, { heroUrl: memberHeroUrl });
+  const brand = await ownerAppBrand.applyWorkspaceBrand(baseBrand, network, member);
   const draft = {
     network,
     member,
     token,
     base: pathBase,
-    brand: networkBrand.brandView(network, member, { heroUrl: memberHeroUrl }),
+    brand,
     greetingName: firstName(member),
     profilePhotoUrl: profilePhotoUrl(pathBase, member),
     hasProfilePhoto: hasProfilePhoto(member),
@@ -523,7 +553,7 @@ router.post('/m/login', form, async (req, res) => {
 
 // ── PWA manifest + icons ─────────────────────────────────────────────────────
 
-/** Prefer member profile photo for Home Screen icons, then network brand logo, else initials. */
+/** Prefer member profile photo, then workspace/network logo, else initials. */
 async function resolveAppIconSource(ctx) {
   const photo = await store.getProfilePhoto(ctx.network.id, ctx.member.id).catch(() => null);
   if (photo && photo.buffer) {
@@ -531,6 +561,14 @@ async function resolveAppIconSource(ctx) {
       logo: photo,
       mode: 'photo',
       version: String(ctx.member.profilePhotoUpdatedAt || photo.updatedAt || Date.now()),
+    };
+  }
+  const wsLogo = await ownerAppBrand.workspaceLogoForBrand(ctx.brand, ctx.network).catch(() => null);
+  if (wsLogo && wsLogo.buffer) {
+    return {
+      logo: wsLogo,
+      mode: 'logo',
+      version: String((ctx.brand && ctx.brand.logoUrl) || ctx.brand.accent || 'ws'),
     };
   }
   const brandLogo = ctx.brand.logoUrl && ctx.brand.logoUrl.startsWith(`/m/brand/${ctx.network.id}/`)
@@ -695,6 +733,7 @@ router.post('/m/:token/profile/photo', (req, res, next) => {
 // ── Home ─────────────────────────────────────────────────────────────────────
 
 router.get('/m/:token', withMember(async (req, res, ctx) => {
+  await maybeSyncOwnerCustomers(ctx);
   const [referrals, members, jobs, customers, reviewStats] = await Promise.all([
     store.listReferrals(ctx.network.id),
     store.listMembers(ctx.network.id),
