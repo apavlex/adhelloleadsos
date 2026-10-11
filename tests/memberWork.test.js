@@ -570,22 +570,42 @@ test('free app_free members see Sync from CRM greyed with upgrade only', async (
   }
 });
 
-test('free app_free Home shows company name, yellow accent, and Your business hero', async () => {
-  const network = await store.getOrCreateNetworkForWorkspace('ws_member_home_free', {
-    name: 'Adhello Agency network',
-  });
-  await store.saveNetwork({
-    ...network,
-    brand: {
-      ...(network.brand || {}),
-      appName: 'Adhello Agency network',
-      accent: '#F26B1D',
-      heroUrl: '/m/brand/agency/hero?v=1',
-    },
-  });
+test('Review tab and home links open QR page not the ask form', async () => {
+  const network = await store.getOrCreateNetworkForWorkspace('ws_member_review_qr', { name: 'QR first net' });
   const member = await store.saveMember(network.id, {
-    companyName: 'Sunrise HVAC',
-    contactName: 'Alex',
+    companyName: 'QR Co',
+    contactName: 'Pat',
+    status: 'active',
+  });
+  const token = createMemberPortalToken({ networkId: network.id, memberId: member.id });
+  const app = express();
+  app.set('view engine', 'ejs');
+  app.set('views', path.join(__dirname, '..', 'views'));
+  app.locals.assetVersion = 'test';
+  app.use('/', memberApp);
+  const server = await new Promise((resolve) => {
+    const s = app.listen(0, () => resolve(s));
+  });
+  const base = `http://127.0.0.1:${server.address().port}/m/${token}`;
+  try {
+    const home = await (await fetch(base)).text();
+    assert.match(home, /href="[^"]*\/review"\s+class="ma-tab ma-tab--send/);
+    assert.doesNotMatch(home, /\/review\?ask=1/);
+
+    const review = await (await fetch(`${base}/review`)).text();
+    assert.match(review, /Show your QR/);
+    assert.doesNotMatch(review, /id="maAskForm"\s+open/);
+    assert.match(review, /Share from this phone/);
+  } finally {
+    await new Promise((r) => server.close(r));
+  }
+});
+
+test('free app_free members cannot send GHL review SMS/email', async () => {
+  const network = await store.getOrCreateNetworkForWorkspace('ws_member_review_send_free', { name: 'Free review send' });
+  const member = await store.saveMember(network.id, {
+    companyName: 'Free Send Co',
+    contactName: 'Sam',
     status: 'active',
     plan: 'app_free',
   });
@@ -600,18 +620,30 @@ test('free app_free Home shows company name, yellow accent, and Your business he
   });
   const base = `http://127.0.0.1:${server.address().port}/m/${token}`;
   try {
-    const html = await (await fetch(base)).text();
-    assert.match(html, /AdHello Reviews App/);
-    assert.match(html, /Add <b>AdHello Reviews App<\/b> to your Home Screen/);
-    assert.match(html, /Sunrise HVAC/);
-    assert.doesNotMatch(html, /Adhello Agency network/i);
-    assert.match(html, /--acc:\s*#FFDB3A/i);
-    assert.match(html, /member-hero-your-business\.jpg/);
-    assert.doesNotMatch(html, /\/m\/brand\/agency\/hero/);
+    const html = await (await fetch(`${base}/review`)).text();
+    assert.match(html, /Share from this phone/);
+    assert.match(html, /Send reviews by text or email/);
+    assert.match(html, /Upgrade to activate/);
+    assert.match(html, /href="\/signup"/);
+    assert.doesNotMatch(html, /action="[^"]*\/review\/send"/);
+    // Review tab + QR first — send fold stays closed for free members.
+    assert.doesNotMatch(html, /id="maAskForm"\s+open/);
+    assert.match(html, /href="[^"]*\/review"\s+class="ma-tab ma-tab--send/);
+    assert.doesNotMatch(html, /href="[^"]*\/review\?ask=1"\s+class="ma-tab ma-tab--send/);
 
-    const manifest = await (await fetch(`${base}/manifest.webmanifest`)).json();
-    assert.equal(manifest.name, 'AdHello Reviews App');
-    assert.doesNotMatch(manifest.name, /agency/i);
+    const home = await (await fetch(base)).text();
+    assert.match(home, /\/review"/);
+    assert.doesNotMatch(home, /\/review\?ask=1/);
+
+    const blocked = await fetch(`${base}/review/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ phone: '5035550100', name: 'Pat', channel: 'sms' }),
+      redirect: 'manual',
+    });
+    assert.equal(blocked.status, 303);
+    assert.match(blocked.headers.get('location') || '', /ok=review_send_upgrade/);
+    assert.doesNotMatch(blocked.headers.get('location') || '', /ask=1/);
   } finally {
     await new Promise((r) => server.close(r));
   }

@@ -1,18 +1,20 @@
 <%
   const _hasAppt = typeof appointment !== 'undefined' && appointment;
+  // Review tab always lands on QR / share — not the GHL send form (?ask=1).
+  const _reviewHref = base + '/review';
   // Hierarchy: reviews (center FAB) → customers/work → referrals & leads.
   const _tabs = _hasAppt
     ? [
         { id: 'home', label: 'Home', href: base, icon: icons.home },
         { id: 'customers', label: 'Customers', href: base + '/customers', icon: icons.customers },
-        { id: 'review', label: 'Review', href: base + '/review?ask=1', icon: icons.review, fab: true },
+        { id: 'review', label: 'Review', href: _reviewHref, icon: icons.review, fab: true },
         { id: 'leads', label: 'Leads', href: base + '/leads', icon: icons.leads },
         { id: 'referrals', label: 'Referrals', href: base + '/referrals', icon: icons.referrals },
       ]
     : [
         { id: 'home', label: 'Home', href: base, icon: icons.home },
         { id: 'customers', label: 'Customers', href: base + '/customers', icon: icons.customers },
-        { id: 'review', label: 'Review', href: base + '/review?ask=1', icon: icons.review, fab: true },
+        { id: 'review', label: 'Review', href: _reviewHref, icon: icons.review, fab: true },
         { id: 'referrals', label: 'Referrals', href: base + '/referrals', icon: icons.referrals },
         { id: 'send', label: 'Send', href: base + '/send', icon: icons.send },
       ];
