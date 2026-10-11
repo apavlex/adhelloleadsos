@@ -12,6 +12,7 @@ const { upsertOpenTaskForLead, TASK_SOURCE_NETWORK } = require('./userTasks');
 const referralNetwork = require('./referralNetwork');
 const { tradeLabel } = require('./networkTrades');
 const { createReferralLinkToken, createMemberPortalToken } = require('./networkLinkSign');
+const memberShortLinks = require('./memberShortLinks');
 const { UNROUTED_REASONS, canClaimPoolReferral } = require('./referralExchange');
 const store = require('./networkStore');
 const { brandView } = require('./networkBrand');
@@ -39,6 +40,19 @@ function referralLink(baseUrl, network, referral, memberId) {
 function memberPortalLink(baseUrl, network, member) {
   const token = createMemberPortalToken({ networkId: network.id, memberId: member.id });
   return `${baseUrl}/m/${encodeURIComponent(token)}`;
+}
+
+/** Short /a/:code URL for SMS/email (falls back to signed /m/ if allocation fails). */
+async function memberPortalShortLink(baseUrl, network, member, pathAndQuery = '') {
+  try {
+    return await memberShortLinks.memberAppShortLink(baseUrl, network, member, pathAndQuery);
+  } catch (err) {
+    console.warn('[network] short portal link failed:', err.message);
+    const full = memberPortalLink(baseUrl, network, member);
+    const suffix = String(pathAndQuery || '');
+    if (!suffix) return full;
+    return `${full}${suffix.startsWith('/') || suffix.startsWith('?') ? suffix : `/${suffix}`}`;
+  }
 }
 
 async function memberLead(network, member) {
@@ -405,12 +419,12 @@ async function notifyMemberFormLead({ network, member, baseUrl, leadName, formNa
 }
 
 async function sendMemberPortalLink({ network, member, baseUrl, welcome }) {
-  const link = memberPortalLink(baseUrl, network, member);
-  const reviewLink = `${link}/review?ask=1`;
+  const link = await memberPortalShortLink(baseUrl, network, member);
+  const reviewLink = await memberPortalShortLink(baseUrl, network, member, '/review?ask=1');
   const app = brandView(network).appName;
   const sms = welcome
-    ? `Welcome to ${app}! Start with reviews: ${reviewLink} — then customers, jobs, and referrals in the app: ${link}. Tip: Share > Add to Home Screen`
-    : `${app}: request reviews (${reviewLink}), manage customers & jobs, then referrals — app home: ${link}. Tip: Share > Add to Home Screen`;
+    ? `Welcome to ${app}! Start with reviews: ${reviewLink} — then app home: ${link}. Tip: Share > Add to Home Screen`
+    : `${app}: reviews ${reviewLink} · app ${link}. Tip: Share > Add to Home Screen`;
   return messageMember(network, member, {
     sms,
     subject: welcome ? `Welcome to ${app}` : `Your ${app} app — reviews first`,
@@ -528,6 +542,7 @@ module.exports = {
   getReviewPublicBaseUrl,
   referralLink,
   memberPortalLink,
+  memberPortalShortLink,
   notifyReferralRecipient,
   notifyReferralPool,
   notifyMemberFormLead,

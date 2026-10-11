@@ -39,7 +39,8 @@ const jobMedia = require('../services/memberJobMedia');
 const contractorPortal = require('../services/contractorPortal');
 const memberAppointmentLink = require('../services/memberAppointmentLink');
 const appointmentPackages = require('../services/appointmentPackages');
-const { verifyNetworkToken } = require('../services/networkLinkSign');
+const { verifyNetworkToken, createMemberPortalToken } = require('../services/networkLinkSign');
+const memberShortLinks = require('../services/memberShortLinks');
 const { ICONS } = require('../services/memberAppIcons');
 
 const router = express.Router();
@@ -448,6 +449,37 @@ function matchesContact(member, { digits, email }) {
   if (email && String(member.email || '').trim().toLowerCase() === email) return true;
   return false;
 }
+
+/**
+ * Short SMS links: /a/:code → /m/:signedToken (path + query preserved).
+ * Example: /a/x7k2m9qp/review?ask=1
+ */
+async function redirectShortAppLink(req, res) {
+  noStore(res);
+  const code = memberShortLinks.cleanCode(req.params.code);
+  if (!code) return renderInvalid(res);
+  const row = await memberShortLinks.readCode(code);
+  if (!row) return renderInvalid(res, 404, 'That app link is invalid or expired.');
+  const network = await store.getNetwork(row.networkId);
+  const member = network ? await store.getMember(network.id, row.memberId) : null;
+  if (!network || !member) return renderInvalid(res, 404, 'That app link is invalid or expired.');
+  if (member.status === 'paused') {
+    return renderInvalid(res, 403, 'Your membership is paused. Contact the network.');
+  }
+  const token = createMemberPortalToken({ networkId: network.id, memberId: member.id });
+  const prefix = `/a/${code}`;
+  const original = String(req.originalUrl || req.url || '');
+  let rest = original.startsWith(prefix) ? original.slice(prefix.length) : '';
+  if (rest === '/') rest = '';
+  return res.redirect(302, `/m/${encodeURIComponent(token)}${rest}`);
+}
+
+router.get('/a/:code', (req, res, next) => {
+  redirectShortAppLink(req, res).catch(next);
+});
+router.get('/a/:code/*', (req, res, next) => {
+  redirectShortAppLink(req, res).catch(next);
+});
 
 router.get('/m/login', (req, res) => {
   noStore(res);
