@@ -12,6 +12,7 @@ const referralNetwork = require('../services/referralNetwork');
 const networkBrand = require('../services/networkBrand');
 const networkMembers = require('../services/networkMembers');
 const reviewPage = require('../services/reviewPage');
+const freeAppSignup = require('../services/freeAppSignup');
 const { ICONS: MEMBER_APP_ICONS } = require('../services/memberAppIcons');
 const multer = require('multer');
 
@@ -151,6 +152,7 @@ router.get('/', async (req, res, next) => {
 
     const memberRows = members.map((member) => ({
       ...member,
+      isFreeApp: freeAppSignup.isAppFreeMember(member),
       tradeLabels: member.trades.map((slug) => trades.tradeLabel(slug, network)),
       zoneNames: member.zoneIds.map((id) => (zonesById[id] ? zonesById[id].name : '')).filter(Boolean),
       seats: ex.seatsForMember(zones, member.id).map((s) => `${trades.tradeLabel(s.tradeSlug, network)} · ${s.zoneName}`),
@@ -158,6 +160,11 @@ router.get('/', async (req, res, next) => {
       reviewLinkCount: reviewPage.countLinks(member.reviewLinks),
       reviewOtherRows: reviewPage.otherFormRows(member.reviewLinks),
     }));
+
+    const freeMembers = memberRows.filter((m) => m.isFreeApp).length;
+    const partnerMembers = memberRows.length - freeMembers;
+    const memberPlanFilter = freeAppSignup.normalizeMemberPlanFilter(req.query.plan);
+    const shownMembers = memberRows.filter((m) => freeAppSignup.matchesMemberPlanFilter(m, memberPlanFilter));
 
     const statusFilter = ex.STATUSES.includes(String(req.query.status || '')) ? String(req.query.status) : '';
     const referralRows = referrals
@@ -199,13 +206,22 @@ router.get('/', async (req, res, next) => {
       maxCustomTrades: trades.MAX_CUSTOM_TRADES,
       zones,
       seatRows,
-      members: memberRows,
+      members: shownMembers,
+      memberPlanFilter,
       reviewPlatforms: reviewPage.PLATFORMS,
       activeMembers: members.filter((m) => m.status === 'active'),
       referrals: referralRows,
       statusFilter,
       statuses: ex.STATUSES.map((s) => ({ id: s, label: ex.STATUS_LABELS[s], count: referrals.filter((r) => r.status === s).length })),
-      totals: { ...totals, wonValueLabel: money(totals.wonValue), openSeats, heldSeats, members: members.length },
+      totals: {
+        ...totals,
+        wonValueLabel: money(totals.wonValue),
+        openSeats,
+        heldSeats,
+        members: members.length,
+        freeMembers,
+        partnerMembers,
+      },
       canManage: canManage(req),
       ghlSubaccounts: networkMembers.ghlSubaccountsAllowedFor(req.workspace),
       notice: String(req.query.notice || '').trim(),

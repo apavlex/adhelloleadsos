@@ -156,6 +156,24 @@ describe('freeAppSignup', () => {
     mock.restoreAll();
   });
 
+  it('filters Network → Members by free vs partner plan', () => {
+    assert.equal(freeAppSignup.normalizeMemberPlanFilter('free'), 'free');
+    assert.equal(freeAppSignup.normalizeMemberPlanFilter('PARTNER'), 'partner');
+    assert.equal(freeAppSignup.normalizeMemberPlanFilter('all'), '');
+    assert.equal(freeAppSignup.matchesMemberPlanFilter({ plan: 'app_free' }, 'free'), true);
+    assert.equal(freeAppSignup.matchesMemberPlanFilter({ plan: 'app_free' }, 'partner'), false);
+    assert.equal(freeAppSignup.matchesMemberPlanFilter({ plan: '' }, 'partner'), true);
+    assert.equal(freeAppSignup.matchesMemberPlanFilter({ plan: 'partner' }, ''), true);
+
+    const networkView = fs.readFileSync(path.join(__dirname, '../views/network.ejs'), 'utf8');
+    const networkRoute = fs.readFileSync(path.join(__dirname, '../routes/network.js'), 'utf8');
+    assert.match(networkView, /Free app \(<%= totals\.freeMembers %>\)/);
+    assert.match(networkView, /net-pill-free/);
+    assert.match(networkView, /<%= totals\.freeMembers %> free · <%= totals\.partnerMembers %> partners/);
+    assert.match(networkRoute, /freeMembers/);
+    assert.match(networkRoute, /memberPlanFilter/);
+  });
+
   it('gates lead requests for app_free members even on a paid agency network', async () => {
     const trials = require('../services/trials');
     mock.method(dbService, 'getWorkspace', async () => ({ id: 'ws1', trial: { activatedAt: '2026-01-01' } }));
