@@ -1551,9 +1551,13 @@ async function ensureReviewSetup(ctx) {
   return member;
 }
 
-function reviewPageLocals(member, extras) {
+function reviewPageLocals(member, extras, brand) {
   const reviewUrl = notify.reviewPageLink(member);
   const shareImagePath = reviewShareImage.shareImagePath(member.reviewSlug, 'default');
+  const shareVersion = reviewShareImage.shareImageVersion(member, brand)
+    || member.reviewShareImageUpdatedAt
+    || member.heroUpdatedAt
+    || 'default';
   const hasCustomLogo = reviewShareImage.hasCustomLogo(member);
   return {
     reviewUrl,
@@ -1561,8 +1565,8 @@ function reviewPageLocals(member, extras) {
     platforms: reviewPage.PLATFORMS,
     otherRows: reviewPage.otherFormRows(member.reviewLinks),
     linkCount: reviewPage.countLinks(member.reviewLinks),
-    shareImagePath: `${shareImagePath}?v=${encodeURIComponent(member.reviewShareImageUpdatedAt || 'default')}`,
-    shareImageUrl: reviewShareImage.shareImageAbsoluteUrl(member.reviewSlug, 'default'),
+    shareImagePath: `${shareImagePath}?v=${encodeURIComponent(shareVersion)}`,
+    shareImageUrl: reviewShareImage.shareImageAbsoluteUrl(member.reviewSlug, 'default', shareVersion),
     hasCustomShareImage: !!member.reviewShareImageUpdatedAt,
     hasCustomLogo,
     reviewLogoPath: hasCustomLogo
@@ -1653,13 +1657,13 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
     reviewSendLocked: freeAppSignup.isAppFreeMember(ctx.member),
     upgradeHref: '/signup',
     flash: flash || flashFromQuery(req),
-  }), status);
+  }, ctx.brand), status);
 }
 
 async function renderReviewSettings(req, res, ctx, flash, status) {
   const member = await ensureReviewSetup(ctx);
   return render(res, 'review_settings', { ...ctx, member }, {
-    ...reviewPageLocals(member),
+    ...reviewPageLocals(member, null, ctx.brand),
     active: 'review',
     flash: flash || flashFromQuery(req),
   }, status);

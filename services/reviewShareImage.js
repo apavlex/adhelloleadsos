@@ -1,13 +1,18 @@
 /**
  * Open Graph / link-preview images for public review pages (/rv/:slug).
  * Members can set a default share photo, or upload a one-off image per request.
- * If none is uploaded, we generate a branded AdHello default.
+ * If none is uploaded, we reuse the Home banner (personal hero → network hero →
+ * stock van) so SMS / iMessage previews match what members see in the app.
  */
 
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 const store = require('./networkStore');
 const networkBrand = require('./networkBrand');
 const { getReviewPublicBaseUrl } = require('../lib/publicBaseUrl');
+
+const STOCK_HERO_PATH = path.join(__dirname, '..', 'public', 'images', 'member-hero-your-business.jpg');
 
 const OG_WIDTH = 1200;
 const OG_HEIGHT = 630;
@@ -81,10 +86,42 @@ async function deleteDefaultShareImage(networkId, memberId) {
   await store.deleteReviewShareImage(networkId, memberId, 'default');
 }
 
+/**
+ * Prefer real photos over the synthetic gradient so SMS link previews show the
+ * same van / personal banner as Home.
+ */
+async function heroShareImageFallback(networkId, memberId) {
+  const tryPrepare = async (buffer) => {
+    if (!buffer || !buffer.length) return null;
+    try {
+      return await prepareShareImage(buffer);
+    } catch (_) {
+      return null;
+    }
+  };
+
+  const memberHero = await store.getMemberHero(networkId, memberId).catch(() => null);
+  const fromMember = await tryPrepare(memberHero && memberHero.buffer);
+  if (fromMember) return fromMember;
+
+  const brandHero = await store.getBrandImage(networkId, 'hero').catch(() => null);
+  const fromBrand = await tryPrepare(brandHero && brandHero.buffer);
+  if (fromBrand) return fromBrand;
+
+  try {
+    if (fs.existsSync(STOCK_HERO_PATH)) {
+      const fromStock = await tryPrepare(fs.readFileSync(STOCK_HERO_PATH));
+      if (fromStock) return fromStock;
+    }
+  } catch (_) { /* fall through to gradient */ }
+  return null;
+}
+
 async function getShareImageBuffer(networkId, memberId, imageId, { companyName, brand } = {}) {
   const id = String(imageId || 'default').trim() || 'default';
   if (id !== 'default' && !isImageId(id)) {
-    return renderDefaultShareImage({ companyName, brand });
+    return (await heroShareImageFallback(networkId, memberId))
+      || renderDefaultShareImage({ companyName, brand });
   }
   const stored = await store.getReviewShareImage(networkId, memberId, id);
   if (stored && stored.buffer) return stored;
@@ -92,6 +129,8 @@ async function getShareImageBuffer(networkId, memberId, imageId, { companyName, 
     const fallback = await store.getReviewShareImage(networkId, memberId, 'default');
     if (fallback && fallback.buffer) return fallback;
   }
+  const fromHero = await heroShareImageFallback(networkId, memberId);
+  if (fromHero) return fromHero;
   return renderDefaultShareImage({ companyName, brand });
 }
 
@@ -102,8 +141,23 @@ function shareImagePath(slug, imageId) {
   return `/rv/${s}/og.jpg`;
 }
 
-function shareImageAbsoluteUrl(slug, imageId) {
-  return `${getReviewPublicBaseUrl()}${shareImagePath(slug, imageId)}`;
+/** Cache-bust so iMessage refreshes when the Home banner or share photo changes. */
+function shareImageVersion(member, brand) {
+  const stamps = [
+    member && member.reviewShareImageUpdatedAt,
+    member && member.heroUpdatedAt,
+    brand && brand.heroUrl,
+  ]
+    .map((v) => String(v || '').trim())
+    .filter(Boolean);
+  if (!stamps.length) return '';
+  return crypto.createHash('sha1').update(stamps.join('|')).digest('hex').slice(0, 12);
+}
+
+function shareImageAbsoluteUrl(slug, imageId, version) {
+  const base = `${getReviewPublicBaseUrl()}${shareImagePath(slug, imageId)}`;
+  const v = String(version || '').trim();
+  return v ? `${base}?v=${encodeURIComponent(v)}` : base;
 }
 
 function hasCustomDefault(member) {
@@ -155,11 +209,13 @@ module.exports = {
   isImageId,
   prepareShareImage,
   renderDefaultShareImage,
+  heroShareImageFallback,
   saveDefaultShareImage,
   saveRequestShareImage,
   deleteDefaultShareImage,
   getShareImageBuffer,
   shareImagePath,
+  shareImageVersion,
   shareImageAbsoluteUrl,
   hasCustomDefault,
   prepareReviewLogo,

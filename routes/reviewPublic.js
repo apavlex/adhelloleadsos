@@ -89,7 +89,11 @@ function renderPage(res, page, { rating, thanks, error, formValues, imageId, ask
     ...(shareId ? { imageId: shareId } : {}),
     ...(trackedAsk ? { askId: trackedAsk } : {}),
   });
-  const ogImageUrl = reviewShareImage.shareImageAbsoluteUrl(page.slug, shareId || 'default');
+  const ogImageUrl = reviewShareImage.shareImageAbsoluteUrl(
+    page.slug,
+    shareId || 'default',
+    reviewShareImage.shareImageVersion(page.member, page.brand),
+  );
   const logoUrl = reviewShareImage.requestPageLogoUrl(page.member, page.brand);
   res.setHeader('Cache-Control', 'private, no-store');
   res.setHeader('X-Robots-Tag', 'noindex');

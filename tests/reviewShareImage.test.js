@@ -57,3 +57,43 @@ test('save/load default share image in store', async () => {
   assert.ok(loaded.buffer.length > 500);
   await reviewShareImage.deleteDefaultShareImage(network.id, member.id);
 });
+
+test('getShareImageBuffer falls back to Home hero before the gradient', async () => {
+  const network = await store.getOrCreateNetworkForWorkspace(`ws_share_hero_${Date.now()}`, { name: 'Hero Net' });
+  const member = await store.saveMember(network.id, {
+    companyName: 'Van Co',
+    status: 'active',
+    reviewSlug: 'van-co',
+  });
+  const heroSrc = await sharp({
+    create: { width: 900, height: 500, channels: 3, background: { r: 20, g: 120, b: 200 } },
+  }).jpeg().toBuffer();
+  await store.saveMemberHero(network.id, member.id, { contentType: 'image/jpeg', buffer: heroSrc });
+
+  const loaded = await reviewShareImage.getShareImageBuffer(network.id, member.id, 'default', {
+    companyName: 'Van Co',
+    brand: { accent: '#F26B1D' },
+  });
+  assert.equal(loaded.contentType, 'image/jpeg');
+  const meta = await sharp(loaded.buffer).metadata();
+  assert.equal(meta.width, 1200);
+  assert.equal(meta.height, 630);
+  // Hero is solid blue — gradient default would mix orange/dark; sample center pixel.
+  const { data } = await sharp(loaded.buffer)
+    .extract({ left: 600, top: 300, width: 1, height: 1 })
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  assert.ok(data[2] > 150, 'expected blue-ish hero fallback, not orange gradient');
+});
+
+test('shareImageAbsoluteUrl includes cache-bust version', () => {
+  const url = reviewShareImage.shareImageAbsoluteUrl('van-co', 'default', 'abc123');
+  assert.match(url, /^https:\/\/leads\.adhello\.io\/rv\/van-co\/og\.jpg\?v=abc123$/);
+  assert.match(
+    reviewShareImage.shareImageVersion(
+      { reviewShareImageUpdatedAt: '', heroUpdatedAt: '2026-10-11T00:00:00.000Z' },
+      {},
+    ),
+    /^[a-f0-9]{12}$/,
+  );
+});
