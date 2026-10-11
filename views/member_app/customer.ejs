@@ -142,28 +142,53 @@
           <% } %>
         </div>
 
-        <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/tags/add" class="ma-tags__search" autocomplete="off" data-ma-tag-form>
-          <label class="ma-label" for="cuTagSearch">Add tag</label>
-          <div class="ma-typeahead">
-            <input
-              id="cuTagSearch"
-              class="ma-input"
-              type="search"
-              name="tagName"
-              enterkeyhint="done"
-              maxlength="60"
-              placeholder="Search tags or create new…"
-              role="combobox"
-              aria-autocomplete="list"
-              aria-expanded="false"
-              aria-controls="cuTagList"
-              data-ma-tag-input
-            >
-            <input type="hidden" name="tagKey" value="" data-ma-tag-key>
-            <ul id="cuTagList" class="ma-typeahead__list" role="listbox" hidden data-ma-tag-list></ul>
-          </div>
-          <button type="submit" class="ma-btn ma-btn--block ma-tags__submit">Add tag</button>
-        </form>
+        <div class="ma-tags__search">
+          <form
+            id="cuTagAddForm"
+            method="post"
+            action="<%= base %>/customers/c/<%= customer.id %>/tags/add"
+            class="ma-tags__search-form"
+            autocomplete="off"
+            data-ma-tag-form
+          >
+            <label class="ma-label" for="cuTagSearch">Add tag</label>
+            <div class="ma-typeahead">
+              <input
+                id="cuTagSearch"
+                class="ma-input"
+                type="search"
+                name="tagName"
+                enterkeyhint="done"
+                maxlength="60"
+                placeholder="Search tags or create new…"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded="false"
+                aria-controls="cuTagList"
+                data-ma-tag-input
+              >
+              <input type="hidden" name="tagKey" value="" data-ma-tag-key>
+              <ul id="cuTagList" class="ma-typeahead__list" role="listbox" hidden data-ma-tag-list></ul>
+            </div>
+          </form>
+
+          <% if (_available.length) { %>
+          <ul class="ma-tags__suggest" data-ma-tag-suggest aria-label="Available tags">
+            <% _available.forEach(function (t) { %>
+            <li class="ma-tags__suggest-item" data-ma-tag-suggest-item data-key="<%= t.key %>" data-name="<%= String(t.name || '').toLowerCase() %>">
+              <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/tags/add">
+                <input type="hidden" name="tagKey" value="<%= t.key %>">
+                <button type="submit" class="ma-tags__suggest-btn" style="--ma-tag:<%= t.color || 'var(--acc)' %>">+ <%= t.name %></button>
+              </form>
+            </li>
+            <% }); %>
+          </ul>
+          <% } else { %>
+          <p class="ma-hint" style="margin:12px 0 0">Type a name above to create a new tag.</p>
+          <% } %>
+
+          <button type="submit" form="cuTagAddForm" class="ma-btn ma-btn--block ma-tags__submit" data-ma-tag-submit>Add tag</button>
+        </div>
         <script type="application/json" data-ma-tag-catalog><%- JSON.stringify(_available.map(function (t) { return { key: t.key, name: t.name, color: t.color || '' }; })) %></script>
       </div>
     </section>

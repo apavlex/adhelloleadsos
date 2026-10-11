@@ -1004,7 +1004,7 @@
     form.setAttribute('data-ma-ready', '1');
   }
 
-  /** Typeahead: search existing tags or create a new one on customer profiles. */
+  /** Typeahead + visible suggestion pills for customer tags. */
   function initTagPick(root) {
     if (!root || root.getAttribute('data-ma-ready') === '1') return;
     var form = root.querySelector('[data-ma-tag-form]');
@@ -1012,6 +1012,7 @@
     var keyInput = root.querySelector('[data-ma-tag-key]');
     var list = root.querySelector('[data-ma-tag-list]');
     var dataEl = root.querySelector('[data-ma-tag-catalog]');
+    var suggest = root.querySelector('[data-ma-tag-suggest]');
     if (!form || !input || !keyInput || !list || !dataEl) return;
 
     var catalog = [];
@@ -1019,7 +1020,6 @@
     if (!Array.isArray(catalog)) catalog = [];
 
     var active = -1;
-    var shown = [];
 
     function esc(s) {
       return String(s == null ? '' : s)
@@ -1048,15 +1048,30 @@
       }
     }
 
+    function filterSuggest(qLower) {
+      if (!suggest) return;
+      var items = suggest.querySelectorAll('[data-ma-tag-suggest-item]');
+      var visible = 0;
+      for (var i = 0; i < items.length; i++) {
+        var name = String(items[i].getAttribute('data-name') || '');
+        var show = !qLower || name.indexOf(qLower) !== -1;
+        items[i].hidden = !show;
+        if (show) visible += 1;
+      }
+      suggest.hidden = visible === 0;
+    }
+
     function render(query) {
       var q = String(query || '').trim();
       var qLower = q.toLowerCase();
-      shown = catalog.filter(function (t) {
-        if (!qLower) return true;
+      filterSuggest(qLower);
+
+      var shown = catalog.filter(function (t) {
+        if (!qLower) return false; // pills handle the empty-query case
         return String(t.name || '').toLowerCase().indexOf(qLower) !== -1;
       }).slice(0, 40);
 
-      var exact = shown.some(function (t) {
+      var exact = catalog.some(function (t) {
         return String(t.name || '').toLowerCase() === qLower;
       });
 
@@ -1065,19 +1080,19 @@
         html += '<li class="ma-typeahead__item ma-typeahead__item--new" role="option" data-create="1" data-idx="0">' +
           'Create “' + esc(q) + '”</li>';
       }
+      // When typing, also mirror matches in the list for keyboard users
       shown.forEach(function (t, i) {
         var idx = (q && !exact ? 1 : 0) + i;
         html += '<li class="ma-typeahead__item" role="option" data-key="' + esc(t.key) + '" data-name="' + esc(t.name) + '" data-idx="' + idx + '">' +
           esc(t.name) + '</li>';
       });
-      if (!q && !shown.length) {
-        html += '<li class="ma-typeahead__empty" role="presentation">Type a name to create your first tag</li>';
-      } else if (q && !shown.length && exact) {
-        html += '<li class="ma-typeahead__empty" role="presentation">Already on this customer</li>';
-      } else if (q && !shown.length) {
-        // create row already added
-      } else if (!q && shown.length) {
-        html = '<li class="ma-typeahead__empty" role="presentation">Suggested tags</li>' + html;
+      if (!q) {
+        closeList();
+        list.innerHTML = '';
+        return;
+      }
+      if (!html) {
+        html = '<li class="ma-typeahead__empty" role="presentation">No matching tags</li>';
       }
       list.innerHTML = html;
       openList();
@@ -1086,7 +1101,6 @@
 
     function pickCreate() {
       keyInput.value = '';
-      // tagName stays as the typed value
     }
 
     function pickExisting(el) {
@@ -1098,7 +1112,6 @@
     function chooseActive() {
       var items = list.querySelectorAll('.ma-typeahead__item');
       if (active < 0 || active >= items.length) {
-        // Submit typed name (create or match server-side)
         keyInput.value = '';
         return true;
       }
@@ -1119,6 +1132,7 @@
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         if (list.hidden) render(input.value);
+        items = list.querySelectorAll('.ma-typeahead__item');
         setActive(Math.min(active + 1, items.length - 1));
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
@@ -1144,18 +1158,9 @@
       closeList();
       form.requestSubmit();
     });
-    document.addEventListener('click', function (e) {
-      if (!root.contains(e.target)) closeList();
-    });
-    form.addEventListener('submit', function () {
-      // Prefer explicit key when an existing tag was chosen; otherwise send name for create/match.
-      if (keyInput.value) {
-        // keep tagName for display fallback on server, but key wins
-      } else {
-        keyInput.value = '';
-      }
-    });
 
+    // Show all available suggestion pills initially
+    filterSuggest('');
     root.setAttribute('data-ma-ready', '1');
   }
 

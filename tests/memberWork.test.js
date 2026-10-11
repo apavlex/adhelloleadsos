@@ -420,6 +420,7 @@ test('customers tab routes: top-bar enroll, CRUD, calendar, pending and referral
     assert.match(customerPage, /ma-tags-section/);
     assert.match(customerPage, /data-ma-tag-pick/);
     assert.match(customerPage, /name="tagName"/);
+    assert.match(customerPage, /ma-tags__chip|No tags on this customer yet/);
     assert.match(customerPage, />Tags</);
     assert.match(customerPage, /Search tags or create new/);
     assert.ok(customerPage.indexOf('ma-tags-section') < customerPage.indexOf('>Details<'));
