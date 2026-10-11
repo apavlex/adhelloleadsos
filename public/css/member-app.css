@@ -17,7 +17,8 @@
   --tabbar-h: 50px;
   /* Review FAB sits above the bar; keep last page content clear of it. */
   --tabbar-fab-overhang: 36px;
-  --tabbar-content-gap: 40px;
+  /* Extra air so the last list row / button clears the frosted bar + FAB. */
+  --tabbar-content-gap: 72px;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
   /* SF Pro on Apple devices; Inter/Manrope elsewhere */
@@ -572,9 +573,11 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
 
 /* Bottom tab bar — flush to the screen edge. Safe-area is ONLY padding-bottom
    (no min-height add-on — that double-counted on some iOS WebKits and left a tall white shelf).
-   Frosted bar + short fade so the Review FAB is only half-covered and the top edge blends. */
+   Translucent frost + top fade so the Review FAB is only half-covered (no hard white shelf). */
 .ma-tabbar {
-  --tabbar-fill: color-mix(in srgb, var(--card) 78%, transparent);
+  /* rgba fallbacks: color-mix + high opacity still read as solid white on iOS. */
+  --tabbar-fill: rgba(255, 255, 255, 0.58);
+  --tabbar-fade-mid: rgba(255, 255, 255, 0.32);
   position: fixed;
   left: 0;
   right: 0;
@@ -585,43 +588,64 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
   box-sizing: border-box;
   -webkit-transform: translate3d(0, 0, 0); transform: translate3d(0, 0, 0);
   background: var(--tabbar-fill);
-  -webkit-backdrop-filter: saturate(160%) blur(18px);
-  backdrop-filter: saturate(160%) blur(18px);
+  -webkit-backdrop-filter: saturate(180%) blur(22px);
+  backdrop-filter: saturate(180%) blur(22px);
   box-shadow: none;
+  border: 0;
+  border-top: 0;
   /* Height = inner tabs + home-indicator pad only */
   height: auto;
   min-height: 0;
   padding: 0;
   padding-bottom: constant(safe-area-inset-bottom);
   padding-bottom: env(safe-area-inset-bottom, 0px);
+  overflow: visible;
 }
-.ma-tabbar::before,
+/* Soft fade above the bar (~half FAB). No negative z-index — that hid the fade on iOS. */
+.ma-tabbar::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 28px;
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    var(--tabbar-fill) 0%,
+    var(--tabbar-fade-mid) 45%,
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+/* Paint under the home indicator so overscroll doesn't flash page gray. */
 .ma-tabbar::after {
   content: "";
   position: absolute;
   left: 0;
   right: 0;
-  pointer-events: none;
-  z-index: -1;
-}
-/* Soft fade only as tall as half the Review FAB — no solid shelf above the bar. */
-.ma-tabbar::before {
-  top: -26px;
-  height: 26px;
-  background: linear-gradient(to top, var(--tabbar-fill), transparent);
-}
-.ma-tabbar::after {
   top: 100%;
   height: 200px;
-  background: var(--card);
+  pointer-events: none;
+  background: #ffffff;
 }
 @media (prefers-color-scheme: dark) {
   .ma-tabbar {
-    --tabbar-fill: color-mix(in srgb, #1c1c1e 82%, transparent);
+    --tabbar-fill: rgba(28, 28, 30, 0.62);
+    --tabbar-fade-mid: rgba(28, 28, 30, 0.34);
   }
   .ma-tabbar::after { background: #1c1c1e; }
+  .ma-tabbar::before {
+    background: linear-gradient(
+      to top,
+      var(--tabbar-fill) 0%,
+      var(--tabbar-fade-mid) 45%,
+      rgba(28, 28, 30, 0) 100%
+    );
+  }
 }
 .ma-tabbar__inner {
+  position: relative;
+  z-index: 1;
   max-width: 480px;
   margin: 0 auto;
   height: var(--tabbar-h);
