@@ -10,7 +10,7 @@ const sharp = require('sharp');
 const store = require('../services/networkStore');
 const reviewShareImage = require('../services/reviewShareImage');
 
-test('renderDefaultShareImage returns a JPEG buffer', async () => {
+test('renderDefaultShareImage returns a baseline JPEG buffer', async () => {
   const img = await reviewShareImage.renderDefaultShareImage({
     companyName: 'Brightline Electric',
     brand: { accent: '#0d9488' },
@@ -20,6 +20,8 @@ test('renderDefaultShareImage returns a JPEG buffer', async () => {
   const meta = await sharp(img.buffer).metadata();
   assert.equal(meta.width, 1200);
   assert.equal(meta.height, 630);
+  // iMessage Link Presentation often skips progressive JPEGs.
+  assert.equal(meta.isProgressive, false);
 });
 
 test('prepareShareImage crops uploads to OG size', async () => {

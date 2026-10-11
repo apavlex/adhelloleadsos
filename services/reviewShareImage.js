@@ -38,10 +38,11 @@ async function prepareShareImage(buffer) {
   if (!buffer || !buffer.length) throw new Error('Image is empty.');
   if (buffer.length > MAX_UPLOAD_BYTES) throw new Error('Image is too large (max 6 MB).');
   const sharp = require('sharp');
+  // Baseline (non-progressive) JPEG — iMessage Link Presentation often skips progressive/mozjpeg.
   const out = await sharp(buffer)
     .rotate()
     .resize(OG_WIDTH, OG_HEIGHT, { fit: 'cover', position: 'center' })
-    .jpeg({ quality: 82, mozjpeg: true })
+    .jpeg({ quality: 82, progressive: false, mozjpeg: false })
     .toBuffer();
   return { contentType: 'image/jpeg', buffer: out };
 }
@@ -67,7 +68,7 @@ async function renderDefaultShareImage({ companyName, brand }) {
   <text x="80" y="340" font-family="Helvetica, Arial, sans-serif" font-size="64" font-weight="800" fill="${escapeXml(onAccent)}">${escapeXml(company)}</text>
   <text x="80" y="540" font-family="Helvetica, Arial, sans-serif" font-size="28" font-weight="700" fill="rgba(255,255,255,0.85)">AdHello.io</text>
 </svg>`;
-  const out = await sharp(Buffer.from(svg)).jpeg({ quality: 85, mozjpeg: true }).toBuffer();
+  const out = await sharp(Buffer.from(svg)).jpeg({ quality: 85, progressive: false, mozjpeg: false }).toBuffer();
   return { contentType: 'image/jpeg', buffer: out };
 }
 
@@ -144,6 +145,7 @@ function shareImagePath(slug, imageId) {
 /** Cache-bust so iMessage refreshes when the Home banner or share photo changes. */
 function shareImageVersion(member, brand) {
   const stamps = [
+    'og-baseline-v1', // bump when OG encoding changes so Apple/iMessage refetch
     member && member.reviewShareImageUpdatedAt,
     member && member.heroUpdatedAt,
     brand && brand.heroUrl,

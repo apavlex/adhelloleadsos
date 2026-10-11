@@ -1,7 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <%- include('member_app/_head', { pageTitle: 'Review ' + member.companyName }) %>
+  <%/* Public /rv pages must be crawlable so iMessage/SMS link previews can load og:image. */%>
+  <%- include('member_app/_head', {
+    pageTitle: 'Review ' + member.companyName,
+    robots: (typeof previewMode !== 'undefined' && previewMode) ? 'noindex' : 'index, follow, max-image-preview:large',
+  }) %>
   <% if (!(typeof previewMode !== 'undefined' && previewMode)) { %>
   <%- include('partials/review_og_meta') %>
   <% } %>

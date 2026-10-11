@@ -125,9 +125,11 @@ async function serveShareImage(req, res, imageId) {
       imageId,
       { companyName: page.member.companyName, brand: page.brand },
     );
+    const buf = img.buffer;
     res.setHeader('Content-Type', img.contentType || 'image/jpeg');
+    res.setHeader('Content-Length', Buffer.byteLength(buf));
     res.setHeader('Cache-Control', 'public, max-age=86400');
-    return res.end(img.buffer);
+    return res.end(buf);
   } catch (err) {
     console.error('[review-page] og image failed:', err.message);
     return res.status(500).end();

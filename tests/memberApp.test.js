@@ -413,7 +413,7 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     assert.match(reviewHtml, /data-ma-request-review/);
     assert.match(reviewHtml, /maRequestReviewPayload/);
     // Banner image is attached via Web Share so Messages shows the photo.
-    assert.match(reviewHtml, /"image":"\/rv\/camas-flooring\/og\.jpg/);
+    assert.match(reviewHtml, /"image":"[^"]*\/rv\/camas-flooring\/og\.jpg/);
     assert.match(reviewHtml, /ma-qr/);
     assert.match(reviewHtml, /review\/settings/);
     assert.match(reviewHtml, /aria-label="Review settings"/);
@@ -454,6 +454,9 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     assert.match(ogHtml, /property="og:image"/);
     assert.match(ogHtml, /\/rv\/camas-flooring\/og\.jpg/);
     assert.match(ogHtml, /og:site_name" content="AdHello\.io"/);
+    // iMessage skips rich previews when the public page is noindex.
+    assert.match(ogHtml, /name="robots" content="index, follow, max-image-preview:large"/);
+    assert.doesNotMatch(ogHtml, /name="robots" content="noindex"/);
     assert.match(ogHtml, /rv-initials/);
     assert.ok(!/\/rv\/camas-flooring\/logo\.png/.test(ogHtml));
 
@@ -494,8 +497,12 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     const ogImg = await fetch(`${base}/rv/camas-flooring/og.jpg`);
     assert.equal(ogImg.status, 200);
     assert.match(ogImg.headers.get('content-type') || '', /image\/jpeg/);
+    assert.ok(Number(ogImg.headers.get('content-length') || 0) > 1000);
     const ogBuf = Buffer.from(await ogImg.arrayBuffer());
     assert.ok(ogBuf.length > 1000);
+    // Baseline JPEG (SOF0) — progressive (SOF2) often fails in iMessage.
+    assert.ok(ogBuf.includes(Buffer.from([0xFF, 0xC0])));
+    assert.ok(!ogBuf.includes(Buffer.from([0xFF, 0xC2])));
 
     const reviewSend = await fetch(`${base}/m/${token}/review/send`, {
       method: 'POST',
