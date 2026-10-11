@@ -1218,7 +1218,14 @@ function wantsJson(req) {
 
 router.post('/m/:token/customers/jobs/:id/status', form, withMember(async (req, res, ctx) => {
   const back = safeReturn(ctx, req.body && req.body.back, `${ctx.base}/customers/jobs/${encodeURIComponent(req.params.id)}`);
-  const result = await work.setJobStatus(ctx.network.id, ctx.member.id, req.params.id, String((req.body && req.body.status) || ''));
+  const tz = memberTimeZone(req);
+  const result = await work.setJobStatus(
+    ctx.network.id,
+    ctx.member.id,
+    req.params.id,
+    String((req.body && req.body.status) || ''),
+    { today: work.todayIn(tz), timeZone: tz },
+  );
   if (wantsJson(req)) {
     if (!result.ok) {
       return res.status(result.error === 'Job not found.' ? 404 : 400).json({ ok: false, error: result.error || 'Could not update status.' });
@@ -1227,6 +1234,7 @@ router.post('/m/:token/customers/jobs/:id/status', form, withMember(async (req, 
       ok: true,
       status: result.job.status,
       statusLabel: work.JOB_STATUS_LABELS[result.job.status] || result.job.status,
+      date: result.job.date || '',
     });
   }
   if (!result.ok) {

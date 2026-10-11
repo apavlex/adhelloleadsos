@@ -478,10 +478,20 @@ async function updateJobPhotoCaption(networkId, memberId, jobId, photoId, captio
   return { ok: true, job: saved, caption: nextCaption };
 }
 
-async function setJobStatus(networkId, memberId, id, status) {
+/**
+ * Quick status change from the job chips / pending advance button.
+ * Scheduling without a date defaults to today so the chip works like the others
+ * (full job form still requires an explicit date when saving as Scheduled).
+ */
+async function setJobStatus(networkId, memberId, id, status, opts = {}) {
   const job = await getJob(networkId, memberId, id);
   if (!job) return { ok: false, error: 'Job not found.' };
-  return saveJob(networkId, memberId, { ...job, status }, { id: job.id });
+  const next = { ...job, status };
+  if (String(status) === 'scheduled' && !next.date) {
+    const today = cleanDate(opts.today) || todayIn(opts.timeZone || 'UTC');
+    if (today) next.date = today;
+  }
+  return saveJob(networkId, memberId, next, { id: job.id });
 }
 
 async function deleteJob(networkId, memberId, id) {

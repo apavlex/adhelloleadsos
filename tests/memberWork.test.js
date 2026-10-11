@@ -108,10 +108,19 @@ test('jobs: validation, status pipeline, completedAt and delete cascade', async 
   assert.equal(reopened.job.completedAt, '');
   assert.equal((await work.setJobStatus(NET, MEM_A, job.id, 'nope')).ok, false);
 
+  // Status chip: Scheduled without a date should still work (defaults to today).
+  const undated = await work.saveJob(NET, MEM_A, { ...base, title: 'Site visit', status: 'completed' });
+  assert.equal(undated.ok, true);
+  assert.equal(undated.job.date, '');
+  const scheduled = await work.setJobStatus(NET, MEM_A, undated.job.id, 'scheduled', { today: '2026-10-11' });
+  assert.equal(scheduled.ok, true);
+  assert.equal(scheduled.job.status, 'scheduled');
+  assert.equal(scheduled.job.date, '2026-10-11');
+
   const second = await work.saveJob(NET, MEM_A, { ...base, title: 'Gutters', status: 'lead' });
   const removed = await work.deleteCustomer(NET, MEM_A, customer.id);
   assert.equal(removed.ok, true);
-  assert.equal(removed.removedJobs, 2);
+  assert.equal(removed.removedJobs, 3);
   assert.equal(await work.getJob(NET, MEM_A, second.job.id), null);
 });
 
