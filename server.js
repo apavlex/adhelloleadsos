@@ -213,6 +213,8 @@ require('./lib/guestEgress').install();
 app.use(require('./middleware/demoGuest'));
 app.use('/live-demo', require('./routes/liveDemo'));
 app.use('/', require('./routes/signup'));
+/** Public free member app (reviews / customers) — not a workspace trial. */
+app.use('/', require('./routes/freeApp'));
 require('./services/publicDemo').startCleanup();
 
 app.locals.renderSocialBrandLinks = (links) => socialBrandIcons.renderLinks(links);

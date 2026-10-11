@@ -18,7 +18,7 @@ describe('memberLeadRequests', () => {
     const dbService = require('../services/database');
     mock.method(dbService, 'getWorkspace', async () => ({ id: 'ws1', trial: { endsAt: '2099-01-01T00:00:00.000Z' } }));
     mock.method(trials, 'isRestricted', () => true);
-    assert.equal(await memberLeadRequests.planAllowsLeadRequests({ ownerWorkspaceId: 'ws1' }), false);
+    assert.equal(await memberLeadRequests.planAllowsLeadRequests({ ownerWorkspaceId: 'ws1' }, {}), false);
   });
 
   it('allows requests when the agency workspace plan is active', async () => {
@@ -26,7 +26,18 @@ describe('memberLeadRequests', () => {
     const dbService = require('../services/database');
     mock.method(dbService, 'getWorkspace', async () => ({ id: 'ws1', trial: { activatedAt: '2026-01-01T00:00:00.000Z' } }));
     mock.method(trials, 'isRestricted', () => false);
-    assert.equal(await memberLeadRequests.planAllowsLeadRequests({ ownerWorkspaceId: 'ws1' }), true);
+    assert.equal(await memberLeadRequests.planAllowsLeadRequests({ ownerWorkspaceId: 'ws1' }, {}), true);
+  });
+
+  it('denies lead requests for public free-app members', async () => {
+    const trials = require('../services/trials');
+    const dbService = require('../services/database');
+    mock.method(dbService, 'getWorkspace', async () => ({ id: 'ws1', trial: { activatedAt: '2026-01-01T00:00:00.000Z' } }));
+    mock.method(trials, 'isRestricted', () => false);
+    assert.equal(
+      await memberLeadRequests.planAllowsLeadRequests({ ownerWorkspaceId: 'ws1' }, { plan: 'app_free' }),
+      false,
+    );
   });
 
   it('cooldowns after a recent leadRequestAt', () => {
@@ -48,7 +59,8 @@ describe('memberLeadRequests', () => {
     assert.match(leads, /_lead_request_callout/);
     assert.match(callout, /Need more leads/);
     assert.match(callout, /Request leads/);
-    assert.match(callout, /monthly plan/);
+    assert.match(callout, /monthly workspace/);
+    assert.match(callout, /href="\/signup"/);
     assert.match(route, /leads\/request/);
     assert.match(route, /memberLeadRequests\.requestMoreLeads/);
     assert.match(css, /\.ma-leadask/);
