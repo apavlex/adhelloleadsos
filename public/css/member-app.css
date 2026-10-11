@@ -453,6 +453,10 @@ summary.ma-settings-row:active {
 .ma-list + .ma-list__label { margin-top: 14px; }
 .ma-list__label { margin: 6px 4px 6px; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .ma-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; min-height: 60px; text-decoration: none; color: inherit; position: relative; }
+/* Class display:flex would otherwise beat the UA [hidden] rule and leave filtered rows visible. */
+.ma-row[hidden],
+.ma-list[hidden],
+.ma-empty[hidden] { display: none !important; }
 .ma-list > .ma-row + .ma-row::before { content: ""; position: absolute; top: 0; left: 64px; right: 0; border-top: 1px solid var(--line); }
 a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent); }
 .ma-row__avatar, .ma-row__date {

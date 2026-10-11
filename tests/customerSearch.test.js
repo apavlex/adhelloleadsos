@@ -88,5 +88,7 @@ describe('customerSearch', () => {
     assert.match(app, /data-ma-customer-list-search/);
     assert.match(app, /scoreCustomer/);
     assert.match(route, /live client search/);
+    const css = fs.readFileSync(path.join(__dirname, '../public/css/member-app.css'), 'utf8');
+    assert.match(css, /\.ma-row\[hidden\]/);
   });
 });
