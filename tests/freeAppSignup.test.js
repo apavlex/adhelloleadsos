@@ -147,7 +147,7 @@ describe('freeAppSignup', () => {
       assert.match(html, /Get the reviews app/);
       assert.match(html, /action="\/app"/);
       assert.match(html, /Text me the reviews app/);
-      assert.match(html, /\.fa-btn[^}]*margin-top:\s*2\.25rem/);
+      assert.match(html, /\.fa-btn[^}]*margin-top:\s*2\.75rem/);
 
       const post = await fetch(`${base}/app`, {
         method: 'POST',
@@ -176,7 +176,7 @@ describe('freeAppSignup', () => {
     assert.match(route, /router\.(get|post)\('\/app'/);
     assert.match(view, /Get the reviews app/);
     assert.match(view, /Text me the reviews app/);
-    assert.match(view, /\.fa-btn[^}]*margin-top:\s*2\.25rem/);
+    assert.match(view, /\.fa-btn[^}]*margin-top:\s*2\.75rem/);
     assert.match(callout, /href="\/signup"/);
   });
 });
