@@ -181,6 +181,8 @@ function normalizeMember(raw) {
     profilePhotoUpdatedAt: cleanText(m.profilePhotoUpdatedAt, 40),
     /** Last time this member requested more leads from the agency (cooldown). */
     leadRequestAt: cleanText(m.leadRequestAt, 40),
+    /** Opaque short code for /a/:code SMS links (see memberShortLinks). */
+    portalCode: cleanText(m.portalCode, 16).toLowerCase(),
     invitedByMemberId: cleanText(m.invitedByMemberId, 40),
     joinedAt: m.joinedAt || new Date().toISOString(),
     updatedAt: m.updatedAt || m.joinedAt || new Date().toISOString(),
