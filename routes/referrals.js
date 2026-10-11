@@ -118,6 +118,7 @@ router.get('/', async (req, res, next) => {
       const key = String(m.leadKey || '').trim();
       if (!key) continue;
       memberMetaByLeadKey.set(key, {
+        hasSeat: true,
         isAppFree: String(m.plan || '') === 'app_free',
         memberActive: String(m.status || '') === 'active',
         joinedWhen: referralNetwork.formatWhen(m.joinedAt),
@@ -129,6 +130,7 @@ router.get('/', async (req, res, next) => {
       const meta = memberMetaByLeadKey.get(card.key) || {};
       return {
         ...withCounts,
+        hasSeat: !!meta.hasSeat,
         isAppFree: !!meta.isAppFree,
         memberActive: !!meta.memberActive,
         joinedWhen: meta.joinedWhen || '',
@@ -136,6 +138,8 @@ router.get('/', async (req, res, next) => {
     });
     const hideFree = String(req.query.hideFree || '') === '1';
     const visiblePartners = hideFree ? partners.filter((p) => !p.isAppFree) : partners;
+    const freePartnerCount = partners.filter((p) => p.isAppFree).length;
+    const paidPartnerCount = partners.filter((p) => p.hasSeat && !p.isAppFree).length;
     res.render('referrals', {
       networkSetup: {
         trades: network ? tradesForNetwork(network).map((t) => ({ slug: t.slug, name: t.name })) : [],
@@ -147,7 +151,8 @@ router.get('/', async (req, res, next) => {
       query: q,
       focus,
       hideFree,
-      freePartnerCount: partners.filter((p) => p.isAppFree).length,
+      freePartnerCount,
+      paidPartnerCount,
       partners: visiblePartners,
       totals: referralNetwork.networkTotals(leadsForBoard),
       savedCount: leads.length,
