@@ -90,13 +90,18 @@ describe('member app install modal and tab bar', () => {
     assert.match(customer, /ma-tags-section/);
     assert.match(customer, /data-ma-tag-pick/);
     assert.match(customer, /name="tagName"/);
+    assert.match(customer, /ma-tags__chip/);
+    assert.match(customer, /ma-tags__suggest/);
     assert.match(customer, /tags\/add/);
     assert.match(customer, /tags\/remove/);
     assert.match(customer, /Search tags or create new/);
     // Tags section sits above Details.
     assert.ok(customer.indexOf('ma-tags-section') < customer.indexOf('<h2>Details</h2>'));
+    assert.match(head, /\.ma-tags__chip\{/);
+    assert.match(head, /border-radius:999px/);
     const memberJs = fs.readFileSync(path.join(root, 'public/js/member-app.js'), 'utf8');
     assert.match(memberJs, /function initTagPick/);
+    assert.match(memberJs, /filterSuggest/);
     assert.match(memberJs, /Create “/);
     const capture = fs.readFileSync(path.join(root, 'views/member_app/_photo_capture.ejs'), 'utf8');
     assert.match(capture, /data-ma-photo-pick="camera"/);
@@ -124,7 +129,7 @@ describe('member app install modal and tab bar', () => {
 
   it('service worker network-firsts versioned CSS so deploys are not stuck', () => {
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.469/);
+    assert.match(sw, /adhello-pwa-v1\.0\.471/);
     assert.match(sw, /searchParams\.has\('v'\)/);
     assert.match(sw, /versioned/);
   });
