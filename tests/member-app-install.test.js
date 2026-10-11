@@ -87,9 +87,12 @@ describe('member app install modal and tab bar', () => {
     assert.match(customer, /ma-label-link/);
     assert.doesNotMatch(customer, /maps\.apple\.com/);
     assert.match(customer, /ma-tags/);
+    assert.match(customer, /ma-tags-section/);
     assert.match(customer, /tags\/add/);
     assert.match(customer, /tags\/remove/);
     assert.match(customer, /Inactive tags stay hidden/);
+    // Tags section sits above Details.
+    assert.ok(customer.indexOf('ma-tags-section') < customer.indexOf('<h2>Details</h2>'));
     const capture = fs.readFileSync(path.join(root, 'views/member_app/_photo_capture.ejs'), 'utf8');
     assert.match(capture, /data-ma-photo-pick="camera"/);
     assert.match(capture, /data-ma-photo-pick="library"/);
@@ -116,7 +119,7 @@ describe('member app install modal and tab bar', () => {
 
   it('service worker network-firsts versioned CSS so deploys are not stuck', () => {
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.467/);
+    assert.match(sw, /adhello-pwa-v1\.0\.468/);
     assert.match(sw, /searchParams\.has\('v'\)/);
     assert.match(sw, /versioned/);
   });
