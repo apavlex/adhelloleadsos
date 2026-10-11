@@ -602,7 +602,8 @@ test('free app_free Home shows company name, yellow accent, and Your business he
   try {
     const html = await (await fetch(base)).text();
     assert.match(html, /Sunrise HVAC/);
-    assert.doesNotMatch(html, /Adhello Agency network/);
+    assert.match(html, /AdHello Reviews App/);
+    assert.doesNotMatch(html, /Adhello Agency network/i);
     assert.match(html, /--acc:\s*#FFDB3A/i);
     assert.match(html, /member-hero-your-business\.jpg/);
     assert.doesNotMatch(html, /\/m\/brand\/agency\/hero/);
