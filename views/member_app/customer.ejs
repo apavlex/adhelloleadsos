@@ -123,37 +123,48 @@
     <% const _available = typeof availableTags !== 'undefined' && Array.isArray(availableTags) ? availableTags : []; %>
     <section class="ma-section ma-tags-section">
       <div class="ma-section__head"><h2>Tags</h2></div>
-      <div class="ma-card ma-tags">
-        <p class="ma-hint" style="margin:0 0 12px">Active tags sync both ways with GHL CRM. Inactive tags stay hidden.</p>
+      <div class="ma-card ma-tags" data-ma-tag-pick>
+        <p class="ma-hint" style="margin:0 0 14px">Search an existing tag or create a new one. Active tags sync both ways with GHL CRM.</p>
+
         <div class="ma-tags__list" role="list">
           <% if (_applied.length) { %>
             <% _applied.forEach(function (t) { %>
-            <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/tags/remove" class="ma-tags__item" role="listitem">
-              <input type="hidden" name="tagKey" value="<%= t.key %>">
-              <button type="submit" class="ma-tag" style="--ma-tag:<%= t.color || 'var(--acc)' %>" aria-label="Remove <%= t.name %> tag">
-                <span><%= t.name %></span><span class="ma-tag__x" aria-hidden="true">×</span>
-              </button>
-            </form>
+            <div class="ma-tags__chip" role="listitem" style="--ma-tag:<%= t.color || 'var(--acc)' %>">
+              <span class="ma-tags__chip-name"><%= t.name %></span>
+              <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/tags/remove" class="ma-tags__chip-remove">
+                <input type="hidden" name="tagKey" value="<%= t.key %>">
+                <button type="submit" class="ma-tags__chip-x" aria-label="Remove <%= t.name %> tag">×</button>
+              </form>
+            </div>
             <% }); %>
           <% } else { %>
-            <p class="ma-hint" style="margin:0">No active tags on this customer yet.</p>
+            <p class="ma-hint ma-tags__empty" style="margin:0">No tags on this customer yet.</p>
           <% } %>
         </div>
-        <% if (_available.length) { %>
-        <details class="ma-tags__add">
-          <summary>Add tag</summary>
-          <div class="ma-tags__list ma-tags__list--add">
-            <% _available.forEach(function (t) { %>
-            <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/tags/add" class="ma-tags__item">
-              <input type="hidden" name="tagKey" value="<%= t.key %>">
-              <button type="submit" class="ma-tag ma-tag--add" style="--ma-tag:<%= t.color || 'var(--acc)' %>">+ <%= t.name %></button>
-            </form>
-            <% }); %>
+
+        <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/tags/add" class="ma-tags__search" autocomplete="off" data-ma-tag-form>
+          <label class="ma-label" for="cuTagSearch">Add tag</label>
+          <div class="ma-typeahead">
+            <input
+              id="cuTagSearch"
+              class="ma-input"
+              type="search"
+              name="tagName"
+              enterkeyhint="done"
+              maxlength="60"
+              placeholder="Search tags or create new…"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded="false"
+              aria-controls="cuTagList"
+              data-ma-tag-input
+            >
+            <input type="hidden" name="tagKey" value="" data-ma-tag-key>
+            <ul id="cuTagList" class="ma-typeahead__list" role="listbox" hidden data-ma-tag-list></ul>
           </div>
-        </details>
-        <% } else if (!_applied.length) { %>
-        <p class="ma-hint" style="margin:10px 0 0">No active tags in your workspace yet. Ask your agency to turn tags on under Manage tags.</p>
-        <% } %>
+          <button type="submit" class="ma-btn ma-btn--block ma-tags__submit">Add tag</button>
+        </form>
+        <script type="application/json" data-ma-tag-catalog><%- JSON.stringify(_available.map(function (t) { return { key: t.key, name: t.name, color: t.color || '' }; })) %></script>
       </div>
     </section>
     <% } %>

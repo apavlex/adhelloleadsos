@@ -1086,12 +1086,13 @@ router.post('/m/:token/customers/c/:id', form, withMember(async (req, res, ctx) 
 }));
 
 router.post('/m/:token/customers/c/:id/tags/add', form, withMember(async (req, res, ctx) => {
+  const body = req.body || {};
   const result = await memberCustomerGhl.setCustomerTag(
     ctx.network,
     ctx.member.id,
     req.params.id,
-    req.body && req.body.tagKey,
-    { add: true },
+    body.tagKey,
+    { add: true, tagName: body.tagName || body.q || body.tag },
   );
   if (!result.ok) {
     const data = await customerPageData(req, ctx, req.params.id);

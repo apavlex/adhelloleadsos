@@ -1004,9 +1004,165 @@
     form.setAttribute('data-ma-ready', '1');
   }
 
+  /** Typeahead: search existing tags or create a new one on customer profiles. */
+  function initTagPick(root) {
+    if (!root || root.getAttribute('data-ma-ready') === '1') return;
+    var form = root.querySelector('[data-ma-tag-form]');
+    var input = root.querySelector('[data-ma-tag-input]');
+    var keyInput = root.querySelector('[data-ma-tag-key]');
+    var list = root.querySelector('[data-ma-tag-list]');
+    var dataEl = root.querySelector('[data-ma-tag-catalog]');
+    if (!form || !input || !keyInput || !list || !dataEl) return;
+
+    var catalog = [];
+    try { catalog = JSON.parse(dataEl.textContent || '[]'); } catch (e) { catalog = []; }
+    if (!Array.isArray(catalog)) catalog = [];
+
+    var active = -1;
+    var shown = [];
+
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function closeList() {
+      list.hidden = true;
+      input.setAttribute('aria-expanded', 'false');
+      active = -1;
+    }
+
+    function openList() {
+      list.hidden = false;
+      input.setAttribute('aria-expanded', 'true');
+    }
+
+    function setActive(idx) {
+      active = idx;
+      var items = list.querySelectorAll('.ma-typeahead__item');
+      for (var i = 0; i < items.length; i++) {
+        items[i].classList.toggle('is-active', i === active);
+      }
+    }
+
+    function render(query) {
+      var q = String(query || '').trim();
+      var qLower = q.toLowerCase();
+      shown = catalog.filter(function (t) {
+        if (!qLower) return true;
+        return String(t.name || '').toLowerCase().indexOf(qLower) !== -1;
+      }).slice(0, 40);
+
+      var exact = shown.some(function (t) {
+        return String(t.name || '').toLowerCase() === qLower;
+      });
+
+      var html = '';
+      if (q && !exact) {
+        html += '<li class="ma-typeahead__item ma-typeahead__item--new" role="option" data-create="1" data-idx="0">' +
+          'Create “' + esc(q) + '”</li>';
+      }
+      shown.forEach(function (t, i) {
+        var idx = (q && !exact ? 1 : 0) + i;
+        html += '<li class="ma-typeahead__item" role="option" data-key="' + esc(t.key) + '" data-name="' + esc(t.name) + '" data-idx="' + idx + '">' +
+          esc(t.name) + '</li>';
+      });
+      if (!q && !shown.length) {
+        html += '<li class="ma-typeahead__empty" role="presentation">Type a name to create your first tag</li>';
+      } else if (q && !shown.length && exact) {
+        html += '<li class="ma-typeahead__empty" role="presentation">Already on this customer</li>';
+      } else if (q && !shown.length) {
+        // create row already added
+      } else if (!q && shown.length) {
+        html = '<li class="ma-typeahead__empty" role="presentation">Suggested tags</li>' + html;
+      }
+      list.innerHTML = html;
+      openList();
+      setActive(q && !exact ? 0 : -1);
+    }
+
+    function pickCreate() {
+      keyInput.value = '';
+      // tagName stays as the typed value
+    }
+
+    function pickExisting(el) {
+      if (!el) return;
+      keyInput.value = el.getAttribute('data-key') || '';
+      input.value = el.getAttribute('data-name') || input.value;
+    }
+
+    function chooseActive() {
+      var items = list.querySelectorAll('.ma-typeahead__item');
+      if (active < 0 || active >= items.length) {
+        // Submit typed name (create or match server-side)
+        keyInput.value = '';
+        return true;
+      }
+      var el = items[active];
+      if (el.getAttribute('data-create') === '1') pickCreate();
+      else pickExisting(el);
+      closeList();
+      return true;
+    }
+
+    input.addEventListener('focus', function () { render(input.value); });
+    input.addEventListener('input', function () {
+      keyInput.value = '';
+      render(input.value);
+    });
+    input.addEventListener('keydown', function (e) {
+      var items = list.querySelectorAll('.ma-typeahead__item');
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (list.hidden) render(input.value);
+        setActive(Math.min(active + 1, items.length - 1));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setActive(Math.max(active - 1, 0));
+      } else if (e.key === 'Enter') {
+        if (!list.hidden && items.length) {
+          e.preventDefault();
+          chooseActive();
+          form.requestSubmit();
+        } else {
+          keyInput.value = '';
+        }
+      } else if (e.key === 'Escape') {
+        closeList();
+      }
+    });
+    list.addEventListener('mousedown', function (e) {
+      var el = e.target.closest('.ma-typeahead__item');
+      if (!el) return;
+      e.preventDefault();
+      if (el.getAttribute('data-create') === '1') pickCreate();
+      else pickExisting(el);
+      closeList();
+      form.requestSubmit();
+    });
+    document.addEventListener('click', function (e) {
+      if (!root.contains(e.target)) closeList();
+    });
+    form.addEventListener('submit', function () {
+      // Prefer explicit key when an existing tag was chosen; otherwise send name for create/match.
+      if (keyInput.value) {
+        // keep tagName for display fallback on server, but key wins
+      } else {
+        keyInput.value = '';
+      }
+    });
+
+    root.setAttribute('data-ma-ready', '1');
+  }
+
   function bootCustomerPicks() {
     document.querySelectorAll('[data-ma-customer-pick]').forEach(initCustomerPick);
     document.querySelectorAll('[data-ma-customer-list-search]').forEach(initCustomerListSearch);
+    document.querySelectorAll('[data-ma-tag-pick]').forEach(initTagPick);
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', bootCustomerPicks);

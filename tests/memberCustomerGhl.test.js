@@ -174,15 +174,18 @@ describe('member customer GHL sync', () => {
     assert.deepEqual(add.customer.tags, [activeTag.key]);
     assert.deepEqual(added, ['VIP Client']);
 
-    // Inactive tag cannot be applied
-    const bad = await memberCustomerGhl.setCustomerTag(
+    // Inactive tags are reactivated when selected again.
+    const revived = await memberCustomerGhl.setCustomerTag(
       NET,
       MEM,
       created.customer.id,
       inactiveTag.key,
       { add: true },
     );
-    assert.equal(bad.ok, false);
+    assert.equal(revived.ok, true);
+    assert.ok(revived.customer.tags.includes(inactiveTag.key));
+    const inactiveRow = (await dbService.listTags(NET.ownerWorkspaceId)).find((t) => t.key === inactiveTag.key);
+    assert.equal(inactiveRow.isActive, true);
 
     const drop = await memberCustomerGhl.setCustomerTag(
       NET,
@@ -192,8 +195,40 @@ describe('member customer GHL sync', () => {
       { add: false },
     );
     assert.equal(drop.ok, true);
-    assert.deepEqual(drop.customer.tags, []);
-    assert.deepEqual(removed, ['VIP Client']);
+    assert.ok(!drop.customer.tags.includes(activeTag.key));
+    assert.ok(removed.includes('VIP Client'));
+
+    mock.restoreAll();
+  });
+
+  it('creates a new workspace tag by name and assigns it', async () => {
+    const created = await work.saveCustomer(NET.id, MEM, {
+      name: 'Newbie',
+      phone: '5035550555',
+      email: 'newbie@example.com',
+    }, { source: 'manual', ghlContactId: 'ghl_new_tag', tags: [] });
+
+    mock.method(workspaceIntegrations, 'getResolvedIntegrationEnv', async () => ({
+      GHL_API_KEY: 'test',
+      GHL_LOCATION_ID: 'loc1',
+    }));
+    mock.method(ghlClient, 'isConfigured', () => true);
+    mock.method(ghlClient, 'getContact', async () => ({ id: 'ghl_new_tag', tags: [] }));
+    mock.method(ghlClient, 'addTagsToContact', async () => ({}));
+    mock.method(ghlClient, 'removeTagsFromContact', async () => ({}));
+
+    const out = await memberCustomerGhl.setCustomerTag(
+      NET,
+      MEM,
+      created.customer.id,
+      '',
+      { add: true, tagName: '  Preferred Vendor  ' },
+    );
+    assert.equal(out.ok, true);
+    assert.equal(out.tag.name, 'Preferred Vendor');
+    assert.ok(out.customer.tags.includes(out.tag.key));
+    const catalog = await dbService.listTags(NET.ownerWorkspaceId);
+    assert.ok(catalog.some((t) => t.key === out.tag.key && t.isActive !== false));
 
     mock.restoreAll();
   });
