@@ -113,6 +113,7 @@ const OK_MESSAGES = {
   customers_synced: 'Customers synced with your CRM.',
   crm_sync_upgrade: 'CRM sync is on the monthly plan. Upgrade to activate it.',
   referrals_upgrade: 'Referrals are on the monthly plan. Upgrade to start getting referrals for your business.',
+  review_send_upgrade: 'Texting and emailing review requests needs a GHL CRM account on the monthly plan. Use Share or QR for free, or upgrade to send via GHL CRM.',
   leads_requested: 'Lead request sent — your agency was pinged that you’re ready for more work.',
 };
 
@@ -186,12 +187,16 @@ async function loadContext(token) {
   const member = await store.getMember(network.id, payload.memberId);
   if (!member) return null;
   const pathBase = `/m/${encodeURIComponent(token)}`;
+  const free = freeAppSignup.isAppFreeMember(member);
+  const memberHeroUrl = free && member.heroUpdatedAt
+    ? `${pathBase}/hero.jpg?v=${encodeURIComponent(member.heroUpdatedAt)}`
+    : '';
   const draft = {
     network,
     member,
     token,
     base: pathBase,
-    brand: networkBrand.brandView(network),
+    brand: networkBrand.brandView(network, member, { heroUrl: memberHeroUrl }),
     greetingName: firstName(member),
     profilePhotoUrl: profilePhotoUrl(pathBase, member),
     hasProfilePhoto: hasProfilePhoto(member),
@@ -593,6 +598,15 @@ router.get('/m/:token/avatar.png', withMember(async (req, res, ctx) => {
   return res.end(img.buffer);
 }));
 
+/** Per-member Home hero (free-app uploads). Paid networks still use /m/brand/:id/hero. */
+router.get('/m/:token/hero.jpg', withMember(async (req, res, ctx) => {
+  const img = await store.getMemberHero(ctx.network.id, ctx.member.id);
+  if (!img || !img.buffer) return res.status(404).end();
+  res.setHeader('Content-Type', img.contentType || 'image/jpeg');
+  res.setHeader('Cache-Control', 'private, max-age=86400');
+  return res.end(img.buffer);
+}));
+
 // ── Profile / settings ───────────────────────────────────────────────────────
 
 function renderProfile(req, res, ctx, flash, formValues, status) {
@@ -698,7 +712,7 @@ router.get('/m/:token', withMember(async (req, res, ctx) => {
     upcoming: work.upcoming(jobs, today, 2).map((j) => presentJob(j, customersById, ctx.base, today)),
     // Reviews → customers/work → referrals (network is tertiary).
     tiles: [
-      { key: 'reviews', label: 'Review visits', value: reviewStats.views || 0, href: `${ctx.base}/review?ask=1`, icon: 'review' },
+      { key: 'reviews', label: 'Review visits', value: reviewStats.views || 0, href: `${ctx.base}/review`, icon: 'review' },
       { key: 'customers', label: 'Customers', value: customers.length, href: `${ctx.base}/customers`, icon: 'customers' },
       { key: 'pending', label: 'Pending refs', value: stats.open, href: `${ctx.base}/referrals`, icon: 'pending' },
       { key: 'sent', label: 'Sent', value: stats.given, href: `${ctx.base}/referrals?view=sent`, icon: 'send' },
@@ -713,13 +727,38 @@ router.get('/m/:token', withMember(async (req, res, ctx) => {
   });
 }));
 
-/** Upload or clear the network Home banner (hero) image from the member app. */
+/**
+ * Upload or clear the Home banner (hero) image from the member app.
+ * Free-app members store a personal hero; paid network members update the shared brand hero.
+ */
 router.post('/m/:token/brand/hero', (req, res, next) => {
   const ct = String(req.headers['content-type'] || '');
   if (ct.includes('multipart/form-data')) return withReviewUpload('hero')(req, res, next);
   return form(req, res, next);
 }, withMember(async (req, res, ctx) => {
   const body = req.body || {};
+  const free = freeAppSignup.isAppFreeMember(ctx.member);
+
+  if (free) {
+    if (body.remove === '1' || body.remove === 'on') {
+      await store.deleteMemberHero(ctx.network.id, ctx.member.id);
+      await store.saveMember(ctx.network.id, { ...ctx.member, heroUpdatedAt: '' });
+      return res.redirect(303, `${ctx.base}?ok=hero_cleared`);
+    }
+    if (!req.file || !req.file.buffer) {
+      return res.redirect(303, `${ctx.base}?err=hero`);
+    }
+    try {
+      const prepared = await networkBrand.prepareImage('hero', req.file.buffer);
+      const stamp = await store.saveMemberHero(ctx.network.id, ctx.member.id, prepared);
+      await store.saveMember(ctx.network.id, { ...ctx.member, heroUpdatedAt: stamp });
+      return res.redirect(303, `${ctx.base}?ok=hero_saved`);
+    } catch (err) {
+      console.error('[member-app] member hero upload failed:', err.message);
+      return res.redirect(303, `${ctx.base}?err=hero`);
+    }
+  }
+
   const brand = { ...(ctx.network.brand || {}) };
   if (body.remove === '1' || body.remove === 'on') {
     await store.deleteBrandImage(ctx.network.id, 'hero');
@@ -937,6 +976,8 @@ function renderCustomerPage(res, ctx, { customer, jobs, today, formValues, flash
     flash: flash || null,
     today,
     reviewAskStatus: reviewAskStatus || null,
+    reviewSendLocked: freeAppSignup.isAppFreeMember(ctx.member),
+    upgradeHref: '/signup',
   }, status);
 }
 
@@ -1531,6 +1572,8 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
     shareSmsText,
     defaultSmsScript: reviewRequestScript.DEFAULT_SMS_SCRIPT,
     ghlWorkflowPrompt,
+    reviewSendLocked: freeAppSignup.isAppFreeMember(ctx.member),
+    upgradeHref: '/signup',
     flash: flash || flashFromQuery(req),
   }), status);
 }
@@ -1695,6 +1738,9 @@ router.post('/m/:token/review/logo', (req, res, next) => {
 
 /** Send a review request to a customer through the network workspace's GHL SMS/email. */
 router.post('/m/:token/review/send', withReviewUpload('shareImage'), withMember(async (req, res, ctx) => {
+  if (freeAppSignup.isAppFreeMember(ctx.member)) {
+    return res.redirect(303, `${ctx.base}/review?ok=review_send_upgrade`);
+  }
   const member = await ensureReviewSetup(ctx);
   const body = req.body || {};
   const rawAi = Array.isArray(body.useAi) ? body.useAi[body.useAi.length - 1] : body.useAi;

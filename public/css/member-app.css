@@ -976,6 +976,8 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
   margin-top: 4px;
 }
 .ma-install-actions .ma-btn { width: 100%; justify-content: center; }
+/* .ma-btn { display:flex } would otherwise override the HTML hidden attribute */
+.ma-install-actions .ma-btn[hidden] { display: none !important; }
 .ma-install-close-x {
   position: absolute;
   top: 10px;

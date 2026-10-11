@@ -69,8 +69,10 @@
     </div>
 
     <div class="ma-install-actions">
-      <button type="button" class="ma-btn" data-ma-install-copy>Copy link</button>
-      <button type="button" class="ma-btn ma-btn--soft" data-ma-install-share>Share link</button>
+      <% /* Copy/Share only when stuck inside the workspace shell — Safari/Chrome can Add to Home Screen directly. */ %>
+      <button type="button" class="ma-btn" data-ma-install-copy data-ma-install-workspace-only hidden>Copy link</button>
+      <button type="button" class="ma-btn ma-btn--soft" data-ma-install-share data-ma-install-workspace-only hidden>Share link</button>
+      <button type="button" class="ma-btn" data-ma-install-close data-ma-install-browser-done hidden>Got it</button>
       <button type="button" class="ma-btn ma-btn--ghost" data-ma-install-close>Not now</button>
     </div>
   </div>
