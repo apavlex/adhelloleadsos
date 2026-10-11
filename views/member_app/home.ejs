@@ -44,7 +44,7 @@
         <div class="ma-hero__row">
           <span class="ma-hero__badge"><% if (brand.logoUrl) { %><img src="<%= brand.logoUrl %>" alt=""><% } else { %><%- icons.building %><% } %></span>
           <div>
-            <p class="ma-hero__name"><%= brand.heroName || brand.appName %></p>
+            <p class="ma-hero__name"><%= brand.appName %></p>
             <p class="ma-hero__sub"><%= _appt ? 'Reviews · jobs · leads' : brand.subtitle %></p>
           </div>
         </div>
@@ -65,8 +65,9 @@
     </section>
 
     <section class="ma-tiles<%= _appt ? ' ma-tiles--6' : '' %>" aria-label="Reviews, customers, and network">
+      <% const _reviewHref = base + '/review'; %>
       <% if (_appt) { %>
-      <a class="ma-tile" href="<%= base %>/review?ask=1">
+      <a class="ma-tile" href="<%= _reviewHref %>">
         <span class="ma-tile__icon"><%- icons.review %></span>
         <p class="ma-tile__value"><%= _reviewViews %></p>
         <p class="ma-tile__label">Review visits</p>
@@ -109,7 +110,7 @@
 
     <section class="ma-section" style="margin-top:14px">
       <div class="ma-dash-actions">
-        <a class="ma-btn" href="<%= base %>/review?ask=1"><%- icons.review %> Request review</a>
+        <a class="ma-btn" href="<%= _reviewHref %>"><%- icons.review %> Request review</a>
         <a class="ma-btn ma-btn--soft" href="<%= base %>/customers/new"><%- icons.customers %> Add customer</a>
       </div>
     </section>
