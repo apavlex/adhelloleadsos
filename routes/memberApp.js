@@ -86,7 +86,7 @@ const OK_MESSAGES = {
   note: 'Note saved.',
   invited: 'Thanks! The network will review them and send their app link.',
   saved: 'Review links saved.',
-  script_saved: 'Review SMS script saved. AI will use it when you send via GHL.',
+  script_saved: 'Review SMS script saved. AI will use it when you send via GHL CRM.',
   share_image_saved: 'Link preview image saved. Messages will show this photo.',
   share_image_cleared: 'Custom preview image removed. The AdHello default will be used.',
   logo_saved: 'Review page logo saved. Customers will see it on your request page.',
@@ -96,8 +96,8 @@ const OK_MESSAGES = {
   profile_saved: 'Profile saved.',
   photo_saved: 'Profile photo saved. Your Home Screen icon updates next time you add the app (iPhone keeps the old icon until then).',
   photo_cleared: 'Profile photo removed.',
-  review_sms: 'Review request sent by text via Go High Level.',
-  review_email: 'Review request sent by email via Go High Level.',
+  review_sms: 'Review request sent by text via GHL CRM.',
+  review_email: 'Review request sent by email via GHL CRM.',
   customer: 'Customer saved.',
   customer_deleted: 'Customer deleted.',
   job: 'Job saved.',
@@ -943,7 +943,7 @@ router.post('/m/:token/customers/import', (req, res, next) => {
   const out = await memberCustomerCsv.importCustomers(ctx.network.id, ctx.member.id, parsed.rows, {
     pushToGhl: async (saved) => memberCustomerGhl.pushCustomersMissingGhl(ctx.network, ctx.member.id, saved, { limit: 100 }),
   });
-  const detail = `(${out.created} new, ${out.updated} updated${out.ghl && out.ghl.pushed ? `, ${out.ghl.pushed} synced to GHL` : ''})`;
+  const detail = `(${out.created} new, ${out.updated} updated${out.ghl && out.ghl.pushed ? `, ${out.ghl.pushed} synced to GHL CRM` : ''})`;
   return res.redirect(303, `${ctx.base}/customers?ok=customers_imported&detail=${encodeURIComponent(detail)}`);
 }));
 

@@ -40,9 +40,9 @@
       <div class="ma-fold__body">
         <form method="post" action="<%= base %>/review/send" enctype="multipart/form-data" class="ma-card ma-card--flush" autocomplete="off">
           <% if (!_msg.configured) { %>
-          <p class="ma-flash ma-flash--err">Go High Level isn’t connected on this workspace yet. Connect it in Workspace → Integrations (this app uses that same connection).</p>
+          <p class="ma-flash ma-flash--err">GHL CRM isn’t connected on this workspace yet. Connect it in Workspace → Integrations (this app uses that same connection).</p>
           <% } else if (!_msg.smsReady && !_msg.emailReady) { %>
-          <p class="ma-flash ma-flash--err">Your workspace GHL is connected, but SMS from number and outbound email still need to be set in Workspace → Integrations.</p>
+          <p class="ma-flash ma-flash--err">Your workspace GHL CRM is connected, but SMS from number and outbound email still need to be set in Workspace → Integrations.</p>
           <% } %>
           <% if (_needLinks) { %>
           <p class="ma-flash ma-flash--err">Add at least one review link in Settings before sending.</p>
@@ -90,7 +90,7 @@
             <script type="application/json" id="rvAskCustomerData"><%- JSON.stringify(_custPayload).replace(/</g, '\\u003c') %></script>
           </div>
           <% } else { %>
-          <p class="ma-hint" style="margin-top:0">No saved customers yet. <a href="<%= base %>/customers">Sync GHL or import a list</a> to pick from your contacts.</p>
+          <p class="ma-hint" style="margin-top:0">No saved customers yet. <a href="<%= base %>/customers">Sync from CRM or import a list</a> to pick from your contacts.</p>
           <% } %>
           <div class="ma-field" data-ma-ask-manual <%= _pickCust ? 'hidden' : '' %>>
             <label class="ma-label" for="rvAskName">Name <span class="ma-label__hint">(new person)</span></label>
@@ -110,8 +110,8 @@
             <label class="ma-label" for="rvAskChannel">Send by</label>
             <select id="rvAskChannel" name="channel" class="ma-input">
               <option value="auto" <%= _fv.channel === 'auto' ? 'selected' : '' %>>Text first, then email</option>
-              <option value="sms" <%= _fv.channel === 'sms' ? 'selected' : '' %> <%= _msg.smsReady ? '' : 'disabled' %>>Text (GHL SMS)</option>
-              <option value="email" <%= _fv.channel === 'email' ? 'selected' : '' %> <%= _msg.emailReady ? '' : 'disabled' %>>Email (GHL)</option>
+              <option value="sms" <%= _fv.channel === 'sms' ? 'selected' : '' %> <%= _msg.smsReady ? '' : 'disabled' %>>Text (GHL CRM SMS)</option>
+              <option value="email" <%= _fv.channel === 'email' ? 'selected' : '' %> <%= _msg.emailReady ? '' : 'disabled' %>>Email (GHL CRM)</option>
             </select>
           </div>
 
@@ -156,10 +156,10 @@
         </form>
         <% if (typeof ghlWorkflowPrompt !== 'undefined' && ghlWorkflowPrompt) { %>
         <div class="ma-card ma-card--flush" style="margin-top:10px">
-          <p class="ma-hint" style="margin-top:0">Paste into GHL Workflow AI to automate post-job review texts.</p>
+          <p class="ma-hint" style="margin-top:0">Paste into GHL CRM Workflow AI to automate post-job review texts.</p>
           <div class="ma-link-box">
             <code id="rvGhlPrompt" style="white-space:pre-wrap;font-size:12px;max-height:140px;overflow:auto"><%= ghlWorkflowPrompt %></code>
-            <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-ma-copy-from="rvGhlPrompt"><%- icons.copy %> Copy for GHL</button>
+            <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-ma-copy-from="rvGhlPrompt"><%- icons.copy %> Copy for GHL CRM</button>
           </div>
         </div>
         <% } %>

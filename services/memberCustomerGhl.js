@@ -1,5 +1,5 @@
 /**
- * Sync member-app customers with Go High Level contacts (owner workspace location).
+ * Sync member-app customers with GHL CRM contacts (owner workspace location).
  * Separate from CRM prospect lead sync — these are review/customer contacts only.
  */
 const ghlClient = require('./ghlClient');
@@ -48,7 +48,7 @@ async function pullCustomersFromGhl(network, memberId, { maxPages = 5 } = {}) {
   if (!ghlClient.isConfigured(integrationEnv)) {
     return {
       ok: false,
-      error: 'Go High Level isn’t connected. Ask your agency to connect GHL in Workspace → Integrations.',
+      error: 'GHL CRM isn’t connected. Ask your agency to connect GHL CRM in Workspace → Integrations.',
     };
   }
 
@@ -123,7 +123,7 @@ async function pullCustomersFromGhl(network, memberId, { maxPages = 5 } = {}) {
 async function pushCustomerToGhl(network, memberId, customer) {
   const integrationEnv = await integrationForNetwork(network);
   if (!ghlClient.isConfigured(integrationEnv)) {
-    return { ok: false, error: 'GHL is not configured.' };
+    return { ok: false, error: 'GHL CRM is not configured.' };
   }
   if (!customer || (!customer.phone && !customer.email)) {
     return { ok: false, error: 'Need a phone or email to sync with GHL.' };
@@ -169,7 +169,7 @@ async function pushCustomerToGhl(network, memberId, customer) {
 async function pushCustomersMissingGhl(network, memberId, customers, { limit = 100 } = {}) {
   const integrationEnv = await integrationForNetwork(network);
   if (!ghlClient.isConfigured(integrationEnv)) {
-    return { ok: false, error: 'GHL is not configured.', pushed: 0, failed: 0 };
+    return { ok: false, error: 'GHL CRM is not configured.', pushed: 0, failed: 0 };
   }
   const list = (Array.isArray(customers) ? customers : []).filter(
     (c) => c && !c.ghlContactId && (c.phone || c.email),
@@ -200,7 +200,7 @@ async function syncCustomersWithGhl(network, memberId, opts = {}) {
     ok: true,
     pull,
     push,
-    summary: `Synced ${pull.created + pull.updated} from GHL (${pull.created} new). Pushed ${push.pushed || 0} local customers.`,
+    summary: `Synced ${pull.created + pull.updated} from GHL CRM (${pull.created} new). Pushed ${push.pushed || 0} local customers.`,
   };
 }
 

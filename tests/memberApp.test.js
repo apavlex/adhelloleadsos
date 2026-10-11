@@ -387,11 +387,11 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     const reviewHtml = await reviewTab.text();
     assert.match(reviewHtml, /review\/send/);
     assert.match(reviewHtml, /Send review request/);
-    assert.match(reviewHtml, /Go High Level/);
+    assert.match(reviewHtml, /GHL CRM/);
     assert.match(reviewHtml, /\{\{review_link\}\}/);
     assert.match(reviewHtml, /SMS script/);
     assert.match(reviewHtml, /Use AI/);
-    assert.match(reviewHtml, /Copy for GHL/);
+    assert.match(reviewHtml, /Copy for GHL CRM/);
     assert.match(reviewHtml, /https:\/\/leads\.adhello\.io\/rv\/camas-flooring/);
     assert.match(reviewHtml, /AdHello\.io/);
     assert.match(reviewHtml, /Share from this phone/);
@@ -485,7 +485,7 @@ test('member app pages, manifest, send, enroll and the review page work end to e
       body: new URLSearchParams({ phone: '3605550199', name: 'Jamie', channel: 'sms' }),
     });
     assert.equal(reviewSend.status, 400);
-    assert.match(await reviewSend.text(), /Go High Level|Integrations|SMS from number/i);
+    assert.match(await reviewSend.text(), /GHL CRM|Integrations|SMS from number/i);
 
     const savedLinks = await fetch(`${base}/m/${token}/review`, {
       method: 'POST',

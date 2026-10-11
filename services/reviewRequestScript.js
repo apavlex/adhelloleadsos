@@ -238,18 +238,18 @@ Rules:
   };
 }
 
-/** Prompt an agency can paste into GHL Workflow AI for automated post-job review SMS. */
+/** Prompt an agency can paste into GHL CRM Workflow AI for automated post-job review SMS. */
 function buildGhlReviewWorkflowPrompt({ companyName, reviewLink, smsScript }) {
   const company = String(companyName || 'the business').trim();
   const link = String(reviewLink || '').trim();
   const script = cleanScript(smsScript) || DEFAULT_SMS_SCRIPT;
   return [
-    `Build a Go High Level workflow that texts happy customers a review request for ${company}.`,
+    `Build a GHL CRM workflow that texts happy customers a review request for ${company}.`,
     '',
     'Trigger: when a job/opportunity is marked won/completed (or a “Request review” tag is applied).',
     'Action: Send SMS from this location’s SMS number.',
     '',
-    'SMS script (personalize {{contact.first_name}} in GHL; keep the review link exact):',
+    'SMS script (personalize {{contact.first_name}} in GHL CRM; keep the review link exact):',
     fillPlaceholders(script, {
       name: '{{contact.first_name}}',
       company,
