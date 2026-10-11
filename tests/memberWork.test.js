@@ -329,7 +329,7 @@ function post(url, body) {
   });
 }
 
-test('customers tab routes: top-bar enroll, CRUD, calendar, pending and referral conversion', async () => {
+test('customers tab routes: top-bar add customer, CRUD, calendar, pending and referral conversion', async () => {
   const network = await store.getOrCreateNetworkForWorkspace('ws_member_work', { name: 'Work network' });
   const a = await store.saveMember(network.id, { companyName: 'Camas Flooring', contactName: 'Pat', status: 'active', trades: ['flooring'] });
   const b = await store.saveMember(network.id, { companyName: 'Camas Electric', contactName: 'Sam', status: 'active', trades: ['electrical'] });
@@ -349,7 +349,8 @@ test('customers tab routes: top-bar enroll, CRUD, calendar, pending and referral
   const A = `${base}/m/${tokenA}`;
   try {
     const home = await (await fetch(A)).text();
-    assert.match(home, /class="ma-iconbtn[^"]*" href="\/m\/[^"]+\/enroll" aria-label="Invite a business/);
+    assert.match(home, /class="ma-iconbtn[^"]*" href="\/m\/[^"]+\/customers\/new" aria-label="Add a customer"/);
+    assert.doesNotMatch(home, /href="\/m\/[^"]+\/enroll" aria-label="Invite a business/);
     assert.match(home, /href="\/m\/[^"]+\/customers"[^>]*>[\s\S]*?<span>Customers<\/span>/);
     assert.doesNotMatch(home, /<span>Enroll<\/span>/);
 
@@ -489,7 +490,8 @@ test('customers tab routes: top-bar enroll, CRUD, calendar, pending and referral
 
     const enroll = await (await fetch(`${A}/enroll`)).text();
     assert.match(enroll, /Invite a business/);
-    assert.match(enroll, /class="ma-iconbtn is-on"/);
+    assert.match(enroll, /href="\/m\/[^"]+\/customers\/new" aria-label="Add a customer"/);
+    assert.doesNotMatch(enroll, /href="\/m\/[^"]+\/enroll" aria-label="Invite a business/);
   } finally {
     server.close();
   }

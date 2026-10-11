@@ -56,9 +56,14 @@ describe('member app install modal and tab bar', () => {
   it('settings profile exposes Install open control (not the top bar)', () => {
     const top = fs.readFileSync(path.join(root, 'views/member_app/_top.ejs'), 'utf8');
     assert.doesNotMatch(top, /data-ma-install-open/);
+    assert.match(top, /customers\/new/);
+    assert.match(top, /Add a customer/);
+    assert.doesNotMatch(top, /\/enroll/);
+    assert.doesNotMatch(top, /Invite a business/);
     const profile = fs.readFileSync(path.join(root, 'views/member_app/profile.ejs'), 'utf8');
     assert.match(profile, /data-ma-install-open/);
     assert.match(profile, /Save as a phone app/);
+    assert.match(profile, /Invite a business/);
   });
 
   it('settings row icons stay compact', () => {
