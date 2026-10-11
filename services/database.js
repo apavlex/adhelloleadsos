@@ -1283,7 +1283,8 @@ module.exports = {
     const wid = workspaceId || 'default';
     const label = String(name || '').trim();
     if (!label) throw new Error('Tag name is required.');
-    const key = `tag:${wid}:${Date.now()}`;
+    // Include random suffix — Date.now() alone can collide when creating tags in a tight loop.
+    const key = `tag:${wid}:${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
     const tag = {
       name: label,
       color: normalizeTagColor(color, TAG_COLOR_PALETTE[Math.floor(Math.random() * TAG_COLOR_PALETTE.length)]),

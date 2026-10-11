@@ -576,6 +576,30 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
 .ma-label-row .ma-label { margin-bottom: 0; }
 .ma-label-link { font-size: 12px; font-weight: 700; color: var(--acc); text-decoration: none; white-space: nowrap; }
 .ma-label-link:hover { text-decoration: underline; }
+
+/* Customer tags (GHL 2-way; active catalog only) */
+.ma-tags__list { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ma-tags__list--add { margin-top: 10px; }
+.ma-tags__item { margin: 0; }
+.ma-tag {
+  --ma-tag: var(--acc);
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid color-mix(in srgb, var(--ma-tag) 45%, transparent);
+  background: color-mix(in srgb, var(--ma-tag) 16%, var(--card));
+  color: var(--ink); font: inherit; font-size: 12px; font-weight: 800;
+  border-radius: 999px; padding: 7px 11px; cursor: pointer;
+}
+.ma-tag__x { font-size: 15px; line-height: 1; opacity: 0.65; font-weight: 700; }
+.ma-tag:hover .ma-tag__x { opacity: 1; }
+.ma-tag--add { background: transparent; color: var(--muted); border-style: dashed; font-weight: 750; }
+.ma-tag--add:hover { color: var(--ink); border-color: color-mix(in srgb, var(--ma-tag) 70%, transparent); }
+.ma-tags__add { margin-top: 12px; }
+.ma-tags__add > summary {
+  list-style: none; cursor: pointer; font-size: 12px; font-weight: 800;
+  color: var(--acc); user-select: none;
+}
+.ma-tags__add > summary::-webkit-details-marker { display: none; }
+.ma-tags__add[open] > summary { margin-bottom: 2px; }
 .ma-input, .ma-select, .ma-textarea {
   width: 100%; font: inherit; font-size: 16px; color: var(--ink); background: var(--card);
   border: 1px solid color-mix(in srgb, var(--muted) 35%, transparent); border-radius: 14px; padding: 12px 14px; outline: none;
