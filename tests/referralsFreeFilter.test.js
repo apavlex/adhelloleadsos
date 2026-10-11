@@ -16,6 +16,11 @@ test('Referral Partners marks free accounts and supports hide-free filter', () =
   assert.match(route, /paidPartnerCount/);
   assert.match(route, /hasSeat/);
   assert.match(route, /partners\.filter\(\(p\) => !p\.isAppFree\)/);
+  // Free/Paid UI is agency owner/admin only — not referral/vertical workspaces.
+  assert.match(route, /isAgencySalesWorkspace/);
+  assert.match(route, /showFreePaidUi/);
+  assert.match(route, /canManageWorkspace === true/);
+  assert.match(view, /showFreePaid/);
 
   assert.match(view, /ref-pill-free/);
   assert.match(view, /Free account/);
@@ -26,6 +31,8 @@ test('Referral Partners marks free accounts and supports hide-free filter', () =
   assert.match(view, /data-ref-free/);
   assert.match(view, /data-ref-total="free"/);
   assert.match(view, /data-ref-total="paid"/);
+  assert.match(view, /showFreePaid && partner\.isAppFree/);
+  assert.match(view, /if \(showFreePaid\)/);
   assert.match(view, /Joined/);
   assert.match(view, /joinedWhen|data-ref-joined/);
   assert.match(view, /data-ref-place|partner\.zip/);
