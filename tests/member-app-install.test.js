@@ -137,7 +137,7 @@ describe('member app install modal and tab bar', () => {
 
   it('service worker network-firsts versioned CSS so deploys are not stuck', () => {
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.472/);
+    assert.match(sw, /adhello-pwa-v1\.0\.473/);
     assert.match(sw, /searchParams\.has\('v'\)/);
     assert.match(sw, /versioned/);
   });
@@ -186,8 +186,15 @@ describe('member app install modal and tab bar', () => {
     assert.match(job, /data-ma-job-status-pill/);
     const customers = fs.readFileSync(path.join(root, 'views/member_app/customers.ejs'), 'utf8');
     assert.match(customers, /data-ma-status-advance/);
+    assert.match(customers, /hideStatus:\s*!!j\.next/);
+    assert.match(customers, /Mark <%= j\.nextLabel\.toLowerCase\(\)/);
+    const jobRow = fs.readFileSync(path.join(root, 'views/member_app/_job_row.ejs'), 'utf8');
+    assert.match(jobRow, /ma-row--readable/);
+    assert.match(jobRow, /hideStatus/);
     const css = fs.readFileSync(path.join(root, 'public/css/member-app.css'), 'utf8');
     assert.match(css, /\.ma-steps\.is-saving/);
+    assert.match(css, /\.ma-row--readable/);
+    assert.match(css, /\.ma-row__quick\s*\{[^}]*padding:\s*0 14px 14px/s);
     const workSrc = fs.readFileSync(path.join(root, 'services/memberWork.js'), 'utf8');
     assert.match(workSrc, /Scheduling without a date defaults to today/);
   });
