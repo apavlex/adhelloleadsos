@@ -1,0 +1,12 @@
+<%
+  const _ugTitle = typeof upgradeTitle !== 'undefined' && upgradeTitle ? upgradeTitle : 'Upgrade to unlock';
+  const _ugBody = typeof upgradeBody !== 'undefined' && upgradeBody ? upgradeBody : '';
+  const _ugHref = typeof upgradeHref !== 'undefined' && upgradeHref ? upgradeHref : '/signup';
+  const _ugIcon = typeof upgradeIcon !== 'undefined' && upgradeIcon && icons[upgradeIcon] ? icons[upgradeIcon] : icons.referrals;
+%>
+<section class="ma-card ma-upgrade" aria-label="Upgrade">
+  <div class="ma-upgrade__icon" aria-hidden="true"><%- _ugIcon %></div>
+  <strong><%= _ugTitle %></strong>
+  <% if (_ugBody) { %><p><%= _ugBody %></p><% } %>
+  <a class="ma-btn ma-btn--block ma-upgrade__btn" href="<%= _ugHref %>">Upgrade to activate</a>
+</section>
