@@ -572,6 +572,10 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
 /* Forms */
 .ma-field { margin-bottom: 12px; }
 .ma-label { display: block; font-size: 12px; font-weight: 800; color: var(--muted); margin-bottom: 6px; }
+.ma-label-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.ma-label-row .ma-label { margin-bottom: 0; }
+.ma-label-link { font-size: 12px; font-weight: 700; color: var(--acc); text-decoration: none; white-space: nowrap; }
+.ma-label-link:hover { text-decoration: underline; }
 .ma-input, .ma-select, .ma-textarea {
   width: 100%; font: inherit; font-size: 16px; color: var(--ink); background: var(--card);
   border: 1px solid color-mix(in srgb, var(--muted) 35%, transparent); border-radius: 14px; padding: 12px 14px; outline: none;

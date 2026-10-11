@@ -83,6 +83,9 @@ describe('member app install modal and tab bar', () => {
     assert.match(customer, /_photo_capture/);
     assert.match(customer, /customers\/c\/.*\/photos/);
     assert.match(customer, /icons\.completed.*Save changes|Save changes/);
+    assert.match(customer, /googleMapsSearchUrl/);
+    assert.match(customer, /ma-label-link/);
+    assert.doesNotMatch(customer, /maps\.apple\.com/);
     const capture = fs.readFileSync(path.join(root, 'views/member_app/_photo_capture.ejs'), 'utf8');
     assert.match(capture, /data-ma-photo-pick="camera"/);
     assert.match(capture, /data-ma-photo-pick="library"/);
@@ -97,6 +100,8 @@ describe('member app install modal and tab bar', () => {
     assert.match(capture, /data-ma-photo-note-grip/);
     const job = fs.readFileSync(path.join(root, 'views/member_app/job.ejs'), 'utf8');
     assert.match(job, /_photo_capture/);
+    assert.match(job, /googleMapsSearchUrl/);
+    assert.doesNotMatch(job, /maps\.apple\.com/);
     const photoJs = fs.readFileSync(path.join(root, 'public/js/member-app.js'), 'utf8');
     assert.match(photoJs, /function initPhotoCapture/);
     assert.match(photoJs, /setAttribute\('capture'/);
@@ -107,7 +112,7 @@ describe('member app install modal and tab bar', () => {
 
   it('service worker network-firsts versioned CSS so deploys are not stuck', () => {
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.465/);
+    assert.match(sw, /adhello-pwa-v1\.0\.466/);
     assert.match(sw, /searchParams\.has\('v'\)/);
     assert.match(sw, /versioned/);
   });

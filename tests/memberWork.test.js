@@ -17,6 +17,18 @@ const NET = 'net1abc';
 const MEM_A = 'mema1';
 const MEM_B = 'memb2';
 
+test('googleMapsSearchUrl uses Google Maps with name + address for business profiles', () => {
+  assert.equal(work.googleMapsSearchUrl({}), '');
+  assert.equal(work.googleMapsSearchUrl({ name: '  ', address: '' }), '');
+  const named = work.googleMapsSearchUrl({ name: 'Alchemy Holdings Inc', address: '123 Main St, Portland OR' });
+  assert.match(named, /^https:\/\/www\.google\.com\/maps\/search\/\?api=1&query=/);
+  assert.match(named, /Alchemy%20Holdings%20Inc/);
+  assert.match(named, /123%20Main%20St/);
+  assert.doesNotMatch(named, /maps\.apple/);
+  const nameOnly = work.googleMapsSearchUrl({ name: 'Zippy Blinds' });
+  assert.match(nameOnly, /Zippy%20Blinds/);
+});
+
 test('customers: create, update, list and validate', async () => {
   const bad = await work.saveCustomer(NET, MEM_A, { name: '   ' });
   assert.equal(bad.ok, false);
@@ -384,6 +396,8 @@ test('customers tab routes: top-bar enroll, CRUD, calendar, pending and referral
     assert.match(jobPage, /name="photo"/);
     assert.match(jobPage, /data-ma-status-steps/);
     assert.match(jobPage, /data-ma-job-status-pill/);
+    assert.match(jobPage, /https:\/\/www\.google\.com\/maps\/search\/\?api=1&amp;query=/);
+    assert.doesNotMatch(jobPage, /maps\.apple\.com/);
 
     const ask = await require('../services/reviewAsk').createAsk({
       networkId: network.id,
@@ -398,6 +412,10 @@ test('customers tab routes: top-bar enroll, CRUD, calendar, pending and referral
     const customerPage = await (await fetch(`${A}/customers/c/${customerId}`)).text();
     assert.match(customerPage, /ma-askstatus/);
     assert.match(customerPage, /Opened the review link/);
+    assert.match(customerPage, /https:\/\/www\.google\.com\/maps\/search\/\?api=1&amp;query=/);
+    assert.match(customerPage, /Morgan%20Diaz|Morgan Diaz/);
+    assert.match(customerPage, /ma-label-link[^>]*>Google Maps</);
+    assert.doesNotMatch(customerPage, /maps\.apple\.com/);
 
     const inlineCustomer = await post(`${A}/customers/jobs/new`, {
       customerId: 'new', newCustomerName: 'Quinn', title: 'Estimate', status: 'estimate',
