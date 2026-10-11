@@ -621,8 +621,9 @@
   });
 
   /**
-   * Request a review from this phone: share text + URL only so Messages shows
-   * one link preview (OG banner). Do not attach a separate image file.
+   * Request a review from this phone: Web Share with the banner image attached
+   * so Messages shows the photo; URL stays in the text (no separate url field
+   * when a file is present, to avoid a second OG preview). Falls back to SMS.
    */
   function requestReviewFromPhone(btn) {
     var payload = readRequestReviewPayload(btn);
@@ -648,17 +649,55 @@
       restore();
     }
 
-    if (navigator.share) {
-      navigator.share({ title: title, text: text, url: payload.url }).then(restore).catch(function (err) {
+    function shareWithFile(file) {
+      var data = { title: title, text: text };
+      if (file) data.files = [file];
+      else data.url = payload.url;
+      if (!navigator.share) {
+        openSms();
+        return;
+      }
+      if (file && navigator.canShare && !navigator.canShare({ files: [file] })) {
+        data = { title: title, text: text, url: payload.url };
+      }
+      navigator.share(data).then(restore).catch(function (err) {
         if (err && err.name === 'AbortError') {
           restore();
           return;
         }
         openSms();
       });
+    }
+
+    var imageUrl = payload.image || '';
+    if (!imageUrl || typeof fetch !== 'function' || typeof File === 'undefined') {
+      if (navigator.share) {
+        navigator.share({ title: title, text: text, url: payload.url }).then(restore).catch(function (err) {
+          if (err && err.name === 'AbortError') {
+            restore();
+            return;
+          }
+          openSms();
+        });
+      } else {
+        openSms();
+      }
       return;
     }
-    openSms();
+
+    fetch(imageUrl, { credentials: 'same-origin' })
+      .then(function (res) {
+        if (!res.ok) throw new Error('image ' + res.status);
+        return res.blob();
+      })
+      .then(function (blob) {
+        var type = blob.type || 'image/jpeg';
+        var name = type.indexOf('png') >= 0 ? 'review.png' : 'review.jpg';
+        shareWithFile(new File([blob], name, { type: type }));
+      })
+      .catch(function () {
+        shareWithFile(null);
+      });
   }
 
   function readRequestReviewPayload(btn) {
@@ -669,6 +708,7 @@
         url: btn.getAttribute('data-ma-share') || '',
         title: btn.getAttribute('data-ma-share-title') || '',
         text: btn.getAttribute('data-ma-share-text') || '',
+        image: btn.getAttribute('data-ma-share-image') || '',
       };
     }
     try {
