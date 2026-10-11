@@ -444,10 +444,12 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     assert.match(settingsHtml, /Thumbtack profile/);
     assert.match(settingsHtml, /Default preview image/);
     assert.match(settingsHtml, /Request page logo/);
-    assert.match(settingsHtml, /review\/logo/);
+    assert.match(settingsHtml, /Profile photo|Profile &amp; settings|Profile & settings/);
+    assert.match(settingsHtml, /\/rv\/camas-flooring\/avatar\.png/);
     assert.match(settingsHtml, /\/rv\/camas-flooring\/og\.jpg/);
     assert.match(settingsHtml, /name="next" value="settings"/);
 
+    // Profile photo (uploaded earlier) is the public request-page logo.
     const ogPage = await fetch(`${base}/rv/camas-flooring`);
     assert.equal(ogPage.status, 200);
     const ogHtml = await ogPage.text();
@@ -457,10 +459,14 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     // iMessage skips rich previews when the public page is noindex.
     assert.match(ogHtml, /name="robots" content="index, follow, max-image-preview:large"/);
     assert.doesNotMatch(ogHtml, /name="robots" content="noindex"/);
-    assert.match(ogHtml, /rv-initials/);
-    assert.ok(!/\/rv\/camas-flooring\/logo\.png/.test(ogHtml));
+    assert.match(ogHtml, /\/rv\/camas-flooring\/avatar\.png/);
+    assert.ok(!/rv-initials/.test(ogHtml));
 
-    // Tiny 1×1 PNG for logo upload
+    const publicAvatar = await fetch(`${base}/rv/camas-flooring/avatar.png`);
+    assert.equal(publicAvatar.status, 200);
+    assert.match(String(publicAvatar.headers.get('content-type') || ''), /image\//);
+
+    // Tiny 1×1 PNG for logo upload — used only when Profile photo is removed.
     const tinyPng = Buffer.from(
       'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
       'base64',
@@ -485,7 +491,10 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     assert.match(logoUpload.headers.get('location') || '', /review\/settings\?ok=logo_saved/);
     const withLogo = await store.getMember(network.id, sender.id);
     assert.ok(withLogo.reviewLogoUpdatedAt);
+    // Profile photo still wins over a custom request-page logo.
+    assert.match(await (await fetch(`${base}/rv/camas-flooring`)).text(), /\/rv\/camas-flooring\/avatar\.png/);
 
+    await store.saveMember(network.id, { ...withLogo, profilePhotoUpdatedAt: '' });
     const logoImg = await fetch(`${base}/rv/camas-flooring/logo.png`);
     assert.equal(logoImg.status, 200);
     assert.match(logoImg.headers.get('content-type') || '', /image\/png/);

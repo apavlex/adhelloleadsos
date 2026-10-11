@@ -156,6 +156,22 @@ router.get('/rv/:slug/logo.png', async (req, res) => {
   }
 });
 
+/** Profile photo for the public request page (same image as the member-app top bar). */
+router.get('/rv/:slug/avatar.png', async (req, res) => {
+  try {
+    const page = await loadPage(req.params.slug);
+    if (!page) return res.status(404).end();
+    const img = await store.getProfilePhoto(page.network.id, page.member.id);
+    if (!img || !img.buffer) return res.status(404).end();
+    res.setHeader('Content-Type', img.contentType || 'image/jpeg');
+    res.setHeader('Cache-Control', 'public, max-age=604800');
+    return res.end(img.buffer);
+  } catch (err) {
+    console.error('[review-page] avatar failed:', err.message);
+    return res.status(404).end();
+  }
+});
+
 router.get('/rv/:slug/qr.png', async (req, res) => {
   try {
     const page = await loadPage(req.params.slug);
