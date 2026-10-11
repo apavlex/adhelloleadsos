@@ -555,7 +555,7 @@ test('free app_free Home shows company name, yellow accent, and Your business he
   }
 });
 
-test('free app_free members see referrals and send upgrade gates', async () => {
+test('free app_free members see Join tab, benefits page, and referrals upgrade gates', async () => {
   const network = await store.getOrCreateNetworkForWorkspace('ws_member_refs_free', { name: 'Free refs network' });
   const member = await store.saveMember(network.id, {
     companyName: 'Free Refs Co',
@@ -575,6 +575,19 @@ test('free app_free members see referrals and send upgrade gates', async () => {
   });
   const base = `http://127.0.0.1:${server.address().port}/m/${token}`;
   try {
+    const home = await (await fetch(base)).text();
+    assert.match(home, /href="[^"]*\/join"[^>]*>[\s\S]*?<span>Join<\/span>/);
+    assert.doesNotMatch(home, /href="[^"]*\/send"[^>]*>[\s\S]*?<span>Send<\/span>/);
+
+    const join = await (await fetch(`${base}/join`)).text();
+    assert.equal((await fetch(`${base}/join`)).status, 200);
+    assert.match(join, /You’re on the free app|You.re on the free app/);
+    assert.match(join, /Monthly workspace/);
+    assert.match(join, /Send &amp; receive referrals|Send & receive referrals/);
+    assert.match(join, /Start your plan/);
+    assert.match(join, /href="\/signup"/);
+    assert.match(join, /ma-join-card/);
+
     const refs = await (await fetch(`${base}/referrals`)).text();
     assert.match(refs, /Start getting referrals/);
     assert.match(refs, /Upgrade to activate/);
@@ -582,11 +595,9 @@ test('free app_free members see referrals and send upgrade gates', async () => {
     assert.doesNotMatch(refs, /Claim this lead/);
     assert.doesNotMatch(refs, /Referral lists/);
 
-    const send = await (await fetch(`${base}/send`)).text();
-    assert.match(send, /Start getting referrals/);
-    assert.match(send, /Upgrade to activate/);
-    assert.doesNotMatch(send, /name="tradeSlug"/);
-    assert.doesNotMatch(send, /Send referral<\/button>/);
+    const sendRedirect = await fetch(`${base}/send`, { redirect: 'manual' });
+    assert.equal(sendRedirect.status, 303);
+    assert.match(sendRedirect.headers.get('location') || '', /\/join$/);
 
     const blockedSend = await fetch(`${base}/send`, {
       method: 'POST',
@@ -595,7 +606,7 @@ test('free app_free members see referrals and send upgrade gates', async () => {
       redirect: 'manual',
     });
     assert.equal(blockedSend.status, 303);
-    assert.match(blockedSend.headers.get('location') || '', /ok=referrals_upgrade/);
+    assert.match(blockedSend.headers.get('location') || '', /\/join$/);
 
     const blockedRef = await fetch(`${base}/referrals/fakeid`, {
       method: 'POST',

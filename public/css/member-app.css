@@ -845,6 +845,105 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
   line-height: 1.4;
 }
 .ma-upgrade__btn { margin-top: 8px; max-width: 260px; }
+
+/* Free members: Join tab (Audible-style plan / benefits) */
+.ma-join__eyebrow {
+  margin: 4px 0 0;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.ma-join__title { text-align: center; margin-top: 6px; }
+.ma-join__lead { text-align: center; max-width: 22rem; margin-left: auto; margin-right: auto; }
+.ma-join-card {
+  margin: 18px 0 12px;
+  padding: 18px 18px 20px;
+  border-radius: 22px;
+  border: 2px solid color-mix(in srgb, var(--acc) 55%, var(--line));
+  background:
+    linear-gradient(165deg, color-mix(in srgb, var(--acc) 12%, var(--card)) 0%, var(--card) 48%);
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--ink) 6%, transparent);
+}
+.ma-join-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.ma-join-card__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--acc) 45%, var(--line));
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--acc-ink);
+  background: color-mix(in srgb, var(--acc) 14%, transparent);
+}
+.ma-join-card__sel {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 2px solid var(--acc);
+  box-shadow: inset 0 0 0 4px var(--card);
+  background: var(--acc);
+  flex-shrink: 0;
+}
+.ma-join-card__name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+.ma-join-card__price {
+  margin: 6px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1.35;
+}
+.ma-join-benefits {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.ma-join-benefits li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--ink);
+}
+.ma-join-benefits li svg {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  margin-top: 1px;
+  color: var(--acc);
+}
+.ma-join-card__cta { margin-top: 18px; }
+.ma-join-card__cta svg { width: 18px; height: 18px; }
+.ma-join__footnote {
+  text-align: center;
+  margin: 8px 4px 0;
+  max-width: 22rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 .ma-leadask {
   display: flex;
   flex-wrap: wrap;

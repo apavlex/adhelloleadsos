@@ -10,7 +10,8 @@
  *   /m/:token/review/settings  review links + default preview image
  *   /m/:token/customers  customers, jobs and schedule
  *   /m/:token/referrals  received + sent referrals
- *   /m/:token/send       send a referral
+ *   /m/:token/send       send a referral (partners)
+ *   /m/:token/join       free-plan upgrade / benefits (replaces Send in the tab bar)
  *   /m/:token/leads      website/GHL form leads (when linked to an appointment package)
  *   /m/:token/packages   request / buy more appointments & lead credits
  *   /m/:token/enroll     invite a business to join
@@ -201,6 +202,7 @@ async function loadContext(token) {
     greetingName: firstName(member),
     profilePhotoUrl: profilePhotoUrl(pathBase, member),
     hasProfilePhoto: hasProfilePhoto(member),
+    isAppFree: free,
     appointment: null,
   };
   const icon = await resolveAppIconSource(draft);
@@ -838,16 +840,31 @@ router.post('/m/:token/referrals/:id', form, withMember(async (req, res, ctx) =>
   return res.redirect(303, back);
 }));
 
-// ── Send ─────────────────────────────────────────────────────────────────────
+// ── Join (free members) / Send (partners) ────────────────────────────────────
+
+async function renderJoin(req, res, ctx) {
+  if (!freeAppSignup.isAppFreeMember(ctx.member)) {
+    return res.redirect(303, `${ctx.base}/send`);
+  }
+  return render(res, 'join', ctx, {
+    upgradeHref: '/signup',
+    flash: flashFromQuery(req),
+  });
+}
+
+router.get('/m/:token/join', withMember((req, res, ctx) => renderJoin(req, res, ctx)));
 
 async function renderSend(req, res, ctx, flash, formValues, status) {
   const locked = freeAppSignup.isAppFreeMember(ctx.member);
-  const directory = locked ? [] : await directoryFor(ctx.network, ctx.member);
+  if (locked) {
+    return res.redirect(303, `${ctx.base}/join`);
+  }
+  const directory = await directoryFor(ctx.network, ctx.member);
   return render(res, 'send', ctx, {
     directory,
     flash: flash || flashFromQuery(req),
     formValues: formValues || {},
-    referralsLocked: locked,
+    referralsLocked: false,
     upgradeHref: '/signup',
   }, status);
 }
@@ -856,7 +873,7 @@ router.get('/m/:token/send', withMember((req, res, ctx) => renderSend(req, res, 
 
 router.post('/m/:token/send', form, withMember(async (req, res, ctx) => {
   if (freeAppSignup.isAppFreeMember(ctx.member)) {
-    return res.redirect(303, `${ctx.base}/send?ok=referrals_upgrade`);
+    return res.redirect(303, `${ctx.base}/join`);
   }
   const body = req.body || {};
   if (ctx.member.status !== 'active') {
