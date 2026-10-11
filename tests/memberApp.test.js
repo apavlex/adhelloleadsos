@@ -93,8 +93,9 @@ test('free-app brandView uses company name, yellow accent, and placeholder hero'
     companyName: 'Better Air Northwest',
   });
   assert.equal(free.appName, 'AdHello Reviews App');
-  assert.equal(free.heroName, 'Better Air Northwest');
+  assert.equal(free.heroName, 'AdHello Reviews App');
   assert.equal(free.companyName, 'Better Air Northwest');
+  assert.match(free.subtitle, /Better Air Northwest/);
   assert.equal(free.accent, '#FFDB3A');
   assert.equal(free.onAccent, '#0f172a');
   assert.equal(free.heroUrl, networkBrand.FREE_APP_HERO_URL);
@@ -102,10 +103,12 @@ test('free-app brandView uses company name, yellow accent, and placeholder hero'
   assert.equal(free.statValueLabel, '');
   assert.equal(free.isFreeApp, true);
   assert.doesNotMatch(free.appName, /agency/i);
+  assert.doesNotMatch(free.heroName, /agency/i);
 
   const noCompany = networkBrand.brandView(network, { plan: 'app_free', companyName: '' });
   assert.equal(noCompany.appName, 'AdHello Reviews App');
   assert.equal(noCompany.heroName, 'AdHello Reviews App');
+  assert.equal(noCompany.subtitle, 'Reviews, customers & network');
 
   const signupBrand = networkBrand.brandView(network, null, { freeApp: true });
   assert.equal(signupBrand.appName, 'AdHello Reviews App');

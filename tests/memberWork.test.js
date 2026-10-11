@@ -601,8 +601,8 @@ test('free app_free Home shows company name, yellow accent, and Your business he
   const base = `http://127.0.0.1:${server.address().port}/m/${token}`;
   try {
     const html = await (await fetch(base)).text();
-    assert.match(html, /Sunrise HVAC/);
     assert.match(html, /AdHello Reviews App/);
+    assert.match(html, /Sunrise HVAC/);
     assert.doesNotMatch(html, /Adhello Agency network/i);
     assert.match(html, /--acc:\s*#FFDB3A/i);
     assert.match(html, /member-hero-your-business\.jpg/);

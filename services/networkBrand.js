@@ -100,25 +100,28 @@ function brandView(network, member, opts = {}) {
   const brand = normalizeBrand(net.brand);
   const free = !!(opts.freeApp || (member && String(member.plan || '') === 'app_free'));
   const companyName = free && member ? cleanText(member.companyName, 60) : '';
-  // Free app product name is always AdHello Reviews App; hero card prefers the
-  // member’s signup company so Home never shows the host agency network name.
+  // Free app never inherits the host agency network name — product is Reviews App.
+  // Signup company stays on the hero subtitle so members still see their business.
   const appName = free
     ? FREE_APP_NAME
     : (brand.appName || cleanText(net.name, 60) || 'Partner network');
-  const heroName = free ? (companyName || FREE_APP_NAME) : appName;
+  const heroName = appName;
   const accent = free ? DEFAULT_ACCENT : brand.accent;
   let heroUrl = brand.heroUrl;
   if (free) {
     heroUrl = normalizeImageUrl(opts.heroUrl) || FREE_APP_HERO_URL;
   }
+  const freeSubtitle = companyName
+    ? `${companyName} · Reviews, customers & network`
+    : 'Reviews, customers & network';
   return {
     appName,
-    /** Home hero card title — signup company for free app, else appName. */
+    /** Home hero card title. */
     heroName: heroName || appName,
     companyName,
     shortName: appName.length <= 12 ? appName : appName.split(/\s+/)[0].slice(0, 12),
     tagline: brand.tagline || 'Every review builds your reputation.',
-    subtitle: free ? 'Reviews, customers & network' : (brand.subtitle || 'Reviews, customers & network'),
+    subtitle: free ? freeSubtitle : (brand.subtitle || 'Reviews, customers & network'),
     accent,
     onAccent: onAccentColor(accent),
     logoUrl: free ? '' : brand.logoUrl,
