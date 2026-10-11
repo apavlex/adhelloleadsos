@@ -57,25 +57,34 @@
       </section>
 
       <% if (customerCount) { %>
-      <form class="ma-search" method="get" action="<%= base %>/customers" role="search">
+      <form class="ma-search" method="get" action="<%= base %>/customers" role="search" data-ma-customer-list-search>
         <%- icons.search %>
-        <input class="ma-input" type="search" name="q" value="<%= q %>" placeholder="Search customers" aria-label="Search customers" autocomplete="off">
+        <input class="ma-input" type="search" name="q" value="<%= q %>" placeholder="Search by name or phone…" aria-label="Search customers" autocomplete="off" autocorrect="off" spellcheck="false">
       </form>
       <% } %>
       <% if (!rows.length) { %>
       <div class="ma-card ma-empty">
         <%- icons.people %>
-        <% if (q) { %>
-        <p>No customers match “<%= q %>”.</p>
-        <% } else { %>
         <p>No customers yet. Sync from GHL above, upload a list, or add one with the + button.</p>
-        <% } %>
         <a class="ma-btn ma-btn--block" href="<%= base %>/customers/new" style="margin-top:12px;max-width:220px"><%- icons.plus %> Add customer</a>
       </div>
       <% } else { %>
-      <div class="ma-list">
+      <div class="ma-card ma-empty" data-ma-customer-list-empty hidden>
+        <%- icons.people %>
+        <p data-ma-customer-list-empty-msg>No customers match.</p>
+      </div>
+      <div class="ma-list" data-ma-customer-list>
         <% rows.forEach(function (c) { %>
-        <a class="ma-row" href="<%= c.href %>">
+        <a
+          class="ma-row"
+          href="<%= c.href %>"
+          data-ma-customer-row
+          data-id="<%= c.id %>"
+          data-name="<%= c.name || '' %>"
+          data-phone="<%= c.phone || '' %>"
+          data-email="<%= c.email || '' %>"
+          data-address="<%= c.address || '' %>"
+        >
           <span class="ma-row__avatar"><%= c.name.charAt(0).toUpperCase() %></span>
           <span class="ma-row__body">
             <span class="ma-row__title"><%= c.name %></span>

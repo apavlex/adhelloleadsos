@@ -47,6 +47,11 @@
       else if (email.indexOf(q) !== -1) score = Math.max(score, 300);
     }
 
+    const address = norm(customer && customer.address);
+    if (address && address.indexOf(q) !== -1) {
+      score = Math.max(score, address.indexOf(q) === 0 ? 450 : 280);
+    }
+
     if (score > 0 && name) score += Math.max(0, 40 - Math.min(name.length, 40)) / 100;
     return score;
   }

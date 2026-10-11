@@ -827,10 +827,9 @@ async function renderCustomers(req, res, ctx, flash, status) {
   };
 
   if (view === 'list') {
+    // Full list is rendered; live client search filters as you type (same ranking as review ask).
     const q = String(req.query.q || '').trim().slice(0, 80);
-    const needle = q.toLowerCase();
     const rows = customers
-      .filter((c) => !needle || [c.name, c.phone, c.email, c.address].join(' ').toLowerCase().includes(needle))
       .map((c) => {
         const mine = jobs.filter((j) => j.customerId === c.id);
         const open = mine.filter(work.isOpen);
