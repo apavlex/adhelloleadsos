@@ -66,19 +66,22 @@ describe('customerSearch', () => {
     const css = fs.readFileSync(path.join(__dirname, '../public/css/member-app.css'), 'utf8');
 
     assert.match(review, /data-ma-customer-pick/);
+    assert.match(review, /Who should we ask/);
+    assert.match(review, /data-ma-ask-selected/);
+    assert.match(review, /data-ma-ask-manual/);
+    assert.match(review, /data-ma-ask-clear/);
+    assert.match(review, /Name.*new person/s);
     assert.match(review, /role="combobox"/);
-    assert.match(review, /Search by name or phone/);
+    assert.match(review, /Search customers or type a new name/);
     assert.match(review, /inputmode="search"/);
-    assert.match(review, /type="text"/);
-    assert.match(review, /Pick someone/);
     assert.match(tabbar, /member-customer-search\.js/);
     assert.match(app, /function initCustomerPick/);
     assert.match(app, /searchApi\.searchCustomers/);
-    assert.match(app, /is-picked/);
-    assert.match(app, /pickedLabel/);
+    assert.match(app, /data-ma-ask-selected/);
+    assert.match(app, /syncMode/);
     assert.match(css, /\.ma-typeahead__list/);
     assert.match(css, /\.ma-typeahead__item--new/);
-    assert.match(css, /\.ma-typeahead \.ma-input\.is-picked/);
+    assert.match(css, /\.ma-ask-selected/);
   });
 
   it('wires Customers list search to live client-side filtering', () => {
