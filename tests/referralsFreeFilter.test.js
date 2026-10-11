@@ -22,7 +22,17 @@ test('Referral Partners marks free accounts and supports hide-free filter', () =
   assert.match(view, /Hide free accounts/);
   assert.match(view, /name="hideFree"/);
   assert.match(view, /data-ref-free/);
+  assert.match(view, /Joined/);
+  assert.match(view, /joinedWhen|data-ref-joined/);
+  assert.match(route, /joinedWhen/);
+  assert.match(route, /formatWhen/);
   // Notes stay on the dashboard cards.
   assert.match(view, /Add a note on this lead/);
   assert.match(view, /data-ref-note-form/);
+});
+
+test('formatWhen renders a short joined date', () => {
+  const referralNetwork = require('../services/referralNetwork');
+  assert.match(referralNetwork.formatWhen('2026-10-11T15:39:00.000Z'), /Oct 11/);
+  assert.equal(referralNetwork.formatWhen(''), '');
 });
