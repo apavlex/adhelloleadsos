@@ -271,8 +271,9 @@
     function fillFields(c) {
       if (!c) return;
       if (name) name.value = c.name || '';
-      if (phone && !phone.disabled) phone.value = c.phone || '';
-      if (email && !email.disabled) email.value = c.email || '';
+      // Fill even when SMS/email inputs are disabled (GHL not ready) so the pick is visible.
+      if (phone) phone.value = c.phone || '';
+      if (email) email.value = c.email || '';
     }
 
     function clearPick() {
@@ -365,12 +366,15 @@
         closeList();
       }
     });
-    list.addEventListener('mousedown', function (e) {
+    function onPickEvent(e) {
       var el = e.target.closest('.ma-typeahead__item');
-      if (!el) return;
+      if (!el || !list.contains(el)) return;
       e.preventDefault();
+      e.stopPropagation();
       pickByEl(el);
-    });
+    }
+    list.addEventListener('mousedown', onPickEvent);
+    list.addEventListener('click', onPickEvent);
     document.addEventListener('click', function (e) {
       if (!root.contains(e.target)) closeList();
     });
