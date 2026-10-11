@@ -183,6 +183,8 @@ function normalizeMember(raw) {
     leadRequestAt: cleanText(m.leadRequestAt, 40),
     /** Opaque short code for /a/:code SMS links (see memberShortLinks). */
     portalCode: cleanText(m.portalCode, 16).toLowerCase(),
+    /** ISO stamp when a free-app member uploaded their own Home hero image. */
+    heroUpdatedAt: cleanText(m.heroUpdatedAt, 40),
     invitedByMemberId: cleanText(m.invitedByMemberId, 40),
     joinedAt: m.joinedAt || new Date().toISOString(),
     updatedAt: m.updatedAt || m.joinedAt || new Date().toISOString(),
@@ -411,6 +413,36 @@ async function deleteProfilePhoto(networkId, memberId) {
   await dbService.deleteStorageKey(profilePhotoKey(networkId, memberId));
 }
 
+// ── Member Home hero (per member — free app uploads) ─────────────────────────
+
+function memberHeroKey(networkId, memberId) {
+  return `netmemberhero:${networkId}:${memberId}`;
+}
+
+async function getMemberHero(networkId, memberId) {
+  const row = await readJson(memberHeroKey(networkId, memberId));
+  if (!row || !row.data) return null;
+  return {
+    contentType: String(row.contentType || 'image/jpeg'),
+    buffer: Buffer.from(String(row.data), 'base64'),
+    updatedAt: row.updatedAt || '',
+  };
+}
+
+async function saveMemberHero(networkId, memberId, { contentType, buffer }) {
+  const updatedAt = new Date().toISOString();
+  await dbService.putStorageKey(memberHeroKey(networkId, memberId), {
+    contentType: contentType || 'image/jpeg',
+    data: Buffer.from(buffer).toString('base64'),
+    updatedAt,
+  });
+  return updatedAt;
+}
+
+async function deleteMemberHero(networkId, memberId) {
+  await dbService.deleteStorageKey(memberHeroKey(networkId, memberId));
+}
+
 // ── Applications (member invites) ────────────────────────────────────────────
 
 const APPLICATION_STATUSES = new Set(['pending', 'approved', 'rejected']);
@@ -546,6 +578,9 @@ module.exports = {
   getProfilePhoto,
   saveProfilePhoto,
   deleteProfilePhoto,
+  getMemberHero,
+  saveMemberHero,
+  deleteMemberHero,
   listApplications,
   getApplication,
   saveApplication,

@@ -569,3 +569,44 @@ test('free app_free members see Sync from CRM greyed with upgrade only', async (
     await new Promise((r) => server.close(r));
   }
 });
+
+test('free app_free Home shows company name, yellow accent, and Your business hero', async () => {
+  const network = await store.getOrCreateNetworkForWorkspace('ws_member_home_free', {
+    name: 'Adhello Agency network',
+  });
+  await store.saveNetwork({
+    ...network,
+    brand: {
+      ...(network.brand || {}),
+      appName: 'Adhello Agency network',
+      accent: '#F26B1D',
+      heroUrl: '/m/brand/agency/hero?v=1',
+    },
+  });
+  const member = await store.saveMember(network.id, {
+    companyName: 'Sunrise HVAC',
+    contactName: 'Alex',
+    status: 'active',
+    plan: 'app_free',
+  });
+  const token = createMemberPortalToken({ networkId: network.id, memberId: member.id });
+  const app = express();
+  app.set('view engine', 'ejs');
+  app.set('views', path.join(__dirname, '..', 'views'));
+  app.locals.assetVersion = 'test';
+  app.use('/', memberApp);
+  const server = await new Promise((resolve) => {
+    const s = app.listen(0, () => resolve(s));
+  });
+  const base = `http://127.0.0.1:${server.address().port}/m/${token}`;
+  try {
+    const html = await (await fetch(base)).text();
+    assert.match(html, /Sunrise HVAC/);
+    assert.doesNotMatch(html, /Adhello Agency network/);
+    assert.match(html, /--acc:\s*#FFDB3A/i);
+    assert.match(html, /member-hero-your-business\.jpg/);
+    assert.doesNotMatch(html, /\/m\/brand\/agency\/hero/);
+  } finally {
+    await new Promise((r) => server.close(r));
+  }
+});

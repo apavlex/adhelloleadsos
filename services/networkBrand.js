@@ -3,7 +3,10 @@
  * accent color, logo / hero images and the headline stat on Home.
  */
 
-const DEFAULT_ACCENT = '#F26B1D';
+/** AdHello brand yellow — default member-app accent (not orange). */
+const DEFAULT_ACCENT = '#FFDB3A';
+/** Placeholder hero for free-app members until they upload their own van/photo. */
+const FREE_APP_HERO_URL = '/images/member-hero-your-business.jpg';
 const IMAGE_KINDS = new Set(['logo', 'hero']);
 
 function cleanText(value, max) {
@@ -78,25 +81,41 @@ function formatStat(value) {
   return Number(value).toLocaleString('en-US');
 }
 
-/** Everything a member-facing template needs, with sensible fallbacks. */
-function brandView(network) {
+/**
+ * Everything a member-facing template needs, with sensible fallbacks.
+ * Free-app members (`plan: app_free`) get AdHello yellow, their company name,
+ * and a “Your business image” hero until they upload their own.
+ *
+ * @param {object} network
+ * @param {object} [member]
+ * @param {{ heroUrl?: string }} [opts] member-scoped hero absolute path (with token)
+ */
+function brandView(network, member, opts = {}) {
   const net = network && typeof network === 'object' ? network : {};
   const brand = normalizeBrand(net.brand);
-  const appName = brand.appName || cleanText(net.name, 60) || 'Partner network';
+  const free = member && String(member.plan || '') === 'app_free';
+  const company = free ? cleanText(member.companyName, 60) : '';
+  const appName = company || brand.appName || cleanText(net.name, 60) || 'Partner network';
+  const accent = free ? DEFAULT_ACCENT : brand.accent;
+  let heroUrl = brand.heroUrl;
+  if (free) {
+    heroUrl = normalizeImageUrl(opts.heroUrl) || FREE_APP_HERO_URL;
+  }
   return {
     appName,
     shortName: appName.length <= 12 ? appName : appName.split(/\s+/)[0].slice(0, 12),
     tagline: brand.tagline || 'Every review builds your reputation.',
     subtitle: brand.subtitle || 'Reviews, customers & network',
-    accent: brand.accent,
-    onAccent: onAccentColor(brand.accent),
-    logoUrl: brand.logoUrl,
-    heroUrl: brand.heroUrl,
-    statValue: brand.statValue,
-    statValueLabel: formatStat(brand.statValue),
-    statLabel: brand.statLabel,
-    statSuffix: brand.statSuffix,
+    accent,
+    onAccent: onAccentColor(accent),
+    logoUrl: free ? '' : brand.logoUrl,
+    heroUrl,
+    statValue: free ? '' : brand.statValue,
+    statValueLabel: free ? '' : formatStat(brand.statValue),
+    statLabel: free ? '' : brand.statLabel,
+    statSuffix: free ? '' : brand.statSuffix,
     initials: initials(appName),
+    isFreeApp: !!free,
   };
 }
 
@@ -154,6 +173,7 @@ async function prepareImage(kind, buffer) {
 
 module.exports = {
   DEFAULT_ACCENT,
+  FREE_APP_HERO_URL,
   IMAGE_KINDS,
   normalizeBrand,
   normalizeHex,

@@ -1,7 +1,7 @@
 /* Member referral app (/m/:token) and public review page (/rv/:slug).
    --acc / --on are set per network in the page <head>. */
 :root {
-  --acc: #f26b1d;
+  --acc: #ffdb3a;
   --on: #ffffff;
   /* iOS system grouped background + label colors */
   --bg: #f2f2f7;

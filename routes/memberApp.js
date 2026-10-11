@@ -186,12 +186,16 @@ async function loadContext(token) {
   const member = await store.getMember(network.id, payload.memberId);
   if (!member) return null;
   const pathBase = `/m/${encodeURIComponent(token)}`;
+  const free = freeAppSignup.isAppFreeMember(member);
+  const memberHeroUrl = free && member.heroUpdatedAt
+    ? `${pathBase}/hero.jpg?v=${encodeURIComponent(member.heroUpdatedAt)}`
+    : '';
   const draft = {
     network,
     member,
     token,
     base: pathBase,
-    brand: networkBrand.brandView(network),
+    brand: networkBrand.brandView(network, member, { heroUrl: memberHeroUrl }),
     greetingName: firstName(member),
     profilePhotoUrl: profilePhotoUrl(pathBase, member),
     hasProfilePhoto: hasProfilePhoto(member),
@@ -593,6 +597,15 @@ router.get('/m/:token/avatar.png', withMember(async (req, res, ctx) => {
   return res.end(img.buffer);
 }));
 
+/** Per-member Home hero (free-app uploads). Paid networks still use /m/brand/:id/hero. */
+router.get('/m/:token/hero.jpg', withMember(async (req, res, ctx) => {
+  const img = await store.getMemberHero(ctx.network.id, ctx.member.id);
+  if (!img || !img.buffer) return res.status(404).end();
+  res.setHeader('Content-Type', img.contentType || 'image/jpeg');
+  res.setHeader('Cache-Control', 'private, max-age=86400');
+  return res.end(img.buffer);
+}));
+
 // ── Profile / settings ───────────────────────────────────────────────────────
 
 function renderProfile(req, res, ctx, flash, formValues, status) {
@@ -713,13 +726,38 @@ router.get('/m/:token', withMember(async (req, res, ctx) => {
   });
 }));
 
-/** Upload or clear the network Home banner (hero) image from the member app. */
+/**
+ * Upload or clear the Home banner (hero) image from the member app.
+ * Free-app members store a personal hero; paid network members update the shared brand hero.
+ */
 router.post('/m/:token/brand/hero', (req, res, next) => {
   const ct = String(req.headers['content-type'] || '');
   if (ct.includes('multipart/form-data')) return withReviewUpload('hero')(req, res, next);
   return form(req, res, next);
 }, withMember(async (req, res, ctx) => {
   const body = req.body || {};
+  const free = freeAppSignup.isAppFreeMember(ctx.member);
+
+  if (free) {
+    if (body.remove === '1' || body.remove === 'on') {
+      await store.deleteMemberHero(ctx.network.id, ctx.member.id);
+      await store.saveMember(ctx.network.id, { ...ctx.member, heroUpdatedAt: '' });
+      return res.redirect(303, `${ctx.base}?ok=hero_cleared`);
+    }
+    if (!req.file || !req.file.buffer) {
+      return res.redirect(303, `${ctx.base}?err=hero`);
+    }
+    try {
+      const prepared = await networkBrand.prepareImage('hero', req.file.buffer);
+      const stamp = await store.saveMemberHero(ctx.network.id, ctx.member.id, prepared);
+      await store.saveMember(ctx.network.id, { ...ctx.member, heroUpdatedAt: stamp });
+      return res.redirect(303, `${ctx.base}?ok=hero_saved`);
+    } catch (err) {
+      console.error('[member-app] member hero upload failed:', err.message);
+      return res.redirect(303, `${ctx.base}?err=hero`);
+    }
+  }
+
   const brand = { ...(ctx.network.brand || {}) };
   if (body.remove === '1' || body.remove === 'on') {
     await store.deleteBrandImage(ctx.network.id, 'hero');
