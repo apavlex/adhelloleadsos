@@ -416,9 +416,9 @@ test('customers tab routes: top-bar enroll, CRUD, calendar, pending and referral
     assert.match(customerPage, /Morgan%20Diaz|Morgan Diaz/);
     assert.match(customerPage, /ma-label-link[^>]*>Google Maps</);
     assert.doesNotMatch(customerPage, /maps\.apple\.com/);
-    assert.match(customerPage, /class="ma-tags"/);
-    assert.match(customerPage, /Tags/);
-    assert.match(customerPage, /customers\/c\/[^"]+\/tags\/add/);
+    assert.match(customerPage, /ma-tags/);
+    assert.match(customerPage, />Tags</);
+    assert.match(customerPage, /Inactive tags stay hidden/);
 
     const inlineCustomer = await post(`${A}/customers/jobs/new`, {
       customerId: 'new', newCustomerName: 'Quinn', title: 'Estimate', status: 'estimate',
