@@ -177,6 +177,8 @@ describe('freeAppSignup', () => {
     assert.match(view, /Get the reviews app/);
     assert.match(view, /Text me the reviews app/);
     assert.match(view, /\.fa-btn[^}]*margin-top:\s*2\.75rem/);
+    assert.match(view, /\.fa-foot[^}]*margin-top:\s*2rem/);
+    assert.match(view, /class="fa-foot"/);
     assert.match(callout, /href="\/signup"/);
   });
 });
