@@ -113,7 +113,6 @@ const OK_MESSAGES = {
   customers_synced: 'Customers synced with your CRM.',
   crm_sync_upgrade: 'CRM sync is on the monthly plan. Upgrade to activate it.',
   referrals_upgrade: 'Referrals are on the monthly plan. Upgrade to start getting referrals for your business.',
-  review_send_upgrade: 'Texting and emailing review requests needs a GHL CRM account on the monthly plan. Use Share or QR for free, or upgrade to send via GHL CRM.',
   leads_requested: 'Lead request sent — your agency was pinged that you’re ready for more work.',
 };
 
@@ -699,7 +698,7 @@ router.get('/m/:token', withMember(async (req, res, ctx) => {
     upcoming: work.upcoming(jobs, today, 2).map((j) => presentJob(j, customersById, ctx.base, today)),
     // Reviews → customers/work → referrals (network is tertiary).
     tiles: [
-      { key: 'reviews', label: 'Review visits', value: reviewStats.views || 0, href: `${ctx.base}/review`, icon: 'review' },
+      { key: 'reviews', label: 'Review visits', value: reviewStats.views || 0, href: `${ctx.base}/review?ask=1`, icon: 'review' },
       { key: 'customers', label: 'Customers', value: customers.length, href: `${ctx.base}/customers`, icon: 'customers' },
       { key: 'pending', label: 'Pending refs', value: stats.open, href: `${ctx.base}/referrals`, icon: 'pending' },
       { key: 'sent', label: 'Sent', value: stats.given, href: `${ctx.base}/referrals?view=sent`, icon: 'send' },
@@ -938,8 +937,6 @@ function renderCustomerPage(res, ctx, { customer, jobs, today, formValues, flash
     flash: flash || null,
     today,
     reviewAskStatus: reviewAskStatus || null,
-    reviewSendLocked: freeAppSignup.isAppFreeMember(ctx.member),
-    upgradeHref: '/signup',
   }, status);
 }
 
@@ -1032,9 +1029,6 @@ router.post('/m/:token/customers/c/:id/delete', form, withMember(async (req, res
 
 /** Request a review for this customer via GHL SMS/email. */
 router.post('/m/:token/customers/c/:id/request-review', form, withMember(async (req, res, ctx) => {
-  if (freeAppSignup.isAppFreeMember(ctx.member)) {
-    return res.redirect(303, `${ctx.base}/review?ok=review_send_upgrade`);
-  }
   const data = await customerPageData(req, ctx, req.params.id);
   if (!data) return res.redirect(303, `${ctx.base}/customers`);
   const member = await ensureReviewSetup(ctx);
@@ -1505,6 +1499,14 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
   };
   const reviewUrl = notify.reviewPageLink(member);
   const smsScript = reviewRequestScript.memberSmsScript(member);
+  const shareSmsText = reviewRequestScript.ensureReviewLink(
+    reviewRequestScript.fillPlaceholders(smsScript, {
+      name: defaults.name || 'there',
+      company: member.companyName,
+      reviewLink: reviewUrl,
+    }),
+    reviewUrl,
+  );
   const ghlWorkflowPrompt = reviewRequestScript.buildGhlReviewWorkflowPrompt({
     companyName: member.companyName,
     reviewLink: reviewUrl,
@@ -1526,10 +1528,9 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
     })),
     formValues: defaults,
     smsScript,
+    shareSmsText,
     defaultSmsScript: reviewRequestScript.DEFAULT_SMS_SCRIPT,
     ghlWorkflowPrompt,
-    reviewSendLocked: freeAppSignup.isAppFreeMember(ctx.member),
-    upgradeHref: '/signup',
     flash: flash || flashFromQuery(req),
   }), status);
 }
@@ -1694,9 +1695,6 @@ router.post('/m/:token/review/logo', (req, res, next) => {
 
 /** Send a review request to a customer through the network workspace's GHL SMS/email. */
 router.post('/m/:token/review/send', withReviewUpload('shareImage'), withMember(async (req, res, ctx) => {
-  if (freeAppSignup.isAppFreeMember(ctx.member)) {
-    return res.redirect(303, `${ctx.base}/review?ok=review_send_upgrade`);
-  }
   const member = await ensureReviewSetup(ctx);
   const body = req.body || {};
   const rawAi = Array.isArray(body.useAi) ? body.useAi[body.useAi.length - 1] : body.useAi;

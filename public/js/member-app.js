@@ -588,6 +588,13 @@
       return;
     }
 
+    var requestReviewBtn = event.target.closest('[data-ma-request-review]');
+    if (requestReviewBtn) {
+      event.preventDefault();
+      requestReviewFromPhone(requestReviewBtn);
+      return;
+    }
+
     var shareBtn = event.target.closest('[data-ma-share]');
     if (shareBtn) {
       var url = shareBtn.getAttribute('data-ma-share');
@@ -605,6 +612,104 @@
       }
     }
   });
+
+  /**
+   * Request a review from this phone: prefer Web Share with the preview image
+   * (so Messages can attach the banner), else open the native SMS composer.
+   */
+  function requestReviewFromPhone(btn) {
+    var payload = readRequestReviewPayload(btn);
+    if (!payload || !payload.url) return;
+    var title = payload.title || 'Leave a review';
+    var text = String(payload.text || '').trim();
+    if (!text) text = title + ': ' + payload.url;
+    if (text.indexOf(payload.url) === -1) text = text.replace(/\s*$/, '') + ' ' + payload.url;
+
+    var originalHtml = btn.innerHTML;
+    btn.disabled = true;
+
+    function restore() {
+      btn.disabled = false;
+      btn.innerHTML = originalHtml;
+    }
+
+    function openSms() {
+      var body = text;
+      var href = isIOS
+        ? 'sms:&body=' + encodeURIComponent(body)
+        : 'sms:?body=' + encodeURIComponent(body);
+      window.location.href = href;
+      restore();
+    }
+
+    function shareWithFile(file) {
+      var data = { title: title, text: text };
+      if (file) data.files = [file];
+      else data.url = payload.url;
+      if (!navigator.share) {
+        openSms();
+        return;
+      }
+      if (file && navigator.canShare && !navigator.canShare({ files: [file] })) {
+        data = { title: title, text: text, url: payload.url };
+      }
+      navigator.share(data).then(restore).catch(function (err) {
+        if (err && err.name === 'AbortError') {
+          restore();
+          return;
+        }
+        openSms();
+      });
+    }
+
+    var imageUrl = payload.image || '';
+    if (!imageUrl || typeof fetch !== 'function' || typeof File === 'undefined') {
+      if (navigator.share) {
+        navigator.share({ title: title, text: text, url: payload.url }).then(restore).catch(function (err) {
+          if (err && err.name === 'AbortError') {
+            restore();
+            return;
+          }
+          openSms();
+        });
+      } else {
+        openSms();
+      }
+      return;
+    }
+
+    fetch(imageUrl, { credentials: 'same-origin' })
+      .then(function (res) {
+        if (!res.ok) throw new Error('image ' + res.status);
+        return res.blob();
+      })
+      .then(function (blob) {
+        var type = blob.type || 'image/jpeg';
+        var name = type.indexOf('png') >= 0 ? 'review.png' : 'review.jpg';
+        shareWithFile(new File([blob], name, { type: type }));
+      })
+      .catch(function () {
+        shareWithFile(null);
+      });
+  }
+
+  function readRequestReviewPayload(btn) {
+    var id = btn.getAttribute('data-ma-request-review-payload') || 'maRequestReviewPayload';
+    var el = document.getElementById(id);
+    if (!el) {
+      return {
+        url: btn.getAttribute('data-ma-share') || '',
+        title: btn.getAttribute('data-ma-share-title') || '',
+        text: btn.getAttribute('data-ma-share-text') || '',
+        image: btn.getAttribute('data-ma-share-image') || '',
+      };
+    }
+    try {
+      return JSON.parse(el.textContent || '{}');
+    } catch (e) {
+      return null;
+    }
+  }
 
   /** Typeahead: search customers as you type (review ask form). */
   function initCustomerPick(root) {
