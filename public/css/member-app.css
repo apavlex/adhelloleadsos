@@ -1086,6 +1086,14 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
 
 /* Review tab */
 .ma-qr { display: flex; flex-direction: column; align-items: center; text-align: center; }
+.ma-qr__ask {
+  width: 100%;
+  min-height: 54px;
+  font-size: 16px;
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--acc) 28%, transparent);
+}
+.ma-qr__ask svg { width: 22px; height: 22px; }
+.ma-qr__ask-hint { margin: 8px 0 0; text-align: center; }
 .ma-qr img { width: 220px; height: 220px; border-radius: 16px; background: #fff; padding: 10px; border: 1px solid var(--line); }
 .ma-link-box { display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 14px; background: var(--bg); border-radius: 14px; padding: 6px 6px 6px 12px; }
 .ma-link-box code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }

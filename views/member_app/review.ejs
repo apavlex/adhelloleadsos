@@ -34,14 +34,16 @@
       <script type="application/json" id="maRequestReviewPayload"><%- JSON.stringify(_sharePayload).replace(/</g, '\\u003c') %></script>
       <button
         type="button"
-        class="ma-btn ma-btn--soft ma-btn--block"
+        class="ma-btn ma-btn--block ma-qr__ask"
         id="maAskReview"
         data-ma-request-review
         data-ma-request-review-payload="maRequestReviewPayload"
+        aria-label="Request a review — opens Messages"
       >
-        <%- icons.review %> Request a review
+        <%- icons.sms %> Request a review
       </button>
-      <img src="<%= reviewPath %>/qr.png" alt="QR code for your review page" width="220" height="220" style="margin-top:18px">
+      <p class="ma-hint ma-qr__ask-hint">Opens Messages with your review link</p>
+      <img src="<%= reviewPath %>/qr.png" alt="QR code for your review page" width="220" height="220" style="margin-top:14px">
       <div class="ma-link-box">
         <code id="rvLink"><%= reviewUrl %></code>
         <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-ma-copy="<%= reviewUrl %>"><%- icons.copy %> Copy</button>
