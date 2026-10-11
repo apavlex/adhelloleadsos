@@ -49,21 +49,34 @@
           <% } %>
           <% const _custs = typeof customers !== 'undefined' && Array.isArray(customers) ? customers : []; %>
           <% if (_custs.length) { %>
+          <%
+            const _pickCust = _custs.find(function (c) { return c.id === _fv.customerId; }) || null;
+            const _custPayload = _custs.map(function (c) {
+              return { id: c.id, name: c.name || '', phone: c.phone || '', email: c.email || '' };
+            });
+          %>
           <div class="ma-field">
             <label class="ma-label" for="rvAskCustomer">Pick a customer</label>
-            <select id="rvAskCustomer" name="customerId" class="ma-input">
-              <option value="">Type a new person below…</option>
-              <% _custs.forEach(function (c) { %>
-              <option
-                value="<%= c.id %>"
-                data-name="<%= c.name %>"
-                data-phone="<%= c.phone || '' %>"
-                data-email="<%= c.email || '' %>"
-                <%= _fv.customerId === c.id ? 'selected' : '' %>
-              ><%= c.name %><%= c.phone ? ' · ' + c.phone : (c.email ? ' · ' + c.email : '') %></option>
-              <% }); %>
-            </select>
-            <p class="ma-hint">Synced GHL contacts and imports appear here. <a href="<%= base %>/customers">Manage customers</a></p>
+            <div class="ma-typeahead" data-ma-customer-pick>
+              <input type="hidden" name="customerId" id="rvAskCustomerId" value="<%= _pickCust ? _pickCust.id : '' %>">
+              <input
+                id="rvAskCustomer"
+                type="search"
+                class="ma-input"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded="false"
+                aria-controls="rvAskCustomerList"
+                placeholder="Search by name or phone…"
+                autocomplete="off"
+                autocorrect="off"
+                spellcheck="false"
+                value="<%= _pickCust ? _pickCust.name : '' %>"
+              >
+              <ul id="rvAskCustomerList" class="ma-typeahead__list" role="listbox" hidden></ul>
+              <script type="application/json" id="rvAskCustomerData"><%- JSON.stringify(_custPayload).replace(/</g, '\\u003c') %></script>
+            </div>
+            <p class="ma-hint">Type to search your customers. Clear the field to enter someone new below. <a href="<%= base %>/customers">Manage customers</a></p>
           </div>
           <% } else { %>
           <p class="ma-hint" style="margin-top:0">No saved customers yet. <a href="<%= base %>/customers">Sync GHL or import a list</a> to pick from your contacts.</p>
@@ -181,19 +194,8 @@
   <%- include('_tabbar') %>
   <script>
   document.addEventListener('DOMContentLoaded', function () {
-    var pick = document.getElementById('rvAskCustomer');
     var name = document.getElementById('rvAskName');
     var phone = document.getElementById('rvAskPhone');
-    var email = document.getElementById('rvAskEmail');
-    if (pick) {
-      pick.addEventListener('change', function () {
-        var opt = pick.options[pick.selectedIndex];
-        if (!opt || !opt.value) return;
-        if (name) name.value = opt.getAttribute('data-name') || '';
-        if (phone && !phone.disabled) phone.value = opt.getAttribute('data-phone') || '';
-        if (email && !email.disabled) email.value = opt.getAttribute('data-email') || '';
-      });
-    }
     <% if (_askOpen) { %>
     var form = document.getElementById('maAskForm');
     if (form) form.scrollIntoView({ behavior: 'smooth', block: 'start' });
