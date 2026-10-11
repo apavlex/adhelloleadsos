@@ -14,17 +14,24 @@ router.get('/', async (req, res, next) => {
     const ws = req.workspace || {};
     const brand = whiteLabel.brandForWorkspace(ws);
     const app = await ensureOwnerReferralApp(req);
+    const businessName =
+      (brand.customName && String(brand.customName).trim()) ||
+      (ws.name && String(ws.name).trim()) ||
+      (app.member && app.member.companyName) ||
+      (app.network && app.network.name) ||
+      'your business';
     res.render('get_app', {
       title: `Get Referral app | Agency OS`,
       activePage: 'get-app',
       navPrimary: 'get-app',
       appName: brand.appName,
-      /** Absolute URL for Share + QR (installable member app). */
+      /** Absolute short URL for Share + QR (installable member app). */
       openUrl: app.url,
       /** In-app path so Open stays in the browser/PWA session. */
       openPath: app.path,
       openHost: app.url.replace(/^https?:\/\//, ''),
-      networkName: (app.network && app.network.name) || 'your network',
+      networkName: businessName,
+      businessName,
     });
   } catch (err) {
     next(err);

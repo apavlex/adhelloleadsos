@@ -36,6 +36,17 @@ describe('Get the app menu + Share', () => {
     const page = read('views/get_app.ejs');
     assert.match(page, /<button[\s\S]*?data-get-app-share/);
     assert.doesNotMatch(page, /<a\b[^>]*data-get-app-share/);
+    assert.match(page, /Workspace → White-label/);
+    assert.match(page, /businessName/);
+  });
+
+  it('Get the app route uses short share URL and workspace business name', () => {
+    const route = read('routes/getApp.js');
+    assert.match(route, /ensureOwnerReferralApp/);
+    assert.match(route, /businessName/);
+    assert.match(route, /brand\.customName/);
+    const owner = read('services/ownerReferralApp.js');
+    assert.match(owner, /memberPortalShortLink/);
   });
 
   it('sidebar Get the app links navigate to /get-app without share intercept', () => {

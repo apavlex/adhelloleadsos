@@ -26,10 +26,14 @@ describe('ownerReferralApp', () => {
     try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* ignore */ }
   });
 
-  it('creates a stable owner member and returns /m/ path + url', async () => {
+  it('creates a stable owner member with short share URL and /m/ open path', async () => {
     const req = {
       workspaceId: 'ws_owner_ref_1',
-      workspace: { id: 'ws_owner_ref_1', name: 'Bright Electric' },
+      workspace: {
+        id: 'ws_owner_ref_1',
+        name: 'Bright Electric',
+        whiteLabel: { appName: 'Bright Electric Co' },
+      },
       user: { displayName: 'Patrick', emails: [{ value: 'pat@example.com' }] },
       protocol: 'https',
       get: () => 'leads.adhello.io',
@@ -37,16 +41,19 @@ describe('ownerReferralApp', () => {
     const first = await ensureOwnerReferralApp(req);
     assert.equal(first.member.id, OWNER_MEMBER_ID);
     assert.match(first.path, /^\/m\/[^/]+$/);
-    assert.match(first.url, /\/m\/[^/]+$/);
-    assert.equal(first.member.companyName, 'Bright Electric');
+    assert.match(first.url, /\/a\/[a-z0-9]{8,12}$/);
+    assert.doesNotMatch(first.url, /\/m\/eyJ/);
+    assert.equal(first.member.companyName, 'Bright Electric Co');
 
     const second = await ensureOwnerReferralApp(req);
     assert.equal(second.member.id, first.member.id);
     assert.equal(second.network.id, first.network.id);
     assert.match(second.path, /^\/m\/[^/]+$/);
+    assert.match(second.url, /\/a\/[a-z0-9]{8,12}$/);
 
     const stored = await networkStore.getMember(first.network.id, OWNER_MEMBER_ID);
     assert.ok(stored);
-    assert.equal(stored.companyName, 'Bright Electric');
+    assert.equal(stored.companyName, 'Bright Electric Co');
+    assert.ok(stored.portalCode);
   });
 });
