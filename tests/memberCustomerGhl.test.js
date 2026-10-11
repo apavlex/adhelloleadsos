@@ -87,6 +87,19 @@ describe('member customer GHL sync', () => {
           tags: ['VIP Client', 'Old Lead'],
         },
         { id: 'ghl_b', name: 'Bob Homeowner', phone: '3605550222', email: '', tags: [] },
+        {
+          id: 'ghl_partner',
+          name: 'Camas Flooring Pros',
+          phone: '3605550333',
+          email: 'partner@example.com',
+          tags: ['Referral partner'],
+        },
+        {
+          id: 'ghl_gb_partner',
+          name: 'GB Network Biz',
+          phone: '3605550444',
+          tags: ['GB: Referral Network'],
+        },
       ],
       nextStartAfterId: null,
     }));
@@ -94,6 +107,7 @@ describe('member customer GHL sync', () => {
     const out = await memberCustomerGhl.pullCustomersFromGhl(NET, MEM, { maxPages: 1 });
     assert.equal(out.ok, true);
     assert.equal(out.created, 2);
+    assert.equal(out.skippedPartners, 2);
 
     const list = await work.listCustomers(NET.id, MEM);
     assert.equal(list.length, 2);
@@ -102,6 +116,43 @@ describe('member customer GHL sync', () => {
     assert.equal(ada.name, 'Ada Lovelace');
     assert.equal(ada.source, 'ghl');
     assert.deepEqual(ada.tags, [activeTag.key]);
+    assert.equal(ada.isReferralPartner, false);
+    assert.ok(!list.some((c) => c.ghlContactId === 'ghl_partner'));
+    assert.ok(!list.some((c) => c.ghlContactId === 'ghl_gb_partner'));
+
+    mock.restoreAll();
+  });
+
+  it('marks already-imported CRM partners so the list can hide them', async () => {
+    const prior = await work.saveCustomer(NET.id, MEM, {
+      name: 'Old Partner Co',
+      phone: '3605550999',
+    }, { source: 'ghl', ghlContactId: 'ghl_old_partner', tags: [] });
+    assert.equal(prior.ok, true);
+
+    mock.method(workspaceIntegrations, 'getResolvedIntegrationEnv', async () => ({
+      GHL_API_KEY: 'test',
+      GHL_LOCATION_ID: 'loc1',
+    }));
+    mock.method(ghlClient, 'isConfigured', () => true);
+    mock.method(ghlClient, 'listContacts', async () => ({
+      contacts: [
+        {
+          id: 'ghl_old_partner',
+          name: 'Old Partner Co',
+          phone: '3605550999',
+          tags: ['Referral partner'],
+        },
+      ],
+      nextStartAfterId: null,
+    }));
+
+    const out = await memberCustomerGhl.pullCustomersFromGhl(NET, MEM, { maxPages: 1 });
+    assert.equal(out.ok, true);
+    assert.equal(out.updated, 1);
+    const again = await work.getCustomer(NET.id, MEM, prior.customer.id);
+    assert.equal(again.isReferralPartner, true);
+    assert.equal(memberCustomerGhl.customerLooksLikePartner(again), true);
 
     mock.restoreAll();
   });

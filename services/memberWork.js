@@ -182,6 +182,8 @@ function normalizeCustomer(raw) {
     address: cleanLine(c.address, 200),
     notes: cleanBlock(c.notes, 2000),
     tags: normalizeCustomerTags(c.tags),
+    /** CRM contacts that are referral businesses, not homeowners. */
+    isReferralPartner: c.isReferralPartner === true,
     referralId: isRecordId(c.referralId) ? c.referralId : '',
     ghlContactId: cleanLine(c.ghlContactId, 80),
     ghlSyncedAt: c.ghlSyncedAt ? String(c.ghlSyncedAt) : '',
@@ -328,7 +330,7 @@ async function getCustomer(networkId, memberId, id) {
 
 /** Create (no id) or update (id of an existing customer in this scope). */
 async function saveCustomer(networkId, memberId, input, opts = {}) {
-  const { id, referralId, ghlContactId, ghlSyncedAt, source, tags } = opts;
+  const { id, referralId, ghlContactId, ghlSyncedAt, source, tags, isReferralPartner } = opts;
   const prefix = custPrefix(networkId, memberId);
   const checked = validateCustomer(input);
   if (!checked.ok) return checked;
@@ -354,11 +356,16 @@ async function saveCustomer(networkId, memberId, input, opts = {}) {
     tags !== undefined
       ? normalizeCustomerTags(tags)
       : normalizeCustomerTags(existing && existing.tags);
+  const nextPartner =
+    isReferralPartner !== undefined
+      ? isReferralPartner === true
+      : !!(existing && existing.isReferralPartner);
   const customer = normalizeCustomer({
     ...(existing || {}),
     ...checked.fields,
     id: existing ? existing.id : newId(),
     tags: nextTags,
+    isReferralPartner: nextPartner,
     referralId: existing ? existing.referralId : (referralId || ''),
     ghlContactId: nextGhlId,
     ghlSyncedAt: nextSynced,

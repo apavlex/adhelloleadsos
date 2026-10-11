@@ -78,6 +78,11 @@ describe('member app install modal and tab bar', () => {
     assert.match(icons, /photo:\s*icon\(/);
     const customers = fs.readFileSync(path.join(root, 'views/member_app/customers.ejs'), 'utf8');
     assert.match(customers, /summary class="ma-settings-row"/);
+    assert.match(customers, /ma-cust-partner-filter|Show partners/);
+    assert.match(customers, /Referral partner/);
+    const ghlCust = fs.readFileSync(path.join(root, 'services/memberCustomerGhl.js'), 'utf8');
+    assert.match(ghlCust, /ghlTagNamesLookLikePartner/);
+    assert.match(ghlCust, /skippedPartners/);
     const customer = fs.readFileSync(path.join(root, 'views/member_app/customer.ejs'), 'utf8');
     assert.match(customer, /Photos &amp; notes|Photos & notes/);
     assert.match(customer, /_photo_capture/);

@@ -48,6 +48,46 @@ function isActiveTag(tag) {
   return !tag || tag.isActive !== false;
 }
 
+/** GHL / workspace tag names that mean “business partner”, not a homeowner customer. */
+const PARTNER_TAG_NAME_RES = [
+  /^referral\s*partner$/i,
+  /^gb:\s*referral\s*network$/i,
+  /\breferral\s*network\b/i,
+];
+
+function ghlTagNamesLookLikePartner(tagNames) {
+  const names = (Array.isArray(tagNames) ? tagNames : [])
+    .map((t) => String(t || '').trim())
+    .filter(Boolean);
+  return names.some((name) => PARTNER_TAG_NAME_RES.some((re) => re.test(name)));
+}
+
+/**
+ * Ensure the shared “Referral partner” catalog tag exists so sync + list filters can use it.
+ */
+async function ensureReferralPartnerTag(workspaceId) {
+  const catalog = await dbService.listTags(workspaceId);
+  const hit = catalog.find((t) => /^referral\s*partner$/i.test(String(t.name || '').trim()));
+  if (hit) {
+    if (hit.isActive === false) {
+      return (await dbService.setTagActive(workspaceId, hit.key, true)) || { ...hit, isActive: true };
+    }
+    return hit;
+  }
+  return dbService.createTag(workspaceId, 'Referral partner', '#3B82F6');
+}
+
+/** True when a local customer should be treated as a referral business, not a homeowner. */
+function customerLooksLikePartner(customer, tagNameByKey = null) {
+  if (customer && customer.isReferralPartner === true) return true;
+  const keys = work.normalizeCustomerTags(customer && customer.tags);
+  if (!keys.length) return false;
+  if (tagNameByKey && typeof tagNameByKey.get === 'function') {
+    return ghlTagNamesLookLikePartner(keys.map((k) => tagNameByKey.get(k) || ''));
+  }
+  return false;
+}
+
 /** Active workspace tags for the agency that owns this network (UI catalog). */
 async function listActiveWorkspaceTags(workspaceId) {
   const catalog = await dbService.listTags(workspaceId);
@@ -157,12 +197,14 @@ async function pullCustomersFromGhl(network, memberId, { maxPages = 5 } = {}) {
     };
   }
 
+  const partnerTag = await ensureReferralPartnerTag(network.ownerWorkspaceId).catch(() => null);
   const existing = await work.listCustomers(network.id, memberId);
   const pages = Math.min(Math.max(parseInt(maxPages, 10) || 5, 1), 20);
   let startAfterId;
   let created = 0;
   let updated = 0;
   let skipped = 0;
+  let skippedPartners = 0;
   let failed = 0;
 
   for (let page = 0; page < pages; page += 1) {
@@ -183,11 +225,21 @@ async function pullCustomersFromGhl(network, memberId, { maxPages = 5 } = {}) {
         email: fields.email,
         phone: fields.phone,
       });
+      const isPartner = ghlTagNamesLookLikePartner(contact.tags || []);
+      // Don't import new partner businesses into the homeowner customer list.
+      if (isPartner && !match) {
+        skipped += 1;
+        skippedPartners += 1;
+        continue;
+      }
       try {
         // Preserve local notes on update — pull fields always send notes: ''.
         if (match && match.notes) fields.notes = match.notes;
         // eslint-disable-next-line no-await-in-loop
-        const tags = await activeTagKeysFromGhlNames(network.ownerWorkspaceId, contact.tags || []);
+        let tags = await activeTagKeysFromGhlNames(network.ownerWorkspaceId, contact.tags || []);
+        if (isPartner && partnerTag && partnerTag.key && !tags.includes(partnerTag.key)) {
+          tags = work.normalizeCustomerTags([...tags, partnerTag.key]);
+        }
         // eslint-disable-next-line no-await-in-loop
         const result = await work.saveCustomer(network.id, memberId, fields, {
           id: match ? match.id : undefined,
@@ -195,6 +247,7 @@ async function pullCustomersFromGhl(network, memberId, { maxPages = 5 } = {}) {
           ghlSyncedAt: new Date().toISOString(),
           source: 'ghl',
           tags,
+          isReferralPartner: isPartner,
         });
         if (!result.ok) {
           failed += 1;
@@ -222,6 +275,7 @@ async function pullCustomersFromGhl(network, memberId, { maxPages = 5 } = {}) {
     created,
     updated,
     skipped,
+    skippedPartners,
     failed,
     total: created + updated,
   };
@@ -345,7 +399,32 @@ async function setCustomerTag(network, memberId, customerId, tagKey, { add, tagN
   const current = new Set(work.normalizeCustomerTags(customer.tags));
   if (add) current.add(key);
   else current.delete(key);
-  const saved = await work.setCustomerTags(network.id, memberId, customerId, [...current]);
+  const catalog = await listActiveWorkspaceTags(network.ownerWorkspaceId);
+  const nameByKey = new Map(catalog.map((t) => [t.key, t.name]));
+  nameByKey.set(key, tag.name || nameByKey.get(key) || '');
+  const partnerByTags = ghlTagNamesLookLikePartner(
+    [...current].map((k) => nameByKey.get(k) || ''),
+  );
+  const saved = await work.saveCustomer(
+    network.id,
+    memberId,
+    {
+      name: customer.name,
+      phone: customer.phone,
+      email: customer.email,
+      address: customer.address,
+      notes: customer.notes,
+    },
+    {
+      id: customer.id,
+      tags: [...current],
+      isReferralPartner: partnerByTags,
+      ghlContactId: customer.ghlContactId,
+      ghlSyncedAt: customer.ghlSyncedAt,
+      source: customer.source,
+      referralId: customer.referralId,
+    },
+  );
   if (!saved.ok) return saved;
 
   // Local save wins first — GHL catch-up runs in the background so the
@@ -367,7 +446,7 @@ async function pushCustomersMissingGhl(network, memberId, customers, { limit = 1
     return { ok: false, error: 'GHL CRM is not configured.', pushed: 0, failed: 0 };
   }
   const list = (Array.isArray(customers) ? customers : []).filter(
-    (c) => c && !c.ghlContactId && (c.phone || c.email),
+    (c) => c && !c.ghlContactId && !c.isReferralPartner && (c.phone || c.email),
   );
   const max = Math.min(list.length, Math.max(1, limit));
   let pushed = 0;
@@ -391,11 +470,14 @@ async function syncCustomersWithGhl(network, memberId, opts = {}) {
   const push = await pushCustomersMissingGhl(network, memberId, locals, {
     limit: opts.pushLimit || 100,
   });
+  const partnerNote = pull.skippedPartners
+    ? ` Skipped ${pull.skippedPartners} referral partner${pull.skippedPartners === 1 ? '' : 's'}.`
+    : '';
   return {
     ok: true,
     pull,
     push,
-    summary: `Synced ${pull.created + pull.updated} from GHL CRM (${pull.created} new). Pushed ${push.pushed || 0} local customers.`,
+    summary: `Synced ${pull.created + pull.updated} from GHL CRM (${pull.created} new). Pushed ${push.pushed || 0} local customers.${partnerNote}`,
   };
 }
 
@@ -406,6 +488,9 @@ module.exports = {
   presentCustomerTags,
   availableCustomerTags,
   resolveWorkspaceTag,
+  ghlTagNamesLookLikePartner,
+  ensureReferralPartnerTag,
+  customerLooksLikePartner,
   pushCustomerTagsToGhl,
   pullCustomerTagsFromGhl,
   setCustomerTag,
