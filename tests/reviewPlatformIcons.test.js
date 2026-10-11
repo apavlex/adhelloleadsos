@@ -8,9 +8,28 @@ describe('review platform logos', () => {
     for (const p of PLATFORMS) {
       assert.ok(p.icon, `missing icon for ${p.key}`);
       assert.match(p.icon, /<svg[\s\S]*<\/svg>/);
+      assert.match(p.icon, /preserveAspectRatio="xMidYMid meet"/);
+      assert.match(p.icon, /viewBox="0 0 24 24"/);
       assert.ok(p.tile, `missing tile for ${p.key}`);
       assert.equal(iconFor(p.key), ICONS[p.key]);
     }
+  });
+
+  it('yelp uses a centered five-petal burst (not a skewed scribble)', () => {
+    const yelp = iconFor('yelp');
+    assert.match(yelp, /ellipse/);
+    assert.match(yelp, /rotate\(72\)/);
+    assert.match(yelp, /D32323/);
+  });
+
+  it('locks badge sizing in CSS so logos stay square', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const css = fs.readFileSync(path.join(__dirname, '../public/css/member-app.css'), 'utf8');
+    const head = fs.readFileSync(path.join(__dirname, '../views/member_app/_head.ejs'), 'utf8');
+    assert.match(css, /\.rv-field-badge\s*\{[\s\S]*aspect-ratio:\s*1\s*\/\s*1/);
+    assert.match(css, /\.rv-field-badge svg\s*\{[\s\S]*aspect-ratio:\s*1\s*\/\s*1/);
+    assert.match(head, /\.rv-field-badge\{[^}]*aspect-ratio:1\/1/);
   });
 
   it('includes icons on review destinations', () => {

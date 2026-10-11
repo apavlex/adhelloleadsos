@@ -1,53 +1,66 @@
 /**
  * Recognizable brand marks for review platforms (settings + public /rv page).
  * Simplified SVGs for wayfinding — not a claim of partnership with these brands.
+ * All marks are drawn in a square 24×24 viewBox and must stay 1:1 in CSS.
  */
 
 function svg(body, { viewBox = '0 0 24 24' } = {}) {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" width="24" height="24" aria-hidden="true" focusable="false">${body}</svg>`;
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" width="24" height="24" ` +
+    `preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false">${body}</svg>`
+  );
 }
 
-/** Google “G” in brand colors on a light tile. */
+/** Google “G” in brand colors. */
 const google = svg(
-  `<path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-   <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-   <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-   <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>`,
+  `<path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>` +
+  `<path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>` +
+  `<path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>` +
+  `<path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>`,
 );
 
-/** Meta / Facebook “f”. */
+/** Meta / Facebook circle “f”. */
 const facebook = svg(
-  `<path fill="#1877F2" d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/>`,
+  `<circle cx="12" cy="12" r="12" fill="#1877F2"/>` +
+  `<path fill="#fff" d="M13.5 24V14.7h3.1l.5-3.5h-3.6V9.1c0-1 .3-1.7 1.8-1.7h1.9V4.3c-.3 0-1.5-.1-2.8-.1-2.8 0-4.7 1.7-4.7 4.8v2.2H7v3.5h2.7V24h3.8z"/>`,
 );
 
-/** Yelp burst. */
+/** Yelp burst — five petals around a center (classic mark, square-safe). */
 const yelp = svg(
-  `<path fill="#D32323" d="M20.16 12.55c-.3-.4-.83-.5-1.26-.24l-3.54 2.18c-.18-1.94-.43-3.87-.78-5.78l3.95-1.65c.47-.2.7-.72.53-1.2-.18-.48-.7-.72-1.18-.54l-4.12 1.72c-.5-1.85-1.14-3.65-1.92-5.38C11.6.9 10.9.5 10.27.75c-.62.25-.9.96-.65 1.58.9 2.03 1.64 4.12 2.22 6.25L8.1 9.8c-.48-.2-1.03 0-1.25.47-.22.47 0 1.02.46 1.24l3.87 1.73c-.55 1.9-1.24 3.75-2.08 5.54-.26.56 0 1.22.56 1.48.56.26 1.22 0 1.48-.56.72-1.55 1.32-3.16 1.8-4.81l3.3 2.03c.42.26.97.13 1.23-.3.26-.42.13-.97-.3-1.23l-.01-.02z"/>`,
+  `<g fill="#D32323" transform="translate(12 12)">` +
+  `<ellipse rx="2.15" ry="7.1" transform="rotate(0)"/>` +
+  `<ellipse rx="2.15" ry="7.1" transform="rotate(72)"/>` +
+  `<ellipse rx="2.15" ry="7.1" transform="rotate(144)"/>` +
+  `<ellipse rx="2.15" ry="7.1" transform="rotate(216)"/>` +
+  `<ellipse rx="2.15" ry="7.1" transform="rotate(288)"/>` +
+  `</g>`,
 );
 
-/** Thumbtack pin mark. */
+/** Thumbtack pin. */
 const thumbtack = svg(
-  `<path fill="#009FD9" d="M12 0C7.03 0 3 4.03 3 9c0 6.75 9 15 9 15s9-8.25 9-15c0-4.97-4.03-9-9-9zm0 12.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/>`,
+  `<path fill="#009FD9" d="M12 1.5C7.86 1.5 4.5 4.86 4.5 9c0 5.7 7.5 13.5 7.5 13.5S19.5 14.7 19.5 9c0-4.14-3.36-7.5-7.5-7.5zm0 10.2a2.7 2.7 0 1 1 0-5.4 2.7 2.7 0 0 1 0 5.4z"/>`,
 );
 
-/** Angi house mark. */
+/** Angi house. */
 const angi = svg(
-  `<path fill="#FF6153" d="M12 2.2 1.5 10.4c-.4.3-.2.9.3.9H4v9.2c0 .4.3.7.7.7h4.1c.4 0 .7-.3.7-.7v-4.6h4.9v4.6c0 .4.3.7.7.7h4.1c.4 0 .7-.3.7-.7V11.3h2.2c.5 0 .7-.6.3-.9L12 2.2z"/>`,
+  `<path fill="#FF6153" d="M12 3.2 2.4 10.6c-.35.27-.18.8.28.8H5v8.6c0 .33.27.6.6.6h3.7c.33 0 .6-.27.6-.6v-4.2h4.2v4.2c0 .33.27.6.6.6h3.7c.33 0 .6-.27.6-.6v-8.6h2.32c.46 0 .63-.53.28-.8L12 3.2z"/>`,
 );
 
-/** Nextdoor “N”. */
+/** Nextdoor circle “N”. */
 const nextdoor = svg(
-  `<path fill="#0A8A3C" d="M12 0C5.37 0 0 5.37 0 12s5.37 12 12 12 12-5.37 12-12S18.63 0 12 0zm-.2 17.6h-3.3V9.55L6.1 12.1V8.85l5.7-4.35v13.1zm5.4 0h-3.3V6.75h3.3v10.85z"/>`,
+  `<circle cx="12" cy="12" r="12" fill="#0A8A3C"/>` +
+  `<path fill="#fff" d="M10.9 17.4H8.2V9.85L6.35 11.9V9.2L11 5.7v11.7zm4.7 0h-2.7V7.2h2.7v10.2z"/>`,
 );
 
-/** BBB seal-style B. */
+/** BBB shield + B. */
 const bbb = svg(
-  `<path fill="#005A78" d="M12 1.5 3 5v6.5c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-3.5zm1.4 14.2c0 .9-.7 1.5-1.9 1.5H8.2v-9.4h3.2c1.1 0 1.8.5 1.8 1.4 0 .6-.3 1-.8 1.25.7.2 1.1.8 1.1 1.55v1.1c0 1.1-.5 1.9-1.4 2.3.7.3 1.1.9 1.1 1.8v.5zm-2.9-5.5h.7c.4 0 .6-.2.6-.5s-.2-.5-.6-.5h-.7v1zm0 3.5h.8c.45 0 .7-.25.7-.6s-.25-.55-.7-.55h-.8v1.15z"/>`,
+  `<path fill="#005A78" d="M12 2.2 4 5.4v5.8c0 4.9 3.4 9.5 8 10.6 4.6-1.1 8-5.7 8-10.6V5.4L12 2.2z"/>` +
+  `<path fill="#fff" d="M10.2 8.1h2.1c1.15 0 1.85.55 1.85 1.45 0 .55-.28.95-.75 1.15.7.25 1.1.8 1.1 1.55v.7c0 1.15-.75 1.85-2.05 1.85H10.2V8.1zm1.55 2.55h.55c.4 0 .65-.2.65-.5s-.22-.5-.62-.5h-.58v1zm0 3.1h.65c.45 0 .7-.22.7-.58 0-.35-.25-.57-.7-.57h-.65v1.15z"/>`,
 );
 
-/** Houzz “h”. */
+/** Houzz “h” blocks. */
 const houzz = svg(
-  `<path fill="#3A9A0F" d="M1.5 1.5h9.2v9.2H1.5V1.5zm11.8 5.5H22.5V22.5h-9.2V7zM1.5 13.3h9.2v9.2H1.5v-9.2z"/>`,
+  `<path fill="#4DBC15" d="M3 3h8v8H3V3zm10 5h8v13h-8V8zM3 13h8v8H3v-8z"/>`,
 );
 
 const ICONS = {
@@ -61,7 +74,7 @@ const ICONS = {
   houzz,
 };
 
-/** Tile background behind the mark (Google is light so the multicolor G reads). */
+/** Tile background behind the mark. */
 const TILE = {
   google: '#FFFFFF',
   facebook: '#FFFFFF',
