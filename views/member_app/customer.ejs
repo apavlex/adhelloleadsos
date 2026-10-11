@@ -13,6 +13,7 @@
       <% if (customer.referralId) { %><span class="ma-pill ma-pill--sent">From referral</span><% } %>
     </div>
     <% const tel = String(customer.phone || '').replace(/[^0-9+]/g, ''); %>
+    <% const mapsHref = googleMapsSearchUrl({ name: customer.name, address: customer.address }); %>
     <div class="ma-quick">
       <a class="ma-quick__btn<%= tel ? '' : ' is-off' %>" <%- tel ? 'href="tel:' + tel + '"' : 'aria-disabled="true"' %>><%- icons.phone %><span>Call</span></a>
       <a class="ma-quick__btn<%= tel ? '' : ' is-off' %>" <%- tel ? 'href="sms:' + tel + '"' : 'aria-disabled="true"' %>><%- icons.send %><span>Text</span></a>
@@ -23,7 +24,7 @@
         <button type="submit" class="ma-quick__btn<%= (customer.phone || customer.email) ? '' : ' is-off' %>" <%= (customer.phone || customer.email) ? '' : 'disabled' %>><%- icons.review %><span>Review</span></button>
       </form>
       <% } %>
-      <a class="ma-quick__btn<%= customer.address ? '' : ' is-off' %>" <%- customer.address ? 'href="https://maps.apple.com/?q=' + encodeURIComponent(customer.address) + '" target="_blank" rel="noopener"' : 'aria-disabled="true"' %>><%- icons.mapPin %><span>Map</span></a>
+      <a class="ma-quick__btn<%= mapsHref ? '' : ' is-off' %>" <%- mapsHref ? 'href="' + mapsHref + '" target="_blank" rel="noopener"' : 'aria-disabled="true"' %>><%- icons.mapPin %><span>Map</span></a>
     </div>
     <% if (typeof reviewSendLocked !== 'undefined' && reviewSendLocked) { %>
     <p class="ma-hint" style="margin:8px 0 0">Text/email review sends need a GHL CRM account on the monthly plan. Share your QR from the Review tab for free, or <a href="<%= typeof upgradeHref !== 'undefined' ? upgradeHref : '/signup' %>">upgrade</a>.</p>
@@ -135,7 +136,14 @@
           </div>
         </div>
         <div class="ma-field">
-          <label class="ma-label" for="cuAddress">Address</label>
+          <% const addressMapsHref = googleMapsSearchUrl({
+            name: (customer && customer.name) || fv.name,
+            address: fv.address || (customer && customer.address) || '',
+          }); %>
+          <div class="ma-label-row">
+            <label class="ma-label" for="cuAddress">Address</label>
+            <% if (addressMapsHref) { %><a class="ma-label-link" href="<%= addressMapsHref %>" target="_blank" rel="noopener">Google Maps</a><% } %>
+          </div>
           <input id="cuAddress" name="address" maxlength="200" class="ma-input" value="<%= fv.address || '' %>" autocomplete="street-address">
         </div>
         <div class="ma-field">

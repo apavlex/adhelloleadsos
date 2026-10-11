@@ -49,6 +49,18 @@ function newId() {
   return `${Date.now().toString(36)}${crypto.randomBytes(4).toString('hex')}`;
 }
 
+/**
+ * Google Maps search URL so the business profile / place card can surface
+ * (Apple Maps links do not). Prefer name + address when both exist.
+ */
+function googleMapsSearchUrl({ name = '', address = '' } = {}) {
+  const n = String(name || '').replace(/\s+/g, ' ').trim();
+  const a = String(address || '').replace(/\s+/g, ' ').trim();
+  const query = [n, a].filter(Boolean).join(', ');
+  if (!query) return '';
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
 function scope(networkId, memberId) {
   const net = String(networkId || '');
   const mem = String(memberId || '');
@@ -751,6 +763,7 @@ module.exports = {
   MAX_JOB_PHOTOS,
   REMIND_BEFORE_OPTIONS,
   CUSTOMER_SOURCES,
+  googleMapsSearchUrl,
   isRecordId,
   isOpen,
   nextStatus,

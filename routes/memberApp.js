@@ -223,6 +223,7 @@ function render(res, view, ctx, extra, status) {
     active: view,
     flash: null,
     icons: ICONS,
+    googleMapsSearchUrl: work.googleMapsSearchUrl,
     ...(extra || {}),
   });
 }

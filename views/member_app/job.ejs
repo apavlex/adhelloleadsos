@@ -36,7 +36,8 @@
     <div class="ma-actions" style="margin-top:0">
       <% if (job.date) { %><a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= base %>/customers/jobs/<%= job.id %>/calendar.ics"><%- icons.calendar %> Add to calendar</a><% } %>
       <% if (customer && customer.phone) { %><a class="ma-btn ma-btn--sm ma-btn--ghost" href="tel:<%= String(customer.phone).replace(/[^0-9+]/g, '') %>"><%- icons.phone %> Call</a><% } %>
-      <% if (customer && customer.address) { %><a class="ma-btn ma-btn--sm ma-btn--ghost" href="https://maps.apple.com/?q=<%= encodeURIComponent(customer.address) %>" target="_blank" rel="noopener"><%- icons.mapPin %> Directions</a><% } %>
+      <% const jobMapsHref = customer ? googleMapsSearchUrl({ name: customer.name, address: customer.address }) : ''; %>
+      <% if (jobMapsHref) { %><a class="ma-btn ma-btn--sm ma-btn--ghost" href="<%= jobMapsHref %>" target="_blank" rel="noopener"><%- icons.mapPin %> Directions</a><% } %>
     </div>
     <% } %>
 
