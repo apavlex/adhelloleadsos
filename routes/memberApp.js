@@ -32,6 +32,8 @@ const memberCustomerGhl = require('../services/memberCustomerGhl');
 const reviewPage = require('../services/reviewPage');
 const reviewRequestScript = require('../services/reviewRequestScript');
 const reviewShareImage = require('../services/reviewShareImage');
+const reviewAsk = require('../services/reviewAsk');
+const jobMedia = require('../services/memberJobMedia');
 const contractorPortal = require('../services/contractorPortal');
 const memberAppointmentLink = require('../services/memberAppointmentLink');
 const appointmentPackages = require('../services/appointmentPackages');
@@ -98,6 +100,8 @@ const OK_MESSAGES = {
   customer_deleted: 'Customer deleted.',
   job: 'Job saved.',
   job_deleted: 'Job deleted.',
+  job_photo: 'Photo saved.',
+  job_photo_deleted: 'Photo removed.',
   moved: 'Job updated.',
   converted: 'Added to your customers.',
   already: 'That referral is already in your customers.',
@@ -214,6 +218,7 @@ function render(res, view, ctx, extra, status) {
 const ERR_MESSAGES = {
   hero: 'Could not update the banner image. Try a JPG, PNG, WebP, or GIF under 6 MB.',
   photo: 'Could not update the profile photo. Try a JPG, PNG, WebP, or GIF under 6 MB.',
+  job_photo: 'Could not save that photo. Try a JPG, PNG, WebP, GIF, or HEIC under 6 MB.',
 };
 
 function flashFromQuery(req) {
@@ -322,8 +327,13 @@ function durationLabel(mins) {
 function presentJob(job, customersById, base, today) {
   const customer = customersById[job.customerId] || {};
   const next = work.nextStatus(job.status);
+  const photos = (job.photos || []).map((p) => ({
+    ...p,
+    href: `${base}/customers/jobs/${job.id}/photos/${p.id}`,
+  }));
   return {
     ...job,
+    photos,
     statusLabel: work.JOB_STATUS_LABELS[job.status],
     valueLabel: money(job.value),
     customerName: customer.name || 'Customer',
@@ -337,6 +347,37 @@ function presentJob(job, customersById, base, today) {
     next,
     nextLabel: next ? work.JOB_STATUS_LABELS[next] : '',
   };
+}
+
+function shortWhen(iso) {
+  const ms = Date.parse(iso || '');
+  if (!Number.isFinite(ms)) return '';
+  return new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+/** Status chip for the latest review ask on a customer. */
+function presentReviewAskStatus(ask) {
+  if (!ask) return null;
+  const engaged = reviewAsk.isEngaged(ask);
+  let status = 'asked';
+  let label = 'Asked';
+  if (ask.clickedAt) {
+    status = 'clicked';
+    label = 'Clicked a review site';
+  } else if (ask.openedAt) {
+    status = 'opened';
+    label = 'Opened the review link';
+  } else if (ask.remindedAt) {
+    status = 'reminded';
+    label = 'Reminded';
+  }
+  const bits = [];
+  if (ask.askedAt) bits.push(`${ask.channel === 'email' ? 'Emailed' : 'Texted'} ${shortWhen(ask.askedAt)}`);
+  if (ask.openedAt && !ask.clickedAt) bits.push(`Opened ${shortWhen(ask.openedAt)}`);
+  if (ask.clickedAt) bits.push(`Clicked ${shortWhen(ask.clickedAt)}`);
+  if (ask.remindedAt) bits.push(`Reminded ${shortWhen(ask.remindedAt)}`);
+  else if (!engaged && ask.remindAfterAt) bits.push('Auto-reminder if no click in ~48h');
+  return { status, label, detail: bits.join(' · '), channel: ask.channel };
 }
 
 async function directoryFor(network, member) {
@@ -828,7 +869,7 @@ async function renderCustomers(req, res, ctx, flash, status) {
 
 router.get('/m/:token/customers', withMember((req, res, ctx) => renderCustomers(req, res, ctx)));
 
-function renderCustomerPage(res, ctx, { customer, jobs, today, formValues, flash, status }) {
+function renderCustomerPage(res, ctx, { customer, jobs, today, formValues, flash, status, reviewAskStatus }) {
   return render(res, 'customer', ctx, {
     active: 'customers',
     customer,
@@ -836,6 +877,7 @@ function renderCustomerPage(res, ctx, { customer, jobs, today, formValues, flash
     formValues: formValues || customer || {},
     flash: flash || null,
     today,
+    reviewAskStatus: reviewAskStatus || null,
   }, status);
 }
 
@@ -895,7 +937,8 @@ async function customerPageData(req, ctx, id) {
     .filter((j) => j.customerId === customer.id)
     .sort((a, b) => work.isOpen(b) - work.isOpen(a))
     .map((j) => presentJob(j, customersById, ctx.base, today));
-  return { customer, jobs: mine, today };
+  const ask = await reviewAsk.latestAskForCustomer(ctx.network.id, ctx.member.id, customer.id);
+  return { customer, jobs: mine, today, reviewAskStatus: presentReviewAskStatus(ask) };
 }
 
 router.get('/m/:token/customers/c/:id', withMember(async (req, res, ctx) => {
@@ -970,6 +1013,8 @@ async function renderJobPage(req, res, ctx, { job, formValues, flash, status }) 
     customers,
     statuses: work.JOB_STATUSES.map((s) => ({ value: s, label: work.JOB_STATUS_LABELS[s] })),
     durations: DURATIONS.map((m) => ({ value: m, label: durationLabel(m) })),
+    remindOptions: work.REMIND_BEFORE_OPTIONS,
+    maxJobPhotos: work.MAX_JOB_PHOTOS,
     formValues: formValues || job || {},
     flash: flash || null,
     today,
@@ -999,9 +1044,9 @@ router.post('/m/:token/customers/jobs/new', form, withMember(async (req, res, ct
     if (!created.ok) return fail(created.error);
     body.customerId = created.customer.id;
   }
-  const result = await work.saveJob(ctx.network.id, ctx.member.id, body);
+  const result = await work.saveJob(ctx.network.id, ctx.member.id, body, { timeZone: memberTimeZone(req) });
   if (!result.ok) return fail(result.error);
-  return res.redirect(303, `${ctx.base}/customers/c/${result.customer.id}?ok=job`);
+  return res.redirect(303, `${ctx.base}/customers/jobs/${result.job.id}?ok=job`);
 }));
 
 router.get('/m/:token/customers/jobs/:id', withMember(async (req, res, ctx) => {
@@ -1013,9 +1058,70 @@ router.get('/m/:token/customers/jobs/:id', withMember(async (req, res, ctx) => {
 router.post('/m/:token/customers/jobs/:id', form, withMember(async (req, res, ctx) => {
   const job = await work.getJob(ctx.network.id, ctx.member.id, req.params.id);
   if (!job) return res.redirect(303, `${ctx.base}/customers?view=pending`);
-  const result = await work.saveJob(ctx.network.id, ctx.member.id, req.body || {}, { id: job.id });
+  const result = await work.saveJob(ctx.network.id, ctx.member.id, req.body || {}, {
+    id: job.id,
+    timeZone: memberTimeZone(req),
+  });
   if (!result.ok) return renderJobPage(req, res, ctx, { job, formValues: req.body, flash: { error: result.error }, status: 400 });
   return res.redirect(303, `${ctx.base}/customers/jobs/${job.id}?ok=job`);
+}));
+
+router.get('/m/:token/customers/jobs/:id/photos/:photoId', withMember(async (req, res, ctx) => {
+  const job = await work.getJob(ctx.network.id, ctx.member.id, req.params.id);
+  if (!job || !job.photos.some((p) => p.id === req.params.photoId)) return res.status(404).end();
+  const photo = await jobMedia.getJobPhoto(ctx.network.id, ctx.member.id, job.id, req.params.photoId);
+  if (!photo) return res.status(404).end();
+  res.setHeader('Content-Type', photo.contentType || 'image/jpeg');
+  res.setHeader('Cache-Control', 'private, max-age=86400');
+  return res.send(photo.buffer);
+}));
+
+router.post('/m/:token/customers/jobs/:id/photos', (req, res, next) => {
+  return reviewUpload.single('photo')(req, res, (err) => {
+    if (err) {
+      const tooBig = err.code === 'LIMIT_FILE_SIZE';
+      req.maUploadError = tooBig
+        ? 'That photo is too large (max 6 MB). Try a smaller image.'
+        : (err.message || 'Could not upload that image.');
+    }
+    return next();
+  });
+}, withMember(async (req, res, ctx) => {
+  const job = await work.getJob(ctx.network.id, ctx.member.id, req.params.id);
+  if (!job) return res.redirect(303, `${ctx.base}/customers?view=pending`);
+  if (req.maUploadError) {
+    return renderJobPage(req, res, ctx, { job, flash: { error: req.maUploadError }, status: 400 });
+  }
+  if (!req.file || !req.file.buffer) {
+    return renderJobPage(req, res, ctx, { job, flash: { error: 'Choose a photo to upload.' }, status: 400 });
+  }
+  try {
+    const prepared = await jobMedia.prepareJobPhoto(req.file.buffer);
+    const result = await work.addJobPhoto(ctx.network.id, ctx.member.id, job.id, prepared, {
+      caption: req.body && req.body.caption,
+    });
+    if (!result.ok) {
+      return renderJobPage(req, res, ctx, { job, flash: { error: result.error }, status: 400 });
+    }
+    return res.redirect(303, `${ctx.base}/customers/jobs/${job.id}?ok=job_photo`);
+  } catch (err) {
+    console.error('[member-app] job photo', err.message);
+    return renderJobPage(req, res, ctx, {
+      job,
+      flash: { error: err.message || ERR_MESSAGES.job_photo },
+      status: 400,
+    });
+  }
+}));
+
+router.post('/m/:token/customers/jobs/:id/photos/:photoId/delete', form, withMember(async (req, res, ctx) => {
+  const result = await work.removeJobPhoto(ctx.network.id, ctx.member.id, req.params.id, req.params.photoId);
+  if (!result.ok) {
+    const job = await work.getJob(ctx.network.id, ctx.member.id, req.params.id);
+    if (!job) return res.redirect(303, `${ctx.base}/customers?view=pending`);
+    return renderJobPage(req, res, ctx, { job, flash: { error: result.error }, status: 400 });
+  }
+  return res.redirect(303, `${ctx.base}/customers/jobs/${req.params.id}?ok=job_photo_deleted`);
 }));
 
 function safeReturn(ctx, value, fallback) {

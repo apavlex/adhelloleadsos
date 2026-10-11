@@ -21,7 +21,17 @@
       </form>
       <a class="ma-quick__btn<%= customer.address ? '' : ' is-off' %>" <%- customer.address ? 'href="https://maps.apple.com/?q=' + encodeURIComponent(customer.address) + '" target="_blank" rel="noopener"' : 'aria-disabled="true"' %>><%- icons.mapPin %><span>Map</span></a>
     </div>
-    <p class="ma-hint" style="margin:8px 0 0">Review sends a text or email through Go High Level with your review link.</p>
+    <% if (typeof reviewAskStatus !== 'undefined' && reviewAskStatus) { %>
+    <div class="ma-askstatus ma-askstatus--<%= reviewAskStatus.status %>" role="status">
+      <%- icons.review %>
+      <div>
+        <strong><%= reviewAskStatus.label %></strong>
+        <% if (reviewAskStatus.detail) { %><span><%= reviewAskStatus.detail %></span><% } %>
+      </div>
+    </div>
+    <% } else { %>
+    <p class="ma-hint" style="margin:8px 0 0">Review sends a text or email through Go High Level with your review link. We’ll track opens and nudge once if they don’t click.</p>
+    <% } %>
     <% } else { %>
     <h1 class="ma-page-title">New customer</h1>
     <p class="ma-page-sub">Add their details, then schedule a job for them.</p>

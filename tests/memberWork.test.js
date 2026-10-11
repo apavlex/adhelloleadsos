@@ -115,6 +115,74 @@ test('jobs: validation, status pipeline, completedAt and delete cascade', async 
   assert.equal(await work.getJob(NET, MEM_A, second.job.id), null);
 });
 
+test('jobs: visit reminders and photos', async () => {
+  const { customer } = await work.saveCustomer(NET, MEM_A, { name: 'Photo Pat', phone: '3605550101' });
+  const saved = await work.saveJob(NET, MEM_A, {
+    customerId: customer.id,
+    title: 'Blind install',
+    status: 'scheduled',
+    date: '2026-10-20',
+    time: '10:00',
+    remindOwnerBeforeMins: '1440',
+    remindCustomerBeforeMins: '120',
+  }, { timeZone: 'America/Los_Angeles' });
+  assert.equal(saved.ok, true);
+  assert.equal(saved.job.remindOwnerBeforeMins, 1440);
+  assert.equal(saved.job.remindCustomerBeforeMins, 120);
+  assert.equal(saved.job.timeZone, 'America/Los_Angeles');
+  assert.equal(saved.job.photos.length, 0);
+
+  assert.match(
+    (await work.saveJob(NET, MEM_A, {
+      customerId: customer.id,
+      title: 'No date',
+      status: 'lead',
+      remindOwnerBeforeMins: '60',
+    })).error,
+    /date before turning on/,
+  );
+
+  const stamped = await work.writeJob(NET, MEM_A, {
+    ...saved.job,
+    ownerRemindedAt: '2026-10-19T10:00:00.000Z',
+    customerRemindedAt: '2026-10-20T08:00:00.000Z',
+  });
+  assert.ok(stamped.ownerRemindedAt);
+  const rescheduled = await work.saveJob(NET, MEM_A, {
+    ...stamped,
+    customerId: customer.id,
+    title: stamped.title,
+    status: 'scheduled',
+    date: '2026-10-21',
+    time: '10:00',
+    remindOwnerBeforeMins: '1440',
+    remindCustomerBeforeMins: '120',
+  }, { id: stamped.id, timeZone: 'America/Los_Angeles' });
+  assert.equal(rescheduled.job.ownerRemindedAt, '');
+  assert.equal(rescheduled.job.customerRemindedAt, '');
+
+  const tinyPng = await require('sharp')({
+    create: { width: 8, height: 8, channels: 3, background: { r: 200, g: 80, b: 40 } },
+  }).png().toBuffer();
+  const prepared = await require('../services/memberJobMedia').prepareJobPhoto(tinyPng);
+  const photo = await work.addJobPhoto(NET, MEM_A, rescheduled.job.id, prepared, { caption: 'Before' });
+  assert.equal(photo.ok, true);
+  assert.equal(photo.job.photos.length, 1);
+  assert.equal(photo.job.photos[0].caption, 'Before');
+
+  const media = require('../services/memberJobMedia');
+  const blob = await media.getJobPhoto(NET, MEM_A, rescheduled.job.id, photo.photoId);
+  assert.ok(blob && blob.buffer.length > 20);
+
+  const gone = await work.removeJobPhoto(NET, MEM_A, rescheduled.job.id, photo.photoId);
+  assert.equal(gone.ok, true);
+  assert.equal(gone.job.photos.length, 0);
+  assert.equal(await media.getJobPhoto(NET, MEM_A, rescheduled.job.id, photo.photoId), null);
+
+  await work.deleteJob(NET, MEM_A, rescheduled.job.id);
+  await work.deleteCustomer(NET, MEM_A, customer.id);
+});
+
 test('calendar grid, week overview and upcoming agenda', () => {
   const jobs = [
     { id: 'a', date: '2026-10-01', time: '09:00', status: 'scheduled', value: 100 },
@@ -258,11 +326,41 @@ test('customers tab routes: top-bar enroll, CRUD, calendar, pending and referral
     const customerId = created.headers.get('location').match(/\/customers\/c\/([a-z0-9]+)/)[1];
 
     const newJob = await post(`${A}/customers/jobs/new`, {
-      customerId, title: 'Kitchen LVP', status: 'scheduled', date: '2026-10-14', time: '09:00', durationMins: '120', value: '4800',
+      customerId,
+      title: 'Kitchen LVP',
+      status: 'scheduled',
+      date: '2026-10-14',
+      time: '09:00',
+      durationMins: '120',
+      value: '4800',
+      remindOwnerBeforeMins: '1440',
+      remindCustomerBeforeMins: '60',
     });
     assert.equal(newJob.status, 303);
+    assert.match(newJob.headers.get('location'), /\/customers\/jobs\/[a-z0-9]+\?ok=job/);
     const jobs = await work.listJobs(network.id, a.id);
     assert.equal(jobs.length, 1);
+    assert.equal(jobs[0].remindOwnerBeforeMins, 1440);
+
+    const jobPage = await (await fetch(`${A}/customers/jobs/${jobs[0].id}`)).text();
+    assert.match(jobPage, /Remind me/);
+    assert.match(jobPage, /Remind customer/);
+    assert.match(jobPage, /Job photos/);
+    assert.match(jobPage, /name="photo"/);
+
+    const ask = await require('../services/reviewAsk').createAsk({
+      networkId: network.id,
+      memberId: a.id,
+      customerId,
+      name: 'Morgan Diaz',
+      phone: '3605550199',
+      channel: 'sms',
+      reviewSlug: 'camas-flooring',
+    });
+    await require('../services/reviewAsk').markOpened(ask.id);
+    const customerPage = await (await fetch(`${A}/customers/c/${customerId}`)).text();
+    assert.match(customerPage, /ma-askstatus/);
+    assert.match(customerPage, /Opened the review link/);
 
     const inlineCustomer = await post(`${A}/customers/jobs/new`, {
       customerId: 'new', newCustomerName: 'Quinn', title: 'Estimate', status: 'estimate',
