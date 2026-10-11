@@ -1076,6 +1076,36 @@ router.get('/m/:token/customers/jobs/:id/photos/:photoId', withMember(async (req
   return res.send(photo.buffer);
 }));
 
+async function handleJobPhotoUpload(req, res, ctx, job, { fallbackPath } = {}) {
+  const back = safeReturn(
+    ctx,
+    req.body && req.body.returnTo,
+    fallbackPath || `${ctx.base}/customers/jobs/${job.id}`,
+  );
+  const fail = async (error) => {
+    if (back.includes('/customers/c/')) {
+      const customerId = job.customerId;
+      const data = customerId ? await customerPageData(req, ctx, customerId) : null;
+      if (data) return renderCustomerPage(res, ctx, { ...data, flash: { error }, status: 400 });
+    }
+    return renderJobPage(req, res, ctx, { job, flash: { error }, status: 400 });
+  };
+  if (req.maUploadError) return fail(req.maUploadError);
+  if (!req.file || !req.file.buffer) return fail('Choose a photo to upload.');
+  try {
+    const prepared = await jobMedia.prepareJobPhoto(req.file.buffer);
+    const result = await work.addJobPhoto(ctx.network.id, ctx.member.id, job.id, prepared, {
+      caption: req.body && req.body.caption,
+    });
+    if (!result.ok) return fail(result.error);
+    const sep = back.includes('?') ? '&' : '?';
+    return res.redirect(303, `${back}${sep}ok=job_photo`);
+  } catch (err) {
+    console.error('[member-app] job photo', err.message);
+    return fail(err.message || ERR_MESSAGES.job_photo);
+  }
+}
+
 router.post('/m/:token/customers/jobs/:id/photos', (req, res, next) => {
   return reviewUpload.single('photo')(req, res, (err) => {
     if (err) {
@@ -1089,28 +1119,47 @@ router.post('/m/:token/customers/jobs/:id/photos', (req, res, next) => {
 }, withMember(async (req, res, ctx) => {
   const job = await work.getJob(ctx.network.id, ctx.member.id, req.params.id);
   if (!job) return res.redirect(303, `${ctx.base}/customers?view=pending`);
-  if (req.maUploadError) {
-    return renderJobPage(req, res, ctx, { job, flash: { error: req.maUploadError }, status: 400 });
-  }
-  if (!req.file || !req.file.buffer) {
-    return renderJobPage(req, res, ctx, { job, flash: { error: 'Choose a photo to upload.' }, status: 400 });
-  }
+  return handleJobPhotoUpload(req, res, ctx, job);
+}));
+
+/** Customer-page photo upload: attach to open job, or create a Site visit first. */
+router.post('/m/:token/customers/c/:id/photos', (req, res, next) => {
+  return reviewUpload.single('photo')(req, res, (err) => {
+    if (err) {
+      const tooBig = err.code === 'LIMIT_FILE_SIZE';
+      req.maUploadError = tooBig
+        ? 'That photo is too large (max 6 MB). Try a smaller image.'
+        : (err.message || 'Could not upload that image.');
+    }
+    return next();
+  });
+}, withMember(async (req, res, ctx) => {
+  const customerId = req.params.id;
+  const back = safeReturn(ctx, req.body && req.body.returnTo, `${ctx.base}/customers/c/${customerId}`);
+  const fail = async (error) => {
+    const data = await customerPageData(req, ctx, customerId);
+    if (!data) return res.redirect(303, `${ctx.base}/customers`);
+    return renderCustomerPage(res, ctx, { ...data, flash: { error }, status: 400 });
+  };
+  if (req.maUploadError) return fail(req.maUploadError);
+  if (!req.file || !req.file.buffer) return fail('Choose a photo to upload.');
+
+  const ensured = await work.ensureOpenJobForPhotos(ctx.network.id, ctx.member.id, customerId, {
+    timeZone: memberTimeZone(req),
+  });
+  if (!ensured.ok) return fail(ensured.error);
+
   try {
     const prepared = await jobMedia.prepareJobPhoto(req.file.buffer);
-    const result = await work.addJobPhoto(ctx.network.id, ctx.member.id, job.id, prepared, {
+    const result = await work.addJobPhoto(ctx.network.id, ctx.member.id, ensured.job.id, prepared, {
       caption: req.body && req.body.caption,
     });
-    if (!result.ok) {
-      return renderJobPage(req, res, ctx, { job, flash: { error: result.error }, status: 400 });
-    }
-    return res.redirect(303, `${ctx.base}/customers/jobs/${job.id}?ok=job_photo`);
+    if (!result.ok) return fail(result.error);
+    const sep = back.includes('?') ? '&' : '?';
+    return res.redirect(303, `${back}${sep}ok=job_photo`);
   } catch (err) {
-    console.error('[member-app] job photo', err.message);
-    return renderJobPage(req, res, ctx, {
-      job,
-      flash: { error: err.message || ERR_MESSAGES.job_photo },
-      status: 400,
-    });
+    console.error('[member-app] customer photo', err.message);
+    return fail(err.message || ERR_MESSAGES.job_photo);
   }
 }));
 
@@ -1126,7 +1175,9 @@ router.post('/m/:token/customers/jobs/:id/photos/:photoId/delete', form, withMem
 
 function safeReturn(ctx, value, fallback) {
   const to = String(value || '');
-  const ok = [`${ctx.base}/customers`, `${ctx.base}/referrals`].some((p) => to === p || to.startsWith(`${p}?`) || to.startsWith(`${p}/`));
+  const ok = [`${ctx.base}/customers`, `${ctx.base}/referrals`, `${ctx.base}/review`].some((p) => (
+    to === p || to.startsWith(`${p}?`) || to.startsWith(`${p}/`)
+  ));
   return ok && !/[\r\n]/.test(to) ? to : fallback;
 }
 

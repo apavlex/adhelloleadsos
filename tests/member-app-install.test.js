@@ -75,12 +75,23 @@ describe('member app install modal and tab bar', () => {
     assert.match(head, /\.ma-tabbar\{[^}]*bottom:0/s);
     const icons = fs.readFileSync(path.join(root, 'services/memberAppIcons.js'), 'utf8');
     assert.match(icons, /width="24" height="24"/);
+    assert.match(icons, /photo:\s*icon\(/);
     const customers = fs.readFileSync(path.join(root, 'views/member_app/customers.ejs'), 'utf8');
     assert.match(customers, /summary class="ma-settings-row"/);
     const customer = fs.readFileSync(path.join(root, 'views/member_app/customer.ejs'), 'utf8');
     assert.match(customer, /Photos &amp; notes|Photos & notes/);
-    assert.match(customer, /icons\.camera/);
+    assert.match(customer, /_photo_capture/);
+    assert.match(customer, /customers\/c\/.*\/photos/);
     assert.match(customer, /icons\.completed.*Save changes|Save changes/);
+    const capture = fs.readFileSync(path.join(root, 'views/member_app/_photo_capture.ejs'), 'utf8');
+    assert.match(capture, /data-ma-photo-pick="camera"/);
+    assert.match(capture, /data-ma-photo-pick="library"/);
+    assert.match(capture, /name="caption"/);
+    const job = fs.readFileSync(path.join(root, 'views/member_app/job.ejs'), 'utf8');
+    assert.match(job, /_photo_capture/);
+    const photoJs = fs.readFileSync(path.join(root, 'public/js/member-app.js'), 'utf8');
+    assert.match(photoJs, /function initPhotoCapture/);
+    assert.match(photoJs, /setAttribute\('capture'/);
   });
 
   it('service worker network-firsts versioned CSS so deploys are not stuck', () => {
