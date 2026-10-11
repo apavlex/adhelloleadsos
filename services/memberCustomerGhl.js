@@ -348,19 +348,14 @@ async function setCustomerTag(network, memberId, customerId, tagKey, { add, tagN
   const saved = await work.setCustomerTags(network.id, memberId, customerId, [...current]);
   if (!saved.ok) return saved;
 
-  let ghl = { ok: true, skipped: true };
+  // Local save wins first — GHL catch-up runs in the background so the
+  // member app can feel instant when tapping suggestion chips.
   if (saved.customer.ghlContactId) {
-    ghl = await pushCustomerTagsToGhl(network, saved.customer).catch((err) => ({
-      ok: false,
-      error: (err && err.message) || 'GHL tag sync failed.',
-    }));
+    pushCustomerTagsToGhl(network, saved.customer).catch(() => null);
   } else if (saved.customer.phone || saved.customer.email) {
-    const pushed = await pushCustomerToGhl(network, memberId, saved.customer).catch(() => null);
-    if (pushed && pushed.ok) {
-      return { ok: true, customer: pushed.customer, tag, ghl: { ok: true } };
-    }
+    pushCustomerToGhl(network, memberId, saved.customer).catch(() => null);
   }
-  return { ok: true, customer: saved.customer, tag, ghl };
+  return { ok: true, customer: saved.customer, tag, ghl: { ok: true, pending: true } };
 }
 
 /**

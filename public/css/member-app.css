@@ -615,6 +615,7 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
 }
 .ma-tags__suggest-item form { margin: 0; }
 .ma-tags__suggest[hidden] { display: none !important; }
+.ma-tags__chip.is-pending { opacity: 0.72; }
 .ma-tags__suggest-item { margin: 0; }
 .ma-tags__suggest-btn {
   --ma-tag: var(--acc);

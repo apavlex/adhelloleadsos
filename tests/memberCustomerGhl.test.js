@@ -172,6 +172,12 @@ describe('member customer GHL sync', () => {
     );
     assert.equal(add.ok, true);
     assert.deepEqual(add.customer.tags, [activeTag.key]);
+    assert.equal(add.ghl && add.ghl.pending, true);
+    // GHL sync is background — wait briefly for the mock to run.
+    for (let i = 0; i < 20 && !added.length; i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((r) => setImmediate(r));
+    }
     assert.deepEqual(added, ['VIP Client']);
 
     // Inactive tags are reactivated when selected again.
@@ -196,6 +202,10 @@ describe('member customer GHL sync', () => {
     );
     assert.equal(drop.ok, true);
     assert.ok(!drop.customer.tags.includes(activeTag.key));
+    for (let i = 0; i < 20 && !removed.includes('VIP Client'); i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((r) => setImmediate(r));
+    }
     assert.ok(removed.includes('VIP Client'));
 
     mock.restoreAll();
