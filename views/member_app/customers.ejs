@@ -211,12 +211,12 @@
         <div class="ma-list">
           <% g.jobs.forEach(function (j) { %>
           <div class="ma-row ma-row--split">
-            <%- include('_job_row', { j: j }) %>
+            <%- include('_job_row', { j: j, hideStatus: !!j.next, wrapTitle: true }) %>
             <% if (j.next) { %>
             <form method="post" action="<%= base %>/customers/jobs/<%= j.id %>/status" class="ma-row__quick" data-ma-status-advance>
               <input type="hidden" name="status" value="<%= j.next %>">
               <input type="hidden" name="back" value="<%= base %>/customers?view=pending">
-              <button type="submit" class="ma-btn ma-btn--sm ma-btn--soft" aria-label="Move <%= j.customerName %> to <%= j.nextLabel %>"><%= j.nextLabel %> <%- icons.chevronRight %></button>
+              <button type="submit" class="ma-btn ma-btn--soft ma-btn--block" aria-label="Move <%= j.customerName %> to <%= j.nextLabel %>">Mark <%= j.nextLabel.toLowerCase() %> <%- icons.chevronRight %></button>
             </form>
             <% } %>
           </div>

@@ -1,19 +1,23 @@
-<a class="ma-row" href="<%= j.href %>">
+<%
+  const _byJob = typeof titleIsJob !== 'undefined' && titleIsJob;
+  const _hideStatus = typeof hideStatus !== 'undefined' && hideStatus;
+  const _wrapTitle = typeof wrapTitle !== 'undefined' && wrapTitle;
+  const _photoN = (j.photos && j.photos.length) ? j.photos.length : 0;
+  const _metaBits = [_byJob ? '' : j.title, (typeof hideWhen !== 'undefined' && hideWhen) ? j.timeLabel : j.whenLabel, j.durationLabel];
+  if (_photoN) _metaBits.push(_photoN + (_photoN === 1 ? ' photo' : ' photos'));
+%>
+<a class="ma-row<%= _wrapTitle ? ' ma-row--readable' : '' %>" href="<%= j.href %>">
   <span class="ma-row__date<%= j.overdue ? ' is-late' : '' %>">
     <% if (j.date) { %><b><%= Number(j.date.slice(8)) %></b><small><%= new Date(j.date + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }) %></small><% } else { %><%- icons.customers %><% } %>
   </span>
-  <% const _byJob = typeof titleIsJob !== 'undefined' && titleIsJob; %>
   <span class="ma-row__body">
     <span class="ma-row__title"><%= _byJob ? j.title : j.customerName %></span>
-    <%
-      const _photoN = (j.photos && j.photos.length) ? j.photos.length : 0;
-      const _metaBits = [_byJob ? '' : j.title, (typeof hideWhen !== 'undefined' && hideWhen) ? j.timeLabel : j.whenLabel, j.durationLabel];
-      if (_photoN) _metaBits.push(_photoN + (_photoN === 1 ? ' photo' : ' photos'));
-    %>
     <span class="ma-row__meta"><%= _metaBits.filter(Boolean).join(' · ') || 'Not scheduled' %></span>
   </span>
+  <% if (!_hideStatus || j.valueLabel) { %>
   <span class="ma-row__end">
-    <span class="ma-pill ma-pill--job-<%= j.status %>"><%= j.statusLabel %></span>
+    <% if (!_hideStatus) { %><span class="ma-pill ma-pill--job-<%= j.status %>"><%= j.statusLabel %></span><% } %>
     <% if (j.valueLabel) { %><small><%= j.valueLabel %></small><% } %>
   </span>
+  <% } %>
 </a>
