@@ -1,8 +1,10 @@
 <%
   const _hasAppt = typeof appointment !== 'undefined' && appointment;
+  const _isFree = typeof isAppFree !== 'undefined' ? !!isAppFree : (member && member.plan === 'app_free');
   // Review tab always lands on QR / share — not the GHL send form (?ask=1).
   const _reviewHref = base + '/review';
   // Hierarchy: reviews (center FAB) → customers/work → referrals & leads.
+  // Free members: Join replaces Send (upgrade path).
   const _tabs = _hasAppt
     ? [
         { id: 'home', label: 'Home', href: base, icon: icons.home },
@@ -16,7 +18,9 @@
         { id: 'customers', label: 'Customers', href: base + '/customers', icon: icons.customers },
         { id: 'review', label: 'Review', href: _reviewHref, icon: icons.review, fab: true },
         { id: 'referrals', label: 'Referrals', href: base + '/referrals', icon: icons.referrals },
-        { id: 'send', label: 'Send', href: base + '/send', icon: icons.send },
+        _isFree
+          ? { id: 'join', label: 'Join', href: base + '/join', icon: icons.enroll }
+          : { id: 'send', label: 'Send', href: base + '/send', icon: icons.send },
       ];
   const _appName = (brand && brand.appName) ? brand.appName : 'this app';
 %>

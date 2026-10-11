@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('_head', { pageTitle: 'Join' }) %>
+</head>
+<body>
+  <main class="ma-shell">
+    <%- include('_top', { topTitle: 'Join' }) %>
+
+    <p class="ma-join__eyebrow">Current plan</p>
+    <h1 class="ma-page-title ma-join__title">You’re on the free app</h1>
+    <p class="ma-page-sub ma-join__lead">Get the most out of <%= brand.appName %>. Switch plans anytime — keep your reviews and customers.</p>
+
+    <%- include('_flash') %>
+
+    <section class="ma-join-card" aria-label="Monthly workspace plan">
+      <div class="ma-join-card__top">
+        <span class="ma-join-card__badge">Recommended</span>
+        <span class="ma-join-card__sel" aria-hidden="true"></span>
+      </div>
+      <h2 class="ma-join-card__name">Monthly workspace</h2>
+      <p class="ma-join-card__price">Unlock the full partner platform for your business</p>
+      <ul class="ma-join-benefits">
+        <li><%- icons.completed %> <span>Send &amp; receive referrals with trusted local partners</span></li>
+        <li><%- icons.completed %> <span>Text review requests to customers via GHL CRM</span></li>
+        <li><%- icons.completed %> <span>Sync customers both ways with your CRM</span></li>
+        <li><%- icons.completed %> <span>Request lead packs and grow with the network</span></li>
+        <li><%- icons.completed %> <span>Keep your free review QR, customers, and photos</span></li>
+      </ul>
+      <a class="ma-btn ma-btn--block ma-join-card__cta" href="<%= typeof upgradeHref !== 'undefined' && upgradeHref ? upgradeHref : '/signup' %>">
+        Start your plan <%- icons.share %>
+      </a>
+    </section>
+
+    <p class="ma-hint ma-join__footnote">The free app stays yours — Join unlocks referrals, SMS, CRM sync, and leads.</p>
+  </main>
+  <%- include('_tabbar') %>
+</body>
+</html>
