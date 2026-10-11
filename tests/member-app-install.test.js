@@ -107,7 +107,7 @@ describe('member app install modal and tab bar', () => {
 
   it('service worker network-firsts versioned CSS so deploys are not stuck', () => {
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.454/);
+    assert.match(sw, /adhello-pwa-v1\.0\.455/);
     assert.match(sw, /searchParams\.has\('v'\)/);
     assert.match(sw, /versioned/);
   });
@@ -142,5 +142,20 @@ describe('member app install modal and tab bar', () => {
     assert.match(js, /showPanel\('workspace'\)/);
     // Must not skip the modal solely because display-mode is standalone.
     assert.doesNotMatch(js, /isIOS && !standalone && !dismissed/);
+  });
+
+  it('job status chips update optimistically in the background', () => {
+    const js = fs.readFileSync(path.join(root, 'public/js/member-app.js'), 'utf8');
+    assert.match(js, /function initStatusSteps/);
+    assert.match(js, /function postStatus/);
+    assert.match(js, /X-Requested-With['"]:\s*['"]fetch['"]/);
+    assert.match(js, /data-ma-status-steps/);
+    const job = fs.readFileSync(path.join(root, 'views/member_app/job.ejs'), 'utf8');
+    assert.match(job, /data-ma-status-steps/);
+    assert.match(job, /data-ma-job-status-pill/);
+    const customers = fs.readFileSync(path.join(root, 'views/member_app/customers.ejs'), 'utf8');
+    assert.match(customers, /data-ma-status-advance/);
+    const css = fs.readFileSync(path.join(root, 'public/css/member-app.css'), 'utf8');
+    assert.match(css, /\.ma-steps\.is-saving/);
   });
 });

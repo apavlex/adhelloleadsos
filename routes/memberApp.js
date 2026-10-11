@@ -1181,9 +1181,24 @@ function safeReturn(ctx, value, fallback) {
   return ok && !/[\r\n]/.test(to) ? to : fallback;
 }
 
+function wantsJson(req) {
+  const accept = String(req.get('accept') || '');
+  return req.get('x-requested-with') === 'fetch' || /application\/json/i.test(accept);
+}
+
 router.post('/m/:token/customers/jobs/:id/status', form, withMember(async (req, res, ctx) => {
   const back = safeReturn(ctx, req.body && req.body.back, `${ctx.base}/customers/jobs/${encodeURIComponent(req.params.id)}`);
   const result = await work.setJobStatus(ctx.network.id, ctx.member.id, req.params.id, String((req.body && req.body.status) || ''));
+  if (wantsJson(req)) {
+    if (!result.ok) {
+      return res.status(result.error === 'Job not found.' ? 404 : 400).json({ ok: false, error: result.error || 'Could not update status.' });
+    }
+    return res.json({
+      ok: true,
+      status: result.job.status,
+      statusLabel: work.JOB_STATUS_LABELS[result.job.status] || result.job.status,
+    });
+  }
   if (!result.ok) {
     const job = await work.getJob(ctx.network.id, ctx.member.id, req.params.id);
     if (!job) return res.redirect(303, `${ctx.base}/customers?view=pending`);

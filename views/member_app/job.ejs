@@ -17,7 +17,7 @@
     <% if (job) { %>
     <div class="ma-titlebar">
       <h1 class="ma-page-title"><%= job.title %></h1>
-      <span class="ma-pill ma-pill--job-<%= job.status %>"><%= job.statusLabel %></span>
+      <span class="ma-pill ma-pill--job-<%= job.status %>" data-ma-job-status-pill><%= job.statusLabel %></span>
     </div>
     <p class="ma-page-sub"><%= [job.customerName, job.whenLabel, job.durationLabel, job.valueLabel].filter(Boolean).join(' · ') %></p>
     <% } else { %>
@@ -28,7 +28,7 @@
     <%- include('_flash') %>
 
     <% if (job) { %>
-    <form method="post" action="<%= base %>/customers/jobs/<%= job.id %>/status" class="ma-steps" aria-label="Job status">
+    <form method="post" action="<%= base %>/customers/jobs/<%= job.id %>/status" class="ma-steps" aria-label="Job status" data-ma-status-steps>
       <% statuses.forEach(function (s) { %>
       <button type="submit" name="status" value="<%= s.value %>" class="ma-step<%= s.value === job.status ? ' is-on' : '' %> ma-step--<%= s.value %>" <%= s.value === job.status ? 'aria-pressed=true' : '' %>><%= s.label %></button>
       <% }); %>

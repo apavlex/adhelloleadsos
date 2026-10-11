@@ -111,6 +111,151 @@
     syncNewCustomer();
   }
 
+  /** Optimistic job status chips — paint first, save in background. */
+  function postStatus(action, status, back) {
+    var body = new URLSearchParams();
+    body.set('status', status);
+    if (back) body.set('back', back);
+    return fetch(action, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+        Accept: 'application/json',
+        'X-Requested-With': 'fetch',
+      },
+      body: body.toString(),
+      credentials: 'same-origin',
+    }).then(function (res) {
+      return res.json().then(function (data) {
+        if (!res.ok || !data || data.ok === false) {
+          var err = new Error((data && data.error) || 'Could not update status.');
+          err.status = res.status;
+          throw err;
+        }
+        return data;
+      }, function () {
+        if (!res.ok) throw new Error('Could not update status.');
+        return { ok: true, status: status };
+      });
+    });
+  }
+
+  function initStatusSteps(form) {
+    if (!form || form.getAttribute('data-ma-ready') === '1') return;
+    var buttons = form.querySelectorAll('button[name="status"]');
+    if (!buttons.length) return;
+    var pill = document.querySelector('[data-ma-job-status-pill]');
+    var select = document.getElementById('jbStatus');
+    var onBtn = form.querySelector('.ma-step.is-on');
+    var current = onBtn ? onBtn.value : '';
+    var currentLabel = onBtn ? (onBtn.textContent || '').replace(/\s+/g, ' ').trim() : '';
+    var seq = 0;
+
+    function applyUi(status, label) {
+      for (var i = 0; i < buttons.length; i++) {
+        var btn = buttons[i];
+        var on = btn.value === status;
+        btn.classList.toggle('is-on', on);
+        if (on) btn.setAttribute('aria-pressed', 'true');
+        else btn.removeAttribute('aria-pressed');
+      }
+      if (pill) {
+        pill.className = String(pill.className || '')
+          .replace(/\bma-pill--job-\S+/g, '')
+          .replace(/\s+/g, ' ')
+          .trim() + ' ma-pill--job-' + status;
+        if (label) pill.textContent = label;
+      }
+      if (select && select.querySelector('option[value="' + status + '"]')) {
+        select.value = status;
+      }
+    }
+
+    form.addEventListener('click', function (e) {
+      var btn = e.target.closest('button[name="status"]');
+      if (!btn || !form.contains(btn)) return;
+      e.preventDefault();
+      var status = btn.value;
+      var label = (btn.textContent || '').replace(/\s+/g, ' ').trim();
+      if (!status || status === current) return;
+
+      var prev = current;
+      var prevLabel = currentLabel;
+      var mySeq = ++seq;
+      current = status;
+      currentLabel = label;
+      applyUi(status, label);
+      form.classList.add('is-saving');
+      form.classList.remove('is-error');
+
+      postStatus(form.action, status, null)
+        .then(function (data) {
+          if (mySeq !== seq) return;
+          if (data.status) current = data.status;
+          if (data.statusLabel) {
+            currentLabel = data.statusLabel;
+            applyUi(current, currentLabel);
+          }
+          form.classList.remove('is-saving');
+        })
+        .catch(function () {
+          if (mySeq !== seq) return;
+          current = prev;
+          currentLabel = prevLabel;
+          applyUi(prev, prevLabel);
+          form.classList.remove('is-saving');
+          form.classList.add('is-error');
+          setTimeout(function () { form.classList.remove('is-error'); }, 1600);
+        });
+    });
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+    });
+
+    form.setAttribute('data-ma-ready', '1');
+  }
+
+  function initStatusAdvance(form) {
+    if (!form || form.getAttribute('data-ma-ready') === '1') return;
+    var row = form.closest('.ma-row--split') || form.closest('.ma-row');
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (form.getAttribute('data-ma-busy') === '1') return;
+      var statusInput = form.querySelector('input[name="status"]');
+      var backInput = form.querySelector('input[name="back"]');
+      var status = statusInput ? statusInput.value : '';
+      if (!status) return;
+      form.setAttribute('data-ma-busy', '1');
+      form.classList.add('is-saving');
+      if (row) row.classList.add('is-advancing');
+      postStatus(form.action, status, backInput ? backInput.value : '')
+        .then(function () {
+          if (row) {
+            row.style.transition = 'opacity .18s ease, transform .18s ease';
+            row.style.opacity = '0';
+            row.style.transform = 'translateX(12px)';
+            setTimeout(function () {
+              row.remove();
+            }, 180);
+          } else {
+            window.location.reload();
+          }
+        })
+        .catch(function () {
+          form.removeAttribute('data-ma-busy');
+          form.classList.remove('is-saving');
+          if (row) row.classList.remove('is-advancing');
+          form.classList.add('is-error');
+          setTimeout(function () { form.classList.remove('is-error'); }, 1600);
+        });
+    });
+    form.setAttribute('data-ma-ready', '1');
+  }
+
+  document.querySelectorAll('[data-ma-status-steps]').forEach(initStatusSteps);
+  document.querySelectorAll('[data-ma-status-advance]').forEach(initStatusAdvance);
+
   document.addEventListener('submit', function (event) {
     var form = event.target;
     if (!(form instanceof HTMLFormElement)) return;

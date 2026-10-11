@@ -535,8 +535,14 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
 .ma-step {
   flex-shrink: 0; font: inherit; font-size: 13px; font-weight: 700; min-height: 36px; padding: 7px 14px; border-radius: 999px; cursor: pointer;
   border: 1px solid color-mix(in srgb, var(--muted) 30%, transparent); background: var(--card); color: var(--ink);
+  transition: background .12s ease, color .12s ease, border-color .12s ease, transform .12s ease;
 }
+.ma-step:active { transform: scale(0.96); }
 .ma-step.is-on { background: var(--acc); border-color: var(--acc); color: var(--on); }
+.ma-steps.is-saving .ma-step.is-on { box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc) 28%, transparent); }
+.ma-steps.is-error .ma-step.is-on,
+.ma-row__quick.is-error .ma-btn { box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.28); }
+.ma-row--split.is-advancing { pointer-events: none; opacity: 0.72; }
 @media (prefers-color-scheme: dark) {
   .ma-quick__btn { border-color: transparent; }
 }
