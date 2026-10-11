@@ -120,6 +120,10 @@ function partnerScore(lead) {
   return reviewCount(lead) + ratingValue(lead) * 40 + (hasWebsite(lead) ? 80 : 0);
 }
 
+function leadZip(lead) {
+  return usableText(lead && (lead.zip || lead.postalCode));
+}
+
 function haystack(lead) {
   const tags = Array.isArray(lead && lead.tags) ? lead.tags : [];
   return [
@@ -127,6 +131,7 @@ function haystack(lead) {
     lead && lead.categoryName,
     lead && lead.city,
     lead && lead.state,
+    leadZip(lead),
     ...tags,
   ]
     .map((part) => String(part || '').toLowerCase())
@@ -175,6 +180,7 @@ function toCard(lead) {
     category: usableText(lead.categoryName),
     city: usableText(lead.city),
     state: usableText(lead.state),
+    zip: leadZip(lead),
     phone: usableText(lead && lead.phone),
     email: usableText(lead && lead.email),
     instagram: usableText(lead && (lead.instagram || lead.instagram_url)),
