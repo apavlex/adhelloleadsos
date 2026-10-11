@@ -76,6 +76,17 @@ function formatWhen(iso) {
   return new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+/** Member join date for Network → Members (includes year when not this year). */
+function formatJoined(iso) {
+  const ms = Date.parse(iso || '');
+  if (!Number.isFinite(ms)) return '';
+  const d = new Date(ms);
+  const opts = d.getFullYear() === new Date().getFullYear()
+    ? { month: 'short', day: 'numeric' }
+    : { month: 'short', day: 'numeric', year: 'numeric' };
+  return d.toLocaleDateString('en-US', opts);
+}
+
 function presentReferral(ref, membersById, zonesById, network) {
   const h = ref.homeowner || {};
   const from = ref.fromMemberId === 'operator' ? 'You' : (membersById[ref.fromMemberId] || {}).companyName || 'Removed member';
@@ -150,16 +161,21 @@ router.get('/', async (req, res, next) => {
     const activeSlugs = new Set(networkTrades.map((t) => t.slug));
     const hiddenTrades = trades.catalogFor(network).filter((t) => !activeSlugs.has(t.slug));
 
-    const memberRows = members.map((member) => ({
-      ...member,
-      isFreeApp: freeAppSignup.isAppFreeMember(member),
-      tradeLabels: member.trades.map((slug) => trades.tradeLabel(slug, network)),
-      zoneNames: member.zoneIds.map((id) => (zonesById[id] ? zonesById[id].name : '')).filter(Boolean),
-      seats: ex.seatsForMember(zones, member.id).map((s) => `${trades.tradeLabel(s.tradeSlug, network)} · ${s.zoneName}`),
-      stats: ex.memberStats(referrals, member.id),
-      reviewLinkCount: reviewPage.countLinks(member.reviewLinks),
-      reviewOtherRows: reviewPage.otherFormRows(member.reviewLinks),
-    }));
+    const memberRows = members
+      .map((member) => ({
+        ...member,
+        isFreeApp: freeAppSignup.isAppFreeMember(member),
+        joinedLabel: formatJoined(member.joinedAt),
+        tradeLabels: member.trades.map((slug) => trades.tradeLabel(slug, network)),
+        zoneNames: member.zoneIds.map((id) => (zonesById[id] ? zonesById[id].name : '')).filter(Boolean),
+        seats: ex.seatsForMember(zones, member.id).map((s) => `${trades.tradeLabel(s.tradeSlug, network)} · ${s.zoneName}`),
+        stats: ex.memberStats(referrals, member.id),
+        reviewLinkCount: reviewPage.countLinks(member.reviewLinks),
+        reviewOtherRows: reviewPage.otherFormRows(member.reviewLinks),
+      }))
+      // Newest joins first so recent free-app signups are easy to scan.
+      .sort((a, b) => String(b.joinedAt || '').localeCompare(String(a.joinedAt || ''))
+        || a.companyName.localeCompare(b.companyName));
 
     const freeMembers = memberRows.filter((m) => m.isFreeApp).length;
     const partnerMembers = memberRows.length - freeMembers;

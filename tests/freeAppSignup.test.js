@@ -170,8 +170,11 @@ describe('freeAppSignup', () => {
     assert.match(networkView, /Free app \(<%= totals\.freeMembers %>\)/);
     assert.match(networkView, /net-pill-free/);
     assert.match(networkView, /<%= totals\.freeMembers %> free · <%= totals\.partnerMembers %> partners/);
+    assert.match(networkView, /Joined <%= m\.joinedLabel %>/);
     assert.match(networkRoute, /freeMembers/);
     assert.match(networkRoute, /memberPlanFilter/);
+    assert.match(networkRoute, /joinedLabel/);
+    assert.match(networkRoute, /joinedAt/);
   });
 
   it('gates lead requests for app_free members even on a paid agency network', async () => {
