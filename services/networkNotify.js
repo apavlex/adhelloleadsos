@@ -418,17 +418,50 @@ async function notifyMemberFormLead({ network, member, baseUrl, leadName, formNa
   });
 }
 
+function firstNameFromMember(member) {
+  const contact = String((member && member.contactName) || '').trim();
+  if (contact) return contact.split(/\s+/)[0].slice(0, 40);
+  const company = String((member && member.companyName) || '').trim();
+  if (company) return company.split(/\s+/)[0].slice(0, 40);
+  return 'there';
+}
+
+/** Portal SMS for free-app / AdHello Referral Network members (reviews link only). */
+function freeAppPortalSms({ firstName, reviewsLink }) {
+  return [
+    `Hey ${firstName} — you’re in the AdHello Referral Network!`,
+    `Quickest win: start collecting free reviews right here → ${reviewsLink}`,
+    'After that, handle customers, jobs, and referrals in the app. Tip: Share → Add to Home Screen.',
+  ].join('\n');
+}
+
+/** Free signups + anyone on the host Agency network get Referral Network copy. */
+function usesReferralNetworkPortalSms(network, member) {
+  if (String((member && member.plan) || '') === 'app_free') return true;
+  const brand = brandView(network);
+  const label = `${brand.appName || ''} ${network && network.name ? network.name : ''}`;
+  return /adhello/i.test(label) && /agency|referral\s*network/i.test(label);
+}
+
 async function sendMemberPortalLink({ network, member, baseUrl, welcome }) {
   const link = await memberPortalShortLink(baseUrl, network, member);
-  const reviewLink = await memberPortalShortLink(baseUrl, network, member, '/review?ask=1');
+  const referralSms = usesReferralNetworkPortalSms(network, member);
+  // Referral Network / free-app: land on Review QR, not the GHL ask form.
+  const reviewPath = referralSms ? '/review' : '/review?ask=1';
+  const reviewLink = await memberPortalShortLink(baseUrl, network, member, reviewPath);
   const app = brandView(network).appName;
-  const sms = welcome
-    ? `Welcome to ${app}! Start with reviews: ${reviewLink} — then app home: ${link}. Tip: Share > Add to Home Screen`
-    : `${app}: reviews ${reviewLink} · app ${link}. Tip: Share > Add to Home Screen`;
+  const sms = referralSms
+    ? freeAppPortalSms({
+      firstName: firstNameFromMember(member),
+      reviewsLink: reviewLink,
+    })
+    : (welcome
+      ? `Welcome to ${app}! Start with reviews: ${reviewLink} — then app home: ${link}. Tip: Share > Add to Home Screen`
+      : `${app}: reviews ${reviewLink} · app ${link}. Tip: Share > Add to Home Screen`);
   return messageMember(network, member, {
     sms,
-    subject: welcome ? `Welcome to ${app}` : `Your ${app} app — reviews first`,
-    email: `${welcome ? `Welcome to ${app}!\n\n` : ''}Here is your ${app} app. Open it on your phone to:\n1. Request Google reviews from customers\n2. Add and manage customers and jobs\n3. Send and receive referrals (and leads when linked)\n\nRequest a review:\n${reviewLink}\n\nApp home:\n${link}\n\nTip: on iPhone tap Share, then "Add to Home Screen" so it opens like an app.`,
+    subject: welcome ? `Welcome to ${referralSms ? 'the AdHello Referral Network' : app}` : `Your ${app} app — reviews first`,
+    email: `${welcome ? `Welcome to ${referralSms ? 'the AdHello Referral Network' : app}!\n\n` : ''}Here is your ${referralSms ? 'AdHello Referral Network' : app} app. Open it on your phone to:\n1. Request Google reviews from customers\n2. Add and manage customers and jobs\n3. Send and receive referrals (and leads when linked)\n\nRequest a review:\n${reviewLink}\n\nApp home:\n${link}\n\nTip: on iPhone tap Share, then "Add to Home Screen" so it opens like an app.`,
   });
 }
 
