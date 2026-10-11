@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#FFDB3A">
+  <meta name="description" content="Get the free AdHello app — request Google reviews, manage customers and jobs, and join the referral network. No workspace required.">
+  <title>Get the free app · AdHello</title>
+  <link rel="icon" href="/images/adhello-app-icon.png" type="image/png">
+  <link rel="stylesheet" href="/css/custom.css?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>">
+  <%- include('partials/tailwind_css', { twVariant: 'standalone' }) %>
+  <style>
+    .fa-card { max-width: 28rem; width: 100%; background: #fff; border-radius: 2rem; box-shadow: 0 32px 64px -16px rgba(0,0,0,0.08); padding: 2rem; }
+    @media (min-width: 640px) { .fa-card { padding: 2.5rem; } }
+    .fa-field { margin-top: 0.9rem; }
+    .fa-field label { display: block; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #64748b; margin-bottom: 0.35rem; }
+    .fa-field label .opt { font-weight: 600; text-transform: none; letter-spacing: 0; color: #94a3b8; }
+    .fa-field input { width: 100%; height: 2.9rem; border-radius: 0.85rem; border: 1px solid #e2e8f0; background: #fbfaf6; padding: 0 0.9rem; font-size: 15px; color: #0f172a; outline: none; }
+    .fa-field input:focus { border-color: #eab308; box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.25); background: #fff; }
+    .fa-perks { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; font-size: 12px; color: #475569; }
+    .fa-perks span::before { content: '✓'; color: #16a34a; font-weight: 900; margin-right: 0.35rem; }
+    .fa-btn { width: 100%; height: 3.5rem; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 9999px; background: #FFDB3A; color: #111827; font-weight: 800; font-size: 16px; box-shadow: 0 10px 20px -8px rgba(250, 204, 21, 0.5); cursor: pointer; transition: background 0.15s; }
+    .fa-btn:hover { background: #FFD600; }
+    .fa-errors { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; border-radius: 1rem; padding: 0.75rem 1rem; font-size: 13px; margin-top: 1rem; }
+    .fa-errors li + li { margin-top: 0.2rem; }
+    .fa-ok { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; border-radius: 1rem; padding: 0.9rem 1rem; font-size: 14px; line-height: 1.45; }
+  </style>
+</head>
+<body class="bg-[#FDFBF7] min-h-screen w-full font-sans">
+  <% const _f = form || {}; const _brand = typeof brand !== 'undefined' && brand ? brand : { appName: 'AdHello' }; %>
+  <main class="min-h-screen w-full flex flex-col items-center justify-center px-5 py-10">
+    <div class="fa-card">
+      <div class="flex items-center gap-3 mb-6">
+        <img src="/images/adhello-app-icon.png" alt="AdHello" width="40" height="40" class="w-10 h-10 rounded-xl border border-slate-100" />
+        <span class="text-[11px] font-black uppercase tracking-[0.15em] text-slate-500">AdHello · Free app</span>
+      </div>
+
+      <% if (sent) { %>
+        <h1 class="font-display font-extrabold text-2xl text-[#0F172A] leading-tight">Check your phone</h1>
+        <p class="mt-2 text-sm text-slate-600 leading-relaxed">If that number or email is valid, your <%= _brand.appName %> app link is on its way. Open it, then Share → Add to Home Screen.</p>
+        <div class="fa-ok mt-5" role="status">Link sent. It can take a minute. Already have it? <a class="font-semibold underline" href="<%= typeof loginHref !== 'undefined' ? loginHref : '/m/login' %>">Get a fresh link</a>.</div>
+        <p class="mt-6 text-xs text-slate-500 leading-relaxed">Want the full workspace (leads, SMS, email, GHL)? <a class="font-semibold text-slate-700 underline" href="<%= typeof trialSignupHref !== 'undefined' ? trialSignupHref : '/signup' %>">Start a free trial</a>.</p>
+      <% } else { %>
+        <h1 class="font-display font-extrabold text-2xl text-[#0F172A] leading-tight">Get the free app</h1>
+        <p class="mt-2 text-sm text-slate-600 leading-relaxed">Request Google reviews, manage customers and jobs, and send referrals. No credit card. No Agency OS workspace.</p>
+        <div class="fa-perks mt-4"><span>Reviews</span><span>Customers &amp; jobs</span><span>Referrals</span></div>
+
+        <% if (errors && errors.length) { %>
+          <ul class="fa-errors" role="alert">
+            <% errors.forEach(function (e) { %><li><%= e %></li><% }) %>
+          </ul>
+        <% } %>
+
+        <form method="post" action="/app" class="mt-2" autocomplete="on">
+          <div class="fa-field">
+            <label for="fa-name">Your name</label>
+            <input id="fa-name" name="contactName" autocomplete="name" required maxlength="120" value="<%= _f.contactName || '' %>">
+          </div>
+          <div class="fa-field">
+            <label for="fa-company">Business name</label>
+            <input id="fa-company" name="companyName" autocomplete="organization" required maxlength="160" value="<%= _f.companyName || '' %>">
+          </div>
+          <div class="fa-field">
+            <label for="fa-phone">Mobile number</label>
+            <input id="fa-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" maxlength="40" value="<%= _f.phone || '' %>" placeholder="We’ll text your app link">
+          </div>
+          <div class="fa-field">
+            <label for="fa-email">Email <span class="opt">(if you prefer email)</span></label>
+            <input id="fa-email" name="email" type="email" autocomplete="email" maxlength="200" value="<%= _f.email || '' %>">
+          </div>
+          <button type="submit" class="fa-btn mt-7">Text me the free app</button>
+        </form>
+
+        <p class="mt-6 text-xs text-slate-500 leading-relaxed">Already in a network? <a class="font-semibold text-slate-700 underline" href="<%= typeof loginHref !== 'undefined' ? loginHref : '/m/login' %>">Get your link</a>. Need leads + CRM? <a class="font-semibold text-slate-700 underline" href="<%= typeof trialSignupHref !== 'undefined' ? trialSignupHref : '/signup' %>">Start Agency OS trial</a>.</p>
+      <% } %>
+    </div>
+  </main>
+</body>
+</html>

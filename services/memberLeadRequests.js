@@ -13,7 +13,13 @@ const notify = require('./networkNotify');
 const COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_QTY = 25;
 
-async function planAllowsLeadRequests(network) {
+function isAppFreeMember(member) {
+  return String((member && member.plan) || '') === 'app_free';
+}
+
+async function planAllowsLeadRequests(network, member) {
+  // Public free-app members stay on the free tier until they start a workspace.
+  if (isAppFreeMember(member)) return false;
   if (!network || !network.ownerWorkspaceId) return false;
   const ws = await dbService.getWorkspace(network.ownerWorkspaceId);
   if (!ws) return false;
@@ -33,7 +39,7 @@ function onCooldown(member, now = Date.now()) {
 }
 
 async function leadRequestState(ctx) {
-  const planActive = await planAllowsLeadRequests(ctx.network);
+  const planActive = await planAllowsLeadRequests(ctx.network, ctx.member);
   const pending = pendingLeadRequests(ctx.appointment);
   const cooldown = onCooldown(ctx.member);
   const memberActive = ctx.member && ctx.member.status === 'active';

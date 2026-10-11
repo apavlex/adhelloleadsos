@@ -157,6 +157,12 @@ function normalizeMember(raw) {
     trades: normalizeTradeSlugs(m.trades),
     zoneIds: [...new Set((Array.isArray(m.zoneIds) ? m.zoneIds : []).map((id) => String(id || '').trim()).filter(Boolean))],
     status: m.status === 'paused' ? 'paused' : 'active',
+    /**
+     * Member commercial plan. `app_free` = public free-app signup (reviews /
+     * customers / jobs; leads + workspace upgrade gated). Empty = partner /
+     * owner on a paid or trial agency workspace.
+     */
+    plan: cleanText(m.plan, 40),
     ghlLocationId: cleanText(m.ghlLocationId, 80),
     ghlSubaccountUrl: cleanText(m.ghlSubaccountUrl, 400),
     ghlError: cleanText(m.ghlError, 300),
