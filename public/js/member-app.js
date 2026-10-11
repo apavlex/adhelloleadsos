@@ -621,9 +621,9 @@
   });
 
   /**
-   * Request a review from this phone: share text + URL only.
-   * iMessage shows one OG banner from the link — do not attach a file or
-   * you get the same photo twice (attachment + link preview).
+   * Request a review from this phone: share the SMS text only (URL already in
+   * the body). Do not pass a separate `url` or file — iMessage turns `url`
+   * into a rich preview AND often attaches the same og:image again.
    */
   function requestReviewFromPhone(btn) {
     var payload = readRequestReviewPayload(btn);
@@ -631,7 +631,7 @@
     var title = payload.title || 'Leave a review';
     var text = String(payload.text || '').trim();
     if (!text) text = title + ': ' + payload.url;
-    if (text.indexOf(payload.url) === -1) text = text.replace(/\s*$/, '') + ' ' + payload.url;
+    if (text.indexOf(payload.url) === -1) text = text.replace(/\s*$/, '') + '\n' + payload.url;
 
     var originalHtml = btn.innerHTML;
     btn.disabled = true;
@@ -650,7 +650,8 @@
     }
 
     if (navigator.share) {
-      navigator.share({ title: title, text: text, url: payload.url }).then(restore).catch(function (err) {
+      // text-only: one unfurl from the link in the body (not url+attachment).
+      navigator.share({ title: title, text: text }).then(restore).catch(function (err) {
         if (err && err.name === 'AbortError') {
           restore();
           return;
