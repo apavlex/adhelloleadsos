@@ -569,6 +569,11 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
 
 /* Customer typeahead (review ask + pickers) */
 .ma-typeahead { position: relative; }
+.ma-typeahead .ma-input.is-picked {
+  font-weight: 700;
+  border-color: color-mix(in srgb, var(--acc) 55%, var(--line));
+  background: color-mix(in srgb, var(--acc) 6%, var(--card));
+}
 .ma-typeahead__list {
   position: absolute;
   z-index: 40;
