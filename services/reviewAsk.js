@@ -156,9 +156,10 @@ async function markClicked(askId, platform, now = Date.now()) {
   return saveAsk(patch);
 }
 
+/** Same GHL credentials as Workspace → Integrations (network owner workspace). */
 async function networkIntegrationEnv(network) {
   if (!network || !network.ownerWorkspaceId) return {};
-  return workspaceIntegrations.loadIntegrationEnv(network.ownerWorkspaceId);
+  return workspaceIntegrations.getResolvedIntegrationEnv(network.ownerWorkspaceId);
 }
 
 function dueForReminder(ask, now = Date.now()) {
