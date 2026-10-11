@@ -120,8 +120,9 @@
       : '';
     const rows = Array.isArray(partners) ? partners : [];
     const counts = totals || { partners: 0, connected: 0, intros: 0, sent: 0, received: 0 };
-    const freeCount = typeof freePartnerCount === 'number' ? freePartnerCount : 0;
-    const paidCount = typeof paidPartnerCount === 'number' ? paidPartnerCount : 0;
+    const showFreePaid = typeof showFreePaidUi !== 'undefined' && !!showFreePaidUi;
+    const freeCount = showFreePaid && typeof freePartnerCount === 'number' ? freePartnerCount : 0;
+    const paidCount = showFreePaid && typeof paidPartnerCount === 'number' ? paidPartnerCount : 0;
     const noticeBad = notice && /^(Could not|That partner|Unknown|Write a note|Only an owner|Describe your business|AI was busy)/.test(notice);
     const net = (typeof networkSetup !== 'undefined' && networkSetup) ? networkSetup : { trades: [], zones: [], memberLeadKeys: [] };
     const netMembers = new Set(net.memberLeadKeys || []);
@@ -140,7 +141,7 @@
       <% } %>
     </header>
 
-    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+    <div class="grid grid-cols-2 <%= showFreePaid ? 'sm:grid-cols-3' : 'lg:grid-cols-4' %> gap-3 mb-6">
       <div class="ref-stat">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Partners</p>
         <p class="font-display font-black text-2xl" data-ref-total="partners"><%= counts.partners %></p>
@@ -149,6 +150,7 @@
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Connected</p>
         <p class="font-display font-black text-2xl" data-ref-total="connected"><%= counts.connected %></p>
       </div>
+      <% if (showFreePaid) { %>
       <div class="ref-stat">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Free</p>
         <p class="font-display font-black text-2xl" data-ref-total="free"><%= freeCount %></p>
@@ -157,6 +159,7 @@
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Paid</p>
         <p class="font-display font-black text-2xl" data-ref-total="paid"><%= paidCount %></p>
       </div>
+      <% } %>
       <div class="ref-stat">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Leads sent</p>
         <p class="font-display font-black text-2xl" data-ref-total="sent"><%= counts.sent %></p>
@@ -216,7 +219,7 @@
         <input type="search" name="q" value="<%= query %>" placeholder="Add a partner — search saved businesses" class="w-full rounded-full border border-brand-border bg-white dark:bg-slate-900 dark:border-white/10 py-2.5 pl-9 pr-3 text-sm text-brand-dark dark:text-white placeholder:text-brand-muted/80" />
       </label>
       <div class="flex items-center gap-3 shrink-0">
-        <% if (freeCount > 0 || _hideFree) { %>
+        <% if (showFreePaid && (freeCount > 0 || _hideFree)) { %>
         <label class="ref-filter-free">
           <input type="checkbox" name="hideFree" value="1" <%= _hideFree ? 'checked' : '' %> onchange="this.form.submit()">
           <span>Hide free accounts<%= freeCount && !_hideFree ? ' (' + freeCount + ')' : '' %></span>
@@ -237,7 +240,7 @@
       <% if (!savedCount) { %>
       <p class="text-sm text-brand-muted">Save businesses first, then add the ones you trade leads with.</p>
       <a href="/leads/find" class="ref-btn ref-btn-yellow mt-4">Find leads</a>
-      <% } else if (_hideFree && freeCount > 0) { %>
+      <% } else if (showFreePaid && _hideFree && freeCount > 0) { %>
       <p class="text-sm text-brand-muted max-w-md mx-auto">All matching partners are on free accounts. Uncheck “Hide free accounts” to see them.</p>
       <% } else if (query) { %>
       <p class="text-sm text-brand-muted">No saved businesses match “<%= query %>”.</p>
@@ -278,7 +281,7 @@
               <% } else if (partner.highlighted) { %>
               <span class="ref-pill" data-ref-pill style="background: rgba(148,163,184,0.16); color: #64748b;">Not connected</span>
               <% } %>
-              <% if (partner.isAppFree) { %>
+              <% if (showFreePaid && partner.isAppFree) { %>
               <span class="ref-pill ref-pill-free" data-ref-free-pill>Free account</span>
               <% } %>
             </div>

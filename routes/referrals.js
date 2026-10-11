@@ -10,6 +10,7 @@ const referralExchange = require('../services/referralExchange');
 const { tradesForNetwork } = require('../services/networkTrades');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const { suggestReferralNiches, applyNichesToNetwork, nicheSearchUrl } = require('../services/suggestReferralNiches');
+const { isAgencySalesWorkspace } = require('../services/leadPanelWorkspace');
 
 const ACTION_NOTICE = {
   connect: 'Marked connected.',
@@ -136,10 +137,18 @@ router.get('/', async (req, res, next) => {
         joinedWhen: meta.joinedWhen || '',
       };
     });
-    const hideFree = String(req.query.hideFree || '') === '1';
+    // Free/Paid plan tags are agency ops UI (owner/admin). Referral networks and
+    // vertical workspaces hide them until the workspace is an agency sales workspace.
+    const showFreePaidUi =
+      isAgencySalesWorkspace(req.workspace || ws) && req.canManageWorkspace === true;
+    const hideFree = showFreePaidUi && String(req.query.hideFree || '') === '1';
     const visiblePartners = hideFree ? partners.filter((p) => !p.isAppFree) : partners;
-    const freePartnerCount = partners.filter((p) => p.isAppFree).length;
-    const paidPartnerCount = partners.filter((p) => p.hasSeat && !p.isAppFree).length;
+    const freePartnerCount = showFreePaidUi
+      ? partners.filter((p) => p.isAppFree).length
+      : 0;
+    const paidPartnerCount = showFreePaidUi
+      ? partners.filter((p) => p.hasSeat && !p.isAppFree).length
+      : 0;
     res.render('referrals', {
       networkSetup: {
         trades: network ? tradesForNetwork(network).map((t) => ({ slug: t.slug, name: t.name })) : [],
@@ -150,6 +159,7 @@ router.get('/', async (req, res, next) => {
       activePage: 'referrals',
       query: q,
       focus,
+      showFreePaidUi,
       hideFree,
       freePartnerCount,
       paidPartnerCount,
