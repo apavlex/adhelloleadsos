@@ -82,7 +82,7 @@
 
     <section class="ma-card" id="maPreviewImage">
       <h2 style="font-size:16px;margin:0 0 6px">Default preview image</h2>
-      <p class="ma-hint" style="margin-top:0">Shown when your review link is shared in Messages. <span class="ma-fold__hint" style="display:inline;margin:0"><%= typeof hasCustomShareImage !== 'undefined' && hasCustomShareImage ? 'custom' : 'AdHello default' %></span></p>
+      <p class="ma-hint" style="margin-top:0">Shown when your review link is shared in Messages. Uses your Home banner (van / photo) unless you upload a custom preview. <span class="ma-fold__hint" style="display:inline;margin:0"><%= typeof hasCustomShareImage !== 'undefined' && hasCustomShareImage ? 'custom' : 'Home banner' %></span></p>
       <img class="ma-share-preview" src="<%= typeof shareImagePath !== 'undefined' ? shareImagePath : (reviewPath + '/og.jpg') %>" alt="Link preview" width="600" height="315" style="width:100%;max-width:100%;height:auto;border-radius:14px;display:block;background:#0f172a">
       <form method="post" action="<%= base %>/review/share-image" enctype="multipart/form-data" autocomplete="off" style="margin-top:12px">
         <input type="hidden" name="next" value="settings">
@@ -93,10 +93,10 @@
         <button type="submit" class="ma-btn ma-btn--soft ma-btn--block">Save as default preview</button>
       </form>
       <% if (typeof hasCustomShareImage !== 'undefined' && hasCustomShareImage) { %>
-      <form method="post" action="<%= base %>/review/share-image" style="margin-top:8px" data-ma-confirm="Remove your custom preview image and use the AdHello default?">
+      <form method="post" action="<%= base %>/review/share-image" style="margin-top:8px" data-ma-confirm="Remove your custom preview image and use your Home banner instead?">
         <input type="hidden" name="next" value="settings">
         <input type="hidden" name="remove" value="1">
-        <button type="submit" class="ma-btn ma-btn--ghost ma-btn--block">Use AdHello default instead</button>
+        <button type="submit" class="ma-btn ma-btn--ghost ma-btn--block">Use Home banner instead</button>
       </form>
       <% } %>
     </section>
