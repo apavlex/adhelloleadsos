@@ -612,7 +612,7 @@
     var searchApi = window.maCustomerSearch;
     if (!searchApi || !searchApi.searchCustomers) return;
 
-    var input = root.querySelector('input[type="search"], input[role="combobox"]');
+    var input = root.querySelector('input[role="combobox"], input[type="search"], input.ma-input');
     var hidden = root.querySelector('input[type="hidden"][name="customerId"]');
     var list = root.querySelector('[role="listbox"]');
     var dataEl = root.querySelector('script[type="application/json"]');
@@ -627,6 +627,8 @@
     var email = document.getElementById('rvAskEmail');
     var active = -1;
     var shown = [];
+    var pickedLabel = String(input.value || '').trim();
+    var suppressInput = false;
 
     function esc(s) {
       return String(s == null ? '' : s)
@@ -653,6 +655,8 @@
 
     function clearPick() {
       hidden.value = '';
+      pickedLabel = '';
+      input.classList.remove('is-picked');
       active = -1;
     }
 
@@ -665,6 +669,13 @@
     function openList() {
       list.hidden = false;
       input.setAttribute('aria-expanded', 'true');
+    }
+
+    function setInputValue(text) {
+      suppressInput = true;
+      input.value = text;
+      // iOS can drop programmatic search-field values on blur; force a paint + unlock next tick.
+      suppressInput = false;
     }
 
     function render(query) {
@@ -711,17 +722,38 @@
       }
       if (!c) return;
       hidden.value = c.id;
-      input.value = c.name || '';
+      pickedLabel = String(c.name || '').trim();
+      setInputValue(pickedLabel);
+      input.classList.add('is-picked');
       fillFields(c);
       closeList();
+      // Keep the chosen name visible; dismiss keyboard so iOS doesn’t wipe type=search fields.
+      try { input.blur(); } catch (err) { /* ignore */ }
     }
 
+    if (hidden.value && pickedLabel) input.classList.add('is-picked');
+
     input.addEventListener('focus', function () {
+      // If a pick was somehow cleared from the visible field, put it back.
+      if (hidden.value && !String(input.value || '').trim() && pickedLabel) {
+        setInputValue(pickedLabel);
+      }
       render(input.value);
     });
     input.addEventListener('input', function () {
+      if (suppressInput) return;
+      var v = String(input.value || '');
+      // Editing away from the selected label clears the linked customer id.
+      if (hidden.value && v.trim() === pickedLabel) return;
       clearPick();
-      render(input.value);
+      render(v);
+    });
+    input.addEventListener('blur', function () {
+      // Restore selected name if the field was emptied while a customer is still linked.
+      if (hidden.value && !String(input.value || '').trim() && pickedLabel) {
+        setInputValue(pickedLabel);
+        input.classList.add('is-picked');
+      }
     });
     input.addEventListener('keydown', function (e) {
       var items = list.querySelectorAll('.ma-typeahead__item');
@@ -748,6 +780,7 @@
       e.stopPropagation();
       pickByEl(el);
     }
+    list.addEventListener('pointerdown', onPickEvent);
     list.addEventListener('mousedown', onPickEvent);
     list.addEventListener('click', onPickEvent);
     document.addEventListener('click', function (e) {

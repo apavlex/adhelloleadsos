@@ -68,11 +68,17 @@ describe('customerSearch', () => {
     assert.match(review, /data-ma-customer-pick/);
     assert.match(review, /role="combobox"/);
     assert.match(review, /Search by name or phone/);
+    assert.match(review, /inputmode="search"/);
+    assert.match(review, /type="text"/);
+    assert.match(review, /Pick someone/);
     assert.match(tabbar, /member-customer-search\.js/);
     assert.match(app, /function initCustomerPick/);
     assert.match(app, /searchApi\.searchCustomers/);
+    assert.match(app, /is-picked/);
+    assert.match(app, /pickedLabel/);
     assert.match(css, /\.ma-typeahead__list/);
     assert.match(css, /\.ma-typeahead__item--new/);
+    assert.match(css, /\.ma-typeahead \.ma-input\.is-picked/);
   });
 
   it('wires Customers list search to live client-side filtering', () => {
