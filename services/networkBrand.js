@@ -3,7 +3,12 @@
  * accent color, logo / hero images and the headline stat on Home.
  */
 
-const DEFAULT_ACCENT = '#F26B1D';
+/** AdHello brand yellow — default member-app accent (not orange). */
+const DEFAULT_ACCENT = '#FFDB3A';
+/** Product name for the free Reviews App (never “Adhello Agency network”). */
+const FREE_APP_NAME = 'AdHello Reviews App';
+/** Placeholder hero for free-app members until they upload their own van/photo. */
+const FREE_APP_HERO_URL = '/images/member-hero-your-business.jpg';
 const IMAGE_KINDS = new Set(['logo', 'hero']);
 
 function cleanText(value, max) {
@@ -78,25 +83,55 @@ function formatStat(value) {
   return Number(value).toLocaleString('en-US');
 }
 
-/** Everything a member-facing template needs, with sensible fallbacks. */
-function brandView(network) {
+/**
+ * Everything a member-facing template needs, with sensible fallbacks.
+ * Free-app members (`plan: app_free`) get AdHello yellow, their signup company
+ * name (else “AdHello Reviews App”), and a “Your business image” hero until
+ * they upload their own — never the host agency network name.
+ *
+ * @param {object} network
+ * @param {object} [member]
+ * @param {{ heroUrl?: string, freeApp?: boolean }} [opts]
+ *   heroUrl — member-scoped hero path; freeApp — force free-app product brand
+ *   (signup / login) without a member row.
+ */
+function brandView(network, member, opts = {}) {
   const net = network && typeof network === 'object' ? network : {};
   const brand = normalizeBrand(net.brand);
-  const appName = brand.appName || cleanText(net.name, 60) || 'Partner network';
+  const free = !!(opts.freeApp || (member && String(member.plan || '') === 'app_free'));
+  const companyName = free && member ? cleanText(member.companyName, 60) : '';
+  // Free app never inherits the host agency network name — product is Reviews App.
+  // Signup company stays on the hero subtitle so members still see their business.
+  const appName = free
+    ? FREE_APP_NAME
+    : (brand.appName || cleanText(net.name, 60) || 'Partner network');
+  const heroName = appName;
+  const accent = free ? DEFAULT_ACCENT : brand.accent;
+  let heroUrl = brand.heroUrl;
+  if (free) {
+    heroUrl = normalizeImageUrl(opts.heroUrl) || FREE_APP_HERO_URL;
+  }
+  const freeSubtitle = companyName
+    ? `${companyName} · Reviews, customers & network`
+    : 'Reviews, customers & network';
   return {
     appName,
+    /** Home hero card title. */
+    heroName: heroName || appName,
+    companyName,
     shortName: appName.length <= 12 ? appName : appName.split(/\s+/)[0].slice(0, 12),
     tagline: brand.tagline || 'Every review builds your reputation.',
-    subtitle: brand.subtitle || 'Reviews, customers & network',
-    accent: brand.accent,
-    onAccent: onAccentColor(brand.accent),
-    logoUrl: brand.logoUrl,
-    heroUrl: brand.heroUrl,
-    statValue: brand.statValue,
-    statValueLabel: formatStat(brand.statValue),
-    statLabel: brand.statLabel,
-    statSuffix: brand.statSuffix,
-    initials: initials(appName),
+    subtitle: free ? freeSubtitle : (brand.subtitle || 'Reviews, customers & network'),
+    accent,
+    onAccent: onAccentColor(accent),
+    logoUrl: free ? '' : brand.logoUrl,
+    heroUrl,
+    statValue: free ? '' : brand.statValue,
+    statValueLabel: free ? '' : formatStat(brand.statValue),
+    statLabel: free ? '' : brand.statLabel,
+    statSuffix: free ? '' : brand.statSuffix,
+    initials: initials(heroName || appName),
+    isFreeApp: !!free,
   };
 }
 
@@ -154,6 +189,8 @@ async function prepareImage(kind, buffer) {
 
 module.exports = {
   DEFAULT_ACCENT,
+  FREE_APP_NAME,
+  FREE_APP_HERO_URL,
   IMAGE_KINDS,
   normalizeBrand,
   normalizeHex,

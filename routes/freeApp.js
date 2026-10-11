@@ -20,12 +20,9 @@ function clientIp(req) {
 async function brandForPage() {
   try {
     const network = await freeAppSignup.resolveFreeAppNetwork();
-    return networkBrand.brandView(network);
+    return networkBrand.brandView(network, null, { freeApp: true });
   } catch (_) {
-    return networkBrand.brandView({
-      name: 'AdHello',
-      brand: { appName: 'AdHello', accent: '#FFDB3A', tagline: 'Reviews, customers & referrals — free.' },
-    });
+    return networkBrand.brandView(null, null, { freeApp: true });
   }
 }
 
