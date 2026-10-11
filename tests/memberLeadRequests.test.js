@@ -38,6 +38,49 @@ describe('memberLeadRequests', () => {
       await memberLeadRequests.planAllowsLeadRequests({ ownerWorkspaceId: 'ws1' }, { plan: 'app_free' }),
       false,
     );
+    assert.equal(
+      await memberLeadRequests.planAllowsLeadDetails({ ownerWorkspaceId: 'ws1' }, { plan: 'app_free' }),
+      false,
+    );
+  });
+
+  it('teases form leads and referrals with project name only when locked', () => {
+    const lockedLead = memberLeadRequests.presentFormLead({
+      id: 'fl1',
+      name: 'Kitchen remodel',
+      phone: '5035550199',
+      email: 'a@b.com',
+      preview: 'Needs quote ASAP',
+      formName: 'Contact',
+      source: 'ghl',
+      status: 'open',
+      at: '2026-10-11T00:00:00.000Z',
+    }, { detailsAllowed: false });
+    assert.equal(lockedLead.name, 'Kitchen remodel');
+    assert.equal(lockedLead.phone, '');
+    assert.equal(lockedLead.email, '');
+    assert.equal(lockedLead.preview, '');
+    assert.equal(lockedLead.detailsLocked, true);
+
+    const openLead = memberLeadRequests.presentFormLead({
+      id: 'fl1', name: 'Kitchen remodel', phone: '5035550199',
+    }, { detailsAllowed: true });
+    assert.equal(openLead.phone, '5035550199');
+    assert.equal(openLead.detailsLocked, false);
+
+    const lockedRef = memberLeadRequests.presentReferralTeaser({
+      id: 'r1',
+      trade: 'Plumbing',
+      customer: { name: 'Sam Hose', phone: '555', email: 'x@y.z', note: 'leak' },
+      actions: ['claim'],
+      notes: [{ text: 'secret' }],
+      statusLabel: 'Open · Claim',
+    }, { detailsAllowed: false });
+    assert.equal(lockedRef.customer.name, 'Sam Hose');
+    assert.equal(lockedRef.customer.phone, undefined);
+    assert.deepEqual(lockedRef.actions, []);
+    assert.deepEqual(lockedRef.notes, []);
+    assert.equal(lockedRef.detailsLocked, true);
   });
 
   it('cooldowns after a recent leadRequestAt', () => {

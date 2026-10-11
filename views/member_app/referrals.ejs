@@ -7,22 +7,24 @@
   <main class="ma-shell">
     <%- include('_top', { topTitle: 'Leads & Referrals' }) %>
     <h1 class="ma-page-title">Leads &amp; Referrals</h1>
-    <% if (typeof referralsLocked !== 'undefined' && referralsLocked) { %>
-    <p class="ma-page-sub">Get jobs referred to your business from the network.</p>
-    <%- include('_flash') %>
-    <%- include('_upgrade_gate', {
-      upgradeTitle: 'Start getting referrals',
-      upgradeBody: 'Upgrade to activate referrals for your business — claim open jobs from the pool and get sent work from partners.',
-      upgradeHref: typeof upgradeHref !== 'undefined' ? upgradeHref : '/signup',
-      upgradeIcon: 'referrals',
-    }) %>
-    <% } else { %>
     <%
+      const _locked = typeof referralsLocked !== 'undefined' && referralsLocked;
       const _formLeads = typeof formLeads !== 'undefined' && Array.isArray(formLeads) ? formLeads : [];
       const _hasAppt = typeof appointment !== 'undefined' && appointment;
       const _inboxCount = received.length + _formLeads.filter(function (l) { return l.status !== 'closed'; }).length;
     %>
+    <% if (_locked) { %>
+    <p class="ma-page-sub">See new project names as they come in — upgrade to unlock contact details and claim jobs.</p>
+    <%- include('_flash') %>
+    <%- include('_upgrade_gate', {
+      upgradeTitle: 'Unlock lead details',
+      upgradeBody: 'Free and trial accounts only see the project name. Join on a paid plan to get phones, notes, and claim buttons.',
+      upgradeHref: typeof upgradeHref !== 'undefined' ? upgradeHref : '/signup',
+      upgradeIcon: 'referrals',
+    }) %>
+    <% } else { %>
     <p class="ma-page-sub">Website forms and leads your agency assigns, plus network referrals you receive, claim, or send.</p>
+    <% } %>
 
     <nav class="ma-seg ma-seg--3" aria-label="Lead and referral lists">
       <a href="<%= base %>/referrals?view=pool" class="<%= view === 'pool' ? 'is-on' : '' %>">Pool (<%= pool.length %>)</a>
@@ -30,7 +32,7 @@
       <a href="<%= base %>/referrals?view=sent" class="<%= view === 'sent' ? 'is-on' : '' %>">Sent (<%= sent.length %>)</a>
     </nav>
 
-    <%- include('_flash') %>
+    <% if (!_locked) { %><%- include('_flash') %><% } %>
 
     <%- include('_lead_request_callout', { leadRequest: typeof leadRequest !== 'undefined' ? leadRequest : null, back: 'referrals', base: base, icons: icons }) %>
 
@@ -47,6 +49,7 @@
           </div>
           <span class="ma-pill ma-pill--pending"><%= r.statusLabel %></span>
         </div>
+        <% if (!_locked) { %>
         <p class="ma-card__meta" style="margin-top:8px">
           <% if (c.phone) { %><a href="tel:<%= String(c.phone).replace(/[^0-9+]/g, '') %>" style="font-weight:700;color:var(--acc);text-decoration:none"><%= c.phone %></a><%= (c.email || c.address || c.city || c.zip) ? ' · ' : '' %><% } %>
           <%= [c.email, c.address, [c.city, c.zip].filter(Boolean).join(' ')].filter(Boolean).join(' · ') %>
@@ -58,10 +61,16 @@
             <button type="submit" class="ma-btn ma-btn--sm">Claim this lead</button>
           </form>
         </div>
+        <% } else { %>
+        <p class="ma-card__meta" style="margin-top:8px">Contact details locked — upgrade to claim.</p>
+        <div class="ma-actions">
+          <a class="ma-btn ma-btn--sm" href="<%= typeof upgradeHref !== 'undefined' ? upgradeHref : '/signup' %>">Upgrade to unlock</a>
+        </div>
+        <% } %>
       </article>
       <% }); %>
     <% } else if (view === 'received') { %>
-      <% if (_hasAppt) { %>
+      <% if (_hasAppt && !_locked) { %>
       <section class="ma-card" id="maPushRoot" data-base="<%= base %>" style="margin-bottom:12px">
         <div class="ma-card__row">
           <div style="min-width:0">
@@ -93,6 +102,9 @@
                 <% if (lead.source === 'agency') { %>Sent by agency<% } else { %><%= lead.formName || 'Website form' %><% } %>
                 <% if (lead.at) { %> · <%= new Date(lead.at).toLocaleString() %><% } %>
               </p>
+              <% if (_locked || lead.detailsLocked) { %>
+              <p class="ma-card__meta" style="margin-top:6px">Details locked — upgrade to see phone, email, and notes.</p>
+              <% } else { %>
               <% if (lead.phone || lead.email) { %>
               <p class="ma-card__meta" style="margin-top:6px">
                 <% if (lead.phone) { %><a href="tel:<%= String(lead.phone).replace(/[^0-9+]/g, '') %>" style="font-weight:700;color:var(--acc);text-decoration:none"><%= lead.phone %></a><% } %>
@@ -101,19 +113,24 @@
               </p>
               <% } %>
               <% if (lead.preview) { %><p class="ma-card__note"><%= lead.preview %></p><% } %>
+              <% } %>
             </div>
             <span class="ma-pill <%= lead.status === 'closed' ? 'ma-pill--lost' : 'ma-pill--accepted' %>"><%= lead.status === 'closed' ? 'Closed' : (lead.source === 'agency' ? 'Agency' : 'Open') %></span>
           </div>
           <% if (lead.status !== 'closed') { %>
           <div class="ma-actions">
+            <% if (_locked || lead.detailsLocked) { %>
+            <a class="ma-btn ma-btn--sm" href="<%= typeof upgradeHref !== 'undefined' ? upgradeHref : '/signup' %>">Upgrade to unlock</a>
+            <% } else { %>
             <% if (lead.phone) { %><a class="ma-btn ma-btn--sm" href="tel:<%= String(lead.phone).replace(/[^0-9+]/g, '') %>">Call</a><% } %>
             <form method="post" action="<%= base %>/leads/<%= encodeURIComponent(lead.id) %>/close">
               <button type="submit" class="ma-btn ma-btn--sm ma-btn--soft">Mark closed</button>
             </form>
             <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= base %>/review">Request review</a>
+            <% } %>
           </div>
           <%
-            const _canRefer = !(typeof referralsLocked !== 'undefined' && referralsLocked)
+            const _canRefer = !_locked
               && (lead.phone || lead.email)
               && (
                 (typeof partnerMembers !== 'undefined' && partnerMembers && partnerMembers.length)
@@ -161,7 +178,7 @@
             %>
             <p class="ma-hint" style="margin:10px 0 0"><a href="<%= base %>/send?<%= _sendQs %>">Edit details on Send first</a></p>
           </details>
-          <% } else if (!(typeof referralsLocked !== 'undefined' && referralsLocked) && (lead.phone || lead.email)) { %>
+          <% } else if (!_locked && (lead.phone || lead.email)) { %>
           <p class="ma-hint" style="margin:10px 0 0">Add referral partners to your network to push this lead with one tap.</p>
           <% } %>
           <% } %>
@@ -186,6 +203,12 @@
             </div>
             <span class="ma-pill ma-pill--<%= r.status %>"><%= r.statusLabel %><%= r.value ? ' · ' + r.value : '' %></span>
           </div>
+          <% if (_locked) { %>
+          <p class="ma-card__meta" style="margin-top:8px">Contact details locked — upgrade to open this lead.</p>
+          <div class="ma-actions">
+            <a class="ma-btn ma-btn--sm" href="<%= typeof upgradeHref !== 'undefined' ? upgradeHref : '/signup' %>">Upgrade to unlock</a>
+          </div>
+          <% } else { %>
           <% if (r.status !== 'declined') { %>
           <p class="ma-card__meta" style="margin-top:8px">
             <% if (c.phone) { %><a href="tel:<%= String(c.phone).replace(/[^0-9+]/g, '') %>" style="font-weight:700;color:var(--acc);text-decoration:none"><%= c.phone %></a><%= (c.email || c.address || c.city || c.zip) ? ' · ' : '' %><% } %>
@@ -226,6 +249,7 @@
               <button type="submit" class="ma-btn ma-btn--sm ma-btn--soft">Save</button>
             </form>
           </details>
+          <% } %>
         </article>
         <% }); %>
       </section>
@@ -240,7 +264,7 @@
       <% } %>
     <% } else { %>
       <% if (!sent.length) { %>
-      <div class="ma-card ma-empty"><%- icons.send %><p>You haven't sent a referral yet.</p><a class="ma-btn ma-btn--sm" href="<%= base %>/send" style="margin-top:8px">Send one</a></div>
+      <div class="ma-card ma-empty"><%- icons.send %><p>You haven't sent a referral yet.</p><% if (!_locked) { %><a class="ma-btn ma-btn--sm" href="<%= base %>/send" style="margin-top:8px">Send one</a><% } %></div>
       <% } %>
       <% sent.forEach(function (r) { const c = r.customer || {}; %>
       <article class="ma-card">
@@ -254,10 +278,9 @@
       </article>
       <% }); %>
     <% } %>
-    <% } %>
   </main>
   <%- include('_tabbar') %>
-  <% if (typeof appointment !== 'undefined' && appointment && !(typeof referralsLocked !== 'undefined' && referralsLocked)) { %>
+  <% if (typeof appointment !== 'undefined' && appointment && !_locked) { %>
   <script src="/js/member-app-push.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
   <% } %>
 </body>
