@@ -144,9 +144,10 @@ describe('freeAppSignup', () => {
       const get = await fetch(`${base}/app`);
       assert.equal(get.status, 200);
       const html = await get.text();
-      assert.match(html, /Get the free app/);
+      assert.match(html, /Get the reviews app/);
       assert.match(html, /action="\/app"/);
-      assert.match(html, /Text me the free app/);
+      assert.match(html, /Text me the reviews app/);
+      assert.match(html, /\.fa-btn[^}]*margin-top:\s*2\.25rem/);
 
       const post = await fetch(`${base}/app`, {
         method: 'POST',
@@ -173,7 +174,9 @@ describe('freeAppSignup', () => {
     const callout = fs.readFileSync(path.join(__dirname, '../views/member_app/_lead_request_callout.ejs'), 'utf8');
     assert.match(server, /routes\/freeApp/);
     assert.match(route, /router\.(get|post)\('\/app'/);
-    assert.match(view, /Get the free app/);
+    assert.match(view, /Get the reviews app/);
+    assert.match(view, /Text me the reviews app/);
+    assert.match(view, /\.fa-btn[^}]*margin-top:\s*2\.25rem/);
     assert.match(callout, /href="\/signup"/);
   });
 });
