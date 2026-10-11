@@ -101,6 +101,7 @@ const OK_MESSAGES = {
   review_email: 'Review request sent by email via GHL CRM.',
   customer: 'Customer saved.',
   customer_deleted: 'Customer deleted.',
+  tag: 'Tags updated and synced with GHL CRM.',
   job: 'Job saved.',
   job_deleted: 'Job deleted.',
   job_photo: 'Photo saved.',
@@ -968,7 +969,20 @@ async function renderCustomers(req, res, ctx, flash, status) {
 
 router.get('/m/:token/customers', withMember((req, res, ctx) => renderCustomers(req, res, ctx)));
 
-function renderCustomerPage(res, ctx, { customer, jobs, today, formValues, flash, status, reviewAskStatus }) {
+async function customerTagViews(ctx, customer) {
+  const workspaceId = ctx.network && ctx.network.ownerWorkspaceId;
+  if (!workspaceId || !customer) {
+    return { customerTags: [], availableTags: [] };
+  }
+  const [customerTags, availableTags] = await Promise.all([
+    memberCustomerGhl.presentCustomerTags(workspaceId, customer),
+    memberCustomerGhl.availableCustomerTags(workspaceId, customer),
+  ]);
+  return { customerTags, availableTags };
+}
+
+async function renderCustomerPage(res, ctx, { customer, jobs, today, formValues, flash, status, reviewAskStatus }) {
+  const tagViews = await customerTagViews(ctx, customer);
   return render(res, 'customer', ctx, {
     active: 'customers',
     customer,
@@ -979,6 +993,7 @@ function renderCustomerPage(res, ctx, { customer, jobs, today, formValues, flash
     reviewAskStatus: reviewAskStatus || null,
     reviewSendLocked: freeAppSignup.isAppFreeMember(ctx.member),
     upgradeHref: '/signup',
+    ...tagViews,
   }, status);
 }
 
@@ -1032,9 +1047,15 @@ router.post('/m/:token/customers/sync-ghl', form, withMember(async (req, res, ct
   return res.redirect(303, `${ctx.base}/customers?ok=customers_synced&detail=${encodeURIComponent(`(${out.summary})`)}`);
 }));
 
-async function customerPageData(req, ctx, id) {
-  const customer = await work.getCustomer(ctx.network.id, ctx.member.id, id);
+async function customerPageData(req, ctx, id, { refreshTags = false } = {}) {
+  let customer = await work.getCustomer(ctx.network.id, ctx.member.id, id);
   if (!customer) return null;
+  if (refreshTags && customer.ghlContactId) {
+    const pulled = await memberCustomerGhl
+      .pullCustomerTagsFromGhl(ctx.network, ctx.member.id, customer)
+      .catch(() => null);
+    if (pulled && pulled.ok && pulled.customer) customer = pulled.customer;
+  }
   const today = work.todayIn(memberTimeZone(req));
   const { jobs, customersById } = await loadWork(ctx);
   const mine = jobs
@@ -1046,7 +1067,7 @@ async function customerPageData(req, ctx, id) {
 }
 
 router.get('/m/:token/customers/c/:id', withMember(async (req, res, ctx) => {
-  const data = await customerPageData(req, ctx, req.params.id);
+  const data = await customerPageData(req, ctx, req.params.id, { refreshTags: true });
   if (!data) return res.redirect(303, `${ctx.base}/customers`);
   return renderCustomerPage(res, ctx, { ...data, flash: flashFromQuery(req) });
 }));
@@ -1062,6 +1083,46 @@ router.post('/m/:token/customers/c/:id', form, withMember(async (req, res, ctx) 
     await memberCustomerGhl.pushCustomerToGhl(ctx.network, ctx.member.id, result.customer).catch(() => null);
   }
   return res.redirect(303, `${ctx.base}/customers/c/${result.customer.id}?ok=customer`);
+}));
+
+router.post('/m/:token/customers/c/:id/tags/add', form, withMember(async (req, res, ctx) => {
+  const result = await memberCustomerGhl.setCustomerTag(
+    ctx.network,
+    ctx.member.id,
+    req.params.id,
+    req.body && req.body.tagKey,
+    { add: true },
+  );
+  if (!result.ok) {
+    const data = await customerPageData(req, ctx, req.params.id);
+    if (!data) return res.redirect(303, `${ctx.base}/customers`);
+    return renderCustomerPage(res, ctx, {
+      ...data,
+      flash: { error: result.error || 'Could not add that tag.' },
+      status: 400,
+    });
+  }
+  return res.redirect(303, `${ctx.base}/customers/c/${req.params.id}?ok=tag`);
+}));
+
+router.post('/m/:token/customers/c/:id/tags/remove', form, withMember(async (req, res, ctx) => {
+  const result = await memberCustomerGhl.setCustomerTag(
+    ctx.network,
+    ctx.member.id,
+    req.params.id,
+    req.body && req.body.tagKey,
+    { add: false },
+  );
+  if (!result.ok) {
+    const data = await customerPageData(req, ctx, req.params.id);
+    if (!data) return res.redirect(303, `${ctx.base}/customers`);
+    return renderCustomerPage(res, ctx, {
+      ...data,
+      flash: { error: result.error || 'Could not remove that tag.' },
+      status: 400,
+    });
+  }
+  return res.redirect(303, `${ctx.base}/customers/c/${req.params.id}?ok=tag`);
 }));
 
 router.post('/m/:token/customers/c/:id/delete', form, withMember(async (req, res, ctx) => {

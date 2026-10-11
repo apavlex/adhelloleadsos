@@ -165,6 +165,12 @@ function phoneDigits(value) {
   return String(value || '').replace(/\D/g, '');
 }
 
+const MAX_CUSTOMER_TAGS = 40;
+
+function normalizeCustomerTags(raw) {
+  return dbService.normalizeTagKeys(raw).slice(0, MAX_CUSTOMER_TAGS);
+}
+
 function normalizeCustomer(raw) {
   const c = raw && typeof raw === 'object' ? raw : {};
   const source = String(c.source || '').trim().toLowerCase();
@@ -175,6 +181,7 @@ function normalizeCustomer(raw) {
     email: cleanEmail(c.email),
     address: cleanLine(c.address, 200),
     notes: cleanBlock(c.notes, 2000),
+    tags: normalizeCustomerTags(c.tags),
     referralId: isRecordId(c.referralId) ? c.referralId : '',
     ghlContactId: cleanLine(c.ghlContactId, 80),
     ghlSyncedAt: c.ghlSyncedAt ? String(c.ghlSyncedAt) : '',
@@ -321,7 +328,7 @@ async function getCustomer(networkId, memberId, id) {
 
 /** Create (no id) or update (id of an existing customer in this scope). */
 async function saveCustomer(networkId, memberId, input, opts = {}) {
-  const { id, referralId, ghlContactId, ghlSyncedAt, source } = opts;
+  const { id, referralId, ghlContactId, ghlSyncedAt, source, tags } = opts;
   const prefix = custPrefix(networkId, memberId);
   const checked = validateCustomer(input);
   if (!checked.ok) return checked;
@@ -343,10 +350,15 @@ async function saveCustomer(networkId, memberId, input, opts = {}) {
     source !== undefined
       ? String(source || '').trim().toLowerCase()
       : (existing && existing.source) || (nextGhlId ? 'ghl' : 'manual');
+  const nextTags =
+    tags !== undefined
+      ? normalizeCustomerTags(tags)
+      : normalizeCustomerTags(existing && existing.tags);
   const customer = normalizeCustomer({
     ...(existing || {}),
     ...checked.fields,
     id: existing ? existing.id : newId(),
+    tags: nextTags,
     referralId: existing ? existing.referralId : (referralId || ''),
     ghlContactId: nextGhlId,
     ghlSyncedAt: nextSynced,
@@ -356,6 +368,31 @@ async function saveCustomer(networkId, memberId, input, opts = {}) {
   });
   await dbService.putStorageKey(`${prefix}${customer.id}`, customer);
   return { ok: true, customer, created: !existing };
+}
+
+/** Replace customer tag keys (workspace catalog keys). */
+async function setCustomerTags(networkId, memberId, id, tagKeys) {
+  const existing = await getCustomer(networkId, memberId, id);
+  if (!existing) return { ok: false, error: 'Customer not found.' };
+  return saveCustomer(
+    networkId,
+    memberId,
+    {
+      name: existing.name,
+      phone: existing.phone,
+      email: existing.email,
+      address: existing.address,
+      notes: existing.notes,
+    },
+    {
+      id: existing.id,
+      tags: tagKeys,
+      ghlContactId: existing.ghlContactId,
+      ghlSyncedAt: existing.ghlSyncedAt,
+      source: existing.source,
+      referralId: existing.referralId,
+    },
+  );
 }
 
 /** Remaining slots before MAX_CUSTOMERS. */
@@ -764,6 +801,7 @@ module.exports = {
   REMIND_BEFORE_OPTIONS,
   CUSTOMER_SOURCES,
   googleMapsSearchUrl,
+  MAX_CUSTOMER_TAGS,
   isRecordId,
   isOpen,
   nextStatus,
@@ -775,11 +813,13 @@ module.exports = {
   validateCustomer,
   validateJob,
   normalizeCustomer,
+  normalizeCustomerTags,
   normalizeJob,
   findCustomerMatch,
   listCustomers,
   getCustomer,
   saveCustomer,
+  setCustomerTags,
   remainingCustomerSlots,
   deleteCustomer,
   listJobs,
