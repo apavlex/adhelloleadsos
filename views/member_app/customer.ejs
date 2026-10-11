@@ -126,19 +126,19 @@
       <div class="ma-card ma-tags" data-ma-tag-pick>
         <p class="ma-hint" style="margin:0 0 14px">Search an existing tag or create a new one. Active tags sync both ways with GHL CRM.</p>
 
-        <div class="ma-tags__list" role="list">
+        <div class="ma-tags__list" role="list" data-ma-tag-applied data-remove-action="<%= base %>/customers/c/<%= customer.id %>/tags/remove">
           <% if (_applied.length) { %>
             <% _applied.forEach(function (t) { %>
-            <div class="ma-tags__chip" role="listitem" style="--ma-tag:<%= t.color || 'var(--acc)' %>">
+            <div class="ma-tags__chip" role="listitem" style="--ma-tag:<%= t.color || 'var(--acc)' %>" data-key="<%= t.key %>">
               <span class="ma-tags__chip-name"><%= t.name %></span>
-              <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/tags/remove" class="ma-tags__chip-remove">
+              <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/tags/remove" class="ma-tags__chip-remove" data-ma-tag-remove-form>
                 <input type="hidden" name="tagKey" value="<%= t.key %>">
                 <button type="submit" class="ma-tags__chip-x" aria-label="Remove <%= t.name %> tag">×</button>
               </form>
             </div>
             <% }); %>
           <% } else { %>
-            <p class="ma-hint ma-tags__empty" style="margin:0">No tags on this customer yet.</p>
+            <p class="ma-hint ma-tags__empty" style="margin:0" data-ma-tag-empty>No tags on this customer yet.</p>
           <% } %>
         </div>
 
@@ -173,10 +173,10 @@
           </form>
 
           <% if (_available.length) { %>
-          <ul class="ma-tags__suggest" data-ma-tag-suggest aria-label="Available tags">
+          <ul class="ma-tags__suggest" data-ma-tag-suggest aria-label="Available tags" hidden>
             <% _available.forEach(function (t) { %>
-            <li class="ma-tags__suggest-item" data-ma-tag-suggest-item data-key="<%= t.key %>" data-name="<%= String(t.name || '').toLowerCase() %>">
-              <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/tags/add">
+            <li class="ma-tags__suggest-item" data-ma-tag-suggest-item data-key="<%= t.key %>" data-name="<%= String(t.name || '').toLowerCase() %>" data-color="<%= t.color || '' %>">
+              <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/tags/add" data-ma-tag-suggest-form>
                 <input type="hidden" name="tagKey" value="<%= t.key %>">
                 <button type="submit" class="ma-tags__suggest-btn" style="--ma-tag:<%= t.color || 'var(--acc)' %>">+ <%= t.name %></button>
               </form>

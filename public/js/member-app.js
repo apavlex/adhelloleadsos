@@ -1004,7 +1004,7 @@
     form.setAttribute('data-ma-ready', '1');
   }
 
-  /** Typeahead + visible suggestion pills for customer tags. */
+  /** Typeahead + focus-gated suggestion pills for customer tags. */
   function initTagPick(root) {
     if (!root || root.getAttribute('data-ma-ready') === '1') return;
     var form = root.querySelector('[data-ma-tag-form]');
@@ -1013,6 +1013,7 @@
     var list = root.querySelector('[data-ma-tag-list]');
     var dataEl = root.querySelector('[data-ma-tag-catalog]');
     var suggest = root.querySelector('[data-ma-tag-suggest]');
+    var applied = root.querySelector('[data-ma-tag-applied]');
     if (!form || !input || !keyInput || !list || !dataEl) return;
 
     var catalog = [];
@@ -1020,6 +1021,10 @@
     if (!Array.isArray(catalog)) catalog = [];
 
     var active = -1;
+    var searchActive = false;
+    var blurTimer = 0;
+    var removeAction = applied ? (applied.getAttribute('data-remove-action') || '') : '';
+    var busy = Object.create(null);
 
     function esc(s) {
       return String(s == null ? '' : s)
@@ -1050,6 +1055,10 @@
 
     function filterSuggest(qLower) {
       if (!suggest) return;
+      if (!searchActive) {
+        suggest.hidden = true;
+        return;
+      }
       var items = suggest.querySelectorAll('[data-ma-tag-suggest-item]');
       var visible = 0;
       for (var i = 0; i < items.length; i++) {
@@ -1059,6 +1068,143 @@
         if (show) visible += 1;
       }
       suggest.hidden = visible === 0;
+    }
+
+    function setSearchActive(on) {
+      searchActive = !!on;
+      if (!searchActive) {
+        if (suggest) suggest.hidden = true;
+        closeList();
+        return;
+      }
+      filterSuggest(String(input.value || '').trim().toLowerCase());
+    }
+
+    function syncEmptyState() {
+      if (!applied) return;
+      var chips = applied.querySelectorAll('.ma-tags__chip');
+      var empty = applied.querySelector('[data-ma-tag-empty]');
+      if (chips.length) {
+        if (empty) empty.remove();
+      } else if (!empty) {
+        var p = document.createElement('p');
+        p.className = 'ma-hint ma-tags__empty';
+        p.setAttribute('data-ma-tag-empty', '');
+        p.style.margin = '0';
+        p.textContent = 'No tags on this customer yet.';
+        applied.appendChild(p);
+      }
+    }
+
+    function postTagForm(action, fields) {
+      var body = new URLSearchParams();
+      Object.keys(fields || {}).forEach(function (k) {
+        if (fields[k] != null && fields[k] !== '') body.set(k, fields[k]);
+      });
+      return fetch(action, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'text/html' },
+        body: body.toString(),
+        credentials: 'same-origin',
+        redirect: 'manual',
+      }).then(function (res) {
+        // 303/302 after save, or 200 error page
+        if (res.type === 'opaqueredirect' || (res.status >= 300 && res.status < 400) || res.status === 0) {
+          return { ok: true };
+        }
+        if (res.ok) return { ok: true };
+        return { ok: false };
+      }).catch(function () { return { ok: false }; });
+    }
+
+    function buildChip(tag) {
+      var chip = document.createElement('div');
+      chip.className = 'ma-tags__chip';
+      chip.setAttribute('role', 'listitem');
+      chip.setAttribute('data-key', tag.key);
+      chip.style.setProperty('--ma-tag', tag.color || 'var(--acc)');
+      chip.innerHTML =
+        '<span class="ma-tags__chip-name">' + esc(tag.name) + '</span>' +
+        '<form method="post" action="' + esc(removeAction) + '" class="ma-tags__chip-remove" data-ma-tag-remove-form>' +
+          '<input type="hidden" name="tagKey" value="' + esc(tag.key) + '">' +
+          '<button type="submit" class="ma-tags__chip-x" aria-label="Remove ' + esc(tag.name) + ' tag">×</button>' +
+        '</form>';
+      return chip;
+    }
+
+    function optimisticAdd(tag, suggestItem) {
+      if (!applied || !tag || !tag.key || busy[tag.key]) return;
+      busy[tag.key] = true;
+      if (suggestItem) suggestItem.hidden = true;
+      catalog = catalog.filter(function (t) { return t.key !== tag.key; });
+      var chip = buildChip(tag);
+      applied.appendChild(chip);
+      syncEmptyState();
+      filterSuggest(String(input.value || '').trim().toLowerCase());
+      chip.classList.add('is-pending');
+      postTagForm(form.action, { tagKey: tag.key }).then(function (out) {
+        chip.classList.remove('is-pending');
+        delete busy[tag.key];
+        if (out.ok) return;
+        chip.remove();
+        if (suggestItem) suggestItem.hidden = false;
+        catalog.push({ key: tag.key, name: tag.name, color: tag.color || '' });
+        syncEmptyState();
+        filterSuggest(String(input.value || '').trim().toLowerCase());
+      });
+    }
+
+    function optimisticRemove(chip) {
+      if (!chip || !applied) return;
+      var key = chip.getAttribute('data-key') || '';
+      if (!key || busy[key]) return;
+      var nameEl = chip.querySelector('.ma-tags__chip-name');
+      var name = nameEl ? nameEl.textContent : key;
+      var color = chip.style.getPropertyValue('--ma-tag') || '';
+      busy[key] = true;
+      var next = chip.nextSibling;
+      chip.remove();
+      syncEmptyState();
+      // Restore into suggestions if we have a matching slot, else append a new one
+      var suggestItem = null;
+      if (suggest) {
+        var suggestItems = suggest.querySelectorAll('[data-ma-tag-suggest-item]');
+        for (var si = 0; si < suggestItems.length; si++) {
+          if (suggestItems[si].getAttribute('data-key') === key) { suggestItem = suggestItems[si]; break; }
+        }
+      }
+      if (suggestItem) {
+        suggestItem.hidden = !searchActive;
+      } else if (suggest) {
+        suggestItem = document.createElement('li');
+        suggestItem.className = 'ma-tags__suggest-item';
+        suggestItem.setAttribute('data-ma-tag-suggest-item', '');
+        suggestItem.setAttribute('data-key', key);
+        suggestItem.setAttribute('data-name', String(name || '').toLowerCase());
+        suggestItem.setAttribute('data-color', color);
+        suggestItem.hidden = !searchActive;
+        suggestItem.innerHTML =
+          '<form method="post" action="' + esc(form.action) + '" data-ma-tag-suggest-form>' +
+            '<input type="hidden" name="tagKey" value="' + esc(key) + '">' +
+            '<button type="submit" class="ma-tags__suggest-btn" style="--ma-tag:' + esc(color || 'var(--acc)') + '">+ ' + esc(name) + '</button>' +
+          '</form>';
+        suggest.appendChild(suggestItem);
+      }
+      if (!catalog.some(function (t) { return t.key === key; })) {
+        catalog.push({ key: key, name: name, color: color });
+      }
+      filterSuggest(String(input.value || '').trim().toLowerCase());
+      postTagForm(removeAction, { tagKey: key }).then(function (out) {
+        delete busy[key];
+        if (out.ok) return;
+        var restored = buildChip({ key: key, name: name, color: color });
+        if (next && next.parentNode === applied) applied.insertBefore(restored, next);
+        else applied.appendChild(restored);
+        if (suggestItem) suggestItem.remove();
+        catalog = catalog.filter(function (t) { return t.key !== key; });
+        syncEmptyState();
+        filterSuggest(String(input.value || '').trim().toLowerCase());
+      });
     }
 
     function render(query) {
@@ -1080,7 +1226,6 @@
         html += '<li class="ma-typeahead__item ma-typeahead__item--new" role="option" data-create="1" data-idx="0">' +
           'Create “' + esc(q) + '”</li>';
       }
-      // When typing, also mirror matches in the list for keyboard users
       shown.forEach(function (t, i) {
         var idx = (q && !exact ? 1 : 0) + i;
         html += '<li class="ma-typeahead__item" role="option" data-key="' + esc(t.key) + '" data-name="' + esc(t.name) + '" data-idx="' + idx + '">' +
@@ -1122,9 +1267,21 @@
       return true;
     }
 
-    input.addEventListener('focus', function () { render(input.value); });
+    input.addEventListener('focus', function () {
+      if (blurTimer) { clearTimeout(blurTimer); blurTimer = 0; }
+      setSearchActive(true);
+      render(input.value);
+    });
+    input.addEventListener('blur', function () {
+      blurTimer = setTimeout(function () {
+        blurTimer = 0;
+        if (root.contains(document.activeElement)) return;
+        setSearchActive(false);
+      }, 120);
+    });
     input.addEventListener('input', function () {
       keyInput.value = '';
+      setSearchActive(true);
       render(input.value);
     });
     input.addEventListener('keydown', function (e) {
@@ -1140,6 +1297,26 @@
       } else if (e.key === 'Enter') {
         if (!list.hidden && items.length) {
           e.preventDefault();
+          var el = items[active] || items[0];
+          if (el && el.getAttribute('data-create') !== '1' && el.getAttribute('data-key')) {
+            var tag = catalog.find(function (t) { return t.key === el.getAttribute('data-key'); });
+            if (tag) {
+              chooseActive();
+              var suggestItem = null;
+              if (suggest) {
+                var sItems = suggest.querySelectorAll('[data-ma-tag-suggest-item]');
+                for (var sj = 0; sj < sItems.length; sj++) {
+                  if (sItems[sj].getAttribute('data-key') === tag.key) { suggestItem = sItems[sj]; break; }
+                }
+              }
+              optimisticAdd(tag, suggestItem);
+              input.value = '';
+              keyInput.value = '';
+              closeList();
+              filterSuggest('');
+              return;
+            }
+          }
           chooseActive();
           form.requestSubmit();
         } else {
@@ -1147,20 +1324,74 @@
         }
       } else if (e.key === 'Escape') {
         closeList();
+        setSearchActive(false);
+        input.blur();
       }
     });
     list.addEventListener('mousedown', function (e) {
       var el = e.target.closest('.ma-typeahead__item');
       if (!el) return;
       e.preventDefault();
-      if (el.getAttribute('data-create') === '1') pickCreate();
-      else pickExisting(el);
+      if (el.getAttribute('data-create') === '1') {
+        pickCreate();
+        closeList();
+        form.requestSubmit();
+        return;
+      }
+      var key = el.getAttribute('data-key') || '';
+      var tag = catalog.find(function (t) { return t.key === key; });
+      if (tag) {
+        var suggestItem = null;
+        if (suggest) {
+          var sItems2 = suggest.querySelectorAll('[data-ma-tag-suggest-item]');
+          for (var sk = 0; sk < sItems2.length; sk++) {
+            if (sItems2[sk].getAttribute('data-key') === key) { suggestItem = sItems2[sk]; break; }
+          }
+        }
+        optimisticAdd(tag, suggestItem);
+        input.value = '';
+        keyInput.value = '';
+        closeList();
+        filterSuggest('');
+        return;
+      }
+      pickExisting(el);
       closeList();
       form.requestSubmit();
     });
 
-    // Show all available suggestion pills initially
-    filterSuggest('');
+    if (suggest) {
+      // Keep focus on the search field while tapping a suggestion.
+      suggest.addEventListener('mousedown', function (e) {
+        if (e.target.closest('[data-ma-tag-suggest-form]')) e.preventDefault();
+      });
+      suggest.addEventListener('click', function (e) {
+        var formEl = e.target.closest('[data-ma-tag-suggest-form]');
+        if (!formEl) return;
+        e.preventDefault();
+        var item = formEl.closest('[data-ma-tag-suggest-item]');
+        if (!item) return;
+        var key = item.getAttribute('data-key') || '';
+        var name = item.getAttribute('data-name') || '';
+        var color = item.getAttribute('data-color') || '';
+        var btn = formEl.querySelector('.ma-tags__suggest-btn');
+        var label = btn ? String(btn.textContent || '').replace(/^\+\s*/, '').trim() : name;
+        optimisticAdd({ key: key, name: label || name, color: color }, item);
+      });
+    }
+
+    if (applied) {
+      applied.addEventListener('click', function (e) {
+        var formEl = e.target.closest('[data-ma-tag-remove-form]');
+        if (!formEl) return;
+        e.preventDefault();
+        var chip = formEl.closest('.ma-tags__chip');
+        if (chip) optimisticRemove(chip);
+      });
+    }
+
+    // Available tags stay hidden until the search input is focused.
+    setSearchActive(false);
     root.setAttribute('data-ma-ready', '1');
   }
 
