@@ -413,6 +413,9 @@ test('customers tab routes: top-bar add customer, CRUD, calendar, pending and re
     const customerPage = await (await fetch(`${A}/customers/c/${customerId}`)).text();
     assert.match(customerPage, /ma-askstatus/);
     assert.match(customerPage, /Opened the review link/);
+    // Review quick action opens ask form prefilled — does not send on tap.
+    assert.match(customerPage, new RegExp(`/review\\?ask=1&amp;customer=${customerId}`));
+    assert.doesNotMatch(customerPage, /customers\/c\/[^"]+\/request-review/);
     assert.match(customerPage, /https:\/\/www\.google\.com\/maps\/search\/\?api=1&amp;query=/);
     assert.match(customerPage, /Morgan%20Diaz|Morgan Diaz/);
     assert.match(customerPage, /ma-label-link[^>]*>Google Maps</);

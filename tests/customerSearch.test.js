@@ -83,9 +83,13 @@ describe('customerSearch', () => {
     assert.match(css, /\.ma-typeahead__list/);
     assert.match(css, /\.ma-typeahead__item--new/);
     assert.match(css, /\.ma-ask-selected/);
-    // Customer page Review opens the ask form with customer=id (selected), not as a new person.
+    // Customer page Review opens the ask form with customer=id (selected), not send-on-tap.
+    const customer = fs.readFileSync(path.join(__dirname, '../views/member_app/customer.ejs'), 'utf8');
+    assert.match(customer, /\/review\?ask=1&amp;customer=/);
+    assert.doesNotMatch(customer, /method="post"[^>]*request-review|request-review[^>]*method="post"/);
     assert.match(route, /customers\/c\/:id\/request-review/);
     assert.match(route, /customer: data\.customer\.id/);
+    assert.match(route, /ask:\s*'1'/);
     assert.match(route, /findCustomerMatch\(customers/);
   });
 

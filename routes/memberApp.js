@@ -1146,50 +1146,22 @@ router.post('/m/:token/customers/c/:id/delete', form, withMember(async (req, res
   return res.redirect(303, `${ctx.base}/customers?ok=customer_deleted`);
 }));
 
-/** Request a review for this customer via GHL SMS/email. */
+/**
+ * Legacy POST: always open Review ask with this customer prefilled.
+ * Sending happens from the Review tab after the member confirms the message.
+ */
 router.post('/m/:token/customers/c/:id/request-review', form, withMember(async (req, res, ctx) => {
   const data = await customerPageData(req, ctx, req.params.id);
   if (!data) return res.redirect(303, `${ctx.base}/customers`);
-  const member = await ensureReviewSetup(ctx);
-  if (!reviewPage.countLinks(member.reviewLinks)) {
-    // Open the ask form with this saved customer selected (not as a "new person").
-    const qs = new URLSearchParams({
-      ask: '1',
-      customer: data.customer.id,
-      name: data.customer.name || '',
-      phone: data.customer.phone || '',
-      email: data.customer.email || '',
-    });
-    return res.redirect(303, `${ctx.base}/review?${qs.toString()}`);
-  }
-  if (ctx.member.status !== 'active') {
-    return renderCustomerPage(res, ctx, {
-      ...data,
-      flash: { error: 'Your membership is paused, so review requests can’t be sent.' },
-      status: 403,
-    });
-  }
-  const channel = String((req.body && req.body.channel) || 'auto').trim() || 'auto';
-  const result = await notify.sendReviewRequest({
-    network: ctx.network,
-    member,
-    baseUrl: notify.baseUrlFromReq(req),
-    toPhone: data.customer.phone,
-    toEmail: data.customer.email,
-    customerName: data.customer.name,
-    customerId: data.customer.id,
-    channel,
-    useAi: true,
+  await ensureReviewSetup(ctx);
+  const qs = new URLSearchParams({
+    ask: '1',
+    customer: data.customer.id,
+    name: data.customer.name || '',
+    phone: data.customer.phone || '',
+    email: data.customer.email || '',
   });
-  if (!result.ok) {
-    return renderCustomerPage(res, ctx, {
-      ...data,
-      flash: { error: result.error || 'Could not send the review request.' },
-      status: 400,
-    });
-  }
-  const ok = result.channel === 'email' ? 'review_email' : 'review_sms';
-  return res.redirect(303, `${ctx.base}/customers/c/${data.customer.id}?ok=${ok}`);
+  return res.redirect(303, `${ctx.base}/review?${qs.toString()}`);
 }));
 
 async function renderJobPage(req, res, ctx, { job, formValues, flash, status }) {
