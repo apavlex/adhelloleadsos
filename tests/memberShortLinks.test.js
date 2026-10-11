@@ -72,6 +72,81 @@ describe('memberShortLinks', () => {
     mock.restoreAll();
   });
 
+  it('free app_free welcome SMS uses Referral Network copy with short links', async () => {
+    const network = await store.getOrCreateNetworkForWorkspace('ws_short_free_sms', { name: 'Free SMS net' });
+    const member = await store.saveMember(network.id, {
+      companyName: 'Sunrise HVAC',
+      contactName: 'Alex Rivera',
+      phone: '5035550188',
+      status: 'active',
+      plan: 'app_free',
+    });
+    let smsBody = '';
+    const ghlMessaging = require('../services/ghlMessaging');
+    const { mock } = require('node:test');
+    mock.method(ghlMessaging, 'messagingReady', () => ({ configured: true, smsReady: true, emailReady: true }));
+    mock.method(ghlMessaging, 'sendSmsToPerson', async ({ message }) => {
+      smsBody = message;
+      return { provider: 'ghl', messageId: 'm1' };
+    });
+    const workspaceIntegrations = require('../services/workspaceIntegrations');
+    mock.method(workspaceIntegrations, 'getResolvedIntegrationEnv', async () => ({}));
+
+    await networkNotify.sendMemberPortalLink({
+      network,
+      member,
+      baseUrl: 'https://leads.adhello.io',
+      welcome: true,
+    });
+    assert.match(smsBody, /^Hey Alex — you’re in the AdHello Referral Network!/);
+    assert.match(smsBody, /Quickest win: start collecting free reviews right here → https:\/\/leads\.adhello\.io\/a\/[a-z0-9]{8}\/review(?:\s|$)/);
+    assert.doesNotMatch(smsBody, /\/review\?ask=1/);
+    assert.match(smsBody, /After that, handle customers, jobs, and referrals in the app\. Tip: Share → Add to Home Screen\./);
+    assert.doesNotMatch(smsBody, /in the app: https:/);
+    assert.equal((smsBody.match(/https:\/\/leads\.adhello\.io\/a\//g) || []).length, 1);
+    assert.doesNotMatch(smsBody, /Adhello Agency network/i);
+    assert.doesNotMatch(smsBody, /\/m\/[A-Za-z0-9_-]{40,}/);
+    mock.restoreAll();
+  });
+
+  it('AdHello Agency network portal SMS uses Referral Network copy even without app_free plan', async () => {
+    const network = await store.getOrCreateNetworkForWorkspace('ws_short_agency_sms', {
+      name: 'Adhello Agency network',
+    });
+    await store.saveNetwork({
+      ...network,
+      brand: { ...(network.brand || {}), appName: 'Adhello Agency network' },
+    });
+    const fresh = await store.getNetwork(network.id);
+    const member = await store.saveMember(fresh.id, {
+      companyName: 'Coastal Plumbing',
+      contactName: 'Jordan Lee',
+      phone: '5035550177',
+      status: 'active',
+    });
+    let smsBody = '';
+    const ghlMessaging = require('../services/ghlMessaging');
+    const { mock } = require('node:test');
+    mock.method(ghlMessaging, 'messagingReady', () => ({ configured: true, smsReady: true, emailReady: true }));
+    mock.method(ghlMessaging, 'sendSmsToPerson', async ({ message }) => {
+      smsBody = message;
+      return { provider: 'ghl', messageId: 'm1' };
+    });
+    const workspaceIntegrations = require('../services/workspaceIntegrations');
+    mock.method(workspaceIntegrations, 'getResolvedIntegrationEnv', async () => ({}));
+
+    await networkNotify.sendMemberPortalLink({
+      network: fresh,
+      member,
+      baseUrl: 'https://leads.adhello.io',
+      welcome: true,
+    });
+    assert.match(smsBody, /^Hey Jordan — you’re in the AdHello Referral Network!/);
+    assert.doesNotMatch(smsBody, /Welcome to Adhello Agency network/i);
+    assert.doesNotMatch(smsBody, /\/review\?ask=1/);
+    mock.restoreAll();
+  });
+
   it('GET /a/:code redirects to a fresh signed /m/ token with path preserved', async () => {
     const network = await store.getOrCreateNetworkForWorkspace('ws_short_3', { name: 'Short net 3' });
     let member = await store.saveMember(network.id, {

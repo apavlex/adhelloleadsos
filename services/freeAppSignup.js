@@ -158,9 +158,12 @@ async function signupFreeApp({ form, digits, email, baseUrl, ip }) {
   const existing = await findExistingMember(network.id, { digits, email });
   if (existing) {
     let member = existing;
-    // Returning visitor: reopen if paused, but do not overwrite a partner plan.
-    if (member.status === 'paused') {
-      member = await store.saveMember(network.id, { ...member, status: 'active' });
+    // Returning visitor: reopen if paused; keep partner plans, else mark app_free.
+    const patch = {};
+    if (member.status === 'paused') patch.status = 'active';
+    if (!member.plan) patch.plan = PLAN_APP_FREE;
+    if (Object.keys(patch).length) {
+      member = await store.saveMember(network.id, { ...member, ...patch });
     }
     const notified = await notify.sendMemberPortalLink({ network, member, baseUrl, welcome: false })
       .catch((err) => ({ ok: false, error: err.message }));
