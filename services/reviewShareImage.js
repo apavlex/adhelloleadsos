@@ -191,12 +191,28 @@ function reviewLogoPath(slug, updatedAt) {
   return `/rv/${s}/logo.png?v=${v}`;
 }
 
+function profileAvatarPath(slug, updatedAt) {
+  const s = encodeURIComponent(String(slug || '').trim());
+  const v = encodeURIComponent(String(updatedAt || '').trim() || '1');
+  return `/rv/${s}/avatar.png?v=${v}`;
+}
+
 function hasCustomLogo(member) {
   return !!(member && member.reviewLogoUpdatedAt);
 }
 
-/** Prefer member logo, then network brand logo, else empty (caller shows initials). */
+function hasProfilePhoto(member) {
+  return !!(member && member.profilePhotoUpdatedAt);
+}
+
+/**
+ * Same photo as the member-app top bar / Profile when set.
+ * Fallback: custom request-page logo → network brand logo → empty (initials).
+ */
 function requestPageLogoUrl(member, brand) {
+  if (hasProfilePhoto(member) && member.reviewSlug) {
+    return profileAvatarPath(member.reviewSlug, member.profilePhotoUpdatedAt);
+  }
   if (hasCustomLogo(member) && member.reviewSlug) {
     return reviewLogoPath(member.reviewSlug, member.reviewLogoUpdatedAt);
   }
@@ -225,6 +241,8 @@ module.exports = {
   deleteReviewLogo,
   getReviewLogoBuffer,
   reviewLogoPath,
+  profileAvatarPath,
   hasCustomLogo,
+  hasProfilePhoto,
   requestPageLogoUrl,
 };

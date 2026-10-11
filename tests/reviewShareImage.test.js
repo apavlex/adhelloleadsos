@@ -99,3 +99,26 @@ test('shareImageAbsoluteUrl includes cache-bust version', () => {
     /^[a-f0-9]{12}$/,
   );
 });
+
+test('requestPageLogoUrl prefers Profile photo over request-page logo', () => {
+  const member = {
+    reviewSlug: 'zippy-blinds',
+    profilePhotoUpdatedAt: '2026-10-11T12:00:00.000Z',
+    reviewLogoUpdatedAt: '2026-10-10T12:00:00.000Z',
+  };
+  assert.match(
+    reviewShareImage.requestPageLogoUrl(member, { logoUrl: '/m/brand/x/logo' }),
+    /^\/rv\/zippy-blinds\/avatar\.png\?v=/,
+  );
+  assert.equal(
+    reviewShareImage.requestPageLogoUrl(
+      { reviewSlug: 'zippy-blinds', reviewLogoUpdatedAt: '2026-10-10T12:00:00.000Z' },
+      { logoUrl: '/m/brand/x/logo' },
+    ),
+    reviewShareImage.reviewLogoPath('zippy-blinds', '2026-10-10T12:00:00.000Z'),
+  );
+  assert.equal(
+    reviewShareImage.requestPageLogoUrl({ reviewSlug: 'zippy-blinds' }, { logoUrl: '/m/brand/x/logo' }),
+    '/m/brand/x/logo',
+  );
+});

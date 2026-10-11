@@ -19,16 +19,18 @@
 
     <section class="ma-card" id="maReviewLogo">
       <h2 style="font-size:16px;margin:0 0 6px">Request page logo</h2>
-      <p class="ma-hint" style="margin-top:0">Shown at the top of your public review page when customers scan your QR or open the link.</p>
-      <% if (_hasLogo && reviewLogoPath) { %>
-      <img class="rv-logo" src="<%= reviewLogoPath %>" alt="<%= member.companyName %> logo" style="margin:8px auto 12px">
-      <% } else if (brand.logoUrl) { %>
-      <img class="rv-logo" src="<%= brand.logoUrl %>" alt="" style="margin:8px auto 12px">
-      <p class="ma-hint" style="text-align:center">Using your network logo until you upload one here.</p>
+      <p class="ma-hint" style="margin-top:0">Same image as your <a href="<%= base %>/profile">Profile photo</a> in the top bar — shown when customers open your review link.</p>
+      <% const _hasProfile = typeof hasProfilePhoto !== 'undefined' && hasProfilePhoto; %>
+      <% const _previewLogo = typeof requestLogoUrl !== 'undefined' && requestLogoUrl ? requestLogoUrl : ''; %>
+      <% if (_previewLogo) { %>
+      <img class="rv-logo" src="<%= _previewLogo %>" alt="<%= member.companyName %> logo" style="margin:8px auto 12px">
       <% } else { %>
       <div class="rv-initials" aria-hidden="true" style="margin:8px auto 12px"><%= (member.companyName || '?').trim().charAt(0).toUpperCase() %></div>
-      <p class="ma-hint" style="text-align:center">Upload a logo to replace the letter initial.</p>
       <% } %>
+      <% if (_hasProfile) { %>
+      <p class="ma-hint" style="text-align:center">Change it anytime under <a href="<%= base %>/profile">Profile &amp; settings</a>.</p>
+      <% } else { %>
+      <p class="ma-hint" style="text-align:center">No Profile photo yet — add one on Profile, or upload a logo here as a fallback.</p>
       <form method="post" action="<%= base %>/review/logo" enctype="multipart/form-data" autocomplete="off">
         <div class="ma-field">
           <label class="ma-label" for="rvRequestLogo">Upload logo</label>
@@ -41,6 +43,7 @@
         <input type="hidden" name="remove" value="1">
         <button type="submit" class="ma-btn ma-btn--ghost ma-btn--block">Remove logo</button>
       </form>
+      <% } %>
       <% } %>
     </section>
 

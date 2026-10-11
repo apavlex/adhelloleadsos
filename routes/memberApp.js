@@ -1531,6 +1531,8 @@ function reviewPageLocals(member, extras, brand) {
     || member.heroUpdatedAt
     || 'default';
   const hasCustomLogo = reviewShareImage.hasCustomLogo(member);
+  const hasProfilePhoto = reviewShareImage.hasProfilePhoto(member);
+  const requestLogoUrl = reviewShareImage.requestPageLogoUrl(member, brand);
   return {
     reviewUrl,
     reviewPath: `/rv/${member.reviewSlug}`,
@@ -1541,6 +1543,8 @@ function reviewPageLocals(member, extras, brand) {
     shareImageUrl: reviewShareImage.shareImageAbsoluteUrl(member.reviewSlug, 'default', shareVersion),
     hasCustomShareImage: !!member.reviewShareImageUpdatedAt,
     hasCustomLogo,
+    hasProfilePhoto,
+    requestLogoUrl,
     reviewLogoPath: hasCustomLogo
       ? reviewShareImage.reviewLogoPath(member.reviewSlug, member.reviewLogoUpdatedAt)
       : '',
