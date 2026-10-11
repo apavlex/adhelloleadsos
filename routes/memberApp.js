@@ -929,22 +929,37 @@ async function renderCustomers(req, res, ctx, flash, status) {
   if (view === 'list') {
     // Full list is rendered; live client search filters as you type (same ranking as review ask).
     const q = String(req.query.q || '').trim().slice(0, 80);
-    const rows = customers
-      .map((c) => {
-        const mine = jobs.filter((j) => j.customerId === c.id);
-        const open = mine.filter(work.isOpen);
-        const lead = open[0] || mine[mine.length - 1];
-        return {
-          ...c,
-          href: `${ctx.base}/customers/c/${c.id}`,
-          jobCount: mine.length,
-          openCount: open.length,
-          top: lead ? present(lead) : null,
-          sortKey: lead ? lead.updatedAt : c.updatedAt,
-        };
-      })
+    const showPartners = String(req.query.partners || '') === '1';
+    const tagCatalog = ctx.network && ctx.network.ownerWorkspaceId
+      ? await memberCustomerGhl.listActiveWorkspaceTags(ctx.network.ownerWorkspaceId)
+      : [];
+    const tagNameByKey = new Map(tagCatalog.map((t) => [t.key, t.name]));
+    const annotated = customers.map((c) => {
+      const mine = jobs.filter((j) => j.customerId === c.id);
+      const open = mine.filter(work.isOpen);
+      const lead = open[0] || mine[mine.length - 1];
+      const isPartner = memberCustomerGhl.customerLooksLikePartner(c, tagNameByKey);
+      return {
+        ...c,
+        href: `${ctx.base}/customers/c/${c.id}`,
+        jobCount: mine.length,
+        openCount: open.length,
+        top: lead ? present(lead) : null,
+        sortKey: lead ? lead.updatedAt : c.updatedAt,
+        isPartner,
+      };
+    });
+    const partnerCount = annotated.filter((c) => c.isPartner).length;
+    const rows = annotated
+      .filter((c) => showPartners || !c.isPartner)
       .sort((a, b) => (b.openCount > 0) - (a.openCount > 0) || String(b.sortKey).localeCompare(String(a.sortKey)));
-    Object.assign(extra, { q, rows });
+    Object.assign(extra, {
+      q,
+      rows,
+      showPartners,
+      partnerCount,
+      hiddenPartnerCount: showPartners ? 0 : partnerCount,
+    });
   } else if (view === 'calendar') {
     const month = /^\d{4}-\d{2}$/.test(String(req.query.m || '')) ? req.query.m : today.slice(0, 7);
     const picked = work.cleanDate(req.query.d);

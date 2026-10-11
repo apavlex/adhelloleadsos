@@ -26,7 +26,7 @@
         <% if (typeof crmSyncLocked !== 'undefined' && crmSyncLocked) { %>
         <p class="ma-hint ma-cust-tools__lead">Upload a list or add customers manually. CRM sync unlocks with a monthly workspace plan.</p>
         <% } else { %>
-        <p class="ma-hint ma-cust-tools__lead">Uses your workspace’s CRM connection (Workspace → Integrations). Sync contacts or upload a list — then request reviews from anyone here.</p>
+        <p class="ma-hint ma-cust-tools__lead">Uses your workspace’s CRM connection (Workspace → Integrations). Sync imports homeowners; contacts tagged <strong>Referral partner</strong> or <strong>GB: Referral Network</strong> stay out of this list.</p>
         <% } %>
         <div class="ma-settings-list">
           <% if (typeof crmSyncLocked !== 'undefined' && crmSyncLocked) { %>
@@ -75,13 +75,30 @@
       <form class="ma-search" method="get" action="<%= base %>/customers" role="search" data-ma-customer-list-search>
         <%- icons.search %>
         <input class="ma-input" type="search" name="q" value="<%= q %>" placeholder="Search by name or phone…" aria-label="Search customers" autocomplete="off" autocorrect="off" spellcheck="false">
+        <% if (typeof showPartners !== 'undefined' && showPartners) { %><input type="hidden" name="partners" value="1"><% } %>
       </form>
+      <% if (typeof partnerCount === 'number' && partnerCount > 0) { %>
+      <p class="ma-hint ma-cust-partner-filter" style="margin:10px 0 0">
+        <% if (showPartners) { %>
+          Showing <%= partnerCount %> referral partner<%= partnerCount === 1 ? '' : 's' %> from CRM.
+          <a class="ma-label-link" href="<%= hrefFor({ q: q || undefined }) %>">Hide partners</a>
+        <% } else { %>
+          <%= hiddenPartnerCount %> referral partner<%= hiddenPartnerCount === 1 ? '' : 's' %> hidden (tagged in CRM).
+          <a class="ma-label-link" href="<%= hrefFor({ q: q || undefined, partners: '1' }) %>">Show partners</a>
+        <% } %>
+      </p>
+      <% } %>
       <% } %>
       <% if (!rows.length) { %>
       <div class="ma-card ma-empty">
         <%- icons.people %>
+        <% if (typeof partnerCount === 'number' && partnerCount > 0 && !(typeof showPartners !== 'undefined' && showPartners)) { %>
+        <p>No homeowners in this list — <%= partnerCount %> referral partner<%= partnerCount === 1 ? '' : 's' %> <%= partnerCount === 1 ? 'is' : 'are' %> hidden.</p>
+        <a class="ma-btn ma-btn--block" href="<%= hrefFor({ partners: '1' }) %>" style="margin-top:12px;max-width:240px">Show partners</a>
+        <% } else { %>
         <p>No customers yet.<% if (typeof crmSyncLocked !== 'undefined' && crmSyncLocked) { %> Upload a list or add one with the + button.<% } else { %> Sync from CRM above, upload a list, or add one with the + button.<% } %></p>
         <a class="ma-btn ma-btn--block" href="<%= base %>/customers/new" style="margin-top:12px;max-width:220px"><%- icons.plus %> Add customer</a>
+        <% } %>
       </div>
       <% } else { %>
       <div class="ma-card ma-empty" data-ma-customer-list-empty hidden>
@@ -99,13 +116,15 @@
           data-phone="<%= c.phone || '' %>"
           data-email="<%= c.email || '' %>"
           data-address="<%= c.address || '' %>"
+          <% if (c.isPartner) { %>data-partner="1"<% } %>
         >
           <span class="ma-row__avatar"><%= c.name.charAt(0).toUpperCase() %></span>
           <span class="ma-row__body">
             <span class="ma-row__title"><%= c.name %></span>
-            <span class="ma-row__meta"><%= c.top ? [c.top.title, c.top.whenLabel].filter(Boolean).join(' · ') : (c.phone || c.email || c.address || 'No jobs yet') %></span>
+            <span class="ma-row__meta"><%= c.top ? [c.top.title, c.top.whenLabel].filter(Boolean).join(' · ') : (c.phone || c.email || c.address || 'No jobs yet') %><% if (c.isPartner) { %> · Partner<% } %></span>
           </span>
           <span class="ma-row__end">
+            <% if (c.isPartner) { %><span class="ma-pill">Partner</span><% } %>
             <% if (c.top) { %><span class="ma-pill ma-pill--job-<%= c.top.status %>"><%= c.top.statusLabel %></span><% } %>
             <% if (c.openCount > 1) { %><small><%= c.openCount %> open</small><% } %>
           </span>
