@@ -13,9 +13,11 @@ describe('member app install modal and tab bar', () => {
     const css = fs.readFileSync(path.join(root, 'public/css/member-app.css'), 'utf8');
     assert.match(css, /html\s*\{[^}]*background:\s*var\(--card\)/s);
     assert.match(css, /\.ma-tabbar\s*\{[^}]*bottom:\s*0/s);
-    assert.match(css, /\.ma-tabbar\s*\{[^}]*backdrop-filter:\s*saturate\(160%\)\s*blur\(18px\)/s);
-    assert.match(css, /\.ma-tabbar::before\s*\{[^}]*linear-gradient\(to top/s);
-    assert.match(css, /\.ma-tabbar::before\s*\{[^}]*height:\s*26px/s);
+    assert.match(css, /\.ma-tabbar\s*\{[^}]*backdrop-filter:\s*saturate\(180%\)\s*blur\(22px\)/s);
+    assert.match(css, /\.ma-tabbar\s*\{[^}]*rgba\(255,\s*255,\s*255,\s*0\.58\)/s);
+    assert.match(css, /\.ma-tabbar::before\s*\{[^}]*linear-gradient\(\s*to top/s);
+    assert.match(css, /\.ma-tabbar::before\s*\{[^}]*height:\s*28px/s);
+    assert.match(css, /\.ma-tabbar::before\s*\{[^}]*bottom:\s*100%/s);
     assert.match(css, /\.ma-tab--send \.ma-tab__fab\s*\{[^}]*margin-top:\s*-26px/s);
     assert.match(css, /\.ma-tabbar::after\s*\{[^}]*height:\s*200px/s);
     // Safe-area must be padding only — min-height + padding double-counted into a tall white shelf.
@@ -29,13 +31,15 @@ describe('member app install modal and tab bar', () => {
   it('shell bottom padding clears the tab bar and Review FAB', () => {
     const css = fs.readFileSync(path.join(root, 'public/css/member-app.css'), 'utf8');
     assert.match(css, /--tabbar-fab-overhang:\s*36px/);
-    assert.match(css, /--tabbar-content-gap:\s*40px/);
+    assert.match(css, /--tabbar-content-gap:\s*72px/);
     assert.match(
       css,
       /\.ma-shell\s*\{[^}]*padding:[^;]*tabbar-h[^;]*tabbar-fab-overhang[^;]*tabbar-content-gap/s,
     );
     const head = fs.readFileSync(path.join(root, 'views/member_app/_head.ejs'), 'utf8');
-    assert.match(head, /\.ma-shell\{padding-bottom:calc\(50px \+ 36px \+ 40px/);
+    assert.match(head, /\.ma-shell\{padding-bottom:calc\(50px \+ 36px \+ 72px/);
+    assert.match(head, /\.ma-tabbar::before\{/);
+    assert.match(head, /rgba\(255,255,255,\.58\)/);
   });
 
   it('tabbar partial includes install modal with workspace + browser panels', () => {
@@ -71,7 +75,7 @@ describe('member app install modal and tab bar', () => {
 
   it('service worker network-firsts versioned CSS so deploys are not stuck', () => {
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.447/);
+    assert.match(sw, /adhello-pwa-v1\.0\.449/);
     assert.match(sw, /searchParams\.has\('v'\)/);
     assert.match(sw, /versioned/);
   });
