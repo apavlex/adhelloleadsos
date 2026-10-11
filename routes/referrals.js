@@ -113,10 +113,25 @@ router.get('/', async (req, res, next) => {
       const lead = leadsForBoard.find((l) => l && l.key === focus);
       if (lead) partners.unshift(referralNetwork.presentPartner(lead));
     }
+    const freeByLeadKey = new Map();
+    const activeByLeadKey = new Map();
+    for (const m of members) {
+      const key = String(m.leadKey || '').trim();
+      if (!key) continue;
+      freeByLeadKey.set(key, String(m.plan || '') === 'app_free');
+      activeByLeadKey.set(key, String(m.status || '') === 'active');
+    }
     partners = partners.map((card) => {
       const counters = countsByLead.get(card.key);
-      return counters ? referralNetwork.withNetworkCounts(card, counters) : card;
+      const withCounts = counters ? referralNetwork.withNetworkCounts(card, counters) : card;
+      return {
+        ...withCounts,
+        isAppFree: !!freeByLeadKey.get(card.key),
+        memberActive: !!activeByLeadKey.get(card.key),
+      };
     });
+    const hideFree = String(req.query.hideFree || '') === '1';
+    const visiblePartners = hideFree ? partners.filter((p) => !p.isAppFree) : partners;
     res.render('referrals', {
       networkSetup: {
         trades: network ? tradesForNetwork(network).map((t) => ({ slug: t.slug, name: t.name })) : [],
@@ -127,7 +142,9 @@ router.get('/', async (req, res, next) => {
       activePage: 'referrals',
       query: q,
       focus,
-      partners,
+      hideFree,
+      freePartnerCount: partners.filter((p) => p.isAppFree).length,
+      partners: visiblePartners,
       totals: referralNetwork.networkTotals(leadsForBoard),
       savedCount: leads.length,
       notice: String(req.query.notice || '').trim(),

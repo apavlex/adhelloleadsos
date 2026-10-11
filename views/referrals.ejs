@@ -53,10 +53,17 @@
     .ref-followup[hidden] { display: none; }
     .ref-followup > span { margin-right: 0.25rem; }
     .ref-pill { display: inline-flex; align-items: center; border-radius: 999px; padding: 0.28rem 0.65rem; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+    .ref-pill-wrap { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.35rem; max-width: 11rem; }
     .ref-pill-connected { background: rgba(16, 185, 129, 0.14); color: #047857; }
     html.dark .ref-pill-connected { color: #6ee7b7; }
     .ref-pill-intro { background: rgba(245, 158, 11, 0.16); color: #b45309; }
     html.dark .ref-pill-intro { color: #fcd34d; }
+    .ref-pill-active { background: rgba(37, 99, 235, 0.12); color: #1d4ed8; }
+    html.dark .ref-pill-active { color: #93c5fd; }
+    .ref-pill-free { background: rgba(100, 116, 139, 0.14); color: #475569; }
+    html.dark .ref-pill-free { color: #cbd5e1; }
+    .ref-filter-free { display: inline-flex; align-items: center; gap: 0.45rem; font-size: 0.78rem; font-weight: 700; color: var(--brand-muted, #64748b); white-space: nowrap; cursor: pointer; user-select: none; }
+    .ref-filter-free input { width: 1rem; height: 1rem; accent-color: #0f172a; }
     .ref-note { width: 100%; border-radius: 0.85rem; border: 1px solid rgba(15, 23, 42, 0.1); background: rgba(247, 244, 238, 0.7); padding: 0.55rem 0.75rem; font-size: 0.8rem; }
     html.dark .ref-note { background: rgba(2, 6, 23, 0.35); border-color: rgba(255, 255, 255, 0.1); color: #f8fafc; }
     .ref-pop { position: fixed; inset: 0; z-index: 80; display: flex; align-items: flex-start; justify-content: center; padding: 4.5rem 1rem 1rem; background: rgba(2, 6, 23, 0.72); }
@@ -174,13 +181,25 @@
     </details>
     <% } %>
 
-    <form method="get" action="/referrals" class="mb-4 flex items-center gap-2" role="search">
+    <%
+      const _hideFree = typeof hideFree !== 'undefined' && hideFree;
+      const _freeCount = typeof freePartnerCount === 'number' ? freePartnerCount : 0;
+    %>
+    <form method="get" action="/referrals" class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center" role="search">
       <label class="relative flex-1">
         <span class="sr-only">Find a saved business to add</span>
         <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M11 18a7 7 0 100-14 7 7 0 000 14z" /></svg>
         <input type="search" name="q" value="<%= query %>" placeholder="Add a partner — search saved businesses" class="w-full rounded-full border border-brand-border bg-white dark:bg-slate-900 dark:border-white/10 py-2.5 pl-9 pr-3 text-sm text-brand-dark dark:text-white placeholder:text-brand-muted/80" />
       </label>
-      <button type="submit" class="ref-btn ref-btn-ghost">Search</button>
+      <div class="flex items-center gap-3 shrink-0">
+        <% if (_freeCount > 0 || _hideFree) { %>
+        <label class="ref-filter-free">
+          <input type="checkbox" name="hideFree" value="1" <%= _hideFree ? 'checked' : '' %> onchange="this.form.submit()">
+          <span>Hide free accounts<%= _freeCount && !_hideFree ? ' (' + _freeCount + ')' : '' %></span>
+        </label>
+        <% } %>
+        <button type="submit" class="ref-btn ref-btn-ghost">Search</button>
+      </div>
     </form>
 
     <% if (notice) { %>
@@ -194,6 +213,8 @@
       <% if (!savedCount) { %>
       <p class="text-sm text-brand-muted">Save businesses first, then add the ones you trade leads with.</p>
       <a href="/leads/find" class="ref-btn ref-btn-yellow mt-4">Find leads</a>
+      <% } else if (_hideFree && _freeCount > 0) { %>
+      <p class="text-sm text-brand-muted max-w-md mx-auto">All matching partners are on free accounts. Uncheck “Hide free accounts” to see them.</p>
       <% } else if (query) { %>
       <p class="text-sm text-brand-muted">No saved businesses match “<%= query %>”.</p>
       <% } else { %>
@@ -206,7 +227,7 @@
         const where = [partner.category, [partner.city, partner.state].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
       %>
       <% const isNetMember = netMembers.has(partner.key); %>
-      <article class="ref-card<%= focusKey && partner.key === focusKey ? ' is-focus' : '' %>" data-lead-key="<%= partner.key %>" data-ref-network="<%= isNetMember ? '1' : '' %>" data-ref-partner="<%= partner.highlighted ? '1' : '0' %>" data-ref-status="<%= partner.status %>" data-ref-sent-count="<%= partner.sent %>" data-ref-received-count="<%= partner.received %>" data-ref-counts-network="<%= (partner.countsFromNetwork || isNetMember) ? '1' : '0' %>">
+      <article class="ref-card<%= focusKey && partner.key === focusKey ? ' is-focus' : '' %>" data-lead-key="<%= partner.key %>" data-ref-network="<%= isNetMember ? '1' : '' %>" data-ref-partner="<%= partner.highlighted ? '1' : '0' %>" data-ref-status="<%= partner.status %>" data-ref-free="<%= partner.isAppFree ? '1' : '0' %>" data-ref-sent-count="<%= partner.sent %>" data-ref-received-count="<%= partner.received %>" data-ref-counts-network="<%= (partner.countsFromNetwork || isNetMember) ? '1' : '0' %>">
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
             <button type="button" class="truncate text-left text-base font-semibold hover:underline" data-referral-profile data-lead-key="<%= partner.key %>"><%= partner.title %></button>
@@ -216,13 +237,19 @@
               <% if (partner.phone) { %><% if (partner.rating) { %> · <% } %><%= partner.phone %><% } %>
             </p>
           </div>
-          <div class="shrink-0" data-ref-pill-wrap>
+          <div class="shrink-0 ref-pill-wrap" data-ref-pill-wrap>
+            <% if (partner.memberActive) { %>
+            <span class="ref-pill ref-pill-active">Active</span>
+            <% } %>
             <% if (partner.status === 'connected') { %>
             <span class="ref-pill ref-pill-connected" data-ref-pill>Connected</span>
             <% } else if (partner.status === 'intro_sent') { %>
             <span class="ref-pill ref-pill-intro" data-ref-pill>Intro sent</span>
             <% } else if (partner.highlighted) { %>
             <span class="ref-pill" data-ref-pill style="background: rgba(148,163,184,0.16); color: #64748b;">Not connected</span>
+            <% } %>
+            <% if (partner.isAppFree) { %>
+            <span class="ref-pill ref-pill-free" data-ref-free-pill>Free account</span>
             <% } %>
           </div>
         </div>
