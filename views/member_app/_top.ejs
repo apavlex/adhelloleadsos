@@ -11,7 +11,7 @@
     <% if (typeof topSettings !== 'undefined' && topSettings && topSettings.href) { %>
     <a class="ma-iconbtn <%= topSettings.on ? 'is-on' : '' %>" href="<%= topSettings.href %>" aria-label="<%= topSettings.label || 'Settings' %>" title="<%= topSettings.label || 'Settings' %>" <%= topSettings.on ? 'aria-current=page' : '' %>><%- icons.settings %></a>
     <% } %>
-    <a class="ma-iconbtn <%= active === 'enroll' ? 'is-on' : '' %>" href="<%= base %>/enroll" aria-label="Invite a business to <%= brand.appName %>" title="Invite a business" <%= active === 'enroll' ? 'aria-current=page' : '' %>><%- icons.enroll %></a>
+    <a class="ma-iconbtn" href="<%= base %>/customers/new" aria-label="Add a customer" title="Add a customer"><%- icons.plus %></a>
     <%
       const _avatarInitial = (greetingName || member.companyName || '?').trim().charAt(0).toUpperCase();
       const _avatarHref = base + '/profile';
