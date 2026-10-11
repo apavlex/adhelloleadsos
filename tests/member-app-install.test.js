@@ -86,17 +86,25 @@ describe('member app install modal and tab bar', () => {
     const capture = fs.readFileSync(path.join(root, 'views/member_app/_photo_capture.ejs'), 'utf8');
     assert.match(capture, /data-ma-photo-pick="camera"/);
     assert.match(capture, /data-ma-photo-pick="library"/);
-    assert.match(capture, /name="caption"/);
+    assert.match(capture, /<textarea[\s\S]*name="caption"/);
+    assert.match(capture, /maxlength="500"/);
+    assert.match(capture, /ma-photo-note__input/);
+    const photoCss = fs.readFileSync(path.join(root, 'public/css/member-app.css'), 'utf8');
+    assert.match(photoCss, /\.ma-photo-note__input/);
+    assert.match(photoCss, /tabbar-fab-overhang/);
+    assert.match(photoCss, /body\.ma-photo-open\s+\.ma-tabbar/);
     const job = fs.readFileSync(path.join(root, 'views/member_app/job.ejs'), 'utf8');
     assert.match(job, /_photo_capture/);
     const photoJs = fs.readFileSync(path.join(root, 'public/js/member-app.js'), 'utf8');
     assert.match(photoJs, /function initPhotoCapture/);
     assert.match(photoJs, /setAttribute\('capture'/);
+    assert.match(photoJs, /appendChild\(sheet\)/);
+    assert.match(photoJs, /ma-photo-open/);
   });
 
   it('service worker network-firsts versioned CSS so deploys are not stuck', () => {
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.452/);
+    assert.match(sw, /adhello-pwa-v1\.0\.453/);
     assert.match(sw, /searchParams\.has\('v'\)/);
     assert.match(sw, /versioned/);
   });

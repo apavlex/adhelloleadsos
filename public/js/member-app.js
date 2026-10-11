@@ -152,14 +152,20 @@
     if (!sheet || !form || !file) return;
 
     function openSheet() {
+      // Portal to <body> so the sheet isn’t trapped under the fixed tab bar /
+      // Review FAB (main can create a lower stacking context on iOS).
+      if (sheet.parentNode !== document.body) document.body.appendChild(sheet);
       sheet.hidden = false;
       document.documentElement.style.overflow = 'hidden';
-      var cap = form.querySelector('input[name="caption"]');
+      document.body.classList.add('ma-photo-open');
+      var cap = form.querySelector('[name="caption"]');
       if (cap) setTimeout(function () { cap.focus(); }, 50);
     }
     function closeSheet() {
       sheet.hidden = true;
       document.documentElement.style.overflow = '';
+      document.body.classList.remove('ma-photo-open');
+      if (sheet.parentNode !== root) root.appendChild(sheet);
       try { file.value = ''; } catch (e) { /* ignore */ }
     }
 

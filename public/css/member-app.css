@@ -1076,27 +1076,46 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
 .ma-photos__item figcaption{padding:6px 10px 8px;font-size:12px;font-weight:600;color:var(--muted)}
 .ma-photos__del{position:absolute;top:6px;right:6px;width:28px;height:28px;border:0;border-radius:999px;background:rgba(15,23,42,.72);color:#fff;font-size:18px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
 
-/* Take photo / Choose library sheet */
+/* Take photo / Choose library sheet — z above tabbar; portal to body in JS
+   so Cancel isn’t trapped under the Review FAB stacking context. */
 .ma-photo-capture{margin-top:4px}
 .ma-photo-modal{
-  position:fixed;inset:0;z-index:80;
+  position:fixed;inset:0;z-index:100;
   display:flex;align-items:flex-end;justify-content:center;
-  padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));
+  /* Clear tab bar + Review FAB overhang so Cancel sits fully above them */
+  padding:16px;
+  padding-bottom:calc(
+    16px + var(--tabbar-h) + var(--tabbar-fab-overhang) + env(safe-area-inset-bottom, 0px)
+  );
   background:rgba(15,23,42,.45);
   -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);
 }
 .ma-photo-modal[hidden]{display:none!important}
+body.ma-photo-open .ma-tabbar{
+  visibility:hidden;
+  pointer-events:none;
+}
 .ma-photo-sheet{
   position:relative;width:min(440px,100%);
+  max-height:min(78vh, 640px);
+  overflow:auto;
+  -webkit-overflow-scrolling:touch;
   background:var(--card);color:var(--ink);
   border-radius:22px 22px 18px 18px;
-  padding:22px 18px 16px;
+  padding:22px 18px 18px;
   box-shadow:0 18px 40px rgba(15,23,42,.22);
   animation:ma-photo-up .22s ease;
 }
 @keyframes ma-photo-up{from{transform:translateY(18px);opacity:.6}to{transform:none;opacity:1}}
 .ma-photo-sheet h2{margin:0 36px 6px 0;font-size:20px;font-weight:800}
 .ma-photo-lead{margin:0 0 14px;font-size:14px;font-weight:600;color:var(--muted);line-height:1.4}
+.ma-photo-note{margin-bottom:14px}
+.ma-photo-note__input{
+  min-height:112px;
+  max-height:40vh;
+  resize:vertical;
+  line-height:1.4;
+}
 .ma-photo-file{
   position:absolute;width:1px;height:1px;padding:0;margin:-1px;
   overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;
