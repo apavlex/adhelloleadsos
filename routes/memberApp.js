@@ -102,6 +102,7 @@ const OK_MESSAGES = {
   job_deleted: 'Job deleted.',
   job_photo: 'Photo saved.',
   job_photo_deleted: 'Photo removed.',
+  job_photo_note: 'Photo note saved.',
   moved: 'Job updated.',
   converted: 'Added to your customers.',
   already: 'That referral is already in your customers.',
@@ -1171,6 +1172,36 @@ router.post('/m/:token/customers/jobs/:id/photos/:photoId/delete', form, withMem
     return renderJobPage(req, res, ctx, { job, flash: { error: result.error }, status: 400 });
   }
   return res.redirect(303, `${ctx.base}/customers/jobs/${req.params.id}?ok=job_photo_deleted`);
+}));
+
+router.post('/m/:token/customers/jobs/:id/photos/:photoId/caption', form, withMember(async (req, res, ctx) => {
+  const jobId = req.params.id;
+  const photoId = req.params.photoId;
+  const job = await work.getJob(ctx.network.id, ctx.member.id, jobId);
+  const back = safeReturn(
+    ctx,
+    req.body && req.body.returnTo,
+    job ? `${ctx.base}/customers/jobs/${job.id}` : `${ctx.base}/customers`,
+  );
+  const fail = async (error) => {
+    if (back.includes('/customers/c/') && job && job.customerId) {
+      const data = await customerPageData(req, ctx, job.customerId);
+      if (data) return renderCustomerPage(res, ctx, { ...data, flash: { error }, status: 400 });
+    }
+    if (!job) return res.redirect(303, `${ctx.base}/customers?view=pending`);
+    return renderJobPage(req, res, ctx, { job, flash: { error }, status: 400 });
+  };
+  if (!job) return fail('Job not found.');
+  const result = await work.updateJobPhotoCaption(
+    ctx.network.id,
+    ctx.member.id,
+    jobId,
+    photoId,
+    req.body && req.body.caption,
+  );
+  if (!result.ok) return fail(result.error);
+  const sep = back.includes('?') ? '&' : '?';
+  return res.redirect(303, `${back}${sep}ok=job_photo_note`);
 }));
 
 function safeReturn(ctx, value, fallback) {

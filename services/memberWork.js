@@ -467,6 +467,17 @@ async function removeJobPhoto(networkId, memberId, jobId, photoId) {
   return { ok: true, job: saved };
 }
 
+/** Update only the caption / note on an existing job photo. */
+async function updateJobPhotoCaption(networkId, memberId, jobId, photoId, caption) {
+  const job = await getJob(networkId, memberId, jobId);
+  if (!job) return { ok: false, error: 'Job not found.' };
+  if (!job.photos.some((p) => p.id === photoId)) return { ok: false, error: 'Photo not found.' };
+  const nextCaption = cleanBlock(caption, MAX_PHOTO_CAPTION);
+  const photos = job.photos.map((p) => (p.id === photoId ? { ...p, caption: nextCaption } : p));
+  const saved = await writeJob(networkId, memberId, { ...job, photos });
+  return { ok: true, job: saved, caption: nextCaption };
+}
+
 async function setJobStatus(networkId, memberId, id, status) {
   const job = await getJob(networkId, memberId, id);
   if (!job) return { ok: false, error: 'Job not found.' };
@@ -755,6 +766,7 @@ module.exports = {
   ensureOpenJobForPhotos,
   addJobPhoto,
   removeJobPhoto,
+  updateJobPhotoCaption,
   setJobStatus,
   deleteJob,
   convertReferral,
