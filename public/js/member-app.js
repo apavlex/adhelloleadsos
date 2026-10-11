@@ -621,8 +621,8 @@
   });
 
   /**
-   * Request a review from this phone: prefer Web Share with the preview image
-   * (so Messages can attach the banner), else open the native SMS composer.
+   * Request a review from this phone: share text + URL only so Messages shows
+   * one link preview (OG banner). Do not attach a separate image file.
    */
   function requestReviewFromPhone(btn) {
     var payload = readRequestReviewPayload(btn);
@@ -641,63 +641,24 @@
     }
 
     function openSms() {
-      var body = text;
       var href = isIOS
-        ? 'sms:&body=' + encodeURIComponent(body)
-        : 'sms:?body=' + encodeURIComponent(body);
+        ? 'sms:&body=' + encodeURIComponent(text)
+        : 'sms:?body=' + encodeURIComponent(text);
       window.location.href = href;
       restore();
     }
 
-    function shareWithFile(file) {
-      var data = { title: title, text: text };
-      if (file) data.files = [file];
-      else data.url = payload.url;
-      if (!navigator.share) {
-        openSms();
-        return;
-      }
-      if (file && navigator.canShare && !navigator.canShare({ files: [file] })) {
-        data = { title: title, text: text, url: payload.url };
-      }
-      navigator.share(data).then(restore).catch(function (err) {
+    if (navigator.share) {
+      navigator.share({ title: title, text: text, url: payload.url }).then(restore).catch(function (err) {
         if (err && err.name === 'AbortError') {
           restore();
           return;
         }
         openSms();
       });
-    }
-
-    var imageUrl = payload.image || '';
-    if (!imageUrl || typeof fetch !== 'function' || typeof File === 'undefined') {
-      if (navigator.share) {
-        navigator.share({ title: title, text: text, url: payload.url }).then(restore).catch(function (err) {
-          if (err && err.name === 'AbortError') {
-            restore();
-            return;
-          }
-          openSms();
-        });
-      } else {
-        openSms();
-      }
       return;
     }
-
-    fetch(imageUrl, { credentials: 'same-origin' })
-      .then(function (res) {
-        if (!res.ok) throw new Error('image ' + res.status);
-        return res.blob();
-      })
-      .then(function (blob) {
-        var type = blob.type || 'image/jpeg';
-        var name = type.indexOf('png') >= 0 ? 'review.png' : 'review.jpg';
-        shareWithFile(new File([blob], name, { type: type }));
-      })
-      .catch(function () {
-        shareWithFile(null);
-      });
+    openSms();
   }
 
   function readRequestReviewPayload(btn) {
@@ -708,7 +669,6 @@
         url: btn.getAttribute('data-ma-share') || '',
         title: btn.getAttribute('data-ma-share-title') || '',
         text: btn.getAttribute('data-ma-share-text') || '',
-        image: btn.getAttribute('data-ma-share-image') || '',
       };
     }
     try {

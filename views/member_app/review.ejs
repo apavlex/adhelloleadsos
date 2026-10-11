@@ -25,12 +25,10 @@
         const _shareText = typeof shareSmsText !== 'undefined' && shareSmsText
           ? shareSmsText
           : ('Hi — thanks for choosing ' + (member.companyName || 'us') + '! Leave a quick review: ' + reviewUrl);
-        const _shareImage = typeof shareImagePath !== 'undefined' && shareImagePath ? shareImagePath : '';
         const _sharePayload = {
           url: reviewUrl,
           title: 'Leave ' + (member.companyName || 'us') + ' a review',
           text: _shareText,
-          image: _shareImage,
         };
       %>
       <script type="application/json" id="maRequestReviewPayload"><%- JSON.stringify(_sharePayload).replace(/</g, '\\u003c') %></script>
