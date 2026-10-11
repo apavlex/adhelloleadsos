@@ -417,6 +417,26 @@ async function writeJob(networkId, memberId, job) {
   return next;
 }
 
+/**
+ * Find an open job for a customer, or create a lightweight "Site visit" so
+ * photos can be attached without forcing the full job form first.
+ */
+async function ensureOpenJobForPhotos(networkId, memberId, customerId, { timeZone } = {}) {
+  const customer = await getCustomer(networkId, memberId, customerId);
+  if (!customer) return { ok: false, error: 'Customer not found.' };
+  const jobs = (await listJobs(networkId, memberId)).filter((j) => j.customerId === customer.id);
+  const open = jobs.find((j) => isOpen(j));
+  if (open) return { ok: true, job: open, created: false };
+  const saved = await saveJob(networkId, memberId, {
+    customerId: customer.id,
+    title: 'Site visit',
+    status: 'lead',
+    notes: '',
+  }, { timeZone });
+  if (!saved.ok) return saved;
+  return { ok: true, job: saved.job, created: true };
+}
+
 /** Attach a prepared photo to a job (updates the job record + KV blob). */
 async function addJobPhoto(networkId, memberId, jobId, prepared, { caption } = {}) {
   const job = await getJob(networkId, memberId, jobId);
@@ -730,6 +750,7 @@ module.exports = {
   getJob,
   saveJob,
   writeJob,
+  ensureOpenJobForPhotos,
   addJobPhoto,
   removeJobPhoto,
   setJobStatus,

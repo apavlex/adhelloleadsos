@@ -130,7 +130,7 @@
       return;
     }
     form.setAttribute('data-ma-busy', '1');
-    var btn = form.querySelector('button[type="submit"], input[type="submit"]');
+    var btn = form.querySelector('button[type="submit"], input[type="submit"], [data-ma-photo-pick="camera"]');
     if (!btn) return;
     btn.disabled = true;
     btn.setAttribute('aria-busy', 'true');
@@ -138,7 +138,69 @@
       if (!btn.getAttribute('data-ma-label')) btn.setAttribute('data-ma-label', btn.textContent || '');
       btn.textContent = form.getAttribute('data-ma-loading') || 'Saving…';
     }
+    form.querySelectorAll('[data-ma-photo-pick], [data-ma-photo-close]').forEach(function (el) {
+      el.disabled = true;
+    });
   });
+
+  /** Take photo / Choose from library sheet (customer + job pages). */
+  function initPhotoCapture(root) {
+    if (!root || root.getAttribute('data-ma-ready') === '1') return;
+    var sheet = root.querySelector('[data-ma-photo-sheet]');
+    var form = root.querySelector('form.ma-photo-form');
+    var file = root.querySelector('input[type="file"][name="photo"]');
+    if (!sheet || !form || !file) return;
+
+    function openSheet() {
+      sheet.hidden = false;
+      document.documentElement.style.overflow = 'hidden';
+      var cap = form.querySelector('input[name="caption"]');
+      if (cap) setTimeout(function () { cap.focus(); }, 50);
+    }
+    function closeSheet() {
+      sheet.hidden = true;
+      document.documentElement.style.overflow = '';
+      try { file.value = ''; } catch (e) { /* ignore */ }
+    }
+
+    root.querySelectorAll('[data-ma-photo-open]').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        openSheet();
+      });
+    });
+    root.querySelectorAll('[data-ma-photo-close]').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        closeSheet();
+      });
+    });
+    sheet.addEventListener('click', function (e) {
+      if (e.target === sheet) closeSheet();
+    });
+
+    root.querySelectorAll('[data-ma-photo-pick]').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (form.getAttribute('data-ma-busy') === '1') return;
+        var mode = btn.getAttribute('data-ma-photo-pick');
+        if (mode === 'camera') file.setAttribute('capture', 'environment');
+        else file.removeAttribute('capture');
+        file.click();
+      });
+    });
+
+    file.addEventListener('change', function () {
+      if (!file.files || !file.files.length) return;
+      if (typeof form.requestSubmit === 'function') form.requestSubmit();
+      else form.submit();
+    });
+
+    if (root.getAttribute('data-ma-photo-open-on-load') === '1') openSheet();
+    root.setAttribute('data-ma-ready', '1');
+  }
+
+  document.querySelectorAll('[data-ma-photo-capture]').forEach(initPhotoCapture);
 
   document.addEventListener('click', function (event) {
     var openBtn = event.target.closest('[data-ma-install-open]');

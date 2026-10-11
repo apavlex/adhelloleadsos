@@ -1,0 +1,60 @@
+<%
+  /* Shared Take photo / Choose library sheet + caption.
+     Locals: action (POST url), formId (unique), returnTo (optional), hint (optional), open (bool) */
+  const _fid = typeof formId !== 'undefined' && formId ? String(formId) : 'maPhoto';
+  const _action = typeof action !== 'undefined' ? action : '';
+  const _returnTo = typeof returnTo !== 'undefined' ? returnTo : '';
+  const _hint = typeof hint !== 'undefined' ? hint : '';
+  const _open = !!open;
+%>
+<div class="ma-photo-capture" data-ma-photo-capture <%= _open ? 'data-ma-photo-open-on-load="1"' : '' %>>
+  <button type="button" class="ma-btn ma-btn--soft ma-btn--block" data-ma-photo-open>
+    <%- icons.camera %> Add photo &amp; notes
+  </button>
+  <% if (_hint) { %><p class="ma-hint" style="margin-top:8px"><%= _hint %></p><% } %>
+
+  <div class="ma-photo-modal" data-ma-photo-sheet hidden role="dialog" aria-modal="true" aria-labelledby="<%= _fid %>Title">
+    <div class="ma-photo-sheet">
+      <button type="button" class="ma-install-close-x" aria-label="Close" data-ma-photo-close>&times;</button>
+      <h2 id="<%= _fid %>Title">Add photo</h2>
+      <p class="ma-photo-lead">Take a picture or pick one from your library, then add an optional note.</p>
+
+      <form
+        id="<%= _fid %>Form"
+        method="post"
+        action="<%= _action %>"
+        enctype="multipart/form-data"
+        class="ma-photo-form"
+        autocomplete="off"
+        data-ma-loading="Saving photo…"
+      >
+        <% if (_returnTo) { %><input type="hidden" name="returnTo" value="<%= _returnTo %>"><% } %>
+        <div class="ma-field">
+          <label class="ma-label" for="<%= _fid %>Caption">Note <span class="ma-optional">(optional)</span></label>
+          <input id="<%= _fid %>Caption" name="caption" class="ma-input" maxlength="120" placeholder="e.g. Before — living room" autocomplete="off">
+        </div>
+
+        <input
+          id="<%= _fid %>File"
+          class="ma-photo-file"
+          type="file"
+          name="photo"
+          accept="image/*,.heic,.heif"
+          required
+          tabindex="-1"
+          aria-hidden="true"
+        >
+
+        <div class="ma-photo-actions">
+          <button type="button" class="ma-btn ma-btn--block" data-ma-photo-pick="camera">
+            <%- icons.camera %> Take photo
+          </button>
+          <button type="button" class="ma-btn ma-btn--soft ma-btn--block" data-ma-photo-pick="library">
+            <%- icons.photo %> Choose from library
+          </button>
+          <button type="button" class="ma-btn ma-btn--ghost ma-btn--block" data-ma-photo-close>Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

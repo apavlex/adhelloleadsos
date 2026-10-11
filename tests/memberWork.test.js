@@ -183,6 +183,24 @@ test('jobs: visit reminders and photos', async () => {
   await work.deleteCustomer(NET, MEM_A, customer.id);
 });
 
+test('ensureOpenJobForPhotos creates a Site visit when none exist', async () => {
+  const { customer } = await work.saveCustomer(NET, MEM_A, { name: 'Site Snap', phone: '5035550111' });
+  const first = await work.ensureOpenJobForPhotos(NET, MEM_A, customer.id, { timeZone: 'America/Los_Angeles' });
+  assert.equal(first.ok, true);
+  assert.equal(first.created, true);
+  assert.equal(first.job.title, 'Site visit');
+  assert.equal(first.job.status, 'lead');
+  assert.equal(first.job.customerId, customer.id);
+
+  const again = await work.ensureOpenJobForPhotos(NET, MEM_A, customer.id);
+  assert.equal(again.ok, true);
+  assert.equal(again.created, false);
+  assert.equal(again.job.id, first.job.id);
+
+  await work.deleteJob(NET, MEM_A, first.job.id);
+  await work.deleteCustomer(NET, MEM_A, customer.id);
+});
+
 test('calendar grid, week overview and upcoming agenda', () => {
   const jobs = [
     { id: 'a', date: '2026-10-01', time: '09:00', status: 'scheduled', value: 100 },

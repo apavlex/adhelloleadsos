@@ -68,10 +68,10 @@
       <% } %>
     </section>
 
-    <section class="ma-section">
+    <section class="ma-section" id="maCustomerPhotos">
       <div class="ma-section__head">
         <h2>Photos &amp; notes</h2>
-        <% if (openJob) { %><a href="<%= openJob.href %>#maJobPhotos"><%- icons.camera %> Add photo</a><% } %>
+        <% if (openJob) { %><a href="<%= openJob.href %>#maJobPhotos">Job album</a><% } %>
       </div>
       <% if (sitePhotos.length) { %>
       <div class="ma-photos">
@@ -82,11 +82,18 @@
         </figure>
         <% }); %>
       </div>
-      <% } else if (openJob) { %>
-      <a class="ma-card ma-empty ma-empty--tap" href="<%= openJob.href %>#maJobPhotos"><%- icons.camera %><p>No site photos yet. Tap to document this job with pictures and notes.</p></a>
       <% } else { %>
-      <a class="ma-card ma-empty ma-empty--tap" href="<%= base %>/customers/jobs/new?customer=<%= customer.id %>"><%- icons.camera %><p>Add a job first, then attach photos and notes from the job site.</p></a>
+      <p class="ma-hint" style="margin:0 0 12px">Document the job site with pictures — before, during, or after.</p>
       <% } %>
+      <%- include('_photo_capture', {
+        formId: 'cuPhoto',
+        action: base + '/customers/c/' + customer.id + '/photos',
+        returnTo: base + '/customers/c/' + customer.id,
+        hint: openJob
+          ? ('Photos save on ' + (openJob.title || 'this job') + '.')
+          : 'No job yet — we’ll start a Site visit when you add the first photo.',
+        open: false,
+      }) %>
     </section>
     <% } %>
 

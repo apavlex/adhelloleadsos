@@ -140,17 +140,13 @@
       <p class="ma-hint" style="margin:0 0 12px">Document the job site with pictures — before, during, or after.</p>
       <% } %>
       <% if ((job.photos || []).length < (maxJobPhotos || 12)) { %>
-      <form method="post" action="<%= base %>/customers/jobs/<%= job.id %>/photos" enctype="multipart/form-data" class="ma-card" autocomplete="off" data-ma-loading="Saving photo…">
-        <div class="ma-field">
-          <label class="ma-label" for="jbPhoto">Add photo</label>
-          <input id="jbPhoto" name="photo" type="file" accept="image/*,.heic,.heif" class="ma-input" required>
-        </div>
-        <div class="ma-field">
-          <label class="ma-label" for="jbCaption">Caption <span class="ma-optional">(optional)</span></label>
-          <input id="jbCaption" name="caption" class="ma-input" maxlength="120" placeholder="e.g. Before — living room">
-        </div>
-        <button type="submit" class="ma-btn ma-btn--block ma-btn--soft"><%- icons.camera %> Save photo</button>
-      </form>
+      <%- include('_photo_capture', {
+        formId: 'jbPhoto',
+        action: base + '/customers/jobs/' + job.id + '/photos',
+        returnTo: base + '/customers/jobs/' + job.id,
+        hint: '',
+        open: false,
+      }) %>
       <% } %>
     </section>
 
