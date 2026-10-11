@@ -475,6 +475,61 @@ test('a member id that prefixes another member id does not leak records', async 
   assert.ok(!names.includes('Other scope'));
 });
 
+test('free app_free members see referrals and send upgrade gates', async () => {
+  const network = await store.getOrCreateNetworkForWorkspace('ws_member_refs_free', { name: 'Free refs network' });
+  const member = await store.saveMember(network.id, {
+    companyName: 'Free Refs Co',
+    contactName: 'Pat',
+    status: 'active',
+    plan: 'app_free',
+    trades: ['plumbing'],
+  });
+  const token = createMemberPortalToken({ networkId: network.id, memberId: member.id });
+  const app = express();
+  app.set('view engine', 'ejs');
+  app.set('views', path.join(__dirname, '..', 'views'));
+  app.locals.assetVersion = 'test';
+  app.use('/', memberApp);
+  const server = await new Promise((resolve) => {
+    const s = app.listen(0, () => resolve(s));
+  });
+  const base = `http://127.0.0.1:${server.address().port}/m/${token}`;
+  try {
+    const refs = await (await fetch(`${base}/referrals`)).text();
+    assert.match(refs, /Start getting referrals/);
+    assert.match(refs, /Upgrade to activate/);
+    assert.match(refs, /href="\/signup"/);
+    assert.doesNotMatch(refs, /Claim this lead/);
+    assert.doesNotMatch(refs, /Referral lists/);
+
+    const send = await (await fetch(`${base}/send`)).text();
+    assert.match(send, /Start getting referrals/);
+    assert.match(send, /Upgrade to activate/);
+    assert.doesNotMatch(send, /name="tradeSlug"/);
+    assert.doesNotMatch(send, /Send referral<\/button>/);
+
+    const blockedSend = await fetch(`${base}/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ tradeSlug: 'plumbing', name: 'Test', consent: 'on' }),
+      redirect: 'manual',
+    });
+    assert.equal(blockedSend.status, 303);
+    assert.match(blockedSend.headers.get('location') || '', /ok=referrals_upgrade/);
+
+    const blockedRef = await fetch(`${base}/referrals/fakeid`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ action: 'claim' }),
+      redirect: 'manual',
+    });
+    assert.equal(blockedRef.status, 303);
+    assert.match(blockedRef.headers.get('location') || '', /ok=referrals_upgrade/);
+  } finally {
+    await new Promise((r) => server.close(r));
+  }
+});
+
 test('free app_free members see Sync from CRM greyed with upgrade only', async () => {
   const network = await store.getOrCreateNetworkForWorkspace('ws_member_crm_free', { name: 'Free CRM network' });
   const member = await store.saveMember(network.id, {

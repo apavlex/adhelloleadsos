@@ -111,6 +111,7 @@ const OK_MESSAGES = {
   customers_imported: 'Customer list imported.',
   customers_synced: 'Customers synced with your CRM.',
   crm_sync_upgrade: 'CRM sync is on the monthly plan. Upgrade to activate it.',
+  referrals_upgrade: 'Referrals are on the monthly plan. Upgrade to start getting referrals for your business.',
   leads_requested: 'Lead request sent — your agency was pinged that you’re ready for more work.',
 };
 
@@ -738,12 +739,17 @@ async function renderReferrals(req, res, ctx, flash, status) {
     sent,
     pool,
     flash: flash || flashFromQuery(req),
+    referralsLocked: freeAppSignup.isAppFreeMember(ctx.member),
+    upgradeHref: '/signup',
   }, status);
 }
 
 router.get('/m/:token/referrals', withMember((req, res, ctx) => renderReferrals(req, res, ctx)));
 
 router.post('/m/:token/referrals/:id', form, withMember(async (req, res, ctx) => {
+  if (freeAppSignup.isAppFreeMember(ctx.member)) {
+    return res.redirect(303, `${ctx.base}/referrals?ok=referrals_upgrade`);
+  }
   const action = String((req.body && req.body.action) || '').trim();
   if (!MEMBER_ACTIONS.has(action)) return renderReferrals(req, res, ctx, { error: 'Unknown action.' }, 400);
   const result = await networkReferrals.actOnReferral({
@@ -762,13 +768,23 @@ router.post('/m/:token/referrals/:id', form, withMember(async (req, res, ctx) =>
 // ── Send ─────────────────────────────────────────────────────────────────────
 
 async function renderSend(req, res, ctx, flash, formValues, status) {
-  const directory = await directoryFor(ctx.network, ctx.member);
-  return render(res, 'send', ctx, { directory, flash: flash || flashFromQuery(req), formValues: formValues || {} }, status);
+  const locked = freeAppSignup.isAppFreeMember(ctx.member);
+  const directory = locked ? [] : await directoryFor(ctx.network, ctx.member);
+  return render(res, 'send', ctx, {
+    directory,
+    flash: flash || flashFromQuery(req),
+    formValues: formValues || {},
+    referralsLocked: locked,
+    upgradeHref: '/signup',
+  }, status);
 }
 
 router.get('/m/:token/send', withMember((req, res, ctx) => renderSend(req, res, ctx)));
 
 router.post('/m/:token/send', form, withMember(async (req, res, ctx) => {
+  if (freeAppSignup.isAppFreeMember(ctx.member)) {
+    return res.redirect(303, `${ctx.base}/send?ok=referrals_upgrade`);
+  }
   const body = req.body || {};
   if (ctx.member.status !== 'active') {
     return renderSend(req, res, ctx, { error: 'Your membership is paused. Contact the network.' }, body, 403);

@@ -7,6 +7,16 @@
   <main class="ma-shell">
     <%- include('_top', { topTitle: 'Referrals' }) %>
     <h1 class="ma-page-title">Referrals</h1>
+    <% if (typeof referralsLocked !== 'undefined' && referralsLocked) { %>
+    <p class="ma-page-sub">Get jobs referred to your business from the network.</p>
+    <%- include('_flash') %>
+    <%- include('_upgrade_gate', {
+      upgradeTitle: 'Start getting referrals',
+      upgradeBody: 'Upgrade to activate referrals for your business — claim open jobs from the pool and get sent work from partners.',
+      upgradeHref: typeof upgradeHref !== 'undefined' ? upgradeHref : '/signup',
+      upgradeIcon: 'referrals',
+    }) %>
+    <% } else { %>
     <p class="ma-page-sub">Claim open jobs from the pool, work referrals sent to you, and track what you’ve sent.</p>
 
     <nav class="ma-seg ma-seg--3" aria-label="Referral lists">
@@ -113,6 +123,7 @@
         </div>
       </article>
       <% }); %>
+    <% } %>
     <% } %>
   </main>
   <%- include('_tabbar') %>

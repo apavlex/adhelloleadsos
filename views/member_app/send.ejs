@@ -7,6 +7,16 @@
   <main class="ma-shell">
     <%- include('_top', { topTitle: 'Send' }) %>
     <h1 class="ma-page-title">Send a referral</h1>
+    <% if (typeof referralsLocked !== 'undefined' && referralsLocked) { %>
+    <p class="ma-page-sub">Pass jobs to trusted partners in the network.</p>
+    <%- include('_flash') %>
+    <%- include('_upgrade_gate', {
+      upgradeTitle: 'Start getting referrals',
+      upgradeBody: 'Upgrade to activate referrals for your business — send jobs to partners and get work sent back to you.',
+      upgradeHref: typeof upgradeHref !== 'undefined' ? upgradeHref : '/signup',
+      upgradeIcon: 'send',
+    }) %>
+    <% } else { %>
     <p class="ma-page-sub">It goes to the network member for that trade in the customer's area, and they get a text right away.</p>
 
     <%- include('_flash') %>
@@ -60,6 +70,7 @@
       </label>
       <button type="submit" class="ma-btn ma-btn--block" <%= member.status !== 'active' ? 'disabled' : '' %>><%- icons.send %> Send referral</button>
     </form>
+    <% } %>
   </main>
   <%- include('_tabbar') %>
 </body>

@@ -723,6 +723,41 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
 .ma-flash--err { background: rgba(245, 158, 11, 0.15); color: #92400e; }
 
 /* Freemium: request lead packs (Network / Leads) */
+.ma-upgrade {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  text-align: center;
+  padding: 28px 20px 22px;
+  opacity: 0.92;
+}
+.ma-upgrade__icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--acc) 16%, var(--bg));
+  color: var(--acc);
+  opacity: 0.7;
+}
+.ma-upgrade__icon svg { width: 22px; height: 22px; display: block; }
+.ma-upgrade strong {
+  font-size: 17px;
+  font-weight: 800;
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+.ma-upgrade p {
+  margin: 0;
+  max-width: 28rem;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.ma-upgrade__btn { margin-top: 8px; max-width: 260px; }
 .ma-leadask {
   display: flex;
   flex-wrap: wrap;
