@@ -118,6 +118,46 @@
     </section>
     <% } %>
 
+    <% if (customer) { %>
+    <% const _applied = typeof customerTags !== 'undefined' && Array.isArray(customerTags) ? customerTags : []; %>
+    <% const _available = typeof availableTags !== 'undefined' && Array.isArray(availableTags) ? availableTags : []; %>
+    <section class="ma-section ma-tags-section">
+      <div class="ma-section__head"><h2>Tags</h2></div>
+      <div class="ma-card ma-tags">
+        <p class="ma-hint" style="margin:0 0 12px">Active tags sync both ways with GHL CRM. Inactive tags stay hidden.</p>
+        <div class="ma-tags__list" role="list">
+          <% if (_applied.length) { %>
+            <% _applied.forEach(function (t) { %>
+            <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/tags/remove" class="ma-tags__item" role="listitem">
+              <input type="hidden" name="tagKey" value="<%= t.key %>">
+              <button type="submit" class="ma-tag" style="--ma-tag:<%= t.color || 'var(--acc)' %>" aria-label="Remove <%= t.name %> tag">
+                <span><%= t.name %></span><span class="ma-tag__x" aria-hidden="true">×</span>
+              </button>
+            </form>
+            <% }); %>
+          <% } else { %>
+            <p class="ma-hint" style="margin:0">No active tags on this customer yet.</p>
+          <% } %>
+        </div>
+        <% if (_available.length) { %>
+        <details class="ma-tags__add">
+          <summary>Add tag</summary>
+          <div class="ma-tags__list ma-tags__list--add">
+            <% _available.forEach(function (t) { %>
+            <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/tags/add" class="ma-tags__item">
+              <input type="hidden" name="tagKey" value="<%= t.key %>">
+              <button type="submit" class="ma-tag ma-tag--add" style="--ma-tag:<%= t.color || 'var(--acc)' %>">+ <%= t.name %></button>
+            </form>
+            <% }); %>
+          </div>
+        </details>
+        <% } else if (!_applied.length) { %>
+        <p class="ma-hint" style="margin:10px 0 0">No active tags in your workspace yet. Ask your agency to turn tags on under Manage tags.</p>
+        <% } %>
+      </div>
+    </section>
+    <% } %>
+
     <section class="ma-section">
       <% if (customer) { %><div class="ma-section__head"><h2>Details</h2></div><% } %>
       <form method="post" action="<%= base %>/customers/<%= customer ? 'c/' + customer.id : 'new' %>" class="ma-card" autocomplete="off">
@@ -152,46 +192,6 @@
         </div>
         <button type="submit" class="ma-btn ma-btn--block"><%- icons.completed %> <%= customer ? 'Save changes' : 'Add customer' %></button>
       </form>
-
-      <% if (customer) { %>
-      <% const _applied = typeof customerTags !== 'undefined' && Array.isArray(customerTags) ? customerTags : []; %>
-      <% const _available = typeof availableTags !== 'undefined' && Array.isArray(availableTags) ? availableTags : []; %>
-      <div class="ma-card ma-tags" style="margin-top:12px">
-        <div class="ma-section__head" style="margin:0 0 10px;padding:0">
-          <h2 style="font-size:15px">Tags</h2>
-        </div>
-        <p class="ma-hint" style="margin:0 0 12px">Active tags sync both ways with GHL CRM. Inactive tags stay hidden.</p>
-        <div class="ma-tags__list" role="list">
-          <% if (_applied.length) { %>
-            <% _applied.forEach(function (t) { %>
-            <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/tags/remove" class="ma-tags__item" role="listitem">
-              <input type="hidden" name="tagKey" value="<%= t.key %>">
-              <button type="submit" class="ma-tag" style="--ma-tag:<%= t.color || 'var(--acc)' %>" aria-label="Remove <%= t.name %> tag">
-                <span><%= t.name %></span><span class="ma-tag__x" aria-hidden="true">×</span>
-              </button>
-            </form>
-            <% }); %>
-          <% } else { %>
-            <p class="ma-hint" style="margin:0">No active tags on this customer yet.</p>
-          <% } %>
-        </div>
-        <% if (_available.length) { %>
-        <details class="ma-tags__add">
-          <summary>Add tag</summary>
-          <div class="ma-tags__list ma-tags__list--add">
-            <% _available.forEach(function (t) { %>
-            <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/tags/add" class="ma-tags__item">
-              <input type="hidden" name="tagKey" value="<%= t.key %>">
-              <button type="submit" class="ma-tag ma-tag--add" style="--ma-tag:<%= t.color || 'var(--acc)' %>">+ <%= t.name %></button>
-            </form>
-            <% }); %>
-          </div>
-        </details>
-        <% } else if (!_applied.length) { %>
-        <p class="ma-hint" style="margin:10px 0 0">No active tags in your workspace yet. Ask your agency to turn tags on under Manage tags.</p>
-        <% } %>
-      </div>
-      <% } %>
     </section>
 
     <% if (customer) { %>
