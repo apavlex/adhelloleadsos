@@ -640,6 +640,60 @@ html.dark .sidebar-nav-link.sidebar-nav-cta.active,
     color: var(--brand-on-accent, #111827) !important;
 }
 
+/* Workspace settings: sticky tab strip + instant tap feedback */
+.ws-settings-nav {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    margin-left: -0.25rem;
+    margin-right: -0.25rem;
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+    padding-top: 0.35rem;
+    background: color-mix(in srgb, var(--brand-bg, #faf7ed) 92%, transparent);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.dark .ws-settings-nav {
+    background: color-mix(in srgb, #0b1220 88%, transparent);
+}
+
+body.app-with-sidebar .ws-settings-nav {
+    top: 0;
+}
+
+#wsSettingsNav {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    gap: 0.35rem;
+}
+
+#wsSettingsNav .ws-nav-item {
+    scroll-snap-align: center;
+    touch-action: manipulation;
+}
+
+#wsSettingsNav .ws-nav-item:active {
+    transform: scale(0.97);
+}
+
+html.ws-settings-navigating .ws-settings-main {
+    opacity: 0.55;
+    transition: opacity 120ms ease;
+    pointer-events: none;
+}
+
+@media (max-width: 639px) {
+    .ws-settings-search-wrap {
+        display: none;
+    }
+    .ws-settings-nav {
+        top: env(safe-area-inset-top, 0px);
+    }
+}
+
 .sidebar-settings-toggle {
     border: none;
     background: transparent;

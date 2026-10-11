@@ -58,7 +58,7 @@ window.INFO_PACK_BOOT = {
   kieImageReady: <%- typeof kieImageReady !== 'undefined' && kieImageReady ? 'true' : 'false' %>
 };
 </script>
-<script src="/js/info-pack-settings.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
+<script src="/js/info-pack-settings.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
 <% } else { %>
 <p class="text-sm text-brand-muted">Only workspace admins can edit info packs.</p>
 <% } %>

@@ -71,6 +71,28 @@
       if (path === url || (url.indexOf('?') === -1 && path.indexOf(url) === 0)) return;
       warm(url);
     });
+
+    // On Workspace settings, warm sibling tabs so switches feel snappy.
+    if (path.indexOf('/workspace') === 0) {
+      var nav = document.getElementById('wsSettingsNav');
+      if (nav) {
+        var links = nav.querySelectorAll('a.ws-nav-item[href]');
+        for (var i = 0; i < links.length; i++) {
+          warm(resolveHref(links[i]));
+        }
+      } else {
+        [
+          '/workspace/team',
+          '/workspace/white-label',
+          '/workspace/pipeline',
+          '/workspace/integrations',
+          '/workspace/ai-apps',
+          '/workspace/phones',
+          '/workspace/routing',
+          '/workspace/revenue',
+        ].forEach(warm);
+      }
+    }
   }
 
   if ('requestIdleCallback' in window) {
