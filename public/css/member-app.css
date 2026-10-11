@@ -1110,11 +1110,46 @@ body.ma-photo-open .ma-tabbar{
 .ma-photo-sheet h2{margin:0 36px 6px 0;font-size:20px;font-weight:800}
 .ma-photo-lead{margin:0 0 14px;font-size:14px;font-weight:600;color:var(--muted);line-height:1.4}
 .ma-photo-note{margin-bottom:14px}
+.ma-photo-note__box{
+  position:relative;
+  border-radius:14px;
+  background:var(--card);
+}
 .ma-photo-note__input{
-  min-height:112px;
-  max-height:40vh;
-  resize:vertical;
-  line-height:1.4;
+  display:block;
+  width:100%;
+  min-height:140px;
+  max-height:55vh;
+  height:140px;
+  resize:none; /* custom grip — iOS ignores CSS resize */
+  line-height:1.45;
+  padding-bottom:28px;
+  overflow:auto;
+}
+.ma-photo-note__grip{
+  position:absolute;
+  left:0;right:0;bottom:0;
+  height:28px;
+  border:0;
+  margin:0;
+  padding:0;
+  background:transparent;
+  cursor:ns-resize;
+  touch-action:none;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:0 0 14px 14px;
+}
+.ma-photo-note__grip-bar{
+  width:44px;
+  height:5px;
+  border-radius:999px;
+  background:color-mix(in srgb, var(--muted) 45%, transparent);
+}
+.ma-photo-note__grip:active .ma-photo-note__grip-bar,
+.ma-photo-note__box.is-resizing .ma-photo-note__grip-bar{
+  background:var(--acc);
 }
 .ma-photo-file{
   position:absolute;width:1px;height:1px;padding:0;margin:-1px;
