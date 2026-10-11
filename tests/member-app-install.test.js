@@ -142,7 +142,7 @@ describe('member app install modal and tab bar', () => {
 
   it('service worker network-firsts versioned CSS so deploys are not stuck', () => {
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.476/);
+    assert.match(sw, /adhello-pwa-v1\.0\.477/);
     assert.match(sw, /searchParams\.has\('v'\)/);
     assert.match(sw, /versioned/);
   });
@@ -168,21 +168,21 @@ describe('member app install modal and tab bar', () => {
     assert.match(icons, /pending:\s*icon\(/);
   });
 
-  it('request-a-review attaches the banner image via Web Share (URL in text)', () => {
+  it('request-a-review shares text + URL only (one OG preview, no file attach)', () => {
     const js = fs.readFileSync(path.join(root, 'public/js/member-app.js'), 'utf8');
     const review = fs.readFileSync(path.join(root, 'views/member_app/review.ejs'), 'utf8');
     assert.match(js, /function requestReviewFromPhone/);
-    assert.match(js, /function shareWithFile/);
-    assert.match(js, /data\.files\s*=\s*\[file\]/);
-    assert.match(js, /payload\.image/);
-    assert.match(review, /image:\s*_shareImage|shareImageUrl/);
+    assert.match(js, /navigator\.share\(\{ title: title, text: text, url: payload\.url \}\)/);
+    assert.doesNotMatch(js, /shareWithFile/);
+    assert.doesNotMatch(js, /data\.files\s*=\s*\[file\]/);
+    assert.doesNotMatch(review, /image:\s*_shareImage/);
     assert.match(review, /ma-qr__ask/);
     assert.match(review, /icons\.sms/);
     assert.match(review, /Opens Messages with your review link/);
     const icons = fs.readFileSync(path.join(root, 'services/memberAppIcons.js'), 'utf8');
     assert.match(icons, /sms:\s*icon\(/);
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.476/);
+    assert.match(sw, /adhello-pwa-v1\.0\.477/);
   });
 
   it('member-app.js shows install guidance inside workspace standalone shells', () => {

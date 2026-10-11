@@ -1,5 +1,5 @@
 /* AdHello PWA — cache shell assets; network-first for app pages. */
-const CACHE_VERSION = 'adhello-pwa-v1.0.476';
+const CACHE_VERSION = 'adhello-pwa-v1.0.477';
 const SHELL = [
   '/offline.html',
   '/manifest.webmanifest',

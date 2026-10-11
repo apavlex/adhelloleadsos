@@ -412,8 +412,8 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     assert.doesNotMatch(reviewHtml, /Share from this phone/);
     assert.match(reviewHtml, /data-ma-request-review/);
     assert.match(reviewHtml, /maRequestReviewPayload/);
-    // Banner image is attached via Web Share so Messages shows the photo.
-    assert.match(reviewHtml, /"image":"[^"]*\/rv\/camas-flooring\/og\.jpg/);
+    // Text + URL only — one OG link preview (attaching a file doubles the image).
+    assert.doesNotMatch(reviewHtml, /"image":"[^"]*\/rv\/camas-flooring\/og\.jpg/);
     assert.match(reviewHtml, /ma-qr/);
     assert.match(reviewHtml, /review\/settings/);
     assert.match(reviewHtml, /aria-label="Review settings"/);
