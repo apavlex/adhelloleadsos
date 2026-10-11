@@ -44,7 +44,7 @@
         <div class="ma-hero__row">
           <span class="ma-hero__badge"><% if (brand.logoUrl) { %><img src="<%= brand.logoUrl %>" alt=""><% } else { %><%- icons.building %><% } %></span>
           <div>
-            <p class="ma-hero__name"><%= brand.appName %></p>
+            <p class="ma-hero__name"><%= brand.heroName || brand.appName %></p>
             <p class="ma-hero__sub"><%= _appt ? 'Reviews · jobs · leads' : brand.subtitle %></p>
           </div>
         </div>

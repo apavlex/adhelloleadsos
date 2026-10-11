@@ -52,6 +52,13 @@
     for (var i = 0; i < panels.length; i++) {
       panels[i].hidden = panels[i].getAttribute('data-ma-install-panel') !== name;
     }
+    // In Safari/Chrome the user can Add to Home Screen here — don't push Copy link.
+    var needCopy = name === 'workspace';
+    var inBrowser = name === 'browser-ios' || name === 'browser-android';
+    var workspaceOnly = modal.querySelectorAll('[data-ma-install-workspace-only]');
+    for (var w = 0; w < workspaceOnly.length; w++) workspaceOnly[w].hidden = !needCopy;
+    var browserDone = modal.querySelectorAll('[data-ma-install-browser-done]');
+    for (var b = 0; b < browserDone.length; b++) browserDone[b].hidden = !inBrowser;
   }
 
   function configurePanels() {

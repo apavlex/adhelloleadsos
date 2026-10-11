@@ -105,7 +105,8 @@ function brandView(network, member, opts = {}) {
   const appName = free
     ? FREE_APP_NAME
     : (brand.appName || cleanText(net.name, 60) || 'Partner network');
-  const heroName = appName;
+  // Home hero prefers the signup company; chrome / install use Reviews App.
+  const heroName = free ? (companyName || FREE_APP_NAME) : appName;
   const accent = free ? DEFAULT_ACCENT : brand.accent;
   let heroUrl = brand.heroUrl;
   if (free) {

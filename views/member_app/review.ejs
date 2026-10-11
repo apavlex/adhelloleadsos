@@ -54,9 +54,19 @@
       </div>
     </section>
 
-    <details class="ma-fold" id="maAskForm" <%= _askOpen || _needLinks ? 'open' : '' %>>
-      <summary>Send review request <span class="ma-fold__hint">text or email</span></summary>
+    <% const _sendLocked = typeof reviewSendLocked !== 'undefined' && reviewSendLocked; %>
+    <% /* Only open when ?ask=1 (customer deep-link). Default Review landing stays on QR. */ %>
+    <details class="ma-fold" id="maAskForm" <%= !_sendLocked && _askOpen ? 'open' : '' %>>
+      <summary>Send review request <span class="ma-fold__hint">text or email · GHL CRM</span></summary>
       <div class="ma-fold__body">
+        <% if (_sendLocked) { %>
+        <%- include('_upgrade_gate', {
+          upgradeTitle: 'Send reviews by text or email',
+          upgradeBody: 'Free members can share their link or QR. Upgrade and connect GHL CRM to text or email review requests from the app.',
+          upgradeHref: typeof upgradeHref !== 'undefined' ? upgradeHref : '/signup',
+          upgradeIcon: 'review',
+        }) %>
+        <% } else { %>
         <form method="post" action="<%= base %>/review/send" enctype="multipart/form-data" class="ma-card ma-card--flush" autocomplete="off">
           <% if (!_msg.configured) { %>
           <p class="ma-flash ma-flash--err">GHL CRM isn’t connected on this workspace yet. Connect it in Workspace → Integrations (this app uses that same connection).</p>
@@ -158,6 +168,7 @@
             <%- icons.review %> Send review request
           </button>
         </form>
+        <% } %>
       </div>
     </details>
 

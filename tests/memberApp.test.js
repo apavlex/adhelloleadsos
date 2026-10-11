@@ -71,6 +71,17 @@ test('brand normalization keeps safe values and readable accent text', () => {
   assert.equal(defaults.appName, 'Partner network');
   assert.match(defaults.tagline, /review/i);
   assert.match(defaults.subtitle, /Reviews/);
+
+  const free = networkBrand.brandView(
+    { name: 'Adhello Agency network', brand: { appName: 'Adhello Agency network', accent: '#F26B1D', heroUrl: '/m/brand/x/hero' } },
+    { plan: 'app_free', companyName: 'Sunrise HVAC' },
+  );
+  assert.equal(free.appName, 'AdHello Reviews App');
+  assert.equal(free.heroName, 'Sunrise HVAC');
+  assert.equal(free.accent, '#FFDB3A');
+  assert.equal(free.isFreeApp, true);
+  assert.match(free.heroUrl, /member-hero-your-business\.jpg/);
+  assert.doesNotMatch(free.appName, /agency/i);
 });
 
 test('review gate always keeps public review links visible', () => {
