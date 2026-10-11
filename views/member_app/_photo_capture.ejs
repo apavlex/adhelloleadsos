@@ -29,9 +29,22 @@
         data-ma-loading="Saving photo…"
       >
         <% if (_returnTo) { %><input type="hidden" name="returnTo" value="<%= _returnTo %>"><% } %>
-        <div class="ma-field">
-          <label class="ma-label" for="<%= _fid %>Caption">Note <span class="ma-optional">(optional)</span></label>
-          <input id="<%= _fid %>Caption" name="caption" class="ma-input" maxlength="120" placeholder="e.g. Before — living room" autocomplete="off">
+        <div class="ma-field ma-photo-note">
+          <label class="ma-label" for="<%= _fid %>Caption">Notes <span class="ma-optional">(optional)</span></label>
+          <div class="ma-photo-note__box">
+            <textarea
+              id="<%= _fid %>Caption"
+              name="caption"
+              class="ma-textarea ma-photo-note__input"
+              rows="5"
+              maxlength="500"
+              placeholder="e.g. Before — living room, gate code on left…"
+              autocomplete="off"
+            ></textarea>
+            <button type="button" class="ma-photo-note__grip" data-ma-photo-note-grip aria-label="Drag to resize notes">
+              <span class="ma-photo-note__grip-bar" aria-hidden="true"></span>
+            </button>
+          </div>
         </div>
 
         <input

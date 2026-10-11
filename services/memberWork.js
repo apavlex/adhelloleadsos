@@ -126,6 +126,8 @@ function cleanTimeZone(value) {
   }
 }
 
+const MAX_PHOTO_CAPTION = 500;
+
 function normalizePhotos(raw) {
   if (!Array.isArray(raw)) return [];
   const out = [];
@@ -135,7 +137,7 @@ function normalizePhotos(raw) {
     if (!RECORD_ID.test(id)) continue;
     out.push({
       id,
-      caption: cleanLine(item.caption, 120),
+      caption: cleanBlock(item.caption, MAX_PHOTO_CAPTION),
       createdAt: item.createdAt || '',
     });
     if (out.length >= MAX_JOB_PHOTOS) break;
@@ -449,7 +451,7 @@ async function addJobPhoto(networkId, memberId, jobId, prepared, { caption } = {
   await jobMedia.saveJobPhoto(networkId, memberId, job.id, photoId, prepared);
   const photos = normalizePhotos([
     ...job.photos,
-    { id: photoId, caption: cleanLine(caption, 120), createdAt: now },
+    { id: photoId, caption: cleanBlock(caption, MAX_PHOTO_CAPTION), createdAt: now },
   ]);
   const saved = await writeJob(networkId, memberId, { ...job, photos });
   return { ok: true, job: saved, photoId };

@@ -152,14 +152,20 @@
     if (!sheet || !form || !file) return;
 
     function openSheet() {
+      // Portal to <body> so the sheet isn’t trapped under the fixed tab bar /
+      // Review FAB (main can create a lower stacking context on iOS).
+      if (sheet.parentNode !== document.body) document.body.appendChild(sheet);
       sheet.hidden = false;
       document.documentElement.style.overflow = 'hidden';
-      var cap = form.querySelector('input[name="caption"]');
+      document.body.classList.add('ma-photo-open');
+      var cap = form.querySelector('[name="caption"]');
       if (cap) setTimeout(function () { cap.focus(); }, 50);
     }
     function closeSheet() {
       sheet.hidden = true;
       document.documentElement.style.overflow = '';
+      document.body.classList.remove('ma-photo-open');
+      if (sheet.parentNode !== root) root.appendChild(sheet);
       try { file.value = ''; } catch (e) { /* ignore */ }
     }
 
@@ -195,6 +201,56 @@
       if (typeof form.requestSubmit === 'function') form.requestSubmit();
       else form.submit();
     });
+
+    // Touch-friendly notes stretch (CSS resize is ignored on iOS).
+    (function bindNoteResize() {
+      var note = form.querySelector('.ma-photo-note__input');
+      var grip = form.querySelector('[data-ma-photo-note-grip]');
+      var box = form.querySelector('.ma-photo-note__box');
+      if (!note || !grip) return;
+      var minH = 112;
+      var dragging = false;
+      var startY = 0;
+      var startH = 0;
+      function maxH() {
+        return Math.max(minH, Math.floor(window.innerHeight * 0.55));
+      }
+      function onMove(e) {
+        if (!dragging) return;
+        var y = e.clientY != null ? e.clientY : (e.touches && e.touches[0] && e.touches[0].clientY);
+        if (y == null) return;
+        var next = Math.min(maxH(), Math.max(minH, startH + (y - startY)));
+        note.style.height = next + 'px';
+        e.preventDefault();
+      }
+      function onEnd() {
+        if (!dragging) return;
+        dragging = false;
+        if (box) box.classList.remove('is-resizing');
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onEnd);
+        window.removeEventListener('pointercancel', onEnd);
+        window.removeEventListener('touchmove', onMove);
+        window.removeEventListener('touchend', onEnd);
+      }
+      function onStart(e) {
+        dragging = true;
+        startY = e.clientY != null ? e.clientY : (e.touches && e.touches[0] && e.touches[0].clientY);
+        startH = note.getBoundingClientRect().height;
+        if (box) box.classList.add('is-resizing');
+        if (e.pointerId != null && grip.setPointerCapture) {
+          try { grip.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+        }
+        window.addEventListener('pointermove', onMove, { passive: false });
+        window.addEventListener('pointerup', onEnd);
+        window.addEventListener('pointercancel', onEnd);
+        window.addEventListener('touchmove', onMove, { passive: false });
+        window.addEventListener('touchend', onEnd);
+        e.preventDefault();
+      }
+      grip.addEventListener('pointerdown', onStart);
+      grip.addEventListener('touchstart', onStart, { passive: false });
+    })();
 
     if (root.getAttribute('data-ma-photo-open-on-load') === '1') openSheet();
     root.setAttribute('data-ma-ready', '1');
