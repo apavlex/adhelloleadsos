@@ -65,17 +65,27 @@ describe('member app install modal and tab bar', () => {
     const css = fs.readFileSync(path.join(root, 'public/css/member-app.css'), 'utf8');
     assert.match(css, /\.ma-settings-row__icon\s*\{[^}]*width:\s*28px/s);
     assert.match(css, /\.ma-settings-row__icon svg\s*\{[^}]*width:\s*14px/s);
+    assert.match(css, /summary\.ma-settings-row/);
+    assert.match(css, /\.ma-empty--tap\s*\{[^}]*flex-direction:\s*row/s);
     const head = fs.readFileSync(path.join(root, 'views/member_app/_head.ejs'), 'utf8');
     assert.match(head, /id="ma-critical"/);
     assert.match(head, /ma-settings-row__icon svg\{width:14px/);
+    assert.match(head, /summary\.ma-settings-row/);
+    assert.match(head, /\.ma-empty--tap\{/);
     assert.match(head, /\.ma-tabbar\{[^}]*bottom:0/s);
     const icons = fs.readFileSync(path.join(root, 'services/memberAppIcons.js'), 'utf8');
     assert.match(icons, /width="24" height="24"/);
+    const customers = fs.readFileSync(path.join(root, 'views/member_app/customers.ejs'), 'utf8');
+    assert.match(customers, /summary class="ma-settings-row"/);
+    const customer = fs.readFileSync(path.join(root, 'views/member_app/customer.ejs'), 'utf8');
+    assert.match(customer, /Photos &amp; notes|Photos & notes/);
+    assert.match(customer, /icons\.camera/);
+    assert.match(customer, /icons\.completed.*Save changes|Save changes/);
   });
 
   it('service worker network-firsts versioned CSS so deploys are not stuck', () => {
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.449/);
+    assert.match(sw, /adhello-pwa-v1\.0\.450/);
     assert.match(sw, /searchParams\.has\('v'\)/);
     assert.match(sw, /versioned/);
   });

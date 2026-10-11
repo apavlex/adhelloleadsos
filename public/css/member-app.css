@@ -134,9 +134,11 @@ a.ma-avatar.is-on { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--acc); }
 .ma-profile-hero__sub { margin: 2px 0 0; color: var(--muted); font-size: 14px; font-weight: 600; }
 .ma-settings-list { display: flex; flex-direction: column; gap: 0; }
 a.ma-settings-row,
-button.ma-settings-row {
+button.ma-settings-row,
+summary.ma-settings-row {
   display: flex !important;
   flex-direction: row !important;
+  flex-wrap: nowrap !important;
   align-items: center;
   gap: 10px;
   text-decoration: none;
@@ -157,7 +159,8 @@ button.ma-settings-row {
   box-sizing: border-box;
 }
 a.ma-settings-row:active,
-button.ma-settings-row:active {
+button.ma-settings-row:active,
+summary.ma-settings-row:active {
   background: color-mix(in srgb, var(--muted) 10%, transparent);
 }
 .ma-settings-row__icon {
@@ -355,7 +358,25 @@ button.ma-settings-row:active {
 .ma-card__meta { color: var(--muted); font-size: 13px; margin: 2px 0 0; }
 .ma-card__note { font-size: 14px; margin: 10px 0 0; padding: 10px 12px; border-radius: 12px; background: var(--bg); }
 .ma-empty { text-align: center; color: var(--muted); padding: 28px 16px; font-size: 14px; }
-.ma-empty svg { width: 24px; height: 24px; color: var(--acc); margin-bottom: 6px; }
+.ma-empty > svg { width: 24px; height: 24px; color: var(--acc); margin-bottom: 6px; }
+/* Tap empty-states: icon beside the message (not stacked). */
+.ma-empty--tap {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  padding: 16px;
+  text-decoration: none;
+}
+.ma-empty--tap > svg {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  margin: 0;
+  color: var(--acc);
+}
+.ma-empty--tap > p { margin: 0; flex: 1 1 auto; min-width: 0; line-height: 1.35; }
 .ma-cust-tools { display: grid; gap: 4px; margin: 0 0 14px; padding: 14px 14px 10px; }
 .ma-cust-tools__title {
   margin: 0;
@@ -367,11 +388,16 @@ button.ma-settings-row:active {
 .ma-cust-tools__lead { margin: 0 0 6px; }
 .ma-cust-tools__form { margin: 0; }
 .ma-cust-tools__import { margin: 0; border: 0; }
-.ma-cust-tools__import > summary {
+.ma-cust-tools__import > summary.ma-settings-row {
   list-style: none;
   cursor: pointer;
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center;
 }
-.ma-cust-tools__import > summary::-webkit-details-marker { display: none; }
+.ma-cust-tools__import > summary::-webkit-details-marker,
+.ma-cust-tools__import > summary::marker { display: none; content: ""; }
 .ma-cust-tools__import[open] > summary .ma-settings-row__chev {
   transform: rotate(90deg);
 }
@@ -451,8 +477,7 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
 .ma-row__quick .ma-btn svg { width: 14px; height: 14px; }
 .ma-count { display: inline-flex; min-width: 22px; height: 22px; padding: 0 7px; border-radius: 999px; align-items: center; justify-content: center; font-size: 12px; background: var(--acc-soft); color: var(--acc-ink); vertical-align: 2px; margin-left: 4px; }
 .ma-section--first { margin-top: 4px; }
-.ma-empty--tap { display: block; text-decoration: none; }
-.ma-empty p { margin: 4px 0 0; }
+.ma-empty:not(.ma-empty--tap) p { margin: 4px 0 0; }
 .ma-newcust[hidden] { display: none; }
 
 .ma-pill--job-lead { background: rgba(148, 163, 184, 0.18); color: #475569; }

@@ -40,6 +40,20 @@
     <%- include('_flash') %>
 
     <% if (customer) { %>
+    <%
+      const sitePhotos = [];
+      (jobs || []).forEach(function (j) {
+        (j.photos || []).forEach(function (p) {
+          sitePhotos.push({
+            href: p.href,
+            caption: p.caption || j.title,
+            jobHref: j.href,
+            jobTitle: j.title,
+          });
+        });
+      });
+      const openJob = (jobs || []).find(function (j) { return j.status !== 'completed' && j.status !== 'cancelled'; }) || (jobs || [])[0];
+    %>
     <section class="ma-section">
       <div class="ma-section__head">
         <h2>Jobs</h2>
@@ -51,6 +65,27 @@
       </div>
       <% } else { %>
       <a class="ma-card ma-empty ma-empty--tap" href="<%= base %>/customers/jobs/new?customer=<%= customer.id %>"><%- icons.customers %><p>No jobs yet. Tap to add an estimate or schedule work.</p></a>
+      <% } %>
+    </section>
+
+    <section class="ma-section">
+      <div class="ma-section__head">
+        <h2>Photos &amp; notes</h2>
+        <% if (openJob) { %><a href="<%= openJob.href %>#maJobPhotos"><%- icons.camera %> Add photo</a><% } %>
+      </div>
+      <% if (sitePhotos.length) { %>
+      <div class="ma-photos">
+        <% sitePhotos.slice(0, 8).forEach(function (p) { %>
+        <figure class="ma-photos__item">
+          <a href="<%= p.jobHref %>"><img src="<%= p.href %>" alt="<%= p.caption || 'Job photo' %>" loading="lazy"></a>
+          <% if (p.caption) { %><figcaption><%= p.caption %></figcaption><% } %>
+        </figure>
+        <% }); %>
+      </div>
+      <% } else if (openJob) { %>
+      <a class="ma-card ma-empty ma-empty--tap" href="<%= openJob.href %>#maJobPhotos"><%- icons.camera %><p>No site photos yet. Tap to document this job with pictures and notes.</p></a>
+      <% } else { %>
+      <a class="ma-card ma-empty ma-empty--tap" href="<%= base %>/customers/jobs/new?customer=<%= customer.id %>"><%- icons.camera %><p>Add a job first, then attach photos and notes from the job site.</p></a>
       <% } %>
     </section>
     <% } %>
@@ -80,7 +115,7 @@
           <label class="ma-label" for="cuNotes">Notes</label>
           <textarea id="cuNotes" name="notes" class="ma-textarea" maxlength="2000" placeholder="Gate code, preferences, history…"><%= fv.notes || '' %></textarea>
         </div>
-        <button type="submit" class="ma-btn ma-btn--block"><%= customer ? 'Save changes' : 'Add customer' %></button>
+        <button type="submit" class="ma-btn ma-btn--block"><%- icons.completed %> <%= customer ? 'Save changes' : 'Add customer' %></button>
       </form>
     </section>
 

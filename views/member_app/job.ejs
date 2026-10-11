@@ -114,12 +114,12 @@
           </div>
         </div>
         <p class="ma-hint">Texts go through Go High Level before the visit. Needs a date<%= fv.time ? '' : ' (and ideally a start time)' %>.</p>
-        <button type="submit" class="ma-btn ma-btn--block"><%= job ? 'Save job' : (fv.date ? 'Schedule job' : 'Add job') %></button>
+        <button type="submit" class="ma-btn ma-btn--block"><%- icons.completed %> <%= job ? 'Save job' : (fv.date ? 'Schedule job' : 'Add job') %></button>
       </form>
     </section>
 
     <% if (job) { %>
-    <section class="ma-section">
+    <section class="ma-section" id="maJobPhotos">
       <div class="ma-section__head">
         <h2>Job photos</h2>
         <span class="ma-count"><%= (job.photos || []).length %>/<%= maxJobPhotos || 12 %></span>
