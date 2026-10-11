@@ -107,7 +107,7 @@ describe('member app install modal and tab bar', () => {
 
   it('service worker network-firsts versioned CSS so deploys are not stuck', () => {
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.458/);
+    assert.match(sw, /adhello-pwa-v1\.0\.459/);
     assert.match(sw, /searchParams\.has\('v'\)/);
     assert.match(sw, /versioned/);
   });
@@ -150,6 +150,7 @@ describe('member app install modal and tab bar', () => {
     assert.match(js, /function postStatus/);
     assert.match(js, /X-Requested-With['"]:\s*['"]fetch['"]/);
     assert.match(js, /data-ma-status-steps/);
+    assert.match(js, /jbDate/);
     const job = fs.readFileSync(path.join(root, 'views/member_app/job.ejs'), 'utf8');
     assert.match(job, /data-ma-status-steps/);
     assert.match(job, /data-ma-job-status-pill/);
@@ -157,6 +158,8 @@ describe('member app install modal and tab bar', () => {
     assert.match(customers, /data-ma-status-advance/);
     const css = fs.readFileSync(path.join(root, 'public/css/member-app.css'), 'utf8');
     assert.match(css, /\.ma-steps\.is-saving/);
+    const workSrc = fs.readFileSync(path.join(root, 'services/memberWork.js'), 'utf8');
+    assert.match(workSrc, /Scheduling without a date defaults to today/);
   });
 
   it('photo gallery exposes a note shortcut that edits caption only', () => {

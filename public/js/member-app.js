@@ -151,7 +151,9 @@
     var currentLabel = onBtn ? (onBtn.textContent || '').replace(/\s+/g, ' ').trim() : '';
     var seq = 0;
 
-    function applyUi(status, label) {
+    var dateInput = document.getElementById('jbDate');
+
+    function applyUi(status, label, date) {
       for (var i = 0; i < buttons.length; i++) {
         var btn = buttons[i];
         var on = btn.value === status;
@@ -168,6 +170,9 @@
       }
       if (select && select.querySelector('option[value="' + status + '"]')) {
         select.value = status;
+      }
+      if (dateInput && date && !dateInput.value) {
+        dateInput.value = date;
       }
     }
 
@@ -187,24 +192,24 @@
       applyUi(status, label);
       form.classList.add('is-saving');
       form.classList.remove('is-error');
+      form.removeAttribute('title');
 
       postStatus(form.action, status, null)
         .then(function (data) {
           if (mySeq !== seq) return;
           if (data.status) current = data.status;
-          if (data.statusLabel) {
-            currentLabel = data.statusLabel;
-            applyUi(current, currentLabel);
-          }
+          if (data.statusLabel) currentLabel = data.statusLabel;
+          applyUi(current, currentLabel, data.date || '');
           form.classList.remove('is-saving');
         })
-        .catch(function () {
+        .catch(function (err) {
           if (mySeq !== seq) return;
           current = prev;
           currentLabel = prevLabel;
           applyUi(prev, prevLabel);
           form.classList.remove('is-saving');
           form.classList.add('is-error');
+          if (err && err.message) form.setAttribute('title', err.message);
           setTimeout(function () { form.classList.remove('is-error'); }, 1600);
         });
     });
