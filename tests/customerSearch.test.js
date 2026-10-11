@@ -64,6 +64,7 @@ describe('customerSearch', () => {
     const tabbar = fs.readFileSync(path.join(__dirname, '../views/member_app/_tabbar.ejs'), 'utf8');
     const app = fs.readFileSync(path.join(__dirname, '../public/js/member-app.js'), 'utf8');
     const css = fs.readFileSync(path.join(__dirname, '../public/css/member-app.css'), 'utf8');
+    const route = fs.readFileSync(path.join(__dirname, '../routes/memberApp.js'), 'utf8');
 
     assert.match(review, /data-ma-customer-pick/);
     assert.match(review, /Who should we ask/);
@@ -82,6 +83,10 @@ describe('customerSearch', () => {
     assert.match(css, /\.ma-typeahead__list/);
     assert.match(css, /\.ma-typeahead__item--new/);
     assert.match(css, /\.ma-ask-selected/);
+    // Customer page Review opens the ask form with customer=id (selected), not as a new person.
+    assert.match(route, /customers\/c\/:id\/request-review/);
+    assert.match(route, /customer: data\.customer\.id/);
+    assert.match(route, /findCustomerMatch\(customers/);
   });
 
   it('wires Customers list search to live client-side filtering', () => {

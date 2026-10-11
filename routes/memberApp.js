@@ -971,7 +971,15 @@ router.post('/m/:token/customers/c/:id/request-review', form, withMember(async (
   if (!data) return res.redirect(303, `${ctx.base}/customers`);
   const member = await ensureReviewSetup(ctx);
   if (!reviewPage.countLinks(member.reviewLinks)) {
-    return res.redirect(303, `${ctx.base}/review?ask=1&name=${encodeURIComponent(data.customer.name || '')}&phone=${encodeURIComponent(data.customer.phone || '')}&email=${encodeURIComponent(data.customer.email || '')}`);
+    // Open the ask form with this saved customer selected (not as a "new person").
+    const qs = new URLSearchParams({
+      ask: '1',
+      customer: data.customer.id,
+      name: data.customer.name || '',
+      phone: data.customer.phone || '',
+      email: data.customer.email || '',
+    });
+    return res.redirect(303, `${ctx.base}/review?${qs.toString()}`);
   }
   if (ctx.member.status !== 'active') {
     return renderCustomerPage(res, ctx, {
@@ -1393,11 +1401,35 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
   ]);
   const totalStars = Object.values(stats.stars).reduce((a, b) => a + b, 0);
   const q = req.query || {};
+  let phone = String((formValues && formValues.phone) || q.phone || '').trim();
+  let email = String((formValues && formValues.email) || q.email || '').trim();
+  let name = String((formValues && formValues.name) || q.name || '').trim();
+  let customerId = String((formValues && formValues.customerId) || q.customer || '').trim();
+  // Prefer a real saved customer so the ask form shows the selected row, not "Name (new person)".
+  if (customerId && work.isRecordId(customerId)) {
+    const picked = customers.find((c) => c.id === customerId);
+    if (picked) {
+      name = name || picked.name || '';
+      phone = phone || picked.phone || '';
+      email = email || picked.email || '';
+    } else {
+      customerId = '';
+    }
+  } else {
+    customerId = '';
+    const matched = work.findCustomerMatch(customers, { phone, email });
+    if (matched) {
+      customerId = matched.id;
+      name = name || matched.name || '';
+      phone = phone || matched.phone || '';
+      email = email || matched.email || '';
+    }
+  }
   const defaults = {
-    phone: String((formValues && formValues.phone) || q.phone || '').trim(),
-    email: String((formValues && formValues.email) || q.email || '').trim(),
-    name: String((formValues && formValues.name) || q.name || '').trim(),
-    customerId: String((formValues && formValues.customerId) || q.customer || '').trim(),
+    phone,
+    email,
+    name,
+    customerId,
     channel: String((formValues && formValues.channel) || q.channel || 'auto').trim() || 'auto',
     useAi: formValues && Object.prototype.hasOwnProperty.call(formValues, 'useAi')
       ? !!formValues.useAi
