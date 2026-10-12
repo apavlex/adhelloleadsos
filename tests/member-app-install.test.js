@@ -285,6 +285,16 @@ describe('member app install modal and tab bar', () => {
     assert.match(css, /--tabbar-content-gap:\s*72px/);
   });
 
+  it('referrals tab is labeled Leads; page title is Leads & Referrals', () => {
+    const tabbar = fs.readFileSync(path.join(root, 'views/member_app/_tabbar.ejs'), 'utf8');
+    const page = fs.readFileSync(path.join(root, 'views/member_app/referrals.ejs'), 'utf8');
+    assert.match(tabbar, /id:\s*'referrals',\s*label:\s*'Leads'/);
+    assert.doesNotMatch(tabbar, /id:\s*'referrals',\s*label:\s*'Referrals'/);
+    assert.match(page, /pageTitle:\s*'Leads & Referrals'/);
+    assert.match(page, /topTitle:\s*'Leads & Referrals'/);
+    assert.match(page, /ma-page-title">Leads &amp; Referrals</);
+  });
+
   it('Home stays responsive: defer GHL sync, skip icon decode, idle install modal', () => {
     const route = fs.readFileSync(path.join(root, 'routes/memberApp.js'), 'utf8');
     const js = fs.readFileSync(path.join(root, 'public/js/member-app.js'), 'utf8');
