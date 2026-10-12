@@ -660,7 +660,8 @@ html[data-ma-theme="dark"] .ma-quick__btn { border-color: transparent; }
   display: inline-flex; flex-direction: row; align-items: center; gap: 2px;
   min-height: 44px; max-width: 100%;
   border: 1px solid color-mix(in srgb, var(--ma-tag) 55%, transparent);
-  background: color-mix(in srgb, var(--ma-tag) 22%, #fff);
+  /* Mix with --card so dark mode stays dark (not pastel-on-white + white ink). */
+  background: color-mix(in srgb, var(--ma-tag) 22%, var(--card));
   border-radius: 999px; padding: 4px 4px 4px 14px; box-sizing: border-box;
 }
 .ma-tags__chip-name {
@@ -673,12 +674,12 @@ html[data-ma-theme="dark"] .ma-quick__btn { border-color: transparent; }
 .ma-tags__chip-x {
   display: inline-flex; align-items: center; justify-content: center;
   width: 40px; height: 40px; border: 0; border-radius: 999px;
-  background: color-mix(in srgb, var(--ma-tag) 28%, #fff);
+  background: color-mix(in srgb, var(--ma-tag) 28%, var(--card));
   color: var(--ink); font: inherit; font-size: 22px;
   font-weight: 700; line-height: 1; cursor: pointer;
 }
 .ma-tags__chip-x:hover, .ma-tags__chip-x:focus-visible {
-  background: color-mix(in srgb, var(--ma-tag) 40%, #fff); outline: none;
+  background: color-mix(in srgb, var(--ma-tag) 40%, var(--card)); outline: none;
 }
 .ma-tags__search { margin-top: 18px; }
 .ma-tags__search-form .ma-label { margin-bottom: 8px; }
@@ -695,11 +696,27 @@ html[data-ma-theme="dark"] .ma-quick__btn { border-color: transparent; }
   --ma-tag: var(--acc);
   display: inline-flex; align-items: center; min-height: 44px;
   padding: 10px 14px; border-radius: 999px;
-  border: 1.5px dashed color-mix(in srgb, var(--ma-tag) 55%, #94a3b8);
-  background: #fff; color: var(--ink);
+  border: 1.5px dashed color-mix(in srgb, var(--ma-tag) 55%, var(--muted));
+  background: var(--card); color: var(--ink);
   font: inherit; font-size: 14px; font-weight: 800; cursor: pointer;
 }
-.ma-tags__suggest-btn:hover { background: color-mix(in srgb, var(--ma-tag) 12%, #fff); }
+.ma-tags__suggest-btn:hover { background: color-mix(in srgb, var(--ma-tag) 14%, var(--card)); }
+html[data-ma-theme="dark"] .ma-tags__chip {
+  background: color-mix(in srgb, var(--ma-tag) 36%, var(--card));
+}
+html[data-ma-theme="dark"] .ma-tags__chip-x {
+  background: color-mix(in srgb, var(--ma-tag) 42%, var(--card));
+}
+html[data-ma-theme="dark"] .ma-tags__chip-x:hover,
+html[data-ma-theme="dark"] .ma-tags__chip-x:focus-visible {
+  background: color-mix(in srgb, var(--ma-tag) 55%, var(--card));
+}
+html[data-ma-theme="dark"] .ma-tags__suggest-btn {
+  background: color-mix(in srgb, var(--ma-tag) 22%, var(--card));
+}
+html[data-ma-theme="dark"] .ma-tags__suggest-btn:hover {
+  background: color-mix(in srgb, var(--ma-tag) 32%, var(--card));
+}
 .ma-tags .ma-typeahead { overflow: visible; }
 /* Inline (not absolute) so suggestions aren't clipped by the scroll shell / keyboard */
 .ma-tags .ma-typeahead__list {
@@ -715,6 +732,10 @@ html[data-ma-theme="dark"] .ma-quick__btn { border-color: transparent; }
   width: 100%; font: inherit; font-size: 16px; color: var(--ink); background: var(--card);
   border: 1px solid color-mix(in srgb, var(--muted) 35%, transparent); border-radius: 14px; padding: 12px 14px; outline: none;
   -webkit-appearance: none; appearance: none;
+}
+.ma-input::placeholder, .ma-textarea::placeholder {
+  color: var(--muted);
+  opacity: 1;
 }
 .ma-select { background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 20px) 52%, calc(100% - 15px) 52%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 36px; }
 .ma-input:focus, .ma-select:focus, .ma-textarea:focus { border-color: var(--acc); box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc) 22%, transparent); }

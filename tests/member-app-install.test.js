@@ -145,6 +145,14 @@ describe('member app install modal and tab bar', () => {
     assert.ok(customer.indexOf('ma-tags-section') < customer.indexOf('<h2>Details</h2>'));
     assert.match(head, /\.ma-tags__chip\{/);
     assert.match(head, /border-radius:999px/);
+    assert.match(head, /ma-tags__suggest-btn\{[^}]*background:var\(--card/s);
+    assert.match(head, /html\[data-ma-theme="dark"\] \.ma-tags__suggest-btn/);
+    assert.match(head, /html\[data-ma-theme="dark"\] \.ma-tags__chip\{/);
+    assert.doesNotMatch(css, /\.ma-tags__suggest-btn\s*\{[^}]*background:\s*#fff/s);
+    assert.match(css, /\.ma-tags__suggest-btn\s*\{[^}]*background:\s*var\(--card\)/s);
+    assert.match(css, /html\[data-ma-theme="dark"\] \.ma-tags__suggest-btn\s*\{/);
+    assert.match(css, /html\[data-ma-theme="dark"\] \.ma-tags__chip\s*\{/);
+    assert.match(css, /\.ma-input::placeholder/);
     const memberJs = fs.readFileSync(path.join(root, 'public/js/member-app.js'), 'utf8');
     assert.match(memberJs, /function initTagPick/);
     assert.match(memberJs, /filterSuggest/);
