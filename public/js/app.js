@@ -361,8 +361,8 @@ document.addEventListener('DOMContentLoaded', () => {
             ? `Bulk email — ${n} leads`
             : 'Bulk email'
           : n > 1
-            ? `Bulk SMS — ${n} leads`
-            : 'Bulk SMS';
+            ? `Send Message — ${n} leads`
+            : 'Send Message';
       }
       if (bulkLabel) {
         bulkLabel.textContent =
@@ -14691,7 +14691,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (subjectWrap) subjectWrap.classList.toggle('hidden', !emailMode);
     if (smsScriptModalTitle) {
       if (emailMode) smsScriptModalTitle.textContent = n > 1 ? `Bulk email — ${n} leads` : 'Bulk email';
-      else smsScriptModalTitle.textContent = n > 1 ? `Bulk SMS — ${n} leads` : 'Bulk SMS';
+      else smsScriptModalTitle.textContent = n > 1 ? `Send Message — ${n} leads` : 'Send Message';
     }
     if (smsScriptBulkLabel) {
       smsScriptBulkLabel.textContent =
@@ -16006,10 +16006,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof window.__updateBulkActionBar === 'function') window.__updateBulkActionBar();
           } catch (err) {
             finishBulkOutreachBell(
-              { ok: 0, failed: 1, skipped: 0, lastError: (err && err.message) || 'Bulk SMS failed.' },
+              { ok: 0, failed: 1, skipped: 0, lastError: (err && err.message) || 'Send Message failed.' },
               'sms',
             );
-            notifyBulkOutreachProgress(err.message || 'Bulk SMS failed.', 'error');
+            notifyBulkOutreachProgress(err.message || 'Send Message failed.', 'error');
           } finally {
             window.__adhelloBulkOutreachInflight = false;
           }
@@ -16025,7 +16025,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const leadKey = getCurrentLeadKey();
       if (!leadKey) {
         notifyLeadPanelDial('Select a lead first.', 'error');
-        window.alert('Select a lead first, or use Bulk SMS from the selection bar.');
+        window.alert('Select a lead first, or use Send Message from the selection bar.');
         return;
       }
       const original = smsScriptSendBtn ? smsScriptSendBtn.textContent : '';
