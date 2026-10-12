@@ -64,11 +64,13 @@ async function withWorkspace(req, res, next) {
       req.workspaceId = ws.id;
       req.workspaceRole = 'owner';
       req.canManageWorkspace = true;
+      req.canAssignWork = true;
       res.locals.user = req.user;
       res.locals.workspace = ws;
       res.locals.workspaceId = ws.id;
       res.locals.workspaceRole = 'owner';
       res.locals.canManageWorkspace = true;
+      res.locals.canAssignWork = true;
       res.locals.workspaceAccent = ws.accentColor || '#CA8A04';
       res.locals.workspaceAccentText = resolveAccentTextColor(ws.accentColor, ws.accentTextColor);
       res.locals.whiteLabel = whiteLabel.brandForWorkspace(ws);
@@ -141,10 +143,12 @@ async function withWorkspace(req, res, next) {
         req.workspaceId = '';
         req.workspaceRole = '';
         req.canManageWorkspace = false;
+        req.canAssignWork = false;
         res.locals.workspace = null;
         res.locals.workspaceId = '';
         res.locals.workspaceRole = '';
         res.locals.canManageWorkspace = false;
+        res.locals.canAssignWork = false;
         res.locals.workspaceSwitcherList = [];
         res.locals.workspaceAccent = '#CA8A04';
         res.locals.customMenuLinks = [];
@@ -176,6 +180,7 @@ async function withWorkspace(req, res, next) {
     req.workspaceId = ws.id;
     req.workspaceRole = workspaceService.roleForEmail(ws, email);
     req.canManageWorkspace = workspaceService.canManageTeam(req.workspaceRole);
+    req.canAssignWork = workspaceService.canAssignWork(req.workspaceRole);
     if (!telephonyFastPath) {
       teamActivity.rememberMemberProfile(req).catch(() => {});
     }
@@ -218,6 +223,7 @@ async function withWorkspace(req, res, next) {
     res.locals.workspaceId = ws.id;
     res.locals.workspaceRole = req.workspaceRole;
     res.locals.canManageWorkspace = req.canManageWorkspace;
+    res.locals.canAssignWork = req.canAssignWork;
     Object.assign(res.locals, viewDateFormatters(ws));
     res.locals.workspaceSwitcherList = summaries;
     res.locals.canManageDemo = canManageDemo;

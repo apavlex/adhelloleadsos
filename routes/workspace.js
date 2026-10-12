@@ -264,7 +264,8 @@ const WORKSPACE_SECTION_META = {
   },
   team: {
     title: 'Members & roles',
-    description: 'Who belongs to this workspace and what they can do.',
+    description:
+      'Invite people, set Admin / Manager / SDR / Viewer, and remove access anytime when someone is hired or fired.',
   },
   onboarding: {
     title: 'Teammate onboarding',
@@ -1050,7 +1051,7 @@ router.post('/team/invite', express.urlencoded({ extended: true }), async (req, 
     const roleRaw = String((req.body && req.body.role) || 'viewer')
       .trim()
       .toLowerCase();
-    const allowedRoles = new Set(['viewer', 'sdr', 'admin']);
+    const allowedRoles = new Set(rolePermissions.EDITABLE_ROLES);
     const role = allowedRoles.has(roleRaw) ? roleRaw : 'viewer';
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return res.redirect('/workspace/team?invite=invalid_email');
@@ -1119,7 +1120,7 @@ router.get('/invite/:token', async (req, res, next) => {
       if (inv.expiresAt && Date.parse(inv.expiresAt) < Date.now()) {
         return res.redirect('/workspace/team?invite=expired');
       }
-      const role = new Set(['viewer', 'sdr', 'admin']).has(String(inv.role || 'viewer'))
+      const role = rolePermissions.EDITABLE_ROLES.includes(String(inv.role || 'viewer'))
         ? String(inv.role)
         : 'viewer';
       ws.members = {
@@ -1134,7 +1135,9 @@ router.get('/invite/:token', async (req, res, next) => {
       };
       if (Array.isArray(ws.roundRobinOrder)) {
         const has = ws.roundRobinOrder.some((x) => String(x || '').toLowerCase() === invEmail);
-        if (!has && (role === 'sdr' || role === 'admin')) ws.roundRobinOrder = [...ws.roundRobinOrder, invEmail];
+        if (!has && (role === 'sdr' || role === 'admin' || role === 'manager')) {
+          ws.roundRobinOrder = [...ws.roundRobinOrder, invEmail];
+        }
       }
       pending[idx] = { ...inv, acceptedAt: new Date().toISOString() };
       ws.pendingInvites = pending;
@@ -1258,7 +1261,7 @@ function memberEditBlock(ws, req, email) {
   return '';
 }
 
-/** Change a member's role (Admin / SDR / Viewer). */
+/** Change a member's role (Admin / Manager / SDR / Viewer). Owner/admin only. */
 router.post('/team/member/role', express.urlencoded({ extended: true }), async (req, res, next) => {
   try {
     if (!teamManagerOnly(req, res)) return;
@@ -1270,9 +1273,14 @@ router.post('/team/member/role', express.urlencoded({ extended: true }), async (
     const blocked = memberEditBlock(ws, req, email);
     if (blocked) return res.redirect(`/workspace/team?invite=${blocked}`);
     ws.members = { ...ws.members, [email]: { ...ws.members[email], role } };
-    if (Array.isArray(ws.roundRobinOrder) && (role === 'sdr' || role === 'admin')) {
-      const has = ws.roundRobinOrder.some((x) => String(x || '').toLowerCase() === email);
-      if (!has) ws.roundRobinOrder = [...ws.roundRobinOrder, email];
+    if (Array.isArray(ws.roundRobinOrder)) {
+      const inPool = role === 'sdr' || role === 'admin' || role === 'manager';
+      if (inPool) {
+        const has = ws.roundRobinOrder.some((x) => String(x || '').toLowerCase() === email);
+        if (!has) ws.roundRobinOrder = [...ws.roundRobinOrder, email];
+      } else {
+        ws.roundRobinOrder = ws.roundRobinOrder.filter((x) => String(x || '').toLowerCase() !== email);
+      }
     }
     await dbService.saveWorkspace(wid, ws);
     return res.redirect(`/workspace/team?invite=role_saved&email=${encodeURIComponent(email)}`);

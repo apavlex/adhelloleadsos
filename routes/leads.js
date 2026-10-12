@@ -1320,11 +1320,11 @@ router.post('/:key/disposition', async (req, res, next) => {
   }
 });
 
-// POST /leads/:key/assign — owner/admin only
+// POST /leads/:key/assign — owner/admin/manager
 router.post('/:key/assign', async (req, res, next) => {
   try {
-    if (!req.canManageWorkspace) {
-      return res.status(403).json({ success: false, error: 'Team admin required' });
+    if (!req.canAssignWork) {
+      return res.status(403).json({ success: false, error: 'Manager access required' });
     }
     const fullKey = leadKeyFromParam(req.params.key);
     const assignee =
@@ -1352,11 +1352,11 @@ router.post('/:key/assign', async (req, res, next) => {
   }
 });
 
-// POST /leads/:key/assign-round-robin — owner/admin only
+// POST /leads/:key/assign-round-robin — owner/admin/manager
 router.post('/:key/assign-round-robin', async (req, res, next) => {
   try {
-    if (!req.canManageWorkspace) {
-      return res.status(403).json({ success: false, error: 'Team admin required' });
+    if (!req.canAssignWork) {
+      return res.status(403).json({ success: false, error: 'Manager access required' });
     }
     const fullKey = leadKeyFromParam(req.params.key);
     const assignee = await workspaceService.pickRoundRobinAssignee(req.workspaceId);

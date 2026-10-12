@@ -6,11 +6,12 @@ const { filterLeadsForRequest } = require('../services/workspaceService');
 describe('rolePermissions', () => {
   it('opens every page by default and keeps SDRs on assigned leads', () => {
     const m = rolePermissions.resolve({});
-    for (const role of ['admin', 'sdr', 'viewer']) {
+    for (const role of ['admin', 'manager', 'sdr', 'viewer']) {
       assert.ok(rolePermissions.PAGE_IDS.every((id) => m[role].pages[id] === true));
     }
     assert.equal(m.sdr.leads, 'assigned');
     assert.equal(m.admin.leads, 'all');
+    assert.equal(m.manager.leads, 'all');
     assert.equal(m.viewer.leads, 'all');
   });
 
