@@ -30,7 +30,7 @@
 
     <section class="ma-card">
       <h2 style="font-size:16px;margin:0 0 6px">Profile photo</h2>
-      <p class="ma-hint" style="margin-top:0">Shown in the top bar — and used as your Home Screen app icon after you save.</p>
+      <p class="ma-hint" style="margin-top:0">Shown in the top bar. The Home Screen app icon uses your business logo from App branding below.</p>
       <form method="post" action="<%= base %>/profile/photo" enctype="multipart/form-data" autocomplete="off" data-ma-loading="Saving photo…">
         <div class="ma-field">
           <label class="ma-label" for="maProfilePhoto">Upload photo</label>
@@ -45,6 +45,38 @@
       </form>
       <% } %>
     </section>
+
+    <% if (typeof canEditWorkspaceBrand !== 'undefined' && canEditWorkspaceBrand && workspaceBrand) { %>
+    <section class="ma-card" id="maAppBranding" aria-label="App branding">
+      <h2 style="font-size:16px;margin:0 0 6px">App branding</h2>
+      <p class="ma-hint" style="margin-top:0">Same as <strong>Workspace → White label</strong>. Logo shows on Home, in the desktop app, and as the icon when you Save as a phone app.</p>
+      <% if (workspaceBrand.hasLogo && workspaceBrand.logoUrl) { %>
+      <img class="rv-logo" src="<%= workspaceBrand.logoUrl %>" alt="<%= workspaceBrand.appName %> logo" style="margin:8px auto 12px;max-width:96px;max-height:96px;object-fit:contain;border-radius:18px;background:#f1f5f9">
+      <% } else if (brand.logoUrl) { %>
+      <img class="rv-logo" src="<%= brand.logoUrl %>" alt="<%= brand.appName %> logo" style="margin:8px auto 12px;max-width:96px;max-height:96px;object-fit:contain;border-radius:18px;background:#f1f5f9">
+      <% } else { %>
+      <div class="rv-initials" aria-hidden="true" style="margin:8px auto 12px"><%= (workspaceBrand.appName || brand.appName || '?').trim().charAt(0).toUpperCase() %></div>
+      <% } %>
+      <form method="post" action="<%= base %>/profile/branding" enctype="multipart/form-data" autocomplete="off" data-ma-loading="Saving branding…">
+        <div class="ma-field">
+          <label class="ma-label" for="maWlAppName">App name</label>
+          <input id="maWlAppName" name="appName" class="ma-input" value="<%= workspaceBrand.customName || brand.appName || '' %>" maxlength="30" autocapitalize="words" placeholder="<%= brand.appName || 'Your business' %>">
+        </div>
+        <div class="ma-field">
+          <label class="ma-label" for="maWlLogo">Business logo</label>
+          <input id="maWlLogo" name="logo" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,image/*" class="ma-input">
+        </div>
+        <button type="submit" class="ma-btn ma-btn--soft ma-btn--block">Save branding</button>
+      </form>
+      <% if (workspaceBrand.hasLogo) { %>
+      <form method="post" action="<%= base %>/profile/branding" style="margin-top:8px" data-ma-confirm="Remove the Workspace white-label logo?">
+        <input type="hidden" name="remove_logo" value="1">
+        <input type="hidden" name="appName" value="<%= workspaceBrand.customName || '' %>">
+        <button type="submit" class="ma-btn ma-btn--ghost ma-btn--block">Remove logo</button>
+      </form>
+      <% } %>
+    </section>
+    <% } %>
 
     <section class="ma-card">
       <h2 style="font-size:16px;margin:0 0 6px">Your details</h2>
@@ -94,10 +126,20 @@
           <span class="ma-settings-row__icon"><%- icons.settings %></span>
           <span class="ma-settings-row__text">
             <strong>Review settings</strong>
-            <span>Logo, review links, and share preview image</span>
+            <span>Review links and share preview image</span>
           </span>
           <span class="ma-settings-row__chev" aria-hidden="true"><%- icons.chevronRight %></span>
         </a>
+        <% if (typeof canEditWorkspaceBrand !== 'undefined' && canEditWorkspaceBrand) { %>
+        <a class="ma-settings-row" href="#maAppBranding">
+          <span class="ma-settings-row__icon"><%- icons.building %></span>
+          <span class="ma-settings-row__text">
+            <strong>App branding</strong>
+            <span>Business logo &amp; name (Workspace white label)</span>
+          </span>
+          <span class="ma-settings-row__chev" aria-hidden="true"><%- icons.chevronRight %></span>
+        </a>
+        <% } %>
         <a class="ma-settings-row" href="<%= base %>/customers">
           <span class="ma-settings-row__icon"><%- icons.people %></span>
           <span class="ma-settings-row__text">

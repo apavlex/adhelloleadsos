@@ -80,6 +80,10 @@ test('demo workspace seeds leads, territories, referrals, cadences and blocks re
   const path = require('path');
   assert.ok(fs.existsSync(path.join(__dirname, '../assets/demo/demo-hero-home.jpg')));
   assert.ok(fs.existsSync(path.join(__dirname, '../assets/demo/demo-job-kitchen.jpg')));
+  const whiteLabel = require('../services/whiteLabel');
+  const wl = whiteLabel.brandForWorkspace(ws);
+  assert.equal(wl.hasLogo, true, 'demo seeds Workspace white-label logo for Home badge');
+  assert.equal(wl.customName, 'Cascade Home Pros');
 
   const env = await workspaceIntegrations.getResolvedIntegrationEnv(first.workspaceId);
   assert.equal(env.DEMO_WORKSPACE, '1');

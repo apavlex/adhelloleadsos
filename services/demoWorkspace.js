@@ -26,6 +26,7 @@ const customCadences = require('./customCadences');
 const memberWork = require('./memberWork');
 const memberJobMedia = require('./memberJobMedia');
 const networkBrand = require('./networkBrand');
+const whiteLabel = require('./whiteLabel');
 const { OWNER_MEMBER_ID } = require('./ownerReferralApp');
 const { PRESETS } = require('../lib/pipeline/presets');
 const { normalizeStages } = require('../lib/pipeline/normalize');
@@ -35,8 +36,8 @@ const DAY = 24 * HOUR;
 
 const WORKSPACE_NAME = 'Cascade Home Pros';
 const NETWORK_NAME = 'Cascade Pro Network';
-/** Bump when committed demo photos change so existing demos refresh media. */
-const DEMO_REVIEW_MEDIA_V = 2;
+/** Bump when committed demo photos / white-label logo sync change so demos refresh. */
+const DEMO_REVIEW_MEDIA_V = 3;
 const DEMO_ASSET_DIR = path.join(__dirname, '..', 'assets', 'demo');
 const DEMO_ASSETS = {
   hero: 'demo-hero-home.jpg',
@@ -939,6 +940,18 @@ async function seedOwnerReviewBrand(network, owner, now) {
     },
   });
   Object.assign(network, savedNet || {});
+
+  // Owner Home badge uses Workspace → White label when present — keep it in sync.
+  const wid = network.ownerWorkspaceId;
+  if (wid) {
+    const ws = await dbService.getWorkspace(wid);
+    if (ws) {
+      const logoVersion = await whiteLabel.saveLogo(wid, logoBuf);
+      const wl = { ...whiteLabel.settings(ws), appName: WORKSPACE_NAME, logoVersion };
+      await dbService.saveWorkspace(wid, { ...ws, whiteLabel: wl, name: ws.name || WORKSPACE_NAME });
+    }
+  }
+
   await markDemoReviewMedia(network.id);
   return next;
 }
