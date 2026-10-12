@@ -1,7 +1,8 @@
 /**
  * Demo workspace for client calls: a fictional Clark County / East Portland
  * contractor network with prospect lists, territories, members, referrals,
- * active cadences, tasks, and message history.
+ * active cadences, tasks, message history, and a Review app (/m) portfolio
+ * (sample customers, jobs, tags) for Get the app demos.
  *
  * Everything is fake: phones are in the reserved 555-01xx range, emails and
  * sites are on example.com, and `isDemo` blocks real sends (workspaceIntegrations,
@@ -20,6 +21,8 @@ const { saveMemberWithSeats } = require('./networkReferrals');
 const messageLog = require('./messageLog');
 const { getTemplate } = require('./sequenceTemplates');
 const customCadences = require('./customCadences');
+const memberWork = require('./memberWork');
+const { OWNER_MEMBER_ID } = require('./ownerReferralApp');
 const { PRESETS } = require('../lib/pipeline/presets');
 const { normalizeStages } = require('../lib/pipeline/normalize');
 
@@ -53,6 +56,9 @@ const TAGS = {
   website: { name: 'Needs website', color: '#EAB308' },
   ads: { name: 'Google Ads', color: '#8B5CF6' },
   follow: { name: 'Follow up', color: '#F97316' },
+  vip: { name: 'VIP', color: '#A855F7' },
+  review: { name: 'Ask for review', color: '#F59E0B' },
+  repeat: { name: 'Repeat customer', color: '#14B8A6' },
 };
 
 const CATEGORY = {
@@ -569,6 +575,218 @@ async function seedNetwork(ctx) {
   return { network, referrals, memberByTitle };
 }
 
+function ymd(nowMs, dayDelta) {
+  const d = new Date(nowMs + dayDelta * DAY);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Sample customers + jobs for the Review app (/m/:token) so Get the app and
+ * Network → member portal look populated on client demos.
+ */
+async function seedMemberAppPortfolio(networkId, memberId, { phone, now, tagKeys, tradeLabel }) {
+  const trade = tradeLabel || 'Service';
+  const portfolio = [
+    {
+      customer: {
+        name: 'Avery Moss',
+        phone: phone('360'),
+        email: 'avery.moss@example.com',
+        address: '214 NE 4th Ave, Camas, WA 98607',
+        notes: 'Prefers morning appointments. Gate code 4412.',
+        tags: ['vip', 'repeat'],
+      },
+      jobs: [
+        {
+          title: `${trade} — kitchen install`,
+          status: 'scheduled',
+          date: ymd(now, 1),
+          time: '09:00',
+          durationMins: 480,
+          value: 4800,
+          notes: 'Bring spare trim pieces.',
+        },
+        {
+          title: 'Touch-up from last visit',
+          status: 'completed',
+          date: ymd(now, -18),
+          time: '13:00',
+          durationMins: 90,
+          value: 350,
+          notes: 'Left a review request.',
+        },
+      ],
+    },
+    {
+      customer: {
+        name: 'Jordan Reyes',
+        phone: phone('360'),
+        email: 'jordan.reyes@example.com',
+        address: '908 SE Washougal River Rd, Washougal, WA 98671',
+        notes: 'Dog in backyard — call on arrival.',
+        tags: ['review'],
+      },
+      jobs: [
+        {
+          title: `${trade} estimate`,
+          status: 'estimate',
+          date: ymd(now, 3),
+          time: '14:30',
+          durationMins: 60,
+          value: 1250,
+        },
+      ],
+    },
+    {
+      customer: {
+        name: 'Sam Patel',
+        phone: phone('503'),
+        email: 'sam.patel@example.com',
+        address: '11220 NE Halsey St, Portland, OR 97220',
+        notes: 'Paid invoice #1042.',
+        tags: ['repeat'],
+      },
+      jobs: [
+        {
+          title: `${trade} — completed job`,
+          status: 'completed',
+          date: ymd(now, -6),
+          time: '10:00',
+          durationMins: 240,
+          value: 2100,
+          notes: 'Ask for Google review.',
+        },
+      ],
+    },
+    {
+      customer: {
+        name: 'Riley Chen',
+        phone: phone('360'),
+        email: 'riley.chen@example.com',
+        address: '401 Main St, Battle Ground, WA 98604',
+        notes: 'New lead from Google.',
+        tags: ['hot'],
+      },
+      jobs: [
+        {
+          title: 'New inquiry',
+          status: 'lead',
+          date: '',
+          time: '',
+          durationMins: 0,
+          value: 0,
+          notes: 'Wants a call back this week.',
+        },
+      ],
+    },
+    {
+      customer: {
+        name: 'Morgan Blake',
+        phone: phone('360'),
+        email: 'morgan.blake@example.com',
+        address: '15500 NE 10th Ave, Ridgefield, WA 98642',
+        tags: ['vip'],
+      },
+      jobs: [
+        {
+          title: `${trade} in progress`,
+          status: 'in_progress',
+          date: ymd(now, 0),
+          time: '08:00',
+          durationMins: 360,
+          value: 3200,
+        },
+      ],
+    },
+  ];
+
+  let customerCount = 0;
+  let jobCount = 0;
+  for (const row of portfolio) {
+    const created = await memberWork.saveCustomer(networkId, memberId, {
+      name: row.customer.name,
+      phone: row.customer.phone,
+      email: row.customer.email,
+      address: row.customer.address,
+      notes: row.customer.notes || '',
+    }, { source: 'manual' });
+    if (!created.ok) throw new Error(`Demo member customer: ${created.error}`);
+    customerCount += 1;
+    const keys = (row.customer.tags || []).map((t) => tagKeys[t]).filter(Boolean);
+    if (keys.length) {
+      const tagged = await memberWork.setCustomerTags(networkId, memberId, created.customer.id, keys);
+      if (!tagged.ok) throw new Error(`Demo member tags: ${tagged.error}`);
+    }
+    for (const j of row.jobs || []) {
+      const job = await memberWork.saveJob(networkId, memberId, {
+        customerId: created.customer.id,
+        title: j.title,
+        status: j.status,
+        date: j.date || '',
+        time: j.time || '',
+        durationMins: j.durationMins || 0,
+        value: j.value || 0,
+        notes: j.notes || '',
+        remindOwnerBeforeMins: j.status === 'scheduled' ? 60 : 0,
+        remindCustomerBeforeMins: j.status === 'scheduled' ? 1440 : 0,
+      }, { timeZone: 'America/Los_Angeles' });
+      if (!job.ok) throw new Error(`Demo member job: ${job.error}`);
+      jobCount += 1;
+    }
+  }
+  return { customerCount, jobCount };
+}
+
+/**
+ * Owner Review app (Get the app) + one featured partner portal with dummy work.
+ */
+async function seedMemberApps(ctx, network, memberByTitle) {
+  const { email, phone, now, tags } = ctx;
+  const owner = await store.saveMember(network.id, {
+    id: OWNER_MEMBER_ID,
+    companyName: WORKSPACE_NAME,
+    contactName: 'Alex',
+    email,
+    phone: phone('360'),
+    status: 'active',
+    joinedAt: iso(now - 90 * DAY),
+    reviewLinks: { google: 'https://reviews.example.com/cascade-home-pros' },
+  });
+  await store.ensureReviewSlug(network.id, owner, 'cascade-home-pros-demo');
+  await dbService.putStorageKey(`netreviewstats:${network.id}:${owner.id}`, {
+    stars: { 1: 0, 2: 0, 3: 1, 4: 8, 5: 42 },
+    clicks: { google: 36, facebook: 7, other: 2 },
+    views: 91,
+  });
+
+  const ownerSeed = await seedMemberAppPortfolio(network.id, owner.id, {
+    phone,
+    now,
+    tagKeys: tags,
+    tradeLabel: 'Home services',
+  });
+
+  const featured = memberByTitle['Columbia Comfort Heating & Air'];
+  let featuredSeed = { customerCount: 0, jobCount: 0 };
+  if (featured) {
+    featuredSeed = await seedMemberAppPortfolio(network.id, featured.id, {
+      phone,
+      now,
+      tagKeys: tags,
+      tradeLabel: 'HVAC',
+    });
+  }
+
+  return {
+    ownerMemberId: owner.id,
+    ownerCustomers: ownerSeed.customerCount,
+    ownerJobs: ownerSeed.jobCount,
+    featuredMemberId: featured ? featured.id : '',
+    featuredCustomers: featuredSeed.customerCount,
+    featuredJobs: featuredSeed.jobCount,
+  };
+}
+
 /** One custom GHL cadence with a few leads on it (demo workspaces never sync to GHL). */
 async function seedGhlCadence(ctx) {
   const { wid, email, leads } = ctx;
@@ -789,7 +1007,7 @@ async function seedSearches(ctx) {
 
 /**
  * Build a fresh demo workspace for `ownerEmail`, archiving their previous one.
- * @returns {Promise<{ workspaceId: string, networkId: string, leadCount: number, referralCount: number }>}
+ * @returns {Promise<{ workspaceId: string, networkId: string, leadCount: number, referralCount: number, memberApp: object }>}
  */
 async function createDemoWorkspace(ownerEmail, { allocateSlug } = {}) {
   const email = String(ownerEmail || '').trim().toLowerCase();
@@ -817,14 +1035,21 @@ async function createDemoWorkspace(ownerEmail, { allocateSlug } = {}) {
   const usedFolderKeys = new Set(leads.map((l) => l.doc.folderKey).filter(Boolean));
   await removeEmptyTradeFolders(wid, folders.folders, usedFolderKeys);
 
-  const { network, referrals } = await seedNetwork(ctx);
+  const { network, referrals, memberByTitle } = await seedNetwork(ctx);
+  const memberApp = await seedMemberApps(ctx, network, memberByTitle);
   await seedGhlCadence(ctx);
   await seedTasks(ctx);
   await seedActivity(ctx);
   await seedMessages(ctx);
   await seedSearches(ctx);
 
-  return { workspaceId: wid, networkId: network.id, leadCount: leads.length, referralCount: referrals.length };
+  return {
+    workspaceId: wid,
+    networkId: network.id,
+    leadCount: leads.length,
+    referralCount: referrals.length,
+    memberApp,
+  };
 }
 
 module.exports = {

@@ -32,6 +32,7 @@ router.get('/', async (req, res, next) => {
       openHost: app.url.replace(/^https?:\/\//, ''),
       networkName: businessName,
       businessName,
+      isDemo: Boolean(ws.isDemo),
     });
   } catch (err) {
     next(err);

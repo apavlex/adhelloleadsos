@@ -42,6 +42,8 @@ describe('Get the app menu + Share', () => {
     assert.match(page, /Open Review app/);
     assert.match(page, /Share Review app/);
     assert.doesNotMatch(page, /Referral app/);
+    assert.match(page, /isDemo/);
+    assert.match(page, /sample customers/);
   });
 
   it('Get the app page title and nav call it Review app', () => {
