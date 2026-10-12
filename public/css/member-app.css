@@ -1315,8 +1315,8 @@ html[data-ma-theme="dark"] .ma-install-modal { background: rgba(0, 0, 0, 0.65); 
 
 /* Public review page */
 .rv-wrap { max-width: 440px; margin: 0 auto; padding: calc(var(--safe-t) + 28px) 20px calc(var(--safe-b) + 32px); text-align: center; }
-.rv-logo { width: 84px; height: 84px; border-radius: 22px; object-fit: contain; background: #fff; box-shadow: 0 6px 20px rgba(15, 23, 42, 0.1); margin: 0 auto 14px; display: block; }
-.rv-initials { width: 84px; height: 84px; border-radius: 22px; margin: 0 auto 14px; display: flex; align-items: center; justify-content: center; background: var(--acc); color: var(--on); font-family: var(--font-display); font-weight: 900; font-size: 30px; }
+.rv-logo { width: 84px; height: 84px; border-radius: 50%; object-fit: cover; background: #fff; box-shadow: 0 6px 20px rgba(15, 23, 42, 0.1); margin: 0 auto 14px; display: block; }
+.rv-initials { width: 84px; height: 84px; border-radius: 50%; margin: 0 auto 14px; display: flex; align-items: center; justify-content: center; background: var(--acc); color: var(--on); font-family: var(--font-display); font-weight: 900; font-size: 30px; }
 /* In-app owner preview (stays inside the installed PWA; no Safari handoff) */
 .rv-preview-bar {
   position: sticky; top: 0; z-index: 30;

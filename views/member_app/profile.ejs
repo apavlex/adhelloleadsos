@@ -51,9 +51,9 @@
       <h2 style="font-size:16px;margin:0 0 6px">App branding</h2>
       <p class="ma-hint" style="margin-top:0">Same as <strong>Workspace → White label</strong>. Logo shows on Home, in the desktop app, and as the icon when you Save as a phone app.</p>
       <% if (workspaceBrand.hasLogo && workspaceBrand.logoUrl) { %>
-      <img class="rv-logo" src="<%= workspaceBrand.logoUrl %>" alt="<%= workspaceBrand.appName %> logo" style="margin:8px auto 12px;max-width:96px;max-height:96px;object-fit:contain;border-radius:18px;background:#f1f5f9">
+      <img class="rv-logo" src="<%= workspaceBrand.logoUrl %>" alt="<%= workspaceBrand.appName %> logo" style="margin:8px auto 12px;max-width:96px;max-height:96px;object-fit:cover;border-radius:50%;background:#f1f5f9">
       <% } else if (brand.logoUrl) { %>
-      <img class="rv-logo" src="<%= brand.logoUrl %>" alt="<%= brand.appName %> logo" style="margin:8px auto 12px;max-width:96px;max-height:96px;object-fit:contain;border-radius:18px;background:#f1f5f9">
+      <img class="rv-logo" src="<%= brand.logoUrl %>" alt="<%= brand.appName %> logo" style="margin:8px auto 12px;max-width:96px;max-height:96px;object-fit:cover;border-radius:50%;background:#f1f5f9">
       <% } else { %>
       <div class="rv-initials" aria-hidden="true" style="margin:8px auto 12px"><%= (workspaceBrand.appName || brand.appName || '?').trim().charAt(0).toUpperCase() %></div>
       <% } %>

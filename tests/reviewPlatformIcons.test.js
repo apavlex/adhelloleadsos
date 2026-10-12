@@ -15,11 +15,28 @@ describe('review platform logos', () => {
     }
   });
 
-  it('yelp uses a centered five-petal burst (not a skewed scribble)', () => {
+  it('yelp uses the Simple Icons burst path (not ellipse petals)', () => {
     const yelp = iconFor('yelp');
-    assert.match(yelp, /ellipse/);
-    assert.match(yelp, /rotate\(72\)/);
-    assert.match(yelp, /D32323/);
+    assert.match(yelp, /<path fill="#D32323"/);
+    assert.doesNotMatch(yelp, /ellipse/);
+    assert.doesNotMatch(yelp, /rotate\(72\)/);
+  });
+
+  it('facebook / houzz / thumbtack use filled brand paths', () => {
+    assert.match(iconFor('facebook'), /#1877F2/);
+    assert.match(iconFor('houzz'), /#4DBC15/);
+    assert.match(iconFor('thumbtack'), /#009FD9/);
+  });
+
+  it('nextdoor uses a lime tile with an n mark', () => {
+    const nd = iconFor('nextdoor');
+    assert.match(nd, /#8ED500/);
+    assert.match(nd, /<rect/);
+  });
+
+  it('other / website uses a globe mark', () => {
+    assert.match(iconFor('other'), /<circle/);
+    assert.match(iconFor('other'), /<ellipse/);
   });
 
   it('locks badge sizing in CSS so logos stay square', () => {
@@ -30,6 +47,15 @@ describe('review platform logos', () => {
     assert.match(css, /\.rv-field-badge\s*\{[\s\S]*aspect-ratio:\s*1\s*\/\s*1/);
     assert.match(css, /\.rv-field-badge svg\s*\{[\s\S]*aspect-ratio:\s*1\s*\/\s*1/);
     assert.match(head, /\.rv-field-badge\{[^}]*aspect-ratio:1\/1/);
+  });
+
+  it('makes the review profile logo a circle', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const css = fs.readFileSync(path.join(__dirname, '../public/css/member-app.css'), 'utf8');
+    assert.match(css, /\.rv-logo\s*\{[^}]*border-radius:\s*50%/);
+    assert.match(css, /\.rv-logo\s*\{[^}]*object-fit:\s*cover/);
+    assert.match(css, /\.rv-initials\s*\{[^}]*border-radius:\s*50%/);
   });
 
   it('includes icons on review destinations', () => {
@@ -46,7 +72,8 @@ describe('review platform logos', () => {
     const other = dest.find((d) => d.key === 'other');
     assert.match(google.icon, /4285F4/);
     assert.match(yelp.icon, /D32323/);
-    assert.equal(other.icon, '');
+    assert.match(other.icon, /<svg[\s\S]*<\/svg>/);
+    assert.match(other.icon, /<circle/);
     assert.equal(other.letter, 'H');
   });
 });
