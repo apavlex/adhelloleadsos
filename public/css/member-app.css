@@ -981,9 +981,9 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
    (no min-height add-on — that double-counted on some iOS WebKits and left a tall white shelf).
    Translucent frost + soft top fade (no hard white shelf). */
 .ma-tabbar {
-  /* rgba fallbacks: color-mix + high opacity still read as solid white on iOS. */
-  --tabbar-fill: rgba(255, 255, 255, 0.58);
-  --tabbar-fade-mid: rgba(255, 255, 255, 0.32);
+  /* Higher opacity + lighter blur: cheaper than blur(22px) on mid/low phones. */
+  --tabbar-fill: rgba(255, 255, 255, 0.82);
+  --tabbar-fade-mid: rgba(255, 255, 255, 0.42);
   position: fixed;
   left: 0;
   right: 0;
@@ -994,8 +994,8 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
   box-sizing: border-box;
   -webkit-transform: translate3d(0, 0, 0); transform: translate3d(0, 0, 0);
   background: var(--tabbar-fill);
-  -webkit-backdrop-filter: saturate(180%) blur(22px);
-  backdrop-filter: saturate(180%) blur(22px);
+  -webkit-backdrop-filter: saturate(140%) blur(10px);
+  backdrop-filter: saturate(140%) blur(10px);
   box-shadow: none;
   border: 0;
   border-top: 0;

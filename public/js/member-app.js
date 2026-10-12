@@ -83,12 +83,20 @@
     if (persist) markDismissed();
   }
 
-  // Auto-show: browser first visit, or when opened inside the workspace app.
+  // Auto-show after first paint so Home isn't blocked by the install overlay.
   // Skip when already running as the installed member PWA.
   if (modal && !alreadyInstalled && !dismissed() && !autoShown()) {
-    configurePanels();
-    modal.hidden = false;
-    markAutoShown();
+    var showInstall = function () {
+      if (alreadyInstalled || dismissed()) return;
+      configurePanels();
+      modal.hidden = false;
+      markAutoShown();
+    };
+    if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(showInstall, { timeout: 2500 });
+    } else {
+      setTimeout(showInstall, 1200);
+    }
   }
 
   // The server reads this so "today" and "this week" match the phone's clock.
