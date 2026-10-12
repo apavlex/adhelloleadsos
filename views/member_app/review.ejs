@@ -180,7 +180,7 @@
     <details class="ma-fold">
       <summary>SMS script <span class="ma-fold__hint">AI starting text</span></summary>
       <div class="ma-fold__body">
-        <form method="post" action="<%= base %>/review/script" class="ma-card ma-card--flush" autocomplete="off">
+        <form method="post" action="<%= base %>/review/script" class="ma-card ma-card--flush" autocomplete="off" data-ma-loading="Saving…">
           <p class="ma-hint" style="margin-top:0">Request a review uses this text as-is (even before Save). Optional: <code>{{name}}</code>, <code>{{company}}</code>, <code>{{review_link}}</code>.</p>
           <div class="ma-field">
             <label class="ma-label" for="rvSmsScript">Review request text</label>
@@ -190,7 +190,7 @@
             <p class="ma-hint" style="margin:0">Your review link (only inserted when the script includes <code>{{review_link}}</code>):</p>
             <code class="ma-script-link__url"><%= typeof reviewUrl !== 'undefined' ? reviewUrl : '' %></code>
           </div>
-          <button type="submit" class="ma-btn ma-btn--soft ma-btn--block ma-script-save">Save script</button>
+          <button type="submit" class="ma-btn ma-btn--block ma-script-save">Save script</button>
         </form>
         <% if (typeof ghlWorkflowPrompt !== 'undefined' && ghlWorkflowPrompt) { %>
         <div class="ma-card ma-card--flush" style="margin-top:10px">

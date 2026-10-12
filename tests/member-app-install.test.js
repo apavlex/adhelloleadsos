@@ -149,7 +149,7 @@ describe('member app install modal and tab bar', () => {
 
   it('service worker network-firsts versioned CSS so deploys are not stuck', () => {
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.488/);
+    assert.match(sw, /adhello-pwa-v1\.0\.489/);
     assert.match(sw, /searchParams\.has\('v'\)/);
     assert.match(sw, /versioned/);
   });
@@ -204,11 +204,16 @@ describe('member app install modal and tab bar', () => {
     assert.doesNotMatch(route, /shareSmsText = reviewRequestScript\.ensureReviewLink/);
     assert.match(review, /ma-qr__ask/);
     assert.match(review, /icons\.sms/);
-    assert.match(pkg, /"version":\s*"1\.0\.488"/);
+    assert.match(pkg, /"version":\s*"1\.0\.489"/);
+    assert.match(js, /Opening…/);
+    assert.match(js, /aria-busy',\s*'true'/);
+    assert.match(review, /data-ma-loading="Saving…"/);
+    assert.match(review, /class="ma-btn ma-btn--block ma-script-save"/);
+    assert.doesNotMatch(review, /ma-btn--soft ma-btn--block ma-script-save/);
     const icons = fs.readFileSync(path.join(root, 'services/memberAppIcons.js'), 'utf8');
     assert.match(icons, /sms:\s*icon\(/);
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.488/);
+    assert.match(sw, /adhello-pwa-v1\.0\.489/);
   });
 
   it('Review keeps round FAB; label font matches other tabs (not too high)', () => {

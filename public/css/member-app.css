@@ -375,6 +375,14 @@ summary.ma-settings-row:active {
   margin-top: 4px;
   margin-bottom: 28px; /* clear raised Review FAB when the fold is open */
   flex-shrink: 0;
+  /* Solid accent — reads as the primary action in the SMS script fold */
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--acc) 35%, transparent);
+}
+.ma-script-save:active {
+  transform: scale(0.98);
+}
+.ma-qr__ask:active {
+  transform: scale(0.98);
 }
 .ma-fold[open] > .ma-fold__body {
   padding-bottom: 28px;
