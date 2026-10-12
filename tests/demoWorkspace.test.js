@@ -131,3 +131,50 @@ test('ensureDemoOwnerReviewApp backfills an empty demo owner portfolio', async (
   assert.equal(again.ok, true);
   assert.equal(again.seeded, false, 'second open is a no-op');
 });
+
+test('parallel ensure does not double-seed; dedupe heals raced duplicates', async () => {
+  const created = await createDemoWorkspace('race@example.com');
+  const network = await store.getNetworkForWorkspace(created.workspaceId);
+  for (const c of await memberWork.listCustomers(network.id, OWNER_MEMBER_ID)) {
+    await memberWork.deleteCustomer(network.id, OWNER_MEMBER_ID, c.id);
+  }
+  await dbService.deleteStorageKey(`demoreviewmedia:${network.id}`);
+  for (const r of await store.listReferrals(network.id)) {
+    if (r.fromMemberId === OWNER_MEMBER_ID || r.toMemberId === OWNER_MEMBER_ID) {
+      await dbService.deleteStorageKey(`netref:${network.id}:${r.id}`);
+    }
+  }
+
+  const [a, b] = await Promise.all([
+    ensureDemoOwnerReviewApp(created.workspaceId, { email: 'race@example.com' }),
+    ensureDemoOwnerReviewApp(created.workspaceId, { email: 'race@example.com' }),
+  ]);
+  assert.equal(a.ok, true);
+  assert.equal(b.ok, true);
+  const customers = await memberWork.listCustomers(network.id, OWNER_MEMBER_ID);
+  const names = customers.map((c) => c.name);
+  assert.equal(names.length, new Set(names).size, 'no duplicate customer names');
+  assert.ok(customers.length >= 5 && customers.length <= 6);
+  const ownerRefs = (await store.listReferrals(network.id)).filter(
+    (r) => r.fromMemberId === OWNER_MEMBER_ID || r.toMemberId === OWNER_MEMBER_ID,
+  );
+  assert.ok(ownerRefs.length <= 2, `expected at most 2 owner refs, got ${ownerRefs.length}`);
+
+  // Simulate an older raced double-seed, then heal on next ensure.
+  const moss = customers.find((c) => c.name === 'Avery Moss');
+  assert.ok(moss);
+  await memberWork.saveCustomer(network.id, OWNER_MEMBER_ID, {
+    name: moss.name,
+    phone: '(360) 555-0198',
+    email: 'avery.dup@example.com',
+    address: moss.address,
+  }, { source: 'manual' });
+  assert.equal((await memberWork.listCustomers(network.id, OWNER_MEMBER_ID)).filter((c) => c.name === 'Avery Moss').length, 2);
+  const healed = await ensureDemoOwnerReviewApp(created.workspaceId, { email: 'race@example.com' });
+  assert.equal(healed.ok, true);
+  assert.ok(healed.deduped && healed.deduped.removedCustomers >= 1);
+  assert.equal(
+    (await memberWork.listCustomers(network.id, OWNER_MEMBER_ID)).filter((c) => c.name === 'Avery Moss').length,
+    1,
+  );
+});
