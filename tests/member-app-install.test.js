@@ -71,6 +71,9 @@ describe('member app install modal and tab bar', () => {
     assert.match(profile, /data-ma-install-open/);
     assert.match(profile, /Save as a phone app/);
     assert.match(profile, /Invite a business/);
+    assert.match(profile, /canEditWorkspaceBrand/);
+    assert.match(profile, /profile\/branding/);
+    assert.match(profile, /App branding/);
   });
 
   it('appearance light/dark/system and quick-action labels follow --ink', () => {

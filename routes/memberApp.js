@@ -43,6 +43,7 @@ const appointmentPackages = require('../services/appointmentPackages');
 const { verifyNetworkToken, createMemberPortalToken } = require('../services/networkLinkSign');
 const memberShortLinks = require('../services/memberShortLinks');
 const ownerAppBrand = require('../services/ownerAppBrand');
+const whiteLabel = require('../services/whiteLabel');
 const demoWorkspace = require('../services/demoWorkspace');
 const { ICONS } = require('../services/memberAppIcons');
 
@@ -168,6 +169,8 @@ const OK_MESSAGES = {
   profile_saved: 'Profile saved.',
   photo_saved: 'Profile photo saved. Your Home Screen icon updates next time you add the app (iPhone keeps the old icon until then).',
   photo_cleared: 'Profile photo removed.',
+  branding_saved: 'App branding saved. Same logo and name as Workspace → White label.',
+  branding_cleared: 'App logo removed from Workspace → White label.',
   review_sms: 'Review request sent by text via GHL CRM.',
   review_email: 'Review request sent by email via GHL CRM.',
   customer: 'Customer saved.',
@@ -733,7 +736,18 @@ router.get('/m/:token/hero.jpg', withMember(async (req, res, ctx) => {
 
 // ── Profile / settings ───────────────────────────────────────────────────────
 
-function renderProfile(req, res, ctx, flash, formValues, status) {
+async function ownerWorkspaceBrandForProfile(ctx) {
+  if (!ctx || !ctx.network || !ctx.member) return null;
+  if (freeAppSignup.isAppFreeMember(ctx.member)) return null;
+  if (!ownerAppBrand.isOwnerMember(ctx.member, ctx.network)) return null;
+  const wid = ctx.network.ownerWorkspaceId;
+  if (!wid) return null;
+  const ws = await dbService.getWorkspace(wid).catch(() => null);
+  if (!ws) return null;
+  return whiteLabel.brandForWorkspace(ws);
+}
+
+async function renderProfile(req, res, ctx, flash, formValues, status) {
   const member = ctx.member;
   const fv = formValues || {
     companyName: member.companyName || '',
@@ -741,14 +755,17 @@ function renderProfile(req, res, ctx, flash, formValues, status) {
     phone: member.phone || '',
     email: member.email || '',
   };
+  const workspaceBrand = await ownerWorkspaceBrandForProfile(ctx);
   return render(res, 'profile', ctx, {
     active: 'profile',
     formValues: fv,
     flash: flash || flashFromQuery(req),
+    workspaceBrand,
+    canEditWorkspaceBrand: !!workspaceBrand,
   }, status);
 }
 
-router.get('/m/:token/profile', withMember((req, res, ctx) => renderProfile(req, res, ctx)));
+router.get('/m/:token/profile', withMember(async (req, res, ctx) => renderProfile(req, res, ctx)));
 
 router.post('/m/:token/profile', form, withMember(async (req, res, ctx) => {
   const body = req.body || {};
@@ -810,6 +827,52 @@ router.post('/m/:token/profile/photo', (req, res, next) => {
       error: err.message || ERR_MESSAGES.photo,
     }, null, 400);
   }
+}));
+
+/**
+ * Owner: edit Workspace → White label (app name + logo) from Profile.
+ * Partners / free-app members cannot change workspace branding.
+ */
+router.post('/m/:token/profile/branding', (req, res, next) => {
+  const ct = String(req.headers['content-type'] || '');
+  if (!ct.includes('multipart/form-data')) return form(req, res, next);
+  return reviewUpload.single('logo')(req, res, (err) => {
+    if (err) {
+      const tooBig = err.code === 'LIMIT_FILE_SIZE';
+      req.maUploadError = tooBig
+        ? 'That logo is too large (max 6 MB). Try a smaller image.'
+        : (err.message || 'Could not upload that image.');
+    }
+    return next();
+  });
+}, withMember(async (req, res, ctx) => {
+  if (req.maUploadError) {
+    return renderProfile(req, res, ctx, { error: req.maUploadError }, null, 400);
+  }
+  if (freeAppSignup.isAppFreeMember(ctx.member) || !ownerAppBrand.isOwnerMember(ctx.member, ctx.network)) {
+    return res.redirect(303, `${ctx.base}/profile`);
+  }
+  const body = req.body || {};
+  const removeLogo = body.remove_logo === '1' || body.remove_logo === 'on';
+  const patch = {
+    appName: Object.prototype.hasOwnProperty.call(body, 'appName') ? body.appName : undefined,
+    logoBuffer: req.file && req.file.buffer ? req.file.buffer : null,
+    removeLogo,
+  };
+  if (patch.appName === undefined && !patch.logoBuffer && !removeLogo) {
+    return renderProfile(req, res, ctx, { error: 'Add an app name or choose a logo.' }, null, 400);
+  }
+  const out = await ownerAppBrand.saveOwnerWorkspaceBranding(ctx.network, ctx.member, patch);
+  if (!out.ok) {
+    return renderProfile(req, res, ctx, { error: out.error || 'Could not save branding.' }, null, 400);
+  }
+  if (out.network) ctx.network = out.network;
+  // Refresh brand overlay for the next paint if they stay on Profile.
+  try {
+    const baseBrand = networkBrand.brandView(ctx.network, ctx.member);
+    ctx.brand = await ownerAppBrand.applyWorkspaceBrand(baseBrand, ctx.network, ctx.member);
+  } catch (_) { /* ignore */ }
+  return res.redirect(303, `${ctx.base}/profile?ok=${removeLogo ? 'branding_cleared' : 'branding_saved'}`);
 }));
 
 // ── Home ─────────────────────────────────────────────────────────────────────
