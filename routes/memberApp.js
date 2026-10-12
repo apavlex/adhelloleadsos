@@ -47,6 +47,8 @@ const { ICONS } = require('../services/memberAppIcons');
 
 /** Soft GHL pull for owner Home so customer counts match CRM (15 min TTL). */
 const OWNER_GHL_SYNC_MS = 15 * 60 * 1000;
+/** Prevent stacked background syncs when Home is hit repeatedly. */
+const ownerGhlSyncInflight = new Set();
 
 async function maybeSyncOwnerCustomers(ctx) {
   if (!ctx || !ctx.member || !ctx.network) return;
@@ -70,6 +72,37 @@ async function maybeSyncOwnerCustomers(ctx) {
     });
     ctx.member = saved || ctx.member;
   } catch (_) { /* ignore */ }
+}
+
+/** Run owner GHL sync after Home HTML is on its way — never block TTFB. */
+function scheduleOwnerCustomerSync(ctx) {
+  if (!ctx || !ctx.member || !ctx.network) return;
+  if (freeAppSignup.isAppFreeMember(ctx.member)) return;
+  if (!ownerAppBrand.isOwnerMember(ctx.member, ctx.network)) return;
+  const last = Date.parse(ctx.member.customersGhlSyncedAt || '') || 0;
+  if (last && Date.now() - last < OWNER_GHL_SYNC_MS) return;
+  const key = `${ctx.network.id}:${ctx.member.id}`;
+  if (ownerGhlSyncInflight.has(key)) return;
+  ownerGhlSyncInflight.add(key);
+  setImmediate(() => {
+    maybeSyncOwnerCustomers(ctx)
+      .catch(() => {})
+      .finally(() => ownerGhlSyncInflight.delete(key));
+  });
+}
+
+/** Cache-bust version for <link rel="icon"> without decoding image buffers. */
+function appIconVersionHint(ctx) {
+  if (ctx && ctx.member && ctx.member.profilePhotoUpdatedAt) {
+    return String(ctx.member.profilePhotoUpdatedAt);
+  }
+  if (ctx && ctx.brand && ctx.brand.fromWorkspace && ctx.brand.logoUrl) {
+    return String(ctx.brand.logoUrl);
+  }
+  if (ctx && ctx.brand && ctx.brand.logoUrl) {
+    return String(ctx.brand.logoUrl);
+  }
+  return String((ctx && ctx.brand && ctx.brand.accent) || '1');
 }
 
 const router = express.Router();
@@ -235,8 +268,8 @@ async function loadContext(token) {
     isAppFree: free,
     appointment: null,
   };
-  const icon = await resolveAppIconSource(draft);
-  draft.appIconVersion = icon.version;
+  // Don't decode logo/photo buffers on every page — only for /icon-*.png routes.
+  draft.appIconVersion = appIconVersionHint(draft);
   return attachAppointment(draft);
 }
 
@@ -733,13 +766,13 @@ router.post('/m/:token/profile/photo', (req, res, next) => {
 // ── Home ─────────────────────────────────────────────────────────────────────
 
 router.get('/m/:token', withMember(async (req, res, ctx) => {
-  await maybeSyncOwnerCustomers(ctx);
-  const [referrals, members, jobs, customers, reviewStats] = await Promise.all([
+  const [referrals, members, jobs, customers, reviewStats, leadRequest] = await Promise.all([
     store.listReferrals(ctx.network.id),
     store.listMembers(ctx.network.id),
     work.listJobs(ctx.network.id, ctx.member.id),
     work.listCustomers(ctx.network.id, ctx.member.id),
     store.getReviewStats(ctx.network.id, ctx.member.id),
+    memberLeadRequests.leadRequestState(ctx),
   ]);
   const membersById = Object.fromEntries(members.map((m) => [m.id, m]));
   const customersById = Object.fromEntries(customers.map((c) => [c.id, c]));
@@ -750,8 +783,7 @@ router.get('/m/:token', withMember(async (req, res, ctx) => {
     .map((r) => presentReceived(r, membersById, ctx.network));
   const today = work.todayIn(memberTimeZone(req));
   const openJobCount = jobs.filter((j) => j && ['lead', 'estimate', 'scheduled', 'in_progress', 'on_hold'].includes(String(j.status || '').toLowerCase())).length;
-  const leadRequest = await memberLeadRequests.leadRequestState(ctx);
-  return render(res, 'home', ctx, {
+  render(res, 'home', ctx, {
     upcoming: work.upcoming(jobs, today, 2).map((j) => presentJob(j, customersById, ctx.base, today)),
     // Reviews → customers/work → referrals (network is tertiary).
     tiles: [
@@ -768,6 +800,8 @@ router.get('/m/:token', withMember(async (req, res, ctx) => {
     leadRequest,
     flash: flashFromQuery(req),
   });
+  // CRM sync in the background so Home stays snappy on mobile.
+  scheduleOwnerCustomerSync(ctx);
 }));
 
 /**

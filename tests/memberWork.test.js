@@ -680,7 +680,8 @@ test('Review tab and home links open QR page not the ask form', async () => {
   const base = `http://127.0.0.1:${server.address().port}/m/${token}`;
   try {
     const home = await (await fetch(base)).text();
-    assert.match(home, /href="[^"]*\/review"\s+class="ma-tab ma-tab--send/);
+    assert.match(home, /href="[^"]*\/review"\s+class="ma-tab/);
+    assert.doesNotMatch(home, /ma-tab--send|ma-tab__fab/);
     assert.doesNotMatch(home, /\/review\?ask=1/);
 
     const review = await (await fetch(`${base}/review`)).text();
@@ -719,8 +720,9 @@ test('free app_free members cannot send GHL review SMS/email', async () => {
     assert.doesNotMatch(html, /action="[^"]*\/review\/send"/);
     // Review tab + QR first — send fold stays closed for free members.
     assert.doesNotMatch(html, /id="maAskForm"\s+open/);
-    assert.match(html, /href="[^"]*\/review"\s+class="ma-tab ma-tab--send/);
-    assert.doesNotMatch(html, /href="[^"]*\/review\?ask=1"\s+class="ma-tab ma-tab--send/);
+    assert.match(html, /href="[^"]*\/review"\s+class="ma-tab/);
+    assert.doesNotMatch(html, /ma-tab--send|ma-tab__fab/);
+    assert.doesNotMatch(html, /href="[^"]*\/review\?ask=1"/);
 
     const home = await (await fetch(base)).text();
     assert.match(home, /\/review"/);

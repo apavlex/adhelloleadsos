@@ -15,9 +15,9 @@
   --acc-ink: color-mix(in srgb, var(--acc) 80%, black);
   --radius: 20px;
   --tabbar-h: 50px;
-  /* Review FAB sits above the bar; keep last page content clear of it. */
-  --tabbar-fab-overhang: 36px;
-  /* Extra air so the last list row / button clears the frosted bar + FAB. */
+  /* Kept at 0 — Review is a normal tab (no raised FAB overhang). */
+  --tabbar-fab-overhang: 0px;
+  /* Extra air so the last list row / button clears the frosted bar. */
   --tabbar-content-gap: 72px;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
@@ -979,11 +979,11 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
 
 /* Bottom tab bar — flush to the screen edge. Safe-area is ONLY padding-bottom
    (no min-height add-on — that double-counted on some iOS WebKits and left a tall white shelf).
-   Translucent frost + top fade so the Review FAB is only half-covered (no hard white shelf). */
+   Translucent frost + soft top fade (no hard white shelf). */
 .ma-tabbar {
-  /* rgba fallbacks: color-mix + high opacity still read as solid white on iOS. */
-  --tabbar-fill: rgba(255, 255, 255, 0.58);
-  --tabbar-fade-mid: rgba(255, 255, 255, 0.32);
+  /* Higher opacity + lighter blur: cheaper than blur(22px) on mid/low phones. */
+  --tabbar-fill: rgba(255, 255, 255, 0.82);
+  --tabbar-fade-mid: rgba(255, 255, 255, 0.42);
   position: fixed;
   left: 0;
   right: 0;
@@ -994,8 +994,8 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
   box-sizing: border-box;
   -webkit-transform: translate3d(0, 0, 0); transform: translate3d(0, 0, 0);
   background: var(--tabbar-fill);
-  -webkit-backdrop-filter: saturate(180%) blur(22px);
-  backdrop-filter: saturate(180%) blur(22px);
+  -webkit-backdrop-filter: saturate(140%) blur(10px);
+  backdrop-filter: saturate(140%) blur(10px);
   box-shadow: none;
   border: 0;
   border-top: 0;
@@ -1075,19 +1075,6 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
 }
 .ma-tab svg { width: 24px; height: 24px; }
 .ma-tab.is-on { color: var(--acc); }
-.ma-tab--send { position: relative; z-index: 1; }
-.ma-tab--send .ma-tab__fab {
-  width: 52px; height: 52px; border-radius: 999px; background: var(--acc); color: var(--on);
-  display: inline-flex; align-items: center; justify-content: center;
-  /* Half the circle sits above the frosted bar */
-  margin-top: -26px; margin-bottom: 1px;
-  box-shadow: 0 8px 20px color-mix(in srgb, var(--acc) 45%, transparent);
-  border: 4px solid color-mix(in srgb, var(--bg) 70%, transparent);
-  position: relative;
-  z-index: 2;
-}
-.ma-tab--send .ma-tab__fab svg { width: 24px; height: 24px; }
-.ma-tab--send.is-on { color: var(--acc); }
 
 /* Install app modal */
 .ma-install-modal {
@@ -1475,7 +1462,7 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
 .ma-photo-modal{
   position:fixed;inset:0;z-index:100;
   display:flex;align-items:flex-end;justify-content:center;
-  /* Clear tab bar + Review FAB overhang so Cancel sits fully above them */
+  /* Clear tab bar so Cancel sits fully above it */
   padding:16px;
   padding-bottom:calc(
     16px + var(--tabbar-h) + var(--tabbar-fab-overhang) + env(safe-area-inset-bottom, 0px)
