@@ -106,7 +106,7 @@ async function listPartnerAppsForWorkspace(workspaceId) {
   const members = await networkStore.listMembers(network.id);
   const packages = await appointmentPackages.listPackages(wid);
   const partners = members
-    .filter((m) => m && m.status !== 'paused')
+    .filter((m) => m && m.status !== 'paused' && !m.workspaceStaff)
     .map((m) => {
       const pkg = packages.find((p) => memberMatchesPackage(m, p)) || null;
       return {

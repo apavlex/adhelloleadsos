@@ -52,8 +52,8 @@ describe('Get the app menu + Share', () => {
     assert.doesNotMatch(route, /Get Referral app/);
     const sidebar = read('views/partials/app_sidebar.ejs');
     const mobile = read('views/partials/navbar.ejs');
-    assert.match(sidebar, /Install your workspace Review app/);
-    assert.match(mobile, /Install your workspace Review app/);
+    assert.match(sidebar, /Install your personal Review app/);
+    assert.match(mobile, /Install your personal Review app/);
     const js = read('public/js/navbar-shell.js');
     assert.match(js, /AdHello Review app/);
     assert.doesNotMatch(js, /AdHello Referral app/);
@@ -65,8 +65,19 @@ describe('Get the app menu + Share', () => {
     assert.match(route, /ensureDemoOwnerReviewApp/);
     assert.match(route, /businessName/);
     assert.match(route, /brand\.customName/);
+    assert.match(route, /isStaffApp/);
+    assert.match(route, /staffName/);
     const owner = read('services/ownerReferralApp.js');
     assert.match(owner, /memberPortalShortLink/);
+    assert.match(owner, /staffMemberIdForEmail/);
+    assert.match(owner, /workspaceStaff:\s*true/);
+  });
+
+  it('Get the app page copy is personalized to the logged-in teammate', () => {
+    const page = read('views/get_app.ejs');
+    assert.match(page, /staffName/);
+    assert.match(page, /isStaffApp/);
+    assert.match(page, /Tied to the account you’re logged in with/);
   });
 
   it('sidebar Get the app links navigate to /get-app without share intercept', () => {
