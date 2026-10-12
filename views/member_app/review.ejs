@@ -176,12 +176,12 @@
       <summary>SMS script <span class="ma-fold__hint">AI starting text</span></summary>
       <div class="ma-fold__body">
         <form method="post" action="<%= base %>/review/script" class="ma-card ma-card--flush" autocomplete="off">
-          <p class="ma-hint" style="margin-top:0">Use <code>{{name}}</code>, <code>{{company}}</code>, and <code>{{review_link}}</code>.</p>
+          <p class="ma-hint" style="margin-top:0">Saved text is sent as-is. Optional placeholders: <code>{{name}}</code>, <code>{{company}}</code>, <code>{{review_link}}</code>.</p>
           <div class="ma-field">
             <label class="ma-label" for="rvSmsScript">Review request text</label>
             <textarea id="rvSmsScript" name="smsScript" class="ma-textarea" rows="4" maxlength="800" required><%= _script %></textarea>
           </div>
-          <p class="ma-hint">Your AdHello.io review link: <code><%= typeof reviewUrl !== 'undefined' ? reviewUrl : '' %></code></p>
+          <p class="ma-hint">Review link for <code>{{review_link}}</code> (not added unless your script includes it): <code><%= typeof reviewUrl !== 'undefined' ? reviewUrl : '' %></code></p>
           <button type="submit" class="ma-btn ma-btn--soft ma-btn--block">Save script</button>
         </form>
         <% if (typeof ghlWorkflowPrompt !== 'undefined' && ghlWorkflowPrompt) { %>

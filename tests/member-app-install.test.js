@@ -142,7 +142,7 @@ describe('member app install modal and tab bar', () => {
 
   it('service worker network-firsts versioned CSS so deploys are not stuck', () => {
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.479/);
+    assert.match(sw, /adhello-pwa-v1\.0\.480/);
     assert.match(sw, /searchParams\.has\('v'\)/);
     assert.match(sw, /versioned/);
   });
@@ -168,22 +168,26 @@ describe('member app install modal and tab bar', () => {
     assert.match(icons, /pending:\s*icon\(/);
   });
 
-  it('request-a-review shares text only (URL in body — no separate url/file)', () => {
+  it('request-a-review shares saved script text only (no forced URL / file)', () => {
     const js = fs.readFileSync(path.join(root, 'public/js/member-app.js'), 'utf8');
     const review = fs.readFileSync(path.join(root, 'views/member_app/review.ejs'), 'utf8');
+    const route = fs.readFileSync(path.join(root, 'routes/memberApp.js'), 'utf8');
     assert.match(js, /function requestReviewFromPhone/);
     assert.match(js, /navigator\.share\(\{ title: title, text: text \}\)/);
     assert.doesNotMatch(js, /navigator\.share\(\{ title: title, text: text, url: payload\.url \}\)/);
+    assert.doesNotMatch(js, /text\.indexOf\(payload\.url\) === -1/);
     assert.doesNotMatch(js, /shareWithFile/);
     assert.doesNotMatch(js, /data\.files\s*=\s*\[file\]/);
     assert.doesNotMatch(review, /image:\s*_shareImage/);
+    assert.match(review, /not added unless your script includes it/);
+    assert.match(route, /Use the saved script as-is/);
+    assert.doesNotMatch(route, /shareSmsText = reviewRequestScript\.ensureReviewLink/);
     assert.match(review, /ma-qr__ask/);
     assert.match(review, /icons\.sms/);
-    assert.match(review, /Opens Messages with your review link/);
     const icons = fs.readFileSync(path.join(root, 'services/memberAppIcons.js'), 'utf8');
     assert.match(icons, /sms:\s*icon\(/);
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.479/);
+    assert.match(sw, /adhello-pwa-v1\.0\.480/);
   });
 
   it('member-app.js shows install guidance inside workspace standalone shells', () => {

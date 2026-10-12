@@ -41,6 +41,13 @@ function fillPlaceholders(script, { name, company, reviewLink }) {
     .trim();
 }
 
+/** True when the saved script intentionally includes a review link. */
+function scriptWantsReviewLink(script) {
+  const s = String(script || '');
+  if (/\{\{\s*(review_link|review_url|link)\s*\}\}/i.test(s)) return true;
+  return /https?:\/\/\S+/i.test(s);
+}
+
 /** Guarantee the review URL is in the message (AI sometimes drops links). */
 function ensureReviewLink(message, reviewLink) {
   const link = String(reviewLink || '').trim();
@@ -57,6 +64,15 @@ function ensureReviewLink(message, reviewLink) {
   if (!out) return link;
   const sep = /[.!?]$/.test(out) ? ' ' : ': ';
   return `${out}${sep}${link}`.trim();
+}
+
+/**
+ * Only re-append the review URL when the saved script asked for one.
+ * Scripts without {{review_link}} / a URL are sent exactly as saved.
+ */
+function maybeEnsureReviewLink(message, reviewLink, script) {
+  if (!scriptWantsReviewLink(script)) return String(message || '').trim();
+  return ensureReviewLink(message, reviewLink);
 }
 
 function memberSmsScript(member) {
@@ -90,13 +106,19 @@ async function buildReviewSms({
     reviewLink,
   });
 
+  const wantsLink = scriptWantsReviewLink(baseScript);
+
   if (!useAi) {
     return {
-      message: ensureReviewLink(filled, reviewLink).slice(0, MAX_SMS),
+      message: maybeEnsureReviewLink(filled, reviewLink, baseScript).slice(0, MAX_SMS),
       provider: 'script',
       script: baseScript,
     };
   }
+
+  const linkRule = wantsLink
+    ? `- You MUST include this exact review URL unchanged somewhere in the message: ${reviewLink}`
+    : '- Do NOT add a review URL — the saved script intentionally has no link.';
 
   const ai = await chatCompletion({
     messages: [
@@ -108,17 +130,16 @@ Rules:
 - Return JSON only: {"message":"..."}
 - Target ~240 chars, hard max ${MAX_SMS} chars.
 - Warm, grateful, human. No spammy hype, no markdown, no emojis unless the script already has them.
-- You MUST include this exact review URL unchanged somewhere in the message: ${reviewLink}
+${linkRule}
 - Use the customer's first name when natural.
-- One clear ask to leave a review via the link.
-- Do not invent discounts, ratings, or claims not in the script.`,
+- Stay faithful to the saved script; do not invent discounts, ratings, or claims not in the script.`,
       },
       {
         role: 'user',
         content: JSON.stringify({
           customerName: String(customerName || '').trim() || 'there',
           companyName: company,
-          reviewLink,
+          reviewLink: wantsLink ? reviewLink : '',
           script: baseScript,
           filledDraft: filled,
         }),
@@ -131,7 +152,7 @@ Rules:
 
   if (!ai.content || ai.error) {
     return {
-      message: ensureReviewLink(filled, reviewLink).slice(0, MAX_SMS),
+      message: maybeEnsureReviewLink(filled, reviewLink, baseScript).slice(0, MAX_SMS),
       provider: 'fallback',
       script: baseScript,
     };
@@ -141,14 +162,14 @@ Rules:
   const personalized = String((parsed && parsed.message) || '').trim();
   if (!personalized) {
     return {
-      message: ensureReviewLink(filled, reviewLink).slice(0, MAX_SMS),
+      message: maybeEnsureReviewLink(filled, reviewLink, baseScript).slice(0, MAX_SMS),
       provider: 'fallback',
       script: baseScript,
     };
   }
 
   return {
-    message: ensureReviewLink(personalized, reviewLink).slice(0, MAX_SMS),
+    message: maybeEnsureReviewLink(personalized, reviewLink, baseScript).slice(0, MAX_SMS),
     provider: ai.provider || 'ai',
     script: baseScript,
   };
@@ -169,14 +190,20 @@ async function buildReviewEmail({
   const filledBody = fillPlaceholders(baseScript, { name: customerName, company, reviewLink });
   const filledSubject = fillPlaceholders(baseSubject, { name: customerName, company, reviewLink });
 
+  const wantsLink = scriptWantsReviewLink(baseScript);
+
   if (!useAi) {
     return {
       subject: filledSubject.slice(0, 180),
-      body: ensureReviewLink(filledBody, reviewLink).slice(0, MAX_EMAIL),
+      body: maybeEnsureReviewLink(filledBody, reviewLink, baseScript).slice(0, MAX_EMAIL),
       provider: 'script',
       script: baseScript,
     };
   }
+
+  const linkRule = wantsLink
+    ? `- You MUST include this exact review URL unchanged in the body: ${reviewLink}`
+    : '- Do NOT add a review URL — the saved script intentionally has no link.';
 
   const ai = await chatCompletion({
     messages: [
@@ -188,15 +215,15 @@ Rules:
 - Return JSON only: {"subject":"...","body":"..."}
 - Plain text body, 60–140 words.
 - Warm and grateful. No markdown bullets unless the script has them.
-- You MUST include this exact review URL unchanged in the body: ${reviewLink}
-- One clear CTA. Do not invent claims.`,
+${linkRule}
+- Stay faithful to the saved script. Do not invent claims.`,
       },
       {
         role: 'user',
         content: JSON.stringify({
           customerName: String(customerName || '').trim() || 'there',
           companyName: company,
-          reviewLink,
+          reviewLink: wantsLink ? reviewLink : '',
           subjectScript: baseSubject,
           bodyScript: baseScript,
           filledSubject,
@@ -212,7 +239,7 @@ Rules:
   if (!ai.content || ai.error) {
     return {
       subject: filledSubject.slice(0, 180),
-      body: ensureReviewLink(filledBody, reviewLink).slice(0, MAX_EMAIL),
+      body: maybeEnsureReviewLink(filledBody, reviewLink, baseScript).slice(0, MAX_EMAIL),
       provider: 'fallback',
       script: baseScript,
     };
@@ -224,7 +251,7 @@ Rules:
   if (!body) {
     return {
       subject: filledSubject.slice(0, 180),
-      body: ensureReviewLink(filledBody, reviewLink).slice(0, MAX_EMAIL),
+      body: maybeEnsureReviewLink(filledBody, reviewLink, baseScript).slice(0, MAX_EMAIL),
       provider: 'fallback',
       script: baseScript,
     };
@@ -232,7 +259,7 @@ Rules:
 
   return {
     subject: (subject || filledSubject).slice(0, 180),
-    body: ensureReviewLink(body, reviewLink).slice(0, MAX_EMAIL),
+    body: maybeEnsureReviewLink(body, reviewLink, baseScript).slice(0, MAX_EMAIL),
     provider: ai.provider || 'ai',
     script: baseScript,
   };
@@ -249,7 +276,9 @@ function buildGhlReviewWorkflowPrompt({ companyName, reviewLink, smsScript }) {
     'Trigger: when a job/opportunity is marked won/completed (or a “Request review” tag is applied).',
     'Action: Send SMS from this location’s SMS number.',
     '',
-    'SMS script (personalize {{contact.first_name}} in GHL CRM; keep the review link exact):',
+    scriptWantsReviewLink(script)
+      ? 'SMS script (personalize {{contact.first_name}} in GHL CRM; keep the review link exact):'
+      : 'SMS script (personalize {{contact.first_name}} in GHL CRM; do not add a review link):',
     fillPlaceholders(script, {
       name: '{{contact.first_name}}',
       company,
@@ -257,7 +286,9 @@ function buildGhlReviewWorkflowPrompt({ companyName, reviewLink, smsScript }) {
     }),
     '',
     'Rules:',
-    '- Always include the review link in the SMS.',
+    scriptWantsReviewLink(script)
+      ? '- Include the review link exactly as written in the script.'
+      : '- Do not add a review URL; use the script as saved.',
     '- Skip contacts who opted out of SMS.',
     '- Send once per contact (add a tag like “review-asked” after send).',
   ].join('\n');
@@ -269,7 +300,9 @@ module.exports = {
   DEFAULT_EMAIL_SUBJECT,
   cleanScript,
   fillPlaceholders,
+  scriptWantsReviewLink,
   ensureReviewLink,
+  maybeEnsureReviewLink,
   memberSmsScript,
   memberEmailScript,
   memberEmailSubject,

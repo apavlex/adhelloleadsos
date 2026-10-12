@@ -1654,14 +1654,12 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
   };
   const reviewUrl = notify.reviewPageLink(member);
   const smsScript = reviewRequestScript.memberSmsScript(member);
-  const shareSmsText = reviewRequestScript.ensureReviewLink(
-    reviewRequestScript.fillPlaceholders(smsScript, {
-      name: defaults.name || 'there',
-      company: member.companyName,
-      reviewLink: reviewUrl,
-    }),
-    reviewUrl,
-  );
+  // Use the saved script as-is — do not force-append the review URL.
+  const shareSmsText = reviewRequestScript.fillPlaceholders(smsScript, {
+    name: defaults.name || 'there',
+    company: member.companyName,
+    reviewLink: reviewUrl,
+  });
   const ghlWorkflowPrompt = reviewRequestScript.buildGhlReviewWorkflowPrompt({
     companyName: member.companyName,
     reviewLink: reviewUrl,
