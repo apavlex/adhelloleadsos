@@ -15,10 +15,10 @@
   --acc-ink: color-mix(in srgb, var(--acc) 80%, black);
   --radius: 20px;
   --tabbar-h: 50px;
-  /* Review FAB sits above the bar; keep last page content clear of it. */
-  --tabbar-fab-overhang: 36px;
-  /* Extra air so the last list row / button clears the frosted bar + FAB. */
-  --tabbar-content-gap: 72px;
+  /* Review FAB (52px) sits half above the bar — clear that overhang. */
+  --tabbar-fab-overhang: 28px;
+  /* Extra air so the last fold/row clears the frosted bar + raised FAB. */
+  --tabbar-content-gap: 100px;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
   /* SF Pro on Apple devices; Inter/Manrope elsewhere */
@@ -105,8 +105,15 @@ body:has(> .ma-tabbar) .ma-shell {
     calc(var(--safe-t) + 14px)
     18px
     calc(var(--tabbar-h) + var(--tabbar-fab-overhang) + var(--tabbar-content-gap) + var(--safe-b));
+  /* Keep focused/scrolled rows above the raised Review FAB. */
+  scroll-padding-bottom:
+    calc(var(--tabbar-h) + var(--tabbar-fab-overhang) + var(--tabbar-content-gap) + var(--safe-b));
 }
 .ma-shell--plain { padding-bottom: calc(var(--safe-b) + 32px); }
+/* Last accordion must clear the floating Review star. */
+.ma-shell > .ma-fold:last-of-type {
+  margin-bottom: 8px;
+}
 
 /* Top bar */
 .ma-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 40px; }
@@ -1122,12 +1129,13 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
   height: 24px;
   flex: 0 0 24px;
 }
-.ma-tab--fab { z-index: 1; }
+.ma-tab--fab { z-index: 1; overflow: visible; }
 .ma-tab--fab .ma-tab__fab {
   position: absolute;
   left: 50%;
+  /* Center on the 24px icon slot so half the circle rises above the bar. */
   bottom: calc(4px + 1.1em + 1px + 12px);
-  transform: translate(-50%, 50%);
+  transform: translate(-50%, -50%);
   width: 52px;
   height: 52px;
   border-radius: 999px;
@@ -1142,6 +1150,10 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
   z-index: 2;
 }
 .ma-tab--fab .ma-tab__fab svg { width: 24px; height: 24px; color: inherit; }
+.ma-tab--fab .ma-tab__label {
+  position: relative;
+  z-index: 3; /* keep "Review" readable under the raised circle */
+}
 .ma-tab--fab.is-on { color: var(--acc); }
 .ma-tab--fab.is-on .ma-tab__fab { color: var(--on); }
 
