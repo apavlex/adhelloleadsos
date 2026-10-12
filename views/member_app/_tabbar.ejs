@@ -3,20 +3,20 @@
   const _isFree = typeof isAppFree !== 'undefined' ? !!isAppFree : (member && member.plan === 'app_free');
   // Review tab always lands on QR / share — not the GHL send form (?ask=1).
   const _reviewHref = base + '/review';
-  // Same inline icon+label style for every tab (including Review).
+  // Review keeps the raised round FAB; label font/baseline match every other tab.
   // Free members: Join replaces Send (upgrade path).
   const _tabs = _hasAppt
     ? [
         { id: 'home', label: 'Home', href: base, icon: icons.home },
         { id: 'customers', label: 'Customers', href: base + '/customers', icon: icons.customers },
-        { id: 'review', label: 'Review', href: _reviewHref, icon: icons.review },
+        { id: 'review', label: 'Review', href: _reviewHref, icon: icons.review, fab: true },
         { id: 'leads', label: 'Leads', href: base + '/leads', icon: icons.leads },
         { id: 'referrals', label: 'Referrals', href: base + '/referrals', icon: icons.referrals },
       ]
     : [
         { id: 'home', label: 'Home', href: base, icon: icons.home },
         { id: 'customers', label: 'Customers', href: base + '/customers', icon: icons.customers },
-        { id: 'review', label: 'Review', href: _reviewHref, icon: icons.review },
+        { id: 'review', label: 'Review', href: _reviewHref, icon: icons.review, fab: true },
         { id: 'referrals', label: 'Referrals', href: base + '/referrals', icon: icons.referrals },
         _isFree
           ? { id: 'join', label: 'Join', href: base + '/join', icon: icons.enroll }
@@ -27,9 +27,14 @@
 <nav class="ma-tabbar" aria-label="App sections">
   <div class="ma-tabbar__inner">
     <% _tabs.forEach(function (t) { %>
-    <a href="<%= t.href %>" class="ma-tab <%= active === t.id ? 'is-on' : '' %>" <%= active === t.id ? 'aria-current=page' : '' %>>
+    <a href="<%= t.href %>" class="ma-tab <%= t.fab ? 'ma-tab--fab' : '' %> <%= active === t.id ? 'is-on' : '' %>" <%= active === t.id ? 'aria-current=page' : '' %>>
+      <% if (t.fab) { %>
+      <span class="ma-tab__slot" aria-hidden="true"></span>
+      <span class="ma-tab__fab"><%- t.icon %></span>
+      <% } else { %>
       <%- t.icon %>
-      <span><%= t.label %></span>
+      <% } %>
+      <span class="ma-tab__label"><%= t.label %></span>
     </a>
     <% }); %>
   </div>
