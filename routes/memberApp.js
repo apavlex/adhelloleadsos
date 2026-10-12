@@ -43,6 +43,7 @@ const appointmentPackages = require('../services/appointmentPackages');
 const { verifyNetworkToken, createMemberPortalToken } = require('../services/networkLinkSign');
 const memberShortLinks = require('../services/memberShortLinks');
 const ownerAppBrand = require('../services/ownerAppBrand');
+const demoWorkspace = require('../services/demoWorkspace');
 const { ICONS } = require('../services/memberAppIcons');
 
 /** Soft GHL pull for owner Home so customer counts match CRM (15 min TTL). */
@@ -54,6 +55,14 @@ async function maybeSyncOwnerCustomers(ctx) {
   if (!ctx || !ctx.member || !ctx.network) return;
   if (freeAppSignup.isAppFreeMember(ctx.member)) return;
   if (!ownerAppBrand.isOwnerMember(ctx.member, ctx.network)) return;
+  // Demo workspaces never connect to GHL — sample customers are seeded locally.
+  const wid = ctx.network.ownerWorkspaceId;
+  if (wid) {
+    try {
+      const ws = await dbService.getWorkspace(wid);
+      if (ws && ws.isDemo) return;
+    } catch (_) { /* ignore */ }
+  }
   const last = Date.parse(ctx.member.customersGhlSyncedAt || '') || 0;
   if (last && Date.now() - last < OWNER_GHL_SYNC_MS) return;
   try {
@@ -271,6 +280,46 @@ async function loadContext(token) {
   // Don't decode logo/photo buffers on every page — only for /icon-*.png routes.
   draft.appIconVersion = appIconVersionHint(draft);
   return attachAppointment(draft);
+}
+
+/**
+ * Demo Review apps: backfill sample customers / photos / socials when the
+ * workspace was created before rich seed (or never Reset). Owner only.
+ * Reloads member + brand when seed ran so Home shows the new hero.
+ */
+async function maybeEnsureDemoOwnerReviewApp(ctx) {
+  if (!ctx || !ctx.network || !ctx.member) return ctx;
+  if (!ownerAppBrand.isOwnerMember(ctx.member, ctx.network)) return ctx;
+  const wid = ctx.network.ownerWorkspaceId;
+  if (!wid) return ctx;
+  let out;
+  try {
+    out = await demoWorkspace.ensureDemoOwnerReviewApp(wid, {
+      email: ctx.member.email || '',
+    });
+  } catch (err) {
+    console.warn('[member] demo Review app seed skipped:', err && err.message ? err.message : err);
+    return ctx;
+  }
+  if (!out || !out.seeded) return ctx;
+  const network = await store.getNetwork(ctx.network.id) || ctx.network;
+  const member = await store.getMember(network.id, ctx.member.id) || ctx.member;
+  const free = freeAppSignup.isAppFreeMember(member);
+  const memberHeroUrl = free && member.heroUpdatedAt
+    ? `${ctx.base}/hero.jpg?v=${encodeURIComponent(member.heroUpdatedAt)}`
+    : '';
+  const baseBrand = networkBrand.brandView(network, member, { heroUrl: memberHeroUrl });
+  const brand = await ownerAppBrand.applyWorkspaceBrand(baseBrand, network, member);
+  return {
+    ...ctx,
+    network,
+    member,
+    brand,
+    greetingName: firstName(member),
+    profilePhotoUrl: profilePhotoUrl(ctx.base, member),
+    hasProfilePhoto: hasProfilePhoto(member),
+    appIconVersion: appIconVersionHint({ member, brand }),
+  };
 }
 
 function renderInvalid(res, status, message) {
@@ -766,6 +815,7 @@ router.post('/m/:token/profile/photo', (req, res, next) => {
 // ── Home ─────────────────────────────────────────────────────────────────────
 
 router.get('/m/:token', withMember(async (req, res, ctx) => {
+  ctx = await maybeEnsureDemoOwnerReviewApp(ctx);
   const [referrals, members, jobs, customers, reviewStats, leadRequest] = await Promise.all([
     store.listReferrals(ctx.network.id),
     store.listMembers(ctx.network.id),
@@ -1072,7 +1122,10 @@ async function renderCustomers(req, res, ctx, flash, status) {
   return render(res, 'customers', ctx, extra, status);
 }
 
-router.get('/m/:token/customers', withMember((req, res, ctx) => renderCustomers(req, res, ctx)));
+router.get('/m/:token/customers', withMember(async (req, res, ctx) => {
+  ctx = await maybeEnsureDemoOwnerReviewApp(ctx);
+  return renderCustomers(req, res, ctx);
+}));
 
 async function customerTagViews(ctx, customer) {
   const workspaceId = ctx.network && ctx.network.ownerWorkspaceId;
@@ -1144,6 +1197,16 @@ router.post('/m/:token/customers/import', (req, res, next) => {
 router.post('/m/:token/customers/sync-ghl', form, withMember(async (req, res, ctx) => {
   if (freeAppSignup.isAppFreeMember(ctx.member)) {
     return res.redirect(303, `${ctx.base}/customers?ok=crm_sync_upgrade`);
+  }
+  const wid = ctx.network && ctx.network.ownerWorkspaceId;
+  if (wid) {
+    try {
+      const ws = await dbService.getWorkspace(wid);
+      if (ws && ws.isDemo) {
+        ctx = await maybeEnsureDemoOwnerReviewApp(ctx);
+        return res.redirect(303, `${ctx.base}/customers?ok=customers_synced&detail=${encodeURIComponent('(demo sample data)')}`);
+      }
+    } catch (_) { /* ignore */ }
   }
   const out = await memberCustomerGhl.syncCustomersWithGhl(ctx.network, ctx.member.id, { maxPages: 5, pushLimit: 100 });
   if (!out.ok) {

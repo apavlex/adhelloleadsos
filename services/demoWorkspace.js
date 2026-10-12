@@ -22,6 +22,8 @@ const messageLog = require('./messageLog');
 const { getTemplate } = require('./sequenceTemplates');
 const customCadences = require('./customCadences');
 const memberWork = require('./memberWork');
+const memberJobMedia = require('./memberJobMedia');
+const networkBrand = require('./networkBrand');
 const { OWNER_MEMBER_ID } = require('./ownerReferralApp');
 const { PRESETS } = require('../lib/pipeline/presets');
 const { normalizeStages } = require('../lib/pipeline/normalize');
@@ -580,11 +582,57 @@ function ymd(nowMs, dayDelta) {
   return d.toISOString().slice(0, 10);
 }
 
+/** Simple branded JPEG for hero / job photos (no external assets). */
+async function demoSceneJpeg({
+  width = 1200,
+  height = 750,
+  from = '#0EA5E9',
+  to = '#0F172A',
+  title = WORKSPACE_NAME,
+  subtitle = 'Demo job photo',
+} = {}) {
+  const sharp = require('sharp');
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="${from}"/>
+      <stop offset="100%" stop-color="${to}"/>
+    </linearGradient>
+  </defs>
+  <rect width="100%" height="100%" fill="url(#g)"/>
+  <circle cx="${Math.round(width * 0.82)}" cy="${Math.round(height * 0.22)}" r="${Math.round(height * 0.18)}" fill="rgba(255,255,255,0.12)"/>
+  <rect x="48" y="${height - 170}" width="${width - 96}" height="110" rx="24" fill="rgba(15,23,42,0.55)"/>
+  <text x="72" y="${height - 112}" fill="#ffffff" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="700">${escapeXml(title)}</text>
+  <text x="72" y="${height - 68}" fill="#bae6fd" font-family="Arial, Helvetica, sans-serif" font-size="26">${escapeXml(subtitle)}</text>
+</svg>`;
+  return sharp(Buffer.from(svg)).jpeg({ quality: 82, mozjpeg: true }).toBuffer();
+}
+
+function escapeXml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+async function attachDemoJobPhoto(networkId, memberId, job, caption, colors) {
+  const raw = await demoSceneJpeg({
+    title: job.title.slice(0, 40),
+    subtitle: caption,
+    from: colors.from,
+    to: colors.to,
+  });
+  const prepared = await memberJobMedia.prepareJobPhoto(raw);
+  const added = await memberWork.addJobPhoto(networkId, memberId, job.id, prepared, { caption });
+  if (!added.ok) throw new Error(`Demo job photo: ${added.error}`);
+}
+
 /**
- * Sample customers + jobs for the Review app (/m/:token) so Get the app and
- * Network → member portal look populated on client demos.
+ * Sample customers + jobs (+ photos) for the Review app (/m/:token).
  */
-async function seedMemberAppPortfolio(networkId, memberId, { phone, now, tagKeys, tradeLabel }) {
+async function seedMemberAppPortfolio(networkId, memberId, { phone, now, tagKeys, tradeLabel, withPhotos = true }) {
   const trade = tradeLabel || 'Service';
   const portfolio = [
     {
@@ -605,6 +653,7 @@ async function seedMemberAppPortfolio(networkId, memberId, { phone, now, tagKeys
           durationMins: 480,
           value: 4800,
           notes: 'Bring spare trim pieces.',
+          photo: { caption: 'Kitchen ready for install', from: '#38BDF8', to: '#075985' },
         },
         {
           title: 'Touch-up from last visit',
@@ -614,6 +663,7 @@ async function seedMemberAppPortfolio(networkId, memberId, { phone, now, tagKeys
           durationMins: 90,
           value: 350,
           notes: 'Left a review request.',
+          photo: { caption: 'After photo', from: '#34D399', to: '#065F46' },
         },
       ],
     },
@@ -634,6 +684,7 @@ async function seedMemberAppPortfolio(networkId, memberId, { phone, now, tagKeys
           time: '14:30',
           durationMins: 60,
           value: 1250,
+          photo: { caption: 'Estimate walkthrough', from: '#FBBF24', to: '#92400E' },
         },
       ],
     },
@@ -643,8 +694,8 @@ async function seedMemberAppPortfolio(networkId, memberId, { phone, now, tagKeys
         phone: phone('503'),
         email: 'sam.patel@example.com',
         address: '11220 NE Halsey St, Portland, OR 97220',
-        notes: 'Paid invoice #1042.',
-        tags: ['repeat'],
+        notes: 'Paid invoice #1042. Loved the crew.',
+        tags: ['repeat', 'review'],
       },
       jobs: [
         {
@@ -655,6 +706,7 @@ async function seedMemberAppPortfolio(networkId, memberId, { phone, now, tagKeys
           durationMins: 240,
           value: 2100,
           notes: 'Ask for Google review.',
+          photo: { caption: 'Finished project', from: '#A78BFA', to: '#4C1D95' },
         },
       ],
     },
@@ -685,6 +737,7 @@ async function seedMemberAppPortfolio(networkId, memberId, { phone, now, tagKeys
         phone: phone('360'),
         email: 'morgan.blake@example.com',
         address: '15500 NE 10th Ave, Ridgefield, WA 98642',
+        notes: 'VIP — text before arriving.',
         tags: ['vip'],
       },
       jobs: [
@@ -695,6 +748,7 @@ async function seedMemberAppPortfolio(networkId, memberId, { phone, now, tagKeys
           time: '08:00',
           durationMins: 360,
           value: 3200,
+          photo: { caption: 'Day 1 progress', from: '#FB7185', to: '#9F1239' },
         },
       ],
     },
@@ -702,6 +756,7 @@ async function seedMemberAppPortfolio(networkId, memberId, { phone, now, tagKeys
 
   let customerCount = 0;
   let jobCount = 0;
+  let photoCount = 0;
   for (const row of portfolio) {
     const created = await memberWork.saveCustomer(networkId, memberId, {
       name: row.customer.name,
@@ -732,9 +787,185 @@ async function seedMemberAppPortfolio(networkId, memberId, { phone, now, tagKeys
       }, { timeZone: 'America/Los_Angeles' });
       if (!job.ok) throw new Error(`Demo member job: ${job.error}`);
       jobCount += 1;
+      if (withPhotos && j.photo) {
+        await attachDemoJobPhoto(networkId, memberId, job.job, j.photo.caption, j.photo);
+        photoCount += 1;
+      }
     }
   }
-  return { customerCount, jobCount };
+  return { customerCount, jobCount, photoCount };
+}
+
+async function seedOwnerReviewBrand(network, owner, now) {
+  const heroBuf = await demoSceneJpeg({
+    width: 1400,
+    height: 900,
+    from: '#38BDF8',
+    to: '#0F172A',
+    title: WORKSPACE_NAME,
+    subtitle: 'Your local home-services crew',
+  });
+  const hero = await networkBrand.prepareImage('hero', heroBuf);
+  await store.saveBrandImage(network.id, 'hero', hero);
+
+  const logoBuf = await demoSceneJpeg({
+    width: 512,
+    height: 512,
+    from: '#0EA5E9',
+    to: '#0369A1',
+    title: 'CHP',
+    subtitle: 'Cascade Home Pros',
+  });
+  const logo = await networkBrand.prepareImage('logo', logoBuf);
+  await store.saveBrandImage(network.id, 'logo', logo);
+
+  const profileBuf = await demoSceneJpeg({
+    width: 640,
+    height: 640,
+    from: '#22D3EE',
+    to: '#0E7490',
+    title: 'Alex',
+    subtitle: 'Owner',
+  });
+  const profile = await networkBrand.prepareImage('logo', profileBuf);
+  const profileAt = await store.saveProfilePhoto(network.id, owner.id, {
+    contentType: 'image/png',
+    buffer: profile.buffer,
+  });
+
+  const next = await store.saveMember(network.id, {
+    ...owner,
+    contactName: owner.contactName || 'Alex',
+    profilePhotoUpdatedAt: profileAt,
+    reviewSmsScript:
+      'Hi {{name}} — thanks again for choosing {{company}}. Mind leaving a quick Google review? {{review_link}}',
+    reviewEmailSubject: 'Thanks from {{company}} — quick review?',
+    reviewEmailScript:
+      'Hi {{name}},\n\nWe loved working with you. If you have 30 seconds, a Google review helps neighbors find us:\n{{review_link}}\n\nThanks!\nAlex',
+    reviewLinks: {
+      google: 'https://g.page/r/cascade-home-pros-demo/review',
+      facebook: 'https://www.facebook.com/cascadehomepros',
+      yelp: 'https://www.yelp.com/biz/cascade-home-pros-camas',
+      nextdoor: 'https://nextdoor.com/pages/cascade-home-pros/',
+      other: [{ label: 'Website', url: 'https://cascadehomepros.example.com' }],
+    },
+    reviewShareImageUpdatedAt: '',
+  });
+  await store.ensureReviewSlug(network.id, next, 'cascade-home-pros-demo');
+  await dbService.putStorageKey(`netreviewstats:${network.id}:${next.id}`, {
+    stars: { 1: 0, 2: 0, 3: 1, 4: 8, 5: 42 },
+    clicks: { google: 36, facebook: 7, yelp: 4, nextdoor: 2, other: 3 },
+    views: 91,
+  });
+  await store.saveNetwork({
+    ...network,
+    brand: {
+      ...(network.brand || {}),
+      appName: WORKSPACE_NAME,
+      tagline: 'Trusted local pros who send each other work',
+      accent: '#0EA5E9',
+      statValue: 91,
+      statLabel: 'review page visits',
+    },
+  });
+  return next;
+}
+
+/** A few referrals so Home Pending / Sent tiles are non-zero for the owner app. */
+async function seedOwnerReferrals(network, owner, memberByTitle, phone, now) {
+  const zones = await store.listZones(network.id);
+  const zone = zones[0];
+  if (!zone || !owner) return { sent: 0, pending: 0 };
+  const toPartner = memberByTitle['Silver Star Plumbing'] || Object.values(memberByTitle)[0];
+  const fromPartner = memberByTitle['Columbia Comfort Heating & Air'] || Object.values(memberByTitle)[1];
+  let sent = 0;
+  let pending = 0;
+
+  if (toPartner) {
+    const built = ex.buildReferral(
+      {
+        zoneId: zone.id,
+        tradeSlug: 'plumbing',
+        fromMemberId: owner.id,
+        name: 'Casey Nguyen',
+        phone: phone('360'),
+        email: 'casey.nguyen@example.com',
+        city: 'Camas',
+        zip: '98607',
+        note: 'Needs a water heater quote this week.',
+        consent: true,
+        by: owner.companyName,
+      },
+      iso(now - 2 * DAY),
+    );
+    if (built.ok) {
+      let referral = ex.applyRouting(
+        built.referral,
+        { status: 'sent', toMemberId: toPartner.id, reason: 'demo' },
+        iso(now - 2 * DAY + HOUR),
+      );
+      referral = await store.saveReferral(network.id, { ...referral, id: store.newId() });
+      sent += 1;
+      const won = ex.applyReferralAction(referral, 'accept', {
+        now: iso(now - DAY),
+        by: toPartner.companyName,
+      });
+      if (won.ok) {
+        const booked = ex.applyReferralAction(won.referral, 'book', {
+          now: iso(now - 20 * HOUR),
+          by: toPartner.companyName,
+        });
+        if (booked.ok) await store.saveReferral(network.id, booked.referral);
+        else await store.saveReferral(network.id, won.referral);
+      } else {
+        await store.saveReferral(network.id, referral);
+      }
+    }
+  }
+
+  if (fromPartner) {
+    const built = ex.buildReferral(
+      {
+        zoneId: zone.id,
+        tradeSlug: 'handyman',
+        fromMemberId: fromPartner.id,
+        name: 'Taylor Brooks',
+        phone: phone('360'),
+        email: 'taylor.brooks@example.com',
+        city: 'Vancouver',
+        zip: '98683',
+        note: 'Deck railing repair — flexible on day.',
+        consent: true,
+        by: fromPartner.companyName,
+      },
+      iso(now - 8 * HOUR),
+    );
+    if (built.ok) {
+      const referral = ex.applyRouting(
+        built.referral,
+        { status: 'sent', toMemberId: owner.id, reason: 'demo' },
+        iso(now - 7 * HOUR),
+      );
+      await store.saveReferral(network.id, { ...referral, id: store.newId() });
+      pending += 1;
+    }
+  }
+
+  return { sent, pending };
+}
+
+async function tagKeysFromWorkspace(wid) {
+  const catalog = await dbService.listTags(wid);
+  const byName = {};
+  for (const t of catalog || []) {
+    const name = String(t.name || '').trim().toLowerCase();
+    if (name) byName[name] = t.key;
+  }
+  const out = {};
+  for (const [id, def] of Object.entries(TAGS)) {
+    out[id] = byName[String(def.name).toLowerCase()] || '';
+  }
+  return out;
 }
 
 /**
@@ -742,7 +973,7 @@ async function seedMemberAppPortfolio(networkId, memberId, { phone, now, tagKeys
  */
 async function seedMemberApps(ctx, network, memberByTitle) {
   const { email, phone, now, tags } = ctx;
-  const owner = await store.saveMember(network.id, {
+  let owner = await store.saveMember(network.id, {
     id: OWNER_MEMBER_ID,
     companyName: WORKSPACE_NAME,
     contactName: 'Alex',
@@ -750,30 +981,27 @@ async function seedMemberApps(ctx, network, memberByTitle) {
     phone: phone('360'),
     status: 'active',
     joinedAt: iso(now - 90 * DAY),
-    reviewLinks: { google: 'https://reviews.example.com/cascade-home-pros' },
   });
-  await store.ensureReviewSlug(network.id, owner, 'cascade-home-pros-demo');
-  await dbService.putStorageKey(`netreviewstats:${network.id}:${owner.id}`, {
-    stars: { 1: 0, 2: 0, 3: 1, 4: 8, 5: 42 },
-    clicks: { google: 36, facebook: 7, other: 2 },
-    views: 91,
-  });
+  owner = await seedOwnerReviewBrand(network, owner, now);
 
   const ownerSeed = await seedMemberAppPortfolio(network.id, owner.id, {
     phone,
     now,
     tagKeys: tags,
     tradeLabel: 'Home services',
+    withPhotos: true,
   });
+  const ownerRefs = await seedOwnerReferrals(network, owner, memberByTitle || {}, phone, now);
 
-  const featured = memberByTitle['Columbia Comfort Heating & Air'];
-  let featuredSeed = { customerCount: 0, jobCount: 0 };
+  const featured = memberByTitle && memberByTitle['Columbia Comfort Heating & Air'];
+  let featuredSeed = { customerCount: 0, jobCount: 0, photoCount: 0 };
   if (featured) {
     featuredSeed = await seedMemberAppPortfolio(network.id, featured.id, {
       phone,
       now,
       tagKeys: tags,
       tradeLabel: 'HVAC',
+      withPhotos: true,
     });
   }
 
@@ -781,10 +1009,130 @@ async function seedMemberApps(ctx, network, memberByTitle) {
     ownerMemberId: owner.id,
     ownerCustomers: ownerSeed.customerCount,
     ownerJobs: ownerSeed.jobCount,
+    ownerPhotos: ownerSeed.photoCount,
+    ownerPendingRefs: ownerRefs.pending,
+    ownerSentRefs: ownerRefs.sent,
     featuredMemberId: featured ? featured.id : '',
     featuredCustomers: featuredSeed.customerCount,
     featuredJobs: featuredSeed.jobCount,
+    featuredPhotos: featuredSeed.photoCount || 0,
   };
+}
+
+/** Attach demo JPEGs to jobs that still have no photos (older #126 demos). */
+async function enrichDemoJobPhotos(networkId, memberId) {
+  const jobs = await memberWork.listJobs(networkId, memberId);
+  const palettes = [
+    { from: '#38BDF8', to: '#075985', caption: 'Project photo' },
+    { from: '#34D399', to: '#065F46', caption: 'After photo' },
+    { from: '#FBBF24', to: '#92400E', caption: 'On-site progress' },
+    { from: '#A78BFA', to: '#4C1D95', caption: 'Finished work' },
+    { from: '#FB7185', to: '#9F1239', caption: 'Crew day photo' },
+  ];
+  let photoCount = 0;
+  let i = 0;
+  for (const job of jobs) {
+    if ((job.photos || []).length > 0) continue;
+    if (!['completed', 'in_progress', 'scheduled', 'estimate'].includes(String(job.status || ''))) continue;
+    const colors = palettes[i % palettes.length];
+    i += 1;
+    await attachDemoJobPhoto(networkId, memberId, job, colors.caption, colors);
+    photoCount += 1;
+  }
+  return photoCount;
+}
+
+/**
+ * If a demo workspace's Review app is still empty or thin (built before rich
+ * seed, or never reset), fill the owner portfolio when Get the app / Home opens.
+ * Skips real GHL — demos never sync CRM.
+ */
+async function ensureDemoOwnerReviewApp(workspaceId, { email = '' } = {}) {
+  const wid = String(workspaceId || '').trim();
+  if (!wid) return { ok: false, reason: 'no-workspace' };
+  const ws = await dbService.getWorkspace(wid);
+  if (!ws || !ws.isDemo) return { ok: false, reason: 'not-demo' };
+  const network = await store.getNetworkForWorkspace(wid);
+  if (!network) return { ok: false, reason: 'no-network' };
+
+  let owner = await store.getMember(network.id, OWNER_MEMBER_ID);
+  const ownerEmail = String(email || ws.ownerUserId || '').trim().toLowerCase();
+  if (!owner) {
+    owner = await store.saveMember(network.id, {
+      id: OWNER_MEMBER_ID,
+      companyName: WORKSPACE_NAME,
+      contactName: 'Alex',
+      email: ownerEmail,
+      phone: '(360) 555-0199',
+      status: 'active',
+      joinedAt: new Date().toISOString(),
+    });
+  }
+
+  const [existing, jobs, hero, referrals] = await Promise.all([
+    memberWork.listCustomers(network.id, owner.id),
+    memberWork.listJobs(network.id, owner.id),
+    store.getBrandImage(network.id, 'hero'),
+    store.listReferrals(network.id),
+  ]);
+  const photoCount = jobs.reduce((n, j) => n + ((j.photos || []).length), 0);
+  const links = (owner.reviewLinks && typeof owner.reviewLinks === 'object') ? owner.reviewLinks : {};
+  const hasSocials = !!(links.facebook || links.yelp || links.nextdoor);
+  const stats = await store.getReviewStats(network.id, owner.id);
+  const hasBrandStats = !!(hero && stats && Number(stats.views || 0) > 0 && hasSocials);
+  const ownerRefCount = referrals.filter(
+    (r) => r.fromMemberId === owner.id || r.toMemberId === owner.id,
+  ).length;
+
+  const needsCustomers = existing.length === 0;
+  const needsBrand = !hasBrandStats;
+  const needsPhotos = photoCount === 0 && (needsCustomers || jobs.length > 0);
+  const needsReferrals = ownerRefCount === 0;
+
+  if (!needsCustomers && !needsBrand && !needsPhotos && !needsReferrals) {
+    return { ok: true, seeded: false, customerCount: existing.length, photoCount };
+  }
+
+  const now = Date.now();
+  const tags = await tagKeysFromWorkspace(wid);
+  // Ensure VIP / review tags exist even on older demos.
+  for (const [id, def] of Object.entries(TAGS)) {
+    if (tags[id]) continue;
+    if (!['vip', 'review', 'repeat', 'hot'].includes(id)) continue;
+    await nextTick();
+    const tag = await dbService.createTag(wid, def.name, def.color);
+    tags[id] = tag.key;
+  }
+  const phone = phoneBook();
+
+  if (needsBrand) {
+    owner = await seedOwnerReviewBrand(network, owner, now);
+  }
+
+  let seeded = { customerCount: existing.length, jobCount: jobs.length, photoCount };
+  if (needsCustomers) {
+    seeded = await seedMemberAppPortfolio(network.id, owner.id, {
+      phone,
+      now,
+      tagKeys: tags,
+      tradeLabel: 'Home services',
+      withPhotos: true,
+    });
+  } else if (needsPhotos) {
+    const added = await enrichDemoJobPhotos(network.id, owner.id);
+    seeded = { ...seeded, photoCount: photoCount + added };
+  }
+
+  if (needsReferrals) {
+    const members = await store.listMembers(network.id);
+    const memberByTitle = {};
+    for (const m of members) {
+      if (m.id !== OWNER_MEMBER_ID) memberByTitle[m.companyName] = m;
+    }
+    await seedOwnerReferrals(network, owner, memberByTitle, phone, now);
+  }
+
+  return { ok: true, seeded: true, ...seeded };
 }
 
 /** One custom GHL cadence with a few leads on it (demo workspaces never sync to GHL). */
@@ -1054,6 +1402,7 @@ async function createDemoWorkspace(ownerEmail, { allocateSlug } = {}) {
 
 module.exports = {
   createDemoWorkspace,
+  ensureDemoOwnerReviewApp,
   WORKSPACE_NAME,
   LEADS,
   REFERRALS,

@@ -6,6 +6,7 @@ const express = require('express');
 const QRCode = require('qrcode');
 const whiteLabel = require('../services/whiteLabel');
 const { ensureOwnerReferralApp } = require('../services/ownerReferralApp');
+const demoWorkspace = require('../services/demoWorkspace');
 
 const router = express.Router();
 
@@ -13,6 +14,14 @@ router.get('/', async (req, res, next) => {
   try {
     const ws = req.workspace || {};
     const brand = whiteLabel.brandForWorkspace(ws);
+    if (ws.isDemo && req.workspaceId) {
+      const email = String(
+        (req.user && req.user.emails && req.user.emails[0] && req.user.emails[0].value) || '',
+      )
+        .trim()
+        .toLowerCase();
+      await demoWorkspace.ensureDemoOwnerReviewApp(req.workspaceId, { email }).catch(() => {});
+    }
     const app = await ensureOwnerReferralApp(req);
     const businessName =
       (brand.customName && String(brand.customName).trim()) ||

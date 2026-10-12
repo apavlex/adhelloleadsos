@@ -14,7 +14,7 @@ const smsOutbound = require('../services/smsOutbound');
 const ghlMessaging = require('../services/ghlMessaging');
 const memberWork = require('../services/memberWork');
 const { OWNER_MEMBER_ID } = require('../services/ownerReferralApp');
-const { createDemoWorkspace, LEADS, REFERRALS } = require('../services/demoWorkspace');
+const { createDemoWorkspace, ensureDemoOwnerReviewApp, LEADS, REFERRALS } = require('../services/demoWorkspace');
 
 const OWNER = 'owner@example.com';
 
@@ -38,7 +38,8 @@ test('demo workspace seeds leads, territories, referrals, cadences and blocks re
   const zones = await store.listZones(network.id);
   assert.equal(zones.length, 4);
   const referrals = await store.listReferrals(network.id);
-  assert.equal(referrals.length, REFERRALS.length);
+  // Network partner referrals + a couple owner Review-app sample refs.
+  assert.ok(referrals.length >= REFERRALS.length + 2);
   const totals = ex.networkTotals(referrals);
   assert.ok(totals.won >= 5 && totals.unrouted >= 1 && totals.sent >= 3 && totals.wonValue > 30000);
   const members = await store.listMembers(network.id);
@@ -46,6 +47,10 @@ test('demo workspace seeds leads, territories, referrals, cadences and blocks re
   const ownerMember = await store.getMember(network.id, OWNER_MEMBER_ID);
   assert.ok(ownerMember);
   assert.equal(ownerMember.companyName, 'Cascade Home Pros');
+  assert.ok(ownerMember.reviewLinks && ownerMember.reviewLinks.google);
+  assert.ok(ownerMember.reviewLinks.facebook, 'owner has Facebook review link');
+  assert.ok(ownerMember.reviewLinks.yelp, 'owner has Yelp review link');
+  assert.ok(ownerMember.profilePhotoUpdatedAt, 'owner has profile photo');
   // Waiting partner + workspace owner Review app (no territory seat).
   assert.equal(members.length - seated.length, 2);
   assert.equal(ex.seatsForMember(zones, OWNER_MEMBER_ID).length, 0);
@@ -56,8 +61,21 @@ test('demo workspace seeds leads, territories, referrals, cadences and blocks re
   assert.ok(ownerJobs.length >= 5, 'Review app owner has sample jobs');
   assert.ok(ownerCustomers.some((c) => c.name === 'Avery Moss'));
   assert.ok(ownerJobs.some((j) => j.status === 'scheduled'));
+  const ownerPhotos = ownerJobs.reduce((n, j) => n + ((j.photos || []).length), 0);
+  assert.ok(ownerPhotos >= 4, 'owner jobs include demo photos');
   assert.ok(first.memberApp && first.memberApp.ownerCustomers >= 5);
   assert.ok(first.memberApp.featuredCustomers >= 5);
+  assert.ok(first.memberApp.ownerPhotos >= 4);
+  assert.ok(first.memberApp.ownerPendingRefs >= 1);
+  assert.ok(first.memberApp.ownerSentRefs >= 1);
+
+  const hero = await store.getBrandImage(network.id, 'hero');
+  assert.ok(hero && hero.buffer && hero.buffer.length > 500, 'network hero banner seeded');
+  const logo = await store.getBrandImage(network.id, 'logo');
+  assert.ok(logo && logo.buffer && logo.buffer.length > 200, 'network logo seeded');
+  const reviewStats = await store.getReviewStats(network.id, OWNER_MEMBER_ID);
+  assert.ok(reviewStats.views >= 50, 'demo review page has visits');
+  assert.ok(network.brand && network.brand.statValue >= 50);
 
   const env = await workspaceIntegrations.getResolvedIntegrationEnv(first.workspaceId);
   assert.equal(env.DEMO_WORKSPACE, '1');
@@ -72,4 +90,40 @@ test('demo workspace seeds leads, territories, referrals, cadences and blocks re
   assert.equal((await dbService.getAllLeads(first.workspaceId)).length, 0);
   const ids = await dbService.getUserWorkspaceIds(OWNER);
   assert.ok(ids.includes(second.workspaceId) && !ids.includes(first.workspaceId));
+});
+
+test('ensureDemoOwnerReviewApp backfills an empty demo owner portfolio', async () => {
+  const created = await createDemoWorkspace('backfill@example.com');
+  const network = await store.getNetworkForWorkspace(created.workspaceId);
+  // Wipe owner portfolio to simulate a pre-seed / empty demo.
+  const customers = await memberWork.listCustomers(network.id, OWNER_MEMBER_ID);
+  for (const c of customers) {
+    await memberWork.deleteCustomer(network.id, OWNER_MEMBER_ID, c.id);
+  }
+  await store.saveMember(network.id, {
+    ...(await store.getMember(network.id, OWNER_MEMBER_ID)),
+    reviewLinks: { google: '', facebook: '', yelp: '', nextdoor: '', other: [] },
+    profilePhotoUpdatedAt: '',
+  });
+  await store.deleteBrandImage(network.id, 'hero');
+  await dbService.putStorageKey(`netreviewstats:${network.id}:${OWNER_MEMBER_ID}`, {
+    stars: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+    clicks: {},
+    views: 0,
+  });
+
+  const once = await ensureDemoOwnerReviewApp(created.workspaceId, { email: 'backfill@example.com' });
+  assert.equal(once.ok, true);
+  assert.equal(once.seeded, true);
+  assert.ok(once.customerCount >= 5);
+  assert.ok(once.photoCount >= 4);
+
+  const owner = await store.getMember(network.id, OWNER_MEMBER_ID);
+  assert.ok(owner.reviewLinks.facebook);
+  assert.ok(owner.profilePhotoUpdatedAt);
+  const hero = await store.getBrandImage(network.id, 'hero');
+  assert.ok(hero && hero.buffer.length > 500);
+  const again = await ensureDemoOwnerReviewApp(created.workspaceId, { email: 'backfill@example.com' });
+  assert.equal(again.ok, true);
+  assert.equal(again.seeded, false, 'second open is a no-op');
 });
