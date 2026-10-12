@@ -1716,13 +1716,86 @@ html[data-ma-theme="dark"] .ma-appt {
   margin-top: 12px;
 }
 .ma-hero__split .ma-hero__stat { margin-top: 0; font-size: 28px; }
-.ma-tiles--6 { grid-template-columns: 1fr 1fr; }
+.ma-tiles--6,
+.ma-tiles--4 { grid-template-columns: 1fr 1fr; }
 .ma-dash-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
 .ma-dash-actions .ma-btn { width: 100%; justify-content: center; }
+
+/* Home lead-source row */
+.ma-sources {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 14px;
+}
+.ma-source {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  padding: 12px 10px;
+  text-decoration: none;
+  color: inherit;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.ma-source:active { transform: scale(0.98); }
+.ma-source--hot { border-color: color-mix(in srgb, var(--acc) 45%, var(--line)); }
+.ma-source__count {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.ma-source__label {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+.ma-source__hint {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.ma-source-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 12px;
+}
+.ma-source-filter a {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--muted) 10%, transparent);
+  border: 1px solid transparent;
+}
+.ma-source-filter a.is-on {
+  color: var(--on);
+  background: var(--acc);
+  border-color: var(--acc);
+}
+@media (max-width: 380px) {
+  .ma-sources { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 
 /* Job photos + review-ask status */
 .ma-photos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0 0 14px}
