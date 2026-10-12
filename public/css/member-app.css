@@ -32,8 +32,9 @@ html[data-ma-theme="dark"] {
   --bg: #000000;
   --card: #1c1c1e;
   --ink: #ffffff;
-  --muted: #98989d;
-  --tab-muted: #8e8e93;
+  /* Slightly brighter than iOS secondary so labels/hints stay readable on --card. */
+  --muted: #b0b0b5;
+  --tab-muted: #9a9aa0;
   --line: rgba(84, 84, 88, 0.45);
   --acc-soft: color-mix(in srgb, var(--acc) 24%, #1c1c1e);
   --acc-ink: color-mix(in srgb, var(--acc) 70%, white);
