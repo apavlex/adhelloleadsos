@@ -20,33 +20,15 @@
     <%
       const _formLeads = typeof formLeads !== 'undefined' && Array.isArray(formLeads) ? formLeads : [];
       const _hasAppt = typeof appointment !== 'undefined' && appointment;
-      const _sourceFilter = typeof sourceFilter !== 'undefined' ? String(sourceFilter || '') : '';
-      const _inboxCount = typeof inboxCount === 'number'
-        ? inboxCount
-        : (received.length + _formLeads.filter(function (l) { return l.status !== 'closed'; }).length);
-      const _sourceLabels = { website: 'Website', agency: 'Agency', referral: 'Referrals', purchased: 'Purchased' };
+      const _inboxCount = received.length + _formLeads.filter(function (l) { return l.status !== 'closed'; }).length;
     %>
     <p class="ma-page-sub">Website forms and leads your agency assigns, plus network referrals you receive, claim, or send.</p>
 
     <nav class="ma-seg ma-seg--3" aria-label="Lead and referral lists">
       <a href="<%= base %>/referrals?view=pool" class="<%= view === 'pool' ? 'is-on' : '' %>">Pool (<%= pool.length %>)</a>
-      <a href="<%= base %>/referrals" class="<%= view === 'received' && !_sourceFilter ? 'is-on' : '' %>">Received (<%= _inboxCount %>)</a>
+      <a href="<%= base %>/referrals" class="<%= view === 'received' ? 'is-on' : '' %>">Received (<%= _inboxCount %>)</a>
       <a href="<%= base %>/referrals?view=sent" class="<%= view === 'sent' ? 'is-on' : '' %>">Sent (<%= sent.length %>)</a>
     </nav>
-
-    <nav class="ma-source-filter" aria-label="Filter by lead source">
-      <a href="<%= base %>/referrals" class="<%= !_sourceFilter ? 'is-on' : '' %>">All</a>
-      <a href="<%= base %>/referrals?source=website" class="<%= _sourceFilter === 'website' ? 'is-on' : '' %>">Website</a>
-      <a href="<%= base %>/referrals?source=agency" class="<%= _sourceFilter === 'agency' ? 'is-on' : '' %>">Agency</a>
-      <a href="<%= base %>/referrals?source=referral" class="<%= _sourceFilter === 'referral' ? 'is-on' : '' %>">Referrals</a>
-      <% if (_hasAppt) { %>
-      <a href="<%= appointment.portalPath || (base + '/referrals?source=purchased') %>" class="<%= _sourceFilter === 'purchased' ? 'is-on' : '' %>">Purchased</a>
-      <% } %>
-    </nav>
-
-    <% if (_sourceFilter && _sourceLabels[_sourceFilter]) { %>
-    <p class="ma-page-sub" style="margin-top:0">Showing <%= _sourceLabels[_sourceFilter].toLowerCase() %> only. <a href="<%= base %>/referrals" style="font-weight:700;color:var(--acc);text-decoration:none">Clear filter</a></p>
-    <% } %>
 
     <%- include('_flash') %>
 

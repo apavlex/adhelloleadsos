@@ -23,10 +23,8 @@ describe('member leads + referral notifications', () => {
     assert.match(page, /maPushRoot/);
     assert.match(page, /member-app-push\.js/);
     assert.match(page, /leads\/<%= encodeURIComponent\(lead\.id\) %>\/close/);
-    assert.match(route, /formLeads,\s*\n\s*sourceFilter,/);
-    assert.match(route, /openLeadCount:\s*appt \? \(appt\.openLeadCount \|\| 0\) : 0/);
+    assert.match(route, /formLeads,\s*\n\s*openLeadCount/);
     assert.match(route, /appt \? \(appt\.formLeads \|\| \[\]\) : \[\]/);
-    assert.match(route, /filterBySource/);
   });
 
   it('form-lead SMS and push deep-link to /referrals (not legacy /leads alone)', () => {
