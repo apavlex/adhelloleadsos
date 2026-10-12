@@ -6,7 +6,7 @@
 
   <main class="max-wide px-6 py-10 md:py-14">
     <h1 class="font-display font-black text-2xl md:text-3xl text-brand-dark dark:text-white mb-2">Public demo link</h1>
-    <p class="text-sm text-brand-muted max-w-2xl mb-8">Anyone who opens this link gets their own private copy of the demo workspace, with no Google sign-in. Each copy has the sample contractors, territories, referrals and cadences, never sends anything, can use Ask AI a little, and deletes itself after 24 hours.</p>
+    <p class="text-sm text-brand-muted max-w-2xl mb-8">Anyone who opens this link gets their own private copy of the demo workspace, with no Google sign-in. Each copy has sample contractors, territories, referrals, cadences, and a Review app with dummy customers and jobs. It never sends anything, can use Ask AI a little, and deletes itself after 24 hours.</p>
 
       <% if (notice) { %>
         <p class="max-w-2xl mb-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-4 py-2.5 text-sm text-emerald-800 dark:text-emerald-200"><%= notice === 'regenerate' ? 'New link created. The old link no longer works.' : notice === 'disable' ? 'Public demo link turned off.' : notice === 'enable' ? 'Public demo link is live.' : 'Saved.' %></p>

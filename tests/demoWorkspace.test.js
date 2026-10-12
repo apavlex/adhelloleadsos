@@ -12,6 +12,8 @@ const ex = require('../services/referralExchange');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const smsOutbound = require('../services/smsOutbound');
 const ghlMessaging = require('../services/ghlMessaging');
+const memberWork = require('../services/memberWork');
+const { OWNER_MEMBER_ID } = require('../services/ownerReferralApp');
 const { createDemoWorkspace, LEADS, REFERRALS } = require('../services/demoWorkspace');
 
 const OWNER = 'owner@example.com';
@@ -41,7 +43,21 @@ test('demo workspace seeds leads, territories, referrals, cadences and blocks re
   assert.ok(totals.won >= 5 && totals.unrouted >= 1 && totals.sent >= 3 && totals.wonValue > 30000);
   const members = await store.listMembers(network.id);
   const seated = members.filter((m) => ex.seatsForMember(zones, m.id).length);
-  assert.equal(members.length - seated.length, 1);
+  const ownerMember = await store.getMember(network.id, OWNER_MEMBER_ID);
+  assert.ok(ownerMember);
+  assert.equal(ownerMember.companyName, 'Cascade Home Pros');
+  // Waiting partner + workspace owner Review app (no territory seat).
+  assert.equal(members.length - seated.length, 2);
+  assert.equal(ex.seatsForMember(zones, OWNER_MEMBER_ID).length, 0);
+
+  const ownerCustomers = await memberWork.listCustomers(network.id, OWNER_MEMBER_ID);
+  const ownerJobs = await memberWork.listJobs(network.id, OWNER_MEMBER_ID);
+  assert.ok(ownerCustomers.length >= 5, 'Review app owner has sample customers');
+  assert.ok(ownerJobs.length >= 5, 'Review app owner has sample jobs');
+  assert.ok(ownerCustomers.some((c) => c.name === 'Avery Moss'));
+  assert.ok(ownerJobs.some((j) => j.status === 'scheduled'));
+  assert.ok(first.memberApp && first.memberApp.ownerCustomers >= 5);
+  assert.ok(first.memberApp.featuredCustomers >= 5);
 
   const env = await workspaceIntegrations.getResolvedIntegrationEnv(first.workspaceId);
   assert.equal(env.DEMO_WORKSPACE, '1');
