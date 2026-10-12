@@ -72,7 +72,7 @@ function reviewDestinations(reviewLinks, slug, { askId } = {}) {
       label: row.label,
       color: '#475569',
       letter: String(row.label).trim().charAt(0).toUpperCase() || '★',
-      icon: '',
+      icon: iconFor('other'),
       tile: tileFor('other'),
       url: row.url,
       href: `/rv/${slug}/go/other/${i}${askQ}`,
