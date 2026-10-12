@@ -175,7 +175,7 @@ const PERSONAS = [
     color: 'from-amber-400 to-orange-500',
     duties: ['Cold email & DM sequences', 'Lead scraping & filters', 'List hygiene & follow-up cadence'],
     href: '/leads/find',
-    hrefLabel: 'Find leads',
+    hrefLabel: 'Find prospects',
   },
   {
     id: 'clay',

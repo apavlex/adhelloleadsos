@@ -80,7 +80,7 @@ const PROVIDERS = {
     fields: ['tikhubApiKey'],
   },
   monid: {
-    label: 'Monid (Find leads + enrichment)',
+    label: 'Monid (Find prospects + enrichment)',
     fields: ['monidApiKey'],
   },
   openrouter: {

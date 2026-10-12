@@ -743,7 +743,7 @@
       <summary class="flex items-center gap-4 p-6 md:p-8 rounded-[2rem] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow">
         <div class="min-w-0 flex-1">
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Or pick up where you left off</p>
-          <h2 class="font-display font-extrabold text-xl md:text-2xl text-brand-dark dark:text-white leading-tight">Start with your bookmarks or reopen recent leads</h2>
+          <h2 class="font-display font-extrabold text-xl md:text-2xl text-brand-dark dark:text-white leading-tight">Start with your bookmarks or reopen recent prospects</h2>
           <p class="text-[11px] font-bold text-brand-muted mt-2 tabular-nums"><%= _bm.total %> bookmarked · <%= _rw2.total %> worked in the last <%= _rw2.sinceDays %> days</p>
         </div>
         <span class="shrink-0 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-brand-muted">
@@ -759,7 +759,7 @@
           <div class="flex items-start justify-between gap-3 mb-4">
             <div class="min-w-0">
               <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Bookmarked</p>
-              <p class="text-sm font-extrabold text-brand-dark dark:text-white tabular-nums"><%= _bm.total %> lead<%= _bm.total === 1 ? '' : 's' %> · <%= _bm.callable %> with phone</p>
+              <p class="text-sm font-extrabold text-brand-dark dark:text-white tabular-nums"><%= _bm.total %> prospect<%= _bm.total === 1 ? '' : 's' %> · <%= _bm.callable %> with phone</p>
             </div>
             <% if (_bm.total) { %>
             <a href="<%= _bm.href %>" data-nav-prefetch="/focus" class="btn-pill btn-primary px-5 py-2.5 text-[10px] font-black uppercase tracking-widest whitespace-nowrap shrink-0">Start with bookmarks</a>
@@ -778,7 +778,7 @@
             <% }) %>
           </ul>
           <% } else { %>
-          <p class="text-sm text-brand-muted">No bookmarked leads yet. Click the bookmark ribbon on a lead row in Pipeline or Folders and it will show up here, grouped by folder.</p>
+          <p class="text-sm text-brand-muted">No bookmarked prospects yet. Click the bookmark ribbon on a prospect row in Pipeline or Folders and it will show up here, grouped by folder.</p>
           <% } %>
         </div>
 
@@ -786,7 +786,7 @@
           <div class="flex items-start justify-between gap-3 mb-4">
             <div class="min-w-0">
               <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Recently worked</p>
-              <p class="text-sm font-extrabold text-brand-dark dark:text-white tabular-nums"><%= _rw2.total %> lead<%= _rw2.total === 1 ? '' : 's' %> in the last <%= _rw2.sinceDays %> days</p>
+              <p class="text-sm font-extrabold text-brand-dark dark:text-white tabular-nums"><%= _rw2.total %> prospect<%= _rw2.total === 1 ? '' : 's' %> in the last <%= _rw2.sinceDays %> days</p>
             </div>
             <% if (_rw2.total) { %>
             <a href="<%= _rw2.href %>" data-nav-prefetch="/focus" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white whitespace-nowrap shrink-0 hover:border-brand-yellow">Reopen recent</a>
@@ -805,7 +805,7 @@
             <% }) %>
           </ul>
           <% } else { %>
-          <p class="text-sm text-brand-muted">Nothing worked in the last <%= _rw2.sinceDays %> days. Calls, texts, emails, and notes you log on a lead will show up here.</p>
+          <p class="text-sm text-brand-muted">Nothing worked in the last <%= _rw2.sinceDays %> days. Calls, texts, emails, and notes you log on a prospect will show up here.</p>
           <% } %>
         </div>
       </div>
@@ -819,7 +819,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="m20 20-3.5-3.5"/></svg>
           </span>
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Find</p>
-          <h3 class="font-display font-extrabold text-xl text-brand-dark dark:text-white mb-2 group-hover:text-brand-yellow transition-colors">Start a lead search</h3>
+          <h3 class="font-display font-extrabold text-xl text-brand-dark dark:text-white mb-2 group-hover:text-brand-yellow transition-colors">Start a prospect search</h3>
           <p class="text-sm text-brand-muted leading-relaxed mt-auto">Search for businesses, real estate, permits, and more by keyword and location.</p>
         </a>
         <a href="/prospecting?tab=pipeline" class="today-viz-action today-viz-reveal today-viz-reveal-delay-2 group flex min-w-0 flex-col rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-8 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900">
@@ -827,7 +827,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h6v12H4zM14 6h6v7h-6zM14 16h6v2h-6z"/></svg>
           </span>
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Pipeline</p>
-          <h3 class="font-display font-extrabold text-xl text-brand-dark dark:text-white mb-2 group-hover:text-brand-yellow transition-colors">Work your queue — <%= _q %> leads in early stages</h3>
+          <h3 class="font-display font-extrabold text-xl text-brand-dark dark:text-white mb-2 group-hover:text-brand-yellow transition-colors">Work your queue — <%= _q %> prospects in early stages</h3>
           <p class="text-sm text-brand-muted leading-relaxed">Stages 1–2 need movement or outreach.</p>
           <div class="mt-4 h-2 rounded-full bg-brand-cream/80 dark:bg-slate-800 overflow-hidden" role="progressbar" aria-valuemin="0" aria-valuemax="<%= _sessionGoal %>" aria-valuenow="<%= Math.min(_q, _sessionGoal) %>">
             <div class="h-full rounded-full bg-brand-yellow transition-[width] duration-700" style="width:<%= _sessionPct %>%"></div>

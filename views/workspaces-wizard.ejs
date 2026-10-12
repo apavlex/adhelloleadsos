@@ -247,7 +247,7 @@
       <% if (_niches.length) { %>
       <section class="pt-4 border-t border-brand-border dark:border-white/10">
         <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white"><%= _niches.length %> referral partner niches to start with</h3>
-        <p class="text-sm text-brand-muted mt-1"><%= w.cwNichesFallback ? 'The AI was busy, so these are common partners for home-service businesses.' : 'Picked by AI for your business, strongest referral sources first.' %> They become your referral network trades, and each one links to a ready-made lead search on the Referral Partners page.</p>
+        <p class="text-sm text-brand-muted mt-1"><%= w.cwNichesFallback ? 'The AI was busy, so these are common partners for home-service businesses.' : 'Picked by AI for your business, strongest referral sources first.' %> They become your referral network trades, and each one links to a ready-made prospect search on the Referral Partners page.</p>
         <ol class="wiz-niche-list">
           <% _niches.forEach(function (n, i) { %>
           <li title="<%= n.why || '' %>"><span class="wiz-niche-num"><%= i + 1 %></span><span class="wiz-niche-body"><strong><%= n.name %></strong><% if (n.why) { %><em><%= n.why %></em><% } %></span></li>

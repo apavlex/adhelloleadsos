@@ -89,7 +89,7 @@ function ruleBasedCoach(ctx) {
   const aiTimeSavers = defaultAiTimeSavers();
 
   if (ctx.totalWorkspace === 0) {
-    nextActions.push({ label: 'Run your first lead search', href: '/', priority: 'high' });
+    nextActions.push({ label: 'Run your first prospect search', href: '/', priority: 'high' });
     nextActions.push({ label: 'Import a CSV of prospects', href: '/prospecting?tab=pipeline', priority: 'normal' });
     nextActions.push({ label: 'Open Today', href: '/today', priority: 'normal' });
   } else {
@@ -221,7 +221,7 @@ function normalizeCoachPayload(parsed, ctx, fallback, coachSource = 'openrouter'
 }
 
 async function tryLlmCoach(ctx, fallback) {
-  const userPrompt = `You coach a B2B SaaS founder using Agency OS (lead search, CSV import, pipeline stages 1–10 including Contacted → CQI → trial → retainer → referral, daily outreach tracker, personas/scripts).
+  const userPrompt = `You coach a B2B SaaS founder using Agency OS (prospect search, CSV import, pipeline stages 1–10 including Contacted → CQI → trial → retainer → referral, daily outreach tracker, personas/scripts).
 
 User context (JSON):
 ${JSON.stringify(ctx, null, 2)}
