@@ -355,7 +355,7 @@ router.get('/', async (req, res, next) => {
       // Single-lead opens (navbar search) skip business-only filter so foldered picks still load.
       ordered = bulkSelection ? filterBusinessPipelineLeads(resolved) : resolved;
     } else {
-      // Match Today’s “queued for action” count: all early-stage (1–2) business leads.
+      // Match Today’s “prospects queued for action” count: early-stage (1–2) businesses.
       ordered = buildFocusQueue(pipelineLeads, FOCUS_QUEUE_HARD_CAP, {
         queueMode: dialRetry.queueMode,
         earlyStagesOnly: true,
