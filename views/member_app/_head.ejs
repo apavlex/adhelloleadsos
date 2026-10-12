@@ -6,9 +6,28 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="<%= typeof robots !== 'undefined' && robots ? robots : 'noindex' %>">
-<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#1c1c1e" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#ffffff" id="maThemeColor">
 <title><%= _title %></title>
+<script>
+/* Apply saved appearance before CSS paint (light / dark / system). */
+(function () {
+  try {
+    var pref = localStorage.getItem('ma-theme') || 'system';
+    var theme = pref;
+    if (pref !== 'light' && pref !== 'dark') {
+      theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      pref = 'system';
+    }
+    document.documentElement.setAttribute('data-ma-theme', theme);
+    document.documentElement.setAttribute('data-ma-theme-pref', pref);
+    var meta = document.getElementById('maThemeColor');
+    if (meta) meta.setAttribute('content', theme === 'dark' ? '#1c1c1e' : '#ffffff');
+  } catch (e) {
+    document.documentElement.setAttribute('data-ma-theme', 'light');
+    document.documentElement.setAttribute('data-ma-theme-pref', 'system');
+  }
+})();
+</script>
 <% if (_base) { %>
 <% const _iconV = encodeURIComponent(typeof appIconVersion !== 'undefined' && appIconVersion ? appIconVersion : _v); %>
 <link rel="manifest" href="<%= _base %>/manifest.webmanifest?v=<%= _iconV %>">
@@ -60,7 +79,10 @@ summary.ma-settings-row::-webkit-details-marker,summary.ma-settings-row::marker{
 .ma-script-link__url{display:block;font-size:12px;line-height:1.35;overflow-wrap:anywhere;word-break:break-all}
 .ma-script-save{margin-bottom:28px}
 .ma-fold[open]>.ma-fold__body{padding-bottom:28px}
-@media (prefers-color-scheme:dark){.ma-tabbar{background:rgba(28,28,30,.62)!important}.ma-tabbar::before{background:linear-gradient(to top,rgba(28,28,30,.62) 0%,rgba(28,28,30,.34) 45%,rgba(28,28,30,0) 100%)}}
+html[data-ma-theme="dark"] .ma-tabbar{background:rgba(28,28,30,.62)!important}
+html[data-ma-theme="dark"] .ma-tabbar::before{background:linear-gradient(to top,rgba(28,28,30,.62) 0%,rgba(28,28,30,.34) 45%,rgba(28,28,30,0) 100%)}
+.ma-quick__btn span{color:var(--ink)!important;font-weight:700}
+.ma-quick__btn svg{color:var(--acc)!important}
 /* Customer tags — critical so stale SW CSS can't leave plain text + tiny × */
 .ma-tags__list{display:flex!important;flex-wrap:wrap;gap:10px;align-items:center;min-height:44px}
 .ma-tags__chip{--ma-tag:var(--acc);display:inline-flex!important;flex-direction:row!important;align-items:center;gap:2px;min-height:44px;max-width:100%;border:1px solid color-mix(in srgb,var(--ma-tag) 55%,#0000);background:color-mix(in srgb,var(--ma-tag) 22%,#fff);border-radius:999px!important;padding:4px 4px 4px 14px;box-sizing:border-box}

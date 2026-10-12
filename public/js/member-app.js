@@ -1452,4 +1452,88 @@
   } else {
     bootCustomerPicks();
   }
+
+  /** Light / dark / system appearance — labels under Call/Text/Review/Map use --ink. */
+  var THEME_KEY = 'ma-theme';
+  var themeMql = null;
+
+  function readThemePref() {
+    try {
+      var pref = localStorage.getItem(THEME_KEY) || 'system';
+      if (pref === 'light' || pref === 'dark') return pref;
+    } catch (e) { /* private mode */ }
+    return 'system';
+  }
+
+  function resolveTheme(pref) {
+    if (pref === 'light' || pref === 'dark') return pref;
+    try {
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
+    } catch (e) { /* ignore */ }
+    return 'light';
+  }
+
+  function syncThemeChrome(theme) {
+    var meta = document.getElementById('maThemeColor');
+    if (meta) meta.setAttribute('content', theme === 'dark' ? '#1c1c1e' : '#ffffff');
+    var status = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+    if (status) status.setAttribute('content', theme === 'dark' ? 'black' : 'default');
+  }
+
+  function syncThemeSeg(pref) {
+    var seg = document.querySelector('[data-ma-theme-seg]');
+    if (!seg) return;
+    var buttons = seg.querySelectorAll('[data-ma-theme-set]');
+    for (var i = 0; i < buttons.length; i++) {
+      var btn = buttons[i];
+      var on = btn.getAttribute('data-ma-theme-set') === pref;
+      btn.classList.toggle('is-on', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+  }
+
+  function applyMaTheme(pref, persist) {
+    var next = pref === 'light' || pref === 'dark' ? pref : 'system';
+    if (persist) {
+      try { localStorage.setItem(THEME_KEY, next); } catch (e) { /* private mode */ }
+    }
+    var theme = resolveTheme(next);
+    document.documentElement.setAttribute('data-ma-theme', theme);
+    document.documentElement.setAttribute('data-ma-theme-pref', next);
+    syncThemeChrome(theme);
+    syncThemeSeg(next);
+    bindSystemThemeListener(next);
+  }
+
+  function bindSystemThemeListener(pref) {
+    if (!window.matchMedia) return;
+    if (!themeMql) {
+      themeMql = window.matchMedia('(prefers-color-scheme: dark)');
+      var onChange = function () {
+        if (readThemePref() === 'system') applyMaTheme('system', false);
+      };
+      if (typeof themeMql.addEventListener === 'function') themeMql.addEventListener('change', onChange);
+      else if (typeof themeMql.addListener === 'function') themeMql.addListener(onChange);
+    }
+    // Listener stays attached; applyMaTheme only re-resolves when pref is system.
+    void pref;
+  }
+
+  function initMaTheme() {
+    applyMaTheme(readThemePref(), false);
+    var seg = document.querySelector('[data-ma-theme-seg]');
+    if (!seg) return;
+    seg.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-ma-theme-set]');
+      if (!btn || !seg.contains(btn)) return;
+      e.preventDefault();
+      applyMaTheme(btn.getAttribute('data-ma-theme-set') || 'system', true);
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initMaTheme);
+  } else {
+    initMaTheme();
+  }
 })();

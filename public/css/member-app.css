@@ -27,18 +27,20 @@
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #000000;
-    --card: #1c1c1e;
-    --ink: #ffffff;
-    --muted: #98989d;
-    --tab-muted: #8e8e93;
-    --line: rgba(84, 84, 88, 0.45);
-    --acc-soft: color-mix(in srgb, var(--acc) 24%, #1c1c1e);
-    --acc-ink: color-mix(in srgb, var(--acc) 70%, white);
-    color-scheme: dark;
-  }
+/* Forced / resolved theme via html[data-ma-theme]. Early script in _head sets this. */
+html[data-ma-theme="dark"] {
+  --bg: #000000;
+  --card: #1c1c1e;
+  --ink: #ffffff;
+  --muted: #98989d;
+  --tab-muted: #8e8e93;
+  --line: rgba(84, 84, 88, 0.45);
+  --acc-soft: color-mix(in srgb, var(--acc) 24%, #1c1c1e);
+  --acc-ink: color-mix(in srgb, var(--acc) 70%, white);
+  color-scheme: dark;
+}
+html[data-ma-theme="light"] {
+  color-scheme: light;
 }
 
 /* Branding preview iframe: lay out as on an iPhone with a Dynamic Island and home indicator. */
@@ -397,9 +399,8 @@ summary.ma-settings-row:active {
 .ma-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
 .ma-card + .ma-card { margin-top: 10px; }
 /* iOS dark mode separates surfaces by color, not outlines. */
-@media (prefers-color-scheme: dark) {
-  .ma-tile, .ma-card, .ma-seg, .rv-link { border-color: transparent; box-shadow: none; }
-}
+html[data-ma-theme="dark"] .ma-tile, html[data-ma-theme="dark"] .ma-card, html[data-ma-theme="dark"] .ma-seg, html[data-ma-theme="dark"] .rv-link { border-color: transparent; box-shadow: none; }
+
 .ma-card__row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .ma-card__title { font-weight: 800; font-size: 15px; margin: 0; }
 .ma-card__meta { color: var(--muted); font-size: 13px; margin: 2px 0 0; }
@@ -488,22 +489,25 @@ a.ma-settings-row.is-locked:active { opacity: 0.45; }
 .ma-pill--accepted, .ma-pill--booked { background: rgba(245, 158, 11, 0.16); color: #b45309; }
 .ma-pill--won, .ma-pill--approved { background: rgba(16, 185, 129, 0.14); color: #047857; }
 .ma-pill--declined, .ma-pill--lost, .ma-pill--unrouted, .ma-pill--rejected { background: rgba(225, 29, 72, 0.1); color: #be123c; }
-@media (prefers-color-scheme: dark) {
-  .ma-pill--sent, .ma-pill--pending { color: #93c5fd; }
-  .ma-pill--accepted, .ma-pill--booked { color: #fcd34d; }
-  .ma-pill--won, .ma-pill--approved { color: #6ee7b7; }
-  .ma-pill--declined, .ma-pill--lost, .ma-pill--unrouted, .ma-pill--rejected { color: #fda4af; }
-}
+html[data-ma-theme="dark"] .ma-pill--sent, html[data-ma-theme="dark"] .ma-pill--pending { color: #93c5fd; }
+  html[data-ma-theme="dark"] .ma-pill--accepted, html[data-ma-theme="dark"] .ma-pill--booked { color: #fcd34d; }
+  html[data-ma-theme="dark"] .ma-pill--won, html[data-ma-theme="dark"] .ma-pill--approved { color: #6ee7b7; }
+  html[data-ma-theme="dark"] .ma-pill--declined, html[data-ma-theme="dark"] .ma-pill--lost, html[data-ma-theme="dark"] .ma-pill--unrouted, html[data-ma-theme="dark"] .ma-pill--rejected { color: #fda4af; }
+
 
 /* Segmented control */
 .ma-seg { display: grid; grid-template-columns: 1fr 1fr; background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 4px; margin-bottom: 14px; }
-.ma-seg a {
+.ma-seg a,
+.ma-seg button {
   display: inline-flex; align-items: center; justify-content: center; gap: 5px;
-  text-align: center; text-decoration: none; font-weight: 800; font-size: 13px;
+  text-align: center; text-decoration: none; font: inherit; font-weight: 800; font-size: 13px;
   padding: 9px 6px; border-radius: 999px; color: var(--muted);
+  border: 0; background: transparent; cursor: pointer; -webkit-appearance: none; appearance: none;
 }
-.ma-seg a svg { width: 15px; height: 15px; flex-shrink: 0; }
-.ma-seg a.is-on { background: var(--acc); color: var(--on); }
+.ma-seg a svg,
+.ma-seg button svg { width: 15px; height: 15px; flex-shrink: 0; }
+.ma-seg a.is-on,
+.ma-seg button.is-on { background: var(--acc); color: var(--on); }
 .ma-seg--3 { grid-template-columns: repeat(3, 1fr); }
 
 /* Customers tab */
@@ -578,17 +582,16 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
 .ma-pill--job-completed { background: rgba(16, 185, 129, 0.14); color: #047857; }
 .ma-pill--job-on_hold { background: rgba(100, 116, 139, 0.14); color: #64748b; }
 .ma-pill--job-cancelled { background: rgba(225, 29, 72, 0.1); color: #be123c; }
-@media (prefers-color-scheme: dark) {
-  .ma-pill--job-lead { color: #cbd5e1; }
-  .ma-pill--job-estimate { color: #c4b5fd; }
-  .ma-pill--job-scheduled { color: #93c5fd; }
-  .ma-pill--job-in_progress { color: #fcd34d; }
-  .ma-pill--job-completed { color: #6ee7b7; }
-  .ma-pill--job-on_hold { color: #94a3b8; }
-  .ma-pill--job-cancelled { color: #fda4af; }
-  .ma-row__date.is-late, .ma-row__date.is-late small { color: #fda4af; }
-  .ma-list { border-color: transparent; box-shadow: none; }
-}
+html[data-ma-theme="dark"] .ma-pill--job-lead { color: #cbd5e1; }
+  html[data-ma-theme="dark"] .ma-pill--job-estimate { color: #c4b5fd; }
+  html[data-ma-theme="dark"] .ma-pill--job-scheduled { color: #93c5fd; }
+  html[data-ma-theme="dark"] .ma-pill--job-in_progress { color: #fcd34d; }
+  html[data-ma-theme="dark"] .ma-pill--job-completed { color: #6ee7b7; }
+  html[data-ma-theme="dark"] .ma-pill--job-on_hold { color: #94a3b8; }
+  html[data-ma-theme="dark"] .ma-pill--job-cancelled { color: #fda4af; }
+  html[data-ma-theme="dark"] .ma-row__date.is-late, html[data-ma-theme="dark"] .ma-row__date.is-late small { color: #fda4af; }
+  html[data-ma-theme="dark"] .ma-list { border-color: transparent; box-shadow: none; }
+
 
 /* Month calendar */
 .ma-cal { padding: 10px 10px 12px; }
@@ -618,8 +621,11 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
   background: var(--card); border: 1px solid var(--line); color: var(--acc); text-decoration: none; font-size: 12px; font-weight: 700;
   -webkit-user-select: none; user-select: none;
 }
-.ma-quick__btn svg { width: 22px; height: 22px; }
+.ma-quick__btn svg { width: 22px; height: 22px; color: var(--acc); }
+/* Labels follow theme ink (black in light, white in dark); icons stay accent. */
+.ma-quick__btn span { color: var(--ink); font-weight: 700; }
 .ma-quick__btn.is-off { color: var(--muted); opacity: 0.45; pointer-events: none; }
+.ma-quick__btn.is-off span { color: var(--muted); }
 .ma-quick__btn:disabled { color: var(--muted); opacity: 0.45; cursor: default; }
 .ma-steps { display: flex; gap: 6px; overflow-x: auto; margin: 4px -18px 12px; padding: 4px 18px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
 .ma-steps::-webkit-scrollbar { display: none; }
@@ -634,9 +640,8 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
 .ma-steps.is-error .ma-step.is-on,
 .ma-row__quick.is-error .ma-btn { box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.28); }
 .ma-row--split.is-advancing { pointer-events: none; opacity: 0.72; }
-@media (prefers-color-scheme: dark) {
-  .ma-quick__btn { border-color: transparent; }
-}
+html[data-ma-theme="dark"] .ma-quick__btn { border-color: transparent; }
+
 
 /* Forms */
 .ma-field { margin-bottom: 12px; }
@@ -1019,10 +1024,9 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
 }
 .ma-leadask__form { flex: 0 0 auto; margin: 0; }
 .ma-leadask__form .ma-btn svg { width: 16px; height: 16px; }
-@media (prefers-color-scheme: dark) {
-  .ma-flash--ok { color: #6ee7b7; }
-  .ma-flash--err { color: #fcd34d; }
-}
+html[data-ma-theme="dark"] .ma-flash--ok { color: #6ee7b7; }
+  html[data-ma-theme="dark"] .ma-flash--err { color: #fcd34d; }
+
 
 /* Bottom tab bar — flush to the screen edge. Safe-area is ONLY padding-bottom
    (no min-height add-on — that double-counted on some iOS WebKits and left a tall white shelf).
@@ -1081,13 +1085,12 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
   pointer-events: none;
   background: #ffffff;
 }
-@media (prefers-color-scheme: dark) {
-  .ma-tabbar {
+html[data-ma-theme="dark"] .ma-tabbar {
     --tabbar-fill: rgba(28, 28, 30, 0.62);
     --tabbar-fade-mid: rgba(28, 28, 30, 0.34);
   }
-  .ma-tabbar::after { background: #1c1c1e; }
-  .ma-tabbar::before {
+  html[data-ma-theme="dark"] .ma-tabbar::after { background: #1c1c1e; }
+  html[data-ma-theme="dark"] .ma-tabbar::before {
     background: linear-gradient(
       to top,
       var(--tabbar-fill) 0%,
@@ -1095,7 +1098,7 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
       rgba(28, 28, 30, 0) 100%
     );
   }
-}
+
 .ma-tabbar__inner {
   position: relative;
   z-index: 1;
@@ -1263,9 +1266,8 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
   cursor: pointer;
 }
 .ma-install-sheet { position: relative; }
-@media (prefers-color-scheme: dark) {
-  .ma-install-modal { background: rgba(0, 0, 0, 0.65); }
-}
+html[data-ma-theme="dark"] .ma-install-modal { background: rgba(0, 0, 0, 0.65); }
+
 
 /* Review tab */
 .ma-qr { display: flex; flex-direction: column; align-items: center; text-align: center; }
@@ -1510,13 +1512,12 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
   background: rgba(255, 255, 255, 0.92);
   color: var(--navy);
 }
-@media (prefers-color-scheme: dark) {
-  .ma-appt {
+html[data-ma-theme="dark"] .ma-appt {
     background:
       radial-gradient(90% 80% at 100% 0%, color-mix(in srgb, var(--acc) 28%, transparent), transparent 55%),
       linear-gradient(135deg, #020617 0%, #0f172a 60%, #020617 100%);
   }
-}
+
 
 /* Combined leads + referrals home */
 .ma-hero--dash { min-height: 220px; }
@@ -1634,9 +1635,8 @@ body.ma-photo-open .ma-tabbar{
 }
 .ma-photo-actions{display:grid;gap:8px;margin-top:4px}
 .ma-photo-actions .ma-btn{width:100%;justify-content:center}
-@media (prefers-color-scheme:dark){
-  .ma-photo-modal{background:rgba(0,0,0,.65)}
-}
+html[data-ma-theme="dark"] .ma-photo-modal {background:rgba(0,0,0,.65)}
+
 .ma-askstatus{display:flex;gap:10px;align-items:flex-start;margin:10px 0 0;padding:12px 14px;border-radius:14px;background:var(--acc-soft);color:var(--acc-ink)}
 .ma-askstatus svg{width:20px;height:20px;flex-shrink:0;margin-top:1px}
 .ma-askstatus strong{display:block;font-size:14px;font-weight:800}
@@ -1644,7 +1644,6 @@ body.ma-photo-open .ma-tabbar{
 .ma-askstatus--opened,.ma-askstatus--clicked{background:rgba(16,185,129,.12);color:#047857}
 .ma-askstatus--reminded{background:rgba(245,158,11,.15);color:#92400e}
 .ma-optional{font-weight:600;opacity:.7}
-@media (prefers-color-scheme:dark){
-.ma-askstatus--opened,.ma-askstatus--clicked{color:#6ee7b7}
-.ma-askstatus--reminded{color:#fcd34d}
-}
+html[data-ma-theme="dark"] .ma-askstatus--opened, html[data-ma-theme="dark"] .ma-askstatus--clicked {color:#6ee7b7}
+html[data-ma-theme="dark"] .ma-askstatus--reminded {color:#fcd34d}
+
