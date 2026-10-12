@@ -149,7 +149,7 @@ describe('member app install modal and tab bar', () => {
 
   it('service worker network-firsts versioned CSS so deploys are not stuck', () => {
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.486/);
+    assert.match(sw, /adhello-pwa-v1\.0\.487/);
     assert.match(sw, /searchParams\.has\('v'\)/);
     assert.match(sw, /versioned/);
   });
@@ -175,32 +175,36 @@ describe('member app install modal and tab bar', () => {
     assert.match(icons, /pending:\s*icon\(/);
   });
 
-  it('request-a-review shares saved script text only (no url/file — one unfurl)', () => {
+  it('request-a-review uses live script text; never force-adds URL or share url/files', () => {
     const js = fs.readFileSync(path.join(root, 'public/js/member-app.js'), 'utf8');
     const review = fs.readFileSync(path.join(root, 'views/member_app/review.ejs'), 'utf8');
     const route = fs.readFileSync(path.join(root, 'routes/memberApp.js'), 'utf8');
     const css = fs.readFileSync(path.join(root, 'public/css/member-app.css'), 'utf8');
     assert.match(js, /function requestReviewFromPhone/);
+    assert.match(js, /function fillLiveReviewScript/);
+    assert.match(js, /getElementById\('rvSmsScript'\)/);
     assert.match(js, /navigator\.share\(\{ title: title, text: text \}\)/);
-    assert.doesNotMatch(js, /stripReviewUrlFromShareText/);
     assert.doesNotMatch(js, /data\.url\s*=\s*payload\.url/);
     assert.doesNotMatch(js, /navigator\.share\(\{ title: title, text: text, url:/);
     assert.doesNotMatch(js, /shareWithFile/);
     assert.doesNotMatch(js, /data\.files\s*=\s*\[file\]/);
+    assert.match(js, /ONLY substituted when the placeholder is present/);
     assert.doesNotMatch(review, /image:\s*_shareImage/);
-    assert.match(review, /not added unless your script includes it/);
+    assert.match(review, /only inserted when the script includes/);
+    assert.match(review, /even before Save/);
     assert.match(review, /ma-script-link__url/);
     assert.match(review, /ma-script-save/);
     assert.match(css, /\.ma-script-link\s*\{/);
-    assert.match(css, /\.ma-script-link__url\s*\{[^}]*overflow-wrap:\s*anywhere/s);
-    assert.match(route, /Use the saved script as-is/);
+    assert.match(css, /\.ma-script-save\s*\{[^}]*margin-bottom:\s*28px/s);
+    assert.match(route, /do not force-append the review URL/);
+    assert.match(route, /scriptWantsReviewLink\(smsScript\) \? reviewUrl : ''/);
     assert.doesNotMatch(route, /shareSmsText = reviewRequestScript\.ensureReviewLink/);
     assert.match(review, /ma-qr__ask/);
     assert.match(review, /icons\.sms/);
     const icons = fs.readFileSync(path.join(root, 'services/memberAppIcons.js'), 'utf8');
     assert.match(icons, /sms:\s*icon\(/);
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.486/);
+    assert.match(sw, /adhello-pwa-v1\.0\.487/);
   });
 
   it('Review keeps round FAB; label font matches other tabs (not too high)', () => {

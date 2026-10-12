@@ -1689,10 +1689,11 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
   const reviewUrl = notify.reviewPageLink(member);
   const smsScript = reviewRequestScript.memberSmsScript(member);
   // Use the saved script as-is — do not force-append the review URL.
+  // fillPlaceholders only substitutes {{review_link}} when that placeholder exists.
   const shareSmsText = reviewRequestScript.fillPlaceholders(smsScript, {
     name: defaults.name || 'there',
     company: member.companyName,
-    reviewLink: reviewUrl,
+    reviewLink: reviewRequestScript.scriptWantsReviewLink(smsScript) ? reviewUrl : '',
   });
   const ghlWorkflowPrompt = reviewRequestScript.buildGhlReviewWorkflowPrompt({
     companyName: member.companyName,

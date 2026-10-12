@@ -629,20 +629,68 @@
   });
 
   /**
+   * Fill {{name}} / {{company}} / {{review_link}} in the live SMS script.
+   * review_link is ONLY substituted when the placeholder is present — never appended.
+   */
+  function fillLiveReviewScript(script, opts) {
+    var name = String((opts && opts.name) || 'there').trim() || 'there';
+    var company = String((opts && opts.company) || 'us').trim() || 'us';
+    var link = String((opts && opts.url) || '').trim();
+    var out = String(script || '');
+    out = out
+      .replace(/\{\{\s*name\s*\}\}/gi, name)
+      .replace(/\{\{\s*first_name\s*\}\}/gi, name)
+      .replace(/\{\{\s*company\s*\}\}/gi, company)
+      .replace(/\{\{\s*business_name\s*\}\}/gi, company);
+    if (/\{\{\s*(review_link|review_url|link)\s*\}\}/i.test(out) && link) {
+      out = out
+        .replace(/\{\{\s*review_link\s*\}\}/gi, link)
+        .replace(/\{\{\s*review_url\s*\}\}/gi, link)
+        .replace(/\{\{\s*link\s*\}\}/gi, link);
+    }
+    return out.replace(/[ \t]+/g, ' ').trim();
+  }
+
+  function scriptWantsReviewLink(script) {
+    var s = String(script || '');
+    if (/\{\{\s*(review_link|review_url|link)\s*\}\}/i.test(s)) return true;
+    return /https?:\/\/\S+/i.test(s);
+  }
+
+  /**
    * Request a review from this phone.
-   * Text-only share of the saved script (URL at most once inside the text).
-   * Do NOT pass `url` or `files` — on iOS those become a second link-preview
-   * "image" attachment on top of the unfurl from the URL in the body.
+   * Uses the live SMS script textarea when present (so removing {{review_link}}
+   * takes effect immediately). Never force-appends the URL. Never passes `url`
+   * or `files` to Web Share (iOS turns those into a second preview image).
    */
   function requestReviewFromPhone(btn) {
     var payload = readRequestReviewPayload(btn);
     if (!payload) return;
     var title = payload.title || 'Leave a review';
-    var text = String(payload.text || '').trim();
+    var company = payload.company || '';
+    var reviewUrl = String(payload.url || '').trim();
+    var scriptEl = document.getElementById('rvSmsScript');
+    var liveScript = scriptEl ? String(scriptEl.value || '').trim() : '';
+    var text = '';
+
+    if (liveScript) {
+      text = fillLiveReviewScript(liveScript, {
+        name: 'there',
+        company: company,
+        url: reviewUrl,
+      });
+    } else {
+      text = String(payload.text || '').trim();
+      // If the baked payload still has a link but the saved script did not ask
+      // for one, strip review URLs so we never re-add them.
+      if (text && reviewUrl && payload.script && !scriptWantsReviewLink(payload.script)) {
+        text = text.split(reviewUrl).join(' ').replace(/[ \t]+/g, ' ').replace(/[\s:]+$/g, '').trim();
+      }
+    }
+
     if (!text) {
-      // Only fall back to title + URL when the saved script produced no text.
-      if (!payload.url) return;
-      text = title + ': ' + payload.url;
+      // Empty script — share a short note with NO forced URL.
+      text = title;
     }
 
     var originalHtml = btn.innerHTML;
@@ -662,6 +710,7 @@
     }
 
     if (navigator.share) {
+      // text only — never url/files (avoids iMessage double preview image).
       navigator.share({ title: title, text: text }).then(restore).catch(function (err) {
         if (err && err.name === 'AbortError') {
           restore();
