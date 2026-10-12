@@ -371,7 +371,14 @@ summary.ma-settings-row:active {
   overflow-wrap: anywhere;
   word-break: break-all;
 }
-.ma-script-save { margin-top: 4px; flex-shrink: 0; }
+.ma-script-save {
+  margin-top: 4px;
+  margin-bottom: 28px; /* clear raised Review FAB when the fold is open */
+  flex-shrink: 0;
+}
+.ma-fold[open] > .ma-fold__body {
+  padding-bottom: 28px;
+}
 .ma-fold--inset {
   margin-top: 4px;
   background: color-mix(in srgb, var(--muted) 8%, transparent);

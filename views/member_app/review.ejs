@@ -24,11 +24,13 @@
       <%
         const _shareText = typeof shareSmsText !== 'undefined' && shareSmsText
           ? shareSmsText
-          : ('Hi — thanks for choosing ' + (member.companyName || 'us') + '! Leave a quick review: ' + reviewUrl);
+          : ('Hi — thanks for choosing ' + (member.companyName || 'us') + '! Leave a quick review.');
         const _sharePayload = {
           url: reviewUrl,
           title: 'Leave ' + (member.companyName || 'us') + ' a review',
           text: _shareText,
+          company: member.companyName || 'us',
+          script: _script,
         };
       %>
       <script type="application/json" id="maRequestReviewPayload"><%- JSON.stringify(_sharePayload).replace(/</g, '\\u003c') %></script>
@@ -42,7 +44,7 @@
       >
         <%- icons.sms %> Request a review
       </button>
-      <p class="ma-hint ma-qr__ask-hint">Opens Messages with your review link</p>
+      <p class="ma-hint ma-qr__ask-hint">Uses your SMS script as written (link only if the script includes it)</p>
       <img src="<%= reviewPath %>/qr.png" alt="QR code for your review page" width="220" height="220" style="margin-top:14px">
       <div class="ma-link-box">
         <code id="rvLink"><%= reviewUrl %></code>
@@ -176,13 +178,13 @@
       <summary>SMS script <span class="ma-fold__hint">AI starting text</span></summary>
       <div class="ma-fold__body">
         <form method="post" action="<%= base %>/review/script" class="ma-card ma-card--flush" autocomplete="off">
-          <p class="ma-hint" style="margin-top:0">Saved text is sent as-is. Optional placeholders: <code>{{name}}</code>, <code>{{company}}</code>, <code>{{review_link}}</code>.</p>
+          <p class="ma-hint" style="margin-top:0">Request a review uses this text as-is (even before Save). Optional: <code>{{name}}</code>, <code>{{company}}</code>, <code>{{review_link}}</code>.</p>
           <div class="ma-field">
             <label class="ma-label" for="rvSmsScript">Review request text</label>
             <textarea id="rvSmsScript" name="smsScript" class="ma-textarea" rows="4" maxlength="800" required><%= _script %></textarea>
           </div>
           <div class="ma-script-link">
-            <p class="ma-hint" style="margin:0">Review link for <code>{{review_link}}</code> (not added unless your script includes it):</p>
+            <p class="ma-hint" style="margin:0">Your review link (only inserted when the script includes <code>{{review_link}}</code>):</p>
             <code class="ma-script-link__url"><%= typeof reviewUrl !== 'undefined' ? reviewUrl : '' %></code>
           </div>
           <button type="submit" class="ma-btn ma-btn--soft ma-btn--block ma-script-save">Save script</button>
