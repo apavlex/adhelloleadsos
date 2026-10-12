@@ -340,6 +340,31 @@ summary.ma-settings-row:active {
   text-align: right;
 }
 .ma-fold__body { padding: 0 12px 14px; }
+/* SMS script: keep link hint fully above Save (no overlap / clipped URL). */
+.ma-fold__body form.ma-card--flush {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: visible;
+}
+.ma-fold__body form.ma-card--flush .ma-field { margin-bottom: 0; }
+.ma-script-link {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 2px;
+  margin: 0;
+}
+.ma-script-link__url {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+.ma-script-save { margin-top: 4px; flex-shrink: 0; }
 .ma-fold--inset {
   margin-top: 4px;
   background: color-mix(in srgb, var(--muted) 8%, transparent);
