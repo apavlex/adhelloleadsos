@@ -621,17 +621,20 @@
   });
 
   /**
-   * Request a review from this phone: share the SMS text only (URL already in
-   * the body). Do not pass a separate `url` or file — iMessage turns `url`
-   * into a rich preview AND often attaches the same og:image again.
+   * Request a review from this phone: share the saved SMS text exactly.
+   * Do not re-append the review URL, and do not pass a separate `url` or file —
+   * iMessage turns those into a second preview / second link.
    */
   function requestReviewFromPhone(btn) {
     var payload = readRequestReviewPayload(btn);
-    if (!payload || !payload.url) return;
+    if (!payload) return;
     var title = payload.title || 'Leave a review';
     var text = String(payload.text || '').trim();
-    if (!text) text = title + ': ' + payload.url;
-    if (text.indexOf(payload.url) === -1) text = text.replace(/\s*$/, '') + '\n' + payload.url;
+    if (!text) {
+      // Only fall back to title + URL when the saved script produced no text.
+      if (!payload.url) return;
+      text = title + ': ' + payload.url;
+    }
 
     var originalHtml = btn.innerHTML;
     btn.disabled = true;
@@ -650,7 +653,7 @@
     }
 
     if (navigator.share) {
-      // text-only: one unfurl from the link in the body (not url+attachment).
+      // text-only: at most one unfurl from a link already in the saved script.
       navigator.share({ title: title, text: text }).then(restore).catch(function (err) {
         if (err && err.name === 'AbortError') {
           restore();
