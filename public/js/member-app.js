@@ -630,28 +630,10 @@
 
   /**
    * Request a review from this phone.
-   * iMessage "correct" look: friendly text (no raw URL) + one rich OG preview.
-   * - Web Share: strip the review URL from text, pass `url` so Messages unfurls once.
-   * - SMS fallback: keep the URL in the body (sms: has no separate url field).
+   * Text-only share of the saved script (URL at most once inside the text).
+   * Do NOT pass `url` or `files` — on iOS those become a second link-preview
+   * "image" attachment on top of the unfurl from the URL in the body.
    */
-  function stripReviewUrlFromShareText(text, url) {
-    var out = String(text || '');
-    var link = String(url || '').trim();
-    if (link) {
-      out = out.split(link).join(' ');
-      try {
-        var path = new URL(link).pathname;
-        if (path && path.length > 4) {
-          out = out.split(path).join(' ');
-        }
-      } catch (e) { /* ignore */ }
-    }
-    out = out.replace(/https?:\/\/\S*\/rv\/\S+/gi, ' ');
-    out = out.replace(/[ \t]+/g, ' ').replace(/\s+([,;.!])/g, '$1');
-    out = out.replace(/[\s:\-–—]+$/g, '').trim();
-    return out;
-  }
-
   function requestReviewFromPhone(btn) {
     var payload = readRequestReviewPayload(btn);
     if (!payload) return;
@@ -662,8 +644,6 @@
       if (!payload.url) return;
       text = title + ': ' + payload.url;
     }
-    var smsText = text;
-    var shareText = stripReviewUrlFromShareText(text, payload.url) || title;
 
     var originalHtml = btn.innerHTML;
     btn.disabled = true;
@@ -675,16 +655,14 @@
 
     function openSms() {
       var href = isIOS
-        ? 'sms:&body=' + encodeURIComponent(smsText)
-        : 'sms:?body=' + encodeURIComponent(smsText);
+        ? 'sms:&body=' + encodeURIComponent(text)
+        : 'sms:?body=' + encodeURIComponent(text);
       window.location.href = href;
       restore();
     }
 
     if (navigator.share) {
-      var data = { title: title, text: shareText };
-      if (payload.url) data.url = payload.url;
-      navigator.share(data).then(restore).catch(function (err) {
+      navigator.share({ title: title, text: text }).then(restore).catch(function (err) {
         if (err && err.name === 'AbortError') {
           restore();
           return;

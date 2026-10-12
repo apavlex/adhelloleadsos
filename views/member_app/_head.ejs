@@ -51,9 +51,10 @@ summary.ma-settings-row::-webkit-details-marker,summary.ma-settings-row::marker{
 .ma-tab svg{width:24px;height:24px;display:block}
 .ma-tab__label{display:block;font-family:inherit;font-size:10px;font-weight:600;letter-spacing:.01em;line-height:1.1;white-space:nowrap}
 .ma-tab__slot{display:block;width:24px;height:24px;flex:0 0 24px}
-.ma-tab--fab .ma-tab__fab{position:absolute;left:50%;bottom:calc(4px + 1.1em + 1px + 12px);transform:translate(-50%,-50%);width:52px;height:52px;border-radius:999px;background:var(--acc);color:var(--on);display:inline-flex;align-items:center;justify-content:center;z-index:2;pointer-events:none}
+.ma-tab--fab .ma-tab__slot{display:none}
+.ma-tab--fab .ma-tab__fab{width:52px;height:52px;border-radius:999px;background:var(--acc);color:var(--on);display:inline-flex;align-items:center;justify-content:center;margin-top:-26px;margin-bottom:1px;position:relative;z-index:2;flex:0 0 52px}
 .ma-tab--fab .ma-tab__label{position:relative;z-index:3}
-.ma-shell{padding-bottom:calc(50px + 28px + 100px + env(safe-area-inset-bottom,0px))!important;scroll-padding-bottom:calc(50px + 28px + 100px + env(safe-area-inset-bottom,0px))!important}
+.ma-shell{padding-bottom:calc(50px + 26px + 72px + env(safe-area-inset-bottom,0px))!important;scroll-padding-bottom:calc(50px + 26px + 72px + env(safe-area-inset-bottom,0px))!important}
 .ma-fold__body form.ma-card--flush{display:flex;flex-direction:column;gap:12px;overflow:visible}
 .ma-script-link{display:flex;flex-direction:column;gap:6px}
 .ma-script-link__url{display:block;font-size:12px;line-height:1.35;overflow-wrap:anywhere;word-break:break-all}
