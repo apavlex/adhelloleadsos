@@ -248,6 +248,81 @@ summary.ma-settings-row:active {
 .ma-top__back svg { width: 24px; height: 24px; flex-shrink: 0; }
 .ma-top__back span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* Lead / referral notification bell (member app — not the workspace CRM bell) */
+.ma-bell { position: relative; flex-shrink: 0; }
+.ma-bell__btn { position: relative; }
+.ma-bell__ping {
+  position: absolute; top: 10px; right: 10px; width: 8px; height: 8px;
+  border-radius: 999px; background: #ef4444; box-shadow: 0 0 0 2px var(--card);
+  pointer-events: none;
+}
+.ma-bell__ping:not([hidden]) { animation: ma-bell-pulse 1.4s ease-in-out infinite; }
+@keyframes ma-bell-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.25); opacity: 0.75; }
+}
+.ma-bell__panel {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 60;
+  width: min(320px, calc(100vw - 24px));
+  background: var(--card); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 18px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+  overflow: hidden;
+}
+.ma-bell__head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 14px 16px; border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--acc) 8%, var(--card));
+}
+.ma-bell__head h2 {
+  margin: 0; font-size: 11px; font-weight: 800; letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.ma-bell__close {
+  border: 0; background: transparent; color: var(--muted); font-size: 16px;
+  width: 32px; height: 32px; border-radius: 999px; cursor: pointer;
+}
+.ma-bell__list { max-height: 280px; overflow-y: auto; }
+.ma-bell__empty {
+  margin: 0; padding: 28px 16px; text-align: center;
+  color: var(--muted); font-size: 12px; font-style: italic;
+}
+.ma-bell__item {
+  display: block; padding: 12px 16px; text-decoration: none; color: inherit;
+  border-bottom: 1px solid var(--line);
+}
+.ma-bell__item:active { background: var(--acc-soft); }
+.ma-bell__item.is-unread { background: color-mix(in srgb, var(--acc) 10%, var(--card)); }
+.ma-bell__item strong { display: block; font-size: 13px; font-weight: 800; line-height: 1.25; }
+.ma-bell__item span { display: block; margin-top: 3px; font-size: 12px; color: var(--muted); line-height: 1.35; }
+.ma-bell__item small {
+  display: block; margin-top: 6px; font-size: 10px; font-weight: 800;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--acc);
+}
+.ma-bell__push { padding: 12px 16px; border-top: 1px solid var(--line); }
+.ma-bell__push-btn {
+  width: 100%; min-height: 44px; border-radius: 12px; cursor: pointer;
+  border: 2px solid color-mix(in srgb, var(--acc) 55%, #38bdf8);
+  background: var(--card); color: var(--ink);
+  font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;
+}
+.ma-bell__push-btn:disabled { opacity: 0.6; cursor: default; }
+.ma-bell__push-status {
+  margin: 8px 0 0; text-align: center; font-size: 11px; line-height: 1.4; color: var(--muted);
+}
+.ma-bell__push-off {
+  display: block; width: 100%; margin-top: 6px; border: 0; background: transparent;
+  color: var(--muted); font-size: 11px; font-weight: 700; text-decoration: underline;
+  cursor: pointer; padding: 6px;
+}
+.ma-bell__foot {
+  padding: 12px 16px; border-top: 1px solid var(--line); text-align: center;
+}
+.ma-bell__foot a {
+  font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--acc); text-decoration: none;
+}
+
 .ma-hello { margin: 10px 0 16px; }
 /* iOS large title */
 .ma-hello h1 { font-size: 34px; font-weight: 700; margin: 0; line-height: 1.12; letter-spacing: -0.025em; }

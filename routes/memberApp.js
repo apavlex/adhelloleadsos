@@ -35,6 +35,7 @@ const reviewRequestScript = require('../services/reviewRequestScript');
 const reviewShareImage = require('../services/reviewShareImage');
 const reviewAsk = require('../services/reviewAsk');
 const memberLeadRequests = require('../services/memberLeadRequests');
+const memberActivity = require('../services/memberActivity');
 const freeAppSignup = require('../services/freeAppSignup');
 const jobMedia = require('../services/memberJobMedia');
 const contractorPortal = require('../services/contractorPortal');
@@ -2135,6 +2136,32 @@ router.post('/m/:token/review/send', withReviewUpload('shareImage'), withMember(
   }
   const ok = result.channel === 'email' ? 'review_email' : 'review_sms';
   return res.redirect(303, `${ctx.base}/review?ok=${ok}`);
+}));
+
+// ── In-app lead activity bell (member PWA) ───────────────────────────────────
+
+router.get('/m/:token/activity.json', withMember((req, res, ctx) => {
+  noStore(res);
+  const items = memberActivity.list(ctx.network.id, ctx.member.id).slice(0, 40);
+  return res.json({
+    success: true,
+    unread: memberActivity.unreadCount(ctx.network.id, ctx.member.id),
+    items,
+    pushAvailable: !!(ctx.appointment && ctx.appointment.packageId),
+  });
+}));
+
+router.post('/m/:token/activity/read', express.json(), withMember((req, res, ctx) => {
+  noStore(res);
+  const ids = req.body && req.body.ids;
+  const result = ids == null || ids === 'all'
+    ? memberActivity.markAllRead(ctx.network.id, ctx.member.id)
+    : memberActivity.markRead(ctx.network.id, ctx.member.id, ids);
+  return res.json({
+    success: true,
+    updated: result.updated,
+    unread: memberActivity.unreadCount(ctx.network.id, ctx.member.id),
+  });
 }));
 
 // ── Website / agency leads (actions live here; UI is on Leads & Referrals) ───

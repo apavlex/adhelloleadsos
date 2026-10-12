@@ -85,6 +85,14 @@ describe('member leads + referral notifications', () => {
     assert.match(notify, /kind:\s*'pool'/);
   });
 
+  it('records in-app bell activity for form leads and referrals', () => {
+    const notify = fs.readFileSync(path.join(root, 'services/networkNotify.js'), 'utf8');
+    assert.match(notify, /recordMemberActivity/);
+    assert.match(notify, /New referral/);
+    assert.match(notify, /Open referral in the pool/);
+    assert.match(notify, /Your agency sent a lead|New website lead/);
+  });
+
   it('owner member app aggregates form leads when there are no referral partners', () => {
     const route = fs.readFileSync(path.join(root, 'routes/memberApp.js'), 'utf8');
     const link = fs.readFileSync(path.join(root, 'services/memberAppointmentLink.js'), 'utf8');
