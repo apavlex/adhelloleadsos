@@ -105,7 +105,7 @@ function buildSourceCards(live = {}, resolvedEnv) {
       live: null,
       tip: apify
         ? 'Used after RapidAPI, SearchAPI.io, SerpAPI, and Outscraper when earlier providers return nothing or fail. Override chain with SEARCH_MAPS_PRIMARY.'
-        : 'Set APIFY_API_TOKEN (and optionally other Maps keys) to run lead searches from Find Leads.',
+        : 'Set APIFY_API_TOKEN (and optionally other Maps keys) to run prospect searches from Find Prospects.',
     },
     {
       id: 'firecrawl',

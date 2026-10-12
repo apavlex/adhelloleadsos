@@ -67,7 +67,7 @@ async function runNightlyPrep(workspaceId, opts = {}) {
   const state = String(icp.state || '').trim();
 
   if (!keyword || !city || !state) {
-    const msg = 'ICP incomplete — set keyword, city, and state (Workspace / Find leads preset).';
+    const msg = 'ICP incomplete — set keyword, city, and state (Workspace / Find prospects preset).';
     await patchNightlyPrepMeta(wid, {
       lastRunAt: new Date().toISOString(),
       lastStatus: 'skipped',

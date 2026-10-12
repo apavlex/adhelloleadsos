@@ -8,20 +8,20 @@ const DEFAULT_SEND_HOUR = 9;
 
 const ACTIVATION_EVENTS = [
   { key: '', label: 'Manual — teammate clicks Mark done' },
-  { key: 'search_saved', label: 'Runs a lead search' },
+  { key: 'search_saved', label: 'Runs a prospect search' },
   { key: 'csv_import', label: 'Imports a CSV' },
-  { key: 'manual_lead_added', label: 'Adds a lead manually' },
-  { key: 'autopilot_scheduled', label: 'Schedules a lead run' },
+  { key: 'manual_lead_added', label: 'Adds a prospect manually' },
+  { key: 'autopilot_scheduled', label: 'Schedules a prospect run' },
   { key: 'sequence_started', label: 'Starts a cadence' },
   { key: 'outreach_logged', label: 'Logs outreach' },
-  { key: 'pipeline_advanced', label: 'Moves a lead forward in the pipeline' },
+  { key: 'pipeline_advanced', label: 'Moves a prospect forward in the pipeline' },
   { key: 'analytics_visit', label: 'Opens reports' },
 ];
 const EVENT_KEYS = new Set(ACTIVATION_EVENTS.map((e) => e.key));
 
 const SUGGESTED_LINKS = [
   { href: '/today', label: 'Today' },
-  { href: '/', label: 'Find leads (search)' },
+  { href: '/', label: 'Find prospects (search)' },
   { href: '/prospecting?tab=pipeline', label: 'Pipeline' },
   { href: '/prospecting?tab=queue', label: 'Working queue' },
   { href: '/sequences', label: 'Cadences' },
@@ -50,7 +50,7 @@ const DEFAULT_INVITE = {
   subject: "You're invited to {{workspace_name}} on Agency OS",
   body:
     'Hi {{first_name}},\n\n' +
-    "{{inviter_name}} added you to the {{workspace_name}} workspace — it's where we find leads, run outreach, and track every deal.\n\n" +
+    "{{inviter_name}} added you to the {{workspace_name}} workspace — it's where we find prospects, run outreach, and track every deal.\n\n" +
     'Accept your invite and sign in with Google using this email address:\n{{invite_link}}\n\n' +
     "The link expires in 14 days. Once you're in, you'll get one short email a day for {{total_days}} days showing exactly what to do next." +
     SIGN_OFF,
@@ -60,10 +60,10 @@ const DEFAULT_STEPS = [
   {
     id: 'd1',
     title: 'First search',
-    hint: 'Run a Maps + Apify lead pull',
+    hint: 'Run a Maps + Apify prospect pull',
     href: '/',
     event: 'search_saved',
-    subject: 'Day 1: Run your first lead search',
+    subject: 'Day 1: Run your first prospect search',
     body:
       "Hi {{first_name}},\n\nWelcome aboard! Today's one habit: {{step_title}}.\n\n" +
       'Pick a service and a city, then run a search. In a few minutes you will have a list of real businesses to work — with phones, websites, and review data.\n\n' +
@@ -73,10 +73,10 @@ const DEFAULT_STEPS = [
   {
     id: 'd2',
     title: 'Import CSV',
-    hint: 'Drop enriched or exported leads',
+    hint: 'Drop enriched or exported prospects',
     href: '/prospecting?tab=pipeline',
     event: 'csv_import',
-    subject: 'Day 2: Bring in the leads you already have',
+    subject: 'Day 2: Bring in the prospects you already have',
     body:
       "Hi {{first_name}},\n\nToday's habit: {{step_title}}.\n\n" +
       'Got a spreadsheet of past customers, trade-show contacts, or an export from another tool? Drop the CSV in and it lands in the pipeline next to your search results.\n\n' +
@@ -85,11 +85,11 @@ const DEFAULT_STEPS = [
   },
   {
     id: 'd3',
-    title: 'Schedule lead runs',
+    title: 'Schedule prospect runs',
     hint: 'Daily / weekly scrape while you sleep',
     href: '/prospecting?tab=queue',
     event: 'autopilot_scheduled',
-    subject: 'Day 3: Let fresh leads show up on their own',
+    subject: 'Day 3: Let fresh prospects show up on their own',
     body:
       "Hi {{first_name}},\n\nToday's habit: {{step_title}}.\n\n" +
       'Turn a search you like into a daily or weekly run. New businesses appear in your queue automatically, so you never start the day with an empty list.\n\n' +
@@ -105,7 +105,7 @@ const DEFAULT_STEPS = [
     subject: 'Day 4: Put follow-up on autopilot',
     body:
       "Hi {{first_name}},\n\nToday's habit: {{step_title}}.\n\n" +
-      'Most deals close on the 5th touch or later. Start a cadence on one lead and the app schedules every call, text, and email for you.\n\n' +
+      'Most deals close on the 5th touch or later. Start a cadence on one prospect and the app schedules every call, text, and email for you.\n\n' +
       'Start one: {{step_link}}' +
       SIGN_OFF,
   },
@@ -118,7 +118,7 @@ const DEFAULT_STEPS = [
     subject: 'Day 5: Log your outreach and start a streak',
     body:
       "Hi {{first_name}},\n\nToday's habit: {{step_title}}.\n\n" +
-      'Call or message a few leads from your queue and log each touch. Your daily streak builds momentum — and the whole team can see who was contacted.\n\n' +
+      'Call or message a few prospects from your queue and log each touch. Your daily streak builds momentum — and the whole team can see who was contacted.\n\n' +
       'Open your queue: {{step_link}}' +
       SIGN_OFF,
   },
@@ -131,7 +131,7 @@ const DEFAULT_STEPS = [
     subject: 'Day 6: Move a deal forward',
     body:
       "Hi {{first_name}},\n\nToday's habit: {{step_title}}.\n\n" +
-      'Take one lead you have talked to and move it to the next stage. Keeping the board current is how everyone knows what is closing this week.\n\n' +
+      'Take one prospect you have talked to and move it to the next stage. Keeping the board current is how everyone knows what is closing this week.\n\n' +
       'Open the pipeline: {{step_link}}' +
       SIGN_OFF,
   },
@@ -144,7 +144,7 @@ const DEFAULT_STEPS = [
     subject: 'Day 7: See what your week added up to',
     body:
       "Hi {{first_name}},\n\nLast one! Today's habit: {{step_title}}.\n\n" +
-      'Open reports to see the leads, touches, and pipeline movement from your first week. Keep these daily habits going and the numbers compound.\n\n' +
+      'Open reports to see the prospects, touches, and pipeline movement from your first week. Keep these daily habits going and the numbers compound.\n\n' +
       'View reports: {{step_link}}' +
       SIGN_OFF,
   },

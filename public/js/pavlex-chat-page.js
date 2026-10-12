@@ -11,7 +11,7 @@
 
   var TOOL_LABELS = {
     search_leads: 'Searched leads',
-    find_leads: 'Started a lead search',
+    find_leads: 'Started a prospect search',
     get_search_status: 'Checked search progress',
     list_leads: 'Listed leads',
     get_lead: 'Opened a lead',
@@ -812,7 +812,7 @@
         clearTimeout(timer);
         fail(
           timedOut
-            ? 'Alex took longer than 90 seconds. Big jobs (like lead searches) may still finish in the background — check the chat list in a minute, or retry.'
+            ? 'Alex took longer than 90 seconds. Big jobs (like prospect searches) may still finish in the background — check the chat list in a minute, or retry.'
             : 'Connection error. Check your internet and try again.',
         );
       });

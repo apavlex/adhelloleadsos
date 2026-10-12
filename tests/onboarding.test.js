@@ -140,7 +140,7 @@ test('invite email, Day 1 on join, and the daily drip go through the workspace G
     baseUrl: 'https://app.example',
   });
   assert.equal(enr.nextIndex, 1);
-  assert.equal(sent[1].subject, 'Day 1: Run your first lead search');
+  assert.equal(sent[1].subject, 'Day 1: Run your first prospect search');
   assert.match(sent[1].message, /^Hi Isabelle,/);
   assert.match(sent[1].message, /https:\/\/app\.example\//);
 
@@ -153,7 +153,7 @@ test('invite email, Day 1 on join, and the daily drip go through the workspace G
   const nextMorning = DateTime.now().setZone(TZ).plus({ days: 1 }).set({ hour: 9, minute: 5 }).toJSDate();
   await onboardingDrip.runOnboardingDrips(nextMorning);
   assert.equal(sent.length, 3);
-  assert.equal(sent[2].subject, 'Day 2: Bring in the leads you already have');
+  assert.equal(sent[2].subject, 'Day 2: Bring in the prospects you already have');
   assert.equal(sent[2].contactId, 'c_2');
 
   await onboardingDrip.stopMember(wid, 'new@floors.example');

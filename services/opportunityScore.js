@@ -338,7 +338,7 @@ function getLeadsCoachPayload(leads) {
       hotLeads: [],
       stats: { high: 0, medium: 0, low: 0, total: 0 },
       nextActions: [
-        { label: 'Run a lead search', href: '/', priority: 'high' },
+        { label: 'Run a prospect search', href: '/', priority: 'high' },
         { label: 'Import CSV', href: '/prospecting?tab=pipeline', priority: 'normal' },
       ],
       aiTimeSavers: defaultAiTimeSaversLeads(),

@@ -189,7 +189,7 @@ function takeCall(ws, kind, now = Date.now()) {
 }
 
 function limitError(kind) {
-  const what = kind === 'ai' ? 'AI' : 'lead search and enrichment';
+  const what = kind === 'ai' ? 'AI' : 'prospect search and enrichment';
   const err = new Error(
     `Your free trial's daily ${what} limit is used up. It resets tomorrow — or contact us to upgrade.`,
   );

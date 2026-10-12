@@ -445,7 +445,7 @@ const LEAD_GEN_TOOL_SCHEMAS = [
   {
     name: 'find_leads',
     description:
-      'Run a NEW Google Maps lead search (same as Find leads / folder Run search) and save results as leads into a lead folder. ' +
+      'Run a NEW Google Maps prospect search (same as Find prospects / folder Run search) and save results as prospects into a folder. ' +
       'Use for "find N <trade> in <city>", prospecting, and referral partners (search each partner trade). ' +
       'Runs in the background and returns immediately with a search_id (status running or queued); leads appear in a few minutes, duplicates merge. ' +
       'Target folder: folder_id, or folder_name (created if missing), default = a folder named after the query. ' +

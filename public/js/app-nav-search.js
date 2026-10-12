@@ -243,7 +243,7 @@
       input.setAttribute('enterkeyhint', aiMode ? 'send' : 'search');
       input.setAttribute('aria-autocomplete', aiMode ? 'none' : 'list');
       if (aiToggle) {
-        var toggleLabel = aiMode ? 'Back to lead search' : 'Ask Alex (AI)';
+        var toggleLabel = aiMode ? 'Back to prospect search' : 'Ask Alex (AI)';
         aiToggle.setAttribute('aria-pressed', aiMode ? 'true' : 'false');
         aiToggle.setAttribute('title', toggleLabel);
         aiToggle.setAttribute('aria-label', toggleLabel);
