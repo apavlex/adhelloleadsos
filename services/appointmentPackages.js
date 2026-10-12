@@ -641,6 +641,7 @@ async function attachFormLead(workspaceId, formLead, match = {}) {
       const push = require('./pushNotifications');
       const { createContractorPortalToken } = require('./contractorPortalSign');
       const portalToken = createContractorPortalToken({ workspaceId, packageId: pkg.id });
+      // Deep-link into Leads & Referrals (legacy /leads redirects there).
       let notifyUrl = `/p/${encodeURIComponent(portalToken)}/leads`;
 
       // Prefer the partner app (/m) when a network member is linked to this package.
@@ -656,7 +657,7 @@ async function attachFormLead(workspaceId, formLead, match = {}) {
           const { getPublicBaseUrl } = require('../lib/publicBaseUrl');
           const baseUrl = getPublicBaseUrl();
           const memberUrl = networkNotify.memberPortalLink(baseUrl, linkedNetwork, linkedMember);
-          notifyUrl = `${memberUrl}/leads`;
+          notifyUrl = `${memberUrl}/referrals`;
           networkNotify.notifyMemberFormLead({
             network: linkedNetwork,
             member: linkedMember,

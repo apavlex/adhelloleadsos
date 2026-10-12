@@ -1,0 +1,106 @@
+/**
+ * Website/agency form leads land on Leads & Referrals; phone push + SMS deep-link there.
+ * Network referrals also fire home-screen push when the partner has alerts on.
+ */
+const { describe, it, beforeEach, mock } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const webpush = require('web-push');
+
+const root = path.join(__dirname, '..');
+
+describe('member leads + referral notifications', () => {
+  beforeEach(() => {
+    mock.restoreAll();
+  });
+
+  it('Leads & Referrals page renders website/agency form leads and lead alerts', () => {
+    const page = fs.readFileSync(path.join(root, 'views/member_app/referrals.ejs'), 'utf8');
+    const route = fs.readFileSync(path.join(root, 'routes/memberApp.js'), 'utf8');
+    assert.match(page, /Website &amp; agency/);
+    assert.match(page, /_formLeads\.forEach/);
+    assert.match(page, /maPushRoot/);
+    assert.match(page, /member-app-push\.js/);
+    assert.match(page, /leads\/<%= encodeURIComponent\(lead\.id\) %>\/close/);
+    assert.match(route, /formLeads,\s*\n\s*openLeadCount/);
+    assert.match(route, /appt \? \(appt\.formLeads \|\| \[\]\) : \[\]/);
+  });
+
+  it('form-lead SMS and push deep-link to /referrals (not legacy /leads alone)', () => {
+    const notify = fs.readFileSync(path.join(root, 'services/networkNotify.js'), 'utf8');
+    const pkgs = fs.readFileSync(path.join(root, 'services/appointmentPackages.js'), 'utf8');
+    assert.match(notify, /const leadsUrl = `\$\{app\}\/referrals`/);
+    assert.doesNotMatch(notify, /const leadsUrl = `\$\{app\}\/leads`/);
+    assert.match(pkgs, /notifyUrl = `\$\{memberUrl\}\/referrals`/);
+    assert.match(pkgs, /attachFormLead/);
+    assert.match(pkgs, /notifyContractorNewLead/);
+    assert.match(pkgs, /notifyMemberFormLead/);
+  });
+
+  it('pushMemberReferralAlert sends a phone popup to the linked package subscription', async () => {
+    const push = require('../services/pushNotifications');
+    const memberAppointmentLink = require('../services/memberAppointmentLink');
+    const networkNotify = require('../services/networkNotify');
+
+    push.savePortalSubscription({
+      subscription: {
+        endpoint: 'https://push.example.com/send/member-ref-1',
+        keys: { p256dh: 'p256dh-key', auth: 'auth-key' },
+      },
+      workspaceId: 'ws_ref',
+      packageId: 'pkg_ref',
+    });
+
+    mock.method(memberAppointmentLink, 'findPackageForMember', async () => ({
+      id: 'pkg_ref',
+      portalEnabled: true,
+      businessName: 'Cascade Home Pros',
+    }));
+
+    const sent = [];
+    mock.method(webpush, 'sendNotification', async (sub, body) => {
+      sent.push({ endpoint: sub.endpoint, body: JSON.parse(body) });
+    });
+
+    const result = await networkNotify.pushMemberReferralAlert({
+      network: { id: 'net1', name: 'Demo Network', ownerWorkspaceId: 'ws_ref' },
+      member: { id: 'm1', companyName: 'Cascade Home Pros' },
+      baseUrl: 'https://leads.adhello.io',
+      referral: { id: 'ref1', tradeSlug: 'handyman', homeowner: { name: 'Taylor', city: 'Vancouver' } },
+      kind: 'received',
+    });
+
+    assert.equal(result.sent, 1);
+    assert.match(sent[0].body.title, /New referral/i);
+    assert.match(sent[0].body.url, /\/referrals/);
+    assert.doesNotMatch(sent[0].body.url, /\/leads$/);
+  });
+
+  it('notifyReferralRecipient wires push alongside SMS/email', () => {
+    const notify = fs.readFileSync(path.join(root, 'services/networkNotify.js'), 'utf8');
+    assert.match(notify, /async function notifyReferralRecipient/);
+    assert.match(notify, /pushMemberReferralAlert/);
+    assert.match(notify, /kind:\s*'received'/);
+    assert.match(notify, /kind:\s*'pool'/);
+  });
+
+  it('records in-app bell activity for form leads and referrals', () => {
+    const notify = fs.readFileSync(path.join(root, 'services/networkNotify.js'), 'utf8');
+    assert.match(notify, /recordMemberActivity/);
+    assert.match(notify, /New referral/);
+    assert.match(notify, /Open referral in the pool/);
+    assert.match(notify, /Your agency sent a lead|New website lead/);
+  });
+
+  it('owner member app aggregates form leads when there are no referral partners', () => {
+    const route = fs.readFileSync(path.join(root, 'routes/memberApp.js'), 'utf8');
+    const link = fs.readFileSync(path.join(root, 'services/memberAppointmentLink.js'), 'utf8');
+    assert.match(route, /listOwnerFormLeads/);
+    assert.match(route, /networkHasReferralPartners/);
+    assert.match(route, /isOwnerMember\(ctx\.member/);
+    assert.match(link, /pickOwnerPackageFallback/);
+    assert.match(link, /OWNER_MEMBER_ID/);
+    assert.match(link, /listOwnerFormLeads/);
+  });
+});

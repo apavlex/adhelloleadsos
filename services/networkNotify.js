@@ -367,13 +367,34 @@ function homeownerSummary(referral, network) {
   return `${tradeLabel(referral.tradeSlug, network)} job for ${h.name || 'a homeowner'}${where ? ` in ${where}` : ''}`;
 }
 
+function recordMemberActivity(network, member, item) {
+  try {
+    const memberActivity = require('./memberActivity');
+    memberActivity.add(network && network.id, member && member.id, item);
+  } catch (err) {
+    console.warn('[network] member activity failed:', err && err.message);
+  }
+}
+
 async function notifyReferralRecipient({ network, referral, member, baseUrl }) {
   if (!member || !referral.toMemberId) return { ok: false, error: 'No member to notify.' };
   const link = referralLink(baseUrl, network, referral, member.id);
   const summary = homeownerSummary(referral, network);
   const sms = `${network.name}: new referral — ${summary}. Accept or decline: ${link}`;
   const email = `You have a new referral from ${network.name}.\n\n${summary}.\n\nOpen it to accept, decline, and report the outcome:\n${link}`;
-  return messageMember(network, member, { sms, subject: `New referral: ${summary}`, email });
+  const messaging = await messageMember(network, member, { sms, subject: `New referral: ${summary}`, email });
+  const app = memberPortalLink(baseUrl, network, member);
+  recordMemberActivity(network, member, {
+    kind: 'referral',
+    title: 'New referral',
+    body: summary,
+    href: `${app}/referrals`,
+  });
+  // Home-screen / phone popup when the partner turned on alerts (linked package).
+  pushMemberReferralAlert({
+    network, member, baseUrl, referral, summary, kind: 'received',
+  }).catch((err) => console.warn('[network] referral push failed:', err && err.message));
+  return messaging;
 }
 
 /**
@@ -398,19 +419,60 @@ async function notifyReferralPool({ network, referral, baseUrl }) {
       email: `A referral is waiting in the pool for ${network.name}.\n\n${summary}.\n\nClaim it in your app:\n${poolUrl}`,
     }).catch(() => ({ ok: false }));
     if (result && result.ok) sent += 1;
+    recordMemberActivity(network, member, {
+      kind: 'pool',
+      title: 'Open referral in the pool',
+      body: summary,
+      href: `${app}/referrals?view=pool`,
+    });
+    pushMemberReferralAlert({
+      network, member, baseUrl, referral, summary, kind: 'pool',
+    }).catch((err) => console.warn('[network] pool referral push failed:', err && err.message));
   }));
   return sent;
+}
+
+/**
+ * Phone/home-screen Web Push for a partner who turned on alerts in the member app.
+ * Scoped to their linked appointment package (same subscription as website-lead alerts).
+ */
+async function pushMemberReferralAlert({ network, member, baseUrl, referral, summary, kind } = {}) {
+  const workspaceId = network && network.ownerWorkspaceId;
+  if (!workspaceId || !member) return { sent: 0 };
+  const memberAppointmentLink = require('./memberAppointmentLink');
+  const pkg = await memberAppointmentLink.findPackageForMember(workspaceId, member);
+  if (!pkg || pkg.portalEnabled === false) return { sent: 0 };
+  const push = require('./pushNotifications');
+  const app = memberPortalLink(baseUrl, network, member);
+  const url = kind === 'pool' ? `${app}/referrals?view=pool` : `${app}/referrals`;
+  const title = kind === 'pool' ? 'Open referral in the pool' : 'New referral';
+  const body = String(summary || homeownerSummary(referral, network) || 'Open your app').slice(0, 200);
+  return push.sendPortalPush(
+    { packageId: pkg.id, workspaceId },
+    {
+      title,
+      body,
+      url,
+      tag: `member-ref-${kind}-${(referral && referral.id) || Date.now()}`,
+    },
+  );
 }
 
 /** SMS/email a linked network partner when a website or agency lead hits their package. */
 async function notifyMemberFormLead({ network, member, baseUrl, leadName, formName, source, preview }) {
   if (!network || !member) return { ok: false, error: 'No member.' };
   const app = memberPortalLink(baseUrl, network, member);
-  const leadsUrl = `${app}/leads`;
+  const leadsUrl = `${app}/referrals`;
   const who = String(leadName || 'New lead').trim().slice(0, 80);
   const kind = source === 'agency' ? 'Your agency sent a lead' : 'New website lead';
   const detail = [formName, preview].filter(Boolean).join(' — ').slice(0, 160);
   const sms = `${brandView(network).appName}: ${kind} — ${who}${detail ? ` (${detail})` : ''}. Open: ${leadsUrl}`;
+  recordMemberActivity(network, member, {
+    kind: source === 'agency' ? 'agency' : 'form',
+    title: kind,
+    body: detail ? `${who} · ${detail}` : who,
+    href: leadsUrl,
+  });
   return messageMember(network, member, {
     sms,
     subject: `${kind}: ${who}`,
@@ -578,6 +640,7 @@ module.exports = {
   memberPortalShortLink,
   notifyReferralRecipient,
   notifyReferralPool,
+  pushMemberReferralAlert,
   notifyMemberFormLead,
   sendMemberPortalLink,
   sendReviewRequest,
