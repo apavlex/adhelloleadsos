@@ -232,16 +232,22 @@
       .catch(function () { renderPush('off'); });
   }
 
+  var ignoreOutsideUntil = 0;
+
   if (openBtn) {
     openBtn.addEventListener('click', function (e) {
       e.preventDefault();
       e.stopPropagation();
-      setOpen(panel && panel.hidden);
+      var willOpen = !!(panel && panel.hidden);
+      // Avoid the same gesture closing the panel via the document listener.
+      if (willOpen) ignoreOutsideUntil = Date.now() + 400;
+      setOpen(willOpen);
     });
   }
   if (closeBtn) closeBtn.addEventListener('click', function () { setOpen(false); });
   document.addEventListener('click', function (e) {
     if (!panel || panel.hidden) return;
+    if (Date.now() < ignoreOutsideUntil) return;
     if (root.contains(e.target)) return;
     setOpen(false);
   });
