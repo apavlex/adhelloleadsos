@@ -70,12 +70,16 @@ test('demo workspace seeds leads, territories, referrals, cadences and blocks re
   assert.ok(first.memberApp.ownerSentRefs >= 1);
 
   const hero = await store.getBrandImage(network.id, 'hero');
-  assert.ok(hero && hero.buffer && hero.buffer.length > 500, 'network hero banner seeded');
+  assert.ok(hero && hero.buffer && hero.buffer.length > 20000, 'network hero uses photo asset');
   const logo = await store.getBrandImage(network.id, 'logo');
-  assert.ok(logo && logo.buffer && logo.buffer.length > 200, 'network logo seeded');
+  assert.ok(logo && logo.buffer && logo.buffer.length > 5000, 'network logo seeded');
   const reviewStats = await store.getReviewStats(network.id, OWNER_MEMBER_ID);
   assert.ok(reviewStats.views >= 50, 'demo review page has visits');
   assert.ok(network.brand && network.brand.statValue >= 50);
+  const fs = require('fs');
+  const path = require('path');
+  assert.ok(fs.existsSync(path.join(__dirname, '../assets/demo/demo-hero-home.jpg')));
+  assert.ok(fs.existsSync(path.join(__dirname, '../assets/demo/demo-job-kitchen.jpg')));
 
   const env = await workspaceIntegrations.getResolvedIntegrationEnv(first.workspaceId);
   assert.equal(env.DEMO_WORKSPACE, '1');

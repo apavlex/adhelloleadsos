@@ -10,6 +10,8 @@
  */
 
 const { randomUUID } = require('crypto');
+const fs = require('fs');
+const path = require('path');
 const dbService = require('./database');
 const pipelineStagesService = require('./pipelineStagesService');
 const pipelineFolders = require('./pipelineFolders');
@@ -33,6 +35,26 @@ const DAY = 24 * HOUR;
 
 const WORKSPACE_NAME = 'Cascade Home Pros';
 const NETWORK_NAME = 'Cascade Pro Network';
+/** Bump when committed demo photos change so existing demos refresh media. */
+const DEMO_REVIEW_MEDIA_V = 2;
+const DEMO_ASSET_DIR = path.join(__dirname, '..', 'assets', 'demo');
+const DEMO_ASSETS = {
+  hero: 'demo-hero-home.jpg',
+  logo: 'demo-logo-chp.jpg',
+  profile: 'demo-profile-alex.jpg',
+  kitchen: 'demo-job-kitchen.jpg',
+  after: 'demo-job-after.jpg',
+  estimate: 'demo-job-estimate.jpg',
+  finished: 'demo-job-finished.jpg',
+  progress: 'demo-job-progress.jpg',
+};
+const DEMO_JOB_PHOTO_ASSETS = [
+  { asset: DEMO_ASSETS.kitchen, caption: 'Kitchen ready for install' },
+  { asset: DEMO_ASSETS.after, caption: 'After photo' },
+  { asset: DEMO_ASSETS.estimate, caption: 'Estimate walkthrough' },
+  { asset: DEMO_ASSETS.finished, caption: 'Finished project' },
+  { asset: DEMO_ASSETS.progress, caption: 'Day 1 progress' },
+];
 
 const CITIES = {
   Vancouver: { state: 'WA', zips: ['98683', '98684', '98682'], area: '360' },
@@ -582,7 +604,15 @@ function ymd(nowMs, dayDelta) {
   return d.toISOString().slice(0, 10);
 }
 
-/** Simple branded JPEG for hero / job photos (no external assets). */
+function escapeXml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/** Fallback branded JPEG when a committed demo asset is missing. */
 async function demoSceneJpeg({
   width = 1200,
   height = 750,
@@ -609,21 +639,49 @@ async function demoSceneJpeg({
   return sharp(Buffer.from(svg)).jpeg({ quality: 82, mozjpeg: true }).toBuffer();
 }
 
-function escapeXml(value) {
-  return String(value || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+/** Load a committed demo photo from assets/demo (generated job / brand images). */
+async function loadDemoAsset(filename, {
+  width,
+  height,
+  fit = 'cover',
+  fallbackTitle = WORKSPACE_NAME,
+  fallbackSubtitle = 'Demo photo',
+  from = '#0EA5E9',
+  to = '#0F172A',
+} = {}) {
+  const sharp = require('sharp');
+  const file = path.join(DEMO_ASSET_DIR, String(filename || ''));
+  if (filename && fs.existsSync(file)) {
+    let img = sharp(file).rotate();
+    if (width && height) img = img.resize(width, height, { fit, position: 'attention' });
+    return img.jpeg({ quality: 85, mozjpeg: true }).toBuffer();
+  }
+  return demoSceneJpeg({
+    width: width || 1200,
+    height: height || 750,
+    from,
+    to,
+    title: fallbackTitle,
+    subtitle: fallbackSubtitle,
+  });
 }
 
-async function attachDemoJobPhoto(networkId, memberId, job, caption, colors) {
-  const raw = await demoSceneJpeg({
-    title: job.title.slice(0, 40),
-    subtitle: caption,
-    from: colors.from,
-    to: colors.to,
-  });
+async function attachDemoJobPhoto(networkId, memberId, job, caption, photoSpec = {}) {
+  const raw = photoSpec.asset
+    ? await loadDemoAsset(photoSpec.asset, {
+      width: 1200,
+      height: 900,
+      fallbackTitle: String(job.title || '').slice(0, 40),
+      fallbackSubtitle: caption,
+      from: photoSpec.from,
+      to: photoSpec.to,
+    })
+    : await demoSceneJpeg({
+      title: String(job.title || '').slice(0, 40),
+      subtitle: caption,
+      from: photoSpec.from || '#0EA5E9',
+      to: photoSpec.to || '#0F172A',
+    });
   const prepared = await memberJobMedia.prepareJobPhoto(raw);
   const added = await memberWork.addJobPhoto(networkId, memberId, job.id, prepared, { caption });
   if (!added.ok) throw new Error(`Demo job photo: ${added.error}`);
@@ -653,7 +711,7 @@ async function seedMemberAppPortfolio(networkId, memberId, { phone, now, tagKeys
           durationMins: 480,
           value: 4800,
           notes: 'Bring spare trim pieces.',
-          photo: { caption: 'Kitchen ready for install', from: '#38BDF8', to: '#075985' },
+          photo: { caption: 'Kitchen ready for install', asset: DEMO_ASSETS.kitchen },
         },
         {
           title: 'Touch-up from last visit',
@@ -663,7 +721,7 @@ async function seedMemberAppPortfolio(networkId, memberId, { phone, now, tagKeys
           durationMins: 90,
           value: 350,
           notes: 'Left a review request.',
-          photo: { caption: 'After photo', from: '#34D399', to: '#065F46' },
+          photo: { caption: 'After photo', asset: DEMO_ASSETS.after },
         },
       ],
     },
@@ -684,7 +742,7 @@ async function seedMemberAppPortfolio(networkId, memberId, { phone, now, tagKeys
           time: '14:30',
           durationMins: 60,
           value: 1250,
-          photo: { caption: 'Estimate walkthrough', from: '#FBBF24', to: '#92400E' },
+          photo: { caption: 'Estimate walkthrough', asset: DEMO_ASSETS.estimate },
         },
       ],
     },
@@ -706,7 +764,7 @@ async function seedMemberAppPortfolio(networkId, memberId, { phone, now, tagKeys
           durationMins: 240,
           value: 2100,
           notes: 'Ask for Google review.',
-          photo: { caption: 'Finished project', from: '#A78BFA', to: '#4C1D95' },
+          photo: { caption: 'Finished project', asset: DEMO_ASSETS.finished },
         },
       ],
     },
@@ -748,7 +806,7 @@ async function seedMemberAppPortfolio(networkId, memberId, { phone, now, tagKeys
           time: '08:00',
           durationMins: 360,
           value: 3200,
-          photo: { caption: 'Day 1 progress', from: '#FB7185', to: '#9F1239' },
+          photo: { caption: 'Day 1 progress', asset: DEMO_ASSETS.progress },
         },
       ],
     },
@@ -797,39 +855,43 @@ async function seedMemberAppPortfolio(networkId, memberId, { phone, now, tagKeys
 }
 
 async function seedOwnerReviewBrand(network, owner, now) {
-  const heroBuf = await demoSceneJpeg({
+  const heroBuf = await loadDemoAsset(DEMO_ASSETS.hero, {
     width: 1400,
     height: 900,
+    fallbackTitle: WORKSPACE_NAME,
+    fallbackSubtitle: 'Your local home-services crew',
     from: '#38BDF8',
     to: '#0F172A',
-    title: WORKSPACE_NAME,
-    subtitle: 'Your local home-services crew',
   });
   const hero = await networkBrand.prepareImage('hero', heroBuf);
-  await store.saveBrandImage(network.id, 'hero', hero);
+  const heroAt = await store.saveBrandImage(network.id, 'hero', hero);
 
-  const logoBuf = await demoSceneJpeg({
+  const logoBuf = await loadDemoAsset(DEMO_ASSETS.logo, {
     width: 512,
     height: 512,
+    fit: 'cover',
+    fallbackTitle: 'CHP',
+    fallbackSubtitle: 'Cascade Home Pros',
     from: '#0EA5E9',
     to: '#0369A1',
-    title: 'CHP',
-    subtitle: 'Cascade Home Pros',
   });
   const logo = await networkBrand.prepareImage('logo', logoBuf);
-  await store.saveBrandImage(network.id, 'logo', logo);
+  const logoAt = await store.saveBrandImage(network.id, 'logo', logo);
+  const heroV = Date.parse(heroAt) || Date.now();
+  const logoV = Date.parse(logoAt) || Date.now();
 
-  const profileBuf = await demoSceneJpeg({
+  const profileBuf = await loadDemoAsset(DEMO_ASSETS.profile, {
     width: 640,
     height: 640,
+    fit: 'cover',
+    fallbackTitle: 'Alex',
+    fallbackSubtitle: 'Owner',
     from: '#22D3EE',
     to: '#0E7490',
-    title: 'Alex',
-    subtitle: 'Owner',
   });
   const profile = await networkBrand.prepareImage('logo', profileBuf);
   const profileAt = await store.saveProfilePhoto(network.id, owner.id, {
-    contentType: 'image/png',
+    contentType: 'image/jpeg',
     buffer: profile.buffer,
   });
 
@@ -857,17 +919,21 @@ async function seedOwnerReviewBrand(network, owner, now) {
     clicks: { google: 36, facebook: 7, yelp: 4, nextdoor: 2, other: 3 },
     views: 91,
   });
-  await store.saveNetwork({
+  const savedNet = await store.saveNetwork({
     ...network,
     brand: {
       ...(network.brand || {}),
       appName: WORKSPACE_NAME,
       tagline: 'Trusted local pros who send each other work',
       accent: '#0EA5E9',
+      heroUrl: `/m/brand/${network.id}/hero?v=${heroV}`,
+      logoUrl: `/m/brand/${network.id}/logo?v=${logoV}`,
       statValue: 91,
       statLabel: 'review page visits',
     },
   });
+  Object.assign(network, savedNet || {});
+  await markDemoReviewMedia(network.id);
   return next;
 }
 
@@ -1019,24 +1085,48 @@ async function seedMemberApps(ctx, network, memberByTitle) {
   };
 }
 
-/** Attach demo JPEGs to jobs that still have no photos (older #126 demos). */
-async function enrichDemoJobPhotos(networkId, memberId) {
+function demoReviewMediaKey(networkId) {
+  return `demoreviewmedia:${networkId}`;
+}
+
+async function readDemoReviewMediaV(networkId) {
+  const raw = await dbService.peekStorageKey(demoReviewMediaKey(networkId));
+  if (!raw) return 0;
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return Number(parsed && parsed.v) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+async function markDemoReviewMedia(networkId) {
+  await dbService.putStorageKey(demoReviewMediaKey(networkId), {
+    v: DEMO_REVIEW_MEDIA_V,
+    at: new Date().toISOString(),
+  });
+}
+
+/**
+ * Attach (or replace) job photos using committed demo assets.
+ * @param {{ replace?: boolean }} opts replace=true clears prior photos first (media upgrades).
+ */
+async function enrichDemoJobPhotos(networkId, memberId, { replace = false } = {}) {
   const jobs = await memberWork.listJobs(networkId, memberId);
-  const palettes = [
-    { from: '#38BDF8', to: '#075985', caption: 'Project photo' },
-    { from: '#34D399', to: '#065F46', caption: 'After photo' },
-    { from: '#FBBF24', to: '#92400E', caption: 'On-site progress' },
-    { from: '#A78BFA', to: '#4C1D95', caption: 'Finished work' },
-    { from: '#FB7185', to: '#9F1239', caption: 'Crew day photo' },
-  ];
   let photoCount = 0;
   let i = 0;
   for (const job of jobs) {
-    if ((job.photos || []).length > 0) continue;
     if (!['completed', 'in_progress', 'scheduled', 'estimate'].includes(String(job.status || ''))) continue;
-    const colors = palettes[i % palettes.length];
+    if (!replace && (job.photos || []).length > 0) continue;
+    if (replace && (job.photos || []).length) {
+      for (const p of job.photos) {
+        await memberWork.removeJobPhoto(networkId, memberId, job.id, p.id).catch(() => null);
+      }
+    }
+    const spec = DEMO_JOB_PHOTO_ASSETS[i % DEMO_JOB_PHOTO_ASSETS.length];
     i += 1;
-    await attachDemoJobPhoto(networkId, memberId, job, colors.caption, colors);
+    const fresh = await memberWork.getJob(networkId, memberId, job.id) || job;
+    await attachDemoJobPhoto(networkId, memberId, fresh, spec.caption, spec);
     photoCount += 1;
   }
   return photoCount;
@@ -1045,6 +1135,7 @@ async function enrichDemoJobPhotos(networkId, memberId) {
 /**
  * If a demo workspace's Review app is still empty or thin (built before rich
  * seed, or never reset), fill the owner portfolio when Get the app / Home opens.
+ * Also upgrades committed photo assets when DEMO_REVIEW_MEDIA_V bumps.
  * Skips real GHL — demos never sync CRM.
  */
 async function ensureDemoOwnerReviewApp(workspaceId, { email = '' } = {}) {
@@ -1052,7 +1143,7 @@ async function ensureDemoOwnerReviewApp(workspaceId, { email = '' } = {}) {
   if (!wid) return { ok: false, reason: 'no-workspace' };
   const ws = await dbService.getWorkspace(wid);
   if (!ws || !ws.isDemo) return { ok: false, reason: 'not-demo' };
-  const network = await store.getNetworkForWorkspace(wid);
+  let network = await store.getNetworkForWorkspace(wid);
   if (!network) return { ok: false, reason: 'no-network' };
 
   let owner = await store.getMember(network.id, OWNER_MEMBER_ID);
@@ -1083,10 +1174,12 @@ async function ensureDemoOwnerReviewApp(workspaceId, { email = '' } = {}) {
   const ownerRefCount = referrals.filter(
     (r) => r.fromMemberId === owner.id || r.toMemberId === owner.id,
   ).length;
+  const mediaV = await readDemoReviewMediaV(network.id);
+  const needsMediaUpgrade = mediaV < DEMO_REVIEW_MEDIA_V;
 
   const needsCustomers = existing.length === 0;
-  const needsBrand = !hasBrandStats;
-  const needsPhotos = photoCount === 0 && (needsCustomers || jobs.length > 0);
+  const needsBrand = !hasBrandStats || needsMediaUpgrade;
+  const needsPhotos = (photoCount === 0 && (needsCustomers || jobs.length > 0)) || needsMediaUpgrade;
   const needsReferrals = ownerRefCount === 0;
 
   if (!needsCustomers && !needsBrand && !needsPhotos && !needsReferrals) {
@@ -1107,6 +1200,7 @@ async function ensureDemoOwnerReviewApp(workspaceId, { email = '' } = {}) {
 
   if (needsBrand) {
     owner = await seedOwnerReviewBrand(network, owner, now);
+    network = (await store.getNetwork(network.id)) || network;
   }
 
   let seeded = { customerCount: existing.length, jobCount: jobs.length, photoCount };
@@ -1118,9 +1212,13 @@ async function ensureDemoOwnerReviewApp(workspaceId, { email = '' } = {}) {
       tradeLabel: 'Home services',
       withPhotos: true,
     });
+    await markDemoReviewMedia(network.id);
   } else if (needsPhotos) {
-    const added = await enrichDemoJobPhotos(network.id, owner.id);
-    seeded = { ...seeded, photoCount: photoCount + added };
+    const added = await enrichDemoJobPhotos(network.id, owner.id, { replace: needsMediaUpgrade });
+    seeded = { ...seeded, photoCount: added };
+    await markDemoReviewMedia(network.id);
+  } else if (needsMediaUpgrade) {
+    await markDemoReviewMedia(network.id);
   }
 
   if (needsReferrals) {
@@ -1132,7 +1230,7 @@ async function ensureDemoOwnerReviewApp(workspaceId, { email = '' } = {}) {
     await seedOwnerReferrals(network, owner, memberByTitle, phone, now);
   }
 
-  return { ok: true, seeded: true, ...seeded };
+  return { ok: true, seeded: true, ...seeded, mediaV: DEMO_REVIEW_MEDIA_V };
 }
 
 /** One custom GHL cadence with a few leads on it (demo workspaces never sync to GHL). */
