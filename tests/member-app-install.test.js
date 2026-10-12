@@ -30,15 +30,18 @@ describe('member app install modal and tab bar', () => {
 
   it('shell bottom padding clears the tab bar', () => {
     const css = fs.readFileSync(path.join(root, 'public/css/member-app.css'), 'utf8');
-    assert.match(css, /--tabbar-fab-overhang:\s*36px/);
-    assert.match(css, /--tabbar-content-gap:\s*72px/);
+    assert.match(css, /--tabbar-fab-overhang:\s*28px/);
+    assert.match(css, /--tabbar-content-gap:\s*100px/);
     assert.match(
       css,
       /\.ma-shell\s*\{[^}]*padding:[^;]*tabbar-h[^;]*tabbar-fab-overhang[^;]*tabbar-content-gap/s,
     );
+    assert.match(css, /\.ma-shell\s*\{[^}]*scroll-padding-bottom:/s);
     const head = fs.readFileSync(path.join(root, 'views/member_app/_head.ejs'), 'utf8');
-    assert.match(head, /\.ma-shell\{padding-bottom:calc\(50px \+ 36px \+ 72px/);
+    assert.match(head, /\.ma-shell\{padding-bottom:calc\(50px \+ 28px \+ 100px/);
+    assert.match(head, /scroll-padding-bottom:calc\(50px \+ 28px \+ 100px/);
     assert.match(head, /ma-tab__fab/);
+    assert.match(head, /translate\(-50%,-50%\)/);
     assert.match(head, /\.ma-tab__label\{/);
     assert.match(head, /\.ma-tab\{[^}]*font-size:10px/s);
     assert.match(head, /\.ma-tabbar::before\{/);
@@ -146,7 +149,7 @@ describe('member app install modal and tab bar', () => {
 
   it('service worker network-firsts versioned CSS so deploys are not stuck', () => {
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.484/);
+    assert.match(sw, /adhello-pwa-v1\.0\.485/);
     assert.match(sw, /searchParams\.has\('v'\)/);
     assert.match(sw, /versioned/);
   });
@@ -197,7 +200,7 @@ describe('member app install modal and tab bar', () => {
     const icons = fs.readFileSync(path.join(root, 'services/memberAppIcons.js'), 'utf8');
     assert.match(icons, /sms:\s*icon\(/);
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.484/);
+    assert.match(sw, /adhello-pwa-v1\.0\.485/);
   });
 
   it('Review keeps round FAB; label font and baseline match other tabs', () => {
@@ -212,7 +215,10 @@ describe('member app install modal and tab bar', () => {
     assert.match(css, /\.ma-tab__label\s*\{[^}]*font-size:\s*10px/s);
     assert.match(css, /\.ma-tab__label\s*\{[^}]*font-weight:\s*600/s);
     assert.match(css, /\.ma-tab--fab \.ma-tab__fab\s*\{[^}]*position:\s*absolute/s);
+    assert.match(css, /\.ma-tab--fab \.ma-tab__fab\s*\{[^}]*translate\(-50%,\s*-50%\)/s);
+    assert.match(css, /\.ma-tab--fab \.ma-tab__label\s*\{[^}]*z-index:\s*3/s);
     assert.match(css, /\.ma-tab__slot\s*\{[^}]*height:\s*24px/s);
+    assert.match(css, /--tabbar-content-gap:\s*100px/);
   });
 
   it('Home stays responsive: defer GHL sync, skip icon decode, idle install modal', () => {
