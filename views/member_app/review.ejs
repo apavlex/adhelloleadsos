@@ -181,8 +181,11 @@
             <label class="ma-label" for="rvSmsScript">Review request text</label>
             <textarea id="rvSmsScript" name="smsScript" class="ma-textarea" rows="4" maxlength="800" required><%= _script %></textarea>
           </div>
-          <p class="ma-hint">Review link for <code>{{review_link}}</code> (not added unless your script includes it): <code><%= typeof reviewUrl !== 'undefined' ? reviewUrl : '' %></code></p>
-          <button type="submit" class="ma-btn ma-btn--soft ma-btn--block">Save script</button>
+          <div class="ma-script-link">
+            <p class="ma-hint" style="margin:0">Review link for <code>{{review_link}}</code> (not added unless your script includes it):</p>
+            <code class="ma-script-link__url"><%= typeof reviewUrl !== 'undefined' ? reviewUrl : '' %></code>
+          </div>
+          <button type="submit" class="ma-btn ma-btn--soft ma-btn--block ma-script-save">Save script</button>
         </form>
         <% if (typeof ghlWorkflowPrompt !== 'undefined' && ghlWorkflowPrompt) { %>
         <div class="ma-card ma-card--flush" style="margin-top:10px">
