@@ -3,11 +3,19 @@
  * leads they see. Owners always get everything. Stored on `workspace.rolePermissions`.
  */
 
-const EDITABLE_ROLES = ['admin', 'sdr', 'viewer'];
-const ROLE_LABELS = { owner: 'Owner', admin: 'Admin', sdr: 'SDR', viewer: 'Viewer' };
+/** Owner is fixed; these can be assigned on Team (hire / promote / demote). */
+const EDITABLE_ROLES = ['admin', 'manager', 'sdr', 'viewer'];
+const ROLE_LABELS = {
+  owner: 'Owner',
+  admin: 'Admin',
+  manager: 'Manager',
+  sdr: 'SDR',
+  viewer: 'Viewer',
+};
 const ROLE_HINTS = {
   owner: 'Everything, always.',
-  admin: 'Can invite people and change settings.',
+  admin: 'Invite, fire, change roles, and workspace settings.',
+  manager: 'Assign leads and referrals to the team; day-to-day ops.',
   sdr: 'Works leads assigned to them.',
   viewer: 'Uses the app, cannot manage the team.',
 };

@@ -114,14 +114,20 @@ function roleForEmail(workspace, email) {
   return 'viewer';
 }
 
+/** Invite, fire, change roles, workspace settings — owner/admin only. */
 function canManageTeam(role) {
   return role === 'owner' || role === 'admin';
+}
+
+/** Assign CRM leads + route network referrals — owner/admin/manager. */
+function canAssignWork(role) {
+  return role === 'owner' || role === 'admin' || role === 'manager';
 }
 
 function assignablePool(workspace) {
   if (!workspace || !workspace.members) return [];
   return Object.entries(workspace.members)
-    .filter(([, meta]) => meta && (meta.role === 'sdr' || meta.role === 'admin'))
+    .filter(([, meta]) => meta && (meta.role === 'sdr' || meta.role === 'admin' || meta.role === 'manager'))
     .map(([email]) => email)
     .sort();
 }
@@ -184,7 +190,7 @@ function normalizeRoundRobinOrder(workspace, incoming) {
 }
 
 /**
- * Round-robin among SDR/admin assignees; persists counter on workspace.
+ * Round-robin among SDR/admin/manager assignees; persists counter on workspace.
  */
 async function pickRoundRobinAssignee(workspaceId) {
   const id = workspaceId;
@@ -207,6 +213,7 @@ module.exports = {
   ensureWorkspaceAndMember,
   roleForEmail,
   canManageTeam,
+  canAssignWork,
   assignablePool,
   orderedRoundRobinPool,
   normalizeRoundRobinOrder,

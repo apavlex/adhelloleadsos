@@ -36,11 +36,11 @@ async function requireNetwork(ctx) {
 }
 
 async function requireManager(ctx) {
-  if (ctx && ctx.canManage === true) return;
+  if (ctx && (ctx.canManage === true || ctx.canAssignWork === true)) return;
   const ws = await dbService.getWorkspace(ctx.workspaceId);
   const role = workspaceService.roleForEmail(ws, ctx.userEmail || '');
-  if (!workspaceService.canManageTeam(role)) {
-    throw toolError('Only workspace owners and admins can do that.', 'FORBIDDEN');
+  if (!workspaceService.canAssignWork(role)) {
+    throw toolError('Only workspace owners, admins, and managers can do that.', 'FORBIDDEN');
   }
 }
 

@@ -4,7 +4,7 @@
  * client sends the workspace id its page was rendered for and we act on that.
  */
 const dbService = require('../database');
-const { userEmail, roleForEmail, canManageTeam } = require('../workspaceService');
+const { userEmail, roleForEmail, canManageTeam, canAssignWork } = require('../workspaceService');
 const { userCanAccessWorkspace } = require('../workspaceBootstrap');
 
 /**
@@ -26,6 +26,7 @@ async function pinPavlexWorkspace(req, requestedId) {
   req.workspaceId = ws.id || wid;
   req.workspaceRole = roleForEmail(ws, email);
   req.canManageWorkspace = canManageTeam(req.workspaceRole);
+  req.canAssignWork = canAssignWork(req.workspaceRole);
   return true;
 }
 

@@ -72,6 +72,14 @@ async function requireManager(ctx, what) {
   }
 }
 
+async function requireAssignWork(ctx, what) {
+  if (ctx && (ctx.canManage === true || ctx.canAssignWork === true)) return;
+  const { role } = await roleOf(ctx);
+  if (!workspaceService.canAssignWork(role)) {
+    throw toolError(`Only workspace owners, admins, and managers can ${what}.`, 'FORBIDDEN');
+  }
+}
+
 async function visibleLeads(ctx) {
   const all = await dbService.getAllLeads(ctx.workspaceId);
   return workspaceService.filterLeadsForRequest(buildReqLike(ctx.workspaceId, ctx.userEmail), all);
@@ -570,7 +578,7 @@ async function addLeadNote(ctx, input) {
 }
 
 async function assignLeads(ctx, input) {
-  await requireManager(ctx, 'assign leads');
+  await requireAssignWork(ctx, 'assign leads');
   const raw = clean(input.assignee);
   const unassign = /^(none|unassigned|nobody)$/i.test(raw);
   const roundRobin = /^round[\s_-]?robin$/i.test(raw);
@@ -964,7 +972,7 @@ const WORKSPACE_TOOLS = [
   {
     name: 'assign_leads',
     description:
-      'Assign leads to a teammate (name or email, or "me"), round-robin across the team pool ("round_robin"), or clear the owner ("none"). Owners/admins only. See list_team_members.',
+      'Assign leads to a teammate (name or email, or "me"), round-robin across the team pool ("round_robin"), or clear the owner ("none"). Owners/admins/managers. See list_team_members.',
     schema: z.object({
       lead_ids: LEAD_IDS(MAX_BULK),
       assignee: z.string().min(1),

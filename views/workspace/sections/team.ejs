@@ -12,7 +12,7 @@
 <% const _obCfg = workspace && workspace.onboarding ? workspace.onboarding : {}; %>
 <% const _obInviteOn = _obCfg.enabled !== false && _obCfg.sendInviteEmail !== false; %>
 <% const _canManage = typeof canManageWorkspace !== 'undefined' && !!canManageWorkspace; %>
-<% const _ra = typeof roleAccess !== 'undefined' && roleAccess ? roleAccess : { matrix: {}, pages: [], roles: ['admin', 'sdr', 'viewer'], labels: { owner: 'Owner', admin: 'Admin', sdr: 'SDR', viewer: 'Viewer' }, hints: {}, myEmail: '', myRole: '' }; %>
+<% const _ra = typeof roleAccess !== 'undefined' && roleAccess ? roleAccess : { matrix: {}, pages: [], roles: ['admin', 'manager', 'sdr', 'viewer'], labels: { owner: 'Owner', admin: 'Admin', manager: 'Manager', sdr: 'SDR', viewer: 'Viewer' }, hints: {}, myEmail: '', myRole: '' }; %>
 <%
   function _wsDateTime(iso) {
     return wsDateTime(iso, { month: 'numeric', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }) || '—';
@@ -21,7 +21,7 @@
     return wsDate(iso, { year: 'numeric', month: 'short', day: 'numeric' }) || '—';
   }
 %>
-<% const _wsMetaDesc = typeof workspaceSectionDescription !== 'undefined' ? String(workspaceSectionDescription) : 'Who belongs to this workspace and what they can do.'; %>
+<% const _wsMetaDesc = typeof workspaceSectionDescription !== 'undefined' ? String(workspaceSectionDescription) : 'Invite people, set Admin / Manager / SDR / Viewer, and remove access anytime when someone is hired or fired.'; %>
 
 <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
   <div>
@@ -144,6 +144,7 @@
         <select name="role" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-2.5 text-sm font-bold text-brand-dark dark:text-white">
           <option value="viewer">Viewer</option>
           <option value="sdr">SDR</option>
+          <option value="manager">Manager</option>
           <option value="admin">Admin</option>
         </select>
       </label>
@@ -273,7 +274,7 @@
               </select>
             </form>
             <% } else { %>
-            <span class="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg bg-brand-yellow/15 text-amber-900 dark:text-amber-200"><%= meta.role %></span>
+            <span class="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg bg-brand-yellow/15 text-amber-900 dark:text-amber-200"><%= _ra.labels[meta.role] || meta.role %></span>
             <% } %>
           </td>
           <td class="px-3 align-middle text-right text-sm text-brand-muted whitespace-nowrap"><%= meta.joinedAt ? _wsDate(meta.joinedAt) : '—' %></td>
