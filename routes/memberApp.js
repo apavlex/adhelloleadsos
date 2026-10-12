@@ -41,6 +41,7 @@ const jobMedia = require('../services/memberJobMedia');
 const contractorPortal = require('../services/contractorPortal');
 const memberAppointmentLink = require('../services/memberAppointmentLink');
 const appointmentPackages = require('../services/appointmentPackages');
+const memberHomeOverview = require('../services/memberHomeOverview');
 const { verifyNetworkToken, createMemberPortalToken } = require('../services/networkLinkSign');
 const memberShortLinks = require('../services/memberShortLinks');
 const ownerAppBrand = require('../services/ownerAppBrand');
@@ -910,10 +911,13 @@ router.get('/m/:token', withMember(async (req, res, ctx) => {
   const membersById = Object.fromEntries(members.map((m) => [m.id, m]));
   const customersById = Object.fromEntries(customers.map((c) => [c.id, c]));
   const stats = ex.memberStats(referrals, ctx.member.id);
-  const waiting = referrals
-    .filter((r) => r.toMemberId === ctx.member.id && r.status === 'sent')
-    .slice(0, 3)
-    .map((r) => presentReceived(r, membersById, ctx.network));
+  const overview = memberHomeOverview.buildOverview({
+    base: ctx.base,
+    appointment: ctx.appointment,
+    referrals,
+    memberId: ctx.member.id,
+    presentReferral: (r) => presentReceived(r, membersById, ctx.network),
+  });
   const today = work.todayIn(memberTimeZone(req));
   const openJobCount = jobs.filter((j) => j && ['lead', 'estimate', 'scheduled', 'in_progress', 'on_hold'].includes(String(j.status || '').toLowerCase())).length;
   render(res, 'home', ctx, {
@@ -922,14 +926,14 @@ router.get('/m/:token', withMember(async (req, res, ctx) => {
     tiles: [
       { key: 'reviews', label: 'Review visits', value: reviewStats.views || 0, href: `${ctx.base}/review`, icon: 'review' },
       { key: 'customers', label: 'Customers', value: customers.length, href: `${ctx.base}/customers`, icon: 'customers' },
-      { key: 'pending', label: 'Pending refs', value: stats.open, href: `${ctx.base}/referrals`, icon: 'pending' },
+      { key: 'pending', label: 'Pending refs', value: stats.open, href: `${ctx.base}/referrals?source=referral`, icon: 'pending' },
       { key: 'sent', label: 'Sent', value: stats.given, href: `${ctx.base}/referrals?view=sent`, icon: 'send' },
     ],
+    overview,
     reviewViews: reviewStats.views || 0,
     customerCount: customers.length,
     openJobCount,
     wonValue: money(stats.wonValue),
-    waiting,
     leadRequest,
     flash: flashFromQuery(req),
   });
@@ -994,7 +998,12 @@ router.post('/m/:token/brand/hero', (req, res, next) => {
 // ── Referrals ────────────────────────────────────────────────────────────────
 
 async function renderReferrals(req, res, ctx, flash, status) {
-  const view = ['sent', 'pool'].includes(req.query.view) ? req.query.view : 'received';
+  const sourceQ = String(req.query.source || '').toLowerCase();
+  const sourceFilter = ['website', 'agency', 'referral', 'purchased'].includes(sourceQ) ? sourceQ : '';
+  // Source deep-links always land on the Received inbox (not Pool / Sent).
+  const view = sourceFilter
+    ? 'received'
+    : (['sent', 'pool'].includes(req.query.view) ? req.query.view : 'received');
   const [referrals, members, jobs, leadRequest] = await Promise.all([
     store.listReferrals(ctx.network.id),
     store.listMembers(ctx.network.id),
@@ -1003,7 +1012,7 @@ async function renderReferrals(req, res, ctx, flash, status) {
   ]);
   const membersById = Object.fromEntries(members.map((m) => [m.id, m]));
   const jobByRef = Object.fromEntries(jobs.filter((j) => j.referralId).map((j) => [j.referralId, j]));
-  const received = referrals.filter((r) => r.toMemberId === ctx.member.id).slice(0, 60).map((r) => ({
+  let received = referrals.filter((r) => r.toMemberId === ctx.member.id).slice(0, 60).map((r) => ({
     ...presentReceived(r, membersById, ctx.network),
     jobHref: jobByRef[r.id] ? `${ctx.base}/customers/jobs/${jobByRef[r.id].id}` : '',
     convertible: ['accepted', 'booked', 'won'].includes(r.status),
@@ -1016,13 +1025,21 @@ async function renderReferrals(req, res, ctx, flash, status) {
     convertible: false,
   }));
   const appt = ctx.appointment;
-  const formLeads = appt ? (appt.formLeads || []) : [];
+  let formLeads = appt ? (appt.formLeads || []) : [];
+  const inboxCount = received.length + formLeads.filter((f) => f && f.status !== 'closed').length;
+  if (sourceFilter) {
+    const filtered = memberHomeOverview.filterBySource(sourceFilter, { formLeads, received });
+    formLeads = filtered.formLeads;
+    received = filtered.received;
+  }
   return render(res, 'referrals', ctx, {
     view,
     received,
     sent,
     pool,
     formLeads,
+    sourceFilter,
+    inboxCount,
     openLeadCount: appt ? (appt.openLeadCount || 0) : 0,
     leadCredits: appt ? (appt.leadCredits || { remaining: 0 }) : { remaining: 0 },
     leadRequest,

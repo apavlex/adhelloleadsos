@@ -56,7 +56,8 @@ describe('memberLeadRequests', () => {
     const portal = fs.readFileSync(path.join(__dirname, '../services/contractorPortal.js'), 'utf8');
 
     assert.match(home, /_lead_request_callout/);
-    assert.match(home, /href="<%= base %>\/referrals"/);
+    assert.match(home, /_leadsHref|href="<%= base %>\/referrals"/);
+    assert.match(home, /ma-sources/);
     assert.doesNotMatch(home, /Claim pool/);
     assert.doesNotMatch(home, /referrals\?view=pool/);
     assert.match(referrals, /_lead_request_callout/);
