@@ -80,16 +80,21 @@ describe('member lead bell UI + routes', () => {
 
     assert.match(top, /maBellRoot/);
     assert.match(top, /Lead notifications/);
+    assert.match(top, /data-ma-bell-scrim/);
     assert.match(top, /data-ma-bell-push-enable/);
     assert.match(top, /Turn off on this device/);
     assert.match(top, /All leads &amp; referrals/);
     assert.match(tab, /member-app-notifications\.js/);
     assert.match(js, /Turn on /);
     assert.match(js, /on · Send test/);
+    assert.match(js, /ma-bell-open/);
     assert.match(js, /\/activity\.json/);
     assert.match(js, /\/push\/subscribe/);
     assert.match(js, /\/push\/unsubscribe/);
     assert.match(css, /\.ma-bell__panel/);
+    assert.match(css, /\.ma-bell__scrim/);
+    assert.match(css, /background:\s*#ffffff/);
+    assert.match(css, /position:\s*fixed/);
     assert.match(icons, /bell:/);
   });
 

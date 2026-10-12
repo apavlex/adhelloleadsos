@@ -9,6 +9,7 @@
   var base = root.getAttribute('data-base') || '';
   var pushOk = root.getAttribute('data-push') === '1';
   var panel = document.getElementById('maBellPanel');
+  var scrim = root.querySelector('[data-ma-bell-scrim]');
   var openBtn = root.querySelector('[data-ma-bell-open]');
   var closeBtn = root.querySelector('[data-ma-bell-close]');
   var listEl = root.querySelector('[data-ma-bell-list]');
@@ -29,7 +30,9 @@
   function setOpen(on) {
     if (!panel || !openBtn) return;
     panel.hidden = !on;
+    if (scrim) scrim.hidden = !on;
     openBtn.setAttribute('aria-expanded', on ? 'true' : 'false');
+    document.body.classList.toggle('ma-bell-open', !!on);
     if (on) {
       loadFeed();
       markAllRead();
@@ -245,6 +248,9 @@
     });
   }
   if (closeBtn) closeBtn.addEventListener('click', function () { setOpen(false); });
+  if (scrim) {
+    scrim.addEventListener('click', function () { setOpen(false); });
+  }
   document.addEventListener('click', function (e) {
     if (!panel || panel.hidden) return;
     if (Date.now() < ignoreOutsideUntil) return;
