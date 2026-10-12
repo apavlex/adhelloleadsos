@@ -25,8 +25,11 @@
         const _shareText = typeof shareSmsText !== 'undefined' && shareSmsText
           ? shareSmsText
           : ('Hi — thanks for choosing ' + (member.companyName || 'us') + '! Leave a quick review.');
+        const _scriptWantsLink = /{{\s*(review_link|review_url|link)\s*}}/i.test(_script || '') || /https?:\/\/\S+/i.test(_script || '');
         const _sharePayload = {
-          url: reviewUrl,
+          // Only expose the review URL when the script asks for it — keeps stale
+          // clients from attaching a Messages preview the author did not want.
+          url: _scriptWantsLink ? reviewUrl : '',
           title: 'Leave ' + (member.companyName || 'us') + ' a review',
           text: _shareText,
           company: member.companyName || 'us',

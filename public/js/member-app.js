@@ -657,11 +657,31 @@
     return /https?:\/\/\S+/i.test(s);
   }
 
+  /** Remove review URLs so iMessage cannot unfurl a preview the script did not ask for. */
+  function stripReviewUrlsFromText(text, reviewUrl) {
+    var out = String(text || '');
+    var link = String(reviewUrl || '').trim();
+    if (link) {
+      out = out.split(link).join(' ');
+      try {
+        var parsed = new URL(link);
+        if (parsed.host) out = out.split(parsed.host + parsed.pathname).join(' ');
+        if (parsed.pathname && parsed.pathname.length > 4) out = out.split(parsed.pathname).join(' ');
+      } catch (e) { /* ignore */ }
+    }
+    out = out.replace(/https?:\/\/\S*\/rv\/\S+/gi, ' ');
+    out = out.replace(/https?:\/\/\S*leads\.adhello\.io\S*/gi, ' ');
+    out = out.replace(/[ \t]+/g, ' ').replace(/\s+([,;.!])/g, '$1');
+    out = out.replace(/[\s:\-–—]+$/g, '').trim();
+    return out;
+  }
+
   /**
    * Request a review from this phone.
    * Uses the live SMS script textarea when present (so removing {{review_link}}
-   * takes effect immediately). Never force-appends the URL. Never passes `url`
-   * or `files` to Web Share (iOS turns those into a second preview image).
+   * takes effect immediately). If the script has no link placeholder/URL, strip
+   * every review URL before share so Messages cannot show a preview image.
+   * Never passes `url` or `files` to Web Share.
    */
   function requestReviewFromPhone(btn) {
     var payload = readRequestReviewPayload(btn);
@@ -671,6 +691,7 @@
     var reviewUrl = String(payload.url || '').trim();
     var scriptEl = document.getElementById('rvSmsScript');
     var liveScript = scriptEl ? String(scriptEl.value || '').trim() : '';
+    var sourceScript = liveScript || String(payload.script || '');
     var text = '';
 
     if (liveScript) {
@@ -681,11 +702,11 @@
       });
     } else {
       text = String(payload.text || '').trim();
-      // If the baked payload still has a link but the saved script did not ask
-      // for one, strip review URLs so we never re-add them.
-      if (text && reviewUrl && payload.script && !scriptWantsReviewLink(payload.script)) {
-        text = text.split(reviewUrl).join(' ').replace(/[ \t]+/g, ' ').replace(/[\s:]+$/g, '').trim();
-      }
+    }
+
+    // Hard rule: no {{review_link}} / URL in the script → no URL in the message.
+    if (!scriptWantsReviewLink(sourceScript)) {
+      text = stripReviewUrlsFromText(text, reviewUrl);
     }
 
     if (!text) {
@@ -710,7 +731,7 @@
     }
 
     if (navigator.share) {
-      // text only — never url/files (avoids iMessage double preview image).
+      // text only — never url/files (avoids iMessage preview attachment).
       navigator.share({ title: title, text: text }).then(restore).catch(function (err) {
         if (err && err.name === 'AbortError') {
           restore();
