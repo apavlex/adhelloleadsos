@@ -119,7 +119,7 @@
     <section class="ma-section">
       <div class="ma-section__head">
         <h2>Needs attention</h2>
-        <% if (waiting.length) { %><a href="<%= base %>/referrals">Referrals</a><% } else if (_appt) { %><a href="<%= _appt.portalLeadsPath %>">Leads</a><% } else { %><a href="<%= base %>/customers">Customers</a><% } %>
+        <% if (waiting.length) { %><a href="<%= base %>/referrals">Leads</a><% } else if (_appt) { %><a href="<%= _appt.portalLeadsPath %>">Leads</a><% } else { %><a href="<%= base %>/customers">Customers</a><% } %>
       </div>
       <% waiting.forEach(function (r) { %>
       <a class="ma-card" style="display:block;text-decoration:none" href="<%= base %>/referrals#ref-<%= r.id %>">
@@ -166,7 +166,7 @@
       </div>
       <%- include('_lead_request_callout', { leadRequest: typeof leadRequest !== 'undefined' ? leadRequest : null, back: 'home', base: base, icons: icons }) %>
       <div class="ma-dash-actions">
-        <a class="ma-btn ma-btn--soft" href="<%= base %>/leads"><%- icons.leads %> Leads</a>
+        <a class="ma-btn ma-btn--soft" href="<%= base %>/referrals"><%- icons.leads %> Leads</a>
         <a class="ma-btn ma-btn--soft" href="<%= base %>/send"><%- icons.send %> Send referral</a>
       </div>
     </section>

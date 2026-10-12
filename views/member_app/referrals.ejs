@@ -17,15 +17,22 @@
       upgradeIcon: 'referrals',
     }) %>
     <% } else { %>
-    <p class="ma-page-sub">Claim open jobs from the pool, work referrals sent to you, and track what you’ve sent.</p>
+    <%
+      const _formLeads = typeof formLeads !== 'undefined' && Array.isArray(formLeads) ? formLeads : [];
+      const _hasAppt = typeof appointment !== 'undefined' && appointment;
+      const _inboxCount = received.length + _formLeads.filter(function (l) { return l.status !== 'closed'; }).length;
+    %>
+    <p class="ma-page-sub">Website forms and leads your agency assigns, plus network referrals you receive, claim, or send.</p>
 
-    <nav class="ma-seg ma-seg--3" aria-label="Referral lists">
+    <nav class="ma-seg ma-seg--3" aria-label="Lead and referral lists">
       <a href="<%= base %>/referrals?view=pool" class="<%= view === 'pool' ? 'is-on' : '' %>">Pool (<%= pool.length %>)</a>
-      <a href="<%= base %>/referrals" class="<%= view === 'received' ? 'is-on' : '' %>">Received (<%= received.length %>)</a>
+      <a href="<%= base %>/referrals" class="<%= view === 'received' ? 'is-on' : '' %>">Received (<%= _inboxCount %>)</a>
       <a href="<%= base %>/referrals?view=sent" class="<%= view === 'sent' ? 'is-on' : '' %>">Sent (<%= sent.length %>)</a>
     </nav>
 
     <%- include('_flash') %>
+
+    <%- include('_lead_request_callout', { leadRequest: typeof leadRequest !== 'undefined' ? leadRequest : null, back: 'referrals', base: base, icons: icons }) %>
 
     <% if (view === 'pool') { %>
       <% if (!pool.length) { %>
@@ -54,60 +61,131 @@
       </article>
       <% }); %>
     <% } else if (view === 'received') { %>
-      <% if (!received.length) { %>
-      <div class="ma-card ma-empty"><%- icons.referrals %><p>No referrals assigned to you yet. Check the Pool tab for open jobs you can claim, or wait for a text when one is routed to you.</p><a class="ma-btn ma-btn--sm" href="<%= base %>/referrals?view=pool" style="margin-top:8px">Open pool</a></div>
-      <% } %>
-      <% received.forEach(function (r) { const c = r.customer || {}; %>
-      <article class="ma-card" id="ref-<%= r.id %>">
+      <% if (_hasAppt) { %>
+      <section class="ma-card" id="maPushRoot" data-base="<%= base %>" style="margin-bottom:12px">
         <div class="ma-card__row">
           <div style="min-width:0">
-            <p class="ma-card__title"><%= c.name || 'Customer' %></p>
-            <p class="ma-card__meta"><%= r.trade %> · from <%= r.from %> · <%= r.when %></p>
+            <p class="ma-card__title">Lead alerts</p>
+            <p class="ma-card__meta" data-ma-push-status>Turn on phone or desktop alerts so new website and agency leads wake you up.</p>
           </div>
-          <span class="ma-pill ma-pill--<%= r.status %>"><%= r.statusLabel %><%= r.value ? ' · ' + r.value : '' %></span>
         </div>
-        <% if (r.status !== 'declined') { %>
-        <p class="ma-card__meta" style="margin-top:8px">
-          <% if (c.phone) { %><a href="tel:<%= String(c.phone).replace(/[^0-9+]/g, '') %>" style="font-weight:700;color:var(--acc);text-decoration:none"><%= c.phone %></a><%= (c.email || c.address || c.city || c.zip) ? ' · ' : '' %><% } %>
-          <%= [c.email, c.address, [c.city, c.zip].filter(Boolean).join(' ')].filter(Boolean).join(' · ') %>
-        </p>
-        <% } %>
-        <% if (c.note) { %><p class="ma-card__note"><%= c.note %></p><% } %>
-        <% r.notes.forEach(function (n) { %><p class="ma-card__meta" style="margin-top:6px">Note: <%= n.text %></p><% }); %>
+        <div class="ma-actions" style="margin-top:10px">
+          <button type="button" class="ma-btn ma-btn--sm" data-ma-push-enable>Turn on alerts</button>
+          <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-ma-push-off hidden>Turn off</button>
+        </div>
+      </section>
+      <% if (typeof openLeadCount !== 'undefined') { %>
+      <p class="ma-page-sub" style="margin-top:0"><%= openLeadCount %> open website/agency · <%= typeof leadCredits !== 'undefined' && leadCredits ? leadCredits.remaining : 0 %> credits left</p>
+      <% } %>
+      <% } %>
 
-        <div class="ma-actions">
-          <% if (r.jobHref) { %>
-          <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= r.jobHref %>"><%- icons.customers %> View job</a>
-          <% } else if (r.convertible) { %>
-          <form method="post" action="<%= base %>/customers/from-referral/<%= r.id %>">
-            <input type="hidden" name="back" value="<%= base %>/referrals">
-            <button type="submit" class="ma-btn ma-btn--sm ma-btn--soft"><%- icons.customers %> Add to Customers</button>
+      <% if (_formLeads.length) { %>
+      <section class="ma-section ma-section--first" aria-label="Website and agency leads">
+        <div class="ma-section__head">
+          <h2>Website &amp; agency</h2>
+        </div>
+        <% _formLeads.forEach(function (lead) { %>
+        <article class="ma-card" id="lead-<%= lead.id %>">
+          <div class="ma-card__row">
+            <div style="min-width:0">
+              <p class="ma-card__title"><%= lead.name %></p>
+              <p class="ma-card__meta">
+                <% if (lead.source === 'agency') { %>Sent by agency<% } else { %><%= lead.formName || 'Website form' %><% } %>
+                <% if (lead.at) { %> · <%= new Date(lead.at).toLocaleString() %><% } %>
+              </p>
+              <% if (lead.phone || lead.email) { %>
+              <p class="ma-card__meta" style="margin-top:6px">
+                <% if (lead.phone) { %><a href="tel:<%= String(lead.phone).replace(/[^0-9+]/g, '') %>" style="font-weight:700;color:var(--acc);text-decoration:none"><%= lead.phone %></a><% } %>
+                <% if (lead.phone && lead.email) { %> · <% } %>
+                <% if (lead.email) { %><a href="mailto:<%= lead.email %>" style="color:inherit"><%= lead.email %></a><% } %>
+              </p>
+              <% } %>
+              <% if (lead.preview) { %><p class="ma-card__note"><%= lead.preview %></p><% } %>
+            </div>
+            <span class="ma-pill <%= lead.status === 'closed' ? 'ma-pill--lost' : 'ma-pill--accepted' %>"><%= lead.status === 'closed' ? 'Closed' : (lead.source === 'agency' ? 'Agency' : 'Open') %></span>
+          </div>
+          <% if (lead.status !== 'closed') { %>
+          <div class="ma-actions">
+            <% if (lead.phone) { %><a class="ma-btn ma-btn--sm" href="tel:<%= String(lead.phone).replace(/[^0-9+]/g, '') %>">Call</a><% } %>
+            <form method="post" action="<%= base %>/leads/<%= encodeURIComponent(lead.id) %>/close">
+              <button type="submit" class="ma-btn ma-btn--sm ma-btn--soft">Mark closed</button>
+            </form>
+            <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= base %>/review">Request review</a>
+          </div>
+          <% } %>
+        </article>
+        <% }); %>
+      </section>
+      <% } %>
+
+      <% if (received.length) { %>
+      <section class="ma-section<%= _formLeads.length ? '' : ' ma-section--first' %>" aria-label="Network referrals">
+        <% if (_formLeads.length) { %>
+        <div class="ma-section__head">
+          <h2>Network referrals</h2>
+        </div>
+        <% } %>
+        <% received.forEach(function (r) { const c = r.customer || {}; %>
+        <article class="ma-card" id="ref-<%= r.id %>">
+          <div class="ma-card__row">
+            <div style="min-width:0">
+              <p class="ma-card__title"><%= c.name || 'Customer' %></p>
+              <p class="ma-card__meta"><%= r.trade %> · from <%= r.from %> · <%= r.when %></p>
+            </div>
+            <span class="ma-pill ma-pill--<%= r.status %>"><%= r.statusLabel %><%= r.value ? ' · ' + r.value : '' %></span>
+          </div>
+          <% if (r.status !== 'declined') { %>
+          <p class="ma-card__meta" style="margin-top:8px">
+            <% if (c.phone) { %><a href="tel:<%= String(c.phone).replace(/[^0-9+]/g, '') %>" style="font-weight:700;color:var(--acc);text-decoration:none"><%= c.phone %></a><%= (c.email || c.address || c.city || c.zip) ? ' · ' : '' %><% } %>
+            <%= [c.email, c.address, [c.city, c.zip].filter(Boolean).join(' ')].filter(Boolean).join(' · ') %>
+          </p>
+          <% } %>
+          <% if (c.note) { %><p class="ma-card__note"><%= c.note %></p><% } %>
+          <% r.notes.forEach(function (n) { %><p class="ma-card__meta" style="margin-top:6px">Note: <%= n.text %></p><% }); %>
+
+          <div class="ma-actions">
+            <% if (r.jobHref) { %>
+            <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= r.jobHref %>"><%- icons.customers %> View job</a>
+            <% } else if (r.convertible) { %>
+            <form method="post" action="<%= base %>/customers/from-referral/<%= r.id %>">
+              <input type="hidden" name="back" value="<%= base %>/referrals">
+              <button type="submit" class="ma-btn ma-btn--sm ma-btn--soft"><%- icons.customers %> Add to Customers</button>
+            </form>
+            <% } %>
+            <% r.actions.forEach(function (a) { if (a === 'win') return; %>
+            <form method="post" action="<%= base %>/referrals/<%= r.id %>">
+              <input type="hidden" name="action" value="<%= a %>">
+              <button type="submit" class="ma-btn ma-btn--sm <%= a === 'accept' ? '' : (a === 'decline' || a === 'lose' ? 'ma-btn--danger' : 'ma-btn--soft') %>" <%- a === 'decline' ? 'onclick="return confirm(\'Decline this referral?\')"' : '' %>><%= { accept: 'Accept', decline: 'Decline', book: 'Booked', lose: 'Lost' }[a] %></button>
+            </form>
+            <% }); %>
+          </div>
+          <% if (r.actions.indexOf('win') >= 0) { %>
+          <form method="post" action="<%= base %>/referrals/<%= r.id %>" class="ma-inline" style="margin-top:8px">
+            <input type="hidden" name="action" value="win">
+            <input class="ma-input" name="value" inputmode="decimal" placeholder="Job value $" required aria-label="Job value">
+            <button type="submit" class="ma-btn ma-btn--sm">Won</button>
           </form>
           <% } %>
-          <% r.actions.forEach(function (a) { if (a === 'win') return; %>
-          <form method="post" action="<%= base %>/referrals/<%= r.id %>">
-            <input type="hidden" name="action" value="<%= a %>">
-            <button type="submit" class="ma-btn ma-btn--sm <%= a === 'accept' ? '' : (a === 'decline' || a === 'lose' ? 'ma-btn--danger' : 'ma-btn--soft') %>" <%- a === 'decline' ? 'onclick="return confirm(\'Decline this referral?\')"' : '' %>><%= { accept: 'Accept', decline: 'Decline', book: 'Booked', lose: 'Lost' }[a] %></button>
-          </form>
-          <% }); %>
-        </div>
-        <% if (r.actions.indexOf('win') >= 0) { %>
-        <form method="post" action="<%= base %>/referrals/<%= r.id %>" class="ma-inline" style="margin-top:8px">
-          <input type="hidden" name="action" value="win">
-          <input class="ma-input" name="value" inputmode="decimal" placeholder="Job value $" required aria-label="Job value">
-          <button type="submit" class="ma-btn ma-btn--sm">Won</button>
-        </form>
-        <% } %>
-        <details style="margin-top:8px">
-          <summary class="ma-card__meta" style="cursor:pointer;font-weight:700">Add a note</summary>
-          <form method="post" action="<%= base %>/referrals/<%= r.id %>" class="ma-inline" style="margin-top:8px">
-            <input type="hidden" name="action" value="note">
-            <input class="ma-input" name="text" maxlength="500" placeholder="e.g. Left a voicemail" required aria-label="Note">
-            <button type="submit" class="ma-btn ma-btn--sm ma-btn--soft">Save</button>
-          </form>
-        </details>
-      </article>
-      <% }); %>
+          <details style="margin-top:8px">
+            <summary class="ma-card__meta" style="cursor:pointer;font-weight:700">Add a note</summary>
+            <form method="post" action="<%= base %>/referrals/<%= r.id %>" class="ma-inline" style="margin-top:8px">
+              <input type="hidden" name="action" value="note">
+              <input class="ma-input" name="text" maxlength="500" placeholder="e.g. Left a voicemail" required aria-label="Note">
+              <button type="submit" class="ma-btn ma-btn--sm ma-btn--soft">Save</button>
+            </form>
+          </details>
+        </article>
+        <% }); %>
+      </section>
+      <% } %>
+
+      <% if (!_formLeads.length && !received.length) { %>
+      <div class="ma-card ma-empty">
+        <%- icons.leads %>
+        <p><% if (_hasAppt) { %>No website, agency, or network leads yet. Form submissions and leads your agency sends show here with an alert.<% } else { %>No referrals assigned to you yet. Check the Pool tab for open jobs you can claim, or wait for a text when one is routed to you.<% } %></p>
+        <a class="ma-btn ma-btn--sm" href="<%= base %>/referrals?view=pool" style="margin-top:8px">Open pool</a>
+      </div>
+      <% } %>
     <% } else { %>
       <% if (!sent.length) { %>
       <div class="ma-card ma-empty"><%- icons.send %><p>You haven't sent a referral yet.</p><a class="ma-btn ma-btn--sm" href="<%= base %>/send" style="margin-top:8px">Send one</a></div>
@@ -127,5 +205,8 @@
     <% } %>
   </main>
   <%- include('_tabbar') %>
+  <% if (typeof appointment !== 'undefined' && appointment && !(typeof referralsLocked !== 'undefined' && referralsLocked)) { %>
+  <script src="/js/member-app-push.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
+  <% } %>
 </body>
 </html>

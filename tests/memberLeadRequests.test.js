@@ -46,9 +46,9 @@ describe('memberLeadRequests', () => {
     assert.equal(memberLeadRequests.onCooldown({ leadRequestAt: '' }), false);
   });
 
-  it('wires home + leads callout and POST /leads/request', () => {
+  it('wires home + Leads & Referrals callout and POST /leads/request', () => {
     const home = fs.readFileSync(path.join(__dirname, '../views/member_app/home.ejs'), 'utf8');
-    const leads = fs.readFileSync(path.join(__dirname, '../views/member_app/leads.ejs'), 'utf8');
+    const referrals = fs.readFileSync(path.join(__dirname, '../views/member_app/referrals.ejs'), 'utf8');
     const callout = fs.readFileSync(path.join(__dirname, '../views/member_app/_lead_request_callout.ejs'), 'utf8');
     const route = fs.readFileSync(path.join(__dirname, '../routes/memberApp.js'), 'utf8');
     const css = fs.readFileSync(path.join(__dirname, '../public/css/member-app.css'), 'utf8');
@@ -56,16 +56,18 @@ describe('memberLeadRequests', () => {
     const portal = fs.readFileSync(path.join(__dirname, '../services/contractorPortal.js'), 'utf8');
 
     assert.match(home, /_lead_request_callout/);
-    assert.match(home, /href="<%= base %>\/leads"/);
+    assert.match(home, /href="<%= base %>\/referrals"/);
     assert.doesNotMatch(home, /Claim pool/);
     assert.doesNotMatch(home, /referrals\?view=pool/);
-    assert.match(leads, /_lead_request_callout/);
+    assert.match(referrals, /_lead_request_callout/);
+    assert.match(referrals, /Website &amp; agency/);
     assert.match(callout, /Need more leads/);
     assert.match(callout, /Request leads/);
     assert.match(callout, /monthly workspace/);
     assert.match(callout, /href="\/signup"/);
     assert.match(route, /leads\/request/);
     assert.match(route, /memberLeadRequests\.requestMoreLeads/);
+    assert.match(route, /redirect\(303,\s*`\$\{ctx\.base\}\/referrals/);
     assert.match(css, /\.ma-leadask/);
     assert.match(notify, /notifyLeadRequest/);
     assert.match(notify, /ready for more work/);

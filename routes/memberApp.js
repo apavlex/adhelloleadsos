@@ -9,10 +9,10 @@
  *   /m/:token/review     QR / share + send review requests
  *   /m/:token/review/settings  review links + default preview image
  *   /m/:token/customers  customers, jobs and schedule
- *   /m/:token/referrals  received + sent referrals
+ *   /m/:token/referrals  website/agency leads + network referrals (Leads & Referrals)
  *   /m/:token/send       send a referral (partners)
  *   /m/:token/join       free-plan upgrade / benefits (replaces Send in the tab bar)
- *   /m/:token/leads      website/GHL form leads (when linked to an appointment package)
+ *   /m/:token/leads      redirects to /referrals (legacy)
  *   /m/:token/packages   request / buy more appointments & lead credits
  *   /m/:token/enroll     invite a business to join
  *   /m/login             text me a new link
@@ -191,6 +191,8 @@ const OK_MESSAGES = {
   referrals_upgrade: 'Referrals are on the monthly plan. Upgrade to start getting referrals for your business.',
   review_send_upgrade: 'Texting and emailing review requests needs a GHL CRM account on the monthly plan. Use Share or QR for free, or upgrade to send via GHL CRM.',
   leads_requested: 'Lead request sent — your agency was pinged that you’re ready for more work.',
+  closed: 'Lead marked closed.',
+  push: 'Lead alerts are on for this phone.',
 };
 
 const MEMBER_ACTIONS = new Set(['accept', 'decline', 'book', 'win', 'lose', 'note', 'claim']);
@@ -249,7 +251,7 @@ async function attachAppointment(ctx) {
       portalToken,
       /** Standalone contractor portal (appointments packages). Leads show in /m. */
       portalPath,
-      portalLeadsPath: `${ctx.base}/leads`,
+      portalLeadsPath: `${ctx.base}/referrals`,
       portalPackagesPath: `${portalPath}/packages`,
     },
   };
@@ -981,10 +983,11 @@ router.post('/m/:token/brand/hero', (req, res, next) => {
 
 async function renderReferrals(req, res, ctx, flash, status) {
   const view = ['sent', 'pool'].includes(req.query.view) ? req.query.view : 'received';
-  const [referrals, members, jobs] = await Promise.all([
+  const [referrals, members, jobs, leadRequest] = await Promise.all([
     store.listReferrals(ctx.network.id),
     store.listMembers(ctx.network.id),
     work.listJobs(ctx.network.id, ctx.member.id),
+    memberLeadRequests.leadRequestState(ctx),
   ]);
   const membersById = Object.fromEntries(members.map((m) => [m.id, m]));
   const jobByRef = Object.fromEntries(jobs.filter((j) => j.referralId).map((j) => [j.referralId, j]));
@@ -1000,11 +1003,17 @@ async function renderReferrals(req, res, ctx, flash, status) {
     actions: ['claim'],
     convertible: false,
   }));
+  const appt = ctx.appointment;
+  const formLeads = appt ? (appt.formLeads || []) : [];
   return render(res, 'referrals', ctx, {
     view,
     received,
     sent,
     pool,
+    formLeads,
+    openLeadCount: appt ? (appt.openLeadCount || 0) : 0,
+    leadCredits: appt ? (appt.leadCredits || { remaining: 0 }) : { remaining: 0 },
+    leadRequest,
     flash: flash || flashFromQuery(req),
     referralsLocked: freeAppSignup.isAppFreeMember(ctx.member),
     upgradeHref: '/signup',
@@ -2117,26 +2126,12 @@ router.post('/m/:token/review/send', withReviewUpload('shareImage'), withMember(
   return res.redirect(303, `${ctx.base}/review?ok=${ok}`);
 }));
 
-// ── Leads (website forms + agency push) live in the partner app ─────────────
+// ── Website / agency leads (actions live here; UI is on Leads & Referrals) ───
 
-function flashLeads(req) {
-  const ok = String(req.query.ok || '');
-  if (ok === 'closed') return { ok: 'Lead marked closed.' };
-  if (ok === 'push') return { ok: 'Lead alerts are on for this phone.' };
-  if (ok === 'leads_requested') return { ok: OK_MESSAGES.leads_requested };
-  return flashFromQuery(req);
-}
-
-router.get('/m/:token/leads', withMember(async (req, res, ctx) => {
-  const appt = ctx.appointment;
-  const leadRequest = await memberLeadRequests.leadRequestState(ctx);
-  return render(res, 'leads', ctx, {
-    formLeads: appt ? (appt.formLeads || []) : [],
-    openLeadCount: appt ? (appt.openLeadCount || 0) : 0,
-    leadCredits: appt ? (appt.leadCredits || { remaining: 0 }) : { remaining: 0 },
-    leadRequest,
-    flash: flashLeads(req),
-  });
+/** Legacy /leads URL → unified Leads & Referrals page. */
+router.get('/m/:token/leads', withMember((req, res, ctx) => {
+  const qs = new URLSearchParams(req.query).toString();
+  return res.redirect(303, `${ctx.base}/referrals${qs ? `?${qs}` : ''}`);
 }));
 
 /** Freemium: request a lead pack — pings agency admins that this business wants more work. */
@@ -2144,34 +2139,23 @@ router.post('/m/:token/leads/request', form, withMember(async (req, res, ctx) =>
   const quantity = Math.round(Number((req.body && req.body.quantity) || memberLeadRequests.DEFAULT_QTY));
   const note = String((req.body && req.body.note) || '').trim();
   const result = await memberLeadRequests.requestMoreLeads(ctx, { quantity, note });
+  const backHome = String((req.body && req.body.back) || '').includes('home');
   if (!result.ok) {
-    const back = String((req.body && req.body.back) || '').includes('home')
-      ? ctx.base
-      : `${ctx.base}/leads`;
+    const back = backHome ? ctx.base : `${ctx.base}/referrals`;
     const q = result.code === 'subscribe' ? 'err=leads_subscribe'
       : result.code === 'cooldown' ? 'err=leads_cooldown'
         : 'err=leads_request';
-    // Surface the real message via flash when landing on leads.
-    if (back.includes('/leads')) {
-      return render(res, 'leads', ctx, {
-        formLeads: ctx.appointment ? (ctx.appointment.formLeads || []) : [],
-        openLeadCount: ctx.appointment ? (ctx.appointment.openLeadCount || 0) : 0,
-        leadCredits: ctx.appointment ? (ctx.appointment.leadCredits || { remaining: 0 }) : { remaining: 0 },
-        leadRequest: await memberLeadRequests.leadRequestState(ctx),
-        flash: { error: result.error },
-      }, 402);
-    }
     return res.redirect(303, `${back}?${q}`);
   }
-  const back = String((req.body && req.body.back) || '') === 'home'
+  const back = backHome
     ? `${ctx.base}?ok=leads_requested`
-    : `${ctx.base}/leads?ok=leads_requested`;
+    : `${ctx.base}/referrals?ok=leads_requested`;
   return res.redirect(303, back);
 }));
 
 router.post('/m/:token/leads/:leadId/close', form, withMember(async (req, res, ctx) => {
   if (!ctx.appointment) {
-    return res.redirect(303, `${ctx.base}/leads`);
+    return res.redirect(303, `${ctx.base}/referrals`);
   }
   const leadId = String(req.params.leadId || '').trim();
   const pkg = ctx.appointment.package;
@@ -2179,7 +2163,7 @@ router.post('/m/:token/leads/:leadId/close', form, withMember(async (req, res, c
     (f.id === leadId ? { ...f, status: 'closed' } : f),
   );
   await appointmentPackages.updatePackage(ctx.appointment.workspaceId, ctx.appointment.packageId, { formLeads });
-  return res.redirect(303, `${ctx.base}/leads?ok=closed`);
+  return res.redirect(303, `${ctx.base}/referrals?ok=closed`);
 }));
 
 /** Web Push for lead alerts — scoped to the linked appointment package. */
@@ -2222,7 +2206,7 @@ router.post('/m/:token/push/test', express.json(), withMember(async (req, res, c
     {
       title: 'Lead alerts are on',
       body: `You’ll get website and agency leads for ${ctx.appointment.package.businessName} here.`,
-      url: `${ctx.base}/leads`,
+      url: `${ctx.base}/referrals`,
       tag: 'member-push-test',
     },
   );
