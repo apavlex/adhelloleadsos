@@ -130,7 +130,7 @@ function sortKey(l, opts = {}) {
 /** Safety ceiling — early-stage action queues can be large; keep HTML/JSON bounded. */
 const FOCUS_QUEUE_HARD_CAP = 5000;
 
-/** Same early-stage rule as Today’s “leads queued for action” (stages 1–2). */
+/** Same early-stage rule as Today’s “prospects queued for action” (stages 1–2). */
 function isEarlyStageActionLead(l) {
   const ps = parseInt(l && l.pipelineStage, 10);
   const n = !Number.isNaN(ps) && ps >= 1 && ps <= 10 ? ps : 1;
