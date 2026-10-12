@@ -85,17 +85,21 @@ html[data-ma-theme="dark"] .ma-tabbar::before{background:linear-gradient(to top,
 .ma-quick__btn svg{color:var(--acc)!important}
 /* Customer tags — critical so stale SW CSS can't leave plain text + tiny × */
 .ma-tags__list{display:flex!important;flex-wrap:wrap;gap:10px;align-items:center;min-height:44px}
-.ma-tags__chip{--ma-tag:var(--acc);display:inline-flex!important;flex-direction:row!important;align-items:center;gap:2px;min-height:44px;max-width:100%;border:1px solid color-mix(in srgb,var(--ma-tag) 55%,#0000);background:color-mix(in srgb,var(--ma-tag) 22%,#fff);border-radius:999px!important;padding:4px 4px 4px 14px;box-sizing:border-box}
+.ma-tags__chip{--ma-tag:var(--acc);display:inline-flex!important;flex-direction:row!important;align-items:center;gap:2px;min-height:44px;max-width:100%;border:1px solid color-mix(in srgb,var(--ma-tag) 55%,#0000);background:color-mix(in srgb,var(--ma-tag) 22%,var(--card,#fff));border-radius:999px!important;padding:4px 4px 4px 14px;box-sizing:border-box}
 .ma-tags__chip-name{font-size:14px;font-weight:800;color:var(--ink,#0f172a);line-height:1.2;padding-right:4px}
 .ma-tags__chip-remove{display:inline-flex!important;margin:0!important;padding:0!important;border:0!important;background:transparent!important}
-.ma-tags__chip-x{display:inline-flex!important;align-items:center;justify-content:center;width:40px;height:40px;border:0;border-radius:999px;background:color-mix(in srgb,var(--ma-tag) 28%,#fff);color:var(--ink,#0f172a);font:inherit;font-size:22px;font-weight:700;line-height:1;cursor:pointer}
+.ma-tags__chip-x{display:inline-flex!important;align-items:center;justify-content:center;width:40px;height:40px;border:0;border-radius:999px;background:color-mix(in srgb,var(--ma-tag) 28%,var(--card,#fff));color:var(--ink,#0f172a);font:inherit;font-size:22px;font-weight:700;line-height:1;cursor:pointer}
 .ma-tags__search{margin-top:18px}
 .ma-tags__submit{margin-top:28px!important}
 .ma-tags__suggest{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 0;padding:0;list-style:none}
 .ma-tags__suggest-item form{margin:0;display:inline-flex}
-.ma-tags__suggest-btn{display:inline-flex;align-items:center;min-height:44px;padding:10px 14px;border-radius:999px;border:1.5px dashed color-mix(in srgb,var(--ma-tag,var(--acc)) 55%,#94a3b8);background:#fff;color:var(--ink,#0f172a);font:inherit;font-size:14px;font-weight:800;cursor:pointer}
+.ma-tags__suggest-btn{display:inline-flex;align-items:center;min-height:44px;padding:10px 14px;border-radius:999px;border:1.5px dashed color-mix(in srgb,var(--ma-tag,var(--acc)) 55%,var(--muted,#94a3b8));background:var(--card,#fff);color:var(--ink,#0f172a);font:inherit;font-size:14px;font-weight:800;cursor:pointer}
+html[data-ma-theme="dark"] .ma-tags__chip{background:color-mix(in srgb,var(--ma-tag) 36%,var(--card,#1c1c1e))}
+html[data-ma-theme="dark"] .ma-tags__chip-x{background:color-mix(in srgb,var(--ma-tag) 42%,var(--card,#1c1c1e))}
+html[data-ma-theme="dark"] .ma-tags__suggest-btn{background:color-mix(in srgb,var(--ma-tag) 22%,var(--card,#1c1c1e))}
 .ma-tags__suggest[hidden]{display:none!important}
 .ma-tags__chip.is-pending{opacity:.72}
 .ma-tags .ma-typeahead{position:relative;overflow:visible}
 .ma-tags .ma-typeahead__list{position:static!important;left:auto;right:auto;top:auto;margin:10px 0 0;max-height:min(240px,40vh);box-shadow:none}
+.ma-input::placeholder,.ma-textarea::placeholder{color:var(--muted);opacity:1}
 </style>
