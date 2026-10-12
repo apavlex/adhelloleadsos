@@ -47,12 +47,12 @@ const angi = svg(
 );
 
 /**
- * Nextdoor — lime app-icon tile with bold “n” (wordmark is unreadable at 22px).
- * Color matches current Nextdoor brand green.
+ * Nextdoor — lime app-icon tile with a clear lowercase “n”
+ * (full wordmark is unreadable at 22px). Brand green #8ED500.
  */
 const nextdoor = svg(
   `<rect width="24" height="24" rx="6" fill="#8ED500"/>` +
-  `<path fill="#111111" d="M8.1 7.35h3.05c2.55 0 4.15 1.45 4.15 3.7 0 2.35-1.7 3.8-4.2 3.8H10.4v2.8H8.1V7.35zm2.3 1.9v3.55h.7c1.25 0 2-.65 2-1.8s-.75-1.75-2-1.75h-.7z"/>`,
+  `<path fill="#111111" d="M7.15 6.6h2.7v3.2c.55-1 1.6-1.65 3.05-1.65 2.25 0 3.8 1.65 3.8 4.2s-1.6 4.3-3.85 4.3c-1.4 0-2.4-.6-2.95-1.6v5.15h-2.75V6.6zm2.7 5.7c0 1.4.9 2.35 2.25 2.35 1.4 0 2.25-1 2.25-2.4s-.9-2.35-2.25-2.35-2.25.95-2.25 2.4z"/>`,
 );
 
 /** BBB shield + B. */
