@@ -110,7 +110,7 @@ function readJsonReply(r) {
 
     var payload = {
       title: String(title).trim() || 'AdHello',
-      text: 'Open your AdHello Referral app — Add to Home Screen from the browser menu if needed.',
+      text: 'Open your AdHello Review app — Add to Home Screen from the browser menu if needed.',
       url: shareUrl,
     };
 

@@ -1,5 +1,5 @@
 /**
- * Get the app — workspace owner's Referral app (member PWA at /m/:token).
+ * Get the app — workspace owner's Review app (member PWA at /m/:token).
  * Partner / contractor apps for other businesses stay on Network → Members.
  */
 const express = require('express');
@@ -21,7 +21,7 @@ router.get('/', async (req, res, next) => {
       (app.network && app.network.name) ||
       'your business';
     res.render('get_app', {
-      title: `Get Referral app | Agency OS`,
+      title: `Get Review app | Agency OS`,
       activePage: 'get-app',
       navPrimary: 'get-app',
       appName: brand.appName,
