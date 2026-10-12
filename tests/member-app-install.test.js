@@ -280,6 +280,8 @@ describe('member app install modal and tab bar', () => {
     assert.match(route, /function appIconVersionHint/);
     assert.match(route, /scheduleOwnerCustomerSync\(ctx\)/);
     assert.doesNotMatch(route, /await maybeSyncOwnerCustomers\(ctx\)/);
+    assert.match(route, /maybeEnsureDemoOwnerReviewApp/);
+    assert.match(route, /ws\.isDemo/);
     assert.match(route, /draft\.appIconVersion = appIconVersionHint\(draft\)/);
     assert.doesNotMatch(route, /const icon = await resolveAppIconSource\(draft\);\s*draft\.appIconVersion = icon\.version/s);
     assert.match(route, /leadRequestState\(ctx\)/);

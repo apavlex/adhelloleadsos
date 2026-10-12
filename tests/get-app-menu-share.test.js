@@ -62,6 +62,7 @@ describe('Get the app menu + Share', () => {
   it('Get the app route uses short share URL and workspace business name', () => {
     const route = read('routes/getApp.js');
     assert.match(route, /ensureOwnerReferralApp/);
+    assert.match(route, /ensureDemoOwnerReviewApp/);
     assert.match(route, /businessName/);
     assert.match(route, /brand\.customName/);
     const owner = read('services/ownerReferralApp.js');
