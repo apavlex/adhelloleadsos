@@ -13,8 +13,8 @@ describe('member app install modal and tab bar', () => {
     const css = fs.readFileSync(path.join(root, 'public/css/member-app.css'), 'utf8');
     assert.match(css, /html\s*\{[^}]*background:\s*var\(--card\)/s);
     assert.match(css, /\.ma-tabbar\s*\{[^}]*bottom:\s*0/s);
-    assert.match(css, /\.ma-tabbar\s*\{[^}]*backdrop-filter:\s*saturate\(180%\)\s*blur\(22px\)/s);
-    assert.match(css, /\.ma-tabbar\s*\{[^}]*rgba\(255,\s*255,\s*255,\s*0\.58\)/s);
+    assert.match(css, /\.ma-tabbar\s*\{[^}]*backdrop-filter:\s*saturate\(140%\)\s*blur\(10px\)/s);
+    assert.match(css, /\.ma-tabbar\s*\{[^}]*rgba\(255,\s*255,\s*255,\s*0\.82\)/s);
     assert.match(css, /\.ma-tabbar::before\s*\{[^}]*linear-gradient\(\s*to top/s);
     assert.match(css, /\.ma-tabbar::before\s*\{[^}]*height:\s*28px/s);
     assert.match(css, /\.ma-tabbar::before\s*\{[^}]*bottom:\s*100%/s);
@@ -39,7 +39,8 @@ describe('member app install modal and tab bar', () => {
     const head = fs.readFileSync(path.join(root, 'views/member_app/_head.ejs'), 'utf8');
     assert.match(head, /\.ma-shell\{padding-bottom:calc\(50px \+ 36px \+ 72px/);
     assert.match(head, /\.ma-tabbar::before\{/);
-    assert.match(head, /rgba\(255,255,255,\.58\)/);
+    assert.match(head, /rgba\(255,255,255,\.82\)/);
+    assert.match(head, /blur\(10px\)/);
   });
 
   it('tabbar partial includes install modal with workspace + browser panels', () => {
@@ -142,7 +143,7 @@ describe('member app install modal and tab bar', () => {
 
   it('service worker network-firsts versioned CSS so deploys are not stuck', () => {
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.480/);
+    assert.match(sw, /adhello-pwa-v1\.0\.481/);
     assert.match(sw, /searchParams\.has\('v'\)/);
     assert.match(sw, /versioned/);
   });
@@ -187,7 +188,24 @@ describe('member app install modal and tab bar', () => {
     const icons = fs.readFileSync(path.join(root, 'services/memberAppIcons.js'), 'utf8');
     assert.match(icons, /sms:\s*icon\(/);
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.480/);
+    assert.match(sw, /adhello-pwa-v1\.0\.481/);
+  });
+
+  it('Home stays responsive: defer GHL sync, skip icon decode, idle install modal', () => {
+    const route = fs.readFileSync(path.join(root, 'routes/memberApp.js'), 'utf8');
+    const js = fs.readFileSync(path.join(root, 'public/js/member-app.js'), 'utf8');
+    const head = fs.readFileSync(path.join(root, 'views/member_app/_head.ejs'), 'utf8');
+    assert.match(route, /function scheduleOwnerCustomerSync/);
+    assert.match(route, /function appIconVersionHint/);
+    assert.match(route, /scheduleOwnerCustomerSync\(ctx\)/);
+    assert.doesNotMatch(route, /await maybeSyncOwnerCustomers\(ctx\)/);
+    assert.match(route, /draft\.appIconVersion = appIconVersionHint\(draft\)/);
+    assert.doesNotMatch(route, /const icon = await resolveAppIconSource\(draft\);\s*draft\.appIconVersion = icon\.version/s);
+    assert.match(route, /leadRequestState\(ctx\)/);
+    assert.match(js, /requestIdleCallback\(showInstall/);
+    assert.match(js, /setTimeout\(showInstall,\s*1200\)/);
+    assert.match(head, /media="print" onload="this\.media='all'"/);
+    assert.match(head, /blur\(10px\)/);
   });
 
   it('member-app.js shows install guidance inside workspace standalone shells', () => {
