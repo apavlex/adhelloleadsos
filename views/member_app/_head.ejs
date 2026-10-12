@@ -46,8 +46,9 @@ summary.ma-settings-row::-webkit-details-marker,summary.ma-settings-row::marker{
 .ma-tabbar{position:fixed!important;left:0;right:0;bottom:0!important;width:100%;margin:0;z-index:40;box-sizing:border-box;padding:0;padding-bottom:env(safe-area-inset-bottom,0px);overflow:visible;border:0;box-shadow:none;background:rgba(255,255,255,.58)!important;-webkit-backdrop-filter:saturate(180%) blur(22px)!important;backdrop-filter:saturate(180%) blur(22px)!important}
 .ma-tabbar::before{content:"";position:absolute;left:0;right:0;bottom:100%;height:28px;pointer-events:none;background:linear-gradient(to top,rgba(255,255,255,.58) 0%,rgba(255,255,255,.32) 45%,rgba(255,255,255,0) 100%)}
 .ma-tabbar__inner{position:relative;z-index:1;height:50px;background:transparent}
-.ma-tab--send .ma-tab__fab{margin-top:-26px;position:relative;z-index:2}
-.ma-shell{padding-bottom:calc(50px + 36px + 72px + env(safe-area-inset-bottom,0px))!important}
+.ma-tab{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:1px;padding-bottom:4px;text-decoration:none;font-size:10px;font-weight:600;letter-spacing:.01em}
+.ma-tab svg{width:24px;height:24px}
+.ma-shell{padding-bottom:calc(50px + 72px + env(safe-area-inset-bottom,0px))!important}
 @media (prefers-color-scheme:dark){.ma-tabbar{background:rgba(28,28,30,.62)!important}.ma-tabbar::before{background:linear-gradient(to top,rgba(28,28,30,.62) 0%,rgba(28,28,30,.34) 45%,rgba(28,28,30,0) 100%)}}
 /* Customer tags — critical so stale SW CSS can't leave plain text + tiny × */
 .ma-tags__list{display:flex!important;flex-wrap:wrap;gap:10px;align-items:center;min-height:44px}
