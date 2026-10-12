@@ -812,10 +812,15 @@ async function seedMemberAppPortfolio(networkId, memberId, { phone, now, tagKeys
     },
   ];
 
+  const already = await memberWork.listCustomers(networkId, memberId);
+  const haveName = new Set(already.map((c) => String(c.name || '').trim().toLowerCase()).filter(Boolean));
+
   let customerCount = 0;
   let jobCount = 0;
   let photoCount = 0;
   for (const row of portfolio) {
+    const nameKey = String(row.customer.name || '').trim().toLowerCase();
+    if (nameKey && haveName.has(nameKey)) continue;
     const created = await memberWork.saveCustomer(networkId, memberId, {
       name: row.customer.name,
       phone: row.customer.phone,
@@ -824,6 +829,7 @@ async function seedMemberAppPortfolio(networkId, memberId, { phone, now, tagKeys
       notes: row.customer.notes || '',
     }, { source: 'manual' });
     if (!created.ok) throw new Error(`Demo member customer: ${created.error}`);
+    if (nameKey) haveName.add(nameKey);
     customerCount += 1;
     const keys = (row.customer.tags || []).map((t) => tagKeys[t]).filter(Boolean);
     if (keys.length) {
@@ -1133,6 +1139,76 @@ async function enrichDemoJobPhotos(networkId, memberId, { replace = false } = {}
 }
 
 /**
+ * Parallel Get the app + Home/Customers can race ensure and double-seed.
+ * Coalesce in-flight work per workspace.
+ */
+const ensureDemoOwnerReviewAppInflight = new Map();
+
+/** Drop duplicate sample customers / owner referrals from a raced seed. */
+async function dedupeDemoOwnerPortfolio(networkId, ownerId) {
+  const customers = await memberWork.listCustomers(networkId, ownerId);
+  const keepByName = new Map();
+  const remove = [];
+  for (const c of customers) {
+    const key = String(c.name || '').trim().toLowerCase();
+    if (!key) continue;
+    const prev = keepByName.get(key);
+    if (!prev) {
+      keepByName.set(key, c);
+      continue;
+    }
+    // Keep the older row; remove the later duplicate.
+    const prevAt = Date.parse(prev.createdAt || '') || 0;
+    const nextAt = Date.parse(c.createdAt || '') || 0;
+    if (nextAt < prevAt) {
+      remove.push(prev);
+      keepByName.set(key, c);
+    } else {
+      remove.push(c);
+    }
+  }
+  let removedCustomers = 0;
+  for (const c of remove) {
+    const out = await memberWork.deleteCustomer(networkId, ownerId, c.id);
+    if (out && out.ok) removedCustomers += 1;
+  }
+
+  const referrals = await store.listReferrals(networkId);
+  const ownerRefs = referrals.filter(
+    (r) => r.fromMemberId === ownerId || r.toMemberId === ownerId,
+  );
+  const keepRef = new Map();
+  const removeRefs = [];
+  for (const r of ownerRefs) {
+    const h = r.homeowner || {};
+    const key = [
+      r.fromMemberId === ownerId ? 'sent' : 'recv',
+      String(h.name || '').trim().toLowerCase(),
+      String(r.tradeSlug || ''),
+    ].join('|');
+    const prev = keepRef.get(key);
+    if (!prev) {
+      keepRef.set(key, r);
+      continue;
+    }
+    const prevAt = Date.parse(prev.createdAt || '') || 0;
+    const nextAt = Date.parse(r.createdAt || '') || 0;
+    if (nextAt < prevAt) {
+      removeRefs.push(prev);
+      keepRef.set(key, r);
+    } else {
+      removeRefs.push(r);
+    }
+  }
+  let removedReferrals = 0;
+  for (const r of removeRefs) {
+    await dbService.deleteStorageKey(`netref:${networkId}:${r.id}`);
+    removedReferrals += 1;
+  }
+  return { removedCustomers, removedReferrals };
+}
+
+/**
  * If a demo workspace's Review app is still empty or thin (built before rich
  * seed, or never reset), fill the owner portfolio when Get the app / Home opens.
  * Also upgrades committed photo assets when DEMO_REVIEW_MEDIA_V bumps.
@@ -1141,6 +1217,16 @@ async function enrichDemoJobPhotos(networkId, memberId, { replace = false } = {}
 async function ensureDemoOwnerReviewApp(workspaceId, { email = '' } = {}) {
   const wid = String(workspaceId || '').trim();
   if (!wid) return { ok: false, reason: 'no-workspace' };
+  const existing = ensureDemoOwnerReviewAppInflight.get(wid);
+  if (existing) return existing;
+  const run = ensureDemoOwnerReviewAppUnlocked(wid, { email }).finally(() => {
+    ensureDemoOwnerReviewAppInflight.delete(wid);
+  });
+  ensureDemoOwnerReviewAppInflight.set(wid, run);
+  return run;
+}
+
+async function ensureDemoOwnerReviewAppUnlocked(wid, { email = '' } = {}) {
   const ws = await dbService.getWorkspace(wid);
   if (!ws || !ws.isDemo) return { ok: false, reason: 'not-demo' };
   let network = await store.getNetworkForWorkspace(wid);
@@ -1160,7 +1246,10 @@ async function ensureDemoOwnerReviewApp(workspaceId, { email = '' } = {}) {
     });
   }
 
-  const [existing, jobs, hero, referrals] = await Promise.all([
+  // Heal demos that already double-seeded from a Get the app + Home race.
+  const deduped = await dedupeDemoOwnerPortfolio(network.id, owner.id);
+
+  const [existingCustomers, jobs, hero, referrals] = await Promise.all([
     memberWork.listCustomers(network.id, owner.id),
     memberWork.listJobs(network.id, owner.id),
     store.getBrandImage(network.id, 'hero'),
@@ -1177,13 +1266,19 @@ async function ensureDemoOwnerReviewApp(workspaceId, { email = '' } = {}) {
   const mediaV = await readDemoReviewMediaV(network.id);
   const needsMediaUpgrade = mediaV < DEMO_REVIEW_MEDIA_V;
 
-  const needsCustomers = existing.length === 0;
+  const needsCustomers = existingCustomers.length === 0;
   const needsBrand = !hasBrandStats || needsMediaUpgrade;
   const needsPhotos = (photoCount === 0 && (needsCustomers || jobs.length > 0)) || needsMediaUpgrade;
   const needsReferrals = ownerRefCount === 0;
 
   if (!needsCustomers && !needsBrand && !needsPhotos && !needsReferrals) {
-    return { ok: true, seeded: false, customerCount: existing.length, photoCount };
+    return {
+      ok: true,
+      seeded: false,
+      customerCount: existingCustomers.length,
+      photoCount,
+      deduped,
+    };
   }
 
   const now = Date.now();
@@ -1203,7 +1298,7 @@ async function ensureDemoOwnerReviewApp(workspaceId, { email = '' } = {}) {
     network = (await store.getNetwork(network.id)) || network;
   }
 
-  let seeded = { customerCount: existing.length, jobCount: jobs.length, photoCount };
+  let seeded = { customerCount: existingCustomers.length, jobCount: jobs.length, photoCount };
   if (needsCustomers) {
     seeded = await seedMemberAppPortfolio(network.id, owner.id, {
       phone,
@@ -1230,7 +1325,7 @@ async function ensureDemoOwnerReviewApp(workspaceId, { email = '' } = {}) {
     await seedOwnerReferrals(network, owner, memberByTitle, phone, now);
   }
 
-  return { ok: true, seeded: true, ...seeded, mediaV: DEMO_REVIEW_MEDIA_V };
+  return { ok: true, seeded: true, ...seeded, mediaV: DEMO_REVIEW_MEDIA_V, deduped };
 }
 
 /** One custom GHL cadence with a few leads on it (demo workspaces never sync to GHL). */
