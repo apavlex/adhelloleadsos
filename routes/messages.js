@@ -48,7 +48,7 @@ function campaignName(c) {
   if (c.subject) return c.subject;
   const t = String(c.template || '').replace(/\s+/g, ' ').trim();
   if (t) return t.length > 70 ? `${t.slice(0, 70)}…` : t;
-  return c.channel === 'email' ? 'Bulk email' : 'Bulk SMS';
+  return c.channel === 'email' ? 'Bulk email' : 'Send Message';
 }
 
 router.get('/', async (req, res, next) => {
