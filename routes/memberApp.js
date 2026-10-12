@@ -103,14 +103,15 @@ function scheduleOwnerCustomerSync(ctx) {
 
 /** Cache-bust version for <link rel="icon"> without decoding image buffers. */
 function appIconVersionHint(ctx) {
-  if (ctx && ctx.member && ctx.member.profilePhotoUpdatedAt) {
-    return String(ctx.member.profilePhotoUpdatedAt);
-  }
+  // Prefer business logo over profile photo (matches resolveAppIconSource).
   if (ctx && ctx.brand && ctx.brand.fromWorkspace && ctx.brand.logoUrl) {
     return String(ctx.brand.logoUrl);
   }
   if (ctx && ctx.brand && ctx.brand.logoUrl) {
     return String(ctx.brand.logoUrl);
+  }
+  if (ctx && ctx.member && ctx.member.profilePhotoUpdatedAt) {
+    return String(ctx.member.profilePhotoUpdatedAt);
   }
   return String((ctx && ctx.brand && ctx.brand.accent) || '1');
 }
@@ -167,9 +168,9 @@ const OK_MESSAGES = {
   hero_saved: 'Home banner image updated.',
   hero_cleared: 'Home banner image removed.',
   profile_saved: 'Profile saved.',
-  photo_saved: 'Profile photo saved. Your Home Screen icon updates next time you add the app (iPhone keeps the old icon until then).',
+  photo_saved: 'Profile photo saved.',
   photo_cleared: 'Profile photo removed.',
-  branding_saved: 'App branding saved. Same logo and name as Workspace → White label.',
+  branding_saved: 'App branding saved. Same logo and name as Workspace → White label. Re-add the app to refresh the Home Screen icon (iPhone keeps the old one until then).',
   branding_cleared: 'App logo removed from Workspace → White label.',
   review_sms: 'Review request sent by text via GHL CRM.',
   review_email: 'Review request sent by email via GHL CRM.',
@@ -638,32 +639,37 @@ router.post('/m/login', form, async (req, res) => {
 
 // ── PWA manifest + icons ─────────────────────────────────────────────────────
 
-/** Prefer member profile photo, then workspace/network logo, else initials. */
+/**
+ * Home Screen / PWA icon: business logo first (white-label, then network brand),
+ * then profile photo, then initials. Profile pic stays in the top bar only.
+ * Free-app members skip shared network logos and use their profile photo.
+ */
 async function resolveAppIconSource(ctx) {
+  const free = !!(ctx.brand && ctx.brand.isFreeApp);
+  if (!free) {
+    const wsLogo = await ownerAppBrand.workspaceLogoForBrand(ctx.brand, ctx.network).catch(() => null);
+    if (wsLogo && wsLogo.buffer) {
+      return {
+        logo: wsLogo,
+        mode: 'logo',
+        version: String((ctx.brand && ctx.brand.logoUrl) || ctx.brand.accent || 'ws'),
+      };
+    }
+    const brandLogo = await store.getBrandImage(ctx.network.id, 'logo').catch(() => null);
+    if (brandLogo && brandLogo.buffer) {
+      return {
+        logo: brandLogo,
+        mode: 'logo',
+        version: String(brandLogo.updatedAt || (ctx.brand && ctx.brand.logoUrl) || ctx.brand.accent || 'brand'),
+      };
+    }
+  }
   const photo = await store.getProfilePhoto(ctx.network.id, ctx.member.id).catch(() => null);
   if (photo && photo.buffer) {
     return {
       logo: photo,
       mode: 'photo',
       version: String(ctx.member.profilePhotoUpdatedAt || photo.updatedAt || Date.now()),
-    };
-  }
-  const wsLogo = await ownerAppBrand.workspaceLogoForBrand(ctx.brand, ctx.network).catch(() => null);
-  if (wsLogo && wsLogo.buffer) {
-    return {
-      logo: wsLogo,
-      mode: 'logo',
-      version: String((ctx.brand && ctx.brand.logoUrl) || ctx.brand.accent || 'ws'),
-    };
-  }
-  const brandLogo = ctx.brand.logoUrl && ctx.brand.logoUrl.startsWith(`/m/brand/${ctx.network.id}/`)
-    ? await store.getBrandImage(ctx.network.id, 'logo').catch(() => null)
-    : null;
-  if (brandLogo && brandLogo.buffer) {
-    return {
-      logo: brandLogo,
-      mode: 'logo',
-      version: String(brandLogo.updatedAt || ctx.brand.accent || 'brand'),
     };
   }
   return {

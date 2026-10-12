@@ -288,6 +288,12 @@ describe('member app install modal and tab bar', () => {
     assert.match(route, /draft\.appIconVersion = appIconVersionHint\(draft\)/);
     assert.doesNotMatch(route, /const icon = await resolveAppIconSource\(draft\);\s*draft\.appIconVersion = icon\.version/s);
     assert.match(route, /leadRequestState\(ctx\)/);
+    // Home Screen icon prefers business logo over profile photo.
+    const iconFn = route.slice(route.indexOf('async function resolveAppIconSource'));
+    const wsLogoAt = iconFn.indexOf('workspaceLogoForBrand');
+    const brandLogoAt = iconFn.indexOf('getBrandImage');
+    const photoAt = iconFn.indexOf('getProfilePhoto');
+    assert.ok(wsLogoAt >= 0 && brandLogoAt > wsLogoAt && photoAt > brandLogoAt);
     assert.match(js, /requestIdleCallback\(showInstall/);
     assert.match(js, /setTimeout\(showInstall,\s*1200\)/);
     assert.match(head, /media="print" onload="this\.media='all'"/);

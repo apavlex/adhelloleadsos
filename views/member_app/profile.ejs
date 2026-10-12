@@ -30,7 +30,7 @@
 
     <section class="ma-card">
       <h2 style="font-size:16px;margin:0 0 6px">Profile photo</h2>
-      <p class="ma-hint" style="margin-top:0">Shown in the top bar — and used as your Home Screen app icon after you save.</p>
+      <p class="ma-hint" style="margin-top:0">Shown in the top bar. The Home Screen app icon uses your business logo from App branding below.</p>
       <form method="post" action="<%= base %>/profile/photo" enctype="multipart/form-data" autocomplete="off" data-ma-loading="Saving photo…">
         <div class="ma-field">
           <label class="ma-label" for="maProfilePhoto">Upload photo</label>
@@ -49,7 +49,7 @@
     <% if (typeof canEditWorkspaceBrand !== 'undefined' && canEditWorkspaceBrand && workspaceBrand) { %>
     <section class="ma-card" id="maAppBranding" aria-label="App branding">
       <h2 style="font-size:16px;margin:0 0 6px">App branding</h2>
-      <p class="ma-hint" style="margin-top:0">Same as <strong>Workspace → White label</strong>. Logo shows on Home next to your business name, and in the desktop app.</p>
+      <p class="ma-hint" style="margin-top:0">Same as <strong>Workspace → White label</strong>. Logo shows on Home, in the desktop app, and as the icon when you Save as a phone app.</p>
       <% if (workspaceBrand.hasLogo && workspaceBrand.logoUrl) { %>
       <img class="rv-logo" src="<%= workspaceBrand.logoUrl %>" alt="<%= workspaceBrand.appName %> logo" style="margin:8px auto 12px;max-width:96px;max-height:96px;object-fit:contain;border-radius:18px;background:#f1f5f9">
       <% } else if (brand.logoUrl) { %>
