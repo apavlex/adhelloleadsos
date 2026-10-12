@@ -38,10 +38,15 @@ test('Referral Partners marks free accounts and supports hide-free filter', () =
   assert.match(view, /data-ref-place|partner\.zip/);
   assert.match(route, /joinedWhen/);
   assert.match(route, /formatWhen/);
-  // Joined date sits under the phone on the left (before pills wrap).
+  // Title truncates; phone is its own line; joined sits under phone (before pills wrap).
+  assert.match(view, /ref-card-title/);
+  assert.match(view, /ref-card-phone/);
+  assert.match(view, /ref-card-head/);
   const joinedIdx = view.indexOf('data-ref-joined');
   const pillsIdx = view.indexOf('data-ref-pill-wrap');
+  const phoneIdx = view.indexOf('ref-card-phone');
   assert.ok(joinedIdx > 0 && pillsIdx > joinedIdx);
+  assert.ok(phoneIdx > 0 && phoneIdx < joinedIdx);
   // Notes stay on the dashboard cards.
   assert.match(view, /Add a note on this lead/);
   assert.match(view, /data-ref-note-form/);

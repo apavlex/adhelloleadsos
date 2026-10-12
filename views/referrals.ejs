@@ -52,8 +52,46 @@
     .ref-followup { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.6rem; padding: 0.55rem 0.75rem; border-radius: 0.9rem; font-size: 0.82rem; background: color-mix(in srgb, var(--brand-yellow, #FFD644) 18%, transparent); border: 1px solid color-mix(in srgb, var(--brand-yellow, #FFD644) 55%, transparent); }
     .ref-followup[hidden] { display: none; }
     .ref-followup > span { margin-right: 0.25rem; }
+    .ref-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; }
+    .ref-card-head__main { min-width: 0; flex: 1 1 auto; }
+    .ref-card-title {
+      display: block;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-align: left;
+      font-size: 1rem;
+      font-weight: 600;
+      line-height: 1.3;
+      padding: 0;
+      margin: 0;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      cursor: pointer;
+    }
+    .ref-card-title:hover { text-decoration: underline; }
+    .ref-card-phone {
+      display: block;
+      margin: 0.2rem 0 0;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #64748b;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    html.dark .ref-card-phone { color: #94a3b8; }
     .ref-pill { display: inline-flex; align-items: center; border-radius: 999px; padding: 0.28rem 0.65rem; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
-    .ref-pill-wrap { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.35rem; max-width: 11rem; }
+    .ref-pill-wrap {
+      display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.35rem;
+      flex: 0 0 auto; max-width: 42%;
+    }
+    @media (max-width: 639px) {
+      .ref-card-head { flex-direction: column; align-items: stretch; gap: 0.45rem; }
+      .ref-pill-wrap { justify-content: flex-start; max-width: none; }
+    }
     .ref-pill-connected { background: rgba(16, 185, 129, 0.14); color: #047857; }
     html.dark .ref-pill-connected { color: #6ee7b7; }
     .ref-pill-intro { background: rgba(245, 158, 11, 0.16); color: #b45309; }
@@ -256,35 +294,37 @@
       %>
       <% const isNetMember = netMembers.has(partner.key); %>
       <article class="ref-card<%= focusKey && partner.key === focusKey ? ' is-focus' : '' %>" data-lead-key="<%= partner.key %>" data-ref-network="<%= isNetMember ? '1' : '' %>" data-ref-partner="<%= partner.highlighted ? '1' : '0' %>" data-ref-status="<%= partner.status %>" data-ref-free="<%= partner.isAppFree ? '1' : '0' %>" data-ref-sent-count="<%= partner.sent %>" data-ref-received-count="<%= partner.received %>" data-ref-counts-network="<%= (partner.countsFromNetwork || isNetMember) ? '1' : '0' %>">
-        <div class="flex items-start justify-between gap-3">
-          <div class="min-w-0">
-            <button type="button" class="truncate text-left text-base font-semibold hover:underline" data-referral-profile data-lead-key="<%= partner.key %>"><%= partner.title %></button>
+        <div class="ref-card-head">
+          <div class="ref-card-head__main">
+            <button type="button" class="ref-card-title" data-referral-profile data-lead-key="<%= partner.key %>" title="<%= partner.title %>"><%= partner.title %></button>
             <% if (partner.category) { %><p class="truncate text-[11px] font-semibold uppercase tracking-wide text-brand-muted"><%= partner.category %></p><% } %>
             <% if (place) { %><p class="ref-place truncate" data-ref-place><%= place %></p><% } %>
+            <% if (partner.rating || partner.reviews) { %>
             <p class="mt-0.5 text-[12px] text-brand-muted">
-              <% if (partner.rating) { %><span class="text-amber-500" aria-hidden="true">★</span> <%= partner.rating %><% if (partner.reviews) { %> · <%= partner.reviews %> review<%= partner.reviews === 1 ? '' : 's' %><% } %><% } %>
-              <% if (partner.phone) { %><% if (partner.rating) { %> · <% } %><%= partner.phone %><% } %>
+              <% if (partner.rating) { %><span class="text-amber-500" aria-hidden="true">★</span> <%= partner.rating %><% } %><% if (partner.reviews) { %><% if (partner.rating) { %> · <% } %><%= partner.reviews %> review<%= partner.reviews === 1 ? '' : 's' %><% } %>
             </p>
+            <% } %>
+            <% if (partner.phone) { %>
+            <p class="ref-card-phone"><%= partner.phone %></p>
+            <% } %>
             <% if (partner.joinedWhen) { %>
             <p class="ref-joined" data-ref-joined>Joined <%= partner.joinedWhen %></p>
             <% } %>
           </div>
-          <div class="shrink-0">
-            <div class="ref-pill-wrap" data-ref-pill-wrap>
-              <% if (partner.memberActive) { %>
-              <span class="ref-pill ref-pill-active">Active</span>
-              <% } %>
-              <% if (partner.status === 'connected') { %>
-              <span class="ref-pill ref-pill-connected" data-ref-pill>Connected</span>
-              <% } else if (partner.status === 'intro_sent') { %>
-              <span class="ref-pill ref-pill-intro" data-ref-pill>Intro sent</span>
-              <% } else if (partner.highlighted) { %>
-              <span class="ref-pill" data-ref-pill style="background: rgba(148,163,184,0.16); color: #64748b;">Not connected</span>
-              <% } %>
-              <% if (showFreePaid && partner.isAppFree) { %>
-              <span class="ref-pill ref-pill-free" data-ref-free-pill>Free account</span>
-              <% } %>
-            </div>
+          <div class="ref-pill-wrap" data-ref-pill-wrap>
+            <% if (partner.memberActive) { %>
+            <span class="ref-pill ref-pill-active">Active</span>
+            <% } %>
+            <% if (partner.status === 'connected') { %>
+            <span class="ref-pill ref-pill-connected" data-ref-pill>Connected</span>
+            <% } else if (partner.status === 'intro_sent') { %>
+            <span class="ref-pill ref-pill-intro" data-ref-pill>Intro sent</span>
+            <% } else if (partner.highlighted) { %>
+            <span class="ref-pill" data-ref-pill style="background: rgba(148,163,184,0.16); color: #64748b;">Not connected</span>
+            <% } %>
+            <% if (showFreePaid && partner.isAppFree) { %>
+            <span class="ref-pill ref-pill-free" data-ref-free-pill>Free account</span>
+            <% } %>
           </div>
         </div>
 
