@@ -15,9 +15,9 @@
   --acc-ink: color-mix(in srgb, var(--acc) 80%, black);
   --radius: 20px;
   --tabbar-h: 50px;
-  /* Kept at 0 — Review is a normal tab (no raised FAB overhang). */
-  --tabbar-fab-overhang: 0px;
-  /* Extra air so the last list row / button clears the frosted bar. */
+  /* Review FAB sits above the bar; keep last page content clear of it. */
+  --tabbar-fab-overhang: 36px;
+  /* Extra air so the last list row / button clears the frosted bar + FAB. */
   --tabbar-content-gap: 72px;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
@@ -1061,20 +1061,64 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
   background: transparent;
 }
 .ma-tab {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-end;
   gap: 1px;
+  height: 100%;
   padding-bottom: 4px;
+  box-sizing: border-box;
   text-decoration: none;
   color: var(--tab-muted);
+  font-family: var(--font-text);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.01em;
+  line-height: 1.1;
 }
-.ma-tab svg { width: 24px; height: 24px; }
+.ma-tab svg { width: 24px; height: 24px; display: block; }
 .ma-tab.is-on { color: var(--acc); }
+/* Shared label metrics so Review matches Home/Customers/etc. */
+.ma-tab__label {
+  display: block;
+  font-family: var(--font-text);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+/* 24px icon slot — FAB tab uses this so the label baseline matches siblings. */
+.ma-tab__slot {
+  display: block;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+}
+.ma-tab--fab { z-index: 1; }
+.ma-tab--fab .ma-tab__fab {
+  position: absolute;
+  left: 50%;
+  bottom: calc(4px + 1.1em + 1px + 12px);
+  transform: translate(-50%, 50%);
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  background: var(--acc);
+  color: var(--on);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--acc) 45%, transparent);
+  border: 4px solid color-mix(in srgb, var(--bg) 70%, transparent);
+  pointer-events: none;
+  z-index: 2;
+}
+.ma-tab--fab .ma-tab__fab svg { width: 24px; height: 24px; color: inherit; }
+.ma-tab--fab.is-on { color: var(--acc); }
+.ma-tab--fab.is-on .ma-tab__fab { color: var(--on); }
 
 /* Install app modal */
 .ma-install-modal {
