@@ -264,6 +264,31 @@
 
     <% const _agentOps = typeof agentOpsDash !== 'undefined' && agentOpsDash ? agentOpsDash : null; %>
     <% const _hasAgentOps = !!( _agentOps && _agentOps.roles && _agentOps.roles.length ); %>
+    <% const _leadSources = typeof leadSources !== 'undefined' && leadSources ? leadSources : null; %>
+    <% const _srcList = _leadSources && Array.isArray(_leadSources.sources) ? _leadSources.sources : []; %>
+    <% if (_srcList.length) { %>
+    <section class="today-viz today-viz-reveal mb-6 md:mb-8" aria-label="Lead sources">
+      <div class="flex items-baseline justify-between gap-3 mb-3">
+        <div>
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Lead sources</p>
+          <h2 class="font-display font-extrabold text-lg md:text-xl text-brand-dark dark:text-white leading-tight">
+            <span class="tabular-nums"><%= Number(_leadSources.needYou) || 0 %></span> need you
+            <span class="text-brand-muted font-semibold text-sm md:text-base"> · website, agency, referrals &amp; purchased</span>
+          </h2>
+        </div>
+        <a href="/appointments" class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:underline shrink-0">Manage</a>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+        <% _srcList.forEach(function (s) { %>
+        <a href="<%= s.href %>" class="group rounded-2xl border border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-900/70 px-3.5 py-3.5 shadow-sm hover:border-brand-yellow/50 hover:shadow-md transition-all min-w-0">
+          <p class="font-display font-extrabold text-2xl tabular-nums text-brand-dark dark:text-white leading-none mb-1"><%= s.count %></p>
+          <p class="text-[11px] font-black uppercase tracking-widest text-brand-dark dark:text-white"><%= s.label %></p>
+          <p class="text-[11px] font-semibold text-brand-muted truncate mt-0.5"><%= s.hint %></p>
+        </a>
+        <% }); %>
+      </div>
+    </section>
+    <% } %>
     <% if (!empty) { %>
     <section id="todayMainTabs" class="today-viz today-viz-hero today-viz-reveal mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 p-6 md:p-8 shadow-sm" aria-label="Today main">
       <div class="today-viz-grid" aria-hidden="true"></div>

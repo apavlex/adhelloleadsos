@@ -29,6 +29,8 @@ const { buildOpportunityBoard, selectPipeline } = require('../services/opportuni
 const { buildBookmarkSessions, buildRecentlyWorked } = require('../services/todayResumeQueue');
 const { leadLogsMentionReply } = require('../services/leadActivityWindow');
 const agentOps = require('../services/agentOps');
+const workspaceLeadOverview = require('../services/workspaceLeadOverview');
+const appointmentPackages = require('../services/appointmentPackages');
 function firstNameFromUser(user) {
   const raw =
     (user && user.displayName) ||
@@ -260,6 +262,17 @@ router.get('/', async (req, res, next) => {
     } catch (_) {
       agentOpsDash = null;
     }
+    let leadSources = null;
+    try {
+      const apptView = await appointmentPackages.loadTodayView(wid);
+      leadSources = await workspaceLeadOverview.buildOverview({
+        workspaceId: wid,
+        leads: workspaceLeads,
+        apptView,
+      });
+    } catch (_) {
+      leadSources = null;
+    }
     res.render('today', {
       title: 'Today | Agency OS',
       activePage: 'today',
@@ -276,6 +289,7 @@ router.get('/', async (req, res, next) => {
       streak,
       repliesWaiting,
       queueNeedingAction,
+      leadSources,
       totalLeads: businessLeads.length,
       outreachCoach,
       activation,

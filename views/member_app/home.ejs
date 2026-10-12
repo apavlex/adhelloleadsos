@@ -9,14 +9,10 @@
 
     <% const _appt = typeof appointment !== 'undefined' && appointment ? appointment : null; %>
     <% const _upcoming = typeof upcoming !== 'undefined' ? upcoming : []; %>
-    <% const _overview = typeof overview !== 'undefined' && overview ? overview : null; %>
-    <% const _sources = _overview && Array.isArray(_overview.sources) ? _overview.sources : []; %>
-    <% const _attention = _overview && Array.isArray(_overview.attention) ? _overview.attention : []; %>
-    <% const _needYou = _overview ? (Number(_overview.needYou) || 0) : 0; %>
+    <% const _recentLeads = _appt && _appt.recentLeads ? _appt.recentLeads.slice(0, 3) : []; %>
     <% const _reviewViews = typeof reviewViews !== 'undefined' ? reviewViews : 0; %>
     <% const _customerCount = typeof customerCount !== 'undefined' ? customerCount : 0; %>
     <% const _openJobs = typeof openJobCount !== 'undefined' ? openJobCount : 0; %>
-    <% const _leadsHref = _overview && _overview.leadsHref ? _overview.leadsHref : (base + '/referrals'); %>
 
     <section class="ma-hello">
       <h1>Hi, <%= greetingName %></h1>
@@ -52,10 +48,10 @@
             <p class="ma-hero__sub"><%= _appt ? 'Reviews · jobs · leads' : brand.subtitle %></p>
           </div>
         </div>
-        <% if (_appt || _needYou) { %>
-        <p class="ma-hero__stat"><%= _needYou %><small>need you</small></p>
+        <% if (_appt) { %>
+        <p class="ma-hero__stat"><%= (_appt.openLeadCount || 0) + (tiles.find(function (t) { return t.key === 'pending'; }) || {}).value || 0 %><small>need you</small></p>
         <p class="ma-hero__label">
-          <%= (_overview && _overview.websiteCount) || 0 %> website · <%= (_overview && _overview.agencyCount) || 0 %> agency · <%= (_overview && _overview.referralCount) || 0 %> referrals
+          <%= _appt.openLeadCount || 0 %> leads · <%= (tiles.find(function (t) { return t.key === 'pending'; }) || {}).value || 0 %> pending referrals
           <% if (wonValue) { %> · <%= wonValue %> won<% } %>
         </p>
         <% } else if (brand.statValueLabel) { %>
@@ -68,19 +64,7 @@
       </div>
     </section>
 
-    <% if (_sources.length) { %>
-    <section class="ma-sources" aria-label="Lead sources">
-      <% _sources.forEach(function (s) { %>
-      <a class="ma-source<%= s.count ? ' ma-source--hot' : '' %>" href="<%= s.href %>">
-        <span class="ma-source__count"><%= s.count %></span>
-        <span class="ma-source__label"><%= s.label %></span>
-        <span class="ma-source__hint"><%= s.hint %></span>
-      </a>
-      <% }); %>
-    </section>
-    <% } %>
-
-    <section class="ma-tiles<%= _appt ? ' ma-tiles--4' : '' %>" aria-label="Reviews, customers, and network">
+    <section class="ma-tiles<%= _appt ? ' ma-tiles--6' : '' %>" aria-label="Reviews, customers, and network">
       <% const _reviewHref = base + '/review'; %>
       <% if (_appt) { %>
       <a class="ma-tile" href="<%= _reviewHref %>">
@@ -92,6 +76,16 @@
         <span class="ma-tile__icon"><%- icons.customers %></span>
         <p class="ma-tile__value"><%= _customerCount %></p>
         <p class="ma-tile__label">Customers</p>
+      </a>
+      <a class="ma-tile" href="<%= _appt.portalLeadsPath %>">
+        <span class="ma-tile__icon"><%- icons.leads %></span>
+        <p class="ma-tile__value"><%= _appt.openLeadCount %></p>
+        <p class="ma-tile__label">Open leads</p>
+      </a>
+      <a class="ma-tile" href="<%= base %>/referrals">
+        <span class="ma-tile__icon"><%- icons.pending %></span>
+        <p class="ma-tile__value"><%= (tiles.find(function (t) { return t.key === 'pending'; }) || {}).value || 0 %></p>
+        <p class="ma-tile__label">Pending refs</p>
       </a>
       <a class="ma-tile" href="<%= _appt.portalPath %>">
         <span class="ma-tile__icon"><%- icons.calendar %></span>
@@ -121,20 +115,31 @@
       </div>
     </section>
 
-    <% if (_attention.length) { %>
+    <% if (waiting.length || _recentLeads.length) { %>
     <section class="ma-section">
       <div class="ma-section__head">
         <h2>Needs attention</h2>
-        <a href="<%= _leadsHref %>">Leads</a>
+        <% if (waiting.length) { %><a href="<%= base %>/referrals">Leads</a><% } else if (_appt) { %><a href="<%= _appt.portalLeadsPath %>">Leads</a><% } else { %><a href="<%= base %>/customers">Customers</a><% } %>
       </div>
-      <% _attention.forEach(function (item) { %>
-      <a class="ma-card" style="display:block;text-decoration:none" href="<%= item.href %>">
+      <% waiting.forEach(function (r) { %>
+      <a class="ma-card" style="display:block;text-decoration:none" href="<%= base %>/referrals#ref-<%= r.id %>">
         <div class="ma-card__row">
           <div style="min-width:0">
-            <p class="ma-card__title"><%= item.title %></p>
-            <p class="ma-card__meta"><%= item.body %></p>
+            <p class="ma-card__title"><%= r.customer.name || 'Customer' %></p>
+            <p class="ma-card__meta">Referral · <%= r.trade %><%= r.customer.city ? ' · ' + r.customer.city : '' %> · from <%= r.from %></p>
           </div>
-          <span class="ma-pill <%= item.pillClass || 'ma-pill--sent' %>"><%= item.pill || 'New' %></span>
+          <span class="ma-pill ma-pill--sent">New</span>
+        </div>
+      </a>
+      <% }); %>
+      <% _recentLeads.forEach(function (lead) { %>
+      <a class="ma-card" style="display:block;text-decoration:none" href="<%= _appt.portalLeadsPath %>">
+        <div class="ma-card__row">
+          <div style="min-width:0">
+            <p class="ma-card__title"><%= lead.name %></p>
+            <p class="ma-card__meta">Form lead · <%= lead.formName || 'Website' %><% if (lead.phone) { %> · <%= lead.phone %><% } %></p>
+          </div>
+          <span class="ma-pill ma-pill--accepted">Lead</span>
         </div>
       </a>
       <% }); %>
@@ -161,7 +166,7 @@
       </div>
       <%- include('_lead_request_callout', { leadRequest: typeof leadRequest !== 'undefined' ? leadRequest : null, back: 'home', base: base, icons: icons }) %>
       <div class="ma-dash-actions">
-        <a class="ma-btn ma-btn--soft" href="<%= _leadsHref %>"><%- icons.leads %> Leads</a>
+        <a class="ma-btn ma-btn--soft" href="<%= base %>/referrals"><%- icons.leads %> Leads</a>
         <a class="ma-btn ma-btn--soft" href="<%= base %>/send"><%- icons.send %> Send referral</a>
       </div>
     </section>
