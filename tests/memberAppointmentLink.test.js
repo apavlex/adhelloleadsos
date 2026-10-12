@@ -11,9 +11,12 @@ const dbService = require('../services/database');
 const appointmentPackages = require('../services/appointmentPackages');
 const networkStore = require('../services/networkStore');
 const {
+  OWNER_MEMBER_ID,
   findPackageForMember,
   findMemberForPackage,
   listPartnerAppsForWorkspace,
+  listOwnerFormLeads,
+  networkHasReferralPartners,
   normName,
 } = require('../services/memberAppointmentLink');
 
@@ -92,5 +95,49 @@ describe('memberAppointmentLink', () => {
     const listed = await listPartnerAppsForWorkspace('ws_link');
     assert.ok(listed.network);
     assert.ok(listed.partners.some((p) => p.memberId === member.id && p.packageId === pkg.id));
+  });
+
+  it('workspace owner gets package + form leads even with no referral partners', async () => {
+    const wid = 'ws_owner_only';
+    await dbService.saveWorkspace(wid, { id: wid, members: {} });
+    const network = await networkStore.getOrCreateNetworkForWorkspace(wid, {
+      name: 'Owner solo network',
+      ownerEmail: 'boss@example.com',
+    });
+    const owner = await networkStore.saveMember(network.id, {
+      id: OWNER_MEMBER_ID,
+      companyName: 'Cascade Home Pros',
+      email: 'boss@example.com',
+      status: 'active',
+    });
+    // Package name does not match owner company — still must attach for owner-only networks.
+    const pkg = await appointmentPackages.createPackage(wid, {
+      businessName: 'Website Forms Inbox',
+      trade: 'General',
+      purchased: 2,
+      contactEmail: 'forms@other.test',
+      leadsPurchased: 20,
+    });
+    await appointmentPackages.attachFormLead(wid, {
+      leadKey: 'lead_owner_1',
+      name: 'Pat Homeowner',
+      phone: '3605550100',
+      formName: 'Contact form',
+      source: 'ghl',
+      at: new Date().toISOString(),
+    }, { packageId: pkg.id });
+
+    assert.equal(await networkHasReferralPartners(network), false);
+
+    const linked = await findPackageForMember(wid, owner, network);
+    assert.ok(linked);
+    assert.equal(linked.id, pkg.id);
+
+    const reverse = await findMemberForPackage(wid, pkg);
+    assert.ok(reverse);
+    assert.equal(reverse.member.id, OWNER_MEMBER_ID);
+
+    const leads = await listOwnerFormLeads(wid);
+    assert.ok(leads.some((l) => l.name === 'Pat Homeowner'));
   });
 });

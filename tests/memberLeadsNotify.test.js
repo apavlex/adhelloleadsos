@@ -84,4 +84,15 @@ describe('member leads + referral notifications', () => {
     assert.match(notify, /kind:\s*'received'/);
     assert.match(notify, /kind:\s*'pool'/);
   });
+
+  it('owner member app aggregates form leads when there are no referral partners', () => {
+    const route = fs.readFileSync(path.join(root, 'routes/memberApp.js'), 'utf8');
+    const link = fs.readFileSync(path.join(root, 'services/memberAppointmentLink.js'), 'utf8');
+    assert.match(route, /listOwnerFormLeads/);
+    assert.match(route, /networkHasReferralPartners/);
+    assert.match(route, /isOwnerMember\(ctx\.member/);
+    assert.match(link, /pickOwnerPackageFallback/);
+    assert.match(link, /OWNER_MEMBER_ID/);
+    assert.match(link, /listOwnerFormLeads/);
+  });
 });

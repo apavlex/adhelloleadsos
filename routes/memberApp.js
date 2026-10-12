@@ -222,7 +222,7 @@ function hasProfilePhoto(member) {
 async function attachAppointment(ctx) {
   const workspaceId = ctx.network && ctx.network.ownerWorkspaceId;
   if (!workspaceId) return { ...ctx, appointment: null };
-  const pkg = await memberAppointmentLink.findPackageForMember(workspaceId, ctx.member);
+  const pkg = await memberAppointmentLink.findPackageForMember(workspaceId, ctx.member, ctx.network);
   if (!pkg || pkg.portalEnabled === false) return { ...ctx, appointment: null };
 
   // Persist an explicit link once we auto-match so future lookups are stable.
@@ -239,6 +239,17 @@ async function attachAppointment(ctx) {
   }
 
   const home = contractorPortal.buildPortalHome(pkg);
+
+  // Owner with no referral partners: show website/agency leads from every package.
+  const isOwner = memberAppointmentLink.isOwnerMember(ctx.member, ctx.network);
+  if (isOwner && !(await memberAppointmentLink.networkHasReferralPartners(ctx.network))) {
+    const allLeads = await memberAppointmentLink.listOwnerFormLeads(workspaceId, { limit: 40 });
+    if (allLeads.length) {
+      home.formLeads = allLeads;
+      home.openLeadCount = allLeads.filter((f) => f && f.status !== 'closed').length;
+    }
+  }
+
   const portalToken = await contractorPortal.ensurePortalToken(workspaceId, pkg.id);
   const portalPath = contractorPortal.portalPath(portalToken);
   return {
