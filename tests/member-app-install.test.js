@@ -18,7 +18,7 @@ describe('member app install modal and tab bar', () => {
     assert.match(css, /\.ma-tabbar::before\s*\{[^}]*linear-gradient\(\s*to top/s);
     assert.match(css, /\.ma-tabbar::before\s*\{[^}]*height:\s*28px/s);
     assert.match(css, /\.ma-tabbar::before\s*\{[^}]*bottom:\s*100%/s);
-    assert.match(css, /\.ma-tab--fab \.ma-tab__fab\s*\{[^}]*position:\s*absolute/s);
+    assert.match(css, /\.ma-tab--fab \.ma-tab__fab\s*\{[^}]*margin-top:\s*-26px/s);
     assert.match(css, /\.ma-tabbar::after\s*\{[^}]*height:\s*200px/s);
     // Safe-area must be padding only — min-height + padding double-counted into a tall white shelf.
     assert.match(css, /\.ma-tabbar\s*\{[^}]*min-height:\s*0/s);
@@ -30,18 +30,18 @@ describe('member app install modal and tab bar', () => {
 
   it('shell bottom padding clears the tab bar', () => {
     const css = fs.readFileSync(path.join(root, 'public/css/member-app.css'), 'utf8');
-    assert.match(css, /--tabbar-fab-overhang:\s*28px/);
-    assert.match(css, /--tabbar-content-gap:\s*100px/);
+    assert.match(css, /--tabbar-fab-overhang:\s*26px/);
+    assert.match(css, /--tabbar-content-gap:\s*72px/);
     assert.match(
       css,
       /\.ma-shell\s*\{[^}]*padding:[^;]*tabbar-h[^;]*tabbar-fab-overhang[^;]*tabbar-content-gap/s,
     );
     assert.match(css, /\.ma-shell\s*\{[^}]*scroll-padding-bottom:/s);
     const head = fs.readFileSync(path.join(root, 'views/member_app/_head.ejs'), 'utf8');
-    assert.match(head, /\.ma-shell\{padding-bottom:calc\(50px \+ 28px \+ 100px/);
-    assert.match(head, /scroll-padding-bottom:calc\(50px \+ 28px \+ 100px/);
+    assert.match(head, /\.ma-shell\{padding-bottom:calc\(50px \+ 26px \+ 72px/);
+    assert.match(head, /scroll-padding-bottom:calc\(50px \+ 26px \+ 72px/);
     assert.match(head, /ma-tab__fab/);
-    assert.match(head, /translate\(-50%,-50%\)/);
+    assert.match(head, /margin-top:-26px/);
     assert.match(head, /\.ma-tab__label\{/);
     assert.match(head, /\.ma-tab\{[^}]*font-size:10px/s);
     assert.match(head, /\.ma-tabbar::before\{/);
@@ -149,7 +149,7 @@ describe('member app install modal and tab bar', () => {
 
   it('service worker network-firsts versioned CSS so deploys are not stuck', () => {
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.485/);
+    assert.match(sw, /adhello-pwa-v1\.0\.486/);
     assert.match(sw, /searchParams\.has\('v'\)/);
     assert.match(sw, /versioned/);
   });
@@ -175,16 +175,16 @@ describe('member app install modal and tab bar', () => {
     assert.match(icons, /pending:\s*icon\(/);
   });
 
-  it('request-a-review shares text without raw URL + url for one OG preview', () => {
+  it('request-a-review shares saved script text only (no url/file — one unfurl)', () => {
     const js = fs.readFileSync(path.join(root, 'public/js/member-app.js'), 'utf8');
     const review = fs.readFileSync(path.join(root, 'views/member_app/review.ejs'), 'utf8');
     const route = fs.readFileSync(path.join(root, 'routes/memberApp.js'), 'utf8');
     const css = fs.readFileSync(path.join(root, 'public/css/member-app.css'), 'utf8');
     assert.match(js, /function requestReviewFromPhone/);
-    assert.match(js, /function stripReviewUrlFromShareText/);
-    assert.match(js, /data\.url = payload\.url/);
-    assert.match(js, /navigator\.share\(data\)/);
-    assert.match(js, /encodeURIComponent\(smsText\)/);
+    assert.match(js, /navigator\.share\(\{ title: title, text: text \}\)/);
+    assert.doesNotMatch(js, /stripReviewUrlFromShareText/);
+    assert.doesNotMatch(js, /data\.url\s*=\s*payload\.url/);
+    assert.doesNotMatch(js, /navigator\.share\(\{ title: title, text: text, url:/);
     assert.doesNotMatch(js, /shareWithFile/);
     assert.doesNotMatch(js, /data\.files\s*=\s*\[file\]/);
     assert.doesNotMatch(review, /image:\s*_shareImage/);
@@ -200,25 +200,23 @@ describe('member app install modal and tab bar', () => {
     const icons = fs.readFileSync(path.join(root, 'services/memberAppIcons.js'), 'utf8');
     assert.match(icons, /sms:\s*icon\(/);
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.485/);
+    assert.match(sw, /adhello-pwa-v1\.0\.486/);
   });
 
-  it('Review keeps round FAB; label font and baseline match other tabs', () => {
+  it('Review keeps round FAB; label font matches other tabs (not too high)', () => {
     const html = fs.readFileSync(path.join(root, 'views/member_app/_tabbar.ejs'), 'utf8');
     const css = fs.readFileSync(path.join(root, 'public/css/member-app.css'), 'utf8');
     assert.match(html, /fab:\s*true/);
     assert.match(html, /ma-tab__fab/);
     assert.match(html, /ma-tab--fab/);
     assert.match(html, /ma-tab__label/);
-    assert.match(html, /ma-tab__slot/);
     assert.match(css, /\.ma-tab__label\s*\{[^}]*font-family:\s*var\(--font-text\)/s);
     assert.match(css, /\.ma-tab__label\s*\{[^}]*font-size:\s*10px/s);
     assert.match(css, /\.ma-tab__label\s*\{[^}]*font-weight:\s*600/s);
-    assert.match(css, /\.ma-tab--fab \.ma-tab__fab\s*\{[^}]*position:\s*absolute/s);
-    assert.match(css, /\.ma-tab--fab \.ma-tab__fab\s*\{[^}]*translate\(-50%,\s*-50%\)/s);
-    assert.match(css, /\.ma-tab--fab \.ma-tab__label\s*\{[^}]*z-index:\s*3/s);
-    assert.match(css, /\.ma-tab__slot\s*\{[^}]*height:\s*24px/s);
-    assert.match(css, /--tabbar-content-gap:\s*100px/);
+    assert.match(css, /\.ma-tab--fab \.ma-tab__fab\s*\{[^}]*margin-top:\s*-26px/s);
+    assert.doesNotMatch(css, /\.ma-tab--fab \.ma-tab__fab\s*\{[^}]*position:\s*absolute/s);
+    assert.match(css, /--tabbar-fab-overhang:\s*26px/);
+    assert.match(css, /--tabbar-content-gap:\s*72px/);
   });
 
   it('Home stays responsive: defer GHL sync, skip icon decode, idle install modal', () => {

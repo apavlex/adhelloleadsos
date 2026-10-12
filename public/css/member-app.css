@@ -15,10 +15,10 @@
   --acc-ink: color-mix(in srgb, var(--acc) 80%, black);
   --radius: 20px;
   --tabbar-h: 50px;
-  /* Review FAB (52px) sits half above the bar — clear that overhang. */
-  --tabbar-fab-overhang: 28px;
-  /* Extra air so the last fold/row clears the frosted bar + raised FAB. */
-  --tabbar-content-gap: 100px;
+  /* Review FAB rises ~half above the bar via margin-top. */
+  --tabbar-fab-overhang: 26px;
+  /* Extra air so the last fold/row clears the frosted bar + FAB. */
+  --tabbar-content-gap: 72px;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
   /* SF Pro on Apple devices; Inter/Manrope elsewhere */
@@ -1130,12 +1130,9 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
   flex: 0 0 24px;
 }
 .ma-tab--fab { z-index: 1; overflow: visible; }
+/* In-flow FAB: sits above the label (same font/baseline as other tabs). */
+.ma-tab--fab .ma-tab__slot { display: none; }
 .ma-tab--fab .ma-tab__fab {
-  position: absolute;
-  left: 50%;
-  /* Center on the 24px icon slot so half the circle rises above the bar. */
-  bottom: calc(4px + 1.1em + 1px + 12px);
-  transform: translate(-50%, -50%);
   width: 52px;
   height: 52px;
   border-radius: 999px;
@@ -1144,15 +1141,19 @@ a.ma-row:active { background: color-mix(in srgb, var(--muted) 10%, transparent);
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* Half the circle above the frosted bar — not higher */
+  margin-top: -26px;
+  margin-bottom: 1px;
   box-shadow: 0 8px 20px color-mix(in srgb, var(--acc) 45%, transparent);
   border: 4px solid color-mix(in srgb, var(--bg) 70%, transparent);
-  pointer-events: none;
+  position: relative;
   z-index: 2;
+  flex: 0 0 52px;
 }
 .ma-tab--fab .ma-tab__fab svg { width: 24px; height: 24px; color: inherit; }
 .ma-tab--fab .ma-tab__label {
   position: relative;
-  z-index: 3; /* keep "Review" readable under the raised circle */
+  z-index: 3;
 }
 .ma-tab--fab.is-on { color: var(--acc); }
 .ma-tab--fab.is-on .ma-tab__fab { color: var(--on); }
