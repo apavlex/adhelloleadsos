@@ -73,6 +73,34 @@ describe('member app install modal and tab bar', () => {
     assert.match(profile, /Invite a business/);
   });
 
+  it('appearance light/dark/system and quick-action labels follow --ink', () => {
+    const profile = fs.readFileSync(path.join(root, 'views/member_app/profile.ejs'), 'utf8');
+    assert.match(profile, /aria-label="Appearance"/);
+    assert.match(profile, /data-ma-theme-seg/);
+    assert.match(profile, /data-ma-theme-set="light"/);
+    assert.match(profile, /data-ma-theme-set="dark"/);
+    assert.match(profile, /data-ma-theme-set="system"/);
+
+    const head = fs.readFileSync(path.join(root, 'views/member_app/_head.ejs'), 'utf8');
+    assert.match(head, /localStorage\.getItem\('ma-theme'\)/);
+    assert.match(head, /data-ma-theme/);
+    assert.match(head, /id="maThemeColor"/);
+    assert.match(head, /\.ma-quick__btn span\{color:var\(--ink\)/);
+
+    const css = fs.readFileSync(path.join(root, 'public/css/member-app.css'), 'utf8');
+    assert.match(css, /html\[data-ma-theme="dark"\]\s*\{[^}]*--ink:\s*#ffffff/s);
+    assert.match(css, /:root\s*\{[^}]*--ink:\s*#000000/s);
+    assert.match(css, /\.ma-quick__btn span\s*\{[^}]*color:\s*var\(--ink\)/s);
+    assert.match(css, /\.ma-quick__btn svg\s*\{[^}]*color:\s*var\(--acc\)/s);
+    assert.doesNotMatch(css, /@media\s*\(\s*prefers-color-scheme:\s*dark\s*\)/);
+
+    const js = fs.readFileSync(path.join(root, 'public/js/member-app.js'), 'utf8');
+    assert.match(js, /function initMaTheme\b/);
+    assert.match(js, /function applyMaTheme\b/);
+    assert.match(js, /THEME_KEY\s*=\s*'ma-theme'/);
+    assert.match(js, /data-ma-theme-set/);
+  });
+
   it('settings row icons stay compact', () => {
     const css = fs.readFileSync(path.join(root, 'public/css/member-app.css'), 'utf8');
     assert.match(css, /\.ma-settings-row__icon\s*\{[^}]*width:\s*28px/s);
@@ -149,7 +177,8 @@ describe('member app install modal and tab bar', () => {
 
   it('service worker network-firsts versioned CSS so deploys are not stuck', () => {
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.489/);
+    const version = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
+    assert.match(sw, new RegExp(`adhello-pwa-v${version.replace(/\./g, '\\.')}`));
     assert.match(sw, /searchParams\.has\('v'\)/);
     assert.match(sw, /versioned/);
   });
@@ -204,7 +233,10 @@ describe('member app install modal and tab bar', () => {
     assert.doesNotMatch(route, /shareSmsText = reviewRequestScript\.ensureReviewLink/);
     assert.match(review, /ma-qr__ask/);
     assert.match(review, /icons\.sms/);
-    assert.match(pkg, /"version":\s*"1\.0\.489"/);
+    const version = JSON.parse(pkg).version;
+    assert.match(pkg, new RegExp(`"version":\\s*"${version.replace(/\./g, '\\.')}"`));
+    assert.equal(typeof version, 'string');
+    assert.match(version, /^\d+\.\d+\.\d+$/);
     assert.match(js, /Opening…/);
     assert.match(js, /aria-busy',\s*'true'/);
     assert.match(review, /data-ma-loading="Saving…"/);
@@ -213,7 +245,7 @@ describe('member app install modal and tab bar', () => {
     const icons = fs.readFileSync(path.join(root, 'services/memberAppIcons.js'), 'utf8');
     assert.match(icons, /sms:\s*icon\(/);
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.489/);
+    assert.match(sw, new RegExp(`adhello-pwa-v${version.replace(/\./g, '\\.')}`));
   });
 
   it('Review keeps round FAB; label font matches other tabs (not too high)', () => {
