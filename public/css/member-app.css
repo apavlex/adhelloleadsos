@@ -274,20 +274,20 @@ summary.ma-settings-row:active {
 .ma-hero__card {
   position: absolute; left: 12px; right: 12px; bottom: 12px;
   color: #fff; border-radius: 18px; padding: 14px 16px;
-  /* Apple-style frosted glass so the hero photo shows through */
-  background: rgba(255, 255, 255, 0.22);
-  border: 1px solid rgba(255, 255, 255, 0.45);
+  /* Light glass — keep the banner photo readable (same art used in review shares) */
+  background: rgba(15, 23, 42, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.5);
   box-shadow:
-    0 12px 32px rgba(15, 23, 42, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.55);
-  backdrop-filter: saturate(180%) blur(40px);
-  -webkit-backdrop-filter: saturate(180%) blur(40px);
+    0 8px 20px rgba(15, 23, 42, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  backdrop-filter: saturate(120%) blur(6px);
+  -webkit-backdrop-filter: saturate(120%) blur(6px);
 }
 .ma-hero__row { display: flex; align-items: center; gap: 10px; }
 .ma-hero__badge {
   width: 34px; height: 34px; border-radius: 10px;
-  background: rgba(255, 255, 255, 0.22);
-  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.4);
   display: inline-flex; align-items: center; justify-content: center;
   overflow: hidden; flex-shrink: 0;
 }
@@ -295,26 +295,26 @@ summary.ma-settings-row:active {
 .ma-hero__badge svg { width: 18px; height: 18px; color: var(--acc); }
 .ma-hero__name {
   font-weight: 800; font-size: 15px; margin: 0; line-height: 1.2;
-  text-shadow: 0 1px 2px rgba(15, 23, 42, 0.35);
+  text-shadow: 0 1px 3px rgba(15, 23, 42, 0.55), 0 0 12px rgba(15, 23, 42, 0.35);
 }
 .ma-hero__sub {
-  font-size: 11px; color: rgba(255, 255, 255, 0.86); margin: 1px 0 0;
-  text-shadow: 0 1px 2px rgba(15, 23, 42, 0.3);
+  font-size: 11px; color: rgba(255, 255, 255, 0.92); margin: 1px 0 0;
+  text-shadow: 0 1px 3px rgba(15, 23, 42, 0.5);
 }
 .ma-hero__stat {
   margin: 10px 0 0; font-family: var(--font-display); font-weight: 900;
   font-size: 34px; line-height: 1; letter-spacing: -0.02em;
-  text-shadow: 0 1px 3px rgba(15, 23, 42, 0.35);
+  text-shadow: 0 1px 4px rgba(15, 23, 42, 0.55), 0 0 14px rgba(15, 23, 42, 0.3);
 }
 .ma-hero__stat small {
   font-family: var(--font-text); font-size: 11px; font-weight: 700;
-  color: rgba(255, 255, 255, 0.92); letter-spacing: 0; margin-left: 6px;
+  color: rgba(255, 255, 255, 0.95); letter-spacing: 0; margin-left: 6px;
 }
 .ma-hero__label {
   margin: 6px 0 0; font-size: 11px; font-weight: 800;
   letter-spacing: 0.16em; text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.9);
-  text-shadow: 0 1px 2px rgba(15, 23, 42, 0.3);
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 1px 3px rgba(15, 23, 42, 0.5);
 }
 
 /* Stat tiles */

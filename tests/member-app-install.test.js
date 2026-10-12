@@ -11,11 +11,12 @@ const root = path.join(__dirname, '..');
 describe('member app install modal and tab bar', () => {
   it('home hero card uses Apple-style frosted glass over the banner photo', () => {
     const css = fs.readFileSync(path.join(root, 'public/css/member-app.css'), 'utf8');
-    assert.match(css, /\.ma-hero__card\s*\{[^}]*backdrop-filter:\s*saturate\(180%\)\s*blur\(40px\)/s);
-    assert.match(css, /\.ma-hero__card\s*\{[^}]*-webkit-backdrop-filter:\s*saturate\(180%\)\s*blur\(40px\)/s);
-    assert.match(css, /\.ma-hero__card\s*\{[^}]*rgba\(255,\s*255,\s*255,\s*0\.22\)/s);
-    assert.match(css, /\.ma-hero__card\s*\{[^}]*border:\s*1px\s+solid\s+rgba\(255,\s*255,\s*255,\s*0\.45\)/s);
+    assert.match(css, /\.ma-hero__card\s*\{[^}]*backdrop-filter:\s*saturate\(120%\)\s*blur\(6px\)/s);
+    assert.match(css, /\.ma-hero__card\s*\{[^}]*-webkit-backdrop-filter:\s*saturate\(120%\)\s*blur\(6px\)/s);
+    assert.match(css, /\.ma-hero__card\s*\{[^}]*rgba\(15,\s*23,\s*42,\s*0\.12\)/s);
+    assert.match(css, /\.ma-hero__card\s*\{[^}]*border:\s*1px\s+solid\s+rgba\(255,\s*255,\s*255,\s*0\.5\)/s);
     assert.doesNotMatch(css, /\.ma-hero__card\s*\{[^}]*rgba\(19,\s*33,\s*58,\s*0\.94\)/s);
+    assert.doesNotMatch(css, /\.ma-hero__card\s*\{[^}]*blur\(40px\)/s);
   });
 
   it('CSS pins a frosted tab bar flush to the bottom with a soft top fade', () => {
