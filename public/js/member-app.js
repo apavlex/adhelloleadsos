@@ -716,9 +716,12 @@
 
     var originalHtml = btn.innerHTML;
     btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    btn.textContent = 'Opening…';
 
     function restore() {
       btn.disabled = false;
+      btn.removeAttribute('aria-busy');
       btn.innerHTML = originalHtml;
     }
 
@@ -727,7 +730,8 @@
         ? 'sms:&body=' + encodeURIComponent(text)
         : 'sms:?body=' + encodeURIComponent(text);
       window.location.href = href;
-      restore();
+      // Keep the loading label briefly — Messages is taking over.
+      setTimeout(restore, 1200);
     }
 
     if (navigator.share) {
