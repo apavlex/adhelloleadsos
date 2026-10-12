@@ -567,7 +567,7 @@
     var shareInstall = event.target.closest('[data-ma-install-share]');
     if (shareInstall) {
       var shareLink = installUrl();
-      var title = document.title || 'Referral app';
+      var title = document.title || 'Review app';
       if (navigator.share) {
         navigator.share({ title: title, text: 'Open ' + title, url: shareLink }).catch(function () { /* cancelled */ });
       } else if (navigator.clipboard && navigator.clipboard.writeText) {

@@ -38,6 +38,23 @@ describe('Get the app menu + Share', () => {
     assert.doesNotMatch(page, /<a\b[^>]*data-get-app-share/);
     assert.match(page, /Workspace → White-label/);
     assert.match(page, /businessName/);
+    assert.match(page, /Get the Review app/);
+    assert.match(page, /Open Review app/);
+    assert.match(page, /Share Review app/);
+    assert.doesNotMatch(page, /Referral app/);
+  });
+
+  it('Get the app page title and nav call it Review app', () => {
+    const route = read('routes/getApp.js');
+    assert.match(route, /Get Review app \| Agency OS/);
+    assert.doesNotMatch(route, /Get Referral app/);
+    const sidebar = read('views/partials/app_sidebar.ejs');
+    const mobile = read('views/partials/navbar.ejs');
+    assert.match(sidebar, /Install your workspace Review app/);
+    assert.match(mobile, /Install your workspace Review app/);
+    const js = read('public/js/navbar-shell.js');
+    assert.match(js, /AdHello Review app/);
+    assert.doesNotMatch(js, /AdHello Referral app/);
   });
 
   it('Get the app route uses short share URL and workspace business name', () => {
