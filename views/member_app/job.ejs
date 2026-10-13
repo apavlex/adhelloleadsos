@@ -138,19 +138,9 @@
       <p class="ma-hint" style="margin:0 0 12px;overflow-wrap:anywhere">Invite link: <a href="<%= inviteUrl %>"><%= inviteUrl %></a></p>
       <% } %>
       <% if (_mates.length) { %>
-      <form method="post" action="<%= base %>/customers/jobs/<%= job.id %>/share" autocomplete="off" data-ma-loading="Sharing…">
-        <div class="ma-field">
-          <label class="ma-label" for="jbShareMate">Teammate</label>
-          <select id="jbShareMate" name="memberId" class="ma-select" required>
-            <option value="" disabled selected>Pick a teammate</option>
-            <% _mates.forEach(function (t) { %>
-            <option value="<%= t.id %>" <%= t.canNotify ? '' : 'disabled' %>>
-              <%= t.label %><%= t.contact && t.contact !== t.label ? ' · ' + t.contact : '' %><%= t.canNotify ? '' : ' (add phone/email)' %>
-            </option>
-            <% }); %>
-          </select>
-        </div>
-        <button type="submit" class="ma-btn ma-btn--block ma-btn--soft"><%- icons.send %> Share with teammate</button>
+      <form method="post" action="<%= base %>/customers/jobs/<%= job.id %>/share" autocomplete="off" data-ma-loading="Sharing…" data-ma-share-mate-form>
+        <%- include('_share_mate_pick', { mates: _mates, idPrefix: 'jb' }) %>
+        <button type="submit" class="ma-btn ma-btn--block ma-btn--soft" data-ma-share-submit disabled><%- icons.send %> Share with teammate</button>
       </form>
       <% } %>
       <%

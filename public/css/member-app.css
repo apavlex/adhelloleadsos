@@ -1018,6 +1018,23 @@ html[data-ma-theme="dark"] .ma-tags__suggest-btn:hover {
   font-weight: 600;
   color: var(--muted);
 }
+.ma-typeahead__item.is-off {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.ma-typeahead__item.is-off:hover,
+.ma-typeahead__item.is-off.is-active {
+  background: transparent;
+  color: var(--ink);
+}
+[data-ma-share-mate-pick] [data-ma-share-search][hidden],
+[data-ma-share-mate-pick] [data-ma-share-selected][hidden] {
+  display: none !important;
+}
+[data-ma-share-submit]:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
 
 .ma-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; cursor: pointer; text-decoration: none;

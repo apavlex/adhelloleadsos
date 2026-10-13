@@ -459,6 +459,8 @@ test('customers tab routes: top-bar add customer, CRUD, calendar, pending and re
     assert.match(jobPage, /all their projects/);
     assert.match(jobPage, /Invite outside network/);
     assert.match(jobPage, /name="invitePhone"/);
+    assert.match(jobPage, /data-ma-share-mate-pick/);
+    assert.match(jobPage, /Search teammates/);
     assert.match(jobPage, /id="maJobShareInvite"/);
     assert.doesNotMatch(jobPage, /id="maJobShareInvite"[^>]*\sopen|id="maJobShareInvite" open/);
     assert.match(jobPage, /<summary>\s*Invite someone new\s*<\/summary>/);

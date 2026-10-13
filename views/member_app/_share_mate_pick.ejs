@@ -1,0 +1,52 @@
+<%
+  const _mates = typeof mates !== 'undefined' && Array.isArray(mates) ? mates : [];
+  const _prefix = typeof idPrefix !== 'undefined' && idPrefix ? String(idPrefix) : 'share';
+  const _searchId = _prefix + 'ShareMateSearch';
+  const _listId = _prefix + 'ShareMateList';
+  const _hiddenId = _prefix + 'ShareMateId';
+  const _payload = _mates.map(function (t) {
+    return {
+      id: t.id,
+      label: t.label || 'Teammate',
+      contact: t.contact || '',
+      email: t.email || '',
+      phone: t.phone || '',
+      workspaceStaff: !!t.workspaceStaff,
+      canNotify: !!t.canNotify,
+    };
+  });
+%>
+<div class="ma-field" data-ma-share-mate-pick>
+  <input type="hidden" name="memberId" id="<%= _hiddenId %>" value="" data-ma-share-mate-id>
+  <div data-ma-share-search>
+    <label class="ma-label" for="<%= _searchId %>">Teammate or partner</label>
+    <div class="ma-typeahead">
+      <input
+        id="<%= _searchId %>"
+        type="search"
+        inputmode="search"
+        class="ma-input"
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded="false"
+        aria-controls="<%= _listId %>"
+        placeholder="Search teammates &amp; partners…"
+        autocomplete="off"
+        autocorrect="off"
+        spellcheck="false"
+        data-ma-share-mate-input
+      >
+      <ul id="<%= _listId %>" class="ma-typeahead__list" role="listbox" hidden data-ma-share-mate-list></ul>
+    </div>
+    <p class="ma-hint" style="margin-top:6px">Type a name, business, or email — workspace team and network partners.</p>
+  </div>
+  <div class="ma-ask-selected" data-ma-share-selected hidden>
+    <span class="ma-ask-selected__avatar" aria-hidden="true" data-ma-share-selected-avatar>?</span>
+    <span class="ma-ask-selected__body">
+      <strong data-ma-share-selected-name></strong>
+      <span data-ma-share-selected-meta></span>
+    </span>
+    <button type="button" class="ma-btn ma-btn--sm ma-btn--ghost" data-ma-share-clear>Change</button>
+  </div>
+  <script type="application/json" data-ma-share-mates><%- JSON.stringify(_payload).replace(/</g, '\\u003c') %></script>
+</div>

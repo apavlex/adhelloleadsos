@@ -222,11 +222,14 @@ test('owner Share contact lists workspace Team members (e.g. Isabelle SDR)', asy
   const { server, base } = await startApp();
   try {
     const page = await (await fetch(`${base}/m/${token}/customers/c/${cust.customer.id}`)).text();
-    assert.match(page, /Pick a teammate/);
+    assert.match(page, /data-ma-share-mate-pick/);
+    assert.match(page, /Search teammates/);
+    assert.match(page, /data-ma-share-mates/);
     assert.match(page, /Isabelle/);
     assert.match(page, /SDR · workspace team|workspace team/i);
     assert.match(page, /Presso Renovations/);
     assert.match(page, /name="memberId"/);
+    assert.doesNotMatch(page, /<select[^>]*name="memberId"/);
     // With teammates, invite fold is closed until tapped.
     assert.match(page, /id="maShareInvite"/);
     assert.doesNotMatch(page, /id="maShareInvite"[^>]*\sopen|id="maShareInvite" open/);
@@ -315,7 +318,7 @@ test('member app invite-outside form creates claimable invite', async (t) => {
     assert.match(page, /Share contact &amp; projects|Share contact & projects/);
     assert.match(page, /Invite outside network/);
     assert.match(page, /name="invitePhone"/);
-    assert.doesNotMatch(page, /Pick a teammate/);
+    assert.doesNotMatch(page, /data-ma-share-mate-pick/);
     // No teammates → invite fold stays open so the only path is visible.
     assert.match(page, /id="maShareInvite"[^>]*\sopen|id="maShareInvite" open/);
 
