@@ -306,6 +306,20 @@ function isAppFreeMember(member) {
   return String((member && member.plan) || '') === PLAN_APP_FREE;
 }
 
+/** Normalize `?plan=` on Network → Members (`free` | `partner` | ''). */
+function normalizeMemberPlanFilter(value) {
+  const q = String(value || '').trim().toLowerCase();
+  if (q === 'free' || q === 'partner') return q;
+  return '';
+}
+
+function matchesMemberPlanFilter(member, filter) {
+  const plan = normalizeMemberPlanFilter(filter);
+  if (!plan) return true;
+  const free = isAppFreeMember(member);
+  return plan === 'free' ? free : !free;
+}
+
 module.exports = {
   PLAN_APP_FREE,
   DEFAULT_WORKSPACE_SLUG,
@@ -320,4 +334,6 @@ module.exports = {
   findExistingMember,
   signupFreeApp,
   isAppFreeMember,
+  normalizeMemberPlanFilter,
+  matchesMemberPlanFilter,
 };

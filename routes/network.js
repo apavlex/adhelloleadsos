@@ -12,6 +12,7 @@ const referralNetwork = require('../services/referralNetwork');
 const networkBrand = require('../services/networkBrand');
 const networkMembers = require('../services/networkMembers');
 const reviewPage = require('../services/reviewPage');
+const freeAppSignup = require('../services/freeAppSignup');
 const { ICONS: MEMBER_APP_ICONS } = require('../services/memberAppIcons');
 const multer = require('multer');
 
@@ -73,6 +74,17 @@ function formatWhen(iso) {
   const ms = Date.parse(iso || '');
   if (!Number.isFinite(ms)) return '';
   return new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+/** Member join date for Network → Members (includes year when not this year). */
+function formatJoined(iso) {
+  const ms = Date.parse(iso || '');
+  if (!Number.isFinite(ms)) return '';
+  const d = new Date(ms);
+  const opts = d.getFullYear() === new Date().getFullYear()
+    ? { month: 'short', day: 'numeric' }
+    : { month: 'short', day: 'numeric', year: 'numeric' };
+  return d.toLocaleDateString('en-US', opts);
 }
 
 function presentReferral(ref, membersById, zonesById, network) {
@@ -149,15 +161,26 @@ router.get('/', async (req, res, next) => {
     const activeSlugs = new Set(networkTrades.map((t) => t.slug));
     const hiddenTrades = trades.catalogFor(network).filter((t) => !activeSlugs.has(t.slug));
 
-    const memberRows = members.map((member) => ({
-      ...member,
-      tradeLabels: member.trades.map((slug) => trades.tradeLabel(slug, network)),
-      zoneNames: member.zoneIds.map((id) => (zonesById[id] ? zonesById[id].name : '')).filter(Boolean),
-      seats: ex.seatsForMember(zones, member.id).map((s) => `${trades.tradeLabel(s.tradeSlug, network)} · ${s.zoneName}`),
-      stats: ex.memberStats(referrals, member.id),
-      reviewLinkCount: reviewPage.countLinks(member.reviewLinks),
-      reviewOtherRows: reviewPage.otherFormRows(member.reviewLinks),
-    }));
+    const memberRows = members
+      .map((member) => ({
+        ...member,
+        isFreeApp: freeAppSignup.isAppFreeMember(member),
+        joinedLabel: formatJoined(member.joinedAt),
+        tradeLabels: member.trades.map((slug) => trades.tradeLabel(slug, network)),
+        zoneNames: member.zoneIds.map((id) => (zonesById[id] ? zonesById[id].name : '')).filter(Boolean),
+        seats: ex.seatsForMember(zones, member.id).map((s) => `${trades.tradeLabel(s.tradeSlug, network)} · ${s.zoneName}`),
+        stats: ex.memberStats(referrals, member.id),
+        reviewLinkCount: reviewPage.countLinks(member.reviewLinks),
+        reviewOtherRows: reviewPage.otherFormRows(member.reviewLinks),
+      }))
+      // Newest joins first so recent free-app signups are easy to scan.
+      .sort((a, b) => String(b.joinedAt || '').localeCompare(String(a.joinedAt || ''))
+        || a.companyName.localeCompare(b.companyName));
+
+    const freeMembers = memberRows.filter((m) => m.isFreeApp).length;
+    const partnerMembers = memberRows.length - freeMembers;
+    const memberPlanFilter = freeAppSignup.normalizeMemberPlanFilter(req.query.plan);
+    const shownMembers = memberRows.filter((m) => freeAppSignup.matchesMemberPlanFilter(m, memberPlanFilter));
 
     const statusFilter = ex.STATUSES.includes(String(req.query.status || '')) ? String(req.query.status) : '';
     const referralRows = referrals
@@ -199,13 +222,22 @@ router.get('/', async (req, res, next) => {
       maxCustomTrades: trades.MAX_CUSTOM_TRADES,
       zones,
       seatRows,
-      members: memberRows,
+      members: shownMembers,
+      memberPlanFilter,
       reviewPlatforms: reviewPage.PLATFORMS,
       activeMembers: members.filter((m) => m.status === 'active'),
       referrals: referralRows,
       statusFilter,
       statuses: ex.STATUSES.map((s) => ({ id: s, label: ex.STATUS_LABELS[s], count: referrals.filter((r) => r.status === s).length })),
-      totals: { ...totals, wonValueLabel: money(totals.wonValue), openSeats, heldSeats, members: members.length },
+      totals: {
+        ...totals,
+        wonValueLabel: money(totals.wonValue),
+        openSeats,
+        heldSeats,
+        members: members.length,
+        freeMembers,
+        partnerMembers,
+      },
       canManage: canManage(req),
       ghlSubaccounts: networkMembers.ghlSubaccountsAllowedFor(req.workspace),
       notice: String(req.query.notice || '').trim(),

@@ -40,10 +40,12 @@
     .net-pill-accepted, .net-pill-booked { background: rgba(245, 158, 11, 0.16); color: #b45309; }
     .net-pill-won { background: rgba(16, 185, 129, 0.14); color: #047857; }
     .net-pill-unrouted, .net-pill-declined { background: rgba(225, 29, 72, 0.12); color: #be123c; }
+    .net-pill-free { background: color-mix(in srgb, var(--brand-yellow, #FFD644) 42%, transparent); color: #854d0e; }
     html.dark .net-pill-sent { color: #93c5fd; }
     html.dark .net-pill-accepted, html.dark .net-pill-booked { color: #fcd34d; }
     html.dark .net-pill-won { color: #6ee7b7; }
     html.dark .net-pill-unrouted, html.dark .net-pill-declined { color: #fda4af; }
+    html.dark .net-pill-free { color: #fde047; }
     .net-seats { display: grid; grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr)); gap: 0.45rem; margin-top: 0.75rem; }
     .net-seat { border-radius: 0.9rem; padding: 0.55rem 0.7rem; border: 1px dashed rgba(148, 163, 184, 0.55); min-width: 0; }
     .net-seat.is-held { border-style: solid; border-color: color-mix(in srgb, var(--brand-yellow, #FFD644) 60%, transparent); background: color-mix(in srgb, var(--brand-yellow, #FFD644) 12%, transparent); }
@@ -116,7 +118,7 @@
     const noticeBad = notice && /^(Could not|Only|Pick|Name|Add|Confirm|That|Member not|Zone not|Referral not|Can't|Unknown|Write|This referral|The sender)/.test(notice);
     const tabs = [
       { id: 'seats', label: 'Seats' },
-      { id: 'members', label: 'Members (' + totals.members + ')' },
+      { id: 'members', label: 'Members (' + totals.members + (totals.freeMembers ? ' · ' + totals.freeMembers + ' free' : '') + ')' },
       { id: 'applications', label: 'Applications' + (pendingApplications ? ' (' + pendingApplications + ')' : '') },
       { id: 'referrals', label: 'Referrals (' + totals.total + ')' },
       { id: 'brand', label: 'App branding' },
@@ -146,6 +148,9 @@
       <div class="net-stat">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Members</p>
         <p class="font-display font-black text-2xl"><%= totals.members %></p>
+        <% if (totals.members) { %>
+        <p class="mt-1 text-[11px] font-semibold text-brand-muted"><%= totals.freeMembers %> free · <%= totals.partnerMembers %> partners</p>
+        <% } %>
       </div>
       <div class="net-stat">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Seats held / open</p>
@@ -285,7 +290,7 @@
 
     <% if (tab === 'members') { %>
       <% if (canManage) { %>
-      <details class="net-card net-more mb-4" id="net-add-member" <%= prefillLeadKey || prefillTrade || !members.length ? 'open' : '' %>>
+      <details class="net-card net-more mb-4" id="net-add-member" <%= prefillLeadKey || prefillTrade || !totals.members ? 'open' : '' %>>
         <summary class="flex items-center justify-between gap-2">
           <span class="font-display font-bold">Add a member</span>
           <span class="net-btn net-btn-ghost">From referral partners</span>
@@ -319,8 +324,18 @@
       </details>
       <% } %>
 
-      <% if (!members.length) { %>
+      <% if (totals.members) { %>
+      <nav class="net-tabs mb-4" aria-label="Filter members by plan">
+        <a href="/network?tab=members" class="net-tab <%= !memberPlanFilter ? 'is-on' : '' %>" <%= !memberPlanFilter ? 'aria-current=page' : '' %>>All (<%= totals.members %>)</a>
+        <a href="/network?tab=members&plan=partner" class="net-tab <%= memberPlanFilter === 'partner' ? 'is-on' : '' %>" <%= memberPlanFilter === 'partner' ? 'aria-current=page' : '' %>>Partners (<%= totals.partnerMembers %>)</a>
+        <a href="/network?tab=members&plan=free" class="net-tab <%= memberPlanFilter === 'free' ? 'is-on' : '' %>" <%= memberPlanFilter === 'free' ? 'aria-current=page' : '' %>>Free app (<%= totals.freeMembers %>)</a>
+      </nav>
+      <% } %>
+
+      <% if (!totals.members) { %>
       <div class="net-card text-center py-10"><p class="text-sm text-brand-muted">No members yet.</p></div>
+      <% } else if (!members.length) { %>
+      <div class="net-card text-center py-10"><p class="text-sm text-brand-muted">No <%= memberPlanFilter === 'free' ? 'free app' : 'partner' %> members<% if (memberPlanFilter === 'free') { %> yet — they sign up at <a class="underline" href="/app">/app</a><% } %>.</p></div>
       <% } else { %>
       <div class="space-y-3">
         <% members.forEach(function (m) { %>
@@ -329,8 +344,14 @@
             <div class="min-w-0">
               <p class="text-base font-semibold truncate"><%= m.companyName %></p>
               <p class="text-[12px] text-brand-muted truncate"><%= [m.contactName, m.phone, m.email].filter(Boolean).join(' · ') || 'No contact on file' %></p>
+              <% if (m.joinedLabel) { %>
+              <p class="mt-0.5 text-[11px] font-semibold text-brand-muted">Joined <%= m.joinedLabel %></p>
+              <% } %>
             </div>
             <span class="flex shrink-0 items-center gap-1.5">
+              <% if (m.isFreeApp) { %>
+              <span class="net-pill net-pill-free" title="Signed up via free Reviews App">Free app</span>
+              <% } %>
               <% if (!ghlSubaccounts) { %>
               <% } else if (m.ghlLocationId) { %>
               <a class="net-pill net-pill-sent no-underline" href="<%= m.ghlSubaccountUrl || '#' %>" target="_blank" rel="noopener" title="GHL sub-account <%= m.ghlLocationId %>">GHL ✓</a>
