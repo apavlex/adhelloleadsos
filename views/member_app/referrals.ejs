@@ -112,6 +112,58 @@
             </form>
             <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= base %>/review">Request review</a>
           </div>
+          <%
+            const _canRefer = !(typeof referralsLocked !== 'undefined' && referralsLocked)
+              && (lead.phone || lead.email)
+              && (
+                (typeof partnerMembers !== 'undefined' && partnerMembers && partnerMembers.length)
+                || (typeof partnerDirectory !== 'undefined' && partnerDirectory && partnerDirectory.length)
+              );
+          %>
+          <% if (_canRefer) { %>
+          <details class="ma-card" style="margin-top:10px;padding:12px 14px" id="lead-refer-<%= lead.id %>">
+            <summary style="cursor:pointer;font-weight:800;font-size:14px;list-style:none;display:flex;align-items:center;gap:8px">
+              <%- icons.send %> Send to a partner
+            </summary>
+            <p class="ma-hint" style="margin:10px 0 12px">Pushes this lead to a teammate or referral partner — no copy/paste. They get the details and a text.</p>
+            <form method="post" action="<%= base %>/leads/<%= encodeURIComponent(lead.id) %>/refer" autocomplete="off" data-ma-loading="Sending…">
+              <% if (typeof partnerMembers !== 'undefined' && partnerMembers && partnerMembers.length) { %>
+              <div class="ma-field">
+                <label class="ma-label" for="flPartner-<%= lead.id %>">Partner</label>
+                <select id="flPartner-<%= lead.id %>" name="toMemberId" class="ma-select">
+                  <option value="">Route by trade (auto-match)</option>
+                  <% partnerMembers.forEach(function (p) { %>
+                  <option value="<%= p.id %>"><%= p.label %><%= p.tradeLabel ? ' · ' + p.tradeLabel : '' %></option>
+                  <% }); %>
+                </select>
+              </div>
+              <% } %>
+              <div class="ma-field">
+                <label class="ma-label" for="flTrade-<%= lead.id %>">Trade they need</label>
+                <select id="flTrade-<%= lead.id %>" name="tradeSlug" class="ma-select">
+                  <option value="">Pick a trade…</option>
+                  <% (typeof partnerDirectory !== 'undefined' && partnerDirectory ? partnerDirectory : []).forEach(function (t) { %>
+                  <option value="<%= t.slug %>"><%= t.name %><%= t.holders && t.holders.length ? ' · ' + t.holders.slice(0, 2).join(', ') : '' %></option>
+                  <% }); %>
+                </select>
+              </div>
+              <p class="ma-hint" style="margin:0 0 12px">Pick a partner <em>or</em> a trade. Partner wins when both are set.</p>
+              <button type="submit" class="ma-btn ma-btn--block ma-btn--sm"><%- icons.send %> Send lead to partner</button>
+            </form>
+            <%
+              const _sendQs = new URLSearchParams({
+                name: lead.name || '',
+                phone: lead.phone || '',
+                email: lead.email || '',
+                note: lead.preview || '',
+                consent: '1',
+              }).toString();
+            %>
+            <p class="ma-hint" style="margin:10px 0 0"><a href="<%= base %>/send?<%= _sendQs %>">Edit details on Send first</a></p>
+          </details>
+          <% } else if (!(typeof referralsLocked !== 'undefined' && referralsLocked) && (lead.phone || lead.email)) { %>
+          <p class="ma-hint" style="margin:10px 0 0">Add referral partners to your network to push this lead with one tap.</p>
+          <% } %>
           <% } %>
         </article>
         <% }); %>
