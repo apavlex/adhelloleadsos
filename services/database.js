@@ -49,6 +49,8 @@ const LEADS_LIST_CACHE_TTL_MS = Math.max(
   parseInt(process.env.LEADS_LIST_CACHE_TTL_MS || '600000', 10) || 600000,
 );
 const _leadsListCache = new Map();
+/** In-flight cold scans — workspace switch warm + landing page share one SQLite pass. */
+const _leadsListInflight = new Map();
 const LEGACY_DEFAULT_WORKSPACE_KEY = 'sys:legacy_default_workspace_id';
 
 function isLeadStorageKey(key) {
@@ -741,28 +743,41 @@ module.exports = {
     if (cached && Date.now() - cached.at < LEADS_LIST_CACHE_TTL_MS) {
       return cached.leads.slice();
     }
-    const aliasStr = readLegacyDefaultAlias();
-    const normLeadW = (lw) => normalizeLeadWorkspaceWithAlias(lw, aliasStr);
-    // Single LIKE scan for key+value (avoids list-keys then chunked IN fetches).
-    const rows = sqlite.prepare("SELECT key, value FROM kv WHERE key LIKE 'lead:%'").all();
-    const leads = [];
-    for (const row of rows) {
-      const key = row && row.key;
-      const raw = row && row.value;
-      if (!key || raw == null) continue;
-      let parsed;
-      try {
-        parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-      } catch {
-        continue;
+    const pending = _leadsListInflight.get(wid);
+    if (pending) return pending.then((leads) => leads.slice());
+
+    const load = (async () => {
+      const aliasStr = readLegacyDefaultAlias();
+      const normLeadW = (lw) => normalizeLeadWorkspaceWithAlias(lw, aliasStr);
+      // Single LIKE scan for key+value (avoids list-keys then chunked IN fetches).
+      const rows = sqlite.prepare("SELECT key, value FROM kv WHERE key LIKE 'lead:%'").all();
+      const leads = [];
+      for (const row of rows) {
+        const key = row && row.key;
+        const raw = row && row.value;
+        if (!key || raw == null) continue;
+        let parsed;
+        try {
+          parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        } catch {
+          continue;
+        }
+        if (!parsed || typeof parsed !== 'object') continue;
+        if (normLeadW(parsed.workspaceId) !== wid) continue;
+        leads.push({ ...parsed, key, workspaceId: wid });
       }
-      if (!parsed || typeof parsed !== 'object') continue;
-      if (normLeadW(parsed.workspaceId) !== wid) continue;
-      leads.push({ ...parsed, key, workspaceId: wid });
+      leads.sort((a, b) => leadKeySortTs(b.key) - leadKeySortTs(a.key));
+      _leadsListCache.set(wid, { at: Date.now(), leads });
+      return leads;
+    })();
+
+    _leadsListInflight.set(wid, load);
+    try {
+      const leads = await load;
+      return leads.slice();
+    } finally {
+      if (_leadsListInflight.get(wid) === load) _leadsListInflight.delete(wid);
     }
-    leads.sort((a, b) => leadKeySortTs(b.key) - leadKeySortTs(a.key));
-    _leadsListCache.set(wid, { at: Date.now(), leads });
-    return leads.slice();
   },
 
   async getAllLeadsUnscoped() {

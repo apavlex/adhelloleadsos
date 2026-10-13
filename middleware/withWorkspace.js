@@ -44,6 +44,13 @@ async function withWorkspace(req, res, next) {
       /\/telephony\//.test(path) ||
       /\/telephony\//.test(original) ||
       /\/leads\/[^/]+\/call/.test(original);
+    // Switch / open only mutate session then redirect — skip chrome extras on the POST/GET itself.
+    const workspaceSwitchFastPath =
+      path === '/workspaces/switch' ||
+      path === '/workspaces/open' ||
+      /\/workspaces\/switch(?:\/|$|\?)/.test(original) ||
+      /\/workspaces\/open(?:\/|$|\?)/.test(original);
+    const skipChromeExtras = telephonyFastPath || workspaceSwitchFastPath;
 
     // API key auth — no session, use 'default' workspace directly
     const apiKey = req.headers['x-api-key'] || req.query.api_key;
@@ -166,7 +173,7 @@ async function withWorkspace(req, res, next) {
 
     ws = (await workspaceService.ensureWorkspaceAndMember(ws.id, email)) || ws;
 
-    if (!telephonyFastPath) {
+    if (!skipChromeExtras) {
       const needsScriptSeed =
         !workspaceScriptBootstrap.workspaceScriptsAlreadySeeded(ws) ||
         workspaceScriptBootstrap.shouldRepairAgencyCatalogLeak(ws);
@@ -181,7 +188,7 @@ async function withWorkspace(req, res, next) {
     req.workspaceRole = workspaceService.roleForEmail(ws, email);
     req.canManageWorkspace = workspaceService.canManageTeam(req.workspaceRole);
     req.canAssignWork = workspaceService.canAssignWork(req.workspaceRole);
-    if (!telephonyFastPath) {
+    if (!skipChromeExtras) {
       teamActivity.rememberMemberProfile(req).catch(() => {});
     }
 
@@ -192,7 +199,7 @@ async function withWorkspace(req, res, next) {
 
     let summaries = [];
     let canManageDemo = false;
-    if (!telephonyFastPath) {
+    if (!skipChromeExtras) {
       const sk = switcherCacheKey(email);
       const hit = sk && _switcherCache.get(sk);
       if (hit && Date.now() - hit.at < SWITCHER_TTL_MS) {
