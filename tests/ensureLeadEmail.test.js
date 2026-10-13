@@ -51,7 +51,7 @@ describe('ensureLeadEmail helpers', () => {
     assert.equal(patch.logs[0].type, 'email_find');
   });
 
-  test('mergeEnrichmentOntoLead fills missing website from Monid extract', () => {
+  test('mergeEnrichmentOntoLead fills missing website from enrich extract', () => {
     const { lead, patch } = mergeEnrichmentOntoLead(
       { key: 'lead:1', title: 'Acme', website: 'N/A' },
       { website: 'https://acme.com', phone: '+15551234567' },

@@ -41,7 +41,6 @@ const {
   hasContactValue,
 } = require('../services/leadPanelNormalize');
 const betterContact = require('../services/betterContactClient');
-const monidLeadEnrich = require('../services/monidLeadEnrich');
 const tikHub = require('../services/tikHubClient');
 const { runReviewsRefresh, runSocialEnrichment, verifyPhoneLine } = require('../services/leadDeepEnrich');
 const websiteAiAnalysis = require('../services/websiteAiAnalysis');
@@ -5072,7 +5071,7 @@ async function runLeadEnhancement(lead, workspaceId) {
   let firecrawlViaSearch = false;
   let mapsFallbackUsed = false;
   let betterContactUsed = false;
-  let monidUsed = false;
+  let rapidapiWebsiteUsed = false;
   let outscraperUsed = false;
   let outscraperContactsUsed = false;
   let urlToSave = null;
@@ -5180,25 +5179,22 @@ async function runLeadEnhancement(lead, workspaceId) {
     null;
   const enrichLead = websiteForEnrich ? { ...workingLead, website: websiteForEnrich } : workingLead;
 
-  // Step 1.5: Monid — Apollo / PDL company enrich (phone, website, socials)
-  if (monidLeadEnrich.isConfigured(integrationEnv)) {
+  // Step 1.5: RapidAPI website — contacts / socials when a website is known
+  if (
+    rapidapiWebsiteEnrich.isConfigured(integrationEnv) &&
+    rapidapiWebsiteEnrich.leadCanEnrichFromWebsite(enrichLead)
+  ) {
     try {
-      const monidPack = await monidLeadEnrich.enrichLeadFromMonid(workingLead, integrationEnv);
-      if (monidPack && monidPack.enriched && monidPack.extract) {
-        monidUsed = true;
-        deepData = mapsEnrichFallback.mergeExtractPreferFirecrawl(monidPack.extract, deepData || {});
-        if (
-          monidPack.extract.website &&
-          (!workingLead.website || workingLead.website === 'N/A')
-        ) {
-          urlToSave = urlToSave || monidPack.extract.website;
-        }
+      const rapidPack = await rapidapiWebsiteEnrich.enrichLeadFromWebsite(enrichLead, integrationEnv);
+      if (rapidPack && rapidPack.extract && Object.keys(rapidPack.extract).length) {
+        rapidapiWebsiteUsed = true;
+        deepData = mapsEnrichFallback.mergeExtractPreferFirecrawl(rapidPack.extract, deepData || {});
         console.log(
-          `[ENHANCE] Monid (${monidPack.provider || 'gateway'}) for ${workingLead.title}: ${Object.keys(monidPack.extract).join(', ')}`,
+          `[ENHANCE] RapidAPI website for ${workingLead.title}: ${Object.keys(rapidPack.extract).join(', ')}`,
         );
       }
     } catch (e) {
-      console.warn('[ENHANCE] Monid failed:', e.message);
+      console.warn('[ENHANCE] RapidAPI website failed:', e.message);
     }
   }
 
@@ -5392,7 +5388,7 @@ async function runLeadEnhancement(lead, workspaceId) {
     websiteEmailFound ||
     mapsFallbackUsed ||
     betterContactUsed ||
-    monidUsed ||
+    rapidapiWebsiteUsed ||
     outscraperUsed ||
     outscraperContactsUsed ||
     reviewHuntUsed;
@@ -5401,7 +5397,7 @@ async function runLeadEnhancement(lead, workspaceId) {
     const via = [
       outscraperUsed ? 'Outscraper GMB' : null,
       outscraperContactsUsed ? 'Outscraper contacts' : null,
-      monidUsed ? 'Monid' : null,
+      rapidapiWebsiteUsed ? 'RapidAPI website' : null,
       betterContactUsed ? 'BetterContact' : null,
       firecrawlViaSearch ? 'web search' : null,
       !firecrawlViaSearch && websiteForEnrich && hadExtract ? 'website' : null,
@@ -5444,10 +5440,10 @@ async function runLeadEnhancement(lead, workspaceId) {
   const fail = {
     success: false,
     error: betterContact.isConfigured(integrationEnv) ||
-      monidLeadEnrich.isConfigured(integrationEnv) ||
+      rapidapiWebsiteEnrich.isConfigured(integrationEnv) ||
       outscraper.isConfigured(integrationEnv)
-      ? 'No new contact or review data discovered yet. Monid, Outscraper GMB, BetterContact, and website search did not find new signals.'
-      : 'No new contact or review data discovered yet. Add Outscraper (GMB + reviews) and/or BetterContact under Workspace → API integrations.',
+      ? 'No new contact or review data discovered yet. RapidAPI website, Outscraper GMB, BetterContact, and website search did not find new signals.'
+      : 'No new contact or review data discovered yet. Add RapidAPI (website contacts), Outscraper, and/or BetterContact under Workspace → API integrations.',
     lead: { ...workingLead, lastContactHuntAt: patch.lastContactHuntAt },
   };
   if (reviewHuntMeta) fail.reviewHunt = reviewHuntMeta;

@@ -1,6 +1,8 @@
 /**
- * Step 1 — Google Maps lead list:
- * default auto order: RapidAPI → SearchAPI.io Google Local → SerpAPI Google Local → Outscraper → Apify.
+ * Step 1 — Google Maps lead list.
+ * Default / preferred provider is RapidAPI (Local Business Data).
+ * Auto fallback chain (when SEARCH_MAPS_PRIMARY=auto): RapidAPI → SearchAPI → SerpAPI → Oxylabs → Outscraper → Apify.
+ * Monid is no longer used for Maps.
  */
 
 const apify = require('./apify');
@@ -9,7 +11,6 @@ const rapidapi = require('./rapidapiLocalBusiness');
 const searchapi = require('./searchapiGoogleLocal');
 const serpapi = require('./serpapiGoogleLocal');
 const oxylabsGoogleLocal = require('./oxylabsGoogleLocal');
-const monidMapsSearch = require('./monidMapsSearch');
 
 function apifyConfigured(integrationEnv) {
   const t = (integrationEnv && integrationEnv.APIFY_API_TOKEN) || process.env.APIFY_API_TOKEN;
@@ -35,15 +36,16 @@ function isMapsSearchConfigured(integrationEnv) {
     serpapiConfigured(integrationEnv) ||
     outscraper.isConfigured(integrationEnv) ||
     apifyConfigured(integrationEnv) ||
-    oxylabsConfigured(integrationEnv) ||
-    monidMapsSearch.isConfigured(integrationEnv)
+    oxylabsConfigured(integrationEnv)
   );
 }
 
 function resolvePrimary(integrationEnv) {
   const fromWs = String((integrationEnv && integrationEnv.SEARCH_MAPS_PRIMARY) || '').toLowerCase().trim();
   const fromEnv = String(process.env.SEARCH_MAPS_PRIMARY || '').toLowerCase().trim();
-  const v = fromWs || fromEnv;
+  let v = fromWs || fromEnv;
+  // Monid Maps retired — treat legacy preference as RapidAPI.
+  if (v === 'monid') v = 'rapidapi';
   if (
     v === 'rapidapi' ||
     v === 'searchapi' ||
@@ -51,10 +53,10 @@ function resolvePrimary(integrationEnv) {
     v === 'apify' ||
     v === 'outscraper' ||
     v === 'oxylabs' ||
-    v === 'monid'
+    v === 'auto'
   )
     return v;
-  return 'auto';
+  return 'rapidapi';
 }
 
 function maxResultsCap(params) {
@@ -111,11 +113,6 @@ async function runAutoMapsSearch(params, integrationEnv) {
       label: 'Outscraper',
       configured: () => outscraper.isConfigured(integrationEnv),
       search: (p) => outscraper.searchGoogleMaps(p),
-    },
-    {
-      label: 'Monid',
-      configured: () => monidMapsSearch.isConfigured(integrationEnv),
-      search: (p) => monidMapsSearch.searchGoogleMaps(p),
     },
     {
       label: 'Apify',
@@ -175,7 +172,6 @@ async function runAutoMapsSearch(params, integrationEnv) {
     serpapi: serpapiConfigured(integrationEnv),
     oxylabs: oxylabsConfigured(integrationEnv),
     outscraper: outscraper.isConfigured(integrationEnv),
-    monid: monidMapsSearch.isConfigured(integrationEnv),
     apify: apifyConfigured(integrationEnv),
   };
   const envKeys = Object.keys(integrationEnv || {}).filter(k => k.includes('API') || k.includes('TOKEN'));
@@ -197,8 +193,9 @@ async function runAutoMapsSearch(params, integrationEnv) {
 async function searchGoogleMaps(params) {
   const integrationEnv = params.integrationEnv || null;
   const override = String(params.mapsProvider || '').toLowerCase().trim();
-  const primary =
+  let primary =
     override && override !== 'auto' ? override : resolvePrimary(integrationEnv);
+  if (primary === 'monid') primary = 'rapidapi';
 
   if (primary === 'rapidapi') {
     if (!rapidapi.isConfigured(integrationEnv)) {
@@ -242,14 +239,15 @@ async function searchGoogleMaps(params) {
     return oxylabsGoogleLocal.searchGoogleMaps(params);
   }
 
-  if (primary === 'monid') {
-    if (!monidMapsSearch.isConfigured(integrationEnv)) {
-      throw new Error('Maps provider is set to Monid, but MONID_API_KEY is missing.');
-    }
-    return monidMapsSearch.searchGoogleMaps(params);
+  if (primary === 'auto') {
+    return runAutoMapsSearch(params, integrationEnv);
   }
 
-  return runAutoMapsSearch(params, integrationEnv);
+  // Default / unknown → RapidAPI only.
+  if (!rapidapi.isConfigured(integrationEnv)) {
+    throw new Error('Maps provider is set to RapidAPI, but RAPIDAPI_KEY is missing.');
+  }
+  return rapidapi.searchGoogleMaps(params);
 }
 
 function filterMapsResults(results, criteria = {}) {
@@ -292,11 +290,6 @@ function getMapsProviderStatusList(integrationEnv) {
       id: 'outscraper',
       label: 'Outscraper',
       configured: outscraper.isConfigured(integrationEnv),
-    },
-    {
-      id: 'monid',
-      label: 'Monid (Google Maps)',
-      configured: monidMapsSearch.isConfigured(integrationEnv),
     },
     {
       id: 'apify',

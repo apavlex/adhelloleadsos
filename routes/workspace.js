@@ -379,7 +379,7 @@ async function loadWorkspacePageLocals(req, opts = {}) {
     integrationsMessage: null,
     persistenceDeploymentHint: '',
     persistenceIntegrationsHint: '',
-    mapsSearchPrimary: 'auto',
+    mapsSearchPrimary: 'rapidapi',
     mapsProviderStatus: [],
     sharedIntegrationProviders: [],
     enrichPrimary: 'auto',
@@ -422,11 +422,12 @@ async function loadWorkspacePageLocals(req, opts = {}) {
   const scrapeAdvisor = scrapeCostAdvisor.getDashboardPayload(scrapeLive, resolvedEnv);
   const mapsProviderStatus = mapsSearch.getMapsProviderStatusList(resolvedEnv);
   const sharedIntegrationProviders = await workspaceIntegrations.sharedProvidersFor(wid);
-  const mapsSearchPrimary = String(
-    (resolvedEnv && resolvedEnv.SEARCH_MAPS_PRIMARY) || process.env.SEARCH_MAPS_PRIMARY || 'auto',
+  let mapsSearchPrimary = String(
+    (resolvedEnv && resolvedEnv.SEARCH_MAPS_PRIMARY) || process.env.SEARCH_MAPS_PRIMARY || 'rapidapi',
   )
     .trim()
     .toLowerCase();
+  if (!mapsSearchPrimary || mapsSearchPrimary === 'monid') mapsSearchPrimary = 'rapidapi';
   const enrichPrimary = String(
     (resolvedEnv && resolvedEnv.ENRICH_PRIMARY) || process.env.ENRICH_PRIMARY || 'auto',
   )

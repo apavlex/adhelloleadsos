@@ -8,16 +8,15 @@
   <div>
     <label for="<%= _pfx %>MapsProvider" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Maps scraper</label>
     <select id="<%= _pfx %>MapsProvider" name="mapsProvider" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold">
-      <option value="auto"<%= !_pre.mapsProvider || _pre.mapsProvider === 'auto' ? ' selected' : '' %>>Auto (best available)</option>
-      <option value="rapidapi"<%= _pre.mapsProvider === 'rapidapi' ? ' selected' : '' %>>RapidAPI Google Local</option>
+      <option value="rapidapi"<%= !_pre.mapsProvider || _pre.mapsProvider === 'rapidapi' || _pre.mapsProvider === 'monid' ? ' selected' : '' %>>RapidAPI Google Local (recommended)</option>
+      <option value="auto"<%= _pre.mapsProvider === 'auto' ? ' selected' : '' %>>Auto fallback (if RapidAPI fails)</option>
       <option value="searchapi"<%= _pre.mapsProvider === 'searchapi' ? ' selected' : '' %>>SearchAPI.io</option>
       <option value="serpapi"<%= _pre.mapsProvider === 'serpapi' ? ' selected' : '' %>>SerpAPI</option>
       <option value="oxylabs"<%= _pre.mapsProvider === 'oxylabs' ? ' selected' : '' %>>Oxylabs</option>
       <option value="outscraper"<%= _pre.mapsProvider === 'outscraper' ? ' selected' : '' %>>Outscraper</option>
-      <option value="monid"<%= _pre.mapsProvider === 'monid' ? ' selected' : '' %>>Monid (Google Maps)</option>
       <option value="apify"<%= _pre.mapsProvider === 'apify' ? ' selected' : '' %>>Apify</option>
     </select>
-    <p class="text-[11px] text-brand-muted mt-1">Configure API keys under Workspace → Integrations. Auto tries providers in priority order.</p>
+    <p class="text-[11px] text-brand-muted mt-1">Configure your RapidAPI key under Workspace → Integrations. Default is RapidAPI only.</p>
   </div>
 
   <fieldset class="rounded-2xl border border-brand-border/40 dark:border-white/10 p-4 space-y-4">
