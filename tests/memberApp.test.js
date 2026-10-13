@@ -404,10 +404,10 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     assert.match(reviewHtml, /Use AI/);
     assert.match(reviewHtml, /Copy for GHL CRM/);
     assert.match(reviewHtml, /https:\/\/leads\.adhello\.io\/rv\/camas-flooring/);
-    assert.match(reviewHtml, /AdHello\.io/);
+    assert.match(reviewHtml, /AdHello/);
     assert.match(reviewHtml, /Request a review/);
     assert.match(reviewHtml, /ma-qr__ask/);
-    assert.match(reviewHtml, /Opens Messages with your review link/);
+    assert.match(reviewHtml, /Uses your SMS script as written|Opens Messages with your review link/);
     assert.match(reviewHtml, /icons\.sms|aria-label="Request a review — opens Messages"/);
     assert.doesNotMatch(reviewHtml, /Share from this phone/);
     assert.match(reviewHtml, /data-ma-request-review/);
