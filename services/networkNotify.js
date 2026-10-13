@@ -673,50 +673,70 @@ async function notifyReviewRewardPending({ network, member, ask, baseUrl }) {
 }
 
 /**
- * Text/email a teammate that a job was shared onto their calendar, with a
- * deep link into their member app (calendars stay separate — they only get this job).
+ * Text/email a teammate that a contact/lead (and their projects) were shared.
  */
-async function notifyJobSharedWithTeammate({
+async function notifyCustomerSharedWithTeammate({
   network,
   fromMember,
   toMember,
-  job,
   customer,
+  jobsShared = 0,
+  focusJob = null,
   baseUrl,
 }) {
-  if (!network || !fromMember || !toMember || !job) return { ok: false, error: 'missing' };
+  if (!network || !fromMember || !toMember || !customer) return { ok: false, error: 'missing' };
   const who = fromMember.contactName || fromMember.companyName || 'A teammate';
   const company = fromMember.companyName || brandView(network).appName;
-  const cust = (customer && customer.name) || 'a customer';
-  const when = [job.date, job.time].filter(Boolean).join(' ');
-  const path = `/customers/jobs/${encodeURIComponent(job.id)}`;
+  const cust = customer.name || 'a customer';
+  const path = focusJob && focusJob.id
+    ? `/customers/jobs/${encodeURIComponent(focusJob.id)}`
+    : `/customers/c/${encodeURIComponent(customer.id)}`;
   const portal = await memberPortalShortLink(
     baseUrl || getPublicBaseUrl(),
     network,
     toMember,
     path,
   );
-  const bits = [`${who} shared a job with you: ${job.title || 'Job'} · ${cust}`];
-  if (when) bits.push(when);
-  bits.push(`Open in your app: ${portal}`);
-  const sms = bits.join(' — ');
-  const email = `${who} (${company}) shared a scheduled job with you.\n\n`
-    + `${job.title || 'Job'} · ${cust}${when ? `\nWhen: ${when}` : ''}`
-    + `${customer && customer.address ? `\nWhere: ${customer.address}` : ''}`
-    + `\n\nIt shows on your calendar only — not theirs.\n\n${portal}`;
+  const projectBit = jobsShared > 1
+    ? `${jobsShared} projects`
+    : (jobsShared === 1 ? '1 project' : 'their contact');
+  const when = focusJob ? [focusJob.date, focusJob.time].filter(Boolean).join(' ') : '';
+  const sms = focusJob
+    ? [
+      `${who} shared ${cust} with you (${projectBit})`,
+      focusJob.title || 'Job',
+      when,
+      `Open: ${portal}`,
+    ].filter(Boolean).join(' — ')
+    : `${who} shared ${cust} with you (${projectBit}). Open: ${portal}`;
+  const email = `${who} (${company}) shared a contact with you.\n\n`
+    + `${cust}${customer.phone ? `\nPhone: ${customer.phone}` : ''}`
+    + `${customer.address ? `\nAddress: ${customer.address}` : ''}`
+    + `\nProjects shared: ${jobsShared}`
+    + (focusJob ? `\nFocus job: ${focusJob.title || 'Job'}${when ? ` · ${when}` : ''}` : '')
+    + `\n\nThey show on your calendar/customers only — not theirs.\n\n${portal}`;
   const messaging = await messageMember(network, toMember, {
     sms,
-    subject: `${who} shared a job: ${job.title || 'Job'}`,
+    subject: `${who} shared ${cust} with you`,
     email,
   }).catch((err) => ({ ok: false, error: err.message }));
   const token = createMemberPortalToken({ networkId: network.id, memberId: toMember.id });
   recordMemberActivity(network, toMember, {
-    kind: 'job_shared',
-    title: 'Job shared with you',
-    body: `${job.title || 'Job'} · ${cust}${when ? ` · ${when}` : ''}`,
+    kind: 'customer_shared',
+    title: 'Contact shared with you',
+    body: `${cust} · ${projectBit}`,
     href: `/m/${encodeURIComponent(token)}${path}`,
   });
   return messaging && messaging.ok !== false ? { ok: true, ...messaging, portal } : (messaging || { ok: false });
+}
+
+/** @deprecated Prefer notifyCustomerSharedWithTeammate (shares contact + projects). */
+async function notifyJobSharedWithTeammate(opts) {
+  return notifyCustomerSharedWithTeammate({
+    ...opts,
+    jobsShared: opts.jobsShared != null ? opts.jobsShared : (opts.job ? 1 : 0),
+    focusJob: opts.focusJob || opts.job || null,
+  });
 }
 
 /** After the business confirms the public review, send the referral-reward offer. */
@@ -798,6 +818,7 @@ module.exports = {
   notifyFeedback,
   notifyLeadRequest,
   notifyReviewRewardPending,
+  notifyCustomerSharedWithTeammate,
   notifyJobSharedWithTeammate,
   sendReviewReferralReward,
   messageMember,

@@ -310,7 +310,7 @@ test('a received referral converts into a customer and job once', async () => {
   assert.equal(again.job.id, first.job.id);
 });
 
-test('shareJobWithTeammate copies onto their calendar without mixing books', async () => {
+test('shareCustomerWithTeammate copies contact and all projects', async () => {
   const cust = await work.saveCustomer(NET, MEM_A, {
     name: 'Share Customer',
     phone: '3605550888',
@@ -318,7 +318,7 @@ test('shareJobWithTeammate copies onto their calendar without mixing books', asy
     address: '88 Pine',
   });
   assert.equal(cust.ok, true);
-  const job = await work.saveJob(NET, MEM_A, {
+  const job1 = await work.saveJob(NET, MEM_A, {
     customerId: cust.customer.id,
     title: 'Shared install',
     status: 'scheduled',
@@ -327,39 +327,44 @@ test('shareJobWithTeammate copies onto their calendar without mixing books', asy
     durationMins: 120,
     notes: 'Bring samples',
   });
-  assert.equal(job.ok, true);
+  const job2 = await work.saveJob(NET, MEM_A, {
+    customerId: cust.customer.id,
+    title: 'Follow-up punch',
+    status: 'estimate',
+    date: '2026-11-12',
+  });
+  assert.equal(job1.ok, true);
+  assert.equal(job2.ok, true);
 
-  const shared = await work.shareJobWithTeammate(NET, MEM_A, MEM_B, job.job.id, {
+  const shared = await work.shareCustomerWithTeammate(NET, MEM_A, MEM_B, cust.customer.id, {
     sharedByName: 'Pat',
   });
   assert.equal(shared.ok, true);
   assert.equal(shared.existing, false);
-  assert.equal(shared.job.sharedFromMemberId, MEM_A);
-  assert.equal(shared.job.sharedFromJobId, job.job.id);
-  assert.equal(shared.job.title, 'Shared install');
-  assert.equal(shared.job.date, '2026-11-05');
-  assert.match(shared.job.notes, /Shared by Pat/);
+  assert.equal(shared.jobsShared, 2);
+  assert.equal(shared.customer.sharedFromMemberId, MEM_A);
+  assert.equal(shared.customer.sharedFromCustomerId, cust.customer.id);
   assert.equal(shared.customer.name, 'Share Customer');
-  assert.equal(shared.customer.phone, '3605550888');
+  assert.ok(shared.jobs.some((j) => j.title === 'Shared install'));
+  assert.ok(shared.jobs.some((j) => j.title === 'Follow-up punch'));
 
-  // Source book still has only their own jobs; sharedWith tracks the teammate copy.
-  const sourceJobs = await work.listJobs(NET, MEM_A);
-  const source = sourceJobs.find((j) => j.id === job.job.id);
-  assert.ok(source.sharedWith.some((r) => r.memberId === MEM_B && r.jobId === shared.job.id));
+  const sourceCust = await work.getCustomer(NET, MEM_A, cust.customer.id);
+  assert.ok(sourceCust.sharedWith.some((r) => r.memberId === MEM_B && r.customerId === shared.customer.id));
 
-  // Teammate sees the copy; their other customers stay theirs alone.
   const theirJobs = await work.listJobs(NET, MEM_B);
-  assert.ok(theirJobs.some((j) => j.id === shared.job.id));
-  assert.ok(!theirJobs.some((j) => j.id === job.job.id));
+  assert.equal(theirJobs.filter((j) => j.customerId === shared.customer.id).length, 2);
+  assert.ok(!theirJobs.some((j) => j.id === job1.job.id));
 
-  const again = await work.shareJobWithTeammate(NET, MEM_A, MEM_B, job.job.id, {
+  // Sharing one job also shares the contact + every project on that lead.
+  const viaJob = await work.shareJobWithTeammate(NET, MEM_A, MEM_B, job1.job.id, {
     sharedByName: 'Pat',
   });
-  assert.equal(again.ok, true);
-  assert.equal(again.existing, true);
-  assert.equal(again.job.id, shared.job.id);
+  assert.equal(viaJob.ok, true);
+  assert.equal(viaJob.existing, true);
+  assert.equal(viaJob.jobsShared, 2);
+  assert.equal(viaJob.job.sharedFromJobId, job1.job.id);
 
-  assert.equal((await work.shareJobWithTeammate(NET, MEM_A, MEM_A, job.job.id)).ok, false);
+  assert.equal((await work.shareCustomerWithTeammate(NET, MEM_A, MEM_A, cust.customer.id)).ok, false);
 });
 
 function startApp() {
@@ -450,6 +455,7 @@ test('customers tab routes: top-bar add customer, CRUD, calendar, pending and re
     assert.match(jobPage, /Remind me/);
     assert.match(jobPage, /Remind customer/);
     assert.match(jobPage, /Share with a teammate/);
+    assert.match(jobPage, /all their projects/);
     assert.match(jobPage, /action="[^"]*\/customers\/jobs\/[^"]+\/share"/);
     assert.match(jobPage, /Camas Electric/);
     assert.match(jobPage, /Job photos/);
@@ -497,6 +503,8 @@ test('customers tab routes: top-bar add customer, CRUD, calendar, pending and re
     assert.match(customerPage, />Tags</);
     assert.match(customerPage, /Search tags or create new/);
     assert.ok(customerPage.indexOf('ma-tags-section') < customerPage.indexOf('>Details<'));
+    assert.match(customerPage, /Share contact &amp; projects|Share contact & projects/);
+    assert.match(customerPage, /action="[^"]*\/customers\/c\/[^"]+\/share"/);
 
     const inlineCustomer = await post(`${A}/customers/jobs/new`, {
       customerId: 'new', newCustomerName: 'Quinn', title: 'Estimate', status: 'estimate',
