@@ -217,6 +217,26 @@ function findCustomerMatch(customers, { ghlContactId, email, phone } = {}) {
   return null;
 }
 
+function normalizeSharedWith(raw) {
+  const list = Array.isArray(raw) ? raw : [];
+  const out = [];
+  const seen = new Set();
+  for (const row of list) {
+    if (!row || typeof row !== 'object') continue;
+    const memberId = String(row.memberId || '').trim();
+    const jobId = String(row.jobId || '').trim();
+    if (!SCOPE_ID.test(memberId) || !isRecordId(jobId) || seen.has(memberId)) continue;
+    seen.add(memberId);
+    out.push({
+      memberId,
+      jobId,
+      at: row.at ? String(row.at) : '',
+    });
+    if (out.length >= 40) break;
+  }
+  return out;
+}
+
 function normalizeJob(raw) {
   const j = raw && typeof raw === 'object' ? raw : {};
   return {
@@ -236,6 +256,13 @@ function normalizeJob(raw) {
     customerRemindedAt: j.customerRemindedAt ? String(j.customerRemindedAt) : '',
     timeZone: cleanTimeZone(j.timeZone) || 'America/Los_Angeles',
     referralId: isRecordId(j.referralId) ? j.referralId : '',
+    /** Copied onto a teammate’s calendar — points back to the sharer’s job. */
+    sharedFromMemberId: SCOPE_ID.test(String(j.sharedFromMemberId || ''))
+      ? String(j.sharedFromMemberId)
+      : '',
+    sharedFromJobId: isRecordId(j.sharedFromJobId) ? j.sharedFromJobId : '',
+    /** On the source job: teammates who received a copy. */
+    sharedWith: normalizeSharedWith(j.sharedWith),
     completedAt: j.completedAt || '',
     createdAt: j.createdAt || new Date().toISOString(),
     updatedAt: j.updatedAt || j.createdAt || new Date().toISOString(),
@@ -614,6 +641,112 @@ async function convertReferral(networkId, memberId, referral, { tradeLabel, toda
   return { ok: true, existing: false, customer, job: job.job };
 }
 
+/**
+ * Put a copy of this job on a teammate’s calendar (their own customer + job
+ * records). Calendars stay separate — they only get this appointment, not the
+ * sharer’s full book. Idempotent per teammate.
+ */
+async function shareJobWithTeammate(networkId, fromMemberId, toMemberId, jobId, { sharedByName } = {}) {
+  const fromId = String(fromMemberId || '');
+  const toId = String(toMemberId || '');
+  if (!SCOPE_ID.test(fromId) || !SCOPE_ID.test(toId)) {
+    return { ok: false, error: 'Pick a teammate to share with.' };
+  }
+  if (fromId === toId) return { ok: false, error: 'Pick a teammate — not yourself.' };
+
+  const sourceJob = await getJob(networkId, fromId, jobId);
+  if (!sourceJob) return { ok: false, error: 'Job not found.' };
+  const sourceCustomer = await getCustomer(networkId, fromId, sourceJob.customerId);
+  if (!sourceCustomer) return { ok: false, error: 'Customer not found.' };
+
+  const theirCustomers = await listCustomers(networkId, toId);
+  let theirCustomer = findCustomerMatch(theirCustomers, {
+    phone: sourceCustomer.phone,
+    email: sourceCustomer.email,
+  });
+  if (!theirCustomer) {
+    const created = await saveCustomer(networkId, toId, {
+      name: sourceCustomer.name,
+      phone: sourceCustomer.phone,
+      email: sourceCustomer.email,
+      address: sourceCustomer.address,
+      notes: sourceCustomer.notes,
+    }, { source: 'manual' });
+    if (!created.ok) return created;
+    theirCustomer = created.customer;
+  } else {
+    // Fill blanks only — don’t overwrite their contact notes/tags.
+    const patch = {
+      name: theirCustomer.name || sourceCustomer.name,
+      phone: theirCustomer.phone || sourceCustomer.phone,
+      email: theirCustomer.email || sourceCustomer.email,
+      address: theirCustomer.address || sourceCustomer.address,
+      notes: theirCustomer.notes,
+    };
+    if (
+      patch.phone !== theirCustomer.phone
+      || patch.email !== theirCustomer.email
+      || patch.address !== theirCustomer.address
+    ) {
+      const updated = await saveCustomer(networkId, toId, patch, {
+        id: theirCustomer.id,
+        tags: theirCustomer.tags,
+        ghlContactId: theirCustomer.ghlContactId,
+        ghlSyncedAt: theirCustomer.ghlSyncedAt,
+        source: theirCustomer.source,
+        referralId: theirCustomer.referralId,
+        isReferralPartner: theirCustomer.isReferralPartner,
+      });
+      if (updated.ok) theirCustomer = updated.customer;
+    }
+  }
+
+  const theirJobs = await listJobs(networkId, toId);
+  let theirJob = theirJobs.find(
+    (j) => j.sharedFromMemberId === fromId && j.sharedFromJobId === sourceJob.id,
+  );
+  let existing = !!theirJob;
+  if (!theirJob) {
+    const who = cleanLine(sharedByName, 80);
+    const shareNote = who ? `Shared by ${who}.` : 'Shared by a teammate.';
+    const notes = [shareNote, sourceJob.notes].filter(Boolean).join('\n\n').slice(0, 2000);
+    const created = await saveJob(networkId, toId, {
+      customerId: theirCustomer.id,
+      title: sourceJob.title,
+      status: sourceJob.status === 'cancelled' ? 'lead' : sourceJob.status,
+      value: sourceJob.value,
+      date: sourceJob.date,
+      time: sourceJob.time,
+      durationMins: sourceJob.durationMins,
+      notes,
+      remindOwnerBeforeMins: 0,
+      remindCustomerBeforeMins: 0,
+    }, { timeZone: sourceJob.timeZone });
+    if (!created.ok) return created;
+    theirJob = await writeJob(networkId, toId, {
+      ...created.job,
+      sharedFromMemberId: fromId,
+      sharedFromJobId: sourceJob.id,
+      photos: [],
+    });
+  }
+
+  const now = new Date().toISOString();
+  const sharedWith = normalizeSharedWith([
+    ...(sourceJob.sharedWith || []).filter((r) => r.memberId !== toId),
+    { memberId: toId, jobId: theirJob.id, at: now },
+  ]);
+  const updatedSource = await writeJob(networkId, fromId, { ...sourceJob, sharedWith });
+
+  return {
+    ok: true,
+    existing,
+    sourceJob: updatedSource,
+    job: theirJob,
+    customer: theirCustomer,
+  };
+}
+
 // ── Views: calendar, overview ────────────────────────────────────────────────
 
 function compareJobs(a, b) {
@@ -840,6 +973,7 @@ module.exports = {
   setJobStatus,
   deleteJob,
   convertReferral,
+  shareJobWithTeammate,
   todayIn,
   addDays,
   weekRange,

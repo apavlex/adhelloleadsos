@@ -310,6 +310,58 @@ test('a received referral converts into a customer and job once', async () => {
   assert.equal(again.job.id, first.job.id);
 });
 
+test('shareJobWithTeammate copies onto their calendar without mixing books', async () => {
+  const cust = await work.saveCustomer(NET, MEM_A, {
+    name: 'Share Customer',
+    phone: '3605550888',
+    email: 'share@example.com',
+    address: '88 Pine',
+  });
+  assert.equal(cust.ok, true);
+  const job = await work.saveJob(NET, MEM_A, {
+    customerId: cust.customer.id,
+    title: 'Shared install',
+    status: 'scheduled',
+    date: '2026-11-05',
+    time: '10:00',
+    durationMins: 120,
+    notes: 'Bring samples',
+  });
+  assert.equal(job.ok, true);
+
+  const shared = await work.shareJobWithTeammate(NET, MEM_A, MEM_B, job.job.id, {
+    sharedByName: 'Pat',
+  });
+  assert.equal(shared.ok, true);
+  assert.equal(shared.existing, false);
+  assert.equal(shared.job.sharedFromMemberId, MEM_A);
+  assert.equal(shared.job.sharedFromJobId, job.job.id);
+  assert.equal(shared.job.title, 'Shared install');
+  assert.equal(shared.job.date, '2026-11-05');
+  assert.match(shared.job.notes, /Shared by Pat/);
+  assert.equal(shared.customer.name, 'Share Customer');
+  assert.equal(shared.customer.phone, '3605550888');
+
+  // Source book still has only their own jobs; sharedWith tracks the teammate copy.
+  const sourceJobs = await work.listJobs(NET, MEM_A);
+  const source = sourceJobs.find((j) => j.id === job.job.id);
+  assert.ok(source.sharedWith.some((r) => r.memberId === MEM_B && r.jobId === shared.job.id));
+
+  // Teammate sees the copy; their other customers stay theirs alone.
+  const theirJobs = await work.listJobs(NET, MEM_B);
+  assert.ok(theirJobs.some((j) => j.id === shared.job.id));
+  assert.ok(!theirJobs.some((j) => j.id === job.job.id));
+
+  const again = await work.shareJobWithTeammate(NET, MEM_A, MEM_B, job.job.id, {
+    sharedByName: 'Pat',
+  });
+  assert.equal(again.ok, true);
+  assert.equal(again.existing, true);
+  assert.equal(again.job.id, shared.job.id);
+
+  assert.equal((await work.shareJobWithTeammate(NET, MEM_A, MEM_A, job.job.id)).ok, false);
+});
+
 function startApp() {
   const app = express();
   app.set('view engine', 'ejs');
@@ -331,8 +383,12 @@ function post(url, body) {
 
 test('customers tab routes: top-bar add customer, CRUD, calendar, pending and referral conversion', async () => {
   const network = await store.getOrCreateNetworkForWorkspace('ws_member_work', { name: 'Work network' });
-  const a = await store.saveMember(network.id, { companyName: 'Camas Flooring', contactName: 'Pat', status: 'active', trades: ['flooring'] });
-  const b = await store.saveMember(network.id, { companyName: 'Camas Electric', contactName: 'Sam', status: 'active', trades: ['electrical'] });
+  const a = await store.saveMember(network.id, {
+    companyName: 'Camas Flooring', contactName: 'Pat', status: 'active', trades: ['flooring'], phone: '3605550101',
+  });
+  const b = await store.saveMember(network.id, {
+    companyName: 'Camas Electric', contactName: 'Sam', status: 'active', trades: ['electrical'], phone: '3605550102',
+  });
   const tokenA = createMemberPortalToken({ networkId: network.id, memberId: a.id });
   const tokenB = createMemberPortalToken({ networkId: network.id, memberId: b.id });
   const ref = await store.saveReferral(network.id, {
@@ -393,12 +449,25 @@ test('customers tab routes: top-bar add customer, CRUD, calendar, pending and re
     const jobPage = await (await fetch(`${A}/customers/jobs/${jobs[0].id}`)).text();
     assert.match(jobPage, /Remind me/);
     assert.match(jobPage, /Remind customer/);
+    assert.match(jobPage, /Share with a teammate/);
+    assert.match(jobPage, /action="[^"]*\/customers\/jobs\/[^"]+\/share"/);
+    assert.match(jobPage, /Camas Electric/);
     assert.match(jobPage, /Job photos/);
     assert.match(jobPage, /name="photo"/);
     assert.match(jobPage, /data-ma-status-steps/);
     assert.match(jobPage, /data-ma-job-status-pill/);
     assert.match(jobPage, /https:\/\/www\.google\.com\/maps\/search\/\?api=1&amp;query=/);
     assert.doesNotMatch(jobPage, /maps\.apple\.com/);
+
+    const shared = await post(`${A}/customers/jobs/${jobs[0].id}/share`, { memberId: b.id });
+    assert.equal(shared.status, 303);
+    assert.match(shared.headers.get('location') || '', /ok=job_shared/);
+    const bJobs = await work.listJobs(network.id, b.id);
+    assert.ok(bJobs.some((j) => j.sharedFromJobId === jobs[0].id && j.sharedFromMemberId === a.id));
+    const bJob = bJobs.find((j) => j.sharedFromJobId === jobs[0].id);
+    const bJobPage = await (await fetch(`${base}/m/${tokenB}/customers/jobs/${bJob.id}`)).text();
+    assert.match(bJobPage, /Shared onto your calendar/);
+    assert.doesNotMatch(bJobPage, /Share with a teammate/);
 
     const ask = await require('../services/reviewAsk').createAsk({
       networkId: network.id,

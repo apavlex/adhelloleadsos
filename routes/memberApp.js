@@ -199,6 +199,7 @@ const OK_MESSAGES = {
   reward_sent: 'Review confirmed — referral reward offer sent to the customer.',
   reward_skipped: 'Skipped — no referral reward sent for this review.',
   reward_upgrade: 'Referral rewards and customer referral offers are on the monthly plan. Upgrade to unlock them.',
+  job_shared: 'Shared with your teammate — they got a text/email with a link to their calendar.',
 };
 
 const MEMBER_ACTIONS = new Set(['accept', 'decline', 'book', 'win', 'lose', 'note', 'claim']);
@@ -1488,14 +1489,42 @@ router.post('/m/:token/customers/c/:id/request-review', form, withMember(async (
   return res.redirect(303, `${ctx.base}/review?${qs.toString()}`);
 }));
 
+async function listShareTeammates(ctx) {
+  const members = await store.listMembers(ctx.network.id);
+  return members
+    .filter((m) => m && m.id !== ctx.member.id && m.status === 'active')
+    .map((m) => ({
+      id: m.id,
+      label: m.companyName || m.contactName || 'Teammate',
+      contact: m.contactName || '',
+      phone: m.phone || '',
+      email: m.email || '',
+      canNotify: !!(m.phone && m.phone !== 'N/A') || !!(m.email && m.email !== 'N/A'),
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+}
+
 async function renderJobPage(req, res, ctx, { job, formValues, flash, status }) {
   const today = work.todayIn(memberTimeZone(req));
-  const { customers, customersById } = await loadWork(ctx);
+  const [{ customers, customersById }, teammates] = await Promise.all([
+    loadWork(ctx),
+    job ? listShareTeammates(ctx) : Promise.resolve([]),
+  ]);
+  const presented = job ? presentJob(job, customersById, ctx.base, today) : null;
+  const sharedWithLabels = (presented && presented.sharedWith || []).map((row) => {
+    const mate = teammates.find((t) => t.id === row.memberId);
+    return {
+      ...row,
+      label: mate ? mate.label : 'Teammate',
+    };
+  });
   return render(res, 'job', ctx, {
     active: 'customers',
-    job: job ? presentJob(job, customersById, ctx.base, today) : null,
+    job: presented,
     customer: job ? customersById[job.customerId] || null : null,
     customers,
+    teammates,
+    sharedWithLabels,
     statuses: work.JOB_STATUSES.map((s) => ({ value: s, label: work.JOB_STATUS_LABELS[s] })),
     durations: DURATIONS.map((m) => ({ value: m, label: durationLabel(m) })),
     remindOptions: work.REMIND_BEFORE_OPTIONS,
@@ -1744,6 +1773,72 @@ router.get('/m/:token/customers/jobs/:id/calendar.ics', withMember(async (req, r
   res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="job-${job.date}.ics"`);
   return res.send(work.buildIcs(job, customer, { appName: ctx.brand.appName, host: req.hostname }));
+}));
+
+/** Share a job onto a teammate’s calendar and text/email them a deep link. */
+router.post('/m/:token/customers/jobs/:id/share', form, withMember(async (req, res, ctx) => {
+  const jobId = String(req.params.id || '');
+  const toMemberId = String((req.body && req.body.memberId) || '').trim();
+  const back = `${ctx.base}/customers/jobs/${encodeURIComponent(jobId)}`;
+  const job = await work.getJob(ctx.network.id, ctx.member.id, jobId);
+  if (!job) return res.redirect(303, `${ctx.base}/customers?view=pending`);
+
+  const teammates = await listShareTeammates(ctx);
+  const mate = teammates.find((t) => t.id === toMemberId);
+  if (!mate) {
+    return renderJobPage(req, res, ctx, {
+      job,
+      flash: { error: 'Pick a teammate on your network to share with.' },
+      status: 400,
+    });
+  }
+  if (!mate.canNotify) {
+    return renderJobPage(req, res, ctx, {
+      job,
+      flash: { error: 'That teammate needs a phone or email on their profile before we can notify them.' },
+      status: 400,
+    });
+  }
+
+  const toMember = await store.getMember(ctx.network.id, mate.id);
+  if (!toMember || toMember.status !== 'active') {
+    return renderJobPage(req, res, ctx, {
+      job,
+      flash: { error: 'That teammate is not available.' },
+      status: 400,
+    });
+  }
+
+  const shared = await work.shareJobWithTeammate(
+    ctx.network.id,
+    ctx.member.id,
+    toMember.id,
+    job.id,
+    { sharedByName: ctx.member.contactName || ctx.member.companyName },
+  );
+  if (!shared.ok) {
+    return renderJobPage(req, res, ctx, {
+      job,
+      flash: { error: shared.error || 'Could not share that job.' },
+      status: 400,
+    });
+  }
+
+  const ping = await notify.notifyJobSharedWithTeammate({
+    network: ctx.network,
+    fromMember: ctx.member,
+    toMember,
+    job: shared.job,
+    customer: shared.customer,
+    baseUrl: notify.baseUrlFromReq(req),
+  }).catch((err) => ({ ok: false, error: err.message }));
+
+  if (!ping || !ping.ok) {
+    return res.redirect(303, `${back}?ok=job_shared&detail=${encodeURIComponent(
+      `(added to their calendar${ping && ping.error ? ` — notify failed: ${ping.error}` : ''})`,
+    )}`);
+  }
+  return res.redirect(303, `${back}?ok=job_shared`);
 }));
 
 router.post('/m/:token/customers/from-referral/:id', form, withMember(async (req, res, ctx) => {
