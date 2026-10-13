@@ -7715,9 +7715,10 @@ function readJsonReply(r) {
   var mlPushLoading = document.getElementById('manualLeadPushLoading');
   var mlPushDenied = document.getElementById('manualLeadPushDenied');
   var mlPushPackages = [];
+  var mlPushTeammates = [];
   var mlSubmitBtn = document.getElementById('manualLeadSubmit');
 
-  function selectedManualPushIds() {
+  function selectedManualPushPackageIds() {
     var ids = [];
     if (!mlPushList) return ids;
     mlPushList.querySelectorAll('input[name="pushPackageIds"]:checked').forEach(function (cb) {
@@ -7727,9 +7728,23 @@ function readJsonReply(r) {
     return ids;
   }
 
+  function selectedManualPushMemberIds() {
+    var ids = [];
+    if (!mlPushList) return ids;
+    mlPushList.querySelectorAll('input[name="pushMemberIds"]:checked').forEach(function (cb) {
+      var id = String(cb.value || '').trim();
+      if (id) ids.push(id);
+    });
+    return ids;
+  }
+
+  function selectedManualPushCount() {
+    return selectedManualPushPackageIds().length + selectedManualPushMemberIds().length;
+  }
+
   function syncManualLeadSubmitLabel() {
     if (!mlSubmitBtn || mlSubmitBtn.disabled) return;
-    var n = selectedManualPushIds().length;
+    var n = selectedManualPushCount();
     mlSubmitBtn.textContent = n ? ('Save & send to ' + n + ' teammate' + (n === 1 ? '' : 's')) : 'Save to pipeline';
   }
 
@@ -7740,14 +7755,19 @@ function readJsonReply(r) {
     syncManualLeadSubmitLabel();
   }
 
-  function renderManualLeadPushTargets(packages) {
+  function escapeHtml(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  }
+
+  function renderManualLeadPushTargets(packages, teammates) {
     mlPushPackages = Array.isArray(packages) ? packages : [];
+    mlPushTeammates = Array.isArray(teammates) ? teammates : [];
     if (!mlPushWrap) return;
     mlPushWrap.setAttribute('data-manual-push-loaded', '1');
     if (mlPushLoading) mlPushLoading.classList.add('hidden');
     if (mlPushDenied) mlPushDenied.classList.add('hidden');
     if (!mlPushList) return;
-    if (!mlPushPackages.length) {
+    if (!mlPushPackages.length && !mlPushTeammates.length) {
       mlPushList.innerHTML = '';
       mlPushList.classList.add('hidden');
       if (mlPushEmpty) mlPushEmpty.classList.remove('hidden');
@@ -7755,17 +7775,35 @@ function readJsonReply(r) {
       return;
     }
     if (mlPushEmpty) mlPushEmpty.classList.add('hidden');
-    mlPushList.innerHTML = mlPushPackages.map(function (pkg) {
-      var id = String(pkg.id || '');
-      var name = String(pkg.businessName || 'Teammate');
-      var trade = pkg.trade ? ' · ' + String(pkg.trade) : '';
-      return '<label class="inline-flex items-start gap-2 rounded-xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white cursor-pointer">'
-        + '<input type="checkbox" name="pushPackageIds" value="' + id.replace(/"/g, '&quot;') + '" class="mt-0.5 accent-brand-yellow" />'
-        + '<span>' + name.replace(/</g, '&lt;') + '<span class="text-brand-muted">' + trade.replace(/</g, '&lt;') + '</span></span>'
-        + '</label>';
-    }).join('');
+    var html = '';
+    if (mlPushTeammates.length) {
+      html += '<p class="sm:col-span-2 text-[10px] font-black uppercase tracking-widest text-brand-muted">Workspace team (free referral)</p>';
+      html += mlPushTeammates.map(function (tm) {
+        var id = String(tm.id || '');
+        var name = String(tm.name || tm.email || 'Teammate');
+        var role = tm.role ? ' · ' + String(tm.role).toUpperCase() : '';
+        var email = tm.email ? ' · ' + String(tm.email) : '';
+        return '<label class="inline-flex items-start gap-2 rounded-xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white cursor-pointer">'
+          + '<input type="checkbox" name="pushMemberIds" value="' + escapeHtml(id) + '" class="mt-0.5 accent-brand-yellow" />'
+          + '<span>' + escapeHtml(name) + '<span class="text-brand-muted">' + escapeHtml(role + email) + '</span></span>'
+          + '</label>';
+      }).join('');
+    }
+    if (mlPushPackages.length) {
+      html += '<p class="sm:col-span-2 text-[10px] font-black uppercase tracking-widest text-brand-muted mt-1">Appointment packages</p>';
+      html += mlPushPackages.map(function (pkg) {
+        var id = String(pkg.id || '');
+        var name = String(pkg.businessName || 'Contractor');
+        var trade = pkg.trade ? ' · ' + String(pkg.trade) : '';
+        return '<label class="inline-flex items-start gap-2 rounded-xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white cursor-pointer">'
+          + '<input type="checkbox" name="pushPackageIds" value="' + escapeHtml(id) + '" class="mt-0.5 accent-brand-yellow" />'
+          + '<span>' + escapeHtml(name) + '<span class="text-brand-muted">' + escapeHtml(trade) + '</span></span>'
+          + '</label>';
+      }).join('');
+    }
+    mlPushList.innerHTML = html;
     mlPushList.classList.remove('hidden');
-    mlPushList.querySelectorAll('input[name="pushPackageIds"]').forEach(function (cb) {
+    mlPushList.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
       cb.addEventListener('change', syncManualLeadSubmitLabel);
     });
     syncManualLeadSubmitLabel();
@@ -7794,7 +7832,7 @@ function readJsonReply(r) {
           showManualLeadPushDenied();
           return;
         }
-        renderManualLeadPushTargets(data.packages || []);
+        renderManualLeadPushTargets(data.packages || [], data.teammates || []);
       })
       .catch(function () {
         showManualLeadPushDenied();
@@ -7869,9 +7907,19 @@ function readJsonReply(r) {
         payload.opportunityPipelineId = oppBoard.getAttribute('data-pipeline-id') || '';
         payload.opportunityStageId = oppBoard.getAttribute('data-first-stage-id') || '';
       }
-      var pushIds = selectedManualPushIds();
+      var pushPackageIds = selectedManualPushPackageIds();
+      var pushMemberIds = selectedManualPushMemberIds();
+      var pushCount = pushPackageIds.length + pushMemberIds.length;
       var btn = document.getElementById('manualLeadSubmit');
-      if (btn) { btn.disabled = true; btn.textContent = pushIds.length ? 'Saving & sending…' : 'Saving…'; }
+      if (btn) { btn.disabled = true; btn.textContent = pushCount ? 'Saving & sending…' : 'Saving…'; }
+      if (pushMemberIds.length && !payload.phone && !payload.email) {
+        if (btn) { btn.disabled = false; syncManualLeadSubmitLabel(); }
+        if (mlErr) {
+          mlErr.textContent = 'Add a phone or email before sending a free referral to teammates.';
+          mlErr.classList.remove('hidden');
+        }
+        return;
+      }
       fetch('/leads/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -7889,36 +7937,54 @@ function readJsonReply(r) {
             }
             return null;
           }
-          if (!pushIds.length) return { data: data, pushed: null };
-          return fetch('/appointments/appointment-packages/deliver-lead-bulk', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-            body: JSON.stringify({
-              packageIds: pushIds,
-              name: title,
-              phone: payload.phone || null,
-              email: payload.email || null,
-              preview: payload.note || null,
-              leadKey: data.key || null,
-              formName: 'Added from workspace',
-              source: 'agency',
-            }),
-          })
-            .then(function (r2) { return readJsonReply(r2); })
-            .then(function (_ref2) {
-              return { data: data, pushed: _ref2 };
-            });
+          if (!pushCount) return { data: data, pushed: null, teammatePushed: null };
+          var leadPayload = {
+            name: title,
+            phone: payload.phone || null,
+            email: payload.email || null,
+            preview: payload.note || null,
+            leadKey: data.key || null,
+            city: payload.city || null,
+            address: payload.address || null,
+          };
+          var packagePromise = pushPackageIds.length
+            ? fetch('/appointments/appointment-packages/deliver-lead-bulk', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                body: JSON.stringify(Object.assign({}, leadPayload, {
+                  packageIds: pushPackageIds,
+                  formName: 'Added from workspace',
+                  source: 'agency',
+                })),
+              }).then(function (r2) { return readJsonReply(r2); })
+            : Promise.resolve(null);
+          var teammatePromise = pushMemberIds.length
+            ? fetch('/appointments/appointment-packages/deliver-teammate-bulk', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                body: JSON.stringify(Object.assign({}, leadPayload, {
+                  memberIds: pushMemberIds,
+                })),
+              }).then(function (r3) { return readJsonReply(r3); })
+            : Promise.resolve(null);
+          return Promise.all([packagePromise, teammatePromise]).then(function (parts) {
+            return { data: data, pushed: parts[0], teammatePushed: parts[1] };
+          });
         })
         .then(function (result) {
           if (!result) return;
           if (btn) { btn.disabled = false; syncManualLeadSubmitLabel(); }
           var data = result.data;
           var pushed = result.pushed;
-          if (pushed && !(pushed.ok && pushed.j && pushed.j.success)) {
+          var teammatePushed = result.teammatePushed;
+          var packageFail = pushed && !(pushed.ok && pushed.j && pushed.j.success);
+          var teammateFail = teammatePushed && !(teammatePushed.ok && teammatePushed.j && teammatePushed.j.success);
+          if (packageFail || teammateFail) {
+            var errMsg = (teammateFail && teammatePushed.j && teammatePushed.j.error)
+              || (packageFail && pushed.j && pushed.j.error)
+              || 'Could not send to teammates.';
             if (mlErr) {
-              mlErr.textContent = (pushed.j && pushed.j.error)
-                ? ('Saved to pipeline, but send failed: ' + pushed.j.error)
-                : 'Saved to pipeline, but could not send to teammates.';
+              mlErr.textContent = 'Saved to pipeline, but send failed: ' + errMsg;
               mlErr.classList.remove('hidden');
             }
             return;
@@ -7929,8 +7995,9 @@ function readJsonReply(r) {
           var stay = here.indexOf('/today') === 0 || here.indexOf('/opportunities') === 0;
           var nextPath = stay ? here : '/opportunities';
           var q = pipelineId ? ('?pipeline=' + encodeURIComponent(pipelineId)) : '';
-          if (pushed && pushed.j && pushed.j.count) {
-            q += (q ? '&' : '?') + 'pushed=' + encodeURIComponent(String(pushed.j.count));
+          var sentCount = ((pushed && pushed.j && pushed.j.count) || 0) + ((teammatePushed && teammatePushed.j && teammatePushed.j.count) || 0);
+          if (sentCount) {
+            q += (q ? '&' : '?') + 'pushed=' + encodeURIComponent(String(sentCount));
           }
           window.location.href = nextPath + q;
         })

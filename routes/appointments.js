@@ -13,6 +13,8 @@ const networkNotify = require('../services/networkNotify');
 const publicDemo = require('../services/publicDemo');
 const workspaceService = require('../services/workspaceService');
 const dbService = require('../services/database');
+const workspaceTeammatePush = require('../services/workspaceTeammatePush');
+const { getPublicBaseUrl } = require('../lib/publicBaseUrl');
 
 async function isAppAdmin(req) {
   return publicDemo.canManage(workspaceService.userEmail(req));
@@ -43,20 +45,74 @@ async function requireDeliverAccess(req, res) {
 }
 
 /**
- * Lightweight list of contractor packages for Add Opportunity multi-select.
+ * Lightweight list for Add Opportunity multi-select:
+ * workspace teammates (free referral) + optional appointment packages.
  *   GET /appointments/appointment-packages/push-targets
  */
 router.get('/appointment-packages/push-targets', async (req, res, next) => {
   try {
     if (!(await requireDeliverAccess(req, res))) return;
+    const actorEmail = workspaceService.userEmail(req);
     const view = await appointmentPackages.loadTodayView(req.workspaceId);
     const packages = (view.packages || []).map((pkg) => ({
       id: pkg.id,
       businessName: pkg.businessName || 'Contractor',
       trade: pkg.trade || '',
       openFormLeads: pkg.openFormLeads || 0,
+      kind: 'package',
     }));
-    return res.json({ success: true, packages, canPush: packages.length > 0 });
+    const teammates = workspaceTeammatePush.listTeammateTargets(req.workspace, actorEmail);
+    return res.json({
+      success: true,
+      packages,
+      teammates,
+      canPush: packages.length > 0 || teammates.length > 0,
+    });
+  } catch (e) {
+    return next(e);
+  }
+});
+
+/**
+ * Free referral to workspace teammates (Team & assign) — not a paid package sale.
+ *   POST /appointments/appointment-packages/deliver-teammate-bulk
+ */
+router.post('/appointment-packages/deliver-teammate-bulk', express.json(), async (req, res, next) => {
+  try {
+    if (!(await requireDeliverAccess(req, res))) return;
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const result = await workspaceTeammatePush.deliverToTeammates({
+      workspace: req.workspace,
+      workspaceId: req.workspaceId,
+      memberIds: Array.isArray(body.memberIds) ? body.memberIds : [],
+      emails: Array.isArray(body.emails) ? body.emails : [],
+      lead: {
+        name: body.name || body.title,
+        phone: body.phone || null,
+        email: body.email || null,
+        note: body.preview || body.note || null,
+        city: body.city || null,
+        address: body.address || null,
+      },
+      actorEmail: workspaceService.userEmail(req),
+      baseUrl: getPublicBaseUrl(req) || networkNotify.baseUrlFromReq(req),
+    });
+    if (!result.ok) {
+      return res.status(400).json({
+        success: false,
+        error: result.error || 'Could not send to teammates.',
+        delivered: result.delivered || [],
+        skipped: result.skipped || [],
+        count: 0,
+      });
+    }
+    return res.json({
+      success: true,
+      count: result.count,
+      delivered: result.delivered,
+      skipped: result.skipped,
+      kind: 'teammate',
+    });
   } catch (e) {
     return next(e);
   }
