@@ -1,7 +1,7 @@
 /**
  * Find a real business email before auto-outreach enrolls to GHL.
- * Order: Monid (domain unlock) → website scrape → Outscraper → BetterContact.
- * Never invents addresses.
+ * Order: website scrape → RapidAPI website → Outscraper → BetterContact.
+ * Never invents addresses. (Monid domain-unlock retired — use RapidAPI / Outscraper.)
  */
 const dbService = require('./database');
 const { isValidEmailForGhl } = require('./ghlClient');
@@ -10,12 +10,10 @@ const betterContact = require('./betterContactClient');
 const rapidapiWebsiteEnrich = require('./rapidapiWebsiteEnrich');
 const outscraperLeadEnrich = require('./outscraperLeadEnrich');
 const localPageExtract = require('./localPageExtract');
-const monidLeadEnrich = require('./monidLeadEnrich');
 const { firecrawlExtractToLeadUpdates } = require('./enrichmentNormalize');
 
 /** Soft budgets so a hung provider never blocks the whole drip run. */
 const STEP_TIMEOUT_MS = {
-  monid: 40_000,
   local_website: 12_000,
   rapidapi_website: 18_000,
   outscraper_contacts: 25_000,
@@ -93,42 +91,6 @@ function mergeEnrichmentOntoLead(lead, extract) {
     lead: { ...lead, ...patch },
     patch,
   };
-}
-
-/**
- * Monid unlocks website/domain (and sometimes phone/socials) so later email finders work.
- * If Monid returns an email, use it immediately.
- */
-async function tryMonidEnrich(lead, integrationEnv) {
-  if (!monidLeadEnrich.isConfigured(integrationEnv)) return null;
-  try {
-    const pack = await monidLeadEnrich.enrichLeadFromMonid(lead, integrationEnv);
-    if (!pack || !pack.enriched || !pack.extract) return null;
-    const merged = mergeEnrichmentOntoLead(lead, pack.extract);
-    const email = pack.extract.email || merged.patch.email;
-    if (isValidEmailForGhl(email)) {
-      return {
-        email: String(email).trim(),
-        source: 'monid',
-        patch: merged.patch,
-        lead: merged.lead,
-        unlockedWebsite: !!(merged.patch.website || pack.extract.website),
-      };
-    }
-    if (Object.keys(merged.patch).length) {
-      return {
-        email: '',
-        source: 'monid',
-        patch: merged.patch,
-        lead: merged.lead,
-        unlockedWebsite: !!merged.patch.website,
-        enrichOnly: true,
-      };
-    }
-  } catch (e) {
-    console.warn('[ensureLeadEmail] Monid failed:', e && e.message);
-  }
-  return null;
 }
 
 async function tryLocalWebsiteEmail(lead, integrationEnv) {
@@ -303,55 +265,6 @@ async function ensureLeadEmail(opts) {
       console.warn(`[ensureLeadEmail] ${label} failed/skipped:`, e && e.message);
       if (e && /timed out/i.test(String(e.message || ''))) timedOut = true;
       return null;
-    }
-  }
-
-  // Step 0: Monid first when website/domain is missing.
-  if (!hasUsableWebsite(lead) || !betterContact.extractDomain(lead.website)) {
-    const monidHit = await runStep('monid', STEP_TIMEOUT_MS.monid, () =>
-      tryMonidEnrich(lead, integrationEnv),
-    );
-    if (monidHit) {
-      sourcesTried.push(monidHit.source);
-      if (monidHit.patch && Object.keys(monidHit.patch).length) {
-        accumulatedPatch = { ...accumulatedPatch, ...monidHit.patch };
-        lead = monidHit.lead || { ...lead, ...monidHit.patch };
-        if (persist) {
-          lead = await persistLeadPatch(
-            lead,
-            {
-              ...monidHit.patch,
-              logs: [
-                {
-                  type: 'email_find',
-                  message: monidHit.unlockedWebsite
-                    ? `Monid unlocked website before email hunt: ${monidHit.patch.website}`
-                    : 'Monid enriched company signals before email hunt',
-                  timestamp: new Date().toISOString(),
-                },
-              ],
-            },
-            workspaceId,
-          );
-        }
-      }
-      if (monidHit.email && isValidEmailForGhl(monidHit.email)) {
-        const patch = {
-          ...accumulatedPatch,
-          ...buildEmailPatch(lead, monidHit.email, monidHit),
-          email: monidHit.email,
-        };
-        if (persist) lead = await persistLeadPatch(lead, patch, workspaceId);
-        else lead = { ...lead, ...patch };
-        return {
-          found: true,
-          alreadyHad: false,
-          lead,
-          email: monidHit.email,
-          sources: sourcesTried,
-          source: 'monid',
-        };
-      }
     }
   }
 

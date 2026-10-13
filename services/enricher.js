@@ -1,14 +1,14 @@
 const webEnrichment = require('./webEnrichment');
 const dbService = require('./database');
 const workspaceIntegrations = require('./workspaceIntegrations');
-const monidLeadEnrich = require('./monidLeadEnrich');
+const rapidapiWebsiteEnrich = require('./rapidapiWebsiteEnrich');
 const { ENRICH_BUDGET_MS, PER_LEAD_ENRICH_MS, withTimeout } = require('./leadRunProgress');
 
-function leadNeedsMonidEnrich(lead) {
+function leadNeedsRapidApiWebsiteEnrich(lead) {
+  if (!rapidapiWebsiteEnrich.leadCanEnrichFromWebsite(lead)) return false;
   const missing = (v) => !v || v === 'N/A';
   return (
     missing(lead.phone) ||
-    missing(lead.website) ||
     missing(lead.email) ||
     missing(lead.facebook) ||
     missing(lead.instagram) ||
@@ -17,7 +17,7 @@ function leadNeedsMonidEnrich(lead) {
   );
 }
 
-function applyMonidExtractToLead(lead, extract) {
+function applyExtractToLead(lead, extract) {
   if (!extract || typeof extract !== 'object') return;
   const fill = (field) => {
     const next = extract[field];
@@ -100,17 +100,17 @@ module.exports = {
       }
     }
 
-    // 3. Monid pass — Apollo / PDL for phone, website, socials (works without website too)
-    if (!budgetExhausted() && monidLeadEnrich.isConfigured(integrationEnv)) {
-      const monidNeed = enrichedLeads.filter(leadNeedsMonidEnrich);
-      if (monidNeed.length) {
-        console.log(`[ENRICHER] Monid enrichment for ${monidNeed.length} leads...`);
-        for (let i = 0; i < monidNeed.length; i += concurrency) {
+    // 3. RapidAPI website pass — contacts / socials when a website is already known
+    if (!budgetExhausted() && rapidapiWebsiteEnrich.isConfigured(integrationEnv)) {
+      const rapidNeed = enrichedLeads.filter(leadNeedsRapidApiWebsiteEnrich);
+      if (rapidNeed.length) {
+        console.log(`[ENRICHER] RapidAPI website enrichment for ${rapidNeed.length} leads...`);
+        for (let i = 0; i < rapidNeed.length; i += concurrency) {
           if (budgetExhausted()) {
-            console.warn('[ENRICHER] Enrich budget exhausted during Monid pass; returning partial results.');
+            console.warn('[ENRICHER] Enrich budget exhausted during RapidAPI pass; returning partial results.');
             break;
           }
-          const batch = monidNeed.slice(i, i + concurrency);
+          const batch = rapidNeed.slice(i, i + concurrency);
           // eslint-disable-next-line no-await-in-loop
           await Promise.all(
             batch.map(async (lead) => {
@@ -118,18 +118,18 @@ module.exports = {
               if (slice <= 0) return;
               try {
                 const pack = await withTimeout(
-                  monidLeadEnrich.enrichLeadFromMonid(lead, integrationEnv),
+                  rapidapiWebsiteEnrich.enrichLeadFromWebsite(lead, integrationEnv),
                   slice,
-                  'monid_enrich'
+                  'rapidapi_website_enrich'
                 );
-                if (pack && pack.enriched && pack.extract) {
-                  applyMonidExtractToLead(lead, pack.extract);
+                if (pack && pack.extract && Object.keys(pack.extract).length) {
+                  applyExtractToLead(lead, pack.extract);
                   if (lead.website && lead.website !== 'N/A') {
                     await dbService.saveSiteMetadata(lead.website, pack.extract);
                   }
                 }
               } catch (err) {
-                console.warn(`[ENRICHER] Monid failed for ${lead.title}:`, err.message);
+                console.warn(`[ENRICHER] RapidAPI website failed for ${lead.title}:`, err.message);
               }
             }),
           );

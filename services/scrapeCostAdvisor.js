@@ -87,12 +87,12 @@ function buildSourceCards(live = {}, resolvedEnv) {
       id: 'rapidapi',
       name: 'RapidAPI (Local Business Data)',
       connectAnchor: 'integration-rapidapi',
-      role: 'Find Leads — Google Maps via RapidAPI (first in Auto mode).',
+      role: 'Find Leads — Google Maps via RapidAPI (primary; Outscraper fallback).',
       cost: 'Per your RapidAPI plan and per-request credits on the API you subscribe to.',
       configured: rapidapi,
       live: null,
       tip: rapidapi
-        ? 'Runs first in Auto when SEARCH_MAPS_PRIMARY is auto (default). Falls through to SearchAPI.io, SerpAPI, Outscraper, then Apify if this returns zero rows or errors. Force only RapidAPI with SEARCH_MAPS_PRIMARY=rapidapi.'
+        ? 'Default Maps path: RapidAPI first, then Outscraper if RapidAPI fails or returns short (SEARCH_MAPS_PRIMARY=rapidapi).'
         : 'Subscribe to a Local Business / Google Maps API on rapidapi.com, then set RAPIDAPI_KEY in Workspace → API integrations (or server env). Optional: RAPIDAPI_HOST and endpoint URL if you use a different marketplace API.',
     },
     {

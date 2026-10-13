@@ -110,7 +110,7 @@ router.post('/', async (req, res, next) => {
             await dbService.clearActiveJob({
               failed: true,
               error:
-                'Maps search is not configured. Add a RapidAPI, SearchAPI.io, SerpAPI, Outscraper, Monid, or Apify key under Workspace → API integrations.',
+                'Maps search is not configured. Add a RapidAPI key under Workspace → API integrations (or SearchAPI.io / SerpAPI / Outscraper / Apify for Auto fallback).',
             });
             cleared = true;
             return;
@@ -277,7 +277,7 @@ router.post('/', async (req, res, next) => {
     if (mode !== 'schedule' && !mapsSearch.isMapsSearchConfigured(integrationEnv)) {
       return res.status(503).render('error', {
         message:
-          'Maps search is not configured for this workspace. Add keys under Workspace → API integrations, or set RAPIDAPI_KEY / SEARCHAPI_API_KEY / SERPAPI_API_KEY / OUTSCRAPER_API_KEY / MONID_API_KEY / APIFY_API_TOKEN on the server.',
+          'Maps search is not configured for this workspace. Add a RapidAPI key under Workspace → API integrations, or set RAPIDAPI_KEY on the server.',
         activePage: 'search',
       });
     }
