@@ -643,6 +643,20 @@ test('free app_free members see Join tab, benefits page, and referrals upgrade g
     plan: 'app_free',
     trades: ['plumbing'],
   });
+  // Pool referral: free member should see project name, not phone/claim.
+  await store.saveReferral(network.id, {
+    id: 'ref_free_teaser',
+    status: 'unrouted',
+    tradeSlug: 'plumbing',
+    fromMemberId: 'operator',
+    homeowner: {
+      name: 'River Remodel',
+      phone: '503-555-9999',
+      email: 'secret@example.com',
+      note: 'Basement leak',
+    },
+    createdAt: new Date().toISOString(),
+  });
   const token = createMemberPortalToken({ networkId: network.id, memberId: member.id });
   const app = express();
   app.set('view engine', 'ejs');
@@ -667,12 +681,16 @@ test('free app_free members see Join tab, benefits page, and referrals upgrade g
     assert.match(join, /href="\/signup"/);
     assert.match(join, /ma-join-card/);
 
-    const refs = await (await fetch(`${base}/referrals`)).text();
-    assert.match(refs, /Start getting referrals/);
-    assert.match(refs, /Upgrade to activate/);
+    const refs = await (await fetch(`${base}/referrals?view=pool`)).text();
+    assert.match(refs, /Unlock lead details/);
+    assert.match(refs, /Upgrade to unlock/);
     assert.match(refs, /href="\/signup"/);
+    assert.match(refs, /Leads &amp; Referrals|Leads & Referrals/);
+    assert.match(refs, /River Remodel/);
+    assert.doesNotMatch(refs, /503-555-9999/);
+    assert.doesNotMatch(refs, /secret@example\.com/);
+    assert.doesNotMatch(refs, /Basement leak/);
     assert.doesNotMatch(refs, /Claim this lead/);
-    assert.doesNotMatch(refs, /Referral lists/);
 
     const sendRedirect = await fetch(`${base}/send`, { redirect: 'manual' });
     assert.equal(sendRedirect.status, 303);
@@ -798,6 +816,7 @@ test('free app_free members cannot send GHL review SMS/email', async () => {
     assert.match(html, /Upgrade to activate/);
     assert.match(html, /href="\/signup"/);
     assert.doesNotMatch(html, /action="[^"]*\/review\/send"/);
+    // Free members keep native Request a review; GHL form is gated.
     // Review tab + QR first — send fold stays closed for free members.
     assert.doesNotMatch(html, /id="maAskForm"\s+open/);
     assert.match(html, /href="[^"]*\/review"\s+class="ma-tab ma-tab--fab/);

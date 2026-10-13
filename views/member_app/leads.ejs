@@ -7,9 +7,19 @@
   <main class="ma-shell">
     <%- include('_top', { topTitle: 'Leads' }) %>
     <h1 class="ma-page-title">Leads</h1>
-    <p class="ma-page-sub">Website forms, leads your agency sends, and anything you claim from the referral pool — all in one place.</p>
+    <% const _leadLocked = typeof leadDetailsLocked !== 'undefined' && leadDetailsLocked; %>
+    <p class="ma-page-sub"><% if (_leadLocked) { %>New leads show the project name only until you join on a paid plan.<% } else { %>Website forms, leads your agency sends, and anything you claim from the referral pool — all in one place.<% } %></p>
 
     <%- include('_flash') %>
+
+    <% if (_leadLocked) { %>
+    <%- include('_upgrade_gate', {
+      upgradeTitle: 'Unlock lead details',
+      upgradeBody: 'Free and trial accounts see project names only. Upgrade to a paid plan to get phone, email, and notes.',
+      upgradeHref: typeof upgradeHref !== 'undefined' ? upgradeHref : '/signup',
+      upgradeIcon: 'leads',
+    }) %>
+    <% } %>
 
     <%- include('_lead_request_callout', { leadRequest: typeof leadRequest !== 'undefined' ? leadRequest : null, back: 'leads', base: base, icons: icons }) %>
 
@@ -20,6 +30,7 @@
       <a class="ma-btn ma-btn--sm" href="<%= base %>/referrals?view=pool" style="margin-top:8px">Open referral pool</a>
     </div>
     <% } else { %>
+    <% if (!_leadLocked) { %>
     <section class="ma-card" id="maPushRoot" data-base="<%= base %>" style="margin-bottom:12px">
       <div class="ma-card__row">
         <div style="min-width:0">
@@ -32,6 +43,7 @@
         <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-ma-push-off hidden>Turn off</button>
       </div>
     </section>
+    <% } %>
 
     <div class="ma-hero ma-hero--dash" style="margin-bottom:12px">
       <div class="ma-hero__card">
@@ -55,6 +67,9 @@
               <% if (lead.source === 'agency') { %>Sent by agency<% } else { %><%= lead.formName || 'Website form' %><% } %>
               <% if (lead.at) { %> · <%= new Date(lead.at).toLocaleString() %><% } %>
             </p>
+            <% if (_leadLocked || lead.detailsLocked) { %>
+            <p class="ma-card__meta" style="margin-top:6px">Details locked — upgrade to see phone, email, and notes.</p>
+            <% } else { %>
             <% if (lead.phone || lead.email) { %>
             <p class="ma-card__meta" style="margin-top:6px">
               <% if (lead.phone) { %><a href="tel:<%= String(lead.phone).replace(/[^0-9+]/g, '') %>" style="font-weight:700;color:var(--acc);text-decoration:none"><%= lead.phone %></a><% } %>
@@ -63,16 +78,21 @@
             </p>
             <% } %>
             <% if (lead.preview) { %><p class="ma-card__note"><%= lead.preview %></p><% } %>
+            <% } %>
           </div>
           <span class="ma-pill <%= lead.status === 'closed' ? 'ma-pill--lost' : 'ma-pill--accepted' %>"><%= lead.status === 'closed' ? 'Closed' : (lead.source === 'agency' ? 'Agency' : 'Open') %></span>
         </div>
         <% if (lead.status !== 'closed') { %>
         <div class="ma-actions">
+          <% if (_leadLocked || lead.detailsLocked) { %>
+          <a class="ma-btn ma-btn--sm" href="<%= typeof upgradeHref !== 'undefined' ? upgradeHref : '/signup' %>">Upgrade to unlock</a>
+          <% } else { %>
           <% if (lead.phone) { %><a class="ma-btn ma-btn--sm" href="tel:<%= String(lead.phone).replace(/[^0-9+]/g, '') %>">Call</a><% } %>
           <form method="post" action="<%= base %>/leads/<%= encodeURIComponent(lead.id) %>/close">
             <button type="submit" class="ma-btn ma-btn--sm ma-btn--soft">Mark closed</button>
           </form>
           <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= base %>/review">Request review</a>
+          <% } %>
         </div>
         <% } %>
       </article>

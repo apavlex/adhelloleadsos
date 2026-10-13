@@ -379,6 +379,18 @@ function recordMemberActivity(network, member, item) {
 async function notifyReferralRecipient({ network, referral, member, baseUrl }) {
   if (!member || !referral.toMemberId) return { ok: false, error: 'No member to notify.' };
   const link = referralLink(baseUrl, network, referral, member.id);
+  const memberLeadRequests = require('./memberLeadRequests');
+  const detailsAllowed = await memberLeadRequests.planAllowsLeadDetails(network, member)
+    .catch(() => false);
+  const projectName = String((referral.homeowner && referral.homeowner.name) || '').trim()
+    || `${tradeLabel(referral.tradeSlug, network)} job`;
+  if (!detailsAllowed) {
+    return messageMember(network, member, {
+      sms: `${network.name}: new project “${projectName.slice(0, 60)}”. Upgrade to unlock details: ${link}`,
+      subject: `New project: ${projectName.slice(0, 80)}`,
+      email: `You have a new project from ${network.name}: ${projectName}.\n\nUpgrade to a paid plan to see contact details:\n${link}`,
+    });
+  }
   const summary = homeownerSummary(referral, network);
   const sms = `${network.name}: new referral — ${summary}. Accept or decline: ${link}`;
   const email = `You have a new referral from ${network.name}.\n\n${summary}.\n\nOpen it to accept, decline, and report the outcome:\n${link}`;
@@ -409,14 +421,24 @@ async function notifyReferralPool({ network, referral, baseUrl }) {
     .slice(0, 8);
   if (!eligible.length) return 0;
   const summary = homeownerSummary(referral, network);
+  const projectName = String((referral.homeowner && referral.homeowner.name) || '').trim()
+    || `${tradeLabel(referral.tradeSlug, network)} job`;
+  const memberLeadRequests = require('./memberLeadRequests');
   let sent = 0;
   await Promise.all(eligible.map(async (member) => {
     const app = memberPortalLink(baseUrl, network, member);
     const poolUrl = `${app}/referrals?view=pool`;
-    const result = await messageMember(network, member, {
+    const detailsAllowed = await memberLeadRequests.planAllowsLeadDetails(network, member)
+      .catch(() => false);
+    const result = await messageMember(network, member, detailsAllowed ? {
       sms: `${network.name}: open referral in the pool — ${summary}. Claim it: ${poolUrl}`,
       subject: `Claim pool referral: ${summary}`,
       email: `A referral is waiting in the pool for ${network.name}.\n\n${summary}.\n\nClaim it in your app:\n${poolUrl}`,
+    } : {
+      // Free / trial: tease project name only — no city, phone, or claim copy with PII.
+      sms: `${network.name}: new project “${projectName.slice(0, 60)}” in the pool. Upgrade to unlock details: ${poolUrl}`,
+      subject: `New project: ${projectName.slice(0, 80)}`,
+      email: `A new project is in the ${network.name} pool: ${projectName}.\n\nUpgrade to a paid plan to see contact details and claim it:\n${poolUrl}`,
     }).catch(() => ({ ok: false }));
     if (result && result.ok) sent += 1;
     recordMemberActivity(network, member, {
@@ -465,6 +487,16 @@ async function notifyMemberFormLead({ network, member, baseUrl, leadName, formNa
   const leadsUrl = `${app}/referrals`;
   const who = String(leadName || 'New lead').trim().slice(0, 80);
   const kind = source === 'agency' ? 'Your agency sent a lead' : 'New website lead';
+  const memberLeadRequests = require('./memberLeadRequests');
+  const detailsAllowed = await memberLeadRequests.planAllowsLeadDetails(network, member)
+    .catch(() => false);
+  if (!detailsAllowed) {
+    return messageMember(network, member, {
+      sms: `${brandView(network).appName}: ${kind} — “${who}”. Upgrade to unlock details: ${leadsUrl}`,
+      subject: `${kind}: ${who}`,
+      email: `${kind} for ${member.companyName}.\n\nProject: ${who}\n\nUpgrade to a paid plan to see phone, email, and notes:\n${leadsUrl}`,
+    });
+  }
   const detail = [formName, preview].filter(Boolean).join(' — ').slice(0, 160);
   const sms = `${brandView(network).appName}: ${kind} — ${who}${detail ? ` (${detail})` : ''}. Open: ${leadsUrl}`;
   recordMemberActivity(network, member, {

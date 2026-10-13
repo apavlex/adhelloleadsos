@@ -27,6 +27,58 @@ async function planAllowsLeadRequests(network, member) {
   return !trials.isRestricted(ws);
 }
 
+/** Same bar as lead packs: paid non-trial only (free + trial see teasers). */
+async function planAllowsLeadDetails(network, member) {
+  return planAllowsLeadRequests(network, member);
+}
+
+/**
+ * Project-name teaser for form / agency leads — hide phone, email, and preview
+ * until the member is on a paid (non-trial) plan.
+ */
+function presentFormLead(lead, { detailsAllowed } = {}) {
+  const raw = lead && typeof lead === 'object' ? lead : {};
+  const name = String(raw.name || 'New project').trim().slice(0, 120) || 'New project';
+  if (detailsAllowed) {
+    return { ...raw, name, detailsLocked: false };
+  }
+  return {
+    id: raw.id || '',
+    name,
+    formName: raw.formName || '',
+    source: raw.source || '',
+    status: raw.status === 'closed' ? 'closed' : 'open',
+    at: raw.at || '',
+    phone: '',
+    email: '',
+    preview: '',
+    detailsLocked: true,
+  };
+}
+
+/**
+ * Teaser a presented referral card: keep project title + trade meta, strip PII.
+ * Project name prefers homeowner name, else "{trade} job".
+ */
+function presentReferralTeaser(presented, { detailsAllowed } = {}) {
+  const row = presented && typeof presented === 'object' ? presented : {};
+  if (detailsAllowed) return { ...row, detailsLocked: false };
+  const customer = row.customer || {};
+  const projectName = String(customer.name || '').trim()
+    || (row.trade ? `${row.trade} job` : 'New project');
+  return {
+    ...row,
+    customer: { name: projectName },
+    value: '',
+    notes: [],
+    actions: [],
+    convertible: false,
+    jobHref: '',
+    detailsLocked: true,
+    statusLabel: row.statusLabel || 'Locked',
+  };
+}
+
 function pendingLeadRequests(appointment) {
   if (!appointment || !Array.isArray(appointment.pendingRequests)) return 0;
   return appointment.pendingRequests.filter((r) => !r.type || r.type === 'leads').length;
@@ -115,7 +167,11 @@ async function requestMoreLeads(ctx, { quantity, note } = {}) {
 module.exports = {
   COOLDOWN_MS,
   DEFAULT_QTY,
+  isAppFreeMember,
   planAllowsLeadRequests,
+  planAllowsLeadDetails,
+  presentFormLead,
+  presentReferralTeaser,
   leadRequestState,
   requestMoreLeads,
   onCooldown,

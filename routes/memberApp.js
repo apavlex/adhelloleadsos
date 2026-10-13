@@ -993,12 +993,26 @@ router.get('/m/:token', withMember(async (req, res, ctx) => {
   const membersById = Object.fromEntries(members.map((m) => [m.id, m]));
   const customersById = Object.fromEntries(customers.map((c) => [c.id, c]));
   const stats = ex.memberStats(referrals, ctx.member.id);
+  const leadDetailsAllowed = await memberLeadRequests.planAllowsLeadDetails(ctx.network, ctx.member);
   const waiting = referrals
     .filter((r) => r.toMemberId === ctx.member.id && r.status === 'sent')
     .slice(0, 3)
-    .map((r) => presentReceived(r, membersById, ctx.network));
+    .map((r) => memberLeadRequests.presentReferralTeaser(
+      presentReceived(r, membersById, ctx.network),
+      { detailsAllowed: leadDetailsAllowed },
+    ));
   const today = work.todayIn(memberTimeZone(req));
   const openJobCount = jobs.filter((j) => j && ['lead', 'estimate', 'scheduled', 'in_progress', 'on_hold'].includes(String(j.status || '').toLowerCase())).length;
+  // Appointment recent leads: name-only teasers for free / trial members.
+  if (ctx.appointment && Array.isArray(ctx.appointment.recentLeads) && !leadDetailsAllowed) {
+    ctx.appointment = {
+      ...ctx.appointment,
+      recentLeads: ctx.appointment.recentLeads.map((lead) =>
+        memberLeadRequests.presentFormLead(lead, { detailsAllowed: false })),
+      formLeads: (ctx.appointment.formLeads || []).map((lead) =>
+        memberLeadRequests.presentFormLead(lead, { detailsAllowed: false })),
+    };
+  }
   render(res, 'home', ctx, {
     upcoming: work.upcoming(jobs, today, 2).map((j) => presentJob(j, customersById, ctx.base, today)),
     // Reviews → customers/work → referrals (network is tertiary).
@@ -1014,6 +1028,8 @@ router.get('/m/:token', withMember(async (req, res, ctx) => {
     wonValue: money(stats.wonValue),
     waiting,
     leadRequest,
+    leadDetailsLocked: !leadDetailsAllowed,
+    upgradeHref: '/signup',
     flash: flashFromQuery(req),
   });
   // CRM sync in the background so Home stays snappy on mobile.
@@ -1086,21 +1102,30 @@ async function renderReferrals(req, res, ctx, flash, status) {
   ]);
   const membersById = Object.fromEntries(members.map((m) => [m.id, m]));
   const jobByRef = Object.fromEntries(jobs.filter((j) => j.referralId).map((j) => [j.referralId, j]));
-  const received = referrals.filter((r) => r.toMemberId === ctx.member.id).slice(0, 60).map((r) => ({
-    ...presentReceived(r, membersById, ctx.network),
-    jobHref: jobByRef[r.id] ? `${ctx.base}/customers/jobs/${jobByRef[r.id].id}` : '',
-    convertible: ['accepted', 'booked', 'won'].includes(r.status),
-  }));
-  const sent = referrals.filter((r) => r.fromMemberId === ctx.member.id).slice(0, 60).map((r) => presentSent(r, membersById, ctx.network));
-  const pool = ex.poolReferralsForMember(referrals, ctx.member).slice(0, 40).map((r) => ({
-    ...presentReceived(r, membersById, ctx.network),
-    statusLabel: 'Open · Claim',
-    actions: ['claim'],
-    convertible: false,
-  }));
+  const detailsAllowed = await memberLeadRequests.planAllowsLeadDetails(ctx.network, ctx.member);
+  const received = referrals.filter((r) => r.toMemberId === ctx.member.id).slice(0, 60).map((r) =>
+    memberLeadRequests.presentReferralTeaser({
+      ...presentReceived(r, membersById, ctx.network),
+      jobHref: jobByRef[r.id] ? `${ctx.base}/customers/jobs/${jobByRef[r.id].id}` : '',
+      convertible: ['accepted', 'booked', 'won'].includes(r.status),
+    }, { detailsAllowed }));
+  const sent = referrals.filter((r) => r.fromMemberId === ctx.member.id).slice(0, 60).map((r) =>
+    memberLeadRequests.presentReferralTeaser(
+      presentSent(r, membersById, ctx.network),
+      { detailsAllowed },
+    ));
+  const pool = ex.poolReferralsForMember(referrals, ctx.member).slice(0, 40).map((r) =>
+    memberLeadRequests.presentReferralTeaser({
+      ...presentReceived(r, membersById, ctx.network),
+      statusLabel: detailsAllowed ? 'Open · Claim' : 'Upgrade to claim',
+      actions: detailsAllowed ? ['claim'] : [],
+      convertible: false,
+    }, { detailsAllowed }));
   const appt = ctx.appointment;
-  const formLeads = appt ? (appt.formLeads || []) : [];
-  const referralsLocked = freeAppSignup.isAppFreeMember(ctx.member);
+  const formLeads = (appt ? (appt.formLeads || []) : []).map((lead) =>
+    memberLeadRequests.presentFormLead(lead, { detailsAllowed }));
+  // Free app + unpaid/expired trial: name teasers only (paid unlocks details).
+  const referralsLocked = !detailsAllowed;
   let partnerDirectory = [];
   let partnerMembers = [];
   if (!referralsLocked && formLeads.some((l) => l && l.status !== 'closed')) {
@@ -1132,6 +1157,7 @@ async function renderReferrals(req, res, ctx, flash, status) {
     leadRequest,
     flash: flash || flashFromQuery(req),
     referralsLocked,
+    leadDetailsLocked: !detailsAllowed,
     upgradeHref: '/signup',
   }, status);
 }
@@ -1139,7 +1165,7 @@ async function renderReferrals(req, res, ctx, flash, status) {
 router.get('/m/:token/referrals', withMember((req, res, ctx) => renderReferrals(req, res, ctx)));
 
 router.post('/m/:token/referrals/:id', form, withMember(async (req, res, ctx) => {
-  if (freeAppSignup.isAppFreeMember(ctx.member)) {
+  if (!(await memberLeadRequests.planAllowsLeadDetails(ctx.network, ctx.member))) {
     return res.redirect(303, `${ctx.base}/referrals?ok=referrals_upgrade`);
   }
   const action = String((req.body && req.body.action) || '').trim();
@@ -1172,6 +1198,7 @@ async function renderJoin(req, res, ctx) {
 router.get('/m/:token/join', withMember((req, res, ctx) => renderJoin(req, res, ctx)));
 
 async function renderSend(req, res, ctx, flash, formValues, status) {
+  // Free-app members use Join instead of Send; paid/trial partners keep Send.
   const locked = freeAppSignup.isAppFreeMember(ctx.member);
   if (locked) {
     return res.redirect(303, `${ctx.base}/join`);
@@ -2661,6 +2688,9 @@ router.post('/m/:token/leads/:leadId/close', form, withMember(async (req, res, c
   if (!ctx.appointment) {
     return res.redirect(303, `${ctx.base}/referrals`);
   }
+  if (!(await memberLeadRequests.planAllowsLeadDetails(ctx.network, ctx.member))) {
+    return res.redirect(303, `${ctx.base}/referrals?ok=referrals_upgrade`);
+  }
   const leadId = String(req.params.leadId || '').trim();
   const pkg = ctx.appointment.package;
   const formLeads = (pkg.formLeads || []).map((f) =>
@@ -2676,7 +2706,7 @@ router.post('/m/:token/leads/:leadId/close', form, withMember(async (req, res, c
  */
 router.post('/m/:token/leads/:leadId/refer', form, withMember(async (req, res, ctx) => {
   const back = `${ctx.base}/referrals`;
-  if (freeAppSignup.isAppFreeMember(ctx.member)) {
+  if (!(await memberLeadRequests.planAllowsLeadDetails(ctx.network, ctx.member))) {
     return res.redirect(303, `${back}?ok=referrals_upgrade`);
   }
   if (!ctx.appointment) {

@@ -126,7 +126,7 @@
         <div class="ma-card__row">
           <div style="min-width:0">
             <p class="ma-card__title"><%= r.customer.name || 'Customer' %></p>
-            <p class="ma-card__meta">Referral · <%= r.trade %><%= r.customer.city ? ' · ' + r.customer.city : '' %> · from <%= r.from %></p>
+            <p class="ma-card__meta">Referral · <%= r.trade %><% if (!(typeof leadDetailsLocked !== 'undefined' && leadDetailsLocked) && r.customer.city) { %> · <%= r.customer.city %><% } %> · from <%= r.from %><% if (typeof leadDetailsLocked !== 'undefined' && leadDetailsLocked) { %> · details locked<% } %></p>
           </div>
           <span class="ma-pill ma-pill--sent">New</span>
         </div>
@@ -137,7 +137,7 @@
         <div class="ma-card__row">
           <div style="min-width:0">
             <p class="ma-card__title"><%= lead.name %></p>
-            <p class="ma-card__meta">Form lead · <%= lead.formName || 'Website' %><% if (lead.phone) { %> · <%= lead.phone %><% } %></p>
+            <p class="ma-card__meta">Form lead · <%= lead.formName || 'Website' %><% if (lead.phone) { %> · <%= lead.phone %><% } else if (lead.detailsLocked || (typeof leadDetailsLocked !== 'undefined' && leadDetailsLocked)) { %> · details locked<% } %></p>
           </div>
           <span class="ma-pill ma-pill--accepted">Lead</span>
         </div>
