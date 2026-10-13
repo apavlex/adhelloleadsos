@@ -140,3 +140,44 @@ test('messagingReadyForNetwork reports owner workspace GHL readiness', async () 
   assert.equal(ready.smsReady, true);
   assert.equal(ready.emailReady, true);
 });
+
+test('sendReviewReferralReward texts the configured offer after confirm', async () => {
+  const { network, member: base } = await setup();
+  const member = await store.saveMember(network.id, {
+    ...base,
+    reviewReward: {
+      enabled: true,
+      minStars: 4,
+      rewardType: 'gift_card',
+      rewardLabel: '$25 gift card',
+      rewardScript: 'Thanks {{name}}! Refer a friend to {{company}} and get {{reward}}.',
+    },
+  });
+  const result = await notify.sendReviewReferralReward({
+    network,
+    member,
+    ask: {
+      name: 'Alex',
+      phone: '+15551230000',
+      email: '',
+      rating: 5,
+    },
+  });
+  assert.equal(result.ok, true);
+  assert.equal(calls.sms.length, 1);
+  assert.match(calls.sms[0].message, /\$25 gift card/);
+  assert.match(calls.sms[0].message, /Alex/);
+  assert.match(calls.sms[0].message, /Brightline Electric/);
+});
+
+test('sendReviewReferralReward requires reward settings', async () => {
+  const { network, member } = await setup();
+  const result = await notify.sendReviewReferralReward({
+    network,
+    member,
+    ask: { name: 'Alex', phone: '+15551230000', rating: 5 },
+  });
+  assert.equal(result.ok, false);
+  assert.match(result.error, /not set up/i);
+  assert.equal(calls.sms.length, 0);
+});

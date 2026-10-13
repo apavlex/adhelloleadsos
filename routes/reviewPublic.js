@@ -221,6 +221,35 @@ router.get('/rv/:slug', async (req, res) => {
       await reviewAsk.markOpened(askId).catch(() => {});
     }
     await store.bumpReviewStats(page.network.id, page.member.id, rating ? { star: rating } : { view: true }).catch(() => {});
+
+    // 4–5★ on a tracked ask → notify business to manually confirm before reward SMS.
+    if (askId && rating >= 4) {
+      try {
+        const reviewReferralReward = require('../services/reviewReferralReward');
+        const settings = reviewReferralReward.settingsFromMember(page.member);
+        if (reviewReferralReward.qualifies(settings, rating)) {
+          let ask = await reviewAsk.markRated(askId, rating);
+          if (ask && !ask.rewardNotifiedAt && !ask.reviewConfirmedAt && !ask.rewardSkippedAt) {
+            const baseUrl = notify.baseUrlFromReq(req);
+            const ping = await notify.notifyReviewRewardPending({
+              network: page.network,
+              member: page.member,
+              ask,
+              baseUrl,
+            }).catch((err) => ({ ok: false, error: err.message }));
+            if (ping && ping.ok !== false) {
+              ask = await reviewAsk.saveAsk({
+                ...ask,
+                rewardNotifiedAt: new Date().toISOString(),
+              });
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[review-page] reward pending notify failed:', err.message);
+      }
+    }
+
     return renderPage(res, page, { rating, imageId, askId });
   } catch (err) {
     console.error('[review-page] view failed:', err.message);

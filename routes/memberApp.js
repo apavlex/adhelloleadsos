@@ -34,6 +34,7 @@ const reviewPage = require('../services/reviewPage');
 const reviewRequestScript = require('../services/reviewRequestScript');
 const reviewShareImage = require('../services/reviewShareImage');
 const reviewAsk = require('../services/reviewAsk');
+const reviewReferralReward = require('../services/reviewReferralReward');
 const memberLeadRequests = require('../services/memberLeadRequests');
 const memberActivity = require('../services/memberActivity');
 const freeAppSignup = require('../services/freeAppSignup');
@@ -194,6 +195,9 @@ const OK_MESSAGES = {
   leads_requested: 'Lead request sent — your agency was pinged that you’re ready for more work.',
   closed: 'Lead marked closed.',
   push: 'Lead alerts are on for this phone.',
+  reward_saved: 'Referral reward settings saved.',
+  reward_sent: 'Review confirmed — referral reward offer sent to the customer.',
+  reward_skipped: 'Skipped — no referral reward sent for this review.',
 };
 
 const MEMBER_ACTIONS = new Set(['accept', 'decline', 'book', 'win', 'lose', 'note', 'claim']);
@@ -507,6 +511,54 @@ function shortWhen(iso) {
 /** Status chip for the latest review ask on a customer. */
 function presentReviewAskStatus(ask) {
   if (!ask) return null;
+  if (ask.rewardSentAt) {
+    return {
+      status: 'reward_sent',
+      label: 'Referral reward sent',
+      detail: [
+        ask.rating ? `${ask.rating}★` : '',
+        ask.reviewConfirmedAt ? `Confirmed ${shortWhen(ask.reviewConfirmedAt)}` : '',
+        `Offer sent ${shortWhen(ask.rewardSentAt)}`,
+      ].filter(Boolean).join(' · '),
+      askId: ask.id,
+      rating: ask.rating || 0,
+      channel: ask.channel,
+    };
+  }
+  if (ask.rewardSkippedAt) {
+    return {
+      status: 'reward_skipped',
+      label: 'Reward skipped',
+      detail: ask.rating
+        ? `${ask.rating}★ · skipped ${shortWhen(ask.rewardSkippedAt)}`
+        : `Skipped ${shortWhen(ask.rewardSkippedAt)}`,
+      askId: ask.id,
+      rating: ask.rating || 0,
+      channel: ask.channel,
+    };
+  }
+  if (reviewAsk.pendingRewardConfirm(ask)) {
+    return {
+      status: 'reward_pending',
+      label: `${ask.rating || 5}★ — confirm their review`,
+      detail: 'When you see the public review, confirm to text them your referral reward offer.',
+      askId: ask.id,
+      rating: ask.rating || 0,
+      canConfirm: true,
+      channel: ask.channel,
+    };
+  }
+  if (ask.reviewConfirmedAt && !ask.rewardSentAt) {
+    return {
+      status: 'reward_pending',
+      label: 'Review confirmed — send reward',
+      detail: 'Confirm again to retry sending the referral reward offer.',
+      askId: ask.id,
+      rating: ask.rating || 0,
+      canConfirm: true,
+      channel: ask.channel,
+    };
+  }
   const engaged = reviewAsk.isEngaged(ask);
   let status = 'asked';
   let label = 'Asked';
@@ -519,14 +571,37 @@ function presentReviewAskStatus(ask) {
   } else if (ask.remindedAt) {
     status = 'reminded';
     label = 'Reminded';
+  } else if (ask.ratedAt && ask.rating >= 4) {
+    status = 'rated';
+    label = `${ask.rating}★ on review page`;
   }
   const bits = [];
   if (ask.askedAt) bits.push(`${ask.channel === 'email' ? 'Emailed' : 'Texted'} ${shortWhen(ask.askedAt)}`);
   if (ask.openedAt && !ask.clickedAt) bits.push(`Opened ${shortWhen(ask.openedAt)}`);
   if (ask.clickedAt) bits.push(`Clicked ${shortWhen(ask.clickedAt)}`);
+  if (ask.ratedAt && ask.rating) bits.push(`${ask.rating}★ ${shortWhen(ask.ratedAt)}`);
   if (ask.remindedAt) bits.push(`Reminded ${shortWhen(ask.remindedAt)}`);
   else if (!engaged && ask.remindAfterAt) bits.push('Auto-reminder if no click in ~48h');
-  return { status, label, detail: bits.join(' · '), channel: ask.channel };
+  return {
+    status,
+    label,
+    detail: bits.join(' · '),
+    askId: ask.id,
+    rating: ask.rating || 0,
+    channel: ask.channel,
+  };
+}
+
+function presentPendingReward(ask) {
+  if (!ask || !reviewAsk.pendingRewardConfirm(ask)) return null;
+  return {
+    askId: ask.id,
+    name: ask.name || 'Customer',
+    rating: ask.rating || 5,
+    customerId: ask.customerId || '',
+    phone: ask.phone || '',
+    when: shortWhen(ask.ratedAt || ask.rewardNotifiedAt),
+  };
 }
 
 async function directoryFor(network, member) {
@@ -1797,11 +1872,16 @@ function reviewPageLocals(member, extras, brand) {
 
 async function renderReview(req, res, ctx, flash, status, formValues) {
   const member = await ensureReviewSetup(ctx);
-  const [stats, feedback, messaging, customers] = await Promise.all([
+  const [stats, feedback, messaging, customers, pendingRewardAsks] = await Promise.all([
     store.getReviewStats(ctx.network.id, member.id),
     store.listFeedback(ctx.network.id, member.id),
     notify.messagingReadyForNetwork(ctx.network),
     work.listCustomers(ctx.network.id, member.id),
+    reviewAsk.listPendingRewardConfirms({
+      networkId: ctx.network.id,
+      memberId: member.id,
+      limit: 20,
+    }),
   ]);
   const totalStars = Object.values(stats.stars).reduce((a, b) => a + b, 0);
   const q = req.query || {};
@@ -1872,6 +1952,8 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
     shareSmsText,
     defaultSmsScript: reviewRequestScript.DEFAULT_SMS_SCRIPT,
     ghlWorkflowPrompt,
+    pendingRewards: pendingRewardAsks.map(presentPendingReward).filter(Boolean),
+    rewardSettings: reviewReferralReward.settingsFromMember(member),
     reviewSendLocked: freeAppSignup.isAppFreeMember(ctx.member),
     upgradeHref: '/signup',
     flash: flash || flashFromQuery(req),
@@ -1880,9 +1962,12 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
 
 async function renderReviewSettings(req, res, ctx, flash, status) {
   const member = await ensureReviewSetup(ctx);
+  const reward = reviewReferralReward.settingsFromMember(member);
   return render(res, 'review_settings', { ...ctx, member }, {
     ...reviewPageLocals(member, null, ctx.brand),
     active: 'review',
+    rewardSettings: reward,
+    rewardDefaultScript: reviewReferralReward.DEFAULT_SCRIPT,
     flash: flash || flashFromQuery(req),
   }, status);
 }
@@ -1969,6 +2054,73 @@ router.post('/m/:token/review/script', form, withMember(async (req, res, ctx) =>
     return renderReview(req, res, { ...ctx, member: saved }, { ok: OK_MESSAGES.script_saved });
   }
   return res.redirect(303, `${ctx.base}/review?ok=script_saved`);
+}));
+
+/** Save post–4–5★ referral reward offer (gift card / discount / prize). */
+router.post('/m/:token/review/reward', form, withMember(async (req, res, ctx) => {
+  const member = await ensureReviewSetup(ctx);
+  const reward = reviewReferralReward.settingsFromBody(req.body || {});
+  if (reward.enabled && !reward.rewardLabel) {
+    return renderReviewSettings(req, res, { ...ctx, member }, {
+      error: 'Add what they get (e.g. “$25 gift card”) before turning the reward on.',
+    }, 400);
+  }
+  await store.saveMember(ctx.network.id, { ...member, reviewReward: reward });
+  return res.redirect(303, `${ctx.base}/review/settings?ok=reward_saved`);
+}));
+
+function rewardReturnPath(ctx, body, ask) {
+  const raw = String((body && body.returnTo) || '').trim();
+  if (raw.startsWith(`${ctx.base}/`)) return raw.split('?')[0];
+  if (ask && ask.customerId) {
+    return `${ctx.base}/customers/c/${encodeURIComponent(ask.customerId)}`;
+  }
+  return `${ctx.base}/review`;
+}
+
+/** Business confirms the public review → send the configured referral-reward offer. */
+router.post('/m/:token/review/reward/:askId/confirm', form, withMember(async (req, res, ctx) => {
+  const askId = String(req.params.askId || '');
+  const ask = await reviewAsk.getAsk(askId);
+  if (!ask || ask.networkId !== ctx.network.id || ask.memberId !== ctx.member.id) {
+    return res.redirect(303, `${ctx.base}/review?errmsg=${encodeURIComponent('That review request was not found.')}`);
+  }
+  const returnTo = rewardReturnPath(ctx, req.body, ask);
+  if (ask.rewardSentAt) {
+    return res.redirect(303, `${returnTo}?ok=reward_sent`);
+  }
+  if (ask.rewardSkippedAt) {
+    return res.redirect(303, `${returnTo}?errmsg=${encodeURIComponent('This one was already skipped.')}`);
+  }
+  const settings = reviewReferralReward.settingsFromMember(ctx.member);
+  if (!reviewReferralReward.qualifies(settings, ask.rating || 5)) {
+    return res.redirect(303, `${ctx.base}/review/settings?errmsg=${encodeURIComponent('Set up your referral reward offer in Review settings first.')}`);
+  }
+  const confirmed = await reviewAsk.markReviewConfirmed(ask.id, { by: ctx.member.id });
+  const sent = await notify.sendReviewReferralReward({
+    network: ctx.network,
+    member: ctx.member,
+    ask: confirmed || ask,
+  }).catch((err) => ({ ok: false, error: err.message }));
+  if (!sent || !sent.ok) {
+    return res.redirect(303, `${returnTo}?errmsg=${encodeURIComponent((sent && sent.error) || 'Could not send the reward offer.')}`);
+  }
+  await reviewAsk.markRewardSent(ask.id, sent.messageId);
+  return res.redirect(303, `${returnTo}?ok=reward_sent`);
+}));
+
+/** Skip sending a referral reward for this ask (e.g. no public review found). */
+router.post('/m/:token/review/reward/:askId/skip', form, withMember(async (req, res, ctx) => {
+  const askId = String(req.params.askId || '');
+  const ask = await reviewAsk.getAsk(askId);
+  if (!ask || ask.networkId !== ctx.network.id || ask.memberId !== ctx.member.id) {
+    return res.redirect(303, `${ctx.base}/review?errmsg=${encodeURIComponent('That review request was not found.')}`);
+  }
+  const returnTo = rewardReturnPath(ctx, req.body, ask);
+  if (!ask.rewardSentAt && !ask.rewardSkippedAt) {
+    await reviewAsk.markRewardSkipped(ask.id);
+  }
+  return res.redirect(303, `${returnTo}?ok=reward_skipped`);
 }));
 
 /** Save or clear the default link-preview image shown when the review link is shared. */

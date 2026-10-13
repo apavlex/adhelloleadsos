@@ -10,12 +10,53 @@
       topSettings: { href: base + '/review/settings', label: 'Review settings', on: true }
     }) %>
     <h1 class="ma-page-title">Review settings</h1>
-    <p class="ma-page-sub">Logo, review links, and the photo shown when your link is shared.</p>
+    <p class="ma-page-sub">Logo, review links, referral reward after 4–5★, and the photo shown when your link is shared.</p>
 
     <%- include('_flash') %>
 
     <% const _needLinks = !linkCount; %>
     <% const _hasLogo = typeof hasCustomLogo !== 'undefined' && hasCustomLogo; %>
+    <% const _rw = typeof rewardSettings !== 'undefined' && rewardSettings ? rewardSettings : { enabled: false, minStars: 4, rewardType: 'gift_card', rewardLabel: '', rewardScript: '' }; %>
+    <% const _rwScript = _rw.rewardScript || (typeof rewardDefaultScript !== 'undefined' ? rewardDefaultScript : ''); %>
+
+    <section class="ma-card" id="maReviewReward">
+      <h2 style="font-size:16px;margin:0 0 6px">Referral reward after a great review</h2>
+      <p class="ma-hint" style="margin-top:0">When a customer taps 4–5★ on a tracked review request, we notify you. You confirm the public review, then we text them your offer for referring a friend.</p>
+      <form method="post" action="<%= base %>/review/reward" autocomplete="off" data-ma-loading="Saving…">
+        <label class="ma-check" style="display:flex;gap:10px;align-items:flex-start;margin:4px 0 12px">
+          <input type="hidden" name="rewardEnabled" value="0">
+          <input type="checkbox" name="rewardEnabled" value="1" <%= _rw.enabled ? 'checked' : '' %> style="margin-top:3px">
+          <span><strong>Offer a referral reward</strong> after I confirm their review</span>
+        </label>
+        <div class="ma-field">
+          <label class="ma-label" for="rvRewardMin">Minimum stars</label>
+          <select id="rvRewardMin" name="rewardMinStars" class="ma-input">
+            <option value="4" <%= Number(_rw.minStars) === 5 ? '' : 'selected' %>>4 or 5 ★</option>
+            <option value="5" <%= Number(_rw.minStars) === 5 ? 'selected' : '' %>>5 ★ only</option>
+          </select>
+        </div>
+        <div class="ma-field">
+          <label class="ma-label" for="rvRewardType">Reward type</label>
+          <select id="rvRewardType" name="rewardType" class="ma-input">
+            <option value="gift_card" <%= _rw.rewardType === 'gift_card' ? 'selected' : '' %>>Gift card</option>
+            <option value="discount" <%= _rw.rewardType === 'discount' ? 'selected' : '' %>>Discount</option>
+            <option value="prize" <%= _rw.rewardType === 'prize' ? 'selected' : '' %>>Prize / giveaway</option>
+            <option value="custom" <%= _rw.rewardType === 'custom' ? 'selected' : '' %>>Custom</option>
+          </select>
+        </div>
+        <div class="ma-field">
+          <label class="ma-label" for="rvRewardLabel">What they get</label>
+          <input id="rvRewardLabel" name="rewardLabel" class="ma-input" value="<%= _rw.rewardLabel || '' %>" placeholder="e.g. $25 Amazon gift card" maxlength="80">
+          <p class="ma-hint">Shown in your confirm notification and in the customer offer text.</p>
+        </div>
+        <div class="ma-field">
+          <label class="ma-label" for="rvRewardScript">Offer message</label>
+          <textarea id="rvRewardScript" name="rewardScript" class="ma-textarea" rows="4" maxlength="500"><%= _rwScript %></textarea>
+          <p class="ma-hint">Placeholders: <code>{{name}}</code>, <code>{{company}}</code>, <code>{{stars}}</code>, <code>{{reward}}</code>.</p>
+        </div>
+        <button type="submit" class="ma-btn ma-btn--block">Save reward settings</button>
+      </form>
+    </section>
 
     <section class="ma-card" id="maReviewLogo">
       <h2 style="font-size:16px;margin:0 0 6px">Request page logo</h2>

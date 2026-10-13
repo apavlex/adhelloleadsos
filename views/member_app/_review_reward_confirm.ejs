@@ -1,0 +1,51 @@
+<%
+  /* Pending 4–5★ review reward: business confirms the public review, then we text the offer. */
+  const _items = typeof pendingRewards !== 'undefined' && Array.isArray(pendingRewards) ? pendingRewards : [];
+  const _single = typeof rewardConfirm !== 'undefined' && rewardConfirm ? rewardConfirm : null;
+  const _list = _single ? [_single] : _items;
+  const _compact = typeof rewardCompact !== 'undefined' && rewardCompact;
+  const _return = typeof rewardReturnTo !== 'undefined' && rewardReturnTo
+    ? rewardReturnTo
+    : (typeof base !== 'undefined' ? base + '/review' : '');
+%>
+<% if (_list.length) { %>
+<% if (_compact) { %>
+<div class="ma-reward-pending ma-reward-pending--compact" aria-label="Confirm review for referral reward">
+  <% _list.forEach(function (r) { %>
+  <div class="ma-actions ma-reward-pending__actions">
+    <form method="post" action="<%= base %>/review/reward/<%= encodeURIComponent(r.askId) %>/confirm">
+      <input type="hidden" name="returnTo" value="<%= _return %>">
+      <button type="submit" class="ma-btn ma-btn--sm">Confirm &amp; send offer</button>
+    </form>
+    <form method="post" action="<%= base %>/review/reward/<%= encodeURIComponent(r.askId) %>/skip" data-ma-confirm="Skip sending a referral reward for this review?">
+      <input type="hidden" name="returnTo" value="<%= _return %>">
+      <button type="submit" class="ma-btn ma-btn--sm ma-btn--ghost">Skip</button>
+    </form>
+  </div>
+  <% }); %>
+</div>
+<% } else { %>
+<section class="ma-card ma-reward-pending" aria-label="Confirm reviews for referral rewards">
+  <h2 style="font-size:16px;margin:0 0 4px">Confirm reviews</h2>
+  <p class="ma-hint" style="margin:0 0 12px">They tapped 4–5★. When you see the public review, confirm to send your referral reward offer.</p>
+  <% _list.forEach(function (r) { %>
+  <div class="ma-reward-pending__row">
+    <div class="ma-reward-pending__who">
+      <strong><%= r.name || 'Customer' %></strong>
+      <span><%= r.rating || 5 %>★<% if (r.when) { %> · <%= r.when %><% } %><% if (r.phone) { %> · <%= r.phone %><% } %></span>
+    </div>
+    <div class="ma-actions ma-reward-pending__actions">
+      <form method="post" action="<%= base %>/review/reward/<%= encodeURIComponent(r.askId) %>/confirm">
+        <input type="hidden" name="returnTo" value="<%= _return %>">
+        <button type="submit" class="ma-btn ma-btn--sm">Confirm &amp; send offer</button>
+      </form>
+      <form method="post" action="<%= base %>/review/reward/<%= encodeURIComponent(r.askId) %>/skip" data-ma-confirm="Skip sending a referral reward for this review?">
+        <input type="hidden" name="returnTo" value="<%= _return %>">
+        <button type="submit" class="ma-btn ma-btn--sm ma-btn--ghost">Skip</button>
+      </form>
+    </div>
+  </div>
+  <% }); %>
+</section>
+<% } %>
+<% } %>

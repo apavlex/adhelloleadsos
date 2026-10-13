@@ -631,6 +631,105 @@ async function notifyLeadRequest({ network, member, quantity, note }) {
   }
 }
 
+/**
+ * Customer tapped 4–5★ on a tracked review ask — ping the business to confirm
+ * the public review before we send their referral-reward offer.
+ */
+async function notifyReviewRewardPending({ network, member, ask, baseUrl }) {
+  if (!network || !member || !ask) return { ok: false, error: 'missing' };
+  const reviewReferralReward = require('./reviewReferralReward');
+  const settings = reviewReferralReward.settingsFromMember(member);
+  if (!reviewReferralReward.qualifies(settings, ask.rating)) {
+    return { ok: false, error: 'not_configured' };
+  }
+  const who = ask.name || 'A customer';
+  const stars = ask.rating || 5;
+  const portal = await memberPortalShortLink(
+    baseUrl || getPublicBaseUrl(),
+    network,
+    member,
+    ask.customerId
+      ? `/customers/${encodeURIComponent(ask.customerId)}`
+      : '/review',
+  );
+  const sms = `${brandView(network).appName}: ${who} chose ${stars}★ and may have left a review. Confirm it in the app to send your “${settings.rewardLabel}” referral offer: ${portal}`;
+  const email = `${who} tapped ${stars}★ on your review page${ask.clickedAt ? ` and opened ${ask.clickPlatform || 'a review site'}` : ''}.\n\nConfirm the public review in your app, then we’ll text them your referral reward offer (${settings.rewardLabel}).\n\n${portal}`;
+  const messaging = await messageMember(network, member, {
+    sms,
+    subject: `Confirm ${stars}★ review from ${who}`,
+    email,
+  }).catch((err) => ({ ok: false, error: err.message }));
+  const token = createMemberPortalToken({ networkId: network.id, memberId: member.id });
+  const deep = ask.customerId
+    ? `/m/${encodeURIComponent(token)}/customers/${encodeURIComponent(ask.customerId)}`
+    : `/m/${encodeURIComponent(token)}/review`;
+  recordMemberActivity(network, member, {
+    kind: 'review_reward',
+    title: `${stars}★ — confirm review`,
+    body: `${who} · then send “${settings.rewardLabel}” referral offer`,
+    href: deep,
+  });
+  return messaging && messaging.ok !== false ? { ok: true, ...messaging } : (messaging || { ok: false });
+}
+
+/** After the business confirms the public review, send the referral-reward offer. */
+async function sendReviewReferralReward({ network, member, ask }) {
+  if (!network || !member || !ask) return { ok: false, error: 'missing' };
+  const reviewReferralReward = require('./reviewReferralReward');
+  const settings = reviewReferralReward.settingsFromMember(member);
+  if (!reviewReferralReward.qualifies(settings, ask.rating || 5)) {
+    return { ok: false, error: 'Reward offer is not set up. Add a gift/discount in Review settings.' };
+  }
+  if (!ask.phone && !ask.email) return { ok: false, error: 'No phone or email on this review request.' };
+  const company = member.companyName || brandView(network).appName;
+  const message = reviewReferralReward.buildCustomerMessage(settings, {
+    name: ask.name || 'there',
+    company,
+    stars: ask.rating || 5,
+  });
+  const integrationEnv = await networkIntegrationEnv(network);
+  const ready = ghlMessaging.messagingReady(integrationEnv);
+  let sent = null;
+  let error = '';
+  if (ask.phone && ask.phone !== 'N/A' && ready.configured && ready.smsReady) {
+    try {
+      sent = await ghlMessaging.sendSmsToPerson({
+        name: ask.name || 'there',
+        phone: ask.phone,
+        message,
+        companyName: company,
+        integrationEnv,
+      });
+    } catch (err) {
+      error = err.message || 'sms_failed';
+    }
+  }
+  if (!sent && ask.email && ready.configured && ready.emailReady) {
+    try {
+      sent = await ghlMessaging.sendEmailToPerson({
+        name: ask.name || 'there',
+        email: ask.email,
+        subject: `Thank you from ${company}`,
+        html: `<p>${message.replace(/\n/g, '<br>')}</p>`,
+        text: message,
+        companyName: company,
+        integrationEnv,
+      });
+    } catch (err) {
+      error = err.message || 'email_failed';
+    }
+  }
+  if (!sent) {
+    return {
+      ok: false,
+      error: error || (!ready.configured
+        ? 'GHL CRM isn’t connected.'
+        : 'Could not send the reward offer (need SMS or email ready).'),
+    };
+  }
+  return { ok: true, message, messageId: sent.messageId || sent.id || '' };
+}
+
 module.exports = {
   baseUrlFromReq,
   reviewPageLink,
@@ -648,6 +747,8 @@ module.exports = {
   notifyApplication,
   notifyFeedback,
   notifyLeadRequest,
+  notifyReviewRewardPending,
+  sendReviewReferralReward,
   messageMember,
   createOperatorTask,
   syncPartnerCounter,

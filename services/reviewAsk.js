@@ -49,6 +49,7 @@ async function readJson(key) {
 
 function normalizeAsk(raw) {
   const a = raw && typeof raw === 'object' ? raw : {};
+  const rating = Math.min(5, Math.max(0, Math.round(Number(a.rating) || 0)));
   return {
     id: String(a.id || ''),
     networkId: String(a.networkId || ''),
@@ -68,6 +69,15 @@ function normalizeAsk(raw) {
     clickedAt: a.clickedAt || '',
     clickPlatform: String(a.clickPlatform || '').trim().slice(0, 40),
     reminderMessageId: String(a.reminderMessageId || ''),
+    // Referral-reward sequence (4–5★ → business confirm → customer offer)
+    rating: rating || 0,
+    ratedAt: a.ratedAt || '',
+    rewardNotifiedAt: a.rewardNotifiedAt || '',
+    reviewConfirmedAt: a.reviewConfirmedAt || '',
+    reviewConfirmedBy: String(a.reviewConfirmedBy || '').trim().slice(0, 80),
+    rewardSentAt: a.rewardSentAt || '',
+    rewardSkippedAt: a.rewardSkippedAt || '',
+    rewardMessageId: String(a.rewardMessageId || ''),
     createdAt: a.createdAt || a.askedAt || '',
     updatedAt: a.updatedAt || a.askedAt || '',
   };
@@ -154,6 +164,80 @@ async function markClicked(askId, platform, now = Date.now()) {
   if (!ask.openedAt) patch.openedAt = stamp;
   if (!ask.clickedAt) patch.clickedAt = stamp;
   return saveAsk(patch);
+}
+
+/** Record a 4–5★ tap on the public page (idempotent on rating). */
+async function markRated(askId, rating, now = Date.now()) {
+  const ask = await getAsk(askId);
+  if (!ask) return null;
+  const stars = Math.min(5, Math.max(0, Math.round(Number(rating) || 0)));
+  if (stars < 1) return ask;
+  const stamp = new Date(now).toISOString();
+  const patch = { ...ask, rating: stars };
+  if (!ask.openedAt) patch.openedAt = stamp;
+  if (!ask.ratedAt) patch.ratedAt = stamp;
+  else if (ask.rating && ask.rating >= stars) return ask;
+  return saveAsk(patch);
+}
+
+/** Needs business confirm (or a retry after confirm if the offer didn’t send). */
+function pendingRewardConfirm(ask) {
+  return !!(
+    ask
+    && ask.ratedAt
+    && ask.rating >= 4
+    && ask.rewardNotifiedAt
+    && !ask.rewardSkippedAt
+    && !ask.rewardSentAt
+  );
+}
+
+/** Business confirmed the public review — ready to send the reward offer. */
+async function markReviewConfirmed(askId, { by } = {}, now = Date.now()) {
+  const ask = await getAsk(askId);
+  if (!ask) return null;
+  if (ask.reviewConfirmedAt || ask.rewardSkippedAt || ask.rewardSentAt) return ask;
+  return saveAsk({
+    ...ask,
+    reviewConfirmedAt: new Date(now).toISOString(),
+    reviewConfirmedBy: String(by || '').trim().slice(0, 80),
+  });
+}
+
+async function markRewardSent(askId, messageId, now = Date.now()) {
+  const ask = await getAsk(askId);
+  if (!ask) return null;
+  if (ask.rewardSentAt) return ask;
+  return saveAsk({
+    ...ask,
+    rewardSentAt: new Date(now).toISOString(),
+    rewardMessageId: String(messageId || '').trim().slice(0, 120),
+  });
+}
+
+async function markRewardSkipped(askId, now = Date.now()) {
+  const ask = await getAsk(askId);
+  if (!ask) return null;
+  if (ask.rewardSentAt || ask.rewardSkippedAt) return ask;
+  return saveAsk({
+    ...ask,
+    rewardSkippedAt: new Date(now).toISOString(),
+  });
+}
+
+async function listPendingRewardConfirms({ networkId, memberId, limit = 40 } = {}) {
+  const keys = await dbService.listStorageKeysWithPrefix(PREFIX);
+  const out = [];
+  for (const key of keys) {
+    const ask = await getAsk(String(key).slice(PREFIX.length));
+    if (!ask || !pendingRewardConfirm(ask)) continue;
+    if (networkId && ask.networkId !== networkId) continue;
+    if (memberId && ask.memberId !== memberId) continue;
+    out.push(ask);
+    if (out.length >= limit) break;
+  }
+  out.sort((a, b) => Date.parse(b.ratedAt || 0) - Date.parse(a.ratedAt || 0));
+  return out;
 }
 
 /** Same GHL credentials as Workspace → Integrations (network owner workspace). */
@@ -279,6 +363,12 @@ module.exports = {
   createAsk,
   markOpened,
   markClicked,
+  markRated,
+  pendingRewardConfirm,
+  listPendingRewardConfirms,
+  markReviewConfirmed,
+  markRewardSent,
+  markRewardSkipped,
   isEngaged,
   trackedReviewUrl,
   dueForReminder,
