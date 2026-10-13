@@ -7710,31 +7710,48 @@ function readJsonReply(r) {
   var mlForm = document.getElementById('manualLeadForm');
   var mlErr = document.getElementById('manualLeadError');
   var mlPushWrap = document.getElementById('manualLeadPushWrap');
-  var mlPushToggle = document.getElementById('manualLeadPushToggle');
   var mlPushList = document.getElementById('manualLeadPushList');
   var mlPushEmpty = document.getElementById('manualLeadPushEmpty');
+  var mlPushLoading = document.getElementById('manualLeadPushLoading');
+  var mlPushDenied = document.getElementById('manualLeadPushDenied');
   var mlPushPackages = [];
+  var mlSubmitBtn = document.getElementById('manualLeadSubmit');
+
+  function selectedManualPushIds() {
+    var ids = [];
+    if (!mlPushList) return ids;
+    mlPushList.querySelectorAll('input[name="pushPackageIds"]:checked').forEach(function (cb) {
+      var id = String(cb.value || '').trim();
+      if (id) ids.push(id);
+    });
+    return ids;
+  }
+
+  function syncManualLeadSubmitLabel() {
+    if (!mlSubmitBtn || mlSubmitBtn.disabled) return;
+    var n = selectedManualPushIds().length;
+    mlSubmitBtn.textContent = n ? ('Save & send to ' + n + ' teammate' + (n === 1 ? '' : 's')) : 'Save to pipeline';
+  }
 
   function resetManualLeadPushUi() {
-    if (mlPushToggle) mlPushToggle.checked = false;
     if (mlPushList) {
-      mlPushList.classList.add('hidden');
       mlPushList.querySelectorAll('input[type="checkbox"]').forEach(function (cb) { cb.checked = false; });
     }
-    if (mlPushEmpty) mlPushEmpty.classList.add('hidden');
+    syncManualLeadSubmitLabel();
   }
 
   function renderManualLeadPushTargets(packages) {
     mlPushPackages = Array.isArray(packages) ? packages : [];
     if (!mlPushWrap) return;
-    mlPushWrap.classList.remove('hidden');
     mlPushWrap.setAttribute('data-manual-push-loaded', '1');
+    if (mlPushLoading) mlPushLoading.classList.add('hidden');
+    if (mlPushDenied) mlPushDenied.classList.add('hidden');
     if (!mlPushList) return;
     if (!mlPushPackages.length) {
       mlPushList.innerHTML = '';
       mlPushList.classList.add('hidden');
       if (mlPushEmpty) mlPushEmpty.classList.remove('hidden');
-      if (mlPushToggle) mlPushToggle.checked = false;
+      syncManualLeadSubmitLabel();
       return;
     }
     if (mlPushEmpty) mlPushEmpty.classList.add('hidden');
@@ -7742,38 +7759,46 @@ function readJsonReply(r) {
       var id = String(pkg.id || '');
       var name = String(pkg.businessName || 'Teammate');
       var trade = pkg.trade ? ' · ' + String(pkg.trade) : '';
-      return '<label class="inline-flex items-start gap-2 text-sm font-semibold text-brand-dark dark:text-white cursor-pointer">'
-        + '<input type="checkbox" name="pushPackageIds" value="' + id.replace(/"/g, '&quot;') + '" class="mt-1 accent-brand-yellow" />'
+      return '<label class="inline-flex items-start gap-2 rounded-xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white cursor-pointer">'
+        + '<input type="checkbox" name="pushPackageIds" value="' + id.replace(/"/g, '&quot;') + '" class="mt-0.5 accent-brand-yellow" />'
         + '<span>' + name.replace(/</g, '&lt;') + '<span class="text-brand-muted">' + trade.replace(/</g, '&lt;') + '</span></span>'
         + '</label>';
     }).join('');
-    if (mlPushToggle && mlPushToggle.checked) mlPushList.classList.remove('hidden');
+    mlPushList.classList.remove('hidden');
+    mlPushList.querySelectorAll('input[name="pushPackageIds"]').forEach(function (cb) {
+      cb.addEventListener('change', syncManualLeadSubmitLabel);
+    });
+    syncManualLeadSubmitLabel();
+  }
+
+  function showManualLeadPushDenied() {
+    if (mlPushLoading) mlPushLoading.classList.add('hidden');
+    if (mlPushList) { mlPushList.innerHTML = ''; mlPushList.classList.add('hidden'); }
+    if (mlPushEmpty) mlPushEmpty.classList.add('hidden');
+    if (mlPushDenied) mlPushDenied.classList.remove('hidden');
+    if (mlPushWrap) mlPushWrap.setAttribute('data-manual-push-loaded', '1');
   }
 
   function loadManualLeadPushTargets() {
     if (!mlPushWrap) return;
     if (mlPushWrap.getAttribute('data-manual-push-loaded') === '1') return;
-    fetch('/appointments/appointment-packages/push-targets', { headers: { Accept: 'application/json' } })
+    if (mlPushLoading) mlPushLoading.classList.remove('hidden');
+    if (mlPushDenied) mlPushDenied.classList.add('hidden');
+    if (mlPushEmpty) mlPushEmpty.classList.add('hidden');
+    fetch('/appointments/appointment-packages/push-targets', { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
       .then(function (r) { return readJsonReply(r); })
       .then(function (_ref) {
         var ok = _ref.ok;
         var data = _ref.j;
         if (!ok || !data || !data.success) {
-          if (mlPushWrap) mlPushWrap.classList.add('hidden');
+          showManualLeadPushDenied();
           return;
         }
         renderManualLeadPushTargets(data.packages || []);
       })
       .catch(function () {
-        if (mlPushWrap) mlPushWrap.classList.add('hidden');
+        showManualLeadPushDenied();
       });
-  }
-
-  if (mlPushToggle && mlPushList) {
-    mlPushToggle.addEventListener('change', function () {
-      if (mlPushToggle.checked && mlPushPackages.length) mlPushList.classList.remove('hidden');
-      else mlPushList.classList.add('hidden');
-    });
   }
 
   function openManualLead() {
@@ -7844,22 +7869,9 @@ function readJsonReply(r) {
         payload.opportunityPipelineId = oppBoard.getAttribute('data-pipeline-id') || '';
         payload.opportunityStageId = oppBoard.getAttribute('data-first-stage-id') || '';
       }
-      var pushIds = [];
-      if (mlPushToggle && mlPushToggle.checked && mlPushList) {
-        mlPushList.querySelectorAll('input[name="pushPackageIds"]:checked').forEach(function (cb) {
-          var id = String(cb.value || '').trim();
-          if (id) pushIds.push(id);
-        });
-        if (!pushIds.length) {
-          if (mlErr) {
-            mlErr.textContent = 'Pick at least one teammate to push to, or turn off “Also push to teammates”.';
-            mlErr.classList.remove('hidden');
-          }
-          return;
-        }
-      }
+      var pushIds = selectedManualPushIds();
       var btn = document.getElementById('manualLeadSubmit');
-      if (btn) { btn.disabled = true; btn.textContent = pushIds.length ? 'Saving & pushing…' : 'Saving…'; }
+      if (btn) { btn.disabled = true; btn.textContent = pushIds.length ? 'Saving & sending…' : 'Saving…'; }
       fetch('/leads/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -7870,7 +7882,7 @@ function readJsonReply(r) {
           var ok = _ref.ok;
           var data = _ref.j;
           if (!(ok && data && data.success)) {
-            if (btn) { btn.disabled = false; btn.textContent = 'Save to pipeline'; }
+            if (btn) { btn.disabled = false; syncManualLeadSubmitLabel(); }
             if (mlErr) {
               mlErr.textContent = (data && data.error) ? data.error : 'Could not save lead.';
               mlErr.classList.remove('hidden');
@@ -7899,14 +7911,14 @@ function readJsonReply(r) {
         })
         .then(function (result) {
           if (!result) return;
-          if (btn) { btn.disabled = false; btn.textContent = 'Save to pipeline'; }
+          if (btn) { btn.disabled = false; syncManualLeadSubmitLabel(); }
           var data = result.data;
           var pushed = result.pushed;
           if (pushed && !(pushed.ok && pushed.j && pushed.j.success)) {
             if (mlErr) {
               mlErr.textContent = (pushed.j && pushed.j.error)
-                ? ('Saved to pipeline, but push failed: ' + pushed.j.error)
-                : 'Saved to pipeline, but could not push to teammates.';
+                ? ('Saved to pipeline, but send failed: ' + pushed.j.error)
+                : 'Saved to pipeline, but could not send to teammates.';
               mlErr.classList.remove('hidden');
             }
             return;
@@ -7923,7 +7935,7 @@ function readJsonReply(r) {
           window.location.href = nextPath + q;
         })
         .catch(function () {
-          if (btn) { btn.disabled = false; btn.textContent = 'Save to pipeline'; }
+          if (btn) { btn.disabled = false; syncManualLeadSubmitLabel(); }
           if (mlErr) {
             mlErr.textContent = 'Network error. Try again.';
             mlErr.classList.remove('hidden');
