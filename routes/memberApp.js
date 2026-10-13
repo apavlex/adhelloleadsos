@@ -199,7 +199,8 @@ const OK_MESSAGES = {
   reward_sent: 'Review confirmed — referral reward offer sent to the customer.',
   reward_skipped: 'Skipped — no referral reward sent for this review.',
   reward_upgrade: 'Referral rewards and customer referral offers are on the monthly plan. Upgrade to unlock them.',
-  job_shared: 'Shared with your teammate — they got a text/email with a link to their calendar.',
+  job_shared: 'Shared with your teammate — they got the contact, projects, and a text/email link.',
+  customer_shared: 'Shared with your teammate — they got this contact, all projects, and a text/email link.',
 };
 
 const MEMBER_ACTIONS = new Set(['accept', 'decline', 'book', 'win', 'lose', 'note', 'claim']);
@@ -1307,11 +1308,23 @@ async function customerTagViews(ctx, customer) {
 }
 
 async function renderCustomerPage(res, ctx, { customer, jobs, today, formValues, flash, status, reviewAskStatus }) {
-  const tagViews = await customerTagViews(ctx, customer);
+  const [tagViews, teammates] = await Promise.all([
+    customerTagViews(ctx, customer),
+    customer ? listShareTeammates(ctx) : Promise.resolve([]),
+  ]);
+  const sharedWithLabels = (customer && customer.sharedWith || []).map((row) => {
+    const mate = teammates.find((t) => t.id === row.memberId);
+    return {
+      ...row,
+      label: mate ? mate.label : 'Teammate',
+    };
+  });
   return render(res, 'customer', ctx, {
     active: 'customers',
     customer,
     jobs: jobs || [],
+    teammates,
+    sharedWithLabels,
     formValues: formValues || customer || {},
     flash: flash || null,
     today,
@@ -1824,21 +1837,87 @@ router.post('/m/:token/customers/jobs/:id/share', form, withMember(async (req, r
     });
   }
 
-  const ping = await notify.notifyJobSharedWithTeammate({
+  const ping = await notify.notifyCustomerSharedWithTeammate({
     network: ctx.network,
     fromMember: ctx.member,
     toMember,
-    job: shared.job,
     customer: shared.customer,
+    jobsShared: shared.jobsShared || 1,
+    focusJob: shared.job,
     baseUrl: notify.baseUrlFromReq(req),
   }).catch((err) => ({ ok: false, error: err.message }));
 
   if (!ping || !ping.ok) {
     return res.redirect(303, `${back}?ok=job_shared&detail=${encodeURIComponent(
-      `(added to their calendar${ping && ping.error ? ` — notify failed: ${ping.error}` : ''})`,
+      `(contact + projects added${ping && ping.error ? ` — notify failed: ${ping.error}` : ''})`,
     )}`);
   }
   return res.redirect(303, `${back}?ok=job_shared`);
+}));
+
+/** Share a contact/lead and all of their projects with a teammate. */
+router.post('/m/:token/customers/c/:id/share', form, withMember(async (req, res, ctx) => {
+  const customerId = String(req.params.id || '');
+  const toMemberId = String((req.body && req.body.memberId) || '').trim();
+  const back = `${ctx.base}/customers/c/${encodeURIComponent(customerId)}`;
+  const data = await customerPageData(req, ctx, customerId);
+  if (!data) return res.redirect(303, `${ctx.base}/customers`);
+
+  const teammates = await listShareTeammates(ctx);
+  const mate = teammates.find((t) => t.id === toMemberId);
+  if (!mate) {
+    return renderCustomerPage(res, ctx, {
+      ...data,
+      flash: { error: 'Pick a teammate on your network to share with.' },
+      status: 400,
+    });
+  }
+  if (!mate.canNotify) {
+    return renderCustomerPage(res, ctx, {
+      ...data,
+      flash: { error: 'That teammate needs a phone or email on their profile before we can notify them.' },
+      status: 400,
+    });
+  }
+  const toMember = await store.getMember(ctx.network.id, mate.id);
+  if (!toMember || toMember.status !== 'active') {
+    return renderCustomerPage(res, ctx, {
+      ...data,
+      flash: { error: 'That teammate is not available.' },
+      status: 400,
+    });
+  }
+
+  const shared = await work.shareCustomerWithTeammate(
+    ctx.network.id,
+    ctx.member.id,
+    toMember.id,
+    customerId,
+    { sharedByName: ctx.member.contactName || ctx.member.companyName },
+  );
+  if (!shared.ok) {
+    return renderCustomerPage(res, ctx, {
+      ...data,
+      flash: { error: shared.error || 'Could not share that contact.' },
+      status: 400,
+    });
+  }
+
+  const ping = await notify.notifyCustomerSharedWithTeammate({
+    network: ctx.network,
+    fromMember: ctx.member,
+    toMember,
+    customer: shared.customer,
+    jobsShared: shared.jobsShared || 0,
+    baseUrl: notify.baseUrlFromReq(req),
+  }).catch((err) => ({ ok: false, error: err.message }));
+
+  if (!ping || !ping.ok) {
+    return res.redirect(303, `${back}?ok=customer_shared&detail=${encodeURIComponent(
+      `(${shared.jobsShared || 0} project${(shared.jobsShared || 0) === 1 ? '' : 's'} added${ping && ping.error ? ` — notify failed: ${ping.error}` : ''})`,
+    )}`);
+  }
+  return res.redirect(303, `${back}?ok=customer_shared`);
 }));
 
 router.post('/m/:token/customers/from-referral/:id', form, withMember(async (req, res, ctx) => {

@@ -130,7 +130,7 @@
     <% if (_mates.length && !job.sharedFromMemberId) { %>
     <section class="ma-card" id="maJobShare" aria-label="Share with teammate">
       <h2 style="font-size:16px;margin:0 0 4px">Share with a teammate</h2>
-      <p class="ma-hint" style="margin:0 0 12px">Puts this appointment on their calendar only — your books stay separate. We’ll text or email them a link.</p>
+      <p class="ma-hint" style="margin:0 0 12px">Shares this contact <strong>and all their projects</strong> onto their calendar — your books stay separate. We’ll text or email them a link.</p>
       <% if (_shared.length) { %>
       <p class="ma-hint" style="margin:0 0 10px">Already shared with: <strong><%= _shared.map(function (s) { return s.label; }).join(', ') %></strong></p>
       <% } %>

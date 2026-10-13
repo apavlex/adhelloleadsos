@@ -73,7 +73,34 @@
         });
       });
       const openJob = (jobs || []).find(function (j) { return j.status !== 'completed' && j.status !== 'cancelled'; }) || (jobs || [])[0];
+      const _mates = typeof teammates !== 'undefined' && Array.isArray(teammates) ? teammates : [];
+      const _shared = typeof sharedWithLabels !== 'undefined' && Array.isArray(sharedWithLabels) ? sharedWithLabels : [];
     %>
+    <% if (customer.sharedFromMemberId) { %>
+    <p class="ma-hint" style="margin:0 0 12px">Shared onto your book by a teammate — including their projects. Your other customers stay private.</p>
+    <% } else if (_mates.length) { %>
+    <section class="ma-card" id="maCustomerShare" aria-label="Share with teammate">
+      <h2 style="font-size:16px;margin:0 0 4px">Share with a teammate</h2>
+      <p class="ma-hint" style="margin:0 0 12px">Sends this contact <strong>and all their projects/jobs</strong> to their app. Books stay separate.</p>
+      <% if (_shared.length) { %>
+      <p class="ma-hint" style="margin:0 0 10px">Already shared with: <strong><%= _shared.map(function (s) { return s.label; }).join(', ') %></strong></p>
+      <% } %>
+      <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/share" autocomplete="off" data-ma-loading="Sharing…">
+        <div class="ma-field">
+          <label class="ma-label" for="cuShareMate">Teammate</label>
+          <select id="cuShareMate" name="memberId" class="ma-select" required>
+            <option value="" disabled selected>Pick a teammate</option>
+            <% _mates.forEach(function (t) { %>
+            <option value="<%= t.id %>" <%= t.canNotify ? '' : 'disabled' %>>
+              <%= t.label %><%= t.contact && t.contact !== t.label ? ' · ' + t.contact : '' %><%= t.canNotify ? '' : ' (add phone/email)' %>
+            </option>
+            <% }); %>
+          </select>
+        </div>
+        <button type="submit" class="ma-btn ma-btn--block ma-btn--soft"><%- icons.send %> Share contact &amp; projects</button>
+      </form>
+    </section>
+    <% } %>
     <section class="ma-section">
       <div class="ma-section__head">
         <h2>Jobs</h2>

@@ -171,6 +171,31 @@ function normalizeCustomerTags(raw) {
   return dbService.normalizeTagKeys(raw).slice(0, MAX_CUSTOMER_TAGS);
 }
 
+function normalizeSharedPeers(raw, idKey) {
+  const key = idKey === 'customerId' ? 'customerId' : 'jobId';
+  const list = Array.isArray(raw) ? raw : [];
+  const out = [];
+  const seen = new Set();
+  for (const row of list) {
+    if (!row || typeof row !== 'object') continue;
+    const memberId = String(row.memberId || '').trim();
+    const peerId = String(row[key] || row.jobId || row.customerId || '').trim();
+    if (!SCOPE_ID.test(memberId) || !isRecordId(peerId) || seen.has(memberId)) continue;
+    seen.add(memberId);
+    out.push({
+      memberId,
+      [key]: peerId,
+      at: row.at ? String(row.at) : '',
+    });
+    if (out.length >= 40) break;
+  }
+  return out;
+}
+
+function normalizeSharedWith(raw) {
+  return normalizeSharedPeers(raw, 'jobId');
+}
+
 function normalizeCustomer(raw) {
   const c = raw && typeof raw === 'object' ? raw : {};
   const source = String(c.source || '').trim().toLowerCase();
@@ -188,6 +213,13 @@ function normalizeCustomer(raw) {
     ghlContactId: cleanLine(c.ghlContactId, 80),
     ghlSyncedAt: c.ghlSyncedAt ? String(c.ghlSyncedAt) : '',
     source: CUSTOMER_SOURCES.has(source) ? source : (c.ghlContactId ? 'ghl' : 'manual'),
+    /** Copied onto a teammate’s book — points back to the sharer’s customer. */
+    sharedFromMemberId: SCOPE_ID.test(String(c.sharedFromMemberId || ''))
+      ? String(c.sharedFromMemberId)
+      : '',
+    sharedFromCustomerId: isRecordId(c.sharedFromCustomerId) ? c.sharedFromCustomerId : '',
+    /** On the source customer: teammates who received a copy (+ their projects). */
+    sharedWith: normalizeSharedPeers(c.sharedWith, 'customerId'),
     createdAt: c.createdAt || new Date().toISOString(),
     updatedAt: c.updatedAt || c.createdAt || new Date().toISOString(),
   };
@@ -215,26 +247,6 @@ function findCustomerMatch(customers, { ghlContactId, email, phone } = {}) {
     if (byPhone) return byPhone;
   }
   return null;
-}
-
-function normalizeSharedWith(raw) {
-  const list = Array.isArray(raw) ? raw : [];
-  const out = [];
-  const seen = new Set();
-  for (const row of list) {
-    if (!row || typeof row !== 'object') continue;
-    const memberId = String(row.memberId || '').trim();
-    const jobId = String(row.jobId || '').trim();
-    if (!SCOPE_ID.test(memberId) || !isRecordId(jobId) || seen.has(memberId)) continue;
-    seen.add(memberId);
-    out.push({
-      memberId,
-      jobId,
-      at: row.at ? String(row.at) : '',
-    });
-    if (out.length >= 40) break;
-  }
-  return out;
 }
 
 function normalizeJob(raw) {
@@ -502,6 +514,12 @@ async function writeJob(networkId, memberId, job) {
   return next;
 }
 
+async function writeCustomer(networkId, memberId, customer) {
+  const next = normalizeCustomer({ ...customer, updatedAt: new Date().toISOString() });
+  await dbService.putStorageKey(`${custPrefix(networkId, memberId)}${next.id}`, next);
+  return next;
+}
+
 /**
  * Find an open job for a customer, or create a lightweight "Site visit" so
  * photos can be attached without forcing the full job form first.
@@ -642,11 +660,10 @@ async function convertReferral(networkId, memberId, referral, { tradeLabel, toda
 }
 
 /**
- * Put a copy of this job on a teammate’s calendar (their own customer + job
- * records). Calendars stay separate — they only get this appointment, not the
- * sharer’s full book. Idempotent per teammate.
+ * Share a contact/lead with a teammate — copies the customer and every project
+ * (job) for that lead onto their book. Calendars stay separate. Idempotent.
  */
-async function shareJobWithTeammate(networkId, fromMemberId, toMemberId, jobId, { sharedByName } = {}) {
+async function shareCustomerWithTeammate(networkId, fromMemberId, toMemberId, customerId, { sharedByName } = {}) {
   const fromId = String(fromMemberId || '');
   const toId = String(toMemberId || '');
   if (!SCOPE_ID.test(fromId) || !SCOPE_ID.test(toId)) {
@@ -654,26 +671,39 @@ async function shareJobWithTeammate(networkId, fromMemberId, toMemberId, jobId, 
   }
   if (fromId === toId) return { ok: false, error: 'Pick a teammate — not yourself.' };
 
-  const sourceJob = await getJob(networkId, fromId, jobId);
-  if (!sourceJob) return { ok: false, error: 'Job not found.' };
-  const sourceCustomer = await getCustomer(networkId, fromId, sourceJob.customerId);
+  const sourceCustomer = await getCustomer(networkId, fromId, customerId);
   if (!sourceCustomer) return { ok: false, error: 'Customer not found.' };
 
   const theirCustomers = await listCustomers(networkId, toId);
-  let theirCustomer = findCustomerMatch(theirCustomers, {
+  let theirCustomer = theirCustomers.find(
+    (c) => c.sharedFromMemberId === fromId && c.sharedFromCustomerId === sourceCustomer.id,
+  ) || findCustomerMatch(theirCustomers, {
     phone: sourceCustomer.phone,
     email: sourceCustomer.email,
   });
+  let customerExisting = !!(
+    theirCustomer
+    && theirCustomer.sharedFromMemberId === fromId
+    && theirCustomer.sharedFromCustomerId === sourceCustomer.id
+  );
+
   if (!theirCustomer) {
+    const who = cleanLine(sharedByName, 80);
+    const shareNote = who ? `Shared by ${who}.` : 'Shared by a teammate.';
+    const notes = [shareNote, sourceCustomer.notes].filter(Boolean).join('\n\n').slice(0, 2000);
     const created = await saveCustomer(networkId, toId, {
       name: sourceCustomer.name,
       phone: sourceCustomer.phone,
       email: sourceCustomer.email,
       address: sourceCustomer.address,
-      notes: sourceCustomer.notes,
+      notes,
     }, { source: 'manual' });
     if (!created.ok) return created;
-    theirCustomer = created.customer;
+    theirCustomer = await writeCustomer(networkId, toId, {
+      ...created.customer,
+      sharedFromMemberId: fromId,
+      sharedFromCustomerId: sourceCustomer.id,
+    });
   } else {
     // Fill blanks only — don’t overwrite their contact notes/tags.
     const patch = {
@@ -687,6 +717,7 @@ async function shareJobWithTeammate(networkId, fromMemberId, toMemberId, jobId, 
       patch.phone !== theirCustomer.phone
       || patch.email !== theirCustomer.email
       || patch.address !== theirCustomer.address
+      || !theirCustomer.sharedFromCustomerId
     ) {
       const updated = await saveCustomer(networkId, toId, patch, {
         id: theirCustomer.id,
@@ -697,53 +728,110 @@ async function shareJobWithTeammate(networkId, fromMemberId, toMemberId, jobId, 
         referralId: theirCustomer.referralId,
         isReferralPartner: theirCustomer.isReferralPartner,
       });
-      if (updated.ok) theirCustomer = updated.customer;
+      if (updated.ok) {
+        theirCustomer = await writeCustomer(networkId, toId, {
+          ...updated.customer,
+          sharedFromMemberId: fromId,
+          sharedFromCustomerId: sourceCustomer.id,
+          sharedWith: theirCustomer.sharedWith,
+        });
+      }
     }
   }
 
+  const sourceJobs = (await listJobs(networkId, fromId))
+    .filter((j) => j.customerId === sourceCustomer.id);
   const theirJobs = await listJobs(networkId, toId);
-  let theirJob = theirJobs.find(
-    (j) => j.sharedFromMemberId === fromId && j.sharedFromJobId === sourceJob.id,
-  );
-  let existing = !!theirJob;
-  if (!theirJob) {
-    const who = cleanLine(sharedByName, 80);
-    const shareNote = who ? `Shared by ${who}.` : 'Shared by a teammate.';
-    const notes = [shareNote, sourceJob.notes].filter(Boolean).join('\n\n').slice(0, 2000);
-    const created = await saveJob(networkId, toId, {
-      customerId: theirCustomer.id,
-      title: sourceJob.title,
-      status: sourceJob.status === 'cancelled' ? 'lead' : sourceJob.status,
-      value: sourceJob.value,
-      date: sourceJob.date,
-      time: sourceJob.time,
-      durationMins: sourceJob.durationMins,
-      notes,
-      remindOwnerBeforeMins: 0,
-      remindCustomerBeforeMins: 0,
-    }, { timeZone: sourceJob.timeZone });
-    if (!created.ok) return created;
-    theirJob = await writeJob(networkId, toId, {
-      ...created.job,
-      sharedFromMemberId: fromId,
-      sharedFromJobId: sourceJob.id,
-      photos: [],
-    });
+  const who = cleanLine(sharedByName, 80);
+  const shareNote = who ? `Shared by ${who}.` : 'Shared by a teammate.';
+  const jobsOut = [];
+  let jobsCreated = 0;
+
+  for (const sourceJob of sourceJobs) {
+    let theirJob = theirJobs.find(
+      (j) => j.sharedFromMemberId === fromId && j.sharedFromJobId === sourceJob.id,
+    );
+    if (!theirJob) {
+      const notes = [shareNote, sourceJob.notes].filter(Boolean).join('\n\n').slice(0, 2000);
+      const created = await saveJob(networkId, toId, {
+        customerId: theirCustomer.id,
+        title: sourceJob.title,
+        status: sourceJob.status === 'cancelled' ? 'lead' : sourceJob.status,
+        value: sourceJob.value,
+        date: sourceJob.date,
+        time: sourceJob.time,
+        durationMins: sourceJob.durationMins,
+        notes,
+        remindOwnerBeforeMins: 0,
+        remindCustomerBeforeMins: 0,
+      }, { timeZone: sourceJob.timeZone });
+      if (!created.ok) return created;
+      theirJob = await writeJob(networkId, toId, {
+        ...created.job,
+        sharedFromMemberId: fromId,
+        sharedFromJobId: sourceJob.id,
+        photos: [],
+      });
+      jobsCreated += 1;
+    }
+
+    const now = new Date().toISOString();
+    const sharedWith = normalizeSharedWith([
+      ...(sourceJob.sharedWith || []).filter((r) => r.memberId !== toId),
+      { memberId: toId, jobId: theirJob.id, at: now },
+    ]);
+    await writeJob(networkId, fromId, { ...sourceJob, sharedWith });
+    jobsOut.push(theirJob);
   }
 
   const now = new Date().toISOString();
-  const sharedWith = normalizeSharedWith([
-    ...(sourceJob.sharedWith || []).filter((r) => r.memberId !== toId),
-    { memberId: toId, jobId: theirJob.id, at: now },
-  ]);
-  const updatedSource = await writeJob(networkId, fromId, { ...sourceJob, sharedWith });
+  const sourceSharedWith = normalizeSharedPeers([
+    ...(sourceCustomer.sharedWith || []).filter((r) => r.memberId !== toId),
+    { memberId: toId, customerId: theirCustomer.id, at: now },
+  ], 'customerId');
+  const updatedSource = await writeCustomer(networkId, fromId, {
+    ...sourceCustomer,
+    sharedWith: sourceSharedWith,
+  });
 
   return {
     ok: true,
-    existing,
-    sourceJob: updatedSource,
-    job: theirJob,
+    existing: customerExisting && jobsCreated === 0,
+    sourceCustomer: updatedSource,
     customer: theirCustomer,
+    jobs: jobsOut,
+    jobsShared: jobsOut.length,
+    jobsCreated,
+  };
+}
+
+/**
+ * Share a job with a teammate — shares the contact/lead and all of their
+ * projects, then returns the copy of this specific job for deep-linking.
+ */
+async function shareJobWithTeammate(networkId, fromMemberId, toMemberId, jobId, { sharedByName } = {}) {
+  const sourceJob = await getJob(networkId, fromMemberId, jobId);
+  if (!sourceJob) return { ok: false, error: 'Job not found.' };
+  const shared = await shareCustomerWithTeammate(
+    networkId,
+    fromMemberId,
+    toMemberId,
+    sourceJob.customerId,
+    { sharedByName },
+  );
+  if (!shared.ok) return shared;
+  const theirJob = (shared.jobs || []).find(
+    (j) => j.sharedFromMemberId === String(fromMemberId) && j.sharedFromJobId === sourceJob.id,
+  );
+  if (!theirJob) return { ok: false, error: 'Could not share that job.' };
+  return {
+    ok: true,
+    existing: shared.existing,
+    sourceJob,
+    job: theirJob,
+    customer: shared.customer,
+    jobsShared: shared.jobsShared,
+    jobsCreated: shared.jobsCreated,
   };
 }
 
@@ -973,7 +1061,9 @@ module.exports = {
   setJobStatus,
   deleteJob,
   convertReferral,
+  shareCustomerWithTeammate,
   shareJobWithTeammate,
+  writeCustomer,
   todayIn,
   addDays,
   weekRange,
