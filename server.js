@@ -74,6 +74,7 @@ const auditReportPublicRoutes = require('./routes/auditReportPublic');
 const auditLandingPublicRoutes = require('./routes/auditLandingPublic');
 const aiToolsReportPublicRoutes = require('./routes/aiToolsReportPublic');
 const sharePhoneAnalyticsRoutes = require('./routes/sharePhoneAnalytics');
+const shareInviteRoutes = require('./routes/shareInvite');
 const dbService = require('./services/database');
 const trials = require('./services/trials');
 const ceoRoutes = require('./routes/ceo');
@@ -481,6 +482,7 @@ app.post('/enrich', async (req, res) => {
 
 // Public hosted website audit (signed token; no session — share on cold calls)
 app.use('/', sharePhoneAnalyticsRoutes);
+app.use('/', shareInviteRoutes);
 app.use('/', auditReportPublicRoutes);
 app.use('/', auditLandingPublicRoutes);
 app.use('/', aiToolsReportPublicRoutes);

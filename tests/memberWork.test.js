@@ -454,8 +454,10 @@ test('customers tab routes: top-bar add customer, CRUD, calendar, pending and re
     const jobPage = await (await fetch(`${A}/customers/jobs/${jobs[0].id}`)).text();
     assert.match(jobPage, /Remind me/);
     assert.match(jobPage, /Remind customer/);
-    assert.match(jobPage, /Share with a teammate/);
+    assert.match(jobPage, /Share contact &amp; projects|Share contact & projects|Share with a teammate/);
     assert.match(jobPage, /all their projects/);
+    assert.match(jobPage, /Invite outside network/);
+    assert.match(jobPage, /name="invitePhone"/);
     assert.match(jobPage, /action="[^"]*\/customers\/jobs\/[^"]+\/share"/);
     assert.match(jobPage, /Camas Electric/);
     assert.match(jobPage, /Job photos/);
@@ -473,7 +475,7 @@ test('customers tab routes: top-bar add customer, CRUD, calendar, pending and re
     const bJob = bJobs.find((j) => j.sharedFromJobId === jobs[0].id);
     const bJobPage = await (await fetch(`${base}/m/${tokenB}/customers/jobs/${bJob.id}`)).text();
     assert.match(bJobPage, /Shared onto your calendar/);
-    assert.doesNotMatch(bJobPage, /Share with a teammate/);
+    assert.doesNotMatch(bJobPage, /Share contact &amp; projects|Share contact & projects|Invite outside network/);
 
     const ask = await require('../services/reviewAsk').createAsk({
       networkId: network.id,

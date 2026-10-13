@@ -38,6 +38,7 @@ const reviewReferralReward = require('../services/reviewReferralReward');
 const memberLeadRequests = require('../services/memberLeadRequests');
 const memberActivity = require('../services/memberActivity');
 const freeAppSignup = require('../services/freeAppSignup');
+const memberShareInvite = require('../services/memberShareInvite');
 const jobMedia = require('../services/memberJobMedia');
 const contractorPortal = require('../services/contractorPortal');
 const memberAppointmentLink = require('../services/memberAppointmentLink');
@@ -201,6 +202,8 @@ const OK_MESSAGES = {
   reward_upgrade: 'Referral rewards and customer referral offers are on the monthly plan. Upgrade to unlock them.',
   job_shared: 'Shared with your teammate — they got the contact, projects, and a text/email link.',
   customer_shared: 'Shared with your teammate — they got this contact, all projects, and a text/email link.',
+  share_invited: 'Invite sent — they’ll join on the spot and get this contact plus all projects.',
+  share_existing: 'They’re already on your network — contact and projects are on their book.',
 };
 
 const MEMBER_ACTIONS = new Set(['accept', 'decline', 'book', 'win', 'lose', 'note', 'claim']);
@@ -1307,7 +1310,9 @@ async function customerTagViews(ctx, customer) {
   return { customerTags, availableTags };
 }
 
-async function renderCustomerPage(res, ctx, { customer, jobs, today, formValues, flash, status, reviewAskStatus }) {
+async function renderCustomerPage(res, ctx, {
+  customer, jobs, today, formValues, flash, status, reviewAskStatus, inviteUrl,
+}) {
   const [tagViews, teammates] = await Promise.all([
     customerTagViews(ctx, customer),
     customer ? listShareTeammates(ctx) : Promise.resolve([]),
@@ -1327,6 +1332,7 @@ async function renderCustomerPage(res, ctx, { customer, jobs, today, formValues,
     sharedWithLabels,
     formValues: formValues || customer || {},
     flash: flash || null,
+    inviteUrl: inviteUrl || '',
     today,
     reviewAskStatus: reviewAskStatus || null,
     reviewSendLocked: freeAppSignup.isAppFreeMember(ctx.member),
@@ -1517,7 +1523,7 @@ async function listShareTeammates(ctx) {
     .sort((a, b) => a.label.localeCompare(b.label));
 }
 
-async function renderJobPage(req, res, ctx, { job, formValues, flash, status }) {
+async function renderJobPage(req, res, ctx, { job, formValues, flash, status, inviteUrl }) {
   const today = work.todayIn(memberTimeZone(req));
   const [{ customers, customersById }, teammates] = await Promise.all([
     loadWork(ctx),
@@ -1544,6 +1550,7 @@ async function renderJobPage(req, res, ctx, { job, formValues, flash, status }) 
     maxJobPhotos: work.MAX_JOB_PHOTOS,
     formValues: formValues || job || {},
     flash: flash || null,
+    inviteUrl: inviteUrl || '',
     today,
   }, status);
 }
@@ -1788,20 +1795,56 @@ router.get('/m/:token/customers/jobs/:id/calendar.ics', withMember(async (req, r
   return res.send(work.buildIcs(job, customer, { appName: ctx.brand.appName, host: req.hostname }));
 }));
 
-/** Share a job onto a teammate’s calendar and text/email them a deep link. */
+/** Share a job onto a teammate’s calendar, or invite someone outside by phone/email. */
 router.post('/m/:token/customers/jobs/:id/share', form, withMember(async (req, res, ctx) => {
   const jobId = String(req.params.id || '');
-  const toMemberId = String((req.body && req.body.memberId) || '').trim();
+  const body = req.body || {};
+  const toMemberId = String(body.memberId || '').trim();
+  const invitePhone = String(body.invitePhone || '').trim();
+  const inviteEmail = String(body.inviteEmail || '').trim();
   const back = `${ctx.base}/customers/jobs/${encodeURIComponent(jobId)}`;
   const job = await work.getJob(ctx.network.id, ctx.member.id, jobId);
   if (!job) return res.redirect(303, `${ctx.base}/customers?view=pending`);
+
+  if (!toMemberId && (invitePhone || inviteEmail)) {
+    const result = await memberShareInvite.createOrShare({
+      network: ctx.network,
+      fromMember: ctx.member,
+      customerId: job.customerId,
+      phone: invitePhone,
+      email: inviteEmail,
+      companyName: String(body.inviteCompany || '').trim(),
+      contactName: String(body.inviteName || '').trim(),
+      baseUrl: notify.baseUrlFromReq(req),
+    });
+    if (!result.ok) {
+      return renderJobPage(req, res, ctx, {
+        job,
+        flash: { error: result.error || 'Could not send that invite.' },
+        status: 400,
+      });
+    }
+    if (result.mode === 'existing_member') {
+      return res.redirect(303, `${back}?ok=share_existing`);
+    }
+    if (!result.notified || !result.notified.ok) {
+      return renderJobPage(req, res, ctx, {
+        job,
+        flash: {
+          ok: `Invite ready — ${(result.notified && result.notified.error) || 'copy this link and send it yourself:'} ${result.url}`,
+        },
+        inviteUrl: result.url,
+      });
+    }
+    return res.redirect(303, `${back}?ok=share_invited`);
+  }
 
   const teammates = await listShareTeammates(ctx);
   const mate = teammates.find((t) => t.id === toMemberId);
   if (!mate) {
     return renderJobPage(req, res, ctx, {
       job,
-      flash: { error: 'Pick a teammate on your network to share with.' },
+      flash: { error: 'Pick a teammate, or enter a phone/email to invite someone new.' },
       status: 400,
     });
   }
@@ -1855,20 +1898,56 @@ router.post('/m/:token/customers/jobs/:id/share', form, withMember(async (req, r
   return res.redirect(303, `${back}?ok=job_shared`);
 }));
 
-/** Share a contact/lead and all of their projects with a teammate. */
+/** Share a contact/lead (+ projects) with a teammate, or invite someone outside by phone/email. */
 router.post('/m/:token/customers/c/:id/share', form, withMember(async (req, res, ctx) => {
   const customerId = String(req.params.id || '');
-  const toMemberId = String((req.body && req.body.memberId) || '').trim();
+  const body = req.body || {};
+  const toMemberId = String(body.memberId || '').trim();
+  const invitePhone = String(body.invitePhone || '').trim();
+  const inviteEmail = String(body.inviteEmail || '').trim();
   const back = `${ctx.base}/customers/c/${encodeURIComponent(customerId)}`;
   const data = await customerPageData(req, ctx, customerId);
   if (!data) return res.redirect(303, `${ctx.base}/customers`);
+
+  if (!toMemberId && (invitePhone || inviteEmail)) {
+    const result = await memberShareInvite.createOrShare({
+      network: ctx.network,
+      fromMember: ctx.member,
+      customerId,
+      phone: invitePhone,
+      email: inviteEmail,
+      companyName: String(body.inviteCompany || '').trim(),
+      contactName: String(body.inviteName || '').trim(),
+      baseUrl: notify.baseUrlFromReq(req),
+    });
+    if (!result.ok) {
+      return renderCustomerPage(res, ctx, {
+        ...data,
+        flash: { error: result.error || 'Could not send that invite.' },
+        status: 400,
+      });
+    }
+    if (result.mode === 'existing_member') {
+      return res.redirect(303, `${back}?ok=share_existing`);
+    }
+    if (!result.notified || !result.notified.ok) {
+      return renderCustomerPage(res, ctx, {
+        ...data,
+        flash: {
+          ok: `Invite ready — ${(result.notified && result.notified.error) || 'copy this link and send it yourself:'} ${result.url}`,
+        },
+        inviteUrl: result.url,
+      });
+    }
+    return res.redirect(303, `${back}?ok=share_invited`);
+  }
 
   const teammates = await listShareTeammates(ctx);
   const mate = teammates.find((t) => t.id === toMemberId);
   if (!mate) {
     return renderCustomerPage(res, ctx, {
       ...data,
-      flash: { error: 'Pick a teammate on your network to share with.' },
+      flash: { error: 'Pick a teammate, or enter a phone/email to invite someone new.' },
       status: 400,
     });
   }
