@@ -672,6 +672,53 @@ async function notifyReviewRewardPending({ network, member, ask, baseUrl }) {
   return messaging && messaging.ok !== false ? { ok: true, ...messaging } : (messaging || { ok: false });
 }
 
+/**
+ * Text/email a teammate that a job was shared onto their calendar, with a
+ * deep link into their member app (calendars stay separate — they only get this job).
+ */
+async function notifyJobSharedWithTeammate({
+  network,
+  fromMember,
+  toMember,
+  job,
+  customer,
+  baseUrl,
+}) {
+  if (!network || !fromMember || !toMember || !job) return { ok: false, error: 'missing' };
+  const who = fromMember.contactName || fromMember.companyName || 'A teammate';
+  const company = fromMember.companyName || brandView(network).appName;
+  const cust = (customer && customer.name) || 'a customer';
+  const when = [job.date, job.time].filter(Boolean).join(' ');
+  const path = `/customers/jobs/${encodeURIComponent(job.id)}`;
+  const portal = await memberPortalShortLink(
+    baseUrl || getPublicBaseUrl(),
+    network,
+    toMember,
+    path,
+  );
+  const bits = [`${who} shared a job with you: ${job.title || 'Job'} · ${cust}`];
+  if (when) bits.push(when);
+  bits.push(`Open in your app: ${portal}`);
+  const sms = bits.join(' — ');
+  const email = `${who} (${company}) shared a scheduled job with you.\n\n`
+    + `${job.title || 'Job'} · ${cust}${when ? `\nWhen: ${when}` : ''}`
+    + `${customer && customer.address ? `\nWhere: ${customer.address}` : ''}`
+    + `\n\nIt shows on your calendar only — not theirs.\n\n${portal}`;
+  const messaging = await messageMember(network, toMember, {
+    sms,
+    subject: `${who} shared a job: ${job.title || 'Job'}`,
+    email,
+  }).catch((err) => ({ ok: false, error: err.message }));
+  const token = createMemberPortalToken({ networkId: network.id, memberId: toMember.id });
+  recordMemberActivity(network, toMember, {
+    kind: 'job_shared',
+    title: 'Job shared with you',
+    body: `${job.title || 'Job'} · ${cust}${when ? ` · ${when}` : ''}`,
+    href: `/m/${encodeURIComponent(token)}${path}`,
+  });
+  return messaging && messaging.ok !== false ? { ok: true, ...messaging, portal } : (messaging || { ok: false });
+}
+
 /** After the business confirms the public review, send the referral-reward offer. */
 async function sendReviewReferralReward({ network, member, ask }) {
   if (!network || !member || !ask) return { ok: false, error: 'missing' };
@@ -751,6 +798,7 @@ module.exports = {
   notifyFeedback,
   notifyLeadRequest,
   notifyReviewRewardPending,
+  notifyJobSharedWithTeammate,
   sendReviewReferralReward,
   messageMember,
   createOperatorTask,

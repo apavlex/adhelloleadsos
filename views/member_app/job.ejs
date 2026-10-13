@@ -39,6 +39,9 @@
       <% const jobMapsHref = customer ? googleMapsSearchUrl({ name: customer.name, address: customer.address }) : ''; %>
       <% if (jobMapsHref) { %><a class="ma-btn ma-btn--sm ma-btn--ghost" href="<%= jobMapsHref %>" target="_blank" rel="noopener"><%- icons.mapPin %> Directions</a><% } %>
     </div>
+    <% if (job.sharedFromMemberId) { %>
+    <p class="ma-hint" style="margin:10px 0 0">Shared onto your calendar by a teammate. Your other jobs stay private to you.</p>
+    <% } %>
     <% } %>
 
     <section class="ma-section">
@@ -120,6 +123,34 @@
     </section>
 
     <% if (job) { %>
+    <%
+      const _mates = typeof teammates !== 'undefined' && Array.isArray(teammates) ? teammates : [];
+      const _shared = typeof sharedWithLabels !== 'undefined' && Array.isArray(sharedWithLabels) ? sharedWithLabels : [];
+    %>
+    <% if (_mates.length && !job.sharedFromMemberId) { %>
+    <section class="ma-card" id="maJobShare" aria-label="Share with teammate">
+      <h2 style="font-size:16px;margin:0 0 4px">Share with a teammate</h2>
+      <p class="ma-hint" style="margin:0 0 12px">Puts this appointment on their calendar only — your books stay separate. We’ll text or email them a link.</p>
+      <% if (_shared.length) { %>
+      <p class="ma-hint" style="margin:0 0 10px">Already shared with: <strong><%= _shared.map(function (s) { return s.label; }).join(', ') %></strong></p>
+      <% } %>
+      <form method="post" action="<%= base %>/customers/jobs/<%= job.id %>/share" autocomplete="off" data-ma-loading="Sharing…">
+        <div class="ma-field">
+          <label class="ma-label" for="jbShareMate">Teammate</label>
+          <select id="jbShareMate" name="memberId" class="ma-select" required>
+            <option value="" disabled selected>Pick a teammate</option>
+            <% _mates.forEach(function (t) { %>
+            <option value="<%= t.id %>" <%= t.canNotify ? '' : 'disabled' %>>
+              <%= t.label %><%= t.contact && t.contact !== t.label ? ' · ' + t.contact : '' %><%= t.canNotify ? '' : ' (add phone/email)' %>
+            </option>
+            <% }); %>
+          </select>
+        </div>
+        <button type="submit" class="ma-btn ma-btn--block ma-btn--soft"><%- icons.send %> Share &amp; notify</button>
+      </form>
+    </section>
+    <% } %>
+
     <section class="ma-section" id="maJobPhotos">
       <div class="ma-section__head">
         <h2>Job photos</h2>
