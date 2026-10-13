@@ -2953,6 +2953,9 @@
     }
 
     function focusSmsSuccessLabel(data) {
+      if (data && data.provider === 'device') {
+        return 'Messages opened on your phone — draft ready to send.';
+      }
       var kind = data && data.channel === 'imessage' ? 'iMessage' : 'SMS';
       var provider =
         (data && data.providerLabel) ||
@@ -2962,6 +2965,22 @@
             ? 'Go High Level'
             : 'SMS');
       return kind + ' sent via ' + provider + '.';
+    }
+
+    function focusOpenDeviceSmsApp(phone, body) {
+      if (typeof window.__openDeviceSmsApp === 'function') {
+        return window.__openDeviceSmsApp(phone, body);
+      }
+      var digits = String(phone || '').replace(/[^\d+]/g, '');
+      if (!digits) return Promise.reject(new Error('No phone number to text.'));
+      var text = String(body || '');
+      var ua = String(navigator.userAgent || '');
+      var isIOS = /iPhone|iPad|iPod/i.test(ua);
+      var href = isIOS
+        ? 'sms:' + encodeURIComponent(digits) + '&body=' + encodeURIComponent(text)
+        : 'sms:' + encodeURIComponent(digits) + '?body=' + encodeURIComponent(text);
+      window.location.href = href;
+      return Promise.resolve(true);
     }
 
     function placeFocusSmsFromBody(msgBody) {
@@ -2982,23 +3001,25 @@
         setFocusSmsComposeStatus('No phone found for this lead.', true);
         return Promise.reject(new Error('missing phone'));
       }
-      return fetch('/leads/' + encodeURIComponent(lead.key) + '/sms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ body: msgBody }),
-      })
-        .then(function (r) {
+      // Manual Focus SMS → native Phone Messages. GHL only for auto missed-call text-back.
+      return focusOpenDeviceSmsApp(phone, msgBody).then(function () {
+        return fetch('/leads/' + encodeURIComponent(lead.key) + '/sms', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ body: msgBody, provider: 'device' }),
+        }).then(function (r) {
           return r.json().then(function (j) {
-            if (!r.ok || !j.success) throw new Error((j && j.error) || 'SMS failed');
+            if (!r.ok || !j.success) throw new Error((j && j.error) || 'Could not log SMS');
             return j;
           });
         });
+      });
     }
 
     function setFocusSmsSendBusy(busy) {
       if (btnSmsComposeSend) {
         btnSmsComposeSend.disabled = !!busy;
-        btnSmsComposeSend.textContent = busy ? 'Sending…' : 'Send SMS';
+        btnSmsComposeSend.textContent = busy ? 'Opening…' : 'Send SMS';
       }
     }
 
@@ -3235,7 +3256,7 @@
         return;
       }
       setFocusSmsSendBusy(true);
-      setFocusSmsComposeStatus('Sending…');
+      setFocusSmsComposeStatus('Opening Messages…');
       placeFocusSmsFromBody(msgBody)
         .then(function (data) {
           setFocusSmsComposeStatus(focusSmsSuccessLabel(data));

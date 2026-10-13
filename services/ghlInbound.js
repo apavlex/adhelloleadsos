@@ -358,6 +358,22 @@ async function handleInboundCall({ lead, workspaceId, outcome, at, eventId, dura
   const updated = await dbService.updateLead(lead.key, patch, workspaceId);
   if (kind !== 'call') {
     notifyInboundEvent({ workspaceId, lead: updated || lead, event: { type: kind, label: label || '' } });
+    // Same GHL connection as Focus / lead-panel SMS: optional auto text-back + sync.
+    try {
+      const missedCallTextBack = require('./missedCallTextBack');
+      const textBack = await missedCallTextBack.maybeSendMissedCallTextBack({
+        lead: updated || lead,
+        workspaceId,
+        outcome: kind,
+        callEventId: id,
+      });
+      if (textBack && textBack.lead) {
+        return { applied: true, outcome: kind, taskId, lead: textBack.lead, textBack };
+      }
+      return { applied: true, outcome: kind, taskId, lead: updated, textBack };
+    } catch (e) {
+      console.warn('[ghlInbound] missed-call text-back failed:', e && e.message);
+    }
   }
   return { applied: true, outcome: kind, taskId, lead: updated };
 }

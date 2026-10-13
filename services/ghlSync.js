@@ -1069,21 +1069,33 @@ async function processMessageWebhook(payload, opts = {}) {
 
   const isSms = parsed.channel === 'sms';
   const entryType = isSms ? 'sms_outbound' : 'email_outbound';
+  let missedCallTextBack = false;
+  if (isSms) {
+    try {
+      const mct = require('./missedCallTextBack');
+      missedCallTextBack = mct.hasRecentMissedCall(lead);
+    } catch (_) {
+      /* non-fatal */
+    }
+  }
 
-  const newUpdates = [
-    ...updates,
-    {
-      timestamp: parsed.dateAdded || new Date().toISOString(),
-      type: entryType,
-      value: parsed.body,
-      messageSid: parsed.messageId,
-      ghlMessageId: parsed.messageId,
-      provider: 'ghl',
-      ghlContactId: parsed.contactId,
-      conversationId: parsed.conversationId,
-      status: parsed.status || '',
-    },
-  ];
+  const outboundEntry = {
+    timestamp: parsed.dateAdded || new Date().toISOString(),
+    type: entryType,
+    value: parsed.body,
+    messageSid: parsed.messageId,
+    ghlMessageId: parsed.messageId,
+    provider: 'ghl',
+    ghlContactId: parsed.contactId,
+    conversationId: parsed.conversationId,
+    status: parsed.status || '',
+  };
+  if (missedCallTextBack) {
+    outboundEntry.reason = 'missed_call_textback';
+    outboundEntry.missedCallTextBack = true;
+  }
+
+  const newUpdates = [...updates, outboundEntry];
 
   const patch = {
     updates: newUpdates,
@@ -1091,13 +1103,28 @@ async function processMessageWebhook(payload, opts = {}) {
     logs: [
       {
         type: entryType,
-        message: `Outbound ${isSms ? 'SMS' : 'email'}: ${parsed.body.slice(0, 180)}`,
+        message: missedCallTextBack
+          ? `Missed-call text-back (GHL): ${parsed.body.slice(0, 160)}`
+          : `Outbound ${isSms ? 'SMS' : 'email'}: ${parsed.body.slice(0, 180)}`,
         timestamp: new Date().toISOString(),
       },
     ],
   };
 
-  await dbService.updateLead(lead.key, patch);
+  const updated = await dbService.updateLead(lead.key, patch);
+
+  if (missedCallTextBack) {
+    try {
+      const { notifyMissedCallTextSent } = require('./inboundPush');
+      notifyMissedCallTextSent({
+        workspaceId: wid,
+        lead: updated || lead,
+        preview: parsed.body,
+      });
+    } catch (_) {
+      /* non-fatal */
+    }
+  }
 
   return {
     ok: true,
@@ -1105,6 +1132,7 @@ async function processMessageWebhook(payload, opts = {}) {
     key: lead.key,
     action: entryType,
     messageId: parsed.messageId || null,
+    missedCallTextBack,
   };
 }
 

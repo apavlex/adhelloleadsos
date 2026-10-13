@@ -5799,8 +5799,9 @@ function readJsonReply(r) {
   }
   window.__renderSoftphoneCallQueue = renderSoftphoneCallQueue;
 
+  /** Manual SMS always opens the phone Messages app. GHL is only for auto text-back / bulk. */
   function softphoneUsesDeviceSms() {
-    return String(spWorkspaceCallMode || '').trim() === 'browser_device';
+    return true;
   }
 
   function softphoneSmsDialPhone() {
@@ -5814,16 +5815,12 @@ function readJsonReply(r) {
 
   function updateSoftphoneSmsRouteHint() {
     if (!spSmsRouteHint && !spSmsMeta) return;
-    var device = softphoneUsesDeviceSms();
     if (spSmsRouteHint) {
-      spSmsRouteHint.textContent = device
-        ? 'My device dialer · copy + open Messages'
-        : 'Sends via Go High Level SMS';
+      spSmsRouteHint.textContent = 'Phone Messages · copy + open SMS app';
     }
     if (spSmsMeta) {
-      spSmsMeta.textContent = device
-        ? 'Send copies the text, opens Messages on this phone, and fills the draft for the dialed number.'
-        : 'Send delivers through Go High Level using your workspace SMS number.';
+      spSmsMeta.textContent =
+        'Send copies the text and opens Messages on this phone. GHL is only used for auto missed-call text-back and replies on that same channel.';
     }
   }
 
@@ -6040,6 +6037,7 @@ function readJsonReply(r) {
       return true;
     });
   }
+  window.__openDeviceSmsApp = softphoneOpenDeviceSmsApp;
 
   function softphoneSendSmsViaGhl(leadKey, body, phone) {
     var payload = { body: body, provider: 'ghl' };

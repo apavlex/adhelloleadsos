@@ -122,6 +122,20 @@ async function handleInboundReply(ctx) {
         ? 'SMS (Comms)'
         : channel;
 
+  let replyLabel = '';
+  if (autoResponder) replyLabel = 'Auto-reply';
+  else if (ctx.newContact) replyLabel = 'New contact';
+  else if (channel === 'sms') {
+    try {
+      const missedCallTextBack = require('./missedCallTextBack');
+      if (missedCallTextBack.isReplyToMissedCallTextBack(lead)) {
+        replyLabel = 'Reply to missed-call text';
+      }
+    } catch (_) {
+      /* non-fatal */
+    }
+  }
+
   const patch = {
     lastTouchChannel: channel,
     nextActionAt: respondBy,
@@ -130,7 +144,7 @@ async function handleInboundReply(ctx) {
       id: messageId ? `${channel}:${messageId}` : '',
       type: channel,
       at: atIso,
-      label: autoResponder ? 'Auto-reply' : ctx.newContact ? 'New contact' : '',
+      label: replyLabel,
       preview: body,
       source: provider,
     }),
@@ -174,7 +188,7 @@ async function handleInboundReply(ctx) {
   notifyInboundEvent({
     workspaceId,
     lead: updated || lead,
-    event: { type: channel, label: ctx.newContact ? 'New contact' : '', preview: body },
+    event: { type: channel, label: replyLabel, preview: body },
   });
 
   if (provider === 'ghl') {

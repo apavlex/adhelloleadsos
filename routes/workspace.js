@@ -15,6 +15,7 @@ const integrationProviderTests = require('../services/integrationProviderTests')
 const ghlClient = require('../services/ghlClient');
 const ghlSync = require('../services/ghlSync');
 const { getWorkspaceGhlSyncDirection, normalizeGhlSyncDirection } = require('../services/ghlSyncDirection');
+const missedCallTextBack = require('../services/missedCallTextBack');
 const lobClient = require('../services/lobClient');
 const { listPlaybooks } = require('../services/directMailPlaybooks');
 const kieImageClient = require('../services/kieImageClient');
@@ -456,6 +457,7 @@ async function loadWorkspacePageLocals(req, opts = {}) {
     : '';
   const ghlStatus = ghlSync.statusFromEnv(resolvedEnv);
   const ghlSyncDirection = getWorkspaceGhlSyncDirection(ws);
+  const missedCallTextBackSettings = missedCallTextBack.settingsFromWorkspace(ws);
   const commsDefaultChannel = String(
     (resolvedEnv && resolvedEnv.COMMS_DEFAULT_CHANNEL) || process.env.COMMS_DEFAULT_CHANNEL || '',
   )
@@ -486,6 +488,7 @@ async function loadWorkspacePageLocals(req, opts = {}) {
     smsPrimary,
     ghlStatus,
     ghlSyncDirection,
+    missedCallTextBackSettings,
     mcpTokenStatus,
     mcpAgentTokens,
     mcpConnectedApps,
@@ -702,13 +705,21 @@ router.post('/integrations', async (req, res, next) => {
     plain = workspaceIntegrations.applyClears(plain, req.body);
     plain = workspaceIntegrations.mergeIntegrationUpdates(plain, req.body);
     await workspaceIntegrations.saveWorkspaceIntegrations(wid, plain);
-    if (req.body && req.body.ghlSyncDirection != null && String(req.body.ghlSyncDirection).trim()) {
+    {
       const wsAfter = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
-      await dbService.saveWorkspace(wid, {
-        ...wsAfter,
-        ghlSyncDirection: normalizeGhlSyncDirection(req.body.ghlSyncDirection),
-        ghlSyncDirectionUpdatedAt: new Date().toISOString(),
-      });
+      const nextWs = { ...wsAfter };
+      let touched = false;
+      if (req.body && req.body.ghlSyncDirection != null && String(req.body.ghlSyncDirection).trim()) {
+        nextWs.ghlSyncDirection = normalizeGhlSyncDirection(req.body.ghlSyncDirection);
+        nextWs.ghlSyncDirectionUpdatedAt = new Date().toISOString();
+        touched = true;
+      }
+      if (req.body && (req.body.missedCallTextBackEnabled != null || req.body.missedCallTextBackMessage != null)) {
+        nextWs.missedCallTextBack = missedCallTextBack.normalizeSettings(req.body);
+        nextWs.missedCallTextBackUpdatedAt = new Date().toISOString();
+        touched = true;
+      }
+      if (touched) await dbService.saveWorkspace(wid, nextWs);
     }
     try {
       dataPersistence.backupSqliteSnapshot();
