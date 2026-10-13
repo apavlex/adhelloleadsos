@@ -17,7 +17,7 @@
     <header class="mb-6 max-w-2xl">
       <p class="text-[11px] font-black uppercase tracking-[0.22em] text-brand-muted mb-2">Workspace</p>
       <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Get the Review app</h1>
-      <p class="mt-2 text-sm leading-relaxed text-brand-muted dark:text-slate-400">Your installable app for <strong class="text-brand-dark dark:text-white"><%= _net %></strong> — Home, Request a review, customers, and referrals. Partner apps for other businesses stay on <a href="/network?tab=members" class="font-semibold text-brand-dark dark:text-white underline decoration-brand-yellow/60 underline-offset-2 hover:decoration-brand-yellow">Network</a>.</p>
+      <p class="mt-2 text-sm leading-relaxed text-brand-muted dark:text-slate-400"><% if (typeof staffName !== 'undefined' && staffName) { %>Hi <strong class="text-brand-dark dark:text-white"><%= staffName %></strong> — <% } %>your personal installable app for <strong class="text-brand-dark dark:text-white"><%= _net %></strong> — Home, Request a review, customers, and referrals<% if (typeof isStaffApp !== 'undefined' && isStaffApp) { %> (yours alone — not shared with teammates)<% } %>. Partner apps for other businesses stay on <a href="/network?tab=members" class="font-semibold text-brand-dark dark:text-white underline decoration-brand-yellow/60 underline-offset-2 hover:decoration-brand-yellow">Network</a>.</p>
       <% if (typeof isDemo !== 'undefined' && isDemo) { %>
       <p class="mt-3 text-sm leading-relaxed rounded-xl border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-900/30 px-3.5 py-2.5 text-sky-900 dark:text-sky-100">Demo workspace: <strong>Open Review app</strong> includes sample customers, jobs, and tags so you can show clients the full field experience. Nothing is ever sent.</p>
       <% } %>
@@ -25,9 +25,9 @@
 
     <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 md:p-8" id="referralApp" aria-label="Review app">
       <div class="mb-5">
-        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Your Review app</p>
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted"><% if (typeof staffName !== 'undefined' && staffName) { %><%= staffName %>'s<% } else { %>Your<% } %> Review app</p>
         <h2 class="font-display font-extrabold text-xl md:text-2xl text-brand-dark dark:text-white mt-1">Open &amp; install</h2>
-        <p class="text-sm text-brand-muted mt-1 max-w-2xl">Uses your Workspace → White-label name, logo, and colors. Add it to your Home Screen, then use reviews, customers, and referrals on the go.</p>
+        <p class="text-sm text-brand-muted mt-1 max-w-2xl">Tied to the account you’re logged in with — your name, customers, and jobs. Uses Workspace → White-label branding. Add it to your Home Screen, then work reviews and leads on the go.</p>
       </div>
       <div class="grid gap-6 lg:grid-cols-[180px_minmax(0,1fr)] items-start">
         <div class="flex flex-col items-center text-center gap-2">

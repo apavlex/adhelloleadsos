@@ -1,11 +1,13 @@
 /**
- * Workspace owner's Referral app = the network member app (/m/:token),
- * same PWA partners use (reviews → customers → referrals).
- * Ensures a stable owner member row so Get the app can open/share it.
+ * Workspace Get the app → personal member PWA (/m/:token).
+ * Owner keeps the stable `owner` row (Review app + white-label).
+ * Other logged-in staff get their own member row (name, customers, leads).
  */
+const crypto = require('crypto');
 const networkStore = require('./networkStore');
 const networkNotify = require('./networkNotify');
 const whiteLabel = require('./whiteLabel');
+const workspaceService = require('./workspaceService');
 const { getPublicBaseUrl } = require('../lib/publicBaseUrl');
 
 const OWNER_MEMBER_ID = 'owner';
@@ -18,6 +20,14 @@ function firstNameFromUser(user) {
   return String(raw).trim().split(/\s+/)[0] || '';
 }
 
+function userEmail(user) {
+  return String(
+    (user && user.emails && user.emails[0] && user.emails[0].value) || '',
+  )
+    .trim()
+    .toLowerCase();
+}
+
 function ownerBusinessName(ws, network) {
   const wl = whiteLabel.brandForWorkspace(ws || {});
   return (
@@ -28,48 +38,89 @@ function ownerBusinessName(ws, network) {
   );
 }
 
+/** Stable member id for a workspace staff email (not the owner row). */
+function staffMemberIdForEmail(email) {
+  const em = String(email || '').trim().toLowerCase();
+  if (!em) return '';
+  const hash = crypto.createHash('sha256').update(`wsstaff:${em}`).digest('hex').slice(0, 12);
+  return `staff_${hash}`;
+}
+
+function isWorkspaceOwnerLogin(ws, network, email) {
+  const em = String(email || '').trim().toLowerCase();
+  if (!em) return true; // no email → keep legacy owner app
+  if (workspaceService.roleForEmail(ws, em) === 'owner') return true;
+  const ownerEmail = String((network && network.ownerEmail) || '').trim().toLowerCase();
+  return !!(ownerEmail && ownerEmail === em);
+}
+
 /**
- * @returns {Promise<{ network: object, member: object, path: string, url: string }>}
+ * @returns {Promise<{ network: object, member: object, path: string, url: string, isStaff: boolean }>}
  */
 async function ensureOwnerReferralApp(req) {
   const workspaceId = req.workspaceId;
   if (!workspaceId) throw new Error('ensureOwnerReferralApp requires workspaceId');
   const ws = req.workspace || {};
-  const email = String(
-    (req.user && req.user.emails && req.user.emails[0] && req.user.emails[0].value) ||
-      '',
-  )
-    .trim()
-    .toLowerCase();
+  const email = userEmail(req.user);
 
   const network = await networkStore.getOrCreateNetworkForWorkspace(workspaceId, {
     name: (ws.name && String(ws.name).trim()) || 'Referral network',
     ownerEmail: email,
   });
 
-  let member = await networkStore.getMember(network.id, OWNER_MEMBER_ID);
-  if (!member && email) {
-    const members = await networkStore.listMembers(network.id);
-    member = members.find((m) => String(m.email || '').trim().toLowerCase() === email) || null;
-  }
-
   const companyName = ownerBusinessName(ws, network);
   const contactName = firstNameFromUser(req.user) || '';
+  const asOwner = isWorkspaceOwnerLogin(ws, network, email);
 
-  if (!member) {
-    member = await networkStore.saveMember(network.id, {
-      id: OWNER_MEMBER_ID,
-      companyName,
-      contactName,
-      email,
-      status: 'active',
-      joinedAt: new Date().toISOString(),
-    });
+  let member;
+  if (asOwner) {
+    member = await networkStore.getMember(network.id, OWNER_MEMBER_ID);
+    if (!member && email) {
+      const members = await networkStore.listMembers(network.id);
+      member = members.find((m) => String(m.email || '').trim().toLowerCase() === email) || null;
+    }
+    if (!member) {
+      member = await networkStore.saveMember(network.id, {
+        id: OWNER_MEMBER_ID,
+        companyName,
+        contactName,
+        email,
+        status: 'active',
+        joinedAt: new Date().toISOString(),
+      });
+    } else {
+      const patch = {};
+      if (member.status === 'paused') patch.status = 'active';
+      if (companyName && member.companyName !== companyName) patch.companyName = companyName;
+      if (contactName && member.contactName !== contactName) patch.contactName = contactName;
+      if (email && !member.email) patch.email = email;
+      if (Object.keys(patch).length) {
+        member = await networkStore.saveMember(network.id, { ...member, ...patch });
+      }
+    }
   } else {
-    const patch = {};
-    if (member.status === 'paused') patch.status = 'active';
-    if (companyName && member.companyName !== companyName) patch.companyName = companyName;
-    if (Object.keys(patch).length) {
+    const staffId = staffMemberIdForEmail(email);
+    member = await networkStore.getMember(network.id, staffId);
+    if (!member) {
+      const members = await networkStore.listMembers(network.id);
+      member = members.find((m) => String(m.email || '').trim().toLowerCase() === email) || null;
+    }
+    if (!member) {
+      member = await networkStore.saveMember(network.id, {
+        id: staffId,
+        companyName,
+        contactName: contactName || email.split('@')[0] || 'Teammate',
+        email,
+        status: 'active',
+        workspaceStaff: true,
+        joinedAt: new Date().toISOString(),
+      });
+    } else {
+      const patch = { workspaceStaff: true };
+      if (member.status === 'paused') patch.status = 'active';
+      if (companyName && member.companyName !== companyName) patch.companyName = companyName;
+      if (contactName && member.contactName !== contactName) patch.contactName = contactName;
+      if (email && member.email !== email) patch.email = email;
       member = await networkStore.saveMember(network.id, { ...member, ...patch });
     }
   }
@@ -86,10 +137,18 @@ async function ensureOwnerReferralApp(req) {
     path = tokenMatch ? `/m/${tokenMatch[1]}` : longUrl;
   }
 
-  return { network, member, path, url };
+  return {
+    network,
+    member,
+    path,
+    url,
+    isStaff: !asOwner,
+  };
 }
 
 module.exports = {
   OWNER_MEMBER_ID,
+  staffMemberIdForEmail,
+  isWorkspaceOwnerLogin,
   ensureOwnerReferralApp,
 };

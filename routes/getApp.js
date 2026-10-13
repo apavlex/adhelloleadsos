@@ -29,6 +29,7 @@ router.get('/', async (req, res, next) => {
       (app.member && app.member.companyName) ||
       (app.network && app.network.name) ||
       'your business';
+    const staffName = String((app.member && app.member.contactName) || '').trim();
     res.render('get_app', {
       title: `Get Review app | Agency OS`,
       activePage: 'get-app',
@@ -41,6 +42,8 @@ router.get('/', async (req, res, next) => {
       openHost: app.url.replace(/^https?:\/\//, ''),
       networkName: businessName,
       businessName,
+      staffName,
+      isStaffApp: Boolean(app.isStaff),
       isDemo: Boolean(ws.isDemo),
     });
   } catch (err) {

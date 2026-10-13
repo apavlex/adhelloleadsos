@@ -405,7 +405,7 @@ async function notifyReferralPool({ network, referral, baseUrl }) {
   if (!referral || referral.status !== 'unrouted') return 0;
   const members = await store.listMembers(network.id);
   const eligible = members
-    .filter((m) => canClaimPoolReferral(referral, m))
+    .filter((m) => m && !m.workspaceStaff && canClaimPoolReferral(referral, m))
     .slice(0, 8);
   if (!eligible.length) return 0;
   const summary = homeownerSummary(referral, network);

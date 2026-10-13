@@ -192,6 +192,11 @@ function normalizeMember(raw) {
     /** ISO stamp when a free-app member uploaded their own Home hero image. */
     heroUpdatedAt: cleanText(m.heroUpdatedAt, 40),
     invitedByMemberId: cleanText(m.invitedByMemberId, 40),
+    /**
+     * Workspace team app from Get the app (staff login). Not a referral partner —
+     * personal customers/reviews for that teammate under the same workspace brand.
+     */
+    workspaceStaff: m.workspaceStaff === true || m.source === 'workspace_staff',
     joinedAt: m.joinedAt || new Date().toISOString(),
     updatedAt: m.updatedAt || m.joinedAt || new Date().toISOString(),
   };
