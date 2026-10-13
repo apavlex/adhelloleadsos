@@ -154,8 +154,11 @@ describe('member app install modal and tab bar', () => {
     assert.match(customer, /tags\/add/);
     assert.match(customer, /tags\/remove/);
     assert.match(customer, /Search tags or create new/);
-    // Tags section sits above Details.
+    // Tags section sits above Details; Share contact sits under Details.
     assert.ok(customer.indexOf('ma-tags-section') < customer.indexOf('<h2>Details</h2>'));
+    if (customer.includes('maCustomerShare')) {
+      assert.ok(customer.indexOf('<h2>Details</h2>') < customer.indexOf('maCustomerShare'));
+    }
     assert.match(head, /\.ma-tags__chip\{/);
     assert.match(head, /border-radius:999px/);
     assert.match(head, /ma-tags__suggest-btn\{[^}]*background:var\(--card/s);

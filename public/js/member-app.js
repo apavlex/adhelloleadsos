@@ -1442,10 +1442,300 @@
     root.setAttribute('data-ma-ready', '1');
   }
 
+  /** Typeahead: search workspace teammates + network partners on Share contact. */
+  function initShareMatePick(root) {
+    if (!root || root.getAttribute('data-ma-ready') === '1') return;
+    var input = root.querySelector('[data-ma-share-mate-input]');
+    var hidden = root.querySelector('[data-ma-share-mate-id]');
+    var list = root.querySelector('[data-ma-share-mate-list]');
+    var dataEl = root.querySelector('[data-ma-share-mates]');
+    var searchWrap = root.querySelector('[data-ma-share-search]');
+    var selectedWrap = root.querySelector('[data-ma-share-selected]');
+    var selectedName = root.querySelector('[data-ma-share-selected-name]');
+    var selectedMeta = root.querySelector('[data-ma-share-selected-meta]');
+    var selectedAvatar = root.querySelector('[data-ma-share-selected-avatar]');
+    var clearBtn = root.querySelector('[data-ma-share-clear]');
+    var form = root.closest('[data-ma-share-mate-form]') || root.closest('form');
+    var submitBtn = form ? form.querySelector('[data-ma-share-submit]') : null;
+    if (!input || !hidden || !list || !dataEl) return;
+
+    var mates = [];
+    try {
+      mates = JSON.parse(dataEl.textContent || '[]');
+    } catch (e) {
+      mates = [];
+    }
+    if (!Array.isArray(mates)) mates = [];
+
+    var shown = [];
+    var active = -1;
+
+    function esc(s) {
+      return String(s || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function norm(s) {
+      return String(s || '')
+        .toLowerCase()
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function digits(s) {
+      return String(s || '').replace(/\D+/g, '');
+    }
+
+    function displayLine(m) {
+      var label = String((m && m.label) || 'Teammate');
+      var contact = String((m && m.contact) || '');
+      if (contact && contact !== label) return label + ' · ' + contact;
+      return label;
+    }
+
+    function metaLine(m) {
+      if (!m) return '';
+      if (m.workspaceStaff) return m.contact || m.email || 'Workspace team';
+      var bits = [];
+      if (m.contact && m.contact !== m.label) bits.push(m.contact);
+      if (m.email) bits.push(m.email);
+      else if (m.phone) bits.push(m.phone);
+      return bits.join(' · ') || 'Network partner';
+    }
+
+    function scoreMate(m, query) {
+      var q = norm(query);
+      if (!q) return m && m.workspaceStaff ? 2 : 1;
+      var label = norm(m && m.label);
+      var contact = norm(m && m.contact);
+      var email = norm(m && m.email);
+      var phone = digits(m && m.phone);
+      var qDigits = digits(q);
+      var score = 0;
+      function hit(hay, exact, prefix, contains) {
+        if (!hay) return;
+        if (hay === q) score = Math.max(score, exact);
+        else if (hay.indexOf(q) === 0) score = Math.max(score, prefix);
+        else if (hay.indexOf(q) !== -1) score = Math.max(score, contains);
+      }
+      hit(label, 1000, 800, 500);
+      hit(contact, 900, 700, 400);
+      hit(email, 850, 650, 350);
+      if (qDigits.length >= 3 && phone && phone.indexOf(qDigits) !== -1) {
+        score = Math.max(score, 600);
+      }
+      if (score > 0 && m && m.workspaceStaff) score += 20;
+      return score;
+    }
+
+    function searchMates(query) {
+      var q = norm(query);
+      var ranked = mates
+        .map(function (m, index) {
+          return { m: m, index: index, score: scoreMate(m, q) };
+        })
+        .filter(function (row) {
+          return q ? row.score > 0 : true;
+        })
+        .sort(function (a, b) {
+          if (!!a.m.workspaceStaff !== !!b.m.workspaceStaff) return a.m.workspaceStaff ? -1 : 1;
+          return b.score - a.score || a.index - b.index;
+        });
+      return ranked.slice(0, 40).map(function (row) {
+        return row.m;
+      });
+    }
+
+    function syncSubmit() {
+      var picked = !!String(hidden.value || '').trim();
+      if (submitBtn) submitBtn.disabled = !picked;
+    }
+
+    function syncMode() {
+      var picked = !!String(hidden.value || '').trim();
+      if (searchWrap) searchWrap.hidden = picked;
+      if (selectedWrap) selectedWrap.hidden = !picked;
+      syncSubmit();
+    }
+
+    function showSelected(m) {
+      if (!m) return;
+      if (selectedName) selectedName.textContent = m.label || 'Teammate';
+      if (selectedMeta) selectedMeta.textContent = metaLine(m);
+      if (selectedAvatar) {
+        selectedAvatar.textContent = String(m.label || '?').charAt(0).toUpperCase();
+      }
+    }
+
+    function clearPick() {
+      hidden.value = '';
+      active = -1;
+      input.value = '';
+      syncMode();
+    }
+
+    function closeList() {
+      list.hidden = true;
+      input.setAttribute('aria-expanded', 'false');
+      active = -1;
+    }
+
+    function openList() {
+      list.hidden = false;
+      input.setAttribute('aria-expanded', 'true');
+    }
+
+    function setActive(idx) {
+      active = idx;
+      var items = list.querySelectorAll('.ma-typeahead__item');
+      for (var i = 0; i < items.length; i++) {
+        items[i].classList.toggle('is-active', i === active);
+      }
+    }
+
+    function render(query) {
+      shown = searchMates(query);
+      var html = '';
+      var q = String(query || '').trim();
+      if (!shown.length) {
+        html = '<li class="ma-typeahead__empty" role="presentation">' +
+          (q ? 'No matches for “' + esc(q) + '”' : 'No teammates or partners yet') +
+          '</li>';
+      } else {
+        var lastGroup = '';
+        shown.forEach(function (m, i) {
+          var group = m.workspaceStaff ? 'Workspace team' : 'Network partners';
+          if (group !== lastGroup) {
+            html += '<li class="ma-typeahead__empty" role="presentation" style="font-weight:800;color:var(--ink)">' +
+              esc(group) + '</li>';
+            lastGroup = group;
+          }
+          var disabled = !m.canNotify;
+          html += '<li class="ma-typeahead__item' + (disabled ? ' is-off' : '') + '" role="option" data-id="' +
+            esc(m.id) + '" data-idx="' + i + '"' + (disabled ? ' aria-disabled="true"' : '') + '>' +
+            esc(displayLine(m)) +
+            (disabled ? ' <span class="ma-label__hint">(add phone/email)</span>' : '') +
+            '</li>';
+        });
+      }
+      list.innerHTML = html;
+      openList();
+      setActive(-1);
+    }
+
+    function pickByEl(el) {
+      if (!el) return;
+      if (el.getAttribute('aria-disabled') === 'true') return;
+      var id = el.getAttribute('data-id') || '';
+      var idx = parseInt(el.getAttribute('data-idx'), 10);
+      if (!id) return;
+      var m = shown[idx] || mates.find(function (row) { return row.id === id; });
+      if (!m || !m.canNotify) return;
+      hidden.value = m.id;
+      showSelected(m);
+      input.value = '';
+      closeList();
+      syncMode();
+      try { input.blur(); } catch (err) { /* ignore */ }
+    }
+
+    syncMode();
+
+    input.addEventListener('focus', function () {
+      render(input.value);
+    });
+    input.addEventListener('input', function () {
+      render(input.value);
+    });
+    input.addEventListener('keydown', function (e) {
+      var items = list.querySelectorAll('.ma-typeahead__item:not([aria-disabled="true"])');
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (list.hidden) render(input.value);
+        items = list.querySelectorAll('.ma-typeahead__item:not([aria-disabled="true"])');
+        var next = -1;
+        if (active < 0) next = 0;
+        else {
+          for (var i = 0; i < items.length; i++) {
+            if (items[i].classList.contains('is-active')) {
+              next = Math.min(items.length - 1, i + 1);
+              break;
+            }
+          }
+          if (next < 0) next = 0;
+        }
+        setActive(Array.prototype.indexOf.call(list.querySelectorAll('.ma-typeahead__item'), items[next]));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        items = list.querySelectorAll('.ma-typeahead__item:not([aria-disabled="true"])');
+        var cur = -1;
+        for (var j = 0; j < items.length; j++) {
+          if (items[j].classList.contains('is-active')) { cur = j; break; }
+        }
+        var prev = Math.max(0, cur - 1);
+        if (items[prev]) {
+          setActive(Array.prototype.indexOf.call(list.querySelectorAll('.ma-typeahead__item'), items[prev]));
+        }
+      } else if (e.key === 'Enter') {
+        var all = list.querySelectorAll('.ma-typeahead__item');
+        if (!list.hidden && active >= 0 && all[active]) {
+          e.preventDefault();
+          pickByEl(all[active]);
+        }
+      } else if (e.key === 'Escape') {
+        closeList();
+      }
+    });
+
+    function onPickEvent(e) {
+      var el = e.target.closest('.ma-typeahead__item');
+      if (!el || !list.contains(el)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      pickByEl(el);
+    }
+    list.addEventListener('pointerdown', onPickEvent);
+    list.addEventListener('mousedown', onPickEvent);
+    list.addEventListener('click', onPickEvent);
+
+    if (clearBtn) {
+      clearBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        clearPick();
+        if (input) input.focus();
+      });
+    }
+
+    if (form) {
+      form.addEventListener('submit', function (e) {
+        if (!String(hidden.value || '').trim()) {
+          e.preventDefault();
+          if (searchWrap) searchWrap.hidden = false;
+          if (selectedWrap) selectedWrap.hidden = true;
+          syncSubmit();
+          if (input) {
+            input.focus();
+            render(input.value);
+          }
+        }
+      });
+    }
+
+    document.addEventListener('click', function (e) {
+      if (!root.contains(e.target)) closeList();
+    });
+
+    root.setAttribute('data-ma-ready', '1');
+  }
+
   function bootCustomerPicks() {
     document.querySelectorAll('[data-ma-customer-pick]').forEach(initCustomerPick);
     document.querySelectorAll('[data-ma-customer-list-search]').forEach(initCustomerListSearch);
     document.querySelectorAll('[data-ma-tag-pick]').forEach(initTagPick);
+    document.querySelectorAll('[data-ma-share-mate-pick]').forEach(initShareMatePick);
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', bootCustomerPicks);

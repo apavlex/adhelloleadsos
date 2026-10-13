@@ -562,6 +562,11 @@ body.ma-bell-open .ma-bell { pointer-events: auto; }
   border-style: dashed;
 }
 .ma-fold--inset > summary { min-height: 44px; font-size: 14px; padding: 10px 12px; }
+/* Share contact: invite fold sits under teammate picker */
+#maCustomerShare .ma-fold--inset,
+#maJobShare .ma-fold--inset {
+  margin-top: 14px;
+}
 .ma-card--flush { box-shadow: none; border: 0; background: transparent; padding: 4px 2px 0; margin: 0; }
 .ma-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
 .ma-card + .ma-card { margin-top: 10px; }
@@ -1012,6 +1017,23 @@ html[data-ma-theme="dark"] .ma-tags__suggest-btn:hover {
   font-size: 13px;
   font-weight: 600;
   color: var(--muted);
+}
+.ma-typeahead__item.is-off {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.ma-typeahead__item.is-off:hover,
+.ma-typeahead__item.is-off.is-active {
+  background: transparent;
+  color: var(--ink);
+}
+[data-ma-share-mate-pick] [data-ma-share-search][hidden],
+[data-ma-share-mate-pick] [data-ma-share-selected][hidden] {
+  display: none !important;
+}
+[data-ma-share-submit]:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .ma-btn {

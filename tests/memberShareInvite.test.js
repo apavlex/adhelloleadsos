@@ -13,6 +13,8 @@ const work = require('../services/memberWork');
 const shareInvite = require('../services/memberShareInvite');
 const ghlMessaging = require('../services/ghlMessaging');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
+const dbService = require('../services/database');
+const ownerReferralApp = require('../services/ownerReferralApp');
 const { createMemberPortalToken } = require('../services/networkLinkSign');
 const memberApp = require('../routes/memberApp');
 const shareInviteRoutes = require('../routes/shareInvite');
@@ -177,6 +179,118 @@ test('createOrShare shares with existing teammate when phone matches', async (t)
   assert.equal((await work.listJobs(network.id, b.id)).length, 1);
 });
 
+test('owner Share contact lists workspace Team members (e.g. Isabelle SDR)', async () => {
+  const workspaceId = 'ws_share_team_isabelle';
+  const ownerEmail = 'alex@adhello.io';
+  await dbService.saveWorkspace(workspaceId, {
+    id: workspaceId,
+    name: 'Adhello Agency',
+    ownerUserId: ownerEmail,
+    members: {
+      [ownerEmail]: { role: 'owner', name: 'Alex' },
+      'isabellepavlenko@gmail.com': { role: 'sdr', name: 'Isabelle' },
+    },
+  });
+
+  const network = await store.getOrCreateNetworkForWorkspace(workspaceId, {
+    name: 'Adhello Agency',
+    ownerEmail,
+  });
+  const owner = await store.saveMember(network.id, {
+    id: ownerReferralApp.OWNER_MEMBER_ID,
+    companyName: 'Adhello Agency',
+    contactName: 'Alex',
+    email: ownerEmail,
+    status: 'active',
+    phone: '3605550100',
+  });
+  // Network partner only — Isabelle is Team & assign, not yet a member row.
+  await store.saveMember(network.id, {
+    companyName: 'Presso Renovations',
+    contactName: 'Alex',
+    status: 'active',
+    phone: '3605550111',
+    email: 'presso@example.com',
+  });
+
+  const token = createMemberPortalToken({ networkId: network.id, memberId: owner.id });
+  const cust = await work.saveCustomer(network.id, owner.id, {
+    name: 'Continuum Landscape',
+    phone: '3605550999',
+  });
+
+  const { server, base } = await startApp();
+  try {
+    const page = await (await fetch(`${base}/m/${token}/customers/c/${cust.customer.id}`)).text();
+    assert.match(page, /data-ma-share-mate-pick/);
+    assert.match(page, /Search teammates/);
+    assert.match(page, /data-ma-share-mates/);
+    assert.match(page, /Isabelle/);
+    assert.match(page, /SDR · workspace team|workspace team/i);
+    assert.match(page, /Presso Renovations/);
+    assert.match(page, /name="memberId"/);
+    assert.doesNotMatch(page, /<select[^>]*name="memberId"/);
+    // With teammates, invite fold is closed until tapped.
+    assert.match(page, /id="maShareInvite"/);
+    assert.doesNotMatch(page, /id="maShareInvite"[^>]*\sopen|id="maShareInvite" open/);
+    assert.match(page, /<summary>\s*Invite someone new\s*<\/summary>/);
+
+    const staffId = ownerReferralApp.staffMemberIdForEmail('isabellepavlenko@gmail.com');
+    const member = await store.getMember(network.id, staffId);
+    assert.ok(member, 'Isabelle staff row should be ensured for Share picker');
+    assert.equal(member.workspaceStaff, true);
+    assert.equal(member.email, 'isabellepavlenko@gmail.com');
+
+    const shared = await post(`${base}/m/${token}/customers/c/${cust.customer.id}/share`, {
+      memberId: staffId,
+    });
+    assert.equal(shared.status, 303);
+    assert.match(shared.headers.get('location') || '', /ok=customer_shared/);
+    const herCustomers = await work.listCustomers(network.id, staffId);
+    assert.ok(herCustomers.some((c) => c.name === 'Continuum Landscape' && c.sharedFromMemberId === owner.id));
+  } finally {
+    server.close();
+  }
+});
+
+test('partner Share contact does not list workspace Team seats', async () => {
+  const workspaceId = 'ws_share_partner_no_team';
+  await dbService.saveWorkspace(workspaceId, {
+    id: workspaceId,
+    name: 'Agency',
+    ownerUserId: 'owner@example.com',
+    members: {
+      'owner@example.com': { role: 'owner' },
+      'isabellepavlenko@gmail.com': { role: 'sdr', name: 'Isabelle' },
+    },
+  });
+  const network = await store.getOrCreateNetworkForWorkspace(workspaceId, { name: 'Agency' });
+  const partner = await store.saveMember(network.id, {
+    companyName: 'Partner Co',
+    contactName: 'Pat',
+    status: 'active',
+    phone: '3605550401',
+  });
+  await store.saveMember(network.id, {
+    companyName: 'Other Partner',
+    contactName: 'Ollie',
+    status: 'active',
+    phone: '3605550402',
+  });
+  const token = createMemberPortalToken({ networkId: network.id, memberId: partner.id });
+  const cust = await work.saveCustomer(network.id, partner.id, { name: 'Lead', phone: '3605550409' });
+
+  const { server, base } = await startApp();
+  try {
+    const page = await (await fetch(`${base}/m/${token}/customers/c/${cust.customer.id}`)).text();
+    assert.match(page, /Other Partner/);
+    assert.doesNotMatch(page, /Isabelle/);
+    assert.doesNotMatch(page, /SDR · workspace team/);
+  } finally {
+    server.close();
+  }
+});
+
 test('member app invite-outside form creates claimable invite', async (t) => {
   t.after(() => mock.restoreAll());
   mock.method(workspaceIntegrations, 'getResolvedIntegrationEnv', async () => ({
@@ -204,7 +318,9 @@ test('member app invite-outside form creates claimable invite', async (t) => {
     assert.match(page, /Share contact &amp; projects|Share contact & projects/);
     assert.match(page, /Invite outside network/);
     assert.match(page, /name="invitePhone"/);
-    assert.doesNotMatch(page, /Pick a teammate/);
+    assert.doesNotMatch(page, /data-ma-share-mate-pick/);
+    // No teammates → invite fold stays open so the only path is visible.
+    assert.match(page, /id="maShareInvite"[^>]*\sopen|id="maShareInvite" open/);
 
     const invited = await post(`${A}/customers/c/${cust.customer.id}/share`, {
       invitePhone: '3605558888',

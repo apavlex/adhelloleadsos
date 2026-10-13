@@ -77,7 +77,8 @@ test('customers and jobs are scoped to one member of one network', async () => {
   assert.equal((await work.deleteJob(NET, MEM_A, job.job.id)).ok, false);
   assert.ok(await work.getJob(NET, MEM_B, job.job.id));
 
-  await assert.rejects(work.listCustomers(NET, 'a_b'), /invalid scope/);
+  // Underscores are allowed (workspace staff_* seats); reject other punctuation.
+  await assert.rejects(work.listCustomers(NET, 'a/b'), /invalid scope/);
   await assert.rejects(work.listCustomers('net%', MEM_A), /invalid scope/);
   assert.equal(await work.getCustomer(NET, MEM_B, '../x'), null);
 });
@@ -458,6 +459,11 @@ test('customers tab routes: top-bar add customer, CRUD, calendar, pending and re
     assert.match(jobPage, /all their projects/);
     assert.match(jobPage, /Invite outside network/);
     assert.match(jobPage, /name="invitePhone"/);
+    assert.match(jobPage, /data-ma-share-mate-pick/);
+    assert.match(jobPage, /Search teammates/);
+    assert.match(jobPage, /id="maJobShareInvite"/);
+    assert.doesNotMatch(jobPage, /id="maJobShareInvite"[^>]*\sopen|id="maJobShareInvite" open/);
+    assert.match(jobPage, /<summary>\s*Invite someone new\s*<\/summary>/);
     assert.match(jobPage, /action="[^"]*\/customers\/jobs\/[^"]+\/share"/);
     assert.match(jobPage, /Camas Electric/);
     assert.match(jobPage, /Job photos/);
@@ -507,6 +513,8 @@ test('customers tab routes: top-bar add customer, CRUD, calendar, pending and re
     assert.ok(customerPage.indexOf('ma-tags-section') < customerPage.indexOf('>Details<'));
     assert.match(customerPage, /Share contact &amp; projects|Share contact & projects/);
     assert.match(customerPage, /action="[^"]*\/customers\/c\/[^"]+\/share"/);
+    // Share contact sits under Details (not above Jobs).
+    assert.ok(customerPage.indexOf('>Details<') < customerPage.indexOf('maCustomerShare'));
 
     const inlineCustomer = await post(`${A}/customers/jobs/new`, {
       customerId: 'new', newCustomerName: 'Quinn', title: 'Estimate', status: 'estimate',
