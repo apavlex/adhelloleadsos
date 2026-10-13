@@ -739,6 +739,26 @@ test('free app_free members cannot send GHL review SMS/email', async () => {
     assert.equal(blocked.status, 303);
     assert.match(blocked.headers.get('location') || '', /ok=review_send_upgrade/);
     assert.doesNotMatch(blocked.headers.get('location') || '', /ask=1/);
+
+    const settingsHtml = await (await fetch(`${base}/review/settings`)).text();
+    assert.match(settingsHtml, /Referral reward after a great review/);
+    assert.match(settingsHtml, /Referral rewards &amp; customer referrals|Referral rewards & customer referrals/);
+    assert.match(settingsHtml, /Upgrade to activate/);
+    assert.doesNotMatch(settingsHtml, /action="[^"]*\/review\/reward"/);
+
+    const rewardBlocked = await fetch(`${base}/review/reward`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        rewardEnabled: '1',
+        rewardLabel: '$25 gift card',
+        rewardMinStars: '4',
+        rewardType: 'gift_card',
+      }),
+      redirect: 'manual',
+    });
+    assert.equal(rewardBlocked.status, 303);
+    assert.match(rewardBlocked.headers.get('location') || '', /ok=reward_upgrade/);
   } finally {
     await new Promise((r) => server.close(r));
   }

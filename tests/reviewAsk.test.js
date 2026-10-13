@@ -139,4 +139,61 @@ describe('review ask tracking + 48h reminder', () => {
     assert.ok(due.some((a) => a.id === dueAsk.id));
     assert.ok(!due.some((a) => a.name === 'Fresh'));
   });
+
+  it('tracks rating → pending confirm → sent / skipped', async () => {
+    const ask = await reviewAsk.createAsk({
+      networkId: 'n5',
+      memberId: 'm5',
+      customerId: 'custreward1',
+      name: 'Riley',
+      phone: '+15550005555',
+      channel: 'sms',
+      reviewSlug: 'reward-co',
+      now: Date.parse('2026-12-01T12:00:00.000Z'),
+    });
+    const rated = await reviewAsk.markRated(ask.id, 5);
+    assert.equal(rated.rating, 5);
+    assert.ok(rated.ratedAt);
+    assert.equal(reviewAsk.pendingRewardConfirm(rated), false);
+
+    const notified = await reviewAsk.saveAsk({
+      ...rated,
+      rewardNotifiedAt: '2026-12-01T12:01:00.000Z',
+    });
+    assert.equal(reviewAsk.pendingRewardConfirm(notified), true);
+
+    const pending = await reviewAsk.listPendingRewardConfirms({
+      networkId: 'n5',
+      memberId: 'm5',
+    });
+    assert.ok(pending.some((a) => a.id === ask.id));
+
+    const confirmed = await reviewAsk.markReviewConfirmed(ask.id, { by: 'm5' });
+    assert.ok(confirmed.reviewConfirmedAt);
+    assert.equal(confirmed.reviewConfirmedBy, 'm5');
+    assert.equal(reviewAsk.pendingRewardConfirm(confirmed), true);
+
+    const sent = await reviewAsk.markRewardSent(ask.id, 'msg_reward_1');
+    assert.ok(sent.rewardSentAt);
+    assert.equal(sent.rewardMessageId, 'msg_reward_1');
+    assert.equal(reviewAsk.pendingRewardConfirm(sent), false);
+
+    const other = await reviewAsk.createAsk({
+      networkId: 'n5',
+      memberId: 'm5',
+      name: 'Skipme',
+      phone: '+15550006666',
+      channel: 'sms',
+      reviewSlug: 'reward-co',
+      now: Date.parse('2026-12-02T12:00:00.000Z'),
+    });
+    await reviewAsk.markRated(other.id, 4);
+    await reviewAsk.saveAsk({
+      ...(await reviewAsk.getAsk(other.id)),
+      rewardNotifiedAt: '2026-12-02T12:01:00.000Z',
+    });
+    const skipped = await reviewAsk.markRewardSkipped(other.id);
+    assert.ok(skipped.rewardSkippedAt);
+    assert.equal(reviewAsk.pendingRewardConfirm(skipped), false);
+  });
 });

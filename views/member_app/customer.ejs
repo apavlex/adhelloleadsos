@@ -38,6 +38,13 @@
         <% if (reviewAskStatus.detail) { %><span><%= reviewAskStatus.detail %></span><% } %>
       </div>
     </div>
+    <% if (reviewAskStatus.canConfirm && reviewAskStatus.askId) { %>
+    <%- include('_review_reward_confirm', {
+      rewardCompact: true,
+      rewardConfirm: { askId: reviewAskStatus.askId },
+      rewardReturnTo: base + '/customers/c/' + encodeURIComponent(customer.id),
+    }) %>
+    <% } %>
     <% } else { %>
     <p class="ma-hint" style="margin:8px 0 0">Opens Review with this customer selected so you can confirm the message before it sends via GHL CRM. We’ll track opens and nudge once if they don’t click.</p>
     <% } %>

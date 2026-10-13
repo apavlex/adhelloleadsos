@@ -17,6 +17,13 @@
     <% const _needLinks = !linkCount; %>
     <% const _askOpen = typeof askShare !== 'undefined' && askShare; %>
 
+    <% if (!(typeof rewardLocked !== 'undefined' && rewardLocked)) { %>
+    <%- include('_review_reward_confirm', {
+      pendingRewards: typeof pendingRewards !== 'undefined' ? pendingRewards : [],
+      rewardReturnTo: base + '/review',
+    }) %>
+    <% } %>
+
     <section class="ma-card ma-qr" style="margin-top:4px" aria-label="Share and QR code">
       <% if (_needLinks) { %>
       <p class="ma-flash ma-flash--err" style="margin:0 0 12px;width:100%;text-align:left">Add your review links in <a href="<%= base %>/review/settings" style="color:inherit;font-weight:800">Settings</a> so the QR can send customers to the right places.</p>

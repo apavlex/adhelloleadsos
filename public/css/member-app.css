@@ -1829,9 +1829,22 @@ html[data-ma-theme="dark"] .ma-photo-modal {background:rgba(0,0,0,.65)}
 .ma-askstatus svg{width:20px;height:20px;flex-shrink:0;margin-top:1px}
 .ma-askstatus strong{display:block;font-size:14px;font-weight:800}
 .ma-askstatus span{display:block;font-size:12px;font-weight:600;opacity:.85;margin-top:2px;line-height:1.35}
-.ma-askstatus--opened,.ma-askstatus--clicked{background:rgba(16,185,129,.12);color:#047857}
-.ma-askstatus--reminded{background:rgba(245,158,11,.15);color:#92400e}
+.ma-askstatus--opened,.ma-askstatus--clicked,.ma-askstatus--reward_sent{background:rgba(16,185,129,.12);color:#047857}
+.ma-askstatus--reminded,.ma-askstatus--reward_pending{background:rgba(245,158,11,.15);color:#92400e}
+.ma-askstatus--reward_skipped{background:rgba(100,116,139,.12);color:#475569}
 .ma-optional{font-weight:600;opacity:.7}
-html[data-ma-theme="dark"] .ma-askstatus--opened, html[data-ma-theme="dark"] .ma-askstatus--clicked {color:#6ee7b7}
-html[data-ma-theme="dark"] .ma-askstatus--reminded {color:#fcd34d}
+.ma-reward-pending{margin:12px 0}
+.ma-reward-pending__row{display:flex;flex-direction:column;gap:10px;padding:12px 0;border-top:1px solid var(--line)}
+.ma-reward-pending__row:first-of-type{border-top:0;padding-top:0}
+.ma-reward-pending__who strong{display:block;font-size:15px;font-weight:800}
+.ma-reward-pending__who span{display:block;font-size:12px;font-weight:600;opacity:.8;margin-top:2px}
+.ma-reward-pending__actions{margin-top:0}
+.ma-reward-pending--compact{margin:8px 0 0}
+.ma-reward-pending--compact .ma-reward-pending__actions{justify-content:flex-start}
+html[data-ma-theme="dark"] .ma-askstatus--opened,
+html[data-ma-theme="dark"] .ma-askstatus--clicked,
+html[data-ma-theme="dark"] .ma-askstatus--reward_sent {color:#6ee7b7}
+html[data-ma-theme="dark"] .ma-askstatus--reminded,
+html[data-ma-theme="dark"] .ma-askstatus--reward_pending {color:#fcd34d}
+html[data-ma-theme="dark"] .ma-askstatus--reward_skipped {color:#cbd5e1}
 
