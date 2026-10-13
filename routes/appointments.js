@@ -27,6 +27,41 @@ async function requireAppAdmin(req, res) {
   return false;
 }
 
+/** Push leads into this workspace’s contractor packages (admins or workspace managers). */
+async function canDeliverLeads(req) {
+  if (await isAppAdmin(req)) return true;
+  return !!(req.canManageWorkspace);
+}
+
+async function requireDeliverAccess(req, res) {
+  if (await canDeliverLeads(req)) return true;
+  res.status(403).json({
+    success: false,
+    error: 'Only workspace admins can push leads to teammates.',
+  });
+  return false;
+}
+
+/**
+ * Lightweight list of contractor packages for Add Opportunity multi-select.
+ *   GET /appointments/appointment-packages/push-targets
+ */
+router.get('/appointment-packages/push-targets', async (req, res, next) => {
+  try {
+    if (!(await requireDeliverAccess(req, res))) return;
+    const view = await appointmentPackages.loadTodayView(req.workspaceId);
+    const packages = (view.packages || []).map((pkg) => ({
+      id: pkg.id,
+      businessName: pkg.businessName || 'Contractor',
+      trade: pkg.trade || '',
+      openFormLeads: pkg.openFormLeads || 0,
+    }));
+    return res.json({ success: true, packages, canPush: packages.length > 0 });
+  } catch (e) {
+    return next(e);
+  }
+});
+
 router.get('/', async (req, res, next) => {
   try {
     const canSell = await isAppAdmin(req);
@@ -216,7 +251,7 @@ router.post('/appointment-packages/sync', express.json(), async (req, res, next)
  */
 router.post('/appointment-packages/deliver-lead-bulk', express.json(), async (req, res, next) => {
   try {
-    if (!(await requireAppAdmin(req, res))) return;
+    if (!(await requireDeliverAccess(req, res))) return;
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     if (!String(body.name || body.title || '').trim()) {
       return res.status(400).json({ success: false, error: 'Lead name is required.' });
@@ -402,7 +437,7 @@ router.post('/appointment-packages/:id/send-review-app-link', express.json(), as
 /** Deliver a lead into a contractor package (consumes a credit + pushes to their devices). */
 router.post('/appointment-packages/:id/deliver-lead', express.json(), async (req, res, next) => {
   try {
-    if (!(await requireAppAdmin(req, res))) return;
+    if (!(await requireDeliverAccess(req, res))) return;
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     if (!String(body.name || body.title || '').trim()) {
       return res.status(400).json({ success: false, error: 'Lead name is required.' });
