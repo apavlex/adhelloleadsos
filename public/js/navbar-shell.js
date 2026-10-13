@@ -7709,6 +7709,73 @@ function readJsonReply(r) {
   var mlBackdrop = document.getElementById('manualLeadBackdrop');
   var mlForm = document.getElementById('manualLeadForm');
   var mlErr = document.getElementById('manualLeadError');
+  var mlPushWrap = document.getElementById('manualLeadPushWrap');
+  var mlPushToggle = document.getElementById('manualLeadPushToggle');
+  var mlPushList = document.getElementById('manualLeadPushList');
+  var mlPushEmpty = document.getElementById('manualLeadPushEmpty');
+  var mlPushPackages = [];
+
+  function resetManualLeadPushUi() {
+    if (mlPushToggle) mlPushToggle.checked = false;
+    if (mlPushList) {
+      mlPushList.classList.add('hidden');
+      mlPushList.querySelectorAll('input[type="checkbox"]').forEach(function (cb) { cb.checked = false; });
+    }
+    if (mlPushEmpty) mlPushEmpty.classList.add('hidden');
+  }
+
+  function renderManualLeadPushTargets(packages) {
+    mlPushPackages = Array.isArray(packages) ? packages : [];
+    if (!mlPushWrap) return;
+    mlPushWrap.classList.remove('hidden');
+    mlPushWrap.setAttribute('data-manual-push-loaded', '1');
+    if (!mlPushList) return;
+    if (!mlPushPackages.length) {
+      mlPushList.innerHTML = '';
+      mlPushList.classList.add('hidden');
+      if (mlPushEmpty) mlPushEmpty.classList.remove('hidden');
+      if (mlPushToggle) mlPushToggle.checked = false;
+      return;
+    }
+    if (mlPushEmpty) mlPushEmpty.classList.add('hidden');
+    mlPushList.innerHTML = mlPushPackages.map(function (pkg) {
+      var id = String(pkg.id || '');
+      var name = String(pkg.businessName || 'Teammate');
+      var trade = pkg.trade ? ' · ' + String(pkg.trade) : '';
+      return '<label class="inline-flex items-start gap-2 text-sm font-semibold text-brand-dark dark:text-white cursor-pointer">'
+        + '<input type="checkbox" name="pushPackageIds" value="' + id.replace(/"/g, '&quot;') + '" class="mt-1 accent-brand-yellow" />'
+        + '<span>' + name.replace(/</g, '&lt;') + '<span class="text-brand-muted">' + trade.replace(/</g, '&lt;') + '</span></span>'
+        + '</label>';
+    }).join('');
+    if (mlPushToggle && mlPushToggle.checked) mlPushList.classList.remove('hidden');
+  }
+
+  function loadManualLeadPushTargets() {
+    if (!mlPushWrap) return;
+    if (mlPushWrap.getAttribute('data-manual-push-loaded') === '1') return;
+    fetch('/appointments/appointment-packages/push-targets', { headers: { Accept: 'application/json' } })
+      .then(function (r) { return readJsonReply(r); })
+      .then(function (_ref) {
+        var ok = _ref.ok;
+        var data = _ref.j;
+        if (!ok || !data || !data.success) {
+          if (mlPushWrap) mlPushWrap.classList.add('hidden');
+          return;
+        }
+        renderManualLeadPushTargets(data.packages || []);
+      })
+      .catch(function () {
+        if (mlPushWrap) mlPushWrap.classList.add('hidden');
+      });
+  }
+
+  if (mlPushToggle && mlPushList) {
+    mlPushToggle.addEventListener('change', function () {
+      if (mlPushToggle.checked && mlPushPackages.length) mlPushList.classList.remove('hidden');
+      else mlPushList.classList.add('hidden');
+    });
+  }
+
   function openManualLead() {
     if (!mlModal) return;
     mlModal.classList.remove('hidden');
@@ -7719,6 +7786,7 @@ function readJsonReply(r) {
     if (mobileMenu && !mobileMenu.classList.contains('hidden')) {
       mobileMenu.classList.add('hidden', 'opacity-0', 'pointer-events-none');
     }
+    loadManualLeadPushTargets();
     var t = document.getElementById('manualTitle');
     if (t) setTimeout(function () { t.focus(); }, 100);
   }
@@ -7728,6 +7796,7 @@ function readJsonReply(r) {
     mlModal.classList.remove('flex');
     mlModal.setAttribute('aria-hidden', 'true');
     if (mlForm) mlForm.reset();
+    resetManualLeadPushUi();
     if (mlFileInput) { mlFileInput.value = ''; mlFileInput.disabled = false; if (mlFileName) { mlFileName.textContent = ''; mlFileName.classList.add('hidden'); } }
     if (mlUploadSubmit) { mlUploadSubmit.disabled = true; mlUploadSubmit.textContent = 'Upload & import'; }
     var mlUploadIcon = document.getElementById('manualLeadUploadIcon');
@@ -7775,8 +7844,22 @@ function readJsonReply(r) {
         payload.opportunityPipelineId = oppBoard.getAttribute('data-pipeline-id') || '';
         payload.opportunityStageId = oppBoard.getAttribute('data-first-stage-id') || '';
       }
+      var pushIds = [];
+      if (mlPushToggle && mlPushToggle.checked && mlPushList) {
+        mlPushList.querySelectorAll('input[name="pushPackageIds"]:checked').forEach(function (cb) {
+          var id = String(cb.value || '').trim();
+          if (id) pushIds.push(id);
+        });
+        if (!pushIds.length) {
+          if (mlErr) {
+            mlErr.textContent = 'Pick at least one teammate to push to, or turn off “Also push to teammates”.';
+            mlErr.classList.remove('hidden');
+          }
+          return;
+        }
+      }
       var btn = document.getElementById('manualLeadSubmit');
-      if (btn) { btn.disabled = true; var ob = btn.textContent; btn.textContent = 'Saving…'; }
+      if (btn) { btn.disabled = true; btn.textContent = pushIds.length ? 'Saving & pushing…' : 'Saving…'; }
       fetch('/leads/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -7786,20 +7869,58 @@ function readJsonReply(r) {
         .then(function (_ref) {
           var ok = _ref.ok;
           var data = _ref.j;
+          if (!(ok && data && data.success)) {
+            if (btn) { btn.disabled = false; btn.textContent = 'Save to pipeline'; }
+            if (mlErr) {
+              mlErr.textContent = (data && data.error) ? data.error : 'Could not save lead.';
+              mlErr.classList.remove('hidden');
+            }
+            return null;
+          }
+          if (!pushIds.length) return { data: data, pushed: null };
+          return fetch('/appointments/appointment-packages/deliver-lead-bulk', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({
+              packageIds: pushIds,
+              name: title,
+              phone: payload.phone || null,
+              email: payload.email || null,
+              preview: payload.note || null,
+              leadKey: data.key || null,
+              formName: 'Added from workspace',
+              source: 'agency',
+            }),
+          })
+            .then(function (r2) { return readJsonReply(r2); })
+            .then(function (_ref2) {
+              return { data: data, pushed: _ref2 };
+            });
+        })
+        .then(function (result) {
+          if (!result) return;
           if (btn) { btn.disabled = false; btn.textContent = 'Save to pipeline'; }
-          if (ok && data.success) {
-            closeManualLead();
-            var pipelineId = (data && data.pipelineId) || (oppBoard && oppBoard.getAttribute('data-pipeline-id')) || '';
-            var here = window.location.pathname || '';
-            var stay = here.indexOf('/today') === 0 || here.indexOf('/opportunities') === 0;
-            var nextPath = stay ? here : '/opportunities';
-            window.location.href = nextPath + (pipelineId ? '?pipeline=' + encodeURIComponent(pipelineId) : '');
+          var data = result.data;
+          var pushed = result.pushed;
+          if (pushed && !(pushed.ok && pushed.j && pushed.j.success)) {
+            if (mlErr) {
+              mlErr.textContent = (pushed.j && pushed.j.error)
+                ? ('Saved to pipeline, but push failed: ' + pushed.j.error)
+                : 'Saved to pipeline, but could not push to teammates.';
+              mlErr.classList.remove('hidden');
+            }
             return;
           }
-          if (mlErr) {
-            mlErr.textContent = (data && data.error) ? data.error : 'Could not save lead.';
-            mlErr.classList.remove('hidden');
+          closeManualLead();
+          var pipelineId = (data && data.pipelineId) || (oppBoard && oppBoard.getAttribute('data-pipeline-id')) || '';
+          var here = window.location.pathname || '';
+          var stay = here.indexOf('/today') === 0 || here.indexOf('/opportunities') === 0;
+          var nextPath = stay ? here : '/opportunities';
+          var q = pipelineId ? ('?pipeline=' + encodeURIComponent(pipelineId)) : '';
+          if (pushed && pushed.j && pushed.j.count) {
+            q += (q ? '&' : '?') + 'pushed=' + encodeURIComponent(String(pushed.j.count));
           }
+          window.location.href = nextPath + q;
         })
         .catch(function () {
           if (btn) { btn.disabled = false; btn.textContent = 'Save to pipeline'; }
