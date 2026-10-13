@@ -328,6 +328,7 @@ async function handleInboundCall({ lead, workspaceId, outcome, at, eventId, dura
       label: label || '',
       preview: recordingUrl ? 'Voicemail recording in GHL' : '',
       source: source || 'ghl',
+      ghlContactId: lead.ghlContactId || '',
     }),
     logs: [{ type: 'call_inbound', message: `${summary} from ${lead.phone || 'caller'}`, timestamp: atIso }],
   };

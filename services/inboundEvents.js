@@ -3,10 +3,13 @@
  * and the "Inbound" feed on Today: events nobody has followed up on yet.
  */
 const dbService = require('./database');
+const { leadConnectorOpenUrl } = require('./ghlDeepLinks');
 
 const MAX_EVENTS_PER_LEAD = 20;
 const FEED_DAYS = 7;
 const FEED_LIMIT = 25;
+const GHL_ACTIVITY_DAYS = 30;
+const GHL_ACTIVITY_LIMIT = 200;
 
 const TYPE_LABELS = {
   form: 'New form lead',
@@ -16,6 +19,9 @@ const TYPE_LABELS = {
   sms: 'Text',
   email: 'Email',
 };
+
+/** Missed calls + SMS shown on the dedicated GHL / Lead Connector activity page. */
+const GHL_ACTIVITY_TYPES = new Set(['missed_call', 'voicemail', 'sms']);
 
 /** Events that need a follow-up (answered calls are logged but not queued). */
 const ACTIONABLE_TYPES = new Set(['form', 'missed_call', 'voicemail', 'sms', 'email']);
@@ -45,7 +51,7 @@ function normalizeInboundEvent(ev) {
   const type = String(ev.type || '').trim().toLowerCase();
   if (!TYPE_LABELS[type]) return null;
   const at = toIso(ev.at);
-  return {
+  const out = {
     id: String(ev.id || `${type}:${at}`).trim().slice(0, 160),
     type,
     at,
@@ -53,6 +59,11 @@ function normalizeInboundEvent(ev) {
     preview: String(ev.preview || '').replace(/\s+/g, ' ').trim().slice(0, 240),
     source: String(ev.source || '').trim().slice(0, 60),
   };
+  const contactId = String(ev.ghlContactId || ev.contactId || '').trim();
+  if (contactId) out.ghlContactId = contactId.slice(0, 80);
+  const conversationId = String(ev.conversationId || '').trim();
+  if (conversationId) out.conversationId = conversationId.slice(0, 80);
+  return out;
 }
 
 /** Append (deduped by id), keep newest MAX_EVENTS_PER_LEAD, oldest first. */
@@ -94,10 +105,62 @@ function cleanContact(v) {
   return s && s.toUpperCase() !== 'N/A' ? s : '';
 }
 
+function focusHrefFor(short) {
+  return `/focus?lead=${encodeURIComponent(short)}`;
+}
+
+function focusCallHrefFor(short) {
+  return `/focus?lead=${encodeURIComponent(short)}&channel=call`;
+}
+
+/**
+ * Attach Lead Connector / GHL open URLs so Call opens the mobile app (universal link).
+ * @param {object} row
+ * @param {{ lead?: object, locationId?: string, dashboardUrl?: string, event?: object }} ctx
+ */
+function withLeadConnectorLinks(row, ctx = {}) {
+  const lead = ctx.lead || {};
+  const contactId = String(
+    (ctx.event && ctx.event.ghlContactId) || lead.ghlContactId || row.ghlContactId || '',
+  ).trim();
+  const conversationId = String(
+    (ctx.event && ctx.event.conversationId) || row.conversationId || '',
+  ).trim();
+  const preferConversation = row.type === 'sms';
+  const ghlHref = leadConnectorOpenUrl({
+    dashboardUrl: ctx.dashboardUrl,
+    locationId: ctx.locationId,
+    contactId,
+    conversationId,
+    preferConversation,
+  });
+  const hasLc = !!(ghlHref && contactId && String(ctx.locationId || '').trim());
+  const phone = cleanContact(row.phone || lead.phone);
+  const focusSms = focusHrefFor(row.short);
+  const focusCall = focusCallHrefFor(row.short);
+  return {
+    ...row,
+    ghlContactId: contactId || '',
+    conversationId: conversationId || '',
+    ghlHref: hasLc ? ghlHref : '',
+    // Call / Reply in Lead Connector when linked; else Focus (or tel: as last resort for call).
+    callHref: hasLc
+      ? ghlHref
+      : row.type === 'sms' || row.type === 'email'
+        ? focusSms
+        : phone
+          ? `tel:${phone}`
+          : focusCall,
+    callExternal: hasLc,
+    callOpensLeadConnector: hasLc,
+    focusHref: row.focusHref || focusHrefFor(row.short),
+  };
+}
+
 /**
  * One row per lead with unhandled inbound activity in the last FEED_DAYS days, newest first.
  * @param {object[]} leads
- * @param {{ now?: number, days?: number, limit?: number }} [opts]
+ * @param {{ now?: number, days?: number, limit?: number, locationId?: string, dashboardUrl?: string }} [opts]
  */
 function pendingInboundItems(leads, opts = {}) {
   const now = Number.isFinite(opts.now) ? opts.now : Date.now();
@@ -117,7 +180,7 @@ function pendingInboundItems(leads, opts = {}) {
     const latest = open.reduce((a, b) => (toMs(b.at) >= toMs(a.at) ? b : a));
     const short = shortLeadKey(lead.key);
     const types = [...new Set(open.map((e) => e.type))];
-    rows.push({
+    const base = {
       leadKey: lead.key,
       short,
       title: String(lead.title || lead.name || 'Unknown contact').trim(),
@@ -130,10 +193,72 @@ function pendingInboundItems(leads, opts = {}) {
       at: latest.at,
       count: open.length,
       otherTypes: types.filter((t) => t !== latest.type).map((t) => TYPE_LABELS[t]),
-      focusHref: `/focus?lead=${encodeURIComponent(short)}`,
-      callHref: `/focus?lead=${encodeURIComponent(short)}&channel=call`,
+      focusHref: focusHrefFor(short),
       openHref: `/pipeline?focusLead=${encodeURIComponent(short)}`,
-    });
+      handled: false,
+    };
+    rows.push(
+      withLeadConnectorLinks(base, {
+        lead,
+        event: latest,
+        locationId: opts.locationId,
+        dashboardUrl: opts.dashboardUrl,
+      }),
+    );
+  }
+  rows.sort((a, b) => toMs(b.at) - toMs(a.at));
+  return rows.slice(0, limit);
+}
+
+/**
+ * Full GHL missed-call + SMS history (one row per event, includes handled).
+ * Call opens Lead Connector when the lead has a GHL contact id.
+ * @param {object[]} leads
+ * @param {{ now?: number, days?: number, limit?: number, locationId?: string, dashboardUrl?: string, types?: string[] }} [opts]
+ */
+function listGhlCallSmsItems(leads, opts = {}) {
+  const now = Number.isFinite(opts.now) ? opts.now : Date.now();
+  const cutoff = now - (opts.days || GHL_ACTIVITY_DAYS) * 86400000;
+  const limit = opts.limit || GHL_ACTIVITY_LIMIT;
+  const allow = Array.isArray(opts.types) && opts.types.length
+    ? new Set(opts.types.map((t) => String(t).toLowerCase()))
+    : GHL_ACTIVITY_TYPES;
+  const rows = [];
+  for (const lead of Array.isArray(leads) ? leads : []) {
+    const events = Array.isArray(lead && lead.inboundEvents) ? lead.inboundEvents : [];
+    if (!events.length) continue;
+    const handledMs = lastFollowUpMs(lead);
+    const short = shortLeadKey(lead.key);
+    for (const e of events) {
+      if (!e || !allow.has(e.type)) continue;
+      const t = toMs(e.at);
+      if (t < cutoff) continue;
+      const base = {
+        id: e.id || `${e.type}:${e.at}`,
+        leadKey: lead.key,
+        short,
+        title: String(lead.title || lead.name || 'Unknown contact').trim(),
+        phone: cleanContact(lead.phone),
+        email: cleanContact(lead.email),
+        type: e.type,
+        typeLabel: TYPE_LABELS[e.type] || e.type,
+        label: e.label || '',
+        preview: e.preview || '',
+        at: e.at,
+        source: e.source || 'ghl',
+        handled: t <= handledMs,
+        focusHref: focusHrefFor(short),
+        openHref: `/pipeline?focusLead=${encodeURIComponent(short)}`,
+      };
+      rows.push(
+        withLeadConnectorLinks(base, {
+          lead,
+          event: e,
+          locationId: opts.locationId,
+          dashboardUrl: opts.dashboardUrl,
+        }),
+      );
+    }
   }
   rows.sort((a, b) => toMs(b.at) - toMs(a.at));
   return rows.slice(0, limit);
@@ -143,10 +268,15 @@ module.exports = {
   TYPE_LABELS,
   ACTIONABLE_TYPES,
   FOLLOW_UP_UPDATE_TYPES,
+  GHL_ACTIVITY_TYPES,
   MAX_EVENTS_PER_LEAD,
+  GHL_ACTIVITY_DAYS,
+  GHL_ACTIVITY_LIMIT,
   normalizeInboundEvent,
   appendInboundEvent,
   recordInboundEvent,
   lastFollowUpMs,
   pendingInboundItems,
+  listGhlCallSmsItems,
+  withLeadConnectorLinks,
 };

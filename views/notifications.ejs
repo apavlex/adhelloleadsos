@@ -5,6 +5,7 @@
     { id: 'search', label: 'Searches' },
     { id: 'other', label: 'Other' },
   ];
+  // Dedicated GHL missed-call / SMS list (Lead Connector Call links) lives at /notifications/ghl.
   const _tone = {
     form: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
     missed_call: 'bg-rose-100 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300',
@@ -42,7 +43,10 @@
         <h1 class="font-display font-extrabold text-4xl md:text-5xl tracking-tight text-brand-dark">Notifications</h1>
         <p class="text-brand-muted font-medium mt-2">Inbound leads, calls, texts and emails, finished searches, and background jobs from the last 30 days.</p>
       </div>
-      <a href="/history" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-yellow">Search history →</a>
+      <div class="flex flex-wrap items-center gap-3">
+        <a href="/notifications/ghl" class="btn-pill btn-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest">GHL calls &amp; texts</a>
+        <a href="/history" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-yellow">Search history →</a>
+      </div>
     </div>
 
     <nav class="flex flex-wrap gap-2 mb-6" aria-label="Filter notifications">

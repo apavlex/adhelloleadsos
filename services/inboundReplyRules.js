@@ -147,6 +147,8 @@ async function handleInboundReply(ctx) {
       label: replyLabel,
       preview: body,
       source: provider,
+      ghlContactId: ctx.ghlContactId || lead.ghlContactId || '',
+      conversationId: ctx.conversationId || '',
     }),
     updates,
     logs: [
