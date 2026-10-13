@@ -1,6 +1,20 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
+
+// Load networkStore first (production boot order) — must not poison freeAppSignup
+// via a circular require that leaves store.saveMember undefined.
+const store = require('../services/networkStore');
+const freeAppSignup = require('../services/freeAppSignup');
 const reward = require('../services/reviewReferralReward');
+
+describe('review referral reward circular load', () => {
+  it('keeps networkStore exports intact when reward module is loaded', () => {
+    assert.equal(typeof store.saveMember, 'function');
+    assert.equal(typeof store.getOrCreateNetworkForWorkspace, 'function');
+    assert.equal(typeof freeAppSignup.isAppFreeMember, 'function');
+    assert.equal(freeAppSignup.isAppFreeMember({ plan: 'app_free' }), true);
+  });
+});
 
 describe('review referral reward settings', () => {
   it('normalizes defaults and body', () => {

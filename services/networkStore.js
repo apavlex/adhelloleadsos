@@ -21,7 +21,6 @@ const { normalizeTradeSlugs, normalizeCustomTrades, catalogFor, ORIGINAL_TRADE_S
 const { normalizeZone, normalizeSeatLimit } = require('./referralExchange');
 const { normalizeBrand } = require('./networkBrand');
 const { PLATFORMS: REVIEW_LINK_PLATFORMS, MAX_OTHER_LINKS: MAX_OTHER_REVIEW_LINKS } = require('./reviewPage');
-const reviewReferralReward = require('./reviewReferralReward');
 
 // Hex/base36 only: kv listing uses SQL LIKE, where "_" is a wildcard.
 function newId() {
@@ -177,8 +176,9 @@ function normalizeMember(raw) {
     /**
      * Post–4–5★ referral reward: business confirms the public review, then we
      * text/email the customer their configured gift/discount/prize offer.
+     * Lazy-require to avoid networkStore ↔ freeAppSignup circular load.
      */
-    reviewReward: reviewReferralReward.normalizeSettings(m.reviewReward),
+    reviewReward: require('./reviewReferralReward').normalizeSettings(m.reviewReward),
     /** ISO stamp when a custom default OG/share image was saved (empty = use generated default). */
     reviewShareImageUpdatedAt: cleanText(m.reviewShareImageUpdatedAt, 40),
     /** ISO stamp when a custom logo for the public review request page was saved. */
