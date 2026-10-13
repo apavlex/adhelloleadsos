@@ -227,6 +227,10 @@ test('owner Share contact lists workspace Team members (e.g. Isabelle SDR)', asy
     assert.match(page, /SDR · workspace team|workspace team/i);
     assert.match(page, /Presso Renovations/);
     assert.match(page, /name="memberId"/);
+    // With teammates, invite fold is closed until tapped.
+    assert.match(page, /id="maShareInvite"/);
+    assert.doesNotMatch(page, /id="maShareInvite"[^>]*\sopen|id="maShareInvite" open/);
+    assert.match(page, /<summary>\s*Invite someone new\s*<\/summary>/);
 
     const staffId = ownerReferralApp.staffMemberIdForEmail('isabellepavlenko@gmail.com');
     const member = await store.getMember(network.id, staffId);
@@ -312,6 +316,8 @@ test('member app invite-outside form creates claimable invite', async (t) => {
     assert.match(page, /Invite outside network/);
     assert.match(page, /name="invitePhone"/);
     assert.doesNotMatch(page, /Pick a teammate/);
+    // No teammates → invite fold stays open so the only path is visible.
+    assert.match(page, /id="maShareInvite"[^>]*\sopen|id="maShareInvite" open/);
 
     const invited = await post(`${A}/customers/c/${cust.customer.id}/share`, {
       invitePhone: '3605558888',

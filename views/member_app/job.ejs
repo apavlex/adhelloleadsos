@@ -152,29 +152,37 @@
         </div>
         <button type="submit" class="ma-btn ma-btn--block ma-btn--soft"><%- icons.send %> Share with teammate</button>
       </form>
-      <p class="ma-hint" style="margin:14px 0 10px;text-align:center">or invite someone new</p>
       <% } %>
-      <form method="post" action="<%= base %>/customers/jobs/<%= job.id %>/share" autocomplete="off" data-ma-loading="Sending invite…">
-        <div class="ma-field">
-          <label class="ma-label" for="jbInviteName">Their name <span style="font-weight:600;text-transform:none;letter-spacing:0;color:var(--muted)">optional</span></label>
-          <input id="jbInviteName" name="inviteName" class="ma-input" maxlength="120" autocomplete="name">
+      <%
+        const _jobInviteOpen = !_mates.length || !!(typeof inviteUrl !== 'undefined' && inviteUrl);
+      %>
+      <details class="ma-fold ma-fold--inset" id="maJobShareInvite"<%= _jobInviteOpen ? ' open' : '' %>>
+        <summary>Invite someone new</summary>
+        <div class="ma-fold__body">
+          <p class="ma-hint" style="margin:0 0 12px">Text or email a join link — they get this contact and projects when they open it.</p>
+          <form method="post" action="<%= base %>/customers/jobs/<%= job.id %>/share" class="ma-card--flush" autocomplete="off" data-ma-loading="Sending invite…">
+            <div class="ma-field">
+              <label class="ma-label" for="jbInviteName">Their name <span style="font-weight:600;text-transform:none;letter-spacing:0;color:var(--muted)">optional</span></label>
+              <input id="jbInviteName" name="inviteName" class="ma-input" maxlength="120" autocomplete="name">
+            </div>
+            <div class="ma-field">
+              <label class="ma-label" for="jbInviteCompany">Their business <span style="font-weight:600;text-transform:none;letter-spacing:0;color:var(--muted)">optional</span></label>
+              <input id="jbInviteCompany" name="inviteCompany" class="ma-input" maxlength="160" autocomplete="organization">
+            </div>
+            <div class="ma-grid2">
+              <div class="ma-field">
+                <label class="ma-label" for="jbInvitePhone">Mobile</label>
+                <input id="jbInvitePhone" name="invitePhone" type="tel" inputmode="tel" class="ma-input" maxlength="40" autocomplete="tel" placeholder="Text the join link">
+              </div>
+              <div class="ma-field">
+                <label class="ma-label" for="jbInviteEmail">Email</label>
+                <input id="jbInviteEmail" name="inviteEmail" type="email" inputmode="email" class="ma-input" maxlength="200" autocomplete="email">
+              </div>
+            </div>
+            <button type="submit" class="ma-btn ma-btn--block"><%- icons.send %> Invite outside network</button>
+          </form>
         </div>
-        <div class="ma-field">
-          <label class="ma-label" for="jbInviteCompany">Their business <span style="font-weight:600;text-transform:none;letter-spacing:0;color:var(--muted)">optional</span></label>
-          <input id="jbInviteCompany" name="inviteCompany" class="ma-input" maxlength="160" autocomplete="organization">
-        </div>
-        <div class="ma-grid2">
-          <div class="ma-field">
-            <label class="ma-label" for="jbInvitePhone">Mobile</label>
-            <input id="jbInvitePhone" name="invitePhone" type="tel" inputmode="tel" class="ma-input" maxlength="40" autocomplete="tel" placeholder="Text the join link">
-          </div>
-          <div class="ma-field">
-            <label class="ma-label" for="jbInviteEmail">Email</label>
-            <input id="jbInviteEmail" name="inviteEmail" type="email" inputmode="email" class="ma-input" maxlength="200" autocomplete="email">
-          </div>
-        </div>
-        <button type="submit" class="ma-btn ma-btn--block"><%- icons.send %> Invite outside network</button>
-      </form>
+      </details>
     </section>
     <% } %>
 
