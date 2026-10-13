@@ -198,6 +198,7 @@ const OK_MESSAGES = {
   reward_saved: 'Referral reward settings saved.',
   reward_sent: 'Review confirmed — referral reward offer sent to the customer.',
   reward_skipped: 'Skipped — no referral reward sent for this review.',
+  reward_upgrade: 'Referral rewards and customer referral offers are on the monthly plan. Upgrade to unlock them.',
 };
 
 const MEMBER_ACTIONS = new Set(['accept', 'decline', 'book', 'win', 'lose', 'note', 'claim']);
@@ -1396,7 +1397,12 @@ async function customerPageData(req, ctx, id, { refreshTags = false } = {}) {
     .sort((a, b) => work.isOpen(b) - work.isOpen(a))
     .map((j) => presentJob(j, customersById, ctx.base, today));
   const ask = await reviewAsk.latestAskForCustomer(ctx.network.id, ctx.member.id, customer.id);
-  return { customer, jobs: mine, today, reviewAskStatus: presentReviewAskStatus(ask) };
+  let reviewAskStatus = presentReviewAskStatus(ask);
+  // Referral-reward confirm is paid-only (same gate as network referrals).
+  if (reviewAskStatus && reviewAskStatus.canConfirm && freeAppSignup.isAppFreeMember(ctx.member)) {
+    reviewAskStatus = { ...reviewAskStatus, canConfirm: false };
+  }
+  return { customer, jobs: mine, today, reviewAskStatus };
 }
 
 router.get('/m/:token/customers/c/:id', withMember(async (req, res, ctx) => {
@@ -1872,16 +1878,19 @@ function reviewPageLocals(member, extras, brand) {
 
 async function renderReview(req, res, ctx, flash, status, formValues) {
   const member = await ensureReviewSetup(ctx);
+  const rewardLocked = freeAppSignup.isAppFreeMember(member);
   const [stats, feedback, messaging, customers, pendingRewardAsks] = await Promise.all([
     store.getReviewStats(ctx.network.id, member.id),
     store.listFeedback(ctx.network.id, member.id),
     notify.messagingReadyForNetwork(ctx.network),
     work.listCustomers(ctx.network.id, member.id),
-    reviewAsk.listPendingRewardConfirms({
-      networkId: ctx.network.id,
-      memberId: member.id,
-      limit: 20,
-    }),
+    rewardLocked
+      ? Promise.resolve([])
+      : reviewAsk.listPendingRewardConfirms({
+        networkId: ctx.network.id,
+        memberId: member.id,
+        limit: 20,
+      }),
   ]);
   const totalStars = Object.values(stats.stars).reduce((a, b) => a + b, 0);
   const q = req.query || {};
@@ -1954,6 +1963,7 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
     ghlWorkflowPrompt,
     pendingRewards: pendingRewardAsks.map(presentPendingReward).filter(Boolean),
     rewardSettings: reviewReferralReward.settingsFromMember(member),
+    rewardLocked,
     reviewSendLocked: freeAppSignup.isAppFreeMember(ctx.member),
     upgradeHref: '/signup',
     flash: flash || flashFromQuery(req),
@@ -1963,11 +1973,14 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
 async function renderReviewSettings(req, res, ctx, flash, status) {
   const member = await ensureReviewSetup(ctx);
   const reward = reviewReferralReward.settingsFromMember(member);
+  const rewardLocked = freeAppSignup.isAppFreeMember(member);
   return render(res, 'review_settings', { ...ctx, member }, {
     ...reviewPageLocals(member, null, ctx.brand),
     active: 'review',
     rewardSettings: reward,
     rewardDefaultScript: reviewReferralReward.DEFAULT_SCRIPT,
+    rewardLocked,
+    upgradeHref: '/signup',
     flash: flash || flashFromQuery(req),
   }, status);
 }
@@ -2058,6 +2071,9 @@ router.post('/m/:token/review/script', form, withMember(async (req, res, ctx) =>
 
 /** Save post–4–5★ referral reward offer (gift card / discount / prize). */
 router.post('/m/:token/review/reward', form, withMember(async (req, res, ctx) => {
+  if (freeAppSignup.isAppFreeMember(ctx.member)) {
+    return res.redirect(303, `${ctx.base}/review/settings?ok=reward_upgrade`);
+  }
   const member = await ensureReviewSetup(ctx);
   const reward = reviewReferralReward.settingsFromBody(req.body || {});
   if (reward.enabled && !reward.rewardLabel) {
@@ -2080,6 +2096,9 @@ function rewardReturnPath(ctx, body, ask) {
 
 /** Business confirms the public review → send the configured referral-reward offer. */
 router.post('/m/:token/review/reward/:askId/confirm', form, withMember(async (req, res, ctx) => {
+  if (freeAppSignup.isAppFreeMember(ctx.member)) {
+    return res.redirect(303, `${ctx.base}/review/settings?ok=reward_upgrade`);
+  }
   const askId = String(req.params.askId || '');
   const ask = await reviewAsk.getAsk(askId);
   if (!ask || ask.networkId !== ctx.network.id || ask.memberId !== ctx.member.id) {
@@ -2093,7 +2112,7 @@ router.post('/m/:token/review/reward/:askId/confirm', form, withMember(async (re
     return res.redirect(303, `${returnTo}?errmsg=${encodeURIComponent('This one was already skipped.')}`);
   }
   const settings = reviewReferralReward.settingsFromMember(ctx.member);
-  if (!reviewReferralReward.qualifies(settings, ask.rating || 5)) {
+  if (!reviewReferralReward.qualifies(settings, ask.rating || 5, ctx.member)) {
     return res.redirect(303, `${ctx.base}/review/settings?errmsg=${encodeURIComponent('Set up your referral reward offer in Review settings first.')}`);
   }
   const confirmed = await reviewAsk.markReviewConfirmed(ask.id, { by: ctx.member.id });
@@ -2111,6 +2130,9 @@ router.post('/m/:token/review/reward/:askId/confirm', form, withMember(async (re
 
 /** Skip sending a referral reward for this ask (e.g. no public review found). */
 router.post('/m/:token/review/reward/:askId/skip', form, withMember(async (req, res, ctx) => {
+  if (freeAppSignup.isAppFreeMember(ctx.member)) {
+    return res.redirect(303, `${ctx.base}/review/settings?ok=reward_upgrade`);
+  }
   const askId = String(req.params.askId || '');
   const ask = await reviewAsk.getAsk(askId);
   if (!ask || ask.networkId !== ctx.network.id || ask.memberId !== ctx.member.id) {

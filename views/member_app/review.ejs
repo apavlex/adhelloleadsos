@@ -17,10 +17,12 @@
     <% const _needLinks = !linkCount; %>
     <% const _askOpen = typeof askShare !== 'undefined' && askShare; %>
 
+    <% if (!(typeof rewardLocked !== 'undefined' && rewardLocked)) { %>
     <%- include('_review_reward_confirm', {
       pendingRewards: typeof pendingRewards !== 'undefined' ? pendingRewards : [],
       rewardReturnTo: base + '/review',
     }) %>
+    <% } %>
 
     <section class="ma-card ma-qr" style="margin-top:4px" aria-label="Share and QR code">
       <% if (_needLinks) { %>

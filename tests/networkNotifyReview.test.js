@@ -181,3 +181,24 @@ test('sendReviewReferralReward requires reward settings', async () => {
   assert.match(result.error, /not set up/i);
   assert.equal(calls.sms.length, 0);
 });
+
+test('sendReviewReferralReward blocks free-plan members', async () => {
+  const { network, member: base } = await setup();
+  const member = await store.saveMember(network.id, {
+    ...base,
+    plan: 'app_free',
+    reviewReward: {
+      enabled: true,
+      minStars: 4,
+      rewardLabel: '$25 gift card',
+    },
+  });
+  const result = await notify.sendReviewReferralReward({
+    network,
+    member,
+    ask: { name: 'Alex', phone: '+15551230000', rating: 5 },
+  });
+  assert.equal(result.ok, false);
+  assert.match(result.error, /monthly plan/i);
+  assert.equal(calls.sms.length, 0);
+});

@@ -37,6 +37,18 @@ describe('review referral reward settings', () => {
     assert.equal(reward.qualifies({ ...settings, minStars: 5 }, 4), false);
   });
 
+  it('blocks free-plan members from qualifying', () => {
+    const settings = reward.normalizeSettings({
+      enabled: true,
+      minStars: 4,
+      rewardLabel: '$25 gift card',
+    });
+    assert.equal(reward.isPaidMember({ plan: 'app_free' }), false);
+    assert.equal(reward.isPaidMember({ plan: '' }), true);
+    assert.equal(reward.qualifies(settings, 5, { plan: 'app_free' }), false);
+    assert.equal(reward.qualifies(settings, 5, { plan: '' }), true);
+  });
+
   it('fills the customer offer script', () => {
     const msg = reward.buildCustomerMessage(
       {

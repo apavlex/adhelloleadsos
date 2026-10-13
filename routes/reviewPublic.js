@@ -227,7 +227,7 @@ router.get('/rv/:slug', async (req, res) => {
       try {
         const reviewReferralReward = require('../services/reviewReferralReward');
         const settings = reviewReferralReward.settingsFromMember(page.member);
-        if (reviewReferralReward.qualifies(settings, rating)) {
+        if (reviewReferralReward.qualifies(settings, rating, page.member)) {
           let ask = await reviewAsk.markRated(askId, rating);
           if (ask && !ask.rewardNotifiedAt && !ask.reviewConfirmedAt && !ask.rewardSkippedAt) {
             const baseUrl = notify.baseUrlFromReq(req);

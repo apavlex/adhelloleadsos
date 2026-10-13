@@ -21,7 +21,15 @@
 
     <section class="ma-card" id="maReviewReward">
       <h2 style="font-size:16px;margin:0 0 6px">Referral reward after a great review</h2>
-      <p class="ma-hint" style="margin-top:0">When a customer taps 4–5★ on a tracked review request, we notify you. You confirm the public review, then we text them your offer for referring a friend.</p>
+      <p class="ma-hint" style="margin-top:0">When a customer taps 4–5★ on a tracked review request, we notify you. You confirm the public review, then we text them your offer for referring a friend. Monthly plan only.</p>
+      <% if (typeof rewardLocked !== 'undefined' && rewardLocked) { %>
+      <%- include('_upgrade_gate', {
+        upgradeTitle: 'Referral rewards & customer referrals',
+        upgradeBody: 'Confirm great reviews and text customers a gift/discount for referring a friend — included on the monthly plan with network referrals.',
+        upgradeHref: typeof upgradeHref !== 'undefined' ? upgradeHref : '/signup',
+        upgradeIcon: 'referrals',
+      }) %>
+      <% } else { %>
       <form method="post" action="<%= base %>/review/reward" autocomplete="off" data-ma-loading="Saving…">
         <label class="ma-check" style="display:flex;gap:10px;align-items:flex-start;margin:4px 0 12px">
           <input type="hidden" name="rewardEnabled" value="0">
@@ -56,6 +64,7 @@
         </div>
         <button type="submit" class="ma-btn ma-btn--block">Save reward settings</button>
       </form>
+      <% } %>
     </section>
 
     <section class="ma-card" id="maReviewLogo">

@@ -639,7 +639,7 @@ async function notifyReviewRewardPending({ network, member, ask, baseUrl }) {
   if (!network || !member || !ask) return { ok: false, error: 'missing' };
   const reviewReferralReward = require('./reviewReferralReward');
   const settings = reviewReferralReward.settingsFromMember(member);
-  if (!reviewReferralReward.qualifies(settings, ask.rating)) {
+  if (!reviewReferralReward.qualifies(settings, ask.rating, member)) {
     return { ok: false, error: 'not_configured' };
   }
   const who = ask.name || 'A customer';
@@ -676,8 +676,11 @@ async function notifyReviewRewardPending({ network, member, ask, baseUrl }) {
 async function sendReviewReferralReward({ network, member, ask }) {
   if (!network || !member || !ask) return { ok: false, error: 'missing' };
   const reviewReferralReward = require('./reviewReferralReward');
+  if (!reviewReferralReward.isPaidMember(member)) {
+    return { ok: false, error: 'Referral rewards are on the monthly plan. Upgrade to unlock them.' };
+  }
   const settings = reviewReferralReward.settingsFromMember(member);
-  if (!reviewReferralReward.qualifies(settings, ask.rating || 5)) {
+  if (!reviewReferralReward.qualifies(settings, ask.rating || 5, member)) {
     return { ok: false, error: 'Reward offer is not set up. Add a gift/discount in Review settings.' };
   }
   if (!ask.phone && !ask.email) return { ok: false, error: 'No phone or email on this review request.' };

@@ -1,7 +1,11 @@
 /**
  * After a 4–5★ review path: notify the business, wait for manual confirm,
  * then text/email the customer a referral reward offer they configured.
+ *
+ * Paid plans only (not app_free) — same gate as network referrals.
  */
+
+const freeAppSignup = require('./freeAppSignup');
 
 const DEFAULT_SCRIPT =
   'Thanks for the {{stars}}★ review, {{name}}! If you refer a friend or family member who books with {{company}}, you get {{reward}}. Reply with their name and number and we’ll take care of them.';
@@ -42,7 +46,13 @@ function settingsFromBody(body) {
   });
 }
 
-function qualifies(settings, rating) {
+/** Referral rewards + customer-referral offers are monthly-plan only. */
+function isPaidMember(member) {
+  return !freeAppSignup.isAppFreeMember(member);
+}
+
+function qualifies(settings, rating, member) {
+  if (member && !isPaidMember(member)) return false;
   const s = normalizeSettings(settings);
   const r = Number(rating) || 0;
   return !!(s.enabled && s.rewardLabel && r >= s.minStars && r <= 5);
@@ -72,6 +82,7 @@ module.exports = {
   normalizeSettings,
   settingsFromMember,
   settingsFromBody,
+  isPaidMember,
   qualifies,
   fillScript,
   buildCustomerMessage,
