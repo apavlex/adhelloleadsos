@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('member_app/_head', { pageTitle: claimed ? 'You’re in' : 'Join & open contact' }) %>
+</head>
+<body>
+  <%
+    const _f = form || {};
+    const _claimed = typeof claimed !== 'undefined' && claimed ? claimed : null;
+    const _errs = Array.isArray(errors) ? errors : [];
+    const _who = typeof who !== 'undefined' && who ? who : 'A partner';
+    const _cust = typeof customerName !== 'undefined' && customerName ? customerName : 'a contact';
+    const _app = brand && brand.appName ? brand.appName : 'the app';
+  %>
+  <main class="ma-shell ma-shell--plain">
+    <div style="margin-top:8vh;max-width:28rem;margin-left:auto;margin-right:auto">
+      <% if (brand && brand.logoUrl) { %>
+      <img src="<%= brand.logoUrl %>" alt="" width="48" height="48" style="width:48px;height:48px;border-radius:12px;object-fit:cover;margin-bottom:16px">
+      <% } %>
+
+      <% if (_claimed) { %>
+      <h1 class="ma-page-title"><%= _claimed.already ? 'Already claimed' : 'You’re in' %></h1>
+      <p class="ma-page-sub">
+        <%= _claimed.already
+          ? ('This contact is on your book in ' + _app + '. Open your app to see them and their projects.')
+          : (_who + ' shared “' + _cust + '” with you — contact and projects are on your book.') %>
+      </p>
+      <a class="ma-btn ma-btn--block" href="<%= _claimed.portal %>">Open in <%= _app %></a>
+      <p class="ma-hint" style="margin-top:16px">Tip: on iPhone tap Share → Add to Home Screen so it opens like an app.</p>
+      <% } else if (!invite) { %>
+      <h1 class="ma-page-title">Invite unavailable</h1>
+      <% if (_errs.length) { %>
+      <p class="ma-flash ma-flash--err" role="alert"><%= _errs[0] %></p>
+      <% } else { %>
+      <p class="ma-page-sub">That invite link is invalid or expired.</p>
+      <% } %>
+      <% } else { %>
+      <h1 class="ma-page-title">Join &amp; open contact</h1>
+      <p class="ma-page-sub"><strong><%= _who %></strong> shared <strong><%= _cust %></strong> (and their projects) with you on <%= _app %>. Create your free account to see it on your own book.</p>
+
+      <% if (_errs.length) { %>
+      <ul class="ma-flash ma-flash--err" role="alert" style="list-style:none;padding:12px 14px;margin:0 0 12px">
+        <% _errs.forEach(function (e) { %><li><%= e %></li><% }) %>
+      </ul>
+      <% } %>
+
+      <form method="post" action="/share/c/<%= invite.id %>" class="ma-card" id="si-form" autocomplete="on">
+        <div class="ma-field">
+          <label class="ma-label" for="si-company">Your business name</label>
+          <input id="si-company" name="companyName" class="ma-input" required maxlength="160" autocomplete="organization" value="<%= _f.companyName || '' %>">
+        </div>
+        <div class="ma-field">
+          <label class="ma-label" for="si-name">Your name</label>
+          <input id="si-name" name="contactName" class="ma-input" maxlength="120" autocomplete="name" value="<%= _f.contactName || '' %>">
+        </div>
+        <div class="ma-field">
+          <label class="ma-label" for="si-phone">Mobile number</label>
+          <input id="si-phone" name="phone" type="tel" class="ma-input" inputmode="tel" maxlength="40" autocomplete="tel" value="<%= _f.phone || '' %>" placeholder="We’ll use this for your app link">
+        </div>
+        <div class="ma-field">
+          <label class="ma-label" for="si-email">Email <span style="font-weight:600;text-transform:none;letter-spacing:0;color:var(--muted)">optional</span></label>
+          <input id="si-email" name="email" type="email" class="ma-input" maxlength="200" autocomplete="email" value="<%= _f.email || '' %>">
+        </div>
+        <button type="submit" class="ma-btn ma-btn--block" id="si-submit">Join &amp; open contact</button>
+      </form>
+      <script>
+        (function () {
+          var form = document.getElementById('si-form');
+          var btn = document.getElementById('si-submit');
+          if (!form || !btn) return;
+          var locked = false;
+          form.addEventListener('submit', function (ev) {
+            if (locked) { ev.preventDefault(); return; }
+            locked = true;
+            btn.disabled = true;
+            btn.setAttribute('aria-busy', 'true');
+            btn.textContent = 'Joining…';
+          });
+        })();
+      </script>
+      <p class="ma-hint" style="margin-top:16px">Free to join. Books stay separate — you only get what they shared.</p>
+      <% } %>
+    </div>
+  </main>
+</body>
+</html>
