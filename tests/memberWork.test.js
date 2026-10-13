@@ -508,6 +508,8 @@ test('customers tab routes: top-bar add customer, CRUD, calendar, pending and re
     assert.ok(customerPage.indexOf('ma-tags-section') < customerPage.indexOf('>Details<'));
     assert.match(customerPage, /Share contact &amp; projects|Share contact & projects/);
     assert.match(customerPage, /action="[^"]*\/customers\/c\/[^"]+\/share"/);
+    // Share contact sits under Details (not above Jobs).
+    assert.ok(customerPage.indexOf('>Details<') < customerPage.indexOf('maCustomerShare'));
 
     const inlineCustomer = await post(`${A}/customers/jobs/new`, {
       customerId: 'new', newCustomerName: 'Quinn', title: 'Estimate', status: 'estimate',

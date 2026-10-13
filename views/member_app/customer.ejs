@@ -73,60 +73,9 @@
         });
       });
       const openJob = (jobs || []).find(function (j) { return j.status !== 'completed' && j.status !== 'cancelled'; }) || (jobs || [])[0];
-      const _mates = typeof teammates !== 'undefined' && Array.isArray(teammates) ? teammates : [];
-      const _shared = typeof sharedWithLabels !== 'undefined' && Array.isArray(sharedWithLabels) ? sharedWithLabels : [];
     %>
     <% if (customer.sharedFromMemberId) { %>
     <p class="ma-hint" style="margin:0 0 12px">Shared onto your book by a teammate — including their projects. Your other customers stay private.</p>
-    <% } else { %>
-    <section class="ma-card" id="maCustomerShare" aria-label="Share contact">
-      <h2 style="font-size:16px;margin:0 0 4px">Share contact &amp; projects</h2>
-      <p class="ma-hint" style="margin:0 0 12px">Sends this contact <strong>and all their projects/jobs</strong>. Books stay separate. Teammates get it instantly; outsiders get a join link by text/email.</p>
-      <% if (_shared.length) { %>
-      <p class="ma-hint" style="margin:0 0 10px">Already shared with: <strong><%= _shared.map(function (s) { return s.label; }).join(', ') %></strong></p>
-      <% } %>
-      <% if (typeof inviteUrl !== 'undefined' && inviteUrl) { %>
-      <p class="ma-hint" style="margin:0 0 12px;overflow-wrap:anywhere">Invite link: <a href="<%= inviteUrl %>"><%= inviteUrl %></a></p>
-      <% } %>
-      <% if (_mates.length) { %>
-      <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/share" autocomplete="off" data-ma-loading="Sharing…">
-        <div class="ma-field">
-          <label class="ma-label" for="cuShareMate">Teammate</label>
-          <select id="cuShareMate" name="memberId" class="ma-select" required>
-            <option value="" disabled selected>Pick a teammate</option>
-            <% _mates.forEach(function (t) { %>
-            <option value="<%= t.id %>" <%= t.canNotify ? '' : 'disabled' %>>
-              <%= t.label %><%= t.contact && t.contact !== t.label ? ' · ' + t.contact : '' %><%= t.canNotify ? '' : ' (add phone/email)' %>
-            </option>
-            <% }); %>
-          </select>
-        </div>
-        <button type="submit" class="ma-btn ma-btn--block ma-btn--soft"><%- icons.send %> Share with teammate</button>
-      </form>
-      <p class="ma-hint" style="margin:14px 0 10px;text-align:center">or invite someone new</p>
-      <% } %>
-      <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/share" autocomplete="off" data-ma-loading="Sending invite…">
-        <div class="ma-field">
-          <label class="ma-label" for="cuInviteName">Their name <span style="font-weight:600;text-transform:none;letter-spacing:0;color:var(--muted)">optional</span></label>
-          <input id="cuInviteName" name="inviteName" class="ma-input" maxlength="120" autocomplete="name">
-        </div>
-        <div class="ma-field">
-          <label class="ma-label" for="cuInviteCompany">Their business <span style="font-weight:600;text-transform:none;letter-spacing:0;color:var(--muted)">optional</span></label>
-          <input id="cuInviteCompany" name="inviteCompany" class="ma-input" maxlength="160" autocomplete="organization">
-        </div>
-        <div class="ma-grid2">
-          <div class="ma-field">
-            <label class="ma-label" for="cuInvitePhone">Mobile</label>
-            <input id="cuInvitePhone" name="invitePhone" type="tel" inputmode="tel" class="ma-input" maxlength="40" autocomplete="tel" placeholder="Text the join link">
-          </div>
-          <div class="ma-field">
-            <label class="ma-label" for="cuInviteEmail">Email</label>
-            <input id="cuInviteEmail" name="inviteEmail" type="email" inputmode="email" class="ma-input" maxlength="200" autocomplete="email">
-          </div>
-        </div>
-        <button type="submit" class="ma-btn ma-btn--block"><%- icons.send %> Invite outside network</button>
-      </form>
-    </section>
     <% } %>
     <section class="ma-section">
       <div class="ma-section__head">
@@ -292,6 +241,61 @@
         <button type="submit" class="ma-btn ma-btn--block"><%- icons.completed %> <%= customer ? 'Save changes' : 'Add customer' %></button>
       </form>
     </section>
+
+    <% if (customer && !customer.sharedFromMemberId) { %>
+    <%
+      const _shareMates = typeof teammates !== 'undefined' && Array.isArray(teammates) ? teammates : [];
+      const _shareShared = typeof sharedWithLabels !== 'undefined' && Array.isArray(sharedWithLabels) ? sharedWithLabels : [];
+    %>
+    <section class="ma-card" id="maCustomerShare" aria-label="Share contact" style="margin-top:16px">
+      <h2 style="font-size:16px;margin:0 0 4px">Share contact &amp; projects</h2>
+      <p class="ma-hint" style="margin:0 0 12px">Sends this contact <strong>and all their projects/jobs</strong>. Books stay separate. Teammates get it instantly; outsiders get a join link by text/email.</p>
+      <% if (_shareShared.length) { %>
+      <p class="ma-hint" style="margin:0 0 10px">Already shared with: <strong><%= _shareShared.map(function (s) { return s.label; }).join(', ') %></strong></p>
+      <% } %>
+      <% if (typeof inviteUrl !== 'undefined' && inviteUrl) { %>
+      <p class="ma-hint" style="margin:0 0 12px;overflow-wrap:anywhere">Invite link: <a href="<%= inviteUrl %>"><%= inviteUrl %></a></p>
+      <% } %>
+      <% if (_shareMates.length) { %>
+      <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/share" autocomplete="off" data-ma-loading="Sharing…">
+        <div class="ma-field">
+          <label class="ma-label" for="cuShareMate">Teammate</label>
+          <select id="cuShareMate" name="memberId" class="ma-select" required>
+            <option value="" disabled selected>Pick a teammate</option>
+            <% _shareMates.forEach(function (t) { %>
+            <option value="<%= t.id %>" <%= t.canNotify ? '' : 'disabled' %>>
+              <%= t.label %><%= t.contact && t.contact !== t.label ? ' · ' + t.contact : '' %><%= t.canNotify ? '' : ' (add phone/email)' %>
+            </option>
+            <% }); %>
+          </select>
+        </div>
+        <button type="submit" class="ma-btn ma-btn--block ma-btn--soft"><%- icons.send %> Share with teammate</button>
+      </form>
+      <p class="ma-hint" style="margin:14px 0 10px;text-align:center">or invite someone new</p>
+      <% } %>
+      <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/share" autocomplete="off" data-ma-loading="Sending invite…">
+        <div class="ma-field">
+          <label class="ma-label" for="cuInviteName">Their name <span style="font-weight:600;text-transform:none;letter-spacing:0;color:var(--muted)">optional</span></label>
+          <input id="cuInviteName" name="inviteName" class="ma-input" maxlength="120" autocomplete="name">
+        </div>
+        <div class="ma-field">
+          <label class="ma-label" for="cuInviteCompany">Their business <span style="font-weight:600;text-transform:none;letter-spacing:0;color:var(--muted)">optional</span></label>
+          <input id="cuInviteCompany" name="inviteCompany" class="ma-input" maxlength="160" autocomplete="organization">
+        </div>
+        <div class="ma-grid2">
+          <div class="ma-field">
+            <label class="ma-label" for="cuInvitePhone">Mobile</label>
+            <input id="cuInvitePhone" name="invitePhone" type="tel" inputmode="tel" class="ma-input" maxlength="40" autocomplete="tel" placeholder="Text the join link">
+          </div>
+          <div class="ma-field">
+            <label class="ma-label" for="cuInviteEmail">Email</label>
+            <input id="cuInviteEmail" name="inviteEmail" type="email" inputmode="email" class="ma-input" maxlength="200" autocomplete="email">
+          </div>
+        </div>
+        <button type="submit" class="ma-btn ma-btn--block"><%- icons.send %> Invite outside network</button>
+      </form>
+    </section>
+    <% } %>
 
     <% if (customer) { %>
     <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/delete" class="ma-section" data-ma-confirm="Delete <%= customer.name %><%= jobs.length ? ' and their ' + jobs.length + ' job' + (jobs.length === 1 ? '' : 's') : '' %>?">
