@@ -115,10 +115,13 @@ test('deliver-lead-bulk accepts multi packageIds from workspace manager', async 
 test('Add Opportunity modal and shell include push-to-teammates UI', () => {
   const nav = fs.readFileSync(path.join(__dirname, '..', 'views/partials/navbar.ejs'), 'utf8');
   const js = fs.readFileSync(path.join(__dirname, '..', 'public/js/navbar-shell.js'), 'utf8');
-  assert.match(nav, /Also push to teammates/);
-  assert.match(nav, /manualLeadPushToggle/);
+  assert.match(nav, /Send to teammates/);
+  assert.match(nav, /manualLeadPushWrap/);
   assert.match(nav, /manualLeadPushList/);
+  assert.match(nav, /manualLeadPushLoading/);
+  assert.doesNotMatch(nav, /manualLeadPushWrap[^>]*\bhidden\b/);
   assert.match(js, /appointment-packages\/push-targets/);
   assert.match(js, /pushPackageIds/);
   assert.match(js, /deliver-lead-bulk/);
+  assert.match(js, /Save & send to/);
 });
