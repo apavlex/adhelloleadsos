@@ -1,7 +1,7 @@
 /**
  * Step 1 — Google Maps lead list.
- * Default / preferred provider is RapidAPI (Local Business Data).
- * Auto fallback chain (when SEARCH_MAPS_PRIMARY=auto): RapidAPI → SearchAPI → SerpAPI → Oxylabs → Outscraper → Apify.
+ * Default chain: RapidAPI → Outscraper fallback.
+ * Forced single-provider modes still available via SEARCH_MAPS_PRIMARY / mapsProvider.
  * Monid is no longer used for Maps.
  */
 
@@ -32,9 +32,9 @@ function oxylabsConfigured(integrationEnv) {
 function isMapsSearchConfigured(integrationEnv) {
   return (
     rapidapi.isConfigured(integrationEnv) ||
+    outscraper.isConfigured(integrationEnv) ||
     searchapiConfigured(integrationEnv) ||
     serpapiConfigured(integrationEnv) ||
-    outscraper.isConfigured(integrationEnv) ||
     apifyConfigured(integrationEnv) ||
     oxylabsConfigured(integrationEnv)
   );
@@ -44,7 +44,7 @@ function resolvePrimary(integrationEnv) {
   const fromWs = String((integrationEnv && integrationEnv.SEARCH_MAPS_PRIMARY) || '').toLowerCase().trim();
   const fromEnv = String(process.env.SEARCH_MAPS_PRIMARY || '').toLowerCase().trim();
   let v = fromWs || fromEnv;
-  // Monid Maps retired — treat legacy preference as RapidAPI.
+  // Monid Maps retired — treat legacy preference as RapidAPI (+ Outscraper fallback).
   if (v === 'monid') v = 'rapidapi';
   if (
     v === 'rapidapi' ||
@@ -83,43 +83,15 @@ function mergeMapsLeadLists(primary, extra, maxTotal) {
   return merged.slice(0, cap);
 }
 
-async function runAutoMapsSearch(params, integrationEnv) {
+/**
+ * Preferred Maps path: RapidAPI first, Outscraper if RapidAPI fails / returns short.
+ * @param {{ continueOnNoResults?: boolean }} [opts]
+ */
+async function runProviderChain(params, integrationEnv, providers, opts = {}) {
+  const continueOnNoResults = opts.continueOnNoResults !== false;
   const cap = maxResultsCap(params);
   let accumulated = [];
   let lastAutoError = null;
-
-  const providers = [
-    {
-      label: 'RapidAPI',
-      configured: () => rapidapi.isConfigured(integrationEnv),
-      search: (p) => rapidapi.searchGoogleMaps(p),
-    },
-    {
-      label: 'SearchAPI.io',
-      configured: () => searchapiConfigured(integrationEnv),
-      search: (p) => searchapi.searchGoogleMaps(p),
-    },
-    {
-      label: 'SerpAPI',
-      configured: () => serpapiConfigured(integrationEnv),
-      search: (p) => serpapi.searchGoogleMaps(p),
-    },
-    {
-      label: 'Oxylabs',
-      configured: () => oxylabsConfigured(integrationEnv),
-      search: (p) => oxylabsGoogleLocal.searchGoogleMaps(p),
-    },
-    {
-      label: 'Outscraper',
-      configured: () => outscraper.isConfigured(integrationEnv),
-      search: (p) => outscraper.searchGoogleMaps(p),
-    },
-    {
-      label: 'Apify',
-      configured: () => apifyConfigured(integrationEnv),
-      search: (p) => apify.searchGoogleMaps(p),
-    },
-  ];
 
   for (const prov of providers) {
     if (accumulated.length >= cap) break;
@@ -136,20 +108,24 @@ async function runAutoMapsSearch(params, integrationEnv) {
       accumulated = mergeMapsLeadLists(accumulated, rows, cap);
       if (accumulated.length > before) {
         console.log(
-          `[mapsSearch] ${prov.label} added ${accumulated.length - before} place(s); total ${accumulated.length}/${cap}.`
+          `[mapsSearch] ${prov.label} added ${accumulated.length - before} place(s); total ${accumulated.length}/${cap}.`,
         );
       }
       if (accumulated.length >= cap) break;
     } catch (e) {
-      // If the provider returned a "no results" style error (search succeeded but
-      // nothing matched), don't fall through to other providers — they won't have
-      // results either. Only fall through on infrastructure/auth/rate-limit errors.
       const msg = (e.message || '').toLowerCase();
-      const isNoResultsError = msg.includes('returned no businesses') || msg.includes('returned 0') || msg.includes('no places found') || msg.includes('no results');
-      if (isNoResultsError) {
+      const isNoResultsError =
+        msg.includes('returned no businesses') ||
+        msg.includes('returned 0') ||
+        msg.includes('no places found') ||
+        msg.includes('no results');
+      if (isNoResultsError && !continueOnNoResults) {
         console.warn(`[mapsSearch] ${prov.label} found no results for this query; stopping provider chain.`);
-        // Don't set lastAutoError — this is a valid "no data" response, not a failure
         break;
+      }
+      if (isNoResultsError) {
+        console.warn(`[mapsSearch] ${prov.label} found no results; trying next provider.`);
+        continue;
       }
       lastAutoError = e;
       console.warn(`[mapsSearch] ${prov.label} failed, trying next:`, e.message);
@@ -159,31 +135,55 @@ async function runAutoMapsSearch(params, integrationEnv) {
   if (accumulated.length > 0) {
     if (accumulated.length < cap) {
       console.log(
-        `[mapsSearch] Found ${accumulated.length} of ${cap} requested for "${params.keyword}" in ${params.city}, ${params.state} (no more listings from configured providers).`
+        `[mapsSearch] Found ${accumulated.length} of ${cap} requested for "${params.keyword}" in ${params.city}, ${params.state} (no more listings from configured providers).`,
       );
     }
     return accumulated;
   }
 
-  // Build debug info for error message
-  const providerStatus = {
-    rapidapi: rapidapi.isConfigured(integrationEnv),
-    searchapi: searchapiConfigured(integrationEnv),
-    serpapi: serpapiConfigured(integrationEnv),
-    oxylabs: oxylabsConfigured(integrationEnv),
-    outscraper: outscraper.isConfigured(integrationEnv),
-    apify: apifyConfigured(integrationEnv),
-  };
-  const envKeys = Object.keys(integrationEnv || {}).filter(k => k.includes('API') || k.includes('TOKEN'));
+  const providerStatus = Object.fromEntries(providers.map((p) => [p.id || p.label, p.configured()]));
+  const envKeys = Object.keys(integrationEnv || {}).filter((k) => k.includes('API') || k.includes('TOKEN'));
   const envStatus = {};
-  envKeys.forEach(k => { envStatus[k] = (integrationEnv[k] || '').length > 0 ? 'SET' : 'EMPTY'; });
+  envKeys.forEach((k) => {
+    envStatus[k] = (integrationEnv[k] || '').length > 0 ? 'SET' : 'EMPTY';
+  });
 
   if (lastAutoError) {
-    throw new Error(`Maps search failed (last provider error): ${lastAutoError.message}. Providers: ${JSON.stringify(providerStatus)}. Env: ${JSON.stringify(envStatus)}`);
+    throw new Error(
+      `Maps search failed (last provider error): ${lastAutoError.message}. Providers: ${JSON.stringify(providerStatus)}. Env: ${JSON.stringify(envStatus)}`,
+    );
   }
   throw new Error(
-    `No Maps search results found for "${params.keyword}" in ${params.city}, ${params.state}. Providers: ${JSON.stringify(providerStatus)}. Env keys: ${JSON.stringify(envStatus)}. If using RapidAPI, verify endpoint URL and that RAPIDAPI_SEARCH_QUERY_PARAM matches your API host.`
+    `No Maps search results found for "${params.keyword}" in ${params.city}, ${params.state}. Providers: ${JSON.stringify(providerStatus)}. Env keys: ${JSON.stringify(envStatus)}. Configure RapidAPI and/or Outscraper under Workspace → Integrations.`,
   );
+}
+
+function preferredProviders(integrationEnv) {
+  return [
+    {
+      id: 'rapidapi',
+      label: 'RapidAPI',
+      configured: () => rapidapi.isConfigured(integrationEnv),
+      search: (p) => rapidapi.searchGoogleMaps(p),
+    },
+    {
+      id: 'outscraper',
+      label: 'Outscraper',
+      configured: () => outscraper.isConfigured(integrationEnv),
+      search: (p) => outscraper.searchGoogleMaps(p),
+    },
+  ];
+}
+
+/** Default Maps path: RapidAPI → Outscraper. */
+async function runRapidapiOutscraperMapsSearch(params, integrationEnv) {
+  const providers = preferredProviders(integrationEnv);
+  if (!providers.some((p) => p.configured())) {
+    throw new Error(
+      'Maps search needs RapidAPI or Outscraper. Add RAPIDAPI_KEY and/or OUTSCRAPER_API_KEY under Workspace → Integrations.',
+    );
+  }
+  return runProviderChain(params, integrationEnv, providers, { continueOnNoResults: true });
 }
 
 /**
@@ -197,11 +197,9 @@ async function searchGoogleMaps(params) {
     override && override !== 'auto' ? override : resolvePrimary(integrationEnv);
   if (primary === 'monid') primary = 'rapidapi';
 
-  if (primary === 'rapidapi') {
-    if (!rapidapi.isConfigured(integrationEnv)) {
-      throw new Error('Maps provider is set to RapidAPI, but RAPIDAPI_KEY is missing.');
-    }
-    return rapidapi.searchGoogleMaps(params);
+  // Default + Auto: RapidAPI with Outscraper fallback.
+  if (primary === 'rapidapi' || primary === 'auto') {
+    return runRapidapiOutscraperMapsSearch(params, integrationEnv);
   }
 
   if (primary === 'searchapi') {
@@ -239,15 +237,7 @@ async function searchGoogleMaps(params) {
     return oxylabsGoogleLocal.searchGoogleMaps(params);
   }
 
-  if (primary === 'auto') {
-    return runAutoMapsSearch(params, integrationEnv);
-  }
-
-  // Default / unknown → RapidAPI only.
-  if (!rapidapi.isConfigured(integrationEnv)) {
-    throw new Error('Maps provider is set to RapidAPI, but RAPIDAPI_KEY is missing.');
-  }
-  return rapidapi.searchGoogleMaps(params);
+  return runRapidapiOutscraperMapsSearch(params, integrationEnv);
 }
 
 function filterMapsResults(results, criteria = {}) {
@@ -263,13 +253,18 @@ function filterMapsResults(results, criteria = {}) {
   return out;
 }
 
-/** Status row for Workspace → Integrations (Auto chain order). */
+/** Status row for Workspace → Integrations (preferred chain order first). */
 function getMapsProviderStatusList(integrationEnv) {
   return [
     {
       id: 'rapidapi',
-      label: 'RapidAPI',
+      label: 'RapidAPI (primary)',
       configured: rapidapi.isConfigured(integrationEnv),
+    },
+    {
+      id: 'outscraper',
+      label: 'Outscraper (fallback)',
+      configured: outscraper.isConfigured(integrationEnv),
     },
     {
       id: 'searchapi',
@@ -287,11 +282,6 @@ function getMapsProviderStatusList(integrationEnv) {
       configured: oxylabsConfigured(integrationEnv),
     },
     {
-      id: 'outscraper',
-      label: 'Outscraper',
-      configured: outscraper.isConfigured(integrationEnv),
-    },
-    {
       id: 'apify',
       label: 'Apify',
       configured: apifyConfigured(integrationEnv),
@@ -305,4 +295,5 @@ module.exports = {
   resolvePrimary,
   getMapsProviderStatusList,
   filterMapsResults,
+  runRapidapiOutscraperMapsSearch,
 };
