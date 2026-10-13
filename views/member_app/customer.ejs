@@ -91,7 +91,7 @@
       <% if (_mates.length) { %>
       <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/share" autocomplete="off" data-ma-loading="Sharing…">
         <div class="ma-field">
-          <label class="ma-label" for="cuShareMate">Teammate on your network</label>
+          <label class="ma-label" for="cuShareMate">Teammate</label>
           <select id="cuShareMate" name="memberId" class="ma-select" required>
             <option value="" disabled selected>Pick a teammate</option>
             <% _mates.forEach(function (t) { %>

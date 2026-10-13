@@ -42,7 +42,8 @@ const REMIND_BEFORE_OPTIONS = [
 const REMIND_BEFORE_SET = new Set(REMIND_BEFORE_OPTIONS.map((o) => o.value));
 
 // Hex/base36 only: kv listing uses SQL LIKE, where "_" and "%" are wildcards.
-const SCOPE_ID = /^[a-z0-9]{1,64}$/i;
+/** Member / network ids — allow staff_* workspace seats (underscore). */
+const SCOPE_ID = /^[a-z0-9_]{1,64}$/i;
 const RECORD_ID = /^[a-z0-9]{6,40}$/;
 
 function newId() {

@@ -48,6 +48,8 @@ const memberShortLinks = require('../services/memberShortLinks');
 const ownerAppBrand = require('../services/ownerAppBrand');
 const whiteLabel = require('../services/whiteLabel');
 const demoWorkspace = require('../services/demoWorkspace');
+const workspaceTeammatePush = require('../services/workspaceTeammatePush');
+const workspaceService = require('../services/workspaceService');
 const { ICONS } = require('../services/memberAppIcons');
 
 /** Soft GHL pull for owner Home so customer counts match CRM (15 min TTL). */
@@ -1574,19 +1576,94 @@ router.post('/m/:token/customers/c/:id/request-review', form, withMember(async (
   return res.redirect(303, `${ctx.base}/review?${qs.toString()}`);
 }));
 
+/**
+ * Ensure Team & assign seats exist as network members so Share can pick them
+ * (free workspace teammates — not only referral-network partners).
+ */
+async function ensureWorkspaceShareTeammates(ctx) {
+  const wid = ctx.network && ctx.network.ownerWorkspaceId;
+  if (!wid) return;
+  const self = ctx.member;
+  const isOwner = ownerAppBrand.isOwnerMember(self, ctx.network);
+  const isStaff = !!(self && self.workspaceStaff);
+  // Partners outside the workspace keep the network-only picker.
+  if (!isOwner && !isStaff) return;
+
+  let workspace;
+  try {
+    workspace = await dbService.getWorkspace(wid);
+  } catch (_) {
+    return;
+  }
+  if (!workspace || !workspace.members) return;
+
+  const actorEmail = String((self && self.email) || '').trim().toLowerCase();
+  const targets = workspaceTeammatePush.listTeammateTargets(workspace, actorEmail);
+  for (const t of targets) {
+    try {
+      await workspaceTeammatePush.ensureTeammateMember(ctx.network, workspace, t.email);
+    } catch (err) {
+      console.warn('[member-app] ensure workspace teammate skipped:', t.email, err && err.message);
+    }
+  }
+}
+
+function shareTeammateLabel(m, workspace) {
+  if (m && m.workspaceStaff) {
+    const name = String(m.contactName || '').trim();
+    if (name) return name;
+    const email = String(m.email || '').trim().toLowerCase();
+    if (email) return email.split('@')[0];
+  }
+  return (m && (m.companyName || m.contactName)) || 'Teammate';
+}
+
+function shareTeammateContact(m, workspace) {
+  if (m && m.workspaceStaff) {
+    const email = String(m.email || '').trim().toLowerCase();
+    const role = workspace && email
+      ? String(workspaceService.roleForEmail(workspace, email) || '').toUpperCase()
+      : '';
+    const bits = [];
+    if (role && role !== 'OWNER') bits.push(role);
+    bits.push('workspace team');
+    return bits.join(' · ');
+  }
+  return (m && m.contactName) || '';
+}
+
 async function listShareTeammates(ctx) {
+  await ensureWorkspaceShareTeammates(ctx);
+  const wid = ctx.network && ctx.network.ownerWorkspaceId;
+  let workspace = null;
+  if (wid) {
+    try {
+      workspace = await dbService.getWorkspace(wid);
+    } catch (_) {
+      workspace = null;
+    }
+  }
   const members = await store.listMembers(ctx.network.id);
   return members
     .filter((m) => m && m.id !== ctx.member.id && m.status === 'active')
-    .map((m) => ({
-      id: m.id,
-      label: m.companyName || m.contactName || 'Teammate',
-      contact: m.contactName || '',
-      phone: m.phone || '',
-      email: m.email || '',
-      canNotify: !!(m.phone && m.phone !== 'N/A') || !!(m.email && m.email !== 'N/A'),
-    }))
-    .sort((a, b) => a.label.localeCompare(b.label));
+    .map((m) => {
+      const label = shareTeammateLabel(m, workspace);
+      const contact = shareTeammateContact(m, workspace);
+      return {
+        id: m.id,
+        label,
+        contact,
+        phone: m.phone || '',
+        email: m.email || '',
+        workspaceStaff: !!m.workspaceStaff,
+        canNotify: !!(m.phone && m.phone !== 'N/A') || !!(m.email && m.email !== 'N/A'),
+      };
+    })
+    .sort((a, b) => {
+      // Workspace team first, then network partners A–Z.
+      if (!!a.workspaceStaff !== !!b.workspaceStaff) return a.workspaceStaff ? -1 : 1;
+      return a.label.localeCompare(b.label);
+    });
 }
 
 async function renderJobPage(req, res, ctx, { job, formValues, flash, status, inviteUrl }) {

@@ -77,7 +77,8 @@ test('customers and jobs are scoped to one member of one network', async () => {
   assert.equal((await work.deleteJob(NET, MEM_A, job.job.id)).ok, false);
   assert.ok(await work.getJob(NET, MEM_B, job.job.id));
 
-  await assert.rejects(work.listCustomers(NET, 'a_b'), /invalid scope/);
+  // Underscores are allowed (workspace staff_* seats); reject other punctuation.
+  await assert.rejects(work.listCustomers(NET, 'a/b'), /invalid scope/);
   await assert.rejects(work.listCustomers('net%', MEM_A), /invalid scope/);
   assert.equal(await work.getCustomer(NET, MEM_B, '../x'), null);
 });
