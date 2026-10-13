@@ -7,7 +7,11 @@
 <body class="bg-brand-bg min-h-screen text-brand-dark dark:text-white overflow-x-hidden">
   <%- include('partials/navbar') %>
   <%
-    const _openPath = typeof openPath !== 'undefined' && openPath ? openPath : '/today';
+    const _openPathRaw = typeof openPath !== 'undefined' && openPath ? openPath : '/today';
+    // Always land on the Review app with the install sheet first (Add to Home Screen).
+    const _openPath = String(_openPathRaw).includes('install=')
+      ? _openPathRaw
+      : (_openPathRaw + (_openPathRaw.indexOf('?') >= 0 ? '&' : '?') + 'install=1');
     const _openUrl = typeof openUrl !== 'undefined' && openUrl ? openUrl : _openPath;
     const _net = (typeof businessName !== 'undefined' && businessName)
       ? businessName

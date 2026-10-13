@@ -326,8 +326,16 @@ describe('member app install modal and tab bar', () => {
     assert.ok(wsLogoAt >= 0 && brandLogoAt > wsLogoAt && photoAt > brandLogoAt);
     assert.match(js, /requestIdleCallback\(showInstall/);
     assert.match(js, /setTimeout\(showInstall,\s*1200\)/);
+    assert.match(js, /forceInstall/);
+    assert.match(js, /params\.get\('install'\) === '1'/);
+    assert.match(js, /if \(forceInstall\) \{\s*showInstall\(\);/s);
     assert.match(head, /media="print" onload="this\.media='all'"/);
     assert.match(head, /blur\(10px\)/);
+    const getApp = fs.readFileSync(path.join(root, 'views/get_app.ejs'), 'utf8');
+    assert.match(getApp, /install=1/);
+    assert.match(getApp, /Open Review app/);
+    const tabbar = fs.readFileSync(path.join(root, 'views/member_app/_tabbar.ejs'), 'utf8');
+    assert.match(tabbar, /Save this app to your phone/);
   });
 
   it('member-app.js shows install guidance inside workspace standalone shells', () => {
