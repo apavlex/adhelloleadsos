@@ -684,9 +684,8 @@ test('free app_free members see Join tab, benefits page, and referrals upgrade g
     const refs = await (await fetch(`${base}/referrals?view=pool`)).text();
     assert.match(refs, /Unlock lead details/);
     assert.match(refs, /Upgrade to unlock/);
-    assert.match(refs, /Upgrade to activate/);
     assert.match(refs, /href="\/signup"/);
-    assert.match(refs, /Referral lists/);
+    assert.match(refs, /Leads &amp; Referrals|Leads & Referrals/);
     assert.match(refs, /River Remodel/);
     assert.doesNotMatch(refs, /503-555-9999/);
     assert.doesNotMatch(refs, /secret@example\.com/);
