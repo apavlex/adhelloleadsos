@@ -8,7 +8,7 @@ const store = require('./networkStore');
 const ex = require('./referralExchange');
 const notify = require('./networkNotify');
 
-async function sendReferral({ network, input, fromMemberId, by, baseUrl }) {
+async function sendReferral({ network, input, fromMemberId, by, baseUrl, toMemberId }) {
   const built = ex.buildReferral({ ...input, fromMemberId: fromMemberId || 'operator', by });
   if (!built.ok) return built;
   if (!network.trades.includes(built.referral.tradeSlug)) return { ok: false, error: 'That trade is not in this network.' };
@@ -21,6 +21,34 @@ async function sendReferral({ network, input, fromMemberId, by, baseUrl }) {
   const zone = built.referral.zoneId
     ? zones.find((z) => z.id === built.referral.zoneId) || null
     : ex.resolveZone(zones, { city: built.referral.homeowner.city, zip: built.referral.homeowner.zip });
+
+  // Optional direct partner pick (e.g. website form lead → Send to partner).
+  const directId = String(toMemberId || (input && input.toMemberId) || '').trim();
+  if (directId) {
+    if (directId === built.referral.fromMemberId) {
+      return { ok: false, error: 'Pick a partner other than yourself.' };
+    }
+    const target = members.find((m) => m && m.id === directId && m.status === 'active');
+    if (!target) return { ok: false, error: 'That partner is not available.' };
+    const stamp = new Date().toISOString();
+    const referral = await store.saveReferral(network.id, {
+      ...built.referral,
+      id: store.newId(),
+      zoneId: zone ? zone.id : '',
+      toMemberId: target.id,
+      status: 'sent',
+      sentAt: stamp,
+      events: [
+        ...(built.referral.events || []),
+        { type: 'assigned', at: stamp, by: by || 'member', text: `Sent directly to ${target.companyName}` },
+      ],
+      updatedAt: stamp,
+    });
+    const sender = members.find((m) => m.id === referral.fromMemberId) || null;
+    const effects = await afterRouting({ network, referral, recipient: target, sender, baseUrl });
+    return { ok: true, referral, zone, route: { toMemberId: target.id, status: 'sent', reason: 'direct' }, ...effects };
+  }
+
   const route = ex.routeReferral(zone, built.referral.tradeSlug, {
     members,
     fromMemberId: built.referral.fromMemberId,

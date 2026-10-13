@@ -204,6 +204,8 @@ const OK_MESSAGES = {
   customer_shared: 'Shared with your teammate — they got this contact, all projects, and a text/email link.',
   share_invited: 'Invite sent — they’ll join on the spot and get this contact plus all projects.',
   share_existing: 'They’re already on your network — contact and projects are on their book.',
+  lead_referred: 'Sent to your partner — they got the lead details and a text/email.',
+  lead_referred_pool: 'Sent to the network pool — eligible partners can claim it.',
 };
 
 const MEMBER_ACTIONS = new Set(['accept', 'decline', 'book', 'win', 'lose', 'note', 'claim']);
@@ -1098,17 +1100,38 @@ async function renderReferrals(req, res, ctx, flash, status) {
   }));
   const appt = ctx.appointment;
   const formLeads = appt ? (appt.formLeads || []) : [];
+  const referralsLocked = freeAppSignup.isAppFreeMember(ctx.member);
+  let partnerDirectory = [];
+  let partnerMembers = [];
+  if (!referralsLocked && formLeads.some((l) => l && l.status !== 'closed')) {
+    partnerDirectory = await directoryFor(ctx.network, ctx.member);
+    partnerMembers = members
+      .filter((m) => m && m.id !== ctx.member.id && m.status === 'active')
+      .map((m) => ({
+        id: m.id,
+        label: m.companyName || m.contactName || 'Partner',
+        trades: Array.isArray(m.trades) ? m.trades : [],
+        tradeLabel: (Array.isArray(m.trades) ? m.trades : [])
+          .map((slug) => trades.tradeLabel(slug, ctx.network))
+          .filter(Boolean)
+          .slice(0, 2)
+          .join(', '),
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }
   return render(res, 'referrals', ctx, {
     view,
     received,
     sent,
     pool,
     formLeads,
+    partnerDirectory,
+    partnerMembers,
     openLeadCount: appt ? (appt.openLeadCount || 0) : 0,
     leadCredits: appt ? (appt.leadCredits || { remaining: 0 }) : { remaining: 0 },
     leadRequest,
     flash: flash || flashFromQuery(req),
-    referralsLocked: freeAppSignup.isAppFreeMember(ctx.member),
+    referralsLocked,
     upgradeHref: '/signup',
   }, status);
 }
@@ -1163,7 +1186,22 @@ async function renderSend(req, res, ctx, flash, formValues, status) {
   }, status);
 }
 
-router.get('/m/:token/send', withMember((req, res, ctx) => renderSend(req, res, ctx)));
+router.get('/m/:token/send', withMember((req, res, ctx) => {
+  const q = req.query || {};
+  const formValues = {
+    name: String(q.name || '').slice(0, 120),
+    phone: String(q.phone || '').slice(0, 40),
+    email: String(q.email || '').slice(0, 200),
+    note: String(q.note || '').slice(0, 1000),
+    zip: String(q.zip || '').slice(0, 10),
+    city: String(q.city || '').slice(0, 80),
+    address: String(q.address || '').slice(0, 200),
+    tradeSlug: String(q.tradeSlug || '').slice(0, 60),
+    consent: q.consent === '1' || q.consent === 'on' ? 'on' : '',
+  };
+  const hasPrefill = Object.values(formValues).some((v) => v);
+  return renderSend(req, res, ctx, null, hasPrefill ? formValues : undefined);
+}));
 
 router.post('/m/:token/send', form, withMember(async (req, res, ctx) => {
   if (freeAppSignup.isAppFreeMember(ctx.member)) {
@@ -1182,6 +1220,7 @@ router.post('/m/:token/send', form, withMember(async (req, res, ctx) => {
     fromMemberId: ctx.member.id,
     by: ctx.member.companyName,
     baseUrl: notify.baseUrlFromReq(req),
+    toMemberId: String(body.toMemberId || '').trim(),
   });
   if (!result.ok) return renderSend(req, res, ctx, { error: result.error }, body, 400);
   return res.redirect(303, `${ctx.base}?ok=${result.referral.status === 'sent' ? 'sent' : 'matched'}`);
@@ -2629,6 +2668,94 @@ router.post('/m/:token/leads/:leadId/close', form, withMember(async (req, res, c
   );
   await appointmentPackages.updatePackage(ctx.appointment.workspaceId, ctx.appointment.packageId, { formLeads });
   return res.redirect(303, `${ctx.base}/referrals?ok=closed`);
+}));
+
+/**
+ * Push a website/agency form lead to a network partner as a referral —
+ * no copy/paste. Prefills name/phone/email/note from the form lead.
+ */
+router.post('/m/:token/leads/:leadId/refer', form, withMember(async (req, res, ctx) => {
+  const back = `${ctx.base}/referrals`;
+  if (freeAppSignup.isAppFreeMember(ctx.member)) {
+    return res.redirect(303, `${back}?ok=referrals_upgrade`);
+  }
+  if (!ctx.appointment) {
+    return res.redirect(303, back);
+  }
+  if (ctx.member.status !== 'active') {
+    return renderReferrals(req, res, ctx, { error: 'Your membership is paused. Contact the network.' }, 403);
+  }
+
+  const leadId = String(req.params.leadId || '').trim();
+  const body = req.body || {};
+  const pkg = ctx.appointment.package;
+  const lead = (pkg.formLeads || []).find((f) => f && f.id === leadId);
+  if (!lead || lead.status === 'closed') {
+    return renderReferrals(req, res, ctx, { error: 'That lead is not available.' }, 404);
+  }
+  if (!lead.phone && !lead.email) {
+    return renderReferrals(req, res, ctx, { error: 'This lead needs a phone or email before you can send it.' }, 400);
+  }
+
+  let tradeSlug = String(body.tradeSlug || '').trim();
+  const toMemberId = String(body.toMemberId || '').trim();
+  if (toMemberId) {
+    const target = (await store.listMembers(ctx.network.id)).find((m) => m.id === toMemberId && m.status === 'active');
+    if (!target) {
+      return renderReferrals(req, res, ctx, { error: 'Pick a partner on your network.' }, 400);
+    }
+    if (target.id === ctx.member.id) {
+      return renderReferrals(req, res, ctx, { error: 'Pick a partner other than yourself.' }, 400);
+    }
+    if (!tradeSlug) {
+      const theirs = (Array.isArray(target.trades) ? target.trades : [])
+        .filter((slug) => ctx.network.trades.includes(slug) && !ctx.member.trades.includes(slug));
+      tradeSlug = theirs[0] || (Array.isArray(target.trades) ? target.trades[0] : '') || '';
+    }
+  }
+  if (!tradeSlug) {
+    return renderReferrals(req, res, ctx, { error: 'Pick a trade or a partner to send this lead to.' }, 400);
+  }
+  if (ctx.member.trades.includes(tradeSlug)) {
+    return renderReferrals(req, res, ctx, { error: 'Pick a trade other than your own.' }, 400);
+  }
+
+  const noteBits = [
+    lead.preview || '',
+    lead.source === 'agency' ? 'Sent by agency' : (lead.formName ? `From ${lead.formName}` : 'Website form'),
+  ].filter(Boolean);
+  const result = await networkReferrals.sendReferral({
+    network: ctx.network,
+    input: {
+      tradeSlug,
+      name: lead.name || 'Lead',
+      phone: lead.phone || '',
+      email: lead.email || '',
+      note: noteBits.join(' · ').slice(0, 1000),
+      consent: 'on',
+    },
+    fromMemberId: ctx.member.id,
+    by: ctx.member.companyName,
+    baseUrl: notify.baseUrlFromReq(req),
+    toMemberId,
+  });
+  if (!result.ok) {
+    return renderReferrals(req, res, ctx, { error: result.error || 'Could not send that lead.' }, 400);
+  }
+
+  const formLeads = (pkg.formLeads || []).map((f) => (
+    f.id === leadId
+      ? {
+        ...f,
+        status: 'closed',
+        preview: [f.preview, `Referred to network ${new Date().toLocaleDateString()}`].filter(Boolean).join(' · ').slice(0, 240),
+      }
+      : f
+  ));
+  await appointmentPackages.updatePackage(ctx.appointment.workspaceId, ctx.appointment.packageId, { formLeads });
+
+  const ok = result.referral.status === 'sent' ? 'lead_referred' : 'lead_referred_pool';
+  return res.redirect(303, `${back}?ok=${ok}&view=sent`);
 }));
 
 /** Web Push for lead alerts — scoped to the linked appointment package. */
