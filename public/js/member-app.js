@@ -1712,10 +1712,13 @@
       var vv = window.visualViewport;
       var viewH = vv && vv.height ? vv.height : window.innerHeight;
       var viewBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
+      var shell = list.closest('.ma-shell') || list.closest('[data-ma-scroll-root]') || null;
+      var shellBottom = shell ? shell.getBoundingClientRect().bottom : viewBottom;
+      var bottom = Math.min(viewBottom, shellBottom);
       var top = list.getBoundingClientRect().top;
-      var available = Math.floor(viewBottom - top - 16);
+      var available = Math.floor(bottom - top - 12);
       var cap = Math.min(280, Math.floor(viewH * 0.5));
-      var h = Math.max(96, Math.min(cap, available));
+      var h = Math.max(72, Math.min(cap, available > 0 ? available : 72));
       list.style.maxHeight = h + 'px';
     }
 
