@@ -327,8 +327,11 @@ describe('member app install modal and tab bar', () => {
     assert.match(js, /requestIdleCallback\(showInstall/);
     assert.match(js, /setTimeout\(showInstall,\s*1200\)/);
     assert.match(js, /forceInstall/);
+    assert.match(js, /isHomeRoot/);
     assert.match(js, /params\.get\('install'\) === '1'/);
-    assert.match(js, /if \(forceInstall\) \{\s*showInstall\(\);/s);
+    assert.match(js, /ma-install-snoozed/);
+    assert.match(js, /localStorage\.removeItem\(LEGACY_KEY\)/);
+    assert.match(js, /modal\.hidden = false/);
     assert.match(head, /media="print" onload="this\.media='all'"/);
     assert.match(head, /blur\(10px\)/);
     const getApp = fs.readFileSync(path.join(root, 'views/get_app.ejs'), 'utf8');
