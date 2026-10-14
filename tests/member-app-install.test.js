@@ -67,8 +67,9 @@ describe('member app install modal and tab bar', () => {
     assert.match(html, /data-ma-install-panel="browser-ios"/);
     assert.match(html, /data-ma-install-panel="browser-android"/);
     assert.match(html, /data-ma-install-open-browser/);
-    assert.match(html, /Open in Safari/);
+    assert.match(html, /Share to Safari/);
     assert.match(html, /Open in Chrome/);
+    assert.match(html, /data-ma-install-app-name/);
     assert.match(html, /data-ma-install-copy/);
     assert.match(html, /data-ma-install-share/);
     assert.doesNotMatch(html, /class="ma-install"/);
@@ -354,8 +355,9 @@ describe('member app install modal and tab bar', () => {
     assert.match(js, /showPanel\(isIOS \? 'workspace-ios' : 'workspace-android'\)/);
     assert.match(js, /function openInSystemBrowser/);
     assert.match(js, /data-ma-install-open-browser/);
-    assert.match(js, /Open in Safari/);
+    assert.match(js, /Share to Safari/);
     assert.match(js, /Open in Chrome/);
+    assert.match(js, /navigator\.share/);
     assert.match(js, /package=com\.android\.chrome/);
     // Must not skip the modal solely because display-mode is standalone.
     assert.doesNotMatch(js, /isIOS && !standalone && !dismissed/);

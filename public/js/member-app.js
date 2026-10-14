@@ -77,7 +77,9 @@
     for (var b = 0; b < browserDone.length; b++) browserDone[b].hidden = !inBrowser;
     var openBtn = modal.querySelector('[data-ma-install-open-browser]');
     if (openBtn) {
-      openBtn.textContent = name === 'workspace-android' ? 'Open in Chrome' : 'Open in Safari';
+      // iOS standalone PWAs cannot open same-origin links in Safari (white flash).
+      // Share sheet is the reliable handoff; Android uses Chrome intent.
+      openBtn.textContent = name === 'workspace-android' ? 'Open in Chrome' : 'Share to Safari';
     }
   }
 
@@ -89,10 +91,60 @@
     else showPanel('browser-android');
   }
 
-  /** Leave the workspace PWA and open the Review app URL in Safari / Chrome. */
+  function copyInstallLink(href, doneLabelEl) {
+    var link = String(href || '').trim();
+    if (!link) return;
+    var done = function () {
+      if (!doneLabelEl) {
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast('Link copied — paste it in Safari', { variant: 'success' });
+        }
+        return;
+      }
+      var original = doneLabelEl.textContent;
+      doneLabelEl.textContent = 'Copied';
+      setTimeout(function () { doneLabelEl.textContent = original; }, 1600);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(link).then(done).catch(function () { window.prompt('Copy this link:', link); });
+    } else {
+      window.prompt('Copy this link:', link);
+    }
+  }
+
+  /**
+   * Leave the workspace PWA for Safari / Chrome.
+   * iOS same-origin `_blank` stays in the PWA (white page flash) — use Share instead.
+   */
   function openInSystemBrowser(url) {
     var href = String(url || '').trim();
     if (!href) return;
+
+    if (isIOS) {
+      var appName =
+        (modal && modal.getAttribute('data-ma-install-app-name')) ||
+        'Review app';
+      if (navigator.share) {
+        navigator
+          .share({
+            title: appName,
+            text: 'Open in Safari, then Share → Add to Home Screen',
+            url: href,
+          })
+          .catch(function (err) {
+            // User cancelled share — don't also force-copy.
+            if (err && (err.name === 'AbortError' || err.name === 'NotAllowedError')) return;
+            copyInstallLink(href);
+          });
+        return;
+      }
+      copyInstallLink(href);
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Link copied — open Safari and paste', { variant: 'info', duration: 5000 });
+      }
+      return;
+    }
+
     if (isAndroid) {
       try {
         var u = new URL(href, window.location.origin);
@@ -108,9 +160,9 @@
           ';end';
         window.location.href = intent;
         return;
-      } catch (e) { /* fall through to <a> */ }
+      } catch (e) { /* fall through */ }
     }
-    // iOS (and Android fallback): PWAs hand target=_blank to Safari / the system browser.
+
     var a = document.createElement('a');
     a.href = href;
     a.target = '_blank';

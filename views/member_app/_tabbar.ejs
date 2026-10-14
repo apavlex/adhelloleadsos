@@ -32,7 +32,7 @@
   </div>
 </nav>
 
-<div class="ma-install-modal" id="maInstall" hidden role="dialog" aria-modal="true" aria-labelledby="maInstallTitle">
+<div class="ma-install-modal" id="maInstall" hidden role="dialog" aria-modal="true" aria-labelledby="maInstallTitle" data-ma-install-app-name="<%= _appName %>">
   <div class="ma-install-sheet">
     <button type="button" class="ma-install-close-x" aria-label="Close" data-ma-install-close>&times;</button>
     <h2 id="maInstallTitle">Save as a phone app</h2>
@@ -58,11 +58,11 @@
     </div>
 
     <div data-ma-install-panel="workspace-ios" hidden>
-      <p class="ma-install-lead">You’re inside the workspace app on <b>iPhone</b>. Open <b><%= _appName %></b> in Safari to save it to your Home Screen:</p>
+      <p class="ma-install-lead">You’re inside the workspace app on <b>iPhone</b>. Safari won’t open from here with a normal link — use Share instead:</p>
       <ol class="ma-install-steps">
-        <li><span class="ma-install-n">1</span><span>Tap <b>Open in Safari</b> below.</span></li>
-        <li><span class="ma-install-n">2</span><span>In Safari, tap <b>Share</b> (square with an arrow).</span></li>
-        <li><span class="ma-install-n">3</span><span>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</span></li>
+        <li><span class="ma-install-n">1</span><span>Tap <b>Share to Safari</b> below.</span></li>
+        <li><span class="ma-install-n">2</span><span>In the share sheet, tap <b>Safari</b> (or <b>Open in Safari</b>).</span></li>
+        <li><span class="ma-install-n">3</span><span>In Safari: <b>Share → Add to Home Screen → Add</b>.</span></li>
       </ol>
     </div>
 
@@ -81,7 +81,7 @@
 
     <div class="ma-install-actions">
       <% /* Workspace shell: open Safari/Chrome first; copy/share as backup. */ %>
-      <button type="button" class="ma-btn" data-ma-install-open-browser data-ma-install-workspace-only hidden>Open in Safari</button>
+      <button type="button" class="ma-btn" data-ma-install-open-browser data-ma-install-workspace-only hidden>Share to Safari</button>
       <button type="button" class="ma-btn ma-btn--soft" data-ma-install-copy data-ma-install-workspace-only hidden>Copy link</button>
       <button type="button" class="ma-btn ma-btn--soft" data-ma-install-share data-ma-install-workspace-only hidden>Share link</button>
       <button type="button" class="ma-btn" data-ma-install-close data-ma-install-browser-done hidden>Got it</button>
