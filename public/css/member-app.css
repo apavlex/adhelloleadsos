@@ -1027,9 +1027,25 @@ html[data-ma-theme="dark"] .ma-tags__suggest-btn:hover {
   background: transparent;
   color: var(--ink);
 }
-[data-ma-share-mate-pick] [data-ma-share-search][hidden],
-[data-ma-share-mate-pick] [data-ma-share-selected][hidden] {
+.ma-share-mate-pick [data-ma-share-search][hidden],
+.ma-share-mate-pick [data-ma-share-selected][hidden] {
   display: none !important;
+}
+/* Inline (not absolute) so partner results aren't clipped by the scroll shell / keyboard */
+.ma-share-mate-pick .ma-typeahead { overflow: visible; }
+.ma-share-mate-pick .ma-typeahead__list {
+  position: static;
+  left: auto;
+  right: auto;
+  top: auto;
+  margin: 10px 0 0;
+  max-height: min(240px, 40vh);
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  box-shadow: none;
 }
 [data-ma-share-submit]:disabled {
   opacity: 0.55;

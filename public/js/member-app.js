@@ -1701,18 +1701,47 @@
       list.hidden = true;
       input.setAttribute('aria-expanded', 'false');
       active = -1;
+      list.style.maxHeight = '';
+    }
+
+    function fitListHeight() {
+      if (list.hidden) {
+        list.style.maxHeight = '';
+        return;
+      }
+      var vv = window.visualViewport;
+      var viewH = vv && vv.height ? vv.height : window.innerHeight;
+      var viewBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
+      var shell = list.closest('.ma-shell') || list.closest('[data-ma-scroll-root]') || null;
+      var shellBottom = shell ? shell.getBoundingClientRect().bottom : viewBottom;
+      var bottom = Math.min(viewBottom, shellBottom);
+      var top = list.getBoundingClientRect().top;
+      var available = Math.floor(bottom - top - 12);
+      var cap = Math.min(280, Math.floor(viewH * 0.5));
+      var h = Math.max(72, Math.min(cap, available > 0 ? available : 72));
+      list.style.maxHeight = h + 'px';
     }
 
     function openList() {
       list.hidden = false;
       input.setAttribute('aria-expanded', 'true');
+      fitListHeight();
+      try {
+        list.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      } catch (err) { /* ignore */ }
     }
 
     function setActive(idx) {
       active = idx;
       var items = list.querySelectorAll('.ma-typeahead__item');
       for (var i = 0; i < items.length; i++) {
-        items[i].classList.toggle('is-active', i === active);
+        var on = i === active;
+        items[i].classList.toggle('is-active', on);
+        if (on) {
+          try {
+            items[i].scrollIntoView({ block: 'nearest', inline: 'nearest' });
+          } catch (err) { /* ignore */ }
+        }
       }
     }
 
@@ -1764,8 +1793,20 @@
 
     syncMode();
 
+    function onViewportChange() {
+      if (!list.hidden) fitListHeight();
+    }
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', onViewportChange);
+      window.visualViewport.addEventListener('scroll', onViewportChange);
+    }
+    window.addEventListener('resize', onViewportChange);
+
     input.addEventListener('focus', function () {
       render(input.value);
+      try {
+        input.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      } catch (err) { /* ignore */ }
     });
     input.addEventListener('input', function () {
       render(input.value);
