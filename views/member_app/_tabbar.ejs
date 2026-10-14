@@ -57,12 +57,21 @@
       </ol>
     </div>
 
-    <div data-ma-install-panel="workspace" hidden>
-      <p class="ma-install-lead">You’re inside the workspace app. To put <b><%= _appName %></b> on your Home Screen as its own icon:</p>
+    <div data-ma-install-panel="workspace-ios" hidden>
+      <p class="ma-install-lead">You’re inside the workspace app on <b>iPhone</b>. Open <b><%= _appName %></b> in Safari to save it to your Home Screen:</p>
       <ol class="ma-install-steps">
-        <li><span class="ma-install-n">1</span><span>Tap <b>Copy link</b> below.</span></li>
-        <li><span class="ma-install-n">2</span><span>Open <b>Safari</b> (iPhone) or <b>Chrome</b> (Android) and paste the link.</span></li>
-        <li><span class="ma-install-n">3</span><span>Then use <b>Share → Add to Home Screen</b> (iPhone) or <b>⋮ → Install app</b> (Android).</span></li>
+        <li><span class="ma-install-n">1</span><span>Tap <b>Open in Safari</b> below.</span></li>
+        <li><span class="ma-install-n">2</span><span>In Safari, tap <b>Share</b> (square with an arrow).</span></li>
+        <li><span class="ma-install-n">3</span><span>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</span></li>
+      </ol>
+    </div>
+
+    <div data-ma-install-panel="workspace-android" hidden>
+      <p class="ma-install-lead">You’re inside the workspace app on <b>Android</b>. Open <b><%= _appName %></b> in Chrome to install it:</p>
+      <ol class="ma-install-steps">
+        <li><span class="ma-install-n">1</span><span>Tap <b>Open in Chrome</b> below.</span></li>
+        <li><span class="ma-install-n">2</span><span>In Chrome, tap the <b>⋮</b> menu.</span></li>
+        <li><span class="ma-install-n">3</span><span>Tap <b>Install app</b> or <b>Add to Home screen</b>.</span></li>
       </ol>
     </div>
 
@@ -71,8 +80,9 @@
     </div>
 
     <div class="ma-install-actions">
-      <% /* Copy/Share only when stuck inside the workspace shell — Safari/Chrome can Add to Home Screen directly. */ %>
-      <button type="button" class="ma-btn" data-ma-install-copy data-ma-install-workspace-only hidden>Copy link</button>
+      <% /* Workspace shell: open Safari/Chrome first; copy/share as backup. */ %>
+      <button type="button" class="ma-btn" data-ma-install-open-browser data-ma-install-workspace-only hidden>Open in Safari</button>
+      <button type="button" class="ma-btn ma-btn--soft" data-ma-install-copy data-ma-install-workspace-only hidden>Copy link</button>
       <button type="button" class="ma-btn ma-btn--soft" data-ma-install-share data-ma-install-workspace-only hidden>Share link</button>
       <button type="button" class="ma-btn" data-ma-install-close data-ma-install-browser-done hidden>Got it</button>
       <button type="button" class="ma-btn ma-btn--ghost" data-ma-install-close>Not now</button>

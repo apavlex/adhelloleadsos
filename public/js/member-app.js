@@ -68,21 +68,59 @@
     for (var i = 0; i < panels.length; i++) {
       panels[i].hidden = panels[i].getAttribute('data-ma-install-panel') !== name;
     }
-    // In Safari/Chrome the user can Add to Home Screen here — don't push Copy link.
-    var needCopy = name === 'workspace';
+    // Workspace shell: open Safari/Chrome + copy/share. In-browser: Got it + steps only.
+    var inWorkspace = name === 'workspace-ios' || name === 'workspace-android';
     var inBrowser = name === 'browser-ios' || name === 'browser-android';
     var workspaceOnly = modal.querySelectorAll('[data-ma-install-workspace-only]');
-    for (var w = 0; w < workspaceOnly.length; w++) workspaceOnly[w].hidden = !needCopy;
+    for (var w = 0; w < workspaceOnly.length; w++) workspaceOnly[w].hidden = !inWorkspace;
     var browserDone = modal.querySelectorAll('[data-ma-install-browser-done]');
     for (var b = 0; b < browserDone.length; b++) browserDone[b].hidden = !inBrowser;
+    var openBtn = modal.querySelector('[data-ma-install-open-browser]');
+    if (openBtn) {
+      openBtn.textContent = name === 'workspace-android' ? 'Open in Chrome' : 'Open in Safari';
+    }
   }
 
   function configurePanels() {
     if (alreadyInstalled) showPanel('installed');
-    else if (fromWorkspaceShell) showPanel('workspace');
+    else if (fromWorkspaceShell) showPanel(isIOS ? 'workspace-ios' : 'workspace-android');
     else if (isIOS) showPanel('browser-ios');
     else if (isAndroid) showPanel('browser-android');
     else showPanel('browser-android');
+  }
+
+  /** Leave the workspace PWA and open the Review app URL in Safari / Chrome. */
+  function openInSystemBrowser(url) {
+    var href = String(url || '').trim();
+    if (!href) return;
+    if (isAndroid) {
+      try {
+        var u = new URL(href, window.location.origin);
+        var path = u.pathname + u.search + u.hash;
+        var intent =
+          'intent://' +
+          u.host +
+          path +
+          '#Intent;scheme=' +
+          u.protocol.replace(':', '') +
+          ';package=com.android.chrome;S.browser_fallback_url=' +
+          encodeURIComponent(u.href) +
+          ';end';
+        window.location.href = intent;
+        return;
+      } catch (e) { /* fall through to <a> */ }
+    }
+    // iOS (and Android fallback): PWAs hand target=_blank to Safari / the system browser.
+    var a = document.createElement('a');
+    a.href = href;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () {
+      if (a.parentNode) a.parentNode.removeChild(a);
+    }, 0);
   }
 
   function openModal() {
@@ -569,6 +607,12 @@
 
     if (modal && !modal.hidden && event.target === modal) {
       closeModal(true);
+      return;
+    }
+
+    var openBrowserBtn = event.target.closest('[data-ma-install-open-browser]');
+    if (openBrowserBtn) {
+      openInSystemBrowser(installUrl());
       return;
     }
 
