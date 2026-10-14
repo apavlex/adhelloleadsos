@@ -19,29 +19,28 @@
   var fromWorkspaceShell = standalone && !memberPwa;
 
   var modal = document.getElementById('maInstall');
-  var KEY = 'ma-install-hint-dismissed';
-  var AUTO_KEY = 'ma-install-auto-shown';
-  // From Get the app → Open Review app (?install=1): show install sheet first.
-  var forceInstall =
+  // Legacy permanent dismiss blocked the sheet forever — clear it so Home can show again.
+  var LEGACY_KEY = 'ma-install-hint-dismissed';
+  var SNOOZE_KEY = 'ma-install-snoozed';
+  var forceQuery =
     params.get('install') === '1' ||
     params.get('hint') === 'install' ||
     params.get('install') === 'true';
+  // Home root (/m/:token) always offers install first until this is a member Home Screen app.
+  var isHomeRoot = /^\/m\/[^/]+\/?$/.test(String(window.location.pathname || ''));
+  var forceInstall = forceQuery || isHomeRoot;
 
-  function dismissed() {
-    try { return localStorage.getItem(KEY) === '1'; } catch (e) { return false; }
+  try { localStorage.removeItem(LEGACY_KEY); } catch (e) { /* private mode */ }
+
+  function snoozed() {
+    try { return sessionStorage.getItem(SNOOZE_KEY) === '1'; } catch (e) { return false; }
   }
-  function markDismissed() {
-    try { localStorage.setItem(KEY, '1'); } catch (e) { /* private mode */ }
-  }
-  function autoShown() {
-    try { return sessionStorage.getItem(AUTO_KEY) === '1'; } catch (e) { return false; }
-  }
-  function markAutoShown() {
-    try { sessionStorage.setItem(AUTO_KEY, '1'); } catch (e) { /* private mode */ }
+  function markSnoozed() {
+    try { sessionStorage.setItem(SNOOZE_KEY, '1'); } catch (e) { /* private mode */ }
   }
 
   function cleanInstallQueryFromUrl() {
-    if (!forceInstall || !window.history || !window.history.replaceState) return;
+    if (!forceQuery || !window.history || !window.history.replaceState) return;
     try {
       var u = new URL(window.location.href);
       u.searchParams.delete('install');
@@ -97,25 +96,27 @@
     if (!modal) return;
     modal.hidden = true;
     document.documentElement.style.overflow = '';
-    if (persist) markDismissed();
+    // "Not now" / Got it only snooze this browser session — never permanently hide.
+    if (persist) markSnoozed();
   }
 
-  // Menu "Open Review app" (?install=1): show install guidance immediately — first thing.
-  // Other visits: after first paint. Skip when already running as the installed member PWA.
-  if (modal && !alreadyInstalled && (forceInstall || (!dismissed() && !autoShown()))) {
+  // Home (+ Get the app ?install=1): show install sheet immediately as the first thing.
+  // Skip only when already running as the installed member PWA, or snoozed this session.
+  if (modal && !alreadyInstalled && forceInstall && !snoozed()) {
+    configurePanels();
+    modal.hidden = false;
+    document.documentElement.style.overflow = 'hidden';
+    cleanInstallQueryFromUrl();
+  } else if (modal && !alreadyInstalled && !forceInstall && !snoozed()) {
+    // Non-home pages: gentle idle prompt once per session.
     var showInstall = function () {
-      if (alreadyInstalled) return;
-      // Forced from Get the app always wins over a prior "Not now".
-      if (!forceInstall && dismissed()) return;
+      if (alreadyInstalled || snoozed() || !modal) return;
       configurePanels();
       modal.hidden = false;
       document.documentElement.style.overflow = 'hidden';
-      markAutoShown();
-      cleanInstallQueryFromUrl();
+      markSnoozed();
     };
-    if (forceInstall) {
-      showInstall();
-    } else if (typeof requestIdleCallback === 'function') {
+    if (typeof requestIdleCallback === 'function') {
       requestIdleCallback(showInstall, { timeout: 2500 });
     } else {
       setTimeout(showInstall, 1200);
