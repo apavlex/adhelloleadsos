@@ -7,8 +7,9 @@
 const DEFAULT_ACCENT = '#FFDB3A';
 /** Product name for the free Reviews App (never “Adhello Agency network”). */
 const FREE_APP_NAME = 'AdHello Reviews App';
-/** Placeholder hero for free-app members until they upload their own van/photo. */
+/** Default Home banner until the business uploads their own van/photo. */
 const FREE_APP_HERO_URL = '/images/member-hero-your-business.jpg';
+const DEFAULT_HERO_URL = FREE_APP_HERO_URL;
 const IMAGE_KINDS = new Set(['logo', 'hero']);
 
 function cleanText(value, max) {
@@ -108,10 +109,10 @@ function brandView(network, member, opts = {}) {
   // Home hero prefers the signup company; chrome / install use Reviews App.
   const heroName = free ? (companyName || FREE_APP_NAME) : appName;
   const accent = free ? DEFAULT_ACCENT : brand.accent;
-  let heroUrl = brand.heroUrl;
-  if (free) {
-    heroUrl = normalizeImageUrl(opts.heroUrl) || FREE_APP_HERO_URL;
-  }
+  // Always show a photo banner — never a bare gradient — until they upload their own.
+  let heroUrl = free
+    ? normalizeImageUrl(opts.heroUrl) || DEFAULT_HERO_URL
+    : normalizeImageUrl(brand.heroUrl) || normalizeImageUrl(opts.heroUrl) || DEFAULT_HERO_URL;
   const freeSubtitle = companyName
     ? `${companyName} · Reviews, customers & network`
     : 'Reviews, customers & network';
@@ -192,6 +193,7 @@ module.exports = {
   DEFAULT_ACCENT,
   FREE_APP_NAME,
   FREE_APP_HERO_URL,
+  DEFAULT_HERO_URL,
   IMAGE_KINDS,
   normalizeBrand,
   normalizeHex,

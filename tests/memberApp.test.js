@@ -67,10 +67,17 @@ test('brand normalization keeps safe values and readable accent text', () => {
   const view = networkBrand.brandView({ name: 'Acme network', brand: { statValue: 1200 } });
   assert.equal(view.appName, 'Acme network');
   assert.equal(view.statValueLabel, '1,200');
+  assert.match(view.heroUrl, /member-hero-your-business\.jpg/);
   const defaults = networkBrand.brandView({});
   assert.equal(defaults.appName, 'Partner network');
   assert.match(defaults.tagline, /review/i);
   assert.match(defaults.subtitle, /Reviews/);
+  assert.match(defaults.heroUrl, /member-hero-your-business\.jpg/);
+  const customHero = networkBrand.brandView({
+    name: 'TPR Flooring',
+    brand: { heroUrl: '/m/brand/tpr/hero?v=1' },
+  });
+  assert.equal(customHero.heroUrl, '/m/brand/tpr/hero?v=1');
 
   const free = networkBrand.brandView(
     { name: 'Adhello Agency network', brand: { appName: 'Adhello Agency network', accent: '#F26B1D', heroUrl: '/m/brand/x/hero' } },
