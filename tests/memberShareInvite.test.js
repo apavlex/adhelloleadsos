@@ -225,6 +225,14 @@ test('owner Share contact lists workspace Team members (e.g. Isabelle SDR)', asy
     assert.match(page, /data-ma-share-mate-pick/);
     assert.match(page, /Search teammates/);
     assert.match(page, /data-ma-share-mates/);
+    // Share mate results stay in document flow + scroll so the keyboard does not trap them.
+    const css = fs.readFileSync(path.join(__dirname, '../public/css/member-app.css'), 'utf8');
+    const appJs = fs.readFileSync(path.join(__dirname, '../public/js/member-app.js'), 'utf8');
+    assert.match(page, /ma-share-mate-pick/);
+    assert.match(css, /\.ma-share-mate-pick \.ma-typeahead__list[\s\S]*?position:\s*static/);
+    assert.match(css, /\.ma-share-mate-pick \.ma-typeahead__list[\s\S]*?overflow-y:\s*auto/);
+    assert.match(appJs, /function fitListHeight/);
+    assert.match(appJs, /visualViewport/);
     assert.match(page, /Isabelle/);
     assert.match(page, /SDR · workspace team|workspace team/i);
     assert.match(page, /Presso Renovations/);
