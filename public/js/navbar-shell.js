@@ -100,52 +100,10 @@ function readJsonReply(r) {
       panel.style.pointerEvents = 'none';
     }
     document.body.classList.remove('overflow-hidden');
-    document.documentElement.classList.add('adhello-navigating');
     document.documentElement.classList.remove('ws-settings-navigating');
+    // Never blank the page with a full-screen wash — iOS can stick on it.
+    // Thin top progress only; let the browser own the real navigation.
     showNavProgress();
-  }
-
-  /** Resolve same-origin leave URL, or '' if this click should keep default browser behavior. */
-  function sameOriginLeaveUrl(a, e) {
-    if (!a || e.defaultPrevented) return '';
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || a.target === '_blank') return '';
-    if (a.hasAttribute('download') || a.hasAttribute('data-no-nav-progress')) return '';
-    var href = a.getAttribute('href') || '';
-    if (!href || href.charAt(0) === '#' || href.indexOf('javascript:') === 0) return '';
-    try {
-      var u = new URL(href, window.location.origin);
-      if (u.origin !== window.location.origin) return '';
-      if (u.pathname === window.location.pathname && u.search === window.location.search) {
-        // Same page (+ optional hash): let the browser handle it.
-        return '';
-      }
-      return u.pathname + u.search + u.hash;
-    } catch (_) {
-      return '';
-    }
-  }
-
-  /**
-   * Show leave wash, then navigate in the same user-gesture turn.
-   * Do NOT defer assign behind rAF/setTimeout — iOS Safari drops delayed navigations
-   * and leaves the wash stuck as a blank cream screen.
-   */
-  function leaveToUrl(url) {
-    if (!url || leaveToUrl._going) return;
-    leaveToUrl._going = true;
-    clearNavOverlaysForLeave();
-    clearTimeout(leaveToUrl._failSafe);
-    // If assign is blocked for any reason, drop the wash so the app is usable again.
-    leaveToUrl._failSafe = setTimeout(function () {
-      leaveToUrl._going = false;
-      document.documentElement.classList.remove('adhello-navigating');
-      var el = document.getElementById('adhelloNavProgress');
-      if (el) {
-        el.style.opacity = '0';
-        el.style.transform = 'scaleX(0)';
-      }
-    }, 2500);
-    window.location.assign(url);
   }
 
   if (mobileMenuBtn) {
@@ -173,36 +131,35 @@ function readJsonReply(r) {
       if (el.hasAttribute('data-sidebar-new-toggle')) return;
       if (el.hasAttribute('data-get-app-share')) return;
       el.addEventListener('click', function (ev) {
-        if (el.tagName !== 'A') {
-          closeMobileMenu();
-          return;
-        }
-        var next = sameOriginLeaveUrl(el, ev);
-        if (next) {
-          ev.preventDefault();
-          leaveToUrl(next);
-          return;
-        }
-        closeMobileMenu();
+        var href = el.getAttribute && el.getAttribute('href');
+        var leaving = el.tagName === 'A' && href && href.charAt(0) !== '#' && !el.hasAttribute('download')
+          && !(ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey || el.target === '_blank');
+        if (leaving) clearNavOverlaysForLeave();
+        else closeMobileMenu();
       });
     });
   }
 
-  // In-app nav: wash out the old page immediately, then assign after paint.
+  // In-app nav: close overlays + show progress; do not preventDefault (breaks iOS nav).
   document.addEventListener('click', function (e) {
     var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
     if (!a) return;
-    // Mobile menu links handle leave themselves (avoids double assign).
-    if (mobileMenu && mobileMenu.contains(a)) return;
-    var next = sameOriginLeaveUrl(a, e);
-    if (!next) return;
-    e.preventDefault();
-    leaveToUrl(next);
+    if (e.defaultPrevented) return;
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || a.target === '_blank') return;
+    if (a.hasAttribute('download') || a.hasAttribute('data-no-nav-progress')) return;
+    var href = a.getAttribute('href') || '';
+    if (!href || href.charAt(0) === '#' || href.indexOf('javascript:') === 0) return;
+    try {
+      var u = new URL(href, window.location.origin);
+      if (u.origin !== window.location.origin) return;
+      if (u.pathname === window.location.pathname && u.search === window.location.search && u.hash) return;
+    } catch (_) {
+      return;
+    }
+    clearNavOverlaysForLeave();
   }, true);
 
   window.addEventListener('pageshow', function () {
-    leaveToUrl._going = false;
-    document.documentElement.classList.remove('adhello-navigating');
     var el = document.getElementById('adhelloNavProgress');
     if (el) {
       el.style.opacity = '0';
