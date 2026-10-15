@@ -600,8 +600,25 @@ html[data-ma-theme="dark"] .ma-tile, html[data-ma-theme="dark"] .ma-card, html[d
 /* Closed-by-default import fold; List/Calendar/Pending pills sit under it. */
 .ma-cust-tools.ma-fold {
   display: block;
-  margin: 0 0 14px;
+  margin: 0 0 10px;
   padding: 0;
+  border-radius: 12px;
+}
+/* Strip bar when closed — just tall enough for the label + chevron. */
+.ma-cust-tools.ma-fold > summary {
+  min-height: 40px;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+.ma-cust-tools.ma-fold > summary::after {
+  width: 8px;
+  height: 8px;
+  margin-top: -2px;
+}
+.ma-cust-tools.ma-fold[open] > summary::after {
+  margin-top: 2px;
 }
 .ma-cust-tools.ma-fold > .ma-fold__body {
   padding-top: 2px;
