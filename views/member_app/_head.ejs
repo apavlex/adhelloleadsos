@@ -9,10 +9,14 @@
 <meta name="theme-color" content="#ffffff" id="maThemeColor">
 <title><%= _title %></title>
 <script>
-/* Apply saved appearance before CSS paint (light / dark / system). */
+/* Apply saved appearance before CSS paint (light / dark / system).
+   Device localStorage wins; otherwise seed from Workspace → White label. */
 (function () {
   try {
-    var pref = localStorage.getItem('ma-theme') || 'system';
+    var workspacePref = <%= JSON.stringify((typeof brand !== 'undefined' && brand && brand.preferredTheme) ? brand.preferredTheme : 'system') %>;
+    if (workspacePref !== 'light' && workspacePref !== 'dark' && workspacePref !== 'system') workspacePref = 'system';
+    var stored = localStorage.getItem('ma-theme');
+    var pref = (stored === 'light' || stored === 'dark' || stored === 'system') ? stored : workspacePref;
     var theme = pref;
     if (pref !== 'light' && pref !== 'dark') {
       theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';

@@ -62,6 +62,11 @@ test('white-label settings UI has appearance + dual phone previews', () => {
   assert.match(html, /data-wl-phone="dark"/);
   assert.match(html, /data-wl-icon-tile/);
   assert.match(html, /preferredTheme/);
+  assert.match(html, /name="hero"/);
+  assert.match(html, /Home banner/);
+  assert.match(html, /Text the Review app link/);
+  assert.match(html, /data-get-app-share-url/);
+  assert.match(html, /Copy \/ share for SMS/);
 
   const head = fs.readFileSync(path.join(root, 'views/partials/head.ejs'), 'utf8');
   assert.match(head, /preferredTheme/);
@@ -70,6 +75,9 @@ test('white-label settings UI has appearance + dual phone previews', () => {
   const route = fs.readFileSync(path.join(root, 'routes/workspace.js'), 'utf8');
   assert.match(route, /preferredTheme/);
   assert.match(route, /cleanPreferredTheme/);
+  assert.match(route, /name: 'hero'/);
+  assert.match(route, /ensureOwnerReferralApp/);
+  assert.match(route, /syncWhiteLabelToNetworkBrand/);
 });
 
 test('sidebar and mobile chrome use accent iconUrl when a logo is set', () => {
@@ -81,4 +89,20 @@ test('sidebar and mobile chrome use accent iconUrl when a logo is set', () => {
   const nav = fs.readFileSync(path.join(root, 'views/partials/navbar.ejs'), 'utf8');
   assert.match(nav, /hasLogo \? _navWl\.iconUrl\(192\) : _navWl\.logoUrl/);
   assert.match(nav, /object-cover/);
+});
+
+test('Review app seeds preferredTheme and uses accent icon on Home badge', () => {
+  const maHead = fs.readFileSync(path.join(root, 'views/member_app/_head.ejs'), 'utf8');
+  assert.match(maHead, /workspacePref/);
+  assert.match(maHead, /brand\.preferredTheme/);
+
+  const home = fs.readFileSync(path.join(root, 'views/member_app/home.ejs'), 'utf8');
+  assert.match(home, /icon-192\.png/);
+  assert.match(home, /ma-hero__badge/);
+
+  const css = fs.readFileSync(path.join(root, 'public/css/member-app.css'), 'utf8');
+  assert.match(css, /\.ma-hero__badge img[\s\S]*background:\s*var\(--acc\)/);
+
+  const ownerBrand = fs.readFileSync(path.join(root, 'services/ownerAppBrand.js'), 'utf8');
+  assert.match(ownerBrand, /preferredTheme:\s*wl\.preferredTheme/);
 });

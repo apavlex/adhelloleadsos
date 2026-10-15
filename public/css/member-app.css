@@ -426,7 +426,8 @@ body.ma-bell-open .ma-bell { pointer-events: auto; }
   display: inline-flex; align-items: center; justify-content: center;
   overflow: hidden; flex-shrink: 0;
 }
-.ma-hero__badge img { width: 100%; height: 100%; object-fit: contain; background: #fff; }
+/* Accent-backed PWA icon (not raw pale logo on white) so light marks stay visible. */
+.ma-hero__badge img { width: 100%; height: 100%; object-fit: cover; background: var(--acc); }
 .ma-hero__badge svg { width: 18px; height: 18px; color: var(--acc); }
 .ma-hero__name {
   font-weight: 800; font-size: 15px; margin: 0; line-height: 1.2;

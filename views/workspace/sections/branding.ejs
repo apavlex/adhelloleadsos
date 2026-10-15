@@ -13,12 +13,15 @@
   const _wlSet = typeof whiteLabelSettings !== 'undefined' && whiteLabelSettings ? whiteLabelSettings : { appName: '', preferredTheme: 'system' };
   const _wlTheme = ['light', 'dark', 'system'].includes(String(_wlSet.preferredTheme || '')) ? String(_wlSet.preferredTheme) : 'system';
   const _wlOpenUrl = typeof appOpenUrl !== 'undefined' ? appOpenUrl : '/today';
+  const _wlOpenPath = typeof appOpenPath !== 'undefined' ? appOpenPath : _wlOpenUrl;
+  const _wlOpenHost = typeof reviewAppHost !== 'undefined' && reviewAppHost ? reviewAppHost : String(_wlOpenUrl).replace(/^https?:\/\//, '');
+  const _wlHeroUrl = typeof reviewHeroUrl !== 'undefined' && reviewHeroUrl ? String(reviewHeroUrl) : '';
   const _wlIconSrc = _wlBrand.hasLogo ? _wlBrand.logoUrl : _wlBrand.iconUrl(512);
 %>
 <div class="space-y-6">
 <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6">
   <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-1">Logo &amp; app name</h2>
-  <p class="text-sm text-brand-muted mb-5">Shown in the sidebar, the browser tab, and as the app icon when someone saves the app to their phone. Light logos sit on your accent color so they stay visible.</p>
+  <p class="text-sm text-brand-muted mb-5">Shown in the CRM sidebar, the Review app Home badge, the browser tab, and the Home Screen icon. Light logos sit on your accent color so they stay visible.</p>
   <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(240px,280px)] items-start">
     <% if (_wlCan) { %>
     <form id="wlForm" class="space-y-4" enctype="multipart/form-data" novalidate>
@@ -39,13 +42,29 @@
         <label class="mt-2 inline-flex items-center gap-2 text-[12px] font-semibold text-brand-muted"><input type="checkbox" id="wlRemoveLogo" name="remove_logo" value="on" /> Remove logo and go back to the AdHello icon</label>
         <% } %>
       </div>
+      <div>
+        <p class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Home banner</p>
+        <p class="text-[11px] text-brand-muted mb-2">Big photo on Review app Home — truck, van, storefront, crew. Trucking companies usually use a truck or trailer shot.</p>
+        <label for="wlHero" class="relative flex flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-brand-border/70 dark:border-white/15 bg-brand-cream/20 dark:bg-slate-950/40 px-4 py-5 text-center cursor-pointer hover:border-brand-yellow/60 transition-colors overflow-hidden min-h-[140px]">
+          <img id="wlHeroPreview" src="<%= _wlHeroUrl || '/images/member-hero-your-business.jpg' %>" alt="" class="absolute inset-0 w-full h-full object-cover<%= _wlHeroUrl ? '' : ' opacity-40' %>" data-wl-hero-img />
+          <span class="relative z-10 flex flex-col items-center gap-1 rounded-xl bg-black/45 text-white px-3 py-2">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+            <span id="wlHeroLabel" class="text-sm font-semibold">Choose a banner photo</span>
+            <span class="text-[11px] text-white/80">Wide photo works best · JPEG, PNG, WebP or GIF · up to 8 MB</span>
+          </span>
+        </label>
+        <input id="wlHero" name="hero" type="file" accept="image/png,image/jpeg,image/webp,image/gif" class="sr-only" />
+        <% if (_wlHeroUrl) { %>
+        <label class="mt-2 inline-flex items-center gap-2 text-[12px] font-semibold text-brand-muted"><input type="checkbox" id="wlRemoveHero" name="remove_hero" value="on" /> Remove banner and use the default photo</label>
+        <% } %>
+      </div>
       <div class="flex flex-wrap items-center gap-3">
-        <button type="submit" id="wlSave" class="rounded-xl bg-brand-yellow px-6 py-3 text-xs font-black uppercase tracking-widest disabled:opacity-50">Save logo &amp; name</button>
+        <button type="submit" id="wlSave" class="rounded-xl bg-brand-yellow px-6 py-3 text-xs font-black uppercase tracking-widest disabled:opacity-50">Save logo, name &amp; banner</button>
         <p id="wlMsg" class="text-sm" role="status"></p>
       </div>
     </form>
     <% } else { %>
-    <p class="text-sm text-brand-muted">Only workspace admins can change the logo and name.</p>
+    <p class="text-sm text-brand-muted">Only workspace admins can change the logo, name, and banner.</p>
     <% } %>
     <div class="flex flex-col gap-4">
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">How it looks on a phone</p>
@@ -83,7 +102,7 @@
 <% if (_wlCan) { %>
 <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6">
   <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-1">Default appearance</h2>
-  <p class="text-sm text-brand-muted mb-5">Set the starting light or dark mode for this client’s branded app. Teammates can still switch later; this is what new sessions use when they haven’t picked one yet.</p>
+  <p class="text-sm text-brand-muted mb-5">Starting light or dark mode for this client’s Review app (and CRM). People can still switch later on their device; this seeds new sessions.</p>
   <div class="grid gap-3 sm:grid-cols-3" role="radiogroup" aria-label="Default appearance">
     <%
       const _themeOpts = [
@@ -176,40 +195,49 @@
 <% } %>
 
 <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6">
-  <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-1">Save it to your phone</h2>
-  <p class="text-sm text-brand-muted mb-5">Add <strong class="text-brand-dark dark:text-white"><%= _wlBrand.appName %></strong> to your Home Screen and it opens full screen with your icon, like a regular app. No app store needed. Share these steps with your team.</p>
+  <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-1">Text the Review app link</h2>
+  <p class="text-sm text-brand-muted mb-5">When you sign a client up, text this link. They open the branded Review app right away — no workspace login. Branding above (logo, banner, colors, light/dark) is what they see.</p>
   <div class="grid gap-6 lg:grid-cols-[180px_minmax(0,1fr)] items-start">
     <div class="flex flex-col items-center text-center gap-2">
-      <img src="/workspace/white-label/qr.png" alt="QR code that opens the app" width="160" height="160" class="w-40 h-40 rounded-2xl border border-brand-border/50 dark:border-white/10 bg-white p-1" loading="lazy" />
-      <p class="text-[11px] text-brand-muted">Scan with your phone camera to open the app, then follow the steps.</p>
-      <p class="text-[11px] font-semibold text-brand-dark dark:text-white break-all"><%= _wlOpenUrl.replace(/^https?:\/\//, '') %></p>
+      <img src="/workspace/white-label/qr.png?v=<%= Date.now() %>" alt="QR code that opens the Review app" width="160" height="160" class="w-40 h-40 rounded-2xl border border-brand-border/50 dark:border-white/10 bg-white p-1" loading="lazy" />
+      <p class="text-[11px] text-brand-muted">Scan with a phone camera, or copy the link for SMS.</p>
+      <p class="text-[11px] font-semibold text-brand-dark dark:text-white break-all" id="wlReviewAppHost"><%= _wlOpenHost %></p>
+      <button
+        type="button"
+        class="mt-1 inline-flex items-center justify-center gap-2 rounded-full border-[1.5px] border-brand-dark/40 dark:border-white/40 bg-transparent text-brand-dark dark:text-white px-5 py-2.5 text-[10px] font-black uppercase tracking-widest hover:border-brand-yellow hover:bg-brand-yellow/15 transition-colors cursor-pointer"
+        data-get-app-share="only"
+        data-get-app-share-title="<%= _wlBrand.appName %> Review app"
+        data-get-app-share-url="<%= _wlOpenUrl %>"
+        data-share-label="Copy / share for SMS"
+        title="Copy or share the Review app link"
+      >
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 8.25H7.5a2.25 2.25 0 00-2.25 2.25v9a2.25 2.25 0 002.25 2.25h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25H15m0-3l-3-3m0 0l-3 3m3-3V15" /></svg>
+        <span data-get-app-share-label>Copy / share for SMS</span>
+      </button>
+      <a href="<%= _wlOpenPath %>" class="inline-flex items-center justify-center rounded-full bg-brand-yellow text-brand-dark no-underline px-5 py-2.5 text-[10px] font-black uppercase tracking-widest">Open Review app</a>
     </div>
     <div class="grid gap-4 md:grid-cols-2">
+      <div class="rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 p-4 md:col-span-2">
+        <p class="font-bold text-brand-dark dark:text-white mb-2">Onboarding tip</p>
+        <p class="text-sm text-brand-dark dark:text-slate-200">Paste the link into a welcome SMS right after signup. The short <code class="text-[11px] font-semibold">/a/…</code> URL opens their Review app (Home, reviews, customers) with your white-label branding — they never need CRM / workspace access.</p>
+      </div>
       <div class="rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 p-4">
         <p class="font-bold text-brand-dark dark:text-white mb-2">iPhone &amp; iPad</p>
         <ol class="list-decimal pl-5 space-y-1.5 text-sm text-brand-dark dark:text-slate-200">
-          <li>Open the app in <strong>Safari</strong> and sign in.</li>
-          <li>Tap the <strong>Share</strong> button (the square with an arrow, at the bottom of the screen or next to the address bar).</li>
-          <li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>
-          <li>Keep the name, make sure <strong>Open as Web App</strong> is on if you see it, and tap <strong>Add</strong>.</li>
+          <li>Open the SMS link in <strong>Safari</strong>.</li>
+          <li>Tap <strong>Share</strong> → <strong>Add to Home Screen</strong>.</li>
+          <li>Tap <strong>Add</strong>. The icon uses your logo and accent.</li>
         </ol>
-        <p class="mt-2 text-[11px] text-brand-muted">In Chrome on iPhone, tap the Share button in the address bar, then Add to Home Screen.</p>
       </div>
       <div class="rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 p-4">
         <p class="font-bold text-brand-dark dark:text-white mb-2">Android</p>
         <ol class="list-decimal pl-5 space-y-1.5 text-sm text-brand-dark dark:text-slate-200">
-          <li>Open the app in <strong>Chrome</strong> and sign in.</li>
-          <li>Tap the <strong>⋮</strong> menu in the top-right corner.</li>
-          <li>Tap <strong>Add to Home screen</strong> (or <strong>Install app</strong>).</li>
-          <li>Tap <strong>Install</strong> or <strong>Add</strong>. The icon appears with your other apps.</li>
+          <li>Open the SMS link in <strong>Chrome</strong>.</li>
+          <li>Tap <strong>⋮</strong> → <strong>Add to Home screen</strong> or <strong>Install app</strong>.</li>
+          <li>Tap <strong>Install</strong> or <strong>Add</strong>.</li>
         </ol>
-        <p class="mt-2 text-[11px] text-brand-muted">Samsung Internet: tap the menu, then Add page to, then Home screen.</p>
       </div>
-      <div class="rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 p-4 md:col-span-2">
-        <p class="font-bold text-brand-dark dark:text-white mb-2">Computer</p>
-        <p class="text-sm text-brand-dark dark:text-slate-200">In Chrome or Edge, click the <strong>install</strong> icon at the right end of the address bar (a screen with a down arrow) and choose <strong>Install</strong>. On a Mac with Safari, choose <strong>File → Add to Dock</strong>.</p>
-      </div>
-      <p class="md:col-span-2 text-[11px] text-brand-muted">Changed the logo after saving the app? Remove the old icon and add it again so your phone picks up the new one.</p>
+      <p class="md:col-span-2 text-[11px] text-brand-muted">Same link lives under <a href="/get-app" class="font-semibold underline decoration-brand-yellow/60 underline-offset-2">Get the app</a>. Changed the logo after install? Remove the old Home Screen icon and add it again.</p>
     </div>
   </div>
 </section>
@@ -222,15 +250,22 @@
     if (!form) return;
     var fileInput = document.getElementById('wlLogo');
     var fileLabel = document.getElementById('wlLogoLabel');
+    var heroInput = document.getElementById('wlHero');
+    var heroLabel = document.getElementById('wlHeroLabel');
+    var heroPreview = document.getElementById('wlHeroPreview');
     var nameInput = document.getElementById('wlAppName');
     var remove = document.getElementById('wlRemoveLogo');
+    var removeHero = document.getElementById('wlRemoveHero');
     var iconImgs = Array.prototype.slice.call(document.querySelectorAll('[data-wl-icon-img]'));
     var namePreviews = Array.prototype.slice.call(document.querySelectorAll('[data-wl-name]'));
     var iconTiles = Array.prototype.slice.call(document.querySelectorAll('[data-wl-icon-tile]'));
     var msg = document.getElementById('wlMsg');
     var save = document.getElementById('wlSave');
     var savedIcon = iconImgs[0] ? iconImgs[0].getAttribute('src') : '';
+    var savedHero = heroPreview ? heroPreview.getAttribute('src') : '/images/member-hero-your-business.jpg';
+    var defaultHero = '/images/member-hero-your-business.jpg';
     var blobUrl = '';
+    var heroBlobUrl = '';
     var defaultIcon = '/images/adhello-app-icon-512.png';
 
     function say(el, text, ok) {
@@ -241,6 +276,12 @@
 
     function setIconSrc(src) {
       iconImgs.forEach(function (img) { img.src = src; });
+    }
+
+    function setHeroSrc(src, isCustom) {
+      if (!heroPreview) return;
+      heroPreview.src = src || defaultHero;
+      heroPreview.classList.toggle('opacity-40', !isCustom);
     }
 
     function setNames(name) {
@@ -265,9 +306,24 @@
       setIconSrc(blobUrl || savedIcon);
       if (file && remove) remove.checked = false;
     });
+    if (heroInput) {
+      heroInput.addEventListener('change', function () {
+        if (heroBlobUrl) URL.revokeObjectURL(heroBlobUrl);
+        var file = heroInput.files && heroInput.files[0];
+        heroBlobUrl = file ? URL.createObjectURL(file) : '';
+        if (heroLabel) heroLabel.textContent = file ? file.name : 'Choose a banner photo';
+        setHeroSrc(heroBlobUrl || savedHero, !!(heroBlobUrl || (savedHero && savedHero !== defaultHero)));
+        if (file && removeHero) removeHero.checked = false;
+      });
+    }
     if (remove) {
       remove.addEventListener('change', function () {
         setIconSrc(remove.checked ? defaultIcon : (blobUrl || savedIcon));
+      });
+    }
+    if (removeHero) {
+      removeHero.addEventListener('change', function () {
+        setHeroSrc(removeHero.checked ? defaultHero : (heroBlobUrl || savedHero), !removeHero.checked && !!(heroBlobUrl || (savedHero && savedHero !== defaultHero)));
       });
     }
     document.addEventListener('input', function (e) {
@@ -318,7 +374,7 @@
           .then(function (res) {
             themeSave.disabled = false;
             if (!res.ok || !res.d.success) { say(themeMsg, res.d.error || 'Could not save.', false); return; }
-            say(themeMsg, 'Appearance saved for this client.', true);
+            say(themeMsg, 'Appearance saved for the Review app too.', true);
           })
           .catch(function () { themeSave.disabled = false; say(themeMsg, 'Could not save. Check your connection.', false); });
       });

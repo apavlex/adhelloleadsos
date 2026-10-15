@@ -101,6 +101,27 @@ test('owner can save Workspace white-label branding from Profile', async () => {
     assert.match(String(net.brand && net.brand.logoUrl || ''), /\/m\/brand\//);
     assert.equal(net.brand.appName, 'Cascade Pros');
 
+    await dbService.saveWorkspace(wid, {
+      ...ws,
+      whiteLabel: { ...(ws.whiteLabel || {}), preferredTheme: 'dark' },
+      accentColor: '#0F4CAE',
+    });
+    const applied = await ownerAppBrand.applyWorkspaceBrand(
+      { appName: 'x', accent: '#CA8A04', onAccent: '#111', logoUrl: '', initials: 'X' },
+      await store.getNetwork(network.id),
+      owner,
+    );
+    assert.equal(applied.preferredTheme, 'dark');
+    assert.equal(applied.fromWorkspace, true);
+    assert.match(String(applied.logoUrl || ''), /\/brand\/ws\//);
+
+    const home = await fetch(`${base}/m/${token}`);
+    assert.equal(home.status, 200);
+    const homeHtml = await home.text();
+    assert.match(homeHtml, /icon-192\.png/);
+    assert.match(homeHtml, /workspacePref/);
+    assert.match(homeHtml, /"dark"/);
+
     const out = await ownerAppBrand.saveOwnerWorkspaceBranding(network, owner, { removeLogo: true });
     assert.equal(out.ok, true);
     assert.equal(whiteLabel.brandForWorkspace(await dbService.getWorkspace(wid)).hasLogo, false);
