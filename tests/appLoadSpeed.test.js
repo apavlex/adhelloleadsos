@@ -20,6 +20,11 @@ test('nav shell closes menu instantly and shows progress on leave', () => {
   assert.match(js, /closeMobileMenu\(\{\s*instant:\s*true\s*\}\)/);
   assert.match(js, /showNavProgress/);
   assert.match(js, /backdrop-filter',\s*'none'/);
+  assert.match(js, /adhello-navigating/);
+  assert.match(js, /function leaveToUrl/);
+  assert.match(js, /location\.assign/);
+  const css = fs.readFileSync(path.join(root, 'public/css/custom.css'), 'utf8');
+  assert.match(css, /html\.adhello-navigating::before/);
 });
 
 test('prospecting folders tab skips unused lead JSON and Drive OAuth', () => {
