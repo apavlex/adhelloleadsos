@@ -65,40 +65,13 @@ function readJsonReply(r) {
     }, 160);
   }
 
-  function ensureNavProgressEl() {
-    var el = document.getElementById('adhelloNavProgress');
-    if (el) return el;
-    el = document.createElement('div');
-    el.id = 'adhelloNavProgress';
-    el.setAttribute('aria-hidden', 'true');
-    el.style.cssText =
-      'position:fixed;top:0;left:0;right:0;height:3px;z-index:10000;pointer-events:none;'
-      + 'background:linear-gradient(90deg,transparent,#FFDB3A 35%,#FFDB3A 65%,transparent);'
-      + 'transform:scaleX(0);transform-origin:left center;opacity:0;transition:transform .35s ease,opacity .15s ease;';
-    document.body.appendChild(el);
-    return el;
-  }
-
-  function showNavProgress() {
-    var el = ensureNavProgressEl();
-    el.style.opacity = '1';
-    el.style.transform = 'scaleX(0.28)';
-    clearTimeout(showNavProgress._t1);
-    clearTimeout(showNavProgress._t2);
-    // Kick a frame later so the first paint shows motion immediately.
-    requestAnimationFrame(function () { el.style.transform = 'scaleX(0.48)'; });
-    showNavProgress._t1 = setTimeout(function () { el.style.transform = 'scaleX(0.72)'; }, 200);
-    showNavProgress._t2 = setTimeout(function () { el.style.transform = 'scaleX(0.9)'; }, 800);
-  }
-
   function ensureNavLoadingEl() {
     var el = document.getElementById('adhelloNavLoading');
     if (el) return el;
     el = document.createElement('div');
     el.id = 'adhelloNavLoading';
     el.setAttribute('aria-hidden', 'true');
-    // Gemini-style radiant bloom along the bottom edge while the next page loads.
-    el.innerHTML = '<div class="adhello-nav-radiant"></div><div class="adhello-nav-radiant-line"></div>';
+    el.innerHTML = '<div class="adhello-nav-bottom-bar"></div>';
     document.body.appendChild(el);
     return el;
   }
@@ -108,22 +81,15 @@ function readJsonReply(r) {
     document.documentElement.classList.remove('adhello-nav-loading');
     var el = document.getElementById('adhelloNavLoading');
     if (el) el.classList.remove('is-on');
-    var bar = document.getElementById('adhelloNavProgress');
-    if (bar) {
-      bar.style.opacity = '0';
-      bar.style.transform = 'scaleX(0)';
-    }
   }
 
   function showNavLoading() {
     document.documentElement.classList.add('adhello-nav-loading');
     var el = ensureNavLoadingEl();
-    // Reflow so the opacity transition actually paints before the document request.
     void el.offsetWidth;
     el.classList.add('is-on');
-    showNavProgress();
     clearTimeout(hideNavLoading._failSafe);
-    // If navigation never leaves (offline / cancelled), drop the dim so we are not stuck.
+    // If navigation never leaves, drop the bar so we are not stuck.
     hideNavLoading._failSafe = setTimeout(hideNavLoading, 6000);
   }
 
@@ -137,7 +103,7 @@ function readJsonReply(r) {
     }
     document.body.classList.remove('overflow-hidden');
     document.documentElement.classList.remove('ws-settings-navigating');
-    // Dim + soft blur = loading feel. Do not preventDefault / assign — browser owns nav.
+    // Simple bottom motion bar only — no dim/blur/radiant wash.
     showNavLoading();
   }
 

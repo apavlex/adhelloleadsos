@@ -692,87 +692,51 @@ html.ws-settings-navigating .ws-settings-main {
     pointer-events: none;
 }
 
-/* In-app leave: soft dim + Gemini-style radiant glow along the bottom edge. */
+/* In-app leave: thin motion bar at the bottom of the page (no dim / radiant wash). */
 #adhelloNavLoading {
     position: fixed;
-    inset: 0;
-    z-index: 9998;
+    left: 0;
+    right: 0;
+    bottom: env(safe-area-inset-bottom, 0px);
+    z-index: 10000;
     pointer-events: none;
     opacity: 0;
-    transition: opacity 140ms ease;
-    background: rgba(15, 23, 42, 0.18);
-    -webkit-backdrop-filter: blur(3px);
-    backdrop-filter: blur(3px);
-    overflow: hidden;
+    transition: opacity 120ms ease;
+    height: 3px;
 }
 #adhelloNavLoading.is-on {
     opacity: 1;
 }
-#adhelloNavLoading .adhello-nav-radiant {
+#adhelloNavLoading .adhello-nav-bottom-bar {
     position: absolute;
-    left: -20%;
-    right: -20%;
-    bottom: -2.5rem;
-    height: 7.5rem;
-    border-radius: 100% 100% 0 0 / 60% 60% 0 0;
-    background: linear-gradient(
-        90deg,
-        #38bdf8,
-        #818cf8,
-        #e879f9,
-        #FFDB3A,
-        #34d399,
-        #38bdf8
-    );
-    background-size: 220% 100%;
-    filter: blur(28px);
-    opacity: 0.9;
-    animation: adhello-nav-radiant-flow 2.4s linear infinite;
-    will-change: background-position;
+    inset: 0;
+    overflow: hidden;
+    background: rgba(202, 138, 4, 0.18);
 }
-#adhelloNavLoading .adhello-nav-radiant-line {
+#adhelloNavLoading .adhello-nav-bottom-bar::after {
+    content: '';
     position: absolute;
-    left: 8%;
-    right: 8%;
-    bottom: max(0.35rem, env(safe-area-inset-bottom, 0px));
-    height: 3px;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 40%;
     border-radius: 999px;
-    background: linear-gradient(
-        90deg,
-        transparent 0%,
-        #38bdf8 18%,
-        #a78bfa 40%,
-        #FFDB3A 58%,
-        #34d399 78%,
-        transparent 100%
-    );
-    background-size: 200% 100%;
-    box-shadow:
-        0 0 12px rgba(255, 219, 58, 0.55),
-        0 0 28px rgba(129, 140, 248, 0.45);
-    animation: adhello-nav-radiant-flow 1.8s linear infinite;
-    will-change: background-position;
+    background: linear-gradient(90deg, transparent, #FFDB3A 30%, #FFDB3A 70%, transparent);
+    animation: adhello-nav-bottom-bar-slide 1.05s ease-in-out infinite;
 }
-@keyframes adhello-nav-radiant-flow {
-    0% { background-position: 0% 50%; }
-    100% { background-position: 200% 50%; }
+@keyframes adhello-nav-bottom-bar-slide {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(350%); }
 }
 html.adhello-nav-loading {
     cursor: progress;
 }
-html.adhello-nav-loading .app-shell-content {
-    filter: brightness(0.96);
-}
 @media (prefers-reduced-motion: reduce) {
-    #adhelloNavLoading {
-        -webkit-backdrop-filter: none;
-        backdrop-filter: none;
-        background: rgba(15, 23, 42, 0.32);
-    }
-    #adhelloNavLoading .adhello-nav-radiant,
-    #adhelloNavLoading .adhello-nav-radiant-line {
+    #adhelloNavLoading .adhello-nav-bottom-bar::after {
         animation: none;
-        background-position: 40% 50%;
+        left: 30%;
+        width: 40%;
+        transform: none;
     }
 }
 
