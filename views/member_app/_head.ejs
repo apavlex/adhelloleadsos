@@ -9,14 +9,30 @@
 <meta name="theme-color" content="#ffffff" id="maThemeColor">
 <title><%= _title %></title>
 <script>
-/* Apply saved appearance before CSS paint (light / dark / system).
-   Device localStorage wins; otherwise seed from Workspace → White label. */
+/* Appearance before CSS paint.
+   Workspace → White label light/dark wins until the teammate pins a choice in Profile. */
 (function () {
   try {
     var workspacePref = <%= JSON.stringify((typeof brand !== 'undefined' && brand && brand.preferredTheme) ? brand.preferredTheme : 'system') %>;
     if (workspacePref !== 'light' && workspacePref !== 'dark' && workspacePref !== 'system') workspacePref = 'system';
-    var stored = localStorage.getItem('ma-theme');
-    var pref = (stored === 'light' || stored === 'dark' || stored === 'system') ? stored : workspacePref;
+    document.documentElement.setAttribute('data-ma-workspace-theme', workspacePref);
+    var stored = null;
+    var pinned = false;
+    try {
+      stored = localStorage.getItem('ma-theme');
+      pinned = localStorage.getItem('ma-theme-pinned') === '1';
+    } catch (e) { /* private mode */ }
+    var pref;
+    if (pinned && (stored === 'light' || stored === 'dark' || stored === 'system')) {
+      pref = stored;
+    } else if (workspacePref === 'light' || workspacePref === 'dark') {
+      pref = workspacePref;
+      try { localStorage.setItem('ma-theme', pref); } catch (e2) { /* ignore */ }
+    } else if (stored === 'light' || stored === 'dark' || stored === 'system') {
+      pref = stored;
+    } else {
+      pref = 'system';
+    }
     var theme = pref;
     if (pref !== 'light' && pref !== 'dark') {
       theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -29,6 +45,7 @@
   } catch (e) {
     document.documentElement.setAttribute('data-ma-theme', 'light');
     document.documentElement.setAttribute('data-ma-theme-pref', 'system');
+    document.documentElement.setAttribute('data-ma-workspace-theme', 'system');
   }
 })();
 </script>
