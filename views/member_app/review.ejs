@@ -188,11 +188,41 @@
       <summary>SMS script <span class="ma-fold__hint">AI starting text</span></summary>
       <div class="ma-fold__body">
         <form method="post" action="<%= base %>/review/script" class="ma-card ma-card--flush" autocomplete="off" data-ma-loading="Saving…">
-          <p class="ma-hint" style="margin-top:0">Request a review uses this text as-is (even before Save). Optional: <code>{{name}}</code>, <code>{{company}}</code>, <code>{{review_link}}</code>.</p>
+          <p class="ma-hint" style="margin-top:0">Request a review uses this text as-is (even before Save). Placeholders: <code>{{name}}</code>, <code>{{company}}</code>, <code>{{review_link}}</code>, <code>{{job}}</code>, <code>{{city}}</code>, <code>{{keywords}}</code> (e.g. cabinet install in Camas).</p>
+          <%
+            const _kwHint = typeof keywordHint !== 'undefined' && keywordHint ? String(keywordHint) : '';
+            const _kwSnippet = typeof keywordsSnippet !== 'undefined' ? String(keywordsSnippet) : ' If you mention the {{job}} in {{city}}, that helps neighbors find us.';
+          %>
+          <% if (_kwHint) { %>
+          <p class="ma-flash ma-flash--ok" style="margin:0 0 10px">Suggested for this customer: <strong><%= _kwHint %></strong> — from their latest job + address city.</p>
+          <% } %>
           <div class="ma-field">
             <label class="ma-label" for="rvSmsScript">Review request text</label>
             <textarea id="rvSmsScript" name="smsScript" class="ma-textarea" rows="4" maxlength="800" required><%= _script %></textarea>
           </div>
+          <div class="ma-actions" style="margin:0 0 10px;flex-wrap:wrap">
+            <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" id="rvInsertKeywords"
+              data-snippet="<%= _kwSnippet.replace(/"/g, '&quot;') %>">Insert project keywords</button>
+          </div>
+          <script>
+          (function () {
+            var btn = document.getElementById('rvInsertKeywords');
+            var ta = document.getElementById('rvSmsScript');
+            if (!btn || !ta) return;
+            btn.addEventListener('click', function () {
+              var snip = btn.getAttribute('data-snippet') || '';
+              if (!snip) return;
+              if (/\{\{\s*(job|city|keywords)\s*\}\}/i.test(ta.value)) {
+                btn.textContent = 'Already in script';
+                return;
+              }
+              var base = ta.value.replace(/\s+$/, '');
+              ta.value = (base + snip).slice(0, 800);
+              ta.focus();
+              btn.textContent = 'Added — Save script';
+            });
+          })();
+          </script>
           <div class="ma-script-link">
             <p class="ma-hint" style="margin:0">Your review link (only inserted when the script includes <code>{{review_link}}</code>):</p>
             <code class="ma-script-link__url"><%= typeof reviewUrl !== 'undefined' ? reviewUrl : '' %></code>

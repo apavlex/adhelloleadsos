@@ -62,6 +62,10 @@ function normalizeAsk(raw) {
     reviewSlug: String(a.reviewSlug || '').trim(),
     imageId: String(a.imageId || '').trim(),
     reviewUrl: String(a.reviewUrl || '').trim(),
+    /** SEO-friendly phrase for the customer to mention (e.g. "cabinet install in Camas"). */
+    keywordHint: String(a.keywordHint || '').trim().slice(0, 120),
+    jobTitle: String(a.jobTitle || '').trim().slice(0, 120),
+    city: String(a.city || '').trim().slice(0, 60),
     askedAt: a.askedAt || '',
     remindAfterAt: a.remindAfterAt || '',
     remindedAt: a.remindedAt || '',
@@ -126,6 +130,9 @@ async function createAsk({
   channel,
   reviewSlug,
   imageId,
+  keywordHint,
+  jobTitle,
+  city,
   now = Date.now(),
 }) {
   const id = newAskId();
@@ -143,6 +150,9 @@ async function createAsk({
     reviewSlug,
     imageId: imageId || '',
     reviewUrl,
+    keywordHint: keywordHint || '',
+    jobTitle: jobTitle || '',
+    city: city || '',
     askedAt,
     remindAfterAt: new Date(now + REMIND_AFTER_MS).toISOString(),
     createdAt: askedAt,

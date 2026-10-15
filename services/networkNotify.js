@@ -193,6 +193,9 @@ async function sendReviewRequest({
   useAi = true,
   scriptOverride,
   imageId,
+  jobTitle = '',
+  city = '',
+  keywords = '',
 }) {
   const phone = String(toPhone || '').trim();
   const email = String(toEmail || '').trim();
@@ -223,6 +226,8 @@ async function sendReviewRequest({
   const tryEmail = prefer !== 'sms' && email && email !== 'N/A' && email.includes('@');
   const plannedChannel = trySms ? 'sms' : 'email';
 
+  const keywordHint =
+    reviewRequestScript.buildKeywordHint({ jobTitle, city, keywords }) || '';
   const ask = await reviewAsk.createAsk({
     networkId: network.id,
     memberId: member.id,
@@ -233,6 +238,9 @@ async function sendReviewRequest({
     channel: plannedChannel,
     reviewSlug: member.reviewSlug,
     imageId: shareImageId,
+    keywordHint,
+    jobTitle,
+    city,
   });
   const link = ask.reviewUrl;
   if (!link) {
@@ -252,6 +260,9 @@ async function sendReviewRequest({
       reviewLink: link,
       useAi: wantAi,
       scriptOverride,
+      jobTitle,
+      city,
+      keywords: keywordHint,
     });
     smsBody = built.message;
     copyProvider = built.provider;
@@ -264,6 +275,9 @@ async function sendReviewRequest({
       reviewLink: link,
       useAi: wantAi,
       scriptOverride: prefer === 'email' ? scriptOverride : undefined,
+      jobTitle,
+      city,
+      keywords: keywordHint,
     });
     subject = builtEmail.subject;
     emailBody = builtEmail.body;
