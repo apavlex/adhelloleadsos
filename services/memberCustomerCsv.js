@@ -7,6 +7,19 @@ const work = require('./memberWork');
 
 const MAX_IMPORT_ROWS = 500;
 
+/** Canonical CSV header for the downloadable import template. */
+const IMPORT_TEMPLATE_HEADERS = ['Name', 'Phone', 'Email', 'Address', 'Notes'];
+
+/** Sample CSV matching columns accepted by parseCustomerImportFile. */
+function customerImportTemplateCsv() {
+  const sample = [
+    IMPORT_TEMPLATE_HEADERS.join(','),
+    '"Alex Rivera","3605550100","alex@example.com","12 Oak Ave, Camas WA","Prefers morning appointments"',
+    '"Jordan Lee","5035550199","jordan@example.com","88 River Rd, Portland OR",""',
+  ];
+  return `${sample.join('\n')}\n`;
+}
+
 function stripUtf8Bom(text) {
   return String(text || '').replace(/^\uFEFF/, '');
 }
@@ -187,6 +200,8 @@ async function importCustomers(networkId, memberId, rows, { pushToGhl } = {}) {
 
 module.exports = {
   MAX_IMPORT_ROWS,
+  IMPORT_TEMPLATE_HEADERS,
+  customerImportTemplateCsv,
   parseCustomerImportFile,
   importCustomers,
   mapRowToCustomer,

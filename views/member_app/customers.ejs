@@ -59,7 +59,7 @@
                   <label class="ma-label" for="maCustImport">Choose file</label>
                   <input id="maCustImport" name="file" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="ma-input" required>
                 </div>
-                <p class="ma-hint" style="margin:0">Columns: Name (or First / Last), Phone, Email, Address, Notes.<% if (!(typeof crmSyncLocked !== 'undefined' && crmSyncLocked)) { %> Imports sync to your CRM when connected.<% } %></p>
+                <p class="ma-hint" style="margin:0">Columns: Name (or First / Last), Phone, Email, Address, Notes.<% if (!(typeof crmSyncLocked !== 'undefined' && crmSyncLocked)) { %> Imports sync to your CRM when connected.<% } %> <a href="<%= base %>/customers/import-template.csv">Download CSV template</a>.</p>
                 <button type="submit" class="ma-btn ma-btn--block">Import list</button>
               </form>
             </details>

@@ -708,6 +708,7 @@ html[data-ma-theme="dark"] .ma-pill--sent, html[data-ma-theme="dark"] .ma-pill--
 .ma-seg button svg { width: 15px; height: 15px; flex-shrink: 0; }
 .ma-seg a.is-on,
 .ma-seg button.is-on { background: var(--acc); color: var(--on); }
+.ma-seg--2 { grid-template-columns: 1fr 1fr; }
 .ma-seg--3 { grid-template-columns: repeat(3, 1fr); }
 
 /* Customers tab */

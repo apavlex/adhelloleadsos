@@ -1379,7 +1379,7 @@ async function customerTagViews(ctx, customer) {
 }
 
 async function renderCustomerPage(res, ctx, {
-  customer, jobs, today, formValues, flash, status, reviewAskStatus, inviteUrl,
+  customer, jobs, today, formValues, flash, status, reviewAskStatus, inviteUrl, customerTab,
 }) {
   const [tagViews, teammates] = await Promise.all([
     customerTagViews(ctx, customer),
@@ -1402,6 +1402,7 @@ async function renderCustomerPage(res, ctx, {
     flash: flash || null,
     inviteUrl: inviteUrl || '',
     today,
+    customerTab: customerTab === 'bulk' ? 'bulk' : 'one',
     reviewAskStatus: reviewAskStatus || null,
     reviewSendLocked: freeAppSignup.isAppFreeMember(ctx.member),
     upgradeHref: '/signup',
@@ -1412,7 +1413,17 @@ async function renderCustomerPage(res, ctx, {
 router.get('/m/:token/customers/new', withMember((req, res, ctx) => renderCustomerPage(res, ctx, {
   customer: null,
   today: work.todayIn(memberTimeZone(req)),
+  flash: flashFromQuery(req),
+  customerTab: String(req.query.tab || '') === 'bulk' ? 'bulk' : 'one',
 })));
+
+router.get('/m/:token/customers/import-template.csv', withMember((req, res, ctx) => {
+  const csv = memberCustomerCsv.customerImportTemplateCsv();
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="customer-import-template.csv"');
+  res.setHeader('Cache-Control', 'private, max-age=3600');
+  return res.send(csv);
+}));
 
 router.post('/m/:token/customers/new', form, withMember(async (req, res, ctx) => {
   const result = await work.saveCustomer(ctx.network.id, ctx.member.id, req.body || {}, { source: 'manual' });
@@ -1431,21 +1442,23 @@ router.post('/m/:token/customers/import', (req, res, next) => {
     return next();
   });
 }, withMember(async (req, res, ctx) => {
+  const fromNew = String((req.body && req.body.from) || '') === 'new';
+  const back = fromNew ? `${ctx.base}/customers/new?tab=bulk` : `${ctx.base}/customers`;
   if (req.customerImportError) {
-    return res.redirect(303, `${ctx.base}/customers?errmsg=${encodeURIComponent(req.customerImportError)}`);
+    return res.redirect(303, `${back}${fromNew ? '&' : '?'}errmsg=${encodeURIComponent(req.customerImportError)}`);
   }
   const parsed = memberCustomerCsv.parseCustomerImportFile(
     req.file && req.file.buffer,
     req.file && req.file.originalname,
   );
   if (!parsed.ok) {
-    return res.redirect(303, `${ctx.base}/customers?errmsg=${encodeURIComponent(parsed.error)}`);
+    return res.redirect(303, `${back}${fromNew ? '&' : '?'}errmsg=${encodeURIComponent(parsed.error)}`);
   }
   const out = await memberCustomerCsv.importCustomers(ctx.network.id, ctx.member.id, parsed.rows, {
     pushToGhl: async (saved) => memberCustomerGhl.pushCustomersMissingGhl(ctx.network, ctx.member.id, saved, { limit: 100 }),
   });
   const detail = `(${out.created} new, ${out.updated} updated${out.ghl && out.ghl.pushed ? `, ${out.ghl.pushed} synced to GHL CRM` : ''})`;
-  return res.redirect(303, `${ctx.base}/customers?ok=customers_imported&detail=${encodeURIComponent(detail)}`);
+  return res.redirect(303, `${back}${fromNew ? '&' : '?'}ok=customers_imported&detail=${encodeURIComponent(detail)}`);
 }));
 
 router.post('/m/:token/customers/sync-ghl', form, withMember(async (req, res, ctx) => {
