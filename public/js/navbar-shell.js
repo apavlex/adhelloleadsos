@@ -103,7 +103,7 @@ function readJsonReply(r) {
     }
     document.body.classList.remove('overflow-hidden');
     document.documentElement.classList.remove('ws-settings-navigating');
-    // Simple bottom motion bar only — no dim/blur/radiant wash.
+    // Frosted page + bottom motion bar. Do not preventDefault — browser owns nav.
     showNavLoading();
   }
 
