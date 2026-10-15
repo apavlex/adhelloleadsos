@@ -126,25 +126,26 @@ function readJsonReply(r) {
   }
 
   /**
-   * Paint the leave wash first, then navigate. Without this, the browser freezes on the
-   * old page for the whole SSR wait and the progress bar never appears.
+   * Show leave wash, then navigate in the same user-gesture turn.
+   * Do NOT defer assign behind rAF/setTimeout — iOS Safari drops delayed navigations
+   * and leaves the wash stuck as a blank cream screen.
    */
   function leaveToUrl(url) {
     if (!url || leaveToUrl._going) return;
     leaveToUrl._going = true;
     clearNavOverlaysForLeave();
-    // Force a layout read so the wash + progress commit before we start the document request.
-    void document.documentElement.offsetHeight;
-    var go = function () {
-      window.location.assign(url);
-    };
-    if (typeof requestAnimationFrame === 'function') {
-      requestAnimationFrame(function () {
-        requestAnimationFrame(go);
-      });
-    } else {
-      setTimeout(go, 16);
-    }
+    clearTimeout(leaveToUrl._failSafe);
+    // If assign is blocked for any reason, drop the wash so the app is usable again.
+    leaveToUrl._failSafe = setTimeout(function () {
+      leaveToUrl._going = false;
+      document.documentElement.classList.remove('adhello-navigating');
+      var el = document.getElementById('adhelloNavProgress');
+      if (el) {
+        el.style.opacity = '0';
+        el.style.transform = 'scaleX(0)';
+      }
+    }, 2500);
+    window.location.assign(url);
   }
 
   if (mobileMenuBtn) {
