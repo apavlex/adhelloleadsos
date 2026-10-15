@@ -8,7 +8,6 @@ const { buildDriveImportBundle } = require('../services/googleDriveAccess');
 const {
   displayStatus,
   applyLeadListFilters,
-  mapLeadListJson,
   mapLeadPipelineBootstrap,
   normalizeLeadListFilters,
   leadListFilterQuerySuffix,
@@ -200,15 +199,20 @@ router.get('/', async (req, res, next) => {
     };
 
     const email = userEmail(req);
+    // Folders/queue don't need Drive picker OAuth or full stage decoration — skip for faster first paint.
+    const needPipelineDecorate = safeTab === 'pipeline';
     const [stageRows, driveImport] = await Promise.all([
-      pipelineStagesService.ensureWorkspaceStagesSeeded(wid),
-      buildDriveImportBundle(req, email),
+      needPipelineDecorate
+        ? pipelineStagesService.ensureWorkspaceStagesSeeded(wid)
+        : Promise.resolve([]),
+      needPipelineDecorate ? buildDriveImportBundle(req, email) : Promise.resolve(null),
     ]);
     const pipelineStages = pipelineStagesService.stagesForKanban(stageRows);
 
     const pipelineLeadsTotal = leads.length;
-    const ssrCap =
-      safeTab === 'pipeline' ? Math.min(PIPELINE_SSR_ROW_CAP, pipelineLeadsTotal) : pipelineLeadsTotal;
+    const ssrCap = needPipelineDecorate
+      ? Math.min(PIPELINE_SSR_ROW_CAP, pipelineLeadsTotal)
+      : 0;
     // Normalize + stage-resolve only what we ship in HTML / bootstrap paths that need it.
     const decorateLead = (l) => {
       const normalized = normalizeLeadForPanel(l);
@@ -219,19 +223,18 @@ router.get('/', async (req, res, next) => {
         pipelineStage: pipelineStagesService.stageIndex1Based(stageRows, sid),
       };
     };
-    const ssrLeads = leads.slice(0, ssrCap).map(decorateLead);
+    const ssrLeads = needPipelineDecorate ? leads.slice(0, ssrCap).map(decorateLead) : [];
     // Full filtered list for client bootstrap / kanban (slim map — no full panel normalize).
-    const bootstrapSource =
-      safeTab === 'pipeline'
-        ? leads.map((l) => {
-            const sid = pipelineStagesService.resolveStageIdForLead(l, stageRows);
-            return {
-              ...l,
-              stageId: sid,
-              pipelineStage: pipelineStagesService.stageIndex1Based(stageRows, sid),
-            };
-          })
-        : [];
+    const bootstrapSource = needPipelineDecorate
+      ? leads.map((l) => {
+          const sid = pipelineStagesService.resolveStageIdForLead(l, stageRows);
+          return {
+            ...l,
+            stageId: sid,
+            pipelineStage: pipelineStagesService.stageIndex1Based(stageRows, sid),
+          };
+        })
+      : [];
     leads = ssrLeads;
 
     let importNotice = null;
@@ -273,8 +276,10 @@ router.get('/', async (req, res, next) => {
       };
     }
 
-    const queueListLeads = safeTab === 'queue' ? pipelineVisible.map(mapLeadListJson) : [];
-    const folderListLeads = safeTab === 'folders' ? visible.map(mapLeadListJson) : [];
+    // queueListLeads / folderListLeads are only consumed by outreach.ejs — not prospecting.
+    // Building them here bloated Folder manager HTML with every lead in the workspace.
+    const queueListLeads = [];
+    const folderListLeads = [];
     const leadBootstrapLeads =
       safeTab === 'pipeline' ? bootstrapSource.map(mapLeadPipelineBootstrap) : [];
     const opportunityBoardLeads =

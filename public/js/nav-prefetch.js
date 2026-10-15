@@ -62,6 +62,8 @@
       '/opportunities',
       '/focus',
       '/prospecting?tab=pipeline',
+      '/prospecting?tab=folders',
+      '/prospecting?tab=queue',
       '/tasks',
       '/engagement',
       '/activity',
