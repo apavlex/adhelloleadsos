@@ -443,6 +443,13 @@ html:not(.dark) [class~="bg-brand-dark"][class~="text-white"] {
     }
 }
 
+/* Phone: drop the marketing footer band that looked like empty white space. */
+@media (max-width: 767px) {
+    body.app-with-sidebar .app-shell-content > footer.app-shell-footer {
+        display: none;
+    }
+}
+
 /* GHL-inspired sidebar shell */
 .ghl-sidebar {
     background: var(--ghl-sidebar-bg);

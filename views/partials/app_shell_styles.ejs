@@ -139,9 +139,12 @@
       min-width: 0;
       padding-left: max(0px, env(safe-area-inset-left, 0px));
       padding-right: max(0px, env(safe-area-inset-right, 0px));
+      /* Keep content above the home indicator; do not leave a gray footer band. */
+      padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
     }
-    body.app-with-sidebar .app-shell-content > footer {
-      padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+    /* Marketing footer reads as empty white space on phone (esp. under nav blur). */
+    body.app-with-sidebar .app-shell-content > footer.app-shell-footer {
+      display: none;
     }
   }
 </style>
