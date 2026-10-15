@@ -67,6 +67,10 @@ test('white-label settings UI has appearance + dual phone previews', () => {
   assert.match(html, /Text the Review app link/);
   assert.match(html, /data-get-app-share-url/);
   assert.match(html, /Copy \/ share for SMS/);
+  // QR must render inline (data URL) so a broken /qr.png fetch never blanks the slot.
+  assert.match(html, /reviewAppQrDataUrl/);
+  assert.match(html, /_wlQrSrc/);
+  assert.match(html, /onerror=.*\/get-app\/qr\.png/);
 
   const head = fs.readFileSync(path.join(root, 'views/partials/head.ejs'), 'utf8');
   assert.match(head, /preferredTheme/);
@@ -78,6 +82,9 @@ test('white-label settings UI has appearance + dual phone previews', () => {
   assert.match(route, /name: 'hero'/);
   assert.match(route, /ensureOwnerReferralApp/);
   assert.match(route, /syncWhiteLabelToNetworkBrand/);
+  assert.match(route, /reviewAppQrPng/);
+  assert.match(route, /reviewAppQrDataUrl/);
+  assert.match(route, /\/white-label\/qr\.png/);
 });
 
 test('sidebar and mobile chrome use accent iconUrl when a logo is set', () => {
