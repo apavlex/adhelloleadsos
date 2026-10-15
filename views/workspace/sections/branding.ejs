@@ -17,6 +17,9 @@
   const _wlOpenHost = typeof reviewAppHost !== 'undefined' && reviewAppHost ? reviewAppHost : String(_wlOpenUrl).replace(/^https?:\/\//, '');
   const _wlHeroUrl = typeof reviewHeroUrl !== 'undefined' && reviewHeroUrl ? String(reviewHeroUrl) : '';
   const _wlIconSrc = _wlBrand.hasLogo ? _wlBrand.logoUrl : _wlBrand.iconUrl(512);
+  const _wlQrSrc = (typeof reviewAppQrDataUrl !== 'undefined' && reviewAppQrDataUrl)
+    ? String(reviewAppQrDataUrl)
+    : '/workspace/white-label/qr.png';
 %>
 <div class="space-y-6">
 <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6">
@@ -199,7 +202,7 @@
   <p class="text-sm text-brand-muted mb-5">When you sign a client up, text this link. They open the branded Review app right away — no workspace login. Branding above (logo, banner, colors, light/dark) is what they see.</p>
   <div class="grid gap-6 lg:grid-cols-[180px_minmax(0,1fr)] items-start">
     <div class="flex flex-col items-center text-center gap-2">
-      <img src="/workspace/white-label/qr.png?v=<%= Date.now() %>" alt="QR code that opens the Review app" width="160" height="160" class="w-40 h-40 rounded-2xl border border-brand-border/50 dark:border-white/10 bg-white p-1" loading="lazy" />
+      <img src="<%= _wlQrSrc %>" alt="QR code that opens the Review app" width="160" height="160" class="w-40 h-40 rounded-2xl border border-brand-border/50 dark:border-white/10 bg-white p-1" decoding="async" onerror="this.onerror=null;this.src='/get-app/qr.png';" />
       <p class="text-[11px] text-brand-muted">Scan with a phone camera, or copy the link for SMS.</p>
       <p class="text-[11px] font-semibold text-brand-dark dark:text-white break-all" id="wlReviewAppHost"><%= _wlOpenHost %></p>
       <button

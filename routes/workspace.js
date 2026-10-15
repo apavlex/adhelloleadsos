@@ -2618,18 +2618,31 @@ router.post('/white-label', (req, res) => {
   });
 });
 
+/** PNG buffer for the Review-app open URL (White-label + Get the app QR). */
+async function reviewAppQrPng(openUrl) {
+  const url = String(openUrl || '').trim() || `${getPublicBaseUrl()}/today`;
+  return QRCode.toBuffer(url, {
+    type: 'png',
+    width: 480,
+    margin: 2,
+    errorCorrectionLevel: 'M',
+    color: { dark: '#0f172a', light: '#ffffff' },
+  });
+}
+
 router.get('/white-label/qr.png', async (req, res) => {
   try {
     let openUrl = `${getPublicBaseUrl(req)}/today`;
     try {
       const app = await ensureOwnerReferralApp(req);
-      if (app && app.url) openUrl = app.url;
+      if (app && app.url) openUrl = String(app.url);
     } catch (_) { /* fall back to CRM today */ }
-    const png = await QRCode.toBuffer(openUrl, { type: 'png', width: 480, margin: 2, errorCorrectionLevel: 'M', color: { dark: '#0f172a', light: '#ffffff' } });
+    const png = await reviewAppQrPng(openUrl);
     res.setHeader('Content-Type', 'image/png');
     res.setHeader('Cache-Control', 'private, max-age=300');
     return res.end(png);
   } catch (err) {
+    console.error('[white-label] qr.png failed:', err && err.message ? err.message : err);
     return res.status(500).end();
   }
 });
@@ -2709,6 +2722,15 @@ router.get('/:section', async (req, res, next) => {
       renderLocals.appOpenPath = appOpenPath;
       renderLocals.reviewHeroUrl = reviewHeroUrl;
       renderLocals.reviewAppHost = String(appOpenUrl || '').replace(/^https?:\/\//, '');
+      // Inline QR so the White-label page never depends on a second /qr.png fetch
+      // (auth redirects / empty 500s show as a broken image icon in that slot).
+      try {
+        const png = await reviewAppQrPng(appOpenUrl);
+        renderLocals.reviewAppQrDataUrl = `data:image/png;base64,${png.toString('base64')}`;
+      } catch (err) {
+        console.warn('[white-label] inline QR unavailable:', err.message);
+        renderLocals.reviewAppQrDataUrl = '';
+      }
     }
     if (section === 'ai-apps') {
       renderLocals.currentUserEmail = workspaceService.userEmail(req);
