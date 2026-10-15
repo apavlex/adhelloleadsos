@@ -106,6 +106,9 @@ test('Review app seeds preferredTheme and uses accent icon on Home badge', () =>
   assert.match(maHead, /data-ma-workspace-theme/);
   assert.match(maHead, /ma-theme-pinned/);
   assert.match(maHead, /ma-theme-pinned-at/);
+  // Must be unescaped <%- so JSON quotes are valid JS (<%= turns " into &#34; and forces light).
+  assert.match(maHead, /workspacePref = <%- JSON\.stringify/);
+  assert.match(maHead, /workspaceAt = <%- JSON\.stringify/);
   // White-label light/dark must win over a stale device localStorage value.
   assert.match(maHead, /workspacePref === 'light' \|\| workspacePref === 'dark'/);
   assert.match(maHead, /Number\(pinnedAt\) >= Number\(workspaceAt\)/);

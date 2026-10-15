@@ -14,9 +14,9 @@
    Profile pins only stick if set AFTER the latest White-label appearance save. */
 (function () {
   try {
-    var workspacePref = <%= JSON.stringify((typeof brand !== 'undefined' && brand && brand.preferredTheme) ? brand.preferredTheme : 'system') %>;
+    var workspacePref = <%- JSON.stringify((typeof brand !== 'undefined' && brand && brand.preferredTheme) ? brand.preferredTheme : 'system') %>;
     if (workspacePref !== 'light' && workspacePref !== 'dark' && workspacePref !== 'system') workspacePref = 'system';
-    var workspaceAt = <%= JSON.stringify((typeof brand !== 'undefined' && brand && brand.preferredThemeAt) ? String(brand.preferredThemeAt) : '') %>;
+    var workspaceAt = <%- JSON.stringify((typeof brand !== 'undefined' && brand && brand.preferredThemeAt) ? String(brand.preferredThemeAt) : '') %>;
     document.documentElement.setAttribute('data-ma-workspace-theme', workspacePref);
     if (workspaceAt) document.documentElement.setAttribute('data-ma-workspace-theme-at', workspaceAt);
     var stored = null;
