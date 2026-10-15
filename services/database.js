@@ -158,6 +158,12 @@ sqlite.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_kv_key_prefix ON kv(key);
 
+  /* Scope lead scans by workspace so a 10k-lead account does not slow every other workspace.
+     Wrap value in json_valid so corrupt rows can still be written (expression indexes run on INSERT). */
+  CREATE INDEX IF NOT EXISTS idx_kv_lead_workspace
+    ON kv(json_extract(CASE WHEN json_valid(value) THEN value END, '$.workspaceId'))
+    WHERE key LIKE 'lead:%';
+
   CREATE TABLE IF NOT EXISTS chat_messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     session_id TEXT NOT NULL DEFAULT 'ceo',
@@ -245,6 +251,21 @@ sqlite.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_outcamp_ws_time ON outbound_campaigns(workspace_id, created_at);
 `);
+
+// Rebuild lead workspace index if an older expression (no json_valid) was already created.
+(() => {
+  const row = sqlite
+    .prepare("SELECT sql FROM sqlite_master WHERE type='index' AND name='idx_kv_lead_workspace'")
+    .get();
+  if (row && row.sql && !/json_valid/i.test(String(row.sql))) {
+    sqlite.exec('DROP INDEX IF EXISTS idx_kv_lead_workspace');
+    sqlite.exec(`
+      CREATE INDEX IF NOT EXISTS idx_kv_lead_workspace
+        ON kv(json_extract(CASE WHEN json_valid(value) THEN value END, '$.workspaceId'))
+        WHERE key LIKE 'lead:%';
+    `);
+  }
+})();
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function safeParseJson(text) {
@@ -749,8 +770,31 @@ module.exports = {
     const load = (async () => {
       const aliasStr = readLegacyDefaultAlias();
       const normLeadW = (lw) => normalizeLeadWorkspaceWithAlias(lw, aliasStr);
-      // Single LIKE scan for key+value (avoids list-keys then chunked IN fetches).
-      const rows = sqlite.prepare("SELECT key, value FROM kv WHERE key LIKE 'lead:%'").all();
+      // Filter in SQL (indexed) so other workspaces' lead volume does not get parsed here.
+      const includeLegacyDefault = !!(aliasStr && aliasStr === wid);
+      // Keep expression identical to idx_kv_lead_workspace so SQLite can use the index.
+      const leadWs =
+        "json_extract(CASE WHEN json_valid(value) THEN value END, '$.workspaceId')";
+      const rows = includeLegacyDefault
+        ? sqlite
+            .prepare(
+              `SELECT key, value FROM kv
+               WHERE key LIKE 'lead:%'
+                 AND (
+                   ${leadWs} = ?
+                   OR ${leadWs} IS NULL
+                   OR ${leadWs} = ''
+                   OR ${leadWs} = 'default'
+                 )`,
+            )
+            .all(wid)
+        : sqlite
+            .prepare(
+              `SELECT key, value FROM kv
+               WHERE key LIKE 'lead:%'
+                 AND ${leadWs} = ?`,
+            )
+            .all(wid);
       const leads = [];
       for (const row of rows) {
         const key = row && row.key;
