@@ -192,8 +192,9 @@
   </div>
   <% } %>
 
-  <div id="mobileMenu" class="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300 pointer-events-none md:hidden">
-    <div id="mobileMenuPanel" class="ghl-sidebar absolute inset-y-0 left-0 w-72 max-w-[min(88vw,18rem)] shadow-2xl px-2 pb-4 -translate-x-full transition-transform duration-300 pointer-events-auto overflow-y-auto overscroll-contain custom-scrollbar flex flex-col text-[#111827] dark:text-slate-100 [padding-top:max(0.75rem,env(safe-area-inset-top))] [padding-bottom:max(1rem,env(safe-area-inset-bottom))] [padding-left:max(0.5rem,env(safe-area-inset-left))]">
+  <%/* No backdrop-blur: full-screen blur freezes mid/low phones for seconds when opening the menu. */%>
+  <div id="mobileMenu" class="fixed inset-0 z-[100] bg-black/45 hidden opacity-0 transition-opacity duration-150 pointer-events-none md:hidden">
+    <div id="mobileMenuPanel" class="ghl-sidebar absolute inset-y-0 left-0 w-72 max-w-[min(88vw,18rem)] shadow-2xl px-2 pb-4 -translate-x-full transition-transform duration-200 pointer-events-auto overflow-y-auto overscroll-contain custom-scrollbar flex flex-col text-[#111827] dark:text-slate-100 [padding-top:max(0.75rem,env(safe-area-inset-top))] [padding-bottom:max(1rem,env(safe-area-inset-bottom))] [padding-left:max(0.5rem,env(safe-area-inset-left))]">
       <div class="flex items-center justify-between px-2 pb-3">
         <a href="/today" class="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden shadow-sm ring-1 ring-black/5 dark:ring-white/10" aria-label="<%= typeof whiteLabel !== 'undefined' && whiteLabel ? whiteLabel.appName : 'AdHello' %> home">
           <img src="<%= typeof whiteLabel !== 'undefined' && whiteLabel ? whiteLabel.logoUrl : '/images/adhello-app-icon.png' %>" alt="" width="40" height="40" class="h-full w-full object-contain" loading="eager" decoding="async" />

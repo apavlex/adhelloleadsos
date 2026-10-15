@@ -31,21 +31,75 @@ function readJsonReply(r) {
   function openMobileMenu() {
     if (!mobileMenu || !mobileMenuPanel) return;
     document.dispatchEvent(new CustomEvent('adhello:nav-popover', { detail: { id: 'mobile-menu' } }));
+    // Force a cheap paint path (no blur) in case a stale stylesheet still has backdrop-filter.
+    mobileMenu.style.setProperty('backdrop-filter', 'none', 'important');
+    mobileMenu.style.setProperty('-webkit-backdrop-filter', 'none', 'important');
     mobileMenu.classList.remove('hidden', 'pointer-events-none', 'opacity-0');
     mobileMenu.classList.add('opacity-100');
     mobileMenuPanel.classList.remove('-translate-x-full');
     document.body.classList.add('overflow-hidden');
   }
 
-  function closeMobileMenu() {
+  function closeMobileMenu(opts) {
     if (!mobileMenu || !mobileMenuPanel) return;
+    var instant = !!(opts && opts.instant);
+    if (instant) {
+      mobileMenu.style.setProperty('transition', 'none', 'important');
+      mobileMenuPanel.style.setProperty('transition', 'none', 'important');
+    }
     mobileMenu.classList.add('opacity-0');
     mobileMenu.classList.add('pointer-events-none');
+    mobileMenu.classList.add('hidden');
     mobileMenuPanel.classList.add('-translate-x-full');
     document.body.classList.remove('overflow-hidden');
+    if (instant) {
+      // Restore transitions after this frame so the next open still animates.
+      requestAnimationFrame(function () {
+        mobileMenu.style.removeProperty('transition');
+        mobileMenuPanel.style.removeProperty('transition');
+      });
+      return;
+    }
     setTimeout(function () {
       if (mobileMenu.classList.contains('opacity-0')) mobileMenu.classList.add('hidden');
-    }, 220);
+    }, 160);
+  }
+
+  function ensureNavProgressEl() {
+    var el = document.getElementById('adhelloNavProgress');
+    if (el) return el;
+    el = document.createElement('div');
+    el.id = 'adhelloNavProgress';
+    el.setAttribute('aria-hidden', 'true');
+    el.style.cssText =
+      'position:fixed;top:0;left:0;right:0;height:2px;z-index:9999;pointer-events:none;'
+      + 'background:linear-gradient(90deg,transparent,#FFDB3A 40%,#FFDB3A 60%,transparent);'
+      + 'transform:scaleX(0);transform-origin:left center;opacity:0;transition:transform .4s ease,opacity .2s ease;';
+    document.body.appendChild(el);
+    return el;
+  }
+
+  function showNavProgress() {
+    var el = ensureNavProgressEl();
+    el.style.opacity = '1';
+    el.style.transform = 'scaleX(0.35)';
+    clearTimeout(showNavProgress._t1);
+    clearTimeout(showNavProgress._t2);
+    showNavProgress._t1 = setTimeout(function () { el.style.transform = 'scaleX(0.72)'; }, 180);
+    showNavProgress._t2 = setTimeout(function () { el.style.transform = 'scaleX(0.9)'; }, 900);
+  }
+
+  function clearNavOverlaysForLeave() {
+    closeMobileMenu({ instant: true });
+    var panel = document.getElementById('mobilePanel');
+    if (panel) {
+      panel.classList.add('hidden', 'opacity-0', 'pointer-events-none');
+      panel.style.display = 'none';
+      panel.style.pointerEvents = 'none';
+    }
+    document.body.classList.remove('overflow-hidden');
+    document.documentElement.classList.remove('ws-settings-navigating');
+    showNavProgress();
   }
 
   if (mobileMenuBtn) {
@@ -72,9 +126,43 @@ function readJsonReply(r) {
       if (el.classList && el.classList.contains('theme-toggle-btn')) return;
       if (el.hasAttribute('data-sidebar-new-toggle')) return;
       if (el.hasAttribute('data-get-app-share')) return;
-      el.addEventListener('click', function () { closeMobileMenu(); });
+      el.addEventListener('click', function (ev) {
+        var href = el.getAttribute && el.getAttribute('href');
+        var leaving = el.tagName === 'A' && href && href.charAt(0) !== '#' && !el.hasAttribute('download')
+          && !(ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey || el.target === '_blank');
+        if (leaving) clearNavOverlaysForLeave();
+        else closeMobileMenu();
+      });
     });
   }
+
+  // Any in-app nav click: drop dim overlays immediately so the old page doesn't sit blurred.
+  document.addEventListener('click', function (e) {
+    var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+    if (!a) return;
+    if (e.defaultPrevented) return;
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || a.target === '_blank') return;
+    if (a.hasAttribute('download') || a.hasAttribute('data-no-nav-progress')) return;
+    var href = a.getAttribute('href') || '';
+    if (!href || href.charAt(0) === '#' || href.indexOf('javascript:') === 0) return;
+    try {
+      var u = new URL(href, window.location.origin);
+      if (u.origin !== window.location.origin) return;
+      if (u.pathname === window.location.pathname && u.search === window.location.search && u.hash) return;
+    } catch (_) {
+      return;
+    }
+    clearNavOverlaysForLeave();
+  }, true);
+
+  window.addEventListener('pageshow', function () {
+    var el = document.getElementById('adhelloNavProgress');
+    if (el) {
+      el.style.opacity = '0';
+      el.style.transform = 'scaleX(0)';
+    }
+    closeMobileMenu({ instant: true });
+  });
 
   // Get the app / Share → native share or copy. Never navigate to /today as a fallback.
   document.addEventListener('click', function (e) {
