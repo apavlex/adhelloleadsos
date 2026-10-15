@@ -34,12 +34,20 @@ async function applyWorkspaceBrand(brand, network, member) {
   const base = brand && typeof brand === 'object' ? brand : networkBrand.brandView(network, member);
   if (base.isFreeApp) return base;
   if (!network || !network.ownerWorkspaceId) return base;
-  if (!isOwnerMember(member, network)) return base;
 
   const ws = await dbService.getWorkspace(network.ownerWorkspaceId);
   if (!ws) return base;
 
   const wl = whiteLabel.brandForWorkspace(ws);
+  // Staff keep their own name/logo, but inherit White-label light/dark default.
+  if (!isOwnerMember(member, network)) {
+    return {
+      ...base,
+      preferredTheme: wl.preferredTheme || 'system',
+      preferredThemeAt: wl.preferredThemeAt || '',
+    };
+  }
+
   const businessName =
     cleanName(wl.customName) ||
     cleanName(ws.name) ||
@@ -63,6 +71,7 @@ async function applyWorkspaceBrand(brand, network, member) {
     // Raw logo for uploads/profile; Home badge prefers accent icon via CSS + icon route.
     logoUrl: wl.hasLogo ? wl.logoUrl : base.logoUrl,
     preferredTheme: wl.preferredTheme || 'system',
+    preferredThemeAt: wl.preferredThemeAt || '',
     initials: networkBrand.initials(businessName),
     fromWorkspace: true,
   };

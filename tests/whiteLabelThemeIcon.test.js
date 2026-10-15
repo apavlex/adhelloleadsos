@@ -102,10 +102,13 @@ test('Review app seeds preferredTheme and uses accent icon on Home badge', () =>
   const maHead = fs.readFileSync(path.join(root, 'views/member_app/_head.ejs'), 'utf8');
   assert.match(maHead, /workspacePref/);
   assert.match(maHead, /brand\.preferredTheme/);
+  assert.match(maHead, /preferredThemeAt/);
   assert.match(maHead, /data-ma-workspace-theme/);
   assert.match(maHead, /ma-theme-pinned/);
+  assert.match(maHead, /ma-theme-pinned-at/);
   // White-label light/dark must win over a stale device localStorage value.
   assert.match(maHead, /workspacePref === 'light' \|\| workspacePref === 'dark'/);
+  assert.match(maHead, /pinnedAt >= workspaceAt/);
 
   const home = fs.readFileSync(path.join(root, 'views/member_app/home.ejs'), 'utf8');
   assert.match(home, /icon-192\.png/);
@@ -122,9 +125,25 @@ test('Review app seeds preferredTheme and uses accent icon on Home badge', () =>
 
   const ownerBrand = fs.readFileSync(path.join(root, 'services/ownerAppBrand.js'), 'utf8');
   assert.match(ownerBrand, /preferredTheme:\s*wl\.preferredTheme/);
+  assert.match(ownerBrand, /preferredThemeAt/);
 
   const maJs = fs.readFileSync(path.join(root, 'public/js/member-app.js'), 'utf8');
   assert.match(maJs, /THEME_PIN_KEY/);
+  assert.match(maJs, /THEME_PIN_AT_KEY/);
   assert.match(maJs, /workspaceThemePref/);
+  assert.match(maJs, /themePinValid/);
   assert.match(maJs, /ma-theme-pinned/);
+
+  const branding = fs.readFileSync(path.join(root, 'views/workspace/sections/branding.ejs'), 'utf8');
+  assert.match(branding, /syncReviewAppThemeLocal/);
+  assert.match(branding, /ma-theme-pinned-at/);
+});
+
+test('preferredThemeAt is stored and exposed on the brand', () => {
+  const brand = whiteLabel.brandForWorkspace({
+    id: 'ws_theme',
+    whiteLabel: { preferredTheme: 'dark', preferredThemeAt: '1792098000000' },
+  });
+  assert.equal(brand.preferredTheme, 'dark');
+  assert.equal(brand.preferredThemeAt, '1792098000000');
 });

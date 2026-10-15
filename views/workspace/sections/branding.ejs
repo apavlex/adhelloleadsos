@@ -105,7 +105,7 @@
 <% if (_wlCan) { %>
 <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6">
   <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-1">Default appearance</h2>
-  <p class="text-sm text-brand-muted mb-5">Sets light or dark for this client’s Review app (and CRM). Choose Dark, then Save — the Review app opens in dark until someone picks a different look in Profile.</p>
+  <p class="text-sm text-brand-muted mb-5">Sets light or dark for this client’s Review app (and CRM). Choose Dark, then Save appearance — reopen the Review app (or refresh) and it switches. A Profile choice only sticks until you save appearance here again.</p>
   <div class="grid gap-3 sm:grid-cols-3" role="radiogroup" aria-label="Default appearance">
     <%
       const _themeOpts = [
@@ -360,6 +360,21 @@
 
     var themeSave = document.getElementById('wlThemeSave');
     var themeMsg = document.getElementById('wlThemeMsg');
+    function syncReviewAppThemeLocal(theme) {
+      // CRM + Review app share this origin — clear stale light pins so /m/… opens dark.
+      try {
+        localStorage.removeItem('ma-theme-pinned');
+        localStorage.removeItem('ma-theme-pinned-at');
+        if (theme === 'light' || theme === 'dark' || theme === 'system') {
+          localStorage.setItem('ma-theme', theme);
+        }
+        if (theme === 'dark') localStorage.setItem('color-theme', 'dark');
+        else if (theme === 'light') localStorage.setItem('color-theme', 'light');
+      } catch (e) { /* private mode */ }
+    }
+    // Already-saved White-label light/dark: align Review-app storage on this page load.
+    var savedTheme = <%= JSON.stringify(_wlTheme) %>;
+    if (savedTheme === 'light' || savedTheme === 'dark') syncReviewAppThemeLocal(savedTheme);
     if (themeSave) {
       themeSave.addEventListener('click', function () {
         var picked = document.querySelector('input[name="wlPreferredTheme"]:checked');
@@ -378,7 +393,8 @@
           .then(function (res) {
             themeSave.disabled = false;
             if (!res.ok || !res.d.success) { say(themeMsg, res.d.error || 'Could not save.', false); return; }
-            say(themeMsg, 'Appearance saved. Reopen the Review app to see light or dark.', true);
+            syncReviewAppThemeLocal(theme);
+            say(themeMsg, 'Appearance saved. Reopen or refresh the Review app to see it.', true);
           })
           .catch(function () { themeSave.disabled = false; say(themeMsg, 'Could not save. Check your connection.', false); });
       });
