@@ -424,9 +424,31 @@ test('customers tab routes: top-bar add customer, CRUD, calendar, pending and re
     assert.match(emptyHtml, /customers\/sync-ghl/);
     assert.match(emptyHtml, /customers\/import/);
     assert.match(emptyHtml, /Upload a customer list/);
+    assert.match(emptyHtml, /import-template\.csv/);
     assert.match(emptyHtml, /ma-settings-row/);
     assert.doesNotMatch(emptyHtml, /is-locked/);
     assert.doesNotMatch(emptyHtml, /ma-btn--ghost[^>]*>[\s\S]*Add<\/a>/);
+
+    const newPage = await fetch(`${A}/customers/new`);
+    assert.equal(newPage.status, 200);
+    const newHtml = await newPage.text();
+    assert.match(newHtml, /Bulk upload/);
+    assert.match(newHtml, /customers\/new\?tab=bulk/);
+    assert.match(newHtml, /One customer/);
+
+    const bulkPage = await fetch(`${A}/customers/new?tab=bulk`);
+    assert.equal(bulkPage.status, 200);
+    const bulkHtml = await bulkPage.text();
+    assert.match(bulkHtml, /Download CSV template/);
+    assert.match(bulkHtml, /import-template\.csv/);
+    assert.match(bulkHtml, /name="file"/);
+    assert.doesNotMatch(bulkHtml, /id="cuName"/);
+
+    const template = await fetch(`${A}/customers/import-template.csv`);
+    assert.equal(template.status, 200);
+    assert.match(String(template.headers.get('content-type') || ''), /text\/csv/);
+    const templateText = await template.text();
+    assert.match(templateText, /^Name,Phone,Email,Address,Notes\n/);
 
     const bad = await post(`${A}/customers/new`, { name: '' });
     assert.equal(bad.status, 400);

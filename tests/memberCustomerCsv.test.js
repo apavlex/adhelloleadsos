@@ -50,4 +50,14 @@ describe('member customer CSV import', () => {
     assert.equal(fields.name, 'Pat Smith');
     assert.equal(fields.phone, '555-0100');
   });
+
+  it('ships a downloadable template that parses cleanly', () => {
+    const template = csv.customerImportTemplateCsv();
+    assert.match(template, /^Name,Phone,Email,Address,Notes\n/);
+    const parsed = csv.parseCustomerImportFile(Buffer.from(template, 'utf8'), 'customer-import-template.csv');
+    assert.equal(parsed.ok, true);
+    assert.ok(parsed.rows.length >= 2);
+    assert.equal(parsed.rows[0].name, 'Alex Rivera');
+    assert.ok(parsed.rows[0].phone);
+  });
 });
