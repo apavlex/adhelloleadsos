@@ -4150,16 +4150,17 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     if (btn) btn.disabled = true;
-    setLeadSmsThreadStatus('Sending…');
+    setLeadSmsThreadStatus('Opening Messages…');
     try {
-      await sendSmsToLeadKey(key, body);
+      const phone = (row && row.dataset && (row.dataset.phone || row.dataset.leadPhone)) || '';
+      await sendSmsToLeadKey(key, body, { phone });
       if (input) input.value = '';
       const countEl = document.getElementById('leadSmsComposeCount');
       if (countEl) countEl.textContent = '0';
-      await loadLeadSmsThread(row, { sync: true });
-      setLeadSmsThreadStatus('Sent');
+      await loadLeadSmsThread(row, { sync: false });
+      setLeadSmsThreadStatus('Messages opened — draft ready on your phone.');
     } catch (err) {
-      setLeadSmsThreadStatus((err && err.message) || 'Send failed', true);
+      setLeadSmsThreadStatus((err && err.message) || 'Could not open Messages', true);
     } finally {
       if (btn) btn.disabled = false;
     }
@@ -15348,12 +15349,55 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  /** opts.requireProvider 'ghl' = no fallback provider (group SMS); one-off sends keep provider fallback. */
+  function openDeviceSmsAppClient(phone, body) {
+    if (typeof window.__openDeviceSmsApp === 'function') {
+      return window.__openDeviceSmsApp(phone, body);
+    }
+    const digits = String(phone || '').replace(/[^\d+]/g, '');
+    if (!digits) return Promise.reject(new Error('No phone number to text.'));
+    const text = String(body || '');
+    const ua = String(navigator.userAgent || '');
+    const isIOS = /iPhone|iPad|iPod/i.test(ua);
+    const href = isIOS
+      ? `sms:${encodeURIComponent(digits)}&body=${encodeURIComponent(text)}`
+      : `sms:${encodeURIComponent(digits)}?body=${encodeURIComponent(text)}`;
+    window.location.href = href;
+    return Promise.resolve(true);
+  }
+
+  /**
+   * One-off / manual SMS → native Phone Messages (provider device).
+   * opts.requireProvider 'ghl' = server send via GHL (bulk, cadence, auto) — replies stay on that channel.
+   */
   async function sendSmsToLeadKey(leadKey, body, opts) {
     const validated = validateOutreachComposerBodyClient(body, 'sms');
     if (!validated.ok) throw new Error(validated.error || 'SMS body is empty.');
-    const payload = { body: validated.text, provider: 'ghl' };
-    if (opts && opts.requireProvider) payload.requireProvider = opts.requireProvider;
+    const useGhl = opts && String(opts.requireProvider || '').toLowerCase() === 'ghl';
+    if (!useGhl) {
+      const phone =
+        (opts && opts.phone) ||
+        (currentRow && currentRow.dataset && currentRow.dataset.phone) ||
+        '';
+      if (!phone) throw new Error('No phone number to text.');
+      await openDeviceSmsAppClient(phone, validated.text);
+      const logRes = await fetch(`/leads/${encodeURIComponent(leadKey)}/sms`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ body: validated.text, provider: 'device' }),
+      });
+      const logData = await logRes.json().catch(() => ({}));
+      if (!logRes.ok || !logData.success) {
+        const err = new Error((logData && logData.error) || `HTTP ${logRes.status}`);
+        err.code = (logData && logData.code) || '';
+        throw err;
+      }
+      if (logData.lead && typeof window.__applyLeadPipelineStageFromApi === 'function') {
+        window.__applyLeadPipelineStageFromApi(logData.lead);
+      }
+      return logData;
+    }
+    const payload = { body: validated.text, provider: 'ghl', requireProvider: 'ghl' };
     if (opts && opts.campaignId) payload.campaignId = opts.campaignId;
     const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/sms`, {
       method: 'POST',
@@ -15383,6 +15427,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function smsSentSuccessMessage(data) {
+    if (data && data.provider === 'device') {
+      return 'Messages opened on your phone — draft ready to send';
+    }
     const label = smsProviderLabelFromResponse(data);
     const kind = data && data.channel === 'imessage' ? 'iMessage' : 'SMS';
     return `${kind} sent via ${label}`;

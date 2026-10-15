@@ -3335,10 +3335,6 @@ router.post('/:key/sms', async (req, res, next) => {
 
     const contactedPatch = await buildContactedStagePatch(lead, req.workspaceId, 'SMS');
     const preferredProvider = String((req.body && req.body.provider) || '').trim().toLowerCase();
-    const forceProvider =
-      preferredProvider ||
-      (ghlClient.isConfigured(integrationEnv) ? 'ghl' : undefined);
-
     const campaignId = String((req.body && req.body.campaignId) || '').trim();
     const logBase = {
       channel: 'sms',
@@ -3348,6 +3344,49 @@ router.post('/:key/sms', async (req, res, next) => {
       recipient: toOverride || lead.phone,
       body,
     };
+
+    // Manual one-off: open native Phone Messages on the client; this path only logs the touch.
+    // GHL is reserved for auto text-back / bulk / requireProvider=ghl (same-channel replies sync via GHL).
+    if (preferredProvider === 'device') {
+      const at = new Date().toISOString();
+      messageLog.record(req, { ...logBase, provider: 'device' });
+      const updateEntry = {
+        type: 'sms_outbound',
+        value: body,
+        provider: 'device',
+        reason: 'device_sms',
+        deviceSms: true,
+      };
+      const updates = appendLeadUpdate(lead, updateEntry);
+      const patch = {
+        ...contactedPatch,
+        status: 'Follow-up',
+        lastTouchChannel: 'sms',
+        updates,
+        logs: [
+          {
+            type: 'sms_outbound',
+            message: 'SMS draft opened on phone Messages',
+            timestamp: at,
+          },
+        ],
+      };
+      if (saveToLead && toOverride) patch.phone = toOverride;
+      const updatedLead = await dbService.updateLead(fullKey, patch);
+      return res.json({
+        success: true,
+        provider: 'device',
+        providerLabel: 'Phone Messages',
+        channel: 'sms',
+        messageId: null,
+        lead: updatedLead,
+      });
+    }
+
+    const forceProvider =
+      preferredProvider ||
+      (ghlClient.isConfigured(integrationEnv) ? 'ghl' : undefined);
+
     let sent;
     try {
       sent = await smsOutbound.sendSmsToLead({

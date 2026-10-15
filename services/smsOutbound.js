@@ -57,6 +57,7 @@ function providerDisplayName(provider) {
   if (provider === 'saperly') return 'Saperly';
   if (provider === 'ghl') return 'Go High Level';
   if (provider === 'signalwire') return 'SignalWire';
+  if (provider === 'device') return 'Phone Messages';
   return String(provider || 'SMS');
 }
 

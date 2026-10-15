@@ -12,6 +12,7 @@ const TITLES = {
   voicemail: 'New voicemail',
   sms: 'New text',
   email: 'New email',
+  missed_call_text_sent: 'Missed-call text sent',
 };
 
 function cleanContact(v) {
@@ -29,8 +30,11 @@ function inboundPushPayload(lead, event, workspaceId) {
   let body;
   if (type === 'form') body = [label, preview].filter(Boolean).join(' — ') || 'Call them in the next 5 minutes.';
   else if (type === 'missed_call' || type === 'voicemail') body = [label, 'Tap to call back.'].filter(Boolean).join(' · ');
-  else body = preview || label || 'Tap to reply.';
-  const focus = `/focus?lead=${encodeURIComponent(short)}${type === 'sms' || type === 'email' ? '' : '&channel=call'}`;
+  else if (type === 'missed_call_text_sent') {
+    body = preview || label || 'Text-back sent via GHL. Waiting for reply.';
+  } else body = preview || label || 'Tap to reply.';
+  const smsChannel = type === 'sms' || type === 'email' || type === 'missed_call_text_sent';
+  const focus = `/focus?lead=${encodeURIComponent(short)}${smsChannel ? '' : '&channel=call'}`;
   return {
     title: `${TITLES[type]}: ${who}`,
     body,
@@ -39,6 +43,20 @@ function inboundPushPayload(lead, event, workspaceId) {
       : focus,
     tag: `inbound-${short}-${type}`,
   };
+}
+
+/** Fire-and-forget push when Agency OS sends a missed-call text-back via GHL. */
+function notifyMissedCallTextSent({ workspaceId, lead, preview, outcome }) {
+  const label = outcome === 'voicemail' ? 'After voicemail' : 'After missed call';
+  return notifyInboundEvent({
+    workspaceId,
+    lead,
+    event: {
+      type: 'missed_call_text_sent',
+      label,
+      preview: String(preview || '').replace(/\s+/g, ' ').trim().slice(0, 160),
+    },
+  });
 }
 
 /** Fire-and-forget; never throws. */
@@ -57,4 +75,4 @@ function notifyInboundEvent({ workspaceId, lead, event }) {
   });
 }
 
-module.exports = { inboundPushPayload, notifyInboundEvent };
+module.exports = { inboundPushPayload, notifyInboundEvent, notifyMissedCallTextSent };

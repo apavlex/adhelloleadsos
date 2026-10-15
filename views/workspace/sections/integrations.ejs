@@ -477,7 +477,25 @@
               <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">SMS from number</label>
               <% if (masks.ghlSmsFromNumber) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.ghlSmsFromNumber %></p><% } %>
               <input type="text" name="ghlSmsFromNumber" autocomplete="off" placeholder="+15551234567" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-              <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Required to send SMS from Agency OS via GHL. Use an SMS-capable number from this GHL location (E.164, e.g. +15551234567).</p>
+              <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Required for <strong>auto</strong> GHL SMS (missed-call text-back, bulk, cadence). Day-to-day one-off texts open your phone’s Messages app instead.</p>
+            </div>
+            <% const _mct = typeof missedCallTextBackSettings !== 'undefined' && missedCallTextBackSettings ? missedCallTextBackSettings : { enabled: false, message: '' }; %>
+            <div class="sm:col-span-2 rounded-xl border border-brand-border/40 dark:border-white/10 bg-white/60 dark:bg-slate-950/40 px-4 py-3 space-y-3">
+              <div class="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Missed-call auto text-back (GHL)</p>
+                  <p class="text-[11px] text-brand-muted mt-1 leading-relaxed">When a missed call or voicemail arrives from GHL, Agency OS can send one SMS through this GHL connection. Replies stay on the same GHL conversation and notify the team. Manual texts still open Phone Messages.</p>
+                </div>
+                <label class="inline-flex items-center gap-2 text-xs font-semibold text-brand-dark dark:text-white shrink-0">
+                  <input type="checkbox" name="missedCallTextBackEnabled" value="1" class="rounded border-brand-border" <%= _mct.enabled ? 'checked' : '' %> />
+                  Enable
+                </label>
+              </div>
+              <div>
+                <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Text-back message</label>
+                <textarea name="missedCallTextBackMessage" rows="3" maxlength="1000" placeholder="Hey{{name_part}} — sorry we missed your call! Reply here and we’ll get right back to you." class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm"><%= _mct.message || '' %></textarea>
+                <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Placeholders: <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">{{name_part}}</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">{{name}}</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">{{business}}</code>.</p>
+              </div>
             </div>
           </div>
           <%- include('../../partials/integration_test_row', { provider: 'ghl' }) %>
