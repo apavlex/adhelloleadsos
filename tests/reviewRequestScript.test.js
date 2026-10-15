@@ -42,6 +42,45 @@ test('cityFromAddress and buildKeywordHint build SEO phrases', () => {
   assert.equal(resolved.city, 'Camas');
 });
 
+test('member defaults fill keywords when customer has no job or city', () => {
+  const defs = review.memberKeywordDefaults({
+    reviewKeywordJob: 'roof repair',
+    reviewKeywordCity: 'Vancouver',
+  });
+  assert.equal(defs.jobTitle, 'roof repair');
+  assert.equal(defs.city, 'Vancouver');
+  const resolved = review.resolveReviewKeywords({
+    customer: { address: '' },
+    jobs: [],
+    defaults: defs,
+  });
+  assert.equal(resolved.keywords, 'roof repair in Vancouver');
+  assert.equal(resolved.jobTitle, 'roof repair');
+  assert.equal(resolved.city, 'Vancouver');
+});
+
+test('explicit reviewKeywords override wins over job+city composition', () => {
+  const resolved = review.resolveReviewKeywords({
+    defaults: {
+      jobTitle: 'cabinet install',
+      city: 'Camas',
+      keywords: 'custom kitchen remodel near Camas',
+    },
+  });
+  assert.equal(resolved.keywords, 'custom kitchen remodel near Camas');
+});
+
+test('customer job beats member defaults', () => {
+  const resolved = review.resolveReviewKeywords({
+    customer: { address: '1 Oak, Camas, WA 98607' },
+    jobs: [{ id: 'j1', title: 'deck build', status: 'completed', completedAt: '2026-03-01' }],
+    defaults: { jobTitle: 'cabinet install', city: 'Portland' },
+  });
+  assert.equal(resolved.jobTitle, 'deck build');
+  assert.equal(resolved.city, 'Camas');
+  assert.equal(resolved.keywords, 'deck build in Camas');
+});
+
 test('DEFAULT_SMS_SCRIPT includes keywords placeholder', () => {
   assert.match(review.DEFAULT_SMS_SCRIPT, /\{\{\s*keywords\s*\}\}/);
   assert.match(review.KEYWORDS_SCRIPT_SNIPPET, /\{\{\s*job\s*\}\}/);

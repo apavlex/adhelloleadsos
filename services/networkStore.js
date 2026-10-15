@@ -171,6 +171,14 @@ function normalizeMember(raw) {
     reviewLinks: normalizeReviewLinks(m.reviewLinks),
     /** Member-editable AI/GHL review-request SMS script ({{name}}, {{company}}, {{review_link}}). */
     reviewSmsScript: cleanText(m.reviewSmsScript, 800),
+    /**
+     * Default project keywords for {{job}} / {{city}} / {{keywords}} when a
+     * customer's latest job or address city is missing (e.g. "cabinet install" + "Camas").
+     */
+    reviewKeywordJob: cleanText(m.reviewKeywordJob, 80),
+    reviewKeywordCity: cleanText(m.reviewKeywordCity, 40),
+    /** Optional freeform override for {{keywords}} (skips "job in city" composition). */
+    reviewKeywords: cleanText(m.reviewKeywords, 100),
     reviewEmailSubject: cleanText(m.reviewEmailSubject, 180),
     reviewEmailScript: cleanText(m.reviewEmailScript, 4000),
     /**

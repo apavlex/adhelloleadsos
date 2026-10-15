@@ -414,6 +414,10 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     assert.match(reviewHtml, /GHL CRM/);
     assert.match(reviewHtml, /\{\{review_link\}\}/);
     assert.match(reviewHtml, /SMS script/);
+    assert.match(reviewHtml, /How keywords are found/);
+    assert.match(reviewHtml, /name="keywordJob"/);
+    assert.match(reviewHtml, /name="keywordCity"/);
+    assert.match(reviewHtml, /rvKeywordsPreview/);
     assert.match(reviewHtml, /Use AI/);
     assert.match(reviewHtml, /Copy for GHL CRM/);
     assert.match(reviewHtml, /https:\/\/leads\.adhello\.io\/rv\/camas-flooring/);
