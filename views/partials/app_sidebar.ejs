@@ -40,8 +40,9 @@
 </style>
   <div class="sidebar-logo-row flex items-center justify-center pt-4 pb-2 px-3">
 <% const _sbWl = typeof whiteLabel !== 'undefined' && whiteLabel ? whiteLabel : null; %>
-    <a href="/today" class="sidebar-logo-link flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden shadow-sm ring-1 ring-black/5 dark:ring-white/10<%= _sbWl && _sbWl.hasLogo ? ' bg-white' : '' %>" title="<%= _sbWl ? _sbWl.appName : 'AdHello' %> — Today" aria-label="<%= _sbWl ? _sbWl.appName : 'AdHello' %> home">
-      <img src="<%= _sbWl ? _sbWl.logoUrl : '/images/adhello-app-icon.png' %>" alt="" width="40" height="40" class="h-full w-full object-contain" loading="eager" decoding="async" />
+<% const _sbLogo = _sbWl ? (_sbWl.hasLogo ? _sbWl.iconUrl(192) : _sbWl.logoUrl) : '/images/adhello-app-icon.png'; %>
+    <a href="/today" class="sidebar-logo-link flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden shadow-sm ring-1 ring-black/5 dark:ring-white/10" title="<%= _sbWl ? _sbWl.appName : 'AdHello' %> — Today" aria-label="<%= _sbWl ? _sbWl.appName : 'AdHello' %> home">
+      <img src="<%= _sbLogo %>" alt="" width="40" height="40" class="h-full w-full object-cover" loading="eager" decoding="async" />
     </a>
   </div>
 

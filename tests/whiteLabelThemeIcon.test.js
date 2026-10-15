@@ -71,3 +71,14 @@ test('white-label settings UI has appearance + dual phone previews', () => {
   assert.match(route, /preferredTheme/);
   assert.match(route, /cleanPreferredTheme/);
 });
+
+test('sidebar and mobile chrome use accent iconUrl when a logo is set', () => {
+  const sidebar = fs.readFileSync(path.join(root, 'views/partials/app_sidebar.ejs'), 'utf8');
+  assert.match(sidebar, /hasLogo \? _sbWl\.iconUrl\(192\) : _sbWl\.logoUrl/);
+  assert.doesNotMatch(sidebar, /hasLogo \? ' bg-white'/);
+  assert.match(sidebar, /object-cover/);
+
+  const nav = fs.readFileSync(path.join(root, 'views/partials/navbar.ejs'), 'utf8');
+  assert.match(nav, /hasLogo \? _navWl\.iconUrl\(192\) : _navWl\.logoUrl/);
+  assert.match(nav, /object-cover/);
+});
