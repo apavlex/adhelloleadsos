@@ -2524,6 +2524,9 @@ router.post('/white-label', (req, res) => {
       const next = whiteLabel.settings(ws);
       const body = req.body || {};
       if (Object.prototype.hasOwnProperty.call(body, 'appName')) next.appName = whiteLabel.cleanAppName(body.appName);
+      if (Object.prototype.hasOwnProperty.call(body, 'preferredTheme')) {
+        next.preferredTheme = whiteLabel.cleanPreferredTheme(body.preferredTheme);
+      }
       if (req.file && req.file.buffer) {
         next.logoVersion = await whiteLabel.saveLogo(wid, req.file.buffer);
       } else if (body.remove_logo === 'on' || body.remove_logo === '1') {
@@ -2533,7 +2536,14 @@ router.post('/white-label', (req, res) => {
       ws.whiteLabel = next;
       await dbService.saveWorkspace(wid, ws);
       const brand = whiteLabel.brandForWorkspace({ ...ws, id: wid });
-      return res.json({ success: true, appName: brand.appName, hasLogo: brand.hasLogo, logoUrl: brand.logoUrl, iconUrl: brand.iconUrl(512) });
+      return res.json({
+        success: true,
+        appName: brand.appName,
+        hasLogo: brand.hasLogo,
+        logoUrl: brand.logoUrl,
+        iconUrl: brand.iconUrl(512),
+        preferredTheme: brand.preferredTheme,
+      });
     } catch (err) {
       console.error('[white-label] save failed:', err.message);
       return res.status(500).json({ success: false, error: 'Could not save. Try a different image.' });

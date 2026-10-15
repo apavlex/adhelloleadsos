@@ -81,6 +81,7 @@ async function withWorkspace(req, res, next) {
       res.locals.workspaceAccent = ws.accentColor || '#CA8A04';
       res.locals.workspaceAccentText = resolveAccentTextColor(ws.accentColor, ws.accentTextColor);
       res.locals.whiteLabel = whiteLabel.brandForWorkspace(ws);
+      res.locals.preferredTheme = whiteLabel.settings(ws).preferredTheme;
       attachWorkspaceQuickLog(res, ws);
       res.locals.scriptSignOffProfile = resolveScriptSignOffProfile({ user: req.user, workspace: ws });
       res.locals.customMenuLinks = normalizeCustomMenuLinks(ws.customMenuLinks);
@@ -237,6 +238,7 @@ async function withWorkspace(req, res, next) {
     res.locals.workspaceAccent = ws.accentColor || '#CA8A04';
     res.locals.workspaceAccentText = resolveAccentTextColor(ws.accentColor, ws.accentTextColor);
     res.locals.whiteLabel = whiteLabel.brandForWorkspace(ws);
+    res.locals.preferredTheme = whiteLabel.settings(ws).preferredTheme;
     res.locals.workspaceReturnPath = req.originalUrl || '/today';
     res.locals.googleMapsStaticKey = getGoogleMapsApiKey();
     attachWorkspaceQuickLog(res, ws);

@@ -25,13 +25,17 @@
 <link rel="apple-touch-icon" href="/images/adhello-app-icon-512.png" sizes="512x512">
 <% } %>
 <script>
-  /* Before CSS: set dark/light on <html> so custom.css variables match on first paint. */
+  /* Before CSS: set dark/light on <html> so custom.css variables match on first paint.
+     User localStorage wins; otherwise the workspace white-label preferred theme (onboarding). */
   (function () {
     try {
       var d = document.documentElement;
       var t = localStorage.getItem('color-theme');
+      var wsPref = <%- typeof preferredTheme !== 'undefined' && preferredTheme ? JSON.stringify(String(preferredTheme)) : '"system"' %>;
       if (t === 'dark') d.classList.add('dark');
       else if (t === 'light') d.classList.remove('dark');
+      else if (wsPref === 'dark') d.classList.add('dark');
+      else if (wsPref === 'light') d.classList.remove('dark');
       else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) d.classList.add('dark');
       else d.classList.remove('dark');
     } catch (e) {}

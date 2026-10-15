@@ -17,11 +17,19 @@ function cleanAppName(value) {
   return String(value == null ? '' : value).replace(/\s+/g, ' ').trim().slice(0, 30);
 }
 
+const THEME_PREFS = new Set(['light', 'dark', 'system']);
+
+function cleanPreferredTheme(value) {
+  const t = String(value == null ? '' : value).trim().toLowerCase();
+  return THEME_PREFS.has(t) ? t : 'system';
+}
+
 function settings(ws) {
   const raw = ws && ws.whiteLabel && typeof ws.whiteLabel === 'object' ? ws.whiteLabel : {};
   return {
     appName: cleanAppName(raw.appName),
     logoVersion: String(raw.logoVersion || ''),
+    preferredTheme: cleanPreferredTheme(raw.preferredTheme || ws && ws.preferredTheme),
   };
 }
 
@@ -32,7 +40,9 @@ function brandForWorkspace(ws) {
   const appName = s.appName || DEFAULT_NAME;
   const hasLogo = !!(id && s.logoVersion);
   const base = id ? `/brand/ws/${encodeURIComponent(id)}` : '';
-  const v = encodeURIComponent(s.logoVersion || 'default');
+  // Bust cache when accent changes — icons paint the logo on the accent tile.
+  const accentKey = String((ws && ws.accentColor) || '').replace(/[^0-9a-f]/gi, '').slice(0, 8) || 'a';
+  const v = encodeURIComponent(`${s.logoVersion || 'default'}-${accentKey}`);
   const custom = hasLogo || !!s.appName;
   return {
     appName,
@@ -40,6 +50,7 @@ function brandForWorkspace(ws) {
     customName: s.appName,
     hasLogo,
     custom,
+    preferredTheme: s.preferredTheme,
     logoUrl: hasLogo ? `${base}/logo.png?v=${v}` : DEFAULT_ICON,
     iconUrl: (size) => (hasLogo ? `${base}/icon-${size}.png?v=${v}` : `/images/adhello-app-icon-${size === 180 ? 192 : size}.png`),
     manifestUrl: custom ? `${base}/manifest.webmanifest?v=${v}` : '/manifest.webmanifest',
@@ -107,7 +118,9 @@ function manifest(ws) {
 module.exports = {
   DEFAULT_NAME,
   ICON_SIZES,
+  THEME_PREFS,
   cleanAppName,
+  cleanPreferredTheme,
   settings,
   brandForWorkspace,
   getLogo,
