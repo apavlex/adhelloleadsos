@@ -10,14 +10,16 @@
 <%
   const _wlCan = typeof canManageWorkspace !== 'undefined' && canManageWorkspace;
   const _wlBrand = typeof whiteLabel !== 'undefined' && whiteLabel ? whiteLabel : { appName: 'AdHello', hasLogo: false, logoUrl: '/images/adhello-app-icon.png', iconUrl: function () { return '/images/adhello-app-icon-512.png'; } };
-  const _wlSet = typeof whiteLabelSettings !== 'undefined' && whiteLabelSettings ? whiteLabelSettings : { appName: '' };
+  const _wlSet = typeof whiteLabelSettings !== 'undefined' && whiteLabelSettings ? whiteLabelSettings : { appName: '', preferredTheme: 'system' };
+  const _wlTheme = ['light', 'dark', 'system'].includes(String(_wlSet.preferredTheme || '')) ? String(_wlSet.preferredTheme) : 'system';
   const _wlOpenUrl = typeof appOpenUrl !== 'undefined' ? appOpenUrl : '/today';
+  const _wlIconSrc = _wlBrand.hasLogo ? _wlBrand.logoUrl : _wlBrand.iconUrl(512);
 %>
 <div class="space-y-6">
 <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6">
   <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-1">Logo &amp; app name</h2>
-  <p class="text-sm text-brand-muted mb-5">Shown in the sidebar, the browser tab, and as the app icon when someone saves the app to their phone.</p>
-  <div class="grid gap-6 md:grid-cols-[minmax(0,1fr)_220px] items-start">
+  <p class="text-sm text-brand-muted mb-5">Shown in the sidebar, the browser tab, and as the app icon when someone saves the app to their phone. Light logos sit on your accent color so they stay visible.</p>
+  <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(240px,280px)] items-start">
     <% if (_wlCan) { %>
     <form id="wlForm" class="space-y-4" enctype="multipart/form-data" novalidate>
       <div>
@@ -45,20 +47,70 @@
     <% } else { %>
     <p class="text-sm text-brand-muted">Only workspace admins can change the logo and name.</p>
     <% } %>
-    <div class="flex flex-col items-center">
-      <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2 self-start md:self-center">On a phone</p>
-      <div class="w-[200px] rounded-[28px] p-5 flex flex-col items-center gap-2 shadow-inner" style="background: linear-gradient(160deg, #3b5998 0%, #8e5aa8 55%, #e0809b 100%);">
-        <div class="grid grid-cols-3 gap-4 opacity-60" aria-hidden="true">
-          <span class="w-12 h-12 rounded-[22%] bg-white/30"></span><span class="w-12 h-12 rounded-[22%] bg-white/30"></span><span class="w-12 h-12 rounded-[22%] bg-white/30"></span>
+    <div class="flex flex-col gap-4">
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">How it looks on a phone</p>
+      <div class="grid grid-cols-2 gap-3">
+        <div class="rounded-[22px] p-3.5 flex flex-col items-center gap-2 shadow-inner" style="background: linear-gradient(165deg, #dbeafe 0%, #e0e7ff 45%, #fce7f3 100%);" data-wl-phone="light">
+          <p class="text-[9px] font-black uppercase tracking-widest text-slate-600 self-start">Light</p>
+          <div class="grid grid-cols-3 gap-2.5 opacity-50" aria-hidden="true">
+            <span class="w-9 h-9 rounded-[20%] bg-white/70"></span><span class="w-9 h-9 rounded-[20%] bg-white/70"></span><span class="w-9 h-9 rounded-[20%] bg-white/70"></span>
+          </div>
+          <div class="flex flex-col items-center gap-1 mt-1">
+            <span class="wl-icon-tile w-14 h-14 rounded-[22%] shadow-md overflow-hidden flex items-center justify-center p-1.5" style="background-color: <%= _accentCur %>" data-wl-icon-tile>
+              <img id="wlIconPreviewLight" src="<%= _wlIconSrc %>" alt="" width="56" height="56" class="w-full h-full object-contain" data-wl-icon-img />
+            </span>
+            <span class="wl-name-preview max-w-[72px] truncate text-[10px] font-semibold text-slate-800" data-wl-name><%= _wlBrand.appName %></span>
+          </div>
         </div>
-        <div class="flex flex-col items-center gap-1 mt-2">
-          <img id="wlIconPreview" src="<%= _wlBrand.iconUrl(512) %>" alt="App icon preview" width="64" height="64" class="w-16 h-16 rounded-[22%] bg-white object-cover shadow-lg" />
-          <span id="wlNamePreview" class="max-w-[90px] truncate text-[11px] font-medium text-white drop-shadow"><%= _wlBrand.appName %></span>
+        <div class="rounded-[22px] p-3.5 flex flex-col items-center gap-2 shadow-inner" style="background: linear-gradient(165deg, #0f172a 0%, #1e1b4b 55%, #3b0764 100%);" data-wl-phone="dark">
+          <p class="text-[9px] font-black uppercase tracking-widest text-slate-300 self-start">Dark</p>
+          <div class="grid grid-cols-3 gap-2.5 opacity-40" aria-hidden="true">
+            <span class="w-9 h-9 rounded-[20%] bg-white/20"></span><span class="w-9 h-9 rounded-[20%] bg-white/20"></span><span class="w-9 h-9 rounded-[20%] bg-white/20"></span>
+          </div>
+          <div class="flex flex-col items-center gap-1 mt-1">
+            <span class="wl-icon-tile w-14 h-14 rounded-[22%] shadow-md overflow-hidden flex items-center justify-center p-1.5" style="background-color: <%= _accentCur %>" data-wl-icon-tile>
+              <img id="wlIconPreviewDark" src="<%= _wlIconSrc %>" alt="" width="56" height="56" class="w-full h-full object-contain" data-wl-icon-img />
+            </span>
+            <span class="wl-name-preview max-w-[72px] truncate text-[10px] font-semibold text-white drop-shadow" data-wl-name><%= _wlBrand.appName %></span>
+          </div>
         </div>
       </div>
+      <p class="text-[11px] text-brand-muted leading-relaxed">Icon tile uses your accent color so pale logos stay readable on both wallpapers.</p>
     </div>
   </div>
 </section>
+
+<% if (_wlCan) { %>
+<section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6">
+  <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-1">Default appearance</h2>
+  <p class="text-sm text-brand-muted mb-5">Set the starting light or dark mode for this client’s branded app. Teammates can still switch later; this is what new sessions use when they haven’t picked one yet.</p>
+  <div class="grid gap-3 sm:grid-cols-3" role="radiogroup" aria-label="Default appearance">
+    <%
+      const _themeOpts = [
+        { id: 'light', label: 'Light', hint: 'Cream canvas, dark text', swatch: '#FAF7ED', ink: '#0f172a' },
+        { id: 'dark', label: 'Dark', hint: 'Slate canvas, light text', swatch: '#020617', ink: '#f8fafc' },
+        { id: 'system', label: 'System', hint: 'Follow the device setting', swatch: 'linear-gradient(135deg,#FAF7ED 50%,#020617 50%)', ink: '#64748b' },
+      ];
+      _themeOpts.forEach(function (opt) {
+    %>
+    <label class="cursor-pointer group">
+      <input type="radio" name="wlPreferredTheme" value="<%= opt.id %>" class="sr-only peer" <%= _wlTheme === opt.id ? 'checked' : '' %> />
+      <span class="flex flex-col gap-3 rounded-2xl border-2 border-brand-border/50 dark:border-white/10 peer-checked:border-brand-yellow peer-checked:ring-2 peer-checked:ring-brand-yellow/40 bg-white/70 dark:bg-slate-950/40 p-4 transition-colors">
+        <span class="h-16 rounded-xl border border-black/5 dark:border-white/10 shadow-inner" style="background: <%= opt.swatch %>"></span>
+        <span>
+          <span class="block text-sm font-bold text-brand-dark dark:text-white"><%= opt.label %></span>
+          <span class="block text-[11px] text-brand-muted mt-0.5"><%= opt.hint %></span>
+        </span>
+      </span>
+    </label>
+    <% }); %>
+  </div>
+  <div class="mt-5 flex flex-wrap items-center gap-3">
+    <button type="button" id="wlThemeSave" class="rounded-xl bg-brand-yellow px-6 py-3 text-xs font-black uppercase tracking-widest disabled:opacity-50">Save appearance</button>
+    <p id="wlThemeMsg" class="text-sm" role="status"></p>
+  </div>
+</section>
+<% } %>
 
 <% if (_wlCan) { %>
 <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6">
@@ -172,38 +224,64 @@
     var fileLabel = document.getElementById('wlLogoLabel');
     var nameInput = document.getElementById('wlAppName');
     var remove = document.getElementById('wlRemoveLogo');
-    var icon = document.getElementById('wlIconPreview');
-    var namePreview = document.getElementById('wlNamePreview');
+    var iconImgs = Array.prototype.slice.call(document.querySelectorAll('[data-wl-icon-img]'));
+    var namePreviews = Array.prototype.slice.call(document.querySelectorAll('[data-wl-name]'));
+    var iconTiles = Array.prototype.slice.call(document.querySelectorAll('[data-wl-icon-tile]'));
     var msg = document.getElementById('wlMsg');
     var save = document.getElementById('wlSave');
-    var savedIcon = icon.getAttribute('src');
+    var savedIcon = iconImgs[0] ? iconImgs[0].getAttribute('src') : '';
     var blobUrl = '';
-    function say(text, ok) {
-      msg.textContent = text;
-      msg.className = 'text-sm font-semibold ' + (ok ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-600');
+    var defaultIcon = '/images/adhello-app-icon-512.png';
+
+    function say(el, text, ok) {
+      if (!el) return;
+      el.textContent = text;
+      el.className = 'text-sm font-semibold ' + (ok ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-600');
     }
+
+    function setIconSrc(src) {
+      iconImgs.forEach(function (img) { img.src = src; });
+    }
+
+    function setNames(name) {
+      namePreviews.forEach(function (el) { el.textContent = name; });
+    }
+
+    function syncTileAccent() {
+      var accentEl = document.getElementById('wsAccentCustomHex') || document.getElementById('wsAccentCustom');
+      var hex = accentEl && accentEl.value ? String(accentEl.value).trim() : '';
+      if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return;
+      iconTiles.forEach(function (tile) { tile.style.backgroundColor = hex; });
+    }
+
     nameInput.addEventListener('input', function () {
-      namePreview.textContent = nameInput.value.trim() || 'AdHello';
+      setNames(nameInput.value.trim() || 'AdHello');
     });
     fileInput.addEventListener('change', function () {
       if (blobUrl) URL.revokeObjectURL(blobUrl);
       var file = fileInput.files && fileInput.files[0];
       blobUrl = file ? URL.createObjectURL(file) : '';
       fileLabel.textContent = file ? file.name : 'Choose a logo';
-      icon.src = blobUrl || savedIcon;
-      icon.classList.toggle('object-contain', !!blobUrl);
-      icon.classList.toggle('p-2', !!blobUrl);
+      setIconSrc(blobUrl || savedIcon);
       if (file && remove) remove.checked = false;
     });
     if (remove) {
       remove.addEventListener('change', function () {
-        icon.src = remove.checked ? '/images/adhello-app-icon-512.png' : (blobUrl || savedIcon);
+        setIconSrc(remove.checked ? defaultIcon : (blobUrl || savedIcon));
       });
     }
+    document.addEventListener('input', function (e) {
+      if (!e.target) return;
+      if (e.target.id === 'wsAccentCustom' || e.target.id === 'wsAccentCustomHex') syncTileAccent();
+    });
+    document.addEventListener('change', function (e) {
+      if (e.target && e.target.name === 'wsAccentChoice') syncTileAccent();
+    });
+
     form.addEventListener('submit', function (e) {
       e.preventDefault();
       save.disabled = true;
-      say('Saving…', true);
+      say(msg, 'Saving…', true);
       fetch('/workspace/white-label', {
         method: 'POST',
         credentials: 'same-origin',
@@ -213,12 +291,38 @@
         .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, d: d }; }); })
         .then(function (res) {
           save.disabled = false;
-          if (!res.ok || !res.d.success) { say(res.d.error || 'Could not save.', false); return; }
-          say('Saved. Reloading to apply…', true);
+          if (!res.ok || !res.d.success) { say(msg, res.d.error || 'Could not save.', false); return; }
+          say(msg, 'Saved. Reloading to apply…', true);
           setTimeout(function () { window.location.reload(); }, 700);
         })
-        .catch(function () { save.disabled = false; say('Could not save. Check your connection.', false); });
+        .catch(function () { save.disabled = false; say(msg, 'Could not save. Check your connection.', false); });
     });
+
+    var themeSave = document.getElementById('wlThemeSave');
+    var themeMsg = document.getElementById('wlThemeMsg');
+    if (themeSave) {
+      themeSave.addEventListener('click', function () {
+        var picked = document.querySelector('input[name="wlPreferredTheme"]:checked');
+        var theme = picked && picked.value ? picked.value : 'system';
+        themeSave.disabled = true;
+        say(themeMsg, 'Saving…', true);
+        var body = new FormData();
+        body.append('preferredTheme', theme);
+        fetch('/workspace/white-label', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { Accept: 'application/json' },
+          body: body,
+        })
+          .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, d: d }; }); })
+          .then(function (res) {
+            themeSave.disabled = false;
+            if (!res.ok || !res.d.success) { say(themeMsg, res.d.error || 'Could not save.', false); return; }
+            say(themeMsg, 'Appearance saved for this client.', true);
+          })
+          .catch(function () { themeSave.disabled = false; say(themeMsg, 'Could not save. Check your connection.', false); });
+      });
+    }
   })();
 </script>
 <% } %>
