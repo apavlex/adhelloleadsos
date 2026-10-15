@@ -108,7 +108,7 @@ test('Review app seeds preferredTheme and uses accent icon on Home badge', () =>
   assert.match(maHead, /ma-theme-pinned-at/);
   // White-label light/dark must win over a stale device localStorage value.
   assert.match(maHead, /workspacePref === 'light' \|\| workspacePref === 'dark'/);
-  assert.match(maHead, /pinnedAt >= workspaceAt/);
+  assert.match(maHead, /Number\(pinnedAt\) >= Number\(workspaceAt\)/);
 
   const home = fs.readFileSync(path.join(root, 'views/member_app/home.ejs'), 'utf8');
   assert.match(home, /icon-192\.png/);

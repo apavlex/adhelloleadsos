@@ -31,7 +31,7 @@
     if (pinned && (stored === 'light' || stored === 'dark' || stored === 'system')) {
       if (workspacePref === 'light' || workspacePref === 'dark') {
         // No stamp, or pin older than White-label save → workspace wins.
-        pinValid = !!(workspaceAt && pinnedAt && pinnedAt >= workspaceAt);
+        pinValid = !!(workspaceAt && pinnedAt && Number(pinnedAt) >= Number(workspaceAt));
       } else {
         pinValid = true;
       }

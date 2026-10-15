@@ -1931,7 +1931,7 @@
     var ws = workspaceThemePref();
     if (ws === 'light' || ws === 'dark') {
       var at = workspaceThemeAt();
-      return !!(at && pinnedAt && pinnedAt >= at);
+      return !!(at && pinnedAt && Number(pinnedAt) >= Number(at));
     }
     return true;
   }
