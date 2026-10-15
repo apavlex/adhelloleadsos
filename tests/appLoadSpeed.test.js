@@ -22,7 +22,12 @@ test('nav shell closes menu instantly and shows progress on leave', () => {
   assert.match(js, /backdrop-filter',\s*'none'/);
   assert.match(js, /adhello-navigating/);
   assert.match(js, /function leaveToUrl/);
-  assert.match(js, /location\.assign/);
+  assert.match(js, /_failSafe/);
+  const leaveFn = js.slice(js.indexOf('function leaveToUrl'), js.indexOf('function leaveToUrl') + 700);
+  assert.match(leaveFn, /location\.assign/);
+  // Must stay synchronous with the tap — deferred assign blanks iOS on the wash.
+  assert.doesNotMatch(leaveFn, /requestAnimationFrame/);
+  assert.doesNotMatch(leaveFn, /setTimeout\(\s*go/);
   const css = fs.readFileSync(path.join(root, 'public/css/custom.css'), 'utf8');
   assert.match(css, /html\.adhello-navigating::before/);
 });
