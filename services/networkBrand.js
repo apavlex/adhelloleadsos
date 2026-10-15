@@ -10,6 +10,12 @@ const FREE_APP_NAME = 'AdHello Reviews App';
 /** Default Home banner until the business uploads their own van/photo. */
 const FREE_APP_HERO_URL = '/images/member-hero-your-business.jpg';
 const DEFAULT_HERO_URL = FREE_APP_HERO_URL;
+/** Home greeting subtitle under “Hi, …”. */
+const DEFAULT_TAGLINE = 'The quick and easy review and referrals engine for your business';
+/** Older defaults we quietly retire so live networks pick up the new Home line. */
+const LEGACY_TAGLINES = new Set([
+  'Trusted local pros who send each other work',
+]);
 const IMAGE_KINDS = new Set(['logo', 'hero']);
 
 function cleanText(value, max) {
@@ -122,7 +128,9 @@ function brandView(network, member, opts = {}) {
     heroName: heroName || appName,
     companyName,
     shortName: appName.length <= 12 ? appName : appName.split(/\s+/)[0].slice(0, 12),
-    tagline: brand.tagline || 'Every review builds your reputation.',
+    tagline: (!brand.tagline || LEGACY_TAGLINES.has(brand.tagline))
+      ? DEFAULT_TAGLINE
+      : brand.tagline,
     subtitle: free ? freeSubtitle : (brand.subtitle || 'Reviews, customers & network'),
     accent,
     onAccent: onAccentColor(accent),
@@ -191,6 +199,7 @@ async function prepareImage(kind, buffer) {
 
 module.exports = {
   DEFAULT_ACCENT,
+  DEFAULT_TAGLINE,
   FREE_APP_NAME,
   FREE_APP_HERO_URL,
   DEFAULT_HERO_URL,

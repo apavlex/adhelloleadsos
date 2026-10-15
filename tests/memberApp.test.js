@@ -70,9 +70,15 @@ test('brand normalization keeps safe values and readable accent text', () => {
   assert.match(view.heroUrl, /member-hero-your-business\.jpg/);
   const defaults = networkBrand.brandView({});
   assert.equal(defaults.appName, 'Partner network');
-  assert.match(defaults.tagline, /review/i);
+  assert.equal(defaults.tagline, networkBrand.DEFAULT_TAGLINE);
+  assert.match(defaults.tagline, /review and referrals engine/i);
   assert.match(defaults.subtitle, /Reviews/);
   assert.match(defaults.heroUrl, /member-hero-your-business\.jpg/);
+  const legacyTagline = networkBrand.brandView({
+    name: 'Cascade Home Pros',
+    brand: { tagline: 'Trusted local pros who send each other work' },
+  });
+  assert.equal(legacyTagline.tagline, networkBrand.DEFAULT_TAGLINE);
   const customHero = networkBrand.brandView({
     name: 'TPR Flooring',
     brand: { heroUrl: '/m/brand/tpr/hero?v=1' },
