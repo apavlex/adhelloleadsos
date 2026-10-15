@@ -242,9 +242,12 @@ describe('member app install modal and tab bar', () => {
     const toolsAt = html.indexOf('id="maCustTools"');
     const pillsAt = html.indexOf('aria-label="Customer views"');
     assert.ok(toolsAt > -1 && pillsAt > toolsAt, 'Bring in customers should render before List/Calendar/Pending');
-    // Closed strip: compact summary, not the default tall fold padding.
-    assert.match(css, /\.ma-cust-tools\.ma-fold\s*>\s*summary\s*\{[^}]*min-height:\s*40px/);
-    assert.match(css, /\.ma-cust-tools\.ma-fold\s*>\s*summary\s*\{[^}]*padding:\s*8px 14px/);
+    // Closed strip: ~36px, not the default tall fold padding.
+    assert.match(css, /\.ma-cust-tools\.ma-fold\s*>\s*summary\s*\{[^}]*height:\s*36px/);
+    assert.match(css, /\.ma-cust-tools\.ma-fold\s*>\s*summary\s*\{[^}]*max-height:\s*36px/);
+    assert.match(css, /\.ma-cust-tools\.ma-fold\s*>\s*summary\s*\{[^}]*padding:\s*0 12px/);
+    const head = fs.readFileSync(path.join(root, 'views/member_app/_head.ejs'), 'utf8');
+    assert.match(head, /\.ma-cust-tools\.ma-fold>summary\{[^}]*height:36px!important/);
   });
 
   it('request-a-review uses live script text; never force-adds URL or share url/files', () => {
