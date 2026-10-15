@@ -12,65 +12,69 @@
     </div>
     <p class="ma-page-sub">Your customers, jobs and schedule in one place.</p>
 
+    <%- include('_flash') %>
+
+    <% if (view === 'list') { %>
+      <details class="ma-fold ma-cust-tools" id="maCustTools">
+        <summary>Bring in customers</summary>
+        <div class="ma-fold__body">
+          <% if (typeof crmSyncLocked !== 'undefined' && crmSyncLocked) { %>
+          <p class="ma-hint ma-cust-tools__lead">Upload a list or add customers manually. CRM sync unlocks with a monthly workspace plan.</p>
+          <% } else { %>
+          <p class="ma-hint ma-cust-tools__lead">Uses your workspace’s CRM connection (Workspace → Integrations). Sync imports homeowners; contacts tagged <strong>Referral partner</strong> or <strong>GB: Referral Network</strong> stay out of this list.</p>
+          <% } %>
+          <div class="ma-settings-list">
+            <% if (typeof crmSyncLocked !== 'undefined' && crmSyncLocked) { %>
+            <a class="ma-settings-row is-locked" href="<%= typeof upgradeHref !== 'undefined' && upgradeHref ? upgradeHref : '/signup' %>">
+              <span class="ma-settings-row__icon"><%- icons.download %></span>
+              <span class="ma-settings-row__text">
+                <strong>Sync from CRM</strong>
+                <span>Upgrade to activate</span>
+              </span>
+              <span class="ma-settings-row__upgrade">Upgrade</span>
+            </a>
+            <% } else { %>
+            <form method="post" action="<%= base %>/customers/sync-ghl" class="ma-cust-tools__form">
+              <button type="submit" class="ma-settings-row">
+                <span class="ma-settings-row__icon"><%- icons.download %></span>
+                <span class="ma-settings-row__text">
+                  <strong>Sync from CRM</strong>
+                  <span>Same CRM location as your workspace</span>
+                </span>
+                <span class="ma-settings-row__chev" aria-hidden="true"><%- icons.chevronRight %></span>
+              </button>
+            </form>
+            <% } %>
+            <details class="ma-cust-tools__import">
+              <summary class="ma-settings-row">
+                <span class="ma-settings-row__icon"><%- icons.people %></span>
+                <span class="ma-settings-row__text">
+                  <strong>Upload a customer list</strong>
+                  <span>CSV or Excel with name, phone, email</span>
+                </span>
+                <span class="ma-settings-row__chev" aria-hidden="true"><%- icons.chevronRight %></span>
+              </summary>
+              <form class="ma-cust-tools__body" method="post" action="<%= base %>/customers/import" enctype="multipart/form-data">
+                <div class="ma-field" style="margin:0">
+                  <label class="ma-label" for="maCustImport">Choose file</label>
+                  <input id="maCustImport" name="file" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="ma-input" required>
+                </div>
+                <p class="ma-hint" style="margin:0">Columns: Name (or First / Last), Phone, Email, Address, Notes.<% if (!(typeof crmSyncLocked !== 'undefined' && crmSyncLocked)) { %> Imports sync to your CRM when connected.<% } %></p>
+                <button type="submit" class="ma-btn ma-btn--block">Import list</button>
+              </form>
+            </details>
+          </div>
+        </div>
+      </details>
+    <% } %>
+
     <nav class="ma-seg ma-seg--3" aria-label="Customer views">
       <a href="<%= hrefFor({}) %>" class="<%= view === 'list' ? 'is-on' : '' %>" <%= view === 'list' ? 'aria-current=page' : '' %>><%- icons.list %><span>List</span></a>
       <a href="<%= hrefFor({ view: 'calendar' }) %>" class="<%= view === 'calendar' ? 'is-on' : '' %>" <%= view === 'calendar' ? 'aria-current=page' : '' %>><%- icons.calendar %><span>Calendar</span></a>
       <a href="<%= hrefFor({ view: 'pending' }) %>" class="<%= view === 'pending' ? 'is-on' : '' %>" <%= view === 'pending' ? 'aria-current=page' : '' %>><%- icons.pending %><span>Pending</span></a>
     </nav>
 
-    <%- include('_flash') %>
-
     <% if (view === 'list') { %>
-      <section class="ma-card ma-cust-tools" aria-label="Import and sync customers">
-        <h2 class="ma-cust-tools__title">Bring in customers</h2>
-        <% if (typeof crmSyncLocked !== 'undefined' && crmSyncLocked) { %>
-        <p class="ma-hint ma-cust-tools__lead">Upload a list or add customers manually. CRM sync unlocks with a monthly workspace plan.</p>
-        <% } else { %>
-        <p class="ma-hint ma-cust-tools__lead">Uses your workspace’s CRM connection (Workspace → Integrations). Sync imports homeowners; contacts tagged <strong>Referral partner</strong> or <strong>GB: Referral Network</strong> stay out of this list.</p>
-        <% } %>
-        <div class="ma-settings-list">
-          <% if (typeof crmSyncLocked !== 'undefined' && crmSyncLocked) { %>
-          <a class="ma-settings-row is-locked" href="<%= typeof upgradeHref !== 'undefined' && upgradeHref ? upgradeHref : '/signup' %>">
-            <span class="ma-settings-row__icon"><%- icons.download %></span>
-            <span class="ma-settings-row__text">
-              <strong>Sync from CRM</strong>
-              <span>Upgrade to activate</span>
-            </span>
-            <span class="ma-settings-row__upgrade">Upgrade</span>
-          </a>
-          <% } else { %>
-          <form method="post" action="<%= base %>/customers/sync-ghl" class="ma-cust-tools__form">
-            <button type="submit" class="ma-settings-row">
-              <span class="ma-settings-row__icon"><%- icons.download %></span>
-              <span class="ma-settings-row__text">
-                <strong>Sync from CRM</strong>
-                <span>Same CRM location as your workspace</span>
-              </span>
-              <span class="ma-settings-row__chev" aria-hidden="true"><%- icons.chevronRight %></span>
-            </button>
-          </form>
-          <% } %>
-          <details class="ma-cust-tools__import">
-            <summary class="ma-settings-row">
-              <span class="ma-settings-row__icon"><%- icons.people %></span>
-              <span class="ma-settings-row__text">
-                <strong>Upload a customer list</strong>
-                <span>CSV or Excel with name, phone, email</span>
-              </span>
-              <span class="ma-settings-row__chev" aria-hidden="true"><%- icons.chevronRight %></span>
-            </summary>
-            <form class="ma-cust-tools__body" method="post" action="<%= base %>/customers/import" enctype="multipart/form-data">
-              <div class="ma-field" style="margin:0">
-                <label class="ma-label" for="maCustImport">Choose file</label>
-                <input id="maCustImport" name="file" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="ma-input" required>
-              </div>
-              <p class="ma-hint" style="margin:0">Columns: Name (or First / Last), Phone, Email, Address, Notes.<% if (!(typeof crmSyncLocked !== 'undefined' && crmSyncLocked)) { %> Imports sync to your CRM when connected.<% } %></p>
-              <button type="submit" class="ma-btn ma-btn--block">Import list</button>
-            </form>
-          </details>
-        </div>
-      </section>
-
       <% if (customerCount) { %>
       <form class="ma-search" method="get" action="<%= base %>/customers" role="search" data-ma-customer-list-search>
         <%- icons.search %>

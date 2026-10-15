@@ -597,15 +597,16 @@ html[data-ma-theme="dark"] .ma-tile, html[data-ma-theme="dark"] .ma-card, html[d
   color: var(--acc);
 }
 .ma-empty--tap > p { margin: 0; flex: 1 1 auto; min-width: 0; line-height: 1.35; }
-.ma-cust-tools { display: grid; gap: 4px; margin: 0 0 14px; padding: 14px 14px 10px; }
-.ma-cust-tools__title {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 800;
-  font-family: var(--font-display);
-  letter-spacing: -0.02em;
+/* Closed-by-default import fold; List/Calendar/Pending pills sit under it. */
+.ma-cust-tools.ma-fold {
+  display: block;
+  margin: 0 0 14px;
+  padding: 0;
 }
-.ma-cust-tools__lead { margin: 0 0 6px; }
+.ma-cust-tools.ma-fold > .ma-fold__body {
+  padding-top: 2px;
+}
+.ma-cust-tools__lead { margin: 0 0 8px; }
 .ma-cust-tools__form { margin: 0; }
 a.ma-settings-row.is-locked {
   opacity: 0.55;

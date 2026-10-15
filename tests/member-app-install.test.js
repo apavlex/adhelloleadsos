@@ -233,6 +233,16 @@ describe('member app install modal and tab bar', () => {
     assert.match(icons, /pending:\s*icon\(/);
   });
 
+  it('Customers Bring in fold is closed by default and sits above the view pills', () => {
+    const html = fs.readFileSync(path.join(root, 'views/member_app/customers.ejs'), 'utf8');
+    assert.match(html, /<details class="ma-fold ma-cust-tools"/);
+    assert.doesNotMatch(html, /<details class="ma-fold ma-cust-tools"[^>]*\sopen/);
+    assert.match(html, /<summary>\s*Bring in customers\s*<\/summary>/);
+    const toolsAt = html.indexOf('id="maCustTools"');
+    const pillsAt = html.indexOf('aria-label="Customer views"');
+    assert.ok(toolsAt > -1 && pillsAt > toolsAt, 'Bring in customers should render before List/Calendar/Pending');
+  });
+
   it('request-a-review uses live script text; never force-adds URL or share url/files', () => {
     const js = fs.readFileSync(path.join(root, 'public/js/member-app.js'), 'utf8');
     const review = fs.readFileSync(path.join(root, 'views/member_app/review.ejs'), 'utf8');
