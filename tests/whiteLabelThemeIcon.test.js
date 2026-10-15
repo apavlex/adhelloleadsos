@@ -144,6 +144,11 @@ test('Review app seeds preferredTheme and uses accent icon on Home badge', () =>
   assert.match(branding, /savedTheme = <%- JSON\.stringify\(_wlTheme\) %>/);
   assert.match(branding, /Reloading to apply/);
   assert.match(branding, /id="wl-appearance"/);
+  // Comments must not contain raw EJS openers — EJS still parses them and breaks White label.
+  const commentBlocks = branding.match(/\/\/[^\n]*/g) || [];
+  for (const c of commentBlocks) {
+    assert.doesNotMatch(c, /<%/, `EJS delimiter in JS comment breaks render: ${c}`);
+  }
 });
 
 test('preferredThemeAt is stored and exposed on the brand', () => {
