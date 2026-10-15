@@ -54,12 +54,16 @@
         position: fixed;
         left: 0;
         right: 0;
+        top: auto;
         bottom: 0;
         z-index: 95;
         padding: 0.55rem 0.65rem calc(0.55rem + env(safe-area-inset-bottom, 0px));
         background: linear-gradient(to top, rgba(250, 247, 237, 0.98) 70%, rgba(250, 247, 237, 0.72));
         border-top: 1px solid rgba(17, 24, 39, 0.1);
         box-shadow: 0 -10px 28px rgba(15, 23, 42, 0.12);
+        /* Keep compositing stable so iOS Safari does not leave the dock mid-script after load. */
+        -webkit-backface-visibility: hidden;
+        backface-visibility: hidden;
       }
       html.dark .focus-mobile-dock {
         background: linear-gradient(to top, rgba(15, 23, 42, 0.98) 70%, rgba(15, 23, 42, 0.75));
@@ -1062,12 +1066,15 @@
       if (!sectionEl) return;
       sectionEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
       window.setTimeout(function () {
+        pinFocusMobileDock();
         var dockH = 0;
         if (elMobileFabWrap && !elMobileFabWrap.classList.contains('hidden')) {
           dockH = elMobileFabWrap.getBoundingClientRect().height + 16;
         }
         var rect = sectionEl.getBoundingClientRect();
-        var room = window.innerHeight - dockH;
+        var vv = window.visualViewport;
+        var viewH = vv && vv.height ? vv.height : window.innerHeight;
+        var room = viewH - dockH;
         if (rect.bottom > room) {
           window.scrollBy({ top: rect.bottom - room + 12, left: 0, behavior: 'smooth' });
         }
@@ -1222,20 +1229,58 @@
       return !!(spModal && !spModal.classList.contains('hidden'));
     }
 
+    /**
+     * Keep Call/SMS/Call next glued to the visible bottom.
+     * iOS Safari often leaves position:fixed; bottom:0 floating mid-script after
+     * load, URL-bar show/hide, or visualViewport pan — pin with visualViewport.
+     */
+    function pinFocusMobileDock() {
+      if (!elMobileFabWrap) return;
+      elMobileFabWrap.style.top = 'auto';
+      elMobileFabWrap.style.bottom = '0px';
+      var vv = window.visualViewport;
+      if (!vv) {
+        elMobileFabWrap.style.transform = '';
+        return;
+      }
+      var tx = Math.round(vv.offsetLeft) || 0;
+      var ty = Math.round(vv.offsetTop) || 0;
+      elMobileFabWrap.style.transform = (tx || ty)
+        ? ('translate3d(' + tx + 'px,' + ty + 'px,0)')
+        : '';
+    }
+
     function alignFocusDockToCard() {
       if (!elMobileFabWrap) return;
       var card = document.getElementById('focus-card-section');
       if (!card || window.innerWidth < 768) {
         elMobileFabWrap.style.left = '';
         elMobileFabWrap.style.width = '';
-        return;
+      } else {
+        var rect = card.getBoundingClientRect();
+        if (rect.width) {
+          elMobileFabWrap.style.left = rect.left + 'px';
+          elMobileFabWrap.style.width = rect.width + 'px';
+        }
       }
-      var rect = card.getBoundingClientRect();
-      if (!rect.width) return;
-      elMobileFabWrap.style.left = rect.left + 'px';
-      elMobileFabWrap.style.width = rect.width + 'px';
+      pinFocusMobileDock();
     }
-    window.addEventListener('resize', alignFocusDockToCard);
+    function scheduleFocusDockPin() {
+      alignFocusDockToCard();
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(function () {
+          pinFocusMobileDock();
+          requestAnimationFrame(pinFocusMobileDock);
+        });
+      }
+    }
+    window.addEventListener('resize', scheduleFocusDockPin);
+    window.addEventListener('orientationchange', scheduleFocusDockPin);
+    window.addEventListener('pageshow', scheduleFocusDockPin);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', pinFocusMobileDock);
+      window.visualViewport.addEventListener('scroll', pinFocusMobileDock);
+    }
     if (typeof ResizeObserver === 'function') {
       var focusDockMain = document.querySelector('main');
       if (focusDockMain) new ResizeObserver(alignFocusDockToCard).observe(focusDockMain);
@@ -1254,8 +1299,12 @@
       if (elMobileFabWrap) {
         var showFab = !!lead;
         elMobileFabWrap.classList.toggle('hidden', !showFab);
-        if (!showFab) closeMobileFabActions();
-        else alignFocusDockToCard();
+        if (!showFab) {
+          closeMobileFabActions();
+          elMobileFabWrap.style.transform = '';
+        } else {
+          scheduleFocusDockPin();
+        }
         if (btnMobileCall) btnMobileCall.disabled = !hasPhone;
         if (btnMobileCallNext) btnMobileCallNext.disabled = !hasPhone;
         if (btnMobileSms) btnMobileSms.disabled = !hasPhone;
