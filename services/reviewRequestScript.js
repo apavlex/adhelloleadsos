@@ -1,17 +1,22 @@
 /**
  * AI + template scripts for member-app review requests sent through GHL.
- * Placeholders: {{name}}, {{company}}, {{review_link}}
+ * Placeholders: {{name}}, {{company}}, {{review_link}}, {{job}}, {{city}}, {{keywords}}
+ * Example keywords: "cabinet install in Camas"
  */
 
 const { chatCompletion, parseLlmJson } = require('./llmClient');
 
 const DEFAULT_SMS_SCRIPT =
-  'Hi {{name}} — thanks for choosing {{company}}! When you have a minute, leave a quick review: {{review_link}}';
+  'Hi {{name}} — thanks for choosing {{company}}! When you have a minute, leave a quick review — mentioning {{keywords}} helps neighbors find us: {{review_link}}';
 
 const DEFAULT_EMAIL_SUBJECT = 'Thanks for choosing {{company}}';
 
 const DEFAULT_EMAIL_SCRIPT =
-  'Hi {{name}},\n\nThanks for choosing {{company}}. If you have a minute, we\'d love a quick review:\n\n{{review_link}}\n\nThank you!';
+  'Hi {{name}},\n\nThanks for choosing {{company}}. If you have a minute, we\'d love a quick review — mentioning {{keywords}} helps neighbors find us:\n\n{{review_link}}\n\nThank you!';
+
+/** One-tap insert for owners whose saved script still omits project keywords. */
+const KEYWORDS_SCRIPT_SNIPPET =
+  ' If you mention the {{job}} in {{city}}, that helps neighbors find us.';
 
 const MAX_SMS = 480;
 const MAX_SCRIPT = 800;
@@ -21,15 +26,97 @@ function cleanScript(value, max = MAX_SCRIPT) {
   return String(value == null ? '' : value).replace(/\r\n/g, '\n').trim().slice(0, max);
 }
 
+function cleanPhrase(value, max = 80) {
+  return String(value == null ? '' : value).replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
 function firstName(name) {
   const part = String(name || '').trim().split(/\s+/)[0];
   return part || 'there';
 }
 
-function fillPlaceholders(script, { name, company, reviewLink }) {
+function titleCaseWords(value) {
+  return String(value || '')
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => (w.length <= 2 && /^[A-Za-z]+$/.test(w) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)))
+    .join(' ');
+}
+
+/**
+ * Pull a city from a free-text address ("…, Camas, WA 98607" → Camas).
+ */
+function cityFromAddress(address) {
+  const raw = cleanPhrase(address, 200);
+  if (!raw) return '';
+  const parts = raw.split(',').map((p) => p.trim()).filter(Boolean);
+  if (parts.length >= 2) {
+    const last = parts[parts.length - 1];
+    // "WA 98607" / "WA" / "Washington 98607"
+    if (/^[A-Za-z]{2}(\s+\d{5}(-\d{4})?)?$/.test(last) || /\d{5}/.test(last)) {
+      return titleCaseWords(parts[parts.length - 2]);
+    }
+    // "Camas WA"
+    const m = last.match(/^([A-Za-z][A-Za-z\s.'-]+?)\s+[A-Z]{2}\b/);
+    if (m) return titleCaseWords(m[1]);
+    return titleCaseWords(parts[parts.length - 2] || parts[0]);
+  }
+  const one = parts[0] || raw;
+  const m2 = one.match(/\b([A-Za-z][A-Za-z\s.'-]{1,40}?)\s+[A-Z]{2}(?:\s+\d{5})?\s*$/);
+  if (m2) return titleCaseWords(m2[1]);
+  return '';
+}
+
+/** Prefer latest completed job with a title; else latest titled job. */
+function pickReviewJob(jobs) {
+  const list = (Array.isArray(jobs) ? jobs : []).filter((j) => j && cleanPhrase(j.title, 120));
+  if (!list.length) return null;
+  const completed = list.filter((j) => String(j.status || '') === 'completed');
+  const pool = completed.length ? completed : list;
+  pool.sort((a, b) =>
+    String(b.completedAt || b.updatedAt || b.date || b.createdAt || '').localeCompare(
+      String(a.completedAt || a.updatedAt || a.date || a.createdAt || ''),
+    ),
+  );
+  return pool[0] || null;
+}
+
+/** "cabinet install in Camas" — SEO-friendly phrase for the review ask. */
+function buildKeywordHint({ jobTitle, city, keywords } = {}) {
+  const explicit = cleanPhrase(keywords, 100);
+  if (explicit) return explicit;
+  const job = cleanPhrase(jobTitle, 80);
+  const loc = cleanPhrase(city, 40);
+  if (job && loc) return `${job} in ${loc}`;
+  if (job) return job;
+  if (loc) return `work in ${loc}`;
+  return '';
+}
+
+function resolveReviewKeywords({ customer, jobs, jobTitle, city, keywords } = {}) {
+  const job = pickReviewJob(jobs);
+  const title = cleanPhrase(jobTitle, 80) || (job && job.title) || '';
+  const loc =
+    cleanPhrase(city, 40) ||
+    cityFromAddress(customer && customer.address) ||
+    '';
+  const hint = buildKeywordHint({ jobTitle: title, city: loc, keywords });
+  return {
+    jobTitle: title,
+    city: loc,
+    keywords: hint,
+    keywordHint: hint,
+    jobId: job && job.id ? String(job.id) : '',
+  };
+}
+
+function fillPlaceholders(script, { name, company, reviewLink, jobTitle, city, keywords } = {}) {
   const contact = firstName(name);
   const biz = String(company || 'us').trim() || 'us';
   const link = String(reviewLink || '').trim();
+  const job = cleanPhrase(jobTitle, 80);
+  const loc = cleanPhrase(city, 40);
+  const kw = buildKeywordHint({ jobTitle: job, city: loc, keywords }) || 'the work we did';
   return String(script || '')
     .replace(/\{\{\s*name\s*\}\}/gi, contact)
     .replace(/\{\{\s*first_name\s*\}\}/gi, contact)
@@ -38,6 +125,11 @@ function fillPlaceholders(script, { name, company, reviewLink }) {
     .replace(/\{\{\s*review_link\s*\}\}/gi, link)
     .replace(/\{\{\s*review_url\s*\}\}/gi, link)
     .replace(/\{\{\s*link\s*\}\}/gi, link)
+    .replace(/\{\{\s*job\s*\}\}/gi, job || 'the project')
+    .replace(/\{\{\s*project\s*\}\}/gi, job || 'the project')
+    .replace(/\{\{\s*city\s*\}\}/gi, loc || 'your area')
+    .replace(/\{\{\s*keywords\s*\}\}/gi, kw)
+    .replace(/\{\{\s*keyword\s*\}\}/gi, kw)
     .trim();
 }
 
@@ -97,13 +189,22 @@ async function buildReviewSms({
   reviewLink,
   useAi = true,
   scriptOverride,
+  jobTitle = '',
+  city = '',
+  keywords = '',
 }) {
   const company = String(companyName || (member && member.companyName) || '').trim() || 'us';
   const baseScript = cleanScript(scriptOverride) || memberSmsScript(member);
+  const keywordFields = {
+    jobTitle,
+    city,
+    keywords: keywords || buildKeywordHint({ jobTitle, city }),
+  };
   const filled = fillPlaceholders(baseScript, {
     name: customerName,
     company,
     reviewLink,
+    ...keywordFields,
   });
 
   const wantsLink = scriptWantsReviewLink(baseScript);
@@ -113,12 +214,16 @@ async function buildReviewSms({
       message: maybeEnsureReviewLink(filled, reviewLink, baseScript).slice(0, MAX_SMS),
       provider: 'script',
       script: baseScript,
+      keywords: keywordFields.keywords,
     };
   }
 
   const linkRule = wantsLink
     ? `- You MUST include this exact review URL unchanged somewhere in the message: ${reviewLink}`
     : '- Do NOT add a review URL — the saved script intentionally has no link.';
+  const keywordRule = keywordFields.keywords
+    ? `- When natural, invite them to mention this project/location in their Google review (helps local search): "${keywordFields.keywords}". Do not invent other project details.`
+    : '- Do not invent project titles, cities, or SEO keywords.';
 
   const ai = await chatCompletion({
     messages: [
@@ -131,6 +236,7 @@ Rules:
 - Target ~240 chars, hard max ${MAX_SMS} chars.
 - Warm, grateful, human. No spammy hype, no markdown, no emojis unless the script already has them.
 ${linkRule}
+${keywordRule}
 - Use the customer's first name when natural.
 - Stay faithful to the saved script; do not invent discounts, ratings, or claims not in the script.`,
       },
@@ -140,6 +246,9 @@ ${linkRule}
           customerName: String(customerName || '').trim() || 'there',
           companyName: company,
           reviewLink: wantsLink ? reviewLink : '',
+          jobTitle: keywordFields.jobTitle || '',
+          city: keywordFields.city || '',
+          keywords: keywordFields.keywords || '',
           script: baseScript,
           filledDraft: filled,
         }),
@@ -155,6 +264,7 @@ ${linkRule}
       message: maybeEnsureReviewLink(filled, reviewLink, baseScript).slice(0, MAX_SMS),
       provider: 'fallback',
       script: baseScript,
+      keywords: keywordFields.keywords,
     };
   }
 
@@ -165,6 +275,7 @@ ${linkRule}
       message: maybeEnsureReviewLink(filled, reviewLink, baseScript).slice(0, MAX_SMS),
       provider: 'fallback',
       script: baseScript,
+      keywords: keywordFields.keywords,
     };
   }
 
@@ -172,6 +283,7 @@ ${linkRule}
     message: maybeEnsureReviewLink(personalized, reviewLink, baseScript).slice(0, MAX_SMS),
     provider: ai.provider || 'ai',
     script: baseScript,
+    keywords: keywordFields.keywords,
   };
 }
 
@@ -183,12 +295,30 @@ async function buildReviewEmail({
   useAi = true,
   scriptOverride,
   subjectOverride,
+  jobTitle = '',
+  city = '',
+  keywords = '',
 }) {
   const company = String(companyName || (member && member.companyName) || '').trim() || 'us';
   const baseScript = cleanScript(scriptOverride, MAX_EMAIL) || memberEmailScript(member);
   const baseSubject = cleanScript(subjectOverride, 180) || memberEmailSubject(member);
-  const filledBody = fillPlaceholders(baseScript, { name: customerName, company, reviewLink });
-  const filledSubject = fillPlaceholders(baseSubject, { name: customerName, company, reviewLink });
+  const keywordFields = {
+    jobTitle,
+    city,
+    keywords: keywords || buildKeywordHint({ jobTitle, city }),
+  };
+  const filledBody = fillPlaceholders(baseScript, {
+    name: customerName,
+    company,
+    reviewLink,
+    ...keywordFields,
+  });
+  const filledSubject = fillPlaceholders(baseSubject, {
+    name: customerName,
+    company,
+    reviewLink,
+    ...keywordFields,
+  });
 
   const wantsLink = scriptWantsReviewLink(baseScript);
 
@@ -198,12 +328,16 @@ async function buildReviewEmail({
       body: maybeEnsureReviewLink(filledBody, reviewLink, baseScript).slice(0, MAX_EMAIL),
       provider: 'script',
       script: baseScript,
+      keywords: keywordFields.keywords,
     };
   }
 
   const linkRule = wantsLink
     ? `- You MUST include this exact review URL unchanged in the body: ${reviewLink}`
     : '- Do NOT add a review URL — the saved script intentionally has no link.';
+  const keywordRule = keywordFields.keywords
+    ? `- When natural, invite them to mention "${keywordFields.keywords}" in their public review. Do not invent other project details.`
+    : '- Do not invent project titles, cities, or SEO keywords.';
 
   const ai = await chatCompletion({
     messages: [
@@ -216,6 +350,7 @@ Rules:
 - Plain text body, 60–140 words.
 - Warm and grateful. No markdown bullets unless the script has them.
 ${linkRule}
+${keywordRule}
 - Stay faithful to the saved script. Do not invent claims.`,
       },
       {
@@ -224,6 +359,9 @@ ${linkRule}
           customerName: String(customerName || '').trim() || 'there',
           companyName: company,
           reviewLink: wantsLink ? reviewLink : '',
+          jobTitle: keywordFields.jobTitle || '',
+          city: keywordFields.city || '',
+          keywords: keywordFields.keywords || '',
           subjectScript: baseSubject,
           bodyScript: baseScript,
           filledSubject,
@@ -242,6 +380,7 @@ ${linkRule}
       body: maybeEnsureReviewLink(filledBody, reviewLink, baseScript).slice(0, MAX_EMAIL),
       provider: 'fallback',
       script: baseScript,
+      keywords: keywordFields.keywords,
     };
   }
 
@@ -254,6 +393,7 @@ ${linkRule}
       body: maybeEnsureReviewLink(filledBody, reviewLink, baseScript).slice(0, MAX_EMAIL),
       provider: 'fallback',
       script: baseScript,
+      keywords: keywordFields.keywords,
     };
   }
 
@@ -262,6 +402,7 @@ ${linkRule}
     body: maybeEnsureReviewLink(body, reviewLink, baseScript).slice(0, MAX_EMAIL),
     provider: ai.provider || 'ai',
     script: baseScript,
+    keywords: keywordFields.keywords,
   };
 }
 
@@ -298,7 +439,13 @@ module.exports = {
   DEFAULT_SMS_SCRIPT,
   DEFAULT_EMAIL_SCRIPT,
   DEFAULT_EMAIL_SUBJECT,
+  KEYWORDS_SCRIPT_SNIPPET,
   cleanScript,
+  cleanPhrase,
+  cityFromAddress,
+  pickReviewJob,
+  buildKeywordHint,
+  resolveReviewKeywords,
   fillPlaceholders,
   scriptWantsReviewLink,
   ensureReviewLink,

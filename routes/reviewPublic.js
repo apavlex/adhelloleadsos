@@ -82,7 +82,19 @@ function stampAskCookie(res, slug, askId) {
   );
 }
 
-function renderPage(res, page, { rating, thanks, error, formValues, imageId, askId }, status) {
+async function resolveKeywordHintForAsk(askId) {
+  if (!reviewAsk.isAskId(askId)) return '';
+  try {
+    const ask = await reviewAsk.getAsk(askId);
+    if (!ask) return '';
+    if (ask.keywordHint) return String(ask.keywordHint).trim().slice(0, 120);
+    return '';
+  } catch (_) {
+    return '';
+  }
+}
+
+async function renderPage(res, page, { rating, thanks, error, formValues, imageId, askId }, status) {
   const shareId = reviewShareImage.isImageId(imageId) ? String(imageId).trim() : '';
   const trackedAsk = reviewAsk.isAskId(askId) ? String(askId).trim() : '';
   const ogUrl = notify.reviewPageLink(page.slug, {
@@ -95,6 +107,7 @@ function renderPage(res, page, { rating, thanks, error, formValues, imageId, ask
     reviewShareImage.shareImageVersion(page.member, page.brand),
   );
   const logoUrl = reviewShareImage.requestPageLogoUrl(page.member, page.brand);
+  const keywordHint = trackedAsk ? await resolveKeywordHintForAsk(trackedAsk) : '';
   res.setHeader('Cache-Control', 'private, no-store');
   res.setHeader('X-Robots-Tag', 'noindex');
   return res.status(status || 200).render('review_public', {
@@ -112,6 +125,7 @@ function renderPage(res, page, { rating, thanks, error, formValues, imageId, ask
     ogImageUrl,
     shareImageId: shareId,
     askId: trackedAsk,
+    keywordHint,
   });
 }
 
@@ -254,7 +268,7 @@ router.get('/rv/:slug', async (req, res) => {
       }
     }
 
-    return renderPage(res, page, { rating, imageId, askId });
+    return await renderPage(res, page, { rating, imageId, askId });
   } catch (err) {
     console.error('[review-page] view failed:', err.message);
     return notFound(res);
@@ -267,13 +281,13 @@ router.post('/rv/:slug/feedback', form, async (req, res) => {
     if (!page) return notFound(res);
     const body = req.body || {};
     const rating = reviewPage.parseRating(body.rating);
-    if (String(body.website || '').trim()) return renderPage(res, page, { rating, thanks: true });
+    if (String(body.website || '').trim()) return await renderPage(res, page, { rating, thanks: true });
     const message = String(body.message || '').trim();
     if (!message) {
-      return renderPage(res, page, { rating, error: 'Tell us what happened so we can make it right.', formValues: body }, 400);
+      return await renderPage(res, page, { rating, error: 'Tell us what happened so we can make it right.', formValues: body }, 400);
     }
     if (!feedbackAllowed(String(req.ip || req.socket.remoteAddress || 'unknown'))) {
-      return renderPage(res, page, { rating, error: 'Too many messages from this device. Please try again later.', formValues: body }, 429);
+      return await renderPage(res, page, { rating, error: 'Too many messages from this device. Please try again later.', formValues: body }, 429);
     }
     const feedback = await store.saveFeedback(page.network.id, {
       memberId: page.member.id,
@@ -286,7 +300,7 @@ router.post('/rv/:slug/feedback', form, async (req, res) => {
     await notify.notifyFeedback({ network: page.network, member: page.member, feedback }).catch((err) => {
       console.warn('[review-page] feedback notify failed:', err.message);
     });
-    return renderPage(res, page, { rating, thanks: true });
+    return await renderPage(res, page, { rating, thanks: true });
   } catch (err) {
     console.error('[review-page] feedback failed:', err.message);
     return notFound(res);

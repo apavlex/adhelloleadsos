@@ -57,6 +57,37 @@
 
       <% if (gate.stage === 'happy') { %>
       <div class="rv-panel">
+        <% const _kw = typeof keywordHint !== 'undefined' && keywordHint ? String(keywordHint).trim() : ''; %>
+        <% if (_kw) { %>
+        <div class="rv-keyword" style="margin:0 0 14px;padding:12px 14px;border-radius:14px;background:color-mix(in srgb,var(--acc) 12%,var(--card));border:1px solid var(--line);text-align:left">
+          <p class="ma-hint" style="margin:0 0 6px;font-weight:700;color:var(--ink)">Tip for your review</p>
+          <p style="margin:0 0 10px;font-size:15px;font-weight:600;color:var(--ink)">Mention “<%= _kw %>” so neighbors find this work.</p>
+          <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" id="rvCopyKeyword" data-copy="<%= _kw.replace(/"/g, '&quot;') %>"><%- typeof icons !== 'undefined' && icons.copy ? icons.copy : '' %> Copy phrase</button>
+          <script>
+          (function () {
+            var btn = document.getElementById('rvCopyKeyword');
+            if (!btn) return;
+            btn.addEventListener('click', function () {
+              var t = btn.getAttribute('data-copy') || '';
+              if (!t) return;
+              var done = function () {
+                var prev = btn.textContent;
+                btn.textContent = 'Copied';
+                setTimeout(function () { btn.textContent = prev; }, 1600);
+              };
+              if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(t).then(done).catch(function () {});
+              } else {
+                var ta = document.createElement('textarea');
+                ta.value = t; document.body.appendChild(ta); ta.select();
+                try { document.execCommand('copy'); } catch (e) {}
+                document.body.removeChild(ta); done();
+              }
+            });
+          })();
+          </script>
+        </div>
+        <% } %>
         <% if (destinations.length) { %>
         <div class="rv-links">
           <% destinations.forEach(function (d) { %>

@@ -10,6 +10,43 @@ test('fillPlaceholders swaps name, company, and review link', () => {
   assert.equal(out, 'Hi Jamie from Brightline Electric: https://app.example/rv/brightline');
 });
 
+test('fillPlaceholders swaps job, city, and keywords', () => {
+  const out = review.fillPlaceholders(
+    'Please mention {{keywords}} ({{job}} in {{city}})',
+    {
+      name: 'Sam',
+      company: 'Cabinets Pro',
+      reviewLink: 'https://x.test/rv/c',
+      jobTitle: 'cabinet install',
+      city: 'Camas',
+    },
+  );
+  assert.equal(out, 'Please mention cabinet install in Camas (cabinet install in Camas)');
+});
+
+test('cityFromAddress and buildKeywordHint build SEO phrases', () => {
+  assert.equal(review.cityFromAddress('12 Oak St, Camas, WA 98607'), 'Camas');
+  assert.equal(
+    review.buildKeywordHint({ jobTitle: 'cabinet install', city: 'Camas' }),
+    'cabinet install in Camas',
+  );
+  const resolved = review.resolveReviewKeywords({
+    customer: { address: '9 Main, Camas, WA 98607' },
+    jobs: [
+      { id: 'j1', title: 'Fence repair', status: 'scheduled', updatedAt: '2026-01-01' },
+      { id: 'j2', title: 'cabinet install', status: 'completed', completedAt: '2026-02-01' },
+    ],
+  });
+  assert.equal(resolved.keywords, 'cabinet install in Camas');
+  assert.equal(resolved.jobTitle, 'cabinet install');
+  assert.equal(resolved.city, 'Camas');
+});
+
+test('DEFAULT_SMS_SCRIPT includes keywords placeholder', () => {
+  assert.match(review.DEFAULT_SMS_SCRIPT, /\{\{\s*keywords\s*\}\}/);
+  assert.match(review.KEYWORDS_SCRIPT_SNIPPET, /\{\{\s*job\s*\}\}/);
+});
+
 test('ensureReviewLink appends the URL when AI drops it', () => {
   const link = 'https://app.example/rv/brightline';
   assert.equal(review.ensureReviewLink(`Thanks! ${link}`, link), `Thanks! ${link}`);

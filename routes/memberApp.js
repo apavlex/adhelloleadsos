@@ -2433,12 +2433,25 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
   };
   const reviewUrl = notify.reviewPageLink(member);
   const smsScript = reviewRequestScript.memberSmsScript(member);
+  let keywordCtx = { jobTitle: '', city: '', keywords: '', keywordHint: '' };
+  if (customerId && work.isRecordId(customerId)) {
+    const picked = customers.find((c) => c.id === customerId) || await work.getCustomer(ctx.network.id, ctx.member.id, customerId);
+    const jobs = await work.listJobs(ctx.network.id, ctx.member.id);
+    const forCustomer = jobs.filter((j) => j.customerId === customerId);
+    keywordCtx = reviewRequestScript.resolveReviewKeywords({
+      customer: picked,
+      jobs: forCustomer,
+    });
+  }
   // Use the saved script as-is — do not force-append the review URL.
   // fillPlaceholders only substitutes {{review_link}} when that placeholder exists.
   const shareSmsText = reviewRequestScript.fillPlaceholders(smsScript, {
     name: defaults.name || 'there',
     company: member.companyName,
     reviewLink: reviewRequestScript.scriptWantsReviewLink(smsScript) ? reviewUrl : '',
+    jobTitle: keywordCtx.jobTitle,
+    city: keywordCtx.city,
+    keywords: keywordCtx.keywords,
   });
   const ghlWorkflowPrompt = reviewRequestScript.buildGhlReviewWorkflowPrompt({
     companyName: member.companyName,
@@ -2462,6 +2475,10 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
     formValues: defaults,
     smsScript,
     shareSmsText,
+    keywordHint: keywordCtx.keywordHint || '',
+    keywordJobTitle: keywordCtx.jobTitle || '',
+    keywordCity: keywordCtx.city || '',
+    keywordsSnippet: reviewRequestScript.KEYWORDS_SCRIPT_SNIPPET,
     defaultSmsScript: reviewRequestScript.DEFAULT_SMS_SCRIPT,
     ghlWorkflowPrompt,
     pendingRewards: pendingRewardAsks.map(presentPendingReward).filter(Boolean),
@@ -2796,6 +2813,18 @@ router.post('/m/:token/review/send', withReviewUpload('shareImage'), withMember(
     }
   }
 
+  let jobTitle = '';
+  let city = '';
+  let keywords = '';
+  if (resolvedCustomerId) {
+    const cust = await work.getCustomer(ctx.network.id, ctx.member.id, resolvedCustomerId);
+    const jobs = (await work.listJobs(ctx.network.id, ctx.member.id))
+      .filter((j) => j.customerId === resolvedCustomerId);
+    const kw = reviewRequestScript.resolveReviewKeywords({ customer: cust, jobs });
+    jobTitle = kw.jobTitle;
+    city = kw.city;
+    keywords = kw.keywords;
+  }
   const result = await notify.sendReviewRequest({
     network: ctx.network,
     member: memberForSend,
@@ -2807,6 +2836,9 @@ router.post('/m/:token/review/send', withReviewUpload('shareImage'), withMember(
     channel: formValues.channel,
     useAi: formValues.useAi,
     imageId,
+    jobTitle,
+    city,
+    keywords,
   });
   if (!result.ok) {
     return renderReview(req, res, { ...ctx, member: memberForSend }, { error: result.error || 'Could not send.' }, 400, formValues);
