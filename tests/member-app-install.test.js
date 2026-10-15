@@ -235,12 +235,16 @@ describe('member app install modal and tab bar', () => {
 
   it('Customers Bring in fold is closed by default and sits above the view pills', () => {
     const html = fs.readFileSync(path.join(root, 'views/member_app/customers.ejs'), 'utf8');
+    const css = fs.readFileSync(path.join(root, 'public/css/member-app.css'), 'utf8');
     assert.match(html, /<details class="ma-fold ma-cust-tools"/);
     assert.doesNotMatch(html, /<details class="ma-fold ma-cust-tools"[^>]*\sopen/);
     assert.match(html, /<summary>\s*Bring in customers\s*<\/summary>/);
     const toolsAt = html.indexOf('id="maCustTools"');
     const pillsAt = html.indexOf('aria-label="Customer views"');
     assert.ok(toolsAt > -1 && pillsAt > toolsAt, 'Bring in customers should render before List/Calendar/Pending');
+    // Closed strip: compact summary, not the default tall fold padding.
+    assert.match(css, /\.ma-cust-tools\.ma-fold\s*>\s*summary\s*\{[^}]*min-height:\s*40px/);
+    assert.match(css, /\.ma-cust-tools\.ma-fold\s*>\s*summary\s*\{[^}]*padding:\s*8px 14px/);
   });
 
   it('request-a-review uses live script text; never force-adds URL or share url/files', () => {
