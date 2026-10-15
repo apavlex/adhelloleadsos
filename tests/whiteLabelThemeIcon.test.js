@@ -140,14 +140,15 @@ test('Review app seeds preferredTheme and uses accent icon on Home badge', () =>
   const branding = fs.readFileSync(path.join(root, 'views/workspace/sections/branding.ejs'), 'utf8');
   assert.match(branding, /syncReviewAppThemeLocal/);
   assert.match(branding, /ma-theme-pinned-at/);
-  // Save appearance script must not HTML-escape the theme JSON (breaks the click handler).
-  assert.match(branding, /savedTheme = <%- JSON\.stringify\(_wlTheme\) %>/);
+  // Theme is read from a data attribute — never inject EJS tags inside the <script> block.
+  assert.match(branding, /id="wl-appearance"[^>]*data-wl-theme="<%= _wlTheme %>"/);
+  assert.match(branding, /getAttribute\('data-wl-theme'\)/);
+  assert.doesNotMatch(branding, /savedTheme = <%[-=]/);
   assert.match(branding, /Reloading to apply/);
-  assert.match(branding, /id="wl-appearance"/);
-  // Comments must not contain raw EJS openers — EJS still parses them and breaks White label.
-  const commentBlocks = branding.match(/\/\/[^\n]*/g) || [];
-  for (const c of commentBlocks) {
-    assert.doesNotMatch(c, /<%/, `EJS delimiter in JS comment breaks render: ${c}`);
+  // Comments / script body must not contain raw EJS openers — EJS still parses them.
+  const scriptMatch = branding.match(/<script>[\s\S]*?<\/script>/g) || [];
+  for (const block of scriptMatch) {
+    assert.doesNotMatch(block, /<%/, 'EJS delimiter inside <script> breaks White label render');
   }
 });
 

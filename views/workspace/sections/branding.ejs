@@ -103,7 +103,7 @@
 </section>
 
 <% if (_wlCan) { %>
-<section id="wl-appearance" class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 scroll-mt-24">
+<section id="wl-appearance" data-wl-theme="<%= _wlTheme %>" class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 scroll-mt-24">
   <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-1">Default appearance</h2>
   <p class="text-sm text-brand-muted mb-5">Sets light or dark for this client’s Review app (and CRM). Choose Dark, then Save — this page reloads with the new look. Open the Review app below to confirm.</p>
   <p id="wlAppearanceFlash" class="hidden mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-700 dark:text-emerald-300" role="status"></p>
@@ -379,8 +379,9 @@
       } catch (e) { /* private mode */ }
     }
     // Already-saved White-label light/dark: align Review-app storage on this page load.
-    // Use unescaped JSON output so quotes stay valid in this script (escaped output breaks Save).
-    var savedTheme = <%- JSON.stringify(_wlTheme) %>;
+    // Read from data-wl-theme (avoid EJS tags inside this script — they break the page).
+    var appearanceEl = document.getElementById('wl-appearance');
+    var savedTheme = appearanceEl ? String(appearanceEl.getAttribute('data-wl-theme') || '') : '';
     if (savedTheme === 'light' || savedTheme === 'dark') syncReviewAppThemeLocal(savedTheme);
     try {
       var appearanceQ = new URLSearchParams(window.location.search).get('appearance');
