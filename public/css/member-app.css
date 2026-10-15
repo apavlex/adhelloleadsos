@@ -938,7 +938,16 @@ html[data-ma-theme="dark"] .ma-tags__suggest-btn:hover {
 }
 .ma-input::placeholder, .ma-textarea::placeholder {
   color: var(--muted);
-  opacity: 1;
+  opacity: 0.55;
+  font-style: italic;
+}
+/* Empty keyword defaults — dashed border so placeholders are not mistaken for saved values. */
+.ma-input.ma-input--unset {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--acc) 45%, transparent);
+}
+#rvKeywordsPreview[data-empty="1"] {
+  color: var(--danger, #f87171);
 }
 .ma-select { background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 20px) 52%, calc(100% - 15px) 52%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 36px; }
 .ma-input:focus, .ma-select:focus, .ma-textarea:focus { border-color: var(--acc); box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc) 22%, transparent); }
