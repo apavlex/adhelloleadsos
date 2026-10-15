@@ -93,20 +93,50 @@ function buildKeywordHint({ jobTitle, city, keywords } = {}) {
   return '';
 }
 
-function resolveReviewKeywords({ customer, jobs, jobTitle, city, keywords } = {}) {
+/** Member-saved defaults used when a customer has no job title / city yet. */
+function memberKeywordDefaults(member) {
+  return {
+    jobTitle: cleanPhrase(member && member.reviewKeywordJob, 80),
+    city: cleanPhrase(member && member.reviewKeywordCity, 40),
+    keywords: cleanPhrase(member && member.reviewKeywords, 100),
+  };
+}
+
+/**
+ * Resolve SEO keywords for a review ask.
+ * Prefer: explicit keywords → customer job + address city → member defaults.
+ */
+function resolveReviewKeywords({
+  customer,
+  jobs,
+  jobTitle,
+  city,
+  keywords,
+  defaults,
+} = {}) {
   const job = pickReviewJob(jobs);
-  const title = cleanPhrase(jobTitle, 80) || (job && job.title) || '';
+  const defs = defaults && typeof defaults === 'object' ? defaults : {};
+  const title =
+    cleanPhrase(jobTitle, 80) ||
+    (job && job.title) ||
+    cleanPhrase(defs.jobTitle, 80) ||
+    '';
   const loc =
     cleanPhrase(city, 40) ||
     cityFromAddress(customer && customer.address) ||
+    cleanPhrase(defs.city, 40) ||
     '';
-  const hint = buildKeywordHint({ jobTitle: title, city: loc, keywords });
+  const explicit =
+    cleanPhrase(keywords, 100) || cleanPhrase(defs.keywords, 100) || '';
+  const hint = buildKeywordHint({ jobTitle: title, city: loc, keywords: explicit });
   return {
     jobTitle: title,
     city: loc,
     keywords: hint,
     keywordHint: hint,
     jobId: job && job.id ? String(job.id) : '',
+    fromCustomerJob: !!(job && cleanPhrase(job.title, 80)),
+    fromCustomerCity: !!cityFromAddress(customer && customer.address),
   };
 }
 
@@ -445,6 +475,7 @@ module.exports = {
   cityFromAddress,
   pickReviewJob,
   buildKeywordHint,
+  memberKeywordDefaults,
   resolveReviewKeywords,
   fillPlaceholders,
   scriptWantsReviewLink,

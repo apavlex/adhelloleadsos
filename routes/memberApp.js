@@ -2433,7 +2433,10 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
   };
   const reviewUrl = notify.reviewPageLink(member);
   const smsScript = reviewRequestScript.memberSmsScript(member);
-  let keywordCtx = { jobTitle: '', city: '', keywords: '', keywordHint: '' };
+  const keywordDefaults = reviewRequestScript.memberKeywordDefaults(member);
+  let keywordCtx = reviewRequestScript.resolveReviewKeywords({
+    defaults: keywordDefaults,
+  });
   if (customerId && work.isRecordId(customerId)) {
     const picked = customers.find((c) => c.id === customerId) || await work.getCustomer(ctx.network.id, ctx.member.id, customerId);
     const jobs = await work.listJobs(ctx.network.id, ctx.member.id);
@@ -2441,6 +2444,7 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
     keywordCtx = reviewRequestScript.resolveReviewKeywords({
       customer: picked,
       jobs: forCustomer,
+      defaults: keywordDefaults,
     });
   }
   // Use the saved script as-is — do not force-append the review URL.
@@ -2478,6 +2482,7 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
     keywordHint: keywordCtx.keywordHint || '',
     keywordJobTitle: keywordCtx.jobTitle || '',
     keywordCity: keywordCtx.city || '',
+    keywordDefaults,
     keywordsSnippet: reviewRequestScript.KEYWORDS_SCRIPT_SNIPPET,
     defaultSmsScript: reviewRequestScript.DEFAULT_SMS_SCRIPT,
     ghlWorkflowPrompt,
@@ -2574,7 +2579,7 @@ router.post('/m/:token/review', form, withMember(async (req, res, ctx) => {
   return res.redirect(303, `${ctx.base}/review${toSettings ? '/settings' : ''}?ok=saved`);
 }));
 
-/** Save the AI/GHL review SMS script (placeholders {{name}}, {{company}}, {{review_link}}). */
+/** Save the AI/GHL review SMS script + default project keywords. */
 router.post('/m/:token/review/script', form, withMember(async (req, res, ctx) => {
   const member = await ensureReviewSetup(ctx);
   const body = req.body || {};
@@ -2582,6 +2587,9 @@ router.post('/m/:token/review/script', form, withMember(async (req, res, ctx) =>
   const saved = await store.saveMember(ctx.network.id, {
     ...member,
     reviewSmsScript: script || reviewRequestScript.DEFAULT_SMS_SCRIPT,
+    reviewKeywordJob: reviewRequestScript.cleanPhrase(body.keywordJob, 80),
+    reviewKeywordCity: reviewRequestScript.cleanPhrase(body.keywordCity, 40),
+    reviewKeywords: reviewRequestScript.cleanPhrase(body.keywords, 100),
   });
   if (String(body.next || '') === 'stay') {
     return renderReview(req, res, { ...ctx, member: saved }, { ok: OK_MESSAGES.script_saved });
@@ -2763,6 +2771,9 @@ router.post('/m/:token/review/send', withReviewUpload('shareImage'), withMember(
       ? true
       : !(String(rawAi) === '0' || String(rawAi).toLowerCase() === 'false'),
     keepShareImage: body.keepShareImage === '1' || body.keepShareImage === 'on',
+    keywordJob: reviewRequestScript.cleanPhrase(body.keywordJob, 80),
+    keywordCity: reviewRequestScript.cleanPhrase(body.keywordCity, 40),
+    keywords: reviewRequestScript.cleanPhrase(body.keywords, 100),
   };
   if (!reviewPage.countLinks(member.reviewLinks)) {
     return renderReview(req, res, { ...ctx, member }, {
@@ -2813,18 +2824,26 @@ router.post('/m/:token/review/send', withReviewUpload('shareImage'), withMember(
     }
   }
 
-  let jobTitle = '';
-  let city = '';
-  let keywords = '';
+  const keywordDefaults = reviewRequestScript.memberKeywordDefaults(memberForSend);
+  let cust = null;
+  let jobsForCustomer = [];
   if (resolvedCustomerId) {
-    const cust = await work.getCustomer(ctx.network.id, ctx.member.id, resolvedCustomerId);
-    const jobs = (await work.listJobs(ctx.network.id, ctx.member.id))
+    cust = await work.getCustomer(ctx.network.id, ctx.member.id, resolvedCustomerId);
+    jobsForCustomer = (await work.listJobs(ctx.network.id, ctx.member.id))
       .filter((j) => j.customerId === resolvedCustomerId);
-    const kw = reviewRequestScript.resolveReviewKeywords({ customer: cust, jobs });
-    jobTitle = kw.jobTitle;
-    city = kw.city;
-    keywords = kw.keywords;
   }
+  // Form overrides win; else customer job/city; else member defaults from SMS script settings.
+  const kw = reviewRequestScript.resolveReviewKeywords({
+    customer: cust,
+    jobs: jobsForCustomer,
+    jobTitle: formValues.keywordJob || '',
+    city: formValues.keywordCity || '',
+    keywords: formValues.keywords || '',
+    defaults: keywordDefaults,
+  });
+  const jobTitle = kw.jobTitle;
+  const city = kw.city;
+  const keywords = kw.keywords;
   const result = await notify.sendReviewRequest({
     network: ctx.network,
     member: memberForSend,

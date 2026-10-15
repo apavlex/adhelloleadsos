@@ -157,8 +157,29 @@
           </div>
 
           <details class="ma-fold ma-fold--inset">
-            <summary>Options <span class="ma-fold__hint">AI · preview photo</span></summary>
+            <summary>Options <span class="ma-fold__hint">keywords · AI · photo</span></summary>
             <div class="ma-fold__body">
+              <%
+                const _sendKw = typeof keywordDefaults !== 'undefined' && keywordDefaults ? keywordDefaults : { jobTitle: '', city: '', keywords: '' };
+                const _sendJob = _fv.keywordJob != null ? _fv.keywordJob : (typeof keywordJobTitle !== 'undefined' ? keywordJobTitle : _sendKw.jobTitle);
+                const _sendCity = _fv.keywordCity != null ? _fv.keywordCity : (typeof keywordCity !== 'undefined' ? keywordCity : _sendKw.city);
+                const _sendKeywords = _fv.keywords != null ? _fv.keywords : (_sendKw.keywords || '');
+              %>
+              <div class="ma-grid2" style="margin-bottom:8px">
+                <div class="ma-field" style="margin:0">
+                  <label class="ma-label" for="rvAskKeywordJob">Project / job</label>
+                  <input id="rvAskKeywordJob" name="keywordJob" class="ma-input" maxlength="80" placeholder="cabinet install" value="<%= _sendJob || '' %>">
+                </div>
+                <div class="ma-field" style="margin:0">
+                  <label class="ma-label" for="rvAskKeywordCity">City</label>
+                  <input id="rvAskKeywordCity" name="keywordCity" class="ma-input" maxlength="40" placeholder="Camas" value="<%= _sendCity || '' %>">
+                </div>
+              </div>
+              <div class="ma-field">
+                <label class="ma-label" for="rvAskKeywords">Keywords for this send <span class="ma-label__hint">(optional)</span></label>
+                <input id="rvAskKeywords" name="keywords" class="ma-input" maxlength="100" placeholder="cabinet install in Camas" value="<%= _sendKeywords || '' %>">
+                <p class="ma-hint">Fills <code>{{keywords}}</code>. Prefills from the customer’s latest job + city, or your SMS script defaults — edit anytime.</p>
+              </div>
               <div class="ma-field">
                 <label class="ma-label" for="rvAskShareImage">Preview image for this text</label>
                 <input id="rvAskShareImage" name="shareImage" type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="ma-input">
@@ -188,14 +209,32 @@
       <summary>SMS script <span class="ma-fold__hint">AI starting text</span></summary>
       <div class="ma-fold__body">
         <form method="post" action="<%= base %>/review/script" class="ma-card ma-card--flush" autocomplete="off" data-ma-loading="Saving…">
-          <p class="ma-hint" style="margin-top:0">Request a review uses this text as-is (even before Save). Placeholders: <code>{{name}}</code>, <code>{{company}}</code>, <code>{{review_link}}</code>, <code>{{job}}</code>, <code>{{city}}</code>, <code>{{keywords}}</code> (e.g. cabinet install in Camas).</p>
           <%
+            const _kwDefs = typeof keywordDefaults !== 'undefined' && keywordDefaults ? keywordDefaults : { jobTitle: '', city: '', keywords: '' };
             const _kwHint = typeof keywordHint !== 'undefined' && keywordHint ? String(keywordHint) : '';
             const _kwSnippet = typeof keywordsSnippet !== 'undefined' ? String(keywordsSnippet) : ' If you mention the {{job}} in {{city}}, that helps neighbors find us.';
+            const _kwPreview = _kwHint || (
+              _kwDefs.keywords ||
+              (_kwDefs.jobTitle && _kwDefs.city ? (_kwDefs.jobTitle + ' in ' + _kwDefs.city) : (_kwDefs.jobTitle || (_kwDefs.city ? ('work in ' + _kwDefs.city) : '')))
+            );
           %>
-          <% if (_kwHint) { %>
-          <p class="ma-flash ma-flash--ok" style="margin:0 0 10px">Suggested for this customer: <strong><%= _kwHint %></strong> — from their latest job + address city.</p>
-          <% } %>
+          <p class="ma-hint" style="margin-top:0">Request a review uses this text as-is (even before Save). Placeholders: <code>{{name}}</code>, <code>{{company}}</code>, <code>{{review_link}}</code>, <code>{{job}}</code>, <code>{{city}}</code>, <code>{{keywords}}</code>.</p>
+          <p class="ma-hint"><strong>How keywords are found:</strong> when you pick a customer we use their latest completed job title + city from their address. Below you set defaults (and can override) for when that’s missing — e.g. <em>cabinet install in Camas</em>.</p>
+          <div class="ma-grid2" style="margin-bottom:10px">
+            <div class="ma-field" style="margin:0">
+              <label class="ma-label" for="rvKeywordJob">Default project / job</label>
+              <input id="rvKeywordJob" name="keywordJob" class="ma-input" maxlength="80" placeholder="cabinet install" value="<%= _kwDefs.jobTitle || '' %>" autocomplete="off">
+            </div>
+            <div class="ma-field" style="margin:0">
+              <label class="ma-label" for="rvKeywordCity">Default city</label>
+              <input id="rvKeywordCity" name="keywordCity" class="ma-input" maxlength="40" placeholder="Camas" value="<%= _kwDefs.city || '' %>" autocomplete="off">
+            </div>
+          </div>
+          <div class="ma-field">
+            <label class="ma-label" for="rvKeywords">Keywords phrase <span class="ma-label__hint">(optional override)</span></label>
+            <input id="rvKeywords" name="keywords" class="ma-input" maxlength="100" placeholder="cabinet install in Camas" value="<%= _kwDefs.keywords || '' %>" autocomplete="off">
+            <p class="ma-hint" style="margin:6px 0 0">Leave blank to build from job + city. Preview of <code>{{keywords}}</code>: <strong id="rvKeywordsPreview"><%= _kwPreview || 'the work we did' %></strong></p>
+          </div>
           <div class="ma-field">
             <label class="ma-label" for="rvSmsScript">Review request text</label>
             <textarea id="rvSmsScript" name="smsScript" class="ma-textarea" rows="4" maxlength="800" required><%= _script %></textarea>
@@ -208,6 +247,27 @@
           (function () {
             var btn = document.getElementById('rvInsertKeywords');
             var ta = document.getElementById('rvSmsScript');
+            var jobEl = document.getElementById('rvKeywordJob');
+            var cityEl = document.getElementById('rvKeywordCity');
+            var kwEl = document.getElementById('rvKeywords');
+            var preview = document.getElementById('rvKeywordsPreview');
+            function phrase() {
+              var explicit = kwEl && kwEl.value ? String(kwEl.value).replace(/\s+/g, ' ').trim() : '';
+              if (explicit) return explicit.slice(0, 100);
+              var job = jobEl && jobEl.value ? String(jobEl.value).replace(/\s+/g, ' ').trim() : '';
+              var city = cityEl && cityEl.value ? String(cityEl.value).replace(/\s+/g, ' ').trim() : '';
+              if (job && city) return job + ' in ' + city;
+              if (job) return job;
+              if (city) return 'work in ' + city;
+              return 'the work we did';
+            }
+            function syncPreview() {
+              if (preview) preview.textContent = phrase();
+            }
+            [jobEl, cityEl, kwEl].forEach(function (el) {
+              if (el) el.addEventListener('input', syncPreview);
+            });
+            syncPreview();
             if (!btn || !ta) return;
             btn.addEventListener('click', function () {
               var snip = btn.getAttribute('data-snippet') || '';
