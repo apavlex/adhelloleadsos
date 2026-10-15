@@ -748,20 +748,41 @@
     }
   });
 
+  /** Match server buildKeywordHint — "cabinet install in Camas". */
+  function buildLiveKeywordHint(opts) {
+    var explicit = String((opts && opts.keywords) || '').replace(/\s+/g, ' ').trim().slice(0, 100);
+    if (explicit) return explicit;
+    var job = String((opts && opts.jobTitle) || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+    var city = String((opts && opts.city) || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+    if (job && city) return job + ' in ' + city;
+    if (job) return job;
+    if (city) return 'work in ' + city;
+    return '';
+  }
+
   /**
-   * Fill {{name}} / {{company}} / {{review_link}} in the live SMS script.
-   * review_link is ONLY substituted when the placeholder is present — never appended.
+   * Fill {{name}} / {{company}} / {{review_link}} / {{job}} / {{city}} / {{keywords}}
+   * in the live SMS script. review_link is ONLY substituted when the placeholder
+   * is present — never appended.
    */
   function fillLiveReviewScript(script, opts) {
     var name = String((opts && opts.name) || 'there').trim() || 'there';
     var company = String((opts && opts.company) || 'us').trim() || 'us';
     var link = String((opts && opts.url) || '').trim();
+    var job = String((opts && opts.jobTitle) || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+    var city = String((opts && opts.city) || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+    var keywords = buildLiveKeywordHint(opts) || 'the work we did';
     var out = String(script || '');
     out = out
       .replace(/\{\{\s*name\s*\}\}/gi, name)
       .replace(/\{\{\s*first_name\s*\}\}/gi, name)
       .replace(/\{\{\s*company\s*\}\}/gi, company)
-      .replace(/\{\{\s*business_name\s*\}\}/gi, company);
+      .replace(/\{\{\s*business_name\s*\}\}/gi, company)
+      .replace(/\{\{\s*job\s*\}\}/gi, job || 'the project')
+      .replace(/\{\{\s*project\s*\}\}/gi, job || 'the project')
+      .replace(/\{\{\s*city\s*\}\}/gi, city || 'your area')
+      .replace(/\{\{\s*keywords\s*\}\}/gi, keywords)
+      .replace(/\{\{\s*keyword\s*\}\}/gi, keywords);
     if (/\{\{\s*(review_link|review_url|link)\s*\}\}/i.test(out) && link) {
       out = out
         .replace(/\{\{\s*review_link\s*\}\}/gi, link)
@@ -803,6 +824,19 @@
    * every review URL before share so Messages cannot show a preview image.
    * Never passes `url` or `files` to Web Share.
    */
+  function readLiveKeywordFields(payload) {
+    function val(id) {
+      var el = document.getElementById(id);
+      return el && el.value != null ? String(el.value).replace(/\s+/g, ' ').trim() : '';
+    }
+    // Prefer live SMS-script / send-form inputs; fall back to server payload defaults.
+    return {
+      jobTitle: val('rvAskKeywordJob') || val('rvKeywordJob') || String((payload && payload.jobTitle) || ''),
+      city: val('rvAskKeywordCity') || val('rvKeywordCity') || String((payload && payload.city) || ''),
+      keywords: val('rvAskKeywords') || val('rvKeywords') || String((payload && payload.keywords) || ''),
+    };
+  }
+
   function requestReviewFromPhone(btn) {
     var payload = readRequestReviewPayload(btn);
     if (!payload) return;
@@ -812,6 +846,7 @@
     var scriptEl = document.getElementById('rvSmsScript');
     var liveScript = scriptEl ? String(scriptEl.value || '').trim() : '';
     var sourceScript = liveScript || String(payload.script || '');
+    var kw = readLiveKeywordFields(payload);
     var text = '';
 
     if (liveScript) {
@@ -819,9 +854,20 @@
         name: 'there',
         company: company,
         url: reviewUrl,
+        jobTitle: kw.jobTitle,
+        city: kw.city,
+        keywords: kw.keywords,
       });
     } else {
-      text = String(payload.text || '').trim();
+      // Server shareSmsText should already be filled; re-fill any leftover tags.
+      text = fillLiveReviewScript(String(payload.text || '').trim() || String(payload.script || ''), {
+        name: 'there',
+        company: company,
+        url: reviewUrl,
+        jobTitle: kw.jobTitle,
+        city: kw.city,
+        keywords: kw.keywords,
+      });
     }
 
     // Hard rule: no {{review_link}} / URL in the script → no URL in the message.

@@ -258,15 +258,20 @@ describe('member app install modal and tab bar', () => {
     const pkg = fs.readFileSync(path.join(root, 'package.json'), 'utf8');
     assert.match(js, /function requestReviewFromPhone/);
     assert.match(js, /function fillLiveReviewScript/);
+    assert.match(js, /function buildLiveKeywordHint/);
     assert.match(js, /function stripReviewUrlsFromText/);
     assert.match(js, /getElementById\('rvSmsScript'\)/);
     assert.match(js, /navigator\.share\(\{ title: title, text: text \}\)/);
     assert.match(js, /Hard rule: no \{\{review_link\}\}/);
+    // Request-a-review must substitute {{keywords}} (never leave the raw tag in Messages).
+    assert.match(js, /\\{\\{\\s\*keywords\\s\*\\}\\}/);
+    assert.match(js, /readLiveKeywordFields/);
+    assert.match(js, /the work we did/);
     assert.doesNotMatch(js, /data\.url\s*=\s*payload\.url/);
     assert.doesNotMatch(js, /navigator\.share\(\{ title: title, text: text, url:/);
     assert.doesNotMatch(js, /shareWithFile/);
     assert.doesNotMatch(js, /data\.files\s*=\s*\[file\]/);
-    assert.match(js, /ONLY substituted when the placeholder is present/);
+    assert.match(js, /review_link is ONLY substituted when the placeholder/);
     assert.doesNotMatch(review, /image:\s*_shareImage/);
     assert.match(review, /only inserted when the script includes/);
     assert.match(review, /even before Save/);

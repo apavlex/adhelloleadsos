@@ -33,6 +33,9 @@
           ? shareSmsText
           : ('Hi — thanks for choosing ' + (member.companyName || 'us') + '! Leave a quick review.');
         const _scriptWantsLink = /{{\s*(review_link|review_url|link)\s*}}/i.test(_script || '') || /https?:\/\/\S+/i.test(_script || '');
+        const _kwShare = typeof keywordDefaults !== 'undefined' && keywordDefaults
+          ? keywordDefaults
+          : { jobTitle: '', city: '', keywords: '' };
         const _sharePayload = {
           // Only expose the review URL when the script asks for it — keeps stale
           // clients from attaching a Messages preview the author did not want.
@@ -41,6 +44,10 @@
           text: _shareText,
           company: member.companyName || 'us',
           script: _script,
+          // Defaults for Request-a-review (Messages) when no customer is picked.
+          jobTitle: (typeof keywordJobTitle !== 'undefined' && keywordJobTitle) || _kwShare.jobTitle || '',
+          city: (typeof keywordCity !== 'undefined' && keywordCity) || _kwShare.city || '',
+          keywords: (typeof keywordHint !== 'undefined' && keywordHint) || _kwShare.keywords || '',
         };
       %>
       <script type="application/json" id="maRequestReviewPayload"><%- JSON.stringify(_sharePayload).replace(/</g, '\\u003c') %></script>
