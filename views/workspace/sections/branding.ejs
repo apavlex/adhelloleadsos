@@ -379,7 +379,7 @@
       } catch (e) { /* private mode */ }
     }
     // Already-saved White-label light/dark: align Review-app storage on this page load.
-    // Must use <%- so quotes stay valid JS (<%= turns " into &#34; and breaks Save).
+    // Use unescaped JSON output so quotes stay valid in this script (escaped output breaks Save).
     var savedTheme = <%- JSON.stringify(_wlTheme) %>;
     if (savedTheme === 'light' || savedTheme === 'dark') syncReviewAppThemeLocal(savedTheme);
     try {
