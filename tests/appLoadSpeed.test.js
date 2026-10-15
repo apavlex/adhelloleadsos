@@ -21,6 +21,7 @@ test('nav shell closes menu instantly and shows progress on leave', () => {
   assert.match(js, /showNavProgress/);
   assert.match(js, /showNavLoading/);
   assert.match(js, /adhelloNavLoading/);
+  assert.match(js, /adhello-nav-radiant/);
   assert.match(js, /backdrop-filter',\s*'none'/);
   // Never hijack link clicks or opaque-blank the page — that stuck iOS.
   assert.doesNotMatch(js, /adhello-navigating/);
@@ -29,6 +30,8 @@ test('nav shell closes menu instantly and shows progress on leave', () => {
   const css = fs.readFileSync(path.join(root, 'public/css/custom.css'), 'utf8');
   assert.doesNotMatch(css, /adhello-navigating/);
   assert.match(css, /#adhelloNavLoading/);
+  assert.match(css, /adhello-nav-radiant/);
+  assert.match(css, /adhello-nav-radiant-flow/);
   assert.match(css, /backdrop-filter:\s*blur/);
 });
 
