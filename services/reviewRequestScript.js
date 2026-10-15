@@ -16,7 +16,7 @@ const DEFAULT_EMAIL_SCRIPT =
 
 /** One-tap insert for owners whose saved script still omits project keywords. */
 const KEYWORDS_SCRIPT_SNIPPET =
-  ' If you mention the {{job}} in {{city}}, that helps neighbors find us.';
+  ' If you mention {{job}} in {{city}}, that helps neighbors find us.';
 
 const MAX_SMS = 480;
 const MAX_SCRIPT = 800;
@@ -155,8 +155,8 @@ function fillPlaceholders(script, { name, company, reviewLink, jobTitle, city, k
     .replace(/\{\{\s*review_link\s*\}\}/gi, link)
     .replace(/\{\{\s*review_url\s*\}\}/gi, link)
     .replace(/\{\{\s*link\s*\}\}/gi, link)
-    .replace(/\{\{\s*job\s*\}\}/gi, job || 'the project')
-    .replace(/\{\{\s*project\s*\}\}/gi, job || 'the project')
+    .replace(/\{\{\s*job\s*\}\}/gi, job || 'your project')
+    .replace(/\{\{\s*project\s*\}\}/gi, job || 'your project')
     .replace(/\{\{\s*city\s*\}\}/gi, loc || 'your area')
     .replace(/\{\{\s*keywords\s*\}\}/gi, kw)
     .replace(/\{\{\s*keyword\s*\}\}/gi, kw)
@@ -170,22 +170,50 @@ function scriptWantsReviewLink(script) {
   return /https?:\/\/\S+/i.test(s);
 }
 
+/**
+ * Put the review URL at the end of the message (own paragraph).
+ * iMessage / SMS rich previews unfurl much more reliably when the link is last.
+ */
+function placeReviewLinkAtEnd(message, reviewLink) {
+  const link = String(reviewLink || '').trim();
+  let out = String(message || '').trim();
+  if (!link) return out;
+  out = out.split(link).join(' ');
+  try {
+    const parsed = new URL(link);
+    const hostPath = `${parsed.host}${parsed.pathname}`.replace(/\/$/, '');
+    if (hostPath) out = out.split(hostPath).join(' ');
+    if (parsed.pathname && parsed.pathname.length > 4) {
+      out = out.split(parsed.pathname).join(' ');
+    }
+  } catch {
+    /* ignore */
+  }
+  out = out
+    .replace(/https?:\/\/\S*\/rv\/\S+/gi, ' ')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\s+([?!,;.])/g, '$1')
+    .replace(/[\s:\-–—]+$/g, '')
+    .trim();
+  if (!out) return link;
+  return `${out}\n\n${link}`;
+}
+
 /** Guarantee the review URL is in the message (AI sometimes drops links). */
 function ensureReviewLink(message, reviewLink) {
   const link = String(reviewLink || '').trim();
   let out = String(message || '').trim();
   if (!link) return out;
-  if (out.includes(link)) return out;
+  if (out.includes(link)) return placeReviewLinkAtEnd(out, link);
   // Also accept same path without scheme/host differences
   try {
     const path = new URL(link).pathname;
-    if (path && out.includes(path)) return out;
+    if (path && out.includes(path)) return placeReviewLinkAtEnd(out, link);
   } catch {
     /* ignore */
   }
   if (!out) return link;
-  const sep = /[.!?]$/.test(out) ? ' ' : ': ';
-  return `${out}${sep}${link}`.trim();
+  return placeReviewLinkAtEnd(out, link);
 }
 
 /**
@@ -479,6 +507,7 @@ module.exports = {
   resolveReviewKeywords,
   fillPlaceholders,
   scriptWantsReviewLink,
+  placeReviewLinkAtEnd,
   ensureReviewLink,
   maybeEnsureReviewLink,
   memberSmsScript,

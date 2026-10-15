@@ -260,6 +260,7 @@ describe('member app install modal and tab bar', () => {
     assert.match(js, /function fillLiveReviewScript/);
     assert.match(js, /function buildLiveKeywordHint/);
     assert.match(js, /function stripReviewUrlsFromText/);
+    assert.match(js, /function placeReviewLinkAtEnd/);
     assert.match(js, /getElementById\('rvSmsScript'\)/);
     assert.match(js, /navigator\.share\(\{ title: title, text: text \}\)/);
     assert.match(js, /Hard rule: no \{\{review_link\}\}/);
@@ -267,6 +268,8 @@ describe('member app install modal and tab bar', () => {
     assert.match(js, /\\{\\{\\s\*keywords\\s\*\\}\\}/);
     assert.match(js, /readLiveKeywordFields/);
     assert.match(js, /the work we did/);
+    assert.match(js, /Link last → iMessage shows the review preview image/);
+    assert.match(js, /syncShareKeywordPayload/);
     assert.doesNotMatch(js, /data\.url\s*=\s*payload\.url/);
     assert.doesNotMatch(js, /navigator\.share\(\{ title: title, text: text, url:/);
     assert.doesNotMatch(js, /shareWithFile/);
