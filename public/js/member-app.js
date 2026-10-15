@@ -1904,9 +1904,10 @@
     bootCustomerPicks();
   }
 
-  /** Light / dark / system — White-label default wins until Profile pins a choice. */
+  /** Light / dark / system — White-label default wins until Profile pins a newer choice. */
   var THEME_KEY = 'ma-theme';
   var THEME_PIN_KEY = 'ma-theme-pinned';
+  var THEME_PIN_AT_KEY = 'ma-theme-pinned-at';
   var themeMql = null;
 
   function workspaceThemePref() {
@@ -1914,15 +1915,32 @@
     return raw === 'light' || raw === 'dark' || raw === 'system' ? raw : 'system';
   }
 
-  function themePinned() {
-    try { return localStorage.getItem(THEME_PIN_KEY) === '1'; } catch (e) { return false; }
+  function workspaceThemeAt() {
+    return String(document.documentElement.getAttribute('data-ma-workspace-theme-at') || '');
+  }
+
+  function themePinValid(stored) {
+    if (!(stored === 'light' || stored === 'dark' || stored === 'system')) return false;
+    var pinned = false;
+    var pinnedAt = '';
+    try {
+      pinned = localStorage.getItem(THEME_PIN_KEY) === '1';
+      pinnedAt = String(localStorage.getItem(THEME_PIN_AT_KEY) || '');
+    } catch (e) { return false; }
+    if (!pinned) return false;
+    var ws = workspaceThemePref();
+    if (ws === 'light' || ws === 'dark') {
+      var at = workspaceThemeAt();
+      return !!(at && pinnedAt && Number(pinnedAt) >= Number(at));
+    }
+    return true;
   }
 
   function readThemePref() {
     var ws = workspaceThemePref();
     var stored = null;
     try { stored = localStorage.getItem(THEME_KEY); } catch (e) { /* private mode */ }
-    if (themePinned() && (stored === 'light' || stored === 'dark' || stored === 'system')) return stored;
+    if (themePinValid(stored)) return stored;
     if (ws === 'light' || ws === 'dark') return ws;
     if (stored === 'light' || stored === 'dark' || stored === 'system') return stored;
     return 'system';
@@ -1961,12 +1979,19 @@
       try {
         localStorage.setItem(THEME_KEY, next);
         localStorage.setItem(THEME_PIN_KEY, '1');
+        localStorage.setItem(THEME_PIN_AT_KEY, String(Date.now()));
       } catch (e) { /* private mode */ }
     } else {
-      // Keep localStorage aligned with White-label when the user has not pinned.
+      // Keep localStorage aligned with White-label when no fresher Profile pin exists.
       var ws = workspaceThemePref();
-      if (!themePinned() && (ws === 'light' || ws === 'dark')) {
-        try { localStorage.setItem(THEME_KEY, ws); } catch (e2) { /* ignore */ }
+      var stored = null;
+      try { stored = localStorage.getItem(THEME_KEY); } catch (e0) { /* ignore */ }
+      if ((ws === 'light' || ws === 'dark') && !themePinValid(stored)) {
+        try {
+          localStorage.setItem(THEME_KEY, ws);
+          localStorage.removeItem(THEME_PIN_KEY);
+          localStorage.removeItem(THEME_PIN_AT_KEY);
+        } catch (e2) { /* ignore */ }
         next = ws;
       }
     }

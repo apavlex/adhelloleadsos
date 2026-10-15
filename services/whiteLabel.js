@@ -30,6 +30,8 @@ function settings(ws) {
     appName: cleanAppName(raw.appName),
     logoVersion: String(raw.logoVersion || ''),
     preferredTheme: cleanPreferredTheme(raw.preferredTheme || ws && ws.preferredTheme),
+    /** Epoch ms string — bumped when appearance is saved so Review-app pins go stale. */
+    preferredThemeAt: String(raw.preferredThemeAt || '').replace(/\D/g, '').slice(0, 20),
   };
 }
 
@@ -51,6 +53,7 @@ function brandForWorkspace(ws) {
     hasLogo,
     custom,
     preferredTheme: s.preferredTheme,
+    preferredThemeAt: s.preferredThemeAt || '',
     logoUrl: hasLogo ? `${base}/logo.png?v=${v}` : DEFAULT_ICON,
     iconUrl: (size) => (hasLogo ? `${base}/icon-${size}.png?v=${v}` : `/images/adhello-app-icon-${size === 180 ? 192 : size}.png`),
     manifestUrl: custom ? `${base}/manifest.webmanifest?v=${v}` : '/manifest.webmanifest',

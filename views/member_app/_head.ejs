@@ -10,24 +10,42 @@
 <title><%= _title %></title>
 <script>
 /* Appearance before CSS paint.
-   Workspace → White label light/dark wins until the teammate pins a choice in Profile. */
+   Workspace → White label light/dark wins over stale ma-theme / pins.
+   Profile pins only stick if set AFTER the latest White-label appearance save. */
 (function () {
   try {
-    var workspacePref = <%= JSON.stringify((typeof brand !== 'undefined' && brand && brand.preferredTheme) ? brand.preferredTheme : 'system') %>;
+    var workspacePref = <%- JSON.stringify((typeof brand !== 'undefined' && brand && brand.preferredTheme) ? brand.preferredTheme : 'system') %>;
     if (workspacePref !== 'light' && workspacePref !== 'dark' && workspacePref !== 'system') workspacePref = 'system';
+    var workspaceAt = <%- JSON.stringify((typeof brand !== 'undefined' && brand && brand.preferredThemeAt) ? String(brand.preferredThemeAt) : '') %>;
     document.documentElement.setAttribute('data-ma-workspace-theme', workspacePref);
+    if (workspaceAt) document.documentElement.setAttribute('data-ma-workspace-theme-at', workspaceAt);
     var stored = null;
     var pinned = false;
+    var pinnedAt = '';
     try {
       stored = localStorage.getItem('ma-theme');
       pinned = localStorage.getItem('ma-theme-pinned') === '1';
+      pinnedAt = String(localStorage.getItem('ma-theme-pinned-at') || '');
     } catch (e) { /* private mode */ }
-    var pref;
+    var pinValid = false;
     if (pinned && (stored === 'light' || stored === 'dark' || stored === 'system')) {
+      if (workspacePref === 'light' || workspacePref === 'dark') {
+        // No stamp, or pin older than White-label save → workspace wins.
+        pinValid = !!(workspaceAt && pinnedAt && Number(pinnedAt) >= Number(workspaceAt));
+      } else {
+        pinValid = true;
+      }
+    }
+    var pref;
+    if (pinValid) {
       pref = stored;
     } else if (workspacePref === 'light' || workspacePref === 'dark') {
       pref = workspacePref;
-      try { localStorage.setItem('ma-theme', pref); } catch (e2) { /* ignore */ }
+      try {
+        localStorage.setItem('ma-theme', pref);
+        localStorage.removeItem('ma-theme-pinned');
+        localStorage.removeItem('ma-theme-pinned-at');
+      } catch (e2) { /* ignore */ }
     } else if (stored === 'light' || stored === 'dark' || stored === 'system') {
       pref = stored;
     } else {

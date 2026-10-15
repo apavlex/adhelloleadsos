@@ -2581,7 +2581,11 @@ router.post('/white-label', (req, res) => {
       const heroFile = files.hero && files.hero[0];
       if (Object.prototype.hasOwnProperty.call(body, 'appName')) next.appName = whiteLabel.cleanAppName(body.appName);
       if (Object.prototype.hasOwnProperty.call(body, 'preferredTheme')) {
-        next.preferredTheme = whiteLabel.cleanPreferredTheme(body.preferredTheme);
+        const theme = whiteLabel.cleanPreferredTheme(body.preferredTheme);
+        if (theme !== next.preferredTheme || !next.preferredThemeAt) {
+          next.preferredThemeAt = String(Date.now());
+        }
+        next.preferredTheme = theme;
       }
       const removeLogo = body.remove_logo === 'on' || body.remove_logo === '1';
       const removeHero = body.remove_hero === 'on' || body.remove_hero === '1';
