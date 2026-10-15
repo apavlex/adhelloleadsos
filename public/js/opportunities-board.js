@@ -891,6 +891,8 @@
     var prevSidebar = null;
 
     function setFullscreen(on) {
+      // Board fullscreen = all stages side-by-side. Never leave a one-stage zoom open.
+      if (on || zoomedStage) closeStageZoom();
       document.body.classList.toggle('opp-fullscreen', !!on);
       btn.setAttribute('aria-pressed', on ? 'true' : 'false');
       try {
