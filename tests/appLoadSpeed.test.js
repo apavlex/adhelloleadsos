@@ -19,13 +19,17 @@ test('nav shell closes menu instantly and shows progress on leave', () => {
   assert.match(js, /function clearNavOverlaysForLeave/);
   assert.match(js, /closeMobileMenu\(\{\s*instant:\s*true\s*\}\)/);
   assert.match(js, /showNavProgress/);
+  assert.match(js, /showNavLoading/);
+  assert.match(js, /adhelloNavLoading/);
   assert.match(js, /backdrop-filter',\s*'none'/);
-  // Never hijack link clicks or blank the page — that stuck iOS on a cream wash.
+  // Never hijack link clicks or opaque-blank the page — that stuck iOS.
   assert.doesNotMatch(js, /adhello-navigating/);
   assert.doesNotMatch(js, /function leaveToUrl/);
   assert.doesNotMatch(js, /location\.assign/);
   const css = fs.readFileSync(path.join(root, 'public/css/custom.css'), 'utf8');
   assert.doesNotMatch(css, /adhello-navigating/);
+  assert.match(css, /#adhelloNavLoading/);
+  assert.match(css, /backdrop-filter:\s*blur/);
 });
 
 test('prospecting folders tab skips unused lead JSON and Drive OAuth', () => {
