@@ -97,6 +97,8 @@ function readJsonReply(r) {
     el = document.createElement('div');
     el.id = 'adhelloNavLoading';
     el.setAttribute('aria-hidden', 'true');
+    // Gemini-style radiant bloom along the bottom edge while the next page loads.
+    el.innerHTML = '<div class="adhello-nav-radiant"></div><div class="adhello-nav-radiant-line"></div>';
     document.body.appendChild(el);
     return el;
   }
