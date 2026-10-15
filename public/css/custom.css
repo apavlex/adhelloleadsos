@@ -459,11 +459,12 @@ html:not(.dark) [class~="bg-brand-dark"][class~="text-white"] {
 .dark .ghl-sidebar {
     --ghl-sidebar-bg: #0f172a;
     --ghl-sidebar-border: rgba(255, 255, 255, 0.08);
-    --ghl-sidebar-text: #cbd5e1;
-    --ghl-sidebar-text-strong: #f8fafc;
-    --ghl-sidebar-icon: #94a3b8;
-    --ghl-sidebar-hover: rgba(255, 255, 255, 0.06);
-    --ghl-sidebar-active: rgba(255, 255, 255, 0.08);
+    /* High-contrast white menu labels on the dark sidebar */
+    --ghl-sidebar-text: #ffffff;
+    --ghl-sidebar-text-strong: #ffffff;
+    --ghl-sidebar-icon: #f1f5f9;
+    --ghl-sidebar-hover: rgba(255, 255, 255, 0.08);
+    --ghl-sidebar-active: rgba(255, 255, 255, 0.12);
 }
 
 .ghl-ws-switcher {
@@ -498,7 +499,7 @@ html:not(.dark) [class~="bg-brand-dark"][class~="text-white"] {
 
 .dark .sidebar-nav-link.active .sidebar-nav-icon,
 .dark .sidebar-nav-link:hover .sidebar-nav-icon {
-    color: #f8fafc;
+    color: #ffffff;
 }
 
 .sidebar-nav-link svg:not(.sidebar-nav-icon):not(.sidebar-leads-chevron):not(.sidebar-settings-chevron) {
@@ -540,6 +541,11 @@ html:not(.dark) [class~="bg-brand-dark"][class~="text-white"] {
     opacity: 0.85;
 }
 
+.dark .sidebar-nav-group-label {
+    color: rgba(255, 255, 255, 0.72);
+    opacity: 1;
+}
+
 .sidebar-nav-group-items {
     display: flex;
     flex-direction: column;
@@ -579,14 +585,14 @@ html:not(.dark) [class~="bg-brand-dark"][class~="text-white"] {
 html.dark .sidebar-nav-link.sidebar-nav-cta,
 .dark .sidebar-nav-link.sidebar-nav-cta {
     border-color: rgba(255, 255, 255, 0.4);
-    color: #f8fafc !important;
+    color: #ffffff !important;
 }
 
 html.dark .sidebar-nav-link.sidebar-nav-cta .sidebar-nav-icon,
 html.dark .sidebar-nav-link.sidebar-nav-cta svg,
 .dark .sidebar-nav-link.sidebar-nav-cta .sidebar-nav-icon,
 .dark .sidebar-nav-link.sidebar-nav-cta svg {
-    color: #f8fafc !important;
+    color: #ffffff !important;
 }
 
 .sidebar-nav-link.sidebar-nav-cta:hover {
@@ -597,7 +603,7 @@ html.dark .sidebar-nav-link.sidebar-nav-cta svg,
 
 html.dark .sidebar-nav-link.sidebar-nav-cta:hover,
 .dark .sidebar-nav-link.sidebar-nav-cta:hover {
-    color: #f8fafc !important;
+    color: #ffffff !important;
 }
 
 .sidebar-nav-link.sidebar-nav-cta.active {
