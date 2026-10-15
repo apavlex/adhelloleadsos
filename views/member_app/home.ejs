@@ -42,7 +42,11 @@
       <% } %>
       <div class="ma-hero__card">
         <div class="ma-hero__row">
-          <span class="ma-hero__badge"><% if (brand.logoUrl) { %><img src="<%= brand.logoUrl %>" alt=""><% } else { %><%- icons.building %><% } %></span>
+          <span class="ma-hero__badge"><% if (brand.logoUrl) {
+            const _badgeSrc = (typeof base !== 'undefined' && base && !(typeof preview !== 'undefined' && preview))
+              ? (base + '/icon-192.png?v=' + encodeURIComponent(String(brand.logoUrl)))
+              : brand.logoUrl;
+          %><img src="<%= _badgeSrc %>" alt="" width="34" height="34"><% } else { %><%- icons.building %><% } %></span>
           <div>
             <p class="ma-hero__name"><%= brand.heroName || brand.appName %></p>
             <p class="ma-hero__sub"><%= _appt ? 'Reviews · jobs · leads' : brand.subtitle %></p>

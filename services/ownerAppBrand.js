@@ -60,7 +60,9 @@ async function applyWorkspaceBrand(brand, network, member) {
     shortName: businessName.length <= 12 ? businessName : businessName.split(/\s+/)[0].slice(0, 12),
     accent,
     onAccent,
+    // Raw logo for uploads/profile; Home badge prefers accent icon via CSS + icon route.
     logoUrl: wl.hasLogo ? wl.logoUrl : base.logoUrl,
+    preferredTheme: wl.preferredTheme || 'system',
     initials: networkBrand.initials(businessName),
     fromWorkspace: true,
   };

@@ -61,6 +61,9 @@ const {
 } = require('../services/mcp/mcpAuth');
 const mcpOAuth = require('../services/mcp/mcpOAuth');
 const whiteLabel = require('../services/whiteLabel');
+const networkStore = require('../services/networkStore');
+const networkBrand = require('../services/networkBrand');
+const { ensureOwnerReferralApp } = require('../services/ownerReferralApp');
 const QRCode = require('qrcode');
 const { getPublicBaseUrl } = require('../lib/publicBaseUrl');
 const { CARS_REACH_SPECIALTIES } = require('../config/carsReachScripts');
@@ -261,7 +264,7 @@ const WORKSPACE_SECTION_META = {
   },
   'white-label': {
     title: 'White label',
-    description: 'Put your own logo, name and colors on the app, and save it to your phone like a native app.',
+    description: 'Brand the Review app — logo, Home banner, colors, and a link you can text so clients open it with no workspace login.',
   },
   team: {
     title: 'Members & roles',
@@ -2501,19 +2504,69 @@ router.get('/branding', (req, res) => res.redirect(301, '/workspace/white-label'
 
 const whiteLabelUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 8 * 1024 * 1024, files: 1 },
+  limits: { fileSize: 8 * 1024 * 1024, files: 2 },
   fileFilter: (_req, file, cb) => {
     const ok = /^image\/(jpeg|jpg|png|webp|gif)$/i.test(String(file.mimetype || ''));
     cb(ok ? null : new Error('Upload a JPEG, PNG, WebP, or GIF image.'), ok);
   },
 });
 
-/** POST multipart: app name + logo (or remove_logo). */
+/** Mirror logo / hero onto the workspace’s Review-app network brand. */
+async function syncWhiteLabelToNetworkBrand(req, ws, {
+  logoBuffer = null,
+  removeLogo = false,
+  heroBuffer = null,
+  removeHero = false,
+} = {}) {
+  const network = await networkStore.getOrCreateNetworkForWorkspace(req.workspaceId, {
+    name: (ws && ws.name && String(ws.name).trim()) || 'Referral network',
+    ownerEmail: workspaceService.userEmail(req),
+  });
+  const brand = { ...(network.brand || {}) };
+  let changed = false;
+
+  if (removeLogo) {
+    brand.logoUrl = '';
+    await networkStore.deleteBrandImage(network.id, 'logo').catch(() => null);
+    changed = true;
+  } else if (logoBuffer && Buffer.isBuffer(logoBuffer) && logoBuffer.length) {
+    const prepared = await networkBrand.prepareImage('logo', logoBuffer);
+    const stamp = await networkStore.saveBrandImage(network.id, 'logo', prepared);
+    brand.logoUrl = `/m/brand/${network.id}/logo?v=${Date.parse(stamp) || Date.now()}`;
+    changed = true;
+  }
+
+  if (removeHero) {
+    brand.heroUrl = '';
+    await networkStore.deleteBrandImage(network.id, 'hero').catch(() => null);
+    changed = true;
+  } else if (heroBuffer && Buffer.isBuffer(heroBuffer) && heroBuffer.length) {
+    const prepared = await networkBrand.prepareImage('hero', heroBuffer);
+    const stamp = await networkStore.saveBrandImage(network.id, 'hero', prepared);
+    brand.heroUrl = `/m/brand/${network.id}/hero?v=${Date.parse(stamp) || Date.now()}`;
+    changed = true;
+  }
+
+  const appName = whiteLabel.cleanAppName(ws && ws.whiteLabel && ws.whiteLabel.appName);
+  if (appName && brand.appName !== appName) {
+    brand.appName = appName;
+    changed = true;
+  }
+
+  if (!changed) return { network, brand };
+  const saved = await networkStore.saveNetwork({ ...network, brand });
+  return { network: saved, brand };
+}
+
+/** POST multipart: app name, logo, Home banner, preferred theme. */
 router.post('/white-label', (req, res) => {
   if (!req.canManageWorkspace) {
     return res.status(403).json({ success: false, error: 'Only workspace admins can change white label settings.' });
   }
-  whiteLabelUpload.single('logo')(req, res, async (uploadErr) => {
+  whiteLabelUpload.fields([
+    { name: 'logo', maxCount: 1 },
+    { name: 'hero', maxCount: 1 },
+  ])(req, res, async (uploadErr) => {
     if (uploadErr) {
       const msg = uploadErr.code === 'LIMIT_FILE_SIZE' ? 'That image is over 8 MB.' : uploadErr.message;
       return res.status(400).json({ success: false, error: msg || 'Could not read that image.' });
@@ -2523,18 +2576,31 @@ router.post('/white-label', (req, res) => {
       const ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
       const next = whiteLabel.settings(ws);
       const body = req.body || {};
+      const files = req.files || {};
+      const logoFile = files.logo && files.logo[0];
+      const heroFile = files.hero && files.hero[0];
       if (Object.prototype.hasOwnProperty.call(body, 'appName')) next.appName = whiteLabel.cleanAppName(body.appName);
       if (Object.prototype.hasOwnProperty.call(body, 'preferredTheme')) {
         next.preferredTheme = whiteLabel.cleanPreferredTheme(body.preferredTheme);
       }
-      if (req.file && req.file.buffer) {
-        next.logoVersion = await whiteLabel.saveLogo(wid, req.file.buffer);
-      } else if (body.remove_logo === 'on' || body.remove_logo === '1') {
+      const removeLogo = body.remove_logo === 'on' || body.remove_logo === '1';
+      const removeHero = body.remove_hero === 'on' || body.remove_hero === '1';
+      if (logoFile && logoFile.buffer) {
+        next.logoVersion = await whiteLabel.saveLogo(wid, logoFile.buffer);
+      } else if (removeLogo) {
         await whiteLabel.deleteLogo(wid);
         next.logoVersion = '';
       }
       ws.whiteLabel = next;
       await dbService.saveWorkspace(wid, ws);
+
+      const synced = await syncWhiteLabelToNetworkBrand(req, { ...ws, id: wid, whiteLabel: next }, {
+        logoBuffer: logoFile && logoFile.buffer,
+        removeLogo,
+        heroBuffer: heroFile && heroFile.buffer,
+        removeHero,
+      });
+
       const brand = whiteLabel.brandForWorkspace({ ...ws, id: wid });
       return res.json({
         success: true,
@@ -2543,6 +2609,7 @@ router.post('/white-label', (req, res) => {
         logoUrl: brand.logoUrl,
         iconUrl: brand.iconUrl(512),
         preferredTheme: brand.preferredTheme,
+        heroUrl: (synced && synced.brand && synced.brand.heroUrl) || '',
       });
     } catch (err) {
       console.error('[white-label] save failed:', err.message);
@@ -2553,9 +2620,14 @@ router.post('/white-label', (req, res) => {
 
 router.get('/white-label/qr.png', async (req, res) => {
   try {
-    const png = await QRCode.toBuffer(`${getPublicBaseUrl(req)}/today`, { type: 'png', width: 480, margin: 2, errorCorrectionLevel: 'M', color: { dark: '#0f172a', light: '#ffffff' } });
+    let openUrl = `${getPublicBaseUrl(req)}/today`;
+    try {
+      const app = await ensureOwnerReferralApp(req);
+      if (app && app.url) openUrl = app.url;
+    } catch (_) { /* fall back to CRM today */ }
+    const png = await QRCode.toBuffer(openUrl, { type: 'png', width: 480, margin: 2, errorCorrectionLevel: 'M', color: { dark: '#0f172a', light: '#ffffff' } });
     res.setHeader('Content-Type', 'image/png');
-    res.setHeader('Cache-Control', 'private, max-age=86400');
+    res.setHeader('Cache-Control', 'private, max-age=300');
     return res.end(png);
   } catch (err) {
     return res.status(500).end();
@@ -2618,7 +2690,25 @@ router.get('/:section', async (req, res, next) => {
     }
     if (section === 'white-label') {
       renderLocals.whiteLabelSettings = whiteLabel.settings(ws);
-      renderLocals.appOpenUrl = `${getPublicBaseUrl(req)}/today`;
+      let appOpenUrl = `${getPublicBaseUrl(req)}/today`;
+      let appOpenPath = '/today';
+      let reviewHeroUrl = '';
+      try {
+        const app = await ensureOwnerReferralApp(req);
+        if (app && app.url) {
+          appOpenUrl = app.url;
+          appOpenPath = app.path || appOpenPath;
+        }
+        if (app && app.network && app.network.brand && app.network.brand.heroUrl) {
+          reviewHeroUrl = String(app.network.brand.heroUrl);
+        }
+      } catch (err) {
+        console.warn('[white-label] review app link unavailable:', err.message);
+      }
+      renderLocals.appOpenUrl = appOpenUrl;
+      renderLocals.appOpenPath = appOpenPath;
+      renderLocals.reviewHeroUrl = reviewHeroUrl;
+      renderLocals.reviewAppHost = String(appOpenUrl || '').replace(/^https?:\/\//, '');
     }
     if (section === 'ai-apps') {
       renderLocals.currentUserEmail = workspaceService.userEmail(req);
