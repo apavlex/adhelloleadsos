@@ -61,7 +61,7 @@
       >
         <%- icons.sms %> Request a review
       </button>
-      <p class="ma-hint ma-qr__ask-hint">Uses your SMS script as written (link only if the script includes it)</p>
+      <p class="ma-hint ma-qr__ask-hint">Uses your SMS script (keywords filled from defaults above). The review link is placed at the end so Messages can show the preview image.</p>
       <img src="<%= reviewPath %>/qr.png" alt="QR code for your review page" width="220" height="220" style="margin-top:14px">
       <div class="ma-link-box">
         <code id="rvLink"><%= reviewUrl %></code>
@@ -240,7 +240,7 @@
           <div class="ma-field">
             <label class="ma-label" for="rvKeywords">Keywords phrase <span class="ma-label__hint">(optional override)</span></label>
             <input id="rvKeywords" name="keywords" class="ma-input" maxlength="100" placeholder="cabinet install in Camas" value="<%= _kwDefs.keywords || '' %>" autocomplete="off">
-            <p class="ma-hint" style="margin:6px 0 0">Leave blank to build from job + city. Preview of <code>{{keywords}}</code>: <strong id="rvKeywordsPreview"><%= _kwPreview || 'the work we did' %></strong></p>
+            <p class="ma-hint" style="margin:6px 0 0">Leave blank to build from job + city. Preview of <code>{{keywords}}</code>: <strong id="rvKeywordsPreview"><%= _kwPreview || 'the work we did' %></strong>. Tap <strong>Save script</strong> to keep these defaults.</p>
           </div>
           <div class="ma-field">
             <label class="ma-label" for="rvSmsScript">Review request text</label>
@@ -272,9 +272,14 @@
               if (preview) preview.textContent = phrase();
             }
             [jobEl, cityEl, kwEl].forEach(function (el) {
-              if (el) el.addEventListener('input', syncPreview);
+              if (el) {
+                el.addEventListener('input', syncPreview);
+                el.addEventListener('change', syncPreview);
+              }
             });
             syncPreview();
+            window.addEventListener('pageshow', syncPreview);
+            setTimeout(syncPreview, 0);
             if (!btn || !ta) return;
             btn.addEventListener('click', function () {
               var snip = btn.getAttribute('data-snippet') || '';

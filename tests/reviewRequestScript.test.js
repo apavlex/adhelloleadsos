@@ -86,10 +86,17 @@ test('DEFAULT_SMS_SCRIPT includes keywords placeholder', () => {
   assert.match(review.KEYWORDS_SCRIPT_SNIPPET, /\{\{\s*job\s*\}\}/);
 });
 
-test('ensureReviewLink appends the URL when AI drops it', () => {
+test('ensureReviewLink and placeReviewLinkAtEnd put the URL last for previews', () => {
   const link = 'https://app.example/rv/brightline';
-  assert.equal(review.ensureReviewLink(`Thanks! ${link}`, link), `Thanks! ${link}`);
-  assert.match(review.ensureReviewLink('Thanks for choosing us!', link), new RegExp(link.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.equal(
+    review.placeReviewLinkAtEnd(`Thanks! ${link} Please mention the cabinets.`, link),
+    `Thanks! Please mention the cabinets.\n\n${link}`,
+  );
+  assert.equal(review.ensureReviewLink(`Thanks! ${link}`, link), `Thanks!\n\n${link}`);
+  assert.equal(
+    review.ensureReviewLink('Thanks for choosing us!', link),
+    `Thanks for choosing us!\n\n${link}`,
+  );
 });
 
 test('maybeEnsureReviewLink respects scripts that omit the review link', () => {
@@ -118,7 +125,11 @@ test('buildReviewSms without AI fills the member script and keeps the link', asy
     useAi: false,
   });
   assert.equal(built.provider, 'script');
-  assert.equal(built.message, 'Hey Jamie, leave Brightline Electric a review https://app.example/rv/brightline');
+  // Link is moved to the end (own paragraph) so iMessage/SMS can unfurl the preview.
+  assert.equal(
+    built.message,
+    'Hey Jamie, leave Brightline Electric a review\n\nhttps://app.example/rv/brightline',
+  );
 });
 
 test('buildReviewSms without AI does not force-append a removed review link', async () => {

@@ -778,8 +778,8 @@
       .replace(/\{\{\s*first_name\s*\}\}/gi, name)
       .replace(/\{\{\s*company\s*\}\}/gi, company)
       .replace(/\{\{\s*business_name\s*\}\}/gi, company)
-      .replace(/\{\{\s*job\s*\}\}/gi, job || 'the project')
-      .replace(/\{\{\s*project\s*\}\}/gi, job || 'the project')
+      .replace(/\{\{\s*job\s*\}\}/gi, job || 'your project')
+      .replace(/\{\{\s*project\s*\}\}/gi, job || 'your project')
       .replace(/\{\{\s*city\s*\}\}/gi, city || 'your area')
       .replace(/\{\{\s*keywords\s*\}\}/gi, keywords)
       .replace(/\{\{\s*keyword\s*\}\}/gi, keywords);
@@ -818,10 +818,36 @@
   }
 
   /**
+   * Move the review URL to the end (own paragraph). iMessage unfurls the OG
+   * image much more reliably when the link is last — not mid-sentence.
+   */
+  function placeReviewLinkAtEnd(text, reviewUrl) {
+    var link = String(reviewUrl || '').trim();
+    var out = String(text || '').trim();
+    if (!link) return out;
+    out = out.split(link).join(' ');
+    try {
+      var parsed = new URL(link);
+      var hostPath = (parsed.host + parsed.pathname).replace(/\/$/, '');
+      if (hostPath) out = out.split(hostPath).join(' ');
+      if (parsed.pathname && parsed.pathname.length > 4) out = out.split(parsed.pathname).join(' ');
+    } catch (e) { /* ignore */ }
+    out = out
+      .replace(/https?:\/\/\S*\/rv\/\S+/gi, ' ')
+      .replace(/[ \t]+/g, ' ')
+      .replace(/\s+([?!,;.])/g, '$1')
+      .replace(/[\s:\-–—]+$/g, '')
+      .trim();
+    if (!out) return link;
+    return out + '\n\n' + link;
+  }
+
+  /**
    * Request a review from this phone.
    * Uses the live SMS script textarea when present (so removing {{review_link}}
    * takes effect immediately). If the script has no link placeholder/URL, strip
    * every review URL before share so Messages cannot show a preview image.
+   * When the script wants a link, move it to the end so iMessage shows the image.
    * Never passes `url` or `files` to Web Share.
    */
   function readLiveKeywordFields(payload) {
@@ -829,15 +855,39 @@
       var el = document.getElementById(id);
       return el && el.value != null ? String(el.value).replace(/\s+/g, ' ').trim() : '';
     }
-    // Prefer live SMS-script / send-form inputs; fall back to server payload defaults.
+    function named(name) {
+      var nodes = document.getElementsByName(name);
+      for (var i = 0; i < nodes.length; i++) {
+        var v = nodes[i] && nodes[i].value != null ? String(nodes[i].value).replace(/\s+/g, ' ').trim() : '';
+        if (v) return v;
+      }
+      return '';
+    }
+    // Prefer SMS-script defaults (rvKeyword*), then send Options, then name=, then payload.
     return {
-      jobTitle: val('rvAskKeywordJob') || val('rvKeywordJob') || String((payload && payload.jobTitle) || ''),
-      city: val('rvAskKeywordCity') || val('rvKeywordCity') || String((payload && payload.city) || ''),
-      keywords: val('rvAskKeywords') || val('rvKeywords') || String((payload && payload.keywords) || ''),
+      jobTitle: val('rvKeywordJob') || val('rvAskKeywordJob') || named('keywordJob') || String((payload && payload.jobTitle) || ''),
+      city: val('rvKeywordCity') || val('rvAskKeywordCity') || named('keywordCity') || String((payload && payload.city) || ''),
+      keywords: val('rvKeywords') || val('rvAskKeywords') || named('keywords') || String((payload && payload.keywords) || ''),
     };
   }
 
+  function syncShareKeywordPayload() {
+    var el = document.getElementById('maRequestReviewPayload');
+    if (!el) return;
+    try {
+      var data = JSON.parse(el.textContent || '{}');
+      var kw = readLiveKeywordFields(data);
+      data.jobTitle = kw.jobTitle;
+      data.city = kw.city;
+      data.keywords = kw.keywords || buildLiveKeywordHint(kw);
+      var scriptEl = document.getElementById('rvSmsScript');
+      if (scriptEl) data.script = String(scriptEl.value || '');
+      el.textContent = JSON.stringify(data);
+    } catch (e) { /* ignore */ }
+  }
+
   function requestReviewFromPhone(btn) {
+    syncShareKeywordPayload();
     var payload = readRequestReviewPayload(btn);
     if (!payload) return;
     var title = payload.title || 'Leave a review';
@@ -848,6 +898,12 @@
     var sourceScript = liveScript || String(payload.script || '');
     var kw = readLiveKeywordFields(payload);
     var text = '';
+
+    // Live script may add {{review_link}} after page load — pick URL from the page.
+    if (!reviewUrl && scriptWantsReviewLink(sourceScript)) {
+      var linkEl = document.getElementById('rvLink');
+      reviewUrl = linkEl ? String(linkEl.textContent || '').trim() : '';
+    }
 
     if (liveScript) {
       text = fillLiveReviewScript(liveScript, {
@@ -873,6 +929,9 @@
     // Hard rule: no {{review_link}} / URL in the script → no URL in the message.
     if (!scriptWantsReviewLink(sourceScript)) {
       text = stripReviewUrlsFromText(text, reviewUrl);
+    } else if (reviewUrl) {
+      // Link last → iMessage shows the review preview image.
+      text = placeReviewLinkAtEnd(text, reviewUrl);
     }
 
     if (!text) {
@@ -2078,5 +2137,27 @@
     document.addEventListener('DOMContentLoaded', initMaTheme);
   } else {
     initMaTheme();
+  }
+
+  function bootKeywordShareSync() {
+    if (!document.getElementById('maRequestReviewPayload')) return;
+    syncShareKeywordPayload();
+    document.addEventListener('input', function (e) {
+      if (!e.target) return;
+      var id = e.target.id || '';
+      if (
+        id === 'rvKeywordJob' || id === 'rvKeywordCity' || id === 'rvKeywords' ||
+        id === 'rvAskKeywordJob' || id === 'rvAskKeywordCity' || id === 'rvAskKeywords' ||
+        id === 'rvSmsScript'
+      ) {
+        syncShareKeywordPayload();
+      }
+    });
+    window.addEventListener('pageshow', syncShareKeywordPayload);
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootKeywordShareSync);
+  } else {
+    bootKeywordShareSync();
   }
 })();
