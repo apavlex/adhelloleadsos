@@ -335,17 +335,26 @@
     button.opp-stage-zoom svg { width: 0.85rem; height: 0.85rem; }
     button.opp-stage-zoom:hover { background: rgba(250, 204, 21, 0.28); color: #111827; }
   }
-  /* Desktop stage zoom: the whole stage as a card grid so every lead is visible at once. */
+  /* Desktop stage zoom: one readable column — not a dense multi-column wall of names. */
   @media (min-width: 1024px) {
     .opp-stage.is-zoomed { padding: 1.25rem 1.5rem; }
-    .opp-stage.is-zoomed .opp-stage-cards {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(var(--opp-stage-min), 1fr));
-      align-content: start;
-      gap: 0.6rem;
-      padding: 0.6rem;
+    .opp-stage.is-zoomed .opp-stage-head,
+    .opp-stage.is-zoomed .opp-zoom-bar {
+      max-width: 28rem;
+      width: 100%;
+      margin-left: auto;
+      margin-right: auto;
     }
-    .opp-stage.is-zoomed .opp-zoom-bar { max-width: 32rem; }
+    .opp-stage.is-zoomed .opp-stage-cards {
+      display: flex;
+      flex-direction: column;
+      align-content: start;
+      gap: 0.5rem;
+      padding: 0.6rem;
+      max-width: 28rem;
+      width: 100%;
+      margin: 0 auto;
+    }
   }
   #oppBoard.is-editing button.opp-stage-zoom,
   .opp-stage.is-zoomed button.opp-stage-zoom { display: none; }
