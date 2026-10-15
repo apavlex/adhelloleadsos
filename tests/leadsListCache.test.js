@@ -160,6 +160,28 @@ test('leads list cache stays in sync with lead writes', async (t) => {
     assert.equal(all.find((l) => l.key === 'lead:2000').title, 'B two');
     await dbService.deleteLead('lead:5000');
   });
+
+  await t.test('lead list query uses workspace index (big accounts do not scan everyone)', () => {
+    const db = new Database(path.join(tmpDataDir, 'app.db'), { readonly: true });
+    try {
+      const idx = db
+        .prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_kv_lead_workspace'")
+        .get();
+      assert.ok(idx, 'expected idx_kv_lead_workspace');
+      const plan = db
+        .prepare(
+          `EXPLAIN QUERY PLAN
+           SELECT key, value FROM kv
+           WHERE key LIKE 'lead:%'
+             AND json_extract(CASE WHEN json_valid(value) THEN value END, '$.workspaceId') = ?`,
+        )
+        .all(WS_A);
+      const detail = plan.map((p) => p.detail).join(' | ');
+      assert.match(detail, /idx_kv_lead_workspace/i);
+    } finally {
+      db.close();
+    }
+  });
 });
 
 test('leadActivityWindow matches a direct scan and refreshes when activity changes', () => {
