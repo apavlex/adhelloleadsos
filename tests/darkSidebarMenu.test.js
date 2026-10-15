@@ -9,9 +9,10 @@ const assert = require('node:assert/strict');
 const css = fs.readFileSync(path.join(__dirname, '..', 'public/css/custom.css'), 'utf8');
 
 test('dark sidebar menu text and icons are white / near-white', () => {
-  const block = css.match(/\.dark\s+\.ghl-sidebar\s*\{[^}]+\}/);
-  assert.ok(block, 'expected .dark .ghl-sidebar variable block');
-  assert.match(block[0], /--ghl-sidebar-text:\s*#fff(?:fff)?/i);
-  assert.match(block[0], /--ghl-sidebar-text-strong:\s*#fff(?:fff)?/i);
-  assert.match(block[0], /--ghl-sidebar-icon:\s*#f1f5f9/i);
+  assert.match(css, /\.dark\s+\.ghl-sidebar[\s\S]*?--ghl-sidebar-text:\s*#ffffff/i);
+  assert.match(css, /--ghl-sidebar-text-strong:\s*#ffffff/i);
+  assert.match(css, /--ghl-sidebar-icon:\s*#f1f5f9/i);
+  // Hard override so menu ink wins over body text-brand-dark / cached CSS.
+  assert.match(css, /html\.dark\s+\.ghl-sidebar\s+\.sidebar-nav-link[\s\S]*?color:\s*#ffffff\s*!important/i);
+  assert.match(css, /html\.dark\s+#appSidebar\s+\.sidebar-nav-link[\s\S]*?color:\s*#ffffff\s*!important/i);
 });

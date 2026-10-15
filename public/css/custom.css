@@ -456,7 +456,8 @@ html:not(.dark) [class~="bg-brand-dark"][class~="text-white"] {
     border-right: 1px solid var(--ghl-sidebar-border);
 }
 
-.dark .ghl-sidebar {
+.dark .ghl-sidebar,
+html.dark .ghl-sidebar {
     --ghl-sidebar-bg: #0f172a;
     --ghl-sidebar-border: rgba(255, 255, 255, 0.08);
     /* High-contrast white menu labels on the dark sidebar */
@@ -465,6 +466,33 @@ html:not(.dark) [class~="bg-brand-dark"][class~="text-white"] {
     --ghl-sidebar-icon: #f1f5f9;
     --ghl-sidebar-hover: rgba(255, 255, 255, 0.08);
     --ghl-sidebar-active: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+}
+
+/* Force white menu ink in dark mode — beats body text-brand-dark / stale caches. */
+html.dark .ghl-sidebar .sidebar-nav-link,
+.dark .ghl-sidebar .sidebar-nav-link,
+html.dark #appSidebar .sidebar-nav-link,
+.dark #appSidebar .sidebar-nav-link,
+html.dark #mobileMenuPanel .sidebar-nav-link,
+.dark #mobileMenuPanel .sidebar-nav-link {
+    color: #ffffff !important;
+}
+
+html.dark .ghl-sidebar .sidebar-nav-link > span,
+.dark .ghl-sidebar .sidebar-nav-link > span,
+html.dark #appSidebar .sidebar-nav-link > span,
+.dark #appSidebar .sidebar-nav-link > span {
+    color: inherit !important;
+}
+
+html.dark .ghl-sidebar .sidebar-nav-icon,
+.dark .ghl-sidebar .sidebar-nav-icon,
+html.dark #appSidebar .sidebar-nav-icon,
+.dark #appSidebar .sidebar-nav-icon,
+html.dark .ghl-sidebar .sidebar-nav-link svg:not(.sidebar-leads-chevron):not(.sidebar-settings-chevron),
+.dark .ghl-sidebar .sidebar-nav-link svg:not(.sidebar-leads-chevron):not(.sidebar-settings-chevron) {
+    color: #f1f5f9 !important;
 }
 
 .ghl-ws-switcher {
@@ -541,8 +569,11 @@ html:not(.dark) [class~="bg-brand-dark"][class~="text-white"] {
     opacity: 0.85;
 }
 
-.dark .sidebar-nav-group-label {
-    color: rgba(255, 255, 255, 0.72);
+.dark .sidebar-nav-group-label,
+html.dark .sidebar-nav-group-label,
+html.dark .ghl-sidebar .sidebar-nav-group-label,
+.dark .ghl-sidebar .sidebar-nav-group-label {
+    color: rgba(255, 255, 255, 0.78) !important;
     opacity: 1;
 }
 
