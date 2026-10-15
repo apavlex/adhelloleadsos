@@ -197,9 +197,15 @@ function readJsonReply(r) {
     }
     if (!shareUrl) shareUrl = window.location.origin + '/today';
 
+    var invite = btn.getAttribute('data-get-app-share-text')
+      || 'Here is a link to view and save your reviews app!';
+    invite = String(invite).trim() || 'Here is a link to view and save your reviews app!';
+    // Clipboard / SMS body: invite + URL. Share sheet also gets title + url for OG unfurl.
+    var shareBody = invite + '\n' + shareUrl;
+
     var payload = {
       title: String(title).trim() || 'AdHello',
-      text: 'Open your AdHello Review app — Add to Home Screen from the browser menu if needed.',
+      text: shareBody,
       url: shareUrl,
     };
 
@@ -207,8 +213,8 @@ function readJsonReply(r) {
       var prev = btn.getAttribute('data-share-label') || btn.textContent;
       if (!btn.getAttribute('data-share-label')) btn.setAttribute('data-share-label', prev);
       var label = btn.querySelector('[data-get-app-share-label]') || btn;
-      if (label !== btn && label.textContent) label.textContent = 'Link copied';
-      else if (btn.tagName === 'BUTTON' || btn.getAttribute('role') === 'button') btn.textContent = 'Link copied';
+      if (label !== btn && label.textContent) label.textContent = 'Invite copied';
+      else if (btn.tagName === 'BUTTON' || btn.getAttribute('role') === 'button') btn.textContent = 'Invite copied';
       setTimeout(function () {
         var original = btn.getAttribute('data-share-label');
         if (!original) return;
@@ -220,11 +226,11 @@ function readJsonReply(r) {
     function copyFallback() {
       var done = function () { copiedFlash(); };
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        return navigator.clipboard.writeText(shareUrl).then(done).catch(function () {
-          window.prompt('Copy link', shareUrl);
+        return navigator.clipboard.writeText(shareBody).then(done).catch(function () {
+          window.prompt('Copy invite', shareBody);
         });
       }
-      window.prompt('Copy link', shareUrl);
+      window.prompt('Copy invite', shareBody);
       return Promise.resolve();
     }
 

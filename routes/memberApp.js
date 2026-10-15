@@ -50,7 +50,11 @@ const whiteLabel = require('../services/whiteLabel');
 const demoWorkspace = require('../services/demoWorkspace');
 const workspaceTeammatePush = require('../services/workspaceTeammatePush');
 const workspaceService = require('../services/workspaceService');
+const { getPublicBaseUrl } = require('../lib/publicBaseUrl');
 const { ICONS } = require('../services/memberAppIcons');
+
+/** Invite line pasted/shared with Review app short links (/a/…). */
+const REVIEW_APP_SHARE_INVITE = 'Here is a link to view and save your reviews app!';
 
 /** Soft GHL pull for owner Home so customer counts match CRM (15 min TTL). */
 const OWNER_GHL_SYNC_MS = 15 * 60 * 1000;
@@ -675,32 +679,122 @@ function matchesContact(member, { digits, email }) {
 }
 
 /**
+ * Resolve a short /a/:code to network + member, or render invalid.
+ * @returns {Promise<{ code: string, network: object, member: object }|null>}
+ */
+async function loadShortAppTarget(req, res) {
+  const code = memberShortLinks.cleanCode(req.params.code);
+  if (!code) {
+    await renderInvalid(res);
+    return null;
+  }
+  const row = await memberShortLinks.readCode(code);
+  if (!row) {
+    await renderInvalid(res, 404, 'That app link is invalid or expired.');
+    return null;
+  }
+  const network = await store.getNetwork(row.networkId);
+  const member = network ? await store.getMember(network.id, row.memberId) : null;
+  if (!network || !member) {
+    await renderInvalid(res, 404, 'That app link is invalid or expired.');
+    return null;
+  }
+  if (member.status === 'paused') {
+    await renderInvalid(res, 403, 'Your membership is paused. Contact the network.');
+    return null;
+  }
+  return { code, network, member };
+}
+
+/**
  * Short SMS links: /a/:code → /m/:signedToken (path + query preserved).
  * Example: /a/x7k2m9qp/review?ask=1
  */
 async function redirectShortAppLink(req, res) {
   noStore(res);
-  const code = memberShortLinks.cleanCode(req.params.code);
-  if (!code) return renderInvalid(res);
-  const row = await memberShortLinks.readCode(code);
-  if (!row) return renderInvalid(res, 404, 'That app link is invalid or expired.');
-  const network = await store.getNetwork(row.networkId);
-  const member = network ? await store.getMember(network.id, row.memberId) : null;
-  if (!network || !member) return renderInvalid(res, 404, 'That app link is invalid or expired.');
-  if (member.status === 'paused') {
-    return renderInvalid(res, 403, 'Your membership is paused. Contact the network.');
-  }
+  const target = await loadShortAppTarget(req, res);
+  if (!target) return;
+  const { code, network, member } = target;
   const token = createMemberPortalToken({ networkId: network.id, memberId: member.id });
   const prefix = `/a/${code}`;
   const original = String(req.originalUrl || req.url || '');
   let rest = original.startsWith(prefix) ? original.slice(prefix.length) : '';
   if (rest === '/') rest = '';
+  // Bare /a/:code is handled by the OG share landing (so iMessage can unfurl).
+  if (!rest || rest === '/og.jpg') {
+    return res.redirect(302, `/m/${encodeURIComponent(token)}`);
+  }
   return res.redirect(302, `/m/${encodeURIComponent(token)}${rest}`);
 }
 
-router.get('/a/:code', (req, res, next) => {
-  redirectShortAppLink(req, res).catch(next);
+/** Public OG image for Review-app short links — hero / share photo, crawlable. */
+router.get('/a/:code/og.jpg', async (req, res, next) => {
+  try {
+    const target = await loadShortAppTarget(req, res);
+    if (!target) return;
+    const { network, member } = target;
+    const brand = await ownerAppBrand.applyWorkspaceBrand(
+      networkBrand.brandView(network, member),
+      network,
+      member,
+    );
+    const img = await reviewShareImage.getShareImageBuffer(network.id, member.id, 'default', {
+      companyName: brand.appName || member.companyName,
+      brand,
+    });
+    const buffer = img && img.buffer ? img.buffer : null;
+    if (!buffer) return res.status(404).end();
+    res.setHeader('Content-Type', img.contentType || 'image/jpeg');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    return res.end(buffer);
+  } catch (err) {
+    return next(err);
+  }
 });
+
+/**
+ * Bare /a/:code — crawlable share landing with invite copy + og:image.
+ * Humans are auto-sent into the signed /m/… app; bots keep the HTML for previews.
+ */
+router.get('/a/:code', async (req, res, next) => {
+  try {
+    const target = await loadShortAppTarget(req, res);
+    if (!target) return;
+    const { code, network, member } = target;
+    const token = createMemberPortalToken({ networkId: network.id, memberId: member.id });
+    const openPath = `/m/${encodeURIComponent(token)}`;
+    const brand = await ownerAppBrand.applyWorkspaceBrand(
+      networkBrand.brandView(network, member),
+      network,
+      member,
+    );
+    const base = getPublicBaseUrl(req) || '';
+    const ogUrl = `${base}/a/${encodeURIComponent(code)}`;
+    const shareVersion = reviewShareImage.shareImageVersion(member, brand) || String(Date.now());
+    const ogImageUrl = `${base}/a/${encodeURIComponent(code)}/og.jpg?v=${encodeURIComponent(shareVersion)}`;
+    const appName = brand.appName || member.companyName || 'Review app';
+    const iconUrl = brand.logoUrl
+      ? `${openPath}/icon-192.png`
+      : '/images/adhello-app-icon-192.png';
+    // Public + indexable so iMessage/SMS can load og:image (noindex kills unfurls).
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=120');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    return res.status(200).render('member_app/app_link_share', {
+      brand,
+      ogTitle: `${appName} — Review app`,
+      ogDescription: REVIEW_APP_SHARE_INVITE,
+      ogUrl,
+      ogImageUrl,
+      openPath,
+      iconUrl,
+      shareInvite: REVIEW_APP_SHARE_INVITE,
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
 router.get('/a/:code/*', (req, res, next) => {
   redirectShortAppLink(req, res).catch(next);
 });

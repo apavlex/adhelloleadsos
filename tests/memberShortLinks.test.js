@@ -147,7 +147,7 @@ describe('memberShortLinks', () => {
     mock.restoreAll();
   });
 
-  it('GET /a/:code redirects to a fresh signed /m/ token with path preserved', async () => {
+  it('GET /a/:code serves invite OG landing; deeper paths still redirect to /m/', async () => {
     const network = await store.getOrCreateNetworkForWorkspace('ws_short_3', { name: 'Short net 3' });
     let member = await store.saveMember(network.id, {
       companyName: 'Redirect Co',
@@ -168,18 +168,28 @@ describe('memberShortLinks', () => {
     const base = `http://127.0.0.1:${server.address().port}`;
     try {
       const home = await fetch(`${base}/a/${code}`, { redirect: 'manual' });
-      assert.equal(home.status, 302);
-      const loc = home.headers.get('location') || '';
-      assert.match(loc, /^\/m\/[^/]+$/);
-      const token = decodeURIComponent(loc.slice(3));
-      const payload = verifyNetworkToken(token, 'mem');
-      assert.equal(payload.networkId, network.id);
-      assert.equal(payload.memberId, member.id);
+      assert.equal(home.status, 200);
+      const html = await home.text();
+      assert.match(html, /property="og:image"/);
+      assert.match(html, new RegExp(`/a/${code}/og\\.jpg`));
+      assert.match(html, /Here is a link to view and save your reviews app!/);
+      assert.match(html, /index, follow, max-image-preview:large/);
+      assert.match(html, /\/m\/[^"']+/);
+      assert.doesNotMatch(html, /content="noindex/);
+
+      const og = await fetch(`${base}/a/${code}/og.jpg`);
+      assert.equal(og.status, 200);
+      assert.match(String(og.headers.get('content-type') || ''), /image\/jpeg/);
+      assert.ok(Buffer.from(await og.arrayBuffer()).length > 500);
 
       const review = await fetch(`${base}/a/${code}/review?ask=1`, { redirect: 'manual' });
       assert.equal(review.status, 302);
       const reviewLoc = review.headers.get('location') || '';
       assert.match(reviewLoc, /^\/m\/[^/]+\/review\?ask=1$/);
+      const token = decodeURIComponent(reviewLoc.slice(3).split('/')[0]);
+      const payload = verifyNetworkToken(token, 'mem');
+      assert.equal(payload.networkId, network.id);
+      assert.equal(payload.memberId, member.id);
 
       // Long signed token still works for in-app use.
       const long = createMemberPortalToken({ networkId: network.id, memberId: member.id });
