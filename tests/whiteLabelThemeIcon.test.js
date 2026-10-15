@@ -140,6 +140,10 @@ test('Review app seeds preferredTheme and uses accent icon on Home badge', () =>
   const branding = fs.readFileSync(path.join(root, 'views/workspace/sections/branding.ejs'), 'utf8');
   assert.match(branding, /syncReviewAppThemeLocal/);
   assert.match(branding, /ma-theme-pinned-at/);
+  // Save appearance script must not HTML-escape the theme JSON (breaks the click handler).
+  assert.match(branding, /savedTheme = <%- JSON\.stringify\(_wlTheme\) %>/);
+  assert.match(branding, /Reloading to apply/);
+  assert.match(branding, /id="wl-appearance"/);
 });
 
 test('preferredThemeAt is stored and exposed on the brand', () => {

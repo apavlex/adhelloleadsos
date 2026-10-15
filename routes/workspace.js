@@ -2582,9 +2582,8 @@ router.post('/white-label', (req, res) => {
       if (Object.prototype.hasOwnProperty.call(body, 'appName')) next.appName = whiteLabel.cleanAppName(body.appName);
       if (Object.prototype.hasOwnProperty.call(body, 'preferredTheme')) {
         const theme = whiteLabel.cleanPreferredTheme(body.preferredTheme);
-        if (theme !== next.preferredTheme || !next.preferredThemeAt) {
-          next.preferredThemeAt = String(Date.now());
-        }
+        // Always bump so Review-app pins go stale even when re-saving the same choice.
+        next.preferredThemeAt = String(Date.now());
         next.preferredTheme = theme;
       }
       const removeLogo = body.remove_logo === 'on' || body.remove_logo === '1';

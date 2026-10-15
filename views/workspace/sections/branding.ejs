@@ -103,9 +103,10 @@
 </section>
 
 <% if (_wlCan) { %>
-<section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6">
+<section id="wl-appearance" class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 scroll-mt-24">
   <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-1">Default appearance</h2>
-  <p class="text-sm text-brand-muted mb-5">Sets light or dark for this client’s Review app (and CRM). Choose Dark, then Save appearance — reopen the Review app (or refresh) and it switches. A Profile choice only sticks until you save appearance here again.</p>
+  <p class="text-sm text-brand-muted mb-5">Sets light or dark for this client’s Review app (and CRM). Choose Dark, then Save — this page reloads with the new look. Open the Review app below to confirm.</p>
+  <p id="wlAppearanceFlash" class="hidden mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-700 dark:text-emerald-300" role="status"></p>
   <div class="grid gap-3 sm:grid-cols-3" role="radiogroup" aria-label="Default appearance">
     <%
       const _themeOpts = [
@@ -368,13 +369,32 @@
         if (theme === 'light' || theme === 'dark' || theme === 'system') {
           localStorage.setItem('ma-theme', theme);
         }
-        if (theme === 'dark') localStorage.setItem('color-theme', 'dark');
-        else if (theme === 'light') localStorage.setItem('color-theme', 'light');
+        if (theme === 'dark') {
+          localStorage.setItem('color-theme', 'dark');
+          document.documentElement.classList.add('dark');
+        } else if (theme === 'light') {
+          localStorage.setItem('color-theme', 'light');
+          document.documentElement.classList.remove('dark');
+        }
       } catch (e) { /* private mode */ }
     }
     // Already-saved White-label light/dark: align Review-app storage on this page load.
-    var savedTheme = <%= JSON.stringify(_wlTheme) %>;
+    // Must use <%- so quotes stay valid JS (<%= turns " into &#34; and breaks Save).
+    var savedTheme = <%- JSON.stringify(_wlTheme) %>;
     if (savedTheme === 'light' || savedTheme === 'dark') syncReviewAppThemeLocal(savedTheme);
+    try {
+      var appearanceQ = new URLSearchParams(window.location.search).get('appearance');
+      if (appearanceQ === 'light' || appearanceQ === 'dark' || appearanceQ === 'system') {
+        var flash = document.getElementById('wlAppearanceFlash');
+        if (flash) {
+          flash.textContent = 'Appearance saved as ' + appearanceQ + '. CRM updated — open the Review app link below to confirm.';
+          flash.classList.remove('hidden');
+        }
+        var clean = new URL(window.location.href);
+        clean.searchParams.delete('appearance');
+        window.history.replaceState({}, '', clean.pathname + clean.search + (clean.hash || '#wl-appearance'));
+      }
+    } catch (eFlash) { /* ignore */ }
     if (themeSave) {
       themeSave.addEventListener('click', function () {
         var picked = document.querySelector('input[name="wlPreferredTheme"]:checked');
@@ -391,10 +411,19 @@
         })
           .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, d: d }; }); })
           .then(function (res) {
-            themeSave.disabled = false;
-            if (!res.ok || !res.d.success) { say(themeMsg, res.d.error || 'Could not save.', false); return; }
+            if (!res.ok || !res.d.success) {
+              themeSave.disabled = false;
+              say(themeMsg, res.d.error || 'Could not save.', false);
+              return;
+            }
             syncReviewAppThemeLocal(theme);
-            say(themeMsg, 'Appearance saved. Reopen or refresh the Review app to see it.', true);
+            say(themeMsg, 'Saved. Reloading to apply…', true);
+            setTimeout(function () {
+              var url = new URL(window.location.href);
+              url.searchParams.set('appearance', theme);
+              url.hash = 'wl-appearance';
+              window.location.assign(url.toString());
+            }, 400);
           })
           .catch(function () { themeSave.disabled = false; say(themeMsg, 'Could not save. Check your connection.', false); });
       });
