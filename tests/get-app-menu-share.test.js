@@ -55,7 +55,7 @@ describe('Get the app menu + Share', () => {
     assert.match(sidebar, /Install your personal Review app/);
     assert.match(mobile, /Install your personal Review app/);
     const js = read('public/js/navbar-shell.js');
-    assert.match(js, /AdHello Review app/);
+    assert.match(js, /Here is a link to view and save your reviews app!/);
     assert.doesNotMatch(js, /AdHello Referral app/);
   });
 
@@ -97,9 +97,34 @@ describe('Get the app menu + Share', () => {
     const js = read('public/js/navbar-shell.js');
     const start = js.indexOf("closest('[data-get-app-share]')");
     assert.ok(start > 0, 'expected share click handler');
-    const snippet = js.slice(start, start + 1200);
+    const snippet = js.slice(start, start + 1600);
     assert.match(snippet, /e\.preventDefault\(\)/);
     const beforePrevent = snippet.slice(0, snippet.indexOf('e.preventDefault()'));
     assert.doesNotMatch(beforePrevent, /navigator\.share/);
+  });
+
+  it('Share copies invite text with the Review app URL', () => {
+    const js = read('public/js/navbar-shell.js');
+    assert.match(js, /data-get-app-share-text/);
+    assert.match(js, /Here is a link to view and save your reviews app!/);
+    assert.match(js, /shareBody/);
+    assert.match(js, /writeText\(shareBody\)/);
+
+    const page = read('views/get_app.ejs');
+    assert.match(page, /data-get-app-share-text="Here is a link to view and save your reviews app!"/);
+
+    const branding = read('views/workspace/sections/branding.ejs');
+    assert.match(branding, /data-get-app-share-text="Here is a link to view and save your reviews app!"/);
+
+    const route = read('routes/memberApp.js');
+    assert.match(route, /REVIEW_APP_SHARE_INVITE/);
+    assert.match(route, /\/a\/:code\/og\.jpg/);
+    assert.match(route, /app_link_share/);
+    assert.match(route, /og:image|ogImageUrl/);
+
+    const landing = read('views/member_app/app_link_share.ejs');
+    assert.match(landing, /property="og:image"/);
+    assert.match(landing, /index, follow, max-image-preview:large/);
+    assert.doesNotMatch(landing, /content="noindex/);
   });
 });

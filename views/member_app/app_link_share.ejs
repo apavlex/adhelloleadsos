@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <%/* Must be crawlable — iMessage skips rich previews when robots block indexing. */%>
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <title><%= ogTitle %></title>
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="AdHello.io">
+  <meta property="og:title" content="<%= ogTitle %>">
+  <meta property="og:description" content="<%= ogDescription %>">
+  <meta property="og:url" content="<%= ogUrl %>">
+  <meta property="og:image" content="<%= ogImageUrl %>">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="<%= ogTitle %>">
+  <meta name="twitter:description" content="<%= ogDescription %>">
+  <meta name="twitter:image" content="<%= ogImageUrl %>">
+  <meta http-equiv="refresh" content="0;url=<%= openPath %>">
+  <link rel="icon" type="image/png" href="<%= iconUrl %>">
+  <style>
+    :root { --acc: <%= brand.accent || '#0F4CAE' %>; --on: <%= brand.onAccent || '#fff' %>; }
+    html, body { margin: 0; min-height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0f172a; color: #f8fafc; }
+    main { max-width: 420px; margin: 0 auto; padding: 48px 24px; text-align: center; }
+    img.hero { width: 100%; max-width: 360px; border-radius: 18px; display: block; margin: 0 auto 20px; aspect-ratio: 1200 / 630; object-fit: cover; background: #1e293b; }
+    h1 { font-size: 22px; margin: 0 0 8px; letter-spacing: -0.02em; }
+    p { color: #cbd5e1; font-size: 15px; line-height: 1.45; margin: 0 0 22px; }
+    a.btn { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 22px; border-radius: 999px; background: var(--acc); color: var(--on); font-weight: 800; text-decoration: none; letter-spacing: 0.02em; }
+  </style>
+</head>
+<body>
+  <main>
+    <img class="hero" src="<%= ogImageUrl %>" alt="" width="1200" height="630">
+    <h1><%= brand.appName || 'Review app' %></h1>
+    <p><%= ogDescription %></p>
+    <a class="btn" href="<%= openPath %>">Open Review app</a>
+  </main>
+  <script>window.location.replace(<%= JSON.stringify(openPath) %>);</script>
+</body>
+</html>
