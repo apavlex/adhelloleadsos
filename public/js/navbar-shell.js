@@ -72,9 +72,9 @@ function readJsonReply(r) {
     el.id = 'adhelloNavProgress';
     el.setAttribute('aria-hidden', 'true');
     el.style.cssText =
-      'position:fixed;top:0;left:0;right:0;height:2px;z-index:9999;pointer-events:none;'
-      + 'background:linear-gradient(90deg,transparent,#FFDB3A 40%,#FFDB3A 60%,transparent);'
-      + 'transform:scaleX(0);transform-origin:left center;opacity:0;transition:transform .4s ease,opacity .2s ease;';
+      'position:fixed;top:0;left:0;right:0;height:3px;z-index:10000;pointer-events:none;'
+      + 'background:linear-gradient(90deg,transparent,#FFDB3A 35%,#FFDB3A 65%,transparent);'
+      + 'transform:scaleX(0);transform-origin:left center;opacity:0;transition:transform .35s ease,opacity .15s ease;';
     document.body.appendChild(el);
     return el;
   }
@@ -82,11 +82,13 @@ function readJsonReply(r) {
   function showNavProgress() {
     var el = ensureNavProgressEl();
     el.style.opacity = '1';
-    el.style.transform = 'scaleX(0.35)';
+    el.style.transform = 'scaleX(0.28)';
     clearTimeout(showNavProgress._t1);
     clearTimeout(showNavProgress._t2);
-    showNavProgress._t1 = setTimeout(function () { el.style.transform = 'scaleX(0.72)'; }, 180);
-    showNavProgress._t2 = setTimeout(function () { el.style.transform = 'scaleX(0.9)'; }, 900);
+    // Kick a frame later so the first paint shows motion immediately.
+    requestAnimationFrame(function () { el.style.transform = 'scaleX(0.48)'; });
+    showNavProgress._t1 = setTimeout(function () { el.style.transform = 'scaleX(0.72)'; }, 200);
+    showNavProgress._t2 = setTimeout(function () { el.style.transform = 'scaleX(0.9)'; }, 800);
   }
 
   function clearNavOverlaysForLeave() {
@@ -98,8 +100,51 @@ function readJsonReply(r) {
       panel.style.pointerEvents = 'none';
     }
     document.body.classList.remove('overflow-hidden');
+    document.documentElement.classList.add('adhello-navigating');
     document.documentElement.classList.remove('ws-settings-navigating');
     showNavProgress();
+  }
+
+  /** Resolve same-origin leave URL, or '' if this click should keep default browser behavior. */
+  function sameOriginLeaveUrl(a, e) {
+    if (!a || e.defaultPrevented) return '';
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || a.target === '_blank') return '';
+    if (a.hasAttribute('download') || a.hasAttribute('data-no-nav-progress')) return '';
+    var href = a.getAttribute('href') || '';
+    if (!href || href.charAt(0) === '#' || href.indexOf('javascript:') === 0) return '';
+    try {
+      var u = new URL(href, window.location.origin);
+      if (u.origin !== window.location.origin) return '';
+      if (u.pathname === window.location.pathname && u.search === window.location.search) {
+        // Same page (+ optional hash): let the browser handle it.
+        return '';
+      }
+      return u.pathname + u.search + u.hash;
+    } catch (_) {
+      return '';
+    }
+  }
+
+  /**
+   * Paint the leave wash first, then navigate. Without this, the browser freezes on the
+   * old page for the whole SSR wait and the progress bar never appears.
+   */
+  function leaveToUrl(url) {
+    if (!url || leaveToUrl._going) return;
+    leaveToUrl._going = true;
+    clearNavOverlaysForLeave();
+    // Force a layout read so the wash + progress commit before we start the document request.
+    void document.documentElement.offsetHeight;
+    var go = function () {
+      window.location.assign(url);
+    };
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(function () {
+        requestAnimationFrame(go);
+      });
+    } else {
+      setTimeout(go, 16);
+    }
   }
 
   if (mobileMenuBtn) {
@@ -127,35 +172,36 @@ function readJsonReply(r) {
       if (el.hasAttribute('data-sidebar-new-toggle')) return;
       if (el.hasAttribute('data-get-app-share')) return;
       el.addEventListener('click', function (ev) {
-        var href = el.getAttribute && el.getAttribute('href');
-        var leaving = el.tagName === 'A' && href && href.charAt(0) !== '#' && !el.hasAttribute('download')
-          && !(ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey || el.target === '_blank');
-        if (leaving) clearNavOverlaysForLeave();
-        else closeMobileMenu();
+        if (el.tagName !== 'A') {
+          closeMobileMenu();
+          return;
+        }
+        var next = sameOriginLeaveUrl(el, ev);
+        if (next) {
+          ev.preventDefault();
+          leaveToUrl(next);
+          return;
+        }
+        closeMobileMenu();
       });
     });
   }
 
-  // Any in-app nav click: drop dim overlays immediately so the old page doesn't sit blurred.
+  // In-app nav: wash out the old page immediately, then assign after paint.
   document.addEventListener('click', function (e) {
     var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
     if (!a) return;
-    if (e.defaultPrevented) return;
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || a.target === '_blank') return;
-    if (a.hasAttribute('download') || a.hasAttribute('data-no-nav-progress')) return;
-    var href = a.getAttribute('href') || '';
-    if (!href || href.charAt(0) === '#' || href.indexOf('javascript:') === 0) return;
-    try {
-      var u = new URL(href, window.location.origin);
-      if (u.origin !== window.location.origin) return;
-      if (u.pathname === window.location.pathname && u.search === window.location.search && u.hash) return;
-    } catch (_) {
-      return;
-    }
-    clearNavOverlaysForLeave();
+    // Mobile menu links handle leave themselves (avoids double assign).
+    if (mobileMenu && mobileMenu.contains(a)) return;
+    var next = sameOriginLeaveUrl(a, e);
+    if (!next) return;
+    e.preventDefault();
+    leaveToUrl(next);
   }, true);
 
   window.addEventListener('pageshow', function () {
+    leaveToUrl._going = false;
+    document.documentElement.classList.remove('adhello-navigating');
     var el = document.getElementById('adhelloNavProgress');
     if (el) {
       el.style.opacity = '0';
