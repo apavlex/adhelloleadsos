@@ -100,8 +100,14 @@ test('Review app seeds preferredTheme and uses accent icon on Home badge', () =>
   assert.match(home, /icon-192\.png/);
   assert.match(home, /ma-hero__badge/);
 
+  const top = fs.readFileSync(path.join(root, 'views/member_app/_top.ejs'), 'utf8');
+  assert.match(top, /ma-top__logo/);
+  assert.match(top, /icon-192\.png/);
+  assert.doesNotMatch(top, /ma-top__logo" src="<%= brand\.logoUrl %>"/);
+
   const css = fs.readFileSync(path.join(root, 'public/css/member-app.css'), 'utf8');
   assert.match(css, /\.ma-hero__badge img[\s\S]*background:\s*var\(--acc\)/);
+  assert.match(css, /\.ma-top__logo[\s\S]*background:\s*var\(--acc\)/);
 
   const ownerBrand = fs.readFileSync(path.join(root, 'services/ownerAppBrand.js'), 'utf8');
   assert.match(ownerBrand, /preferredTheme:\s*wl\.preferredTheme/);

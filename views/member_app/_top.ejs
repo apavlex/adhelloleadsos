@@ -3,7 +3,11 @@
     <% if (typeof topBack !== 'undefined' && topBack) { %>
     <a class="ma-top__back" href="<%= topBack.href %>"><%- icons.chevronLeft %><span><%= topBack.label %></span></a>
     <% } else { %>
-    <% if (brand.logoUrl) { %><img class="ma-top__logo" src="<%= brand.logoUrl %>" alt=""><% } %>
+    <% if (brand.logoUrl) {
+      const _topLogoSrc = (typeof base !== 'undefined' && base && !(typeof preview !== 'undefined' && preview))
+        ? (base + '/icon-192.png?v=' + encodeURIComponent(String(brand.logoUrl)))
+        : brand.logoUrl;
+    %><img class="ma-top__logo" src="<%= _topLogoSrc %>" alt="" width="28" height="28"><% } %>
     <p class="ma-top__title"><%= typeof topTitle !== 'undefined' && topTitle ? topTitle : brand.appName %></p>
     <% } %>
   </div>

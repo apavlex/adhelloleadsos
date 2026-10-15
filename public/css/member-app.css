@@ -122,7 +122,8 @@ body:has(> .ma-tabbar) .ma-shell {
 .ma-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 40px; }
 .ma-top__title { font-size: 15px; font-weight: 600; color: var(--muted); margin: 0; }
 .ma-top__brand { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.ma-top__logo { width: 28px; height: 28px; border-radius: 8px; object-fit: contain; background: #fff; }
+/* Accent-backed PWA icon — matches Home badge / Home Screen tile. */
+.ma-top__logo { width: 28px; height: 28px; border-radius: 8px; object-fit: cover; background: var(--acc); }
 .ma-avatar {
   width: 34px; height: 34px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center;
   background: var(--acc); color: var(--on); font-weight: 800; font-size: 13px; flex-shrink: 0;
