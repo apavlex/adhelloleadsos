@@ -1904,15 +1904,27 @@
     bootCustomerPicks();
   }
 
-  /** Light / dark / system appearance — labels under Call/Text/Review/Map use --ink. */
+  /** Light / dark / system — White-label default wins until Profile pins a choice. */
   var THEME_KEY = 'ma-theme';
+  var THEME_PIN_KEY = 'ma-theme-pinned';
   var themeMql = null;
 
+  function workspaceThemePref() {
+    var raw = document.documentElement.getAttribute('data-ma-workspace-theme') || 'system';
+    return raw === 'light' || raw === 'dark' || raw === 'system' ? raw : 'system';
+  }
+
+  function themePinned() {
+    try { return localStorage.getItem(THEME_PIN_KEY) === '1'; } catch (e) { return false; }
+  }
+
   function readThemePref() {
-    try {
-      var pref = localStorage.getItem(THEME_KEY) || 'system';
-      if (pref === 'light' || pref === 'dark') return pref;
-    } catch (e) { /* private mode */ }
+    var ws = workspaceThemePref();
+    var stored = null;
+    try { stored = localStorage.getItem(THEME_KEY); } catch (e) { /* private mode */ }
+    if (themePinned() && (stored === 'light' || stored === 'dark' || stored === 'system')) return stored;
+    if (ws === 'light' || ws === 'dark') return ws;
+    if (stored === 'light' || stored === 'dark' || stored === 'system') return stored;
     return 'system';
   }
 
@@ -1946,7 +1958,17 @@
   function applyMaTheme(pref, persist) {
     var next = pref === 'light' || pref === 'dark' ? pref : 'system';
     if (persist) {
-      try { localStorage.setItem(THEME_KEY, next); } catch (e) { /* private mode */ }
+      try {
+        localStorage.setItem(THEME_KEY, next);
+        localStorage.setItem(THEME_PIN_KEY, '1');
+      } catch (e) { /* private mode */ }
+    } else {
+      // Keep localStorage aligned with White-label when the user has not pinned.
+      var ws = workspaceThemePref();
+      if (!themePinned() && (ws === 'light' || ws === 'dark')) {
+        try { localStorage.setItem(THEME_KEY, ws); } catch (e2) { /* ignore */ }
+        next = ws;
+      }
     }
     var theme = resolveTheme(next);
     document.documentElement.setAttribute('data-ma-theme', theme);
@@ -1966,7 +1988,6 @@
       if (typeof themeMql.addEventListener === 'function') themeMql.addEventListener('change', onChange);
       else if (typeof themeMql.addListener === 'function') themeMql.addListener(onChange);
     }
-    // Listener stays attached; applyMaTheme only re-resolves when pref is system.
     void pref;
   }
 
