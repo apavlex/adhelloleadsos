@@ -91,6 +91,40 @@ function readJsonReply(r) {
     showNavProgress._t2 = setTimeout(function () { el.style.transform = 'scaleX(0.9)'; }, 800);
   }
 
+  function ensureNavLoadingEl() {
+    var el = document.getElementById('adhelloNavLoading');
+    if (el) return el;
+    el = document.createElement('div');
+    el.id = 'adhelloNavLoading';
+    el.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(el);
+    return el;
+  }
+
+  function hideNavLoading() {
+    clearTimeout(hideNavLoading._failSafe);
+    document.documentElement.classList.remove('adhello-nav-loading');
+    var el = document.getElementById('adhelloNavLoading');
+    if (el) el.classList.remove('is-on');
+    var bar = document.getElementById('adhelloNavProgress');
+    if (bar) {
+      bar.style.opacity = '0';
+      bar.style.transform = 'scaleX(0)';
+    }
+  }
+
+  function showNavLoading() {
+    document.documentElement.classList.add('adhello-nav-loading');
+    var el = ensureNavLoadingEl();
+    // Reflow so the opacity transition actually paints before the document request.
+    void el.offsetWidth;
+    el.classList.add('is-on');
+    showNavProgress();
+    clearTimeout(hideNavLoading._failSafe);
+    // If navigation never leaves (offline / cancelled), drop the dim so we are not stuck.
+    hideNavLoading._failSafe = setTimeout(hideNavLoading, 6000);
+  }
+
   function clearNavOverlaysForLeave() {
     closeMobileMenu({ instant: true });
     var panel = document.getElementById('mobilePanel');
@@ -101,9 +135,8 @@ function readJsonReply(r) {
     }
     document.body.classList.remove('overflow-hidden');
     document.documentElement.classList.remove('ws-settings-navigating');
-    // Never blank the page with a full-screen wash — iOS can stick on it.
-    // Thin top progress only; let the browser own the real navigation.
-    showNavProgress();
+    // Dim + soft blur = loading feel. Do not preventDefault / assign — browser owns nav.
+    showNavLoading();
   }
 
   if (mobileMenuBtn) {
@@ -160,11 +193,7 @@ function readJsonReply(r) {
   }, true);
 
   window.addEventListener('pageshow', function () {
-    var el = document.getElementById('adhelloNavProgress');
-    if (el) {
-      el.style.opacity = '0';
-      el.style.transform = 'scaleX(0)';
-    }
+    hideNavLoading();
     closeMobileMenu({ instant: true });
   });
 

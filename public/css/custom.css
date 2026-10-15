@@ -685,6 +685,35 @@ html.ws-settings-navigating .ws-settings-main {
     pointer-events: none;
 }
 
+/* In-app leave: dim + soft blur so the wait reads as loading (not a stuck blank page). */
+#adhelloNavLoading {
+    position: fixed;
+    inset: 0;
+    z-index: 9998;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 120ms ease;
+    background: rgba(15, 23, 42, 0.28);
+    -webkit-backdrop-filter: blur(5px);
+    backdrop-filter: blur(5px);
+}
+#adhelloNavLoading.is-on {
+    opacity: 1;
+}
+html.adhello-nav-loading {
+    cursor: progress;
+}
+html.adhello-nav-loading .app-shell-content {
+    filter: brightness(0.94);
+}
+@media (prefers-reduced-motion: reduce) {
+    #adhelloNavLoading {
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+        background: rgba(15, 23, 42, 0.4);
+    }
+}
+
 @media (max-width: 639px) {
     .ws-settings-search-wrap {
         display: none;
