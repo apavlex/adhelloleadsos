@@ -921,11 +921,15 @@ async function seedOwnerReviewBrand(network, owner, now) {
     reviewShareImageUpdatedAt: '',
   });
   await store.ensureReviewSlug(network.id, next, 'cascade-home-pros-demo');
-  await dbService.putStorageKey(`netreviewstats:${network.id}:${next.id}`, {
-    stars: { 1: 0, 2: 0, 3: 1, 4: 8, 5: 42 },
-    clicks: { google: 36, facebook: 7, yelp: 4, nextdoor: 2, other: 3 },
-    views: 91,
-  });
+  // Seed demo review stats only when empty — never clobber live visit counts on re-seed.
+  const existingReviewStats = await store.getReviewStats(network.id, next.id);
+  if (!(Number(existingReviewStats.views || 0) > 0)) {
+    await dbService.putStorageKey(`netreviewstats:${network.id}:${next.id}`, {
+      stars: { 1: 0, 2: 0, 3: 1, 4: 8, 5: 42 },
+      clicks: { google: 36, facebook: 7, yelp: 4, nextdoor: 2, other: 3 },
+      views: 91,
+    });
+  }
   const savedNet = await store.saveNetwork({
     ...network,
     brand: {
@@ -935,8 +939,9 @@ async function seedOwnerReviewBrand(network, owner, now) {
       accent: '#0EA5E9',
       heroUrl: `/m/brand/${network.id}/hero?v=${heroV}`,
       logoUrl: `/m/brand/${network.id}/logo?v=${logoV}`,
-      statValue: 91,
-      statLabel: 'review page visits',
+      // Home shows live reviewStats.views — do not freeze a marketing statValue here.
+      statValue: '',
+      statLabel: '',
     },
   });
   Object.assign(network, savedNet || {});
@@ -1284,6 +1289,17 @@ async function ensureDemoOwnerReviewAppUnlocked(wid, { email = '' } = {}) {
   const needsPhotos = (photoCount === 0 && (needsCustomers || jobs.length > 0)) || needsMediaUpgrade;
   const needsReferrals = ownerRefCount === 0;
 
+  // Older demos froze review visits on brand.statValue (hero stuck at 91 while tiles moved).
+  const brand = network.brand && typeof network.brand === 'object' ? network.brand : {};
+  const frozenReviewStat = !!(brand.statLabel && String(brand.statLabel).toLowerCase().includes('review'));
+  if (frozenReviewStat) {
+    const cleared = await store.saveNetwork({
+      ...network,
+      brand: { ...brand, statValue: '', statLabel: '', statSuffix: '' },
+    });
+    Object.assign(network, cleared || {});
+  }
+
   if (!needsCustomers && !needsBrand && !needsPhotos && !needsReferrals) {
     return {
       ok: true,
@@ -1291,6 +1307,7 @@ async function ensureDemoOwnerReviewAppUnlocked(wid, { email = '' } = {}) {
       customerCount: existingCustomers.length,
       photoCount,
       deduped,
+      clearedFrozenReviewStat: frozenReviewStat,
     };
   }
 
