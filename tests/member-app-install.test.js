@@ -270,6 +270,9 @@ describe('member app install modal and tab bar', () => {
     assert.match(js, /the work we did/);
     assert.match(js, /Link last → iMessage shows the review preview image/);
     assert.match(js, /syncShareKeywordPayload/);
+    assert.match(js, /scriptNeedsKeywords/);
+    assert.match(js, /promptForKeywordDefaults/);
+    assert.match(js, /the\\s\+your project/);
     assert.doesNotMatch(js, /data\.url\s*=\s*payload\.url/);
     assert.doesNotMatch(js, /navigator\.share\(\{ title: title, text: text, url:/);
     assert.doesNotMatch(js, /shareWithFile/);

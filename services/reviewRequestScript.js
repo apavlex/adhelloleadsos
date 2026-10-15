@@ -16,7 +16,7 @@ const DEFAULT_EMAIL_SCRIPT =
 
 /** One-tap insert for owners whose saved script still omits project keywords. */
 const KEYWORDS_SCRIPT_SNIPPET =
-  ' If you mention {{job}} in {{city}}, that helps neighbors find us.';
+  ' If you mention {{keywords}}, that helps neighbors find us.';
 
 const MAX_SMS = 480;
 const MAX_SCRIPT = 800;
@@ -160,6 +160,8 @@ function fillPlaceholders(script, { name, company, reviewLink, jobTitle, city, k
     .replace(/\{\{\s*city\s*\}\}/gi, loc || 'your area')
     .replace(/\{\{\s*keywords\s*\}\}/gi, kw)
     .replace(/\{\{\s*keyword\s*\}\}/gi, kw)
+    .replace(/\bthe\s+your project\b/gi, 'your project')
+    .replace(/\bthe\s+the project\b/gi, 'your project')
     .trim();
 }
 

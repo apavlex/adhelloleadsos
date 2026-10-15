@@ -789,6 +789,10 @@
         .replace(/\{\{\s*review_url\s*\}\}/gi, link)
         .replace(/\{\{\s*link\s*\}\}/gi, link);
     }
+    // Older scripts said "the {{job}}" — avoid "the your project" when falling back.
+    out = out
+      .replace(/\bthe\s+your project\b/gi, 'your project')
+      .replace(/\bthe\s+the project\b/gi, 'your project');
     return out.replace(/[ \t]+/g, ' ').trim();
   }
 
@@ -886,6 +890,34 @@
     } catch (e) { /* ignore */ }
   }
 
+  function scriptNeedsKeywords(script) {
+    return /\{\{\s*(job|city|keywords|keyword|project)\s*\}\}/i.test(String(script || ''));
+  }
+
+  function promptForKeywordDefaults() {
+    var fold = document.querySelector('details.ma-fold summary');
+    var summaries = document.querySelectorAll('details.ma-fold');
+    for (var i = 0; i < summaries.length; i++) {
+      var s = summaries[i].querySelector('summary');
+      if (s && /SMS script/i.test(s.textContent || '')) {
+        summaries[i].open = true;
+        break;
+      }
+    }
+    var jobEl = document.getElementById('rvKeywordJob');
+    var emptyHint = document.getElementById('rvKeywordsEmptyHint');
+    if (emptyHint) {
+      emptyHint.style.display = '';
+      emptyHint.textContent = 'Add a default project and city (or keywords), then Save script — gray example text is only a hint until you type.';
+    }
+    if (jobEl) {
+      jobEl.classList.add('ma-input--unset');
+      try { jobEl.focus(); } catch (e) { /* ignore */ }
+      try { jobEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e2) { /* ignore */ }
+    }
+    void fold;
+  }
+
   function requestReviewFromPhone(btn) {
     syncShareKeywordPayload();
     var payload = readRequestReviewPayload(btn);
@@ -898,6 +930,13 @@
     var sourceScript = liveScript || String(payload.script || '');
     var kw = readLiveKeywordFields(payload);
     var text = '';
+    var hasKw = !!(kw.jobTitle || kw.city || kw.keywords || buildLiveKeywordHint(kw));
+
+    // Don't open Messages with empty "your project / your area" — make them set defaults.
+    if (scriptNeedsKeywords(sourceScript) && !hasKw) {
+      promptForKeywordDefaults();
+      return;
+    }
 
     // Live script may add {{review_link}} after page load — pick URL from the page.
     if (!reviewUrl && scriptWantsReviewLink(sourceScript)) {

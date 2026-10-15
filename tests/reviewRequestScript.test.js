@@ -83,7 +83,7 @@ test('customer job beats member defaults', () => {
 
 test('DEFAULT_SMS_SCRIPT includes keywords placeholder', () => {
   assert.match(review.DEFAULT_SMS_SCRIPT, /\{\{\s*keywords\s*\}\}/);
-  assert.match(review.KEYWORDS_SCRIPT_SNIPPET, /\{\{\s*job\s*\}\}/);
+  assert.match(review.KEYWORDS_SCRIPT_SNIPPET, /\{\{\s*keywords\s*\}\}/);
 });
 
 test('ensureReviewLink and placeReviewLinkAtEnd put the URL last for previews', () => {
