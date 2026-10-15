@@ -5,9 +5,13 @@
   <%- include('member_app/_head', {
     pageTitle: 'Review ' + member.companyName,
     robots: (typeof previewMode !== 'undefined' && previewMode) ? 'noindex' : 'index, follow, max-image-preview:large',
+    cssAsync: true,
   }) %>
   <% if (!(typeof previewMode !== 'undefined' && previewMode)) { %>
   <%- include('partials/review_og_meta') %>
+  <% } %>
+  <% if (typeof logoUrl !== 'undefined' && logoUrl) { %>
+  <link rel="preload" as="image" href="<%= logoUrl %>">
   <% } %>
 </head>
 <body>
@@ -24,7 +28,7 @@
   <% } %>
   <main class="rv-wrap<%= _preview ? ' rv-wrap--preview' : '' %>">
     <% if (typeof logoUrl !== 'undefined' && logoUrl) { %>
-    <img class="rv-logo" src="<%= logoUrl %>" alt="<%= member.companyName %>">
+    <img class="rv-logo" src="<%= logoUrl %>" alt="<%= member.companyName %>" width="84" height="84" decoding="async" fetchpriority="high">
     <% } else { %>
     <div class="rv-initials" aria-hidden="true"><%= member.companyName.trim().charAt(0).toUpperCase() %></div>
     <% } %>

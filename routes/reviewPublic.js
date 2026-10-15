@@ -145,9 +145,10 @@ router.get('/rv/:slug/logo.png', async (req, res) => {
   try {
     const page = await loadPage(req.params.slug);
     if (!page) return res.status(404).end();
-    const img = await reviewShareImage.getReviewLogoBuffer(page.network.id, page.member.id);
+    const img = await reviewShareImage.getPublicPageLogoBuffer(page.network.id, page.member.id, 'logo');
     if (!img || !img.buffer) return res.status(404).end();
-    res.setHeader('Content-Type', img.contentType || 'image/png');
+    res.setHeader('Content-Type', img.contentType || 'image/jpeg');
+    res.setHeader('Content-Length', Buffer.byteLength(img.buffer));
     res.setHeader('Cache-Control', 'public, max-age=604800');
     return res.end(img.buffer);
   } catch (err) {
@@ -161,9 +162,10 @@ router.get('/rv/:slug/avatar.png', async (req, res) => {
   try {
     const page = await loadPage(req.params.slug);
     if (!page) return res.status(404).end();
-    const img = await store.getProfilePhoto(page.network.id, page.member.id);
+    const img = await reviewShareImage.getPublicPageLogoBuffer(page.network.id, page.member.id, 'avatar');
     if (!img || !img.buffer) return res.status(404).end();
     res.setHeader('Content-Type', img.contentType || 'image/jpeg');
+    res.setHeader('Content-Length', Buffer.byteLength(img.buffer));
     res.setHeader('Cache-Control', 'public, max-age=604800');
     return res.end(img.buffer);
   } catch (err) {
@@ -218,9 +220,11 @@ router.get('/rv/:slug', async (req, res) => {
     const askId = resolveAskId(req);
     if (askId) {
       stampAskCookie(res, page.slug, askId);
-      await reviewAsk.markOpened(askId).catch(() => {});
+      // Don't await — first paint matters more than ask open tracking.
+      reviewAsk.markOpened(askId).catch(() => {});
     }
-    await store.bumpReviewStats(page.network.id, page.member.id, rating ? { star: rating } : { view: true }).catch(() => {});
+    // Don't await view/star stats before HTML — Redis/DB latency shows as a blank spinner on mobile.
+    store.bumpReviewStats(page.network.id, page.member.id, rating ? { star: rating } : { view: true }).catch(() => {});
 
     // 4–5★ on a tracked ask → notify business to manually confirm before reward SMS.
     if (askId && rating >= 4) {

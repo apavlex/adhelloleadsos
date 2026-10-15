@@ -185,6 +185,47 @@ async function getReviewLogoBuffer(networkId, memberId) {
   return store.getReviewLogo(networkId, memberId);
 }
 
+/**
+ * Display size on /rv is 84px CSS; serve 192px JPEG so mobile isn't stuck
+ * downloading a 512px PNG (~0.5MB) before the page feels ready.
+ */
+const PUBLIC_PAGE_LOGO_PX = 192;
+const PUBLIC_PAGE_LOGO_CACHE_MAX = 64;
+const publicPageLogoCache = new Map();
+
+async function compressPublicPageLogo(buffer) {
+  const sharp = require('sharp');
+  const out = await sharp(buffer)
+    .rotate()
+    .resize(PUBLIC_PAGE_LOGO_PX, PUBLIC_PAGE_LOGO_PX, { fit: 'cover', position: 'attention' })
+    .jpeg({ quality: 82, mozjpeg: true })
+    .toBuffer();
+  return { contentType: 'image/jpeg', buffer: out };
+}
+
+/**
+ * Profile avatar or custom request-page logo, resized for the public /rv hero.
+ * kind: 'avatar' | 'logo'
+ */
+async function getPublicPageLogoBuffer(networkId, memberId, kind) {
+  const src = kind === 'logo'
+    ? await store.getReviewLogo(networkId, memberId)
+    : await store.getProfilePhoto(networkId, memberId);
+  if (!src || !src.buffer || !src.buffer.length) return null;
+
+  const key = `${kind}:${networkId}:${memberId}:${src.updatedAt || ''}:${src.buffer.length}`;
+  const hit = publicPageLogoCache.get(key);
+  if (hit) return hit;
+
+  const prepared = await compressPublicPageLogo(src.buffer);
+  if (publicPageLogoCache.size >= PUBLIC_PAGE_LOGO_CACHE_MAX) {
+    const oldest = publicPageLogoCache.keys().next().value;
+    publicPageLogoCache.delete(oldest);
+  }
+  publicPageLogoCache.set(key, prepared);
+  return prepared;
+}
+
 function reviewLogoPath(slug, updatedAt) {
   const s = encodeURIComponent(String(slug || '').trim());
   const v = encodeURIComponent(String(updatedAt || '').trim() || '1');
@@ -223,6 +264,7 @@ module.exports = {
   OG_WIDTH,
   OG_HEIGHT,
   MAX_UPLOAD_BYTES,
+  PUBLIC_PAGE_LOGO_PX,
   newImageId,
   isImageId,
   prepareShareImage,
@@ -240,6 +282,8 @@ module.exports = {
   saveReviewLogo,
   deleteReviewLogo,
   getReviewLogoBuffer,
+  compressPublicPageLogo,
+  getPublicPageLogoBuffer,
   reviewLogoPath,
   profileAvatarPath,
   hasCustomLogo,
