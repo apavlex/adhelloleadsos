@@ -42,8 +42,30 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Manrope:wght@700;800&display=swap" media="print" onload="this.media='all'">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Manrope:wght@700;800&display=swap"></noscript>
+<% const _cssAsync = typeof cssAsync !== 'undefined' && cssAsync; %>
+<% if (_cssAsync) { %>
+<link rel="stylesheet" href="/css/member-app.css?v=<%= _v %>" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="/css/member-app.css?v=<%= _v %>"></noscript>
+<% } else { %>
 <link rel="stylesheet" href="/css/member-app.css?v=<%= _v %>">
-<style>:root { --acc: <%= brand.accent %>; --on: <%= brand.onAccent %>; }</style>
+<% } %>
+<style>:root { --acc: <%= brand.accent %>; --on: <%= brand.onAccent %>; --bg:#f2f2f7; --card:#fff; --ink:#000; --muted:#6e6e73; --line:rgba(60,60,67,.12); --font-text:-apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,ui-sans-serif,system-ui,sans-serif; --font-display:-apple-system,BlinkMacSystemFont,"SF Pro Display",Manrope,Inter,ui-sans-serif,system-ui,sans-serif; }
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-text);font-size:15px;line-height:1.4;-webkit-font-smoothing:antialiased;min-height:100svh}
+h1,h2,h3{font-family:var(--font-display);letter-spacing:-.02em}
+.rv-wrap{max-width:440px;margin:0 auto;padding:calc(env(safe-area-inset-top,0px) + 28px) 20px calc(env(safe-area-inset-bottom,0px) + 32px);text-align:center}
+.rv-logo{width:84px;height:84px;border-radius:50%;object-fit:cover;background:#fff;box-shadow:0 6px 20px rgba(15,23,42,.1);margin:0 auto 14px;display:block}
+.rv-initials{width:84px;height:84px;border-radius:50%;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;background:var(--acc);color:var(--on);font-family:var(--font-display);font-weight:900;font-size:30px}
+.rv-wrap h1{font-size:24px;font-weight:800;margin:0}
+.rv-sub{color:var(--muted);margin:6px 0 22px;font-size:15px}
+.rv-stars{display:flex;justify-content:center;gap:6px;margin:4px 0 8px}
+.rv-star{display:inline-block;width:52px;height:52px;border:0;background:transparent;padding:0;color:color-mix(in srgb,var(--muted) 40%,transparent)}
+.rv-star svg{width:100%;height:100%;display:block}
+.rv-star.is-on{color:#fbbf24}
+.rv-panel{margin-top:18px;text-align:left}
+.rv-links{display:grid;gap:10px;margin-top:12px}
+.rv-foot{margin-top:28px;font-size:12px;color:var(--muted)}
+</style>
 <% /* Critical layout — ships with HTML (network-first) so a stale SW-cached stylesheet can't blow up settings icons or leave a gap under the tab bar. */ %>
 <style id="ma-critical">
 a.ma-settings-row,button.ma-settings-row,summary.ma-settings-row{display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;align-items:center;gap:10px;width:100%;max-width:100%;min-height:44px;padding:10px 2px;margin:0;border:0;background:transparent;font:inherit;color:inherit;text-align:left;text-decoration:none;-webkit-appearance:none;appearance:none;box-sizing:border-box;list-style:none}

@@ -559,14 +559,35 @@ async function getReviewStats(networkId, memberId) {
   return normalizeReviewStats(await readJson(`netreviewstats:${networkId}:${memberId}`));
 }
 
+/** Serialize bumps per member so concurrent /rv hits don't lose visit increments. */
+const reviewStatLocks = new Map();
+
+async function withReviewStatLock(networkId, memberId, fn) {
+  const key = `${networkId}:${memberId}`;
+  const prev = reviewStatLocks.get(key) || Promise.resolve();
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const pending = prev.then(() => gate, () => gate);
+  reviewStatLocks.set(key, pending);
+  await prev.catch(() => {});
+  try {
+    return await fn();
+  } finally {
+    release();
+    if (reviewStatLocks.get(key) === pending) reviewStatLocks.delete(key);
+  }
+}
+
 async function bumpReviewStats(networkId, memberId, { star, click, view } = {}) {
-  const stats = await getReviewStats(networkId, memberId);
-  const s = parseInt(star, 10);
-  if (s >= 1 && s <= 5) stats.stars[s] += 1;
-  if (click && REVIEW_PLATFORMS.includes(click)) stats.clicks[click] += 1;
-  if (view) stats.views += 1;
-  await dbService.putStorageKey(`netreviewstats:${networkId}:${memberId}`, stats);
-  return stats;
+  return withReviewStatLock(networkId, memberId, async () => {
+    const stats = await getReviewStats(networkId, memberId);
+    const s = parseInt(star, 10);
+    if (s >= 1 && s <= 5) stats.stars[s] += 1;
+    if (click && REVIEW_PLATFORMS.includes(click)) stats.clicks[click] += 1;
+    if (view) stats.views += 1;
+    await dbService.putStorageKey(`netreviewstats:${networkId}:${memberId}`, stats);
+    return stats;
+  });
 }
 
 module.exports = {

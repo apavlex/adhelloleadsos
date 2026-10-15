@@ -54,9 +54,13 @@
           <%= _appt.openLeadCount || 0 %> leads · <%= (tiles.find(function (t) { return t.key === 'pending'; }) || {}).value || 0 %> pending referrals
           <% if (wonValue) { %> · <%= wonValue %> won<% } %>
         </p>
-        <% } else if (brand.statValueLabel) { %>
+        <% } else if (brand.statValueLabel && !(brand.statLabel && String(brand.statLabel).toLowerCase().indexOf('review') >= 0)) { %>
         <p class="ma-hero__stat"><%= brand.statValueLabel %><% if (brand.statSuffix) { %><small><%= brand.statSuffix %></small><% } %></p>
         <% if (brand.statLabel) { %><p class="ma-hero__label"><%= brand.statLabel %></p><% } %>
+        <% } else if (brand.statLabel && String(brand.statLabel).toLowerCase().indexOf('review') >= 0) { %>
+        <%/* Live reviewStats.views — do not show a frozen brand.statValue for review visits. */%>
+        <p class="ma-hero__stat"><%= Number(_reviewViews || 0).toLocaleString('en-US') %></p>
+        <p class="ma-hero__label"><%= brand.statLabel %></p>
         <% } else { %>
         <p class="ma-hero__stat"><%= _reviewViews %><small>review page visits</small></p>
         <% if (_customerCount || _openJobs) { %><p class="ma-hero__label"><%= _customerCount %> customers · <%= _openJobs %> open jobs</p><% } %>

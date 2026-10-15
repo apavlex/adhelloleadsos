@@ -273,7 +273,7 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     // Install-as-app modal lives in the tabbar; the open control is on Profile settings.
     assert.match(homeHtml, /id="maInstall"/);
     assert.match(homeHtml, /ma-install-modal/);
-    assert.match(homeHtml, /data-ma-install-panel="workspace"/);
+    assert.match(homeHtml, /data-ma-install-panel="workspace-ios"/);
     assert.match(homeHtml, /data-ma-install-copy/);
     assert.match(homeHtml, /Save as a phone app/);
     assert.match(homeHtml, /class="ma-tabbar"/);
@@ -480,7 +480,11 @@ test('member app pages, manifest, send, enroll and the review page work end to e
 
     const publicAvatar = await fetch(`${base}/rv/camas-flooring/avatar.png`);
     assert.equal(publicAvatar.status, 200);
-    assert.match(String(publicAvatar.headers.get('content-type') || ''), /image\//);
+    assert.match(String(publicAvatar.headers.get('content-type') || ''), /image\/jpeg/);
+    // Public /rv serves a compressed 192px JPEG, not the raw upload.
+    assert.ok(Buffer.from(await publicAvatar.arrayBuffer()).length < 50_000);
+    assert.match(ogHtml, /rel="preload" as="image"/);
+    assert.match(ogHtml, /member-app\.css[^>]*media="print"/);
 
     // Tiny 1×1 PNG for logo upload — used only when Profile photo is removed.
     const tinyPng = Buffer.from(

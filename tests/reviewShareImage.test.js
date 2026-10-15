@@ -100,6 +100,37 @@ test('shareImageAbsoluteUrl includes cache-bust version', () => {
   );
 });
 
+test('compressPublicPageLogo shrinks a large PNG to a small JPEG', async () => {
+  const src = await sharp({
+    create: { width: 512, height: 512, channels: 3, background: { r: 40, g: 120, b: 200 } },
+  }).png().toBuffer();
+  const out = await reviewShareImage.compressPublicPageLogo(src);
+  assert.equal(out.contentType, 'image/jpeg');
+  const meta = await sharp(out.buffer).metadata();
+  assert.equal(meta.width, reviewShareImage.PUBLIC_PAGE_LOGO_PX);
+  assert.equal(meta.height, reviewShareImage.PUBLIC_PAGE_LOGO_PX);
+  assert.ok(out.buffer.length < 40_000);
+});
+
+test('getPublicPageLogoBuffer serves a compressed avatar', async () => {
+  const network = await store.getOrCreateNetworkForWorkspace(`ws_pub_logo_${Date.now()}`, { name: 'Pub Logo Net' });
+  const member = await store.saveMember(network.id, {
+    companyName: 'Pub Co',
+    status: 'active',
+    reviewSlug: 'pub-co',
+  });
+  const src = await sharp({
+    create: { width: 512, height: 512, channels: 3, background: '#224466' },
+  }).png().toBuffer();
+  await store.saveProfilePhoto(network.id, member.id, { contentType: 'image/png', buffer: src });
+  const first = await reviewShareImage.getPublicPageLogoBuffer(network.id, member.id, 'avatar');
+  const second = await reviewShareImage.getPublicPageLogoBuffer(network.id, member.id, 'avatar');
+  assert.equal(first.contentType, 'image/jpeg');
+  assert.equal(first.buffer.length, second.buffer.length);
+  const meta = await sharp(first.buffer).metadata();
+  assert.equal(meta.width, 192);
+});
+
 test('requestPageLogoUrl prefers Profile photo over request-page logo', () => {
   const member = {
     reviewSlug: 'zippy-blinds',
