@@ -712,7 +712,7 @@ html.ws-settings-navigating .ws-settings-main {
     left: 0;
     right: 0;
     bottom: env(safe-area-inset-bottom, 0px);
-    height: 3px;
+    height: 9px;
     overflow: hidden;
     background: rgba(202, 138, 4, 0.22);
 }

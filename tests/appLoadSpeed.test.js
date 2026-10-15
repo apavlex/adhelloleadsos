@@ -33,6 +33,7 @@ test('nav shell closes menu instantly and shows progress on leave', () => {
   assert.match(css, /#adhelloNavLoading/);
   assert.match(css, /backdrop-filter:\s*blur/);
   assert.match(css, /adhello-nav-bottom-bar/);
+  assert.match(css, /adhello-nav-bottom-bar[^}]*height:\s*9px/s);
   assert.match(css, /adhello-nav-bottom-bar-slide/);
 });
 
