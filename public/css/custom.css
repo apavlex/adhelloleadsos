@@ -685,25 +685,6 @@ html.ws-settings-navigating .ws-settings-main {
     pointer-events: none;
 }
 
-/* Full-page leave wash — old content must not sit frozen during SSR waits. */
-html.adhello-navigating {
-    cursor: progress;
-}
-html.adhello-navigating::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    z-index: 9000;
-    pointer-events: none;
-    background: #FAF7ED;
-}
-html.dark.adhello-navigating::before {
-    background: #020617;
-}
-html.adhello-navigating #adhelloNavProgress {
-    z-index: 10000;
-}
-
 @media (max-width: 639px) {
     .ws-settings-search-wrap {
         display: none;
