@@ -20,21 +20,24 @@ test('nav shell closes menu instantly and shows progress on leave', () => {
   assert.match(js, /closeMobileMenu\(\{\s*instant:\s*true\s*\}\)/);
   assert.match(js, /showNavLoading/);
   assert.match(js, /adhelloNavLoading/);
-  assert.match(js, /adhello-nav-bottom-bar/);
+  assert.match(js, /adhello-nav-loader/);
+  assert.match(js, /adhello-app-icon\.png/);
   assert.match(js, /backdrop-filter',\s*'none'/);
   // Never hijack link clicks or opaque-blank the page — that stuck iOS.
   assert.doesNotMatch(js, /adhello-navigating/);
   assert.doesNotMatch(js, /function leaveToUrl/);
   assert.doesNotMatch(js, /location\.assign/);
   assert.doesNotMatch(js, /adhello-nav-radiant/);
+  assert.doesNotMatch(js, /adhello-nav-bottom-bar/);
   const css = fs.readFileSync(path.join(root, 'public/css/custom.css'), 'utf8');
   assert.doesNotMatch(css, /adhello-navigating/);
   assert.doesNotMatch(css, /adhello-nav-radiant/);
+  assert.doesNotMatch(css, /adhello-nav-bottom-bar/);
   assert.match(css, /#adhelloNavLoading/);
   assert.match(css, /backdrop-filter:\s*blur/);
-  assert.match(css, /adhello-nav-bottom-bar/);
-  assert.match(css, /adhello-nav-bottom-bar[^}]*height:\s*9px/s);
-  assert.match(css, /adhello-nav-bottom-bar-slide/);
+  assert.match(css, /adhello-nav-loader/);
+  assert.match(css, /adhello-nav-loader-spin/);
+  assert.match(css, /adhello-nav-loader-icon/);
 });
 
 test('prospecting folders tab skips unused lead JSON and Drive OAuth', () => {

@@ -729,7 +729,7 @@ html.ws-settings-navigating .ws-settings-main {
     pointer-events: none;
 }
 
-/* In-app leave: frosted dim over the old page + thin yellow motion bar at the bottom. */
+/* In-app leave: frosted dim + centered circle loader with brand icon. */
 #adhelloNavLoading {
     position: fixed;
     inset: 0;
@@ -740,33 +740,49 @@ html.ws-settings-navigating .ws-settings-main {
     background: rgba(15, 23, 42, 0.22);
     -webkit-backdrop-filter: blur(5px);
     backdrop-filter: blur(5px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 #adhelloNavLoading.is-on {
     opacity: 1;
 }
-#adhelloNavLoading .adhello-nav-bottom-bar {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: env(safe-area-inset-bottom, 0px);
-    height: 9px;
-    overflow: hidden;
-    background: rgba(202, 138, 4, 0.22);
+#adhelloNavLoading .adhello-nav-loader {
+    position: relative;
+    width: 88px;
+    height: 88px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
-#adhelloNavLoading .adhello-nav-bottom-bar::after {
-    content: '';
+#adhelloNavLoading .adhello-nav-loader-ring {
     position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    width: 40%;
-    border-radius: 999px;
-    background: linear-gradient(90deg, transparent, #FFDB3A 30%, #FFDB3A 70%, transparent);
-    animation: adhello-nav-bottom-bar-slide 1.05s ease-in-out infinite;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    animation: adhello-nav-loader-spin 0.95s linear infinite;
 }
-@keyframes adhello-nav-bottom-bar-slide {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(350%); }
+#adhelloNavLoading .adhello-nav-loader-track {
+    stroke: rgba(255, 219, 58, 0.22);
+    stroke-width: 3.5;
+}
+#adhelloNavLoading .adhello-nav-loader-arc {
+    stroke: #FFDB3A;
+    stroke-width: 3.5;
+    stroke-linecap: round;
+    stroke-dasharray: 78 136;
+}
+#adhelloNavLoading .adhello-nav-loader-icon {
+    position: relative;
+    z-index: 1;
+    width: 48px;
+    height: 48px;
+    border-radius: 22%;
+    object-fit: cover;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.18);
+}
+@keyframes adhello-nav-loader-spin {
+    to { transform: rotate(360deg); }
 }
 html.adhello-nav-loading {
     cursor: progress;
@@ -777,11 +793,12 @@ html.adhello-nav-loading {
         backdrop-filter: none;
         background: rgba(15, 23, 42, 0.35);
     }
-    #adhelloNavLoading .adhello-nav-bottom-bar::after {
+    #adhelloNavLoading .adhello-nav-loader-ring {
         animation: none;
-        left: 30%;
-        width: 40%;
-        transform: none;
+    }
+    #adhelloNavLoading .adhello-nav-loader-arc {
+        stroke-dasharray: 160 52;
+        opacity: 0.85;
     }
 }
 
