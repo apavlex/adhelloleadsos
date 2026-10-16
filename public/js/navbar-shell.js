@@ -65,13 +65,32 @@ function readJsonReply(r) {
     }, 160);
   }
 
+  function navLoadingLogoSrc() {
+    var img =
+      document.querySelector('.sidebar-logo-link img') ||
+      document.querySelector('#mobileMenuBtn img');
+    var src = img && img.getAttribute('src');
+    return src || '/images/adhello-app-icon.png';
+  }
+
   function ensureNavLoadingEl() {
     var el = document.getElementById('adhelloNavLoading');
     if (el) return el;
     el = document.createElement('div');
     el.id = 'adhelloNavLoading';
-    el.setAttribute('aria-hidden', 'true');
-    el.innerHTML = '<div class="adhello-nav-bottom-bar"></div>';
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
+    el.setAttribute('aria-label', 'Loading');
+    el.innerHTML =
+      '<div class="adhello-nav-loader">' +
+        '<svg class="adhello-nav-loader-ring" viewBox="0 0 80 80" aria-hidden="true">' +
+          '<circle class="adhello-nav-loader-track" cx="40" cy="40" r="34" fill="none" />' +
+          '<circle class="adhello-nav-loader-arc" cx="40" cy="40" r="34" fill="none" />' +
+        '</svg>' +
+        '<img class="adhello-nav-loader-icon" src="' +
+          navLoadingLogoSrc().replace(/"/g, '&quot;') +
+          '" alt="" width="48" height="48" decoding="async" />' +
+      '</div>';
     document.body.appendChild(el);
     return el;
   }
@@ -89,7 +108,7 @@ function readJsonReply(r) {
     void el.offsetWidth;
     el.classList.add('is-on');
     clearTimeout(hideNavLoading._failSafe);
-    // If navigation never leaves, drop the bar so we are not stuck.
+    // If navigation never leaves, drop the loader so we are not stuck.
     hideNavLoading._failSafe = setTimeout(hideNavLoading, 6000);
   }
 
@@ -103,7 +122,7 @@ function readJsonReply(r) {
     }
     document.body.classList.remove('overflow-hidden');
     document.documentElement.classList.remove('ws-settings-navigating');
-    // Frosted page + bottom motion bar. Do not preventDefault — browser owns nav.
+    // Frosted page + centered circle loader. Do not preventDefault — browser owns nav.
     showNavLoading();
   }
 
