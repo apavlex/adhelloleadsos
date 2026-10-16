@@ -65,13 +65,9 @@ function readJsonReply(r) {
     }, 160);
   }
 
-  function navLoadingLogoSrc() {
-    var img =
-      document.querySelector('.sidebar-logo-link img') ||
-      document.querySelector('#mobileMenuBtn img');
-    var src = img && img.getAttribute('src');
-    return src || '/images/adhello-app-icon.png';
-  }
+  // Always the AdHello app icon (same as Flooring / default chrome) — never
+  // workspace white-label art, which can be missing or blank in the loader.
+  var NAV_LOADING_ICON_SRC = '/images/adhello-app-icon.png';
 
   function ensureNavLoadingEl() {
     var el = document.getElementById('adhelloNavLoading');
@@ -87,8 +83,7 @@ function readJsonReply(r) {
           '<circle class="adhello-nav-loader-track" cx="40" cy="40" r="34" fill="none" />' +
           '<circle class="adhello-nav-loader-arc" cx="40" cy="40" r="34" fill="none" />' +
         '</svg>' +
-        '<img class="adhello-nav-loader-icon" src="' +
-          navLoadingLogoSrc().replace(/"/g, '&quot;') +
+        '<img class="adhello-nav-loader-icon" src="' + NAV_LOADING_ICON_SRC +
           '" alt="" width="48" height="48" decoding="async" />' +
       '</div>';
     document.body.appendChild(el);
