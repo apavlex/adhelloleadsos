@@ -782,6 +782,25 @@
   /* --opp-stage-min (18rem): narrower columns can't fit the card's action icons on one row. */
   var STAGE_MIN_PX = 288;
 
+  function isPhoneOppPage() {
+    return (
+      document.body.classList.contains('opp-page') &&
+      window.matchMedia &&
+      window.matchMedia('(max-width: 767px)').matches
+    );
+  }
+
+  function clearPhoneStageInlineWidths() {
+    if (!board) return;
+    Array.prototype.forEach.call(board.querySelectorAll('.opp-stage'), function (stage) {
+      stage.style.width = '';
+      stage.style.flex = '';
+      stage.style.minWidth = '';
+      stage.style.height = '';
+      stage.style.maxWidth = '';
+    });
+  }
+
   function clampStageWidth(px) {
     var min = STAGE_MIN_PX;
     var max = 448;
@@ -793,6 +812,15 @@
 
   function applyStageWidth(stage, px) {
     if (!stage) return;
+    /* Phones use CSS full-bleed stages — never lock a desktop px width inline. */
+    if (isPhoneOppPage()) {
+      stage.style.width = '';
+      stage.style.flex = '';
+      stage.style.minWidth = '';
+      stage.style.height = '';
+      stage.style.maxWidth = '';
+      return;
+    }
     var width = clampStageWidth(px);
     stage.style.width = width + 'px';
     stage.style.flex = '0 0 auto';
@@ -801,6 +829,10 @@
 
   function bindColumnResize() {
     var stages = board.querySelectorAll('.opp-stage');
+    if (isPhoneOppPage()) {
+      clearPhoneStageInlineWidths();
+      return;
+    }
     var saved = readSavedWidths();
     Array.prototype.forEach.call(stages, function (stage) {
       var id = stage.getAttribute('data-stage-id') || '';
@@ -881,6 +913,16 @@
   bindColumnResize();
   bindBoardWheelScroll();
   ensureSortable();
+  if (isPhoneOppPage()) clearPhoneStageInlineWidths();
+  if (window.matchMedia) {
+    var phoneMq = window.matchMedia('(max-width: 767px)');
+    var onPhoneMq = function () {
+      if (isPhoneOppPage()) clearPhoneStageInlineWidths();
+      else bindColumnResize();
+    };
+    if (phoneMq.addEventListener) phoneMq.addEventListener('change', onPhoneMq);
+    else if (phoneMq.addListener) phoneMq.addListener(onPhoneMq);
+  }
 
   (function bindOppFullscreen() {
     if (!document.body.classList.contains('opp-page')) return;

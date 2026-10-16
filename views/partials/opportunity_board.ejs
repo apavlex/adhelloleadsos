@@ -397,7 +397,7 @@
       padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
     }
     body.opp-page #oppBoard.opp-page-board > .opp-page-board-body {
-      padding: 0;
+      padding: 0 !important;
       background: #fff;
     }
     html.dark body.opp-page #oppBoard.opp-page-board > .opp-page-board-body {
@@ -592,7 +592,7 @@
   <% if (!_compact) { %>
   <button type="button" id="oppFullscreenExit" title="Exit full screen (Esc)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>Exit full screen</button>
   <% } %>
-  <div class="opp-page-board-body px-3 sm:px-4 md:px-5 py-3 md:py-4">
+  <div class="opp-page-board-body<%= _compact ? ' px-3 sm:px-4 md:px-5 py-3 md:py-4' : '' %>">
     <div class="opp-board" id="oppStageRow">
       <% _board.stages.forEach(function (stage, stageIdx) { %>
       <% var _isLastStage = stageIdx === _board.stages.length - 1; %>
