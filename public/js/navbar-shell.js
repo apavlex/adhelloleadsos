@@ -65,13 +65,25 @@ function readJsonReply(r) {
     }, 160);
   }
 
-  // Always the AdHello app icon (same as Flooring / default chrome) — never
-  // workspace white-label art, which can be missing or blank in the loader.
-  var NAV_LOADING_ICON_SRC = '/images/adhello-app-icon.png';
+  // Inline AdHello mark (same yellow squircle + white caret as Flooring chrome).
+  // Do NOT use <img> here — iOS aborts the image request mid-navigation and leaves
+  // an empty rounded square inside the spinner.
+  var NAV_LOADING_ICON_SVG =
+    '<svg class="adhello-nav-loader-icon" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" focusable="false">' +
+      '<defs>' +
+        '<linearGradient id="adhelloNavIconGrad" x1="24" y1="0" x2="24" y2="48" gradientUnits="userSpaceOnUse">' +
+          '<stop stop-color="#FFE566"/>' +
+          '<stop offset="1" stop-color="#E8B40A"/>' +
+        '</linearGradient>' +
+      '</defs>' +
+      '<rect width="48" height="48" rx="11" fill="url(#adhelloNavIconGrad)"/>' +
+      '<path d="M15 34 L24 14 L33 34" fill="none" stroke="#FFFEF5" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '</svg>';
 
   function ensureNavLoadingEl() {
     var el = document.getElementById('adhelloNavLoading');
-    if (el) return el;
+    if (el && el.querySelector('svg.adhello-nav-loader-icon')) return el;
+    if (el) el.remove();
     el = document.createElement('div');
     el.id = 'adhelloNavLoading';
     el.setAttribute('role', 'status');
@@ -83,8 +95,7 @@ function readJsonReply(r) {
           '<circle class="adhello-nav-loader-track" cx="40" cy="40" r="34" fill="none" />' +
           '<circle class="adhello-nav-loader-arc" cx="40" cy="40" r="34" fill="none" />' +
         '</svg>' +
-        '<img class="adhello-nav-loader-icon" src="' + NAV_LOADING_ICON_SRC +
-          '" alt="" width="48" height="48" decoding="async" />' +
+        NAV_LOADING_ICON_SVG +
       '</div>';
     document.body.appendChild(el);
     return el;
