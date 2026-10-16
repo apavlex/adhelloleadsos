@@ -21,7 +21,10 @@ test('nav shell closes menu instantly and shows progress on leave', () => {
   assert.match(js, /showNavLoading/);
   assert.match(js, /adhelloNavLoading/);
   assert.match(js, /adhello-nav-loader/);
+  assert.match(js, /NAV_LOADING_ICON_SRC\s*=\s*'\/images\/adhello-app-icon\.png'/);
   assert.match(js, /adhello-app-icon\.png/);
+  // Loader always uses the AdHello icon — not per-workspace white-label art.
+  assert.doesNotMatch(js, /function navLoadingLogoSrc/);
   assert.match(js, /backdrop-filter',\s*'none'/);
   // Never hijack link clicks or opaque-blank the page — that stuck iOS.
   assert.doesNotMatch(js, /adhello-navigating/);
