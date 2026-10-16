@@ -238,7 +238,8 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    padding: 0.75rem 0.85rem 0.85rem;
+    /* Extra top pad so stage-zoom circles aren't clipped by this overflow box */
+    padding: 1rem 0.85rem 0.85rem;
     background: rgba(250, 247, 237, 0.55);
   }
   html.dark body.opp-page #oppBoard.opp-page-board > .opp-page-board-body {
@@ -249,6 +250,8 @@
     min-height: 0;
     height: 100%;
     align-items: stretch;
+    /* Keep stage-zoom circles inside overflow-y: hidden on this scroller */
+    padding-top: 0.85rem;
     padding-bottom: 0.15rem;
   }
   body.opp-page #oppBoard.opp-page-board .opp-stage {
@@ -259,6 +262,19 @@
     max-height: none;
     height: auto;
     align-self: stretch;
+    /* Must stay visible — overflow:hidden (or radius clipping) cut the zoom control in half */
+    overflow: visible;
+    padding: 1.15rem 0.85rem 0.75rem;
+  }
+  body.opp-page #oppBoard.opp-page-board .opp-stage-head {
+    flex-shrink: 0;
+    align-items: center;
+    min-height: 2rem;
+    overflow: visible;
+  }
+  body.opp-page #oppBoard.opp-page-board button.opp-stage-zoom {
+    flex-shrink: 0;
+    overflow: visible;
   }
   body.opp-page #oppBoard.opp-page-board .opp-stage-cards {
     flex: 1 1 auto;
