@@ -249,6 +249,8 @@
     min-height: 0;
     height: 100%;
     align-items: stretch;
+    /* Keep stage header icons (zoom) inside the clip edge of overflow-y: hidden */
+    padding-top: 0.35rem;
     padding-bottom: 0.15rem;
   }
   body.opp-page #oppBoard.opp-page-board .opp-stage {
@@ -259,6 +261,14 @@
     max-height: none;
     height: auto;
     align-self: stretch;
+    overflow: visible;
+    /* Room for the circular zoom control — was getting clipped at the top on desktop */
+    padding: 1rem 0.85rem 0.75rem;
+  }
+  body.opp-page #oppBoard.opp-page-board .opp-stage-head {
+    flex-shrink: 0;
+    align-items: center;
+    min-height: 2rem;
   }
   body.opp-page #oppBoard.opp-page-board .opp-stage-cards {
     flex: 1 1 auto;
