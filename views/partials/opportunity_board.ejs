@@ -382,25 +382,42 @@
   .opp-stage.is-zoomed .opp-stage-cards { flex: 1 1 auto; min-height: 0; max-height: none !important; }
   .opp-stage.is-zoomed .opp-stage-resize { display: none; }
   body.opp-stage-zoom-open { overflow: hidden; }
-  /* Phones: stages run nearly edge to edge and down to the bottom; the home-indicator gap lives inside the card scroll. */
+  /* Phones: board + stages go edge-to-edge (tiny peek of the next column only). */
   @media (max-width: 767px) {
     body.opp-page { padding-bottom: 0 !important; }
-    body.opp-page #oppBoard.opp-page-board > .opp-page-board-body { padding: 0.5rem 0.35rem 0; }
-    body.opp-page.opp-fullscreen #oppBoard > .opp-page-board-body { padding: calc(0.4rem + env(safe-area-inset-top)) 0.35rem 0; }
-    body.opp-page #oppBoard.opp-page-board .opp-board { gap: 0.4rem; padding-bottom: 0; scroll-snap-type: x proximity; scroll-padding-left: 0.35rem; scrollbar-width: none; }
+    body.opp-page #oppBoard.opp-page-board > .opp-page-toolbar {
+      padding-left: max(0.75rem, env(safe-area-inset-left, 0px));
+      padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
+    }
+    body.opp-page #oppBoard.opp-page-board > .opp-page-board-body {
+      padding: 0.35rem 0 0;
+    }
+    body.opp-page.opp-fullscreen #oppBoard > .opp-page-board-body {
+      padding: calc(0.35rem + env(safe-area-inset-top, 0px)) 0 0;
+    }
+    body.opp-page #oppBoard.opp-page-board .opp-board {
+      gap: 0.35rem;
+      padding-bottom: 0;
+      padding-left: 0;
+      padding-right: 0;
+      scroll-snap-type: x mandatory;
+      scroll-padding-left: 0;
+      scrollbar-width: none;
+    }
     body.opp-page #oppBoard.opp-page-board .opp-board::-webkit-scrollbar { display: none; }
     body.opp-page #oppBoard.opp-page-board .opp-stage {
-      flex: 0 0 calc(100vw - 2.5rem) !important;
-      width: calc(100vw - 2.5rem) !important;
+      /* Full bleed minus a slim next-column peek */
+      flex: 0 0 calc(100vw - 0.65rem) !important;
+      width: calc(100vw - 0.65rem) !important;
       min-width: 0 !important;
-      padding: 0.6rem 0.4rem 0;
+      padding: 0.55rem 0.65rem 0;
       border-bottom: 0;
-      border-radius: 1rem 1rem 0 0;
+      border-radius: 0;
       scroll-snap-align: start;
     }
     body.opp-page #oppBoard.opp-page-board .opp-stage-head { margin-bottom: 0.45rem; }
     body.opp-page #oppBoard.opp-page-board .opp-stage-cards {
-      padding: 0.3rem 0.3rem calc(0.5rem + env(safe-area-inset-bottom));
+      padding: 0.3rem 0.35rem calc(0.5rem + env(safe-area-inset-bottom));
       border-radius: 0.75rem 0.75rem 0 0;
     }
     body.opp-page.opp-fullscreen:not(.opp-stage-zoom-open) #oppBoard.opp-page-board .opp-stage-cards { padding-bottom: calc(4rem + env(safe-area-inset-bottom)); }
@@ -408,13 +425,13 @@
     body.opp-page #oppBoard.opp-page-board .opp-stage.is-zoomed {
       flex: none !important;
       width: auto !important;
-      padding: calc(0.5rem + env(safe-area-inset-top)) 0.35rem 0;
+      padding: calc(0.5rem + env(safe-area-inset-top)) 0.5rem 0;
       border-radius: 0;
     }
     .opp-stage.is-zoomed .opp-zoom-bar { margin-bottom: 0.5rem; }
     .opp-stage.is-zoomed .opp-stage-cards,
     body.opp-page #oppBoard.opp-page-board .opp-stage.is-zoomed .opp-stage-cards {
-      padding: 0.3rem 0.3rem calc(0.75rem + env(safe-area-inset-bottom));
+      padding: 0.3rem 0.35rem calc(0.75rem + env(safe-area-inset-bottom));
       border-radius: 0.75rem 0.75rem 0 0;
     }
   }
