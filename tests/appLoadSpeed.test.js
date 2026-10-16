@@ -21,12 +21,10 @@ test('nav shell closes menu instantly and shows progress on leave', () => {
   assert.match(js, /showNavLoading/);
   assert.match(js, /adhelloNavLoading/);
   assert.match(js, /adhello-nav-loader/);
-  assert.match(js, /NAV_LOADING_ICON_SVG/);
-  assert.match(js, /adhelloNavIconGrad/);
-  // Inline SVG only — a mid-nav <img> fetch gets aborted on iOS (empty square).
+  assert.match(js, /NAV_LOADING_ICON_SRC\s*=\s*'data:image\/png;base64,/);
+  // Data-URI icon — no network fetch mid-nav (remote <img> was aborted on iOS).
   assert.doesNotMatch(js, /function navLoadingLogoSrc/);
-  assert.doesNotMatch(js, /NAV_LOADING_ICON_SRC/);
-  assert.doesNotMatch(js, /adhello-nav-loader-icon" src=/);
+  assert.doesNotMatch(js, /NAV_LOADING_ICON_SVG/);
   assert.match(js, /backdrop-filter',\s*'none'/);
   // Never hijack link clicks or opaque-blank the page — that stuck iOS.
   assert.doesNotMatch(js, /adhello-navigating/);
