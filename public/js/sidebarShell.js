@@ -142,14 +142,40 @@
     if (!wsb || !wsm || !wsw || wsb.getAttribute('data-ws-bound') === '1') return;
     wsb.setAttribute('data-ws-bound', '1');
 
+    function ensureWsMenuPortaled() {
+      /* Fixed menus inside #appSidebar (overflow scroller, z-40) painted under the
+         frosted topbar and looked “transparent” with search/UI bleeding through.
+         Portal to body via .app-body-portal so crush rules + stacking stay correct. */
+      if (wsm.parentElement && wsm.parentElement.getAttribute('data-ws-portal') === '1') return;
+      var portal = document.createElement('div');
+      portal.className = 'app-body-portal';
+      portal.setAttribute('data-ws-portal', '1');
+      document.body.appendChild(portal);
+      portal.appendChild(wsm);
+    }
+
+    function paintWsMenuOpaque() {
+      var dark = document.documentElement.classList.contains('dark');
+      wsm.style.backgroundColor = dark ? '#0f172a' : '#ffffff';
+      wsm.style.opacity = '1';
+      wsm.style.backdropFilter = 'none';
+      wsm.style.webkitBackdropFilter = 'none';
+    }
+
     function positionWsMenu() {
+      ensureWsMenuPortaled();
+      paintWsMenuOpaque();
       var rect = wsb.getBoundingClientRect();
       wsm.style.position = 'fixed';
       wsm.style.top = Math.round(rect.bottom + 4) + 'px';
       wsm.style.left = Math.round(rect.left) + 'px';
       wsm.style.width = Math.max(Math.round(rect.width), 220) + 'px';
       wsm.style.right = 'auto';
-      wsm.style.zIndex = '200';
+      wsm.style.zIndex = '220';
+      wsm.style.pointerEvents = 'auto';
+      wsm.style.height = 'auto';
+      wsm.style.maxHeight = 'min(24rem, 70vh)';
+      wsm.style.overflowY = 'auto';
     }
 
     function closeWsMenu() {
@@ -175,7 +201,7 @@
     });
 
     document.addEventListener('click', function (e) {
-      if (wsw.contains(e.target)) return;
+      if (wsw.contains(e.target) || wsm.contains(e.target)) return;
       closeWsMenu();
     });
 
