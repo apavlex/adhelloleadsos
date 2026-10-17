@@ -118,6 +118,8 @@ async function upsertOpenTaskForLead(workspaceId, email, fields) {
     : null;
   const source = normalizeTaskSource(fields.source) || TASK_SOURCE_MANUAL;
 
+  const href = fields.href != null ? String(fields.href).trim() : '';
+
   if (!leadKey || source === TASK_SOURCE_LEAD_TASK) {
     return dbService.saveUserTask(workspaceId, email, {
       id: newTaskId(),
@@ -129,6 +131,7 @@ async function upsertOpenTaskForLead(workspaceId, email, fields) {
       leadKey,
       remindMinutesBefore,
       source,
+      href: href || null,
     });
   }
 
@@ -165,6 +168,7 @@ async function upsertOpenTaskForLead(workspaceId, email, fields) {
       source === TASK_SOURCE_MANUAL
         ? TASK_SOURCE_MANUAL
         : source || (keep && keep.source) || TASK_SOURCE_MANUAL,
+    href: href || (keep && keep.href) || null,
   });
 
   const refreshed = await dbService.listUserTasks(workspaceId, email);

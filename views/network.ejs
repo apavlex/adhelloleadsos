@@ -546,6 +546,7 @@
             <div class="net-metric"><span>Won</span><strong>$<%= Math.round(m.stats.wonValue).toLocaleString('en-US') %></strong></div>
           </div>
           <div class="mt-3 flex flex-wrap items-center gap-2">
+            <a href="/appointments?member=<%= encodeURIComponent(m.id) %>" class="net-btn net-btn-ghost no-underline" title="Apps left, booked, closed, credits, and lead requests for this teammate">Appointments</a>
             <button type="button" class="net-btn net-btn-ghost" data-net-copy-portal="<%= m.id %>" data-net-copy-kind="referral">Copy partner app</button>
             <button type="button" class="net-btn net-btn-ghost" data-net-copy-portal="<%= m.id %>" data-net-copy-kind="contractor">Copy contractor app</button>
             <form method="post" action="/network/members/<%= m.id %>/send-portal-link"><button type="submit" class="net-btn net-btn-ghost">Text partner app</button></form>

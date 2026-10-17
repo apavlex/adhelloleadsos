@@ -2023,6 +2023,10 @@ module.exports = {
     };
     const source = task.source != null ? String(task.source).trim().toLowerCase() : '';
     if (source) payload.source = source;
+    const href = task.href != null ? String(task.href).trim() : '';
+    if (href && href.startsWith('/') && !href.startsWith('//')) {
+      payload.href = href.slice(0, 500);
+    }
     const copies = this._userTaskKeysFor(workspaceId, email).filter((k) => k.taskId === id);
     const key = copies.length ? copies[0].key : this._userTaskKey(workspaceId, email, id);
     kvSet(key, JSON.stringify(payload));

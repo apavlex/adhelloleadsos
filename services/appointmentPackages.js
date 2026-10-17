@@ -471,6 +471,37 @@ async function listGhlCalendars(workspaceId) {
   }
 }
 
+function emptyTotals() {
+  return {
+    purchased: 0,
+    remaining: 0,
+    open: 0,
+    booked: 0,
+    closed: 0,
+    formLeads: 0,
+    leadCreditsLeft: 0,
+    pendingRequests: 0,
+  };
+}
+
+function totalsForPackages(packages) {
+  return (packages || []).reduce(
+    (acc, p) => {
+      const counts = (p && p.counts) || {};
+      acc.purchased += Number(counts.purchased) || 0;
+      acc.remaining += Number(counts.remaining) || 0;
+      acc.open += Number(counts.open) || 0;
+      acc.booked += Number(counts.booked) || 0;
+      acc.closed += Number(counts.closed) || 0;
+      acc.formLeads += (p.formLeads || []).length;
+      acc.leadCreditsLeft += Number(p.leadCredits && p.leadCredits.remaining) || 0;
+      acc.pendingRequests += (p.pendingRequests || []).length;
+      return acc;
+    },
+    emptyTotals(),
+  );
+}
+
 function buildTodayView(store, { ghlConfigured = false } = {}) {
   const packages = (store.packages || []).map((pkg) => {
     const tracker = trackerFor(pkg);
@@ -486,29 +517,7 @@ function buildTodayView(store, { ghlConfigured = false } = {}) {
     };
   });
   const trades = listTrades(store);
-  const totals = packages.reduce(
-    (acc, p) => {
-      acc.purchased += p.counts.purchased;
-      acc.remaining += p.counts.remaining;
-      acc.open += p.counts.open;
-      acc.booked += p.counts.booked;
-      acc.closed += p.counts.closed;
-      acc.formLeads += (p.formLeads || []).length;
-      acc.leadCreditsLeft += p.leadCredits.remaining;
-      acc.pendingRequests += (p.pendingRequests || []).length;
-      return acc;
-    },
-    {
-      purchased: 0,
-      remaining: 0,
-      open: 0,
-      booked: 0,
-      closed: 0,
-      formLeads: 0,
-      leadCreditsLeft: 0,
-      pendingRequests: 0,
-    },
-  );
+  const totals = totalsForPackages(packages);
   const overallPct = totals.purchased
     ? Math.max(0, Math.min(100, Math.round((totals.closed / totals.purchased) * 100)))
     : 0;
@@ -520,6 +529,33 @@ function buildTodayView(store, { ghlConfigured = false } = {}) {
     lastSyncAt: store.lastSyncAt || null,
     ghlConfigured: !!ghlConfigured,
     steps: TRACKER_STEPS,
+  };
+}
+
+/**
+ * Narrow a today-view to specific package ids (e.g. one network teammate's linked package).
+ * Empty packageIds → empty inventory totals (unlinked teammate).
+ */
+function scopeTodayView(view, packageIds) {
+  const base = view && typeof view === 'object' ? view : buildTodayView({ packages: [] });
+  const ids = new Set(
+    (Array.isArray(packageIds) ? packageIds : [])
+      .map((id) => str(id))
+      .filter(Boolean),
+  );
+  const packages = ids.size
+    ? (base.packages || []).filter((p) => p && ids.has(str(p.id)))
+    : [];
+  const totals = totalsForPackages(packages);
+  const overallPct = totals.purchased
+    ? Math.max(0, Math.min(100, Math.round((totals.closed / totals.purchased) * 100)))
+    : 0;
+  return {
+    ...base,
+    packages,
+    trades: listTrades({ packages }),
+    totals,
+    overallPct,
   };
 }
 
@@ -838,6 +874,7 @@ module.exports = {
   syncFromGhl,
   listGhlCalendars,
   buildTodayView,
+  scopeTodayView,
   loadTodayView,
   applyGhlEventToStore,
   processAppointmentWebhook,

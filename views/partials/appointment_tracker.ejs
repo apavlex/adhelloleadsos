@@ -4,6 +4,14 @@
 <% const _canSell = typeof canSellAppointments !== 'undefined' && !!canSellAppointments; %>
 <% const _pool = typeof appointmentPool !== 'undefined' && appointmentPool ? appointmentPool : { listings: [], summary: {}, myPurchases: [] }; %>
 <% const _poolListings = Array.isArray(_pool.listings) ? _pool.listings : []; %>
+<% const _teammates = typeof appointmentTeammates !== 'undefined' && Array.isArray(appointmentTeammates) ? appointmentTeammates : []; %>
+<% const _teammate = typeof appointmentTeammate !== 'undefined' && appointmentTeammate ? appointmentTeammate : null; %>
+<% const _pendingQueue = []; %>
+<% (_at.packages || []).forEach(function (pkg) {
+  (pkg.pendingRequests || []).forEach(function (req) {
+    _pendingQueue.push({ pkg: pkg, req: req });
+  });
+}); %>
 <section class="appt-tracker mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/85 shadow-sm overflow-hidden" id="appointmentTracker" aria-label="Appointment tracker" data-can-sell="<%= _canSell ? '1' : '0' %>">
   <style>
     .appt-tracker { --appt-ink: #0f172a; --appt-gold: #FFD644; --appt-done: #0f766e; --appt-line: rgba(15, 23, 42, 0.12); }
@@ -142,10 +150,24 @@
     <div class="flex flex-wrap items-start justify-between gap-4 mb-5">
       <div class="min-w-0">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Appointment tracker</p>
-        <h2 class="font-display font-extrabold text-2xl md:text-3xl leading-tight text-brand-dark dark:text-white"><%= _canSell ? 'Sold slots → booked → closed' : 'Buy appointments → track booked → closed' %></h2>
-        <p class="text-sm text-brand-muted dark:text-slate-400 mt-2 max-w-xl"><% if (_canSell) { %>App admins sell packages and list leads on the shared pool for commission. Workspaces buy available appointments from that pool.<% } else { %>Buy available appointments from the AdHello pool. Your purchased slots show here as Appts left — you cannot create or sell inventory from this workspace.<% } %></p>
+        <h2 class="font-display font-extrabold text-2xl md:text-3xl leading-tight text-brand-dark dark:text-white"><% if (_teammate) { %><%= _teammate.companyName %> — health<% } else { %><%= _canSell ? 'Sold slots → booked → closed' : 'Buy appointments → track booked → closed' %><% } %></h2>
+        <p class="text-sm text-brand-muted dark:text-slate-400 mt-2 max-w-xl"><% if (_teammate) { %><% if (_teammate.linked) { %>Apps left, booked, closed, form leads, lead credits, and pending requests for this teammate’s linked package.<% } else { %>No appointment package linked to this teammate yet — sell a package (or match by email / company name) to track their inventory here.<% } %><% } else if (_canSell) { %>App admins sell packages and list leads on the shared pool for commission. Workspaces buy available appointments from that pool. Pick a teammate to see their inventory health.<% } else { %>Buy available appointments from the AdHello pool. Your purchased slots show here as Appts left — you cannot create or sell inventory from this workspace.<% } %></p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
+        <% if (_teammates.length) { %>
+        <form method="get" action="/appointments" class="flex items-center gap-2" id="apptTeammateFilter">
+          <label for="apptTeammateSelect" class="sr-only">Teammate</label>
+          <select id="apptTeammateSelect" name="member" class="rounded-full border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 text-brand-dark dark:text-white text-[11px] font-bold px-4 py-2.5 max-w-[14rem]" onchange="this.form.submit()" title="Filter tracker by network teammate">
+            <option value="" <%= !_teammate ? 'selected' : '' %>>All teammates</option>
+            <% _teammates.forEach(function (tm) { %>
+            <option value="<%= tm.id %>" <%= _teammate && _teammate.id === tm.id ? 'selected' : '' %>><%= tm.companyName %><%= tm.status === 'paused' ? ' (paused)' : '' %></option>
+            <% }); %>
+          </select>
+          <% if (_teammate) { %>
+          <a href="/appointments" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white hover:underline px-1">Clear</a>
+          <% } %>
+        </form>
+        <% } %>
         <% if (_canSell) { %>
         <button type="button" id="apptSellBtn" class="btn-pill bg-brand-yellow text-brand-dark px-5 py-2.5 text-[10px] font-black uppercase tracking-widest">Sell appointments</button>
         <button type="button" id="apptPoolListBtn" class="btn-pill border border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 text-brand-dark dark:text-white px-5 py-2.5 text-[10px] font-black uppercase tracking-widest" title="List a lead or slots on the shared pool for workspaces to buy">List for pool</button>
@@ -448,10 +470,42 @@
   <% } %>
 
   <div class="px-5 sm:px-6 md:px-8 py-5" id="apptPackageList">
+    <% if (_teammate && _pendingQueue.length) { %>
+    <div class="mb-5 rounded-2xl border border-amber-400/50 bg-amber-50/90 dark:bg-amber-950/35 px-4 py-4" id="apptTeammateRequests" aria-label="Pending requests for <%= _teammate.companyName %>">
+      <div class="flex flex-wrap items-end justify-between gap-2 mb-3">
+        <div>
+          <p class="text-[10px] font-black uppercase tracking-widest text-amber-800 dark:text-amber-200">Needs attention</p>
+          <h3 class="font-display font-extrabold text-lg text-brand-dark dark:text-white mt-1"><%= _pendingQueue.length %> pending request<%= _pendingQueue.length === 1 ? '' : 's' %> from <%= _teammate.companyName %></h3>
+        </div>
+      </div>
+      <div class="space-y-2">
+        <% _pendingQueue.forEach(function (row) { %>
+        <div class="flex flex-wrap items-center gap-2 rounded-xl border border-amber-400/30 bg-white/70 dark:bg-slate-950/40 px-3 py-2.5">
+          <p class="text-[12px] font-bold text-amber-950 dark:text-amber-50 flex-1 min-w-0">
+            Requested <%= row.req.quantity %> <%= row.req.type %><% if (row.req.note) { %> — <%= row.req.note %><% } %>
+            <span class="block text-[10px] font-semibold text-brand-muted mt-0.5"><%= row.pkg.businessName %></span>
+          </p>
+          <% if (_canSell) { %>
+          <button type="button" class="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300 hover:underline" data-appt-fulfill="<%= row.pkg.id %>" data-request-id="<%= row.req.id %>">Fulfill</button>
+          <button type="button" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:underline" data-appt-decline="<%= row.pkg.id %>" data-request-id="<%= row.req.id %>">Decline</button>
+          <% } %>
+        </div>
+        <% }); %>
+      </div>
+    </div>
+    <% } %>
     <% if (!_at.packages || !_at.packages.length) { %>
     <div class="rounded-2xl border border-dashed border-brand-border dark:border-white/15 px-5 py-8 text-center" id="apptEmptyState">
+      <% if (_teammate && !_teammate.linked) { %>
+      <p class="font-display font-extrabold text-lg text-brand-dark dark:text-white">No package linked to <%= _teammate.companyName %></p>
+      <p class="text-sm text-brand-muted mt-2 max-w-md mx-auto"><% if (_canSell) { %>Sell an appointment package for this teammate (match company name or email), or set their appointment package from the Network member. Then their apps left, credits, and lead requests show here.<% } else { %>Ask your agency admin to link an appointment package to this teammate so inventory and requests appear here.<% } %></p>
+      <% } else if (_teammate) { %>
+      <p class="font-display font-extrabold text-lg text-brand-dark dark:text-white">No inventory for <%= _teammate.companyName %></p>
+      <p class="text-sm text-brand-muted mt-2 max-w-md mx-auto">Their linked package has no slots yet. <% if (_canSell) { %>Sell appointments or fulfill a lead/appointment request above.<% } else { %>Buy from the pool or ask your agency to add slots.<% } %></p>
+      <% } else { %>
       <p class="font-display font-extrabold text-lg text-brand-dark dark:text-white"><%= _canSell ? 'No appointment packages yet' : 'No purchased appointments yet' %></p>
       <p class="text-sm text-brand-muted mt-2 max-w-md mx-auto"><% if (_canSell) { %>Sell a package to a contractor, or list leads on the appointments pool for workspaces to buy. Sync with GHL to mark slots booked and closed.<% } else { %>Buy available appointments from the pool above. Purchased slots show here as Appts left — sync GHL to track booked and closed.<% } %></p>
+      <% } %>
     </div>
     <% } else { %>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
