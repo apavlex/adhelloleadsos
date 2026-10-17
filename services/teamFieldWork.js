@@ -8,7 +8,7 @@
 
 const work = require('./memberWork');
 
-const VIEWS = ['open', 'upcoming', 'all'];
+const VIEWS = ['open', 'upcoming', 'today', 'day', 'calendar', 'all'];
 
 function memberDisplayName(member) {
   if (!member) return 'Member';
@@ -64,54 +64,184 @@ function compareFieldRows(a, b) {
   return String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''));
 }
 
+function cleanDay(value, fallback) {
+  const d = work.cleanDate(value);
+  return d || fallback || work.todayIn();
+}
+
+function cleanMonth(value, today) {
+  const raw = String(value || '').trim();
+  if (/^\d{4}-\d{2}$/.test(raw)) return raw;
+  return String(today || work.todayIn()).slice(0, 7);
+}
+
+/**
+ * Load every member's customers + jobs once (shared by list + summarize).
+ * @returns {Promise<{ member: object, customers: object[], jobs: object[] }[]>}
+ */
+async function loadMemberBooks(networkId, members) {
+  const list = Array.isArray(members) ? members : [];
+  const out = [];
+  for (const member of list) {
+    if (!member || !member.id) continue;
+    try {
+      const [customers, jobs] = await Promise.all([
+        work.listCustomers(networkId, member.id),
+        work.listJobs(networkId, member.id),
+      ]);
+      out.push({ member, customers, jobs });
+    } catch (err) {
+      console.warn('[teamFieldWork] skip member', member.id, err && err.message);
+    }
+  }
+  return out;
+}
+
+function buildActiveNumbers(totals) {
+  return [
+    {
+      id: 'today',
+      label: 'Today',
+      count: totals.today,
+      hint: totals.today === 1 ? 'job on calendar' : 'jobs on calendar',
+      href: '/network?tab=field-work&fw=today',
+    },
+    {
+      id: 'overdue',
+      label: 'Overdue',
+      count: totals.overdue,
+      hint: totals.overdue ? 'need a status update' : 'none behind',
+      href: '/network?tab=field-work&fw=open&jobStatus=in_progress',
+    },
+    {
+      id: 'open',
+      label: 'Open',
+      count: totals.open,
+      hint: totals.membersWithWork
+        ? `${totals.membersWithWork} member${totals.membersWithWork === 1 ? '' : 's'}`
+        : 'projects in flight',
+      href: '/network?tab=field-work&fw=open',
+    },
+    {
+      id: 'week',
+      label: 'This week',
+      count: totals.thisWeek,
+      hint: 'scheduled ahead',
+      href: '/network?tab=field-work&fw=upcoming',
+    },
+  ];
+}
+
+function computeTotals(allJobs, today) {
+  const { start, end } = work.weekRange(today);
+  let open = 0;
+  let upcoming = 0;
+  let todayCount = 0;
+  let overdue = 0;
+  let thisWeek = 0;
+  let photos = 0;
+  const membersWithOpen = new Set();
+
+  allJobs.forEach(({ memberId, job }) => {
+    const isOpen = work.isOpen(job);
+    photos += (job.photos || []).length;
+    if (!isOpen) return;
+    open += 1;
+    membersWithOpen.add(memberId);
+    if (job.date && job.date >= today) upcoming += 1;
+    if (job.date === today) todayCount += 1;
+    if (job.date && job.date < today && job.status !== 'on_hold') overdue += 1;
+    if (job.date && job.date >= start && job.date <= end) thisWeek += 1;
+  });
+
+  return {
+    open,
+    upcoming,
+    today: todayCount,
+    overdue,
+    thisWeek,
+    photos,
+    membersWithWork: membersWithOpen.size,
+    jobs: allJobs.length,
+  };
+}
+
+/**
+ * Lightweight summary for Home + Network active-number strips.
+ */
+async function summarizeTeamFieldWork(networkId, members, opts = {}) {
+  const today = opts.today || work.todayIn();
+  const books = await loadMemberBooks(networkId, members);
+  const allJobs = [];
+  books.forEach(({ member, jobs }) => {
+    (jobs || []).forEach((job) => allJobs.push({ memberId: member.id, job }));
+  });
+  const totals = computeTotals(allJobs, today);
+  return {
+    today,
+    totals,
+    sources: buildActiveNumbers(totals),
+    needAttention: totals.today + totals.overdue,
+  };
+}
+
 /**
  * @param {string} networkId
  * @param {object[]} members
- * @param {{ today?: string, view?: string, memberId?: string, status?: string, portalBaseByMember?: Record<string,string> }} [opts]
+ * @param {{ today?: string, view?: string, day?: string, month?: string, memberId?: string, status?: string, portalBaseByMember?: Record<string,string> }} [opts]
  */
 async function listTeamFieldWork(networkId, members, opts = {}) {
   const today = opts.today || work.todayIn();
   const view = VIEWS.includes(opts.view) ? opts.view : 'open';
+  const selectedDay = cleanDay(opts.day, today);
+  const month = cleanMonth(opts.month, selectedDay);
   const filterMemberId = String(opts.memberId || '').trim();
   const filterStatus = String(opts.status || '').trim();
   const portalBaseByMember = opts.portalBaseByMember || {};
-  const list = Array.isArray(members) ? members : [];
+
+  const books = await loadMemberBooks(
+    networkId,
+    filterMemberId ? (members || []).filter((m) => m && m.id === filterMemberId) : members,
+  );
+
+  const flatJobs = [];
+  books.forEach(({ member, jobs }) => {
+    (jobs || []).forEach((job) => flatJobs.push({ memberId: member.id, job }));
+  });
+  const totals = computeTotals(flatJobs, today);
+
+  const calendarJobs = [];
+  books.forEach(({ jobs }) => {
+    (jobs || []).forEach((job) => {
+      if (filterStatus && job.status !== filterStatus) return;
+      calendarJobs.push(job);
+    });
+  });
+  const calendar = work.monthGrid(month, calendarJobs, { today, selected: selectedDay });
 
   const rows = [];
-  let photoCount = 0;
-  let upcomingCount = 0;
-  const membersWithOpen = new Set();
-
-  for (const member of list) {
-    if (!member || !member.id) continue;
-    if (filterMemberId && member.id !== filterMemberId) continue;
-    let customers = [];
-    let jobs = [];
-    try {
-      [customers, jobs] = await Promise.all([
-        work.listCustomers(networkId, member.id),
-        work.listJobs(networkId, member.id),
-      ]);
-    } catch (err) {
-      console.warn('[teamFieldWork] skip member', member.id, err && err.message);
-      continue;
-    }
+  for (const { member, customers, jobs } of books) {
     const byId = Object.fromEntries(customers.map((c) => [c.id, c]));
     const portalBase = portalBaseByMember[member.id] || '';
 
     for (const job of jobs) {
       const open = work.isOpen(job);
       const isUpcoming = !!(open && job.date && job.date >= today);
+      const isToday = !!(open && job.date === today);
+
       if (view === 'open' && !open) continue;
       if (view === 'upcoming' && !isUpcoming) continue;
+      if (view === 'today' && job.date !== today) continue;
+      if ((view === 'day' || view === 'calendar') && job.date !== selectedDay) continue;
+      if (view === 'all') {
+        /* keep */
+      } else if (!['open', 'upcoming', 'today', 'day', 'calendar'].includes(view) && !open) {
+        continue;
+      }
       if (filterStatus && job.status !== filterStatus) continue;
 
       const customer = byId[job.customerId] || {};
       const photosMeta = Array.isArray(job.photos) ? job.photos : [];
-      photoCount += photosMeta.length;
-      if (open) membersWithOpen.add(member.id);
-      if (isUpcoming) upcomingCount += 1;
-
       const photos = photosMeta.slice(0, 4).map((p) => ({
         id: p.id,
         caption: String(p.caption || '').trim(),
@@ -141,6 +271,7 @@ async function listTeamFieldWork(networkId, members, opts = {}) {
         overdue: !!(job.date && today && job.date < today && open && job.status !== 'on_hold'),
         isOpen: open,
         isUpcoming,
+        isToday,
         portalJobHref: portalBase
           ? `${portalBase}/customers/jobs/${encodeURIComponent(job.id)}`
           : '',
@@ -156,22 +287,27 @@ async function listTeamFieldWork(networkId, members, opts = {}) {
   return {
     today,
     view,
+    day: selectedDay,
+    month,
+    calendar,
     rows,
     totals: {
-      jobs: rows.length,
-      open: rows.filter((r) => r.isOpen).length,
-      upcoming: upcomingCount,
-      photos: photoCount,
-      membersWithWork: membersWithOpen.size,
+      ...totals,
+      showing: rows.length,
     },
+    sources: buildActiveNumbers(totals),
   };
 }
 
 module.exports = {
   VIEWS,
   listTeamFieldWork,
+  summarizeTeamFieldWork,
   memberDisplayName,
   whenLabel,
   latestNote,
   photoHref,
+  cleanDay,
+  cleanMonth,
+  buildActiveNumbers,
 };

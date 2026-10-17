@@ -31,6 +31,9 @@ const { leadLogsMentionReply } = require('../services/leadActivityWindow');
 const agentOps = require('../services/agentOps');
 const workspaceLeadOverview = require('../services/workspaceLeadOverview');
 const appointmentPackages = require('../services/appointmentPackages');
+const networkStore = require('../services/networkStore');
+const teamFieldWork = require('../services/teamFieldWork');
+const { canAssignWork, roleForEmail } = require('../services/workspaceService');
 function firstNameFromUser(user) {
   const raw =
     (user && user.displayName) ||
@@ -273,6 +276,22 @@ router.get('/', async (req, res, next) => {
     } catch (_) {
       leadSources = null;
     }
+    let fieldWorkHome = null;
+    const role = roleForEmail(req.workspace, userEmail(req));
+    const canSeeFieldWork = canAssignWork(role) || req.canAssignWork === true || req.canManageWorkspace === true;
+    if (canSeeFieldWork) {
+      try {
+        const network = await networkStore.getOrCreateNetworkForWorkspace(wid, {
+          name: req.workspace && req.workspace.name ? `${req.workspace.name} network` : 'Referral network',
+          ownerEmail: userEmail(req),
+        });
+        const members = await networkStore.listMembers(network.id);
+        fieldWorkHome = await teamFieldWork.summarizeTeamFieldWork(network.id, members);
+      } catch (err) {
+        console.warn('[today] field-work summary:', err && err.message);
+        fieldWorkHome = null;
+      }
+    }
     res.render('today', {
       title: 'Today | Agency OS',
       activePage: 'today',
@@ -290,6 +309,7 @@ router.get('/', async (req, res, next) => {
       repliesWaiting,
       queueNeedingAction,
       leadSources,
+      fieldWorkHome,
       totalLeads: businessLeads.length,
       outreachCoach,
       activation,
