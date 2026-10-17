@@ -57,55 +57,57 @@ describe('teamFieldWork.listTeamFieldWork', () => {
     const work = require('../services/memberWork');
     const origCustomers = work.listCustomers;
     const origJobs = work.listJobs;
-    work.listCustomers = async (_net, memberId) => {
-      if (memberId === 'm1') return [{ id: 'c1', name: 'Taylor Brooks', notes: 'From referral' }];
-      if (memberId === 'm2') return [{ id: 'c2', name: 'Alex Rivera', notes: '' }];
-      return [];
+    const origGetCustomer = work.getCustomer;
+    const origGetJob = work.getJob;
+    const customersByMember = {
+      m1: [{ id: 'c1', name: 'Taylor Brooks', notes: 'From referral' }],
+      m2: [{ id: 'c2', name: 'Alex Rivera', notes: '' }],
     };
-    work.listJobs = async (_net, memberId) => {
-      if (memberId === 'm1') {
-        return [
-          {
-            id: 'jobopen01',
-            customerId: 'c1',
-            title: 'Handyman referral',
-            status: 'in_progress',
-            date: '',
-            time: '',
-            notes: 'Waiting on parts',
-            photos: [{ id: 'ph001abc', caption: 'Kitchen', createdAt: '2026-01-01' }],
-            updatedAt: '2026-01-02T00:00:00.000Z',
-          },
-          {
-            id: 'jobdone01',
-            customerId: 'c1',
-            title: 'Finished paint',
-            status: 'completed',
-            date: '2026-01-01',
-            time: '09:00',
-            notes: '',
-            photos: [],
-            updatedAt: '2026-01-01T00:00:00.000Z',
-          },
-        ];
-      }
-      if (memberId === 'm2') {
-        return [
-          {
-            id: 'jobupcom1',
-            customerId: 'c2',
-            title: 'Install fence',
-            status: 'scheduled',
-            date: '2099-06-01',
-            time: '10:00',
-            notes: '',
-            photos: [],
-            updatedAt: '2026-01-03T00:00:00.000Z',
-          },
-        ];
-      }
-      return [];
+    const jobsByMember = {
+      m1: [
+        {
+          id: 'jobopen01',
+          customerId: 'c1',
+          title: 'Handyman referral',
+          status: 'in_progress',
+          date: '',
+          time: '',
+          notes: 'Waiting on parts',
+          photos: [{ id: 'ph001abc', caption: 'Kitchen', createdAt: '2026-01-01' }],
+          updatedAt: '2026-01-02T00:00:00.000Z',
+        },
+        {
+          id: 'jobdone01',
+          customerId: 'c1',
+          title: 'Finished paint',
+          status: 'completed',
+          date: '2026-01-01',
+          time: '09:00',
+          notes: '',
+          photos: [],
+          updatedAt: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+      m2: [
+        {
+          id: 'jobupcom1',
+          customerId: 'c2',
+          title: 'Install fence',
+          status: 'scheduled',
+          date: '2099-06-01',
+          time: '10:00',
+          notes: '',
+          photos: [],
+          updatedAt: '2026-01-03T00:00:00.000Z',
+        },
+      ],
     };
+    work.listCustomers = async (_net, memberId) => customersByMember[memberId] || [];
+    work.listJobs = async (_net, memberId) => jobsByMember[memberId] || [];
+    work.getCustomer = async (_net, memberId, id) =>
+      (customersByMember[memberId] || []).find((c) => c.id === id) || null;
+    work.getJob = async (_net, memberId, id) =>
+      (jobsByMember[memberId] || []).find((j) => j.id === id) || null;
 
     try {
       const rollup = await teamFieldWork.listTeamFieldWork(
@@ -132,8 +134,21 @@ describe('teamFieldWork.listTeamFieldWork', () => {
       assert.equal(rollup.rows[1].customerName, 'Taylor Brooks');
       assert.equal(rollup.rows[1].latestNote, 'Waiting on parts');
       assert.equal(rollup.rows[1].photos[0].href, '/network/field-work/photos/m1/jobopen01/ph001abc');
+      assert.equal(rollup.rows[1].ownerJobHref, '/network/field-work/jobs/m1/jobopen01');
+      assert.equal(rollup.rows[1].ownerCustomerHref, '/network/field-work/customers/m1/c1');
       assert.equal(rollup.rows[1].portalJobHref, 'https://example.test/m/token1/customers/jobs/jobopen01');
       assert.equal(rollup.rows[1].portalCustomerHref, 'https://example.test/m/token1/customers/c/c1');
+
+      const detail = await teamFieldWork.getFieldWorkJob(
+        'net1',
+        { id: 'm1', companyName: 'Brightline Electric' },
+        'jobopen01',
+        { today: '2026-05-01', portalBase: 'https://example.test/m/token1' },
+      );
+      assert.equal(detail.memberName, 'Brightline Electric');
+      assert.equal(detail.customerName, 'Taylor Brooks');
+      assert.equal(detail.ownerJobHref, '/network/field-work/jobs/m1/jobopen01');
+      assert.match(detail.portalJobHref, /\/customers\/jobs\/jobopen01$/);
 
       const upcomingOnly = await teamFieldWork.listTeamFieldWork(
         'net1',
@@ -184,6 +199,8 @@ describe('teamFieldWork.listTeamFieldWork', () => {
     } finally {
       work.listCustomers = origCustomers;
       work.listJobs = origJobs;
+      work.getCustomer = origGetCustomer;
+      work.getJob = origGetJob;
     }
   });
 });

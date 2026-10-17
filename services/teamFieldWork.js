@@ -51,6 +51,16 @@ function photoHref(memberId, jobId, photoId) {
   return `/network/field-work/photos/${encodeURIComponent(memberId)}/${encodeURIComponent(jobId)}/${encodeURIComponent(photoId)}`;
 }
 
+/** In-workspace owner/manager job page (not the member Reviews-app portal). */
+function ownerJobHref(memberId, jobId) {
+  return `/network/field-work/jobs/${encodeURIComponent(memberId)}/${encodeURIComponent(jobId)}`;
+}
+
+/** In-workspace owner/manager customer page. */
+function ownerCustomerHref(memberId, customerId) {
+  return `/network/field-work/customers/${encodeURIComponent(memberId)}/${encodeURIComponent(customerId)}`;
+}
+
 function compareFieldRows(a, b) {
   const aUp = a.isUpcoming ? 0 : 1;
   const bUp = b.isUpcoming ? 0 : 1;
@@ -272,6 +282,10 @@ async function listTeamFieldWork(networkId, members, opts = {}) {
         isOpen: open,
         isUpcoming,
         isToday,
+        ownerJobHref: ownerJobHref(member.id, job.id),
+        ownerCustomerHref: (customer.id || job.customerId)
+          ? ownerCustomerHref(member.id, customer.id || job.customerId)
+          : '',
         portalJobHref: portalBase
           ? `${portalBase}/customers/jobs/${encodeURIComponent(job.id)}`
           : '',
@@ -299,14 +313,121 @@ async function listTeamFieldWork(networkId, members, opts = {}) {
   };
 }
 
+/**
+ * Load one teammate job for the owner/manager workspace view.
+ * @returns {Promise<object|null>}
+ */
+async function getFieldWorkJob(networkId, member, jobId, opts = {}) {
+  if (!member || !member.id || !jobId) return null;
+  const job = await work.getJob(networkId, member.id, jobId);
+  if (!job) return null;
+  const customer = job.customerId
+    ? (await work.getCustomer(networkId, member.id, job.customerId)) || {}
+    : {};
+  const today = opts.today || work.todayIn();
+  const portalBase = opts.portalBase || '';
+  const photosMeta = Array.isArray(job.photos) ? job.photos : [];
+  const photos = photosMeta.map((p) => ({
+    id: p.id,
+    caption: String(p.caption || '').trim(),
+    createdAt: p.createdAt || '',
+    href: photoHref(member.id, job.id, p.id),
+  }));
+  const open = work.isOpen(job);
+  return {
+    memberId: member.id,
+    memberName: memberDisplayName(member),
+    memberContact: String(member.contactName || '').trim(),
+    customerId: customer.id || job.customerId || '',
+    customerName: String(customer.name || 'Customer').trim() || 'Customer',
+    customerPhone: String(customer.phone || '').trim(),
+    customerEmail: String(customer.email || '').trim(),
+    customerAddress: String(customer.address || '').trim(),
+    customerNotes: String(customer.notes || '').trim(),
+    jobId: job.id,
+    title: String(job.title || 'Job').trim() || 'Job',
+    status: job.status,
+    statusLabel: work.JOB_STATUS_LABELS[job.status] || job.status,
+    date: job.date || '',
+    time: job.time || '',
+    whenLabel: whenLabel(job, today),
+    notes: String(job.notes || '').trim(),
+    latestNote: latestNote(job, customer),
+    value: job.value || 0,
+    photoCount: photosMeta.length,
+    photos,
+    overdue: !!(job.date && today && job.date < today && open && job.status !== 'on_hold'),
+    ownerJobHref: ownerJobHref(member.id, job.id),
+    ownerCustomerHref: (customer.id || job.customerId)
+      ? ownerCustomerHref(member.id, customer.id || job.customerId)
+      : '',
+    portalJobHref: portalBase
+      ? `${portalBase}/customers/jobs/${encodeURIComponent(job.id)}`
+      : '',
+    portalCustomerHref: portalBase && (customer.id || job.customerId)
+      ? `${portalBase}/customers/c/${encodeURIComponent(customer.id || job.customerId)}`
+      : '',
+    backHref: '/network?tab=field-work&fw=open',
+  };
+}
+
+/**
+ * Load one teammate customer (+ their jobs) for the owner/manager workspace view.
+ * @returns {Promise<object|null>}
+ */
+async function getFieldWorkCustomer(networkId, member, customerId, opts = {}) {
+  if (!member || !member.id || !customerId) return null;
+  const customer = await work.getCustomer(networkId, member.id, customerId);
+  if (!customer) return null;
+  const today = opts.today || work.todayIn();
+  const portalBase = opts.portalBase || '';
+  const jobs = (await work.listJobs(networkId, member.id))
+    .filter((j) => j.customerId === customer.id)
+    .map((job) => {
+      const open = work.isOpen(job);
+      return {
+        jobId: job.id,
+        title: String(job.title || 'Job').trim() || 'Job',
+        status: job.status,
+        statusLabel: work.JOB_STATUS_LABELS[job.status] || job.status,
+        whenLabel: whenLabel(job, today),
+        overdue: !!(job.date && today && job.date < today && open && job.status !== 'on_hold'),
+        ownerJobHref: ownerJobHref(member.id, job.id),
+        photoCount: Array.isArray(job.photos) ? job.photos.length : 0,
+      };
+    })
+    .sort((a, b) => String(b.jobId).localeCompare(String(a.jobId)));
+  return {
+    memberId: member.id,
+    memberName: memberDisplayName(member),
+    memberContact: String(member.contactName || '').trim(),
+    customerId: customer.id,
+    customerName: String(customer.name || 'Customer').trim() || 'Customer',
+    customerPhone: String(customer.phone || '').trim(),
+    customerEmail: String(customer.email || '').trim(),
+    customerAddress: String(customer.address || '').trim(),
+    customerNotes: String(customer.notes || '').trim(),
+    jobs,
+    ownerCustomerHref: ownerCustomerHref(member.id, customer.id),
+    portalCustomerHref: portalBase
+      ? `${portalBase}/customers/c/${encodeURIComponent(customer.id)}`
+      : '',
+    backHref: '/network?tab=field-work&fw=open',
+  };
+}
+
 module.exports = {
   VIEWS,
   listTeamFieldWork,
   summarizeTeamFieldWork,
+  getFieldWorkJob,
+  getFieldWorkCustomer,
   memberDisplayName,
   whenLabel,
   latestNote,
   photoHref,
+  ownerJobHref,
+  ownerCustomerHref,
   cleanDay,
   cleanMonth,
   buildActiveNumbers,
