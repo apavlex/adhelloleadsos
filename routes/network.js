@@ -757,6 +757,66 @@ router.get('/field-work/photos/:memberId/:jobId/:photoId', async (req, res, next
   }
 });
 
+/** Owner/manager job detail — stays in the workspace app (not the member PWA portal). */
+router.get('/field-work/jobs/:memberId/:jobId', async (req, res, next) => {
+  try {
+    if (!canManage(req)) return res.status(403).render('error', { message: 'Only owners, admins, and managers can open team field jobs.', activePage: 'network' });
+    const network = await loadNetwork(req);
+    const memberId = String(req.params.memberId || '');
+    const jobId = String(req.params.jobId || '');
+    const member = await store.getMember(network.id, memberId);
+    if (!member) return res.status(404).render('error', { message: 'Teammate not found.', activePage: 'network' });
+    let portalBase = '';
+    try {
+      portalBase = notify.memberPortalLink(notify.baseUrlFromReq(req), network, member);
+    } catch (_) {
+      portalBase = '';
+    }
+    const detail = await teamFieldWork.getFieldWorkJob(network.id, member, jobId, { portalBase });
+    if (!detail) return res.status(404).render('error', { message: 'Job not found.', activePage: 'network' });
+    return res.render('network_field_work_job', {
+      title: `${detail.title} · ${detail.memberName}`,
+      activePage: 'network',
+      navPrimary: 'network',
+      network,
+      detail,
+      canManage: true,
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/** Owner/manager customer detail — stays in the workspace app. */
+router.get('/field-work/customers/:memberId/:customerId', async (req, res, next) => {
+  try {
+    if (!canManage(req)) return res.status(403).render('error', { message: 'Only owners, admins, and managers can open team field customers.', activePage: 'network' });
+    const network = await loadNetwork(req);
+    const memberId = String(req.params.memberId || '');
+    const customerId = String(req.params.customerId || '');
+    const member = await store.getMember(network.id, memberId);
+    if (!member) return res.status(404).render('error', { message: 'Teammate not found.', activePage: 'network' });
+    let portalBase = '';
+    try {
+      portalBase = notify.memberPortalLink(notify.baseUrlFromReq(req), network, member);
+    } catch (_) {
+      portalBase = '';
+    }
+    const detail = await teamFieldWork.getFieldWorkCustomer(network.id, member, customerId, { portalBase });
+    if (!detail) return res.status(404).render('error', { message: 'Customer not found.', activePage: 'network' });
+    return res.render('network_field_work_customer', {
+      title: `${detail.customerName} · ${detail.memberName}`,
+      activePage: 'network',
+      navPrimary: 'network',
+      network,
+      detail,
+      canManage: true,
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
 router.get('/members/:id/portal-link', async (req, res) => {
   try {
     const network = await loadNetwork(req);

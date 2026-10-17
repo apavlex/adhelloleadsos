@@ -112,8 +112,21 @@
     .fw-filters { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 1rem; }
     .fw-select { border-radius: 999px; border: 1px solid rgba(15, 23, 42, 0.12); background: #fff; padding: 0.45rem 0.85rem; font-size: 0.78rem; font-weight: 700; color: inherit; }
     html.dark .fw-select { background: rgba(15, 23, 42, 0.78); border-color: rgba(255, 255, 255, 0.14); }
-    .fw-row { display: grid; gap: 0.85rem; }
+    .fw-row { display: grid; gap: 0.75rem; position: relative; padding-top: 0.15rem; }
     @media (min-width: 720px) { .fw-row { grid-template-columns: minmax(0, 1fr) auto; align-items: start; } }
+    .fw-owner-bar {
+      display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+      margin: -1rem -1.05rem 0.15rem; padding: 0.55rem 1.05rem;
+      border-radius: 1.35rem 1.35rem 0 0;
+      background: color-mix(in srgb, var(--brand-yellow, #FFD644) 32%, #fff);
+      border-bottom: 1px solid color-mix(in srgb, var(--brand-yellow, #FFD644) 55%, transparent);
+    }
+    html.dark .fw-owner-bar { background: color-mix(in srgb, var(--brand-yellow, #FFD644) 16%, rgba(15, 23, 42, 0.95)); border-bottom-color: rgba(255, 255, 255, 0.08); }
+    .fw-owner-bar__label { font-size: 9px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: #854d0e; flex-shrink: 0; }
+    html.dark .fw-owner-bar__label { color: #fde68a; }
+    .fw-owner-bar__name { font-size: 0.82rem; font-weight: 800; color: #0f172a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+    html.dark .fw-owner-bar__name { color: #f8fafc; }
+    .fw-cust-label { display: block; font-size: 9px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #94a3b8; margin: 0.35rem 0 0.1rem; }
     .fw-meta { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; margin-top: 0.35rem; }
     .fw-note { margin-top: 0.55rem; font-size: 0.8125rem; line-height: 1.45; color: #64748b; white-space: pre-wrap; overflow-wrap: anywhere; }
     html.dark .fw-note { color: #94a3b8; }
@@ -589,14 +602,18 @@
       <div class="space-y-3">
         <% fw.rows.forEach(function (row) { %>
         <article class="net-card fw-row">
+          <div class="fw-owner-bar" title="Whose Reviews app this project belongs to">
+            <span class="fw-owner-bar__label">Teammate app</span>
+            <span class="fw-owner-bar__name"><%= row.memberName %></span>
+          </div>
           <div class="min-w-0">
-            <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1 min-w-0">
               <h3 class="font-display font-bold text-base md:text-lg truncate"><%= row.title %></h3>
               <span class="net-pill fw-pill-<%= row.status %><%= row.overdue ? ' fw-pill-overdue' : '' %>"><%= row.statusLabel %><%= row.overdue ? ' · overdue' : '' %></span>
             </div>
-            <p class="mt-1 text-sm font-semibold text-brand-dark dark:text-white truncate"><%= row.customerName %></p>
+            <span class="fw-cust-label">Customer</span>
+            <p class="text-sm font-semibold text-brand-dark dark:text-white truncate"><%= row.customerName %></p>
             <div class="fw-meta">
-              <span class="text-[12px] font-bold text-brand-muted"><%= row.memberName %></span>
               <% if (row.whenLabel) { %><span class="text-[12px] font-semibold <%= row.overdue ? 'text-rose-600' : 'text-brand-muted' %>"><%= row.whenLabel %></span><% } %>
               <% if (row.photoCount) { %><span class="text-[12px] font-semibold text-brand-muted"><%= row.photoCount %> photo<%= row.photoCount === 1 ? '' : 's' %></span><% } %>
             </div>
@@ -614,11 +631,11 @@
             <% } %>
           </div>
           <div class="flex flex-wrap gap-2 shrink-0">
-            <% if (row.portalJobHref) { %>
-            <a href="<%= row.portalJobHref %>" class="net-btn net-btn-yellow" target="_blank" rel="noopener">Open job</a>
+            <% if (row.ownerJobHref) { %>
+            <a href="<%= row.ownerJobHref %>" class="net-btn net-btn-yellow">Open job</a>
             <% } %>
-            <% if (row.portalCustomerHref) { %>
-            <a href="<%= row.portalCustomerHref %>" class="net-btn net-btn-ghost" target="_blank" rel="noopener">Customer</a>
+            <% if (row.ownerCustomerHref) { %>
+            <a href="<%= row.ownerCustomerHref %>" class="net-btn net-btn-ghost">Customer</a>
             <% } %>
           </div>
         </article>
