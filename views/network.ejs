@@ -112,28 +112,51 @@
     .fw-filters { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 1rem; }
     .fw-select { border-radius: 999px; border: 1px solid rgba(15, 23, 42, 0.12); background: #fff; padding: 0.45rem 0.85rem; font-size: 0.78rem; font-weight: 700; color: inherit; }
     html.dark .fw-select { background: rgba(15, 23, 42, 0.78); border-color: rgba(255, 255, 255, 0.14); }
-    .fw-row { display: grid; gap: 0.75rem; position: relative; padding-top: 0.15rem; }
-    @media (min-width: 720px) { .fw-row { grid-template-columns: minmax(0, 1fr) auto; align-items: start; } }
-    .fw-owner-bar {
-      display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
-      margin: -1rem -1.05rem 0.15rem; padding: 0.55rem 1.05rem;
-      border-radius: 1.35rem 1.35rem 0 0;
-      background: color-mix(in srgb, var(--brand-yellow, #FFD644) 32%, #fff);
-      border-bottom: 1px solid color-mix(in srgb, var(--brand-yellow, #FFD644) 55%, transparent);
+    .fw-job {
+      display: grid; gap: 0.85rem;
+      border: 1px solid rgba(15, 23, 42, 0.08); background: #fff;
+      border-radius: 1.25rem; padding: 1rem 1.05rem 1.05rem;
     }
-    html.dark .fw-owner-bar { background: color-mix(in srgb, var(--brand-yellow, #FFD644) 16%, rgba(15, 23, 42, 0.95)); border-bottom-color: rgba(255, 255, 255, 0.08); }
-    .fw-owner-bar__label { font-size: 9px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: #854d0e; flex-shrink: 0; }
-    html.dark .fw-owner-bar__label { color: #fde68a; }
-    .fw-owner-bar__name { font-size: 0.82rem; font-weight: 800; color: #0f172a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
-    html.dark .fw-owner-bar__name { color: #f8fafc; }
-    .fw-cust-label { display: block; font-size: 9px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #94a3b8; margin: 0.35rem 0 0.1rem; }
-    .fw-meta { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; margin-top: 0.35rem; }
-    .fw-note { margin-top: 0.55rem; font-size: 0.8125rem; line-height: 1.45; color: #64748b; white-space: pre-wrap; overflow-wrap: anywhere; }
-    html.dark .fw-note { color: #94a3b8; }
-    .fw-photos { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.65rem; }
-    .fw-photo { display: block; width: 3.25rem; height: 3.25rem; border-radius: 0.65rem; overflow: hidden; border: 1px solid rgba(15, 23, 42, 0.08); background: rgba(15, 23, 42, 0.04); }
-    html.dark .fw-photo { border-color: rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.05); }
-    .fw-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    html.dark .fw-job { background: rgba(15, 23, 42, 0.78); border-color: rgba(255, 255, 255, 0.08); }
+    .fw-job__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.65rem; }
+    .fw-job__when {
+      font-size: 0.95rem; font-weight: 800; font-variant-numeric: tabular-nums;
+      letter-spacing: -0.01em; line-height: 1.2; color: #0f172a;
+    }
+    html.dark .fw-job__when { color: #f8fafc; }
+    .fw-job__when.is-overdue { color: #be123c; }
+    html.dark .fw-job__when.is-overdue { color: #fda4af; }
+    .fw-job__when-sub { display: block; margin-top: 0.15rem; font-size: 0.7rem; font-weight: 700; color: #94a3b8; }
+    .fw-job__team {
+      display: inline-flex; align-items: center; max-width: 48%;
+      border-radius: 0.65rem; padding: 0.35rem 0.55rem;
+      background: rgba(15, 23, 42, 0.04); border: 1px solid rgba(15, 23, 42, 0.06);
+      font-size: 0.7rem; font-weight: 800; color: #334155; line-height: 1.2; text-align: right;
+    }
+    html.dark .fw-job__team { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.1); color: #e2e8f0; }
+    .fw-job__team small { display: block; font-size: 8px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #94a3b8; margin-bottom: 0.1rem; }
+    .fw-job__team span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .fw-job__title { margin: 0; font-size: 1.05rem; font-weight: 800; line-height: 1.25; overflow-wrap: anywhere; }
+    .fw-job__status { margin-top: 0.4rem; }
+    .fw-job__body { display: grid; gap: 0.65rem; }
+    @media (min-width: 420px) {
+      .fw-job__body.has-photo { grid-template-columns: minmax(0, 1fr) 4.5rem; align-items: start; }
+    }
+    .fw-job__customer { margin: 0; font-size: 0.9rem; font-weight: 700; }
+    .fw-job__customer small { display: block; font-size: 9px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #94a3b8; margin-bottom: 0.15rem; }
+    .fw-job__note { margin: 0; font-size: 0.8rem; line-height: 1.45; color: #64748b; white-space: pre-wrap; overflow-wrap: anywhere; }
+    html.dark .fw-job__note { color: #94a3b8; }
+    .fw-job__shot {
+      display: block; width: 4.5rem; height: 4.5rem; border-radius: 0.85rem; overflow: hidden;
+      border: 1px solid rgba(15, 23, 42, 0.08); background: rgba(15, 23, 42, 0.04); justify-self: end;
+    }
+    html.dark .fw-job__shot { border-color: rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.05); }
+    .fw-job__shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .fw-job__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; }
+    .fw-job__actions .net-btn { width: 100%; min-height: 2.55rem; border-radius: 0.85rem; font-size: 0.78rem; }
+    /* legacy aliases kept if referenced elsewhere */
+    .fw-row { display: contents; }
+    .fw-meta, .fw-note, .fw-photos, .fw-photo, .fw-cust-label, .fw-owner-bar { display: none; }
     .fw-pill-overdue { background: rgba(225, 29, 72, 0.12); color: #be123c; }
     html.dark .fw-pill-overdue { color: #fda4af; }
     .fw-pill-scheduled { background: rgba(59, 130, 246, 0.14); color: #1d4ed8; }

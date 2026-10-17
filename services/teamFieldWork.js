@@ -273,6 +273,8 @@ async function listTeamFieldWork(networkId, members, opts = {}) {
         date: job.date || '',
         time: job.time || '',
         whenLabel: whenLabel(job, today),
+        dayLabel: dayLabel(job.date, today),
+        timeLabel: timeLabel(job.time),
         notes: String(job.notes || '').trim(),
         latestNote: latestNote(job, customer),
         photoCount: photosMeta.length,
