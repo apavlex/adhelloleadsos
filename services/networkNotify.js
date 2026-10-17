@@ -695,7 +695,7 @@ async function notifyReviewRewardPending({ network, member, ask, baseUrl }) {
     network,
     member,
     ask.customerId
-      ? `/customers/${encodeURIComponent(ask.customerId)}`
+      ? `/customers/c/${encodeURIComponent(ask.customerId)}`
       : '/review',
   );
   const sms = `${brandView(network).appName}: ${who} chose ${stars}★ and may have left a review. Confirm it in the app to send your “${settings.rewardLabel}” referral offer: ${portal}`;
@@ -707,7 +707,7 @@ async function notifyReviewRewardPending({ network, member, ask, baseUrl }) {
   }).catch((err) => ({ ok: false, error: err.message }));
   const token = createMemberPortalToken({ networkId: network.id, memberId: member.id });
   const deep = ask.customerId
-    ? `/m/${encodeURIComponent(token)}/customers/${encodeURIComponent(ask.customerId)}`
+    ? `/m/${encodeURIComponent(token)}/customers/c/${encodeURIComponent(ask.customerId)}`
     : `/m/${encodeURIComponent(token)}/review`;
   recordMemberActivity(network, member, {
     kind: 'review_reward',
