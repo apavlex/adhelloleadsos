@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head', { tailwindInPage: true }) %>
+  <style>
+    .fw-detail-card { border: 1px solid rgba(15, 23, 42, 0.08); background: #fff; border-radius: 1.35rem; padding: 1.1rem 1.15rem; }
+    html.dark .fw-detail-card { background: rgba(15, 23, 42, 0.78); border-color: rgba(255, 255, 255, 0.08); }
+    .fw-owner-chip {
+      display: inline-flex; align-items: center; gap: 0.35rem; max-width: 100%;
+      border-radius: 999px; padding: 0.4rem 0.75rem; font-size: 0.72rem; font-weight: 800;
+      letter-spacing: 0.02em; background: color-mix(in srgb, var(--brand-yellow, #FFD644) 28%, #fff);
+      color: #854d0e; border: 1px solid color-mix(in srgb, var(--brand-yellow, #FFD644) 55%, transparent);
+    }
+    html.dark .fw-owner-chip { background: color-mix(in srgb, var(--brand-yellow, #FFD644) 18%, rgba(15, 23, 42, 0.9)); color: #fde68a; }
+    .fw-owner-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .fw-owner-chip em { font-style: normal; font-size: 9px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.75; }
+    .net-btn { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; padding: 0.55rem 0.95rem; font-size: 0.78rem; font-weight: 700; line-height: 1; white-space: nowrap; border: 1px solid transparent; cursor: pointer; text-decoration: none; }
+    .net-btn-yellow { background: var(--brand-yellow, #FFD644); color: var(--brand-on-accent, #111827); }
+    .net-btn-ghost { background: transparent; border-color: rgba(15, 23, 42, 0.14); color: inherit; }
+    html.dark .net-btn-ghost { border-color: rgba(255, 255, 255, 0.16); }
+    .net-pill { display: inline-flex; align-items: center; border-radius: 999px; padding: 0.25rem 0.6rem; font-size: 0.66rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; background: rgba(148, 163, 184, 0.16); color: #64748b; }
+    .fw-pill-overdue { background: rgba(225, 29, 72, 0.12); color: #be123c; }
+    .fw-pill-in_progress { background: rgba(245, 158, 11, 0.16); color: #b45309; }
+    .fw-pill-scheduled { background: rgba(59, 130, 246, 0.14); color: #1d4ed8; }
+    .fw-pill-completed { background: rgba(16, 185, 129, 0.14); color: #047857; }
+    .fw-job-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.65rem; padding: 0.85rem 0; border-top: 1px solid rgba(15, 23, 42, 0.06); }
+    html.dark .fw-job-row { border-color: rgba(255, 255, 255, 0.08); }
+    .fw-job-row:first-of-type { border-top: 0; padding-top: 0; }
+  </style>
+  <%- include('partials/tailwind_css') %>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark dark:text-white overflow-x-hidden">
+  <%- include('partials/navbar') %>
+  <% const d = detail; %>
+  <main class="max-wide px-6 py-8 md:py-12">
+    <div class="mb-4 flex items-start justify-between gap-3">
+      <a href="<%= d.backHref %>" class="text-[12px] font-bold text-brand-muted hover:underline shrink-0">← Team field work</a>
+      <span class="fw-owner-chip" title="Reviews app owned by this teammate">
+        <em>App</em>
+        <span><%= d.memberName %></span>
+      </span>
+    </div>
+
+    <header class="mb-5">
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Customer</p>
+      <h1 class="font-display font-extrabold text-2xl md:text-3xl tracking-tight"><%= d.customerName %></h1>
+      <p class="mt-2 text-[13px] font-semibold text-brand-muted">In <strong class="text-brand-dark dark:text-white"><%= d.memberName %></strong>’s Reviews app<% if (d.memberContact) { %> · <%= d.memberContact %><% } %></p>
+    </header>
+
+    <section class="fw-detail-card mb-4">
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Contact</p>
+      <% if (d.customerPhone) { %><p class="text-sm"><a class="font-semibold hover:underline" href="tel:<%= String(d.customerPhone).replace(/[^0-9+]/g, '') %>"><%= d.customerPhone %></a></p><% } %>
+      <% if (d.customerEmail) { %><p class="mt-1 text-sm text-brand-muted"><%= d.customerEmail %></p><% } %>
+      <% if (d.customerAddress) { %><p class="mt-1 text-sm text-brand-muted"><%= d.customerAddress %></p><% } %>
+      <% if (!d.customerPhone && !d.customerEmail && !d.customerAddress) { %><p class="text-sm text-brand-muted">No contact details yet.</p><% } %>
+      <% if (d.customerNotes) { %><p class="mt-3 text-sm leading-relaxed whitespace-pre-wrap text-brand-muted"><%= d.customerNotes %></p><% } %>
+    </section>
+
+    <section class="fw-detail-card mb-4">
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Jobs in this app</p>
+      <% if (!d.jobs.length) { %>
+      <p class="text-sm text-brand-muted">No jobs for this customer yet.</p>
+      <% } else { %>
+        <% d.jobs.forEach(function (j) { %>
+        <div class="fw-job-row">
+          <div class="min-w-0">
+            <p class="font-semibold truncate"><%= j.title %></p>
+            <div class="mt-1 flex flex-wrap gap-2 items-center">
+              <span class="net-pill fw-pill-<%= j.status %><%= j.overdue ? ' fw-pill-overdue' : '' %>"><%= j.statusLabel %><%= j.overdue ? ' · overdue' : '' %></span>
+              <% if (j.whenLabel) { %><span class="text-[12px] font-semibold text-brand-muted"><%= j.whenLabel %></span><% } %>
+              <% if (j.photoCount) { %><span class="text-[12px] font-semibold text-brand-muted"><%= j.photoCount %> photo<%= j.photoCount === 1 ? '' : 's' %></span><% } %>
+            </div>
+          </div>
+          <a href="<%= j.ownerJobHref %>" class="net-btn net-btn-yellow shrink-0">Open job</a>
+        </div>
+        <% }); %>
+      <% } %>
+    </section>
+
+    <div class="flex flex-col sm:flex-row gap-2">
+      <a href="<%= d.backHref %>" class="net-btn net-btn-yellow">Back to field work</a>
+      <% if (d.portalCustomerHref) { %>
+      <a href="<%= d.portalCustomerHref %>" class="net-btn net-btn-ghost" target="_blank" rel="noopener">Edit in their app</a>
+      <% } %>
+    </div>
+  </main>
+</body>
+</html>
