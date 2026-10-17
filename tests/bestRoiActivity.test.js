@@ -3,15 +3,17 @@ const assert = require('node:assert/strict');
 const { buildBestRoiActivity, countCloseReady } = require('../services/bestRoiActivity');
 
 describe('buildBestRoiActivity', () => {
-  it('prefers warm replies over prospect queue', () => {
+  it('prefers warm replies over prospect queue and links to engagement inbox', () => {
     const act = buildBestRoiActivity({
       repliesWaiting: 2,
       queueNeedingAction: 13,
       leadSources: { referralCount: 4 },
+      callWarmQueue: [{ href: '/focus?lead=abc' }],
     });
     assert.equal(act.id, 'replies');
     assert.match(act.headline, /2 warm replies/);
     assert.equal(act.primaryHref, '/engagement');
+    assert.equal(act.secondaryHref, '/focus?lead=abc');
   });
 
   it('routes to network leads when referrals are the top gap', () => {

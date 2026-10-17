@@ -27,7 +27,7 @@ const { pauseActiveSequencesForWorkspace } = require('../services/sequenceEngine
 const actionPlanTracker = require('../services/actionPlanTracker');
 const { buildOpportunityBoard, selectPipeline } = require('../services/opportunityBoards');
 const { buildBookmarkSessions, buildRecentlyWorked } = require('../services/todayResumeQueue');
-const { leadLogsMentionReply } = require('../services/leadActivityWindow');
+const { countWarmReplyLeads, DEFAULT_WINDOW_DAYS: ENGAGEMENT_WINDOW_DAYS } = require('../services/engagementInbox');
 const agentOps = require('../services/agentOps');
 const workspaceLeadOverview = require('../services/workspaceLeadOverview');
 const appointmentPackages = require('../services/appointmentPackages');
@@ -48,10 +48,6 @@ function greetingWord() {
   if (h < 12) return 'Morning';
   if (h < 17) return 'Afternoon';
   return 'Evening';
-}
-
-function countReplySignals(leads) {
-  return leads.filter(leadLogsMentionReply).length;
 }
 
 function countQueueNeedingAction(leads) {
@@ -149,7 +145,8 @@ router.get('/', async (req, res, next) => {
     const businessLeads = filterBusinessPipelineLeads(workspaceLeads);
     const streak = computeOutreachStreakWithLeads(history, today, workspaceLeads);
     const touchesToday = countUniqueLeadsTouchedToday(workspaceLeads, workspaceDoc);
-    const repliesWaiting = countReplySignals(businessLeads);
+    // Same 7-day inbound reply window as /engagement — not historic log text matches.
+    const repliesWaiting = countWarmReplyLeads(businessLeads, { windowDays: ENGAGEMENT_WINDOW_DAYS });
     const queueNeedingAction = countQueueNeedingAction(businessLeads);
 
     const conversionSnapshot = buildConversionSnapshot(workspaceLeads, workspaceDoc);
