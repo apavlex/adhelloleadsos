@@ -515,6 +515,10 @@ test('customers tab routes: top-bar add customer, CRUD, calendar, pending and re
       reviewSlug: 'camas-flooring',
     });
     await require('../services/reviewAsk').markOpened(ask.id);
+    const legacyCustomer = await fetch(`${A}/customers/${customerId}`, { redirect: 'manual' });
+    assert.equal(legacyCustomer.status, 302);
+    assert.match(legacyCustomer.headers.get('location') || '', new RegExp(`/customers/c/${customerId}$`));
+
     const customerPage = await (await fetch(`${A}/customers/c/${customerId}`)).text();
     assert.match(customerPage, /ma-askstatus/);
     assert.match(customerPage, /Opened the review link/);

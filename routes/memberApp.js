@@ -1684,6 +1684,29 @@ router.post('/m/:token/customers/c/:id/request-review', form, withMember(async (
 }));
 
 /**
+ * Legacy Team field work / notify links used /customers/:id (no /c/).
+ * Keep those bookmarks working; real customer pages live under /customers/c/:id.
+ */
+const CUSTOMER_PATH_RESERVED = new Set([
+  'new',
+  'jobs',
+  'c',
+  'import',
+  'import-template.csv',
+  'sync-ghl',
+  'from-referral',
+]);
+router.get('/m/:token/customers/:id', withMember((req, res, ctx) => {
+  const id = String(req.params.id || '').trim();
+  if (!id || CUSTOMER_PATH_RESERVED.has(id)) {
+    return res.redirect(303, `${ctx.base}/customers`);
+  }
+  const qIdx = req.url.indexOf('?');
+  const q = qIdx >= 0 ? req.url.slice(qIdx) : '';
+  return res.redirect(302, `${ctx.base}/customers/c/${encodeURIComponent(id)}${q}`);
+}));
+
+/**
  * Ensure Team & assign seats exist as network members so Share can pick them
  * (free workspace teammates — not only referral-network partners).
  */
