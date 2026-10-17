@@ -276,7 +276,7 @@ async function listTeamFieldWork(networkId, members, opts = {}) {
           ? `${portalBase}/customers/jobs/${encodeURIComponent(job.id)}`
           : '',
         portalCustomerHref: portalBase && (customer.id || job.customerId)
-          ? `${portalBase}/customers/${encodeURIComponent(customer.id || job.customerId)}`
+          ? `${portalBase}/customers/c/${encodeURIComponent(customer.id || job.customerId)}`
           : '',
       });
     }

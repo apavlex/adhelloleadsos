@@ -133,6 +133,7 @@ describe('teamFieldWork.listTeamFieldWork', () => {
       assert.equal(rollup.rows[1].latestNote, 'Waiting on parts');
       assert.equal(rollup.rows[1].photos[0].href, '/network/field-work/photos/m1/jobopen01/ph001abc');
       assert.equal(rollup.rows[1].portalJobHref, 'https://example.test/m/token1/customers/jobs/jobopen01');
+      assert.equal(rollup.rows[1].portalCustomerHref, 'https://example.test/m/token1/customers/c/c1');
 
       const upcomingOnly = await teamFieldWork.listTeamFieldWork(
         'net1',
