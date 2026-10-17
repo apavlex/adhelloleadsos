@@ -76,9 +76,9 @@
     <section class="fw-detail-card mb-4">
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Photos</p>
       <p class="text-[12px] font-semibold text-brand-muted mb-2"><%= d.photoCount %> on this job</p>
-      <div class="fw-photos" data-os-lr-gallery>
+      <div class="fw-photos" data-os-lr-gallery data-os-lr-project="<%= String(d.title || '').replace(/"/g, '&quot;') %>" data-os-lr-customer="<%= String(d.customerName || '').replace(/"/g, '&quot;') %>" data-os-lr-teammate="<%= String(d.memberName || '').replace(/"/g, '&quot;') %>">
         <% d.photos.forEach(function (p) { %>
-        <a class="fw-photo" href="<%= p.href %>" data-os-lr-open data-os-lr-src="<%= p.href %>" data-os-lr-caption="<%= String(p.caption || 'Job photo').replace(/"/g, '&quot;') %>" title="<%= p.caption || 'Job photo' %>">
+        <a class="fw-photo" href="<%= p.href %>" data-os-lr-open data-os-lr-src="<%= p.href %>" data-os-lr-caption="<%= String(p.caption || 'Job photo').replace(/"/g, '&quot;') %>" data-os-lr-project="<%= String(d.title || '').replace(/"/g, '&quot;') %>" data-os-lr-customer="<%= String(d.customerName || '').replace(/"/g, '&quot;') %>" data-os-lr-teammate="<%= String(d.memberName || '').replace(/"/g, '&quot;') %>" title="<%= p.caption || 'Job photo' %>">
           <img src="<%= p.href %>" alt="<%= p.caption || 'Job photo' %>" loading="lazy" decoding="async" width="80" height="80" />
         </a>
         <% }); %>

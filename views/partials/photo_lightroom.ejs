@@ -1,10 +1,12 @@
-<%# Shared Lightroom-style photo viewer for Agency OS (Network field work, etc.) %>
+<%# Shared Lightroom-style photo viewer for Agency OS (Network field work, etc.)
+    Galleries are scoped per [data-os-lr-gallery] so job cards don’t mix projects. %>
 <div class="os-lr" id="osLrViewer" data-os-lr hidden role="dialog" aria-modal="true" aria-label="Photo viewer">
   <div class="os-lr__chrome">
     <button type="button" class="os-lr__icon-btn" data-os-lr-close aria-label="Close">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
     </button>
     <div class="os-lr__meta">
+      <p class="os-lr__project" data-os-lr-project></p>
       <p class="os-lr__count" data-os-lr-count></p>
       <p class="os-lr__caption" data-os-lr-caption></p>
     </div>
@@ -23,18 +25,22 @@
 .os-lr{position:fixed;inset:0;z-index:400;display:flex;flex-direction:column;background:#0a0a0a;color:#f5f5f5}
 .os-lr[hidden]{display:none!important}
 body.os-lr-open{overflow:hidden}
-.os-lr__chrome{display:flex;align-items:center;gap:10px;padding:max(10px,env(safe-area-inset-top,0px)) 12px 10px;background:linear-gradient(180deg,rgba(0,0,0,.92),rgba(0,0,0,.5) 70%,transparent)}
+.os-lr__chrome{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:max(10px,env(safe-area-inset-top,0px)) 12px 10px;background:linear-gradient(180deg,rgba(0,0,0,.92),rgba(0,0,0,.5) 70%,transparent)}
 .os-lr__meta{flex:1;min-width:0;text-align:center}
-.os-lr__count{margin:0;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.55)}
-.os-lr__caption{margin:2px 0 0;font-size:13px;font-weight:650;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.os-lr__project{margin:0;font-size:12px;font-weight:800;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.os-lr__project:empty{display:none}
+.os-lr__count{margin:2px 0 0;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.55)}
+.os-lr__caption{margin:2px 0 0;font-size:12px;font-weight:650;color:rgba(255,255,255,.82);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.os-lr__caption:empty{display:none}
 .os-lr__icon-btn{width:40px;height:40px;border:0;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:rgba(255,255,255,.08);color:#fff;text-decoration:none;cursor:pointer}
 .os-lr__icon-btn svg{width:18px;height:18px}
-.os-lr__stage{flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;padding:8px 12px}
+.os-lr__stage{flex:1 1 auto;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;padding:8px 12px}
 .os-lr__img{max-width:100%;max-height:100%;object-fit:contain;border-radius:2px;box-shadow:0 12px 40px rgba(0,0,0,.55);background:#111}
 .os-lr__nav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border:0;border-radius:999px;background:rgba(0,0,0,.45);color:#fff;font-size:28px;line-height:1;cursor:pointer}
 .os-lr__nav--prev{left:8px}.os-lr__nav--next{right:8px}
 .os-lr__nav[hidden]{display:none!important}
-.os-lr__film{display:flex;gap:8px;overflow-x:auto;padding:10px 12px max(14px,env(safe-area-inset-bottom,0px));background:linear-gradient(0deg,rgba(0,0,0,.95),rgba(0,0,0,.65) 75%,transparent)}
+.os-lr__film{flex:0 0 auto;display:flex;gap:8px;overflow-x:auto;padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px));background:#0a0a0a}
+.os-lr__film[hidden]{display:none!important;padding:0 0 env(safe-area-inset-bottom,0px)}
 .os-lr__thumb{flex:0 0 auto;width:56px;height:56px;padding:0;border:2px solid transparent;border-radius:8px;overflow:hidden;background:#1a1a1a;cursor:pointer}
 .os-lr__thumb img{width:100%;height:100%;object-fit:cover;display:block;opacity:.7}
 .os-lr__thumb.is-on{border-color:#fff}.os-lr__thumb.is-on img{opacity:1}
@@ -53,6 +59,7 @@ body.os-lr-open{overflow:hidden}
     var img = root.querySelector('[data-os-lr-img]');
     var captionEl = root.querySelector('[data-os-lr-caption]');
     var countEl = root.querySelector('[data-os-lr-count]');
+    var projectEl = root.querySelector('[data-os-lr-project]');
     var film = root.querySelector('[data-os-lr-film]');
     var openTab = root.querySelector('[data-os-lr-open-tab]');
     var prevBtn = root.querySelector('[data-os-lr-prev]');
@@ -62,16 +69,47 @@ body.os-lr-open{overflow:hidden}
     var items = [];
     var index = 0;
     var touchX = null;
+
+    function attr(el, name) {
+      return el && el.getAttribute ? (el.getAttribute(name) || '') : '';
+    }
+
+    function projectLine(item, gallery) {
+      var title = item.project || attr(gallery, 'data-os-lr-project');
+      var customer = item.customer || attr(gallery, 'data-os-lr-customer');
+      var teammate = item.teammate || attr(gallery, 'data-os-lr-teammate');
+      var bits = [];
+      if (title) bits.push(title);
+      if (customer && customer !== title) bits.push(customer);
+      var line = bits.join(' · ');
+      if (teammate) line = line ? (line + ' · ' + teammate) : teammate;
+      return line;
+    }
+
     function collect(anchor) {
-      var gallery = anchor.closest('[data-os-lr-gallery]') || document;
+      // Prefer the nearest job/project gallery — never fall back to the whole document
+      // (that mixed every Team field work card into one filmstrip).
+      var gallery = anchor.closest('[data-os-lr-gallery]');
       var list = [];
-      gallery.querySelectorAll('[data-os-lr-open]').forEach(function (a) {
-        var src = a.getAttribute('data-os-lr-src') || a.getAttribute('href') || '';
+      var nodes = gallery
+        ? gallery.querySelectorAll('[data-os-lr-open]')
+        : [anchor];
+      nodes.forEach(function (a) {
+        var src = attr(a, 'data-os-lr-src') || attr(a, 'href') || '';
         if (!src) return;
-        list.push({ src: src, caption: a.getAttribute('data-os-lr-caption') || a.getAttribute('title') || 'Photo', el: a });
+        list.push({
+          src: src,
+          caption: attr(a, 'data-os-lr-caption') || attr(a, 'title') || 'Photo',
+          project: attr(a, 'data-os-lr-project'),
+          customer: attr(a, 'data-os-lr-customer'),
+          teammate: attr(a, 'data-os-lr-teammate'),
+          el: a,
+          gallery: gallery,
+        });
       });
       return list;
     }
+
     function renderFilm() {
       film.innerHTML = '';
       if (items.length < 2) { film.hidden = true; return; }
@@ -80,24 +118,32 @@ body.os-lr-open{overflow:hidden}
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'os-lr__thumb' + (i === index ? ' is-on' : '');
+        btn.setAttribute('aria-label', 'Photo ' + (i + 1) + (item.caption ? ': ' + item.caption : ''));
         btn.innerHTML = '<img src="' + item.src + '" alt="">';
         btn.addEventListener('click', function () { show(i); });
         film.appendChild(btn);
       });
     }
+
     function show(i) {
       if (!items.length) return;
       index = (i + items.length) % items.length;
       var item = items[index];
       img.src = item.src;
       img.alt = item.caption || 'Photo';
-      if (captionEl) captionEl.textContent = item.caption || 'Photo';
-      if (countEl) countEl.textContent = (index + 1) + ' / ' + items.length;
+      if (captionEl) captionEl.textContent = item.caption || '';
+      if (countEl) {
+        countEl.textContent = items.length > 1
+          ? ((index + 1) + ' / ' + items.length)
+          : '1 photo';
+      }
+      if (projectEl) projectEl.textContent = projectLine(item, item.gallery) || '';
       if (openTab) openTab.href = item.src;
       if (prevBtn) prevBtn.hidden = items.length < 2;
       if (nextBtn) nextBtn.hidden = items.length < 2;
       renderFilm();
     }
+
     function openAt(anchor) {
       items = collect(anchor);
       if (!items.length) return;
@@ -108,11 +154,13 @@ body.os-lr-open{overflow:hidden}
       document.body.classList.add('os-lr-open');
       show(start);
     }
+
     function closeViewer() {
       root.hidden = true;
       document.body.classList.remove('os-lr-open');
       items = [];
     }
+
     document.addEventListener('click', function (e) {
       var open = e.target.closest('[data-os-lr-open]');
       if (open) { e.preventDefault(); openAt(open); return; }
