@@ -146,7 +146,8 @@
     html.dark .fw-pill-completed { color: #6ee7b7; }
     .fw-active { margin: 0 0 1rem; }
     .fw-active-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.45rem; }
-    @media (min-width: 640px) { .fw-active-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+    @media (min-width: 640px) { .fw-active-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    @media (min-width: 960px) { .fw-active-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
     .fw-active-card { display: block; text-decoration: none; color: inherit; border-radius: 1rem; border: 1px solid rgba(15, 23, 42, 0.08); background: #fff; padding: 0.75rem 0.85rem; transition: border-color 0.12s ease; }
     html.dark .fw-active-card { background: rgba(15, 23, 42, 0.78); border-color: rgba(255, 255, 255, 0.08); }
     .fw-active-card:hover { border-color: var(--brand-yellow, #FFD644); }
@@ -169,10 +170,12 @@
   <%- include('partials/navbar') %>
   <%
     const noticeBad = notice && /^(Could not|Only|Pick|Name|Add|Confirm|That|Member not|Zone not|Referral not|Can't|Unknown|Write|This referral|The sender)/.test(notice);
+    const fwTotals = (typeof fieldWorkSummary !== 'undefined' && fieldWorkSummary && fieldWorkSummary.totals) ? fieldWorkSummary.totals : null;
     const tabs = [
       { id: 'seats', label: 'Seats' },
       { id: 'members', label: 'Members (' + totals.members + (totals.freeMembers ? ' · ' + totals.freeMembers + ' free' : '') + ')' },
-      { id: 'field-work', label: 'Team field work' + (typeof fieldWorkSummary !== 'undefined' && fieldWorkSummary && fieldWorkSummary.totals ? ' (' + fieldWorkSummary.totals.open + ')' : '') },
+      { id: 'field-work', label: 'Team field work' + (fwTotals ? ' (' + fwTotals.open + ')' : '') },
+      { id: 'calendar', label: 'Team calendar' + (fwTotals && fwTotals.thisWeek != null ? ' (' + fwTotals.thisWeek + ')' : '') },
       { id: 'applications', label: 'Applications' + (pendingApplications ? ' (' + pendingApplications + ')' : '') },
       { id: 'referrals', label: 'Referrals (' + totals.total + ')' },
       { id: 'brand', label: 'App branding' },
@@ -198,43 +201,39 @@
       </div>
     </header>
 
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-      <div class="net-stat">
-        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Members</p>
-        <p class="font-display font-black text-2xl"><%= totals.members %></p>
-        <% if (totals.members) { %>
-        <p class="mt-1 text-[11px] font-semibold text-brand-muted"><%= totals.freeMembers %> free · <%= totals.partnerMembers %> partners</p>
-        <% } %>
-      </div>
-      <div class="net-stat">
-        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Seats held / open</p>
-        <p class="font-display font-black text-2xl"><%= totals.heldSeats %> <span class="text-brand-muted text-lg">/ <%= totals.openSeats %></span></p>
-      </div>
-      <div class="net-stat">
-        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Open referrals</p>
-        <p class="font-display font-black text-2xl"><%= totals.open %><% if (totals.unrouted) { %> <span class="text-rose-600 text-sm font-bold"><%= totals.unrouted %> need a member</span><% } %></p>
-      </div>
-      <div class="net-stat">
-        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Won</p>
-        <p class="font-display font-black text-2xl"><%= totals.wonValueLabel %> <span class="text-brand-muted text-sm font-bold"><%= totals.won %> <%= totals.won === 1 ? 'job' : 'jobs' %></span></p>
-      </div>
-    </div>
+    <p class="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-[12px] font-bold text-brand-muted" aria-label="Network pulse">
+      <span><span class="tabular-nums text-brand-dark dark:text-white"><%= totals.members %></span> members<% if (totals.members) { %> · <%= totals.freeMembers %> free · <%= totals.partnerMembers %> partners<% } %></span>
+      <span><span class="tabular-nums text-brand-dark dark:text-white"><%= totals.heldSeats %></span> held · <span class="tabular-nums text-brand-dark dark:text-white"><%= totals.openSeats %></span> open seats</span>
+    </p>
 
     <% if (canManage && typeof fieldWorkSummary !== 'undefined' && fieldWorkSummary && fieldWorkSummary.sources) { %>
-    <section class="fw-active" aria-label="Team field work active numbers">
+    <section class="fw-active" aria-label="Lead and team sources">
       <div class="flex items-baseline justify-between gap-3 mb-2">
         <div>
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-0.5">Team field work</p>
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-0.5">Active numbers</p>
           <p class="text-sm font-semibold text-brand-dark dark:text-white">
-            <span class="tabular-nums font-black"><%= fieldWorkSummary.needAttention || 0 %></span> need attention
-            <span class="text-brand-muted font-semibold"> · today &amp; overdue across the Reviews app</span>
+            <span class="tabular-nums font-black"><%= (Number(fieldWorkSummary.needAttention) || 0) + (Number(totals.unrouted) || 0) %></span> need attention
+            <span class="text-brand-muted font-semibold"> · referrals &amp; field work</span>
           </p>
         </div>
-        <a href="/network?tab=field-work&fw=today" class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:underline shrink-0">Open</a>
+        <a href="/network?tab=calendar" class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:underline shrink-0">Calendar</a>
       </div>
       <div class="fw-active-grid">
+        <a href="/network?tab=referrals" class="fw-active-card<%= totals.unrouted ? ' is-hot' : '' %>">
+          <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-0.5">Lead</p>
+          <p class="font-display font-black text-xl tabular-nums leading-none"><%= totals.open %></p>
+          <p class="mt-1 text-[10px] font-black uppercase tracking-widest">Open referrals</p>
+          <p class="mt-0.5 text-[11px] font-semibold truncate<%= totals.unrouted ? ' text-rose-600' : ' text-brand-muted' %>"><%= totals.unrouted ? (totals.unrouted + ' need a member') : 'in the network' %></p>
+        </a>
+        <a href="/network?tab=referrals&status=won" class="fw-active-card">
+          <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-0.5">Lead</p>
+          <p class="font-display font-black text-xl tabular-nums leading-none truncate"><%= totals.wonValueLabel %></p>
+          <p class="mt-1 text-[10px] font-black uppercase tracking-widest">Won</p>
+          <p class="mt-0.5 text-[11px] font-semibold text-brand-muted truncate"><%= totals.won %> <%= totals.won === 1 ? 'job' : 'jobs' %></p>
+        </a>
         <% fieldWorkSummary.sources.forEach(function (s) { %>
         <a href="<%= s.href %>" class="fw-active-card<%= s.id === 'overdue' && s.count ? ' is-hot' : '' %>">
+          <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-0.5">Team</p>
           <p class="font-display font-black text-xl tabular-nums leading-none"><%= s.count %></p>
           <p class="mt-1 text-[10px] font-black uppercase tracking-widest"><%= s.label %></p>
           <p class="mt-0.5 text-[11px] font-semibold text-brand-muted truncate"><%= s.hint %></p>
@@ -516,41 +515,18 @@
         <p class="text-sm text-brand-muted">Only owners, admins, and managers can see every teammate’s field jobs, photos, and notes in one place.</p>
       </div>
       <% } else { %>
+      <% const fw = fieldWork || { rows: [], totals: { showing: 0, open: 0, upcoming: 0, today: 0, overdue: 0, thisWeek: 0, membersWithWork: 0 }, calendar: null, day: '', month: '' }; %>
       <div class="mb-4">
         <h2 class="font-display font-bold text-xl">Team field work</h2>
-        <p class="mt-1 max-w-2xl text-sm text-brand-muted">Track projects and status across every Reviews-app member — list, today, or pick a day on the calendar.</p>
-      </div>
-      <% const fw = fieldWork || { rows: [], totals: { showing: 0, open: 0, upcoming: 0, today: 0, overdue: 0, thisWeek: 0, membersWithWork: 0 }, calendar: null, day: '', month: '' }; %>
-      <% const fwCal = fw.calendar; %>
-      <% const fwIsCal = fieldWorkView === 'calendar' || fieldWorkView === 'day'; %>
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-        <div class="net-stat">
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Today</p>
-          <p class="font-display font-black text-2xl"><%= fw.totals.today || 0 %></p>
-        </div>
-        <div class="net-stat">
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Overdue</p>
-          <p class="font-display font-black text-2xl<%= fw.totals.overdue ? ' text-rose-600' : '' %>"><%= fw.totals.overdue || 0 %></p>
-        </div>
-        <div class="net-stat">
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Open</p>
-          <p class="font-display font-black text-2xl"><%= fw.totals.open || 0 %></p>
-        </div>
-        <div class="net-stat">
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">This week</p>
-          <p class="font-display font-black text-2xl"><%= fw.totals.thisWeek || 0 %></p>
-        </div>
+        <p class="mt-1 max-w-2xl text-sm text-brand-muted">List open and upcoming jobs across every Reviews-app member. Scheduled days live on <a href="/network?tab=calendar" class="font-bold text-brand-dark dark:text-brand-yellow underline">Team calendar</a>.</p>
       </div>
       <form method="get" action="/network" class="fw-filters" id="fwFilters">
         <input type="hidden" name="tab" value="field-work" />
-        <% if (fwIsCal && fw.day) { %><input type="hidden" name="day" value="<%= fw.day %>" /><% } %>
-        <% if (fwIsCal && fw.month) { %><input type="hidden" name="month" value="<%= fw.month %>" /><% } %>
         <label class="sr-only" for="fwView">View</label>
         <select id="fwView" name="fw" class="fw-select" onchange="this.form.submit()">
           <option value="today" <%= fieldWorkView === 'today' ? 'selected' : '' %>>Today</option>
-          <option value="open" <%= fieldWorkView === 'open' ? 'selected' : '' %>>Open jobs</option>
+          <option value="open" <%= fieldWorkView === 'open' || fieldWorkView === 'calendar' || fieldWorkView === 'day' ? 'selected' : '' %>>Open jobs</option>
           <option value="upcoming" <%= fieldWorkView === 'upcoming' ? 'selected' : '' %>>Upcoming</option>
-          <option value="calendar" <%= fwIsCal ? 'selected' : '' %>>Calendar / day</option>
           <option value="all" <%= fieldWorkView === 'all' ? 'selected' : '' %>>All jobs</option>
         </select>
         <label class="sr-only" for="fwMember">Member</label>
@@ -568,12 +544,59 @@
           <% }); %>
         </select>
       </form>
-      <% if (fwIsCal && fwCal) { %>
-      <section class="net-card fw-cal" aria-label="Field work calendar">
+      <% if (!fw.rows.length) { %>
+      <div class="net-card text-center py-10">
+        <p class="text-sm text-brand-muted">No field jobs<%= fieldWorkMemberId || fieldWorkStatus || fieldWorkView !== 'open' ? ' match these filters' : ' yet — when partners or teammates log customers and jobs in the Reviews app, they show up here' %>.</p>
+      </div>
+      <% } else { %>
+      <p class="mb-3 text-[12px] font-bold text-brand-muted"><%= fw.totals.showing || fw.rows.length %> job<%= (fw.totals.showing || fw.rows.length) === 1 ? '' : 's' %> in this view</p>
+      <div class="space-y-3">
+        <% fw.rows.forEach(function (row) { %>
+        <%- include('partials/network_fw_job_card', { row: row }) %>
+        <% }); %>
+      </div>
+      <% } %>
+      <% } %>
+    <% } %>
+
+    <% if (tab === 'calendar') { %>
+      <% if (!canManage) { %>
+      <div class="net-card text-center py-10">
+        <p class="text-sm text-brand-muted">Only owners, admins, and managers can see the team calendar.</p>
+      </div>
+      <% } else { %>
+      <% const fw = fieldWork || { rows: [], totals: { showing: 0 }, calendar: null, day: '', dayHeading: '', month: '' }; %>
+      <% const fwCal = fw.calendar; %>
+      <div class="mb-4">
+        <h2 class="font-display font-bold text-xl">Team calendar</h2>
+        <p class="mt-1 max-w-2xl text-sm text-brand-muted">Scheduled jobs across every teammate’s Reviews app — tap a day to see that day’s events.</p>
+      </div>
+      <form method="get" action="/network" class="fw-filters" id="fwCalFilters">
+        <input type="hidden" name="tab" value="calendar" />
+        <input type="hidden" name="fw" value="<%= fieldWorkView === 'day' ? 'day' : 'calendar' %>" />
+        <% if (fw.day) { %><input type="hidden" name="day" value="<%= fw.day %>" /><% } %>
+        <% if (fw.month) { %><input type="hidden" name="month" value="<%= fw.month %>" /><% } %>
+        <label class="sr-only" for="fwCalMember">Member</label>
+        <select id="fwCalMember" name="member" class="fw-select" onchange="this.form.submit()">
+          <option value="">All members</option>
+          <% (typeof fieldWorkMembers !== 'undefined' ? fieldWorkMembers : []).forEach(function (m) { %>
+          <option value="<%= m.id %>" <%= fieldWorkMemberId === m.id ? 'selected' : '' %>><%= m.companyName || m.contactName || m.id %></option>
+          <% }); %>
+        </select>
+        <label class="sr-only" for="fwCalStatus">Status</label>
+        <select id="fwCalStatus" name="jobStatus" class="fw-select" onchange="this.form.submit()">
+          <option value="">Any status</option>
+          <% (fieldWorkStatuses || []).forEach(function (s) { %>
+          <option value="<%= s.id %>" <%= fieldWorkStatus === s.id ? 'selected' : '' %>><%= s.label %></option>
+          <% }); %>
+        </select>
+      </form>
+      <% if (fwCal) { %>
+      <section class="net-card fw-cal" aria-label="Team calendar">
         <div class="fw-cal-head">
-          <a class="net-btn net-btn-ghost" href="/network?tab=field-work&fw=calendar&month=<%= fwCal.prev %><%= fieldWorkMemberId ? '&member=' + encodeURIComponent(fieldWorkMemberId) : '' %><%= fieldWorkStatus ? '&jobStatus=' + encodeURIComponent(fieldWorkStatus) : '' %>">‹</a>
+          <a class="net-btn net-btn-ghost" href="/network?tab=calendar&fw=calendar&month=<%= fwCal.prev %><%= fieldWorkMemberId ? '&member=' + encodeURIComponent(fieldWorkMemberId) : '' %><%= fieldWorkStatus ? '&jobStatus=' + encodeURIComponent(fieldWorkStatus) : '' %>">‹</a>
           <h3 class="font-display font-bold text-base"><%= fwCal.label %></h3>
-          <a class="net-btn net-btn-ghost" href="/network?tab=field-work&fw=calendar&month=<%= fwCal.next %><%= fieldWorkMemberId ? '&member=' + encodeURIComponent(fieldWorkMemberId) : '' %><%= fieldWorkStatus ? '&jobStatus=' + encodeURIComponent(fieldWorkStatus) : '' %>">›</a>
+          <a class="net-btn net-btn-ghost" href="/network?tab=calendar&fw=calendar&month=<%= fwCal.next %><%= fieldWorkMemberId ? '&member=' + encodeURIComponent(fieldWorkMemberId) : '' %><%= fieldWorkStatus ? '&jobStatus=' + encodeURIComponent(fieldWorkStatus) : '' %>">›</a>
         </div>
         <div class="fw-cal-grid" aria-hidden="true">
           <% ['S','M','T','W','T','F','S'].forEach(function (d) { %><div class="fw-cal-dow"><%= d %></div><% }); %>
@@ -581,7 +604,7 @@
         <div class="fw-cal-grid">
           <% fwCal.weeks.forEach(function (week) { %>
             <% week.forEach(function (d) { %>
-            <a href="/network?tab=field-work&fw=day&day=<%= d.date %>&month=<%= fwCal.month %><%= fieldWorkMemberId ? '&member=' + encodeURIComponent(fieldWorkMemberId) : '' %><%= fieldWorkStatus ? '&jobStatus=' + encodeURIComponent(fieldWorkStatus) : '' %>"
+            <a href="/network?tab=calendar&fw=day&day=<%= d.date %>&month=<%= fwCal.month %><%= fieldWorkMemberId ? '&member=' + encodeURIComponent(fieldWorkMemberId) : '' %><%= fieldWorkStatus ? '&jobStatus=' + encodeURIComponent(fieldWorkStatus) : '' %>"
                class="fw-cal-day<%= d.inMonth ? '' : ' is-out' %><%= d.isToday ? ' is-today' : '' %><%= d.isSelected ? ' is-on' : '' %><%= d.count ? ' has-jobs' : '' %>"
                aria-label="<%= d.date %><%= d.count ? ', ' + d.count + ' jobs' : '' %>">
               <span><%= d.day %></span>
@@ -590,55 +613,18 @@
             <% }); %>
           <% }); %>
         </div>
-        <p class="mt-3 text-[12px] font-semibold text-brand-muted">Showing jobs for <strong class="text-brand-dark dark:text-white"><%= fw.day %></strong> — tap a day to switch.</p>
+        <p class="mt-3 text-[12px] font-semibold text-brand-muted">Events for <strong class="text-brand-dark dark:text-white"><%= fw.dayHeading || fw.day %></strong> — tap a day to switch.</p>
       </section>
       <% } %>
       <% if (!fw.rows.length) { %>
       <div class="net-card text-center py-10">
-        <p class="text-sm text-brand-muted">No field jobs<%= fieldWorkMemberId || fieldWorkStatus || (fieldWorkView !== 'open' && !fwIsCal) || fwIsCal ? ' match these filters' : ' yet — when partners or teammates log customers and jobs in the Reviews app, they show up here' %>.</p>
+        <p class="text-sm text-brand-muted">No scheduled jobs on this day<%= fieldWorkMemberId || fieldWorkStatus ? ' for these filters' : '' %>.</p>
       </div>
       <% } else { %>
-      <p class="mb-3 text-[12px] font-bold text-brand-muted"><%= fw.totals.showing || fw.rows.length %> job<%= (fw.totals.showing || fw.rows.length) === 1 ? '' : 's' %> in this view</p>
+      <p class="mb-3 text-[12px] font-bold text-brand-muted"><%= fw.totals.showing || fw.rows.length %> event<%= (fw.totals.showing || fw.rows.length) === 1 ? '' : 's' %> on this day</p>
       <div class="space-y-3">
         <% fw.rows.forEach(function (row) { %>
-        <article class="net-card fw-row">
-          <div class="fw-owner-bar" title="Whose Reviews app this project belongs to">
-            <span class="fw-owner-bar__label">Teammate app</span>
-            <span class="fw-owner-bar__name"><%= row.memberName %></span>
-          </div>
-          <div class="min-w-0">
-            <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1 min-w-0">
-              <h3 class="font-display font-bold text-base md:text-lg truncate"><%= row.title %></h3>
-              <span class="net-pill fw-pill-<%= row.status %><%= row.overdue ? ' fw-pill-overdue' : '' %>"><%= row.statusLabel %><%= row.overdue ? ' · overdue' : '' %></span>
-            </div>
-            <span class="fw-cust-label">Customer</span>
-            <p class="text-sm font-semibold text-brand-dark dark:text-white truncate"><%= row.customerName %></p>
-            <div class="fw-meta">
-              <% if (row.whenLabel) { %><span class="text-[12px] font-semibold <%= row.overdue ? 'text-rose-600' : 'text-brand-muted' %>"><%= row.whenLabel %></span><% } %>
-              <% if (row.photoCount) { %><span class="text-[12px] font-semibold text-brand-muted"><%= row.photoCount %> photo<%= row.photoCount === 1 ? '' : 's' %></span><% } %>
-            </div>
-            <% if (row.latestNote) { %>
-            <p class="fw-note"><%= row.latestNote.length > 280 ? row.latestNote.slice(0, 280) + '…' : row.latestNote %></p>
-            <% } %>
-            <% if (row.photos && row.photos.length) { %>
-            <div class="fw-photos">
-              <% row.photos.forEach(function (p) { %>
-              <a class="fw-photo" href="<%= p.href %>" target="_blank" rel="noopener" title="<%= p.caption || 'Job photo' %>">
-                <img src="<%= p.href %>" alt="<%= p.caption || 'Job photo' %>" loading="lazy" decoding="async" width="52" height="52" />
-              </a>
-              <% }); %>
-            </div>
-            <% } %>
-          </div>
-          <div class="flex flex-wrap gap-2 shrink-0">
-            <% if (row.ownerJobHref) { %>
-            <a href="<%= row.ownerJobHref %>" class="net-btn net-btn-yellow">Open job</a>
-            <% } %>
-            <% if (row.ownerCustomerHref) { %>
-            <a href="<%= row.ownerCustomerHref %>" class="net-btn net-btn-ghost">Customer</a>
-            <% } %>
-          </div>
-        </article>
+        <%- include('partials/network_fw_job_card', { row: row }) %>
         <% }); %>
       </div>
       <% } %>
