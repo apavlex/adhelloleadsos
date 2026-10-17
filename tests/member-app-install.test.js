@@ -41,15 +41,15 @@ describe('member app install modal and tab bar', () => {
   it('shell bottom padding clears the tab bar', () => {
     const css = fs.readFileSync(path.join(root, 'public/css/member-app.css'), 'utf8');
     assert.match(css, /--tabbar-fab-overhang:\s*26px/);
-    assert.match(css, /--tabbar-content-gap:\s*72px/);
+    assert.match(css, /--tabbar-content-gap:\s*20px/);
     assert.match(
       css,
       /\.ma-shell\s*\{[^}]*padding:[^;]*tabbar-h[^;]*tabbar-fab-overhang[^;]*tabbar-content-gap/s,
     );
     assert.match(css, /\.ma-shell\s*\{[^}]*scroll-padding-bottom:/s);
     const head = fs.readFileSync(path.join(root, 'views/member_app/_head.ejs'), 'utf8');
-    assert.match(head, /\.ma-shell\{padding-bottom:calc\(50px \+ 26px \+ 72px/);
-    assert.match(head, /scroll-padding-bottom:calc\(50px \+ 26px \+ 72px/);
+    assert.match(head, /\.ma-shell\{padding-bottom:calc\(50px \+ 26px \+ 20px/);
+    assert.match(head, /scroll-padding-bottom:calc\(50px \+ 26px \+ 20px/);
     assert.match(head, /ma-tab__fab/);
     assert.match(head, /margin-top:-26px/);
     assert.match(head, /\.ma-tab__label\{/);
@@ -318,7 +318,7 @@ describe('member app install modal and tab bar', () => {
     assert.match(css, /\.ma-tab--fab \.ma-tab__fab\s*\{[^}]*margin-top:\s*-26px/s);
     assert.doesNotMatch(css, /\.ma-tab--fab \.ma-tab__fab\s*\{[^}]*position:\s*absolute/s);
     assert.match(css, /--tabbar-fab-overhang:\s*26px/);
-    assert.match(css, /--tabbar-content-gap:\s*72px/);
+    assert.match(css, /--tabbar-content-gap:\s*20px/);
   });
 
   it('referrals tab is labeled Leads; page title is Leads & Referrals', () => {

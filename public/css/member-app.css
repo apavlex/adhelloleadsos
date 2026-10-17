@@ -17,8 +17,8 @@
   --tabbar-h: 50px;
   /* Review FAB rises ~half above the bar via margin-top. */
   --tabbar-fab-overhang: 26px;
-  /* Extra air so the last fold/row clears the frosted bar + FAB. */
-  --tabbar-content-gap: 72px;
+  /* Small air so the last row clears the frosted bar + FAB — keep tight to avoid a tall empty shelf. */
+  --tabbar-content-gap: 20px;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
   /* SF Pro on Apple devices; Inter/Manrope elsewhere */
@@ -856,8 +856,9 @@ html[data-ma-theme="dark"] .ma-quick__btn { border-color: transparent; }
 
 /* Customer tags (GHL 2-way; search + create) */
 .ma-tags { overflow: visible; }
-.ma-tags__list { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; min-height: 44px; }
-.ma-tags__empty { width: 100%; }
+.ma-tags__list { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-height: 0; }
+.ma-tags__list:has(.ma-tags__chip) { min-height: 44px; }
+.ma-tags__empty { width: 100%; margin: 0; }
 .ma-tags__chip {
   --ma-tag: var(--acc);
   display: inline-flex; flex-direction: row; align-items: center; gap: 2px;
@@ -884,9 +885,9 @@ html[data-ma-theme="dark"] .ma-quick__btn { border-color: transparent; }
 .ma-tags__chip-x:hover, .ma-tags__chip-x:focus-visible {
   background: color-mix(in srgb, var(--ma-tag) 40%, var(--card)); outline: none;
 }
-.ma-tags__search { margin-top: 18px; }
+.ma-tags__search { margin-top: 12px; }
 .ma-tags__search-form .ma-label { margin-bottom: 8px; }
-.ma-tags__submit { margin-top: 28px; }
+.ma-tags__submit { margin-top: 12px; }
 .ma-tags__suggest {
   display: flex; flex-wrap: wrap; gap: 8px;
   margin: 16px 0 0; padding: 0; list-style: none;
