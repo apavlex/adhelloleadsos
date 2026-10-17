@@ -109,6 +109,28 @@
     @media (min-width: 640px) { .net-review-other { grid-template-columns: 12rem minmax(0, 1fr); } }
     details.net-more > summary { list-style: none; cursor: pointer; }
     details.net-more > summary::-webkit-details-marker { display: none; }
+    .fw-filters { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 1rem; }
+    .fw-select { border-radius: 999px; border: 1px solid rgba(15, 23, 42, 0.12); background: #fff; padding: 0.45rem 0.85rem; font-size: 0.78rem; font-weight: 700; color: inherit; }
+    html.dark .fw-select { background: rgba(15, 23, 42, 0.78); border-color: rgba(255, 255, 255, 0.14); }
+    .fw-row { display: grid; gap: 0.85rem; }
+    @media (min-width: 720px) { .fw-row { grid-template-columns: minmax(0, 1fr) auto; align-items: start; } }
+    .fw-meta { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; margin-top: 0.35rem; }
+    .fw-note { margin-top: 0.55rem; font-size: 0.8125rem; line-height: 1.45; color: #64748b; white-space: pre-wrap; overflow-wrap: anywhere; }
+    html.dark .fw-note { color: #94a3b8; }
+    .fw-photos { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.65rem; }
+    .fw-photo { display: block; width: 3.25rem; height: 3.25rem; border-radius: 0.65rem; overflow: hidden; border: 1px solid rgba(15, 23, 42, 0.08); background: rgba(15, 23, 42, 0.04); }
+    html.dark .fw-photo { border-color: rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.05); }
+    .fw-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .fw-pill-overdue { background: rgba(225, 29, 72, 0.12); color: #be123c; }
+    html.dark .fw-pill-overdue { color: #fda4af; }
+    .fw-pill-scheduled { background: rgba(59, 130, 246, 0.14); color: #1d4ed8; }
+    .fw-pill-in_progress { background: rgba(245, 158, 11, 0.16); color: #b45309; }
+    .fw-pill-lead, .fw-pill-estimate { background: rgba(148, 163, 184, 0.16); color: #475569; }
+    .fw-pill-completed { background: rgba(16, 185, 129, 0.14); color: #047857; }
+    .fw-pill-on_hold, .fw-pill-cancelled { background: rgba(148, 163, 184, 0.12); color: #64748b; }
+    html.dark .fw-pill-scheduled { color: #93c5fd; }
+    html.dark .fw-pill-in_progress { color: #fcd34d; }
+    html.dark .fw-pill-completed { color: #6ee7b7; }
   </style>
   <%- include('partials/tailwind_css') %>
 </head>
@@ -119,6 +141,7 @@
     const tabs = [
       { id: 'seats', label: 'Seats' },
       { id: 'members', label: 'Members (' + totals.members + (totals.freeMembers ? ' · ' + totals.freeMembers + ' free' : '') + ')' },
+      { id: 'field-work', label: 'Team field work' },
       { id: 'applications', label: 'Applications' + (pendingApplications ? ' (' + pendingApplications + ')' : '') },
       { id: 'referrals', label: 'Referrals (' + totals.total + ')' },
       { id: 'brand', label: 'App branding' },
@@ -429,6 +452,105 @@
         </article>
         <% }); %>
       </div>
+      <% } %>
+    <% } %>
+
+    <% if (tab === 'field-work') { %>
+      <% if (!canManage) { %>
+      <div class="net-card text-center py-10">
+        <p class="text-sm text-brand-muted">Only owners, admins, and managers can see every teammate’s field jobs, photos, and notes in one place.</p>
+      </div>
+      <% } else { %>
+      <div class="mb-4">
+        <h2 class="font-display font-bold text-xl">Team field work</h2>
+        <p class="mt-1 max-w-2xl text-sm text-brand-muted">Open jobs, photos, project notes, and upcoming appointments from every Reviews-app member — partners and free-app seats included.</p>
+      </div>
+      <% const fw = fieldWork || { rows: [], totals: { jobs: 0, open: 0, upcoming: 0, photos: 0, membersWithWork: 0 } }; %>
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+        <div class="net-stat">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Showing</p>
+          <p class="font-display font-black text-2xl"><%= fw.totals.jobs %></p>
+        </div>
+        <div class="net-stat">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Open</p>
+          <p class="font-display font-black text-2xl"><%= fw.totals.open %></p>
+        </div>
+        <div class="net-stat">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Upcoming</p>
+          <p class="font-display font-black text-2xl"><%= fw.totals.upcoming %></p>
+        </div>
+        <div class="net-stat">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Members w/ work</p>
+          <p class="font-display font-black text-2xl"><%= fw.totals.membersWithWork %></p>
+        </div>
+      </div>
+      <form method="get" action="/network" class="fw-filters" id="fwFilters">
+        <input type="hidden" name="tab" value="field-work" />
+        <label class="sr-only" for="fwView">View</label>
+        <select id="fwView" name="fw" class="fw-select" onchange="this.form.submit()">
+          <option value="open" <%= fieldWorkView === 'open' ? 'selected' : '' %>>Open jobs</option>
+          <option value="upcoming" <%= fieldWorkView === 'upcoming' ? 'selected' : '' %>>Upcoming</option>
+          <option value="all" <%= fieldWorkView === 'all' ? 'selected' : '' %>>All jobs</option>
+        </select>
+        <label class="sr-only" for="fwMember">Member</label>
+        <select id="fwMember" name="member" class="fw-select" onchange="this.form.submit()">
+          <option value="">All members</option>
+          <% (typeof fieldWorkMembers !== 'undefined' ? fieldWorkMembers : []).forEach(function (m) { %>
+          <option value="<%= m.id %>" <%= fieldWorkMemberId === m.id ? 'selected' : '' %>><%= m.companyName || m.contactName || m.id %></option>
+          <% }); %>
+        </select>
+        <label class="sr-only" for="fwStatus">Status</label>
+        <select id="fwStatus" name="jobStatus" class="fw-select" onchange="this.form.submit()">
+          <option value="">Any status</option>
+          <% (fieldWorkStatuses || []).forEach(function (s) { %>
+          <option value="<%= s.id %>" <%= fieldWorkStatus === s.id ? 'selected' : '' %>><%= s.label %></option>
+          <% }); %>
+        </select>
+      </form>
+      <% if (!fw.rows.length) { %>
+      <div class="net-card text-center py-10">
+        <p class="text-sm text-brand-muted">No field jobs<%= fieldWorkMemberId || fieldWorkStatus || fieldWorkView !== 'open' ? ' match these filters' : ' yet — when partners or teammates log customers and jobs in the Reviews app, they show up here' %>.</p>
+      </div>
+      <% } else { %>
+      <div class="space-y-3">
+        <% fw.rows.forEach(function (row) { %>
+        <article class="net-card fw-row">
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+              <h3 class="font-display font-bold text-base md:text-lg truncate"><%= row.title %></h3>
+              <span class="net-pill fw-pill-<%= row.status %><%= row.overdue ? ' fw-pill-overdue' : '' %>"><%= row.statusLabel %><%= row.overdue ? ' · overdue' : '' %></span>
+            </div>
+            <p class="mt-1 text-sm font-semibold text-brand-dark dark:text-white truncate"><%= row.customerName %></p>
+            <div class="fw-meta">
+              <span class="text-[12px] font-bold text-brand-muted"><%= row.memberName %></span>
+              <% if (row.whenLabel) { %><span class="text-[12px] font-semibold <%= row.overdue ? 'text-rose-600' : 'text-brand-muted' %>"><%= row.whenLabel %></span><% } %>
+              <% if (row.photoCount) { %><span class="text-[12px] font-semibold text-brand-muted"><%= row.photoCount %> photo<%= row.photoCount === 1 ? '' : 's' %></span><% } %>
+            </div>
+            <% if (row.latestNote) { %>
+            <p class="fw-note"><%= row.latestNote.length > 280 ? row.latestNote.slice(0, 280) + '…' : row.latestNote %></p>
+            <% } %>
+            <% if (row.photos && row.photos.length) { %>
+            <div class="fw-photos">
+              <% row.photos.forEach(function (p) { %>
+              <a class="fw-photo" href="<%= p.href %>" target="_blank" rel="noopener" title="<%= p.caption || 'Job photo' %>">
+                <img src="<%= p.href %>" alt="<%= p.caption || 'Job photo' %>" loading="lazy" decoding="async" width="52" height="52" />
+              </a>
+              <% }); %>
+            </div>
+            <% } %>
+          </div>
+          <div class="flex flex-wrap gap-2 shrink-0">
+            <% if (row.portalJobHref) { %>
+            <a href="<%= row.portalJobHref %>" class="net-btn net-btn-yellow" target="_blank" rel="noopener">Open job</a>
+            <% } %>
+            <% if (row.portalCustomerHref) { %>
+            <a href="<%= row.portalCustomerHref %>" class="net-btn net-btn-ghost" target="_blank" rel="noopener">Customer</a>
+            <% } %>
+          </div>
+        </article>
+        <% }); %>
+      </div>
+      <% } %>
       <% } %>
     <% } %>
 

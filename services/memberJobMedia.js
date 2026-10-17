@@ -8,7 +8,8 @@ const dbService = require('./database');
 const networkBrand = require('./networkBrand');
 
 const PREFIX = 'netjobphoto:';
-const SCOPE_ID = /^[a-z0-9]{1,64}$/i;
+/** Match memberWork — allow staff_* workspace seats (underscore). */
+const SCOPE_ID = /^[a-z0-9_]{1,64}$/i;
 const RECORD_ID = /^[a-z0-9]{6,40}$/;
 
 function photoKey(networkId, memberId, jobId, photoId) {

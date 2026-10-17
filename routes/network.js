@@ -14,9 +14,12 @@ const networkMembers = require('../services/networkMembers');
 const reviewPage = require('../services/reviewPage');
 const freeAppSignup = require('../services/freeAppSignup');
 const { ICONS: MEMBER_APP_ICONS } = require('../services/memberAppIcons');
+const teamFieldWork = require('../services/teamFieldWork');
+const memberWork = require('../services/memberWork');
+const memberJobMedia = require('../services/memberJobMedia');
 const multer = require('multer');
 
-const TABS = new Set(['seats', 'members', 'applications', 'referrals', 'send', 'brand', 'setup']);
+const TABS = new Set(['seats', 'members', 'applications', 'referrals', 'send', 'brand', 'setup', 'field-work']);
 
 const brandUpload = multer({
   storage: multer.memoryStorage(),
@@ -202,6 +205,32 @@ router.get('/', async (req, res, next) => {
       }
     }
 
+    let fieldWork = null;
+    const fieldWorkView = teamFieldWork.VIEWS.includes(String(req.query.fw || ''))
+      ? String(req.query.fw)
+      : 'open';
+    const fieldWorkMemberId = String(req.query.member || '').trim();
+    const fieldWorkStatus = memberWork.JOB_STATUSES.includes(String(req.query.jobStatus || ''))
+      ? String(req.query.jobStatus)
+      : '';
+    if (tab === 'field-work' && canManage(req)) {
+      const baseUrl = notify.baseUrlFromReq(req);
+      const portalBaseByMember = {};
+      members.forEach((m) => {
+        try {
+          portalBaseByMember[m.id] = notify.memberPortalLink(baseUrl, network, m);
+        } catch (_) {
+          portalBaseByMember[m.id] = '';
+        }
+      });
+      fieldWork = await teamFieldWork.listTeamFieldWork(network.id, members, {
+        view: fieldWorkView,
+        memberId: fieldWorkMemberId,
+        status: fieldWorkStatus,
+        portalBaseByMember,
+      });
+    }
+
     const totals = ex.networkTotals(referrals);
     const openSeats = seatRows.reduce((n, row) => n + row.seats.filter((s) => !s.holders.length).length, 0);
     const heldSeats = seatRows.reduce((n, row) => n + row.seats.filter((s) => s.holders.length).length, 0);
@@ -245,6 +274,15 @@ router.get('/', async (req, res, next) => {
       prefillLeadKey: String(req.query.leadKey || '').trim(),
       prefillTrade: networkTrades.some((t) => t.slug === req.query.trade) ? String(req.query.trade) : '',
       candidates,
+      fieldWork,
+      fieldWorkView,
+      fieldWorkMemberId,
+      fieldWorkStatus,
+      fieldWorkMembers: members,
+      fieldWorkStatuses: memberWork.JOB_STATUSES.map((s) => ({
+        id: s,
+        label: memberWork.JOB_STATUS_LABELS[s],
+      })),
       brand: networkBrand.brandView(network),
       applications: applications.map((app) => ({
         ...app,
@@ -662,6 +700,35 @@ router.get('/brand/preview', async (req, res, next) => {
         { id: 'demo2', customer: { name: 'Jordan Reyes', city: 'Washougal' }, trade: 'HVAC', from: 'Evergreen Landscaping' },
       ],
     });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/** Owner/manager thumbnails for Team field work (member-app job photos). */
+router.get('/field-work/photos/:memberId/:jobId/:photoId', async (req, res, next) => {
+  try {
+    if (!canManage(req)) return res.status(403).send('Forbidden');
+    const network = await loadNetwork(req);
+    const memberId = String(req.params.memberId || '');
+    const jobId = String(req.params.jobId || '');
+    const photoId = String(req.params.photoId || '');
+    const member = await store.getMember(network.id, memberId);
+    if (!member) return res.status(404).send('Not found');
+    const job = await memberWork.getJob(network.id, memberId, jobId);
+    if (!job || !(job.photos || []).some((p) => p.id === photoId)) {
+      return res.status(404).send('Not found');
+    }
+    let file = null;
+    try {
+      file = await memberJobMedia.getJobPhoto(network.id, memberId, jobId, photoId);
+    } catch (err) {
+      console.warn('[network] field-work photo:', err && err.message);
+    }
+    if (!file || !file.buffer) return res.status(404).send('Not found');
+    res.setHeader('Content-Type', file.contentType || 'image/jpeg');
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    return res.send(file.buffer);
   } catch (err) {
     return next(err);
   }
