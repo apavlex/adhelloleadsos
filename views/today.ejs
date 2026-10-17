@@ -77,9 +77,11 @@
     <% const _tg = typeof touchGoal !== 'undefined' ? Math.max(1, Number(touchGoal) || 54) : 54; %>
     <% const _st = typeof streak !== 'undefined' ? Number(streak) || 0 : 0; %>
     <% const _rw = typeof repliesWaiting !== 'undefined' ? Number(repliesWaiting) || 0 : 0; %>
+    <% const _roi = typeof bestRoiActivity !== 'undefined' && bestRoiActivity ? bestRoiActivity : null; %>
+    <% const _roiCount = _roi ? (Number(_roi.count) || 0) : _q; %>
     <% const _touchPct = Math.max(0, Math.min(100, Math.round((_tt / _tg) * 100))); %>
     <% const _sessionGoal = 30; %>
-    <% const _sessionPct = Math.max(0, Math.min(100, Math.round((_q / Math.max(_sessionGoal, 1)) * 100))); %>
+    <% const _sessionPct = Math.max(0, Math.min(100, Math.round((_roiCount / Math.max(_sessionGoal, 1)) * 100))); %>
     <% const _ringC = 2 * Math.PI * 42; %>
     <% const _ringOffset = _ringC * (1 - _sessionPct / 100); %>
     <% const _touchRingOffset = _ringC * (1 - _touchPct / 100); %>
@@ -283,29 +285,34 @@
           <button type="button" id="todayTabNext30" role="tab" aria-controls="todayPanelNext30" aria-selected="true" data-today-tab="next30" class="today-main-tab rounded-xl px-4 py-2.5 text-[10px] font-black uppercase tracking-widest transition-all bg-brand-dark text-white dark:bg-white dark:text-brand-dark">Next 30 min</button>
           <button type="button" id="todayTabOpsAgents" role="tab" aria-controls="todayPanelOpsAgents" aria-selected="false" data-today-tab="ops" class="today-main-tab rounded-xl px-4 py-2.5 text-[10px] font-black uppercase tracking-widest transition-all text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-white">Ops agents</button>
         </div>
-        <% } else { %>
-        <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Next 30 minutes</p>
         <% } %>
 
         <div id="todayPanelNext30" role="tabpanel" aria-labelledby="<%= _hasAgentOps ? 'todayTabNext30' : '' %>" data-today-panel="next30" class="today-main-panel">
           <div class="flex flex-col lg:flex-row lg:items-center gap-8">
             <div class="flex-1 min-w-0">
-              <% if (_hasAgentOps) { %>
-              <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Next 30 minutes</p>
-              <% } %>
+              <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3"><%= _roi && _roi.eyebrow ? _roi.eyebrow : 'Best ROI · next 30 min' %></p>
               <h2 class="font-display font-extrabold text-xl md:text-3xl text-brand-dark dark:text-white mb-2 leading-tight">
+                <% if (_roi && _roi.headline) { %>
+                <%= _roi.headline %>
+                <% } else { %>
                 You have <span class="tabular-nums" data-today-count="<%= _q %>"><%= _q %></span> prospects queued for action today.
+                <% } %>
               </h2>
-              <p class="text-sm text-brand-muted mb-5 max-w-xl">Start a focused calling block and work the queue in order. AdHello will keep wrap-up and next steps aligned.</p>
-              <div class="flex flex-col sm:flex-row gap-3 mb-5">
-                <a href="/focus" data-nav-prefetch="/focus" class="btn-pill btn-primary px-8 py-3 text-xs font-black uppercase tracking-widest text-center inline-flex items-center justify-center gap-2">
+              <p class="text-sm text-brand-muted mb-5 max-w-xl"><%= _roi && _roi.detail ? _roi.detail : 'Start a focused calling block and work the queue in order. AdHello will keep wrap-up and next steps aligned.' %></p>
+              <div class="flex flex-col sm:flex-row flex-wrap gap-3 mb-5">
+                <a href="<%= _roi && _roi.primaryHref ? _roi.primaryHref : '/focus' %>" data-nav-prefetch="<%= _roi && _roi.primaryHref ? _roi.primaryHref : '/focus' %>" class="btn-pill btn-primary px-8 py-3 text-xs font-black uppercase tracking-widest text-center inline-flex items-center justify-center gap-2">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3l14 9-14 9V3z"/></svg>
-                  Start session
+                  <%= _roi && _roi.primaryLabel ? _roi.primaryLabel : 'Start session' %>
                 </a>
-                <a href="/prospecting?tab=pipeline" data-nav-prefetch="/prospecting?tab=pipeline" class="btn-pill border border-brand-border dark:border-white/20 px-8 py-3 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white text-center inline-flex items-center justify-center gap-2">
+                <a href="<%= _roi && _roi.secondaryHref ? _roi.secondaryHref : '/network?tab=referrals' %>" data-nav-prefetch="<%= _roi && _roi.secondaryHref ? _roi.secondaryHref : '/network?tab=referrals' %>" class="btn-pill border border-brand-border dark:border-white/20 px-8 py-3 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white text-center inline-flex items-center justify-center gap-2">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h10M4 18h7"/></svg>
-                  Open pipeline queue
+                  <%= _roi && _roi.secondaryLabel ? _roi.secondaryLabel : 'Network leads' %>
                 </a>
+                <% if (_roi && _roi.altHref && _roi.altLabel) { %>
+                <a href="<%= _roi.altHref %>" data-nav-prefetch="<%= _roi.altHref %>" class="btn-pill border border-brand-border dark:border-white/20 px-8 py-3 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white text-center inline-flex items-center justify-center gap-2">
+                  <%= _roi.altLabel %>
+                </a>
+                <% } %>
                 <% if (_hasAgentOps) { %>
                 <button type="button" id="todayJumpOpsAgents" class="btn-pill border border-brand-yellow/50 bg-brand-yellow/15 px-8 py-3 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white text-center inline-flex items-center justify-center gap-2">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v3m0 12v3M3 12h3m12 0h3M6.3 6.3l2.1 2.1m7.2 7.2 2.1 2.1m0-11.4-2.1 2.1M8.4 15.6l-2.1 2.1"/></svg>
@@ -345,8 +352,8 @@
                   stroke-dashoffset="<%= _ringOffset.toFixed(2) %>"></circle>
               </svg>
               <div class="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-                <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Queue</p>
-                <p class="font-display font-black text-2xl text-brand-dark dark:text-white tabular-nums leading-none"><%= _q %></p>
+                <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted"><%= _roi && _roi.ringLabel ? _roi.ringLabel : 'Queue' %></p>
+                <p class="font-display font-black text-2xl text-brand-dark dark:text-white tabular-nums leading-none" data-today-count="<%= _roiCount %>"><%= _roiCount %></p>
                 <p class="text-[10px] font-bold text-brand-muted mt-1"><%= _sessionPct %>% of <%= _sessionGoal %></p>
               </div>
             </div>
