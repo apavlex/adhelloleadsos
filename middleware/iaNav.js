@@ -68,6 +68,8 @@ function iaNav(req, res, next) {
     navPrimary = 'opportunities';
   } else if (p === '/referrals' || p.startsWith('/referrals/')) {
     navPrimary = 'referrals';
+  } else if (p === '/appointments' || p.startsWith('/appointments/')) {
+    navPrimary = 'appointments';
   } else if (p === '/network' || p.startsWith('/network/')) {
     navPrimary = 'network';
   }

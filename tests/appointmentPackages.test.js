@@ -7,6 +7,7 @@ const {
   applyGhlEventToStore,
   statusFromGhlAppointment,
   buildTodayView,
+  scopeTodayView,
   normalizeStore,
   findPackageForFormLead,
   normalizeLeadCredits,
@@ -114,6 +115,41 @@ describe('appointmentPackages', () => {
     assert.equal(view.totals.remaining, 13);
     assert.equal(view.ghlConfigured, true);
     assert.ok(view.steps.length === 4);
+  });
+
+  it('scopes today view to one teammate package and empties when unlinked', () => {
+    const store = normalizeStore({
+      packages: [
+        {
+          id: 'pkg_a',
+          businessName: 'A',
+          purchased: 10,
+          appointments: [{ status: 'booked' }],
+          requests: [{ id: 'r1', type: 'leads', quantity: 25, status: 'pending' }],
+        },
+        {
+          id: 'pkg_b',
+          businessName: 'B',
+          purchased: 5,
+          appointments: [{ status: 'closed' }],
+        },
+      ],
+    });
+    const view = buildTodayView(store);
+    const scoped = scopeTodayView(view, ['pkg_a']);
+    assert.equal(scoped.packages.length, 1);
+    assert.equal(scoped.packages[0].id, 'pkg_a');
+    assert.equal(scoped.totals.purchased, 10);
+    assert.equal(scoped.totals.booked, 1);
+    assert.equal(scoped.totals.closed, 0);
+    assert.equal(scoped.totals.pendingRequests, 1);
+    assert.equal(scoped.ghlConfigured, view.ghlConfigured);
+
+    const empty = scopeTodayView(view, []);
+    assert.equal(empty.packages.length, 0);
+    assert.equal(empty.totals.purchased, 0);
+    assert.equal(empty.totals.remaining, 0);
+    assert.equal(empty.totals.pendingRequests, 0);
   });
 
   it('matches form leads to packages by tag or email', () => {

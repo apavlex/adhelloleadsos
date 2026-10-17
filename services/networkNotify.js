@@ -664,11 +664,13 @@ async function notifyLeadRequest({ network, member, quantity, note }) {
   const detail = String(note || '').trim().slice(0, 120);
   const title = `${company} requested ${qty} more leads — ready for more work!${detail ? ` (${detail})` : ''}`;
   try {
+    const memberId = member && member.id ? String(member.id).trim() : '';
     const task = await upsertOpenTaskForLead(network.ownerWorkspaceId, email, {
       title: title.slice(0, 240),
       leadKey: (member && member.leadKey) || null,
       scheduledAt: new Date().toISOString(),
       source: TASK_SOURCE_NETWORK,
+      href: memberId ? `/appointments?member=${encodeURIComponent(memberId)}` : '/appointments',
     });
     return { ok: true, taskId: task && task.id, title };
   } catch (err) {

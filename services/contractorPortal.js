@@ -3,6 +3,7 @@
  */
 const dbService = require('./database');
 const appointmentPackages = require('./appointmentPackages');
+const memberAppointmentLink = require('./memberAppointmentLink');
 const { createContractorPortalToken, verifyContractorPortalToken } = require('./contractorPortalSign');
 const userTasks = require('./userTasks');
 const whiteLabel = require('./whiteLabel');
@@ -87,6 +88,15 @@ async function notifyAgencyOfRequest(workspaceId, pkg, request) {
   const title = request.type === 'appointments'
     ? `${pkg.businessName} requested ${qty} more appointments${note ? ` — ${note}` : ''}`
     : `${pkg.businessName} requested ${qty} more leads — ready for more work!${note ? ` (${note})` : ''}`;
+  let href = '/appointments';
+  try {
+    const linked = await memberAppointmentLink.findMemberForPackage(workspaceId, pkg);
+    if (linked && linked.member && linked.member.id) {
+      href = `/appointments?member=${encodeURIComponent(linked.member.id)}`;
+    }
+  } catch (_) {
+    /* optional link */
+  }
   const results = [];
   for (const email of emails) {
     try {
@@ -96,6 +106,7 @@ async function notifyAgencyOfRequest(workspaceId, pkg, request) {
         column: 'todo',
         leadKey: pkg.leadKey || null,
         source: 'manual',
+        href,
       });
       results.push({ email, taskId: task && task.id });
     } catch (e) {

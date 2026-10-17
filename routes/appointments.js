@@ -10,11 +10,30 @@ const appointmentPool = require('../services/appointmentPool');
 const contractorPortal = require('../services/contractorPortal');
 const memberAppointmentLink = require('../services/memberAppointmentLink');
 const networkNotify = require('../services/networkNotify');
+const networkStore = require('../services/networkStore');
 const publicDemo = require('../services/publicDemo');
 const workspaceService = require('../services/workspaceService');
 const dbService = require('../services/database');
 const workspaceTeammatePush = require('../services/workspaceTeammatePush');
 const { getPublicBaseUrl } = require('../lib/publicBaseUrl');
+
+/** Network partners for the Appointments teammate health filter. */
+async function loadAppointmentTeammates(workspaceId) {
+  const network = await networkStore.getNetworkForWorkspace(workspaceId);
+  if (!network) return { network: null, members: [], teammates: [] };
+  const members = await networkStore.listMembers(network.id);
+  const teammates = members
+    .filter((m) => m && !m.workspaceStaff)
+    .map((m) => ({
+      id: m.id,
+      companyName: m.companyName || 'Partner',
+      contactName: m.contactName || null,
+      status: m.status || 'active',
+      appointmentPackageId: m.appointmentPackageId || null,
+    }))
+    .sort((a, b) => String(a.companyName).localeCompare(String(b.companyName)));
+  return { network, members, teammates };
+}
 
 async function isAppAdmin(req) {
   return publicDemo.canManage(workspaceService.userEmail(req));
@@ -121,13 +140,40 @@ router.post('/appointment-packages/deliver-teammate-bulk', express.json(), async
 router.get('/', async (req, res, next) => {
   try {
     const canSell = await isAppAdmin(req);
-    const appointmentTracker = await appointmentPackages.loadTodayView(req.workspaceId);
+    let appointmentTracker = await appointmentPackages.loadTodayView(req.workspaceId);
+    const { network, members, teammates } = await loadAppointmentTeammates(req.workspaceId);
+    const memberId = String(req.query.member || '').trim();
+    let appointmentTeammate = null;
+    if (memberId && network) {
+      const member = members.find((m) => m && String(m.id) === memberId) || null;
+      if (member) {
+        const pkg = await memberAppointmentLink.findPackageForMember(
+          req.workspaceId,
+          member,
+          network,
+        );
+        appointmentTeammate = {
+          id: member.id,
+          companyName: member.companyName || 'Partner',
+          contactName: member.contactName || null,
+          status: member.status || 'active',
+          packageId: pkg ? pkg.id : null,
+          linked: !!pkg,
+        };
+        appointmentTracker = appointmentPackages.scopeTodayView(
+          appointmentTracker,
+          pkg ? [pkg.id] : [],
+        );
+      }
+    }
     const poolListings = canSell ? appointmentPool.listAll() : appointmentPool.listAvailable();
     const poolSummary = appointmentPool.poolSummary();
     res.render('appointments', {
       title: 'Appointments | Agency OS',
       activePage: 'appointments',
       appointmentTracker,
+      appointmentTeammates: teammates,
+      appointmentTeammate,
       canSellAppointments: canSell,
       appointmentPool: {
         listings: poolListings,
