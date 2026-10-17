@@ -114,7 +114,7 @@ function buildActiveNumbers(totals) {
       label: 'Today',
       count: totals.today,
       hint: totals.today === 1 ? 'job on calendar' : 'jobs on calendar',
-      href: '/network?tab=field-work&fw=today',
+      href: '/network?tab=calendar',
     },
     {
       id: 'overdue',
@@ -137,7 +137,7 @@ function buildActiveNumbers(totals) {
       label: 'This week',
       count: totals.thisWeek,
       hint: 'scheduled ahead',
-      href: '/network?tab=field-work&fw=upcoming',
+      href: '/network?tab=calendar',
     },
   ];
 }
@@ -302,6 +302,7 @@ async function listTeamFieldWork(networkId, members, opts = {}) {
     today,
     view,
     day: selectedDay,
+    dayHeading: dayLabel(selectedDay, today) || selectedDay,
     month,
     calendar,
     rows,

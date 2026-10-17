@@ -47,8 +47,10 @@ describe('teamFieldWork helpers', () => {
     assert.equal(cards.length, 4);
     assert.equal(cards[0].id, 'today');
     assert.equal(cards[0].count, 2);
+    assert.match(cards[0].href, /tab=calendar/);
     assert.equal(cards[1].id, 'overdue');
     assert.match(cards[2].href, /tab=field-work/);
+    assert.match(cards[3].href, /tab=calendar/);
   });
 });
 

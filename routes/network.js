@@ -19,7 +19,7 @@ const memberWork = require('../services/memberWork');
 const memberJobMedia = require('../services/memberJobMedia');
 const multer = require('multer');
 
-const TABS = new Set(['seats', 'members', 'applications', 'referrals', 'send', 'brand', 'setup', 'field-work']);
+const TABS = new Set(['seats', 'members', 'applications', 'referrals', 'send', 'brand', 'setup', 'field-work', 'calendar']);
 
 const brandUpload = multer({
   storage: multer.memoryStorage(),
@@ -217,7 +217,8 @@ router.get('/', async (req, res, next) => {
     const fieldWorkDay = String(req.query.day || '').trim();
     const fieldWorkMonth = String(req.query.month || '').trim();
     if (canManage(req)) {
-      if (tab === 'field-work') {
+      const wantsFieldList = tab === 'field-work' || tab === 'calendar';
+      if (wantsFieldList) {
         const baseUrl = notify.baseUrlFromReq(req);
         const portalBaseByMember = {};
         members.forEach((m) => {
@@ -227,8 +228,15 @@ router.get('/', async (req, res, next) => {
             portalBaseByMember[m.id] = '';
           }
         });
+        let listView = fieldWorkView;
+        if (tab === 'calendar') {
+          listView = fieldWorkView === 'day' ? 'day' : 'calendar';
+        } else if (tab === 'field-work' && (fieldWorkView === 'calendar' || fieldWorkView === 'day')) {
+          // Calendar lives on its own tab now.
+          listView = 'open';
+        }
         fieldWork = await teamFieldWork.listTeamFieldWork(network.id, members, {
-          view: fieldWorkView,
+          view: listView,
           day: fieldWorkDay,
           month: fieldWorkMonth,
           memberId: fieldWorkMemberId,
