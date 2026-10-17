@@ -4,9 +4,12 @@
   const _hasDay = !!(row.dayLabel);
   const _whenMain = _hasTime ? row.timeLabel : (row.whenLabel || 'Unscheduled');
   const _whenSub = _hasTime && _hasDay ? row.dayLabel : (!_hasTime && _hasDay ? '' : '');
-  const _photo = row.photos && row.photos.length ? row.photos[0] : null;
+  const _photos = Array.isArray(row.photos) ? row.photos : [];
+  const _photo = _photos.length ? _photos[0] : null;
+  const _projectLabel = [row.title, row.customerName].filter(Boolean).join(' · ');
+  const _esc = function (s) { return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); };
 %>
-<article class="fw-job">
+<article class="fw-job" data-os-lr-gallery data-os-lr-project="<%= _esc(row.title) %>" data-os-lr-customer="<%= _esc(row.customerName) %>" data-os-lr-teammate="<%= _esc(row.memberName) %>">
   <div class="fw-job__top">
     <div class="min-w-0">
       <p class="fw-job__when<%= row.overdue ? ' is-overdue' : '' %>">
@@ -42,9 +45,34 @@
       <% } %>
     </div>
     <% if (_photo) { %>
-    <a class="fw-job__shot" href="<%= _photo.href %>" data-os-lr-open data-os-lr-src="<%= _photo.href %>" data-os-lr-caption="<%= String(_photo.caption || 'Job photo').replace(/"/g, '&quot;') %>" title="<%= _photo.caption || 'Job photo' %>">
+    <a
+      class="fw-job__shot"
+      href="<%= _photo.href %>"
+      data-os-lr-open
+      data-os-lr-src="<%= _photo.href %>"
+      data-os-lr-caption="<%= _esc(_photo.caption || 'Job photo') %>"
+      data-os-lr-project="<%= _esc(row.title) %>"
+      data-os-lr-customer="<%= _esc(row.customerName) %>"
+      data-os-lr-teammate="<%= _esc(row.memberName) %>"
+      title="<%= _photo.caption || _projectLabel || 'Job photo' %>"
+    >
       <img src="<%= _photo.href %>" alt="<%= _photo.caption || 'Job photo' %>" loading="lazy" decoding="async" width="72" height="72" />
     </a>
+    <% /* Keep remaining job photos in this card’s gallery only (not mixed with other jobs). */ %>
+    <% _photos.slice(1).forEach(function (p) { %>
+    <a
+      class="sr-only"
+      href="<%= p.href %>"
+      data-os-lr-open
+      data-os-lr-src="<%= p.href %>"
+      data-os-lr-caption="<%= _esc(p.caption || 'Job photo') %>"
+      data-os-lr-project="<%= _esc(row.title) %>"
+      data-os-lr-customer="<%= _esc(row.customerName) %>"
+      data-os-lr-teammate="<%= _esc(row.memberName) %>"
+      tabindex="-1"
+      aria-hidden="true"
+    >Photo</a>
+    <% }); %>
     <% } %>
   </div>
 

@@ -573,7 +573,7 @@
       </div>
       <% } else { %>
       <p class="mb-3 text-[12px] font-bold text-brand-muted"><%= fw.totals.showing || fw.rows.length %> job<%= (fw.totals.showing || fw.rows.length) === 1 ? '' : 's' %> in this view</p>
-      <div class="space-y-3" data-os-lr-gallery>
+      <div class="space-y-3">
         <% fw.rows.forEach(function (row) { %>
         <%- include('partials/network_fw_job_card', { row: row }) %>
         <% }); %>
@@ -645,7 +645,7 @@
       </div>
       <% } else { %>
       <p class="mb-3 text-[12px] font-bold text-brand-muted"><%= fw.totals.showing || fw.rows.length %> event<%= (fw.totals.showing || fw.rows.length) === 1 ? '' : 's' %> on this day</p>
-      <div class="space-y-3" data-os-lr-gallery>
+      <div class="space-y-3">
         <% fw.rows.forEach(function (row) { %>
         <%- include('partials/network_fw_job_card', { row: row }) %>
         <% }); %>
