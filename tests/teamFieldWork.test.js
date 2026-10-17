@@ -134,6 +134,8 @@ describe('teamFieldWork.listTeamFieldWork', () => {
       assert.equal(rollup.rows[1].photos[0].href, '/network/field-work/photos/m1/jobopen01/ph001abc');
       assert.equal(rollup.rows[1].portalJobHref, 'https://example.test/m/token1/customers/jobs/jobopen01');
       assert.equal(rollup.rows[1].portalCustomerHref, 'https://example.test/m/token1/customers/c/c1');
+      assert.equal(rollup.rows[0].timeLabel, '10:00 AM');
+      assert.match(rollup.rows[0].dayLabel, /Jun/);
 
       const upcomingOnly = await teamFieldWork.listTeamFieldWork(
         'net1',
@@ -166,6 +168,7 @@ describe('teamFieldWork.listTeamFieldWork', () => {
       );
       assert.equal(dayView.rows.length, 1);
       assert.equal(dayView.day, '2099-06-01');
+      assert.match(dayView.dayHeading, /Jun/);
       assert.ok(dayView.calendar);
       assert.ok(dayView.calendar.weeks);
 

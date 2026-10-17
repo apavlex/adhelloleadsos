@@ -133,11 +133,17 @@
     html.dark .fw-pill-completed { color: #6ee7b7; }
     .fw-active { margin: 0 0 1rem; }
     .fw-active-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.45rem; }
-    @media (min-width: 640px) { .fw-active-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-    .fw-active-card { display: block; text-decoration: none; color: inherit; border-radius: 1rem; border: 1px solid rgba(15, 23, 42, 0.08); background: #fff; padding: 0.75rem 0.85rem; transition: border-color 0.12s ease; }
+    @media (min-width: 640px) { .fw-active-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    @media (min-width: 960px) { .fw-active-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+    .fw-active-card { display: block; text-decoration: none; color: inherit; border-radius: 1rem; border: 1px solid rgba(15, 23, 42, 0.08); background: #fff; padding: 0.75rem 0.85rem; transition: border-color 0.12s ease; min-width: 0; }
     html.dark .fw-active-card { background: rgba(15, 23, 42, 0.78); border-color: rgba(255, 255, 255, 0.08); }
     .fw-active-card:hover { border-color: var(--brand-yellow, #FFD644); }
     .fw-active-card.is-hot { border-color: rgba(225, 29, 72, 0.35); }
+    .fw-active-card.is-lead { background: color-mix(in srgb, var(--brand-yellow, #FFD644) 8%, #fff); }
+    html.dark .fw-active-card.is-lead { background: color-mix(in srgb, var(--brand-yellow, #FFD644) 10%, rgba(15, 23, 42, 0.78)); }
+    .fw-active-kicker { font-size: 9px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #94a3b8; margin-bottom: 0.2rem; }
+    .fw-pulse { display: flex; flex-wrap: wrap; gap: 0.55rem 1rem; align-items: baseline; margin: 0 0 0.85rem; font-size: 0.78rem; font-weight: 700; color: #64748b; }
+    .fw-pulse strong { color: inherit; font-weight: 800; font-variant-numeric: tabular-nums; }
     .fw-cal { margin-bottom: 1rem; }
     .fw-cal-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.65rem; }
     .fw-cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.25rem; }
@@ -149,6 +155,31 @@
     .fw-cal-day.has-jobs { background: rgba(15, 23, 42, 0.04); }
     html.dark .fw-cal-day.has-jobs { background: rgba(255, 255, 255, 0.05); }
     .fw-cal-count { font-size: 9px; font-weight: 800; color: #64748b; }
+    .fw-day-list { display: grid; gap: 0.75rem; }
+    .fw-day-job { display: grid; gap: 0.85rem; padding: 1rem; }
+    .fw-day-job__when { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.55rem; }
+    .fw-day-job__time { font-size: 0.95rem; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+    .fw-day-job__time.is-overdue { color: #be123c; }
+    html.dark .fw-day-job__time.is-overdue { color: #fda4af; }
+    .fw-day-job__title { margin: 0.15rem 0 0; font-size: 1.15rem; line-height: 1.25; font-weight: 800; overflow-wrap: anywhere; }
+    .fw-day-job__customer { margin: 0.35rem 0 0; font-size: 0.95rem; font-weight: 700; }
+    .fw-day-job__member { margin: 0.15rem 0 0; font-size: 0.78rem; font-weight: 700; color: #64748b; }
+    .fw-day-job__body { display: grid; gap: 0.65rem; }
+    @media (min-width: 480px) {
+      .fw-day-job__body.has-photo { grid-template-columns: 5.5rem minmax(0, 1fr); align-items: start; }
+    }
+    .fw-day-job__shot { display: block; width: 100%; aspect-ratio: 1; max-width: 5.5rem; border-radius: 0.85rem; overflow: hidden; border: 1px solid rgba(15, 23, 42, 0.08); background: rgba(15, 23, 42, 0.04); }
+    html.dark .fw-day-job__shot { border-color: rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.05); }
+    .fw-day-job__shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .fw-day-job__note { margin: 0; font-size: 0.8125rem; line-height: 1.45; color: #64748b; white-space: pre-wrap; overflow-wrap: anywhere; }
+    html.dark .fw-day-job__note { color: #94a3b8; }
+    .fw-day-job__meta { display: flex; flex-wrap: wrap; gap: 0.35rem 0.65rem; font-size: 0.72rem; font-weight: 700; color: #64748b; }
+    .fw-day-job__actions { display: grid; grid-template-columns: 1fr; gap: 0.45rem; }
+    @media (min-width: 480px) { .fw-day-job__actions { grid-template-columns: 1fr 1fr; } }
+    .fw-day-job__actions .net-btn { width: 100%; min-height: 2.65rem; font-size: 0.8rem; border-radius: 0.9rem; }
+    .fw-day-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.35rem 0.75rem; margin: 0 0 0.75rem; }
+    .fw-day-heading h3 { margin: 0; font-size: 1.05rem; font-weight: 800; }
+    .fw-day-heading p { margin: 0; font-size: 0.75rem; font-weight: 700; color: #64748b; }
   </style>
   <%- include('partials/tailwind_css') %>
 </head>
@@ -185,46 +216,65 @@
       </div>
     </header>
 
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-      <div class="net-stat">
-        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Members</p>
-        <p class="font-display font-black text-2xl"><%= totals.members %></p>
-        <% if (totals.members) { %>
-        <p class="mt-1 text-[11px] font-semibold text-brand-muted"><%= totals.freeMembers %> free · <%= totals.partnerMembers %> partners</p>
-        <% } %>
-      </div>
-      <div class="net-stat">
-        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Seats held / open</p>
-        <p class="font-display font-black text-2xl"><%= totals.heldSeats %> <span class="text-brand-muted text-lg">/ <%= totals.openSeats %></span></p>
-      </div>
-      <div class="net-stat">
-        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Open referrals</p>
-        <p class="font-display font-black text-2xl"><%= totals.open %><% if (totals.unrouted) { %> <span class="text-rose-600 text-sm font-bold"><%= totals.unrouted %> need a member</span><% } %></p>
-      </div>
-      <div class="net-stat">
-        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Won</p>
-        <p class="font-display font-black text-2xl"><%= totals.wonValueLabel %> <span class="text-brand-muted text-sm font-bold"><%= totals.won %> <%= totals.won === 1 ? 'job' : 'jobs' %></span></p>
-      </div>
-    </div>
+    <%
+      const fwSources = (canManage && typeof fieldWorkSummary !== 'undefined' && fieldWorkSummary && Array.isArray(fieldWorkSummary.sources))
+        ? fieldWorkSummary.sources : [];
+      const combinedSources = [
+        {
+          id: 'referrals',
+          kind: 'lead',
+          label: 'Open referrals',
+          count: totals.open,
+          hint: totals.unrouted ? (totals.unrouted + ' need a member') : (totals.open === 1 ? 'in the network' : 'in the network'),
+          href: '/network?tab=referrals',
+          hot: !!totals.unrouted,
+        },
+        {
+          id: 'won',
+          kind: 'lead',
+          label: 'Won',
+          count: totals.wonValueLabel,
+          hint: (totals.won || 0) + ' ' + (totals.won === 1 ? 'job' : 'jobs'),
+          href: '/network?tab=referrals&status=won',
+          hot: false,
+        },
+      ].concat(fwSources.map(function (s) {
+        return {
+          id: s.id,
+          kind: 'team',
+          label: s.label,
+          count: s.count,
+          hint: s.hint,
+          href: s.href,
+          hot: s.id === 'overdue' && s.count,
+        };
+      }));
+      const needAttention = (Number(fieldWorkSummary && fieldWorkSummary.needAttention) || 0) + (Number(totals.unrouted) || 0);
+    %>
+    <p class="fw-pulse" aria-label="Network pulse">
+      <span><strong><%= totals.members %></strong> members<% if (totals.members) { %> · <%= totals.freeMembers %> free · <%= totals.partnerMembers %> partners<% } %></span>
+      <span><strong><%= totals.heldSeats %></strong> / <%= totals.openSeats %> seats held</span>
+    </p>
 
-    <% if (canManage && typeof fieldWorkSummary !== 'undefined' && fieldWorkSummary && fieldWorkSummary.sources) { %>
-    <section class="fw-active" aria-label="Team field work active numbers">
+    <% if (combinedSources.length) { %>
+    <section class="fw-active" aria-label="Lead and team sources">
       <div class="flex items-baseline justify-between gap-3 mb-2">
         <div>
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-0.5">Team field work</p>
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-0.5">Lead &amp; team sources</p>
           <p class="text-sm font-semibold text-brand-dark dark:text-white">
-            <span class="tabular-nums font-black"><%= fieldWorkSummary.needAttention || 0 %></span> need attention
-            <span class="text-brand-muted font-semibold"> · today &amp; overdue across the Reviews app</span>
+            <span class="tabular-nums font-black"><%= needAttention %></span> need attention
+            <span class="text-brand-muted font-semibold"> · referrals &amp; field work</span>
           </p>
         </div>
-        <a href="/network?tab=field-work&fw=today" class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:underline shrink-0">Open</a>
+        <a href="/network?tab=field-work&fw=calendar" class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:underline shrink-0">Calendar</a>
       </div>
       <div class="fw-active-grid">
-        <% fieldWorkSummary.sources.forEach(function (s) { %>
-        <a href="<%= s.href %>" class="fw-active-card<%= s.id === 'overdue' && s.count ? ' is-hot' : '' %>">
-          <p class="font-display font-black text-xl tabular-nums leading-none"><%= s.count %></p>
+        <% combinedSources.forEach(function (s) { %>
+        <a href="<%= s.href %>" class="fw-active-card<%= s.kind === 'lead' ? ' is-lead' : '' %><%= s.hot ? ' is-hot' : '' %>">
+          <p class="fw-active-kicker"><%= s.kind === 'lead' ? 'Lead' : 'Team' %></p>
+          <p class="font-display font-black text-xl tabular-nums leading-none truncate"><%= s.count %></p>
           <p class="mt-1 text-[10px] font-black uppercase tracking-widest"><%= s.label %></p>
-          <p class="mt-0.5 text-[11px] font-semibold text-brand-muted truncate"><%= s.hint %></p>
+          <p class="mt-0.5 text-[11px] font-semibold text-brand-muted truncate<%= s.hot ? ' text-rose-600 dark:text-rose-300' : '' %>"><%= s.hint %></p>
         </a>
         <% }); %>
       </div>
@@ -505,29 +555,11 @@
       <% } else { %>
       <div class="mb-4">
         <h2 class="font-display font-bold text-xl">Team field work</h2>
-        <p class="mt-1 max-w-2xl text-sm text-brand-muted">Track projects and status across every Reviews-app member — list, today, or pick a day on the calendar.</p>
+        <p class="mt-1 max-w-2xl text-sm text-brand-muted">List, today, or pick a day — sources above already roll up referrals and field work.</p>
       </div>
-      <% const fw = fieldWork || { rows: [], totals: { showing: 0, open: 0, upcoming: 0, today: 0, overdue: 0, thisWeek: 0, membersWithWork: 0 }, calendar: null, day: '', month: '' }; %>
+      <% const fw = fieldWork || { rows: [], totals: { showing: 0, open: 0, upcoming: 0, today: 0, overdue: 0, thisWeek: 0, membersWithWork: 0 }, calendar: null, day: '', dayHeading: '', month: '' }; %>
       <% const fwCal = fw.calendar; %>
       <% const fwIsCal = fieldWorkView === 'calendar' || fieldWorkView === 'day'; %>
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-        <div class="net-stat">
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Today</p>
-          <p class="font-display font-black text-2xl"><%= fw.totals.today || 0 %></p>
-        </div>
-        <div class="net-stat">
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Overdue</p>
-          <p class="font-display font-black text-2xl<%= fw.totals.overdue ? ' text-rose-600' : '' %>"><%= fw.totals.overdue || 0 %></p>
-        </div>
-        <div class="net-stat">
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Open</p>
-          <p class="font-display font-black text-2xl"><%= fw.totals.open || 0 %></p>
-        </div>
-        <div class="net-stat">
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">This week</p>
-          <p class="font-display font-black text-2xl"><%= fw.totals.thisWeek || 0 %></p>
-        </div>
-      </div>
       <form method="get" action="/network" class="fw-filters" id="fwFilters">
         <input type="hidden" name="tab" value="field-work" />
         <% if (fwIsCal && fw.day) { %><input type="hidden" name="day" value="<%= fw.day %>" /><% } %>
@@ -577,12 +609,63 @@
             <% }); %>
           <% }); %>
         </div>
-        <p class="mt-3 text-[12px] font-semibold text-brand-muted">Showing jobs for <strong class="text-brand-dark dark:text-white"><%= fw.day %></strong> — tap a day to switch.</p>
+        <p class="mt-3 text-[12px] font-semibold text-brand-muted">Tap a day to switch · selected <strong class="text-brand-dark dark:text-white"><%= fw.dayHeading || fw.day %></strong></p>
       </section>
       <% } %>
       <% if (!fw.rows.length) { %>
       <div class="net-card text-center py-10">
         <p class="text-sm text-brand-muted">No field jobs<%= fieldWorkMemberId || fieldWorkStatus || (fieldWorkView !== 'open' && !fwIsCal) || fwIsCal ? ' match these filters' : ' yet — when partners or teammates log customers and jobs in the Reviews app, they show up here' %>.</p>
+      </div>
+      <% } else if (fwIsCal) { %>
+      <div class="fw-day-heading">
+        <h3 class="font-display"><%= fw.dayHeading || fw.day %></h3>
+        <p><%= fw.totals.showing || fw.rows.length %> job<%= (fw.totals.showing || fw.rows.length) === 1 ? '' : 's' %> scheduled</p>
+      </div>
+      <div class="fw-day-list">
+        <% fw.rows.forEach(function (row) { %>
+        <article class="net-card fw-day-job">
+          <div>
+            <div class="fw-day-job__when">
+              <% if (row.timeLabel) { %>
+              <span class="fw-day-job__time<%= row.overdue ? ' is-overdue' : '' %>"><%= row.timeLabel %></span>
+              <% } else { %>
+              <span class="fw-day-job__time<%= row.overdue ? ' is-overdue' : '' %>"><%= row.whenLabel || 'Unscheduled' %></span>
+              <% } %>
+              <span class="net-pill fw-pill-<%= row.status %><%= row.overdue ? ' fw-pill-overdue' : '' %>"><%= row.statusLabel %><%= row.overdue ? ' · overdue' : '' %></span>
+            </div>
+            <h4 class="fw-day-job__title font-display"><%= row.title %></h4>
+            <p class="fw-day-job__customer"><%= row.customerName %></p>
+            <p class="fw-day-job__member"><%= row.memberName %></p>
+          </div>
+          <% const hasPhoto = row.photos && row.photos.length; %>
+          <% if (row.latestNote || hasPhoto) { %>
+          <div class="fw-day-job__body<%= hasPhoto ? ' has-photo' : '' %>">
+            <% if (hasPhoto) { %>
+            <a class="fw-day-job__shot" href="<%= row.photos[0].href %>" target="_blank" rel="noopener" title="<%= row.photos[0].caption || 'Job photo' %>">
+              <img src="<%= row.photos[0].href %>" alt="<%= row.photos[0].caption || 'Job photo' %>" loading="lazy" decoding="async" width="88" height="88" />
+            </a>
+            <% } %>
+            <div class="min-w-0">
+              <% if (row.latestNote) { %>
+              <p class="fw-day-job__note"><%= row.latestNote.length > 180 ? row.latestNote.slice(0, 180) + '…' : row.latestNote %></p>
+              <% } %>
+              <div class="fw-day-job__meta">
+                <% if (row.photoCount) { %><span><%= row.photoCount %> photo<%= row.photoCount === 1 ? '' : 's' %></span><% } %>
+                <% if (row.dayLabel && row.timeLabel) { %><span><%= row.dayLabel %></span><% } %>
+              </div>
+            </div>
+          </div>
+          <% } %>
+          <div class="fw-day-job__actions">
+            <% if (row.portalJobHref) { %>
+            <a href="<%= row.portalJobHref %>" class="net-btn net-btn-yellow" target="_blank" rel="noopener">Open job</a>
+            <% } %>
+            <% if (row.portalCustomerHref) { %>
+            <a href="<%= row.portalCustomerHref %>" class="net-btn net-btn-ghost" target="_blank" rel="noopener">Customer</a>
+            <% } %>
+          </div>
+        </article>
+        <% }); %>
       </div>
       <% } else { %>
       <p class="mb-3 text-[12px] font-bold text-brand-muted"><%= fw.totals.showing || fw.rows.length %> job<%= (fw.totals.showing || fw.rows.length) === 1 ? '' : 's' %> in this view</p>
