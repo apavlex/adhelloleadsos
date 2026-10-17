@@ -71,6 +71,14 @@ function iaNav(req, res, next) {
   } else if (p === '/network' || p.startsWith('/network/')) {
     navPrimary = 'network';
   }
+
+  let navNetworkTab = '';
+  if (navPrimary === 'network') {
+    const networkTab = String(req.query.tab || '').toLowerCase();
+    if (networkTab === 'referrals') navNetworkTab = 'leads';
+  }
+  res.locals.navNetworkTab = navNetworkTab;
+
   res.locals.requestPath = p;
   res.locals.sidebarSettingsOpen =
     p.startsWith('/workspace') ||
