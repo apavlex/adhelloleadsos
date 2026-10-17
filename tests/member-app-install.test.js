@@ -432,4 +432,19 @@ describe('member app install modal and tab bar', () => {
     assert.match(css, /\.ma-photos__note/);
     assert.match(icons, /note:\s*icon\(/);
   });
+
+  it('job photos open in a Lightroom-style viewer instead of a raw image tab', () => {
+    const job = fs.readFileSync(path.join(root, 'views/member_app/job.ejs'), 'utf8');
+    const viewer = fs.readFileSync(path.join(root, 'views/member_app/_photo_viewer.ejs'), 'utf8');
+    const js = fs.readFileSync(path.join(root, 'public/js/member-app.js'), 'utf8');
+    const css = fs.readFileSync(path.join(root, 'public/css/member-app.css'), 'utf8');
+    assert.match(job, /data-ma-lr-open/);
+    assert.match(job, /_photo_viewer/);
+    assert.doesNotMatch(job, /target="_blank"[^>]*>\s*<img/);
+    assert.match(viewer, /data-ma-lr/);
+    assert.match(viewer, /ma-lr__film/);
+    assert.match(js, /function initPhotoLightroomViewer/);
+    assert.match(css, /\.ma-lr\s*\{/);
+    assert.match(css, /background:#0a0a0a/);
+  });
 });

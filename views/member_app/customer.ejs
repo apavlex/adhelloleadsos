@@ -122,10 +122,10 @@
         <% if (openJob) { %><a href="<%= openJob.href %>#maJobPhotos">Job album</a><% } %>
       </div>
       <% if (sitePhotos.length) { %>
-      <div class="ma-photos">
-        <% sitePhotos.slice(0, 8).forEach(function (p) { %>
+      <div class="ma-photos" data-ma-lr-gallery>
+        <% sitePhotos.slice(0, 8).forEach(function (p, pi) { %>
         <figure class="ma-photos__item" data-ma-photo-item>
-          <a href="<%= p.jobHref %>"><img src="<%= p.href %>" alt="<%= p.displayCaption || 'Job photo' %>" loading="lazy"></a>
+          <a href="<%= p.href %>" class="ma-photos__thumb" data-ma-lr-open data-ma-lr-index="<%= pi %>" data-ma-lr-src="<%= p.href %>" data-ma-lr-caption="<%= String(p.displayCaption || p.caption || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;') %>" aria-label="View photo"><img src="<%= p.href %>" alt="<%= p.displayCaption || 'Job photo' %>" loading="lazy"></a>
           <figcaption data-ma-photo-caption><%= p.displayCaption || 'Add a note' %></figcaption>
           <button
             type="button"
@@ -152,6 +152,7 @@
         open: false,
       }) %>
       <%- include('_photo_note_sheet') %>
+      <%- include('_photo_viewer') %>
     </section>
     <% } %>
 
